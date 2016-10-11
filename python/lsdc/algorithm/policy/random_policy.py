@@ -22,5 +22,5 @@ class Randompolicy(Policy):
             t: Time step.
             noise: Action noise. This will be scaled by the variance.
         """
-        force_magnitude = 2
+        force_magnitude = 40
         return np.random.uniform(-force_magnitude,force_magnitude,2)

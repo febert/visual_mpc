@@ -110,6 +110,7 @@ class AgentMuJoCo(Agent):
         for i in range(self._hyperparams['conditions']):
             self._viewer.append(mujoco_py.MjViewer(visible=False,
                 init_width=self._hyperparams['image_width'], init_height=self._hyperparams['image_height']))
+
         for i in range(self._hyperparams['conditions']):
             self._viewer[i].start()
             self._viewer[i].set_model(self._model[i])
@@ -120,7 +121,6 @@ class AgentMuJoCo(Agent):
             self._viewer[i].cam.distance = cam_pos[3]
             self._viewer[i].cam.elevation = cam_pos[4]
             self._viewer[i].cam.azimuth = cam_pos[5]
-            # import pdb; pdb.set_trace()
 
     def sample(self, policy, condition, verbose=True, save=True, noisy=False):
         """
@@ -158,7 +158,7 @@ class AgentMuJoCo(Agent):
         self._viewer_main.set_model(self._model[condition])
         self._viewer_bot.set_model(self._model[condition])
 
-        self._viewer_main.distance = 1.0 #TODO mayeb don't hard code this
+        self._viewer_main.cam.distance = 2.0 #TODO mayeb don't hard code this
         self._viewer_bot.cam.lookat[0] = cam_pos[0]
         self._viewer_bot.cam.lookat[1] = cam_pos[1]
         self._viewer_bot.cam.lookat[2] = cam_pos[2]
@@ -174,6 +174,7 @@ class AgentMuJoCo(Agent):
             mj_U = policy.act(X_t, obs_t, t, noise[t, :])
             U[t, :] = mj_U
             if verbose:
+                # import pdb; pdb.set_trace()
                 self._viewer_main.loop_once()
                 self._viewer_bot.loop_once()
                 self._viewer[condition].loop_once()
@@ -220,12 +221,12 @@ class AgentMuJoCo(Agent):
 
         # Initialize world/run kinematics
         x0 = self._hyperparams['x0'][condition]
-        self._model[condition].data.qpos = np.concatenate((x0[:2], self._hyperparams['inital_object_pos']), 0)
+        self._model[condition].data.qpos = np.concatenate((x0[:2], self._hyperparams['initial_object_pos']), 0)
         self._model[condition].data.qvel = np.zeros_like(self._model[condition].data.qvel)
 
         # import pdb; pdb.set_trace()
 
-        # self._model[condition].data.qpos[2:] = self._hyperparams['inital_object_pos']
+        # self._model[condition].data.qpos[2:] = self._hyperparams['initial_object_pos']
         mjlib.mj_kinematics(self._model[condition].ptr, self._model[condition].data.ptr)
         mjlib.mj_comPos(self._model[condition].ptr, self._model[condition].data.ptr)
         mjlib.mj_tendon(self._model[condition].ptr, self._model[condition].data.ptr)

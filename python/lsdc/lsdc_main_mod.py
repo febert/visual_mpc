@@ -21,6 +21,7 @@ from lsdc.gui.gps_training_gui import GPSTrainingGUI
 from lsdc.utility.data_logger import DataLogger
 from lsdc.sample.sample_list import SampleList
 from lsdc.algorithm.policy.random_policy import Randompolicy
+from lsdc.algorithm.policy.random_impedance_point import Random_impedance_point
 
 
 class LSDCMain(object):
@@ -159,6 +160,7 @@ class LSDCMain(object):
         Returns: None
         """
         pol = Randompolicy()
+        # pol = Random_impedance_point()
 
         _ , image_data = self.agent.sample(
             pol, cond,

@@ -26,7 +26,7 @@ with h5py.File(hyperparams.agent['image_dir'],'r') as hf:
     nparr = np.array(gp1)
     print nparr.shape
 
-    im1 = plt.imshow(nparr[48,:,:,:])
+    im1 = plt.imshow(nparr[1,:,:,:])
     plt.show()
 
 
