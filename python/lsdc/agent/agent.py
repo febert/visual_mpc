@@ -7,6 +7,10 @@ from lsdc.proto.gps_pb2 import ACTION
 from lsdc.sample.sample_list import SampleList
 
 
+
+import numpy as np
+
+
 class Agent(object):
     """
     Agent superclass. The agent interacts with the environment to

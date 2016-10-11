@@ -39,53 +39,25 @@
             </body>
         </body>
 
-        <!--<body name="object1" pos="0 0 0">-->
-            <!--<joint type="free"/>-->
-            <!--&lt;!&ndash;<geom type="capsule" size="0.05 .1" rgba="0.5 0.0 0.1 1" />&ndash;&gt;-->
-            <!--<geom type="capsule" fromto="-0.03 0 0 0.03 0 0" size="0.05" rgba="0.5 0.0 0.1 1" />-->
-        <!--</body>-->
 
-        <body name="object1" pos="0 0 0">
+        <body name="object1" pos="0.3 0 0">
             <joint type="free"/>
             <geom type="box" size=".03 .1 .03" rgba="0.5 0.0 0.1 1" />
             <geom pos=".1 .1 0.0" type="box" size=".1 0.03 .03" rgba="0.5 0.0 0.1 1" />
         </body>
 
-        <body name="object2" pos="0 0 0">
+        <body name="object2" pos="-0.3 0 0">
             <joint type="free"/>
             <geom type="box" size=".03 .1 .03" rgba="0.5 0.0 0.1 1" />
             <geom pos=".1 .1 0.0" type="box" size=".1 0.03 .03" rgba="0.5 0.0 0.1 1" />
         </body>
 
-        <body name="object3" pos="0 0 0">
+        <body name="object3" pos="0 0.4 0">
             <joint type="free"/>
             <geom type="box" size=".03 .1 .03" rgba="0.5 0.0 0.1 1" />
             <geom pos=".1 .1 0.0" type="box" size=".1 0.03 .03" rgba="0.5 0.0 0.1 1" />
         </body>
 
-        <!--<body name="object2" pos="-.5 -10 0">-->
-            <!--<joint type="free"/>-->
-            <!--<geom type="box" size=".03 .1 .03" rgba="0.5 0.0 0.1 1" />-->
-            <!--<geom pos=".1 .1 0.0" type="box" size=".1 0.03 .03" rgba="0.5 0.0 0.1 1" />-->
-        <!--</body>-->
-
-        <!--<body name="object3" pos="-.3 .3 0">-->
-            <!--<joint type="free"/>-->
-            <!--<geom type="box" size=".03 .1 .03" rgba="0.5 0.0 0.1 1" />-->
-            <!--<geom pos=".1 .1 0.0" type="box" size=".1 0.03 .03" rgba="0.5 0.0 0.1 1" />-->
-        <!--</body>-->
-
-        <!--<body name="object4" pos="-.3 -.3 0">-->
-            <!--<joint type="free"/>-->
-            <!--<geom type="box" size=".03 .1 .03" rgba="0.5 0.0 0.1 1" />-->
-            <!--<geom pos=".1 .1 0.0" type="box" size=".1 0.03 .03" rgba="0.5 0.0 0.1 1" />-->
-        <!--</body>-->
-
-        <!--<body name="object5" pos="-.3 -.5 0">-->
-            <!--<joint type="free"/>-->
-            <!--<geom type="box" size=".03 .1 .03" rgba="0.5 0.0 0.1 1" />-->
-            <!--<geom pos=".1 .1 0.0" type="box" size=".1 0.03 .03" rgba="0.5 0.0 0.1 1" />-->
-        <!--</body>-->
 
     </worldbody>
 

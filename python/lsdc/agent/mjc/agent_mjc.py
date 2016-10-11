@@ -7,6 +7,8 @@ import mujoco_py
 from mujoco_py.mjlib import mjlib
 from mujoco_py.mjtypes import *
 
+import h5py
+
 from PIL import Image
 import matplotlib.pyplot as plt
 
@@ -32,6 +34,13 @@ class AgentMuJoCo(Agent):
         Agent.__init__(self, config)
         self._setup_conditions()
         self._setup_world(hyperparams['filename'])
+
+        #datastructure for storing all images of a whole sample trajectory;
+        self._sample_images = np.zeros((self.T,
+                                      self._hyperparams['image_height'],
+                                      self._hyperparams['image_width'],
+                                      self._hyperparams['image_channels']), dtype= 'uint8')
+
 
     def _setup_conditions(self):
         """
@@ -149,7 +158,7 @@ class AgentMuJoCo(Agent):
         self._viewer_main.set_model(self._model[condition])
         self._viewer_bot.set_model(self._model[condition])
 
-        self._viewer_main.distance = 5.0 #TODO mayeb don't hard code this
+        self._viewer_main.distance = 1.0 #TODO mayeb don't hard code this
         self._viewer_bot.cam.lookat[0] = cam_pos[0]
         self._viewer_bot.cam.lookat[1] = cam_pos[1]
         self._viewer_bot.cam.lookat[2] = cam_pos[2]
@@ -177,10 +186,30 @@ class AgentMuJoCo(Agent):
                 mj_X = np.concatenate([self._model[condition].data.qpos, self._model[condition].data.qvel]).flatten()
                 self._data = self._model[condition].data
                 self._set_sample(new_sample, mj_X, t, condition)
+                self._store_image(t, condition)
+
         new_sample.set(ACTION, U)
         if save:
             self._samples[condition].append(new_sample)
-        return new_sample
+
+
+        return new_sample, self._sample_images
+
+    def _store_image(self,t,condition):
+        """
+        store image at time index t
+        """
+        if self._hyperparams['save_images']:
+
+            img_string, width, height = self._viewer[condition].get_image()#CHANGES
+            img = np.fromstring(img_string, dtype='uint8').reshape((height, width, self._hyperparams['image_channels']))[::-1,:,:]
+
+            #downsampling the image
+            img = Image.fromarray(img, 'RGB')
+            img.thumbnail((80,60), Image.ANTIALIAS)
+            img = np.array(img)
+
+            self._sample_images[t,:,:,:] = img
 
     def _init(self, condition):
         """
@@ -191,10 +220,11 @@ class AgentMuJoCo(Agent):
 
         # Initialize world/run kinematics
         x0 = self._hyperparams['x0'][condition]
+        self._model[condition].data.qpos = np.concatenate((x0[:2], self._hyperparams['inital_object_pos']), 0)
+        self._model[condition].data.qvel = np.zeros_like(self._model[condition].data.qvel)
 
         # import pdb; pdb.set_trace()
-        self._model[condition].data.qpos = np.concatenate((x0[:2], self._hyperparams['inital_object_pos']), 0)
-        self._model[condition].data.qvel = x0[2:4]
+
         # self._model[condition].data.qpos[2:] = self._hyperparams['inital_object_pos']
         mjlib.mj_kinematics(self._model[condition].ptr, self._model[condition].data.ptr)
         mjlib.mj_comPos(self._model[condition].ptr, self._model[condition].data.ptr)
@@ -267,8 +297,7 @@ class AgentMuJoCo(Agent):
             condition: Which condition to set.
         """
         # import pdb; pdb.set_trace()
-        print np.array(mj_X[self._joint_idx])
-        print 'self._vel_idx', np.array(mj_X[self._vel_idx])
+
         sample.set(JOINT_ANGLES, np.array(mj_X[self._joint_idx]), t=t+1)
         sample.set(JOINT_VELOCITIES, np.array(mj_X[self._vel_idx]), t=t+1)
         curr_eepts = self._data.site_xpos.flatten()
@@ -284,13 +313,3 @@ class AgentMuJoCo(Agent):
             jac[idx:(idx+3), :] = temp
 
         sample.set(END_EFFECTOR_POINT_JACOBIANS, jac, t=t+1)
-        if RGB_IMAGE in self.obs_data_types:
-            img_string, width, height = self._viewer[condition].get_image()#CHANGES
-            img = np.fromstring(img_string, dtype='uint8').reshape(height, width, 3)[::-1,:,:]
-
-            #downsampling the image
-            img = Image.fromarray(img, 'RGB')
-            img.thumbnail((80,60), Image.ANTIALIAS)
-            img = np.array(img)
-
-            sample.set(RGB_IMAGE, np.transpose(img, (2, 1, 0)).flatten(), t=t+1)

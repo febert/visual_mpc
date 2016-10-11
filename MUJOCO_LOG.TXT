@@ -37,3 +37,48 @@ WARNING: Pre-allocated contact buffer is full. Increase nconmax above 100. Time 
 Fri Oct  7 19:03:40 2016
 WARNING: Pre-allocated contact buffer is full. Increase nconmax above 100. Time = 0.0000.
 
+Mon Oct 10 16:07:30 2016
+WARNING: Nan, Inf or huge value in QVEL at DOF 7. The simulation is unstable. Time = 0.0000.
+
+Mon Oct 10 16:07:58 2016
+WARNING: Nan, Inf or huge value in QVEL at DOF 7. The simulation is unstable. Time = 0.0000.
+
+Mon Oct 10 16:08:40 2016
+WARNING: Nan, Inf or huge value in QVEL at DOF 7. The simulation is unstable. Time = 0.0000.
+
+Mon Oct 10 16:09:45 2016
+WARNING: Nan, Inf or huge value in QVEL at DOF 7. The simulation is unstable. Time = 0.0000.
+
+Mon Oct 10 16:15:34 2016
+WARNING: Nan, Inf or huge value in QVEL at DOF 7. The simulation is unstable. Time = 0.0000.
+
+Mon Oct 10 16:26:34 2016
+WARNING: Nan, Inf or huge value in QVEL at DOF 7. The simulation is unstable. Time = 0.0000.
+
+Mon Oct 10 16:43:22 2016
+WARNING: Nan, Inf or huge value in QVEL at DOF 7. The simulation is unstable. Time = 0.0000.
+
+Mon Oct 10 16:50:21 2016
+WARNING: Nan, Inf or huge value in QVEL at DOF 7. The simulation is unstable. Time = 0.0000.
+
+Mon Oct 10 16:52:40 2016
+WARNING: Nan, Inf or huge value in QVEL at DOF 7. The simulation is unstable. Time = 0.0000.
+
+Mon Oct 10 16:52:57 2016
+WARNING: Nan, Inf or huge value in QVEL at DOF 7. The simulation is unstable. Time = 0.0000.
+
+Mon Oct 10 16:53:51 2016
+WARNING: Nan, Inf or huge value in QVEL at DOF 7. The simulation is unstable. Time = 0.0000.
+
+Mon Oct 10 16:55:00 2016
+WARNING: Nan, Inf or huge value in QVEL at DOF 7. The simulation is unstable. Time = 0.0000.
+
+Mon Oct 10 16:55:13 2016
+WARNING: Nan, Inf or huge value in QVEL at DOF 7. The simulation is unstable. Time = 0.0000.
+
+Mon Oct 10 16:57:34 2016
+WARNING: Nan, Inf or huge value in QVEL at DOF 7. The simulation is unstable. Time = 0.0000.
+
+Mon Oct 10 16:58:23 2016
+WARNING: Nan, Inf or huge value in QVEL at DOF 7. The simulation is unstable. Time = 0.0000.
+

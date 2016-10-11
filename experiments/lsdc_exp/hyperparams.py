@@ -23,13 +23,11 @@ num_objects = 3
 
 SENSOR_DIMS = {
     JOINT_ANGLES: 2+ 7*num_objects,  #adding 7 dof for position and orentation for every free object
-     JOINT_VELOCITIES: 2+ 6*num_objects,  #adding 6 dof for speed and angular vel for every free object; 2 + 6 = 8
-    #JOINT_ANGLES: 5,
-    #JOINT_VELOCITIES: 5,
+    JOINT_VELOCITIES: 2+ 6*num_objects,  #adding 6 dof for speed and angular vel for every free object; 2 + 6 = 8
     END_EFFECTOR_POINTS: 3,
     END_EFFECTOR_POINT_VELOCITIES: 3,
     ACTION: 2,
-    RGB_IMAGE: IMAGE_WIDTH*IMAGE_HEIGHT*IMAGE_CHANNELS,
+    # RGB_IMAGE: IMAGE_WIDTH*IMAGE_HEIGHT*IMAGE_CHANNELS,
     RGB_IMAGE_SIZE: 3,
 }
 
@@ -63,18 +61,23 @@ agent = {
     'dt': 0.05,
     'substeps': 6,
     'conditions': common['conditions'],
-    'T': 500,
+    'T': 200,
     'sensor_dims': SENSOR_DIMS,
     'state_include': [JOINT_ANGLES, JOINT_VELOCITIES, END_EFFECTOR_POINTS, END_EFFECTOR_POINT_VELOCITIES],
-    'obs_include': [JOINT_ANGLES, JOINT_VELOCITIES, END_EFFECTOR_POINTS, END_EFFECTOR_POINT_VELOCITIES, RGB_IMAGE],
-    'camera_pos': np.array([0., 0., 0., 3.90, -45., 90.]),
+    'obs_include': [JOINT_ANGLES, JOINT_VELOCITIES, END_EFFECTOR_POINTS, END_EFFECTOR_POINT_VELOCITIES],
+    'camera_pos': np.array([0., 0., 0., 4.90, -45., 90.]),
     'joint_angles': SENSOR_DIMS[JOINT_ANGLES],  #adding 7 dof for position and orentation of free object
     'joint_velocities': SENSOR_DIMS[JOINT_VELOCITIES],
+    'save_images': True,
+    'image_dir': common['data_files_dir'] + "imagedata_file",
+    'image_height' : IMAGE_HEIGHT,
+    'image_width' : IMAGE_WIDTH,
+    'image_channels' : IMAGE_CHANNELS
 }
 
 
 config = {
-    'num_samples': 1,
+    'num_samples': 2,
     'verbose_trials': 1,
     'verbose_policy_trials': 1,
     'common': common,

@@ -13,6 +13,8 @@ import argparse
 import threading
 import time
 
+import h5py
+
 # Add lsdc/python to path so that imports work.
 sys.path.append('/'.join(str.split(__file__, '/')[:-2]))
 from lsdc.gui.gps_training_gui import GPSTrainingGUI
@@ -51,6 +53,12 @@ class LSDCMain(object):
 
         # config['algorithm']['agent'] = self.agent
         # self.algorithm = config['algorithm']['type'](config['algorithm'])
+
+        #deleting existing image file:
+        try:
+            os.remove(self._hyperparams['agent']['image_dir'])
+        except:
+            pass
 
     def run(self, itr_load=None):
         """
@@ -152,10 +160,24 @@ class LSDCMain(object):
         """
         pol = Randompolicy()
 
-        self.agent.sample(
+        _ , image_data = self.agent.sample(
             pol, cond,
             verbose=(i < self._hyperparams['verbose_trials'])
         )
+
+        self._save_sample_images(image_data, i)
+
+
+    def _save_sample_images(self, image_data, i):
+        """
+        saves all the images of a sample-trajectory in a separate dataset within the same hdf5-file
+        Args:
+            image_data: the numpy structure
+            i: smaple number
+        """
+        # import pdb; pdb.set_trace()
+        with h5py.File(self._hyperparams['agent']['image_dir'], 'a') as hf:
+            hf.create_dataset('sample_no{0}'.format(i), data = image_data)
 
     def _take_iteration(self, itr, sample_lists):
         """
