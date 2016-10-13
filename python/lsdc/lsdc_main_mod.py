@@ -159,27 +159,39 @@ class LSDCMain(object):
             i: Sample number.
         Returns: None
         """
-        pol = Randompolicy()
-        # pol = Random_impedance_point()
+        # pol = Randompolicy()
+        pol = Random_impedance_point()
 
-        _ , image_data = self.agent.sample(
+        sample , image_data = self.agent.sample(
             pol, cond,
             verbose=(i < self._hyperparams['verbose_trials'])
         )
 
-        self._save_sample_images(image_data, i)
+        self._save_data(image_data, i, sample)
 
 
-    def _save_sample_images(self, image_data, i):
+    def _save_data(self, image_data, type, sample):
         """
         saves all the images of a sample-trajectory in a separate dataset within the same hdf5-file
         Args:
             image_data: the numpy structure
-            i: smaple number
+            type: sample number
+            sample: sample data
         """
-        # import pdb; pdb.set_trace()
-        with h5py.File(self._hyperparams['agent']['image_dir'], 'a') as hf:
-            hf.create_dataset('sample_no{0}'.format(i), data = image_data)
+        import pdb; pdb.set_trace()
+
+        type_of_file = ['tfrecord', 'jpg']
+
+        for type in type_of_file:
+            if type== 'tfrecord':
+                # get the relevant state information:
+                sample.getX()
+
+            if type == 'jpg':
+
+            if type == 'hdf5':
+                with h5py.File(self._hyperparams['agent']['image_dir'], 'a') as hf:
+                    hf.create_dataset('sample_no{0}'.format(type), data = image_data)
 
     def _take_iteration(self, itr, sample_lists):
         """

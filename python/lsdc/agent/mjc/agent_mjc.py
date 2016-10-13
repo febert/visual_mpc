@@ -137,6 +137,8 @@ class AgentMuJoCo(Agent):
         new_sample = self._init_sample(condition)
         mj_X = self._hyperparams['x0'][condition]
         U = np.zeros([self.T, self.dU])
+        X_full = np.zeros([self.T, 2])
+        Xdot_full = np.zeros([self.T, 2])
         if noisy:
             noise = generate_noise(self.T, self.dU, self._hyperparams)
         else:
@@ -171,8 +173,14 @@ class AgentMuJoCo(Agent):
             # import pdb; pdb.set_trace()
             X_t = new_sample.get_X(t=t)
             obs_t = new_sample.get_obs(t=t)
-            mj_U = policy.act(X_t, obs_t, t, noise[t, :])
+
+            x = X_t[self._x_data_idx[1][0]:self._x_data_idx[1][0]+2]
+            xdot = X_t[self._x_data_idx[2][0]:self._x_data_idx[2][0]+2]
+            mj_U = policy.act(x, xdot, t)
             U[t, :] = mj_U
+            X_full[t,:] = x
+            Xdot_full[t,:] = xdot
+
             if verbose:
                 # import pdb; pdb.set_trace()
                 self._viewer_main.loop_once()
@@ -193,8 +201,7 @@ class AgentMuJoCo(Agent):
         if save:
             self._samples[condition].append(new_sample)
 
-
-        return new_sample, self._sample_images
+        return X_full, Xdot_full, self._sample_images
 
     def _store_image(self,t,condition):
         """

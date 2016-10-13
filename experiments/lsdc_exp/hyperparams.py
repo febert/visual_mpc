@@ -54,7 +54,7 @@ if not os.path.exists(common['data_files_dir']):
 def create_pos():
     poses = []
     for i in range(num_objects):
-        pos = np.random.uniform(-.4, .4, 2)
+        pos = np.random.uniform(-.35, .35, 2)
         alpha = np.random.uniform(0,np.pi*2)
         ori = np.array([np.cos(alpha/2), 0, 0, np.sin(alpha/2) ])
         # import pdb; pdb.set_trace()
@@ -90,7 +90,7 @@ agent = {
 
 
 config = {
-    'num_samples': 2,
+    'num_samples': 1,
     'verbose_trials': 1,
     'verbose_policy_trials': 1,
     'common': common,

@@ -7,7 +7,7 @@ class Policy(object):
     __metaclass__ = abc.ABCMeta
 
     @abc.abstractmethod
-    def act(self, x, obs, t, noise):
+    def act(self, x, xdot, t):
         """
         Args:
             x: State vector.
