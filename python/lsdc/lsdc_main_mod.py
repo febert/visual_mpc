@@ -22,6 +22,7 @@ from lsdc.utility.data_logger import DataLogger
 from lsdc.sample.sample_list import SampleList
 from lsdc.algorithm.policy.random_policy import Randompolicy
 from lsdc.algorithm.policy.random_impedance_point import Random_impedance_point
+from lsdc.utility.save_tf_record import save_tf_record
 
 
 class LSDCMain(object):
@@ -33,6 +34,7 @@ class LSDCMain(object):
             config: Hyperparameters for experiment
             quit_on_end: When true, quit automatically on completion
         """
+
         self._quit_on_end = quit_on_end
         self._hyperparams = config
         self._conditions = config['common']['conditions']
@@ -45,17 +47,21 @@ class LSDCMain(object):
             self._hyperparams=config
             self._test_idx = self._train_idx
 
+
         self._data_files_dir = config['common']['data_files_dir']
 
         self.agent = config['agent']['type'](config['agent'])
 
-        self.data_logger = DataLogger()
+
+
         self.gui = GPSTrainingGUI(config['common']) if config['gui_on'] else None
 
         # config['algorithm']['agent'] = self.agent
         # self.algorithm = config['algorithm']['type'](config['algorithm'])
 
         #deleting existing image file:
+
+
         try:
             os.remove(self._hyperparams['agent']['image_dir'])
         except:
@@ -72,6 +78,9 @@ class LSDCMain(object):
         itr_start = self._initialize(itr_load)
 
         # for itr in range(itr_start, self._hyperparams['iterations']):
+        import pdb;
+        pdb.set_trace()
+
         for cond in self._train_idx:
             for i in range(self._hyperparams['num_samples']):
                 self._take_sample(cond, i)
@@ -150,48 +159,59 @@ class LSDCMain(object):
                     'Press \'go\' to begin.') % itr_load)
             return itr_load + 1
 
-    def _take_sample(self, cond, i):
+    def _take_sample(self, cond, sample_index):
         """
         Collect a sample from the agent.
         Args:
             itr: Iteration number.
             cond: Condition number.
-            i: Sample number.
+            sample_index: Sample index.
         Returns: None
         """
         # pol = Randompolicy()
         pol = Random_impedance_point()
 
-        sample , image_data = self.agent.sample(
+
+        X_full, Xdot_full, U, sample_images = self.agent.sample(
             pol, cond,
-            verbose=(i < self._hyperparams['verbose_trials'])
+            verbose=(sample_index < self._hyperparams['verbose_trials'])
         )
 
-        self._save_data(image_data, i, sample)
+        self._save_data(X_full, Xdot_full, U, sample_images, sample_index)
 
 
-    def _save_data(self, image_data, type, sample):
+    def _save_data(self, X_full, Xdot_full, U, sample_images, sample_index):
         """
         saves all the images of a sample-trajectory in a separate dataset within the same hdf5-file
         Args:
             image_data: the numpy structure
-            type: sample number
-            sample: sample data
+            X_full: vector of positions for sample
+            Xdot_full: vector of velocities for sample
+            U: vector of control inputs
+            sample_images: vector of smaple images
+            i: sample number
         """
         import pdb; pdb.set_trace()
 
-        type_of_file = ['tfrecord', 'jpg']
+        type_of_file = ['tfrecord']
 
         for type in type_of_file:
             if type== 'tfrecord':
                 # get the relevant state information:
-                sample.getX()
+                dir_ = self._data_files_dir + '/tfrecords'
+                if not os.path.exists(dir_):
+                    os.makedirs(dir_)
+                filename = 'traj_no{0}'.format(sample_index)
+                save_tf_record(X_full, Xdot_full, U, sample_images, dir_, filename)
 
             if type == 'jpg':
+                dir_ = self._data_files_dir + '/jpgs'
+                if not os.path.exists(dir_):
+                    os.makedirs(dir_)
 
             if type == 'hdf5':
                 with h5py.File(self._hyperparams['agent']['image_dir'], 'a') as hf:
-                    hf.create_dataset('sample_no{0}'.format(type), data = image_data)
+                    hf.create_dataset('sample_no{0}'.format(type), data = sample_images)
 
     def _take_iteration(self, itr, sample_lists):
         """
@@ -266,6 +286,8 @@ class LSDCMain(object):
                 os._exit(1)
 
 def main():
+    import pdb;
+    pdb.set_trace()
     """ Main function to be run. """
     parser = argparse.ArgumentParser(description='Run the Guided Policy Search algorithm.')
     parser.add_argument('experiment', type=str,
@@ -299,6 +321,8 @@ def main():
     else:
         logging.basicConfig(format='%(levelname)s:%(message)s', level=logging.DEBUG)
 
+    import pdb;
+    pdb.set_trace()
     if args.new:
         from shutil import copy
 
@@ -331,6 +355,8 @@ def main():
     if not os.path.exists(hyperparams_file):
         sys.exit("Experiment '%s' does not exist.\nDid you create '%s'?" %
                  (exp_name, hyperparams_file))
+    import pdb;
+    pdb.set_trace()
 
     hyperparams = imp.load_source('hyperparams', hyperparams_file)
     if args.targetsetup:
@@ -375,15 +401,26 @@ def main():
         else:
             gps.test_policy(itr=current_itr, N=test_policy_N)
     else:
+
         import random
         import numpy as np
         import matplotlib.pyplot as plt
+
+        import pdb;
+        pdb.set_trace()
 
         seed = hyperparams.config.get('random_seed', 0)
         random.seed(seed)
         np.random.seed(seed)
 
+        import pdb;
+        pdb.set_trace()
+
         gps = LSDCMain(hyperparams.config, args.quit)
+
+        import pdb;
+        pdb.set_trace()
+
         if hyperparams.config['gui_on']:
             run_gps = threading.Thread(
                 target=lambda: gps.run(itr_load=resume_training_itr)
@@ -394,6 +431,8 @@ def main():
             plt.ioff()
             plt.show()
         else:
+            import pdb;
+            pdb.set_trace()
             gps.run(itr_load=resume_training_itr)
 
 

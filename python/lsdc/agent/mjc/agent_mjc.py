@@ -29,7 +29,13 @@ class AgentMuJoCo(Agent):
     this class.
     """
     def __init__(self, hyperparams):
+
+        import pdb;
+        pdb.set_trace()
+
         config = copy.deepcopy(AGENT_MUJOCO)
+        import pdb;
+        pdb.set_trace()
         config.update(hyperparams)
         Agent.__init__(self, config)
         self._setup_conditions()
@@ -40,6 +46,9 @@ class AgentMuJoCo(Agent):
                                       self._hyperparams['image_height'],
                                       self._hyperparams['image_width'],
                                       self._hyperparams['image_channels']), dtype= 'uint8')
+
+        import pdb;
+        pdb.set_trace()
 
 
     def _setup_conditions(self):
@@ -123,6 +132,10 @@ class AgentMuJoCo(Agent):
             self._viewer[i].cam.azimuth = cam_pos[5]
 
     def sample(self, policy, condition, verbose=True, save=True, noisy=False):
+
+        import pdb;
+        pdb.set_trace()
+
         """
         Runs a trial and constructs a new sample containing information
         about the trial.
@@ -133,6 +146,7 @@ class AgentMuJoCo(Agent):
             save: Whether or not to store the trial into the samples.
             noisy: Whether or not to use noise during sampling.
         """
+
         # Create new sample, populate first time step.
         new_sample = self._init_sample(condition)
         mj_X = self._hyperparams['x0'][condition]
@@ -168,6 +182,7 @@ class AgentMuJoCo(Agent):
         self._viewer_bot.cam.elevation = cam_pos[4]
         self._viewer_bot.cam.azimuth = cam_pos[5]
 
+
         # Take the sample.
         for t in range(self.T):
             # import pdb; pdb.set_trace()
@@ -201,7 +216,7 @@ class AgentMuJoCo(Agent):
         if save:
             self._samples[condition].append(new_sample)
 
-        return X_full, Xdot_full, self._sample_images
+        return X_full, Xdot_full, U, self._sample_images
 
     def _store_image(self,t,condition):
         """

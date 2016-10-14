@@ -1,3 +1,0 @@
-Tue Oct  4 12:16:35 2016
-ERROR: Could not open activation key file mjkey.txt
-

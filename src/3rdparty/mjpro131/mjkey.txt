@@ -1,8 +1,8 @@
-MuJoCo Pro Lab license activation key, number 5920, type 5.
+MuJoCo Pro Lab license activation key, number 5082, type 1.
 
-Issued to Prof. Pieter Abbeel, UC Berkeley.
+Issued to Prof. Sergey Levine, University of Washington.
 
-Expires October 22, 2016.
+Expires April 1, 2017.
 
 Do not share this file with anyone other than the users covered
 by your license agreement with Roboti LLC. This file activates
@@ -11,11 +11,11 @@ MuJoCo Pro on any computer running any supported OS.
 Do not modify this file. Its entire content, including the
 plain text section, is used by the activation manager.
 
-926085a8bce7d3dbcd1d693370e32019acebe0900a276ffecca7e7f40618c151
-555af09f7297d256c4de1189858c8edb9799ae86612f93c4613ff22ead219dd6
-c5eae0f04d3d1da6655bc73c6e1b926e3f58f736f38ab45c3bfc688b96aa0493
-1fb3f84867b33381a2729ec35f329c461bca3942fc517d34bf5fc47a7245863b
-ddd794f230d905febd595862b9f9e36de6a1dc3a9d996fe02fed12bc8cce46c1
-247da1365ff55e2b0baea641023d04b45b9b4b26ceb6e6e1858fd318f35d71eb
-89435a7f03b73cfae65030109d6d07d336ac18e1f5e1d5490c9f19d5fc4209cc
-105a7f40c1b16e4a5d90c41a30c3db2f2f4c7e1fdf56041eeffcc66d170d514d
+51c7c374d8f0a21ed4ea631f8b38de09430a1b5b97665c8341805affcff7c89d
+17ec24f3a57b295ae81465f727cf26d8af8c5f35b4639d9347c506e2bad35cac
+21662836890a5c521f029a6cbf7a4e196838171932337b17b9d81b47a7b9dd02
+8fb1edea1ef639d99045552d2fe71d6f87c1e73c8eec9c60a732897d7c9e6f65
+203abb532ba754e16763820607f53c0dc90d3bb9eb171b5a9ef2b2380dd2e52c
+64e3f4082e679f83ae20e75bfff20627463e127d02dac355121afa4e22a5e533
+36ea35db10cf9794a14eadca4326650709633e9e6fc95bc078faafa4fa41c315
+9797c18b7e6e8f3754f0e03f4bfdbca99fe607efd9e9024f62825f66b240f195
