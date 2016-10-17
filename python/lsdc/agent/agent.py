@@ -66,6 +66,7 @@ class Agent(object):
         self._meta_data_idx = {d: i for d, i in zip(self.meta_data_types,
                                                    self._meta_idx)}
 
+
     @abc.abstractmethod
     def sample(self, policy, condition, verbose=True, save=True, noisy=True):
         """

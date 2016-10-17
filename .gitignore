@@ -91,3 +91,5 @@ lsdcenv/
 **/.idea/**
 
 data_files/
+data/
+src/3rdparty

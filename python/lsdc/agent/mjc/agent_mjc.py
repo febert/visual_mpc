@@ -29,13 +29,7 @@ class AgentMuJoCo(Agent):
     this class.
     """
     def __init__(self, hyperparams):
-
-        import pdb;
-        pdb.set_trace()
-
         config = copy.deepcopy(AGENT_MUJOCO)
-        import pdb;
-        pdb.set_trace()
         config.update(hyperparams)
         Agent.__init__(self, config)
         self._setup_conditions()
@@ -46,9 +40,6 @@ class AgentMuJoCo(Agent):
                                       self._hyperparams['image_height'],
                                       self._hyperparams['image_width'],
                                       self._hyperparams['image_channels']), dtype= 'uint8')
-
-        import pdb;
-        pdb.set_trace()
 
 
     def _setup_conditions(self):
@@ -91,7 +82,7 @@ class AgentMuJoCo(Agent):
         # changes here:
         self._joint_idx = range(self._hyperparams['joint_angles'])
         self._vel_idx = range( self._hyperparams['joint_angles'], self._hyperparams['joint_velocities'] + self._hyperparams['joint_angles'])
-        # import pdb; pdb.set_trace()
+        #
 
         # Initialize x0.
         self.x0 = []
@@ -109,6 +100,7 @@ class AgentMuJoCo(Agent):
         cam_pos = self._hyperparams['camera_pos']
         self._viewer_main = mujoco_py.MjViewer(visible=True, init_width=AGENT_MUJOCO['image_width'],
                     init_height=AGENT_MUJOCO['image_height'])
+
         self._viewer_main.start()
 
         self._viewer_bot = mujoco_py.MjViewer(visible=True, init_width=AGENT_MUJOCO['image_width'],
@@ -132,9 +124,6 @@ class AgentMuJoCo(Agent):
             self._viewer[i].cam.azimuth = cam_pos[5]
 
     def sample(self, policy, condition, verbose=True, save=True, noisy=False):
-
-        import pdb;
-        pdb.set_trace()
 
         """
         Runs a trial and constructs a new sample containing information
@@ -185,7 +174,7 @@ class AgentMuJoCo(Agent):
 
         # Take the sample.
         for t in range(self.T):
-            # import pdb; pdb.set_trace()
+            #
             X_t = new_sample.get_X(t=t)
             obs_t = new_sample.get_obs(t=t)
 
@@ -197,7 +186,7 @@ class AgentMuJoCo(Agent):
             Xdot_full[t,:] = xdot
 
             if verbose:
-                # import pdb; pdb.set_trace()
+                #
                 self._viewer_main.loop_once()
                 self._viewer_bot.loop_once()
                 self._viewer[condition].loop_once()
@@ -246,7 +235,7 @@ class AgentMuJoCo(Agent):
         self._model[condition].data.qpos = np.concatenate((x0[:2], self._hyperparams['initial_object_pos']), 0)
         self._model[condition].data.qvel = np.zeros_like(self._model[condition].data.qvel)
 
-        # import pdb; pdb.set_trace()
+        #
 
         # self._model[condition].data.qpos[2:] = self._hyperparams['initial_object_pos']
         mjlib.mj_kinematics(self._model[condition].ptr, self._model[condition].data.ptr)
@@ -267,7 +256,7 @@ class AgentMuJoCo(Agent):
 
         # Initialize sample with stuff from _data
         data = self._model[condition].data
-        # import pdb; pdb.set_trace();
+        #    ;
         sample.set(JOINT_ANGLES, data.qpos.flatten(), t=0)
         sample.set(JOINT_VELOCITIES, data.qvel.flatten(), t=0)
         eepts = data.site_xpos.flatten()
@@ -292,7 +281,7 @@ class AgentMuJoCo(Agent):
         img = np.array(img)
         img_data = np.transpose(img, (1, 0, 2)).flatten()
 
-        # import pdb; pdb.set_trace()
+        #
 
         # if initial image is an observation, replicate it for each time step
         if CONTEXT_IMAGE in self.obs_data_types:
@@ -319,7 +308,7 @@ class AgentMuJoCo(Agent):
             t: Time step to set for sample.
             condition: Which condition to set.
         """
-        # import pdb; pdb.set_trace()
+        #
 
         sample.set(JOINT_ANGLES, np.array(mj_X[self._joint_idx]), t=t+1)
         sample.set(JOINT_VELOCITIES, np.array(mj_X[self._vel_idx]), t=t+1)

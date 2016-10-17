@@ -79,7 +79,7 @@ class LSDCMain(object):
 
         # for itr in range(itr_start, self._hyperparams['iterations']):
         import pdb;
-        pdb.set_trace()
+
 
         for cond in self._train_idx:
             for i in range(self._hyperparams['num_samples']):
@@ -191,7 +191,6 @@ class LSDCMain(object):
             sample_images: vector of smaple images
             i: sample number
         """
-        import pdb; pdb.set_trace()
 
         type_of_file = ['tfrecord']
 
@@ -286,8 +285,8 @@ class LSDCMain(object):
                 os._exit(1)
 
 def main():
-    import pdb;
-    pdb.set_trace()
+
+
     """ Main function to be run. """
     parser = argparse.ArgumentParser(description='Run the Guided Policy Search algorithm.')
     parser.add_argument('experiment', type=str,
@@ -321,8 +320,8 @@ def main():
     else:
         logging.basicConfig(format='%(levelname)s:%(message)s', level=logging.DEBUG)
 
-    import pdb;
-    pdb.set_trace()
+
+
     if args.new:
         from shutil import copy
 
@@ -355,8 +354,8 @@ def main():
     if not os.path.exists(hyperparams_file):
         sys.exit("Experiment '%s' does not exist.\nDid you create '%s'?" %
                  (exp_name, hyperparams_file))
-    import pdb;
-    pdb.set_trace()
+
+
 
     hyperparams = imp.load_source('hyperparams', hyperparams_file)
     if args.targetsetup:
@@ -406,20 +405,11 @@ def main():
         import numpy as np
         import matplotlib.pyplot as plt
 
-        import pdb;
-        pdb.set_trace()
-
         seed = hyperparams.config.get('random_seed', 0)
         random.seed(seed)
         np.random.seed(seed)
 
-        import pdb;
-        pdb.set_trace()
-
         gps = LSDCMain(hyperparams.config, args.quit)
-
-        import pdb;
-        pdb.set_trace()
 
         if hyperparams.config['gui_on']:
             run_gps = threading.Thread(
@@ -431,10 +421,9 @@ def main():
             plt.ioff()
             plt.show()
         else:
-            import pdb;
-            pdb.set_trace()
-            gps.run(itr_load=resume_training_itr)
 
+
+            gps.run(itr_load=resume_training_itr)
 
 if __name__ == "__main__":
     main()
