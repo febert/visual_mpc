@@ -35,12 +35,11 @@ class AgentMuJoCo(Agent):
         self._setup_conditions()
         self._setup_world(hyperparams['filename'])
 
-        #datastructure for storing all images of a whole sample trajectory;
+        # datastructure for storing all images of a whole sample trajectory;
         self._sample_images = np.zeros((self.T,
                                       self._hyperparams['image_height'],
                                       self._hyperparams['image_width'],
                                       self._hyperparams['image_channels']), dtype= 'uint8')
-
 
     def _setup_conditions(self):
         """
@@ -62,7 +61,6 @@ class AgentMuJoCo(Agent):
 
         # Initialize Mujoco models. If there's only one xml file, create a single model object,
         # otherwise create a different world for each condition.
-
 
         if not isinstance(filename, list):
             for i in range(self._hyperparams['conditions']):
@@ -101,6 +99,8 @@ class AgentMuJoCo(Agent):
         self._viewer_main = mujoco_py.MjViewer(visible=True, init_width=AGENT_MUJOCO['image_width'],
                     init_height=AGENT_MUJOCO['image_height'])
 
+
+        import pdb; pdb.set_trace()
         self._viewer_main.start()
 
         self._viewer_bot = mujoco_py.MjViewer(visible=True, init_width=AGENT_MUJOCO['image_width'],
@@ -235,7 +235,6 @@ class AgentMuJoCo(Agent):
         self._model[condition].data.qpos = np.concatenate((x0[:2], self._hyperparams['initial_object_pos']), 0)
         self._model[condition].data.qvel = np.zeros_like(self._model[condition].data.qvel)
 
-        #
 
         # self._model[condition].data.qpos[2:] = self._hyperparams['initial_object_pos']
         mjlib.mj_kinematics(self._model[condition].ptr, self._model[condition].data.ptr)
