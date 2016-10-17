@@ -93,3 +93,4 @@ lsdcenv/
 data_files/
 data/
 src/3rdparty
+MUJOCO_LOG.TXT

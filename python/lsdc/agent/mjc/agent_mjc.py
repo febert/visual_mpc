@@ -3,14 +3,7 @@ import copy
 
 import numpy as np
 
-import mujoco_py
-from mujoco_py.mjlib import mjlib
-from mujoco_py.mjtypes import *
-
-import h5py
-
-from PIL import Image
-import matplotlib.pyplot as plt
+import mjcpy
 
 from lsdc.agent.agent import Agent
 from lsdc.agent.agent_utils import generate_noise, setup
@@ -18,9 +11,12 @@ from lsdc.agent.config import AGENT_MUJOCO
 from lsdc.proto.gps_pb2 import JOINT_ANGLES, JOINT_VELOCITIES, \
         END_EFFECTOR_POINTS, END_EFFECTOR_POINT_VELOCITIES, \
         END_EFFECTOR_POINT_JACOBIANS, ACTION, RGB_IMAGE, RGB_IMAGE_SIZE, \
-        CONTEXT_IMAGE, CONTEXT_IMAGE_SIZE
+        CONTEXT_IMAGE, CONTEXT_IMAGE_SIZE, IMAGE_FEAT
+        # END_EFFECTOR_POINTS_NO_TARGET, END_EFFECTOR_POINT_VELOCITIES_NO_TARGET
 
 from lsdc.sample.sample import Sample
+
+from PIL import Image
 
 
 class AgentMuJoCo(Agent):
@@ -35,12 +31,11 @@ class AgentMuJoCo(Agent):
         self._setup_conditions()
         self._setup_world(hyperparams['filename'])
 
-        #datastructure for storing all images of a whole sample trajectory;
+        # datastructure for storing all images of a whole sample trajectory;
         self._sample_images = np.zeros((self.T,
-                                      self._hyperparams['image_height'],
-                                      self._hyperparams['image_width'],
-                                      self._hyperparams['image_channels']), dtype= 'uint8')
-
+                                        self._hyperparams['image_height'],
+                                        self._hyperparams['image_width'],
+                                        self._hyperparams['image_channels']), dtype='uint8')
 
     def _setup_conditions(self):
         """
@@ -58,31 +53,30 @@ class AgentMuJoCo(Agent):
         Args:
             filename: Path to XML file containing the world information.
         """
+        self._world = []
         self._model = []
 
-        # Initialize Mujoco models. If there's only one xml file, create a single model object,
+        # Initialize Mujoco worlds. If there's only one xml file, create a single world object,
         # otherwise create a different world for each condition.
-
-
         if not isinstance(filename, list):
-            for i in range(self._hyperparams['conditions']):
-                self._model.append(mujoco_py.MjModel(filename))
-
+            world = mjcpy.MJCWorld(filename)
+            self._world = [world for _ in range(self._hyperparams['conditions'])]
+            self._model = [self._world[i].get_model().copy()
+                           for i in range(self._hyperparams['conditions'])]
         else:
             for i in range(self._hyperparams['conditions']):
-                self._model.append(mujoco_py.MjModel(self._hyperparams['filename'][i]))
+                self._world.append(mjcpy.MJCWorld(self._hyperparams['filename'][i]))
+                self._model.append(self._world[i].get_model())
 
         for i in range(self._hyperparams['conditions']):
             for j in range(len(self._hyperparams['pos_body_idx'][i])):
                 idx = self._hyperparams['pos_body_idx'][i][j]
-                temp = np.copy(self._model[i].body_pos)
-                temp[idx, :] = temp[idx, :] + self._hyperparams['pos_body_offset'][i][j]
-                self._model[i].body_pos = temp
+                # TODO: this should actually add [i][j], but that would break things
+                self._model[i]['body_pos'][idx, :] += \
+                        self._hyperparams['pos_body_offset'][i]
 
-        # changes here:
-        self._joint_idx = range(self._hyperparams['joint_angles'])
-        self._vel_idx = range( self._hyperparams['joint_angles'], self._hyperparams['joint_velocities'] + self._hyperparams['joint_angles'])
-        #
+        self._joint_idx = list(range(self._model[0]['nq']))
+        self._vel_idx = [i + self._model[0]['nq'] for i in self._joint_idx]
 
         # Initialize x0.
         self.x0 = []
@@ -90,41 +84,30 @@ class AgentMuJoCo(Agent):
             if END_EFFECTOR_POINTS in self.x_data_types:
                 # TODO: this assumes END_EFFECTOR_VELOCITIES is also in datapoints right?
                 self._init(i)
-                eepts = self._model[i].data.site_xpos.flatten()
+                eepts = self._world[i].get_data()['site_xpos'].flatten()
                 self.x0.append(
                     np.concatenate([self._hyperparams['x0'][i], eepts, np.zeros_like(eepts)])
                 )
+            # elif END_EFFECTOR_POINTS_NO_TARGET in self.x_data_types:
+            #     self._init(i)
+            #     eepts = self._world[i].get_data()['site_xpos'].flatten()
+            #     eepts_notgt = np.delete(eepts, self._hyperparams['target_idx'])
+            #     self.x0.append(
+            #         np.concatenate([self._hyperparams['x0'][i], eepts_notgt, np.zeros_like(eepts_notgt)])
+            #     )
             else:
                 self.x0.append(self._hyperparams['x0'][i])
+            if IMAGE_FEAT in self.x_data_types:
+                self.x0[i] = np.concatenate([self.x0[i], np.zeros((self._hyperparams['sensor_dims'][IMAGE_FEAT],))])
 
         cam_pos = self._hyperparams['camera_pos']
-        self._viewer_main = mujoco_py.MjViewer(visible=True, init_width=AGENT_MUJOCO['image_width'],
-                    init_height=AGENT_MUJOCO['image_height'])
-
-        self._viewer_main.start()
-
-        self._viewer_bot = mujoco_py.MjViewer(visible=True, init_width=AGENT_MUJOCO['image_width'],
-                    init_height=AGENT_MUJOCO['image_height'])
-        self._viewer_bot.start()
-
-        self._viewer = []
         for i in range(self._hyperparams['conditions']):
-            self._viewer.append(mujoco_py.MjViewer(visible=False,
-                init_width=self._hyperparams['image_width'], init_height=self._hyperparams['image_height']))
+            self._world[i].init_viewer(AGENT_MUJOCO['image_width'],
+                                       AGENT_MUJOCO['image_height'],
+                                       cam_pos[0], cam_pos[1], cam_pos[2],
+                                       cam_pos[3], cam_pos[4], cam_pos[5])
 
-        for i in range(self._hyperparams['conditions']):
-            self._viewer[i].start()
-            self._viewer[i].set_model(self._model[i])
-
-            self._viewer[i].cam.lookat[0] = cam_pos[0]
-            self._viewer[i].cam.lookat[1] = cam_pos[1]
-            self._viewer[i].cam.lookat[2] = cam_pos[2]
-            self._viewer[i].cam.distance = cam_pos[3]
-            self._viewer[i].cam.elevation = cam_pos[4]
-            self._viewer[i].cam.azimuth = cam_pos[5]
-
-    def sample(self, policy, condition, verbose=True, save=True, noisy=False):
-
+    def sample(self, policy, condition, verbose=True, save=True, noisy=True):
         """
         Runs a trial and constructs a new sample containing information
         about the trial.
@@ -135,13 +118,17 @@ class AgentMuJoCo(Agent):
             save: Whether or not to store the trial into the samples.
             noisy: Whether or not to use noise during sampling.
         """
+        X_full = np.zeros([self.T, 2])          #variables for ball position over whole trajectory
+        Xdot_full = np.zeros([self.T, 2])       # ball velocities
 
         # Create new sample, populate first time step.
-        new_sample = self._init_sample(condition)
+        feature_fn = None
+        if 'get_features' in dir(policy):
+            feature_fn = policy.get_features
+        new_sample = self._init_sample(condition, feature_fn=feature_fn)
         mj_X = self._hyperparams['x0'][condition]
+
         U = np.zeros([self.T, self.dU])
-        X_full = np.zeros([self.T, 2])
-        Xdot_full = np.zeros([self.T, 2])
         if noisy:
             noise = generate_noise(self.T, self.dU, self._hyperparams)
         else:
@@ -155,73 +142,53 @@ class AgentMuJoCo(Agent):
             for i in range(len(noisy_body_idx)):
                 idx = noisy_body_idx[i]
                 var = self._hyperparams['noisy_body_var'][condition][i]
-                temp = np.copy(body_pos)  #CHANGES
-                temp[idx, :] += var * np.random.randn(1, 3)
-                self._model[condition].body_pos = temp
-
-        cam_pos = self._hyperparams['camera_pos']#CHANGES
-        self._viewer_main.set_model(self._model[condition])
-        self._viewer_bot.set_model(self._model[condition])
-
-        self._viewer_main.cam.distance = 2.0 #TODO mayeb don't hard code this
-        self._viewer_bot.cam.lookat[0] = cam_pos[0]
-        self._viewer_bot.cam.lookat[1] = cam_pos[1]
-        self._viewer_bot.cam.lookat[2] = cam_pos[2]
-        self._viewer_bot.cam.distance = cam_pos[3]
-        self._viewer_bot.cam.elevation = cam_pos[4]
-        self._viewer_bot.cam.azimuth = cam_pos[5]
-
-
+                self._model[condition]['body_pos'][idx, :] += \
+                        var * np.random.randn(1, 3)
         # Take the sample.
         for t in range(self.T):
-            #
             X_t = new_sample.get_X(t=t)
             obs_t = new_sample.get_obs(t=t)
-
-            x = X_t[self._x_data_idx[1][0]:self._x_data_idx[1][0]+2]
-            xdot = X_t[self._x_data_idx[2][0]:self._x_data_idx[2][0]+2]
+            x = X_t[self._x_data_idx[1][0]:self._x_data_idx[1][0] + 2]
+            xdot = X_t[self._x_data_idx[2][0]:self._x_data_idx[2][0] + 2]
             mj_U = policy.act(x, xdot, t)
             U[t, :] = mj_U
-            X_full[t,:] = x
-            Xdot_full[t,:] = xdot
+            X_full[t, :] = x
+            Xdot_full[t, :] = xdot
 
             if verbose:
-                #
-                self._viewer_main.loop_once()
-                self._viewer_bot.loop_once()
-                self._viewer[condition].loop_once()
-
+                self._world[condition].plot(mj_X)
             if (t + 1) < self.T:
                 for _ in range(self._hyperparams['substeps']):
-                    self._model[condition].data.ctrl = mj_U
-                    self._model[condition].step()         #simulate the model in mujoco
+                    mj_X, _ = self._world[condition].step(mj_X, mj_U)
                 #TODO: Some hidden state stuff will go here.
-                mj_X = np.concatenate([self._model[condition].data.qpos, self._model[condition].data.qvel]).flatten()
-                self._data = self._model[condition].data
-                self._set_sample(new_sample, mj_X, t, condition)
-                self._store_image(t, condition)
+                self._data = self._world[condition].get_data()
+                self._set_sample(new_sample, mj_X, t, condition, feature_fn=feature_fn)
+
+            # self._store_image(t, condition)
+            img = self._get_image_from_obs(obs_t)
+            pdb.set_trace()
 
         new_sample.set(ACTION, U)
         if save:
             self._samples[condition].append(new_sample)
 
-        return X_full, Xdot_full, U, self._sample_images
+        return   X_full, Xdot_full, U, self._sample_images
 
-    def _store_image(self,t,condition):
-        """
-        store image at time index t
-        """
-        if self._hyperparams['save_images']:
-
-            img_string, width, height = self._viewer[condition].get_image()#CHANGES
-            img = np.fromstring(img_string, dtype='uint8').reshape((height, width, self._hyperparams['image_channels']))[::-1,:,:]
-
-            #downsampling the image
-            img = Image.fromarray(img, 'RGB')
-            img.thumbnail((80,60), Image.ANTIALIAS)
-            img = np.array(img)
-
-            self._sample_images[t,:,:,:] = img
+    # def _store_image(self,t,condition):
+    #     """
+    #     store image at time index t
+    #     """
+    #     if self._hyperparams['save_images']:
+    #
+    #         img_string, width, height = self._viewer[condition].get_image()#CHANGES
+    #         img = np.fromstring(img_string, dtype='uint8').reshape((height, width, self._hyperparams['image_channels']))[::-1,:,:]
+    #
+    #         #downsampling the image
+    #         img = Image.fromarray(img, 'RGB')
+    #         img.thumbnail((80,60), Image.ANTIALIAS)
+    #         img = np.array(img)
+    #
+    #         self._sample_images[t,:,:,:] = img
 
     def _init(self, condition):
         """
@@ -231,23 +198,21 @@ class AgentMuJoCo(Agent):
         """
 
         # Initialize world/run kinematics
+        self._world[condition].set_model(self._model[condition])
         x0 = self._hyperparams['x0'][condition]
-        self._model[condition].data.qpos = np.concatenate((x0[:2], self._hyperparams['initial_object_pos']), 0)
-        self._model[condition].data.qvel = np.zeros_like(self._model[condition].data.qvel)
 
-        #
+        qpos = np.concatenate((x0[:2], self._hyperparams['initial_object_pos']), 0)
+        qvel = np.zeros(self._hyperparams['joint_velocities'])
+        data = {'qpos': qpos, 'qvel': qvel}
+        self._world[condition].set_data(data)
+        self._world[condition].kinematics()
 
-        # self._model[condition].data.qpos[2:] = self._hyperparams['initial_object_pos']
-        mjlib.mj_kinematics(self._model[condition].ptr, self._model[condition].data.ptr)
-        mjlib.mj_comPos(self._model[condition].ptr, self._model[condition].data.ptr)
-        mjlib.mj_tendon(self._model[condition].ptr, self._model[condition].data.ptr)
-        mjlib.mj_transmission(self._model[condition].ptr, self._model[condition].data.ptr)
-        
-    def _init_sample(self, condition):
-        """
+    def _init_sample(self, condition, feature_fn=None):
+        """``
         Construct a new sample and fill in the first time step.
         Args:
             condition: Which condition to initialize.
+            feature_fn: funciton to comptue image features from the observation.
         """
         sample = Sample(self)
 
@@ -255,34 +220,31 @@ class AgentMuJoCo(Agent):
         self._init(condition)
 
         # Initialize sample with stuff from _data
-        data = self._model[condition].data
-        #    ;
-        sample.set(JOINT_ANGLES, data.qpos.flatten(), t=0)
-        sample.set(JOINT_VELOCITIES, data.qvel.flatten(), t=0)
-        eepts = data.site_xpos.flatten()
+        data = self._world[condition].get_data()
+        sample.set(JOINT_ANGLES, data['qpos'].flatten(), t=0)
+        sample.set(JOINT_VELOCITIES, data['qvel'].flatten(), t=0)
+        eepts = data['site_xpos'].flatten()
         sample.set(END_EFFECTOR_POINTS, eepts, t=0)
         sample.set(END_EFFECTOR_POINT_VELOCITIES, np.zeros_like(eepts), t=0)
-        jac = np.zeros([eepts.shape[0], self._model[condition].nq])
-        for site in range(eepts.shape[0] // 3):
-            idx = site * 3
-            temp = np.zeros((3, jac.shape[1]))
-            mjlib.mj_jacSite(self._model[condition].ptr, self._model[condition].data.ptr, temp.ctypes.data_as(POINTER(c_double)), 0, site)
-            jac[idx:(idx+3), :] = temp
-        sample.set(END_EFFECTOR_POINT_JACOBIANS, jac, t=0)
 
+        # if (END_EFFECTOR_POINTS_NO_TARGET in self._hyperparams['obs_include']):
+        #     sample.set(END_EFFECTOR_POINTS_NO_TARGET, np.delete(eepts, self._hyperparams['target_idx']), t=0)
+        #     sample.set(END_EFFECTOR_POINT_VELOCITIES_NO_TARGET, np.delete(np.zeros_like(eepts), self._hyperparams['target_idx']), t=0)
+
+        # jac = np.zeros([eepts.shape[0], self._model[condition]['nq']])
+        # for site in range(eepts.shape[0] // 3):
+        #     idx = site * 3
+        #     jac[idx:(idx+3), :] = self._world[condition].get_jac_site(site)
+        # sample.set(END_EFFECTOR_POINT_JACOBIANS, jac, t=0)
 
         # save initial image to meta data
-        img_string, width, height = self._viewer[condition].get_image()
-        img = np.fromstring(img_string, dtype='uint8').reshape(height, width, 3)[::-1,:,:]
-
-        #downsampling the image
-        img = Image.fromarray(img, 'RGB')
-        img.thumbnail((80,60), Image.ANTIALIAS)
-        img = np.array(img)
-        img_data = np.transpose(img, (1, 0, 2)).flatten()
-
-        #
-
+        self._world[condition].plot(self._hyperparams['x0'][condition])
+        img = self._world[condition].get_image_scaled(self._hyperparams['image_width'],
+                                                      self._hyperparams['image_height'])
+        # mjcpy image shape is [height, width, channels],
+        # dim-shuffle it for later conv-net processing,
+        # and flatten for storage
+        img_data = np.transpose(img["img"], (2, 1, 0)).flatten()
         # if initial image is an observation, replicate it for each time step
         if CONTEXT_IMAGE in self.obs_data_types:
             sample.set(CONTEXT_IMAGE, np.tile(img_data, (self.T, 1)), t=None)
@@ -297,9 +259,17 @@ class AgentMuJoCo(Agent):
             sample.set(RGB_IMAGE_SIZE, [self._hyperparams['image_channels'],
                                         self._hyperparams['image_width'],
                                         self._hyperparams['image_height']], t=None)
+            if IMAGE_FEAT in self.obs_data_types:
+                raise ValueError('Image features should not be in observation, just state')
+            if feature_fn is not None:
+                obs = sample.get_obs()  # Assumes that the rest of the sample has been populated
+                sample.set(IMAGE_FEAT, feature_fn(obs), t=0)
+            else:
+                # TODO - need better solution than setting this to 0.
+                sample.set(IMAGE_FEAT, np.zeros((self._hyperparams['sensor_dims'][IMAGE_FEAT],)), t=0)
         return sample
 
-    def _set_sample(self, sample, mj_X, t, condition):
+    def _set_sample(self, sample, mj_X, t, condition, feature_fn=None):
         """
         Set the data for a sample for one time step.
         Args:
@@ -307,21 +277,49 @@ class AgentMuJoCo(Agent):
             mj_X: Data to set for sample.
             t: Time step to set for sample.
             condition: Which condition to set.
+            feature_fn: function to compute image features from the observation.
         """
-        #
-
         sample.set(JOINT_ANGLES, np.array(mj_X[self._joint_idx]), t=t+1)
         sample.set(JOINT_VELOCITIES, np.array(mj_X[self._vel_idx]), t=t+1)
-        curr_eepts = self._data.site_xpos.flatten()
-        sample.set(END_EFFECTOR_POINTS, curr_eepts, t=t+1)
+        cur_eepts = self._data['site_xpos'].flatten()
+        sample.set(END_EFFECTOR_POINTS, cur_eepts, t=t+1)
         prev_eepts = sample.get(END_EFFECTOR_POINTS, t=t)
-        eept_vels = (curr_eepts - prev_eepts) / self._hyperparams['dt']
+        eept_vels = (cur_eepts - prev_eepts) / self._hyperparams['dt']
         sample.set(END_EFFECTOR_POINT_VELOCITIES, eept_vels, t=t+1)
-        jac = np.zeros([curr_eepts.shape[0], self._model[condition].nq])
-        for site in range(curr_eepts.shape[0] // 3):
-            idx = site * 3
-            temp = np.zeros((3, jac.shape[1]))
-            mjlib.mj_jacSite(self._model[condition].ptr, self._model[condition].data.ptr, temp.ctypes.data_as(POINTER(c_double)), 0, site)
-            jac[idx:(idx+3), :] = temp
 
+        # if (END_EFFECTOR_POINTS_NO_TARGET in self._hyperparams['obs_include']):
+        #     sample.set(END_EFFECTOR_POINTS_NO_TARGET, np.delete(cur_eepts, self._hyperparams['target_idx']), t=t+1)
+        #     sample.set(END_EFFECTOR_POINT_VELOCITIES_NO_TARGET, np.delete(eept_vels, self._hyperparams['target_idx']), t=t+1)
+
+        jac = np.zeros([cur_eepts.shape[0], self._model[condition]['nq']])
+        for site in range(cur_eepts.shape[0] // 3):
+            idx = site * 3
+            jac[idx:(idx+3), :] = self._world[condition].get_jac_site(site)
         sample.set(END_EFFECTOR_POINT_JACOBIANS, jac, t=t+1)
+        if RGB_IMAGE in self.obs_data_types:
+            img = self._world[condition].get_image_scaled(self._hyperparams['image_width'],
+                                                          self._hyperparams['image_height'])
+            sample.set(RGB_IMAGE, np.transpose(img["img"], (2, 1, 0)).flatten(), t=t+1)
+            if feature_fn is not None:
+                obs = sample.get_obs()  # Assumes that the rest of the observation has been populated
+                sample.set(IMAGE_FEAT, feature_fn(obs), t=t+1)
+            else:
+                # TODO - need better solution than setting this to 0.
+                sample.set(IMAGE_FEAT, np.zeros((self._hyperparams['sensor_dims'][IMAGE_FEAT],)), t=t+1)
+
+    def _get_image_from_obs(self, obs):
+        imstart = 0
+        imend = 0
+        image_channels = self._hyperparams['image_channels']
+        image_width = self._hyperparams['image_width']
+        image_height = self._hyperparams['image_height']
+        for sensor in self._hyperparams['obs_include']:
+            # Assumes only one of RGB_IMAGE or CONTEXT_IMAGE is present
+            if sensor == RGB_IMAGE or sensor == CONTEXT_IMAGE:
+                imend = imstart + self._hyperparams['sensor_dims'][sensor]
+                break
+            else:
+                imstart += self._hyperparams['sensor_dims'][sensor]
+        img = obs[imstart:imend]
+        img = img.reshape((image_width, image_height, image_channels))
+        return img

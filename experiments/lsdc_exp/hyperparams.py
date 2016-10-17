@@ -76,8 +76,8 @@ agent = {
     'conditions': common['conditions'],
     'T': 300,
     'sensor_dims': SENSOR_DIMS,
-    'state_include': [JOINT_ANGLES, JOINT_VELOCITIES, END_EFFECTOR_POINTS, END_EFFECTOR_POINT_VELOCITIES],
-    'obs_include': [JOINT_ANGLES, JOINT_VELOCITIES, END_EFFECTOR_POINTS, END_EFFECTOR_POINT_VELOCITIES],
+    'state_include': [JOINT_ANGLES, JOINT_VELOCITIES],
+    'obs_include': [JOINT_ANGLES, JOINT_VELOCITIES],  # RGB_IMAGE
     'camera_pos': np.array([0., 0., 0., 3, -45., 90.]),
     'joint_angles': SENSOR_DIMS[JOINT_ANGLES],  #adding 7 dof for position and orentation of free object
     'joint_velocities': SENSOR_DIMS[JOINT_VELOCITIES],
@@ -85,7 +85,7 @@ agent = {
     'image_dir': common['data_files_dir'] + "imagedata_file",
     'image_height' : IMAGE_HEIGHT,
     'image_width' : IMAGE_WIDTH,
-    'image_channels' : IMAGE_CHANNELS
+    'image_channels' : IMAGE_CHANNELS,
 }
 
 
