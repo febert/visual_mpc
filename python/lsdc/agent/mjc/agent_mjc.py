@@ -75,8 +75,11 @@ class AgentMuJoCo(Agent):
                 self._model[i]['body_pos'][idx, :] += \
                         self._hyperparams['pos_body_offset'][i]
 
-        self._joint_idx = list(range(self._model[0]['nq']))
-        self._vel_idx = [i + self._model[0]['nq'] for i in self._joint_idx]
+        # self._joint_idx = list(range(self._model[0]['nq']))
+        # self._vel_idx = [i + self._model[0]['nq'] for i in self._joint_idx]
+
+        self._joint_idx = range(self._hyperparams['joint_angles'])
+        self._vel_idx = range(self._hyperparams['joint_angles'], self._hyperparams['joint_velocities'] + self._hyperparams['joint_angles'])
 
         # Initialize x0.
         self.x0 = []
@@ -126,17 +129,21 @@ class AgentMuJoCo(Agent):
         if 'get_features' in dir(policy):
             feature_fn = policy.get_features
         new_sample = self._init_sample(condition, feature_fn=feature_fn)
-        mj_X = self._hyperparams['x0'][condition]
+
+        # mj_X = self._hyperparams['x0'][condition]
+        x0 = self._hyperparams['x0'][condition]
+        qpos = np.concatenate((x0[:2], self._hyperparams['initial_object_pos']), 0)
+        qvel = np.zeros(self._hyperparams['joint_velocities'])
+        mj_X = np.concatenate((qpos, qvel), 0)
 
         U = np.zeros([self.T, self.dU])
         if noisy:
             noise = generate_noise(self.T, self.dU, self._hyperparams)
         else:
             noise = np.zeros((self.T, self.dU))
-        if np.any(self._hyperparams['x0var'][condition] > 0):
-            x0n = self._hyperparams['x0var'] * \
-                    np.random.randn(self._hyperparams['x0var'].shape)
-            mj_X += x0n
+
+
+
         noisy_body_idx = self._hyperparams['noisy_body_idx'][condition]
         if noisy_body_idx.size > 0:
             for i in range(len(noisy_body_idx)):
@@ -165,8 +172,7 @@ class AgentMuJoCo(Agent):
                 self._set_sample(new_sample, mj_X, t, condition, feature_fn=feature_fn)
 
             # self._store_image(t, condition)
-            img = self._get_image_from_obs(obs_t)
-            pdb.set_trace()
+            # img = self._get_image_from_obs(obs_t)
 
         new_sample.set(ACTION, U)
         if save:
@@ -292,9 +298,9 @@ class AgentMuJoCo(Agent):
         #     sample.set(END_EFFECTOR_POINT_VELOCITIES_NO_TARGET, np.delete(eept_vels, self._hyperparams['target_idx']), t=t+1)
 
         jac = np.zeros([cur_eepts.shape[0], self._model[condition]['nq']])
-        for site in range(cur_eepts.shape[0] // 3):
-            idx = site * 3
-            jac[idx:(idx+3), :] = self._world[condition].get_jac_site(site)
+        # for site in range(cur_eepts.shape[0] // 3):
+        #     idx = site * 3
+        #     jac[idx:(idx+3), :] = self._world[condition].get_jac_site(site)
         sample.set(END_EFFECTOR_POINT_JACOBIANS, jac, t=t+1)
         if RGB_IMAGE in self.obs_data_types:
             img = self._world[condition].get_image_scaled(self._hyperparams['image_width'],
@@ -321,5 +327,6 @@ class AgentMuJoCo(Agent):
             else:
                 imstart += self._hyperparams['sensor_dims'][sensor]
         img = obs[imstart:imend]
+
         img = img.reshape((image_width, image_height, image_channels))
         return img
