@@ -99,8 +99,6 @@ class AgentMuJoCo(Agent):
         self._viewer_main = mujoco_py.MjViewer(visible=True, init_width=AGENT_MUJOCO['image_width'],
                     init_height=AGENT_MUJOCO['image_height'])
 
-
-        import pdb; pdb.set_trace()
         self._viewer_main.start()
 
         self._viewer_bot = mujoco_py.MjViewer(visible=True, init_width=AGENT_MUJOCO['image_width'],
