@@ -24,21 +24,16 @@ class Random_impedance_point(Policy):
             x_data_idx: data indexes for x
         """
 
-
-        new_point_freq = 20
-
-
+        new_point_freq = 8
 
         if t % new_point_freq ==0:
             #set new target point
             self.x_g = np.random.uniform(-.4, .4, 2)
 
         # self.x_g = np.array([0.1,0.1])
-        c = 10
-        d = 7
+        c = 30
+        d = 20
 
-        # print x, xdot
-        # import pdb; pdb.set_trace()
         f = (self.x_g - x)*c -xdot*d
 
         return f

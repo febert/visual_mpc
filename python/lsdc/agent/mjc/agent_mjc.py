@@ -95,31 +95,15 @@ class AgentMuJoCo(Agent):
             else:
                 self.x0.append(self._hyperparams['x0'][i])
 
-        cam_pos = self._hyperparams['camera_pos']
-        self._viewer_main = mujoco_py.MjViewer(visible=True, init_width=AGENT_MUJOCO['image_width'],
-                    init_height=AGENT_MUJOCO['image_height'])
+        self._small_viewer = mujoco_py.MjViewer(visible=True, init_width=self._hyperparams['image_width'],
+                                                init_height=self._hyperparams['image_height'], go_fast=False)
+        self._small_viewer.start()
 
-        self._viewer_main.start()
+        if self._hyperparams['additional_viewer']:
+            self._large_viewer = mujoco_py.MjViewer(visible=True, init_width=640,
+                                                    init_height=480, go_fast=False)
+            self._large_viewer.start()
 
-        self._viewer_bot = mujoco_py.MjViewer(visible=True, init_width=AGENT_MUJOCO['image_width'],
-                    init_height=AGENT_MUJOCO['image_height'])
-        self._viewer_bot.start()
-
-        self._viewer = []
-        for i in range(self._hyperparams['conditions']):
-            self._viewer.append(mujoco_py.MjViewer(visible=False,
-                init_width=self._hyperparams['image_width'], init_height=self._hyperparams['image_height']))
-
-        for i in range(self._hyperparams['conditions']):
-            self._viewer[i].start()
-            self._viewer[i].set_model(self._model[i])
-
-            self._viewer[i].cam.lookat[0] = cam_pos[0]
-            self._viewer[i].cam.lookat[1] = cam_pos[1]
-            self._viewer[i].cam.lookat[2] = cam_pos[2]
-            self._viewer[i].cam.distance = cam_pos[3]
-            self._viewer[i].cam.elevation = cam_pos[4]
-            self._viewer[i].cam.azimuth = cam_pos[5]
 
     def sample(self, policy, condition, verbose=True, save=True, noisy=False):
 
@@ -158,17 +142,22 @@ class AgentMuJoCo(Agent):
                 self._model[condition].body_pos = temp
 
         cam_pos = self._hyperparams['camera_pos']#CHANGES
-        self._viewer_main.set_model(self._model[condition])
-        self._viewer_bot.set_model(self._model[condition])
+        # self._viewer_main.set_model(self._model[condition])
+        self._small_viewer.set_model(self._model[condition])
 
-        self._viewer_main.cam.distance = 2.0 #TODO mayeb don't hard code this
-        self._viewer_bot.cam.lookat[0] = cam_pos[0]
-        self._viewer_bot.cam.lookat[1] = cam_pos[1]
-        self._viewer_bot.cam.lookat[2] = cam_pos[2]
-        self._viewer_bot.cam.distance = cam_pos[3]
-        self._viewer_bot.cam.elevation = cam_pos[4]
-        self._viewer_bot.cam.azimuth = cam_pos[5]
+        if self._hyperparams['additional_viewer']:
+            self._large_viewer.set_model(self._model[condition])
 
+        # self._viewer_main.cam.distance = 2.0 #TODO mayeb don't hard code this
+        self._small_viewer.cam.lookat[0] = cam_pos[0]
+        self._small_viewer.cam.lookat[1] = cam_pos[1]
+        self._small_viewer.cam.lookat[2] = cam_pos[2]
+        self._small_viewer.cam.distance = cam_pos[3]
+        self._small_viewer.cam.elevation = cam_pos[4]
+        self._small_viewer.cam.azimuth = cam_pos[5]
+
+        if self._hyperparams['additional_viewer']:
+            self._large_viewer.cam = copy.deepcopy(self._small_viewer.cam)
 
         # Take the sample.
         for t in range(self.T):
@@ -183,11 +172,10 @@ class AgentMuJoCo(Agent):
             X_full[t,:] = x
             Xdot_full[t,:] = xdot
 
-            if verbose:
-                #
-                self._viewer_main.loop_once()
-                self._viewer_bot.loop_once()
-                self._viewer[condition].loop_once()
+
+            self._small_viewer.loop_once()
+            if self._hyperparams['additional_viewer']:
+                self._large_viewer.loop_once()
 
             if (t + 1) < self.T:
                 for _ in range(self._hyperparams['substeps']):
@@ -211,13 +199,16 @@ class AgentMuJoCo(Agent):
         """
         if self._hyperparams['save_images']:
 
-            img_string, width, height = self._viewer[condition].get_image()#CHANGES
+            img_string, width, height = self._small_viewer.get_image()#CHANGES
             img = np.fromstring(img_string, dtype='uint8').reshape((height, width, self._hyperparams['image_channels']))[::-1,:,:]
 
-            #downsampling the image
-            img = Image.fromarray(img, 'RGB')
-            img.thumbnail((80,60), Image.ANTIALIAS)
-            img = np.array(img)
+            # #downsampling the image
+            # img = Image.fromarray(img, 'RGB')
+            # img.thumbnail((80,60), Image.ANTIALIAS)
+            # if t%30 ==0 :
+            #     img.show()
+            #     # import pdb; pdb.set_trace()
+            # img = np.array(img)
 
             self._sample_images[t,:,:,:] = img
 
@@ -228,9 +219,20 @@ class AgentMuJoCo(Agent):
             condition: Which condition to initialize.
         """
 
+        #create random starting poses for objects
+        def create_pos():
+            poses = []
+            for i in range(self._hyperparams['num_objects']):
+                pos = np.random.uniform(-.35, .35, 2)
+                alpha = np.random.uniform(0, np.pi*2)
+                ori = np.array([np.cos(alpha/2), 0, 0, np.sin(alpha/2) ])
+                # import pdb; pdb.set_trace()
+                poses.append(np.concatenate((pos, np.array([0]), ori), axis= 0))
+            return np.concatenate(poses)
+
         # Initialize world/run kinematics
         x0 = self._hyperparams['x0'][condition]
-        self._model[condition].data.qpos = np.concatenate((x0[:2], self._hyperparams['initial_object_pos']), 0)
+        self._model[condition].data.qpos = np.concatenate((x0[:2], create_pos()), 0)
         self._model[condition].data.qvel = np.zeros_like(self._model[condition].data.qvel)
 
 
@@ -269,7 +271,7 @@ class AgentMuJoCo(Agent):
 
 
         # save initial image to meta data
-        img_string, width, height = self._viewer[condition].get_image()
+        img_string, width, height = self._small_viewer.get_image()
         img = np.fromstring(img_string, dtype='uint8').reshape(height, width, 3)[::-1,:,:]
 
         #downsampling the image

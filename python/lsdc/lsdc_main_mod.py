@@ -168,16 +168,19 @@ class LSDCMain(object):
             sample_index: Sample index.
         Returns: None
         """
-        # pol = Randompolicy()
+
         pol = Random_impedance_point()
 
+        from datetime import datetime
+        start = datetime.now()
 
         X_full, Xdot_full, U, sample_images = self.agent.sample(
-            pol, cond,
-            verbose=(sample_index < self._hyperparams['verbose_trials'])
-        )
+            pol, cond )
 
         self._save_data(X_full, Xdot_full, U, sample_images, sample_index)
+
+        end = datetime.now()
+        print 'time elapsed for one trajectory sim', end-start
 
 
     def _save_data(self, X_full, Xdot_full, U, sample_images, sample_index):
@@ -197,16 +200,22 @@ class LSDCMain(object):
         for type in type_of_file:
             if type== 'tfrecord':
                 # get the relevant state information:
-                dir_ = self._data_files_dir + '/tfrecords'
+                dir_ = self._data_files_dir + 'tfrecords'
                 if not os.path.exists(dir_):
                     os.makedirs(dir_)
                 filename = 'traj_no{0}'.format(sample_index)
                 save_tf_record(X_full, Xdot_full, U, sample_images, dir_, filename)
 
             if type == 'jpg':
-                dir_ = self._data_files_dir + '/jpgs'
+                dir_ = self._data_files_dir + 'jpgs/'
                 if not os.path.exists(dir_):
                     os.makedirs(dir_)
+
+                from PIL import Image
+                for i in range(sample_images.shape[0]):
+                    img = sample_images[i]
+                    img = Image.fromarray(img, 'RGB')
+                    img.save(dir_ + 'im{0}_traj{1}.jpg'.format(i,sample_index), "JPEG")
 
             if type == 'hdf5':
                 with h5py.File(self._hyperparams['agent']['image_dir'], 'a') as hf:
