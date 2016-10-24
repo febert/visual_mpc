@@ -15,8 +15,8 @@ ORIGINAL_HEIGHT = 60
 COLOR_CHAN = 3
 
 # Default image dimensions.
-IMG_WIDTH = 60
-IMG_HEIGHT = 60
+IMG_WIDTH = 64
+IMG_HEIGHT = 64
 
 # Dimension of the state and action.
 STATE_DIM = 4
@@ -67,11 +67,6 @@ def build_tfrecord_input(training=True):
             features = {image_name: tf.FixedLenFeature([1], tf.string)}
         features = tf.parse_single_example(serialized_example, features=features)
 
-
-        # image = tf.image.decode_jpeg(image_buffer, channels=COLOR_CHAN)
-
-        # print features[image_name].getshape()
-        # features[image_name].getshape()
         image = tf.decode_raw(features[image_name], tf.uint8)
         image = tf.reshape(image, shape=[1,ORIGINAL_HEIGHT*ORIGINAL_WIDTH*COLOR_CHAN])
         image = tf.reshape(image, shape=[1,ORIGINAL_HEIGHT, ORIGINAL_WIDTH, COLOR_CHAN])
@@ -79,11 +74,11 @@ def build_tfrecord_input(training=True):
         if IMG_HEIGHT != IMG_WIDTH:
             raise ValueError('Unequal height and width unsupported')
 
-        # crop_size = min(ORIGINAL_HEIGHT, ORIGINAL_WIDTH)
-        # image = tf.image.resize_image_with_crop_or_pad(image, crop_size, crop_size)
-        # image = tf.reshape(image, [1, crop_size, crop_size, COLOR_CHAN])
-        # image = tf.image.resize_bicubic(image, [IMG_HEIGHT, IMG_WIDTH])
-        # image = tf.cast(image, tf.float32) / 255.0
+        crop_size = min(ORIGINAL_HEIGHT, ORIGINAL_WIDTH)
+        image = tf.image.resize_image_with_crop_or_pad(image, crop_size, crop_size)
+        image = tf.reshape(image, [1, crop_size, crop_size, COLOR_CHAN])
+        image = tf.image.resize_bicubic(image, [IMG_HEIGHT, IMG_WIDTH])
+        image = tf.cast(image, tf.float32) / 255.0
         image_seq.append(image)
 
         if FLAGS.use_state:
@@ -93,18 +88,6 @@ def build_tfrecord_input(training=True):
             action_seq.append(action)
 
     image_seq = tf.concat(0, image_seq)
-
-    #
-    # if FLAGS.use_state:
-    #     state_seq = tf.concat(0, state_seq)
-    #     action_seq = tf.concat(0, action_seq)
-    #     [action_batch, state_batch] = tf.train.batch(
-    #         [action_seq, state_seq],
-    #         FLAGS.batch_size,
-    #         num_threads=FLAGS.batch_size,
-    #         capacity=100 * FLAGS.batch_size)
-    #
-    #     return action_batch, state_batch
 
     if FLAGS.use_state:
         state_seq = tf.concat(0, state_seq)
@@ -126,7 +109,6 @@ def build_tfrecord_input(training=True):
         return image_batch, zeros_batch_action, zeros_batch_state
 
 
-
 if __name__ == '__main__':
     # for debugging only:
 
@@ -144,7 +126,7 @@ if __name__ == '__main__':
         print image_data.shape
         print state_data.shape
 
-        img = image_data[0,0]
+        img = image_data[0,0]*255.0
 
         img = Image.fromarray(image_data[0,0], 'RGB')
         img.show()
