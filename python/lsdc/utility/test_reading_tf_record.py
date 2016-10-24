@@ -11,14 +11,14 @@ FLAGS = flags.FLAGS
 flags.DEFINE_integer('sequence_length', 30, 'sequence length, including context frames.')
 flags.DEFINE_integer('context_frames', 2, '# of frames before predictions.')
 flags.DEFINE_integer('use_state', 1, 'Whether or not to give the state+action to the model')
-flags.DEFINE_integer('batch_size', 1, 'batch size for training')
+flags.DEFINE_integer('batch_size', 4, 'batch size for training')
 flags.DEFINE_float('train_val_split', 1,
                    'The percentage of files to use for the training set,'
                    ' vs. the validation set.')
 
 # Original image dimensions
-ORIGINAL_WIDTH = 60
-ORIGINAL_HEIGHT = 60
+ORIGINAL_WIDTH = 64
+ORIGINAL_HEIGHT = 64
 COLOR_CHAN = 3
 
 # Default image dimensions.
@@ -29,8 +29,8 @@ IMG_HEIGHT = 64
 STATE_DIM = 4
 ACION_DIM = 2
 
-# DATA_DIR = '/home/frederik/Dokumente/lsdc/experiments/lsdc_exp/data_files/tfrecords'
-DATA_DIR = '/home/frederik/Documents/pushing_data/tfrecords'
+# DATA_DIR = '/home/frederik/Documents/pushing_data/tfrecords'
+DATA_DIR = '/media/frederik/UBUNTU 14_0/pushing_data/tfrecords'
 
 flags.DEFINE_string('data_dir', DATA_DIR, 'directory containing data.')
 
@@ -86,15 +86,15 @@ def build_tfrecord_input(training=True):
         # features[image_name].getshape()
         image = tf.decode_raw(features[image_name], tf.uint8)
         image = tf.reshape(image, shape=[1,ORIGINAL_HEIGHT*ORIGINAL_WIDTH*COLOR_CHAN])
-        image = tf.reshape(image, shape=[ORIGINAL_HEIGHT, ORIGINAL_WIDTH, COLOR_CHAN])
+        image = tf.reshape(image, shape=[1,ORIGINAL_HEIGHT, ORIGINAL_WIDTH, COLOR_CHAN])
 
         if IMG_HEIGHT != IMG_WIDTH:
             raise ValueError('Unequal height and width unsupported')
 
         crop_size = min(ORIGINAL_HEIGHT, ORIGINAL_WIDTH)
-        image = tf.image.resize_image_with_crop_or_pad(image, crop_size, crop_size)
-        image = tf.reshape(image, [1, crop_size, crop_size, COLOR_CHAN])
-        image = tf.image.resize_bicubic(image, [IMG_HEIGHT, IMG_WIDTH])
+        # image = tf.image.resize_image_with_crop_or_pad(image, crop_size, crop_size)
+        # image = tf.reshape(image, [1, crop_size, crop_size, COLOR_CHAN])
+        # image = tf.image.resize_bicubic(image, [IMG_HEIGHT, IMG_WIDTH])
         image = tf.cast(image, tf.float32) / 255.0
         image_seq.append(image)
 
@@ -144,10 +144,13 @@ if __name__ == '__main__':
         print state_data.shape
 
         # print image_data[0,0]
-        img = image_data[0,0]*255.0
-        # print img
-        img = img.astype(np.uint8)
-        # print img
+        for i in range(4):
+            for j in range(1):
+                print action_data[i]
+                img = image_data[i,j]*255.0
+                # print img
+                img = img.astype(np.uint8)
+                # print img
 
-        img = Image.fromarray(img, 'RGB')
-        img.show()
+                img = Image.fromarray(img, 'RGB')
+                img.show()

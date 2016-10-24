@@ -15,8 +15,8 @@ from lsdc.proto.gps_pb2 import JOINT_ANGLES, JOINT_VELOCITIES, \
         END_EFFECTOR_POINTS, END_EFFECTOR_POINT_VELOCITIES, ACTION, \
         RGB_IMAGE, RGB_IMAGE_SIZE
 
-IMAGE_WIDTH = 60
-IMAGE_HEIGHT = 60
+IMAGE_WIDTH = 64
+IMAGE_HEIGHT = 64
 IMAGE_CHANNELS = 3
 
 num_objects = 4
@@ -82,7 +82,7 @@ agent = {
 
 
 config = {
-    'num_samples': 30000,
+    'num_samples': 20000,
     'verbose_policy_trials': 0,
     'common': common,
     'agent': agent,

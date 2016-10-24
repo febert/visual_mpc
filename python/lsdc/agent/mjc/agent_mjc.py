@@ -106,7 +106,6 @@ class AgentMuJoCo(Agent):
 
 
     def sample(self, policy, condition, verbose=True, save=True, noisy=False):
-
         """
         Runs a trial and constructs a new sample containing information
         about the trial.
@@ -171,7 +170,6 @@ class AgentMuJoCo(Agent):
             U[t, :] = mj_U
             X_full[t,:] = x
             Xdot_full[t,:] = xdot
-
 
             self._small_viewer.loop_once()
             if self._hyperparams['additional_viewer']:

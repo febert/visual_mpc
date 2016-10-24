@@ -24,6 +24,8 @@ from lsdc.algorithm.policy.random_policy import Randompolicy
 from lsdc.algorithm.policy.random_impedance_point import Random_impedance_point
 from lsdc.utility.save_tf_record import save_tf_record
 
+import numpy as np
+
 
 class LSDCMain(object):
     """ Main class to run algorithms and experiments. """
@@ -47,7 +49,6 @@ class LSDCMain(object):
             self._hyperparams=config
             self._test_idx = self._train_idx
 
-
         self._data_files_dir = config['common']['data_files_dir']
 
         self.agent = config['agent']['type'](config['agent'])
@@ -61,6 +62,7 @@ class LSDCMain(object):
 
         #deleting existing image file:
 
+        self._trajectory_list = []
 
         try:
             os.remove(self._hyperparams['agent']['image_dir'])
@@ -76,10 +78,6 @@ class LSDCMain(object):
         Returns: None
         """
         itr_start = self._initialize(itr_load)
-
-        # for itr in range(itr_start, self._hyperparams['iterations']):
-        import pdb;
-
 
         for cond in self._train_idx:
             for i in range(self._hyperparams['num_samples']):
@@ -191,9 +189,13 @@ class LSDCMain(object):
             X_full: vector of positions for sample
             Xdot_full: vector of velocities for sample
             U: vector of control inputs
-            sample_images: vector of smaple images
-            i: sample number
+            sample_images: vector of sample images
+            sample_index: sample number
         """
+
+        # from PIL import Image
+        # img = Image.fromarray(sample_images[0], 'RGB')
+        # img.show()
 
         type_of_file = ['tfrecord']
 
@@ -203,8 +205,20 @@ class LSDCMain(object):
                 dir_ = self._data_files_dir + 'tfrecords'
                 if not os.path.exists(dir_):
                     os.makedirs(dir_)
-                filename = 'traj_no{0}'.format(sample_index)
-                save_tf_record(X_full, Xdot_full, U, sample_images, dir_, filename)
+
+                X_Xdot = np.concatenate((X_full, Xdot_full), axis=1)
+
+                U = U.astype(np.float32)
+                X_Xdot = X_Xdot.astype(np.float32)
+                sample_images_cpy = copy.deepcopy(sample_images)
+                X_Xdot_cpy = X_Xdot
+                U_cpy = U
+                self._trajectory_list.append([X_Xdot_cpy,U_cpy,sample_images_cpy])
+                traj_per_file = 256*1
+                if len(self._trajectory_list) == traj_per_file:
+                    filename = 'traj_{0}_to_{1}'.format(sample_index - traj_per_file + 1, sample_index)
+                    save_tf_record(dir_, filename, self._trajectory_list)
+                    self._trajectory_list = []
 
             if type == 'jpg':
                 dir_ = self._data_files_dir + 'jpgs/'
