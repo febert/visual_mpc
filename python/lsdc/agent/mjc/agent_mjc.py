@@ -195,7 +195,7 @@ class AgentMuJoCo(Agent):
         """
         store image at time index t
         """
-        if self._hyperparams['save_images']:
+        if self._hyperparams['save_data']:
 
             img_string, width, height = self._small_viewer.get_image()#CHANGES
             img = np.fromstring(img_string, dtype='uint8').reshape((height, width, self._hyperparams['image_channels']))[::-1,:,:]

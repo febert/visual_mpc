@@ -175,6 +175,8 @@ class LSDCMain(object):
         X_full, Xdot_full, U, sample_images = self.agent.sample(
             pol, cond )
 
+
+
         self._save_data(X_full, Xdot_full, U, sample_images, sample_index)
 
         end = datetime.now()

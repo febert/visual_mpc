@@ -71,7 +71,7 @@ agent = {
     'camera_pos': np.array([0., 0., 0., 1.5, -90, 90.]),
     'joint_angles': SENSOR_DIMS[JOINT_ANGLES],  #adding 7 dof for position and orentation of free object
     'joint_velocities': SENSOR_DIMS[JOINT_VELOCITIES],
-    'save_images': True,
+    'save_data': False,
     'additional_viewer': True,
     'image_dir': common['data_files_dir'] + "imagedata_file",
     'image_height' : IMAGE_HEIGHT,
