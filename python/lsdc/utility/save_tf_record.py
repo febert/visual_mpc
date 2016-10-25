@@ -38,10 +38,6 @@ def save_tf_record(dir, filename, trajectory_list):
             feature['move/' + str(index) + '/state'] = _float_feature(X_Xdot[index,:].tolist())
             feature['move/' + str(index) + '/image/encoded'] = _bytes_feature(image_raw)
 
-        # from PIL import Image
-        # img = Image.fromarray(sample_images[0], 'RGB')
-        # img.show()
-
         example = tf.train.Example(features=tf.train.Features(feature=feature))
         writer.write(example.SerializeToString())
 
