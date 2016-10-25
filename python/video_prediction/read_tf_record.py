@@ -10,8 +10,8 @@ FLAGS = flags.FLAGS
 
 
 # Original image dimensions
-ORIGINAL_WIDTH = 60
-ORIGINAL_HEIGHT = 60
+ORIGINAL_WIDTH = 64
+ORIGINAL_HEIGHT = 64
 COLOR_CHAN = 3
 
 # Default image dimensions.
@@ -69,7 +69,7 @@ def build_tfrecord_input(training=True):
 
         image = tf.decode_raw(features[image_name], tf.uint8)
         image = tf.reshape(image, shape=[1,ORIGINAL_HEIGHT*ORIGINAL_WIDTH*COLOR_CHAN])
-        image = tf.reshape(image, shape=[1,ORIGINAL_HEIGHT, ORIGINAL_WIDTH, COLOR_CHAN])
+        image = tf.reshape(image, shape=[ORIGINAL_HEIGHT, ORIGINAL_WIDTH, COLOR_CHAN])
 
         if IMG_HEIGHT != IMG_WIDTH:
             raise ValueError('Unequal height and width unsupported')
