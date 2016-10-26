@@ -40,7 +40,7 @@ common = {
             datetime.strftime(datetime.now(), '%m-%d-%y_%H-%M'),
     'experiment_dir': EXP_DIR,
     # 'data_files_dir': EXP_DIR + 'data_files/',
-    'data_files_dir': '/media/frederik/UBUNTU 14_0/pushing_data/',
+    'data_files_dir': '/media/frederik/FrederikUSB/pushing_data/',
     'target_filename': EXP_DIR + 'target.npz',
     'log_filename': EXP_DIR + 'log.txt',
     'conditions': 1,
@@ -57,10 +57,6 @@ agent = {
     'type': AgentMuJoCo,
     'filename': './mjc_models/pushing2d.xml',
     'x0': np.array([0., 0., 0., 0.]),
-    # 'initial_object_pos': np.array([0.3, 0., 0., 1., 0., 0., 0.,     # in global coordinates
-    #                                -0.3, 0., 0., 0, 1, 0., 0.,
-    #                                0.2, 0.3, 0., 0, 1, 0., 0.,]),
-    # 'x0': [np.array([0., 0., 0., 0.]), np.array([0., 1., 0., 0.])],
     'dt': 0.05,
     'substeps': 10,  #6
     'conditions': common['conditions'],
@@ -82,7 +78,7 @@ agent = {
 
 
 config = {
-    'num_samples': 20000,
+    'num_samples': 50000,
     'verbose_policy_trials': 0,
     'common': common,
     'agent': agent,

@@ -17,29 +17,6 @@
             <joint name="ball_y" type="slide" pos="0 0 0" axis="0 1 0" />
         </body>
 
-        <!--big container-->
-        <!--<body name="container" pos="0  0  -0.05">-->
-
-            <!--<body name="border_front" pos="0 -1  0">-->
-                 <!--<geom type="box" size="1 .01 .1" rgba="0 .1 .9 .3"/>-->
-            <!--</body>-->
-
-            <!--<body name="border_rear" pos="0 1  0">-->
-                 <!--<geom type="box" size="1 .01 .1" rgba="0 .1 .9 .3"/>-->
-            <!--</body>-->
-
-            <!--<body name="border_right" pos="1 0  0">-->
-                 <!--<geom type="box" size=".01  1 .1" rgba="0 .1 .9 .3"/>-->
-            <!--</body>-->
-
-            <!--<body name="border_left" pos="-1 0  0">-->
-                 <!--<geom type="box" size=".01  1 .1" rgba="0 .1 .9 .3"/>-->
-            <!--</body>-->
-
-            <!--<body name="table" pos="0 0 -.01">-->
-                 <!--<geom type="box" size="1  1 .01" rgba="0 .9 0 1"/>-->
-            <!--</body>-->
-        <!--</body>-->
 
         <body name="container" pos="0  0  -0.05">
 
