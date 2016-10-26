@@ -60,14 +60,13 @@ agent = {
     'dt': 0.05,
     'substeps': 10,  #6
     'conditions': common['conditions'],
-    'T': 30,
+    'T': 40,
     'sensor_dims': SENSOR_DIMS,
     'state_include': [JOINT_ANGLES, JOINT_VELOCITIES, END_EFFECTOR_POINTS, END_EFFECTOR_POINT_VELOCITIES],
     'obs_include': [JOINT_ANGLES, JOINT_VELOCITIES, END_EFFECTOR_POINTS, END_EFFECTOR_POINT_VELOCITIES],
     'camera_pos': np.array([0., 0., 0., 1.5, -90, 90.]),
     'joint_angles': SENSOR_DIMS[JOINT_ANGLES],  #adding 7 dof for position and orentation of free object
     'joint_velocities': SENSOR_DIMS[JOINT_VELOCITIES],
-    'save_data': False,
     'additional_viewer': True,
     'image_dir': common['data_files_dir'] + "imagedata_file",
     'image_height' : IMAGE_HEIGHT,
@@ -78,7 +77,8 @@ agent = {
 
 
 config = {
-    'num_samples': 50000,
+    'save_data': True,
+    'num_samples': 30000,
     'verbose_policy_trials': 0,
     'common': common,
     'agent': agent,

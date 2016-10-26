@@ -19,7 +19,6 @@ def save_tf_record(dir, filename, trajectory_list):
     saves data from one sample trajectory into one tf-record file
     """
 
-    sequence_length = trajectory_list[0][0].shape[0]
 
     filename = os.path.join(dir, filename + '.tfrecords')
     print('Writing', filename)
@@ -30,6 +29,11 @@ def save_tf_record(dir, filename, trajectory_list):
     for traj in range(len(trajectory_list)):
 
         [X_Xdot, U, sample_images] = trajectory_list[traj]
+        skipsteps = 10
+        X_Xdot = X_Xdot[skipsteps:]
+        U = U[skipsteps:]
+        sample_images = sample_images[skipsteps:]
+        sequence_length = sample_images.shape[0]
 
         for index in range(sequence_length):
             image_raw = sample_images[index].tostring()

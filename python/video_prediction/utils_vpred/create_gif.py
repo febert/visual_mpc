@@ -42,19 +42,9 @@ if __name__ == '__main__':
 
         ground_truth_list = list(np.uint8(255*ground_truth[j]))
 
-        # from PIL import Image
-        # for i in range( len(ground_truth)):
-        #     img = Image.fromarray(ground_truth[i])
-        #     img.show()
-
         gen_image_list =[]
         for i in range(len(gen_images)):
             gen_image_list.append(np.uint8(255*gen_images[i][j]))
-
-        # for i in range(len(gen_image_list)):
-        #     img = Image.fromarray(gen_image_list[i])
-        #     img.show()
-
 
         print len(gen_image_list)
         print len(ground_truth_list)

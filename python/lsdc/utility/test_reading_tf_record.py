@@ -4,6 +4,10 @@ import tensorflow as tf
 from tensorflow.python.platform import flags
 from tensorflow.python.platform import gfile
 
+import moviepy.editor as mpy
+
+
+
 from PIL import Image
 
 FLAGS = flags.FLAGS
@@ -11,7 +15,7 @@ FLAGS = flags.FLAGS
 flags.DEFINE_integer('sequence_length', 30, 'sequence length, including context frames.')
 flags.DEFINE_integer('context_frames', 2, '# of frames before predictions.')
 flags.DEFINE_integer('use_state', 1, 'Whether or not to give the state+action to the model')
-flags.DEFINE_integer('batch_size', 4, 'batch size for training')
+flags.DEFINE_integer('batch_size', 8, 'batch size for training')
 flags.DEFINE_float('train_val_split', 1,
                    'The percentage of files to use for the training set,'
                    ' vs. the validation set.')
@@ -30,7 +34,7 @@ STATE_DIM = 4
 ACION_DIM = 2
 
 # DATA_DIR = '/home/frederik/Documents/pushing_data/tfrecords'
-DATA_DIR = '/media/frederik/UBUNTU 14_0/pushing_data/tfrecords'
+DATA_DIR = '/media/frederik/FrederikUSB/pushing_data/tfrecords'
 
 flags.DEFINE_string('data_dir', DATA_DIR, 'directory containing data.')
 
@@ -127,6 +131,14 @@ def build_tfrecord_input(training=True):
         return image_batch, zeros_batch_action, zeros_batch_state
 
 
+
+def npy_to_gif(im_list, filename):
+
+    # import pdb; pdb.set_trace()
+
+    clip = mpy.ImageSequenceClip(im_list, fps=10)
+    clip.write_gif(filename)
+
 if __name__ == '__main__':
 
     print 'testing the reader'
@@ -143,14 +155,27 @@ if __name__ == '__main__':
         print image_data.shape
         print state_data.shape
 
-        # print image_data[0,0]
-        for i in range(4):
-            for j in range(1):
-                print action_data[i]
-                img = image_data[i,j]*255.0
-                # print img
-                img = img.astype(np.uint8)
-                # print img
+    # splitted = str.split(os.path.dirname(__file__), '/')
+    # file_path = '/'.join(splitted[:-3] + ['tensorflow_data/gifs'])
 
-                img = Image.fromarray(img, 'RGB')
-                img.show()
+
+        for j in range(8):
+
+            ground_truth_list = list(np.uint8(255*image_data[j]))
+            # ground_truth_list = ground_truth_list[:10]
+            npy_to_gif(ground_truth_list, 'groundtruth{0}.gif'.format(j))
+
+
+        #
+        # # print image_data[0,0]
+        # for i in range(4):
+        #     for j in range(1):
+        #         print action_data[i]
+        #         img = image_data[i,j]*255.0
+        #         # print img
+        #         img = img.astype(np.uint8)
+        #         # print img
+        #
+        #         img = Image.fromarray(img, 'RGB')
+        #         img.show()
+        #

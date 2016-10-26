@@ -176,8 +176,9 @@ class LSDCMain(object):
             pol, cond )
 
 
+        if self._hyperparams['save_data']:
 
-        self._save_data(X_full, Xdot_full, U, sample_images, sample_index)
+            self._save_data(X_full, Xdot_full, U, sample_images, sample_index)
 
         end = datetime.now()
         print 'time elapsed for one trajectory sim', end-start
@@ -216,7 +217,7 @@ class LSDCMain(object):
                 X_Xdot_cpy = X_Xdot
                 U_cpy = U
                 self._trajectory_list.append([X_Xdot_cpy,U_cpy,sample_images_cpy])
-                traj_per_file = 256*1
+                traj_per_file =  256
                 if len(self._trajectory_list) == traj_per_file:
                     filename = 'traj_{0}_to_{1}'.format(sample_index - traj_per_file + 1, sample_index)
                     save_tf_record(dir_, filename, self._trajectory_list)

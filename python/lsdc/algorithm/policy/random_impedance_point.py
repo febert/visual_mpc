@@ -24,14 +24,14 @@ class Random_impedance_point(Policy):
             x_data_idx: data indexes for x
         """
 
-        new_point_freq = 8
+        new_point_freq = 13
 
         if t % new_point_freq ==0:
             #set new target point
             self.x_g = np.random.uniform(-.4, .4, 2)
 
         # self.x_g = np.array([0.1,0.1])
-        c = 30
+        c = 40
         d = 20
 
         f = (self.x_g - x)*c -xdot*d

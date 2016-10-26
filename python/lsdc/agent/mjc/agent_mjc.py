@@ -171,7 +171,9 @@ class AgentMuJoCo(Agent):
             X_full[t,:] = x
             Xdot_full[t,:] = xdot
 
+
             self._small_viewer.loop_once()
+            self._store_image(t)
             if self._hyperparams['additional_viewer']:
                 self._large_viewer.loop_once()
 
@@ -183,7 +185,7 @@ class AgentMuJoCo(Agent):
                 mj_X = np.concatenate([self._model[condition].data.qpos, self._model[condition].data.qvel]).flatten()
                 self._data = self._model[condition].data
                 self._set_sample(new_sample, mj_X, t, condition)
-                self._store_image(t, condition)
+
 
         new_sample.set(ACTION, U)
         if save:
@@ -191,24 +193,22 @@ class AgentMuJoCo(Agent):
 
         return X_full, Xdot_full, U, self._sample_images
 
-    def _store_image(self,t,condition):
+    def _store_image(self,t):
         """
         store image at time index t
         """
-        if self._hyperparams['save_data']:
+        img_string, width, height = self._small_viewer.get_image()#CHANGES
+        img = np.fromstring(img_string, dtype='uint8').reshape((height, width, self._hyperparams['image_channels']))[::-1,:,:]
 
-            img_string, width, height = self._small_viewer.get_image()#CHANGES
-            img = np.fromstring(img_string, dtype='uint8').reshape((height, width, self._hyperparams['image_channels']))[::-1,:,:]
+        # #downsampling the image
+        # img = Image.fromarray(img, 'RGB')
+        # img.thumbnail((80,60), Image.ANTIALIAS)
+        # if t%30 ==0 :
+        #     img.show()
+        #     # import pdb; pdb.set_trace()
+        # img = np.array(img)
 
-            # #downsampling the image
-            # img = Image.fromarray(img, 'RGB')
-            # img.thumbnail((80,60), Image.ANTIALIAS)
-            # if t%30 ==0 :
-            #     img.show()
-            #     # import pdb; pdb.set_trace()
-            # img = np.array(img)
-
-            self._sample_images[t,:,:,:] = img
+        self._sample_images[t,:,:,:] = img
 
     def _init(self, condition):
         """
