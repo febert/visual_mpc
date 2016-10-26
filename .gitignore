@@ -90,6 +90,7 @@ ENV/
 lsdcenv/
 **/.idea/**
 
-data_files/
+tensorflow_data/
 data/
 src/3rdparty
+experiments/lsdc_exp/data_files
