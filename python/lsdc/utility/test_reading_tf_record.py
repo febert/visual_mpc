@@ -33,8 +33,8 @@ IMG_HEIGHT = 64
 STATE_DIM = 4
 ACION_DIM = 2
 
-# DATA_DIR = '/home/frederik/Documents/pushing_data/tfrecords'
-DATA_DIR = '/media/frederik/FrederikUSB/pushing_data/tfrecords'
+DATA_DIR = '/home/frederik/Documents/pushing_data/tfrecords'
+# DATA_DIR = '/media/frederik/FrederikUSB/pushing_data/tfrecords'
 
 flags.DEFINE_string('data_dir', DATA_DIR, 'directory containing data.')
 
@@ -162,7 +162,7 @@ if __name__ == '__main__':
         for j in range(8):
 
             ground_truth_list = list(np.uint8(255*image_data[j]))
-            # ground_truth_list = ground_truth_list[:10]
+            ground_truth_list = ground_truth_list[:20]
             npy_to_gif(ground_truth_list, 'groundtruth{0}.gif'.format(j))
 
 

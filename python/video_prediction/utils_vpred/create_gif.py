@@ -35,10 +35,15 @@ if __name__ == '__main__':
 
     import cPickle
 
+    print 'reading files from:', file_path
+
     ground_truth = cPickle.load(open(file_path + '/ground_truth.pkl', "rb"))
     gen_images = cPickle.load(open(file_path + '/gen_image_seq.pkl', "rb"))
 
-    for j in range(4):
+
+    collected_pairs = []
+    num_exp =8
+    for j in range(num_exp):
 
         ground_truth_list = list(np.uint8(255*ground_truth[j]))
 
@@ -51,7 +56,19 @@ if __name__ == '__main__':
         print gen_image_list[0].shape
         print ground_truth_list[0].shape
 
-        npy_to_gif(ground_truth_list, file_path + '/groundtruth{0}.gif'.format(j))
-        npy_to_gif(gen_image_list, file_path + '/gen_images{0}.gif'.format(j))
+        column_list = [np.concatenate((truth, gen), axis=0)
+                       for truth, gen in zip(ground_truth_list, gen_image_list)]
+
+        collected_pairs.append(column_list)
+
+    fused_gif = []
+    for i in range(len(collected_pairs[0])):
+        frame_list = [collected_pairs[j][i] for j in range(num_exp)]
+        fused_gif.append(np.concatenate( tuple(frame_list), axis= 1))
+
+    npy_to_gif(fused_gif, file_path + '/traj_no{0}.gif'.format(j))
+
+    # npy_to_gif(ground_truth_list, file_path + '/groundtruth{0}.gif'.format(j))
+    # npy_to_gif(gen_image_list, file_path + '/gen_images{0}.gif'.format(j))
 
 

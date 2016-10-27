@@ -48,7 +48,7 @@ flags.DEFINE_integer('num_iterations', 100000, 'number of training iterations.')
 flags.DEFINE_string('pretrained_model', '',
                     'filepath of a pretrained model to initialize from.')
 
-flags.DEFINE_integer('sequence_length', 10,
+flags.DEFINE_integer('sequence_length', 15,
                      'sequence length, including context frames.')
 flags.DEFINE_integer('context_frames', 2, '# of frames before predictions.')
 flags.DEFINE_integer('use_state', 1,
@@ -70,7 +70,7 @@ flags.DEFINE_integer('batch_size', 32, 'batch size for training')
 flags.DEFINE_float('learning_rate', 0.001,
                    'the base learning rate of the generator')
 
-flags.DEFINE_integer('visualize', True, 'when visualizing, loading predtrained model, no iterations performed.')
+flags.DEFINE_bool('visualize', False, 'when visualizing, loading predtrained model, no iterations performed.')
 
 ## Helper functions
 def peak_signal_to_noise_ratio(true, pred):
@@ -214,14 +214,15 @@ def main(unused_argv):
     tf.logging.info('iteration number, cost')
 
     if FLAGS.visualize:
-        splitted = str.split(os.path.dirname(__file__), '/')
-        file_path = '/'.join(splitted[:-2] + ['tensorflow_data/model8002'])
+        # splitted = str.split(os.path.dirname(__file__), '/')
+        # file_path = '/'.join(splitted[:-2] + ['tensorflow_data/model8002'])
+        file_path = '/tmp/data/model20002'
         saver.restore(sess, file_path)
 
         feed_dict = {val_model.lr: 0.0,
                      val_model.prefix: 'vis',
-                     val_model.iter_num: 0}
-        gen_images, ground_truth = sess.run([val_model.gen_images, images], feed_dict)
+                     val_model.iter_num: 0 }
+        gen_images, ground_truth = sess.run([val_model.gen_images, val_images], feed_dict)
 
 
         splitted = str.split(os.path.dirname(__file__), '/')
@@ -255,6 +256,7 @@ def main(unused_argv):
                                           feed_dict)
             summary_writer.add_summary(val_summary_str, itr)
 
+
         if (itr) % SAVE_INTERVAL == 2:
             tf.logging.info('Saving model.')
             saver.save(sess, FLAGS.output_dir + '/model' + str(itr))
@@ -268,7 +270,6 @@ def main(unused_argv):
     tf.logging.flush()
 
 
-
-
 if __name__ == '__main__':
+    tf.logging.set_verbosity(tf.logging.INFO)
     app.run()
