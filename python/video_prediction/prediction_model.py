@@ -70,7 +70,7 @@ def construct_model(images,
   lstm_func = basic_conv_lstm_cell
 
   # Generated robot states and images.
-  gen_states, gen_images = [], []
+  gen_states, gen_images, gen_masks = [], [], []
   current_state = states[0]
 
   if k == -1:
@@ -212,6 +212,7 @@ def construct_model(images,
       for layer, mask in zip(transformed, mask_list[1:]):
         output += layer * mask
       gen_images.append(output)
+      gen_masks.append(mask_list)
 
       current_state = slim.layers.fully_connected(
           state_action,
@@ -220,7 +221,7 @@ def construct_model(images,
           activation_fn=None)
       gen_states.append(current_state)
 
-  return gen_images, gen_states
+  return gen_images, gen_states, gen_masks
 
 
 ## Utility functions

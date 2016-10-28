@@ -37,7 +37,7 @@ SAVE_INTERVAL = 2000
 DATA_DIR = '/home/frederik/Documents/pushing_data/tfrecords'
 
 # local output directory
-OUT_DIR = '/tmp/data'
+OUT_DIR = '/home/frederik/Documents/lsdc/tensorflow_data'
 
 FLAGS = flags.FLAGS
 
@@ -121,7 +121,7 @@ class Model(object):
         images = [tf.squeeze(img) for img in images]
 
         if reuse_scope is None:
-            gen_images, gen_states = construct_model(
+            gen_images, gen_states, gen_masks = construct_model(
                 images,
                 actions,
                 states,
@@ -135,7 +135,7 @@ class Model(object):
                 context_frames=FLAGS.context_frames)
         else:  # If it's a validation or test model.
             with tf.variable_scope(reuse_scope, reuse=True):
-                gen_images, gen_states = construct_model(
+                gen_images, gen_states, gen_masks = construct_model(
                     images,
                     actions,
                     states,
@@ -181,6 +181,7 @@ class Model(object):
         self.summ_op = tf.merge_summary(summaries)
 
         self.gen_images= gen_images
+        self.gen_masks = gen_masks
 
 
 def main(unused_argv):
@@ -214,15 +215,10 @@ def main(unused_argv):
     tf.logging.info('iteration number, cost')
 
     if FLAGS.visualize:
-        # splitted = str.split(os.path.dirname(__file__), '/')
-        # file_path = '/'.join(splitted[:-2] + ['tensorflow_data/model8002'])
-        file_path = '/tmp/data/model20002'
-        saver.restore(sess, file_path)
-
         feed_dict = {val_model.lr: 0.0,
                      val_model.prefix: 'vis',
                      val_model.iter_num: 0 }
-        gen_images, ground_truth = sess.run([val_model.gen_images, val_images], feed_dict)
+        gen_images, ground_truth, mask_list = sess.run([val_model.gen_images, val_images, val_model.gen_masks], feed_dict)
 
 
         splitted = str.split(os.path.dirname(__file__), '/')
@@ -231,6 +227,7 @@ def main(unused_argv):
         import cPickle
         cPickle.dump(gen_images, open(file_path + '/gen_image_seq.pkl','wb'))
         cPickle.dump(ground_truth, open(file_path + '/ground_truth.pkl', 'wb'))
+        cPickle.dump(mask_list, open(file_path + '/mask_list.pkl', 'wb'))
         print 'written files to:' + file_path
 
         return
