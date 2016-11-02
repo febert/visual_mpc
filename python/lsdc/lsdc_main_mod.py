@@ -196,10 +196,6 @@ class LSDCMain(object):
             sample_index: sample number
         """
 
-        # from PIL import Image
-        # img = Image.fromarray(sample_images[0], 'RGB')
-        # img.show()
-
         type_of_file = ['tfrecord']
 
         for type in type_of_file:

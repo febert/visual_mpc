@@ -22,7 +22,10 @@ from tensorflow.python.platform import app
 from tensorflow.python.platform import flags
 
 from read_tf_record import build_tfrecord_input
-from prediction_model import construct_model
+
+from utils_vpred.skip_example import skip_example
+
+from datetime import datetime
 
 # How often to record tensorboard summaries.
 SUMMARY_INTERVAL = 40
@@ -34,7 +37,7 @@ VAL_INTERVAL = 200
 SAVE_INTERVAL = 2000
 
 # tf record data location:
-DATA_DIR = '/home/frederik/Documents/pushing_data/tfrecords'
+DATA_DIR = '/home/frederik/Documents/pushing_data/train'
 
 # local output directory
 OUT_DIR = '/home/frederik/Documents/lsdc/tensorflow_data'
@@ -50,6 +53,10 @@ flags.DEFINE_string('pretrained_model', '',
 
 flags.DEFINE_integer('sequence_length', 15,
                      'sequence length, including context frames.')
+
+flags.DEFINE_integer('skip_frame', 1,
+                     'use ever ith frame to increase prediction horizon')
+
 flags.DEFINE_integer('context_frames', 2, '# of frames before predictions.')
 flags.DEFINE_integer('use_state', 1,
                      'Whether or not to give the state+action to the model')
@@ -70,7 +77,12 @@ flags.DEFINE_integer('batch_size', 32, 'batch size for training')
 flags.DEFINE_float('learning_rate', 0.001,
                    'the base learning rate of the generator')
 
-flags.DEFINE_bool('visualize', False, 'when visualizing, loading predtrained model, no iterations performed.')
+flags.DEFINE_string('visualize', '',
+                  'load model from which to generate visualizations, dont forget to set schedsamp_k to -1')
+
+flags.DEFINE_bool('downsize', 'False',
+                  'load downsized model')
+
 
 ## Helper functions
 def peak_signal_to_noise_ratio(true, pred):
@@ -105,6 +117,11 @@ class Model(object):
                  sequence_length=None,
                  reuse_scope=None):
 
+        if FLAGS.downsize:
+            from prediction_model_downsized import construct_model
+        else:
+            from prediction_model import construct_model
+
         if sequence_length is None:
             sequence_length = FLAGS.sequence_length
 
@@ -119,6 +136,8 @@ class Model(object):
         states = [tf.squeeze(st) for st in states]
         images = tf.split(1, images.get_shape()[1], images)
         images = [tf.squeeze(img) for img in images]
+
+        print 'scheduled sampling: k=', FLAGS.schedsamp_k
 
         if reuse_scope is None:
             gen_images, gen_states, gen_masks = construct_model(
@@ -185,13 +204,20 @@ class Model(object):
 
 
 def main(unused_argv):
+    if FLAGS.visualize:
+        FLAGS.schedsamp_k = -1
+
     print 'Constructing models and inputs.'
     with tf.variable_scope('model', reuse=None) as training_scope:
         images, actions, states = build_tfrecord_input(training=True)
+        # if FLAGS.skip_frame:
+        #     images, actions, states = skip_example(images, actions, states)
         model = Model(images, actions, states, FLAGS.sequence_length)
 
     with tf.variable_scope('val_model', reuse=None):
         val_images, val_actions, val_states = build_tfrecord_input(training=False)
+        # if FLAGS.skip_frame:
+        #     val_images, val_actions, val_states = skip_example(val_images, val_actions, val_states)
         val_model = Model(val_images, val_actions, val_states,
                           FLAGS.sequence_length, training_scope)
 
@@ -200,27 +226,23 @@ def main(unused_argv):
     saver = tf.train.Saver(
         tf.get_collection(tf.GraphKeys.VARIABLES), max_to_keep=0)
 
+    gpu_options = tf.GPUOptions(per_process_gpu_memory_fraction=0.4)
+
     # Make training session.
-    sess = tf.InteractiveSession()
+    sess = tf.InteractiveSession(config= tf.ConfigProto(gpu_options=gpu_options))
     summary_writer = tf.train.SummaryWriter(
         FLAGS.event_log_dir, graph=sess.graph, flush_secs=10)
-
 
     tf.train.start_queue_runners(sess)
     sess.run(tf.initialize_all_variables())
 
-    if FLAGS.pretrained_model:        # is the order of initialize_all_variables() and restore() important?!?
-        saver.restore(sess, FLAGS.pretrained_model)
-
-    tf.logging.info('iteration number, cost')
-
     if FLAGS.visualize:
+        saver.restore(sess, FLAGS.visualize)
+
         feed_dict = {val_model.lr: 0.0,
                      val_model.prefix: 'vis',
                      val_model.iter_num: 0 }
         gen_images, ground_truth, mask_list = sess.run([val_model.gen_images, val_images, val_model.gen_masks], feed_dict)
-
-
         splitted = str.split(os.path.dirname(__file__), '/')
         file_path = '/'.join(splitted[:-2] + ['tensorflow_data/gifs'])
 
@@ -232,8 +254,22 @@ def main(unused_argv):
 
         return
 
+    itr_0 =0
+    if FLAGS.pretrained_model:        # is the order of initialize_all_variables() and restore() important?!?
+        saver.restore(sess, FLAGS.pretrained_model)
+        # resume training at iteration step of the loaded model:
+        import re
+        itr_0 = re.match('.*?([0-9]+)$', FLAGS.pretrained_model).group(1)
+        itr_0 = int(itr_0)
+        print 'resuming training at iteration:  ', itr_0
+
+    tf.logging.info('iteration number, cost')
+
+    starttime = datetime.now()
+
     # Run training.
-    for itr in range(FLAGS.num_iterations):
+    for itr in range(itr_0,FLAGS.num_iterations,1):
+        t_startiter = datetime.now()
         # Generate new batch of data.
         feed_dict = {model.prefix: 'train',
                      model.iter_num: np.float32(itr),
@@ -242,7 +278,8 @@ def main(unused_argv):
                                         feed_dict)
 
         # Print info: iteration #, cost.
-        tf.logging.info(str(itr) + ' ' + str(cost))
+        if (itr) % 10 ==0:
+            tf.logging.info(str(itr) + ' ' + str(cost))
 
         if (itr) % VAL_INTERVAL == 2:
             # Run through validation set.
@@ -255,8 +292,18 @@ def main(unused_argv):
 
 
         if (itr) % SAVE_INTERVAL == 2:
-            tf.logging.info('Saving model.')
+            tf.logging.info('Saving model to' + FLAGS.output_dir)
             saver.save(sess, FLAGS.output_dir + '/model' + str(itr))
+
+        if itr % 100 == 2:
+            hours = (datetime.now() -starttime).seconds/3600
+            tf.logging.info('running for {0}d, {1}h, {2}min'.format(
+                (datetime.now() - starttime).days,
+                hours,
+                (datetime.now() - starttime).seconds/60 - hours*60))
+            t_iter = (datetime.now()- t_startiter).seconds*1e6 + (datetime.now()- t_startiter).microseconds
+            tf.logging.info('time per iteration: {0}'.format(t_iter/1e6))
+            tf.logging.info('expected time until completion: {0}h '.format(t_iter* FLAGS.num_iterations/1e6/3600))
 
         if (itr) % SUMMARY_INTERVAL:
             summary_writer.add_summary(summary_str, itr)

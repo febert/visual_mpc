@@ -23,11 +23,6 @@ def comp_video(file_path):
         for i in range(len(gen_images)):
             gen_image_list.append(np.uint8(255*gen_images[i][j]))
 
-        # print len(gen_image_list)
-        # print len(ground_truth_list)
-        # print gen_image_list[0].shape
-        # print ground_truth_list[0].shape
-
         column_list = [np.concatenate((truth, gen), axis=0)
                        for truth, gen in zip(ground_truth_list, gen_image_list)]
 
@@ -72,7 +67,7 @@ if __name__ == '__main__':
 
 
     pred= comp_video(file_path)
-    # npy_to_gif(fused_gif, file_path + '/16002_iter.gif')
+    npy_to_gif(pred, file_path + '/skip4_iter10000.gif')
 
-    masks = comp_masks(file_path, pred)
-    npy_to_gif(masks, file_path + '/masks_20002_iter.gif')
+    # masks = comp_masks(file_path, pred)
+    # npy_to_gif(masks, file_path + '/mask_18000_iter.gif')
