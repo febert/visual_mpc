@@ -80,7 +80,7 @@ class LSDCMain(object):
         itr_start = self._initialize(itr_load)
 
         for cond in self._train_idx:
-            for i in range(self._hyperparams['num_samples']):
+            for i in range(self._hyperparams['start_index'],self._hyperparams['num_samples']):
                 self._take_sample(cond, i)
 
             traj_sample_lists = [
@@ -196,9 +196,7 @@ class LSDCMain(object):
             sample_index: sample number
         """
 
-        # from PIL import Image
-        # img = Image.fromarray(sample_images[0], 'RGB')
-        # img.show()
+        print 'saving traj no:', sample_index
 
         type_of_file = ['tfrecord']
 
@@ -206,8 +204,6 @@ class LSDCMain(object):
             if type== 'tfrecord':
                 # get the relevant state information:
                 dir_ = self._data_files_dir + 'tfrecords'
-                if not os.path.exists(dir_):
-                    os.makedirs(dir_)
 
                 X_Xdot = np.concatenate((X_full, Xdot_full), axis=1)
 
