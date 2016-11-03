@@ -42,6 +42,7 @@ common = {
     # 'data_files_dir': EXP_DIR + 'data_files/',
     # 'data_files_dir': '/media/frederik/FrederikUSB/pushing_data/',
     'data_files_dir': '/tmp/',
+
     'target_filename': EXP_DIR + 'target.npz',
     'log_filename': EXP_DIR + 'log.txt',
     'conditions': 1,
@@ -77,7 +78,8 @@ agent = {
 
 config = {
     'save_data': True,
-    'num_samples': 30000,
+    'start_index':29952,
+    'num_samples': 100000,
     'verbose_policy_trials': 0,
     'common': common,
     'agent': agent,
