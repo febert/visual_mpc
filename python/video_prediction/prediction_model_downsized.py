@@ -240,7 +240,8 @@ def stp_transformation(prev_image, stp_input, num_masks):
     List of images transformed by the predicted STP parameters.
   """
   # Only import spatial transformer if needed.
-  from spatial_transformer import transformer
+  from transformer.spatial_transformer import transformer
+
 
   identity_params = tf.convert_to_tensor(
       np.array([1.0, 0.0, 0.0, 0.0, 1.0, 0.0], np.float32))
@@ -249,7 +250,8 @@ def stp_transformation(prev_image, stp_input, num_masks):
     params = slim.layers.fully_connected(
         stp_input, 6, scope='stp_params' + str(i),
         activation_fn=None) + identity_params
-    transformed.append(transformer(prev_image, params))
+    outsize = (prev_image.get_shape()[1],prev_image.get_shape()[2])
+    transformed.append(transformer(prev_image, params, outsize))
 
   return transformed
 

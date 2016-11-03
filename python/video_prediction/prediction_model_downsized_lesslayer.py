@@ -40,6 +40,7 @@ def construct_model(images,
                     cdna=True,
                     dna=False,
                     context_frames=2):
+
   """Build convolutional lstm video predictor using STP, CDNA, or DNA.
 
   Args:
@@ -64,6 +65,8 @@ def construct_model(images,
     ValueError: if more than one network option specified or more than 1 mask
     specified for DNA model.
   """
+  print 'constructing network with less layers...'
+
   if stp + cdna + dna != 1:
     raise ValueError('More than one, or no network option specified.')
   batch_size, img_height, img_width, color_channels = images[0].get_shape()[0:4]
@@ -83,7 +86,8 @@ def construct_model(images,
     feedself = False
 
   # LSTM state sizes and states.
-  lstm_size = np.int32(np.array([32, 32, 64, 64, 128, 64, 32]))
+  # lstm_size = np.int32(np.array([32, 32, 64, 64, 128, 64, 32]))
+  lstm_size = np.int32(np.array([16, 16, 32, 32, 64, 32, 16]))
   lstm_state1, lstm_state2, lstm_state3, lstm_state4 = None, None, None, None
   lstm_state5, lstm_state6, lstm_state7 = None, None, None
 
@@ -122,20 +126,20 @@ def construct_model(images,
       hidden1, lstm_state1 = lstm_func(
           enc0, lstm_state1, lstm_size[0], scope='state1')
       hidden1 = tf_layers.layer_norm(hidden1, scope='layer_norm2')
-      hidden2, lstm_state2 = lstm_func(
-          hidden1, lstm_state2, lstm_size[1], scope='state2')
-      hidden2 = tf_layers.layer_norm(hidden2, scope='layer_norm3')
+      # hidden2, lstm_state2 = lstm_func(
+      #     hidden1, lstm_state2, lstm_size[1], scope='state2')
+      # hidden2 = tf_layers.layer_norm(hidden2, scope='layer_norm3')
       enc1 = slim.layers.conv2d(
-          hidden2, hidden2.get_shape()[3], [3, 3], stride=2, scope='conv2')
+          hidden1, hidden1.get_shape()[3], [3, 3], stride=2, scope='conv2')
 
       hidden3, lstm_state3 = lstm_func(
           enc1, lstm_state3, lstm_size[2], scope='state3')
       hidden3 = tf_layers.layer_norm(hidden3, scope='layer_norm4')
-      hidden4, lstm_state4 = lstm_func(
-          hidden3, lstm_state4, lstm_size[3], scope='state4')
-      hidden4 = tf_layers.layer_norm(hidden4, scope='layer_norm5')
+      # hidden4, lstm_state4 = lstm_func(
+      #     hidden3, lstm_state4, lstm_size[3], scope='state4')
+      # hidden4 = tf_layers.layer_norm(hidden4, scope='layer_norm5')
       enc2 = slim.layers.conv2d(
-          hidden4, hidden4.get_shape()[3], [3, 3], stride=2, scope='conv3')
+          hidden3, hidden3.get_shape()[3], [3, 3], stride=2, scope='conv3')
 
       # Pass in state and action.
       smear = tf.reshape(
@@ -146,7 +150,7 @@ def construct_model(images,
       if use_state:
         enc2 = tf.concat(3, [enc2, smear])
       enc3 = slim.layers.conv2d(
-          enc2, hidden4.get_shape()[3], [1, 1], stride=1, scope='conv4')
+          enc2, hidden3.get_shape()[3], [1, 1], stride=1, scope='conv4')
 
       hidden5, lstm_state5 = lstm_func(
           enc3, lstm_state5, lstm_size[4], scope='state5')  # last 8x8
@@ -237,6 +241,7 @@ def stp_transformation(prev_image, stp_input, num_masks):
   """
   # Only import spatial transformer if needed.
   from transformer.spatial_transformer import transformer
+
 
   identity_params = tf.convert_to_tensor(
       np.array([1.0, 0.0, 0.0, 0.0, 1.0, 0.0], np.float32))

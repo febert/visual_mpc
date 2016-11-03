@@ -40,7 +40,8 @@ common = {
             datetime.strftime(datetime.now(), '%m-%d-%y_%H-%M'),
     'experiment_dir': EXP_DIR,
     # 'data_files_dir': EXP_DIR + 'data_files/',
-    'data_files_dir': '/media/frederik/FrederikUSB/pushing_data/',
+    # 'data_files_dir': '/media/frederik/FrederikUSB/pushing_data/',
+    'data_files_dir': '/tmp/',
     'target_filename': EXP_DIR + 'target.npz',
     'log_filename': EXP_DIR + 'log.txt',
     'conditions': 1,
@@ -49,8 +50,6 @@ common = {
 
 if not os.path.exists(common['data_files_dir']):
     os.makedirs(common['data_files_dir'])
-
-
 
 
 agent = {

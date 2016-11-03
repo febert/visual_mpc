@@ -23,6 +23,7 @@ from lsdc.sample.sample_list import SampleList
 from lsdc.algorithm.policy.random_policy import Randompolicy
 from lsdc.algorithm.policy.random_impedance_point import Random_impedance_point
 from lsdc.utility.save_tf_record import save_tf_record
+from datetime import datetime
 
 import numpy as np
 
@@ -168,13 +169,10 @@ class LSDCMain(object):
         """
 
         pol = Random_impedance_point()
-
-        from datetime import datetime
         start = datetime.now()
 
         X_full, Xdot_full, U, sample_images = self.agent.sample(
             pol, cond )
-
 
         if self._hyperparams['save_data']:
 
