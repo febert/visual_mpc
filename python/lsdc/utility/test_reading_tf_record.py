@@ -34,7 +34,6 @@ STATE_DIM = 4
 ACION_DIM = 2
 
 DATA_DIR = '/home/frederik/Documents/pushing_data/tfrecords'
-# DATA_DIR = '/media/frederik/FrederikUSB/pushing_data/tfrecords'
 
 flags.DEFINE_string('data_dir', DATA_DIR, 'directory containing data.')
 
@@ -83,11 +82,6 @@ def build_tfrecord_input(training=True):
             features = {image_name: tf.FixedLenFeature([1], tf.string)}
         features = tf.parse_single_example(serialized_example, features=features)
 
-
-        # image = tf.image.decode_jpeg(image_buffer, channels=COLOR_CHAN)
-
-        # print features[image_name].getshape()
-        # features[image_name].getshape()
         image = tf.decode_raw(features[image_name], tf.uint8)
         image = tf.reshape(image, shape=[1,ORIGINAL_HEIGHT*ORIGINAL_WIDTH*COLOR_CHAN])
         image = tf.reshape(image, shape=[1,ORIGINAL_HEIGHT, ORIGINAL_WIDTH, COLOR_CHAN])
@@ -162,7 +156,7 @@ if __name__ == '__main__':
         for j in range(8):
 
             ground_truth_list = list(np.uint8(255*image_data[j]))
-            ground_truth_list = ground_truth_list[:20]
+            ground_truth_list = ground_truth_list[::2]
             npy_to_gif(ground_truth_list, 'groundtruth{0}.gif'.format(j))
 
 

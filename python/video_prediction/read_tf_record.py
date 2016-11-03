@@ -23,7 +23,7 @@ STATE_DIM = 4
 ACION_DIM = 2
 
 
-def build_tfrecord_input(training=True):
+def build_tfrecord_input(training=True, shuffle_files = True):
     """Create input tfrecord tensors.
 
     Args:
@@ -38,13 +38,15 @@ def build_tfrecord_input(training=True):
     filenames = gfile.Glob(os.path.join(FLAGS.data_dir, '*'))
     if not filenames:
         raise RuntimeError('No data files found.')
+
+    # filenames = filenames[:int(10000/256.)]
+    # print 'only using {0} files of data !!'.format(len(filenames))
+
     index = int(np.floor(FLAGS.train_val_split * len(filenames)))
     if training:
         filenames = filenames[:index]
     else:
         filenames = filenames[index:]
-
-    # import pdb; pdb.set_trace()
 
     filename_queue = tf.train.string_input_producer(filenames, shuffle=True)
     reader = tf.TFRecordReader()
@@ -52,7 +54,11 @@ def build_tfrecord_input(training=True):
 
     image_seq, state_seq, action_seq = [], [], []
 
-    for i in range(FLAGS.sequence_length):
+    load_indx = range(0,29, FLAGS.skip_frame)
+    load_indx = load_indx[:FLAGS.sequence_length]
+    print 'using frame sequence: ', load_indx
+
+    for i in load_indx:
         image_name = 'move/' + str(i) + '/image/encoded'
         action_name = 'move/' + str(i) + '/action'
         state_name = 'move/' + str(i) + '/state'
