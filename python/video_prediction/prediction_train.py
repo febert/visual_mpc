@@ -102,8 +102,6 @@ class Model(object):
         images = tf.split(1, images.get_shape()[1], images)
         images = [tf.squeeze(img) for img in images]
 
-        print 'scheduled sampling: k=', conf['schedsamp_k']
-
         if reuse_scope is None:
             gen_images, gen_states, gen_masks = construct_model(
                 images,
@@ -207,7 +205,7 @@ def main(unused_argv):
     # Make training session.
     sess = tf.InteractiveSession(config= tf.ConfigProto(gpu_options=gpu_options))
     summary_writer = tf.train.SummaryWriter(
-        conf['event_log_dir'], graph=sess.graph, flush_secs=10)
+        conf['output_dir'], graph=sess.graph, flush_secs=10)
 
     tf.train.start_queue_runners(sess)
     sess.run(tf.initialize_all_variables())
@@ -227,8 +225,8 @@ def main(unused_argv):
         cPickle.dump(mask_list, open(file_path + '/mask_list.pkl', 'wb'))
         print 'written files to:' + file_path
 
-        trajectories = utils_vpred.create_gif.comp_video(conf['output_dir'], conf)
-        utils_vpred.create_gif.comp_masks(conf['output_dir'], conf, trajectories)
+        trajectories = utils_vpred.create_gif.comp_video(conf['current_dir'], conf)
+        utils_vpred.create_gif.comp_masks(conf['current_dir'], conf, trajectories)
         return
 
     itr_0 =0

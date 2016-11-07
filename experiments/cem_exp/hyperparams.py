@@ -8,7 +8,6 @@ import numpy as np
 
 from lsdc import __file__ as gps_filepath
 from lsdc.agent.mjc.agent_mjc import AgentMuJoCo
-from lsdc.algorithm.policy.random_impedance_point import Random_impedance_point
 
 from lsdc.gui.config import generate_experiment_info
 
@@ -20,11 +19,11 @@ IMAGE_WIDTH = 64
 IMAGE_HEIGHT = 64
 IMAGE_CHANNELS = 3
 
-num_objects = 4
+num_objects = 1
 
 SENSOR_DIMS = {
-    JOINT_ANGLES: 2+ 7*num_objects,  #adding 7 dof for position and orientation for every free object
-    JOINT_VELOCITIES: 2+ 6*num_objects,  #adding 6 dof for speed and angular vel for every free object; 2 + 6 = 8
+    JOINT_ANGLES: 2+ 7*num_objects +2,  #adding 7 dof for position and orientation for every free object + 2 for goal_geom
+    JOINT_VELOCITIES: 2+ 6*num_objects +2,  #adding 6 dof for speed and angular vel for every free object; 2 + 6 = 8
     END_EFFECTOR_POINTS: 3,
     END_EFFECTOR_POINT_VELOCITIES: 3,
     ACTION: 2,
@@ -53,11 +52,13 @@ common = {
 if not os.path.exists(common['data_files_dir']):
     os.makedirs(common['data_files_dir'])
 
-
+alpha = 30*np.pi/180
 agent = {
     'type': AgentMuJoCo,
-    'filename': './mjc_models/pushing2d.xml',
-    'x0': np.array([0., 0., 0., 0.]),
+    'filename': './mjc_models/pushing2d_controller.xml',
+    'x0': np.array([0., 0., 0., 0.,
+                    .1, .1, 0., np.cos(alpha/2), 0, 0, np.sin(alpha/2)  #object pose
+                     ]),
     'dt': 0.05,
     'substeps': 10,  #6
     'conditions': common['conditions'],
@@ -72,11 +73,13 @@ agent = {
     'image_height' : IMAGE_HEIGHT,
     'image_width' : IMAGE_WIDTH,
     'image_channels' : IMAGE_CHANNELS,
-    'num_objects': num_objects
+    'num_objects': num_objects,
+    'goal_point': np.array([.2, .2]),
 }
 
+from lsdc.algorithm.policy.cem_controller import Cem_controller
 policy = {
-    'type' : Random_impedance_point
+    'type' : Cem_controller
 }
 
 

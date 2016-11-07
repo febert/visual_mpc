@@ -37,6 +37,13 @@ class LSDCMain(object):
             config: Hyperparameters for experiment
             quit_on_end: When true, quit automatically on completion
         """
+        # import inspect
+        # policy_mod = imp.load_source('policy', config['policy']['type'])
+        # policy_cls = inspect.getmembers(policy_mod)[0][1]
+        # self.pol = policy_mod.policy_cls()
+        #
+        # policy = imp.load_source('policy', config['policy']['type'])
+        # self.pol = policy()
 
         self._quit_on_end = quit_on_end
         self._hyperparams = config
@@ -54,14 +61,11 @@ class LSDCMain(object):
 
         self.agent = config['agent']['type'](config['agent'])
 
+        self.policy = config['policy']['type'](config['agent'], config['policy'])
 
 
         self.gui = GPSTrainingGUI(config['common']) if config['gui_on'] else None
 
-        # config['algorithm']['agent'] = self.agent
-        # self.algorithm = config['algorithm']['type'](config['algorithm'])
-
-        #deleting existing image file:
 
         self._trajectory_list = []
 
@@ -168,11 +172,10 @@ class LSDCMain(object):
         Returns: None
         """
 
-        pol = Random_impedance_point()
         start = datetime.now()
 
         X_full, Xdot_full, U, sample_images = self.agent.sample(
-            pol, cond )
+            self.policy, cond )
 
         if self._hyperparams['save_data']:
 

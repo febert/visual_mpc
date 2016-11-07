@@ -14,7 +14,7 @@ class Random_impedance_point(Policy):
         self.x_g = np.array([0,0])
 
 
-    def act(self, x, xdot, t):
+    def act(self, new_sample, t):
         """
         Return a random action for a state.
         Args:
@@ -23,6 +23,12 @@ class Random_impedance_point(Policy):
             t: Time step.
             x_data_idx: data indexes for x
         """
+
+        X_t = new_sample.get_X(t=t)
+        obs_t = new_sample.get_obs(t=t)
+
+        x = X_t[self._x_data_idx[1][0]:self._x_data_idx[1][0] + 2]
+        xdot = X_t[self._x_data_idx[2][0]:self._x_data_idx[2][0] + 2]
 
         new_point_freq = 13
 

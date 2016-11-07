@@ -98,6 +98,7 @@ class AgentMuJoCo(Agent):
         self._small_viewer = mujoco_py.MjViewer(visible=True, init_width=self._hyperparams['image_width'],
                                                 init_height=self._hyperparams['image_height'], go_fast=False)
         self._small_viewer.start()
+        self._small_viewer.cam.camid = 0
 
         if self._hyperparams['additional_viewer']:
             self._large_viewer = mujoco_py.MjViewer(visible=True, init_width=640,
@@ -146,36 +147,27 @@ class AgentMuJoCo(Agent):
 
         if self._hyperparams['additional_viewer']:
             self._large_viewer.set_model(self._model[condition])
-
-        # self._viewer_main.cam.distance = 2.0 #TODO mayeb don't hard code this
-        self._small_viewer.cam.lookat[0] = cam_pos[0]
-        self._small_viewer.cam.lookat[1] = cam_pos[1]
-        self._small_viewer.cam.lookat[2] = cam_pos[2]
-        self._small_viewer.cam.distance = cam_pos[3]
-        self._small_viewer.cam.elevation = cam_pos[4]
-        self._small_viewer.cam.azimuth = cam_pos[5]
-
-        if self._hyperparams['additional_viewer']:
             self._large_viewer.cam = copy.deepcopy(self._small_viewer.cam)
 
         # Take the sample.
         for t in range(self.T):
-            #
+
             X_t = new_sample.get_X(t=t)
             obs_t = new_sample.get_obs(t=t)
 
-            x = X_t[self._x_data_idx[1][0]:self._x_data_idx[1][0]+2]
-            xdot = X_t[self._x_data_idx[2][0]:self._x_data_idx[2][0]+2]
-            mj_U = policy.act(x, xdot, t)
-            U[t, :] = mj_U
+            x = X_t[self._x_data_idx[JOINT_ANGLES][0]:self._x_data_idx[JOINT_ANGLES][0] + 2]
+            xdot = X_t[self._x_data_idx[JOINT_VELOCITIES][0]:self._x_data_idx[JOINT_VELOCITIES][0] + 2]
+
             X_full[t,:] = x
             Xdot_full[t,:] = xdot
 
-
-            self._small_viewer.loop_once()
-            self._store_image(t)
             if self._hyperparams['additional_viewer']:
                 self._large_viewer.loop_once()
+            self._small_viewer.loop_once()
+            self._store_image(t)
+
+            mj_U = policy.act(x, xdot, self._sample_images, t, init_model=self._model[condition])
+            U[t, :] = mj_U
 
             if (t + 1) < self.T:
                 for _ in range(self._hyperparams['substeps']):
@@ -185,7 +177,6 @@ class AgentMuJoCo(Agent):
                 mj_X = np.concatenate([self._model[condition].data.qpos, self._model[condition].data.qvel]).flatten()
                 self._data = self._model[condition].data
                 self._set_sample(new_sample, mj_X, t, condition)
-
 
         new_sample.set(ACTION, U)
         if save:
@@ -197,16 +188,8 @@ class AgentMuJoCo(Agent):
         """
         store image at time index t
         """
-        img_string, width, height = self._small_viewer.get_image()#CHANGES
+        img_string, width, height = self._small_viewer.get_image()
         img = np.fromstring(img_string, dtype='uint8').reshape((height, width, self._hyperparams['image_channels']))[::-1,:,:]
-
-        # #downsampling the image
-        # img = Image.fromarray(img, 'RGB')
-        # img.thumbnail((80,60), Image.ANTIALIAS)
-        # if t%30 ==0 :
-        #     img.show()
-        #     # import pdb; pdb.set_trace()
-        # img = np.array(img)
 
         self._sample_images[t,:,:,:] = img
 
@@ -228,11 +211,16 @@ class AgentMuJoCo(Agent):
                 poses.append(np.concatenate((pos, np.array([0]), ori), axis= 0))
             return np.concatenate(poses)
 
+        if self._hyperparams['x0'][condition].shape[0] > 4: # if object pose explicit do not sample poses
+            object_pos = self._hyperparams['x0'][condition][4:]
+        else:
+            object_pos= create_pos()
+
         # Initialize world/run kinematics
         x0 = self._hyperparams['x0'][condition]
-        self._model[condition].data.qpos = np.concatenate((x0[:2], create_pos()), 0)
+        goal = self._hyperparams['goal_point']
+        self._model[condition].data.qpos = np.concatenate((x0[:2], object_pos,goal), 0)
         self._model[condition].data.qvel = np.zeros_like(self._model[condition].data.qvel)
-
 
         # self._model[condition].data.qpos[2:] = self._hyperparams['initial_object_pos']
         mjlib.mj_kinematics(self._model[condition].ptr, self._model[condition].data.ptr)
