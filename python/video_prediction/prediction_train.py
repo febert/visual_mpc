@@ -166,15 +166,38 @@ class Model(object):
         self.gen_masks = gen_masks
 
 
-def main(unused_argv):
+def setup_predictor(model, conf):
+    gpu_options = tf.GPUOptions(per_process_gpu_memory_fraction=0.4)
+    sess = tf.InteractiveSession(config= tf.ConfigProto(gpu_options=gpu_options))
+
+    tf.train.start_queue_runners(sess)
+    sess.run(tf.initialize_all_variables())
+
+    itr = 0
+
+    def predictor(input_frames):
+
+        feed_dict = {model.prefix: 'train',
+                     model.iter_num: np.float32(itr),
+                     model.lr: conf['learning_rate']}
+        prediction = sess.run([model.gen_images,],
+                                        feed_dict)
+        return prediction
+
+    return predictor
+
+def main(unused_argv, conf_script= None):
     os.environ["CUDA_VISIBLE_DEVICES"] = str(FLAGS.device)
     print 'using CUDA_VISIBLE_DEVICES=', FLAGS.device
     from tensorflow.python.client import device_lib
     print device_lib.list_local_devices()
 
+    if conf_script == None: conf_file = FLAGS.hyper
+    else: conf_file = conf_script
+
     if not os.path.exists(FLAGS.hyper):
         sys.exit("Experiment configuration not found")
-    hyperparams = imp.load_source('hyperparams', FLAGS.hyper)
+    hyperparams = imp.load_source('hyperparams', conf_file)
     conf = hyperparams.configuration
     if FLAGS.visualize:
         print 'creating visualizations ...'
@@ -190,6 +213,9 @@ def main(unused_argv):
         images, actions, states = build_tfrecord_input(conf, training=True)
         model = Model(conf, images, actions, states, conf['sequence_length'])
 
+    if 'control' in conf.keys():
+        return setup_predictor(model, conf)
+
     with tf.variable_scope('val_model', reuse=None):
         val_images, val_actions, val_states = build_tfrecord_input(conf, training=False)
         val_model = Model(conf, val_images, val_actions, val_states,
@@ -201,7 +227,6 @@ def main(unused_argv):
         tf.get_collection(tf.GraphKeys.VARIABLES), max_to_keep=0)
 
     gpu_options = tf.GPUOptions(per_process_gpu_memory_fraction=0.4)
-
     # Make training session.
     sess = tf.InteractiveSession(config= tf.ConfigProto(gpu_options=gpu_options))
     summary_writer = tf.train.SummaryWriter(
@@ -291,6 +316,14 @@ def main(unused_argv):
     tf.logging.info('Training complete')
     tf.logging.flush()
 
+
+def setup_ctrl(conf):
+    """
+    to be called from CEM controller
+    :param conf: configuration file
+    """
+    args = None
+    return main(args, conf_script= conf)
 
 if __name__ == '__main__':
     tf.logging.set_verbosity(tf.logging.INFO)

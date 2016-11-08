@@ -9,6 +9,13 @@ import numpy as np
 from lsdc import __file__ as gps_filepath
 from lsdc.agent.mjc.agent_mjc import AgentMuJoCo
 
+# from conf import configuration as netconfig
+import imp
+
+
+
+
+
 from lsdc.gui.config import generate_experiment_info
 
 from lsdc.proto.gps_pb2 import JOINT_ANGLES, JOINT_VELOCITIES, \
@@ -32,8 +39,9 @@ SENSOR_DIMS = {
 }
 
 BASE_DIR = '/'.join(str.split(gps_filepath, '/')[:-2])
-EXP_DIR = BASE_DIR + '/../experiments/lsdc_exp/'
+EXP_DIR = BASE_DIR + '/../experiments/cem_exp/'
 
+netconfig = imp.load_source('netconf', EXP_DIR + 'conf.py')
 
 common = {
     'experiment_name': 'my_experiment' + '_' + \
@@ -62,7 +70,7 @@ agent = {
     'dt': 0.05,
     'substeps': 10,  #6
     'conditions': common['conditions'],
-    'T': 40,
+    'T': 100,
     'sensor_dims': SENSOR_DIMS,
     'state_include': [JOINT_ANGLES, JOINT_VELOCITIES, END_EFFECTOR_POINTS, END_EFFECTOR_POINT_VELOCITIES],
     'obs_include': [JOINT_ANGLES, JOINT_VELOCITIES, END_EFFECTOR_POINTS, END_EFFECTOR_POINT_VELOCITIES],
@@ -75,18 +83,20 @@ agent = {
     'image_channels' : IMAGE_CHANNELS,
     'num_objects': num_objects,
     'goal_point': np.array([.2, .2]),
+    # 'goal_point': np.array([.0, .0]),
 }
 
-from lsdc.algorithm.policy.cem_controller import Cem_controller
+from lsdc.algorithm.policy.cem_controller import CEM_controller
 policy = {
-    'type' : Cem_controller
+    'type' : CEM_controller,
+    'netconf': netconfig
 }
 
 
 config = {
     'save_data': False,
-    'start_index':29952,
-    'num_samples': 100000,
+    'start_index':0,
+    'num_samples': 1,
     'verbose_policy_trials': 0,
     'common': common,
     'agent': agent,
