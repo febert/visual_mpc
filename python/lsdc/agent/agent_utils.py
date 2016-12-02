@@ -15,7 +15,7 @@ def generate_noise(T, dU, hyperparams):
         smooth: Whether or not to perform smoothing of noise.
         var : If smooth=True, applies a Gaussian filter with this
             variance.
-        renorm : If smooth=True, renormalizes data to have variance 1
+        renorm : If smooth=True, renormalizes data_files to have variance 1
             after smoothing.
     """
     smooth, var = hyperparams['smooth_noise'], hyperparams['smooth_noise_var']

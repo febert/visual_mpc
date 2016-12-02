@@ -43,7 +43,7 @@ class MeanPlotter:
 
     def init(self, data_len):
         """
-        Initialize plots based off the length of the data array.
+        Initialize plots based off the length of the data_files array.
         """
         self._t = 0
         self._data_len = data_len
@@ -55,7 +55,7 @@ class MeanPlotter:
 
     def update(self, x, t=None):
         """
-        Update the plots with new data x. Assumes x is a one-dimensional array.
+        Update the plots with new data_files x. Assumes x is a one-dimensional array.
         """
         x = np.ravel([x])
 

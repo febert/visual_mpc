@@ -16,7 +16,7 @@ def _int64_feature(value):
 
 def save_tf_record(dir, filename, trajectory_list):
     """
-    saves data from one sample trajectory into one tf-record file
+    saves data_files from one sample trajectory into one tf-record file
     """
 
 
@@ -29,10 +29,6 @@ def save_tf_record(dir, filename, trajectory_list):
     for traj in range(len(trajectory_list)):
 
         [X_Xdot, U, sample_images] = trajectory_list[traj]
-        skipsteps = 10
-        X_Xdot = X_Xdot[skipsteps:]
-        U = U[skipsteps:]
-        sample_images = sample_images[skipsteps:]
         sequence_length = sample_images.shape[0]
 
         for index in range(sequence_length):

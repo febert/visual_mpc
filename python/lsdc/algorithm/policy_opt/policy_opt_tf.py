@@ -46,7 +46,7 @@ class PolicyOptTf(PolicyOpt):
         self.var = self._hyperparams['init_var'] * np.ones(dU)
         self.sess = tf.Session()
         self.policy = TfPolicy(dU, self.obs_tensor, self.act_op, np.zeros(dU), self.sess, self.device_string)
-        # List of indices for state (vector) data and image (tensor) data in observation.
+        # List of indices for state (vector) data_files and image (tensor) data_files in observation.
         self.x_idx, self.img_idx, i = [], [], 0
         if 'obs_image_data' not in self._hyperparams['network_params']:
             self._hyperparams['network_params'].update({'obs_image_data': []})

@@ -5,7 +5,7 @@ import caffe
 
 
 class PolicyDataLayer(caffe.Layer):
-    """ A layer for passing data into the network at training time. """
+    """ A layer for passing data_files into the network at training time. """
     def setup(self, bottom, top):
         info = json.loads(self.param_str)
         for ind, top_blob in enumerate(info['shape']):
@@ -15,8 +15,8 @@ class PolicyDataLayer(caffe.Layer):
         pass
 
     def forward(self, bottom, top):
-        # Nothing to do - data will already be set externally.
-        # TODO - Maybe later include way to pass data to this layer and
+        # Nothing to do - data_files will already be set externally.
+        # TODO - Maybe later include way to pass data_files to this layer and
         #        handle batching here.
         pass
 

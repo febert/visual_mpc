@@ -9,6 +9,7 @@ import numpy as np
 from lsdc import __file__ as gps_filepath
 from lsdc.agent.mjc.agent_mjc import AgentMuJoCo
 from lsdc.algorithm.policy.random_impedance_point import Random_impedance_point
+from lsdc.algorithm.policy.random_policy import Randompolicy
 
 from lsdc.gui.config import generate_experiment_info
 
@@ -40,10 +41,7 @@ common = {
     'experiment_name': 'my_experiment' + '_' + \
             datetime.strftime(datetime.now(), '%m-%d-%y_%H-%M'),
     'experiment_dir': EXP_DIR,
-    # 'data_files_dir': EXP_DIR + 'data_files/',
-    # 'data_files_dir': '/media/frederik/FrederikUSB/pushing_data/',
-    'data_files_dir': '/tmp/',
-
+    'data_files_dir': '/home/frederik/Documents/pushing_data/finer_temporal_resolution_substep10/train/',
     'target_filename': EXP_DIR + 'target.npz',
     'log_filename': EXP_DIR + 'log.txt',
     'conditions': 1,
@@ -57,33 +55,45 @@ if not os.path.exists(common['data_files_dir']):
 agent = {
     'type': AgentMuJoCo,
     'filename': './mjc_models/pushing2d.xml',
+    'filename_nomarkers': './mjc_models/pushing2d.xml',
+    'data_collection': True,
     'x0': np.array([0., 0., 0., 0.]),
     'dt': 0.05,
     'substeps': 10,  #6
     'conditions': common['conditions'],
-    'T': 40,
+    'T': 30,
+    'skip_first': 5,   #skip first N time steps to let the scene settle
     'sensor_dims': SENSOR_DIMS,
-    'state_include': [JOINT_ANGLES, JOINT_VELOCITIES, END_EFFECTOR_POINTS, END_EFFECTOR_POINT_VELOCITIES],
-    'obs_include': [JOINT_ANGLES, JOINT_VELOCITIES, END_EFFECTOR_POINTS, END_EFFECTOR_POINT_VELOCITIES],
-    'joint_angles': SENSOR_DIMS[JOINT_ANGLES],  #adding 7 dof for position and orentation of free object
+    'state_include': [JOINT_ANGLES, JOINT_VELOCITIES, END_EFFECTOR_POINTS,
+                      END_EFFECTOR_POINT_VELOCITIES],
+    'obs_include': [JOINT_ANGLES, JOINT_VELOCITIES, END_EFFECTOR_POINTS,
+                    END_EFFECTOR_POINT_VELOCITIES],
+
+    #adding 7 dof for position and orentation of free object
+    'joint_angles': SENSOR_DIMS[JOINT_ANGLES],
     'joint_velocities': SENSOR_DIMS[JOINT_VELOCITIES],
     'additional_viewer': True,
     'image_dir': common['data_files_dir'] + "imagedata_file",
     'image_height' : IMAGE_HEIGHT,
     'image_width' : IMAGE_WIDTH,
     'image_channels' : IMAGE_CHANNELS,
-    'num_objects': num_objects
+    'num_objects': num_objects,
+    'record':False
 }
 
 policy = {
-    'type' : Random_impedance_point
+    # 'type' : Random_impedance_point
+    'type' : Randompolicy,
+    'initial_var': 40,
+    'numactions': 5, # number of consecutive actions
+    'repeats': 6, # number of repeats for each action
 }
 
 
 config = {
-    'save_data': False,
-    'start_index':29952,
-    'num_samples': 100000,
+    'save_data': True,
+    'start_index':0,
+    'end_index': 60000,
     'verbose_policy_trials': 0,
     'common': common,
     'agent': agent,

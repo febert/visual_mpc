@@ -35,7 +35,7 @@ class Agent(object):
         else:
             self.meta_data_types = []
 
-        # List of indices for each data type in state X.
+        # List of indices for each data_files type in state X.
         self._state_idx, i = [], 0
         for sensor in self.x_data_types:
             dim = self._hyperparams['sensor_dims'][sensor]
@@ -43,7 +43,7 @@ class Agent(object):
             i += dim
         self.dX = i
 
-        # List of indices for each data type in observation.
+        # List of indices for each data_files type in observation.
         self._obs_idx, i = [], 0
         for sensor in self.obs_data_types:
             dim = self._hyperparams['sensor_dims'][sensor]
@@ -51,7 +51,7 @@ class Agent(object):
             i += dim
         self.dO = i
 
-        # List of indices for each data type in meta data.
+        # List of indices for each data_files type in meta data_files.
         self._meta_idx, i = [], 0
         for sensor in self.meta_data_types:
             dim = self._hyperparams['sensor_dims'][sensor]
@@ -112,12 +112,12 @@ class Agent(object):
     def pack_data_obs(self, existing_mat, data_to_insert, data_types,
                       axes=None):
         """
-        Update the observation matrix with new data.
+        Update the observation matrix with new data_files.
         Args:
             existing_mat: Current observation matrix.
-            data_to_insert: New data to insert into the existing matrix.
-            data_types: Name of the sensors to insert data for.
-            axes: Which axes to insert data. Defaults to the last axes.
+            data_to_insert: New data_files to insert into the existing matrix.
+            data_types: Name of the sensors to insert data_files for.
+            axes: Which axes to insert data_files. Defaults to the last axes.
         """
         num_sensor = len(data_types)
         if axes is None:
@@ -153,12 +153,12 @@ class Agent(object):
     def pack_data_meta(self, existing_mat, data_to_insert, data_types,
                        axes=None):
         """
-        Update the meta data matrix with new data.
+        Update the meta data_files matrix with new data_files.
         Args:
-            existing_mat: Current meta data matrix.
-            data_to_insert: New data to insert into the existing matrix.
-            data_types: Name of the sensors to insert data for.
-            axes: Which axes to insert data. Defaults to the last axes.
+            existing_mat: Current meta data_files matrix.
+            data_to_insert: New data_files to insert into the existing matrix.
+            data_types: Name of the sensors to insert data_files for.
+            axes: Which axes to insert data_files. Defaults to the last axes.
         """
         num_sensor = len(data_types)
         if axes is None:
@@ -193,12 +193,12 @@ class Agent(object):
 
     def pack_data_x(self, existing_mat, data_to_insert, data_types, axes=None):
         """
-        Update the state matrix with new data.
+        Update the state matrix with new data_files.
         Args:
             existing_mat: Current state matrix.
-            data_to_insert: New data to insert into the existing matrix.
-            data_types: Name of the sensors to insert data for.
-            axes: Which axes to insert data. Defaults to the last axes.
+            data_to_insert: New data_files to insert into the existing matrix.
+            data_types: Name of the sensors to insert data_files for.
+            axes: Which axes to insert data_files. Defaults to the last axes.
         """
         num_sensor = len(data_types)
         if axes is None:
@@ -239,7 +239,7 @@ class Agent(object):
 
     def unpack_data_x(self, existing_mat, data_types, axes=None):
         """
-        Returns the requested data from the state matrix.
+        Returns the requested data_files from the state matrix.
         Args:
             existing_mat: State matrix to unpack from.
             data_types: Names of the sensor to unpack.

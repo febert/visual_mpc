@@ -78,8 +78,8 @@ class AgentROS(Agent):
 
     def get_data(self, arm=TRIAL_ARM):
         """
-        Request for the most recent value for data/sensor readings.
-        Returns entire sample report (all available data) in sample.
+        Request for the most recent value for data_files/sensor readings.
+        Returns entire sample report (all available data_files) in sample.
         Args:
             arm: TRIAL_ARM or AUXILIARY_ARM.
         """
@@ -132,9 +132,9 @@ class AgentROS(Agent):
         """
         condition_data = self._hyperparams['reset_conditions'][condition]
         self.reset_arm(TRIAL_ARM, condition_data[TRIAL_ARM]['mode'],
-                       condition_data[TRIAL_ARM]['data'])
+                       condition_data[TRIAL_ARM]['data_files'])
         self.reset_arm(AUXILIARY_ARM, condition_data[AUXILIARY_ARM]['mode'],
-                       condition_data[AUXILIARY_ARM]['data'])
+                       condition_data[AUXILIARY_ARM]['data_files'])
         time.sleep(2.0)  # useful for the real robot, so it stops completely
 
     def sample(self, policy, condition, verbose=True, save=True, noisy=True):

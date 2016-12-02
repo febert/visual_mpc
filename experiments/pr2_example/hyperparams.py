@@ -85,11 +85,11 @@ for i in xrange(common['conditions']):
     reset_condition = {
         TRIAL_ARM: {
             'mode': JOINT_SPACE,
-            'data': x0[0:7],
+            'data_files': x0[0:7],
         },
         AUXILIARY_ARM: {
             'mode': JOINT_SPACE,
-            'data': aux_x0,
+            'data_files': aux_x0,
         },
     }
 

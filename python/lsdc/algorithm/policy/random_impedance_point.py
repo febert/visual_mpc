@@ -9,26 +9,21 @@ class Random_impedance_point(Policy):
     """
     Random Policy
     """
-    def __init__(self):
+    def __init__(self, agent_params, policy_params):
         Policy.__init__(self)
         self.x_g = np.array([0,0])
 
-
-    def act(self, new_sample, t):
+    def act(self, X_full, Xdot_full, sample_images, t, init_model= None):
         """
         Return a random action for a state.
         Args:
             x: State vector.
             obs: Observation vector.
             t: Time step.
-            x_data_idx: data indexes for x
+            x_data_idx: data_files indexes for x
         """
-
-        X_t = new_sample.get_X(t=t)
-        obs_t = new_sample.get_obs(t=t)
-
-        x = X_t[self._x_data_idx[1][0]:self._x_data_idx[1][0] + 2]
-        xdot = X_t[self._x_data_idx[2][0]:self._x_data_idx[2][0] + 2]
+        x = X_full[t]
+        xdot = Xdot_full[t]
 
         new_point_freq = 13
 

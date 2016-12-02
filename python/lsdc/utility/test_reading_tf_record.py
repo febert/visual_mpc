@@ -6,8 +6,6 @@ from tensorflow.python.platform import gfile
 
 import moviepy.editor as mpy
 
-
-
 from PIL import Image
 
 FLAGS = flags.FLAGS
@@ -35,14 +33,14 @@ ACION_DIM = 2
 
 DATA_DIR = '/home/frederik/Documents/pushing_data/tfrecords'
 
-flags.DEFINE_string('data_dir', DATA_DIR, 'directory containing data.')
+flags.DEFINE_string('data_dir', DATA_DIR, 'directory containing data_files.')
 
 
 def build_tfrecord_input(training=True):
     """Create input tfrecord tensors.
 
     Args:
-      training: training or validation data.
+      training: training or validation data_files.
     Returns:
       list of tensors corresponding to images, actions, and states. The images
       tensor is 5D, batch x time x height x width x channels. The state and
@@ -52,7 +50,7 @@ def build_tfrecord_input(training=True):
     """
     filenames = gfile.Glob(os.path.join(FLAGS.data_dir, '*'))
     if not filenames:
-        raise RuntimeError('No data files found.')
+        raise RuntimeError('No data_files files found.')
     index = int(np.floor(FLAGS.train_val_split * len(filenames)))
     if training:
         filenames = filenames[:index]

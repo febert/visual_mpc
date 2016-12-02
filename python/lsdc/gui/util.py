@@ -24,7 +24,7 @@ def buffered_axis_limits(amin, amax, buffer_factor=1.0):
 
 def save_pose_to_npz(filename, actuator_name, target_number, data_time, pose):
     """
-    Saves a pose for the specified actuator name, target number, and data time.
+    Saves a pose for the specified actuator name, target number, and data_files time.
     Args:
         filename - the target file ('../target.npz')
         actuator_name - the actuator name ('trial_arm', 'auxiliary_arm', etc.)
@@ -46,7 +46,7 @@ def save_pose_to_npz(filename, actuator_name, target_number, data_time, pose):
 def save_data_to_npz(filename, actuator_name, target_number, data_time,
                      data_name, value):
     """
-    Save data to the specified file with key
+    Save data_files to the specified file with key
     (actuator_name, target_number, data_time, data_name).
     """
     key = '_'.join((actuator_name, target_number, data_time, data_name))
@@ -74,7 +74,7 @@ def load_pose_from_npz(filename, actuator_name, target_number, data_time,
         default_ee_pos=DEFAULT_END_EFFECTOR_POSITIONS,
         default_ee_rot=DEFAULT_END_EFFECTOR_ROTATIONS):
     """
-    Loads a pose for the specified actuator name, target number, and data time.
+    Loads a pose for the specified actuator name, target number, and data_files time.
     Args:
         filename - the target file ('../target.npz')
         actuator_name - the actuator name ('trial_arm', 'auxiliary_arm', etc.)
@@ -95,7 +95,7 @@ def load_pose_from_npz(filename, actuator_name, target_number, data_time,
 def load_data_from_npz(filename, actuator_name, target_number, data_time,
                        data_name, default=None):
     """
-    Load data from the specified file with key
+    Load data_files from the specified file with key
     (actuator_name, target_number, data_time, data_name).
     """
     key = '_'.join((actuator_name, target_number, data_time, data_name))

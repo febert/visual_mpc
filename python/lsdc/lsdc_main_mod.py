@@ -63,7 +63,6 @@ class LSDCMain(object):
 
         self.policy = config['policy']['type'](config['agent'], config['policy'])
 
-
         self.gui = GPSTrainingGUI(config['common']) if config['gui_on'] else None
 
 
@@ -85,11 +84,11 @@ class LSDCMain(object):
         itr_start = self._initialize(itr_load)
 
         for cond in self._train_idx:
-            for i in range(self._hyperparams['start_index'],self._hyperparams['num_samples']):
+            for i in range(self._hyperparams['start_index'],self._hyperparams['end_index']):
                 self._take_sample(cond, i)
 
             traj_sample_lists = [
-                self.agent.get_samples(cond, -self._hyperparams['num_samples'])
+                self.agent.get_samples(cond, -self._hyperparams['end_index'])
                 for cond in self._train_idx
             ]
 
@@ -204,7 +203,7 @@ class LSDCMain(object):
         for type in type_of_file:
             if type== 'tfrecord':
                 # get the relevant state information:
-                dir_ = self._data_files_dir + 'tfrecords'
+                dir_ = self._data_files_dir
 
                 X_Xdot = np.concatenate((X_full, Xdot_full), axis=1)
 
@@ -216,7 +215,8 @@ class LSDCMain(object):
                 self._trajectory_list.append([X_Xdot_cpy,U_cpy,sample_images_cpy])
                 traj_per_file =  256
                 if len(self._trajectory_list) == traj_per_file:
-                    filename = 'traj_{0}_to_{1}'.format(sample_index - traj_per_file + 1, sample_index)
+                    filename = 'traj_{0}_to_{1}'\
+                        .format(sample_index - traj_per_file + 1, sample_index)
                     save_tf_record(dir_, filename, self._trajectory_list)
                     self._trajectory_list = []
 
@@ -274,7 +274,7 @@ class LSDCMain(object):
 
     def _log_data(self, traj_sample_lists):
         """
-        Log data and algorithm, and update the GUI.
+        Log data_files and algorithm, and update the GUI.
         Args:
             itr: Iteration number.
             traj_sample_lists: trajectory samples as SampleList object
@@ -444,8 +444,6 @@ def main():
             plt.ioff()
             plt.show()
         else:
-
-
             gps.run(itr_load=resume_training_itr)
 
 if __name__ == "__main__":

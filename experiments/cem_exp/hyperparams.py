@@ -29,10 +29,8 @@ IMAGE_CHANNELS = 3
 num_objects = 1
 
 SENSOR_DIMS = {
-    JOINT_ANGLES: 2+ 7*num_objects +2,  #adding 7 dof for position and orientation for every free object + 2 for goal_geom
-    JOINT_VELOCITIES: 2+ 6*num_objects +2,  #adding 6 dof for speed and angular vel for every free object; 2 + 6 = 8
-    END_EFFECTOR_POINTS: 3,
-    END_EFFECTOR_POINT_VELOCITIES: 3,
+    JOINT_ANGLES: 2+ 7*num_objects +2,  #adding 7 dof for position and orientation for every free object + 3 for goal_geom and reference points
+    JOINT_VELOCITIES: 2+ 6*num_objects +2,  #adding 6 dof for speed and angular vel for every free object;
     ACTION: 2,
     # RGB_IMAGE: IMAGE_WIDTH*IMAGE_HEIGHT*IMAGE_CHANNELS,
     RGB_IMAGE_SIZE: 3,
@@ -40,8 +38,6 @@ SENSOR_DIMS = {
 
 BASE_DIR = '/'.join(str.split(gps_filepath, '/')[:-2])
 EXP_DIR = BASE_DIR + '/../experiments/cem_exp/'
-
-netconfig = imp.load_source('netconf', EXP_DIR + 'conf.py')
 
 common = {
     'experiment_name': 'my_experiment' + '_' + \
@@ -64,16 +60,19 @@ alpha = 30*np.pi/180
 agent = {
     'type': AgentMuJoCo,
     'filename': './mjc_models/pushing2d_controller.xml',
+    'filename_nomarkers': './mjc_models/pushing2d_controller_nomarkers.xml',
+    'data_collection': False,
     'x0': np.array([0., 0., 0., 0.,
-                    .1, .1, 0., np.cos(alpha/2), 0, 0, np.sin(alpha/2)  #object pose
+                    .1, .1, 0., np.cos(alpha/2), 0, 0, np.sin(alpha/2)  #object pose (x,y,y,
                      ]),
     'dt': 0.05,
-    'substeps': 10,  #6
+    'substeps': 20,  #10
     'conditions': common['conditions'],
-    'T': 100,
+    'T': 16,
+    'skip_first': 0,
     'sensor_dims': SENSOR_DIMS,
-    'state_include': [JOINT_ANGLES, JOINT_VELOCITIES, END_EFFECTOR_POINTS, END_EFFECTOR_POINT_VELOCITIES],
-    'obs_include': [JOINT_ANGLES, JOINT_VELOCITIES, END_EFFECTOR_POINTS, END_EFFECTOR_POINT_VELOCITIES],
+    'state_include': [JOINT_ANGLES, JOINT_VELOCITIES],
+    'obs_include': [JOINT_ANGLES, JOINT_VELOCITIES],
     'joint_angles': SENSOR_DIMS[JOINT_ANGLES],  #adding 7 dof for position and orentation of free object
     'joint_velocities': SENSOR_DIMS[JOINT_VELOCITIES],
     'additional_viewer': True,
@@ -82,21 +81,38 @@ agent = {
     'image_width' : IMAGE_WIDTH,
     'image_channels' : IMAGE_CHANNELS,
     'num_objects': num_objects,
-    'goal_point': np.array([.2, .2]),
-    # 'goal_point': np.array([.0, .0]),
+    'goal_point': np.array([0, 0.1]),
+    # 'goal_point': np.array([-0.1, 0.0]),
+    # 'record': False
+    'record': EXP_DIR + 'data_files/rec'
+}
+
+
+
+from lsdc.algorithm.policy.pos_controller import Pos_Controller
+low_level_conf = {
+    'type': Pos_Controller,
+    'mode': 'relative',
+    'randomtargets' : False
 }
 
 from lsdc.algorithm.policy.cem_controller import CEM_controller
 policy = {
     'type' : CEM_controller,
-    'netconf': netconfig
+    'low_level_ctrl': low_level_conf,
+    'netconf': EXP_DIR + 'conf.py',
 }
+
+if policy['low_level_ctrl'] == None:
+    policy['initial_std'] = 6
+elif policy['low_level_ctrl']['type'] == Pos_Controller:
+    policy['initial_std'] = 0.15
 
 
 config = {
     'save_data': False,
     'start_index':0,
-    'num_samples': 1,
+    'end_index': 1,
     'verbose_policy_trials': 0,
     'common': common,
     'agent': agent,

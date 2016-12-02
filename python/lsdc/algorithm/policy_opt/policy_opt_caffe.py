@@ -152,7 +152,7 @@ class PolicyOptCaffe(PolicyOpt):
         average_loss = 0
         np.random.shuffle(idx)
         for i in range(self._hyperparams['iterations']):
-            # Load in data for this batch.
+            # Load in data_files for this batch.
             start_idx = int(i * self.batch_size %
                             (batches_per_epoch * self.batch_size))
             idx_i = idx[start_idx:start_idx+self.batch_size]
@@ -208,7 +208,7 @@ class PolicyOptCaffe(PolicyOpt):
 
         for i in range(N):
             for t in range(T):
-                # Feed in data.
+                # Feed in data_files.
                 self.solver.test_nets[0].blobs[blob_names[0]].data[:] = \
                         obs[i, t]
 

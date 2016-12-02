@@ -9,11 +9,13 @@
     </default>
 
     <worldbody>
-        <camera name="maincam" mode= "fixed" fovy="75" euler="0 0 -1.57" pos="0 0 .75"/>
+        <camera name="maincam" mode= "fixed" fovy="75" euler="0 0 0" pos="0 0 .75"/>
         <body name="particle" pos="0 0 0.03">
             <inertial pos="0 0 0" mass="5" diaginertia="166.667 166.667 166.667"/>
             <geom name="particle_geom" type="capsule" fromto="-0.01 0 0 0.01 0 0" size="0.05" rgba="0.9 0 0.1 0.6" />
             <site name="particle_site" pos="0 0 0" size="0.01" />
+            <!--<joint name="ball_x" type="slide" pos="0 0 0" axis="1 0 0" damping="15" />-->
+            <!--<joint name="ball_y" type="slide" pos="0 0 0" axis="0 1 0" damping="15" />-->
             <joint name="ball_x" type="slide" pos="0 0 0" axis="1 0 0" />
             <joint name="ball_y" type="slide" pos="0 0 0" axis="0 1 0" />
         </body>
@@ -67,29 +69,7 @@
             <geom pos=".1 .1 0.0" type="box" size=".1 0.03 .03" rgba="0.5 0.0 0.1 1" />
         </body>
 
-        <!--<body name="object5" pos="0 0 0">-->
-            <!--<joint type="free"/>-->
-            <!--<geom type="box" size=".03 .1 .03" rgba="0.5 0.0 0.1 1" />-->
-            <!--<geom pos=".1 .1 0.0" type="box" size=".1 0.03 .03" rgba="0.5 0.0 0.1 1" />-->
-        <!--</body>-->
 
-        <!--<body name="object6" pos="0 0 0">-->
-            <!--<joint type="free"/>-->
-            <!--<geom type="box" size=".03 .1 .03" rgba="0.5 0.0 0.1 1" />-->
-            <!--<geom pos=".1 .1 0.0" type="box" size=".1 0.03 .03" rgba="0.5 0.0 0.1 1" />-->
-        <!--</body>-->
-
-        <!--<body name="object7" pos="0 0 0">-->
-            <!--<joint type="free"/>-->
-            <!--<geom type="box" size=".03 .1 .03" rgba="0.5 0.0 0.1 1" />-->
-            <!--<geom pos=".1 .1 0.0" type="box" size=".1 0.03 .03" rgba="0.5 0.0 0.1 1" />-->
-        <!--</body>-->
-
-        <!--<body name="object8" pos="0 0 0">-->
-            <!--<joint type="free"/>-->
-            <!--<geom type="box" size=".03 .1 .03" rgba="0.5 0.0 0.1 1" />-->
-            <!--<geom pos=".1 .1 0.0" type="box" size=".1 0.03 .03" rgba="0.5 0.0 0.1 1" />-->
-        <!--</body>-->
 
 
     </worldbody>

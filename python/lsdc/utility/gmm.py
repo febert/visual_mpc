@@ -133,7 +133,7 @@ class GMM(object):
         """
         Run EM to update clusters.
         Args:
-            data: An N x D data matrix, where N = number of data points.
+            data: An N x D data_files matrix, where N = number of data_files points.
             K: Number of clusters to use.
         """
         # Constants.

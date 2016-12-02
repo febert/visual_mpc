@@ -9,7 +9,7 @@ LOGGER = logging.getLogger(__name__)
 
 
 class SampleList(object):
-    """ Class that handles writes and reads to sample data. """
+    """ Class that handles writes and reads to sample data_files. """
     def __init__(self, samples):
         self._samples = samples
 
@@ -55,7 +55,7 @@ class PickleSampleWriter(object):
         self._data_file = data_file
 
     def write(self, samples):
-        """ Write samples to data file. """
+        """ Write samples to data_files file. """
         with open(self._data_file, 'wb') as data_file:
             cPickle.dump(data_file, samples)
 

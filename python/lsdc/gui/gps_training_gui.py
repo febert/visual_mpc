@@ -265,7 +265,7 @@ class GPSTrainingGUI(object):
     # Iteration update functions
     def update(self, itr, algorithm, agent, traj_sample_lists, pol_sample_lists):
         """
-        After each iteration, update the iteration data output, the cost plot,
+        After each iteration, update the iteration data_files output, the cost plot,
         and the 3D trajectory visualizations (if end effector points exist).
         """
         if self._first_update:
@@ -284,7 +284,7 @@ class GPSTrainingGUI(object):
 
     def _output_column_titles(self, algorithm, policy_titles=False):
         """
-        Setup iteration data column titles: iteration, average cost, and for
+        Setup iteration data_files column titles: iteration, average cost, and for
         each condition the mean cost over samples, step size, linear Guassian
         controller entropies, and initial/final KL divergences for BADMM.
         """
@@ -309,7 +309,7 @@ class GPSTrainingGUI(object):
 
     def _update_iteration_data(self, itr, algorithm, costs, pol_sample_lists):
         """
-        Update iteration data information: iteration, average cost, and for
+        Update iteration data_files information: iteration, average cost, and for
         each condition the mean cost over samples, step size, linear Guassian
         controller entropies, and initial/final KL divergences for BADMM.
         """
@@ -381,7 +381,7 @@ class GPSTrainingGUI(object):
 
     def _update_linear_gaussian_controller_plots(self, algorithm, agent, m):
         """
-        Update the linear Guassian controller plots with iteration data,
+        Update the linear Guassian controller plots with iteration data_files,
         for the mean and covariances of the end effector points.
         """
         # Calculate mean and covariance for end effector points
@@ -406,7 +406,7 @@ class GPSTrainingGUI(object):
 
     def _update_samples_plots(self, sample_lists, m, color, label):
         """
-        Update the samples plots with iteration data, for the trajectory samples
+        Update the samples plots with iteration data_files, for the trajectory samples
         and the policy samples.
         """
         samples = sample_lists[m].get_samples()

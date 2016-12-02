@@ -24,7 +24,7 @@ def build_tfrecord_input(conf, training=True):
     """Create input tfrecord tensors.
 
     Args:
-      training: training or validation data.
+      training: training or validation data_files.
       conf: A dictionary containing the configuration for the experiment
     Returns:
       list of tensors corresponding to images, actions, and states. The images
@@ -35,9 +35,9 @@ def build_tfrecord_input(conf, training=True):
     """
     filenames = gfile.Glob(os.path.join(conf['data_dir'], '*'))
     if not filenames:
-        raise RuntimeError('No data files found.')
+        raise RuntimeError('No data_files files found.')
 
-    index = int(np.floor(conf['train_val_split'] * len(filenames)))
+    index = int(np.ceil(conf['train_val_split'] * len(filenames)))
     if training:
         filenames = filenames[:index]
     else:
@@ -55,7 +55,8 @@ def build_tfrecord_input(conf, training=True):
 
     image_seq, state_seq, action_seq = [], [], []
 
-    load_indx = range(0, 29, conf['skip_frame'])
+
+    load_indx = range(0, 30, conf['skip_frame'])
     load_indx = load_indx[:conf['sequence_length']]
     print 'using frame sequence: ', load_indx
 
@@ -121,17 +122,23 @@ def build_tfrecord_input(conf, training=True):
 
 if __name__ == '__main__':
     # for debugging only:
+    os.environ["CUDA_VISIBLE_DEVICES"] = "1"
+    print 'using CUDA_VISIBLE_DEVICES=', os.environ["CUDA_VISIBLE_DEVICES"]
+    conf = {}
 
-    confpath = '/home/frederik/Documents/lsdc/tensorflow_data/downsized_model_skip2/conf.py'
-    hyperparams = imp.load_source('hyperparams', confpath)
-    conf = hyperparams.configuration
+    # DATA_DIR = '/home/frederik/Documents/pushing_data/settled_scene_rnd3/train'
+    DATA_DIR = '/home/frederik/Documents/pushing_data/finer_temporal_resolution_substep10/train'
+    # DATA_DIR = '/home/frederik/Documents/pushing_data/old/train'
 
-    DATA_DIR = '/home/frederik/Documents/pushing_data/test'
     conf['schedsamp_k'] = -1  # don't feed ground truth
-    conf['data_dir'] = DATA_DIR  # 'directory containing data.' ,
-    conf['visualize'] = 'True'
-    conf['visual_file'] = DATA_DIR + '/traj_66304_to_66559.tfrecords'
+    conf['data_dir'] = DATA_DIR  # 'directory containing data_files.' ,
     conf['skip_frame'] = 1
+    conf['train_val_split']= 0.95
+    conf['sequence_length']= 30      # 'sequence length, including context frames.'
+    conf['use_state'] = True
+    conf['batch_size']= 32
+    conf['visualize']=False
+
     print '-------------------------------------------------------------------'
     print 'verify current settings!! '
     for key in conf.keys():
@@ -149,10 +156,19 @@ if __name__ == '__main__':
         print 'run number ', i
         image_data, action_data, state_data = sess.run([image_batch, action_batch, state_batch])
 
-        print action_data.shape
-        print image_data.shape
-        print state_data.shape
+        print 'action:', action_data.shape
+        print 'action:', action_data[0]
+        print 'images:', image_data.shape
 
+        print 'states:', state_data.shape
+        print 'states:', state_data[0]
+        print 'average speed in dir1:', np.average(state_data[:,:,3])
+        print 'average speed in dir2:', np.average(state_data[:,:,2])
+
+        from utils_vpred.create_gif import comp_single_video
+
+        gif_preview = '/'.join(str.split(__file__, '/')[:-1] + ['preview'])
+        comp_single_video(gif_preview , image_data)
 
         for i in range(2):
             img = np.uint8(255. *image_data[i,0])

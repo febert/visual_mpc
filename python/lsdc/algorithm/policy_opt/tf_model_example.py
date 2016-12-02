@@ -104,7 +104,7 @@ def multi_modal_network(dim_input=27, dim_output=7, batch_size=25, network_confi
     pool_size = 2
     filter_size = 3
 
-    # List of indices for state (vector) data and image (tensor) data in observation.
+    # List of indices for state (vector) data_files and image (tensor) data_files in observation.
     x_idx, img_idx, i = [], [], 0
     for sensor in network_config['obs_include']:
         dim = network_config['sensor_dims'][sensor]

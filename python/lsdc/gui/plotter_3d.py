@@ -103,7 +103,7 @@ class Plotter3D:
     def set_lim(self, i, xlim, ylim, zlim):
         """
         Sets the xlim, ylim, and zlim for plot i
-        WARNING: limits must be set before adding data to plots
+        WARNING: limits must be set before adding data_files to plots
         Args:
             xlim - a tuple of (x_start, x_end)
             ylim - a tuple of (y_start, y_end)

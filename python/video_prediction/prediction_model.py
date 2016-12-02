@@ -39,7 +39,8 @@ def construct_model(images,
                     stp=False,
                     cdna=True,
                     dna=False,
-                    context_frames=2):
+                    context_frames=2,
+                    pix_distributions= None):
   """Build convolutional lstm video predictor using STP, CDNA, or DNA.
 
   Args:
@@ -100,6 +101,7 @@ def construct_model(images,
       if feedself and done_warm_start:
         # Feed in generated image.
         prev_image = gen_images[-1]
+
       elif done_warm_start:
         # Scheduled sampling
         prev_image = scheduled_sample(image, gen_images[-1], batch_size,
@@ -221,7 +223,8 @@ def construct_model(images,
           activation_fn=None)
       gen_states.append(current_state)
 
-  return gen_images, gen_states, gen_masks
+  gen_distrib = None
+  return gen_images, gen_states, gen_masks, gen_distrib
 
 
 ## Utility functions
@@ -326,11 +329,11 @@ def dna_transformation(prev_image, dna_input):
 
 
 def scheduled_sample(ground_truth_x, generated_x, batch_size, num_ground_truth):
-  """Sample batch with specified mix of ground truth and generated data points.
+  """Sample batch with specified mix of ground truth and generated data_files points.
 
   Args:
-    ground_truth_x: tensor of ground-truth data points.
-    generated_x: tensor of generated data points.
+    ground_truth_x: tensor of ground-truth data_files points.
+    generated_x: tensor of generated data_files points.
     batch_size: batch size
     num_ground_truth: number of ground-truth examples to include in batch.
   Returns:

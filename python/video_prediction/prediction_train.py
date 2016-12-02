@@ -78,12 +78,13 @@ class Model(object):
                  actions=None,
                  states=None,
                  sequence_length=None,
-                 reuse_scope=None):
+                 reuse_scope=None,
+                 pix_distrib=None):
 
         if conf['downsize']:
-            from prediction_model_downsized import construct_model
-            predicion_model = imp.load_source('downsized_model', conf['downsize'])
-            construct_model = predicion_model.construct_model
+            # prediction_model = imp.load_source('downsized_model', conf['downsize'])
+            # construct_model = prediction_model.construct_model
+            construct_model = conf['downsize']
         else:
             from prediction_model import construct_model
 
@@ -101,9 +102,12 @@ class Model(object):
         states = [tf.squeeze(st) for st in states]
         images = tf.split(1, images.get_shape()[1], images)
         images = [tf.squeeze(img) for img in images]
+        if pix_distrib != None:
+            pix_distrib = tf.split(1, pix_distrib.get_shape()[1], pix_distrib)
+            pix_distrib = [tf.squeeze(pix) for pix in pix_distrib]
 
         if reuse_scope is None:
-            gen_images, gen_states, gen_masks = construct_model(
+            gen_images, gen_states, gen_masks, gen_distrib = construct_model(
                 images,
                 actions,
                 states,
@@ -114,10 +118,11 @@ class Model(object):
                 cdna=conf['model'] == 'CDNA',
                 dna=conf['model'] == 'DNA',
                 stp=conf['model'] == 'STP',
-                context_frames=conf['context_frames'])
+                context_frames=conf['context_frames'],
+                pix_distributions= pix_distrib)
         else:  # If it's a validation or test model.
             with tf.variable_scope(reuse_scope, reuse=True):
-                gen_images, gen_states, gen_masks = construct_model(
+                gen_images, gen_states, gen_masks, gen_distrib = construct_model(
                     images,
                     actions,
                     states,
@@ -164,27 +169,9 @@ class Model(object):
 
         self.gen_images= gen_images
         self.gen_masks = gen_masks
+        self.gen_distrib = gen_distrib
+        self.gen_states = gen_states
 
-
-def setup_predictor(model, conf):
-    gpu_options = tf.GPUOptions(per_process_gpu_memory_fraction=0.4)
-    sess = tf.InteractiveSession(config= tf.ConfigProto(gpu_options=gpu_options))
-
-    tf.train.start_queue_runners(sess)
-    sess.run(tf.initialize_all_variables())
-
-    itr = 0
-
-    def predictor(input_frames):
-
-        feed_dict = {model.prefix: 'train',
-                     model.iter_num: np.float32(itr),
-                     model.lr: conf['learning_rate']}
-        prediction = sess.run([model.gen_images,],
-                                        feed_dict)
-        return prediction
-
-    return predictor
 
 def main(unused_argv, conf_script= None):
     os.environ["CUDA_VISIBLE_DEVICES"] = str(FLAGS.device)
@@ -213,9 +200,6 @@ def main(unused_argv, conf_script= None):
         images, actions, states = build_tfrecord_input(conf, training=True)
         model = Model(conf, images, actions, states, conf['sequence_length'])
 
-    if 'control' in conf.keys():
-        return setup_predictor(model, conf)
-
     with tf.variable_scope('val_model', reuse=None):
         val_images, val_actions, val_states = build_tfrecord_input(conf, training=False)
         val_model = Model(conf, val_images, val_actions, val_states,
@@ -226,7 +210,7 @@ def main(unused_argv, conf_script= None):
     saver = tf.train.Saver(
         tf.get_collection(tf.GraphKeys.VARIABLES), max_to_keep=0)
 
-    gpu_options = tf.GPUOptions(per_process_gpu_memory_fraction=0.4)
+    gpu_options = tf.GPUOptions(per_process_gpu_memory_fraction=0.8)
     # Make training session.
     sess = tf.InteractiveSession(config= tf.ConfigProto(gpu_options=gpu_options))
     summary_writer = tf.train.SummaryWriter(
@@ -250,8 +234,8 @@ def main(unused_argv, conf_script= None):
         cPickle.dump(mask_list, open(file_path + '/mask_list.pkl', 'wb'))
         print 'written files to:' + file_path
 
-        trajectories = utils_vpred.create_gif.comp_video(conf['current_dir'], conf)
-        utils_vpred.create_gif.comp_masks(conf['current_dir'], conf, trajectories)
+        trajectories = utils_vpred.create_gif.comp_video(conf['output_dir'], conf)
+        utils_vpred.create_gif.comp_masks(conf['output_dir'], conf, trajectories)
         return
 
     itr_0 =0
@@ -270,7 +254,7 @@ def main(unused_argv, conf_script= None):
     # Run training.
     for itr in range(itr_0, conf['num_iterations'], 1):
         t_startiter = datetime.now()
-        # Generate new batch of data.
+        # Generate new batch of data_files.
         feed_dict = {model.prefix: 'train',
                      model.iter_num: np.float32(itr),
                      model.lr: conf['learning_rate']}
@@ -295,8 +279,7 @@ def main(unused_argv, conf_script= None):
             tf.logging.info('Saving model to' + conf['output_dir'])
             saver.save(sess, conf['output_dir'] + '/model' + str(itr))
 
-        t_iter.append((datetime.now() - t_startiter).seconds * 1e6 + \
-                 (datetime.now() - t_startiter).microseconds )
+        t_iter.append((datetime.now() - t_startiter).seconds * 1e6 +  (datetime.now() - t_startiter).microseconds )
 
         if itr % 100 == 1:
             hours = (datetime.now() -starttime).seconds/3600
@@ -306,7 +289,7 @@ def main(unused_argv, conf_script= None):
                 (datetime.now() - starttime).seconds/60 - hours*60))
             avg_t_iter = np.sum(np.asarray(t_iter))/len(t_iter)
             tf.logging.info('time per iteration: {0}'.format(avg_t_iter/1e6))
-            tf.logging.info('expected time for 1000 iterations: {0}h '.format(avg_t_iter /1e6/ 3600))
+            tf.logging.info('expected for complete training: {0}h '.format(avg_t_iter /1e6/3600 * conf['num_iterations']))
 
         if (itr) % SUMMARY_INTERVAL:
             summary_writer.add_summary(summary_str, itr)
@@ -316,14 +299,6 @@ def main(unused_argv, conf_script= None):
     tf.logging.info('Training complete')
     tf.logging.flush()
 
-
-def setup_ctrl(conf):
-    """
-    to be called from CEM controller
-    :param conf: configuration file
-    """
-    args = None
-    return main(args, conf_script= conf)
 
 if __name__ == '__main__':
     tf.logging.set_verbosity(tf.logging.INFO)

@@ -55,15 +55,15 @@ class DynamicsPriorGMM(object):
 
     def update(self, X, U):
         """
-        Update prior with additional data.
+        Update prior with additional data_files.
         Args:
-            X: A N x T x dX matrix of sequential state data.
-            U: A N x T x dU matrix of sequential control data.
+            X: A N x T x dX matrix of sequential state data_files.
+            U: A N x T x dU matrix of sequential control data_files.
         """
         # Constants.
         T = X.shape[1] - 1
 
-        # Append data to dataset.
+        # Append data_files to dataset.
         if self.X is None:
             self.X = X
         else:
@@ -103,7 +103,7 @@ class DynamicsPriorGMM(object):
         Args:
             pts: A N x Dx+Du+Dx matrix.
         """
-        # Construct query data point by rearranging entries and adding
+        # Construct query data_files point by rearranging entries and adding
         # in reference.
         assert pts.shape[1] == Dx + Du + Dx
 

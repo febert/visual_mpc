@@ -332,11 +332,11 @@ def dna_transformation(prev_image, dna_input):
 
 
 def scheduled_sample(ground_truth_x, generated_x, batch_size, num_ground_truth):
-  """Sample batch with specified mix of ground truth and generated data points.
+  """Sample batch with specified mix of ground truth and generated data_files points.
 
   Args:
-    ground_truth_x: tensor of ground-truth data points.
-    generated_x: tensor of generated data points.
+    ground_truth_x: tensor of ground-truth data_files points.
+    generated_x: tensor of generated data_files points.
     batch_size: batch size
     num_ground_truth: number of ground-truth examples to include in batch.
   Returns:

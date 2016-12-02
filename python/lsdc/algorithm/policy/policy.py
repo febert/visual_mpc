@@ -21,8 +21,8 @@ class Policy(object):
 
     def set_meta_data(self, meta):
         """
-        Set meta data for policy (e.g., domain image, multi modal observation sizes)
+        Set meta data_files for policy (e.g., domain image, multi modal observation sizes)
         Args:
-            meta: meta data.
+            meta: meta data_files.
         """
         return

@@ -90,7 +90,7 @@ def estimate_moments(X, mu, covar):
 
 
 def gauss_fit_joint_prior(pts, mu0, Phi, m, n0, dwts, dX, dU, sig_reg):
-    """ Perform Gaussian fit to data with a prior. """
+    """ Perform Gaussian fit to data_files with a prior. """
     # Build weights matrix.
     D = np.diag(dwts)
     # Compute empirical mean and covariance.

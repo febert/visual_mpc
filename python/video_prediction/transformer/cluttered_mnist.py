@@ -17,8 +17,8 @@ from spatial_transformer import transformer
 import numpy as np
 from tf_utils import weight_variable, bias_variable, dense_to_one_hot
 
-# %% Load data
-mnist_cluttered = np.load('./data/mnist_sequence1_sample_5distortions5x5.npz')
+# %% Load data_files
+mnist_cluttered = np.load('./data_files/mnist_sequence1_sample_5distortions5x5.npz')
 
 X_train = mnist_cluttered['X_train']
 y_train = mnist_cluttered['y_train']

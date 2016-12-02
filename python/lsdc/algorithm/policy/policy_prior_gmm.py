@@ -86,7 +86,7 @@ class PolicyPriorGMM(object):
 
     def eval(self, Ts, Ps):
         """ Evaluate prior. """
-        # Construct query data point.
+        # Construct query data_files point.
         pts = np.concatenate((Ts, Ps), axis=1)
         # Perform query.
         mu0, Phi, m, n0 = self.gmm.inference(pts)

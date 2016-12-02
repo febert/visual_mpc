@@ -1,5 +1,5 @@
 """ This file defines an agent for the MuJoCo simulator environment. """
-import copy
+from copy import deepcopy
 
 import numpy as np
 
@@ -8,8 +8,10 @@ from mujoco_py.mjlib import mjlib
 from mujoco_py.mjtypes import *
 
 import h5py
+import cPickle
 
 from PIL import Image
+
 import matplotlib.pyplot as plt
 
 from lsdc.agent.agent import Agent
@@ -22,6 +24,9 @@ from lsdc.proto.gps_pb2 import JOINT_ANGLES, JOINT_VELOCITIES, \
 
 from lsdc.sample.sample import Sample
 
+from matplotlib.backends.backend_agg import FigureCanvasAgg as FigureCanvas
+from matplotlib.figure import Figure
+
 
 class AgentMuJoCo(Agent):
     """
@@ -29,7 +34,7 @@ class AgentMuJoCo(Agent):
     this class.
     """
     def __init__(self, hyperparams):
-        config = copy.deepcopy(AGENT_MUJOCO)
+        config = deepcopy(AGENT_MUJOCO)
         config.update(hyperparams)
         Agent.__init__(self, config)
         self._setup_conditions()
@@ -65,6 +70,7 @@ class AgentMuJoCo(Agent):
         if not isinstance(filename, list):
             for i in range(self._hyperparams['conditions']):
                 self._model.append(mujoco_py.MjModel(filename))
+                self.model_nomarkers = mujoco_py.MjModel(self._hyperparams['filename_nomarkers'])
 
         else:
             for i in range(self._hyperparams['conditions']):
@@ -95,13 +101,15 @@ class AgentMuJoCo(Agent):
             else:
                 self.x0.append(self._hyperparams['x0'][i])
 
-        self._small_viewer = mujoco_py.MjViewer(visible=True, init_width=self._hyperparams['image_width'],
-                                                init_height=self._hyperparams['image_height'], go_fast=False)
+        self._small_viewer = mujoco_py.MjViewer(visible=True,
+                                                init_width=self._hyperparams['image_width'],
+                                                init_height=self._hyperparams['image_height'],
+                                                go_fast=False)
         self._small_viewer.start()
         self._small_viewer.cam.camid = 0
 
         if self._hyperparams['additional_viewer']:
-            self._large_viewer = mujoco_py.MjViewer(visible=True, init_width=640,
+            self._large_viewer = mujoco_py.MjViewer(visible=True, init_width=480,
                                                     init_height=480, go_fast=False)
             self._large_viewer.start()
 
@@ -119,79 +127,146 @@ class AgentMuJoCo(Agent):
         """
 
         # Create new sample, populate first time step.
-        new_sample = self._init_sample(condition)
-        mj_X = self._hyperparams['x0'][condition]
-        U = np.zeros([self.T, self.dU])
-        X_full = np.zeros([self.T, 2])
-        Xdot_full = np.zeros([self.T, 2])
-        if noisy:
-            noise = generate_noise(self.T, self.dU, self._hyperparams)
-        else:
-            noise = np.zeros((self.T, self.dU))
-        if np.any(self._hyperparams['x0var'][condition] > 0):
-            x0n = self._hyperparams['x0var'] * \
-                    np.random.randn(self._hyperparams['x0var'].shape)
-            mj_X += x0n
-        noisy_body_idx = self._hyperparams['noisy_body_idx'][condition]
-        if noisy_body_idx.size > 0:
-            for i in range(len(noisy_body_idx)):
-                idx = noisy_body_idx[i]
-                var = self._hyperparams['noisy_body_var'][condition][i]
-                temp = np.copy(body_pos)  #CHANGES
-                temp[idx, :] += var * np.random.randn(1, 3)
-                self._model[condition].body_pos = temp
+        self._init_sample(condition)
 
-        cam_pos = self._hyperparams['camera_pos']#CHANGES
-        # self._viewer_main.set_model(self._model[condition])
-        self._small_viewer.set_model(self._model[condition])
+        U = np.empty([self.T, self.dU])
+        X_full = np.empty([self.T, 2])
+        Xdot_full = np.empty([self.T, 2])
+
+        self._small_viewer.set_model(self.model_nomarkers)
 
         if self._hyperparams['additional_viewer']:
             self._large_viewer.set_model(self._model[condition])
-            self._large_viewer.cam = copy.deepcopy(self._small_viewer.cam)
+            self._large_viewer.cam = deepcopy(self._small_viewer.cam)
+
+        # apply action of zero for the first few steps, to let the scene settle
+        for t in range(self._hyperparams['skip_first']):
+            for _ in range(self._hyperparams['substeps']):
+                self._model[condition].data.ctrl = np.array([0. ,0.])
+                self._model[condition].step()
+
+        self.large_images_traj = []
+        self.large_images = []
 
         # Take the sample.
         for t in range(self.T):
 
-            X_t = new_sample.get_X(t=t)
-            obs_t = new_sample.get_obs(t=t)
+            X_full[t, :] = self._model[condition].data.qpos[:2].squeeze()
+            Xdot_full[t, :] = self._model[condition].data.qvel[:2].squeeze()
 
-            x = X_t[self._x_data_idx[JOINT_ANGLES][0]:self._x_data_idx[JOINT_ANGLES][0] + 2]
-            xdot = X_t[self._x_data_idx[JOINT_VELOCITIES][0]:self._x_data_idx[JOINT_VELOCITIES][0] + 2]
-
-            X_full[t,:] = x
-            Xdot_full[t,:] = xdot
-
+            # self.reference_points_show(condition)
             if self._hyperparams['additional_viewer']:
                 self._large_viewer.loop_once()
-            self._small_viewer.loop_once()
-            self._store_image(t)
 
-            mj_U = policy.act(x, xdot, self._sample_images, t, init_model=self._model[condition])
+            self._store_image(t, condition)
+
+            if not self._hyperparams['data_collection']:
+                mj_U, pos, ind, targets = policy.act(X_full, Xdot_full, self._sample_images, t, init_model=self._model[condition])
+                add_traj = True
+                if add_traj:
+                    self.large_images_traj += self.add_traj_visual(self.large_images[t], pos, ind, targets)
+            else:
+                mj_U = policy.act(X_full[t, :], Xdot_full[t, :], self._sample_images, t)
+
             U[t, :] = mj_U
 
-            if (t + 1) < self.T:
-                for _ in range(self._hyperparams['substeps']):
-                    self._model[condition].data.ctrl = mj_U
-                    self._model[condition].step()         #simulate the model in mujoco
-                #TODO: Some hidden state stuff will go here.
-                mj_X = np.concatenate([self._model[condition].data.qpos, self._model[condition].data.qvel]).flatten()
-                self._data = self._model[condition].data
-                self._set_sample(new_sample, mj_X, t, condition)
+            for _ in range(self._hyperparams['substeps']):
+                self._model[condition].data.ctrl = mj_U
+                self._model[condition].step()         #simulate the model in mujoco
 
-        new_sample.set(ACTION, U)
-        if save:
-            self._samples[condition].append(new_sample)
+        if self._hyperparams['record']:
+            self.save_gif()
 
         return X_full, Xdot_full, U, self._sample_images
 
-    def _store_image(self,t):
+
+    def _store_image(self,t, condition):
         """
         store image at time index t
         """
+        self.model_nomarkers.data.qpos = self._model[condition].data.qpos
+        self.model_nomarkers.data.qvel = self._model[condition].data.qvel
+        self.model_nomarkers.step()
+        self._small_viewer.loop_once()
+
+        img_string, width, height = self._large_viewer.get_image()
+        largeimage = np.fromstring(img_string, dtype='uint8').reshape(
+                (480, 480, self._hyperparams['image_channels']))[::-1, :, :]
+
+        # import pdb; pdb.set_trace()
+        self.large_images.append(largeimage)
+
         img_string, width, height = self._small_viewer.get_image()
         img = np.fromstring(img_string, dtype='uint8').reshape((height, width, self._hyperparams['image_channels']))[::-1,:,:]
 
         self._sample_images[t,:,:,:] = img
+
+
+    def add_traj_visual(self, img, traj, bestindices, targets):
+
+        large_sample_images_traj = []
+        fig = plt.figure(figsize=(6, 6), dpi=80)
+        fig.add_subplot(111)
+        plt.subplots_adjust(left=0, bottom=0, right=1, top=1, wspace=0, hspace=0)
+
+        num_samples = traj.shape[0]
+        niter = traj.shape[1]
+
+        for itr in range(niter):
+
+            axes = plt.gca()
+            plt.cla()
+            axes.axis('off')
+            plt.imshow(img, zorder=0)
+            axes.autoscale(False)
+
+            for smp in range(num_samples):  # for each trajectory
+
+                x = traj[smp, itr, :, 1]
+                y = traj[smp, itr, :, 0]
+
+                if smp == bestindices[itr][0]:
+                    plt.plot(x, y, zorder=1, marker='o', color='y')
+                elif smp in bestindices[itr][1:]:
+                    plt.plot(x, y, zorder=1, marker='o', color='r')
+                else:
+                    if smp % 5 == 0:
+                        plt.plot(x, y, zorder=1, marker='o', color='b')
+
+                # target points #####
+                x = targets[smp, itr, :, 1]
+                y = targets[smp, itr, :, 0]
+
+                if smp == bestindices[itr][0]:
+                    plt.plot(x, y, zorder=1, marker='o', color='y', linestyle='--')
+                elif smp in bestindices[itr][1:]:
+                    plt.plot(x, y, zorder=1, marker='o', color='r', linestyle='--')
+                else:
+                    if smp % 5 == 0:
+                        plt.plot(x, y, zorder=1, marker='o', color='b', linestyle='--')
+
+
+            fig.canvas.draw()  # draw the canvas, cache the renderer
+
+            data = np.fromstring(fig.canvas.tostring_rgb(), dtype=np.uint8, sep='')
+            data = data.reshape(fig.canvas.get_width_height()[::-1] + (3,))
+
+            large_sample_images_traj.append(data)
+
+            # plt.show()
+            # print 'timestep', t, 'iter', itr
+            # from PIL import Image
+            # Image.fromarray(data).show()
+
+            # import pdb;
+            # pdb.set_trace()
+
+        return large_sample_images_traj
+
+    def save_gif(self):
+        file_path = self._hyperparams['record']
+        from video_prediction.utils_vpred.create_gif import npy_to_gif
+        npy_to_gif(self.large_images_traj, file_path)
 
     def _init(self, condition):
         """
@@ -207,7 +282,6 @@ class AgentMuJoCo(Agent):
                 pos = np.random.uniform(-.35, .35, 2)
                 alpha = np.random.uniform(0, np.pi*2)
                 ori = np.array([np.cos(alpha/2), 0, 0, np.sin(alpha/2) ])
-                # import pdb; pdb.set_trace()
                 poses.append(np.concatenate((pos, np.array([0]), ori), axis= 0))
             return np.concatenate(poses)
 
@@ -218,11 +292,15 @@ class AgentMuJoCo(Agent):
 
         # Initialize world/run kinematics
         x0 = self._hyperparams['x0'][condition]
-        goal = self._hyperparams['goal_point']
-        self._model[condition].data.qpos = np.concatenate((x0[:2], object_pos,goal), 0)
+        if 'goal_point' in self._hyperparams.keys():
+            goal = np.append(self._hyperparams['goal_point'], [.1])   # goal point
+            ref = np.append(object_pos[:2], [.1]) # reference point
+            self._model[condition].data.qpos = np.concatenate((x0[:2], object_pos,goal, ref), 0)
+        else:
+            self._model[condition].data.qpos = np.concatenate((x0[:2], object_pos), 0)
         self._model[condition].data.qvel = np.zeros_like(self._model[condition].data.qvel)
 
-        # self._model[condition].data.qpos[2:] = self._hyperparams['initial_object_pos']
+        # self._model[condition].data_files.qpos[2:] = self._hyperparams['initial_object_pos']
         mjlib.mj_kinematics(self._model[condition].ptr, self._model[condition].data.ptr)
         mjlib.mj_comPos(self._model[condition].ptr, self._model[condition].data.ptr)
         mjlib.mj_tendon(self._model[condition].ptr, self._model[condition].data.ptr)
@@ -256,7 +334,7 @@ class AgentMuJoCo(Agent):
         sample.set(END_EFFECTOR_POINT_JACOBIANS, jac, t=0)
 
 
-        # save initial image to meta data
+        # save initial image to meta data_files
         img_string, width, height = self._small_viewer.get_image()
         img = np.fromstring(img_string, dtype='uint8').reshape(height, width, 3)[::-1,:,:]
 
@@ -286,9 +364,9 @@ class AgentMuJoCo(Agent):
 
     def _set_sample(self, sample, mj_X, t, condition):
         """
-        Set the data for a sample for one time step.
+        Set the data_files for a sample for one time step.
         Args:
-            sample: Sample object to set data for.
+            sample: Sample object to set data_files for.
             mj_X: Data to set for sample.
             t: Time step to set for sample.
             condition: Which condition to set.
