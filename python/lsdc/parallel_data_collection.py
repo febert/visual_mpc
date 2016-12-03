@@ -4,6 +4,8 @@ import imp
 import os
 from lsdc.lsdc_main_mod import LSDCMain
 import copy
+import random
+import numpy as np
 
 def worker(conf):
     print 'started process with PID:', os.getpid()
@@ -12,11 +14,14 @@ def worker(conf):
         conf['end_index'],
     )
 
+    random.seed(None)
+    np.random.seed(None)
+
     lsdc = LSDCMain(conf)
     lsdc.run()
 
 
-n_worker = 1
+n_worker = 10
 
 def main():
     parser = argparse.ArgumentParser(description='Run the Guided Policy Search algorithm.')
@@ -31,7 +36,7 @@ def main():
     hyperparams_file = data_coll_dir + 'hyperparams.py'
     hyperparams = imp.load_source('hyperparams', hyperparams_file)
 
-    n_traj = 100000
+    n_traj = 60000
     traj_per_worker = int(n_traj / n_worker)
     start_idx = [traj_per_worker * i for i in range(n_worker)]
     end_idx =  [traj_per_worker * (i+1)-1 for i in range(n_worker)]
@@ -43,14 +48,15 @@ def main():
         modconf['end_index'] = end_idx[i]
         conflist.append(modconf)
 
-    parallel = False
+    parallel = True
     if parallel:
         p = Pool(n_worker)
         p.map(worker, conflist)
     else:
-
         worker(conflist[0])
 
 
 if __name__ == '__main__':
+
+
     main()

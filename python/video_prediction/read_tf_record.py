@@ -127,14 +127,14 @@ if __name__ == '__main__':
     conf = {}
 
     # DATA_DIR = '/home/frederik/Documents/pushing_data/settled_scene_rnd3/train'
-    DATA_DIR = '/home/frederik/Documents/pushing_data/finer_temporal_resolution_substep10/train'
+    DATA_DIR = '/home/frederik/Documents/pushing_data/random_action/train'
     # DATA_DIR = '/home/frederik/Documents/pushing_data/old/train'
 
     conf['schedsamp_k'] = -1  # don't feed ground truth
     conf['data_dir'] = DATA_DIR  # 'directory containing data_files.' ,
     conf['skip_frame'] = 1
     conf['train_val_split']= 0.95
-    conf['sequence_length']= 30      # 'sequence length, including context frames.'
+    conf['sequence_length']= 15      # 'sequence length, including context frames.'
     conf['use_state'] = True
     conf['batch_size']= 32
     conf['visualize']=False

@@ -196,7 +196,7 @@ class LSDCMain(object):
             sample_index: sample number
         """
 
-        print 'saving traj no:', sample_index
+        # print 'saving traj no:', sample_index
 
         type_of_file = ['tfrecord']
 

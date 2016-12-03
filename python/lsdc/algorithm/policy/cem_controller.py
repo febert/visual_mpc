@@ -25,10 +25,11 @@ class CEM_controller(Policy):
         Policy.__init__(self)
         self.agentparams = copy.deepcopy(AGENT_MUJOCO)
         self.agentparams.update(ag_params)
-
-        self.low_level_ctrl = policyparams['low_level_ctrl']['type'](None, policyparams['low_level_ctrl'])
-
         self.policyparams = policyparams
+
+        if self.policyparams['low_level_ctrl']:
+            self.low_level_ctrl = policyparams['low_level_ctrl']['type']\
+                (None, policyparams['low_level_ctrl'])
 
         self.model = mujoco_py.MjModel(self.agentparams['filename'])
         self._data = {}  #dictionary for storing the data_files
@@ -45,21 +46,21 @@ class CEM_controller(Policy):
         hyperparams = imp.load_source('hyperparams', self.policyparams['netconf'])
         self.netconf = hyperparams.configuration
 
-        self.horizon = 5
-        self.repeat = 3
+        self.nactions = 15
+        self.repeat = 1
         if self.use_net:
             self.M = self.netconf['batch_size']
-            assert self.horizon*self.repeat == self.netconf['sequence_length']
+            assert self.nactions * self.repeat == self.netconf['sequence_length']
             self.predictor = setup_predictor(self.policyparams['netconf'])
             self.K = 10  # only consider K best samples for refitting
         else:
             self.M = 200 #200
             self.K = 10  # only consider K best samples for refitting
 
-        self.gtruth_images = [np.zeros((self.M, 64, 64, 3)) for _ in range(self.horizon*self.repeat)]
+        self.gtruth_images = [np.zeros((self.M, 64, 64, 3)) for _ in range(self.nactions * self.repeat)]
 
         # the full horizon is actions*repeat
-        self.action_cost_mult = 0.05
+        self.action_cost_mult = 0.00005
         self.adim = 2  # action dimension
         self.initial_std = policyparams['initial_std']
 
@@ -83,8 +84,8 @@ class CEM_controller(Policy):
         self.desig_pix = np.zeros((self.agentparams['T'], 2), dtype=np.int)
 
         # predicted positions
-        self.pred_pos = np.zeros((self.M, self.niter, self.repeat*self.horizon, 2))
-        self.rec_target_pos = np.zeros((self.M, self.niter, self.repeat * self.horizon, 2))
+        self.pred_pos = np.zeros((self.M, self.niter, self.repeat * self.nactions, 2))
+        self.rec_target_pos = np.zeros((self.M, self.niter, self.repeat * self.nactions, 2))
         self.bestindices_of_iter = np.zeros((self.niter, self.K))
 
         self.indices =[]
@@ -107,13 +108,13 @@ class CEM_controller(Policy):
         return np.linalg.norm(goalpoint - refpoint)
 
     def calc_action_cost(self, actions_of_smp):
-        force_magnitudes = np.array([np.linalg.norm(actions_of_smp[t]) for t in range(self.horizon)])
+        force_magnitudes = np.array([np.linalg.norm(actions_of_smp[t]) for t in range(self.nactions)])
         return np.square(force_magnitudes)*self.action_cost_mult
 
     def perform_CEM(self,last_frames, last_states, last_desig_pix, last_action):
         # initialize mean and variance
-        mean = np.zeros(self.adim*self.horizon)
-        sigma = np.diag(np.ones(self.adim*self.horizon) * self.initial_std**2)
+        mean = np.zeros(self.adim * self.nactions)
+        sigma = np.diag(np.ones(self.adim * self.nactions) * self.initial_std ** 2)
 
         print '------------------------------------------------'
         print 'starting CEM cylce'
@@ -135,7 +136,7 @@ class CEM_controller(Policy):
             # print sigma
 
             actions = np.random.multivariate_normal(mean, sigma, self.M)
-            actions = actions.reshape(self.M, self.horizon, self.adim)
+            actions = actions.reshape(self.M, self.nactions, self.adim)
 
             if self.compare_sim_net:
                 for smp in range(self.M):
@@ -157,9 +158,9 @@ class CEM_controller(Policy):
 
             self.bestaction_withrepeat = actions[self.indices[0]]
 
-            actions = actions.reshape(self.M, self.horizon, self.repeat, self.adim)
+            actions = actions.reshape(self.M, self.nactions, self.repeat, self.adim)
             actions = actions[:,:,-1,:] #taking only one of the repeated actions
-            actions_flat = actions.reshape(self.M , self.horizon*self.adim)
+            actions_flat = actions.reshape(self.M, self.nactions * self.adim)
 
             self.bestaction = actions[self.indices[0]]
 
@@ -232,7 +233,7 @@ class CEM_controller(Policy):
 
         # import pdb; pdb.set_trace()
 
-        np.zeros((self.M, self.niter, self.repeat * self.horizon, 2))
+        np.zeros((self.M, self.niter, self.repeat * self.nactions, 2))
 
 
 
@@ -285,10 +286,11 @@ class CEM_controller(Policy):
 
 
     def sim_rollout(self, actions, smp, itr):
-        rollout_ctrl = self.policyparams['low_level_ctrl']['type'](None, self.policyparams['low_level_ctrl'])
-        roll_target_pos = copy.deepcopy(self.init_model.data.qpos[:2].squeeze())
+        if self.policyparams['low_level_ctrl']:
+            rollout_ctrl = self.policyparams['low_level_ctrl']['type'](None, self.policyparams['low_level_ctrl'])
+            roll_target_pos = copy.deepcopy(self.init_model.data.qpos[:2].squeeze())
 
-        for hstep in range(self.horizon):
+        for hstep in range(self.nactions):
             currentaction = actions[hstep]
 
             if self.policyparams['low_level_ctrl']:
@@ -301,7 +303,8 @@ class CEM_controller(Policy):
                 if not self.use_net:
                     ball_coord = self.model.data.qpos[:2].squeeze()
                     self.pred_pos[smp, itr, t] = self.mujoco_to_imagespace(ball_coord, numpix=480)
-                    self.rec_target_pos[smp, itr, t] = self.mujoco_to_imagespace(roll_target_pos, numpix=480)
+                    if self.policyparams['low_level_ctrl']:
+                        self.rec_target_pos[smp, itr, t] = self.mujoco_to_imagespace(roll_target_pos, numpix=480)
 
                 if self.policyparams['low_level_ctrl'] == None:
                     force = currentaction
@@ -371,8 +374,8 @@ class CEM_controller(Policy):
                     action = self.bestaction
                 else:
                     # only showing last iteration
-                    self.pred_pos = self.pred_pos[:,-1].reshape((self.M, 1, self.repeat*self.horizon, 2))
-                    self.rec_target_pos = self.rec_target_pos[:, -1].reshape((self.M, 1, self.repeat * self.horizon, 2))
+                    self.pred_pos = self.pred_pos[:,-1].reshape((self.M, 1, self.repeat * self.nactions, 2))
+                    self.rec_target_pos = self.rec_target_pos[:, -1].reshape((self.M, 1, self.repeat * self.nactions, 2))
                     self.bestindices_of_iter = self.bestindices_of_iter[-1, :].reshape((1, self.K))
                 action = self.bestaction_withrepeat[t - 1]
 

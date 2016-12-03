@@ -13,7 +13,7 @@ class Random_impedance_point(Policy):
         Policy.__init__(self)
         self.x_g = np.array([0,0])
 
-    def act(self, X_full, Xdot_full, sample_images, t, init_model= None):
+    def act(self, x, xdot, sample_images, t, init_model= None):
         """
         Return a random action for a state.
         Args:
@@ -22,8 +22,6 @@ class Random_impedance_point(Policy):
             t: Time step.
             x_data_idx: data_files indexes for x
         """
-        x = X_full[t]
-        xdot = Xdot_full[t]
 
         new_point_freq = 13
 

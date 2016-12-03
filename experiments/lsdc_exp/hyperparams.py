@@ -33,23 +33,21 @@ SENSOR_DIMS = {
     RGB_IMAGE_SIZE: 3,
 }
 
-BASE_DIR = '/'.join(str.split(gps_filepath, '/')[:-2])
-EXP_DIR = BASE_DIR + '/../experiments/lsdc_exp/'
-
+BASE_DIR = '/'.join(str.split(__file__, '/')[:-1])
 
 common = {
     'experiment_name': 'my_experiment' + '_' + \
             datetime.strftime(datetime.now(), '%m-%d-%y_%H-%M'),
-    'experiment_dir': EXP_DIR,
-    'data_files_dir': '/home/frederik/Documents/pushing_data/finer_temporal_resolution_substep10/train/',
-    'target_filename': EXP_DIR + 'target.npz',
-    'log_filename': EXP_DIR + 'log.txt',
+    'experiment_dir': BASE_DIR,
+    'data_files_dir': BASE_DIR + '/train',
+    'target_filename': BASE_DIR + 'target.npz',
+    'log_filename': BASE_DIR + 'log.txt',
     'conditions': 1,
     'no_sample_logging': True,
 }
 
 if not os.path.exists(common['data_files_dir']):
-    os.makedirs(common['data_files_dir'])
+    raise ValueError('data files directory not found!')
 
 
 agent = {

@@ -104,9 +104,11 @@ policy = {
 }
 
 if policy['low_level_ctrl'] == None:
-    policy['initial_std'] = 6
+    policy['initial_std'] = 7
 elif policy['low_level_ctrl']['type'] == Pos_Controller:
     policy['initial_std'] = 0.15
+elif policy['low_level_ctrl']['type'] == Vel_Controller:
+    policy['initial_std'] = 3
 
 
 config = {

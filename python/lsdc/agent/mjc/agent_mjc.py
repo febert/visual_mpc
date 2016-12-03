@@ -104,13 +104,13 @@ class AgentMuJoCo(Agent):
         self._small_viewer = mujoco_py.MjViewer(visible=True,
                                                 init_width=self._hyperparams['image_width'],
                                                 init_height=self._hyperparams['image_height'],
-                                                go_fast=False)
+                                                go_fast=True)
         self._small_viewer.start()
         self._small_viewer.cam.camid = 0
 
         if self._hyperparams['additional_viewer']:
             self._large_viewer = mujoco_py.MjViewer(visible=True, init_width=480,
-                                                    init_height=480, go_fast=False)
+                                                    init_height=480, go_fast=True)
             self._large_viewer.start()
 
 
@@ -160,13 +160,13 @@ class AgentMuJoCo(Agent):
 
             self._store_image(t, condition)
 
-            if not self._hyperparams['data_collection']:
+            if self._hyperparams['data_collection']:
+                mj_U = policy.act(X_full[t, :], Xdot_full[t, :], self._sample_images, t)
+            else:
                 mj_U, pos, ind, targets = policy.act(X_full, Xdot_full, self._sample_images, t, init_model=self._model[condition])
                 add_traj = True
                 if add_traj:
                     self.large_images_traj += self.add_traj_visual(self.large_images[t], pos, ind, targets)
-            else:
-                mj_U = policy.act(X_full[t, :], Xdot_full[t, :], self._sample_images, t)
 
             U[t, :] = mj_U
 
@@ -234,16 +234,16 @@ class AgentMuJoCo(Agent):
                         plt.plot(x, y, zorder=1, marker='o', color='b')
 
                 # target points #####
-                x = targets[smp, itr, :, 1]
-                y = targets[smp, itr, :, 0]
-
-                if smp == bestindices[itr][0]:
-                    plt.plot(x, y, zorder=1, marker='o', color='y', linestyle='--')
-                elif smp in bestindices[itr][1:]:
-                    plt.plot(x, y, zorder=1, marker='o', color='r', linestyle='--')
-                else:
-                    if smp % 5 == 0:
-                        plt.plot(x, y, zorder=1, marker='o', color='b', linestyle='--')
+                # x = targets[smp, itr, :, 1]
+                # y = targets[smp, itr, :, 0]
+                #
+                # if smp == bestindices[itr][0]:
+                #     plt.plot(x, y, zorder=1, marker='o', color='y', linestyle='--')
+                # elif smp in bestindices[itr][1:]:
+                #     plt.plot(x, y, zorder=1, marker='o', color='r', linestyle='--')
+                # else:
+                #     if smp % 5 == 0:
+                #         plt.plot(x, y, zorder=1, marker='o', color='b', linestyle='--')
 
 
             fig.canvas.draw()  # draw the canvas, cache the renderer
