@@ -101,16 +101,17 @@ class AgentMuJoCo(Agent):
             else:
                 self.x0.append(self._hyperparams['x0'][i])
 
+        gofast = False
         self._small_viewer = mujoco_py.MjViewer(visible=True,
                                                 init_width=self._hyperparams['image_width'],
                                                 init_height=self._hyperparams['image_height'],
-                                                go_fast=True)
+                                                go_fast=gofast)
         self._small_viewer.start()
         self._small_viewer.cam.camid = 0
 
         if self._hyperparams['additional_viewer']:
             self._large_viewer = mujoco_py.MjViewer(visible=True, init_width=480,
-                                                    init_height=480, go_fast=True)
+                                                    init_height=480, go_fast=gofast)
             self._large_viewer.start()
 
 
@@ -161,14 +162,20 @@ class AgentMuJoCo(Agent):
             self._store_image(t, condition)
 
             if self._hyperparams['data_collection']:
-                mj_U = policy.act(X_full[t, :], Xdot_full[t, :], self._sample_images, t)
+                if self._hyperparams['poscontroller']:
+                    mj_U, target_pos = policy.act(X_full[t, :], Xdot_full[t, :], self._sample_images, t)
+                else:
+                    mj_U = policy.act(X_full[t, :], Xdot_full[t, :], self._sample_images, t)
             else:
                 mj_U, pos, ind, targets = policy.act(X_full, Xdot_full, self._sample_images, t, init_model=self._model[condition])
                 add_traj = True
                 if add_traj:
                     self.large_images_traj += self.add_traj_visual(self.large_images[t], pos, ind, targets)
 
-            U[t, :] = mj_U
+            if self._hyperparams['poscontroller']:
+                U[t, :] = target_pos
+            else:
+                U[t, :] = mj_U
 
             for _ in range(self._hyperparams['substeps']):
                 self._model[condition].data.ctrl = mj_U
@@ -252,14 +259,6 @@ class AgentMuJoCo(Agent):
             data = data.reshape(fig.canvas.get_width_height()[::-1] + (3,))
 
             large_sample_images_traj.append(data)
-
-            # plt.show()
-            # print 'timestep', t, 'iter', itr
-            # from PIL import Image
-            # Image.fromarray(data).show()
-
-            # import pdb;
-            # pdb.set_trace()
 
         return large_sample_images_traj
 

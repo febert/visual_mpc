@@ -99,7 +99,7 @@ low_level_conf = {
 from lsdc.algorithm.policy.cem_controller import CEM_controller
 policy = {
     'type' : CEM_controller,
-    'low_level_ctrl': low_level_conf,
+    'low_level_ctrl': low_level_conf,  #None
     'netconf': EXP_DIR + 'conf.py',
 }
 

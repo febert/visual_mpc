@@ -2,6 +2,8 @@ import os
 import numpy as np
 import tensorflow as tf
 from tensorflow.python.platform import gfile
+import matplotlib.pyplot as plt
+import pdb
 
 from PIL import Image
 import imp
@@ -120,6 +122,68 @@ def build_tfrecord_input(conf, training=True):
         return image_batch, zeros_batch_action, zeros_batch_state
 
 
+##### code below is used for debugging
+
+def add_visuals_to_batch(image_data, action_data, state_data):
+    batchsize, sequence_length = state_data.shape[0], state_data.shape[1]
+
+    img = np.uint8(255. * image_data)
+
+    image__with_visuals = np.zeros((32, 15, 64, 64, 3), dtype=np.uint8)
+
+    for b in range(batchsize):
+        for t in range(sequence_length):
+            actions = action_data[b, t]
+            state = state_data[b, t, :2]
+            sel_img = img[b,t]
+            image__with_visuals[b, t] = get_frame_with_visual(sel_img, actions, state)
+
+    return image__with_visuals.astype(np.float32) / 255.0
+
+
+def get_frame_with_visual(img, action, state):
+    fig = plt.figure(figsize=(1, 1), dpi=64)
+    fig.add_subplot(111)
+    plt.subplots_adjust(left=0, bottom=0, right=1, top=1, wspace=0, hspace=0)
+
+    axes = plt.gca()
+    plt.cla()
+    axes.axis('off')
+    plt.imshow(img, zorder=0)
+    axes.autoscale(False)
+
+    p = mujoco_to_imagespace(state + .05 * action)
+    state = mujoco_to_imagespace(state)
+
+    plt.scatter(state[1], state[0], zorder=1, marker='o', color='r')
+
+    yaction = np.array([state[0], p[0]])
+    xaction = np.array([state[1], p[1]])
+    plt.plot(xaction, yaction, zorder=1, marker='o', color='y')
+
+    fig.canvas.draw()  # draw the canvas, cache the renderer
+
+    data = np.fromstring(fig.canvas.tostring_rgb(), dtype=np.uint8, sep='')
+    data = data.reshape(fig.canvas.get_width_height()[::-1] + (3,))
+
+    # plt.show()
+    # Image.fromarray(data).show()
+    # pdb.set_trace()
+
+    return data
+
+def mujoco_to_imagespace(mujoco_coord, numpix=64):
+    viewer_distance = .75  # distance from camera to the viewing plane
+    window_height = 2 * np.tan(75 / 2 / 180. * np.pi) * viewer_distance  # window height in Mujoco coords
+    pixelheight = window_height / numpix  # height of one pixel
+    pixelwidth = pixelheight
+    window_width = pixelwidth * numpix
+    middle_pixel = numpix / 2
+    pixel_coord = np.rint(np.array([-mujoco_coord[1], mujoco_coord[0]]) /
+                          pixelwidth + np.array([middle_pixel, middle_pixel]))
+    pixel_coord = pixel_coord.astype(int)
+    return pixel_coord
+
 if __name__ == '__main__':
     # for debugging only:
     os.environ["CUDA_VISIBLE_DEVICES"] = "1"
@@ -127,12 +191,12 @@ if __name__ == '__main__':
     conf = {}
 
     # DATA_DIR = '/home/frederik/Documents/pushing_data/settled_scene_rnd3/train'
-    DATA_DIR = '/home/frederik/Documents/pushing_data/random_action/train'
-    # DATA_DIR = '/home/frederik/Documents/pushing_data/old/train'
+    # DATA_DIR = '/home/frederik/Documents/pushing_data/random_action/train'
+    DATA_DIR = '/home/frederik/Documents/pushing_data/old/train'
 
     conf['schedsamp_k'] = -1  # don't feed ground truth
     conf['data_dir'] = DATA_DIR  # 'directory containing data_files.' ,
-    conf['skip_frame'] = 1
+    conf['skip_frame'] = 2
     conf['train_val_split']= 0.95
     conf['sequence_length']= 15      # 'sequence length, including context frames.'
     conf['use_state'] = True
@@ -157,20 +221,26 @@ if __name__ == '__main__':
         image_data, action_data, state_data = sess.run([image_batch, action_batch, state_batch])
 
         print 'action:', action_data.shape
-        print 'action:', action_data[0]
+        print 'action: batch ind 0', action_data[0]
+        print 'action: batch ind 1', action_data[1]
         print 'images:', image_data.shape
 
         print 'states:', state_data.shape
-        print 'states:', state_data[0]
+        print 'states: batch ind 0', state_data[0]
+        print 'states: batch ind 1', state_data[1]
         print 'average speed in dir1:', np.average(state_data[:,:,3])
         print 'average speed in dir2:', np.average(state_data[:,:,2])
 
         from utils_vpred.create_gif import comp_single_video
 
         gif_preview = '/'.join(str.split(__file__, '/')[:-1] + ['preview'])
-        comp_single_video(gif_preview , image_data)
+        comp_single_video(gif_preview, image_data)
+        gif_preview = '/'.join(str.split(__file__, '/')[:-1] + ['preview_visuals'])
+        comp_single_video(gif_preview, add_visuals_to_batch(image_data, action_data, state_data))
 
         for i in range(2):
             img = np.uint8(255. *image_data[i,0])
             img = Image.fromarray(img, 'RGB')
             img.show()
+
+

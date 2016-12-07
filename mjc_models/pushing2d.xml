@@ -14,8 +14,6 @@
             <inertial pos="0 0 0" mass="5" diaginertia="166.667 166.667 166.667"/>
             <geom name="particle_geom" type="capsule" fromto="-0.01 0 0 0.01 0 0" size="0.05" rgba="0.9 0 0.1 0.6" />
             <site name="particle_site" pos="0 0 0" size="0.01" />
-            <!--<joint name="ball_x" type="slide" pos="0 0 0" axis="1 0 0" damping="15" />-->
-            <!--<joint name="ball_y" type="slide" pos="0 0 0" axis="0 1 0" damping="15" />-->
             <joint name="ball_x" type="slide" pos="0 0 0" axis="1 0 0" />
             <joint name="ball_y" type="slide" pos="0 0 0" axis="0 1 0" />
         </body>

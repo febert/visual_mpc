@@ -24,7 +24,9 @@ class Pos_Controller(Policy):
             obs: Observation vector.
             t: Time step.
             x_data_idx: data_files indexes for x
-            target_inc: the target point for the control
+            target: the target point for the control,
+            if left empty assuming data collection run
+
         """
 
         if self.policy_params['mode']== 'relative':
@@ -40,6 +42,7 @@ class Pos_Controller(Policy):
                     #set new target point
                     cov = np.diag(np.ones(2) * self.policy_params['std_dev']**2)
                     self.target += np.random.multivariate_normal([0, 0], cov)
+                    print 'set target point ', self.target
             else:
                 self.target = target
 
@@ -55,7 +58,8 @@ class Pos_Controller(Policy):
 
         force = (self.target - X) * stiffness - Xdot * damping
 
-        # print 't:',t, 'current pos:', X,  'target:', self.target
-        # print 'pos error norm: ', np.linalg.norm(self.target - X)
+        print 't:',t, 'current pos:', X,  'target:', self.target
+        print 'pos error norm: ', np.linalg.norm(self.target - X)
 
-        return force
+
+        return force, self.target

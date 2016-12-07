@@ -177,7 +177,6 @@ class LSDCMain(object):
             self.policy, cond )
 
         if self._hyperparams['save_data']:
-
             self._save_data(X_full, Xdot_full, U, sample_images, sample_index)
 
         end = datetime.now()
@@ -198,42 +197,19 @@ class LSDCMain(object):
 
         # print 'saving traj no:', sample_index
 
-        type_of_file = ['tfrecord']
-
-        for type in type_of_file:
-            if type== 'tfrecord':
-                # get the relevant state information:
-                dir_ = self._data_files_dir
-
-                X_Xdot = np.concatenate((X_full, Xdot_full), axis=1)
-
-                U = U.astype(np.float32)
-                X_Xdot = X_Xdot.astype(np.float32)
-                sample_images_cpy = copy.deepcopy(sample_images)
-                X_Xdot_cpy = X_Xdot
-                U_cpy = U
-                self._trajectory_list.append([X_Xdot_cpy,U_cpy,sample_images_cpy])
-                traj_per_file =  256
-                if len(self._trajectory_list) == traj_per_file:
-                    filename = 'traj_{0}_to_{1}'\
-                        .format(sample_index - traj_per_file + 1, sample_index)
-                    save_tf_record(dir_, filename, self._trajectory_list)
-                    self._trajectory_list = []
-
-            if type == 'jpg':
-                dir_ = self._data_files_dir + 'jpgs/'
-                if not os.path.exists(dir_):
-                    os.makedirs(dir_)
-
-                from PIL import Image
-                for i in range(sample_images.shape[0]):
-                    img = sample_images[i]
-                    img = Image.fromarray(img, 'RGB')
-                    img.save(dir_ + 'im{0}_traj{1}.jpg'.format(i,sample_index), "JPEG")
-
-            if type == 'hdf5':
-                with h5py.File(self._hyperparams['agent']['image_dir'], 'a') as hf:
-                    hf.create_dataset('sample_no{0}'.format(type), data = sample_images)
+        # get the relevant state information:
+        dir_ = self._data_files_dir
+        X_Xdot = np.concatenate((X_full, Xdot_full), axis=1)
+        U = copy.deepcopy(U)
+        X_Xdot = copy.deepcopy(X_Xdot)
+        sample_images_cpy = copy.deepcopy(sample_images)
+        self._trajectory_list.append([X_Xdot,U,sample_images_cpy])
+        traj_per_file =  256
+        if len(self._trajectory_list) == traj_per_file:
+            filename = 'traj_{0}_to_{1}'\
+                .format(sample_index - traj_per_file + 1, sample_index)
+            save_tf_record(dir_, filename, self._trajectory_list)
+            self._trajectory_list = []
 
     def _take_iteration(self, itr, sample_lists):
         """

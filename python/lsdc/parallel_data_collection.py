@@ -21,13 +21,22 @@ def worker(conf):
     lsdc.run()
 
 
-n_worker = 10
-
 def main():
     parser = argparse.ArgumentParser(description='Run the Guided Policy Search algorithm.')
     parser.add_argument('experiment', type=str, help='experiment name')
+    parser.add_argument('--parallel', type=str, help='use multiple threads or not', default=True)
     args = parser.parse_args()
     exp_name = args.experiment
+    parallel= args.parallel
+
+
+    n_worker = 10
+    print 'using ', n_worker,' workers'
+    if parallel == 'True':
+        parallel = True
+    if parallel == 'False':
+        parallel = False
+    print 'parallel ', bool(parallel)
 
     from lsdc import __file__ as lsdc_filepath
     lsdc_filepath = os.path.abspath(lsdc_filepath)
@@ -37,7 +46,7 @@ def main():
     hyperparams = imp.load_source('hyperparams', hyperparams_file)
 
     n_traj = 60000
-    traj_per_worker = int(n_traj / n_worker)
+    traj_per_worker = int(n_traj / np.float32(n_worker))
     start_idx = [traj_per_worker * i for i in range(n_worker)]
     end_idx =  [traj_per_worker * (i+1)-1 for i in range(n_worker)]
 
@@ -48,11 +57,15 @@ def main():
         modconf['end_index'] = end_idx[i]
         conflist.append(modconf)
 
-    parallel = True
+    import pdb; pdb.set_trace()
     if parallel:
+        import pdb;
+        pdb.set_trace()
         p = Pool(n_worker)
         p.map(worker, conflist)
     else:
+        import pdb;
+        pdb.set_trace()
         worker(conflist[0])
 
 

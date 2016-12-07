@@ -17,14 +17,9 @@ class Randompolicy(Policy):
 
 
     def act(self, X_full, Xdot_full, sample_images, t):
-        """
-
-        """
 
         actions = self.policyparams['numactions']  # MPC actions in terms of number of independent consecutive actions
         repeat = self.policyparams['repeats']  # repeat the same action to reduce number of repquired timesteps
-
-        # the full actions is actions*repeat
 
         adim = 2  # action dimension
         initial_var = self.policyparams['initial_var'] # before: 40
@@ -36,7 +31,6 @@ class Randompolicy(Policy):
             sigma = np.diag(np.ones(adim * actions) * initial_var)
             self.actions = np.random.multivariate_normal(mean, sigma, 1)
             self.actions = self.actions.reshape(actions, 2)
-
             self.actions = np.repeat(self.actions, repeat, axis=0)
 
         return self.actions[t]
