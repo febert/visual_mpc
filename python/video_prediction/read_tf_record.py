@@ -191,12 +191,12 @@ if __name__ == '__main__':
     conf = {}
 
     # DATA_DIR = '/home/frederik/Documents/pushing_data/settled_scene_rnd3/train'
-    # DATA_DIR = '/home/frederik/Documents/pushing_data/random_action/train'
-    DATA_DIR = '/home/frederik/Documents/pushing_data/old/train'
+    DATA_DIR = '/home/frederik/Documents/pushing_data/random_action/train'
+    # DATA_DIR = '/home/frederik/Documents/pushing_data/old/train'
 
     conf['schedsamp_k'] = -1  # don't feed ground truth
     conf['data_dir'] = DATA_DIR  # 'directory containing data_files.' ,
-    conf['skip_frame'] = 2
+    conf['skip_frame'] = 1
     conf['train_val_split']= 0.95
     conf['sequence_length']= 15      # 'sequence length, including context frames.'
     conf['use_state'] = True
@@ -216,7 +216,7 @@ if __name__ == '__main__':
     sess.run(tf.initialize_all_variables())
 
 
-    for i in range(1):
+    for i in range(10):
         print 'run number ', i
         image_data, action_data, state_data = sess.run([image_batch, action_batch, state_batch])
 
@@ -231,16 +231,32 @@ if __name__ == '__main__':
         print 'average speed in dir1:', np.average(state_data[:,:,3])
         print 'average speed in dir2:', np.average(state_data[:,:,2])
 
+
+
+        import pdb;pdb.set_trace()
+        pos = state_data[:,:,:2]
+        action_var = np.cov(action_data.reshape(action_data.shape[0]*action_data.shape[1], -1), rowvar= False)
+        pos_var = np.cov(pos.reshape(pos.shape[0] * pos.shape[1], -1), rowvar=False)
+
+        print 'action variance of single batch'
+        print action_var
+        print 'state variance of single batch'
+        print pos_var
+
+
         from utils_vpred.create_gif import comp_single_video
 
-        gif_preview = '/'.join(str.split(__file__, '/')[:-1] + ['preview'])
-        comp_single_video(gif_preview, image_data)
-        gif_preview = '/'.join(str.split(__file__, '/')[:-1] + ['preview_visuals'])
-        comp_single_video(gif_preview, add_visuals_to_batch(image_data, action_data, state_data))
+        # make video preview video
+        # gif_preview = '/'.join(str.split(__file__, '/')[:-1] + ['preview'])
+        # comp_single_video(gif_preview, image_data)
+        # make video preview video with annotated forces
+        # gif_preview = '/'.join(str.split(__file__, '/')[:-1] + ['preview_visuals'])
+        # comp_single_video(gif_preview, add_visuals_to_batch(image_data, action_data, state_data))
 
-        for i in range(2):
-            img = np.uint8(255. *image_data[i,0])
-            img = Image.fromarray(img, 'RGB')
-            img.show()
+        #show some frames
+        # for i in range(2):
+        #     img = np.uint8(255. *image_data[i,0])
+        #     img = Image.fromarray(img, 'RGB')
+        #     img.show()
 
 

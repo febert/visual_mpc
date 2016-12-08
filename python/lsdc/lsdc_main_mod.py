@@ -17,7 +17,7 @@ import h5py
 
 # Add lsdc/python to path so that imports work.
 sys.path.append('/'.join(str.split(__file__, '/')[:-2]))
-from lsdc.gui.gps_training_gui import GPSTrainingGUI
+# from lsdc.gui.gps_training_gui import GPSTrainingGUI
 from lsdc.utility.data_logger import DataLogger
 from lsdc.sample.sample_list import SampleList
 from lsdc.algorithm.policy.random_policy import Randompolicy
