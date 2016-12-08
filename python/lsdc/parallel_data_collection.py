@@ -6,6 +6,7 @@ from lsdc.lsdc_main_mod import LSDCMain
 import copy
 import random
 import numpy as np
+import shutil
 
 def worker(conf):
     print 'started process with PID:', os.getpid()
@@ -63,6 +64,11 @@ def main():
     else:
         worker(conflist[0])
 
+    import pdb;
+    pdb.set_trace()
+    file = hyperparams['data_files_dir']+ '/traj_0_to_255.tfrecords'
+    dest_file = '/'.join(str.split(hyperparams['data_files_dir'], '/')[:-1]) + '/test/traj_0_to_255.tfrecords'
+    shutil.move(file, dest_file)
 
 if __name__ == '__main__':
     main()
