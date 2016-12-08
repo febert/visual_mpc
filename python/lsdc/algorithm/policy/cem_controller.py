@@ -46,8 +46,8 @@ class CEM_controller(Policy):
         hyperparams = imp.load_source('hyperparams', self.policyparams['netconf'])
         self.netconf = hyperparams.configuration
 
-        self.nactions = 15
-        self.repeat = 1
+        self.nactions = 5
+        self.repeat = 3
         if self.use_net:
             self.M = self.netconf['batch_size']
             assert self.nactions * self.repeat == self.netconf['sequence_length']
@@ -91,8 +91,6 @@ class CEM_controller(Policy):
         self.indices =[]
 
         self.target = np.zeros(2)
-
-
 
 
     def setup_mujoco(self):
@@ -396,6 +394,6 @@ class CEM_controller(Policy):
             if (t-1) % self.repeat == 0:
                 self.target += action
 
-            force = self.low_level_ctrl.act(x_full[t], xdot_full[t], None, t, self.target)
+            force, _ = self.low_level_ctrl.act(x_full[t], xdot_full[t], None, t, self.target)
 
         return force, self.pred_pos, self.bestindices_of_iter, self.rec_target_pos

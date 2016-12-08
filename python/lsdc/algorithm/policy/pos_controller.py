@@ -58,8 +58,8 @@ class Pos_Controller(Policy):
 
         force = (self.target - X) * stiffness - Xdot * damping
 
-        print 't:',t, 'current pos:', X,  'target:', self.target
-        print 'pos error norm: ', np.linalg.norm(self.target - X)
+        # print 't:',t, 'current pos:', X,  'target:', self.target
+        # print 'pos error norm: ', np.linalg.norm(self.target - X)
 
 
         return force, self.target

@@ -64,8 +64,7 @@ def main():
     else:
         worker(conflist[0])
 
-    import pdb;
-    pdb.set_trace()
+
     file = hyperparams['data_files_dir']+ '/traj_0_to_255.tfrecords'
     dest_file = '/'.join(str.split(hyperparams['data_files_dir'], '/')[:-1]) + '/test/traj_0_to_255.tfrecords'
     shutil.move(file, dest_file)

@@ -124,7 +124,7 @@ def build_tfrecord_input(conf, training=True):
 
 ##### code below is used for debugging
 
-def add_visuals_to_batch(image_data, action_data, state_data):
+def add_visuals_to_batch(image_data, action_data, state_data, action_pos = False):
     batchsize, sequence_length = state_data.shape[0], state_data.shape[1]
 
     img = np.uint8(255. * image_data)
@@ -136,12 +136,12 @@ def add_visuals_to_batch(image_data, action_data, state_data):
             actions = action_data[b, t]
             state = state_data[b, t, :2]
             sel_img = img[b,t]
-            image__with_visuals[b, t] = get_frame_with_visual(sel_img, actions, state)
+            image__with_visuals[b, t] = get_frame_with_visual(sel_img, actions, state, action_pos= action_pos)
 
     return image__with_visuals.astype(np.float32) / 255.0
 
 
-def get_frame_with_visual(img, action, state):
+def get_frame_with_visual(img, action, state, action_pos= False):
     fig = plt.figure(figsize=(1, 1), dpi=64)
     fig.add_subplot(111)
     plt.subplots_adjust(left=0, bottom=0, right=1, top=1, wspace=0, hspace=0)
@@ -152,14 +152,18 @@ def get_frame_with_visual(img, action, state):
     plt.imshow(img, zorder=0)
     axes.autoscale(False)
 
-    p = mujoco_to_imagespace(state + .05 * action)
+    if action_pos:
+        p = mujoco_to_imagespace(action)
+    else:
+        p = mujoco_to_imagespace(state + .05 * action)
+
     state = mujoco_to_imagespace(state)
 
-    plt.scatter(state[1], state[0], zorder=1, marker='o', color='r')
+    plt.plot(state[1], state[0], zorder=1, marker='o', color='r')
 
     yaction = np.array([state[0], p[0]])
     xaction = np.array([state[1], p[1]])
-    plt.plot(xaction, yaction, zorder=1, marker='o', color='y')
+    plt.plot(xaction, yaction, zorder=1, color='y', linewidth=3)
 
     fig.canvas.draw()  # draw the canvas, cache the renderer
 
@@ -179,9 +183,8 @@ def mujoco_to_imagespace(mujoco_coord, numpix=64):
     pixelwidth = pixelheight
     window_width = pixelwidth * numpix
     middle_pixel = numpix / 2
-    pixel_coord = np.rint(np.array([-mujoco_coord[1], mujoco_coord[0]]) /
-                          pixelwidth + np.array([middle_pixel, middle_pixel]))
-    pixel_coord = pixel_coord.astype(int)
+    pixel_coord = np.array([-mujoco_coord[1], mujoco_coord[0]])/pixelwidth + \
+                  np.array([middle_pixel, middle_pixel])
     return pixel_coord
 
 if __name__ == '__main__':
@@ -191,8 +194,9 @@ if __name__ == '__main__':
     conf = {}
 
     # DATA_DIR = '/home/frederik/Documents/pushing_data/settled_scene_rnd3/train'
-    DATA_DIR = '/home/frederik/Documents/pushing_data/random_action/train'
+    # DATA_DIR = '/home/frederik/Documents/pushing_data/random_action/train'
     # DATA_DIR = '/home/frederik/Documents/pushing_data/old/train'
+    DATA_DIR = '/home/frederik/Documents/lsdc/pushing_data/position_control/train'
 
     conf['schedsamp_k'] = -1  # don't feed ground truth
     conf['data_dir'] = DATA_DIR  # 'directory containing data_files.' ,
@@ -216,7 +220,7 @@ if __name__ == '__main__':
     sess.run(tf.initialize_all_variables())
 
 
-    for i in range(10):
+    for i in range(1):
         print 'run number ', i
         image_data, action_data, state_data = sess.run([image_batch, action_batch, state_batch])
 
@@ -232,8 +236,7 @@ if __name__ == '__main__':
         print 'average speed in dir2:', np.average(state_data[:,:,2])
 
 
-
-        import pdb;pdb.set_trace()
+        # import pdb;pdb.set_trace()
         pos = state_data[:,:,:2]
         action_var = np.cov(action_data.reshape(action_data.shape[0]*action_data.shape[1], -1), rowvar= False)
         pos_var = np.cov(pos.reshape(pos.shape[0] * pos.shape[1], -1), rowvar=False)
@@ -247,16 +250,16 @@ if __name__ == '__main__':
         from utils_vpred.create_gif import comp_single_video
 
         # make video preview video
-        # gif_preview = '/'.join(str.split(__file__, '/')[:-1] + ['preview'])
-        # comp_single_video(gif_preview, image_data)
+        gif_preview = '/'.join(str.split(__file__, '/')[:-1] + ['preview'])
+        comp_single_video(gif_preview, image_data)
         # make video preview video with annotated forces
-        # gif_preview = '/'.join(str.split(__file__, '/')[:-1] + ['preview_visuals'])
-        # comp_single_video(gif_preview, add_visuals_to_batch(image_data, action_data, state_data))
+        gif_preview = '/'.join(str.split(__file__, '/')[:-1] + ['preview_visuals'])
+        comp_single_video(gif_preview, add_visuals_to_batch(image_data, action_data, state_data, action_pos=True))
 
-        #show some frames
-        # for i in range(2):
-        #     img = np.uint8(255. *image_data[i,0])
-        #     img = Image.fromarray(img, 'RGB')
-        #     img.show()
+        # show some frames
+        for i in range(2):
+            img = np.uint8(255. *image_data[i,0])
+            img = Image.fromarray(img, 'RGB')
+            img.show()
 
 

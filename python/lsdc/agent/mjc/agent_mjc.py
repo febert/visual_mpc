@@ -162,17 +162,14 @@ class AgentMuJoCo(Agent):
             self._store_image(t, condition)
 
             if self._hyperparams['data_collection']:
-                if self._hyperparams['poscontroller']:
                     mj_U, target_pos = policy.act(X_full[t, :], Xdot_full[t, :], self._sample_images, t)
-                else:
-                    mj_U = policy.act(X_full[t, :], Xdot_full[t, :], self._sample_images, t)
             else:
                 mj_U, pos, ind, targets = policy.act(X_full, Xdot_full, self._sample_images, t, init_model=self._model[condition])
                 add_traj = True
                 if add_traj:
                     self.large_images_traj += self.add_traj_visual(self.large_images[t], pos, ind, targets)
 
-            if self._hyperparams['poscontroller']:
+            if 'poscontroller' in self._hyperparams.keys():
                 U[t, :] = target_pos
             else:
                 U[t, :] = mj_U

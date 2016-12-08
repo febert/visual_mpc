@@ -100,3 +100,6 @@ train/
 test/
 
 old/
+
+#gif files
+*.gif
