@@ -64,9 +64,10 @@ def main():
     else:
         worker(conflist[0])
 
-
-    file = hyperparams['data_files_dir']+ '/traj_0_to_255.tfrecords'
-    dest_file = '/'.join(str.split(hyperparams['data_files_dir'], '/')[:-1]) + '/test/traj_0_to_255.tfrecords'
+    # move first file from train to test
+    conf = hyperparams.common
+    file = conf['data_files_dir']+ '/traj_0_to_255.tfrecords'
+    dest_file = '/'.join(str.split(conf['data_files_dir'], '/')[:-1]) + '/test/traj_0_to_255.tfrecords'
     shutil.move(file, dest_file)
 
 if __name__ == '__main__':

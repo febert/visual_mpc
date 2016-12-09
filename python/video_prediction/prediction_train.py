@@ -207,9 +207,7 @@ def main(unused_argv, conf_script= None):
 
     print 'Constructing saver.'
     # Make saver.
-    import pdb; pdb.set_trace()
-    saver = tf.train.Saver(
-        tf.get_collection(tf.GraphKeys.VARIABLES), max_to_keep=0)
+    saver = tf.train.Saver(tf.get_collection(tf.GraphKeys.VARIABLES), max_to_keep=0)
 
     gpu_options = tf.GPUOptions(per_process_gpu_memory_fraction=0.8)
     # Make training session.
