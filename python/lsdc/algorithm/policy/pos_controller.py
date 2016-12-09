@@ -42,7 +42,6 @@ class Pos_Controller(Policy):
                     #set new target point
                     cov = np.diag(np.ones(2) * self.policy_params['std_dev']**2)
                     self.target += np.random.multivariate_normal([0, 0], cov)
-                    print 'set target point ', self.target
             else:
                 self.target = target
 

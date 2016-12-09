@@ -2,7 +2,7 @@ import os
 current_dir = os.path.dirname(os.path.realpath(__file__))
 
 # tf record data location:
-DATA_DIR = '/'.join(str.split(current_dir, '/')[:-2]) + '/pushing_data/position_control_a5r3/train'
+DATA_DIR = '/'.join(str.split(current_dir, '/')[:-2]) + '/pushing_data/random_action_var10/train'
 
 # local output directory
 OUT_DIR = current_dir + '/modeldata'
@@ -10,7 +10,7 @@ OUT_DIR = current_dir + '/modeldata'
 from video_prediction.prediction_model_downsized_lesslayer import construct_model
 
 configuration = {
-'experiment_name': 'position_control_a5r3',
+'experiment_name': 'rndaction_var10',
 'data_dir': DATA_DIR,       # 'directory containing data.' ,
 'output_dir': OUT_DIR,      #'directory for model checkpoints.' ,
 'current_dir': current_dir,   #'directory for writing summary.' ,
