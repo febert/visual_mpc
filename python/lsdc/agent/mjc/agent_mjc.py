@@ -101,7 +101,7 @@ class AgentMuJoCo(Agent):
             else:
                 self.x0.append(self._hyperparams['x0'][i])
 
-        gofast = False
+        gofast = True
         self._small_viewer = mujoco_py.MjViewer(visible=True,
                                                 init_width=self._hyperparams['image_width'],
                                                 init_height=self._hyperparams['image_height'],

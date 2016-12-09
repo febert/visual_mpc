@@ -33,4 +33,4 @@ class Randompolicy(Policy):
             self.actions = self.actions.reshape(actions, 2)
             self.actions = np.repeat(self.actions, repeat, axis=0)
 
-        return self.actions[t]
+        return self.actions[t], None

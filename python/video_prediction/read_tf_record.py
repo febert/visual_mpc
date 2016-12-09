@@ -196,7 +196,7 @@ if __name__ == '__main__':
     # DATA_DIR = '/home/frederik/Documents/pushing_data/settled_scene_rnd3/train'
     # DATA_DIR = '/home/frederik/Documents/pushing_data/random_action/train'
     # DATA_DIR = '/home/frederik/Documents/pushing_data/old/train'
-    DATA_DIR = '/home/frederik/Documents/lsdc/pushing_data/position_control/train'
+    DATA_DIR = '/home/frederik/Documents/lsdc/pushing_data/random_action_var10/train'
 
     conf['schedsamp_k'] = -1  # don't feed ground truth
     conf['data_dir'] = DATA_DIR  # 'directory containing data_files.' ,
@@ -247,19 +247,19 @@ if __name__ == '__main__':
         print pos_var
 
 
-        from utils_vpred.create_gif import comp_single_video
-
-        # make video preview video
-        gif_preview = '/'.join(str.split(__file__, '/')[:-1] + ['preview'])
-        comp_single_video(gif_preview, image_data)
-        # make video preview video with annotated forces
-        gif_preview = '/'.join(str.split(__file__, '/')[:-1] + ['preview_visuals'])
-        comp_single_video(gif_preview, add_visuals_to_batch(image_data, action_data, state_data, action_pos=True))
-
-        # show some frames
-        for i in range(2):
-            img = np.uint8(255. *image_data[i,0])
-            img = Image.fromarray(img, 'RGB')
-            img.show()
+        # from utils_vpred.create_gif import comp_single_video
+        #
+        # # make video preview video
+        # gif_preview = '/'.join(str.split(__file__, '/')[:-1] + ['preview'])
+        # comp_single_video(gif_preview, image_data)
+        # # make video preview video with annotated forces
+        # gif_preview = '/'.join(str.split(__file__, '/')[:-1] + ['preview_visuals'])
+        # comp_single_video(gif_preview, add_visuals_to_batch(image_data, action_data, state_data, action_pos=True))
+        #
+        # # show some frames
+        # for i in range(2):
+        #     img = np.uint8(255. *image_data[i,0])
+        #     img = Image.fromarray(img, 'RGB')
+        #     img.show()
 
 
