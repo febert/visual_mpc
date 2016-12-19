@@ -6,10 +6,11 @@ import os
 import imp
 from PIL import Image
 import re
+import matplotlib.pyplot as plt
 
 
 def npy_to_gif(im_list, filename):
-    clip = mpy.ImageSequenceClip(im_list, fps=8)
+    clip = mpy.ImageSequenceClip(im_list, fps=4)
     clip.write_gif(filename + '.gif')
     return
 
@@ -35,14 +36,69 @@ def comp_single_video(file_path, ground_truth):
     fused_gif = assemble_gif([ground_truth])
     npy_to_gif(fused_gif, file_path)
 
+def pix_distrib_video(pix_distrib):
+    """
+    change to jet colorscheme, mark maximum value pixel
+    :return:
+    """
+    new_pix_distrib_list = []
+
+    for t in range(len(pix_distrib)):
+
+
+        new_pix_distrib = np.zeros((pix_distrib[0].shape[0], 64, 64, 3), dtype=np.float32)
+
+        for b in range(pix_distrib[0].shape[0]):
+
+            peak_pix = np.argmax(pix_distrib[-1][b])
+            peak_pix = np.unravel_index(peak_pix, (64, 64))
+            peak_pix = np.array(peak_pix)
+
+            img = pix_distrib[t][b].squeeze()
+
+            fig = plt.figure(figsize=(1, 1), dpi=64)
+            fig.add_subplot(111)
+            plt.subplots_adjust(left=0, bottom=0, right=1, top=1, wspace=0, hspace=0)
+
+            axes = plt.gca()
+            plt.cla()
+
+            axes.axis('off')
+            plt.imshow(img, zorder=0, cmap=plt.get_cmap('jet'), interpolation='none')
+            axes.autoscale(False)
+
+            # plt.plot(peak_pix[1], peak_pix[0], zorder=1, marker='o', color='r')
+
+            fig.canvas.draw()  # draw the canvas, cache the renderer
+
+            data = np.fromstring(fig.canvas.tostring_rgb(), dtype=np.uint8, sep='')
+            data = data.reshape(fig.canvas.get_width_height()[::-1] + (3,))
+
+            data = data.astype(np.float32) / 256.0
+            new_pix_distrib[b] = data
+
+            # import pdb;
+            # pdb.set_trace()
+            # plt.show()
+            # Image.fromarray(np.uint8(data*255)).show()
+
+        new_pix_distrib_list.append(new_pix_distrib)
+
+        # pdb.set_trace()
+    return new_pix_distrib_list
+
 
 def comp_pix_distrib(file_path, name= None, masks = False, examples = 8):
     pix_distrib = cPickle.load(open(file_path + '/gen_distrib.pkl', "rb"))
-    pix_distrib = [np.repeat(dist, 3, axis=3) for dist in pix_distrib]
     gen_images = cPickle.load(open(file_path + '/gen_images.pkl', "rb"))
     gtruth_images = cPickle.load(open(file_path + '/gtruth_images.pkl', "rb"))
 
+    print 'finished loading'
+
+    pix_distrib = pix_distrib_video(pix_distrib)
+
     videolist = [gtruth_images, gen_images, pix_distrib]
+
     suffix = ''
     if masks:
         gen_masks = cPickle.load(open(file_path + '/gen_masks.pkl', "rb"))
@@ -92,7 +148,6 @@ def assemble_gif(video_batch, num_exp = 8):
         video_batch[i] = np.concatenate(video_batch[i], axis= 0)
 
     #videobatch is a list of [timelength, batchsize, 64, 64, 3]
-
 
     fullframe_list = []
     for t in range(vid_length):
@@ -148,7 +203,7 @@ if __name__ == '__main__':
     # pred = comp_video(file_path, conf)
 
     file_path = '/home/frederik/Documents/lsdc/experiments/cem_exp/data_files'
-    comp_pix_distrib(file_path, masks= True)
+    comp_pix_distrib(file_path, masks= False)
 
 
     # masks = comp_masks(file_path, pred)

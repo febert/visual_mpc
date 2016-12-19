@@ -82,3 +82,6 @@ WARNING: Nan, Inf or huge value in QVEL at DOF 7. The simulation is unstable. Ti
 Mon Oct 10 16:58:23 2016
 WARNING: Nan, Inf or huge value in QVEL at DOF 7. The simulation is unstable. Time = 0.0000.
 
+Mon Dec 12 21:30:29 2016
+ERROR: Could not allocate memory
+

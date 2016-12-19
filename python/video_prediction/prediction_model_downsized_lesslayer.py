@@ -246,10 +246,14 @@ def construct_model(images,
             gen_images.append(output)
             gen_masks.append(mask_list)
 
+
             if pix_distributions!=None:
                 pix_distrib_output = mask_list[0] * prev_pix_distrib
-                for layer, mask in zip(transf_distrib, mask_list[1:]): # do not take in network generated feature map, only use tranformations
-                    pix_distrib_output += layer * mask
+                mult_list = []
+                for i in range(num_masks):
+                    mult_list.append(transf_distrib[i] * mask_list[i+1])
+                    pix_distrib_output += mult_list[i]
+
                 gen_pix_distrib.append(pix_distrib_output)
 
             current_state = slim.layers.fully_connected(
@@ -286,7 +290,8 @@ def stp_transformation(prev_image, stp_input, num_masks):
         params = slim.layers.fully_connected(
             stp_input, 6, scope='stp_params' + str(i),
             activation_fn=None) + identity_params
-        transformed.append(transformer(prev_image, params))
+        outsize = (prev_image.get_shape()[1], prev_image.get_shape()[2])
+        transformed.append(transformer(prev_image, params, outsize))
 
     return transformed
 
@@ -361,11 +366,16 @@ def dna_transformation(prev_image, dna_input):
                              [-1, image_height, image_width, -1]), [3]))
     inputs = tf.concat(3, inputs)
 
+    import pdb; pdb.set_trace()
+
     # Normalize channels to 1.
     kernel = tf.nn.relu(dna_input - RELU_SHIFT) + RELU_SHIFT
     kernel = tf.expand_dims(
         kernel / tf.reduce_sum(
             kernel, [3], keep_dims=True), [4])
+
+    import pdb;
+    pdb.set_trace()
     return tf.reduce_sum(kernel * inputs, [3], keep_dims=False)
 
 

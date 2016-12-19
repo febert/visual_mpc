@@ -12,8 +12,8 @@ def setup_predictor(conf_file):
     :return: function which predicts a batch of whole trajectories
     conditioned on the actions
     """
-    os.environ["CUDA_VISIBLE_DEVICES"] = "1"
-    print 'using CUDA_VISIBLE_DEVICES=', os.environ["CUDA_VISIBLE_DEVICES"]
+    # os.environ["CUDA_VISIBLE_DEVICES"] = "0"
+    # print 'using CUDA_VISIBLE_DEVICES=', os.environ["CUDA_VISIBLE_DEVICES"]
 
     hyperparams = imp.load_source('hyperparams', conf_file)
     conf = hyperparams.configuration

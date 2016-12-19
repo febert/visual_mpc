@@ -37,7 +37,6 @@ class AgentMuJoCo(Agent):
         config = deepcopy(AGENT_MUJOCO)
         config.update(hyperparams)
         Agent.__init__(self, config)
-        self._setup_conditions()
         self._setup_world(hyperparams['filename'])
 
         # datastructure for storing all images of a whole sample trajectory;
@@ -45,16 +44,7 @@ class AgentMuJoCo(Agent):
                                       self._hyperparams['image_height'],
                                       self._hyperparams['image_width'],
                                       self._hyperparams['image_channels']), dtype= 'uint8')
-
-    def _setup_conditions(self):
-        """
-        Helper method for setting some hyperparameters that may vary by
-        condition.
-        """
-        conds = self._hyperparams['conditions']
-        for field in ('x0', 'x0var', 'pos_body_idx', 'pos_body_offset',
-                      'noisy_body_idx', 'noisy_body_var', 'filename'):
-            self._hyperparams[field] = setup(self._hyperparams[field], conds)
+        self.final_score = None
 
     def _setup_world(self, filename):
         """
@@ -67,39 +57,13 @@ class AgentMuJoCo(Agent):
         # Initialize Mujoco models. If there's only one xml file, create a single model object,
         # otherwise create a different world for each condition.
 
-        if not isinstance(filename, list):
-            for i in range(self._hyperparams['conditions']):
-                self._model.append(mujoco_py.MjModel(filename))
-                self.model_nomarkers = mujoco_py.MjModel(self._hyperparams['filename_nomarkers'])
+        self._model= mujoco_py.MjModel(filename)
+        self.model_nomarkers = mujoco_py.MjModel(self._hyperparams['filename_nomarkers'])
 
-        else:
-            for i in range(self._hyperparams['conditions']):
-                self._model.append(mujoco_py.MjModel(self._hyperparams['filename'][i]))
-
-        for i in range(self._hyperparams['conditions']):
-            for j in range(len(self._hyperparams['pos_body_idx'][i])):
-                idx = self._hyperparams['pos_body_idx'][i][j]
-                temp = np.copy(self._model[i].body_pos)
-                temp[idx, :] = temp[idx, :] + self._hyperparams['pos_body_offset'][i][j]
-                self._model[i].body_pos = temp
-
-        # changes here:
+         # changes here:
         self._joint_idx = range(self._hyperparams['joint_angles'])
         self._vel_idx = range( self._hyperparams['joint_angles'], self._hyperparams['joint_velocities'] + self._hyperparams['joint_angles'])
-        #
 
-        # Initialize x0.
-        self.x0 = []
-        for i in range(self._hyperparams['conditions']):
-            if END_EFFECTOR_POINTS in self.x_data_types:
-                # TODO: this assumes END_EFFECTOR_VELOCITIES is also in datapoints right?
-                self._init(i)
-                eepts = self._model[i].data.site_xpos.flatten()
-                self.x0.append(
-                    np.concatenate([self._hyperparams['x0'][i], eepts, np.zeros_like(eepts)])
-                )
-            else:
-                self.x0.append(self._hyperparams['x0'][i])
 
         gofast = True
         self._small_viewer = mujoco_py.MjViewer(visible=True,
@@ -114,21 +78,23 @@ class AgentMuJoCo(Agent):
                                                     init_height=480, go_fast=gofast)
             self._large_viewer.start()
 
+    def finish(self):
+        self._large_viewer.finish()
+        self._small_viewer.finish()
 
-    def sample(self, policy, condition, verbose=True, save=True, noisy=False):
+    def sample(self, policy, verbose=True, save=True, noisy=False):
         """
         Runs a trial and constructs a new sample containing information
         about the trial.
         Args:
             policy: Policy to to used in the trial.
-            condition: Which condition setup to run.
             verbose: Whether or not to plot the trial.
             save: Whether or not to store the trial into the samples.
             noisy: Whether or not to use noise during sampling.
         """
 
         # Create new sample, populate first time step.
-        self._init_sample(condition)
+        self._init()
 
         U = np.empty([self.T, self.dU])
         X_full = np.empty([self.T, 2])
@@ -137,14 +103,14 @@ class AgentMuJoCo(Agent):
         self._small_viewer.set_model(self.model_nomarkers)
 
         if self._hyperparams['additional_viewer']:
-            self._large_viewer.set_model(self._model[condition])
+            self._large_viewer.set_model(self._model)
             self._large_viewer.cam = deepcopy(self._small_viewer.cam)
 
         # apply action of zero for the first few steps, to let the scene settle
         for t in range(self._hyperparams['skip_first']):
             for _ in range(self._hyperparams['substeps']):
-                self._model[condition].data.ctrl = np.array([0. ,0.])
-                self._model[condition].step()
+                self._model.data.ctrl = np.array([0. ,0.])
+                self._model.step()
 
         self.large_images_traj = []
         self.large_images = []
@@ -152,31 +118,34 @@ class AgentMuJoCo(Agent):
         # Take the sample.
         for t in range(self.T):
 
-            X_full[t, :] = self._model[condition].data.qpos[:2].squeeze()
-            Xdot_full[t, :] = self._model[condition].data.qvel[:2].squeeze()
+            X_full[t, :] = self._model.data.qpos[:2].squeeze()
+            Xdot_full[t, :] = self._model.data.qvel[:2].squeeze()
 
             # self.reference_points_show(condition)
             if self._hyperparams['additional_viewer']:
                 self._large_viewer.loop_once()
 
-            self._store_image(t, condition)
+            self._store_image(t)
 
             if self._hyperparams['data_collection']:
-                    mj_U, target_pos = policy.act(X_full[t, :], Xdot_full[t, :], self._sample_images, t)
+                    mj_U, target_inc = policy.act(X_full[t, :], Xdot_full[t, :], self._sample_images, t)
             else:
-                mj_U, pos, ind, targets = policy.act(X_full, Xdot_full, self._sample_images, t, init_model=self._model[condition])
+                mj_U, pos, ind, targets = policy.act(X_full, Xdot_full, self._sample_images, t, init_model=self._model)
                 add_traj = True
                 if add_traj:
                     self.large_images_traj += self.add_traj_visual(self.large_images[t], pos, ind, targets)
 
             if 'poscontroller' in self._hyperparams.keys():
-                U[t, :] = target_pos
+                U[t, :] = target_inc
             else:
                 U[t, :] = mj_U
 
             for _ in range(self._hyperparams['substeps']):
-                self._model[condition].data.ctrl = mj_U
-                self._model[condition].step()         #simulate the model in mujoco
+                self._model.data.ctrl = mj_U
+                self._model.step()         #simulate the model in mujoco
+
+        if not self._hyperparams['data_collection']:
+            self.final_score = self.eval_action()
 
         if self._hyperparams['record']:
             self.save_gif()
@@ -184,12 +153,17 @@ class AgentMuJoCo(Agent):
         return X_full, Xdot_full, U, self._sample_images
 
 
-    def _store_image(self,t, condition):
+    def eval_action(self):
+        goalpoint = np.array(self._hyperparams['goal_point'])
+        refpoint = self._model.data.site_xpos[0,:2]
+        return np.linalg.norm(goalpoint - refpoint)
+
+    def _store_image(self,t):
         """
         store image at time index t
         """
-        self.model_nomarkers.data.qpos = self._model[condition].data.qpos
-        self.model_nomarkers.data.qvel = self._model[condition].data.qvel
+        self.model_nomarkers.data.qpos = self._model.data.qpos
+        self.model_nomarkers.data.qvel = self._model.data.qvel
         self.model_nomarkers.step()
         self._small_viewer.loop_once()
 
@@ -264,11 +238,10 @@ class AgentMuJoCo(Agent):
         from video_prediction.utils_vpred.create_gif import npy_to_gif
         npy_to_gif(self.large_images_traj, file_path)
 
-    def _init(self, condition):
+    def _init(self):
         """
         Set the world to a given model, and run kinematics.
         Args:
-            condition: Which condition to initialize.
         """
 
         #create random starting poses for objects
@@ -281,106 +254,17 @@ class AgentMuJoCo(Agent):
                 poses.append(np.concatenate((pos, np.array([0]), ori), axis= 0))
             return np.concatenate(poses)
 
-        if self._hyperparams['x0'][condition].shape[0] > 4: # if object pose explicit do not sample poses
-            object_pos = self._hyperparams['x0'][condition][4:]
+        if self._hyperparams['x0'].shape[0] > 4: # if object pose explicit do not sample poses
+            object_pos = self._hyperparams['x0'][4:]
         else:
             object_pos= create_pos()
 
         # Initialize world/run kinematics
-        x0 = self._hyperparams['x0'][condition]
+        x0 = self._hyperparams['x0']
         if 'goal_point' in self._hyperparams.keys():
             goal = np.append(self._hyperparams['goal_point'], [.1])   # goal point
             ref = np.append(object_pos[:2], [.1]) # reference point
-            self._model[condition].data.qpos = np.concatenate((x0[:2], object_pos,goal, ref), 0)
+            self._model.data.qpos = np.concatenate((x0[:2], object_pos,goal, ref), 0)
         else:
-            self._model[condition].data.qpos = np.concatenate((x0[:2], object_pos), 0)
-        self._model[condition].data.qvel = np.zeros_like(self._model[condition].data.qvel)
-
-        # self._model[condition].data_files.qpos[2:] = self._hyperparams['initial_object_pos']
-        mjlib.mj_kinematics(self._model[condition].ptr, self._model[condition].data.ptr)
-        mjlib.mj_comPos(self._model[condition].ptr, self._model[condition].data.ptr)
-        mjlib.mj_tendon(self._model[condition].ptr, self._model[condition].data.ptr)
-        mjlib.mj_transmission(self._model[condition].ptr, self._model[condition].data.ptr)
-        
-    def _init_sample(self, condition):
-        """
-        Construct a new sample and fill in the first time step.
-        Args:
-            condition: Which condition to initialize.
-        """
-        sample = Sample(self)
-
-        # Initialize world/run kinematics
-        self._init(condition)
-
-        # Initialize sample with stuff from _data
-        data = self._model[condition].data
-        #    ;
-        sample.set(JOINT_ANGLES, data.qpos.flatten(), t=0)
-        sample.set(JOINT_VELOCITIES, data.qvel.flatten(), t=0)
-        eepts = data.site_xpos.flatten()
-        sample.set(END_EFFECTOR_POINTS, eepts, t=0)
-        sample.set(END_EFFECTOR_POINT_VELOCITIES, np.zeros_like(eepts), t=0)
-        jac = np.zeros([eepts.shape[0], self._model[condition].nq])
-        for site in range(eepts.shape[0] // 3):
-            idx = site * 3
-            temp = np.zeros((3, jac.shape[1]))
-            mjlib.mj_jacSite(self._model[condition].ptr, self._model[condition].data.ptr, temp.ctypes.data_as(POINTER(c_double)), 0, site)
-            jac[idx:(idx+3), :] = temp
-        sample.set(END_EFFECTOR_POINT_JACOBIANS, jac, t=0)
-
-
-        # save initial image to meta data_files
-        img_string, width, height = self._small_viewer.get_image()
-        img = np.fromstring(img_string, dtype='uint8').reshape(height, width, 3)[::-1,:,:]
-
-        #downsampling the image
-        img = Image.fromarray(img, 'RGB')
-        img.thumbnail((80,60), Image.ANTIALIAS)
-        img = np.array(img)
-        img_data = np.transpose(img, (1, 0, 2)).flatten()
-
-        #
-
-        # if initial image is an observation, replicate it for each time step
-        if CONTEXT_IMAGE in self.obs_data_types:
-            sample.set(CONTEXT_IMAGE, np.tile(img_data, (self.T, 1)), t=None)
-        else:
-            sample.set(CONTEXT_IMAGE, img_data, t=None)
-        sample.set(CONTEXT_IMAGE_SIZE, np.array([self._hyperparams['image_channels'],
-                                                self._hyperparams['image_width'],
-                                                self._hyperparams['image_height']]), t=None)
-        # only save subsequent images if image is part of observation
-        if RGB_IMAGE in self.obs_data_types:
-            sample.set(RGB_IMAGE, img_data, t=0)
-            sample.set(RGB_IMAGE_SIZE, [self._hyperparams['image_channels'],
-                                        self._hyperparams['image_width'],
-                                        self._hyperparams['image_height']], t=None)
-        return sample
-
-    def _set_sample(self, sample, mj_X, t, condition):
-        """
-        Set the data_files for a sample for one time step.
-        Args:
-            sample: Sample object to set data_files for.
-            mj_X: Data to set for sample.
-            t: Time step to set for sample.
-            condition: Which condition to set.
-        """
-        #
-
-        sample.set(JOINT_ANGLES, np.array(mj_X[self._joint_idx]), t=t+1)
-        sample.set(JOINT_VELOCITIES, np.array(mj_X[self._vel_idx]), t=t+1)
-        curr_eepts = self._data.site_xpos.flatten()
-        sample.set(END_EFFECTOR_POINTS, curr_eepts, t=t+1)
-        prev_eepts = sample.get(END_EFFECTOR_POINTS, t=t)
-        eept_vels = (curr_eepts - prev_eepts) / self._hyperparams['dt']
-        sample.set(END_EFFECTOR_POINT_VELOCITIES, eept_vels, t=t+1)
-        jac = np.zeros([curr_eepts.shape[0], self._model[condition].nq])
-        for site in range(curr_eepts.shape[0] // 3):
-            idx = site * 3
-            temp = np.zeros((3, jac.shape[1]))
-            mjlib.mj_jacSite(self._model[condition].ptr, self._model[condition].data.ptr, temp.ctypes.data_as(POINTER(c_double)), 0, site)
-            jac[idx:(idx+3), :] = temp
-
-        sample.set(END_EFFECTOR_POINT_JACOBIANS, jac, t=t+1)
+            self._model.data.qpos = np.concatenate((x0[:2], object_pos), 0)
+        self._model.data.qvel = np.zeros_like(self._model.data.qvel)

@@ -22,6 +22,7 @@ from lsdc.utility.data_logger import DataLogger
 from lsdc.sample.sample_list import SampleList
 from lsdc.algorithm.policy.random_policy import Randompolicy
 from lsdc.algorithm.policy.random_impedance_point import Random_impedance_point
+from video_prediction.setup_predictor import setup_predictor
 from lsdc.utility.save_tf_record import save_tf_record
 from datetime import datetime
 
@@ -31,39 +32,20 @@ import numpy as np
 class LSDCMain(object):
     """ Main class to run algorithms and experiments. """
     def __init__(self, config, quit_on_end=False):
-        """
-        Initialize GPSMain
-        Args:
-            config: Hyperparameters for experiment
-            quit_on_end: When true, quit automatically on completion
-        """
-        # import inspect
-        # policy_mod = imp.load_source('policy', config['policy']['type'])
-        # policy_cls = inspect.getmembers(policy_mod)[0][1]
-        # self.pol = policy_mod.policy_cls()
-        #
-        # policy = imp.load_source('policy', config['policy']['type'])
-        # self.pol = policy()
+
 
         self._quit_on_end = quit_on_end
         self._hyperparams = config
         self._conditions = config['common']['conditions']
-        if 'train_conditions' in config['common']:
-            self._train_idx = config['common']['train_conditions']
-            self._test_idx = config['common']['test_conditions']
-        else:
-            self._train_idx = range(self._conditions)
-            config['common']['train_conditions'] = config['common']['conditions']
-            self._hyperparams=config
-            self._test_idx = self._train_idx
 
         self._data_files_dir = config['common']['data_files_dir']
 
         self.agent = config['agent']['type'](config['agent'])
-
-        self.policy = config['policy']['type'](config['agent'], config['policy'])
-
-        self.gui = GPSTrainingGUI(config['common']) if config['gui_on'] else None
+        if config['policy']['usenet']:
+            self.predictor = setup_predictor(config['policy']['netconf'])
+            self.policy = config['policy']['type'](config['agent'], config['policy'], self.predictor)
+        else:
+            self.policy = config['policy']['type'](config['agent'], config['policy'])
 
 
         self._trajectory_list = []
@@ -74,28 +56,13 @@ class LSDCMain(object):
             pass
 
     def run(self, itr_load=None):
-        """
-        Run training by iteratively sampling and taking an iteration.
-        Args:
-            itr_load: If specified, loads algorithm state from that
-                iteration, and resumes training at the next iteration.
-        Returns: None
-        """
-        itr_start = self._initialize(itr_load)
 
-        for cond in self._train_idx:
-            for i in range(self._hyperparams['start_index'],self._hyperparams['end_index']):
-                self._take_sample(cond, i)
+        cond = 0
+        for i in range(self._hyperparams['start_index'],self._hyperparams['end_index']):
+            self._take_sample(cond, i)
 
-            traj_sample_lists = [
-                self.agent.get_samples(cond, -self._hyperparams['end_index'])
-                for cond in self._train_idx
-            ]
-
-            # pol_sample_lists = self._take_policy_samples()
-            self._log_data(traj_sample_lists)
-
-        self._end()
+        self.policy.finish()
+        self.agent.finish()
 
     def test_policy(self, itr, N):
         """

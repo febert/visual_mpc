@@ -81,9 +81,6 @@ agent = {
     'image_width' : IMAGE_WIDTH,
     'image_channels' : IMAGE_CHANNELS,
     'num_objects': num_objects,
-    'goal_point': np.array([0.2, 0.2]),
-    # 'goal_point': np.array([-0.1, 0.0]),
-    'record': EXP_DIR + 'data_files/rec'
 }
 
 
@@ -98,21 +95,12 @@ low_level_conf = {
 from lsdc.algorithm.policy.cem_controller import CEM_controller
 policy = {
     'type' : CEM_controller,
-    'low_level_ctrl': None,
     'netconf': EXP_DIR + 'conf.py',
-    'usenet': True,
-    'nactions': 5,
-    'repeat': 3
 }
-
-if policy['low_level_ctrl'] == None:
-    policy['initial_std'] = 7
-elif policy['low_level_ctrl']['type'] == Pos_Controller:
-    policy['initial_std'] = 0.15
 
 
 config = {
-    'save_data': False,
+    'save_data': True,
     'start_index':0,
     'end_index': 1,
     'verbose_policy_trials': 0,

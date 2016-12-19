@@ -21,7 +21,7 @@ import imp
 import sys
 import cPickle
 
-from utils_vpred.adapt_params_visalize import adapt_params_visualize
+from utils_vpred.adapt_params_visualize import adapt_params_visualize
 from tensorflow.python.platform import app
 from tensorflow.python.platform import flags
 import utils_vpred.create_gif
@@ -135,6 +135,13 @@ class Model(object):
                     stp=conf['model'] == 'STP',
                     context_frames=conf['context_frames'])
 
+        if conf['penal_last_only']:
+            cost_sel = np.zeros(conf['sequence_length']-2)
+            cost_sel[-1] = 1
+            print 'using the last state for training only:', cost_sel
+        else:
+            cost_sel = np.ones(conf['sequence_length']-2)
+
         # L2 loss, PSNR for eval.
         loss, psnr_all = 0.0, 0.0
         for i, x, gx in zip(
@@ -146,7 +153,8 @@ class Model(object):
             summaries.append(
                 tf.scalar_summary(prefix + '_recon_cost' + str(i), recon_cost))
             summaries.append(tf.scalar_summary(prefix + '_psnr' + str(i), psnr_i))
-            loss += recon_cost
+
+            loss += recon_cost*cost_sel[i]
 
         for i, state, gen_state in zip(
                 range(len(gen_states)), states[conf['context_frames']:],
@@ -154,7 +162,7 @@ class Model(object):
             state_cost = mean_squared_error(state, gen_state) * 1e-4
             summaries.append(
                 tf.scalar_summary(prefix + '_state_cost' + str(i), state_cost))
-            loss += state_cost
+            loss += state_cost*cost_sel[i]
         summaries.append(tf.scalar_summary(prefix + '_psnr_all', psnr_all))
         self.psnr_all = psnr_all
 
@@ -209,7 +217,7 @@ def main(unused_argv, conf_script= None):
     # Make saver.
     saver = tf.train.Saver(tf.get_collection(tf.GraphKeys.VARIABLES), max_to_keep=0)
 
-    gpu_options = tf.GPUOptions(per_process_gpu_memory_fraction=0.8)
+    gpu_options = tf.GPUOptions(per_process_gpu_memory_fraction=0.9)
     # Make training session.
     sess = tf.InteractiveSession(config= tf.ConfigProto(gpu_options=gpu_options))
     summary_writer = tf.train.SummaryWriter(

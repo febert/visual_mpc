@@ -21,7 +21,7 @@ class CEM_controller(Policy):
     """
     Cross Entropy Method Stochastic Optimizer
     """
-    def __init__(self, ag_params, policyparams):
+    def __init__(self, ag_params, policyparams, predictor = None):
         Policy.__init__(self)
         self.agentparams = copy.deepcopy(AGENT_MUJOCO)
         self.agentparams.update(ag_params)
@@ -32,27 +32,26 @@ class CEM_controller(Policy):
                 (None, policyparams['low_level_ctrl'])
 
         self.model = mujoco_py.MjModel(self.agentparams['filename'])
-        self._data = {}  #dictionary for storing the data_files
 
-        self.verbose = False
+        self.verbose = True
         self.compare_sim_net = True
         self.use_first_plan = True
 
         self.niter = 10  # number of iterations
 
-        self.use_net = False
+        self.use_net = self.policyparams['usenet']
         self.action_list = []
 
         hyperparams = imp.load_source('hyperparams', self.policyparams['netconf'])
         self.netconf = hyperparams.configuration
 
-        self.nactions = 5
-        self.repeat = 3
+        self.nactions = self.policyparams['nactions']
+        self.repeat = self.policyparams['repeat']
         if self.use_net:
             self.M = self.netconf['batch_size']
             assert self.nactions * self.repeat == self.netconf['sequence_length']
-            self.predictor = setup_predictor(self.policyparams['netconf'])
-            self.K = 10  # only consider K best samples for refitting
+            self.predictor = predictor
+            self.K = 3  # only consider K best samples for refitting
         else:
             self.M = 200 #200
             self.K = 10  # only consider K best samples for refitting
@@ -64,7 +63,7 @@ class CEM_controller(Policy):
         self.adim = 2  # action dimension
         self.initial_std = policyparams['initial_std']
 
-        gofast = False
+        gofast = True
         self.viewer = mujoco_py.MjViewer(visible=True, init_width=480,
                                          init_height=480, go_fast=gofast)
         self.viewer.start()
@@ -92,6 +91,26 @@ class CEM_controller(Policy):
 
         self.target = np.zeros(2)
 
+    def reinitialize(self):
+        self.use_net = self.policyparams['usenet']
+        self.action_list = []
+        self.gtruth_images = [np.zeros((self.M, 64, 64, 3)) for _ in range(self.nactions * self.repeat)]
+        self.initial_std = self.policyparams['initial_std']
+        # history of designated pixels
+        self.desig_pix = np.zeros((self.agentparams['T'], 2), dtype=np.int)
+        # predicted positions
+        self.pred_pos = np.zeros((self.M, self.niter, self.repeat * self.nactions, 2))
+        self.rec_target_pos = np.zeros((self.M, self.niter, self.repeat * self.nactions, 2))
+        self.bestindices_of_iter = np.zeros((self.niter, self.K))
+
+        self.indices = []
+
+        self.target = np.zeros(2)
+
+
+    def finish(self):
+        self.small_viewer.finish()
+        self.viewer.finish()
 
     def setup_mujoco(self):
 
@@ -192,7 +211,7 @@ class CEM_controller(Policy):
     def video_pred(self, last_frames, last_states, actions, last_desig_pix, itr):
         one_hot_images = np.zeros((1, self.netconf['context_frames'], 64, 64 , 1), dtype= np.float32)
 
-        self.pred_pos[:, itr, 0] = last_states[-1,:2]
+        self.pred_pos[:, itr, 0] = self.mujoco_to_imagespace(last_states[-1, :2] , numpix=480)
 
         # switch on pixels
         for i in range(self.netconf['context_frames']):
@@ -214,33 +233,11 @@ class CEM_controller(Policy):
         gen_distrib, gen_images, gen_masks, gen_states = self.predictor(last_frames, one_hot_images,
                                                             last_states, actions)
 
-        # import pdb;pdb.set_trace()
-
-
-        #compare prediciton with simulation
-        if self.verbose:
-            file_path = self.netconf['current_dir'] + '/data_files'
-            cPickle.dump(gen_distrib, open(file_path + '/gen_distrib.pkl', 'wb'))
-            cPickle.dump(gen_images, open(file_path + '/gen_images.pkl', 'wb'))
-            cPickle.dump(gen_masks, open(file_path + '/gen_masks.pkl', 'wb'))
-            self.gtruth_images = [img.astype(np.float)/255. for img in self.gtruth_images]
-            cPickle.dump(self.gtruth_images, open(file_path + '/gtruth_images.pkl', 'wb'))
-            print 'written files to:' + file_path
-
-            comp_pix_distrib(file_path,name='check_eval_hor10', masks= False, examples = 20)
-
-        # import pdb; pdb.set_trace()
-
-        np.zeros((self.M, self.niter, self.repeat * self.nactions, 2))
-
-
 
         for t in range(1,self.netconf['sequence_length']):
             for smp in range(self.M):
-                self.pred_pos[smp, itr, t] = self.mujoco_to_imagespace(gen_states[t][smp, :2], numpix=480)
+                self.pred_pos[smp, itr, t] = self.mujoco_to_imagespace(gen_states[t-1][smp, :2], numpix=480)
 
-        # import pdb;
-        # pdb.set_trace()
 
         # scores = np.zeros((self.netconf['batch_size'], self.netconf['sequence_length']-1))
         scores = np.zeros((self.netconf['batch_size']))
@@ -269,16 +266,42 @@ class CEM_controller(Policy):
             gen = gen_distrib[-1][b].squeeze()/ np.sum(gen_distrib[-1][b])
             expected_distance[b] = np.sum(np.multiply(gen, distance_grid))
 
-            # print 'score action {0}: {1}'.format(i, scores[i])
-                # scores[i, t] = np.squeeze(gen_distrib[t][i, goalpoint[0], goalpoint[1]])
+        # compare prediciton with simulation
+        if self.verbose:
+            concat_masks = [np.stack(gen_masks[t], axis=1) for t in range(14)]
+
+            file_path = self.netconf['current_dir'] + '/data_files'
+
+            bestindices = expected_distance.argsort()[:self.K]
+
+            def best(inputlist):
+                # in ascending order
+                # import pdb;
+                # pdb.set_trace()
+                outputlist = [np.zeros_like(a)[:self.K] for a in inputlist]
+
+                for ind in range(self.K):
+                    for t in range(len(inputlist)):
+                        outputlist[t][ind] = inputlist[t][bestindices[ind]]
+                return outputlist
+
+            self.gtruth_images = [img.astype(np.float) / 255. for img in self.gtruth_images][1:]
+            cPickle.dump(best(gen_distrib), open(file_path + '/gen_distrib.pkl', 'wb'))
+            cPickle.dump(best(gen_images), open(file_path + '/gen_images.pkl', 'wb'))
+            cPickle.dump(best(concat_masks), open(file_path + '/gen_masks.pkl', 'wb'))
+            cPickle.dump(best(self.gtruth_images), open(file_path + '/gtruth_images.pkl', 'wb'))
+            print 'written files to:' + file_path
+
+            import pdb;
+            pdb.set_trace()
+
+            comp_pix_distrib(file_path, name='check_eval_hor15', masks=False, examples=self.K)
 
 
-        # from PIL import Image
-        # for i in range(5): img = last_frames[0,i,...]; img = np.uint8(img * 255.); Image.fromarray(img).show()
-        # for i in range(2): img = one_hot_images[0, i, ...].squeeze(); img = np.uint8(img * 255.); Image.fromarray(img).show()
+            print 'expected_distance to goal', expected_distance
 
-        # import pdb
-        # pdb.set_trace()
+            import pdb;
+            pdb.set_trace()
 
         return expected_distance
 
@@ -369,7 +392,6 @@ class CEM_controller(Policy):
                 print 'using actions of first plan, no replanning!!'
                 if t == 1:
                     self.perform_CEM(last_images, last_states, last_desig_pixels, last_action)
-                    action = self.bestaction
                 else:
                     # only showing last iteration
                     self.pred_pos = self.pred_pos[:,-1].reshape((self.M, 1, self.repeat * self.nactions, 2))
@@ -394,6 +416,9 @@ class CEM_controller(Policy):
             if (t-1) % self.repeat == 0:
                 self.target += action
 
-            force, _ = self.low_level_ctrl.act(x_full[t], xdot_full[t], None, t, self.target)
+            force = self.low_level_ctrl.act(x_full[t], xdot_full[t], None, t, self.target)
+
+        # import pdb; pdb.set_trace()
+
 
         return force, self.pred_pos, self.bestindices_of_iter, self.rec_target_pos

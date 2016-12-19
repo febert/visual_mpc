@@ -68,7 +68,7 @@ class Agent(object):
 
 
     @abc.abstractmethod
-    def sample(self, policy, condition, verbose=True, save=True, noisy=True):
+    def sample(self, policy, verbose=True, save=True, noisy=True):
         """
         Draw a sample from the environment, using the specified policy
         and under the specified condition, with or without noise.

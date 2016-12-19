@@ -23,13 +23,12 @@ def worker(conf):
 
 
 def main():
-    parser = argparse.ArgumentParser(description='Run the Guided Policy Search algorithm.')
+    parser = argparse.ArgumentParser(description='run parllel data collection')
     parser.add_argument('experiment', type=str, help='experiment name')
     parser.add_argument('--parallel', type=str, help='use multiple threads or not', default=True)
     args = parser.parse_args()
     exp_name = args.experiment
     parallel= args.parallel
-
 
     n_worker = 10
     print 'using ', n_worker,' workers'

@@ -41,7 +41,8 @@ class Pos_Controller(Policy):
                 if t % new_point_freq ==0:
                     #set new target point
                     cov = np.diag(np.ones(2) * self.policy_params['std_dev']**2)
-                    self.target += np.random.multivariate_normal([0, 0], cov)
+                    inc = np.random.multivariate_normal([0, 0], cov)
+                    self.target += inc
             else:
                 self.target = target
 
@@ -60,5 +61,7 @@ class Pos_Controller(Policy):
         # print 't:',t, 'current pos:', X,  'target:', self.target
         # print 'pos error norm: ', np.linalg.norm(self.target - X)
 
-
-        return force, self.target
+        if target == None:
+            return force, inc
+        else:
+            return force
