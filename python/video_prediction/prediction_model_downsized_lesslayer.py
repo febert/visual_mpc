@@ -366,16 +366,12 @@ def dna_transformation(prev_image, dna_input):
                              [-1, image_height, image_width, -1]), [3]))
     inputs = tf.concat(3, inputs)
 
-    import pdb; pdb.set_trace()
-
     # Normalize channels to 1.
     kernel = tf.nn.relu(dna_input - RELU_SHIFT) + RELU_SHIFT
     kernel = tf.expand_dims(
         kernel / tf.reduce_sum(
             kernel, [3], keep_dims=True), [4])
 
-    import pdb;
-    pdb.set_trace()
     return tf.reduce_sum(kernel * inputs, [3], keep_dims=False)
 
 
