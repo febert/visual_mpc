@@ -246,7 +246,7 @@ def construct_model(images,
             gen_images.append(output)
             gen_masks.append(mask_list)
 
-            if dna:
+            if dna and pix_distributions != None:
                 transf_distrib = [dna_transformation(prev_pix_distrib, enc7)]
 
             if pix_distributions!=None:
