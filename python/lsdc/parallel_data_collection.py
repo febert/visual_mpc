@@ -45,7 +45,7 @@ def main():
     hyperparams_file = data_coll_dir + 'hyperparams.py'
     hyperparams = imp.load_source('hyperparams', hyperparams_file)
 
-    n_traj = 60000
+    n_traj = hyperparams.config['end_index']
     traj_per_worker = int(n_traj / np.float32(n_worker))
     start_idx = [traj_per_worker * i for i in range(n_worker)]
     end_idx =  [traj_per_worker * (i+1)-1 for i in range(n_worker)]

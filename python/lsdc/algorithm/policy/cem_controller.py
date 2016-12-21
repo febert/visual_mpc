@@ -33,7 +33,7 @@ class CEM_controller(Policy):
 
         self.model = mujoco_py.MjModel(self.agentparams['filename'])
 
-        self.verbose = True
+        self.verbose = False
         self.compare_sim_net = True
         self.use_first_plan = True
 
@@ -51,7 +51,7 @@ class CEM_controller(Policy):
             self.M = self.netconf['batch_size']
             assert self.nactions * self.repeat == self.netconf['sequence_length']
             self.predictor = predictor
-            self.K = 3  # only consider K best samples for refitting
+            self.K = 10  # only consider K best samples for refitting
         else:
             self.M = 200 #200
             self.K = 10  # only consider K best samples for refitting
@@ -291,9 +291,6 @@ class CEM_controller(Policy):
             cPickle.dump(best(concat_masks), open(file_path + '/gen_masks.pkl', 'wb'))
             cPickle.dump(best(self.gtruth_images), open(file_path + '/gtruth_images.pkl', 'wb'))
             print 'written files to:' + file_path
-
-            import pdb;
-            pdb.set_trace()
 
             comp_pix_distrib(file_path, name='check_eval_hor15', masks=False, examples=self.K)
 

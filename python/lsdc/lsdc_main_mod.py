@@ -41,9 +41,13 @@ class LSDCMain(object):
         self._data_files_dir = config['common']['data_files_dir']
 
         self.agent = config['agent']['type'](config['agent'])
-        if config['policy']['usenet']:
-            self.predictor = setup_predictor(config['policy']['netconf'])
-            self.policy = config['policy']['type'](config['agent'], config['policy'], self.predictor)
+
+        if 'usenet' in config['policy']:
+            if config['policy']['usenet']:
+                self.predictor = setup_predictor(config['policy']['netconf'])
+                self.policy = config['policy']['type'](config['agent'], config['policy'], self.predictor)
+            else:
+                self.policy = config['policy']['type'](config['agent'], config['policy'])
         else:
             self.policy = config['policy']['type'](config['agent'], config['policy'])
 

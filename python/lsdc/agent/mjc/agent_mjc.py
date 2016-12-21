@@ -127,7 +127,7 @@ class AgentMuJoCo(Agent):
 
             self._store_image(t)
 
-            if self._hyperparams['data_collection']:
+            if self._hyperparams['data_collection'] or 'random_baseline' in self._hyperparams:
                     mj_U, target_inc = policy.act(X_full[t, :], Xdot_full[t, :], self._sample_images, t)
             else:
                 mj_U, pos, ind, targets = policy.act(X_full, Xdot_full, self._sample_images, t, init_model=self._model)
@@ -236,7 +236,10 @@ class AgentMuJoCo(Agent):
     def save_gif(self):
         file_path = self._hyperparams['record']
         from video_prediction.utils_vpred.create_gif import npy_to_gif
-        npy_to_gif(self.large_images_traj, file_path)
+        if 'random_baseline' in self._hyperparams:
+            npy_to_gif(self.large_images, file_path)
+        else:
+            npy_to_gif(self.large_images_traj, file_path)
 
     def _init(self):
         """

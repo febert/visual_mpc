@@ -43,10 +43,7 @@ common = {
     'experiment_name': 'my_experiment' + '_' + \
             datetime.strftime(datetime.now(), '%m-%d-%y_%H-%M'),
     'experiment_dir': EXP_DIR,
-    # 'data_files_dir': EXP_DIR + 'data_files/',
-    # 'data_files_dir': '/media/frederik/FrederikUSB/pushing_data/',
     'data_files_dir': '/tmp/',
-
     'target_filename': EXP_DIR + 'target.npz',
     'log_filename': EXP_DIR + 'log.txt',
     'conditions': 1,
@@ -85,7 +82,6 @@ agent = {
     # 'goal_point': np.array([-0.1, 0.0]),
     'record': EXP_DIR + 'data_files/rec'
 }
-
 
 
 from lsdc.algorithm.policy.pos_controller import Pos_Controller
