@@ -60,13 +60,13 @@ agent = {
     'filename_nomarkers': './mjc_models/pushing2d_controller_nomarkers.xml',
     'data_collection': False,
     'x0': np.array([0., 0., 0., 0.,
-                    .1, .1, 0., np.cos(alpha/2), 0, 0, np.sin(alpha/2)  #object pose (x,y,z, quat)
+                    .2, .2, 0., np.cos(alpha/2), 0, 0, np.sin(alpha/2)  #object pose (x,y,z, quat)
                      ]),
     'dt': 0.05,
     'substeps': 20,  #10
     'conditions': common['conditions'],
     'T': 15,
-    'skip_first': 0,
+    'skip_first': 5,
     'sensor_dims': SENSOR_DIMS,
     'state_include': [JOINT_ANGLES, JOINT_VELOCITIES],
     'obs_include': [JOINT_ANGLES, JOINT_VELOCITIES],
@@ -78,8 +78,7 @@ agent = {
     'image_width' : IMAGE_WIDTH,
     'image_channels' : IMAGE_CHANNELS,
     'num_objects': num_objects,
-    'goal_point': np.array([0.2, 0.2]),
-    # 'goal_point': np.array([-0.1, 0.0]),
+    'goal_point': np.array([-0.2, -0.2]),
     'record': EXP_DIR + 'data_files/rec'
 }
 
@@ -98,7 +97,8 @@ policy = {
     'netconf': EXP_DIR + 'conf.py',
     'usenet': True,
     'nactions': 5,
-    'repeat': 3
+    'repeat': 3,
+    'use_first_plan': False,
 }
 
 if policy['low_level_ctrl'] == None:

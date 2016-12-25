@@ -35,7 +35,10 @@ class CEM_controller(Policy):
 
         self.verbose = False
         self.compare_sim_net = True
-        self.use_first_plan = True
+        if 'use_first_plan' in self.policyparams:
+            self.use_first_plan = self.policyparams['use_first_plan']
+        else:
+            self.use_first_plan = True
 
         self.niter = 10  # number of iterations
 
@@ -180,6 +183,7 @@ class CEM_controller(Policy):
             actions_flat = actions.reshape(self.M, self.nactions * self.adim)
 
             self.bestaction = actions[self.indices[0]]
+            print 'bestaction:', self.bestaction
 
             arr_best_actions = actions_flat[self.indices]  # only take the K best actions
             sigma = np.cov(arr_best_actions, rowvar= False, bias= False)
