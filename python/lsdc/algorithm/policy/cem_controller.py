@@ -35,12 +35,14 @@ class CEM_controller(Policy):
 
         self.verbose = False
         self.compare_sim_net = True
+
         if 'use_first_plan' in self.policyparams:
             self.use_first_plan = self.policyparams['use_first_plan']
-        else:
-            self.use_first_plan = True
+        else: self.use_first_plan = True
 
-        self.niter = 10  # number of iterations
+        if 'iterations' in self.policyparams:
+            self.niter = self.policyparams['iterations']
+        else: self.niter = 10  # number of iterations
 
         self.use_net = self.policyparams['usenet']
         self.action_list = []
@@ -219,7 +221,6 @@ class CEM_controller(Policy):
 
         # switch on pixels
         for i in range(self.netconf['context_frames']):
-            # only for testing!:
             one_hot_images[0, i, last_desig_pix[i, 0], last_desig_pix[i, 1]] = 1
 
         one_hot_images = np.repeat(one_hot_images, self.netconf['batch_size'], axis=0)

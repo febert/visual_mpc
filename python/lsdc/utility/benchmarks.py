@@ -104,12 +104,14 @@ def main():
     print 'overall best score: {0} of traj {1}'.format(scores[sorted_ind[0]], sorted_ind[0])
     print 'overall worst score: {0} of traj {1}'.format(scores[sorted_ind[-1]], sorted_ind[-1])
     print 'overall average score:', np.sum(scores)/scores.shape
+    print 'standard deviation {0}\n'.format(np.sqrt(np.var(scores)))
 
     f = open(bench_dir +'/results', 'w')
     f.write('experiment name: ' + benchmark_name + '\n')
     f.write('overall best score: {0} of traj {1}\n'.format(scores[sorted_ind[0]], sorted_ind[0]))
     f.write('overall worst score: {0} of traj {1}\n'.format(scores[sorted_ind[-1]], sorted_ind[-1]))
     f.write('average score: {0}\n'.format(np.sum(scores) / scores.shape))
+    f.write('standard deviation {0}\n'.format(np.sqrt(np.var(scores))))
     f.write('----------------------\n')
     f.write('traj: score, rank\n')
     f.write('----------------------\n')

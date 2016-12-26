@@ -14,6 +14,7 @@ class Pos_Controller(Policy):
         self.x_g = np.array([0,0])
         self.policy_params = policy_params
         self.target = np.empty(2)
+        self.inc = np.empty(2)
         # print 'init low level ctrl'
 
     def act(self, X, Xdot, sample_images, t, target = None):
@@ -41,8 +42,8 @@ class Pos_Controller(Policy):
                 if t % new_point_freq ==0:
                     #set new target point
                     cov = np.diag(np.ones(2) * self.policy_params['std_dev']**2)
-                    inc = np.random.multivariate_normal([0, 0], cov)
-                    self.target += inc
+                    self.inc = np.random.multivariate_normal([0, 0], cov)
+                    self.target += self.inc
             else:
                 self.target = target
 
@@ -62,6 +63,6 @@ class Pos_Controller(Policy):
         # print 'pos error norm: ', np.linalg.norm(self.target - X)
 
         if target == None:
-            return force, inc
+            return force, self.inc
         else:
             return force
