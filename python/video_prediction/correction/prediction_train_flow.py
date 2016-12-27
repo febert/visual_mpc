@@ -89,17 +89,13 @@ class Model(object):
         for i in range(conf['batchsize']):
             r_ind[i,1] = r_ind[i,0] + 1
 
-        tf.gather_nd(images, r_ind)
-
+        images = tf.gather_nd(images, r_ind)
 
 
         import pdb; pdb.set_trace()
         # Split into timesteps.
         images = tf.split(1, images.get_shape()[1], images)
         images = [tf.squeeze(img) for img in images]
-
-
-        images = []
 
         if pix_distrib != None:
             pix_distrib = tf.split(1, pix_distrib.get_shape()[1], pix_distrib)
