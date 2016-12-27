@@ -65,8 +65,8 @@ class LSDCMain(object):
         for i in range(self._hyperparams['start_index'],self._hyperparams['end_index']):
             self._take_sample(cond, i)
 
-        self.policy.finish()
-        self.agent.finish()
+        # self.policy.finish()
+        # self.agent.finish()
 
     def test_policy(self, itr, N):
         """

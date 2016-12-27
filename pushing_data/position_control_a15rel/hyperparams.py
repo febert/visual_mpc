@@ -83,9 +83,9 @@ policy = {
     'type': Pos_Controller,
     'randomtargets' : True,
     'mode': 'relative',
-    'std_dev': .15,
-    'numactions': 15, # number of consecutive actions
-    'repeats': 1, # number of repeats for each action
+    'std_dev': .1,
+    'numactions': 5, # number of consecutive actions
+    'repeats': 3, # number of repeats for each action
 }
 
 config = {

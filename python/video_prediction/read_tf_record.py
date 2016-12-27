@@ -201,7 +201,7 @@ if __name__ == '__main__':
     # DATA_DIR = '/home/frederik/Documents/pushing_data/random_action/train'
     # DATA_DIR = '/home/frederik/Documents/pushing_data/old/train'
     # DATA_DIR = '/home/frederik/Documents/lsdc/pushing_data/position_control_a5r3/train'
-    DATA_DIR = '/home/frederik/Documents/lsdc/pushing_data/position_control/train'
+    DATA_DIR = '/home/frederik/Documents/lsdc/pushing_data/position_control_a15rel/train'
 
     conf['schedsamp_k'] = -1  # don't feed ground truth
     conf['data_dir'] = DATA_DIR  # 'directory containing data_files.' ,
