@@ -10,7 +10,7 @@ OUT_DIR = current_dir + '/modeldata'
 from video_prediction.prediction_model_downsized_lesslayer import construct_model
 
 configuration = {
-'experiment_name': 'rndaction_var10',
+'experiment_name': 'correction',
 'data_dir': DATA_DIR,       # 'directory containing data.' ,
 'output_dir': OUT_DIR,      #'directory for model checkpoints.' ,
 'current_dir': current_dir,   #'directory for writing summary.' ,

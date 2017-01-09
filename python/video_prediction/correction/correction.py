@@ -52,37 +52,42 @@ def construct_correction(images,
         32, [5, 5],
         stride=2,
         scope='conv0',
-        normalizer_fn=tf_layers.batch_norm,
-        normalizer_params={'scope': 'batch_norm1'})
+        # normalizer_fn=tf_layers.batch_norm,
+        # normalizer_params={'scope': 'batch_norm1'}
+    )
 
     enc1 = slim.layers.conv2d(
         enc0,
         64, [5, 5],
         stride=2,
         scope='conv1',
-        normalizer_fn=tf_layers.batch_norm,
-        normalizer_params={'scope': 'batch_norm2'})
+        # normalizer_fn=tf_layers.batch_norm,
+        # normalizer_params={'scope': 'batch_norm2'}
+    )
 
     enc2 = slim.layers.conv2d_transpose(
         enc1,
         32, [5, 5],
         stride=2,
         scope='t_conv1',
-        normalizer_fn=tf_layers.batch_norm,
-        normalizer_params={'scope': 'batch_norm2'})
+        # normalizer_fn=tf_layers.batch_norm,
+        # normalizer_params={'scope': 'batch_norm2'}
+    )
 
     enc3 = slim.layers.conv2d_transpose(
         enc2,
         32, [5, 5],
         stride=2,
         scope='t_conv2',
-        normalizer_fn=tf_layers.batch_norm,
-        normalizer_params={'scope': 'batch_norm2'})
+        # normalizer_fn=tf_layers.batch_norm,
+        # normalizer_params={'scope': 'batch_norm2'}
+    )
 
     if dna:
         # Using largest hidden state for predicting untied conv kernels.
         enc4 = slim.layers.conv2d_transpose(
-            enc3, DNA_KERN_SIZE ** 2, 1, stride=1, scope='convt4')
+            enc3, DNA_KERN_SIZE ** 2, 1, stride=1, scope='convt4'
+        )
 
     prop_distrib = []
     summaries = []
@@ -132,51 +137,6 @@ def construct_correction(images,
         return gen_images, gen_masks, None
 
 
-def cdna_transformation(prev_image, cdna_input, num_masks, color_channels, reuse_sc = None):
-    """Apply convolutional dynamic neural advection to previous image.
-
-    Args:
-      prev_image: previous image to be transformed.
-      cdna_input: hidden lyaer to be used for computing CDNA kernels.
-      num_masks: the number of masks and hence the number of CDNA transformations.
-      color_channels: the number of color channels in the images.
-    Returns:
-      List of images transformed by the predicted CDNA kernels.
-    """
-    batch_size = int(cdna_input.get_shape()[0])
-
-    # Predict kernels using linear function of last hidden layer.
-    cdna_kerns = slim.layers.fully_connected(
-        cdna_input,
-        DNA_KERN_SIZE * DNA_KERN_SIZE * num_masks,
-        scope='cdna_params',
-        activation_fn=None,
-        reuse = reuse_sc)
-
-    # Reshape and normalize.
-    cdna_kerns = tf.reshape(
-        cdna_kerns, [batch_size, DNA_KERN_SIZE, DNA_KERN_SIZE, 1, num_masks])
-    cdna_kerns = tf.nn.relu(cdna_kerns - RELU_SHIFT) + RELU_SHIFT
-    norm_factor = tf.reduce_sum(cdna_kerns, [1, 2, 3], keep_dims=True)
-    cdna_kerns /= norm_factor
-    cdna_kerns_summary = cdna_kerns
-
-    cdna_kerns = tf.tile(cdna_kerns, [1, 1, 1, color_channels, 1])
-    cdna_kerns = tf.split(0, batch_size, cdna_kerns)
-    prev_images = tf.split(0, batch_size, prev_image)
-
-    # Transform image.
-    transformed = []
-    for kernel, preimg in zip(cdna_kerns, prev_images):
-        kernel = tf.squeeze(kernel)
-        if len(kernel.get_shape()) == 3:
-            kernel = tf.expand_dims(kernel, -2)   #correction! ( was -1 before)
-        transformed.append(
-            tf.nn.depthwise_conv2d(preimg, kernel, [1, 1, 1, 1], 'SAME'))
-    transformed = tf.concat(0, transformed)
-    transformed = tf.split(3, num_masks, transformed)
-    return transformed, cdna_kerns_summary
-
 
 def dna_transformation(prev_image, dna_input):
     """Apply dynamic neural advection to previous image.
@@ -208,19 +168,3 @@ def dna_transformation(prev_image, dna_input):
             kernel, [3], keep_dims=True), [4])
 
     return tf.reduce_sum(kernel * inputs, [3], keep_dims=False)
-
-
-
-
-def make_cdna_kerns_summary(cdna_kerns, t, suffix):
-
-    sum = []
-    cdna_kerns = tf.split(4, 10, cdna_kerns)
-    for i, kern in enumerate(cdna_kerns):
-        kern = tf.squeeze(kern)
-        kern = tf.expand_dims(kern,-1)
-        sum.append(
-            tf.image_summary('step' + str(t) +'_filter'+ str(i)+ suffix, kern)
-        )
-
-    return  sum

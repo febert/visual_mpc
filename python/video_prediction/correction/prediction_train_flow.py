@@ -85,18 +85,13 @@ class CorrectorModel(object):
 
         r_ind = np.empty((conf['batch_size'],2), dtype=np.int)
         r_ind[:, 0] = np.arange(conf['batch_size'])
-        rand_ind = np.random.randint(0, conf['sequence_length']-1, size=conf['batch_size'])
-        r_ind[:, 1] = rand_ind
+        r_ind[:, 1] = np.random.randint(0, conf['sequence_length']-1, size=conf['batch_size'])
         images_old = tf.gather_nd(images, r_ind)
 
         r_ind[:,1] =  r_ind[:,1] + 1
         images_new = tf.gather_nd(images, r_ind)
 
         images = [images_old, images_new]
-
-        # # Split into timesteps.
-        # images = tf.split(1, 2, images)
-        # images = [tf.squeeze(img) for img in images]
 
         if pix_distrib != None:
             pix_distrib = tf.split(1, pix_distrib.get_shape()[1], pix_distrib)
@@ -291,7 +286,7 @@ def main(unused_argv, conf_script= None):
 
     gpu_options = tf.GPUOptions(per_process_gpu_memory_fraction=0.9)
     # Make training session.
-    sess = tf.InteractiveSession(config= tf.ConfigProto(gpu_options=gpu_options))
+    sess = tf.InteractiveSession(config=tf.ConfigProto(gpu_options=gpu_options))
     summary_writer = tf.train.SummaryWriter(
         conf['output_dir'], graph=sess.graph, flush_secs=10)
 
