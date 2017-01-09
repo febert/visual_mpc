@@ -65,8 +65,6 @@ class LSDCMain(object):
         for i in range(self._hyperparams['start_index'],self._hyperparams['end_index']):
             self._take_sample(cond, i)
 
-        # self.policy.finish()
-        # self.agent.finish()
 
     def test_policy(self, itr, N):
         """
@@ -144,17 +142,17 @@ class LSDCMain(object):
 
         start = datetime.now()
 
-        X_full, Xdot_full, U, sample_images = self.agent.sample(
+        traj = self.agent.sample(
             self.policy, cond )
 
         if self._hyperparams['save_data']:
-            self._save_data(X_full, Xdot_full, U, sample_images, sample_index)
+            self._save_data(traj, sample_index)
 
         end = datetime.now()
         print 'time elapsed for one trajectory sim', end-start
 
 
-    def _save_data(self, X_full, Xdot_full, U, sample_images, sample_index):
+    def _save_data(self, traj, sample_index):
         """
         saves all the images of a sample-trajectory in a separate dataset within the same hdf5-file
         Args:
@@ -170,12 +168,12 @@ class LSDCMain(object):
 
         # get the relevant state information:
         dir_ = self._data_files_dir
-        X_Xdot = np.concatenate((X_full, Xdot_full), axis=1)
-        U = copy.deepcopy(U)
-        X_Xdot = copy.deepcopy(X_Xdot)
-        sample_images_cpy = copy.deepcopy(sample_images)
-        self._trajectory_list.append([X_Xdot,U,sample_images_cpy])
-        traj_per_file =  256
+        X_Xdot = np.concatenate((traj.X_full, traj.Xdot_full), axis=1)
+        traj.X_Xdot = X_Xdot
+        traj = copy.deepcopy(traj)
+        self._trajectory_list.append(traj)
+        traj_per_file = 256
+        print 'traj_per_file', traj_per_file
         if len(self._trajectory_list) == traj_per_file:
             filename = 'traj_{0}_to_{1}'\
                 .format(sample_index - traj_per_file + 1, sample_index)

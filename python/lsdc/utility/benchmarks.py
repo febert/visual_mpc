@@ -100,24 +100,25 @@ def main():
 
             traj +=1
 
-    sorted_ind = scores.argsort()
+        rel_scores = scores[:traj]
+        sorted_ind = rel_scores.argsort()
+        f = open(bench_dir + '/results', 'w')
+        f.write('experiment name: ' + benchmark_name + '\n')
+        f.write('overall best score: {0} of traj {1}\n'.format(rel_scores[sorted_ind[0]], sorted_ind[0]))
+        f.write('overall worst score: {0} of traj {1}\n'.format(rel_scores[sorted_ind[-1]], sorted_ind[-1]))
+        f.write('average score: {0}\n'.format(np.sum(rel_scores) / scores.shape))
+        f.write('standard deviation {0}\n'.format(np.sqrt(np.var(rel_scores))))
+        f.write('----------------------\n')
+        f.write('traj: score, rank\n')
+        f.write('----------------------\n')
+        for t in range(traj):
+            f.write('{0}: {1}, {2}\n'.format(t, rel_scores[t], np.where(sorted_ind == t)[0][0]))
+        f.close()
+
     print 'overall best score: {0} of traj {1}'.format(scores[sorted_ind[0]], sorted_ind[0])
     print 'overall worst score: {0} of traj {1}'.format(scores[sorted_ind[-1]], sorted_ind[-1])
     print 'overall average score:', np.sum(scores)/scores.shape
     print 'standard deviation {0}\n'.format(np.sqrt(np.var(scores)))
-
-    f = open(bench_dir +'/results', 'w')
-    f.write('experiment name: ' + benchmark_name + '\n')
-    f.write('overall best score: {0} of traj {1}\n'.format(scores[sorted_ind[0]], sorted_ind[0]))
-    f.write('overall worst score: {0} of traj {1}\n'.format(scores[sorted_ind[-1]], sorted_ind[-1]))
-    f.write('average score: {0}\n'.format(np.sum(scores) / scores.shape))
-    f.write('standard deviation {0}\n'.format(np.sqrt(np.var(scores))))
-    f.write('----------------------\n')
-    f.write('traj: score, rank\n')
-    f.write('----------------------\n')
-    for traj in range(nruns):
-        f.write('{0}: {1}, {2}\n'.format(traj,scores[traj], np.where(sorted_ind == traj)[0][0]))
-    f.close()
 
 if __name__ == '__main__':
     main()

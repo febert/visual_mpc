@@ -17,6 +17,7 @@
 
 import numpy as np
 import tensorflow as tf
+import pdb
 
 import tensorflow.contrib.slim as slim
 from tensorflow.contrib.layers.python import layers as tf_layers
@@ -33,38 +34,16 @@ def construct_correction(images,
                          stp=False,
                          cdna=False,
                          dna=True,
-                         pix_distributions=None):
-
-
+                         pix_distrib_input=None):
     """Build network for predicting optical flow
 
-    Args:
-      images: images before and after movement
-      actions: tensor of action sequences
-      states: tensor of ground truth state sequences
-      iter_num: tensor of the current training iteration (for sched. sampling)
-      k: constant used for scheduled sampling. -1 to feed in own prediction.
-      use_state: True to include state and action in prediction
-      num_masks: the number of different pixel motion predictions (and
-                 the number of masks for each of those predictions)
-      stp: True to use Spatial Transformer Predictor (STP)
-      cdna: True to use Convoluational Dynamic Neural Advection (CDNA)
-      dna: True to use Dynamic Neural Advection (DNA)
-      context_frames: number of ground truth frames to pass in before
-                      feeding in own predictions
-      pix_distrib: the initial one-hot distriubtion for designated pixels
-    Returns:
-      gen_images: predicted future image frames
-      gen_states: predicted future states
-
-    Raises:
-      ValueError: if more than one network option specified or more than 1 mask
-      specified for DNA model.
     """
 
     if stp + cdna + dna != 1:
         raise ValueError('More than one, or no network option specified.')
     batch_size, img_height, img_width, color_channels = images[0].get_shape()[0:4]
+    if pix_distrib_input != None:
+        num_objects = pix_distrib_input.shape[1]
 
     concat_img = tf.concat(3, [images[0], images[1]])
 
@@ -105,7 +84,7 @@ def construct_correction(images,
         enc4 = slim.layers.conv2d_transpose(
             enc3, DNA_KERN_SIZE ** 2, 1, stride=1, scope='convt4')
 
-    prop_distirb = []
+    prop_distrib = []
     summaries = []
 
     if dna:
@@ -113,6 +92,8 @@ def construct_correction(images,
         if num_masks != 1:
             raise ValueError('Only one mask is supported for DNA model.')
         transformed = [dna_transformation(images[0], enc4)]
+    else:
+        raise ValueError
 
     masks = slim.layers.conv2d_transpose(
         enc3, num_masks + 1, 1, stride=1, scope='convt7')
@@ -126,45 +107,29 @@ def construct_correction(images,
     gen_images= output
     gen_masks= mask_list
 
-    if dna:
-        transf_distrib = [dna_transformation(pix_distributions, enc4)]
+    if pix_distrib_input != None:
 
-        pix_distrib_output = mask_list[0] * pix_distributions
-        mult_list = []
-        for i in range(num_masks):
-            mult_list.append(transf_distrib[i] * mask_list[i+1])
-            pix_distrib_output += mult_list[i]
+        for ob in range(num_objects):
 
-        prop_distirb.append(pix_distrib_output)
+            pix_distrib_input_ob = tf.slice(pix_distrib_input,
+                                            begin=[0, ob, 0, 0], size=[-1, 1, -1, -1])
+            if dna:
+                transf_distrib = [dna_transformation(pix_distrib_input_ob, enc4)]
+                pdb.set_trace()
+            else:
+                raise ValueError
 
-    return gen_images, gen_masks, prop_distirb
+            pix_distrib_output = mask_list[0] * pix_distrib_input_ob
+            mult_list = []
+            for i in range(num_masks):
+                mult_list.append(transf_distrib[i] * mask_list[i+1])
+                pix_distrib_output += mult_list[i]
 
+            prop_distrib.append(pix_distrib_output)
 
-## Utility functions
-def stp_transformation(prev_image, stp_input, num_masks):
-    """Apply spatial transformer predictor (STP) to previous image.
-
-    Args:
-      prev_image: previous image to be transformed.
-      stp_input: hidden layer to be used for computing STN parameters.
-      num_masks: number of masks and hence the number of STP transformations.
-    Returns:
-      List of images transformed by the predicted STP parameters.
-    """
-    # Only import spatial transformer if needed.
-    from transformer.spatial_transformer import transformer
-
-    identity_params = tf.convert_to_tensor(
-        np.array([1.0, 0.0, 0.0, 0.0, 1.0, 0.0], np.float32))
-    transformed = []
-    for i in range(num_masks - 1):
-        params = slim.layers.fully_connected(
-            stp_input, 6, scope='stp_params' + str(i),
-            activation_fn=None) + identity_params
-        outsize = (prev_image.get_shape()[1], prev_image.get_shape()[2])
-        transformed.append(transformer(prev_image, params, outsize))
-
-    return transformed
+        return gen_images, gen_masks, prop_distrib
+    else:
+        return gen_images, gen_masks, None
 
 
 def cdna_transformation(prev_image, cdna_input, num_masks, color_channels, reuse_sc = None):

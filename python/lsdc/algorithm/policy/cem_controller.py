@@ -28,8 +28,7 @@ class CEM_controller(Policy):
         self.policyparams = policyparams
 
         if self.policyparams['low_level_ctrl']:
-            self.low_level_ctrl = policyparams['low_level_ctrl']['type']\
-                (None, policyparams['low_level_ctrl'])
+            self.low_level_ctrl = policyparams['low_level_ctrl']['type'](None, policyparams['low_level_ctrl'])
 
         self.model = mujoco_py.MjModel(self.agentparams['filename'])
 

@@ -21,6 +21,7 @@ IMG_HEIGHT = 64
 # Dimension of the state and action.
 STATE_DIM = 4
 ACION_DIM = 2
+OBJECT_POS_DIM = 8
 
 
 def build_tfrecord_input(conf, training=True):
@@ -56,7 +57,7 @@ def build_tfrecord_input(conf, training=True):
     reader = tf.TFRecordReader()
     _, serialized_example = reader.read(filename_queue)
 
-    image_seq, state_seq, action_seq = [], [], []
+    image_seq, state_seq, action_seq, object_pos_seq = [], [], [], []
 
 
     load_indx = range(0, 30, conf['skip_frame'])
@@ -67,6 +68,7 @@ def build_tfrecord_input(conf, training=True):
         image_name = 'move/' + str(i) + '/image/encoded'
         action_name = 'move/' + str(i) + '/action'
         state_name = 'move/' + str(i) + '/state'
+        object_pos_name = 'move/' + str(i) + '/object_pos'
         # print 'reading index', i
         if conf['use_state']:
             features = {
@@ -74,6 +76,9 @@ def build_tfrecord_input(conf, training=True):
                         action_name: tf.FixedLenFeature([ACION_DIM], tf.float32),
                         state_name: tf.FixedLenFeature([STATE_DIM], tf.float32)
             }
+            if conf['use_object_pos']:
+                features[object_pos_name] = tf.FixedLenFeature([OBJECT_POS_DIM], tf.float32)
+
         else:
             features = {image_name: tf.FixedLenFeature([1], tf.string)}
         features = tf.parse_single_example(serialized_example, features=features)
@@ -98,20 +103,34 @@ def build_tfrecord_input(conf, training=True):
             action = tf.reshape(features[action_name], shape=[1, ACION_DIM])
             action_seq.append(action)
 
+        if conf['use_object_pos']:
+            object_pos = tf.reshape(features[object_pos_name], shape=[1, OBJECT_POS_DIM])
+            object_pos_seq.append(object_pos)
+
     image_seq = tf.concat(0, image_seq)
 
     if conf['visualize']: num_threads = 1
-    else: num_threads = conf['batch_size']
+    else: num_threads = np.min((conf['batch_size'], 32))
 
     if conf['use_state']:
         state_seq = tf.concat(0, state_seq)
         action_seq = tf.concat(0, action_seq)
-        [image_batch, action_batch, state_batch] = tf.train.batch(
-            [image_seq, action_seq, state_seq],
+
+        if conf['use_object_pos']:
+            [image_batch, action_batch, state_batch, object_pos_batch] = tf.train.batch(
+            [image_seq, action_seq, state_seq, object_pos_seq],
             conf['batch_size'],
-            num_threads= num_threads,
+            num_threads=num_threads,
             capacity=100 * conf['batch_size'])
-        return image_batch, action_batch, state_batch
+
+            return image_batch, action_batch, state_batch, object_pos_batch
+        else:
+            [image_batch, action_batch, state_batch] = tf.train.batch(
+                [image_seq, action_seq, state_seq],
+                conf['batch_size'],
+                num_threads=num_threads,
+                capacity=100 * conf['batch_size'])
+            return image_batch, action_batch, state_batch
     else:
         image_batch = tf.train.batch(
             [image_seq],
@@ -121,8 +140,6 @@ def build_tfrecord_input(conf, training=True):
         zeros_batch_action = tf.zeros([conf['batch_size'], conf['sequence_length'], ACION_DIM])
         zeros_batch_state = tf.zeros([conf['batch_size'], conf['sequence_length'], STATE_DIM])
         return image_batch, zeros_batch_action, zeros_batch_state
-
-
 
 
 
@@ -145,7 +162,52 @@ def add_visuals_to_batch(image_data, action_data, state_data, action_pos = False
     return image__with_visuals.astype(np.float32) / 255.0
 
 
+def get_frame_with_posdata(img, pos):
+    """
+    visualizes the actions in the frame
+    :param img:
+    :param action:
+    :param state:
+    :param action_pos:
+    :return:
+    """
+    pos = pos.squeeze().reshape(4,2)
+
+    fig = plt.figure(figsize=(1, 1), dpi=64)
+    fig.add_subplot(111)
+    plt.subplots_adjust(left=0, bottom=0, right=1, top=1, wspace=0, hspace=0)
+
+    axes = plt.gca()
+    plt.cla()
+    axes.axis('off')
+    plt.imshow(img, zorder=0)
+    axes.autoscale(False)
+
+    for i in range(4):
+        pos_img = mujoco_to_imagespace(pos[i])
+        plt.plot(pos_img[1], pos_img[0], zorder=1, marker='o', color='b')
+
+    fig.canvas.draw()  # draw the canvas, cache the renderer
+
+    data = np.fromstring(fig.canvas.tostring_rgb(), dtype=np.uint8, sep='')
+    data = data.reshape(fig.canvas.get_width_height()[::-1] + (3,))
+
+    plt.show()
+    Image.fromarray(data).show()
+    pdb.set_trace()
+
+    return data
+
+
 def get_frame_with_visual(img, action, state, action_pos= False):
+    """
+    visualizes the actions in the frame
+    :param img:
+    :param action:
+    :param state:
+    :param action_pos:
+    :return:
+    """
     fig = plt.figure(figsize=(1, 1), dpi=64)
     fig.add_subplot(111)
     plt.subplots_adjust(left=0, bottom=0, right=1, top=1, wspace=0, hspace=0)
@@ -198,10 +260,7 @@ if __name__ == '__main__':
     conf = {}
 
     # DATA_DIR = '/home/frederik/Documents/pushing_data/settled_scene_rnd3/train'
-    # DATA_DIR = '/home/frederik/Documents/pushing_data/random_action/train'
-    # DATA_DIR = '/home/frederik/Documents/pushing_data/old/train'
-    # DATA_DIR = '/home/frederik/Documents/lsdc/pushing_data/position_control_a5r3/train'
-    DATA_DIR = '/home/frederik/Documents/lsdc/pushing_data/position_control_a15rel/train'
+    DATA_DIR = '/home/frederik/Documents/lsdc/pushing_data/force_ctrl_save_pos_correction/train'
 
     conf['schedsamp_k'] = -1  # don't feed ground truth
     conf['data_dir'] = DATA_DIR  # 'directory containing data_files.' ,
@@ -211,6 +270,7 @@ if __name__ == '__main__':
     conf['use_state'] = True
     conf['batch_size']= 32
     conf['visualize']=False
+    conf['use_object_pos'] = True
 
     print '-------------------------------------------------------------------'
     print 'verify current settings!! '
@@ -219,7 +279,10 @@ if __name__ == '__main__':
     print '-------------------------------------------------------------------'
 
     print 'testing the reader'
-    image_batch, action_batch, state_batch  = build_tfrecord_input(conf, training=True)
+    if conf['use_object_pos']:
+        image_batch, action_batch, state_batch, object_pos_batch  = build_tfrecord_input(conf, training=True)
+    else:
+        image_batch, action_batch, state_batch = build_tfrecord_input(conf, training=True)
     sess = tf.InteractiveSession()
     tf.train.start_queue_runners(sess)
     sess.run(tf.initialize_all_variables())
@@ -227,7 +290,10 @@ if __name__ == '__main__':
 
     for i in range(1):
         print 'run number ', i
-        image_data, action_data, state_data = sess.run([image_batch, action_batch, state_batch])
+        if conf['use_object_pos']:
+            image_data, action_data, state_data, object_pos = sess.run([image_batch, action_batch, state_batch, object_pos_batch])
+        else:
+            image_data, action_data, state_data = sess.run([image_batch, action_batch, state_batch])
 
         print 'action:', action_data.shape
         print 'action: batch ind 0', action_data[0]
@@ -255,16 +321,22 @@ if __name__ == '__main__':
         from utils_vpred.create_gif import comp_single_video
 
         # make video preview video
-        gif_preview = '/'.join(str.split(__file__, '/')[:-1] + ['preview'])
-        comp_single_video(gif_preview, image_data)
+        # gif_preview = '/'.join(str.split(__file__, '/')[:-1] + ['preview'])
+        # comp_single_video(gif_preview, image_data)
+
         # make video preview video with annotated forces
         # gif_preview = '/'.join(str.split(__file__, '/')[:-1] + ['preview_visuals'])
         # comp_single_video(gif_preview, add_visuals_to_batch(image_data, action_data, state_data, action_pos=True))
 
-        # # show some frames
-        # for i in range(2):
-        #     img = np.uint8(255. *image_data[i,0])
-        #     img = Image.fromarray(img, 'RGB')
-        #     img.show()
+        # show some frames
+        for i in range(2):
+            print 'object pos', object_pos.shape
+            pdb.set_trace()
+
+            img = np.uint8(255. *image_data[0, i])
+            img = Image.fromarray(img, 'RGB')
+            # img.show()
+
+            get_frame_with_posdata(img, object_pos[0, i])
 
 

@@ -22,6 +22,8 @@ from lsdc.proto.gps_pb2 import JOINT_ANGLES, JOINT_VELOCITIES, \
         END_EFFECTOR_POINT_JACOBIANS, ACTION, RGB_IMAGE, RGB_IMAGE_SIZE, \
         CONTEXT_IMAGE, CONTEXT_IMAGE_SIZE
 
+from lsdc.utility.trajectory import Trajectory
+
 from lsdc.sample.sample import Sample
 
 from matplotlib.backends.backend_agg import FigureCanvasAgg as FigureCanvas
@@ -39,12 +41,6 @@ class AgentMuJoCo(Agent):
         Agent.__init__(self, config)
         self._setup_world(hyperparams['filename'])
 
-        # datastructure for storing all images of a whole sample trajectory;
-        self._sample_images = np.zeros((self.T,
-                                      self._hyperparams['image_height'],
-                                      self._hyperparams['image_width'],
-                                      self._hyperparams['image_channels']), dtype= 'uint8')
-        self.final_score = None
 
     def _setup_world(self, filename):
         """
@@ -78,27 +74,17 @@ class AgentMuJoCo(Agent):
                                                     init_height=480, go_fast=gofast)
             self._large_viewer.start()
 
-    def finish(self):
-        self._large_viewer.finish()
-        self._small_viewer.finish()
 
     def sample(self, policy, verbose=True, save=True, noisy=False):
         """
         Runs a trial and constructs a new sample containing information
         about the trial.
-        Args:
-            policy: Policy to to used in the trial.
-            verbose: Whether or not to plot the trial.
-            save: Whether or not to store the trial into the samples.
-            noisy: Whether or not to use noise during sampling.
         """
 
         # Create new sample, populate first time step.
         self._init()
 
-        U = np.empty([self.T, self.dU])
-        X_full = np.empty([self.T, 2])
-        Xdot_full = np.empty([self.T, 2])
+        traj = Trajectory(self._hyperparams)
 
         self._small_viewer.set_model(self.model_nomarkers)
 
@@ -118,27 +104,28 @@ class AgentMuJoCo(Agent):
         # Take the sample.
         for t in range(self.T):
 
-            X_full[t, :] = self._model.data.qpos[:2].squeeze()
-            Xdot_full[t, :] = self._model.data.qvel[:2].squeeze()
+            traj.X_full[t, :] = self._model.data.qpos[:2].squeeze()
+            traj.Xdot_full[t, :] = self._model.data.qvel[:2].squeeze()
+            for i in range(self._hyperparams['num_objects']):
+                traj.Object_pos[t,i,:] = self._model.data.qpos[i*7+2:i*7+4].squeeze()
 
-            # self.reference_points_show(condition)
-            if self._hyperparams['additional_viewer']:
-                self._large_viewer.loop_once()
 
-            self._store_image(t)
+            self._store_image(t, traj)
+
+            # import pdb; pdb.set_trace()
 
             if self._hyperparams['data_collection'] or 'random_baseline' in self._hyperparams:
-                    mj_U, target_inc = policy.act(X_full[t, :], Xdot_full[t, :], self._sample_images, t)
+                    mj_U, target_inc = policy.act(traj.X_full[t, :], traj.Xdot_full[t, :], traj._sample_images, t)
             else:
-                mj_U, pos, ind, targets = policy.act(X_full, Xdot_full, self._sample_images, t, init_model=self._model)
+                mj_U, pos, ind, targets = policy.act(traj.X_full, traj.Xdot_full, traj._sample_images, t, init_model=self._model)
                 add_traj = True
                 if add_traj:
                     self.large_images_traj += self.add_traj_visual(self.large_images[t], pos, ind, targets)
 
             if 'poscontroller' in self._hyperparams.keys():
-                U[t, :] = target_inc
+                traj.U[t, :] = target_inc
             else:
-                U[t, :] = mj_U
+                traj.U[t, :] = mj_U
 
             for _ in range(self._hyperparams['substeps']):
                 self._model.data.ctrl = mj_U
@@ -150,34 +137,36 @@ class AgentMuJoCo(Agent):
         if self._hyperparams['record']:
             self.save_gif()
 
-        return X_full, Xdot_full, U, self._sample_images
-
+        return traj
 
     def eval_action(self):
         goalpoint = np.array(self._hyperparams['goal_point'])
         refpoint = self._model.data.site_xpos[0,:2]
         return np.linalg.norm(goalpoint - refpoint)
 
-    def _store_image(self,t):
+    def _store_image(self,t, traj):
         """
         store image at time index t
         """
+        if self._hyperparams['additional_viewer']:
+            self._large_viewer.loop_once()
+
+        img_string, width, height = self._large_viewer.get_image()
+        largeimage = np.fromstring(img_string, dtype='uint8').reshape(
+                (480, 480, self._hyperparams['image_channels']))[::-1, :, :]
+        self.large_images.append(largeimage)
+
+        ######
+        #small viewer:
         self.model_nomarkers.data.qpos = self._model.data.qpos
         self.model_nomarkers.data.qvel = self._model.data.qvel
         self.model_nomarkers.step()
         self._small_viewer.loop_once()
 
-        img_string, width, height = self._large_viewer.get_image()
-        largeimage = np.fromstring(img_string, dtype='uint8').reshape(
-                (480, 480, self._hyperparams['image_channels']))[::-1, :, :]
-
-        # import pdb; pdb.set_trace()
-        self.large_images.append(largeimage)
-
         img_string, width, height = self._small_viewer.get_image()
         img = np.fromstring(img_string, dtype='uint8').reshape((height, width, self._hyperparams['image_channels']))[::-1,:,:]
 
-        self._sample_images[t,:,:,:] = img
+        traj._sample_images[t,:,:,:] = img
 
 
     def add_traj_visual(self, img, traj, bestindices, targets):

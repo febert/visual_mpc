@@ -25,17 +25,22 @@ def save_tf_record(dir, filename, trajectory_list):
 
     feature = {}
 
-    for traj in range(len(trajectory_list)):
+    for tr in range(len(trajectory_list)):
 
-        [X_Xdot, U, sample_images] = trajectory_list[traj]
-        sequence_length = sample_images.shape[0]
+        traj = trajectory_list[tr]
+        sequence_length = traj._sample_images.shape[0]
 
         for index in range(sequence_length):
-            image_raw = sample_images[index].tostring()
+            image_raw = traj._sample_images[index].tostring()
 
-            feature['move/' + str(index) + '/action']= _float_feature(U[index,:].tolist())
-            feature['move/' + str(index) + '/state'] = _float_feature(X_Xdot[index,:].tolist())
+            feature['move/' + str(index) + '/action']= _float_feature(traj.U[index,:].tolist())
+            feature['move/' + str(index) + '/state'] = _float_feature(traj.X_Xdot[index,:].tolist())
             feature['move/' + str(index) + '/image/encoded'] = _bytes_feature(image_raw)
+
+            if hasattr(traj, 'Object_pos'):
+                Object_pos_flat = traj.Object_pos[index, :].flatten()
+                feature['move/' + str(index) + '/object_pos'] = _float_feature(Object_pos_flat.tolist())
+
 
         example = tf.train.Example(features=tf.train.Features(feature=feature))
         writer.write(example.SerializeToString())
