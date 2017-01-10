@@ -93,10 +93,6 @@ class CorrectorModel(object):
 
         images = [images_old, images_new]
 
-        if pix_distrib != None:
-            pix_distrib = tf.split(1, pix_distrib.get_shape()[1], pix_distrib)
-            pix_distrib = [tf.squeeze(pix) for pix in pix_distrib]
-
         if reuse_scope is None:
             gen_images, gen_masks, gen_distrib = construct_correction(
                 images,
@@ -155,29 +151,26 @@ def mujoco_to_imagespace(mujoco_coord, numpix=64):
 
 
 def visualize(conf):
-    print 'Constructing saver.'
-    saver = tf.train.Saver(tf.get_collection(tf.GraphKeys.VARIABLES), max_to_keep=0)
-
     gpu_options = tf.GPUOptions(per_process_gpu_memory_fraction=0.9)
     # Make training session.
-    sess = tf.InteractiveSession(config=tf.ConfigProto(gpu_options=gpu_options))
-    summary_writer = tf.train.SummaryWriter(
-        conf['output_dir'], graph=sess.graph, flush_secs=10)
 
-    sess.run(tf.initialize_all_variables())
+    sess = tf.InteractiveSession(config=tf.ConfigProto(gpu_options=gpu_options))
 
     tf.train.start_queue_runners(sess)
 
-    input_distrib = tf.placeholder(tf.float32, shape=(conf['batch_size'], 64, 64, 1))
+    input_distrib = tf.placeholder(tf.float32, shape=(conf['batch_size'], conf['num_objects'], 64, 64))
 
     images = tf.placeholder(tf.float32, name='images',
                             shape=(conf['batch_size'], conf['sequence_length'], 64, 64, 3))
 
-    with tf.variable_scope('val_model', reuse=None):
+    with tf.variable_scope('model', reuse=None):
         val_images,_ , _ , object_pos   = build_tfrecord_input(conf, training=False)
         model = CorrectorModel(conf, images, pix_distrib= input_distrib)
 
-    saver.restore(sess, conf['visualize'])
+    sess.run(tf.initialize_all_variables())
+
+    saver = tf.train.Saver(tf.get_collection(tf.GraphKeys.VARIABLES), max_to_keep=0)
+    saver.restore(sess, conf['output_dir'] + '/' + FLAGS.visualize)
 
     ground_truth, object_pos_npy = sess.run([val_images, object_pos])
 

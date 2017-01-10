@@ -23,6 +23,7 @@ from lsdc.sample.sample_list import SampleList
 from lsdc.algorithm.policy.random_policy import Randompolicy
 from lsdc.algorithm.policy.random_impedance_point import Random_impedance_point
 from video_prediction.setup_predictor import setup_predictor
+from video_prediction.correction.setup_corrector import setup_corrector
 from lsdc.utility.save_tf_record import save_tf_record
 from datetime import datetime
 
@@ -51,6 +52,9 @@ class LSDCMain(object):
         else:
             self.policy = config['policy']['type'](config['agent'], config['policy'])
 
+        if 'correctorconf' in config['policy']:
+            self.corrector = setup_corrector(config['policy']['correctorconf'])
+            self.policy.corrector = self.corrector
 
         self._trajectory_list = []
 
@@ -180,19 +184,6 @@ class LSDCMain(object):
             save_tf_record(dir_, filename, self._trajectory_list)
             self._trajectory_list = []
 
-    def _take_iteration(self, itr, sample_lists):
-        """
-        Take an iteration of the algorithm.
-        Args:
-            itr: Iteration number.
-        Returns: None
-        """
-        if self.gui:
-            self.gui.set_status_text('Calculating.')
-            self.gui.start_display_calculating()
-        self.algorithm.iteration(sample_lists)
-        if self.gui:
-            self.gui.stop_display_calculating()
 
     def _take_policy_samples(self, N=None):
         """

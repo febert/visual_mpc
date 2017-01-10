@@ -95,6 +95,7 @@ policy = {
     'type' : CEM_controller,
     'low_level_ctrl': None,
     'netconf': EXP_DIR + 'conf.py',
+    'correctorconf':  EXP_DIR + 'cor_conf.py',
     'usenet': True,
     'nactions': 5,
     'repeat': 3,

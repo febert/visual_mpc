@@ -46,8 +46,9 @@ class CEM_controller(Policy):
         self.use_net = self.policyparams['usenet']
         self.action_list = []
 
-        hyperparams = imp.load_source('hyperparams', self.policyparams['netconf'])
-        self.netconf = hyperparams.configuration
+        if self.use_net:
+            hyperparams = imp.load_source('hyperparams', self.policyparams['netconf'])
+            self.netconf = hyperparams.configuration
 
         self.nactions = self.policyparams['nactions']
         self.repeat = self.policyparams['repeat']
@@ -57,8 +58,10 @@ class CEM_controller(Policy):
             self.predictor = predictor
             self.K = 10  # only consider K best samples for refitting
         else:
-            self.M = 200 #200
+            self.M = self.policyparams['num_samples']
             self.K = 10  # only consider K best samples for refitting
+
+        self.corrector = None
 
         self.gtruth_images = [np.zeros((self.M, 64, 64, 3)) for _ in range(self.nactions * self.repeat)]
 
@@ -94,6 +97,7 @@ class CEM_controller(Policy):
         self.indices =[]
 
         self.target = np.zeros(2)
+
 
     def reinitialize(self):
         self.use_net = self.policyparams['usenet']
@@ -247,14 +251,16 @@ class CEM_controller(Policy):
         scores = np.zeros((self.netconf['batch_size']))
 
         goalpoint = self.mujoco_to_imagespace(self.agentparams['goal_point'])
-        for i in range(self.netconf['batch_size']):
-            # for t in range(len(gen_distrib)):
-            peak_pix = np.argmax(gen_distrib[-1][i])
-            peak_pix = np.unravel_index(peak_pix,
-                                        (self.agentparams['image_width'],
-                                         self.agentparams['image_width']))
-            peak_pix = np.array(peak_pix)
-            scores[i] = np.linalg.norm(goalpoint.astype(float) - peak_pix.astype(float))
+
+        #using the maximum distrib value only
+        # for i in range(self.netconf['batch_size']):
+        #     # for t in range(len(gen_distrib)):
+        #     peak_pix = np.argmax(gen_distrib[-1][i])
+        #     peak_pix = np.unravel_index(peak_pix,
+        #                                 (self.agentparams['image_width'],
+        #                                  self.agentparams['image_width']))
+        #     peak_pix = np.array(peak_pix)
+        #     scores[i] = np.linalg.norm(goalpoint.astype(float) - peak_pix.astype(float))
 
 
         distance_grid = np.empty((64,64))
@@ -379,6 +385,8 @@ class CEM_controller(Policy):
         self.init_model = init_model
         desig_pos = init_model.data.site_xpos[0, :2]
         self.desig_pix[t, :] = self.mujoco_to_imagespace(desig_pos)
+
+
 
         if t == 0:
             action = np.zeros(2)

@@ -43,9 +43,7 @@ def setup_predictor(conf_file):
     sess = tf.InteractiveSession(config=tf.ConfigProto(gpu_options=gpu_options))
     sess.run(tf.initialize_all_variables())
 
-    saver = tf.train.Saver(
-        tf.get_collection(tf.GraphKeys.VARIABLES), max_to_keep=0)
-
+    saver = tf.train.Saver(tf.get_collection(tf.GraphKeys.VARIABLES), max_to_keep=0)
     saver.restore(sess, conf['pretrained_model'])
 
     def predictor_func(input_images, one_hot_images, input_state, input_actions):

@@ -27,5 +27,5 @@ configuration = {
 'visualize': '',            #'load model from which to generate visualizations
 'file_visual': '',          # datafile used for making visualizations
 'num_objects': 4,
-'use_object_pos': True
+'use_object_pos': False
 }

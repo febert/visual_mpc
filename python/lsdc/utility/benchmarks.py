@@ -6,7 +6,7 @@ import os
 import numpy as np
 import copy
 import random
-
+import cPickle
 
 
 def main():
@@ -44,28 +44,22 @@ def main():
 
 
     # sample intial conditions and goalpoints
-
     nruns = 50
 
     traj = 0
     n_reseed = 3
-    n_conf = -1
+    i_conf = 0
 
     scores = np.empty(nruns)
     lsdc = LSDCMain(conf)
+    confs = cPickle.load(open('python/lsdc/utility/benchmarkconfigs', "rb"))
+    goalpoints = confs['goalpoints']
+    initialposes = confs['initialpos']
 
     while traj < nruns:
 
-        alpha = np.random.uniform(0,360.0)
-        ob_pos = np.random.uniform(-0.4,0.4,2)
-        goalpoint = np.random.uniform(-0.4,0.4,2)
-
-        n_conf += 1
-
-        lsdc.agent._hyperparams['x0'] = np.array([0., 0., 0., 0.,
-                    ob_pos[0], ob_pos[1], 0., np.cos(alpha/2), 0, 0, np.sin(alpha/2)  #object pose (x,y,z, quat)
-                     ])
-        lsdc.agent._hyperparams['goal_point'] = goalpoint
+        lsdc.agent._hyperparams['x0'] = initialposes[i_conf]
+        lsdc.agent._hyperparams['goal_point'] = goalpoints[i_conf]
 
         for j in range(n_reseed):
             if traj > nruns -1:
@@ -76,11 +70,11 @@ def main():
             np.random.seed(seed)
             print '-------------------------------------------------------------------'
             print 'run number ', traj
-            print 'configuration No. ', n_conf
+            print 'configuration No. ', i_conf
             print 'using random seed', seed
             print '-------------------------------------------------------------------'
 
-            lsdc.agent._hyperparams['record'] = bench_dir + '/videos/traj{0}_conf{1}'.format(traj, n_conf)
+            lsdc.agent._hyperparams['record'] = bench_dir + '/videos/traj{0}_conf{1}'.format(traj, i_conf)
 
             if 'usenet' in conf['policy']:
                 if conf['policy']['usenet']:
@@ -99,6 +93,8 @@ def main():
             print scores[traj]
 
             traj +=1
+
+            i_conf += 1
 
         rel_scores = scores[:traj]
         sorted_ind = rel_scores.argsort()

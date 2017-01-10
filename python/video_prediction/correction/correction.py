@@ -43,7 +43,7 @@ def construct_correction(images,
         raise ValueError('More than one, or no network option specified.')
     batch_size, img_height, img_width, color_channels = images[0].get_shape()[0:4]
     if pix_distrib_input != None:
-        num_objects = pix_distrib_input.shape[1]
+        num_objects = pix_distrib_input.get_shape()[1]
 
     concat_img = tf.concat(3, [images[0], images[1]])
 
@@ -89,7 +89,7 @@ def construct_correction(images,
             enc3, DNA_KERN_SIZE ** 2, 1, stride=1, scope='convt4'
         )
 
-    prop_distrib = []
+
     summaries = []
 
     if dna:
@@ -114,25 +114,17 @@ def construct_correction(images,
 
     if pix_distrib_input != None:
 
-        for ob in range(num_objects):
+        if dna:
+            transf_distrib = [dna_transformation(pix_distrib_input, enc4)]
+            # pdb.set_trace()
+        else:
+            raise ValueError
 
-            pix_distrib_input_ob = tf.slice(pix_distrib_input,
-                                            begin=[0, ob, 0, 0], size=[-1, 1, -1, -1])
-            if dna:
-                transf_distrib = [dna_transformation(pix_distrib_input_ob, enc4)]
-                pdb.set_trace()
-            else:
-                raise ValueError
+        pix_distrib_output = mask_list[0] * pix_distrib_input
+        for i in range(num_masks):
+            pix_distrib_output += transf_distrib[i] * mask_list[i+1]
 
-            pix_distrib_output = mask_list[0] * pix_distrib_input_ob
-            mult_list = []
-            for i in range(num_masks):
-                mult_list.append(transf_distrib[i] * mask_list[i+1])
-                pix_distrib_output += mult_list[i]
-
-            prop_distrib.append(pix_distrib_output)
-
-        return gen_images, gen_masks, prop_distrib
+        return gen_images, gen_masks, pix_distrib_output
     else:
         return gen_images, gen_masks, None
 
