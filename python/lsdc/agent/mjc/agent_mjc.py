@@ -72,7 +72,9 @@ class AgentMuJoCo(Agent):
         if self._hyperparams['additional_viewer']:
             self._large_viewer = mujoco_py.MjViewer(visible=True, init_width=480,
                                                     init_height=480, go_fast=gofast)
+
             self._large_viewer.start()
+            self._large_viewer.cam.camid = 0
 
 
     def sample(self, policy, verbose=True, save=True, noisy=False):
@@ -90,7 +92,7 @@ class AgentMuJoCo(Agent):
 
         if self._hyperparams['additional_viewer']:
             self._large_viewer.set_model(self._model)
-            self._large_viewer.cam = deepcopy(self._small_viewer.cam)
+            # self._large_viewer.cam = deepcopy(self._small_viewer.cam)
 
         # apply action of zero for the first few steps, to let the scene settle
         for t in range(self._hyperparams['skip_first']):

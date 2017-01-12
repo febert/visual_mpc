@@ -95,14 +95,14 @@ policy = {
     'type' : CEM_controller,
     'low_level_ctrl': None,
     'netconf': current_dir + '/conf.py',
-    'correctorconf': current_dir + '/cor_conf.py',
-    'usenet': True,
+    # 'correctorconf': current_dir + '/cor_conf.py',
+    'usenet': False,
     'nactions': 5,
     'repeat': 3,
-    'use_first_plan': False,
+    'use_first_plan': True,
     'num_samples': 200,
     'iterations': 5,
-    'use_corrector': True
+    'use_corrector': False
 }
 
 if policy['low_level_ctrl'] == None:
