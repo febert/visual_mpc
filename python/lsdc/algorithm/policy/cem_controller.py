@@ -217,13 +217,14 @@ class CEM_controller(Policy):
                               pixelwidth + np.array([middle_pixel, middle_pixel]))
         pixel_coord = pixel_coord.astype(int)
 
-        if np.any(pixel_coord < 0) or np.any(pixel_coord > 63):
+        if np.any(pixel_coord < 0) or np.any(pixel_coord > numpix -1):
+            import pdb; pdb.set_trace()
             print '###################'
             print 'designated pixel is outside the field!! Resetting it to be inside...'
             if np.any(pixel_coord < 0):
                 pixel_coord[pixel_coord < 0] = 0
-            if np.any(pixel_coord > 63):
-                pixel_coord[pixel_coord > 63] = 63
+            if np.any(pixel_coord > numpix-1):
+                pixel_coord[pixel_coord > numpix-1]  = numpix-1
         return pixel_coord
 
     def mujoco_one_hot_images(self):
