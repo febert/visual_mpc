@@ -70,7 +70,7 @@ class AgentMuJoCo(Agent):
 
         import socket
         if socket.gethostname() == 'newton2':
-            self._small_viewer.cam.camid = 1
+            self._small_viewer.cam.camid = -1
         else:
             self._small_viewer.cam.camid = 0
 
@@ -80,7 +80,7 @@ class AgentMuJoCo(Agent):
 
             self._large_viewer.start()
             if socket.gethostname() == 'newton2':
-                self._large_viewer.cam.camid = 1
+                self._large_viewer.cam.camid = -1
             else:
                 self._large_viewer.cam.camid = 0
 
