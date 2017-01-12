@@ -39,10 +39,7 @@ VAL_INTERVAL = 200
 # How often to save a model checkpoint
 SAVE_INTERVAL = 2000
 
-FLAGS = flags.FLAGS
-flags.DEFINE_string('hyper', '', 'hyperparameters configuration file')
-flags.DEFINE_string('visualize', '', 'model within hyperparameter folder from which to create gifs')
-flags.DEFINE_integer('device', 0 ,'the value for CUDA_VISIBLE_DEVICES variable')
+
 
 ## Helper functions
 def peak_signal_to_noise_ratio(true, pred):
@@ -74,24 +71,30 @@ class CorrectorModel(object):
                  conf,
                  images=None,
                  reuse_scope=None,
-                 pix_distrib=None):
+                 pix_distrib=None,
+                 train = True
+                 ):
 
-        # construct_model = conf['downsize']
         from correction import construct_correction
 
         self.prefix = prefix = tf.placeholder(tf.string, [])
         self.iter_num = tf.placeholder(tf.float32, [])
         summaries = []
 
-        r_ind = np.empty((conf['batch_size'],2), dtype=np.int)
-        r_ind[:, 0] = np.arange(conf['batch_size'])
-        r_ind[:, 1] = np.random.randint(0, conf['sequence_length']-1, size=conf['batch_size'])
-        images_old = tf.gather_nd(images, r_ind)
+        if train:
+            r_ind = np.empty((conf['batch_size'],2), dtype=np.int)
+            r_ind[:, 0] = np.arange(conf['batch_size'])
+            r_ind[:, 1] = np.random.randint(0, conf['sequence_length']-1, size=conf['batch_size'])
+            images_old = tf.gather_nd(images, r_ind)
 
-        r_ind[:,1] =  r_ind[:,1] + 1
-        images_new = tf.gather_nd(images, r_ind)
+            r_ind[:,1] =  r_ind[:,1] + 1
+            images_new = tf.gather_nd(images, r_ind)
 
-        images = [images_old, images_new]
+            images = [images_old, images_new]
+
+        else:
+            images = tf.split(1,2,images)
+            images = [tf.reshape(im, (1, 64,64, 3)) for im in images]
 
         if reuse_scope is None:
             gen_images, gen_masks, gen_distrib = construct_correction(
@@ -353,5 +356,10 @@ def main(unused_argv, conf_script= None):
 
 
 if __name__ == '__main__':
+    FLAGS = flags.FLAGS
+    flags.DEFINE_string('hyper', '', 'hyperparameters configuration file')
+    flags.DEFINE_string('visualize', '', 'model within hyperparameter folder from which to create gifs')
+    flags.DEFINE_integer('device', 0, 'the value for CUDA_VISIBLE_DEVICES variable')
+
     tf.logging.set_verbosity(tf.logging.INFO)
     app.run()

@@ -119,4 +119,4 @@ plotter_3d = Plotter3D(fig, gs[5], num_plots=1, rows=1, cols=1)
 run_demo(demo_plotter_3d)
 
 # Show Figure
-plt.show()
+# plt.show()

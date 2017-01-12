@@ -7,6 +7,7 @@ import numpy as np
 import copy
 import random
 import cPickle
+from video_prediction.correction.setup_corrector import setup_corrector
 
 
 def main():
@@ -44,7 +45,7 @@ def main():
 
 
     # sample intial conditions and goalpoints
-    nruns = 50
+    nruns = 60
 
     traj = 0
     n_reseed = 3
@@ -87,14 +88,19 @@ def main():
                 lsdc.policy = conf['policy']['type'](lsdc.agent._hyperparams,
                                                      conf['policy'])
 
+            if 'use_corrector' in conf['policy']:
+                if conf['policy']['use_corrector']:
+                    lsdc.policy.corrector = lsdc.corrector
+                lsdc.policy.policyparams['rec_corr'] =  bench_dir + '/videos_corr/traj{0}_conf{1}'.format(traj, i_conf)
+
             lsdc.agent.sample(lsdc.policy)
 
             scores[traj] = lsdc.agent.final_score
-            print scores[traj]
+            print 'score of traj', traj, ':', scores[traj]
 
-            traj +=1
+            traj +=1 #increment trajectories every step!
 
-            i_conf += 1
+        i_conf += 1 #increment configurations every three steps!
 
         rel_scores = scores[:traj]
         sorted_ind = rel_scores.argsort()
@@ -102,7 +108,7 @@ def main():
         f.write('experiment name: ' + benchmark_name + '\n')
         f.write('overall best score: {0} of traj {1}\n'.format(rel_scores[sorted_ind[0]], sorted_ind[0]))
         f.write('overall worst score: {0} of traj {1}\n'.format(rel_scores[sorted_ind[-1]], sorted_ind[-1]))
-        f.write('average score: {0}\n'.format(np.sum(rel_scores) / scores.shape))
+        f.write('average score: {0}\n'.format(np.sum(rel_scores) / traj))
         f.write('standard deviation {0}\n'.format(np.sqrt(np.var(rel_scores))))
         f.write('----------------------\n')
         f.write('traj: score, rank\n')

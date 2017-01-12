@@ -1,6 +1,6 @@
 
 
-currentdir = '/'.join(str.split(__file__, '/')[:-1])
+current_dir = '/'.join(str.split(__file__, '/')[:-1])
 
 from lsdc.algorithm.policy.cem_controller import CEM_controller
 policy = {
@@ -10,6 +10,6 @@ policy = {
     'nactions': 5,
     'repeat': 3,
     'initial_std': 7,
-    'netconf': currentdir + '/conf.py',
+    'netconf': current_dir + '/conf.py',
     'iterations': 5
 }

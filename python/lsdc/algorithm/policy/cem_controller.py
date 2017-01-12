@@ -12,7 +12,9 @@ import time
 import imp
 import cPickle
 from video_prediction.setup_predictor import setup_predictor
+import video_prediction.utils_vpred.create_gif as makegif
 from video_prediction.utils_vpred.create_gif import comp_pix_distrib
+
 from PIL import Image
 import pdb
 
@@ -61,8 +63,6 @@ class CEM_controller(Policy):
             self.M = self.policyparams['num_samples']
             self.K = 10  # only consider K best samples for refitting
 
-        self.corrector = None
-
         self.gtruth_images = [np.zeros((self.M, 64, 64, 3)) for _ in range(self.nactions * self.repeat)]
 
         # the full horizon is actions*repeat
@@ -87,7 +87,7 @@ class CEM_controller(Policy):
         self.init_model = []
 
         #history of designated pixels
-        self.desig_pix = np.zeros((self.agentparams['T'], 2), dtype=np.int)
+        self.desig_pix = []
 
         # predicted positions
         self.pred_pos = np.zeros((self.M, self.niter, self.repeat * self.nactions, 2))
@@ -98,6 +98,9 @@ class CEM_controller(Policy):
 
         self.target = np.zeros(2)
 
+        self.corr_distrib =[]
+        self.corr_gen_images = []
+        self.corrector = None
 
     def reinitialize(self):
         self.use_net = self.policyparams['usenet']
@@ -105,7 +108,7 @@ class CEM_controller(Policy):
         self.gtruth_images = [np.zeros((self.M, 64, 64, 3)) for _ in range(self.nactions * self.repeat)]
         self.initial_std = self.policyparams['initial_std']
         # history of designated pixels
-        self.desig_pix = np.zeros((self.agentparams['T'], 2), dtype=np.int)
+        self.desig_pix = []
         # predicted positions
         self.pred_pos = np.zeros((self.M, self.niter, self.repeat * self.nactions, 2))
         self.rec_target_pos = np.zeros((self.M, self.niter, self.repeat * self.nactions, 2))
@@ -136,7 +139,7 @@ class CEM_controller(Policy):
         force_magnitudes = np.array([np.linalg.norm(actions_of_smp[t]) for t in range(self.nactions)])
         return np.square(force_magnitudes)*self.action_cost_mult
 
-    def perform_CEM(self,last_frames, last_states, last_desig_pix, last_action):
+    def perform_CEM(self,last_frames, last_states, last_action):
         # initialize mean and variance
         mean = np.zeros(self.adim * self.nactions)
         sigma = np.diag(np.ones(self.adim * self.nactions) * self.initial_std ** 2)
@@ -177,7 +180,7 @@ class CEM_controller(Policy):
             # actions = np.concatenate((last_action, actions), axis=1)
             # actions = actions[:,:self.netconf['sequence_length'],:]
             if self.use_net:
-                scores = self.video_pred(last_frames, last_states, actions, last_desig_pix, itr)
+                scores = self.video_pred(last_frames, last_states, actions, itr)
             self.indices = scores.argsort()[:self.K]
             self.bestindices_of_iter[itr] = self.indices
 
@@ -188,7 +191,7 @@ class CEM_controller(Policy):
             actions_flat = actions.reshape(self.M, self.nactions * self.adim)
 
             self.bestaction = actions[self.indices[0]]
-            print 'bestaction:', self.bestaction
+            # print 'bestaction:', self.bestaction
 
             arr_best_actions = actions_flat[self.indices]  # only take the K best actions
             sigma = np.cov(arr_best_actions, rowvar= False, bias= False)
@@ -196,7 +199,6 @@ class CEM_controller(Policy):
 
             print 'iter {0}, bestscore {1}'.format(itr, scores[self.indices[0]])
             print 'action cost of best action: ', actioncosts[self.indices[0]]
-
 
     def mujoco_to_imagespace(self, mujoco_coord, numpix = 64):
         """
@@ -214,19 +216,84 @@ class CEM_controller(Policy):
         pixel_coord = np.rint(np.array([-mujoco_coord[1], mujoco_coord[0]]) /
                               pixelwidth + np.array([middle_pixel, middle_pixel]))
         pixel_coord = pixel_coord.astype(int)
+
+        if np.any(pixel_coord < 0) or np.any(pixel_coord > 63):
+            print '###################'
+            print 'designated pixel is outside the field!! Resetting it to be inside...'
+            if np.any(pixel_coord < 0):
+                pixel_coord[pixel_coord < 0] = 0
+            if np.any(pixel_coord > 63):
+                pixel_coord[pixel_coord > 63] = 63
         return pixel_coord
 
+    def mujoco_one_hot_images(self):
 
-    def video_pred(self, last_frames, last_states, actions, last_desig_pix, itr):
-        one_hot_images = np.zeros((1, self.netconf['context_frames'], 64, 64 , 1), dtype= np.float32)
+        one_hot_images = np.zeros((1, self.netconf['context_frames'], 64, 64, 1), dtype=np.float32)
+
+        # switch on pixels
+        one_hot_images[0, 0, self.desig_pix[-2][0], self.desig_pix[-2][1]] = 1
+        one_hot_images[0, 1, self.desig_pix[-1][0], self.desig_pix[-1][1]] = 1
+
+        return one_hot_images
+
+    def correct_distrib(self, full_images, t):
+        full_images = full_images.astype(np.float32) / 255.
+
+        if t == 0:  # use one hot image from mujoco
+            desig_pos = self.init_model.data.site_xpos[0, :2]
+            desig_pos = self.mujoco_to_imagespace(desig_pos)
+            one_hot_image = np.zeros((1, 64, 64, 1), dtype=np.float32)
+            # switch on pixels
+            one_hot_image[0, desig_pos[0], desig_pos[1]] = 1
+
+            self.corr_distrib.append(one_hot_image)
+
+            self.corr_gen_images.append(np.expand_dims(full_images[0], axis=0))
+            return
+        else:
+            input_distrib = self.corr_distrib[-1]
+
+        input_images = full_images[t-1:t+1]
+        input_images = np.expand_dims(input_images, axis= 0)
+        gen_image, _, output_distrib = self.corrector(input_images, input_distrib)
+        self.corr_distrib.append(output_distrib)
+        self.corr_gen_images.append(gen_image)
+
+
+        if t == (self.agentparams['T']-1):
+            # import pdb;
+            # pdb.set_trace()
+            self.save_correction_visual(full_images)
+
+    def save_correction_visual(self, full_images):
+        orig_images = np.split(full_images, full_images.shape[0], axis = 0)
+        orig_images = [im.reshape(1,64,64,3) for im in orig_images]
+        # corr_distrib = [np.repeat(d, 3, axis=3) for d in self.corr_distrib]    # batchsize, x, y ,3
+
+        # import pdb; pdb.set_trace()
+
+        # the first image of corr_gen_images is the first image of the original images!
+        file_path =self.policyparams['current_dir'] + '/videos_corr'
+        cPickle.dump([orig_images, self.corr_gen_images, self.corr_distrib], open(file_path + '/correction.pkl', 'wb'))
+        corr_distrib = makegif.pix_distrib_video(self.corr_distrib)
+        frame_list = makegif.assemble_gif([orig_images, self.corr_gen_images, corr_distrib], num_exp=1)
+
+        makegif.npy_to_gif(frame_list, self.policyparams['rec_corr'])
+
+
+    def video_pred(self, last_frames, last_states, actions, itr):
 
         self.pred_pos[:, itr, 0] = self.mujoco_to_imagespace(last_states[-1, :2] , numpix=480)
 
-        # switch on pixels
-        for i in range(self.netconf['context_frames']):
-            one_hot_images[0, i, last_desig_pix[i, 0], last_desig_pix[i, 1]] = 1
+        if 'use_corrector' in self.policyparams:
+            if self.policyparams['use_corrector']:
+                input_distrib = [self.corr_distrib[-2], self.corr_distrib[-1]]
+                input_distrib = [np.expand_dims(elem, axis=1) for elem in input_distrib]
+                input_distrib = np.concatenate(input_distrib, axis= 1)
 
-        one_hot_images = np.repeat(one_hot_images, self.netconf['batch_size'], axis=0)
+            else: input_distrib = self.mujoco_one_hot_images()
+        else: input_distrib = self.mujoco_one_hot_images()
+        input_distrib = np.repeat(input_distrib, self.netconf['batch_size'], axis=0)
 
         last_states = np.expand_dims(last_states, axis=0)
         last_states = np.repeat(last_states, self.netconf['batch_size'], axis=0)
@@ -238,9 +305,8 @@ class CEM_controller(Policy):
         last_frames = np.concatenate((last_frames, app_zeros), axis=1)
         last_frames = last_frames.astype(np.float32)/255.
 
-        gen_distrib, gen_images, gen_masks, gen_states = self.predictor(last_frames, one_hot_images,
+        gen_distrib, gen_images, gen_masks, gen_states = self.predictor(last_frames, input_distrib,
                                                             last_states, actions)
-
 
         for t in range(1,self.netconf['sequence_length']):
             for smp in range(self.M):
@@ -372,6 +438,7 @@ class CEM_controller(Policy):
         import pdb;
         pdb.set_trace()
 
+
     def act(self, x_full, xdot_full, full_images, t, init_model= None):
         """
         Return a random action for a state.
@@ -383,24 +450,27 @@ class CEM_controller(Policy):
             init_model: mujoco model to initialize from
         """
         self.init_model = init_model
-        desig_pos = init_model.data.site_xpos[0, :2]
-        self.desig_pix[t, :] = self.mujoco_to_imagespace(desig_pos)
 
+        desig_pos = self.init_model.data.site_xpos[0, :2]
+        self.desig_pix.append(self.mujoco_to_imagespace(desig_pos))
 
+        if 'use_corrector' in self.policyparams:
+            if self.policyparams['use_corrector']:
+                self.correct_distrib(full_images, t)
 
         if t == 0:
             action = np.zeros(2)
             self.target = copy.deepcopy(self.init_model.data.qpos[:2].squeeze())
         else:
+
             last_images = full_images[t-1:t+1]
             last_states = np.concatenate((x_full,xdot_full), axis = 1)[t-1: t+1]
-            last_desig_pixels = self.desig_pix[t-1: t+1]
             last_action = self.action_list[-1]
 
             if self.use_first_plan:
                 print 'using actions of first plan, no replanning!!'
                 if t == 1:
-                    self.perform_CEM(last_images, last_states, last_desig_pixels, last_action)
+                    self.perform_CEM(last_images, last_states, last_action)
                 else:
                     # only showing last iteration
                     self.pred_pos = self.pred_pos[:,-1].reshape((self.M, 1, self.repeat * self.nactions, 2))
@@ -409,7 +479,7 @@ class CEM_controller(Policy):
                 action = self.bestaction_withrepeat[t - 1]
 
             else:
-                self.perform_CEM(last_images, last_states, last_desig_pixels, last_action)
+                self.perform_CEM(last_images, last_states, last_action)
                 action = self.bestaction[0]
 
             self.setup_mujoco()
@@ -426,8 +496,5 @@ class CEM_controller(Policy):
                 self.target += action
 
             force = self.low_level_ctrl.act(x_full[t], xdot_full[t], None, t, self.target)
-
-        # import pdb; pdb.set_trace()
-
 
         return force, self.pred_pos, self.bestindices_of_iter, self.rec_target_pos

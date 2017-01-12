@@ -36,16 +36,15 @@ SENSOR_DIMS = {
     RGB_IMAGE_SIZE: 3,
 }
 
-BASE_DIR = '/'.join(str.split(gps_filepath, '/')[:-2])
-EXP_DIR = BASE_DIR + '/../experiments/cem_exp/'
+current_dir = '/'.join(str.split(__file__, '/')[:-1])
 
 common = {
     'experiment_name': 'my_experiment' + '_' + \
             datetime.strftime(datetime.now(), '%m-%d-%y_%H-%M'),
-    'experiment_dir': EXP_DIR,
+    'experiment_dir': current_dir,
     'data_files_dir': '/tmp/',
-    'target_filename': EXP_DIR + 'target.npz',
-    'log_filename': EXP_DIR + 'log.txt',
+    'target_filename': current_dir + 'target.npz',
+    'log_filename': current_dir + 'log.txt',
     'conditions': 1,
     'no_sample_logging': True,
 }
@@ -60,12 +59,12 @@ agent = {
     'filename_nomarkers': './mjc_models/pushing2d_controller_nomarkers.xml',
     'data_collection': False,
     'x0': np.array([0., 0., 0., 0.,
-                    .2, .2, 0., np.cos(alpha/2), 0, 0, np.sin(alpha/2)  #object pose (x,y,z, quat)
+                    .1, .1, 0., np.cos(alpha/2), 0, 0, np.sin(alpha/2)  #object pose (x,y,z, quat)
                      ]),
     'dt': 0.05,
     'substeps': 20,  #10
     'conditions': common['conditions'],
-    'T': 15,
+    'T': 10,
     'skip_first': 5,
     'sensor_dims': SENSOR_DIMS,
     'state_include': [JOINT_ANGLES, JOINT_VELOCITIES],
@@ -78,8 +77,9 @@ agent = {
     'image_width' : IMAGE_WIDTH,
     'image_channels' : IMAGE_CHANNELS,
     'num_objects': num_objects,
-    'goal_point': np.array([-0.2, -0.2]),
-    'record': EXP_DIR + 'data_files/rec'
+    'goal_point': np.array([0.2, 0.2]),
+    'current_dir': current_dir,
+    'record': current_dir + '/data_files/rec'
 }
 
 
@@ -94,12 +94,15 @@ from lsdc.algorithm.policy.cem_controller import CEM_controller
 policy = {
     'type' : CEM_controller,
     'low_level_ctrl': None,
-    'netconf': EXP_DIR + 'conf.py',
-    'correctorconf':  EXP_DIR + 'cor_conf.py',
+    'netconf': current_dir + '/conf.py',
+    'correctorconf': current_dir + '/cor_conf.py',
     'usenet': True,
     'nactions': 5,
     'repeat': 3,
     'use_first_plan': False,
+    'num_samples': 200,
+    'iterations': 5,
+    'use_corrector': True
 }
 
 if policy['low_level_ctrl'] == None:

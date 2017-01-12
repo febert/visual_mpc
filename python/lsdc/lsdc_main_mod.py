@@ -327,7 +327,7 @@ def main():
             TargetSetupGUI(hyperparams.config['common'], agent)
 
             plt.ioff()
-            plt.show()
+            # plt.show()
         except ImportError:
             sys.exit('ROS required for target setup.')
     elif test_policy_N:
@@ -355,7 +355,7 @@ def main():
             test_policy.start()
 
             plt.ioff()
-            plt.show()
+            # plt.show()
         else:
             gps.test_policy(itr=current_itr, N=test_policy_N)
     else:
@@ -378,7 +378,7 @@ def main():
             run_gps.start()
 
             plt.ioff()
-            plt.show()
+            # plt.show()
         else:
             gps.run(itr_load=resume_training_itr)
 

@@ -18,54 +18,57 @@ def setup_corrector(conf_file):
     hyperparams = imp.load_source('hyperparams', conf_file)
     conf = hyperparams.configuration
 
-    print '-------------------------------------------------------------------'
-    print 'verify current settings!! '
-    for key in conf.keys():
-        print key, ': ', conf[key]
-    print '-------------------------------------------------------------------'
-
     gpu_options = tf.GPUOptions(per_process_gpu_memory_fraction=0.9)
-    # Make training session.
+    g_corrector = tf.Graph()
+    sess = tf.Session(config=tf.ConfigProto(gpu_options=gpu_options), graph= g_corrector)
+    with sess.as_default():
+        with g_corrector.as_default():
 
-    sess = tf.InteractiveSession(config=tf.ConfigProto(gpu_options=gpu_options))
+            # print 'corrector default session:', tf.get_default_session()
+            # print 'corrector default graph:', tf.get_default_graph()
 
-    tf.train.start_queue_runners(sess)
+            print '-------------------------------------------------------------------'
+            print 'verify current settings!! '
+            for key in conf.keys():
+                print key, ': ', conf[key]
+            print '-------------------------------------------------------------------'
 
-    input_distrib = tf.placeholder(tf.float32, shape=(conf['batch_size'], 64, 64))
+            tf.train.start_queue_runners(sess)
 
-    images = [tf.placeholder(tf.float32, name='images',
-                            shape=(conf['batch_size'], 64, 64, 3)),
-              tf.placeholder(tf.float32, name='images',
-                             shape=(conf['batch_size'], 64, 64, 3))]
+            input_distrib = tf.placeholder(tf.float32, shape=(conf['batch_size'], 64, 64, 1))
 
-    with tf.variable_scope('model', reuse=None):
-        model = CorrectorModel(conf, images, pix_distrib=input_distrib)
+            images = tf.placeholder(tf.float32, name='images', shape=(conf['batch_size'], 2, 64, 64, 3))
 
-    sess.run(tf.initialize_all_variables())
+            print 'Constructing Corrector...'
+            with tf.variable_scope('model', reuse=None):
+                model = CorrectorModel(conf, images, pix_distrib=input_distrib, train=False)
 
-    saver = tf.train.Saver(tf.get_collection(tf.GraphKeys.VARIABLES), max_to_keep=0)
-    saver.restore(sess, conf['pretrained_model'])
+            sess.run(tf.initialize_all_variables())
+
+            saver = tf.train.Saver(tf.get_collection(tf.GraphKeys.VARIABLES), max_to_keep=0)
+            saver.restore(sess, conf['pretrained_model'])
 
 
-    def predictor_func(input_images, one_hot_image):
-        """
-        :param one_hot_images: the first two frames
-        :param pixcoord: the coords of the disgnated pixel in images coord system
-        :return: the predicted pixcoord at the end of sequence
-        """
+            def predictor_func(input_images, prev_distrib):
+                """
+                :param one_hot_images: the first two frames
+                :param pixcoord: the coords of the disgnated pixel in images coord system
+                :return: the predicted pixcoord at the end of sequence
+                """
 
-        feed_dict = {model.prefix: 'ctrl',
-                     model.lr: 0,
-                     images: input_images,  # could alternatively feed in gen_image
-                     input_distrib: one_hot_image
-                     }
 
-        gen_image, gen_masks, output_distrib = sess.run([model.gen_images,
-                                                         model.gen_masks,
-                                                         model.gen_distrib
-                                                         ],
-                                                        feed_dict)
+                feed_dict = {model.prefix: 'ctrl',
+                             model.lr: 0,
+                             images: input_images,  # could alternatively feed in gen_image
+                             input_distrib: prev_distrib
+                             }
 
-        return gen_image, gen_masks, output_distrib
+                gen_image, gen_masks, output_distrib = sess.run([model.gen_images,
+                                                                 model.gen_masks,
+                                                                 model.gen_distrib
+                                                                 ],
+                                                                feed_dict)
 
-    return predictor_func
+                return gen_image, gen_masks, output_distrib
+
+            return predictor_func

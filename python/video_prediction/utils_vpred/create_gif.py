@@ -50,10 +50,6 @@ def pix_distrib_video(pix_distrib):
 
         for b in range(pix_distrib[0].shape[0]):
 
-            peak_pix = np.argmax(pix_distrib[-1][b])
-            peak_pix = np.unravel_index(peak_pix, (64, 64))
-            peak_pix = np.array(peak_pix)
-
             img = pix_distrib[t][b].squeeze()
 
             fig = plt.figure(figsize=(1, 1), dpi=64)
@@ -67,9 +63,9 @@ def pix_distrib_video(pix_distrib):
             plt.imshow(img, zorder=0, cmap=plt.get_cmap('jet'), interpolation='none')
             axes.autoscale(False)
 
-            # plt.plot(peak_pix[1], peak_pix[0], zorder=1, marker='o', color='r')
-
             fig.canvas.draw()  # draw the canvas, cache the renderer
+
+            # plt.show()
 
             data = np.fromstring(fig.canvas.tostring_rgb(), dtype=np.uint8, sep='')
             data = data.reshape(fig.canvas.get_width_height()[::-1] + (3,))
@@ -144,6 +140,7 @@ def assemble_gif(video_batch, num_exp = 8):
     for i in range(len(video_batch)):
         video_batch[i] = [np.expand_dims(videoframe, axis=0) for videoframe in video_batch[i]]
 
+    # import pdb; pdb.set_trace()
     for i in range(len(video_batch)):
         video_batch[i] = np.concatenate(video_batch[i], axis= 0)
 
@@ -202,8 +199,17 @@ if __name__ == '__main__':
     # conf['visualize'] = conf['output_dir'] + '/model98002'
     # pred = comp_video(file_path, conf)
 
-    file_path = '/home/frederik/Documents/lsdc/experiments/cem_exp/data_files'
-    comp_pix_distrib(file_path, masks= False)
+    # file_path = '/home/frederik/Documents/lsdc/experiments/cem_exp/data_files'
+    # comp_pix_distrib(file_path, masks= False)
+
+    file = '/home/frederik/Documents/lsdc/experiments/cem_exp/data_files'
+
+    l = cPickle.load(open(file + '/correction.pkl', "rb"))
+
+    orig_images, corr_gen_images, corr_distrib = l[0], l[1], l[2]
+
+    corr_distrib = pix_distrib_video(corr_distrib)
+    frame_list = assemble_gif([orig_images, corr_gen_images, corr_distrib], num_exp= 1)
 
 
-    # masks = comp_masks(file_path, pred)
+    npy_to_gif(frame_list, file + '/correction')

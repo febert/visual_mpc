@@ -195,7 +195,7 @@ def get_frame_with_posdata(img, pos):
     data = np.fromstring(fig.canvas.tostring_rgb(), dtype=np.uint8, sep='')
     data = data.reshape(fig.canvas.get_width_height()[::-1] + (3,))
 
-    plt.show()
+    # plt.show()
     Image.fromarray(data).show()
     pdb.set_trace()
 

@@ -17,4 +17,5 @@ configuration = {
 'model': 'DNA',            #'model architecture to use - CDNA, DNA, or STP' ,
 'num_masks': 1,            # 'number of masks, usually 1 for DNA, 10 for CDNA, STN.' ,
 'batch_size': 1,           #'batch size for training' ,
+'learning_rate': 0
 }

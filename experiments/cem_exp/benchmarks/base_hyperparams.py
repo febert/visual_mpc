@@ -36,19 +36,18 @@ SENSOR_DIMS = {
     RGB_IMAGE_SIZE: 3,
 }
 
-BASE_DIR = '/'.join(str.split(gps_filepath, '/')[:-2])
-EXP_DIR = BASE_DIR + '/../experiments/cem_exp/'
+current_dir = '/'.join(str.split(__file__, '/')[:-1])
 
 common = {
     'experiment_name': 'my_experiment' + '_' + \
             datetime.strftime(datetime.now(), '%m-%d-%y_%H-%M'),
-    'experiment_dir': EXP_DIR,
-    # 'data_files_dir': EXP_DIR + 'data_files/',
+    'experiment_dir': current_dir,
+    # 'data_files_dir': current_dir + 'data_files/',
     # 'data_files_dir': '/media/frederik/FrederikUSB/pushing_data/',
     'data_files_dir': '/tmp/',
 
-    'target_filename': EXP_DIR + 'target.npz',
-    'log_filename': EXP_DIR + 'log.txt',
+    'target_filename': current_dir + 'target.npz',
+    'log_filename': current_dir + 'log.txt',
     'conditions': 1,
     'no_sample_logging': True,
 }
@@ -68,7 +67,7 @@ agent = {
     'dt': 0.05,
     'substeps': 20,  #10
     'conditions': common['conditions'],
-    'T': 15,
+    'T': 25,
     'skip_first': 0,
     'sensor_dims': SENSOR_DIMS,
     'state_include': [JOINT_ANGLES, JOINT_VELOCITIES],
@@ -81,6 +80,8 @@ agent = {
     'image_width' : IMAGE_WIDTH,
     'image_channels' : IMAGE_CHANNELS,
     'num_objects': num_objects,
+    'current_dir': current_dir,
+    'record': current_dir + '/data_files/rec'
 }
 
 
@@ -95,7 +96,7 @@ low_level_conf = {
 from lsdc.algorithm.policy.cem_controller import CEM_controller
 policy = {
     'type' : CEM_controller,
-    'netconf': EXP_DIR + 'conf.py',
+    'netconf': current_dir + 'conf.py',
 }
 
 

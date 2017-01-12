@@ -1,5 +1,5 @@
 
-currentdir = '/'.join(str.split(__file__, '/')[:-1])
+current_dir = '/'.join(str.split(__file__, '/')[:-1])
 
 
 from lsdc.algorithm.policy.pos_controller import Pos_Controller
@@ -18,6 +18,6 @@ policy = {
     'nactions': 5,
     'repeat': 3,
     'initial_std': 0.15,
-    'netconf': currentdir + '/conf.py',
+    'netconf': current_dir + '/conf.py',
     'use_first_plan': True # execute MPC instead using firs plan
 }
