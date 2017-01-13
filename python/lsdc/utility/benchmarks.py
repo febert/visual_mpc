@@ -91,7 +91,7 @@ def main():
             if 'use_corrector' in conf['policy']:
                 if conf['policy']['use_corrector']:
                     lsdc.policy.corrector = lsdc.corrector
-                lsdc.policy.policyparams['rec_corr'] =  bench_dir + '/videos_corr/traj{0}_conf{1}'.format(traj, i_conf)
+                lsdc.policy.policyparams['rec_distrib'] =  bench_dir + '/videos_corr/traj{0}_conf{1}'.format(traj, i_conf)
 
             lsdc.agent.sample(lsdc.policy)
 

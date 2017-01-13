@@ -19,7 +19,7 @@ initialposes = []
 for n in range(nconf):
 
     alpha = np.random.uniform(0, 360.0)
-    ob_pos = np.random.uniform(-0.4, 0.4, 2)
+    ob_pos = np.random.uniform(-0.35, 0.35, 2)
     goalpoint = np.random.uniform(-0.4, 0.4, 2)
 
     n_conf += 1

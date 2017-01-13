@@ -29,6 +29,8 @@ class CEM_controller(Policy):
         self.agentparams.update(ag_params)
         self.policyparams = policyparams
 
+        self.t = None
+
         if self.policyparams['low_level_ctrl']:
             self.low_level_ctrl = policyparams['low_level_ctrl']['type'](None, policyparams['low_level_ctrl'])
 
@@ -98,9 +100,11 @@ class CEM_controller(Policy):
 
         self.target = np.zeros(2)
 
-        self.corr_distrib =[]
+        self.rec_input_distrib =[]  # record the input distributions
         self.corr_gen_images = []
         self.corrector = None
+
+        self.next_gen_distrib = []  #if using using predictor to propagate probability distrib
 
     def reinitialize(self):
         self.use_net = self.policyparams['usenet']
@@ -200,7 +204,7 @@ class CEM_controller(Policy):
             print 'iter {0}, bestscore {1}'.format(itr, scores[self.indices[0]])
             print 'action cost of best action: ', actioncosts[self.indices[0]]
 
-    def mujoco_to_imagespace(self, mujoco_coord, numpix = 64):
+    def mujoco_to_imagespace(self, mujoco_coord, numpix = 64, truncate = False):
         """
         convert form Mujoco-Coord to numpix x numpix image space:
         :param numpix: number of pixels of square image
@@ -217,20 +221,21 @@ class CEM_controller(Policy):
                               pixelwidth + np.array([middle_pixel, middle_pixel]))
         pixel_coord = pixel_coord.astype(int)
 
-        if np.any(pixel_coord < 0) or np.any(pixel_coord > numpix -1):
-            import pdb; pdb.set_trace()
-            print '###################'
-            print 'designated pixel is outside the field!! Resetting it to be inside...'
-            if np.any(pixel_coord < 0):
-                pixel_coord[pixel_coord < 0] = 0
-            if np.any(pixel_coord > numpix-1):
-                pixel_coord[pixel_coord > numpix-1]  = numpix-1
+        if truncate:
+            if np.any(pixel_coord < 0) or np.any(pixel_coord > numpix -1):
+                print '###################'
+                print 'designated pixel is outside the field!! Resetting it to be inside...'
+                print 'truncating...'
+                if np.any(pixel_coord < 0):
+                    pixel_coord[pixel_coord < 0] = 0
+                if np.any(pixel_coord > numpix-1):
+                    pixel_coord[pixel_coord > numpix-1]  = numpix-1
+
         return pixel_coord
 
     def mujoco_one_hot_images(self):
 
         one_hot_images = np.zeros((1, self.netconf['context_frames'], 64, 64, 1), dtype=np.float32)
-
         # switch on pixels
         one_hot_images[0, 0, self.desig_pix[-2][0], self.desig_pix[-2][1]] = 1
         one_hot_images[0, 1, self.desig_pix[-1][0], self.desig_pix[-1][1]] = 1
@@ -242,45 +247,47 @@ class CEM_controller(Policy):
 
         if t == 0:  # use one hot image from mujoco
             desig_pos = self.init_model.data.site_xpos[0, :2]
-            desig_pos = self.mujoco_to_imagespace(desig_pos)
+            desig_pos = self.mujoco_to_imagespace(desig_pos, truncate= True)
             one_hot_image = np.zeros((1, 64, 64, 1), dtype=np.float32)
             # switch on pixels
             one_hot_image[0, desig_pos[0], desig_pos[1]] = 1
 
-            self.corr_distrib.append(one_hot_image)
-
+            self.rec_input_distrib.append(one_hot_image)
             self.corr_gen_images.append(np.expand_dims(full_images[0], axis=0))
             return
         else:
-            input_distrib = self.corr_distrib[-1]
+            input_distrib = self.rec_input_distrib[-1]
 
         input_images = full_images[t-1:t+1]
         input_images = np.expand_dims(input_images, axis= 0)
         gen_image, _, output_distrib = self.corrector(input_images, input_distrib)
-        self.corr_distrib.append(output_distrib)
+        self.rec_input_distrib.append(output_distrib)
         self.corr_gen_images.append(gen_image)
 
 
         if t == (self.agentparams['T']-1):
-            # import pdb;
-            # pdb.set_trace()
-            self.save_correction_visual(full_images)
+            self.save_distrib_visual(full_images)
 
-    def save_correction_visual(self, full_images):
+    def save_distrib_visual(self, full_images, use_genimg = True):
         orig_images = np.split(full_images, full_images.shape[0], axis = 0)
         orig_images = [im.reshape(1,64,64,3) for im in orig_images]
-        # corr_distrib = [np.repeat(d, 3, axis=3) for d in self.corr_distrib]    # batchsize, x, y ,3
-
-        # import pdb; pdb.set_trace()
 
         # the first image of corr_gen_images is the first image of the original images!
-        file_path =self.policyparams['current_dir'] + '/videos_corr'
-        cPickle.dump([orig_images, self.corr_gen_images, self.corr_distrib], open(file_path + '/correction.pkl', 'wb'))
-        corr_distrib = makegif.pix_distrib_video(self.corr_distrib)
-        frame_list = makegif.assemble_gif([orig_images, self.corr_gen_images, corr_distrib], num_exp=1)
+        file_path =self.policyparams['current_dir'] + '/videos_distrib'
+        if use_genimg:
+            cPickle.dump([orig_images, self.corr_gen_images, self.rec_input_distrib],
+                         open(file_path + '/correction.pkl', 'wb'))
+            corr_distrib = makegif.pix_distrib_video(self.rec_input_distrib)
+            frame_list = makegif.assemble_gif([orig_images, self.corr_gen_images, corr_distrib], num_exp=1)
+        else:
+            cPickle.dump([orig_images, self.rec_input_distrib],
+                         open(file_path + '/correction.pkl', 'wb'))
+            corr_distrib = makegif.pix_distrib_video(self.rec_input_distrib)
 
-        makegif.npy_to_gif(frame_list, self.policyparams['rec_corr'])
+            import pdb; pdb.set_trace()
+            frame_list = makegif.assemble_gif([orig_images, corr_distrib], num_exp=1)
 
+        makegif.npy_to_gif(frame_list, self.policyparams['rec_distrib'])
 
     def video_pred(self, last_frames, last_states, actions, itr):
 
@@ -288,12 +295,26 @@ class CEM_controller(Policy):
 
         if 'use_corrector' in self.policyparams:
             if self.policyparams['use_corrector']:
-                input_distrib = [self.corr_distrib[-2], self.corr_distrib[-1]]
+                input_distrib = [self.rec_input_distrib[-2], self.rec_input_distrib[-1]]
                 input_distrib = [np.expand_dims(elem, axis=1) for elem in input_distrib]
                 input_distrib = np.concatenate(input_distrib, axis= 1)
 
             else: input_distrib = self.mujoco_one_hot_images()
+
+        elif 'predictor_propagation':  #using the predictor's DNA to propagate, no correction
+            if self.policyparams['predictor_propagation']:
+                if self.t == 0:
+                    input_distrib = self.mujoco_one_hot_images()
+                    self.rec_input_distrib.append(input_distrib[:,1])
+                else:
+                    self.rec_input_distrib.append(self.next_gen_distrib[-1])
+                    input_distrib = [self.rec_input_distrib[-2], self.rec_input_distrib[-1]]
+                    input_distrib = [np.expand_dims(elem, axis=1) for elem in input_distrib]
+                    input_distrib = np.concatenate(input_distrib, axis=1)
+
+            else: input_distrib = self.mujoco_one_hot_images()
         else: input_distrib = self.mujoco_one_hot_images()
+
         input_distrib = np.repeat(input_distrib, self.netconf['batch_size'], axis=0)
 
         last_states = np.expand_dims(last_states, axis=0)
@@ -309,26 +330,14 @@ class CEM_controller(Policy):
         gen_distrib, gen_images, gen_masks, gen_states = self.predictor(last_frames, input_distrib,
                                                             last_states, actions)
 
+        self.next_gen_distrib.append(gen_distrib[2])
+
         for t in range(1,self.netconf['sequence_length']):
             for smp in range(self.M):
                 self.pred_pos[smp, itr, t] = self.mujoco_to_imagespace(gen_states[t-1][smp, :2], numpix=480)
 
 
-        # scores = np.zeros((self.netconf['batch_size'], self.netconf['sequence_length']-1))
-        scores = np.zeros((self.netconf['batch_size']))
-
         goalpoint = self.mujoco_to_imagespace(self.agentparams['goal_point'])
-
-        #using the maximum distrib value only
-        # for i in range(self.netconf['batch_size']):
-        #     # for t in range(len(gen_distrib)):
-        #     peak_pix = np.argmax(gen_distrib[-1][i])
-        #     peak_pix = np.unravel_index(peak_pix,
-        #                                 (self.agentparams['image_width'],
-        #                                  self.agentparams['image_width']))
-        #     peak_pix = np.array(peak_pix)
-        #     scores[i] = np.linalg.norm(goalpoint.astype(float) - peak_pix.astype(float))
-
 
         distance_grid = np.empty((64,64))
         for i in range(64):
@@ -337,7 +346,6 @@ class CEM_controller(Policy):
                 distance_grid[i,j] = np.linalg.norm(goalpoint - pos)
 
         expected_distance = np.empty(self.netconf['batch_size'])
-        # for t in range (len(gen_distrib)):
 
         for b in range(self.netconf['batch_size']):
             gen = gen_distrib[-1][b].squeeze()/ np.sum(gen_distrib[-1][b])
@@ -352,9 +360,6 @@ class CEM_controller(Policy):
             bestindices = expected_distance.argsort()[:self.K]
 
             def best(inputlist):
-                # in ascending order
-                # import pdb;
-                # pdb.set_trace()
                 outputlist = [np.zeros_like(a)[:self.K] for a in inputlist]
 
                 for ind in range(self.K):
@@ -447,13 +452,15 @@ class CEM_controller(Policy):
             x_full, xdot_full history of states.
             ref_point: a reference point on the object which shall be moved to a goal
             dref_point: speed of reference point
-            t: Time step
+            t: the current controller's Time step
             init_model: mujoco model to initialize from
         """
+        self.t = t
+
         self.init_model = init_model
 
         desig_pos = self.init_model.data.site_xpos[0, :2]
-        self.desig_pix.append(self.mujoco_to_imagespace(desig_pos))
+        self.desig_pix.append(self.mujoco_to_imagespace(desig_pos, truncate= True))
 
         if 'use_corrector' in self.policyparams:
             if self.policyparams['use_corrector']:
@@ -484,8 +491,10 @@ class CEM_controller(Policy):
                 action = self.bestaction[0]
 
             self.setup_mujoco()
-            # print 'current distance :', self.eval_action()
 
+
+        if self.t == (self.agentparams['T'] - 1):
+            self.save_distrib_visual(full_images, use_genimg= False)
 
         self.action_list.append(action)
         print 'timestep: ', t, ' taking action: ', action

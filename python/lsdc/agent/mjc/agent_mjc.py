@@ -71,8 +71,7 @@ class AgentMuJoCo(Agent):
         import socket
         if socket.gethostname() == 'newton2':
             self._small_viewer.cam.camid = -1
-        else:
-            self._small_viewer.cam.camid = 0
+        else: self._small_viewer.cam.camid = 0
 
         if self._hyperparams['additional_viewer']:
             self._large_viewer = mujoco_py.MjViewer(visible=True, init_width=480,
@@ -81,8 +80,7 @@ class AgentMuJoCo(Agent):
             self._large_viewer.start()
             if socket.gethostname() == 'newton2':
                 self._large_viewer.cam.camid = -1
-            else:
-                self._large_viewer.cam.camid = 0
+            else: self._large_viewer.cam.camid = 0
 
 
     def sample(self, policy, verbose=True, save=True, noisy=False):

@@ -76,7 +76,7 @@ agent = {
     'image_width' : IMAGE_WIDTH,
     'image_channels' : IMAGE_CHANNELS,
     'num_objects': num_objects,
-    'record':False
+    'record': False
 }
 
 policy = {
