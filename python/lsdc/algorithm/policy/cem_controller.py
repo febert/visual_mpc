@@ -277,15 +277,15 @@ class CEM_controller(Policy):
         if use_genimg:
             cPickle.dump([orig_images, self.corr_gen_images, self.rec_input_distrib],
                          open(file_path + '/correction.pkl', 'wb'))
-            corr_distrib = makegif.pix_distrib_video(self.rec_input_distrib)
-            frame_list = makegif.assemble_gif([orig_images, self.corr_gen_images, corr_distrib], num_exp=1)
+            distrib = makegif.pix_distrib_video(self.rec_input_distrib)
+            frame_list = makegif.assemble_gif([orig_images, self.corr_gen_images, distrib], num_exp=1)
         else:
             cPickle.dump([orig_images, self.rec_input_distrib],
                          open(file_path + '/correction.pkl', 'wb'))
-            corr_distrib = makegif.pix_distrib_video(self.rec_input_distrib)
+            distrib = makegif.pix_distrib_video(self.rec_input_distrib)
 
             import pdb; pdb.set_trace()
-            frame_list = makegif.assemble_gif([orig_images, corr_distrib], num_exp=1)
+            frame_list = makegif.assemble_gif([orig_images, distrib], num_exp=1)
 
         makegif.npy_to_gif(frame_list, self.policyparams['rec_distrib'])
 
@@ -301,7 +301,7 @@ class CEM_controller(Policy):
 
             else: input_distrib = self.mujoco_one_hot_images()
 
-        elif 'predictor_propagation':  #using the predictor's DNA to propagate, no correction
+        elif 'predictor_propagation' in self.policyparams:  #using the predictor's DNA to propagate, no correction
             if self.policyparams['predictor_propagation']:
                 if self.t == 0:
                     input_distrib = self.mujoco_one_hot_images()
@@ -492,9 +492,10 @@ class CEM_controller(Policy):
 
             self.setup_mujoco()
 
-
-        if self.t == (self.agentparams['T'] - 1):
-            self.save_distrib_visual(full_images, use_genimg= False)
+        if 'predictor_propagation' in self.policyparams:  #using the predictor's DNA to propagate, no correction
+            if self.policyparams['predictor_propagation']:
+                if self.t == (self.agentparams['T'] - 1):
+                    self.save_distrib_visual(full_images, use_genimg= False)
 
         self.action_list.append(action)
         print 'timestep: ', t, ' taking action: ', action
