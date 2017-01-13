@@ -97,6 +97,7 @@ from lsdc.algorithm.policy.cem_controller import CEM_controller
 policy = {
     'type' : CEM_controller,
     'netconf': current_dir + 'conf.py',
+    'current_dir': current_dir
 }
 
 
