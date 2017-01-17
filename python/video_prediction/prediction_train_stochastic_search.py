@@ -4,6 +4,7 @@ import tensorflow as tf
 import imp
 import sys
 import cPickle
+import copy
 
 from utils_vpred.adapt_params_visualize import adapt_params_visualize
 from tensorflow.python.platform import app
@@ -43,7 +44,7 @@ def peak_signal_to_noise_ratio(true, pred):
     return 10.0 * tf.log(1.0 / mean_squared_error(true, pred)) / tf.log(10.0)
 
 
-def mean_squared_error(true, pred):
+def mean_squared_error(true, pred, example_wise = False):
     """L2 distance between tensors true and pred.
 
     Args:
@@ -52,7 +53,15 @@ def mean_squared_error(true, pred):
     Returns:
       mean squared error between ground truth and predicted image.
     """
-    return tf.reduce_sum(tf.square(true - pred)) / tf.to_float(tf.size(pred))
+    if not example_wise:
+        return tf.reduce_sum(tf.square(true - pred)) / tf.to_float(tf.size(pred))
+    else:
+        if len(true.get_shape()) == 4:
+            return tf.reduce_sum(tf.square(true - pred), reduction_indices=[1,2,3])\
+               / tf.to_float(tf.size(pred))
+        elif len(true.get_shape()) == 2:
+            return tf.reduce_sum(tf.square(true - pred), reduction_indices=[1]) \
+                   / tf.to_float(tf.size(pred))
 
 
 class Model(object):
@@ -65,19 +74,23 @@ class Model(object):
                  reuse_scope=None,
                  pix_distrib=None):
 
-        if conf['downsize']:
-            construct_model = conf['downsize']
-        else:
-            from prediction_model import construct_model
-
-        if sequence_length is None:
-            sequence_length = conf['sequence_length']
+        construct_model = conf['downsize']
 
         self.prefix = prefix = tf.placeholder(tf.string, [])
         self.iter_num = tf.placeholder(tf.float32, [])
         summaries = []
 
+        self.input_images = images
+        self.input_states = states
+        self.input_actions = actions
+
+        bsize = images.get_shape()[0]
+        self.noise = tf.placeholder(tf.float32, name='noise',
+                shape=(bsize, conf['sequence_length'], conf['noise_dim']))
+
         # Split into timesteps.
+        noise = tf.split(1, self.noise.get_shape()[1], self.noise)
+        noise = [tf.squeeze(n) for n in noise]
         actions = tf.split(1, actions.get_shape()[1], actions)
         actions = [tf.squeeze(act) for act in actions]
         states = tf.split(1, states.get_shape()[1], states)
@@ -93,6 +106,7 @@ class Model(object):
                 images,
                 actions,
                 states,
+                noise,
                 iter_num=self.iter_num,
                 k=conf['schedsamp_k'],
                 use_state=conf['use_state'],
@@ -108,6 +122,7 @@ class Model(object):
                     images,
                     actions,
                     states,
+                    noise,
                     iter_num=self.iter_num,
                     k=conf['schedsamp_k'],
                     use_state=conf['use_state'],
@@ -125,11 +140,12 @@ class Model(object):
             cost_sel = np.ones(conf['sequence_length']-2)
 
         # L2 loss, PSNR for eval.
-        loss, psnr_all = 0.0, 0.0
+        loss, psnr_all, loss_ex = 0.0, 0.0, 0.0
         for i, x, gx in zip(
                 range(len(gen_images)), images[conf['context_frames']:],
                 gen_images[conf['context_frames'] - 1:]):
             recon_cost = mean_squared_error(x, gx)
+            recon_cost_ex = mean_squared_error(x, gx, example_wise=True)
             psnr_i = peak_signal_to_noise_ratio(x, gx)
             psnr_all += psnr_i
             summaries.append(
@@ -137,18 +153,22 @@ class Model(object):
             summaries.append(tf.scalar_summary(prefix + '_psnr' + str(i), psnr_i))
 
             loss += recon_cost*cost_sel[i]
+            loss_ex += recon_cost_ex*cost_sel[i]
 
         for i, state, gen_state in zip(
                 range(len(gen_states)), states[conf['context_frames']:],
                 gen_states[conf['context_frames'] - 1:]):
             state_cost = mean_squared_error(state, gen_state) * 1e-4
+            state_cost_ex = mean_squared_error(state, gen_state, example_wise=True) * 1e-4
             summaries.append(
                 tf.scalar_summary(prefix + '_state_cost' + str(i), state_cost))
             loss += state_cost*cost_sel[i]
+            loss_ex += state_cost_ex * cost_sel[i]
         summaries.append(tf.scalar_summary(prefix + '_psnr_all', psnr_all))
         self.psnr_all = psnr_all
 
         self.loss = loss = loss / np.float32(len(images) - conf['context_frames'])
+        self.loss_ex = loss_ex / np.float32(len(images) - conf['context_frames'])
 
         summaries.append(tf.scalar_summary(prefix + '_loss', loss))
 
@@ -161,6 +181,53 @@ class Model(object):
         self.gen_masks = gen_masks
         self.gen_distrib = gen_distrib
         self.gen_states = gen_states
+
+
+def run_foward_passes(conf, model, sess, itr):
+
+    noise_dim = conf['noise_dim']
+    num_smp = conf['num_smp']
+
+    mean = np.zeros(noise_dim*conf['sequence_length'])
+    cov = np.diag(np.ones(noise_dim*conf['sequence_length']))
+
+    b_videos = np.zeros((conf['batch_size'], conf['sequence_length'], 64,64,3))
+    b_states = np.zeros((conf['batch_size'], conf['sequence_length'], 4))
+    b_actions = np.zeros((conf['batch_size'], conf['sequence_length'], 2))
+    b_noise = np.zeros((conf['batch_size'], conf['sequence_length'], noise_dim))
+
+    start = datetime.now()
+    #using different noise for every video in batch
+    for b in range(conf['batch_size']):
+
+
+        noise_vec = np.random.multivariate_normal(mean, cov, size=num_smp)
+        noise_vec = noise_vec.reshape((num_smp, conf['sequence_length'], noise_dim))
+
+        feed_dict = {model.prefix: 'train',
+                     model.iter_num: np.float32(itr),
+                     model.lr: 0,
+                     model.noise: noise_vec
+                     }
+        cost, input_images, input_states, input_actions = sess.run([model.loss_ex,
+                                                                   model.input_images,
+                                                                   model.input_states,
+                                                                   model.input_actions
+                                                                   ], feed_dict)
+
+        bestindex = cost.argsort()[0]
+
+        b_videos[b] = input_images[bestindex]
+        b_states[b] = input_states[bestindex]
+        b_actions[b] = input_actions[bestindex]
+        b_noise[b] = noise_vec[bestindex]
+
+        # print 'lowest cost of {0}-th sample group: {1}'.format(b, cost[bestindex])
+        # print 'mean cost: {0}, cost std: {1}'.format(np.mean(cost), np.cov(cost))
+
+    # print 'time for {0} forward passes {1}'.format(conf['batch_size'], datetime.now()-start)
+
+    return b_videos, b_states, b_actions, b_noise
 
 
 def main(unused_argv, conf_script= None):
@@ -185,14 +252,33 @@ def main(unused_argv, conf_script= None):
         print key, ': ', conf[key]
     print '-------------------------------------------------------------------'
 
-    print 'Constructing models and inputs.'
-    with tf.variable_scope('model', reuse=None) as training_scope:
-        images, actions, states = build_tfrecord_input(conf, training=True)
+    print 'Constructing models and inputs...'
+
+    # placeholders used for training and validation model
+    images = tf.placeholder(tf.float32, name='images',
+                            shape=(conf['batch_size'], conf['sequence_length'], 64, 64, 3))
+    actions = tf.placeholder(tf.float32, name='actions',
+                             shape=(conf['batch_size'], conf['sequence_length'], 2))
+    states = tf.placeholder(tf.float32, name='states',
+                            shape=(conf['batch_size'], conf['sequence_length'], 4))
+
+    with tf.variable_scope('train_model', reuse=None) as training_scope:
         model = Model(conf, images, actions, states, conf['sequence_length'])
 
-    with tf.variable_scope('val_model', reuse=None):
-        val_images, val_actions, val_states = build_tfrecord_input(conf, training=False)
-        val_model = Model(conf, val_images, val_actions, val_states,
+    with tf.variable_scope('fwd_model', reuse=None):
+        conf_fwd = copy.deepcopy(conf)
+        conf_fwd['batch_size'] = conf_fwd['num_smp']
+        # gets data from the training set
+        fwd_images, fwd_actions, fwd_states = build_tfrecord_input(conf_fwd, training=True)
+        fwd_model = Model(conf, fwd_images, fwd_actions, fwd_states,
+                          conf['sequence_length'], training_scope)
+
+    with tf.variable_scope('fwd_model_val', reuse=None):
+        conf_fwd = copy.deepcopy(conf)
+        conf_fwd['batch_size'] = conf_fwd['num_smp']
+        # gets data from the validation set
+        val_images, val_actions, val_states = build_tfrecord_input(conf_fwd, training=False)
+        fwd_model_val = Model(conf, val_images, val_actions, val_states,
                           conf['sequence_length'], training_scope)
 
     print 'Constructing saver.'
@@ -211,11 +297,21 @@ def main(unused_argv, conf_script= None):
     if conf['visualize']:
         saver.restore(sess, conf['visualize'])
 
-        feed_dict = {val_model.lr: 0.0,
-                     val_model.prefix: 'vis',
-                     val_model.iter_num: 0 }
-        gen_images, ground_truth, mask_list = sess.run([val_model.gen_images,
-                                                        val_images, val_model.gen_masks],
+        itr = 0
+        b_videos, b_states, b_actions, b_noise = run_foward_passes(conf,
+                                                                   fwd_model, sess, itr)
+
+        feed_dict = {images: b_videos,
+                     states: b_states,
+                     actions: b_actions,
+                     model.noise: b_noise,
+                     model.prefix: 'visual',
+                     model.iter_num: 0,
+                     model.lr: 0,
+                     }
+
+        gen_images, ground_truth, mask_list = sess.run([model.gen_images,
+                                                        b_videos, model.gen_masks],
                                                        feed_dict)
         file_path = conf['output_dir']
         cPickle.dump(gen_images, open(file_path + '/gen_image_seq.pkl','wb'))
@@ -244,9 +340,17 @@ def main(unused_argv, conf_script= None):
     for itr in range(itr_0, conf['num_iterations'], 1):
         t_startiter = datetime.now()
         # Generate new batch of data_files.
-        feed_dict = {model.prefix: 'train',
+
+        b_videos, b_states, b_actions, b_noise = run_foward_passes(conf, fwd_model, sess, itr)
+
+        feed_dict = {images: b_videos,
+                     states: b_states,
+                     actions: b_actions,
+                     model.noise: b_noise,
+                     model.prefix: 'train',
                      model.iter_num: np.float32(itr),
-                     model.lr: conf['learning_rate']}
+                     model.lr: conf['learning_rate'],
+                     }
         cost, _, summary_str = sess.run([model.loss, model.train_op, model.summ_op],
                                         feed_dict)
 
@@ -255,12 +359,20 @@ def main(unused_argv, conf_script= None):
             tf.logging.info(str(itr) + ' ' + str(cost))
 
         if (itr) % VAL_INTERVAL == 2:
-            # Run through validation set.
-            feed_dict = {val_model.lr: 0.0,
-                         val_model.prefix: 'val',
-                         val_model.iter_num: np.float32(itr)}
-            _, val_summary_str = sess.run([val_model.train_op, val_model.summ_op],
-                                          feed_dict)
+
+            b_videos, b_states, b_actions, b_noise = run_foward_passes(conf, fwd_model_val, sess, itr)
+
+            feed_dict = {images: b_videos,
+                         states: b_states,
+                         actions: b_actions,
+                         model.noise: b_noise,
+                         model.prefix: 'val',
+                         model.iter_num: np.float32(itr),
+                         model.lr: 0.0,
+                         }
+            _, val_summary_str = sess.run([model.train_op, model.summ_op],
+                                            feed_dict)
+
             summary_writer.add_summary(val_summary_str, itr)
 
 

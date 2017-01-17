@@ -88,10 +88,11 @@ def main():
                 lsdc.policy = conf['policy']['type'](lsdc.agent._hyperparams,
                                                      conf['policy'])
 
-            if 'use_corrector' in conf['policy']:
-                if conf['policy']['use_corrector']:
-                    lsdc.policy.corrector = lsdc.corrector
-                lsdc.policy.policyparams['rec_distrib'] =  bench_dir + '/videos_corr/traj{0}_conf{1}'.format(traj, i_conf)
+            if 'correctorconf' in conf['policy']:
+                lsdc.policy.corrector = lsdc.corrector
+
+
+            lsdc.policy.policyparams['rec_distrib'] =  bench_dir + '/videos_distrib/traj{0}_conf{1}'.format(traj, i_conf)
 
             lsdc.agent.sample(lsdc.policy)
 

@@ -1,7 +1,7 @@
 import tensorflow as tf
 import imp
 import numpy as np
-from prediction_train_flow import CorrectorModel
+from correction_train_flow import CorrectorModel
 from PIL import Image
 import os
 

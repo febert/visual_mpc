@@ -11,14 +11,13 @@ policy = {
     'initial_std': 7,
     'netconf': current_dir + '/conf.py',
     'use_first_plan': False, # execute MPC instead using firs plan
-    'iterations': 2,  #5
-    'use_corrector': False,
+    'iterations': 5,
     'current_dir': current_dir,
     'rec_distrib': '',
     'predictor_propagation': True
 }
 
 agent = {
-    'T': 3, #25,
+    'T': 25,
     'current_dir': current_dir
 }

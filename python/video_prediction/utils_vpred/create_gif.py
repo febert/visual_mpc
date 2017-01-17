@@ -83,6 +83,20 @@ def pix_distrib_video(pix_distrib):
         # pdb.set_trace()
     return new_pix_distrib_list
 
+def add_crosshairs(distrib, pix_list):
+    """
+    add crosshairs to video
+    :param distrib:
+    :param pix_list: list of x, y coords
+    :return:
+    """
+    for i in range(len(distrib)):
+        x, y = pix_list[i]
+        distrib[i][0, x] = 0
+        distrib[i][0, :, y] = 0
+
+    return distrib
+
 
 def comp_pix_distrib(file_path, name= None, masks = False, examples = 8):
     pix_distrib = cPickle.load(open(file_path + '/gen_distrib.pkl', "rb"))
@@ -202,14 +216,22 @@ if __name__ == '__main__':
     # file_path = '/home/frederik/Documents/lsdc/experiments/cem_exp/data_files'
     # comp_pix_distrib(file_path, masks= False)
 
-    file = '/home/frederik/Documents/lsdc/experiments/cem_exp/data_files'
+    # file = '/home/frederik/Documents/lsdc/experiments/cem_exp/data_files'
+
+    file = '/home/frederik/Documents/lsdc/experiments/cem_exp/videos_distrib'
 
     l = cPickle.load(open(file + '/correction.pkl', "rb"))
 
-    orig_images, corr_gen_images, corr_distrib = l[0], l[1], l[2]
+    orig_images, gen_images, corr_distrib, desig_pix = l[0], l[1], l[2], l[3]
+
+
 
     corr_distrib = pix_distrib_video(corr_distrib)
-    frame_list = assemble_gif([orig_images, corr_gen_images, corr_distrib], num_exp= 1)
+    corr_distrib = add_crosshairs(corr_distrib, desig_pix)
+
+    orig_images = [img.astype(np.float32) / 255. for img in orig_images]
+
+    frame_list = assemble_gif([orig_images, gen_images, corr_distrib], num_exp= 1)
 
 
     npy_to_gif(frame_list, file + '/correction')

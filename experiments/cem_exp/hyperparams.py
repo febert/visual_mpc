@@ -64,7 +64,7 @@ agent = {
     'dt': 0.05,
     'substeps': 20,  #10
     'conditions': common['conditions'],
-    'T': 10,
+    'T': 25,
     'skip_first': 5,
     'sensor_dims': SENSOR_DIMS,
     'state_include': [JOINT_ANGLES, JOINT_VELOCITIES],
@@ -77,9 +77,9 @@ agent = {
     'image_width' : IMAGE_WIDTH,
     'image_channels' : IMAGE_CHANNELS,
     'num_objects': num_objects,
-    'goal_point': np.array([0.2, 0.2]),
+    'goal_point': np.array([-0.2, -0.2]),
     'current_dir': current_dir,
-    'record': current_dir + '/data_files/rec'
+    'record': current_dir + '/videos/rec'
 }
 
 
@@ -95,14 +95,16 @@ policy = {
     'type' : CEM_controller,
     'low_level_ctrl': None,
     'netconf': current_dir + '/conf.py',
-    # 'correctorconf': current_dir + '/cor_conf.py',
-    'usenet': False,
+    'correctorconf': current_dir + '/cor_conf.py',  #comment this out to switch off
+    'usenet': True,
     'nactions': 5,
     'repeat': 3,
-    'use_first_plan': True,
-    'num_samples': 200,
+    'use_first_plan': False,
+    # 'num_samples': 200,
     'iterations': 5,
-    'use_corrector': False
+    # 'predictor_propagation': True
+    'current_dir': current_dir,
+    'rec_distrib': current_dir + '/videos_distrib/distrib'
 }
 
 if policy['low_level_ctrl'] == None:

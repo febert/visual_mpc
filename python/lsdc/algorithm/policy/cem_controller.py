@@ -104,8 +104,6 @@ class CEM_controller(Policy):
         self.corr_gen_images = []
         self.corrector = None
 
-        self.next_gen_distrib = []  #if using using predictor to propagate probability distrib
-
     def reinitialize(self):
         self.use_net = self.policyparams['usenet']
         self.action_list = []
@@ -234,7 +232,6 @@ class CEM_controller(Policy):
         return pixel_coord
 
     def mujoco_one_hot_images(self):
-
         one_hot_images = np.zeros((1, self.netconf['context_frames'], 64, 64, 1), dtype=np.float32)
         # switch on pixels
         one_hot_images[0, 0, self.desig_pix[-2][0], self.desig_pix[-2][1]] = 1
@@ -244,47 +241,46 @@ class CEM_controller(Policy):
 
     def correct_distrib(self, full_images, t):
         full_images = full_images.astype(np.float32) / 255.
-
         if t == 0:  # use one hot image from mujoco
-            desig_pos = self.init_model.data.site_xpos[0, :2]
-            desig_pos = self.mujoco_to_imagespace(desig_pos, truncate= True)
+            desig_pos = self.desig_pix[-1]
             one_hot_image = np.zeros((1, 64, 64, 1), dtype=np.float32)
             # switch on pixels
             one_hot_image[0, desig_pos[0], desig_pos[1]] = 1
 
             self.rec_input_distrib.append(one_hot_image)
             self.corr_gen_images.append(np.expand_dims(full_images[0], axis=0))
-            return
+
         else:
-            input_distrib = self.rec_input_distrib[-1]
+            corr_input_distrib = self.rec_input_distrib[-1]
 
-        input_images = full_images[t-1:t+1]
-        input_images = np.expand_dims(input_images, axis= 0)
-        gen_image, _, output_distrib = self.corrector(input_images, input_distrib)
-        self.rec_input_distrib.append(output_distrib)
-        self.corr_gen_images.append(gen_image)
+            input_images = full_images[t-1:t+1]
+            input_images = np.expand_dims(input_images, axis= 0)
+            gen_image, _, output_distrib = self.corrector(input_images, corr_input_distrib)
+            self.rec_input_distrib.append(output_distrib)
+            self.corr_gen_images.append(gen_image)
 
-
-        if t == (self.agentparams['T']-1):
-            self.save_distrib_visual(full_images)
+            if t == (self.agentparams['T']-1):
+                self.save_distrib_visual(full_images)
 
     def save_distrib_visual(self, full_images, use_genimg = True):
+        #assumes full_images is already rescaled to [0,1]
         orig_images = np.split(full_images, full_images.shape[0], axis = 0)
         orig_images = [im.reshape(1,64,64,3) for im in orig_images]
 
         # the first image of corr_gen_images is the first image of the original images!
         file_path =self.policyparams['current_dir'] + '/videos_distrib'
         if use_genimg:
-            cPickle.dump([orig_images, self.corr_gen_images, self.rec_input_distrib],
+            cPickle.dump([orig_images, self.corr_gen_images, self.rec_input_distrib, self.desig_pix],
                          open(file_path + '/correction.pkl', 'wb'))
             distrib = makegif.pix_distrib_video(self.rec_input_distrib)
+            distrib = makegif.add_crosshairs(distrib, self.desig_pix)
             frame_list = makegif.assemble_gif([orig_images, self.corr_gen_images, distrib], num_exp=1)
         else:
             cPickle.dump([orig_images, self.rec_input_distrib],
                          open(file_path + '/correction.pkl', 'wb'))
             distrib = makegif.pix_distrib_video(self.rec_input_distrib)
+            distrib = makegif.add_crosshairs(distrib, self.desig_pix)
 
-            import pdb; pdb.set_trace()
             frame_list = makegif.assemble_gif([orig_images, distrib], num_exp=1)
 
         makegif.npy_to_gif(frame_list, self.policyparams['rec_distrib'])
@@ -293,26 +289,24 @@ class CEM_controller(Policy):
 
         self.pred_pos[:, itr, 0] = self.mujoco_to_imagespace(last_states[-1, :2] , numpix=480)
 
-        if 'use_corrector' in self.policyparams:
-            if self.policyparams['use_corrector']:
-                input_distrib = [self.rec_input_distrib[-2], self.rec_input_distrib[-1]]
-                input_distrib = [np.expand_dims(elem, axis=1) for elem in input_distrib]
-                input_distrib = np.concatenate(input_distrib, axis= 1)
-
-            else: input_distrib = self.mujoco_one_hot_images()
+        if 'correctorconf' in self.policyparams:
+            print 'using corrector'
+            input_distrib = [self.rec_input_distrib[-2], self.rec_input_distrib[-1]]
+            input_distrib = [np.expand_dims(elem, axis=1) for elem in input_distrib]
+            input_distrib = np.concatenate(input_distrib, axis= 1)
 
         elif 'predictor_propagation' in self.policyparams:  #using the predictor's DNA to propagate, no correction
-            if self.policyparams['predictor_propagation']:
-                if self.t == 0:
-                    input_distrib = self.mujoco_one_hot_images()
-                    self.rec_input_distrib.append(input_distrib[:,1])
-                else:
-                    self.rec_input_distrib.append(self.next_gen_distrib[-1])
-                    input_distrib = [self.rec_input_distrib[-2], self.rec_input_distrib[-1]]
-                    input_distrib = [np.expand_dims(elem, axis=1) for elem in input_distrib]
-                    input_distrib = np.concatenate(input_distrib, axis=1)
+            print 'using predictor_propagation'
 
-            else: input_distrib = self.mujoco_one_hot_images()
+            if self.t < self.netconf['context_frames']:
+                input_distrib = self.mujoco_one_hot_images()
+                if itr == 0:
+                    self.rec_input_distrib.append(input_distrib[:,1])
+            else:
+                input_distrib = [self.rec_input_distrib[-2], self.rec_input_distrib[-1]]
+                input_distrib = [np.expand_dims(elem, axis=1) for elem in input_distrib]
+                input_distrib = np.concatenate(input_distrib, axis=1)
+
         else: input_distrib = self.mujoco_one_hot_images()
 
         input_distrib = np.repeat(input_distrib, self.netconf['batch_size'], axis=0)
@@ -330,26 +324,29 @@ class CEM_controller(Policy):
         gen_distrib, gen_images, gen_masks, gen_states = self.predictor(last_frames, input_distrib,
                                                             last_states, actions)
 
-        self.next_gen_distrib.append(gen_distrib[2])
-
         for t in range(1,self.netconf['sequence_length']):
             for smp in range(self.M):
                 self.pred_pos[smp, itr, t] = self.mujoco_to_imagespace(gen_states[t-1][smp, :2], numpix=480)
 
 
         goalpoint = self.mujoco_to_imagespace(self.agentparams['goal_point'])
-
         distance_grid = np.empty((64,64))
         for i in range(64):
             for j in range(64):
                 pos = np.array([i,j])
                 distance_grid[i,j] = np.linalg.norm(goalpoint - pos)
-
         expected_distance = np.empty(self.netconf['batch_size'])
-
         for b in range(self.netconf['batch_size']):
             gen = gen_distrib[-1][b].squeeze()/ np.sum(gen_distrib[-1][b])
             expected_distance[b] = np.sum(np.multiply(gen, distance_grid))
+
+        # for predictor_propagation only!!
+        if 'predictor_propagation' in self.policyparams:
+            assert not 'correctorconf' in self.policyparams
+            if itr == (self.policyparams['iterations']-1):
+                # pick the prop distrib from the action actually chosen after the last iteration (i.e. self.indices[0])
+                self.indices = expected_distance.argsort()[:self.K]
+                self.rec_input_distrib.append(gen_distrib[2][self.indices[0]].reshape(1, 64, 64, 1))
 
         # compare prediciton with simulation
         if self.verbose:
@@ -381,6 +378,8 @@ class CEM_controller(Policy):
 
             import pdb;
             pdb.set_trace()
+
+        print 'length of self.rec_input_distrib is {0} after timestep {1}'.format(len(self.rec_input_distrib), self.t)
 
         return expected_distance
 
@@ -462,9 +461,8 @@ class CEM_controller(Policy):
         desig_pos = self.init_model.data.site_xpos[0, :2]
         self.desig_pix.append(self.mujoco_to_imagespace(desig_pos, truncate= True))
 
-        if 'use_corrector' in self.policyparams:
-            if self.policyparams['use_corrector']:
-                self.correct_distrib(full_images, t)
+        if 'correctorconf' in self.policyparams:
+            self.correct_distrib(full_images, t)
 
         if t == 0:
             action = np.zeros(2)
@@ -495,6 +493,7 @@ class CEM_controller(Policy):
         if 'predictor_propagation' in self.policyparams:  #using the predictor's DNA to propagate, no correction
             if self.policyparams['predictor_propagation']:
                 if self.t == (self.agentparams['T'] - 1):
+                    full_images = full_images.astype(np.float32) / 255.
                     self.save_distrib_visual(full_images, use_genimg= False)
 
         self.action_list.append(action)
