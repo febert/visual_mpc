@@ -14,7 +14,7 @@ def npy_to_gif(im_list, filename):
     clip.write_gif(filename + '.gif')
     return
 
-def comp_video(file_path, conf):
+def comp_video(file_path, conf, suffix):
     print 'reading files from:', file_path
     ground_truth = cPickle.load(open(file_path + '/ground_truth.pkl', "rb"))
     gen_images = cPickle.load(open(file_path + '/gen_image_seq.pkl', "rb"))
@@ -25,7 +25,11 @@ def comp_video(file_path, conf):
     fused_gif = assemble_gif([ground_truth, gen_images])
 
     itr_vis = re.match('.*?([0-9]+)$', conf['visualize']).group(1)
-    npy_to_gif(fused_gif, file_path +'/' + conf['experiment_name'] + '_' + str(itr_vis))
+
+    if not suffix:
+        name = file_path + '/vid_' + conf['experiment_name'] + '_' + str(itr_vis)
+    else: name = file_path + '/vid_' + conf['experiment_name'] + '_' + str(itr_vis) + suffix
+    npy_to_gif(fused_gif, name)
 
     return fused_gif
 
@@ -175,7 +179,7 @@ def assemble_gif(video_batch, num_exp = 8):
 
     return fullframe_list
 
-def comp_masks(file_path, conf, pred = None):
+def comp_masks(file_path, conf, pred = None, suffix = None):
     masks = cPickle.load(open(file_path + '/mask_list.pkl', "rb"))
     mask_list = []
 
@@ -199,7 +203,10 @@ def comp_masks(file_path, conf, pred = None):
         mask_list.append(stacked_rows)
 
     itr_vis = re.match('.*?([0-9]+)$', conf['visualize']).group(1)
-    npy_to_gif(mask_list, file_path + '/masks_' + conf['experiment_name'] + '_' + str(itr_vis))
+    if not suffix:
+        name = file_path + '/masks_' + conf['experiment_name'] + '_' + str(itr_vis)
+    else: name = file_path + '/masks_' + conf['experiment_name'] + '_' + str(itr_vis) + suffix
+    npy_to_gif(mask_list, name)
 
 if __name__ == '__main__':
 

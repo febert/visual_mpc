@@ -280,7 +280,6 @@ class CEM_controller(Policy):
                          open(file_path + '/correction.pkl', 'wb'))
             distrib = makegif.pix_distrib_video(self.rec_input_distrib)
             distrib = makegif.add_crosshairs(distrib, self.desig_pix)
-
             frame_list = makegif.assemble_gif([orig_images, distrib], num_exp=1)
 
         makegif.npy_to_gif(frame_list, self.policyparams['rec_distrib'])

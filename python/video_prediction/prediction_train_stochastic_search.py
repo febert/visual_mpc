@@ -67,10 +67,6 @@ def mean_squared_error(true, pred, example_wise = False):
 class Model(object):
     def __init__(self,
                  conf,
-                 images=None,
-                 actions=None,
-                 states=None,
-                 sequence_length=None,
                  reuse_scope=None,
                  pix_distrib=None):
 
@@ -80,9 +76,12 @@ class Model(object):
         self.iter_num = tf.placeholder(tf.float32, [])
         summaries = []
 
-        self.input_images = images
-        self.input_states = states
-        self.input_actions = actions
+        self.images = images = tf.placeholder(tf.float32, name='images',
+                                shape=(conf['batch_size'], conf['sequence_length'], 64, 64, 3))
+        self.actions = actions = tf.placeholder(tf.float32, name='actions',
+                                shape=(conf['batch_size'], conf['sequence_length'], 2))
+        self.states = states = tf.placeholder(tf.float32, name='states',
+                                shape=(conf['batch_size'], conf['sequence_length'], 4))
 
         bsize = images.get_shape()[0]
         self.noise = tf.placeholder(tf.float32, name='noise',
@@ -168,7 +167,7 @@ class Model(object):
         self.psnr_all = psnr_all
 
         self.loss = loss = loss / np.float32(len(images) - conf['context_frames'])
-        self.loss_ex = loss_ex / np.float32(len(images) - conf['context_frames'])
+        self.loss_ex = loss_ex = loss_ex / np.float32(len(images) - conf['context_frames'])
 
         summaries.append(tf.scalar_summary(prefix + '_loss', loss))
 
@@ -183,7 +182,8 @@ class Model(object):
         self.gen_states = gen_states
 
 
-def run_foward_passes(conf, model, sess, itr):
+def run_foward_passes(conf, model, train_images, train_states, train_actions,
+                      sess, itr):
 
     noise_dim = conf['noise_dim']
     num_smp = conf['num_smp']
@@ -191,43 +191,56 @@ def run_foward_passes(conf, model, sess, itr):
     mean = np.zeros(noise_dim*conf['sequence_length'])
     cov = np.diag(np.ones(noise_dim*conf['sequence_length']))
 
-    b_videos = np.zeros((conf['batch_size'], conf['sequence_length'], 64,64,3))
-    b_states = np.zeros((conf['batch_size'], conf['sequence_length'], 4))
-    b_actions = np.zeros((conf['batch_size'], conf['sequence_length'], 2))
+
     b_noise = np.zeros((conf['batch_size'], conf['sequence_length'], noise_dim))
+    w_noise = np.zeros((conf['batch_size'], conf['sequence_length'], noise_dim))
+
+    # getting a batch of training data
+    input_images, input_states, input_actions = sess.run([train_images,
+                                                          train_states,
+                                                          train_actions
+                                                         ])
 
     start = datetime.now()
     #using different noise for every video in batch
     for b in range(conf['batch_size']):
 
+        s_video = input_images[b]
+        s_video = np.repeat(np.expand_dims(s_video, axis=0), num_smp, axis=0)
+        s_states = input_states[b]
+        s_states = np.repeat(np.expand_dims(s_states, axis=0), num_smp, axis=0)
+        s_actions = input_actions[b]
+        s_actions = np.repeat(np.expand_dims(s_actions, axis=0), num_smp, axis=0)
 
         noise_vec = np.random.multivariate_normal(mean, cov, size=num_smp)
         noise_vec = noise_vec.reshape((num_smp, conf['sequence_length'], noise_dim))
 
-        feed_dict = {model.prefix: 'train',
+        feed_dict = {model.images: s_video,
+                     model.states: s_states,
+                     model.actions: s_actions,
+                     model.noise: noise_vec,
+                     model.prefix: 'train',
                      model.iter_num: np.float32(itr),
-                     model.lr: 0,
-                     model.noise: noise_vec
+                     model.lr: 0
                      }
-        cost, input_images, input_states, input_actions = sess.run([model.loss_ex,
-                                                                   model.input_images,
-                                                                   model.input_states,
-                                                                   model.input_actions
-                                                                   ], feed_dict)
+        [cost] = sess.run([model.loss_ex], feed_dict)
 
-        bestindex = cost.argsort()[0]
+        best_index = cost.argsort()[0]
+        worst_index = cost.argsort()[-1]
 
-        b_videos[b] = input_images[bestindex]
-        b_states[b] = input_states[bestindex]
-        b_actions[b] = input_actions[bestindex]
-        b_noise[b] = noise_vec[bestindex]
 
-        # print 'lowest cost of {0}-th sample group: {1}'.format(b, cost[bestindex])
-        # print 'mean cost: {0}, cost std: {1}'.format(np.mean(cost), np.cov(cost))
 
-    # print 'time for {0} forward passes {1}'.format(conf['batch_size'], datetime.now()-start)
+        b_noise[b] = noise_vec[best_index]
+        w_noise[b] = noise_vec[worst_index]
 
-    return b_videos, b_states, b_actions, b_noise
+        print 'lowest cost of {0}-th sample group: {1}'.format(b, cost[best_index])
+        print 'highest cost of {0}-th sample group: {1}'.format(b, cost[worst_index])
+        print 'mean cost: {0}, cost std: {1}'.format(np.mean(cost), np.cov(cost))
+
+    print 'time for {0} forward passes {1}'.format(conf['batch_size'], datetime.now()-start)
+
+
+    return input_images, input_states, input_actions, b_noise, w_noise
 
 
 def main(unused_argv, conf_script= None):
@@ -263,23 +276,16 @@ def main(unused_argv, conf_script= None):
                             shape=(conf['batch_size'], conf['sequence_length'], 4))
 
     with tf.variable_scope('train_model', reuse=None) as training_scope:
-        model = Model(conf, images, actions, states, conf['sequence_length'])
+        model = Model(conf)
 
     with tf.variable_scope('fwd_model', reuse=None):
-        conf_fwd = copy.deepcopy(conf)
-        conf_fwd['batch_size'] = conf_fwd['num_smp']
-        # gets data from the training set
-        fwd_images, fwd_actions, fwd_states = build_tfrecord_input(conf_fwd, training=True)
-        fwd_model = Model(conf, fwd_images, fwd_actions, fwd_states,
-                          conf['sequence_length'], training_scope)
+        fwd_conf = copy.deepcopy(conf)
+        fwd_conf['batch_size'] = conf['num_smp']
+        fwd_model = Model(fwd_conf, reuse_scope= training_scope)
 
-    with tf.variable_scope('fwd_model_val', reuse=None):
-        conf_fwd = copy.deepcopy(conf)
-        conf_fwd['batch_size'] = conf_fwd['num_smp']
-        # gets data from the validation set
-        val_images, val_actions, val_states = build_tfrecord_input(conf_fwd, training=False)
-        fwd_model_val = Model(conf, val_images, val_actions, val_states,
-                          conf['sequence_length'], training_scope)
+    train_images, train_actions, train_states = build_tfrecord_input(conf, training=True)
+    val_images, val_actions, val_states = build_tfrecord_input(conf, training=False)
+
 
     print 'Constructing saver.'
     # Make saver.
@@ -298,29 +304,52 @@ def main(unused_argv, conf_script= None):
         saver.restore(sess, conf['visualize'])
 
         itr = 0
-        b_videos, b_states, b_actions, b_noise = run_foward_passes(conf,
-                                                                   fwd_model, sess, itr)
 
-        feed_dict = {images: b_videos,
-                     states: b_states,
-                     actions: b_actions,
-                     model.noise: b_noise,
+        ## visualize the videos with worst score !!!
+        videos, states, actions, bestnoise, worstnoise = run_foward_passes(conf, fwd_model,
+                                                                              val_images,
+                                                                              val_states,
+                                                                              val_actions, sess, itr)
+
+        feed_dict = {images: videos,
+                     states: states,
+                     actions: actions,
+                     model.noise: bestnoise,
                      model.prefix: 'visual',
                      model.iter_num: 0,
                      model.lr: 0,
                      }
 
-        gen_images, ground_truth, mask_list = sess.run([model.gen_images,
-                                                        b_videos, model.gen_masks],
-                                                       feed_dict)
+        gen_images, mask_list = sess.run([model.gen_images, model.gen_masks], feed_dict)
         file_path = conf['output_dir']
         cPickle.dump(gen_images, open(file_path + '/gen_image_seq.pkl','wb'))
-        cPickle.dump(ground_truth, open(file_path + '/ground_truth.pkl', 'wb'))
+        cPickle.dump(videos, open(file_path + '/ground_truth.pkl', 'wb'))
         cPickle.dump(mask_list, open(file_path + '/mask_list.pkl', 'wb'))
         print 'written files to:' + file_path
 
-        trajectories = utils_vpred.create_gif.comp_video(conf['output_dir'], conf)
-        utils_vpred.create_gif.comp_masks(conf['output_dir'], conf, trajectories)
+        trajectories = utils_vpred.create_gif.comp_video(conf['output_dir'], conf, suffix='_best')
+        utils_vpred.create_gif.comp_masks(conf['output_dir'], conf, trajectories, suffix='_best')
+
+        ### visualizing videos with highest cost noise:
+        feed_dict = {images: videos,
+                     states: states,
+                     actions: actions,
+                     model.noise: worstnoise,
+                     model.prefix: 'visual',
+                     model.iter_num: 0,
+                     model.lr: 0,
+                     }
+
+        gen_images, mask_list = sess.run([model.gen_images, model.gen_masks], feed_dict)
+        file_path = conf['output_dir']
+        cPickle.dump(gen_images, open(file_path + '/gen_image_seq.pkl', 'wb'))
+        cPickle.dump(videos, open(file_path + '/ground_truth.pkl', 'wb'))
+        cPickle.dump(mask_list, open(file_path + '/mask_list.pkl', 'wb'))
+        print 'written files to:' + file_path
+
+        trajectories = utils_vpred.create_gif.comp_video(conf['output_dir'], conf, suffix='_worst')
+        utils_vpred.create_gif.comp_masks(conf['output_dir'], conf, trajectories, suffix='_worst')
+
         return
 
     itr_0 =0
@@ -339,14 +368,17 @@ def main(unused_argv, conf_script= None):
     # Run training.
     for itr in range(itr_0, conf['num_iterations'], 1):
         t_startiter = datetime.now()
+
         # Generate new batch of data_files.
+        videos, states, actions, bestnoise, worstnoise = run_foward_passes(conf, fwd_model,
+                                                                           train_images,
+                                                                           train_states,
+                                                                           train_actions, sess, itr)
 
-        b_videos, b_states, b_actions, b_noise = run_foward_passes(conf, fwd_model, sess, itr)
-
-        feed_dict = {images: b_videos,
-                     states: b_states,
-                     actions: b_actions,
-                     model.noise: b_noise,
+        feed_dict = {model.images: videos,
+                     model.states: states,
+                     model.actions: actions,
+                     model.noise: bestnoise,
                      model.prefix: 'train',
                      model.iter_num: np.float32(itr),
                      model.lr: conf['learning_rate'],
@@ -360,12 +392,15 @@ def main(unused_argv, conf_script= None):
 
         if (itr) % VAL_INTERVAL == 2:
 
-            b_videos, b_states, b_actions, b_noise = run_foward_passes(conf, fwd_model_val, sess, itr)
+            videos, states, actions, bestnoise, worstnoise = run_foward_passes(conf, fwd_model,
+                                                                               train_images,
+                                                                               train_states,
+                                                                               train_actions, sess, itr)
 
-            feed_dict = {images: b_videos,
-                         states: b_states,
-                         actions: b_actions,
-                         model.noise: b_noise,
+            feed_dict = {model.images: videos,
+                         model.states: states,
+                         model.actions: actions,
+                         model.noise: bestnoise,
                          model.prefix: 'val',
                          model.iter_num: np.float32(itr),
                          model.lr: 0.0,
