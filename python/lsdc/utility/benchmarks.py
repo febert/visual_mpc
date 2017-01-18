@@ -18,8 +18,10 @@ def main():
 
     parser = argparse.ArgumentParser(description='Run benchmarks')
     parser.add_argument('benchmark', type=str, help='the name of the folder with agent setting for the benchmark')
+    parser.add_argument('--gpu_id', type=str, help='value to set for cuda visible devices variable')
     args = parser.parse_args()
     benchmark_name = args.benchmark
+    gpu_id = args.gpu_id
 
     conf = hyperparams.config
     # load specific agent settings for benchmark:
@@ -52,7 +54,8 @@ def main():
     i_conf = 0
 
     scores = np.empty(nruns)
-    lsdc = LSDCMain(conf)
+    lsdc = LSDCMain(conf, gpu_id= gpu_id)
+
     confs = cPickle.load(open('python/lsdc/utility/benchmarkconfigs', "rb"))
     goalpoints = confs['goalpoints']
     initialposes = confs['initialpos']

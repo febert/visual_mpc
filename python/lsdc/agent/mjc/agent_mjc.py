@@ -67,16 +67,12 @@ class AgentMuJoCo(Agent):
                                                 init_height=self._hyperparams['image_height'],
                                                 go_fast=gofast)
         self._small_viewer.start()
-
         self._small_viewer.cam.camid = 0
-
         if self._hyperparams['additional_viewer']:
             self._large_viewer = mujoco_py.MjViewer(visible=True, init_width=480,
                                                     init_height=480, go_fast=gofast)
-
             self._large_viewer.start()
             self._large_viewer.cam.camid = 0
-
 
     def sample(self, policy, verbose=True, save=True, noisy=False):
         """

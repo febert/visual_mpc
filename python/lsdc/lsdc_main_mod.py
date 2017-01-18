@@ -32,7 +32,7 @@ import numpy as np
 
 class LSDCMain(object):
     """ Main class to run algorithms and experiments. """
-    def __init__(self, config, quit_on_end=False):
+    def __init__(self, config, quit_on_end=False, gpu_id= None):
 
 
         self._quit_on_end = quit_on_end
@@ -45,7 +45,7 @@ class LSDCMain(object):
 
         if 'usenet' in config['policy']:
             if config['policy']['usenet']:
-                self.predictor = setup_predictor(config['policy']['netconf'])
+                self.predictor = setup_predictor(config['policy']['netconf'], gpu_id)
                 self.policy = config['policy']['type'](config['agent'], config['policy'], self.predictor)
             else:
                 self.policy = config['policy']['type'](config['agent'], config['policy'])

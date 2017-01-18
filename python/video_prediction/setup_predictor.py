@@ -5,15 +5,17 @@ from prediction_train import Model
 from PIL import Image
 import os
 
-def setup_predictor(conf_file):
+def setup_predictor(conf_file, gpu_id = 0):
     """
     Setup up the network for control
     :param conf_file:
     :return: function which predicts a batch of whole trajectories
     conditioned on the actions
     """
-    # os.environ["CUDA_VISIBLE_DEVICES"] = "0"
-    # print 'using CUDA_VISIBLE_DEVICES=', os.environ["CUDA_VISIBLE_DEVICES"]
+    if gpu_id == None:
+        gpu_id = 0
+    os.environ["CUDA_VISIBLE_DEVICES"] = str(gpu_id)
+    print 'using CUDA_VISIBLE_DEVICES=', os.environ["CUDA_VISIBLE_DEVICES"]
 
     hyperparams = imp.load_source('hyperparams', conf_file)
     conf = hyperparams.configuration
