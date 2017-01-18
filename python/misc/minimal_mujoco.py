@@ -8,8 +8,8 @@ from mujoco_py.mjtypes import *
 
 from PIL import Image
 
-
-filename= '/home/frederik/Documents/lsdc/mjc_models/pushing2d_controller.xml'
+BASE_DIR = '/'.join(str.split(__file__, '/')[:-3])
+filename = BASE_DIR + '/mjc_models/pushing2d_controller.xml'
 
 model= mujoco_py.MjModel(filename)
 
