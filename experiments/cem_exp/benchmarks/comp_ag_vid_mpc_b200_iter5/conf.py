@@ -27,4 +27,3 @@ configuration = {
 'file_visual': '',          # datafile used for making visualizations,
 'penal_last_only': False
 }
-import pdb; pdb.set_trace()
