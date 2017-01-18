@@ -86,8 +86,8 @@ class AgentMuJoCo(Agent):
 
         # Create new sample, populate first time step.
         self._init()
-        # self._small_viewer.cam.camid = 0
-        # self._large_viewer.cam.camid = 0
+        self._small_viewer.cam.camid = 0
+        self._large_viewer.cam.camid = 0
 
         traj = Trajectory(self._hyperparams)
 
