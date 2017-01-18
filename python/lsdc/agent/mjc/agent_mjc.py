@@ -98,7 +98,7 @@ class AgentMuJoCo(Agent):
 
         if self._hyperparams['additional_viewer']:
             self._large_viewer.set_model(self._model)
-            # self._large_viewer.cam = deepcopy(self._small_viewer.cam)
+            # self._large_viewer.cam = deepcopy(self.small_viewer.cam)
 
         # apply action of zero for the first few steps, to let the scene settle
         for t in range(self._hyperparams['skip_first']):
