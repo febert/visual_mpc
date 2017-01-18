@@ -86,8 +86,7 @@ class AgentMuJoCo(Agent):
 
         # Create new sample, populate first time step.
         self._init()
-        self._small_viewer.cam.camid = 0
-        self._large_viewer.cam.camid = 0
+
 
         traj = Trajectory(self._hyperparams)
 
@@ -96,6 +95,9 @@ class AgentMuJoCo(Agent):
         if self._hyperparams['additional_viewer']:
             self._large_viewer.set_model(self._model)
             # self._large_viewer.cam = deepcopy(self.small_viewer.cam)
+
+        self._small_viewer.cam.camid = 0
+        self._large_viewer.cam.camid = 0
 
         # apply action of zero for the first few steps, to let the scene settle
         for t in range(self._hyperparams['skip_first']):
