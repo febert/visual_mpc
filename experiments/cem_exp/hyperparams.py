@@ -64,7 +64,7 @@ agent = {
     'dt': 0.05,
     'substeps': 20,  #10
     'conditions': common['conditions'],
-    'T': 25,
+    'T': 3,
     'skip_first': 5,
     'sensor_dims': SENSOR_DIMS,
     'state_include': [JOINT_ANGLES, JOINT_VELOCITIES],
@@ -96,15 +96,15 @@ policy = {
     'low_level_ctrl': None,
     'netconf': current_dir + '/conf.py',
     # 'correctorconf': current_dir + '/cor_conf.py',  #comment this out to switch off
-    'usenet': True,
+    'usenet': False,
     'nactions': 5,
     'repeat': 3,
-    'use_first_plan': False,
-    # 'num_samples': 200,
+    'use_first_plan': True,
+    'num_samples': 200,
     'iterations': 5,
-    'predictor_propagation': True,
+    # 'predictor_propagation': True,
     'current_dir': current_dir,
-    'rec_distrib': current_dir + '/videos_distrib/distrib'
+    # 'rec_distrib': current_dir + '/videos_distrib/distrib'
 }
 
 if policy['low_level_ctrl'] == None:
