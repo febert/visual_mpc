@@ -246,7 +246,10 @@ def run_foward_passes(conf, model, train_images, train_states, train_actions,
 def main(unused_argv, conf_script= None):
     if FLAGS.device != None:
         os.environ["CUDA_VISIBLE_DEVICES"] = str(FLAGS.device)
-        print 'using CUDA_VISIBLE_DEVICES=', FLAGS.device
+    else:
+        os.environ["CUDA_VISIBLE_DEVICES"] = 0
+    print 'using CUDA_VISIBLE_DEVICES=', FLAGS.device
+
     from tensorflow.python.client import device_lib
     print device_lib.list_local_devices()
 
