@@ -17,7 +17,7 @@ configuration = {
 'num_iterations': 50000,   #'number of training iterations.' ,
 
     #### using pretrained model !!
-'pretrained_model': OUT_DIR +'model22002',     # 'filepath of a pretrained model to resume training from.' ,
+'pretrained_model': OUT_DIR +'/model22002',     # 'filepath of a pretrained model to resume training from.' ,
 'sequence_length': 15,      # 'sequence length, including context frames.' ,
 'skip_frame': 1,            # 'use ever i-th frame to increase prediction horizon' ,
 'context_frames': 2,        # of frames before predictions.' ,
