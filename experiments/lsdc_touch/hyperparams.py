@@ -21,7 +21,7 @@ IMAGE_WIDTH = 64
 IMAGE_HEIGHT = 64
 IMAGE_CHANNELS = 3
 
-num_objects = 4
+num_objects = 1
 
 SENSOR_DIMS = {
     JOINT_ANGLES: 2+ 7*num_objects,  #adding 7 dof for position and orientation for every free object
@@ -59,7 +59,7 @@ agent = {
     'dt': 0.05,
     'substeps': 10,  #6
     'conditions': common['conditions'],
-    'T': 30,
+    'T': 100,
     'skip_first': 5,   #skip first N time steps to let the scene settle
     'sensor_dims': SENSOR_DIMS,
     'state_include': [JOINT_ANGLES, JOINT_VELOCITIES, END_EFFECTOR_POINTS,
@@ -82,16 +82,16 @@ agent = {
 policy = {
     # 'type' : Random_impedance_point
     'type' : Randompolicy,
-    'initial_var': 40,
-    'numactions': 5, # number of consecutive actions
-    'repeats': 6, # number of repeats for each action
+    'initial_var': 30,
+    'numactions': 100, # number of consecutive actions
+    'repeats': 1, # number of repeats for each action
 }
 
 
 config = {
     'save_data': True,
     'start_index':0,
-    'end_index': 60000,
+    'end_index': 1,
     'verbose_policy_trials': 0,
     'common': common,
     'agent': agent,

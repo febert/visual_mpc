@@ -12,14 +12,39 @@
         <camera name="maincam" mode= "fixed" fovy="75" euler="0 0 0" pos="0 0 .75"/>
         <body name="particle" pos="0 0 0.03">
             <inertial pos="0 0 0" mass="5" diaginertia="166.667 166.667 166.667"/>
-            <geom name="particle_geom" type="capsule" fromto="-0.01 0 0 0.01 0 0" size="0.05" rgba="0.9 0 0.1 0.6" />
+            <geom name="particle_geom" type="sphere" size="0.05" rgba="0.9 0 0.1 1" />
             <joint name="ball_x" type="slide" pos="0 0 0" axis="1 0 0" />
             <joint name="ball_y" type="slide" pos="0 0 0" axis="0 1 0" />
 
-            <sensor>
-                <site name="sensorsurf" pos="0 0 0.035" size="0.05" type="ellipsoid" rgba="0.3 0.2 0.1 0.3"/>
-                <touch name="touchsensor" site="sensorsurf" />
-            </sensor>
+            <!--<body name="sens0body" pos="0 0 0" euler="0 0 0">-->
+            <!--<site name="sensorsurf0" pos="0.05 0 0" size=".01 .01 .01" type="ellipsoid" rgba="0.3 0.2 0.1 1"/>-->
+            <!--</body>-->
+
+            <!--<body euler="0 0 0.0" name="sensbody0" pos="0 0 0">-->
+            <!--<site euler="0 0 4.88495559215" name="sensorsurf0" pos="0.051 0 0" rgba="0.3 0.2 0.1 1" size="0.008 0.008 0.008" type="ellipsoid"/>-->
+            <!--</body>-->
+
+
+            <site name="sensorsurf0" pos="0.05 0.0 0" rgba="0.3 0.2 0.1 1" size="0.008 0.008 0.008" type="ellipsoid"/>
+            <site name="sensorsurf1" pos="0.0476 0.0155 0" rgba="0.3 0.2 0.1 1" size="0.008 0.008 0.008" type="ellipsoid"/>
+            <site name="sensorsurf2" pos="0.0405 0.0294 0" rgba="0.3 0.2 0.1 1" size="0.008 0.008 0.008" type="ellipsoid"/>
+            <site name="sensorsurf3" pos="0.0294 0.0405 0" rgba="0.3 0.2 0.1 1" size="0.008 0.008 0.008" type="ellipsoid"/>
+            <site name="sensorsurf4" pos="0.0155 0.0476 0" rgba="0.3 0.2 0.1 1" size="0.008 0.008 0.008" type="ellipsoid"/>
+            <site name="sensorsurf5" pos="0.0 0.05 0" rgba="0.3 0.2 0.1 1" size="0.008 0.008 0.008" type="ellipsoid"/>
+            <site name="sensorsurf6" pos="-0.0155 0.0476 0" rgba="0.3 0.2 0.1 1" size="0.008 0.008 0.008" type="ellipsoid"/>
+            <site name="sensorsurf7" pos="-0.0294 0.0405 0" rgba="0.3 0.2 0.1 1" size="0.008 0.008 0.008" type="ellipsoid"/>
+            <site name="sensorsurf8" pos="-0.0405 0.0294 0" rgba="0.3 0.2 0.1 1" size="0.008 0.008 0.008" type="ellipsoid"/>
+            <site name="sensorsurf9" pos="-0.0476 0.0155 0" rgba="0.3 0.2 0.1 1" size="0.008 0.008 0.008" type="ellipsoid"/>
+            <site name="sensorsurf10" pos="-0.05 0.0 0" rgba="0.3 0.2 0.1 1" size="0.008 0.008 0.008" type="ellipsoid"/>
+            <site name="sensorsurf11" pos="-0.0476 -0.0155 0" rgba="0.3 0.2 0.1 1" size="0.008 0.008 0.008" type="ellipsoid"/>
+            <site name="sensorsurf12" pos="-0.0405 -0.0294 0" rgba="0.3 0.2 0.1 1" size="0.008 0.008 0.008" type="ellipsoid"/>
+            <site name="sensorsurf13" pos="-0.0294 -0.0405 0" rgba="0.3 0.2 0.1 1" size="0.008 0.008 0.008" type="ellipsoid"/>
+            <site name="sensorsurf14" pos="-0.0155 -0.0476 0" rgba="0.3 0.2 0.1 1" size="0.008 0.008 0.008" type="ellipsoid"/>
+            <site name="sensorsurf15" pos="-0.0 -0.05 0" rgba="0.3 0.2 0.1 1" size="0.008 0.008 0.008" type="ellipsoid"/>
+            <site name="sensorsurf16" pos="0.0155 -0.0476 0" rgba="0.3 0.2 0.1 1" size="0.008 0.008 0.008" type="ellipsoid"/>
+            <site name="sensorsurf17" pos="0.0294 -0.0405 0" rgba="0.3 0.2 0.1 1" size="0.008 0.008 0.008" type="ellipsoid"/>
+            <site name="sensorsurf18" pos="0.0405 -0.0294 0" rgba="0.3 0.2 0.1 1" size="0.008 0.008 0.008" type="ellipsoid"/>
+            <site name="sensorsurf19" pos="0.0476 -0.0155 0" rgba="0.3 0.2 0.1 1" size="0.008 0.008 0.008" type="ellipsoid"/>
 
         </body>
 
@@ -62,6 +87,32 @@
         </body>
 
     </worldbody>
+
+     <sensor>
+        <!--<touch name="touchsensor0" site="sensorsurf0" />-->
+        <!--<touch name="touchsensor1" site="sensorsurf1" />-->
+
+        <touch name="touchsensor0" site="sensorsurf0"/>
+        <touch name="touchsensor1" site="sensorsurf1"/>
+        <touch name="touchsensor2" site="sensorsurf2"/>
+        <touch name="touchsensor3" site="sensorsurf3"/>
+        <touch name="touchsensor4" site="sensorsurf4"/>
+        <touch name="touchsensor5" site="sensorsurf5"/>
+        <touch name="touchsensor6" site="sensorsurf6"/>
+        <touch name="touchsensor7" site="sensorsurf7"/>
+        <touch name="touchsensor8" site="sensorsurf8"/>
+        <touch name="touchsensor9" site="sensorsurf9"/>
+        <touch name="touchsensor10" site="sensorsurf10"/>
+        <touch name="touchsensor11" site="sensorsurf11"/>
+        <touch name="touchsensor12" site="sensorsurf12"/>
+        <touch name="touchsensor13" site="sensorsurf13"/>
+        <touch name="touchsensor14" site="sensorsurf14"/>
+        <touch name="touchsensor15" site="sensorsurf15"/>
+        <touch name="touchsensor16" site="sensorsurf16"/>
+        <touch name="touchsensor17" site="sensorsurf17"/>
+        <touch name="touchsensor18" site="sensorsurf18"/>
+        <touch name="touchsensor19" site="sensorsurf19"/>
+     </sensor>
 
     <actuator>
         <motor joint="ball_x" ctrlrange="-100.0 100.0" ctrllimited="true"/>

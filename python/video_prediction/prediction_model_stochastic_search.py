@@ -25,8 +25,7 @@ from lstm_ops import basic_conv_lstm_cell
 # Amount to use when lower bounding tensors
 RELU_SHIFT = 1e-12
 
-# kernel size for DNA and CDNA.
-DNA_KERN_SIZE = 5
+# kernel size for DNA and CDNA
 
 
 def construct_model(images,
@@ -42,6 +41,7 @@ def construct_model(images,
                     dna=False,
                     context_frames=2,
                     pix_distributions=None,
+                    conf = None
                     ):
     """Build convolutional lstm video predictor using STP, CDNA, or DNA.
 
@@ -68,6 +68,12 @@ def construct_model(images,
       ValueError: if more than one network option specified or more than 1 mask
       specified for DNA model.
     """
+
+    if 'dna_size' in conf.keys():
+        DNA_KERN_SIZE = conf['dna_size']
+    else:
+        DNA_KERN_SIZE = 5
+
     print 'constructing network used with stochastic search...'
 
     if stp + cdna + dna != 1:
@@ -234,7 +240,7 @@ def construct_model(images,
                 # Only one mask is supported (more should be unnecessary).
                 if num_masks != 1:
                     raise ValueError('Only one mask is supported for DNA model.')
-                transformed = [dna_transformation(prev_image, enc7)]
+                transformed = [dna_transformation(prev_image, enc7, DNA_KERN_SIZE)]
 
             masks = slim.layers.conv2d_transpose(
                 enc6, num_masks + 1, 1, stride=1, scope='convt7')
@@ -347,7 +353,7 @@ def cdna_transformation(prev_image, cdna_input, num_masks, color_channels, reuse
     return transformed, cdna_kerns_summary
 
 
-def dna_transformation(prev_image, dna_input):
+def dna_transformation(prev_image, dna_input, DNA_KERN_SIZE):
     """Apply dynamic neural advection to previous image.
 
     Args:
@@ -357,7 +363,9 @@ def dna_transformation(prev_image, dna_input):
       List of images transformed by the predicted CDNA kernels.
     """
     # Construct translated images.
-    prev_image_pad = tf.pad(prev_image, [[0, 0], [2, 2], [2, 2], [0, 0]])
+    pad_len = int(np.floor(DNA_KERN_SIZE / 2))
+
+    prev_image_pad = tf.pad(prev_image, [[0, 0], [pad_len, pad_len], [pad_len, pad_len], [0, 0]])
     image_height = int(prev_image.get_shape()[1])
     image_width = int(prev_image.get_shape()[2])
 

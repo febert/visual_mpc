@@ -29,7 +29,7 @@ SAVE_INTERVAL = 2000
 FLAGS = flags.FLAGS
 flags.DEFINE_string('hyper', '', 'hyperparameters configuration file')
 flags.DEFINE_string('visualize', '', 'model within hyperparameter folder from which to create gifs')
-flags.DEFINE_integer('device', 0 ,'the value for CUDA_VISIBLE_DEVICES variable')
+flags.DEFINE_integer('device', None ,'the value for CUDA_VISIBLE_DEVICES variable')
 
 ## Helper functions
 def peak_signal_to_noise_ratio(true, pred):
@@ -114,7 +114,8 @@ class Model(object):
                 dna=conf['model'] == 'DNA',
                 stp=conf['model'] == 'STP',
                 context_frames=conf['context_frames'],
-                pix_distributions= pix_distrib)
+                pix_distributions= pix_distrib,
+                conf= conf)
         else:  # If it's a validation or test model.
             with tf.variable_scope(reuse_scope, reuse=True):
                 gen_images, gen_states, gen_masks, gen_distrib = construct_model(
@@ -129,7 +130,8 @@ class Model(object):
                     cdna=conf['model'] == 'CDNA',
                     dna=conf['model'] == 'DNA',
                     stp=conf['model'] == 'STP',
-                    context_frames=conf['context_frames'])
+                    context_frames=conf['context_frames'],
+                    conf= conf)
 
         if conf['penal_last_only']:
             cost_sel = np.zeros(conf['sequence_length']-2)
@@ -228,24 +230,23 @@ def run_foward_passes(conf, model, train_images, train_states, train_actions,
         best_index = cost.argsort()[0]
         worst_index = cost.argsort()[-1]
 
-
-
         b_noise[b] = noise_vec[best_index]
         w_noise[b] = noise_vec[worst_index]
 
-        print 'lowest cost of {0}-th sample group: {1}'.format(b, cost[best_index])
-        print 'highest cost of {0}-th sample group: {1}'.format(b, cost[worst_index])
-        print 'mean cost: {0}, cost std: {1}'.format(np.mean(cost), np.cov(cost))
+        # print 'lowest cost of {0}-th sample group: {1}'.format(b, cost[best_index])
+        # print 'highest cost of {0}-th sample group: {1}'.format(b, cost[worst_index])
+        # print 'mean cost: {0}, cost std: {1}'.format(np.mean(cost), np.cov(cost))
 
-    print 'time for {0} forward passes {1}'.format(conf['batch_size'], datetime.now()-start)
+    # print 'time for {0} forward passes {1}'.format(conf['batch_size'], (datetime.now()-start).seconds)
 
 
     return input_images, input_states, input_actions, b_noise, w_noise
 
 
 def main(unused_argv, conf_script= None):
-    os.environ["CUDA_VISIBLE_DEVICES"] = str(FLAGS.device)
-    print 'using CUDA_VISIBLE_DEVICES=', FLAGS.device
+    if FLAGS.device != None:
+        os.environ["CUDA_VISIBLE_DEVICES"] = str(FLAGS.device)
+        print 'using CUDA_VISIBLE_DEVICES=', FLAGS.device
     from tensorflow.python.client import device_lib
     print device_lib.list_local_devices()
 
@@ -267,13 +268,6 @@ def main(unused_argv, conf_script= None):
 
     print 'Constructing models and inputs...'
 
-    # placeholders used for training and validation model
-    images = tf.placeholder(tf.float32, name='images',
-                            shape=(conf['batch_size'], conf['sequence_length'], 64, 64, 3))
-    actions = tf.placeholder(tf.float32, name='actions',
-                             shape=(conf['batch_size'], conf['sequence_length'], 2))
-    states = tf.placeholder(tf.float32, name='states',
-                            shape=(conf['batch_size'], conf['sequence_length'], 4))
 
     with tf.variable_scope('train_model', reuse=None) as training_scope:
         model = Model(conf)
@@ -311,9 +305,9 @@ def main(unused_argv, conf_script= None):
                                                                               val_states,
                                                                               val_actions, sess, itr)
 
-        feed_dict = {images: videos,
-                     states: states,
-                     actions: actions,
+        feed_dict = {model.images: videos,
+                     model.states: states,
+                     model.actions: actions,
                      model.noise: bestnoise,
                      model.prefix: 'visual',
                      model.iter_num: 0,
@@ -331,9 +325,9 @@ def main(unused_argv, conf_script= None):
         utils_vpred.create_gif.comp_masks(conf['output_dir'], conf, trajectories, suffix='_best')
 
         ### visualizing videos with highest cost noise:
-        feed_dict = {images: videos,
-                     states: states,
-                     actions: actions,
+        feed_dict = {model.images: videos,
+                     model.states: states,
+                     model.actions: actions,
                      model.noise: worstnoise,
                      model.prefix: 'visual',
                      model.iter_num: 0,
@@ -393,9 +387,9 @@ def main(unused_argv, conf_script= None):
         if (itr) % VAL_INTERVAL == 2:
 
             videos, states, actions, bestnoise, worstnoise = run_foward_passes(conf, fwd_model,
-                                                                               train_images,
-                                                                               train_states,
-                                                                               train_actions, sess, itr)
+                                                                               val_images,
+                                                                               val_states,
+                                                                               val_actions, sess, itr)
 
             feed_dict = {model.images: videos,
                          model.states: states,

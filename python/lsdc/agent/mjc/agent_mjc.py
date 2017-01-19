@@ -61,7 +61,7 @@ class AgentMuJoCo(Agent):
         self._vel_idx = range( self._hyperparams['joint_angles'], self._hyperparams['joint_velocities'] + self._hyperparams['joint_angles'])
 
 
-        gofast = True
+        gofast = False
         self._small_viewer = mujoco_py.MjViewer(visible=True,
                                                 init_width=self._hyperparams['image_width'],
                                                 init_height=self._hyperparams['image_height'],
@@ -110,8 +110,8 @@ class AgentMuJoCo(Agent):
             traj.X_full[t, :] = self._model.data.qpos[:2].squeeze()
             traj.Xdot_full[t, :] = self._model.data.qvel[:2].squeeze()
             for i in range(self._hyperparams['num_objects']):
-                traj.Object_pos[t,i,:] = self._model.data.qpos[i*7+2:i*7+4].squeeze()
 
+                traj.Object_pos[t,i,:] = self._model.data.qpos[i*7+2:i*7+4].squeeze()
 
             self._store_image(t, traj)
 
@@ -130,9 +130,15 @@ class AgentMuJoCo(Agent):
             else:
                 traj.U[t, :] = mj_U
 
+            accum_touch = np.zeros_like(self._model.data.sensordata)
             for _ in range(self._hyperparams['substeps']):
+                accum_touch += self._model.data.sensordata
                 self._model.data.ctrl = mj_U
                 self._model.step()         #simulate the model in mujoco
+
+            print 'accumulated impulse', t
+            print accum_touch
+
 
         if not self._hyperparams['data_collection']:
             self.final_score = self.eval_action()
@@ -140,7 +146,7 @@ class AgentMuJoCo(Agent):
         if self._hyperparams['record']:
             self.save_gif()
 
-        policy.finish()
+        # policy.finish()
 
         return traj
 

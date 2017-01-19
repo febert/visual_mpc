@@ -40,7 +40,8 @@ def construct_model(images,
                     cdna=True,
                     dna=False,
                     context_frames=2,
-                    pix_distributions=None):
+                    pix_distributions=None,
+                    conf = None):
     """Build convolutional lstm video predictor using STP, CDNA, or DNA.
 
     Args:
@@ -66,6 +67,12 @@ def construct_model(images,
       ValueError: if more than one network option specified or more than 1 mask
       specified for DNA model.
     """
+
+    if 'dna_size' in conf.keys():
+        DNA_KERN_SIZE = conf['dna_size']
+    else:
+        DNA_KERN_SIZE = 5
+
     print 'constructing network with less layers...'
 
     if stp + cdna + dna != 1:
