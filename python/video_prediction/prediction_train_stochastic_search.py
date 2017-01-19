@@ -247,7 +247,7 @@ def main(unused_argv, conf_script= None):
     if FLAGS.device != None:
         os.environ["CUDA_VISIBLE_DEVICES"] = str(FLAGS.device)
     else:
-        os.environ["CUDA_VISIBLE_DEVICES"] = 0
+        os.environ["CUDA_VISIBLE_DEVICES"] = str(0)
     print 'using CUDA_VISIBLE_DEVICES=', FLAGS.device
 
     from tensorflow.python.client import device_lib
