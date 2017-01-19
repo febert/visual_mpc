@@ -146,7 +146,7 @@ class AgentMuJoCo(Agent):
         if self._hyperparams['record']:
             self.save_gif()
 
-        # policy.finish()
+        policy.finish()
 
         return traj
 

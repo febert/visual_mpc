@@ -210,33 +210,7 @@ def construct_model(images,
                 # which is useful when regions of the image become unoccluded.
                 transformed = [tf.nn.sigmoid(enc7)]
 
-            if stp:
-                stp_input0 = tf.reshape(hidden5, [int(batch_size), -1])
-                stp_input1 = slim.layers.fully_connected(
-                    stp_input0, 100, scope='fc_stp')
-                transformed += stp_transformation(prev_image, stp_input1, num_masks)
-            elif cdna:
-                cdna_input = tf.reshape(hidden5, [int(batch_size), -1])
-
-                new_transformed, new_cdna_filter = cdna_transformation(prev_image,
-                                                                cdna_input,
-                                                                num_masks,
-                                                                int(color_channels),
-                                                                reuse_sc= reuse)
-                transformed += new_transformed
-
-                summaries+= make_cdna_kerns_summary(new_cdna_filter, t, 'image')
-
-                if pix_distributions != None:
-                    transf_distrib, new_cdna_distrib_filter = cdna_transformation(prev_pix_distrib,
-                                                                           cdna_input,
-                                                                           num_masks,
-                                                                           1,
-                                                                           reuse_sc= True)
-                    summaries += make_cdna_kerns_summary(new_cdna_distrib_filter, t, 'distrib')
-
-
-            elif dna:
+            if dna:
                 # Only one mask is supported (more should be unnecessary).
                 if num_masks != 1:
                     raise ValueError('Only one mask is supported for DNA model.')
@@ -277,80 +251,6 @@ def construct_model(images,
         return gen_images, gen_states, gen_masks, gen_pix_distrib
     else:
         return gen_images, gen_states, gen_masks, None
-
-
-## Utility functions
-def stp_transformation(prev_image, stp_input, num_masks):
-    """Apply spatial transformer predictor (STP) to previous image.
-
-    Args:
-      prev_image: previous image to be transformed.
-      stp_input: hidden layer to be used for computing STN parameters.
-      num_masks: number of masks and hence the number of STP transformations.
-    Returns:
-      List of images transformed by the predicted STP parameters.
-    """
-    # Only import spatial transformer if needed.
-    from transformer.spatial_transformer import transformer
-
-    identity_params = tf.convert_to_tensor(
-        np.array([1.0, 0.0, 0.0, 0.0, 1.0, 0.0], np.float32))
-    transformed = []
-    for i in range(num_masks - 1):
-        params = slim.layers.fully_connected(
-            stp_input, 6, scope='stp_params' + str(i),
-            activation_fn=None) + identity_params
-        outsize = (prev_image.get_shape()[1], prev_image.get_shape()[2])
-        transformed.append(transformer(prev_image, params, outsize))
-
-    return transformed
-
-
-def cdna_transformation(prev_image, cdna_input, num_masks, color_channels, reuse_sc = None):
-    """Apply convolutional dynamic neural advection to previous image.
-
-    Args:
-      prev_image: previous image to be transformed.
-      cdna_input: hidden lyaer to be used for computing CDNA kernels.
-      num_masks: the number of masks and hence the number of CDNA transformations.
-      color_channels: the number of color channels in the images.
-    Returns:
-      List of images transformed by the predicted CDNA kernels.
-    """
-    batch_size = int(cdna_input.get_shape()[0])
-
-    # Predict kernels using linear function of last hidden layer.
-    cdna_kerns = slim.layers.fully_connected(
-        cdna_input,
-        DNA_KERN_SIZE * DNA_KERN_SIZE * num_masks,
-        scope='cdna_params',
-        activation_fn=None,
-        reuse = reuse_sc)
-
-
-    # Reshape and normalize.
-    cdna_kerns = tf.reshape(
-        cdna_kerns, [batch_size, DNA_KERN_SIZE, DNA_KERN_SIZE, 1, num_masks])
-    cdna_kerns = tf.nn.relu(cdna_kerns - RELU_SHIFT) + RELU_SHIFT
-    norm_factor = tf.reduce_sum(cdna_kerns, [1, 2, 3], keep_dims=True)
-    cdna_kerns /= norm_factor
-    cdna_kerns_summary = cdna_kerns
-
-    cdna_kerns = tf.tile(cdna_kerns, [1, 1, 1, color_channels, 1])
-    cdna_kerns = tf.split(0, batch_size, cdna_kerns)
-    prev_images = tf.split(0, batch_size, prev_image)
-
-    # Transform image.
-    transformed = []
-    for kernel, preimg in zip(cdna_kerns, prev_images):
-        kernel = tf.squeeze(kernel)
-        if len(kernel.get_shape()) == 3:
-            kernel = tf.expand_dims(kernel, -2)   #correction! ( was -1 before)
-        transformed.append(
-            tf.nn.depthwise_conv2d(preimg, kernel, [1, 1, 1, 1], 'SAME'))
-    transformed = tf.concat(0, transformed)
-    transformed = tf.split(3, num_masks, transformed)
-    return transformed, cdna_kerns_summary
 
 
 def dna_transformation(prev_image, dna_input, DNA_KERN_SIZE):

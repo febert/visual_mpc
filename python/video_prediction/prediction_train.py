@@ -101,7 +101,8 @@ class Model(object):
                 dna=conf['model'] == 'DNA',
                 stp=conf['model'] == 'STP',
                 context_frames=conf['context_frames'],
-                pix_distributions= pix_distrib)
+                pix_distributions= pix_distrib,
+                conf=conf)
         else:  # If it's a validation or test model.
             with tf.variable_scope(reuse_scope, reuse=True):
                 gen_images, gen_states, gen_masks, gen_distrib = construct_model(
@@ -115,7 +116,8 @@ class Model(object):
                     cdna=conf['model'] == 'CDNA',
                     dna=conf['model'] == 'DNA',
                     stp=conf['model'] == 'STP',
-                    context_frames=conf['context_frames'])
+                    context_frames=conf['context_frames'],
+                    conf= conf)
 
         if conf['penal_last_only']:
             cost_sel = np.zeros(conf['sequence_length']-2)
