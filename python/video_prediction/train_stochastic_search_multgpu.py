@@ -29,7 +29,10 @@ SAVE_INTERVAL = 2000
 FLAGS = flags.FLAGS
 flags.DEFINE_string('hyper', '', 'hyperparameters configuration file')
 flags.DEFINE_string('visualize', '', 'model within hyperparameter folder from which to create gifs')
-flags.DEFINE_integer('device', None ,'the value for CUDA_VISIBLE_DEVICES variable')
+flags.DEFINE_integer('device', None, 'the gpu number to start with')
+
+flags.DEFINE_integer('ngpu', 1, 'number of gpus to use')
+
 
 ## Helper functions
 def peak_signal_to_noise_ratio(true, pred):
@@ -44,7 +47,7 @@ def peak_signal_to_noise_ratio(true, pred):
     return 10.0 * tf.log(1.0 / mean_squared_error(true, pred)) / tf.log(10.0)
 
 
-def mean_squared_error(true, pred, example_wise = False):
+def mean_squared_error(true, pred, example_wise=False):
     """L2 distance between tensors true and pred.
 
     Args:
@@ -57,16 +60,16 @@ def mean_squared_error(true, pred, example_wise = False):
         return tf.reduce_sum(tf.square(true - pred)) / tf.to_float(tf.size(pred))
     else:
         if len(true.get_shape()) == 4:
-            return tf.reduce_sum(tf.square(true - pred), reduction_indices=[1,2,3])\
-               / tf.to_float(tf.size(pred))
+            return tf.reduce_sum(tf.square(true - pred), reduction_indices=[1, 2, 3]) \
+                   / tf.to_float(tf.size(pred))
         elif len(true.get_shape()) == 2:
             return tf.reduce_sum(tf.square(true - pred), reduction_indices=[1]) \
                    / tf.to_float(tf.size(pred))
 
-
 class Model(object):
     def __init__(self,
                  conf,
+                 input_data=None,
                  reuse_scope=None,
                  pix_distrib=None):
 
@@ -76,16 +79,19 @@ class Model(object):
         self.iter_num = tf.placeholder(tf.float32, [])
         summaries = []
 
-        self.images = images = tf.placeholder(tf.float32, name='images',
-                                shape=(conf['batch_size'], conf['sequence_length'], 64, 64, 3))
-        self.actions = actions = tf.placeholder(tf.float32, name='actions',
-                                shape=(conf['batch_size'], conf['sequence_length'], 2))
-        self.states = states = tf.placeholder(tf.float32, name='states',
-                                shape=(conf['batch_size'], conf['sequence_length'], 4))
+        if input_data == None:
+            self.images = images = tf.placeholder(tf.float32, name='images',
+                                                  shape=(conf['batch_size'], conf['sequence_length'], 64, 64, 3))
+            self.actions = actions = tf.placeholder(tf.float32, name='actions',
+                                                    shape=(conf['batch_size'], conf['sequence_length'], 2))
+            self.states = states = tf.placeholder(tf.float32, name='states',
+                                                  shape=(conf['batch_size'], conf['sequence_length'], 4))
+        else:
+            [images, actions, states] = input_data
 
         bsize = images.get_shape()[0]
         self.noise = tf.placeholder(tf.float32, name='noise',
-                shape=(bsize, conf['sequence_length'], conf['noise_dim']))
+                                    shape=(bsize, conf['sequence_length'], conf['noise_dim']))
 
         # Split into timesteps.
         noise = tf.split(1, self.noise.get_shape()[1], self.noise)
@@ -114,8 +120,8 @@ class Model(object):
                 dna=conf['model'] == 'DNA',
                 stp=conf['model'] == 'STP',
                 context_frames=conf['context_frames'],
-                pix_distributions= pix_distrib,
-                conf= conf)
+                pix_distributions=pix_distrib,
+                conf=conf)
         else:  # reuse variables from reuse_scope
             with tf.variable_scope(reuse_scope, reuse=True):
                 gen_images, gen_states, gen_masks, gen_distrib = construct_model(
@@ -131,14 +137,14 @@ class Model(object):
                     dna=conf['model'] == 'DNA',
                     stp=conf['model'] == 'STP',
                     context_frames=conf['context_frames'],
-                    conf= conf)
+                    conf=conf)
 
         if conf['penal_last_only']:
-            cost_sel = np.zeros(conf['sequence_length']-2)
+            cost_sel = np.zeros(conf['sequence_length'] - 2)
             cost_sel[-1] = 1
             print 'using the last state for training only:', cost_sel
         else:
-            cost_sel = np.ones(conf['sequence_length']-2)
+            cost_sel = np.ones(conf['sequence_length'] - 2)
 
         # L2 loss, PSNR for eval.
         loss, psnr_all, loss_ex = 0.0, 0.0, 0.0
@@ -153,8 +159,8 @@ class Model(object):
                 tf.scalar_summary(prefix + '_recon_cost' + str(i), recon_cost))
             summaries.append(tf.scalar_summary(prefix + '_psnr' + str(i), psnr_i))
 
-            loss += recon_cost*cost_sel[i]
-            loss_ex += recon_cost_ex*cost_sel[i]
+            loss += recon_cost * cost_sel[i]
+            loss_ex += recon_cost_ex * cost_sel[i]
 
         for i, state, gen_state in zip(
                 range(len(gen_states)), states[conf['context_frames']:],
@@ -163,7 +169,7 @@ class Model(object):
             state_cost_ex = mean_squared_error(state, gen_state, example_wise=True) * 1e-4
             summaries.append(
                 tf.scalar_summary(prefix + '_state_cost' + str(i), state_cost))
-            loss += state_cost*cost_sel[i]
+            loss += state_cost * cost_sel[i]
             loss_ex += state_cost_ex * cost_sel[i]
         summaries.append(tf.scalar_summary(prefix + '_psnr_all', psnr_all))
         self.psnr_all = psnr_all
@@ -178,83 +184,144 @@ class Model(object):
         self.train_op = tf.train.AdamOptimizer(self.lr).minimize(loss)
         self.summ_op = tf.merge_summary(summaries)
 
-        self.gen_images= gen_images
+        self.gen_images = gen_images
         self.gen_masks = gen_masks
         self.gen_distrib = gen_distrib
         self.gen_states = gen_states
 
+def create_fwd_pass_gpu(conf, training=True):
+    """
+    :param conf:
+    :param model:
+    :param train_images: single example from queue
+    :param train_states: single example from queue
+    :param train_actions: single example from queue
+    :param sess:
+    :return:
+    """
+    num_smp = conf['num_smp']
 
-def run_foward_passes(conf, model, train_images, train_states, train_actions,
-                      sess, itr):
+    train_images, train_actions, train_states = build_tfrecord_input(conf, training=training)
+
+    input_data = [train_images, train_actions, train_states]
+
+    m_video = np.repeat(np.expand_dims(train_images, axis=0), num_smp, axis=0)
+    m_states = np.repeat(np.expand_dims(train_actions, axis=0), num_smp, axis=0)
+    m_actions = np.repeat(np.expand_dims(train_states, axis=0), num_smp, axis=0)
+
+    model = Model(conf, input_data=[m_video, m_states, m_actions])
+
+    return model, input_data, model.loss_ex
+
+def run_foward_passes(conf, models, loss_ex_ops, input_op_list, sess, itr):
 
     noise_dim = conf['noise_dim']
     num_smp = conf['num_smp']
 
-    mean = np.zeros(noise_dim*conf['sequence_length'])
-    cov = np.diag(np.ones(noise_dim*conf['sequence_length']))
+    assert conf['batch_size'] % FLAGS.ngpu == 0, 'number of samples in fwd-pass must be a multiple of ngpu'
 
+    mean = np.zeros(noise_dim * conf['sequence_length'])
+    cov = np.diag(np.ones(noise_dim * conf['sequence_length']))
 
     b_noise = np.zeros((conf['batch_size'], conf['sequence_length'], noise_dim))
     w_noise = np.zeros((conf['batch_size'], conf['sequence_length'], noise_dim))
 
-    # getting a batch of training data
-    input_images, input_states, input_actions = sess.run([train_images,
-                                                          train_states,
-                                                          train_actions
-                                                         ])
+    images_batch = np.zeros((conf['batch_size'], conf['sequence_length'], 64, 64, 3))
+    states_batch = np.zeros((conf['batch_size'], conf['sequence_length'], 4))
+    actions_batch = np.zeros((conf['batch_size'], conf['sequence_length'], 2))
+
 
     start = datetime.now()
-    #using different noise for every video in batch
-    for b in range(conf['batch_size']):
 
-        s_video = input_images[b]
-        s_video = np.repeat(np.expand_dims(s_video, axis=0), num_smp, axis=0)
-        s_states = input_states[b]
-        s_states = np.repeat(np.expand_dims(s_states, axis=0), num_smp, axis=0)
-        s_actions = input_actions[b]
-        s_actions = np.repeat(np.expand_dims(s_actions, axis=0), num_smp, axis=0)
+    # using different noise for every video in batch
+    for b in range(conf['batch_size']/ FLAGS.ngpu):
 
-        noise_vec = np.random.multivariate_normal(mean, cov, size=num_smp)
-        noise_vec = noise_vec.reshape((num_smp, conf['sequence_length'], noise_dim))
+        for g in range(FLAGS.ngpu):
+            noise_vec = np.random.multivariate_normal(mean, cov, size=num_smp)
+            noise_vec = noise_vec.reshape((num_smp, conf['sequence_length'], noise_dim))
 
-        feed_dict = {model.images: s_video,
-                     model.states: s_states,
-                     model.actions: s_actions,
-                     model.noise: noise_vec,
-                     model.prefix: 'train',
-                     model.iter_num: np.float32(itr),
-                     model.lr: 0
-                     }
-        [cost] = sess.run([model.loss_ex], feed_dict)
+            model = models[g]
+            feed_dict = {
+                model.noise: noise_vec,
+                model.prefix: 'train',
+                model.iter_num: np.float32(itr),
+                model.lr: 0
+            }
 
-        best_index = cost.argsort()[0]
-        worst_index = cost.argsort()[-1]
+            input_images, input_states, input_actions, cost = sess.run(input_op_list + [loss_ex_ops], feed_dict)
 
-        b_noise[b] = noise_vec[best_index]
-        w_noise[b] = noise_vec[worst_index]
+            images_batch[b*FLAGS.ngpu + g] = input_images[g]
+            states_batch[b*FLAGS.ngpu + g] = input_states[g]
+            actions_batch[b*FLAGS.ngpu + g] = input_actions[g]
+
+            best_index = cost.argsort()[0]
+            worst_index = cost.argsort()[-1]
+
+            b_noise[b*FLAGS.ngpu + g] = noise_vec[best_index]
+            w_noise[b*FLAGS.ngpu + g] = noise_vec[worst_index]
 
         # print 'lowest cost of {0}-th sample group: {1}'.format(b, cost[best_index])
         # print 'highest cost of {0}-th sample group: {1}'.format(b, cost[worst_index])
         # print 'mean cost: {0}, cost std: {1}'.format(np.mean(cost), np.cov(cost))
 
-    # print 'time for {0} forward passes {1}'.format(conf['batch_size'], (datetime.now()-start).seconds)
+    print 'time for {0} forward passes {1}'.format(conf['batch_size'], (datetime.now()-start).seconds)
 
+    return images_batch, states_batch, actions_batch, b_noise, w_noise
 
-    return input_images, input_states, input_actions, b_noise, w_noise
+def fuse_data(model_losses, model_inputs):
 
+    expanded = []
+    for each_gpu in model_losses:
+        expanded.append(tf.expand_dims(each_gpu, 0))
 
-def main(unused_argv, conf_script= None):
+    combined_loss = tf.concat(0, expanded)
+
+    combined_inputs_list = []
+    for each_gpu in model_inputs:
+        expanded = []
+        for input_type in model_losses[each_gpu]:
+            expanded.append(tf.expand_dims(input_type, 0))
+
+        combined_inputs_list.append(tf.concat(0, expanded))
+
+    return combined_loss, combined_inputs_list
+
+def construct_towers(conf, training):
+    model_inputs = []
+    model_losses = []
+    fwd_models = []
+    for i in xrange(FLAGS.ngpu):
+        with tf.device('/gpu:%d' % i):
+            with tf.name_scope('tower_%d' % (i)) as tower_opscope:
+                with tf.variable_scope('fwd_model', reuse=None):
+                    fwd_conf = copy.deepcopy(conf)
+                    fwd_conf['batch_size'] = conf['num_smp']
+
+                    model, input, loss_ex = create_fwd_pass_gpu(fwd_conf, training)
+                    model_inputs.append(input)
+                    model_losses.append(loss_ex)
+                    fwd_models.append(model)
+                    tf.get_variable_scope().reuse_variables()
+
+    return fwd_models, fuse_data(model_losses, model_inputs)
+
+def main(conf_script=None):
     if FLAGS.device != None:
-        os.environ["CUDA_VISIBLE_DEVICES"] = str(FLAGS.device)
-    else:
-        os.environ["CUDA_VISIBLE_DEVICES"] = str(0)
-    print 'using CUDA_VISIBLE_DEVICES=', FLAGS.device
+        start_id = FLAGS.device
+    else: start_id = 0
+    vis_dev = []
+    for i in range(start_id, start_id + FLAGS.ngpu):
+        vis_dev +=str(start_id)
+    vis_dev = os.environ["CUDA_VISIBLE_DEVICES"] = str(0)
+    print 'using CUDA_VISIBLE_DEVICES=', vis_dev
 
     from tensorflow.python.client import device_lib
     print device_lib.list_local_devices()
 
-    if conf_script == None: conf_file = FLAGS.hyper
-    else: conf_file = conf_script
+    if conf_script == None:
+        conf_file = FLAGS.hyper
+    else:
+        conf_file = conf_script
 
     if not os.path.exists(FLAGS.hyper):
         sys.exit("Experiment configuration not found")
@@ -271,18 +338,11 @@ def main(unused_argv, conf_script= None):
 
     print 'Constructing models and inputs...'
 
-
     with tf.variable_scope('train_model', reuse=None) as training_scope:
         model = Model(conf)
 
-    with tf.variable_scope('fwd_model', reuse=None):
-        fwd_conf = copy.deepcopy(conf)
-        fwd_conf['batch_size'] = conf['num_smp']
-        fwd_model = Model(fwd_conf, reuse_scope= training_scope)
-
-    train_images, train_actions, train_states = build_tfrecord_input(conf, training=True)
-    val_images, val_actions, val_states = build_tfrecord_input(conf, training=False)
-
+    fwd_models, [loss_ex_op, inputs_op_list] = construct_towers(conf, training= True)
+    fwd_models_val, [loss_ex_op_val, inputs_op_list_val] = construct_towers(conf, training=False)
 
     print 'Constructing saver.'
     # Make saver.
@@ -290,7 +350,7 @@ def main(unused_argv, conf_script= None):
 
     gpu_options = tf.GPUOptions(per_process_gpu_memory_fraction=0.9)
     # Make training session.
-    sess = tf.InteractiveSession(config= tf.ConfigProto(gpu_options=gpu_options))
+    sess = tf.InteractiveSession(config=tf.ConfigProto(gpu_options=gpu_options))
     summary_writer = tf.train.SummaryWriter(
         conf['output_dir'], graph=sess.graph, flush_secs=10)
 
@@ -303,10 +363,10 @@ def main(unused_argv, conf_script= None):
         itr = 0
 
         ## visualize the videos with worst score !!!
-        videos, states, actions, bestnoise, worstnoise = run_foward_passes(conf, fwd_model,
-                                                                              val_images,
-                                                                              val_states,
-                                                                              val_actions, sess, itr)
+        videos, states, actions, bestnoise, worstnoise = run_foward_passes(conf, fwd_models,
+                                                                           loss_ex_op,
+                                                                           inputs_op_list,
+                                                                           sess, itr)
 
         feed_dict = {model.images: videos,
                      model.states: states,
@@ -319,7 +379,7 @@ def main(unused_argv, conf_script= None):
 
         gen_images, mask_list = sess.run([model.gen_images, model.gen_masks], feed_dict)
         file_path = conf['output_dir']
-        cPickle.dump(gen_images, open(file_path + '/gen_image_seq.pkl','wb'))
+        cPickle.dump(gen_images, open(file_path + '/gen_image_seq.pkl', 'wb'))
         cPickle.dump(videos, open(file_path + '/ground_truth.pkl', 'wb'))
         cPickle.dump(mask_list, open(file_path + '/mask_list.pkl', 'wb'))
         print 'written files to:' + file_path
@@ -349,8 +409,8 @@ def main(unused_argv, conf_script= None):
 
         return
 
-    itr_0 =0
-    if conf['pretrained_model']:    # is the order of initialize_all_variables() and restore() important?!?
+    itr_0 = 0
+    if conf['pretrained_model']:  # is the order of initialize_all_variables() and restore() important?!?
         saver.restore(sess, conf['pretrained_model'])
         # resume training at iteration step of the loaded model:
         import re
@@ -367,10 +427,10 @@ def main(unused_argv, conf_script= None):
         t_startiter = datetime.now()
 
         # Generate new batch of data_files.
-        videos, states, actions, bestnoise, worstnoise = run_foward_passes(conf, fwd_model,
-                                                                           train_images,
-                                                                           train_states,
-                                                                           train_actions, sess, itr)
+        videos, states, actions, bestnoise, worstnoise = run_foward_passes(conf, fwd_models,
+                                                                           loss_ex_op,
+                                                                           inputs_op_list,
+                                                                           sess, itr)
 
         feed_dict = {model.images: videos,
                      model.states: states,
@@ -384,16 +444,14 @@ def main(unused_argv, conf_script= None):
                                         feed_dict)
 
         # Print info: iteration #, cost.
-        if (itr) % 10 ==0:
+        if (itr) % 10 == 0:
             tf.logging.info(str(itr) + ' ' + str(cost))
 
         if (itr) % VAL_INTERVAL == 2:
-
-            videos, states, actions, bestnoise, worstnoise = run_foward_passes(conf, fwd_model,
-                                                                               val_images,
-                                                                               val_states,
-                                                                               val_actions, sess, itr)
-
+            videos, states, actions, bestnoise, worstnoise = run_foward_passes(conf, fwd_models_val,
+                                                                               loss_ex_op_val,
+                                                                               inputs_op_list_val,
+                                                                               sess, itr)
             feed_dict = {model.images: videos,
                          model.states: states,
                          model.actions: actions,
@@ -403,26 +461,26 @@ def main(unused_argv, conf_script= None):
                          model.lr: 0.0,
                          }
             _, val_summary_str = sess.run([model.train_op, model.summ_op],
-                                            feed_dict)
+                                          feed_dict)
 
             summary_writer.add_summary(val_summary_str, itr)
-
 
         if (itr) % SAVE_INTERVAL == 2:
             tf.logging.info('Saving model to' + conf['output_dir'])
             saver.save(sess, conf['output_dir'] + '/model' + str(itr))
 
-        t_iter.append((datetime.now() - t_startiter).seconds * 1e6 +  (datetime.now() - t_startiter).microseconds )
+        t_iter.append((datetime.now() - t_startiter).seconds * 1e6 + (datetime.now() - t_startiter).microseconds)
 
         if itr % 100 == 1:
-            hours = (datetime.now() -starttime).seconds/3600
+            hours = (datetime.now() - starttime).seconds / 3600
             tf.logging.info('running for {0}d, {1}h, {2}min'.format(
                 (datetime.now() - starttime).days,
                 hours,
-                (datetime.now() - starttime).seconds/60 - hours*60))
-            avg_t_iter = np.sum(np.asarray(t_iter))/len(t_iter)
-            tf.logging.info('time per iteration: {0}'.format(avg_t_iter/1e6))
-            tf.logging.info('expected for complete training: {0}h '.format(avg_t_iter /1e6/3600 * conf['num_iterations']))
+                (datetime.now() - starttime).seconds / 60 - hours * 60))
+            avg_t_iter = np.sum(np.asarray(t_iter)) / len(t_iter)
+            tf.logging.info('time per iteration: {0}'.format(avg_t_iter / 1e6))
+            tf.logging.info(
+                'expected for complete training: {0}h '.format(avg_t_iter / 1e6 / 3600 * conf['num_iterations']))
 
         if (itr) % SUMMARY_INTERVAL:
             summary_writer.add_summary(summary_str, itr)

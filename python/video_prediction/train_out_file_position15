@@ -1,0 +1,87 @@
+I tensorflow/stream_executor/dso_loader.cc:111] successfully opened CUDA library libcublas.so locally
+I tensorflow/stream_executor/dso_loader.cc:111] successfully opened CUDA library libcudnn.so locally
+I tensorflow/stream_executor/dso_loader.cc:111] successfully opened CUDA library libcufft.so locally
+I tensorflow/stream_executor/dso_loader.cc:111] successfully opened CUDA library libcuda.so.1 locally
+I tensorflow/stream_executor/dso_loader.cc:111] successfully opened CUDA library libcurand.so locally
+I tensorflow/core/common_runtime/gpu/gpu_device.cc:951] Found device 0 with properties: 
+name: TITAN X (Pascal)
+major: 6 minor: 1 memoryClockRate (GHz) 1.531
+pciBusID 0000:03:00.0
+Total memory: 11.93GiB
+Free memory: 11.78GiB
+I tensorflow/core/common_runtime/gpu/gpu_device.cc:972] DMA: 0 
+I tensorflow/core/common_runtime/gpu/gpu_device.cc:982] 0:   Y 
+I tensorflow/core/common_runtime/gpu/gpu_device.cc:1041] Creating TensorFlow device (/gpu:0) -> (device: 0, name: TITAN X (Pascal), pci bus id: 0000:03:00.0)
+using CUDA_VISIBLE_DEVICES= 0
+[name: "/cpu:0"
+device_type: "CPU"
+memory_limit: 268435456
+bus_adjacency: BUS_ANY
+incarnation: 17257315246349553046
+, name: "/gpu:0"
+device_type: "GPU"
+memory_limit: 12014033306
+incarnation: 13116940315944100383
+physical_device_desc: "device: 0, name: TITAN X (Pascal), pci bus id: 0000:03:00.0"
+]
+-------------------------------------------------------------------
+verify current settings!! 
+model :  CDNA
+schedsamp_k :  900.0
+data_dir :  /home/febert/Documents/lsdc/pushing_data/position_control/train
+visualize :  
+num_iterations :  50000
+learning_rate :  0.001
+num_masks :  10
+skip_frame :  1
+batch_size :  32
+context_frames :  2
+experiment_name :  less_layer_settled_data
+train_val_split :  0.95
+output_dir :  /home/febert/Documents/lsdc/tensorflow_data/position_ctrl_action15/modeldata
+file_visual :  
+sequence_length :  15
+pretrained_model :  
+downsize :  <function construct_model at 0x7fcb34684e60>
+current_dir :  /home/febert/Documents/lsdc/tensorflow_data/position_ctrl_action15
+use_state :  1
+-------------------------------------------------------------------
+Constructing models and inputs.
+using frame sequence:  [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14]
+constructing network with less layers...
+Traceback (most recent call last):
+  File "prediction_train.py", line 306, in <module>
+    app.run()
+  File "/home/febert/software/anaconda2/envs/lsdc/lib/python2.7/site-packages/tensorflow/python/platform/app.py", line 30, in run
+    sys.exit(main(sys.argv[:1] + flags_passthrough))
+  File "prediction_train.py", line 201, in main
+    model = Model(conf, images, actions, states, conf['sequence_length'])
+  File "prediction_train.py", line 167, in __init__
+    self.train_op = tf.train.AdamOptimizer(self.lr).minimize(loss)
+  File "/home/febert/software/anaconda2/envs/lsdc/lib/python2.7/site-packages/tensorflow/python/training/optimizer.py", line 196, in minimize
+    grad_loss=grad_loss)
+  File "/home/febert/software/anaconda2/envs/lsdc/lib/python2.7/site-packages/tensorflow/python/training/optimizer.py", line 253, in compute_gradients
+    colocate_gradients_with_ops=colocate_gradients_with_ops)
+  File "/home/febert/software/anaconda2/envs/lsdc/lib/python2.7/site-packages/tensorflow/python/ops/gradients.py", line 469, in gradients
+    in_grads = _AsList(grad_fn(op, *out_grads))
+  File "/home/febert/software/anaconda2/envs/lsdc/lib/python2.7/site-packages/tensorflow/python/ops/nn_grad.py", line 297, in _Conv2DGrad
+    array_ops.shape(op.inputs[0]), op.inputs[1], grad, op.get_attr("strides"),
+  File "/home/febert/software/anaconda2/envs/lsdc/lib/python2.7/site-packages/tensorflow/python/ops/array_ops.py", line 137, in shape
+    return shape_internal(input, name, optimize=True, out_type=out_type)
+  File "/home/febert/software/anaconda2/envs/lsdc/lib/python2.7/site-packages/tensorflow/python/ops/array_ops.py", line 162, in shape_internal
+    return constant(input_shape.as_list(), out_type, name=name)
+  File "/home/febert/software/anaconda2/envs/lsdc/lib/python2.7/site-packages/tensorflow/python/framework/constant_op.py", line 167, in constant
+    attrs={"value": tensor_value, "dtype": dtype_value}, name=name).outputs[0]
+  File "/home/febert/software/anaconda2/envs/lsdc/lib/python2.7/site-packages/tensorflow/python/framework/ops.py", line 2380, in create_op
+    original_op=self._default_original_op, op_def=op_def)
+  File "/home/febert/software/anaconda2/envs/lsdc/lib/python2.7/site-packages/tensorflow/python/framework/ops.py", line 1250, in __init__
+    if node_def.ByteSize() >= (1 << 31) or node_def.ByteSize() < 0:
+  File "/home/febert/software/anaconda2/envs/lsdc/lib/python2.7/site-packages/google/protobuf/internal/python_message.py", line 1032, in ByteSize
+    size += field_descriptor._sizer(field_value)
+  File "/home/febert/software/anaconda2/envs/lsdc/lib/python2.7/site-packages/google/protobuf/internal/encoder.py", line 359, in FieldSize
+    entry_msg = message_type._concrete_class(key=key, value=value)
+  File "/home/febert/software/anaconda2/envs/lsdc/lib/python2.7/site-packages/google/protobuf/internal/python_message.py", line 520, in init
+    copy = field._default_constructor(self)
+  File "/home/febert/software/anaconda2/envs/lsdc/lib/python2.7/site-packages/google/protobuf/internal/python_message.py", line 431, in MakeSubMessageDefault
+    def MakeSubMessageDefault(message):
+KeyboardInterrupt
