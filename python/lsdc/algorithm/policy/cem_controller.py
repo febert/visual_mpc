@@ -378,7 +378,7 @@ class CEM_controller(Policy):
             import pdb;
             pdb.set_trace()
 
-        print 'length of self.rec_input_distrib is {0} after timestep {1}'.format(len(self.rec_input_distrib), self.t)
+        # print 'length of self.rec_input_distrib is {0} after timestep {1}'.format(len(self.rec_input_distrib), self.t)
 
         return expected_distance
 

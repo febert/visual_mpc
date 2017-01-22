@@ -299,6 +299,7 @@ def scheduled_sample(ground_truth_x, generated_x, batch_size, num_ground_truth):
       New batch with num_ground_truth sampled from ground_truth_x and the rest
       from generated_x.
     """
+
     idx = tf.random_shuffle(tf.range(int(batch_size)))
     ground_truth_idx = tf.gather(idx, tf.range(num_ground_truth))
     generated_idx = tf.gather(idx, tf.range(num_ground_truth, int(batch_size)))

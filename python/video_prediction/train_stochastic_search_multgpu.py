@@ -87,7 +87,7 @@ class Model(object):
             self.states = states = tf.placeholder(tf.float32, name='states',
                                                   shape=(conf['batch_size'], conf['sequence_length'], 4))
         else:
-            [images, actions, states] = input_data
+            images, states, actions = input_data
 
         bsize = images.get_shape()[0]
         self.noise = tf.placeholder(tf.float32, name='noise',
@@ -189,7 +189,7 @@ class Model(object):
         self.gen_distrib = gen_distrib
         self.gen_states = gen_states
 
-def create_fwd_pass_gpu(conf, training=True):
+def create_fwd_pass_gpu(conf, reuse_scope, training=True):
     """
     :param conf:
     :param model:
@@ -199,17 +199,21 @@ def create_fwd_pass_gpu(conf, training=True):
     :param sess:
     :return:
     """
+
+    # picking only one one video
+    conf['batch_size'] = 1
     num_smp = conf['num_smp']
 
     train_images, train_actions, train_states = build_tfrecord_input(conf, training=training)
 
-    input_data = [train_images, train_actions, train_states]
+    input_data = [train_images, train_states, train_actions]
 
-    m_video = np.repeat(np.expand_dims(train_images, axis=0), num_smp, axis=0)
-    m_states = np.repeat(np.expand_dims(train_actions, axis=0), num_smp, axis=0)
-    m_actions = np.repeat(np.expand_dims(train_states, axis=0), num_smp, axis=0)
 
-    model = Model(conf, input_data=[m_video, m_states, m_actions])
+    m_video = tf.tile(train_images, [num_smp, 1 , 1, 1, 1])
+    m_states = tf.tile(train_states, [num_smp, 1 , 1])
+    m_actions = tf.tile(train_actions, [num_smp, 1 , 1])
+
+    model = Model(conf, reuse_scope =reuse_scope, input_data=[m_video, m_states, m_actions])
 
     return model, input_data, model.loss_ex
 
@@ -248,11 +252,11 @@ def run_foward_passes(conf, models, loss_ex_ops, input_op_list, sess, itr):
                 model.lr: 0
             }
 
-            input_images, input_states, input_actions, cost = sess.run(input_op_list + [loss_ex_ops], feed_dict)
+            input_images, input_states, input_actions, cost = sess.run(input_op_list[g] + [loss_ex_ops[g]], feed_dict)
 
-            images_batch[b*FLAGS.ngpu + g] = input_images[g]
-            states_batch[b*FLAGS.ngpu + g] = input_states[g]
-            actions_batch[b*FLAGS.ngpu + g] = input_actions[g]
+            images_batch[b*FLAGS.ngpu + g] = input_images
+            states_batch[b*FLAGS.ngpu + g] = input_states
+            actions_batch[b*FLAGS.ngpu + g] = input_actions
 
             best_index = cost.argsort()[0]
             worst_index = cost.argsort()[-1]
@@ -268,25 +272,7 @@ def run_foward_passes(conf, models, loss_ex_ops, input_op_list, sess, itr):
 
     return images_batch, states_batch, actions_batch, b_noise, w_noise
 
-def fuse_data(model_losses, model_inputs):
-
-    expanded = []
-    for each_gpu in model_losses:
-        expanded.append(tf.expand_dims(each_gpu, 0))
-
-    combined_loss = tf.concat(0, expanded)
-
-    combined_inputs_list = []
-    for each_gpu in model_inputs:
-        expanded = []
-        for input_type in model_losses[each_gpu]:
-            expanded.append(tf.expand_dims(input_type, 0))
-
-        combined_inputs_list.append(tf.concat(0, expanded))
-
-    return combined_loss, combined_inputs_list
-
-def construct_towers(conf, training):
+def construct_towers(conf, reusescope, training):
     model_inputs = []
     model_losses = []
     fwd_models = []
@@ -297,35 +283,28 @@ def construct_towers(conf, training):
                     fwd_conf = copy.deepcopy(conf)
                     fwd_conf['batch_size'] = conf['num_smp']
 
-                    model, input, loss_ex = create_fwd_pass_gpu(fwd_conf, training)
+                    model, input, loss_ex = create_fwd_pass_gpu(fwd_conf, reusescope, training)
                     model_inputs.append(input)
                     model_losses.append(loss_ex)
                     fwd_models.append(model)
-                    tf.get_variable_scope().reuse_variables()
+                    # tf.get_variable_scope().reuse_variables()
 
-    return fwd_models, fuse_data(model_losses, model_inputs)
+    return fwd_models, model_inputs, model_losses
 
 def main(conf_script=None):
     if FLAGS.device != None:
         start_id = FLAGS.device
     else: start_id = 0
-    vis_dev = []
-    for i in range(start_id, start_id + FLAGS.ngpu):
-        vis_dev +=str(start_id)
-    vis_dev = os.environ["CUDA_VISIBLE_DEVICES"] = str(0)
-    print 'using CUDA_VISIBLE_DEVICES=', vis_dev
-
+    indexlist = [str(i) for i in range(start_id, start_id + FLAGS.ngpu)]
+    var = ','.join(indexlist)
+    print 'using CUDA_VISIBLE_DEVICES=', var
+    os.environ["CUDA_VISIBLE_DEVICES"] = var
     from tensorflow.python.client import device_lib
     print device_lib.list_local_devices()
 
-    if conf_script == None:
-        conf_file = FLAGS.hyper
-    else:
-        conf_file = conf_script
-
     if not os.path.exists(FLAGS.hyper):
         sys.exit("Experiment configuration not found")
-    hyperparams = imp.load_source('hyperparams', conf_file)
+    hyperparams = imp.load_source('hyperparams', FLAGS.hyper)
     conf = hyperparams.configuration
     if FLAGS.visualize:
         print 'creating visualizations ...'
@@ -336,21 +315,22 @@ def main(conf_script=None):
         print key, ': ', conf[key]
     print '-------------------------------------------------------------------'
 
-    print 'Constructing models and inputs...'
-
     with tf.variable_scope('train_model', reuse=None) as training_scope:
         model = Model(conf)
 
-    fwd_models, [loss_ex_op, inputs_op_list] = construct_towers(conf, training= True)
-    fwd_models_val, [loss_ex_op_val, inputs_op_list_val] = construct_towers(conf, training=False)
+    fwd_models, inputs_op_list, loss_ex_op  = construct_towers(conf,
+                                                                reusescope= training_scope,
+                                                                training= True)
+    fwd_models_val, inputs_op_list_val, loss_ex_op_val = construct_towers(conf,
+                                                                            reusescope= training_scope,
+                                                                            training=False)
 
-    print 'Constructing saver.'
-    # Make saver.
+
     saver = tf.train.Saver(tf.get_collection(tf.GraphKeys.VARIABLES), max_to_keep=0)
 
     gpu_options = tf.GPUOptions(per_process_gpu_memory_fraction=0.9)
     # Make training session.
-    sess = tf.InteractiveSession(config=tf.ConfigProto(gpu_options=gpu_options))
+    sess = tf.InteractiveSession(config=tf.ConfigProto(gpu_options=gpu_options, allow_soft_placement=True))
     summary_writer = tf.train.SummaryWriter(
         conf['output_dir'], graph=sess.graph, flush_secs=10)
 
@@ -367,7 +347,6 @@ def main(conf_script=None):
                                                                            loss_ex_op,
                                                                            inputs_op_list,
                                                                            sess, itr)
-
         feed_dict = {model.images: videos,
                      model.states: states,
                      model.actions: actions,
