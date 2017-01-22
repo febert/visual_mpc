@@ -237,7 +237,7 @@ def run_foward_passes(conf, model, train_images, train_states, train_actions,
         # print 'highest cost of {0}-th sample group: {1}'.format(b, cost[worst_index])
         # print 'mean cost: {0}, cost std: {1}'.format(np.mean(cost), np.cov(cost))
 
-    # print 'time for {0} forward passes {1}'.format(conf['batch_size'], (datetime.now()-start).seconds)
+    print 'time for {0} forward passes {1}'.format(conf['batch_size'], (datetime.now()-start).seconds +  (datetime.now()-start).microseconds/ 1e6)
 
 
     return input_images, input_states, input_actions, b_noise, w_noise

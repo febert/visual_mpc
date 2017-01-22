@@ -191,7 +191,7 @@ class Model(object):
 
 def create_fwd_pass_gpu(conf, reuse_scope, training=True):
     """
-    :param conf:
+    :param fwd_conf:
     :param model:
     :param train_images: single example from queue
     :param train_states: single example from queue
@@ -200,20 +200,23 @@ def create_fwd_pass_gpu(conf, reuse_scope, training=True):
     :return:
     """
 
-    # picking only one one video
-    conf['batch_size'] = 1
-    num_smp = conf['num_smp']
 
-    train_images, train_actions, train_states = build_tfrecord_input(conf, training=training)
+    # picking only one one video
+    fwd_conf = copy.deepcopy(conf)
+    fwd_conf['batch_size'] = 1
+    num_smp = fwd_conf['num_smp']
+
+    train_images, train_actions, train_states = build_tfrecord_input(fwd_conf, training=training)
 
     input_data = [train_images, train_states, train_actions]
+
 
 
     m_video = tf.tile(train_images, [num_smp, 1 , 1, 1, 1])
     m_states = tf.tile(train_states, [num_smp, 1 , 1])
     m_actions = tf.tile(train_actions, [num_smp, 1 , 1])
 
-    model = Model(conf, reuse_scope =reuse_scope, input_data=[m_video, m_states, m_actions])
+    model = Model(fwd_conf, reuse_scope =reuse_scope, input_data=[m_video, m_states, m_actions])
 
     return model, input_data, model.loss_ex
 
@@ -264,11 +267,16 @@ def run_foward_passes(conf, models, loss_ex_ops, input_op_list, sess, itr):
             b_noise[b*FLAGS.ngpu + g] = noise_vec[best_index]
             w_noise[b*FLAGS.ngpu + g] = noise_vec[worst_index]
 
-        # print 'lowest cost of {0}-th sample group: {1}'.format(b, cost[best_index])
-        # print 'highest cost of {0}-th sample group: {1}'.format(b, cost[worst_index])
-        # print 'mean cost: {0}, cost std: {1}'.format(np.mean(cost), np.cov(cost))
 
-    print 'time for {0} forward passes {1}'.format(conf['batch_size'], (datetime.now()-start).seconds)
+    if itr % 10 == 0:
+
+        print 'lowest cost of {0}-th sample group: {1}'.format(b, cost[best_index])
+        print 'highest cost of {0}-th sample group: {1}'.format(b, cost[worst_index])
+        print 'mean cost: {0}, cost std: {1}'.format(np.mean(cost), np.sqrt(np.cov(cost)))
+
+
+        print 'time for {0} forward passes {1}'.format(conf['batch_size'],
+               (datetime.now() - start).seconds + (datetime.now()-start).microseconds / 1e6)
 
     return images_batch, states_batch, actions_batch, b_noise, w_noise
 
@@ -280,10 +288,8 @@ def construct_towers(conf, reusescope, training):
         with tf.device('/gpu:%d' % i):
             with tf.name_scope('tower_%d' % (i)) as tower_opscope:
                 with tf.variable_scope('fwd_model', reuse=None):
-                    fwd_conf = copy.deepcopy(conf)
-                    fwd_conf['batch_size'] = conf['num_smp']
 
-                    model, input, loss_ex = create_fwd_pass_gpu(fwd_conf, reusescope, training)
+                    model, input, loss_ex = create_fwd_pass_gpu(conf, reusescope, training)
                     model_inputs.append(input)
                     model_losses.append(loss_ex)
                     fwd_models.append(model)
@@ -330,7 +336,10 @@ def main(conf_script=None):
 
     gpu_options = tf.GPUOptions(per_process_gpu_memory_fraction=0.9)
     # Make training session.
-    sess = tf.InteractiveSession(config=tf.ConfigProto(gpu_options=gpu_options, allow_soft_placement=True))
+
+    sess = tf.InteractiveSession(config=tf.ConfigProto(gpu_options=gpu_options,
+                                                       allow_soft_placement=True,
+                                                       log_device_placement=True))
     summary_writer = tf.train.SummaryWriter(
         conf['output_dir'], graph=sess.graph, flush_secs=10)
 
@@ -410,7 +419,6 @@ def main(conf_script=None):
                                                                            loss_ex_op,
                                                                            inputs_op_list,
                                                                            sess, itr)
-
         feed_dict = {model.images: videos,
                      model.states: states,
                      model.actions: actions,
