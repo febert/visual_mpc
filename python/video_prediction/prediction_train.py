@@ -143,7 +143,7 @@ class Model(object):
         for i, state, gen_state in zip(
                 range(len(gen_states)), states[conf['context_frames']:],
                 gen_states[conf['context_frames'] - 1:]):
-            state_cost = mean_squared_error(state, gen_state) * 1e-4
+            state_cost = mean_squared_error(state, gen_state) * 1e-4 * conf['use_state']
             summaries.append(
                 tf.scalar_summary(prefix + '_state_cost' + str(i), state_cost))
             loss += state_cost*cost_sel[i]

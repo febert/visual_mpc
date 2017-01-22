@@ -69,19 +69,16 @@ def build_tfrecord_input(conf, training=True):
         action_name = 'move/' + str(i) + '/action'
         state_name = 'move/' + str(i) + '/state'
         object_pos_name = 'move/' + str(i) + '/object_pos'
-        # print 'reading index', i
-        if conf['use_state']:
-            features = {
-                        image_name: tf.FixedLenFeature([1], tf.string),
-                        action_name: tf.FixedLenFeature([ACION_DIM], tf.float32),
-                        state_name: tf.FixedLenFeature([STATE_DIM], tf.float32)
-            }
-            if 'use_object_pos' in conf.keys():
-                if conf['use_object_pos']:
-                    features[object_pos_name] = tf.FixedLenFeature([OBJECT_POS_DIM], tf.float32)
 
-        else:
-            features = {image_name: tf.FixedLenFeature([1], tf.string)}
+        features = {
+                    image_name: tf.FixedLenFeature([1], tf.string),
+                    action_name: tf.FixedLenFeature([ACION_DIM], tf.float32),
+                    state_name: tf.FixedLenFeature([STATE_DIM], tf.float32)
+        }
+        if 'use_object_pos' in conf.keys():
+            if conf['use_object_pos']:
+                features[object_pos_name] = tf.FixedLenFeature([OBJECT_POS_DIM], tf.float32)
+
         features = tf.parse_single_example(serialized_example, features=features)
 
         image = tf.decode_raw(features[image_name], tf.uint8)
@@ -98,11 +95,11 @@ def build_tfrecord_input(conf, training=True):
         image = tf.cast(image, tf.float32) / 255.0
         image_seq.append(image)
 
-        if conf['use_state']:
-            state = tf.reshape(features[state_name], shape=[1, STATE_DIM])
-            state_seq.append(state)
-            action = tf.reshape(features[action_name], shape=[1, ACION_DIM])
-            action_seq.append(action)
+
+        state = tf.reshape(features[state_name], shape=[1, STATE_DIM])
+        state_seq.append(state)
+        action = tf.reshape(features[action_name], shape=[1, ACION_DIM])
+        action_seq.append(action)
 
         if 'use_object_pos' in conf.keys():
             if conf['use_object_pos']:
@@ -114,35 +111,25 @@ def build_tfrecord_input(conf, training=True):
     if conf['visualize']: num_threads = 1
     else: num_threads = np.min((conf['batch_size'], 32))
 
-    if conf['use_state']:
-        state_seq = tf.concat(0, state_seq)
-        action_seq = tf.concat(0, action_seq)
+    state_seq = tf.concat(0, state_seq)
+    action_seq = tf.concat(0, action_seq)
 
-        if 'use_object_pos' in conf.keys():
-            if conf['use_object_pos']:
-                [image_batch, action_batch, state_batch, object_pos_batch] = tf.train.batch(
-                [image_seq, action_seq, state_seq, object_pos_seq],
-                conf['batch_size'],
-                num_threads=num_threads,
-                capacity=100 * conf['batch_size'])
-
-                return image_batch, action_batch, state_batch, object_pos_batch
-        else:
-            [image_batch, action_batch, state_batch] = tf.train.batch(
-                [image_seq, action_seq, state_seq],
-                conf['batch_size'],
-                num_threads=num_threads,
-                capacity=100 * conf['batch_size'])
-            return image_batch, action_batch, state_batch
-    else:
-        image_batch = tf.train.batch(
-            [image_seq],
+    if 'use_object_pos' in conf.keys():
+        if conf['use_object_pos']:
+            [image_batch, action_batch, state_batch, object_pos_batch] = tf.train.batch(
+            [image_seq, action_seq, state_seq, object_pos_seq],
             conf['batch_size'],
             num_threads=num_threads,
             capacity=100 * conf['batch_size'])
-        zeros_batch_action = tf.zeros([conf['batch_size'], conf['sequence_length'], ACION_DIM])
-        zeros_batch_state = tf.zeros([conf['batch_size'], conf['sequence_length'], STATE_DIM])
-        return image_batch, zeros_batch_action, zeros_batch_state
+
+            return image_batch, action_batch, state_batch, object_pos_batch
+    else:
+        [image_batch, action_batch, state_batch] = tf.train.batch(
+            [image_seq, action_seq, state_seq],
+            conf['batch_size'],
+            num_threads=num_threads,
+            capacity=100 * conf['batch_size'])
+        return image_batch, action_batch, state_batch
 
 
 
