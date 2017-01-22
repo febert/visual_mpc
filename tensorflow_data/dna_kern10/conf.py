@@ -7,7 +7,7 @@ DATA_DIR = '/'.join(str.split(current_dir, '/')[:-2]) + '/pushing_data/random_ac
 # local output directory
 OUT_DIR = current_dir + '/modeldata'
 
-from video_prediction.prediction_model_stochastic_search import construct_model
+from video_prediction.prediction_model_downsized_lesslayer import construct_model
 
 configuration = {
 'experiment_name': 'rndaction_var10',
@@ -30,7 +30,5 @@ configuration = {
 'downsize': construct_model,           #'create downsized model'
 'file_visual': '',          # datafile used for making visualizations
 'penal_last_only': False,     # penalize only the last state, to get sharper predictions
-'noise_dim': 5,
-'num_smp': 10,
 'dna_size': 10              #size of DNA kerns
 }

@@ -14,7 +14,7 @@ def npy_to_gif(im_list, filename):
     clip.write_gif(filename + '.gif')
     return
 
-def comp_video(file_path, conf, suffix):
+def comp_video(file_path, conf, suffix = None):
     print 'reading files from:', file_path
     ground_truth = cPickle.load(open(file_path + '/ground_truth.pkl', "rb"))
     gen_images = cPickle.load(open(file_path + '/gen_image_seq.pkl', "rb"))
