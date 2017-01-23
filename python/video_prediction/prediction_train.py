@@ -65,10 +65,12 @@ class Model(object):
                  reuse_scope=None,
                  pix_distrib=None):
 
-        if conf['downsize']:
-            construct_model = conf['downsize']
-        else:
-            from prediction_model import construct_model
+        # if conf['downsize']:
+        #     construct_model = conf['downsize']
+        # else:
+        #     from prediction_model import construct_model
+
+        from prediction_model_downsized_lesslayer import construct_model
 
         if sequence_length is None:
             sequence_length = conf['sequence_length']
@@ -177,6 +179,7 @@ def main(unused_argv, conf_script= None):
     if not os.path.exists(FLAGS.hyper):
         sys.exit("Experiment configuration not found")
     hyperparams = imp.load_source('hyperparams', conf_file)
+
     conf = hyperparams.configuration
     if FLAGS.visualize:
         print 'creating visualizations ...'

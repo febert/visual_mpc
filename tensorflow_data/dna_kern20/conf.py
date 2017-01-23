@@ -29,6 +29,6 @@ configuration = {
 'visualize': '',            #'load model from which to generate visualizations
 'downsize': construct_model,           #'create downsized model'
 'file_visual': '',          # datafile used for making visualizations
-'penal_last_only': False,   # penalize only the last state, to get sharper predictions
-'dna_size': 10              #size of DNA kerns
+'penal_last_only': False,     # penalize only the last state, to get sharper predictions
+'dna_size': 20              #size of DNA kerns
 }
