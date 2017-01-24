@@ -325,11 +325,12 @@ def main(conf_script=None):
     # with tf.variable_scope('train_model', reuse=None) as training_scope:
     #     model = Model(conf)
 
-    training_scope = None
+    #for debugging only!!!
+    with tf.variable_scope('debug', reuse=None) as training_scope:
+        fwd_models, inputs_op_list, loss_ex_op  = construct_towers(conf,
+                                                                    reusescope= training_scope,
+                                                                    training= True)
 
-    fwd_models, inputs_op_list, loss_ex_op  = construct_towers(conf,
-                                                                reusescope= training_scope,
-                                                                training= True)
     fwd_models_val, inputs_op_list_val, loss_ex_op_val = construct_towers(conf,
                                                                             reusescope= training_scope,
                                                                             training=False)
