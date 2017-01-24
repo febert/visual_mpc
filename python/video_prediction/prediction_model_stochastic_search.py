@@ -41,7 +41,8 @@ def construct_model(images,
                     dna=False,
                     context_frames=2,
                     pix_distributions=None,
-                    conf = None
+                    conf = None,
+                    device_for_variables=None
                     ):
     """Build convolutional lstm video predictor using STP, CDNA, or DNA.
 
@@ -103,7 +104,7 @@ def construct_model(images,
     lstm_state1, lstm_state2, lstm_state3, lstm_state4 = None, None, None, None
     lstm_state5, lstm_state6, lstm_state7 = None, None, None
 
-    device_for_variables = '/cpu:0'
+
     t = -1
     for image, action, noise in zip(images[:-1], actions[:-1], noise[:-1]):
         t +=1

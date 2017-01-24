@@ -121,7 +121,8 @@ class Model(object):
                 stp=conf['model'] == 'STP',
                 context_frames=conf['context_frames'],
                 pix_distributions=pix_distrib,
-                conf=conf)
+                conf=conf,
+                device_for_variables='/cpu:0')
         else:  # reuse variables from reuse_scope
             with tf.variable_scope(reuse_scope, reuse=True):
                 gen_images, gen_states, gen_masks, gen_distrib = construct_model(
@@ -137,7 +138,8 @@ class Model(object):
                     dna=conf['model'] == 'DNA',
                     stp=conf['model'] == 'STP',
                     context_frames=conf['context_frames'],
-                    conf=conf)
+                    conf=conf,
+                    device_for_variables='/cpu:0')
 
         if conf['penal_last_only']:
             cost_sel = np.zeros(conf['sequence_length'] - 2)
@@ -288,13 +290,15 @@ def construct_towers(conf, reusescope, training):
     for i in xrange(FLAGS.ngpu):
         with tf.device('/gpu:%d' % i):
             with tf.name_scope('tower_%d' % (i)) as tower_opscope:
-                with tf.variable_scope('fwd_model', reuse=None):
 
-                    model, input, loss_ex = create_fwd_pass_gpu(conf, reusescope, training)
-                    model_inputs.append(input)
-                    model_losses.append(loss_ex)
-                    fwd_models.append(model)
-                    # tf.get_variable_scope().reuse_variables()
+                print('scope in which building creating tower %d: %s' % (i, tf.get_variable_scope()))
+                print 'reuse: ', tf.get_variable_scope().reuse
+                import pdb; pdb.set_trace()
+                model, input, loss_ex = create_fwd_pass_gpu(conf, reusescope, training)
+                model_inputs.append(input)
+                model_losses.append(loss_ex)
+                fwd_models.append(model)
+                tf.get_variable_scope().reuse_variables()
 
     return fwd_models, model_inputs, model_losses
 
@@ -322,10 +326,11 @@ def main(conf_script=None):
         print key, ': ', conf[key]
     print '-------------------------------------------------------------------'
 
-    with tf.variable_scope('train_model', reuse=None) as training_scope:
-        model = Model(conf)
+    # with tf.variable_scope('train_model', reuse=None) as training_scope:
+    #     model = Model(conf)
 
-    fwd_models, inputs_op_list, loss_ex_op  = construct_towers(conf, reusescope= training_scope,
+    with tf.variable_scope('train', reuse=None) as training_scope:
+        fwd_models, inputs_op_list, loss_ex_op  = construct_towers(conf, reusescope= training_scope,
                                                                     training= True)
 
     fwd_models_val, inputs_op_list_val, loss_ex_op_val = construct_towers(conf,
