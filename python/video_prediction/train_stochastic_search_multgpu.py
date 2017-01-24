@@ -300,7 +300,6 @@ def construct_towers(conf,training, reusescope=None):
 
                 print('creating tower %d: in scope %s' % (i, tf.get_variable_scope()))
                 print 'reuse: ', tf.get_variable_scope().reuse
-                import pdb; pdb.set_trace()
                 model, input, loss_ex = create_fwd_pass_gpu(conf, reusescope, training)
                 model_inputs.append(input)
                 model_losses.append(loss_ex)
@@ -352,7 +351,7 @@ def main(conf_script=None):
 
     sess = tf.InteractiveSession(config=tf.ConfigProto(gpu_options=gpu_options,
                                                        allow_soft_placement=True,
-                                                       log_device_placement=True))
+                                                       log_device_placement=False))
     summary_writer = tf.train.SummaryWriter(
         conf['output_dir'], graph=sess.graph, flush_secs=10)
 

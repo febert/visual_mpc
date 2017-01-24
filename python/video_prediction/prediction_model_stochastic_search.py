@@ -111,9 +111,6 @@ def construct_model(images,
         # Reuse variables after the first timestep.
         reuse = bool(gen_images)
 
-        print 'creating {}-th timestep'.format(t)
-        print 'reuse', reuse
-
         done_warm_start = len(gen_images) > context_frames - 1
         with slim.arg_scope(
                 [lstm_func, slim.layers.conv2d, slim.layers.fully_connected,
