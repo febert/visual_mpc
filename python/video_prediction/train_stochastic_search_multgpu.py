@@ -156,8 +156,8 @@ class Model(object):
             psnr_i = peak_signal_to_noise_ratio(x, gx)
             psnr_all += psnr_i
             summaries.append(
-                tf.summary.scalar(prefix + '_recon_cost' + str(i), recon_cost))
-            summaries.append(tf.summary.scalar(prefix + '_psnr' + str(i), psnr_i))
+                tf.scalar_summary(prefix + '_recon_cost' + str(i), recon_cost))
+            summaries.append(tf.scalar_summary(prefix + '_psnr' + str(i), psnr_i))
 
             loss += recon_cost * cost_sel[i]
             loss_ex += recon_cost_ex * cost_sel[i]
@@ -168,16 +168,16 @@ class Model(object):
             state_cost = mean_squared_error(state, gen_state) * 1e-4
             state_cost_ex = mean_squared_error(state, gen_state, example_wise=True) * 1e-4
             summaries.append(
-                tf.summary.scalar(prefix + '_state_cost' + str(i), state_cost))
+                tf.scalar_summary(prefix + '_state_cost' + str(i), state_cost))
             loss += state_cost * cost_sel[i]
             loss_ex += state_cost_ex * cost_sel[i]
-        summaries.append(tf.summary.scalar(prefix + '_psnr_all', psnr_all))
+        summaries.append(tf.scalar_summary(prefix + '_psnr_all', psnr_all))
         self.psnr_all = psnr_all
 
         self.loss = loss = loss / np.float32(len(images) - conf['context_frames'])
         self.loss_ex = loss_ex = loss_ex / np.float32(len(images) - conf['context_frames'])
 
-        summaries.append(tf.summary.scalar(prefix + '_loss', loss))
+        summaries.append(tf.scalar_summary(prefix + '_loss', loss))
 
         self.lr = tf.placeholder_with_default(conf['learning_rate'], ())
 
