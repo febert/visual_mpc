@@ -98,7 +98,7 @@ def basic_conv_lstm_cell(inputs,
                             stride=1,
                             activation_fn=None,
                             scope='Gates',
-                            device_for_varibles= device_for_variables)
+                            device_for_variables= device_for_variables)
 
     # i = input_gate, j = new_input, f = forget_gate, o = output_gate
     i, j, f, o = tf.split(3, 4, i_j_f_o)
