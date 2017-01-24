@@ -291,7 +291,7 @@ def construct_towers(conf, reusescope, training):
         with tf.device('/gpu:%d' % i):
             with tf.name_scope('tower_%d' % (i)) as tower_opscope:
 
-                print('scope in which building creating tower %d: %s' % (i, tf.get_variable_scope()))
+                print('creating tower %d: in scope %s' % (i, tf.get_variable_scope()))
                 print 'reuse: ', tf.get_variable_scope().reuse
                 import pdb; pdb.set_trace()
                 model, input, loss_ex = create_fwd_pass_gpu(conf, reusescope, training)
