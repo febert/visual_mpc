@@ -351,7 +351,7 @@ def main(conf_script=None):
 
     sess = tf.InteractiveSession(config=tf.ConfigProto(gpu_options=gpu_options,
                                                        allow_soft_placement=True,
-                                                       log_device_placement=False))
+                                                       log_device_placement=True))
     summary_writer = tf.train.SummaryWriter(
         conf['output_dir'], graph=sess.graph, flush_secs=10)
 
