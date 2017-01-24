@@ -282,7 +282,14 @@ def run_foward_passes(conf, models, loss_ex_ops, input_op_list, sess, itr):
 
     return images_batch, states_batch, actions_batch, b_noise, w_noise
 
-def construct_towers(conf, reusescope, training):
+def construct_towers(conf,training, reusescope=None):
+    """
+
+    :param conf:
+    :param training: whether tf records uses training or validation data
+    :param reusescope: if validation model, this is the scope to be reused from the training model
+    :return:
+    """
 
     model_inputs = []
     model_losses = []
@@ -330,7 +337,7 @@ def main(conf_script=None):
     #     model = Model(conf)
 
     with tf.variable_scope('train', reuse=None) as training_scope:
-        fwd_models, inputs_op_list, loss_ex_op  = construct_towers(conf, reusescope= training_scope,
+        fwd_models, inputs_op_list, loss_ex_op  = construct_towers(conf,
                                                                     training= True)
 
     fwd_models_val, inputs_op_list_val, loss_ex_op_val = construct_towers(conf,
