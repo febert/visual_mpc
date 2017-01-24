@@ -143,7 +143,6 @@ def construct_model(images,
                 scope='scale1_conv1',
                 normalizer_fn=tf_layers.layer_norm,
                 normalizer_params={'scope': 'layer_norm1'},
-                device_for_variables = device_for_variables
             )
 
             hidden1, lstm_state1 = lstm_func(
