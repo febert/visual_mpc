@@ -103,6 +103,7 @@ def construct_model(images,
     lstm_state1, lstm_state2, lstm_state3, lstm_state4 = None, None, None, None
     lstm_state5, lstm_state6, lstm_state7 = None, None, None
 
+    device_for_variables = '/cpu:0'
     t = -1
     for image, action, noise in zip(images[:-1], actions[:-1], noise[:-1]):
         t +=1
@@ -113,7 +114,8 @@ def construct_model(images,
         with slim.arg_scope(
                 [lstm_func, slim.layers.conv2d, slim.layers.fully_connected,
                  tf_layers.layer_norm, slim.layers.conv2d_transpose],
-                reuse=reuse):
+                reuse=reuse,
+                device_for_variables=device_for_variables):
 
             if feedself and done_warm_start:
                 # Feed in generated image.
@@ -140,11 +142,13 @@ def construct_model(images,
                 stride=2,
                 scope='scale1_conv1',
                 normalizer_fn=tf_layers.layer_norm,
-                normalizer_params={'scope': 'layer_norm1'})
+                normalizer_params={'scope': 'layer_norm1'},
+                device_for_variables = device_for_variables
+            )
 
             hidden1, lstm_state1 = lstm_func(
                 enc0, lstm_state1, lstm_size[0], scope='state1')
-            hidden1 = tf_layers.layer_norm(hidden1, scope='layer_norm2')
+            hidden1 = tf_layers.layer_norm(hidden1, scope='layer_norm2', )
             # hidden2, lstm_state2 = lstm_func(
             #     hidden1, lstm_state2, lstm_size[1], scope='state2')
             # hidden2 = tf_layers.layer_norm(hidden2, scope='layer_norm3')

@@ -59,7 +59,8 @@ def basic_conv_lstm_cell(inputs,
                          filter_size=5,
                          forget_bias=1.0,
                          scope=None,
-                         reuse=None):
+                         reuse=None,
+                         device_for_variables=None):
   """Basic LSTM recurrent network cell, with 2D convolution connctions.
 
   We add forget_bias (default: 1) to the biases of the forget gate in order to
@@ -96,7 +97,8 @@ def basic_conv_lstm_cell(inputs,
                             4 * num_channels, [filter_size, filter_size],
                             stride=1,
                             activation_fn=None,
-                            scope='Gates')
+                            scope='Gates',
+                            device_for_varibles= device_for_variables)
 
     # i = input_gate, j = new_input, f = forget_gate, o = output_gate
     i, j, f, o = tf.split(3, 4, i_j_f_o)
