@@ -7,7 +7,7 @@ DATA_DIR = '/'.join(str.split(current_dir, '/')[:-2]) + '/pushing_data/random_ac
 # local output directory
 OUT_DIR = current_dir + '/modeldata'
 
-from video_prediction.prediction_model_stochastic_search import construct_model
+from video_prediction.stochastic_search.prediction_model_stochastic_search import construct_model
 
 configuration = {
 'experiment_name': 'rndaction_var10',

@@ -6,14 +6,14 @@ import sys
 import cPickle
 import copy
 
-from utils_vpred.adapt_params_visualize import adapt_params_visualize
+from video_prediction.utils_vpred.adapt_params_visualize import adapt_params_visualize
 from tensorflow.python.platform import app
 from tensorflow.python.platform import flags
-import utils_vpred.create_gif
+import video_prediction.utils_vpred.create_gif
 
-from read_tf_record import build_tfrecord_input
+from video_prediction.read_tf_record import build_tfrecord_input
 
-from utils_vpred.skip_example import skip_example
+from video_prediction.utils_vpred.skip_example import skip_example
 
 from datetime import datetime
 
@@ -75,8 +75,9 @@ class Model(object):
 
         from prediction_model_stochastic_search import construct_model
 
-        self.prefix = prefix = tf.placeholder(tf.string, [])
-        self.iter_num = tf.placeholder(tf.float32, [])
+        # self.iter_num = tf.placeholder(tf.float32, shape=(1),name='iter_num')
+        self.iter_num = tf.placeholder(tf.float32, [], name= 'iternum')
+
         summaries = []
 
         if input_data == None:
@@ -86,15 +87,13 @@ class Model(object):
                                                     shape=(conf['batch_size'], conf['sequence_length'], 2))
             self.states = states = tf.placeholder(tf.float32, name='states',
                                                   shape=(conf['batch_size'], conf['sequence_length'], 4))
+            self.noise = noise = tf.placeholder(tf.float32, name='noise',
+                                                shape=(conf['batch_size'], conf['sequence_length'], conf['noise_dim']))
         else:
-            images, states, actions = input_data
-
-        bsize = images.get_shape()[0]
-        self.noise = tf.placeholder(tf.float32, name='noise',
-                                    shape=(bsize, conf['sequence_length'], conf['noise_dim']))
+            images, states, actions, noise = input_data
 
         # Split into timesteps.
-        noise = tf.split(1, self.noise.get_shape()[1], self.noise)
+        noise = tf.split(1, noise.get_shape()[1], noise)
         noise = [tf.squeeze(n) for n in noise]
         actions = tf.split(1, actions.get_shape()[1], actions)
         actions = [tf.squeeze(act) for act in actions]
@@ -158,8 +157,8 @@ class Model(object):
             psnr_i = peak_signal_to_noise_ratio(x, gx)
             psnr_all += psnr_i
             summaries.append(
-                tf.scalar_summary(prefix + '_recon_cost' + str(i), recon_cost))
-            summaries.append(tf.scalar_summary(prefix + '_psnr' + str(i), psnr_i))
+                tf.summary.scalar('recon_cost' + str(i), recon_cost))
+            summaries.append(tf.summary.scalar('psnr' + str(i), psnr_i))
 
             loss += recon_cost * cost_sel[i]
             loss_ex += recon_cost_ex * cost_sel[i]
@@ -170,18 +169,18 @@ class Model(object):
             state_cost = mean_squared_error(state, gen_state) * 1e-4
             state_cost_ex = mean_squared_error(state, gen_state, example_wise=True) * 1e-4
             summaries.append(
-                tf.scalar_summary(prefix + '_state_cost' + str(i), state_cost))
+                tf.summary.scalar('state_cost' + str(i), state_cost))
             loss += state_cost * cost_sel[i]
             loss_ex += state_cost_ex * cost_sel[i]
-        summaries.append(tf.scalar_summary(prefix + '_psnr_all', psnr_all))
+        summaries.append(tf.summary.scalar('_psnr_all', psnr_all))
         self.psnr_all = psnr_all
 
         self.loss = loss = loss / np.float32(len(images) - conf['context_frames'])
         self.loss_ex = loss_ex = loss_ex / np.float32(len(images) - conf['context_frames'])
 
-        summaries.append(tf.scalar_summary(prefix + '_loss', loss))
+        summaries.append(tf.summary.scalar('loss', loss))
 
-        self.lr = tf.placeholder_with_default(conf['learning_rate'], ())
+        self.lr = tf.placeholder_with_default(conf['learning_rate'], (), name='learningrate')
 
         self.train_op = tf.train.AdamOptimizer(self.lr).minimize(loss)
         self.summ_op = tf.merge_summary(summaries)
@@ -191,38 +190,32 @@ class Model(object):
         self.gen_distrib = gen_distrib
         self.gen_states = gen_states
 
-def create_fwd_pass_gpu(conf, reuse_scope, training=True):
-    """
-    :param fwd_conf:
-    :param model:
-    :param train_images: single example from queue
-    :param train_states: single example from queue
-    :param train_actions: single example from queue
-    :param sess:
-    :return:
-    """
+class Tower(object):
+    def __init__(self, conf, gpu_id, reuse_scope, train_images, train_states, train_actions):
+
+        num_smp = conf['num_smp']
+
+        #pick the right example from the batch of size ngpu:
+        cp_images = tf.slice(train_images, [gpu_id,0,0,0,0], [1,-1,-1,-1,-1])
+        # and replicate with number num_smp
+        self.cp_images = tf.tile(cp_images, [num_smp, 1 , 1, 1, 1])
+
+        cp_states = tf.slice(train_states, [gpu_id, 0, 0], [1, -1, -1])
+        self.cp_states = tf.tile(cp_states, [num_smp, 1 , 1])
+
+        cp_actions = tf.slice(train_actions, [gpu_id, 0, 0], [1, -1, -1])
+        self.cp_actions = tf.tile(cp_actions, [num_smp, 1 , 1])
+
+        self.noise = tf.truncated_normal([num_smp, conf['sequence_length'], conf['noise_dim']],
+                                         mean=0.0, stddev=1.0, dtype=tf.float32, seed=None, name=None)
+
+        self.model = Model(conf, reuse_scope =reuse_scope, input_data=[self.cp_images,
+                                                                       self.cp_states,
+                                                                       self.cp_actions,
+                                                                       self.noise])
 
 
-    # picking only one one video
-    fwd_conf = copy.deepcopy(conf)
-    fwd_conf['batch_size'] = 1
-    num_smp = fwd_conf['num_smp']
-
-    train_images, train_actions, train_states = build_tfrecord_input(fwd_conf, training=training)
-
-    input_data = [train_images, train_states, train_actions]
-
-
-
-    m_video = tf.tile(train_images, [num_smp, 1 , 1, 1, 1])
-    m_states = tf.tile(train_states, [num_smp, 1 , 1])
-    m_actions = tf.tile(train_actions, [num_smp, 1 , 1])
-
-    model = Model(fwd_conf, reuse_scope =reuse_scope, input_data=[m_video, m_states, m_actions])
-
-    return model, input_data, model.loss_ex
-
-def run_foward_passes(conf, models, loss_ex_ops, input_op_list, sess, itr):
+def run_foward_passes(conf, sess, itr, towers, train_images, train_states, train_actions):
 
     noise_dim = conf['noise_dim']
     num_smp = conf['num_smp']
@@ -239,29 +232,41 @@ def run_foward_passes(conf, models, loss_ex_ops, input_op_list, sess, itr):
     states_batch = np.zeros((conf['batch_size'], conf['sequence_length'], 4))
     actions_batch = np.zeros((conf['batch_size'], conf['sequence_length'], 2))
 
-
     start = datetime.now()
 
     # using different noise for every video in batch
     for b in range(conf['batch_size']/ FLAGS.ngpu):
 
+        # put all tower's placeholders in one feedict
+        feed_dict = {}
+        for t in towers:
+            feed_dict[t.model.iter_num] = np.float32(itr)
+            feed_dict[t.model.lr] = 0.0
+
+
+
+        #pack all towers operations which need to be evaluated in one list
+        op_list = []
+        op_list += [train_images, train_states, train_actions]
+        for t in towers:
+            op_list.append(t.model.loss_ex)
+            op_list.append(t.noise)
+
+        res_list = sess.run(op_list, feed_dict)
+
+        # unpack results
+        input_images = res_list.pop(0)
+        input_states = res_list.pop(0)
+        input_actions = res_list.pop(0)
+
         for g in range(FLAGS.ngpu):
-            noise_vec = np.random.multivariate_normal(mean, cov, size=num_smp)
-            noise_vec = noise_vec.reshape((num_smp, conf['sequence_length'], noise_dim))
 
-            model = models[g]
-            feed_dict = {
-                model.noise: noise_vec,
-                model.prefix: 'train',
-                model.iter_num: np.float32(itr),
-                model.lr: 0
-            }
+            images_batch[b*FLAGS.ngpu + g] = input_images[g]
+            states_batch[b*FLAGS.ngpu + g] = input_states[g]
+            actions_batch[b*FLAGS.ngpu + g] = input_actions[g]
 
-            input_images, input_states, input_actions, cost = sess.run(input_op_list[g] + [loss_ex_ops[g]], feed_dict)
-
-            images_batch[b*FLAGS.ngpu + g] = input_images
-            states_batch[b*FLAGS.ngpu + g] = input_states
-            actions_batch[b*FLAGS.ngpu + g] = input_actions
+            cost = res_list.pop(0)
+            noise_vec = res_list.pop(0)
 
             best_index = cost.argsort()[0]
             worst_index = cost.argsort()[-1]
@@ -269,13 +274,11 @@ def run_foward_passes(conf, models, loss_ex_ops, input_op_list, sess, itr):
             b_noise[b*FLAGS.ngpu + g] = noise_vec[best_index]
             w_noise[b*FLAGS.ngpu + g] = noise_vec[worst_index]
 
-
     if itr % 10 == 0:
 
         print 'lowest cost of {0}-th sample group: {1}'.format(b, cost[best_index])
         print 'highest cost of {0}-th sample group: {1}'.format(b, cost[worst_index])
         print 'mean cost: {0}, cost std: {1}'.format(np.mean(cost), np.sqrt(np.cov(cost)))
-
 
         print 'time for {0} forward passes {1}'.format(conf['batch_size'],
                (datetime.now() - start).seconds + (datetime.now()-start).microseconds / 1e6)
@@ -291,22 +294,25 @@ def construct_towers(conf,training, reusescope=None):
     :return:
     """
 
-    model_inputs = []
-    model_losses = []
-    fwd_models = []
+    # picking only one one video
+    fwd_conf = copy.deepcopy(conf)
+    fwd_conf['batch_size'] = FLAGS.ngpu
+    train_images, train_actions, train_states = build_tfrecord_input(fwd_conf, training=training)
+
+    towers = []
+
     for i in xrange(FLAGS.ngpu):
         with tf.device('/gpu:%d' % i):
             with tf.name_scope('tower_%d' % (i)) as tower_opscope:
 
                 print('creating tower %d: in scope %s' % (i, tf.get_variable_scope()))
                 print 'reuse: ', tf.get_variable_scope().reuse
-                model, input, loss_ex = create_fwd_pass_gpu(conf, reusescope, training)
-                model_inputs.append(input)
-                model_losses.append(loss_ex)
-                fwd_models.append(model)
+
+                towers.append(Tower(conf, i, reusescope, train_images, train_states, train_actions))
                 tf.get_variable_scope().reuse_variables()
 
-    return fwd_models, model_inputs, model_losses
+
+    return towers, train_images, train_states, train_actions
 
 def main(conf_script=None):
     if FLAGS.device != None:
@@ -336,13 +342,10 @@ def main(conf_script=None):
     #     model = Model(conf)
 
     with tf.variable_scope('train', reuse=None) as training_scope:
-        fwd_models, inputs_op_list, loss_ex_op  = construct_towers(conf,
-                                                                    training= True)
+        train_towers, train_images, train_states, train_actions  = construct_towers(conf, training= True)
 
-    fwd_models_val, inputs_op_list_val, loss_ex_op_val = construct_towers(conf,
-                                                                            reusescope= training_scope,
+    val_towers, val_images, val_states, val_actions = construct_towers(conf, reusescope= training_scope,
                                                                             training=False)
-
 
     saver = tf.train.Saver(tf.get_collection(tf.GraphKeys.VARIABLES), max_to_keep=0)
 
@@ -427,10 +430,13 @@ def main(conf_script=None):
         t_startiter = datetime.now()
 
         # Generate new batch of data_files.
-        videos, states, actions, bestnoise, worstnoise = run_foward_passes(conf, fwd_models,
-                                                                           loss_ex_op,
-                                                                           inputs_op_list,
-                                                                           sess, itr)
+        videos, states, actions, bestnoise, worstnoise = run_foward_passes(conf,
+                                                                           sess,
+                                                                           itr,
+                                                                           train_towers,
+                                                                           train_images,
+                                                                           train_states,
+                                                                           train_actions)
         # feed_dict = {model.images: videos,
         #              model.states: states,
         #              model.actions: actions,
@@ -448,10 +454,13 @@ def main(conf_script=None):
             tf.logging.info(str(itr) + ' ' + str(cost))
 
         if (itr) % VAL_INTERVAL == 2:
-            videos, states, actions, bestnoise, worstnoise = run_foward_passes(conf, fwd_models_val,
-                                                                               loss_ex_op_val,
-                                                                               inputs_op_list_val,
-                                                                               sess, itr)
+            videos, states, actions, bestnoise, worstnoise = run_foward_passes(conf,
+                                                                                sess,
+                                                                                itr,
+                                                                                val_towers,
+                                                                                val_images,
+                                                                                val_states,
+                                                                                val_actions)
             # feed_dict = {model.images: videos,
             #              model.states: states,
             #              model.actions: actions,

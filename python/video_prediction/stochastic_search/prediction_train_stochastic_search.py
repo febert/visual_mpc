@@ -6,14 +6,14 @@ import sys
 import cPickle
 import copy
 
-from utils_vpred.adapt_params_visualize import adapt_params_visualize
+from video_prediction.utils_vpred.adapt_params_visualize import adapt_params_visualize
 from tensorflow.python.platform import app
 from tensorflow.python.platform import flags
-import utils_vpred.create_gif
+import video_prediction.utils_vpred.create_gif
 
-from read_tf_record import build_tfrecord_input
+from video_prediction.read_tf_record import build_tfrecord_input
 
-from utils_vpred.skip_example import skip_example
+from video_prediction.utils_vpred.skip_example import skip_example
 
 from datetime import datetime
 
@@ -324,8 +324,8 @@ def main(unused_argv, conf_script= None):
         cPickle.dump(mask_list, open(file_path + '/mask_list.pkl', 'wb'))
         print 'written files to:' + file_path
 
-        trajectories = utils_vpred.create_gif.comp_video(conf['output_dir'], conf, suffix='_best')
-        utils_vpred.create_gif.comp_masks(conf['output_dir'], conf, trajectories, suffix='_best')
+        trajectories = video_prediction.utils_vpred.create_gif.comp_video(conf['output_dir'], conf, suffix='_best')
+        video_prediction.utils_vpred.create_gif.comp_masks(conf['output_dir'], conf, trajectories, suffix='_best')
 
         ### visualizing videos with highest cost noise:
         feed_dict = {model.images: videos,
@@ -344,8 +344,8 @@ def main(unused_argv, conf_script= None):
         cPickle.dump(mask_list, open(file_path + '/mask_list.pkl', 'wb'))
         print 'written files to:' + file_path
 
-        trajectories = utils_vpred.create_gif.comp_video(conf['output_dir'], conf, suffix='_worst')
-        utils_vpred.create_gif.comp_masks(conf['output_dir'], conf, trajectories, suffix='_worst')
+        trajectories = video_prediction.utils_vpred.create_gif.comp_video(conf['output_dir'], conf, suffix='_worst')
+        video_prediction.utils_vpred.create_gif.comp_masks(conf['output_dir'], conf, trajectories, suffix='_worst')
 
         return
 
