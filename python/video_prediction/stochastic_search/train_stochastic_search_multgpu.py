@@ -11,6 +11,8 @@ from tensorflow.python.platform import app
 from tensorflow.python.platform import flags
 import video_prediction.utils_vpred.create_gif
 
+from video_prediction import utils_vpred
+
 from video_prediction.read_tf_record import build_tfrecord_input
 
 from video_prediction.utils_vpred.skip_example import skip_example
@@ -304,9 +306,8 @@ def construct_towers(conf,training, reusescope=None):
     for i in xrange(FLAGS.ngpu):
         with tf.device('/gpu:%d' % i):
             with tf.name_scope('tower_%d' % (i)) as tower_opscope:
-
                 print('creating tower %d: in scope %s' % (i, tf.get_variable_scope()))
-                print 'reuse: ', tf.get_variable_scope().reuse
+                # print 'reuse: ', tf.get_variable_scope().reuse
 
                 towers.append(Tower(conf, i, reusescope, train_images, train_states, train_actions))
                 tf.get_variable_scope().reuse_variables()
@@ -338,8 +339,8 @@ def main(conf_script=None):
         print key, ': ', conf[key]
     print '-------------------------------------------------------------------'
 
-    # with tf.variable_scope('train_model', reuse=None) as training_scope:
-    #     model = Model(conf)
+    with tf.variable_scope('train_model', reuse=None) as training_scope:
+        model = Model(conf)
 
     with tf.variable_scope('train', reuse=None) as training_scope:
         train_towers, train_images, train_states, train_actions  = construct_towers(conf, training= True)
@@ -354,63 +355,64 @@ def main(conf_script=None):
 
     sess = tf.InteractiveSession(config=tf.ConfigProto(gpu_options=gpu_options,
                                                        allow_soft_placement=True,
-                                                       log_device_placement=True))
+                                                       log_device_placement=False))
     summary_writer = tf.train.SummaryWriter(
         conf['output_dir'], graph=sess.graph, flush_secs=10)
 
     tf.train.start_queue_runners(sess)
     sess.run(tf.initialize_all_variables())
 
-    # if conf['visualize']:
-    #     saver.restore(sess, conf['visualize'])
-    #
-    #     itr = 0
-    #
-    #     ## visualize the videos with worst score !!!
-    #     videos, states, actions, bestnoise, worstnoise = run_foward_passes(conf, fwd_models,
-    #                                                                        loss_ex_op,
-    #                                                                        inputs_op_list,
-    #                                                                        sess, itr)
-    #     feed_dict = {model.images: videos,
-    #                  model.states: states,
-    #                  model.actions: actions,
-    #                  model.noise: bestnoise,
-    #                  model.prefix: 'visual',
-    #                  model.iter_num: 0,
-    #                  model.lr: 0,
-    #                  }
-    #
-    #     gen_images, mask_list = sess.run([model.gen_images, model.gen_masks], feed_dict)
-    #     file_path = conf['output_dir']
-    #     cPickle.dump(gen_images, open(file_path + '/gen_image_seq.pkl', 'wb'))
-    #     cPickle.dump(videos, open(file_path + '/ground_truth.pkl', 'wb'))
-    #     cPickle.dump(mask_list, open(file_path + '/mask_list.pkl', 'wb'))
-    #     print 'written files to:' + file_path
-    #
-    #     trajectories = utils_vpred.create_gif.comp_video(conf['output_dir'], conf, suffix='_best')
-    #     utils_vpred.create_gif.comp_masks(conf['output_dir'], conf, trajectories, suffix='_best')
-    #
-    #     ### visualizing videos with highest cost noise:
-    #     feed_dict = {model.images: videos,
-    #                  model.states: states,
-    #                  model.actions: actions,
-    #                  model.noise: worstnoise,
-    #                  model.prefix: 'visual',
-    #                  model.iter_num: 0,
-    #                  model.lr: 0,
-    #                  }
-    #
-    #     gen_images, mask_list = sess.run([model.gen_images, model.gen_masks], feed_dict)
-    #     file_path = conf['output_dir']
-    #     cPickle.dump(gen_images, open(file_path + '/gen_image_seq.pkl', 'wb'))
-    #     cPickle.dump(videos, open(file_path + '/ground_truth.pkl', 'wb'))
-    #     cPickle.dump(mask_list, open(file_path + '/mask_list.pkl', 'wb'))
-    #     print 'written files to:' + file_path
-    #
-    #     trajectories = utils_vpred.create_gif.comp_video(conf['output_dir'], conf, suffix='_worst')
-    #     utils_vpred.create_gif.comp_masks(conf['output_dir'], conf, trajectories, suffix='_worst')
-    #
-    #     return
+    if conf['visualize']:
+        saver.restore(sess, conf['visualize'])
+
+        itr = 0
+
+        ## visualize the videos with worst score !!!
+        videos, states, actions, bestnoise, worstnoise = run_foward_passes(conf,
+                                                                           sess,
+                                                                           itr,
+                                                                           train_towers,
+                                                                           train_images,
+                                                                           train_states,
+                                                                           train_actions)
+        feed_dict = {model.images: videos,
+                     model.states: states,
+                     model.actions: actions,
+                     model.noise: bestnoise,
+                     model.iter_num: 0,
+                     model.lr: 0,
+                     }
+
+        gen_images, mask_list = sess.run([model.gen_images, model.gen_masks], feed_dict)
+        file_path = conf['output_dir']
+        cPickle.dump(gen_images, open(file_path + '/gen_image_seq.pkl', 'wb'))
+        cPickle.dump(videos, open(file_path + '/ground_truth.pkl', 'wb'))
+        cPickle.dump(mask_list, open(file_path + '/mask_list.pkl', 'wb'))
+        print 'written files to:' + file_path
+
+        trajectories = utils_vpred.create_gif.comp_video(conf['output_dir'], conf, suffix='_best')
+        utils_vpred.create_gif.comp_masks(conf['output_dir'], conf, trajectories, suffix='_best')
+
+        ### visualizing videos with highest cost noise:
+        feed_dict = {model.images: videos,
+                     model.states: states,
+                     model.actions: actions,
+                     model.noise: worstnoise,
+                     model.iter_num: 0,
+                     model.lr: 0,
+                     }
+
+        gen_images, mask_list = sess.run([model.gen_images, model.gen_masks], feed_dict)
+        file_path = conf['output_dir']
+        cPickle.dump(gen_images, open(file_path + '/gen_image_seq.pkl', 'wb'))
+        cPickle.dump(videos, open(file_path + '/ground_truth.pkl', 'wb'))
+        cPickle.dump(mask_list, open(file_path + '/mask_list.pkl', 'wb'))
+        print 'written files to:' + file_path
+
+        trajectories = utils_vpred.create_gif.comp_video(conf['output_dir'], conf, suffix='_worst')
+        utils_vpred.create_gif.comp_masks(conf['output_dir'], conf, trajectories, suffix='_worst')
+
+        return
 
     itr_0 = 0
     if conf['pretrained_model']:  # is the order of initialize_all_variables() and restore() important?!?
@@ -437,18 +439,17 @@ def main(conf_script=None):
                                                                            train_images,
                                                                            train_states,
                                                                            train_actions)
-        # feed_dict = {model.images: videos,
-        #              model.states: states,
-        #              model.actions: actions,
-        #              model.noise: bestnoise,
-        #              model.prefix: 'train',
-        #              model.iter_num: np.float32(itr),
-        #              model.lr: conf['learning_rate'],
-        #              }
-        # cost, _, summary_str = sess.run([model.loss, model.train_op, model.summ_op],
-        #                                 feed_dict)
+        feed_dict = {model.images: videos,
+                     model.states: states,
+                     model.actions: actions,
+                     model.noise: bestnoise,
+                     model.iter_num: np.float32(itr),
+                     model.lr: conf['learning_rate'],
+                     }
+        cost, _, summary_str = sess.run([model.loss, model.train_op, model.summ_op],
+                                        feed_dict)
 
-        cost = np.nan
+
         # Print info: iteration #, cost.
         if (itr) % 10 == 0:
             tf.logging.info(str(itr) + ' ' + str(cost))
@@ -461,18 +462,17 @@ def main(conf_script=None):
                                                                                 val_images,
                                                                                 val_states,
                                                                                 val_actions)
-            # feed_dict = {model.images: videos,
-            #              model.states: states,
-            #              model.actions: actions,
-            #              model.noise: bestnoise,
-            #              model.prefix: 'val',
-            #              model.iter_num: np.float32(itr),
-            #              model.lr: 0.0,
-            #              }
-            # _, val_summary_str = sess.run([model.train_op, model.summ_op],
-            #                               feed_dict)
-            #
-            # summary_writer.add_summary(val_summary_str, itr)
+            feed_dict = {model.images: videos,
+                         model.states: states,
+                         model.actions: actions,
+                         model.noise: bestnoise,
+                         model.iter_num: np.float32(itr),
+                         model.lr: 0.0,
+                         }
+            _, val_summary_str = sess.run([model.train_op, model.summ_op],
+                                          feed_dict)
+
+            summary_writer.add_summary(val_summary_str, itr)
 
         if (itr) % SAVE_INTERVAL == 2:
             tf.logging.info('Saving model to' + conf['output_dir'])
