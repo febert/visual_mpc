@@ -422,7 +422,7 @@ def main(conf_script=None):
     tf.logging.info('iteration number, cost')
 
     starttime = datetime.now()
-    t_iter = []
+    t_iter_list = []
     # Run training.
     for itr in range(itr_0, conf['num_iterations'], 1):
         t_startiter = datetime.now()
@@ -481,7 +481,7 @@ def main(conf_script=None):
             tf.logging.info('Saving model to' + conf['output_dir'])
             saver.save(sess, conf['output_dir'] + '/model' + str(itr))
 
-        t_iter.append((datetime.now() - t_startiter).seconds * 1e6 + (datetime.now() - t_startiter).microseconds)
+        t_iter_list.append((datetime.now() - t_startiter).seconds * 1e6 + (datetime.now() - t_startiter).microseconds)
 
         if itr % 10 == 1:
             hours = (datetime.now() - starttime).seconds / 3600
@@ -489,10 +489,11 @@ def main(conf_script=None):
                 (datetime.now() - starttime).days,
                 hours,
                 (datetime.now() - starttime).seconds / 60 - hours * 60))
-            avg_t_iter = np.sum(np.asarray(t_iter)) / len(t_iter)
 
             t_iter = (datetime.now() - t_startiter).seconds + (datetime.now() - t_startiter).microseconds / 1e6
             tf.logging.info('time for iteration {0}: {1}'.format(t_iter, itr))
+
+            avg_t_iter = np.sum(np.asarray(t_iter_list)) / len(t_iter_list)
             tf.logging.info(
                 'expected time for complete training: {0}h '.format(avg_t_iter / 1e6 / 3600 * conf['num_iterations']))
 
