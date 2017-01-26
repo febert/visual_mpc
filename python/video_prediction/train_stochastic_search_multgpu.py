@@ -6,16 +6,16 @@ import sys
 import cPickle
 import copy
 
-from video_prediction.utils_vpred.adapt_params_visualize import adapt_params_visualize
+from utils_vpred.adapt_params_visualize import adapt_params_visualize
+# from video_prediction.utils_vpred.adapt_params_visualize import adapt_params_visualize
 from tensorflow.python.platform import app
 from tensorflow.python.platform import flags
-import video_prediction.utils_vpred.create_gif
+import utils_vpred.create_gif
 
-from video_prediction import utils_vpred
+import utils_vpred
 
-from video_prediction.read_tf_record import build_tfrecord_input
+from read_tf_record import build_tfrecord_input
 
-from video_prediction.utils_vpred.skip_example import skip_example
 
 from datetime import datetime
 
@@ -338,8 +338,8 @@ def main(conf_script=None):
     with tf.variable_scope('train_model', reuse=None) as training_scope:
         model = Model(conf)
 
-    with tf.variable_scope('train', reuse=None) as training_scope:
-        train_towers, train_images, train_states, train_actions  = construct_towers(conf, training= True)
+
+    train_towers, train_images, train_states, train_actions  = construct_towers(conf, training= True, reusescope= training_scope)
 
     val_towers, val_images, val_states, val_actions = construct_towers(conf, reusescope= training_scope,
                                                                             training=False)
