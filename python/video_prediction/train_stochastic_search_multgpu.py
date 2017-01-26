@@ -427,7 +427,6 @@ def main(conf_script=None):
     for itr in range(itr_0, conf['num_iterations'], 1):
         t_startiter = datetime.now()
 
-        start = datetime.now()
         # Generate new batch of data_files.
         videos, states, actions, bestnoise, worstnoise = run_foward_passes(conf,
                                                                            sess,
@@ -439,8 +438,8 @@ def main(conf_script=None):
 
         if itr % 10 == 0:
             print 'time training step {0} (single forward-backward pass) {1}'.format(itr,
-                                                           (datetime.now() - start).seconds + (
-                                                           datetime.now() - start).microseconds / 1e6)
+                                                           (datetime.now() - t_startiter).seconds + (
+                                                           datetime.now() - t_startiter).microseconds / 1e6)
 
         feed_dict = {model.images: videos,
                      model.states: states,
@@ -483,7 +482,7 @@ def main(conf_script=None):
 
         t_iter_list.append((datetime.now() - t_startiter).seconds * 1e6 + (datetime.now() - t_startiter).microseconds)
 
-        if itr % 10 == 1:
+        if itr % 10 == 0:
             hours = (datetime.now() - starttime).seconds / 3600
             tf.logging.info('running for {0}d, {1}h, {2}min'.format(
                 (datetime.now() - starttime).days,
@@ -491,7 +490,7 @@ def main(conf_script=None):
                 (datetime.now() - starttime).seconds / 60 - hours * 60))
 
             t_iter = (datetime.now() - t_startiter).seconds + (datetime.now() - t_startiter).microseconds / 1e6
-            tf.logging.info('time for iteration {0}: {1}'.format(t_iter, itr))
+            tf.logging.info('time for iteration {0}: {1}'.format(itr, t_iter))
 
             avg_t_iter = np.sum(np.asarray(t_iter_list)) / len(t_iter_list)
             tf.logging.info(
