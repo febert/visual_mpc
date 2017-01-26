@@ -278,7 +278,7 @@ def run_foward_passes(conf, sess, itr, towers, train_images, train_states, train
         print 'highest cost of {0}-th sample group: {1}'.format(b, cost[worst_index])
         print 'mean cost: {0}, cost std: {1}'.format(np.mean(cost), np.sqrt(np.cov(cost)))
 
-        print 'time for {0} forward passes {1}'.format(conf['batch_size'],
+        print 'step {0}, time for {1} forward passes {2}'.format(itr, conf['batch_size'],
                (datetime.now() - start).seconds + (datetime.now()-start).microseconds / 1e6)
 
     return images_batch, states_batch, actions_batch, b_noise, w_noise
@@ -438,7 +438,7 @@ def main(conf_script=None):
                                                                            train_actions)
 
         if itr % 10 == 0:
-            print 'time training step (single forward-backward pass) {}'.format(
+            print 'time training step {0} (single forward-backward pass) {1}'.format(itr,
                                                            (datetime.now() - start).seconds + (
                                                            datetime.now() - start).microseconds / 1e6)
 
@@ -490,9 +490,11 @@ def main(conf_script=None):
                 hours,
                 (datetime.now() - starttime).seconds / 60 - hours * 60))
             avg_t_iter = np.sum(np.asarray(t_iter)) / len(t_iter)
-            tf.logging.info('time per iteration: {0}'.format(avg_t_iter / 1e6))
+
+            t_iter = (datetime.now() - t_startiter).seconds + (datetime.now() - t_startiter).microseconds / 1e6
+            tf.logging.info('time for iteration {0}: {1}'.format(t_iter, itr))
             tf.logging.info(
-                'expected for complete training: {0}h '.format(avg_t_iter / 1e6 / 3600 * conf['num_iterations']))
+                'expected time for complete training: {0}h '.format(avg_t_iter / 1e6 / 3600 * conf['num_iterations']))
 
         # if (itr) % SUMMARY_INTERVAL:
         #     summary_writer.add_summary(summary_str, itr)
