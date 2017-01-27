@@ -295,7 +295,6 @@ def run_foward_passes(conf, sess, itr, towers, train_images, train_states, train
 
 def construct_towers(conf,training, reusescope=None):
     """
-
     :param conf:
     :param training: whether tf records uses training or validation data
     :param reusescope: if validation model, this is the scope to be reused from the training model
@@ -382,8 +381,7 @@ def main(conf_script=None):
                                                                            train_towers,
                                                                            train_images,
                                                                            train_states,
-                                                                           train_actions,
-                                                                            create_meta)
+                                                                           train_actions)
         feed_dict = {model.images: videos,
                      model.states: states,
                      model.actions: actions,
@@ -425,12 +423,13 @@ def main(conf_script=None):
 
     itr_0 = 0
     if FLAGS.pretrained:  # is the order of initialize_all_variables() and restore() important?!?
-        pretr_model = conf['current_dir'] +'/'+ FLAGS.pretrained
+        pretr_model = conf['output_dir'] +'/'+ FLAGS.pretrained
         saver.restore(sess, pretr_model)
         # resume training at iteration step of the loaded model:
         import re
         itr_0 = re.match('.*?([0-9]+)$', pretr_model).group(1)
         itr_0 = int(itr_0)
+        print 'using pretrained model from :' + pretr_model
         print 'resuming training at iteration:  ', itr_0
 
     tf.logging.info('iteration number, cost')
@@ -467,7 +466,6 @@ def main(conf_script=None):
                      }
         cost, _, summary_str = sess.run([model.loss, model.train_op, model.summ_op],
                                         feed_dict)
-
 
         if itr % 10 == 0:
             print 'time training step {0} (single forward-backward pass) {1}'.format(itr,
