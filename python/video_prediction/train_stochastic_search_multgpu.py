@@ -327,6 +327,9 @@ def construct_towers(conf,training, reusescope=None):
 
 
 def main(conf_script=None):
+
+    import pdb; pdb.set_trace()
+
     if FLAGS.device != None:
         start_id = FLAGS.device
     else: start_id = 0
