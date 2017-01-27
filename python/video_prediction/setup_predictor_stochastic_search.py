@@ -9,7 +9,7 @@ import os
 
 
 class Tower(object):
-    def __init__(self, conf, gpu_id, reuse_scope):
+    def __init__(self, conf, gpu_id, reuse_scope = None):
 
         self.start_images = tf.placeholder(tf.float32, name='images',
                                 shape=(1, conf['sequence_length'], 64, 64, 3))
@@ -37,8 +37,6 @@ class Tower(object):
                                                                        per_gpu_actions,
                                                                        per_gpu_noise,
                                                                        pix_distrib])
-        
-
 
 def setup_predictor(conf_file, gpu_id = 0):
     """
@@ -61,22 +59,30 @@ def setup_predictor(conf_file, gpu_id = 0):
     with sess.as_default():
         with g_predictor.as_default():
 
-            # print 'predictor default session:', tf.get_default_session()
-            # print 'predictor default graph:', tf.get_default_graph()
-
             print '-------------------------------------------------------------------'
             print 'verify current settings!! '
             for key in conf.keys():
                 print key, ': ', conf[key]
             print '-------------------------------------------------------------------'
 
+            print 'Constructing multi gpu model for control'
 
+            towers = []
 
-            print 'Constructing model for control'
-            with tf.variable_scope('model', reuse=None) as training_scope:
-                model = Model(conf, images, actions, states,
-                              conf['sequence_length'], reuse_scope= None, pix_distrib= pix_distrib)
+            for i in xrange(conf['ngpu']):
+                with tf.device('/gpu:%d' % i):
+                    with tf.name_scope('tower_%d' % (i)) as tower_opscope:
+                        print('creating tower %d: in scope %s' % (i, tf.get_variable_scope()))
 
+                        towers.append(Tower(conf, i))
+                        tf.get_variable_scope().reuse_variables()
+
+            comb_gen_img = [t.model.gen_images for t in towers]
+            comb_gen_img = tf.concat(0, comb_gen_img)
+            comb_pix_distrib = [t.model.pix_distrib for t in towers]
+            comb_pix_distrib = tf.concat(0, comb_pix_distrib)
+            comb_gen_states = [t.model.gen_states for t in towers]
+            comb_gen_states = tf.concat(0, comb_gen_states)
 
             sess.run(tf.initialize_all_variables())
 
@@ -90,25 +96,21 @@ def setup_predictor(conf_file, gpu_id = 0):
                 :return: the predicted pixcoord at the end of sequence
                 """
 
-                itr = 0
-                feed_dict = {model.prefix: 'ctrl',
-                             model.iter_num: np.float32(itr),
-                             model.lr: conf['learning_rate'],
-                             images: input_images,
-                             actions: input_actions,
-                             states: input_state,
-                             pix_distrib: one_hot_images
-                             }
-                gen_distrib, gen_images, gen_masks, gen_states = sess.run([model.gen_distrib,
-                                                               model.gen_images,
-                                                               model.gen_masks,
-                                                               model.gen_states
-                                                               ],
-                                                                feed_dict)
+                feed_dict = {}
+                for t in towers:
+                    feed_dict[t.model.iter_num] = np.float32(0)
+                    feed_dict[t.model.lr] = 0.0
+                    feed_dict[t.start_images] = input_images
+                    feed_dict[t.start_states] = input_state
+                    feed_dict[t.actions] = input_actions
 
-                # summary_writer = tf.train.SummaryWriter(conf['current_dir'], flush_secs=1)
-                # summary_writer.add_summary(summary_str)
+                # pack all towers operations which need to be evaluated in one list
 
-                return gen_distrib, gen_images, gen_masks, gen_states
+                gen_images, gen_distrib, gen_states = sess.run(comb_gen_img,
+                                                              comb_pix_distrib,
+                                                              comb_gen_states,
+                                                              feed_dict)
+
+                return gen_distrib, gen_images, None, gen_states
 
             return predictor_func
