@@ -431,14 +431,16 @@ def main(conf_script=None):
 
     itr_0 = 0
     if FLAGS.pretrained:  # is the order of initialize_all_variables() and restore() important?!?
-        pretr_model = conf['output_dir'] +'/'+ FLAGS.pretrained
+
+        pretr_model = conf['output_dir'] + '/' + FLAGS.pretrained
+        print 'using pretrained model from :' + pretr_model
         saver.restore(sess, pretr_model)
         # resume training at iteration step of the loaded model:
         import re
         itr_0 = re.match('.*?([0-9]+)$', pretr_model).group(1)
         itr_0 = int(itr_0)
-        print 'using pretrained model from :' + pretr_model
         print 'resuming training at iteration:  ', itr_0
+
 
     tf.logging.info('iteration number, cost')
 
