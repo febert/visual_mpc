@@ -32,7 +32,7 @@ FLAGS = flags.FLAGS
 flags.DEFINE_string('hyper', '', 'hyperparameters configuration file')
 flags.DEFINE_string('visualize', '', 'model within hyperparameter folder from which to create gifs')
 flags.DEFINE_integer('device', None, 'the gpu number to start with')
-flags.DEFINE_integer('pretrained', None, 'name of the model to resume training from. e.g. model10002')
+flags.DEFINE_string('pretrained', None, 'name of the model to resume training from. e.g. model10002')
 
 flags.DEFINE_integer('ngpu', 1, 'number of gpus to use')
 
