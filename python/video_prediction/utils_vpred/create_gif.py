@@ -214,31 +214,31 @@ if __name__ == '__main__':
     # file_path = '/'.join(splitted[:-3] + ['tensorflow_data/skip_frame/use_every4'])
     # file_path = '/home/frederik/Documents/lsdc/tensorflow_data/skip_frame/use_every_4'
 
-    # file_path = '/home/frederik/Documents/lsdc/tensorflow_data/downsized_less_layers/modeldata'
-    # hyperparams = imp.load_source('hyperparams', '/home/frederik/Documents/lsdc/tensorflow_data/downsized_less_layers/conf.py' )
-    # conf = hyperparams.configuration
-    # conf['visualize'] = conf['output_dir'] + '/model98002'
-    # pred = comp_video(file_path, conf)
+    file_path = '/home/frederik/Documents/lsdc/tensorflow_data/stochastic_search_multgpu/modeldata'
+    hyperparams = imp.load_source('hyperparams', '/home/frederik/Documents/lsdc/tensorflow_data/stochastic_search_multgpu/conf.py' )
+    conf = hyperparams.configuration
+    conf['visualize'] = conf['output_dir'] + '/model10002'
+    pred = comp_video(file_path, conf)
 
     # file_path = '/home/frederik/Documents/lsdc/experiments/cem_exp/data_files'
     # comp_pix_distrib(file_path, masks= False)
 
     # file = '/home/frederik/Documents/lsdc/experiments/cem_exp/data_files'
 
-    file = '/home/frederik/Documents/lsdc/experiments/cem_exp/videos_distrib'
-
-    l = cPickle.load(open(file + '/correction.pkl', "rb"))
-
-    orig_images, gen_images, corr_distrib, desig_pix = l[0], l[1], l[2], l[3]
-
-
-
-    corr_distrib = pix_distrib_video(corr_distrib)
-    corr_distrib = add_crosshairs(corr_distrib, desig_pix)
-
-    orig_images = [img.astype(np.float32) / 255. for img in orig_images]
-
-    frame_list = assemble_gif([orig_images, gen_images, corr_distrib], num_exp= 1)
-
-
-    npy_to_gif(frame_list, file + '/correction')
+    # file = '/home/frederik/Documents/lsdc/experiments/cem_exp/videos_distrib'
+    #
+    # l = cPickle.load(open(file + '/correction.pkl', "rb"))
+    #
+    # orig_images, gen_images, corr_distrib, desig_pix = l[0], l[1], l[2], l[3]
+    #
+    #
+    #
+    # corr_distrib = pix_distrib_video(corr_distrib)
+    # corr_distrib = add_crosshairs(corr_distrib, desig_pix)
+    #
+    # orig_images = [img.astype(np.float32) / 255. for img in orig_images]
+    #
+    # frame_list = assemble_gif([orig_images, gen_images, corr_distrib], num_exp= 1)
+    #
+    #
+    # npy_to_gif(frame_list, file + '/correction')

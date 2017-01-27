@@ -308,7 +308,6 @@ def construct_towers(conf,training, reusescope=None):
                 towers.append(Tower(conf, i, reusescope, train_images, train_states, train_actions))
                 tf.get_variable_scope().reuse_variables()
 
-
     return towers, train_images, train_states, train_actions
 
 def main(conf_script=None):
@@ -436,11 +435,7 @@ def main(conf_script=None):
                                                                            train_states,
                                                                            train_actions)
 
-        if itr % 10 == 0:
-            print 'time training step {0} (single forward-backward pass) {1}'.format(itr,
-                                                           (datetime.now() - t_startiter).seconds + (
-                                                           datetime.now() - t_startiter).microseconds / 1e6)
-
+        start_fwd_backwd =datetime.now()
         feed_dict = {model.images: videos,
                      model.states: states,
                      model.actions: actions,
@@ -450,6 +445,12 @@ def main(conf_script=None):
                      }
         cost, _, summary_str = sess.run([model.loss, model.train_op, model.summ_op],
                                         feed_dict)
+
+
+        if itr % 10 == 0:
+            print 'time training step {0} (single forward-backward pass) {1}'.format(itr,
+                                                           (datetime.now() - start_fwd_backwd).seconds + (
+                                                           datetime.now() - start_fwd_backwd).microseconds / 1e6)
 
 
         # Print info: iteration #, cost.
@@ -496,8 +497,8 @@ def main(conf_script=None):
             tf.logging.info(
                 'expected time for complete training: {0}h '.format(avg_t_iter / 1e6 / 3600 * conf['num_iterations']))
 
-        # if (itr) % SUMMARY_INTERVAL:
-        #     summary_writer.add_summary(summary_str, itr)
+        if (itr) % SUMMARY_INTERVAL:
+            summary_writer.add_summary(summary_str, itr)
 
     tf.logging.info('Saving model.')
     saver.save(sess, conf['output_dir'] + '/model')
