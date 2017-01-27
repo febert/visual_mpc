@@ -32,6 +32,7 @@ FLAGS = flags.FLAGS
 flags.DEFINE_string('hyper', '', 'hyperparameters configuration file')
 flags.DEFINE_string('visualize', '', 'model within hyperparameter folder from which to create gifs')
 flags.DEFINE_integer('device', None, 'the gpu number to start with')
+flags.DEFINE_integer('pretrained', None, 'name of the model to resume training from. e.g. model10002')
 
 flags.DEFINE_integer('ngpu', 1, 'number of gpus to use')
 
@@ -217,7 +218,7 @@ class Tower(object):
                                                                        self.noise])
 
 
-def run_foward_passes(conf, sess, itr, towers, train_images, train_states, train_actions):
+def run_foward_passes(conf, sess, itr, towers, train_images, train_states, train_actions, print_timing= False):
 
     noise_dim = conf['noise_dim']
 
@@ -241,8 +242,6 @@ def run_foward_passes(conf, sess, itr, towers, train_images, train_states, train
             feed_dict[t.model.iter_num] = np.float32(itr)
             feed_dict[t.model.lr] = 0.0
 
-
-
         #pack all towers operations which need to be evaluated in one list
         op_list = []
         op_list += [train_images, train_states, train_actions]
@@ -250,7 +249,18 @@ def run_foward_passes(conf, sess, itr, towers, train_images, train_states, train
             op_list.append(t.model.loss_ex)
             op_list.append(t.noise)
 
-        res_list = sess.run(op_list, feed_dict)
+        if not print_timing:
+            res_list = sess.run(op_list, feed_dict)
+        else:
+            run_metadata = tf.RunMetadata()
+            res_list = sess.run(op_list,
+                         options=tf.RunOptions(trace_level=tf.RunOptions.FULL_TRACE),
+                         run_metadata=run_metadata)
+
+            tf.contrib.tfprof.model_analyzer.print_model_analysis(
+                tf.get_default_graph(),
+                run_meta=run_metadata,
+                tfprof_options=tf.contrib.tfprof.model_analyzer.PRINT_ALL_TIMING_MEMORY)
 
         # unpack results
         input_images = res_list.pop(0)
@@ -310,6 +320,8 @@ def construct_towers(conf,training, reusescope=None):
 
     return towers, train_images, train_states, train_actions
 
+
+
 def main(conf_script=None):
     if FLAGS.device != None:
         start_id = FLAGS.device
@@ -346,8 +358,9 @@ def main(conf_script=None):
     saver = tf.train.Saver(tf.get_collection(tf.GraphKeys.VARIABLES), max_to_keep=0)
 
     gpu_options = tf.GPUOptions(per_process_gpu_memory_fraction=0.9)
-    # Make training session.
 
+
+    # Make training session.
     sess = tf.InteractiveSession(config=tf.ConfigProto(gpu_options=gpu_options,
                                                        allow_soft_placement=True,
                                                        log_device_placement=False))
@@ -369,7 +382,8 @@ def main(conf_script=None):
                                                                            train_towers,
                                                                            train_images,
                                                                            train_states,
-                                                                           train_actions)
+                                                                           train_actions,
+                                                                            create_meta)
         feed_dict = {model.images: videos,
                      model.states: states,
                      model.actions: actions,
@@ -410,11 +424,12 @@ def main(conf_script=None):
         return
 
     itr_0 = 0
-    if conf['pretrained_model']:  # is the order of initialize_all_variables() and restore() important?!?
-        saver.restore(sess, conf['pretrained_model'])
+    if FLAGS.pretrained:  # is the order of initialize_all_variables() and restore() important?!?
+        pretr_model = conf['current_dir'] +'/'+ FLAGS.pretrained
+        saver.restore(sess, pretr_model)
         # resume training at iteration step of the loaded model:
         import re
-        itr_0 = re.match('.*?([0-9]+)$', conf['pretrained_model']).group(1)
+        itr_0 = re.match('.*?([0-9]+)$', pretr_model).group(1)
         itr_0 = int(itr_0)
         print 'resuming training at iteration:  ', itr_0
 
@@ -422,8 +437,13 @@ def main(conf_script=None):
 
     starttime = datetime.now()
     t_iter_list = []
+    timing = False
     # Run training.
     for itr in range(itr_0, conf['num_iterations'], 1):
+
+        # if itr%10 == 0:
+        #     timing = True
+
         t_startiter = datetime.now()
 
         # Generate new batch of data_files.
@@ -433,7 +453,9 @@ def main(conf_script=None):
                                                                            train_towers,
                                                                            train_images,
                                                                            train_states,
-                                                                           train_actions)
+                                                                           train_actions,
+                                                                           print_timing=timing)
+        timing = False
 
         start_fwd_backwd =datetime.now()
         feed_dict = {model.images: videos,

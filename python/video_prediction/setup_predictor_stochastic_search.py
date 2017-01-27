@@ -3,35 +3,12 @@ import imp
 import numpy as np
 from train_stochastic_search_multgpu import Model
 from train_stochastic_search_multgpu import construct_towers
+from train_stochastic_search_multgpu import Tower
+
 from PIL import Image
 import os
 
 
-
-
-class Tower(object):
-    def __init__(self, conf, gpu_id, reuse_scope, train_images, train_states, train_actions):
-
-        num_smp = conf['num_smp']
-
-        #pick the right example from the batch of size ngpu:
-        cp_images = tf.slice(train_images, [gpu_id,0,0,0,0], [1,-1,-1,-1,-1])
-        # and replicate with number num_smp
-        self.cp_images = tf.tile(cp_images, [num_smp, 1 , 1, 1, 1])
-
-        cp_states = tf.slice(train_states, [gpu_id, 0, 0], [1, -1, -1])
-        self.cp_states = tf.tile(cp_states, [num_smp, 1 , 1])
-
-        cp_actions = tf.slice(train_actions, [gpu_id, 0, 0], [1, -1, -1])
-        self.cp_actions = tf.tile(cp_actions, [num_smp, 1 , 1])
-
-        self.noise = tf.truncated_normal([num_smp, conf['sequence_length'], conf['noise_dim']],
-                                         mean=0.0, stddev=1.0, dtype=tf.float32, seed=None, name=None)
-
-        self.model = Model(conf, reuse_scope =reuse_scope, input_data=[self.cp_images,
-                                                                       self.cp_states,
-                                                                       self.cp_actions,
-                                                                       self.noise])
 
 
 def setup_predictor(conf_file, gpu_id = 0):
