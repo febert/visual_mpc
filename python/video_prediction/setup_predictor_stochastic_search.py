@@ -2,13 +2,42 @@ import tensorflow as tf
 import imp
 import numpy as np
 from train_stochastic_search_multgpu import Model
-from train_stochastic_search_multgpu import construct_towers
-from train_stochastic_search_multgpu import Tower
 
 from PIL import Image
 import os
 
 
+
+class Tower(object):
+    def __init__(self, conf, gpu_id, reuse_scope):
+
+        self.start_images = tf.placeholder(tf.float32, name='images',
+                                shape=(1, conf['sequence_length'], 64, 64, 3))
+        self.actions = tf.placeholder(tf.float32, name='actions',
+                                 shape=(conf['batch_size'], conf['sequence_length'], 2))
+        self.start_states = tf.placeholder(tf.float32, name='states',
+                                shape=(1, conf['context_frames'], 4))
+
+        pix_distrib = tf.placeholder(tf.float32, shape=(1, conf['context_frames'], 64, 64, 1))
+
+        nsmp_per_gpu = conf['batch_size']/ conf['ngpu']
+
+        start_images = tf.tile(self.start_images, [nsmp_per_gpu, 1 , 1, 1, 1])
+        pix_distrib = tf.tile(pix_distrib, [nsmp_per_gpu, 1, 1, 1, 1])
+        start_states = tf.tile(self.start_states, [nsmp_per_gpu, 1 , 1])
+
+        act_startidx = gpu_id * nsmp_per_gpu
+        per_gpu_actions = tf.slice(self.actions, [act_startidx, 0, 0], [nsmp_per_gpu, -1, -1])
+
+        per_gpu_noise = tf.truncated_normal([nsmp_per_gpu, conf['sequence_length'], conf['noise_dim']],
+                                         mean=0.0, stddev=1.0, dtype=tf.float32, seed=None, name=None)
+
+        self.model = Model(conf, reuse_scope =reuse_scope, input_data=[start_images,
+                                                                       start_states,
+                                                                       per_gpu_actions,
+                                                                       per_gpu_noise,
+                                                                       pix_distrib])
+        
 
 
 def setup_predictor(conf_file, gpu_id = 0):
@@ -41,14 +70,7 @@ def setup_predictor(conf_file, gpu_id = 0):
                 print key, ': ', conf[key]
             print '-------------------------------------------------------------------'
 
-            images = tf.placeholder(tf.float32, name='images',
-                                    shape=(conf['batch_size'], conf['sequence_length'], 64, 64, 3))
-            actions = tf.placeholder(tf.float32, name= 'actions',
-                                     shape=(conf['batch_size'], conf['sequence_length'], 2))
-            states = tf.placeholder(tf.float32, name='states',
-                                         shape=(conf['batch_size'],conf['context_frames'] , 4))
 
-            pix_distrib = tf.placeholder(tf.float32, shape=(conf['batch_size'], conf['context_frames'], 64, 64, 1))
 
             print 'Constructing model for control'
             with tf.variable_scope('model', reuse=None) as training_scope:

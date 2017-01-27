@@ -93,7 +93,12 @@ class Model(object):
             self.noise = noise = tf.placeholder(tf.float32, name='noise',
                                                 shape=(conf['batch_size'], conf['sequence_length'], conf['noise_dim']))
         else:
-            images, states, actions, noise = input_data
+            if len(input_data) == 4:
+                images, states, actions, noise = input_data
+            elif len(input_data) == 5:
+                images, states, actions, noise, pix_distrib = input_data
+            else:
+                raise ValueError()
 
         # Split into timesteps.
         noise = tf.split(1, noise.get_shape()[1], noise)

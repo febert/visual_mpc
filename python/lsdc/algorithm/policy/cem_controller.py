@@ -178,9 +178,7 @@ class CEM_controller(Policy):
 
             actions = np.repeat(actions, self.repeat, axis=1)
 
-            # prepending last action to the sampled actions:
-            # actions = np.concatenate((last_action, actions), axis=1)
-            # actions = actions[:,:self.netconf['sequence_length'],:]
+
             if self.use_net:
                 scores = self.video_pred(last_frames, last_states, actions, itr)
             self.indices = scores.argsort()[:self.K]
@@ -296,7 +294,6 @@ class CEM_controller(Policy):
 
         elif 'predictor_propagation' in self.policyparams:  #using the predictor's DNA to propagate, no correction
             print 'using predictor_propagation'
-
             if self.t < self.netconf['context_frames']:
                 input_distrib = self.mujoco_one_hot_images()
                 if itr == 0:
@@ -308,17 +305,32 @@ class CEM_controller(Policy):
 
         else: input_distrib = self.mujoco_one_hot_images()
 
-        input_distrib = np.repeat(input_distrib, self.netconf['batch_size'], axis=0)
+
 
         last_states = np.expand_dims(last_states, axis=0)
-        last_states = np.repeat(last_states, self.netconf['batch_size'], axis=0)
 
-        last_frames = np.expand_dims(last_frames, axis=0)
-        last_frames = np.repeat(last_frames, self.netconf['batch_size'], axis=0)
-        app_zeros = np.zeros(shape=(self.netconf['batch_size'], self.netconf['sequence_length']-
-                                    self.netconf['context_frames'], 64, 64, 3))
-        last_frames = np.concatenate((last_frames, app_zeros), axis=1)
-        last_frames = last_frames.astype(np.float32)/255.
+
+        if 'no_imagerepeat' in self.netconf:
+
+
+            last_frames = np.expand_dims(last_frames, axis=0)
+            last_frames = np.repeat(last_frames, 1, axis=0)
+            app_zeros = np.zeros(shape=(1, self.netconf['sequence_length'] -
+                                        self.netconf['context_frames'], 64, 64, 3))
+            last_frames = np.concatenate((last_frames, app_zeros), axis=1)
+            last_frames = last_frames.astype(np.float32) / 255.
+
+        else:  # data is repeated witch batch_size
+            last_states = np.repeat(last_states, self.netconf['batch_size'], axis=0)
+
+            input_distrib = np.repeat(input_distrib, self.netconf['batch_size'], axis=0)
+
+            last_frames = np.expand_dims(last_frames, axis=0)
+            last_frames = np.repeat(last_frames, self.netconf['batch_size'], axis=0)
+            app_zeros = np.zeros(shape=(self.netconf['batch_size'], self.netconf['sequence_length']-
+                                        self.netconf['context_frames'], 64, 64, 3))
+            last_frames = np.concatenate((last_frames, app_zeros), axis=1)
+            last_frames = last_frames.astype(np.float32)/255.
 
         gen_distrib, gen_images, gen_masks, gen_states = self.predictor(last_frames, input_distrib,
                                                             last_states, actions)
