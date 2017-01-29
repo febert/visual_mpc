@@ -29,12 +29,11 @@ VAL_INTERVAL = 200
 SAVE_INTERVAL = 2000
 
 FLAGS = flags.FLAGS
-flags.DEFINE_string('hyper', '', 'hyperparameters configuration file')
-flags.DEFINE_string('visualize', '', 'model within hyperparameter folder from which to create gifs')
-flags.DEFINE_integer('device', None, 'the gpu number to start with')
-flags.DEFINE_string('pretrained', None, 'name of the model to resume training from. e.g. model10002')
-
-flags.DEFINE_integer('ngpu', 1, 'number of gpus to use')
+# flags.DEFINE_string('hyper', '', 'hyperparameters configuration file')
+# flags.DEFINE_string('visualize', '', 'model within hyperparameter folder from which to create gifs')
+# flags.DEFINE_integer('device', None, 'the gpu number to start with')
+# flags.DEFINE_string('pretrained', None, 'name of the model to resume training from. e.g. model10002')
+# flags.DEFINE_integer('ngpu', 1, 'number of gpus to use')
 
 
 ## Helper functions
@@ -301,7 +300,7 @@ def run_foward_passes(conf, sess, itr, towers, train_images, train_states, train
 
     return images_batch, states_batch, actions_batch, b_noise, w_noise
 
-def construct_towers(conf,training, reusescope=None):
+def construct_towers(conf ,training, reusescope=None):
     """
     :param conf:
     :param training: whether tf records uses training or validation data

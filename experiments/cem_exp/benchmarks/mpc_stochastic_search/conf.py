@@ -9,7 +9,7 @@ configuration = {
 'experiment_name': 'cem_control',
 'current_dir': current_dir, #'directory for writing gifs' ,
 # 'filepath of a pretrained model to use for cem
-'pretrained_model': '/home/frederik/Documents/lsdc/tensorflow_data/stochastic_search_multgpu/modeldata/model14002',
+'pretrained_model': '/home/frederik/Documents/lsdc/tensorflow_data/stochastic_search_multgpu/modeldata/model38002',
 'sequence_length': 15,      # 'sequence length, including context frames.' ,
 'context_frames': 2,        # of frames before predictions.' ,
 'use_state': 1,             #'Whether or not to give the state+action to the model' ,

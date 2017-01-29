@@ -66,7 +66,7 @@ def setup_predictor(conf, gpu_id = 0):
             print 'Constructing multi gpu model for control...'
 
 
-            #dummy model to get the names right...
+            # create dummy model to get the names of the variable right...
             with tf.variable_scope('train_model', reuse=None) as training_scope:
                 model = Model(conf)
 
@@ -74,14 +74,13 @@ def setup_predictor(conf, gpu_id = 0):
             #making the towers
             towers = []
 
-            with tf.variable_scope('train_model'):
-                for i in xrange(conf['ngpu']):
-                    with tf.device('/gpu:%d' % i):
-                        with tf.name_scope('tower_%d' % (i)):
-                            print('creating tower %d: in scope %s' % (i, tf.get_variable_scope()))
+            for i in xrange(conf['ngpu']):
+                with tf.device('/gpu:%d' % i):
+                    with tf.name_scope('tower_%d' % (i)):
+                        print('creating tower %d: in scope %s' % (i, tf.get_variable_scope()))
 
-                            towers.append(Tower(conf, i, training_scope))
-                            tf.get_variable_scope().reuse_variables()
+                        towers.append(Tower(conf, i, training_scope))
+                        tf.get_variable_scope().reuse_variables()
 
             comb_gen_img = [t.model.gen_images for t in towers]
             comb_gen_img = tf.concat(0, comb_gen_img)
@@ -104,7 +103,7 @@ def setup_predictor(conf, gpu_id = 0):
 
                 feed_dict = {}
                 for t in towers:
-                    feed_dict[t.model.iter_num] = np.float32(0)
+                    feed_dict[t.model.iter_num] = 0
                     feed_dict[t.model.lr] = 0.0
                     feed_dict[t.start_images] = input_images
                     feed_dict[t.start_states] = input_state
@@ -113,9 +112,9 @@ def setup_predictor(conf, gpu_id = 0):
 
                 # pack all towers operations which need to be evaluated in one list
 
-                gen_images, gen_distrib, gen_states = sess.run(comb_gen_img,
+                gen_images, gen_distrib, gen_states = sess.run([comb_gen_img,
                                                               comb_pix_distrib,
-                                                              comb_gen_states,
+                                                              comb_gen_states],
                                                               feed_dict)
 
                 return gen_distrib, gen_images, None, gen_states
