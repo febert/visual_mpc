@@ -233,7 +233,7 @@ def construct_model(images,
             gen_masks.append(mask_list)
 
             if dna and pix_distributions != None:
-                transf_distrib = [dna_transformation(prev_pix_distrib, enc7)]
+                transf_distrib = [dna_transformation(prev_pix_distrib, enc7, DNA_KERN_SIZE)]
 
             if pix_distributions!=None:
                 pix_distrib_output = mask_list[0] * prev_pix_distrib

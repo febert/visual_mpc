@@ -34,3 +34,6 @@ class Randompolicy(Policy):
             self.actions = np.repeat(self.actions, repeat, axis=0)
 
         return self.actions[t], None
+
+    def finish(self):
+        pass

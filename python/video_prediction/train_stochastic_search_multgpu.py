@@ -29,12 +29,12 @@ VAL_INTERVAL = 200
 SAVE_INTERVAL = 2000
 
 FLAGS = flags.FLAGS
-flags.DEFINE_string('hyper', '', 'hyperparameters configuration file')
-flags.DEFINE_string('visualize', '', 'model within hyperparameter folder from which to create gifs')
-flags.DEFINE_integer('device', None, 'the gpu number to start with')
-flags.DEFINE_string('pretrained', None, 'name of the model to resume training from. e.g. model10002')
-
-flags.DEFINE_integer('ngpu', 1, 'number of gpus to use')
+# flags.DEFINE_string('hyper', '', 'hyperparameters configuration file')
+# flags.DEFINE_string('visualize', '', 'model within hyperparameter folder from which to create gifs')
+# flags.DEFINE_integer('device', None, 'the gpu number to start with')
+# flags.DEFINE_string('pretrained', None, 'name of the model to resume training from. e.g. model10002')
+#
+# flags.DEFINE_integer('ngpu', 1, 'number of gpus to use')
 
 
 ## Helper functions
@@ -80,6 +80,8 @@ class Model(object):
 
         # self.iter_num = tf.placeholder(tf.float32, shape=(1),name='iter_num')
         self.iter_num = tf.placeholder(tf.float32, [], name= 'iternum')
+
+        self.prefix = prefix = tf.placeholder(tf.string, [])
 
         summaries = []
 
@@ -145,6 +147,7 @@ class Model(object):
                     dna=conf['model'] == 'DNA',
                     stp=conf['model'] == 'STP',
                     context_frames=conf['context_frames'],
+                    pix_distributions=pix_distrib,
                     conf=conf,
                     device_for_variables='/cpu:0')
 
@@ -165,7 +168,7 @@ class Model(object):
             psnr_i = peak_signal_to_noise_ratio(x, gx)
             psnr_all += psnr_i
             summaries.append(
-                tf.summary.scalar('recon_cost' + str(i), recon_cost))
+                tf.scalar_summary(prefix + '_recon_cost' + str(i), recon_cost))
             summaries.append(tf.summary.scalar('psnr' + str(i), psnr_i))
 
             loss += recon_cost * cost_sel[i]
@@ -177,16 +180,16 @@ class Model(object):
             state_cost = mean_squared_error(state, gen_state) * 1e-4
             state_cost_ex = mean_squared_error(state, gen_state, example_wise=True) * 1e-4
             summaries.append(
-                tf.summary.scalar('state_cost' + str(i), state_cost))
+                tf.scalar_summary(prefix + '_state_cost' + str(i), state_cost))
             loss += state_cost * cost_sel[i]
             loss_ex += state_cost_ex * cost_sel[i]
-        summaries.append(tf.summary.scalar('_psnr_all', psnr_all))
+        summaries.append(tf.scalar_summary('_psnr_all', psnr_all))
         self.psnr_all = psnr_all
 
         self.loss = loss = loss / np.float32(len(images) - conf['context_frames'])
         self.loss_ex = loss_ex = loss_ex / np.float32(len(images) - conf['context_frames'])
 
-        summaries.append(tf.summary.scalar('loss', loss))
+        summaries.append(tf.scalar_summary('loss', loss))
 
         self.lr = tf.placeholder_with_default(conf['learning_rate'], (), name='learningrate')
 
@@ -315,7 +318,7 @@ def construct_towers(conf,training, reusescope=None):
 
     for i in xrange(FLAGS.ngpu):
         with tf.device('/gpu:%d' % i):
-            with tf.name_scope('tower_%d' % (i)) as tower_opscope:
+            with tf.name_scope('tower_%d' % (i)):
                 print('creating tower %d: in scope %s' % (i, tf.get_variable_scope()))
                 # print 'reuse: ', tf.get_variable_scope().reuse
 
@@ -327,9 +330,6 @@ def construct_towers(conf,training, reusescope=None):
 
 
 def main(conf_script=None):
-
-    import pdb; pdb.set_trace()
-
     if FLAGS.device != None:
         start_id = FLAGS.device
     else: start_id = 0
@@ -396,6 +396,7 @@ def main(conf_script=None):
                      model.noise: bestnoise,
                      model.iter_num: 0,
                      model.lr: 0,
+                     model.prefix: ''
                      }
 
         gen_images, mask_list = sess.run([model.gen_images, model.gen_masks], feed_dict)
@@ -415,6 +416,7 @@ def main(conf_script=None):
                      model.noise: worstnoise,
                      model.iter_num: 0,
                      model.lr: 0,
+                     model.prefix: ''
                      }
 
         gen_images, mask_list = sess.run([model.gen_images, model.gen_masks], feed_dict)
@@ -473,6 +475,7 @@ def main(conf_script=None):
                      model.noise: bestnoise,
                      model.iter_num: np.float32(itr),
                      model.lr: conf['learning_rate'],
+                     model.prefix: 'train'
                      }
         cost, _, summary_str = sess.run([model.loss, model.train_op, model.summ_op],
                                         feed_dict)
@@ -501,6 +504,7 @@ def main(conf_script=None):
                          model.noise: bestnoise,
                          model.iter_num: np.float32(itr),
                          model.lr: 0.0,
+                         model.prefix: 'val'
                          }
             _, val_summary_str = sess.run([model.train_op, model.summ_op],
                                           feed_dict)

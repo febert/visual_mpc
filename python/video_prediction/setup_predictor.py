@@ -5,7 +5,7 @@ from prediction_train import Model
 from PIL import Image
 import os
 
-def setup_predictor(conf_file, gpu_id = 0):
+def setup_predictor(conf, gpu_id = 0):
     """
     Setup up the network for control
     :param conf_file:
@@ -17,10 +17,7 @@ def setup_predictor(conf_file, gpu_id = 0):
     os.environ["CUDA_VISIBLE_DEVICES"] = str(gpu_id)
     print 'using CUDA_VISIBLE_DEVICES=', os.environ["CUDA_VISIBLE_DEVICES"]
 
-    hyperparams = imp.load_source('hyperparams', conf_file)
-    conf = hyperparams.configuration
-
-    gpu_options = tf.GPUOptions(per_process_gpu_memory_fraction=0.4)
+    gpu_options = tf.GPUOptions(per_process_gpu_memory_fraction=1.0)
     g_predictor = tf.Graph()
     sess = tf.Session(config=tf.ConfigProto(gpu_options=gpu_options), graph= g_predictor)
     with sess.as_default():

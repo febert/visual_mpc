@@ -18,14 +18,15 @@ class Tower(object):
         self.start_states = tf.placeholder(tf.float32, name='states',
                                 shape=(1, conf['context_frames'], 4))
 
-        pix_distrib = tf.placeholder(tf.float32, shape=(1, conf['context_frames'], 64, 64, 1))
+        self.pix_distrib = tf.placeholder(tf.float32, shape=(1, conf['context_frames'], 64, 64, 1))
 
         nsmp_per_gpu = conf['batch_size']/ conf['ngpu']
 
         start_images = tf.tile(self.start_images, [nsmp_per_gpu, 1 , 1, 1, 1])
-        pix_distrib = tf.tile(pix_distrib, [nsmp_per_gpu, 1, 1, 1, 1])
+        pix_distrib = tf.tile(self.pix_distrib, [nsmp_per_gpu, 1, 1, 1, 1])
         start_states = tf.tile(self.start_states, [nsmp_per_gpu, 1 , 1])
 
+        # picking different subset of the actions for each gpu
         act_startidx = gpu_id * nsmp_per_gpu
         per_gpu_actions = tf.slice(self.actions, [act_startidx, 0, 0], [nsmp_per_gpu, -1, -1])
 
@@ -38,7 +39,7 @@ class Tower(object):
                                                                        per_gpu_noise,
                                                                        pix_distrib])
 
-def setup_predictor(conf_file, gpu_id = 0):
+def setup_predictor(conf, gpu_id = 0):
     """
     Setup up the network for control
     :param conf_file:
@@ -50,12 +51,9 @@ def setup_predictor(conf_file, gpu_id = 0):
     os.environ["CUDA_VISIBLE_DEVICES"] = str(gpu_id)
     print 'using CUDA_VISIBLE_DEVICES=', os.environ["CUDA_VISIBLE_DEVICES"]
 
-    hyperparams = imp.load_source('hyperparams', conf_file)
-    conf = hyperparams.configuration
-
-    gpu_options = tf.GPUOptions(per_process_gpu_memory_fraction=0.4)
+    gpu_options = tf.GPUOptions(per_process_gpu_memory_fraction=1.0)
     g_predictor = tf.Graph()
-    sess = tf.Session(config=tf.ConfigProto(gpu_options=gpu_options), graph= g_predictor)
+    sess = tf.Session(config=tf.ConfigProto(gpu_options=gpu_options, allow_soft_placement=True), graph= g_predictor)
     with sess.as_default():
         with g_predictor.as_default():
 
@@ -65,21 +63,29 @@ def setup_predictor(conf_file, gpu_id = 0):
                 print key, ': ', conf[key]
             print '-------------------------------------------------------------------'
 
-            print 'Constructing multi gpu model for control'
+            print 'Constructing multi gpu model for control...'
 
+
+            #dummy model to get the names right...
+            with tf.variable_scope('train_model', reuse=None) as training_scope:
+                model = Model(conf)
+
+
+            #making the towers
             towers = []
 
-            for i in xrange(conf['ngpu']):
-                with tf.device('/gpu:%d' % i):
-                    with tf.name_scope('tower_%d' % (i)) as tower_opscope:
-                        print('creating tower %d: in scope %s' % (i, tf.get_variable_scope()))
+            with tf.variable_scope('train_model'):
+                for i in xrange(conf['ngpu']):
+                    with tf.device('/gpu:%d' % i):
+                        with tf.name_scope('tower_%d' % (i)):
+                            print('creating tower %d: in scope %s' % (i, tf.get_variable_scope()))
 
-                        towers.append(Tower(conf, i))
-                        tf.get_variable_scope().reuse_variables()
+                            towers.append(Tower(conf, i, training_scope))
+                            tf.get_variable_scope().reuse_variables()
 
             comb_gen_img = [t.model.gen_images for t in towers]
             comb_gen_img = tf.concat(0, comb_gen_img)
-            comb_pix_distrib = [t.model.pix_distrib for t in towers]
+            comb_pix_distrib = [t.model.gen_distrib for t in towers]
             comb_pix_distrib = tf.concat(0, comb_pix_distrib)
             comb_gen_states = [t.model.gen_states for t in towers]
             comb_gen_states = tf.concat(0, comb_gen_states)
@@ -103,6 +109,7 @@ def setup_predictor(conf_file, gpu_id = 0):
                     feed_dict[t.start_images] = input_images
                     feed_dict[t.start_states] = input_state
                     feed_dict[t.actions] = input_actions
+                    feed_dict[t.pix_distrib] = one_hot_images
 
                 # pack all towers operations which need to be evaluated in one list
 

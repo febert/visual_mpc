@@ -43,9 +43,16 @@ class LSDCMain(object):
 
         self.agent = config['agent']['type'](config['agent'])
 
+        if 'netconf' in config['policy']:
+            params = imp.load_source('params', config['policy']['netconf'])
+            netconf = params.configuration
+
         if 'usenet' in config['policy']:
             if config['policy']['usenet']:
-                self.predictor = setup_predictor(config['policy']['netconf'], gpu_id)
+                if 'setup_predictor' in netconf:
+                    self.predictor = netconf['setup_predictor'](netconf, gpu_id)
+                else:
+                    self.predictor = setup_predictor(netconf, gpu_id)
                 self.policy = config['policy']['type'](config['agent'], config['policy'], self.predictor)
             else:
                 self.policy = config['policy']['type'](config['agent'], config['policy'])
