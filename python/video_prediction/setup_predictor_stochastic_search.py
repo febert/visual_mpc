@@ -84,8 +84,8 @@ def setup_predictor(conf, gpu_id = 0):
                     with tf.name_scope('tower_%d' % (i)):
                         print('creating tower %d: in scope %s' % (i, tf.get_variable_scope()))
 
-                        import pdb;
-                        pdb.set_trace()
+                        # import pdb;
+                        # pdb.set_trace()
 
                         towers.append(Tower(conf, i, training_scope))
                         tf.get_variable_scope().reuse_variables()
