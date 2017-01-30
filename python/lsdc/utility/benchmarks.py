@@ -18,8 +18,8 @@ def main():
 
     parser = argparse.ArgumentParser(description='Run benchmarks')
     parser.add_argument('benchmark', type=str, help='the name of the folder with agent setting for the benchmark')
-    parser.add_argument('--gpu_id', type=str, default=0, help='value to set for cuda visible devices variable')
-    parser.add_argument('--ngpu', type=str, default=1, help='number of gpus to use')
+    parser.add_argument('--gpu_id', type=int, default=0, help='value to set for cuda visible devices variable')
+    parser.add_argument('--ngpu', type=int, default=1, help='number of gpus to use')
     args = parser.parse_args()
 
     benchmark_name = args.benchmark

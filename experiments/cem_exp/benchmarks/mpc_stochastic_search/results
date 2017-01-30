@@ -1,0 +1,11 @@
+experiment name: mpc_stochastic_search
+overall best score: 0.272785417421 of traj 2
+overall worst score: 0.432960147791 of traj 0
+average score: 0.356814819109
+standard deviation 0.065628271437
+----------------------
+traj: score, rank
+----------------------
+0: 0.432960147791, 2
+1: 0.364698892115, 1
+2: 0.272785417421, 0
