@@ -97,7 +97,6 @@ def setup_predictor(conf, gpu_id = 0):
                 t_comb_gen_states = [to.model.gen_states[t] for to in towers]
                 comb_gen_states.append(tf.concat(0, t_comb_gen_states))
 
-            import pdb; pdb.set_trace()
 
             sess.run(tf.initialize_all_variables())
 
@@ -129,13 +128,12 @@ def setup_predictor(conf, gpu_id = 0):
                                                               comb_gen_states],
                                                               feed_dict)
 
-                print 'time for evaluating {0} actions on {1}gpus : {2}'.format(
+                print 'time for evaluating {0} actions on {1} gpus : {2}'.format(
                     conf['batch_size'],
                     conf['ngpu'],
                     (datetime.now() - t_startiter).seconds + (datetime.now() - t_startiter).microseconds/1e6
                     )
 
-                import pdb;pdb.set_trace()
 
                 return gen_distrib, gen_images, None, gen_states
 

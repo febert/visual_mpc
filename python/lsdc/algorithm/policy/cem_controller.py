@@ -14,6 +14,7 @@ import cPickle
 from video_prediction.setup_predictor import setup_predictor
 import video_prediction.utils_vpred.create_gif as makegif
 from video_prediction.utils_vpred.create_gif import comp_pix_distrib
+from datetime import datetime
 
 from PIL import Image
 import pdb
@@ -178,9 +179,14 @@ class CEM_controller(Policy):
 
             actions = np.repeat(actions, self.repeat, axis=1)
 
+            t_start = datetime.now()
 
             if self.use_net:
                 scores = self.video_pred(last_frames, last_states, actions, itr)
+                print 'overall time for evaluating actions {}'.format(
+                    (datetime.now() - t_start).seconds + (datetime.now() - t_start).microseconds / 1e6
+                )
+
             self.indices = scores.argsort()[:self.K]
             self.bestindices_of_iter[itr] = self.indices
 
@@ -311,8 +317,6 @@ class CEM_controller(Policy):
 
 
         if 'no_imagerepeat' in self.netconf:
-
-
             last_frames = np.expand_dims(last_frames, axis=0)
             last_frames = np.repeat(last_frames, 1, axis=0)
             app_zeros = np.zeros(shape=(1, self.netconf['sequence_length'] -
