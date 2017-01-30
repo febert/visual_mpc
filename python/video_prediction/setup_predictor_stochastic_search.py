@@ -47,7 +47,8 @@ def setup_predictor(conf, gpu_id = 0):
     :return: function which predicts a batch of whole trajectories
     conditioned on the actions
     """
-    start_id = gpu_id
+
+    start_id = 0
     indexlist = [str(i) for i in range(start_id, start_id + conf['ngpu'])]
     var = ','.join(indexlist)
     print 'using CUDA_VISIBLE_DEVICES=', var
