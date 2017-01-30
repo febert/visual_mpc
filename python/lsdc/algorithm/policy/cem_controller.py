@@ -38,7 +38,7 @@ class CEM_controller(Policy):
         self.model = mujoco_py.MjModel(self.agentparams['filename'])
 
         self.verbose = False
-        self.compare_sim_net = False
+        self.compare_sim_net = True
 
         if 'use_first_plan' in self.policyparams:
             self.use_first_plan = self.policyparams['use_first_plan']
