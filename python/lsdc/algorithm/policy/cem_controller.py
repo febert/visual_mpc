@@ -38,7 +38,7 @@ class CEM_controller(Policy):
         self.model = mujoco_py.MjModel(self.agentparams['filename'])
 
         self.verbose = False
-        self.compare_sim_net = True
+        self.compare_sim_net = False
 
         if 'use_first_plan' in self.policyparams:
             self.use_first_plan = self.policyparams['use_first_plan']
@@ -159,7 +159,9 @@ class CEM_controller(Policy):
 
         for itr in range(self.niter):
             print '------------'
-            print 'iteration: ', itr
+            print 'iteration: ',
+            t_startiter = datetime.now()
+
 
             # print 'mean:'
             # print mean
@@ -184,8 +186,7 @@ class CEM_controller(Policy):
             if self.use_net:
                 scores = self.video_pred(last_frames, last_states, actions, itr)
                 print 'overall time for evaluating actions {}'.format(
-                    (datetime.now() - t_start).seconds + (datetime.now() - t_start).microseconds / 1e6
-                )
+                    (datetime.now() - t_start).seconds + (datetime.now() - t_start).microseconds / 1e6)
 
             self.indices = scores.argsort()[:self.K]
             self.bestindices_of_iter[itr] = self.indices
@@ -205,6 +206,9 @@ class CEM_controller(Policy):
 
             print 'iter {0}, bestscore {1}'.format(itr, scores[self.indices[0]])
             print 'action cost of best action: ', actioncosts[self.indices[0]]
+
+            print 'overall time for iteration {}'.format(
+                (datetime.now() - t_startiter).seconds + (datetime.now() - t_startiter).microseconds / 1e6)
 
     def mujoco_to_imagespace(self, mujoco_coord, numpix = 64, truncate = False):
         """
