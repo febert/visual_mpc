@@ -40,7 +40,7 @@ class Tower(object):
                                                                        per_gpu_noise,
                                                                        pix_distrib])
 
-def setup_predictor(conf, gpu_id = 0):
+def setup_predictor(conf, gpu_id=0, ngpu=1):
     """
     Setup up the network for control
     :param conf_file:
@@ -48,8 +48,11 @@ def setup_predictor(conf, gpu_id = 0):
     conditioned on the actions
     """
 
-    start_id = 0
-    indexlist = [str(i) for i in range(start_id, start_id + conf['ngpu'])]
+
+    conf['ngpu'] = ngpu
+
+    start_id = gpu_id
+    indexlist = [str(i) for i in range(start_id, start_id + ngpu)]
     var = ','.join(indexlist)
     print 'using CUDA_VISIBLE_DEVICES=', var
     os.environ["CUDA_VISIBLE_DEVICES"] = var

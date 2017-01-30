@@ -24,6 +24,5 @@ configuration = {
 'file_visual': '',          # datafile used for making visualizations,
 'penal_last_only': False,
 'noise_dim': 5,
-'ngpu': 1,
 'no_imagerepeat': True   # comment this out to deactivate
 }
