@@ -84,12 +84,18 @@ def setup_predictor(conf, gpu_id = 0):
                     with tf.name_scope('tower_%d' % (i)):
                         print('creating tower %d: in scope %s' % (i, tf.get_variable_scope()))
 
+                        import pdb;
+                        pdb.set_trace()
+
                         towers.append(Tower(conf, i, training_scope))
                         tf.get_variable_scope().reuse_variables()
 
             comb_gen_img = []
             comb_pix_distrib = []
             comb_gen_states = []
+
+            import pdb;
+            pdb.set_trace()
 
             for t in range(conf['sequence_length']-1):
                 t_comb_gen_img = [to.model.gen_images[t] for to in towers]
@@ -101,6 +107,7 @@ def setup_predictor(conf, gpu_id = 0):
                 t_comb_gen_states = [to.model.gen_states[t] for to in towers]
                 comb_gen_states.append(tf.concat(0, t_comb_gen_states))
 
+                import pdb; pdb.set_trace()
 
             sess.run(tf.initialize_all_variables())
 
