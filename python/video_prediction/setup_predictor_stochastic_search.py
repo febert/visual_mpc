@@ -6,6 +6,7 @@ from train_stochastic_search_multgpu import Model
 from PIL import Image
 import os
 
+from datetime import datetime
 
 
 class Tower(object):
@@ -101,6 +102,8 @@ def setup_predictor(conf, gpu_id = 0):
                 :return: the predicted pixcoord at the end of sequence
                 """
 
+                t_startiter = datetime.now()
+
                 feed_dict = {}
                 for t in towers:
                     feed_dict[t.model.iter_num] = 0
@@ -116,6 +119,12 @@ def setup_predictor(conf, gpu_id = 0):
                                                               comb_pix_distrib,
                                                               comb_gen_states],
                                                               feed_dict)
+
+                print 'time for evaluating {0} actions on {1}gpus : {2}'.format(
+                    conf['batch_size'],
+                    conf['ngpu'],
+                    (datetime.now() - t_startiter).seconds + (datetime.now() - t_startiter).microseconds/1e6
+                    )
 
                 return gen_distrib, gen_images, None, gen_states
 
