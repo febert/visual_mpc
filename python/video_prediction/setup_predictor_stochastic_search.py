@@ -47,10 +47,13 @@ def setup_predictor(conf, gpu_id = 0):
     :return: function which predicts a batch of whole trajectories
     conditioned on the actions
     """
-    if gpu_id == None:
-        gpu_id = 0
-    os.environ["CUDA_VISIBLE_DEVICES"] = str(gpu_id)
-    print 'using CUDA_VISIBLE_DEVICES=', os.environ["CUDA_VISIBLE_DEVICES"]
+    start_id = gpu_id
+    indexlist = [str(i) for i in range(start_id, start_id + conf['ngpu'])]
+    var = ','.join(indexlist)
+    print 'using CUDA_VISIBLE_DEVICES=', var
+    os.environ["CUDA_VISIBLE_DEVICES"] = var
+    from tensorflow.python.client import device_lib
+    print device_lib.list_local_devices()
 
     gpu_options = tf.GPUOptions(per_process_gpu_memory_fraction=.9)
     g_predictor = tf.Graph()
