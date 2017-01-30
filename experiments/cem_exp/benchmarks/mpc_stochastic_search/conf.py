@@ -1,7 +1,8 @@
 import os
 current_dir = os.path.dirname(os.path.realpath(__file__))
 
-
+import getpass
+getpass.getuser()
 
 from video_prediction.setup_predictor_stochastic_search import setup_predictor
 
@@ -9,7 +10,7 @@ configuration = {
 'experiment_name': 'cem_control',
 'current_dir': current_dir, #'directory for writing gifs' ,
 # 'filepath of a pretrained model to use for cem
-'pretrained_model': '/home/febert/Documents/lsdc/tensorflow_data/stochastic_search_multgpu/modeldata/model38002',
+'pretrained_model': '/home/{}/Documents/lsdc/tensorflow_data/stochastic_search_multgpu/modeldata/model36002'.format(getpass.getuser()),
 'sequence_length': 15,      # 'sequence length, including context frames.' ,
 'context_frames': 2,        # of frames before predictions.' ,
 'use_state': 1,             #'Whether or not to give the state+action to the model' ,
@@ -23,6 +24,6 @@ configuration = {
 'file_visual': '',          # datafile used for making visualizations,
 'penal_last_only': False,
 'noise_dim': 5,
-'ngpu': 3,
+'ngpu': 1,
 'no_imagerepeat': True   # comment this out to deactivate
 }

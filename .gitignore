@@ -88,6 +88,7 @@ ENV/
 # Rope project settings
 .ropeproject
 lsdcenv/
+lsdcenv_r12
 **/.idea/**
 
 data/
