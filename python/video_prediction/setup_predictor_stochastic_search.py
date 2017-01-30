@@ -90,6 +90,8 @@ def setup_predictor(conf, gpu_id = 0):
             comb_gen_states = [t.model.gen_states for t in towers]
             comb_gen_states = tf.concat(0, comb_gen_states)
 
+            import pdb; pdb.set_trace()
+
             sess.run(tf.initialize_all_variables())
 
             saver = tf.train.Saver(tf.get_collection(tf.GraphKeys.VARIABLES), max_to_keep=0)
@@ -125,6 +127,8 @@ def setup_predictor(conf, gpu_id = 0):
                     conf['ngpu'],
                     (datetime.now() - t_startiter).seconds + (datetime.now() - t_startiter).microseconds/1e6
                     )
+
+                import pdb;pdb.set_trace()
 
                 return gen_distrib, gen_images, None, gen_states
 
