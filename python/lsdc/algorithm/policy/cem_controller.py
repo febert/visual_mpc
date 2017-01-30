@@ -159,7 +159,7 @@ class CEM_controller(Policy):
 
         for itr in range(self.niter):
             print '------------'
-            print 'iteration: ',
+            print 'iteration: ', itr
             t_startiter = datetime.now()
 
 
