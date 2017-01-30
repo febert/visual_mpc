@@ -56,9 +56,9 @@ def setup_predictor(conf, gpu_id = 0):
     from tensorflow.python.client import device_lib
     print device_lib.list_local_devices()
 
-    gpu_options = tf.GPUOptions(per_process_gpu_memory_fraction=.9)
+    # gpu_options = tf.GPUOptions(per_process_gpu_memory_fraction=)
     g_predictor = tf.Graph()
-    sess = tf.Session(config=tf.ConfigProto(gpu_options=gpu_options, allow_soft_placement=True), graph= g_predictor)
+    sess = tf.Session(config=tf.ConfigProto( allow_soft_placement=True), graph= g_predictor)
     with sess.as_default():
         with g_predictor.as_default():
 
