@@ -1,0 +1,8 @@
+
+/mpc_stochastic_search_multnoise:
+special param: noise_per_action
+
+Every action sampled is evaluated with noise_per_action noise samples.
+
+
+

@@ -72,19 +72,21 @@ class CEM_controller(Policy):
         self.action_cost_mult = 0.00005
         self.adim = 2  # action dimension
         self.initial_std = policyparams['initial_std']
+        if 'exp_factor' in policyparams:
+            self.exp_factor = policyparams['exp_factor']
 
         gofast = True
         self.viewer = mujoco_py.MjViewer(visible=True, init_width=480,
                                          init_height=480, go_fast=gofast)
         self.viewer.start()
-        self.viewer.cam.camid = 0
         self.viewer.set_model(self.model)
+        self.viewer.cam.camid = 0
 
         self.small_viewer = mujoco_py.MjViewer(visible=True, init_width=64,
                                          init_height=64, go_fast=gofast)
         self.small_viewer.start()
-        self.small_viewer.cam.camid = 0
         self.small_viewer.set_model(self.model)
+        self.small_viewer.cam.camid = 0
 
 
         self.init_model = []
@@ -104,6 +106,9 @@ class CEM_controller(Policy):
         self.rec_input_distrib =[]  # record the input distributions
         self.corr_gen_images = []
         self.corrector = None
+
+        self.mean =None
+        self.sigma =None
 
     def reinitialize(self):
         self.use_net = self.policyparams['usenet']
@@ -138,14 +143,44 @@ class CEM_controller(Policy):
 
         return np.linalg.norm(goalpoint - refpoint)
 
-    def calc_action_cost(self, actions_of_smp):
-        force_magnitudes = np.array([np.linalg.norm(actions_of_smp[t]) for t in range(self.nactions)])
-        return np.square(force_magnitudes)*self.action_cost_mult
+    def calc_action_cost(self, actions):
+        actions_costs = np.zeros(self.M)
+        for smp in range(self.M):
+            force_magnitudes = np.array([np.linalg.norm(actions[smp, t]) for
+                                         t in range(self.nactions * self.repeat)])
+            actions_costs[smp]=np.sum(np.square(force_magnitudes)) * self.action_cost_mult
+        return actions_costs
 
-    def perform_CEM(self,last_frames, last_states, last_action):
+    def perform_CEM(self,last_frames, last_states, last_action, t):
         # initialize mean and variance
-        mean = np.zeros(self.adim * self.nactions)
-        sigma = np.diag(np.ones(self.adim * self.nactions) * self.initial_std ** 2)
+
+        if 'exp_factor' in self.policyparams:
+            if t < 2:
+                self.mean = np.zeros(self.adim * self.nactions)
+                self.sigma = np.diag(np.ones(self.adim * self.nactions) * self.initial_std ** 2)
+            else:
+                print 'reusing mean form last MPC step...'
+                # if 'reduce_iter' in self.policyparams:
+                #     self.niter = 2
+
+                mean_old = copy.deepcopy(self.mean)
+
+                self.mean = np.zeros_like(mean_old)
+                self.mean[:-2] = mean_old[2:]
+                self.mean = self.mean.reshape(self.adim * self.nactions)
+
+                sigma_old = copy.deepcopy(self.sigma)
+                self.sigma = np.zeros_like(self.sigma)
+                self.sigma[0:-2,0:-2] = sigma_old[2:,2: ]
+                self.sigma[0:-2, 0:-2] += np.diag(np.ones(self.adim * (self.nactions-1)))*(self.initial_std/5)**2
+                self.sigma[-1,-1] = self.initial_std**2
+                self.sigma[-2,-2] = self.initial_std**2
+
+                # self.sigma = np.diag(np.ones(self.adim * self.nactions) * self.initial_std ** 2)
+        else:
+            self.mean = np.zeros(self.adim * self.nactions)
+            self.sigma = np.diag(np.ones(self.adim * self.nactions) * self.initial_std ** 2)
+
 
         print '------------------------------------------------'
         print 'starting CEM cylce'
@@ -155,29 +190,21 @@ class CEM_controller(Policy):
         # last_action = last_action.reshape(self.netconf['batch_size'], 1, self.adim)
 
         scores = np.empty(self.M, dtype=np.float64)
-        actioncosts = np.empty(self.M, dtype=np.float64)
 
         for itr in range(self.niter):
             print '------------'
             print 'iteration: ', itr
             t_startiter = datetime.now()
 
-
-            # print 'mean:'
-            # print mean
-            # print 'covariance:'
-            # print sigma
-
-            actions = np.random.multivariate_normal(mean, sigma, self.M)
+            actions = np.random.multivariate_normal(self.mean, self.sigma, self.M)
             actions = actions.reshape(self.M, self.nactions, self.adim)
+            # import pdb; pdb.set_trace()
 
-            if self.compare_sim_net:
+            if self.compare_sim_net or not self.use_net:
                 for smp in range(self.M):
                     self.setup_mujoco()
                     self.sim_rollout(actions[smp], smp, itr)
                     scores[smp] = self.eval_action()
-                    actioncosts[smp] = np.sum(self.calc_action_cost(actions[smp]))
-                    scores[smp] += actioncosts[smp]  # adding action costs!
 
             actions = np.repeat(actions, self.repeat, axis=1)
 
@@ -187,6 +214,9 @@ class CEM_controller(Policy):
                 scores = self.video_pred(last_frames, last_states, actions, itr)
                 print 'overall time for evaluating actions {}'.format(
                     (datetime.now() - t_start).seconds + (datetime.now() - t_start).microseconds / 1e6)
+
+            actioncosts = self.calc_action_cost(actions)
+            scores += actioncosts
 
             self.indices = scores.argsort()[:self.K]
             self.bestindices_of_iter[itr] = self.indices
@@ -201,8 +231,8 @@ class CEM_controller(Policy):
             # print 'bestaction:', self.bestaction
 
             arr_best_actions = actions_flat[self.indices]  # only take the K best actions
-            sigma = np.cov(arr_best_actions, rowvar= False, bias= False)
-            mean = np.mean(arr_best_actions, axis= 0)
+            self.sigma = np.cov(arr_best_actions, rowvar= False, bias= False)
+            self.mean = np.mean(arr_best_actions, axis= 0)
 
             print 'iter {0}, bestscore {1}'.format(itr, scores[self.indices[0]])
             print 'action cost of best action: ', actioncosts[self.indices[0]]
@@ -292,6 +322,7 @@ class CEM_controller(Policy):
 
         makegif.npy_to_gif(frame_list, self.policyparams['rec_distrib'])
 
+
     def video_pred(self, last_frames, last_states, actions, itr):
 
         self.pred_pos[:, itr, 0] = self.mujoco_to_imagespace(last_states[-1, :2] , numpix=480)
@@ -340,12 +371,19 @@ class CEM_controller(Policy):
             last_frames = np.concatenate((last_frames, app_zeros), axis=1)
             last_frames = last_frames.astype(np.float32)/255.
 
-        gen_distrib, gen_images, gen_masks, gen_states = self.predictor(last_frames, input_distrib,
-                                                            last_states, actions)
+        if 'mult_noise_per_action' in self.policyparams:  # only to be used for stochastic search
+            actions_cpy = np.repeat(actions, self.netconf['batch_size'] / self.policyparams['num_samples'], axis=0)
 
-        for t in range(1,self.netconf['sequence_length']):
-            for smp in range(self.M):
-                self.pred_pos[smp, itr, t] = self.mujoco_to_imagespace(gen_states[t-1][smp, :2], numpix=480)
+            gen_distrib, gen_images, gen_masks, gen_states = self.predictor(last_frames,
+                                                                            input_distrib,
+                                                                last_states, actions_cpy)
+        else: # the usual case
+            gen_distrib, gen_images, gen_masks, gen_states = self.predictor(last_frames, input_distrib,
+                                                                            last_states, actions)
+
+            for tstep in range(1,self.netconf['sequence_length']):
+                for smp in range(self.M):
+                    self.pred_pos[smp, itr, tstep] = self.mujoco_to_imagespace(gen_states[tstep-1][smp, :2], numpix=480)
 
 
         goalpoint = self.mujoco_to_imagespace(self.agentparams['goal_point'])
@@ -368,10 +406,12 @@ class CEM_controller(Policy):
                 self.rec_input_distrib.append(gen_distrib[2][self.indices[0]].reshape(1, 64, 64, 1))
 
         # compare prediciton with simulation
-        if self.verbose:
-            concat_masks = [np.stack(gen_masks[t], axis=1) for t in range(14)]
+        if self.verbose and itr == self.policyparams['iterations']-1:
+            print 'creating visuals for best sampled actions at last iteration...'
 
-            file_path = self.netconf['current_dir'] + '/data_files'
+            # concat_masks = [np.stack(gen_masks[t], axis=1) for t in range(14)]
+
+            file_path = self.netconf['current_dir'] + '/data_files/debug_stoch'
 
             bestindices = expected_distance.argsort()[:self.K]
 
@@ -379,26 +419,36 @@ class CEM_controller(Policy):
                 outputlist = [np.zeros_like(a)[:self.K] for a in inputlist]
 
                 for ind in range(self.K):
-                    for t in range(len(inputlist)):
-                        outputlist[t][ind] = inputlist[t][bestindices[ind]]
+                    for tstep in range(len(inputlist)):
+                        outputlist[tstep][ind] = inputlist[tstep][bestindices[ind]]
                 return outputlist
 
-            self.gtruth_images = [img.astype(np.float) / 255. for img in self.gtruth_images][1:]
+            self.gtruth_images = [img.astype(np.float) / 255. for img in self.gtruth_images]  #[1:]
             cPickle.dump(best(gen_distrib), open(file_path + '/gen_distrib.pkl', 'wb'))
             cPickle.dump(best(gen_images), open(file_path + '/gen_images.pkl', 'wb'))
-            cPickle.dump(best(concat_masks), open(file_path + '/gen_masks.pkl', 'wb'))
+            # cPickle.dump(best(concat_masks), open(file_path + '/gen_masks.pkl', 'wb'))
             cPickle.dump(best(self.gtruth_images), open(file_path + '/gtruth_images.pkl', 'wb'))
             print 'written files to:' + file_path
 
-            comp_pix_distrib(file_path, name='check_eval_hor15', masks=False, examples=self.K)
+            comp_pix_distrib(file_path, name='check_eval_t{}'.format(self.t), masks=False, examples=self.K)
 
 
-            print 'expected_distance to goal', expected_distance
+            f = open(file_path + '/actions_last_iter_t{}'.format(self.t), 'w')
+            sorted = expected_distance.argsort()
+            for i in range(actions.shape[0]):
+                f.write('index: {0}, score: {1}, rank: {2}'.format(i, expected_distance[i], np.where(sorted == i)[0][0]))
+                f.write('action {}\n'.format(actions[i]))
 
-            import pdb;
-            pdb.set_trace()
 
         # print 'length of self.rec_input_distrib is {0} after timestep {1}'.format(len(self.rec_input_distrib), self.t)
+
+
+        if 'mult_noise_per_action' in self.policyparams:
+            print "using {} noisevector per action".format(self.netconf['batch_size']/ self.policyparams['num_samples'])
+            expected_distance = expected_distance.reshape((-1, self.netconf['batch_size']/
+                                                           self.policyparams['num_samples']))
+            avg_expected_distance = np.average(expected_distance, axis=1)
+            return avg_expected_distance
 
         return expected_distance
 
@@ -495,7 +545,7 @@ class CEM_controller(Policy):
             if self.use_first_plan:
                 print 'using actions of first plan, no replanning!!'
                 if t == 1:
-                    self.perform_CEM(last_images, last_states, last_action)
+                    self.perform_CEM(last_images, last_states, last_action, t)
                 else:
                     # only showing last iteration
                     self.pred_pos = self.pred_pos[:,-1].reshape((self.M, 1, self.repeat * self.nactions, 2))
@@ -504,7 +554,7 @@ class CEM_controller(Policy):
                 action = self.bestaction_withrepeat[t - 1]
 
             else:
-                self.perform_CEM(last_images, last_states, last_action)
+                self.perform_CEM(last_images, last_states, last_action, t)
                 action = self.bestaction[0]
 
             self.setup_mujoco()

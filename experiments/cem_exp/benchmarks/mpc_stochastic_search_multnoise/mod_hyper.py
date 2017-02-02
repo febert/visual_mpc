@@ -10,10 +10,12 @@ policy = {
     'repeat': 3,
     'initial_std': 7,
     'netconf': current_dir + '/conf.py',
-    'use_first_plan': False, # execute MPC instead using first plan
-    'iterations': 5
+    'use_first_plan': False, # execute MPC instead using firs plan
+    'iterations': 5,
+    'num_samples': 200,
+    'mult_noise_per_action': ""
 }
 
 agent = {
-    'T': 25
+    'T': 25,
 }

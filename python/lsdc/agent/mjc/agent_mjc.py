@@ -121,8 +121,8 @@ class AgentMuJoCo(Agent):
                     mj_U, target_inc = policy.act(traj.X_full[t, :], traj.Xdot_full[t, :], traj._sample_images, t)
             else:
                 mj_U, pos, ind, targets = policy.act(traj.X_full, traj.Xdot_full, traj._sample_images, t, init_model=self._model)
-                add_traj = True
-                if add_traj:
+
+                if self._hyperparams['add_traj']:  # whether to add visuals for trajectory
                     self.large_images_traj += self.add_traj_visual(self.large_images[t], pos, ind, targets)
 
             if 'poscontroller' in self._hyperparams.keys():

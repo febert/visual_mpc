@@ -58,13 +58,14 @@ agent = {
     'filename': './mjc_models/pushing2d_controller.xml',
     'filename_nomarkers': './mjc_models/pushing2d_controller_nomarkers.xml',
     'data_collection': False,
-    'x0': np.array([0., 0., 0., 0.,
-                    .1, .1, 0., np.cos(alpha/2), 0, 0, np.sin(alpha/2)  #object pose (x,y,z, quat)
-                     ]),
+    'x0':np.array([0., 0. ,0. , 0.,0.03309357,-0.07005502, 0., 0.01363898, 0., 0., -0.99990698]),
+    # 'x0': np.array([0., 0., 0., 0.,
+    #                 .1, .1, 0., np.cos(alpha/2), 0, 0, np.sin(alpha/2)  #object pose (x,y,z, quat)
+    #                  ]),
     'dt': 0.05,
     'substeps': 20,  #10
     'conditions': common['conditions'],
-    'T': 3,
+    'T': 25,
     'skip_first': 5,
     'sensor_dims': SENSOR_DIMS,
     'state_include': [JOINT_ANGLES, JOINT_VELOCITIES],
@@ -77,9 +78,11 @@ agent = {
     'image_width' : IMAGE_WIDTH,
     'image_channels' : IMAGE_CHANNELS,
     'num_objects': num_objects,
-    'goal_point': np.array([-0.2, -0.2]),
+    # 'goal_point': np.array([-0.2, -0.2]),
+    'goal_point': np.array([-0.38967778, -0.08108078]),
     'current_dir': current_dir,
-    'record': current_dir + '/videos/rec'
+    'record': current_dir + '/data_files/debug_stoch/rec',
+    'add_traj': True
 }
 
 
@@ -95,16 +98,13 @@ policy = {
     'type' : CEM_controller,
     'low_level_ctrl': None,
     'netconf': current_dir + '/conf.py',
-    # 'correctorconf': current_dir + '/cor_conf.py',  #comment this out to switch off
-    'usenet': False,
+    'usenet': True,
     'nactions': 5,
     'repeat': 3,
-    'use_first_plan': True,
+    'use_first_plan': False,
     'num_samples': 200,
     'iterations': 5,
-    # 'predictor_propagation': True,
     'current_dir': current_dir,
-    # 'rec_distrib': current_dir + '/videos_distrib/distrib'
 }
 
 if policy['low_level_ctrl'] == None:

@@ -32,7 +32,7 @@ import numpy as np
 
 class LSDCMain(object):
     """ Main class to run algorithms and experiments. """
-    def __init__(self, config, quit_on_end=False, gpu_id= None, ngpu= None):
+    def __init__(self, config, quit_on_end=False, gpu_id= 0, ngpu= 1):
 
 
         self._quit_on_end = quit_on_end

@@ -81,7 +81,8 @@ agent = {
     'image_channels' : IMAGE_CHANNELS,
     'num_objects': num_objects,
     'current_dir': current_dir,
-    'record': current_dir + '/data_files/rec'
+    'record': current_dir + '/data_files/rec',
+    'add_traj': True
 }
 
 
@@ -96,7 +97,7 @@ low_level_conf = {
 from lsdc.algorithm.policy.cem_controller import CEM_controller
 policy = {
     'type' : CEM_controller,
-    'netconf': current_dir + 'conf.py',
+    # 'netconf': current_dir + 'conf.py',
     'current_dir': current_dir
 }
 
