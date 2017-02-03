@@ -61,7 +61,7 @@ class AgentMuJoCo(Agent):
         self._vel_idx = range( self._hyperparams['joint_angles'], self._hyperparams['joint_velocities'] + self._hyperparams['joint_angles'])
 
 
-        gofast = False
+        gofast = True
         self._small_viewer = mujoco_py.MjViewer(visible=True,
                                                 init_width=self._hyperparams['image_width'],
                                                 init_height=self._hyperparams['image_height'],
@@ -109,13 +109,11 @@ class AgentMuJoCo(Agent):
 
             traj.X_full[t, :] = self._model.data.qpos[:2].squeeze()
             traj.Xdot_full[t, :] = self._model.data.qvel[:2].squeeze()
+            traj.X_Xdot_full[t, :] =  np.concatenate([traj.X_full[t, :], traj.Xdot_full[t, :]], axis=1)
             for i in range(self._hyperparams['num_objects']):
-
                 traj.Object_pos[t,i,:] = self._model.data.qpos[i*7+2:i*7+4].squeeze()
 
             self._store_image(t, traj)
-
-            # import pdb; pdb.set_trace()
 
             if self._hyperparams['data_collection'] or 'random_baseline' in self._hyperparams:
                     mj_U, target_inc = policy.act(traj.X_full[t, :], traj.Xdot_full[t, :], traj._sample_images, t)
@@ -133,12 +131,17 @@ class AgentMuJoCo(Agent):
             accum_touch = np.zeros_like(self._model.data.sensordata)
             for _ in range(self._hyperparams['substeps']):
                 accum_touch += self._model.data.sensordata
+
+                if 'vellimit' in self._hyperparams:
+                    #calculate constraint enforcing force..
+                    c_force = self.enforce(self._model)
+                    mj_U += c_force
+
                 self._model.data.ctrl = mj_U
-                self._model.step()         #simulate the model in mujoco
+                self._model.step()    #simulate the model in mujoco
 
-            print 'accumulated impulse', t
-            print accum_touch
-
+            # print 'accumulated impulse', t
+            # print accum_touch
 
         if not self._hyperparams['data_collection']:
             self.final_score = self.eval_action()
@@ -154,6 +157,22 @@ class AgentMuJoCo(Agent):
         goalpoint = np.array(self._hyperparams['goal_point'])
         refpoint = self._model.data.site_xpos[0,:2]
         return np.linalg.norm(goalpoint - refpoint)
+
+    def enforce(self, model):
+        vel = model.data.qvel[:2].squeeze()
+        des_vel = deepcopy(vel)
+        vmax = self._hyperparams['vellimit']
+        des_vel[des_vel> vmax] = vmax
+        des_vel[des_vel<-vmax] = -vmax
+        gain = 1000
+        force = -(vel - des_vel) * gain
+        # if np.any(force != 0):
+            # print 'enforcing vel constraint', force
+            # print 'vel ',vel
+            # print 'des_vel ', des_vel
+            # print 'velocity constraint violation', (vel - des_vel)
+            # print 'correction force:', force
+        return force
 
     def _store_image(self,t, traj):
         """

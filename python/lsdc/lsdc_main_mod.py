@@ -27,6 +27,11 @@ from video_prediction.correction.setup_corrector import setup_corrector
 from lsdc.utility.save_tf_record import save_tf_record
 from datetime import datetime
 
+
+import random
+import numpy as np
+import matplotlib.pyplot as plt
+
 import numpy as np
 
 
@@ -179,8 +184,6 @@ class LSDCMain(object):
 
         # get the relevant state information:
         dir_ = self._data_files_dir
-        X_Xdot = np.concatenate((traj.X_full, traj.Xdot_full), axis=1)
-        traj.X_Xdot = X_Xdot
         traj = copy.deepcopy(traj)
         self._trajectory_list.append(traj)
         traj_per_file = 256
@@ -324,70 +327,24 @@ def main():
 
 
     hyperparams = imp.load_source('hyperparams', hyperparams_file)
-    if args.targetsetup:
-        try:
-            import matplotlib.pyplot as plt
-            from lsdc.agent.ros.agent_ros import AgentROS
-            from lsdc.gui.target_setup_gui import TargetSetupGUI
 
-            agent = AgentROS(hyperparams.config['agent'])
-            TargetSetupGUI(hyperparams.config['common'], agent)
+    seed = hyperparams.config.get('random_seed', 0)
+    random.seed(seed)
+    np.random.seed(seed)
 
-            plt.ioff()
-            # plt.show()
-        except ImportError:
-            sys.exit('ROS required for target setup.')
-    elif test_policy_N:
-        import random
-        import numpy as np
-        import matplotlib.pyplot as plt
+    gps = LSDCMain(hyperparams.config, args.quit)
 
-        seed = hyperparams.config.get('random_seed', 0)
-        random.seed(seed)
-        np.random.seed(seed)
+    if hyperparams.config['gui_on']:
+        run_gps = threading.Thread(
+            target=lambda: gps.run(itr_load=resume_training_itr)
+        )
+        run_gps.daemon = True
+        run_gps.start()
 
-        data_files_dir = exp_dir + 'data_files/'
-        data_filenames = os.listdir(data_files_dir)
-        algorithm_prefix = 'algorithm_itr_'
-        algorithm_filenames = [f for f in data_filenames if f.startswith(algorithm_prefix)]
-        current_algorithm = sorted(algorithm_filenames, reverse=True)[0]
-        current_itr = int(current_algorithm[len(algorithm_prefix):len(algorithm_prefix)+2])
-
-        gps = LSDCMain(hyperparams.config)
-        if hyperparams.config['gui_on']:
-            test_policy = threading.Thread(
-                target=lambda: gps.test_policy(itr=current_itr, N=test_policy_N)
-            )
-            test_policy.daemon = True
-            test_policy.start()
-
-            plt.ioff()
-            # plt.show()
-        else:
-            gps.test_policy(itr=current_itr, N=test_policy_N)
+        plt.ioff()
+        # plt.show()
     else:
-
-        import random
-        import numpy as np
-        import matplotlib.pyplot as plt
-
-        seed = hyperparams.config.get('random_seed', 0)
-        random.seed(seed)
-        np.random.seed(seed)
-
-        gps = LSDCMain(hyperparams.config, args.quit)
-
-        if hyperparams.config['gui_on']:
-            run_gps = threading.Thread(
-                target=lambda: gps.run(itr_load=resume_training_itr)
-            )
-            run_gps.daemon = True
-            run_gps.start()
-
-            plt.ioff()
-            # plt.show()
-        else:
-            gps.run(itr_load=resume_training_itr)
+        gps.run(itr_load=resume_training_itr)
 
 if __name__ == "__main__":
     main()

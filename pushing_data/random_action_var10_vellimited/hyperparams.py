@@ -51,8 +51,8 @@ if not os.path.exists(common['data_files_dir']):
 
 agent = {
     'type': AgentMuJoCo,
-    'filename': './mjc_models/pushing2d_vellimited.xml',
-    'filename_nomarkers': './mjc_models/pushing2d_vellimited.xml',
+    'filename': './mjc_models/pushing2d.xml',
+    'filename_nomarkers': './mjc_models/pushing2d.xml',
     'data_collection': True,
     'x0': np.array([0., 0., 0., 0.]),
     'dt': 0.05,
@@ -75,14 +75,15 @@ agent = {
     'image_width' : IMAGE_WIDTH,
     'image_channels' : IMAGE_CHANNELS,
     'num_objects': num_objects,
-    'record':False
+    'record':False,
+    'vellimit': 0.3  # set a hard limit to the ball's velociy
 }
 
 policy = {
     'type' : Randompolicy,
     'initial_var': 10,
     'numactions': 5, # number of consecutive actions
-    'repeats': 3, # number of repeats for each action
+    'repeats': 3 # number of repeats for each action
 }
 
 config = {

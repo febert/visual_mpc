@@ -1,13 +1,13 @@
 # creates a collection of random configurations for pushing
 import numpy as np
-
+import random
 import cPickle
 
 
-def create():
+def create(filename, nconf):
 
-    nconf = 20
-    n_conf = -1
+
+    idx = -1
 
     goalpoints = []
     initialposes = []
@@ -18,25 +18,28 @@ def create():
         ob_pos = np.random.uniform(-0.35, 0.35, 2)
         goalpoint = np.random.uniform(-0.4, 0.4, 2)
 
-        n_conf += 1
+        idx += 1
 
         initpos = np.array([0., 0., 0., 0., ob_pos[0], ob_pos[1], 0., np.cos(alpha/2), 0, 0, np.sin(alpha/2)  #object pose (x,y,z, quat)
         ])
 
         goalpoints.append(goalpoint)
         initialposes.append(initpos)
-        print 'initpose:', initpos
-        print 'goalpoint', goalpoint
+        # print 'config no: ', n
+        # print 'initpose:', initpos
+        # print 'goalpoint', goalpoint
 
     dict = {}
 
     dict['goalpoints'] = goalpoints
     dict['initialpos'] = initialposes
 
-    cPickle.dump(dict, open('benchmarkconfigs', mode='wb'))
+    cPickle.dump(dict, open(filename, mode='wb'))
 
-def read():
-    confs = cPickle.load(open('benchmarkconfigs', "rb"))
+    print "done."
+
+def read(filename):
+    confs = cPickle.load(open(filename, "rb"))
     goalpoints = confs['goalpoints']
     initialposes = confs['initialpos']
 
@@ -45,7 +48,14 @@ def read():
 
 
 if __name__ == "__main__":
+    seed = 0
+    random.seed(seed)
+    np.random.seed(seed)
+    print 'using seed', seed
 
-    # create()
+    filename = 'lval_configs'
+    nconf = 1000
 
-    read()
+    create(filename, nconf)
+
+    # read(filename)

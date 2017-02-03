@@ -40,6 +40,10 @@ for t in range(T):
     largeimage = np.fromstring(img_string, dtype='uint8').reshape(
         (480, 480, 3))[::-1, :, :]
 
+    model.data.qvel.setflags(write=True)
+
+    import pdb; pdb.set_trace()
+
 
 
 j = Image.fromarray(largeimage)
