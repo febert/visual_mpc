@@ -29,11 +29,11 @@ def main():
     conf = hyperparams.config
     # load specific agent settings for benchmark:
     bench_dir = cem_exp_dir + '/benchmarks/' + setting_name
-    bench_conf = imp.load_source('mod_hyper', bench_dir + '/mod_hyper.py')
-    conf['policy'].update(bench_conf.policy)
+    lval_conf = imp.load_source('mod_hyper', bench_dir + '/mod_hyper.py')
+    conf['policy'].update(lval_conf.policy)
 
-    if hasattr(bench_conf, 'agent'):
-        conf['agent'].update(bench_conf.agent)
+    if hasattr(lval_conf, 'agent'):
+        conf['agent'].update(lval_conf.agent)
 
     conf['agent']['skip_first'] = 10
 
@@ -111,7 +111,7 @@ def main():
         rel_scores = scores[:traj]
         sorted_ind = rel_scores.argsort()
         f = open(bench_dir + '/results', 'w')
-        f.write('experiment name: ' + benchmark_name + '\n')
+        f.write('experiment name: ' + setting_name + '\n')
         f.write('overall best score: {0} of traj {1}\n'.format(rel_scores[sorted_ind[0]], sorted_ind[0]))
         f.write('overall worst score: {0} of traj {1}\n'.format(rel_scores[sorted_ind[-1]], sorted_ind[-1]))
         f.write('average score: {0}\n'.format(np.sum(rel_scores) / traj))
