@@ -51,6 +51,10 @@ def main():
     # sample intial conditions and goalpoints
     nruns = 60
 
+    if 'verbose' in conf['policy']:
+        print 'verbose mode!! just running 1 configuration'
+        nruns = 1
+
     traj = 0
     n_reseed = 3
     i_conf = 0

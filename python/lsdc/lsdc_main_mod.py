@@ -75,11 +75,10 @@ class LSDCMain(object):
         except:
             pass
 
-    def run(self, itr_load=None):
+    def run(self):
 
-        cond = 0
         for i in range(self._hyperparams['start_index'],self._hyperparams['end_index']):
-            self._take_sample(cond, i)
+            self._take_sample(i)
 
 
     def test_policy(self, itr, N):
@@ -146,7 +145,7 @@ class LSDCMain(object):
                     'Press \'go\' to begin.') % itr_load)
             return itr_load + 1
 
-    def _take_sample(self, cond, sample_index):
+    def _take_sample(self, sample_index):
         """
         Collect a sample from the agent.
         Args:
@@ -159,16 +158,16 @@ class LSDCMain(object):
         start = datetime.now()
 
         traj = self.agent.sample(
-            self.policy, cond )
+            self.policy)
 
         if self._hyperparams['save_data']:
-            self._save_data(traj, sample_index)
+            self.save_data(traj, sample_index)
 
         end = datetime.now()
         print 'time elapsed for one trajectory sim', end-start
 
 
-    def _save_data(self, traj, sample_index):
+    def save_data(self, traj, sample_index):
         """
         saves all the images of a sample-trajectory in a separate dataset within the same hdf5-file
         Args:
@@ -193,6 +192,15 @@ class LSDCMain(object):
                 .format(sample_index - traj_per_file + 1, sample_index)
             save_tf_record(dir_, filename, self._trajectory_list)
             self._trajectory_list = []
+
+    def save_data(self, traj, sample_index):
+        """
+        save starting image, task parameters (configuration, goalposition) and return tuples in tf records
+        :param traj:
+        :param sample_index:
+
+        """
+
 
 
     def _take_policy_samples(self, N=None):

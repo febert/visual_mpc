@@ -37,8 +37,8 @@ class CEM_controller(Policy):
 
         self.model = mujoco_py.MjModel(self.agentparams['filename'])
 
-        self.verbose = False
-        self.compare_sim_net = False
+        self.verbose = True
+
 
         if 'use_first_plan' in self.policyparams:
             self.use_first_plan = self.policyparams['use_first_plan']
@@ -70,6 +70,7 @@ class CEM_controller(Policy):
 
         # the full horizon is actions*repeat
         self.action_cost_mult = 0.00005
+
         self.adim = 2  # action dimension
         self.initial_std = policyparams['initial_std']
         if 'exp_factor' in policyparams:
@@ -154,7 +155,7 @@ class CEM_controller(Policy):
     def perform_CEM(self,last_frames, last_states, last_action, t):
         # initialize mean and variance
 
-        if 'exp_factor' in self.policyparams:
+        if 'exp_factor' in self.policyparams:  # if reusing covariance matrix and mean...
             if t < 2:
                 self.mean = np.zeros(self.adim * self.nactions)
                 self.sigma = np.diag(np.ones(self.adim * self.nactions) * self.initial_std ** 2)
@@ -200,11 +201,15 @@ class CEM_controller(Policy):
             actions = actions.reshape(self.M, self.nactions, self.adim)
             # import pdb; pdb.set_trace()
 
-            if self.compare_sim_net or not self.use_net:
+            if self.verbose or not self.use_net:
                 for smp in range(self.M):
                     self.setup_mujoco()
-                    self.sim_rollout(actions[smp], smp, itr)
-                    scores[smp] = self.eval_action()
+                    accum_score = self.sim_rollout(actions[smp], smp, itr)
+
+                    if not 'rew_all_steps' in self.policyparams:
+                        scores[smp] = self.eval_action()
+                    else:
+                        scores[smp] = accum_score
 
             actions = np.repeat(actions, self.repeat, axis=1)
 
@@ -381,9 +386,9 @@ class CEM_controller(Policy):
             gen_distrib, gen_images, gen_masks, gen_states = self.predictor(last_frames, input_distrib,
                                                                             last_states, actions)
 
-            for tstep in range(1,self.netconf['sequence_length']):
+            for tstep in range(self.netconf['sequence_length']-1):
                 for smp in range(self.M):
-                    self.pred_pos[smp, itr, tstep] = self.mujoco_to_imagespace(gen_states[tstep-1][smp, :2], numpix=480)
+                    self.pred_pos[smp, itr, tstep+1] = self.mujoco_to_imagespace(gen_states[tstep][smp, :2], numpix=480)
 
 
         goalpoint = self.mujoco_to_imagespace(self.agentparams['goal_point'])
@@ -392,10 +397,17 @@ class CEM_controller(Policy):
             for j in range(64):
                 pos = np.array([i,j])
                 distance_grid[i,j] = np.linalg.norm(goalpoint - pos)
-        expected_distance = np.empty(self.netconf['batch_size'])
-        for b in range(self.netconf['batch_size']):
-            gen = gen_distrib[-1][b].squeeze()/ np.sum(gen_distrib[-1][b])
-            expected_distance[b] = np.sum(np.multiply(gen, distance_grid))
+        expected_distance = np.zeros(self.netconf['batch_size'])
+        if 'rew_all_steps' not in self.policyparams:
+            for b in range(self.netconf['batch_size']):
+                gen = gen_distrib[-1][b].squeeze()/ np.sum(gen_distrib[-1][b])
+                expected_distance[b] = np.sum(np.multiply(gen, distance_grid))
+        else:
+            for tstep in range(self.netconf['sequence_length']-1):
+                t_mult = tstep**2  #weighting more distant timesteps more
+                for b in range(self.netconf['batch_size']):
+                    gen = gen_distrib[tstep][b].squeeze() / np.sum(gen_distrib[-1][b])
+                    expected_distance[b] += np.sum(np.multiply(gen, distance_grid)) * t_mult
 
         # for predictor_propagation only!!
         if 'predictor_propagation' in self.policyparams:
@@ -411,7 +423,7 @@ class CEM_controller(Policy):
 
             # concat_masks = [np.stack(gen_masks[t], axis=1) for t in range(14)]
 
-            file_path = self.netconf['current_dir'] + '/data_files/debug_stoch'
+            file_path = self.netconf['current_dir'] + '/verbose'
 
             bestindices = expected_distance.argsort()[:self.K]
 
@@ -440,8 +452,6 @@ class CEM_controller(Policy):
                 f.write('action {}\n'.format(actions[i]))
 
 
-        # print 'length of self.rec_input_distrib is {0} after timestep {1}'.format(len(self.rec_input_distrib), self.t)
-
 
         if 'mult_noise_per_action' in self.policyparams:
             print "using {} noisevector per action".format(self.netconf['batch_size']/ self.policyparams['num_samples'])
@@ -454,6 +464,8 @@ class CEM_controller(Policy):
 
 
     def sim_rollout(self, actions, smp, itr):
+        accum_score = 0
+
         if self.policyparams['low_level_ctrl']:
             rollout_ctrl = self.policyparams['low_level_ctrl']['type'](None, self.policyparams['low_level_ctrl'])
             roll_target_pos = copy.deepcopy(self.init_model.data.qpos[:2].squeeze())
@@ -485,6 +497,8 @@ class CEM_controller(Policy):
                     self.model.data.ctrl = force
                     self.model.step()  # simulate the model in mujoco
 
+                accum_score += self.eval_action()
+
                 if self.verbose:
                     self.viewer.loop_once()
 
@@ -494,6 +508,8 @@ class CEM_controller(Policy):
                         (height, width, 3))[::-1, :, :]
                     self.gtruth_images[t][smp] = img
                     # self.check_conversion()
+
+        return accum_score
 
     def check_conversion(self):
         # check conversion

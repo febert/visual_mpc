@@ -99,7 +99,8 @@ def main():
 
             lsdc.policy.policyparams['rec_distrib'] =  bench_dir + '/videos_distrib/traj{0}_conf{1}'.format(traj, i_conf)
 
-            lsdc.agent.sample(lsdc.policy)
+            traj = lsdc.agent.sample(lsdc.policy)
+            lsdc.save_data_lval(traj, traj)
 
             scores[traj] = lsdc.agent.final_score
             print 'score of traj', traj, ':', scores[traj]

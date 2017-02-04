@@ -109,7 +109,7 @@ class AgentMuJoCo(Agent):
 
             traj.X_full[t, :] = self._model.data.qpos[:2].squeeze()
             traj.Xdot_full[t, :] = self._model.data.qvel[:2].squeeze()
-            traj.X_Xdot_full[t, :] =  np.concatenate([traj.X_full[t, :], traj.Xdot_full[t, :]], axis=1)
+            traj.X_Xdot_full[t, :] =  np.concatenate([traj.X_full[t, :], traj.Xdot_full[t, :]])
             for i in range(self._hyperparams['num_objects']):
                 traj.Object_pos[t,i,:] = self._model.data.qpos[i*7+2:i*7+4].squeeze()
 

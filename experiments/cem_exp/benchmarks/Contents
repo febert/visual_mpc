@@ -6,3 +6,5 @@ Every action sampled is evaluated with noise_per_action noise samples.
 
 
 
+/force_a15_rew_allsteps
+evaluate actions based on distance to the goal at all timesteps, not only at the last.
