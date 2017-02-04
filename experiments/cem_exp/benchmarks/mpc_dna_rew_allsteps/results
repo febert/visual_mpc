@@ -1,11 +1,9 @@
 experiment name: mpc_dna_rew_allsteps
-overall best score: 0.427623713293 of traj 0
-overall worst score: 0.427623713293 of traj 2
-average score: 0.427623713293
+overall best score: 0.310936623496 of traj 0
+overall worst score: 0.310936623496 of traj 0
+average score: 0.310936623496
 standard deviation 0.0
 ----------------------
 traj: score, rank
 ----------------------
-0: 0.427623713293, 0
-1: 0.427623713293, 1
-2: 0.427623713293, 2
+0: 0.310936623496, 0
