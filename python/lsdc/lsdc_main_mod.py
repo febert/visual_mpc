@@ -25,6 +25,8 @@ from lsdc.algorithm.policy.random_impedance_point import Random_impedance_point
 from video_prediction.setup_predictor import setup_predictor
 from video_prediction.correction.setup_corrector import setup_corrector
 from lsdc.utility.save_tf_record import save_tf_record
+from lsdc.utility.save_tf_record import save_tf_record_lval
+
 from datetime import datetime
 
 
@@ -68,7 +70,8 @@ class LSDCMain(object):
             self.corrector = setup_corrector(config['policy']['correctorconf'])
             self.policy.corrector = self.corrector
 
-        self._trajectory_list = []
+        self.trajectory_list = []
+        self.im_score_list = []
 
         try:
             os.remove(self._hyperparams['agent']['image_dir'])
@@ -172,35 +175,34 @@ class LSDCMain(object):
         saves all the images of a sample-trajectory in a separate dataset within the same hdf5-file
         Args:
             image_data: the numpy structure
-            X_full: vector of positions for sample
-            Xdot_full: vector of velocities for sample
-            U: vector of control inputs
-            sample_images: vector of sample images
             sample_index: sample number
         """
-
-        # print 'saving traj no:', sample_index
-
-        # get the relevant state information:
-        dir_ = self._data_files_dir
         traj = copy.deepcopy(traj)
-        self._trajectory_list.append(traj)
-        traj_per_file = 256
+        self.trajectory_list.append(traj)
+        traj_per_file = 5  #56
         print 'traj_per_file', traj_per_file
-        if len(self._trajectory_list) == traj_per_file:
+        if len(self.trajectory_list) == traj_per_file:
             filename = 'traj_{0}_to_{1}'\
                 .format(sample_index - traj_per_file + 1, sample_index)
-            save_tf_record(dir_, filename, self._trajectory_list)
-            self._trajectory_list = []
+            save_tf_record(self._data_files_dir, filename, self.trajectory_list)
+            self.trajectory_list = []
 
-    def save_data(self, traj, sample_index):
+    def save_data_lval(self, traj, score, goalpos, desig_pos, sample_index):
         """
         save starting image, task parameters (configuration, goalposition) and return tuples in tf records
         :param traj:
         :param sample_index:
-
         """
-
+        # get first image
+        first_img = copy.deepcopy(traj._sample_images[0])
+        self.im_score_list.append([first_img, score, goalpos, desig_pos])
+        traj_per_file = 2
+        print '_per_file', traj_per_file
+        if len(self.im_score_list) == traj_per_file:
+            filename = 'traj_{0}_to_{1}' \
+                .format(sample_index - traj_per_file + 1, sample_index)
+            save_tf_record_lval(self._data_files_dir, filename, self.im_score_list)
+            self.im_score_list = []
 
 
     def _take_policy_samples(self, N=None):

@@ -4,7 +4,7 @@ import numpy as np
 
 
 def _float_feature(value):
-    return tf.train.Feature(float_list=tf.train.FloatList(value=value))
+    return tf.train.Feature(pfloat_list=tf.train.FloatList(value=value))
 
 
 def _bytes_feature(value):
@@ -33,8 +33,10 @@ def save_tf_record(dir, filename, trajectory_list):
         for index in range(sequence_length):
             image_raw = traj._sample_images[index].tostring()
 
+            import pdb; pdb.set_trace()
+
             feature['move/' + str(index) + '/action']= _float_feature(traj.U[index,:].tolist())
-            feature['move/' + str(index) + '/state'] = _float_feature(traj.X_Xdot[index,:].tolist())
+            feature['move/' + str(index) + '/state'] = _float_feature(traj.X_Xdot_full[index,:].tolist())
             feature['move/' + str(index) + '/image/encoded'] = _bytes_feature(image_raw)
 
             if hasattr(traj, 'Object_pos'):
@@ -44,5 +46,35 @@ def save_tf_record(dir, filename, trajectory_list):
 
         example = tf.train.Example(features=tf.train.Features(feature=feature))
         writer.write(example.SerializeToString())
+
+    writer.close()
+
+
+def save_tf_record_lval(dir, filename, img_score_list):
+    """
+    saves data_files from one sample trajectory into one tf-record file
+    """
+
+    filename = os.path.join(dir, filename + '.tfrecords')
+    print('Writing', filename)
+    writer = tf.python_io.TFRecordWriter(filename)
+
+    feature = {}
+
+    for ex in range(len(img_score_list)):
+
+        img, score, goalpos, desig_pos = img_score_list[ex]
+
+        image_raw = img.tostring()
+
+        feature['img'] = _bytes_feature(image_raw)
+
+        feature['score'] = _float_feature([score])
+        feature['goalpos'] = _float_feature(score.tolist())
+        feature['desig_pos'] = _float_feature(score.tolist())
+
+        example = tf.train.Example(features=tf.train.Features(feature=feature))
+        writer.write(example.SerializeToString())
+
 
     writer.close()

@@ -56,6 +56,6 @@ if __name__ == "__main__":
     filename = 'lval_configs'
     nconf = 1000
 
-    create(filename, nconf)
+    # create(filename, nconf)
 
-    # read(filename)
+    read(filename)

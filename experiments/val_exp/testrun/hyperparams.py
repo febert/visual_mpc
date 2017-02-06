@@ -37,6 +37,7 @@ SENSOR_DIMS = {
 }
 
 current_dir = '/'.join(str.split(__file__, '/')[:-1])
+lsdc_base_dir = '/'.join(str.split(__file__, '/')[:-4])
 
 common = {
     'experiment_name': 'my_experiment' + '_' + \
@@ -55,14 +56,14 @@ if not os.path.exists(common['data_files_dir']):
 alpha = 30*np.pi/180
 agent = {
     'type': AgentMuJoCo,
-    'filename': './mjc_models/pushing2d_controller.xml',
-    'filename_nomarkers': './mjc_models/pushing2d_controller_nomarkers.xml',
+    'filename': lsdc_base_dir +'/mjc_models/pushing2d_controller.xml',
+    'filename_nomarkers': lsdc_base_dir +'/mjc_models/pushing2d_controller_nomarkers.xml',
     'data_collection': False,
     'x0': '',
     'dt': 0.05,
     'substeps': 20,  #10
     'conditions': common['conditions'],
-    'T': 25,
+    'T': 4,    ############# for testing !!!!!!!!!!!!!!!!!
     'skip_first': 5,
     'sensor_dims': SENSOR_DIMS,
     'state_include': [JOINT_ANGLES, JOINT_VELOCITIES],
@@ -99,15 +100,11 @@ policy = {
     'nactions': 5,
     'repeat': 3,
     'use_first_plan': False,
-    'num_samples': 200,
-    'iterations': 5,
+    # 'num_samples': 200,
+    'iterations': 1,  # 5########## for testing !!!!!!!!
     'current_dir': current_dir,
+    'initial_std': 7
 }
-
-if policy['low_level_ctrl'] == None:
-    policy['initial_std'] = 7
-elif policy['low_level_ctrl']['type'] == Pos_Controller:
-    policy['initial_std'] = 0.15
 
 
 config = {
