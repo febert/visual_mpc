@@ -35,8 +35,10 @@ def construct_model(images, goalpos, desig_pos,
     """
     Build network for estimating value function
     """
+    images = tf.squeeze(images)
 
-    batch_size, img_height, img_width, color_channels = images[0].get_shape()[0:4]
+    batch_size, img_height, img_width, color_channels = images.get_shape()
+    batch_size = int(batch_size)
     if pix_distrib_input != None:
         num_objects = pix_distrib_input.get_shape()[1]
 
@@ -72,25 +74,25 @@ def construct_model(images, goalpos, desig_pos,
     )
 
     # Pass in low-dimensional inputs:
-    low_dim = tf.concat(1, goalpos, desig_pos)
+    low_dim = tf.concat(1, [goalpos, desig_pos])
     smear = tf.reshape(
         low_dim,
-        [int(batch_size), 1, 1, int(low_dim.get_shape()[1])])
+        [batch_size, 1, 1, int(low_dim.get_shape()[1])])
     smear = tf.tile(
         smear, [1, int(enc2.get_shape()[1]), int(enc2.get_shape()[2]), 1])
 
     enc2_concat = tf.concat(3, [enc2, smear])
 
-    enc3  = slim.layers.conv2d(
+    enc3  = slim.layers.conv2d(   #enc2 8x8
         enc2_concat,
         128, [5, 5],
-        stride=2,
+        stride=1,
         scope='conv3',
         # normalizer_fn=tf_layers.batch_norm,
         # normalizer_params={'scope': 'batch_norm2'}
     )
 
-    enc3_flat = tf.reshape(enc3, [batch_size, -1])
+    enc3_flat = tf.reshape(enc3, shape=[batch_size, -1], name='reshape')
 
     enc4 = slim.layers.fully_connected(
         enc3_flat,

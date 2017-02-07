@@ -41,7 +41,7 @@ def build_tfrecord_input(conf, training=True):
     if not filenames:
         raise RuntimeError('No data_files files found.')
 
-    index = int(np.ceil(conf['train_val_split'] * len(filenames)))
+    index = int(np.floor(conf['train_val_split'] * len(filenames)))
     if training:
         filenames = filenames[:index]
     else:
@@ -52,7 +52,6 @@ def build_tfrecord_input(conf, training=True):
         print 'using input file', filenames
         shuffle = False
     else: shuffle = True
-
 
     filename_queue = tf.train.string_input_producer(filenames, shuffle=shuffle)
     reader = tf.TFRecordReader()
@@ -69,7 +68,6 @@ def build_tfrecord_input(conf, training=True):
                 goalpos_name: tf.FixedLenFeature([2], tf.float32),
                 desig_pos_name: tf.FixedLenFeature([2], tf.float32)
     }
-
 
     features = tf.parse_single_example(serialized_example, features=features)
 

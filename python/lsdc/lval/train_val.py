@@ -4,13 +4,9 @@ import tensorflow as tf
 import imp
 import sys
 import cPickle
-
 from tensorflow.python.platform import app
 from tensorflow.python.platform import flags
-
 from read_tf_record_lval import build_tfrecord_input
-
-
 from datetime import datetime
 
 # How often to record tensorboard summaries.
@@ -23,13 +19,12 @@ VAL_INTERVAL = 200
 SAVE_INTERVAL = 2000
 
 FLAGS = flags.FLAGS
-flags.DEFINE_string('hyper', '', 'hyperparameters configuration file')
+flags.DEFINE_string('hyper', '', 'name of folder with hyperparameters configuration file (inside tensorflowdata_lval)')
 flags.DEFINE_string('visualize', '', 'model within hyperparameter folder from which to create gifs')
 flags.DEFINE_integer('device', 0 ,'the value for CUDA_VISIBLE_DEVICES variable')
 
 def mean_squared_error(true, pred):
     """L2 distance between tensors true and pred.
-
     Args:
       true: the ground truth image.
       pred: the predicted image.
@@ -47,8 +42,6 @@ class Model(object):
         summaries = []
         inf_scores = construct_model(images, goalpos, desig_pos)
         self.inf_scores = inf_scores
-
-
         self.loss = loss = mean_squared_error(inf_scores, scores)
 
         summaries.append(tf.scalar_summary(prefix + '_loss', loss))
@@ -94,7 +87,7 @@ def imagespace_to_mujoco(pixel_coord, numpix = 64):
     mujoco_coords = np.array([coords[1], -coords[0]])
     return mujoco_coords
 
-def visualize(conf, sess, model):
+def visualize(conf):
 
 
     print 'creating visualizations ...'
@@ -110,11 +103,6 @@ def visualize(conf, sess, model):
     sess = tf.InteractiveSession(config=tf.ConfigProto(gpu_options=gpu_options))
     tf.train.start_queue_runners(sess)
     sess.run(tf.initialize_all_variables())
-
-    # img, desig_pos_batch = sess.run([image, desig_pos_batch])
-    #
-    # img_pl = tf.placeholder(tf.float32, name='images',
-    #                        shape=(conf['batch_size'], conf['sequence_length'], 64, 64, 3))
 
     goal_pos_pl = tf.placeholder(tf.float32, name='goalpos', shape=(1, 2))
 
@@ -136,15 +124,6 @@ def visualize(conf, sess, model):
             value[r,c] = sess.run([model.inf_scores], feed_dict)
 
 
-    file_path = conf['output_dir']
-    cPickle.dump(gen_images, open(file_path + '/gen_image_seq.pkl','wb'))
-    cPickle.dump(ground_truth, open(file_path + '/ground_truth.pkl', 'wb'))
-    cPickle.dump(mask_list, open(file_path + '/mask_list.pkl', 'wb'))
-    print 'written files to:' + file_path
-
-
-
-
 def main(unused_argv, conf_script= None):
     os.environ["CUDA_VISIBLE_DEVICES"] = str(FLAGS.device)
     print 'using CUDA_VISIBLE_DEVICES=', FLAGS.device
@@ -154,11 +133,20 @@ def main(unused_argv, conf_script= None):
     if conf_script == None: conf_file = FLAGS.hyper
     else: conf_file = conf_script
 
-    if not os.path.exists(FLAGS.hyper):
+    current_dir = os.path.dirname(os.path.realpath(__file__))
+    lsdc_basedir = '/'.join(str.split(current_dir, '/')[:-3])
+    hyperfile = lsdc_basedir + '/experiments/val_exp/tensorflowdata_lval/' + FLAGS.hyper +'/conf.py'
+
+    if not os.path.exists(hyperfile):
         sys.exit("Experiment configuration not found")
-    hyperparams = imp.load_source('hyperparams', conf_file)
+
+
+    hyperparams = imp.load_source('hyperparams', hyperfile)
 
     conf = hyperparams.configuration
+
+    if FLAGS.visualize:
+        print 'creating visualizations ...'
 
     print '-------------------------------------------------------------------'
     print 'verify current settings!! '
@@ -169,7 +157,6 @@ def main(unused_argv, conf_script= None):
     print 'Constructing models and inputs.'
     with tf.variable_scope('model', reuse=None) as training_scope:
         image_batch, score_batch, goalpos_batch, desig_pos_batch = build_tfrecord_input(conf, training=True)
-
         image_batch_val, score_batch_val, goalpos_batch_val, desig_pos_batch_val = build_tfrecord_input(conf, training=False)
 
         condition = tf.placeholder(tf.int32, shape=[], name="condition")
@@ -259,7 +246,5 @@ def main(unused_argv, conf_script= None):
 
 
 if __name__ == '__main__':
-    import pdb; pdb.set_trace()
-
     tf.logging.set_verbosity(tf.logging.INFO)
     app.run()
