@@ -4,7 +4,7 @@ import numpy as np
 
 
 def _float_feature(value):
-    return tf.train.Feature(pfloat_list=tf.train.FloatList(value=value))
+    return tf.train.Feature(float_list=tf.train.FloatList(value=value))
 
 
 def _bytes_feature(value):
@@ -70,8 +70,8 @@ def save_tf_record_lval(dir, filename, img_score_list):
         feature['img'] = _bytes_feature(image_raw)
 
         feature['score'] = _float_feature([score])
-        feature['goalpos'] = _float_feature(score.tolist())
-        feature['desig_pos'] = _float_feature(score.tolist())
+        feature['goalpos'] = _float_feature(goalpos.tolist())
+        feature['desig_pos'] = _float_feature(desig_pos.tolist())
 
         example = tf.train.Example(features=tf.train.Features(feature=feature))
         writer.write(example.SerializeToString())

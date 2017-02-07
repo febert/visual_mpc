@@ -179,7 +179,7 @@ class LSDCMain(object):
         """
         traj = copy.deepcopy(traj)
         self.trajectory_list.append(traj)
-        traj_per_file = 5  #56
+        traj_per_file = 256
         print 'traj_per_file', traj_per_file
         if len(self.trajectory_list) == traj_per_file:
             filename = 'traj_{0}_to_{1}'\
@@ -196,7 +196,7 @@ class LSDCMain(object):
         # get first image
         first_img = copy.deepcopy(traj._sample_images[0])
         self.im_score_list.append([first_img, score, goalpos, desig_pos])
-        traj_per_file = 2
+        traj_per_file = 5
         print '_per_file', traj_per_file
         if len(self.im_score_list) == traj_per_file:
             filename = 'traj_{0}_to_{1}' \

@@ -71,6 +71,8 @@ class CEM_controller(Policy):
         # the full horizon is actions*repeat
         self.action_cost_mult = 0.00005
 
+        self.action_cost_mult = 0
+
         self.adim = 2  # action dimension
         self.initial_std = policyparams['initial_std']
         if 'exp_factor' in policyparams:

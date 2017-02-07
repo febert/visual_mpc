@@ -43,9 +43,7 @@ common = {
     'experiment_name': 'my_experiment' + '_' + \
             datetime.strftime(datetime.now(), '%m-%d-%y_%H-%M'),
     'experiment_dir': current_dir,
-    'data_files_dir': '/tmp/',
-    'target_filename': current_dir + 'target.npz',
-    'log_filename': current_dir + 'log.txt',
+    'data_files_dir': current_dir +'/train',
     'conditions': 1,
     'no_sample_logging': True,
 }
@@ -63,7 +61,7 @@ agent = {
     'dt': 0.05,
     'substeps': 20,  #10
     'conditions': common['conditions'],
-    'T': 4,    ############# for testing !!!!!!!!!!!!!!!!!
+    'T': 15,    ############# for testing !!!!!!!!!!!!!!!!!
     'skip_first': 5,
     'sensor_dims': SENSOR_DIMS,
     'state_include': [JOINT_ANGLES, JOINT_VELOCITIES],
@@ -80,7 +78,8 @@ agent = {
     'goal_point': '',
     'current_dir': current_dir,
     'record': '',
-    'add_traj': True
+    'add_traj': True,
+    'vellimit': 0.3  # set a hard limit to the ball's velocity
 }
 
 
@@ -100,8 +99,7 @@ policy = {
     'nactions': 5,
     'repeat': 3,
     'use_first_plan': False,
-    # 'num_samples': 200,
-    'iterations': 1,  # 5########## for testing !!!!!!!!
+    'iterations': 5,
     'current_dir': current_dir,
     'initial_std': 7
 }

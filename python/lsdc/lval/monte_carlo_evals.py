@@ -46,7 +46,7 @@ def main():
     nruns = 1000
 
     i_trj = 0
-    n_repeat_conf = 3  #use configuration n times
+    n_repeat_conf = 1  #use configuration n times
     i_conf = 0
 
     scores = np.empty(nruns)
@@ -96,7 +96,7 @@ def main():
             print 'score of traj', i_trj, ':', scores[i_trj]
 
             desig_pos = initialposes[i_conf][4:6]
-            import pdb; pdb.set_trace()
+            # import pdb; pdb.set_trace()
             lsdc.save_data_lval(trajectory, scores[i_trj], goalpoints[i_conf], desig_pos, i_trj)
 
             i_trj +=1 #increment trajectories every step!
