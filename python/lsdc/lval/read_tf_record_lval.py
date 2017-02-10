@@ -61,12 +61,14 @@ def build_tfrecord_input(conf, training=True):
     score_name = 'score'
     goalpos_name = 'goalpos'
     desig_pos_name = 'desig_pos'
+    init_state_name = 'init_state'
 
     features = {
                 image_name: tf.FixedLenFeature([1], tf.string),
                 score_name: tf.FixedLenFeature([1], tf.float32),
                 goalpos_name: tf.FixedLenFeature([2], tf.float32),
-                desig_pos_name: tf.FixedLenFeature([2], tf.float32)
+                desig_pos_name: tf.FixedLenFeature([2], tf.float32),
+                init_state_name: tf.FixedLenFeature([2], tf.float32)
     }
 
     features = tf.parse_single_example(serialized_example, features=features)
@@ -92,14 +94,15 @@ def build_tfrecord_input(conf, training=True):
     score = features[score_name]
     goalpos = features[goalpos_name]
     desig_pos = features[desig_pos_name]
+    init_state = features[init_state_name]
 
 
-    [image_batch, score_batch, goalpos_batch, desig_pos_batch] = tf.train.batch(
-        [image, score, goalpos, desig_pos],
+    [image_batch, score_batch, goalpos_batch, desig_pos_batch, init_state_batch] = tf.train.batch(
+        [image, score, goalpos, desig_pos, init_state],
         conf['batch_size'],
         num_threads=num_threads,
         capacity=100 * conf['batch_size'])
-    return image_batch, score_batch, goalpos_batch, desig_pos_batch
+    return image_batch, score_batch, goalpos_batch, desig_pos_batch, init_state_batch
 
 ##### code below is used for debugging
 
@@ -121,13 +124,13 @@ if __name__ == '__main__':
     print 'using CUDA_VISIBLE_DEVICES=', os.environ["CUDA_VISIBLE_DEVICES"]
     conf = {}
 
-    DATA_DIR = '/home/frederik/Documents/lsdc/experiments/val_exp/testrun/train'
+    DATA_DIR = '/home/frederik/Documents/lsdc/experiments/val_exp/dna_mpc_states/train'
 
     conf['schedsamp_k'] = -1  # don't feed ground truth
     conf['data_dir'] = DATA_DIR  # 'directory containing data_files.' ,
     conf['skip_frame'] = 1
     conf['train_val_split']= 0.95
-    conf['batch_size']= 4
+    conf['batch_size']= 13
     conf['visualize']=False
     conf['use_object_pos'] = True
 
@@ -139,17 +142,21 @@ if __name__ == '__main__':
 
     print 'testing the reader'
 
-    image_batch, score_batch, goalpos_batch, desig_pos_batch  = build_tfrecord_input(conf, training=True)
+    image_batch, score_batch, goalpos_batch, desig_pos_batch, init_states_batch  = build_tfrecord_input(conf, training=True)
     sess = tf.InteractiveSession()
     tf.train.start_queue_runners(sess)
     sess.run(tf.initialize_all_variables())
 
 
-    for i in range(3):
+    for i in range(2):
         print '-------------------'
         print 'run number ', i
 
-        image, score, goalpos, desig_pos = sess.run([image_batch, score_batch, goalpos_batch, desig_pos_batch])
+        image, score, goalpos, desig_pos, init_states = sess.run([image_batch,
+                                                                  score_batch,
+                                                                  goalpos_batch,
+                                                                  desig_pos_batch,
+                                                                  init_states_batch])
 
         print 'image shape', image.shape
         print 'score shape', score.shape
@@ -158,3 +165,11 @@ if __name__ == '__main__':
         print 'goalpos', goalpos
         print 'desigpos shape', desig_pos.shape
         print 'desigpos', desig_pos
+        print 'init_states shape', init_states.shape
+        print 'init_states', init_states
+
+        image = image[i].squeeze()
+        desig_pos = desig_pos[i].squeeze()
+        desig_pos_pix = mujoco_to_imagespace(desig_pos.squeeze())
+        image[int(desig_pos_pix[0]), int(desig_pos_pix[1])] = 1
+        image = Image.fromarray(np.uint8(image * 255)).show()

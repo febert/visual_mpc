@@ -53,9 +53,9 @@ if __name__ == "__main__":
     np.random.seed(seed)
     print 'using seed', seed
 
-    filename = 'lval_configs'
-    nconf = 1000
+    filename = 'lval_configs_10000'
+    nconf = 10000
 
-    # create(filename, nconf)
+    create(filename, nconf)
 
-    read(filename)
+    # read(filename)

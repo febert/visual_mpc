@@ -13,11 +13,6 @@ from lsdc.agent.mjc.agent_mjc import AgentMuJoCo
 import imp
 
 
-
-
-
-from lsdc.gui.config import generate_experiment_info
-
 from lsdc.proto.gps_pb2 import JOINT_ANGLES, JOINT_VELOCITIES, \
         END_EFFECTOR_POINTS, END_EFFECTOR_POINT_VELOCITIES, ACTION, \
         RGB_IMAGE, RGB_IMAGE_SIZE
@@ -79,7 +74,6 @@ agent = {
     'current_dir': current_dir,
     'record': '',
     'add_traj': True,
-    'vellimit': 0.3  # set a hard limit to the ball's velocity
 }
 
 
@@ -99,7 +93,7 @@ policy = {
     'nactions': 5,
     'repeat': 3,
     'use_first_plan': False,
-    'iterations': 5,
+    'iterations': 1, ##############################5,
     'current_dir': current_dir,
     'initial_std': 7
 }

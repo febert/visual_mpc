@@ -187,7 +187,7 @@ class LSDCMain(object):
             save_tf_record(self._data_files_dir, filename, self.trajectory_list)
             self.trajectory_list = []
 
-    def save_data_lval(self, traj, score, goalpos, desig_pos, sample_index):
+    def save_data_lval(self, traj, score, goalpos, desig_pos, init_state, sample_index):
         """
         save starting image, task parameters (configuration, goalposition) and return tuples in tf records
         :param traj:
@@ -195,8 +195,8 @@ class LSDCMain(object):
         """
         # get first image
         first_img = copy.deepcopy(traj._sample_images[0])
-        self.im_score_list.append([first_img, score, goalpos, desig_pos])
-        traj_per_file = 5
+        self.im_score_list.append([first_img, score, goalpos, desig_pos, init_state])
+        traj_per_file = 2
         print '_per_file', traj_per_file
         if len(self.im_score_list) == traj_per_file:
             filename = 'traj_{0}_to_{1}' \

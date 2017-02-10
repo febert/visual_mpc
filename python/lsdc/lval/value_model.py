@@ -29,15 +29,18 @@ RELU_SHIFT = 1e-12
 DNA_KERN_SIZE = 5
 
 
-def construct_model(images, goalpos, desig_pos,
+def construct_model(conf, images, goalpos, desig_pos,
                     pix_distrib_input=None):
 
     """
     Build network for estimating value function
     """
-    images = tf.squeeze(images)
+    batch_size = conf['batch_size']
+    img_height = 64
+    img_width = 64
+    color_channels = 3
+    images = tf.reshape(images, [batch_size, img_height, img_width, color_channels])
 
-    batch_size, img_height, img_width, color_channels = images.get_shape()
     batch_size = int(batch_size)
     if pix_distrib_input != None:
         num_objects = pix_distrib_input.get_shape()[1]
@@ -53,7 +56,6 @@ def construct_model(images, goalpos, desig_pos,
         # normalizer_fn=tf_layers.batch_norm,
         # normalizer_params={'scope': 'batch_norm1'}
     )
-
 
     enc1 = slim.layers.conv2d(   # enc1 16x16
         enc0,
@@ -75,13 +77,10 @@ def construct_model(images, goalpos, desig_pos,
 
     # Pass in low-dimensional inputs:
     low_dim = tf.concat(1, [goalpos, desig_pos])
-    smear = tf.reshape(
-        low_dim,
-        [batch_size, 1, 1, int(low_dim.get_shape()[1])])
-    smear = tf.tile(
-        smear, [1, int(enc2.get_shape()[1]), int(enc2.get_shape()[2]), 1])
+    smear = tf.reshape(low_dim, [batch_size, 1, 1, int(low_dim.get_shape()[1])])
+    smear = tf.tile(smear, [1, int(enc2.get_shape()[1]), int(enc2.get_shape()[2]), 1], name='tile')
 
-    enc2_concat = tf.concat(3, [enc2, smear])
+    enc2_concat = tf.concat(3, [enc2, smear], name='concat')
 
     enc3  = slim.layers.conv2d(   #enc2 8x8
         enc2_concat,

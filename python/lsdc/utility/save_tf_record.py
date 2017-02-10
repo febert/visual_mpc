@@ -63,7 +63,7 @@ def save_tf_record_lval(dir, filename, img_score_list):
 
     for ex in range(len(img_score_list)):
 
-        img, score, goalpos, desig_pos = img_score_list[ex]
+        img, score, goalpos, desig_pos, init_state = img_score_list[ex]
 
         image_raw = img.tostring()
 
@@ -72,6 +72,7 @@ def save_tf_record_lval(dir, filename, img_score_list):
         feature['score'] = _float_feature([score])
         feature['goalpos'] = _float_feature(goalpos.tolist())
         feature['desig_pos'] = _float_feature(desig_pos.tolist())
+        feature['init_state'] = _float_feature(init_state.tolist())
 
         example = tf.train.Example(features=tf.train.Features(feature=feature))
         writer.write(example.SerializeToString())

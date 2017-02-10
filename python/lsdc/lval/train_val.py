@@ -8,6 +8,8 @@ from tensorflow.python.platform import app
 from tensorflow.python.platform import flags
 from read_tf_record_lval import build_tfrecord_input
 from datetime import datetime
+import matplotlib.pyplot as plt
+from PIL import Image
 
 # How often to record tensorboard summaries.
 SUMMARY_INTERVAL = 40
@@ -34,15 +36,25 @@ def mean_squared_error(true, pred):
     return tf.reduce_sum(tf.square(true - pred)) / tf.to_float(tf.size(pred))
 
 class Model(object):
-    def __init__(self, conf, images, scores, goalpos, desig_pos, train= True):
+    def __init__(self, conf, images=None, scores=None, goal_pos=None, desig_pos=None):
+        batchsize = int(conf['batch_size'])
+        if goal_pos is None:
+            self.goal_pos = tf.placeholder(tf.float32, name='goalpos', shape=(batchsize, 2))
+        if desig_pos is None:
+            self.desig_pos = tf.placeholder(tf.float32, name='desig_pos_pl', shape=(batchsize, 2))
+        if scores is None:
+            self.scores = tf.placeholder(tf.float32, name='score_pl', shape=(batchsize, 1))
+        if images is None:
+            self.images = tf.placeholder(tf.float32, name='images_pl', shape=(batchsize, 1, 64,64,3))
+
         self.prefix = prefix = tf.placeholder(tf.string, [])
 
         from value_model import construct_model
 
         summaries = []
-        inf_scores = construct_model(images, goalpos, desig_pos)
+        inf_scores = construct_model(conf, self.images, self.goal_pos, self.desig_pos)
         self.inf_scores = inf_scores
-        self.loss = loss = mean_squared_error(inf_scores, scores)
+        self.loss = loss = mean_squared_error(inf_scores, self.scores)
 
         summaries.append(tf.scalar_summary(prefix + '_loss', loss))
 
@@ -51,7 +63,7 @@ class Model(object):
         self.train_op = tf.train.AdamOptimizer(self.lr).minimize(loss)
         self.summ_op = tf.merge_summary(summaries)
 
-def mujoco_to_imagespace(mujoco_coord, numpix = 64, truncate = False):
+def mujoco_to_imagespace(mujoco_coord, numpix = 64, truncate = False, noflip= False):
     """
     convert form Mujoco-Coord to numpix x numpix image space:
     :param numpix: number of pixels of square image
@@ -64,10 +76,15 @@ def mujoco_to_imagespace(mujoco_coord, numpix = 64, truncate = False):
     pixelwidth = pixelheight
     window_width = pixelwidth * numpix
     middle_pixel = numpix / 2
-    pixel_coord = np.rint(np.array([-mujoco_coord[1], mujoco_coord[0]]) /
-                          pixelwidth + np.array([middle_pixel, middle_pixel]))
-    pixel_coord = pixel_coord.astype(int)
 
+    if not noflip:
+        pixel_coord = np.rint(np.array([-mujoco_coord[1], mujoco_coord[0]]) /
+                              pixelwidth + np.array([middle_pixel, middle_pixel]))
+    else:
+        pixel_coord = np.rint(np.array([mujoco_coord[0], mujoco_coord[1]]) /
+                              pixelwidth + np.array([middle_pixel, middle_pixel]))
+
+    pixel_coord = pixel_coord.astype(int)
     if truncate:
         if np.any(pixel_coord < 0) or np.any(pixel_coord > numpix -1):
             print '###################'
@@ -80,48 +97,96 @@ def mujoco_to_imagespace(mujoco_coord, numpix = 64, truncate = False):
 
     return pixel_coord
 
-def imagespace_to_mujoco(pixel_coord, numpix = 64):
+def imagespace_to_mujoco(pixel_coord, numpix = 64, noflip =False):
     viewer_distance = .75  # distance from camera to the viewing plane
     window_height = 2 * np.tan(75 / 2 / 180. * np.pi) * viewer_distance  # window height in Mujoco coords
     coords = (pixel_coord - float(numpix)/2)/float(numpix) * window_height
-    mujoco_coords = np.array([coords[1], -coords[0]])
+    if not noflip:
+        mujoco_coords = np.array([-coords[1], coords[0]])
+    else:
+        mujoco_coords = coords
     return mujoco_coords
 
 def visualize(conf):
 
-
-    print 'creating visualizations ...'
     conf['data_dir'] = '/'.join(str.split(conf['data_dir'], '/')[:-1] + ['test'])
     conf['visualize'] = conf['output_dir'] + '/' + FLAGS.visualize
     conf['event_log_dir'] = '/tmp'
-    conf['visual_file'] = conf['data_dir'] + '/traj_0_to_255.tfrecords'
+    conf['visual_file'] = conf['data_dir'] + '/traj_0_to_4.tfrecords'
     conf['batch_size'] = 1
 
-    image, score_batch, goalpos, desig_pos = build_tfrecord_input(conf, training=True)
-
-    gpu_options = tf.GPUOptions(per_process_gpu_memory_fraction=0.9)
-    sess = tf.InteractiveSession(config=tf.ConfigProto(gpu_options=gpu_options))
-    tf.train.start_queue_runners(sess)
-    sess.run(tf.initialize_all_variables())
-
-    goal_pos_pl = tf.placeholder(tf.float32, name='goalpos', shape=(1, 2))
-
-    model = Model(conf, image, None, goal_pos_pl, desig_pos, train=False)
+    with tf.variable_scope('model', reuse=None) as training_scope:
+        model = Model(conf)
 
     saver = tf.train.Saver(tf.get_collection(tf.GraphKeys.VARIABLES), max_to_keep=0)
+    gpu_options = tf.GPUOptions(per_process_gpu_memory_fraction=0.9)
+    sess = tf.InteractiveSession(config=tf.ConfigProto(gpu_options=gpu_options))
+
+    sess.run(tf.initialize_all_variables())
     saver.restore(sess, conf['visualize'])
 
-    value = np.zeros((64,64))
-    for r in range(64):
-        for c in range(64):
-            mj_coord = imagespace_to_mujoco(np.array([r,c]))
+    visualize_different_goalpos(conf, model, sess)
 
-            feed_dict = {
-                         goal_pos_pl: mj_coord,
-                         model.lr: 0.0,
-                         model.prefix: 'vis'
-                         }
-            value[r,c] = sess.run([model.inf_scores], feed_dict)
+
+def visualize_different_goalpos(conf, model, sess):
+
+
+    image, score, goalpos, desig_pos = build_tfrecord_input(conf, training=True)
+    tf.train.start_queue_runners(sess)
+
+    num_examples = 5
+    for n_ex in range(num_examples):
+
+        image_npy, desig_pos_npy = sess.run([image, desig_pos])
+
+        num = 64
+        value = np.zeros((num, num))
+        for r, r_coord in enumerate(np.linspace(0, 63, num)):
+            for c, c_coord in enumerate(np.linspace(0, 63, num)):
+                goal_mj_coord = imagespace_to_mujoco(np.array([r_coord, c_coord]))
+                # print 'mujoco goal', goal_mj_coord
+                feed_dict = {
+                    model.images: image_npy,
+                    model.goal_pos: goal_mj_coord.reshape((1, 2)),
+                    model.desig_pos: desig_pos_npy,
+                    model.lr: 0.0,
+                    model.prefix: 'vis'
+                }
+                value[r, c] = sess.run([model.inf_scores], feed_dict)[0]
+
+                # dist_to_zero[r,c] = np.linalg.norm(goal_mj_coord)
+
+        # TODO: overlay designated position
+        # X, Y = np.meshgrid(np.linspace(0, 63, num), np.linspace(0, 63, num))
+        fig, ax = plt.subplots(1)
+
+        desig_pos_pix = mujoco_to_imagespace(desig_pos_npy.squeeze())
+        value[desig_pos_pix[0], desig_pos_pix[1]] = 0
+
+        # value[0,0] = 0
+        # value[63,63] = 1
+
+        value = np.fliplr(value)
+
+        # import pdb; pdb.set_trace()
+
+        # plt.pcolor(X, Y, value, cmap=plt.get_cmap('jet'))
+        plt.imshow(value, zorder=0, interpolation= 'none')
+        ax.set_xlim([0, 63])
+        ax.set_ylim([0, 63])
+        plt.colorbar()
+
+        # plt.show()
+        # legend
+        plt.savefig('{0}values_different_goalpos.png'.format(n_ex))
+        print 'desig_pos mujoco', desig_pos_npy
+        print 'desig_pos image', mujoco_to_imagespace(desig_pos_npy.squeeze())
+
+        image_npy = image_npy.squeeze()
+        image_npy[desig_pos_pix[0], desig_pos_pix[1]] = [1,1,1]
+        im = Image.fromarray(np.uint8(image_npy.squeeze() * 255))
+        im.save('{0}imvalues_different_goalpos.png'.format(n_ex),"PNG")
+
 
 
 def main(unused_argv, conf_script= None):
@@ -140,13 +205,14 @@ def main(unused_argv, conf_script= None):
     if not os.path.exists(hyperfile):
         sys.exit("Experiment configuration not found")
 
-
     hyperparams = imp.load_source('hyperparams', hyperfile)
 
     conf = hyperparams.configuration
 
     if FLAGS.visualize:
         print 'creating visualizations ...'
+        visualize(conf)
+        return
 
     print '-------------------------------------------------------------------'
     print 'verify current settings!! '
@@ -180,6 +246,11 @@ def main(unused_argv, conf_script= None):
     tf.train.start_queue_runners(sess)
     sess.run(tf.initialize_all_variables())
 
+    ### debug ###
+    # saver = tf.train.Saver(tf.get_collection(tf.GraphKeys.VARIABLES), max_to_keep=0)
+    # saver.restore(sess, conf['output_dir'] + '/' + FLAGS.visualize)
+    # import pdb; pdb.set_trace()
+    ### debug end
 
     itr_0 =0
     if conf['pretrained_model']:    # is the order of initialize_all_variables() and restore() important?!?

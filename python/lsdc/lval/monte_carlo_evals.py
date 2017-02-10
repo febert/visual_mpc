@@ -43,7 +43,7 @@ def main():
     print '-------------------------------------------------------------------'
 
     # sample intial conditions and goalpoints
-    nruns = 1000
+    nruns = 10000
 
     i_trj = 0
     n_repeat_conf = 1  #use configuration n times
@@ -52,7 +52,7 @@ def main():
     scores = np.empty(nruns)
     lsdc = LSDCMain(conf, gpu_id= gpu_id, ngpu= ngpu)
 
-    confs = cPickle.load(open('lval_configs', "rb"))
+    confs = cPickle.load(open('lval_configs_10000', "rb"))
     goalpoints = confs['goalpoints']
     initialposes = confs['initialpos']
 
@@ -92,12 +92,12 @@ def main():
 
             trajectory = lsdc.agent.sample(lsdc.policy)
 
+            desig_pos = trajectory.desig_pos[0]
+            init_state = trajectory.X_full[0]
             scores[i_trj] = lsdc.agent.final_score
             print 'score of traj', i_trj, ':', scores[i_trj]
 
-            desig_pos = initialposes[i_conf][4:6]
-            # import pdb; pdb.set_trace()
-            lsdc.save_data_lval(trajectory, scores[i_trj], goalpoints[i_conf], desig_pos, i_trj)
+            lsdc.save_data_lval(trajectory, scores[i_trj], goalpoints[i_conf], desig_pos, init_state, i_trj)
 
             i_trj +=1 #increment trajectories every step!
 
