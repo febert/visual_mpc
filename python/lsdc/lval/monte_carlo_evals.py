@@ -79,7 +79,7 @@ def statistics_writer(q, conf, setting_name):
         sorted_ind = scores.argsort()
         f = open(_dir + '/results', 'w')
         f.write('experiment name: ' + setting_name + '\n')
-        f.write('number of collected trajectories: {}'.format(len(index_score_list)))
+        f.write('number of collected trajectories: {}\n'.format(len(index_score_list)))
         f.write('overall best score: {0} of traj {1}\n'.format(scores[sorted_ind[0]], sorted_ind[0]))
         f.write('overall worst score: {0} of traj {1}\n'.format(scores[sorted_ind[-1]], sorted_ind[-1]))
         f.write('average score: {0}\n'.format(np.sum(scores) / len(index_score_list)))

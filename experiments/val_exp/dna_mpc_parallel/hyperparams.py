@@ -56,7 +56,7 @@ agent = {
     'dt': 0.05,
     'substeps': 20,  #10
     'conditions': common['conditions'],
-    'T': 3, ###########################315,
+    'T': 15,
     'skip_first': 5,
     'sensor_dims': SENSOR_DIMS,
     'state_include': [JOINT_ANGLES, JOINT_VELOCITIES],
@@ -93,7 +93,7 @@ policy = {
     'nactions': 5,
     'repeat': 3,
     'use_first_plan': False,
-    'iterations': 1,###################5,
+    'iterations': 5,
     'current_dir': current_dir,
     'initial_std': 7
 }
