@@ -17,7 +17,8 @@ configuration = {
 'model': 'DNA',            #'model architecture to use - CDNA, DNA, or STP' ,
 'num_masks': 1,            # 'number of masks, usually 1 for DNA, 10 for CDNA, STN.' ,
 'schedsamp_k': -1,       # 'The k hyperparameter for scheduled sampling -1 for no scheduled sampling.' ,
-'batch_size': 200,
+'batch_size': 15, ################################200,
+    
 'learning_rate': 0,     #'the base learning rate of the generator' ,
 'visualize': '',            #'load model from which to generate visualizations
 'downsize': construct_model,           # select the kind of downsized model'
