@@ -48,11 +48,6 @@ class AgentMuJoCo(Agent):
         Args:
             filename: Path to XML file containing the world information.
         """
-        self._model = []
-
-        # Initialize Mujoco models. If there's only one xml file, create a single model object,
-        # otherwise create a different world for each condition.
-
         self._model= mujoco_py.MjModel(filename)
         self.model_nomarkers = mujoco_py.MjModel(self._hyperparams['filename_nomarkers'])
 
@@ -231,19 +226,6 @@ class AgentMuJoCo(Agent):
                 else:
                     if smp % 5 == 0:
                         plt.plot(x, y, zorder=1, marker='o', color='b')
-
-                # target points #####
-                # x = targets[smp, itr, :, 1]
-                # y = targets[smp, itr, :, 0]
-                #
-                # if smp == bestindices[itr][0]:
-                #     plt.plot(x, y, zorder=1, marker='o', color='y', linestyle='--')
-                # elif smp in bestindices[itr][1:]:
-                #     plt.plot(x, y, zorder=1, marker='o', color='r', linestyle='--')
-                # else:
-                #     if smp % 5 == 0:
-                #         plt.plot(x, y, zorder=1, marker='o', color='b', linestyle='--')
-
 
             fig.canvas.draw()  # draw the canvas, cache the renderer
 

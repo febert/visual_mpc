@@ -2,7 +2,7 @@ import os
 current_dir = os.path.dirname(os.path.realpath(__file__))
 
 # tf record data location:
-DATA_DIR = '/'.join(str.split(current_dir, '/')[:-2]) + '/dna_mpc/train'
+DATA_DIR = '/'.join(str.split(current_dir, '/')[:-2]) + '/dna_mpc_states/train'
 
 # local output directory
 OUT_DIR = current_dir + '/modeldata'
@@ -18,7 +18,7 @@ configuration = {
 'train_val_split': 0.95,    #'The percentage of files to use for the training set vs. the validation set.' ,
 'batch_size': 32,           #'batch size for training' ,
 'learning_rate': 0.001,     #'the base learning rate of the generator' ,
-'visualize': '',            #'load model from which to generate visualizations
+'visualize': '',            # name of model weights file from which to generate visualizations
 'file_visual': '',          # datafile used for making visualizations
 
 # 'mujoco_file': LSDC_BASE_DIR + '/mjc_models/pushing2d.xml'

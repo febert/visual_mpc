@@ -7,22 +7,18 @@ from mujoco_py.mjlib import mjlib
 from mujoco_py.mjtypes import *
 
 from PIL import Image
-
+import cPickle
 
 import os
 cwd = os.getcwd()
 
 BASE_DIR = '/'.join(str.split(cwd, '/')[:-2])
-filename = BASE_DIR + '/mjc_models/pushing2d_controller.xml'
+filename = BASE_DIR + '/mjc_models/pushing2d_controller_nomarkers.xml'
 
 model= mujoco_py.MjModel(filename)
-
-
 viewer = mujoco_py.MjViewer(visible=True, init_width=480, init_height=480)
 viewer.start()
-
 viewer.set_model(model)
-
 viewer.cam.camid = 0
 print viewer.cam.camid
 

@@ -10,6 +10,9 @@ from read_tf_record_lval import build_tfrecord_input
 from datetime import datetime
 import matplotlib.pyplot as plt
 from PIL import Image
+import mujoco_py
+import random
+import pdb
 
 # How often to record tensorboard summaries.
 SUMMARY_INTERVAL = 40
@@ -39,22 +42,22 @@ class Model(object):
     def __init__(self, conf, images=None, scores=None, goal_pos=None, desig_pos=None):
         batchsize = int(conf['batch_size'])
         if goal_pos is None:
-            self.goal_pos = tf.placeholder(tf.float32, name='goalpos', shape=(batchsize, 2))
+            self.goal_pos = goal_pos= tf.placeholder(tf.float32, name='goalpos', shape=(batchsize, 2))
         if desig_pos is None:
-            self.desig_pos = tf.placeholder(tf.float32, name='desig_pos_pl', shape=(batchsize, 2))
+            self.desig_pos = desig_pos =  tf.placeholder(tf.float32, name='desig_pos_pl', shape=(batchsize, 2))
         if scores is None:
-            self.scores = tf.placeholder(tf.float32, name='score_pl', shape=(batchsize, 1))
+            self.scores = scores = tf.placeholder(tf.float32, name='score_pl', shape=(batchsize, 1))
         if images is None:
-            self.images = tf.placeholder(tf.float32, name='images_pl', shape=(batchsize, 1, 64,64,3))
+            self.images = images = tf.placeholder(tf.float32, name='images_pl', shape=(batchsize, 1, 64,64,3))
 
         self.prefix = prefix = tf.placeholder(tf.string, [])
 
         from value_model import construct_model
 
         summaries = []
-        inf_scores = construct_model(conf, self.images, self.goal_pos, self.desig_pos)
+        inf_scores = construct_model(conf, images, goal_pos, desig_pos)
         self.inf_scores = inf_scores
-        self.loss = loss = mean_squared_error(inf_scores, self.scores)
+        self.loss = loss = mean_squared_error(inf_scores, scores)
 
         summaries.append(tf.scalar_summary(prefix + '_loss', loss))
 
@@ -112,7 +115,6 @@ def visualize(conf):
     conf['data_dir'] = '/'.join(str.split(conf['data_dir'], '/')[:-1] + ['test'])
     conf['visualize'] = conf['output_dir'] + '/' + FLAGS.visualize
     conf['event_log_dir'] = '/tmp'
-    conf['visual_file'] = conf['data_dir'] + '/traj_0_to_4.tfrecords'
     conf['batch_size'] = 1
 
     with tf.variable_scope('model', reuse=None) as training_scope:
@@ -125,11 +127,82 @@ def visualize(conf):
     sess.run(tf.initialize_all_variables())
     saver.restore(sess, conf['visualize'])
 
-    visualize_different_goalpos(conf, model, sess)
+    vis_different_goalpos(conf, model, sess)
+    vis_different_ballpos(conf, model, sess)
 
+def vis_different_ballpos(conf, model, sess):
+    random.seed(3)
+    np.random.seed(3)
 
-def visualize_different_goalpos(conf, model, sess):
+    for exp in range(0,5):
 
+        print 'started loading...'
+        desig_pos, frames =cPickle.load(open('query_images/im_collection{}.pkl'.format(exp), "rb"))
+        print 'done loading...'
+
+        d = 1
+        num = 64/d
+        # goal_pos = np.random.uniform(-.35, .35, 2)
+        goal_pos = np.array([0.,0.])
+        value = np.zeros((num, num))
+
+        for r in range(num):
+            for c in range(num):
+
+                feed_dict = {
+                    model.images: frames[r,c].reshape(1,1,64,64,3),
+                    model.goal_pos: goal_pos.reshape(1,2),
+                    model.desig_pos: desig_pos.reshape(1,2),
+                    model.lr: 0.0,
+                    model.prefix: 'vis'
+                }
+                value[r, c] = sess.run([model.inf_scores], feed_dict)[0]
+
+        config_image = frames[0,0]
+
+        desig_pos_pix = mujoco_to_imagespace(desig_pos)
+        config_image[desig_pos_pix[0], desig_pos_pix[1]] = [1, 1, 1]
+
+        # pdb.set_trace()
+        _dir = conf['current_dir'] + '/visuals'
+        Image.fromarray(np.uint8(config_image.squeeze() * 255)).save(_dir +'/{}conf_different_ballpos.png'.format(exp), "PNG")
+
+        fig, ax = plt.subplots(1)
+
+        # desig_pos_pix = mujoco_to_imagespace(desig_pos)
+        # value[num- desig_pos_pix[0], num- desig_pos_pix[1]] = 0
+        # value[0, 0] = 0
+        # value[63, 63] = 0
+        value = np.fliplr(value)
+
+        plt.imshow(value, zorder=0, interpolation='none')
+        ax.set_xlim([0, num-1])
+        ax.set_ylim([0, num-1])
+        plt.colorbar()
+
+        plt.savefig(_dir + '/{0}different_ballpos.png'.format(exp))
+
+# def mujoco_get_frame(conf, ballpos, pose):
+#
+#     model = mujoco_py.MjModel(conf['mujoco_file'])
+#     viewer = mujoco_py.MjViewer(visible=True, init_width=64, init_height=64)
+#     pdb.set_trace()
+#     viewer.start()
+#     viewer.set_model(model)
+#     viewer.cam.camid = 0
+#
+#     pdb.set_trace()
+#
+#     # set initial conditions
+#     model.data.qpos = np.concatenate([ballpos, pose])
+#     model.data.qvel = np.zeros_like(model.data.qvel)
+#
+#     img_string, width, height = viewer.get_image()
+#     image = np.fromstring(img_string, dtype='uint8').reshape((64, 64, 3))[::-1, :, :]
+#
+#     return image
+
+def vis_different_goalpos(conf, model, sess):
 
     image, score, goalpos, desig_pos = build_tfrecord_input(conf, training=True)
     tf.train.start_queue_runners(sess)
@@ -154,23 +227,16 @@ def visualize_different_goalpos(conf, model, sess):
                 }
                 value[r, c] = sess.run([model.inf_scores], feed_dict)[0]
 
-                # dist_to_zero[r,c] = np.linalg.norm(goal_mj_coord)
-
-        # TODO: overlay designated position
-        # X, Y = np.meshgrid(np.linspace(0, 63, num), np.linspace(0, 63, num))
         fig, ax = plt.subplots(1)
 
         desig_pos_pix = mujoco_to_imagespace(desig_pos_npy.squeeze())
-        value[desig_pos_pix[0], desig_pos_pix[1]] = 0
+        value[63 - desig_pos_pix[0], 63 -desig_pos_pix[1]] = 0
 
-        # value[0,0] = 0
-        # value[63,63] = 1
+        value[0,0] = 0
+        value[63,63] = 0
 
         value = np.fliplr(value)
 
-        # import pdb; pdb.set_trace()
-
-        # plt.pcolor(X, Y, value, cmap=plt.get_cmap('jet'))
         plt.imshow(value, zorder=0, interpolation= 'none')
         ax.set_xlim([0, 63])
         ax.set_ylim([0, 63])
@@ -178,15 +244,13 @@ def visualize_different_goalpos(conf, model, sess):
 
         # plt.show()
         # legend
-        plt.savefig('{0}values_different_goalpos.png'.format(n_ex))
-        print 'desig_pos mujoco', desig_pos_npy
-        print 'desig_pos image', mujoco_to_imagespace(desig_pos_npy.squeeze())
+        _dir = conf['current_dir'] + '/visuals'
+        plt.savefig(_dir + '/{0}different_goalpos.png'.format(n_ex))
 
         image_npy = image_npy.squeeze()
         image_npy[desig_pos_pix[0], desig_pos_pix[1]] = [1,1,1]
         im = Image.fromarray(np.uint8(image_npy.squeeze() * 255))
-        im.save('{0}imvalues_different_goalpos.png'.format(n_ex),"PNG")
-
+        im.save(_dir + '/{0}conf_different_goalpos.png'.format(n_ex),"PNG")
 
 
 def main(unused_argv, conf_script= None):
@@ -317,5 +381,8 @@ def main(unused_argv, conf_script= None):
 
 
 if __name__ == '__main__':
+    random.seed(0)
+    np.random.seed(0)
+
     tf.logging.set_verbosity(tf.logging.INFO)
     app.run()

@@ -41,17 +41,18 @@ def build_tfrecord_input(conf, training=True):
     if not filenames:
         raise RuntimeError('No data_files files found.')
 
+    if conf['visualize']:
+        shuffle = False
+        print 'visualizenig, using data form:  ', conf['data_dir']
+    else: shuffle = True
+
     index = int(np.floor(conf['train_val_split'] * len(filenames)))
     if training:
         filenames = filenames[:index]
     else:
         filenames = filenames[index:]
 
-    if conf['visualize']:
-        filenames = [conf['visual_file']]
-        print 'using input file', filenames
-        shuffle = False
-    else: shuffle = True
+
 
     filename_queue = tf.train.string_input_producer(filenames, shuffle=shuffle)
     reader = tf.TFRecordReader()
@@ -61,14 +62,14 @@ def build_tfrecord_input(conf, training=True):
     score_name = 'score'
     goalpos_name = 'goalpos'
     desig_pos_name = 'desig_pos'
-    init_state_name = 'init_state'
+    # init_state_name = 'init_state'
 
     features = {
                 image_name: tf.FixedLenFeature([1], tf.string),
                 score_name: tf.FixedLenFeature([1], tf.float32),
                 goalpos_name: tf.FixedLenFeature([2], tf.float32),
                 desig_pos_name: tf.FixedLenFeature([2], tf.float32),
-                init_state_name: tf.FixedLenFeature([2], tf.float32)
+                # init_state_name: tf.FixedLenFeature([2], tf.float32)
     }
 
     features = tf.parse_single_example(serialized_example, features=features)
@@ -94,18 +95,25 @@ def build_tfrecord_input(conf, training=True):
     score = features[score_name]
     goalpos = features[goalpos_name]
     desig_pos = features[desig_pos_name]
-    init_state = features[init_state_name]
+    # init_state = features[init_state_name]
 
 
-    [image_batch, score_batch, goalpos_batch, desig_pos_batch, init_state_batch] = tf.train.batch(
-        [image, score, goalpos, desig_pos, init_state],
-        conf['batch_size'],
-        num_threads=num_threads,
-        capacity=100 * conf['batch_size'])
-    return image_batch, score_batch, goalpos_batch, desig_pos_batch, init_state_batch
+    [image_batch, score_batch, goalpos_batch, desig_pos_batch] = tf.train.batch(
+                                                    [image, score, goalpos, desig_pos],
+                                                    conf['batch_size'],
+                                                    num_threads=num_threads,
+                                                    capacity=100 * conf['batch_size'])
+    # [image_batch, score_batch, goalpos_batch, desig_pos_batch, init_state_batch] = tf.train.batch(
+    #                                                 [image, score, goalpos, desig_pos, init_state],
+    #                                                 conf['batch_size'],
+    #                                                 num_threads=num_threads,
+    #                                                 capacity=100 * conf['batch_size'])
+
+    return image_batch, score_batch, goalpos_batch, desig_pos_batch
+
+
 
 ##### code below is used for debugging
-
 
 def mujoco_to_imagespace(mujoco_coord, numpix=64):
     viewer_distance = .75  # distance from camera to the viewing plane
