@@ -41,7 +41,8 @@ def worker(conf):
         print '-------------------------------------------------------------------'
 
         _dir = conf['policy']['current_dir']
-        lsdc.agent._hyperparams['record'] = _dir + '/videos/conf{}'.format(i_conf)
+        lsdc.agent._hyperparams['record'] = ''  #do not record videos
+        # lsdc.agent._hyperparams['record'] = _dir + '/videos/conf{}'.format(i_conf)
 
         if 'usenet' in conf['policy']:
             if conf['policy']['usenet']:
