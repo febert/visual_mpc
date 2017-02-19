@@ -178,8 +178,10 @@ def construct_model(images,
             hidden6, lstm_state6 = lstm_func(
                 enc4, lstm_state6, lstm_size[5], scope='state6')  # 16x16
             hidden6 = tf_layers.layer_norm(hidden6, scope='layer_norm7')
-            # Skip connection.
-            hidden6 = tf.concat(3, [hidden6, enc1])  # both 16x16
+
+            if not 'noskip' in conf:
+                # Skip connection.
+                hidden6 = tf.concat(3, [hidden6, enc1])  # both 16x16
 
             enc5 = slim.layers.conv2d_transpose(
                 hidden6, hidden6.get_shape()[3], 3, stride=2, scope='convt2')
@@ -187,8 +189,9 @@ def construct_model(images,
                 enc5, lstm_state7, lstm_size[6], scope='state7')  # 32x32
             hidden7 = tf_layers.layer_norm(hidden7, scope='layer_norm8')
 
-            # Skip connection.
-            hidden7 = tf.concat(3, [hidden7, enc0])  # both 32x32
+            if not 'noskip' in conf:
+                # Skip connection.
+                hidden7 = tf.concat(3, [hidden7, enc0])  # both 32x32
 
             enc6 = slim.layers.conv2d_transpose(
                 hidden7,
