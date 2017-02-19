@@ -85,6 +85,7 @@ def main():
             print '-------------------------------------------------------------------'
 
             lsdc.agent._hyperparams['record'] = bench_dir + '/videos/traj{0}_conf{1}'.format(traj, i_conf)
+            lsdc.agent._hyperparams['save_goal_image'] = bench_dir + '/goal_image/goalimg{0}_conf{1}'.format(traj, i_conf)
 
             if 'usenet' in conf['policy']:
                 if conf['policy']['usenet']:

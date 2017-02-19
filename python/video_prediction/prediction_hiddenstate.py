@@ -20,13 +20,16 @@ import tensorflow as tf
 
 import tensorflow.contrib.slim as slim
 from tensorflow.contrib.layers.python import layers as tf_layers
-import tensorflow.contrib.rnn.BasicLSTMCell
-
 from lstm_ops import basic_conv_lstm_cell
+
+from tensorflow.contrib.rnn.python.ops.rnn_cell import LayerNormBasicLSTMCell
+
+
+from tensorflow.python.ops.rnn_cell import BasicLSTMCell, MultiRNNCell
+
 
 # Amount to use when lower bounding tensors
 RELU_SHIFT = 1e-12
-
 
 
 
@@ -79,10 +82,13 @@ def construct_model(images,
     if stp + cdna + dna != 1:
         raise ValueError('More than one, or no network option specified.')
     batch_size, img_height, img_width, color_channels = images[0].get_shape()[0:4]
+    batch_size = int(batch_size)
     lstm_func = basic_conv_lstm_cell
 
+
+
     # Generated robot states and images.
-    gen_states, gen_images, gen_masks = [], [], []
+    gen_states, gen_images, gen_masks, inf_low_state, pred_low_state = [], [], [], [], []
     current_state = states[0]
     gen_pix_distrib = []
 
@@ -98,14 +104,21 @@ def construct_model(images,
         feedself = False
 
     # LSTM state sizes and states.
-    # lstm_size = np.int32(np.array([32, 32, 64, 64, 128, 64, 32]))
-    lstm_size = np.int32(np.array([16, 16, 32, 32, 64, 32, 16]))
-    lstm_state1, lstm_state2, lstm_state3, lstm_state4 = None, None, None, None
-    lstm_state5, lstm_state6, lstm_state7 = None, None, None
+    lstm_size = np.int32(np.array([16, 32, 64, 100, 10]))
+    lstm_state1, lstm_state2, lstm_state3 = None, None, None
+
+    single_lstm1 = BasicLSTMCell(lstm_size[3], state_is_tuple=True)
+    single_lstm2 = BasicLSTMCell(lstm_size[4], state_is_tuple=True)
+    low_dim_lstm = MultiRNNCell([single_lstm1, single_lstm2], state_is_tuple=True)
+
+    low_dim_lstm_state = low_dim_lstm.zero_state(batch_size, tf.float32)
+
+    dim_low_state = int(lstm_size[-1])
 
     t = -1
     for image, action in zip(images[:-1], actions[:-1]):
         t +=1
+        print 'building timestep ', t
         # Reuse variables after the first timestep.
         reuse = bool(gen_images)
 
@@ -132,129 +145,120 @@ def construct_model(images,
                     prev_pix_distrib = tf.expand_dims(prev_pix_distrib, -1)
 
             # Predicted state is always fed back in
-            state_action = tf.concat(1, [action, current_state])
+            state_action = tf.concat(1, [action, current_state])   # 6x
 
-            enc0 = slim.layers.conv2d(
+            import pdb; pdb.set_trace()
+            enc0 = slim.layers.conv2d(              #32x32x32
                 prev_image,
-                32, [5, 5],
+                32, kernel_size=[5, 5],
                 stride=2,
                 scope='scale1_conv1',
                 normalizer_fn=tf_layers.layer_norm,
                 normalizer_params={'scope': 'layer_norm1'})
 
-            hidden1, lstm_state1 = lstm_func(
+            hidden1, lstm_state1 = lstm_func(               #32x32
                 enc0, lstm_state1, lstm_size[0], scope='state1')
             hidden1 = tf_layers.layer_norm(hidden1, scope='layer_norm2')
 
-            enc1 = slim.layers.conv2d(
+            enc1 = slim.layers.conv2d(                      #16x16
                 hidden1, hidden1.get_shape()[3], [3, 3], stride=2, scope='conv2')
 
-            hidden3, lstm_state3 = lstm_func(
-                enc1, lstm_state3, lstm_size[2], scope='state3')
-            hidden3 = tf_layers.layer_norm(hidden3, scope='layer_norm4')
-            # hidden4, lstm_state4 = lstm_func(
-            #     hidden3, lstm_state4, lstm_size[3], scope='state4')
-            # hidden4 = tf_layers.layer_norm(hidden4, scope='layer_norm5')
-            enc2 = slim.layers.conv2d(
-                hidden3, hidden3.get_shape()[3], [3, 3], stride=2, scope='conv3')
+            hidden2, lstm_state2 = lstm_func(               #16x16x32
+                enc1, lstm_state2, lstm_size[1], scope='state3')
+            hidden2 = tf_layers.layer_norm(hidden2, scope='layer_norm4')
+
+            enc2 = slim.layers.conv2d(                    #8x8x32
+                hidden2, hidden2.get_shape()[3], [3, 3], stride=2, scope='conv3')
 
             # Pass in state and action.
             smear = tf.reshape(
                 state_action,
-                [int(batch_size), 1, 1, int(state_action.get_shape()[1])])
-            smear = tf.tile(
+                [batch_size, 1, 1, int(state_action.get_shape()[1])])
+            smear = tf.tile(                               #8x8x6
                 smear, [1, int(enc2.get_shape()[1]), int(enc2.get_shape()[2]), 1])
             if use_state:
                 enc2 = tf.concat(3, [enc2, smear])
-            enc3 = slim.layers.conv2d(
-                enc2, hidden3.get_shape()[3], [1, 1], stride=1, scope='conv4')
+            enc3 = slim.layers.conv2d(                      #8x8x32
+                enc2, hidden2.get_shape()[3], [1, 1], stride=1, scope='conv4')
 
-            hidden5, lstm_state5 = lstm_func(
-                enc3, lstm_state5, lstm_size[4], scope='state5')  # last 8x8
-            hidden5 = tf_layers.layer_norm(hidden5, scope='layer_norm6')
+            hidden3, lstm_state3 = lstm_func(               #8x8x64
+                enc3, lstm_state3, lstm_size[2], scope='state5')  # last 8x8
+            hidden3 = tf_layers.layer_norm(hidden3, scope='layer_norm6')
+
+            enc3 = slim.layers.conv2d(  # 8x8x32
+                hidden3, 16, [1, 1], stride=1, scope='conv5')
+
+            enc3_flat = tf.reshape(enc3, [batch_size, - 1])
+
+            if 'use_low_dim_lstm' in conf:
+                with tf.variable_scope('low_dim_lstm', reuse=reuse):
+                    hidden4, low_dim_lstm_state =low_dim_lstm(enc3_flat, low_dim_lstm_state)
+                low_dim_state = hidden4
+            else:
+                enc_fully1 = slim.layers.fully_connected(
+                    enc3_flat,
+                    400,
+                    scope='enc_fully1')
+
+                enc_fully2 = slim.layers.fully_connected(
+                    enc_fully1,
+                    100,
+                    scope='enc_fully2')
+
+                low_dim_state = enc_fully2
 
 
-            ### contract information to dense vector:
+            # inferred low dimensional state:
+            inf_low_state.append(low_dim_state)
+
+            pred_low_state.append(project_fwd_lowdim(low_dim_state))
+
+            smear = tf.reshape(
+                low_dim_state,
+                [batch_size, 1, 1, dim_low_state])
+            smear = tf.tile(  # 8x8xdim_hidden_state
+                smear, [1, int(enc2.get_shape()[1]), int(enc2.get_shape()[2]), 1])
 
 
+            enc4 = slim.layers.conv2d_transpose(            #16x16x32
+                smear, hidden3.get_shape()[3], 3, stride=2, scope='convt1')
 
-            enc4 = slim.layers.conv2d_transpose(
-                hidden5, hidden5.get_shape()[3], 3, stride=2, scope='convt1')
 
-            hidden6, lstm_state6 = lstm_func(
-                enc4, lstm_state6, lstm_size[5], scope='state6')  # 16x16
-            hidden6 = tf_layers.layer_norm(hidden6, scope='layer_norm7')
-            # Skip connection.
-            hidden6 = tf.concat(3, [hidden6, enc1])  # both 16x16
+            enc5 = slim.layers.conv2d_transpose(    #32x32x32
+                enc4, enc0.get_shape()[3], 3, stride=2, scope='convt2')
 
-            enc5 = slim.layers.conv2d_transpose(
-                hidden6, hidden6.get_shape()[3], 3, stride=2, scope='convt2')
-            hidden7, lstm_state7 = lstm_func(
-                enc5, lstm_state7, lstm_size[6], scope='state7')  # 32x32
-            hidden7 = tf_layers.layer_norm(hidden7, scope='layer_norm8')
 
-            # Skip connection.
-            hidden7 = tf.concat(3, [hidden7, enc0])  # both 32x32
-
-            enc6 = slim.layers.conv2d_transpose(
-                hidden7,
-                hidden7.get_shape()[3], 3, stride=2, scope='convt3',
+            enc6 = slim.layers.conv2d_transpose(     #64x64x16
+                enc5,
+                16, 3, stride=2, scope='convt3',
                 normalizer_fn=tf_layers.layer_norm,
                 normalizer_params={'scope': 'layer_norm9'})
 
-            if dna:
-                # Using largest hidden state for predicting untied conv kernels.
-                enc7 = slim.layers.conv2d_transpose(
-                    enc6, DNA_KERN_SIZE ** 2, 1, stride=1, scope='convt4')
+
+            # Using largest hidden state for predicting untied conv kernels.
+            enc7 = slim.layers.conv2d_transpose(
+                enc6, DNA_KERN_SIZE ** 2, 1, stride=1, scope='convt4')
+
+
+            # Only one mask is supported (more should be unnecessary).
+            if num_masks != 1:
+                raise ValueError('Only one mask is supported for DNA model.')
+            transformed = [dna_transformation(prev_image, enc7, DNA_KERN_SIZE)]
+
+            if 'use_masks' in conf:
+                masks = slim.layers.conv2d_transpose(
+                    enc6, num_masks + 1, 1, stride=1, scope='convt7')
+                masks = tf.reshape(
+                    tf.nn.softmax(tf.reshape(masks, [-1, num_masks + 1])),
+                    [int(batch_size), int(img_height), int(img_width), num_masks + 1])
+                mask_list = tf.split(3, num_masks + 1, masks)
+                output = mask_list[0] * prev_image
+                for layer, mask in zip(transformed, mask_list[1:]):
+                    output += layer * mask
             else:
-                # Using largest hidden state for predicting a new image layer.
-                enc7 = slim.layers.conv2d_transpose(
-                    enc6, color_channels, 1, stride=1, scope='convt4')
-                # This allows the network to also generate one image from scratch,
-                # which is useful when regions of the image become unoccluded.
-                transformed = [tf.nn.sigmoid(enc7)]
+                mask_list = None
+                output = transformed
 
-            if stp:
-                stp_input0 = tf.reshape(hidden5, [int(batch_size), -1])
-                stp_input1 = slim.layers.fully_connected(
-                    stp_input0, 100, scope='fc_stp')
-                transformed += stp_transformation(prev_image, stp_input1, num_masks)
-            elif cdna:
-                cdna_input = tf.reshape(hidden5, [int(batch_size), -1])
-
-                new_transformed, new_cdna_filter = cdna_transformation(prev_image,
-                                                                cdna_input,
-                                                                num_masks,
-                                                                int(color_channels),
-                                                                reuse_sc= reuse)
-                transformed += new_transformed
-
-                summaries+= make_cdna_kerns_summary(new_cdna_filter, t, 'image')
-
-                if pix_distributions != None:
-                    transf_distrib, new_cdna_distrib_filter = cdna_transformation(prev_pix_distrib,
-                                                                           cdna_input,
-                                                                           num_masks,
-                                                                           1,
-                                                                           reuse_sc= True)
-                    summaries += make_cdna_kerns_summary(new_cdna_distrib_filter, t, 'distrib')
-
-
-            elif dna:
-                # Only one mask is supported (more should be unnecessary).
-                if num_masks != 1:
-                    raise ValueError('Only one mask is supported for DNA model.')
-                transformed = [dna_transformation(prev_image, enc7, DNA_KERN_SIZE)]
-
-            masks = slim.layers.conv2d_transpose(
-                enc6, num_masks + 1, 1, stride=1, scope='convt7')
-            masks = tf.reshape(
-                tf.nn.softmax(tf.reshape(masks, [-1, num_masks + 1])),
-                [int(batch_size), int(img_height), int(img_width), num_masks + 1])
-            mask_list = tf.split(3, num_masks + 1, masks)
-            output = mask_list[0] * prev_image
-            for layer, mask in zip(transformed, mask_list[1:]):
-                output += layer * mask
             gen_images.append(output)
             gen_masks.append(mask_list)
 
@@ -270,91 +274,71 @@ def construct_model(images,
 
                 gen_pix_distrib.append(pix_distrib_output)
 
-            current_state = slim.layers.fully_connected(
-                state_action,
-                int(current_state.get_shape()[1]),
-                scope='state_pred',
+            # pred_low_state_stopped = tf.stop_gradient(pred_low_state)
+
+            state_enc1 = slim.layers.fully_connected(
+                # pred_low_state[-1],
+                low_dim_state,
+                100,
+                scope='state_enc1')
+
+            state_enc2 = slim.layers.fully_connected(
+                state_enc1,
+                # int(current_state.get_shape()[1]),
+                4,
+                scope='state_enc2',
                 activation_fn=None)
+            current_state = tf.squeeze(state_enc2)
             gen_states.append(current_state)
 
     if pix_distributions != None:
-        return gen_images, gen_states, gen_masks, gen_pix_distrib
+        return gen_images, gen_states, gen_masks, gen_pix_distrib, inf_low_state, pred_low_state
     else:
-        return gen_images, gen_states, gen_masks, None
+        return gen_images, gen_states, gen_masks, None, inf_low_state, pred_low_state
 
 
-## Utility functions
-def stp_transformation(prev_image, stp_input, num_masks):
-    """Apply spatial transformer predictor (STP) to previous image.
+def project_fwd_lowdim(low_state):
+    # predicting the next hidden state:
+    low_state_stopped = tf.stop_gradient(low_state)
+    low_state_enc1 = slim.layers.fully_connected(
+        low_state_stopped,
+        100,
+        scope='hid_state_enc1')
+    low_state_enc2 = slim.layers.fully_connected(
+        low_state_enc1,
+        100,
+        scope='hid_state_enc2')
+    hid_state_enc3 = slim.layers.fully_connected(
+        low_state_enc2,
+        int(low_state.get_shape()[1]),
+        scope='hid_state_enc3',
+        activation_fn=None)
+    # predicted low-dimensional state
 
-    Args:
-      prev_image: previous image to be transformed.
-      stp_input: hidden layer to be used for computing STN parameters.
-      num_masks: number of masks and hence the number of STP transformations.
-    Returns:
-      List of images transformed by the predicted STP parameters.
-    """
-    # Only import spatial transformer if needed.
-    from transformer.spatial_transformer import transformer
-
-    identity_params = tf.convert_to_tensor(
-        np.array([1.0, 0.0, 0.0, 0.0, 1.0, 0.0], np.float32))
-    transformed = []
-    for i in range(num_masks - 1):
-        params = slim.layers.fully_connected(
-            stp_input, 6, scope='stp_params' + str(i),
-            activation_fn=None) + identity_params
-        outsize = (prev_image.get_shape()[1], prev_image.get_shape()[2])
-        transformed.append(transformer(prev_image, params, outsize))
-
-    return transformed
+    return  hid_state_enc3
 
 
-def cdna_transformation(prev_image, cdna_input, num_masks, color_channels, reuse_sc = None):
-    """Apply convolutional dynamic neural advection to previous image.
-
-    Args:
-      prev_image: previous image to be transformed.
-      cdna_input: hidden lyaer to be used for computing CDNA kernels.
-      num_masks: the number of masks and hence the number of CDNA transformations.
-      color_channels: the number of color channels in the images.
-    Returns:
-      List of images transformed by the predicted CDNA kernels.
-    """
-    batch_size = int(cdna_input.get_shape()[0])
-
-    # Predict kernels using linear function of last hidden layer.
-    cdna_kerns = slim.layers.fully_connected(
-        cdna_input,
-        DNA_KERN_SIZE * DNA_KERN_SIZE * num_masks,
-        scope='cdna_params',
-        activation_fn=None,
-        reuse = reuse_sc)
-
-
-    # Reshape and normalize.
-    cdna_kerns = tf.reshape(
-        cdna_kerns, [batch_size, DNA_KERN_SIZE, DNA_KERN_SIZE, 1, num_masks])
-    cdna_kerns = tf.nn.relu(cdna_kerns - RELU_SHIFT) + RELU_SHIFT
-    norm_factor = tf.reduce_sum(cdna_kerns, [1, 2, 3], keep_dims=True)
-    cdna_kerns /= norm_factor
-    cdna_kerns_summary = cdna_kerns
-
-    cdna_kerns = tf.tile(cdna_kerns, [1, 1, 1, color_channels, 1])
-    cdna_kerns = tf.split(0, batch_size, cdna_kerns)
-    prev_images = tf.split(0, batch_size, prev_image)
-
-    # Transform image.
-    transformed = []
-    for kernel, preimg in zip(cdna_kerns, prev_images):
-        kernel = tf.squeeze(kernel)
-        if len(kernel.get_shape()) == 3:
-            kernel = tf.expand_dims(kernel, -2)   #correction! ( was -1 before)
-        transformed.append(
-            tf.nn.depthwise_conv2d(preimg, kernel, [1, 1, 1, 1], 'SAME'))
-    transformed = tf.concat(0, transformed)
-    transformed = tf.split(3, num_masks, transformed)
-    return transformed, cdna_kerns_summary
+# from tensorflow.contrib.slim import add_arg_scope
+# @add_arg_scope
+# class Basic_lstm_func
+# def basic_lstm_func(inputs, state, num_units, scope=None, reuse=None):
+#     # create low-dim lstm and Initial state
+#
+#
+#     with tf.variable_scope(scope, reuse=reuse):
+#
+#         if state is None:
+#             # low_dim_lstm1 = LayerNormBasicLSTMCell(num_units)
+#             import pdb;
+#             pdb.set_trace()
+#
+#             low_dim_lstm = BasicRNNCell(num_units)
+#
+#
+#             batch_size = int(inputs.get_shape()[0])
+#             state = tf.zeros([batch_size, num_units])
+#
+#         return low_dim_lstm(inputs, state)
 
 
 def dna_transformation(prev_image, dna_input, DNA_KERN_SIZE):
@@ -402,6 +386,8 @@ def scheduled_sample(ground_truth_x, generated_x, batch_size, num_ground_truth):
       New batch with num_ground_truth sampled from ground_truth_x and the rest
       from generated_x.
     """
+    generated_x = tf.squeeze(generated_x)
+
     idx = tf.random_shuffle(tf.range(int(batch_size)))
     ground_truth_idx = tf.gather(idx, tf.range(num_ground_truth))
     generated_idx = tf.gather(idx, tf.range(num_ground_truth, int(batch_size)))

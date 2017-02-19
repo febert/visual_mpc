@@ -19,3 +19,4 @@ class Trajectory(object):
         self.X_Xdot_full = np.empty([self.T, 4])
 
         self.desig_pos = np.empty([self.T, 2])
+        self.score = np.empty([self.T])

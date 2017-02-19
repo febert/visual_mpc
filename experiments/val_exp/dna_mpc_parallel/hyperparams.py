@@ -100,7 +100,6 @@ policy = {
 
 
 config = {
-    'save_data': False,
     'nruns': 10000,
     'verbose_policy_trials': 0,
     'common': common,

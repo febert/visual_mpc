@@ -1,6 +1,6 @@
 """ This file defines an agent for the MuJoCo simulator environment. """
 from copy import deepcopy
-
+import copy
 import numpy as np
 
 import mujoco_py
@@ -78,15 +78,11 @@ class AgentMuJoCo(Agent):
         # Create new sample, populate first time step.
         self._init()
 
-
         traj = Trajectory(self._hyperparams)
 
         self._small_viewer.set_model(self.model_nomarkers)
-
         if self._hyperparams['additional_viewer']:
             self._large_viewer.set_model(self._model)
-            # self._large_viewer.cam = deepcopy(self.small_viewer.cam)
-
         self._small_viewer.cam.camid = 0
         self._large_viewer.cam.camid = 0
 
@@ -102,6 +98,7 @@ class AgentMuJoCo(Agent):
         # Take the sample.
         for t in range(self.T):
 
+            traj.score[t] = self.eval_action()
             traj.X_full[t, :] = self._model.data.qpos[:2].squeeze()
             traj.Xdot_full[t, :] = self._model.data.qvel[:2].squeeze()
             traj.X_Xdot_full[t, :] =  np.concatenate([traj.X_full[t, :], traj.Xdot_full[t, :]])
@@ -143,12 +140,35 @@ class AgentMuJoCo(Agent):
         if not self._hyperparams['data_collection']:
             self.final_score = self.eval_action()
 
+        if 'save_goal_image' in self._hyperparams:
+            self.save_goal_image(traj)
+
         if self._hyperparams['record']:
             self.save_gif()
 
         policy.finish()
 
         return traj
+
+    def save_goal_image(self, traj):
+        rounded = np.around(traj.score, decimals=2)
+        best_score = np.min(rounded)
+        for i in range(traj.score.shape[0]):
+            if rounded[i] == best_score:
+                first_best_index = i
+                break
+
+        print 'best_score', best_score
+        print 'allscores', traj.score
+        print 'goal index: ', first_best_index
+
+        goalimage = traj._sample_images[first_best_index]
+        # goalstate = traj.X_Xdot_full[i]
+        img = Image.fromarray(goalimage)
+
+        cPickle.dump([], open(self._hyperparams['save_goal_image'] + '.pkl', 'wb'))
+        img.save(self._hyperparams['save_goal_image'] + '.png',)
+
 
     def eval_action(self):
         goalpoint = np.array(self._hyperparams['goal_point'])

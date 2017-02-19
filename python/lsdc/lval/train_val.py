@@ -116,6 +116,7 @@ def visualize(conf):
     conf['visualize'] = conf['output_dir'] + '/' + FLAGS.visualize
     conf['event_log_dir'] = '/tmp'
     conf['batch_size'] = 1
+    conf['train_val_split'] =1
 
     with tf.variable_scope('model', reuse=None) as training_scope:
         model = Model(conf)
@@ -127,7 +128,7 @@ def visualize(conf):
     sess.run(tf.initialize_all_variables())
     saver.restore(sess, conf['visualize'])
 
-    vis_different_goalpos(conf, model, sess)
+    # vis_different_goalpos(conf, model, sess)
     vis_different_ballpos(conf, model, sess)
 
 def vis_different_ballpos(conf, model, sess):
@@ -161,6 +162,8 @@ def vis_different_ballpos(conf, model, sess):
         config_image = frames[0,0]
 
         desig_pos_pix = mujoco_to_imagespace(desig_pos)
+
+        config_image[0,0] = [1, 1, 1]
         config_image[desig_pos_pix[0], desig_pos_pix[1]] = [1, 1, 1]
 
         # pdb.set_trace()
@@ -171,16 +174,25 @@ def vis_different_ballpos(conf, model, sess):
 
         # desig_pos_pix = mujoco_to_imagespace(desig_pos)
         # value[num- desig_pos_pix[0], num- desig_pos_pix[1]] = 0
-        # value[0, 0] = 0
-        # value[63, 63] = 0
-        value = np.fliplr(value)
+        value[0, 0] = 0   #corresponds to
+        value[63, 63] = 1
+        value[63, 0] = 1
+        # import pdb; pdb.set_trace()
+
+        # value = np.fliplr(value)
+
 
         plt.imshow(value, zorder=0, interpolation='none')
+
         ax.set_xlim([0, num-1])
         ax.set_ylim([0, num-1])
         plt.colorbar()
 
-        plt.savefig(_dir + '/{0}different_ballpos.png'.format(exp))
+        plt.savefig(_dir + '/{0}different_ballpos_.png'.format(exp))
+
+        # cPickle.dump([value], open('values.pkl', 'wb'))
+        #
+        # import pdb; pdb.set_trace()
 
 # def mujoco_get_frame(conf, ballpos, pose):
 #
