@@ -30,6 +30,7 @@ configuration = {
 'visualize': '',            #'load model from which to generate visualizations
 # 'downsize': construct_model,           #'create downsized model'
 'file_visual': '',          # datafile used for making visualizations
-'use_masks':'',
-'lstm_size': np.array([16, 16, 32, 32, 4, 32, 16])
+'penal_last_only': False,
+'lstm_size': np.array([16, 16, 32, 32, 4, 32, 16]),
+'noskip':''
 }
