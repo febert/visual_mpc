@@ -113,7 +113,7 @@ def construct_model(images,
 
     low_dim_lstm_state = low_dim_lstm.zero_state(batch_size, tf.float32)
 
-    dim_low_state = int(lstm_size[-1])
+    dim_low_state = lstm_size[-1]
 
     t = -1
     for image, action in zip(images[:-1], actions[:-1]):
@@ -147,7 +147,6 @@ def construct_model(images,
             # Predicted state is always fed back in
             state_action = tf.concat(1, [action, current_state])   # 6x
 
-            import pdb; pdb.set_trace()
             enc0 = slim.layers.conv2d(              #32x32x32
                 prev_image,
                 32, kernel_size=[5, 5],
@@ -195,14 +194,16 @@ def construct_model(images,
                     hidden4, low_dim_lstm_state =low_dim_lstm(enc3_flat, low_dim_lstm_state)
                 low_dim_state = hidden4
             else:
+
                 enc_fully1 = slim.layers.fully_connected(
                     enc3_flat,
                     400,
                     scope='enc_fully1')
 
+                dim_low_state = 200
                 enc_fully2 = slim.layers.fully_connected(
                     enc_fully1,
-                    100,
+                    dim_low_state,
                     scope='enc_fully2')
 
                 low_dim_state = enc_fully2

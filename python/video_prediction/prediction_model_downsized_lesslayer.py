@@ -96,8 +96,12 @@ def construct_model(images,
         feedself = False
 
     # LSTM state sizes and states.
-    # lstm_size = np.int32(np.array([32, 32, 64, 64, 128, 64, 32]))
-    lstm_size = np.int32(np.array([16, 16, 32, 32, 64, 32, 16]))
+
+    if 'lstm_size' in conf:
+        lstm_size = conf['lstm_size']
+    else:
+        lstm_size = np.int32(np.array([16, 16, 32, 32, 64, 32, 16]))
+
     lstm_state1, lstm_state2, lstm_state3, lstm_state4 = None, None, None, None
     lstm_state5, lstm_state6, lstm_state7 = None, None, None
 

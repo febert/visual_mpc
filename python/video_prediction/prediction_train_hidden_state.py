@@ -142,7 +142,7 @@ class Model(object):
             state_cost = mean_squared_error(state, gen_state) * 1e-4 * conf['use_state']
             summaries.append(
                 tf.scalar_summary(prefix + '_state_cost' + str(i), state_cost))
-            # loss += state_cost  #################
+            loss += state_cost  #################
         summaries.append(tf.scalar_summary(prefix + '_psnr_all', psnr_all))
         self.psnr_all = psnr_all
 
