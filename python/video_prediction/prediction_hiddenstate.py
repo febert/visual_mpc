@@ -231,10 +231,21 @@ def construct_model(images,
                 enc4 = slim.layers.conv2d(  # 8x8x8
                     enc3, 8, [3, 3], stride=1, scope='conv6')
 
-                low_dim_state = slim.layers.conv2d(  # 8x8x1
-                    enc4, 1, [3, 3], stride=1, scope='conv7')
+                if '4x4lowdim' in conf:
+                    enc5 = slim.layers.conv2d(  # 8x8x1
+                        enc4, 1, [3, 3], stride=1, scope='conv7')
 
-                dec4 = low_dim_state
+                    low_dim_state = slim.layers.conv2d(  # 4x4x1
+                        enc5, 1, [3, 3], stride=2, scope='conv8')
+
+                    dec4 = slim.layers.conv2d_transpose(  # 8x8x1
+                        low_dim_state, 1, [3, 3], stride=2, scope='convt0')
+
+                else:
+                    low_dim_state = slim.layers.conv2d(  # 8x8x1
+                        enc4, 1, [3, 3], stride=1, scope='conv7')
+
+                    dec4 = low_dim_state
 
             low_dim_state_flat = tf.reshape(low_dim_state, [batch_size, - 1])
             inf_low_state.append(low_dim_state_flat)
