@@ -189,10 +189,14 @@ def construct_model(images,
 
 
             if 'use_low_dim_lstm' in conf:
-                enc3_flat = tf.reshape(enc3, [batch_size, - 1])
+
+                enc4 = slim.layers.conv2d(  # 8x8x8
+                    enc3, 8, [3, 3], stride=1, scope='conv6')
+
+                enc4_flat = tf.reshape(enc4, [batch_size, - 1])
 
                 with tf.variable_scope('low_dim_lstm', reuse=reuse):
-                    hidden4, low_dim_lstm_state =low_dim_lstm(enc3_flat, low_dim_lstm_state)
+                    hidden4, low_dim_lstm_state =low_dim_lstm(enc4_flat, low_dim_lstm_state)
                 low_dim_state = hidden4
             elif 'fully_connected_low_dim_state' in conf:
                 enc3_flat = tf.reshape(enc3, [batch_size, - 1])
@@ -208,11 +212,10 @@ def construct_model(images,
                     scope='enc_fully2')
 
                 low_dim_state = enc_fully2
+
             if 'use_low_dim_lstm' in conf or 'fully_connected_low_dim_state' in conf:
                 # inferred low dimensional state:
                 inf_low_state.append(low_dim_state)
-
-
 
                 smear = tf.reshape(
                     low_dim_state,
@@ -220,8 +223,8 @@ def construct_model(images,
                 smear = tf.tile(  # 8x8xdim_hidden_state
                     smear, [1, int(enc2.get_shape()[1]), int(enc2.get_shape()[2]), 1])
 
-                dec4 = slim.layers.conv2d_transpose(  # 16x16x32
-                    smear, hidden3.get_shape()[3], 3, stride=2, scope='convt1')
+                dec4 = slim.layers.conv2d_transpose(  # 8x8x8
+                    smear, 8, 3, stride=1, scope='convt0')
 
             if 'use_conv_low_dim_state' in conf:
 
@@ -231,12 +234,14 @@ def construct_model(images,
                 low_dim_state = slim.layers.conv2d(  # 8x8x1
                     enc4, 1, [3, 3], stride=1, scope='conv7')
 
+                dec4 = low_dim_state
+
             low_dim_state_flat = tf.reshape(low_dim_state, [batch_size, - 1])
             inf_low_state.append(low_dim_state_flat)
             pred_low_state.append(project_fwd_lowdim(low_dim_state_flat))
 
             dec5 = slim.layers.conv2d_transpose(  #  8x8x16
-                low_dim_state, 16, 3, stride=1, scope='convt1')
+                dec4, 16, 3, stride=1, scope='convt1')
 
             dec6 = slim.layers.conv2d_transpose(  # 16x16x16
                 dec5, 16, 3, stride=2, scope='convt2')
