@@ -107,6 +107,3 @@ def basic_conv_lstm_cell(inputs,
     new_h = tf.tanh(new_c) * tf.sigmoid(o)
 
     return new_h, tf.concat(3, [new_c, new_h])
-
-
-
