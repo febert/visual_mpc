@@ -208,12 +208,11 @@ def construct_model(images,
                     scope='enc_fully2')
 
                 low_dim_state = enc_fully2
-
-            if 'use_low_dim_lstm' or 'fully_connected_low_dim_state':
+            if 'use_low_dim_lstm' in conf or 'fully_connected_low_dim_state' in conf:
                 # inferred low dimensional state:
                 inf_low_state.append(low_dim_state)
 
-                pred_low_state.append(project_fwd_lowdim(low_dim_state))
+
 
                 smear = tf.reshape(
                     low_dim_state,
@@ -224,7 +223,6 @@ def construct_model(images,
                 dec4 = slim.layers.conv2d_transpose(  # 16x16x32
                     smear, hidden3.get_shape()[3], 3, stride=2, scope='convt1')
 
-
             if 'use_conv_low_dim_state' in conf:
 
                 enc4 = slim.layers.conv2d(  # 8x8x8
@@ -233,37 +231,35 @@ def construct_model(images,
                 low_dim_state = slim.layers.conv2d(  # 8x8x1
                     enc4, 1, [3, 3], stride=1, scope='conv7')
 
-
-                inf_low_state.append(low_dim_state)
-
-                dec4 = low_dim_state
-
+            low_dim_state_flat = tf.reshape(low_dim_state, [batch_size, - 1])
+            inf_low_state.append(low_dim_state_flat)
+            pred_low_state.append(project_fwd_lowdim(low_dim_state_flat))
 
             dec5 = slim.layers.conv2d_transpose(  #  8x8x16
-                dec4, 16, 3, stride=1, scope='convt1')
+                low_dim_state, 16, 3, stride=1, scope='convt1')
 
-            dec6 = slim.layers.conv2d_transpose(  # 8x8x32
-                dec5, 32, 3, stride=1, scope='convt2')
+            dec6 = slim.layers.conv2d_transpose(  # 16x16x16
+                dec5, 16, 3, stride=2, scope='convt2')
 
-            dec7 = slim.layers.conv2d_transpose(    #32x32x32
-                dec6, 32, 3, stride=2, scope='convt3')
+            dec7 = slim.layers.conv2d_transpose(  # 16x16x32
+                dec6, 32, 3, stride=1, scope='convt3')
 
-            dec8 = slim.layers.conv2d_transpose(     #64x64x16
-                dec7, 16, 3, stride=2, scope='convt4')
+            dec8 = slim.layers.conv2d_transpose(    #32x32x32
+                dec7, 32, 3, stride=2, scope='convt4')
+
+            dec9 = slim.layers.conv2d_transpose(     #64x64x16
+                dec8, 16, 3, stride=2, scope='convt5')
 
             # Using largest hidden state for predicting untied conv kernels.
-            dec9 = slim.layers.conv2d_transpose(
-                dec8, DNA_KERN_SIZE ** 2, 1, stride=1, scope='convt5')
+            dec10 = slim.layers.conv2d_transpose(
+                dec9, DNA_KERN_SIZE ** 2, 1, stride=1, scope='convt6')
 
 
-            # Only one mask is supported (more should be unnecessary).
-            if num_masks != 1:
-                raise ValueError('Only one mask is supported for DNA model.')
-            transformed = [dna_transformation(prev_image, dec9, DNA_KERN_SIZE)]
+            transformed = [dna_transformation(prev_image, dec10, DNA_KERN_SIZE)]
 
             if 'use_masks' in conf:
                 masks = slim.layers.conv2d_transpose(
-                    dec9, num_masks + 1, 1, stride=1, scope='convt7')
+                    dec10, num_masks + 1, 1, stride=1, scope='convt7')
                 masks = tf.reshape(
                     tf.nn.softmax(tf.reshape(masks, [-1, num_masks + 1])),
                     [int(batch_size), int(img_height), int(img_width), num_masks + 1])
@@ -278,23 +274,11 @@ def construct_model(images,
             gen_images.append(output)
             gen_masks.append(mask_list)
 
-            if dna and pix_distributions != None:
-                transf_distrib = [dna_transformation(prev_pix_distrib, dec7, DNA_KERN_SIZE)]
-
-            if pix_distributions!=None:
-                pix_distrib_output = mask_list[0] * prev_pix_distrib
-                mult_list = []
-                for i in range(num_masks):
-                    mult_list.append(transf_distrib[i] * mask_list[i+1])
-                    pix_distrib_output += mult_list[i]
-
-                gen_pix_distrib.append(pix_distrib_output)
-
             # pred_low_state_stopped = tf.stop_gradient(pred_low_state)
 
             state_enc1 = slim.layers.fully_connected(
                 # pred_low_state[-1],
-                low_dim_state,
+                low_dim_state_flat,
                 100,
                 scope='state_enc1')
 
@@ -334,28 +318,6 @@ def project_fwd_lowdim(low_state):
     return  hid_state_enc3
 
 
-# from tensorflow.contrib.slim import add_arg_scope
-# @add_arg_scope
-# class Basic_lstm_func
-# def basic_lstm_func(inputs, state, num_units, scope=None, reuse=None):
-#     # create low-dim lstm and Initial state
-#
-#
-#     with tf.variable_scope(scope, reuse=reuse):
-#
-#         if state is None:
-#             # low_dim_lstm1 = LayerNormBasicLSTMCell(num_units)
-#             import pdb;
-#             pdb.set_trace()
-#
-#             low_dim_lstm = BasicRNNCell(num_units)
-#
-#
-#             batch_size = int(inputs.get_shape()[0])
-#             state = tf.zeros([batch_size, num_units])
-#
-#         return low_dim_lstm(inputs, state)
-
 
 def dna_transformation(prev_image, dna_input, DNA_KERN_SIZE):
     """Apply dynamic neural advection to previous image.
@@ -379,6 +341,7 @@ def dna_transformation(prev_image, dna_input, DNA_KERN_SIZE):
                 tf.expand_dims(
                     tf.slice(prev_image_pad, [0, xkern, ykern, 0],
                              [-1, image_height, image_width, -1]), [3]))
+
     inputs = tf.concat(3, inputs)
 
     # Normalize channels to 1.
