@@ -147,12 +147,13 @@ class Model(object):
         self.psnr_all = psnr_all
 
 
-        for i, inf_state, pred_state in zip(
-                range(len(inf_low_state)), inf_low_state[1:],
-                pred_low_state[:-1]):
-            low_state_cost = mean_squared_error(inf_state, pred_state)
-            summaries.append(tf.scalar_summary(prefix + '_low_state_cost' + str(i+1), low_state_cost))
-            loss += low_state_cost
+        if 'train_latent_model' in conf:
+            for i, inf_state, pred_state in zip(
+                    range(len(inf_low_state)), inf_low_state[1:],
+                    pred_low_state[:-1]):
+                low_state_cost = mean_squared_error(inf_state, pred_state)
+                summaries.append(tf.scalar_summary(prefix + '_low_state_cost' + str(i+1), low_state_cost))
+                loss += low_state_cost
 
         self.loss = loss = loss / np.float32(len(images) - conf['context_frames'])
 
