@@ -249,7 +249,7 @@ def construct_model(images,
 
             low_dim_state_flat = tf.reshape(low_dim_state, [batch_size, - 1])
             inf_low_state.append(low_dim_state_flat)
-            pred_low_state.append(project_fwd_lowdim(low_dim_state_flat))
+            pred_low_state.append(project_fwd_lowdim(conf, low_dim_state_flat))
 
             dec5 = slim.layers.conv2d_transpose(  #  8x8x16
                 dec4, 16, 3, stride=1, scope='convt1')
@@ -290,10 +290,10 @@ def construct_model(images,
             gen_images.append(output)
             gen_masks.append(mask_list)
 
-            # pred_low_state_stopped = tf.stop_gradient(pred_low_state)
+            if 'stopgrad' in conf:
+                low_dim_state_flat = tf.stop_gradient(low_dim_state_flat)
 
             state_enc1 = slim.layers.fully_connected(
-                # pred_low_state[-1],
                 low_dim_state_flat,
                 100,
                 scope='state_enc1')
@@ -313,11 +313,12 @@ def construct_model(images,
         return gen_images, gen_states, gen_masks, None, inf_low_state, pred_low_state
 
 
-def project_fwd_lowdim(low_state):
+def project_fwd_lowdim(conf, low_state):
     # predicting the next hidden state:
-    low_state_stopped = tf.stop_gradient(low_state)
+    if 'stopgrad' in conf:
+        low_state = tf.stop_gradient(low_state)
     low_state_enc1 = slim.layers.fully_connected(
-        low_state_stopped,
+        low_state,
         100,
         scope='hid_state_enc1')
     low_state_enc2 = slim.layers.fully_connected(

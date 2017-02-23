@@ -58,22 +58,33 @@ def mean_squared_error(true, pred):
 class Model(object):
     def __init__(self,
                  conf,
+                 istraining,
                  images=None,
                  actions=None,
                  states=None,
                  sequence_length=None,
                  reuse_scope=None,
-                 pix_distrib=None):
+                 pix_distrib=None,
+                 ):
 
         # if conf['downsize']:
         #     construct_model = conf['downsize']
         # else:
         #     from prediction_model import construct_model
 
-        from prediction_model_downsized_lesslayer import construct_model
+        from autoencoder_latentmodel import construct_model
 
-        if sequence_length is None:
-            sequence_length = conf['sequence_length']
+        if train:
+            r_ind = np.empty((conf['batch_size'], 2), dtype=np.int)
+            r_ind[:, 0] = np.arange(conf['batch_size'])
+            r_ind[:, 1] = np.random.randint(0, conf['sequence_length'] - 3, size=conf['batch_size'])
+
+            images_0 = tf.gather_nd(images, r_ind)
+
+            r_ind[:, 1] = r_ind[:, 1] + 1
+            images_new = tf.gather_nd(images, r_ind)
+
+            images = [images_old, images_new]
 
         self.prefix = prefix = tf.placeholder(tf.string, [])
         self.iter_num = tf.placeholder(tf.float32, [])
@@ -93,17 +104,9 @@ class Model(object):
         if reuse_scope is None:
             gen_images, gen_states, gen_masks, gen_distrib = construct_model(
                 images,
+                state_pairs,
                 actions,
                 states,
-                iter_num=self.iter_num,
-                k=conf['schedsamp_k'],
-                use_state=conf['use_state'],
-                num_masks=conf['num_masks'],
-                cdna=conf['model'] == 'CDNA',
-                dna=conf['model'] == 'DNA',
-                stp=conf['model'] == 'STP',
-                context_frames=conf['context_frames'],
-                pix_distributions= pix_distrib,
                 conf=conf)
         else:  # If it's a validation or test model.
             with tf.variable_scope(reuse_scope, reuse=True):

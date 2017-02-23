@@ -29,6 +29,7 @@ FLAGS = flags.FLAGS
 flags.DEFINE_string('hyper', '', 'hyperparameters configuration file')
 flags.DEFINE_string('visualize', '', 'model within hyperparameter folder from which to create gifs')
 flags.DEFINE_integer('device', 0 ,'the value for CUDA_VISIBLE_DEVICES variable')
+flags.DEFINE_string('pretrained', '', 'model weights from which to resume training')
 
 ## Helper functions
 def peak_signal_to_noise_ratio(true, pred):
@@ -151,7 +152,11 @@ class Model(object):
             for i, inf_state, pred_state in zip(
                     range(len(inf_low_state)), inf_low_state[1:],
                     pred_low_state[:-1]):
-                low_state_cost = mean_squared_error(inf_state, pred_state)
+                if 'low_state_factor' in conf:
+                    low_state_cost = mean_squared_error(inf_state, pred_state)*\
+                                     conf['low_state__factor']
+                else:
+                    low_state_cost = mean_squared_error(inf_state, pred_state)
                 summaries.append(tf.scalar_summary(prefix + '_low_state_cost' + str(i+1), low_state_cost))
                 loss += low_state_cost
 
@@ -237,8 +242,10 @@ def main(unused_argv, conf_script= None):
         return
 
     itr_0 =0
-    if conf['pretrained_model']:    # is the order of initialize_all_variables() and restore() important?!?
+    if FLAGS.pretrained:    # is the order of initialize_all_variables() and restore() important?!?
+        conf['pretrained_model'] = conf['output_dir'] + '/' + FLAGS.pretrained
         saver.restore(sess, conf['pretrained_model'])
+
         # resume training at iteration step of the loaded model:
         import re
         itr_0 = re.match('.*?([0-9]+)$', conf['pretrained_model']).group(1)
