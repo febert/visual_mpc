@@ -64,7 +64,7 @@ class Model(object):
                  states=None,
                  sequence_length=None,
                  reuse_scope=None,
-                 pix_distrib=None):
+                 ):
 
         # if conf['downsize']:
         #     construct_model = conf['downsize']
@@ -87,12 +87,10 @@ class Model(object):
         states = [tf.squeeze(st) for st in states]
         images = tf.split(1, images.get_shape()[1], images)
         images = [tf.squeeze(img) for img in images]
-        if pix_distrib != None:
-            pix_distrib = tf.split(1, pix_distrib.get_shape()[1], pix_distrib)
-            pix_distrib = [tf.squeeze(pix) for pix in pix_distrib]
+
 
         if reuse_scope is None:
-            gen_images, gen_states, gen_masks, gen_distrib, inf_low_state, pred_low_state, lt_model_scope = construct_model(
+            gen_images, gen_states, gen_masks, inf_low_state, pred_low_state, lt_model_scope = construct_model(
                 images,
                 actions,
                 states,
@@ -104,7 +102,7 @@ class Model(object):
                 conf=conf)
         else:  # If it's a validation or test model.
             with tf.variable_scope(reuse_scope, reuse=True):
-                gen_images, gen_states, gen_masks, gen_distrib, inf_low_state, pred_low_state, lt_model_scope = construct_model(
+                gen_images, gen_states, gen_masks, inf_low_state, pred_low_state, lt_model_scope = construct_model(
                     images,
                     actions,
                     states,
@@ -142,22 +140,25 @@ class Model(object):
 
         self.loss = loss = loss / np.float32(len(images) - conf['context_frames'])
         summaries.append(tf.scalar_summary(prefix + '_loss', loss))
+        self.lr = tf.placeholder_with_default(conf['learning_rate'], ())
 
         if 'train_latent_model' in conf:
             for i, inf_state, pred_state in zip(
                     range(len(inf_low_state)), inf_low_state[1:],
                     pred_low_state[:-1]):
                 if 'low_state_factor' in conf:
-                    low_state_cost = mean_squared_error(inf_state, pred_state)*\
+                    lt_state_cost = mean_squared_error(inf_state, pred_state)*\
                                      conf['low_state__factor']
                 else:
-                    low_state_cost = mean_squared_error(inf_state, pred_state)
-                summaries.append(tf.scalar_summary(prefix + '_low_state_cost' + str(i+1), low_state_cost))
-                # loss += low_state_cost
-            lt_model_var = tf.Graph.get_collection(name=tf.GraphKeys.TRAINABLE_VARIABLES, scope=lt_model_scope)
-            train_lt_op = tf.train.AdamOptimizer(self.lr).minimize(low_state_cost, var_list=lt_model_var)
+                    lt_state_cost = mean_squared_error(inf_state, pred_state)
+                summaries.append(tf.scalar_summary(prefix + '_low_state_cost' + str(i+1), lt_state_cost))
+                # loss += lt_state_cost
 
-        self.lr = tf.placeholder_with_default(conf['learning_rate'], ())
+            lt_model_var = tf.get_default_graph().get_collection(name=tf.GraphKeys.TRAINABLE_VARIABLES, scope='model/latent_model')
+
+            train_lt_op = tf.train.AdamOptimizer(self.lr).minimize(lt_state_cost, var_list=lt_model_var)
+
+
 
         if 'train_latent_model' in conf:
             with tf.control_dependencies([train_lt_op]):
@@ -168,7 +169,6 @@ class Model(object):
 
         self.gen_images= gen_images
         self.gen_masks = gen_masks
-        self.gen_distrib = gen_distrib
         self.gen_states = gen_states
 
 

@@ -107,9 +107,8 @@ def construct_model(images,
 
     dim_low_state = lstm_size[-1]
 
-    t = -1
-    for image, action in zip(images[:-1], actions[:-1]):
-        t +=1
+    for t, image, action in zip(range(len(images)), images[:-1], actions[:-1]):
+
         print 'building timestep ', t
         # Reuse variables after the first timestep.
         reuse = bool(gen_images)
@@ -236,7 +235,7 @@ def construct_model(images,
 
             low_dim_state_flat = tf.reshape(low_dim_state, [batch_size, - 1])
             inf_low_state_list.append(low_dim_state_flat)
-            pred_low_state, latent_model_scope = project_fwd_lowdim(conf, low_dim_state_flat)
+            pred_low_state, lt_model_scope = project_fwd_lowdim(conf, low_dim_state_flat)
             pred_low_state_list.append(pred_low_state)
 
             dec5 = slim.layers.conv2d_transpose(  #  8x8x16
@@ -296,12 +295,12 @@ def construct_model(images,
             gen_states.append(current_state)
 
 
-        return gen_images, gen_states, gen_masks, inf_low_state_list, pred_low_state_list, latent_model_scope
+    return gen_images, gen_states, gen_masks, inf_low_state_list, pred_low_state_list, lt_model_scope
 
 
 
 def project_fwd_lowdim(conf, low_state):
-    with tf.variable_scope("latent_model") as lt_model_scope:
+    with tf.variable_scope('latent_model') as lt_model_scope:
         # predicting the next hidden state:
         if 'stopgrad' in conf:
             low_state = tf.stop_gradient(low_state)
