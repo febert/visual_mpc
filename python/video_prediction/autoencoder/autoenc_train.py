@@ -65,109 +65,63 @@ class Model(object):
                  sequence_length=None,
                  reuse_scope=None,
                  pix_distrib=None,
+                 test = False
                  ):
-
-        # if conf['downsize']:
-        #     construct_model = conf['downsize']
-        # else:
-        #     from prediction_model import construct_model
 
         from autoencoder_latentmodel import construct_model
 
-        if train:
-            r_ind = np.empty((conf['batch_size'], 2), dtype=np.int)
-            r_ind[:, 0] = np.arange(conf['batch_size'])
-            r_ind[:, 1] = np.random.randint(0, conf['sequence_length'] - 3, size=conf['batch_size'])
+        if test:
+            images_01_rec, pred_lt_state23, inf_lt_state23 = construct_model(conf,
+                                                                             images,
+                                                                             actions,
+                                                                             test=False)
 
-            images_0 = tf.gather_nd(images, r_ind)
 
-            r_ind[:, 1] = r_ind[:, 1] + 1
-            images_new = tf.gather_nd(images, r_ind)
+        if not test:
 
-            images = [images_old, images_new]
+            #images of size : batch_size, timesteps, 64,64,3
+            ind_0 = tf.random_uniform(shape=1, minval=0, maxval=conf['sequence_length']-4, dtype=tf.float32, seed=None, name=None)
+            ind_1 = ind_0 + 1
+            ind_2 = ind_0 + 2
+
+            self.images_01 = images_01 = tf.slice(images, begin=[0,ind_0], size=[conf['batch_size'],2])
+            self.images_23 = images_23 = tf.slice(images, begin=[0,ind_2], size=[conf['batch_size'],2])
+            self.states_01 = states_01 = tf.slice(images, begin=[0, ind_0], size=[conf['batch_size'], 2])
+            self.states_23 = states_23 = tf.slice(images, begin=[0, ind_2], size=[conf['batch_size'], 2])
+            self.actions = actions = tf.slice(actions, begin=[0, ind_1], size=[conf['batch_size'], 2])
 
         self.prefix = prefix = tf.placeholder(tf.string, [])
         self.iter_num = tf.placeholder(tf.float32, [])
         summaries = []
 
-        # Split into timesteps.
-        actions = tf.split(1, actions.get_shape()[1], actions)
-        actions = [tf.squeeze(act) for act in actions]
-        states = tf.split(1, states.get_shape()[1], states)
-        states = [tf.squeeze(st) for st in states]
-        images = tf.split(1, images.get_shape()[1], images)
-        images = [tf.squeeze(img) for img in images]
-        if pix_distrib != None:
-            pix_distrib = tf.split(1, pix_distrib.get_shape()[1], pix_distrib)
-            pix_distrib = [tf.squeeze(pix) for pix in pix_distrib]
 
-        if reuse_scope is None:
-            gen_images, gen_states, gen_masks, gen_distrib = construct_model(
-                images,
-                state_pairs,
-                actions,
-                states,
-                conf=conf)
-        else:  # If it's a validation or test model.
-            with tf.variable_scope(reuse_scope, reuse=True):
-                gen_images, gen_states, gen_masks, gen_distrib = construct_model(
-                    images,
-                    actions,
-                    states,
-                    iter_num=self.iter_num,
-                    k=conf['schedsamp_k'],
-                    use_state=conf['use_state'],
-                    num_masks=conf['num_masks'],
-                    cdna=conf['model'] == 'CDNA',
-                    dna=conf['model'] == 'DNA',
-                    stp=conf['model'] == 'STP',
-                    context_frames=conf['context_frames'],
-                    conf= conf)
-
-        if conf['penal_last_only']:
-            cost_sel = np.zeros(conf['sequence_length']-2)
-            cost_sel[-1] = 1
-            print 'using the last state for training only:', cost_sel
-        else:
-            cost_sel = np.ones(conf['sequence_length']-2)
+        images_01_rec, pred_lt_state23, inf_lt_state23   = construct_model(conf,
+                                                                            images_01,
+                                                                            states_01,
+                                                                            images_23,
+                                                                            states_23,
+                                                                            test = False)
 
         # L2 loss, PSNR for eval.
-        loss, psnr_all = 0.0, 0.0
-        for i, x, gx in zip(
-                range(len(gen_images)), images[conf['context_frames']:],
-                gen_images[conf['context_frames'] - 1:]):
-            recon_cost = mean_squared_error(x, gx)
-            psnr_i = peak_signal_to_noise_ratio(x, gx)
-            psnr_all += psnr_i
-            summaries.append(
-                tf.scalar_summary(prefix + '_recon_cost' + str(i), recon_cost))
-            summaries.append(tf.scalar_summary(prefix + '_psnr' + str(i), psnr_i))
+        loss = 0.0, 0.0
 
-            loss += recon_cost*cost_sel[i]
+        recon_cost = mean_squared_error(images_01_rec, images_01)
 
-        for i, state, gen_state in zip(
-                range(len(gen_states)), states[conf['context_frames']:],
-                gen_states[conf['context_frames'] - 1:]):
-            state_cost = mean_squared_error(state, gen_state) * 1e-4 * conf['use_state']
-            summaries.append(
-                tf.scalar_summary(prefix + '_state_cost' + str(i), state_cost))
-            loss += state_cost*cost_sel[i]
+        summaries.append(tf.scalar_summary(prefix + '_recon_cost', recon_cost))
+
+        loss += recon_cost
+
+        latent_state_cost = mean_squared_error(pred_lt_state23, inf_lt_state23) * 1e-4 * conf['use_state']
+        summaries.append(tf.scalar_summary(prefix + 'latent_state_cost', latent_state_cost))
+        loss += latent_state_cost
         summaries.append(tf.scalar_summary(prefix + '_psnr_all', psnr_all))
-        self.psnr_all = psnr_all
 
-        self.loss = loss = loss / np.float32(len(images) - conf['context_frames'])
-
+        self.loss = loss
         summaries.append(tf.scalar_summary(prefix + '_loss', loss))
 
         self.lr = tf.placeholder_with_default(conf['learning_rate'], ())
-
         self.train_op = tf.train.AdamOptimizer(self.lr).minimize(loss)
         self.summ_op = tf.merge_summary(summaries)
-
-        self.gen_images= gen_images
-        self.gen_masks = gen_masks
-        self.gen_distrib = gen_distrib
-        self.gen_states = gen_states
 
 
 def main(unused_argv, conf_script= None):
@@ -215,6 +169,9 @@ def main(unused_argv, conf_script= None):
 
     tf.train.start_queue_runners(sess)
     sess.run(tf.initialize_all_variables())
+
+
+
 
     if conf['visualize']:
         saver.restore(sess, conf['visualize'])

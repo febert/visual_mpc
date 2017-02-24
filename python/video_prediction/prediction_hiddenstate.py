@@ -32,7 +32,6 @@ from tensorflow.python.ops.rnn_cell import BasicLSTMCell, MultiRNNCell
 RELU_SHIFT = 1e-12
 
 
-
 def construct_model(images,
                     actions=None,
                     states=None,
@@ -40,11 +39,7 @@ def construct_model(images,
                     k=-1,
                     use_state=True,
                     num_masks=10,
-                    stp=False,
-                    cdna=True,
-                    dna=False,
                     context_frames=2,
-                    pix_distributions=None,
                     conf = None):
     """Build convolutional lstm video predictor using STP, CDNA, or DNA.
 
@@ -79,15 +74,13 @@ def construct_model(images,
 
     print 'constructing network with hidden state'
 
-    if stp + cdna + dna != 1:
-        raise ValueError('More than one, or no network option specified.')
     batch_size, img_height, img_width, color_channels = images[0].get_shape()[0:4]
     batch_size = int(batch_size)
     lstm_func = basic_conv_lstm_cell
 
 
     # Generated robot states and images.
-    gen_states, gen_images, gen_masks, inf_low_state, pred_low_state = [], [], [], [], []
+    gen_states, gen_images, gen_masks, inf_low_state_list, pred_low_state_list = [], [], [], [], []
     current_state = states[0]
     gen_pix_distrib = []
 
@@ -130,8 +123,6 @@ def construct_model(images,
             if feedself and done_warm_start:
                 # Feed in generated image.
                 prev_image = gen_images[-1]
-                if pix_distributions != None:
-                    prev_pix_distrib = gen_pix_distrib[-1]
             elif done_warm_start:
                 # Scheduled sampling
                 prev_image = scheduled_sample(image, gen_images[-1], batch_size,
@@ -139,9 +130,6 @@ def construct_model(images,
             else:
                 # Always feed in ground_truth
                 prev_image = image
-                if pix_distributions != None:
-                    prev_pix_distrib = pix_distributions[t]
-                    prev_pix_distrib = tf.expand_dims(prev_pix_distrib, -1)
 
             # Predicted state is always fed back in
             state_action = tf.concat(1, [action, current_state])   # 6x
@@ -187,7 +175,6 @@ def construct_model(images,
                 hidden3, 32, [1, 1], stride=1, scope='conv5')
 
 
-
             if 'use_low_dim_lstm' in conf:
 
                 enc4 = slim.layers.conv2d(  # 8x8x8
@@ -212,10 +199,11 @@ def construct_model(images,
                     scope='enc_fully2')
 
                 low_dim_state = enc_fully2
+                dec4 = low_dim_state
 
             if 'use_low_dim_lstm' in conf or 'fully_connected_low_dim_state' in conf:
                 # inferred low dimensional state:
-                inf_low_state.append(low_dim_state)
+                inf_low_state_list.append(low_dim_state)
 
                 smear = tf.reshape(
                     low_dim_state,
@@ -240,7 +228,6 @@ def construct_model(images,
 
                     dec4 = slim.layers.conv2d_transpose(  # 8x8x1
                         low_dim_state, 1, [3, 3], stride=2, scope='convt0')
-
                 else:
                     low_dim_state = slim.layers.conv2d(  # 8x8x1
                         enc4, 1, [3, 3], stride=1, scope='conv7')
@@ -248,8 +235,9 @@ def construct_model(images,
                     dec4 = low_dim_state
 
             low_dim_state_flat = tf.reshape(low_dim_state, [batch_size, - 1])
-            inf_low_state.append(low_dim_state_flat)
-            pred_low_state.append(project_fwd_lowdim(conf, low_dim_state_flat))
+            inf_low_state_list.append(low_dim_state_flat)
+            pred_low_state, latent_model_scope = project_fwd_lowdim(conf, low_dim_state_flat)
+            pred_low_state_list.append(pred_low_state)
 
             dec5 = slim.layers.conv2d_transpose(  #  8x8x16
                 dec4, 16, 3, stride=1, scope='convt1')
@@ -307,32 +295,32 @@ def construct_model(images,
             current_state = tf.squeeze(state_enc2)
             gen_states.append(current_state)
 
-    if pix_distributions != None:
-        return gen_images, gen_states, gen_masks, gen_pix_distrib, inf_low_state, pred_low_state
-    else:
-        return gen_images, gen_states, gen_masks, None, inf_low_state, pred_low_state
+
+        return gen_images, gen_states, gen_masks, inf_low_state_list, pred_low_state_list, latent_model_scope
+
 
 
 def project_fwd_lowdim(conf, low_state):
-    # predicting the next hidden state:
-    if 'stopgrad' in conf:
-        low_state = tf.stop_gradient(low_state)
-    low_state_enc1 = slim.layers.fully_connected(
-        low_state,
-        100,
-        scope='hid_state_enc1')
-    low_state_enc2 = slim.layers.fully_connected(
-        low_state_enc1,
-        100,
-        scope='hid_state_enc2')
-    hid_state_enc3 = slim.layers.fully_connected(
-        low_state_enc2,
-        int(low_state.get_shape()[1]),
-        scope='hid_state_enc3',
-        activation_fn=None)
-    # predicted low-dimensional state
+    with tf.variable_scope("latent_model") as lt_model_scope:
+        # predicting the next hidden state:
+        if 'stopgrad' in conf:
+            low_state = tf.stop_gradient(low_state)
+        low_state_enc1 = slim.layers.fully_connected(
+            low_state,
+            100,
+            scope='hid_state_enc1')
+        low_state_enc2 = slim.layers.fully_connected(
+            low_state_enc1,
+            100,
+            scope='hid_state_enc2')
+        hid_state_enc3 = slim.layers.fully_connected(
+            low_state_enc2,
+            int(low_state.get_shape()[1]),
+            scope='hid_state_enc3',
+            activation_fn=None)
+        # predicted low-dimensional state
 
-    return  hid_state_enc3
+    return  hid_state_enc3, lt_model_scope
 
 
 
