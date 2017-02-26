@@ -156,7 +156,6 @@ class Model(object):
                 # loss += lt_state_cost
 
             lt_model_var = tf.get_default_graph().get_collection(name=tf.GraphKeys.TRAINABLE_VARIABLES, scope='model/latent_model')
-            pdb.set_trace()
 
             train_lt_op = tf.train.AdamOptimizer(self.lr).minimize(lt_state_cost, var_list=lt_model_var)
 
