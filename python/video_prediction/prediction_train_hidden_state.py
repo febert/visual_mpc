@@ -160,8 +160,6 @@ class Model(object):
 
             train_lt_op = tf.train.AdamOptimizer(self.lr).minimize(lt_state_cost, var_list=lt_model_var)
 
-
-
         if 'train_latent_model' in conf:
             with tf.control_dependencies([train_lt_op]):
                 self.train_op = tf.train.AdamOptimizer(self.lr).minimize(loss)
