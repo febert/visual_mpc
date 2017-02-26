@@ -272,7 +272,7 @@ def construct_model(images,
                     output += layer * mask
             else:
                 mask_list = None
-                output = transformed
+                [output] = transformed
 
             gen_images.append(output)
             gen_masks.append(mask_list)

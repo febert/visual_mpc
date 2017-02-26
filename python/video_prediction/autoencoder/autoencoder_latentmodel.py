@@ -20,7 +20,7 @@ import tensorflow as tf
 
 import tensorflow.contrib.slim as slim
 from tensorflow.contrib.layers.python import layers as tf_layers
-from lstm_ops import basic_conv_lstm_cell
+
 
 # Amount to use when lower bounding tensors
 RELU_SHIFT = 1e-12
@@ -37,7 +37,8 @@ def encoder(image_pair, state_pair, conf, reuse= False):
              tf_layers.layer_norm, slim.layers.conv2d_transpose],
             reuse=reuse):
 
-        image_pair = tf.reshape(image_pair, shape=[conf['batch_size'], 2, 64,64,3])
+
+        image_pair = tf.reshape(image_pair, shape=[conf['batch_size'], 64,64,3*2])
         enc0 = slim.layers.conv2d(   #32x32x32
             image_pair,
             32, [5, 5],
@@ -89,10 +90,10 @@ def encoder(image_pair, state_pair, conf, reuse= False):
         return enc5
 
 
-def decoder(low_state, conf, reuse= False):
+def decoder(lt_state, conf, reuse= False):
     """
     :param image_pair:
-    :param state_pair: low dimensional input coordinates
+    :param state_pair: lt dimensional input coordinates
     :return:
     """
     with slim.arg_scope([slim.layers.conv2d, slim.layers.fully_connected,
@@ -100,7 +101,7 @@ def decoder(low_state, conf, reuse= False):
                         reuse=reuse):
 
         dec0 = slim.layers.conv2d_transpose(   #8x8x16
-            low_state,
+            lt_state,
             16, [5, 5],
             stride=1,
             scope='conv0t',
@@ -150,23 +151,26 @@ def decoder(low_state, conf, reuse= False):
         return dec5
 
 
-def predictor(low_dim_state01, conf):
-    low_dim_state_flat = tf.reshape(low_dim_state01, [conf['batch_size'], - 1])
+def predictor(lt_dim_state01, action, conf):
+    lt_dim_state_flat = tf.reshape(lt_dim_state01, [conf['batch_size'], - 1])
 
     # predicting the next hidden state:
     if 'stopgrad' in conf:
-        low_dim_state_flat = tf.stop_gradient(low_dim_state_flat)
-    low_state_enc1 = slim.layers.fully_connected(
-        low_dim_state_flat,
+        lt_dim_state_flat = tf.stop_gradient(lt_dim_state_flat)
+
+    lt_state_enc0 = tf.concat(0, [action, lt_dim_state_flat])
+
+    lt_state_enc1 = slim.layers.fully_connected(
+        lt_state_enc0,
         200,
         scope='hid_state_enc1')
-    low_state_enc2 = slim.layers.fully_connected(
-        low_state_enc1,
+    lt_state_enc2 = slim.layers.fully_connected(
+        lt_state_enc1,
         200,
         scope='hid_state_enc2')
     hid_state_enc3 = slim.layers.fully_connected(
-        low_state_enc2,
-        int(low_dim_state_flat.get_shape()[1]),
+        lt_state_enc2,
+        int(lt_dim_state_flat.get_shape()[1]),
         scope='hid_state_enc3',
         activation_fn=None)
 
@@ -175,17 +179,19 @@ def predictor(low_dim_state01, conf):
 
 def construct_model(conf,
                     images_01,
-                    states_01,
+                    action_1,
+                    states_01 = None,
                     images_23 = None,
                     states_23 = None,
-                    test = False
+                    test = False,
+
                     ):
 
     inf_lt_state01 = encoder(images_01, states_01, conf)
 
     if test:
         inf_lt_state01 = encoder(images_01, states_01, conf)
-        pred_lt_state23 = predictor(inf_lt_state01, conf)
+        pred_lt_state23 = predictor(inf_lt_state01, action_1, conf)
         images_23_rec = decoder(pred_lt_state23, conf)
 
         return images_23_rec
@@ -197,12 +203,3 @@ def construct_model(conf,
         pred_lt_state23 = predictor(inf_lt_state01, conf)
 
         return pred_lt_state23, inf_lt_state23, images_01_rec
-
-
-
-
-
-
-
-
-

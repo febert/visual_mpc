@@ -9,6 +9,7 @@ from utils_vpred.adapt_params_visualize import adapt_params_visualize
 from tensorflow.python.platform import app
 from tensorflow.python.platform import flags
 import utils_vpred.create_gif
+import pdb
 
 from read_tf_record import build_tfrecord_input
 
@@ -155,6 +156,7 @@ class Model(object):
                 # loss += lt_state_cost
 
             lt_model_var = tf.get_default_graph().get_collection(name=tf.GraphKeys.TRAINABLE_VARIABLES, scope='model/latent_model')
+            pdb.set_trace()
 
             train_lt_op = tf.train.AdamOptimizer(self.lr).minimize(lt_state_cost, var_list=lt_model_var)
 
@@ -224,13 +226,21 @@ def main(unused_argv, conf_script= None):
         feed_dict = {val_model.lr: 0.0,
                      val_model.prefix: 'vis',
                      val_model.iter_num: 0 }
-        gen_images, ground_truth, mask_list = sess.run([val_model.gen_images,
-                                                        val_images, val_model.gen_masks],
-                                                       feed_dict)
+
         file_path = conf['output_dir']
+        if 'use_masks' in conf:
+            gen_images, ground_truth, mask_list = sess.run([val_model.gen_images,
+                                                            val_images, val_model.gen_masks],
+                                                           feed_dict)
+            cPickle.dump(mask_list, open(file_path + '/mask_list.pkl', 'wb'))
+        else:
+            gen_images, ground_truth = sess.run([val_model.gen_images,
+                                                            val_images],
+                                                           feed_dict)
+
         cPickle.dump(gen_images, open(file_path + '/gen_image_seq.pkl','wb'))
         cPickle.dump(ground_truth, open(file_path + '/ground_truth.pkl', 'wb'))
-        cPickle.dump(mask_list, open(file_path + '/mask_list.pkl', 'wb'))
+
         print 'written files to:' + file_path
 
         trajectories = utils_vpred.create_gif.comp_video(conf['output_dir'], conf)
