@@ -37,7 +37,6 @@ def encoder(image_pair, state_pair, conf, reuse= False):
              tf_layers.layer_norm, slim.layers.conv2d_transpose],
             reuse=reuse):
 
-
         image_pair = tf.reshape(image_pair, shape=[conf['batch_size'], 64,64,3*2])
         enc0 = slim.layers.conv2d(   #32x32x32
             image_pair,
@@ -59,7 +58,7 @@ def encoder(image_pair, state_pair, conf, reuse= False):
             enc1,
             128, [5, 5],
             stride=2,
-            scope='conv1',
+            scope='conv2',
             # normalizer_fn=tf_layers.batch_norm,
             # normalizer_params={'scope': 'batch_norm2'}
         )
@@ -67,7 +66,7 @@ def encoder(image_pair, state_pair, conf, reuse= False):
             enc2,
             64, [5, 5],
             stride=1,
-            scope='conv1',
+            scope='conv3',
             # normalizer_fn=tf_layers.batch_norm,
             # normalizer_params={'scope': 'batch_norm2'}
         )
@@ -75,7 +74,7 @@ def encoder(image_pair, state_pair, conf, reuse= False):
             enc3,
             16, [5, 5],
             stride=1,
-            scope='conv1',
+            scope='conv4',
             # normalizer_fn=tf_layers.batch_norm,
             # normalizer_params={'scope': 'batch_norm2'}
         )
@@ -83,7 +82,7 @@ def encoder(image_pair, state_pair, conf, reuse= False):
             enc4,
             1, [5, 5],
             stride=1,
-            scope='conv1',
+            scope='conv5',
             # normalizer_fn=tf_layers.batch_norm,
             # normalizer_params={'scope': 'batch_norm2'}
         )
@@ -140,9 +139,9 @@ def decoder(lt_state, conf, reuse= False):
             # normalizer_fn=tf_layers.batch_norm,
             # normalizer_params={'scope': 'batch_norm2'}
         )
-        dec5 = slim.layers.conv2d_transpose(  # 64x64x3
+        dec5 = slim.layers.conv2d_transpose(  # 64x64x6
             dec4,
-            3, [5, 5],
+            6, [5, 5],
             stride=2,
             scope='conv5t',
             # normalizer_fn=tf_layers.batch_norm,
@@ -152,13 +151,14 @@ def decoder(lt_state, conf, reuse= False):
 
 
 def predictor(lt_dim_state01, action, conf):
+    action = tf.squeeze(action)
     lt_dim_state_flat = tf.reshape(lt_dim_state01, [conf['batch_size'], - 1])
 
     # predicting the next hidden state:
     if 'stopgrad' in conf:
         lt_dim_state_flat = tf.stop_gradient(lt_dim_state_flat)
 
-    lt_state_enc0 = tf.concat(0, [action, lt_dim_state_flat])
+    lt_state_enc0 = tf.concat(1, [action, lt_dim_state_flat])
 
     lt_state_enc1 = slim.layers.fully_connected(
         lt_state_enc0,
@@ -184,22 +184,20 @@ def construct_model(conf,
                     images_23 = None,
                     states_23 = None,
                     test = False,
-
                     ):
 
-    inf_lt_state01 = encoder(images_01, states_01, conf)
 
     if test:
-        inf_lt_state01 = encoder(images_01, states_01, conf)
-        pred_lt_state23 = predictor(inf_lt_state01, action_1, conf)
-        images_23_rec = decoder(pred_lt_state23, conf)
+        inf_lt_state1 = encoder(images_01, states_01, conf)
+        pred_lt_state3 = predictor(inf_lt_state1, action_1, conf)
+        images_23_rec = decoder(pred_lt_state3, conf)
 
-        return images_23_rec
+        return images_23_rec, pred_lt_state3
 
-    if not test:
-        inf_lt_state01 = encoder(images_01, states_01, conf)
-        inf_lt_state23 = encoder(images_23, states_23, conf, reuse=True)
-        images_01_rec = decoder(inf_lt_state01, conf)
-        pred_lt_state23 = predictor(inf_lt_state01, conf)
+    else:
+        inf_lt_state1 = encoder(images_01, states_01, conf)
+        inf_lt_state3 = encoder(images_23, states_23, conf, reuse=True)
+        images_01_rec = decoder(inf_lt_state1, conf)
+        pred_lt_state3 = predictor(inf_lt_state1, action_1, conf)
 
-        return pred_lt_state23, inf_lt_state23, images_01_rec
+        return pred_lt_state3, inf_lt_state3, images_01_rec

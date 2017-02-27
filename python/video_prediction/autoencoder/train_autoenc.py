@@ -71,14 +71,14 @@ class Model(object):
         if test:
             self.images_01 = tf.placeholder(tf.float32, name='images',
                                             shape=(conf['batch_size'], conf['sequence_length'], 64, 64, 3))
-            self.actions = tf.placeholder(tf.float32, name='actions',
-                                     shape=(conf['batch_size'], conf['sequence_length'], 2))
+            self.actions_1 = tf.placeholder(tf.float32, name='actions',
+                                            shape=(conf['batch_size'], conf['sequence_length'], 2))
             self.states = tf.placeholder(tf.float32, name='states',
                                     shape=(conf['batch_size'], conf['context_frames'], 4))
 
             self.images_23_rec = construct_model(conf,
                                                  self.images_01,
-                                                 self.actions,
+                                                 self.actions_1,
                                                  test=False)
 
         if not test:
@@ -86,8 +86,8 @@ class Model(object):
             #images of size : batch_size, timesteps, 64,64,3
             ind_0 = tf.random_uniform(shape=np.array([1]), minval=0, maxval=conf['sequence_length']-4,
                                       dtype=tf.int64, seed=None, name=None)
-            ind_1 = ind_0 + 1
-            ind_2 = ind_0 + 2
+            self.ind_1 = ind_1 = ind_0 + 1
+            self.ind_2 = ind_2 = ind_0 + 2
 
             tzero = tf.constant(0, shape=np.array([1]), dtype=tf.int64)
             tzero3 = tf.zeros(shape=[3], dtype=tf.int64)
@@ -98,22 +98,22 @@ class Model(object):
             self.images_23 = images_23 = tf.slice(images,
                                                   begin=tf.concat(0,[tzero,ind_2,tzero3]),
                                                   size=[-1,2,-1,-1,-1])
-            self.states_01 = states_01 = tf.slice(images,
-                                                  begin=tf.concat(0,[tzero,ind_0,tzero3]),
+            self.states_01 = states_01 = tf.slice(states,
+                                                  begin=tf.concat(0,[tzero,ind_0,tzero]),
                                                   size=[-1,2,-1])
-            self.states_23 = states_23 = tf.slice(images,
-                                                  begin=tf.concat(0,[tzero,ind_2,tzero3]),
+            self.states_23 = states_23 = tf.slice(states,
+                                                  begin=tf.concat(0,[tzero,ind_2,tzero]),
                                                   size=[-1,2,-1])
             self.action_1 = action_1 = tf.slice(actions,
-                                                begin=tf.concat(0,[tzero,ind_1,tzero3]),
-                                                size=[-1,2,-1])
+                                                  begin=tf.concat(0,[tzero,ind_1,tzero]),
+                                                  size=[-1,1,-1])
 
         self.prefix = prefix = tf.placeholder(tf.string, [])
         self.iter_num = tf.placeholder(tf.float32, [])
         summaries = []
 
 
-        images_01_rec, pred_lt_state23, inf_lt_state23   = construct_model(conf,
+        pred_lt_state3, inf_lt_state3, images_01_rec   = construct_model(conf,
                                                                             images_01,
                                                                             action_1,
                                                                             states_01,
@@ -122,15 +122,19 @@ class Model(object):
                                                                             test = False)
 
         # L2 loss, PSNR for eval.
-        loss = 0.0, 0.0
+        loss = 0.0
 
-        recon_cost = mean_squared_error(images_01_rec, images_01)
-
+        image_0 = tf.squeeze(tf.slice(images_01, begin=[0,0,0,0,0], size=[-1,1,-1, -1, -1]))
+        image_1 = tf.squeeze(tf.slice(images_01, begin=[0, 1, 0, 0, 0], size=[-1, 1, -1, -1, -1]))
+        image_0_rec = tf.slice(images_01_rec, begin=[0,0,0,0], size=[-1,-1,-1, 3])
+        image_1_rec = tf.slice(images_01_rec, begin=[0, 0,0, 3], size=[-1, -1,-1, 3])
+        recon_cost = mean_squared_error(image_0_rec, image_0) + \
+                     mean_squared_error(image_1_rec, image_1)
         summaries.append(tf.scalar_summary(prefix + '_recon_cost', recon_cost))
-
         loss += recon_cost
 
-        latent_state_cost = mean_squared_error(pred_lt_state23, inf_lt_state23) * 1e-4 * conf['use_state']
+        inf_lt_state3 = tf.reshape(inf_lt_state3, [conf['batch_size'], -1])
+        latent_state_cost = mean_squared_error(pred_lt_state3, inf_lt_state3)
         summaries.append(tf.scalar_summary(prefix + 'latent_state_cost', latent_state_cost))
         loss += latent_state_cost
 
@@ -197,21 +201,32 @@ def main(unused_argv):
     sess.run(tf.initialize_all_variables())
 
     ### Begin Debug
-
-    for s in range(5):
-
-        images, actions, states = sess.run([images, actions, states])
-
-        for b in range(4):
-            image = Image.fromarray(np.uint8(image * 255)).show()
-
-            print 'action shape:', actions.shape
-            print 'actions:', actions
-            print 'states shape:', states.shape
-            print 'actions:', states
-
-    pdb.set_trace()
-
+    # def show_im(im):
+    #     Image.fromarray(np.uint8(im * 255)).show()
+    #
+    # for t in range(3):
+    #
+    #     im01, im23, st01, st23, a1 = sess.run([model.images_01,
+    #                                            model.images_23,
+    #                                            model.states_01,
+    #                                            model.states_23,
+    #                                            model.action_1
+    #                                           ], feed_dict={train_cond:1})
+    #
+    #     for b in range(2):
+    #         print 'im01'
+    #         show_im(im01[b,0])
+    #         show_im(im01[b,1])
+    #         pdb.set_trace()
+    #         print 'im23'
+    #         show_im(im23[b,0])
+    #         show_im(im23[b,1])
+    #         pdb.set_trace()
+    #         print 'states01', st01[b]
+    #         print 'states23', st23[b]
+    #         print 'actions:', a1[b]
+    #
+    #     pdb.set_trace()
     ### End Debug
 
     itr_0 =0
@@ -279,7 +294,7 @@ def main(unused_argv):
 
 
 def visualize(conf):
-    images, actions, states = build_tfrecord_input(conf, training=True)
+    image_batch, actions, states = build_tfrecord_input(conf, training=True)
 
     model = Model(conf, test=True)
 
@@ -299,35 +314,31 @@ def visualize(conf):
 
     saver.restore(sess, conf['visualize'])
 
-    images, actions, states = sess.run([images, actions, states])
+    image_batch, actions, states = sess.run([image_batch, actions, states])
     states = np.split(states, 1)
-    images = np.split(images, 1)
+    image_batch = np.split(image_batch, 1)
 
     gen_images = [np.zeros([conf['batch_size'], 64, 64, 3]) for _ in range(conf['sequence_length'])]
-    gen_images[0] = images[0]
-    gen_images[1] = images[1]
+    gen_images[0] = image_batch[:,0]
+    gen_images[1] = image_batch[:,1]
 
-
-
-
-    for t in range(1,conf['sequence_length']-1):
+    for t in range(1,conf['sequence_length']-2):
         images01 = np.zeros([conf['batch_size'], 2, 64, 64, 3])
         images01[:,0] = gen_images[t-1]
         images01[:,1] = gen_images[t]
 
         feed_dict ={
                     model.images_01: images01,
-                    model.action_1: actions[t],
+                    model.action_1: actions[:,t],
                      }
 
         gen_images[t+1] = sess.run([model.images_23_rec],
                                       feed_dict)
 
 
-
     file_path = conf['output_dir']
     cPickle.dump(gen_images, open(file_path + '/gen_image_seq.pkl', 'wb'))
-    cPickle.dump(images, open(file_path + '/ground_truth.pkl', 'wb'))
+    cPickle.dump(image_batch, open(file_path + '/ground_truth.pkl', 'wb'))
     print 'written files to:' + file_path
     trajectories = video_prediction.utils_vpred.create_gif.comp_video(conf['output_dir'], conf)
 
