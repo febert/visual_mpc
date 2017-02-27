@@ -96,15 +96,17 @@ class Model(object):
                                                   begin=tf.concat(0,[tzero,ind_0,tzero3]),
                                                   size=[-1,2,-1,-1,-1])
             self.images_23 = images_23 = tf.slice(images,
-                                                  begin=[0,ind_2],
-                                                  size=[conf['batch_size'],2])
+                                                  begin=tf.concat(0,[tzero,ind_2,tzero3]),
+                                                  size=[-1,2,-1,-1,-1])
             self.states_01 = states_01 = tf.slice(images,
-                                                  begin=[0, ind_0],
-                                                  size=[conf['batch_size'], 2])
+                                                  begin=tf.concat(0,[tzero,ind_0,tzero3]),
+                                                  size=[-1,2,-1])
             self.states_23 = states_23 = tf.slice(images,
-                                                  begin=[0, ind_2],
-                                                  size=[conf['batch_size'], 2])
-            self.action_1 = action_1 = tf.slice(actions, begin=[0, ind_1], size=[conf['batch_size'], 1])
+                                                  begin=tf.concat(0,[tzero,ind_2,tzero3]),
+                                                  size=[-1,2,-1])
+            self.action_1 = action_1 = tf.slice(actions,
+                                                begin=tf.concat(0,[tzero,ind_1,tzero3]),
+                                                size=[-1,2,-1])
 
         self.prefix = prefix = tf.placeholder(tf.string, [])
         self.iter_num = tf.placeholder(tf.float32, [])

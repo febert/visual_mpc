@@ -2,18 +2,12 @@
 from copy import deepcopy
 import copy
 import numpy as np
-
 import mujoco_py
-from mujoco_py.mjlib import mjlib
 from mujoco_py.mjtypes import *
-
-import h5py
+import pdb
 import cPickle
-
 from PIL import Image
-
 import matplotlib.pyplot as plt
-
 from lsdc.agent.agent import Agent
 from lsdc.agent.agent_utils import generate_noise, setup
 from lsdc.agent.config import AGENT_MUJOCO
@@ -23,9 +17,6 @@ from lsdc.proto.gps_pb2 import JOINT_ANGLES, JOINT_VELOCITIES, \
         CONTEXT_IMAGE, CONTEXT_IMAGE_SIZE
 
 from lsdc.utility.trajectory import Trajectory
-
-from lsdc.sample.sample import Sample
-
 from matplotlib.backends.backend_agg import FigureCanvasAgg as FigureCanvas
 from matplotlib.figure import Figure
 
@@ -151,10 +142,11 @@ class AgentMuJoCo(Agent):
         return traj
 
     def save_goal_image(self, traj):
-        rounded = np.around(traj.score, decimals=2)
-        best_score = np.min(rounded)
+        div = .05
+        quantized = np.around(traj.score/div)
+        best_score = np.min(quantized)
         for i in range(traj.score.shape[0]):
-            if rounded[i] == best_score:
+            if quantized[i] == best_score:
                 first_best_index = i
                 break
 

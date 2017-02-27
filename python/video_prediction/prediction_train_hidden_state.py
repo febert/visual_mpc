@@ -144,6 +144,7 @@ class Model(object):
         self.lr = tf.placeholder_with_default(conf['learning_rate'], ())
 
         if 'train_latent_model' in conf:
+
             for i, inf_state, pred_state in zip(
                     range(len(inf_low_state)), inf_low_state[1:],
                     pred_low_state[:-1]):
@@ -153,14 +154,16 @@ class Model(object):
                 else:
                     lt_state_cost = mean_squared_error(inf_state, pred_state)
                 summaries.append(tf.scalar_summary(prefix + '_low_state_cost' + str(i+1), lt_state_cost))
-                # loss += lt_state_cost
 
-            lt_model_var = tf.get_default_graph().get_collection(name=tf.GraphKeys.TRAINABLE_VARIABLES, scope='model/latent_model')
+                if 'joint' in conf:
+                    loss += lt_state_cost
 
-            train_lt_op = tf.train.AdamOptimizer(self.lr).minimize(lt_state_cost, var_list=lt_model_var)
-
-        if 'train_latent_model' in conf:
-            with tf.control_dependencies([train_lt_op]):
+            if not 'joint' in conf:
+                lt_model_var = tf.get_default_graph().get_collection(name=tf.GraphKeys.TRAINABLE_VARIABLES, scope='model/latent_model')
+                train_lt_op = tf.train.AdamOptimizer(self.lr).minimize(lt_state_cost, var_list=lt_model_var)
+                with tf.control_dependencies([train_lt_op]):
+                    self.train_op = tf.train.AdamOptimizer(self.lr).minimize(loss)
+            else:
                 self.train_op = tf.train.AdamOptimizer(self.lr).minimize(loss)
         else:
             self.train_op = tf.train.AdamOptimizer(self.lr).minimize(loss)
