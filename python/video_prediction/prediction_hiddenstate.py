@@ -295,7 +295,7 @@ def construct_model(images,
             gen_states.append(current_state)
 
 
-    return gen_images, gen_states, gen_masks, inf_low_state_list, pred_low_state_list, lt_model_scope
+    return gen_images, gen_states, gen_masks, inf_low_state_list, pred_low_state_list
 
 
 

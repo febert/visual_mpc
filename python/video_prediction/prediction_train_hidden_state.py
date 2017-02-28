@@ -91,7 +91,7 @@ class Model(object):
 
 
         if reuse_scope is None:
-            gen_images, gen_states, gen_masks, inf_low_state, pred_low_state, lt_model_scope = construct_model(
+            gen_images, gen_states, gen_masks, inf_low_state, pred_low_state = construct_model(
                 images,
                 actions,
                 states,
@@ -103,7 +103,7 @@ class Model(object):
                 conf=conf)
         else:  # If it's a validation or test model.
             with tf.variable_scope(reuse_scope, reuse=True):
-                gen_images, gen_states, gen_masks, inf_low_state, pred_low_state, lt_model_scope = construct_model(
+                gen_images, gen_states, gen_masks, inf_low_state, pred_low_state = construct_model(
                     images,
                     actions,
                     states,
@@ -148,9 +148,9 @@ class Model(object):
             for i, inf_state, pred_state in zip(
                     range(len(inf_low_state)), inf_low_state[1:],
                     pred_low_state[:-1]):
-                if 'low_state_factor' in conf:
+                if 'lt_state_factor' in conf:
                     lt_state_cost = mean_squared_error(inf_state, pred_state)*\
-                                     conf['low_state__factor']
+                                     conf['lt_state__factor']
                 else:
                     lt_state_cost = mean_squared_error(inf_state, pred_state)
                 summaries.append(tf.scalar_summary(prefix + '_low_state_cost' + str(i+1), lt_state_cost))
@@ -169,6 +169,7 @@ class Model(object):
             self.train_op = tf.train.AdamOptimizer(self.lr).minimize(loss)
         self.summ_op = tf.merge_summary(summaries)
 
+        self.inf_low_state = inf_low_state
         self.gen_images= gen_images
         self.gen_masks = gen_masks
         self.gen_states = gen_states
