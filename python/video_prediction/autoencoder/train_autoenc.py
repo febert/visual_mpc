@@ -5,6 +5,7 @@ import imp
 import sys
 import cPickle
 import lsdc
+from copy import deepcopy
 
 from video_prediction.utils_vpred.adapt_params_visualize import adapt_params_visualize
 from tensorflow.python.platform import app
@@ -68,18 +69,24 @@ class Model(object):
                  test = False
                  ):
 
+        self.prefix = prefix = tf.placeholder(tf.string, [])
+        self.iter_num = tf.placeholder(tf.float32, [])
+        summaries = []
+
         if test:
             self.images_01 = tf.placeholder(tf.float32, name='images',
-                                            shape=(conf['batch_size'], conf['sequence_length'], 64, 64, 3))
+                                            shape=(conf['batch_size'], 2, 64, 64, 3))
             self.actions_1 = tf.placeholder(tf.float32, name='actions',
-                                            shape=(conf['batch_size'], conf['sequence_length'], 2))
-            self.states = tf.placeholder(tf.float32, name='states',
-                                    shape=(conf['batch_size'], conf['context_frames'], 4))
+                                            shape=(conf['batch_size'], 2))
+            self.states_01 = tf.placeholder(tf.float32, name='states',
+                                    shape=(conf['batch_size'], 2, 4))
 
-            self.images_23_rec = construct_model(conf,
+            self.images_23_rec, pred_lt_state3 = construct_model(conf,
                                                  self.images_01,
                                                  self.actions_1,
-                                                 test=False)
+                                                 test=True)
+
+            return
 
         if not test:
 
@@ -108,12 +115,10 @@ class Model(object):
                                                   begin=tf.concat(0,[tzero,ind_1,tzero]),
                                                   size=[-1,1,-1])
 
-        self.prefix = prefix = tf.placeholder(tf.string, [])
-        self.iter_num = tf.placeholder(tf.float32, [])
-        summaries = []
 
 
-        pred_lt_state3, inf_lt_state3, images_01_rec   = construct_model(conf,
+
+            pred_lt_state3, inf_lt_state3, images_01_rec   = construct_model(conf,
                                                                             images_01,
                                                                             action_1,
                                                                             states_01,
@@ -133,16 +138,30 @@ class Model(object):
         summaries.append(tf.scalar_summary(prefix + '_recon_cost', recon_cost))
         loss += recon_cost
 
-        inf_lt_state3 = tf.reshape(inf_lt_state3, [conf['batch_size'], -1])
-        latent_state_cost = mean_squared_error(pred_lt_state3, inf_lt_state3)
-        summaries.append(tf.scalar_summary(prefix + 'latent_state_cost', latent_state_cost))
-        loss += latent_state_cost
 
-        self.loss = loss
-        summaries.append(tf.scalar_summary(prefix + '_loss', loss))
+
+        lt_state_cost = mean_squared_error(pred_lt_state3, inf_lt_state3)
+        summaries.append(tf.scalar_summary(prefix + 'lt_state_cost', lt_state_cost))
 
         self.lr = tf.placeholder_with_default(conf['learning_rate'], ())
-        self.train_op = tf.train.AdamOptimizer(self.lr).minimize(loss)
+        if not 'joint' in conf:
+            lt_model_var = tf.get_default_graph().get_collection(name=tf.GraphKeys.TRAINABLE_VARIABLES,
+                                                                 scope='model/latent_model')
+            train_lt_op = tf.train.AdamOptimizer(self.lr).minimize(lt_state_cost, var_list=lt_model_var)
+            self.loss = loss
+            with tf.control_dependencies([train_lt_op]):
+                self.train_op = tf.train.AdamOptimizer(self.lr).minimize(loss)
+
+            # for el in tf.get_default_graph().get_collection(name=tf.GraphKeys.TRAINABLE_VARIABLES,
+            #                                                      scope='model/latent_model'):
+            #     print el.name
+
+        else:
+            loss += lt_state_cost*conf['lt_state__factor']
+            self.loss = loss
+            summaries.append(tf.scalar_summary(prefix + '_loss', loss))
+            self.train_op = tf.train.AdamOptimizer(self.lr).minimize(loss)
+
         self.summ_op = tf.merge_summary(summaries)
 
 
@@ -173,7 +192,7 @@ def main(unused_argv):
         return visualize(conf)
 
     print 'Constructing models and inputs.'
-    with tf.variable_scope('model', reuse=None) as training_scope:
+    with tf.variable_scope('model') as training_scope:
         images, actions, states = build_tfrecord_input(conf, training=True)
         images_val, actions_val, states_val = build_tfrecord_input(conf, training=False)
 
@@ -293,10 +312,11 @@ def main(unused_argv):
     tf.logging.flush()
 
 
-def visualize(conf):
+def visualize(conf, refeed_img = True):
     image_batch, actions, states = build_tfrecord_input(conf, training=True)
 
-    model = Model(conf, test=True)
+    with tf.variable_scope('model'):
+        model = Model(conf, test=True)
 
     print 'Constructing saver.'
     # Make saver.
@@ -305,8 +325,6 @@ def visualize(conf):
     gpu_options = tf.GPUOptions(per_process_gpu_memory_fraction=0.9)
     # Make training session.
     sess = tf.InteractiveSession(config=tf.ConfigProto(gpu_options=gpu_options))
-    summary_writer = tf.train.SummaryWriter(
-        conf['output_dir'], graph=sess.graph, flush_secs=10)
 
     tf.train.start_queue_runners(sess)
     sess.run(tf.initialize_all_variables())
@@ -314,33 +332,41 @@ def visualize(conf):
 
     saver.restore(sess, conf['visualize'])
 
-    image_batch, actions, states = sess.run([image_batch, actions, states])
+    image_batch_raw, actions, states = sess.run([image_batch, actions, states])
     states = np.split(states, 1)
-    image_batch = np.split(image_batch, 1)
+    image_batch = np.split(image_batch_raw, conf['sequence_length'], axis=1)
+    image_batch = [np.squeeze(img) for img in image_batch]
 
-    gen_images = [np.zeros([conf['batch_size'], 64, 64, 3]) for _ in range(conf['sequence_length'])]
-    gen_images[0] = image_batch[:,0]
-    gen_images[1] = image_batch[:,1]
+    if refeed_img:
 
-    for t in range(1,conf['sequence_length']-2):
-        images01 = np.zeros([conf['batch_size'], 2, 64, 64, 3])
-        images01[:,0] = gen_images[t-1]
-        images01[:,1] = gen_images[t]
+        gen_images = [np.zeros([conf['batch_size'], 64, 64, 3]) for _ in range(conf['sequence_length'])]
+        gen_images[0] = image_batch[0]
+        gen_images[1] = image_batch[1]
 
-        feed_dict ={
-                    model.images_01: images01,
-                    model.action_1: actions[:,t],
-                     }
+        # refeeding images
+        for t in range(1,conf['sequence_length']-2):
+            gen_img0 = np.expand_dims(deepcopy(gen_images[t-1]), axis= 1)
+            gen_img1 = np.expand_dims(deepcopy(gen_images[t]), axis=1)
+            images01 = np.concatenate((gen_img0,gen_img1), axis=1)
 
-        gen_images[t+1] = sess.run([model.images_23_rec],
-                                      feed_dict)
+            feed_dict ={
+                        model.images_01: images01,
+                        model.actions_1: actions[:,t],
+                         }
+
+            [images_23] = sess.run([model.images_23_rec],
+                                          feed_dict)
+
+            gen_images[t + 1] = images_23[:,:,:,0:3]
 
 
-    file_path = conf['output_dir']
-    cPickle.dump(gen_images, open(file_path + '/gen_image_seq.pkl', 'wb'))
-    cPickle.dump(image_batch, open(file_path + '/ground_truth.pkl', 'wb'))
-    print 'written files to:' + file_path
-    trajectories = video_prediction.utils_vpred.create_gif.comp_video(conf['output_dir'], conf)
+        file_path = conf['output_dir']
+        cPickle.dump(gen_images, open(file_path + '/gen_image_seq.pkl', 'wb'))
+        cPickle.dump(image_batch_raw, open(file_path + '/ground_truth.pkl', 'wb'))
+        print 'written files to:' + file_path
+        trajectories = video_prediction.utils_vpred.create_gif.comp_video(conf['output_dir'], conf)
+
+        # latent state propagation
 
 
 if __name__ == '__main__':
