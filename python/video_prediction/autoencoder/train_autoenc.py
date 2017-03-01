@@ -12,6 +12,10 @@ from tensorflow.python.platform import app
 from tensorflow.python.platform import flags
 import video_prediction.utils_vpred.create_gif
 from autoencoder_latentmodel import construct_model
+from autoencoder_latentmodel import encoder
+from autoencoder_latentmodel import predictor
+from autoencoder_latentmodel import decoder
+
 from PIL import Image
 import pdb
 
@@ -66,8 +70,17 @@ class Model(object):
                  images=None,
                  actions=None,
                  states=None,
-                 test = False
-                 ):
+                 test = False,
+                ):
+        """
+        :param conf:
+        :param images:
+        :param actions:
+        :param states:
+        :param lt_states: latent states
+        :param test:
+        :param ltprop:   whether to porpagate laten state forward
+        """
 
         self.prefix = prefix = tf.placeholder(tf.string, [])
         self.iter_num = tf.placeholder(tf.float32, [])
@@ -76,16 +89,15 @@ class Model(object):
         if test:
             self.images_01 = tf.placeholder(tf.float32, name='images',
                                             shape=(conf['batch_size'], 2, 64, 64, 3))
-            self.actions_1 = tf.placeholder(tf.float32, name='actions',
-                                            shape=(conf['batch_size'], 2))
+            self.actions_01 = tf.placeholder(tf.float32, name='actions',
+                                             shape=(conf['batch_size'], 2))
             self.states_01 = tf.placeholder(tf.float32, name='states',
                                     shape=(conf['batch_size'], 2, 4))
 
-            self.images_23_rec, pred_lt_state3 = construct_model(conf,
-                                                 self.images_01,
-                                                 self.actions_1,
-                                                 test=True)
-
+            self.images_12_rec, pred_lt_state12 = construct_model(conf,
+                                                                  self.images_01,
+                                                                  self.actions_01,
+                                                                  test=True)
             return
 
         if not test:
@@ -94,7 +106,7 @@ class Model(object):
             ind_0 = tf.random_uniform(shape=np.array([1]), minval=0, maxval=conf['sequence_length']-4,
                                       dtype=tf.int64, seed=None, name=None)
             self.ind_1 = ind_1 = ind_0 + 1
-            self.ind_2 = ind_2 = ind_0 + 2
+
 
             tzero = tf.constant(0, shape=np.array([1]), dtype=tf.int64)
             tzero3 = tf.zeros(shape=[3], dtype=tf.int64)
@@ -102,28 +114,26 @@ class Model(object):
             self.images_01 = images_01 = tf.slice(images,
                                                   begin=tf.concat(0,[tzero,ind_0,tzero3]),
                                                   size=[-1,2,-1,-1,-1])
-            self.images_23 = images_23 = tf.slice(images,
-                                                  begin=tf.concat(0,[tzero,ind_2,tzero3]),
+            self.images_12 = images_12 = tf.slice(images,
+                                                  begin=tf.concat(0,[tzero,ind_1,tzero3]),
                                                   size=[-1,2,-1,-1,-1])
             self.states_01 = states_01 = tf.slice(states,
                                                   begin=tf.concat(0,[tzero,ind_0,tzero]),
                                                   size=[-1,2,-1])
-            self.states_23 = states_23 = tf.slice(states,
-                                                  begin=tf.concat(0,[tzero,ind_2,tzero]),
-                                                  size=[-1,2,-1])
-            self.action_1 = action_1 = tf.slice(actions,
+            self.states_12 = states_12 = tf.slice(states,
                                                   begin=tf.concat(0,[tzero,ind_1,tzero]),
-                                                  size=[-1,1,-1])
+                                                  size=[-1,2,-1])
+            self.actions_01 = actions_01 = tf.slice(actions,
+                                                    begin=tf.concat(0,[tzero,ind_0,tzero]),
+                                                    size=[-1,2,-1])
 
 
-
-
-            pred_lt_state3, inf_lt_state3, images_01_rec   = construct_model(conf,
+            pred_lt_state12, inf_lt_state12, images_01_rec   = construct_model(conf,
                                                                             images_01,
-                                                                            action_1,
+                                                                            actions_01,
                                                                             states_01,
-                                                                            images_23,
-                                                                            states_23,
+                                                                            images_12,
+                                                                            states_12,
                                                                             test = False)
 
         # L2 loss, PSNR for eval.
@@ -138,9 +148,7 @@ class Model(object):
         summaries.append(tf.scalar_summary(prefix + '_recon_cost', recon_cost))
         loss += recon_cost
 
-
-
-        lt_state_cost = mean_squared_error(pred_lt_state3, inf_lt_state3)
+        lt_state_cost = mean_squared_error(pred_lt_state12, inf_lt_state12)
         summaries.append(tf.scalar_summary(prefix + 'lt_state_cost', lt_state_cost))
 
         self.lr = tf.placeholder_with_default(conf['learning_rate'], ())
@@ -163,6 +171,23 @@ class Model(object):
             self.train_op = tf.train.AdamOptimizer(self.lr).minimize(loss)
 
         self.summ_op = tf.merge_summary(summaries)
+
+class Encoder(object):
+    def __init__(self, conf):
+        self.images_01 = tf.placeholder(tf.float32, name='images',
+                                        shape=(conf['batch_size'], 2, 64, 64, 3))
+        self.inf_lt_state01 = encoder(self.images_01, None, conf)
+
+class Predictor_and_Decoder(object):
+    def __init__(self, conf):
+        self.actions_01 = tf.placeholder(tf.float32, name='actions',
+                                        shape=(conf['batch_size'], 2))
+        self.lt_state_01 = tf.placeholder(tf.float32, name='states',
+                                       shape=(conf['batch_size'], 8, 8, 1))
+
+        self.fpred_lt_state_23 = predictor(self.lt_state_01, self.actions_01, conf)
+        self.images_rec = decoder(self.fpred_lt_state_23, conf)
+
 
 
 def main(unused_argv):
@@ -317,6 +342,8 @@ def visualize(conf, refeed_img = True):
 
     with tf.variable_scope('model'):
         model = Model(conf, test=True)
+        encoder = Encoder(conf)
+        pred_and_dec = Predictor_and_Decoder(conf)
 
     print 'Constructing saver.'
     # Make saver.
@@ -337,36 +364,58 @@ def visualize(conf, refeed_img = True):
     image_batch = np.split(image_batch_raw, conf['sequence_length'], axis=1)
     image_batch = [np.squeeze(img) for img in image_batch]
 
-    if refeed_img:
 
-        gen_images = [np.zeros([conf['batch_size'], 64, 64, 3]) for _ in range(conf['sequence_length'])]
-        gen_images[0] = image_batch[0]
-        gen_images[1] = image_batch[1]
+    gen_images = [np.zeros([conf['batch_size'], 64, 64, 3]) for _ in range(conf['sequence_length'])]
+    gen_images[0] = image_batch[0]
+    gen_images[1] = image_batch[1]
 
-        # refeeding images
-        for t in range(1,conf['sequence_length']-2):
-            gen_img0 = np.expand_dims(deepcopy(gen_images[t-1]), axis= 1)
-            gen_img1 = np.expand_dims(deepcopy(gen_images[t]), axis=1)
-            images01 = np.concatenate((gen_img0,gen_img1), axis=1)
+    lt_states = []
 
+    # refeeding images
+    for t in range(1,conf['sequence_length']-1):
+        gen_img0 = np.expand_dims(deepcopy(gen_images[t-1]), axis= 1)
+        gen_img1 = np.expand_dims(deepcopy(gen_images[t]), axis=1)
+        images01 = np.concatenate((gen_img0,gen_img1), axis=1)
+
+        if refeed_img:
             feed_dict ={
                         model.images_01: images01,
-                        model.actions_1: actions[:,t],
+                        model.actions_01: actions[:, t],
                          }
 
-            [images_23] = sess.run([model.images_23_rec],
-                                          feed_dict)
-
-            gen_images[t + 1] = images_23[:,:,:,0:3]
+            [images_12] = sess.run([model.images_12_rec],
+                                   feed_dict)
 
 
-        file_path = conf['output_dir']
-        cPickle.dump(gen_images, open(file_path + '/gen_image_seq.pkl', 'wb'))
-        cPickle.dump(image_batch_raw, open(file_path + '/ground_truth.pkl', 'wb'))
-        print 'written files to:' + file_path
-        trajectories = video_prediction.utils_vpred.create_gif.comp_video(conf['output_dir'], conf)
+        else: # propagate latent..
 
-        # latent state propagation
+            if t==1:
+                #encode
+                feed_dict = {
+                    encoder.images_01: images01,
+                }
+
+                [inf_lt_state01] = sess.run([encoder.inf_lt_state01])
+                lt_states.append(inf_lt_state01)
+
+            # predict and decode:
+            feed_dict = {
+                pred_and_dec.lt_state_01: lt_states[-1],
+                pred_and_dec.actions_01: actions[:,t]
+            }
+
+            [images_12] = sess.run([pred_and_dec.images_rec],
+                                   feed_dict)
+
+        images_2 = images_12[:, :, :, 3:6]  # 0:3
+        gen_images[t + 1] = images_2
+
+    file_path = conf['output_dir']
+    cPickle.dump(gen_images, open(file_path + '/gen_image_seq.pkl', 'wb'))
+    cPickle.dump(image_batch_raw, open(file_path + '/ground_truth.pkl', 'wb'))
+    print 'written files to:' + file_path
+    trajectories = video_prediction.utils_vpred.create_gif.comp_video(conf['output_dir'], conf)
+
 
 
 if __name__ == '__main__':

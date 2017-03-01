@@ -150,16 +150,16 @@ def decoder(lt_state, conf, reuse= False):
         return dec5
 
 
-def predictor(lt_dim_state01, action, conf):
+def predictor(lt_dim_state01, actions_01, conf):
     with tf.variable_scope('latent_model'):
-        action = tf.squeeze(action)
+        actions_01 = tf.reshape(actions_01, shape = [conf['batch_size'], - 1])
         lt_dim_state_flat = tf.reshape(lt_dim_state01,shape = [conf['batch_size'], - 1])
 
         # predicting the next hidden state:
         if 'stopgrad' in conf:
             lt_dim_state_flat = tf.stop_gradient(lt_dim_state_flat)
 
-        lt_state_enc0 = tf.concat(1, [action, lt_dim_state_flat])
+        lt_state_enc0 = tf.concat(1, [actions_01, lt_dim_state_flat])
 
         lt_state_enc1 = slim.layers.fully_connected(
             lt_state_enc0,
@@ -182,25 +182,37 @@ def predictor(lt_dim_state01, action, conf):
 
 def construct_model(conf,
                     images_01,
-                    action_1,
+                    actions_01,
                     states_01 = None,
-                    images_23 = None,
-                    states_23 = None,
+                    images_12 = None,
+                    states_12 = None,
                     test = False,
-                    ):
 
+                    ):
+    """
+    :param conf:
+    :param images_01:
+    :param actions_01:
+    :param states_01:
+    :param images_12:
+    :param states_12:
+    :param test:
+    :param lt_state1: used when propagating latent state through latent model
+    :return:
+    """
 
     if test:
-        inf_lt_state1 = encoder(images_01, states_01, conf)   #8x8x1
-        pred_lt_state3 = predictor(inf_lt_state1, action_1, conf)   #8x8x1
-        images_23_rec = decoder(pred_lt_state3, conf)
+        inf_lt_state_01 = encoder(images_01, None, conf)   #8x8x1
+        pred_lt_state12 = predictor(inf_lt_state_01, actions_01, conf)   #8x8x1
+        images_23_rec = decoder(pred_lt_state12, conf)
 
-        return images_23_rec, pred_lt_state3
+        return images_23_rec, pred_lt_state12
 
     else:
-        inf_lt_state1 = encoder(images_01, states_01, conf)
-        inf_lt_state3 = encoder(images_23, states_23, conf, reuse=True)   #8x8x1
-        images_01_rec = decoder(inf_lt_state1, conf)
-        pred_lt_state3 = predictor(inf_lt_state1, action_1, conf)   # 8x8x1
 
-        return pred_lt_state3, inf_lt_state3, images_01_rec
+        inf_lt_state_01 = encoder(images_01, states_01, conf)
+        inf_lt_state12 = encoder(images_12, states_12, conf, reuse=True)   #8x8x1
+        images_01_rec = decoder(inf_lt_state_01, conf)
+        pred_lt_state12 = predictor(inf_lt_state_01, actions_01, conf)   # 8x8x1
+
+        return pred_lt_state12, inf_lt_state12, images_01_rec
