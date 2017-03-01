@@ -23,5 +23,5 @@ configuration = {
 'learning_rate': 0.001,     #'the base learning rate of the generator' ,
 'visualize': '',            #'load model from which to generate visualizations
 'file_visual': '',          # datafile used for making visualizations
-'lt_state__factor':''
+'lt_state__factor':1e-5
 }
