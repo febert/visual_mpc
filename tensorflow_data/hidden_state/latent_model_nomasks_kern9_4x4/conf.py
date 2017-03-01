@@ -32,5 +32,6 @@ configuration = {
 'use_conv_low_dim_state':'',  # use low dimensional state computed by convolutions
 'train_latent_model':'',       # whether to add a loss for the latent space model to the objective
 'dna_size': 9,
-'4x4lowdim':''              # use 16 dimensional hidden state
+'4x4lowdim':'',              # use 16 dimensional hidden state
+'lt_state_factor': 1.0
 }
