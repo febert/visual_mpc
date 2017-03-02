@@ -246,8 +246,9 @@ def main(unused_argv, conf_script= None):
         return
 
     itr_0 =0
-    if FLAGS.pretrained:    # is the order of initialize_all_variables() and restore() important?!?
-        conf['pretrained_model'] = conf['output_dir'] + '/' + FLAGS.pretrained
+    if FLAGS.pretrained or (conf['pretrained_model'] in conf):    # is the order of initialize_all_variables() and restore() important?!?
+        if conf['pretrained_model'] not in conf:
+            conf['pretrained_model'] = conf['output_dir'] + '/' + FLAGS.pretrained
         saver.restore(sess, conf['pretrained_model'])
 
         # resume training at iteration step of the loaded model:
