@@ -72,7 +72,7 @@ def construct_model(images,
     else:
         DNA_KERN_SIZE = 5
 
-    print 'constructing network with hidden state'
+    print 'constructing network with hidden state...'
 
     batch_size, img_height, img_width, color_channels = images[0].get_shape()[0:4]
     batch_size = int(batch_size)

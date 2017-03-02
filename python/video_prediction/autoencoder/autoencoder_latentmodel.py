@@ -150,34 +150,35 @@ def decoder(lt_state, conf, reuse= False):
         return dec5
 
 
-def predictor(lt_dim_state01, actions_01, conf):
-    with tf.variable_scope('latent_model'):
-        actions_01 = tf.reshape(actions_01, shape = [conf['batch_size'], - 1])
-        lt_dim_state_flat = tf.reshape(lt_dim_state01,shape = [conf['batch_size'], - 1])
+def predictor(lt_dim_state01, actions_01, conf, reuse =False):
+    with slim.arg_scope([slim.layers.fully_connected],reuse=reuse):
+        with tf.variable_scope('latent_model'):
+            actions_01 = tf.reshape(actions_01, shape = [conf['batch_size'], - 1])
+            lt_dim_state_flat = tf.reshape(lt_dim_state01,shape = [conf['batch_size'], - 1])
 
-        # predicting the next hidden state:
-        if 'stopgrad' in conf:
-            lt_dim_state_flat = tf.stop_gradient(lt_dim_state_flat)
+            # predicting the next hidden state:
+            if 'stopgrad' in conf:
+                lt_dim_state_flat = tf.stop_gradient(lt_dim_state_flat)
 
-        lt_state_enc0 = tf.concat(1, [actions_01, lt_dim_state_flat])
+            lt_state_enc0 = tf.concat(1, [actions_01, lt_dim_state_flat])
 
-        lt_state_enc1 = slim.layers.fully_connected(
-            lt_state_enc0,
-            200,
-            scope='hid_state_enc1')
-        lt_state_enc2 = slim.layers.fully_connected(
-            lt_state_enc1,
-            200,
-            scope='hid_state_enc2')
-        hid_state_enc3 = slim.layers.fully_connected(
-            lt_state_enc2,
-            int(lt_dim_state_flat.get_shape()[1]),
-            scope='hid_state_enc3',
-            activation_fn=None)
+            lt_state_enc1 = slim.layers.fully_connected(
+                lt_state_enc0,
+                200,
+                scope='hid_state_enc1')
+            lt_state_enc2 = slim.layers.fully_connected(
+                lt_state_enc1,
+                200,
+                scope='hid_state_enc2')
+            hid_state_enc3 = slim.layers.fully_connected(
+                lt_state_enc2,
+                int(lt_dim_state_flat.get_shape()[1]),
+                scope='hid_state_enc3',
+                activation_fn=None)
 
-        hid_state_enc3 = tf.reshape(hid_state_enc3, [conf['batch_size'], 8, 8, 1])
+            hid_state_enc3 = tf.reshape(hid_state_enc3, [conf['batch_size'], 8, 8, 1])
 
-        return hid_state_enc3
+            return hid_state_enc3
 
 
 def construct_model(conf,

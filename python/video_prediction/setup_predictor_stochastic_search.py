@@ -44,6 +44,7 @@ def setup_predictor(conf, gpu_id=0, ngpu=1):
     """
     Setup up the network for control
     :param conf_file:
+    :param ngpu number of gpus to use
     :return: function which predicts a batch of whole trajectories
     conditioned on the actions
     """

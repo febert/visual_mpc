@@ -2,20 +2,20 @@ import os
 current_dir = os.path.dirname(os.path.realpath(__file__))
 
 # tf record data location:
-DATA_DIR = '/'.join(str.split(current_dir, '/')[:-2]) + '/pushing_data/random_action_var10/train'
+LSDC_BASE = '/'.join(str.split(current_dir, '/')[:-4])
 
 # local output directory
 OUT_DIR = current_dir + '/modeldata'
 
-# from video_prediction.prediction_model_downsized_lesslayer import construct_model
+from video_prediction.setup_predictor_ltstate import setup_predictor
 
 configuration = {
-'experiment_name': 'rndaction_var10',
-'data_dir': DATA_DIR,       # 'directory containing data.' ,
+'experiment_name': 'lt_state',
+'setup_predictor': setup_predictor,
 'output_dir': OUT_DIR,      #'directory for model checkpoints.' ,
 'current_dir': current_dir,   #'directory for writing summary.' ,
 'num_iterations': 50000,   #'number of training iterations.' ,
-'pretrained_model': '',     # 'filepath of a pretrained model to resume training from.' ,
+'pretrained_model': LSDC_BASE +'/tensorflow_data/hidden_state/latent_model_nomasks_kern9/modeldata/model48002',     # 'filepath of a pretrained model to resume training from.' ,
 'sequence_length': 10, ##################15,      # 'sequence length, including context frames.' ,
 'skip_frame': 1,            # 'use ever i-th frame to increase prediction horizon' ,
 'context_frames': 2,        # of frames before predictions.' ,
@@ -27,7 +27,9 @@ configuration = {
 'batch_size': 32,           #'batch size for training' ,
 'learning_rate': 0.001,     #'the base learning rate of the generator' ,
 'visualize': '',            #'load model from which to generate visualizations
-# 'downsize': construct_model,           #'create downsized model'
 'file_visual': '',          # datafile used for making visualizations
-'use_masks':''
+'use_conv_low_dim_state':'',  # use low dimensional state computed by convolutions
+'train_latent_model':'',       # whether to add a loss for the latent space model to the objective
+'dna_size': 9,
+'lt_state_factor': 1.0
 }

@@ -2,7 +2,9 @@ import os
 current_dir = os.path.dirname(os.path.realpath(__file__))
 
 # tf record data location:
+DATA_BASE_DIR = '/'.join(str.split(current_dir, '/')[:-3]) + '/pushing_data'
 DATA_DIR = '/'.join(str.split(current_dir, '/')[:-3]) + '/pushing_data/random_action_var10/train'
+
 
 # local output directory
 OUT_DIR = current_dir + '/modeldata'
@@ -29,9 +31,9 @@ configuration = {
 'visualize': '',            #'load model from which to generate visualizations
 # 'downsize': construct_model,           #'create downsized model'
 'file_visual': '',          # datafile used for making visualizations
-#
-'use_masks':"",
 'use_conv_low_dim_state':'',  # use low dimensional state computed by convolutions
 'train_latent_model':'',       # whether to add a loss for the latent space model to the objective
-# 'stopgrad':''               # stop gradients from the latent model flow back into encoder
+'dna_size': 9,
+'lt_state_factor': 1e-5,
+'joint':''
 }

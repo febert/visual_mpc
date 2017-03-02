@@ -73,9 +73,6 @@ def setup_predictor(conf, gpu_id = 0):
                                                                ],
                                                                 feed_dict)
 
-                # summary_writer = tf.train.SummaryWriter(conf['current_dir'], flush_secs=1)
-                # summary_writer.add_summary(summary_str)
-
                 return inf_low_state, gen_images, gen_states
 
             return predictor_func

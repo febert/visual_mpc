@@ -19,7 +19,7 @@ def main():
     parser = argparse.ArgumentParser(description='Run benchmarks')
     parser.add_argument('benchmark', type=str, help='the name of the folder with agent setting for the benchmark')
     parser.add_argument('--gpu_id', type=int, default=0, help='value to set for cuda visible devices variable')
-    parser.add_argument('--ngpu', type=int, default=1, help='number of gpus to use')
+    parser.add_argument('--ngpu', type=int, default=None, help='number of gpus to use')
     args = parser.parse_args()
 
     benchmark_name = args.benchmark
@@ -28,7 +28,14 @@ def main():
 
     conf = hyperparams.config
     # load specific agent settings for benchmark:
+
     bench_dir = cem_exp_dir + '/benchmarks/' + benchmark_name
+    if not os.path.exists(bench_dir):
+        bench_dir = cem_exp_dir + '/benchmarks_goalimage/' + benchmark_name
+        goalimg_dir = cem_exp_dir + '/benchmarks_goalimage/goalimages'
+        if not os.path.exists(bench_dir):
+            raise ValueError('benchmark directory does not exist')
+
     bench_conf = imp.load_source('mod_hyper', bench_dir + '/mod_hyper.py')
     conf['policy'].update(bench_conf.policy)
 
@@ -68,8 +75,9 @@ def main():
 
     while traj < nruns:
 
-        lsdc.agent._hyperparams['x0'] = initialposes[i_conf]
-        lsdc.agent._hyperparams['goal_point'] = goalpoints[i_conf]
+        if 'use_goalimage' not in conf['policy']:
+            lsdc.agent._hyperparams['x0'] = initialposes[i_conf]
+            lsdc.agent._hyperparams['goal_point'] = goalpoints[i_conf]
 
         for j in range(n_reseed):
             if traj > nruns -1:
@@ -87,6 +95,8 @@ def main():
             lsdc.agent._hyperparams['record'] = bench_dir + '/videos/traj{0}_conf{1}'.format(traj, i_conf)
             if 'save_goal_image' in conf['agent']:
                 lsdc.agent._hyperparams['save_goal_image'] = bench_dir + '/goal_image/goalimg{0}_conf{1}'.format(traj, i_conf)
+            if 'use_goalimage' in conf['policy']:
+                conf['policy']['use_goalimage'] = goalimg_dir + '/goal_image/goalimg{0}_conf{1}'.format(traj, i_conf)
 
             if 'usenet' in conf['policy']:
                 if conf['policy']['usenet']:

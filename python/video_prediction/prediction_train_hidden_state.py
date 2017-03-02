@@ -26,11 +26,12 @@ VAL_INTERVAL = 200
 # How often to save a model checkpoint
 SAVE_INTERVAL = 2000
 
-FLAGS = flags.FLAGS
-flags.DEFINE_string('hyper', '', 'hyperparameters configuration file')
-flags.DEFINE_string('visualize', '', 'model within hyperparameter folder from which to create gifs')
-flags.DEFINE_integer('device', 0 ,'the value for CUDA_VISIBLE_DEVICES variable')
-flags.DEFINE_string('pretrained', '', 'model weights from which to resume training')
+if __name__ == '__main__':
+    FLAGS = flags.FLAGS
+    flags.DEFINE_string('hyper', '', 'hyperparameters configuration file')
+    flags.DEFINE_string('visualize', '', 'model within hyperparameter folder from which to create gifs')
+    flags.DEFINE_integer('device', 0 ,'the value for CUDA_VISIBLE_DEVICES variable')
+    flags.DEFINE_string('pretrained', '', 'model weights from which to resume training')
 
 ## Helper functions
 def peak_signal_to_noise_ratio(true, pred):
@@ -144,13 +145,11 @@ class Model(object):
         self.lr = tf.placeholder_with_default(conf['learning_rate'], ())
 
         if 'train_latent_model' in conf:
-            lt_state_cost_accum = 0
+            lt_state_cost_accum = 0.0
             for i, inf_state, pred_state in zip(
-                    range(len(inf_low_state)), inf_low_state[1:],
-                    pred_low_state[:-1]):
+                    range(len(inf_low_state)), inf_low_state[1:],pred_low_state[:-1]):
 
-                lt_state_cost = mean_squared_error(inf_state, pred_state)*\
-                                 conf['lt_state_factor']
+                lt_state_cost = mean_squared_error(inf_state, pred_state)*conf['lt_state_factor']
                 summaries.append(tf.scalar_summary(prefix + '_low_state_cost' + str(i+1), lt_state_cost))
                 lt_state_cost_accum += lt_state_cost
 

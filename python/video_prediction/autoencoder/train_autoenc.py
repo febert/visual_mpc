@@ -90,7 +90,7 @@ class Model(object):
             self.images_01 = tf.placeholder(tf.float32, name='images',
                                             shape=(conf['batch_size'], 2, 64, 64, 3))
             self.actions_01 = tf.placeholder(tf.float32, name='actions',
-                                             shape=(conf['batch_size'], 2))
+                                             shape=(conf['batch_size'], 2, 2))
             self.states_01 = tf.placeholder(tf.float32, name='states',
                                     shape=(conf['batch_size'], 2, 4))
 
@@ -173,20 +173,20 @@ class Model(object):
         self.summ_op = tf.merge_summary(summaries)
 
 class Encoder(object):
-    def __init__(self, conf):
+    def __init__(self, conf, reuse= False):
         self.images_01 = tf.placeholder(tf.float32, name='images',
                                         shape=(conf['batch_size'], 2, 64, 64, 3))
-        self.inf_lt_state01 = encoder(self.images_01, None, conf)
+        self.inf_lt_state01 = encoder(self.images_01, None, conf, reuse= reuse)
 
 class Predictor_and_Decoder(object):
-    def __init__(self, conf):
+    def __init__(self, conf, reuse = False):
         self.actions_01 = tf.placeholder(tf.float32, name='actions',
-                                        shape=(conf['batch_size'], 2))
+                                        shape=(conf['batch_size'], 2, 2))
         self.lt_state_01 = tf.placeholder(tf.float32, name='states',
                                        shape=(conf['batch_size'], 8, 8, 1))
 
-        self.fpred_lt_state_23 = predictor(self.lt_state_01, self.actions_01, conf)
-        self.images_rec = decoder(self.fpred_lt_state_23, conf)
+        self.pred_lt_state_23 = predictor(self.lt_state_01, self.actions_01, conf, reuse= reuse)
+        self.images_rec = decoder(self.pred_lt_state_23, conf, reuse=reuse)
 
 
 
@@ -214,7 +214,9 @@ def main(unused_argv):
     print '-------------------------------------------------------------------'
 
     if FLAGS.visualize:
-        return visualize(conf)
+        visualize(conf, refeed_img= True)
+        # visualize(conf, refeed_img= False)
+        return
 
     print 'Constructing models and inputs.'
     with tf.variable_scope('model') as training_scope:
@@ -341,9 +343,11 @@ def visualize(conf, refeed_img = True):
     image_batch, actions, states = build_tfrecord_input(conf, training=True)
 
     with tf.variable_scope('model'):
-        model = Model(conf, test=True)
-        encoder = Encoder(conf)
-        pred_and_dec = Predictor_and_Decoder(conf)
+        if refeed_img:
+            model = Model(conf, test=True)
+        else:
+            encoder = Encoder(conf)
+            pred_and_dec = Predictor_and_Decoder(conf)
 
     print 'Constructing saver.'
     # Make saver.
@@ -380,33 +384,28 @@ def visualize(conf, refeed_img = True):
         if refeed_img:
             feed_dict ={
                         model.images_01: images01,
-                        model.actions_01: actions[:, t],
+                        model.actions_01: actions[:, t-1: t+1],
                          }
 
             [images_12] = sess.run([model.images_12_rec],
                                    feed_dict)
-
-
         else: # propagate latent..
-
             if t==1:
                 #encode
                 feed_dict = {
                     encoder.images_01: images01,
                 }
 
-                [inf_lt_state01] = sess.run([encoder.inf_lt_state01])
+                [inf_lt_state01] = sess.run([encoder.inf_lt_state01], feed_dict)
                 lt_states.append(inf_lt_state01)
-
             # predict and decode:
             feed_dict = {
                 pred_and_dec.lt_state_01: lt_states[-1],
-                pred_and_dec.actions_01: actions[:,t]
+                pred_and_dec.actions_01: actions[:, t-1: t+1]
             }
-
-            [images_12] = sess.run([pred_and_dec.images_rec],
+            [pred_lt_state_23, images_12] = sess.run([pred_and_dec.pred_lt_state_23 , pred_and_dec.images_rec],
                                    feed_dict)
-
+            lt_states.append(pred_lt_state_23)
         images_2 = images_12[:, :, :, 3:6]  # 0:3
         gen_images[t + 1] = images_2
 
@@ -414,9 +413,9 @@ def visualize(conf, refeed_img = True):
     cPickle.dump(gen_images, open(file_path + '/gen_image_seq.pkl', 'wb'))
     cPickle.dump(image_batch_raw, open(file_path + '/ground_truth.pkl', 'wb'))
     print 'written files to:' + file_path
-    trajectories = video_prediction.utils_vpred.create_gif.comp_video(conf['output_dir'], conf)
+    video_prediction.utils_vpred.create_gif.comp_video(conf['output_dir'], conf, suffix='_refimg{}'.format(refeed_img))
 
-
+    sess.close()
 
 if __name__ == '__main__':
     tf.logging.set_verbosity(tf.logging.INFO)
