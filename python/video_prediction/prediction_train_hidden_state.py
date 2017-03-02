@@ -246,7 +246,7 @@ def main(unused_argv, conf_script= None):
         return
 
     itr_0 =0
-    if FLAGS.pretrained or (conf['pretrained_model'] in conf):    # is the order of initialize_all_variables() and restore() important?!?
+    if FLAGS.pretrained or (conf['pretrained_model'] != ''):    # is the order of initialize_all_variables() and restore() important?!?
         if conf['pretrained_model'] not in conf:
             conf['pretrained_model'] = conf['output_dir'] + '/' + FLAGS.pretrained
         saver.restore(sess, conf['pretrained_model'])
