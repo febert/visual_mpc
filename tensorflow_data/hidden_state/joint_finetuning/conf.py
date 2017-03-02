@@ -2,7 +2,7 @@ import os
 current_dir = os.path.dirname(os.path.realpath(__file__))
 
 # tf record data location:
-DATA_BASE_DIR = '/'.join(str.split(current_dir, '/')[:-3]) + '/pushing_data'
+TEN_DATA = '/'.join(str.split(current_dir, '/')[:-3]) + '/tensorflow_data'
 DATA_DIR = '/'.join(str.split(current_dir, '/')[:-3]) + '/pushing_data/random_action_var10/train'
 
 
@@ -17,7 +17,7 @@ configuration = {
 'output_dir': OUT_DIR,      #'directory for model checkpoints.' ,
 'current_dir': current_dir,   #'directory for writing summary.' ,
 'num_iterations': 100000,   # max iteration counter for training
-'pretrained_model': DATA_BASE_DIR +'/hidden_state/latent_model_nomasks_kern9/modeldata/model48002',     # 'filepath of a pretrained model to resume training from.' ,
+'pretrained_model': TEN_DATA +'/hidden_state/latent_model_nomasks_kern9/modeldata/model48002',     # 'filepath of a pretrained model to resume training from.' ,
 'sequence_length': 10, ##################15,      # 'sequence length, including context frames.' ,
 'skip_frame': 1,            # 'use ever i-th frame to increase prediction horizon' ,
 'context_frames': 2,        # of frames before predictions.' ,
