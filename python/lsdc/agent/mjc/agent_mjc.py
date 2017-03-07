@@ -89,7 +89,8 @@ class AgentMuJoCo(Agent):
         # Take the sample.
         for t in range(self.T):
 
-            traj.score[t] = self.eval_action()
+            if not 'use_goalimage' in self._hyperparams:
+                traj.score[t] = self.eval_action()
             traj.X_full[t, :] = self._model.data.qpos[:2].squeeze()
             traj.Xdot_full[t, :] = self._model.data.qvel[:2].squeeze()
             traj.X_Xdot_full[t, :] =  np.concatenate([traj.X_full[t, :], traj.Xdot_full[t, :]])
@@ -128,7 +129,8 @@ class AgentMuJoCo(Agent):
             # print 'accumulated impulse', t
             # print accum_touch
 
-        if not self._hyperparams['data_collection']:
+        if not self._hyperparams['data_collection'] and not\
+                        'use_goalimage' in self._hyperparams:
             self.final_score = self.eval_action()
 
         if 'save_goal_image' in self._hyperparams:
@@ -155,10 +157,12 @@ class AgentMuJoCo(Agent):
         print 'goal index: ', first_best_index
 
         goalimage = traj._sample_images[first_best_index]
-        # goalstate = traj.X_Xdot_full[i]
+        goal_lowdim_obs = np.concatenate([traj.X_full[first_best_index], np.zeros(2)])  #set velocity to zero
+
         img = Image.fromarray(goalimage)
 
-        cPickle.dump([], open(self._hyperparams['save_goal_image'] + '.pkl', 'wb'))
+
+        cPickle.dump([goalimage, goal_lowdim_obs], open(self._hyperparams['save_goal_image'] + '.pkl', 'wb'))
         img.save(self._hyperparams['save_goal_image'] + '.png',)
 
 

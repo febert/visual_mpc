@@ -68,10 +68,6 @@ class Model(object):
                  reuse_scope=None,
                  ):
 
-        # if conf['downsize']:
-        #     construct_model = conf['downsize']
-        # else:
-        #     from prediction_model import construct_model
 
         from prediction_hiddenstate import construct_model
 
@@ -99,7 +95,6 @@ class Model(object):
                 iter_num=self.iter_num,
                 k=conf['schedsamp_k'],
                 use_state=conf['use_state'],
-                num_masks=conf['num_masks'],
                 context_frames=conf['context_frames'],
                 conf=conf)
         else:  # If it's a validation or test model.
@@ -111,10 +106,18 @@ class Model(object):
                     iter_num=self.iter_num,
                     k=conf['schedsamp_k'],
                     use_state=conf['use_state'],
-                    num_masks=conf['num_masks'],
                     context_frames=conf['context_frames'],
                     conf= conf)
 
+        self.inf_low_state = inf_low_state
+        self.gen_images = gen_images
+        self.gen_masks = gen_masks
+        self.gen_states = gen_states
+
+        self.lr = tf.placeholder_with_default(conf['learning_rate'], ())
+
+        if 'prop_latent' in conf:
+            return # do not do backprop when visualizing latent model forward propagation
 
         # L2 loss, PSNR for eval.
         loss, psnr_all = 0.0, 0.0
@@ -142,7 +145,7 @@ class Model(object):
 
         self.loss = loss = loss / np.float32(len(images) - conf['context_frames'])
         summaries.append(tf.scalar_summary(prefix + '_loss', loss))
-        self.lr = tf.placeholder_with_default(conf['learning_rate'], ())
+
 
         if 'train_latent_model' in conf:
             lt_state_cost_accum = 0.0
@@ -155,20 +158,17 @@ class Model(object):
 
             if not 'joint' in conf:
                 lt_model_var = tf.get_default_graph().get_collection(name=tf.GraphKeys.TRAINABLE_VARIABLES, scope='model/latent_model')
+
                 train_lt_op = tf.train.AdamOptimizer(self.lr).minimize(lt_state_cost_accum, var_list=lt_model_var)
                 with tf.control_dependencies([train_lt_op]):
                     self.train_op = tf.train.AdamOptimizer(self.lr).minimize(loss)
+
             else:
                 loss += lt_state_cost_accum
                 self.train_op = tf.train.AdamOptimizer(self.lr).minimize(loss)
         else:
             self.train_op = tf.train.AdamOptimizer(self.lr).minimize(loss)
         self.summ_op = tf.merge_summary(summaries)
-
-        self.inf_low_state = inf_low_state
-        self.gen_images= gen_images
-        self.gen_masks = gen_masks
-        self.gen_states = gen_states
 
 
 def main(unused_argv, conf_script= None):
@@ -203,6 +203,7 @@ def main(unused_argv, conf_script= None):
         val_images, val_actions, val_states = build_tfrecord_input(conf, training=False)
         val_model = Model(conf, val_images, val_actions, val_states,
                           conf['sequence_length'], training_scope)
+
 
     print 'Constructing saver.'
     # Make saver.
@@ -240,7 +241,10 @@ def main(unused_argv, conf_script= None):
 
         print 'written files to:' + file_path
 
-        trajectories = utils_vpred.create_gif.comp_video(conf['output_dir'], conf)
+        if 'prop_latent' in conf:
+            suffix = 'prop_lt'
+        else: suffix = None
+        trajectories = utils_vpred.create_gif.comp_video(conf['output_dir'], conf, suffix)
         if 'use_masks' in conf:
             utils_vpred.create_gif.comp_masks(conf['output_dir'], conf, trajectories)
         return
@@ -249,9 +253,7 @@ def main(unused_argv, conf_script= None):
     if FLAGS.pretrained or (conf['pretrained_model'] != ''):    # is the order of initialize_all_variables() and restore() important?!?
         if FLAGS.pretrained is not '':
             conf['pretrained_model'] = conf['output_dir'] + '/' + FLAGS.pretrained
-
         saver.restore(sess, conf['pretrained_model'])
-
         # resume training at iteration step of the loaded model:
         import re
         itr_0 = re.match('.*?([0-9]+)$', conf['pretrained_model']).group(1)

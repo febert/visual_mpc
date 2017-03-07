@@ -35,5 +35,6 @@ configuration = {
 'train_latent_model':'',       # whether to add a loss for the latent space model to the objective
 'dna_size': 9,
 'lt_state_factor': 1e-5,
-'joint':''
+'joint':'',
+# 'prop_latent':''
 }

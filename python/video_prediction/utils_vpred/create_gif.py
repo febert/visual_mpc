@@ -14,21 +14,26 @@ def npy_to_gif(im_list, filename):
     clip.write_gif(filename + '.gif')
     return
 
-def comp_video(file_path, conf, suffix = None):
+def comp_video(file_path, conf=None, suffix = None, gif_name= None):
     print 'reading files from:', file_path
     ground_truth = cPickle.load(open(file_path + '/ground_truth.pkl', "rb"))
     gen_images = cPickle.load(open(file_path + '/gen_image_seq.pkl', "rb"))
 
-    ground_truth = np.split(ground_truth, ground_truth.shape[1], axis=1)
-    ground_truth = np.squeeze(ground_truth)
+    if not isinstance(ground_truth, list):
+        ground_truth = np.split(ground_truth, ground_truth.shape[1], axis=1)
+        ground_truth = np.squeeze(ground_truth)
 
     fused_gif = assemble_gif([ground_truth, gen_images])
 
-    itr_vis = re.match('.*?([0-9]+)$', conf['visualize']).group(1)
+    if conf is not None:
+        itr_vis = re.match('.*?([0-9]+)$', conf['visualize']).group(1)
+        if not suffix:
+            name = file_path + '/vid_' + conf['experiment_name'] + '_' + str(itr_vis)
+        else: name = file_path + '/vid_' + conf['experiment_name'] + '_' + str(itr_vis) + suffix
 
-    if not suffix:
-        name = file_path + '/vid_' + conf['experiment_name'] + '_' + str(itr_vis)
-    else: name = file_path + '/vid_' + conf['experiment_name'] + '_' + str(itr_vis) + suffix
+    else:
+        name = file_path + '/' + gif_name
+
     npy_to_gif(fused_gif, name)
 
     return fused_gif
@@ -127,16 +132,6 @@ def comp_pix_distrib(file_path, name= None, masks = False, examples = 8):
             mask_videolist.append(mask_video)
         videolist += mask_videolist
         suffix = "_masks"
-
-    # exp = 5
-    # for i in range(14):
-    #     pic = pix_distrib[i].squeeze()[exp]
-    #     img = Image.fromarray(np.uint8(255. * pic), mode='L')
-    #     img.show()
-    #     print i, 'sum:  ', np.sum(pic)
-    #     print i, 'max: ', np.max(pic)
-    #     pic = np.sort(pic.flatten())
-    #     print '10 largest values : ', pic[-10:]
 
     fused_gif = assemble_gif(videolist, num_exp= examples)
     if not name:

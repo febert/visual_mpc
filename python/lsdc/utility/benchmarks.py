@@ -4,6 +4,7 @@ import argparse
 import imp
 import os
 import numpy as np
+import pdb
 import copy
 import random
 import cPickle
@@ -14,7 +15,7 @@ def main():
     from lsdc import __file__ as lsdc_filepath
     lsdc_dir = '/'.join(str.split(lsdc_filepath, '/')[:-3])
     cem_exp_dir = lsdc_dir + '/experiments/cem_exp'
-    hyperparams = imp.load_source('hyperparams', cem_exp_dir + '/benchmarks/base_hyperparams.py')
+    hyperparams = imp.load_source('hyperparams', cem_exp_dir + '/base_hyperparams.py')
 
     parser = argparse.ArgumentParser(description='Run benchmarks')
     parser.add_argument('benchmark', type=str, help='the name of the folder with agent setting for the benchmark')
@@ -31,8 +32,9 @@ def main():
 
     bench_dir = cem_exp_dir + '/benchmarks/' + benchmark_name
     if not os.path.exists(bench_dir):
+        print 'performing goal image benchmark ...'
         bench_dir = cem_exp_dir + '/benchmarks_goalimage/' + benchmark_name
-        goalimg_dir = cem_exp_dir + '/benchmarks_goalimage/goalimages'
+        goalimg_save_dir = cem_exp_dir + '/benchmarks_goalimage/' + benchmark_name + '/goalimage'
         if not os.path.exists(bench_dir):
             raise ValueError('benchmark directory does not exist')
 
@@ -49,7 +51,8 @@ def main():
     print 'agent settings'
     for key in conf['agent'].keys():
         print key, ': ', conf['agent'][key]
-    print '-------'
+    print '------------------------'
+    print '------------------------'
     print 'policy settings'
     for key in conf['policy'].keys():
         print key, ': ', conf['policy'][key]
@@ -64,20 +67,28 @@ def main():
 
     traj = 0
     n_reseed = 3
+
     i_conf = 0
 
     scores = np.empty(nruns)
     lsdc = LSDCMain(conf, gpu_id= gpu_id, ngpu= ngpu)
 
-    confs = cPickle.load(open('python/lsdc/utility/benchmarkconfigs', "rb"))
-    goalpoints = confs['goalpoints']
-    initialposes = confs['initialpos']
+    if 'start_confs' not in conf['agent']:
+        benchconfs = cPickle.load(open('python/lsdc/utility/benchmarkconfigs', "rb"))
+    else:
+        benchconfs = cPickle.load(open(conf['agent']['start_confs'], "rb"))
+
+    if 'load_goal_image' in conf['policy']:
+        goalimg_load_dir = cem_exp_dir + '/benchmarks_goalimage/' +\
+                           conf['policy']['load_goal_image'] +'/goalimage'
+
+    goalpoints = benchconfs['goalpoints']
+    initialposes = benchconfs['initialpos']
 
     while traj < nruns:
 
-        if 'use_goalimage' not in conf['policy']:
-            lsdc.agent._hyperparams['x0'] = initialposes[i_conf]
-            lsdc.agent._hyperparams['goal_point'] = goalpoints[i_conf]
+        lsdc.agent._hyperparams['x0'] = initialposes[i_conf]
+        lsdc.agent._hyperparams['goal_point'] = goalpoints[i_conf]
 
         for j in range(n_reseed):
             if traj > nruns -1:
@@ -94,9 +105,9 @@ def main():
 
             lsdc.agent._hyperparams['record'] = bench_dir + '/videos/traj{0}_conf{1}'.format(traj, i_conf)
             if 'save_goal_image' in conf['agent']:
-                lsdc.agent._hyperparams['save_goal_image'] = bench_dir + '/goal_image/goalimg{0}_conf{1}'.format(traj, i_conf)
+                lsdc.agent._hyperparams['save_goal_image'] = goalimg_save_dir + '/goalimg{0}_conf{1}'.format(traj, i_conf)
             if 'use_goalimage' in conf['policy']:
-                conf['policy']['use_goalimage'] = goalimg_dir + '/goal_image/goalimg{0}_conf{1}'.format(traj, i_conf)
+                conf['policy']['use_goalimage'] = goalimg_load_dir + '/goalimg{0}_conf{1}.pkl'.format(traj, i_conf)
 
             if 'usenet' in conf['policy']:
                 if conf['policy']['usenet']:
@@ -117,8 +128,9 @@ def main():
 
             lsdc.agent.sample(lsdc.policy)
 
-            scores[traj] = lsdc.agent.final_score
-            print 'score of traj', traj, ':', scores[traj]
+            if not 'use_goalimage' in conf['policy']:
+                scores[traj] = lsdc.agent.final_score
+                print 'score of traj', traj, ':', scores[traj]
 
             traj +=1 #increment trajectories every step!
 

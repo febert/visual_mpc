@@ -9,7 +9,7 @@ import copy
 import time
 import imp
 import cPickle
-from video_prediction.utils_vpred.create_gif import comp_pix_distrib
+from video_prediction.utils_vpred.create_gif import comp_video
 from datetime import datetime
 
 from PIL import Image
@@ -65,8 +65,7 @@ class CEM_controller(Policy):
         self.gtruth_images = [np.zeros((self.M, 64, 64, 3)) for _ in range(self.nactions * self.repeat)]
 
         # the full horizon is actions*repeat
-        self.action_cost_mult = 0.00005
-
+        # self.action_cost_mult = 0.00005
         self.action_cost_mult = 0
 
         self.adim = 2  # action dimension
@@ -90,8 +89,7 @@ class CEM_controller(Policy):
 
         self.init_model = []
 
-        #history of designated pixels
-        self.desig_pix = []
+
 
         # predicted positions
         self.pred_pos = np.zeros((self.M, self.niter, self.repeat * self.nactions, 2))
@@ -110,8 +108,7 @@ class CEM_controller(Policy):
         self.action_list = []
         self.gtruth_images = [np.zeros((self.M, 64, 64, 3)) for _ in range(self.nactions * self.repeat)]
         self.initial_std = self.policyparams['initial_std']
-        # history of designated pixels
-        self.desig_pix = []
+
         # predicted positions
         self.pred_pos = np.zeros((self.M, self.niter, self.repeat * self.nactions, 2))
         self.rec_target_pos = np.zeros((self.M, self.niter, self.repeat * self.nactions, 2))
@@ -173,12 +170,7 @@ class CEM_controller(Policy):
             if self.verbose or not self.use_net:
                 for smp in range(self.M):
                     self.setup_mujoco()
-                    accum_score = self.sim_rollout(actions[smp], smp, itr)
-
-                    if not 'rew_all_steps' in self.policyparams:
-                        scores[smp] = self.eval_action()
-                    else:
-                        scores[smp] = accum_score
+                    self.sim_rollout(actions[smp], smp, itr)
 
             actions = np.repeat(actions, self.repeat, axis=1)
 
@@ -210,6 +202,7 @@ class CEM_controller(Policy):
 
             print 'iter {0}, bestscore {1}'.format(itr, scores[self.indices[0]])
             print 'action cost of best action: ', actioncosts[self.indices[0]]
+            print 'current goal distance: ',
 
             print 'overall time for iteration {}'.format(
                 (datetime.now() - t_startiter).seconds + (datetime.now() - t_startiter).microseconds / 1e6)
@@ -260,24 +253,24 @@ class CEM_controller(Policy):
 
         inf_low_state, gen_images, gen_states = self.predictor(last_frames, last_states, actions)
 
-
         for tstep in range(self.netconf['sequence_length']-1):
             for smp in range(self.M):
-                self.pred_pos[smp, itr, tstep+1] = self.mujoco_to_imagespace(gen_states[tstep][smp, :2], numpix=480)
+                self.pred_pos[smp, itr, tstep+1] = self.mujoco_to_imagespace(
+                                            gen_states[tstep][smp, :2], numpix=480)
 
         #evaluate distances to goalstate
-        for b in self.netconf['batch_size']:
-            distance = np.linalg.norm(self.goal_state - inf_low_state[-1][b])
+        sq_distance = np.zeros(self.netconf['batch_size'])
+
+        for b in range(self.netconf['batch_size']):
+            sq_distance[b] = np.linalg.norm(self.goal_state - inf_low_state[-1][b])**2
 
         # compare prediciton with simulation
-        if self.verbose and itr == self.policyparams['iterations']-1:
-            print 'creating visuals for best sampled actions at last iteration...'
-
-            # concat_masks = [np.stack(gen_masks[t], axis=1) for t in range(14)]
+        if self.verbose: #and itr == self.policyparams['iterations']-1:
+            # print 'creating visuals for best sampled actions at last iteration...'
 
             file_path = self.netconf['current_dir'] + '/verbose'
 
-            bestindices = distance.argsort()[:self.K]
+            bestindices = sq_distance.argsort()[:self.K]
 
             def best(inputlist):
                 outputlist = [np.zeros_like(a)[:self.K] for a in inputlist]
@@ -288,27 +281,24 @@ class CEM_controller(Policy):
                 return outputlist
 
             self.gtruth_images = [img.astype(np.float) / 255. for img in self.gtruth_images]  #[1:]
-            cPickle.dump(best(gen_images), open(file_path + '/gen_images.pkl', 'wb'))
-            # cPickle.dump(best(concat_masks), open(file_path + '/gen_masks.pkl', 'wb'))
-            cPickle.dump(best(self.gtruth_images), open(file_path + '/gtruth_images.pkl', 'wb'))
+            cPickle.dump(best(gen_images), open(file_path + '/gen_image_seq.pkl', 'wb'))
+            cPickle.dump(best(self.gtruth_images), open(file_path + '/ground_truth.pkl', 'wb'))
             print 'written files to:' + file_path
-
-            comp_pix_distrib(file_path, name='check_eval_t{}'.format(self.t), masks=False, examples=self.K)
-
+            comp_video(file_path, gif_name='check_eval_t{}'.format(self.t))
 
             f = open(file_path + '/actions_last_iter_t{}'.format(self.t), 'w')
-            sorted = distance.argsort()
+            sorted = sq_distance.argsort()
             for i in range(actions.shape[0]):
-                f.write('index: {0}, score: {1}, rank: {2}'.format(i, distance[i], np.where(sorted == i)[0][0]))
+                f.write('index: {0}, score: {1}, rank: {2}'.format(i, sq_distance[i],
+                                                                   np.where(sorted == i)[0][0]))
                 f.write('action {}\n'.format(actions[i]))
 
             pdb.set_trace()
 
-        return distance
+        return sq_distance
 
 
     def sim_rollout(self, actions, smp, itr):
-        accum_score = 0
 
         if self.policyparams['low_level_ctrl']:
             rollout_ctrl = self.policyparams['low_level_ctrl']['type'](None, self.policyparams['low_level_ctrl'])
@@ -341,8 +331,6 @@ class CEM_controller(Policy):
                     self.model.data.ctrl = force
                     self.model.step()  # simulate the model in mujoco
 
-                accum_score += self.eval_action()
-
                 if self.verbose:
                     self.viewer.loop_once()
 
@@ -352,8 +340,6 @@ class CEM_controller(Policy):
                         (height, width, 3))[::-1, :, :]
                     self.gtruth_images[t][smp] = img
                     # self.check_conversion()
-
-        return accum_score
 
     def check_conversion(self):
         # check conversion
@@ -387,23 +373,17 @@ class CEM_controller(Policy):
 
         self.init_model = init_model
 
-        desig_pos = self.init_model.data.site_xpos[0, :2]
-        self.desig_pix.append(self.mujoco_to_imagespace(desig_pos, truncate= True))
-
-
-
 
         if t == 0:
             action = np.zeros(2)
             self.target = copy.deepcopy(self.init_model.data.qpos[:2].squeeze())
+            self.goal_state = self.inf_goal_state()
 
         else:
 
             last_images = full_images[t-1:t+1]
             last_states = np.concatenate((x_full,xdot_full), axis = 1)[t-1: t+1]
             last_action = self.action_list[-1]
-
-            self.goal_state = self.inf_goal_state(last_images, last_states)
 
             if self.use_first_plan:
                 print 'using actions of first plan, no replanning!!'
@@ -437,19 +417,30 @@ class CEM_controller(Policy):
         return force, self.pred_pos, self.bestindices_of_iter, self.rec_target_pos
 
 
-    def inf_goal_state(self, last_frames, last_states):
+    def inf_goal_state(self):
 
+        [goal_image, goal_low_dim_st] = cPickle.load(open(self.policyparams['use_goalimage'], "rb"))
+        Image.fromarray(goal_image).show()
+
+        last_states = np.expand_dims(goal_low_dim_st, axis=0)
+        last_states = np.repeat(last_states, 2, axis=0)  # copy over timesteps
         last_states = np.expand_dims(last_states, axis=0)
-        last_states = np.repeat(last_states, self.netconf['batch_size'], axis=0)
+        last_states = np.repeat(last_states, self.netconf['batch_size'], axis=0) #copy over batch
 
-        last_frames = np.expand_dims(last_frames, axis=0)
-        last_frames = np.repeat(last_frames, self.netconf['batch_size'], axis=0)
+        goal_image = np.expand_dims(goal_image, axis=0)
+        goal_image = np.repeat(goal_image, 2, axis=0)   # copy over timesteps
+        goal_image = np.expand_dims(goal_image, axis=0)
+        goal_image = np.repeat(goal_image, self.netconf['batch_size'], axis=0) #copy over batch
         app_zeros = np.zeros(shape=(self.netconf['batch_size'], self.netconf['sequence_length'] -
                                     self.netconf['context_frames'], 64, 64, 3))
-        last_frames = np.concatenate((last_frames, app_zeros), axis=1)
-        last_frames = last_frames.astype(np.float32) / 255.
+        goal_image = np.concatenate((goal_image, app_zeros), axis=1)
+        goal_image = goal_image.astype(np.float32) / 255.
 
         actions = np.zeros([self.netconf['batch_size'], self.netconf['sequence_length'], 2])
-        inf_low_state, gen_images, gen_states = self.predictor(last_frames, last_states, actions)
-        goal_state = inf_low_state[-1]
+        inf_low_state, gen_images, gen_sates = self.predictor(goal_image, last_states, actions)
+
+        # taking the inferred latent state of the last time step
+        # taking any of the identical example in the batch
+        goal_state = inf_low_state[-1][0]
+
         return  goal_state
