@@ -34,6 +34,6 @@ configuration = {
 'dna_size': 9,
 'lt_state_factor': 1.0,
 
-# 'prop_latent':''
+'prop_latent':'',
 'inc_fl_ltmdl':''           # using increased size fully connected latent model
 }

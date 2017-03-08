@@ -401,7 +401,7 @@ def project_fwd_lowdim(conf, low_state):
                 scope='hid_state_enc2')
             hid_state_enc3 = slim.layers.fully_connected(
                 low_state_enc2,
-                int(low_state.get_shape()[1]),
+                int(low_state_flat.get_shape()[1]),
                 scope='hid_state_enc3',
                 activation_fn=None)
             # predicted low-dimensional state
