@@ -322,30 +322,91 @@ def decode_low_dim_obs(conf, low_dim_state):
 
 
 def project_fwd_lowdim(conf, low_state):
-    with tf.variable_scope('latent_model') as lt_model_scope:
-        sq_len_lt = int(low_state.get_shape()[-2])
-        low_state = tf.reshape(low_state, [conf['batch_size'], - 1])
+    sq_len_lt = int(low_state.get_shape()[-2])
 
+    with tf.variable_scope('latent_model'):
+        if 'inc_fl_ltmdl'in conf:  # increased size fully connected latent model
+            low_state_flat = tf.reshape(low_state, [conf['batch_size'], - 1])
 
-        # predicting the next hidden state:
-        if 'stopgrad' in conf:
-            low_state = tf.stop_gradient(low_state)
-        low_state_enc1 = slim.layers.fully_connected(
-            low_state,
-            100,
-            scope='hid_state_enc1')
-        low_state_enc2 = slim.layers.fully_connected(
-            low_state_enc1,
-            100,
-            scope='hid_state_enc2')
-        hid_state_enc3 = slim.layers.fully_connected(
-            low_state_enc2,
-            int(low_state.get_shape()[1]),
-            scope='hid_state_enc3',
-            activation_fn=None)
-        # predicted low-dimensional state
+            low_state_enc1 = slim.layers.fully_connected(
+                low_state_flat,
+                200,
+                scope='hid_state_enc1')
+            low_state_enc2 = slim.layers.fully_connected(
+                low_state_enc1,
+                400,
+                scope='hid_state_enc2')
+            low_state_enc3 = slim.layers.fully_connected(
+                low_state_enc2,
+                400,
+                scope='hid_state_enc3')
+            low_state_enc4 = slim.layers.fully_connected(
+                low_state_enc3,
+                400,
+                scope='hid_state_enc4')
+            low_state_enc5 = slim.layers.fully_connected(
+                low_state_enc4,
+                400,
+                scope='hid_state_enc5')
+            low_state_enc6 = slim.layers.fully_connected(
+                low_state_enc5,
+                200,
+                scope='hid_state_enc6')
+            hid_state_enc7 = slim.layers.fully_connected(
+                low_state_enc6,
+                int(low_state.get_shape()[1]),
+                scope='hid_state_enc7',
+                activation_fn=None)
 
-        pred_low_state = tf.reshape(hid_state_enc3, [conf['batch_size'],sq_len_lt, sq_len_lt, 1])
+            pred_low_state = hid_state_enc7
+
+        elif 'inc_conv_ltmdl' in conf:  # increased size fully connected latent model
+
+            ltenc1 = slim.layers.conv2d(  # 8x8
+                low_state, 16,[3, 3], stride=1, scope='conv1')
+
+            ltenc2 = slim.layers.conv2d(  # 8x8
+                ltenc1, 32, [3, 3], stride=1, scope='conv2')
+
+            ltenc3 = slim.layers.conv2d(  # 8x8
+                ltenc2, 64, [3, 3], stride=1, scope='conv3')
+
+            ltenc4 = slim.layers.conv2d(  # 8x8
+                ltenc3, 64, [3, 3], stride=1, scope='conv4')
+
+            ltenc5 = slim.layers.conv2d(  # 8x8
+                ltenc4, 32, [3, 3], stride=1, scope='conv5')
+
+            ltenc6 = slim.layers.conv2d(  # 8x8
+                ltenc5, 16, [3, 3], stride=1, scope='conv6')
+
+            ltenc7 = slim.layers.conv2d(  # 8x8
+                ltenc6, 1, [3, 3], stride=1, scope='conv7')
+
+            pred_low_state = ltenc7
+
+        else:
+            low_state_flat = tf.reshape(low_state, [conf['batch_size'], - 1])
+
+            # predicting the next hidden state:
+            if 'stopgrad' in conf:
+                low_state_flat = tf.stop_gradient(low_state_flat)
+            low_state_enc1 = slim.layers.fully_connected(
+                low_state_flat,
+                100,
+                scope='hid_state_enc1')
+            low_state_enc2 = slim.layers.fully_connected(
+                low_state_enc1,
+                100,
+                scope='hid_state_enc2')
+            hid_state_enc3 = slim.layers.fully_connected(
+                low_state_enc2,
+                int(low_state.get_shape()[1]),
+                scope='hid_state_enc3',
+                activation_fn=None)
+            # predicted low-dimensional state
+
+            pred_low_state = tf.reshape(hid_state_enc3, [conf['batch_size'],sq_len_lt, sq_len_lt, 1])
 
     return  pred_low_state
 
