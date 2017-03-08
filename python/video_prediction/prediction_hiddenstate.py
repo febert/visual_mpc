@@ -354,11 +354,11 @@ def project_fwd_lowdim(conf, low_state):
                 scope='hid_state_enc6')
             hid_state_enc7 = slim.layers.fully_connected(
                 low_state_enc6,
-                int(low_state.get_shape()[1]),
+                int(low_state_flat.get_shape()[1]),
                 scope='hid_state_enc7',
                 activation_fn=None)
 
-            pred_low_state = hid_state_enc7
+            pred_low_state = tf.reshape(hid_state_enc7, [conf['batch_size'], sq_len_lt, sq_len_lt, 1])
 
         elif 'inc_conv_ltmdl' in conf:  # increased size fully connected latent model
 
