@@ -35,7 +35,6 @@ class CEM_controller(Policy):
 
         self.verbose = False
 
-
         if 'use_first_plan' in self.policyparams:
             self.use_first_plan = self.policyparams['use_first_plan']
         else: self.use_first_plan = True
@@ -261,8 +260,25 @@ class CEM_controller(Policy):
         #evaluate distances to goalstate
         sq_distance = np.zeros(self.netconf['batch_size'])
 
-        for b in range(self.netconf['batch_size']):
-            sq_distance[b] = np.linalg.norm(self.goal_state - inf_low_state[-1][b])**2
+        if 'ballinvar' not in self.policyparams:  # the standard
+            for b in range(self.netconf['batch_size']):
+                sq_distance[b] = np.linalg.norm(self.goal_state - inf_low_state[-1][b])**2
+        else:
+            selected_scores = np.zeros(self.netconf['batch_size'], dtype= np.int)
+            for b in range(self.netconf['batch_size']):
+                scores_diffballpos = []
+                for ballpos in range(self.netconf['batch_size']):
+                    scores_diffballpos.append(
+                         np.linalg.norm(self.goal_state[ballpos] - inf_low_state[-1][b])**2)
+
+                #for debug..
+                # min_ind = np.argmin(scores_diffballpos)
+                # single_frame = self.goal_images[min_ind]
+                # Image.fromarray((single_frame* 255.).astype(np.uint8)).show()
+                # pdb.set_trace()
+                selected_scores[b] = min_ind = np.argmin(scores_diffballpos)
+
+                sq_distance[b] = np.min(scores_diffballpos)
 
         # compare prediciton with simulation
         if self.verbose: #and itr == self.policyparams['iterations']-1:
@@ -292,6 +308,12 @@ class CEM_controller(Policy):
                 f.write('index: {0}, score: {1}, rank: {2}'.format(i, sq_distance[i],
                                                                    np.where(sorted == i)[0][0]))
                 f.write('action {}\n'.format(actions[i]))
+
+            pdb.set_trace()
+            for i in range(self.K):
+                bestind = bestindices[i]
+                goalim  = self.goal_images[selected_scores[bestind]]
+                Image.fromarray((goalim * 255.).astype(np.uint8)).show()
 
             pdb.set_trace()
 
@@ -419,28 +441,51 @@ class CEM_controller(Policy):
 
     def inf_goal_state(self):
 
-        [goal_image, goal_low_dim_st] = cPickle.load(open(self.policyparams['use_goalimage'], "rb"))
-        Image.fromarray(goal_image).show()
+        dict= cPickle.load(open(self.policyparams['use_goalimage'], "rb"))
+        goal_image = dict['goal_image']
 
-        last_states = np.expand_dims(goal_low_dim_st, axis=0)
-        last_states = np.repeat(last_states, 2, axis=0)  # copy over timesteps
-        last_states = np.expand_dims(last_states, axis=0)
-        last_states = np.repeat(last_states, self.netconf['batch_size'], axis=0) #copy over batch
+        goal_low_dim_st = dict['goal_ballpos']
 
-        goal_image = np.expand_dims(goal_image, axis=0)
-        goal_image = np.repeat(goal_image, 2, axis=0)   # copy over timesteps
-        goal_image = np.expand_dims(goal_image, axis=0)
-        goal_image = np.repeat(goal_image, self.netconf['batch_size'], axis=0) #copy over batch
-        app_zeros = np.zeros(shape=(self.netconf['batch_size'], self.netconf['sequence_length'] -
-                                    self.netconf['context_frames'], 64, 64, 3))
-        goal_image = np.concatenate((goal_image, app_zeros), axis=1)
-        goal_image = goal_image.astype(np.float32) / 255.
+        if 'ballinvar' not in self.policyparams:
+            Image.fromarray(goal_image).show()
+
+            last_states = np.expand_dims(goal_low_dim_st, axis=0)
+            last_states = np.repeat(last_states, 2, axis=0)  # copy over timesteps
+
+            last_states = np.expand_dims(last_states, axis=0)
+            last_states = np.repeat(last_states, self.netconf['batch_size'], axis=0) #copy over batch
+
+            goal_image = np.expand_dims(goal_image, axis=0)
+            goal_image = np.repeat(goal_image, 2, axis=0)   # copy over timesteps
+            goal_image = np.expand_dims(goal_image, axis=0)
+            goal_image = np.repeat(goal_image, self.netconf['batch_size'], axis=0) #copy over batch
+            app_zeros = np.zeros(shape=(self.netconf['batch_size'], self.netconf['sequence_length'] -
+                                        self.netconf['context_frames'], 64, 64, 3))
+            goal_image = np.concatenate((goal_image, app_zeros), axis=1)
+            goal_image = goal_image.astype(np.float32) / 255.
+
+        else:
+            self.goal_images = goal_image
+            last_states = np.expand_dims(goal_low_dim_st, axis=1)
+            last_states = np.repeat(last_states, 2, axis=1)  # copy over timesteps
+
+            goal_image = np.expand_dims(goal_image, axis=1)
+            goal_image = np.repeat(goal_image, 2, axis=1)  # copy over timesteps
+
+            app_zeros = np.zeros(shape=(self.netconf['batch_size'], self.netconf['sequence_length'] -
+                                        self.netconf['context_frames'], 64, 64, 3))
+            goal_image = np.concatenate((goal_image, app_zeros), axis=1)
+            goal_image = goal_image.astype(np.float32) / 255.
 
         actions = np.zeros([self.netconf['batch_size'], self.netconf['sequence_length'], 2])
         inf_low_state, gen_images, gen_sates = self.predictor(goal_image, last_states, actions)
 
         # taking the inferred latent state of the last time step
-        # taking any of the identical example in the batch
-        goal_state = inf_low_state[-1][0]
+
+        if 'ballinvar' not in self.policyparams:
+            # taking any of the identical example in the batch
+            goal_state = inf_low_state[-1][0]
+        else:
+            goal_state = inf_low_state[-1]
 
         return  goal_state

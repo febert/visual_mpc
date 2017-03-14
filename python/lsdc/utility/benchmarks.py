@@ -79,8 +79,13 @@ def main():
         benchconfs = cPickle.load(open(conf['agent']['start_confs'], "rb"))
 
     if 'load_goal_image' in conf['policy']:
-        goalimg_load_dir = cem_exp_dir + '/benchmarks_goalimage/' +\
+        goalimg_load_dir = cem_exp_dir +'/benchmarks_goalimage/' +\
                            conf['policy']['load_goal_image'] +'/goalimage'
+
+        if 'ballinvar' in conf['policy']:
+            goalimg_load_dir = cem_exp_dir + '/benchmarks_goalimage/' + \
+                               conf['policy']['load_goal_image'] + '/goalimage_var_ballpos'
+
 
     goalpoints = benchconfs['goalpoints']
     initialposes = benchconfs['initialpos']

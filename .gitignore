@@ -1,4 +1,5 @@
 # Byte-compiled / optimized / DLL files
+
 __pycache__/
 *.py[cod]
 *$py.class
@@ -111,3 +112,4 @@ compare_graphs/
 verbose/
 
 query_images/
+goalimage_var_ballpos

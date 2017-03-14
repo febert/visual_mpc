@@ -15,11 +15,11 @@ policy = {
     'netconf': current_dir + '/conf.py',
     'use_first_plan': False, # execute MPC instead using firs plan
     'iterations': 5,
-    'load_goal_image':'easy_goal'
+    'load_goal_image':'make_easy_goal'
 }
 
 agent = {
     'T': 25,
     'use_goalimage':"",
-    'start_confs': bench_dir + '/easy_goal/configs_easy_goal'
+    'start_confs': bench_dir + '/make_easy_goal/configs_easy_goal'
 }

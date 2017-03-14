@@ -95,7 +95,7 @@ class AgentMuJoCo(Agent):
             traj.Xdot_full[t, :] = self._model.data.qvel[:2].squeeze()
             traj.X_Xdot_full[t, :] =  np.concatenate([traj.X_full[t, :], traj.Xdot_full[t, :]])
             for i in range(self._hyperparams['num_objects']):
-                traj.Object_pos[t,i,:] = self._model.data.qpos[i*7+2:i*7+4].squeeze()
+                traj.Object_pos[t,i,:] = self._model.data.qpos[i*7+2:i*7+9].squeeze()
 
             self._store_image(t, traj)
 
@@ -134,7 +134,7 @@ class AgentMuJoCo(Agent):
             self.final_score = self.eval_action()
 
         if 'save_goal_image' in self._hyperparams:
-            self.save_goal_image(traj)
+            self.save_goal_image_conf(traj)
 
         if self._hyperparams['record']:
             self.save_gif()
@@ -143,7 +143,7 @@ class AgentMuJoCo(Agent):
 
         return traj
 
-    def save_goal_image(self, traj):
+    def save_goal_image_conf(self, traj):
         div = .05
         quantized = np.around(traj.score/div)
         best_score = np.min(quantized)
@@ -157,14 +157,19 @@ class AgentMuJoCo(Agent):
         print 'goal index: ', first_best_index
 
         goalimage = traj._sample_images[first_best_index]
-        goal_lowdim_obs = np.concatenate([traj.X_full[first_best_index], np.zeros(2)])  #set velocity to zero
+        goal_ballpos = np.concatenate([traj.X_full[first_best_index], np.zeros(2)])  #set velocity to zero
+
+        goal_object_pose = traj.Object_pos[first_best_index]
 
         img = Image.fromarray(goalimage)
 
+        dict = {}
+        dict['goal_image'] = goalimage
+        dict['goal_ballpos'] = goal_ballpos
+        dict['goal_object_pose'] = goal_object_pose
 
-        cPickle.dump([goalimage, goal_lowdim_obs], open(self._hyperparams['save_goal_image'] + '.pkl', 'wb'))
+        cPickle.dump(dict, open(self._hyperparams['save_goal_image'] + '.pkl', 'wb'))
         img.save(self._hyperparams['save_goal_image'] + '.png',)
-
 
     def eval_action(self):
         goalpoint = np.array(self._hyperparams['goal_point'])
@@ -285,7 +290,7 @@ class AgentMuJoCo(Agent):
         x0 = self._hyperparams['x0']
         if 'goal_point' in self._hyperparams.keys():
             goal = np.append(self._hyperparams['goal_point'], [.1])   # goal point
-            ref = np.append(object_pos[:2], [.1]) # reference point
+            ref = np.append(object_pos[:2], [.1]) # reference point on the block
             self._model.data.qpos = np.concatenate((x0[:2], object_pos,goal, ref), 0)
         else:
             self._model.data.qpos = np.concatenate((x0[:2], object_pos), 0)
