@@ -89,7 +89,6 @@ class CEM_controller(Policy):
         self.init_model = []
 
 
-
         # predicted positions
         self.pred_pos = np.zeros((self.M, self.niter, self.repeat * self.nactions, 2))
         self.rec_target_pos = np.zeros((self.M, self.niter, self.repeat * self.nactions, 2))
@@ -201,7 +200,6 @@ class CEM_controller(Policy):
 
             print 'iter {0}, bestscore {1}'.format(itr, scores[self.indices[0]])
             print 'action cost of best action: ', actioncosts[self.indices[0]]
-            print 'current goal distance: ',
 
             print 'overall time for iteration {}'.format(
                 (datetime.now() - t_startiter).seconds + (datetime.now() - t_startiter).microseconds / 1e6)
@@ -261,8 +259,16 @@ class CEM_controller(Policy):
         sq_distance = np.zeros(self.netconf['batch_size'])
 
         if 'ballinvar' not in self.policyparams:  # the standard
-            for b in range(self.netconf['batch_size']):
-                sq_distance[b] = np.linalg.norm(self.goal_state - inf_low_state[-1][b])**2
+
+            if not 'usepixelerror' in self.policyparams:
+                for b in range(self.netconf['batch_size']):
+                    sq_distance[b] = np.linalg.norm(self.goal_state - inf_low_state[-1][b])
+            else:
+                print 'using pixelerror'
+                for b in range(self.netconf['batch_size']):
+                    sq_distance[b] = np.linalg.norm(
+                        (self.goal_image[0][0] - gen_images[-1][b]).flatten())
+
         else:
             selected_scores = np.zeros(self.netconf['batch_size'], dtype= np.int)
             for b in range(self.netconf['batch_size']):
@@ -271,12 +277,7 @@ class CEM_controller(Policy):
                     scores_diffballpos.append(
                          np.linalg.norm(self.goal_state[ballpos] - inf_low_state[-1][b])**2)
 
-                #for debug..
-                # min_ind = np.argmin(scores_diffballpos)
-                # single_frame = self.goal_images[min_ind]
-                # Image.fromarray((single_frame* 255.).astype(np.uint8)).show()
-                # pdb.set_trace()
-                selected_scores[b] = min_ind = np.argmin(scores_diffballpos)
+                selected_scores[b] = np.argmin(scores_diffballpos)
 
                 sq_distance[b] = np.min(scores_diffballpos)
 
@@ -312,7 +313,7 @@ class CEM_controller(Policy):
             pdb.set_trace()
             for i in range(self.K):
                 bestind = bestindices[i]
-                goalim  = self.goal_images[selected_scores[bestind]]
+                goalim  = self.goal_image[selected_scores[bestind]]
                 Image.fromarray((goalim * 255.).astype(np.uint8)).show()
 
             pdb.set_trace()
@@ -443,7 +444,6 @@ class CEM_controller(Policy):
 
         dict= cPickle.load(open(self.policyparams['use_goalimage'], "rb"))
         goal_image = dict['goal_image']
-
         goal_low_dim_st = dict['goal_ballpos']
 
         if 'ballinvar' not in self.policyparams:
@@ -465,7 +465,7 @@ class CEM_controller(Policy):
             goal_image = goal_image.astype(np.float32) / 255.
 
         else:
-            self.goal_images = goal_image
+
             last_states = np.expand_dims(goal_low_dim_st, axis=1)
             last_states = np.repeat(last_states, 2, axis=1)  # copy over timesteps
 
@@ -476,6 +476,8 @@ class CEM_controller(Policy):
                                         self.netconf['context_frames'], 64, 64, 3))
             goal_image = np.concatenate((goal_image, app_zeros), axis=1)
             goal_image = goal_image.astype(np.float32) / 255.
+
+        self.goal_image = goal_image
 
         actions = np.zeros([self.netconf['batch_size'], self.netconf['sequence_length'], 2])
         inf_low_state, gen_images, gen_sates = self.predictor(goal_image, last_states, actions)

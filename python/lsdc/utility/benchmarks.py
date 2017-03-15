@@ -70,7 +70,7 @@ def main():
 
     i_conf = 0
 
-    scores = np.empty(nruns)
+    scores = np.zeros(nruns)
     lsdc = LSDCMain(conf, gpu_id= gpu_id, ngpu= ngpu)
 
     if 'start_confs' not in conf['agent']:
@@ -93,7 +93,8 @@ def main():
     while traj < nruns:
 
         lsdc.agent._hyperparams['x0'] = initialposes[i_conf]
-        lsdc.agent._hyperparams['goal_point'] = goalpoints[i_conf]
+        if 'use_goalimage' not in conf['policy']:
+            lsdc.agent._hyperparams['goal_point'] = goalpoints[i_conf]
 
         for j in range(n_reseed):
             if traj > nruns -1:
@@ -113,6 +114,8 @@ def main():
                 lsdc.agent._hyperparams['save_goal_image'] = goalimg_save_dir + '/goalimg{0}_conf{1}'.format(traj, i_conf)
             if 'use_goalimage' in conf['policy']:
                 conf['policy']['use_goalimage'] = goalimg_load_dir + '/goalimg{0}_conf{1}.pkl'.format(traj, i_conf)
+                goal_dict = cPickle.load(open(conf['policy']['use_goalimage'], "rb"))
+                lsdc.agent._hyperparams['goal_object_pose'] = goal_dict['goal_object_pose']
 
             if 'usenet' in conf['policy']:
                 if conf['policy']['usenet']:
@@ -128,14 +131,10 @@ def main():
             if 'correctorconf' in conf['policy']:
                 lsdc.policy.corrector = lsdc.corrector
 
-
             lsdc.policy.policyparams['rec_distrib'] =  bench_dir + '/videos_distrib/traj{0}_conf{1}'.format(traj, i_conf)
-
             lsdc.agent.sample(lsdc.policy)
-
-            if not 'use_goalimage' in conf['policy']:
-                scores[traj] = lsdc.agent.final_score
-                print 'score of traj', traj, ':', scores[traj]
+            scores[traj] = lsdc.agent.final_score
+            print 'score of traj', traj, ':', scores[traj]
 
             traj +=1 #increment trajectories every step!
 

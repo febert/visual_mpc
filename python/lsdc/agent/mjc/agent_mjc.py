@@ -89,13 +89,16 @@ class AgentMuJoCo(Agent):
         # Take the sample.
         for t in range(self.T):
 
-            if not 'use_goalimage' in self._hyperparams:
-                traj.score[t] = self.eval_action()
+
+
             traj.X_full[t, :] = self._model.data.qpos[:2].squeeze()
             traj.Xdot_full[t, :] = self._model.data.qvel[:2].squeeze()
             traj.X_Xdot_full[t, :] =  np.concatenate([traj.X_full[t, :], traj.Xdot_full[t, :]])
             for i in range(self._hyperparams['num_objects']):
                 traj.Object_pos[t,i,:] = self._model.data.qpos[i*7+2:i*7+9].squeeze()
+
+
+            traj.score[t] = self.eval_action(traj, t)
 
             self._store_image(t, traj)
 
@@ -129,9 +132,8 @@ class AgentMuJoCo(Agent):
             # print 'accumulated impulse', t
             # print accum_touch
 
-        if not self._hyperparams['data_collection'] and not\
-                        'use_goalimage' in self._hyperparams:
-            self.final_score = self.eval_action()
+        if not self._hyperparams['data_collection']:
+            self.final_score = self.eval_action(traj, t)
 
         if 'save_goal_image' in self._hyperparams:
             self.save_goal_image_conf(traj)
@@ -171,10 +173,41 @@ class AgentMuJoCo(Agent):
         cPickle.dump(dict, open(self._hyperparams['save_goal_image'] + '.pkl', 'wb'))
         img.save(self._hyperparams['save_goal_image'] + '.png',)
 
-    def eval_action(self):
-        goalpoint = np.array(self._hyperparams['goal_point'])
-        refpoint = self._model.data.site_xpos[0,:2]
-        return np.linalg.norm(goalpoint - refpoint)
+    def eval_action(self, traj, t):
+        if 'use_goalimage' not in self._hyperparams:
+            goalpoint = np.array(self._hyperparams['goal_point'])
+            refpoint = self._model.data.site_xpos[0,:2]
+            return np.linalg.norm(goalpoint - refpoint)
+        else:
+            goalpos = self._hyperparams['goal_object_pose'][0][0:2]
+            goal_quat= self._hyperparams['goal_object_pose'][0][3:]
+            curr_pos = traj.Object_pos[t, 0, 0:2]
+            curr_quat = traj.Object_pos[t, 0, 3:]
+
+            goalangle = self.quat_to_zangle(goal_quat)
+            currangle = self.quat_to_zangle(curr_quat)
+            anglediff = self.calc_anglediff(goalangle, currangle)
+            mult = .1
+            anglecost = anglediff**2 / np.pi *180 * mult
+
+            score = np.linalg.norm(goalpos - curr_pos) + anglecost
+            print 'angle diff cost :', anglecost
+            print 'complete current task score: ', score
+
+            return score
+
+    def quat_to_zangle(self, quat):
+        psi1 = np.arccos(quat[0]) * 2
+        return  psi1
+
+    def calc_anglediff(self, alpha, beta):
+        delta = alpha - beta
+        while delta > np.pi:
+            delta -= 2*np.pi
+        while delta < -np.pi:
+            delta += 2*np.pi
+        return delta
+
 
     def enforce(self, model):
         vel = model.data.qvel[:2].squeeze()
