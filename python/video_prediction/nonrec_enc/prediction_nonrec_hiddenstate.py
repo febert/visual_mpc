@@ -99,15 +99,9 @@ def construct_model(images,
     lstm_size = np.int32(np.array([16, 32, 64, 100, 10]))
     lstm_state1, lstm_state2, lstm_state3 = None, None, None
 
-    single_lstm1 = BasicLSTMCell(lstm_size[3], state_is_tuple=True)
-    single_lstm2 = BasicLSTMCell(lstm_size[4], state_is_tuple=True)
-    low_dim_lstm = MultiRNNCell([single_lstm1, single_lstm2], state_is_tuple=True)
 
-    low_dim_lstm_state = low_dim_lstm.zero_state(batch_size, tf.float32)
 
-    dim_low_state = lstm_size[-1]
-
-    for t, image, action in zip(range(len(images)), images[:-1], actions[:-1]):
+    for t in range(1, len(images) -1):
 
 
         # Reuse variables after the first timestep.
@@ -115,20 +109,27 @@ def construct_model(images,
 
         done_warm_start = len(gen_images) > context_frames - 1
         with slim.arg_scope(
-                [lstm_func, slim.layers.conv2d, slim.layers.fully_connected,
+                [slim.layers.conv2d, slim.layers.fully_connected,
                  tf_layers.layer_norm, slim.layers.conv2d_transpose],
                 reuse=reuse):
 
             if feedself and done_warm_start:
                 # Feed in generated image.
                 prev_image = gen_images[-1]
+                prev2_image = gen_images[-2]
             elif done_warm_start:
                 # Scheduled sampling
-                prev_image = scheduled_sample(image, gen_images[-1], batch_size,
+                prev_image = scheduled_sample(images[t], gen_images[-1], batch_size,
+                                              num_ground_truth)
+                prev_image2 = scheduled_sample(images[t-1], gen_images[-2], batch_size,
                                               num_ground_truth)
             else:
                 # Always feed in ground_truth
-                prev_image = image
+                prev_image = images[t]
+                prev_image2 = images[t-1]
+
+            action = actions[t]
+
 
             if (not 'prop_latent' in conf) or t < 2:   # encode!
                 print 'encode {}'.format(t)
@@ -136,27 +137,26 @@ def construct_model(images,
                 # Predicted state is always fed back in
                 state_action = tf.concat(1, [action, current_state])   # 6x
 
+                comb_img = tf.concat(2, [prev_image, prev2_image])  # 64x64x6
+
                 enc0 = slim.layers.conv2d(              #32x32x32
-                    prev_image,
-                    32, kernel_size=[5, 5],
-                    stride=2,
-                    scope='scale1_conv1',
-                    normalizer_fn=tf_layers.layer_norm,
-                    normalizer_params={'scope': 'layer_norm1'})
+                    comb_img, 32, [5, 5], stride=2, scope='scale1_conv1',
+                    )
 
-                hidden1, lstm_state1 = lstm_func(               #32x32
-                    enc0, lstm_state1, lstm_size[0], scope='state1')
-                hidden1 = tf_layers.layer_norm(hidden1, scope='layer_norm2')
+                enc1 = slim.layers.conv2d(  #16x16x32
+                    enc0, 32, [5, 5], stride=2, scope='conv3')
 
-                enc1 = slim.layers.conv2d(                      #16x16
-                    hidden1, hidden1.get_shape()[3], [3, 3], stride=2, scope='conv2')
+                enc2 = slim.layers.conv2d(  #16x16x64
+                    enc1, 64, [5, 5], stride=1, scope='conv3')
 
-                hidden2, lstm_state2 = lstm_func(               #16x16x32
-                    enc1, lstm_state2, lstm_size[1], scope='state3')
-                hidden2 = tf_layers.layer_norm(hidden2, scope='layer_norm4')
+                enc3 = slim.layers.conv2d(    #8x8x64
+                    enc2, 64, [5, 5], stride=2, scope='conv2')
 
-                enc2 = slim.layers.conv2d(                    #8x8x32
-                    hidden2, hidden2.get_shape()[3], [3, 3], stride=2, scope='conv3')
+                enc4 = slim.layers.conv2d(  # 8x8x64
+                    enc3, 64, stride=1, scope='conv3')
+
+                enc5 = slim.layers.conv2d(                    #8x8x32
+                    enc4, 32, [5, 5], stride=1, scope='conv3')
 
                 # Pass in state and action.
                 smear = tf.reshape(
@@ -164,77 +164,24 @@ def construct_model(images,
                     [batch_size, 1, 1, int(state_action.get_shape()[1])])
                 smear = tf.tile(                               #8x8x6
                     smear, [1, int(enc2.get_shape()[1]), int(enc2.get_shape()[2]), 1])
-                if use_state:
-                    enc2 = tf.concat(3, [enc2, smear])
-                enc3 = slim.layers.conv2d(                      #8x8x32
-                    enc2, hidden2.get_shape()[3], [1, 1], stride=1, scope='conv4')
 
-                hidden3, lstm_state3 = lstm_func(               #8x8x64
-                    enc3, lstm_state3, lstm_size[2], scope='state5')  # last 8x8
-                hidden3 = tf_layers.layer_norm(hidden3, scope='layer_norm6')
+                concat = tf.concat(3, [enc5, smear])
+                enc6 = slim.layers.conv2d(                      #8x8x32
+                    concat, 32, [1, 1], stride=1, scope='conv4')
 
-                enc3 = slim.layers.conv2d(  # 8x8x32
-                    hidden3, 32, [1, 1], stride=1, scope='conv5')
+                enc7 = slim.layers.conv2d(  # 8x8x64
+                    enc6, 64, [3, 3], stride=2, scope='conv3')
 
+                enc8 = slim.layers.conv2d(  # 8x8x32
+                    enc7, 32, [1, 1], stride=1, scope='conv5')
 
-                if 'use_low_dim_lstm' in conf:
+                enc9 = slim.layers.conv2d(  # 8x8x8
+                    enc8, 8, [3, 3], stride=1, scope='conv6')
 
-                    enc4 = slim.layers.conv2d(  # 8x8x8
-                        enc3, 8, [3, 3], stride=1, scope='conv6')
-
-                    enc4_flat = tf.reshape(enc4, [batch_size, - 1])
-
-                    with tf.variable_scope('low_dim_lstm', reuse=reuse):
-                        hidden4, low_dim_lstm_state =low_dim_lstm(enc4_flat, low_dim_lstm_state)
-                    low_dim_state = hidden4
-                elif 'fully_connected_low_dim_state' in conf:
-                    enc3_flat = tf.reshape(enc3, [batch_size, - 1])
-                    enc_fully1 = slim.layers.fully_connected(
-                        enc3_flat,
-                        400,
-                        scope='enc_fully1')
-
-                    dim_low_state = 200
-                    enc_fully2 = slim.layers.fully_connected(
-                        enc_fully1,
-                        dim_low_state,
-                        scope='enc_fully2')
-
-                    low_dim_state = enc_fully2
-                    dec4 = low_dim_state
-
-                if 'use_low_dim_lstm' in conf or 'fully_connected_low_dim_state' in conf:
-                    # inferred low dimensional state:
-                    inf_low_state_list.append(low_dim_state)
-
-                    smear = tf.reshape(
-                        low_dim_state,
-                        [batch_size, 1, 1, dim_low_state])
-                    smear = tf.tile(  # 8x8xdim_hidden_state
-                        smear, [1, int(enc2.get_shape()[1]), int(enc2.get_shape()[2]), 1])
-
-                    dec4 = slim.layers.conv2d_transpose(  # 8x8x8
-                        smear, 8, 3, stride=1, scope='convt0')
-
-                if 'use_conv_low_dim_state' in conf:
-
-                    enc4 = slim.layers.conv2d(  # 8x8x8
-                        enc3, 8, [3, 3], stride=1, scope='conv6')
-
-                    if '4x4lowdim' in conf:
-                        enc5 = slim.layers.conv2d(  # 8x8x1
-                            enc4, 1, [3, 3], stride=1, scope='conv7')
-
-                        low_dim_state = slim.layers.conv2d(  # 4x4x1
-                            enc5, 1, [3, 3], stride=2, scope='conv8')
-
-
-                    else:
-                        low_dim_state = slim.layers.conv2d(  # 8x8x1
-                            enc4, 1, [3, 3], stride=1, scope='conv7')
+                low_dim_state = slim.layers.conv2d(  # 8x8x1
+                    enc9, 1, [3, 3], stride=1, scope='conv7')
 
                 inf_low_state_list.append(low_dim_state)
-
 
                 pred_low_state_list.append(project_fwd_lowdim(conf, low_dim_state))
 
@@ -279,28 +226,17 @@ def construct_model(images,
 
             transformed = [dna_transformation(prev_image, dec10, DNA_KERN_SIZE)]
 
-            if 'use_masks' in conf:
-                masks = slim.layers.conv2d_transpose(
-                    dec10, num_masks + 1, 1, stride=1, scope='convt7')
-                masks = tf.reshape(
-                    tf.nn.softmax(tf.reshape(masks, [-1, num_masks + 1])),
-                    [int(batch_size), int(img_height), int(img_width), num_masks + 1])
-                mask_list = tf.split(3, num_masks + 1, masks)
-                output = mask_list[0] * prev_image
-                for layer, mask in zip(transformed, mask_list[1:]):
-                    output += layer * mask
-            else:
-                mask_list = None
-                [output] = transformed
+
+
+            [output] = transformed
 
             gen_images.append(output)
-            gen_masks.append(mask_list)
 
             current_state = decode_low_dim_obs(conf, low_dim_state)
             gen_states.append(current_state)
 
 
-    return gen_images, gen_states, gen_masks, inf_low_state_list, pred_low_state_list
+    return gen_images, gen_states, inf_low_state_list, pred_low_state_list
 
 
 def decode_low_dim_obs(conf, low_dim_state):

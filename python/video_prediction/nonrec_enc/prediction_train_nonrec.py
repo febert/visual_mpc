@@ -69,7 +69,7 @@ class Model(object):
                  ):
 
 
-        from prediction_hiddenstate import construct_model
+        from prediction_nonrec_hiddenstate import construct_model
 
         if sequence_length is None:
             sequence_length = conf['sequence_length']
