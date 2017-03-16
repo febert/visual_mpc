@@ -5,15 +5,15 @@ import imp
 import sys
 import cPickle
 
-from utils_vpred.adapt_params_visualize import adapt_params_visualize
+from video_prediction.utils_vpred.adapt_params_visualize import adapt_params_visualize
 from tensorflow.python.platform import app
 from tensorflow.python.platform import flags
-import utils_vpred.create_gif
+from video_prediction.utils_vpred.create_gif import comp_video
 import pdb
 
-from read_tf_record import build_tfrecord_input
+from video_prediction.read_tf_record import build_tfrecord_input
 
-from utils_vpred.skip_example import skip_example
+from video_prediction.utils_vpred.skip_example import skip_example
 
 from datetime import datetime
 
@@ -86,32 +86,17 @@ class Model(object):
         images = tf.split(1, images.get_shape()[1], images)
         images = [tf.squeeze(img) for img in images]
 
-
-        if reuse_scope is None:
-            gen_images, gen_states, gen_masks, inf_low_state, pred_low_state = construct_model(
-                images,
-                actions,
-                states,
-                iter_num=self.iter_num,
-                k=conf['schedsamp_k'],
-                use_state=conf['use_state'],
-                context_frames=conf['context_frames'],
-                conf=conf)
-        else:  # If it's a validation or test model.
-            with tf.variable_scope(reuse_scope, reuse=True):
-                gen_images, gen_states, gen_masks, inf_low_state, pred_low_state = construct_model(
-                    images,
-                    actions,
-                    states,
-                    iter_num=self.iter_num,
-                    k=conf['schedsamp_k'],
-                    use_state=conf['use_state'],
-                    context_frames=conf['context_frames'],
-                    conf= conf)
+        gen_images, gen_states, inf_low_state, pred_low_state = construct_model(
+            images,
+            actions,
+            states,
+            iter_num=self.iter_num,
+            k=conf['schedsamp_k'],
+            context_frames=conf['context_frames'],
+            conf=conf)
 
         self.inf_low_state = inf_low_state
         self.gen_images = gen_images
-        self.gen_masks = gen_masks
         self.gen_states = gen_states
 
         self.lr = tf.placeholder_with_default(conf['learning_rate'], ())
@@ -158,7 +143,8 @@ class Model(object):
 
             if not 'joint' in conf:
                 lt_model_var = tf.get_default_graph().get_collection(name=tf.GraphKeys.TRAINABLE_VARIABLES, scope='model/latent_model')
-
+                # for var in lt_model_var:
+                #     print var.name
                 train_lt_op = tf.train.AdamOptimizer(self.lr).minimize(lt_state_cost_accum, var_list=lt_model_var)
                 with tf.control_dependencies([train_lt_op]):
                     self.train_op = tf.train.AdamOptimizer(self.lr).minimize(loss)
@@ -195,14 +181,18 @@ def main(unused_argv, conf_script= None):
     print '-------------------------------------------------------------------'
 
     print 'Constructing models and inputs.'
-    with tf.variable_scope('model', reuse=None) as training_scope:
-        images, actions, states = build_tfrecord_input(conf, training=True)
-        model = Model(conf, images, actions, states, conf['sequence_length'])
 
-    with tf.variable_scope('val_model', reuse=None):
-        val_images, val_actions, val_states = build_tfrecord_input(conf, training=False)
-        val_model = Model(conf, val_images, val_actions, val_states,
-                          conf['sequence_length'], training_scope)
+    with tf.variable_scope('model') as training_scope:
+        images, actions, states = build_tfrecord_input(conf, training=True)
+        images_val, actions_val, states_val = build_tfrecord_input(conf, training=False)
+
+        train_cond = tf.placeholder(tf.int32, shape=[], name="train_cond")
+
+        image, actions, states = tf.cond(train_cond > 0,  # if 1 use trainigbatch else validation batch
+                                                   lambda: [images, actions, states],
+                                                   lambda: [images_val, actions_val, states_val])
+
+        model = Model(conf, images, actions, states, conf['sequence_length'])
 
 
     print 'Constructing saver.'
@@ -221,19 +211,19 @@ def main(unused_argv, conf_script= None):
     if conf['visualize']:
         saver.restore(sess, conf['visualize'])
 
-        feed_dict = {val_model.lr: 0.0,
-                     val_model.prefix: 'vis',
-                     val_model.iter_num: 0 }
+        feed_dict = {model.lr: 0.0,
+                     model.prefix: 'vis',
+                     model.iter_num: 0,
+                     train_cond: 0}
 
         file_path = conf['output_dir']
         if 'use_masks' in conf:
-            gen_images, ground_truth, mask_list = sess.run([val_model.gen_images,
-                                                            val_images, val_model.gen_masks],
+            gen_images, ground_truth, mask_list = sess.run([model.gen_images,
+                                                            images, model.gen_masks],
                                                            feed_dict)
             cPickle.dump(mask_list, open(file_path + '/mask_list.pkl', 'wb'))
         else:
-            gen_images, ground_truth = sess.run([val_model.gen_images,
-                                                            val_images],
+            gen_images, ground_truth = sess.run([model.gen_images, images],
                                                            feed_dict)
 
         cPickle.dump(gen_images, open(file_path + '/gen_image_seq.pkl','wb'))
@@ -244,9 +234,8 @@ def main(unused_argv, conf_script= None):
         if 'prop_latent' in conf:
             suffix = 'prop_lt'
         else: suffix = None
-        trajectories = utils_vpred.create_gif.comp_video(conf['output_dir'], conf, suffix)
-        if 'use_masks' in conf:
-            utils_vpred.create_gif.comp_masks(conf['output_dir'], conf, trajectories)
+        trajectories = comp_video(conf['output_dir'], conf, suffix)
+
         return
 
     itr_0 =0
@@ -270,7 +259,8 @@ def main(unused_argv, conf_script= None):
         # Generate new batch of data_files.
         feed_dict = {model.prefix: 'train',
                      model.iter_num: np.float32(itr),
-                     model.lr: conf['learning_rate']}
+                     model.lr: conf['learning_rate'],
+                     train_cond: 1}
         cost, _, summary_str = sess.run([model.loss, model.train_op, model.summ_op],
                                         feed_dict)
 
@@ -280,10 +270,11 @@ def main(unused_argv, conf_script= None):
 
         if (itr) % VAL_INTERVAL == 2:
             # Run through validation set.
-            feed_dict = {val_model.lr: 0.0,
-                         val_model.prefix: 'val',
-                         val_model.iter_num: np.float32(itr)}
-            _, val_summary_str = sess.run([val_model.train_op, val_model.summ_op],
+            feed_dict = {model.lr: 0.0,
+                         model.prefix: 'val',
+                         model.iter_num: np.float32(itr),
+                         train_cond: 0}
+            _, val_summary_str = sess.run([model.train_op, model.summ_op],
                                           feed_dict)
             summary_writer.add_summary(val_summary_str, itr)
 

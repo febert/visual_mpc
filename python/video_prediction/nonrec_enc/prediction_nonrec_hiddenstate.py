@@ -21,24 +21,15 @@ import pdb
 
 import tensorflow.contrib.slim as slim
 from tensorflow.contrib.layers.python import layers as tf_layers
-from lstm_ops import basic_conv_lstm_cell
-
-from tensorflow.contrib.rnn.python.ops.rnn_cell import LayerNormBasicLSTMCell
-
-
-from tensorflow.python.ops.rnn_cell import BasicLSTMCell, MultiRNNCell
-
 
 # Amount to use when lower bounding tensors
 RELU_SHIFT = 1e-12
-
 
 def construct_model(images,
                     actions=None,
                     states=None,
                     iter_num=-1.0,
                     k=-1,
-                    use_state=True,
                     context_frames=2,
                     conf = None):
     """Build convolutional lstm video predictor using STP, CDNA, or DNA.
@@ -76,15 +67,10 @@ def construct_model(images,
 
     batch_size, img_height, img_width, color_channels = images[0].get_shape()[0:4]
     batch_size = int(batch_size)
-    lstm_func = basic_conv_lstm_cell
-
 
     # Generated robot states and images.
     gen_states, gen_images, gen_masks, inf_low_state_list, pred_low_state_list = [], [], [], [], []
     current_state = states[0]
-    gen_pix_distrib = []
-
-    summaries = []
 
     if k == -1:
         feedself = True
@@ -94,11 +80,6 @@ def construct_model(images,
         num_ground_truth = tf.to_int32(
             tf.round(tf.to_float(batch_size) * (k / (k + tf.exp(iter_num / k)))))
         feedself = False
-
-    # LSTM state sizes and states.
-    lstm_size = np.int32(np.array([16, 32, 64, 100, 10]))
-    lstm_state1, lstm_state2, lstm_state3 = None, None, None
-
 
 
     for t in range(1, len(images) -1):
@@ -137,49 +118,48 @@ def construct_model(images,
                 # Predicted state is always fed back in
                 state_action = tf.concat(1, [action, current_state])   # 6x
 
-                comb_img = tf.concat(2, [prev_image, prev2_image])  # 64x64x6
+                comb_img = tf.concat(3, [prev_image, prev_image2])  # 64x64x6
 
-                enc0 = slim.layers.conv2d(              #32x32x32
-                    comb_img, 32, [5, 5], stride=2, scope='scale1_conv1',
-                    )
+                enc0 = slim.layers.conv2d(  #32x32x32
+                    comb_img, 32, [5, 5], stride=2, scope='conv1')
 
                 enc1 = slim.layers.conv2d(  #16x16x32
-                    enc0, 32, [5, 5], stride=2, scope='conv3')
+                    enc0, 32, [3, 3], stride=2, scope='conv2')
 
                 enc2 = slim.layers.conv2d(  #16x16x64
-                    enc1, 64, [5, 5], stride=1, scope='conv3')
+                    enc1, 64, [3, 3], stride=1, scope='conv3')
 
                 enc3 = slim.layers.conv2d(    #8x8x64
-                    enc2, 64, [5, 5], stride=2, scope='conv2')
+                    enc2, 64, [3, 3], stride=2, scope='conv4')
 
                 enc4 = slim.layers.conv2d(  # 8x8x64
-                    enc3, 64, stride=1, scope='conv3')
+                    enc3, 64, [3, 3], stride=1, scope='conv5')
 
-                enc5 = slim.layers.conv2d(                    #8x8x32
-                    enc4, 32, [5, 5], stride=1, scope='conv3')
+                enc5 = slim.layers.conv2d(  # 8x8x32
+                    enc4, 32, [3, 3], stride=1, scope='conv6')
 
                 # Pass in state and action.
                 smear = tf.reshape(
                     state_action,
                     [batch_size, 1, 1, int(state_action.get_shape()[1])])
                 smear = tf.tile(                               #8x8x6
-                    smear, [1, int(enc2.get_shape()[1]), int(enc2.get_shape()[2]), 1])
+                    smear, [1, int(enc5.get_shape()[1]), int(enc5.get_shape()[2]), 1])
 
                 concat = tf.concat(3, [enc5, smear])
                 enc6 = slim.layers.conv2d(                      #8x8x32
-                    concat, 32, [1, 1], stride=1, scope='conv4')
+                    concat, 32, [3, 3], stride=1, scope='conv7')
 
                 enc7 = slim.layers.conv2d(  # 8x8x64
-                    enc6, 64, [3, 3], stride=2, scope='conv3')
+                    enc6, 64, [3, 3], stride=1, scope='conv8')
 
                 enc8 = slim.layers.conv2d(  # 8x8x32
-                    enc7, 32, [1, 1], stride=1, scope='conv5')
+                    enc7, 32, [3, 3], stride=1, scope='conv9')
 
                 enc9 = slim.layers.conv2d(  # 8x8x8
-                    enc8, 8, [3, 3], stride=1, scope='conv6')
+                    enc8, 8, [3, 3], stride=1, scope='conv10')
 
                 low_dim_state = slim.layers.conv2d(  # 8x8x1
-                    enc9, 1, [3, 3], stride=1, scope='conv7')
+                    enc9, 1, [3, 3], stride=1, scope='conv11')
 
                 inf_low_state_list.append(low_dim_state)
 
@@ -189,19 +169,14 @@ def construct_model(images,
                 print 'decode with inferred lt-state at t{}'.format(t)
 
             else:  #when propagating latent t = 2,3,...
-                assert '4x4lowdim' not in conf
                 print 'decode with predicted lt-state at t{}'.format(t)
-
 
                 pred_low_state_list.append(project_fwd_lowdim(conf, pred_low_state_list[-1]))
 
                 low_dim_state = pred_low_state_list[-1]
 
-            if '4x4lowdim' in conf:
-                dec4 = slim.layers.conv2d_transpose(  # 8x8x1
-                    low_dim_state, 1, [3, 3], stride=2, scope='convt0')
-            else:
-                dec4 = low_dim_state
+
+            dec4 = low_dim_state
 
 
             dec5 = slim.layers.conv2d_transpose(  #  8x8x16
@@ -225,16 +200,12 @@ def construct_model(images,
 
 
             transformed = [dna_transformation(prev_image, dec10, DNA_KERN_SIZE)]
-
-
-
             [output] = transformed
 
             gen_images.append(output)
 
             current_state = decode_low_dim_obs(conf, low_dim_state)
             gen_states.append(current_state)
-
 
     return gen_images, gen_states, inf_low_state_list, pred_low_state_list
 
