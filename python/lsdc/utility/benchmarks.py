@@ -8,6 +8,7 @@ import pdb
 import copy
 import random
 import cPickle
+from PIL import Image
 from video_prediction.correction.setup_corrector import setup_corrector
 
 
@@ -116,6 +117,9 @@ def main():
                 conf['policy']['use_goalimage'] = goalimg_load_dir + '/goalimg{0}_conf{1}.pkl'.format(traj, i_conf)
                 goal_dict = cPickle.load(open(conf['policy']['use_goalimage'], "rb"))
                 lsdc.agent._hyperparams['goal_object_pose'] = goal_dict['goal_object_pose']
+
+                if 'pixelmover' in conf['policy']:
+                    lsdc.agent._hyperparams['goal_point'] = goal_dict['goal_object_pose'][0][:2]
 
             if 'usenet' in conf['policy']:
                 if conf['policy']['usenet']:
