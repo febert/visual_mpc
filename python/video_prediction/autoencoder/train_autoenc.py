@@ -246,34 +246,6 @@ def main(unused_argv):
     tf.train.start_queue_runners(sess)
     sess.run(tf.initialize_all_variables())
 
-    ### Begin Debug
-    # def show_im(im):
-    #     Image.fromarray(np.uint8(im * 255)).show()
-    #
-    # for t in range(3):
-    #
-    #     im01, im23, st01, st23, a1 = sess.run([model.images_01,
-    #                                            model.images_23,
-    #                                            model.states_01,
-    #                                            model.states_23,
-    #                                            model.action_1
-    #                                           ], feed_dict={train_cond:1})
-    #
-    #     for b in range(2):
-    #         print 'im01'
-    #         show_im(im01[b,0])
-    #         show_im(im01[b,1])
-    #         pdb.set_trace()
-    #         print 'im23'
-    #         show_im(im23[b,0])
-    #         show_im(im23[b,1])
-    #         pdb.set_trace()
-    #         print 'states01', st01[b]
-    #         print 'states23', st23[b]
-    #         print 'actions:', a1[b]
-    #
-    #     pdb.set_trace()
-    ### End Debug
 
     itr_0 =0
     if conf['pretrained_model']:    # is the order of initialize_all_variables() and restore() important?!?
