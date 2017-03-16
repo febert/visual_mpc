@@ -118,8 +118,8 @@ def main():
                 goal_dict = cPickle.load(open(conf['policy']['use_goalimage'], "rb"))
                 lsdc.agent._hyperparams['goal_object_pose'] = goal_dict['goal_object_pose']
 
-                if 'pixelmover' in conf['policy']:
-                    lsdc.agent._hyperparams['goal_point'] = goal_dict['goal_object_pose'][0][:2]
+                # if 'pixelmover' in conf['policy'] or 'random_baseline' in conf['agent']:
+                lsdc.agent._hyperparams['goal_point'] = goal_dict['goal_object_pose'][0][:2]
 
             if 'usenet' in conf['policy']:
                 if conf['policy']['usenet']:

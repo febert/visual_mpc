@@ -183,7 +183,7 @@ class AgentMuJoCo(Agent):
             goalangle = self.quat_to_zangle(goal_quat)
             currangle = self.quat_to_zangle(curr_quat)
             anglediff = self.calc_anglediff(goalangle, currangle)
-            mult = .1
+            mult = 0.1
             anglecost = anglediff**2 / np.pi *180 * mult
 
             score = np.linalg.norm(goalpos - curr_pos) + anglecost
@@ -194,7 +194,7 @@ class AgentMuJoCo(Agent):
 
     def quat_to_zangle(self, quat):
         psi1 = np.arccos(quat[0]) * 2
-        return  psi1
+        return psi1
 
     def calc_anglediff(self, alpha, beta):
         delta = alpha - beta
@@ -203,7 +203,6 @@ class AgentMuJoCo(Agent):
         while delta < -np.pi:
             delta += 2*np.pi
         return delta
-
 
     def enforce(self, model):
         vel = model.data.qvel[:2].squeeze()
