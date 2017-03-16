@@ -10,9 +10,12 @@ import matplotlib.pyplot as plt
 
 
 def npy_to_gif(im_list, filename):
-    if not os.path.exists(filename):
-        print 'creating directory: ', filename
-        os.mkdir(filename)
+
+    save_dir = '/'.join(str.split(filename, '/')[:-1])
+
+    if not os.path.exists(save_dir):
+        print 'creating directory: ', save_dir
+        os.mkdir(save_dir)
 
     clip = mpy.ImageSequenceClip(im_list, fps=4)
     clip.write_gif(filename + '.gif')
