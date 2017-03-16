@@ -40,8 +40,8 @@ class AgentMuJoCo(Agent):
         self.model_nomarkers = mujoco_py.MjModel(self._hyperparams['filename_nomarkers'])
 
          # changes here:
-        self._joint_idx = range(self._hyperparams['joint_angles'])
-        self._vel_idx = range( self._hyperparams['joint_angles'], self._hyperparams['joint_velocities'] + self._hyperparams['joint_angles'])
+        # self._joint_idx = range(self._hyperparams['joint_angles'])
+        # self._vel_idx = range( self._hyperparams['joint_angles'], self._hyperparams['joint_velocities'] + self._hyperparams['joint_angles'])
 
 
         gofast = True
