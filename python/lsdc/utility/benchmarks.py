@@ -72,6 +72,7 @@ def main():
     i_conf = 0
 
     scores = np.zeros(nruns)
+    anglecost = []
     lsdc = LSDCMain(conf, gpu_id= gpu_id, ngpu= ngpu)
 
     if 'start_confs' not in conf['agent']:
@@ -137,7 +138,9 @@ def main():
 
             lsdc.policy.policyparams['rec_distrib'] =  bench_dir + '/videos_distrib/traj{0}_conf{1}'.format(traj, i_conf)
             lsdc.agent.sample(lsdc.policy)
-            scores[traj] = lsdc.agent.final_score
+            scores[traj] = lsdc.agent.final_poscost
+            anglecost.append(lsdc.agent.final_anglecost)
+
             print 'score of traj', traj, ':', scores[traj]
 
             traj +=1 #increment trajectories every step!
@@ -148,15 +151,15 @@ def main():
         sorted_ind = rel_scores.argsort()
         f = open(bench_dir + '/results', 'w')
         f.write('experiment name: ' + benchmark_name + '\n')
-        f.write('overall best score: {0} of traj {1}\n'.format(rel_scores[sorted_ind[0]], sorted_ind[0]))
-        f.write('overall worst score: {0} of traj {1}\n'.format(rel_scores[sorted_ind[-1]], sorted_ind[-1]))
-        f.write('average score: {0}\n'.format(np.sum(rel_scores) / traj))
+        f.write('overall best pos score: {0} of traj {1}\n'.format(rel_scores[sorted_ind[0]], sorted_ind[0]))
+        f.write('overall worst pos score: {0} of traj {1}\n'.format(rel_scores[sorted_ind[-1]], sorted_ind[-1]))
+        f.write('average pos score: {0}\n'.format(np.sum(rel_scores) / traj))
         f.write('standard deviation {0}\n'.format(np.sqrt(np.var(rel_scores))))
         f.write('----------------------\n')
-        f.write('traj: score, rank\n')
+        f.write('traj: score, anglecost, rank\n')
         f.write('----------------------\n')
         for t in range(traj):
-            f.write('{0}: {1}, {2}\n'.format(t, rel_scores[t], np.where(sorted_ind == t)[0][0]))
+            f.write('{0}: {1}, {2}, :{3}\n'.format(t, rel_scores[t], anglecost[t], np.where(sorted_ind == t)[0][0]))
         f.close()
 
     print 'overall best score: {0} of traj {1}'.format(scores[sorted_ind[0]], sorted_ind[0])

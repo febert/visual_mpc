@@ -129,7 +129,7 @@ class AgentMuJoCo(Agent):
             # print accum_touch
 
         if not self._hyperparams['data_collection']:
-            self.final_score = self.eval_action(traj, t)
+            self.final_poscost, self.final_anglecost = self.eval_action(traj, t, getanglecost=True)
 
         if 'save_goal_image' in self._hyperparams:
             self.save_goal_image_conf(traj)
@@ -169,7 +169,7 @@ class AgentMuJoCo(Agent):
         cPickle.dump(dict, open(self._hyperparams['save_goal_image'] + '.pkl', 'wb'))
         img.save(self._hyperparams['save_goal_image'] + '.png',)
 
-    def eval_action(self, traj, t):
+    def eval_action(self, traj, t, getanglecost=False):
         if 'use_goalimage' not in self._hyperparams:
             goalpoint = np.array(self._hyperparams['goal_point'])
             refpoint = self._model.data.site_xpos[0,:2]
@@ -183,18 +183,27 @@ class AgentMuJoCo(Agent):
             goalangle = self.quat_to_zangle(goal_quat)
             currangle = self.quat_to_zangle(curr_quat)
             anglediff = self.calc_anglediff(goalangle, currangle)
-            mult = 0.1
-            anglecost = anglediff**2 / np.pi *180 * mult
+            mult = 0.01 #0.1
+            anglecost = np.abs(anglediff) / np.pi *180 * mult
 
-            score = np.linalg.norm(goalpos - curr_pos) + anglecost
+            poscost = np.linalg.norm(goalpos - curr_pos)
             print 'angle diff cost :', anglecost
-            print 'complete current task score: ', score
+            print 'pos cost: ', poscost
 
-            return score
+            if getanglecost:
+                return poscost, anglecost
+            else: return poscost
+
+    def zangle_to_quat(self, zangle):
+        """
+        :param zangle in rad
+        :return: quaternion
+        """
+        return np.array([np.cos(zangle/2), 0, 0, np.sin(zangle/2) ])
 
     def quat_to_zangle(self, quat):
-        psi1 = np.arccos(quat[0]) * 2
-        return psi1
+        theta = np.arctan2(2*quat[0]*quat[3], 1-2*quat[3]**2)
+        return theta
 
     def calc_anglediff(self, alpha, beta):
         delta = alpha - beta

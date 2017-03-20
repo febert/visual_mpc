@@ -250,7 +250,7 @@ class CEM_controller(Policy):
 
         inf_low_state, gen_images, gen_states = self.predictor(last_frames, last_states, actions)
 
-        for tstep in range(self.netconf['sequence_length']-1):
+        for tstep in range(len(gen_states)):
             for smp in range(self.M):
                 self.pred_pos[smp, itr, tstep+1] = self.mujoco_to_imagespace(
                                             gen_states[tstep][smp, :2], numpix=480)
@@ -264,7 +264,7 @@ class CEM_controller(Policy):
                 for b in range(self.netconf['batch_size']):
                     sq_distance[b] = np.linalg.norm(self.goal_state - inf_low_state[-1][b])
             else:
-                print 'using pixelerror'
+                print 'using pixelerror..'
                 for b in range(self.netconf['batch_size']):
                     sq_distance[b] = np.linalg.norm(
                         (self.goal_image[0][0] - gen_images[-1][b]).flatten())
@@ -488,6 +488,9 @@ class CEM_controller(Policy):
             # taking any of the identical example in the batch
             goal_state = inf_low_state[-1][0]
         else:
-            goal_state = inf_low_state[-1]
+            if 'nonrec' in self.netconf:
+                goal_state = inf_low_state[2]
+            else:
+                goal_state = inf_low_state[-1]
 
         return  goal_state

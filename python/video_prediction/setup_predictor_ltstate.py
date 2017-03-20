@@ -1,7 +1,7 @@
 import tensorflow as tf
 import imp
 import numpy as np
-from prediction_train_hidden_state import Model
+
 from PIL import Image
 import os
 
@@ -12,6 +12,12 @@ def setup_predictor(conf, gpu_id = 0):
     :return: function which predicts a batch of whole trajectories
     conditioned on the actions
     """
+    if 'prediction_model' in conf:
+        Model = conf['prediction_model']
+    else:
+        from prediction_train_hidden_state import Model
+
+
     if gpu_id == None:
         gpu_id = 0
     os.environ["CUDA_VISIBLE_DEVICES"] = str(gpu_id)
