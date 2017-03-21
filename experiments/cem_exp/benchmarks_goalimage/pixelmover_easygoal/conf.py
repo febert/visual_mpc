@@ -2,6 +2,8 @@ import os
 current_dir = os.path.dirname(os.path.realpath(__file__))
 
 
+# tf record data location:
+LSDC_BASE = '/'.join(str.split(current_dir, '/')[:-4])
 
 from video_prediction.prediction_model_downsized_lesslayer import construct_model
 
@@ -9,7 +11,7 @@ configuration = {
 'experiment_name': 'cem_control',
 'current_dir': current_dir, #'directory for writing gifs' ,
 # 'filepath of a pretrained model to use for cem
-'pretrained_model': '/home/frederik/Documents/lsdc/tensorflow_data/dna/modeldata/model48002',
+'pretrained_model': LSDC_BASE +'/tensorflow_data/dna/modeldata/model48002',
 'sequence_length': 15,      # 'sequence length, including context frames.' ,
 'context_frames': 2,        # of frames before predictions.' ,
 'use_state': 1,             #'Whether or not to give the state+action to the model' ,
