@@ -276,8 +276,14 @@ def construct_model(images,
             dec10 = slim.layers.conv2d_transpose(
                 dec9, DNA_KERN_SIZE ** 2, 1, stride=1, scope='convt6')
 
+            if conf['model'] == 'STP':
+                num_masks = conf['num_masks']
+                stp_input = tf.reshape(dec10, [int(batch_size), -1])
+                transformed = stp_transformation(prev_image, stp_input, num_masks)
 
-            transformed = [dna_transformation(prev_image, dec10, DNA_KERN_SIZE)]
+            elif conf['model'] == 'DNA':
+                transformed = [dna_transformation(prev_image, dec10, DNA_KERN_SIZE)]
+
 
             if 'use_masks' in conf:
                 masks = slim.layers.conv2d_transpose(
@@ -444,6 +450,34 @@ def dna_transformation(prev_image, dna_input, DNA_KERN_SIZE):
             kernel, [3], keep_dims=True), [4])
 
     return tf.reduce_sum(kernel * inputs, [3], keep_dims=False)
+
+
+## Utility functions
+def stp_transformation(prev_image, stp_input, num_masks):
+    """Apply spatial transformer predictor (STP) to previous image.
+
+    Args:
+      prev_image: previous image to be transformed.
+      stp_input: hidden layer to be used for computing STN parameters.
+      num_masks: number of masks and hence the number of STP transformations.
+    Returns:
+      List of images transformed by the predicted STP parameters.
+    """
+    # Only import spatial transformer if needed.
+    from transformer.spatial_transformer import transformer
+
+    identity_params = tf.convert_to_tensor(
+        np.array([1.0, 0.0, 0.0, 0.0, 1.0, 0.0], np.float32))
+    transformed = []
+    for i in range(num_masks - 1):
+        params = slim.layers.fully_connected(
+            stp_input, 6, scope='stp_params' + str(i),
+            activation_fn=None) + identity_params
+        outsize = (prev_image.get_shape()[1], prev_image.get_shape()[2])
+
+        transformed.append(transformer(prev_image, params, outsize))
+
+    return transformed
 
 
 def scheduled_sample(ground_truth_x, generated_x, batch_size, num_ground_truth):
