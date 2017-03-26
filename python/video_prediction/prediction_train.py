@@ -55,6 +55,17 @@ def mean_squared_error(true, pred):
     return tf.reduce_sum(tf.square(true - pred)) / tf.to_float(tf.size(pred))
 
 
+def fft_cost(true, pred):
+    """
+
+    :param true:
+    :param pred:
+    :return:
+    """
+
+
+
+
 class Model(object):
     def __init__(self,
                  conf,

@@ -57,7 +57,7 @@ def setup_predictor(conf, gpu_id = 0):
             saver = tf.train.Saver(tf.get_collection(tf.GraphKeys.VARIABLES), max_to_keep=0)
             saver.restore(sess, conf['pretrained_model'])
 
-            def predictor_func(input_images, input_state, input_actions):
+            def predictor_func(input_images=None, input_state=None, input_actions=None):
                 """
                 :param one_hot_images: the first two frames
                 :param pixcoord: the coords of the disgnated pixel in images coord system

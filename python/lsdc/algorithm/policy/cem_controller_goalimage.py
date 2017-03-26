@@ -248,8 +248,9 @@ class CEM_controller(Policy):
         last_frames = np.concatenate((last_frames, app_zeros), axis=1)
         last_frames = last_frames.astype(np.float32)/255.
 
-        inf_low_state, gen_images, gen_states = self.predictor(last_frames, last_states, actions)
-
+        inf_low_state, gen_images, gen_states = self.predictor( input_images= last_frames,
+                                                                input_state=last_states,
+                                                                input_actions = actions)
         for tstep in range(len(gen_states)):
             for smp in range(self.M):
                 self.pred_pos[smp, itr, tstep+1] = self.mujoco_to_imagespace(
@@ -480,17 +481,25 @@ class CEM_controller(Policy):
         self.goal_image = goal_image
 
         actions = np.zeros([self.netconf['batch_size'], self.netconf['sequence_length'], 2])
-        inf_low_state, gen_images, gen_sates = self.predictor(goal_image, last_states, actions)
+
+
+        inf_low_state, gen_images, gen_sates = self.predictor(  input_images= goal_image,
+                                                                input_state=last_states,
+                                                                input_actions = actions)
 
         # taking the inferred latent state of the last time step
 
-        if 'ballinvar' not in self.policyparams:
-            # taking any of the identical example in the batch
-            goal_state = inf_low_state[-1][0]
-        else:
-            if 'nonrec' in self.netconf:
-                goal_state = inf_low_state[2]
+        if 'no_pix_distrib' not in self.netconf:
+            if 'ballinvar' not in self.policyparams:
+                # taking any of the identical example in the batch
+                goal_state = inf_low_state[-1][0]
             else:
-                goal_state = inf_low_state[-1]
+                if 'nonrec' in self.netconf:
+                    goal_state = inf_low_state[2]
+                else:
+                    goal_state = inf_low_state[-1]
+
+        else:
+            goal_state = None
 
         return  goal_state
