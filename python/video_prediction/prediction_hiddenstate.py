@@ -395,7 +395,8 @@ def project_fwd_lowdim(conf, low_state):
                 activation_fn=None)
             # predicted low-dimensional state
 
-            pred_low_state = tf.reshape(hid_state_enc3, [conf['batch_size'],sq_len_lt, sq_len_lt, 1])
+            num_lt_feat = conf['num_lt_featuremaps']
+            pred_low_state = tf.reshape(hid_state_enc3, [conf['batch_size'],sq_len_lt, sq_len_lt, num_lt_feat])
 
     return  pred_low_state
 

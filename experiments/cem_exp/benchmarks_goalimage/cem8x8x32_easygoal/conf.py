@@ -34,5 +34,4 @@ configuration = {
 'dna_size': 9,
 'lt_state_factor': 1.0,
 'num_lt_featuremaps':32
-# 'prop_latent':''
 }
