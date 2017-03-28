@@ -176,66 +176,30 @@ def construct_model(images,
                 enc3 = slim.layers.conv2d(  # 8x8x32
                     hidden3, 32, [1, 1], stride=1, scope='conv5')
 
+                if 'num_lt_featuremaps' in conf:
+                    enc4_num_ft_mps = conf['num_lt_featuremaps']
+                    print 'using {} featuremaps for enc4'.format(enc4_num_ft_mps)
+                else:
+                    enc4_num_ft_mps = 8
 
-                if 'use_low_dim_lstm' in conf:
+                enc4 = slim.layers.conv2d(  # 8x8x enc4_num_ft_mps
+                    enc3, enc4_num_ft_mps, [3, 3], stride=1, scope='conv6')
 
-                    enc4 = slim.layers.conv2d(  # 8x8x8
-                        enc3, 8, [3, 3], stride=1, scope='conv6')
+                if '4x4lowdim' in conf:
+                    enc5 = slim.layers.conv2d(  # 8x8x1
+                        enc4, 1, [3, 3], stride=1, scope='conv7')
 
-                    enc4_flat = tf.reshape(enc4, [batch_size, - 1])
-
-                    with tf.variable_scope('low_dim_lstm', reuse=reuse):
-                        hidden4, low_dim_lstm_state =low_dim_lstm(enc4_flat, low_dim_lstm_state)
-                    low_dim_state = hidden4
-                elif 'fully_connected_low_dim_state' in conf:
-                    enc3_flat = tf.reshape(enc3, [batch_size, - 1])
-                    enc_fully1 = slim.layers.fully_connected(
-                        enc3_flat,
-                        400,
-                        scope='enc_fully1')
-
-                    dim_low_state = 200
-                    enc_fully2 = slim.layers.fully_connected(
-                        enc_fully1,
-                        dim_low_state,
-                        scope='enc_fully2')
-
-                    low_dim_state = enc_fully2
-                    dec4 = low_dim_state
-
-                if 'use_low_dim_lstm' in conf or 'fully_connected_low_dim_state' in conf:
-                    # inferred low dimensional state:
-                    inf_low_state_list.append(low_dim_state)
-
-                    smear = tf.reshape(
-                        low_dim_state,
-                        [batch_size, 1, 1, dim_low_state])
-                    smear = tf.tile(  # 8x8xdim_hidden_state
-                        smear, [1, int(enc2.get_shape()[1]), int(enc2.get_shape()[2]), 1])
-
-                    dec4 = slim.layers.conv2d_transpose(  # 8x8x8
-                        smear, 8, 3, stride=1, scope='convt0')
-
-                if 'use_conv_low_dim_state' in conf:
-
-                    enc4 = slim.layers.conv2d(  # 8x8x8
-                        enc3, 8, [3, 3], stride=1, scope='conv6')
-
-                    if '4x4lowdim' in conf:
-                        enc5 = slim.layers.conv2d(  # 8x8x1
-                            enc4, 1, [3, 3], stride=1, scope='conv7')
-
-                        low_dim_state = slim.layers.conv2d(  # 4x4x1
-                            enc5, 1, [3, 3], stride=2, scope='conv8')
-
-
+                    low_dim_state = slim.layers.conv2d(  # 4x4x1
+                        enc5, 1, [3, 3], stride=2, scope='conv8')
+                else:
+                    if conf['num_lt_featuremaps'] in conf:
+                        num_lt_feature = conf['num_lt_featuremaps']
                     else:
-                        low_dim_state = slim.layers.conv2d(  # 8x8x1
-                            enc4, 1, [3, 3], stride=1, scope='conv7')
+                        num_lt_feature = 1
+                    low_dim_state = slim.layers.conv2d(  # 8x8x1
+                        enc4, num_lt_feature, [3, 3], stride=1, scope='conv7')
 
                 inf_low_state_list.append(low_dim_state)
-
-
                 pred_low_state_list.append(project_fwd_lowdim(conf, low_dim_state))
 
                 ## start decoding from here:
@@ -245,9 +209,7 @@ def construct_model(images,
                 assert '4x4lowdim' not in conf
                 print 'decode with predicted lt-state at t{}'.format(t)
 
-
                 pred_low_state_list.append(project_fwd_lowdim(conf, pred_low_state_list[-1]))
-
                 low_dim_state = pred_low_state_list[-1]
 
             if '4x4lowdim' in conf:
@@ -319,11 +281,31 @@ def decode_low_dim_obs(conf, low_dim_state):
         scope='state_enc1')
     state_enc2 = slim.layers.fully_connected(
         state_enc1,
-        # int(current_state.get_shape()[1]),
         4,
         scope='state_enc2',
         activation_fn=None)
-    current_state = tf.squeeze(state_enc2)
+
+    if not 'expanded_stateextract' in conf:
+        current_state = tf.squeeze(state_enc2)
+    else:
+        print 'using expanded state extraction'
+        state_enc3 = slim.layers.fully_connected(
+            state_enc2,
+            100,
+            scope='state_enc1')
+
+        state_enc4 = slim.layers.fully_connected(
+            state_enc3,
+            100,
+            scope='state_enc1')
+
+        state_enc5 = slim.layers.fully_connected(
+            state_enc4,
+            4,
+            scope='state_enc1')
+
+        current_state = tf.squeeze(state_enc5)
+
     return current_state
 
 
