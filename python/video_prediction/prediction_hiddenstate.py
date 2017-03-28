@@ -292,17 +292,17 @@ def decode_low_dim_obs(conf, low_dim_state):
         state_enc3 = slim.layers.fully_connected(
             state_enc2,
             100,
-            scope='state_enc1')
+            scope='state_enc3')
 
         state_enc4 = slim.layers.fully_connected(
             state_enc3,
             100,
-            scope='state_enc1')
+            scope='state_enc4')
 
         state_enc5 = slim.layers.fully_connected(
             state_enc4,
             4,
-            scope='state_enc1')
+            scope='state_enc5')
 
         current_state = tf.squeeze(state_enc5)
 
