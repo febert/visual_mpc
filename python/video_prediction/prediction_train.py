@@ -4,6 +4,7 @@ import tensorflow as tf
 import imp
 import sys
 import cPickle
+import pdb
 
 from utils_vpred.adapt_params_visualize import adapt_params_visualize
 from tensorflow.python.platform import app
@@ -56,13 +57,23 @@ def mean_squared_error(true, pred):
 
 
 def fft_cost(true, pred):
-    """
 
-    :param true:
-    :param pred:
-    :return:
-    """
+    #loop over the color channels:
+    cost = 0.
+    for i in range(3):
 
+        slice_true = tf.slice(true,[0,0,0,i],[-1,-1,-1,1])
+        slice_pred = tf.slice(pred, [0, 0, 0, i], [-1, -1, -1, 1])
+
+        slice_true = tf.squeeze(tf.complex(slice_true, tf.zeros_like(slice_true)))
+        slice_pred = tf.squeeze(tf.complex(slice_pred, tf.zeros_like(slice_pred)))
+
+        true_fft = tf.fft2d(slice_true)
+        pred_fft = tf.fft2d(slice_pred)
+
+        cost += tf.reduce_sum(tf.square(tf.complex_abs(true_fft - pred_fft))) / tf.to_float(tf.size(pred_fft))
+
+    return cost
 
 
 
@@ -145,11 +156,23 @@ class Model(object):
                 range(len(gen_images)), images[conf['context_frames']:],
                 gen_images[conf['context_frames'] - 1:]):
             recon_cost = mean_squared_error(x, gx)
+
             psnr_i = peak_signal_to_noise_ratio(x, gx)
             psnr_all += psnr_i
             summaries.append(
                 tf.scalar_summary(prefix + '_recon_cost' + str(i), recon_cost))
             summaries.append(tf.scalar_summary(prefix + '_psnr' + str(i), psnr_i))
+
+            if 'fftcost' in conf:
+                print 'using fftcost'
+                fftcost = fft_cost(x, gx)
+                summaries.append(
+                    tf.scalar_summary(prefix + '_fft_recon_cost' + str(i), fftcost))
+
+                recon_cost += fftcost
+                if 'fftonly' in conf:
+                    print 'only using fft cost'
+                    recon_cost = fftcost
 
             loss += recon_cost*cost_sel[i]
 
