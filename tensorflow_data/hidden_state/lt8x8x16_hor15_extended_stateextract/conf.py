@@ -22,7 +22,7 @@ configuration = {
 'use_state': 1,             #'Whether or not to give the state+action to the model' ,
 'model': 'DNA',            #'model architecture to use - CDNA, DNA, or STP' ,
 'num_masks': 1,            # 'number of masks, usually 1 for DNA, 10 for CDNA, STN.' ,
-'schedsamp_k': 900.0,       # 'The k hyperparameter for scheduled sampling -1 for no scheduled sampling.' ,
+'schedsamp_k': 10000,       # 'The k hyperparameter for scheduled sampling -1 for no scheduled sampling.' ,
 'train_val_split': 0.95,    #'The percentage of files to use for the training set vs. the validation set.' ,
 'batch_size': 32,           #'batch size for training' ,
 'learning_rate': 0.001,     #'the base learning rate of the generator' ,

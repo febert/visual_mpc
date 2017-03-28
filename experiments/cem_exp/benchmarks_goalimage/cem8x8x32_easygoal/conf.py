@@ -10,11 +10,12 @@ OUT_DIR = current_dir + '/modeldata'
 from video_prediction.setup_predictor_ltstate import setup_predictor
 
 configuration = {
-'experiment_name': 'rndaction_var10',
+'experiment_name': __file__,
+'setup_predictor': setup_predictor,
 'output_dir': OUT_DIR,      #'directory for model checkpoints.' ,
 'current_dir': current_dir,   #'directory for writing summary.' ,
 'num_iterations': 50000,   #'number of training iterations.' ,
-'pretrained_model': '',     # 'filepath of a pretrained model to resume training from.' ,
+'pretrained_model': LSDC_BASE +'/tensorflow_data/hidden_state/lt8x8x32_hor15/modeldata/model48002',     # 'filepath of a pretrained model to resume training from.' ,
 'sequence_length': 15, ##################15,      # 'sequence length, including context frames.' ,
 'skip_frame': 1,            # 'use ever i-th frame to increase prediction horizon' ,
 'context_frames': 2,        # of frames before predictions.' ,

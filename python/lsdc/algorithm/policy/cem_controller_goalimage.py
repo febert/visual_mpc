@@ -263,7 +263,9 @@ class CEM_controller(Policy):
 
             if not 'usepixelerror' in self.policyparams:
                 for b in range(self.netconf['batch_size']):
-                    sq_distance[b] = np.linalg.norm(self.goal_state - inf_low_state[-1][b])
+                    pdb.set_trace()
+                    sq_distance[b] = np.linalg.norm(self.goal_state.flatten()
+                                                    - inf_low_state[-1][b].flatten())
             else:
                 print 'using pixelerror..'
                 for b in range(self.netconf['batch_size']):

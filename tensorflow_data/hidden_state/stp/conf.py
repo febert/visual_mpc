@@ -31,6 +31,7 @@ configuration = {
 'use_conv_low_dim_state':'',  # use low dimensional state computed by convolutions
 'train_latent_model':'',       # whether to add a loss for the latent space model to the objective
 'lt_state_factor': 1.0,
-'use_masks':""
+'use_masks':"",
+'num_lt_featuremaps': 32,
 # 'prop_latent':''
 }

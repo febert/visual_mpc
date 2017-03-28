@@ -178,7 +178,6 @@ def construct_model(images,
 
                 if 'num_lt_featuremaps' in conf:
                     enc4_num_ft_mps = conf['num_lt_featuremaps']
-                    print 'using {} featuremaps for enc4'.format(enc4_num_ft_mps)
                 else:
                     enc4_num_ft_mps = 8
 
@@ -192,10 +191,12 @@ def construct_model(images,
                     low_dim_state = slim.layers.conv2d(  # 4x4x1
                         enc5, 1, [3, 3], stride=2, scope='conv8')
                 else:
-                    if conf['num_lt_featuremaps'] in conf:
+                    if 'num_lt_featuremaps' in conf:
                         num_lt_feature = conf['num_lt_featuremaps']
                     else:
                         num_lt_feature = 1
+                    print 'number of latent featrue maps: ', num_lt_feature
+
                     low_dim_state = slim.layers.conv2d(  # 8x8x1
                         enc4, num_lt_feature, [3, 3], stride=1, scope='conv7')
 
