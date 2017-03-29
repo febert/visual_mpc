@@ -197,7 +197,7 @@ def construct_model(images,
                         num_lt_feature = 1
                     print 'number of latent featrue maps: ', num_lt_feature
 
-                    low_dim_state = slim.layers.conv2d(  # 8x8x1
+                    low_dim_state = slim.layers.conv2d(  # 8x8xnum_lt_feature
                         enc4, num_lt_feature, [3, 3], stride=1, scope='conv7')
 
                 inf_low_state_list.append(low_dim_state)
