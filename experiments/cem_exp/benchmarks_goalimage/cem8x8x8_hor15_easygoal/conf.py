@@ -15,7 +15,7 @@ configuration = {
 'output_dir': OUT_DIR,      #'directory for model checkpoints.' ,
 'current_dir': current_dir,   #'directory for writing summary.' ,
 'num_iterations': 50000,   #'number of training iterations.' ,
-'pretrained_model': LSDC_BASE +'/tensorflow_data/hidden_state/lt8x8x16_hor15_extended_stateextract/modeldata/model48002',     # 'filepath of a pretrained model to resume training from.' ,
+'pretrained_model': LSDC_BASE +'/tensorflow_data/hidden_state/lt8x8x8_hor15_extended_stateextract/modeldata/model48002',     # 'filepath of a pretrained model to resume training from.' ,
 'sequence_length': 15, ##################15,      # 'sequence length, including context frames.' ,
 'skip_frame': 1,            # 'use ever i-th frame to increase prediction horizon' ,
 'context_frames': 2,        # of frames before predictions.' ,
@@ -33,5 +33,5 @@ configuration = {
 'train_latent_model':'',       # whether to add a loss for the latent space model to the objective
 'dna_size': 9,
 'lt_state_factor': 1.0,
-'num_lt_featuremaps':16
+'num_lt_featuremaps':8
 }
