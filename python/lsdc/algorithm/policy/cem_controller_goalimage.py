@@ -33,7 +33,8 @@ class CEM_controller(Policy):
 
         self.model = mujoco_py.MjModel(self.agentparams['filename'])
 
-        self.verbose = True
+        if 'verbose' in self.policyparams:
+            self.verbose = True
 
         if 'use_first_plan' in self.policyparams:
             self.use_first_plan = self.policyparams['use_first_plan']
