@@ -33,7 +33,7 @@ class CEM_controller(Policy):
 
         self.model = mujoco_py.MjModel(self.agentparams['filename'])
 
-        self.verbose = False
+        self.verbose = True
 
         if 'use_first_plan' in self.policyparams:
             self.use_first_plan = self.policyparams['use_first_plan']
@@ -312,11 +312,11 @@ class CEM_controller(Policy):
                                                                    np.where(sorted == i)[0][0]))
                 f.write('action {}\n'.format(actions[i]))
 
-            pdb.set_trace()
-            for i in range(self.K):
-                bestind = bestindices[i]
-                goalim  = self.goal_image[selected_scores[bestind]]
-                Image.fromarray((goalim * 255.).astype(np.uint8)).show()
+            # pdb.set_trace()
+            # for i in range(self.K):
+            #     bestind = bestindices[i]
+            #     goalim  = self.goal_image[selected_scores[bestind]]
+            #     Image.fromarray((goalim * 255.).astype(np.uint8)).show()
 
             pdb.set_trace()
 
@@ -487,7 +487,6 @@ class CEM_controller(Policy):
         inf_low_state, gen_images, gen_sates = self.predictor(  input_images= goal_image,
                                                                 input_state=last_states,
                                                                 input_actions = actions)
-
         # taking the inferred latent state of the last time step
 
         if 'no_pix_distrib' not in self.netconf:

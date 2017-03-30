@@ -139,7 +139,9 @@ def main():
             lsdc.policy.policyparams['rec_distrib'] =  bench_dir + '/videos_distrib/traj{0}_conf{1}'.format(traj, i_conf)
             lsdc.agent.sample(lsdc.policy)
             scores[traj] = lsdc.agent.final_poscost
-            anglecost.append(lsdc.agent.final_anglecost)
+
+            if 'use_goalimage' in conf['agent']:
+                anglecost.append(lsdc.agent.final_anglecost)
 
             print 'score of traj', traj, ':', scores[traj]
 
@@ -159,7 +161,10 @@ def main():
         f.write('traj: score, anglecost, rank\n')
         f.write('----------------------\n')
         for t in range(traj):
-            f.write('{0}: {1}, {2}, :{3}\n'.format(t, rel_scores[t], anglecost[t], np.where(sorted_ind == t)[0][0]))
+            if 'use_goalimage' in conf['agent']:
+                f.write('{0}: {1}, {2}, :{3}\n'.format(t, rel_scores[t], anglecost[t], np.where(sorted_ind == t)[0][0]))
+            else:
+                f.write('{0}: {1}, :{2}\n'.format(t, rel_scores[t], np.where(sorted_ind == t)[0][0]))
         f.close()
 
     print 'overall best score: {0} of traj {1}'.format(scores[sorted_ind[0]], sorted_ind[0])

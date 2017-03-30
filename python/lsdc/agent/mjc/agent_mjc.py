@@ -129,7 +129,10 @@ class AgentMuJoCo(Agent):
             # print accum_touch
 
         if not self._hyperparams['data_collection']:
-            self.final_poscost, self.final_anglecost = self.eval_action(traj, t, getanglecost=True)
+            if 'use_goalimage' in self._hyperparams:
+                self.final_poscost, self.final_anglecost = self.eval_action(traj, t, getanglecost=True)
+            else:
+                self.final_poscost = self.eval_action(traj, t)
 
         if 'save_goal_image' in self._hyperparams:
             self.save_goal_image_conf(traj)
