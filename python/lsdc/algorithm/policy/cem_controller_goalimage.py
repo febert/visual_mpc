@@ -35,6 +35,8 @@ class CEM_controller(Policy):
 
         if 'verbose' in self.policyparams:
             self.verbose = True
+        else:
+            self.verbose = False
 
         if 'use_first_plan' in self.policyparams:
             self.use_first_plan = self.policyparams['use_first_plan']
