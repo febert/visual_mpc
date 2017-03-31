@@ -2,7 +2,7 @@ import os
 current_dir = os.path.dirname(os.path.realpath(__file__))
 
 # tf record data location:
-DATA_DIR = '/'.join(str.split(current_dir, '/')[:-2]) + '/pushing_data/random_action_var10_vellimited/train'
+DATA_DIR = '/'.join(str.split(current_dir, '/')[:-2]) + '/pushing_data/random_action_var10/train'
 
 # local output directory
 OUT_DIR = current_dir + '/modeldata'
@@ -31,5 +31,6 @@ configuration = {
 'file_visual': '',          # datafile used for making visualizations
 'penal_last_only': False,   # penalize only the last state, to get sharper predictions
 'dna_size': 9,              #size of DNA kerns
-'fftcost':''
+'fftcost':'',
+'fftonly':''
 }

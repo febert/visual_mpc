@@ -31,6 +31,5 @@ configuration = {
 'file_visual': '',          # datafile used for making visualizations
 'penal_last_only': False,   # penalize only the last state, to get sharper predictions
 'dna_size': 9,              #size of DNA kerns
-'fftcost':'',
-'fftonly':''
+'fftcost':''
 }
