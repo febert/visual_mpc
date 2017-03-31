@@ -488,6 +488,9 @@ class CEM_controller(Policy):
         inf_low_state, gen_images, gen_sates = self.predictor(  input_images= goal_image,
                                                                 input_state=last_states,
                                                                 input_actions = actions)
+
+    #TODO: Look at the predictions at the goalstate!!!!!!!!!
+
         # taking the inferred latent state of the last time step
 
         if 'no_pix_distrib' not in self.netconf:

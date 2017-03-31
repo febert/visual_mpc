@@ -317,13 +317,13 @@ class CEM_controller(Policy):
         if use_genimg:
             cPickle.dump([orig_images, self.corr_gen_images, self.rec_input_distrib, self.desig_pix],
                          open(file_path + '/correction.pkl', 'wb'))
-            distrib = makegif.pix_distrib_video(self.rec_input_distrib)
+            distrib = makegif.make_color_scheme(self.rec_input_distrib)
             distrib = makegif.add_crosshairs(distrib, self.desig_pix)
             frame_list = makegif.assemble_gif([orig_images, self.corr_gen_images, distrib], num_exp=1)
         else:
             cPickle.dump([orig_images, self.rec_input_distrib],
                          open(file_path + '/correction.pkl', 'wb'))
-            distrib = makegif.pix_distrib_video(self.rec_input_distrib)
+            distrib = makegif.make_color_scheme(self.rec_input_distrib)
             distrib = makegif.add_crosshairs(distrib, self.desig_pix)
             frame_list = makegif.assemble_gif([orig_images, distrib], num_exp=1)
 

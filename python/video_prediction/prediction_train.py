@@ -60,6 +60,8 @@ def fft_cost(true, pred):
 
     #loop over the color channels:
     cost = 0.
+    true_fft_abssum = 0
+    pred_fft_abssum = 0
     for i in range(3):
 
         slice_true = tf.slice(true,[0,0,0,i],[-1,-1,-1,1])
@@ -73,9 +75,10 @@ def fft_cost(true, pred):
 
         cost += tf.reduce_sum(tf.square(tf.complex_abs(true_fft - pred_fft))) / tf.to_float(tf.size(pred_fft))
 
-    return cost
+        true_fft_abssum += tf.complex_abs(true_fft)
+        pred_fft_abssum += tf.complex_abs(pred_fft)
 
-
+    return cost, true_fft_abssum, pred_fft_abssum
 
 class Model(object):
     def __init__(self,
@@ -143,38 +146,37 @@ class Model(object):
                     context_frames=conf['context_frames'],
                     conf= conf)
 
-        if conf['penal_last_only']:
-            cost_sel = np.zeros(conf['sequence_length']-2)
-            cost_sel[-1] = 1
-            print 'using the last state for training only:', cost_sel
-        else:
-            cost_sel = np.ones(conf['sequence_length']-2)
-
         # L2 loss, PSNR for eval.
+        true_fft_list, pred_fft_list = [], []
         loss, psnr_all = 0.0, 0.0
         for i, x, gx in zip(
                 range(len(gen_images)), images[conf['context_frames']:],
                 gen_images[conf['context_frames'] - 1:]):
-            recon_cost = mean_squared_error(x, gx)
+            recon_cost_mse = mean_squared_error(x, gx)
 
             psnr_i = peak_signal_to_noise_ratio(x, gx)
             psnr_all += psnr_i
             summaries.append(
-                tf.scalar_summary(prefix + '_recon_cost' + str(i), recon_cost))
+                tf.scalar_summary(prefix + '_recon_cost' + str(i), recon_cost_mse))
             summaries.append(tf.scalar_summary(prefix + '_psnr' + str(i), psnr_i))
 
             if 'fftcost' in conf:
                 print 'using fftcost'
-                fftcost = fft_cost(x, gx)
+                fftcost, true_fft, pred_fft = fft_cost(x, gx)
+                true_fft_list.append(true_fft)
+                pred_fft_list.append(pred_fft)
                 summaries.append(
                     tf.scalar_summary(prefix + '_fft_recon_cost' + str(i), fftcost))
 
-                recon_cost += fftcost
                 if 'fftonly' in conf:
                     print 'only using fft cost'
                     recon_cost = fftcost
+                else:
+                    recon_cost = fftcost + recon_cost_mse
+            else:
+                recon_cost = recon_cost_mse
 
-            loss += recon_cost*cost_sel[i]
+            loss += recon_cost
 
         for i, state, gen_state in zip(
                 range(len(gen_states)), states[conf['context_frames']:],
@@ -182,7 +184,7 @@ class Model(object):
             state_cost = mean_squared_error(state, gen_state) * 1e-4 * conf['use_state']
             summaries.append(
                 tf.scalar_summary(prefix + '_state_cost' + str(i), state_cost))
-            loss += state_cost*cost_sel[i]
+            loss += state_cost
         summaries.append(tf.scalar_summary(prefix + '_psnr_all', psnr_all))
         self.psnr_all = psnr_all
 
@@ -195,10 +197,13 @@ class Model(object):
         self.train_op = tf.train.AdamOptimizer(self.lr).minimize(loss)
         self.summ_op = tf.merge_summary(summaries)
 
+        self.true_fft = true_fft_list
+        self.pred_fft = pred_fft_list
         self.gen_images= gen_images
         self.gen_masks = gen_masks
         self.gen_distrib = gen_distrib
         self.gen_states = gen_states
+
 
 
 def main(unused_argv, conf_script= None):
@@ -253,10 +258,20 @@ def main(unused_argv, conf_script= None):
         feed_dict = {val_model.lr: 0.0,
                      val_model.prefix: 'vis',
                      val_model.iter_num: 0 }
-        gen_images, ground_truth, mask_list = sess.run([val_model.gen_images,
-                                                        val_images, val_model.gen_masks],
-                                                       feed_dict)
         file_path = conf['output_dir']
+
+        if 'fftcost' in conf:
+            true_fft, pred_fft, gen_images, ground_truth, mask_list = sess.run([val_model.true_fft, val_model.pred_fft ,val_model.gen_images,
+                                                            val_images, val_model.gen_masks],
+                                                           feed_dict)
+            cPickle.dump(true_fft, open(file_path + '/true_fft.pkl', 'wb'))
+            cPickle.dump(pred_fft, open(file_path + '/pred_fft.pkl', 'wb'))
+        else:
+            gen_images, ground_truth, mask_list = sess.run([val_model.gen_images,
+                                                            val_images, val_model.gen_masks,
+                                                            ],
+                                                           feed_dict)
+
         cPickle.dump(gen_images, open(file_path + '/gen_image_seq.pkl','wb'))
         cPickle.dump(ground_truth, open(file_path + '/ground_truth.pkl', 'wb'))
         cPickle.dump(mask_list, open(file_path + '/mask_list.pkl', 'wb'))

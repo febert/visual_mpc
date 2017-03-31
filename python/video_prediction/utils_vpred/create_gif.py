@@ -7,6 +7,7 @@ import imp
 from PIL import Image
 import re
 import matplotlib.pyplot as plt
+import pdb
 
 
 def npy_to_gif(im_list, filename):
@@ -21,16 +22,33 @@ def npy_to_gif(im_list, filename):
     clip.write_gif(filename + '.gif')
     return
 
+def visualize_fft():
+    true_fft = cPickle.load(open(file_path + '/true_fft.pkl', "rb"))
+    true_fft = [np.clip(el,0, 5) for el in true_fft]
+    true_fft = make_color_scheme(true_fft)
+
+    pred_fft = cPickle.load(open(file_path + '/pred_fft.pkl', "rb"))
+    pred_fft = [np.clip(el, 0, 5) for el in pred_fft]
+    pred_fft = make_color_scheme(pred_fft)
+
+    return true_fft, pred_fft
+
 def comp_video(file_path, conf=None, suffix = None, gif_name= None):
     print 'reading files from:', file_path
     ground_truth = cPickle.load(open(file_path + '/ground_truth.pkl', "rb"))
     gen_images = cPickle.load(open(file_path + '/gen_image_seq.pkl', "rb"))
 
+    if 'fftcost' in conf:
+        true_fft, pred_fft = visualize_fft()
+
     if not isinstance(ground_truth, list):
         ground_truth = np.split(ground_truth, ground_truth.shape[1], axis=1)
         ground_truth = np.squeeze(ground_truth)
 
-    fused_gif = assemble_gif([ground_truth, gen_images])
+    if 'fftcost' in conf:
+        fused_gif = assemble_gif([ground_truth, true_fft, gen_images, pred_fft])
+    else:
+        fused_gif = assemble_gif([ground_truth, gen_images])
 
     if conf is not None:
         itr_vis = re.match('.*?([0-9]+)$', conf['visualize']).group(1)
@@ -52,23 +70,25 @@ def comp_single_video(file_path, ground_truth):
     fused_gif = assemble_gif([ground_truth])
     npy_to_gif(fused_gif, file_path)
 
-def pix_distrib_video(pix_distrib):
+def make_color_scheme(input_img_list):
     """
+    :param input_img_list: list of single channel images
+    :param output_img_list: list of single channel images
     change to jet colorscheme, mark maximum value pixel
     :return:
     """
-    new_pix_distrib_list = []
+    output_image_list = []
 
-    for t in range(len(pix_distrib)):
+    for t in range(len(input_img_list)):
 
 
-        new_pix_distrib = np.zeros((pix_distrib[0].shape[0], 64, 64, 3), dtype=np.float32)
+        output_image = np.zeros((input_img_list[0].shape[0], 64, 64, 3), dtype=np.float32)
 
-        for b in range(pix_distrib[0].shape[0]):
+        for b in range(input_img_list[0].shape[0]):
 
-            img = pix_distrib[t][b].squeeze()
+            img = input_img_list[t][b].squeeze()
 
-            fig = plt.figure(figsize=(1, 1), dpi=64)
+            fig = plt.figure(figsize=(2, 2), dpi=32)
             fig.add_subplot(111)
             plt.subplots_adjust(left=0, bottom=0, right=1, top=1, wspace=0, hspace=0)
 
@@ -86,18 +106,18 @@ def pix_distrib_video(pix_distrib):
             data = np.fromstring(fig.canvas.tostring_rgb(), dtype=np.uint8, sep='')
             data = data.reshape(fig.canvas.get_width_height()[::-1] + (3,))
 
-            data = data.astype(np.float32) / 256.0
-            new_pix_distrib[b] = data
+            data = data.astype(np.float32) / 255.0
+            output_image[b] = data
 
             # import pdb;
             # pdb.set_trace()
             # plt.show()
             # Image.fromarray(np.uint8(data*255)).show()
 
-        new_pix_distrib_list.append(new_pix_distrib)
+        output_image_list.append(output_image)
 
         # pdb.set_trace()
-    return new_pix_distrib_list
+    return output_image_list
 
 def add_crosshairs(distrib, pix_list):
     """
@@ -121,7 +141,7 @@ def comp_pix_distrib(file_path, name= None, masks = False, examples = 8):
 
     print 'finished loading'
 
-    pix_distrib = pix_distrib_video(pix_distrib)
+    pix_distrib = make_color_scheme(pix_distrib)
 
     videolist = [gtruth_images, gen_images, pix_distrib]
 
@@ -181,6 +201,7 @@ def assemble_gif(video_batch, num_exp = 8):
 
     return fullframe_list
 
+
 def comp_masks(file_path, conf, pred = None, suffix = None):
     masks = cPickle.load(open(file_path + '/mask_list.pkl', "rb"))
     mask_list = []
@@ -216,31 +237,9 @@ if __name__ == '__main__':
     # file_path = '/'.join(splitted[:-3] + ['tensorflow_data/skip_frame/use_every4'])
     # file_path = '/home/frederik/Documents/lsdc/tensorflow_data/skip_frame/use_every_4'
 
-    file_path = '/home/frederik/Documents/lsdc/tensorflow_data/stochastic_search_multgpu/modeldata'
-    hyperparams = imp.load_source('hyperparams', '/home/frederik/Documents/lsdc/tensorflow_data/stochastic_search_multgpu/conf.py' )
+    file_path = '/home/frederik/Documents/lsdc/tensorflow_data/fft_only/modeldata'
+    hyperparams = imp.load_source('hyperparams', '/home/frederik/Documents/lsdc/tensorflow_data/fft_only/conf.py' )
     conf = hyperparams.configuration
-    conf['visualize'] = conf['output_dir'] + '/model10002'
+    conf['visualize'] = conf['output_dir'] + '/model48002'
     pred = comp_video(file_path, conf)
 
-    # file_path = '/home/frederik/Documents/lsdc/experiments/cem_exp/data_files'
-    # comp_pix_distrib(file_path, masks= False)
-
-    # file = '/home/frederik/Documents/lsdc/experiments/cem_exp/data_files'
-
-    # file = '/home/frederik/Documents/lsdc/experiments/cem_exp/videos_distrib'
-    #
-    # l = cPickle.load(open(file + '/correction.pkl', "rb"))
-    #
-    # orig_images, gen_images, corr_distrib, desig_pix = l[0], l[1], l[2], l[3]
-    #
-    #
-    #
-    # corr_distrib = pix_distrib_video(corr_distrib)
-    # corr_distrib = add_crosshairs(corr_distrib, desig_pix)
-    #
-    # orig_images = [img.astype(np.float32) / 255. for img in orig_images]
-    #
-    # frame_list = assemble_gif([orig_images, gen_images, corr_distrib], num_exp= 1)
-    #
-    #
-    # npy_to_gif(frame_list, file + '/correction')
