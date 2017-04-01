@@ -22,7 +22,7 @@ def npy_to_gif(im_list, filename):
     clip.write_gif(filename + '.gif')
     return
 
-def visualize_fft():
+def visualize_fft(file_path):
     true_fft = cPickle.load(open(file_path + '/true_fft.pkl', "rb"))
     true_fft = [np.clip(el,0, 5) for el in true_fft]
     true_fft = make_color_scheme(true_fft)
@@ -39,7 +39,7 @@ def comp_video(file_path, conf=None, suffix = None, gif_name= None):
     gen_images = cPickle.load(open(file_path + '/gen_image_seq.pkl', "rb"))
 
     if 'fftcost' in conf:
-        true_fft, pred_fft = visualize_fft()
+        true_fft, pred_fft = visualize_fft(file_path)
 
     if not isinstance(ground_truth, list):
         ground_truth = np.split(ground_truth, ground_truth.shape[1], axis=1)
