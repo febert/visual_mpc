@@ -38,17 +38,19 @@ def comp_video(file_path, conf=None, suffix = None, gif_name= None):
     ground_truth = cPickle.load(open(file_path + '/ground_truth.pkl', "rb"))
     gen_images = cPickle.load(open(file_path + '/gen_image_seq.pkl', "rb"))
 
-    if 'fftcost' in conf:
-        true_fft, pred_fft = visualize_fft(file_path)
+    if conf != None:
+        if 'fftcost' in conf:
+            true_fft, pred_fft = visualize_fft(file_path)
 
     if not isinstance(ground_truth, list):
         ground_truth = np.split(ground_truth, ground_truth.shape[1], axis=1)
         ground_truth = np.squeeze(ground_truth)
 
-    if 'fftcost' in conf:
-        fused_gif = assemble_gif([ground_truth, true_fft, gen_images, pred_fft])
-    else:
-        fused_gif = assemble_gif([ground_truth, gen_images])
+    if conf != None:
+        if 'fftcost' in conf:
+            fused_gif = assemble_gif([ground_truth, true_fft, gen_images, pred_fft])
+        else: fused_gif = assemble_gif([ground_truth, gen_images])
+    else:     fused_gif = assemble_gif([ground_truth, gen_images])
 
     if conf is not None:
         itr_vis = re.match('.*?([0-9]+)$', conf['visualize']).group(1)

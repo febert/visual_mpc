@@ -56,7 +56,7 @@ def mean_squared_error(true, pred):
     return tf.reduce_sum(tf.square(true - pred)) / tf.to_float(tf.size(pred))
 
 
-def fft_cost(true, pred):
+def fft_cost(true, pred, conf, fft_weights = None):
 
     #loop over the color channels:
     cost = 0.
@@ -73,7 +73,11 @@ def fft_cost(true, pred):
         true_fft = tf.fft2d(slice_true)
         pred_fft = tf.fft2d(slice_pred)
 
-        cost += tf.reduce_sum(tf.square(tf.complex_abs(true_fft - pred_fft))) / tf.to_float(tf.size(pred_fft))
+        if 'fft_emph_highfreq' in conf:
+            abs_diff = tf.mul(tf.complex_abs(true_fft - pred_fft), fft_weights)
+            cost += tf.reduce_sum(tf.square(abs_diff)) / tf.to_float(tf.size(pred_fft))
+        else:
+            cost += tf.reduce_sum(tf.square(tf.complex_abs(true_fft - pred_fft))) / tf.to_float(tf.size(pred_fft))
 
         true_fft_abssum += tf.complex_abs(true_fft)
         pred_fft_abssum += tf.complex_abs(pred_fft)
@@ -149,6 +153,9 @@ class Model(object):
         # L2 loss, PSNR for eval.
         true_fft_list, pred_fft_list = [], []
         loss, psnr_all = 0.0, 0.0
+
+        self.fft_weights = tf.placeholder(tf.float32, [64, 64])
+
         for i, x, gx in zip(
                 range(len(gen_images)), images[conf['context_frames']:],
                 gen_images[conf['context_frames'] - 1:]):
@@ -162,7 +169,7 @@ class Model(object):
 
             if 'fftcost' in conf:
                 print 'using fftcost'
-                fftcost, true_fft, pred_fft = fft_cost(x, gx)
+                fftcost, true_fft, pred_fft = fft_cost(x, gx, conf, self.fft_weights)
                 true_fft_list.append(true_fft)
                 pred_fft_list.append(pred_fft)
                 summaries.append(
@@ -295,12 +302,15 @@ def main(unused_argv, conf_script= None):
     starttime = datetime.now()
     t_iter = []
     # Run training.
+    fft_weights = calc_fft_weight()
+
     for itr in range(itr_0, conf['num_iterations'], 1):
         t_startiter = datetime.now()
         # Generate new batch of data_files.
         feed_dict = {model.prefix: 'train',
                      model.iter_num: np.float32(itr),
-                     model.lr: conf['learning_rate']}
+                     model.lr: conf['learning_rate'],
+                     model.fft_weights: fft_weights}
         cost, _, summary_str = sess.run([model.loss, model.train_op, model.summ_op],
                                         feed_dict)
 
@@ -312,7 +322,8 @@ def main(unused_argv, conf_script= None):
             # Run through validation set.
             feed_dict = {val_model.lr: 0.0,
                          val_model.prefix: 'val',
-                         val_model.iter_num: np.float32(itr)}
+                         val_model.iter_num: np.float32(itr),
+                         val_model.fft_weights: fft_weights}
             _, val_summary_str = sess.run([val_model.train_op, val_model.summ_op],
                                           feed_dict)
             summary_writer.add_summary(val_summary_str, itr)
@@ -342,6 +353,18 @@ def main(unused_argv, conf_script= None):
     tf.logging.info('Training complete')
     tf.logging.flush()
 
+
+def calc_fft_weight():
+
+    weight = np.zeros((64,64))
+    for row in range(64):
+        for col in range(64):
+            p = np.array([row,col])
+            c = np.array([31,31])
+            weight[row, col] = np.linalg.norm(p -c)**2
+
+    weight /= np.max(weight)
+    return weight
 
 if __name__ == '__main__':
     tf.logging.set_verbosity(tf.logging.INFO)

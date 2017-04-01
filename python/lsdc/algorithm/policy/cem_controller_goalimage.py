@@ -35,6 +35,7 @@ class CEM_controller(Policy):
 
         if 'verbose' in self.policyparams:
             self.verbose = True
+            print 'using verbose mode!!!'
         else:
             self.verbose = False
 
