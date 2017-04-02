@@ -115,3 +115,5 @@ query_images/
 goalimage_var_ballpos
 
 results
+
+MUJOCO_LOG.TXT
