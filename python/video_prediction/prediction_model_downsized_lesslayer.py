@@ -22,6 +22,8 @@ import tensorflow.contrib.slim as slim
 from tensorflow.contrib.layers.python import layers as tf_layers
 from lstm_ops import basic_conv_lstm_cell
 
+import pdb
+
 # Amount to use when lower bounding tensors
 RELU_SHIFT = 1e-12
 
@@ -219,7 +221,15 @@ def construct_model(images,
                 stp_input0 = tf.reshape(hidden5, [int(batch_size), -1])
                 stp_input1 = slim.layers.fully_connected(
                     stp_input0, 100, scope='fc_stp')
-                transformed += stp_transformation(prev_image, stp_input1, num_masks)
+
+                # disabling capability to generete pixels
+                transformed = stp_transformation(prev_image, stp_input1, num_masks)
+                # transformed += stp_transformation(prev_image, stp_input1, num_masks)
+
+                if pix_distributions != None:
+                    transf_distrib = stp_transformation(prev_pix_distrib, stp_input1, num_masks, reuse=True)
+                pdb.set_trace()
+
             elif cdna:
                 cdna_input = tf.reshape(hidden5, [int(batch_size), -1])
 
@@ -285,7 +295,7 @@ def construct_model(images,
 
 
 ## Utility functions
-def stp_transformation(prev_image, stp_input, num_masks):
+def stp_transformation(prev_image, stp_input, num_masks, reuse= None):
     """Apply spatial transformer predictor (STP) to previous image.
 
     Args:
@@ -304,7 +314,8 @@ def stp_transformation(prev_image, stp_input, num_masks):
     for i in range(num_masks - 1):
         params = slim.layers.fully_connected(
             stp_input, 6, scope='stp_params' + str(i),
-            activation_fn=None) + identity_params
+            activation_fn=None,
+            reuse= reuse) + identity_params
         outsize = (prev_image.get_shape()[1], prev_image.get_shape()[2])
         transformed.append(transformer(prev_image, params, outsize))
 

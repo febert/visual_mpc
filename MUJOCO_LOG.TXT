@@ -85,3 +85,6 @@ WARNING: Nan, Inf or huge value in QVEL at DOF 7. The simulation is unstable. Ti
 Mon Dec 12 21:30:29 2016
 ERROR: Could not allocate memory
 
+Sun Apr  2 16:03:37 2017
+ERROR: Expired activation key
+
