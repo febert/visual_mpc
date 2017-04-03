@@ -24,7 +24,7 @@ SUMMARY_INTERVAL = 40
 VAL_INTERVAL = 200
 
 # How often to save a model checkpoint
-SAVE_INTERVAL = 20  #00 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+SAVE_INTERVAL = 2000
 
 FLAGS = flags.FLAGS
 flags.DEFINE_string('hyper', '', 'hyperparameters configuration file')
