@@ -223,7 +223,10 @@ def construct_model(images,
                     stp_input0, 100, scope='fc_stp')
 
                 # disabling capability to generete pixels
-                transformed = stp_transformation(prev_image, stp_input1, num_masks)
+                reuse_stp = None
+                if reuse:
+                    reuse_stp = reuse
+                transformed = stp_transformation(prev_image, stp_input1, num_masks, reuse_stp)
                 # transformed += stp_transformation(prev_image, stp_input1, num_masks)
 
                 if pix_distributions != None:
