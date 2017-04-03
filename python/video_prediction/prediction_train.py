@@ -24,12 +24,13 @@ SUMMARY_INTERVAL = 40
 VAL_INTERVAL = 200
 
 # How often to save a model checkpoint
-SAVE_INTERVAL = 2000
+SAVE_INTERVAL = 20  #00 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 
 FLAGS = flags.FLAGS
 flags.DEFINE_string('hyper', '', 'hyperparameters configuration file')
 flags.DEFINE_string('visualize', '', 'model within hyperparameter folder from which to create gifs')
 flags.DEFINE_integer('device', 0 ,'the value for CUDA_VISIBLE_DEVICES variable')
+flags.DEFINE_string('pretrained', None, 'path to model file from which to resume training')
 
 ## Helper functions
 def peak_signal_to_noise_ratio(true, pred):
@@ -289,7 +290,10 @@ def main(unused_argv, conf_script= None):
         return
 
     itr_0 =0
-    if conf['pretrained_model']:    # is the order of initialize_all_variables() and restore() important?!?
+
+    if FLAGS.pretrained != None:
+        conf['pretrained_model'] = FLAGS.pretrained
+
         saver.restore(sess, conf['pretrained_model'])
         # resume training at iteration step of the loaded model:
         import re

@@ -313,7 +313,7 @@ def stp_transformation(prev_image, stp_input, num_masks, reuse= None):
     identity_params = tf.convert_to_tensor(
         np.array([1.0, 0.0, 0.0, 0.0, 1.0, 0.0], np.float32))
     transformed = []
-    for i in range(num_masks - 1):
+    for i in range(num_masks):
         params = slim.layers.fully_connected(
             stp_input, 6, scope='stp_params' + str(i),
             activation_fn=None,
