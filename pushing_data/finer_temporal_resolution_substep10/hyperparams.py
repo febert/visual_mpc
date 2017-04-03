@@ -11,7 +11,6 @@ from lsdc.agent.mjc.agent_mjc import AgentMuJoCo
 from lsdc.algorithm.policy.random_impedance_point import Random_impedance_point
 from lsdc.algorithm.policy.random_policy import Randompolicy
 
-from lsdc.gui.config import generate_experiment_info
 
 from lsdc.proto.gps_pb2 import JOINT_ANGLES, JOINT_VELOCITIES, \
         END_EFFECTOR_POINTS, END_EFFECTOR_POINT_VELOCITIES, ACTION, \
@@ -41,7 +40,7 @@ common = {
     'experiment_name': 'my_experiment' + '_' + \
             datetime.strftime(datetime.now(), '%m-%d-%y_%H-%M'),
     'experiment_dir': EXP_DIR,
-    'data_files_dir': '/home/frederik/Documents/pushing_data/finer_temporal_resolution_substep10/train/',
+    'data_files_dir': '/home/frederik/Documents/lsdc/pushing_data/finer_temporal_resolution_substep10/train/',
     'target_filename': EXP_DIR + 'target.npz',
     'log_filename': EXP_DIR + 'log.txt',
     'conditions': 1,
@@ -60,8 +59,7 @@ agent = {
     'x0': np.array([0., 0., 0., 0.]),
     'dt': 0.05,
     'substeps': 10,  #6
-    'numactions': 5, # number of consecutive actions
-    'repeat': 6, # number of repeats for each action
+
     'conditions': common['conditions'],
     'T': 30,
     'skip_first': 5,   #skip first N time steps to let the scene settle
@@ -86,7 +84,9 @@ agent = {
 policy = {
     # 'type' : Random_impedance_point
     'type' : Randompolicy,
-    'initial_var': 40
+    'initial_var': 10,
+    'numactions': 5, # number of consecutive actions
+    'repeats': 6, # number of repeats for each action
 }
 
 

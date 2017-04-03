@@ -94,7 +94,8 @@ class AgentMuJoCo(Agent):
             for i in range(self._hyperparams['num_objects']):
                 traj.Object_pos[t,i,:] = self._model.data.qpos[i*7+2:i*7+9].squeeze()
 
-            traj.score[t] = self.eval_action(traj, t)
+            if not self._hyperparams['data_collection']:
+                traj.score[t] = self.eval_action(traj, t)
 
             self._store_image(t, traj)
 

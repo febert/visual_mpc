@@ -182,7 +182,7 @@ class LSDCMain(object):
         """
         traj = copy.deepcopy(traj)
         self.trajectory_list.append(traj)
-        traj_per_file = 256
+        traj_per_file = 12
         print 'traj_per_file', traj_per_file
         if len(self.trajectory_list) == traj_per_file:
             filename = 'traj_{0}_to_{1}'\

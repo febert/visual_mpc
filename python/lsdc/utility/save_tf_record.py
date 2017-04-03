@@ -1,6 +1,7 @@
 import os
 import tensorflow as tf
 import numpy as np
+import pdb
 
 
 def _float_feature(value):
@@ -32,8 +33,6 @@ def save_tf_record(dir, filename, trajectory_list):
 
         for index in range(sequence_length):
             image_raw = traj._sample_images[index].tostring()
-
-            import pdb; pdb.set_trace()
 
             feature['move/' + str(index) + '/action']= _float_feature(traj.U[index,:].tolist())
             feature['move/' + str(index) + '/state'] = _float_feature(traj.X_Xdot_full[index,:].tolist())
