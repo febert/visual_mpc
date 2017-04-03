@@ -228,7 +228,6 @@ def construct_model(images,
 
                 if pix_distributions != None:
                     transf_distrib = stp_transformation(prev_pix_distrib, stp_input1, num_masks, reuse=True)
-                pdb.set_trace()
 
             elif cdna:
                 cdna_input = tf.reshape(hidden5, [int(batch_size), -1])
