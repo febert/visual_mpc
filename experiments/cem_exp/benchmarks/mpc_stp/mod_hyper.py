@@ -13,7 +13,6 @@ policy = {
     'iterations' : 5,
     'netconf': current_dir + '/conf.py',
     'use_first_plan': False, # execute MPC instead using firs plan
-    'verbose':""
 }
 
 agent = {
