@@ -10,7 +10,7 @@ from PIL import Image
 
 FLAGS = flags.FLAGS
 
-flags.DEFINE_integer('sequence_length', 30, 'sequence length, including context frames.')
+flags.DEFINE_integer('sequence_length', 15, 'sequence length, including context frames.')
 flags.DEFINE_integer('context_frames', 2, '# of frames before predictions.')
 flags.DEFINE_integer('use_state', 1, 'Whether or not to give the state+action to the model')
 flags.DEFINE_integer('batch_size', 8, 'batch size for training')
@@ -19,19 +19,19 @@ flags.DEFINE_float('train_val_split', 1,
                    ' vs. the validation set.')
 
 # Original image dimensions
-ORIGINAL_WIDTH = 64
-ORIGINAL_HEIGHT = 64
+ORIGINAL_WIDTH = 128
+ORIGINAL_HEIGHT = 128
 COLOR_CHAN = 3
 
 # Default image dimensions.
-IMG_WIDTH = 64
-IMG_HEIGHT = 64
+IMG_WIDTH = 128
+IMG_HEIGHT = 128
 
 # Dimension of the state and action.
 STATE_DIM = 4
 ACION_DIM = 2
 
-DATA_DIR = '/home/frederik/Documents/pushing_data/tfrecords'
+DATA_DIR = '/home/frederik/Documents/lsdc/pushing_data/128x128/train'
 
 flags.DEFINE_string('data_dir', DATA_DIR, 'directory containing data_files.')
 
@@ -156,7 +156,6 @@ if __name__ == '__main__':
             ground_truth_list = list(np.uint8(255*image_data[j]))
             ground_truth_list = ground_truth_list[::2]
             npy_to_gif(ground_truth_list, 'groundtruth{0}.gif'.format(j))
-
 
         #
         # # print image_data[0,0]

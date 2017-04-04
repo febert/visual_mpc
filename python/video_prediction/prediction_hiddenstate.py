@@ -99,14 +99,6 @@ def construct_model(images,
     lstm_size = np.int32(np.array([16, 32, 64, 100, 10]))
     lstm_state1, lstm_state2, lstm_state3 = None, None, None
 
-    single_lstm1 = BasicLSTMCell(lstm_size[3], state_is_tuple=True)
-    single_lstm2 = BasicLSTMCell(lstm_size[4], state_is_tuple=True)
-    low_dim_lstm = MultiRNNCell([single_lstm1, single_lstm2], state_is_tuple=True)
-
-    low_dim_lstm_state = low_dim_lstm.zero_state(batch_size, tf.float32)
-
-    dim_low_state = lstm_size[-1]
-
     for t, image, action in zip(range(len(images)), images[:-1], actions[:-1]):
 
 
@@ -144,16 +136,16 @@ def construct_model(images,
                     normalizer_fn=tf_layers.layer_norm,
                     normalizer_params={'scope': 'layer_norm1'})
 
-                hidden1, lstm_state1 = lstm_func(               #32x32
+                hidden1, lstm_state1 = lstm_func(               #32x32x16
                     enc0, lstm_state1, lstm_size[0], scope='state1')
                 hidden1 = tf_layers.layer_norm(hidden1, scope='layer_norm2')
 
-                enc1 = slim.layers.conv2d(                      #16x16
+                enc1 = slim.layers.conv2d(                      #16x16x16
                     hidden1, hidden1.get_shape()[3], [3, 3], stride=2, scope='conv2')
 
                 hidden2, lstm_state2 = lstm_func(               #16x16x32
                     enc1, lstm_state2, lstm_size[1], scope='state3')
-                hidden2 = tf_layers.layer_norm(hidden2, scope='layer_norm4')
+                hidden2 = tf_layers.layer_norm(hidden2, scope='layer_norm3')
 
                 enc2 = slim.layers.conv2d(                    #8x8x32
                     hidden2, hidden2.get_shape()[3], [3, 3], stride=2, scope='conv3')
@@ -171,7 +163,7 @@ def construct_model(images,
 
                 hidden3, lstm_state3 = lstm_func(               #8x8x64
                     enc3, lstm_state3, lstm_size[2], scope='state5')  # last 8x8
-                hidden3 = tf_layers.layer_norm(hidden3, scope='layer_norm6')
+                hidden3 = tf_layers.layer_norm(hidden3, scope='layer_norm4')
 
                 enc3 = slim.layers.conv2d(  # 8x8x32
                     hidden3, 32, [1, 1], stride=1, scope='conv5')
@@ -221,19 +213,40 @@ def construct_model(images,
 
 
             dec5 = slim.layers.conv2d_transpose(  #  8x8x16
-                dec4, 16, 3, stride=1, scope='convt1')
+                dec4, 16, 3, stride=1, scope='convt1',
+                normalizer_fn=tf_layers.layer_norm,
+                normalizer_params={'scope': 'layer_norm5'}
+            )
 
             dec6 = slim.layers.conv2d_transpose(  # 16x16x16
-                dec5, 16, 3, stride=2, scope='convt2')
+                dec5, 16, 3, stride=2, scope='convt2',
+                normalizer_fn=tf_layers.layer_norm,
+                normalizer_params={'scope': 'layer_norm6'}
+            )
+
+            if 'skip' in conf:
+                dec6 = tf.concat(3, [dec6, enc1])  # both 16x16x16 + 16x16x16
 
             dec7 = slim.layers.conv2d_transpose(  # 16x16x32
-                dec6, 32, 3, stride=1, scope='convt3')
+                dec6, 32, 3, stride=1, scope='convt3',
+                normalizer_fn=tf_layers.layer_norm,
+                normalizer_params={'scope': 'layer_norm7'}
+            )
 
             dec8 = slim.layers.conv2d_transpose(    #32x32x32
-                dec7, 32, 3, stride=2, scope='convt4')
+                dec7, 32, 3, stride=2, scope='convt4',
+                normalizer_fn=tf_layers.layer_norm,
+                normalizer_params={'scope': 'layer_norm8'}
+            )
+
+            if 'skip' in conf:
+                dec8 = tf.concat(3, [dec8, enc0])  # both 32x32x32 + 32x32x32
 
             dec9 = slim.layers.conv2d_transpose(     #64x64x16
-                dec8, 16, 3, stride=2, scope='convt5')
+                dec8, 16, 3, stride=2, scope='convt5',
+                normalizer_fn=tf_layers.layer_norm,
+                normalizer_params={'scope': 'layer_norm9'}
+            )
 
             # Using largest hidden state for predicting untied conv kernels.
             dec10 = slim.layers.conv2d_transpose(
