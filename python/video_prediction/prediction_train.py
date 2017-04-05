@@ -6,6 +6,8 @@ import sys
 import cPickle
 import pdb
 
+import imp
+
 from utils_vpred.adapt_params_visualize import adapt_params_visualize
 from tensorflow.python.platform import app
 from tensorflow.python.platform import flags
@@ -100,7 +102,10 @@ class Model(object):
         # else:
         #     from prediction_model import construct_model
 
-        from prediction_model_downsized_lesslayer import construct_model
+        if 'prediction_model' in conf:
+            construct_model = conf['prediction_model']
+        else:
+            from prediction_model_downsized_lesslayer import construct_model
 
         if sequence_length is None:
             sequence_length = conf['sequence_length']

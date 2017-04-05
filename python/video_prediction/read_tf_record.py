@@ -9,14 +9,7 @@ import pdb
 from PIL import Image
 import imp
 
-# Original image dimensions
-ORIGINAL_WIDTH = 64
-ORIGINAL_HEIGHT = 64
-COLOR_CHAN = 3
 
-# Default image dimensions.
-IMG_WIDTH = 64
-IMG_HEIGHT = 64
 
 # Dimension of the state and action.
 STATE_DIM = 4
@@ -37,6 +30,9 @@ def build_tfrecord_input(conf, training=True):
     Raises:
       RuntimeError: if no files found.
     """
+
+
+
     filenames = gfile.Glob(os.path.join(conf['data_dir'], '*'))
     if not filenames:
         raise RuntimeError('No data_files files found.')
@@ -80,6 +76,19 @@ def build_tfrecord_input(conf, training=True):
                 features[object_pos_name] = tf.FixedLenFeature([OBJECT_POS_DIM], tf.float32)
 
         features = tf.parse_single_example(serialized_example, features=features)
+
+        COLOR_CHAN = 3
+        if '128x128' in conf:
+            ORIGINAL_WIDTH = 128
+            ORIGINAL_HEIGHT = 128
+            IMG_WIDTH = 128
+            IMG_HEIGHT = 128
+        else:
+            ORIGINAL_WIDTH = 64
+            ORIGINAL_HEIGHT = 64
+            IMG_WIDTH = 64
+            IMG_HEIGHT = 64
+
 
         image = tf.decode_raw(features[image_name], tf.uint8)
         image = tf.reshape(image, shape=[1,ORIGINAL_HEIGHT*ORIGINAL_WIDTH*COLOR_CHAN])

@@ -74,7 +74,7 @@ def construct_model(images,
     else:
         DNA_KERN_SIZE = 5
 
-    print 'constructing network with less layers...'
+    print 'high resolution prediction model...'
 
     if stp + cdna + dna != 1:
         raise ValueError('More than one, or no network option specified.')
@@ -97,15 +97,8 @@ def construct_model(images,
             tf.round(tf.to_float(batch_size) * (k / (k + tf.exp(iter_num / k)))))
         feedself = False
 
-    # LSTM state sizes and states.
-
-    if 'lstm_size' in conf:
-        lstm_size = conf['lstm_size']
-    else:
-        lstm_size = np.int32(np.array([16, 16, 32, 32, 64, 32, 16]))
-
-    lstm_state1, lstm_state2, lstm_state3, lstm_state4 = None, None, None, None
-    lstm_state5, lstm_state6, lstm_state7 = None, None, None
+    lstm_state0, lstm_state1, lstm_state2, lstm_state3, lstm_state4 = None, None, None, None, None
+    lstm_state5, lstm_state6, lstm_state7, lstm_state8 = None, None, None, None
 
     t = -1
     for image, action in zip(images[:-1], actions[:-1]):
@@ -142,26 +135,26 @@ def construct_model(images,
                 prev_image,
                 32, [5, 5],
                 stride=2,
-                scope='scale1_conv1',
+                scope='scale1_conv0',
                 normalizer_fn=tf_layers.layer_norm,
                 normalizer_params={'scope': 'layer_norm1'})
 
-            hidden0, lstm_state1 = lstm_func(   #64x64x16
-                encm1, lstm_state1, 16, scope='state1')
+            hidden0, lstm_state0 = lstm_func(   #64x64x16
+                encm1, lstm_state0, 16, scope='state0')
             hidden0 = tf_layers.layer_norm(hidden0, scope='layer_norm2')
 
-            enc0 = slim.layers.conv2d(  # 32x32
+            enc0 = slim.layers.conv2d(  # 32x32x32
                 hidden0,
                 32, [5, 5],
                 stride=2,
                 scope='scale1_conv1',
                 normalizer_fn=tf_layers.layer_norm,
-                normalizer_params={'scope': 'layer_norm1'})
+                normalizer_params={'scope': 'layer_norm3'})
 
 
-            hidden1, lstm_state1 = lstm_func(  # 32x32x 16
+            hidden1, lstm_state1 = lstm_func(  # 32x32x16
                 enc0, lstm_state1, 16, scope='state1')
-            hidden1 = tf_layers.layer_norm(hidden1, scope='layer_norm2')
+            hidden1 = tf_layers.layer_norm(hidden1, scope='layer_norm4')
             # hidden2, lstm_state2 = lstm_func(
             #     hidden1, lstm_state2, lstm_size[1], scope='state2')
             # hidden2 = tf_layers.layer_norm(hidden2, scope='layer_norm3')
@@ -170,7 +163,7 @@ def construct_model(images,
 
             hidden3, lstm_state3 = lstm_func(  # 16x16x 32
                 enc1, lstm_state3, 32, scope='state3')
-            hidden3 = tf_layers.layer_norm(hidden3, scope='layer_norm4')
+            hidden3 = tf_layers.layer_norm(hidden3, scope='layer_norm5')
             # hidden4, lstm_state4 = lstm_func(
             #     hidden3, lstm_state4, lstm_size[3], scope='state4')
             # hidden4 = tf_layers.layer_norm(hidden4, scope='layer_norm5')
@@ -205,7 +198,7 @@ def construct_model(images,
             enc5 = slim.layers.conv2d_transpose( # 32x32x32
                 hidden6, hidden6.get_shape()[3], 3, stride=2, scope='convt2')
             hidden7, lstm_state7 = lstm_func(   # 32x32x16
-                enc5, lstm_state7, lstm_size[6], scope='state7')
+                enc5, lstm_state7, 16, scope='state7')
             hidden7 = tf_layers.layer_norm(hidden7, scope='layer_norm8')
 
             if not 'noskip' in conf:
@@ -218,25 +211,25 @@ def construct_model(images,
                 normalizer_fn=tf_layers.layer_norm,
                 normalizer_params={'scope': 'layer_norm9'})
 
-            hidden7, lstm_state1 = lstm_func(  # 64x64x16
-                enc6, lstm_state1, 16, scope='state1')
-            hidden7 = tf_layers.layer_norm(hidden7, scope='layer_norm2')
+            hidden7, lstm_state8 = lstm_func(  # 64x64x16
+                enc6, lstm_state8, 16, scope='state8')
+            hidden7 = tf_layers.layer_norm(hidden7, scope='layer_norm9')
 
             enc7 = slim.layers.conv2d_transpose(  # 128x128x16
                 hidden7,
-                16, 3, stride=2, scope='convt3',
+                16, 3, stride=2, scope='convt4',
                 normalizer_fn=tf_layers.layer_norm,
-                normalizer_params={'scope': 'layer_norm9'})
+                normalizer_params={'scope': 'layer_norm10'})
 
 
             if dna:
                 # Using largest hidden state for predicting untied conv kernels.
                 enc8 = slim.layers.conv2d_transpose(
-                    enc7, DNA_KERN_SIZE ** 2, 1, stride=1, scope='convt4')
+                    enc7, DNA_KERN_SIZE ** 2, 1, stride=1, scope='convt5')
             else:
                 # Using largest hidden state for predicting a new image layer.
                 enc8 = slim.layers.conv2d_transpose(
-                    enc7, color_channels, 1, stride=1, scope='convt4')
+                    enc7, color_channels, 1, stride=1, scope='convt6')
                 # This allows the network to also generate one image from scratch,
                 # which is useful when regions of the image become unoccluded.
                 transformed = [tf.nn.sigmoid(enc8)]
@@ -284,7 +277,7 @@ def construct_model(images,
                 transformed = [dna_transformation(prev_image, enc8, DNA_KERN_SIZE)]
 
             masks = slim.layers.conv2d_transpose(
-                enc6, num_masks + 1, 1, stride=1, scope='convt7')
+                enc7, num_masks + 1, 1, stride=1, scope='convt7')
             masks = tf.reshape(
                 tf.nn.softmax(tf.reshape(masks, [-1, num_masks + 1])),
                 [int(batch_size), int(img_height), int(img_width), num_masks + 1])

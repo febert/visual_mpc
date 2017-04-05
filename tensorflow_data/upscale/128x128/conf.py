@@ -2,15 +2,17 @@ import os
 current_dir = os.path.dirname(os.path.realpath(__file__))
 
 # tf record data location:
-DATA_DIR = '/'.join(str.split(current_dir, '/')[:-3]) + '/pushing_data/finer_temporal_resolution_substep10/train'
+DATA_DIR = '/'.join(str.split(current_dir, '/')[:-3]) + '/pushing_data/128x128/train'
 
 # local output directory
 OUT_DIR = current_dir + '/modeldata'
 
 # from video_prediction.prediction_model_downsized_lesslayer import construct_model
+from video_prediction.prediction_model_highres import construct_model
 
 configuration = {
 'experiment_name': 'rndaction_var10',
+'prediction_model': construct_model,
 'data_dir': DATA_DIR,       # 'directory containing data.' ,
 'output_dir': OUT_DIR,      #'directory for model checkpoints.' ,
 'current_dir': current_dir,   #'directory for writing summary.' ,
@@ -29,4 +31,5 @@ configuration = {
 'visualize': '',            #'load model from which to generate visualizations
 # 'downsize': construct_model,           #'create downsized model'
 'file_visual': '',          # datafile used for making visualizations
+'128x128':''
 }
