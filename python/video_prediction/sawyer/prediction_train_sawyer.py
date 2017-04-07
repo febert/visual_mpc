@@ -8,14 +8,13 @@ import pdb
 
 import imp
 
-from utils_vpred.adapt_params_visualize import adapt_params_visualize
+from video_prediction.utils_vpred.adapt_params_visualize import adapt_params_visualize
 from tensorflow.python.platform import app
 from tensorflow.python.platform import flags
-import utils_vpred.create_gif
+import video_prediction.utils_vpred.create_gif
+from create_gif import create_gif
 
-from read_tf_record import build_tfrecord_input
-
-from utils_vpred.skip_example import skip_example
+from read_tf_record_sawyer import build_tfrecord_input
 
 from datetime import datetime
 
@@ -93,22 +92,13 @@ class Model(object):
                  images=None,
                  actions=None,
                  states=None,
-                 sequence_length=None,
                  reuse_scope=None,
                  pix_distrib=None):
 
-        # if conf['downsize']:
-        #     construct_model = conf['downsize']
-        # else:
-        #     from prediction_model import construct_model
 
-        if 'prediction_model' in conf:
-            construct_model = conf['prediction_model']
-        else:
-            from prediction_model_downsized_lesslayer import construct_model
+        from prediction_model_sawyer import construct_model
 
-        if sequence_length is None:
-            sequence_length = conf['sequence_length']
+        sequence_length = conf['sequence_length']
 
         self.prefix = prefix = tf.placeholder(tf.string, [])
         self.iter_num = tf.placeholder(tf.float32, [])
@@ -134,11 +124,7 @@ class Model(object):
                 states,
                 iter_num=self.iter_num,
                 k=conf['schedsamp_k'],
-                use_state=conf['use_state'],
                 num_masks=conf['num_masks'],
-                cdna=conf['model'] == 'CDNA',
-                dna=conf['model'] == 'DNA',
-                stp=conf['model'] == 'STP',
                 context_frames=conf['context_frames'],
                 pix_distributions= pix_distrib,
                 conf=conf)
@@ -150,11 +136,7 @@ class Model(object):
                     states,
                     iter_num=self.iter_num,
                     k=conf['schedsamp_k'],
-                    use_state=conf['use_state'],
                     num_masks=conf['num_masks'],
-                    cdna=conf['model'] == 'CDNA',
-                    dna=conf['model'] == 'DNA',
-                    stp=conf['model'] == 'STP',
                     context_frames=conf['context_frames'],
                     conf= conf)
 
@@ -193,13 +175,15 @@ class Model(object):
 
             loss += recon_cost
 
-        for i, state, gen_state in zip(
-                range(len(gen_states)), states[conf['context_frames']:],
-                gen_states[conf['context_frames'] - 1:]):
-            state_cost = mean_squared_error(state, gen_state) * 1e-4 * conf['use_state']
-            summaries.append(
-                tf.scalar_summary(prefix + '_state_cost' + str(i), state_cost))
-            loss += state_cost
+        if 'ignore_state_action' not in conf:
+            for i, state, gen_state in zip(
+                    range(len(gen_states)), states[conf['context_frames']:],
+                    gen_states[conf['context_frames'] - 1:]):
+                state_cost = mean_squared_error(state, gen_state) * 1e-4 * conf['use_state']
+                summaries.append(
+                    tf.scalar_summary(prefix + '_state_cost' + str(i), state_cost))
+                loss += state_cost
+
         summaries.append(tf.scalar_summary(prefix + '_psnr_all', psnr_all))
         self.psnr_all = psnr_all
 
@@ -246,13 +230,18 @@ def main(unused_argv, conf_script= None):
 
     print 'Constructing models and inputs.'
     with tf.variable_scope('model', reuse=None) as training_scope:
-        images, actions, states = build_tfrecord_input(conf, training=True)
-        model = Model(conf, images, actions, states, conf['sequence_length'])
+        if 'sawyer' in conf:
+            images_main, images_aux1, actions, states = build_tfrecord_input(conf, training=True)
+            images_aux1 = tf.squeeze(images_aux1)
+            images = tf.concat(4, [images_main, images_aux1])
+            model = Model(conf, images, actions, states)
 
     with tf.variable_scope('val_model', reuse=None):
-        val_images, val_actions, val_states = build_tfrecord_input(conf, training=False)
-        val_model = Model(conf, val_images, val_actions, val_states,
-                          conf['sequence_length'], training_scope)
+        if 'sawyer' in conf:
+            val_images_main, val_images_aux1, val_actions, val_states = build_tfrecord_input(conf, training=False)
+            val_images_aux1 = tf.squeeze(val_images_aux1)
+            val_images = tf.concat(4, [val_images_main, val_images_aux1])
+            val_model = Model(conf, val_images, val_actions, val_states, training_scope)
 
     print 'Constructing saver.'
     # Make saver.
@@ -287,13 +276,12 @@ def main(unused_argv, conf_script= None):
                                                             ],
                                                            feed_dict)
 
-        cPickle.dump(gen_images, open(file_path + '/gen_image_seq.pkl','wb'))
+        cPickle.dump(gen_images, open(file_path + '/gen_image.pkl','wb'))
         cPickle.dump(ground_truth, open(file_path + '/ground_truth.pkl', 'wb'))
         cPickle.dump(mask_list, open(file_path + '/mask_list.pkl', 'wb'))
         print 'written files to:' + file_path
 
-        trajectories = utils_vpred.create_gif.comp_video(conf['output_dir'], conf)
-        utils_vpred.create_gif.comp_masks(conf['output_dir'], conf, trajectories)
+        create_gif(file_path, conf)
         return
 
     itr_0 =0
