@@ -84,6 +84,13 @@ class Model(object):
         if test:
             is_training= False
 
+        if 'dropout' in conf:
+            if is_training:
+                conf['dropout'] = 0.5
+            else:
+                conf['dropout'] = 1
+
+
         print 'is_training: ', is_training
 
         if reuse_scope is None:

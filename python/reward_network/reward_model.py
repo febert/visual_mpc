@@ -20,7 +20,7 @@ import tensorflow as tf
 
 import tensorflow.contrib.slim as slim
 from tensorflow.contrib.layers.python import layers as tf_layers
-
+import pdb
 
 # Amount to use when lower bounding tensors
 RELU_SHIFT = 1e-12
@@ -36,14 +36,17 @@ def construct_model(conf,
                     ):
 
     if 'batch_norm' in conf:
+        print 'using batchnorm'
         with slim.arg_scope(
                 [slim.layers.conv2d, slim.layers.fully_connected,
                  tf_layers.layer_norm, slim.layers.conv2d_transpose],
                 normalizer_params= {"is_training": is_training}, normalizer_fn= tf_layers.batch_norm
                 ):
-            build_model(conf, images_0, images_1)
+            logits = build_model(conf, images_0, images_1)
     else:
-        build_model(conf, images_0, images_1)
+        logits = build_model(conf, images_0, images_1)
+
+    return logits
 
 
 def build_model(conf, images_0, images_1):
@@ -61,6 +64,7 @@ def build_model(conf, images_0, images_1):
 
     if 'dropout' in conf:
         fl1 = tf.nn.dropout(fl1, conf['dropout'])
+        print 'using dropout with p = ', conf['dropout']
 
     fl2 = slim.layers.fully_connected(
         fl1,
