@@ -212,7 +212,7 @@ def construct_model(images,
             if conf['model']=='DNA':
                 # Using largest hidden state for predicting untied conv kernels.
                 enc7 = slim.layers.conv2d_transpose(
-                    enc6, DNA_KERN_SIZE ** conf['numcam'] , 1, stride=1, scope='convt4')
+                    enc6, DNA_KERN_SIZE **2 *conf['numcam'] , 1, stride=1, scope='convt4')
 
                 dna_input_cam1 = tf.slice(enc7,[0,0,0,0], [-1,-1,-1,DNA_KERN_SIZE ** 2])
                 dna_input_cam2 = tf.slice(enc7,[0,0,0,DNA_KERN_SIZE ** 2], [-1,-1,-1,DNA_KERN_SIZE ** 2])
@@ -270,6 +270,7 @@ def construct_model(images,
             prev_image_cam2 = tf.slice(prev_image, [0, 0, 0, 3], [-1, -1, -1, 3])
             output_cam1, mask_list_cam1 = apply_trafo(conf, masks_cam1, prev_image_cam1, dna_input_cam1)
             output_cam2, mask_list_cam2 = apply_trafo(conf, masks_cam2, prev_image_cam2, dna_input_cam2)
+
 
             output = tf.concat(3,[output_cam1, output_cam2])
 

@@ -34,8 +34,6 @@ i, j = np.unravel_index(xdiff.argmax(), xdiff.shape)
 # tmpax.set_axis_off()
 
 
-
-
 ax.scatter(i, j, s=80, facecolors='none', edgecolors='r')
 ax.scatter(1, 1, s=80, facecolors='none', edgecolors='g')
 ax.scatter(63, 63, s=80, facecolors='none', edgecolors='b')
