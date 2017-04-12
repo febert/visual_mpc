@@ -90,7 +90,6 @@ class Model(object):
             else:
                 conf['dropout'] = 1
 
-
         print 'is_training: ', is_training
 
         if reuse_scope is None:
@@ -107,8 +106,6 @@ class Model(object):
                                          states_1,
                                          is_training=is_training)
 
-
-
         self.softmax_output = tf.nn.softmax(logits)
 
         self.cross_entropy = cross_entropy = tf.nn.sparse_softmax_cross_entropy_with_logits(
@@ -118,7 +115,15 @@ class Model(object):
         summaries.append(tf.scalar_summary(prefix + 'cross_entropy_mean', cross_entropy_mean))
         self.loss = loss = cross_entropy_mean
         self.lr = tf.placeholder_with_default(conf['learning_rate'], ())
-        self.train_op = tf.train.AdamOptimizer(self.lr).minimize(loss)
+
+        update_ops = tf.get_collection(tf.GraphKeys.UPDATE_OPS)
+        if update_ops:
+            updates = tf.group(*update_ops)
+            with tf.control_dependencies([updates]):
+                self.train_op = tf.train.AdamOptimizer(self.lr).minimize(loss)
+        else:
+            self.train_op = tf.train.AdamOptimizer(self.lr).minimize(loss)
+
         self.summ_op = tf.merge_summary(summaries)
 
 
@@ -232,6 +237,7 @@ def main(unused_argv):
 
         if (itr) % SUMMARY_INTERVAL:
             summary_writer.add_summary(summary_str, itr)
+
 
     tf.logging.info('Saving model.')
     saver.save(sess, conf['output_dir'] + '/model')
