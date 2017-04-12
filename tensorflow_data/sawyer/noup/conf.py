@@ -2,7 +2,7 @@ import os
 current_dir = os.path.dirname(os.path.realpath(__file__))
 
 # tf record data location:
-DATA_DIR = '/'.join(str.split(current_dir, '/')[:-3]) + '/pushing_data/sawyer_2cam/train'
+DATA_DIR = '/'.join(str.split(current_dir, '/')[:-3]) + '/pushing_data/sawyer_noup_29/train'
 
 # local output directory
 OUT_DIR = current_dir + '/modeldata'
@@ -17,7 +17,7 @@ configuration = {
 'num_iterations': 50000,   #'number of training iterations.' ,
 'pretrained_model': '',     # 'filepath of a pretrained model to resume training from.' ,
 'sequence_length': 14,      # 'sequence length, including context frames.' ,
-'skip_frame': 1,            # 'use ever i-th frame to increase prediction horizon' ,
+'skip_frame': 2,            # 'use ever i-th frame to increase prediction horizon' ,
 'context_frames': 2,        # of frames before predictions.' ,
 'use_state': 1,             #'Whether or not to give the state+action to the model' ,
 'model': 'DNA',            #'model architecture to use - CDNA, DNA, or STP' ,

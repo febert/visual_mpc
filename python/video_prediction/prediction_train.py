@@ -97,11 +97,6 @@ class Model(object):
                  reuse_scope=None,
                  pix_distrib=None):
 
-        # if conf['downsize']:
-        #     construct_model = conf['downsize']
-        # else:
-        #     from prediction_model import construct_model
-
         if 'prediction_model' in conf:
             construct_model = conf['prediction_model']
         else:

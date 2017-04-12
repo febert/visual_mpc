@@ -12,10 +12,8 @@ import imp
 
 
 # Dimension of the state and action.
-STATE_DIM = 4
+STATE_DIM = 3
 ACION_DIM = 4
-OBJECT_POS_DIM = 8
-
 
 def build_tfrecord_input(conf, training=True):
     """Create input tfrecord tensors.
@@ -121,8 +119,7 @@ def build_tfrecord_input(conf, training=True):
     if conf['visualize']: num_threads = 1
     else: num_threads = np.min((conf['batch_size'], 32))
 
-
-    if 'ignore_state_action':
+    if 'ignore_state_action' in conf:
         [image_main_batch, image_aux1_batch] = tf.train.batch(
                                     [image_main_seq, image_aux1_seq],
                                     conf['batch_size'],
@@ -134,7 +131,7 @@ def build_tfrecord_input(conf, training=True):
         endeffector_pos_seq = tf.concat(0, endeffector_pos_seq)
         action_seq = tf.concat(0, action_seq)
         [image_main_batch, image_aux1_batch, action_batch, endeffector_pos_batch] = tf.train.batch(
-                                    [image_main_seq, action_seq, endeffector_pos_seq],
+                                    [image_main_seq,image_aux1_seq, action_seq, endeffector_pos_seq],
                                     conf['batch_size'],
                                     num_threads=num_threads,
                                     capacity=100 * conf['batch_size'])
@@ -257,8 +254,7 @@ if __name__ == '__main__':
     print 'using CUDA_VISIBLE_DEVICES=', os.environ["CUDA_VISIBLE_DEVICES"]
     conf = {}
 
-    # DATA_DIR = '/home/frederik/Documents/pushing_data/settled_scene_rnd3/train'
-    DATA_DIR = '/home/frederik/Documents/lsdc/pushing_data/sawyer_2cam/train'
+    DATA_DIR = '/home/frederik/Documents/lsdc/pushing_data/sawyer_noup_29/train'
 
     conf['schedsamp_k'] = -1  # don't feed ground truth
     conf['data_dir'] = DATA_DIR  # 'directory containing data_files.' ,
@@ -267,7 +263,8 @@ if __name__ == '__main__':
     conf['sequence_length']= 15      # 'sequence length, including context frames.'
     conf['use_state'] = True
     conf['batch_size']= 32
-    conf['visualize']=False
+    conf['visualize']=True
+    conf['visual_file'] = '/home/frederik/Documents/lsdc/pushing_data/sawyer_noup_29/train/traj_0_to_255.tfrecords'
     conf['use_object_pos'] = True
 
     print '-------------------------------------------------------------------'
@@ -303,6 +300,3 @@ if __name__ == '__main__':
             img.show()
 
             pdb.set_trace()
-
-
-
