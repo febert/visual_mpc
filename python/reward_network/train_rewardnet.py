@@ -253,7 +253,7 @@ def visualize(conf, sess, saver, model):
                                                     model.ground_truth_numactions],
                                                     feed_dict)
 
-    fig = plt.figure()
+    fig = plt.figure(figsize=(20, 10), dpi=80,)
     n_examples = 8
 
     for ind in range(n_examples):
@@ -276,14 +276,14 @@ def visualize(conf, sess, saver, model):
         rects1 = ax.bar(loc, values, width)
 
         # add some text for labels, title and axes ticks
-        ax.set_ylabel('Scores')
         ax.set_title('softmax')
         ax.set_xticks(loc + width / 2)
         ax.set_xticklabels([str(j+1) for j in range(N)])
 
         ax.set_xlabel('true temp distance: {0} \n  cross-entropy: {1}'
-                      .format(gtruth[ind], c_entr[ind]))
+                      .format(gtruth[ind], round(c_entr[ind], 3)))
 
+    plt.savefig(conf['output_dir'] + '/fig.png')
     plt.show()
     sess.close()
 
