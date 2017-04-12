@@ -139,6 +139,7 @@ def construct_model(images,
                 assert stp
                 if t > 1:
                     prev_image = images[1]
+                    print 'using image 1'
 
             # Predicted state is always fed back in
             state_action = tf.concat(1, [action, current_state])
