@@ -113,17 +113,17 @@ class Model(object):
         self.softmax_output = tf.nn.softmax(logits)
 
         self.hard_labels = hard_labels = tf.squeeze(ind_1 - ind_0)
-        rows = []
-        for i in range(conf['batch_size']):
-            tstep = tf.slice(self.hard_labels, [i], [1])
-            zeros = tf.zeros(tf.to_int32(tstep))
-            ones = tf.ones(tf.to_int32(conf['sequence_length']-1 - tstep))
-            row = tf.expand_dims(tf.concat(0, [zeros, ones]),0)
-            rows.append(row)
-
-        self.soft_labels = tf.concat(0, rows)
 
         if 'soft_labels' in conf:
+            rows = []
+            for i in range(conf['batch_size']):
+                tstep = tf.slice(self.hard_labels, [i], [1])
+                zeros = tf.zeros(tf.to_int32(tstep))
+                ones = tf.ones(tf.to_int32(conf['sequence_length']-1 - tstep))
+                row = tf.expand_dims(tf.concat(0, [zeros, ones]),0)
+                rows.append(row)
+
+            self.soft_labels = tf.concat(0, rows)
             self.cross_entropy = cross_entropy = tf.nn.softmax_cross_entropy_with_logits(
                 labels=self.soft_labels, logits=logits, name='cross_entropy_per_example')
         else:
@@ -241,6 +241,10 @@ def main(unused_argv):
 
         if (itr) % SAVE_INTERVAL == 2:
             tf.logging.info('Saving model to' + conf['output_dir'])
+            oldfile = conf['output_dir'] + '/model' + str(itr - SAVE_INTERVAL)
+            if os.path.isfile(oldfile):
+                print "deleting {}".format(oldfile)
+                os.system("rm {}".format(oldfile))
             saver.save(sess, conf['output_dir'] + '/model' + str(itr))
 
         t_iter.append((datetime.now() - t_startiter).seconds * 1e6 +  (datetime.now() - t_startiter).microseconds )
@@ -317,7 +321,8 @@ def visualize(conf, sess, saver, model):
         centr = -centr
 
         if 'soft_labels' in conf:
-            print 'softlabel', softlabels[ind]
+            print 'softlabel {0}, gtrut {1}'.format(softlabels[ind], gtruth[ind])
+
 
         ax.set_xlabel('true temp distance: {0} \n  cross-entropy: {1}\n self-calc centr: {2}'
                       .format(gtruth[ind], round(c_entr[ind], 3), round(centr, 3)))
