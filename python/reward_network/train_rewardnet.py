@@ -92,8 +92,6 @@ class Model(object):
             else:
                 conf['dropout'] = 1
 
-        print 'is_training: ', is_training
-
         if reuse_scope is None:
             logits  = construct_model(conf, image_0,
                                       states_0,
@@ -101,7 +99,9 @@ class Model(object):
                                       states_1,
                                       is_training= is_training)
         else: # If it's a validation or test model.
-            if 'nomovnig'
+            if 'nomoving_average' in conf:
+                is_training = True
+                print 'valmodel with s_training: ', is_training
 
             with tf.variable_scope(reuse_scope, reuse=True):
                 logits = construct_model(conf, image_0,

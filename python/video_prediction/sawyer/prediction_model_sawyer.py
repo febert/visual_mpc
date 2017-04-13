@@ -209,6 +209,8 @@ def construct_model(images,
                 normalizer_fn=tf_layers.layer_norm,
                 normalizer_params={'scope': 'layer_norm9'})
 
+            prev_image_cam1 = tf.slice(prev_image, [0, 0, 0, 0], [-1, -1, -1, 3])
+            prev_image_cam2 = tf.slice(prev_image, [0, 0, 0, 3], [-1, -1, -1, 3])
             if conf['model']=='DNA':
                 # Using largest hidden state for predicting untied conv kernels.
                 trafo_input_cam1 = slim.layers.conv2d_transpose(
@@ -216,23 +218,23 @@ def construct_model(images,
                 trafo_input_cam2 = slim.layers.conv2d_transpose(
                     enc6, DNA_KERN_SIZE ** 2, 1, stride=1, scope='convt4_cam2')
 
-                transformed_cam1 = [dna_transformation(prev_image, trafo_input_cam1, conf['dna_size'])]
-                transformed_cam2 = [dna_transformation(prev_image, trafo_input_cam2, conf['dna_size'])]
+                transformed_cam1 = [dna_transformation(prev_image_cam1, trafo_input_cam1, conf['dna_size'])]
+                transformed_cam2 = [dna_transformation(prev_image_cam2, trafo_input_cam2, conf['dna_size'])]
 
             if conf['model']=='STP':
                 stp_input0 = tf.reshape(hidden5, [int(batch_size), -1])
                 stp_input1_cam1 = slim.layers.fully_connected(
-                    stp_input0, 100*conf['numcam'], scope='fc_stp')
+                    stp_input0, 100 * conf['numcam'], scope='fc_stp_cam1')
 
                 stp_input1_cam2 = slim.layers.fully_connected(
-                    stp_input0, 100 * conf['numcam'], scope='fc_stp')
+                    stp_input0, 100 * conf['numcam'], scope='fc_stp_cam2')
 
                 # disabling capability to generete pixels
                 reuse_stp = None
                 if reuse:
                     reuse_stp = reuse
-                transformed_cam1 = stp_transformation(prev_image, stp_input1_cam1, num_masks, reuse_stp)
-                transformed_cam2 = stp_transformation(prev_image, stp_input1_cam2, num_masks, reuse_stp)
+                transformed_cam1 = stp_transformation(prev_image_cam1, stp_input1_cam1, num_masks, reuse_stp, suffix='cam1')
+                transformed_cam2 = stp_transformation(prev_image, stp_input1_cam2, num_masks, reuse_stp, suffix='cam2')
                 # transformed += stp_transformation(prev_image, stp_input1, num_masks)
 
                 if pix_distributions != None:
@@ -240,13 +242,12 @@ def construct_model(images,
 
 
             masks_cam1 = slim.layers.conv2d_transpose(
-                enc6, (num_masks + 1), 1, stride=1, scope='convt7')
+                enc6, (num_masks + 1), 1, stride=1, scope='convt7_cam1')
 
             masks_cam2 = slim.layers.conv2d_transpose(
-                enc6, (num_masks + 1), 1, stride=1, scope='convt7')
+                enc6, (num_masks + 1), 1, stride=1, scope='convt7_cam2')
 
-            prev_image_cam1 = tf.slice(prev_image, [0, 0, 0, 0], [-1, -1, -1, 3])
-            prev_image_cam2 = tf.slice(prev_image, [0, 0, 0, 3], [-1, -1, -1, 3])
+
             output_cam1, mask_list_cam1 = fuse_trafos(conf, masks_cam1, prev_image_cam1, transformed_cam1)
             output_cam2, mask_list_cam2 = fuse_trafos(conf, masks_cam2, prev_image_cam2, transformed_cam2)
 
@@ -304,7 +305,7 @@ def fuse_trafos(conf, masks, prev_image, transformed):
 
 
 ## Utility functions
-def stp_transformation(prev_image, stp_input, num_masks, reuse= None):
+def stp_transformation(prev_image, stp_input, num_masks, reuse= None, suffix = None):
     """Apply spatial transformer predictor (STP) to previous image.
 
     Args:
@@ -322,7 +323,7 @@ def stp_transformation(prev_image, stp_input, num_masks, reuse= None):
     transformed = []
     for i in range(num_masks):
         params = slim.layers.fully_connected(
-            stp_input, 6, scope='stp_params' + str(i),
+            stp_input, 6, scope='stp_params' + str(i) + suffix,
             activation_fn=None,
             reuse= reuse) + identity_params
         outsize = (prev_image.get_shape()[1], prev_image.get_shape()[2])
