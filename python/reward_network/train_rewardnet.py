@@ -101,7 +101,7 @@ class Model(object):
         else: # If it's a validation or test model.
             if 'nomoving_average' in conf:
                 is_training = True
-                print 'valmodel with s_training: ', is_training
+                print 'valmodel with is_training: ', is_training
 
             with tf.variable_scope(reuse_scope, reuse=True):
                 logits = construct_model(conf, image_0,

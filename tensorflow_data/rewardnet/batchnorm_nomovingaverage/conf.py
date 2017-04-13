@@ -24,5 +24,5 @@ configuration = {
 'visualize': '',            #'load model from which to generate visualizations
 'file_visual': '',          # datafile used for making visualizations
 'batch_norm': '',
-'nomovingaverage':''
+'nomoving_average':''
 }

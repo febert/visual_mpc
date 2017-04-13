@@ -234,7 +234,7 @@ def construct_model(images,
                 if reuse:
                     reuse_stp = reuse
                 transformed_cam1 = stp_transformation(prev_image_cam1, stp_input1_cam1, num_masks, reuse_stp, suffix='cam1')
-                transformed_cam2 = stp_transformation(prev_image, stp_input1_cam2, num_masks, reuse_stp, suffix='cam2')
+                transformed_cam2 = stp_transformation(prev_image_cam2, stp_input1_cam2, num_masks, reuse_stp, suffix='cam2')
                 # transformed += stp_transformation(prev_image, stp_input1, num_masks)
 
                 if pix_distributions != None:
