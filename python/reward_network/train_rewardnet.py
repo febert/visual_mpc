@@ -112,7 +112,7 @@ class Model(object):
 
         self.softmax_output = tf.nn.softmax(logits)
 
-        self.hard_labels = ground_truth_numactions = tf.squeeze(ind_1 - ind_0)
+        self.hard_labels = hard_labels = tf.squeeze(ind_1 - ind_0)
         rows = []
         for i in range(conf['batch_size']):
             tstep = tf.slice(self.hard_labels, [i], [1])
@@ -128,7 +128,7 @@ class Model(object):
                 labels=self.soft_labels, logits=logits, name='cross_entropy_per_example')
         else:
             self.cross_entropy = cross_entropy = tf.nn.sparse_softmax_cross_entropy_with_logits(
-                labels=ground_truth_numactions, logits=logits, name='cross_entropy_per_example')
+                labels=hard_labels, logits=logits, name='cross_entropy_per_example')
 
         cross_entropy_mean = tf.reduce_mean(cross_entropy, name='cross_entropy')
 
@@ -272,11 +272,12 @@ def visualize(conf, sess, saver, model):
     feed_dict = {model.lr: 0.0,
                  model.prefix: 'val',
                  }
-    im0, im1, softout, c_entr, gtruth = sess.run([  model.image_0,
+    im0, im1, softout, c_entr, gtruth, softlabels = sess.run([  model.image_0,
                                                     model.image_1,
                                                     model.softmax_output,
                                                     model.cross_entropy,
-                                                    model.ground_truth_numactions],
+                                                    model.hard_labels,
+                                                    model.soft_labels],
                                                     feed_dict)
 
     fig = plt.figure(figsize=(20, 10), dpi=80)
@@ -314,6 +315,9 @@ def visualize(conf, sess, saver, model):
                 l = 0
             centr += np.log(softout[ind,i])*l + (1-l)* np.log(1- softout[ind,i])
         centr = -centr
+
+        if 'soft_labels' in conf:
+            print 'softlabel', softlabels[ind]
 
         ax.set_xlabel('true temp distance: {0} \n  cross-entropy: {1}\n self-calc centr: {2}'
                       .format(gtruth[ind], round(c_entr[ind], 3), round(centr, 3)))
