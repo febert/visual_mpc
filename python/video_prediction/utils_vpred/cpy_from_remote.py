@@ -12,7 +12,7 @@ def main():
 
     parser = argparse.ArgumentParser(description='')
     parser.add_argument('experiment', type=str, help='name of folder in tensorflowdata')
-    parser.add_argument('--remote', type=str, help='remote host name', default='newton2')
+    parser.add_argument('remote', type=str, help='remote host name', default='newton2')
 
     args = parser.parse_args()
     exp_name = args.experiment
@@ -24,6 +24,10 @@ def main():
         if os.path.exists(TEN_DATA_LOC + '/hidden_state/' + exp_name):
             print 'found in hidden_state folder'
             TEN_DATA_LOC = TEN_DATA_LOC + '/hidden_state/' + exp_name
+
+        if os.path.exists(TEN_DATA_LOC + '/rewardnet/' + exp_name):
+            print 'found in rewardnet folder'
+            TEN_DATA_LOC = TEN_DATA_LOC + '/rewardnet/' + exp_name
         else:
             raise ValueError('folder not found')
 

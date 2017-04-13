@@ -135,7 +135,7 @@ def construct_model(images,
                     prev_pix_distrib = pix_distributions[t]
                     prev_pix_distrib = tf.expand_dims(prev_pix_distrib, -1)
 
-            if 'tranform_from_firstimage':
+            if 'tranform_from_firstimage' in conf:
                 assert stp
                 if t > 1:
                     prev_image = images[1]

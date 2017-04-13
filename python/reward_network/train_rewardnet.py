@@ -67,15 +67,17 @@ class Model(object):
         ind_0 = tf.reshape(tf.reduce_min(rand_pair, reduction_indices=1), shape=[conf['batch_size'],1])
         ind_1 = tf.reshape(tf.reduce_max(rand_pair, reduction_indices=1), shape=[conf['batch_size'],1])
 
-        self.ground_truth_numactions = ground_truth_numactions = tf.squeeze(ind_1 - ind_0)
 
-        ind_0 = tf.concat(1, [first_row, ind_0])
-        ind_1 = tf.concat(1, [first_row, ind_1])
 
-        self.image_0 = image_0 = tf.gather_nd(images, ind_0)
-        self.image_1 = image_1 = tf.gather_nd(images, ind_1)
-        self.state_0 = states_0 = tf.gather_nd(states, ind_0)
-        self.state_1 = states_1 = tf.gather_nd(states, ind_1)
+
+
+        num_ind_0 = tf.concat(1, [first_row, ind_0])
+        num_ind_1 = tf.concat(1, [first_row, ind_1])
+
+        self.image_0 = image_0 = tf.gather_nd(images, num_ind_0)
+        self.image_1 = image_1 = tf.gather_nd(images, num_ind_1)
+        self.state_0 = states_0 = tf.gather_nd(states, num_ind_0)
+        self.state_1 = states_1 = tf.gather_nd(states, num_ind_1)
 
         if reuse_scope is None:
             is_training = True
@@ -99,6 +101,8 @@ class Model(object):
                                       states_1,
                                       is_training= is_training)
         else: # If it's a validation or test model.
+            if 'nomovnig'
+
             with tf.variable_scope(reuse_scope, reuse=True):
                 logits = construct_model(conf, image_0,
                                          states_0,
@@ -108,8 +112,24 @@ class Model(object):
 
         self.softmax_output = tf.nn.softmax(logits)
 
-        self.cross_entropy = cross_entropy = tf.nn.sparse_softmax_cross_entropy_with_logits(
-            labels=ground_truth_numactions, logits=logits, name='cross_entropy_per_example')
+        self.hard_labels = ground_truth_numactions = tf.squeeze(ind_1 - ind_0)
+        rows = []
+        for i in range(conf['batch_size']):
+            tstep = tf.slice(self.hard_labels, [i], [1])
+            zeros = tf.zeros(tf.to_int32(tstep))
+            ones = tf.ones(tf.to_int32(conf['sequence_length']-1 - tstep))
+            row = tf.expand_dims(tf.concat(0, [zeros, ones]),0)
+            rows.append(row)
+
+        self.soft_labels = tf.concat(0, rows)
+
+        if 'soft_labels' in conf:
+            self.cross_entropy = cross_entropy = tf.nn.softmax_cross_entropy_with_logits(
+                labels=self.soft_labels, logits=logits, name='cross_entropy_per_example')
+        else:
+            self.cross_entropy = cross_entropy = tf.nn.sparse_softmax_cross_entropy_with_logits(
+                labels=ground_truth_numactions, logits=logits, name='cross_entropy_per_example')
+
         cross_entropy_mean = tf.reduce_mean(cross_entropy, name='cross_entropy')
 
         summaries.append(tf.scalar_summary(prefix + 'cross_entropy_mean', cross_entropy_mean))
@@ -165,7 +185,7 @@ def main(unused_argv):
     # Make saver.
     saver = tf.train.Saver(tf.get_collection(tf.GraphKeys.VARIABLES), max_to_keep=0)
 
-    gpu_options = tf.GPUOptions(per_process_gpu_memory_fraction=0.9)
+    gpu_options = tf.GPUOptions(per_process_gpu_memory_fraction=0.8)
     # Make training session.
     sess = tf.InteractiveSession(config= tf.ConfigProto(gpu_options=gpu_options))
     summary_writer = tf.train.SummaryWriter(
@@ -259,7 +279,7 @@ def visualize(conf, sess, saver, model):
                                                     model.ground_truth_numactions],
                                                     feed_dict)
 
-    fig = plt.figure(figsize=(20, 10), dpi=80,)
+    fig = plt.figure(figsize=(20, 10), dpi=80)
     n_examples = 8
 
     for ind in range(n_examples):
@@ -277,7 +297,7 @@ def visualize(conf, sess, saver, model):
         values = softout[ind]
 
         loc = np.arange(N)  # the x locations for the groups
-        width = 0.25  # the width of the bars
+        width = 0.3  # the width of the bars
 
         rects1 = ax.bar(loc, values, width)
 
@@ -286,12 +306,21 @@ def visualize(conf, sess, saver, model):
         ax.set_xticks(loc + width / 2)
         ax.set_xticklabels([str(j+1) for j in range(N)])
 
-        ax.set_xlabel('true temp distance: {0} \n  cross-entropy: {1}'
-                      .format(gtruth[ind], round(c_entr[ind], 3)))
+        centr = 0.
+        for i in range(N):
+            if gtruth[ind] == i:
+                l = 1
+            else:
+                l = 0
+            centr += np.log(softout[ind,i])*l + (1-l)* np.log(1- softout[ind,i])
+        centr = -centr
 
+        ax.set_xlabel('true temp distance: {0} \n  cross-entropy: {1}\n self-calc centr: {2}'
+                      .format(gtruth[ind], round(c_entr[ind], 3), round(centr, 3)))
+
+    # plt.tight_layout(pad=0.8, w_pad=0.8, h_pad=1.0)
     plt.savefig(conf['output_dir'] + '/fig.png')
-    plt.show()
-    sess.close()
+
 
 if __name__ == '__main__':
     tf.logging.set_verbosity(tf.logging.INFO)

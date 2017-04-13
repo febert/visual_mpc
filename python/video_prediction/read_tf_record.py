@@ -45,7 +45,6 @@ def build_tfrecord_input(conf, training=True):
         filenames = [conf['visual_file']]
         print 'using input file', filenames
         shuffle = False
-        print 'shuffle:', shuffle
     else: shuffle = True
 
     filename_queue = tf.train.string_input_producer(filenames, shuffle=shuffle)
