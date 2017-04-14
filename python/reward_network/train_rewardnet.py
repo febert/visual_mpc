@@ -30,7 +30,7 @@ SUMMARY_INTERVAL = 40
 VAL_INTERVAL = 200
 
 # How often to save a model checkpoint
-SAVE_INTERVAL = 2000
+SAVE_INTERVAL = 20  #00
 
 FLAGS = flags.FLAGS
 flags.DEFINE_string('hyper', '', 'hyperparameters configuration file')
@@ -120,6 +120,7 @@ class Model(object):
                 tstep = tf.slice(self.hard_labels, [i], [1])
                 zeros = tf.zeros(tf.to_int32(tstep))
                 ones = tf.ones(tf.to_int32(conf['sequence_length']-1 - tstep))
+                ones = ones / tf.reduce_sum(ones)
                 row = tf.expand_dims(tf.concat(0, [zeros, ones]),0)
                 rows.append(row)
 

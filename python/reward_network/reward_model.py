@@ -51,9 +51,9 @@ def construct_model(conf,
 
 def build_model(conf, images_0, images_1):
     with tf.variable_scope('emb0'):
-        emb0 = gen_embedding(images_0)
+        emb0 = gen_embedding(conf, images_0)
     with tf.variable_scope('emb1'):
-        emb1 = gen_embedding(images_1)
+        emb1 = gen_embedding(conf, images_1)
 
     joint_embedding = tf.concat(1, [emb0, emb1])
 
@@ -83,31 +83,32 @@ def build_model(conf, images_0, images_1):
     return fl3
 
 
-def gen_embedding(input):
+def gen_embedding(conf, input):
     enc0 = slim.layers.conv2d(  # 32x32x32
         input,
         32, [5, 5],
         stride=2,
         scope='conv0',
     )
-    enc1 = slim.layers.conv2d(  # 16x16x64
-        enc0,
-        64, [3, 3],
-        stride=2,
-        scope='conv1',
-    )
+
+    if 'maxpool' in conf:
+        enc0_maxp = slim.layers.max_pool2d(enc0, [2, 2], stride=[2, 2])
+        enc1 = slim.layers.conv2d(enc0_maxp, 64, [3, 3], stride=1, scope='conv1')  #16x16x64
+    else:
+        enc1 = slim.layers.conv2d(enc0, 64, [3, 3], stride=2, scope='conv1')
+
     enc2 = slim.layers.conv2d(  # 16x16x64
         enc1,
         64, [3, 3],
         stride=1,
-        scope='conv2',
-    )
-    enc3 = slim.layers.conv2d(  # 8x8x128
-        enc2,
-        128, [3, 3],
-        stride=2,
-        scope='conv3',
-    )
+        scope='conv2')
+
+    if 'maxpool' in conf:
+        enc2_maxp = slim.layers.max_pool2d(enc2, [2,2], stride=[2,2])
+        enc3 = slim.layers.conv2d(enc2_maxp, 128, [3, 3], stride=1, scope='conv3')  #8x8x128
+    else:
+        enc3 = slim.layers.conv2d(enc2, 128, [3, 3], stride=2, scope='conv3')  # 8x8x128
+
     enc4 = slim.layers.conv2d(  # 8x8x64
         enc3,
         64, [3, 3],
