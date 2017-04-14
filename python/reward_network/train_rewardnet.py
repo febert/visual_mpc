@@ -114,17 +114,19 @@ class Model(object):
 
         self.hard_labels = hard_labels = tf.squeeze(ind_1 - ind_0)
 
-        if 'soft_labels' in conf:
-            rows = []
-            for i in range(conf['batch_size']):
-                tstep = tf.slice(self.hard_labels, [i], [1])
-                zeros = tf.zeros(tf.to_int32(tstep))
-                ones = tf.ones(tf.to_int32(conf['sequence_length']-1 - tstep))
-                ones = ones / tf.reduce_sum(ones)
-                row = tf.expand_dims(tf.concat(0, [zeros, ones]),0)
-                rows.append(row)
 
-            self.soft_labels = tf.concat(0, rows)
+        rows = []
+        for i in range(conf['batch_size']):
+            tstep = tf.slice(self.hard_labels, [i], [1])
+            zeros = tf.zeros(tf.to_int32(tstep))
+            ones = tf.ones(tf.to_int32(conf['sequence_length']-1 - tstep))
+            ones = ones / tf.reduce_sum(ones)
+            row = tf.expand_dims(tf.concat(0, [zeros, ones]),0)
+            rows.append(row)
+
+        self.soft_labels = tf.concat(0, rows)
+
+        if 'soft_labels' in conf:
             self.cross_entropy = cross_entropy = tf.nn.softmax_cross_entropy_with_logits(
                 labels=self.soft_labels, logits=logits, name='cross_entropy_per_example')
         else:
@@ -277,12 +279,13 @@ def visualize(conf, sess, saver, model):
     feed_dict = {model.lr: 0.0,
                  model.prefix: 'val',
                  }
-    im0, im1, softout, c_entr, gtruth, softlabels = sess.run([  model.image_0,
+    im0, im1, softout, c_entr, gtruth, soft_labels = sess.run([  model.image_0,
                                                     model.image_1,
                                                     model.softmax_output,
                                                     model.cross_entropy,
                                                     model.hard_labels,
-                                                    model.soft_labels],
+                                                    model.soft_labels
+                                                                ],
                                                     feed_dict)
 
     fig = plt.figure(figsize=(20, 10), dpi=80)
@@ -322,7 +325,7 @@ def visualize(conf, sess, saver, model):
         centr = -centr
 
         if 'soft_labels' in conf:
-            print 'softlabel {0}, gtrut {1}'.format(softlabels[ind], gtruth[ind])
+            print 'softlabel {0}, gtrut {1}'.format(soft_labels[ind], gtruth[ind])
 
 
         ax.set_xlabel('true temp distance: {0} \n  cross-entropy: {1}\n self-calc centr: {2}'
