@@ -322,7 +322,6 @@ def construct_towers(conf ,training, reusescope=None):
     return towers, train_images, train_states, train_actions
 
 
-
 def main(conf_script=None):
     if FLAGS.device != None:
         start_id = FLAGS.device
