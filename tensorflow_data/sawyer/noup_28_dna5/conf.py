@@ -30,7 +30,7 @@ configuration = {
 'downsize': construct_model,           #'create downsized model'
 'file_visual': '',          # datafile used for making visualizations
 'penal_last_only': False,   # penalize only the last state, to get sharper predictions
-'dna_size': 9,              #size of DNA kerns
+'dna_size': 5,              #size of DNA kerns
 'sawyer':'',
 'numcam':2,
 }
