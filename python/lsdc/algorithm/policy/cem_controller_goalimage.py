@@ -404,6 +404,7 @@ class CEM_controller(Policy):
         if t == 0:
             action = np.zeros(2)
             self.target = copy.deepcopy(self.init_model.data.qpos[:2].squeeze())
+
             self.goal_state = self.inf_goal_state()
 
         else:

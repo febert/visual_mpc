@@ -95,6 +95,6 @@ def setup_predictor(conf, gpu_id = 0):
                                                        model.gen_images,
                                                        model.gen_states
                                                         ], feed_dict)
-                    return None, gen_images, gen_states
+                    return gen_images, gen_states
 
             return predictor_func

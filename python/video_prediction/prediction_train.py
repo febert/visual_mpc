@@ -93,7 +93,6 @@ class Model(object):
                  images=None,
                  actions=None,
                  states=None,
-                 sequence_length=None,
                  reuse_scope=None,
                  pix_distrib=None):
 
@@ -101,9 +100,6 @@ class Model(object):
             construct_model = conf['prediction_model']
         else:
             from prediction_model_downsized_lesslayer import construct_model
-
-        if sequence_length is None:
-            sequence_length = conf['sequence_length']
 
         self.prefix = prefix = tf.placeholder(tf.string, [])
         self.iter_num = tf.placeholder(tf.float32, [])
