@@ -117,3 +117,6 @@ goalimage_var_ballpos
 results
 
 MUJOCO_LOG.TXT
+goalimage/
+tfrecords/
+
