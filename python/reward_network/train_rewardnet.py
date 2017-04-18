@@ -32,19 +32,21 @@ VAL_INTERVAL = 200
 # How often to save a model checkpoint
 SAVE_INTERVAL = 2000
 
-FLAGS = flags.FLAGS
-flags.DEFINE_string('hyper', '', 'hyperparameters configuration file')
-flags.DEFINE_string('visualize', '', 'model within hyperparameter folder from which to create gifs')
-flags.DEFINE_integer('device', 0 ,'the value for CUDA_VISIBLE_DEVICES variable')
-flags.DEFINE_string('pretrained', None, 'path to model file from which to resume training')
+
+if __name__ == "__main__":
+    FLAGS = flags.FLAGS
+    flags.DEFINE_string('hyper', '', 'hyperparameters configuration file')
+    flags.DEFINE_string('visualize', '', 'model within hyperparameter folder from which to create gifs')
+    flags.DEFINE_integer('device', 0 ,'the value for CUDA_VISIBLE_DEVICES variable')
+    flags.DEFINE_string('pretrained', None, 'path to model file from which to resume training')
 
 
 class Model(object):
     def __init__(self,
                  conf,
                  video = None,
+                 currentimages=None,
                  goalimage = None,
-                 currentimages = None,
                  states = None,
                  reuse_scope = None,
                  ):
@@ -58,21 +60,24 @@ class Model(object):
         :param ltprop:   whether to porpagate laten state forward
         """
 
-        self.prefix = prefix = tf.placeholder(tf.string, [])
+
         self.iter_num = tf.placeholder(tf.float32, [])
         summaries = []
 
-        if goalimages is not None: # when testing
+        if goalimage is not None: # when testing
             # images is shape: batchsize x 2 x 64 x 64 x 3;
             #  the first image is the current image, the second is the goal image
 
-            self.image_0 = image_0 = tf.slice(video, [0, 0, 0, 0, 0], [-1, 1, -1, -1, -1])
-            self.image_1 = image_1 = tf.slice(video, [0, 1, 0, 0, 0], [-1, 1, -1, -1, -1])
+            self.image_0 = image_0 = currentimages
+            goalimage = tf.expand_dims(goalimage, dim=0)
+            self.image_1 = image_1 = tf.tile(goalimage, [conf['batch_size'], 1, 1, 1])
 
             self.states_0 = states_0 = None
             self.states_1 = states_1 = None
+            inference = True
 
         else: # when training pick random pairs of images:
+            inference = False
             first_row = tf.reshape(np.arange(conf['batch_size']),shape=[conf['batch_size'],1])
             rand_pair = np.random.randint(0, conf['sequence_length'] - 1, size=[conf['batch_size'],2])
 
@@ -118,42 +123,44 @@ class Model(object):
 
         self.softmax_output = tf.nn.softmax(logits)
 
-        self.hard_labels = hard_labels = tf.squeeze(ind_1 - ind_0)
+        if inference == False:
+            self.hard_labels = hard_labels = tf.squeeze(ind_1 - ind_0)
 
 
-        rows = []
-        for i in range(conf['batch_size']):
-            tstep = tf.slice(self.hard_labels, [i], [1])
-            zeros = tf.zeros(tf.to_int32(tstep))
-            ones = tf.ones(tf.to_int32(conf['sequence_length']-1 - tstep))
-            ones = ones / tf.reduce_sum(ones)
-            row = tf.expand_dims(tf.concat(0, [zeros, ones]),0)
-            rows.append(row)
+            rows = []
+            for i in range(conf['batch_size']):
+                tstep = tf.slice(self.hard_labels, [i], [1])
+                zeros = tf.zeros(tf.to_int32(tstep))
+                ones = tf.ones(tf.to_int32(conf['sequence_length']-1 - tstep))
+                ones = ones / tf.reduce_sum(ones)
+                row = tf.expand_dims(tf.concat(0, [zeros, ones]),0)
+                rows.append(row)
 
-        self.soft_labels = tf.concat(0, rows)
+            self.soft_labels = tf.concat(0, rows)
 
-        if 'soft_labels' in conf:
-            self.cross_entropy = cross_entropy = tf.nn.softmax_cross_entropy_with_logits(
-                labels=self.soft_labels, logits=logits, name='cross_entropy_per_example')
-        else:
-            self.cross_entropy = cross_entropy = tf.nn.sparse_softmax_cross_entropy_with_logits(
-                labels=hard_labels, logits=logits, name='cross_entropy_per_example')
+            if 'soft_labels' in conf:
+                self.cross_entropy = cross_entropy = tf.nn.softmax_cross_entropy_with_logits(
+                    labels=self.soft_labels, logits=logits, name='cross_entropy_per_example')
+            else:
+                self.cross_entropy = cross_entropy = tf.nn.sparse_softmax_cross_entropy_with_logits(
+                    labels=hard_labels, logits=logits, name='cross_entropy_per_example')
 
-        cross_entropy_mean = tf.reduce_mean(cross_entropy, name='cross_entropy')
+            cross_entropy_mean = tf.reduce_mean(cross_entropy, name='cross_entropy')
 
-        summaries.append(tf.scalar_summary(prefix + 'cross_entropy_mean', cross_entropy_mean))
-        self.loss = loss = cross_entropy_mean
-        self.lr = tf.placeholder_with_default(conf['learning_rate'], ())
+            self.prefix = prefix = tf.placeholder(tf.string, [])
+            summaries.append(tf.scalar_summary(prefix + 'cross_entropy_mean', cross_entropy_mean))
+            self.loss = loss = cross_entropy_mean
+            self.lr = tf.placeholder_with_default(conf['learning_rate'], ())
 
-        update_ops = tf.get_collection(tf.GraphKeys.UPDATE_OPS)
-        if update_ops:
-            updates = tf.group(*update_ops)
-            with tf.control_dependencies([updates]):
+            update_ops = tf.get_collection(tf.GraphKeys.UPDATE_OPS)
+            if update_ops:
+                updates = tf.group(*update_ops)
+                with tf.control_dependencies([updates]):
+                    self.train_op = tf.train.AdamOptimizer(self.lr).minimize(loss)
+            else:
                 self.train_op = tf.train.AdamOptimizer(self.lr).minimize(loss)
-        else:
-            self.train_op = tf.train.AdamOptimizer(self.lr).minimize(loss)
 
-        self.summ_op = tf.merge_summary(summaries)
+            self.summ_op = tf.merge_summary(summaries)
 
 
 def main(unused_argv):
@@ -184,11 +191,11 @@ def main(unused_argv):
     print 'Constructing models and inputs.'
     with tf.variable_scope('trainmodel') as training_scope:
         images, actions, states = build_tfrecord_input(conf, training=True)
-        model = Model(conf, images, states)
+        model = Model(conf, images)
 
     with tf.variable_scope('val_model', reuse=None):
         images_val, actions_val, states_val = build_tfrecord_input(conf, training=False)
-        val_model = Model(conf, images_val, states_val, reuse_scope= training_scope)
+        val_model = Model(conf, images_val, reuse_scope= training_scope)
 
     print 'Constructing saver.'
     # Make saver.

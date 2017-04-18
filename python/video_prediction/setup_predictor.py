@@ -47,8 +47,7 @@ def setup_predictor(conf, gpu_id = 0):
 
             print 'Constructing model for control'
             with tf.variable_scope('model', reuse=None) as training_scope:
-                model = Model(conf, images, actions, states,
-                              conf['sequence_length'], reuse_scope= None, pix_distrib= pix_distrib)
+                model = Model(conf, images, actions, states,reuse_scope= None, pix_distrib= pix_distrib)
 
 
             sess.run(tf.initialize_all_variables())
@@ -95,6 +94,6 @@ def setup_predictor(conf, gpu_id = 0):
                                                        model.gen_images,
                                                        model.gen_states
                                                         ], feed_dict)
-                    return gen_images, gen_states
+                    return None, gen_images, gen_states
 
             return predictor_func

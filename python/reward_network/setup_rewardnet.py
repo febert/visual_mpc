@@ -5,7 +5,7 @@ from train_rewardnet import Model
 from PIL import Image
 import os
 
-def setup_predictor(conf, gpu_id = 0):
+def setup_rewardnet(conf, gpu_id = 0):
     """
     Setup up the network for control
     :param conf_file:
@@ -17,7 +17,7 @@ def setup_predictor(conf, gpu_id = 0):
     os.environ["CUDA_VISIBLE_DEVICES"] = str(gpu_id)
     print 'using CUDA_VISIBLE_DEVICES=', os.environ["CUDA_VISIBLE_DEVICES"]
 
-    gpu_options = tf.GPUOptions(per_process_gpu_memory_fraction=0.9)
+    gpu_options = tf.GPUOptions(per_process_gpu_memory_fraction=0.3)
     g_predictor = tf.Graph()
     sess = tf.Session(config=tf.ConfigProto(gpu_options=gpu_options), graph= g_predictor)
     with sess.as_default():
@@ -33,16 +33,16 @@ def setup_predictor(conf, gpu_id = 0):
             print '-------------------------------------------------------------------'
 
             current_images_pl = tf.placeholder(tf.float32, name='images',
-                                    shape=(conf['batch_size'], 2, 64, 64, 3))
+                                    shape=(conf['batch_size'], 64, 64, 3))
 
             goal_image_pl = tf.placeholder(tf.float32, name='images',
-                                               shape=(conf['batch_size'], 64, 64, 3))
+                                               shape=(64, 64, 3))
 
 
 
             print 'Constructing model for control'
-            with tf.variable_scope('model', reuse=None) as training_scope:
-                model = Model(conf, images)
+            with tf.variable_scope('trainmodel', reuse=None) as training_scope:
+                model = Model(conf, currentimages=current_images_pl, goalimage=goal_image_pl)
 
 
             sess.run(tf.initialize_all_variables())
@@ -58,14 +58,12 @@ def setup_predictor(conf, gpu_id = 0):
                 """
 
 
-                feed_dict = {model.prefix: 'ctrl',
-                             model.lr: 0.0,
-                             images: input_images,
+                feed_dict = {
+                             current_images_pl: current_images,
+                             goal_image_pl: goal_image
                              }
 
-                softmax_out = sess.run([model.softmax_output], feed_dict)
+                [softmax_out] = sess.run([model.softmax_output], feed_dict)
                 return softmax_out
-
-
 
             return predictor_func

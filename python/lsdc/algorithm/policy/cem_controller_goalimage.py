@@ -259,25 +259,22 @@ class CEM_controller(Policy):
                                             gen_states[tstep][smp, :2], numpix=480)
 
         #evaluate distances to goalstate
-        sq_distance = np.zeros(self.netconf['batch_size'])
+        scores = np.zeros(self.netconf['batch_size'])
 
         if 'ballinvar' not in self.policyparams:  # the standard
 
             if 'usepixelerror' in self.policyparams:
                 for b in range(self.netconf['batch_size']):
-                    sq_distance[b] = np.linalg.norm(
+                    scores[b] = np.linalg.norm(
                         (self.goal_image[0][0] - gen_images[-1][b]).flatten())
 
-            elif 'use_rewardnet' in self.policyparams:
-                reward_func = self.policyparams['use_rewardnet']
-                scores =  reward_func(input_images=last_frames,
-                                      input_state=last_states,
-                                      input_actions=actions)
-
-
+            elif 'rewardnetconf' in self.policyparams:
+                reward_func = self.policyparams['rewardnet_func']
+                softmax_out =  reward_func(gen_images[-1], self.goal_image[0,0])
+                scores = np.sum(softmax_out * np.arange(14), axis=1)  # compute expected number time-steps
             else:
                     for b in range(self.netconf['batch_size']):
-                        sq_distance[b] = np.linalg.norm(self.goal_state.flatten()
+                        scores[b] = np.linalg.norm(self.goal_state.flatten()
                                                         - inf_low_state[-1][b].flatten())
 
         else:
@@ -290,7 +287,7 @@ class CEM_controller(Policy):
 
                 selected_scores[b] = np.argmin(scores_diffballpos)
 
-                sq_distance[b] = np.min(scores_diffballpos)
+                scores[b] = np.min(scores_diffballpos)
 
         # compare prediciton with simulation
         if self.verbose: #and itr == self.policyparams['iterations']-1:
@@ -298,7 +295,7 @@ class CEM_controller(Policy):
 
             file_path = self.netconf['current_dir'] + '/verbose'
 
-            bestindices = sq_distance.argsort()[:self.K]
+            bestindices = scores.argsort()[:self.K]
 
             def best(inputlist):
                 outputlist = [np.zeros_like(a)[:self.K] for a in inputlist]
@@ -315,9 +312,9 @@ class CEM_controller(Policy):
             comp_video(file_path, gif_name='check_eval_t{}'.format(self.t))
 
             f = open(file_path + '/actions_last_iter_t{}'.format(self.t), 'w')
-            sorted = sq_distance.argsort()
+            sorted = scores.argsort()
             for i in range(actions.shape[0]):
-                f.write('index: {0}, score: {1}, rank: {2}'.format(i, sq_distance[i],
+                f.write('index: {0}, score: {1}, rank: {2}'.format(i, scores[i],
                                                                    np.where(sorted == i)[0][0]))
                 f.write('action {}\n'.format(actions[i]))
 
@@ -329,7 +326,7 @@ class CEM_controller(Policy):
 
             pdb.set_trace()
 
-        return sq_distance
+        return scores
 
 
     def sim_rollout(self, actions, smp, itr):

@@ -1,5 +1,3 @@
-
-
 current_dir = '/'.join(str.split(__file__, '/')[:-1])
 bench_dir = '/'.join(str.split(__file__, '/')[:-2])
 
@@ -16,7 +14,7 @@ policy = {
     'use_first_plan': False, # execute MPC instead using firs plan
     'iterations': 5,
     'load_goal_image':'make_easy_goal',
-    'usepixelerror':''
+    'rewardnetconf':current_dir + '/rewardconf.py',   #configuration for reward network
 }
 
 agent = {
