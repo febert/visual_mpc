@@ -43,7 +43,8 @@ class Model(object):
     def __init__(self,
                  conf,
                  video = None,
-
+                 goalimage = None,
+                 currentimages = None,
                  states = None,
                  reuse_scope = None,
                  ):
@@ -61,7 +62,7 @@ class Model(object):
         self.iter_num = tf.placeholder(tf.float32, [])
         summaries = []
 
-        if 'inference' in conf:
+        if goalimages is not None: # when testing
             # images is shape: batchsize x 2 x 64 x 64 x 3;
             #  the first image is the current image, the second is the goal image
 

@@ -39,6 +39,7 @@ def setup_predictor(conf, gpu_id = 0):
                                                shape=(conf['batch_size'], 64, 64, 3))
 
 
+
             print 'Constructing model for control'
             with tf.variable_scope('model', reuse=None) as training_scope:
                 model = Model(conf, images)
