@@ -1,5 +1,3 @@
-
-
 current_dir = '/'.join(str.split(__file__, '/')[:-1])
 
 from lsdc.algorithm.policy.cem_controller import CEM_controller

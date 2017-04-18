@@ -45,6 +45,13 @@ def main():
     if hasattr(bench_conf, 'agent'):
         conf['agent'].update(bench_conf.agent)
 
+    if hasattr(bench_conf, 'config'):
+        conf.update(bench_conf.config)
+
+    if hasattr(bench_conf, 'common'):
+        conf['common'].update(bench_conf.common)
+
+
     conf['agent']['skip_first'] = 10
 
     print '-------------------------------------------------------------------'
@@ -60,25 +67,30 @@ def main():
     print '-------------------------------------------------------------------'
 
     # sample intial conditions and goalpoints
-    nruns = 60
 
     if 'verbose' in conf['policy']:
         print 'verbose mode!! just running 1 configuration'
         nruns = 1
 
-    traj = 0
-    n_reseed = 3
 
+    traj = 0
+    if 'n_reseed' in conf['policy']:
+        n_reseed = conf['policy']['n_reseed']
+    else:
+        n_reseed = 3
     i_conf = 0
 
-    scores = np.zeros(nruns)
+
     anglecost = []
     lsdc = LSDCMain(conf, gpu_id= gpu_id, ngpu= ngpu)
 
     if 'start_confs' not in conf['agent']:
-        benchconfs = cPickle.load(open('python/lsdc/utility/benchmarkconfigs', "rb"))
+        benchconfiguration = cPickle.load(open('python/lsdc/utility/benchmarkconfigs', "rb"))
     else:
-        benchconfs = cPickle.load(open(conf['agent']['start_confs'], "rb"))
+        benchconfiguration = cPickle.load(open(conf['agent']['start_confs'], "rb"))
+
+    nruns = len(benchconfiguration['initialpos'])  # 60 in standard benchmark
+    scores = np.zeros(nruns)
 
     if 'load_goal_image' in conf['policy']:
         goalimg_load_dir = cem_exp_dir +'/benchmarks_goalimage/' +\
@@ -89,8 +101,8 @@ def main():
                                conf['policy']['load_goal_image'] + '/goalimage_var_ballpos'
 
 
-    goalpoints = benchconfs['goalpoints']
-    initialposes = benchconfs['initialpos']
+    goalpoints = benchconfiguration['goalpoints']
+    initialposes = benchconfiguration['initialpos']
 
     while traj < nruns:
 
@@ -137,7 +149,7 @@ def main():
                 lsdc.policy.corrector = lsdc.corrector
 
             lsdc.policy.policyparams['rec_distrib'] =  bench_dir + '/videos_distrib/traj{0}_conf{1}'.format(traj, i_conf)
-            lsdc.agent.sample(lsdc.policy)
+            lsdc._take_sample(traj)
             scores[traj] = lsdc.agent.final_poscost
 
             if 'use_goalimage' in conf['agent']:

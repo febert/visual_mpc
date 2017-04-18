@@ -47,7 +47,7 @@ def read(filename):
 
 
 def create_easy_goalconfigs(targetfile = None):
-    confs = cPickle.load(open('benchmarkconfigs', "rb"))
+    confs = cPickle.load(open('benchmarkconfigs_1e4', "rb"))
 
     initialposes = confs['initialpos']
     goalpoints = []
@@ -82,11 +82,9 @@ if __name__ == "__main__":
     np.random.seed(seed)
     print 'using seed', seed
 
-    # filename = 'lval_configs_10000'
-    # nconf = 10000
-    #
-    # create(filename, nconf)
+    filename = 'benchmarkconfigs_1e4'
+    nconf = 10000
+    create(filename, nconf)
 
-    create_easy_goalconfigs(targetfile='configs_easy_goal')
-
+    # create_easy_goalconfigs(targetfile='configs_easy_goal_1e4')
     # read(filename)

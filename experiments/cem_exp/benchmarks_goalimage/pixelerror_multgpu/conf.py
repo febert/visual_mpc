@@ -6,12 +6,10 @@ current_dir = os.path.dirname(os.path.realpath(__file__))
 LSDC_BASE = '/'.join(str.split(current_dir, '/')[:-4])
 
 from video_prediction.setup_predictor_multgpu import setup_predictor
-from video_prediction import prediction_model_downsized_lesslayer
 
 configuration = {
 'experiment_name': 'cem_control',
 'setup_predictor': setup_predictor,
-'prediction_train': prediction_model_downsized_lesslayer,
 'current_dir': current_dir, #'directory for writing gifs' ,
 # 'filepath of a pretrained model to use for cem
 'pretrained_model': LSDC_BASE +'/tensorflow_data/dna/modeldata/model48002',

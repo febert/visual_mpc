@@ -42,14 +42,14 @@ flags.DEFINE_string('pretrained', None, 'path to model file from which to resume
 class Model(object):
     def __init__(self,
                  conf,
-                 images,
-                 states,
+                 video = None,
+
+                 states = None,
                  reuse_scope = None,
-                 test = False
-                ):
+                 ):
         """
         :param conf:
-        :param images:
+        :param video:
         :param actions:
         :param states:
         :param lt_states: latent states
@@ -61,30 +61,35 @@ class Model(object):
         self.iter_num = tf.placeholder(tf.float32, [])
         summaries = []
 
-        first_row = tf.reshape(np.arange(conf['batch_size']),shape=[conf['batch_size'],1])
-        rand_pair = np.random.randint(0, conf['sequence_length'] - 1, size=[conf['batch_size'],2])
+        if 'inference' in conf:
+            # images is shape: batchsize x 2 x 64 x 64 x 3;
+            #  the first image is the current image, the second is the goal image
 
-        ind_0 = tf.reshape(tf.reduce_min(rand_pair, reduction_indices=1), shape=[conf['batch_size'],1])
-        ind_1 = tf.reshape(tf.reduce_max(rand_pair, reduction_indices=1), shape=[conf['batch_size'],1])
+            self.image_0 = image_0 = tf.slice(video, [0, 0, 0, 0, 0], [-1, 1, -1, -1, -1])
+            self.image_1 = image_1 = tf.slice(video, [0, 1, 0, 0, 0], [-1, 1, -1, -1, -1])
 
+            self.states_0 = states_0 = None
+            self.states_1 = states_1 = None
 
+        else: # when training pick random pairs of images:
+            first_row = tf.reshape(np.arange(conf['batch_size']),shape=[conf['batch_size'],1])
+            rand_pair = np.random.randint(0, conf['sequence_length'] - 1, size=[conf['batch_size'],2])
 
+            ind_0 = tf.reshape(tf.reduce_min(rand_pair, reduction_indices=1), shape=[conf['batch_size'],1])
+            ind_1 = tf.reshape(tf.reduce_max(rand_pair, reduction_indices=1), shape=[conf['batch_size'],1])
 
+            num_ind_0 = tf.concat(1, [first_row, ind_0])
+            num_ind_1 = tf.concat(1, [first_row, ind_1])
 
-        num_ind_0 = tf.concat(1, [first_row, ind_0])
-        num_ind_1 = tf.concat(1, [first_row, ind_1])
-
-        self.image_0 = image_0 = tf.gather_nd(images, num_ind_0)
-        self.image_1 = image_1 = tf.gather_nd(images, num_ind_1)
-        self.state_0 = states_0 = tf.gather_nd(states, num_ind_0)
-        self.state_1 = states_1 = tf.gather_nd(states, num_ind_1)
+            self.image_0 = image_0 = tf.gather_nd(video, num_ind_0)
+            self.image_1 = image_1 = tf.gather_nd(video, num_ind_1)
+            self.state_0 = states_0 = tf.gather_nd(states, num_ind_0)
+            self.state_1 = states_1 = tf.gather_nd(states, num_ind_1)
 
         if reuse_scope is None:
             is_training = True
         else:
             is_training = False
-        if test:
-            is_training= False
 
         if 'dropout' in conf:
             if is_training:

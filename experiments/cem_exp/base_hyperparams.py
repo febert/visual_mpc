@@ -98,7 +98,7 @@ policy = {
 
 
 config = {
-    'save_data': True,
+    'save_data': False,
     'start_index':0,
     'end_index': 1,
     'verbose_policy_trials': 0,

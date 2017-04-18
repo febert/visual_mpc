@@ -28,7 +28,7 @@ from lsdc.utility.save_tf_record import save_tf_record
 from lsdc.utility.save_tf_record import save_tf_record_lval
 
 from datetime import datetime
-
+import pdb
 
 import random
 import numpy as np
@@ -180,9 +180,13 @@ class LSDCMain(object):
             image_data: the numpy structure
             sample_index: sample number
         """
+        
         traj = copy.deepcopy(traj)
         self.trajectory_list.append(traj)
-        traj_per_file = 256
+        if 'traj_per_file' in self._hyperparams:
+            traj_per_file = self._hyperparams['traj_per_file']
+        else:
+            traj_per_file = 256
         print 'traj_per_file', traj_per_file
         if len(self.trajectory_list) == traj_per_file:
             filename = 'traj_{0}_to_{1}'\

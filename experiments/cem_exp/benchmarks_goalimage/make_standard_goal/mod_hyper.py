@@ -19,5 +19,5 @@ policy = {
 agent = {
     'T': 25,
     'save_goal_image': "",
-    'current_dir': current_dir
+    'current_dir': current_dir,
 }

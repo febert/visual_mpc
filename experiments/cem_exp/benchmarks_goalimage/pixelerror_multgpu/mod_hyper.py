@@ -24,3 +24,11 @@ agent = {
     'use_goalimage':"",
     'start_confs': bench_dir + '/make_easy_goal/configs_easy_goal'
 }
+
+config = {
+    'save_data': True,
+    'traj_per_file': 20
+}
+common = {
+    'data_files_dir': current_dir + '/tfrecords'
+}

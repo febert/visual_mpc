@@ -263,15 +263,22 @@ class CEM_controller(Policy):
 
         if 'ballinvar' not in self.policyparams:  # the standard
 
-            if not 'usepixelerror' in self.policyparams:
-                for b in range(self.netconf['batch_size']):
-                    sq_distance[b] = np.linalg.norm(self.goal_state.flatten()
-                                                    - inf_low_state[-1][b].flatten())
-            else:
-                print 'using pixelerror..'
+            if 'usepixelerror' in self.policyparams:
                 for b in range(self.netconf['batch_size']):
                     sq_distance[b] = np.linalg.norm(
                         (self.goal_image[0][0] - gen_images[-1][b]).flatten())
+
+            elif 'use_rewardnet' in self.policyparams:
+                reward_func = self.policyparams['use_rewardnet']
+                scores =  reward_func(input_images=last_frames,
+                                      input_state=last_states,
+                                      input_actions=actions)
+
+
+            else:
+                    for b in range(self.netconf['batch_size']):
+                        sq_distance[b] = np.linalg.norm(self.goal_state.flatten()
+                                                        - inf_low_state[-1][b].flatten())
 
         else:
             selected_scores = np.zeros(self.netconf['batch_size'], dtype= np.int)
@@ -491,7 +498,7 @@ class CEM_controller(Policy):
                                                                 input_state=last_states,
                                                                 input_actions = actions)
 
-    #TODO: Look at the predictions at the goalstate!!!!!!!!!
+        #TODO: Look at the predictions at the goalstate!!!!!!!!!
 
         # taking the inferred latent state of the last time step
 
