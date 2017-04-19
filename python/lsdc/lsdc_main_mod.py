@@ -54,11 +54,6 @@ class LSDCMain(object):
             params = imp.load_source('params', config['policy']['netconf'])
             netconf = params.configuration
 
-        if 'rewardnetconf' in config['policy']:
-            params = imp.load_source('params', config['policy']['rewardnetconf'])
-            rewardnetconf = params.configuration
-            config['policy']['rewardnet_func'] = rewardnetconf['setup_rewardnet'](rewardnetconf, gpu_id)
-
         if 'usenet' in config['policy']:
             if config['policy']['usenet']:
                 if 'setup_predictor' in netconf:
@@ -73,6 +68,11 @@ class LSDCMain(object):
                 self.policy = config['policy']['type'](config['agent'], config['policy'])
         else:
             self.policy = config['policy']['type'](config['agent'], config['policy'])
+
+        if 'rewardnetconf' in config['policy']:
+            params = imp.load_source('params', config['policy']['rewardnetconf'])
+            rewardnetconf = params.configuration
+            config['policy']['rewardnet_func'] = rewardnetconf['setup_rewardnet'](rewardnetconf, gpu_id)
 
         if 'correctorconf' in config['policy']:
             self.corrector = setup_corrector(config['policy']['correctorconf'])
