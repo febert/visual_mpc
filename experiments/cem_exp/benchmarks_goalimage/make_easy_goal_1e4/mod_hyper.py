@@ -27,5 +27,5 @@ config = {
     'traj_per_file': 20
 }
 common = {
-    'data_files_dir': current_dir + '/tfrecords'
+    'data_files_dir': current_dir + '/tfrecords/train'
 }
