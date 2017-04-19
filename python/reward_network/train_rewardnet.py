@@ -72,8 +72,6 @@ class Model(object):
             goalimage = tf.expand_dims(goalimage, dim=0)
             self.image_1 = image_1 = tf.tile(goalimage, [conf['batch_size'], 1, 1, 1])
 
-            self.states_0 = states_0 = None
-            self.states_1 = states_1 = None
             inference = True
 
         else: # when training pick random pairs of images:
@@ -89,8 +87,6 @@ class Model(object):
 
             self.image_0 = image_0 = tf.gather_nd(video, num_ind_0)
             self.image_1 = image_1 = tf.gather_nd(video, num_ind_1)
-            self.state_0 = states_0 = tf.gather_nd(states, num_ind_0)
-            self.state_1 = states_1 = tf.gather_nd(states, num_ind_1)
 
         if reuse_scope is None:
             is_training = True
@@ -104,22 +100,18 @@ class Model(object):
                 conf['dropout'] = 1
 
         if reuse_scope is None:
-            logits  = construct_model(conf, image_0,
-                                      states_0,
-                                      image_1,
-                                      states_1,
-                                      is_training= is_training)
+            logits  = construct_model(conf, images_0=image_0,
+                                            images_1=image_1,
+                                            is_training= is_training)
         else: # If it's a validation or test model.
             if 'nomoving_average' in conf:
                 is_training = True
                 print 'valmodel with is_training: ', is_training
 
             with tf.variable_scope(reuse_scope, reuse=True):
-                logits = construct_model(conf, image_0,
-                                         states_0,
-                                         image_1,
-                                         states_1,
-                                         is_training=is_training)
+                logits = construct_model(conf,  images_0=image_0,
+                                                images_1=image_1,
+                                                is_training=is_training)
 
         self.softmax_output = tf.nn.softmax(logits)
 

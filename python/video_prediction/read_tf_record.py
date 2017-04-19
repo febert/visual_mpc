@@ -256,17 +256,17 @@ if __name__ == '__main__':
     conf = {}
 
     # DATA_DIR = '/home/frederik/Documents/pushing_data/settled_scene_rnd3/train'
-    DATA_DIR = '/home/frederik/Documents/lsdc/pushing_data/force_ctrl_save_pos_correction/train'
+    DATA_DIR = '/home/frederik/Documents/lsdc/experiments/cem_exp/benchmarks_goalimage/make_standard_goal_1e4/tfrecords/train'
 
     conf['schedsamp_k'] = -1  # don't feed ground truth
     conf['data_dir'] = DATA_DIR  # 'directory containing data_files.' ,
     conf['skip_frame'] = 1
     conf['train_val_split']= 0.95
-    conf['sequence_length']= 15      # 'sequence length, including context frames.'
+    conf['sequence_length']= 25      # 'sequence length, including context frames.'
     conf['use_state'] = True
     conf['batch_size']= 32
     conf['visualize']=False
-    conf['use_object_pos'] = True
+    # conf['use_object_pos'] = ""
 
     print '-------------------------------------------------------------------'
     print 'verify current settings!! '
@@ -275,7 +275,7 @@ if __name__ == '__main__':
     print '-------------------------------------------------------------------'
 
     print 'testing the reader'
-    if conf['use_object_pos']:
+    if 'use_object_pos' in conf:
         image_batch, action_batch, state_batch, object_pos_batch  = build_tfrecord_input(conf, training=True)
     else:
         image_batch, action_batch, state_batch = build_tfrecord_input(conf, training=True)
@@ -286,7 +286,7 @@ if __name__ == '__main__':
 
     for i in range(1):
         print 'run number ', i
-        if conf['use_object_pos']:
+        if 'use_object_pos' in conf:
             image_data, action_data, state_data, object_pos = sess.run([image_batch, action_batch, state_batch, object_pos_batch])
         else:
             image_data, action_data, state_data = sess.run([image_batch, action_batch, state_batch])
@@ -317,22 +317,21 @@ if __name__ == '__main__':
         from utils_vpred.create_gif import comp_single_video
 
         # make video preview video
-        # gif_preview = '/'.join(str.split(__file__, '/')[:-1] + ['preview'])
-        # comp_single_video(gif_preview, image_data)
+        gif_preview = '/'.join(str.split(__file__, '/')[:-1] + ['preview'])
+        comp_single_video(gif_preview, image_data)
 
         # make video preview video with annotated forces
         # gif_preview = '/'.join(str.split(__file__, '/')[:-1] + ['preview_visuals'])
         # comp_single_video(gif_preview, add_visuals_to_batch(image_data, action_data, state_data, action_pos=True))
 
         # show some frames
-        for i in range(2):
-            print 'object pos', object_pos.shape
-            pdb.set_trace()
+        for i in range(10):
+            # print 'object pos', object_pos.shape
 
             img = np.uint8(255. *image_data[0, i])
             img = Image.fromarray(img, 'RGB')
-            # img.show()
+            img.show()
 
-            get_frame_with_posdata(img, object_pos[0, i])
+            # get_frame_with_posdata(img, object_pos[0, i])
 
 
