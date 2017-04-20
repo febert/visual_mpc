@@ -10,6 +10,7 @@ from copy import deepcopy
 from video_prediction.utils_vpred.adapt_params_visualize import adapt_params_visualize
 from tensorflow.python.platform import app
 from tensorflow.python.platform import flags
+from tensorflow.python.platform import gfile
 import video_prediction.utils_vpred.create_gif
 
 import matplotlib.pyplot as plt
@@ -171,7 +172,11 @@ def main(unused_argv):
 
     if FLAGS.visualize:
         print 'creating visualizations ...'
-        conf = adapt_params_visualize(conf, FLAGS.visualize)
+        conf['data_dir'] = '/'.join(str.split(conf['data_dir'], '/')[:-1] + ['test'])
+        conf['visualize'] = conf['output_dir'] + '/' + FLAGS.visualize
+        conf['event_log_dir'] = '/tmp'
+        filenames = gfile.Glob(os.path.join(conf['data_dir'], '*'))
+        conf['visual_file'] = filenames[0]
 
     print '-------------------------------------------------------------------'
     print 'verify current settings!! '
