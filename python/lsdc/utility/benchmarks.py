@@ -89,7 +89,9 @@ def main():
     else:
         benchconfiguration = cPickle.load(open(conf['agent']['start_confs'], "rb"))
 
-    nruns = len(benchconfiguration['initialpos'])  # 60 in standard benchmark
+    nruns = len(benchconfiguration['initialpos'])*n_reseed  # 60 in standard benchmark
+    pdb.set_trace()
+
     scores = np.zeros(nruns)
 
     if 'load_goal_image' in conf['policy']:
