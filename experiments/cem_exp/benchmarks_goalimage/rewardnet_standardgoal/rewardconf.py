@@ -19,7 +19,7 @@ configuration = {
 'current_dir': current_dir,   #'directory for writing summary.' ,
 'num_iterations': 50000,   #'number of training iterations.' ,
 'pretrained_model': BASE_DIR + '/tensorflow_data/rewardnet/standardgoal_25step/modeldata/model28002',     # 'filepath of a pretrained model to resume training from.' ,
-'sequence_length': 15,      # 'sequence length, including context frames.' ,
+'sequence_length': 25,      # 'sequence length, including context frames.' ,
 'train_val_split': 0.95,    #'The percentage of files to use for the training set vs. the validation set.' ,
 'batch_size': 200,           #'batch size for training' ,
 'learning_rate': 0.0,     #'the base learning rate of the generator' ,
