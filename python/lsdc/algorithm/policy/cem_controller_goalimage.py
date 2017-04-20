@@ -271,7 +271,8 @@ class CEM_controller(Policy):
             elif 'rewardnetconf' in self.policyparams:
                 reward_func = self.policyparams['rewardnet_func']
                 softmax_out =  reward_func(gen_images[-1], self.goal_image[0,0])
-                scores = np.sum(softmax_out * np.arange(14), axis=1)  # compute expected number time-steps
+                # compute expected number time-steps
+                scores = np.sum(softmax_out * np.arange(self.netconf['sequence_length']-1), axis=1)
             else:
                     for b in range(self.netconf['batch_size']):
                         scores[b] = np.linalg.norm(self.goal_state.flatten()
