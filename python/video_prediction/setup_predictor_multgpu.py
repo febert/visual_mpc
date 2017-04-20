@@ -105,7 +105,7 @@ def setup_predictor(conf, gpu_id=0, ngpu=1):
         t_comb_gen_states = [to.model.gen_states[t] for to in towers]
         comb_gen_states.append(tf.concat(0, t_comb_gen_states))
 
-        # import pdb; pdb.set_trace()
+        import pdb; pdb.set_trace()
 
 
     sess.run(tf.initialize_all_variables())
