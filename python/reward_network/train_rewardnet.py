@@ -101,7 +101,7 @@ class Model(object):
                 conf['dropout'] = 1
 
         if reuse_scope is None:
-            logits  = construct_model(conf, images_0=image_0,
+            softmax_output  = construct_model(conf, images_0=image_0,
                                             images_1=image_1,
                                             is_training= is_training)
         else: # If it's a validation or test model.
@@ -110,11 +110,39 @@ class Model(object):
                 print 'valmodel with is_training: ', is_training
 
             with tf.variable_scope(reuse_scope, reuse=True):
-                logits = construct_model(conf,  images_0=image_0,
+                softmax_output = construct_model(conf,  images_0=image_0,
                                                 images_1=image_1,
                                                 is_training=is_training)
 
-        self.softmax_output = tf.nn.softmax(logits)
+        self.softmax_output = tf.nn.softmax(softmax_output)
+
+
+        mult = tf.mul(softmax_output, tf.cast(tf.range(0, conf['sequence_length']-1), tf.float32))
+        expected_timesteps = tf.reduce_sum(mult,1)
+
+        da_dx0 = []
+        # for el in range(conf['batch_size']):
+        for el in range(8):
+            exp_t = tf.slice(expected_timesteps, [el], [1])
+            image_0_ex = tf.slice(image_0, [el, 0, 0, 0,], [1, -1, -1, -1])
+            [grad] = tf.gradients(exp_t, image_0_ex)
+            pdb.set_trace()
+            grad = tf.expand_dims(grad, 0)
+            da_dx0.append(grad)
+        self.da_dx0 = tf.concat(0, da_dx0)
+
+        da_dx1 = []
+        # for el in range(conf['batch_size']):
+        for el in range(8):
+            exp_t = tf.slice(expected_timesteps, [el], [1])
+            image_1_ex = tf.slice(image_0, [el, 0, 0, 0,], [1, -1, -1, -1])
+            [grad] = tf.gradients(exp_t, image_1_ex)
+            grad = tf.expand_dims(grad, 0)
+            da_dx1.append(grad)
+        self.da_dx1 = tf.concat(0, da_dx1)
+
+        pdb.set_trace()
+
 
         if inference == False:
             self.hard_labels = hard_labels = tf.squeeze(ind_1 - ind_0)
@@ -133,10 +161,10 @@ class Model(object):
 
             if 'soft_labels' in conf:
                 self.cross_entropy = cross_entropy = tf.nn.softmax_cross_entropy_with_logits(
-                    labels=self.soft_labels, logits=logits, name='cross_entropy_per_example')
+                    labels=self.soft_labels, logits=softmax_output, name='cross_entropy_per_example')
             else:
                 self.cross_entropy = cross_entropy = tf.nn.sparse_softmax_cross_entropy_with_logits(
-                    labels=hard_labels, logits=logits, name='cross_entropy_per_example')
+                    labels=hard_labels, logits=softmax_output, name='cross_entropy_per_example')
 
             cross_entropy_mean = tf.reduce_mean(cross_entropy, name='cross_entropy')
 
@@ -177,6 +205,7 @@ def main(unused_argv):
         conf['event_log_dir'] = '/tmp'
         filenames = gfile.Glob(os.path.join(conf['data_dir'], '*'))
         conf['visual_file'] = filenames[0]
+        conf['batch_size'] = 8
 
     print '-------------------------------------------------------------------'
     print 'verify current settings!! '
@@ -289,12 +318,14 @@ def visualize(conf, sess, saver, model):
     feed_dict = {model.lr: 0.0,
                  model.prefix: 'val',
                  }
-    im0, im1, softout, c_entr, gtruth, soft_labels = sess.run([  model.image_0,
+    im0, im1, softout, c_entr, gtruth, soft_labels, dadx0, dadx1 = sess.run([  model.image_0,
                                                     model.image_1,
                                                     model.softmax_output,
                                                     model.cross_entropy,
                                                     model.hard_labels,
-                                                    model.soft_labels
+                                                    model.soft_labels,
+                                                    model.da_dx0,
+                                                    model.da_dx1
                                                                 ],
                                                     feed_dict)
 
@@ -310,7 +341,17 @@ def visualize(conf, sess, saver, model):
         ax.imshow((im1[ind]*255).astype(np.uint8))
         plt.axis('off')
 
-        ax = fig.add_subplot(3, n_examples, n_examples*2 +ind +1)
+
+        # visualize dadx0
+        ax = fig.add_subplot(3, n_examples, n_examples*2 + 1 + ind)
+        plt.imshow(dadx0[ind], zorder=0, cmap=plt.get_cmap('jet'), interpolation='none')
+        plt.axis('off')
+        # visualize dadx1
+        ax = fig.add_subplot(3, n_examples, n_examples*3 + 1 + ind)
+        plt.imshow(dadx1[ind], zorder=0, cmap=plt.get_cmap('jet'), interpolation='none')
+        plt.axis('off')
+
+        ax = fig.add_subplot(3, n_examples, n_examples*4 +ind +1)
 
         N = conf['sequence_length'] -1
         values = softout[ind]

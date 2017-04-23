@@ -58,10 +58,10 @@ class CEM_controller(Policy):
             self.M = self.netconf['batch_size']
             assert self.nactions * self.repeat == self.netconf['sequence_length']
             self.predictor = predictor
-            self.K = 10  # only consider K best samples for refitting
         else:
             self.M = self.policyparams['num_samples']
-            self.K = 10  # only consider K best samples for refitting
+
+        self.K = 10  # only consider K best samples for refitting
 
         self.gtruth_images = [np.zeros((self.M, 64, 64, 3)) for _ in range(self.nactions * self.repeat)]
 
@@ -301,6 +301,7 @@ class CEM_controller(Policy):
             file_path = self.netconf['current_dir'] + '/verbose'
 
             bestindices = scores.argsort()[:self.K]
+            bestscores = [scores[ind] for ind in bestindices]
 
             def best(inputlist):
                 outputlist = [np.zeros_like(a)[:self.K] for a in inputlist]
@@ -330,6 +331,11 @@ class CEM_controller(Policy):
             #     Image.fromarray((goalim * 255.).astype(np.uint8)).show()
 
             pdb.set_trace()
+
+        if 'store_video_prediction' in self.agentparams and\
+                itr == (self.policyparams['iterations']-1):
+            bestindices = scores.argsort()[:self.K]
+            self.terminal_pred = gen_images[-1][bestindices]
 
         return scores
 

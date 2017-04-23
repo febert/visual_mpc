@@ -12,6 +12,9 @@ class Trajectory(object):
                                         hyperparams['image_width'],
                                         hyperparams['image_channels']), dtype='uint8')
 
+        # for storing the terminal predicted images of the K best actions at each time step:
+        self.predicted_images = []
+
         self.U = np.empty([self.T, 2])
         self.X_full = np.empty([self.T, 2])
         self.Xdot_full = np.empty([self.T, 2])

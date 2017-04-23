@@ -88,22 +88,19 @@ def main():
         benchconfiguration = cPickle.load(open('python/lsdc/utility/benchmarkconfigs', "rb"))
     else:
         benchconfiguration = cPickle.load(open(conf['agent']['start_confs'], "rb"))
-
     nruns = len(benchconfiguration['initialpos'])*n_reseed  # 60 in standard benchmark
+    goalpoints = benchconfiguration['goalpoints']
+    initialposes = benchconfiguration['initialpos']
 
     scores = np.zeros(nruns)
 
     if 'load_goal_image' in conf['policy']:
         goalimg_load_dir = cem_exp_dir +'/benchmarks_goalimage/' +\
                            conf['policy']['load_goal_image'] +'/goalimage'
-
         if 'ballinvar' in conf['policy']:
             goalimg_load_dir = cem_exp_dir + '/benchmarks_goalimage/' + \
                                conf['policy']['load_goal_image'] + '/goalimage_var_ballpos'
 
-
-    goalpoints = benchconfiguration['goalpoints']
-    initialposes = benchconfiguration['initialpos']
 
     while traj < nruns:
 
@@ -127,12 +124,12 @@ def main():
             lsdc.agent._hyperparams['record'] = bench_dir + '/videos/traj{0}_conf{1}'.format(traj, i_conf)
             if 'save_goal_image' in conf['agent']:
                 lsdc.agent._hyperparams['save_goal_image'] = goalimg_save_dir + '/goalimg{0}_conf{1}'.format(traj, i_conf)
+
             if 'use_goalimage' in conf['policy']:
                 conf['policy']['use_goalimage'] = goalimg_load_dir + '/goalimg{0}_conf{1}.pkl'.format(traj, i_conf)
                 goal_dict = cPickle.load(open(conf['policy']['use_goalimage'], "rb"))
                 lsdc.agent._hyperparams['goal_object_pose'] = goal_dict['goal_object_pose']
 
-                # if 'pixelmover' in conf['policy'] or 'random_baseline' in conf['agent']:
                 lsdc.agent._hyperparams['goal_point'] = goal_dict['goal_object_pose'][0][:2]
 
             if 'usenet' in conf['policy']:

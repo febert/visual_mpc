@@ -22,7 +22,8 @@ policy = {
 agent = {
     'T': 25,
     'use_goalimage':"",
-    'start_confs': bench_dir + '/make_easy_goal/configs_easy_goal'
+    'start_confs': bench_dir + '/make_easy_goal/configs_easy_goal',
+    'store_video_prediction': 10 # the number of predicted terminal frames stored, equal to K selected trajectories in CEM
 }
 
 config = {

@@ -15,7 +15,8 @@ policy = {
     'iterations': 5,
     'load_goal_image':'make_standard_goal',
     'rewardnetconf':current_dir + '/rewardconf.py',   #configuration for reward network
-    'rewardmodel_sequence_length':25
+    'rewardmodel_sequence_length':25,
+    'verbose':''
 }
 
 agent = {

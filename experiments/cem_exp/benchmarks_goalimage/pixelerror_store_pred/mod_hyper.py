@@ -1,3 +1,5 @@
+
+
 current_dir = '/'.join(str.split(__file__, '/')[:-1])
 bench_dir = '/'.join(str.split(__file__, '/')[:-2])
 
@@ -13,14 +15,22 @@ policy = {
     'netconf': current_dir + '/conf.py',
     'use_first_plan': False, # execute MPC instead using firs plan
     'iterations': 5,
-    'load_goal_image':'make_easy_goal',
-    'rewardnetconf':current_dir + '/rewardconf.py',   #configuration for reward network
-    'rewardmodel_sequence_length':25,
-    'verbose':""
+    'load_goal_image':'make_easy_goal_1e4',
+    'usepixelerror':'',
+    'n_reseed':1
 }
 
 agent = {
     'T': 25,
     'use_goalimage':"",
-    'start_confs': bench_dir + '/make_easy_goal/configs_easy_goal'
+    'start_confs': bench_dir + '/make_easy_goal_1e4/configs_easy_goal_1e4',
+    'store_video_prediction': 10 # the number of predicted terminal frames stored, equal to K selected trajectories in CEM
+}
+
+config = {
+    'save_data': True,
+    'traj_per_file': 20
+}
+common = {
+    'data_files_dir': current_dir + '/tfrecords/train'
 }

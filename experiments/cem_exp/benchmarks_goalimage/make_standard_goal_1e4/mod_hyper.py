@@ -1,5 +1,5 @@
 
-
+import imp
 current_dir = '/'.join(str.split(__file__, '/')[:-1])
 
 from lsdc.algorithm.policy.cem_controller import CEM_controller
@@ -28,7 +28,6 @@ config = {
     'save_data': True,
     'traj_per_file': 20
 }
-
 common = {
     'data_files_dir': current_dir + '/tfrecords/train'
 }
