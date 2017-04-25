@@ -256,17 +256,16 @@ if __name__ == '__main__':
     conf = {}
 
     # DATA_DIR = '/home/frederik/Documents/pushing_data/settled_scene_rnd3/train'
-    DATA_DIR = '/home/frederik/Documents/lsdc/experiments/cem_exp/benchmarks_goalimage/make_standard_goal_1e4/tfrecords/train'
+    DATA_DIR = '/home/frederik/Documents/lsdc/experiments/cem_exp/benchmarks_goalimage/pixelerror_store_pred/tfrecords/train'
 
     conf['schedsamp_k'] = -1  # don't feed ground truth
     conf['data_dir'] = DATA_DIR  # 'directory containing data_files.' ,
     conf['skip_frame'] = 1
     conf['train_val_split']= 0.95
-    conf['sequence_length']= 25      # 'sequence length, including context frames.'
+    conf['sequence_length']= 23      # 'sequence length, including context frames.'
     conf['use_state'] = True
     conf['batch_size']= 32
     conf['visualize']=False
-    # conf['use_object_pos'] = ""
 
     print '-------------------------------------------------------------------'
     print 'verify current settings!! '

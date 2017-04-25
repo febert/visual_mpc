@@ -201,8 +201,9 @@ class LSDCMain(object):
 
             if 'store_video_prediction' in self.agentparams:
                 save_tf_record_vid_pred(self.agentparams, self._data_files_dir, filename, self.trajectory_list)
+            else:
+                save_tf_record(self._data_files_dir, filename, self.trajectory_list)
 
-            save_tf_record(self._data_files_dir, filename, self.trajectory_list)
             self.trajectory_list = []
 
     def save_data_lval(self, traj, score, goalpos, desig_pos, init_state, sample_index):

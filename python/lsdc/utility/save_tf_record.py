@@ -42,7 +42,6 @@ def save_tf_record(dir, filename, trajectory_list):
                 Object_pos_flat = traj.Object_pos[index, :].flatten()
                 feature['move/' + str(index) + '/object_pos'] = _float_feature(Object_pos_flat.tolist())
 
-
         example = tf.train.Example(features=tf.train.Features(feature=feature))
         writer.write(example.SerializeToString())
 
@@ -53,7 +52,6 @@ def save_tf_record_vid_pred(agentparams, dir, filename, trajectory_list):
     filename = os.path.join(dir, filename + '.tfrecords')
     print('Writing', filename)
     writer = tf.python_io.TFRecordWriter(filename)
-
     feature = {}
 
     for tr in range(len(trajectory_list)):
