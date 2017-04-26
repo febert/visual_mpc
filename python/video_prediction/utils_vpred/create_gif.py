@@ -65,11 +65,11 @@ def comp_video(file_path, conf=None, suffix = None, gif_name= None):
 
     return fused_gif
 
-def comp_single_video(file_path, ground_truth):
+def comp_single_video(file_path, ground_truth, num_exp = 8):
     ground_truth = np.split(ground_truth, ground_truth.shape[1], axis=1)
     ground_truth = np.squeeze(ground_truth)
 
-    fused_gif = assemble_gif([ground_truth])
+    fused_gif = assemble_gif([ground_truth], num_exp)
     npy_to_gif(fused_gif, file_path)
 
 def make_color_scheme(input_img_list):

@@ -24,7 +24,7 @@ agent = {
     'T': 25,
     'use_goalimage':"",
     'start_confs': bench_dir + '/make_standard_goal_1e4/configs_standard_goal_1e4',
-    'store_video_prediction': 10 # the number of predicted terminal frames stored, equal to K selected trajectories in CEM
+    'store_video_prediction': "" # the number of predicted terminal frames stored, equal to K selected trajectories in CEM
 }
 
 config = {

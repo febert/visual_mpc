@@ -26,7 +26,6 @@ from video_prediction.setup_predictor import setup_predictor
 from video_prediction.correction.setup_corrector import setup_corrector
 from lsdc.utility.save_tf_record import save_tf_record
 from lsdc.utility.save_tf_record import save_tf_record_lval
-from lsdc.utility.save_tf_record import save_tf_record_vid_pred
 
 from datetime import datetime
 import pdb
@@ -199,10 +198,7 @@ class LSDCMain(object):
             filename = 'traj_{0}_to_{1}'\
                 .format(sample_index - traj_per_file + 1, sample_index)
 
-            if 'store_video_prediction' in self.agentparams:
-                save_tf_record_vid_pred(self.agentparams, self._data_files_dir, filename, self.trajectory_list)
-            else:
-                save_tf_record(self._data_files_dir, filename, self.trajectory_list)
+            save_tf_record(self._data_files_dir, filename, self.trajectory_list, self.agentparams)
 
             self.trajectory_list = []
 

@@ -15,7 +15,7 @@ def _int64_feature(value):
   return tf.train.Feature(int64_list=tf.train.Int64List(value=[value]))
 
 
-def save_tf_record(dir, filename, trajectory_list):
+def save_tf_record(dir, filename, trajectory_list, params):
     """
     saves data_files from one sample trajectory into one tf-record file
     """
@@ -29,10 +29,17 @@ def save_tf_record(dir, filename, trajectory_list):
     for tr in range(len(trajectory_list)):
 
         traj = trajectory_list[tr]
-        sequence_length = traj._sample_images.shape[0]
+
+        if 'store_video_prediction' in params:
+            sequence_length = len(traj.predicted_images)
+        else:
+            sequence_length = traj._sample_images.shape[0]
 
         for index in range(sequence_length):
-            image_raw = traj._sample_images[index].tostring()
+            if 'store_video_prediction' in params:
+                image_raw = traj.predicted_images[index].tostring()
+            else:
+                image_raw = traj._sample_images[index].tostring()
 
             feature['move/' + str(index) + '/action']= _float_feature(traj.U[index,:].tolist())
             feature['move/' + str(index) + '/state'] = _float_feature(traj.X_Xdot_full[index,:].tolist())
@@ -47,35 +54,6 @@ def save_tf_record(dir, filename, trajectory_list):
 
     writer.close()
 
-
-def save_tf_record_vid_pred(agentparams, dir, filename, trajectory_list):
-    filename = os.path.join(dir, filename + '.tfrecords')
-    print('Writing', filename)
-    writer = tf.python_io.TFRecordWriter(filename)
-    feature = {}
-
-    for tr in range(len(trajectory_list)):
-
-        for k in range(agentparams['store_video_prediction']):
-
-            traj = trajectory_list[tr]
-            sequence_length = len(traj.predicted_images)
-
-            for index in range(sequence_length):
-                image_raw = traj.predicted_images[index][k].tostring()
-
-                feature['move/' + str(index) + '/action'] = _float_feature(traj.U[index, :].tolist())
-                feature['move/' + str(index) + '/state'] = _float_feature(traj.X_Xdot_full[index, :].tolist())
-                feature['move/' + str(index) + '/image/encoded'] = _bytes_feature(image_raw)
-
-                if hasattr(traj, 'Object_pos'):
-                    Object_pos_flat = traj.Object_pos[index, :].flatten()
-                    feature['move/' + str(index) + '/object_pos'] = _float_feature(Object_pos_flat.tolist())
-
-            example = tf.train.Example(features=tf.train.Features(feature=feature))
-            writer.write(example.SerializeToString())
-
-    writer.close()
 
 
 def save_tf_record_lval(dir, filename, img_score_list):

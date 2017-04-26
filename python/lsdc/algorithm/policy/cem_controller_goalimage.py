@@ -334,8 +334,8 @@ class CEM_controller(Policy):
 
         if 'store_video_prediction' in self.agentparams and\
                 itr == (self.policyparams['iterations']-1):
-            bestindices = scores.argsort()[:self.K]
-            self.terminal_pred = gen_images[-1][bestindices]
+            bestindx = scores.argsort()[0]
+            self.terminal_pred = gen_images[-1][bestindx]
 
         return scores
 
