@@ -1,4 +1,3 @@
-sensor_msgs/Image image0
-sensor_msgs/Image image1
+sensor_msgs/Image image
 ---
 float32[4] action

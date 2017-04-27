@@ -117,31 +117,29 @@ class Model(object):
         self.softmax_output = tf.nn.softmax(softmax_output)
 
 
-        mult = tf.mul(softmax_output, tf.cast(tf.range(0, conf['sequence_length']-1), tf.float32))
-        expected_timesteps = tf.reduce_sum(mult,1)
+        # mult = tf.mul(softmax_output, tf.cast(tf.range(0, conf['sequence_length']-1), tf.float32))
+        # expected_timesteps = tf.reduce_sum(mult,1)
 
-        da_dx0 = []
-        # for el in range(conf['batch_size']):
-        for el in range(8):
-            exp_t = tf.slice(expected_timesteps, [el], [1])
-            image_0_ex = tf.slice(image_0, [el, 0, 0, 0,], [1, -1, -1, -1])
-            [grad] = tf.gradients(exp_t, image_0_ex)
-            pdb.set_trace()
-            grad = tf.expand_dims(grad, 0)
-            da_dx0.append(grad)
-        self.da_dx0 = tf.concat(0, da_dx0)
-
-        da_dx1 = []
-        # for el in range(conf['batch_size']):
-        for el in range(8):
-            exp_t = tf.slice(expected_timesteps, [el], [1])
-            image_1_ex = tf.slice(image_0, [el, 0, 0, 0,], [1, -1, -1, -1])
-            [grad] = tf.gradients(exp_t, image_1_ex)
-            grad = tf.expand_dims(grad, 0)
-            da_dx1.append(grad)
-        self.da_dx1 = tf.concat(0, da_dx1)
-
-        pdb.set_trace()
+        # da_dx0 = []
+        # # for el in range(conf['batch_size']):
+        # for el in range(8):
+        #     exp_t = tf.slice(expected_timesteps, [el], [1])
+        #     image_0_ex = tf.slice(image_0, [el, 0, 0, 0,], [1, -1, -1, -1])
+        #     [grad] = tf.gradients(exp_t, image_0_ex)
+        #     pdb.set_trace()
+        #     grad = tf.expand_dims(grad, 0)
+        #     da_dx0.append(grad)
+        # self.da_dx0 = tf.concat(0, da_dx0)
+        #
+        # da_dx1 = []
+        # # for el in range(conf['batch_size']):
+        # for el in range(8):
+        #     exp_t = tf.slice(expected_timesteps, [el], [1])
+        #     image_1_ex = tf.slice(image_0, [el, 0, 0, 0,], [1, -1, -1, -1])
+        #     [grad] = tf.gradients(exp_t, image_1_ex)
+        #     grad = tf.expand_dims(grad, 0)
+        #     da_dx1.append(grad)
+        # self.da_dx1 = tf.concat(0, da_dx1)
 
 
         if inference == False:

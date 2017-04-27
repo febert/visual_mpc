@@ -255,8 +255,8 @@ if __name__ == '__main__':
     print 'using CUDA_VISIBLE_DEVICES=', os.environ["CUDA_VISIBLE_DEVICES"]
     conf = {}
 
-    # DATA_DIR = '/home/frederik/Documents/pushing_data/settled_scene_rnd3/train'
-    DATA_DIR = '/home/frederik/Documents/lsdc/experiments/cem_exp/benchmarks_goalimage/pixelerror_store_pred_easy/tfrecords/train'
+    DATA_DIR = '/home/frederik/Documents/lsdc/experiments/cem_exp/benchmarks_goalimage/pixelerror_store_pred_standard/tfrecords/train'
+    # DATA_DIR = '/home/frederik/Documents/lsdc/experiments/cem_exp/benchmarks_goalimage/pixelerror_store_pred_easy/tfrecords/train'
 
     conf['schedsamp_k'] = -1  # don't feed ground truth
     conf['data_dir'] = DATA_DIR  # 'directory containing data_files.' ,
@@ -264,7 +264,7 @@ if __name__ == '__main__':
     conf['train_val_split']= 0.95
     conf['sequence_length']= 23      # 'sequence length, including context frames.'
     conf['use_state'] = True
-    conf['batch_size']= 6
+    conf['batch_size']= 32
     conf['visualize']=False
 
     print '-------------------------------------------------------------------'
@@ -317,7 +317,7 @@ if __name__ == '__main__':
 
         # make video preview video
         gif_preview = '/'.join(str.split(__file__, '/')[:-1] + ['preview'])
-        comp_single_video(gif_preview, image_data, num_exp= 4)
+        comp_single_video(gif_preview, image_data, num_exp= 20)
 
         # make video preview video with annotated forces
         # gif_preview = '/'.join(str.split(__file__, '/')[:-1] + ['preview_visuals'])

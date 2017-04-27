@@ -10,10 +10,10 @@ import random
 import cPickle
 from PIL import Image
 from video_prediction.correction.setup_corrector import setup_corrector
-
+from lsdc import __file__ as lsdc_filepath
 
 def main():
-    from lsdc import __file__ as lsdc_filepath
+
     lsdc_dir = '/'.join(str.split(lsdc_filepath, '/')[:-3])
     cem_exp_dir = lsdc_dir + '/experiments/cem_exp'
     hyperparams = imp.load_source('hyperparams', cem_exp_dir + '/base_hyperparams.py')
