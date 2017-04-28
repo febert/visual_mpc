@@ -51,7 +51,7 @@ def build_tfrecord_input(conf, training=True, gtruth_pred = False):
     reader = tf.TFRecordReader()
     _, serialized_example = reader.read(filename_queue)
 
-    gtruthimage_seq, predimage_seq, image_seq, state_seq, action_seq, object_pos_seq = [], [], [], [], [], []
+    gtruthimage_seq, predimage_seq, image_seq, state_seq, action_seq, object_pos_seq, touch_seq = [], [], [], [], [], [], []
 
 
     load_indx = range(0, 30, conf['skip_frame'])
@@ -82,6 +82,11 @@ def build_tfrecord_input(conf, training=True, gtruth_pred = False):
             if conf['use_object_pos']:
                 features[object_pos_name] = tf.FixedLenFeature([OBJECT_POS_DIM], tf.float32)
 
+        if 'touch' in conf:
+            touchdata_name = 'touchdata/' + str(i)
+            TOUCH_DIM = 20
+            features[touchdata_name] =  tf.FixedLenFeature([TOUCH_DIM], tf.float32)
+
         features = tf.parse_single_example(serialized_example, features=features)
 
         if gtruth_pred:
@@ -96,6 +101,11 @@ def build_tfrecord_input(conf, training=True, gtruth_pred = False):
             state_seq.append(state)
             action = tf.reshape(features[action_name], shape=[1, ACION_DIM])
             action_seq.append(action)
+
+            if 'touch' in conf:
+                touchdata = tf.reshape(features[touchdata_name], shape=[1, TOUCH_DIM])
+                touch_seq.append(touchdata)
+
 
             if 'use_object_pos' in conf.keys():
                 if conf['use_object_pos']:
@@ -125,6 +135,7 @@ def build_tfrecord_input(conf, training=True, gtruth_pred = False):
 
         state_seq = tf.concat(0, state_seq)
         action_seq = tf.concat(0, action_seq)
+        touch_seq = tf.concat(0, touch_seq)
 
         if 'use_object_pos' in conf.keys():
             if conf['use_object_pos']:
@@ -135,6 +146,13 @@ def build_tfrecord_input(conf, training=True, gtruth_pred = False):
                 capacity=100 * conf['batch_size'])
 
                 return image_batch, action_batch, state_batch, object_pos_batch
+        elif 'touch' in conf:
+            [image_batch, action_batch, state_batch, touch_batch] = tf.train.batch(
+                [image_seq, action_seq, state_seq, touch_seq],
+                conf['batch_size'],
+                num_threads=num_threads,
+                capacity=100 * conf['batch_size'])
+            return image_batch, action_batch, state_batch, touch_batch
         else:
             [image_batch, action_batch, state_batch] = tf.train.batch(
                 [image_seq, action_seq, state_seq],
@@ -287,17 +305,18 @@ if __name__ == '__main__':
     print 'using CUDA_VISIBLE_DEVICES=', os.environ["CUDA_VISIBLE_DEVICES"]
     conf = {}
 
-    DATA_DIR = '/home/frederik/Documents/lsdc/experiments/cem_exp/benchmarks_goalimage/pixelerror_store_wholepred/tfrecords/train'
-    # DATA_DIR = '/home/frederik/Documents/lsdc/experiments/cem_exp/benchmarks_goalimage/pixelerror_store_pred_easy/tfrecords/train'
+    # DATA_DIR = '/home/frederik/Documents/lsdc/experiments/cem_exp/benchmarks_goalimage/pixelerror_store_wholepred/tfrecords/train'
+    DATA_DIR = '/home/frederik/Documents/lsdc/pushing_data/random_action_var10_touch/train'
 
     conf['schedsamp_k'] = -1  # don't feed ground truth
     conf['data_dir'] = DATA_DIR  # 'directory containing data_files.' ,
     conf['skip_frame'] = 1
     conf['train_val_split']= 0.95
-    conf['sequence_length']= 10      # 'sequence length, including context frames.'
+    conf['sequence_length']= 15      # 'sequence length, including context frames.'
     conf['use_state'] = True
-    conf['batch_size']= 4
+    conf['batch_size']= 5
     conf['visualize']=False
+
 
     print '-------------------------------------------------------------------'
     print 'verify current settings!! '
@@ -306,11 +325,15 @@ if __name__ == '__main__':
     print '-------------------------------------------------------------------'
 
     # both ground truth and predicted images in data:
-    gtruth_pred = True
+    gtruth_pred = False
+    touch = True
 
     print 'testing the reader'
     if gtruth_pred:
         gtruth_image_batch, pred_image_batch  = build_tfrecord_input(conf, training=True, gtruth_pred= gtruth_pred)
+    elif touch:
+        conf['touch'] = ''
+        image_batch, action_batch, state_batch, touch_batch = build_tfrecord_input(conf, training=True)
     else:
         image_batch, action_batch, state_batch = build_tfrecord_input(conf, training=True, gtruth_pred=True)
     sess = tf.InteractiveSession()
@@ -322,8 +345,15 @@ if __name__ == '__main__':
         print 'run number ', i
         if gtruth_pred:
             gtruth_data, pred_data = sess.run([gtruth_image_batch, pred_image_batch])
+        elif touch:
+            image_data, action_data, state_data, touch_data = sess.run([image_batch,
+                                                                        action_batch,
+                                                                        state_batch,
+                                                                        touch_batch])
         else:
             image_data, action_data, state_data = sess.run([image_batch, action_batch, state_batch])
+
+
 
         # print 'action:', action_data.shape
         # print 'action: batch ind 0', action_data[0]
@@ -335,6 +365,10 @@ if __name__ == '__main__':
         # print 'states: batch ind 1', state_data[1]
         # print 'average speed in dir1:', np.average(state_data[:,:,3])
         # print 'average speed in dir2:', np.average(state_data[:,:,2])
+
+        print 'touchdata:', touch_data.shape
+        print 'touch_data: batch ind 0', touch_data[0]
+        print 'touch_data: batch ind 1', touch_data[1]
 
 
         # import pdb;pdb.set_trace()
@@ -353,9 +387,9 @@ if __name__ == '__main__':
         # make video preview video
         gif_preview = '/'.join(str.split(__file__, '/')[:-1] + ['preview'])
         if gtruth_pred:
-            comp_single_video(gif_preview, gtruth_data, predicted=pred_data, num_exp=4)
+            comp_single_video(gif_preview, gtruth_data, predicted=pred_data, num_exp=conf['batch_size'])
         else:
-            comp_single_video(gif_preview, image_data, num_exp=20)
+            comp_single_video(gif_preview, image_data, num_exp=conf['batch_size'])
 
 
         # make video preview video with annotated forces

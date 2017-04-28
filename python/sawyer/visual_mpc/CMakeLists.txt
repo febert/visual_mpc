@@ -59,6 +59,7 @@ find_package(catkin REQUIRED COMPONENTS
  add_service_files(
    FILES
    get_action.srv
+   init_traj_visualmpc.srv
  )
 
 ## Generate actions in the 'action' folder

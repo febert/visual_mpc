@@ -44,7 +44,7 @@ class AgentMuJoCo(Agent):
         # self._vel_idx = range( self._hyperparams['joint_angles'], self._hyperparams['joint_velocities'] + self._hyperparams['joint_angles'])
 
 
-        gofast = True
+        gofast = False
         self._small_viewer = mujoco_py.MjViewer(visible=True,
                                                 init_width=self._hyperparams['image_width'],
                                                 init_height=self._hyperparams['image_height'],
@@ -124,8 +124,9 @@ class AgentMuJoCo(Agent):
                 self._model.data.ctrl = mj_U
                 self._model.step()    #simulate the model in mujoco
 
-            # print 'accumulated impulse', t
-            # print accum_touch
+            traj.touchdata[t, :] = accum_touch.squeeze()
+            print 'accumulated force', t
+            print accum_touch
 
         if not self._hyperparams['data_collection']:
             if 'use_goalimage' in self._hyperparams:

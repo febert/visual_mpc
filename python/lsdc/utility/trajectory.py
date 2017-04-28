@@ -25,3 +25,5 @@ class Trajectory(object):
 
         self.desig_pos = np.empty([self.T, 2])
         self.score = np.empty([self.T])
+
+        self.touchdata = np.zeros([self.T, 20])
