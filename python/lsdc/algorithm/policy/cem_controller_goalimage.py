@@ -64,6 +64,7 @@ class CEM_controller(Policy):
         self.K = 10  # only consider K best samples for refitting
 
         self.gtruth_images = [np.zeros((self.M, 64, 64, 3)) for _ in range(self.nactions * self.repeat)]
+        self.gtruth_states = np.zeros((self.nactions * self.repeat, self.M, 4))
 
         # the full horizon is actions*repeat
         # self.action_cost_mult = 0.00005
@@ -330,12 +331,21 @@ class CEM_controller(Policy):
             #     goalim  = self.goal_image[selected_scores[bestind]]
             #     Image.fromarray((goalim * 255.).astype(np.uint8)).show()
 
-            pdb.set_trace()
 
+        bestindex = scores.argsort()[0]
         if 'store_video_prediction' in self.agentparams and\
                 itr == (self.policyparams['iterations']-1):
-            bestindx = scores.argsort()[0]
-            self.terminal_pred = gen_images[-1][bestindx]
+            self.terminal_pred = gen_images[-1][bestindex]
+
+        if itr == (self.policyparams['iterations']-2):
+            self.verbose = True
+
+        if 'store_whole_pred' in self.agentparams and \
+            itr == (self.policyparams['iterations'] - 1):
+            self.best_gen_images = [img[bestindex] for img in gen_images]
+            self.best_gtruth_images = [img[bestindex] for img in self.gtruth_images]
+            self.best_actions = actions[bestindex]
+            self.verbose = False
 
         return scores
 
@@ -381,6 +391,9 @@ class CEM_controller(Policy):
                     img = np.fromstring(img_string, dtype='uint8').reshape(
                         (height, width, 3))[::-1, :, :]
                     self.gtruth_images[t][smp] = img
+                    self.gtruth_states[t][smp] = np.concatenate([self.model.data.qpos[:2].squeeze(),
+                                                                self.model.data.qvel[:2].squeeze()], axis=0)
+
                     # self.check_conversion()
 
     def check_conversion(self):

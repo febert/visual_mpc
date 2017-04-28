@@ -65,9 +65,18 @@ def comp_video(file_path, conf=None, suffix = None, gif_name= None):
 
     return fused_gif
 
-def comp_single_video(file_path, ground_truth, num_exp = 8):
+def comp_single_video(file_path, ground_truth, predicted = None, num_exp = 8):
     ground_truth = np.split(ground_truth, ground_truth.shape[1], axis=1)
     ground_truth = np.squeeze(ground_truth)
+
+    if predicted!= None:
+        predicted = np.split(predicted, predicted.shape[1], axis=1)
+        predicted = np.squeeze(predicted)
+
+        fused_gif = assemble_gif([ground_truth, predicted], num_exp)
+        npy_to_gif(fused_gif, file_path)
+
+        return
 
     fused_gif = assemble_gif([ground_truth], num_exp)
     npy_to_gif(fused_gif, file_path)

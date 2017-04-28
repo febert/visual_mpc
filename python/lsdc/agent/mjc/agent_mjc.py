@@ -257,7 +257,13 @@ class AgentMuJoCo(Agent):
 
         if 'store_video_prediction' in self._hyperparams:
             if t > 1:
-                traj.predicted_images.append((policy.terminal_pred*255.).astype(np.uint8))
+                traj.final_predicted_images.append((policy.terminal_pred*255.).astype(np.uint8))
+
+        if 'store_whole_pred' in self._hyperparams:
+            if t > 1:
+                traj.predicted_images = policy.best_gen_images
+                traj.gtruth_images = policy.best_gtruth_images
+
 
     def add_traj_visual(self, img, traj, bestindices, targets):
 

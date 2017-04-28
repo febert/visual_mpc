@@ -31,13 +31,13 @@ def save_tf_record(dir, filename, trajectory_list, params):
         traj = trajectory_list[tr]
 
         if 'store_video_prediction' in params:
-            sequence_length = len(traj.predicted_images)
+            sequence_length = len(traj.final_predicted_images)
         else:
             sequence_length = traj._sample_images.shape[0]
 
         for index in range(sequence_length):
             if 'store_video_prediction' in params:
-                image_raw = traj.predicted_images[index].tostring()
+                image_raw = traj.final_predicted_images[index].tostring()
             else:
                 image_raw = traj._sample_images[index].tostring()
 
@@ -55,6 +55,29 @@ def save_tf_record(dir, filename, trajectory_list, params):
     writer.close()
 
 
+def save_tf_record_gtruthpred(dir, filename, trajectory_list, params):
+
+    filename = os.path.join(dir, filename + '.tfrecords')
+    print('Writing', filename)
+    writer = tf.python_io.TFRecordWriter(filename)
+    feature = {}
+
+    for tr in range(len(trajectory_list)):
+        traj = trajectory_list[tr]
+        sequence_length = len(traj.predicted_images)
+
+        for index in range(sequence_length):
+            image_raw_pred = traj.predicted_images[index]
+            image_raw_pred = (image_raw_pred * 255.).astype(np.uint8).tostring()
+            image_raw_gtruth = traj.gtruth_images[index]
+            image_raw_gtruth = (image_raw_gtruth).astype(np.uint8).tostring()
+
+            feature['move/' + str(index) + '/image_pred/encoded'] = _bytes_feature(image_raw_pred)
+            feature['move/' + str(index) + '/image_gtruth/encoded'] = _bytes_feature(image_raw_gtruth)
+
+        example = tf.train.Example(features=tf.train.Features(feature=feature))
+        writer.write(example.SerializeToString())
+    writer.close()
 
 def save_tf_record_lval(dir, filename, img_score_list):
     """

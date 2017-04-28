@@ -46,6 +46,8 @@ class Model(object):
     def __init__(self,
                  conf,
                  video = None,
+                 pred_video = None,
+                 gtruth_video = None,
                  currentimages=None,
                  goalimage = None,
                  states = None,
@@ -76,6 +78,7 @@ class Model(object):
             inference = True
 
         else: # when training pick random pairs of images:
+
             inference = False
             first_row = tf.reshape(np.arange(conf['batch_size']),shape=[conf['batch_size'],1])
             rand_pair = np.random.randint(0, conf['sequence_length'] - 1, size=[conf['batch_size'],2])
@@ -86,8 +89,12 @@ class Model(object):
             num_ind_0 = tf.concat(1, [first_row, ind_0])
             num_ind_1 = tf.concat(1, [first_row, ind_1])
 
-            self.image_0 = image_0 = tf.gather_nd(video, num_ind_0)
-            self.image_1 = image_1 = tf.gather_nd(video, num_ind_1)
+            if pred_video is not None:
+                self.image_0 = image_0 = tf.gather_nd(pred_video, num_ind_0)
+                self.image_1 = image_1 = tf.gather_nd(gtruth_video, num_ind_1)
+            else:
+                self.image_0 = image_0 = tf.gather_nd(video, num_ind_0)
+                self.image_1 = image_1 = tf.gather_nd(video, num_ind_1)
 
         if reuse_scope is None:
             is_training = True
@@ -214,12 +221,20 @@ def main(unused_argv):
 
     print 'Constructing models and inputs.'
     with tf.variable_scope('trainmodel') as training_scope:
-        images, actions, states = build_tfrecord_input(conf, training=True)
-        model = Model(conf, images)
+        if 'pred_gtruth' in conf:
+            gtruth_video, pred_video = build_tfrecord_input(conf, training=True)
+            model = Model(conf, pred_video= pred_video, gtruth_video= gtruth_video)
+        else:
+            images, actions, states = build_tfrecord_input(conf, training=True)
+            model = Model(conf, images)
 
     with tf.variable_scope('val_model', reuse=None):
-        images_val, actions_val, states_val = build_tfrecord_input(conf, training=False)
-        val_model = Model(conf, images_val, reuse_scope= training_scope)
+        if 'pred_gtruth' in conf:
+            gtruth_video_val, pred_video_val = build_tfrecord_input(conf, training=True)
+            val_model = Model(conf, pred_video= pred_video_val, gtruth_video= gtruth_video_val)
+        else:
+            images_val, actions_val, states_val = build_tfrecord_input(conf, training=False)
+            val_model = Model(conf, images_val, reuse_scope= training_scope)
 
     print 'Constructing saver.'
     # Make saver.

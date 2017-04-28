@@ -17,7 +17,7 @@ ACION_DIM = 2
 OBJECT_POS_DIM = 8
 
 
-def build_tfrecord_input(conf, training=True):
+def build_tfrecord_input(conf, training=True, gtruth_pred = False):
     """Create input tfrecord tensors.
 
     Args:
@@ -51,7 +51,7 @@ def build_tfrecord_input(conf, training=True):
     reader = tf.TFRecordReader()
     _, serialized_example = reader.read(filename_queue)
 
-    image_seq, state_seq, action_seq, object_pos_seq = [], [], [], []
+    gtruthimage_seq, predimage_seq, image_seq, state_seq, action_seq, object_pos_seq = [], [], [], [], [], []
 
 
     load_indx = range(0, 30, conf['skip_frame'])
@@ -59,84 +59,116 @@ def build_tfrecord_input(conf, training=True):
     print 'using frame sequence: ', load_indx
 
     for i in load_indx:
-        image_name = 'move/' + str(i) + '/image/encoded'
-        action_name = 'move/' + str(i) + '/action'
-        state_name = 'move/' + str(i) + '/state'
-        object_pos_name = 'move/' + str(i) + '/object_pos'
+        if gtruth_pred:
+            image_pred_name = 'move/' + str(i) + '/image_pred/encoded'
+            image_gtruth_name = 'move/' + str(i) + '/image_gtruth/encoded'
 
-        features = {
-                    image_name: tf.FixedLenFeature([1], tf.string),
-                    action_name: tf.FixedLenFeature([ACION_DIM], tf.float32),
-                    state_name: tf.FixedLenFeature([STATE_DIM], tf.float32)
-        }
+            features = {
+                image_pred_name: tf.FixedLenFeature([1], tf.string),
+                image_gtruth_name: tf.FixedLenFeature([1], tf.string),
+            }
+        else:
+            image_name = 'move/' + str(i) + '/image/encoded'
+            action_name = 'move/' + str(i) + '/action'
+            state_name = 'move/' + str(i) + '/state'
+            object_pos_name = 'move/' + str(i) + '/object_pos'
+
+            features = {
+                        image_name: tf.FixedLenFeature([1], tf.string),
+                        action_name: tf.FixedLenFeature([ACION_DIM], tf.float32),
+                        state_name: tf.FixedLenFeature([STATE_DIM], tf.float32)
+            }
         if 'use_object_pos' in conf.keys():
             if conf['use_object_pos']:
                 features[object_pos_name] = tf.FixedLenFeature([OBJECT_POS_DIM], tf.float32)
 
         features = tf.parse_single_example(serialized_example, features=features)
 
-        COLOR_CHAN = 3
-        if '128x128' in conf:
-            ORIGINAL_WIDTH = 128
-            ORIGINAL_HEIGHT = 128
-            IMG_WIDTH = 128
-            IMG_HEIGHT = 128
+        if gtruth_pred:
+            predimage_seq.append(resize_im( features, image_pred_name))
+            gtruthimage_seq.append(resize_im( features, image_gtruth_name))
+
         else:
-            ORIGINAL_WIDTH = 64
-            ORIGINAL_HEIGHT = 64
-            IMG_WIDTH = 64
-            IMG_HEIGHT = 64
 
+            image_seq.append(resize_im( features, image_name))
 
-        image = tf.decode_raw(features[image_name], tf.uint8)
-        image = tf.reshape(image, shape=[1,ORIGINAL_HEIGHT*ORIGINAL_WIDTH*COLOR_CHAN])
-        image = tf.reshape(image, shape=[ORIGINAL_HEIGHT, ORIGINAL_WIDTH, COLOR_CHAN])
+            state = tf.reshape(features[state_name], shape=[1, STATE_DIM])
+            state_seq.append(state)
+            action = tf.reshape(features[action_name], shape=[1, ACION_DIM])
+            action_seq.append(action)
 
-        if IMG_HEIGHT != IMG_WIDTH:
-            raise ValueError('Unequal height and width unsupported')
+            if 'use_object_pos' in conf.keys():
+                if conf['use_object_pos']:
+                    object_pos = tf.reshape(features[object_pos_name], shape=[1, OBJECT_POS_DIM])
+                    object_pos_seq.append(object_pos)
 
-        crop_size = min(ORIGINAL_HEIGHT, ORIGINAL_WIDTH)
-        image = tf.image.resize_image_with_crop_or_pad(image, crop_size, crop_size)
-        image = tf.reshape(image, [1, crop_size, crop_size, COLOR_CHAN])
-        image = tf.image.resize_bicubic(image, [IMG_HEIGHT, IMG_WIDTH])
-        image = tf.cast(image, tf.float32) / 255.0
-        image_seq.append(image)
+    if gtruth_pred:
+        gtruthimage_seq = tf.concat(0, gtruthimage_seq)
+        predimage_seq = tf.concat(0, predimage_seq)
 
+        if conf['visualize']:
+            num_threads = 1
+        else:
+            num_threads = np.min((conf['batch_size'], 32))
 
-        state = tf.reshape(features[state_name], shape=[1, STATE_DIM])
-        state_seq.append(state)
-        action = tf.reshape(features[action_name], shape=[1, ACION_DIM])
-        action_seq.append(action)
+        [pred_image_batch, gtruth_image_batch] = tf.train.batch(
+            [predimage_seq, gtruthimage_seq],
+            conf['batch_size'],
+            num_threads=num_threads,
+            capacity=100 * conf['batch_size'])
+        return gtruth_image_batch, pred_image_batch
+    else:
+        image_seq = tf.concat(0, image_seq)
+
+        if conf['visualize']: num_threads = 1
+        else: num_threads = np.min((conf['batch_size'], 32))
+
+        state_seq = tf.concat(0, state_seq)
+        action_seq = tf.concat(0, action_seq)
 
         if 'use_object_pos' in conf.keys():
             if conf['use_object_pos']:
-                object_pos = tf.reshape(features[object_pos_name], shape=[1, OBJECT_POS_DIM])
-                object_pos_seq.append(object_pos)
+                [image_batch, action_batch, state_batch, object_pos_batch] = tf.train.batch(
+                [image_seq, action_seq, state_seq, object_pos_seq],
+                conf['batch_size'],
+                num_threads=num_threads,
+                capacity=100 * conf['batch_size'])
 
-    image_seq = tf.concat(0, image_seq)
+                return image_batch, action_batch, state_batch, object_pos_batch
+        else:
+            [image_batch, action_batch, state_batch] = tf.train.batch(
+                [image_seq, action_seq, state_seq],
+                conf['batch_size'],
+                num_threads=num_threads,
+                capacity=100 * conf['batch_size'])
+            return image_batch, action_batch, state_batch
 
-    if conf['visualize']: num_threads = 1
-    else: num_threads = np.min((conf['batch_size'], 32))
 
-    state_seq = tf.concat(0, state_seq)
-    action_seq = tf.concat(0, action_seq)
-
-    if 'use_object_pos' in conf.keys():
-        if conf['use_object_pos']:
-            [image_batch, action_batch, state_batch, object_pos_batch] = tf.train.batch(
-            [image_seq, action_seq, state_seq, object_pos_seq],
-            conf['batch_size'],
-            num_threads=num_threads,
-            capacity=100 * conf['batch_size'])
-
-            return image_batch, action_batch, state_batch, object_pos_batch
+def resize_im(features, image_pred_name):
+    COLOR_CHAN = 3
+    if '128x128' in conf:
+        ORIGINAL_WIDTH = 128
+        ORIGINAL_HEIGHT = 128
+        IMG_WIDTH = 128
+        IMG_HEIGHT = 128
     else:
-        [image_batch, action_batch, state_batch] = tf.train.batch(
-            [image_seq, action_seq, state_seq],
-            conf['batch_size'],
-            num_threads=num_threads,
-            capacity=100 * conf['batch_size'])
-        return image_batch, action_batch, state_batch
+        ORIGINAL_WIDTH = 64
+        ORIGINAL_HEIGHT = 64
+        IMG_WIDTH = 64
+        IMG_HEIGHT = 64
+
+    image = tf.decode_raw(features[image_pred_name], tf.uint8)
+    image = tf.reshape(image, shape=[1, ORIGINAL_HEIGHT * ORIGINAL_WIDTH * COLOR_CHAN])
+    image = tf.reshape(image, shape=[ORIGINAL_HEIGHT, ORIGINAL_WIDTH, COLOR_CHAN])
+    if IMG_HEIGHT != IMG_WIDTH:
+        raise ValueError('Unequal height and width unsupported')
+    crop_size = min(ORIGINAL_HEIGHT, ORIGINAL_WIDTH)
+    image = tf.image.resize_image_with_crop_or_pad(image, crop_size, crop_size)
+    image = tf.reshape(image, [1, crop_size, crop_size, COLOR_CHAN])
+    image = tf.image.resize_bicubic(image, [IMG_HEIGHT, IMG_WIDTH])
+    image = tf.cast(image, tf.float32) / 255.0
+
+    return image
 
 
 ##### code below is used for debugging
@@ -255,16 +287,16 @@ if __name__ == '__main__':
     print 'using CUDA_VISIBLE_DEVICES=', os.environ["CUDA_VISIBLE_DEVICES"]
     conf = {}
 
-    DATA_DIR = '/home/frederik/Documents/lsdc/experiments/cem_exp/benchmarks_goalimage/pixelerror_store_pred_standard/tfrecords/train'
+    DATA_DIR = '/home/frederik/Documents/lsdc/experiments/cem_exp/benchmarks_goalimage/pixelerror_store_wholepred/tfrecords/train'
     # DATA_DIR = '/home/frederik/Documents/lsdc/experiments/cem_exp/benchmarks_goalimage/pixelerror_store_pred_easy/tfrecords/train'
 
     conf['schedsamp_k'] = -1  # don't feed ground truth
     conf['data_dir'] = DATA_DIR  # 'directory containing data_files.' ,
     conf['skip_frame'] = 1
     conf['train_val_split']= 0.95
-    conf['sequence_length']= 23      # 'sequence length, including context frames.'
+    conf['sequence_length']= 10      # 'sequence length, including context frames.'
     conf['use_state'] = True
-    conf['batch_size']= 32
+    conf['batch_size']= 4
     conf['visualize']=False
 
     print '-------------------------------------------------------------------'
@@ -273,11 +305,14 @@ if __name__ == '__main__':
         print key, ': ', conf[key]
     print '-------------------------------------------------------------------'
 
+    # both ground truth and predicted images in data:
+    gtruth_pred = True
+
     print 'testing the reader'
-    if 'use_object_pos' in conf:
-        image_batch, action_batch, state_batch, object_pos_batch  = build_tfrecord_input(conf, training=True)
+    if gtruth_pred:
+        gtruth_image_batch, pred_image_batch  = build_tfrecord_input(conf, training=True, gtruth_pred= gtruth_pred)
     else:
-        image_batch, action_batch, state_batch = build_tfrecord_input(conf, training=True)
+        image_batch, action_batch, state_batch = build_tfrecord_input(conf, training=True, gtruth_pred=True)
     sess = tf.InteractiveSession()
     tf.train.start_queue_runners(sess)
     sess.run(tf.initialize_all_variables())
@@ -285,52 +320,52 @@ if __name__ == '__main__':
 
     for i in range(1):
         print 'run number ', i
-        if 'use_object_pos' in conf:
-            image_data, action_data, state_data, object_pos = sess.run([image_batch, action_batch, state_batch, object_pos_batch])
+        if gtruth_pred:
+            gtruth_data, pred_data = sess.run([gtruth_image_batch, pred_image_batch])
         else:
             image_data, action_data, state_data = sess.run([image_batch, action_batch, state_batch])
 
-        print 'action:', action_data.shape
-        print 'action: batch ind 0', action_data[0]
-        print 'action: batch ind 1', action_data[1]
-        print 'images:', image_data.shape
-
-        print 'states:', state_data.shape
-        print 'states: batch ind 0', state_data[0]
-        print 'states: batch ind 1', state_data[1]
-        print 'average speed in dir1:', np.average(state_data[:,:,3])
-        print 'average speed in dir2:', np.average(state_data[:,:,2])
+        # print 'action:', action_data.shape
+        # print 'action: batch ind 0', action_data[0]
+        # print 'action: batch ind 1', action_data[1]
+        # print 'images:', image_data.shape
+        #
+        # print 'states:', state_data.shape
+        # print 'states: batch ind 0', state_data[0]
+        # print 'states: batch ind 1', state_data[1]
+        # print 'average speed in dir1:', np.average(state_data[:,:,3])
+        # print 'average speed in dir2:', np.average(state_data[:,:,2])
 
 
         # import pdb;pdb.set_trace()
-        pos = state_data[:,:,:2]
-        action_var = np.cov(action_data.reshape(action_data.shape[0]*action_data.shape[1], -1), rowvar= False)
-        pos_var = np.cov(pos.reshape(pos.shape[0] * pos.shape[1], -1), rowvar=False)
-
-        print 'action variance of single batch'
-        print action_var
-        print 'state variance of single batch'
-        print pos_var
+        # pos = state_data[:,:,:2]
+        # action_var = np.cov(action_data.reshape(action_data.shape[0]*action_data.shape[1], -1), rowvar= False)
+        # pos_var = np.cov(pos.reshape(pos.shape[0] * pos.shape[1], -1), rowvar=False)
+        #
+        # print 'action variance of single batch'
+        # print action_var
+        # print 'state variance of single batch'
+        # print pos_var
 
 
         from utils_vpred.create_gif import comp_single_video
 
         # make video preview video
         gif_preview = '/'.join(str.split(__file__, '/')[:-1] + ['preview'])
-        comp_single_video(gif_preview, image_data, num_exp= 20)
+        if gtruth_pred:
+            comp_single_video(gif_preview, gtruth_data, predicted=pred_data, num_exp=4)
+        else:
+            comp_single_video(gif_preview, image_data, num_exp=20)
+
 
         # make video preview video with annotated forces
         # gif_preview = '/'.join(str.split(__file__, '/')[:-1] + ['preview_visuals'])
         # comp_single_video(gif_preview, add_visuals_to_batch(image_data, action_data, state_data, action_pos=True))
 
         # show some frames
-        for i in range(10):
-            # print 'object pos', object_pos.shape
-
-            img = np.uint8(255. *image_data[0, i])
-            img = Image.fromarray(img, 'RGB')
-            img.show()
-
+        # for i in range(10):
+        #     # print 'object pos', object_pos.shape
+        #     img = np.uint8(255. *image_data[0, i])
+        #     img = Image.fromarray(img, 'RGB')
+        #     img.show()
             # get_frame_with_posdata(img, object_pos[0, i])
-
-
