@@ -98,9 +98,9 @@ class AgentMuJoCo(Agent):
             self._store_image(t, traj, policy)
 
             if self._hyperparams['data_collection'] or 'random_baseline' in self._hyperparams:
-                mj_U, target_inc = policy.act(traj.X_full[t, :], traj.Xdot_full[t, :], traj._sample_images, t)
+                mj_U, target_inc = policy.act(traj, t)
             else:
-                mj_U, pos, ind, targets = policy.act(traj.X_full, traj.Xdot_full, traj._sample_images, t, init_model=self._model)
+                mj_U, pos, ind, targets = policy.act(traj, t, init_model=self._model)
 
                 traj.desig_pos[t,:] = self._model.data.site_xpos[0, :2]
 

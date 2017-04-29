@@ -42,7 +42,11 @@ def build_tfrecord_input(conf, training=True, gtruth_pred = False):
         filenames = filenames[index:]
 
     if conf['visualize']:
-        filenames = [conf['visual_file']]
+        if isinstance(conf['visual_file'], list):
+            filenames = conf['visual_file']
+        else:
+            filenames = [conf['visual_file']]
+
         print 'using input file', filenames
         shuffle = False
     else: shuffle = True
@@ -90,12 +94,12 @@ def build_tfrecord_input(conf, training=True, gtruth_pred = False):
         features = tf.parse_single_example(serialized_example, features=features)
 
         if gtruth_pred:
-            predimage_seq.append(resize_im( features, image_pred_name))
-            gtruthimage_seq.append(resize_im( features, image_gtruth_name))
+            predimage_seq.append(resize_im( features, image_pred_name, conf))
+            gtruthimage_seq.append(resize_im( features, image_gtruth_name, conf))
 
         else:
 
-            image_seq.append(resize_im( features, image_name))
+            image_seq.append(resize_im( features, image_name, conf))
 
             state = tf.reshape(features[state_name], shape=[1, STATE_DIM])
             state_seq.append(state)
@@ -135,7 +139,8 @@ def build_tfrecord_input(conf, training=True, gtruth_pred = False):
 
         state_seq = tf.concat(0, state_seq)
         action_seq = tf.concat(0, action_seq)
-        touch_seq = tf.concat(0, touch_seq)
+        if 'touch' in conf:
+            touch_seq = tf.concat(0, touch_seq)
 
         if 'use_object_pos' in conf.keys():
             if conf['use_object_pos']:
@@ -162,7 +167,7 @@ def build_tfrecord_input(conf, training=True, gtruth_pred = False):
             return image_batch, action_batch, state_batch
 
 
-def resize_im(features, image_pred_name):
+def resize_im(features, image_pred_name, conf):
     COLOR_CHAN = 3
     if '128x128' in conf:
         ORIGINAL_WIDTH = 128
@@ -305,16 +310,16 @@ if __name__ == '__main__':
     print 'using CUDA_VISIBLE_DEVICES=', os.environ["CUDA_VISIBLE_DEVICES"]
     conf = {}
 
-    # DATA_DIR = '/home/frederik/Documents/lsdc/experiments/cem_exp/benchmarks_goalimage/pixelerror_store_wholepred/tfrecords/train'
-    DATA_DIR = '/home/frederik/Documents/lsdc/pushing_data/random_action_var10_touch/train'
+    DATA_DIR = '/home/frederik/Documents/lsdc/experiments/cem_exp/benchmarks_goalimage/pixelerror_store_wholepred/tfrecords/train'
+    # DATA_DIR = '/home/frederik/Documents/lsdc/pushing_data/random_action_var10_touch/train'
 
     conf['schedsamp_k'] = -1  # don't feed ground truth
     conf['data_dir'] = DATA_DIR  # 'directory containing data_files.' ,
     conf['skip_frame'] = 1
     conf['train_val_split']= 0.95
-    conf['sequence_length']= 15      # 'sequence length, including context frames.'
+    conf['sequence_length']= 13      # 'sequence length, including context frames.'
     conf['use_state'] = True
-    conf['batch_size']= 5
+    conf['batch_size']= 20
     conf['visualize']=False
 
 
@@ -325,8 +330,8 @@ if __name__ == '__main__':
     print '-------------------------------------------------------------------'
 
     # both ground truth and predicted images in data:
-    gtruth_pred = False
-    touch = True
+    gtruth_pred = True
+    touch = False
 
     print 'testing the reader'
     if gtruth_pred:
@@ -354,7 +359,6 @@ if __name__ == '__main__':
             image_data, action_data, state_data = sess.run([image_batch, action_batch, state_batch])
 
 
-
         # print 'action:', action_data.shape
         # print 'action: batch ind 0', action_data[0]
         # print 'action: batch ind 1', action_data[1]
@@ -366,9 +370,9 @@ if __name__ == '__main__':
         # print 'average speed in dir1:', np.average(state_data[:,:,3])
         # print 'average speed in dir2:', np.average(state_data[:,:,2])
 
-        print 'touchdata:', touch_data.shape
-        print 'touch_data: batch ind 0', touch_data[0]
-        print 'touch_data: batch ind 1', touch_data[1]
+        # print 'touchdata:', touch_data.shape
+        # print 'touch_data: batch ind 0', touch_data[0]
+        # print 'touch_data: batch ind 1', touch_data[1]
 
 
         # import pdb;pdb.set_trace()

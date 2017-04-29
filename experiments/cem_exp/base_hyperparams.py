@@ -6,30 +6,13 @@ import os.path
 
 import numpy as np
 
-from lsdc import __file__ as gps_filepath
 from lsdc.agent.mjc.agent_mjc import AgentMuJoCo
-
-# from conf import configuration as netconfig
-import imp
-
-
-# from lsdc.proto.gps_pb2 import JOINT_ANGLES, JOINT_VELOCITIES, \
-#         END_EFFECTOR_POINTS, END_EFFECTOR_POINT_VELOCITIES, ACTION, \
-#         RGB_IMAGE, RGB_IMAGE_SIZE
 
 IMAGE_WIDTH = 64
 IMAGE_HEIGHT = 64
 IMAGE_CHANNELS = 3
 
 num_objects = 1
-
-# SENSOR_DIMS = {
-#     JOINT_ANGLES: 2+ 7*num_objects +2,  #adding 7 dof for position and orientation for every free object + 3 for goal_geom and reference points
-#     JOINT_VELOCITIES: 2+ 6*num_objects +2,  #adding 6 dof for speed and angular vel for every free object;
-#     ACTION: 2,
-#     # RGB_IMAGE: IMAGE_WIDTH*IMAGE_HEIGHT*IMAGE_CHANNELS,
-#     RGB_IMAGE_SIZE: 3,
-# }
 
 current_dir = '/'.join(str.split(__file__, '/')[:-1])
 
@@ -87,7 +70,6 @@ low_level_conf = {
 from lsdc.algorithm.policy.cem_controller import CEM_controller
 policy = {
     'type' : CEM_controller,
-    # 'netconf': current_dir + 'conf.py',
     'current_dir': current_dir
 }
 
@@ -102,4 +84,3 @@ config = {
     'policy': policy
 }
 
-# common['info'] = generate_experiment_info(config)

@@ -19,7 +19,7 @@ from rospy_tutorials.msg import Floats
 from rospy.numpy_msg import numpy_msg
 
 
-from berkeley_sawyer.srv import *
+from visual_mpc.srv import *
 
 class Visual_MPC_Server(object):
     def __init__(self):
@@ -35,7 +35,6 @@ class Visual_MPC_Server(object):
         rospy.Service('get_action', get_action, self.get_action_handler)
         rospy.Service('get_action', init_traj_visualmpc, self.init_traj_visualmpc_handler)
 
-        self.traj = Trajectory(self._hyperparams)
 
         lsdc_dir = '/'.join(str.split(lsdc_filepath, '/')[:-3])
         cem_exp_dir = lsdc_dir + '/experiments/cem_exp'
@@ -51,38 +50,34 @@ class Visual_MPC_Server(object):
         gpu_id = args.gpu_id
         ngpu = args.ngpu
 
-        conf = hyperparams.config
+        self.conf = hyperparams.config
         # load specific agent settings for benchmark:
 
         print 'performing goal image benchmark ...'
-        bench_dir = cem_exp_dir + '/benchmarks_goalimage/' + benchmark_name
+        bench_dir = cem_exp_dir + '/benchmarks_sawyer/' + benchmark_name
         goalimg_save_dir = cem_exp_dir + '/benchmarks_goalimage/' + benchmark_name + '/goalimage'
         if not os.path.exists(bench_dir):
             raise ValueError('benchmark directory does not exist')
 
         bench_conf = imp.load_source('mod_hyper', bench_dir + '/mod_hyper.py')
-        conf['policy'].update(bench_conf.policy)
-
+        if hasattr(bench_conf, 'policy'):
+            self.conf['policy'].update(bench_conf.policy)
+        else: self.conf['policy'] = bench_conf.policy
         if hasattr(bench_conf, 'agent'):
-            conf['agent'].update(bench_conf.agent)
+            self.conf['agent'].update(bench_conf.agent)
+        else: self.conf['agent'] = bench_conf.agent
 
-        if hasattr(bench_conf, 'config'):
-            conf.update(bench_conf.config)
 
-        if hasattr(bench_conf, 'common'):
-            conf['common'].update(bench_conf.common)
-
-        netconf = imp.load_source('params', conf['policy']['netconf']).configuration
+        netconf = imp.load_source('params', self.conf['policy']['netconf']).configuration
 
         self.predictor = netconf['setup_predictor'](netconf, gpu_id, ngpu)
-        self.cem_controller = CEM_controller(conf['agent'], conf['policy'], self.predictor)
+        self.cem_controller = CEM_controller(self.conf['agent'], self.conf['policy'], self.predictor)
 
         self.t = None
+        self.traj = Trajectory(self.conf[''])
 
         ###
         rospy.spin()
-
-
 
     def init_traj_visualmpc_handler(self, req):
         self.igrp = req.grp
@@ -91,17 +86,14 @@ class Visual_MPC_Server(object):
 
     def get_action_handler(self, req):
         self.traj.X_Xdot_full[self.t,:] = np.concatenate(req.x, req.xdot)
-
         self.traj._sample_images[self.t] = req.image
 
-        mj_U, pos, ind, targets = self.cem_controller.act(self.traj.X_full,
-                                                          self.traj.Xdot_full,
-                                                          self.traj._sample_images,
+        mj_U, pos, ind, targets = self.cem_controller.act(self.traj,
                                                           self.t)
         self.traj.U[self.t, :] = mj_U
-
         self.t += 1
 
+        return
 
 
 

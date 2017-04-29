@@ -86,8 +86,10 @@ class Model(object):
             ind_0 = tf.reshape(tf.reduce_min(rand_pair, reduction_indices=1), shape=[conf['batch_size'],1])
             ind_1 = tf.reshape(tf.reduce_max(rand_pair, reduction_indices=1), shape=[conf['batch_size'],1])
 
-            num_ind_0 = tf.concat(1, [first_row, ind_0])
-            num_ind_1 = tf.concat(1, [first_row, ind_1])
+            self.num_ind_0 = num_ind_0 = tf.concat(1, [first_row, ind_0])
+            self.num_ind_1 = num_ind_1 = tf.concat(1, [first_row, ind_1])
+            self.gtruth_video = gtruth_video
+            self.pred_video = pred_video
 
             if pred_video is not None:
                 self.image_0 = image_0 = tf.gather_nd(pred_video, num_ind_0)
@@ -209,8 +211,8 @@ def main(unused_argv):
         conf['visualize'] = conf['output_dir'] + '/' + FLAGS.visualize
         conf['event_log_dir'] = '/tmp'
         filenames = gfile.Glob(os.path.join(conf['data_dir'], '*'))
-        conf['visual_file'] = filenames[0]
-        conf['batch_size'] = 8
+        conf['visual_file'] = filenames
+        conf['batch_size'] = 16
 
     print '-------------------------------------------------------------------'
     print 'verify current settings!! '
@@ -222,7 +224,7 @@ def main(unused_argv):
     print 'Constructing models and inputs.'
     with tf.variable_scope('trainmodel') as training_scope:
         if 'pred_gtruth' in conf:
-            gtruth_video, pred_video = build_tfrecord_input(conf, training=True)
+            gtruth_video, pred_video = build_tfrecord_input(conf, training=True, gtruth_pred= True)
             model = Model(conf, pred_video= pred_video, gtruth_video= gtruth_video)
         else:
             images, actions, states = build_tfrecord_input(conf, training=True)
@@ -230,7 +232,7 @@ def main(unused_argv):
 
     with tf.variable_scope('val_model', reuse=None):
         if 'pred_gtruth' in conf:
-            gtruth_video_val, pred_video_val = build_tfrecord_input(conf, training=True)
+            gtruth_video_val, pred_video_val = build_tfrecord_input(conf, training=True, gtruth_pred= True)
             val_model = Model(conf, pred_video= pred_video_val, gtruth_video= gtruth_video_val)
         else:
             images_val, actions_val, states_val = build_tfrecord_input(conf, training=False)
@@ -331,18 +333,23 @@ def visualize(conf, sess, saver, model):
     feed_dict = {model.lr: 0.0,
                  model.prefix: 'val',
                  }
-    im0, im1, softout, c_entr, gtruth, soft_labels, dadx0, dadx1 = sess.run([  model.image_0,
-                                                    model.image_1,
-                                                    model.softmax_output,
-                                                    model.cross_entropy,
-                                                    model.hard_labels,
-                                                    model.soft_labels,
-                                                    model.da_dx0,
-                                                    model.da_dx1
+    im0, im1, softout, c_entr, gtruth, soft_labels, num_ind_0, num_ind_1, pred_batch, gtruth_batch = sess.run([ model.image_0,
+                                                                model.image_1,
+                                                                model.softmax_output,
+                                                                model.cross_entropy,
+                                                                model.hard_labels,
+                                                                model.soft_labels,
+                                                                model.num_ind_0,
+                                                                model.num_ind_1,
+                                                                model.pred_video,
+                                                                model.gtruth_video
                                                                 ],
-                                                    feed_dict)
+                                                                feed_dict)
 
-    fig = plt.figure(figsize=(20, 10), dpi=80)
+    print 'num_ind_0', num_ind_0
+    print 'num_ind_1', num_ind_1
+
+    fig = plt.figure(figsize=(20, 13), dpi=80)
     n_examples = 8
 
     for ind in range(n_examples):
@@ -356,15 +363,15 @@ def visualize(conf, sess, saver, model):
 
 
         # visualize dadx0
-        ax = fig.add_subplot(3, n_examples, n_examples*2 + 1 + ind)
-        plt.imshow(dadx0[ind], zorder=0, cmap=plt.get_cmap('jet'), interpolation='none')
-        plt.axis('off')
-        # visualize dadx1
-        ax = fig.add_subplot(3, n_examples, n_examples*3 + 1 + ind)
-        plt.imshow(dadx1[ind], zorder=0, cmap=plt.get_cmap('jet'), interpolation='none')
-        plt.axis('off')
+        # ax = fig.add_subplot(3, n_examples, n_examples*2 + 1 + ind)
+        # plt.imshow(dadx0[ind], zorder=0, cmap=plt.get_cmap('jet'), interpolation='none')
+        # plt.axis('off')
+        # # visualize dadx1
+        # ax = fig.add_subplot(3, n_examples, n_examples*3 + 1 + ind)
+        # plt.imshow(dadx1[ind], zorder=0, cmap=plt.get_cmap('jet'), interpolation='none')
+        # plt.axis('off')
 
-        ax = fig.add_subplot(3, n_examples, n_examples*4 +ind +1)
+        ax = fig.add_subplot(3, n_examples, n_examples*2 +ind +1)
 
         N = conf['sequence_length'] -1
         values = softout[ind]
@@ -392,8 +399,8 @@ def visualize(conf, sess, saver, model):
             print 'softlabel {0}, gtrut {1}'.format(soft_labels[ind], gtruth[ind])
 
 
-        ax.set_xlabel('true temp distance: {0} \n  cross-entropy: {1}\n self-calc centr: {2}'
-                      .format(gtruth[ind], round(c_entr[ind], 3), round(centr, 3)))
+        ax.set_xlabel('true temp distance: {0} \n  cross-entropy: {1}\n self-calc centr: {2} \n ind0: {3} \n ind1: {4}'
+                      .format(gtruth[ind], round(c_entr[ind], 3), round(centr, 3), num_ind_0[ind,1], num_ind_1[ind,1]))
 
     # plt.tight_layout(pad=0.8, w_pad=0.8, h_pad=1.0)
     plt.savefig(conf['output_dir'] + '/fig.png')

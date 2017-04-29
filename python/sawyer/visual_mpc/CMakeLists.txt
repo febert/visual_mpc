@@ -73,6 +73,7 @@ find_package(catkin REQUIRED COMPONENTS
  generate_messages(
    DEPENDENCIES
    std_msgs
+   sensor_msgs
  )
 
 ################################################
@@ -107,7 +108,7 @@ find_package(catkin REQUIRED COMPONENTS
 catkin_package(
 #  INCLUDE_DIRS include
 #  LIBRARIES visual_mpc
-   CATKIN_DEPENDS roscpp rospy std_msgs sensor_msgs
+   CATKIN_DEPENDS message_runtime roscpp rospy std_msgs sensor_msgs
 #  DEPENDS system_lib
 )
 
