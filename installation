@@ -10,3 +10,6 @@ conda install mkl
 
 # For running video generation on a reomote over ssh, do the following from a graphical, logged in user at that remote (allow x server access):
 xhost + 
+
+When running ROS:
+pip install rospkg
