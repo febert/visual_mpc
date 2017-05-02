@@ -109,14 +109,6 @@ class CEM_controller(Policy):
         return actions_costs
 
 
-    def compute_initial_meanvar(self, p):
-
-        mean = np.dot(p, np.arange(5))
-        var = 0
-        for i in p.shape[0]:
-            var += p[i]* (i - mean)**2
-        return mean, var
-
     def discretize(self, actions):
         for b in range(self.M):
             for a in range(self.naction_steps):
@@ -164,7 +156,9 @@ class CEM_controller(Policy):
 
             actions = np.random.multivariate_normal(self.mean, self.sigma, self.M)
             actions = actions.reshape(self.M, self.naction_steps, self.adim)
+            pdb.set_trace()
             actions = self.discretize(actions)
+            pdb.set_trace()
 
             actions = np.repeat(actions, self.repeat, axis=1)
 
@@ -202,7 +196,6 @@ class CEM_controller(Policy):
 
     def video_pred(self, last_frames, last_states, actions, itr):
 
-        self.pred_pos[:, itr, 0] = self.mujoco_to_imagespace(last_states[-1, :2] , numpix=480)
 
         last_states = np.expand_dims(last_states, axis=0)
         last_states = np.repeat(last_states, self.netconf['batch_size'], axis=0)
@@ -217,24 +210,13 @@ class CEM_controller(Policy):
         inf_low_state, gen_images, gen_states = self.predictor( input_images= last_frames,
                                                                 input_state=last_states,
                                                                 input_actions = actions)
-        for tstep in range(len(gen_states)):
-            for smp in range(self.M):
-                self.pred_pos[smp, itr, tstep+1] = self.mujoco_to_imagespace(
-                                            gen_states[tstep][smp, :2], numpix=480)
-
         #evaluate distances to goalstate
         scores = np.zeros(self.netconf['batch_size'])
 
-        selected_scores = np.zeros(self.netconf['batch_size'], dtype= np.int)
+
         for b in range(self.netconf['batch_size']):
-            scores_diffballpos = []
-            for ballpos in range(self.netconf['batch_size']):
-                scores_diffballpos.append(
-                     np.linalg.norm(self.goal_state[ballpos] - inf_low_state[-1][b])**2)
-
-            selected_scores[b] = np.argmin(scores_diffballpos)
-
-            scores[b] = np.min(scores_diffballpos)
+            scores[b] = np.linalg.norm(
+                (self.goal_image[0][0] - gen_images[-1][b]).flatten())
 
         # compare prediciton with simulation
         if self.verbose: #and itr == self.policyparams['iterations']-1:
@@ -295,7 +277,7 @@ class CEM_controller(Policy):
             action = np.zeros(2)
             self.target = copy.deepcopy(self.init_model.data.qpos[:2].squeeze())
 
-            self.goal_state = self.inf_goal_state()
+            self.inf_goal_state()
 
         else:
 
@@ -351,20 +333,3 @@ class CEM_controller(Policy):
         goal_image = goal_image.astype(np.float32) / 255.
 
         self.goal_image = goal_image
-
-        actions = np.zeros([self.netconf['batch_size'], self.netconf['sequence_length'], 2])
-
-        if 'encode' in self.netconf:
-            inf_low_state, gen_images, gen_sates = self.predictor(  input_images= goal_image,
-                                                                    input_state=last_states,
-                                                                    input_actions = actions)
-
-        if 'no_pix_distrib' not in self.netconf:
-            if 'nonrec' in self.netconf:
-                goal_state = inf_low_state[2]
-            else:
-                goal_state = inf_low_state[-1]
-        else:
-            goal_state = None
-
-        return  goal_state
