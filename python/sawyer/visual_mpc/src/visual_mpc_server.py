@@ -89,7 +89,7 @@ class Visual_MPC_Server(object):
 
     def get_action_handler(self, req):
 
-        self.traj.X_full[self.t,:] = np.concatenate(req.state)
+        self.traj.X_full[self.t, :] = req.state
         main_img = self.bridge.imgmsg_to_cv2(req.main)
         aux1_img = self.bridge.imgmsg_to_cv2(req.aux1)
 
