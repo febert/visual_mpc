@@ -1,3 +1,6 @@
-sensor_msgs/Image image
+sensor_msgs/Image main
+sensor_msgs/Image aux1
+float32[4] state
 ---
 float32[4] action
+

@@ -54,12 +54,9 @@ class CEM_controller(Policy):
 
         self.naction_steps = self.policyparams['nactions']
         self.repeat = self.policyparams['repeat']
-        if self.use_net:
-            self.M = self.netconf['batch_size']
-            assert self.naction_steps * self.repeat == self.netconf['sequence_length']
-            self.predictor = predictor
-        else:
-            self.M = self.policyparams['num_samples']
+        self.M = self.netconf['batch_size']
+        assert self.naction_steps * self.repeat == self.netconf['sequence_length']
+        self.predictor = predictor
 
         self.K = 10  # only consider K best samples for refitting
 
@@ -70,10 +67,8 @@ class CEM_controller(Policy):
         # self.action_cost_mult = 0.00005
         self.action_cost_mult = 0
 
-        self.adim = 4  # action dimension
+        self.adim = 4  # action dimensions: deltax, delty, close_nstep, hold_nstep
         self.initial_std = policyparams['initial_std']
-        if 'exp_factor' in policyparams:
-            self.exp_factor = policyparams['exp_factor']
 
         gofast = True
         self.viewer = mujoco_py.MjViewer(visible=True, init_width=480,
@@ -114,33 +109,66 @@ class CEM_controller(Policy):
         return actions_costs
 
 
+    def compute_initial_meanvar(self, p):
+
+        mean = np.dot(p, np.arange(5))
+        var = 0
+        for i in p.shape[0]:
+            var += p[i]* (i - mean)**2
+        return mean, var
+
+    def discretize(self, actions):
+        for b in range(self.M):
+            for a in range(self.naction_steps):
+                actions[b, a, 2] = np.ceil(actions[b, a, 2])
+                if actions[b, a, 2] < 0:
+                    actions[b, a, 2] = 0
+                if actions[b, a, 2] > 4:
+                    actions[b, a, 2] = 4
+
+                actions[b, a, 3] = np.ceil(actions[b, a, 3])
+                if actions[b, a, 3] < 0:
+                    actions[b, a, 3] = 0
+                if actions[b, a, 3] > 4:
+                    actions[b, a, 3] = 4
+
+        return  actions
+
+
     def perform_CEM(self,last_frames, last_states, last_action, t):
         # initialize mean and variance
 
         self.mean = np.zeros(self.adim * self.naction_steps)
+        #initialize mean and variance of the discrete actions to their mean and variance used during data collection
+
+
         self.sigma = np.diag(np.ones(self.adim * self.naction_steps) * self.initial_std ** 2)
+
+        # dicretize the discrete actions:
+        # action_bin_close = range(5)  # values which the action close can take
+        # p_close = np.array([0.8, 0.05, 0.05, 0.05, 0.05])
+        # mean_close, var_close = self.compute_initial_meanvar(p_close)
+
+        # action_bin_up = range(5)
+        # p_up = np.array([0.9, 0.025, 0.025, 0.025, 0.025])
+        # mean_up, var_up = self.compute_initial_meanvar(p_up)
 
         print '------------------------------------------------'
         print 'starting CEM cylce'
 
-        scores = np.empty(self.M, dtype=np.float64)
 
         for itr in range(self.niter):
             print '------------'
             print 'iteration: ', itr
             t_startiter = datetime.now()
 
-
             actions = np.random.multivariate_normal(self.mean, self.sigma, self.M)
-
-            pdb.set_trace()
             actions = actions.reshape(self.M, self.naction_steps, self.adim)
-
+            actions = self.discretize(actions)
 
             actions = np.repeat(actions, self.repeat, axis=1)
 
             t_start = datetime.now()
-
             scores = self.video_pred(last_frames, last_states, actions, itr)
             print 'overall time for evaluating actions {}'.format(
                 (datetime.now() - t_start).seconds + (datetime.now() - t_start).microseconds / 1e6)
@@ -249,51 +277,6 @@ class CEM_controller(Policy):
 
         return scores
 
-    def sim_rollout(self, actions, smp, itr):
-
-        if self.policyparams['low_level_ctrl']:
-            rollout_ctrl = self.policyparams['low_level_ctrl']['type'](None, self.policyparams['low_level_ctrl'])
-            roll_target_pos = copy.deepcopy(self.init_model.data.qpos[:2].squeeze())
-
-        for hstep in range(self.naction_steps):
-            currentaction = actions[hstep]
-
-            if self.policyparams['low_level_ctrl']:
-                roll_target_pos += currentaction
-
-            for r in range(self.repeat):
-                t = hstep*self.repeat + r
-                # print 'time ',t, ' target pos rollout: ', roll_target_pos
-
-                if not self.use_net:
-                    ball_coord = self.model.data.qpos[:2].squeeze()
-                    self.pred_pos[smp, itr, t] = self.mujoco_to_imagespace(ball_coord, numpix=480)
-                    if self.policyparams['low_level_ctrl']:
-                        self.rec_target_pos[smp, itr, t] = self.mujoco_to_imagespace(roll_target_pos, numpix=480)
-
-                if self.policyparams['low_level_ctrl'] == None:
-                    force = currentaction
-                else:
-                    qpos = self.model.data.qpos[:2].squeeze()
-                    qvel = self.model.data.qvel[:2].squeeze()
-                    force = rollout_ctrl.act(qpos, qvel, None, t, roll_target_pos)
-
-                for _ in range(self.agentparams['substeps']):
-                    self.model.data.ctrl = force
-                    self.model.step()  # simulate the model in mujoco
-
-                if self.verbose:
-                    self.viewer.loop_once()
-
-                    self.small_viewer.loop_once()
-                    img_string, width, height = self.small_viewer.get_image()
-                    img = np.fromstring(img_string, dtype='uint8').reshape(
-                        (height, width, 3))[::-1, :, :]
-                    self.gtruth_images[t][smp] = img
-                    self.gtruth_states[t][smp] = np.concatenate([self.model.data.qpos[:2].squeeze(),
-                                                                self.model.data.qvel[:2].squeeze()], axis=0)
-
-                    # self.check_conversion()
 
     def act(self, traj, t, init_model= None):
         """

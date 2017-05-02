@@ -212,7 +212,7 @@ def main(unused_argv):
         conf['event_log_dir'] = '/tmp'
         filenames = gfile.Glob(os.path.join(conf['data_dir'], '*'))
         conf['visual_file'] = filenames
-        conf['batch_size'] = 16
+        conf['batch_size'] = 18
 
     print '-------------------------------------------------------------------'
     print 'verify current settings!! '
@@ -349,8 +349,9 @@ def visualize(conf, sess, saver, model):
     print 'num_ind_0', num_ind_0
     print 'num_ind_1', num_ind_1
 
-    fig = plt.figure(figsize=(20, 13), dpi=80)
     n_examples = 8
+    fig = plt.figure(figsize=(n_examples*2+4, 13), dpi=80)
+
 
     for ind in range(n_examples):
         ax = fig.add_subplot(3, n_examples, ind+1)
@@ -401,6 +402,7 @@ def visualize(conf, sess, saver, model):
 
         ax.set_xlabel('true temp distance: {0} \n  cross-entropy: {1}\n self-calc centr: {2} \n ind0: {3} \n ind1: {4}'
                       .format(gtruth[ind], round(c_entr[ind], 3), round(centr, 3), num_ind_0[ind,1], num_ind_1[ind,1]))
+
 
     # plt.tight_layout(pad=0.8, w_pad=0.8, h_pad=1.0)
     plt.savefig(conf['output_dir'] + '/fig.png')
