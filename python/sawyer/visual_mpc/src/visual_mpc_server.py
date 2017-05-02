@@ -15,7 +15,7 @@ from cv_bridge import CvBridge, CvBridgeError
 
 import socket
 if socket.gethostname() == 'newton1':
-    from lsdc.algorithm.policy.cem_controller_goalimage import CEM_controller
+    from lsdc.algorithm.policy.cem_controller_goalimage_sawyer import CEM_controller
 
 from lsdc.utility.trajectory import Trajectory
 from lsdc import __file__ as lsdc_filepath
@@ -72,8 +72,8 @@ class Visual_MPC_Server(object):
             self.agentparams.update(bench_conf.agent)
 
         netconf = imp.load_source('params', self.policyparams['netconf']).configuration
-        #### self.predictor = netconf['setup_predictor'](netconf, gpu_id, ngpu)
-        #### self.cem_controller = CEM_controller(self.agentparams, self.policyparams, self.predictor)
+        self.predictor = netconf['setup_predictor'](netconf, gpu_id, ngpu)
+        self.cem_controller = CEM_controller(self.agentparams, self.policyparams, self.predictor)
         self.t = None
         self.traj = Trajectory(self.agentparams)
         self.bridge = CvBridge()
@@ -97,13 +97,9 @@ class Visual_MPC_Server(object):
 
         self.traj._sample_images[self.t] = np.concatenate((main_img, aux1_img), 2)
 
-        # mj_U, pos, ind, targets = self.cem_controller.act(self.traj, self.t)
-        # self.traj.U[self.t, :] = mj_U
-        mj_U = np.zeros(4)
+        mj_U, pos, ind, targets = self.cem_controller.act(self.traj, self.t)
+        self.traj.U[self.t, :] = mj_U
         self.t += 1
-
-        # get_action._response_class = rospy.numpy_msg.numpy_msg(get_actionResponse)
-        # res = rospy.numpy_msg.numpy_msg(get_actionResponse(mj_U))
 
         return get_actionResponse(tuple(mj_U))
 
