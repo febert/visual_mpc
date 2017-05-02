@@ -105,7 +105,7 @@ class Visual_MPC_Server(object):
         # get_action._response_class = rospy.numpy_msg.numpy_msg(get_actionResponse)
         # res = rospy.numpy_msg.numpy_msg(get_actionResponse(mj_U))
 
-        return get_actionResponse(mj_U)
+        return get_actionResponse(tuple(mj_U))
 
 if __name__ ==  '__main__':
     Visual_MPC_Server()
