@@ -99,7 +99,7 @@ class Visual_MPC_Server(object):
 
         # mj_U, pos, ind, targets = self.cem_controller.act(self.traj, self.t)
         # self.traj.U[self.t, :] = mj_U
-        mj_U = np.zeros(2)
+        mj_U = np.zeros(4)
         self.t += 1
 
         # get_action._response_class = rospy.numpy_msg.numpy_msg(get_actionResponse)
