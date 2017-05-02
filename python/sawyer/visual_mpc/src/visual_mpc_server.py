@@ -13,7 +13,10 @@ import argparse
 import cv2
 from cv_bridge import CvBridge, CvBridgeError
 
-from lsdc.algorithm.policy.cem_controller_goalimage import CEM_controller
+import socket
+if socket.gethostname() == 'newton1':
+    from lsdc.algorithm.policy.cem_controller_goalimage import CEM_controller
+
 from lsdc.utility.trajectory import Trajectory
 from lsdc import __file__ as lsdc_filepath
 import rospy
