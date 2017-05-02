@@ -87,6 +87,8 @@ class Visual_MPC_Server(object):
         self.i_traj = req.itr
         self.t = 0
 
+        return init_traj_visualmpcResponse()
+
     def get_action_handler(self, req):
 
         self.traj.X_full[self.t, :] = req.state
