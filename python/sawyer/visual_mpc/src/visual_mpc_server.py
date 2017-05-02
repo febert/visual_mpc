@@ -83,7 +83,7 @@ class Visual_MPC_Server(object):
         rospy.spin()
 
     def init_traj_visualmpc_handler(self, req):
-        self.igrp = req.grp
+        self.igrp = req.igrp
         self.i_traj = req.itr
         self.t = 0
 
