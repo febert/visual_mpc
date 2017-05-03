@@ -308,7 +308,6 @@ class AgentMuJoCo(Agent):
 
     def save_gif(self):
         file_path = self._hyperparams['record']
-        pdb.set_trace()
         from video_prediction.utils_vpred.create_gif import npy_to_gif
         if 'random_baseline' in self._hyperparams:
             npy_to_gif(self.large_images, file_path)
