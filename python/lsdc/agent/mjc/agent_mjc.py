@@ -120,13 +120,13 @@ class AgentMuJoCo(Agent):
                     #calculate constraint enforcing force..
                     c_force = self.enforce(self._model)
                     mj_U += c_force
-
                 self._model.data.ctrl = mj_U
                 self._model.step()    #simulate the model in mujoco
 
-            traj.touchdata[t, :] = accum_touch.squeeze()
-            print 'accumulated force', t
-            print accum_touch
+            if 'touch' in self._hyperparams:
+                traj.touchdata[t, :] = accum_touch.squeeze()
+                print 'accumulated force', t
+                print accum_touch
 
         if not self._hyperparams['data_collection']:
             if 'use_goalimage' in self._hyperparams:
@@ -137,7 +137,7 @@ class AgentMuJoCo(Agent):
         if 'save_goal_image' in self._hyperparams:
             self.save_goal_image_conf(traj)
 
-        if self._hyperparams['record']:
+        if not 'novideo' in self._hyperparams:
             self.save_gif()
 
         policy.finish()
@@ -308,6 +308,7 @@ class AgentMuJoCo(Agent):
 
     def save_gif(self):
         file_path = self._hyperparams['record']
+        pdb.set_trace()
         from video_prediction.utils_vpred.create_gif import npy_to_gif
         if 'random_baseline' in self._hyperparams:
             npy_to_gif(self.large_images, file_path)

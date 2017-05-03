@@ -246,6 +246,7 @@ def main(unused_argv, conf_script= None):
 
     print 'Constructing models and inputs.'
     with tf.variable_scope('model', reuse=None) as training_scope:
+        pdb.set_trace()
         images, actions, states = build_tfrecord_input(conf, training=True)
         model = Model(conf, images, actions, states, conf['sequence_length'])
 
