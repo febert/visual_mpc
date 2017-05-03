@@ -25,7 +25,7 @@ agent = {
     'use_goalimage':"",
     'start_confs': bench_dir + '/make_easy_goal_1e4/configs_easy_goal_1e4',
     'store_whole_pred':'',
-    'novideo':''
+    # 'novideo':''
 }
 
 config = {
