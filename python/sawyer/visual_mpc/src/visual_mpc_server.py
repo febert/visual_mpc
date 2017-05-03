@@ -86,6 +86,10 @@ class Visual_MPC_Server(object):
         self.igrp = req.igrp
         self.i_traj = req.itr
         self.t = 0
+        self.cem_controller.goal_image = np.concatenate([
+            req.goalmain,
+            req.goalaux1
+        ], axis=2)
 
         return init_traj_visualmpcResponse()
 

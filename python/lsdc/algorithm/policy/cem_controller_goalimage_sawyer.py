@@ -98,6 +98,7 @@ class CEM_controller(Policy):
 
         self.mean =None
         self.sigma =None
+        self.goal_image = None
 
 
     def calc_action_cost(self, actions):
@@ -216,7 +217,8 @@ class CEM_controller(Policy):
 
         for b in range(self.netconf['batch_size']):
             scores[b] = np.linalg.norm(
-                (self.goal_image[0][0] - gen_images[-1][b]).flatten())
+                (self.goal_image - gen_images[-1][b]).flatten())
+            pdb.set_trace()
 
         # compare prediciton with simulation
         if self.verbose: #and itr == self.policyparams['iterations']-1:
@@ -277,8 +279,6 @@ class CEM_controller(Policy):
             action = np.zeros(2)
             self.target = copy.deepcopy(self.init_model.data.qpos[:2].squeeze())
 
-            self.inf_goal_state()
-
         else:
 
             last_images = traj._sample_images[t-1:t+1]
@@ -303,33 +303,6 @@ class CEM_controller(Policy):
         self.action_list.append(action)
         print 'timestep: ', t, ' taking action: ', action
 
-        if self.policyparams['low_level_ctrl'] == None:
-            force = action
-        else:
-            if (t-1) % self.repeat == 0:
-                self.target += action
-
-            force = self.low_level_ctrl.act(x_full[t], xdot_full[t], None, t, self.target)
+        force = action
 
         return force, self.pred_pos, self.bestindices_of_iter, self.rec_target_pos
-
-
-    def inf_goal_state(self):
-
-        dict= cPickle.load(open(self.policyparams['use_goalimage'], "rb"))
-        goal_image = dict['goal_image']
-        goal_low_dim_st = dict['goal_ballpos']
-
-
-        last_states = np.expand_dims(goal_low_dim_st, axis=1)
-        last_states = np.repeat(last_states, 2, axis=1)  # copy over timesteps
-
-        goal_image = np.expand_dims(goal_image, axis=1)
-        goal_image = np.repeat(goal_image, 2, axis=1)  # copy over timesteps
-
-        app_zeros = np.zeros(shape=(self.netconf['batch_size'], self.netconf['sequence_length'] -
-                                    self.netconf['context_frames'], 64, 64, 3))
-        goal_image = np.concatenate((goal_image, app_zeros), axis=1)
-        goal_image = goal_image.astype(np.float32) / 255.
-
-        self.goal_image = goal_image
