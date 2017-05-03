@@ -480,7 +480,7 @@ class CEM_controller(Policy):
         goal_low_dim_st = dict['goal_ballpos']
 
         if 'ballinvar' not in self.policyparams:
-            Image.fromarray(goal_image).show()
+            # Image.fromarray(goal_image).show()
 
             last_states = np.expand_dims(goal_low_dim_st, axis=0)
             last_states = np.repeat(last_states, 2, axis=0)  # copy over timesteps
