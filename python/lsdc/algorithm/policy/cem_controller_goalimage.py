@@ -9,7 +9,7 @@ import copy
 import time
 import imp
 import cPickle
-from video_prediction.utils_vpred.create_gif import comp_video
+from video_prediction.utils_vpred.create_gif import *
 from datetime import datetime
 
 from PIL import Image
@@ -60,6 +60,7 @@ class CEM_controller(Policy):
             self.predictor = predictor
         else:
             self.M = self.policyparams['num_samples']
+            self.pred_len = self.nactions * self.repeat
 
         self.K = 10  # only consider K best samples for refitting
 
@@ -329,7 +330,7 @@ class CEM_controller(Policy):
                                                                    np.where(sorted == i)[0][0]))
                 f.write('action {}\n'.format(actions[i]))
 
-            # pdb.set_trace()
+
             # for i in range(self.K):
             #     bestind = bestindices[i]
             #     goalim  = self.goal_image[selected_scores[bestind]]
@@ -403,6 +404,13 @@ class CEM_controller(Policy):
     def eval_with_rewardnet(self, term):
         term = np.stack(term, axis=0)
         reward_func = self.policyparams['rewardnet_func']
+
+        # for i in range(10):
+        #     Image.fromarray(term[i]).show()
+
+        term = term.astype(np.float32)/255.
+        # pdb.set_trace()
+
         softmax_out = reward_func(term, self.goal_image)
         # compute expected number time-steps
         if 'rewardmodel_sequence_length' in self.policyparams:
@@ -410,6 +418,31 @@ class CEM_controller(Policy):
         else:
             rewmodel_s_length = 15
         scores = np.sum(softmax_out * np.arange(rewmodel_s_length - 1), axis=1)
+
+        bestindices = scores.argsort()[:self.K]
+
+        if self.verbose: #and itr == self.policyparams['iterations']-1:
+            # print 'creating visuals for best sampled actions at last iteration...'
+
+            file_path = self.policyparams['current_dir'] + '/verbose'
+            pdb.set_trace()
+
+            bestindices = scores.argsort()[:self.K]
+            bestscores = [scores[ind] for ind in bestindices]
+
+            def best(inputlist):
+                outputlist = [np.zeros_like(a)[:self.K] for a in inputlist]
+
+                for ind in range(self.K):
+                    for tstep in range(len(inputlist)):
+                        outputlist[tstep][ind] = inputlist[tstep][bestindices[ind]]
+                return outputlist
+            gtruth_images = best(self.gtruth_images)
+            imlist = assemble_gif(gtruth_images, convert_from_float= False)
+            pdb.set_trace()
+            npy_to_gif(imlist, file_path + '/check_eval_t{}'.format(self.t))
+
+            pdb.set_trace()
 
         return scores
 
@@ -495,6 +528,7 @@ class CEM_controller(Policy):
     def get_goalimg(self):
         dict = cPickle.load(open(self.policyparams['use_goalimage'], "rb"))
         goal_image = dict['goal_image']
+        Image.fromarray(goal_image).show()
         self.goal_image = goal_image.astype(np.float32) / 255.
 
     def inf_goal_state(self):

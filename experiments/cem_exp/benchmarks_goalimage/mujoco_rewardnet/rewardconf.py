@@ -21,7 +21,7 @@ configuration = {
 'pretrained_model': BASE_DIR + '/tensorflow_data/rewardnet/standardgoal_25step/modeldata/model28002',     # 'filepath of a pretrained model to resume training from.' ,
 'sequence_length': 25,      # 'sequence length, including context frames.' ,
 'train_val_split': 0.95,    #'The percentage of files to use for the training set vs. the validation set.' ,
-'batch_size': 50,           #'batch size for training' ,
+'batch_size': 100,           #'batch size for training' ,
 'learning_rate': 0.0,     #'the base learning rate of the generator' ,
 'visualize': '',            #'load model from which to generate visualizations
 'file_visual': '',          # datafile used for making visualizations

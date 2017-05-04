@@ -41,6 +41,7 @@ def main():
 
     bench_conf = imp.load_source('mod_hyper', bench_dir + '/mod_hyper.py')
     conf['policy'].update(bench_conf.policy)
+    pdb.set_trace()
 
     if hasattr(bench_conf, 'agent'):
         conf['agent'].update(bench_conf.agent)
@@ -101,7 +102,6 @@ def main():
             goalimg_load_dir = cem_exp_dir + '/benchmarks_goalimage/' + \
                                conf['policy']['load_goal_image'] + '/goalimage_var_ballpos'
 
-
     while traj < nruns:
 
         lsdc.agent._hyperparams['x0'] = initialposes[i_conf]
@@ -147,11 +147,7 @@ def main():
                 lsdc.policy.corrector = lsdc.corrector
 
             lsdc.policy.policyparams['rec_distrib'] =  bench_dir + '/videos_distrib/traj{0}_conf{1}'.format(traj, i_conf)
-            try:
-                lsdc._take_sample(traj)
-            except:
-                print 'an erorr ocurred in trajectory ', traj
-                continue
+            lsdc._take_sample(traj)
 
             scores[traj] = lsdc.agent.final_poscost
 

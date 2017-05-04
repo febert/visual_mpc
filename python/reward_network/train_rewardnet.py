@@ -333,7 +333,8 @@ def visualize(conf, sess, saver, model):
     feed_dict = {model.lr: 0.0,
                  model.prefix: 'val',
                  }
-    im0, im1, softout, c_entr, gtruth, soft_labels, num_ind_0, num_ind_1, pred_batch, gtruth_batch = sess.run([ model.image_0,
+
+    im0, im1, softout, c_entr, gtruth, soft_labels, num_ind_0, num_ind_1 = sess.run([ model.image_0,
                                                                 model.image_1,
                                                                 model.softmax_output,
                                                                 model.cross_entropy,
@@ -341,8 +342,6 @@ def visualize(conf, sess, saver, model):
                                                                 model.soft_labels,
                                                                 model.num_ind_0,
                                                                 model.num_ind_1,
-                                                                model.pred_video,
-                                                                model.gtruth_video
                                                                 ],
                                                                 feed_dict)
 

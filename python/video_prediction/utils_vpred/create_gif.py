@@ -178,10 +178,10 @@ def comp_pix_distrib(file_path, name= None, masks = False, examples = 8):
         npy_to_gif(fused_gif, file_path + '/' + name + suffix)
 
 
-def assemble_gif(video_batch, num_exp = 8):
+def assemble_gif(video_batch, num_exp = 8, convert_from_float = True):
     """
     accepts a list of different video batches
-    each video batch is a list of [batchsize, 64, 64, 3] with length timesteps
+    each video batch is a list of [batchsize, 64, 64, 3] with length timesteps, with type float32 and range 0 to 1
     :param image_rows:
     :return:
     """
@@ -206,7 +206,8 @@ def assemble_gif(video_batch, num_exp = 8):
             column_list.append(column_images)
 
         full_frame = np.concatenate(column_list, axis= 1)
-        full_frame = np.uint8(255 * full_frame)
+        if convert_from_float:
+            full_frame = np.uint8(255 * full_frame)
 
         fullframe_list.append(full_frame)
 
