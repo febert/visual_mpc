@@ -47,7 +47,7 @@ def main():
     exp_name = args.experiment
     parallel= args.parallel
 
-    n_worker = 12
+    n_worker = 10
 
     if parallel == 'True':
         parallel = True
