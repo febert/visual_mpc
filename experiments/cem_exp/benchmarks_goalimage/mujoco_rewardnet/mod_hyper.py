@@ -23,5 +23,5 @@ agent = {
     'T': 25,
     'use_goalimage':"",
     'start_confs': bench_dir + '/make_easy_goal/configs_easy_goal',
-    'novideo':''
+    'novideo': ''
 }
