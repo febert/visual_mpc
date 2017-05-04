@@ -16,7 +16,7 @@ class Randompolicy(Policy):
         self.actions = []
 
 
-    def act(self, X_full, Xdot_full, sample_images, t):
+    def act(self, traj, t):
 
         actions = self.policyparams['numactions']  # MPC actions in terms of number of independent consecutive actions
         repeat = self.policyparams['repeats']  # repeat the same action to reduce number of repquired timesteps

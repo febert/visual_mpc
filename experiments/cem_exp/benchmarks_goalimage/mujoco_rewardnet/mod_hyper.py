@@ -5,7 +5,7 @@ bench_dir = '/'.join(str.split(__file__, '/')[:-2])
 from lsdc.algorithm.policy.cem_controller_goalimage import CEM_controller
 policy = {
     'type' : CEM_controller,
-    'currentdir':current_dir,
+    'currentdir':str(current_dir),
     'use_goalimage':"",
     'low_level_ctrl': None,
     'usenet': False,

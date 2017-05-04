@@ -11,7 +11,7 @@ policy = {
     'use_first_plan': False, # execute MPC instead using firs plan
     'num_samples': 50,
     'iterations': 3,
-    # 'parallel_smp':'',
+    'parallel_smp':'',
     'n_reseed':1
 }
 

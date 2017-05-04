@@ -87,18 +87,10 @@ def sim_rollout_unbound(actions,
     return score, pred_pos, gtruth_images
 
 
-def worker( M,
-            n_worker,
-            actions,
-            policyparams,
-            agentparams,
-            nactions,
-            repeat,
-            verbose,
-            use_net,
-            qpos,
-            qvel
-            ):
+def worker(arglist ):
+
+    M,    n_worker,    actions,    policyparams,    agentparams,    nactions,    repeat, \
+    verbose, use_net, qpos, qvel = arglist
 
     print 'using pid: ', os.getpid()
 
@@ -111,34 +103,34 @@ def worker( M,
     viewer = mujoco_py.MjViewer(visible=True, init_width=480,
                                      init_height=480, go_fast=gofast)
     viewer.start()
-    viewer.set_model(model)
-    viewer.cam.camid = 0
+    # viewer.set_model(model)
+    # viewer.cam.camid = 0
 
-    small_viewer = mujoco_py.MjViewer(visible=True, init_width=64,
-                                           init_height=64, go_fast=gofast)
-    small_viewer.start()
-    small_viewer.set_model(model)
-    small_viewer.cam.camid = 0
-
-    for smp in range(M):
-        # set initial conditions
-        model.data.qpos = qpos
-        model.data.qvel = qvel
-        scores[smp], pred_pos[smp], gtruth_images[smp] = sim_rollout_unbound(
-                            actions[smp],
-                            policyparams,
-                            agentparams,
-                            viewer,
-                            small_viewer,
-                            nactions,
-                            repeat,
-                            verbose,
-                            use_net,
-                            model,
-                            rec_target_pos = None,
-                            qpos=qpos)
-
-    return [scores, pred_pos, gtruth_images]
+    # small_viewer = mujoco_py.MjViewer(visible=True, init_width=64,
+    #                                        init_height=64, go_fast=gofast)
+    # small_viewer.start()
+    # small_viewer.set_model(model)
+    # small_viewer.cam.camid = 0
+    #
+    # for smp in range(M):
+    #     # set initial conditions
+    #     model.data.qpos = qpos
+    #     model.data.qvel = qvel
+    #     scores[smp], pred_pos[smp], gtruth_images[smp] = sim_rollout_unbound(
+    #                         actions[smp],
+    #                         policyparams,
+    #                         agentparams,
+    #                         viewer,
+    #                         small_viewer,
+    #                         nactions,
+    #                         repeat,
+    #                         verbose,
+    #                         use_net,
+    #                         model,
+    #                         rec_target_pos = None,
+    #                         qpos=qpos)
+    #
+    # return scores, pred_pos, gtruth_images
 
 
 def mujoco_to_imagespace(mujoco_coord, numpix = 64, truncate = False):
@@ -243,9 +235,7 @@ class CEM_controller(Policy):
         self.small_viewer.set_model(self.model)
         self.small_viewer.cam.camid = 0
 
-
         self.init_model = []
-
         #history of designated pixels
         self.desig_pix = []
 
@@ -392,14 +382,14 @@ class CEM_controller(Policy):
 
     def take_mujoco_smp(self, actions, itr):
 
-        self.n_worker = 10
+        self.n_worker = 2
         if 'parallel_smp' in self.policyparams:
             conflist = []
             n_start = 0
             nsmp_perworker = self.M/self.n_worker
 
             p = Pool(self.n_worker)
-            mult_results = []
+            arglist = []
             for i in range(self.n_worker):
                 n_end = n_start + nsmp_perworker
                 print 'starting worker with actions {0} to {1}'.format(n_start, n_end)
@@ -407,9 +397,7 @@ class CEM_controller(Policy):
                 conflist.append([])
                 n_start += nsmp_perworker
 
-                mult_results.append(p.apply_async(worker,
-                (
-                    self.M,
+                arglist.append([self.M,
                     self.n_worker,
                     actions,
                     self.policyparams,
@@ -419,34 +407,26 @@ class CEM_controller(Policy):
                     self.verbose,
                     self.use_net,
                     self.init_model.data.qpos,
-                    self.init_model.data.qvel
-                ) ))
+                    self.init_model.data.qvel])
 
+            reslist = p.map(worker, arglist)
 
-                # worker(
-                #     self.M,
-                #     self.n_worker,
-                #     actions,
-                #     self.policyparams,
-                #     self.agentparams,
-                #     self.nactions,
-                #     self.repeat,
-                #     self.verbose,
-                #     self.use_net,
-                #     self.init_model.data.qpos,
-                #     self.init_model.data.qvel
-                # )
+            pdb.set_trace()
+
 
             score_list, pred_pos_list, gtruth_images_list = [], [], []
-            for res in mult_results:
-                scores, pred_pos, gtruth_images  =  res.get(timeout=10)
+            for res in reslist:
+                scores, pred_pos, gtruth_images  =  res
+
                 score_list.append(scores)
                 pred_pos_list.append(pred_pos)
                 gtruth_images_list.append(gtruth_images)
 
+            pdb.set_trace()
+
             self.pred_pos = np.stack(pred_pos_list)
             self.gtruth_images = np.stack(gtruth_images_list)
-            self.gtruth_images = np.split(self.gtruth_images,self.nactions * self.repeat, axis=1)
+            self.gtruth_images = np.split(np.squeeze(self.gtruth_images),self.nactions * self.repeat, axis=1)
             return np.stack(score_list)
 
         else:
@@ -718,7 +698,7 @@ class CEM_controller(Policy):
         pdb.set_trace()
 
 
-    def act(self, x_full, xdot_full, full_images, t, init_model= None):
+    def act(self,  traj, t, init_model= None):
         """
         Return a random action for a state.
         Args:
@@ -735,16 +715,14 @@ class CEM_controller(Policy):
         desig_pos = self.init_model.data.site_xpos[0, :2]
         self.desig_pix.append(mujoco_to_imagespace(desig_pos, truncate= True))
 
-        if 'correctorconf' in self.policyparams:
-            self.correct_distrib(full_images, t)
 
         if t == 0:
             action = np.zeros(2)
             self.target = copy.deepcopy(self.init_model.data.qpos[:2].squeeze())
         else:
 
-            last_images = full_images[t-1:t+1]
-            last_states = np.concatenate((x_full,xdot_full), axis = 1)[t-1: t+1]
+            last_images = traj._sample_images[t-1:t+1]
+            last_states = traj.X_Xdot_full[t-1: t+1]
             last_action = self.action_list[-1]
 
             if self.use_first_plan:
@@ -764,11 +742,6 @@ class CEM_controller(Policy):
 
             self.setup_mujoco()
 
-        if 'predictor_propagation' in self.policyparams:  #using the predictor's DNA to propagate, no correction
-            if self.policyparams['predictor_propagation']:
-                if self.t == (self.agentparams['T'] - 1):
-                    full_images = full_images.astype(np.float32) / 255.
-                    self.save_distrib_visual(full_images, use_genimg= False)
 
         self.action_list.append(action)
         print 'timestep: ', t, ' taking action: ', action
@@ -779,6 +752,6 @@ class CEM_controller(Policy):
             if (t-1) % self.repeat == 0:
                 self.target += action
 
-            force = self.low_level_ctrl.act(x_full[t], xdot_full[t], None, t, self.target)
+            force = self.low_level_ctrl.act(traj.X_full[t], traj.Xdot_full[t], None, t, self.target)
 
         return force, self.pred_pos, self.bestindices_of_iter, self.rec_target_pos

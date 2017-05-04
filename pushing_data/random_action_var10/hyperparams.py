@@ -11,7 +11,6 @@ from lsdc.agent.mjc.agent_mjc import AgentMuJoCo
 from lsdc.algorithm.policy.random_impedance_point import Random_impedance_point
 from lsdc.algorithm.policy.random_policy import Randompolicy
 
-from lsdc.gui.config import generate_experiment_info
 
 from lsdc.proto.gps_pb2 import JOINT_ANGLES, JOINT_VELOCITIES, \
         END_EFFECTOR_POINTS, END_EFFECTOR_POINT_VELOCITIES, ACTION, \
@@ -75,7 +74,7 @@ agent = {
     'image_width' : IMAGE_WIDTH,
     'image_channels' : IMAGE_CHANNELS,
     'num_objects': num_objects,
-    'record':False
+    'novideo':''
 }
 
 policy = {

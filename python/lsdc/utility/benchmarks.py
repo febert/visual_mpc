@@ -41,7 +41,6 @@ def main():
 
     bench_conf = imp.load_source('mod_hyper', bench_dir + '/mod_hyper.py')
     conf['policy'].update(bench_conf.policy)
-    pdb.set_trace()
 
     if hasattr(bench_conf, 'agent'):
         conf['agent'].update(bench_conf.agent)

@@ -405,11 +405,7 @@ class CEM_controller(Policy):
         term = np.stack(term, axis=0)
         reward_func = self.policyparams['rewardnet_func']
 
-        # for i in range(10):
-        #     Image.fromarray(term[i]).show()
-
         term = term.astype(np.float32)/255.
-        # pdb.set_trace()
 
         softmax_out = reward_func(term, self.goal_image)
         # compute expected number time-steps
@@ -423,10 +419,7 @@ class CEM_controller(Policy):
 
         if self.verbose: #and itr == self.policyparams['iterations']-1:
             # print 'creating visuals for best sampled actions at last iteration...'
-
-            file_path = self.policyparams['current_dir'] + '/verbose'
-            pdb.set_trace()
-
+            file_path = '/home/frederik/Documents/lsdc/experiments/cem_exp/benchmarks_goalimage/mujoco_rewardnet/verbose'
             bestindices = scores.argsort()[:self.K]
             bestscores = [scores[ind] for ind in bestindices]
 
@@ -438,9 +431,15 @@ class CEM_controller(Policy):
                         outputlist[tstep][ind] = inputlist[tstep][bestindices[ind]]
                 return outputlist
             gtruth_images = best(self.gtruth_images)
-            imlist = assemble_gif(gtruth_images, convert_from_float= False)
-            pdb.set_trace()
+            imlist = assemble_gif([gtruth_images], convert_from_float= False)
             npy_to_gif(imlist, file_path + '/check_eval_t{}'.format(self.t))
+
+            Image.fromarray((self.goal_image*255).astype(np.uint8)).show()
+            for i in range(self.K):
+                Image.fromarray((term[bestindices[i]]*255).astype(np.uint8)).show()
+                print 'bestscore ', bestscores[i]
+                print 'softmax out', softmax_out[bestindices[i]]
+                pdb.set_trace()
 
             pdb.set_trace()
 
