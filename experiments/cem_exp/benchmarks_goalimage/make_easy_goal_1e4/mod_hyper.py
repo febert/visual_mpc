@@ -11,7 +11,7 @@ policy = {
     'use_first_plan': False, # execute MPC instead using firs plan
     'num_samples': 50,
     'iterations': 3,
-    'parallel_smp':'',
+    # 'parallel_smp':'',
     'n_reseed':1
 }
 
@@ -24,7 +24,9 @@ agent = {
 
 config = {
     'save_data': True,
-    'traj_per_file': 20
+    'traj_per_file': 20,
+    'start_index': 0,
+    'end_index': 10000
 }
 common = {
     'data_files_dir': current_dir + '/tfrecords/train'

@@ -12,34 +12,41 @@ from PIL import Image
 from video_prediction.correction.setup_corrector import setup_corrector
 from lsdc import __file__ as lsdc_filepath
 
-def main():
+def perform_benchmark(bench_conf = None):
 
     lsdc_dir = '/'.join(str.split(lsdc_filepath, '/')[:-3])
     cem_exp_dir = lsdc_dir + '/experiments/cem_exp'
     hyperparams = imp.load_source('hyperparams', cem_exp_dir + '/base_hyperparams.py')
 
-    parser = argparse.ArgumentParser(description='Run benchmarks')
-    parser.add_argument('benchmark', type=str, help='the name of the folder with agent setting for the benchmark')
-    parser.add_argument('--gpu_id', type=int, default=0, help='value to set for cuda visible devices variable')
-    parser.add_argument('--ngpu', type=int, default=None, help='number of gpus to use')
-    args = parser.parse_args()
-
-    benchmark_name = args.benchmark
-    gpu_id = args.gpu_id
-    ngpu = args.ngpu
-
     conf = hyperparams.config
-    # load specific agent settings for benchmark:
 
-    bench_dir = cem_exp_dir + '/benchmarks/' + benchmark_name
-    if not os.path.exists(bench_dir):
-        print 'performing goal image benchmark ...'
-        bench_dir = cem_exp_dir + '/benchmarks_goalimage/' + benchmark_name
-        goalimg_save_dir = cem_exp_dir + '/benchmarks_goalimage/' + benchmark_name + '/goalimage'
+    benchmark_name = 'parallel'
+    gpu_id = 0
+    ngpu = 1
+    bench_dir = bench_conf.config['bench_dir']
+    goalimg_save_dir = bench_dir + '/goalimage'
+    if bench_conf == None:
+        parser = argparse.ArgumentParser(description='Run benchmarks')
+        parser.add_argument('benchmark', type=str, help='the name of the folder with agent setting for the benchmark')
+        parser.add_argument('--gpu_id', type=int, default=0, help='value to set for cuda visible devices variable')
+        parser.add_argument('--ngpu', type=int, default=None, help='number of gpus to use')
+        args = parser.parse_args()
+
+        benchmark_name = args.benchmark
+        gpu_id = args.gpu_id
+        ngpu = args.ngpu
+
+        # load specific agent settings for benchmark:
+        bench_dir = cem_exp_dir + '/benchmarks/' + benchmark_name
         if not os.path.exists(bench_dir):
-            raise ValueError('benchmark directory does not exist')
+            print 'performing goal image benchmark ...'
+            bench_dir = cem_exp_dir + '/benchmarks_goalimage/' + benchmark_name
+            goalimg_save_dir = cem_exp_dir + '/benchmarks_goalimage/' + benchmark_name + '/goalimage'
+            if not os.path.exists(bench_dir):
+                raise ValueError('benchmark directory does not exist')
 
-    bench_conf = imp.load_source('mod_hyper', bench_dir + '/mod_hyper.py')
+        bench_conf = imp.load_source('mod_hyper', bench_dir + '/mod_hyper.py')
+
     conf['policy'].update(bench_conf.policy)
 
     if hasattr(bench_conf, 'agent'):
@@ -50,7 +57,6 @@ def main():
 
     if hasattr(bench_conf, 'common'):
         conf['common'].update(bench_conf.common)
-
 
     conf['agent']['skip_first'] = 10
 
@@ -72,14 +78,10 @@ def main():
         print 'verbose mode!! just running 1 configuration'
         nruns = 1
 
-
-    traj = 0
     if 'n_reseed' in conf['policy']:
         n_reseed = conf['policy']['n_reseed']
     else:
         n_reseed = 3
-    i_conf = 0
-
 
     anglecost = []
     lsdc = LSDCMain(conf, gpu_id= gpu_id, ngpu= ngpu)
@@ -88,7 +90,17 @@ def main():
         benchconfiguration = cPickle.load(open('python/lsdc/utility/benchmarkconfigs', "rb"))
     else:
         benchconfiguration = cPickle.load(open(conf['agent']['start_confs'], "rb"))
-    nruns = len(benchconfiguration['initialpos'])*n_reseed  # 60 in standard benchmark
+
+    if conf['start_index'] != None:  # used when doing multiprocessing
+        traj = conf['start_index']
+        i_conf = conf['start_index']
+        nruns = conf['end_index']
+        print 'started worker going from ind {} to in {}'.format(conf['start_index'], conf['end_index'])
+    else:
+        nruns = len(benchconfiguration['initialpos'])*n_reseed  # 60 in standard benchmark
+        i_conf = 0
+        traj = 0
+
     goalpoints = benchconfiguration['goalpoints']
     initialposes = benchconfiguration['initialpos']
 
@@ -183,4 +195,4 @@ def main():
     print 'standard deviation {0}\n'.format(np.sqrt(np.var(scores)))
 
 if __name__ == '__main__':
-    main()
+    perform_benchmark()

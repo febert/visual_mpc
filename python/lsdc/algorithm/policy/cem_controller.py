@@ -97,7 +97,7 @@ def worker(arglist ):
     scores = np.empty(M/n_worker, dtype=np.float64)
     pred_pos = np.zeros((M / n_worker, repeat * nactions, 2))
     gtruth_images = np.zeros((M / n_worker, nactions * repeat, 64, 64, 3))
-    model = mujoco_py.MjModel(agentparams['filename'])
+    # model = mujoco_py.MjModel(agentparams['filename'])
 
     gofast = True
     viewer = mujoco_py.MjViewer(visible=True, init_width=480,

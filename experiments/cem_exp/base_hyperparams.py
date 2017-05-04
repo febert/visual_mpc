@@ -76,8 +76,8 @@ policy = {
 
 config = {
     'save_data': False,
-    'start_index':0,
-    'end_index': 1,
+    'start_index':None,
+    'end_index': None,
     'verbose_policy_trials': 0,
     'common': common,
     'agent': agent,
