@@ -25,12 +25,12 @@ agent = {
     'use_goalimage':"",
     'start_confs': bench_dir + '/make_easy_goal_1e4/configs_easy_goal_1e4',
     'store_whole_pred':'',
-    # 'novideo':''
+    'novideo':''
 }
 
 config = {
     'save_data': True,
-    'traj_per_file': 200
+    'traj_per_file': 10
 }
 common = {
     'data_files_dir': current_dir + '/tfrecords/train',
