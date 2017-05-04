@@ -147,7 +147,12 @@ def main():
                 lsdc.policy.corrector = lsdc.corrector
 
             lsdc.policy.policyparams['rec_distrib'] =  bench_dir + '/videos_distrib/traj{0}_conf{1}'.format(traj, i_conf)
-            lsdc._take_sample(traj)
+            try:
+                lsdc._take_sample(traj)
+            except:
+                print 'an erorr ocurred in trajectory ', traj
+                continue
+
             scores[traj] = lsdc.agent.final_poscost
 
             if 'use_goalimage' in conf['agent']:

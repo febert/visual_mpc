@@ -254,7 +254,7 @@ if __name__ == '__main__':
     print 'using CUDA_VISIBLE_DEVICES=', os.environ["CUDA_VISIBLE_DEVICES"]
     conf = {}
 
-    DATA_DIR = '/home/frederik/Documents/lsdc/pushing_data/sawyer_noup_29/train'
+    DATA_DIR = '/home/frederik/Documents/lsdc/pushing_data/softmotion15/train'
 
     conf['schedsamp_k'] = -1  # don't feed ground truth
     conf['data_dir'] = DATA_DIR  # 'directory containing data_files.' ,
@@ -263,7 +263,7 @@ if __name__ == '__main__':
     conf['sequence_length']= 15      # 'sequence length, including context frames.'
     conf['use_state'] = True
     conf['batch_size']= 32
-    conf['visualize']=True
+    conf['visualize']= False
     conf['visual_file'] = '/home/frederik/Documents/lsdc/pushing_data/sawyer_noup_29/train/traj_0_to_255.tfrecords'
     conf['use_object_pos'] = True
 
@@ -275,7 +275,7 @@ if __name__ == '__main__':
 
     print 'testing the reader'
 
-    image_main_batch, image_aux_batch, _, _  = build_tfrecord_input(conf, training=False)
+    image_main_batch, image_aux_batch, action_batch, endeff_pos_batch  = build_tfrecord_input(conf, training=False)
 
     sess = tf.InteractiveSession()
     tf.train.start_queue_runners(sess)
@@ -285,11 +285,13 @@ if __name__ == '__main__':
     for i in range(1):
         print 'run number ', i
 
-        image_main, image_aux= sess.run([image_main_batch, image_aux_batch])
+        image_main, image_aux, actions, endeff = sess.run([image_main_batch, image_aux_batch, action_batch, endeff_pos_batch])
 
         # show some frames
-        for i in range(2):
+        print actions[0]
+        print endeff[0]
 
+        for i in range(2):
             img = np.uint8(255. *image_main[0, i])
             img = Image.fromarray(img, 'RGB')
             img.show()

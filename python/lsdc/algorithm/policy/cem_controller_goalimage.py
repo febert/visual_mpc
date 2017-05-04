@@ -169,9 +169,13 @@ class CEM_controller(Policy):
             # import pdb; pdb.set_trace()
 
             if self.verbose or not self.use_net:
+                term_img = []
                 for smp in range(self.M):
                     self.setup_mujoco()
-                    self.sim_rollout(actions[smp], smp, itr)
+                    term_img.append(self.sim_rollout(actions[smp], smp, itr))
+
+                if 'mujoco_with_rewardnet' in self.policyparams:
+                    scores = self.eval_with_rewardnet(term_img)
 
             actions = np.repeat(actions, self.repeat, axis=1)
 
@@ -383,7 +387,7 @@ class CEM_controller(Policy):
                     self.model.data.ctrl = force
                     self.model.step()  # simulate the model in mujoco
 
-                if self.verbose:
+                if self.verbose or 'mujoco_with_rewardnet' in self.policyparams:
                     self.viewer.loop_once()
 
                     self.small_viewer.loop_once()
@@ -394,7 +398,20 @@ class CEM_controller(Policy):
                     self.gtruth_states[t][smp] = np.concatenate([self.model.data.qpos[:2].squeeze(),
                                                                 self.model.data.qvel[:2].squeeze()], axis=0)
 
-                    # self.check_conversion()
+        return img
+
+    def eval_with_rewardnet(self, term):
+        term = np.stack(term, axis=0)
+        reward_func = self.policyparams['rewardnet_func']
+        softmax_out = reward_func(term, self.goal_image)
+        # compute expected number time-steps
+        if 'rewardmodel_sequence_length' in self.policyparams:
+            rewmodel_s_length = self.policyparams['rewardmodel_sequence_length']
+        else:
+            rewmodel_s_length = 15
+        scores = np.sum(softmax_out * np.arange(rewmodel_s_length - 1), axis=1)
+
+        return scores
 
     def check_conversion(self):
         # check conversion
@@ -432,8 +449,10 @@ class CEM_controller(Policy):
         if t == 0:
             action = np.zeros(2)
             self.target = copy.deepcopy(self.init_model.data.qpos[:2].squeeze())
+            self.get_goalimg()
 
-            self.goal_state = self.inf_goal_state()
+            if 'use_lt_state' in self.policyparams:
+                self.goal_state = self.inf_goal_state()
 
         else:
 
@@ -468,10 +487,15 @@ class CEM_controller(Policy):
             if (t-1) % self.repeat == 0:
                 self.target += action
 
-            force = self.low_level_ctrl.act(x_full[t], xdot_full[t], None, t, self.target)
+            force = self.low_level_ctrl.act(traj.X_full[t], traj.Xdot_full[t], None, t, self.target)
 
         return force, self.pred_pos, self.bestindices_of_iter, self.rec_target_pos
 
+
+    def get_goalimg(self):
+        dict = cPickle.load(open(self.policyparams['use_goalimage'], "rb"))
+        goal_image = dict['goal_image']
+        self.goal_image = goal_image.astype(np.float32) / 255.
 
     def inf_goal_state(self):
 
