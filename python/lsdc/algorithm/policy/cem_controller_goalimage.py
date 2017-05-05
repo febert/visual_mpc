@@ -439,7 +439,6 @@ class CEM_controller(Policy):
                 Image.fromarray((term[bestindices[i]]*255).astype(np.uint8)).show()
                 print 'bestscore ', bestscores[i]
                 print 'softmax out', softmax_out[bestindices[i]]
-                pdb.set_trace()
 
             pdb.set_trace()
 
