@@ -526,7 +526,7 @@ class CEM_controller(Policy):
     def get_goalimg(self):
         dict = cPickle.load(open(self.policyparams['use_goalimage'], "rb"))
         goal_image = dict['goal_image']
-        Image.fromarray(goal_image).show()
+        # Image.fromarray(goal_image).show()
         self.goal_image = goal_image.astype(np.float32) / 255.
 
     def inf_goal_state(self):
