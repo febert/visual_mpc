@@ -58,8 +58,8 @@ def main():
 
     from lsdc import __file__ as lsdc_filepath
     lsdc_filepath = os.path.abspath(lsdc_filepath)
-    lsdc_dir = '/'.join(str.split(lsdc_filepath, '/')[:-3]) + '/'
-    data_coll_dir = lsdc_dir + 'pushing_data/' + exp_name + '/'
+    lsdc_dir = '/'.join(str.split(lsdc_filepath, '/')[:-3])
+    data_coll_dir = lsdc_dir + 'pushing_data/' + exp_name
     hyperparams_file = data_coll_dir + 'hyperparams.py'
     do_benchmark = False
 

@@ -13,19 +13,18 @@ from video_prediction.correction.setup_corrector import setup_corrector
 from lsdc import __file__ as lsdc_filepath
 
 def perform_benchmark(bench_conf = None):
-
     lsdc_dir = '/'.join(str.split(lsdc_filepath, '/')[:-3])
     cem_exp_dir = lsdc_dir + '/experiments/cem_exp'
     hyperparams = imp.load_source('hyperparams', cem_exp_dir + '/base_hyperparams.py')
-
     conf = hyperparams.config
 
-    benchmark_name = 'parallel'
-    gpu_id = 0
-    ngpu = 1
-    bench_dir = bench_conf.config['bench_dir']
-    goalimg_save_dir = bench_dir + '/goalimage'
-    if bench_conf == None:
+    if bench_conf != None:
+        benchmark_name = 'parallel'
+        gpu_id = 0
+        ngpu = 1
+        bench_dir = bench_conf.config['bench_dir']
+        goalimg_save_dir = bench_dir + '/goalimage'
+    else:
         parser = argparse.ArgumentParser(description='Run benchmarks')
         parser.add_argument('benchmark', type=str, help='the name of the folder with agent setting for the benchmark')
         parser.add_argument('--gpu_id', type=int, default=0, help='value to set for cuda visible devices variable')
@@ -135,6 +134,7 @@ def perform_benchmark(bench_conf = None):
             lsdc.agent._hyperparams['record'] = bench_dir + '/videos/traj{0}_conf{1}'.format(traj, i_conf)
             if 'save_goal_image' in conf['agent']:
                 lsdc.agent._hyperparams['save_goal_image'] = os.path.join(goalimg_save_dir, '/goalimg{0}_conf{1}'.format(traj, i_conf))
+                assert os.path.exists(goalimg_save_dir)
 
             if 'use_goalimage' in conf['policy']:
                 conf['policy']['use_goalimage'] = goalimg_load_dir + '/goalimg{0}_conf{1}.pkl'.format(traj, i_conf)
