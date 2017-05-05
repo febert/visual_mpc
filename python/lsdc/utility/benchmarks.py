@@ -133,7 +133,7 @@ def perform_benchmark(bench_conf = None):
 
             lsdc.agent._hyperparams['record'] = bench_dir + '/videos/traj{0}_conf{1}'.format(traj, i_conf)
             if 'save_goal_image' in conf['agent']:
-                lsdc.agent._hyperparams['save_goal_image'] = os.path.join(goalimg_save_dir, '/goalimg{0}_conf{1}'.format(traj, i_conf))
+                lsdc.agent._hyperparams['save_goal_image'] = goalimg_save_dir + '/goalimg{0}_conf{1}'.format(traj, i_conf)
                 assert os.path.exists(goalimg_save_dir)
 
             if 'use_goalimage' in conf['policy']:
