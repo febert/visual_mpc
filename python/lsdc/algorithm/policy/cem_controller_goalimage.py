@@ -120,7 +120,6 @@ class CEM_controller(Policy):
 
         self.target = np.zeros(2)
 
-
     def finish(self):
         self.small_viewer.finish()
         self.viewer.finish()

@@ -11,6 +11,11 @@ import cPickle
 from PIL import Image
 from video_prediction.correction.setup_corrector import setup_corrector
 from lsdc import __file__ as lsdc_filepath
+from pympler import muppy
+from pympler import tracker
+from pympler import summary
+from pympler import refbrowser
+
 
 def perform_benchmark(bench_conf = None):
     lsdc_dir = '/'.join(str.split(lsdc_filepath, '/')[:-3])
@@ -112,6 +117,7 @@ def perform_benchmark(bench_conf = None):
             goalimg_load_dir = cem_exp_dir + '/benchmarks_goalimage/' + \
                                conf['policy']['load_goal_image'] + '/goalimage_var_ballpos'
 
+    memory_tracker = tracker.SummaryTracker()
     while traj < nruns:
 
         lsdc.agent._hyperparams['x0'] = initialposes[i_conf]
@@ -167,7 +173,12 @@ def perform_benchmark(bench_conf = None):
 
             print 'score of traj', traj, ':', scores[traj]
 
+
+            if (traj % 30) == 0:
+                analyze_memory(memory_tracker)
             traj +=1 #increment trajectories every step!
+
+
 
         i_conf += 1 #increment configurations every three steps!
 
@@ -193,6 +204,21 @@ def perform_benchmark(bench_conf = None):
     print 'overall worst score: {0} of traj {1}'.format(scores[sorted_ind[-1]], sorted_ind[-1])
     print 'overall average score:', np.sum(scores)/scores.shape
     print 'standard deviation {0}\n'.format(np.sqrt(np.var(scores)))
+
+
+def analyze_memory(tracker):
+    all_objects = muppy.get_objects()
+    num = len(all_objects)
+    print 'number of objects:', num
+
+    sum1 = summary.summarize(all_objects)
+    print 'sumary of all objects'
+    summary.print_(sum1)
+
+    print 'difference: '
+    tracker.print_diff()
+
+    pdb.set_trace()
 
 if __name__ == '__main__':
     perform_benchmark()

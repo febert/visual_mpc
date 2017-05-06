@@ -309,8 +309,8 @@ if __name__ == '__main__':
     print 'using CUDA_VISIBLE_DEVICES=', os.environ["CUDA_VISIBLE_DEVICES"]
     conf = {}
 
-    DATA_DIR = '/home/frederik/Documents/lsdc/experiments/cem_exp/benchmarks_goalimage/pixelerror_store_wholepred/tfrecords/train'
-    # DATA_DIR = '/home/frederik/Documents/lsdc/pushing_data/random_action_var10_touch/train'
+    # DATA_DIR = '/home/frederik/Documents/lsdc/experiments/cem_exp/benchmarks_goalimage/pixelerror_store_wholepred/tfrecords/train'
+    DATA_DIR = '/home/frederik/Documents/lsdc/pushing_data/large_displacement/train'
 
     conf['schedsamp_k'] = -1  # don't feed ground truth
     conf['data_dir'] = DATA_DIR  # 'directory containing data_files.' ,
@@ -318,7 +318,7 @@ if __name__ == '__main__':
     conf['train_val_split']= 0.95
     conf['sequence_length']= 13      # 'sequence length, including context frames.'
     conf['use_state'] = True
-    conf['batch_size']= 4
+    conf['batch_size']= 20
     conf['visualize']=False
 
 
@@ -329,17 +329,15 @@ if __name__ == '__main__':
     print '-------------------------------------------------------------------'
 
     # both ground truth and predicted images in data:
-    gtruth_pred = True
+    gtruth_pred = False
     touch = False
 
     print 'testing the reader'
-    if gtruth_pred:
-        gtruth_image_batch, pred_image_batch  = build_tfrecord_input(conf, training=True, gtruth_pred= gtruth_pred)
-    elif touch:
+    if touch:
         conf['touch'] = ''
         image_batch, action_batch, state_batch, touch_batch = build_tfrecord_input(conf, training=True)
     else:
-        image_batch, action_batch, state_batch = build_tfrecord_input(conf, training=True, gtruth_pred=True)
+        image_batch, action_batch, state_batch = build_tfrecord_input(conf, training=True,gtruth_pred= gtruth_pred)
     sess = tf.InteractiveSession()
     tf.train.start_queue_runners(sess)
     sess.run(tf.initialize_all_variables())
