@@ -178,7 +178,7 @@ class CEM_controller(Policy):
                     term_img.append(self.sim_rollout(actions[smp], smp, itr))
 
                 if 'mujoco_with_rewardnet' in self.policyparams:
-                    scores = self.eval_with_rewardnet(term_img)
+                    scores = self.eval_with_rewardnet(term_img, itr)
 
             actions = np.repeat(actions, self.repeat, axis=1)
 
@@ -403,7 +403,7 @@ class CEM_controller(Policy):
 
         return img
 
-    def eval_with_rewardnet(self, term):
+    def eval_with_rewardnet(self, term, itr):
         term = np.stack(term, axis=0)
         reward_func = self.policyparams['rewardnet_func']
 
@@ -433,13 +433,16 @@ class CEM_controller(Policy):
                         outputlist[tstep][ind] = inputlist[tstep][bestindices[ind]]
                 return outputlist
             gtruth_images = best(self.gtruth_images)
-            imlist = assemble_gif([gtruth_images], convert_from_float= False)
+            imlist = assemble_gif([gtruth_images], convert_from_float= False, num_exp=10)
             npy_to_gif(imlist, file_path + '/check_eval_t{}'.format(self.t))
 
             Image.fromarray((self.goal_image*255).astype(np.uint8)).show()
+            conc_term = [(term[bestindices[i]]*255).astype(np.uint8) for i in range(self.K)]
+            conc_term = np.concatenate(conc_term, axis=1)
+            Image.fromarray(conc_term).show()
+            Image.fromarray(conc_term).save(file_path + '/last_images_besttraj.png')
+
             for i in range(self.K):
-                pdb.set_trace()
-                Image.fromarray((term[bestindices[i]]*255).astype(np.uint8)).show()
                 print 'bestscore ', bestscores[i]
                 print 'softmax out', softmax_out[bestindices[i]]
 

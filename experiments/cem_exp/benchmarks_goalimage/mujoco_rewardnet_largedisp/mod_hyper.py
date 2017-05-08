@@ -19,7 +19,7 @@ policy = {
     'rewardmodel_sequence_length':15,
     'num_samples': 100,
     'mujoco_with_rewardnet':'',
-    'verbose':''
+    # 'verbose':''
 }
 
 agent = {
