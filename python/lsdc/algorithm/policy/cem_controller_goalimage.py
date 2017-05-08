@@ -31,7 +31,10 @@ class CEM_controller(Policy):
         if self.policyparams['low_level_ctrl']:
             self.low_level_ctrl = policyparams['low_level_ctrl']['type'](None, policyparams['low_level_ctrl'])
 
-        self.model = mujoco_py.MjModel(self.agentparams['filename'])
+        if 'mujoco_with_rewardnet' in policyparams:
+            self.model = mujoco_py.MjModel(self.agentparams['filename_nomarkers'])
+        else:
+            self.model = mujoco_py.MjModel(self.agentparams['filename'])
 
         if 'verbose' in self.policyparams:
             self.verbose = True
@@ -418,7 +421,7 @@ class CEM_controller(Policy):
 
         if self.verbose: #and itr == self.policyparams['iterations']-1:
             # print 'creating visuals for best sampled actions at last iteration...'
-            file_path = '/home/frederik/Documents/lsdc/experiments/cem_exp/benchmarks_goalimage/mujoco_rewardnet/verbose'
+            file_path = self.policyparams['currentdir'] +'/verbose'
             bestindices = scores.argsort()[:self.K]
             bestscores = [scores[ind] for ind in bestindices]
 
@@ -435,6 +438,7 @@ class CEM_controller(Policy):
 
             Image.fromarray((self.goal_image*255).astype(np.uint8)).show()
             for i in range(self.K):
+                pdb.set_trace()
                 Image.fromarray((term[bestindices[i]]*255).astype(np.uint8)).show()
                 print 'bestscore ', bestscores[i]
                 print 'softmax out', softmax_out[bestindices[i]]

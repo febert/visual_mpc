@@ -25,5 +25,5 @@ configuration = {
 'file_visual': '',          # datafile used for making visualizations
 'batch_norm': '',
 'nomoving_average':'',
-# 'last_image1':''          # use the last image of the videosequence as image1
+'last_image1':''          # use the last image of the videosequence as image1
 }

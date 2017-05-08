@@ -173,12 +173,9 @@ def perform_benchmark(bench_conf = None):
 
             print 'score of traj', traj, ':', scores[traj]
 
-
-            if (traj % 30) == 0:
-                analyze_memory(memory_tracker)
+            # if (traj % 30) == 0:
+            #     analyze_memory(memory_tracker)
             traj +=1 #increment trajectories every step!
-
-
 
         i_conf += 1 #increment configurations every three steps!
 

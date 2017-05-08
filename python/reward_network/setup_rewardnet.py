@@ -34,16 +34,12 @@ def setup_rewardnet(conf, gpu_id = 0):
 
             current_images_pl = tf.placeholder(tf.float32, name='images',
                                     shape=(conf['batch_size'], 64, 64, 3))
-
             goal_image_pl = tf.placeholder(tf.float32, name='images',
                                                shape=(64, 64, 3))
-
-
 
             print 'Constructing model for control'
             with tf.variable_scope('trainmodel', reuse=None) as training_scope:
                 model = Model(conf, currentimages=current_images_pl, goalimage=goal_image_pl)
-
 
             sess.run(tf.initialize_all_variables())
 
@@ -56,8 +52,6 @@ def setup_rewardnet(conf, gpu_id = 0):
                 :param pixcoord: the coords of the disgnated pixel in images coord system
                 :return: the predicted pixcoord at the end of sequence
                 """
-
-
                 feed_dict = {
                              current_images_pl: current_images,
                              goal_image_pl: goal_image

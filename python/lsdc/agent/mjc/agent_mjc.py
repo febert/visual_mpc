@@ -39,11 +39,6 @@ class AgentMuJoCo(Agent):
         self._model= mujoco_py.MjModel(filename)
         self.model_nomarkers = mujoco_py.MjModel(self._hyperparams['filename_nomarkers'])
 
-         # changes here:
-        # self._joint_idx = range(self._hyperparams['joint_angles'])
-        # self._vel_idx = range( self._hyperparams['joint_angles'], self._hyperparams['joint_velocities'] + self._hyperparams['joint_angles'])
-
-
         gofast = True
         self._small_viewer = mujoco_py.MjViewer(visible=True,
                                                 init_width=self._hyperparams['image_width'],
@@ -71,7 +66,7 @@ class AgentMuJoCo(Agent):
             traj_ok, traj = self.rollout(policy)
         print 'needed {} trials'.format(i_trial)
 
-        tfinal = self._hyperparams['T']
+        tfinal = self._hyperparams['T'] -1
         if not self._hyperparams['data_collection']:
             if 'use_goalimage' in self._hyperparams:
                 self.final_poscost, self.final_anglecost = self.eval_action(traj, tfinal, getanglecost=True)

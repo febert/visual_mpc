@@ -266,9 +266,6 @@ class CEM_controller(Policy):
         """
         Return a random action for a state.
         Args:
-            x_full, xdot_full history of states.
-            ref_point: a reference point on the object which shall be moved to a goal
-            dref_point: speed of reference point
             t: the current controller's Time step
             init_model: mujoco model to initialize from
         """

@@ -84,19 +84,27 @@ class Model(object):
             rand_pair = np.random.randint(0, conf['sequence_length'] - 1, size=[conf['batch_size'],2])
 
             ind_0 = tf.reshape(tf.reduce_min(rand_pair, reduction_indices=1), shape=[conf['batch_size'],1])
-            ind_1 = tf.reshape(tf.reduce_max(rand_pair, reduction_indices=1), shape=[conf['batch_size'],1])
 
-            self.num_ind_0 = num_ind_0 = tf.concat(1, [first_row, ind_0])
-            self.num_ind_1 = num_ind_1 = tf.concat(1, [first_row, ind_1])
+            if 'last_image1' in conf:
+                ind_1 = tf.constant(13,dtype=tf.int64,shape=[conf['batch_size'],1])
+            else:
+                ind_1 = tf.reshape(tf.reduce_max(rand_pair, reduction_indices=1), shape=[conf['batch_size'],1])
+
             self.gtruth_video = gtruth_video
             self.pred_video = pred_video
 
             if pred_video is not None:
+                self.num_ind_0 = num_ind_0 = tf.concat(1, [first_row, ind_0])
+                self.num_ind_1 = num_ind_1 = tf.concat(1, [first_row, ind_1])
                 self.image_0 = image_0 = tf.gather_nd(pred_video, num_ind_0)
                 self.image_1 = image_1 = tf.gather_nd(gtruth_video, num_ind_1)
+
             else:
+                self.num_ind_0 = num_ind_0 = tf.concat(1, [first_row, ind_0])
+                self.num_ind_1 = num_ind_1 = tf.concat(1, [first_row, ind_1])
                 self.image_0 = image_0 = tf.gather_nd(video, num_ind_0)
                 self.image_1 = image_1 = tf.gather_nd(video, num_ind_1)
+
 
         if reuse_scope is None:
             is_training = True
@@ -196,7 +204,6 @@ def main(unused_argv):
     print 'using CUDA_VISIBLE_DEVICES=', FLAGS.device
     from tensorflow.python.client import device_lib
     print device_lib.list_local_devices()
-
 
     conf_file = FLAGS.hyper
     if not os.path.exists(conf_file):
@@ -361,16 +368,6 @@ def visualize(conf, sess, saver, model):
         ax.imshow((im1[ind]*255).astype(np.uint8))
         plt.axis('off')
 
-
-        # visualize dadx0
-        # ax = fig.add_subplot(3, n_examples, n_examples*2 + 1 + ind)
-        # plt.imshow(dadx0[ind], zorder=0, cmap=plt.get_cmap('jet'), interpolation='none')
-        # plt.axis('off')
-        # # visualize dadx1
-        # ax = fig.add_subplot(3, n_examples, n_examples*3 + 1 + ind)
-        # plt.imshow(dadx1[ind], zorder=0, cmap=plt.get_cmap('jet'), interpolation='none')
-        # plt.axis('off')
-
         ax = fig.add_subplot(3, n_examples, n_examples*2 +ind +1)
 
         N = conf['sequence_length'] -1
@@ -386,21 +383,23 @@ def visualize(conf, sess, saver, model):
         ax.set_xticks(loc + width / 2)
         ax.set_xticklabels([str(j+1) for j in range(N)])
 
-        centr = 0.
+        check_centr = 0.
         for i in range(N):
             if gtruth[ind] == i:
                 l = 1
             else:
                 l = 0
-            centr += np.log(softout[ind,i])*l + (1-l)* np.log(1- softout[ind,i])
-        centr = -centr
+            check_centr += np.log(softout[ind,i])*l + (1-l)* np.log(1- softout[ind,i])
+        check_centr = -check_centr
 
         if 'soft_labels' in conf:
             print 'softlabel {0}, gtrut {1}'.format(soft_labels[ind], gtruth[ind])
 
 
         ax.set_xlabel('true temp distance: {0} \n  cross-entropy: {1}\n self-calc centr: {2} \n ind0: {3} \n ind1: {4}'
-                      .format(gtruth[ind], round(c_entr[ind], 3), round(centr, 3), num_ind_0[ind,1], num_ind_1[ind,1]))
+                      .format(gtruth[ind], round(c_entr[ind], 3), round(check_centr, 3), num_ind_0[ind,1], num_ind_1[ind,1]))
+
+        print 'ex {0} ratio {1}'.format(ind,c_entr[ind]/check_centr)
 
 
     # plt.tight_layout(pad=0.8, w_pad=0.8, h_pad=1.0)
