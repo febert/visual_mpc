@@ -64,13 +64,12 @@ class Model(object):
         self.iter_num = tf.placeholder(tf.float32, [])
         summaries = []
 
-        inference = False
         first_row = tf.reshape(np.arange(conf['batch_size']),shape=[conf['batch_size'],1])
         rand_ind = np.random.randint(0, conf['sequence_length'], size=[conf['batch_size'],1])
 
         self.num_ind_0 = num_ind_0 = tf.concat(1, [first_row, rand_ind])
         self.image = image = tf.gather_nd(video, num_ind_0)
-        self.pose = pose = tf.gather_nd(poses, num_ind_0)
+        self.true_pose = true_pose = tf.gather_nd(poses, num_ind_0)
 
         if reuse_scope is None:
             is_training = True
@@ -78,7 +77,7 @@ class Model(object):
             is_training = False
 
         if reuse_scope is None:
-            pose_out  = construct_model(conf, image, is_training= is_training)
+            inferred_pose  = construct_model(conf, image, is_training= is_training)
         else:
             # If it's a validation or test model.
             if 'nomoving_average' in conf:
@@ -86,42 +85,41 @@ class Model(object):
                 print 'valmodel with is_training: ', is_training
 
             with tf.variable_scope(reuse_scope, reuse=True):
-                pose_out = construct_model(conf, image,is_training=is_training)
+                inferred_pose = construct_model(conf, image,is_training=is_training)
 
+        self.inferred_pose = inferred_pose
 
-        if inference == False:
+        inferred_pos = tf.slice(inferred_pose, [0,0], [-1, 2])
+        true_pos = tf.slice(true_pose, [0, 0], [-1, 2])
+        pos_cost = tf.reduce_sum(tf.square(inferred_pos - true_pos))
 
-            inferred_pos = tf.slice(pose_out, [0,0], [-1, 2])
-            true_pos = tf.slice(pose, [0, 0], [-1, 2])
-            pos_cost = tf.reduce_sum(tf.square(inferred_pos - true_pos))
+        inferred_ori = tf.slice(inferred_pose, [0, 2], [-1, 1])
+        true_ori = tf.slice(true_pose, [0, 2], [-1, 1])
 
-            inferred_ori = tf.slice(pose_out, [0, 2], [-1, 1])
-            true_ori = tf.slice(pose, [0, 2], [-1, 1])
+        c1 = tf.cos(inferred_ori)
+        s1 = tf.sin(inferred_ori)
+        c2 = tf.cos(true_ori)
+        s2 = tf.sin(true_ori)
+        ori_cost = tf.reduce_sum(tf.square(c1 -c2) + tf.square(s1 -s2))
 
-            c1 = tf.cos(inferred_ori)
-            s1 = tf.sin(inferred_ori)
-            c2 = tf.cos(true_ori)
-            s2 = tf.sin(true_ori)
-            ori_cost = tf.reduce_sum(tf.square(c1 -c2) + tf.square(s1 -s2))
+        total_cost = pos_cost + ori_cost
 
-            total_cost = pos_cost + ori_cost
+        self.prefix = prefix = tf.placeholder(tf.string, [])
+        summaries.append(tf.scalar_summary(prefix + 'pos_cost', pos_cost))
+        summaries.append(tf.scalar_summary(prefix + 'ori_cost', ori_cost))
+        summaries.append(tf.scalar_summary(prefix + 'total_cost', total_cost))
+        self.loss = loss = total_cost
+        self.lr = tf.placeholder_with_default(conf['learning_rate'], ())
 
-            self.prefix = prefix = tf.placeholder(tf.string, [])
-            summaries.append(tf.scalar_summary(prefix + 'pos_cost', pos_cost))
-            summaries.append(tf.scalar_summary(prefix + 'ori_cost', ori_cost))
-            summaries.append(tf.scalar_summary(prefix + 'total_cost', total_cost))
-            self.loss = loss = total_cost
-            self.lr = tf.placeholder_with_default(conf['learning_rate'], ())
-
-            update_ops = tf.get_collection(tf.GraphKeys.UPDATE_OPS)
-            if update_ops:
-                updates = tf.group(*update_ops)
-                with tf.control_dependencies([updates]):
-                    self.train_op = tf.train.AdamOptimizer(self.lr).minimize(loss)
-            else:
+        update_ops = tf.get_collection(tf.GraphKeys.UPDATE_OPS)
+        if update_ops:
+            updates = tf.group(*update_ops)
+            with tf.control_dependencies([updates]):
                 self.train_op = tf.train.AdamOptimizer(self.lr).minimize(loss)
+        else:
+            self.train_op = tf.train.AdamOptimizer(self.lr).minimize(loss)
 
-            self.summ_op = tf.merge_summary(summaries)
+        self.summ_op = tf.merge_summary(summaries)
 
 
 def main(unused_argv):
@@ -259,19 +257,9 @@ def visualize(conf, sess, saver, model):
                  model.prefix: 'val',
                  }
 
-    im0, im1, softout, c_entr, gtruth, soft_labels, num_ind_0, num_ind_1 = sess.run([ model.image_0,
-                                                                model.image_1,
-                                                                model.softmax_output,
-                                                                model.cross_entropy,
-                                                                model.hard_labels,
-                                                                model.soft_labels,
-                                                                model.num_ind_0,
-                                                                model.num_ind_1,
+    input_image, ground_truth_pose, inferred_pose = sess.run([ model.image, model.true_pose, model.inferred_pose
                                                                 ],
                                                                 feed_dict)
-
-    print 'num_ind_0', num_ind_0
-    print 'num_ind_1', num_ind_1
 
     n_examples = 8
     fig = plt.figure(figsize=(n_examples*2+4, 13), dpi=80)
@@ -279,50 +267,36 @@ def visualize(conf, sess, saver, model):
 
     for ind in range(n_examples):
         ax = fig.add_subplot(3, n_examples, ind+1)
-        ax.imshow((im0[ind]*255).astype(np.uint8))
-        plt.axis('off')
+        ax.imshow((input_image[ind]*255).astype(np.uint8))
 
-        ax = fig.add_subplot(3, n_examples, n_examples+1+ind)
-        ax.imshow((im1[ind]*255).astype(np.uint8))
-        plt.axis('off')
-
-        ax = fig.add_subplot(3, n_examples, n_examples*2 +ind +1)
-
-        N = conf['sequence_length'] -1
-        values = softout[ind]
-
-        loc = np.arange(N)  # the x locations for the groups
-        width = 0.3  # the width of the bars
-
-        rects1 = ax.bar(loc, values, width)
-
-        # add some text for labels, title and axes ticks
-        ax.set_title('softmax')
-        ax.set_xticks(loc + width / 2)
-        ax.set_xticklabels([str(j+1) for j in range(N)])
-
-        check_centr = 0.
-        for i in range(N):
-            if gtruth[ind] == i:
-                l = 1
-            else:
-                l = 0
-            check_centr += np.log(softout[ind,i])*l + (1-l)* np.log(1- softout[ind,i])
-        check_centr = -check_centr
-
-        if 'soft_labels' in conf:
-            print 'softlabel {0}, gtrut {1}'.format(soft_labels[ind], gtruth[ind])
-
-
-        ax.set_xlabel('true temp distance: {0} \n  cross-entropy: {1}\n self-calc centr: {2} \n ind0: {3} \n ind1: {4}'
-                      .format(gtruth[ind], round(c_entr[ind], 3), round(check_centr, 3), num_ind_0[ind,1], num_ind_1[ind,1]))
-
-        print 'ex {0} ratio {1}'.format(ind,c_entr[ind]/check_centr)
-
+        plot_arrow(inferred_pose[ind], color= 'r')
+        plot_arrow(inferred_pose[ind], color='b')
 
     # plt.tight_layout(pad=0.8, w_pad=0.8, h_pad=1.0)
     plt.savefig(conf['output_dir'] + '/fig.png')
 
+def plot_arrow(pose, color = 'r'):
+    arrow_end = pose[:2] + np.array([np.cos(pose[2]), np.sin(pose[2])]) * .15
+    arrow_end = mujoco_to_imagespace(arrow_end)
+    pos_img = mujoco_to_imagespace(pose[:2])
+    plt.plot(pos_img[1], pos_img[0], zorder=1, marker='o', color=color)
+
+    yaction = np.array([pos_img[0], arrow_end[0]])
+    xaction = np.array([pos_img[1], arrow_end[1]])
+    plt.plot(xaction, yaction, zorder=1, color=color, linewidth=3)
+
+    plt.axis('off')
+
+def mujoco_to_imagespace(mujoco_coord, numpix=64):
+    viewer_distance = .75  # distance from camera to the viewing plane
+    window_height = 2 * np.tan(75 / 2 / 180. * np.pi) * viewer_distance  # window height in Mujoco coords
+    pixelheight = window_height / numpix  # height of one pixel
+    pixelwidth = pixelheight
+    window_width = pixelwidth * numpix
+    middle_pixel = numpix / 2
+    pixel_coord = np.array([-mujoco_coord[1], mujoco_coord[0]])/pixelwidth + \
+                  np.array([middle_pixel, middle_pixel])
+    return pixel_coord
 
 if __name__ == '__main__':
     tf.logging.set_verbosity(tf.logging.INFO)

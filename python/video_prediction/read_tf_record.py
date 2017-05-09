@@ -243,9 +243,9 @@ def get_frame_with_posdata(img, pos):
         pos_img = mujoco_to_imagespace(pos[i,:2])
         plt.plot(pos_img[1], pos_img[0], zorder=1, marker='o', color='b')
 
-    yaction = np.array([pos_img[0], arrow_end[0]])
-    xaction = np.array([pos_img[1], arrow_end[1]])
-    plt.plot(xaction, yaction, zorder=1, color='y', linewidth=3)
+        yaction = np.array([pos_img[0], arrow_end[0]])
+        xaction = np.array([pos_img[1], arrow_end[1]])
+        plt.plot(xaction, yaction, zorder=1, color='y', linewidth=3)
 
     fig.canvas.draw()  # draw the canvas, cache the renderer
 
