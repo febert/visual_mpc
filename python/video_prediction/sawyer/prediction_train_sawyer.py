@@ -222,7 +222,7 @@ def main(unused_argv, conf_script= None):
     if FLAGS.visualize:
         print 'creating visualizations ...'
         conf = adapt_params_visualize(conf, FLAGS.visualize)
-        conf['visual_file'] = conf['data_dir'] + '/traj_256_to_511.tfrecords'
+        conf['visual_file'] = conf['data_dir'] + '/traj_0_to_255.tfrecords'
     print '-------------------------------------------------------------------'
     print 'verify current settings!! '
     for key in conf.keys():
