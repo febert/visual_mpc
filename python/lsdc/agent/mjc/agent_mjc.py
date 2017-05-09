@@ -110,7 +110,9 @@ class AgentMuJoCo(Agent):
             traj.Xdot_full[t, :] = self._model.data.qvel[:2].squeeze()
             traj.X_Xdot_full[t, :] = np.concatenate([traj.X_full[t, :], traj.Xdot_full[t, :]])
             for i in range(self._hyperparams['num_objects']):
-                traj.Object_pos[t, i, :] = self._model.data.qpos[i * 7 + 2:i * 7 + 9].squeeze()
+                fullpose = self._model.data.qpos[i * 7 + 2:i * 7 + 9].squeeze()
+                zangle = self.quat_to_zangle(fullpose[3:])
+                traj.Object_pos[t, i, :] = np.concatenate([fullpose[:2], zangle])
 
             if not self._hyperparams['data_collection']:
                 traj.score[t] = self.eval_action(traj, t)
@@ -226,8 +228,12 @@ class AgentMuJoCo(Agent):
         return np.array([np.cos(zangle/2), 0, 0, np.sin(zangle/2) ])
 
     def quat_to_zangle(self, quat):
+        """
+        :param quat: quaternion 
+        :return: zangle in rad
+        """
         theta = np.arctan2(2*quat[0]*quat[3], 1-2*quat[3]**2)
-        return theta
+        return np.array([theta])
 
     def calc_anglediff(self, alpha, beta):
         delta = alpha - beta

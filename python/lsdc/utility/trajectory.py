@@ -24,7 +24,7 @@ class Trajectory(object):
 
         self.X_full = np.empty([self.T, 2])
         self.Xdot_full = np.empty([self.T, 2])
-        self.Object_pos = np.empty((self.T, hyperparams['num_objects'], 7))
+        self.Object_pos = np.empty((self.T, hyperparams['num_objects'], 3))
         self.X_Xdot_full = np.empty([self.T, 4])
 
         self.desig_pos = np.empty([self.T, 2])
