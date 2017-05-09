@@ -14,7 +14,9 @@ import imp
 # Dimension of the state and action.
 STATE_DIM = 4
 ACION_DIM = 2
-OBJECT_POS_DIM = 8
+OBJECT_POS_DIM = 3
+
+from utils_vpred.create_gif import comp_single_video
 
 
 def build_tfrecord_input(conf, training=True, gtruth_pred = False):
@@ -83,8 +85,7 @@ def build_tfrecord_input(conf, training=True, gtruth_pred = False):
                         state_name: tf.FixedLenFeature([STATE_DIM], tf.float32)
             }
         if 'use_object_pos' in conf.keys():
-            if conf['use_object_pos']:
-                features[object_pos_name] = tf.FixedLenFeature([OBJECT_POS_DIM], tf.float32)
+            features[object_pos_name] = tf.FixedLenFeature([OBJECT_POS_DIM], tf.float32)
 
         if 'touch' in conf:
             touchdata_name = 'touchdata/' + str(i)
@@ -112,9 +113,8 @@ def build_tfrecord_input(conf, training=True, gtruth_pred = False):
 
 
             if 'use_object_pos' in conf.keys():
-                if conf['use_object_pos']:
-                    object_pos = tf.reshape(features[object_pos_name], shape=[1, OBJECT_POS_DIM])
-                    object_pos_seq.append(object_pos)
+                object_pos = tf.reshape(features[object_pos_name], shape=[1, OBJECT_POS_DIM])
+                object_pos_seq.append(object_pos)
 
     if gtruth_pred:
         gtruthimage_seq = tf.concat(0, gtruthimage_seq)
@@ -205,9 +205,10 @@ def add_visuals_to_batch(image_data, action_data, state_data, action_pos = False
     for b in range(batchsize):
         for t in range(sequence_length):
             actions = action_data[b, t]
-            state = state_data[b, t, :2]
+            state = state_data[b, t]
             sel_img = img[b,t]
-            image__with_visuals[b, t] = get_frame_with_visual(sel_img, actions, state, action_pos= action_pos)
+            image__with_visuals[b, t] = get_frame_with_posdata(sel_img, state)
+            # image__with_visuals[b, t] = get_frame_with_visual(sel_img, actions, state, action_pos= action_pos)
 
     return image__with_visuals.astype(np.float32) / 255.0
 
@@ -221,7 +222,9 @@ def get_frame_with_posdata(img, pos):
     :param action_pos:
     :return:
     """
-    pos = pos.squeeze().reshape(4,2)
+
+    numobjects = 1
+    pos = pos.reshape(numobjects,3)
 
     fig = plt.figure(figsize=(1, 1), dpi=64)
     fig.add_subplot(111)
@@ -233,9 +236,16 @@ def get_frame_with_posdata(img, pos):
     plt.imshow(img, zorder=0)
     axes.autoscale(False)
 
-    for i in range(4):
-        pos_img = mujoco_to_imagespace(pos[i])
+
+    for i in range(numobjects):
+        arrow_end = pos[i,:2] + np.array([np.cos(pos[i,2]),np.sin(pos[i,2])])*.15
+        arrow_end = mujoco_to_imagespace(arrow_end)
+        pos_img = mujoco_to_imagespace(pos[i,:2])
         plt.plot(pos_img[1], pos_img[0], zorder=1, marker='o', color='b')
+
+    yaction = np.array([pos_img[0], arrow_end[0]])
+    xaction = np.array([pos_img[1], arrow_end[1]])
+    plt.plot(xaction, yaction, zorder=1, color='y', linewidth=3)
 
     fig.canvas.draw()  # draw the canvas, cache the renderer
 
@@ -243,8 +253,8 @@ def get_frame_with_posdata(img, pos):
     data = data.reshape(fig.canvas.get_width_height()[::-1] + (3,))
 
     # plt.show()
-    Image.fromarray(data).show()
-    pdb.set_trace()
+    # Image.fromarray(data).show()
+    # pdb.set_trace()
 
     return data
 
@@ -310,16 +320,18 @@ if __name__ == '__main__':
     conf = {}
 
     # DATA_DIR = '/home/frederik/Documents/lsdc/experiments/cem_exp/benchmarks_goalimage/pixelerror_store_wholepred/tfrecords/train'
-    DATA_DIR = '/home/frederik/Documents/lsdc/pushing_data/large_displacement/train'
+    DATA_DIR = '/home/frederik/Documents/lsdc/pushing_data/large_displacement_pose/train'
 
     conf['schedsamp_k'] = -1  # don't feed ground truth
     conf['data_dir'] = DATA_DIR  # 'directory containing data_files.' ,
     conf['skip_frame'] = 1
     conf['train_val_split']= 0.95
-    conf['sequence_length']= 13      # 'sequence length, including context frames.'
+    conf['sequence_length']= 15      # 'sequence length, including context frames.'
     conf['use_state'] = True
     conf['batch_size']= 20
     conf['visualize']=False
+
+    conf['use_object_pos'] =''
 
 
     print '-------------------------------------------------------------------'
@@ -336,6 +348,8 @@ if __name__ == '__main__':
     if touch:
         conf['touch'] = ''
         image_batch, action_batch, state_batch, touch_batch = build_tfrecord_input(conf, training=True)
+    elif 'use_object_pos' in conf:
+        image_batch, action_batch, state_batch, pos_batch = build_tfrecord_input(conf, training=True)
     else:
         image_batch, action_batch, state_batch = build_tfrecord_input(conf, training=True,gtruth_pred= gtruth_pred)
     sess = tf.InteractiveSession()
@@ -352,9 +366,20 @@ if __name__ == '__main__':
                                                                         action_batch,
                                                                         state_batch,
                                                                         touch_batch])
+        elif 'use_object_pos' in conf:
+            image_data, action_data, state_data, pos_data = sess.run([image_batch, action_batch, state_batch, pos_batch])
         else:
             image_data, action_data, state_data = sess.run([image_batch, action_batch, state_batch])
 
+
+        print 'action:', action_data.shape
+        print 'action: batch ind 0', action_data[0]
+        print 'action: batch ind 1', action_data[1]
+
+        pos_data = np.squeeze(pos_data)
+        print 'pos:', pos_data.shape
+        print 'pos: batch ind 0', pos_data[0]
+        print 'pos: batch ind 1', pos_data[1]
 
         # print 'action:', action_data.shape
         # print 'action: batch ind 0', action_data[0]
@@ -382,8 +407,14 @@ if __name__ == '__main__':
         # print 'state variance of single batch'
         # print pos_var
 
+        pos_data = np.squeeze(pos_data)
 
-        from utils_vpred.create_gif import comp_single_video
+        visual_batch = add_visuals_to_batch(image_data, action_data, pos_data)
+        giffile = '/'.join(str.split(conf['data_dir'], '/')[:-1] + '/video_with_pos')
+        comp_single_video(giffile, visual_batch, num_exp=10)
+
+        pdb.set_trace()
+
 
         # make video preview video
         gif_preview = '/'.join(str.split(__file__, '/')[:-1] + ['preview'])

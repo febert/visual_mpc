@@ -223,11 +223,7 @@ def main(unused_argv, conf_script= None):
         print 'creating visualizations ...'
         conf = adapt_params_visualize(conf, FLAGS.visualize)
         conf['visual_file'] = conf['data_dir'] + '/traj_0_to_255.tfrecords'
-    print '-------------------------------------------------------------------'
-    print 'verify current settings!! '
-    for key in conf.keys():
-        print key, ': ', conf[key]
-    print '-------------------------------------------------------------------'
+
 
     print 'Constructing models and inputs.'
     with tf.variable_scope('model', reuse=None) as training_scope:
@@ -258,6 +254,13 @@ def main(unused_argv, conf_script= None):
     sess.run(tf.initialize_all_variables())
 
     if conf['visualize']:
+        print '-------------------------------------------------------------------'
+        print 'verify current settings!! '
+        for key in conf.keys():
+            print key, ': ', conf[key]
+        print '-------------------------------------------------------------------'
+
+
         saver.restore(sess, conf['visualize'])
 
         feed_dict = {val_model.lr: 0.0,
@@ -296,6 +299,12 @@ def main(unused_argv, conf_script= None):
         itr_0 = re.match('.*?([0-9]+)$', conf['pretrained_model']).group(1)
         itr_0 = int(itr_0)
         print 'resuming training at iteration:  ', itr_0
+
+    print '-------------------------------------------------------------------'
+    print 'verify current settings!! '
+    for key in conf.keys():
+        print key, ': ', conf[key]
+    print '-------------------------------------------------------------------'
 
     tf.logging.info('iteration number, cost')
 

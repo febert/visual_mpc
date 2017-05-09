@@ -14,7 +14,7 @@ from tensorflow.python.platform import gfile
 import video_prediction.utils_vpred.create_gif
 
 import matplotlib.pyplot as plt
-from poseestimator import construct_model
+from featurepoints import construct_model
 from PIL import Image
 import pdb
 
@@ -42,35 +42,33 @@ if __name__ == "__main__":
     flags.DEFINE_string('pretrained', None, 'path to model file from which to resume training')
 
 
+def mean_squared_error(true, pred):
+    """L2 distance between tensors true and pred.
+
+    Args:
+      true: the ground truth image.
+      pred: the predicted image.
+    Returns:
+      mean squared error between ground truth and predicted image.
+    """
+    return tf.reduce_sum(tf.square(true - pred)) / tf.to_float(tf.size(pred))
+
 
 class Model(object):
     def __init__(self,
                  conf,
                  video = None,
-                 poses = None,
                  reuse_scope = None,
                  ):
-        """
-        :param conf:
-        :param video:
-        :param actions:
-        :param states:
-        :param lt_states: latent states
-        :param test:
-        :param ltprop:   whether to porpagate laten state forward
-        """
-        poses = tf.squeeze(poses)
 
         self.iter_num = tf.placeholder(tf.float32, [])
         summaries = []
 
-        inference = False
         first_row = tf.reshape(np.arange(conf['batch_size']),shape=[conf['batch_size'],1])
         rand_ind = np.random.randint(0, conf['sequence_length'], size=[conf['batch_size'],1])
 
         self.num_ind_0 = num_ind_0 = tf.concat(1, [first_row, rand_ind])
-        self.image = image = tf.gather_nd(video, num_ind_0)
-        self.pose = pose = tf.gather_nd(poses, num_ind_0)
+        self.input_images = input_images = tf.gather_nd(video, num_ind_0)
 
         if reuse_scope is None:
             is_training = True
@@ -78,7 +76,7 @@ class Model(object):
             is_training = False
 
         if reuse_scope is None:
-            pose_out  = construct_model(conf, image, is_training= is_training)
+            images_rec, feature_points  = construct_model(conf, input_images, is_training= is_training)
         else:
             # If it's a validation or test model.
             if 'nomoving_average' in conf:
@@ -86,43 +84,24 @@ class Model(object):
                 print 'valmodel with is_training: ', is_training
 
             with tf.variable_scope(reuse_scope, reuse=True):
-                pose_out = construct_model(conf, image,is_training=is_training)
+                images_rec, feature_points = construct_model(conf, input_images,is_training=is_training)
 
+        self.feature_points = feature_points
+        self.images_rec = images_rec
+        self.loss = loss = mean_squared_error(input_images, images_rec)
+        self.prefix = prefix = tf.placeholder(tf.string, [])
+        summaries.append(tf.scalar_summary(prefix + 'reconstr_loss', loss))
+        self.lr = tf.placeholder_with_default(conf['learning_rate'], ())
 
-        if inference == False:
-
-            inferred_pos = tf.slice(pose_out, [0,0], [-1, 2])
-            true_pos = tf.slice(pose, [0, 0], [-1, 2])
-            pos_cost = tf.reduce_sum(tf.square(inferred_pos - true_pos))
-
-            inferred_ori = tf.slice(pose_out, [0, 2], [-1, 1])
-            true_ori = tf.slice(pose, [0, 2], [-1, 1])
-
-            c1 = tf.cos(inferred_ori)
-            s1 = tf.sin(inferred_ori)
-            c2 = tf.cos(true_ori)
-            s2 = tf.sin(true_ori)
-            ori_cost = tf.reduce_sum(tf.square(c1 -c2) + tf.square(s1 -s2))
-
-            total_cost = pos_cost + ori_cost
-
-            self.prefix = prefix = tf.placeholder(tf.string, [])
-            summaries.append(tf.scalar_summary(prefix + 'pos_cost', pos_cost))
-            summaries.append(tf.scalar_summary(prefix + 'ori_cost', ori_cost))
-            summaries.append(tf.scalar_summary(prefix + 'total_cost', total_cost))
-            self.loss = loss = total_cost
-            self.lr = tf.placeholder_with_default(conf['learning_rate'], ())
-
-            update_ops = tf.get_collection(tf.GraphKeys.UPDATE_OPS)
-            if update_ops:
-                updates = tf.group(*update_ops)
-                with tf.control_dependencies([updates]):
-                    self.train_op = tf.train.AdamOptimizer(self.lr).minimize(loss)
-            else:
+        update_ops = tf.get_collection(tf.GraphKeys.UPDATE_OPS)
+        if update_ops:
+            updates = tf.group(*update_ops)
+            with tf.control_dependencies([updates]):
                 self.train_op = tf.train.AdamOptimizer(self.lr).minimize(loss)
+        else:
+            self.train_op = tf.train.AdamOptimizer(self.lr).minimize(loss)
 
-            self.summ_op = tf.merge_summary(summaries)
-
+        self.summ_op = tf.merge_summary(summaries)
 
 def main(unused_argv):
     os.environ["CUDA_VISIBLE_DEVICES"] = str(FLAGS.device)
@@ -156,12 +135,12 @@ def main(unused_argv):
 
     print 'Constructing models and inputs.'
     with tf.variable_scope('trainmodel') as training_scope:
-        images, actions, states, poses  = build_tfrecord_input(conf, training=True)
-        model = Model(conf, images, poses)
+        images, actions, states  = build_tfrecord_input(conf, training=True)
+        model = Model(conf, images)
 
     with tf.variable_scope('val_model', reuse=None):
-        images_val, actions_val, states_val, poses_val = build_tfrecord_input(conf, training=False)
-        val_model = Model(conf, images_val, poses_val, reuse_scope= training_scope)
+        images_val, actions_val, states_val = build_tfrecord_input(conf, training=False)
+        val_model = Model(conf, images_val, reuse_scope= training_scope)
 
     print 'Constructing saver.'
     # Make saver.
@@ -259,66 +238,24 @@ def visualize(conf, sess, saver, model):
                  model.prefix: 'val',
                  }
 
-    im0, im1, softout, c_entr, gtruth, soft_labels, num_ind_0, num_ind_1 = sess.run([ model.image_0,
-                                                                model.image_1,
-                                                                model.softmax_output,
-                                                                model.cross_entropy,
-                                                                model.hard_labels,
-                                                                model.soft_labels,
-                                                                model.num_ind_0,
-                                                                model.num_ind_1,
-                                                                ],
-                                                                feed_dict)
-
-    print 'num_ind_0', num_ind_0
-    print 'num_ind_1', num_ind_1
+    inp_images, rec_images, fp = sess.run([ model.input_images,
+                                            model.images_rec,
+                                            model.feature_points
+                                            ],
+                                            feed_dict)
 
     n_examples = 8
     fig = plt.figure(figsize=(n_examples*2+4, 13), dpi=80)
 
-
     for ind in range(n_examples):
         ax = fig.add_subplot(3, n_examples, ind+1)
-        ax.imshow((im0[ind]*255).astype(np.uint8))
+        ax.imshow((inp_images[ind]*255).astype(np.uint8))
+
+        ax = fig.add_subplot(3, n_examples, n_examples+ind + 1)
+        ax.imshow((rec_images[ind] * 255).astype(np.uint8))
+
+        plt.plot(fp[ind,:,0], fp[ind,:,1], marker='o', color='r')
         plt.axis('off')
-
-        ax = fig.add_subplot(3, n_examples, n_examples+1+ind)
-        ax.imshow((im1[ind]*255).astype(np.uint8))
-        plt.axis('off')
-
-        ax = fig.add_subplot(3, n_examples, n_examples*2 +ind +1)
-
-        N = conf['sequence_length'] -1
-        values = softout[ind]
-
-        loc = np.arange(N)  # the x locations for the groups
-        width = 0.3  # the width of the bars
-
-        rects1 = ax.bar(loc, values, width)
-
-        # add some text for labels, title and axes ticks
-        ax.set_title('softmax')
-        ax.set_xticks(loc + width / 2)
-        ax.set_xticklabels([str(j+1) for j in range(N)])
-
-        check_centr = 0.
-        for i in range(N):
-            if gtruth[ind] == i:
-                l = 1
-            else:
-                l = 0
-            check_centr += np.log(softout[ind,i])*l + (1-l)* np.log(1- softout[ind,i])
-        check_centr = -check_centr
-
-        if 'soft_labels' in conf:
-            print 'softlabel {0}, gtrut {1}'.format(soft_labels[ind], gtruth[ind])
-
-
-        ax.set_xlabel('true temp distance: {0} \n  cross-entropy: {1}\n self-calc centr: {2} \n ind0: {3} \n ind1: {4}'
-                      .format(gtruth[ind], round(c_entr[ind], 3), round(check_centr, 3), num_ind_0[ind,1], num_ind_1[ind,1]))
-
-        print 'ex {0} ratio {1}'.format(ind,c_entr[ind]/check_centr)
-
 
     # plt.tight_layout(pad=0.8, w_pad=0.8, h_pad=1.0)
     plt.savefig(conf['output_dir'] + '/fig.png')
