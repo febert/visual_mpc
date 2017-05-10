@@ -39,31 +39,8 @@ def construct_model(images,
                     context_frames=2,
                     pix_distributions=None,
                     conf = None):
-    """Build convolutional lstm video predictor using STP, CDNA, or DNA.
 
-    Args:
-      images: tensor of ground truth image sequences
-      actions: tensor of action sequences
-      states: tensor of ground truth state sequences
-      iter_num: tensor of the current training iteration (for sched. sampling)
-      k: constant used for scheduled sampling. -1 to feed in own prediction.
-      use_state: True to include state and action in prediction
-      num_masks: the number of different pixel motion predictions (and
-                 the number of masks for each of those predictions)
-      stp: True to use Spatial Transformer Predictor (STP)
-      cdna: True to use Convoluational Dynamic Neural Advection (CDNA)
-      dna: True to use Dynamic Neural Advection (DNA)
-      context_frames: number of ground truth frames to pass in before
-                      feeding in own predictions
-      pix_distrib: the initial one-hot distriubtion for designated pixels
-    Returns:
-      gen_images: predicted future image frames
-      gen_states: predicted future states
 
-    Raises:
-      ValueError: if more than one network option specified or more than 1 mask
-      specified for DNA model.
-    """
 
     if 'dna_size' in conf.keys():
         DNA_KERN_SIZE = conf['dna_size']
@@ -154,33 +131,36 @@ def construct_model(images,
             hidden1, lstm_state1 = lstm_func(       # 32x32x16
                 enc0, lstm_state1, lstm_size[0], scope='state1')
             hidden1 = tf_layers.layer_norm(hidden1, scope='layer_norm2')
-            # hidden2, lstm_state2 = lstm_func(
-            #     hidden1, lstm_state2, lstm_size[1], scope='state2')
-            # hidden2 = tf_layers.layer_norm(hidden2, scope='layer_norm3')
+
+
             enc1 = slim.layers.conv2d(     # 16x16x16
                 hidden1, hidden1.get_shape()[3], [3, 3], stride=2, scope='conv2')
 
             hidden3, lstm_state3 = lstm_func(   #16x16x32
                 enc1, lstm_state3, lstm_size[2], scope='state3')
             hidden3 = tf_layers.layer_norm(hidden3, scope='layer_norm4')
-            # hidden4, lstm_state4 = lstm_func(
-            #     hidden3, lstm_state4, lstm_size[3], scope='state4')
-            # hidden4 = tf_layers.layer_norm(hidden4, scope='layer_norm5')
-            enc2 = slim.layers.conv2d(    #8x8x32
+
+            enc2 = slim.layers.conv2d(  # 8x8x32
                 hidden3, hidden3.get_shape()[3], [3, 3], stride=2, scope='conv3')
 
             if not 'ignore_state_action' in conf:
                 # Pass in state and action.
+                if 'ignore_state' in conf:
+                    lowdim = action
+                    print 'ignoring state'
+                else:
+                    lowdim = state_action
+
                 smear = tf.reshape(
-                    state_action,
-                    [int(batch_size), 1, 1, int(state_action.get_shape()[1])])
+                    lowdim,
+                    [int(batch_size), 1, 1, int(lowdim.get_shape()[1])])
                 smear = tf.tile(
                     smear, [1, int(enc2.get_shape()[1]), int(enc2.get_shape()[2]), 1])
 
-            if 'ignore_state_action' in conf:
-                pass
-            else:
                 enc2 = tf.concat(3, [enc2, smear])
+            else:
+                print 'ignoring states and actions'
+
 
             enc3 = slim.layers.conv2d(   #8x8x32
                 enc2, hidden3.get_shape()[3], [1, 1], stride=1, scope='conv4')
@@ -215,8 +195,10 @@ def construct_model(images,
                 normalizer_fn=tf_layers.layer_norm,
                 normalizer_params={'scope': 'layer_norm9'})
 
-            prev_image_cam1 = tf.slice(prev_image, [0, 0, 0, 0], [-1, -1, -1, 3])
-            prev_image_cam2 = tf.slice(prev_image, [0, 0, 0, 3], [-1, -1, -1, 3])
+            if 'single_view' not in conf:
+                prev_image_cam1 = tf.slice(prev_image, [0, 0, 0, 0], [-1, -1, -1, 3])
+                prev_image_cam2 = tf.slice(prev_image, [0, 0, 0, 3], [-1, -1, -1, 3])
+
             if conf['model']=='DNA':
                 # Using largest hidden state for predicting untied conv kernels.
                 trafo_input_cam1 = slim.layers.conv2d_transpose(
@@ -224,8 +206,11 @@ def construct_model(images,
                 trafo_input_cam2 = slim.layers.conv2d_transpose(
                     enc6, DNA_KERN_SIZE ** 2, 1, stride=1, scope='convt4_cam2')
 
-                transformed_cam1 = [dna_transformation(prev_image_cam1, trafo_input_cam1, conf['dna_size'])]
-                transformed_cam2 = [dna_transformation(prev_image_cam2, trafo_input_cam2, conf['dna_size'])]
+                if 'single_view' not in conf:
+                    transformed_cam1 = [dna_transformation(prev_image_cam1, trafo_input_cam1, conf['dna_size'])]
+                    transformed_cam2 = [dna_transformation(prev_image_cam2, trafo_input_cam2, conf['dna_size'])]
+                else:
+                    transformed_cam2 = [dna_transformation(prev_image, trafo_input_cam2, conf['dna_size'])]
 
             if conf['model']=='STP':
                 stp_input0 = tf.reshape(hidden5, [int(batch_size), -1])
@@ -239,13 +224,13 @@ def construct_model(images,
                 reuse_stp = None
                 if reuse:
                     reuse_stp = reuse
-                transformed_cam1 = stp_transformation(prev_image_cam1, stp_input1_cam1, num_masks, reuse_stp, suffix='cam1')
+                if 'single_view' not in conf:
+                    transformed_cam1 = stp_transformation(prev_image_cam1, stp_input1_cam1, num_masks, reuse_stp, suffix='cam1')
                 transformed_cam2 = stp_transformation(prev_image_cam2, stp_input1_cam2, num_masks, reuse_stp, suffix='cam2')
                 # transformed += stp_transformation(prev_image, stp_input1, num_masks)
 
                 if pix_distributions != None:
                     transf_distrib = stp_transformation(prev_pix_distrib, stp_input1, num_masks, reuse=True)
-
 
             masks_cam1 = slim.layers.conv2d_transpose(
                 enc6, (num_masks + 1), 1, stride=1, scope='convt7_cam1')
@@ -253,14 +238,15 @@ def construct_model(images,
             masks_cam2 = slim.layers.conv2d_transpose(
                 enc6, (num_masks + 1), 1, stride=1, scope='convt7_cam2')
 
-
-            output_cam1, mask_list_cam1 = fuse_trafos(conf, masks_cam1, prev_image_cam1, transformed_cam1)
-            output_cam2, mask_list_cam2 = fuse_trafos(conf, masks_cam2, prev_image_cam2, transformed_cam2)
-
-            output = tf.concat(3,[output_cam1, output_cam2])
+            if 'single_view' not in conf:
+                output_cam1, mask_list_cam1 = fuse_trafos(conf, masks_cam1, prev_image_cam1, transformed_cam1)
+                output_cam2, mask_list_cam2 = fuse_trafos(conf, masks_cam2, prev_image_cam2, transformed_cam2)
+                output = tf.concat(3, [output_cam1, output_cam2])
+            else:
+                output, mask_list_cam2 = fuse_trafos(conf, masks_cam2, prev_image, transformed_cam2)
 
             gen_images.append(output)
-            gen_masks.append(mask_list_cam1)
+            gen_masks.append(mask_list_cam2)
 
             if conf['model']=='DNA' and pix_distributions != None:
                 transf_distrib = [dna_transformation(prev_pix_distrib, enc7, DNA_KERN_SIZE)]

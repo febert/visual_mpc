@@ -175,7 +175,7 @@ class Model(object):
 
             loss += recon_cost
 
-        if 'ignore_state_action' not in conf:
+        if ('ignore_state_action' not in conf) and ('ignore_state' not in conf):
             for i, state, gen_state in zip(
                     range(len(gen_states)), states[conf['context_frames']:],
                     gen_states[conf['context_frames'] - 1:]):
@@ -228,16 +228,25 @@ def main(unused_argv, conf_script= None):
     print 'Constructing models and inputs.'
     with tf.variable_scope('model', reuse=None) as training_scope:
         if 'sawyer' in conf:
-            images_main, images_aux1, actions, states = build_tfrecord_input(conf, training=True)
-            images_aux1 = tf.squeeze(images_aux1)
-            images = tf.concat(4, [images_main, images_aux1])
+
+            if 'single_view' in conf:
+                images_aux1, actions, states = build_tfrecord_input(conf, training=True)
+                images = images_aux1
+            else:
+                images_main, images_aux1, actions, states = build_tfrecord_input(conf, training=True)
+                images_aux1 = tf.squeeze(images_aux1)
+                images = tf.concat(4, [images_main, images_aux1])
             model = Model(conf, images, actions, states)
 
     with tf.variable_scope('val_model', reuse=None):
         if 'sawyer' in conf:
-            val_images_main, val_images_aux1, val_actions, val_states = build_tfrecord_input(conf, training=False)
-            val_images_aux1 = tf.squeeze(val_images_aux1)
-            val_images = tf.concat(4, [val_images_main, val_images_aux1])
+            if 'single_view' in conf:
+                val_images_aux1, val_actions, val_states = build_tfrecord_input(conf, training=False)
+                val_images = val_images_aux1
+            else:
+                val_images_main, val_images_aux1, val_actions, val_states = build_tfrecord_input(conf, training=False)
+                val_images_aux1 = tf.squeeze(val_images_aux1)
+                val_images = tf.concat(4, [val_images_main, val_images_aux1])
             val_model = Model(conf, val_images, val_actions, val_states, training_scope)
 
     print 'Constructing saver.'
