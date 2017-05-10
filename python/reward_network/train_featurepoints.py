@@ -124,7 +124,6 @@ def main(unused_argv):
         conf['event_log_dir'] = '/tmp'
         filenames = gfile.Glob(os.path.join(conf['data_dir'], '*'))
         conf['visual_file'] = filenames
-        conf['batch_size'] = 18
 
     print '-------------------------------------------------------------------'
     print 'verify current settings!! '
@@ -254,11 +253,21 @@ def visualize(conf, sess, saver, model):
         ax = fig.add_subplot(3, n_examples, n_examples+ind + 1)
         ax.imshow((rec_images[ind] * 255).astype(np.uint8))
 
-        plt.plot(fp[ind,:,0], fp[ind,:,1], marker='o', color='r')
+
+        # plt.plot(0., 0., marker='o', color='b')
+        # plt.plot(64., 64., marker='o', color='r')
+        for i_p in range(fp.shape[1]):
+            plt.plot(fp[ind,i_p,0]*64.+32, fp[ind,i_p,1]*64.+32, marker='o', color='b')
+
         plt.axis('off')
+
+        if ind == 1:
+            print 'feature points, shape:',fp.shape
+            print fp[ind]*64.
 
     # plt.tight_layout(pad=0.8, w_pad=0.8, h_pad=1.0)
     plt.savefig(conf['output_dir'] + '/fig.png')
+    plt.show()
 
 
 if __name__ == '__main__':

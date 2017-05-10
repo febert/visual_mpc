@@ -73,15 +73,16 @@ def feature_point_autoenc(conf, input_images):
     fp_x = tf.reduce_sum(tf.mul(x_map, softmax), [1], keep_dims=True)
     fp_y = tf.reduce_sum(tf.mul(y_map, softmax), [1], keep_dims=True)
 
-    fp = tf.concat(1, [fp_x, fp_y])
-    fp = tf.reshape(fp, [conf['batch_size'], 64 ,2])
-
     fl0 = slim.layers.fully_connected(
-        tf.reshape(fp, [conf['batch_size'], -1]),
-        3*64**2,  # im_channels* width* height
+        tf.reshape(tf.concat(1, [fp_x, fp_y]), [conf['batch_size'], -1]),
+        3 * 64 ** 2,  # im_channels* width* height
         activation_fn=None,
         scope='state_enc3')
 
+    fp_x = tf.reshape(fp_x, [conf['batch_size'], 64, 1])
+    fp_y = tf.reshape(fp_y, [conf['batch_size'], 64, 1])
+    fp_out = tf.concat(2, [fp_x, fp_y])
+
     output_images = tf.reshape(fl0, [conf['batch_size'], 64,64,3])
 
-    return output_images, fp
+    return output_images, fp_out
