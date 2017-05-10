@@ -15,7 +15,7 @@ configuration = {
 'output_dir': OUT_DIR,      #'directory for model checkpoints.' ,
 'current_dir': current_dir,   #'directory for writing summary.' ,
 'skip_frame': 1,            # 'use ever i-th frame to increase prediction horizon' ,
-'num_iterations': 50000,   #'number of training iterations.' ,
+'num_iterations': 100000,   #'number of training iterations.' ,
 'pretrained_model': '',     # 'filepath of a pretrained model to resume training from.' ,
 'sequence_length': 15,      # 'sequence length, including context frames.' ,
 'train_val_split': 0.95,    #'The percentage of files to use for the training set vs. the validation set.' ,
@@ -26,5 +26,4 @@ configuration = {
 'use_object_pos':'',
 'batch_norm': '',
 'nomoving_average':'',
-
 }

@@ -135,7 +135,7 @@ def main(unused_argv):
 
     conf = hyperparams.configuration
 
-
+    conf['event_log_dir'] = conf['output_dir']
     if FLAGS.visualize:
         print 'creating visualizations ...'
         conf['data_dir'] = '/'.join(str.split(conf['data_dir'], '/')[:-1] + ['test'])
@@ -144,13 +144,6 @@ def main(unused_argv):
         filenames = gfile.Glob(os.path.join(conf['data_dir'], '*'))
         conf['visual_file'] = filenames
         conf['batch_size'] = 18
-
-    print '-------------------------------------------------------------------'
-    print 'verify current settings!! '
-    for key in conf.keys():
-        print key, ': ', conf[key]
-    print '-------------------------------------------------------------------'
-
 
     print 'Constructing models and inputs.'
     with tf.variable_scope('trainmodel') as training_scope:
@@ -169,17 +162,25 @@ def main(unused_argv):
     # Make training session.
     sess = tf.InteractiveSession(config= tf.ConfigProto(gpu_options=gpu_options))
     summary_writer = tf.train.SummaryWriter(
-        conf['output_dir'], graph=sess.graph, flush_secs=10)
+        conf['event_log_dir'], graph=sess.graph, flush_secs=10)
 
     tf.train.start_queue_runners(sess)
     sess.run(tf.initialize_all_variables())
 
+    print '-------------------------------------------------------------------'
+    print 'verify current settings!! '
+    for key in conf.keys():
+        print key, ': ', conf[key]
+    print '-------------------------------------------------------------------'
     if FLAGS.visualize:
         visualize(conf, sess, saver, val_model)
         return
 
     itr_0 =0
+
     if FLAGS.pretrained != None:
+
+
         conf['pretrained_model'] = FLAGS.pretrained
 
         saver.restore(sess, conf['pretrained_model'])
@@ -262,7 +263,8 @@ def visualize(conf, sess, saver, model):
                                                                 feed_dict)
 
     n_examples = 8
-    fig = plt.figure(figsize=(n_examples*2+4, 13), dpi=80)
+    fig = plt.figure(figsize=(12, 6), dpi=80)
+
 
 
     for ind in range(n_examples):
@@ -270,20 +272,23 @@ def visualize(conf, sess, saver, model):
         ax.imshow((input_image[ind]*255).astype(np.uint8))
 
         plot_arrow(inferred_pose[ind], color= 'r')
-        plot_arrow(inferred_pose[ind], color='b')
+        plot_arrow(ground_truth_pose[ind], color='b')
 
-    # plt.tight_layout(pad=0.8, w_pad=0.8, h_pad=1.0)
+    # plt.tight_layout(pad=0., w_pad=0.0, h_pad=0.0)
+    plt.subplots_adjust(left=.1, bottom=.1, right=.95, top=.9, wspace=.05, hspace=.05)
     plt.savefig(conf['output_dir'] + '/fig.png')
+    plt.show()
 
 def plot_arrow(pose, color = 'r'):
+    arrow_start = mujoco_to_imagespace(pose[:2])
     arrow_end = pose[:2] + np.array([np.cos(pose[2]), np.sin(pose[2])]) * .15
     arrow_end = mujoco_to_imagespace(arrow_end)
-    pos_img = mujoco_to_imagespace(pose[:2])
-    plt.plot(pos_img[1], pos_img[0], zorder=1, marker='o', color=color)
 
-    yaction = np.array([pos_img[0], arrow_end[0]])
-    xaction = np.array([pos_img[1], arrow_end[1]])
-    plt.plot(xaction, yaction, zorder=1, color=color, linewidth=3)
+    plt.plot(arrow_start[1], arrow_start[0], zorder=1, marker='o', color=color)
+
+    yarrow = np.array([arrow_start[0], arrow_end[0]])
+    xarrow = np.array([arrow_start[1], arrow_end[1]])
+    plt.plot(xarrow, yarrow, zorder=1, color=color, linewidth=3)
 
     plt.axis('off')
 
