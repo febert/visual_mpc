@@ -71,7 +71,9 @@ def build_tfrecord_input(conf, training=True):
                     endeffector_pos_name: tf.FixedLenFeature([STATE_DIM], tf.float32),
         }
         if 'single_view' not in conf:
-            features[image_main_name] = tf.FixedLenFeature([1], tf.string),
+            (features[image_main_name]) = tf.FixedLenFeature([1], tf.string),
+
+        pdb.set_trace()
 
         features = tf.parse_single_example(serialized_example, features=features)
 

@@ -118,7 +118,7 @@ class Model(object):
                 conf['dropout'] = 1
 
         if reuse_scope is None:
-            softmax_output  = construct_model(conf, images_0=image_0,
+            logits  = construct_model(conf, images_0=image_0,
                                             images_1=image_1,
                                             is_training= is_training)
         else: # If it's a validation or test model.
@@ -127,11 +127,11 @@ class Model(object):
                 print 'valmodel with is_training: ', is_training
 
             with tf.variable_scope(reuse_scope, reuse=True):
-                softmax_output = construct_model(conf,  images_0=image_0,
+                logits = construct_model(conf,  images_0=image_0,
                                                 images_1=image_1,
                                                 is_training=is_training)
 
-        self.softmax_output = tf.nn.softmax(softmax_output)
+        self.softmax_output = tf.nn.softmax(logits)
 
 
         # mult = tf.mul(softmax_output, tf.cast(tf.range(0, conf['sequence_length']-1), tf.float32))
@@ -176,10 +176,10 @@ class Model(object):
 
             if 'soft_labels' in conf:
                 self.cross_entropy = cross_entropy = tf.nn.softmax_cross_entropy_with_logits(
-                    labels=self.soft_labels, logits=softmax_output, name='cross_entropy_per_example')
+                    labels=self.soft_labels, logits=logits, name='cross_entropy_per_example')
             else:
                 self.cross_entropy = cross_entropy = tf.nn.sparse_softmax_cross_entropy_with_logits(
-                    labels=hard_labels, logits=softmax_output, name='cross_entropy_per_example')
+                    labels=hard_labels, logits=logits, name='cross_entropy_per_example')
 
             cross_entropy_mean = tf.reduce_mean(cross_entropy, name='cross_entropy')
 
@@ -219,7 +219,7 @@ def main(unused_argv):
         conf['event_log_dir'] = '/tmp'
         filenames = gfile.Glob(os.path.join(conf['data_dir'], '*'))
         conf['visual_file'] = filenames
-        conf['batch_size'] = 18
+        conf['batch_size'] = 100
 
     print '-------------------------------------------------------------------'
     print 'verify current settings!! '
@@ -234,7 +234,7 @@ def main(unused_argv):
             gtruth_video, pred_video = build_tfrecord_input(conf, training=True, gtruth_pred= True)
             model = Model(conf, pred_video= pred_video, gtruth_video= gtruth_video)
         else:
-            images, actions, states = build_tfrecord_input(conf, training=True)
+            images, actions, states, objectpos = build_tfrecord_input(conf, training=True)
             model = Model(conf, images)
 
     with tf.variable_scope('val_model', reuse=None):
@@ -242,7 +242,7 @@ def main(unused_argv):
             gtruth_video_val, pred_video_val = build_tfrecord_input(conf, training=True, gtruth_pred= True)
             val_model = Model(conf, pred_video= pred_video_val, gtruth_video= gtruth_video_val)
         else:
-            images_val, actions_val, states_val = build_tfrecord_input(conf, training=False)
+            images_val, actions_val, states_val, objectpos_val = build_tfrecord_input(conf, training=False)
             val_model = Model(conf, images_val, reuse_scope= training_scope)
 
     print 'Constructing saver.'
@@ -259,7 +259,7 @@ def main(unused_argv):
     sess.run(tf.initialize_all_variables())
 
     if FLAGS.visualize:
-        visualize(conf, sess, saver, val_model)
+        visualize(conf, sess, saver, val_model, states, objectpos_val)
         return
 
     itr_0 =0
@@ -333,7 +333,7 @@ def main(unused_argv):
     tf.logging.flush()
 
 
-def visualize(conf, sess, saver, model):
+def visualize(conf, sess, saver, model, states, objectpos):
     print 'creating visualizations ...'
     saver.restore(sess,  conf['visualize'])
 
@@ -341,7 +341,8 @@ def visualize(conf, sess, saver, model):
                  model.prefix: 'val',
                  }
 
-    im0, im1, softout, c_entr, gtruth, soft_labels, num_ind_0, num_ind_1 = sess.run([ model.image_0,
+    im0, im1, softout, c_entr, gtruth, soft_labels, num_ind_0, num_ind_1, statesdata, objectposdata = sess.run([
+                                                                model.image_0,
                                                                 model.image_1,
                                                                 model.softmax_output,
                                                                 model.cross_entropy,
@@ -349,6 +350,8 @@ def visualize(conf, sess, saver, model):
                                                                 model.soft_labels,
                                                                 model.num_ind_0,
                                                                 model.num_ind_1,
+                                                                states,
+                                                                objectpos
                                                                 ],
                                                                 feed_dict)
 
@@ -357,7 +360,6 @@ def visualize(conf, sess, saver, model):
 
     n_examples = 8
     fig = plt.figure(figsize=(n_examples*2+4, 13), dpi=80)
-
 
     for ind in range(n_examples):
         ax = fig.add_subplot(3, n_examples, ind+1)
@@ -401,6 +403,18 @@ def visualize(conf, sess, saver, model):
 
         print 'ex {0} ratio {1}'.format(ind,c_entr[ind]/check_centr)
 
+
+    #compute correlation coeffecients:
+
+    expected_dist = softout *range(conf['sequence_length'] -1)
+
+    obj_diff = objectposdata[num_ind_1,:2] - objectposdata[num_ind_0:2]
+    objectdiff_dist = np.stack([obj_diff, expected_dist], axis=1)
+    print 'states-predicted distance cov:',np.cov(objectdiff_dist, rowvar=False, bias=False)
+
+    states_diff = statesdata[num_ind_1, :2] - statesdata[num_ind_0:2]
+    statesdiff_dist = np.stack([states_diff, expected_dist], axis=1)
+    print '-predicted distance cov:',np.cov(statesdiff_dist, rowvar=False, bias=False)
 
     # plt.tight_layout(pad=0.8, w_pad=0.8, h_pad=1.0)
     plt.savefig(conf['output_dir'] + '/fig.png')

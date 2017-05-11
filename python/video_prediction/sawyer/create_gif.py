@@ -10,15 +10,21 @@ def create_gif(file_path, conf, suffix = None):
     ground_truth = cPickle.load(open(file_path + '/ground_truth.pkl', "rb"))
     gen_images = cPickle.load(open(file_path + '/gen_image.pkl', "rb"))
 
+    ground_truth = np.squeeze(ground_truth)
+    if ground_truth.shape[4] == 3:
 
-    gen_images_main = [img[:, :, :, :3] for img in gen_images]
-    gen_images_aux1 = [img[:, :, :, 3:] for img in gen_images]
-    ground_truth = np.split(ground_truth,ground_truth.shape[1], 1)
-    ground_truth = [np.squeeze(img) for img in ground_truth]
-    ground_truth_main = [img[:, :, :, :3] for img in ground_truth]
-    ground_truth_aux1 = [img[:, :, :, 3:] for img in ground_truth]
+        ground_truth = np.split(ground_truth,ground_truth.shape[1], 1)
+        ground_truth = [np.squeeze(img) for img in ground_truth]
+        fused_gif = assemble_gif([ground_truth, gen_images])
+    else:
+        gen_images_main = [img[:, :, :, :3] for img in gen_images]
+        gen_images_aux1 = [img[:, :, :, 3:] for img in gen_images]
+        ground_truth = np.split(ground_truth,ground_truth.shape[1], 1)
+        ground_truth = [np.squeeze(img) for img in ground_truth]
+        ground_truth_main = [img[:, :, :, :3] for img in ground_truth]
+        ground_truth_aux1 = [img[:, :, :, 3:] for img in ground_truth]
 
-    fused_gif = assemble_gif([ground_truth_main, gen_images_main, ground_truth_aux1, gen_images_aux1])
+        fused_gif = assemble_gif([ground_truth_main, gen_images_main, ground_truth_aux1, gen_images_aux1])
 
     itr_vis = re.match('.*?([0-9]+)$', conf['visualize']).group(1)
     if not suffix:
@@ -29,8 +35,8 @@ def create_gif(file_path, conf, suffix = None):
 
 
 if __name__ == '__main__':
-    file_path = '/home/frederik/Documents/lsdc/tensorflow_data/sawyer/test/modeldata'
-    hyperparams = imp.load_source('hyperparams', '/home/frederik/Documents/lsdc/tensorflow_data/sawyer/test/conf.py')
+    file_path = '/home/frederik/Documents/lsdc/tensorflow_data/sawyer/singleview/modeldata'
+    hyperparams = imp.load_source('hyperparams', '/home/frederik/Documents/lsdc/tensorflow_data/sawyer/singleview/conf.py')
     conf = hyperparams.configuration
     conf['visualize'] = conf['output_dir'] + '/model48002'
     pred = create_gif(file_path, conf)

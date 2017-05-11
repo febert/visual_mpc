@@ -79,8 +79,8 @@ def feature_point_autoenc(conf, input_images):
         activation_fn=None,
         scope='state_enc3')
 
-    fp_x = tf.reshape(fp_x, [conf['batch_size'], 64, 1])
-    fp_y = tf.reshape(fp_y, [conf['batch_size'], 64, 1])
+    fp_x = tf.reshape(fp_x, [conf['batch_size'], conf['num_fp'], 1])
+    fp_y = tf.reshape(fp_y, [conf['batch_size'], conf['num_fp'], 1])
     fp_out = tf.concat(2, [fp_x, fp_y])
 
     output_images = tf.reshape(fl0, [conf['batch_size'], 64,64,3])

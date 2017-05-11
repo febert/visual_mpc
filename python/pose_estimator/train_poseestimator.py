@@ -261,11 +261,8 @@ def visualize(conf, sess, saver, model):
     input_image, ground_truth_pose, inferred_pose = sess.run([ model.image, model.true_pose, model.inferred_pose
                                                                 ],
                                                                 feed_dict)
-
     n_examples = 8
     fig = plt.figure(figsize=(12, 6), dpi=80)
-
-
 
     for ind in range(n_examples):
         ax = fig.add_subplot(3, n_examples, ind+1)

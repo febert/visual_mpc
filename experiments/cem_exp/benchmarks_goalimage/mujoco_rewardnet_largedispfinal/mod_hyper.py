@@ -13,7 +13,7 @@ policy = {
     'repeat': 3,
     'initial_std': 7,
     'use_first_plan': False, # execute MPC instead using firs plan
-    'iterations': 3,
+    'iterations': 1, ####################
     'load_goal_image':'make_easy_goal',
     'rewardnetconf':current_dir + '/rewardconf.py',   #configuration for reward network
     'rewardmodel_sequence_length':15,

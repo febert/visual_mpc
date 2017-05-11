@@ -419,7 +419,7 @@ class CEM_controller(Policy):
 
         bestindices = scores.argsort()[:self.K]
 
-        if self.verbose: #and itr == self.policyparams['iterations']-1:
+        if self.verbose and itr == self.policyparams['iterations']-1:
             # print 'creating visuals for best sampled actions at last iteration...'
             file_path = self.policyparams['currentdir'] +'/verbose'
             bestindices = scores.argsort()[:self.K]

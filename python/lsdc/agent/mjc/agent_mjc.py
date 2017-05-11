@@ -204,10 +204,9 @@ class AgentMuJoCo(Agent):
             goalpos = self._hyperparams['goal_object_pose'][0][0:2]
             goal_quat= self._hyperparams['goal_object_pose'][0][3:]
             curr_pos = traj.Object_pos[t, 0, 0:2]
-            curr_quat = traj.Object_pos[t, 0, 3:]
 
             goalangle = self.quat_to_zangle(goal_quat)
-            currangle = self.quat_to_zangle(curr_quat)
+            currangle = traj.Object_pos[t, 0, 2]
             anglediff = self.calc_anglediff(goalangle, currangle)
             mult = 0.01 #0.1
             anglecost = np.abs(anglediff) / np.pi *180 * mult

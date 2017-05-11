@@ -13,6 +13,8 @@ from tensorflow.python.platform import flags
 from tensorflow.python.platform import gfile
 import video_prediction.utils_vpred.create_gif
 
+from matplotlib import gridspec
+
 import matplotlib.pyplot as plt
 from featurepoints import construct_model
 from PIL import Image
@@ -244,28 +246,32 @@ def visualize(conf, sess, saver, model):
                                             feed_dict)
 
     n_examples = 8
-    fig = plt.figure(figsize=(n_examples*2+4, 13), dpi=80)
+    fig = plt.figure(figsize=(n_examples*2+4, 5), dpi=80)
 
     for ind in range(n_examples):
-        ax = fig.add_subplot(3, n_examples, ind+1)
+        # ax = fig.add_subplot(3, n_examples, ind+1)
+        ax = plt.subplot2grid((2, n_examples), (0, ind))
+
         ax.imshow((inp_images[ind]*255).astype(np.uint8))
 
-        ax = fig.add_subplot(3, n_examples, n_examples+ind + 1)
-        ax.imshow((rec_images[ind] * 255).astype(np.uint8))
+        plt.axis('off')
 
+        # ax = fig.add_subplot(3, n_examples, n_examples+ind + 1)
+        ax = plt.subplot2grid((2, n_examples), (1, ind))
+        ax.imshow((rec_images[ind] * 255).astype(np.uint8))
 
         # plt.plot(0., 0., marker='o', color='b')
         # plt.plot(64., 64., marker='o', color='r')
         for i_p in range(fp.shape[1]):
             plt.plot(fp[ind,i_p,0]*64.+32, fp[ind,i_p,1]*64.+32, marker='o', color='b')
 
+        # if ind == 1:
+        print 'feature points, shape:',fp.shape
+        print fp[ind]*64. + 32
+
         plt.axis('off')
 
-        if ind == 1:
-            print 'feature points, shape:',fp.shape
-            print fp[ind]*64.
-
-    # plt.tight_layout(pad=0.8, w_pad=0.8, h_pad=1.0)
+    plt.tight_layout()
     plt.savefig(conf['output_dir'] + '/fig.png')
     plt.show()
 
