@@ -24,6 +24,7 @@ configuration = {
 'visualize': '',            #'load model from which to generate visualizations
 'file_visual': '',          # datafile used for making visualizations
 'batch_norm': '',
+'use_object_pos':'',
 'nomoving_average':'',
 'last_image1':''          # use the last image of the videosequence as image1
 }

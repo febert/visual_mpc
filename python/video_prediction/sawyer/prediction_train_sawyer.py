@@ -58,33 +58,7 @@ def mean_squared_error(true, pred):
     return tf.reduce_sum(tf.square(true - pred)) / tf.to_float(tf.size(pred))
 
 
-def fft_cost(true, pred, conf, fft_weights = None):
 
-    #loop over the color channels:
-    cost = 0.
-    true_fft_abssum = 0
-    pred_fft_abssum = 0
-    for i in range(3):
-
-        slice_true = tf.slice(true,[0,0,0,i],[-1,-1,-1,1])
-        slice_pred = tf.slice(pred, [0, 0, 0, i], [-1, -1, -1, 1])
-
-        slice_true = tf.squeeze(tf.complex(slice_true, tf.zeros_like(slice_true)))
-        slice_pred = tf.squeeze(tf.complex(slice_pred, tf.zeros_like(slice_pred)))
-
-        true_fft = tf.fft2d(slice_true)
-        pred_fft = tf.fft2d(slice_pred)
-
-        if 'fft_emph_highfreq' in conf:
-            abs_diff = tf.mul(tf.complex_abs(true_fft - pred_fft), fft_weights)
-            cost += tf.reduce_sum(tf.square(abs_diff)) / tf.to_float(tf.size(pred_fft))
-        else:
-            cost += tf.reduce_sum(tf.square(tf.complex_abs(true_fft - pred_fft))) / tf.to_float(tf.size(pred_fft))
-
-        true_fft_abssum += tf.complex_abs(true_fft)
-        pred_fft_abssum += tf.complex_abs(pred_fft)
-
-    return cost, true_fft_abssum, pred_fft_abssum
 
 class Model(object):
     def __init__(self,
@@ -95,10 +69,12 @@ class Model(object):
                  reuse_scope=None,
                  pix_distrib=None):
 
-
+        self.conf = conf
         from prediction_model_sawyer import construct_model
 
-        sequence_length = conf['sequence_length']
+        if 'use_length' in conf:
+            #randomly shift videos for data augmentation
+            images, actions, states = self.random_shift(images, actions, states)
 
         self.prefix = prefix = tf.placeholder(tf.string, [])
         self.iter_num = tf.placeholder(tf.float32, [])
@@ -157,21 +133,7 @@ class Model(object):
                 tf.scalar_summary(prefix + '_recon_cost' + str(i), recon_cost_mse))
             summaries.append(tf.scalar_summary(prefix + '_psnr' + str(i), psnr_i))
 
-            if 'fftcost' in conf:
-                print 'using fftcost'
-                fftcost, true_fft, pred_fft = fft_cost(x, gx, conf, self.fft_weights)
-                true_fft_list.append(true_fft)
-                pred_fft_list.append(pred_fft)
-                summaries.append(
-                    tf.scalar_summary(prefix + '_fft_recon_cost' + str(i), fftcost))
-
-                if 'fftonly' in conf:
-                    print 'only using fft cost'
-                    recon_cost = fftcost
-                else:
-                    recon_cost = fftcost + recon_cost_mse
-            else:
-                recon_cost = recon_cost_mse
+            recon_cost = recon_cost_mse
 
             loss += recon_cost
 
@@ -202,6 +164,19 @@ class Model(object):
         self.gen_masks = gen_masks
         self.gen_distrib = gen_distrib
         self.gen_states = gen_states
+
+    def random_shift(self, images, states, actions):
+
+        tshift = 2
+        uselen = self.conf['use_len']
+        fulllength = self.conf['sequence_length']
+        nshifts = (fulllength - uselen) / 2 + 1
+        rand_ind = np.random.randint(0, nshifts + 1, size=[1])  # sample from [0,8]
+        images = tf.slice(images, [0, rand_ind * tshift, 0, 0, 0], [-1, uselen, -1, -1, -1])
+        actions = tf.slice(actions, [0, rand_ind * tshift, 0], [-1, uselen, -1])
+        states = tf.slice(states, [0, rand_ind * tshift, 0], [-1, uselen, -1])
+
+        return images, states, actions
 
 
 
