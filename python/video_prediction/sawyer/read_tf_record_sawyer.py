@@ -73,8 +73,6 @@ def build_tfrecord_input(conf, training=True):
         if 'single_view' not in conf:
             (features[image_main_name]) = tf.FixedLenFeature([1], tf.string),
 
-        pdb.set_trace()
-
         features = tf.parse_single_example(serialized_example, features=features)
 
         COLOR_CHAN = 3
