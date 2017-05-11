@@ -39,7 +39,7 @@ class AgentMuJoCo(Agent):
         self._model= mujoco_py.MjModel(filename)
         self.model_nomarkers = mujoco_py.MjModel(self._hyperparams['filename_nomarkers'])
 
-        gofast = True
+        gofast = False
         self._small_viewer = mujoco_py.MjViewer(visible=True,
                                                 init_width=self._hyperparams['image_width'],
                                                 init_height=self._hyperparams['image_height'],
@@ -372,4 +372,5 @@ class AgentMuJoCo(Agent):
             self._model.data.qpos = np.concatenate((x0[:2], object_pos,goal, ref), 0)
         else:
             self._model.data.qpos = np.concatenate((x0[:2], object_pos), 0)
+            pdb.set_trace()
         self._model.data.qvel = np.zeros_like(self._model.data.qvel)

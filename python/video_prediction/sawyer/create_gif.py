@@ -4,6 +4,7 @@ from video_prediction.utils_vpred.create_gif import npy_to_gif
 import numpy as np
 import imp
 import re
+import pdb
 
 def create_gif(file_path, conf, suffix = None):
     print 'reading files from:', file_path
@@ -15,7 +16,9 @@ def create_gif(file_path, conf, suffix = None):
 
         ground_truth = np.split(ground_truth,ground_truth.shape[1], 1)
         ground_truth = [np.squeeze(img) for img in ground_truth]
+        ground_truth = ground_truth[1:]
         fused_gif = assemble_gif([ground_truth, gen_images])
+
     else:
         gen_images_main = [img[:, :, :, :3] for img in gen_images]
         gen_images_aux1 = [img[:, :, :, 3:] for img in gen_images]

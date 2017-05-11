@@ -320,7 +320,8 @@ if __name__ == '__main__':
     conf = {}
 
     # DATA_DIR = '/home/frederik/Documents/lsdc/experiments/cem_exp/benchmarks_goalimage/pixelerror_store_wholepred/tfrecords/train'
-    DATA_DIR = '/home/frederik/Documents/lsdc/pushing_data/large_displacement_pose/train'
+    # DATA_DIR = '/home/frederik/Documents/lsdc/pushing_data/large_displacement_pose/train'
+    DATA_DIR = '/media/frederik/harddrive/pushingdata/large_displacement_pose600k/train/'
 
     conf['schedsamp_k'] = -1  # don't feed ground truth
     conf['data_dir'] = DATA_DIR  # 'directory containing data_files.' ,
@@ -410,7 +411,7 @@ if __name__ == '__main__':
         pos_data = np.squeeze(pos_data)
 
         visual_batch = add_visuals_to_batch(image_data, action_data, pos_data)
-        giffile = '/'.join(str.split(conf['data_dir'], '/')[:-1] + '/video_with_pos')
+        giffile = '/'.join(str.split(conf['data_dir'], '/')[:-1] + ['video_with_pos'])
         comp_single_video(giffile, visual_batch, num_exp=10)
 
         pdb.set_trace()

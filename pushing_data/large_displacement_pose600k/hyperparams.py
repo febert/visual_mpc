@@ -32,15 +32,11 @@ SENSOR_DIMS = {
     RGB_IMAGE_SIZE: 3,
 }
 
-BASE_DIR = '/'.join(str.split(__file__, '/')[:-1])
+exp_name = '/'.join(str.split(__file__, '/')[-2:-1])
+MEDIA_DIR = '/media/frederik/harddrive/pushingdata'
 
 common = {
-    'experiment_name': 'my_experiment' + '_' + \
-            datetime.strftime(datetime.now(), '%m-%d-%y_%H-%M'),
-    'experiment_dir': BASE_DIR,
-    'data_files_dir': BASE_DIR + '/train',
-    'target_filename': BASE_DIR + 'target.npz',
-    'log_filename': BASE_DIR + 'log.txt',
+    'data_files_dir': MEDIA_DIR + '/'+exp_name +'/train',
     'conditions': 1,
     'no_sample_logging': True,
 }

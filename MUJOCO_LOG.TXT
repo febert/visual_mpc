@@ -91,3 +91,6 @@ ERROR: Expired activation key
 Fri May  5 15:31:57 2017
 WARNING: Nan, Inf or huge value in QPOS at DOF 9. The simulation is unstable. Time = 0.0000.
 
+Wed May 10 19:57:31 2017
+WARNING: Nan, Inf or huge value in QPOS at DOF 9. The simulation is unstable. Time = 0.0000.
+
