@@ -99,7 +99,8 @@ def build_tfrecord_input(conf, training=True):
             image = tf.image.resize_bicubic(image, [IMG_HEIGHT, IMG_WIDTH])
             image = tf.cast(image, tf.float32) / 255.0
             image_main_seq.append(image)
-            image_main_seq = tf.concat(0, image_main_seq)
+
+
 
         image = tf.decode_raw(features[image_aux1_name], tf.uint8)
         image = tf.reshape(image, shape=[1, ORIGINAL_HEIGHT * ORIGINAL_WIDTH * COLOR_CHAN])
@@ -118,7 +119,9 @@ def build_tfrecord_input(conf, training=True):
         action = tf.reshape(features[action_name], shape=[1, ACION_DIM])
         action_seq.append(action)
 
-
+    if 'single_view' not in conf:
+        image_main_seq = tf.concat(0, image_main_seq)
+    image_aux1_seq = tf.concat(0, image_aux1_seq)
 
     if conf['visualize']: num_threads = 1
     else: num_threads = np.min((conf['batch_size'], 32))
