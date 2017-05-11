@@ -29,9 +29,7 @@ RELU_SHIFT = 1e-12
 
 def construct_model(conf,
                     images_0,
-                    states_0 = None,
                     images_1 = None,
-                    states_1 = None,
                     is_training = True,
                     ):
 
@@ -42,18 +40,27 @@ def construct_model(conf,
                  tf_layers.layer_norm, slim.layers.conv2d_transpose],
                 normalizer_params= {"is_training": is_training}, normalizer_fn= tf_layers.batch_norm
                 ):
-            logits = build_model(conf, images_0, images_1)
+            logits, fp1, fp2 = build_model(conf, images_0, images_1)
     else:
-        logits = build_model(conf, images_0, images_1)
+        logits, fp1, fp2 = build_model(conf, images_0, images_1)
 
-    return logits
+    return logits, fp1, fp2
 
 
 def build_model(conf, images_0, images_1):
+    fp1, fp2 = None, None
     with tf.variable_scope('emb0'):
-        emb0 = gen_embedding(conf, images_0)
+        if 'fp' in conf:
+            fp0 = get_fp(conf, images_0)
+            emb0 = tf.reshape(fp0, [conf['batch_size'], -1])
+        else:
+            emb0 = gen_embedding(conf, images_0)
     with tf.variable_scope('emb1'):
-        emb1 = gen_embedding(conf, images_1)
+        if 'fp' in conf:
+            fp1 = get_fp(conf, images_1)
+            emb1 = tf.reshape(fp1, [conf['batch_size'], -1])
+        else:
+            emb1 = gen_embedding(conf, images_1)
 
     joint_embedding = tf.concat(1, [emb0, emb1])
 
@@ -80,7 +87,7 @@ def build_model(conf, images_0, images_1):
         activation_fn=None,
         scope='state_enc3')
 
-    return fl3
+    return fl3, fp1, fp2
 
 
 def gen_embedding(conf, input):
@@ -118,3 +125,39 @@ def gen_embedding(conf, input):
 
     emb = tf.reshape(enc4, [int(enc4.get_shape()[0]), -1])
     return emb
+
+def get_fp(conf, input_images):
+
+    enc0 = slim.layers.conv2d(input_images, 32, [3, 3], stride=1, scope='conv0')  # 64x64x32
+    enc1 = slim.layers.conv2d(enc0, 64, [3, 3], stride=1, scope='conv1')  # 64x64x64
+    enc2 = slim.layers.conv2d(enc1, conf['num_fp'], [3, 3], stride=1, scope='conv2')  # 64x64x numfp
+
+    _, num_rows, num_cols, num_fp = enc2.get_shape()
+    num_rows, num_cols, num_fp = [int(x) for x in [num_rows, num_cols, num_fp]]
+    x_map = np.empty([num_rows, num_cols], np.float32)
+    y_map = np.empty([num_rows, num_cols], np.float32)
+
+    for i in range(num_rows):
+        for j in range(num_cols):
+            x_map[i, j] = (i - num_rows / 2.0) / num_rows
+            y_map[i, j] = (j - num_cols / 2.0) / num_cols
+
+    x_map = tf.convert_to_tensor(x_map)
+    y_map = tf.convert_to_tensor(y_map)
+
+    x_map = tf.reshape(x_map, [num_rows * num_cols])
+    y_map = tf.reshape(y_map, [num_rows * num_cols])
+
+    # rearrange features to be [batch_size, num_fp, num_rows, num_cols]
+    features = tf.reshape(tf.transpose(enc2, [0,3,1,2]),
+                          [-1, num_rows*num_cols])
+    softmax = tf.nn.softmax(features)
+
+    fp_x = tf.reduce_sum(tf.mul(x_map, softmax), [1], keep_dims=True)
+    fp_y = tf.reduce_sum(tf.mul(y_map, softmax), [1], keep_dims=True)
+
+    fp_x = tf.reshape(fp_x, [conf['batch_size'], conf['num_fp'], 1])
+    fp_y = tf.reshape(fp_y, [conf['batch_size'], conf['num_fp'], 1])
+    fp_out = tf.concat(2, [fp_x, fp_y])
+
+    return fp_out

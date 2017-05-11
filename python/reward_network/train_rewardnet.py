@@ -118,7 +118,7 @@ class Model(object):
                 conf['dropout'] = 1
 
         if reuse_scope is None:
-            logits  = construct_model(conf, images_0=image_0,
+            logits, fp1, fp2  = construct_model(conf, images_0=image_0,
                                             images_1=image_1,
                                             is_training= is_training)
         else: # If it's a validation or test model.
@@ -127,12 +127,12 @@ class Model(object):
                 print 'valmodel with is_training: ', is_training
 
             with tf.variable_scope(reuse_scope, reuse=True):
-                logits = construct_model(conf,  images_0=image_0,
+                logits, fp1, fp2 = construct_model(conf,  images_0=image_0,
                                                 images_1=image_1,
                                                 is_training=is_training)
 
         self.softmax_output = tf.nn.softmax(logits)
-
+        self.fp1, self.fp2 = fp1, fp2
 
         # mult = tf.mul(softmax_output, tf.cast(tf.range(0, conf['sequence_length']-1), tf.float32))
         # expected_timesteps = tf.reduce_sum(mult,1)
@@ -157,7 +157,6 @@ class Model(object):
         #     grad = tf.expand_dims(grad, 0)
         #     da_dx1.append(grad)
         # self.da_dx1 = tf.concat(0, da_dx1)
-
 
         if inference == False:
             self.hard_labels = hard_labels = tf.squeeze(ind_1 - ind_0)
@@ -200,7 +199,11 @@ class Model(object):
 
 
 def main(unused_argv):
-    os.environ["CUDA_VISIBLE_DEVICES"] = str(FLAGS.device)
+    if FLAGS.device == -1:
+        print 'GPU usage disabled!'
+        os.environ["CUDA_VISIBLE_DEVICES"] = ""
+    else:
+        os.environ["CUDA_VISIBLE_DEVICES"] = str(FLAGS.device)
     print 'using CUDA_VISIBLE_DEVICES=', FLAGS.device
     from tensorflow.python.client import device_lib
     print device_lib.list_local_devices()
