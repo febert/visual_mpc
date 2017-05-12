@@ -328,7 +328,7 @@ if __name__ == '__main__':
     conf['train_val_split']= 0.95
     conf['sequence_length']= 15      # 'sequence length, including context frames.'
     conf['use_state'] = True
-    conf['batch_size']= 20
+    conf['batch_size']= 32
     conf['visualize']=False
 
     conf['use_object_pos'] =''
@@ -409,15 +409,18 @@ if __name__ == '__main__':
 
         pos_data = np.squeeze(pos_data)
 
+        giffile = '/'.join(str.split(conf['data_dir'], '/')[:-2] + ['video'])
+        comp_single_video(giffile, image_data, num_exp=32)
+        pdb.set_trace()
         visual_batch = add_visuals_to_batch(image_data, action_data, pos_data)
-        giffile = '/'.join(str.split(conf['data_dir'], '/')[:-1] + ['video_with_pos'])
+        giffile = '/'.join(str.split(conf['data_dir'], '/')[:-2] + ['video_with_pos'])
         comp_single_video(giffile, visual_batch, num_exp=10)
 
         pdb.set_trace()
 
 
         # make video preview video
-        gif_preview = '/'.join(str.split(__file__, '/')[:-1] + ['preview'])
+        gif_preview = '/'.join(str.split(__file__, '/')[:-2] + ['preview'])
         if gtruth_pred:
             comp_single_video(gif_preview, gtruth_data, predicted=pred_data, num_exp=conf['batch_size'])
         else:

@@ -166,7 +166,7 @@ class Model(object):
         self.gen_states = gen_states
 
     def random_shift(self, images, states, actions):
-
+        print 'shifting the video sequence randomly in time'
         tshift = 2
         uselen = self.conf['use_len']
         fulllength = self.conf['sequence_length']

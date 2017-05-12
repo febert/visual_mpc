@@ -37,7 +37,6 @@ class Modhyper(object):
         self.config = conf.config
         self.policy = conf.policy
 
-
 def main():
     parser = argparse.ArgumentParser(description='run parllel data collection')
     parser.add_argument('experiment', type=str, help='experiment name')

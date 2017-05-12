@@ -80,7 +80,7 @@ class Model(object):
         images = [tf.squeeze(img) for img in images]
 
         if reuse_scope is None:
-            gen_images, gen_states, gen_masks, gen_poses = construct_model(
+            gen_images, gen_states, gen_poses = construct_model(
                 images,
                 actions,
                 states,
@@ -96,7 +96,7 @@ class Model(object):
                 conf=conf)
         else:  # If it's a validation or test model.
             with tf.variable_scope(reuse_scope, reuse=True):
-                gen_images, gen_states, gen_masks, gen_poses = construct_model(
+                gen_images, gen_states, gen_poses = construct_model(
                     images,
                     actions,
                     states,
@@ -132,7 +132,7 @@ class Model(object):
         for i, pose, gen_pose in zip(
                 range(len(gen_poses)), poses[conf['context_frames']:],
                 gen_poses[conf['context_frames'] - 1:]):
-            pose_cost = mean_squared_error(pose, gen_pose) * conf['low_dim_factor']
+            pose_cost = posecost(pose, gen_pose) * conf['low_dim_factor']
             summaries.append(
                 tf.scalar_summary(prefix + '_pose_cost' + str(i), pose_cost))
             loss += pose_cost
@@ -146,20 +146,37 @@ class Model(object):
         self.summ_op = tf.merge_summary(summaries)
 
         self.gen_images= gen_images
-        self.gen_masks = gen_masks
         self.gen_poses = gen_poses
         self.gen_states = gen_states
+
+def posecost(pose, gen_pose):
+    inferred_pos = tf.slice(gen_pose, [0, 0], [-1, 2])
+    true_pos = tf.slice(pose, [0, 0], [-1, 2])
+    pos_cost = tf.reduce_sum(tf.square(inferred_pos - true_pos))
+
+    inferred_ori = tf.slice(gen_pose, [0, 2], [-1, 1])
+    true_ori = tf.slice(pose, [0, 2], [-1, 1])
+
+    c1 = tf.cos(inferred_ori)
+    s1 = tf.sin(inferred_ori)
+    c2 = tf.cos(true_ori)
+    s2 = tf.sin(true_ori)
+    ori_cost = tf.reduce_sum(tf.square(c1 - c2) + tf.square(s1 - s2))
+
+    total_cost = pos_cost + ori_cost
+
+    return total_cost
 
 
 def main(conf):
 
     if FLAGS.device ==-1:   # using cpu!
         os.environ["CUDA_VISIBLE_DEVICES"] = ""
+        tfconfig = None
     else:
         print 'using CUDA_VISIBLE_DEVICES=', FLAGS.device
         os.environ["CUDA_VISIBLE_DEVICES"] = str(FLAGS.device)
-        tfconfig = gpu_options = tf.GPUOptions(per_process_gpu_memory_fraction=0.9)
-        tf.ConfigProto(gpu_options=gpu_options)
+        tfconfig = tf.GPUOptions(per_process_gpu_memory_fraction=0.9)
 
         from tensorflow.python.client import device_lib
         print device_lib.list_local_devices()

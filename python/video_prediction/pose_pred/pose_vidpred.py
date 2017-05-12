@@ -98,8 +98,11 @@ def construct_model(images,
             elif done_warm_start:
                 # Scheduled sampling
                 prev_image = scheduled_sample(image, gen_images[-1], batch_size, num_ground_truth)
+                prev_image = tf.reshape(prev_image, [conf['batch_size'], 64,64,3])
                 prev_state = scheduled_sample(state, gen_states[-1], batch_size, num_ground_truth)
+                prev_state = tf.reshape(prev_state, [conf['batch_size'], 4])
                 prev_pose = scheduled_sample(pose, gen_poses[-1], batch_size, num_ground_truth)
+                prev_pose = tf.reshape(prev_pose, [conf['batch_size'], 3])
             else:
                 # Always feed in ground_truth
                 prev_image = image
@@ -202,7 +205,6 @@ def construct_model(images,
                 transformed = stp_transformation(prev_image, stp_input1, num_masks, reuse_stp)
                 # transformed += stp_transformation(prev_image, stp_input1, num_masks)
 
-
             elif dna:
                 # Only one mask is supported (more should be unnecessary).
                 if num_masks != 1:
@@ -243,11 +245,7 @@ def predict_next_low_dim(conf, hidden7, enc0, state_action_pose):
 
     combined = tf.concat(1, [enc_hid1, enc_inp1, state_action_pose])
 
-    fl0 = slim.layers.fully_connected(
-        combined,
-        400,
-        scope='fl_predlow1',
-        )
+    fl0 = slim.layers.fully_connected(combined, 400, scope='fl_predlow1')
 
     next_low_dim = slim.layers.fully_connected(
         fl0,

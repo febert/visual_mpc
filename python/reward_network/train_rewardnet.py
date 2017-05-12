@@ -409,15 +409,14 @@ def visualize(conf, sess, saver, model, states, objectpos):
 
     #compute correlation coeffecients:
 
-    expected_dist = softout *range(conf['sequence_length'] -1)
-
-    obj_diff = objectposdata[num_ind_1,:2] - objectposdata[num_ind_0:2]
-    objectdiff_dist = np.stack([obj_diff, expected_dist], axis=1)
-    print 'states-predicted distance cov:',np.cov(objectdiff_dist, rowvar=False, bias=False)
-
-    states_diff = statesdata[num_ind_1, :2] - statesdata[num_ind_0:2]
-    statesdiff_dist = np.stack([states_diff, expected_dist], axis=1)
-    print '-predicted distance cov:',np.cov(statesdiff_dist, rowvar=False, bias=False)
+    # expected_dist = softout *range(conf['sequence_length'] -1)
+    # obj_diff = objectposdata[num_ind_1,:2] - objectposdata[num_ind_0,:2]
+    # objectdiff_dist = np.stack([obj_diff, expected_dist], axis=1)
+    # print 'states-predicted distance cov:',np.cov(objectdiff_dist, rowvar=False, bias=False)
+    #
+    # states_diff = statesdata[num_ind_1, :2] - statesdata[num_ind_0, :2]
+    # statesdiff_dist = np.stack([states_diff, expected_dist], axis=1)
+    # print '-predicted distance cov:',np.cov(statesdiff_dist, rowvar=False, bias=False)
 
     # plt.tight_layout(pad=0.8, w_pad=0.8, h_pad=1.0)
     plt.savefig(conf['output_dir'] + '/fig.png')
