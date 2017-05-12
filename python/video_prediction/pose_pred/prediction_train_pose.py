@@ -84,7 +84,6 @@ class Model(object):
                 images,
                 actions,
                 states,
-                poses,
                 iter_num=self.iter_num,
                 k=conf['schedsamp_k'],
                 use_state=conf['use_state'],
@@ -100,7 +99,6 @@ class Model(object):
                     images,
                     actions,
                     states,
-                    poses,
                     iter_num=self.iter_num,
                     k=conf['schedsamp_k'],
                     use_state=conf['use_state'],
@@ -228,18 +226,10 @@ def main(conf):
                      val_model.prefix: 'vis',
                      val_model.iter_num: 0 }
         file_path = conf['output_dir']
-
-        if 'fftcost' in conf:
-            true_fft, pred_fft, gen_images, ground_truth, mask_list = sess.run([val_model.true_fft, val_model.pred_fft ,val_model.gen_images,
-                                                            val_images, val_model.gen_masks],
-                                                           feed_dict)
-            cPickle.dump(true_fft, open(file_path + '/true_fft.pkl', 'wb'))
-            cPickle.dump(pred_fft, open(file_path + '/pred_fft.pkl', 'wb'))
-        else:
-            gen_images, ground_truth, mask_list = sess.run([val_model.gen_images,
-                                                            val_images, val_model.gen_masks,
-                                                            ],
-                                                           feed_dict)
+        gen_images, ground_truth, mask_list = sess.run([val_model.gen_images,
+                                                        val_images, val_model.gen_masks,
+                                                        ],
+                                                       feed_dict)
 
         cPickle.dump(gen_images, open(file_path + '/gen_image_seq.pkl','wb'))
         cPickle.dump(ground_truth, open(file_path + '/ground_truth.pkl', 'wb'))

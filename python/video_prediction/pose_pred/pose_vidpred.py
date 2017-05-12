@@ -31,7 +31,6 @@ RELU_SHIFT = 1e-12
 def construct_model(images,
                     actions=None,
                     states=None,
-                    poses=None,
                     iter_num=-1.0,
                     k=-1,
                     use_state=True,
@@ -79,7 +78,7 @@ def construct_model(images,
     lstm_state5, lstm_state6, lstm_state7 = None, None, None
 
     t = -1
-    for image, action, state, pose in zip(images[:-1], actions[:-1], states[:-1], poses[:-1]):
+    for image, action, state in zip(images[:-1], actions[:-1], states[:-1]):
         t +=1
         # Reuse variables after the first timestep.
         reuse = bool(gen_images)
@@ -94,20 +93,16 @@ def construct_model(images,
                 # Feed in generated image.
                 prev_image = gen_images[-1]
                 prev_state = gen_states[-1]
-                prev_pose = gen_poses[-1]
             elif done_warm_start:
                 # Scheduled sampling
                 prev_image = scheduled_sample(image, gen_images[-1], batch_size, num_ground_truth)
                 prev_image = tf.reshape(prev_image, [conf['batch_size'], 64,64,3])
                 prev_state = scheduled_sample(state, gen_states[-1], batch_size, num_ground_truth)
                 prev_state = tf.reshape(prev_state, [conf['batch_size'], 4])
-                prev_pose = scheduled_sample(pose, gen_poses[-1], batch_size, num_ground_truth)
-                prev_pose = tf.reshape(prev_pose, [conf['batch_size'], 3])
             else:
                 # Always feed in ground_truth
                 prev_image = image
                 prev_state = state
-                prev_pose = pose
 
             if 'transform_from_firstimage' in conf:
                 assert stp
@@ -140,10 +135,10 @@ def construct_model(images,
 
             # Pass in state and action.
             # Predicted state is always fed back in
-            state_action_pose = tf.concat(1, [action, prev_state, prev_pose])
+            state_action = tf.concat(1, [action, prev_state])
             smear = tf.reshape(
-                state_action_pose,
-                [int(batch_size), 1, 1, int(state_action_pose.get_shape()[1])])
+                state_action,
+                [int(batch_size), 1, 1, int(state_action.get_shape()[1])])
             smear = tf.tile(
                 smear, [1, int(enc2.get_shape()[1]), int(enc2.get_shape()[2]), 1])
             if use_state:
@@ -223,14 +218,14 @@ def construct_model(images,
             gen_images.append(output)
             gen_masks.append(mask_list)
 
-            next_state, next_pose = predict_next_low_dim(conf, hidden7, enc0, state_action_pose)
+            next_state, next_pose = predict_next_low_dim(conf, hidden7, enc0, state_action)
             gen_states.append(next_state)
             gen_poses.append(next_pose)
 
     return gen_images, gen_states, gen_poses
 
 
-def predict_next_low_dim(conf, hidden7, enc0, state_action_pose):
+def predict_next_low_dim(conf, hidden7, enc0, state_action):
     enc_hid0 = slim.layers.conv2d(  # 16x16x8
         hidden7, 8, [3, 3], stride=2, scope='conv_1predlow')
     enc_hid1 = slim.layers.conv2d(  # 8x8x1
@@ -243,7 +238,7 @@ def predict_next_low_dim(conf, hidden7, enc0, state_action_pose):
         enc_inp0, 1, [3, 3], stride=2, scope='conv_2predlow_1')
     enc_inp1 = tf.reshape(enc_inp1, [conf['batch_size'], -1])
 
-    combined = tf.concat(1, [enc_hid1, enc_inp1, state_action_pose])
+    combined = tf.concat(1, [enc_hid1, enc_inp1, state_action])
 
     fl0 = slim.layers.fully_connected(combined, 400, scope='fl_predlow1')
 
