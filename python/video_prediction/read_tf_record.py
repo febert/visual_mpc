@@ -111,7 +111,6 @@ def build_tfrecord_input(conf, training=True, gtruth_pred = False):
                 touchdata = tf.reshape(features[touchdata_name], shape=[1, TOUCH_DIM])
                 touch_seq.append(touchdata)
 
-
             if 'use_object_pos' in conf.keys():
                 object_pos = tf.reshape(features[object_pos_name], shape=[1, OBJECT_POS_DIM])
                 object_pos_seq.append(object_pos)

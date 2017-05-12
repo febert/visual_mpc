@@ -51,12 +51,14 @@ def build_model(conf, images_0, images_1):
     fp1, fp2 = None, None
     with tf.variable_scope('emb0'):
         if 'num_fp' in conf:
+            print 'using feature points'
             fp0 = get_fp(conf, images_0)
             emb0 = tf.reshape(fp0, [conf['batch_size'], -1])
         else:
             emb0 = gen_embedding(conf, images_0)
     with tf.variable_scope('emb1'):
         if 'num_fp' in conf:
+            print 'using feature points'
             fp1 = get_fp(conf, images_1)
             emb1 = tf.reshape(fp1, [conf['batch_size'], -1])
         else:
