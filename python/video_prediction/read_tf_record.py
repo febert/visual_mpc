@@ -194,25 +194,24 @@ def resize_im(features, image_pred_name, conf):
 
 ##### code below is used for debugging
 
-def add_visuals_to_batch(image_data, action_data, state_data, action_pos = False):
-    batchsize, sequence_length = state_data.shape[0], state_data.shape[1]
+def add_visuals_to_batch(conf, image_data, pos_data, color ='b'):
+    seq_len = image_data.shape[1]
+    bsize = image_data.shape[0]
 
     img = np.uint8(255. * image_data)
+    image__with_visuals = np.zeros_like(image_data, dtype=np.uint8)
 
-    image__with_visuals = np.zeros((32, 15, 64, 64, 3), dtype=np.uint8)
-
-    for b in range(batchsize):
-        for t in range(sequence_length):
-            actions = action_data[b, t]
-            state = state_data[b, t]
+    for b in range(bsize):
+        for t in range(seq_len):
+            state = pos_data[b, t]
             sel_img = img[b,t]
-            image__with_visuals[b, t] = get_frame_with_posdata(sel_img, state)
+            image__with_visuals[b, t] = get_frame_with_posdata(sel_img, state, color)
             # image__with_visuals[b, t] = get_frame_with_visual(sel_img, actions, state, action_pos= action_pos)
 
     return image__with_visuals.astype(np.float32) / 255.0
 
 
-def get_frame_with_posdata(img, pos):
+def get_frame_with_posdata(img, pos, color = 'b'):
     """
     visualizes the actions in the frame
     :param img:
@@ -240,11 +239,11 @@ def get_frame_with_posdata(img, pos):
         arrow_end = pos[i,:2] + np.array([np.cos(pos[i,2]),np.sin(pos[i,2])])*.15
         arrow_end = mujoco_to_imagespace(arrow_end)
         pos_img = mujoco_to_imagespace(pos[i,:2])
-        plt.plot(pos_img[1], pos_img[0], zorder=1, marker='o', color='b')
+        plt.plot(pos_img[1], pos_img[0], zorder=1, marker='o', color=color)
 
         yaction = np.array([pos_img[0], arrow_end[0]])
         xaction = np.array([pos_img[1], arrow_end[1]])
-        plt.plot(xaction, yaction, zorder=1, color='y', linewidth=3)
+        plt.plot(xaction, yaction, zorder=1, color=color, linewidth=3)
 
     fig.canvas.draw()  # draw the canvas, cache the renderer
 
@@ -320,7 +319,8 @@ if __name__ == '__main__':
 
     # DATA_DIR = '/home/frederik/Documents/lsdc/experiments/cem_exp/benchmarks_goalimage/pixelerror_store_wholepred/tfrecords/train'
     # DATA_DIR = '/home/frederik/Documents/lsdc/pushing_data/large_displacement_pose/train'
-    DATA_DIR = '/media/frederik/harddrive/pushingdata/large_displacement_pose600k/train/'
+    # DATA_DIR = '/media/frederik/harddrive/pushingdata/large_displacement_pose180k/train/'
+    DATA_DIR = '/home/frederik/Documents/lsdc/pushing_data/googledata/train'
 
     conf['schedsamp_k'] = -1  # don't feed ground truth
     conf['data_dir'] = DATA_DIR  # 'directory containing data_files.' ,
@@ -409,12 +409,14 @@ if __name__ == '__main__':
 
         pos_data = np.squeeze(pos_data)
 
-        giffile = '/'.join(str.split(conf['data_dir'], '/')[:-2] + ['video'])
+        giffile = '/'.join(str.split(conf['data_dir'], '/')[:-2] + ['preview'])
         comp_single_video(giffile, image_data, num_exp=32)
+
         pdb.set_trace()
-        visual_batch = add_visuals_to_batch(image_data, action_data, pos_data)
-        giffile = '/'.join(str.split(conf['data_dir'], '/')[:-2] + ['video_with_pos'])
-        comp_single_video(giffile, visual_batch, num_exp=10)
+        if 'use_object_pos' in conf:
+            visual_batch = add_visuals_to_batch(image_data, pos_data)
+            giffile = '/'.join(str.split(conf['data_dir'], '/')[:-2] + ['video_with_pos'])
+            comp_single_video(giffile, visual_batch, num_exp=10)
 
         pdb.set_trace()
 

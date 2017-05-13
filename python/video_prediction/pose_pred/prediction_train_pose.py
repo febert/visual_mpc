@@ -5,6 +5,8 @@ import sys
 import cPickle
 import pdb
 
+from PIL import Image
+
 import imp
 
 from video_prediction.utils_vpred.adapt_params_visualize import adapt_params_visualize
@@ -12,8 +14,10 @@ from tensorflow.python.platform import app
 from tensorflow.python.platform import flags
 from tensorflow.python.platform import gfile
 from video_prediction.utils_vpred.create_gif import comp_video
+from video_prediction.read_tf_record import add_visuals_to_batch
 
 from video_prediction.read_tf_record import build_tfrecord_input
+from video_prediction.utils_vpred.create_gif import assemble_gif
 
 from datetime import datetime
 
@@ -122,7 +126,7 @@ class Model(object):
         for i, state, gen_state in zip(
                 range(len(gen_states)), states[conf['context_frames']:],
                 gen_states[conf['context_frames'] - 1:]):
-            state_cost = mean_squared_error(state, gen_state) * conf['low_dim_factor']
+            state_cost = mean_squared_error(state, gen_state) * conf['state_cost_factor']
             summaries.append(
                 tf.scalar_summary(prefix + '_state_cost' + str(i), state_cost))
             loss += state_cost
@@ -130,7 +134,7 @@ class Model(object):
         for i, pose, gen_pose in zip(
                 range(len(gen_poses)), poses[conf['context_frames']:],
                 gen_poses[conf['context_frames'] - 1:]):
-            pose_cost = posecost(pose, gen_pose) * conf['low_dim_factor']
+            pose_cost = posecost(pose, gen_pose) * conf['pose_cost_factor']
             summaries.append(
                 tf.scalar_summary(prefix + '_pose_cost' + str(i), pose_cost))
             loss += pose_cost
@@ -161,7 +165,8 @@ def posecost(pose, gen_pose):
     s2 = tf.sin(true_ori)
     ori_cost = tf.reduce_sum(tf.square(c1 - c2) + tf.square(s1 - s2))
 
-    total_cost = pos_cost + ori_cost
+    total_cost = (pos_cost + ori_cost)
+    total_cost /= tf.to_float(tf.size(total_cost))
 
     return total_cost
 
@@ -226,14 +231,34 @@ def main(conf):
                      val_model.prefix: 'vis',
                      val_model.iter_num: 0 }
         file_path = conf['output_dir']
-        gen_images, ground_truth, mask_list = sess.run([val_model.gen_images,
-                                                        val_images, val_model.gen_masks,
-                                                        ],
-                                                       feed_dict)
+        gen_images, gtruth_images, gen_poses, gtruth_poses = sess.run([ val_model.gen_images,
+                                                                        val_images,
+                                                                        val_model.gen_poses,
+                                                                        val_poses
+                                                                        ],
+                                                                       feed_dict)
 
-        cPickle.dump(gen_images, open(file_path + '/gen_image_seq.pkl','wb'))
-        cPickle.dump(ground_truth, open(file_path + '/ground_truth.pkl', 'wb'))
-        cPickle.dump(mask_list, open(file_path + '/mask_list.pkl', 'wb'))
+        gen_images = np.stack(gen_images,axis=1)
+        gen_poses = np.stack(gen_poses, axis=1)
+
+        gtruth_poses = np.squeeze(gtruth_poses)
+
+        # for i in range(14):
+        #     Image.fromarray((gen_images[0,i]*255.).astype(np.uint8)).show()
+        # pdb.set_trace()
+
+        gen_images = add_visuals_to_batch(conf, gen_images, gen_poses, color = 'r')
+        gen_images = add_visuals_to_batch(conf, gen_images, gtruth_poses, color = 'b')
+
+        gen_images = np.split(gen_images, gen_images.shape[1], axis=1)
+
+        # for i in range(14): Image.fromarray((gen_images[4,i]*255.).astype(np.uint8)).show()
+        pdb.set_trace()
+
+
+        cPickle.dump(gen_images, open(file_path + '/gen_image_seq.pkl', 'wb'))
+        cPickle.dump(gtruth_images, open(file_path + '/ground_truth.pkl', 'wb'))
+        print 'written files to:' + file_path
         print 'written files to:' + file_path
 
         comp_video(conf['output_dir'], conf)
@@ -309,3 +334,5 @@ def main(conf):
 if __name__ == '__main__':
     tf.logging.set_verbosity(tf.logging.INFO)
     app.run()
+
+

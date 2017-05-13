@@ -32,6 +32,8 @@ flags.DEFINE_string('hyper', '', 'hyperparameters configuration file')
 flags.DEFINE_string('visualize', '', 'model within hyperparameter folder from which to create gifs')
 flags.DEFINE_integer('device', 0 ,'the value for CUDA_VISIBLE_DEVICES variable')
 flags.DEFINE_string('pretrained', None, 'path to model file from which to resume training')
+flags.DEFINE_bool('diffmotions', False, 'visualize several different motions for a single scene')
+
 
 ## Helper functions
 def peak_signal_to_noise_ratio(true, pred):
@@ -202,27 +204,35 @@ def main(unused_argv, conf_script= None):
 
     print 'Constructing models and inputs.'
     with tf.variable_scope('model', reuse=None) as training_scope:
-        if 'sawyer' in conf:
 
-            if 'single_view' in conf:
-                images_aux1, actions, states = build_tfrecord_input(conf, training=True)
-                images = images_aux1
-            else:
-                images_main, images_aux1, actions, states = build_tfrecord_input(conf, training=True)
-                images_aux1 = tf.squeeze(images_aux1)
-                images = tf.concat(4, [images_main, images_aux1])
-            model = Model(conf, images, actions, states)
+        if 'single_view' in conf:
+            images_aux1, actions, states = build_tfrecord_input(conf, training=True)
+            images = images_aux1
+        else:
+            images_main, images_aux1, actions, states = build_tfrecord_input(conf, training=True)
+            images_aux1 = tf.squeeze(images_aux1)
+            images = tf.concat(4, [images_main, images_aux1])
+        model = Model(conf, images, actions, states)
 
     with tf.variable_scope('val_model', reuse=None):
-        if 'sawyer' in conf:
-            if 'single_view' in conf:
-                val_images_aux1, val_actions, val_states = build_tfrecord_input(conf, training=False)
-                val_images = val_images_aux1
-            else:
-                val_images_main, val_images_aux1, val_actions, val_states = build_tfrecord_input(conf, training=False)
-                val_images_aux1 = tf.squeeze(val_images_aux1)
-                val_images = tf.concat(4, [val_images_main, val_images_aux1])
-            val_model = Model(conf, val_images, val_actions, val_states, training_scope)
+        if 'single_view' in conf:
+            val_images_aux1, val_actions, val_states = build_tfrecord_input(conf, training=False)
+            val_images = val_images_aux1
+        else:
+            val_images_main, val_images_aux1, val_actions, val_states = build_tfrecord_input(conf, training=False)
+            val_images_aux1 = tf.squeeze(val_images_aux1)
+            val_images = tf.concat(4, [val_images_main, val_images_aux1])
+
+        if FLAGS.diffmotions:
+            images_pl = tf.placeholder(tf.float32, name='images',
+                                    shape=(conf['batch_size'], conf['sequence_length'], 64, 64, 3))
+            actions_pl = tf.placeholder(tf.float32, name='actions',
+                                     shape=(conf['batch_size'], conf['sequence_length'], 4))
+            states_pl = tf.placeholder(tf.float32, name='states',
+                                    shape=(conf['batch_size'], conf['sequence_length'], 3))
+            val_model = Model(conf, images_pl, actions_pl, states_pl, training_scope)
+        else:
+                val_model = Model(conf, val_images, val_actions, val_states, training_scope)
 
     print 'Constructing saver.'
     # Make saver.
@@ -252,21 +262,55 @@ def main(unused_argv, conf_script= None):
                      val_model.iter_num: 0 }
         file_path = conf['output_dir']
 
-        if 'fftcost' in conf:
-            true_fft, pred_fft, gen_images, ground_truth, mask_list = sess.run([val_model.true_fft, val_model.pred_fft ,val_model.gen_images,
-                                                            val_images, val_model.gen_masks],
-                                                           feed_dict)
-            cPickle.dump(true_fft, open(file_path + '/true_fft.pkl', 'wb'))
-            cPickle.dump(pred_fft, open(file_path + '/pred_fft.pkl', 'wb'))
+        if FLAGS.diffmotions:
+            img, st = sess.run([val_images, val_states], feed_dict)
+            b, ind = 0, 0
+            sel_img = img[b,ind]
+            sel_state = st[b,ind]
+
+            start_states = np.expand_dims(sel_state, axis=0)
+            start_states = np.repeat(start_states, 2, axis=0)  # copy over timesteps
+            pdb.set_trace()
+            start_states = np.concatenate([start_states,np.zeros((conf['sequence_length']-2, 3))])
+
+
+            start_states = np.expand_dims(start_states, axis=0)
+            start_states = np.repeat(start_states, conf['batch_size'], axis=0)  # copy over batch
+            feed_dict[states_pl] = start_states
+
+            start_images = np.expand_dims(sel_img, axis=0)
+            start_images = np.repeat(start_images, 2, axis=0)  # copy over timesteps
+            start_images = np.expand_dims(start_images, axis=0)
+            start_images = np.repeat(start_images, conf['batch_size'], axis=0)  # copy over batch
+            app_zeros = np.zeros(shape=(conf['batch_size'], conf['sequence_length'] - conf['context_frames'], 64, 64, 3))
+            start_images = np.concatenate((start_images, app_zeros), axis=1)
+            start_images = start_images.astype(np.float32) / 255.
+            feed_dict[images_pl] = start_images
+
+            actions = np.zeros([conf['batch_size'], conf['sequence_length'], 4])
+
+            step = .7
+            for b in range(8):
+                for i in range(conf['sequence_length']):
+                    actions[b,i] = np.array([np.sin(b/12.*np.pi)*step, np.cos(b/12.*np.pi)*step, 0, 0])
+
+            b+=1
+            actions[b, 0] = np.array([0, 0, 4, 0])
+            actions[b, 1] = np.array([0, 0, 4, 0])
+
+            b += 1
+            actions[b, 0] = np.array([0, 0, 0, 4])
+            actions[b, 1] = np.array([0, 0, 0, 4])
+
+            feed_dict[actions_pl] = actions
+
+            pdb.set_trace()
+            gen_images, ground_truth = sess.run([val_model.gen_images],feed_dict)
         else:
-            gen_images, ground_truth, mask_list = sess.run([val_model.gen_images,
-                                                            val_images, val_model.gen_masks,
-                                                            ],
-                                                           feed_dict)
+            gen_images, ground_truth = sess.run([val_model.gen_images, val_images], feed_dict)
 
         cPickle.dump(gen_images, open(file_path + '/gen_image.pkl','wb'))
         cPickle.dump(ground_truth, open(file_path + '/ground_truth.pkl', 'wb'))
-        cPickle.dump(mask_list, open(file_path + '/mask_list.pkl', 'wb'))
         print 'written files to:' + file_path
 
         create_gif(file_path, conf)
