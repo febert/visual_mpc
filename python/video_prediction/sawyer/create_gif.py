@@ -36,10 +36,24 @@ def create_gif(file_path, conf, suffix = None):
 
     npy_to_gif(fused_gif, name)
 
+def create_single_video_gif(file_path, conf, suffix = None):
+    gen_images = cPickle.load(open(file_path + '/gen_image.pkl', "rb"))
+    fused_gif = assemble_gif(gen_images)
+
+    itr_vis = re.match('.*?([0-9]+)$', conf['visualize']).group(1)
+    if not suffix:
+        name = file_path + '/vid_' + conf['experiment_name'] + '_' + str(itr_vis)
+    else:
+        name = file_path + '/vid_' + conf['experiment_name'] + '_' + str(itr_vis) + suffix
+
+    npy_to_gif(fused_gif, name)
+
+
+
 
 if __name__ == '__main__':
-    file_path = '/home/frederik/Documents/lsdc/tensorflow_data/sawyer/singleview/modeldata'
-    hyperparams = imp.load_source('hyperparams', '/home/frederik/Documents/lsdc/tensorflow_data/sawyer/singleview/conf.py')
+    file_path = '/home/frederik/Documents/lsdc/tensorflow_data/sawyer/singleview_shifted/modeldata'
+    hyperparams = imp.load_source('hyperparams', '/home/frederik/Documents/lsdc/tensorflow_data/sawyer/singleview_shifted/conf.py')
     conf = hyperparams.configuration
-    conf['visualize'] = conf['output_dir'] + '/model48002'
-    pred = create_gif(file_path, conf)
+    conf['visualize'] = conf['output_dir'] + '/model46002'
+    pred = create_single_video_gif(file_path, conf)

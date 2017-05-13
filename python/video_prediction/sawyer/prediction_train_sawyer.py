@@ -12,7 +12,7 @@ from video_prediction.utils_vpred.adapt_params_visualize import adapt_params_vis
 from tensorflow.python.platform import app
 from tensorflow.python.platform import flags
 import video_prediction.utils_vpred.create_gif
-from create_gif import create_gif
+from create_gif import *
 
 from read_tf_record_sawyer import build_tfrecord_input
 
@@ -270,7 +270,6 @@ def main(unused_argv, conf_script= None):
 
             start_states = np.expand_dims(sel_state, axis=0)
             start_states = np.repeat(start_states, 2, axis=0)  # copy over timesteps
-            pdb.set_trace()
             start_states = np.concatenate([start_states,np.zeros((conf['sequence_length']-2, 3))])
 
 
@@ -284,7 +283,6 @@ def main(unused_argv, conf_script= None):
             start_images = np.repeat(start_images, conf['batch_size'], axis=0)  # copy over batch
             app_zeros = np.zeros(shape=(conf['batch_size'], conf['sequence_length'] - conf['context_frames'], 64, 64, 3))
             start_images = np.concatenate((start_images, app_zeros), axis=1)
-            start_images = start_images.astype(np.float32) / 255.
             feed_dict[images_pl] = start_images
 
             actions = np.zeros([conf['batch_size'], conf['sequence_length'], 4])
@@ -304,16 +302,16 @@ def main(unused_argv, conf_script= None):
 
             feed_dict[actions_pl] = actions
 
+            gen_images = sess.run([val_model.gen_images],feed_dict)
             pdb.set_trace()
-            gen_images, ground_truth = sess.run([val_model.gen_images],feed_dict)
+            cPickle.dump(gen_images, open(file_path + '/gen_image.pkl', 'wb'))
+            create_single_video_gif(file_path, conf, suffix='_diffmotions')
         else:
             gen_images, ground_truth = sess.run([val_model.gen_images, val_images], feed_dict)
+            cPickle.dump(ground_truth, open(file_path + '/ground_truth.pkl', 'wb'))
+            cPickle.dump(gen_images, open(file_path + '/gen_image.pkl','wb'))
+            create_gif(file_path, conf)
 
-        cPickle.dump(gen_images, open(file_path + '/gen_image.pkl','wb'))
-        cPickle.dump(ground_truth, open(file_path + '/ground_truth.pkl', 'wb'))
-        print 'written files to:' + file_path
-
-        create_gif(file_path, conf)
         return
 
     itr_0 =0
