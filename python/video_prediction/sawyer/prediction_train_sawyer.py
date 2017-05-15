@@ -74,7 +74,7 @@ class Model(object):
         self.conf = conf
         from prediction_model_sawyer import construct_model
 
-        if 'use_length' in conf:
+        if 'use_len' in conf:
             #randomly shift videos for data augmentation
             images, actions, states = self.random_shift(images, actions, states)
 

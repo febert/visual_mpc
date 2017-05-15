@@ -238,15 +238,15 @@ def construct_model(images,
                     reuse_stp = reuse
                 if 'single_view' not in conf:
                     transformed_cam1 +=stp_transformation(prev_image_cam1, stp_input1_cam1, num_masks, reuse_stp, suffix='cam1')
-                transformed_cam2 +=stp_transformation(prev_image_cam2, stp_input1_cam2, num_masks, reuse_stp, suffix='cam2')
-                # transformed += stp_transformation(prev_image, stp_input1, num_masks)
-
+                    transformed_cam2 += stp_transformation(prev_image_cam2, stp_input1_cam2, num_masks, reuse_stp,suffix='cam2')
+                else:
+                    transformed_cam2 +=stp_transformation(prev_image, stp_input1_cam2, num_masks, reuse_stp, suffix='cam2')
 
             masks_cam1 = slim.layers.conv2d_transpose(
-                enc6, (num_masks + 1), 1, stride=1, scope='convt7_cam1')
+                enc6, (num_masks + 2), 1, stride=1, scope='convt7_cam1')
 
             masks_cam2 = slim.layers.conv2d_transpose(
-                enc6, (num_masks + 1), 1, stride=1, scope='convt7_cam2')
+                enc6, (num_masks + 2), 1, stride=1, scope='convt7_cam2')
 
             if 'single_view' not in conf:
                 output_cam1, mask_list_cam1 = fuse_trafos(conf, masks_cam1, prev_image_cam1, transformed_cam1)
@@ -279,12 +279,12 @@ def fuse_trafos(conf, masks, prev_image, transformed):
         if num_masks != 1:
             raise ValueError('Only one mask is supported for DNA model.')
 
-
     masks = tf.reshape(
-        tf.nn.softmax(tf.reshape(masks, [-1, num_masks + 1])),
-        [int(batch_size), int(img_height), int(img_width), num_masks + 1])
-    mask_list = tf.split(3, num_masks + 1, masks)
+        tf.nn.softmax(tf.reshape(masks, [-1, num_masks + 2])),
+        [int(batch_size), int(img_height), int(img_width), num_masks + 2])
+    mask_list = tf.split(3, num_masks + 2, masks)
     output = mask_list[0] * prev_image
+
     for layer, mask in zip(transformed, mask_list[1:]):
         output += layer * mask
 
