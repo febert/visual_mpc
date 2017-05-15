@@ -151,6 +151,7 @@ class Model(object):
         self.gen_poses = gen_poses
         self.gen_states = gen_states
 
+
 def posecost(pose, gen_pose):
     inferred_pos = tf.slice(gen_pose, [0, 0], [-1, 2])
     true_pos = tf.slice(pose, [0, 0], [-1, 2])

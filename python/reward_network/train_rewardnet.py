@@ -241,6 +241,7 @@ def main(unused_argv):
 
     conf = hyperparams.configuration
 
+    conf['event_log_dir'] = conf['output_dir']
     if FLAGS.visualize:
         print 'creating visualizations ...'
         conf['data_dir'] = '/'.join(str.split(conf['data_dir'], '/')[:-1] + ['test'])
@@ -282,14 +283,18 @@ def main(unused_argv):
     # Make training session.
     sess = tf.InteractiveSession(config= tf.ConfigProto(gpu_options=gpu_options))
     summary_writer = tf.train.SummaryWriter(
-        conf['output_dir'], graph=sess.graph, flush_secs=10)
+        conf['event_log_dir'], graph=sess.graph, flush_secs=10)
 
     tf.train.start_queue_runners(sess)
     sess.run(tf.initialize_all_variables())
 
     if FLAGS.visualize:
-        visualize(conf, sess, saver, val_model, states, objectpos_val)
-        return
+        if 'regresstravel' in conf:
+            visualize_travel(conf, sess, saver, val_model, states, objectpos_val)
+            return
+        else:
+            visualize(conf, sess, saver, val_model, states, objectpos_val)
+            return
 
     itr_0 =0
     if FLAGS.pretrained != None:
@@ -360,6 +365,47 @@ def main(unused_argv):
     saver.save(sess, conf['output_dir'] + '/model')
     tf.logging.info('Training complete')
     tf.logging.flush()
+
+def visualize_travel(conf, sess, saver, model, states, objectpos):
+    print 'creating visualizations ...'
+    saver.restore(sess,  conf['visualize'])
+
+    feed_dict = {model.lr: 0.0,
+                 model.prefix: 'val',
+                 }
+
+    im0, im1, pred_travel, true_travel, num_ind_0, num_ind_1, statesdata, objectposdata = sess.run([
+                                                                model.image_0,
+                                                                model.image_1,
+                                                                model.pred_travel,
+                                                                model.true_travel,
+                                                                model.num_ind_0,
+                                                                model.num_ind_1,
+                                                                states,
+                                                                objectpos
+                                                                ],
+                                                                feed_dict)
+
+    print 'num_ind_0', num_ind_0
+    print 'num_ind_1', num_ind_1
+
+    n_examples = 8
+    fig = plt.figure(figsize=(n_examples*2+4, 13), dpi=80)
+
+    for ind in range(n_examples):
+        ax = fig.add_subplot(3, n_examples, ind+1)
+        ax.imshow((im0[ind]*255).astype(np.uint8))
+        plt.axis('off')
+
+        ax = fig.add_subplot(3, n_examples, n_examples+1+ind)
+        ax.imshow((im1[ind]*255).astype(np.uint8))
+        # plt.axis('off')
+
+        ax.set_xlabel('true travel: {0} \n  pred_travel: {1}\n ind0: {2} \n ind1: {3}'
+                      .format(true_travel[ind], pred_travel[ind], num_ind_0[ind,1], num_ind_1[ind,1]))
+
+    plt.savefig(conf['output_dir'] + '/fig.png')
+    plt.show()
 
 
 def visualize(conf, sess, saver, model, states, objectpos):
