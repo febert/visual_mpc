@@ -232,13 +232,18 @@ def predict_next_low_dim(conf, hidden7, enc0, state_action):
         enc_hid0, 1, [3, 3], stride=2, scope='conv_2predlow')
     enc_hid1 = tf.reshape(enc_hid1,[conf['batch_size'], -1])
 
-    enc_inp0 = slim.layers.conv2d(  # 16x16x8
-        enc0, 8, [3, 3], stride=2, scope='conv_1predlow_1')
-    enc_inp1 = slim.layers.conv2d(  # 8x8x1
-        enc_inp0, 1, [3, 3], stride=2, scope='conv_2predlow_1')
-    enc_inp1 = tf.reshape(enc_inp1, [conf['batch_size'], -1])
+    if 'pose_no_skip' in conf:
+        print 'not using skip for predicting poses'
+        combined = tf.concat(1, [enc_hid1, state_action])
+    else:
 
-    combined = tf.concat(1, [enc_hid1, enc_inp1, state_action])
+        enc_inp0 = slim.layers.conv2d(  # 16x16x8
+            enc0, 8, [3, 3], stride=2, scope='conv_1predlow_1')
+        enc_inp1 = slim.layers.conv2d(  # 8x8x1
+            enc_inp0, 1, [3, 3], stride=2, scope='conv_2predlow_1')
+        enc_inp1 = tf.reshape(enc_inp1, [conf['batch_size'], -1])
+
+        combined = tf.concat(1, [enc_hid1, enc_inp1, state_action])
 
     fl0 = slim.layers.fully_connected(combined, 400, scope='fl_predlow1')
 
