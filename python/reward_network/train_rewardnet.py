@@ -42,6 +42,18 @@ if __name__ == "__main__":
     flags.DEFINE_string('pretrained', None, 'path to model file from which to resume training')
 
 
+def mean_squared_error(true, pred):
+    """L2 distance between tensors true and pred.
+
+    Args:
+      true: the ground truth image.
+      pred: the predicted image.
+    Returns:
+      mean squared error between ground truth and predicted image.
+    """
+    return tf.reduce_sum(tf.square(true - pred)) / tf.to_float(tf.size(pred))
+
+
 class Model(object):
     def __init__(self,
                  conf,
@@ -64,7 +76,9 @@ class Model(object):
         """
 
 
+        self.conf = conf
         self.iter_num = tf.placeholder(tf.float32, [])
+        self.lr = tf.placeholder_with_default(conf['learning_rate'], ())
         summaries = []
 
         if goalimage is not None: # when testing
@@ -118,7 +132,7 @@ class Model(object):
                 conf['dropout'] = 1
 
         if reuse_scope is None:
-            logits, fp1, fp2  = construct_model(conf, images_0=image_0,
+            output, fp1, fp2  = construct_model(conf, images_0=image_0,
                                             images_1=image_1,
                                             is_training= is_training)
         else: # If it's a validation or test model.
@@ -127,38 +141,45 @@ class Model(object):
                 print 'valmodel with is_training: ', is_training
 
             with tf.variable_scope(reuse_scope, reuse=True):
-                logits, fp1, fp2 = construct_model(conf,  images_0=image_0,
+                output, fp1, fp2 = construct_model(conf,  images_0=image_0,
                                                 images_1=image_1,
                                                 is_training=is_training)
 
-        self.softmax_output = tf.nn.softmax(logits)
-        self.fp1, self.fp2 = fp1, fp2
+        if 'regresstravel':
+            self.true_travel = self.calc_true_travel(states)
+            self.pred_travel = output
+            self.loss = loss = mean_squared_error(self.true_travel, output)
+            self.prefix = prefix = tf.placeholder(tf.string, [])
+            summaries.append(tf.scalar_summary(prefix + 'mean_squared_error', loss))
 
-        # mult = tf.mul(softmax_output, tf.cast(tf.range(0, conf['sequence_length']-1), tf.float32))
-        # expected_timesteps = tf.reduce_sum(mult,1)
+        else:
+            self.softmax_output = tf.nn.softmax(output)
+            self.fp1, self.fp2 = fp1, fp2
 
-        # da_dx0 = []
-        # # for el in range(conf['batch_size']):
-        # for el in range(8):
-        #     exp_t = tf.slice(expected_timesteps, [el], [1])
-        #     image_0_ex = tf.slice(image_0, [el, 0, 0, 0,], [1, -1, -1, -1])
-        #     [grad] = tf.gradients(exp_t, image_0_ex)
-        #     pdb.set_trace()
-        #     grad = tf.expand_dims(grad, 0)
-        #     da_dx0.append(grad)
-        # self.da_dx0 = tf.concat(0, da_dx0)
-        #
-        # da_dx1 = []
-        # # for el in range(conf['batch_size']):
-        # for el in range(8):
-        #     exp_t = tf.slice(expected_timesteps, [el], [1])
-        #     image_1_ex = tf.slice(image_0, [el, 0, 0, 0,], [1, -1, -1, -1])
-        #     [grad] = tf.gradients(exp_t, image_1_ex)
-        #     grad = tf.expand_dims(grad, 0)
-        #     da_dx1.append(grad)
-        # self.da_dx1 = tf.concat(0, da_dx1)
+            # mult = tf.mul(softmax_output, tf.cast(tf.range(0, conf['sequence_length']-1), tf.float32))
+            # expected_timesteps = tf.reduce_sum(mult,1)
 
-        if inference == False:
+            # da_dx0 = []
+            # # for el in range(conf['batch_size']):
+            # for el in range(8):
+            #     exp_t = tf.slice(expected_timesteps, [el], [1])
+            #     image_0_ex = tf.slice(image_0, [el, 0, 0, 0,], [1, -1, -1, -1])
+            #     [grad] = tf.gradients(exp_t, image_0_ex)
+            #     pdb.set_trace()
+            #     grad = tf.expand_dims(grad, 0)
+            #     da_dx0.append(grad)
+            # self.da_dx0 = tf.concat(0, da_dx0)
+            #
+            # da_dx1 = []
+            # # for el in range(conf['batch_size']):
+            # for el in range(8):
+            #     exp_t = tf.slice(expected_timesteps, [el], [1])
+            #     image_1_ex = tf.slice(image_0, [el, 0, 0, 0,], [1, -1, -1, -1])
+            #     [grad] = tf.gradients(exp_t, image_1_ex)
+            #     grad = tf.expand_dims(grad, 0)
+            #     da_dx1.append(grad)
+            # self.da_dx1 = tf.concat(0, da_dx1)
+
             self.hard_labels = hard_labels = tf.squeeze(ind_1 - ind_0)
 
 
@@ -175,27 +196,32 @@ class Model(object):
 
             if 'soft_labels' in conf:
                 self.cross_entropy = cross_entropy = tf.nn.softmax_cross_entropy_with_logits(
-                    labels=self.soft_labels, logits=logits, name='cross_entropy_per_example')
+                    labels=self.soft_labels, logits=output, name='cross_entropy_per_example')
             else:
                 self.cross_entropy = cross_entropy = tf.nn.sparse_softmax_cross_entropy_with_logits(
-                    labels=hard_labels, logits=logits, name='cross_entropy_per_example')
+                    labels=hard_labels, logits=output, name='cross_entropy_per_example')
 
             cross_entropy_mean = tf.reduce_mean(cross_entropy, name='cross_entropy')
 
             self.prefix = prefix = tf.placeholder(tf.string, [])
             summaries.append(tf.scalar_summary(prefix + 'cross_entropy_mean', cross_entropy_mean))
             self.loss = loss = cross_entropy_mean
-            self.lr = tf.placeholder_with_default(conf['learning_rate'], ())
 
-            update_ops = tf.get_collection(tf.GraphKeys.UPDATE_OPS)
-            if update_ops:
-                updates = tf.group(*update_ops)
-                with tf.control_dependencies([updates]):
-                    self.train_op = tf.train.AdamOptimizer(self.lr).minimize(loss)
-            else:
+        update_ops = tf.get_collection(tf.GraphKeys.UPDATE_OPS)
+        if update_ops:
+            updates = tf.group(*update_ops)
+            with tf.control_dependencies([updates]):
                 self.train_op = tf.train.AdamOptimizer(self.lr).minimize(loss)
+        else:
+            self.train_op = tf.train.AdamOptimizer(self.lr).minimize(loss)
 
-            self.summ_op = tf.merge_summary(summaries)
+        self.summ_op = tf.merge_summary(summaries)
+
+    def calc_true_travel(self, states):
+        states_shift_l = tf.slice(states, [0,0,0], [-1,self.conf['sequence_length']-1,-1])
+        states_shift_r = tf.slice(states, [0, 1, 0], [-1, self.conf['sequence_length']-1, -1])
+        delta =  tf.sqrt(tf.reduce_sum(tf.square(states_shift_l - states_shift_r), 2))
+        return tf.reduce_sum(delta, 1)
 
 
 def main(unused_argv):
@@ -238,7 +264,7 @@ def main(unused_argv):
             model = Model(conf, pred_video= pred_video, gtruth_video= gtruth_video)
         else:
             images, actions, states, objectpos = build_tfrecord_input(conf, training=True)
-            model = Model(conf, images)
+            model = Model(conf, images, states=states)
 
     with tf.variable_scope('val_model', reuse=None):
         if 'pred_gtruth' in conf:
@@ -246,7 +272,7 @@ def main(unused_argv):
             val_model = Model(conf, pred_video= pred_video_val, gtruth_video= gtruth_video_val)
         else:
             images_val, actions_val, states_val, objectpos_val = build_tfrecord_input(conf, training=False)
-            val_model = Model(conf, images_val, reuse_scope= training_scope)
+            val_model = Model(conf, images_val, states=states_val, reuse_scope= training_scope)
 
     print 'Constructing saver.'
     # Make saver.

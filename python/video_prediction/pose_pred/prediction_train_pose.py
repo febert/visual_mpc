@@ -253,7 +253,6 @@ def main(conf):
         gen_images = np.split(gen_images, gen_images.shape[1], axis=1)
 
         # for i in range(14): Image.fromarray((gen_images[4,i]*255.).astype(np.uint8)).show()
-        pdb.set_trace()
 
 
         cPickle.dump(gen_images, open(file_path + '/gen_image_seq.pkl', 'wb'))

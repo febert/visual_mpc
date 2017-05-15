@@ -6,7 +6,7 @@ import imp
 import re
 import pdb
 
-def create_gif(file_path, conf, suffix = None):
+def create_gif(file_path, conf, suffix = None, numexp = 8):
     print 'reading files from:', file_path
     ground_truth = cPickle.load(open(file_path + '/ground_truth.pkl', "rb"))
     gen_images = cPickle.load(open(file_path + '/gen_image.pkl', "rb"))
@@ -27,7 +27,7 @@ def create_gif(file_path, conf, suffix = None):
         ground_truth_main = [img[:, :, :, :3] for img in ground_truth]
         ground_truth_aux1 = [img[:, :, :, 3:] for img in ground_truth]
 
-        fused_gif = assemble_gif([ground_truth_main, gen_images_main, ground_truth_aux1, gen_images_aux1])
+        fused_gif = assemble_gif([ground_truth_main, gen_images_main, ground_truth_aux1, gen_images_aux1], num_exp= numexp)
 
     itr_vis = re.match('.*?([0-9]+)$', conf['visualize']).group(1)
     if not suffix:
@@ -36,9 +36,9 @@ def create_gif(file_path, conf, suffix = None):
 
     npy_to_gif(fused_gif, name)
 
-def create_single_video_gif(file_path, conf, suffix = None):
+def create_single_video_gif(file_path, conf, suffix = None, n_exp = 8):
     gen_images = cPickle.load(open(file_path + '/gen_image.pkl', "rb"))
-    fused_gif = assemble_gif(gen_images)
+    fused_gif = assemble_gif(gen_images, n_exp)
 
     itr_vis = re.match('.*?([0-9]+)$', conf['visualize']).group(1)
     if not suffix:

@@ -147,8 +147,8 @@ class AgentMuJoCo(Agent):
 
             if 'touch' in self._hyperparams:
                 traj.touchdata[t, :] = accum_touch.squeeze()
-                print 'accumulated force', t
-                print accum_touch
+                # print 'accumulated force', t
+                # print accum_touch
 
         # only save trajectories which displace objects above threshold
         if 'displacement_threshold' in self._hyperparams:

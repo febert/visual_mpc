@@ -200,6 +200,7 @@ def main(unused_argv, conf_script= None):
         print 'creating visualizations ...'
         conf = adapt_params_visualize(conf, FLAGS.visualize)
         conf['visual_file'] = conf['data_dir'] + '/traj_0_to_255.tfrecords'
+        conf['batch_size'] = 10
 
 
     print 'Constructing models and inputs.'
@@ -264,33 +265,27 @@ def main(unused_argv, conf_script= None):
 
         if FLAGS.diffmotions:
             img, st = sess.run([val_images, val_states], feed_dict)
-            b, ind = 0, 0
-            sel_img = img[b,ind]
-            sel_state = st[b,ind]
+            b_exp, ind0 = 10, 0
+            sel_img = np.stack([img[b_exp,ind0],img[b_exp,ind0+1]], axis=0)
+            sel_state = np.stack([st[b_exp,ind0],st[b_exp,ind0+1]], axis=0)
 
-            start_states = np.expand_dims(sel_state, axis=0)
-            start_states = np.repeat(start_states, 2, axis=0)  # copy over timesteps
-            start_states = np.concatenate([start_states,np.zeros((conf['sequence_length']-2, 3))])
-
-
+            start_states = np.concatenate([sel_state,np.zeros((conf['sequence_length']-2, 3))])
             start_states = np.expand_dims(start_states, axis=0)
             start_states = np.repeat(start_states, conf['batch_size'], axis=0)  # copy over batch
             feed_dict[states_pl] = start_states
 
-            start_images = np.expand_dims(sel_img, axis=0)
-            start_images = np.repeat(start_images, 2, axis=0)  # copy over timesteps
+            start_images = np.concatenate([sel_img,np.zeros((conf['sequence_length']-2, 64, 64, 3))])
             start_images = np.expand_dims(start_images, axis=0)
             start_images = np.repeat(start_images, conf['batch_size'], axis=0)  # copy over batch
-            app_zeros = np.zeros(shape=(conf['batch_size'], conf['sequence_length'] - conf['context_frames'], 64, 64, 3))
-            start_images = np.concatenate((start_images, app_zeros), axis=1)
             feed_dict[images_pl] = start_images
 
             actions = np.zeros([conf['batch_size'], conf['sequence_length'], 4])
 
-            step = .7
-            for b in range(8):
+            step = .025
+            n_angles = 8
+            for b in range(n_angles):
                 for i in range(conf['sequence_length']):
-                    actions[b,i] = np.array([np.sin(b/12.*np.pi)*step, np.cos(b/12.*np.pi)*step, 0, 0])
+                    actions[b,i] = np.array([np.cos(b/float(n_angles)*2*np.pi)*step, np.sin(b/float(n_angles)*2*np.pi)*step, 0, 0])
 
             b+=1
             actions[b, 0] = np.array([0, 0, 4, 0])
@@ -303,14 +298,16 @@ def main(unused_argv, conf_script= None):
             feed_dict[actions_pl] = actions
 
             gen_images = sess.run([val_model.gen_images],feed_dict)
-            pdb.set_trace()
+            # pdb.set_trace()
             cPickle.dump(gen_images, open(file_path + '/gen_image.pkl', 'wb'))
-            create_single_video_gif(file_path, conf, suffix='_diffmotions')
+            create_single_video_gif(file_path, conf,
+                                    suffix='_diffmotions_b{}'.format(b_exp), n_exp=10)
         else:
-            gen_images, ground_truth = sess.run([val_model.gen_images, val_images], feed_dict)
+            gen_images, ground_truth = sess.run([val_model.gen_images, val_images],
+                                                feed_dict)
             cPickle.dump(ground_truth, open(file_path + '/ground_truth.pkl', 'wb'))
             cPickle.dump(gen_images, open(file_path + '/gen_image.pkl','wb'))
-            create_gif(file_path, conf)
+            create_gif(file_path, conf, numexp= 20)
 
         return
 

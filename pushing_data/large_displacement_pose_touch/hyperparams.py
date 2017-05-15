@@ -11,6 +11,7 @@ from lsdc.agent.mjc.agent_mjc import AgentMuJoCo
 from lsdc.algorithm.policy.random_impedance_point import Random_impedance_point
 from lsdc.algorithm.policy.random_policy import Randompolicy
 
+
 from lsdc.proto.gps_pb2 import JOINT_ANGLES, JOINT_VELOCITIES, \
         END_EFFECTOR_POINTS, END_EFFECTOR_POINT_VELOCITIES, ACTION, \
         RGB_IMAGE, RGB_IMAGE_SIZE
@@ -19,7 +20,7 @@ IMAGE_WIDTH = 64
 IMAGE_HEIGHT = 64
 IMAGE_CHANNELS = 3
 
-num_objects = 4
+num_objects = 1
 
 SENSOR_DIMS = {
     JOINT_ANGLES: 2+ 7*num_objects,  #adding 7 dof for position and orientation for every free object
@@ -49,8 +50,8 @@ if not os.path.exists(common['data_files_dir']):
 
 agent = {
     'type': AgentMuJoCo,
-    'filename': './mjc_models/pushing2d_touch.xml',
-    'filename_nomarkers': './mjc_models/pushing2d_touch.xml',
+    'filename': './mjc_models/pushing2d_controller_touchsensor_nomarkers.xml',
+    'filename_nomarkers': './mjc_models/pushing2d_controller_touchsensor_nomarkers.xml',
     'data_collection': True,
     'x0': np.array([0., 0., 0., 0.]),
     'dt': 0.05,
@@ -73,7 +74,9 @@ agent = {
     'image_width' : IMAGE_WIDTH,
     'image_channels' : IMAGE_CHANNELS,
     'num_objects': num_objects,
-    'record':False,
+    'displacement_threshold': 0.10,
+    'novideo':'',
+    'randomize_ballinitpos':'',
     'touch':''
 }
 
@@ -86,9 +89,9 @@ policy = {
 
 config = {
     'save_data': True,
-    'traj_per_file': 1,
     'start_index':0,
     'end_index': 60000,
+    'traj_per_file': 256,
     'verbose_policy_trials': 0,
     'common': common,
     'agent': agent,

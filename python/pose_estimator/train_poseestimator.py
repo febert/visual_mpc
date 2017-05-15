@@ -42,6 +42,17 @@ if __name__ == "__main__":
     flags.DEFINE_string('pretrained', None, 'path to model file from which to resume training')
 
 
+def mean_squared_error(true, pred):
+    """L2 distance between tensors true and pred.
+
+    Args:
+      true: the ground truth image.
+      pred: the predicted image.
+    Returns:
+      mean squared error between ground truth and predicted image.
+    """
+    return tf.reduce_sum(tf.square(true - pred)) / tf.to_float(tf.size(pred))
+
 
 class Model(object):
     def __init__(self,
