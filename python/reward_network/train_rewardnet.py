@@ -145,7 +145,7 @@ class Model(object):
                                                 images_1=image_1,
                                                 is_training=is_training)
 
-        if 'regresstravel':
+        if 'regresstravel' in conf:
             self.true_travel = self.calc_true_travel(states)
             self.pred_travel = output
             self.loss = loss = mean_squared_error(self.true_travel, output)
@@ -155,7 +155,6 @@ class Model(object):
         else:
             self.softmax_output = tf.nn.softmax(output)
             self.fp1, self.fp2 = fp1, fp2
-
             # mult = tf.mul(softmax_output, tf.cast(tf.range(0, conf['sequence_length']-1), tf.float32))
             # expected_timesteps = tf.reduce_sum(mult,1)
 
@@ -179,10 +178,7 @@ class Model(object):
             #     grad = tf.expand_dims(grad, 0)
             #     da_dx1.append(grad)
             # self.da_dx1 = tf.concat(0, da_dx1)
-
             self.hard_labels = hard_labels = tf.squeeze(ind_1 - ind_0)
-
-
             rows = []
             for i in range(conf['batch_size']):
                 tstep = tf.slice(self.hard_labels, [i], [1])
