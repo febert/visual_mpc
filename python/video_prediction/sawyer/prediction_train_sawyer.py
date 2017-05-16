@@ -27,6 +27,8 @@ VAL_INTERVAL = 200
 # How often to save a model checkpoint
 SAVE_INTERVAL = 2000
 
+from PIL import Image
+
 FLAGS = flags.FLAGS
 flags.DEFINE_string('hyper', '', 'hyperparameters configuration file')
 flags.DEFINE_string('visualize', '', 'model within hyperparameter folder from which to create gifs')
@@ -74,9 +76,14 @@ class Model(object):
         self.conf = conf
         from prediction_model_sawyer import construct_model
 
+
         if 'use_len' in conf:
             #randomly shift videos for data augmentation
-            images, actions, states = self.random_shift(images, actions, states)
+            images, states, actions  = self.random_shift(images, states, actions)
+
+        self.images_sel = images
+        self.actions_sel = actions
+        self.states_sel = states
 
         self.prefix = prefix = tf.placeholder(tf.string, [])
         self.iter_num = tf.placeholder(tf.float32, [])
@@ -169,25 +176,22 @@ class Model(object):
 
     def random_shift(self, images, states, actions):
 
-        actions = tf.Print(actions, [actions], message='actions orig', first_n=32 * 30 * 2)
-
         print 'shifting the video sequence randomly in time'
         tshift = 2
         uselen = self.conf['use_len']
         fulllength = self.conf['sequence_length']
         nshifts = (fulllength - uselen) / 2 + 1
-        rand_ind = tf.rand
+        rand_ind = tf.random_uniform([1], 0, nshifts, dtype=tf.int64)
+        self.rand_ind = rand_ind
 
-        rand_ind = tf.Print(rand_ind, [rand_ind], message='rand_ind', first_n=32)
-
-        images_sel = tf.slice(images, [0, rand_ind * tshift, 0, 0, 0], [-1, uselen, -1, -1, -1])
-        actions_sel = tf.slice(actions, [0, rand_ind * tshift, 0], [-1, uselen, -1])
-        states_sel = tf.slice(states, [0, rand_ind * tshift, 0], [-1, uselen, -1])
-
-        actions_sel = tf.Print(actions_sel, [actions_sel],message='actions sel', first_n=32 * 14 * 2)
+        start = tf.concat(0,[tf.zeros(1, dtype=tf.int64), rand_ind * tshift, tf.zeros(3, dtype=tf.int64)])
+        images_sel = tf.slice(images, start, [-1, uselen, -1, -1, -1])
+        start = tf.concat(0, [tf.zeros(1, dtype=tf.int64), rand_ind * tshift, tf.zeros(1, dtype=tf.int64)])
+        actions_sel = tf.slice(actions, start, [-1, uselen, -1])
+        start = tf.concat(0, [tf.zeros(1, dtype=tf.int64), rand_ind * tshift, tf.zeros(1, dtype=tf.int64)])
+        states_sel = tf.slice(states, start, [-1, uselen, -1])
 
         return images_sel, states_sel, actions_sel
-
 
 
 def main(unused_argv, conf_script= None):
@@ -311,7 +315,8 @@ def main(unused_argv, conf_script= None):
             create_single_video_gif(file_path, conf,
                                     suffix='_diffmotions_b{}'.format(b_exp), n_exp=10)
         else:
-            gen_images, ground_truth = sess.run([val_model.gen_images, val_images],
+
+            gen_images, ground_truth = sess.run([val_model.gen_images, val_model.images_sel],
                                                 feed_dict)
             cPickle.dump(ground_truth, open(file_path + '/ground_truth.pkl', 'wb'))
             cPickle.dump(gen_images, open(file_path + '/gen_image.pkl','wb'))
@@ -354,7 +359,35 @@ def main(unused_argv, conf_script= None):
         cost, _, summary_str = sess.run([model.loss, model.train_op, model.summ_op],
                                         feed_dict)
 
+        #debugging:
+        #
+        #
+        # rand_ind, actions_sel, images_sel, states_sel, fullactions, fullimages, fullstates = sess.run([
+        #                                                                     model.rand_ind,
+        #                                                                     model.actions_sel,
+        #                                                                     model.images_sel,
+        #                                                                     model.states_sel,
+        #                                                                     actions,
+        #                                                                     images,
+        #                                                                     states
+        #                                                                     ], feed_dict)
+        #
+        # print 'full actions:', fullactions[0]
+        # print 'sel actions:', actions_sel[0]
+        #
+        # print 'full states:', fullstates[0]
+        # print 'sel actions:', states_sel[0]
+        #
+        # print 'rand ind', rand_ind
+        # pdb.set_trace()
+        # Image.fromarray((images_sel[0,0]*255).astype(np.uint8)).show()
+        # Image.fromarray((np.squeeze(fullimages[0,rand_ind*2]) * 255).astype(np.uint8)).show()
+        #
+
+        # end debugging
+
         # Print info: iteration #, cost.
+
         if (itr) % 10 ==0:
             tf.logging.info(str(itr) + ' ' + str(cost))
 
