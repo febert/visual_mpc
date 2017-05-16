@@ -168,17 +168,25 @@ class Model(object):
         self.gen_states = gen_states
 
     def random_shift(self, images, states, actions):
+
+        actions = tf.Print(actions, [actions], message='actions orig', first_n=32 * 30 * 2)
+
         print 'shifting the video sequence randomly in time'
         tshift = 2
         uselen = self.conf['use_len']
         fulllength = self.conf['sequence_length']
         nshifts = (fulllength - uselen) / 2 + 1
-        rand_ind = np.random.randint(0, nshifts + 1, size=[1])  # sample from [0,8]
-        images = tf.slice(images, [0, rand_ind * tshift, 0, 0, 0], [-1, uselen, -1, -1, -1])
-        actions = tf.slice(actions, [0, rand_ind * tshift, 0], [-1, uselen, -1])
-        states = tf.slice(states, [0, rand_ind * tshift, 0], [-1, uselen, -1])
+        rand_ind = tf.rand
 
-        return images, states, actions
+        rand_ind = tf.Print(rand_ind, [rand_ind], message='rand_ind', first_n=32)
+
+        images_sel = tf.slice(images, [0, rand_ind * tshift, 0, 0, 0], [-1, uselen, -1, -1, -1])
+        actions_sel = tf.slice(actions, [0, rand_ind * tshift, 0], [-1, uselen, -1])
+        states_sel = tf.slice(states, [0, rand_ind * tshift, 0], [-1, uselen, -1])
+
+        actions_sel = tf.Print(actions_sel, [actions_sel],message='actions sel', first_n=32 * 14 * 2)
+
+        return images_sel, states_sel, actions_sel
 
 
 

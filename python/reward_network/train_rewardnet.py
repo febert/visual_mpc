@@ -95,7 +95,7 @@ class Model(object):
 
             inference = False
             first_row = tf.reshape(np.arange(conf['batch_size']),shape=[conf['batch_size'],1])
-            rand_pair = np.random.randint(0, conf['sequence_length'] - 1, size=[conf['batch_size'],2])
+            rand_pair = tf.random_uniform([conf['batch_size'],2], 0, conf['sequence_length'], dtype=tf.int64)
 
             ind_0 = tf.reshape(tf.reduce_min(rand_pair, reduction_indices=1), shape=[conf['batch_size'],1])
 
