@@ -87,7 +87,7 @@ def build_model(conf, images_0, images_1):
     if 'regresstravel' in conf:
         num_out = 1
     else:
-        num_out = conf['sequence_length'] - 1
+        num_out = conf['sequence_length']
 
     fl3 = slim.layers.fully_connected(
         fl2,
