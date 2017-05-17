@@ -20,7 +20,7 @@ IMAGE_WIDTH = 64
 IMAGE_HEIGHT = 64
 IMAGE_CHANNELS = 3
 
-num_objects = 4
+num_objects = 1
 
 SENSOR_DIMS = {
     JOINT_ANGLES: 2+ 7*num_objects,  #adding 7 dof for position and orientation for every free object
@@ -32,15 +32,12 @@ SENSOR_DIMS = {
     RGB_IMAGE_SIZE: 3,
 }
 
-BASE_DIR = '/'.join(str.split(__file__, '/')[:-1])
+
+exp_name = '/'.join(str.split(__file__, '/')[-2:-1])
+MEDIA_DIR = '/media/frederik/harddrive/pushingdata'
 
 common = {
-    'experiment_name': 'my_experiment' + '_' + \
-            datetime.strftime(datetime.now(), '%m-%d-%y_%H-%M'),
-    'experiment_dir': BASE_DIR,
-    'data_files_dir': BASE_DIR + '/train',
-    'target_filename': BASE_DIR + 'target.npz',
-    'log_filename': BASE_DIR + 'log.txt',
+    'data_files_dir': MEDIA_DIR + '/'+exp_name +'/train',
     'conditions': 1,
     'no_sample_logging': True,
 }
@@ -50,8 +47,8 @@ if not os.path.exists(common['data_files_dir']):
 
 agent = {
     'type': AgentMuJoCo,
-    'filename': './mjc_models/pushing2d.xml',
-    'filename_nomarkers': './mjc_models/pushing2d.xml',
+    'filename': './mjc_models/pushing2d_controller_nomarkers.xml',
+    'filename_nomarkers': './mjc_models/pushing2d_controller_nomarkers.xml',
     'data_collection': True,
     'x0': np.array([0., 0., 0., 0.]),
     'dt': 0.05,
@@ -74,12 +71,16 @@ agent = {
     'image_width' : IMAGE_WIDTH,
     'image_channels' : IMAGE_CHANNELS,
     'num_objects': num_objects,
-    'record':False
+    'displacement_threshold': 0.06,
+    'novideo':'',
+    'randomize_ballinitpos':'',
+    'large_images_retina':100,
+    'retina_size':32
 }
 
 policy = {
     'type' : Randompolicy,
-    'initial_var': 40,
+    'initial_var': 10,
     'numactions': 5, # number of consecutive actions
     'repeats': 3, # number of repeats for each action
 }
@@ -88,6 +89,7 @@ config = {
     'save_data': True,
     'start_index':0,
     'end_index': 60000,
+    'traj_per_file': 256,
     'verbose_policy_trials': 0,
     'common': common,
     'agent': agent,

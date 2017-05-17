@@ -12,6 +12,14 @@ class Trajectory(object):
                                         hyperparams['image_width'],
                                         hyperparams['image_channels']), dtype='uint8')
 
+        if 'large_images_retina' in hyperparams:
+            self.large_images_retina = np.zeros((self.T,
+                                            hyperparams['large_images_retina'],
+                                            hyperparams['large_images_retina'],
+                                            hyperparams['image_channels']), dtype='uint8')
+
+            self.initial_ret_pos = np.zeros(2, dtype=np.int64)
+
         # for storing the terminal predicted images of the K best actions at each time step:
         self.final_predicted_images = []
         self.predicted_images = None
@@ -31,3 +39,5 @@ class Trajectory(object):
         self.score = np.empty([self.T])
 
         self.touchdata = np.zeros([self.T, 20])
+
+

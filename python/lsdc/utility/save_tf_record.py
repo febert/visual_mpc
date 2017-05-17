@@ -50,6 +50,10 @@ def save_tf_record(dir, filename, trajectory_list, params):
                 Object_pos_flat = traj.Object_pos[index, :].flatten()
                 feature['move/' + str(index) + '/object_pos'] = _float_feature(Object_pos_flat.tolist())
 
+            if hasattr(traj, 'large_images_retina'):
+                image_raw = traj.large_images_retina[index].tostring()
+                feature['move/' + str(index) + '/retina/encoded'] = _bytes_feature(image_raw)
+
         example = tf.train.Example(features=tf.train.Features(feature=feature))
         writer.write(example.SerializeToString())
 
