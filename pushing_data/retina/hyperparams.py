@@ -74,7 +74,7 @@ agent = {
     'displacement_threshold': 0.06,
     'novideo':'',
     'randomize_ballinitpos':'',
-    'large_images_retina':100,
+    'large_images_retina':80,
     'retina_size':32
 }
 

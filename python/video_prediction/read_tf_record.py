@@ -90,6 +90,9 @@ def build_tfrecord_input(conf, training=True, gtruth_pred = False):
         if 'retina' in conf:
             retina_name = 'move/' + str(i) + '/retina/encoded'
             features[retina_name] = tf.FixedLenFeature([1], tf.string)
+            if i == 0:
+                initial_retpos_name = 'initial_retpos'
+                features[initial_retpos_name] = tf.FixedLenFeature([2], tf.int64)
 
         if 'touch' in conf:
             touchdata_name = 'touchdata/' + str(i)
@@ -107,6 +110,8 @@ def build_tfrecord_input(conf, training=True, gtruth_pred = False):
             image_seq.append(resize_im( features, image_name, conf))
             if 'retina' in conf:
                 retina_seq.append(resize_im(features, retina_name, conf, height=conf['retina']))
+                if i == 0:
+                    initial_retpos = tf.cast(features[initial_retpos_name], tf.int32)
 
             state = tf.reshape(features[state_name], shape=[1, STATE_DIM])
             state_seq.append(state)
@@ -138,7 +143,8 @@ def build_tfrecord_input(conf, training=True, gtruth_pred = False):
         return gtruth_image_batch, pred_image_batch
     else:
         image_seq = tf.concat(0, image_seq)
-        retina_seq = tf.concat(0, retina_seq)
+        if 'retina' in conf:
+            retina_seq = tf.concat(0, retina_seq)
 
         if conf['visualize']: num_threads = 1
         else: num_threads = np.min((conf['batch_size'], 32))
@@ -158,13 +164,13 @@ def build_tfrecord_input(conf, training=True, gtruth_pred = False):
             return image_batch, action_batch, state_batch, object_pos_batch
 
         elif 'retina' in conf:
-            [image_batch, retina_batch, action_batch, state_batch, object_pos_batch] = tf.train.batch(
-                [image_seq, retina_seq, action_seq, state_seq, object_pos_seq],
+            [image_batch, retina_batch, retpos_batch, action_batch, state_batch, object_pos_batch] = tf.train.batch(
+                [image_seq, retina_seq, initial_retpos, action_seq, state_seq, object_pos_seq],
                 conf['batch_size'],
                 num_threads=num_threads,
                 capacity=100 * conf['batch_size'])
 
-            return image_batch, retina_batch, action_batch, state_batch, object_pos_batch
+            return image_batch, retina_batch, retpos_batch, action_batch, state_batch, object_pos_batch
 
         elif 'touch' in conf:
             [image_batch, action_batch, state_batch, touch_batch] = tf.train.batch(
@@ -352,7 +358,7 @@ if __name__ == '__main__':
     conf['use_state'] = True
     conf['batch_size']= 10
     conf['visualize']=False
-    conf['retina'] = 100
+    conf['retina'] = 80
 
     # conf['use_object_pos'] =''
 
@@ -374,7 +380,7 @@ if __name__ == '__main__':
     elif 'use_object_pos' in conf:
         image_batch, action_batch, state_batch, pos_batch = build_tfrecord_input(conf, training=True)
     elif 'retina' in conf:
-        image_batch, retina_batch, action_batch, state_batch, pos_batch = build_tfrecord_input(conf, training=True)
+        image_batch, retina_batch, retpos_batch, action_batch, state_batch, pos_batch = build_tfrecord_input(conf, training=True)
     else:
         image_batch, action_batch, state_batch = build_tfrecord_input(conf, training=True,gtruth_pred= gtruth_pred)
     sess = tf.InteractiveSession()
@@ -394,7 +400,7 @@ if __name__ == '__main__':
         elif 'use_object_pos' in conf:
             image_data, action_data, state_data, pos_data = sess.run([image_batch, action_batch, state_batch, pos_batch])
         elif 'retina' in conf:
-            image_data, retina_data, action_data, state_data = sess.run([image_batch, retina_batch, action_batch, state_batch])
+            image_data, retina_data, retpos_data, action_data, state_data = sess.run([image_batch, retina_batch, retpos_batch, action_batch, state_batch])
         else:
             image_data, action_data, state_data = sess.run([image_batch, action_batch, state_batch])
 
@@ -418,13 +424,13 @@ if __name__ == '__main__':
             giffile = '/'.join(str.split(conf['data_dir'], '/')[:-2] + ['video_with_pos'])
             comp_single_video(giffile, visual_batch, num_exp=10)
 
-        pdb.set_trace()
-
 
         # make video preview video
         gif_preview = '/'.join(str.split(__file__, '/')[:-2] + ['preview'])
 
         if 'retina' in conf:
+            print retpos_data
+
             retina_data = np.split(retina_data, retina_data.shape[1], axis=1)
             retina_data = np.squeeze(retina_data)
             giffile = '/'.join(str.split(conf['data_dir'], '/')[:-1] + ['preview'])

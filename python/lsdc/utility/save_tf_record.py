@@ -12,7 +12,7 @@ def _bytes_feature(value):
     return tf.train.Feature(bytes_list=tf.train.BytesList(value=[value]))
 
 def _int64_feature(value):
-  return tf.train.Feature(int64_list=tf.train.Int64List(value=[value]))
+  return tf.train.Feature(int64_list=tf.train.Int64List(value=value))
 
 
 def save_tf_record(dir, filename, trajectory_list, params):
@@ -53,6 +53,7 @@ def save_tf_record(dir, filename, trajectory_list, params):
             if hasattr(traj, 'large_images_retina'):
                 image_raw = traj.large_images_retina[index].tostring()
                 feature['move/' + str(index) + '/retina/encoded'] = _bytes_feature(image_raw)
+                feature['initial_retpos'] = _int64_feature(traj.initial_ret_pos.tolist())
 
         example = tf.train.Example(features=tf.train.Features(feature=feature))
         writer.write(example.SerializeToString())

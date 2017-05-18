@@ -60,11 +60,11 @@ class Model(object):
                  highres_images = None,
                  actions=None,
                  states=None,
-                 poses=None,
+                 init_retpos=None,
                  reuse_scope=None,
                  ):
 
-
+        self.conf = conf
 
         self.prefix = prefix = tf.placeholder(tf.string, [])
         self.iter_num = tf.placeholder(tf.float32, [])
@@ -77,20 +77,21 @@ class Model(object):
         if states != None:
             states = tf.split(1, states.get_shape()[1], states)
             states = [tf.squeeze(st) for st in states]
-        if poses != None:
-            poses = tf.split(1, poses.get_shape()[1], poses)
-            poses = [tf.squeeze(p) for p in poses]
         images = tf.split(1, images.get_shape()[1], images)
         images = [tf.squeeze(img) for img in images]
         highres_images = tf.split(1, highres_images.get_shape()[1], highres_images)
         highres_images = [tf.squeeze(img) for img in highres_images]
 
+        self.init_pixdistrib = self.make_initial_pixdistrib()
+
         if reuse_scope is None:
-            gen_images, gen_states, gen_poses = construct_model(
+            gen_retina, gen_states, gen_pix_distrib, true_retina, retina_pos = construct_model(
                 images,
                 highres_images,
                 actions,
                 states,
+                init_retina_pos = init_retpos,
+                pix_distributions= self.init_pixdistrib,
                 iter_num=self.iter_num,
                 k=conf['schedsamp_k'],
                 use_state=conf['use_state'],
@@ -102,11 +103,13 @@ class Model(object):
                 conf=conf)
         else:  # If it's a validation or test model.
             with tf.variable_scope(reuse_scope, reuse=True):
-                gen_images, gen_states, gen_poses = construct_model(
+                gen_retina, gen_states, gen_pix_distrib, true_retina, retina_pos = construct_model(
                     images,
                     highres_images,
                     actions,
                     states,
+                    init_retina_pos=init_retpos,
+                    pix_distributions=self.init_pixdistrib,
                     iter_num=self.iter_num,
                     k=conf['schedsamp_k'],
                     use_state=conf['use_state'],
@@ -120,8 +123,8 @@ class Model(object):
         loss, psnr_all = 0.0, 0.0
 
         for i, x, gx in zip(
-                range(len(gen_images)), images[conf['context_frames']:],
-                gen_images[conf['context_frames'] - 1:]):
+                range(len(gen_retina)), true_retina[conf['context_frames']:],
+                gen_retina[conf['context_frames'] - 1:]):
             recon_cost_mse = mean_squared_error(x, gx)
             summaries.append(
                 tf.scalar_summary(prefix + '_recon_cost' + str(i), recon_cost_mse))
@@ -135,45 +138,30 @@ class Model(object):
                 tf.scalar_summary(prefix + '_state_cost' + str(i), state_cost))
             loss += state_cost
 
-        for i, pose, gen_pose in zip(
-                range(len(gen_poses)), poses[conf['context_frames']:],
-                gen_poses[conf['context_frames'] - 1:]):
-            pose_cost = posecost(pose, gen_pose) * conf['pose_cost_factor']
-            summaries.append(
-                tf.scalar_summary(prefix + '_pose_cost' + str(i), pose_cost))
-            loss += pose_cost
-
         self.loss = loss = loss / np.float32(len(images) - conf['context_frames'])
         summaries.append(tf.scalar_summary(prefix + '_loss', loss))
 
         self.lr = tf.placeholder_with_default(conf['learning_rate'], ())
 
+        self.true_retina = true_retina
+        self.retina_pos = retina_pos
+        self.gen_retina = gen_retina
+
         self.train_op = tf.train.AdamOptimizer(self.lr).minimize(loss)
         self.summ_op = tf.merge_summary(summaries)
 
-        self.gen_images= gen_images
-        self.gen_poses = gen_poses
         self.gen_states = gen_states
 
+    def make_initial_pixdistrib(self):
+        r = 16
+        c = 16
 
-def posecost(pose, gen_pose):
-    inferred_pos = tf.slice(gen_pose, [0, 0], [-1, 2])
-    true_pos = tf.slice(pose, [0, 0], [-1, 2])
-    pos_cost = tf.reduce_sum(tf.square(inferred_pos - true_pos))
+        flat_ind = tf.constant([r*self.conf['retina_size'] + c], dtype= tf.int32)
+        flat_ind = tf.tile(flat_ind, [self.conf['batch_size']])
+        one_hot = tf.one_hot(flat_ind, depth=self.conf['retina_size']**2, axis = -1)
+        one_hot = tf.reshape(one_hot, [self.conf['batch_size'], self.conf['retina_size'], self.conf['retina_size']])
 
-    inferred_ori = tf.slice(gen_pose, [0, 2], [-1, 1])
-    true_ori = tf.slice(pose, [0, 2], [-1, 1])
-
-    c1 = tf.cos(inferred_ori)
-    s1 = tf.sin(inferred_ori)
-    c2 = tf.cos(true_ori)
-    s2 = tf.sin(true_ori)
-    ori_cost = tf.reduce_sum(tf.square(c1 - c2) + tf.square(s1 - s2))
-
-    total_cost = (pos_cost + ori_cost)
-    total_cost /= tf.to_float(tf.size(total_cost))
-
-    return total_cost
+        return [one_hot, one_hot]
 
 
 def main(conf):
@@ -207,15 +195,14 @@ def main(conf):
         print key, ': ', conf[key]
     print '-------------------------------------------------------------------'
 
-    conf['use_object_pos'] = ""
     print 'Constructing models and inputs.'
     with tf.variable_scope('model', reuse=None) as training_scope:
-        images, highres_images, actions, states, poses = build_tfrecord_input(conf, training=True)
-        model = Model(conf, images,highres_images, actions, states, poses)
+        images, highres_images, ret_pos, actions, states, poses = build_tfrecord_input(conf, training=True)
+        model = Model(conf, images,highres_images, actions, states, ret_pos)
 
     with tf.variable_scope('val_model', reuse=None):
-        val_images, val_highres_images, val_actions, val_states, val_poses = build_tfrecord_input(conf, training=False)
-        val_model = Model(conf, val_images,val_highres_images, val_actions, val_states, val_poses, training_scope)
+        val_images, val_highres_images, val_ret_pos, val_actions, val_states, val_poses = build_tfrecord_input(conf, training=False)
+        val_model = Model(conf, val_images,val_highres_images, val_actions, val_states, val_ret_pos, training_scope)
 
     print 'Constructing saver.'
     # Make saver.
@@ -267,6 +254,27 @@ def main(conf):
 
     starttime = datetime.now()
     t_iter = []
+
+    ####### debugging
+    # itr = 0
+    # feed_dict = {model.prefix: 'train',
+    #              model.iter_num: np.float32(itr),
+    #              model.lr: conf['learning_rate'],
+    #              }
+    # init_pix, true_retina, ret_pos_data = sess.run([model.init_pixdistrib, model.true_retina, ret_pos],
+    #                                 feed_dict)
+    #
+    # Image.fromarray((true_retina[0][0] * 255).astype(np.uint8)).show()
+    # Image.fromarray((true_retina[4][0] * 255).astype(np.uint8)).show()
+    #
+    # Image.fromarray((init_pix[0][0] * 255).astype(np.uint8)).show()
+    # print 'retina pos:'
+    # for i in range(3):
+    #      print ret_pos_data[i][0]
+    #
+    # pdb.set_trace()
+    ####### end debugging
+
     # Run training.
 
     for itr in range(itr_0, conf['num_iterations'], 1):

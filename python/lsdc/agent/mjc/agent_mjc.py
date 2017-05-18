@@ -12,7 +12,7 @@ from lsdc.agent.agent import Agent
 from lsdc.agent.agent_utils import generate_noise, setup
 from lsdc.agent.config import AGENT_MUJOCO
 
-
+import time
 from lsdc.utility.trajectory import Trajectory
 from matplotlib.backends.backend_agg import FigureCanvasAgg as FigureCanvas
 from matplotlib.figure import Figure
@@ -135,6 +135,7 @@ class AgentMuJoCo(Agent):
                 traj.U[t, :] = mj_U
 
             accum_touch = np.zeros_like(self._model.data.sensordata)
+
             for _ in range(self._hyperparams['substeps']):
                 accum_touch += self._model.data.sensordata
 
@@ -147,8 +148,8 @@ class AgentMuJoCo(Agent):
 
             if 'touch' in self._hyperparams:
                 traj.touchdata[t, :] = accum_touch.squeeze()
-                # print 'accumulated force', t
-                # print accum_touch
+                print 'accumulated force', t
+                print accum_touch
 
         # only save trajectories which displace objects above threshold
         if 'displacement_threshold' in self._hyperparams:
@@ -279,9 +280,9 @@ class AgentMuJoCo(Agent):
             if t == 0:
                 rh = self._hyperparams['retina_size']
                 block_coord = traj.Object_pos[t, 0, :2]
-                angle = traj.Object_pos[t, 0, 2]
-                adjusted_blockcoord = block_coord+ .1 *np.array([np.cos(angle), np.sin(angle)])
-                img_coord = self.mujoco_to_imagespace(adjusted_blockcoord, numpix=imheight)
+                # angle = traj.Object_pos[t, 0, 2]
+                # adjusted_blockcoord = block_coord+ .1 *np.array([np.cos(angle), np.sin(angle)])
+                img_coord = self.mujoco_to_imagespace(block_coord, numpix=imheight)
                 if img_coord[0] < rh/2:
                     img_coord[0] = rh/2
                 if img_coord[1] < rh/2:
@@ -293,7 +294,7 @@ class AgentMuJoCo(Agent):
 
                 traj.initial_ret_pos = img_coord
                 # ret = traj.large_images_retina[t][ img_coord[0]-rh/2:img_coord[0]+rh/2,
-                #                                                             img_coord[1]-rh/2:img_coord[1] + rh/2]
+                #                                                            img_coord[1]-rh/2:img_coord[1] + rh/2]
                 # Image.fromarray(ret).show()
                 # pdb.set_trace()
 
