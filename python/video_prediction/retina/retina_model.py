@@ -323,7 +323,7 @@ def get_new_retinapos(conf, pix_distrib, current_rpos, himages):
     maxcoord = tf.arg_max(tf.reshape(pix_distrib, [conf['batch_size'], -1]), dimension=1)
     maxcoord = unravel_argmax(maxcoord, pix_distrib_shape)
 
-    new_rpos = current_rpos + maxcoord
+    new_rpos = current_rpos + maxcoord - tf.constant([16,16], dtype=tf.int32)
     new_rpos = tf.clip_by_value(new_rpos, half_rh, large_imh - half_rh - 1)
 
     return new_rpos, maxcoord
