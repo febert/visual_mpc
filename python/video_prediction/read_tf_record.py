@@ -19,7 +19,7 @@ OBJECT_POS_DIM = 3
 from utils_vpred.create_gif import *
 
 
-def build_tfrecord_input(conf, training=True, gtruth_pred = False):
+def build_tfrecord_input(conf, training=True, gtruth_pred = False, shuffle_vis = False):
     """Create input tfrecord tensors.
 
     Args:
@@ -37,28 +37,22 @@ def build_tfrecord_input(conf, training=True, gtruth_pred = False):
     if not filenames:
         raise RuntimeError('No data_files files found.')
 
-    index = int(np.ceil(conf['train_val_split'] * len(filenames)))
-    if training:
-        filenames = filenames[:index]
-    else:
-        filenames = filenames[index:]
-
     if conf['visualize']:
-        if isinstance(conf['visual_file'], list):
-            filenames = conf['visual_file']
-        else:
-            filenames = [conf['visual_file']]
-
         print 'using input file', filenames
-        shuffle = False
-    else: shuffle = True
+        shuffle = shuffle_vis
+    else:
+        shuffle = True
+        index = int(np.ceil(conf['train_val_split'] * len(filenames)))
+        if training:
+            filenames = filenames[:index]
+        else:
+            filenames = filenames[index:]
 
     filename_queue = tf.train.string_input_producer(filenames, shuffle=shuffle)
     reader = tf.TFRecordReader()
     _, serialized_example = reader.read(filename_queue)
 
     gtruthimage_seq, predimage_seq, image_seq, retina_seq, state_seq, action_seq, object_pos_seq, touch_seq = [], [], [], [], [], [], [], []
-
 
     load_indx = range(0, 30, conf['skip_frame'])
     load_indx = load_indx[:conf['sequence_length']]

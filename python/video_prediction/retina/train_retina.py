@@ -13,7 +13,7 @@ from video_prediction.utils_vpred.adapt_params_visualize import adapt_params_vis
 from tensorflow.python.platform import app
 from tensorflow.python.platform import flags
 from tensorflow.python.platform import gfile
-from video_prediction.utils_vpred.create_gif import comp_video
+from video_prediction.utils_vpred.create_gif import *
 from video_prediction.read_tf_record import add_visuals_to_batch
 
 from video_prediction.read_tf_record import build_tfrecord_input
@@ -21,6 +21,7 @@ from video_prediction.utils_vpred.create_gif import assemble_gif
 
 from retina_model import construct_model
 
+import makegifs
 from datetime import datetime
 
 # How often to record tensorboard summaries.
@@ -85,7 +86,7 @@ class Model(object):
         self.init_pixdistrib = self.make_initial_pixdistrib()
 
         if reuse_scope is None:
-            gen_retina, gen_states, gen_pix_distrib, true_retina, retina_pos = construct_model(
+            gen_retina, gen_states, gen_pix_distrib, true_retina, retina_pos, maxcoord = construct_model(
                 images,
                 highres_images,
                 actions,
@@ -103,7 +104,7 @@ class Model(object):
                 conf=conf)
         else:  # If it's a validation or test model.
             with tf.variable_scope(reuse_scope, reuse=True):
-                gen_retina, gen_states, gen_pix_distrib, true_retina, retina_pos = construct_model(
+                gen_retina, gen_states, gen_pix_distrib, true_retina, retina_pos, maxcoord = construct_model(
                     images,
                     highres_images,
                     actions,
@@ -145,12 +146,15 @@ class Model(object):
 
         self.true_retina = true_retina
         self.retina_pos = retina_pos
+        self.maxcoord = maxcoord
         self.gen_retina = gen_retina
 
         self.train_op = tf.train.AdamOptimizer(self.lr).minimize(loss)
         self.summ_op = tf.merge_summary(summaries)
 
         self.gen_states = gen_states
+        self.gen_pix_distrib = gen_pix_distrib
+
 
     def make_initial_pixdistrib(self):
         r = 16
@@ -188,7 +192,12 @@ def main(conf):
     conf = hyperparams.configuration
     if FLAGS.visualize:
         print 'creating visualizations ...'
-        conf = adapt_params_visualize(conf, FLAGS.visualize)
+        conf['schedsamp_k'] = -1  # don't feed ground truth
+        conf['data_dir'] = '/'.join(str.split(conf['data_dir'], '/')[:-1] + ['test'])
+        conf['visualize'] = conf['output_dir'] + '/' + FLAGS.visualize
+        conf['event_log_dir'] = '/tmp'
+        conf['visual_file'] = conf['data_dir'] + '/traj_256_to_511.tfrecords'
+
     print '-------------------------------------------------------------------'
     print 'verify current settings!! '
     for key in conf.keys():
@@ -197,11 +206,11 @@ def main(conf):
 
     print 'Constructing models and inputs.'
     with tf.variable_scope('model', reuse=None) as training_scope:
-        images, highres_images, ret_pos, actions, states, poses = build_tfrecord_input(conf, training=True)
+        images, highres_images, ret_pos, actions, states, poses = build_tfrecord_input(conf, training=True, shuffle_vis=True)
         model = Model(conf, images,highres_images, actions, states, ret_pos)
 
     with tf.variable_scope('val_model', reuse=None):
-        val_images, val_highres_images, val_ret_pos, val_actions, val_states, val_poses = build_tfrecord_input(conf, training=False)
+        val_images, val_highres_images, val_ret_pos, val_actions, val_states, val_poses = build_tfrecord_input(conf, training=False, shuffle_vis=True)
         val_model = Model(conf, val_images,val_highres_images, val_actions, val_states, val_ret_pos, training_scope)
 
     print 'Constructing saver.'
@@ -223,19 +232,23 @@ def main(conf):
                      val_model.prefix: 'vis',
                      val_model.iter_num: 0 }
         file_path = conf['output_dir']
-        gen_images, gtruth_images, gtruth_highres_images = sess.run([ val_model.gen_images,
-                                                                        val_images,
-                                                                        val_highres_images,
-                                                                        val_model.gen_poses,
+
+        gen_retinas, gtruth_retinas, gen_pix_distrib, maxcoord, gtruth_image64 = sess.run([val_model.gen_retina,
+                                                                val_model.true_retina,
+                                                                val_model.gen_pix_distrib,
+                                                                val_model.maxcoord,
+                                                                val_images,
                                                                         ],
                                                                        feed_dict)
 
-        cPickle.dump(gen_images, open(file_path + '/gen_image_seq.pkl', 'wb'))
-        cPickle.dump(gtruth_images, open(file_path + '/ground_truth.pkl', 'wb'))
-        print 'written files to:' + file_path
+        cPickle.dump(gen_retinas, open(file_path + '/gen_images.pkl', 'wb'))
+        cPickle.dump(gtruth_retinas, open(file_path + '/gtruth_images.pkl', 'wb'))
+        cPickle.dump(gen_pix_distrib, open(file_path + '/gen_distrib.pkl', 'wb'))
+        cPickle.dump(maxcoord, open(file_path + '/maxcoord.pkl', 'wb'))
+
         print 'written files to:' + file_path
 
-        comp_video(conf['output_dir'], conf)
+        makegifs.comp_pix_distrib(conf['output_dir'])
         return
 
     itr_0 =0

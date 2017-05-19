@@ -43,6 +43,25 @@ def construct_model(images,
                     dna=False,
                     context_frames=2,
                     conf = None):
+    """
+    
+    :param images: 
+    :param highres_images: 
+    :param actions: 
+    :param states: 
+    :param init_retina_pos:   the position of retina in the highres image
+    :param pix_distributions: 
+    :param iter_num: 
+    :param k: 
+    :param use_state: 
+    :param num_masks: 
+    :param stp: 
+    :param cdna: 
+    :param dna: 
+    :param context_frames: 
+    :param conf: 
+    :return: maxcoord_list: position of maximal probability pixel in retina coordinates
+    """
 
     if 'dna_size' in conf.keys():
         DNA_KERN_SIZE = conf['dna_size']
@@ -59,8 +78,8 @@ def construct_model(images,
     # Generated robot states and images.
     gen_states, gen_retina, gen_masks, gen_poses, gen_retina = [], [], [], [], []
     gen_pix_distrib = []
-    true_retina, gen_retina, retina_pos = [], [], []
-    retina_pos.append(init_retina_pos)
+    true_retina, gen_retina, retina_pos_list, maxcoord_list = [], [], [], []
+    retina_pos_list.append(init_retina_pos)
 
     summaries = []
 
@@ -96,11 +115,15 @@ def construct_model(images,
                 reuse=reuse):
 
             if t >0:
+                retina_pos, maxcoord = get_new_retinapos(conf, prev_pix_distrib, retina_pos_list[-1], himage)
+                maxcoord_list.append(maxcoord)
                 if 'static' in conf:
                     print 'using static retina!'
+                    retina_pos_list.append(init_retina_pos)
                 else:
-                    retina_pos.append(get_new_retinapos(conf, prev_pix_distrib, retina_pos[-1], himage))
-            true_retina.append(get_retina(conf, himage, retina_pos[-1]))
+                    retina_pos_list.append(retina_pos)
+
+            true_retina.append(get_retina(conf, himage, retina_pos_list[-1]))
 
             if feedself and done_warm_start:
                 # Feed in generated image.
@@ -160,7 +183,7 @@ def construct_model(images,
 
             # Pass in state and action.
             # Predicted state is always fed back in
-            state_action = tf.concat(1, [action, prev_state, tf.cast(retina_pos[-1],dtype=tf.float32)])
+            state_action = tf.concat(1, [action, prev_state, tf.cast(retina_pos_list[-1],dtype=tf.float32)])
             smear = tf.reshape(
                 state_action,
                 [int(batch_size), 1, 1, int(state_action.get_shape()[1])])
@@ -258,7 +281,7 @@ def construct_model(images,
             next_state = predict_next_low_dim(conf, hidden7, enc0, state_action)
             gen_states.append(next_state)
 
-    return gen_retina, gen_states, gen_pix_distrib, true_retina, retina_pos
+    return gen_retina, gen_states, gen_pix_distrib, true_retina, retina_pos_list, maxcoord_list
 
 def get_retina(conf, himages, current_rpos):
     """
@@ -303,7 +326,7 @@ def get_new_retinapos(conf, pix_distrib, current_rpos, himages):
     new_rpos = current_rpos + maxcoord
     new_rpos = tf.clip_by_value(new_rpos, half_rh, large_imh - half_rh - 1)
 
-    return new_rpos
+    return new_rpos, maxcoord
 
 def unravel_argmax(argmax, shape):
     output_list = []

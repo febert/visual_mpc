@@ -95,14 +95,15 @@ def make_color_scheme(input_img_list):
 
     for t in range(len(input_img_list)):
 
+        height = input_img_list[0].shape[1]
 
-        output_image = np.zeros((input_img_list[0].shape[0], 64, 64, 3), dtype=np.float32)
+        output_image = np.zeros((input_img_list[0].shape[0], height, height, 3), dtype=np.float32)
 
         for b in range(input_img_list[0].shape[0]):
 
             img = input_img_list[t][b].squeeze()
 
-            fig = plt.figure(figsize=(2, 2), dpi=32)
+            fig = plt.figure(figsize=(1, 1), dpi=height)
             fig.add_subplot(111)
             plt.subplots_adjust(left=0, bottom=0, right=1, top=1, wspace=0, hspace=0)
 
@@ -251,9 +252,11 @@ if __name__ == '__main__':
     # file_path = '/'.join(splitted[:-3] + ['tensorflow_data/skip_frame/use_every4'])
     # file_path = '/home/frederik/Documents/lsdc/tensorflow_data/skip_frame/use_every_4'
 
-    file_path = '/home/frederik/Documents/lsdc/tensorflow_data/pose_videoprediction/firsttest/modeldata'
-    hyperparams = imp.load_source('hyperparams', '/home/frederik/Documents/lsdc/tensorflow_data/pose_videoprediction/firsttest/conf.py' )
+    file_path = '/home/frederik/Documents/lsdc/tensorflow_data/retina/static/modeldata'
+    hyperparams = imp.load_source('hyperparams', '/home/frederik/Documents/lsdc/tensorflow_data/retina/static/conf.py' )
     conf = hyperparams.configuration
-    conf['visualize'] = conf['output_dir'] + '/model26002'
-    pred = comp_video(file_path, conf)
+    conf['visualize'] = conf['output_dir'] + '/model10002'
+    # pred = comp_video(file_path, conf)
+
+    comp_pix_distrib(conf['output_dir'])
 

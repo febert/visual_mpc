@@ -252,6 +252,7 @@ def construct_model(images,
             dec10 = slim.layers.conv2d_transpose(
                 dec9, DNA_KERN_SIZE ** 2, 1, stride=1, scope='convt6')
 
+
             if conf['model'] == 'STP':
                 num_masks = conf['num_masks']
                 stp_input = tf.reshape(dec10, [int(batch_size), -1])
@@ -278,8 +279,9 @@ def construct_model(images,
             gen_images.append(output)
             gen_masks.append(mask_list)
 
-            current_state = decode_low_dim_obs(conf, low_dim_state)
-            gen_states.append(current_state)
+            if 'supervise_lt' not in conf:
+                current_state = decode_low_dim_obs(conf, low_dim_state)
+                gen_states.append(current_state)
 
 
     return gen_images, gen_states, gen_masks, inf_low_state_list, pred_low_state_list

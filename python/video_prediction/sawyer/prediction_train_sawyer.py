@@ -71,7 +71,8 @@ class Model(object):
                  actions=None,
                  states=None,
                  reuse_scope=None,
-                 pix_distrib=None):
+                 pix_distrib=None,
+                 inference = False):
 
         self.conf = conf
         from prediction_model_sawyer import construct_model
@@ -125,47 +126,48 @@ class Model(object):
                     context_frames=conf['context_frames'],
                     conf= conf)
 
-        # L2 loss, PSNR for eval.
-        true_fft_list, pred_fft_list = [], []
-        loss, psnr_all = 0.0, 0.0
+        if not inference:
+            # L2 loss, PSNR for eval.
+            true_fft_list, pred_fft_list = [], []
+            loss, psnr_all = 0.0, 0.0
 
-        self.fft_weights = tf.placeholder(tf.float32, [64, 64])
+            self.fft_weights = tf.placeholder(tf.float32, [64, 64])
 
-        for i, x, gx in zip(
-                range(len(gen_images)), images[conf['context_frames']:],
-                gen_images[conf['context_frames'] - 1:]):
-            recon_cost_mse = mean_squared_error(x, gx)
+            for i, x, gx in zip(
+                    range(len(gen_images)), images[conf['context_frames']:],
+                    gen_images[conf['context_frames'] - 1:]):
+                recon_cost_mse = mean_squared_error(x, gx)
 
-            psnr_i = peak_signal_to_noise_ratio(x, gx)
-            psnr_all += psnr_i
-            summaries.append(
-                tf.scalar_summary(prefix + '_recon_cost' + str(i), recon_cost_mse))
-            summaries.append(tf.scalar_summary(prefix + '_psnr' + str(i), psnr_i))
-
-            recon_cost = recon_cost_mse
-
-            loss += recon_cost
-
-        if ('ignore_state_action' not in conf) and ('ignore_state' not in conf):
-            for i, state, gen_state in zip(
-                    range(len(gen_states)), states[conf['context_frames']:],
-                    gen_states[conf['context_frames'] - 1:]):
-                state_cost = mean_squared_error(state, gen_state) * 1e-4 * conf['use_state']
+                psnr_i = peak_signal_to_noise_ratio(x, gx)
+                psnr_all += psnr_i
                 summaries.append(
-                    tf.scalar_summary(prefix + '_state_cost' + str(i), state_cost))
-                loss += state_cost
+                    tf.scalar_summary(prefix + '_recon_cost' + str(i), recon_cost_mse))
+                summaries.append(tf.scalar_summary(prefix + '_psnr' + str(i), psnr_i))
 
-        summaries.append(tf.scalar_summary(prefix + '_psnr_all', psnr_all))
-        self.psnr_all = psnr_all
+                recon_cost = recon_cost_mse
 
-        self.loss = loss = loss / np.float32(len(images) - conf['context_frames'])
+                loss += recon_cost
 
-        summaries.append(tf.scalar_summary(prefix + '_loss', loss))
+            if ('ignore_state_action' not in conf) and ('ignore_state' not in conf):
+                for i, state, gen_state in zip(
+                        range(len(gen_states)), states[conf['context_frames']:],
+                        gen_states[conf['context_frames'] - 1:]):
+                    state_cost = mean_squared_error(state, gen_state) * 1e-4 * conf['use_state']
+                    summaries.append(
+                        tf.scalar_summary(prefix + '_state_cost' + str(i), state_cost))
+                    loss += state_cost
 
-        self.lr = tf.placeholder_with_default(conf['learning_rate'], ())
+            summaries.append(tf.scalar_summary(prefix + '_psnr_all', psnr_all))
+            self.psnr_all = psnr_all
 
-        self.train_op = tf.train.AdamOptimizer(self.lr).minimize(loss)
-        self.summ_op = tf.merge_summary(summaries)
+            self.loss = loss = loss / np.float32(len(images) - conf['context_frames'])
+
+            summaries.append(tf.scalar_summary(prefix + '_loss', loss))
+
+            self.lr = tf.placeholder_with_default(conf['learning_rate'], ())
+
+            self.train_op = tf.train.AdamOptimizer(self.lr).minimize(loss)
+            self.summ_op = tf.merge_summary(summaries)
 
         self.true_fft = true_fft_list
         self.pred_fft = pred_fft_list
@@ -208,12 +210,19 @@ def main(unused_argv, conf_script= None):
     hyperparams = imp.load_source('hyperparams', conf_file)
 
     conf = hyperparams.configuration
+
+    inference = False
     if FLAGS.visualize:
         print 'creating visualizations ...'
         conf = adapt_params_visualize(conf, FLAGS.visualize)
         conf['visual_file'] = conf['data_dir'] + '/traj_0_to_255.tfrecords'
-        conf['batch_size'] = 10
+        conf['batch_size'] = 32
+        if 'use_len' in conf:
+            conf['sequence_length'] = conf['use_len']
 
+        if FLAGS.softmotions:
+            conf['sequence_length'] = 30
+            inference = True
 
     print 'Constructing models and inputs.'
     with tf.variable_scope('model', reuse=None) as training_scope:
@@ -225,7 +234,7 @@ def main(unused_argv, conf_script= None):
             images_main, images_aux1, actions, states = build_tfrecord_input(conf, training=True)
             images_aux1 = tf.squeeze(images_aux1)
             images = tf.concat(4, [images_main, images_aux1])
-        model = Model(conf, images, actions, states)
+        model = Model(conf, images, actions, states, inference=inference)
 
     with tf.variable_scope('val_model', reuse=None):
         if 'single_view' in conf:
@@ -243,7 +252,7 @@ def main(unused_argv, conf_script= None):
                                      shape=(conf['batch_size'], conf['sequence_length'], 4))
             states_pl = tf.placeholder(tf.float32, name='states',
                                     shape=(conf['batch_size'], conf['sequence_length'], 3))
-            val_model = Model(conf, images_pl, actions_pl, states_pl, training_scope)
+            val_model = Model(conf, images_pl, actions_pl, states_pl, training_scope, inference=inference)
         else:
                 val_model = Model(conf, val_images, val_actions, val_states, training_scope)
 
@@ -277,7 +286,12 @@ def main(unused_argv, conf_script= None):
 
         if FLAGS.diffmotions:
             img, st = sess.run([val_images, val_states], feed_dict)
-            b_exp, ind0 = 10, 0
+
+            # pdb.set_trace()
+            # Image.fromarray((img[0][0] * 255).astype(np.uint8)).show()
+
+            b_exp, ind0 = 5, 0
+
             sel_img = np.stack([img[b_exp,ind0],img[b_exp,ind0+1]], axis=0)
             sel_state = np.stack([st[b_exp,ind0],st[b_exp,ind0+1]], axis=0)
 
@@ -310,7 +324,10 @@ def main(unused_argv, conf_script= None):
             feed_dict[actions_pl] = actions
 
             gen_images = sess.run([val_model.gen_images],feed_dict)
-            # pdb.set_trace()
+
+            # Image.fromarray((gen_images[0][0][0] * 255).astype(np.uint8)).show()
+
+
             cPickle.dump(gen_images, open(file_path + '/gen_image.pkl', 'wb'))
             create_single_video_gif(file_path, conf,
                                     suffix='_diffmotions_b{}'.format(b_exp), n_exp=10)
