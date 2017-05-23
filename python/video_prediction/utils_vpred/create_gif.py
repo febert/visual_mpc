@@ -42,6 +42,10 @@ def comp_video(file_path, conf=None, suffix = None, gif_name= None):
         if 'fftcost' in conf:
             true_fft, pred_fft = visualize_fft(file_path)
 
+        if 'costmasks' in conf:
+            true_ret = cPickle.load(open(file_path + '/true_ret.pkl', "rb"))
+            pred_ret = cPickle.load(open(file_path + '/pred_ret.pkl', "rb"))
+
     if not isinstance(ground_truth, list):
         ground_truth = np.split(ground_truth, ground_truth.shape[1], axis=1)
         ground_truth = [np.squeeze(g) for g in ground_truth]
@@ -84,7 +88,7 @@ def comp_single_video(file_path, ground_truth, predicted = None, num_exp = 8):
     fused_gif = assemble_gif([ground_truth], num_exp)
     npy_to_gif(fused_gif, file_path)
 
-def make_color_scheme(input_img_list):
+def make_color_scheme(input_img_list, n_exp= None):
     """
     :param input_img_list: list of single channel images
     :param output_img_list: list of single channel images
@@ -93,13 +97,16 @@ def make_color_scheme(input_img_list):
     """
     output_image_list = []
 
+    if n_exp == None:
+        n_exp = input_img_list[0].shape[0]
+
     for t in range(len(input_img_list)):
 
         height = input_img_list[0].shape[1]
 
         output_image = np.zeros((input_img_list[0].shape[0], height, height, 3), dtype=np.float32)
 
-        for b in range(input_img_list[0].shape[0]):
+        for b in range(n_exp):
 
             img = input_img_list[t][b].squeeze()
 

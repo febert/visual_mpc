@@ -56,7 +56,34 @@ def mean_squared_error(true, pred):
     Returns:
       mean squared error between ground truth and predicted image.
     """
+
     return tf.reduce_sum(tf.square(true - pred)) / tf.to_float(tf.size(pred))
+
+
+def mean_squared_error_costmask(true, pred, poses, conf):
+    orig_imh = 64
+    retina_size = 24
+    half_rh = retina_size / 2  # half retina height
+
+    current_rpos = tf.slice(poses, [0, 0], [-1, 2])
+    current_rpos = tf.clip_by_value(tf.cast(current_rpos, dtype=tf.int32), half_rh, orig_imh - half_rh - 1)
+
+    true_retinas = []
+    pred_retinas = []
+    for b in range(conf['batch_size']):
+        begin = tf.squeeze(tf.slice(current_rpos, [b, 0], [1, -1]) - tf.constant([half_rh], dtype= tf.int32))
+        begin = tf.concat(0, [tf.zeros([1], dtype=tf.int32), begin, tf.zeros([1], dtype=tf.int32)])
+        len = tf.constant([-1, retina_size, retina_size, -1], dtype=tf.int32)
+        b_true = tf.slice(true, [b, 0, 0, 0], [1, -1, -1, -1])
+        b_pred = tf.slice(pred, [b, 0, 0, 0], [1, -1, -1, -1])
+
+        true_retinas.append(tf.slice(b_true, begin, len))
+        pred_retinas.append(tf.slice(b_pred, begin, len))
+
+    true_retinas = tf.concat(0, true_retinas)
+    pred_retinas = tf.concat(0, pred_retinas)
+    cost = tf.reduce_sum(tf.square(true_retinas - pred_retinas)) / tf.to_float(tf.size(pred_retinas))
+    return cost, true_retinas, pred_retinas
 
 
 def fft_cost(true, pred, conf, fft_weights = None):
@@ -93,6 +120,7 @@ class Model(object):
                  images=None,
                  actions=None,
                  states=None,
+                 poses= None,
                  reuse_scope=None,
                  pix_distrib=None):
 
@@ -112,6 +140,9 @@ class Model(object):
         if states != None:
             states = tf.split(1, states.get_shape()[1], states)
             states = [tf.squeeze(st) for st in states]
+        if poses != None:
+            poses = tf.split(1, poses.get_shape()[1], poses)
+            poses = [tf.squeeze(p) for p in poses]
         images = tf.split(1, images.get_shape()[1], images)
         images = [tf.squeeze(img) for img in images]
         if pix_distrib != None:
@@ -151,14 +182,23 @@ class Model(object):
 
         # L2 loss, PSNR for eval.
         true_fft_list, pred_fft_list = [], []
+
+        costmasklist, true_retinas, pred_retinas = [], [], []
+
         loss, psnr_all = 0.0, 0.0
 
         self.fft_weights = tf.placeholder(tf.float32, [64, 64])
 
-        for i, x, gx in zip(
+        for i, x, gx, p in zip(
                 range(len(gen_images)), images[conf['context_frames']:],
-                gen_images[conf['context_frames'] - 1:]):
-            recon_cost_mse = mean_squared_error(x, gx)
+                gen_images[conf['context_frames'] - 1:], poses[conf['context_frames']:]):
+            if 'costmask' in conf:
+                print 'using costmask'
+                recon_cost_mse, true_ret, pred_ret = mean_squared_error_costmask(x, gx, p,conf)
+                true_retinas.append(true_ret)
+                pred_retinas.append(pred_ret)
+            else:
+                recon_cost_mse = mean_squared_error(x, gx)
 
             psnr_i = peak_signal_to_noise_ratio(x, gx)
             psnr_all += psnr_i
@@ -209,7 +249,9 @@ class Model(object):
         self.gen_masks = gen_masks
         self.gen_distrib = gen_distrib
         self.gen_states = gen_states
-
+        self.costmasklist = costmasklist
+        self.true_retinas = true_retinas
+        self.pred_retinas = pred_retinas
 
 
 def main(unused_argv, conf_script= None):
@@ -245,12 +287,20 @@ def main(unused_argv, conf_script= None):
 
     print 'Constructing models and inputs.'
     with tf.variable_scope('model', reuse=None) as training_scope:
-        images, actions, states = build_tfrecord_input(conf, training=True)
-        model = Model(conf, images, actions, states)
+        if 'costmask' in conf:
+            images, actions, states, poses = build_tfrecord_input(conf, training=True)
+            model = Model(conf, images, actions, states, poses)
+        else:
+            images, actions, states = build_tfrecord_input(conf, training=True)
+            model = Model(conf, images, actions, states)
 
     with tf.variable_scope('val_model', reuse=None):
-        val_images, val_actions, val_states = build_tfrecord_input(conf, training=False)
-        val_model = Model(conf, val_images, val_actions, val_states, training_scope)
+        if 'costmask' in conf:
+            val_images, val_actions, val_states, val_poses = build_tfrecord_input(conf, training=False)
+            val_model = Model(conf, val_images, val_actions, val_states, val_poses, training_scope)
+        else:
+            val_images, val_actions, val_states = build_tfrecord_input(conf, training=False)
+            val_model = Model(conf, val_images, val_actions, val_states, training_scope)
 
     print 'Constructing saver.'
     # Make saver.
@@ -279,6 +329,20 @@ def main(unused_argv, conf_script= None):
                                                            feed_dict)
             cPickle.dump(true_fft, open(file_path + '/true_fft.pkl', 'wb'))
             cPickle.dump(pred_fft, open(file_path + '/pred_fft.pkl', 'wb'))
+
+        if 'costmask' in conf:
+            gen_images, ground_truth, mask_list, true_ret, pred_ret = sess.run([
+                                                            val_model.gen_images,
+                                                            val_images,
+                                                            val_model.gen_masks,
+                                                            val_model.true_retinas,
+                                                            val_model.pred_retinas
+                                                            ],
+                                                           feed_dict)
+
+            cPickle.dump(true_ret, open(file_path + '/true_ret.pkl', 'wb'))
+            cPickle.dump(pred_ret, open(file_path + '/pred_ret.pkl', 'wb'))
+
         else:
             gen_images, ground_truth, mask_list = sess.run([val_model.gen_images,
                                                             val_images, val_model.gen_masks,
@@ -291,7 +355,7 @@ def main(unused_argv, conf_script= None):
         print 'written files to:' + file_path
 
         trajectories = utils_vpred.create_gif.comp_video(conf['output_dir'], conf)
-        utils_vpred.create_gif.comp_masks(conf['output_dir'], conf, trajectories)
+        # utils_vpred.create_gif.comp_masks(conf['output_dir'], conf, trajectories)
         return
 
     itr_0 =0

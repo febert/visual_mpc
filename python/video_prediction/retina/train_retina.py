@@ -233,22 +233,28 @@ def main(conf):
                      val_model.iter_num: 0 }
         file_path = conf['output_dir']
 
-        gen_retinas, gtruth_retinas, gen_pix_distrib, maxcoord, gtruth_image64 = sess.run([val_model.gen_retina,
+        val_highres_images_data, gen_retinas, gtruth_retinas, gen_pix_distrib, retina_pos, maxcoord, gtruth_image = sess.run([
+                                                                val_highres_images,
+                                                                val_model.gen_retina,
                                                                 val_model.true_retina,
                                                                 val_model.gen_pix_distrib,
+                                                                val_model.retina_pos,
                                                                 val_model.maxcoord,
                                                                 val_images,
                                                                         ],
                                                                        feed_dict)
+        dict_ = {}
+        dict_['gen_retinas'] = gen_retinas
+        dict_['gtruth_retinas'] = gtruth_retinas
+        dict_['val_highres_images'] = val_highres_images_data
+        dict_['gen_pix_distrib'] = gen_pix_distrib
+        dict_['maxcoord'] = maxcoord
+        dict_['retina_pos'] = retina_pos
 
-        cPickle.dump(gen_retinas, open(file_path + '/gen_images.pkl', 'wb'))
-        cPickle.dump(gtruth_retinas, open(file_path + '/gtruth_images.pkl', 'wb'))
-        cPickle.dump(gen_pix_distrib, open(file_path + '/gen_distrib.pkl', 'wb'))
-        cPickle.dump(maxcoord, open(file_path + '/maxcoord.pkl', 'wb'))
-
+        cPickle.dump(dict_, open(file_path + '/dict_.pkl', 'wb'))
         print 'written files to:' + file_path
 
-        makegifs.comp_pix_distrib(conf['output_dir'])
+        makegifs.comp_pix_distrib(conf['output_dir'], examples=16)
         return
 
     itr_0 =0

@@ -17,4 +17,8 @@ Each of the folders in pushing_data must have a "/train" and "/test" subdirector
 The hyperparams.py file to specifies how the data-collection is done.
 
 
+#To run a benchmark on the pushing task go in the lsdc base directory and run:
+python python/lsdc/utility/benchmarks.py <benchmark_folder_name>
+
+
 
