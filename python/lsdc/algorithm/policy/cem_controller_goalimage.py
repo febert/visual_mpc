@@ -415,7 +415,7 @@ class CEM_controller(Policy):
             rewmodel_s_length = self.policyparams['rewardmodel_sequence_length']
         else:
             rewmodel_s_length = 15
-        scores = np.sum(softmax_out * np.arange(rewmodel_s_length - 1), axis=1)
+        scores = np.sum(softmax_out * np.arange(rewmodel_s_length), axis=1)
 
         bestindices = scores.argsort()[:self.K]
 

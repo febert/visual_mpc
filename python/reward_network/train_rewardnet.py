@@ -42,6 +42,18 @@ if __name__ == "__main__":
     flags.DEFINE_string('pretrained', None, 'path to model file from which to resume training')
 
 
+def mean_squared_error(true, pred):
+    """L2 distance between tensors true and pred.
+
+    Args:
+      true: the ground truth image.
+      pred: the predicted image.
+    Returns:
+      mean squared error between ground truth and predicted image.
+    """
+    return tf.reduce_sum(tf.square(true - pred)) / tf.to_float(tf.size(pred))
+
+
 class Model(object):
     def __init__(self,
                  conf,
@@ -64,7 +76,9 @@ class Model(object):
         """
 
 
+        self.conf = conf
         self.iter_num = tf.placeholder(tf.float32, [])
+        self.lr = tf.placeholder_with_default(conf['learning_rate'], ())
         summaries = []
 
         if goalimage is not None: # when testing
@@ -81,7 +95,7 @@ class Model(object):
 
             inference = False
             first_row = tf.reshape(np.arange(conf['batch_size']),shape=[conf['batch_size'],1])
-            rand_pair = np.random.randint(0, conf['sequence_length'] - 1, size=[conf['batch_size'],2])
+            rand_pair = tf.random_uniform([conf['batch_size'],2], 0, conf['sequence_length'], dtype=tf.int64)
 
             ind_0 = tf.reshape(tf.reduce_min(rand_pair, reduction_indices=1), shape=[conf['batch_size'],1])
 
@@ -118,7 +132,7 @@ class Model(object):
                 conf['dropout'] = 1
 
         if reuse_scope is None:
-            logits, fp1, fp2  = construct_model(conf, images_0=image_0,
+            output, fp1, fp2  = construct_model(conf, images_0=image_0,
                                             images_1=image_1,
                                             is_training= is_training)
         else: # If it's a validation or test model.
@@ -127,65 +141,73 @@ class Model(object):
                 print 'valmodel with is_training: ', is_training
 
             with tf.variable_scope(reuse_scope, reuse=True):
-                logits, fp1, fp2 = construct_model(conf,  images_0=image_0,
+                output, fp1, fp2 = construct_model(conf,  images_0=image_0,
                                                 images_1=image_1,
                                                 is_training=is_training)
 
-        self.softmax_output = tf.nn.softmax(logits)
-        self.fp1, self.fp2 = fp1, fp2
+        self.softmax_output = tf.nn.softmax(output)
 
-        # mult = tf.mul(softmax_output, tf.cast(tf.range(0, conf['sequence_length']-1), tf.float32))
-        # expected_timesteps = tf.reduce_sum(mult,1)
+        if not inference:
 
-        # da_dx0 = []
-        # # for el in range(conf['batch_size']):
-        # for el in range(8):
-        #     exp_t = tf.slice(expected_timesteps, [el], [1])
-        #     image_0_ex = tf.slice(image_0, [el, 0, 0, 0,], [1, -1, -1, -1])
-        #     [grad] = tf.gradients(exp_t, image_0_ex)
-        #     pdb.set_trace()
-        #     grad = tf.expand_dims(grad, 0)
-        #     da_dx0.append(grad)
-        # self.da_dx0 = tf.concat(0, da_dx0)
-        #
-        # da_dx1 = []
-        # # for el in range(conf['batch_size']):
-        # for el in range(8):
-        #     exp_t = tf.slice(expected_timesteps, [el], [1])
-        #     image_1_ex = tf.slice(image_0, [el, 0, 0, 0,], [1, -1, -1, -1])
-        #     [grad] = tf.gradients(exp_t, image_1_ex)
-        #     grad = tf.expand_dims(grad, 0)
-        #     da_dx1.append(grad)
-        # self.da_dx1 = tf.concat(0, da_dx1)
+            if 'regresstravel' in conf:
+                self.true_travel = self.calc_true_travel(states)
+                self.pred_travel = output
+                self.loss = loss = mean_squared_error(self.true_travel, output)
+                self.prefix = prefix = tf.placeholder(tf.string, [])
+                summaries.append(tf.scalar_summary(prefix + 'mean_squared_error', loss))
 
-        if inference == False:
-            self.hard_labels = hard_labels = tf.squeeze(ind_1 - ind_0)
-
-
-            rows = []
-            for i in range(conf['batch_size']):
-                tstep = tf.slice(self.hard_labels, [i], [1])
-                zeros = tf.zeros(tf.to_int32(tstep))
-                ones = tf.ones(tf.to_int32(conf['sequence_length']-1 - tstep))
-                ones = ones / tf.reduce_sum(ones)
-                row = tf.expand_dims(tf.concat(0, [zeros, ones]),0)
-                rows.append(row)
-
-            self.soft_labels = tf.concat(0, rows)
-
-            if 'soft_labels' in conf:
-                self.cross_entropy = cross_entropy = tf.nn.softmax_cross_entropy_with_logits(
-                    labels=self.soft_labels, logits=logits, name='cross_entropy_per_example')
             else:
-                self.cross_entropy = cross_entropy = tf.nn.sparse_softmax_cross_entropy_with_logits(
-                    labels=hard_labels, logits=logits, name='cross_entropy_per_example')
 
-            cross_entropy_mean = tf.reduce_mean(cross_entropy, name='cross_entropy')
+                self.fp1, self.fp2 = fp1, fp2
+                # mult = tf.mul(softmax_output, tf.cast(tf.range(0, conf['sequence_length']-1), tf.float32))
+                # expected_timesteps = tf.reduce_sum(mult,1)
 
-            self.prefix = prefix = tf.placeholder(tf.string, [])
-            summaries.append(tf.scalar_summary(prefix + 'cross_entropy_mean', cross_entropy_mean))
-            self.loss = loss = cross_entropy_mean
-            self.lr = tf.placeholder_with_default(conf['learning_rate'], ())
+                # da_dx0 = []
+                # # for el in range(conf['batch_size']):
+                # for el in range(8):
+                #     exp_t = tf.slice(expected_timesteps, [el], [1])
+                #     image_0_ex = tf.slice(image_0, [el, 0, 0, 0,], [1, -1, -1, -1])
+                #     [grad] = tf.gradients(exp_t, image_0_ex)
+                #     pdb.set_trace()
+                #     grad = tf.expand_dims(grad, 0)
+                #     da_dx0.append(grad)
+                # self.da_dx0 = tf.concat(0, da_dx0)
+                #
+                # da_dx1 = []
+                # # for el in range(conf['batch_size']):
+                # for el in range(8):
+                #     exp_t = tf.slice(expected_timesteps, [el], [1])
+                #     image_1_ex = tf.slice(image_0, [el, 0, 0, 0,], [1, -1, -1, -1])
+                #     [grad] = tf.gradients(exp_t, image_1_ex)
+                #     grad = tf.expand_dims(grad, 0)
+                #     da_dx1.append(grad)
+                # self.da_dx1 = tf.concat(0, da_dx1)
+
+
+                self.hard_labels = hard_labels = tf.squeeze(ind_1 - ind_0)
+                rows = []
+                for i in range(conf['batch_size']):
+                    tstep = tf.slice(self.hard_labels, [i], [1])
+                    zeros = tf.zeros(tf.to_int32(tstep))
+                    ones = tf.ones(tf.to_int32(conf['sequence_length']-1 - tstep))
+                    ones = ones / tf.reduce_sum(ones)
+                    row = tf.expand_dims(tf.concat(0, [zeros, ones]),0)
+                    rows.append(row)
+
+                self.soft_labels = tf.concat(0, rows)
+
+                if 'soft_labels' in conf:
+                    self.cross_entropy = cross_entropy = tf.nn.softmax_cross_entropy_with_logits(
+                        labels=self.soft_labels, logits=output, name='cross_entropy_per_example')
+                else:
+                    self.cross_entropy = cross_entropy = tf.nn.sparse_softmax_cross_entropy_with_logits(
+                        labels=hard_labels, logits=output, name='cross_entropy_per_example')
+
+                cross_entropy_mean = tf.reduce_mean(cross_entropy, name='cross_entropy')
+
+                self.prefix = prefix = tf.placeholder(tf.string, [])
+                summaries.append(tf.scalar_summary(prefix + 'cross_entropy_mean', cross_entropy_mean))
+                self.loss = loss = cross_entropy_mean
 
             update_ops = tf.get_collection(tf.GraphKeys.UPDATE_OPS)
             if update_ops:
@@ -196,6 +218,12 @@ class Model(object):
                 self.train_op = tf.train.AdamOptimizer(self.lr).minimize(loss)
 
             self.summ_op = tf.merge_summary(summaries)
+
+    def calc_true_travel(self, states):
+        states_shift_l = tf.slice(states, [0,0,0], [-1,self.conf['sequence_length']-1,-1])
+        states_shift_r = tf.slice(states, [0, 1, 0], [-1, self.conf['sequence_length']-1, -1])
+        delta =  tf.sqrt(tf.reduce_sum(tf.square(states_shift_l - states_shift_r), 2))
+        return tf.reduce_sum(delta, 1)
 
 
 def main(unused_argv):
@@ -215,6 +243,7 @@ def main(unused_argv):
 
     conf = hyperparams.configuration
 
+    conf['event_log_dir'] = conf['output_dir']
     if FLAGS.visualize:
         print 'creating visualizations ...'
         conf['data_dir'] = '/'.join(str.split(conf['data_dir'], '/')[:-1] + ['test'])
@@ -238,7 +267,7 @@ def main(unused_argv):
             model = Model(conf, pred_video= pred_video, gtruth_video= gtruth_video)
         else:
             images, actions, states, objectpos = build_tfrecord_input(conf, training=True)
-            model = Model(conf, images)
+            model = Model(conf, images, states=states)
 
     with tf.variable_scope('val_model', reuse=None):
         if 'pred_gtruth' in conf:
@@ -246,7 +275,7 @@ def main(unused_argv):
             val_model = Model(conf, pred_video= pred_video_val, gtruth_video= gtruth_video_val)
         else:
             images_val, actions_val, states_val, objectpos_val = build_tfrecord_input(conf, training=False)
-            val_model = Model(conf, images_val, reuse_scope= training_scope)
+            val_model = Model(conf, images_val, states=states_val, reuse_scope= training_scope)
 
     print 'Constructing saver.'
     # Make saver.
@@ -256,14 +285,18 @@ def main(unused_argv):
     # Make training session.
     sess = tf.InteractiveSession(config= tf.ConfigProto(gpu_options=gpu_options))
     summary_writer = tf.train.SummaryWriter(
-        conf['output_dir'], graph=sess.graph, flush_secs=10)
+        conf['event_log_dir'], graph=sess.graph, flush_secs=10)
 
     tf.train.start_queue_runners(sess)
     sess.run(tf.initialize_all_variables())
 
     if FLAGS.visualize:
-        visualize(conf, sess, saver, val_model, states, objectpos_val)
-        return
+        if 'regresstravel' in conf:
+            visualize_travel(conf, sess, saver, val_model, states, objectpos_val)
+            return
+        else:
+            visualize(conf, sess, saver, val_model, states, objectpos_val)
+            return
 
     itr_0 =0
     if FLAGS.pretrained != None:
@@ -335,6 +368,47 @@ def main(unused_argv):
     tf.logging.info('Training complete')
     tf.logging.flush()
 
+def visualize_travel(conf, sess, saver, model, states, objectpos):
+    print 'creating visualizations ...'
+    saver.restore(sess,  conf['visualize'])
+
+    feed_dict = {model.lr: 0.0,
+                 model.prefix: 'val',
+                 }
+
+    im0, im1, pred_travel, true_travel, num_ind_0, num_ind_1, statesdata, objectposdata = sess.run([
+                                                                model.image_0,
+                                                                model.image_1,
+                                                                model.pred_travel,
+                                                                model.true_travel,
+                                                                model.num_ind_0,
+                                                                model.num_ind_1,
+                                                                states,
+                                                                objectpos
+                                                                ],
+                                                                feed_dict)
+
+    print 'num_ind_0', num_ind_0
+    print 'num_ind_1', num_ind_1
+
+    n_examples = 8
+    fig = plt.figure(figsize=(n_examples*2+4, 13), dpi=80)
+
+    for ind in range(n_examples):
+        ax = fig.add_subplot(3, n_examples, ind+1)
+        ax.imshow((im0[ind]*255).astype(np.uint8))
+        plt.axis('off')
+
+        ax = fig.add_subplot(3, n_examples, n_examples+1+ind)
+        ax.imshow((im1[ind]*255).astype(np.uint8))
+        # plt.axis('off')
+
+        ax.set_xlabel('true travel: {0} \n  pred_travel: {1}\n ind0: {2} \n ind1: {3}'
+                      .format(true_travel[ind], pred_travel[ind], num_ind_0[ind,1], num_ind_1[ind,1]))
+
+    plt.savefig(conf['output_dir'] + '/fig.png')
+    plt.show()
+
 
 def visualize(conf, sess, saver, model, states, objectpos):
     print 'creating visualizations ...'
@@ -375,7 +449,7 @@ def visualize(conf, sess, saver, model, states, objectpos):
 
         ax = fig.add_subplot(3, n_examples, n_examples*2 +ind +1)
 
-        N = conf['sequence_length'] -1
+        N = conf['sequence_length']
         values = softout[ind]
 
         loc = np.arange(N)  # the x locations for the groups

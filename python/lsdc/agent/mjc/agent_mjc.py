@@ -12,11 +12,11 @@ from lsdc.agent.agent import Agent
 from lsdc.agent.agent_utils import generate_noise, setup
 from lsdc.agent.config import AGENT_MUJOCO
 
-
+import time
 from lsdc.utility.trajectory import Trajectory
 from matplotlib.backends.backend_agg import FigureCanvasAgg as FigureCanvas
 from matplotlib.figure import Figure
-
+import cv2
 
 class AgentMuJoCo(Agent):
     """
@@ -39,7 +39,7 @@ class AgentMuJoCo(Agent):
         self._model= mujoco_py.MjModel(filename)
         self.model_nomarkers = mujoco_py.MjModel(self._hyperparams['filename_nomarkers'])
 
-        gofast = False
+        gofast = True
         self._small_viewer = mujoco_py.MjViewer(visible=True,
                                                 init_width=self._hyperparams['image_width'],
                                                 init_height=self._hyperparams['image_height'],
@@ -135,6 +135,7 @@ class AgentMuJoCo(Agent):
                 traj.U[t, :] = mj_U
 
             accum_touch = np.zeros_like(self._model.data.sensordata)
+
             for _ in range(self._hyperparams['substeps']):
                 accum_touch += self._model.data.sensordata
 
@@ -270,6 +271,33 @@ class AgentMuJoCo(Agent):
                 (480, 480, self._hyperparams['image_channels']))[::-1, :, :]
         self.large_images.append(largeimage)
 
+        # collect retina image
+        if 'large_images_retina' in self._hyperparams:
+            imheight = self._hyperparams['large_images_retina']
+            traj.large_images_retina[t] = cv2.resize(largeimage, (imheight, imheight), interpolation=cv2.INTER_AREA)
+
+            # save initial retina position:
+            if t == 0:
+                rh = self._hyperparams['retina_size']
+                block_coord = traj.Object_pos[t, 0, :2]
+                # angle = traj.Object_pos[t, 0, 2]
+                # adjusted_blockcoord = block_coord+ .1 *np.array([np.cos(angle), np.sin(angle)])
+                img_coord = self.mujoco_to_imagespace(block_coord, numpix=imheight)
+                if img_coord[0] < rh/2:
+                    img_coord[0] = rh/2
+                if img_coord[1] < rh/2:
+                    img_coord[1] = rh/2
+                if img_coord[0] > imheight - rh/2 -1:
+                    img_coord[0] = imheight - rh/2
+                if img_coord[1] > imheight - rh/2 -1:
+                    img_coord[1] = imheight - rh/2
+
+                traj.initial_ret_pos = img_coord
+                # ret = traj.large_images_retina[t][ img_coord[0]-rh/2:img_coord[0]+rh/2,
+                #                                                            img_coord[1]-rh/2:img_coord[1] + rh/2]
+                # Image.fromarray(ret).show()
+                # pdb.set_trace()
+
         ######
         #small viewer:
         self.model_nomarkers.data.qpos = self._model.data.qpos
@@ -372,5 +400,24 @@ class AgentMuJoCo(Agent):
             self._model.data.qpos = np.concatenate((x0[:2], object_pos,goal, ref), 0)
         else:
             self._model.data.qpos = np.concatenate((x0[:2], object_pos), 0)
-            pdb.set_trace()
+
         self._model.data.qvel = np.zeros_like(self._model.data.qvel)
+
+    def mujoco_to_imagespace(self, mujoco_coord, numpix=64, truncate=False):
+        """
+        convert form Mujoco-Coord to numpix x numpix image space:
+        :param numpix: number of pixels of square image
+        :param mujoco_coord:
+        :return: pixel_coord
+        """
+        viewer_distance = .75  # distance from camera to the viewing plane
+        window_height = 2 * np.tan(75 / 2 / 180. * np.pi) * viewer_distance  # window height in Mujoco coords
+        pixelheight = window_height / numpix  # height of one pixel
+        pixelwidth = pixelheight
+        window_width = pixelwidth * numpix
+        middle_pixel = numpix / 2
+        pixel_coord = np.rint(np.array([-mujoco_coord[1], mujoco_coord[0]]) /
+                              pixelwidth + np.array([middle_pixel, middle_pixel]))
+        pixel_coord = pixel_coord.astype(int)
+
+        return pixel_coord

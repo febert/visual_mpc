@@ -128,7 +128,7 @@ def perform_benchmark(bench_conf = None):
             if traj > nruns -1:
                 break
 
-            seed = traj
+            seed = traj+1
             random.seed(seed)
             np.random.seed(seed)
             print '-------------------------------------------------------------------'

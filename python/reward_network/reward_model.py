@@ -83,9 +83,15 @@ def build_model(conf, images_0, images_1):
     if 'dropout' in conf:
         fl2 = tf.nn.dropout(fl2, conf['dropout'])
 
+
+    if 'regresstravel' in conf:
+        num_out = 1
+    else:
+        num_out = conf['sequence_length']
+
     fl3 = slim.layers.fully_connected(
         fl2,
-        conf['sequence_length'] - 1,
+        num_out,
         activation_fn=None,
         scope='state_enc3')
 
@@ -106,11 +112,7 @@ def gen_embedding(conf, input):
     else:
         enc1 = slim.layers.conv2d(enc0, 64, [3, 3], stride=2, scope='conv1')
 
-    enc2 = slim.layers.conv2d(  # 16x16x64
-        enc1,
-        64, [3, 3],
-        stride=1,
-        scope='conv2')
+    enc2 = slim.layers.conv2d(enc1,64, [3, 3], stride=1, scope='conv2')   # 16x16x64
 
     if 'maxpool' in conf:
         enc2_maxp = slim.layers.max_pool2d(enc2, [2,2], stride=[2,2])
@@ -118,12 +120,7 @@ def gen_embedding(conf, input):
     else:
         enc3 = slim.layers.conv2d(enc2, 128, [3, 3], stride=2, scope='conv3')  # 8x8x128
 
-    enc4 = slim.layers.conv2d(  # 8x8x64
-        enc3,
-        64, [3, 3],
-        stride=1,
-        scope='conv4',
-    )
+    enc4 = slim.layers.conv2d(enc3,64, [3, 3],stride=1,scope='conv4')  # 8x8x64
 
     emb = tf.reshape(enc4, [int(enc4.get_shape()[0]), -1])
     return emb
