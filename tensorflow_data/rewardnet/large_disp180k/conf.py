@@ -26,5 +26,4 @@ configuration = {
 'batch_norm': '',
 'use_object_pos':'',
 'nomoving_average':'',
-'last_image1':''          # use the last image of the videosequence as image1
 }

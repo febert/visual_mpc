@@ -40,7 +40,7 @@ def build_tfrecord_input(conf, training=True):
         filenames = filenames[index:]
 
     if conf['visualize']:
-        filenames = [conf['visual_file']]
+        filenames = gfile.Glob(os.path.join(conf['data_dir'], '*'))
         print 'using input file', filenames
         shuffle = False
     else: shuffle = True
@@ -270,7 +270,7 @@ if __name__ == '__main__':
     print 'using CUDA_VISIBLE_DEVICES=', os.environ["CUDA_VISIBLE_DEVICES"]
     conf = {}
 
-    DATA_DIR = '/home/frederik/Documents/lsdc/pushing_data/softmotion15/train'
+    DATA_DIR = '/home/frederik/Documents/lsdc/pushing_data/softmotion30/test'
 
     conf['schedsamp_k'] = -1  # don't feed ground truth
     conf['data_dir'] = DATA_DIR  # 'directory containing data_files.' ,
@@ -279,9 +279,8 @@ if __name__ == '__main__':
     conf['sequence_length']= 15      # 'sequence length, including context frames.'
     conf['use_state'] = True
     conf['batch_size']= 32
-    conf['visualize']= False
-    conf['visual_file'] = '/home/frederik/Documents/lsdc/pushing_data/sawyer_noup_29/train/traj_0_to_255.tfrecords'
-    conf['use_object_pos'] = True
+    conf['visualize']= True
+    conf['single_view'] = ''
 
     print '-------------------------------------------------------------------'
     print 'verify current settings!! '
@@ -291,7 +290,8 @@ if __name__ == '__main__':
 
     print 'testing the reader'
 
-    image_main_batch, image_aux_batch, action_batch, endeff_pos_batch  = build_tfrecord_input(conf, training=False)
+    # image_main_batch, image_aux_batch, action_batch, endeff_pos_batch  = build_tfrecord_input(conf, training=False)
+    image_aux_batch, action_batch, endeff_pos_batch = build_tfrecord_input(conf, training=False)
 
     sess = tf.InteractiveSession()
     tf.train.start_queue_runners(sess)
@@ -301,7 +301,8 @@ if __name__ == '__main__':
     for i in range(1):
         print 'run number ', i
 
-        image_main, image_aux, actions, endeff = sess.run([image_main_batch, image_aux_batch, action_batch, endeff_pos_batch])
+        # image_main, image_aux, actions, endeff = sess.run([image_main_batch, image_aux_batch, action_batch, endeff_pos_batch])
+        image_aux, actions, endeff = sess.run([image_aux_batch, action_batch, endeff_pos_batch])
 
         # show some frames
 
@@ -310,9 +311,9 @@ if __name__ == '__main__':
             print actions[i]
             print endeff[i]
 
-            img = np.uint8(255. *image_main[0, i])
-            img = Image.fromarray(img, 'RGB')
-            img.show()
+            # img = np.uint8(255. *image_main[0, i])
+            # img = Image.fromarray(img, 'RGB')
+            # img.show()
 
             image_aux = np.squeeze(image_aux)
             img = np.uint8(255. * image_aux[0, i])

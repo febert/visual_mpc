@@ -42,22 +42,29 @@ def comp_video(file_path, conf=None, suffix = None, gif_name= None):
         if 'fftcost' in conf:
             true_fft, pred_fft = visualize_fft(file_path)
 
+        if 'costmasks' in conf:
+            true_ret = cPickle.load(open(file_path + '/true_ret.pkl', "rb"))
+            pred_ret = cPickle.load(open(file_path + '/pred_ret.pkl', "rb"))
+
     if not isinstance(ground_truth, list):
         ground_truth = np.split(ground_truth, ground_truth.shape[1], axis=1)
-        ground_truth = np.squeeze(ground_truth)
+        ground_truth = [np.squeeze(g) for g in ground_truth]
+
+    ground_truth = ground_truth[1:]
+    gen_images = [np.squeeze(g) for g in gen_images]
 
     if conf != None:
         if 'fftcost' in conf:
             fused_gif = assemble_gif([ground_truth, true_fft, gen_images, pred_fft])
         else: fused_gif = assemble_gif([ground_truth, gen_images])
-    else:     fused_gif = assemble_gif([ground_truth, gen_images])
+    else:
+        fused_gif = assemble_gif([ground_truth, gen_images])
 
     if conf is not None:
         itr_vis = re.match('.*?([0-9]+)$', conf['visualize']).group(1)
         if not suffix:
             name = file_path + '/vid_' + conf['experiment_name'] + '_' + str(itr_vis)
         else: name = file_path + '/vid_' + conf['experiment_name'] + '_' + str(itr_vis) + suffix
-
     else:
         name = file_path + '/' + gif_name
 
@@ -81,7 +88,7 @@ def comp_single_video(file_path, ground_truth, predicted = None, num_exp = 8):
     fused_gif = assemble_gif([ground_truth], num_exp)
     npy_to_gif(fused_gif, file_path)
 
-def make_color_scheme(input_img_list):
+def make_color_scheme(input_img_list, n_exp= None):
     """
     :param input_img_list: list of single channel images
     :param output_img_list: list of single channel images
@@ -90,16 +97,20 @@ def make_color_scheme(input_img_list):
     """
     output_image_list = []
 
+    if n_exp == None:
+        n_exp = input_img_list[0].shape[0]
+
     for t in range(len(input_img_list)):
 
+        height = input_img_list[0].shape[1]
 
-        output_image = np.zeros((input_img_list[0].shape[0], 64, 64, 3), dtype=np.float32)
+        output_image = np.zeros((input_img_list[0].shape[0], height, height, 3), dtype=np.float32)
 
-        for b in range(input_img_list[0].shape[0]):
+        for b in range(n_exp):
 
             img = input_img_list[t][b].squeeze()
 
-            fig = plt.figure(figsize=(2, 2), dpi=32)
+            fig = plt.figure(figsize=(1, 1), dpi=height)
             fig.add_subplot(111)
             plt.subplots_adjust(left=0, bottom=0, right=1, top=1, wspace=0, hspace=0)
 
@@ -191,7 +202,6 @@ def assemble_gif(video_batch, num_exp = 8, convert_from_float = True):
     for i in range(len(video_batch)):
         video_batch[i] = [np.expand_dims(videoframe, axis=0) for videoframe in video_batch[i]]
 
-    # import pdb; pdb.set_trace()
     for i in range(len(video_batch)):
         video_batch[i] = np.concatenate(video_batch[i], axis= 0)
 
@@ -249,9 +259,11 @@ if __name__ == '__main__':
     # file_path = '/'.join(splitted[:-3] + ['tensorflow_data/skip_frame/use_every4'])
     # file_path = '/home/frederik/Documents/lsdc/tensorflow_data/skip_frame/use_every_4'
 
-    file_path = '/home/frederik/Documents/lsdc/tensorflow_data/fft_only/modeldata'
-    hyperparams = imp.load_source('hyperparams', '/home/frederik/Documents/lsdc/tensorflow_data/fft_only/conf.py' )
+    file_path = '/home/frederik/Documents/lsdc/tensorflow_data/retina/static/modeldata'
+    hyperparams = imp.load_source('hyperparams', '/home/frederik/Documents/lsdc/tensorflow_data/retina/static/conf.py' )
     conf = hyperparams.configuration
-    conf['visualize'] = conf['output_dir'] + '/model48002'
-    pred = comp_video(file_path, conf)
+    conf['visualize'] = conf['output_dir'] + '/model10002'
+    # pred = comp_video(file_path, conf)
+
+    comp_pix_distrib(conf['output_dir'])
 

@@ -2,12 +2,12 @@ import os
 current_dir = os.path.dirname(os.path.realpath(__file__))
 
 # tf record data location:
-DATA_DIR = '/'.join(str.split(current_dir, '/')[:-3]) + '/pushing_data/sawyer_2cam/train'
+DATA_DIR = '/'.join(str.split(current_dir, '/')[:-3]) + '/pushing_data/large_displacement_pose/train'
 
 # local output directory
 OUT_DIR = current_dir + '/modeldata'
 
-from video_prediction.prediction_model_downsized_lesslayer import construct_model
+# from video_prediction.prediction_model_downsized_lesslayer import construct_model
 
 configuration = {
 'experiment_name': 'rndaction_var10',
@@ -27,11 +27,9 @@ configuration = {
 'batch_size': 32,           #'batch size for training' ,
 'learning_rate': 0.001,     #'the base learning rate of the generator' ,
 'visualize': '',            #'load model from which to generate visualizations
-'downsize': construct_model,           #'create downsized model'
 'file_visual': '',          # datafile used for making visualizations
-'penal_last_only': False,   # penalize only the last state, to get sharper predictions
-'dna_size': 9,              #size of DNA kerns
-'sawyer':'',
-'numcam':2,
-'ignore_state_action':""
+'penal_last_only': False,     # penalize only the last state, to get sharper predictions
+'num_obj':1,
+'state_cost_factor': 1e-4,
+'pose_cost_factor': 1e-5
 }

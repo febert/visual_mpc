@@ -520,8 +520,6 @@ class CEM_controller(Policy):
 
         else: input_distrib = self.mujoco_one_hot_images()
 
-
-
         last_states = np.expand_dims(last_states, axis=0)
 
 
