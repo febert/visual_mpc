@@ -85,6 +85,7 @@ def construct_model(images,
     t = -1
     for image, action in zip(images[:-1], actions[:-1]):
         t +=1
+        print t
         # Reuse variables after the first timestep.
         reuse = bool(gen_images)
 
@@ -212,6 +213,9 @@ def construct_model(images,
                 else:
                     transformed_cam2 = [dna_transformation(prev_image, trafo_input_cam2, conf['dna_size'])]
 
+                    if pix_distributions != None:
+                        transf_distrib = dna_transformation(prev_pix_distrib, trafo_input_cam2, DNA_KERN_SIZE)
+
             if conf['model']=='STP':
 
                 # This allows the network to also generate one image from scratch,
@@ -225,22 +229,25 @@ def construct_model(images,
                     enc7 = slim.layers.conv2d_transpose(enc6, color_channels, 1, stride=1, scope='convt5')
                     transformed_cam2 = [tf.nn.sigmoid(enc7)]
 
-                stp_input0 = tf.reshape(hidden5, [int(batch_size), -1])
-                stp_input1_cam1 = slim.layers.fully_connected(
-                    stp_input0, 100, scope='fc_stp_cam1')
+                enc_stp = tf.reshape(hidden5, [int(batch_size), -1])
+                stp_input_cam1 = slim.layers.fully_connected(
+                    enc_stp, 100, scope='fc_stp_cam1')
 
-                stp_input1_cam2 = slim.layers.fully_connected(
-                    stp_input0, 100, scope='fc_stp_cam2')
+                stp_input_cam2 = slim.layers.fully_connected(
+                    enc_stp, 100, scope='fc_stp_cam2')
 
                 # disabling capability to generete pixels
                 reuse_stp = None
                 if reuse:
                     reuse_stp = reuse
                 if 'single_view' not in conf:
-                    transformed_cam1 +=stp_transformation(prev_image_cam1, stp_input1_cam1, num_masks, reuse_stp, suffix='cam1')
-                    transformed_cam2 += stp_transformation(prev_image_cam2, stp_input1_cam2, num_masks, reuse_stp,suffix='cam2')
+                    transformed_cam1 +=stp_transformation(prev_image_cam1, stp_input_cam1, num_masks, reuse_stp, suffix='cam1')
+                    transformed_cam2 += stp_transformation(prev_image_cam2, stp_input_cam2, num_masks, reuse_stp,suffix='cam2')
                 else:
-                    transformed_cam2 +=stp_transformation(prev_image, stp_input1_cam2, num_masks, reuse_stp, suffix='cam2')
+                    transformed_cam2 +=stp_transformation(prev_image, stp_input_cam2, num_masks, reuse_stp, suffix='cam2')
+
+                    if pix_distributions != None:
+                        transf_distrib = stp_transformation(prev_pix_distrib, stp_input_cam2, num_masks, reuse=True)
 
             masks_cam1 = slim.layers.conv2d_transpose(
                 enc6, (num_masks + 2), 1, stride=1, scope='convt7_cam1')
@@ -258,6 +265,20 @@ def construct_model(images,
             gen_images.append(output)
             gen_masks.append(mask_list_cam2)
 
+            if conf['model']=='STP':
+                if pix_distributions!=None:
+                    pix_distrib_output = mask_list_cam2[0] * prev_pix_distrib
+                    mult_list = []
+                    for i in range(num_masks):
+                        mult_list.append(transf_distrib[i] * mask_list_cam2[i+1])
+                        pix_distrib_output += mult_list[i]
+
+                    gen_pix_distrib.append(pix_distrib_output)
+
+            if conf['model'] == 'DNA':
+                if pix_distributions != None:
+                    gen_pix_distrib.append(transf_distrib)
+
             if current_state != None:
                 current_state = slim.layers.fully_connected(
                     state_action,
@@ -266,7 +287,10 @@ def construct_model(images,
                     activation_fn=None)
             gen_states.append(current_state)
 
-    return gen_images, gen_states, gen_masks, None
+    if pix_distributions != None:
+        return gen_images, gen_states, gen_masks, gen_pix_distrib
+    else:
+        return gen_images, gen_states, gen_masks, None
 
 
 def fuse_trafos(conf, masks, prev_image, transformed):

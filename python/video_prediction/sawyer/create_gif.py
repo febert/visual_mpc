@@ -1,6 +1,5 @@
 import cPickle
-from video_prediction.utils_vpred.create_gif import assemble_gif
-from video_prediction.utils_vpred.create_gif import npy_to_gif
+from video_prediction.utils_vpred.create_gif import *
 import numpy as np
 import imp
 import re
@@ -37,9 +36,13 @@ def create_gif(file_path, conf, suffix = None, numexp = 8):
 
     npy_to_gif(fused_gif, name)
 
-def create_single_video_gif(file_path, conf, suffix = None, n_exp = 8):
+def create_video_pixdistrib_gif(file_path, conf, suffix = None, n_exp = 8):
     gen_images = cPickle.load(open(file_path + '/gen_image.pkl', "rb"))
-    fused_gif = assemble_gif(gen_images, n_exp)
+    gen_distrib = cPickle.load(open(file_path + '/gen_distrib.pkl', "rb"))
+
+    gen_distrib = make_color_scheme(gen_distrib)
+
+    fused_gif = assemble_gif([gen_images, gen_distrib], n_exp)
 
     itr_vis = re.match('.*?([0-9]+)$', conf['visualize']).group(1)
     if not suffix:
@@ -56,5 +59,5 @@ if __name__ == '__main__':
     file_path = '/home/frederik/Documents/lsdc/tensorflow_data/sawyer/singleview_shifted/modeldata'
     hyperparams = imp.load_source('hyperparams', '/home/frederik/Documents/lsdc/tensorflow_data/sawyer/singleview_shifted/conf.py')
     conf = hyperparams.configuration
-    conf['visualize'] = conf['output_dir'] + '/model46002'
-    pred = create_single_video_gif(file_path, conf)
+    conf['visualize'] = conf['output_dir'] + '/model114002'
+    pred = create_video_pixdistrib_gif(file_path, conf, suffix='diffmotions')

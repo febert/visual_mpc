@@ -20,18 +20,30 @@ def add_crosshairs(distrib, pix_list):
     return distrib
 
 
-def comp_pix_distrib(file_path, name= None, masks = False, examples = 8):
-    pix_distrib = cPickle.load(open(file_path + '/gen_distrib.pkl', "rb"))
-    gen_images = cPickle.load(open(file_path + '/gen_images.pkl', "rb"))
-    gtruth_images = cPickle.load(open(file_path + '/gtruth_images.pkl', "rb"))
-    maxcoord = cPickle.load(open(file_path + '/maxcoord.pkl', "rb"))
+def comp_pix_distrib(file_path, name= None, masks = False, examples = 10):
+    dict_ = cPickle.load(open(file_path + '/dict_.pkl', "rb"))
+
+    gen_retinas =dict_['gen_retinas']
+    gtruth_retinas = dict_['gtruth_retinas']
+    val_highres = dict_['val_highres_images']
+    gen_pix_distrib = dict_['gen_pix_distrib']
+    maxcoord = dict_['maxcoord']
+    retina_pos = dict_['retina_pos']
 
     print 'finished loading'
 
-    pix_distrib = make_color_scheme(pix_distrib)
-    pix_distrib = add_crosshairs(pix_distrib, maxcoord)
+    gen_pix_distrib = make_color_scheme(gen_pix_distrib)
+    gen_pix_distrib = add_crosshairs(gen_pix_distrib, maxcoord)
 
-    videolist = [gtruth_images, gen_images, pix_distrib]
+    gtruth_retinas = pad_pos(gtruth_retinas, retina_pos)
+    gen_retinas = pad_pos(gen_retinas, retina_pos)
+    gen_pix_distrib = pad_pos(gen_pix_distrib, retina_pos)
+
+    if not isinstance(val_highres, list):
+        val_highres = np.split(val_highres, val_highres.shape[1], axis=1)
+        val_highres = [np.squeeze(g) for g in val_highres]
+
+    videolist = [val_highres, gtruth_retinas, gen_retinas, gen_pix_distrib]
 
     suffix = ''
     if masks:
@@ -55,6 +67,20 @@ def comp_pix_distrib(file_path, name= None, masks = False, examples = 8):
         npy_to_gif(fused_gif, file_path + '/' + name + suffix)
 
 
+def pad_pos(vid, pos):
+
+    batch = vid[0].shape[0]
+    padded_vid = [np.zeros([batch, 80, 80, 3]) for _ in range(len(vid))]
+    for b in range(batch):
+        for t in range(len(vid)):
+            rstart = pos[t][b,0] - 16
+            rend = pos[t][b,0] + 16
+            cstart = pos[t][b,1] - 16
+            cend = pos[t][b,1] + 16
+            padded_vid[t][b, rstart:rend, cstart:cend] = vid[t][b]
+
+    return padded_vid
+
 if __name__ == '__main__':
-    file_path = '/home/frederik/Documents/lsdc/tensorflow_data/retina/static/modeldata'
+    file_path = '/home/frederik/Documents/lsdc/tensorflow_data/retina/fromstatic/modeldata'
     comp_pix_distrib(file_path)
