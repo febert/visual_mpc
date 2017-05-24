@@ -60,13 +60,34 @@ def mean_squared_error(true, pred):
     return tf.reduce_sum(tf.square(true - pred)) / tf.to_float(tf.size(pred))
 
 
-def mean_squared_error_costmask(true, pred, poses, conf):
+def mujoco_to_imagespace_tf(mujoco_coord, numpix = 64):
+    """
+    convert form Mujoco-Coord to numpix x numpix image space:
+    :param numpix: number of pixels of square image
+    :param mujoco_coord: batch_size x 2
+    :return: pixel_coord: batch_size x 2
+    """
+    viewer_distance = .75  # distance from camera to the viewing plane
+    window_height = 2 * np.tan(75 / 2 / 180. * np.pi) * viewer_distance  # window height in Mujoco coords
+    pixelheight = window_height / numpix  # height of one pixel
+    middle_pixel = numpix / 2
+    r = -tf.slice(mujoco_coord,[0,1], [-1,1])
+    c =  tf.slice(mujoco_coord,[0,0], [-1,1])
+    pixel_coord = tf.concat(1, [r,c])/pixelheight
+    pixel_coord += middle_pixel
+    pixel_coord = tf.round(pixel_coord)
+
+    return pixel_coord
+
+def mean_squared_error_costmask(true, pred, pose, conf):
     orig_imh = 64
     retina_size = 24
     half_rh = retina_size / 2  # half retina height
 
-    current_rpos = tf.slice(poses, [0, 0], [-1, 2])
-    current_rpos = tf.clip_by_value(tf.cast(current_rpos, dtype=tf.int32), half_rh, orig_imh - half_rh - 1)
+    pos = tf.slice(pose, [0,0], [-1,2])
+    pos = mujoco_to_imagespace_tf(pos)
+
+    current_rpos = tf.clip_by_value(tf.cast(pos, dtype=tf.int32), half_rh, orig_imh - half_rh - 1)
 
     true_retinas = []
     pred_retinas = []
@@ -83,7 +104,7 @@ def mean_squared_error_costmask(true, pred, poses, conf):
     true_retinas = tf.concat(0, true_retinas)
     pred_retinas = tf.concat(0, pred_retinas)
     cost = tf.reduce_sum(tf.square(true_retinas - pred_retinas)) / tf.to_float(tf.size(pred_retinas))
-    return cost, true_retinas, pred_retinas
+    return cost, true_retinas, pred_retinas, current_rpos
 
 
 def fft_cost(true, pred, conf, fft_weights = None):
@@ -113,6 +134,7 @@ def fft_cost(true, pred, conf, fft_weights = None):
         pred_fft_abssum += tf.complex_abs(pred_fft)
 
     return cost, true_fft_abssum, pred_fft_abssum
+
 
 class Model(object):
     def __init__(self,
@@ -154,6 +176,7 @@ class Model(object):
                 images,
                 actions,
                 states,
+                poses,
                 iter_num=self.iter_num,
                 k=conf['schedsamp_k'],
                 use_state=conf['use_state'],
@@ -170,6 +193,7 @@ class Model(object):
                     images,
                     actions,
                     states,
+                    poses,
                     iter_num=self.iter_num,
                     k=conf['schedsamp_k'],
                     use_state=conf['use_state'],
@@ -183,7 +207,7 @@ class Model(object):
         # L2 loss, PSNR for eval.
         true_fft_list, pred_fft_list = [], []
 
-        costmasklist, true_retinas, pred_retinas = [], [], []
+        costmasklist, true_retinas, pred_retinas, retpos_list = [], [], [], []
 
         loss, psnr_all = 0.0, 0.0
 
@@ -193,10 +217,10 @@ class Model(object):
                 range(len(gen_images)), images[conf['context_frames']:],
                 gen_images[conf['context_frames'] - 1:], poses[conf['context_frames']:]):
             if 'costmask' in conf:
-                print 'using costmask'
-                recon_cost_mse, true_ret, pred_ret = mean_squared_error_costmask(x, gx, p,conf)
+                recon_cost_mse, true_ret, pred_ret, retpos = mean_squared_error_costmask(x, gx, p,conf)
                 true_retinas.append(true_ret)
                 pred_retinas.append(pred_ret)
+                retpos_list.append(retpos)
             else:
                 recon_cost_mse = mean_squared_error(x, gx)
 
@@ -252,6 +276,7 @@ class Model(object):
         self.costmasklist = costmasklist
         self.true_retinas = true_retinas
         self.pred_retinas = pred_retinas
+        self.retpos_list = retpos_list
 
 
 def main(unused_argv, conf_script= None):
@@ -376,6 +401,25 @@ def main(unused_argv, conf_script= None):
     t_iter = []
     # Run training.
     fft_weights = calc_fft_weight()
+
+    ####### debugging
+    # from PIL import Image
+    # itr = 0
+    # feed_dict = {model.prefix: 'train',
+    #              model.iter_num: np.float32(itr),
+    #              model.lr: conf['learning_rate'],
+    #              }
+    # true_retina, retpos = sess.run([model.true_retinas, model.retpos_list],
+    #                                 feed_dict)
+    #
+    # print 'retina pos:'
+    # for i in range(3):
+    #     Image.fromarray((true_retina[0][i] * 255).astype(np.uint8)).show()
+    #     retpos[i]
+    #
+    # pdb.set_trace()
+    ####### end debugging
+
 
     for itr in range(itr_0, conf['num_iterations'], 1):
         t_startiter = datetime.now()
