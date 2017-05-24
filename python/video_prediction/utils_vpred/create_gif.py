@@ -42,9 +42,10 @@ def comp_video(file_path, conf=None, suffix = None, gif_name= None):
         if 'fftcost' in conf:
             true_fft, pred_fft = visualize_fft(file_path)
 
-        if 'costmasks' in conf:
+        if 'costmask' in conf:
             true_ret = cPickle.load(open(file_path + '/true_ret.pkl', "rb"))
             pred_ret = cPickle.load(open(file_path + '/pred_ret.pkl', "rb"))
+
 
     if not isinstance(ground_truth, list):
         ground_truth = np.split(ground_truth, ground_truth.shape[1], axis=1)
@@ -69,6 +70,11 @@ def comp_video(file_path, conf=None, suffix = None, gif_name= None):
         name = file_path + '/' + gif_name
 
     npy_to_gif(fused_gif, name)
+
+    if 'costmask' in conf:
+        fused_gif = assemble_gif([true_ret, pred_ret])
+        name = file_path + '/retinas_' + str(itr_vis)
+        npy_to_gif(fused_gif, name)
 
     return fused_gif
 
@@ -259,11 +265,11 @@ if __name__ == '__main__':
     # file_path = '/'.join(splitted[:-3] + ['tensorflow_data/skip_frame/use_every4'])
     # file_path = '/home/frederik/Documents/lsdc/tensorflow_data/skip_frame/use_every_4'
 
-    file_path = '/home/frederik/Documents/lsdc/tensorflow_data/retina/static/modeldata'
-    hyperparams = imp.load_source('hyperparams', '/home/frederik/Documents/lsdc/tensorflow_data/retina/static/conf.py' )
+    file_path = '/home/frederik/Documents/lsdc/tensorflow_data/costmasks/cmask/modeldata'
+    hyperparams = imp.load_source('hyperparams', '/home/frederik/Documents/lsdc/tensorflow_data/costmasks/cmask/conf.py' )
     conf = hyperparams.configuration
-    conf['visualize'] = conf['output_dir'] + '/model10002'
-    # pred = comp_video(file_path, conf)
+    conf['visualize'] = conf['output_dir'] + '/model42002'
+    pred = comp_video(file_path, conf)
 
-    comp_pix_distrib(conf['output_dir'])
+    # comp_pix_distrib(conf['output_dir'])
 

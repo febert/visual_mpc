@@ -496,6 +496,34 @@ class CEM_controller(Policy):
 
         makegif.npy_to_gif(frame_list, self.policyparams['rec_distrib'])
 
+    def mujoco_to_imagespace(self, mujoco_coord, numpix = 64, truncate = False):
+        """
+        convert form Mujoco-Coord to numpix x numpix image space:
+        :param numpix: number of pixels of square image
+        :param mujoco_coord:
+        :return: pixel_coord
+        """
+        viewer_distance = .75  # distance from camera to the viewing plane
+        window_height = 2 * np.tan(75 / 2 / 180. * np.pi) * viewer_distance  # window height in Mujoco coords
+        pixelheight = window_height / numpix  # height of one pixel
+        pixelwidth = pixelheight
+        window_width = pixelwidth * numpix
+        middle_pixel = numpix / 2
+        pixel_coord = np.rint(np.array([-mujoco_coord[1], mujoco_coord[0]]) /
+                              pixelwidth + np.array([middle_pixel, middle_pixel]))
+        pixel_coord = pixel_coord.astype(int)
+
+        if truncate:
+            if np.any(pixel_coord < 0) or np.any(pixel_coord > numpix -1):
+                print '###################'
+                print 'designated pixel is outside the field!! Resetting it to be inside...'
+                print 'truncating...'
+                if np.any(pixel_coord < 0):
+                    pixel_coord[pixel_coord < 0] = 0
+                if np.any(pixel_coord > numpix-1):
+                    pixel_coord[pixel_coord > numpix-1]  = numpix-1
+
+        return pixel_coord
 
     def video_pred(self, last_frames, last_states, actions, itr):
 

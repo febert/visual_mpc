@@ -33,6 +33,7 @@ RELU_SHIFT = 1e-12
 def construct_model(images,
                     actions=None,
                     states=None,
+                    retpos = None,
                     iter_num=-1.0,
                     k=-1,
                     use_state=True,
@@ -142,7 +143,11 @@ def construct_model(images,
                     print 'using image 1'
 
             # Predicted state is always fed back in
-            state_action = tf.concat(1, [action, current_state])
+            if 'costmask' in conf:
+                state_action = tf.concat(1, [action, current_state, retpos[t]])
+                print 'concat retpos with actions'
+            else:
+                state_action = tf.concat(1, [action, current_state])
 
             enc0 = slim.layers.conv2d(    #32x32x32
                 prev_image,
