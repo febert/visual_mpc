@@ -21,5 +21,5 @@ policy = {
 
 agent = {
     'T': 25,
-    'use_goalimage':"",
+    # 'use_goalimage':"",
 }
