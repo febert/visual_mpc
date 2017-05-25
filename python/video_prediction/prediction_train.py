@@ -213,7 +213,7 @@ class Model(object):
 
         self.fft_weights = tf.placeholder(tf.float32, [64, 64])
 
-        for i, x, gx, p in zip(
+        for i, x, gx in zip(
                 range(len(gen_images)), images[conf['context_frames']:],
                 gen_images[conf['context_frames'] - 1:]):
             if 'costmask' in conf:
