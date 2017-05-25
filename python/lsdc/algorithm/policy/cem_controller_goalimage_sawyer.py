@@ -16,22 +16,15 @@ from PIL import Image
 import pdb
 
 
-class CEM_controller(Policy):
+class CEM_controller():
     """
     Cross Entropy Method Stochastic Optimizer
     """
     def __init__(self, ag_params, policyparams, predictor = None):
-        Policy.__init__(self)
-        self.agentparams = copy.deepcopy(AGENT_MUJOCO)
-        self.agentparams.update(ag_params)
+        self.agentparams = ag_params
         self.policyparams = policyparams
 
         self.t = None
-
-        if self.policyparams['low_level_ctrl']:
-            self.low_level_ctrl = policyparams['low_level_ctrl']['type'](None, policyparams['low_level_ctrl'])
-
-        self.model = mujoco_py.MjModel(self.agentparams['filename'])
 
         if 'verbose' in self.policyparams:
             self.verbose = True
@@ -45,12 +38,10 @@ class CEM_controller(Policy):
             self.niter = self.policyparams['iterations']
         else: self.niter = 10  # number of iterations
 
-        self.use_net = self.policyparams['usenet']
         self.action_list = []
 
-        if self.use_net:
-            hyperparams = imp.load_source('hyperparams', self.policyparams['netconf'])
-            self.netconf = hyperparams.configuration
+        hyperparams = imp.load_source('hyperparams', self.policyparams['netconf'])
+        self.netconf = hyperparams.configuration
 
         self.naction_steps = self.policyparams['nactions']
         self.repeat = self.policyparams['repeat']
@@ -82,10 +73,6 @@ class CEM_controller(Policy):
         self.small_viewer.start()
         self.small_viewer.set_model(self.model)
         self.small_viewer.cam.camid = 0
-
-
-        self.init_model = []
-
 
         # predicted positions
         self.pred_pos = np.zeros((self.M, self.niter, self.repeat * self.naction_steps, 2))
@@ -128,12 +115,11 @@ class CEM_controller(Policy):
         return  actions
 
 
-    def perform_CEM(self,last_frames, last_states, last_action, t):
+    def perform_CEM(self,last_frames, last_states, t):
         # initialize mean and variance
 
         self.mean = np.zeros(self.adim * self.naction_steps)
         #initialize mean and variance of the discrete actions to their mean and variance used during data collection
-
 
         self.sigma = np.diag(np.ones(self.adim * self.naction_steps) * self.initial_std ** 2)
 
@@ -193,7 +179,11 @@ class CEM_controller(Policy):
             print 'overall time for iteration {}'.format(
                 (datetime.now() - t_startiter).seconds + (datetime.now() - t_startiter).microseconds / 1e6)
 
-
+    def make_one_hot(self):
+        one_hot_images = np.zeros((self.netconf['batch_size'], self.netconf['context_frames'], 64, 64, 1), dtype=np.float32)
+        # switch on pixels
+        one_hot_images[:, :, self.desig_pix[0], self.desig_pix[1]] = 1
+        return one_hot_images
 
     def video_pred(self, last_frames, last_states, actions, itr):
 
@@ -208,17 +198,43 @@ class CEM_controller(Policy):
         last_frames = np.concatenate((last_frames, app_zeros), axis=1)
         last_frames = last_frames.astype(np.float32)/255.
 
-        inf_low_state, gen_images, gen_states = self.predictor( input_images= last_frames,
-                                                                input_state=last_states,
-                                                                input_actions = actions)
+        if 'single_view' in self.netconf:
+            if 'use_goalimage' in self.policyparams:
+                gen_images, gen_states = self.predictor(input_images= last_frames,
+                                                        input_state=last_states,
+                                                        input_actions = actions)
+            else:
+                pdb.set_trace()
+                gen_images, gen_distrib, gen_states  = self.predictor(input_images=last_frames,
+                                                        input_state=last_states,
+                                                        input_actions=actions,
+                                                        input_one_hot_images = self.make_one_hot()
+                                                        )
+        else:
+            gen_images, gen_states = self.predictor(input_images=last_frames,
+                                                    input_state=last_states,
+                                                    input_actions=actions)
+
         #evaluate distances to goalstate
         scores = np.zeros(self.netconf['batch_size'])
 
 
-        for b in range(self.netconf['batch_size']):
-            scores[b] = np.linalg.norm(
-                (self.goal_image - gen_images[-1][b]).flatten())
-            pdb.set_trace()
+        if 'use_goalimage' in self.policyparams:
+            for b in range(self.netconf['batch_size']):
+                scores[b] = np.linalg.norm(
+                    (self.goal_image - gen_images[-1][b]).flatten())
+                pdb.set_trace()
+        else: # evaluate pixel movement:
+            distance_grid = np.empty((64, 64))
+            for i in range(64):
+                for j in range(64):
+                    pos = np.array([i, j])
+                    distance_grid[i, j] = np.linalg.norm(self.goal_pix - pos)
+
+            expected_distance = np.zeros(self.netconf['batch_size'])
+            for b in range(self.netconf['batch_size']):
+                gen = gen_distrib[-1][b].squeeze() / np.sum(gen_distrib[-1][b])
+                expected_distance[b] = np.sum(np.multiply(gen, distance_grid))
 
         # compare prediciton with simulation
         if self.verbose: #and itr == self.policyparams['iterations']-1:
@@ -250,7 +266,6 @@ class CEM_controller(Policy):
                                                                    np.where(sorted == i)[0][0]))
                 f.write('action {}\n'.format(actions[i]))
 
-
         bestindex = scores.argsort()[0]
         if 'store_video_prediction' in self.agentparams and\
                 itr == (self.policyparams['iterations']-1):
@@ -262,7 +277,7 @@ class CEM_controller(Policy):
         return scores
 
 
-    def act(self, traj, t, init_model= None):
+    def act(self, traj, t, desig_pix, goal_pix):
         """
         Return a random action for a state.
         Args:
@@ -270,22 +285,21 @@ class CEM_controller(Policy):
             init_model: mujoco model to initialize from
         """
         self.t = t
-        self.init_model = init_model
+
 
         if t == 0:
             action = np.zeros(2)
-            self.target = copy.deepcopy(self.init_model.data.qpos[:2].squeeze())
+            self.desig_pix = desig_pix
+            self.goal_pix = goal_pix
 
         else:
-
             last_images = traj._sample_images[t-1:t+1]
             last_states = traj.X_Xdot_full[t-1: t+1]
-            last_action = self.action_list[-1]
 
             if self.use_first_plan:
                 print 'using actions of first plan, no replanning!!'
                 if t == 1:
-                    self.perform_CEM(last_images, last_states, last_action, t)
+                    self.perform_CEM(last_images, last_states, t)
                 else:
                     # only showing last iteration
                     self.pred_pos = self.pred_pos[:,-1].reshape((self.M, 1, self.repeat * self.naction_steps, 2))
@@ -294,7 +308,7 @@ class CEM_controller(Policy):
                 action = self.bestaction_withrepeat[t - 1]
 
             else:
-                self.perform_CEM(last_images, last_states, last_action, t)
+                self.perform_CEM(last_images, last_states, t)
                 action = self.bestaction[0]
 
         self.action_list.append(action)
