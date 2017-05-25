@@ -144,7 +144,7 @@ def construct_model(images,
 
             # Predicted state is always fed back in
             if 'costmask' in conf:
-                state_action = tf.concat(1, [action, current_state, retpos[t]])
+                state_action = tf.concat(1, [action, current_state, retpos[0]])
                 print 'concat retpos with actions'
             else:
                 state_action = tf.concat(1, [action, current_state])

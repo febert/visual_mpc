@@ -215,9 +215,9 @@ class Model(object):
 
         for i, x, gx, p in zip(
                 range(len(gen_images)), images[conf['context_frames']:],
-                gen_images[conf['context_frames'] - 1:], poses[conf['context_frames']:]):
+                gen_images[conf['context_frames'] - 1:]):
             if 'costmask' in conf:
-                recon_cost_mse, true_ret, pred_ret, retpos = mean_squared_error_costmask(x, gx, p,conf)
+                recon_cost_mse, true_ret, pred_ret, retpos = mean_squared_error_costmask(x, gx, poses[0],conf)
                 true_retinas.append(true_ret)
                 pred_retinas.append(pred_ret)
                 retpos_list.append(retpos)
