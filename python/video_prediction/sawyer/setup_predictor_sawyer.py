@@ -72,6 +72,7 @@ def setup_predictor(conf, gpu_id=0, ngpu=1):
     sess.run(tf.initialize_all_variables())
     saver = tf.train.Saver(tf.get_collection(tf.GraphKeys.VARIABLES), max_to_keep=0)
     saver.restore(sess, conf['pretrained_model'])
+    print 'restore done. '
 
     #making the towers
     towers = []
