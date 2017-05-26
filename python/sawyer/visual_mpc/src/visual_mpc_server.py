@@ -77,7 +77,7 @@ class Visual_MPC_Server(object):
         self.bridge = CvBridge()
 
         ###
-        print 'spinning'
+        print 'visual mpc server ready for taking requests!'
         rospy.spin()
 
     def init_traj_visualmpc_handler(self, req):
