@@ -61,18 +61,6 @@ class CEM_controller():
         self.adim = 4  # action dimensions: deltax, delty, close_nstep, hold_nstep
         self.initial_std = policyparams['initial_std']
 
-        gofast = True
-        self.viewer = mujoco_py.MjViewer(visible=True, init_width=480,
-                                         init_height=480, go_fast=gofast)
-        self.viewer.start()
-        self.viewer.set_model(self.model)
-        self.viewer.cam.camid = 0
-
-        self.small_viewer = mujoco_py.MjViewer(visible=True, init_width=64,
-                                         init_height=64, go_fast=gofast)
-        self.small_viewer.start()
-        self.small_viewer.set_model(self.model)
-        self.small_viewer.cam.camid = 0
 
         # predicted positions
         self.pred_pos = np.zeros((self.M, self.niter, self.repeat * self.naction_steps, 2))
