@@ -72,7 +72,7 @@ class Visual_MPC_Server(object):
         netconf = imp.load_source('params', self.policyparams['netconf']).configuration
         self.predictor = netconf['setup_predictor'](netconf, gpu_id, ngpu)
         self.cem_controller = CEM_controller(self.agentparams, self.policyparams, self.predictor)
-        self.t = None
+        self.t = 0
         self.traj = Trajectory(self.agentparams)
         self.bridge = CvBridge()
 
@@ -96,7 +96,6 @@ class Visual_MPC_Server(object):
         self.traj.X_full[self.t, :] = req.state
         main_img = self.bridge.imgmsg_to_cv2(req.main)
         aux1_img = self.bridge.imgmsg_to_cv2(req.aux1)
-
 
         self.traj._sample_images[self.t] = np.concatenate((main_img, aux1_img), 2)
 
