@@ -15,5 +15,7 @@ agent = {
     'image_width' : IMAGE_WIDTH,
     'image_channels' : IMAGE_CHANNELS,
     'num_objects': 1,
+    'action_dim': 4,
+    'state_dim': 3,
 }
 

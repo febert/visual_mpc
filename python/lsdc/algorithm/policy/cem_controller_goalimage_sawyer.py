@@ -276,7 +276,7 @@ class CEM_controller():
 
 
         if t == 0:
-            action = np.zeros(2)
+            action = np.zeros(4)
             self.desig_pix = desig_pix
             self.goal_pix = goal_pix
 

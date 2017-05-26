@@ -25,15 +25,16 @@ class Trajectory(object):
         self.predicted_images = None
         self.gtruth_images = None
 
-        if 'actiondim' in hyperparams:
-            self.U = np.empty([self.T, hyperparams['actiondim']])
+        if 'action_dim' in hyperparams:
+            self.U = np.empty([self.T, hyperparams['action_dim']])
         else:
             self.U = np.empty([self.T, 2])
 
-        self.X_full = np.empty([self.T, 2])
-        self.Xdot_full = np.empty([self.T, 2])
+        state_dim = hyperparams['state_dim']
+        self.X_full = np.empty([self.T, state_dim])
+        self.Xdot_full = np.empty([self.T, state_dim])
         self.Object_pos = np.empty((self.T, hyperparams['num_objects'], 3))
-        self.X_Xdot_full = np.empty([self.T, 4])
+        self.X_Xdot_full = np.empty([self.T, 2*state_dim])
 
         self.desig_pos = np.empty([self.T, 2])
         self.score = np.empty([self.T])
