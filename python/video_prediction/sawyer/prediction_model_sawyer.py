@@ -266,11 +266,13 @@ def construct_model(images,
                 enc6, (num_masks + 2), 1, stride=1, scope='convt7_cam2')
 
             if 'single_view' not in conf:
-                output_cam1, mask_list_cam1 = fuse_trafos(conf, masks_cam1, prev_image_cam1, transformed_cam1)
-                output_cam2, mask_list_cam2 = fuse_trafos(conf, masks_cam2, prev_image_cam2, transformed_cam2)
+                output_cam1, mask_list_cam1 = fuse_trafos(conf, masks_cam1, prev_image_cam1,
+                                                          transformed_cam1, batch_size)
+                output_cam2, mask_list_cam2 = fuse_trafos(conf, masks_cam2, prev_image_cam2,
+                                                          transformed_cam2, batch_size)
                 output = tf.concat(3, [output_cam1, output_cam2])
             else:
-                output, mask_list_cam2 = fuse_trafos(conf, masks_cam2, prev_image, transformed_cam2)
+                output, mask_list_cam2 = fuse_trafos(conf, masks_cam2, prev_image, transformed_cam2, batch_size)
 
             gen_images.append(output)
             gen_masks.append(mask_list_cam2)
@@ -298,11 +300,10 @@ def construct_model(images,
     else:
         return gen_images, gen_states, gen_masks, None
 
-def fuse_trafos(conf, masks, prev_image, transformed):
+def fuse_trafos(conf, masks, prev_image, transformed, batch_size):
     img_height = 64
     img_width = 64
     num_masks = conf['num_masks']
-    batch_size = conf['batch_size']
 
     if conf['model']=='DNA':
         if num_masks != 1:
