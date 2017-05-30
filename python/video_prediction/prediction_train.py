@@ -142,7 +142,7 @@ class Model(object):
                  images=None,
                  actions=None,
                  states=None,
-                 poses= None,
+                 init_retpos= None,
                  reuse_scope=None,
                  pix_distrib=None):
 
@@ -162,9 +162,6 @@ class Model(object):
         if states != None:
             states = tf.split(1, states.get_shape()[1], states)
             states = [tf.squeeze(st) for st in states]
-        if poses != None:
-            poses = tf.split(1, poses.get_shape()[1], poses)
-            poses = [tf.squeeze(p) for p in poses]
         images = tf.split(1, images.get_shape()[1], images)
         images = [tf.squeeze(img) for img in images]
         if pix_distrib != None:
@@ -176,7 +173,7 @@ class Model(object):
                 images,
                 actions,
                 states,
-                poses,
+                init_retpos,
                 iter_num=self.iter_num,
                 k=conf['schedsamp_k'],
                 use_state=conf['use_state'],
@@ -193,7 +190,7 @@ class Model(object):
                     images,
                     actions,
                     states,
-                    poses,
+                    init_retpos,
                     iter_num=self.iter_num,
                     k=conf['schedsamp_k'],
                     use_state=conf['use_state'],
@@ -217,7 +214,7 @@ class Model(object):
                 range(len(gen_images)), images[conf['context_frames']:],
                 gen_images[conf['context_frames'] - 1:]):
             if 'costmask' in conf:
-                recon_cost_mse, true_ret, pred_ret, retpos = mean_squared_error_costmask(x, gx, poses[0],conf)
+                recon_cost_mse, true_ret, pred_ret, retpos = mean_squared_error_costmask(x, gx, init_retpos, conf)
                 true_retinas.append(true_ret)
                 pred_retinas.append(pred_ret)
                 retpos_list.append(retpos)
