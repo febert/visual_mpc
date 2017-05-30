@@ -12,6 +12,8 @@ import cPickle
 from video_prediction.utils_vpred.create_gif import comp_video
 from datetime import datetime
 
+from video_prediction.sawyer.create_gif import create_video_pixdistrib_gif
+
 from PIL import Image
 import pdb
 
@@ -30,10 +32,6 @@ class CEM_controller():
             self.verbose = True
         else: self.verbose = False
 
-        if 'use_first_plan' in self.policyparams:
-            self.use_first_plan = self.policyparams['use_first_plan']
-        else: self.use_first_plan = True
-
         if 'iterations' in self.policyparams:
             self.niter = self.policyparams['iterations']
         else: self.niter = 10  # number of iterations
@@ -51,9 +49,6 @@ class CEM_controller():
 
         self.K = 10  # only consider K best samples for refitting
 
-        self.gtruth_images = [np.zeros((self.M, 64, 64, 3)) for _ in range(self.naction_steps * self.repeat)]
-        self.gtruth_states = np.zeros((self.naction_steps * self.repeat, self.M, 4))
-
         # the full horizon is actions*repeat
         # self.action_cost_mult = 0.00005
         self.action_cost_mult = 0
@@ -68,6 +63,8 @@ class CEM_controller():
         self.bestindices_of_iter = np.zeros((self.niter, self.K))
 
         self.indices =[]
+
+        self.rec_input_distrib = []  # record the input distributions
 
         self.target = np.zeros(2)
 
@@ -88,20 +85,24 @@ class CEM_controller():
     def discretize(self, actions):
         for b in range(self.M):
             for a in range(self.naction_steps):
-                actions[b, a, 2] = np.ceil(actions[b, a, 2])
+                actions[b, a, 2] = np.floor(actions[b, a, 2])
                 if actions[b, a, 2] < 0:
                     actions[b, a, 2] = 0
                 if actions[b, a, 2] > 4:
                     actions[b, a, 2] = 4
 
-                actions[b, a, 3] = np.ceil(actions[b, a, 3])
+                actions[b, a, 3] = np.floor(actions[b, a, 3])
                 if actions[b, a, 3] < 0:
                     actions[b, a, 3] = 0
                 if actions[b, a, 3] > 4:
                     actions[b, a, 3] = 4
 
-        return  actions
+        return actions
 
+
+    def truncate_movement(self, actions):
+        actions[:,:,:2] = np.clip(actions[:,:,:2], -.07, .07)  # clip in units of meters
+        return actions
 
     def perform_CEM(self,last_frames, last_states, t):
         # initialize mean and variance
@@ -110,19 +111,16 @@ class CEM_controller():
         #initialize mean and variance of the discrete actions to their mean and variance used during data collection
 
         self.sigma = np.diag(np.ones(self.adim * self.naction_steps) * self.initial_std ** 2)
+        # reducing the variance for goup and close actiondims
 
-        # dicretize the discrete actions:
-        # action_bin_close = range(5)  # values which the action close can take
-        # p_close = np.array([0.8, 0.05, 0.05, 0.05, 0.05])
-        # mean_close, var_close = self.compute_initial_meanvar(p_close)
+        diagonal = copy.deepcopy(np.diag(self.sigma))
+        diagonal[2::4] = 1
+        diagonal[3::4] = 1
 
-        # action_bin_up = range(5)
-        # p_up = np.array([0.9, 0.025, 0.025, 0.025, 0.025])
-        # mean_up, var_up = self.compute_initial_meanvar(p_up)
+        self.sigma[np.diag_indices_from(self.sigma)] = diagonal
 
         print '------------------------------------------------'
         print 'starting CEM cylce'
-
 
         for itr in range(self.niter):
             print '------------'
@@ -131,9 +129,8 @@ class CEM_controller():
 
             actions = np.random.multivariate_normal(self.mean, self.sigma, self.M)
             actions = actions.reshape(self.M, self.naction_steps, self.adim)
-            pdb.set_trace()
             actions = self.discretize(actions)
-            pdb.set_trace()
+            actions = self.truncate_movement(actions)
 
             actions = np.repeat(actions, self.repeat, axis=1)
 
@@ -175,29 +172,44 @@ class CEM_controller():
 
     def video_pred(self, last_frames, last_states, actions, itr):
 
-
         last_states = np.expand_dims(last_states, axis=0)
         last_states = np.repeat(last_states, self.netconf['batch_size'], axis=0)
 
         last_frames = np.expand_dims(last_frames, axis=0)
         last_frames = np.repeat(last_frames, self.netconf['batch_size'], axis=0)
+
+        if 'predictor_propagation' in self.policyparams:  #using the predictor's DNA to propagate, no correction
+            print 'using predictor_propagation'
+            if self.t < self.netconf['context_frames']:
+                input_distrib = self.make_one_hot()
+                if itr == 0:
+                    self.rec_input_distrib.append(input_distrib[:,1])
+            else:
+                input_distrib = [self.rec_input_distrib[-2], self.rec_input_distrib[-1]]
+                input_distrib = [np.expand_dims(elem, axis=1) for elem in input_distrib]
+                input_distrib = np.concatenate(input_distrib, axis=1)
+        else:
+            input_distrib = self.make_one_hot()
+
+        if 'single_view' in self.netconf:
+            img_channels = 3
+        else: img_channels = 6
         app_zeros = np.zeros(shape=(self.netconf['batch_size'], self.netconf['sequence_length']-
-                                    self.netconf['context_frames'], 64, 64, 3))
+                                    self.netconf['context_frames'], 64, 64, img_channels))
+
+
         last_frames = np.concatenate((last_frames, app_zeros), axis=1)
         last_frames = last_frames.astype(np.float32)/255.
-
         if 'single_view' in self.netconf:
             if 'use_goalimage' in self.policyparams:
                 gen_images, gen_states = self.predictor(input_images= last_frames,
                                                         input_state=last_states,
                                                         input_actions = actions)
             else:
-                pdb.set_trace()
                 gen_images, gen_distrib, gen_states  = self.predictor(input_images=last_frames,
-                                                        input_state=last_states,
-                                                        input_actions=actions,
-                                                        input_one_hot_images = self.make_one_hot()
-                                                        )
+                                                                      input_state=last_states,
+                                                                      input_actions=actions,
+                                                                      input_one_hot_images=input_distrib)
         else:
             gen_images, gen_states = self.predictor(input_images=last_frames,
                                                     input_state=last_states,
@@ -206,12 +218,10 @@ class CEM_controller():
         #evaluate distances to goalstate
         scores = np.zeros(self.netconf['batch_size'])
 
-
         if 'use_goalimage' in self.policyparams:
             for b in range(self.netconf['batch_size']):
                 scores[b] = np.linalg.norm(
                     (self.goal_image - gen_images[-1][b]).flatten())
-                pdb.set_trace()
         else: # evaluate pixel movement:
             distance_grid = np.empty((64, 64))
             for i in range(64):
@@ -223,9 +233,18 @@ class CEM_controller():
             for b in range(self.netconf['batch_size']):
                 gen = gen_distrib[-1][b].squeeze() / np.sum(gen_distrib[-1][b])
                 expected_distance[b] = np.sum(np.multiply(gen, distance_grid))
+            scores = expected_distance
+
+        # for predictor_propagation only!!
+        if 'predictor_propagation' in self.policyparams:
+            assert not 'correctorconf' in self.policyparams
+            if itr == (self.policyparams['iterations'] - 1):
+                # pick the prop distrib from the action actually chosen after the last iteration (i.e. self.indices[0])
+                bestind = expected_distance.argsort()[0]
+                self.rec_input_distrib.append(gen_distrib[2][bestind].reshape(1, 64, 64, 1))
 
         # compare prediciton with simulation
-        if self.verbose: #and itr == self.policyparams['iterations']-1:
+        if self.verbose and itr == self.policyparams['iterations']-1:
             # print 'creating visuals for best sampled actions at last iteration...'
 
             file_path = self.netconf['current_dir'] + '/verbose'
@@ -241,11 +260,11 @@ class CEM_controller():
                         outputlist[tstep][ind] = inputlist[tstep][bestindices[ind]]
                 return outputlist
 
-            self.gtruth_images = [img.astype(np.float) / 255. for img in self.gtruth_images]  #[1:]
-            cPickle.dump(best(gen_images), open(file_path + '/gen_image_seq.pkl', 'wb'))
-            cPickle.dump(best(self.gtruth_images), open(file_path + '/ground_truth.pkl', 'wb'))
+            cPickle.dump(best(gen_images), open(file_path + '/gen_image.pkl', 'wb'))
+            cPickle.dump(best(gen_distrib), open(file_path + '/gen_distrib.pkl', 'wb'))
+
             print 'written files to:' + file_path
-            comp_video(file_path, gif_name='check_eval_t{}'.format(self.t))
+            create_video_pixdistrib_gif(file_path, self.netconf, n_exp=10, suppress_number=True, suffix='iter{}_t{}'.format(itr, self.t))
 
             f = open(file_path + '/actions_last_iter_t{}'.format(self.t), 'w')
             sorted = scores.argsort()
@@ -254,13 +273,16 @@ class CEM_controller():
                                                                    np.where(sorted == i)[0][0]))
                 f.write('action {}\n'.format(actions[i]))
 
+            # pdb.set_trace()
+
         bestindex = scores.argsort()[0]
         if 'store_video_prediction' in self.agentparams and\
                 itr == (self.policyparams['iterations']-1):
             self.terminal_pred = gen_images[-1][bestindex]
 
-        if itr == (self.policyparams['iterations']-2):
-            self.verbose = True
+        # if itr == (self.policyparams['iterations']-2):
+        #     self.verbose = True
+
 
         return scores
 
@@ -274,17 +296,19 @@ class CEM_controller():
         """
         self.t = t
 
-
         if t == 0:
             action = np.zeros(4)
             self.desig_pix = desig_pix
             self.goal_pix = goal_pix
 
         else:
-            last_images = traj._sample_images[t-1:t+1]
-            last_states = traj.X_Xdot_full[t-1: t+1]
+            if 'single_view' in self.netconf:
+                last_images = traj._sample_images[t - 1:t + 1]   # second image shall contain front view
+            else:
+                last_images = traj._sample_images[t-1:t+1]
+            last_states = traj.X_full[t-1: t+1]
 
-            if self.use_first_plan:
+            if 'use_first_plan' in self.policyparams:
                 print 'using actions of first plan, no replanning!!'
                 if t == 1:
                     self.perform_CEM(last_images, last_states, t)
