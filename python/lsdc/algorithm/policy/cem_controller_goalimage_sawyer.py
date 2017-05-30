@@ -64,6 +64,8 @@ class CEM_controller():
 
         self.indices =[]
 
+        self.rec_input_distrib = []  # record the input distributions
+
         self.target = np.zeros(2)
 
         self.mean =None
@@ -176,6 +178,19 @@ class CEM_controller():
         last_frames = np.expand_dims(last_frames, axis=0)
         last_frames = np.repeat(last_frames, self.netconf['batch_size'], axis=0)
 
+        if 'predictor_propagation' in self.policyparams:  #using the predictor's DNA to propagate, no correction
+            print 'using predictor_propagation'
+            if self.t < self.netconf['context_frames']:
+                input_distrib = self.make_one_hot()
+                if itr == 0:
+                    self.rec_input_distrib.append(input_distrib[:,1])
+            else:
+                input_distrib = [self.rec_input_distrib[-2], self.rec_input_distrib[-1]]
+                input_distrib = [np.expand_dims(elem, axis=1) for elem in input_distrib]
+                input_distrib = np.concatenate(input_distrib, axis=1)
+        else:
+            input_distrib = self.make_one_hot()
+
         if 'single_view' in self.netconf:
             img_channels = 3
         else: img_channels = 6
@@ -191,7 +206,10 @@ class CEM_controller():
                                                         input_state=last_states,
                                                         input_actions = actions)
             else:
-                gen_images, gen_distrib, gen_states  = self.predictor(input_images=last_frames, input_state=last_states, input_actions=actions,input_one_hot_images = self.make_one_hot())
+                gen_images, gen_distrib, gen_states  = self.predictor(input_images=last_frames,
+                                                                      input_state=last_states,
+                                                                      input_actions=actions,
+                                                                      input_one_hot_images=input_distrib)
         else:
             gen_images, gen_states = self.predictor(input_images=last_frames,
                                                     input_state=last_states,
@@ -217,8 +235,16 @@ class CEM_controller():
                 expected_distance[b] = np.sum(np.multiply(gen, distance_grid))
             scores = expected_distance
 
+        # for predictor_propagation only!!
+        if 'predictor_propagation' in self.policyparams:
+            assert not 'correctorconf' in self.policyparams
+            if itr == (self.policyparams['iterations'] - 1):
+                # pick the prop distrib from the action actually chosen after the last iteration (i.e. self.indices[0])
+                bestind = expected_distance.argsort()[0]
+                self.rec_input_distrib.append(gen_distrib[2][bestind].reshape(1, 64, 64, 1))
+
         # compare prediciton with simulation
-        if self.verbose: #and itr == self.policyparams['iterations']-1:
+        if self.verbose and itr == self.policyparams['iterations']-1:
             # print 'creating visuals for best sampled actions at last iteration...'
 
             file_path = self.netconf['current_dir'] + '/verbose'
@@ -238,7 +264,7 @@ class CEM_controller():
             cPickle.dump(best(gen_distrib), open(file_path + '/gen_distrib.pkl', 'wb'))
 
             print 'written files to:' + file_path
-            create_video_pixdistrib_gif(file_path, self.netconf, n_exp=10, suppress_number=True, suffix='iter{}'.format(itr))
+            create_video_pixdistrib_gif(file_path, self.netconf, n_exp=10, suppress_number=True, suffix='iter{}_t{}'.format(itr, self.t))
 
             f = open(file_path + '/actions_last_iter_t{}'.format(self.t), 'w')
             sorted = scores.argsort()
@@ -247,7 +273,7 @@ class CEM_controller():
                                                                    np.where(sorted == i)[0][0]))
                 f.write('action {}\n'.format(actions[i]))
 
-            pdb.set_trace()
+            # pdb.set_trace()
 
         bestindex = scores.argsort()[0]
         if 'store_video_prediction' in self.agentparams and\
@@ -269,7 +295,6 @@ class CEM_controller():
             init_model: mujoco model to initialize from
         """
         self.t = t
-
 
         if t == 0:
             action = np.zeros(4)

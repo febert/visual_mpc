@@ -17,8 +17,8 @@ policy = {
     'verbose':'',
     # 'use_goalimage':"",
     # 'usepixelerror':''
-    'use_first_plan':'',
-    'predictor_propagation': True   # use the model get the designated pixel for the next step!
+    # 'use_first_plan':'',
+    'predictor_propagation': ''   # use the model get the designated pixel for the next step!
 }
 
 agent = {
