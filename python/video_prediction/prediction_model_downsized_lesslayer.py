@@ -33,7 +33,7 @@ RELU_SHIFT = 1e-12
 def construct_model(images,
                     actions=None,
                     states=None,
-                    retpos = None,
+                    init_retpos = None,
                     iter_num=-1.0,
                     k=-1,
                     use_state=True,
@@ -144,7 +144,7 @@ def construct_model(images,
 
             # Predicted state is always fed back in
             if 'costmask' in conf:
-                state_action = tf.concat(1, [action, current_state, retpos[0]])
+                state_action = tf.concat(1, [action, current_state, init_retpos])
                 print 'concat retpos with actions'
             else:
                 state_action = tf.concat(1, [action, current_state])

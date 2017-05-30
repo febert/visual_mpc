@@ -32,22 +32,28 @@ def setup_predictor(conf, gpu_id = 0):
                 print key, ': ', conf[key]
             print '-------------------------------------------------------------------'
 
-            images = tf.placeholder(tf.float32, name='images',
+            images_pl = tf.placeholder(tf.float32, name='images',
                                     shape=(conf['batch_size'], conf['sequence_length'], 64, 64, 3))
-            actions = tf.placeholder(tf.float32, name= 'actions',
+            actions_pl = tf.placeholder(tf.float32, name= 'actions',
                                      shape=(conf['batch_size'], conf['sequence_length'], 2))
-            states = tf.placeholder(tf.float32, name='states',
+            states_pl = tf.placeholder(tf.float32, name='states',
                                          shape=(conf['batch_size'],conf['context_frames'] , 4))
+
+            init_retpos_pl = tf.placeholder(tf.float32, name='init_retpos', shape=(3))
+            init_retpos = tf.expand_dims(init_retpos_pl, 0)
+            init_retpos = tf.tile(init_retpos, [conf['batch_size'],1])
 
             if 'no_pix_distrib' in conf:
                 pix_distrib = None
             else:
                 pix_distrib = tf.placeholder(tf.float32, shape=(conf['batch_size'], conf['context_frames'], 64, 64, 1))
 
-
             print 'Constructing model for control'
             with tf.variable_scope('model', reuse=None) as training_scope:
-                model = Model(conf, images, actions, states,reuse_scope= None, pix_distrib= pix_distrib)
+                if 'costmask' in conf:
+                    model = Model(conf, images_pl, actions_pl, states_pl, init_retpos=init_retpos, reuse_scope=None, pix_distrib=pix_distrib)
+                else:
+                    model = Model(conf, images_pl, actions_pl, states_pl,reuse_scope= None, pix_distrib= pix_distrib)
 
 
             sess.run(tf.initialize_all_variables())
@@ -55,7 +61,8 @@ def setup_predictor(conf, gpu_id = 0):
             saver = tf.train.Saver(tf.get_collection(tf.GraphKeys.VARIABLES), max_to_keep=0)
             saver.restore(sess, conf['pretrained_model'])
 
-            def predictor_func(input_images=None, one_hot_images=None, input_state=None, input_actions=None):
+            def predictor_func(input_images=None, one_hot_images=None,
+                               input_state=None, input_actions=None, init_retpos= None):
                 """
                 :param one_hot_images: the first two frames
                 :param pixcoord: the coords of the disgnated pixel in images coord system
@@ -64,14 +71,19 @@ def setup_predictor(conf, gpu_id = 0):
 
                 itr = 0
                 if 'no_pix_distrib' not in conf:
+
+
                     feed_dict = {model.prefix: 'ctrl',
                                  model.iter_num: np.float32(itr),
                                  model.lr: conf['learning_rate'],
-                                 images: input_images,
-                                 actions: input_actions,
-                                 states: input_state,
+                                 images_pl: input_images,
+                                 actions_pl: input_actions,
+                                 states_pl: input_state,
                                  pix_distrib: one_hot_images
                                  }
+
+                    if 'costmask' in conf:
+                        feed_dict[init_retpos_pl] = init_retpos
 
                     gen_distrib, gen_images, gen_masks, gen_states = sess.run([model.gen_distrib,
                                                                                model.gen_images,
@@ -85,9 +97,9 @@ def setup_predictor(conf, gpu_id = 0):
                     feed_dict = {model.prefix: 'ctrl',
                                  model.iter_num: np.float32(itr),
                                  model.lr: conf['learning_rate'],
-                                 images: input_images,
-                                 actions: input_actions,
-                                 states: input_state,
+                                 images_pl: input_images,
+                                 actions_pl: input_actions,
+                                 states_pl: input_state,
                                  }
 
                     gen_images, gen_states = sess.run([
