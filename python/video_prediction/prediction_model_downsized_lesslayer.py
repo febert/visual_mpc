@@ -89,6 +89,8 @@ def construct_model(images,
 
     summaries = []
 
+    retina_pos_list = []
+
     if k == -1:
         feedself = True
     else:
@@ -144,8 +146,17 @@ def construct_model(images,
 
             # Predicted state is always fed back in
             if 'costmask' in conf:
-                state_action = tf.concat(1, [action, current_state, init_retpos])
-                print 'concat retpos with actions'
+                if 'moving_retina' in conf:
+                    if t > 0:
+                        retina_pos_list.append(get_new_retinapos(conf, prev_pix_distrib))
+                        state_action = tf.concat(1, [action, current_state, init_retpos])
+                    else:
+                        init_retpos = mujoco_to_imagespace_tf(init_retpos)
+                        retina_pos_list.append(init_retpos)
+
+                    state_action = tf.concat(1, [action, current_state, retina_pos_list[-1]])
+                else:
+                    state_action = tf.concat(1, [action, current_state, init_retpos])
             else:
                 state_action = tf.concat(1, [action, current_state])
 
@@ -449,3 +460,43 @@ def make_cdna_kerns_summary(cdna_kerns, t, suffix):
         )
 
     return  sum
+
+def get_new_retinapos(conf, pix_distrib, current_rpos, himages):
+    """
+    get new retina centerpos by selecting the pixel with the maximum probability in pix_distrib
+    :param conf: 
+    :param pix_distrib: 
+    :param current_rpos: 
+    :param himages: 
+    :return: 
+    """
+    pix_distrib_shape = pix_distrib.get_shape()[1:]
+    maxcoord = tf.arg_max(tf.reshape(pix_distrib, [conf['batch_size'], -1]), dimension=1)
+    maxcoord = unravel_argmax(maxcoord, pix_distrib_shape)
+
+    return maxcoord
+
+def unravel_argmax(argmax, shape):
+    output_list = []
+    output_list.append(argmax / (shape[0]))
+    output_list.append(argmax % shape[1])
+    return tf.cast(tf.pack(output_list, 1), dtype=tf.int32)
+
+def mujoco_to_imagespace_tf(mujoco_coord, numpix = 64):
+    """
+    convert form Mujoco-Coord to numpix x numpix image space:
+    :param numpix: number of pixels of square image
+    :param mujoco_coord: batch_size x 2
+    :return: pixel_coord: batch_size x 2
+    """
+    viewer_distance = .75  # distance from camera to the viewing plane
+    window_height = 2 * np.tan(75 / 2 / 180. * np.pi) * viewer_distance  # window height in Mujoco coords
+    pixelheight = window_height / numpix  # height of one pixel
+    middle_pixel = numpix / 2
+    r = -tf.slice(mujoco_coord,[0,1], [-1,1])
+    c =  tf.slice(mujoco_coord,[0,0], [-1,1])
+    pixel_coord = tf.concat(1, [r,c])/pixelheight
+    pixel_coord += middle_pixel
+    pixel_coord = tf.round(pixel_coord)
+
+    return pixel_coord
