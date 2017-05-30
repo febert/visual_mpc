@@ -13,6 +13,7 @@ class Tower(object):
     def __init__(self, conf, gpu_id, reuse_scope, start_images, actions, start_states, pix_distrib):
         nsmp_per_gpu = conf['batch_size']/ conf['ngpu']
 
+
         # picking different subset of the actions for each gpu
         startidx = gpu_id * nsmp_per_gpu
         per_gpu_actions = tf.slice(actions, [startidx, 0, 0], [nsmp_per_gpu, -1, -1])
