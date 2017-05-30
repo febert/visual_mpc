@@ -81,7 +81,7 @@ def mujoco_to_imagespace_tf(mujoco_coord, numpix = 64):
 
 def mean_squared_error_costmask(true, pred, pose, conf):
     orig_imh = 64
-    retina_size = 24
+    retina_size = conf['retina_size']
     half_rh = retina_size / 2  # half retina height
 
     pos = tf.slice(pose, [0,0], [-1,2])
@@ -210,11 +210,15 @@ class Model(object):
 
         self.fft_weights = tf.placeholder(tf.float32, [64, 64])
 
-        for i, x, gx in zip(
+        if 'costmask' in conf:
+            if 'moving_retina' not in conf:
+                retpos = [init_retpos for _ in range(len(gen_images))]
+
+        for i, x, gx, p in zip(
                 range(len(gen_images)), images[conf['context_frames']:],
-                gen_images[conf['context_frames'] - 1:]):
+                gen_images[conf['context_frames'] - 1:], retpos):
             if 'costmask' in conf:
-                recon_cost_mse, true_ret, pred_ret, retpos = mean_squared_error_costmask(x, gx, init_retpos, conf)
+                recon_cost_mse, true_ret, pred_ret, retpos = mean_squared_error_costmask(x, gx, p, conf)
                 true_retinas.append(true_ret)
                 pred_retinas.append(pred_ret)
                 retpos_list.append(retpos)
