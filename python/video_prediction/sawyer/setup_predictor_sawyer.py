@@ -58,14 +58,19 @@ def setup_predictor(conf, gpu_id=0, ngpu=1):
 
     print 'Constructing multi gpu model for control...'
 
+    if 'single_view' in conf:
+        numcam = 1
+    else:
+        numcam = 2
     start_images = tf.placeholder(tf.float32, name='images',  # with zeros extension
-                                    shape=(conf['batch_size'], conf['sequence_length'], 64, 64, 3))
+                                    shape=(conf['batch_size'], conf['sequence_length'], 64, 64, 3*numcam))
     actions = tf.placeholder(tf.float32, name='actions',
                                     shape=(conf['batch_size'],conf['sequence_length'], 4))
     start_states = tf.placeholder(tf.float32, name='states',
                                     shape=(conf['batch_size'],conf['context_frames'], 3))
-    pix_distrib = tf.placeholder(tf.float32, shape=(conf['batch_size'], conf['context_frames'], 64, 64, 1))
+    pix_distrib = tf.placeholder(tf.float32, shape=(conf['batch_size'], conf['context_frames'], 64, 64, numcam))
 
+    # creating dummy network to avoid issues with naming of variables
     with tf.variable_scope('model', reuse=None) as training_scope:
         model = Model(conf, start_images, actions, start_states, pix_distrib= pix_distrib)
 
@@ -89,8 +94,6 @@ def setup_predictor(conf, gpu_id=0, ngpu=1):
     comb_gen_img = []
     comb_pix_distrib = []
     comb_gen_states = []
-    # import pdb;
-    # pdb.set_trace()
 
     for t in range(conf['sequence_length']-1):
         t_comb_gen_img = [to.model.gen_images[t] for to in towers]
@@ -127,6 +130,8 @@ def setup_predictor(conf, gpu_id=0, ngpu=1):
         feed_dict[start_images] = input_images
         feed_dict[start_states] = input_state
         feed_dict[actions] = input_actions
+
+        gen_distrib = None
         if not 'no_pix_distrib' in conf:
             feed_dict[pix_distrib] = input_one_hot_images
 
@@ -145,6 +150,6 @@ def setup_predictor(conf, gpu_id=0, ngpu=1):
             conf['ngpu'],
             (datetime.now() - t_startiter).seconds + (datetime.now() - t_startiter).microseconds/1e6
             )
-        return None, gen_images, gen_states
+        return gen_images, gen_distrib, gen_states
 
     return predictor_func

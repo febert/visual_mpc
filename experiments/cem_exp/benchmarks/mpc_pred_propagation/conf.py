@@ -9,7 +9,7 @@ configuration = {
 'current_dir': current_dir, #'directory for writing gifs' ,
 # 'filepath of a pretrained model to use for cem
 'pretrained_model': '/home/frederik/Documents/lsdc/tensorflow_data/dna/modeldata/model48002',
-'sequence_length': 15,      # 'sequence length, including context frames.' ,
+'sequence_length': 14,      # 'sequence length, including context frames.' ,
 'context_frames': 2,        # of frames before predictions.' ,
 'use_state': 1,             #'Whether or not to give the state+action to the model' ,
 'model': 'DNA',            #'model architecture to use - CDNA, DNA, or STP' ,
