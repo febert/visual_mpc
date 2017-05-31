@@ -316,7 +316,7 @@ def main(unused_argv, conf_script= None):
     with tf.variable_scope('model', reuse=None) as training_scope:
         if 'costmask' in conf:
             images, actions, states, poses = build_tfrecord_input(conf, training=True)
-            init_poses = tf.slice(poses, [0,0,0], [-1, 1, -1])
+            init_poses = tf.squeeze(tf.slice(tf.squeeze(poses), [0,0,0], [-1, 1, -1]))
             model = Model(conf, images, actions, states, init_poses)
         else:
             images, actions, states = build_tfrecord_input(conf, training=True)
@@ -325,7 +325,7 @@ def main(unused_argv, conf_script= None):
     with tf.variable_scope('val_model', reuse=None):
         if 'costmask' in conf:
             val_images, val_actions, val_states, val_poses = build_tfrecord_input(conf, training=False)
-            init_val_poses = tf.slice(val_poses, [0, 0, 0], [-1, 1, -1])
+            init_val_poses = tf.squeeze(tf.slice(tf.squeeze(val_poses), [0, 0, 0], [-1, 1, -1]))
             val_model = Model(conf, val_images, val_actions, val_states, init_val_poses, training_scope)
         else:
             val_images, val_actions, val_states = build_tfrecord_input(conf, training=False)
