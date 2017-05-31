@@ -13,6 +13,7 @@ import argparse
 import cv2
 from cv_bridge import CvBridge, CvBridgeError
 
+from video_prediction.utils_vpred.create_gif import *
 import socket
 # if socket.gethostname() == 'newton1':
 from lsdc.algorithm.policy.cem_controller_goalimage_sawyer import CEM_controller
@@ -71,6 +72,7 @@ class Visual_MPC_Server(object):
         self.t = 0
         self.traj = Trajectory(self.agentparams, self.netconf)
         self.bridge = CvBridge()
+        self.initial_pix_distrib = []
 
         # initializing the servives:
         rospy.Service('get_action', get_action, self.get_action_handler)
@@ -107,13 +109,33 @@ class Visual_MPC_Server(object):
             # flip order of main and aux1 to match training of double view architecture
             self.traj._sample_images[self.t] = np.concatenate((aux1_img, main_img), 2)
 
-        mj_U, pos, ind, targets = self.cem_controller.act(self.traj, self.t,
+        self.desig_pos_aux1 = req.desig_pos_aux1
+        self.goal_pos_aux1 = req.goal_pos_aux1
+
+        mj_U, pos, best_ind, pix_distrib = self.cem_controller.act(self.traj, self.t,
                                                           req.desig_pos_aux1,
                                                           req.goal_pos_aux1)
+
+        self.initial_pix_distrib.append(pix_distrib[0])
+
         self.traj.U[self.t, :] = mj_U
         self.t += 1
 
+        if self.t == self.policyparams['T'] -1:
+            self.save_video()
+
         return get_actionResponse(tuple(mj_U))
+
+    def save_video(self):
+        file_path = self.netconf['current_dir'] + '/videos/traj{0}_gr{1}'.format(self.i_traj, self.igrp)
+        imlist = np.split(self.traj._sample_images, self.policyparams['T'], axis=0)
+
+        if 'predictor_propagation' in self.policyparams:
+            pix_distrib = make_color_scheme(self.initial_pix_distrib)
+            gif = assemble_gif([imlist, pix_distrib], num_exp=1)
+            npy_to_gif(gif, file_path)
+        else:
+            npy_to_gif(imlist, file_path)
 
 if __name__ ==  '__main__':
     Visual_MPC_Server()
