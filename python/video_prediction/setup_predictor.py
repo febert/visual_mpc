@@ -51,7 +51,7 @@ def setup_predictor(conf, gpu_id = 0):
             print 'Constructing model for control'
             with tf.variable_scope('model', reuse=None) as training_scope:
                 if 'costmask' in conf:
-                    model = Model(conf, images_pl, actions_pl, states_pl, init_retpos=init_retpos, reuse_scope=None, pix_distrib=pix_distrib)
+                    model = Model(conf, images_pl, actions_pl, states_pl, init_obj_pose=init_retpos, reuse_scope=None, pix_distrib=pix_distrib)
                 else:
                     model = Model(conf, images_pl, actions_pl, states_pl,reuse_scope= None, pix_distrib= pix_distrib)
 

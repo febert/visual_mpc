@@ -33,7 +33,7 @@ RELU_SHIFT = 1e-12
 def construct_model(images,
                     actions=None,
                     states=None,
-                    init_retpos = None,
+                    init_obj_poses = None,
                     iter_num=-1.0,
                     k=-1,
                     use_state=True,
@@ -147,16 +147,15 @@ def construct_model(images,
             # Predicted state is always fed back in
             if 'costmask' in conf:
                 if 'moving_retina' in conf:
-                    if t > 0:
-                        retina_pos_list.append(get_new_retinapos(conf, prev_pix_distrib))
-                        state_action = tf.concat(1, [action, current_state, init_retpos])
+                    if t < 1:
+                        init_obj_poses = mujoco_to_imagespace_tf(init_obj_poses)
+                        retina_pos_list.append(init_obj_poses)
                     else:
-                        init_retpos = mujoco_to_imagespace_tf(init_retpos)
-                        retina_pos_list.append(init_retpos)
+                        retina_pos_list.append(get_new_retinapos(conf, prev_pix_distrib))
 
                     state_action = tf.concat(1, [action, current_state, retina_pos_list[-1]])
                 else:
-                    state_action = tf.concat(1, [action, current_state, init_retpos])
+                    state_action = tf.concat(1, [action, current_state, init_obj_poses])
             else:
                 state_action = tf.concat(1, [action, current_state])
 
@@ -314,9 +313,9 @@ def construct_model(images,
 
 
     if pix_distributions != None:
-        return gen_images, gen_states, gen_masks, gen_pix_distrib
+        return gen_images, gen_states, gen_masks, gen_pix_distrib, retina_pos_list
     else:
-        return gen_images, gen_states, gen_masks, None
+        return gen_images, gen_states, gen_masks, None, retina_pos_list
 
 
 ## Utility functions
@@ -462,7 +461,7 @@ def make_cdna_kerns_summary(cdna_kerns, t, suffix):
 
     return  sum
 
-def get_new_retinapos(conf, pix_distrib, current_rpos, himages):
+def get_new_retinapos(conf, pix_distrib):
     """
     get new retina centerpos by selecting the pixel with the maximum probability in pix_distrib
     :param conf: 
