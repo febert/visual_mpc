@@ -131,6 +131,9 @@ def construct_model(images,
                 # Scheduled sampling
                 prev_image = scheduled_sample(image, gen_images[-1], batch_size,
                                               num_ground_truth)
+
+                if pix_distributions != None:
+                    prev_pix_distrib = gen_pix_distrib[-1]
             else:
                 # Always feed in ground_truth
                 prev_image = image
@@ -153,7 +156,9 @@ def construct_model(images,
                     else:
                         retina_pos_list.append(get_new_retinapos(conf, prev_pix_distrib))
 
-                    state_action = tf.concat(1, [action, current_state, retina_pos_list[-1]])
+                    sel_retpos = tf.cond(tf.less(iter_num, 15000), lambda: init_obj_poses,
+                                                                   lambda: retina_pos_list[-1])
+                    state_action = tf.concat(1, [action, current_state, sel_retpos])
                 else:
                     state_action = tf.concat(1, [action, current_state, init_obj_poses])
             else:
