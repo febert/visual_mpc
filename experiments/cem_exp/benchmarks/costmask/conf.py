@@ -25,5 +25,6 @@ configuration = {
 'file_visual': '',          # datafile used for making visualizations,
 'penal_last_only': False,
 'dna_size': 9,              #size of DNA kerns
-'costmask':''
+'costmask':'',
+'retina_size':25
 }
