@@ -142,7 +142,7 @@ class Model(object):
                  images=None,
                  actions=None,
                  states=None,
-                 init_retpos= None,
+                 init_obj_pose= None,
                  reuse_scope=None,
                  pix_distrib=None):
 
@@ -162,6 +162,7 @@ class Model(object):
         if states != None:
             states = tf.split(1, states.get_shape()[1], states)
             states = [tf.squeeze(st) for st in states]
+
         images = tf.split(1, images.get_shape()[1], images)
         images = [tf.squeeze(img) for img in images]
         if pix_distrib != None:
@@ -169,11 +170,11 @@ class Model(object):
             pix_distrib = [tf.squeeze(pix) for pix in pix_distrib]
 
         if reuse_scope is None:
-            gen_images, gen_states, gen_masks, gen_distrib = construct_model(
+            gen_images, gen_states, gen_masks, gen_distrib, retpos = construct_model(
                 images,
                 actions,
                 states,
-                init_retpos,
+                init_obj_pose,
                 iter_num=self.iter_num,
                 k=conf['schedsamp_k'],
                 use_state=conf['use_state'],
@@ -186,11 +187,11 @@ class Model(object):
                 conf=conf)
         else:  # If it's a validation or test model.
             with tf.variable_scope(reuse_scope, reuse=True):
-                gen_images, gen_states, gen_masks, gen_distrib = construct_model(
+                gen_images, gen_states, gen_masks, gen_distrib, retpos = construct_model(
                     images,
                     actions,
                     states,
-                    init_retpos,
+                    init_obj_pose,
                     iter_num=self.iter_num,
                     k=conf['schedsamp_k'],
                     use_state=conf['use_state'],
@@ -212,11 +213,11 @@ class Model(object):
 
         if 'costmask' in conf:
             if 'moving_retina' not in conf:
-                retpos = [init_retpos for _ in range(len(gen_images))]
+                retpos = [init_obj_pose for _ in range(len(gen_images))]
 
         for i, x, gx, p in zip(
                 range(len(gen_images)), images[conf['context_frames']:],
-                gen_images[conf['context_frames'] - 1:], retpos):
+                gen_images[conf['context_frames'] - 1:], retpos[conf['context_frames'] - 1:]):
             if 'costmask' in conf:
                 recon_cost_mse, true_ret, pred_ret, retpos = mean_squared_error_costmask(x, gx, p, conf)
                 true_retinas.append(true_ret)
@@ -315,7 +316,8 @@ def main(unused_argv, conf_script= None):
     with tf.variable_scope('model', reuse=None) as training_scope:
         if 'costmask' in conf:
             images, actions, states, poses = build_tfrecord_input(conf, training=True)
-            model = Model(conf, images, actions, states, poses)
+            init_poses = tf.slice(poses, [0,0,0], [-1, 1, -1])
+            model = Model(conf, images, actions, states, init_poses)
         else:
             images, actions, states = build_tfrecord_input(conf, training=True)
             model = Model(conf, images, actions, states)
@@ -323,7 +325,8 @@ def main(unused_argv, conf_script= None):
     with tf.variable_scope('val_model', reuse=None):
         if 'costmask' in conf:
             val_images, val_actions, val_states, val_poses = build_tfrecord_input(conf, training=False)
-            val_model = Model(conf, val_images, val_actions, val_states, val_poses, training_scope)
+            init_val_poses = tf.slice(val_poses, [0, 0, 0], [-1, 1, -1])
+            val_model = Model(conf, val_images, val_actions, val_states, init_val_poses, training_scope)
         else:
             val_images, val_actions, val_states = build_tfrecord_input(conf, training=False)
             val_model = Model(conf, val_images, val_actions, val_states, training_scope)

@@ -112,7 +112,6 @@ def perform_benchmark(bench_conf = None):
             goalimg_load_dir = cem_exp_dir + '/benchmarks_goalimage/' + \
                                conf['policy']['load_goal_image'] + '/goalimage_var_ballpos'
 
-    memory_tracker = tracker.SummaryTracker()
     while traj < nruns:
 
         lsdc.agent._hyperparams['x0'] = initialposes[i_conf]
@@ -168,8 +167,6 @@ def perform_benchmark(bench_conf = None):
 
             print 'score of traj', traj, ':', scores[traj]
 
-            # if (traj % 30) == 0:
-            #     analyze_memory(memory_tracker)
             traj +=1 #increment trajectories every step!
 
         i_conf += 1 #increment configurations every three steps!
