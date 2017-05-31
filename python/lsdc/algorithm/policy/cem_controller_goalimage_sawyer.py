@@ -241,7 +241,8 @@ class CEM_controller():
             if itr == (self.policyparams['iterations'] - 1):
                 # pick the prop distrib from the action actually chosen after the last iteration (i.e. self.indices[0])
                 bestind = expected_distance.argsort()[0]
-                self.rec_input_distrib.append(gen_distrib[2][bestind].reshape(1, 64, 64, 1))
+                best_gen_distrib = gen_distrib[2][bestind].reshape(1, 64, 64, 1)
+                self.rec_input_distrib.append(np.repeat(best_gen_distrib, self.netconf['batch_size'], 0))
 
         # compare prediciton with simulation
         if self.verbose and itr == self.policyparams['iterations']-1:

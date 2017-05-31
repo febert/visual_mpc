@@ -41,7 +41,7 @@ def create_video_pixdistrib_gif(file_path, conf, suffix = None, n_exp = 8, suppr
     gen_distrib = cPickle.load(open(file_path + '/gen_distrib.pkl', "rb"))
 
     if  suppress_number:
-        name = file_path + '/vid_' + conf['experiment_name']
+        name = file_path + '/vid_' + conf['experiment_name'] + suffix
     else:
         itr_vis = re.match('.*?([0-9]+)$', conf['visualize']).group(1)
         if not suffix:
