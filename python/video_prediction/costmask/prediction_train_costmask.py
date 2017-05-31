@@ -8,14 +8,12 @@ import pdb
 
 import imp
 
-from utils_vpred.adapt_params_visualize import adapt_params_visualize
+from video_prediction.utils_vpred.adapt_params_visualize import adapt_params_visualize
 from tensorflow.python.platform import app
 from tensorflow.python.platform import flags
-import utils_vpred.create_gif
 
-from read_tf_record import build_tfrecord_input
+from video_prediction.read_tf_record import build_tfrecord_input
 
-from utils_vpred.skip_example import skip_example
 
 from datetime import datetime
 
@@ -142,10 +140,7 @@ class Model(object):
                  reuse_scope=None,
                  pix_distrib=None):
 
-        if 'prediction_model' in conf:
-            construct_model = conf['prediction_model']
-        else:
-            from prediction_model_downsized_lesslayer import construct_model
+        from prediction_model_costmask import construct_model
 
         self.prefix = prefix = tf.placeholder(tf.string, [])
         self.iter_num = tf.placeholder(tf.float32, [])
@@ -167,7 +162,7 @@ class Model(object):
             pix_distrib = [tf.squeeze(pix) for pix in pix_distrib]
 
         if reuse_scope is None:
-            gen_images, gen_states, gen_masks, gen_distrib, retpos = construct_model(
+            gen_images, gen_states, gen_masks, gen_distrib, retpos, maxcoord = construct_model(
                 images,
                 actions,
                 states,
@@ -184,7 +179,7 @@ class Model(object):
                 conf=conf)
         else:  # If it's a validation or test model.
             with tf.variable_scope(reuse_scope, reuse=True):
-                gen_images, gen_states, gen_masks, gen_distrib, retpos = construct_model(
+                gen_images, gen_states, gen_masks, gen_distrib, retpos, maxcoord = construct_model(
                     images,
                     actions,
                     states,
@@ -268,10 +263,12 @@ class Model(object):
         self.gen_masks = gen_masks
         self.gen_distrib = gen_distrib
         self.gen_states = gen_states
+
         self.costmasklist = costmasklist
         self.true_retinas = true_retinas
         self.pred_retinas = pred_retinas
         self.retpos_list = retpos
+        self.maxcoord = maxcoord
 
 
 def main(unused_argv, conf_script= None):
@@ -408,8 +405,6 @@ def main(unused_argv, conf_script= None):
                  }
     true_retina, retpos, gen_distrib, initpos, imdata = sess.run([model.true_retinas, model.retpos_list, model.gen_distrib, init_pos, images ],
                                     feed_dict)
-
-    pdb.set_trace()
     print 'retina pos:'
     for b in range(4):
         Image.fromarray((true_retina[0][b] * 255).astype(np.uint8)).show()
@@ -419,11 +414,7 @@ def main(unused_argv, conf_script= None):
         print 'retpos', retpos[b]
         print 'initpos', init_pos[0]
 
-        pdb.set_trace()
-
-    pdb.set_trace()
     ###### end debugging
-
 
     for itr in range(itr_0, conf['num_iterations'], 1):
         t_startiter = datetime.now()
