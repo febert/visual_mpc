@@ -11,11 +11,6 @@ import cPickle
 from PIL import Image
 from video_prediction.correction.setup_corrector import setup_corrector
 from lsdc import __file__ as lsdc_filepath
-from pympler import muppy
-from pympler import tracker
-from pympler import summary
-from pympler import refbrowser
-
 
 def perform_benchmark(bench_conf = None):
     lsdc_dir = '/'.join(str.split(lsdc_filepath, '/')[:-3])
@@ -202,20 +197,6 @@ def perform_benchmark(bench_conf = None):
     print 'overall average score:', np.sum(scores)/scores.shape
     print 'standard deviation {0}\n'.format(np.sqrt(np.var(scores)))
 
-
-def analyze_memory(tracker):
-    all_objects = muppy.get_objects()
-    num = len(all_objects)
-    print 'number of objects:', num
-
-    sum1 = summary.summarize(all_objects)
-    print 'sumary of all objects'
-    summary.print_(sum1)
-
-    print 'difference: '
-    tracker.print_diff()
-
-    pdb.set_trace()
 
 if __name__ == '__main__':
     perform_benchmark()
