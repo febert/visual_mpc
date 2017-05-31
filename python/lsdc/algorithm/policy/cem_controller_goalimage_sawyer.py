@@ -315,7 +315,6 @@ class CEM_controller():
                 else:
                     # only showing last iteration
                     self.pred_pos = self.pred_pos[:,-1].reshape((self.M, 1, self.repeat * self.naction_steps, 2))
-                    self.rec_target_pos = self.rec_target_pos[:, -1].reshape((self.M, 1, self.repeat * self.naction_steps, 2))
                     self.bestindices_of_iter = self.bestindices_of_iter[-1, :].reshape((1, self.K))
                 action = self.bestaction_withrepeat[t - 1]
 
@@ -328,4 +327,4 @@ class CEM_controller():
 
         force = action
 
-        return force, self.pred_pos, self.bestindices_of_iter, self.rec_target_pos
+        return force, self.pred_pos, self.bestindices_of_iter, self.rec_input_distrib
