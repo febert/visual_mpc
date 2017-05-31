@@ -312,6 +312,7 @@ def construct_model(images,
                 activation_fn=None)
             gen_states.append(current_state)
 
+
     if pix_distributions != None:
         return gen_images, gen_states, gen_masks, gen_pix_distrib
     else:

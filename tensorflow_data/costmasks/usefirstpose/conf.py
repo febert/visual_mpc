@@ -34,5 +34,6 @@ configuration = {
 'penal_last_only': False,   # penalize only the last state, to get sharper predictions
 'dna_size': 9,              #size of DNA kerns
 'use_object_pos':'',
-'costmask':''
+'costmask':'',
+'retina_size':25
 }
