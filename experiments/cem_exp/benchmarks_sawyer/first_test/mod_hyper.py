@@ -16,7 +16,7 @@ policy = {
     'load_goal_image':'make_easy_goal',
     'verbose':'',
     # 'use_goalimage':"",
-    # 'usepixelerror':''
+    # 'usepixelerror':'',
     # 'use_first_plan':'',
     'predictor_propagation': ''   # use the model get the designated pixel for the next step!
 }
