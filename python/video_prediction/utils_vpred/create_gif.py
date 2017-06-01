@@ -94,7 +94,7 @@ def comp_single_video(file_path, ground_truth, predicted = None, num_exp = 8):
     fused_gif = assemble_gif([ground_truth], num_exp)
     npy_to_gif(fused_gif, file_path)
 
-def make_color_scheme(input_img_list, n_exp= None):
+def make_color_scheme(input_img_list, n_exp= None, convert_to_float = True):
     """
     :param input_img_list: list of single channel images
     :param output_img_list: list of single channel images
@@ -134,7 +134,8 @@ def make_color_scheme(input_img_list, n_exp= None):
             data = np.fromstring(fig.canvas.tostring_rgb(), dtype=np.uint8, sep='')
             data = data.reshape(fig.canvas.get_width_height()[::-1] + (3,))
 
-            data = data.astype(np.float32) / 255.0
+            if convert_to_float:
+                data = data.astype(np.float32) / 255.0
             output_image[b] = data
 
             # import pdb;
