@@ -116,26 +116,34 @@ class Visual_MPC_Server(object):
                                                           req.desig_pos_aux1,
                                                           req.goal_pos_aux1)
 
-        self.initial_pix_distrib.append(pix_distrib[0])
+        if 'predictor_propagation' in self.policyparams and self.t > 0:
+            self.initial_pix_distrib.append(pix_distrib[0][0])
 
         self.traj.U[self.t, :] = mj_U
-        self.t += 1
 
-        if self.t == self.policyparams['T'] -1:
+        if self.t == self.agentparams['T'] -1:
             self.save_video()
 
+        self.t += 1
         return get_actionResponse(tuple(mj_U))
 
     def save_video(self):
-        file_path = self.netconf['current_dir'] + '/videos/traj{0}_gr{1}'.format(self.i_traj, self.igrp)
-        imlist = np.split(self.traj._sample_images, self.policyparams['T'], axis=0)
+        pdb.set_trace()
+        file_path = self.netconf['current_dir'] + '/videos'
+        imlist = np.split(self.traj._sample_images, self.agentparams['T'], axis=0)
+        imlist = [np.squeeze(im) for im in imlist]
+
+        imfilename = file_path + '/traj{0}_gr{1}'.format(self.i_traj, self.igrp)
+        cPickle.dump(imlist, open(imfilename+ '.pkl', 'wb'))
 
         if 'predictor_propagation' in self.policyparams:
+            cPickle.dump(self.initial_pix_distrib, open(file_path + '/initial_pix_distrib.pkl'.format(self.t), 'wb'))
+            pdb.set_trace()
             pix_distrib = make_color_scheme(self.initial_pix_distrib)
             gif = assemble_gif([imlist, pix_distrib], num_exp=1)
-            npy_to_gif(gif, file_path)
+            npy_to_gif(gif, file_path +'/traj{0}_gr{1}_withpixdistrib'.format(self.i_traj, self.igrp))
         else:
-            npy_to_gif(imlist, file_path)
+            npy_to_gif(imlist, imfilename)
 
 if __name__ ==  '__main__':
     Visual_MPC_Server()

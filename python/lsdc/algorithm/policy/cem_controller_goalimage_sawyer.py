@@ -51,7 +51,9 @@ class CEM_controller():
 
         # the full horizon is actions*repeat
         # self.action_cost_mult = 0.00005
-        self.action_cost_mult = 0
+        if 'action_cost_factor' in self.policyparams:
+            self.action_cost_factor = self.policyparams['action_cost_factor']
+        else: self.action_cost_factor = 0
 
         self.adim = 4  # action dimensions: deltax, delty, close_nstep, hold_nstep
         self.initial_std = policyparams['initial_std']
@@ -78,7 +80,7 @@ class CEM_controller():
         for smp in range(self.M):
             force_magnitudes = np.array([np.linalg.norm(actions[smp, t]) for
                                          t in range(self.naction_steps * self.repeat)])
-            actions_costs[smp]=np.sum(np.square(force_magnitudes)) * self.action_cost_mult
+            actions_costs[smp]=np.sum(np.square(force_magnitudes)) * self.action_cost_factor
         return actions_costs
 
 
@@ -107,17 +109,36 @@ class CEM_controller():
     def perform_CEM(self,last_frames, last_states, t):
         # initialize mean and variance
 
-        self.mean = np.zeros(self.adim * self.naction_steps)
-        #initialize mean and variance of the discrete actions to their mean and variance used during data collection
+        if 'reuse_mean_cov' in self.policyparams or t < 2:
+            self.mean = np.zeros(self.adim * self.naction_steps)
+            #initialize mean and variance of the discrete actions to their mean and variance used during data collection
+            self.sigma = np.diag(np.ones(self.adim * self.naction_steps) * self.initial_std ** 2)
+            # reducing the variance for goup and close actiondims
+            diagonal = copy.deepcopy(np.diag(self.sigma))
+            diagonal[2::4] = 1
+            diagonal[3::4] = 1
+            self.sigma[np.diag_indices_from(self.sigma)] = diagonal
 
-        self.sigma = np.diag(np.ones(self.adim * self.naction_steps) * self.initial_std ** 2)
-        # reducing the variance for goup and close actiondims
+        else:
+            print 'reusing mean form last MPC step...'
+            mean_old = copy.deepcopy(self.mean)
 
-        diagonal = copy.deepcopy(np.diag(self.sigma))
-        diagonal[2::4] = 1
-        diagonal[3::4] = 1
+            self.mean = np.zeros_like(mean_old)
+            self.mean[:-self.adim] = mean_old[self.adim:]
+            self.mean = self.mean.reshape(self.adim * self.naction_steps)
 
-        self.sigma[np.diag_indices_from(self.sigma)] = diagonal
+            sigma_old = copy.deepcopy(self.sigma)
+            self.sigma = np.zeros_like(self.sigma)
+            self.sigma[0:-self.adim,0:-self.adim] = sigma_old[self.adim:,self.adim: ]
+            self.sigma[0:-self.adim, 0:-self.adim] += np.diag(np.ones(self.adim * (self.naction_steps-1)))*(self.initial_std/5)**2
+            self.sigma[-1,-1] = 1
+            self.sigma[-2,-2] = 1
+            self.sigma[-3, -2] = self.initial_std ** 2
+            self.sigma[-4, -2] = self.initial_std ** 2
+
+            # self.sigma = np.diag(np.ones(self.adim * self.nactions) * self.initial_std ** 2)
+        else:
+
 
         print '------------------------------------------------'
         print 'starting CEM cylce'
@@ -261,11 +282,11 @@ class CEM_controller():
                         outputlist[tstep][ind] = inputlist[tstep][bestindices[ind]]
                 return outputlist
 
-            cPickle.dump(best(gen_images), open(file_path + '/gen_image.pkl', 'wb'))
-            cPickle.dump(best(gen_distrib), open(file_path + '/gen_distrib.pkl', 'wb'))
+            cPickle.dump(best(gen_images), open(file_path + '/gen_image_t{}.pkl'.format(self.t), 'wb'))
+            cPickle.dump(best(gen_distrib), open(file_path + '/gen_distrib_t{}.pkl'.format(self.t), 'wb'))
 
             print 'written files to:' + file_path
-            create_video_pixdistrib_gif(file_path, self.netconf, n_exp=10, suppress_number=True, suffix='iter{}_t{}'.format(itr, self.t))
+            # create_video_pixdistrib_gif(file_path, self.netconf, t=self.t, n_exp=10, suppress_number=True, suffix='iter{}_t{}'.format(itr, self.t))
 
             f = open(file_path + '/actions_last_iter_t{}'.format(self.t), 'w')
             sorted = scores.argsort()

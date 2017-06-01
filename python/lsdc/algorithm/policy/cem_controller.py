@@ -194,6 +194,7 @@ class CEM_controller(Policy):
                 # if 'reduce_iter' in self.policyparams:
                 #     self.niter = 2
 
+                pdb.set_trace()
                 mean_old = copy.deepcopy(self.mean)
 
                 self.mean = np.zeros_like(mean_old)
