@@ -283,7 +283,7 @@ class CEM_controller():
             cPickle.dump(best(gen_distrib), open(file_path + '/gen_distrib_t{}.pkl'.format(self.t), 'wb'))
 
             print 'written files to:' + file_path
-            # create_video_pixdistrib_gif(file_path, self.netconf, t=self.t, n_exp=10, suppress_number=True, suffix='iter{}_t{}'.format(itr, self.t))
+            create_video_pixdistrib_gif(file_path, self.netconf, t=self.t, n_exp=10, suppress_number=True, suffix='iter{}_t{}'.format(itr, self.t))
 
             f = open(file_path + '/actions_last_iter_t{}'.format(self.t), 'w')
             sorted = scores.argsort()
