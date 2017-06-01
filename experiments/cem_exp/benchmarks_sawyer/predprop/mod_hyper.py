@@ -15,7 +15,8 @@ policy = {
     'load_goal_image':'make_easy_goal',
     'verbose':'',
     'predictor_propagation': '',   # use the model get the designated pixel for the next step!
-    'action_cost_factor': 1e1
+    'action_cost_factor': 0,
+    'reuse_mean_cov':''
 }
 
 agent = {
