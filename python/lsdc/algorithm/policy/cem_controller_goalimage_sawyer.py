@@ -109,7 +109,7 @@ class CEM_controller():
     def perform_CEM(self,last_frames, last_states, t):
         # initialize mean and variance
 
-        if 'reuse_mean_cov' in self.policyparams or t < 2:
+        if 'reuse_mean_cov' not in self.policyparams or t < 2:
             self.mean = np.zeros(self.adim * self.naction_steps)
             #initialize mean and variance of the discrete actions to their mean and variance used during data collection
             self.sigma = np.diag(np.ones(self.adim * self.naction_steps) * self.initial_std ** 2)
@@ -120,6 +120,7 @@ class CEM_controller():
             self.sigma[np.diag_indices_from(self.sigma)] = diagonal
 
         else:
+            pdb.set_trace()
             print 'reusing mean form last MPC step...'
             mean_old = copy.deepcopy(self.mean)
 
@@ -135,10 +136,9 @@ class CEM_controller():
             self.sigma[-2,-2] = 1
             self.sigma[-3, -2] = self.initial_std ** 2
             self.sigma[-4, -2] = self.initial_std ** 2
-
             # self.sigma = np.diag(np.ones(self.adim * self.nactions) * self.initial_std ** 2)
-        else:
-
+            
+            pdb.set_trace()
 
         print '------------------------------------------------'
         print 'starting CEM cylce'
