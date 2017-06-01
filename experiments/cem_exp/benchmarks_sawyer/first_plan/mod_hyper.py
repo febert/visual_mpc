@@ -15,7 +15,6 @@ policy = {
     'iterations': 3,
     'load_goal_image':'make_easy_goal',
     'verbose':'',
-    'no_instant_gif':"",
     # 'use_goalimage':"",
     # 'usepixelerror':''
     'use_first_plan':'',
