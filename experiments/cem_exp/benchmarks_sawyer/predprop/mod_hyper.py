@@ -1,5 +1,4 @@
 
-
 current_dir = '/'.join(str.split(__file__, '/')[:-1])
 bench_dir = '/'.join(str.split(__file__, '/')[:-2])
 
@@ -15,13 +14,10 @@ policy = {
     'iterations': 3,
     'load_goal_image':'make_easy_goal',
     'verbose':'',
-    # 'use_goalimage':"",
-    # 'usepixelerror':''
-    # 'use_first_plan':'',
-    'predictor_propagation': ''   # use the model get the designated pixel for the next step!
+    'predictor_propagation': '',   # use the model get the designated pixel for the next step!
+    'action_cost_factor': 1e1
 }
 
 agent = {
     'T': 25,
-    # 'use_goalimage':"",
 }

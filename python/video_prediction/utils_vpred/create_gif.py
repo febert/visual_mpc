@@ -144,6 +144,8 @@ def make_color_scheme(input_img_list, n_exp= None):
 
         output_image_list.append(output_image)
 
+        plt.close('all')
+
         # pdb.set_trace()
     return output_image_list
 
@@ -204,7 +206,7 @@ def assemble_gif(video_batch, num_exp = 8, convert_from_float = True):
     """
 
     vid_length = min([len(vid) for vid in video_batch])
-    print 'video length:', vid_length
+    print 'smallest length of all videos', vid_length
     for i in range(len(video_batch)):
         video_batch[i] = [np.expand_dims(videoframe, axis=0) for videoframe in video_batch[i]]
 

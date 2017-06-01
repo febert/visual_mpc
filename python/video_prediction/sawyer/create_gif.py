@@ -36,9 +36,9 @@ def create_gif(file_path, conf, suffix = None, numexp = 8):
 
     npy_to_gif(fused_gif, name)
 
-def create_video_pixdistrib_gif(file_path, conf, suffix = None, n_exp = 8, suppress_number = False):
-    gen_images = cPickle.load(open(file_path + '/gen_image.pkl', "rb"))
-    gen_distrib = cPickle.load(open(file_path + '/gen_distrib.pkl', "rb"))
+def create_video_pixdistrib_gif(file_path, conf, t, suffix = None, n_exp = 8, suppress_number = False):
+    gen_images = cPickle.load(open(file_path + '/gen_image_t{}.pkl'.format(t), "rb"))
+    gen_distrib = cPickle.load(open(file_path + '/gen_distrib_t{}.pkl'.format(t), "rb"))
 
     if  suppress_number:
         name = file_path + '/vid_' + conf['experiment_name'] + suffix
@@ -49,8 +49,9 @@ def create_video_pixdistrib_gif(file_path, conf, suffix = None, n_exp = 8, suppr
         else:
             name = file_path + '/vid_' + conf['experiment_name'] + '_' + str(itr_vis) + suffix
 
-    if 'single_view' in conf:
-        plot_psum_overtime(gen_distrib, n_exp, name)
+    # pdb.set_trace()
+    # if 'single_view' in conf:
+    #     plot_psum_overtime(gen_distrib, n_exp, name)
 
     if 'single_view' not in conf:
         gen_images_main = [img[:, :, :, :3] for img in gen_images]
@@ -64,13 +65,19 @@ def create_video_pixdistrib_gif(file_path, conf, suffix = None, n_exp = 8, suppr
 
         fused_gif = assemble_gif([gen_images_main, gen_distrib_main, gen_images_aux1, gen_distrib_aux1], n_exp)
     else:
-        gen_distrib = make_color_scheme(gen_distrib)
+        makecolor = True
+        if makecolor:
+            gen_distrib = make_color_scheme(gen_distrib)
+        else:
+            gen_distrib = [np.repeat(g, 3, axis=3) for g in gen_distrib]
+
         fused_gif = assemble_gif([gen_images, gen_distrib], n_exp)
 
     npy_to_gif(fused_gif, name)
 
 
 def plot_psum_overtime(gen_distrib, n_exp, name):
+    pdb.set_trace()
     plt.figure(figsize=(25, 2),dpi=80)
 
     for ex in range(n_exp):
@@ -85,13 +92,21 @@ def plot_psum_overtime(gen_distrib, n_exp, name):
 
     # plt.show()
     plt.savefig(name +"_psum.png")
+    plt.close('all')
+
+
+def go_through_timesteps(filepath):
+    for t in range(1,9):
+        create_video_pixdistrib_gif(file_path, conf, t, suffix='_t{}'.format(t), n_exp=10, suppress_number=True)
 
 
 if __name__ == '__main__':
     # file_path = '/home/frederik/Documents/lsdc/tensorflow_data/sawyer/singleview_shifted/modeldata'
     # hyperparams = imp.load_source('hyperparams', '/home/frederik/Documents/lsdc/tensorflow_data/sawyer/singleview_shifted/conf.py')
-    file_path = '/home/guser/Desktop/src/lsdc/experiments/cem_exp/benchmarks_sawyer/first_test/verbose'
-    hyperparams = imp.load_source('hyperparams', '/home/guser/Desktop/src/lsdc/experiments/cem_exp/benchmarks_sawyer/first_test/conf.py')
+    file_path = '/home/guser/Desktop/src/lsdc/experiments/cem_exp/benchmarks_sawyer/predprop/verbose'
+    hyperparams = imp.load_source('hyperparams', '/home/guser/Desktop/src/lsdc/experiments/cem_exp/benchmarks_sawyer/predprop/conf.py')
     conf = hyperparams.configuration
     # conf['visualize'] = conf['output_dir'] + '/model114002'
-    create_video_pixdistrib_gif(file_path, conf, n_exp= 10, suppress_number= True)
+    # create_video_pixdistrib_gif(file_path, conf, n_exp= 10, suppress_number= True)
+
+    go_through_timesteps(file_path)
