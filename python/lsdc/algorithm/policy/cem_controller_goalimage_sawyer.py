@@ -120,7 +120,6 @@ class CEM_controller():
             self.sigma[np.diag_indices_from(self.sigma)] = diagonal
 
         else:
-            pdb.set_trace()
             print 'reusing mean form last MPC step...'
             mean_old = copy.deepcopy(self.mean)
 
@@ -137,8 +136,6 @@ class CEM_controller():
             self.sigma[-3, -2] = self.initial_std ** 2
             self.sigma[-4, -2] = self.initial_std ** 2
             # self.sigma = np.diag(np.ones(self.adim * self.nactions) * self.initial_std ** 2)
-            
-            pdb.set_trace()
 
         print '------------------------------------------------'
         print 'starting CEM cylce'
