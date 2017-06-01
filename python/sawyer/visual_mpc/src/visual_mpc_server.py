@@ -92,6 +92,7 @@ class Visual_MPC_Server(object):
             goal_main,
             goal_aux1
         ], axis=2)
+        print 'init traj{} group{}'.format(self.i_traj, self.igrp)
 
         return init_traj_visualmpcResponse()
 
