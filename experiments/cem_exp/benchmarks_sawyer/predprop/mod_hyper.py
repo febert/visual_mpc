@@ -16,9 +16,9 @@ policy = {
     'verbose':'',
     'predictor_propagation': '',   # use the model get the designated pixel for the next step!
     'action_cost_factor': 0,
-    'reuse_mean_cov':''
+    'reuse_mean_cov':'',
 }
 
 agent = {
-    'T': 25,
+    'T': 20,
 }
