@@ -94,7 +94,7 @@ def comp_single_video(file_path, ground_truth, predicted = None, num_exp = 8):
     fused_gif = assemble_gif([ground_truth], num_exp)
     npy_to_gif(fused_gif, file_path)
 
-def make_color_scheme(input_img_list, n_exp= None):
+def make_color_scheme(input_img_list, n_exp= None, convert_to_float = True):
     """
     :param input_img_list: list of single channel images
     :param output_img_list: list of single channel images
@@ -134,7 +134,8 @@ def make_color_scheme(input_img_list, n_exp= None):
             data = np.fromstring(fig.canvas.tostring_rgb(), dtype=np.uint8, sep='')
             data = data.reshape(fig.canvas.get_width_height()[::-1] + (3,))
 
-            data = data.astype(np.float32) / 255.0
+            if convert_to_float:
+                data = data.astype(np.float32) / 255.0
             output_image[b] = data
 
             # import pdb;
@@ -143,6 +144,8 @@ def make_color_scheme(input_img_list, n_exp= None):
             # Image.fromarray(np.uint8(data*255)).show()
 
         output_image_list.append(output_image)
+
+        plt.close('all')
 
         # pdb.set_trace()
     return output_image_list
@@ -204,7 +207,7 @@ def assemble_gif(video_batch, num_exp = 8, convert_from_float = True):
     """
 
     vid_length = min([len(vid) for vid in video_batch])
-    print 'video length:', vid_length
+    print 'smallest length of all videos', vid_length
     for i in range(len(video_batch)):
         video_batch[i] = [np.expand_dims(videoframe, axis=0) for videoframe in video_batch[i]]
 
