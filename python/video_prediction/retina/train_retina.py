@@ -63,6 +63,7 @@ class Model(object):
                  states=None,
                  init_pos=None,
                  reuse_scope=None,
+                 pixdistrib =None
                  ):
 
         self.conf = conf
@@ -83,7 +84,6 @@ class Model(object):
         highres_images = tf.split(1, highres_images.get_shape()[1], highres_images)
         highres_images = [tf.squeeze(img) for img in highres_images]
 
-        self.init_pixdistrib = self.make_initial_pixdistrib()
 
         if reuse_scope is None:
             gen_retina, gen_states, gen_pix_distrib, true_retina, retina_pos, maxcoord = construct_model(
@@ -91,8 +91,8 @@ class Model(object):
                 highres_images,
                 actions,
                 states,
-                init_retina_pos = init_pos,
-                pix_distributions= self.init_pixdistrib,
+                init_object_pos_mj= init_pos,
+                pix_distributions= pixdistrib,
                 iter_num=self.iter_num,
                 k=conf['schedsamp_k'],
                 use_state=conf['use_state'],
@@ -109,8 +109,8 @@ class Model(object):
                     highres_images,
                     actions,
                     states,
-                    init_retina_pos=init_pos,
-                    pix_distributions=self.init_pixdistrib,
+                    init_object_pos_mj=init_pos,
+                    pix_distributions=pixdistrib,
                     iter_num=self.iter_num,
                     k=conf['schedsamp_k'],
                     use_state=conf['use_state'],
@@ -156,17 +156,6 @@ class Model(object):
         self.gen_pix_distrib = gen_pix_distrib
 
 
-    def make_initial_pixdistrib(self):
-        r = 16
-        c = 16
-
-        flat_ind = tf.constant([r*self.conf['retina_size'] + c], dtype= tf.int32)
-        flat_ind = tf.tile(flat_ind, [self.conf['batch_size']])
-        one_hot = tf.one_hot(flat_ind, depth=self.conf['retina_size']**2, axis = -1)
-        one_hot = tf.reshape(one_hot, [self.conf['batch_size'], self.conf['retina_size'], self.conf['retina_size']])
-
-        return [one_hot, one_hot]
-
 
 def main(conf):
 
@@ -206,12 +195,12 @@ def main(conf):
 
     print 'Constructing models and inputs.'
     with tf.variable_scope('model', reuse=None) as training_scope:
-        images, highres_images, ret_pos, actions, states, poses = build_tfrecord_input(conf, training=True, shuffle_vis=True)
+        images, highres_images, actions, states, poses = build_tfrecord_input(conf, training=True, shuffle_vis=True)
         init_pos = tf.squeeze(tf.slice(tf.squeeze(poses), [0, 0, 0], [-1, 1, 2]))
         model = Model(conf, images,highres_images, actions, states, init_pos)
 
     with tf.variable_scope('val_model', reuse=None):
-        val_images, val_highres_images, val_ret_pos, val_actions, val_states, val_poses = build_tfrecord_input(conf, training=False, shuffle_vis=True)
+        val_images, val_highres_images, val_actions, val_states, val_poses = build_tfrecord_input(conf, training=False, shuffle_vis=True)
         init_val_pos = tf.squeeze(tf.slice(tf.squeeze(val_poses), [0, 0, 0], [-1, 1, 2]))
         val_model = Model(conf, val_images,val_highres_images, val_actions, val_states, init_val_pos, training_scope)
 
@@ -277,23 +266,24 @@ def main(conf):
     t_iter = []
 
     ####### debugging
-    # itr = 0
-    # feed_dict = {model.prefix: 'train',
-    #              model.iter_num: np.float32(itr),
-    #              model.lr: conf['learning_rate'],
-    #              }
-    # init_pix, true_retina, ret_pos_data = sess.run([model.init_pixdistrib, model.true_retina, ret_pos],
-    #                                 feed_dict)
-    #
-    # Image.fromarray((true_retina[0][0] * 255).astype(np.uint8)).show()
-    # Image.fromarray((true_retina[4][0] * 255).astype(np.uint8)).show()
-    #
-    # Image.fromarray((init_pix[0][0] * 255).astype(np.uint8)).show()
-    # print 'retina pos:'
-    # for i in range(3):
-    #      print ret_pos_data[i][0]
-    #
-    # pdb.set_trace()
+    itr = 0
+    feed_dict = {model.prefix: 'train',
+                 model.iter_num: np.float32(itr),
+                 model.lr: conf['learning_rate'],
+                 }
+    pix_distrib, true_retina, ret_pos_data = sess.run([model.gen_pix_distrib, model.true_retina, model.retina_pos],
+                                    feed_dict)
+
+    pdb.set_trace()
+    Image.fromarray((true_retina[0][0] * 255).astype(np.uint8)).show()
+    Image.fromarray((true_retina[4][0] * 255).astype(np.uint8)).show()
+
+    Image.fromarray((np.squeeze(pix_distrib[0][0]) * 255).astype(np.uint8)).show()
+    print 'retina pos:'
+    for i in range(3):
+         print ret_pos_data[i][0]
+
+    pdb.set_trace()
     ####### end debugging
 
     # Run training.
