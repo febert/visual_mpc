@@ -266,24 +266,24 @@ def main(conf):
     t_iter = []
 
     ####### debugging
-    itr = 0
-    feed_dict = {model.prefix: 'train',
-                 model.iter_num: np.float32(itr),
-                 model.lr: conf['learning_rate'],
-                 }
-    pix_distrib, true_retina, ret_pos_data = sess.run([model.gen_pix_distrib, model.true_retina, model.retina_pos],
-                                    feed_dict)
-
-    pdb.set_trace()
-    Image.fromarray((true_retina[0][0] * 255).astype(np.uint8)).show()
-    Image.fromarray((true_retina[4][0] * 255).astype(np.uint8)).show()
-
-    Image.fromarray((np.squeeze(pix_distrib[0][0]) * 255).astype(np.uint8)).show()
-    print 'retina pos:'
-    for i in range(3):
-         print ret_pos_data[i][0]
-
-    pdb.set_trace()
+    # itr = 0
+    # feed_dict = {model.prefix: 'train',
+    #              model.iter_num: np.float32(itr),
+    #              model.lr: conf['learning_rate'],
+    #              }
+    # pix_distrib, true_retina, ret_pos_data = sess.run([model.gen_pix_distrib, model.true_retina, model.retina_pos],
+    #                                 feed_dict)
+    #
+    # pdb.set_trace()
+    # Image.fromarray((true_retina[0][0] * 255).astype(np.uint8)).show()
+    # Image.fromarray((true_retina[4][0] * 255).astype(np.uint8)).show()
+    #
+    # Image.fromarray((np.squeeze(pix_distrib[0][0]) * 255).astype(np.uint8)).show()
+    # print 'retina pos:'
+    # for i in range(3):
+    #      print ret_pos_data[i][0]
+    #
+    # pdb.set_trace()
     ####### end debugging
 
     # Run training.
