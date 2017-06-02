@@ -221,7 +221,7 @@ def main(conf):
 
         feed_dict = {val_model.lr: 0.0,
                      val_model.prefix: 'vis',
-                     val_model.iter_num: 0 }
+                     val_model.iter_num: 50000}  # to ensure retina movement!
         file_path = conf['output_dir']
 
         val_highres_images_data, gen_retinas, gtruth_retinas, gen_pix_distrib, retina_pos, maxcoord, gtruth_image = sess.run([
