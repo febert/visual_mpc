@@ -94,7 +94,7 @@ def construct_model(images,
 
     summaries = []
 
-    retina_pos_list, maxcoord_list = [], []
+    retina_pos_list = []
 
     if k == -1:
         feedself = True
@@ -315,7 +315,7 @@ def construct_model(images,
 
 
     if pix_distributions != None:
-        return gen_images, gen_states, gen_masks, gen_pix_distrib, retina_pos_list, maxcoord_list
+        return gen_images, gen_states, gen_masks, gen_pix_distrib, retina_pos_list
     else:
         return gen_images, gen_states, gen_masks, None, retina_pos_list
 

@@ -1,7 +1,7 @@
 import tensorflow as tf
 import imp
 import numpy as np
-from prediction_train import Model
+from video_prediction.costmask.prediction_train_costmask import Model
 from PIL import Image
 import os
 
@@ -50,10 +50,7 @@ def setup_predictor(conf, gpu_id = 0):
 
             print 'Constructing model for control'
             with tf.variable_scope('model', reuse=None) as training_scope:
-                if 'costmask' in conf:
-                    model = Model(conf, images_pl, actions_pl, states_pl, init_obj_pose=init_retpos, reuse_scope=None, pix_distrib=pix_distrib)
-                else:
-                    model = Model(conf, images_pl, actions_pl, states_pl,reuse_scope= None, pix_distrib= pix_distrib)
+                model = Model(conf, images_pl, actions_pl, states_pl, init_obj_pose=init_retpos, reuse_scope=None, pix_distrib=pix_distrib)
 
 
             sess.run(tf.initialize_all_variables())
@@ -69,43 +66,24 @@ def setup_predictor(conf, gpu_id = 0):
                 :return: the predicted pixcoord at the end of sequence
                 """
 
-                itr = 0
-                if 'no_pix_distrib' not in conf:
 
+                feed_dict = {model.prefix: 'ctrl',
+                             model.iter_num: 50000, # this enables movement of the costmask!
+                             model.lr: 0,
+                             images_pl: input_images,
+                             actions_pl: input_actions,
+                             states_pl: input_state,
+                             pix_distrib: one_hot_images,
+                             init_retpos_pl : init_retpos}
 
-                    feed_dict = {model.prefix: 'ctrl',
-                                 model.iter_num: np.float32(itr),
-                                 model.lr: conf['learning_rate'],
-                                 images_pl: input_images,
-                                 actions_pl: input_actions,
-                                 states_pl: input_state,
-                                 pix_distrib: one_hot_images
-                                 }
-
-                    if 'costmask' in conf:
-                        feed_dict[init_retpos_pl] = init_retpos
-
-                    gen_distrib, gen_images, gen_masks, gen_states = sess.run([model.gen_distrib,
-                                                                               model.gen_images,
-                                                                               model.gen_masks,
-                                                                               model.gen_states
-                                                                               ],
-                                                                              feed_dict)
-                    return gen_distrib, gen_images, gen_masks, gen_states
-
-                if 'no_pix_distrib' in conf:  # used in goal image planning
-                    feed_dict = {model.prefix: 'ctrl',
-                                 model.iter_num: np.float32(itr),
-                                 model.lr: conf['learning_rate'],
-                                 images_pl: input_images,
-                                 actions_pl: input_actions,
-                                 states_pl: input_state,
-                                 }
-
-                    gen_images, gen_states = sess.run([
-                                                       model.gen_images,
-                                                       model.gen_states
-                                                        ], feed_dict)
-                    return None, gen_images, gen_states
+                gen_distrib, gen_images, gen_masks, gen_states, gen_retina, retpos = sess.run([model.gen_distrib,
+                                                                           model.gen_images,
+                                                                           model.gen_masks,
+                                                                           model.gen_states,
+                                                                           model.pred_retinas,
+                                                                           model.retpos_list
+                                                                           ],
+                                                                          feed_dict)
+                return gen_distrib, gen_images, gen_masks, gen_states, gen_retina, retpos
 
             return predictor_func
