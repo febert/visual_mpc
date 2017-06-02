@@ -61,7 +61,7 @@ class Model(object):
                  highres_images = None,
                  actions=None,
                  states=None,
-                 init_retpos=None,
+                 init_pos=None,
                  reuse_scope=None,
                  ):
 
@@ -91,7 +91,7 @@ class Model(object):
                 highres_images,
                 actions,
                 states,
-                init_retina_pos = init_retpos,
+                init_retina_pos = init_pos,
                 pix_distributions= self.init_pixdistrib,
                 iter_num=self.iter_num,
                 k=conf['schedsamp_k'],
@@ -109,7 +109,7 @@ class Model(object):
                     highres_images,
                     actions,
                     states,
-                    init_retina_pos=init_retpos,
+                    init_retina_pos=init_pos,
                     pix_distributions=self.init_pixdistrib,
                     iter_num=self.iter_num,
                     k=conf['schedsamp_k'],
@@ -207,11 +207,13 @@ def main(conf):
     print 'Constructing models and inputs.'
     with tf.variable_scope('model', reuse=None) as training_scope:
         images, highres_images, ret_pos, actions, states, poses = build_tfrecord_input(conf, training=True, shuffle_vis=True)
-        model = Model(conf, images,highres_images, actions, states, ret_pos)
+        init_pos = tf.squeeze(tf.slice(tf.squeeze(poses), [0, 0, 0], [-1, 1, 2]))
+        model = Model(conf, images,highres_images, actions, states, init_pos)
 
     with tf.variable_scope('val_model', reuse=None):
         val_images, val_highres_images, val_ret_pos, val_actions, val_states, val_poses = build_tfrecord_input(conf, training=False, shuffle_vis=True)
-        val_model = Model(conf, val_images,val_highres_images, val_actions, val_states, val_ret_pos, training_scope)
+        init_val_pos = tf.squeeze(tf.slice(tf.squeeze(val_poses), [0, 0, 0], [-1, 1, 2]))
+        val_model = Model(conf, val_images,val_highres_images, val_actions, val_states, init_val_pos, training_scope)
 
     print 'Constructing saver.'
     # Make saver.

@@ -32,7 +32,7 @@ def construct_model(images,
                     highres_images,
                     actions=None,
                     states=None,
-                    init_retina_pos=None,
+                    init_retina_pos=None,  # mujoco_coords
                     pix_distributions=None,
                     iter_num=-1.0,
                     k=-1,
@@ -115,13 +115,11 @@ def construct_model(images,
                 reuse=reuse):
 
             if t >0:
-                retina_pos, maxcoord = get_new_retinapos(conf, prev_pix_distrib, retina_pos_list[-1], himage)
+                moved_retina_pos, maxcoord = get_new_retinapos(conf, prev_pix_distrib, retina_pos_list[-1], himage)
                 maxcoord_list.append(maxcoord)
-                if 'static' in conf:
-                    print 'using static retina!'
-                    retina_pos_list.append(init_retina_pos)
-                else:
-                    retina_pos_list.append(retina_pos)
+                new_ret_pix = tf.cond(tf.less(iter_num, 15000), lambda: init_retina_pos,
+                                                            lambda: moved_retina_pos)
+                retina_pos_list.append(new_ret_pix)
 
             true_retina.append(get_retina(conf, himage, retina_pos_list[-1]))
 
@@ -507,3 +505,41 @@ def make_cdna_kerns_summary(cdna_kerns, t, suffix):
         )
 
     return  sum
+
+def make_initial_pixdistrib(conf, init_object_pos):
+    desig_pix = mujoco_to_imagespace_tf(init_object_pos)
+
+    flat_ind = []
+    for b in range(conf['batch_size']):
+        r = tf.slice(desig_pix, [b, 0], [1, 1])
+        c = tf.slice(desig_pix, [b, 1], [1, 1])
+
+        flat_ind.append(r * 64+ c)
+
+    flat_ind = tf.concat(0, flat_ind)
+    one_hot = tf.one_hot(flat_ind, depth=64 ** 2, axis=-1)
+    one_hot = tf.reshape(one_hot, [conf['batch_size'], 64, 64])
+
+    return [one_hot, one_hot]
+
+def mujoco_to_imagespace_tf(mujoco_coord, numpix = 64):
+    """
+    convert form Mujoco-Coord to numpix x numpix image space:
+    :param numpix: number of pixels of square image
+    :param mujoco_coord: batch_size x 2
+    :return: pixel_coord: batch_size x 2
+    """
+    mujoco_coord = tf.cast(mujoco_coord, tf.float32)
+
+    viewer_distance = .75  # distance from camera to the viewing plane
+    window_height = 2 * np.tan(75 / 2 / 180. * np.pi) * viewer_distance  # window height in Mujoco coords
+    pixelheight = window_height / numpix  # height of one pixel
+    middle_pixel = numpix / 2
+    r = -tf.slice(mujoco_coord,[0,1], [-1,1])
+    c =  tf.slice(mujoco_coord,[0,0], [-1,1])
+    pixel_coord = tf.concat(1, [r,c])/pixelheight
+    pixel_coord += middle_pixel
+    pixel_coord = tf.round(pixel_coord)
+    pixel_coord = tf.cast(pixel_coord, tf.int32)
+
+    return pixel_coord
