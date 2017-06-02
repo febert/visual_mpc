@@ -88,9 +88,8 @@ def construct_model(images,
     current_state = states[0]
     gen_pix_distrib = []
 
-    if 'costmask' in conf:
-        if pix_distributions == None:
-            pix_distributions = make_initial_pixdistrib(conf, init_obj_pos)
+    if pix_distributions == None:
+        pix_distributions = make_initial_pixdistrib(conf, init_obj_pos)
 
     summaries = []
 

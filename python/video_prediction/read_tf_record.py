@@ -148,7 +148,7 @@ def build_tfrecord_input(conf, training=True, gtruth_pred = False, shuffle_vis =
         if 'touch' in conf:
             touch_seq = tf.concat(0, touch_seq)
 
-        if 'use_object_pos' in conf.keys():
+        if 'use_object_pos' in conf.keys() and not 'retina' in conf:
             [image_batch, action_batch, state_batch, object_pos_batch] = tf.train.batch(
             [image_seq, action_seq, state_seq, object_pos_seq],
             conf['batch_size'],
@@ -158,13 +158,13 @@ def build_tfrecord_input(conf, training=True, gtruth_pred = False, shuffle_vis =
             return image_batch, action_batch, state_batch, object_pos_batch
 
         elif 'retina' in conf:
-            [image_batch, retina_batch, retpos_batch, action_batch, state_batch, object_pos_batch] = tf.train.batch(
-                [image_seq, retina_seq, initial_retpos, action_seq, state_seq, object_pos_seq],
+            [image_batch, retina_batch, action_batch, state_batch, object_pos_batch] = tf.train.batch(
+                [image_seq, retina_seq, action_seq, state_seq, object_pos_seq],
                 conf['batch_size'],
                 num_threads=num_threads,
                 capacity=100 * conf['batch_size'])
 
-            return image_batch, retina_batch, retpos_batch, action_batch, state_batch, object_pos_batch
+            return image_batch, retina_batch, action_batch, state_batch, object_pos_batch
 
         elif 'touch' in conf:
             [image_batch, action_batch, state_batch, touch_batch] = tf.train.batch(
