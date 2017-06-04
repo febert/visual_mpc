@@ -186,6 +186,7 @@ def main(conf):
         conf['visualize'] = conf['output_dir'] + '/' + FLAGS.visualize
         conf['event_log_dir'] = '/tmp'
         conf['visual_file'] = conf['data_dir'] + '/traj_256_to_511.tfrecords'
+        conf.pop('move_random', None)
 
     print '-------------------------------------------------------------------'
     print 'verify current settings!! '
