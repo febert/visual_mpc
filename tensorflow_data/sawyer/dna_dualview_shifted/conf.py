@@ -31,6 +31,5 @@ configuration = {
 'file_visual': '',          # datafile used for making visualizations
 'dna_size': 9,              #size of DNA kerns
 'sawyer':'',
-'single_view':"",
 'use_len':14                # number of steps used for training where the starting location is selected randomly within sequencelength
 }

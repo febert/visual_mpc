@@ -20,7 +20,7 @@ import tensorflow as tf
 
 import tensorflow.contrib.slim as slim
 from tensorflow.contrib.layers.python import layers as tf_layers
-from lstm_ops import basic_conv_lstm_cell
+from video_prediction.lstm_ops import basic_conv_lstm_cell
 
 import pdb
 
@@ -88,9 +88,8 @@ def construct_model(images,
     current_state = states[0]
     gen_pix_distrib = []
 
-    if 'costmask' in conf:
-        if pix_distributions == None:
-            pix_distributions = make_initial_pixdistrib(conf, init_obj_pos)
+    if pix_distributions == None:
+        pix_distributions = make_initial_pixdistrib(conf, init_obj_pos)
 
     summaries = []
 
@@ -153,14 +152,8 @@ def construct_model(images,
 
             # Predicted state is always fed back in
             if 'costmask' in conf:
-                retina_pos_list.append(get_new_retinapos(conf,
-                                             prev_pix_distrib, init_obj_pos,t, iter_num))
-                # sel_retpos = tf.cond(tf.less(iter_num, 15000), lambda: init_desig_pix,
-                #                                                lambda: retina_pos_list[-1])
-                #
-                # outnum = tf.cond(tf.less(iter_num, 10), lambda: tf.constant(10.),
-                #                      lambda: tf.constant(10.))
-                # sel_retpos = tf.Print(sel_retpos, [outnum])
+                retpos = get_new_retinapos(conf, prev_pix_distrib, init_obj_pos,t, iter_num)
+                retina_pos_list.append(retpos)
 
                 state_action = tf.concat(1, [action, current_state,
                                              tf.cast(retina_pos_list[-1], tf.float32)])
@@ -491,22 +484,22 @@ def make_initial_pixdistrib(conf, init_object_pos):
 
 
 def get_new_retinapos(conf, prev_pix_distrib, init_obj_pos, t, iter_num):
-
+    init_ret_pix = mujoco_to_imagespace_tf(init_obj_pos)
     if 'moving_retina' in conf:
         print 'using moving retina'
         if t < 1:
-            ret_pix = mujoco_to_imagespace_tf(init_obj_pos)
+            ret_pix = init_ret_pix
         else:
-            ret_pix = get_max_coord(conf, prev_pix_distrib)
+            mxcoord_ret_pix = get_max_coord(conf, prev_pix_distrib)
+            ret_pix = tf.cond(tf.less(iter_num, 15000), lambda: init_ret_pix,
+                                                        lambda: mxcoord_ret_pix)
     else:
-        ret_pix = mujoco_to_imagespace_tf(init_obj_pos)
+        ret_pix = init_ret_pix
 
     half_rh = conf['retina_size'] / 2
     orig_imh = 64
     current_rpos = tf.clip_by_value(tf.cast(ret_pix, dtype=tf.int32), half_rh, orig_imh - half_rh - 1)
-
     return current_rpos
-
 
 def get_max_coord(conf, pix_distrib):
     """

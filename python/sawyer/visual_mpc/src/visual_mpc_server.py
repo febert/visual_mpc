@@ -13,9 +13,10 @@ import argparse
 import cv2
 from cv_bridge import CvBridge, CvBridgeError
 
+from video_prediction.utils_vpred.create_gif import *
 import socket
-if socket.gethostname() == 'newton1':
-    from lsdc.algorithm.policy.cem_controller_goalimage_sawyer import CEM_controller
+# if socket.gethostname() == 'newton1':
+from lsdc.algorithm.policy.cem_controller_goalimage_sawyer import CEM_controller
 
 from lsdc.utility.trajectory import Trajectory
 from lsdc import __file__ as lsdc_filepath
@@ -33,11 +34,6 @@ class Visual_MPC_Server(object):
         # if it is an auxiliary node advertise services
         rospy.init_node('visual_mpc_server')
         rospy.loginfo("init visual mpc server")
-
-        # initializing the servives:
-        rospy.Service('get_action', get_action, self.get_action_handler)
-        rospy.Service('init_traj_visualmpc', init_traj_visualmpc, self.init_traj_visualmpc_handler)
-
 
         lsdc_dir = '/'.join(str.split(lsdc_filepath, '/')[:-3])
         cem_exp_dir = lsdc_dir + '/experiments/cem_exp/benchmarks_sawyer'
@@ -58,7 +54,6 @@ class Visual_MPC_Server(object):
         self.agentparams = hyperparams.agent
         # load specific agent settings for benchmark:
 
-        print 'performing goal image benchmark ...'
         bench_dir = cem_exp_dir + '/' + benchmark_name
         goalimg_save_dir = cem_exp_dir + '/benchmarks_goalimage/' + benchmark_name + '/goalimage'
 
@@ -71,25 +66,33 @@ class Visual_MPC_Server(object):
         if hasattr(bench_conf, 'agent'):
             self.agentparams.update(bench_conf.agent)
 
-        netconf = imp.load_source('params', self.policyparams['netconf']).configuration
-        self.predictor = netconf['setup_predictor'](netconf, gpu_id, ngpu)
+        self.netconf = imp.load_source('params', self.policyparams['netconf']).configuration
+        self.predictor = self.netconf['setup_predictor'](self.netconf, gpu_id, ngpu)
         self.cem_controller = CEM_controller(self.agentparams, self.policyparams, self.predictor)
-        self.t = None
-        self.traj = Trajectory(self.agentparams)
+        self.t = 0
+        self.traj = Trajectory(self.agentparams, self.netconf)
         self.bridge = CvBridge()
+        self.initial_pix_distrib = []
+
+        # initializing the servives:
+        rospy.Service('get_action', get_action, self.get_action_handler)
+        rospy.Service('init_traj_visualmpc', init_traj_visualmpc, self.init_traj_visualmpc_handler)
 
         ###
-        print 'spinning'
+        print 'visual mpc server ready for taking requests!'
         rospy.spin()
 
     def init_traj_visualmpc_handler(self, req):
         self.igrp = req.igrp
         self.i_traj = req.itr
         self.t = 0
+        goal_main = self.bridge.imgmsg_to_cv2(req.goalmain)
+        goal_aux1 = self.bridge.imgmsg_to_cv2(req.goalaux1)
         self.cem_controller.goal_image = np.concatenate([
-            req.goalmain,
-            req.goalaux1
+            goal_main,
+            goal_aux1
         ], axis=2)
+        print 'init traj{} group{}'.format(self.i_traj, self.igrp)
 
         return init_traj_visualmpcResponse()
 
@@ -97,15 +100,53 @@ class Visual_MPC_Server(object):
 
         self.traj.X_full[self.t, :] = req.state
         main_img = self.bridge.imgmsg_to_cv2(req.main)
+        main_img = cv2.cvtColor(main_img, cv2.COLOR_BGR2RGB)
         aux1_img = self.bridge.imgmsg_to_cv2(req.aux1)
+        aux1_img = cv2.cvtColor(aux1_img, cv2.COLOR_BGR2RGB)
 
-        self.traj._sample_images[self.t] = np.concatenate((main_img, aux1_img), 2)
+        if 'single_view' in self.netconf:
+            self.traj._sample_images[self.t] = main_img
+        else:
+            # flip order of main and aux1 to match training of double view architecture
+            self.traj._sample_images[self.t] = np.concatenate((aux1_img, main_img), 2)
 
-        mj_U, pos, ind, targets = self.cem_controller.act(self.traj, self.t)
+        self.desig_pos_aux1 = req.desig_pos_aux1
+        self.goal_pos_aux1 = req.goal_pos_aux1
+
+        mj_U, pos, best_ind, pix_distrib = self.cem_controller.act(self.traj, self.t,
+                                                          req.desig_pos_aux1,
+                                                          req.goal_pos_aux1)
+
+        if 'predictor_propagation' in self.policyparams and self.t > 0:
+            self.initial_pix_distrib.append(pix_distrib[-1][0])
+
         self.traj.U[self.t, :] = mj_U
-        self.t += 1
 
+        if self.t == self.agentparams['T'] -1:
+            self.save_video()
+
+        self.t += 1
         return get_actionResponse(tuple(mj_U))
+
+    def save_video(self):
+        file_path = self.netconf['current_dir'] + '/videos'
+        imlist = np.split(self.traj._sample_images, self.agentparams['T'], axis=0)
+
+        imfilename = file_path + '/traj{0}_gr{1}'.format(self.i_traj, self.igrp)
+        cPickle.dump(imlist, open(imfilename+ '.pkl', 'wb'))
+
+        if 'predictor_propagation' in self.policyparams:
+            cPickle.dump(self.initial_pix_distrib, open(file_path + '/initial_pix_distrib.pkl'.format(self.t), 'wb'))
+            self.initial_pix_distrib = [im.reshape((1,64,64)) for im in self.initial_pix_distrib]
+            pdb.set_trace()
+            pix_distrib = make_color_scheme(self.initial_pix_distrib, convert_to_float=False)
+            gif = assemble_gif([imlist, pix_distrib], num_exp=1, convert_from_float=False)
+            npy_to_gif(gif, file_path +'/traj{0}_gr{1}_withpixdistrib'.format(self.i_traj, self.igrp))
+        else:
+            imlist = [np.squeeze(im) for im in imlist]
+            npy_to_gif(imlist, imfilename)
+
+
 
 if __name__ ==  '__main__':
     Visual_MPC_Server()

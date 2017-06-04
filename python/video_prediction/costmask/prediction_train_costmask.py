@@ -8,16 +8,16 @@ import pdb
 
 import imp
 
-from utils_vpred.adapt_params_visualize import adapt_params_visualize
+from video_prediction.utils_vpred.adapt_params_visualize import adapt_params_visualize
 from tensorflow.python.platform import app
 from tensorflow.python.platform import flags
-import utils_vpred.create_gif
+from video_prediction.utils_vpred.create_gif import *
 
-from read_tf_record import build_tfrecord_input
-
-from utils_vpred.skip_example import skip_example
+from video_prediction.read_tf_record import build_tfrecord_input
+import makegifs
 
 from datetime import datetime
+from prediction_model_costmask import construct_model
 
 # How often to record tensorboard summaries.
 SUMMARY_INTERVAL = 40
@@ -28,11 +28,12 @@ VAL_INTERVAL = 200
 # How often to save a model checkpoint
 SAVE_INTERVAL = 2000
 
-FLAGS = flags.FLAGS
-flags.DEFINE_string('hyper', '', 'hyperparameters configuration file')
-flags.DEFINE_string('visualize', '', 'model within hyperparameter folder from which to create gifs')
-flags.DEFINE_integer('device', 0 ,'the value for CUDA_VISIBLE_DEVICES variable, -1 uses cpu')
-flags.DEFINE_string('pretrained', None, 'path to model file from which to resume training')
+if __name__ == '__main__':
+    FLAGS = flags.FLAGS
+    flags.DEFINE_string('hyper', '', 'hyperparameters configuration file')
+    flags.DEFINE_string('visualize', '', 'model within hyperparameter folder from which to create gifs')
+    flags.DEFINE_integer('device', 0 ,'the value for CUDA_VISIBLE_DEVICES variable, -1 uses cpu')
+    flags.DEFINE_string('pretrained', None, 'path to model file from which to resume training')
 
 ## Helper functions
 def peak_signal_to_noise_ratio(true, pred):
@@ -103,35 +104,6 @@ def mean_squared_error_costmask(true, pred, current_rpos, conf):
     return cost, true_retinas, pred_retinas
 
 
-def fft_cost(true, pred, conf, fft_weights = None):
-
-    #loop over the color channels:
-    cost = 0.
-    true_fft_abssum = 0
-    pred_fft_abssum = 0
-    for i in range(3):
-
-        slice_true = tf.slice(true,[0,0,0,i],[-1,-1,-1,1])
-        slice_pred = tf.slice(pred, [0, 0, 0, i], [-1, -1, -1, 1])
-
-        slice_true = tf.squeeze(tf.complex(slice_true, tf.zeros_like(slice_true)))
-        slice_pred = tf.squeeze(tf.complex(slice_pred, tf.zeros_like(slice_pred)))
-
-        true_fft = tf.fft2d(slice_true)
-        pred_fft = tf.fft2d(slice_pred)
-
-        if 'fft_emph_highfreq' in conf:
-            abs_diff = tf.mul(tf.complex_abs(true_fft - pred_fft), fft_weights)
-            cost += tf.reduce_sum(tf.square(abs_diff)) / tf.to_float(tf.size(pred_fft))
-        else:
-            cost += tf.reduce_sum(tf.square(tf.complex_abs(true_fft - pred_fft))) / tf.to_float(tf.size(pred_fft))
-
-        true_fft_abssum += tf.complex_abs(true_fft)
-        pred_fft_abssum += tf.complex_abs(pred_fft)
-
-    return cost, true_fft_abssum, pred_fft_abssum
-
-
 class Model(object):
     def __init__(self,
                  conf,
@@ -142,10 +114,7 @@ class Model(object):
                  reuse_scope=None,
                  pix_distrib=None):
 
-        if 'prediction_model' in conf:
-            construct_model = conf['prediction_model']
-        else:
-            from prediction_model_downsized_lesslayer import construct_model
+
 
         self.prefix = prefix = tf.placeholder(tf.string, [])
         self.iter_num = tf.placeholder(tf.float32, [])
@@ -225,21 +194,7 @@ class Model(object):
                 tf.scalar_summary(prefix + '_recon_cost' + str(i), recon_cost_mse))
             summaries.append(tf.scalar_summary(prefix + '_psnr' + str(i), psnr_i))
 
-            if 'fftcost' in conf:
-                print 'using fftcost'
-                fftcost, true_fft, pred_fft = fft_cost(x, gx, conf, self.fft_weights)
-                true_fft_list.append(true_fft)
-                pred_fft_list.append(pred_fft)
-                summaries.append(
-                    tf.scalar_summary(prefix + '_fft_recon_cost' + str(i), fftcost))
-
-                if 'fftonly' in conf:
-                    print 'only using fft cost'
-                    recon_cost = fftcost
-                else:
-                    recon_cost = fftcost + recon_cost_mse
-            else:
-                recon_cost = recon_cost_mse
+            recon_cost = recon_cost_mse
 
             loss += recon_cost
 
@@ -268,6 +223,7 @@ class Model(object):
         self.gen_masks = gen_masks
         self.gen_distrib = gen_distrib
         self.gen_states = gen_states
+
         self.costmasklist = costmasklist
         self.true_retinas = true_retinas
         self.pred_retinas = pred_retinas
@@ -298,7 +254,12 @@ def main(unused_argv, conf_script= None):
     conf = hyperparams.configuration
     if FLAGS.visualize:
         print 'creating visualizations ...'
-        conf = adapt_params_visualize(conf, FLAGS.visualize)
+        conf['schedsamp_k'] = -1  # don't feed ground truth
+        conf['data_dir'] = '/'.join(str.split(conf['data_dir'], '/')[:-1] + ['test'])
+        conf['visualize'] = conf['output_dir'] + '/' + FLAGS.visualize
+        conf['event_log_dir'] = '/tmp'
+        conf['visual_file'] = conf['data_dir'] + '/traj_0_to_255.tfrecords'
+
     print '-------------------------------------------------------------------'
     print 'verify current settings!! '
     for key in conf.keys():
@@ -342,42 +303,32 @@ def main(unused_argv, conf_script= None):
 
         feed_dict = {val_model.lr: 0.0,
                      val_model.prefix: 'vis',
-                     val_model.iter_num: 0 }
+                     val_model.iter_num: 50000}
         file_path = conf['output_dir']
 
-        if 'fftcost' in conf:
-            true_fft, pred_fft, gen_images, ground_truth, mask_list = sess.run([val_model.true_fft, val_model.pred_fft ,val_model.gen_images,
-                                                            val_images, val_model.gen_masks],
-                                                           feed_dict)
-            cPickle.dump(true_fft, open(file_path + '/true_fft.pkl', 'wb'))
-            cPickle.dump(pred_fft, open(file_path + '/pred_fft.pkl', 'wb'))
+        gen_images, images, mask_list, true_ret, pred_ret, gen_distrib, retpos = sess.run([
+                                                        val_model.gen_images,
+                                                        val_images,
+                                                        val_model.gen_masks,
+                                                        val_model.true_retinas,
+                                                        val_model.pred_retinas,
+                                                        val_model.gen_distrib,
+                                                        val_model.retpos_list
+                                                        ],
+                                                       feed_dict)
 
-        if 'costmask' in conf:
-            gen_images, ground_truth, mask_list, true_ret, pred_ret = sess.run([
-                                                            val_model.gen_images,
-                                                            val_images,
-                                                            val_model.gen_masks,
-                                                            val_model.true_retinas,
-                                                            val_model.pred_retinas
-                                                            ],
-                                                           feed_dict)
+        dict_ = {}
+        dict_['gen_images'] = gen_images
+        dict_['true_ret'] = true_ret
+        dict_['pred_ret'] = pred_ret
+        dict_['images'] = images
+        dict_['gen_distrib'] = gen_distrib
+        dict_['retpos'] = retpos
 
-            cPickle.dump(true_ret, open(file_path + '/true_ret.pkl', 'wb'))
-            cPickle.dump(pred_ret, open(file_path + '/pred_ret.pkl', 'wb'))
-
-        else:
-            gen_images, ground_truth, mask_list = sess.run([val_model.gen_images,
-                                                            val_images, val_model.gen_masks,
-                                                            ],
-                                                           feed_dict)
-
-        cPickle.dump(gen_images, open(file_path + '/gen_image_seq.pkl','wb'))
-        cPickle.dump(ground_truth, open(file_path + '/ground_truth.pkl', 'wb'))
-        cPickle.dump(mask_list, open(file_path + '/mask_list.pkl', 'wb'))
+        cPickle.dump(dict_, open(file_path + '/dict_.pkl', 'wb'))
         print 'written files to:' + file_path
 
-        trajectories = utils_vpred.create_gif.comp_video(conf['output_dir'], conf)
-        # utils_vpred.create_gif.comp_masks(conf['output_dir'], conf, trajectories)
+        makegifs.comp_pix_distrib(conf['output_dir'], examples=10)
         return
 
     itr_0 =0
@@ -408,8 +359,6 @@ def main(unused_argv, conf_script= None):
                  }
     true_retina, retpos, gen_distrib, initpos, imdata = sess.run([model.true_retinas, model.retpos_list, model.gen_distrib, init_pos, images ],
                                     feed_dict)
-
-    pdb.set_trace()
     print 'retina pos:'
     for b in range(4):
         Image.fromarray((true_retina[0][b] * 255).astype(np.uint8)).show()
@@ -419,11 +368,7 @@ def main(unused_argv, conf_script= None):
         print 'retpos', retpos[b]
         print 'initpos', init_pos[0]
 
-        pdb.set_trace()
-
-    pdb.set_trace()
     ###### end debugging
-
 
     for itr in range(itr_0, conf['num_iterations'], 1):
         t_startiter = datetime.now()
