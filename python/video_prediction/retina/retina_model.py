@@ -121,7 +121,14 @@ def construct_model(images,
                 reuse=reuse):
 
             if t >0:
-                moved_retina_pos, maxcoord = get_new_retinapos(conf, prev_pix_distrib, retina_pos_list[-1], himage)
+                moved_retina_pos_maxpix, maxcoord = get_new_retinapos(conf, prev_pix_distrib, retina_pos_list[-1],
+                                                                      himage)
+                if 'move_random' in conf:
+                    print 'moving retina randomly'
+                    moved_retina_pos = get_new_retinapos_rand(conf, retina_pos_list[-1], himage)
+                else:
+                    moved_retina_pos = moved_retina_pos_maxpix
+
                 maxcoord_list.append(maxcoord)
                 new_ret_pix = tf.cond(tf.less(iter_num, 15000), lambda: init_retpos,
                                       lambda: moved_retina_pos)
@@ -321,16 +328,22 @@ def get_new_retinapos(conf, pix_distrib, current_rpos, himages):
     :return: 
     """
 
-
     pix_distrib_shape = pix_distrib.get_shape()[1:]
     maxcoord = tf.arg_max(tf.reshape(pix_distrib, [conf['batch_size'], -1]), dimension=1)
     maxcoord = unravel_argmax(maxcoord, pix_distrib_shape)
-
 
     new_rpos = current_rpos + maxcoord - tf.constant([16,16], dtype=tf.int32)
     new_rpos = clip_ret(new_rpos, conf)
 
     return new_rpos, maxcoord
+
+def get_new_retinapos_rand(conf, current_rpos, himages):
+    shift = conf['dna_size'] /2
+    rand_pix = tf.random_uniform([conf['batch_size'], 2], minval=-shift,maxval= shift+1,
+                                 dtype = tf.int32)
+    new_rpos = current_rpos + rand_pix
+    new_rpos = clip_ret(new_rpos, conf)
+    return new_rpos
 
 def clip_ret(new_rpos, conf):
     large_imh = conf['retina']  #80
