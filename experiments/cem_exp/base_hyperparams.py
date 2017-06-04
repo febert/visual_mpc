@@ -42,6 +42,7 @@ agent = {
     'x0': np.array([0., 0., 0., 0.,
                     .1, .1, 0., np.cos(alpha/2), 0, 0, np.sin(alpha/2)  #object pose (x,y,z, quat)
                      ]),
+    'state_dim': 2,
     'dt': 0.05,
     'substeps': 20,  #10
     'conditions': common['conditions'],

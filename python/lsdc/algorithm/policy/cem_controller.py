@@ -12,125 +12,17 @@ import time
 import imp
 import cPickle
 from video_prediction.setup_predictor import setup_predictor
-import video_prediction.utils_vpred.create_gif as makegif
-from video_prediction.utils_vpred.create_gif import comp_pix_distrib
+from video_prediction.utils_vpred.create_gif import *
 from datetime import datetime
 from multiprocessing import Pool
 import os
 
+import video_prediction.costmask.makegifs as makegifs
+
+
 from PIL import Image
 import pdb
 
-
-def sim_rollout_unbound(actions,
-                        policyparams,
-                        agentparams,
-                        viewer,
-                        small_viewer,
-                        nactions,
-                        repeat,
-                        verbose,
-                        use_net,
-                        model,
-                        rec_target_pos = None,
-                        qpos = None):
-
-    if policyparams['low_level_ctrl']:
-        rollout_ctrl = policyparams['low_level_ctrl']['type'](None, policyparams['low_level_ctrl'])
-        roll_target_pos = copy.deepcopy(qpos[:2].squeeze())
-
-    pred_pos = np.zeros((repeat * nactions, 2))
-    gtruth_images = np.zeros((nactions * repeat, 64, 64, 3))
-
-    for hstep in range(nactions):
-        currentaction = actions[hstep]
-
-        if policyparams['low_level_ctrl']:
-            roll_target_pos += currentaction
-
-        for r in range(repeat):
-            t = hstep * repeat + r
-            # print 'time ',t, ' target pos rollout: ', roll_target_pos
-
-            if not use_net:
-                ball_coord = model.data.qpos[:2].squeeze()
-                pred_pos[t] = mujoco_to_imagespace(ball_coord, numpix=480)
-                if policyparams['low_level_ctrl']:
-                    rec_target_pos[t] = mujoco_to_imagespace(roll_target_pos, numpix=480)
-
-            if policyparams['low_level_ctrl'] == None:
-                force = currentaction
-            else:
-                qpos = model.data.qpos[:2].squeeze()
-                qvel = model.data.qvel[:2].squeeze()
-                force = rollout_ctrl.act(qpos, qvel, None, t, roll_target_pos)
-
-            for _ in range(agentparams['substeps']):
-                model.data.ctrl = force
-                model.step()  # simulate the model in mujoco
-
-            if verbose:
-                viewer.loop_once()
-
-                small_viewer.loop_once()
-                img_string, width, height = small_viewer.get_image()
-                img = np.fromstring(img_string, dtype='uint8').reshape(
-                    (height, width, 3))[::-1, :, :]
-                gtruth_images[t] = img
-                # self.check_conversion()
-
-    goalpoint = np.array(agentparams['goal_point'])
-    refpoint = model.data.site_xpos[0, :2]
-
-    score = np.linalg.norm(goalpoint - refpoint)
-
-    return score, pred_pos, gtruth_images
-
-
-def worker(arglist ):
-
-    M,    n_worker,    actions,    policyparams,    agentparams,    nactions,    repeat, \
-    verbose, use_net, qpos, qvel = arglist
-
-    print 'using pid: ', os.getpid()
-
-    scores = np.empty(M/n_worker, dtype=np.float64)
-    pred_pos = np.zeros((M / n_worker, repeat * nactions, 2))
-    gtruth_images = np.zeros((M / n_worker, nactions * repeat, 64, 64, 3))
-    # model = mujoco_py.MjModel(agentparams['filename'])
-
-    gofast = True
-    viewer = mujoco_py.MjViewer(visible=True, init_width=480,
-                                     init_height=480, go_fast=gofast)
-    viewer.start()
-    # viewer.set_model(model)
-    # viewer.cam.camid = 0
-
-    # small_viewer = mujoco_py.MjViewer(visible=True, init_width=64,
-    #                                        init_height=64, go_fast=gofast)
-    # small_viewer.start()
-    # small_viewer.set_model(model)
-    # small_viewer.cam.camid = 0
-    #
-    # for smp in range(M):
-    #     # set initial conditions
-    #     model.data.qpos = qpos
-    #     model.data.qvel = qvel
-    #     scores[smp], pred_pos[smp], gtruth_images[smp] = sim_rollout_unbound(
-    #                         actions[smp],
-    #                         policyparams,
-    #                         agentparams,
-    #                         viewer,
-    #                         small_viewer,
-    #                         nactions,
-    #                         repeat,
-    #                         verbose,
-    #                         use_net,
-    #                         model,
-    #                         rec_target_pos = None,
-    #                         qpos=qpos)
-    #
-    # return scores, pred_pos, gtruth_images
 
 
 def mujoco_to_imagespace(mujoco_coord, numpix = 64, truncate = False):
@@ -183,10 +75,6 @@ class CEM_controller(Policy):
         if 'verbose' in self.policyparams:
             self.verbose = True
         else: self.verbose = False
-
-        if 'use_first_plan' in self.policyparams:
-            self.use_first_plan = self.policyparams['use_first_plan']
-        else: self.use_first_plan = True
 
         if 'iterations' in self.policyparams:
             self.niter = self.policyparams['iterations']
@@ -308,6 +196,7 @@ class CEM_controller(Policy):
                 # if 'reduce_iter' in self.policyparams:
                 #     self.niter = 2
 
+                pdb.set_trace()
                 mean_old = copy.deepcopy(self.mean)
 
                 self.mean = np.zeros_like(mean_old)
@@ -352,8 +241,8 @@ class CEM_controller(Policy):
 
             if self.use_net:
                 scores = self.video_pred(last_frames, last_states, actions, itr)
-                print 'overall time for evaluating actions {}'.format(
-                    (datetime.now() - t_start).seconds + (datetime.now() - t_start).microseconds / 1e6)
+                print('overall time for evaluating actions {}'.format(
+                    (datetime.now() - t_start).seconds + (datetime.now() - t_start).microseconds / 1e6))
 
             actioncosts = self.calc_action_cost(actions)
             scores += actioncosts
@@ -382,65 +271,17 @@ class CEM_controller(Policy):
 
     def take_mujoco_smp(self, actions, itr):
 
-        self.n_worker = 2
-        if 'parallel_smp' in self.policyparams:
-            conflist = []
-            n_start = 0
-            nsmp_perworker = self.M/self.n_worker
+        scores = np.empty(self.M, dtype=np.float64)
+        for smp in range(self.M):
+            self.setup_mujoco()
+            accum_score = self.sim_rollout(actions[smp], smp, itr)
 
-            p = Pool(self.n_worker)
-            arglist = []
-            for i in range(self.n_worker):
-                n_end = n_start + nsmp_perworker
-                print 'starting worker with actions {0} to {1}'.format(n_start, n_end)
-                actions_perworker = actions[n_start:n_end]
-                conflist.append([])
-                n_start += nsmp_perworker
+            if not 'rew_all_steps' in self.policyparams:
+                scores[smp] = self.eval_action()
+            else:
+                scores[smp] = accum_score
 
-                arglist.append([self.M,
-                    self.n_worker,
-                    actions,
-                    self.policyparams,
-                    self.agentparams,
-                    self.nactions,
-                    self.repeat,
-                    self.verbose,
-                    self.use_net,
-                    self.init_model.data.qpos,
-                    self.init_model.data.qvel])
-
-            reslist = p.map(worker, arglist)
-
-            pdb.set_trace()
-
-
-            score_list, pred_pos_list, gtruth_images_list = [], [], []
-            for res in reslist:
-                scores, pred_pos, gtruth_images  =  res
-
-                score_list.append(scores)
-                pred_pos_list.append(pred_pos)
-                gtruth_images_list.append(gtruth_images)
-
-            pdb.set_trace()
-
-            self.pred_pos = np.stack(pred_pos_list)
-            self.gtruth_images = np.stack(gtruth_images_list)
-            self.gtruth_images = np.split(np.squeeze(self.gtruth_images),self.nactions * self.repeat, axis=1)
-            return np.stack(score_list)
-
-        else:
-            scores = np.empty(self.M, dtype=np.float64)
-            for smp in range(self.M):
-                self.setup_mujoco()
-                accum_score = self.sim_rollout(actions[smp], smp, itr)
-
-                if not 'rew_all_steps' in self.policyparams:
-                    scores[smp] = self.eval_action()
-                else:
-                    scores[smp] = accum_score
-
-            return scores
+        return scores
 
 
     def mujoco_one_hot_images(self):
@@ -484,18 +325,46 @@ class CEM_controller(Policy):
         if use_genimg:
             cPickle.dump([orig_images, self.corr_gen_images, self.rec_input_distrib, self.desig_pix],
                          open(file_path + '/correction.pkl', 'wb'))
-            distrib = makegif.make_color_scheme(self.rec_input_distrib)
-            distrib = makegif.add_crosshairs(distrib, self.desig_pix)
-            frame_list = makegif.assemble_gif([orig_images, self.corr_gen_images, distrib], num_exp=1)
+            distrib = make_color_scheme(self.rec_input_distrib)
+            distrib = add_crosshairs(distrib, self.desig_pix)
+            frame_list = assemble_gif([orig_images, self.corr_gen_images, distrib], num_exp=1)
         else:
             cPickle.dump([orig_images, self.rec_input_distrib],
                          open(file_path + '/correction.pkl', 'wb'))
-            distrib = makegif.make_color_scheme(self.rec_input_distrib)
-            distrib = makegif.add_crosshairs(distrib, self.desig_pix)
-            frame_list = makegif.assemble_gif([orig_images, distrib], num_exp=1)
+            distrib = make_color_scheme(self.rec_input_distrib)
+            distrib = add_crosshairs(distrib, self.desig_pix)
+            frame_list = assemble_gif([orig_images, distrib], num_exp=1)
 
-        makegif.npy_to_gif(frame_list, self.policyparams['rec_distrib'])
+        npy_to_gif(frame_list, self.policyparams['rec_distrib'])
 
+    def mujoco_to_imagespace(self, mujoco_coord, numpix = 64, truncate = False):
+        """
+        convert form Mujoco-Coord to numpix x numpix image space:
+        :param numpix: number of pixels of square image
+        :param mujoco_coord:
+        :return: pixel_coord
+        """
+        viewer_distance = .75  # distance from camera to the viewing plane
+        window_height = 2 * np.tan(75 / 2 / 180. * np.pi) * viewer_distance  # window height in Mujoco coords
+        pixelheight = window_height / numpix  # height of one pixel
+        pixelwidth = pixelheight
+        window_width = pixelwidth * numpix
+        middle_pixel = numpix / 2
+        pixel_coord = np.rint(np.array([-mujoco_coord[1], mujoco_coord[0]]) /
+                              pixelwidth + np.array([middle_pixel, middle_pixel]))
+        pixel_coord = pixel_coord.astype(int)
+
+        if truncate:
+            if np.any(pixel_coord < 0) or np.any(pixel_coord > numpix -1):
+                print '###################'
+                print 'designated pixel is outside the field!! Resetting it to be inside...'
+                print 'truncating...'
+                if np.any(pixel_coord < 0):
+                    pixel_coord[pixel_coord < 0] = 0
+                if np.any(pixel_coord > numpix-1):
+                    pixel_coord[pixel_coord > numpix-1]  = numpix-1
+
+        return pixel_coord
 
     def video_pred(self, last_frames, last_states, actions, itr):
 
@@ -545,18 +414,23 @@ class CEM_controller(Policy):
 
         if 'mult_noise_per_action' in self.policyparams:  # only to be used for stochastic search
             actions_cpy = np.repeat(actions, self.netconf['batch_size'] / self.policyparams['num_samples'], axis=0)
-
             gen_distrib, gen_images, gen_masks, gen_states = self.predictor(last_frames,
                                                                             input_distrib,
                                                                 last_states, actions_cpy)
         else: # the usual case
-            gen_distrib, gen_images, gen_masks, gen_states = self.predictor(last_frames, input_distrib,
-                                                                            last_states, actions)
+
+            if 'costmask' in self.netconf:
+                gen_distrib, gen_images, gen_masks, gen_states, gen_retina, retposlist = self.predictor(
+                                                                                last_frames, input_distrib,
+                                                                                last_states, actions, self.init_retpos)
+            else:
+                gen_distrib, gen_images, gen_masks, gen_states = self.predictor(last_frames, input_distrib,
+                                                                            last_states, actions, self.init_retpos)
+
 
             for tstep in range(self.netconf['sequence_length']-1):
                 for smp in range(self.M):
                     self.pred_pos[smp, itr, tstep+1] = self.mujoco_to_imagespace(gen_states[tstep][smp, :2], numpix=480)
-
 
         goalpoint = self.mujoco_to_imagespace(self.agentparams['goal_point'])
         distance_grid = np.empty((64,64))
@@ -607,10 +481,20 @@ class CEM_controller(Policy):
             cPickle.dump(best(gen_images), open(file_path + '/gen_images.pkl', 'wb'))
             # cPickle.dump(best(concat_masks), open(file_path + '/gen_masks.pkl', 'wb'))
             cPickle.dump(best(self.gtruth_images), open(file_path + '/gtruth_images.pkl', 'wb'))
-            print 'written files to:' + file_path
+            if 'costmask' in self.netconf:
+                dict_ = {}
+                dict_['gen_images'] = best(gen_images)
+                dict_['pred_ret'] = best(gen_retina)
+                dict_['images'] = best(self.gtruth_images)
+                dict_['gen_distrib'] = best(gen_distrib)
+                dict_['retpos'] = best(retposlist)
 
-            comp_pix_distrib(file_path, name='check_eval_t{}'.format(self.t), masks=False, examples=self.K)
-
+                cPickle.dump(dict_, open(file_path + '/dict_.pkl', 'wb'))
+                print 'written files to:' + file_path
+                makegifs.comp_pix_distrib(self.netconf, file_path, name='check_eval_t{}'.format(self.t), examples=self.K)
+            else:
+                print 'written files to:' + file_path
+                comp_pix_distrib(file_path, name='check_eval_t{}'.format(self.t), masks=False, examples=self.K)
 
             f = open(file_path + '/actions_last_iter_t{}'.format(self.t), 'w')
             sorted = expected_distance.argsort()
@@ -695,6 +579,14 @@ class CEM_controller(Policy):
         import pdb;
         pdb.set_trace()
 
+    def quat_to_zangle(self, quat):
+        """
+        :param quat: quaternion 
+        :return: zangle in rad
+        """
+        theta = np.arctan2(2*quat[0]*quat[3], 1-2*quat[3]**2)
+        return np.array([theta])
+
 
     def act(self,  traj, t, init_model= None):
         """
@@ -711,19 +603,23 @@ class CEM_controller(Policy):
         self.init_model = init_model
 
         desig_pos = self.init_model.data.site_xpos[0, :2]
-        self.desig_pix.append(mujoco_to_imagespace(desig_pos, truncate= True))
+        self.desig_pix.append(mujoco_to_imagespace(desig_pos, truncate=True))
 
+        fullpose = self.init_model.data.qpos[2: 9].squeeze()
+        zangle = self.quat_to_zangle(fullpose[3:])
+        fullpose = np.concatenate([fullpose[:2], zangle])
 
         if t == 0:
             action = np.zeros(2)
             self.target = copy.deepcopy(self.init_model.data.qpos[:2].squeeze())
+            self.init_retpos = copy.deepcopy(fullpose)
         else:
 
             last_images = traj._sample_images[t-1:t+1]
             last_states = traj.X_Xdot_full[t-1: t+1]
             last_action = self.action_list[-1]
 
-            if self.use_first_plan:
+            if 'use_first_plan' in self.policyparams:
                 print 'using actions of first plan, no replanning!!'
                 if t == 1:
                     self.perform_CEM(last_images, last_states, last_action, t)

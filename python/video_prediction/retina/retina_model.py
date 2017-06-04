@@ -32,7 +32,7 @@ def construct_model(images,
                     highres_images,
                     actions=None,
                     states=None,
-                    init_retina_pos=None,
+                    init_object_pos_mj=None,  # mujoco_coords
                     pix_distributions=None,
                     iter_num=-1.0,
                     k=-1,
@@ -49,7 +49,7 @@ def construct_model(images,
     :param highres_images: 
     :param actions: 
     :param states: 
-    :param init_retina_pos:   the position of retina in the highres image
+    :param init_object_pos:   the position of retina in the highres image
     :param pix_distributions: 
     :param iter_num: 
     :param k: 
@@ -79,7 +79,13 @@ def construct_model(images,
     gen_states, gen_retina, gen_masks, gen_poses, gen_retina = [], [], [], [], []
     gen_pix_distrib = []
     true_retina, gen_retina, retina_pos_list, maxcoord_list = [], [], [], []
-    retina_pos_list.append(init_retina_pos)
+
+    if pix_distributions == None:
+        pix_distributions = make_initial_pixdistrib(conf)
+
+    init_object_pos = mujoco_to_imagespace_tf(init_object_pos_mj, numpix= conf['retina'])
+    init_retpos = clip_ret(init_object_pos, conf)
+    retina_pos_list.append(init_retpos)
 
     summaries = []
 
@@ -115,13 +121,18 @@ def construct_model(images,
                 reuse=reuse):
 
             if t >0:
-                retina_pos, maxcoord = get_new_retinapos(conf, prev_pix_distrib, retina_pos_list[-1], himage)
-                maxcoord_list.append(maxcoord)
-                if 'static' in conf:
-                    print 'using static retina!'
-                    retina_pos_list.append(init_retina_pos)
+                moved_retina_pos_maxpix, maxcoord = get_new_retinapos(conf, prev_pix_distrib, retina_pos_list[-1],
+                                                                      himage)
+                if 'move_random' in conf:
+                    print 'moving retina randomly'
+                    moved_retina_pos = get_new_retinapos_rand(conf, retina_pos_list[-1], himage)
                 else:
-                    retina_pos_list.append(retina_pos)
+                    moved_retina_pos = moved_retina_pos_maxpix
+
+                maxcoord_list.append(maxcoord)
+                new_ret_pix = tf.cond(tf.less(iter_num, 15000), lambda: init_retpos,
+                                      lambda: moved_retina_pos)
+                retina_pos_list.append(new_ret_pix)
 
             true_retina.append(get_retina(conf, himage, retina_pos_list[-1]))
 
@@ -316,17 +327,30 @@ def get_new_retinapos(conf, pix_distrib, current_rpos, himages):
     :param himages: 
     :return: 
     """
-    large_imh = himages.get_shape()[2]  # large image height
-    half_rh = conf['retina_size'] / 2  # half retina height
 
     pix_distrib_shape = pix_distrib.get_shape()[1:]
     maxcoord = tf.arg_max(tf.reshape(pix_distrib, [conf['batch_size'], -1]), dimension=1)
     maxcoord = unravel_argmax(maxcoord, pix_distrib_shape)
 
     new_rpos = current_rpos + maxcoord - tf.constant([16,16], dtype=tf.int32)
-    new_rpos = tf.clip_by_value(new_rpos, half_rh, large_imh - half_rh - 1)
+    new_rpos = clip_ret(new_rpos, conf)
 
     return new_rpos, maxcoord
+
+def get_new_retinapos_rand(conf, current_rpos, himages):
+    shift = conf['dna_size'] /2
+    rand_pix = tf.random_uniform([conf['batch_size'], 2], minval=-shift,maxval= shift+1,
+                                 dtype = tf.int32)
+    new_rpos = current_rpos + rand_pix
+    new_rpos = clip_ret(new_rpos, conf)
+    return new_rpos
+
+def clip_ret(new_rpos, conf):
+    large_imh = conf['retina']  #80
+    half_rh = conf['retina_size'] / 2  # half retina height
+    new_rpos = tf.clip_by_value(new_rpos, half_rh, large_imh - half_rh - 1)
+
+    return  new_rpos
 
 def unravel_argmax(argmax, shape):
     output_list = []
@@ -393,51 +417,39 @@ def stp_transformation(prev_image, stp_input, num_masks, reuse= None):
     return transformed
 
 
-def cdna_transformation(prev_image, cdna_input, num_masks, color_channels, reuse_sc = None):
-    """Apply convolutional dynamic neural advection to previous image.
-
-    Args:
-      prev_image: previous image to be transformed.
-      cdna_input: hidden lyaer to be used for computing CDNA kernels.
-      num_masks: the number of masks and hence the number of CDNA transformations.
-      color_channels: the number of color channels in the images.
-    Returns:
-      List of images transformed by the predicted CDNA kernels.
+def mujoco_to_imagespace_tf(mujoco_coord, numpix = 80):
     """
-    batch_size = int(cdna_input.get_shape()[0])
+    convert form Mujoco-Coord to numpix x numpix image space:
+    :param numpix: number of pixels of square image
+    :param mujoco_coord: batch_size x 2
+    :return: pixel_coord: batch_size x 2
+    """
+    mujoco_coord = tf.cast(mujoco_coord, tf.float32)
 
-    # Predict kernels using linear function of last hidden layer.
-    cdna_kerns = slim.layers.fully_connected(
-        cdna_input,
-        DNA_KERN_SIZE * DNA_KERN_SIZE * num_masks,
-        scope='cdna_params',
-        activation_fn=None,
-        reuse = reuse_sc)
+    viewer_distance = .75  # distance from camera to the viewing plane
+    window_height = 2 * np.tan(75 / 2 / 180. * np.pi) * viewer_distance  # window height in Mujoco coords
+    pixelheight = window_height / numpix  # height of one pixel
+    middle_pixel = numpix / 2
+    r = -tf.slice(mujoco_coord,[0,1], [-1,1])
+    c =  tf.slice(mujoco_coord,[0,0], [-1,1])
+    pixel_coord = tf.concat(1, [r,c])/pixelheight
+    pixel_coord += middle_pixel
+    pixel_coord = tf.round(pixel_coord)
+    pixel_coord = tf.cast(pixel_coord, tf.int32)
 
+    return pixel_coord
 
-    # Reshape and normalize.
-    cdna_kerns = tf.reshape(
-        cdna_kerns, [batch_size, DNA_KERN_SIZE, DNA_KERN_SIZE, 1, num_masks])
-    cdna_kerns = tf.nn.relu(cdna_kerns - RELU_SHIFT) + RELU_SHIFT
-    norm_factor = tf.reduce_sum(cdna_kerns, [1, 2, 3], keep_dims=True)
-    cdna_kerns /= norm_factor
-    cdna_kerns_summary = cdna_kerns
+def make_initial_pixdistrib(conf):
+    r = 16
+    c = 16
 
-    cdna_kerns = tf.tile(cdna_kerns, [1, 1, 1, color_channels, 1])
-    cdna_kerns = tf.split(0, batch_size, cdna_kerns)
-    prev_images = tf.split(0, batch_size, prev_image)
+    flat_ind = tf.constant([r*conf['retina_size'] + c], dtype= tf.int32)
+    flat_ind = tf.tile(flat_ind, [conf['batch_size']])
+    one_hot = tf.one_hot(flat_ind, depth=conf['retina_size']**2, axis = -1)
+    one_hot = tf.reshape(one_hot, [conf['batch_size'], conf['retina_size'], conf['retina_size']])
 
-    # Transform image.
-    transformed = []
-    for kernel, preimg in zip(cdna_kerns, prev_images):
-        kernel = tf.squeeze(kernel)
-        if len(kernel.get_shape()) == 3:
-            kernel = tf.expand_dims(kernel, -2)   #correction! ( was -1 before)
-        transformed.append(
-            tf.nn.depthwise_conv2d(preimg, kernel, [1, 1, 1, 1], 'SAME'))
-    transformed = tf.concat(0, transformed)
-    transformed = tf.split(3, num_masks, transformed)
-    return transformed, cdna_kerns_summary
+    return [one_hot, one_hot]
+
 
 
 def dna_transformation(prev_image, dna_input, DNA_KERN_SIZE):
@@ -495,15 +507,5 @@ def scheduled_sample(ground_truth_x, generated_x, batch_size, num_ground_truth):
                              [ground_truth_examps, generated_examps])
 
 
-def make_cdna_kerns_summary(cdna_kerns, t, suffix):
 
-    sum = []
-    cdna_kerns = tf.split(4, 10, cdna_kerns)
-    for i, kern in enumerate(cdna_kerns):
-        kern = tf.squeeze(kern)
-        kern = tf.expand_dims(kern,-1)
-        sum.append(
-            tf.image_summary('step' + str(t) +'_filter'+ str(i)+ suffix, kern)
-        )
 
-    return  sum

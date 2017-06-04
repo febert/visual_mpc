@@ -41,7 +41,6 @@ def construct_model(images,
                     conf = None):
 
 
-
     if 'dna_size' in conf.keys():
         DNA_KERN_SIZE = conf['dna_size']
     else:
@@ -109,7 +108,8 @@ def construct_model(images,
                 prev_image = image
                 if pix_distributions != None:
                     prev_pix_distrib = pix_distributions[t]
-                    prev_pix_distrib = tf.expand_dims(prev_pix_distrib, -1)
+                    if len(prev_pix_distrib.get_shape()) == 3:
+                        prev_pix_distrib = tf.expand_dims(prev_pix_distrib, -1)
 
             if 'transform_from_firstimage' in conf:
                 assert conf['model']=='STP'
@@ -132,7 +132,6 @@ def construct_model(images,
             hidden1, lstm_state1 = lstm_func(       # 32x32x16
                 enc0, lstm_state1, lstm_size[0], scope='state1')
             hidden1 = tf_layers.layer_norm(hidden1, scope='layer_norm2')
-
 
             enc1 = slim.layers.conv2d(     # 16x16x16
                 hidden1, hidden1.get_shape()[3], [3, 3], stride=2, scope='conv2')
@@ -210,11 +209,22 @@ def construct_model(images,
                 if 'single_view' not in conf:
                     transformed_cam1 = [dna_transformation(prev_image_cam1, trafo_input_cam1, conf['dna_size'])]
                     transformed_cam2 = [dna_transformation(prev_image_cam2, trafo_input_cam2, conf['dna_size'])]
-                else:
-                    transformed_cam2 = [dna_transformation(prev_image, trafo_input_cam2, conf['dna_size'])]
 
                     if pix_distributions != None:
-                        transf_distrib = dna_transformation(prev_pix_distrib, trafo_input_cam2, DNA_KERN_SIZE)
+                        prev_pix_distrib_cam1 = tf.slice(prev_pix_distrib, [0, 0, 0, 0], [-1, -1, -1, 1])
+                        prev_pix_distrib_cam2 = tf.slice(prev_pix_distrib, [0, 0, 0, 1], [-1, -1, -1, 1])
+                        transf_distrib_cam1 = dna_transformation(prev_pix_distrib_cam1, trafo_input_cam2, DNA_KERN_SIZE)
+                        transf_distrib_cam2 = dna_transformation(prev_pix_distrib_cam2, trafo_input_cam2, DNA_KERN_SIZE)
+
+                        transf_distrib = tf.concat(3, [transf_distrib_cam1, transf_distrib_cam2])
+                        gen_pix_distrib.append(transf_distrib)
+                else:
+                    transformed_cam2 = [dna_transformation(prev_image, trafo_input_cam2, conf['dna_size'])]
+                    if pix_distributions != None:
+                        if 'single_view' in conf:
+                            transf_distrib_cam2 = dna_transformation(prev_pix_distrib, trafo_input_cam2, DNA_KERN_SIZE)
+                            gen_pix_distrib.append(transf_distrib_cam2)
+
 
             if conf['model']=='STP':
 
@@ -247,7 +257,7 @@ def construct_model(images,
                     transformed_cam2 +=stp_transformation(prev_image, stp_input_cam2, num_masks, reuse_stp, suffix='cam2')
 
                     if pix_distributions != None:
-                        transf_distrib = stp_transformation(prev_pix_distrib, stp_input_cam2, num_masks, reuse=True)
+                        transf_distrib_cam2 = stp_transformation(prev_pix_distrib, stp_input_cam2, num_masks,suffix='cam2', reuse=True)
 
             masks_cam1 = slim.layers.conv2d_transpose(
                 enc6, (num_masks + 2), 1, stride=1, scope='convt7_cam1')
@@ -256,11 +266,13 @@ def construct_model(images,
                 enc6, (num_masks + 2), 1, stride=1, scope='convt7_cam2')
 
             if 'single_view' not in conf:
-                output_cam1, mask_list_cam1 = fuse_trafos(conf, masks_cam1, prev_image_cam1, transformed_cam1)
-                output_cam2, mask_list_cam2 = fuse_trafos(conf, masks_cam2, prev_image_cam2, transformed_cam2)
+                output_cam1, mask_list_cam1 = fuse_trafos(conf, masks_cam1, prev_image_cam1,
+                                                          transformed_cam1, batch_size)
+                output_cam2, mask_list_cam2 = fuse_trafos(conf, masks_cam2, prev_image_cam2,
+                                                          transformed_cam2, batch_size)
                 output = tf.concat(3, [output_cam1, output_cam2])
             else:
-                output, mask_list_cam2 = fuse_trafos(conf, masks_cam2, prev_image, transformed_cam2)
+                output, mask_list_cam2 = fuse_trafos(conf, masks_cam2, prev_image, transformed_cam2, batch_size)
 
             gen_images.append(output)
             gen_masks.append(mask_list_cam2)
@@ -270,14 +282,10 @@ def construct_model(images,
                     pix_distrib_output = mask_list_cam2[0] * prev_pix_distrib
                     mult_list = []
                     for i in range(num_masks):
-                        mult_list.append(transf_distrib[i] * mask_list_cam2[i+1])
+                        mult_list.append(transf_distrib_cam2[i] * mask_list_cam2[i+1])
                         pix_distrib_output += mult_list[i]
-
                     gen_pix_distrib.append(pix_distrib_output)
 
-            if conf['model'] == 'DNA':
-                if pix_distributions != None:
-                    gen_pix_distrib.append(transf_distrib)
 
             if current_state != None:
                 current_state = slim.layers.fully_connected(
@@ -292,17 +300,16 @@ def construct_model(images,
     else:
         return gen_images, gen_states, gen_masks, None
 
-
-def fuse_trafos(conf, masks, prev_image, transformed):
+def fuse_trafos(conf, masks, prev_image, transformed, batch_size):
     img_height = 64
     img_width = 64
     num_masks = conf['num_masks']
-    batch_size = conf['batch_size']
 
     if conf['model']=='DNA':
         if num_masks != 1:
             raise ValueError('Only one mask is supported for DNA model.')
 
+    # the total number of masks is num_masks + 2 because of background and generated pixels!
     masks = tf.reshape(
         tf.nn.softmax(tf.reshape(masks, [-1, num_masks + 2])),
         [int(batch_size), int(img_height), int(img_width), num_masks + 2])
