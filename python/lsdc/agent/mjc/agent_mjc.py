@@ -105,7 +105,6 @@ class AgentMuJoCo(Agent):
 
         # Take the sample.
         for t in range(self.T):
-
             traj.X_full[t, :] = self._model.data.qpos[:2].squeeze()
             traj.Xdot_full[t, :] = self._model.data.qvel[:2].squeeze()
             traj.X_Xdot_full[t, :] = np.concatenate([traj.X_full[t, :], traj.Xdot_full[t, :]])
@@ -270,6 +269,12 @@ class AgentMuJoCo(Agent):
         largeimage = np.fromstring(img_string, dtype='uint8').reshape(
                 (480, 480, self._hyperparams['image_channels']))[::-1, :, :]
         self.large_images.append(largeimage)
+
+        # getting depth values
+        img_string, width, height = self._large_viewer.get_depth()
+        large_dimage = np.fromstring(img_string, dtype=np.float32).reshape(
+            (480, 480, 1))[::-1, :, :]
+
 
         # collect retina image
         if 'large_images_retina' in self._hyperparams:
