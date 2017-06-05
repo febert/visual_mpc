@@ -400,26 +400,26 @@ def main(unused_argv, conf_script= None):
     fft_weights = calc_fft_weight()
 
     ###### debugging
-    from PIL import Image
-    itr = 0
-    feed_dict = {model.prefix: 'train',
-                 model.iter_num: np.float32(itr),
-                 model.lr: conf['learning_rate'],
-                 }
-    true_retina, retpos, gen_distrib, initpos, imdata = sess.run([model.true_retinas, model.retpos_list, model.gen_distrib, init_pos, images ],
-                                    feed_dict)
-
-    pdb.set_trace()
-    print 'retina pos:'
-    for b in range(4):
-        Image.fromarray((true_retina[0][b] * 255).astype(np.uint8)).show()
-        Image.fromarray((np.squeeze(gen_distrib[0][b]) * 255).astype(np.uint8)).show()
-        Image.fromarray((imdata[b][0] * 255).astype(np.uint8)).show()
-
-        print 'retpos', retpos[b]
-        print 'initpos', init_pos[0]
-
-        pdb.set_trace()
+    # from PIL import Image
+    # itr = 0
+    # feed_dict = {model.prefix: 'train',
+    #              model.iter_num: np.float32(itr),
+    #              model.lr: conf['learning_rate'],
+    #              }
+    # true_retina, retpos, gen_distrib, initpos, imdata = sess.run([model.true_retinas, model.retpos_list, model.gen_distrib, init_pos, images ],
+    #                                 feed_dict)
+    #
+    # pdb.set_trace()
+    # print 'retina pos:'
+    # for b in range(4):
+    #     Image.fromarray((true_retina[0][b] * 255).astype(np.uint8)).show()
+    #     Image.fromarray((np.squeeze(gen_distrib[0][b]) * 255).astype(np.uint8)).show()
+    #     Image.fromarray((imdata[b][0] * 255).astype(np.uint8)).show()
+    #
+    #     print 'retpos', retpos[b]
+    #     print 'initpos', init_pos[0]
+    #
+    #     pdb.set_trace()
 
     pdb.set_trace()
     ###### end debugging
