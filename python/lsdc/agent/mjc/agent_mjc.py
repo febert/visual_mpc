@@ -83,6 +83,19 @@ class AgentMuJoCo(Agent):
 
         return traj
 
+
+    def get_max_move_pose(self, traj):
+
+        delta_move = np.zeros(self._hyperparams['num_objects'])
+        for i in range(self._hyperparams['num_objects']):
+            for t in range(self.T-1):
+                delta_move[i] += np.linalg.norm(traj.Object_pose[t+1,i,:2] -traj.Object_pose[t,i,:2])
+
+        imax = np.argmax(delta_move)
+        traj.max_move_pose = traj.Object_pose[:,imax,:]
+
+        return traj
+
     def rollout(self, policy):
         # Create new sample, populate first time step.
         self._init()
@@ -111,7 +124,10 @@ class AgentMuJoCo(Agent):
             for i in range(self._hyperparams['num_objects']):
                 fullpose = self._model.data.qpos[i * 7 + 2:i * 7 + 9].squeeze()
                 zangle = self.quat_to_zangle(fullpose[3:])
-                traj.Object_pos[t, i, :] = np.concatenate([fullpose[:2], zangle])
+                traj.Object_pose[t, i, :] = np.concatenate([fullpose[:2], zangle])
+
+
+
 
             if not self._hyperparams['data_collection']:
                 traj.score[t] = self.eval_action(traj, t)
@@ -150,13 +166,15 @@ class AgentMuJoCo(Agent):
                 print 'accumulated force', t
                 print accum_touch
 
+        traj = self.get_max_move_pose(traj)
+
         # only save trajectories which displace objects above threshold
         if 'displacement_threshold' in self._hyperparams:
             assert self._hyperparams['data_collection']
             disp_per_object = np.zeros(self._hyperparams['num_objects'])
             for i in range(self._hyperparams['num_objects']):
-                pos_old = traj.Object_pos[0, i, :2]
-                pos_new = traj.Object_pos[t, i, :2]
+                pos_old = traj.Object_pose[0, i, :2]
+                pos_new = traj.Object_pose[t, i, :2]
                 disp_per_object[i] = np.linalg.norm(pos_old - pos_new)
 
             if np.sum(disp_per_object) > self._hyperparams['displacement_threshold']:
@@ -165,6 +183,7 @@ class AgentMuJoCo(Agent):
                 traj_ok = False
         else:
             traj_ok = True
+
         return traj_ok, traj
 
     def save_goal_image_conf(self, traj):
