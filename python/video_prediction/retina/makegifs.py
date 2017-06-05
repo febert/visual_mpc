@@ -20,7 +20,7 @@ def add_crosshairs(distrib, pix_list):
     return distrib
 
 
-def comp_pix_distrib(file_path, masks = False, examples = 10):
+def comp_pix_distrib(conf, file_path, masks = False, examples = 10):
     dict_ = cPickle.load(open(file_path + '/dict_.pkl', "rb"))
 
     gen_retinas =dict_['gen_retinas']
@@ -64,7 +64,7 @@ def comp_pix_distrib(file_path, masks = False, examples = 10):
     name = file_path + '/vid_' + conf['experiment_name'] + '_' + str(itr_vis) + suffix
 
     fused_gif = assemble_gif(videolist, num_exp= examples)
-    npy_to_gif(fused_gif, file_path + '/' + name + suffix)
+    npy_to_gif(fused_gif, name)
 
 
 def pad_pos(vid, pos):
