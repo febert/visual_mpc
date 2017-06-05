@@ -10,12 +10,14 @@ policy = {
     'repeat': 3,
     'initial_std': 7,
     'netconf': current_dir + '/conf.py',
-    'use_first_plan': False, # execute MPC instead using firs plan
-    'iterations': 5,
+    # 'use_first_plan':'', # execute MPC instead using firs plan
+    'iterations': 3,
     'rew_all_steps': "",
-    'verbose':""
+    'finalweight':1,
+    # 'verbose':"",
+    'action_cost_factor':1e-5
 }
 
 agent = {
-    'T': 25,
+    'T': 10,
 }

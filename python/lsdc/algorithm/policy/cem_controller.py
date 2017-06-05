@@ -101,9 +101,9 @@ class CEM_controller(Policy):
         self.gtruth_images = [np.zeros((self.M, 64, 64, 3)) for _ in range(self.nactions * self.repeat)]
 
         # the full horizon is actions*repeat
-        self.action_cost_mult = 0.00005
-
-        self.action_cost_mult = 0
+        if 'action_cost_factor' in self.policyparams:
+            self.action_cost_mult = self.policyparams['action_cost_factor']
+        else: self.action_cost_mult = 0.00005
 
         self.adim = 2  # action dimension
         self.initial_std = policyparams['initial_std']
@@ -276,10 +276,10 @@ class CEM_controller(Policy):
             self.setup_mujoco()
             accum_score = self.sim_rollout(actions[smp], smp, itr)
 
-            if not 'rew_all_steps' in self.policyparams:
-                scores[smp] = self.eval_action()
-            else:
+            if 'rew_all_steps' in self.policyparams:
                 scores[smp] = accum_score
+            else:
+                scores[smp] = self.eval_action()
 
         return scores
 
@@ -438,17 +438,23 @@ class CEM_controller(Policy):
             for j in range(64):
                 pos = np.array([i,j])
                 distance_grid[i,j] = np.linalg.norm(goalpoint - pos)
+
         expected_distance = np.zeros(self.netconf['batch_size'])
-        if 'rew_all_steps' not in self.policyparams:
+        if 'rew_all_steps' in self.policyparams:
+            for tstep in range(self.netconf['sequence_length']-1):
+                t_mult = 1
+
+                if 'finalweight' in self.policyparams:
+                    if tstep == self.netconf['sequence_length']-2:
+                        t_mult = self.policyparams['finalweight']
+
+                for b in range(self.netconf['batch_size']):
+                    gen = gen_distrib[tstep][b].squeeze() / np.sum(gen_distrib[tstep][b])
+                    expected_distance[b] += np.sum(np.multiply(gen, distance_grid)) * t_mult
+        else:
             for b in range(self.netconf['batch_size']):
                 gen = gen_distrib[-1][b].squeeze()/ np.sum(gen_distrib[-1][b])
                 expected_distance[b] = np.sum(np.multiply(gen, distance_grid))
-        else:
-            for tstep in range(self.netconf['sequence_length']-1):
-                t_mult = tstep**2  #weighting more distant timesteps more
-                for b in range(self.netconf['batch_size']):
-                    gen = gen_distrib[tstep][b].squeeze() / np.sum(gen_distrib[-1][b])
-                    expected_distance[b] += np.sum(np.multiply(gen, distance_grid)) * t_mult
 
         # for predictor_propagation only!!
         if 'predictor_propagation' in self.policyparams:
@@ -501,8 +507,6 @@ class CEM_controller(Policy):
             for i in range(actions.shape[0]):
                 f.write('index: {0}, score: {1}, rank: {2}'.format(i, expected_distance[i], np.where(sorted == i)[0][0]))
                 f.write('action {}\n'.format(actions[i]))
-
-
 
         if 'mult_noise_per_action' in self.policyparams:
             print "using {} noisevector per action".format(self.netconf['batch_size']/ self.policyparams['num_samples'])

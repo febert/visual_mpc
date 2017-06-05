@@ -52,7 +52,7 @@ def build_tfrecord_input(conf, training=True, gtruth_pred = False, shuffle_vis =
     reader = tf.TFRecordReader()
     _, serialized_example = reader.read(filename_queue)
 
-    gtruthimage_seq, predimage_seq, image_seq, retina_seq, state_seq, action_seq, object_pos_seq, max_move_pos_seq, touch_seq = [], [], [], [], [], [], [], []
+    gtruthimage_seq, predimage_seq, image_seq, retina_seq, state_seq, action_seq, object_pos_seq, max_move_pos_seq, touch_seq = [], [], [], [], [], [], [], [], []
 
     load_indx = range(0, 30, conf['skip_frame'])
     load_indx = load_indx[:conf['sequence_length']]

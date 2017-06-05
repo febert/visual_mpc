@@ -88,6 +88,7 @@ config = {
     'save_data': True,
     'start_index':0,
     'end_index': 60000,
+    'traj_per_file': 256,
     'verbose_policy_trials': 0,
     'common': common,
     'agent': agent,

@@ -1,10 +1,10 @@
-import os
-import numpy as np
+# only using the first pose (code changed accordingly)
 
+import os
 current_dir = os.path.dirname(os.path.realpath(__file__))
 
 # tf record data location:
-DATA_DIR = '/'.join(str.split(current_dir, '/')[:-3]) + '/pushing_data/softmotion30/train'
+DATA_DIR = '/'.join(str.split(current_dir, '/')[:-3]) + '/pushing_data/random_action_var10_pose/train'
 
 # local output directory
 OUT_DIR = current_dir + '/modeldata'
@@ -16,9 +16,9 @@ configuration = {
 'data_dir': DATA_DIR,       # 'directory containing data.' ,
 'output_dir': OUT_DIR,      #'directory for model checkpoints.' ,
 'current_dir': current_dir,   #'directory for writing summary.' ,
-'num_iterations': 200000,   #'number of training iterations.' ,
+'num_iterations': 50000,   #'number of training iterations.' ,
 'pretrained_model': '',     # 'filepath of a pretrained model to resume training from.' ,
-'sequence_length': 30,      # 'sequence length to load, including context frames.' ,
+'sequence_length': 15,      # 'sequence length, including context frames.' ,
 'skip_frame': 1,            # 'use ever i-th frame to increase prediction horizon' ,
 'context_frames': 2,        # of frames before predictions.' ,
 'use_state': 1,             #'Whether or not to give the state+action to the model' ,
@@ -31,9 +31,10 @@ configuration = {
 'visualize': '',            #'load model from which to generate visualizations
 'downsize': construct_model,           #'create downsized model'
 'file_visual': '',          # datafile used for making visualizations
+'penal_last_only': False,   # penalize only the last state, to get sharper predictions
 'dna_size': 9,              #size of DNA kerns
-'sawyer':'',
-'single_view':"",
-'use_len':14,                # number of steps used for training where the starting location is selected randomly within sequencelength
-'lstm_size':np.array([64, 128, 256, 128,  64])  # 4 times bigger than usual
+'use_object_pos':'',
+'costmask':'',
+'moving_retina':'',
+'retina_size':25
 }

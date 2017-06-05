@@ -46,8 +46,8 @@ def save_tf_record(dir, filename, trajectory_list, params):
             feature['move/' + str(index) + '/image/encoded'] = _bytes_feature(image_raw)
             feature['touchdata/' + str(index)] = _float_feature(traj.touchdata[index, :].tolist())
 
-            if hasattr(traj, 'Object_pos'):
-                Object_pos_flat = traj.Object_pos[index, :].flatten()
+            if hasattr(traj, 'Object_pose'):
+                Object_pos_flat = traj.Object_pose[index, :].flatten()
                 feature['move/' + str(index) + '/object_pos'] = _float_feature(Object_pos_flat.tolist())
 
                 max_move_pose = traj.max_move_pose[index, :].flatten()
