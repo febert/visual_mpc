@@ -92,7 +92,7 @@ class AgentMuJoCo(Agent):
                 delta_move[i] += np.linalg.norm(traj.Object_pose[t+1,i,:2] -traj.Object_pose[t,i,:2])
 
         imax = np.argmax(delta_move)
-        traj.max_move_pose = traj.Object_pose[:,imax,:]
+        traj.max_move_pose = traj.Object_pose[:,imax]
 
         return traj
 
@@ -125,9 +125,6 @@ class AgentMuJoCo(Agent):
                 fullpose = self._model.data.qpos[i * 7 + 2:i * 7 + 9].squeeze()
                 zangle = self.quat_to_zangle(fullpose[3:])
                 traj.Object_pose[t, i, :] = np.concatenate([fullpose[:2], zangle])
-
-
-
 
             if not self._hyperparams['data_collection']:
                 traj.score[t] = self.eval_action(traj, t)
@@ -277,6 +274,21 @@ class AgentMuJoCo(Agent):
             # print 'correction force:', force
         return force
 
+
+    def get_world_corld(self, proj_mat, depth_image):
+        pix_pos = np.array([240, 240])
+        depth = depth_image[pix_pos[0], pix_pos[1]]
+        pix_pos = pix_pos / 480.
+
+        clipspace = pix_pos*2 -1
+
+
+        clipspace = np.concatenate([clipspace, depth, np.array([1.]) ])
+
+        np.linalg.inv(proj_mat).dot(clipspace)
+        pdb.set_trace()
+
+
     def _store_image(self,t, traj, policy):
         """
         store image at time index t
@@ -290,9 +302,11 @@ class AgentMuJoCo(Agent):
         self.large_images.append(largeimage)
 
         # getting depth values
-        img_string, width, height = self._large_viewer.get_depth()
+        (img_string, width, height), proj_mat = self._large_viewer.get_depth()
         large_dimage = np.fromstring(img_string, dtype=np.float32).reshape(
             (480, 480, 1))[::-1, :, :]
+
+        self.get_world_corld(proj_mat, large_dimage)
 
 
         # collect retina image

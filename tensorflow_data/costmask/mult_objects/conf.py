@@ -36,5 +36,6 @@ configuration = {
 'use_object_pos':'',
 'costmask':'',
 'moving_retina':'',
-'retina_size':25
+'retina_size':25,
+'num_obj':4
 }

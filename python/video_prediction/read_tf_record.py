@@ -125,7 +125,7 @@ def build_tfrecord_input(conf, training=True, gtruth_pred = False, shuffle_vis =
                 object_pos = tf.reshape(features[object_pos_name], shape=[1, OBJECT_POS_DIM*num_obj])
                 object_pos_seq.append(object_pos)
 
-                max_move_pos = tf.reshape(features[max_move_pos_name], shape=[1, OBJECT_POS_DIM * num_obj])
+                max_move_pos = tf.reshape(features[max_move_pos_name], shape=[1, OBJECT_POS_DIM])
                 max_move_pos_seq.append(max_move_pos)
 
     if gtruth_pred:
@@ -380,7 +380,7 @@ if __name__ == '__main__':
         conf['touch'] = ''
         image_batch, action_batch, state_batch, touch_batch = build_tfrecord_input(conf, training=True)
     elif 'use_object_pos' in conf:
-        image_batch, action_batch, state_batch, pos_batch = build_tfrecord_input(conf, training=True)
+        image_batch, action_batch, state_batch, pos_batch, max_move_pos_batch = build_tfrecord_input(conf, training=True)
     elif 'retina' in conf:
         image_batch, retina_batch, retpos_batch, action_batch, state_batch, pos_batch = build_tfrecord_input(conf, training=True)
     else:
@@ -400,7 +400,7 @@ if __name__ == '__main__':
                                                                         state_batch,
                                                                         touch_batch])
         elif 'use_object_pos' in conf:
-            image_data, action_data, state_data, pos_data = sess.run([image_batch, action_batch, state_batch, pos_batch])
+            image_data, action_data, state_data, pos_data, max_move_data = sess.run([image_batch, action_batch, state_batch, pos_batch, max_move_pos_batch])
         elif 'retina' in conf:
             image_data, retina_data, retpos_data, action_data, state_data = sess.run([image_batch, retina_batch, retpos_batch, action_batch, state_batch])
         else:

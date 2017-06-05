@@ -265,11 +265,25 @@ def main(unused_argv, conf_script= None):
 
     print 'Constructing models and inputs.'
     with tf.variable_scope('model', reuse=None) as training_scope:
+
         images, actions, states, poses, max_move = build_tfrecord_input(conf, training=True)
         if 'max_move_pos' in conf:
             init_pos = tf.squeeze(tf.slice(tf.squeeze(max_move), [0, 0, 0], [-1, 1, 2]))
         else:
             init_pos = tf.squeeze(tf.slice(tf.squeeze(poses), [0,0,0], [-1, 1, 2]))
+
+        #only for debugging!
+        # sess = tf.InteractiveSession(config=tfconfig)
+        # summary_writer = tf.train.SummaryWriter(
+        #     conf['output_dir'], graph=sess.graph, flush_secs=10)
+        #
+        # tf.train.start_queue_runners(sess)
+        # sess.run(tf.initialize_all_variables())
+        #
+        # init_pos = sess.run([init_pos])
+        # pdb.set_trace()
+        # end debugging
+
         model = Model(conf, images, actions, states, init_pos)
 
     with tf.variable_scope('val_model', reuse=None):
