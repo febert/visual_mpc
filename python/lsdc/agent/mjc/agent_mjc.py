@@ -301,10 +301,10 @@ class AgentMuJoCo(Agent):
                 (480, 480, self._hyperparams['image_channels']))[::-1, :, :]
         self.large_images.append(largeimage)
 
-        # getting depth values
-        (img_string, width, height), proj_mat = self._large_viewer.get_depth()
-        large_dimage = np.fromstring(img_string, dtype=np.float32).reshape(
-            (480, 480, 1))[::-1, :, :]
+        # # getting depth values
+        # (img_string, width, height), proj_mat = self._large_viewer.get_depth()
+        # large_dimage = np.fromstring(img_string, dtype=np.float32).reshape(
+        #     (480, 480, 1))[::-1, :, :]
 
         self.get_world_corld(proj_mat, large_dimage)
 
