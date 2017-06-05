@@ -268,22 +268,14 @@ def main(unused_argv, conf_script= None):
 
     print 'Constructing models and inputs.'
     with tf.variable_scope('model', reuse=None) as training_scope:
-        if 'costmask' in conf:
-            images, actions, states, poses = build_tfrecord_input(conf, training=True)
-            init_pos = tf.squeeze(tf.slice(tf.squeeze(poses), [0,0,0], [-1, 1, 2]))
-            model = Model(conf, images, actions, states, init_pos)
-        else:
-            images, actions, states = build_tfrecord_input(conf, training=True)
-            model = Model(conf, images, actions, states)
+        images, actions, states, poses = build_tfrecord_input(conf, training=True)
+        init_pos = tf.squeeze(tf.slice(tf.squeeze(poses), [0,0,0], [-1, 1, 2]))
+        model = Model(conf, images, actions, states, init_pos)
 
     with tf.variable_scope('val_model', reuse=None):
-        if 'costmask' in conf:
-            val_images, val_actions, val_states, val_poses = build_tfrecord_input(conf, training=False)
-            init_val_pos = tf.squeeze(tf.slice(tf.squeeze(val_poses), [0, 0, 0], [-1, 1, 2]))
-            val_model = Model(conf, val_images, val_actions, val_states, init_val_pos, training_scope)
-        else:
-            val_images, val_actions, val_states = build_tfrecord_input(conf, training=False)
-            val_model = Model(conf, val_images, val_actions, val_states, training_scope)
+        val_images, val_actions, val_states, val_poses = build_tfrecord_input(conf, training=False)
+        init_val_pos = tf.squeeze(tf.slice(tf.squeeze(val_poses), [0, 0, 0], [-1, 1, 2]))
+        val_model = Model(conf, val_images, val_actions, val_states, init_val_pos, training_scope)
 
     print 'Constructing saver.'
     # Make saver.
