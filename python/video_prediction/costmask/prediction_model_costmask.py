@@ -494,6 +494,7 @@ def get_new_retinapos(conf, prev_pix_distrib, init_obj_pos, t, iter_num):
             ret_pix = tf.cond(tf.less(iter_num, 15000), lambda: init_ret_pix,
                                                         lambda: mxcoord_ret_pix)
     else:
+        print 'using static retina'
         ret_pix = init_ret_pix
 
     half_rh = conf['retina_size'] / 2

@@ -35,24 +35,27 @@ def save_tf_record(dir, filename, trajectory_list, params):
         else:
             sequence_length = traj._sample_images.shape[0]
 
-        for index in range(sequence_length):
+        for tind in range(sequence_length):
             if 'store_video_prediction' in params:
-                image_raw = traj.final_predicted_images[index].tostring()
+                image_raw = traj.final_predicted_images[tind].tostring()
             else:
-                image_raw = traj._sample_images[index].tostring()
+                image_raw = traj._sample_images[tind].tostring()
 
-            feature['move/' + str(index) + '/action']= _float_feature(traj.U[index,:].tolist())
-            feature['move/' + str(index) + '/state'] = _float_feature(traj.X_Xdot_full[index,:].tolist())
-            feature['move/' + str(index) + '/image/encoded'] = _bytes_feature(image_raw)
-            feature['touchdata/' + str(index)] = _float_feature(traj.touchdata[index, :].tolist())
+            feature['move/' + str(tind) + '/action']= _float_feature(traj.U[tind,:].tolist())
+            feature['move/' + str(tind) + '/state'] = _float_feature(traj.X_Xdot_full[tind,:].tolist())
+            feature['move/' + str(tind) + '/image/encoded'] = _bytes_feature(image_raw)
+            feature['touchdata/' + str(tind)] = _float_feature(traj.touchdata[tind, :].tolist())
 
-            if hasattr(traj, 'Object_pos'):
-                Object_pos_flat = traj.Object_pos[index, :].flatten()
-                feature['move/' + str(index) + '/object_pos'] = _float_feature(Object_pos_flat.tolist())
+            if hasattr(traj, 'Object_pose'):
+                Object_pos_flat = traj.Object_pose[tind].flatten()
+                feature['move/' + str(tind) + '/object_pos'] = _float_feature(Object_pos_flat.tolist())
+
+                max_move_pose = traj.max_move_pose[tind].flatten()
+                feature['move/' + str(tind) + '/max_move_pose'] = _float_feature(max_move_pose.tolist())
 
             if hasattr(traj, 'large_images_retina'):
-                image_raw = traj.large_images_retina[index].tostring()
-                feature['move/' + str(index) + '/retina/encoded'] = _bytes_feature(image_raw)
+                image_raw = traj.large_images_retina[tind].tostring()
+                feature['move/' + str(tind) + '/retina/encoded'] = _bytes_feature(image_raw)
                 feature['initial_retpos'] = _int64_feature(traj.initial_ret_pos.tolist())
 
         example = tf.train.Example(features=tf.train.Features(feature=feature))

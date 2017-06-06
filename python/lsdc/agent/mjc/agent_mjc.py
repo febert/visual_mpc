@@ -83,6 +83,19 @@ class AgentMuJoCo(Agent):
 
         return traj
 
+
+    def get_max_move_pose(self, traj):
+
+        delta_move = np.zeros(self._hyperparams['num_objects'])
+        for i in range(self._hyperparams['num_objects']):
+            for t in range(self.T-1):
+                delta_move[i] += np.linalg.norm(traj.Object_pose[t+1,i,:2] -traj.Object_pose[t,i,:2])
+
+        imax = np.argmax(delta_move)
+        traj.max_move_pose = traj.Object_pose[:,imax]
+
+        return traj
+
     def rollout(self, policy):
         # Create new sample, populate first time step.
         self._init()
@@ -105,14 +118,13 @@ class AgentMuJoCo(Agent):
 
         # Take the sample.
         for t in range(self.T):
-
             traj.X_full[t, :] = self._model.data.qpos[:2].squeeze()
             traj.Xdot_full[t, :] = self._model.data.qvel[:2].squeeze()
             traj.X_Xdot_full[t, :] = np.concatenate([traj.X_full[t, :], traj.Xdot_full[t, :]])
             for i in range(self._hyperparams['num_objects']):
                 fullpose = self._model.data.qpos[i * 7 + 2:i * 7 + 9].squeeze()
                 zangle = self.quat_to_zangle(fullpose[3:])
-                traj.Object_pos[t, i, :] = np.concatenate([fullpose[:2], zangle])
+                traj.Object_pose[t, i, :] = np.concatenate([fullpose[:2], zangle])
 
             if not self._hyperparams['data_collection']:
                 traj.score[t] = self.eval_action(traj, t)
@@ -151,13 +163,15 @@ class AgentMuJoCo(Agent):
                 print 'accumulated force', t
                 print accum_touch
 
+        traj = self.get_max_move_pose(traj)
+
         # only save trajectories which displace objects above threshold
         if 'displacement_threshold' in self._hyperparams:
             assert self._hyperparams['data_collection']
             disp_per_object = np.zeros(self._hyperparams['num_objects'])
             for i in range(self._hyperparams['num_objects']):
-                pos_old = traj.Object_pos[0, i, :2]
-                pos_new = traj.Object_pos[t, i, :2]
+                pos_old = traj.Object_pose[0, i, :2]
+                pos_new = traj.Object_pose[t, i, :2]
                 disp_per_object[i] = np.linalg.norm(pos_old - pos_new)
 
             if np.sum(disp_per_object) > self._hyperparams['displacement_threshold']:
@@ -166,6 +180,7 @@ class AgentMuJoCo(Agent):
                 traj_ok = False
         else:
             traj_ok = True
+
         return traj_ok, traj
 
     def save_goal_image_conf(self, traj):
@@ -259,6 +274,29 @@ class AgentMuJoCo(Agent):
             # print 'correction force:', force
         return force
 
+
+    def get_world_coord(self, proj_mat, depth_image, pix_pos):
+        depth = depth_image[pix_pos[0], pix_pos[1]]
+        pix_pos = pix_pos / 480.
+        clipspace = pix_pos*2 -1
+        depth = depth*2 -1
+        clipspace = np.concatenate([clipspace, depth, np.array([1.]) ])
+
+        res = np.linalg.inv(proj_mat).dot(clipspace)
+        return res[:3]
+
+    def plot_point_cloud(self, depth_image, proj_mat):
+
+        point_cloud = np.zeros([480, 480,3])
+        for r in range(point_cloud.shape[0]):
+            for c in range(point_cloud.shape[1]):
+                pix_pos = np.array([r, c])
+                point_cloud[r, c] = self.get_world_coord(depth_image, proj_mat, pix_pos)
+
+
+
+
+
     def _store_image(self,t, traj, policy):
         """
         store image at time index t
@@ -270,6 +308,16 @@ class AgentMuJoCo(Agent):
         largeimage = np.fromstring(img_string, dtype='uint8').reshape(
                 (480, 480, self._hyperparams['image_channels']))[::-1, :, :]
         self.large_images.append(largeimage)
+
+        # getting depth values
+        (img_string, width, height), proj_mat = self._large_viewer.get_depth()
+        large_dimage = np.fromstring(img_string, dtype=np.float32).reshape(
+            (480, 480, 1))[::-1, :, :]
+
+        self.plot_point_cloud(large_dimage, proj_mat)
+
+        pdb.set_trace()
+
 
         # collect retina image
         if 'large_images_retina' in self._hyperparams:

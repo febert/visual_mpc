@@ -75,8 +75,10 @@ def construct_model(images,
 
     if 'lstm_size' in conf:
         lstm_size = conf['lstm_size']
+        print 'using lstm size', lstm_size
     else:
-        lstm_size = np.int32(np.array([16, 16, 32, 32, 64, 32, 16]))
+        lstm_size = np.int32(np.array([16, 32, 64, 32, 16]))
+
 
     lstm_state1, lstm_state2, lstm_state3, lstm_state4 = None, None, None, None
     lstm_state5, lstm_state6, lstm_state7 = None, None, None
@@ -137,7 +139,7 @@ def construct_model(images,
                 hidden1, hidden1.get_shape()[3], [3, 3], stride=2, scope='conv2')
 
             hidden3, lstm_state3 = lstm_func(   #16x16x32
-                enc1, lstm_state3, lstm_size[2], scope='state3')
+                enc1, lstm_state3, lstm_size[1], scope='state3')
             hidden3 = tf_layers.layer_norm(hidden3, scope='layer_norm4')
 
             enc2 = slim.layers.conv2d(  # 8x8x32
@@ -166,13 +168,13 @@ def construct_model(images,
                 enc2, hidden3.get_shape()[3], [1, 1], stride=1, scope='conv4')
 
             hidden5, lstm_state5 = lstm_func(  #8x8x64
-                enc3, lstm_state5, lstm_size[4], scope='state5')
+                enc3, lstm_state5, lstm_size[2], scope='state5')
             hidden5 = tf_layers.layer_norm(hidden5, scope='layer_norm6')
             enc4 = slim.layers.conv2d_transpose(  #16x16x64
                 hidden5, hidden5.get_shape()[3], 3, stride=2, scope='convt1')
 
             hidden6, lstm_state6 = lstm_func(  #16x16x32
-                enc4, lstm_state6, lstm_size[5], scope='state6')
+                enc4, lstm_state6, lstm_size[3], scope='state6')
             hidden6 = tf_layers.layer_norm(hidden6, scope='layer_norm7')
 
             if 'noskip' not in conf:
@@ -182,7 +184,7 @@ def construct_model(images,
             enc5 = slim.layers.conv2d_transpose(  #32x32x32
                 hidden6, hidden6.get_shape()[3], 3, stride=2, scope='convt2')
             hidden7, lstm_state7 = lstm_func( # 32x32x16
-                enc5, lstm_state7, lstm_size[6], scope='state7')
+                enc5, lstm_state7, lstm_size[4], scope='state7')
             hidden7 = tf_layers.layer_norm(hidden7, scope='layer_norm8')
 
             if not 'noskip' in conf:

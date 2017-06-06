@@ -13,7 +13,7 @@ policy = {
     # 'use_first_plan':'', # execute MPC instead using firs plan
     'iterations': 5,
     'rew_all_steps': "",
-    # 'finalweight':1,
+    'finalweight':10,
     # 'verbose':"",
     'action_cost_factor':1e-5
 }
