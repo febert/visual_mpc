@@ -19,7 +19,10 @@ class Tower(object):
         per_gpu_actions = tf.slice(actions, [startidx, 0, 0], [nsmp_per_gpu, -1, -1])
         start_images = tf.slice(start_images, [startidx, 0, 0, 0, 0], [nsmp_per_gpu, -1, -1, -1, -1])
         start_states = tf.slice(start_states, [startidx, 0, 0], [nsmp_per_gpu, -1, -1])
-        pix_distrib = tf.slice(pix_distrib, [startidx, 0, 0, 0, 0], [nsmp_per_gpu, -1, -1, -1, -1])
+        if 'no_pix_distrib' in conf:
+         pix_distrib = None
+        else:
+            pix_distrib = tf.slice(pix_distrib, [startidx, 0, 0, 0, 0], [nsmp_per_gpu, -1, -1, -1, -1])
 
         print 'startindex for gpu {0}: {1}'.format(gpu_id, startidx)
 
@@ -134,14 +137,14 @@ def setup_predictor(conf, gpu_id=0, ngpu=1):
         feed_dict[actions] = input_actions
 
         gen_distrib = None
-        if not 'no_pix_distrib' in conf:
-            feed_dict[pix_distrib] = input_one_hot_images
-
         if 'no_pix_distrib' in conf:
             gen_images, gen_states = sess.run([comb_gen_img,
                                               comb_gen_states],
                                               feed_dict)
+
+            gen_distrib = None
         else:
+            feed_dict[pix_distrib] = input_one_hot_images
             gen_images, gen_distrib, gen_states = sess.run([comb_gen_img,
                                                             comb_pix_distrib,
                                                             comb_gen_states],
@@ -150,8 +153,7 @@ def setup_predictor(conf, gpu_id=0, ngpu=1):
         print 'time for evaluating {0} actions on {1} gpus : {2}'.format(
             conf['batch_size'],
             conf['ngpu'],
-            (datetime.now() - t_startiter).seconds + (datetime.now() - t_startiter).microseconds/1e6
-            )
+            (datetime.now() - t_startiter).seconds + (datetime.now() - t_startiter).microseconds/1e6)
         return gen_images, gen_distrib, gen_states
 
     return predictor_func

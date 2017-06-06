@@ -75,6 +75,12 @@ def create_video_pixdistrib_gif(file_path, conf, t, suffix = None, n_exp = 8, su
 
     npy_to_gif(fused_gif, name)
 
+def create_video_gif(file_path, conf, t, suffix = None, n_exp = 8):
+    gen_images = cPickle.load(open(file_path + '/gen_image_t{}.pkl'.format(t), "rb"))
+    name = file_path + '/vid_' + conf['experiment_name'] + suffix
+    fused_gif = assemble_gif([gen_images], n_exp)
+    npy_to_gif(fused_gif, name)
+
 
 def plot_psum_overtime(gen_distrib, n_exp, name):
     pdb.set_trace()
