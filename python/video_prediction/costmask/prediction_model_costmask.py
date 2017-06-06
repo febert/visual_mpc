@@ -88,13 +88,12 @@ def construct_model(images,
     current_state = states[0]
     gen_pix_distrib = []
 
-    if 'costmask' in conf:
-        if pix_distributions == None:
-            pix_distributions = make_initial_pixdistrib(conf, init_obj_pos)
+    if pix_distributions == None:
+        pix_distributions = make_initial_pixdistrib(conf, init_obj_pos)
 
     summaries = []
 
-    retina_pos_list, maxcoord_list = [], []
+    retina_pos_list = []
 
     if k == -1:
         feedself = True
@@ -315,7 +314,7 @@ def construct_model(images,
 
 
     if pix_distributions != None:
-        return gen_images, gen_states, gen_masks, gen_pix_distrib, retina_pos_list, maxcoord_list
+        return gen_images, gen_states, gen_masks, gen_pix_distrib, retina_pos_list
     else:
         return gen_images, gen_states, gen_masks, None, retina_pos_list
 
@@ -495,6 +494,7 @@ def get_new_retinapos(conf, prev_pix_distrib, init_obj_pos, t, iter_num):
             ret_pix = tf.cond(tf.less(iter_num, 15000), lambda: init_ret_pix,
                                                         lambda: mxcoord_ret_pix)
     else:
+        print 'using static retina'
         ret_pix = init_ret_pix
 
     half_rh = conf['retina_size'] / 2

@@ -88,9 +88,6 @@ def construct_model(images,
     current_state = states[0]
     gen_pix_distrib = []
 
-    if 'costmask' in conf:
-        if pix_distributions == None:
-            pix_distributions = make_initial_pixdistrib(conf, init_obj_pos)
 
     summaries = []
 
@@ -151,21 +148,7 @@ def construct_model(images,
                     prev_image = images[1]
                     print 'using image 1'
 
-            # Predicted state is always fed back in
-            if 'costmask' in conf:
-                retina_pos_list.append(get_new_retinapos(conf,
-                                             prev_pix_distrib, init_obj_pos,t, iter_num))
-                # sel_retpos = tf.cond(tf.less(iter_num, 15000), lambda: init_desig_pix,
-                #                                                lambda: retina_pos_list[-1])
-                #
-                # outnum = tf.cond(tf.less(iter_num, 10), lambda: tf.constant(10.),
-                #                      lambda: tf.constant(10.))
-                # sel_retpos = tf.Print(sel_retpos, [outnum])
-
-                state_action = tf.concat(1, [action, current_state,
-                                             tf.cast(retina_pos_list[-1], tf.float32)])
-            else:
-                state_action = tf.concat(1, [action, current_state])
+            state_action = tf.concat(1, [action, current_state])
 
             enc0 = slim.layers.conv2d(    #32x32x32
                 prev_image,
