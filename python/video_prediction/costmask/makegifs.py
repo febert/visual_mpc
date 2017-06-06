@@ -20,30 +20,35 @@ def add_crosshairs(distrib, pix_list):
     return distrib
 
 
-def comp_pix_distrib(file_path, name= None, masks = False, examples = 10):
+def comp_pix_distrib(conf, file_path, name= None, masks = False, examples = 10):
     dict_ = cPickle.load(open(file_path + '/dict_.pkl', "rb"))
 
-    gen_retinas =dict_['gen_retinas']
-    gtruth_retinas = dict_['gtruth_retinas']
-    val_highres = dict_['val_highres_images']
-    gen_pix_distrib = dict_['gen_pix_distrib']
-    maxcoord = dict_['maxcoord']
-    retina_pos = dict_['retina_pos']
+    gen_images =dict_['gen_images']
+    if 'true_ret' in dict_:
+        true_ret = dict_['true_ret']
+    pred_ret = dict_['pred_ret']
+    images = dict_['images']
+    gen_distrib = dict_['gen_distrib']
+    retpos = dict_['retpos']
 
-    print 'finished loading'
 
-    gen_pix_distrib = make_color_scheme(gen_pix_distrib)
-    gen_pix_distrib = add_crosshairs(gen_pix_distrib, maxcoord)
+    print 'finished loading ...'
 
-    gtruth_retinas = pad_pos(gtruth_retinas, retina_pos)
-    gen_retinas = pad_pos(gen_retinas, retina_pos)
-    gen_pix_distrib = pad_pos(gen_pix_distrib, retina_pos)
+    gen_distrib = make_color_scheme(gen_distrib)
+    # gen_pix_distrib = add_crosshairs(gen_pix_distrib, maxcoord)
 
-    if not isinstance(val_highres, list):
-        val_highres = np.split(val_highres, val_highres.shape[1], axis=1)
-        val_highres = [np.squeeze(g) for g in val_highres]
+    if 'true_ret' in dict_:
+        true_ret = pad_pos(conf, true_ret, retpos)
+    pred_ret = pad_pos(conf, pred_ret, retpos)
 
-    videolist = [val_highres, gtruth_retinas, gen_retinas, gen_pix_distrib]
+    if not isinstance(images, list):
+        images = np.split(images, images.shape[1], axis=1)
+        images = [np.squeeze(g) for g in images]
+
+    if 'true_ret' in dict_:
+        videolist = [images, gen_images, true_ret, pred_ret, gen_distrib]
+    else:
+        videolist = [images, gen_images, pred_ret, gen_distrib]
 
     suffix = ''
     if masks:
@@ -67,20 +72,30 @@ def comp_pix_distrib(file_path, name= None, masks = False, examples = 10):
         npy_to_gif(fused_gif, file_path + '/' + name + suffix)
 
 
-def pad_pos(vid, pos):
+def pad_pos(conf, vid, pos, origsize = 64):
 
     batch = vid[0].shape[0]
-    padded_vid = [np.zeros([batch, 80, 80, 3]) for _ in range(len(vid))]
+    padded_vid = [np.zeros([batch, origsize, origsize, 3]) for _ in range(len(vid))]
+
+    retina_size = conf['retina_size']
+    halfret = retina_size /2
+
     for b in range(batch):
         for t in range(len(vid)):
-            rstart = pos[t][b,0] - 16
-            rend = pos[t][b,0] + 16
-            cstart = pos[t][b,1] - 16
-            cend = pos[t][b,1] + 16
+            rstart = pos[t][b,0] - halfret
+            rend = pos[t][b,0] + halfret + 1
+            cstart = pos[t][b,1] - halfret
+            cend = pos[t][b,1] + halfret + 1
             padded_vid[t][b, rstart:rend, cstart:cend] = vid[t][b]
 
     return padded_vid
 
 if __name__ == '__main__':
-    file_path = '/home/frederik/Documents/lsdc/tensorflow_data/retina/fromstatic/modeldata'
-    comp_pix_distrib(file_path)
+    file_path = '/home/frederik/Documents/lsdc/tensorflow_data/costmask/moving_retina'
+    hyperparams = imp.load_source('hyperparams', file_path +'/conf.py')
+
+    conf = hyperparams.configuration
+    conf['visualize'] = conf['output_dir'] + '/model48002'
+
+
+    comp_pix_distrib(conf, file_path + '/modeldata')

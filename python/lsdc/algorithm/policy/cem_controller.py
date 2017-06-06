@@ -12,11 +12,13 @@ import time
 import imp
 import cPickle
 from video_prediction.setup_predictor import setup_predictor
-import video_prediction.utils_vpred.create_gif as makegif
-from video_prediction.utils_vpred.create_gif import comp_pix_distrib
+from video_prediction.utils_vpred.create_gif import *
 from datetime import datetime
 from multiprocessing import Pool
 import os
+
+import video_prediction.costmask.makegifs as makegifs
+
 
 from PIL import Image
 import pdb
@@ -99,9 +101,9 @@ class CEM_controller(Policy):
         self.gtruth_images = [np.zeros((self.M, 64, 64, 3)) for _ in range(self.nactions * self.repeat)]
 
         # the full horizon is actions*repeat
-        self.action_cost_mult = 0.00005
-
-        self.action_cost_mult = 0
+        if 'action_cost_factor' in self.policyparams:
+            self.action_cost_mult = self.policyparams['action_cost_factor']
+        else: self.action_cost_mult = 0.00005
 
         self.adim = 2  # action dimension
         self.initial_std = policyparams['initial_std']
@@ -239,8 +241,8 @@ class CEM_controller(Policy):
 
             if self.use_net:
                 scores = self.video_pred(last_frames, last_states, actions, itr)
-                print 'overall time for evaluating actions {}'.format(
-                    (datetime.now() - t_start).seconds + (datetime.now() - t_start).microseconds / 1e6)
+                print('overall time for evaluating actions {}'.format(
+                    (datetime.now() - t_start).seconds + (datetime.now() - t_start).microseconds / 1e6))
 
             actioncosts = self.calc_action_cost(actions)
             scores += actioncosts
@@ -274,10 +276,10 @@ class CEM_controller(Policy):
             self.setup_mujoco()
             accum_score = self.sim_rollout(actions[smp], smp, itr)
 
-            if not 'rew_all_steps' in self.policyparams:
-                scores[smp] = self.eval_action()
-            else:
+            if 'rew_all_steps' in self.policyparams:
                 scores[smp] = accum_score
+            else:
+                scores[smp] = self.eval_action()
 
         return scores
 
@@ -323,17 +325,17 @@ class CEM_controller(Policy):
         if use_genimg:
             cPickle.dump([orig_images, self.corr_gen_images, self.rec_input_distrib, self.desig_pix],
                          open(file_path + '/correction.pkl', 'wb'))
-            distrib = makegif.make_color_scheme(self.rec_input_distrib)
-            distrib = makegif.add_crosshairs(distrib, self.desig_pix)
-            frame_list = makegif.assemble_gif([orig_images, self.corr_gen_images, distrib], num_exp=1)
+            distrib = make_color_scheme(self.rec_input_distrib)
+            distrib = add_crosshairs(distrib, self.desig_pix)
+            frame_list = assemble_gif([orig_images, self.corr_gen_images, distrib], num_exp=1)
         else:
             cPickle.dump([orig_images, self.rec_input_distrib],
                          open(file_path + '/correction.pkl', 'wb'))
-            distrib = makegif.make_color_scheme(self.rec_input_distrib)
-            distrib = makegif.add_crosshairs(distrib, self.desig_pix)
-            frame_list = makegif.assemble_gif([orig_images, distrib], num_exp=1)
+            distrib = make_color_scheme(self.rec_input_distrib)
+            distrib = add_crosshairs(distrib, self.desig_pix)
+            frame_list = assemble_gif([orig_images, distrib], num_exp=1)
 
-        makegif.npy_to_gif(frame_list, self.policyparams['rec_distrib'])
+        npy_to_gif(frame_list, self.policyparams['rec_distrib'])
 
     def mujoco_to_imagespace(self, mujoco_coord, numpix = 64, truncate = False):
         """
@@ -416,8 +418,16 @@ class CEM_controller(Policy):
                                                                             input_distrib,
                                                                 last_states, actions_cpy)
         else: # the usual case
-            gen_distrib, gen_images, gen_masks, gen_states = self.predictor(last_frames, input_distrib,
+
+            if 'costmask' in self.netconf:
+                gen_distrib, gen_images, gen_masks, gen_states, gen_retina, retposlist = self.predictor(
+                                                                                last_frames, input_distrib,
+                                                                                last_states, actions, self.init_retpos)
+            else:
+                gen_distrib, gen_images, gen_masks, gen_states = self.predictor(last_frames, input_distrib,
                                                                             last_states, actions, self.init_retpos)
+
+
             for tstep in range(self.netconf['sequence_length']-1):
                 for smp in range(self.M):
                     self.pred_pos[smp, itr, tstep+1] = self.mujoco_to_imagespace(gen_states[tstep][smp, :2], numpix=480)
@@ -428,17 +438,22 @@ class CEM_controller(Policy):
             for j in range(64):
                 pos = np.array([i,j])
                 distance_grid[i,j] = np.linalg.norm(goalpoint - pos)
+
         expected_distance = np.zeros(self.netconf['batch_size'])
-        if 'rew_all_steps' not in self.policyparams:
+        if 'rew_all_steps' in self.policyparams:
+            for tstep in range(self.netconf['sequence_length']-1):
+                t_mult = 1
+                if 'finalweight' in self.policyparams:
+                    if tstep == self.netconf['sequence_length']-2:
+                        t_mult = self.policyparams['finalweight']
+
+                for b in range(self.netconf['batch_size']):
+                    gen = gen_distrib[tstep][b].squeeze() / np.sum(gen_distrib[tstep][b])
+                    expected_distance[b] += np.sum(np.multiply(gen, distance_grid)) * t_mult
+        else:
             for b in range(self.netconf['batch_size']):
                 gen = gen_distrib[-1][b].squeeze()/ np.sum(gen_distrib[-1][b])
                 expected_distance[b] = np.sum(np.multiply(gen, distance_grid))
-        else:
-            for tstep in range(self.netconf['sequence_length']-1):
-                t_mult = tstep**2  #weighting more distant timesteps more
-                for b in range(self.netconf['batch_size']):
-                    gen = gen_distrib[tstep][b].squeeze() / np.sum(gen_distrib[-1][b])
-                    expected_distance[b] += np.sum(np.multiply(gen, distance_grid)) * t_mult
 
         # for predictor_propagation only!!
         if 'predictor_propagation' in self.policyparams:
@@ -471,17 +486,26 @@ class CEM_controller(Policy):
             cPickle.dump(best(gen_images), open(file_path + '/gen_images.pkl', 'wb'))
             # cPickle.dump(best(concat_masks), open(file_path + '/gen_masks.pkl', 'wb'))
             cPickle.dump(best(self.gtruth_images), open(file_path + '/gtruth_images.pkl', 'wb'))
-            print 'written files to:' + file_path
+            if 'costmask' in self.netconf:
+                dict_ = {}
+                dict_['gen_images'] = best(gen_images)
+                dict_['pred_ret'] = best(gen_retina)
+                dict_['images'] = best(self.gtruth_images)
+                dict_['gen_distrib'] = best(gen_distrib)
+                dict_['retpos'] = best(retposlist)
 
-            comp_pix_distrib(file_path, name='check_eval_t{}'.format(self.t), masks=False, examples=self.K)
+                cPickle.dump(dict_, open(file_path + '/dict_.pkl', 'wb'))
+                print 'written files to:' + file_path
+                makegifs.comp_pix_distrib(self.netconf, file_path, name='check_eval_t{}'.format(self.t), examples=self.K)
+            else:
+                print 'written files to:' + file_path
+                comp_pix_distrib(file_path, name='check_eval_t{}'.format(self.t), masks=False, examples=self.K)
 
             f = open(file_path + '/actions_last_iter_t{}'.format(self.t), 'w')
             sorted = expected_distance.argsort()
             for i in range(actions.shape[0]):
                 f.write('index: {0}, score: {1}, rank: {2}'.format(i, expected_distance[i], np.where(sorted == i)[0][0]))
                 f.write('action {}\n'.format(actions[i]))
-
-
 
         if 'mult_noise_per_action' in self.policyparams:
             print "using {} noisevector per action".format(self.netconf['batch_size']/ self.policyparams['num_samples'])

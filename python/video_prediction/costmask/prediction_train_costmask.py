@@ -11,11 +11,13 @@ import imp
 from video_prediction.utils_vpred.adapt_params_visualize import adapt_params_visualize
 from tensorflow.python.platform import app
 from tensorflow.python.platform import flags
+from video_prediction.utils_vpred.create_gif import *
 
 from video_prediction.read_tf_record import build_tfrecord_input
-
+import makegifs
 
 from datetime import datetime
+from prediction_model_costmask import construct_model
 
 # How often to record tensorboard summaries.
 SUMMARY_INTERVAL = 40
@@ -26,11 +28,12 @@ VAL_INTERVAL = 200
 # How often to save a model checkpoint
 SAVE_INTERVAL = 2000
 
-FLAGS = flags.FLAGS
-flags.DEFINE_string('hyper', '', 'hyperparameters configuration file')
-flags.DEFINE_string('visualize', '', 'model within hyperparameter folder from which to create gifs')
-flags.DEFINE_integer('device', 0 ,'the value for CUDA_VISIBLE_DEVICES variable, -1 uses cpu')
-flags.DEFINE_string('pretrained', None, 'path to model file from which to resume training')
+if __name__ == '__main__':
+    FLAGS = flags.FLAGS
+    flags.DEFINE_string('hyper', '', 'hyperparameters configuration file')
+    flags.DEFINE_string('visualize', '', 'model within hyperparameter folder from which to create gifs')
+    flags.DEFINE_integer('device', 0 ,'the value for CUDA_VISIBLE_DEVICES variable, -1 uses cpu')
+    flags.DEFINE_string('pretrained', None, 'path to model file from which to resume training')
 
 ## Helper functions
 def peak_signal_to_noise_ratio(true, pred):
@@ -101,35 +104,6 @@ def mean_squared_error_costmask(true, pred, current_rpos, conf):
     return cost, true_retinas, pred_retinas
 
 
-def fft_cost(true, pred, conf, fft_weights = None):
-
-    #loop over the color channels:
-    cost = 0.
-    true_fft_abssum = 0
-    pred_fft_abssum = 0
-    for i in range(3):
-
-        slice_true = tf.slice(true,[0,0,0,i],[-1,-1,-1,1])
-        slice_pred = tf.slice(pred, [0, 0, 0, i], [-1, -1, -1, 1])
-
-        slice_true = tf.squeeze(tf.complex(slice_true, tf.zeros_like(slice_true)))
-        slice_pred = tf.squeeze(tf.complex(slice_pred, tf.zeros_like(slice_pred)))
-
-        true_fft = tf.fft2d(slice_true)
-        pred_fft = tf.fft2d(slice_pred)
-
-        if 'fft_emph_highfreq' in conf:
-            abs_diff = tf.mul(tf.complex_abs(true_fft - pred_fft), fft_weights)
-            cost += tf.reduce_sum(tf.square(abs_diff)) / tf.to_float(tf.size(pred_fft))
-        else:
-            cost += tf.reduce_sum(tf.square(tf.complex_abs(true_fft - pred_fft))) / tf.to_float(tf.size(pred_fft))
-
-        true_fft_abssum += tf.complex_abs(true_fft)
-        pred_fft_abssum += tf.complex_abs(pred_fft)
-
-    return cost, true_fft_abssum, pred_fft_abssum
-
-
 class Model(object):
     def __init__(self,
                  conf,
@@ -140,7 +114,7 @@ class Model(object):
                  reuse_scope=None,
                  pix_distrib=None):
 
-        from prediction_model_costmask import construct_model
+
 
         self.prefix = prefix = tf.placeholder(tf.string, [])
         self.iter_num = tf.placeholder(tf.float32, [])
@@ -162,7 +136,7 @@ class Model(object):
             pix_distrib = [tf.squeeze(pix) for pix in pix_distrib]
 
         if reuse_scope is None:
-            gen_images, gen_states, gen_masks, gen_distrib, retpos, maxcoord = construct_model(
+            gen_images, gen_states, gen_masks, gen_distrib, retpos = construct_model(
                 images,
                 actions,
                 states,
@@ -179,7 +153,7 @@ class Model(object):
                 conf=conf)
         else:  # If it's a validation or test model.
             with tf.variable_scope(reuse_scope, reuse=True):
-                gen_images, gen_states, gen_masks, gen_distrib, retpos, maxcoord = construct_model(
+                gen_images, gen_states, gen_masks, gen_distrib, retpos = construct_model(
                     images,
                     actions,
                     states,
@@ -207,12 +181,9 @@ class Model(object):
         for i, x, gx, p in zip(
                 range(len(gen_images)), images[conf['context_frames']:],
                 gen_images[conf['context_frames'] - 1:], retpos[conf['context_frames'] - 1:]):
-            if 'costmask' in conf:
-                recon_cost_mse, true_ret, pred_ret = mean_squared_error_costmask(x, gx, p, conf)
-                true_retinas.append(true_ret)
-                pred_retinas.append(pred_ret)
-            else:
-                recon_cost_mse = mean_squared_error(x, gx)
+            recon_cost_mse, true_ret, pred_ret = mean_squared_error_costmask(x, gx, p, conf)
+            true_retinas.append(true_ret)
+            pred_retinas.append(pred_ret)
 
             psnr_i = peak_signal_to_noise_ratio(x, gx)
             psnr_all += psnr_i
@@ -220,21 +191,7 @@ class Model(object):
                 tf.scalar_summary(prefix + '_recon_cost' + str(i), recon_cost_mse))
             summaries.append(tf.scalar_summary(prefix + '_psnr' + str(i), psnr_i))
 
-            if 'fftcost' in conf:
-                print 'using fftcost'
-                fftcost, true_fft, pred_fft = fft_cost(x, gx, conf, self.fft_weights)
-                true_fft_list.append(true_fft)
-                pred_fft_list.append(pred_fft)
-                summaries.append(
-                    tf.scalar_summary(prefix + '_fft_recon_cost' + str(i), fftcost))
-
-                if 'fftonly' in conf:
-                    print 'only using fft cost'
-                    recon_cost = fftcost
-                else:
-                    recon_cost = fftcost + recon_cost_mse
-            else:
-                recon_cost = recon_cost_mse
+            recon_cost = recon_cost_mse
 
             loss += recon_cost
 
@@ -268,7 +225,6 @@ class Model(object):
         self.true_retinas = true_retinas
         self.pred_retinas = pred_retinas
         self.retpos_list = retpos
-        self.maxcoord = maxcoord
 
 
 def main(unused_argv, conf_script= None):
@@ -295,7 +251,12 @@ def main(unused_argv, conf_script= None):
     conf = hyperparams.configuration
     if FLAGS.visualize:
         print 'creating visualizations ...'
-        conf = adapt_params_visualize(conf, FLAGS.visualize)
+        conf['schedsamp_k'] = -1  # don't feed ground truth
+        conf['data_dir'] = '/'.join(str.split(conf['data_dir'], '/')[:-1] + ['test'])
+        conf['visualize'] = conf['output_dir'] + '/' + FLAGS.visualize
+        conf['event_log_dir'] = '/tmp'
+        conf['visual_file'] = conf['data_dir'] + '/traj_0_to_255.tfrecords'
+
     print '-------------------------------------------------------------------'
     print 'verify current settings!! '
     for key in conf.keys():
@@ -304,22 +265,34 @@ def main(unused_argv, conf_script= None):
 
     print 'Constructing models and inputs.'
     with tf.variable_scope('model', reuse=None) as training_scope:
-        if 'costmask' in conf:
-            images, actions, states, poses = build_tfrecord_input(conf, training=True)
-            init_pos = tf.squeeze(tf.slice(tf.squeeze(poses), [0,0,0], [-1, 1, 2]))
-            model = Model(conf, images, actions, states, init_pos)
+
+        images, actions, states, poses, max_move = build_tfrecord_input(conf, training=True)
+        if 'max_move_pos' in conf:
+            init_pos = tf.squeeze(tf.slice(tf.squeeze(max_move), [0, 0, 0], [-1, 1, 2]))
         else:
-            images, actions, states = build_tfrecord_input(conf, training=True)
-            model = Model(conf, images, actions, states)
+            init_pos = tf.squeeze(tf.slice(tf.squeeze(poses), [0,0,0], [-1, 1, 2]))
+
+        #only for debugging!
+        # sess = tf.InteractiveSession(config=tfconfig)
+        # summary_writer = tf.train.SummaryWriter(
+        #     conf['output_dir'], graph=sess.graph, flush_secs=10)
+        #
+        # tf.train.start_queue_runners(sess)
+        # sess.run(tf.initialize_all_variables())
+        #
+        # init_pos = sess.run([init_pos])
+        # pdb.set_trace()
+        # end debugging
+
+        model = Model(conf, images, actions, states, init_pos)
 
     with tf.variable_scope('val_model', reuse=None):
-        if 'costmask' in conf:
-            val_images, val_actions, val_states, val_poses = build_tfrecord_input(conf, training=False)
-            init_val_pos = tf.squeeze(tf.slice(tf.squeeze(val_poses), [0, 0, 0], [-1, 1, 2]))
-            val_model = Model(conf, val_images, val_actions, val_states, init_val_pos, training_scope)
+        val_images, val_actions, val_states, val_poses, val_max_move = build_tfrecord_input(conf, training=False)
+        if 'max_move_pos' in conf:
+            init_val_pos = tf.squeeze(tf.slice(tf.squeeze(val_max_move), [0, 0, 0], [-1, 1, 2]))
         else:
-            val_images, val_actions, val_states = build_tfrecord_input(conf, training=False)
-            val_model = Model(conf, val_images, val_actions, val_states, training_scope)
+            init_val_pos = tf.squeeze(tf.slice(tf.squeeze(val_poses), [0, 0, 0], [-1, 1, 2]))
+        val_model = Model(conf, val_images, val_actions, val_states, init_val_pos, training_scope)
 
     print 'Constructing saver.'
     # Make saver.
@@ -339,42 +312,32 @@ def main(unused_argv, conf_script= None):
 
         feed_dict = {val_model.lr: 0.0,
                      val_model.prefix: 'vis',
-                     val_model.iter_num: 0 }
+                     val_model.iter_num: 50000}
         file_path = conf['output_dir']
 
-        if 'fftcost' in conf:
-            true_fft, pred_fft, gen_images, ground_truth, mask_list = sess.run([val_model.true_fft, val_model.pred_fft ,val_model.gen_images,
-                                                            val_images, val_model.gen_masks],
-                                                           feed_dict)
-            cPickle.dump(true_fft, open(file_path + '/true_fft.pkl', 'wb'))
-            cPickle.dump(pred_fft, open(file_path + '/pred_fft.pkl', 'wb'))
+        gen_images, images, mask_list, true_ret, pred_ret, gen_distrib, retpos = sess.run([
+                                                        val_model.gen_images,
+                                                        val_images,
+                                                        val_model.gen_masks,
+                                                        val_model.true_retinas,
+                                                        val_model.pred_retinas,
+                                                        val_model.gen_distrib,
+                                                        val_model.retpos_list
+                                                        ],
+                                                       feed_dict)
 
-        if 'costmask' in conf:
-            gen_images, ground_truth, mask_list, true_ret, pred_ret = sess.run([
-                                                            val_model.gen_images,
-                                                            val_images,
-                                                            val_model.gen_masks,
-                                                            val_model.true_retinas,
-                                                            val_model.pred_retinas
-                                                            ],
-                                                           feed_dict)
+        dict_ = {}
+        dict_['gen_images'] = gen_images
+        dict_['true_ret'] = true_ret
+        dict_['pred_ret'] = pred_ret
+        dict_['images'] = images
+        dict_['gen_distrib'] = gen_distrib
+        dict_['retpos'] = retpos
 
-            cPickle.dump(true_ret, open(file_path + '/true_ret.pkl', 'wb'))
-            cPickle.dump(pred_ret, open(file_path + '/pred_ret.pkl', 'wb'))
-
-        else:
-            gen_images, ground_truth, mask_list = sess.run([val_model.gen_images,
-                                                            val_images, val_model.gen_masks,
-                                                            ],
-                                                           feed_dict)
-
-        cPickle.dump(gen_images, open(file_path + '/gen_image_seq.pkl','wb'))
-        cPickle.dump(ground_truth, open(file_path + '/ground_truth.pkl', 'wb'))
-        cPickle.dump(mask_list, open(file_path + '/mask_list.pkl', 'wb'))
+        cPickle.dump(dict_, open(file_path + '/dict_.pkl', 'wb'))
         print 'written files to:' + file_path
 
-        trajectories = utils_vpred.create_gif.comp_video(conf['output_dir'], conf)
-        # utils_vpred.create_gif.comp_masks(conf['output_dir'], conf, trajectories)
+        makegifs.comp_pix_distrib(conf['output_dir'], examples=10)
         return
 
     itr_0 =0
@@ -397,22 +360,22 @@ def main(unused_argv, conf_script= None):
     fft_weights = calc_fft_weight()
 
     ###### debugging
-    from PIL import Image
-    itr = 0
-    feed_dict = {model.prefix: 'train',
-                 model.iter_num: np.float32(itr),
-                 model.lr: conf['learning_rate'],
-                 }
-    true_retina, retpos, gen_distrib, initpos, imdata = sess.run([model.true_retinas, model.retpos_list, model.gen_distrib, init_pos, images ],
-                                    feed_dict)
-    print 'retina pos:'
-    for b in range(4):
-        Image.fromarray((true_retina[0][b] * 255).astype(np.uint8)).show()
-        Image.fromarray((np.squeeze(gen_distrib[0][b]) * 255).astype(np.uint8)).show()
-        Image.fromarray((imdata[b][0] * 255).astype(np.uint8)).show()
-
-        print 'retpos', retpos[b]
-        print 'initpos', init_pos[0]
+    # from PIL import Image
+    # itr = 0
+    # feed_dict = {model.prefix: 'train',
+    #              model.iter_num: np.float32(itr),
+    #              model.lr: conf['learning_rate'],
+    #              }
+    # true_retina, retpos, gen_distrib, initpos, imdata = sess.run([model.true_retinas, model.retpos_list, model.gen_distrib, init_pos, images ],
+    #                                 feed_dict)
+    # print 'retina pos:'
+    # for b in range(4):
+    #     Image.fromarray((true_retina[0][b] * 255).astype(np.uint8)).show()
+    #     Image.fromarray((np.squeeze(gen_distrib[0][b]) * 255).astype(np.uint8)).show()
+    #     Image.fromarray((imdata[b][0] * 255).astype(np.uint8)).show()
+    #
+    #     print 'retpos', retpos[b]
+    #     print 'initpos', init_pos[0]
 
     ###### end debugging
 
