@@ -293,10 +293,6 @@ class AgentMuJoCo(Agent):
                 pix_pos = np.array([r, c])
                 point_cloud[r, c] = self.get_world_coord(depth_image, proj_mat, pix_pos)
 
-
-
-
-
     def _store_image(self,t, traj, policy):
         """
         store image at time index t
@@ -314,10 +310,8 @@ class AgentMuJoCo(Agent):
         large_dimage = np.fromstring(img_string, dtype=np.float32).reshape(
             (480, 480, 1))[::-1, :, :]
 
-        self.plot_point_cloud(large_dimage, proj_mat)
-
-        pdb.set_trace()
-
+        if 'gen_point_cloud' in self._hyperparams:
+            self.plot_point_cloud(large_dimage, proj_mat)
 
         # collect retina image
         if 'large_images_retina' in self._hyperparams:
