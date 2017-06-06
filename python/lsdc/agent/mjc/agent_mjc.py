@@ -275,18 +275,26 @@ class AgentMuJoCo(Agent):
         return force
 
 
-    def get_world_corld(self, proj_mat, depth_image):
-        pix_pos = np.array([240, 240])
+    def get_world_coord(self, proj_mat, depth_image, pix_pos):
         depth = depth_image[pix_pos[0], pix_pos[1]]
         pix_pos = pix_pos / 480.
-
         clipspace = pix_pos*2 -1
-
-
+        depth = depth*2 -1
         clipspace = np.concatenate([clipspace, depth, np.array([1.]) ])
 
-        np.linalg.inv(proj_mat).dot(clipspace)
-        pdb.set_trace()
+        res = np.linalg.inv(proj_mat).dot(clipspace)
+        return res[:3]
+
+    def plot_point_cloud(self, depth_image, proj_mat):
+
+        point_cloud = np.zeros([480, 480,3])
+        for r in range(point_cloud.shape[0]):
+            for c in range(point_cloud.shape[1]):
+                pix_pos = np.array([r, c])
+                point_cloud[r, c] = self.get_world_coord(depth_image, proj_mat, pix_pos)
+
+
+
 
 
     def _store_image(self,t, traj, policy):
@@ -301,12 +309,14 @@ class AgentMuJoCo(Agent):
                 (480, 480, self._hyperparams['image_channels']))[::-1, :, :]
         self.large_images.append(largeimage)
 
-        # # getting depth values
-        # (img_string, width, height), proj_mat = self._large_viewer.get_depth()
-        # large_dimage = np.fromstring(img_string, dtype=np.float32).reshape(
-        #     (480, 480, 1))[::-1, :, :]
-        # 
-        # self.get_world_corld(proj_mat, large_dimage)
+        # getting depth values
+        (img_string, width, height), proj_mat = self._large_viewer.get_depth()
+        large_dimage = np.fromstring(img_string, dtype=np.float32).reshape(
+            (480, 480, 1))[::-1, :, :]
+
+        self.plot_point_cloud(large_dimage, proj_mat)
+
+        pdb.set_trace()
 
 
         # collect retina image

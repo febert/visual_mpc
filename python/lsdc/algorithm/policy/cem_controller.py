@@ -443,7 +443,6 @@ class CEM_controller(Policy):
         if 'rew_all_steps' in self.policyparams:
             for tstep in range(self.netconf['sequence_length']-1):
                 t_mult = 1
-
                 if 'finalweight' in self.policyparams:
                     if tstep == self.netconf['sequence_length']-2:
                         t_mult = self.policyparams['finalweight']
