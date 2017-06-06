@@ -52,7 +52,7 @@ def build_tfrecord_input(conf, training=True, gtruth_pred = False, shuffle_vis =
     reader = tf.TFRecordReader()
     _, serialized_example = reader.read(filename_queue)
 
-    gtruthimage_seq, predimage_seq, image_seq, retina_seq, state_seq, action_seq, object_pos_seq, touch_seq = [], [], [], [], [], [], [], []
+    gtruthimage_seq, predimage_seq, image_seq, retina_seq, state_seq, action_seq, object_pos_seq, max_move_pos_seq, touch_seq = [], [], [], [], [], [], [], [], []
 
     load_indx = range(0, 30, conf['skip_frame'])
     load_indx = load_indx[:conf['sequence_length']]
@@ -72,6 +72,7 @@ def build_tfrecord_input(conf, training=True, gtruth_pred = False, shuffle_vis =
             action_name = 'move/' + str(i) + '/action'
             state_name = 'move/' + str(i) + '/state'
             object_pos_name = 'move/' + str(i) + '/object_pos'
+            max_move_pos_name = 'move/' + str(i) + '/max_move_pose'
 
             features = {
                         image_name: tf.FixedLenFeature([1], tf.string),
@@ -79,7 +80,11 @@ def build_tfrecord_input(conf, training=True, gtruth_pred = False, shuffle_vis =
                         state_name: tf.FixedLenFeature([STATE_DIM], tf.float32)
             }
         if 'use_object_pos' in conf.keys():
-            features[object_pos_name] = tf.FixedLenFeature([OBJECT_POS_DIM], tf.float32)
+            if 'num_obj' in conf:
+                num_obj = conf['num_obj']
+            else: num_obj = 1
+            features[object_pos_name] = tf.FixedLenFeature([OBJECT_POS_DIM*num_obj], tf.float32)
+            features[max_move_pos_name] = tf.FixedLenFeature([OBJECT_POS_DIM], tf.float32)
 
         if 'retina' in conf:
             retina_name = 'move/' + str(i) + '/retina/encoded'
@@ -117,8 +122,11 @@ def build_tfrecord_input(conf, training=True, gtruth_pred = False, shuffle_vis =
                 touch_seq.append(touchdata)
 
             if 'use_object_pos' in conf:
-                object_pos = tf.reshape(features[object_pos_name], shape=[1, OBJECT_POS_DIM])
+                object_pos = tf.reshape(features[object_pos_name], shape=[1, OBJECT_POS_DIM*num_obj])
                 object_pos_seq.append(object_pos)
+
+                max_move_pos = tf.reshape(features[max_move_pos_name], shape=[1, OBJECT_POS_DIM])
+                max_move_pos_seq.append(max_move_pos)
 
     if gtruth_pred:
         gtruthimage_seq = tf.concat(0, gtruthimage_seq)
@@ -149,13 +157,13 @@ def build_tfrecord_input(conf, training=True, gtruth_pred = False, shuffle_vis =
             touch_seq = tf.concat(0, touch_seq)
 
         if 'use_object_pos' in conf.keys() and not 'retina' in conf:
-            [image_batch, action_batch, state_batch, object_pos_batch] = tf.train.batch(
-            [image_seq, action_seq, state_seq, object_pos_seq],
+            [image_batch, action_batch, state_batch, object_pos_batch, max_move_pos_batch] = tf.train.batch(
+            [image_seq, action_seq, state_seq, object_pos_seq, max_move_pos_seq],
             conf['batch_size'],
             num_threads=num_threads,
             capacity=100 * conf['batch_size'])
 
-            return image_batch, action_batch, state_batch, object_pos_batch
+            return image_batch, action_batch, state_batch, object_pos_batch, max_move_pos_batch
 
         elif 'retina' in conf:
             [image_batch, retina_batch, action_batch, state_batch, object_pos_batch] = tf.train.batch(
@@ -340,9 +348,9 @@ if __name__ == '__main__':
     conf = {}
 
     # DATA_DIR = '/home/frederik/Documents/lsdc/experiments/cem_exp/benchmarks_goalimage/pixelerror_store_wholepred/tfrecords/train'
-    # DATA_DIR = '/home/frederik/Documents/lsdc/pushing_data/large_displacement_pose/train'
+    DATA_DIR = '/home/frederik/Documents/lsdc/pushing_data/random_action_var10_pose/train'
     # DATA_DIR = '/media/frederik/harddrive/pushingdata/large_displacement_pose180k/train/'
-    DATA_DIR = '/home/frederik/Documents/lsdc/pushing_data/retina/train'
+    # DATA_DIR = '/home/frederik/Documents/lsdc/pushing_data/retina/train'
 
     conf['schedsamp_k'] = -1  # don't feed ground truth
     conf['data_dir'] = DATA_DIR  # 'directory containing data_files.' ,
@@ -350,12 +358,12 @@ if __name__ == '__main__':
     conf['train_val_split']= 0.95
     conf['sequence_length']= 15      # 'sequence length, including context frames.'
     conf['use_state'] = True
-    conf['batch_size']= 10
+    conf['batch_size']= 20
     conf['visualize']=False
-    conf['retina'] = 80
+    # conf['retina'] = 80
 
-    # conf['use_object_pos'] =''
-
+    conf['use_object_pos'] =''
+    conf['num_obj'] = 4
 
     print '-------------------------------------------------------------------'
     print 'verify current settings!! '
@@ -372,7 +380,7 @@ if __name__ == '__main__':
         conf['touch'] = ''
         image_batch, action_batch, state_batch, touch_batch = build_tfrecord_input(conf, training=True)
     elif 'use_object_pos' in conf:
-        image_batch, action_batch, state_batch, pos_batch = build_tfrecord_input(conf, training=True)
+        image_batch, action_batch, state_batch, pos_batch, max_move_pos_batch = build_tfrecord_input(conf, training=True)
     elif 'retina' in conf:
         image_batch, retina_batch, retpos_batch, action_batch, state_batch, pos_batch = build_tfrecord_input(conf, training=True)
     else:
@@ -392,11 +400,12 @@ if __name__ == '__main__':
                                                                         state_batch,
                                                                         touch_batch])
         elif 'use_object_pos' in conf:
-            image_data, action_data, state_data, pos_data = sess.run([image_batch, action_batch, state_batch, pos_batch])
+            image_data, action_data, state_data, pos_data, max_move_data = sess.run([image_batch, action_batch, state_batch, pos_batch, max_move_pos_batch])
         elif 'retina' in conf:
             image_data, retina_data, retpos_data, action_data, state_data = sess.run([image_batch, retina_batch, retpos_batch, action_batch, state_batch])
         else:
             image_data, action_data, state_data = sess.run([image_batch, action_batch, state_batch])
+
 
 
         print 'action:', action_data.shape
@@ -412,6 +421,7 @@ if __name__ == '__main__':
 
         giffile = '/'.join(str.split(conf['data_dir'], '/')[:-1] + ['preview'])
         comp_single_video(giffile, image_data, num_exp=8)
+
 
         if 'use_object_pos' in conf:
             visual_batch = add_visuals_to_batch(image_data, pos_data)

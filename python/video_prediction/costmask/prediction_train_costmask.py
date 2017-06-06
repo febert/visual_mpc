@@ -181,12 +181,9 @@ class Model(object):
         for i, x, gx, p in zip(
                 range(len(gen_images)), images[conf['context_frames']:],
                 gen_images[conf['context_frames'] - 1:], retpos[conf['context_frames'] - 1:]):
-            if 'costmask' in conf:
-                recon_cost_mse, true_ret, pred_ret = mean_squared_error_costmask(x, gx, p, conf)
-                true_retinas.append(true_ret)
-                pred_retinas.append(pred_ret)
-            else:
-                recon_cost_mse = mean_squared_error(x, gx)
+            recon_cost_mse, true_ret, pred_ret = mean_squared_error_costmask(x, gx, p, conf)
+            true_retinas.append(true_ret)
+            pred_retinas.append(pred_ret)
 
             psnr_i = peak_signal_to_noise_ratio(x, gx)
             psnr_all += psnr_i
@@ -268,22 +265,34 @@ def main(unused_argv, conf_script= None):
 
     print 'Constructing models and inputs.'
     with tf.variable_scope('model', reuse=None) as training_scope:
-        if 'costmask' in conf:
-            images, actions, states, poses = build_tfrecord_input(conf, training=True)
-            init_pos = tf.squeeze(tf.slice(tf.squeeze(poses), [0,0,0], [-1, 1, 2]))
-            model = Model(conf, images, actions, states, init_pos)
+
+        images, actions, states, poses, max_move = build_tfrecord_input(conf, training=True)
+        if 'max_move_pos' in conf:
+            init_pos = tf.squeeze(tf.slice(tf.squeeze(max_move), [0, 0, 0], [-1, 1, 2]))
         else:
-            images, actions, states = build_tfrecord_input(conf, training=True)
-            model = Model(conf, images, actions, states)
+            init_pos = tf.squeeze(tf.slice(tf.squeeze(poses), [0,0,0], [-1, 1, 2]))
+
+        #only for debugging!
+        # sess = tf.InteractiveSession(config=tfconfig)
+        # summary_writer = tf.train.SummaryWriter(
+        #     conf['output_dir'], graph=sess.graph, flush_secs=10)
+        #
+        # tf.train.start_queue_runners(sess)
+        # sess.run(tf.initialize_all_variables())
+        #
+        # init_pos = sess.run([init_pos])
+        # pdb.set_trace()
+        # end debugging
+
+        model = Model(conf, images, actions, states, init_pos)
 
     with tf.variable_scope('val_model', reuse=None):
-        if 'costmask' in conf:
-            val_images, val_actions, val_states, val_poses = build_tfrecord_input(conf, training=False)
-            init_val_pos = tf.squeeze(tf.slice(tf.squeeze(val_poses), [0, 0, 0], [-1, 1, 2]))
-            val_model = Model(conf, val_images, val_actions, val_states, init_val_pos, training_scope)
+        val_images, val_actions, val_states, val_poses, val_max_move = build_tfrecord_input(conf, training=False)
+        if 'max_move_pos' in conf:
+            init_val_pos = tf.squeeze(tf.slice(tf.squeeze(val_max_move), [0, 0, 0], [-1, 1, 2]))
         else:
-            val_images, val_actions, val_states = build_tfrecord_input(conf, training=False)
-            val_model = Model(conf, val_images, val_actions, val_states, training_scope)
+            init_val_pos = tf.squeeze(tf.slice(tf.squeeze(val_poses), [0, 0, 0], [-1, 1, 2]))
+        val_model = Model(conf, val_images, val_actions, val_states, init_val_pos, training_scope)
 
     print 'Constructing saver.'
     # Make saver.
@@ -351,22 +360,22 @@ def main(unused_argv, conf_script= None):
     fft_weights = calc_fft_weight()
 
     ###### debugging
-    from PIL import Image
-    itr = 0
-    feed_dict = {model.prefix: 'train',
-                 model.iter_num: np.float32(itr),
-                 model.lr: conf['learning_rate'],
-                 }
-    true_retina, retpos, gen_distrib, initpos, imdata = sess.run([model.true_retinas, model.retpos_list, model.gen_distrib, init_pos, images ],
-                                    feed_dict)
-    print 'retina pos:'
-    for b in range(4):
-        Image.fromarray((true_retina[0][b] * 255).astype(np.uint8)).show()
-        Image.fromarray((np.squeeze(gen_distrib[0][b]) * 255).astype(np.uint8)).show()
-        Image.fromarray((imdata[b][0] * 255).astype(np.uint8)).show()
-
-        print 'retpos', retpos[b]
-        print 'initpos', init_pos[0]
+    # from PIL import Image
+    # itr = 0
+    # feed_dict = {model.prefix: 'train',
+    #              model.iter_num: np.float32(itr),
+    #              model.lr: conf['learning_rate'],
+    #              }
+    # true_retina, retpos, gen_distrib, initpos, imdata = sess.run([model.true_retinas, model.retpos_list, model.gen_distrib, init_pos, images ],
+    #                                 feed_dict)
+    # print 'retina pos:'
+    # for b in range(4):
+    #     Image.fromarray((true_retina[0][b] * 255).astype(np.uint8)).show()
+    #     Image.fromarray((np.squeeze(gen_distrib[0][b]) * 255).astype(np.uint8)).show()
+    #     Image.fromarray((imdata[b][0] * 255).astype(np.uint8)).show()
+    #
+    #     print 'retpos', retpos[b]
+    #     print 'initpos', init_pos[0]
 
     ###### end debugging
 

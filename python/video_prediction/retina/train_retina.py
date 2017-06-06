@@ -246,7 +246,7 @@ def main(conf):
         cPickle.dump(dict_, open(file_path + '/dict_.pkl', 'wb'))
         print 'written files to:' + file_path
 
-        makegifs.comp_pix_distrib(conf['output_dir'], examples=16)
+        makegifs.comp_pix_distrib(conf, conf['output_dir'], examples=16)
         return
 
     itr_0 =0

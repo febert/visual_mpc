@@ -41,11 +41,14 @@ class Trajectory(object):
         if 'state_dim' in hyperparams:
             state_dim = hyperparams['state_dim']
         else:
-            state_dim = 4
+            state_dim = 2
 
         self.X_full = np.empty([self.T, state_dim])
         self.Xdot_full = np.empty([self.T, state_dim])
-        self.Object_pos = np.empty((self.T, hyperparams['num_objects'], 3))
+        self.Object_pose = np.empty((self.T, hyperparams['num_objects'], 3))
+
+        self.max_move_pose = np.empty((self.T, 3))
+
         self.X_Xdot_full = np.empty([self.T, 2*state_dim])
 
         self.desig_pos = np.empty([self.T, 2])
