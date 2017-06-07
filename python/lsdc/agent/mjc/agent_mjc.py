@@ -17,6 +17,7 @@ from lsdc.utility.trajectory import Trajectory
 from matplotlib.backends.backend_agg import FigureCanvasAgg as FigureCanvas
 from matplotlib.figure import Figure
 import cv2
+from mpl_toolkits.mplot3d import Axes3D
 
 class AgentMuJoCo(Agent):
     """
@@ -39,7 +40,7 @@ class AgentMuJoCo(Agent):
         self._model= mujoco_py.MjModel(filename)
         self.model_nomarkers = mujoco_py.MjModel(self._hyperparams['filename_nomarkers'])
 
-        gofast = True
+        gofast = False
         self._small_viewer = mujoco_py.MjViewer(visible=True,
                                                 init_width=self._hyperparams['image_width'],
                                                 init_height=self._hyperparams['image_height'],
@@ -277,21 +278,42 @@ class AgentMuJoCo(Agent):
 
     def get_world_coord(self, proj_mat, depth_image, pix_pos):
         depth = depth_image[pix_pos[0], pix_pos[1]]
-        pix_pos = pix_pos / 480.
+        pix_pos = pix_pos.astype(np.float32) / depth_image.shape[0]
         clipspace = pix_pos*2 -1
         depth = depth*2 -1
+
         clipspace = np.concatenate([clipspace, depth, np.array([1.]) ])
 
         res = np.linalg.inv(proj_mat).dot(clipspace)
+        res[:3] = 1 - res[:3]
+
         return res[:3]
 
-    def plot_point_cloud(self, depth_image, proj_mat):
+    def get_point_cloud(self, depth_image, proj_mat):
 
-        point_cloud = np.zeros([480, 480,3])
+        height = depth_image.shape[0]
+        point_cloud = np.zeros([height, height,3])
         for r in range(point_cloud.shape[0]):
             for c in range(point_cloud.shape[1]):
                 pix_pos = np.array([r, c])
-                point_cloud[r, c] = self.get_world_coord(depth_image, proj_mat, pix_pos)
+                point_cloud[r, c] = self.get_world_coord(proj_mat,depth_image, pix_pos)[:3]
+
+        return point_cloud
+
+    def plot_point_cloud(self, point_cloud):
+
+        height = point_cloud.shape[0]
+
+        point_cloud = point_cloud.reshape([height**2, 3])
+        px = point_cloud[:, 0]
+        py = point_cloud[:, 1]
+        pz = point_cloud[:, 2]
+
+        fig = plt.figure()
+        ax = fig.add_subplot(111, projection='3d')
+        Axes3D.scatter(ax, px, py, pz)
+        plt.show()
+
 
     def _store_image(self,t, traj, policy):
         """
@@ -304,14 +326,6 @@ class AgentMuJoCo(Agent):
         largeimage = np.fromstring(img_string, dtype='uint8').reshape(
                 (480, 480, self._hyperparams['image_channels']))[::-1, :, :]
         self.large_images.append(largeimage)
-
-        if 'gen_point_cloud' in self._hyperparams:
-            # getting depth values
-            (img_string, width, height), proj_mat = self._large_viewer.get_depth()
-            large_dimage = np.fromstring(img_string, dtype=np.float32).reshape(
-                (480, 480, 1))[::-1, :, :]
-
-            self.plot_point_cloud(large_dimage, proj_mat)
 
         # collect retina image
         if 'large_images_retina' in self._hyperparams:
@@ -351,6 +365,20 @@ class AgentMuJoCo(Agent):
         img = np.fromstring(img_string, dtype='uint8').reshape((height, width, self._hyperparams['image_channels']))[::-1,:,:]
 
         traj._sample_images[t,:,:,:] = img
+
+        if 'gen_point_cloud' in self._hyperparams:
+            # getting depth values
+            (img_string, width, height), proj_mat = self._small_viewer.get_depth()
+            dimage = np.fromstring(img_string, dtype=np.float32).reshape(
+                (width, height, 1))[::-1, :, :]
+            Image.fromarray(np.squeeze(dimage*255.).astype(np.uint8)).show()
+            pcl_dict = {}
+            pcl = self.get_point_cloud(dimage, proj_mat)
+            pcl_dict['pcl'] = pcl
+            pcl_dict['image'] = img
+            cPickle.dump(pcl_dict, open(self._hyperparams['pcldir']+'cloud.pkl' ,'wb'))
+            # self.plot_point_cloud(pcl)
+            pdb.set_trace()
 
         if 'store_video_prediction' in self._hyperparams:
             if t > 1:

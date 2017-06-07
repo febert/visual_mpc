@@ -348,7 +348,7 @@ if __name__ == '__main__':
     conf = {}
 
     # DATA_DIR = '/home/frederik/Documents/lsdc/experiments/cem_exp/benchmarks_goalimage/pixelerror_store_wholepred/tfrecords/train'
-    DATA_DIR = '/home/frederik/Documents/lsdc/pushing_data/random_action_var10_pose/train'
+    DATA_DIR = '/home/frederik/Documents/lsdc/pushing_data/random_action_var10_pose/test'
     # DATA_DIR = '/media/frederik/harddrive/pushingdata/large_displacement_pose180k/train/'
     # DATA_DIR = '/home/frederik/Documents/lsdc/pushing_data/retina/train'
 
@@ -424,11 +424,11 @@ if __name__ == '__main__':
 
 
         if 'use_object_pos' in conf:
-            visual_batch = add_visuals_to_batch(image_data, pos_data)
-            giffile = '/'.join(str.split(conf['data_dir'], '/')[:-2] + ['video_with_pos'])
+            visual_batch = add_visuals_to_batch(conf, image_data, max_move_data)
+            giffile = '/'.join(str.split(conf['data_dir'], '/')[:-1] + ['video_with_pos'])
             comp_single_video(giffile, visual_batch, num_exp=10)
 
-
+        pdb.set_trace()
         # make video preview video
         gif_preview = '/'.join(str.split(__file__, '/')[:-2] + ['preview'])
 
