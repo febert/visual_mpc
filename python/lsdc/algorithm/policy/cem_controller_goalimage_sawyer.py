@@ -228,12 +228,23 @@ class CEM_controller():
                 for j in range(64):
                     pos = np.array([i, j])
                     distance_grid[i, j] = np.linalg.norm(self.goal_pix - pos)
-
             expected_distance = np.zeros(self.netconf['batch_size'])
-            for b in range(self.netconf['batch_size']):
-                gen = gen_distrib[-1][b].squeeze() / np.sum(gen_distrib[-1][b])
-                expected_distance[b] = np.sum(np.multiply(gen, distance_grid))
-            scores = expected_distance
+
+            if 'rew_all_steps' in self.policyparams:
+                for tstep in range(self.netconf['sequence_length'] - 1):
+                    t_mult = 1
+                    if 'finalweight' in self.policyparams:
+                        if tstep == self.netconf['sequence_length'] - 2:
+                            t_mult = self.policyparams['finalweight']
+
+                    for b in range(self.netconf['batch_size']):
+                        gen = gen_distrib[tstep][b].squeeze() / np.sum(gen_distrib[tstep][b])
+                        expected_distance[b] += np.sum(np.multiply(gen, distance_grid)) * t_mult
+            else:
+                for b in range(self.netconf['batch_size']):
+                    gen = gen_distrib[-1][b].squeeze() / np.sum(gen_distrib[-1][b])
+                    expected_distance[b] = np.sum(np.multiply(gen, distance_grid))
+                scores = expected_distance
 
         # for predictor_propagation only!!
         if 'predictor_propagation' in self.policyparams:
