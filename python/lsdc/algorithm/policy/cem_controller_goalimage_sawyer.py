@@ -220,9 +220,9 @@ class CEM_controller():
 
         if 'use_goalimage' in self.policyparams:
             for b in range(self.netconf['batch_size']):
-                scores[b] = np.linalg.norm(
-                    (self.goal_image - gen_images[-1][b]).flatten())
+                scores[b] = np.linalg.norm((self.goal_image - gen_images[-1][b]).flatten())
         else: # evaluate pixel movement:
+
             distance_grid = np.empty((64, 64))
             for i in range(64):
                 for j in range(64):
@@ -240,8 +240,8 @@ class CEM_controller():
                     for b in range(self.netconf['batch_size']):
                         gen = gen_distrib[tstep][b].squeeze() / np.sum(gen_distrib[tstep][b])
                         expected_distance[b] += np.sum(np.multiply(gen, distance_grid)) * t_mult
+                scores = expected_distance
 
-                    pdb.set_trace()
             else:
                 for b in range(self.netconf['batch_size']):
                     gen = gen_distrib[-1][b].squeeze() / np.sum(gen_distrib[-1][b])
