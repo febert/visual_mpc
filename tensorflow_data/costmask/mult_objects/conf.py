@@ -35,6 +35,7 @@ configuration = {
 'dna_size': 9,              #size of DNA kerns
 'use_object_pos':'',
 'costmask':'',
+'max_move_pos':'',
 'moving_retina':'',
 'retina_size':25,
 'num_obj':4

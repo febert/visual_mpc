@@ -87,16 +87,17 @@ class Visual_MPC_Server(object):
         self.i_traj = req.itr
         self.t = 0
         goal_main = self.bridge.imgmsg_to_cv2(req.goalmain)
-        goal_aux1 = self.bridge.imgmsg_to_cv2(req.goalaux1)
-        self.cem_controller.goal_image = np.concatenate([
-            goal_main,
-            goal_aux1
-        ], axis=2)
+        goal_main = cv2.cvtColor(goal_main, cv2.COLOR_BGR2RGB)
+        # goal_aux1 = self.bridge.imgmsg_to_cv2(req.goalaux1)
+        # goal_aux1 = cv2.cvtColor(goal_aux1, cv2.COLOR_BGR2RGB)
+        Image.fromarray(goal_main).show()
+        goal_main = goal_main.astype(np.float32) / 255.
+        self.cem_controller.goal_image = goal_main
         print 'init traj{} group{}'.format(self.i_traj, self.igrp)
-
         return init_traj_visualmpcResponse()
 
     def get_action_handler(self, req):
+
 
         self.traj.X_full[self.t, :] = req.state
         main_img = self.bridge.imgmsg_to_cv2(req.main)

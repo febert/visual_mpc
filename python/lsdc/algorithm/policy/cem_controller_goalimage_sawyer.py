@@ -12,7 +12,7 @@ import cPickle
 from video_prediction.utils_vpred.create_gif import comp_video
 from datetime import datetime
 
-from video_prediction.sawyer.create_gif import create_video_pixdistrib_gif
+from video_prediction.sawyer.create_gif import *
 
 from PIL import Image
 import pdb
@@ -182,7 +182,7 @@ class CEM_controller():
             print 'overall time for iteration {}'.format(
                 (datetime.now() - t_startiter).seconds + (datetime.now() - t_startiter).microseconds / 1e6)
 
-    def make_one_hot(self):
+    def switch_on_pix(self):
         one_hot_images = np.zeros((self.netconf['batch_size'], self.netconf['context_frames'], 64, 64, 1), dtype=np.float32)
         # switch on pixels
         one_hot_images[:, :, self.desig_pix[0], self.desig_pix[1]] = 1
@@ -193,45 +193,27 @@ class CEM_controller():
         last_states = np.expand_dims(last_states, axis=0)
         last_states = np.repeat(last_states, self.netconf['batch_size'], axis=0)
 
-        last_frames = np.expand_dims(last_frames, axis=0)
-        last_frames = np.repeat(last_frames, self.netconf['batch_size'], axis=0)
-
-        if 'predictor_propagation' in self.policyparams:  #using the predictor's DNA to propagate, no correction
-            print 'using predictor_propagation'
-            if self.t < self.netconf['context_frames']:
-                input_distrib = self.make_one_hot()
-                if itr == 0:
-                    self.rec_input_distrib.append(input_distrib[:,1])
-            else:
-                input_distrib = [self.rec_input_distrib[-2], self.rec_input_distrib[-1]]
-                input_distrib = [np.expand_dims(elem, axis=1) for elem in input_distrib]
-                input_distrib = np.concatenate(input_distrib, axis=1)
-        else:
-            input_distrib = self.make_one_hot()
-
         if 'single_view' in self.netconf:
             img_channels = 3
         else: img_channels = 6
+        last_frames = np.expand_dims(last_frames, axis=0)
+        last_frames = np.repeat(last_frames, self.netconf['batch_size'], axis=0)
         app_zeros = np.zeros(shape=(self.netconf['batch_size'], self.netconf['sequence_length']-
                                     self.netconf['context_frames'], 64, 64, img_channels))
-
-
         last_frames = np.concatenate((last_frames, app_zeros), axis=1)
         last_frames = last_frames.astype(np.float32)/255.
+
         if 'single_view' in self.netconf:
+
             if 'use_goalimage' in self.policyparams:
-                gen_images, gen_states = self.predictor(input_images= last_frames,
-                                                        input_state=last_states,
-                                                        input_actions = actions)
+                input_distrib = None
             else:
-                gen_images, gen_distrib, gen_states  = self.predictor(input_images=last_frames,
-                                                                      input_state=last_states,
-                                                                      input_actions=actions,
-                                                                      input_one_hot_images=input_distrib)
-        else:
-            gen_images, gen_states = self.predictor(input_images=last_frames,
-                                                    input_state=last_states,
-                                                    input_actions=actions)
+                input_distrib = self.make_input_distrib(itr)
+
+            gen_images, gen_distrib, gen_states  = self.predictor(input_images=last_frames,
+                                                                  input_state=last_states,
+                                                                  input_actions=actions,
+                                                                  input_one_hot_images=input_distrib)
 
         #evaluate distances to goalstate
         scores = np.zeros(self.netconf['batch_size'])
@@ -280,11 +262,15 @@ class CEM_controller():
                 return outputlist
 
             cPickle.dump(best(gen_images), open(file_path + '/gen_image_t{}.pkl'.format(self.t), 'wb'))
-            cPickle.dump(best(gen_distrib), open(file_path + '/gen_distrib_t{}.pkl'.format(self.t), 'wb'))
+            if 'use_goalimage' not in self.policyparams:
+                cPickle.dump(best(gen_distrib), open(file_path + '/gen_distrib_t{}.pkl'.format(self.t), 'wb'))
 
             print 'written files to:' + file_path
             if not 'no_instant_gif' in self.policyparams:
-                create_video_pixdistrib_gif(file_path, self.netconf, t=self.t, n_exp=10,
+                if 'use_goalimage' in self.policyparams:
+                    create_video_gif(file_path, self.netconf, t=self.t, n_exp=10, suffix='iter{}_t{}'.format(itr, self.t))
+                else:
+                    create_video_pixdistrib_gif(file_path, self.netconf, t=self.t, n_exp=10,
                                             suppress_number=True, suffix='iter{}_t{}'.format(itr, self.t))
 
             f = open(file_path + '/actions_last_iter_t{}'.format(self.t), 'w')
@@ -301,14 +287,24 @@ class CEM_controller():
                 itr == (self.policyparams['iterations']-1):
             self.terminal_pred = gen_images[-1][bestindex]
 
-        # if itr == (self.policyparams['iterations']-2):
-        #     self.verbose = True
-
-
         return scores
 
+    def make_input_distrib(self, itr):
+        if 'predictor_propagation' in self.policyparams:  # using the predictor's DNA to propagate, no correction
+            print 'using predictor_propagation'
+            if self.t < self.netconf['context_frames']:
+                input_distrib = self.switch_on_pix()
+                if itr == 0:
+                    self.rec_input_distrib.append(input_distrib[:, 1])
+            else:
+                input_distrib = [self.rec_input_distrib[-2], self.rec_input_distrib[-1]]
+                input_distrib = [np.expand_dims(elem, axis=1) for elem in input_distrib]
+                input_distrib = np.concatenate(input_distrib, axis=1)
+        else:
+            input_distrib = self.switch_on_pix()
+        return input_distrib
 
-    def act(self, traj, t, desig_pix, goal_pix):
+    def act(self, traj, t, desig_pix = None, goal_pix= None):
         """
         Return a random action for a state.
         Args:
@@ -321,7 +317,6 @@ class CEM_controller():
             action = np.zeros(4)
             self.desig_pix = desig_pix
             self.goal_pix = goal_pix
-
         else:
             if 'single_view' in self.netconf:
                 last_images = traj._sample_images[t - 1:t + 1]   # second image shall contain front view
