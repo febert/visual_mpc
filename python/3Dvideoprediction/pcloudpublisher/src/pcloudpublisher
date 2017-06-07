@@ -1,0 +1,78 @@
+#!/usr/bin/env python
+
+from video_prediction.utils_vpred.create_gif import *
+import rospy
+
+import rospy.numpy_msg
+
+from sensor_msgs.msg import PointCloud
+from sensor_msgs.msg import ChannelFloat32
+from geometry_msgs.msg import Point32
+import std_msgs.msg
+from PIL import Image
+
+import sensor_msgs.point_cloud2 as pcl2
+
+import struct
+
+class Pcloudpublisher(object):
+    def __init__(self):
+        """
+        Similar functionality to mjc_agent and lsdc_main_mod, calling the policy
+        """
+        # if it is an auxiliary node advertise services
+        rospy.init_node('pcloudpublisher')
+        rospy.loginfo("init pcloud publisher")
+
+        pcloud_file = '/home/frederik/Documents/lsdc/pushing_data/pointcloud/traincloud.pkl'
+        pcl_dict = cPickle.load(open(pcloud_file, "rb"))
+
+        pcl_npy = pcl_dict['pcl']
+        img = pcl_dict['image']
+
+        pointcloud_publisher = rospy.Publisher("/pointcloud_topic", PointCloud)
+        rospy.sleep(0.5)
+
+
+        r = rospy.Rate(1)
+
+        while not rospy.is_shutdown():
+            point_cloud = self.create_pcl(pcl_npy, img)
+            pointcloud_publisher.publish(point_cloud)
+            print 'publish pcloud'
+            r.sleep()
+
+    def create_pcl(self, pcl_npy, img):
+        h = std_msgs.msg.Header()
+        h.frame_id = 'pclframe'
+        h.stamp = rospy.Time.now()
+
+        pcl = PointCloud()
+        pcl.header = h
+
+        pcl_npy = pcl_npy.reshape((img.shape[0]**2,3))
+        # Image.fromarray(img).show()
+        img  = img.reshape((img.shape[0]**2,3))
+
+        channel = ChannelFloat32()
+        channel.name = "rgb"
+
+        for i in range(pcl_npy.shape[0]):
+            p = tuple(pcl_npy[i])
+            pcl.points.append(Point32(p[0], p[1], p[2]))
+            color = img[i]
+
+            pdb.set_trace()
+            data =  [0, color[0], color[1], color[2]]
+            float_ = struct.pack('4B', *data)
+            float_ = float(np.array(struct.unpack('f', float_)))
+            # pdb.set_trace()
+            channel.values.append(float_)
+
+        pcl.channels.append(channel)
+
+        return pcl
+
+
+if __name__ ==  '__main__':
+    Pcloudpublisher()

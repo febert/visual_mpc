@@ -269,6 +269,7 @@ def main(unused_argv, conf_script= None):
         images, actions, states, poses, max_move = build_tfrecord_input(conf, training=True)
         if 'max_move_pos' in conf:
             init_pos = tf.squeeze(tf.slice(tf.squeeze(max_move), [0, 0, 0], [-1, 1, 2]))
+            print 'using max move pos'
         else:
             init_pos = tf.squeeze(tf.slice(tf.squeeze(poses), [0,0,0], [-1, 1, 2]))
 
@@ -290,6 +291,7 @@ def main(unused_argv, conf_script= None):
         val_images, val_actions, val_states, val_poses, val_max_move = build_tfrecord_input(conf, training=False)
         if 'max_move_pos' in conf:
             init_val_pos = tf.squeeze(tf.slice(tf.squeeze(val_max_move), [0, 0, 0], [-1, 1, 2]))
+            print 'using max move pos'
         else:
             init_val_pos = tf.squeeze(tf.slice(tf.squeeze(val_poses), [0, 0, 0], [-1, 1, 2]))
         val_model = Model(conf, val_images, val_actions, val_states, init_val_pos, training_scope)
@@ -337,7 +339,7 @@ def main(unused_argv, conf_script= None):
         cPickle.dump(dict_, open(file_path + '/dict_.pkl', 'wb'))
         print 'written files to:' + file_path
 
-        makegifs.comp_pix_distrib(conf['output_dir'], examples=10)
+        makegifs.comp_pix_distrib(conf, conf['output_dir'], examples=10)
         return
 
     itr_0 =0
