@@ -87,8 +87,8 @@ class Visual_MPC_Server(object):
         self.i_traj = req.itr
         self.t = 0
         goal_main = self.bridge.imgmsg_to_cv2(req.goalmain)
-        goal_main = cv2.cvtColor(goal_main, cv2.COLOR_BGR2RGB)
         pdb.set_trace()
+        goal_main = cv2.cvtColor(goal_main, cv2.COLOR_BGR2RGB)
         # goal_aux1 = self.bridge.imgmsg_to_cv2(req.goalaux1)
         # goal_aux1 = cv2.cvtColor(goal_aux1, cv2.COLOR_BGR2RGB)
         Image.fromarray(goal_main).show()
