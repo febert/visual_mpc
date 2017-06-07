@@ -98,6 +98,7 @@ class Visual_MPC_Server(object):
         print 'init traj{} group{}'.format(self.i_traj, self.igrp)
 
         self.initial_pix_distrib = []
+        self.cem_controller = CEM_controller(self.agentparams, self.policyparams, self.predictor)
         return init_traj_visualmpcResponse()
 
     def get_action_handler(self, req):

@@ -23,6 +23,7 @@ class CEM_controller():
     Cross Entropy Method Stochastic Optimizer
     """
     def __init__(self, ag_params, policyparams, predictor = None):
+        print 'init CEM controller'
         self.agentparams = ag_params
         self.policyparams = policyparams
 
@@ -73,7 +74,6 @@ class CEM_controller():
         self.mean =None
         self.sigma =None
         self.goal_image = None
-
 
     def calc_action_cost(self, actions):
         actions_costs = np.zeros(self.M)
