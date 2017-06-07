@@ -86,13 +86,15 @@ class Visual_MPC_Server(object):
         self.igrp = req.igrp
         self.i_traj = req.itr
         self.t = 0
-        goal_main = self.bridge.imgmsg_to_cv2(req.goalmain, "16UC3")
-        goal_main = cv2.cvtColor(goal_main, cv2.COLOR_BGR2RGB)
-        # goal_aux1 = self.bridge.imgmsg_to_cv2(req.goalaux1)
-        # goal_aux1 = cv2.cvtColor(goal_aux1, cv2.COLOR_BGR2RGB)
-        Image.fromarray(goal_main).show()
-        goal_main = goal_main.astype(np.float32) / 255.
-        self.cem_controller.goal_image = goal_main
+        if 'use_goalimage' in self.policyparams:
+            goal_main = self.bridge.imgmsg_to_cv2(req.goalmain)
+            goal_main = cv2.cvtColor(goal_main, cv2.COLOR_BGR2RGB)
+            # goal_aux1 = self.bridge.imgmsg_to_cv2(req.goalaux1)
+            # goal_aux1 = cv2.cvtColor(goal_aux1, cv2.COLOR_BGR2RGB)
+            Image.fromarray(goal_main).show()
+            goal_main = goal_main.astype(np.float32) / 255.
+            self.cem_controller.goal_image = goal_main
+
         print 'init traj{} group{}'.format(self.i_traj, self.igrp)
         return init_traj_visualmpcResponse()
 
