@@ -23,6 +23,7 @@ class CEM_controller():
     Cross Entropy Method Stochastic Optimizer
     """
     def __init__(self, ag_params, policyparams, predictor = None):
+        print 'init CEM controller'
         self.agentparams = ag_params
         self.policyparams = policyparams
 
@@ -73,7 +74,6 @@ class CEM_controller():
         self.mean =None
         self.sigma =None
         self.goal_image = None
-
 
     def calc_action_cost(self, actions):
         actions_costs = np.zeros(self.M)
@@ -220,38 +220,57 @@ class CEM_controller():
 
         if 'use_goalimage' in self.policyparams:
             for b in range(self.netconf['batch_size']):
-                scores[b] = np.linalg.norm(
-                    (self.goal_image - gen_images[-1][b]).flatten())
+                scores[b] = np.linalg.norm((self.goal_image - gen_images[-1][b]).flatten())
         else: # evaluate pixel movement:
+
             distance_grid = np.empty((64, 64))
             for i in range(64):
                 for j in range(64):
                     pos = np.array([i, j])
                     distance_grid[i, j] = np.linalg.norm(self.goal_pix - pos)
-
             expected_distance = np.zeros(self.netconf['batch_size'])
-            for b in range(self.netconf['batch_size']):
-                gen = gen_distrib[-1][b].squeeze() / np.sum(gen_distrib[-1][b])
-                expected_distance[b] = np.sum(np.multiply(gen, distance_grid))
-            scores = expected_distance
+
+            if 'rew_all_steps' in self.policyparams:
+                for tstep in range(self.netconf['sequence_length'] - 1):
+                    t_mult = 1
+                    if 'finalweight' in self.policyparams:
+                        if tstep == self.netconf['sequence_length'] - 2:
+                            t_mult = self.policyparams['finalweight']
+
+                    for b in range(self.netconf['batch_size']):
+                        gen = gen_distrib[tstep][b].squeeze() / np.sum(gen_distrib[tstep][b])
+                        expected_distance[b] += np.sum(np.multiply(gen, distance_grid)) * t_mult
+                scores = expected_distance
+            else:
+                for b in range(self.netconf['batch_size']):
+                    gen = gen_distrib[-1][b].squeeze() / np.sum(gen_distrib[-1][b])
+                    expected_distance[b] = np.sum(np.multiply(gen, distance_grid))
+                scores = expected_distance
+
+            bestindices = scores.argsort()[:self.K]
+            if 'avoid_occlusions' in self.policyparams:
+                occulsioncost = np.zeros(self.netconf['batch_size'])
+                for tstep in range(self.netconf['sequence_length'] - 1):
+                    t_mult = 1
+                    for b in range(self.netconf['batch_size']):
+                        occulsioncost[b] =  np.maximum(1 - np.sum(gen_distrib[tstep][b]), 0)*1000
+                        scores[b] += occulsioncost[b]
+                print 'occlusion cost of best action', occulsioncost[scores.argsort()[0]]
+                print 'occlusion cost of worst action', occulsioncost[scores.argsort()[-1]]
 
         # for predictor_propagation only!!
         if 'predictor_propagation' in self.policyparams:
             assert not 'correctorconf' in self.policyparams
             if itr == (self.policyparams['iterations'] - 1):
                 # pick the prop distrib from the action actually chosen after the last iteration (i.e. self.indices[0])
-                bestind = expected_distance.argsort()[0]
+                bestind = scores.argsort()[0]
                 best_gen_distrib = gen_distrib[2][bestind].reshape(1, 64, 64, 1)
                 self.rec_input_distrib.append(np.repeat(best_gen_distrib, self.netconf['batch_size'], 0))
 
         # compare prediciton with simulation
         if self.verbose and itr == self.policyparams['iterations']-1:
             # print 'creating visuals for best sampled actions at last iteration...'
-
             file_path = self.netconf['current_dir'] + '/verbose'
-
-            bestindices = scores.argsort()[:self.K]
-            bestscores = [scores[ind] for ind in bestindices]
 
             def best(inputlist):
                 outputlist = [np.zeros_like(a)[:self.K] for a in inputlist]
