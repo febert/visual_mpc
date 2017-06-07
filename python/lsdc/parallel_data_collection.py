@@ -8,6 +8,7 @@ import copy
 import random
 import numpy as np
 import shutil
+import pdb
 
 def worker(conf):
     print 'started process with PID:', os.getpid()

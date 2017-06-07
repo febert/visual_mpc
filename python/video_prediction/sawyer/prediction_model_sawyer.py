@@ -113,18 +113,22 @@ def construct_model(images,
                     if len(prev_pix_distrib.get_shape()) == 3:
                         prev_pix_distrib = tf.expand_dims(prev_pix_distrib, -1)
 
-            if 'transform_from_firstimage' in conf:
+            if 'refeed_firstimage' in conf:
                 assert conf['model']=='STP'
                 if t > 1:
-                    prev_image = images[1]
-                    print 'using image 1'
+                    input_image = images[1]
+                    print 'refeed with image 1'
+                else:
+                    input_image = prev_image
+            else:
+                input_image = prev_image
 
             # Predicted state is always fed back in
             if not 'ignore_state_action' in conf:
                 state_action = tf.concat(1, [action, current_state])
 
             enc0 = slim.layers.conv2d(    #32x32x32
-                prev_image,
+                input_image,
                 32, [5, 5],
                 stride=2,
                 scope='scale1_conv1',
@@ -197,6 +201,10 @@ def construct_model(images,
                 normalizer_fn=tf_layers.layer_norm,
                 normalizer_params={'scope': 'layer_norm9'})
 
+            if 'transform_from_firstimage' in conf:
+                prev_image = images[1]
+                print 'transform from image 1'
+
             if 'single_view' not in conf:
                 prev_image_cam1 = tf.slice(prev_image, [0, 0, 0, 0], [-1, -1, -1, 3])
                 prev_image_cam2 = tf.slice(prev_image, [0, 0, 0, 3], [-1, -1, -1, 3])
@@ -252,6 +260,8 @@ def construct_model(images,
                 reuse_stp = None
                 if reuse:
                     reuse_stp = reuse
+
+                # enable the generation of pixels:
                 if 'single_view' not in conf:
                     transformed_cam1 +=stp_transformation(prev_image_cam1, stp_input_cam1, num_masks, reuse_stp, suffix='cam1')
                     transformed_cam2 += stp_transformation(prev_image_cam2, stp_input_cam2, num_masks, reuse_stp,suffix='cam2')
