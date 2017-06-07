@@ -19,7 +19,7 @@ policy = {
     # 'reuse_mean_cov':'',
     # 'no_instant_gif':"",
     'rew_all_steps':"",
-    'finalweight':5
+    'finalweight':10
 }
 
 agent = {
