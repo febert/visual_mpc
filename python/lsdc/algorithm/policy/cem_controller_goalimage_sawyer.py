@@ -247,23 +247,30 @@ class CEM_controller():
                     expected_distance[b] = np.sum(np.multiply(gen, distance_grid))
                 scores = expected_distance
 
+            bestindices = scores.argsort()[:self.K]
+            if 'avoid_occlusions' in self.policyparams:
+                occulsioncost = np.zeros(self.netconf['batch_size'])
+                for tstep in range(self.netconf['sequence_length'] - 1):
+                    t_mult = 1
+                    for b in range(self.netconf['batch_size']):
+                        occulsioncost[b] =  np.maximum(1 - np.sum(gen_distrib[tstep][b]), 0)*100
+                        scores[b] += occulsioncost[b]
+                print 'occlusion cost of best action', occulsioncost[scores.argsort()[0]]
+                print 'occlusion cost of worst action', occulsioncost[scores.argsort()[-1]]
+
         # for predictor_propagation only!!
         if 'predictor_propagation' in self.policyparams:
             assert not 'correctorconf' in self.policyparams
             if itr == (self.policyparams['iterations'] - 1):
                 # pick the prop distrib from the action actually chosen after the last iteration (i.e. self.indices[0])
-                bestind = expected_distance.argsort()[0]
+                bestind = scores.argsort()[0]
                 best_gen_distrib = gen_distrib[2][bestind].reshape(1, 64, 64, 1)
                 self.rec_input_distrib.append(np.repeat(best_gen_distrib, self.netconf['batch_size'], 0))
 
         # compare prediciton with simulation
         if self.verbose and itr == self.policyparams['iterations']-1:
             # print 'creating visuals for best sampled actions at last iteration...'
-
             file_path = self.netconf['current_dir'] + '/verbose'
-
-            bestindices = scores.argsort()[:self.K]
-            bestscores = [scores[ind] for ind in bestindices]
 
             def best(inputlist):
                 outputlist = [np.zeros_like(a)[:self.K] for a in inputlist]
