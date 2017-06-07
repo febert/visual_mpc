@@ -253,7 +253,7 @@ class CEM_controller():
                 for tstep in range(self.netconf['sequence_length'] - 1):
                     t_mult = 1
                     for b in range(self.netconf['batch_size']):
-                        occulsioncost[b] =  np.maximum(1 - np.sum(gen_distrib[tstep][b]), 0)*100
+                        occulsioncost[b] =  np.maximum(1 - np.sum(gen_distrib[tstep][b]), 0)*10
                         scores[b] += occulsioncost[b]
                 print 'occlusion cost of best action', occulsioncost[scores.argsort()[0]]
                 print 'occlusion cost of worst action', occulsioncost[scores.argsort()[-1]]
