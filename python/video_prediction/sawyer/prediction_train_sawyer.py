@@ -89,6 +89,7 @@ class Model(object):
         summaries = []
 
         # Split into timesteps.
+        pdb.set_trace()
         if actions != None:
             actions = tf.split(1, actions.get_shape()[1], actions)
             actions = [tf.squeeze(act) for act in actions]
