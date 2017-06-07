@@ -241,8 +241,6 @@ class CEM_controller():
                         gen = gen_distrib[tstep][b].squeeze() / np.sum(gen_distrib[tstep][b])
                         expected_distance[b] += np.sum(np.multiply(gen, distance_grid)) * t_mult
                 scores = expected_distance
-                
-
             else:
                 for b in range(self.netconf['batch_size']):
                     gen = gen_distrib[-1][b].squeeze() / np.sum(gen_distrib[-1][b])

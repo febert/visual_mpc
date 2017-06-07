@@ -96,6 +96,8 @@ class Visual_MPC_Server(object):
             self.cem_controller.goal_image = goal_main
 
         print 'init traj{} group{}'.format(self.i_traj, self.igrp)
+
+        self.initial_pix_distrib = []
         return init_traj_visualmpcResponse()
 
     def get_action_handler(self, req):
@@ -116,12 +118,12 @@ class Visual_MPC_Server(object):
         self.desig_pos_aux1 = req.desig_pos_aux1
         self.goal_pos_aux1 = req.goal_pos_aux1
 
-        mj_U, pos, best_ind, pix_distrib = self.cem_controller.act(self.traj, self.t,
+        mj_U, pos, best_ind, init_pix_distrib = self.cem_controller.act(self.traj, self.t,
                                                           req.desig_pos_aux1,
                                                           req.goal_pos_aux1)
 
         if 'predictor_propagation' in self.policyparams and self.t > 0:
-            self.initial_pix_distrib.append(pix_distrib[-1][0])
+            self.initial_pix_distrib.append(init_pix_distrib[-1][0])
 
         self.traj.U[self.t, :] = mj_U
 
