@@ -42,11 +42,10 @@ class AgentMuJoCo(Agent):
         if "varying_mass" in self._hyperparams:
             self.create_xml()
 
-
         self._model= mujoco_py.MjModel(self._hyperparams['filename'])
         self.model_nomarkers = mujoco_py.MjModel(self._hyperparams['filename_nomarkers'])
 
-        gofast = False
+        gofast = True
         self._small_viewer = mujoco_py.MjViewer(visible=True,
                                                 init_width=self._hyperparams['image_width'],
                                                 init_height=self._hyperparams['image_height'],
@@ -84,6 +83,8 @@ class AgentMuJoCo(Agent):
         Runs a trial and constructs a new sample containing information
         about the trial.
         """
+        if "varying_mass" in self._hyperparams:
+            self._setup_world()
 
         traj_ok = False
         i_trial = 0
@@ -106,8 +107,11 @@ class AgentMuJoCo(Agent):
         if not 'novideo' in self._hyperparams:
             self.save_gif()
 
-        policy.finish()
+        if "varying_mass" in self._hyperparams:
+            self._small_viewer.finish()
+            self._large_viewer.finish()
 
+        policy.finish()
         return traj
 
 
