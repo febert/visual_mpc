@@ -47,13 +47,14 @@ def main():
     exp_name = args.experiment
     parallel= args.parallel
 
-    n_worker = 10
 
     if parallel == 'True':
+        n_worker = 10
         parallel = True
         print 'using ', n_worker, ' workers'
     if parallel == 'False':
         parallel = False
+        n_worker = 1
     print 'parallel ', bool(parallel)
 
     from lsdc import __file__ as lsdc_filepath

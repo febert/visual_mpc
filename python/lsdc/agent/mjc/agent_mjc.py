@@ -18,6 +18,8 @@ from matplotlib.backends.backend_agg import FigureCanvasAgg as FigureCanvas
 from matplotlib.figure import Figure
 import cv2
 from mpl_toolkits.mplot3d import Axes3D
+import xml.etree.cElementTree as ET
+import xml.dom.minidom as minidom
 
 class AgentMuJoCo(Agent):
     """
@@ -28,19 +30,22 @@ class AgentMuJoCo(Agent):
         config = deepcopy(AGENT_MUJOCO)
         config.update(hyperparams)
         Agent.__init__(self, config)
-        self._setup_world(hyperparams['filename'])
+        self._setup_world()
 
 
-    def _setup_world(self, filename):
+    def _setup_world(self):
         """
         Helper method for handling setup of the MuJoCo world.
         Args:
             filename: Path to XML file containing the world information.
         """
-        self._model= mujoco_py.MjModel(filename)
+        if "varying_mass" in self._hyperparams:
+            self.create_xml()
+
+        self._model= mujoco_py.MjModel(self._hyperparams['filename'])
         self.model_nomarkers = mujoco_py.MjModel(self._hyperparams['filename_nomarkers'])
 
-        gofast = False
+        gofast = True
         self._small_viewer = mujoco_py.MjViewer(visible=True,
                                                 init_width=self._hyperparams['image_width'],
                                                 init_height=self._hyperparams['image_height'],
@@ -53,11 +58,33 @@ class AgentMuJoCo(Agent):
             self._large_viewer.start()
             self._large_viewer.cam.camid = 0
 
+
+    def create_xml(self):
+
+        for i in range(self._hyperparams['num_objects']):
+            xmldir = '/'.join(str.split(self._hyperparams['filename'], '/')[:-1])
+            mass = np.random.uniform(.01, 1.)
+            root = ET.Element("top")
+            ET.SubElement(root, "inertial", pos="0 0 0", mass="{}".format(mass),
+                          diaginertia="{0} {1} {2}".format(mass/2., mass/2., mass/2.))
+            tree = ET.ElementTree(root)
+            xml_str = minidom.parseString(ET.tostring(
+                    tree.getroot(),
+                    'utf-8')).toprettyxml(indent="    ")
+
+            xml_str = xml_str.splitlines()[1:]
+            xml_str = "\n".join(xml_str)
+
+            with open(xmldir+"/mass{}.xml".format(i), "wb") as f:
+                f.write(xml_str)
+
     def sample(self, policy, verbose=True, save=True, noisy=False):
         """
         Runs a trial and constructs a new sample containing information
         about the trial.
         """
+        if "varying_mass" in self._hyperparams:
+            self._setup_world()
 
         traj_ok = False
         i_trial = 0
@@ -80,8 +107,11 @@ class AgentMuJoCo(Agent):
         if not 'novideo' in self._hyperparams:
             self.save_gif()
 
-        policy.finish()
+        if "varying_mass" in self._hyperparams:
+            self._small_viewer.finish()
+            self._large_viewer.finish()
 
+        policy.finish()
         return traj
 
 

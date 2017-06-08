@@ -168,8 +168,7 @@ class LSDCMain(object):
 
         start = datetime.now()
 
-        traj = self.agent.sample(
-            self.policy)
+        traj = self.agent.sample(self.policy)
 
         if self._hyperparams['save_data']:
             self.save_data(traj, sample_index)
