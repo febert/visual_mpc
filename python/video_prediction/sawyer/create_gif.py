@@ -20,8 +20,10 @@ def create_gif(file_path, conf, suffix = None, numexp = 8, append_masks = False)
 
         if append_masks:
             list_of_maskvideos = get_masks(file_path)
-            fused_gif = assemble_gif([list_of_maskvideos, ground_truth, gen_images], numexp)
-        fused_gif = assemble_gif([list_of_maskvideos, ground_truth, gen_images], numexp)
+            list_of_maskvideos = [make_color_scheme(v) for v in list_of_maskvideos]
+            fused_gif = assemble_gif([ground_truth, gen_images] + list_of_maskvideos, numexp)
+        else:
+            fused_gif = assemble_gif([ground_truth, gen_images], numexp)
 
     else:
         gen_images_main = [img[:, :, :, :3] for img in gen_images]
@@ -41,7 +43,7 @@ def create_gif(file_path, conf, suffix = None, numexp = 8, append_masks = False)
     npy_to_gif(fused_gif, name)
 
 
-def get_masks():
+def get_masks(file_path):
     masks = cPickle.load(open(file_path + '/gen_masks.pkl', "rb"))
 
     tsteps = len(masks)
@@ -51,7 +53,9 @@ def get_masks():
     for m in range(nmasks):  # for timesteps
         mask_video = []
         for t in range(tsteps):
-            mask_video.append(masks[t][m])
+            # single_mask_batch = np.repeat(masks[t][m], 3, axis=3 )
+            single_mask_batch = masks[t][m]
+            mask_video.append(single_mask_batch)
         list_of_maskvideos.append(mask_video)
 
     return list_of_maskvideos
@@ -128,12 +132,13 @@ def go_through_timesteps(filepath):
 
 
 if __name__ == '__main__':
-    # file_path = '/home/frederik/Documents/lsdc/tensorflow_data/sawyer/singleview_shifted/modeldata'
-    # hyperparams = imp.load_source('hyperparams', '/home/frederik/Documents/lsdc/tensorflow_data/sawyer/singleview_shifted/conf.py')
-    file_path = '/home/guser/Desktop/src/lsdc/experiments/cem_exp/benchmarks_sawyer/predprop/verbose'
-    hyperparams = imp.load_source('hyperparams', '/home/guser/Desktop/src/lsdc/experiments/cem_exp/benchmarks_sawyer/predprop/conf.py')
+    file_path = '/home/frederik/Documents/lsdc/tensorflow_data/sawyer/stpfirstimage_genpix/modeldata'
+    hyperparams = imp.load_source('hyperparams', '/home/frederik/Documents/lsdc/tensorflow_data/sawyer/stpfirstimage_genpix/conf.py')
+    # file_path = '/home/guser/Desktop/src/lsdc/experiments/cem_exp/benchmarks_sawyer/predprop/verbose'
+    # hyperparams = imp.load_source('hyperparams', '/home/guser/Desktop/src/lsdc/experiments/cem_exp/benchmarks_sawyer/predprop/conf.py')
     conf = hyperparams.configuration
-    # conf['visualize'] = conf['output_dir'] + '/model114002'
+    conf['visualize'] = conf['output_dir'] + '/model22002'
+    create_gif(file_path, conf, append_masks=True)
     # create_video_pixdistrib_gif(file_path, conf, n_exp= 10, suppress_number= True)
-
-    go_through_timesteps(file_path)
+    #
+    # go_through_timesteps(file_path)

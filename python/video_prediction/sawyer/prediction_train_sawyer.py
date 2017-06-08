@@ -244,7 +244,8 @@ def main(unused_argv, conf_script= None):
 
         if FLAGS.diffmotions:
             inference = True
-            conf['sequence_length'] = 15
+
+        conf['sequence_length'] = 15
 
     print 'Constructing models and inputs.'
     if FLAGS.diffmotions:
@@ -411,7 +412,7 @@ def main(unused_argv, conf_script= None):
             cPickle.dump(ground_truth, open(file_path + '/ground_truth.pkl', 'wb'))
             cPickle.dump(gen_masks, open(file_path + '/gen_masks.pkl', 'wb'))
             cPickle.dump(gen_images, open(file_path + '/gen_image.pkl','wb'))
-            create_gif(file_path, conf, numexp= 20)
+            create_gif(file_path, conf, numexp= 20, append_masks= True)
 
         return
 
