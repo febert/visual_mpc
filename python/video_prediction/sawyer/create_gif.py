@@ -107,7 +107,6 @@ def create_video_gif(file_path, conf, t, suffix = None, n_exp = 8):
 
 
 def plot_psum_overtime(gen_distrib, n_exp, name):
-    pdb.set_trace()
     plt.figure(figsize=(25, 2),dpi=80)
 
     for ex in range(n_exp):
