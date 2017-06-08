@@ -144,7 +144,6 @@ class Visual_MPC_Server(object):
         if 'predictor_propagation' in self.policyparams:
             cPickle.dump(self.initial_pix_distrib, open(file_path + '/initial_pix_distrib.pkl'.format(self.t), 'wb'))
             self.initial_pix_distrib = [im.reshape((1,64,64)) for im in self.initial_pix_distrib]
-            pdb.set_trace()
             pix_distrib = make_color_scheme(self.initial_pix_distrib, convert_to_float=False)
             gif = assemble_gif([imlist, pix_distrib], num_exp=1, convert_from_float=False)
             npy_to_gif(gif, file_path +'/traj{0}_gr{1}_withpixdistrib'.format(self.i_traj, self.igrp))
