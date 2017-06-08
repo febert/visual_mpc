@@ -49,9 +49,9 @@ def create_video_pixdistrib_gif(file_path, conf, t, suffix = None, n_exp = 8, su
         else:
             name = file_path + '/vid_' + conf['experiment_name'] + '_' + str(itr_vis) + suffix
 
-    # pdb.set_trace()
-    # if 'single_view' in conf:
-    #     plot_psum_overtime(gen_distrib, n_exp, name)
+    pdb.set_trace()
+    if 'single_view' in conf:
+        plot_psum_overtime(gen_distrib, n_exp, name)
 
     if 'single_view' not in conf:
         gen_images_main = [img[:, :, :, :3] for img in gen_images]
