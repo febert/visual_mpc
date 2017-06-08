@@ -58,7 +58,7 @@ agent = {
     'substeps': 20,  #6
     'conditions': common['conditions'],
     'T': 15,
-    'skip_first': 5,   #skip first N time steps to let the scene settle
+    'skip_first': 10,   #skip first N time steps to let the scene settle
     'sensor_dims': SENSOR_DIMS,
     'state_include': [JOINT_ANGLES, JOINT_VELOCITIES, END_EFFECTOR_POINTS,
                       END_EFFECTOR_POINT_VELOCITIES],

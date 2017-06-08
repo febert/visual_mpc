@@ -5,10 +5,11 @@ import imp
 import re
 import pdb
 
-def create_gif(file_path, conf, suffix = None, numexp = 8):
+def create_gif(file_path, conf, suffix = None, numexp = 8, append_masks = False):
     print 'reading files from:', file_path
     ground_truth = cPickle.load(open(file_path + '/ground_truth.pkl', "rb"))
     gen_images = cPickle.load(open(file_path + '/gen_image.pkl', "rb"))
+
 
     ground_truth = np.squeeze(ground_truth)
     if ground_truth.shape[4] == 3:
@@ -17,7 +18,10 @@ def create_gif(file_path, conf, suffix = None, numexp = 8):
         ground_truth = [np.squeeze(img) for img in ground_truth]
         ground_truth = ground_truth[1:]
 
-        fused_gif = assemble_gif([ground_truth, gen_images])
+        if append_masks:
+            list_of_maskvideos = get_masks(file_path)
+            fused_gif = assemble_gif([list_of_maskvideos, ground_truth, gen_images], numexp)
+        fused_gif = assemble_gif([list_of_maskvideos, ground_truth, gen_images], numexp)
 
     else:
         gen_images_main = [img[:, :, :, :3] for img in gen_images]
@@ -35,6 +39,23 @@ def create_gif(file_path, conf, suffix = None, numexp = 8):
     else: name = file_path + '/vid_' + conf['experiment_name'] + '_' + str(itr_vis) + suffix
 
     npy_to_gif(fused_gif, name)
+
+
+def get_masks():
+    masks = cPickle.load(open(file_path + '/gen_masks.pkl', "rb"))
+
+    tsteps = len(masks)
+    nmasks = len(masks[0])
+    list_of_maskvideos = []
+
+    for m in range(nmasks):  # for timesteps
+        mask_video = []
+        for t in range(tsteps):
+            mask_video.append(masks[t][m])
+        list_of_maskvideos.append(mask_video)
+
+    return list_of_maskvideos
+
 
 def create_video_pixdistrib_gif(file_path, conf, t, suffix = None, n_exp = 8, suppress_number = False):
     gen_images = cPickle.load(open(file_path + '/gen_image_t{}.pkl'.format(t), "rb"))
