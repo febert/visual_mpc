@@ -61,7 +61,7 @@ def get_masks(file_path):
     return list_of_maskvideos
 
 
-def create_video_pixdistrib_gif(file_path, conf, t, suffix = None, n_exp = 8, suppress_number = False):
+def create_video_pixdistrib_gif(file_path, conf, t, suffix = "", n_exp = 8, suppress_number = False):
     gen_images = cPickle.load(open(file_path + '/gen_image_t{}.pkl'.format(t), "rb"))
     gen_distrib = cPickle.load(open(file_path + '/gen_distrib_t{}.pkl'.format(t), "rb"))
 
@@ -130,13 +130,13 @@ def go_through_timesteps(filepath):
 
 
 if __name__ == '__main__':
-    file_path = '/home/frederik/Documents/lsdc/tensorflow_data/sawyer/stpfirstimage_genpix/modeldata'
-    hyperparams = imp.load_source('hyperparams', '/home/frederik/Documents/lsdc/tensorflow_data/sawyer/stpfirstimage_genpix/conf.py')
+    file_path = '/home/guser/catkin_ws/src/lsdc/experiments/cem_exp/benchmarks_sawyer/avoid_occlusions_firstplan/verbose'
+    hyperparams = imp.load_source('hyperparams', '/home/guser/catkin_ws/src/lsdc/experiments/cem_exp/benchmarks_sawyer/avoid_occlusions_firstplan/conf.py')
     # file_path = '/home/guser/Desktop/src/lsdc/experiments/cem_exp/benchmarks_sawyer/predprop/verbose'
     # hyperparams = imp.load_source('hyperparams', '/home/guser/Desktop/src/lsdc/experiments/cem_exp/benchmarks_sawyer/predprop/conf.py')
     conf = hyperparams.configuration
-    conf['visualize'] = conf['output_dir'] + '/model22002'
-    create_gif(file_path, conf, append_masks=True)
+    # conf['visualize'] = conf['output_dir'] + '/model22002'
+    create_video_pixdistrib_gif(file_path, conf, t=1, suppress_number=True)
     # create_video_pixdistrib_gif(file_path, conf, n_exp= 10, suppress_number= True)
     #
     # go_through_timesteps(file_path)
