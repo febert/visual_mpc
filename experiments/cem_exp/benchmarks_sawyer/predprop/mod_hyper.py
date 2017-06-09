@@ -12,7 +12,6 @@ policy = {
     'initial_std': .035,
     'netconf': current_dir + '/conf.py',
     'iterations': 3,
-    'load_goal_image':'make_easy_goal',
     'verbose':'',
     'predictor_propagation': '',   # use the model get the designated pixel for the next step!
     'action_cost_factor': 0,
