@@ -251,13 +251,17 @@ class CEM_controller():
             if 'avoid_occlusions' in self.policyparams:
                 occlusion_cfactor = self.policyparams['avoid_occlusions']
                 occulsioncost = np.zeros(self.netconf['batch_size'])
-                psum_initval = np.sum(self.rec_input_distrib[-1][0])
+                if 'predictor_propagation' in self.policyparams:
+                    psum_initval = np.sum(self.rec_input_distrib[-1][0])
+                else: psum_initval = 1.
                 print 'initial frame psum:', psum_initval
 
                 for tstep in range(self.netconf['sequence_length'] - 1):
                     for b in range(self.netconf['batch_size']):
                         occulsioncost[b] =  np.maximum(psum_initval - np.sum(gen_distrib[tstep][b]), 0)*occlusion_cfactor
                         scores[b] += occulsioncost[b]
+                pdb.set_trace()
+
                 print 'occlusion cost of best action', occulsioncost[scores.argsort()[0]]
                 print 'occlusion cost of worst action', occulsioncost[scores.argsort()[-1]]
                 bestindices = scores.argsort()[:self.K]
@@ -283,7 +287,6 @@ class CEM_controller():
 
             def best(inputlist):
                 outputlist = [np.zeros_like(a)[:self.K] for a in inputlist]
-
                 for ind in range(self.K):
                     for tstep in range(len(inputlist)):
                         outputlist[tstep][ind] = inputlist[tstep][bestindices[ind]]
@@ -301,16 +304,11 @@ class CEM_controller():
                     create_video_pixdistrib_gif(file_path, self.netconf, t=self.t, n_exp=10,
                                             suppress_number=True, suffix='iter{}_t{}'.format(itr, self.t))
 
-            f = open(file_path + '/actions_last_iter_t{}'.format(self.t), 'w')
-
-
-
-
+            # f = open(file_path + '/actions_last_iter_t{}'.format(self.t), 'w')
             # for i in range(actions.shape[0]):
             #     f.write('index: {0}, score: {1}, rank: {2}'.format(i, scores[i],
             #                                                        np.where(sorted == i)[0][0]))
             #     f.write('action {}\n'.format(actions[i]))
-
             # pdb.set_trace()
 
         bestindex = scores.argsort()[0]
