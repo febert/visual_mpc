@@ -247,19 +247,23 @@ class CEM_controller():
                     expected_distance[b] = np.sum(np.multiply(gen, distance_grid))
                 scores = expected_distance
 
-            bestindices = scores.argsort()[:self.K]
+
             if 'avoid_occlusions' in self.policyparams:
+                occlusion_cfactor = self.policyparams['avoid_occlusions']
                 occulsioncost = np.zeros(self.netconf['batch_size'])
                 psum_initval = np.sum(self.rec_input_distrib[-1][0])
                 print 'initial frame psum:', psum_initval
 
                 for tstep in range(self.netconf['sequence_length'] - 1):
-                    t_mult = 1
                     for b in range(self.netconf['batch_size']):
-                        occulsioncost[b] =  np.maximum(psum_initval - np.sum(gen_distrib[tstep][b]), 0)*10
+                        occulsioncost[b] =  np.maximum(psum_initval - np.sum(gen_distrib[tstep][b]), 0)*occlusion_cfactor
                         scores[b] += occulsioncost[b]
                 print 'occlusion cost of best action', occulsioncost[scores.argsort()[0]]
                 print 'occlusion cost of worst action', occulsioncost[scores.argsort()[-1]]
+                bestindices = scores.argsort()[:self.K]
+                for i in range(self.K):
+                    ind = bestindices[i]
+                    print 'rank{} , totalcost {}, occlusioncost {}'.format(i, scores[ind], occulsioncost[ind])
 
         # for predictor_propagation only!!
         if 'predictor_propagation' in self.policyparams:
@@ -269,6 +273,8 @@ class CEM_controller():
                 bestind = scores.argsort()[0]
                 best_gen_distrib = gen_distrib[2][bestind].reshape(1, 64, 64, 1)
                 self.rec_input_distrib.append(np.repeat(best_gen_distrib, self.netconf['batch_size'], 0))
+
+        bestindices = scores.argsort()[:self.K]
 
         # compare prediciton with simulation
         if self.verbose and itr == self.policyparams['iterations']-1:
@@ -296,11 +302,14 @@ class CEM_controller():
                                             suppress_number=True, suffix='iter{}_t{}'.format(itr, self.t))
 
             f = open(file_path + '/actions_last_iter_t{}'.format(self.t), 'w')
-            sorted = scores.argsort()
-            for i in range(actions.shape[0]):
-                f.write('index: {0}, score: {1}, rank: {2}'.format(i, scores[i],
-                                                                   np.where(sorted == i)[0][0]))
-                f.write('action {}\n'.format(actions[i]))
+
+
+
+
+            # for i in range(actions.shape[0]):
+            #     f.write('index: {0}, score: {1}, rank: {2}'.format(i, scores[i],
+            #                                                        np.where(sorted == i)[0][0]))
+            #     f.write('action {}\n'.format(actions[i]))
 
             # pdb.set_trace()
 
