@@ -18,8 +18,8 @@ policy = {
     'action_cost_factor': 0,
     # 'reuse_mean_cov':'',
     # 'no_instant_gif':"",
-    'rew_all_steps':"",
-    'finalweight':10,
+    # 'rew_all_steps':"",
+    # 'finalweight':10,
     'use_first_plan':'',
     'avoid_occlusions':20,
 }
