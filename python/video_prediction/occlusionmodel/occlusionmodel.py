@@ -281,8 +281,10 @@ class Occlusion_Model(object):
                     stp_input, 2, scope='stp_params' + str(i),
                     activation_fn=None,
                     reuse=reuse)
-                params = tf.reshape(params, [2,1])
-                params = tf.concat(1, [tf.zeros([2,2]), params])
+                params = tf.reshape(params, [32,2,1])
+                init_val = np.stack([np.identity(2) for _ in range(self.batch_size)])
+                identity_mat = tf.Variable(init_val, dtype=tf.float32)
+                params = tf.reshape(tf.concat(2, [identity_mat, params]),[32, 6])
                 params += identity_params
             else:
                 params = slim.layers.fully_connected(
