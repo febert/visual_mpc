@@ -19,8 +19,9 @@ policy = {
     # 'reuse_mean_cov':'',
     # 'no_instant_gif':"",
     'rew_all_steps':"",
-    'avoid_occlusions':'',
-    'finalweight':10
+    # 'avoid_occlusions':'',
+    'finalweight':10,
+    'use_first_plan':'',
 }
 
 agent = {
