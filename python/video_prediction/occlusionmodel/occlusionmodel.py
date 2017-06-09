@@ -35,57 +35,20 @@ class Occlusion_Model(object):
                 actions=None,
                 states=None,
                 iter_num=-1.0,
-                pix_distributions=None,
                 conf = None):
 
-        """Build convolutional lstm video predictor using STP, CDNA, or DNA.
-    
-        Args:
-          images: tensor of ground truth image sequences
-          actions: tensor of action sequences
-          states: tensor of ground truth state sequences
-          iter_num: tensor of the current training iteration (for sched. sampling)
-          k: constant used for scheduled sampling. -1 to feed in own prediction.
-          use_state: True to include state and action in prediction
-          num_masks: the number of different pixel motion predictions (and
-                     the number of masks for each of those predictions)
-          stp: True to use Spatial Transformer Predictor (STP)
-          cdna: True to use Convoluational Dynamic Neural Advection (CDNA)
-          dna: True to use Dynamic Neural Advection (DNA)
-          context_frames: number of ground truth frames to pass in before
-                          feeding in own predictions
-          pix_distrib: the initial one-hot distriubtion for designated pixels
-        Returns:
-          gen_images: predicted future image frames
-          gen_states: predicted future states
-    
-        Raises:
-          ValueError: if more than one network option specified or more than 1 mask
-          specified for DNA model.
-        """
         self.actions = actions
         self.iter_num = iter_num
         self.conf = conf
-        self.pix_distributions = pix_distributions
         self.images = images
 
         self.k = conf['schedsamp_k']
         self.use_state = conf['use_state']
         self.num_masks = conf['num_masks']
-        self.cdna = conf['model'] == 'CDNA'
-        self.dna = conf['model'] == 'DNA'
-        self.stp = conf['model'] == 'STP'
         self.context_frames = conf['context_frames']
 
-        if 'dna_size' in conf.keys():
-            self.DNA_KERN_SIZE = conf['dna_size']
-        else:
-            self.DNA_KERN_SIZE = 5
+        print 'constructing occulsion network...'
 
-        print 'constructing network with less layers...'
-
-        if self.stp + self.cdna + self.dna != 1:
-            raise ValueError('More than one, or no network option specified.')
         self.batch_size, self.img_height, self.img_width, self.color_channels = [int(i) for i in images[0].get_shape()[0:4]]
         self.lstm_func = basic_conv_lstm_cell
 
@@ -93,9 +56,9 @@ class Occlusion_Model(object):
         self.gen_states, self.gen_images, self.gen_masks = [], [], []
         self.background_masks = []
         self.generation_masks = []
+        self.list_of_trafos = []
         self.current_state = states[0]
         self.gen_pix_distrib = []
-
 
     def build(self):
 
@@ -133,27 +96,15 @@ class Occlusion_Model(object):
                 if feedself and done_warm_start:
                     # Feed in generated image.
                     prev_image = self.gen_images[-1]
-                    if self.pix_distributions != None:
-                        prev_pix_distrib = self.gen_pix_distrib[-1]
                 elif done_warm_start:
                     # Scheduled sampling
                     prev_image = scheduled_sample(image, self.gen_images[-1], self.batch_size,
                                                   num_ground_truth)
-                    if self.pix_distributions != None:
-                        prev_pix_distrib = self.gen_pix_distrib[-1]
                 else:
                     # Always feed in ground_truth
                     prev_image = image
-                    if self.pix_distributions != None:
-                        prev_pix_distrib = self.pix_distributions[t]
-                        prev_pix_distrib = tf.expand_dims(prev_pix_distrib, -1)
 
-                if 'transform_from_firstimage' in self.conf:
-                    assert self.stp
-                    if t > 1:
-                        prev_image = self.images[1]
-                        print 'using image 1'
-
+                print 'building step', t
                 state_action = tf.concat(1, [action, self.current_state])
 
                 enc0 = slim.layers.conv2d(    #32x32x32
@@ -243,23 +194,25 @@ class Occlusion_Model(object):
                 if reuse:
                     reuse_stp = reuse
 
-                moved_parts, moved_masks = stp_transformation_mask(self.image_parts, self.objectmasks, stp_input1, self.num_masks, reuse_stp)
-
+                moved_parts, moved_masks, tansforms = self.stp_transformation_mask(self.image_parts, self.objectmasks, stp_input1, self.num_masks, reuse_stp)
+                self.list_of_trafos.append(tansforms)
 
                 comp_fact_input = slim.layers.fully_connected(tf.reshape(hidden5,[self.batch_size, -1]),
                                                     self.num_masks, scope='fc_compfactors')
-                comp_factors = tf.nn.softmax(comp_fact_input)
+                comp_factors = tf.split(1, self.num_masks, tf.nn.softmax(comp_fact_input))
 
                 pre_assembly = tf.zeros([self.batch_size, 64, 64, 3], dtype=tf.float32)
                 for part, factor in zip(moved_parts, comp_factors):
-                    pre_assembly += part * factor
+                    factor = tf.reshape(factor, [self.batch_size, 1, 1, 1])
+                    pre_assembly += tf.mul(part, factor)
 
                 composed_mask = tf.zeros([self.batch_size, 64, 64, 3], dtype=tf.float32)
                 for mask, factor in zip(moved_masks, comp_factors):
-                    composed_mask += mask * factor
+                    factor = tf.reshape(factor, [self.batch_size, 1, 1, 1])
+                    composed_mask += tf.mul(mask, factor)
 
                 backgd_mask = 1. - composed_mask
-                assembled_image = backgd_mask*self.images[0] + composed_mask*pre_assembly
+                assembled_image = tf.mul(backgd_mask,self.images[0]) + tf.mul(composed_mask, pre_assembly)
 
                 self.background_masks.append(backgd_mask)
 
@@ -277,7 +230,7 @@ class Occlusion_Model(object):
 
     def decompose_firstimage(self, enc6):
         masks = slim.layers.conv2d_transpose(
-            enc6, self.num_masks, 1, stride=1, scope='convt7')
+            enc6, self.num_masks, 1, stride=1, scope='convt7_objectmask')
         masks = tf.reshape(
             tf.nn.softmax(tf.reshape(masks, [-1, self.num_masks])),
             [int(self.batch_size), int(self.img_height), int(self.img_width), self.num_masks])
@@ -285,83 +238,57 @@ class Occlusion_Model(object):
 
         image_partlist = []
         for mask in mask_list:
-            image_partlist.append(self.images[0] * mask)
+            image_partlist.append(tf.mul(self.images[0], mask))
 
         return image_partlist, mask_list
 
     def get_generationmask(self, enc6):
         masks = slim.layers.conv2d_transpose(
-            enc6, 2, 1, stride=1, scope='convt7')
+            enc6, 2, 1, stride=1, scope='convt7_generationmask')
         masks = tf.reshape(
             tf.nn.softmax(tf.reshape(masks, [-1, 2])),
-            [int(self.batch_size), int(self.img_height), int(self.img_width), self.num_masks + 1])
+            [int(self.batch_size), int(self.img_height), int(self.img_width), 2])
         return tf.split(3, 2, masks)
 
-## Utility functions
-def stp_transformation_mask(prev_image_list, prev_mask_list, stp_input, num_masks, reuse= None):
-    """Apply spatial transformer predictor (STP) to previous image.
 
-    Args:
-      prev_image_list: previous image to be transformed.
-      stp_input: hidden layer to be used for computing STN parameters.
-      num_masks: number of masks and hence the number of STP transformations.
-    Returns:
-      List of images transformed by the predicted STP parameters.
-    """
-    # Only import spatial transformer if needed.
-    from video_prediction.transformer.spatial_transformer import transformer
+    ## Utility functions
+    def stp_transformation_mask(self, prev_image_list, prev_mask_list, stp_input, num_masks, reuse= None):
+        """Apply spatial transformer predictor (STP) to previous image.
+    
+        Args:
+          prev_image_list: previous image to be transformed.
+          stp_input: hidden layer to be used for computing STN parameters.
+          num_masks: number of masks and hence the number of STP transformations.
+        Returns:
+          List of images transformed by the predicted STP parameters.
+        """
+        # Only import spatial transformer if needed.
+        from video_prediction.transformer.spatial_transformer import transformer
 
-    identity_params = tf.convert_to_tensor(
-        np.array([1.0, 0.0, 0.0, 0.0, 1.0, 0.0], np.float32))
-    transformed_parts = []
-    transformed_masks = []
-    prev_mask_list = [tf.tile(m, [1, 1, 1, 3]) for m in prev_mask_list]  # copy the color channel
+        identity_params = tf.convert_to_tensor(
+            np.array([1.0, 0.0, 0.0, 0.0, 1.0, 0.0], np.float32))
+        transformed_parts = []
+        transformed_masks = []
+        transforms = []
+        prev_mask_list = [tf.tile(m, [1, 1, 1, 3]) for m in prev_mask_list]  # copy the color channel
 
-    for i in range(num_masks):
-        params = slim.layers.fully_connected(
-            stp_input, 6, scope='stp_params' + str(i),
-            activation_fn=None,
-            reuse= reuse) + identity_params
-        outsize = (prev_image_list[0].get_shape()[1], prev_image_list[0].get_shape()[2])
-        transformed_parts.append(transformer(prev_image_list[i], params, outsize))
-        transf_mask = tf.slice(transformer(prev_mask_list[i], params, outsize), [0, 0, 0, 0], [-1, -1, -1, 1])
-        transformed_masks.append(transf_mask)
+        for i in range(num_masks):
+            params = slim.layers.fully_connected(
+                stp_input, 6, scope='stp_params' + str(i),
+                activation_fn=None,
+                reuse= reuse) + identity_params
+            transforms.append(params)
 
-    return transformed_parts, transformed_masks
+            outsize = (prev_image_list[0].get_shape()[1], prev_image_list[0].get_shape()[2])
 
+            transformed_part = tf.reshape(transformer(prev_image_list[i], params, outsize), [self.batch_size, 64, 64, 3])
+            transformed_parts.append(transformed_part)
 
+            transf_mask = tf.slice(transformer(prev_mask_list[i], params, outsize), [0, 0, 0, 0], [-1, -1, -1, 1])
+            transf_mask = tf.reshape(transf_mask, [self.batch_size, 64, 64, 1])
+            transformed_masks.append(transf_mask)
 
-def dna_transformation(prev_image, dna_input, DNA_KERN_SIZE):
-    """Apply dynamic neural advection to previous image.
-
-    Args:
-      prev_image: previous image to be transformed.
-      dna_input: hidden lyaer to be used for computing DNA transformation.
-    Returns:
-      List of images transformed by the predicted CDNA kernels.
-    """
-    # Construct translated images.
-    pad_len = int(np.floor(DNA_KERN_SIZE / 2))
-    prev_image_pad = tf.pad(prev_image, [[0, 0], [pad_len, pad_len], [pad_len, pad_len], [0, 0]])
-    image_height = int(prev_image.get_shape()[1])
-    image_width = int(prev_image.get_shape()[2])
-
-    inputs = []
-    for xkern in range(DNA_KERN_SIZE):
-        for ykern in range(DNA_KERN_SIZE):
-            inputs.append(
-                tf.expand_dims(
-                    tf.slice(prev_image_pad, [0, xkern, ykern, 0],
-                             [-1, image_height, image_width, -1]), [3]))
-    inputs = tf.concat(3, inputs)
-
-    # Normalize channels to 1.
-    kernel = tf.nn.relu(dna_input - RELU_SHIFT) + RELU_SHIFT
-    kernel = tf.expand_dims(
-        kernel / tf.reduce_sum(
-            kernel, [3], keep_dims=True), [4])
-
-    return tf.reduce_sum(kernel * inputs, [3], keep_dims=False)
+        return transformed_parts, transformed_masks, transforms
 
 
 def scheduled_sample(ground_truth_x, generated_x, batch_size, num_ground_truth):
@@ -384,21 +311,6 @@ def scheduled_sample(ground_truth_x, generated_x, batch_size, num_ground_truth):
     generated_examps = tf.gather(generated_x, generated_idx)
     return tf.dynamic_stitch([ground_truth_idx, generated_idx],
                              [ground_truth_examps, generated_examps])
-
-
-def make_cdna_kerns_summary(cdna_kerns, t, suffix):
-
-    sum = []
-    cdna_kerns = tf.split(4, 10, cdna_kerns)
-    for i, kern in enumerate(cdna_kerns):
-        kern = tf.squeeze(kern)
-        kern = tf.expand_dims(kern,-1)
-        sum.append(
-            tf.image_summary('step' + str(t) +'_filter'+ str(i)+ suffix, kern)
-        )
-
-    return  sum
-
 
 ##############
 ## Costmask code:
