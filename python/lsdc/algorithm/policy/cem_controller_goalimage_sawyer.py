@@ -260,6 +260,8 @@ class CEM_controller():
                     for b in range(self.netconf['batch_size']):
                         occulsioncost[b] =  np.maximum(psum_initval - np.sum(gen_distrib[tstep][b]), 0)*occlusion_cfactor
                         scores[b] += occulsioncost[b]
+                pdb.set_trace()
+
                 print 'occlusion cost of best action', occulsioncost[scores.argsort()[0]]
                 print 'occlusion cost of worst action', occulsioncost[scores.argsort()[-1]]
                 bestindices = scores.argsort()[:self.K]
@@ -285,7 +287,6 @@ class CEM_controller():
 
             def best(inputlist):
                 outputlist = [np.zeros_like(a)[:self.K] for a in inputlist]
-
                 for ind in range(self.K):
                     for tstep in range(len(inputlist)):
                         outputlist[tstep][ind] = inputlist[tstep][bestindices[ind]]
