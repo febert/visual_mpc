@@ -236,9 +236,8 @@ def main(unused_argv, conf_script= None):
 
     starttime = datetime.now()
     t_iter = []
-    # Run training.
-    fft_weights = calc_fft_weight()
 
+    # Run training.
     ###### debugging
     # from PIL import Image
     # itr = 0
