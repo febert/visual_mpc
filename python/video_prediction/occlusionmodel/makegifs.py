@@ -1,7 +1,7 @@
 import cPickle
 import numpy
 from video_prediction.utils_vpred.create_gif import *
-
+from PIL import Image
 
 def add_crosshairs(distrib, pix_list):
     """
@@ -26,24 +26,26 @@ def comp_gif(conf, file_path, name= None, examples = 10):
     ground_truth =dict_['ground_truth']
     gen_images = dict_['gen_images']
     object_masks = dict_['object_masks']
+    image_parts = dict_['image_parts']
     background_masks = dict_['background_masks']
-    generation_masks = dict_['generation_masks']
+    # generation_masks = dict_['generation_masks']
     trafos = dict_['trafos']
 
     print 'finished loading ...'
 
-    # generation_masks = prepare_masks(generation_masks)
+    img = create_images(object_masks, image_parts, examples)
+    img = Image.fromarray(img)
+    img.save(file_path +'/objectparts_masks.png')
 
-    # object_mask_sum = np.sum(np.stack(object_masks, axis=0), axis=0)
-
-    #copy object masks over timesteps:
-    object_masks = [object_masks for _ in object_masks]
-    object_masks = prepare_masks(object_masks)
-
-    object_masks = prepare_masks(object_masks)
+    if not isinstance(ground_truth, list):
+        ground_truth = np.split(ground_truth, ground_truth.shape[1], axis=1)
+        ground_truth = [np.squeeze(g) for g in ground_truth]
 
 
-    videolist = [ground_truth, gen_images, object_masks, object_masks, background_masks, generation_masks]
+    background_masks = [np.expand_dims(m, 0) for m in background_masks]
+    [background_masks] = prepare_masks(background_masks)
+
+    videolist = [ground_truth, gen_images,background_masks]
     suffix = ''
 
     fused_gif = assemble_gif(videolist, num_exp= examples)
@@ -53,7 +55,24 @@ def comp_gif(conf, file_path, name= None, examples = 10):
         npy_to_gif(fused_gif, file_path + '/' + name + suffix)
 
 
-def prepare_masks(masks):
+def create_images(object_masks, image_parts, nexp):
+    object_masks = [np.repeat(m, 3, axis=-1) for m in object_masks]
+    rows = []
+
+    num_objects = len(object_masks)
+    for ob in range(num_objects):
+        maskrow = []
+        objectrow = []
+        for ex in range(nexp):
+            objectrow.append(image_parts[ob][ex])
+            maskrow.append(object_masks[ob][ex])
+        rows.append(np.concatenate(objectrow, axis=1))
+        rows.append(np.concatenate(maskrow, axis=1))
+
+    combined = (np.concatenate(rows, axis=0)*255.).astype(np.uint8)
+    return combined
+
+def prepare_masks(masks, copy_last_dim= True):
     tsteps = len(masks)
     nmasks = len(masks[0])
     list_of_maskvideos = []
@@ -61,8 +80,10 @@ def prepare_masks(masks):
     for m in range(nmasks):  # for timesteps
         mask_video = []
         for t in range(tsteps):
-            # single_mask_batch = np.repeat(masks[t][m], 3, axis=3 )
-            single_mask_batch = masks[t][m]
+            if copy_last_dim:
+                single_mask_batch = np.repeat(masks[t][m], 3, axis=3 )
+            else:
+                single_mask_batch = masks[t][m]
             mask_video.append(single_mask_batch)
         list_of_maskvideos.append(mask_video)
 
@@ -92,7 +113,7 @@ if __name__ == '__main__':
     hyperparams = imp.load_source('hyperparams', file_path +'/conf.py')
 
     conf = hyperparams.configuration
-    conf['visualize'] = conf['output_dir'] + '/model28002'
+    conf['visualize'] = conf['output_dir'] + '/model10002'
 
 
     comp_gif(conf, file_path + '/modeldata')
