@@ -255,7 +255,6 @@ class CEM_controller():
                 print 'initial frame psum:', psum_initval
 
                 for tstep in range(self.netconf['sequence_length'] - 1):
-                    t_mult = 1
                     for b in range(self.netconf['batch_size']):
                         occulsioncost[b] =  np.maximum(psum_initval - np.sum(gen_distrib[tstep][b]), 0)*occlusion_cfactor
                         scores[b] += occulsioncost[b]
