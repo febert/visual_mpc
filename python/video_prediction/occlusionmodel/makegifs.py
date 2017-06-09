@@ -27,6 +27,8 @@ def comp_gif(conf, file_path, name= None, examples = 10):
     gen_images = dict_['gen_images']
     object_masks = dict_['object_masks']
     image_parts = dict_['image_parts']
+
+
     background_masks = dict_['background_masks']
     # generation_masks = dict_['generation_masks']
     trafos = dict_['trafos']
@@ -109,7 +111,7 @@ def pad_pos(conf, vid, pos, origsize = 64):
     return padded_vid
 
 if __name__ == '__main__':
-    file_path = '/home/frederik/Documents/lsdc/tensorflow_data/occulsionmodel/firsttest'
+    file_path = '/home/frederik/Documents/lsdc/tensorflow_data/occulsionmodel/norotation'
     hyperparams = imp.load_source('hyperparams', file_path +'/conf.py')
 
     conf = hyperparams.configuration
