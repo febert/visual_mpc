@@ -68,7 +68,7 @@ class Model(object):
                  actions=None,
                  states=None,
                  reuse_scope=None,
-                 pix_distrib=None):
+                 ):
 
         self.prefix = prefix = tf.placeholder(tf.string, [])
         self.iter_num = tf.placeholder(tf.float32, [])
@@ -85,17 +85,12 @@ class Model(object):
         images = tf.split(1, images.get_shape()[1], images)
         images = [tf.squeeze(img) for img in images]
 
-        if pix_distrib != None:
-            pix_distrib = tf.split(1, pix_distrib.get_shape()[1], pix_distrib)
-            pix_distrib = [tf.squeeze(pix) for pix in pix_distrib]
-
         if reuse_scope is None:
             self.om = Occlusion_Model(
                 images,
                 actions,
                 states,
                 iter_num=self.iter_num,
-                pix_distributions= pix_distrib,
                 conf=conf)
         else:  # If it's a validation or test model.
             with tf.variable_scope(reuse_scope, reuse=True):
@@ -110,7 +105,6 @@ class Model(object):
 
         # L2 loss, PSNR for eval.
         loss, psnr_all = 0.0, 0.0
-        self.fft_weights = tf.placeholder(tf.float32, [64, 64])
 
         for i, x, gx in zip(
                 range(len(self.om.gen_images)), images[conf['context_frames']:],
@@ -207,21 +201,19 @@ def main(unused_argv, conf_script= None):
                      val_model.iter_num: 0 }
         file_path = conf['output_dir']
 
-        if 'fftcost' in conf:
-            true_fft, pred_fft, gen_images, ground_truth, mask_list = sess.run([val_model.true_fft, val_model.pred_fft ,val_model.gen_images,
-                                                            val_images, val_model.gen_masks],
-                                                           feed_dict)
-            cPickle.dump(true_fft, open(file_path + '/true_fft.pkl', 'wb'))
-            cPickle.dump(pred_fft, open(file_path + '/pred_fft.pkl', 'wb'))
-
-        gen_images, ground_truth, mask_list = sess.run([val_model.gen_images,
-                                                        val_images, val_model.gen_masks,
+        ground_truth, gen_images, object_masks, background_masks, trafos = sess.run([
+                                                        val_images,
+                                                        val_model.om.gen_images,
+                                                        val_model.om.objectmasks,
+                                                        val_model.om.background_masks,
+                                                        val_model.om.list_of_trafos
                                                         ],
-                                                       feed_dict)
+                                                                    feed_dict)
+
 
         cPickle.dump(gen_images, open(file_path + '/gen_image_seq.pkl','wb'))
         cPickle.dump(ground_truth, open(file_path + '/ground_truth.pkl', 'wb'))
-        cPickle.dump(mask_list, open(file_path + '/mask_list.pkl', 'wb'))
+        cPickle.dump(object_masks, open(file_path + '/mask_list.pkl', 'wb'))
         print 'written files to:' + file_path
 
         trajectories = video_prediction.utils_vpred.create_gif.comp_video(conf['output_dir'], conf)
@@ -279,7 +271,7 @@ def main(unused_argv, conf_script= None):
         feed_dict = {model.prefix: 'train',
                      model.iter_num: np.float32(itr),
                      model.lr: conf['learning_rate'],
-                     model.fft_weights: fft_weights}
+                     }
         cost, _, summary_str = sess.run([model.loss, model.train_op, model.summ_op],
                                         feed_dict)
 
@@ -292,7 +284,7 @@ def main(unused_argv, conf_script= None):
             feed_dict = {val_model.lr: 0.0,
                          val_model.prefix: 'val',
                          val_model.iter_num: np.float32(itr),
-                         val_model.fft_weights: fft_weights}
+                         }
             _, val_summary_str = sess.run([val_model.train_op, val_model.summ_op],
                                           feed_dict)
             summary_writer.add_summary(val_summary_str, itr)
@@ -326,18 +318,6 @@ def main(unused_argv, conf_script= None):
     tf.logging.info('Training complete')
     tf.logging.flush()
 
-
-def calc_fft_weight():
-
-    weight = np.zeros((64,64))
-    for row in range(64):
-        for col in range(64):
-            p = np.array([row,col])
-            c = np.array([31,31])
-            weight[row, col] = np.linalg.norm(p -c)**2
-
-    weight /= np.max(weight)
-    return weight
 
 if __name__ == '__main__':
     tf.logging.set_verbosity(tf.logging.INFO)
