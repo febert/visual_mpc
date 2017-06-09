@@ -301,16 +301,11 @@ class CEM_controller():
                     create_video_pixdistrib_gif(file_path, self.netconf, t=self.t, n_exp=10,
                                             suppress_number=True, suffix='iter{}_t{}'.format(itr, self.t))
 
-            f = open(file_path + '/actions_last_iter_t{}'.format(self.t), 'w')
-
-
-
-
+            # f = open(file_path + '/actions_last_iter_t{}'.format(self.t), 'w')
             # for i in range(actions.shape[0]):
             #     f.write('index: {0}, score: {1}, rank: {2}'.format(i, scores[i],
             #                                                        np.where(sorted == i)[0][0]))
             #     f.write('action {}\n'.format(actions[i]))
-
             # pdb.set_trace()
 
         bestindex = scores.argsort()[0]
