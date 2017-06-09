@@ -53,7 +53,7 @@ class Occlusion_Model(object):
         self.lstm_func = basic_conv_lstm_cell
 
         # Generated robot states and images.
-        self.gen_states, self.gen_images, self.gen_masks = [], [], []
+        self.gen_states, self.gen_images = [], []
         self.background_masks = []
         self.generation_masks = []
         self.list_of_trafos = []
@@ -206,7 +206,7 @@ class Occlusion_Model(object):
                     factor = tf.reshape(factor, [self.batch_size, 1, 1, 1])
                     pre_assembly += tf.mul(part, factor)
 
-                composed_mask = tf.zeros([self.batch_size, 64, 64, 3], dtype=tf.float32)
+                composed_mask = tf.zeros([self.batch_size, 64, 64, 1], dtype=tf.float32)
                 for mask, factor in zip(moved_masks, comp_factors):
                     factor = tf.reshape(factor, [self.batch_size, 1, 1, 1])
                     composed_mask += tf.mul(mask, factor)
@@ -216,10 +216,13 @@ class Occlusion_Model(object):
 
                 self.background_masks.append(backgd_mask)
 
-                generation_mask = self.get_generationmask(enc6)
-                gen_image = generation_mask[0]*assembled_image + generation_mask[1]*generated_pix
-                self.generation_masks.append(generation_mask)
-                self.gen_images.append(gen_image)
+                if 'gen_pix' in self.conf:
+                    generation_mask = self.get_generationmask(enc6)
+                    gen_image = generation_mask[0]*assembled_image + generation_mask[1]*generated_pix
+                    self.generation_masks.append(generation_mask)
+                    self.gen_images.append(gen_image)
+                else:
+                    self.gen_images.append(assembled_image)
 
                 self.current_state = slim.layers.fully_connected(
                     tf.reshape(hidden5, [self.batch_size, -1]),
