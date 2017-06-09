@@ -276,10 +276,20 @@ class Occlusion_Model(object):
         prev_mask_list = [tf.tile(m, [1, 1, 1, 3]) for m in prev_mask_list]  # copy the color channel
 
         for i in range(num_masks):
-            params = slim.layers.fully_connected(
-                stp_input, 6, scope='stp_params' + str(i),
-                activation_fn=None,
-                reuse= reuse) + identity_params
+            if 'norotation' in self.conf:
+                params = slim.layers.fully_connected(
+                    stp_input, 2, scope='stp_params' + str(i),
+                    activation_fn=None,
+                    reuse=reuse)
+                params = tf.reshape(params, [2,1])
+                params = tf.concat(1, [tf.zeros([2,2]), params])
+                params += identity_params
+            else:
+                params = slim.layers.fully_connected(
+                    stp_input, 6, scope='stp_params' + str(i),
+                    activation_fn=None,
+                    reuse= reuse) + identity_params
+
             transforms.append(params)
 
             outsize = (prev_image_list[0].get_shape()[1], prev_image_list[0].get_shape()[2])
