@@ -20,56 +20,53 @@ def add_crosshairs(distrib, pix_list):
     return distrib
 
 
-def comp_pix_distrib(conf, file_path, name= None, masks = False, examples = 10):
+def comp_gif(conf, file_path, name= None, examples = 10):
     dict_ = cPickle.load(open(file_path + '/dict_.pkl', "rb"))
 
-    gen_images =dict_['gen_images']
-    if 'true_ret' in dict_:
-        true_ret = dict_['true_ret']
-    pred_ret = dict_['pred_ret']
-    images = dict_['images']
-    gen_distrib = dict_['gen_distrib']
-    retpos = dict_['retpos']
-
+    ground_truth =dict_['ground_truth']
+    gen_images = dict_['gen_images']
+    object_masks = dict_['object_masks']
+    background_masks = dict_['background_masks']
+    generation_masks = dict_['generation_masks']
+    trafos = dict_['trafos']
 
     print 'finished loading ...'
 
-    gen_distrib = make_color_scheme(gen_distrib)
-    # gen_pix_distrib = add_crosshairs(gen_pix_distrib, maxcoord)
+    # generation_masks = prepare_masks(generation_masks)
 
-    if 'true_ret' in dict_:
-        true_ret = pad_pos(conf, true_ret, retpos)
-    pred_ret = pad_pos(conf, pred_ret, retpos)
+    # object_mask_sum = np.sum(np.stack(object_masks, axis=0), axis=0)
 
-    if not isinstance(images, list):
-        images = np.split(images, images.shape[1], axis=1)
-        images = [np.squeeze(g) for g in images]
+    #copy object masks over timesteps:
+    object_masks = [object_masks for _ in object_masks]
+    object_masks = prepare_masks(object_masks)
 
-    if 'true_ret' in dict_:
-        videolist = [images, gen_images, true_ret, pred_ret, gen_distrib]
-    else:
-        videolist = [images, gen_images, pred_ret, gen_distrib]
+    object_masks = prepare_masks(object_masks)
 
+
+    videolist = [ground_truth, gen_images, object_masks, object_masks, background_masks, generation_masks]
     suffix = ''
-    if masks:
-        gen_masks = cPickle.load(open(file_path + '/gen_masks.pkl', "rb"))
-        mask_videolist = []
-        nummasks = len(gen_masks[0])
-        tsteps = len(gen_masks)
-        for m in range(nummasks):
-            mask_video = []
-            for t in range(tsteps):
-                 mask_video.append(np.repeat(gen_masks[t][m], 3, axis=3))
-
-            mask_videolist.append(mask_video)
-        videolist += mask_videolist
-        suffix = "_masks"
 
     fused_gif = assemble_gif(videolist, num_exp= examples)
     if not name:
         npy_to_gif(fused_gif, file_path + '/gen_images_pix_distrib'+ suffix)
     else:
         npy_to_gif(fused_gif, file_path + '/' + name + suffix)
+
+
+def prepare_masks(masks):
+    tsteps = len(masks)
+    nmasks = len(masks[0])
+    list_of_maskvideos = []
+
+    for m in range(nmasks):  # for timesteps
+        mask_video = []
+        for t in range(tsteps):
+            # single_mask_batch = np.repeat(masks[t][m], 3, axis=3 )
+            single_mask_batch = masks[t][m]
+            mask_video.append(single_mask_batch)
+        list_of_maskvideos.append(mask_video)
+
+    return list_of_maskvideos
 
 
 def pad_pos(conf, vid, pos, origsize = 64):
@@ -91,11 +88,11 @@ def pad_pos(conf, vid, pos, origsize = 64):
     return padded_vid
 
 if __name__ == '__main__':
-    file_path = '/home/frederik/Documents/lsdc/tensorflow_data/costmask/moving_retina'
+    file_path = '/home/frederik/Documents/lsdc/tensorflow_data/occulsionmodel/firsttest'
     hyperparams = imp.load_source('hyperparams', file_path +'/conf.py')
 
     conf = hyperparams.configuration
-    conf['visualize'] = conf['output_dir'] + '/model48002'
+    conf['visualize'] = conf['output_dir'] + '/model28002'
 
 
-    comp_pix_distrib(conf, file_path + '/modeldata')
+    comp_gif(conf, file_path + '/modeldata')

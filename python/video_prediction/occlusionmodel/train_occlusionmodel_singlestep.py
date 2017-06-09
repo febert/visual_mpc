@@ -17,7 +17,6 @@ from video_prediction.read_tf_record import build_tfrecord_input
 
 from video_prediction.utils_vpred.skip_example import skip_example
 from occlusionmodel import Occlusion_Model
-import makegifs
 
 from datetime import datetime
 
@@ -223,7 +222,7 @@ def main(unused_argv, conf_script= None):
         cPickle.dump(dict_, open(file_path + '/dict_.pkl', 'wb'))
         print 'written files to:' + file_path
 
-        trajectories = makegifs.comp_gif(conf, conf['output_dir'])
+        trajectories = video_prediction.utils_vpred.create_gif.comp_video(conf['output_dir'], conf)
         # utils_vpred.create_gif.comp_masks(conf['output_dir'], conf, trajectories)
         return
 
