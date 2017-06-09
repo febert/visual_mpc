@@ -249,6 +249,7 @@ class CEM_controller():
 
             bestindices = scores.argsort()[:self.K]
             if 'avoid_occlusions' in self.policyparams:
+                occlusion_cfactor = self.policyparams['avoid_occlusions']
                 occulsioncost = np.zeros(self.netconf['batch_size'])
                 psum_initval = np.sum(self.rec_input_distrib[-1][0])
                 print 'initial frame psum:', psum_initval
@@ -256,7 +257,7 @@ class CEM_controller():
                 for tstep in range(self.netconf['sequence_length'] - 1):
                     t_mult = 1
                     for b in range(self.netconf['batch_size']):
-                        occulsioncost[b] =  np.maximum(psum_initval - np.sum(gen_distrib[tstep][b]), 0)*10
+                        occulsioncost[b] =  np.maximum(psum_initval - np.sum(gen_distrib[tstep][b]), 0)*occlusion_cfactor
                         scores[b] += occulsioncost[b]
                 print 'occlusion cost of best action', occulsioncost[scores.argsort()[0]]
                 print 'occlusion cost of worst action', occulsioncost[scores.argsort()[-1]]
