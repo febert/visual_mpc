@@ -261,8 +261,9 @@ class CEM_controller():
                 print 'occlusion cost of best action', occulsioncost[scores.argsort()[0]]
                 print 'occlusion cost of worst action', occulsioncost[scores.argsort()[-1]]
                 bestindices = scores.argsort()[:self.K]
-                for ind in bestindices:
-                    print 'rank 1, totalcost {}, occlusioncost {}'.format(scores[ind], occulsioncost[ind])
+                for i in range(self.K):
+                    ind = bestindices[i]
+                    print 'rank{} , totalcost {}, occlusioncost {}'.format(i, scores[ind], occulsioncost[ind])
 
         # for predictor_propagation only!!
         if 'predictor_propagation' in self.policyparams:

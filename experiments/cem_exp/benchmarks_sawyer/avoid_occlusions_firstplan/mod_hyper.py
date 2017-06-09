@@ -21,7 +21,7 @@ policy = {
     'rew_all_steps':"",
     'finalweight':10,
     'use_first_plan':'',
-    'avoid_occlusions':300,
+    'avoid_occlusions':20,
 }
 
 agent = {
