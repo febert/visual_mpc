@@ -251,7 +251,9 @@ class CEM_controller():
             if 'avoid_occlusions' in self.policyparams:
                 occlusion_cfactor = self.policyparams['avoid_occlusions']
                 occulsioncost = np.zeros(self.netconf['batch_size'])
-                psum_initval = np.sum(self.rec_input_distrib[-1][0])
+                if 'predictor_propagation' in self.policyparams:
+                    psum_initval = np.sum(self.rec_input_distrib[-1][0])
+                else: psum_initval = 1.
                 print 'initial frame psum:', psum_initval
 
                 for tstep in range(self.netconf['sequence_length'] - 1):
