@@ -56,6 +56,8 @@ class Occlusion_Model(object):
         self.gen_states, self.gen_images = [], []
         self.background_masks = []
         self.generation_masks = []
+        self.moved_parts = []
+        self.moved_masks = []
         self.list_of_trafos = []
         self.current_state = states[0]
         self.gen_pix_distrib = []
@@ -196,10 +198,16 @@ class Occlusion_Model(object):
 
                 moved_parts, moved_masks, tansforms = self.stp_transformation_mask(self.image_parts, self.objectmasks, stp_input1, self.num_masks, reuse_stp)
                 self.list_of_trafos.append(tansforms)
+                self.moved_parts.append(moved_parts)
+                self.moved_masks.append(moved_masks)
 
-                comp_fact_input = slim.layers.fully_connected(tf.reshape(hidden5,[self.batch_size, -1]),
-                                                    self.num_masks, scope='fc_compfactors')
-                comp_factors = tf.split(1, self.num_masks, tf.nn.softmax(comp_fact_input))
+                if 'average_layers' in self.conf:
+                    comp_factors = tf.ones([self.batch_size, self.num_masks])*1/self.num_masks
+                    comp_factors = tf.split(1, self.num_masks, comp_factors)
+                else:
+                    comp_fact_input = slim.layers.fully_connected(tf.reshape(hidden5, [self.batch_size, -1]),
+                                                                  self.num_masks, scope='fc_compfactors')
+                    comp_factors = tf.split(1, self.num_masks, tf.nn.softmax(comp_fact_input))
 
                 pre_assembly = tf.zeros([self.batch_size, 64, 64, 3], dtype=tf.float32)
                 for part, factor in zip(moved_parts, comp_factors):
@@ -285,7 +293,6 @@ class Occlusion_Model(object):
                 init_val = np.stack([np.identity(2) for _ in range(self.batch_size)])
                 identity_mat = tf.Variable(init_val, dtype=tf.float32)
                 params = tf.reshape(tf.concat(2, [identity_mat, params]),[32, 6])
-                params += identity_params
             else:
                 params = slim.layers.fully_connected(
                     stp_input, 6, scope='stp_params' + str(i),

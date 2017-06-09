@@ -44,6 +44,7 @@ def build_tfrecord_input(conf, training=True):
         shuffle = False
     else: shuffle = True
 
+
     filename_queue = tf.train.string_input_producer(filenames, shuffle=shuffle)
     reader = tf.TFRecordReader()
     _, serialized_example = reader.read(filename_queue)
