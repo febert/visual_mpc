@@ -86,14 +86,19 @@ class Visual_MPC_Server(object):
         self.igrp = req.igrp
         self.i_traj = req.itr
         self.t = 0
-        goal_main = self.bridge.imgmsg_to_cv2(req.goalmain)
-        goal_main = cv2.cvtColor(goal_main, cv2.COLOR_BGR2RGB)
-        # goal_aux1 = self.bridge.imgmsg_to_cv2(req.goalaux1)
-        # goal_aux1 = cv2.cvtColor(goal_aux1, cv2.COLOR_BGR2RGB)
-        Image.fromarray(goal_main).show()
-        goal_main = goal_main.astype(np.float32) / 255.
-        self.cem_controller.goal_image = goal_main
+        if 'use_goalimage' in self.policyparams:
+            goal_main = self.bridge.imgmsg_to_cv2(req.goalmain)
+            goal_main = cv2.cvtColor(goal_main, cv2.COLOR_BGR2RGB)
+            # goal_aux1 = self.bridge.imgmsg_to_cv2(req.goalaux1)
+            # goal_aux1 = cv2.cvtColor(goal_aux1, cv2.COLOR_BGR2RGB)
+            Image.fromarray(goal_main).show()
+            goal_main = goal_main.astype(np.float32) / 255.
+            self.cem_controller.goal_image = goal_main
+
         print 'init traj{} group{}'.format(self.i_traj, self.igrp)
+
+        self.initial_pix_distrib = []
+        self.cem_controller = CEM_controller(self.agentparams, self.policyparams, self.predictor)
         return init_traj_visualmpcResponse()
 
     def get_action_handler(self, req):
@@ -114,12 +119,12 @@ class Visual_MPC_Server(object):
         self.desig_pos_aux1 = req.desig_pos_aux1
         self.goal_pos_aux1 = req.goal_pos_aux1
 
-        mj_U, pos, best_ind, pix_distrib = self.cem_controller.act(self.traj, self.t,
+        mj_U, pos, best_ind, init_pix_distrib = self.cem_controller.act(self.traj, self.t,
                                                           req.desig_pos_aux1,
                                                           req.goal_pos_aux1)
 
         if 'predictor_propagation' in self.policyparams and self.t > 0:
-            self.initial_pix_distrib.append(pix_distrib[-1][0])
+            self.initial_pix_distrib.append(init_pix_distrib[-1][0])
 
         self.traj.U[self.t, :] = mj_U
 
@@ -139,7 +144,6 @@ class Visual_MPC_Server(object):
         if 'predictor_propagation' in self.policyparams:
             cPickle.dump(self.initial_pix_distrib, open(file_path + '/initial_pix_distrib.pkl'.format(self.t), 'wb'))
             self.initial_pix_distrib = [im.reshape((1,64,64)) for im in self.initial_pix_distrib]
-            pdb.set_trace()
             pix_distrib = make_color_scheme(self.initial_pix_distrib, convert_to_float=False)
             gif = assemble_gif([imlist, pix_distrib], num_exp=1, convert_from_float=False)
             npy_to_gif(gif, file_path +'/traj{0}_gr{1}_withpixdistrib'.format(self.i_traj, self.igrp))
