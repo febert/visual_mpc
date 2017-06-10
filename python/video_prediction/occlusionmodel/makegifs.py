@@ -28,10 +28,12 @@ def comp_gif(conf, file_path, name= None, examples = 10):
     object_masks = dict_['object_masks']
     image_parts = dict_['image_parts']
 
+    moved_parts = dict_['moved_parts']
+    moved_parts = prepare_masks(moved_parts, copy_last_dim=False)
 
-    background_masks = dict_['background_masks']
-    # generation_masks = dict_['generation_masks']
     trafos = dict_['trafos']
+    comp_factors = dict_['comp_factors']
+    comp_factors = [np.stack(c) for c in comp_factors]
 
     print 'finished loading ...'
 
@@ -44,10 +46,8 @@ def comp_gif(conf, file_path, name= None, examples = 10):
         ground_truth = [np.squeeze(g) for g in ground_truth]
 
 
-    background_masks = [np.expand_dims(m, 0) for m in background_masks]
-    [background_masks] = prepare_masks(background_masks)
 
-    videolist = [ground_truth, gen_images,background_masks]
+    videolist = [ground_truth, gen_images] + moved_parts
     suffix = ''
 
     fused_gif = assemble_gif(videolist, num_exp= examples)
@@ -74,7 +74,7 @@ def create_images(object_masks, image_parts, nexp):
     combined = (np.concatenate(rows, axis=0)*255.).astype(np.uint8)
     return combined
 
-def prepare_masks(masks, copy_last_dim= True):
+def prepare_masks(masks, copy_last_dim):
     tsteps = len(masks)
     nmasks = len(masks[0])
     list_of_maskvideos = []
@@ -111,11 +111,11 @@ def pad_pos(conf, vid, pos, origsize = 64):
     return padded_vid
 
 if __name__ == '__main__':
-    file_path = '/home/frederik/Documents/lsdc/tensorflow_data/occulsionmodel/norotation'
+    file_path = '/home/frederik/Documents/lsdc/tensorflow_data/occulsionmodel/firsttest'
     hyperparams = imp.load_source('hyperparams', file_path +'/conf.py')
 
     conf = hyperparams.configuration
-    conf['visualize'] = conf['output_dir'] + '/model10002'
+    conf['visualize'] = conf['output_dir'] + '/model24002'
 
 
     comp_gif(conf, file_path + '/modeldata')

@@ -202,17 +202,16 @@ def main(unused_argv, conf_script= None):
                      val_model.iter_num: 0 }
         file_path = conf['output_dir']
 
-        ground_truth, gen_images, object_masks, image_parts, moved_parts, background_masks, generation_masks, trafos = sess.run([
+        ground_truth, gen_images, object_masks, image_parts, moved_parts, trafos, comp_factors = sess.run([
                                                         val_images,
                                                         val_model.om.gen_images,
                                                         val_model.om.objectmasks,
                                                         val_model.om.image_parts,
                                                         val_model.om.moved_parts,
-                                                        val_model.om.background_masks,
-                                                        val_model.om.generation_masks,
-                                                        val_model.om.list_of_trafos
+                                                        val_model.om.list_of_trafos,
+                                                        val_model.om.list_of_comp_factors
                                                         ],
-                                                                    feed_dict)
+                                                        feed_dict)
 
         dict_ = {}
         dict_['ground_truth'] = ground_truth
@@ -220,9 +219,8 @@ def main(unused_argv, conf_script= None):
         dict_['object_masks'] = object_masks
         dict_['image_parts'] = image_parts
         dict_['moved_parts'] = moved_parts
-        dict_['background_masks'] = background_masks
-        dict_['generation_masks'] = generation_masks
         dict_['trafos'] = trafos
+        dict_['comp_factors'] = comp_factors
 
         cPickle.dump(dict_, open(file_path + '/dict_.pkl', 'wb'))
         print 'written files to:' + file_path
