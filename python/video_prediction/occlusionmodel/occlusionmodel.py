@@ -207,7 +207,7 @@ class Occlusion_Model(object):
                     activation = tf.nn.relu
                 comp_fact_input = slim.layers.fully_connected(tf.reshape(hidden5, [self.batch_size, -1]),
                                                                   self.num_masks, scope='fc_compfactors',
-                                                                    activation= activation)
+                                                                    activation_fn= activation)
                 if 'exp_comp' in self.conf:
                     comp_fact_input = tf.exp(comp_fact_input)
                 comp_fact_input = tf.split(1, self.num_masks, comp_fact_input)
