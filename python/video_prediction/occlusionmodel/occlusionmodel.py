@@ -277,6 +277,9 @@ class Occlusion_Model(object):
 
         identity_params = tf.convert_to_tensor(
             np.array([1.0, 0.0, 0.0, 0.0, 1.0, 0.0], np.float32))
+        identity_params = tf.reshape(identity_params,[1,6])
+        identity_params = tf.tile(identity_params,[self.batch_size,1])
+
         transformed_parts = []
         transformed_masks = []
         transforms = []
