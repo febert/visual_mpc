@@ -28,7 +28,6 @@ def build_tfrecord_input(conf, training=True):
     Raises:
       RuntimeError: if no files found.
     """
-
     filenames = gfile.Glob(os.path.join(conf['data_dir'], '*'))
     if not filenames:
         raise RuntimeError('No data_files files found.')
@@ -44,6 +43,7 @@ def build_tfrecord_input(conf, training=True):
         print 'using input file', filenames
         shuffle = False
     else: shuffle = True
+
 
     filename_queue = tf.train.string_input_producer(filenames, shuffle=shuffle)
     reader = tf.TFRecordReader()

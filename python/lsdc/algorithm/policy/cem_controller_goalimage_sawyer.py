@@ -23,6 +23,7 @@ class CEM_controller():
     Cross Entropy Method Stochastic Optimizer
     """
     def __init__(self, ag_params, policyparams, predictor = None):
+        print 'init CEM controller'
         self.agentparams = ag_params
         self.policyparams = policyparams
 
@@ -73,7 +74,6 @@ class CEM_controller():
         self.mean =None
         self.sigma =None
         self.goal_image = None
-
 
     def calc_action_cost(self, actions):
         actions_costs = np.zeros(self.M)
@@ -220,42 +220,73 @@ class CEM_controller():
 
         if 'use_goalimage' in self.policyparams:
             for b in range(self.netconf['batch_size']):
-                scores[b] = np.linalg.norm(
-                    (self.goal_image - gen_images[-1][b]).flatten())
+                scores[b] = np.linalg.norm((self.goal_image - gen_images[-1][b]).flatten())
         else: # evaluate pixel movement:
+
             distance_grid = np.empty((64, 64))
             for i in range(64):
                 for j in range(64):
                     pos = np.array([i, j])
                     distance_grid[i, j] = np.linalg.norm(self.goal_pix - pos)
-
             expected_distance = np.zeros(self.netconf['batch_size'])
-            for b in range(self.netconf['batch_size']):
-                gen = gen_distrib[-1][b].squeeze() / np.sum(gen_distrib[-1][b])
-                expected_distance[b] = np.sum(np.multiply(gen, distance_grid))
-            scores = expected_distance
+
+            if 'rew_all_steps' in self.policyparams:
+                for tstep in range(self.netconf['sequence_length'] - 1):
+                    t_mult = 1
+                    if 'finalweight' in self.policyparams:
+                        if tstep == self.netconf['sequence_length'] - 2:
+                            t_mult = self.policyparams['finalweight']
+
+                    for b in range(self.netconf['batch_size']):
+                        gen = gen_distrib[tstep][b].squeeze() / np.sum(gen_distrib[tstep][b])
+                        expected_distance[b] += np.sum(np.multiply(gen, distance_grid)) * t_mult
+                scores = expected_distance
+            else:
+                for b in range(self.netconf['batch_size']):
+                    gen = gen_distrib[-1][b].squeeze() / np.sum(gen_distrib[-1][b])
+                    expected_distance[b] = np.sum(np.multiply(gen, distance_grid))
+                scores = expected_distance
+
+
+            if 'avoid_occlusions' in self.policyparams:
+                occlusion_cfactor = self.policyparams['avoid_occlusions']
+                occulsioncost = np.zeros(self.netconf['batch_size'])
+                if 'predictor_propagation' in self.policyparams:
+                    psum_initval = np.sum(self.rec_input_distrib[-1][0])
+                else: psum_initval = 1.
+                print 'initial frame psum:', psum_initval
+
+                for tstep in range(self.netconf['sequence_length'] - 1):
+                    for b in range(self.netconf['batch_size']):
+                        occulsioncost[b] =  np.maximum(psum_initval - np.sum(gen_distrib[tstep][b]), 0)*occlusion_cfactor
+                        scores[b] += occulsioncost[b]
+                pdb.set_trace()
+
+                print 'occlusion cost of best action', occulsioncost[scores.argsort()[0]]
+                print 'occlusion cost of worst action', occulsioncost[scores.argsort()[-1]]
+                bestindices = scores.argsort()[:self.K]
+                for i in range(self.K):
+                    ind = bestindices[i]
+                    print 'rank{} , totalcost {}, occlusioncost {}'.format(i, scores[ind], occulsioncost[ind])
 
         # for predictor_propagation only!!
         if 'predictor_propagation' in self.policyparams:
             assert not 'correctorconf' in self.policyparams
             if itr == (self.policyparams['iterations'] - 1):
                 # pick the prop distrib from the action actually chosen after the last iteration (i.e. self.indices[0])
-                bestind = expected_distance.argsort()[0]
+                bestind = scores.argsort()[0]
                 best_gen_distrib = gen_distrib[2][bestind].reshape(1, 64, 64, 1)
                 self.rec_input_distrib.append(np.repeat(best_gen_distrib, self.netconf['batch_size'], 0))
+
+        bestindices = scores.argsort()[:self.K]
 
         # compare prediciton with simulation
         if self.verbose and itr == self.policyparams['iterations']-1:
             # print 'creating visuals for best sampled actions at last iteration...'
-
             file_path = self.netconf['current_dir'] + '/verbose'
-
-            bestindices = scores.argsort()[:self.K]
-            bestscores = [scores[ind] for ind in bestindices]
 
             def best(inputlist):
                 outputlist = [np.zeros_like(a)[:self.K] for a in inputlist]
-
                 for ind in range(self.K):
                     for tstep in range(len(inputlist)):
                         outputlist[tstep][ind] = inputlist[tstep][bestindices[ind]]
@@ -273,13 +304,11 @@ class CEM_controller():
                     create_video_pixdistrib_gif(file_path, self.netconf, t=self.t, n_exp=10,
                                             suppress_number=True, suffix='iter{}_t{}'.format(itr, self.t))
 
-            f = open(file_path + '/actions_last_iter_t{}'.format(self.t), 'w')
-            sorted = scores.argsort()
-            for i in range(actions.shape[0]):
-                f.write('index: {0}, score: {1}, rank: {2}'.format(i, scores[i],
-                                                                   np.where(sorted == i)[0][0]))
-                f.write('action {}\n'.format(actions[i]))
-
+            # f = open(file_path + '/actions_last_iter_t{}'.format(self.t), 'w')
+            # for i in range(actions.shape[0]):
+            #     f.write('index: {0}, score: {1}, rank: {2}'.format(i, scores[i],
+            #                                                        np.where(sorted == i)[0][0]))
+            #     f.write('action {}\n'.format(actions[i]))
             # pdb.set_trace()
 
         bestindex = scores.argsort()[0]

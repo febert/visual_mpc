@@ -76,7 +76,7 @@ def construct_model(images,
     else:
         DNA_KERN_SIZE = 5
 
-    print 'constructing network with less layers...'
+    print 'constructing costmask network...'
 
     if stp + cdna + dna != 1:
         raise ValueError('More than one, or no network option specified.')

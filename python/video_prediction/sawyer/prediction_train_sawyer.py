@@ -244,7 +244,8 @@ def main(unused_argv, conf_script= None):
 
         if FLAGS.diffmotions:
             inference = True
-            conf['sequence_length'] = 15
+
+        conf['sequence_length'] = 15
 
     print 'Constructing models and inputs.'
     if FLAGS.diffmotions:
@@ -406,12 +407,12 @@ def main(unused_argv, conf_script= None):
             create_video_pixdistrib_gif(file_path, conf,
                                         suffix='_diffmotions_b{}_l{}'.format(b_exp, conf['sequence_length']), n_exp=10)
         else:
-
-            gen_images, ground_truth = sess.run([val_model.gen_images, val_model.images_sel],
+            gen_images, ground_truth, gen_masks = sess.run([val_model.gen_images, val_model.images_sel, val_model.gen_masks],
                                                 feed_dict)
             cPickle.dump(ground_truth, open(file_path + '/ground_truth.pkl', 'wb'))
+            cPickle.dump(gen_masks, open(file_path + '/gen_masks.pkl', 'wb'))
             cPickle.dump(gen_images, open(file_path + '/gen_image.pkl','wb'))
-            create_gif(file_path, conf, numexp= 20)
+            create_gif(file_path, conf, numexp= 20, append_masks= True)
 
         return
 

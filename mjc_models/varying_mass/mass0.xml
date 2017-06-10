@@ -1,1 +1,3 @@
-<inertial pos="0 0 0" mass="10" diaginertia="1 1 1"/>
+<top>
+    <inertial diaginertia="0.43658133837 0.43658133837 0.43658133837" mass="0.87316267674" pos="0 0 0"/>
+</top>
