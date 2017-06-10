@@ -54,11 +54,10 @@ class Occlusion_Model(object):
 
         # Generated robot states and images.
         self.gen_states, self.gen_images = [], []
-        self.background_masks = []
-        self.generation_masks = []
         self.moved_parts = []
         self.moved_masks = []
         self.list_of_trafos = []
+        self.list_of_comp_factors = []
         self.current_state = states[0]
         self.gen_pix_distrib = []
 
@@ -196,41 +195,41 @@ class Occlusion_Model(object):
                 if reuse:
                     reuse_stp = reuse
 
-                moved_parts, moved_masks, tansforms = self.stp_transformation_mask(self.image_parts, self.objectmasks, stp_input1, self.num_masks, reuse_stp)
+                moved_parts, moved_masks, tansforms = self.stp_transformation_mask(
+                            self.image_parts, self.objectmasks, stp_input1, self.num_masks, reuse_stp)
                 self.list_of_trafos.append(tansforms)
                 self.moved_parts.append(moved_parts)
                 self.moved_masks.append(moved_masks)
 
-                if 'average_layers' in self.conf:
-                    comp_factors = tf.ones([self.batch_size, self.num_masks])*1/self.num_masks
-                    comp_factors = tf.split(1, self.num_masks, comp_factors)
+                if 'exp_comp' in self.conf:
+                    activation = None
                 else:
-                    comp_fact_input = slim.layers.fully_connected(tf.reshape(hidden5, [self.batch_size, -1]),
-                                                                  self.num_masks, scope='fc_compfactors')
-                    comp_factors = tf.split(1, self.num_masks, tf.nn.softmax(comp_fact_input))
+                    activation = tf.nn.relu
+                comp_fact_input = slim.layers.fully_connected(tf.reshape(hidden5, [self.batch_size, -1]),
+                                                                  self.num_masks, scope='fc_compfactors',
+                                                                    activation= activation)
+                if 'exp_comp' in self.conf:
+                    comp_fact_input = tf.exp(comp_fact_input)
+                comp_fact_input = tf.split(1, self.num_masks, comp_fact_input)
 
-                pre_assembly = tf.zeros([self.batch_size, 64, 64, 3], dtype=tf.float32)
-                for part, factor in zip(moved_parts, comp_factors):
-                    factor = tf.reshape(factor, [self.batch_size, 1, 1, 1])
-                    pre_assembly += tf.mul(part, factor)
+                self.list_of_comp_factors.append(comp_fact_input)
 
-                composed_mask = tf.zeros([self.batch_size, 64, 64, 1], dtype=tf.float32)
-                for mask, factor in zip(moved_masks, comp_factors):
-                    factor = tf.reshape(factor, [self.batch_size, 1, 1, 1])
-                    composed_mask += tf.mul(mask, factor)
+                assembly = tf.zeros([self.batch_size, 64, 64, 3], dtype=tf.float32)
+                normalizer = tf.zeros([self.batch_size, 64, 64, 1], dtype=tf.float32)
+                for part, moved_mask, cfact in zip(moved_parts, moved_masks, comp_fact_input):
+                    cfact = tf.reshape(cfact, [self.batch_size, 1, 1, 1])
+                    assembly += part*moved_mask*cfact
+                    normalizer += moved_mask*cfact
 
-                backgd_mask = 1. - composed_mask
-                assembled_image = tf.mul(backgd_mask,self.images[0]) + tf.mul(composed_mask, pre_assembly)
+                assembly /= (normalizer + tf.ones_like(normalizer)*1e-4)
+                self.gen_images.append(assembly)
 
-                self.background_masks.append(backgd_mask)
-
-                if 'gen_pix' in self.conf:
-                    generation_mask = self.get_generationmask(enc6)
-                    gen_image = generation_mask[0]*assembled_image + generation_mask[1]*generated_pix
-                    self.generation_masks.append(generation_mask)
-                    self.gen_images.append(gen_image)
-                else:
-                    self.gen_images.append(assembled_image)
+                # if 'gen_pix' in self.conf:
+                #     generation_mask = self.get_generationmask(enc6)
+                #     gen_image = generation_mask[0]*assembled_image + generation_mask[1]*generated_pix
+                #     self.generation_masks.append(generation_mask)
+                #     self.gen_images.append(gen_image)
+                # else:
 
                 self.current_state = slim.layers.fully_connected(
                     tf.reshape(hidden5, [self.batch_size, -1]),
@@ -281,14 +280,17 @@ class Occlusion_Model(object):
         transformed_parts = []
         transformed_masks = []
         transforms = []
-        prev_mask_list = [tf.tile(m, [1, 1, 1, 3]) for m in prev_mask_list]  # copy the color channel
+
+        if 'movement_factor' in self.conf:
+            movement_factor = self.conf['movement_factor']
+        else: movement_factor = 1.
 
         for i in range(num_masks):
             if 'norotation' in self.conf:
                 params = slim.layers.fully_connected(
                     stp_input, 2, scope='stp_params' + str(i),
                     activation_fn=None,
-                    reuse=reuse)
+                    reuse=reuse)*movement_factor
                 params = tf.reshape(params, [32,2,1])
                 init_val = np.stack([np.identity(2) for _ in range(self.batch_size)])
                 identity_mat = tf.Variable(init_val, dtype=tf.float32)
@@ -297,16 +299,20 @@ class Occlusion_Model(object):
                 params = slim.layers.fully_connected(
                     stp_input, 6, scope='stp_params' + str(i),
                     activation_fn=None,
-                    reuse= reuse) + identity_params
+                    reuse= reuse)*movement_factor + identity_params
+
+            if i == 0:
+                #static background:
+                params = identity_params
 
             transforms.append(params)
-
             outsize = (prev_image_list[0].get_shape()[1], prev_image_list[0].get_shape()[2])
 
-            transformed_part = tf.reshape(transformer(prev_image_list[i], params, outsize), [self.batch_size, 64, 64, 3])
+            transformed_part = transformer(prev_image_list[i], params, outsize)
+            transformed_part = tf.reshape(transformed_part, [self.batch_size, 64, 64, 3])
             transformed_parts.append(transformed_part)
 
-            transf_mask = tf.slice(transformer(prev_mask_list[i], params, outsize), [0, 0, 0, 0], [-1, -1, -1, 1])
+            transf_mask = transformer(prev_mask_list[i], params, outsize)
             transf_mask = tf.reshape(transf_mask, [self.batch_size, 64, 64, 1])
             transformed_masks.append(transf_mask)
 
