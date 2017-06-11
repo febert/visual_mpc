@@ -58,6 +58,7 @@ class Occlusion_Model(object):
         self.moved_masks = []
         self.list_of_trafos = []
         self.list_of_comp_factors = []
+        self.generation_masks = []
         self.current_state = states[0]
         self.gen_pix_distrib = []
 
@@ -220,16 +221,16 @@ class Occlusion_Model(object):
                     cfact = tf.reshape(cfact, [self.batch_size, 1, 1, 1])
                     assembly += part*moved_mask*cfact
                     normalizer += moved_mask*cfact
+                assembly /= (normalizer + tf.ones_like(normalizer) * 1e-4)
 
-                assembly /= (normalizer + tf.ones_like(normalizer)*1e-4)
-                self.gen_images.append(assembly)
+                if 'gen_pix' in self.conf:
+                    generation_mask = self.get_generationmask(enc6)
+                    gen_image = generation_mask[0]*assembly + generation_mask[1]*generated_pix
+                    self.generation_masks.append(generation_mask)
+                else:
+                    gen_image = assembly
 
-                # if 'gen_pix' in self.conf:
-                #     generation_mask = self.get_generationmask(enc6)
-                #     gen_image = generation_mask[0]*assembled_image + generation_mask[1]*generated_pix
-                #     self.generation_masks.append(generation_mask)
-                #     self.gen_images.append(gen_image)
-                # else:
+                self.gen_images.append(gen_image)
 
                 self.current_state = slim.layers.fully_connected(
                     tf.reshape(hidden5, [self.batch_size, -1]),
