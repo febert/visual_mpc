@@ -221,7 +221,7 @@ class Occlusion_Model(object):
                     cfact = tf.reshape(cfact, [self.batch_size, 1, 1, 1])
                     assembly += part*moved_mask*cfact
                     normalizer += moved_mask*cfact
-                assembly /= (normalizer + tf.ones_like(normalizer) * 1e-4)
+                assembly /= (normalizer + tf.ones_like(normalizer) * 1e-3)
 
                 if 'gen_pix' in self.conf:
                     generation_mask = self.get_generationmask(enc6)
