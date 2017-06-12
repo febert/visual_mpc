@@ -6,8 +6,6 @@ DATA_DIR = '/'.join(str.split(current_dir, '/')[:-3]) + '/pushing_data/random_ac
 
 # local output directory
 OUT_DIR = current_dir + '/modeldata'
-print 'here'
-
 
 configuration = {
 'experiment_name': 'stp',
@@ -30,4 +28,3 @@ configuration = {
 'file_visual': '',          # datafile used for making visualizations
 'movement_factor':1e-1
 }
-

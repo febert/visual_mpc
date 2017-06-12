@@ -56,6 +56,7 @@ class Occlusion_Model(object):
         self.gen_states, self.gen_images = [], []
         self.moved_parts = []
         self.moved_masks = []
+        self.assembly_masks_list = []
         self.list_of_trafos = []
         self.list_of_comp_factors = []
         self.generation_masks = []
@@ -185,7 +186,7 @@ class Occlusion_Model(object):
                 generated_pix = tf.nn.sigmoid(enc7)
 
                 if t ==0:
-                    self.image_parts, self.objectmasks = self.decompose_firstimage(enc6)
+                    self.objectmasks = self.decompose_firstimage(enc6)
 
                 stp_input0 = tf.reshape(hidden5, [int(self.batch_size), -1])
                 stp_input1 = slim.layers.fully_connected(
@@ -196,10 +197,11 @@ class Occlusion_Model(object):
                 if reuse:
                     reuse_stp = reuse
 
-                moved_parts, moved_masks, tansforms = self.stp_transformation_mask(
-                            self.image_parts, self.objectmasks, stp_input1, self.num_masks, reuse_stp)
+                moved_images, moved_masks, tansforms = self.stp_transformation_mask(
+                            prev_image, self.objectmasks, stp_input1, self.num_masks, reuse_stp)
+
                 self.list_of_trafos.append(tansforms)
-                self.moved_parts.append(moved_parts)
+                self.moved_parts.append(moved_images)
                 self.moved_masks.append(moved_masks)
 
                 if 'exp_comp' in self.conf:
@@ -216,12 +218,24 @@ class Occlusion_Model(object):
                 self.list_of_comp_factors.append(comp_fact_input)
 
                 assembly = tf.zeros([self.batch_size, 64, 64, 3], dtype=tf.float32)
-                normalizer = tf.zeros([self.batch_size, 64, 64, 1], dtype=tf.float32)
-                for part, moved_mask, cfact in zip(moved_parts, moved_masks, comp_fact_input):
-                    cfact = tf.reshape(cfact, [self.batch_size, 1, 1, 1])
-                    assembly += part*moved_mask*cfact
-                    normalizer += moved_mask*cfact
-                assembly /= (normalizer + tf.ones_like(normalizer) * 1e-3)
+                if 'pos_dependent_assembly' in self.conf:
+                    masks = slim.layers.conv2d_transpose(
+                        enc6, self.num_masks, 1, stride=1, scope='convt7_objectmask')
+                    masks = tf.reshape(
+                        tf.nn.softmax(tf.reshape(masks, [-1, self.num_masks])),
+                        [int(self.batch_size), int(self.img_height), int(self.img_width), self.num_masks])
+                    assembly_masks = tf.split(3, self.num_masks, masks)
+                    self.assembly_masks_list.append(assembly_masks)
+
+                    for part, mask in zip(moved_images, assembly_masks):
+                        assembly += part * mask
+                else:
+                    normalizer = tf.zeros([self.batch_size, 64, 64, 1], dtype=tf.float32)
+                    for part, moved_mask, cfact in zip(moved_images, moved_masks, comp_fact_input):
+                        cfact = tf.reshape(cfact, [self.batch_size, 1, 1, 1])
+                        assembly += part*moved_mask*cfact
+                        normalizer += moved_mask*cfact
+                    assembly /= (normalizer + tf.ones_like(normalizer) * 1e-3)
 
                 if 'gen_pix' in self.conf:
                     generation_mask = self.get_generationmask(enc6)
@@ -247,11 +261,7 @@ class Occlusion_Model(object):
             [int(self.batch_size), int(self.img_height), int(self.img_width), self.num_masks])
         mask_list = tf.split(3, self.num_masks, masks)
 
-        image_partlist = []
-        for mask in mask_list:
-            image_partlist.append(tf.mul(self.images[0], mask))
-
-        return image_partlist, mask_list
+        return mask_list
 
     def get_generationmask(self, enc6):
         masks = slim.layers.conv2d_transpose(
