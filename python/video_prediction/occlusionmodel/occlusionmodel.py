@@ -233,7 +233,6 @@ class Occlusion_Model(object):
 
                     moved_images += [generated_pix]
 
-                    pdb.set_trace()
                     for part, mask in zip(moved_images, assembly_masks):
                         assembly += part * mask
                 else:
