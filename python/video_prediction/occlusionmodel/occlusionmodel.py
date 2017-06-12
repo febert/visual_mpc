@@ -198,7 +198,7 @@ class Occlusion_Model(object):
                     reuse_stp = reuse
 
                 moved_images, moved_masks, tansforms = self.stp_transformation_mask(
-                            prev_image, self.objectmasks, stp_input1, self.num_masks, reuse_stp)
+                            self.images[0], self.objectmasks, stp_input1, self.num_masks, reuse_stp)
 
                 self.list_of_trafos.append(tansforms)
                 self.moved_parts.append(moved_images)
@@ -208,28 +208,39 @@ class Occlusion_Model(object):
                     activation = None
                 else:
                     activation = tf.nn.relu
+
+                if 'gen_pix_averagestep' in self.conf:
+                    num_comp_fact = self.num_masks + 1
+                else: num_comp_fact = self.num_masks
                 comp_fact_input = slim.layers.fully_connected(tf.reshape(hidden5, [self.batch_size, -1]),
-                                                                  self.num_masks, scope='fc_compfactors',
+                                                              num_comp_fact, scope='fc_compfactors',
                                                                     activation_fn= activation)
                 if 'exp_comp' in self.conf:
                     comp_fact_input = tf.exp(comp_fact_input)
-                comp_fact_input = tf.split(1, self.num_masks, comp_fact_input)
+                comp_fact_input = tf.split(1, num_comp_fact, comp_fact_input)
 
                 self.list_of_comp_factors.append(comp_fact_input)
 
                 assembly = tf.zeros([self.batch_size, 64, 64, 3], dtype=tf.float32)
                 if 'pos_dependent_assembly' in self.conf:
                     masks = slim.layers.conv2d_transpose(
-                        enc6, self.num_masks, 1, stride=1, scope='convt7_objectmask')
+                        enc6, self.num_masks+1, 1, stride=1, scope='convt7_posdep')
                     masks = tf.reshape(
-                        tf.nn.softmax(tf.reshape(masks, [-1, self.num_masks])),
-                        [int(self.batch_size), int(self.img_height), int(self.img_width), self.num_masks])
-                    assembly_masks = tf.split(3, self.num_masks, masks)
+                        tf.nn.softmax(tf.reshape(masks, [-1, self.num_masks+1])),
+                        [int(self.batch_size), int(self.img_height), int(self.img_width), self.num_masks+1])
+                    assembly_masks = tf.split(3, self.num_masks+1, masks)
                     self.assembly_masks_list.append(assembly_masks)
 
+                    moved_images += [generated_pix]
+
+                    pdb.set_trace()
                     for part, mask in zip(moved_images, assembly_masks):
                         assembly += part * mask
                 else:
+                    if 'gen_pix_averagestep' in self.conf:
+                        moved_images = [generated_pix] + moved_images
+                        moved_masks = [self.get_generationmask2(enc6)] + moved_masks
+
                     normalizer = tf.zeros([self.batch_size, 64, 64, 1], dtype=tf.float32)
                     for part, moved_mask, cfact in zip(moved_images, moved_masks, comp_fact_input):
                         cfact = tf.reshape(cfact, [self.batch_size, 1, 1, 1])
@@ -271,13 +282,19 @@ class Occlusion_Model(object):
             [int(self.batch_size), int(self.img_height), int(self.img_width), 2])
         return tf.split(3, 2, masks)
 
+    def get_generationmask2(self, enc6):
+        mask = slim.layers.conv2d_transpose(
+            enc6, 1, 1, stride=1, scope='convt7_generationmask', activation_fn=None)
+        mask = tf.exp(mask)
+        return mask
+
 
     ## Utility functions
-    def stp_transformation_mask(self, prev_image_list, prev_mask_list, stp_input, num_masks, reuse= None):
+    def stp_transformation_mask(self, first_image, prev_mask_list, stp_input, num_masks, reuse= None):
         """Apply spatial transformer predictor (STP) to previous image.
     
         Args:
-          prev_image_list: previous image to be transformed.
+          first_image: first image which is transformed.
           stp_input: hidden layer to be used for computing STN parameters.
           num_masks: number of masks and hence the number of STP transformations.
         Returns:
@@ -320,9 +337,9 @@ class Occlusion_Model(object):
                 params = identity_params
 
             transforms.append(params)
-            outsize = (prev_image_list[0].get_shape()[1], prev_image_list[0].get_shape()[2])
+            outsize = (first_image.get_shape()[1], first_image.get_shape()[2])
 
-            transformed_part = transformer(prev_image_list[i], params, outsize)
+            transformed_part = transformer(first_image, params, outsize)
             transformed_part = tf.reshape(transformed_part, [self.batch_size, 64, 64, 3])
             transformed_parts.append(transformed_part)
 
