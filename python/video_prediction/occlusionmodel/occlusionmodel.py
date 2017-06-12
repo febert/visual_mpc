@@ -197,11 +197,13 @@ class Occlusion_Model(object):
                 if reuse:
                     reuse_stp = reuse
 
-                moved_images, moved_masks, tansforms = self.stp_transformation_mask(
-                            self.images[0], self.objectmasks, stp_input1, self.num_masks, reuse_stp)
+                if 'pos_dependent_assembly' in self.conf:
+                    moved_images = self.stp_transformation(self.images[0], stp_input1, self.num_masks, reuse_stp)
+                else:
+                    moved_images, moved_masks, transforms = self.stp_transformation_mask(
+                                self.images[0], self.objectmasks, stp_input1, self.num_masks, reuse_stp)
 
-                self.list_of_trafos.append(tansforms)
-
+                    self.list_of_trafos.append(transforms)
 
                 if 'exp_comp' in self.conf:
                     activation = None
@@ -254,7 +256,8 @@ class Occlusion_Model(object):
                     gen_image = assembly
 
                 self.moved_parts.append(moved_images)
-                self.moved_masks.append(moved_masks)
+                if 'pos_dependent_assembly' not in self.conf:
+                    self.moved_masks.append(moved_masks)
                 self.gen_images.append(gen_image)
 
                 self.current_state = slim.layers.fully_connected(
@@ -290,6 +293,33 @@ class Occlusion_Model(object):
 
 
     ## Utility functions
+    def stp_transformation(self,prev_image, stp_input, num_masks, reuse=None):
+        """Apply spatial transformer predictor (STP) to previous image.
+
+        Args:
+          prev_image: previous image to be transformed.
+          stp_input: hidden layer to be used for computing STN parameters.
+          num_masks: number of masks and hence the number of STP transformations.
+        Returns:
+          List of images transformed by the predicted STP parameters.
+        """
+        # Only import spatial transformer if needed.
+        from video_prediction.transformer.spatial_transformer import transformer
+
+        identity_params = tf.convert_to_tensor(
+            np.array([1.0, 0.0, 0.0, 0.0, 1.0, 0.0], np.float32))
+        transformed = []
+        for i in range(num_masks):
+            params = slim.layers.fully_connected(
+                stp_input, 6, scope='stp_params' + str(i),
+                activation_fn=None,
+                reuse=reuse) + identity_params
+            outsize = (prev_image.get_shape()[1], prev_image.get_shape()[2])
+            transformed.append(transformer(prev_image, params, outsize))
+
+        return transformed
+
+
     def stp_transformation_mask(self, first_image, prev_mask_list, stp_input, num_masks, reuse= None):
         """Apply spatial transformer predictor (STP) to previous image.
     
