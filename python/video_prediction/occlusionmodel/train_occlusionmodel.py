@@ -300,10 +300,10 @@ def main(unused_argv, conf_script= None):
 
         if (itr) % SAVE_INTERVAL == 2:
             tf.logging.info('Saving model to' + conf['output_dir'])
-            oldfile = conf['output_dir'] + '/model' + str(itr - SAVE_INTERVAL)
-            if os.path.isfile(oldfile):
-                os.system("rm {}".format(oldfile))
-                os.system("rm {}".format(oldfile + '.meta'))
+            # oldfile = conf['output_dir'] + '/model' + str(itr - SAVE_INTERVAL)
+            # if os.path.isfile(oldfile):
+            #     os.system("rm {}".format(oldfile))
+            #     os.system("rm {}".format(oldfile + '.meta'))
             saver.save(sess, conf['output_dir'] + '/model' + str(itr))
 
         t_iter.append((datetime.now() - t_startiter).seconds * 1e6 +  (datetime.now() - t_startiter).microseconds )
