@@ -26,7 +26,6 @@ def comp_gif(conf, file_path, name= None, examples = 10):
     ground_truth =dict_['ground_truth']
     gen_images = dict_['gen_images']
     object_masks = dict_['object_masks']
-    image_parts = dict_['image_parts']
 
     moved_parts = dict_['moved_parts']
     moved_parts = prepare_masks(moved_parts, copy_last_dim=False)
@@ -37,7 +36,7 @@ def comp_gif(conf, file_path, name= None, examples = 10):
 
     print 'finished loading ...'
 
-    img = create_images(object_masks, image_parts, examples)
+    img = create_images(object_masks, examples)
     img = Image.fromarray(img)
     img.save(file_path +'/objectparts_masks.png')
 
@@ -57,18 +56,15 @@ def comp_gif(conf, file_path, name= None, examples = 10):
         npy_to_gif(fused_gif, file_path + '/' + name + suffix)
 
 
-def create_images(object_masks, image_parts, nexp):
+def create_images(object_masks, nexp):
     object_masks = [np.repeat(m, 3, axis=-1) for m in object_masks]
     rows = []
 
     num_objects = len(object_masks)
     for ob in range(num_objects):
         maskrow = []
-        objectrow = []
         for ex in range(nexp):
-            objectrow.append(image_parts[ob][ex])
             maskrow.append(object_masks[ob][ex])
-        rows.append(np.concatenate(objectrow, axis=1))
         rows.append(np.concatenate(maskrow, axis=1))
 
     combined = (np.concatenate(rows, axis=0)*255.).astype(np.uint8)
