@@ -201,8 +201,7 @@ class Occlusion_Model(object):
                             self.images[0], self.objectmasks, stp_input1, self.num_masks, reuse_stp)
 
                 self.list_of_trafos.append(tansforms)
-                self.moved_parts.append(moved_images)
-                self.moved_masks.append(moved_masks)
+
 
                 if 'exp_comp' in self.conf:
                     activation = None
@@ -254,6 +253,8 @@ class Occlusion_Model(object):
                 else:
                     gen_image = assembly
 
+                self.moved_parts.append(moved_images)
+                self.moved_masks.append(moved_masks)
                 self.gen_images.append(gen_image)
 
                 self.current_state = slim.layers.fully_connected(

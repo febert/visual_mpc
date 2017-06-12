@@ -202,22 +202,19 @@ def main(unused_argv, conf_script= None):
                      val_model.iter_num: 0 }
         file_path = conf['output_dir']
 
-        ground_truth, gen_images, object_masks, image_parts, moved_parts, trafos, comp_factors = sess.run([
+        ground_truth, gen_images, object_masks, moved_parts, trafos, comp_factors = sess.run([
                                                         val_images,
                                                         val_model.om.gen_images,
                                                         val_model.om.objectmasks,
-                                                        val_model.om.image_parts,
                                                         val_model.om.moved_parts,
                                                         val_model.om.list_of_trafos,
                                                         val_model.om.list_of_comp_factors
                                                         ],
                                                         feed_dict)
-
         dict_ = {}
         dict_['ground_truth'] = ground_truth
         dict_['gen_images'] = gen_images
         dict_['object_masks'] = object_masks
-        dict_['image_parts'] = image_parts
         dict_['moved_parts'] = moved_parts
         dict_['trafos'] = trafos
         dict_['comp_factors'] = comp_factors
