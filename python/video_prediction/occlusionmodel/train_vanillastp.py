@@ -128,7 +128,7 @@ class Model(object):
         loss, psnr_all = 0.0, 0.0
         self.fft_weights = tf.placeholder(tf.float32, [64, 64])
 
-        if 'init_mask_loss':
+        if 'init_mask_loss' in conf:
             gen_masks = [[tf.expand_dims(n, 0) for n in m] for m in gen_masks]
             gen_masks = [tf.concat(0, m) for m in gen_masks]
             init_masks = [tf.expand_dims(m, 0) for m in init_masks]

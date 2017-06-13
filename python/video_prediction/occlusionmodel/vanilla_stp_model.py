@@ -28,9 +28,6 @@ import pdb
 RELU_SHIFT = 1e-12
 
 
-
-
-
 def construct_model(images,
                     actions=None,
                     states=None,
