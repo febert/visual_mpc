@@ -88,6 +88,7 @@ def construct_model(images,
     gen_pix_distrib = []
 
     init_masks = None
+    transformed_masks, trafos = None, None
 
     summaries = []
 
@@ -247,13 +248,18 @@ def construct_model(images,
                     print 'using init mask loss'
                     if t == 0:
                         init_masks = slim.layers.conv2d_transpose(
-                            enc6, num_masks, 1, stride=1, scope='convt7_initmask')
+                            enc6, num_masks+1, 1, stride=1, scope='convt7_initmask')
                         init_masks = tf.reshape(
-                            tf.nn.softmax(tf.reshape(init_masks, [-1, num_masks])),
-                            [int(batch_size), int(img_height), int(img_width), num_masks])
-                        init_masks = tf.split(3, num_masks, init_masks)
+                            tf.nn.softmax(tf.reshape(init_masks, [-1, num_masks+1])),
+                            [int(batch_size), int(img_height), int(img_width), num_masks+1])
+                        init_masks = tf.split(3, num_masks+1, init_masks)
 
-                    transformed = stp_transformation_mask(conf, prev_image, init_masks, stp_input1, num_masks, reuse_stp)
+                    transformed, transformed_masks, trafos = stp_transformation_mask(conf,
+                                                                                     prev_image,
+                                                                                     init_masks,
+                                                                                     stp_input1,
+                                                                                     num_masks,
+                                                                                     reuse_stp)
                 else:
                     transformed = stp_transformation(prev_image, stp_input1, num_masks, reuse_stp)
                 # transformed += stp_transformation(prev_image, stp_input1, num_masks)
@@ -297,10 +303,9 @@ def construct_model(images,
             output = mask_list[0] * prev_image
             for layer, mask in zip(transformed, mask_list[1:]):
                 output += layer * mask
+
             gen_images.append(output)
             gen_masks.append(mask_list)
-
-
 
             if dna and pix_distributions != None:
                 transf_distrib = [dna_transformation(prev_pix_distrib, enc7, DNA_KERN_SIZE)]
@@ -323,9 +328,9 @@ def construct_model(images,
 
 
     if pix_distributions != None:
-        return gen_images, gen_states, gen_masks, init_masks, gen_pix_distrib
+        return gen_images, gen_states, gen_masks, init_masks, gen_pix_distrib, transformed_masks, trafos
     else:
-        return gen_images, gen_states, gen_masks, init_masks, None
+        return gen_images, gen_states, gen_masks, init_masks, None, transformed_masks, trafos
 
 
 ## Utility functions
