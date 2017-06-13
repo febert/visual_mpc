@@ -205,7 +205,7 @@ class Occlusion_Model(object):
 
                     self.list_of_trafos.append(transforms)
 
-                if 'exp_comp' in self.conf:
+                if 'exp_comp' in self.conf or 'quad_comp' in self.conf or 'sign_comp' in self.conf:
                     activation = None
                 else:
                     activation = tf.nn.relu
@@ -218,6 +218,11 @@ class Occlusion_Model(object):
                                                                     activation_fn= activation)
                 if 'exp_comp' in self.conf:
                     comp_fact_input = tf.exp(comp_fact_input)
+                elif 'quad_comp' in self.conf:
+                    comp_fact_input = tf.square(comp_fact_input)
+                elif 'sign_comp' in self.conf:
+                    comp_fact_input = tf.sign(comp_fact_input)
+
                 comp_fact_input = tf.split(1, num_comp_fact, comp_fact_input)
 
                 self.list_of_comp_factors.append(comp_fact_input)
@@ -246,7 +251,7 @@ class Occlusion_Model(object):
                         cfact = tf.reshape(cfact, [self.batch_size, 1, 1, 1])
                         assembly += part*moved_mask*cfact
                         normalizer += moved_mask*cfact
-                    assembly /= (normalizer + tf.ones_like(normalizer) * 1e-3)
+                    assembly /= (normalizer + tf.ones_like(normalizer) * 1e-4)
 
                 # insert the genearted pixels later
                 if 'gen_pix' in self.conf:
