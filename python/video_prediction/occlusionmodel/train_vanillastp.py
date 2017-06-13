@@ -92,7 +92,7 @@ class Model(object):
             pix_distrib = [tf.squeeze(pix) for pix in pix_distrib]
 
         if reuse_scope is None:
-            gen_images, gen_states, gen_masks, init_masks, gen_distrib = construct_model(
+            gen_images, gen_states, gen_masks, init_masks, gen_distrib, transformed_masks, trafos = construct_model(
                 images,
                 actions,
                 states,
@@ -108,7 +108,7 @@ class Model(object):
                 conf=conf)
         else:  # If it's a validation or test model.
             with tf.variable_scope(reuse_scope, reuse=True):
-                gen_images, gen_states, gen_masks, init_masks, gen_distrib = construct_model(
+                gen_images, gen_states, gen_masks, init_masks, gen_distrib, transformed_masks, trafos = construct_model(
                     images,
                     actions,
                     states,
@@ -129,14 +129,22 @@ class Model(object):
         self.fft_weights = tf.placeholder(tf.float32, [64, 64])
 
         if 'init_mask_loss':
+            gen_masks = [[tf.expand_dims(n, 0) for n in m] for m in gen_masks]
+            gen_masks = [tf.concat(0, m) for m in gen_masks]
+            init_masks = [tf.expand_dims(m, 0) for m in init_masks]
+            init_masks = tf.concat(0, init_masks)
+            if 'init_mask_delay' in conf:
+                mult = tf.cond(self.iter_num > conf['init_mask_delay'],  # if 1 use trainigbatch else validation batch
+                        lambda: tf.constant(1.),
+                        lambda: tf.constant(0.))
+            else:
+                mult = 1
+
             for i, x  in zip(range(len(gen_masks)), gen_masks):
-                recon_cost_mse = mean_squared_error(x, init_masks)
+                init_mask_cost = mean_squared_error(x, init_masks)
                 summaries.append(
-                    tf.scalar_summary(prefix + '_recon_cost' + str(i), recon_cost_mse))
-
-                recon_cost = recon_cost_mse
-
-                loss += recon_cost
+                    tf.scalar_summary(prefix + '_initmask_cost' + str(i), init_mask_cost))
+                loss += init_mask_cost*mult
 
         for i, x, gx in zip(
                 range(len(gen_images)), images[conf['context_frames']:],
@@ -144,10 +152,7 @@ class Model(object):
             recon_cost_mse = mean_squared_error(x, gx)
             summaries.append(
                 tf.scalar_summary(prefix + '_recon_cost' + str(i), recon_cost_mse))
-
-            recon_cost = recon_cost_mse
-
-            loss += recon_cost
+            loss += recon_cost_mse
 
         for i, state, gen_state in zip(
                 range(len(gen_states)), states[conf['context_frames']:],
@@ -156,7 +161,7 @@ class Model(object):
             summaries.append(
                 tf.scalar_summary(prefix + '_state_cost' + str(i), state_cost))
             loss += state_cost
-        summaries.append(tf.scalar_summary(prefix + '_psnr_all', psnr_all))
+
         self.psnr_all = psnr_all
 
         self.loss = loss = loss / np.float32(len(images) - conf['context_frames'])
@@ -174,8 +179,6 @@ class Model(object):
         self.gen_masks = gen_masks
         self.gen_distrib = gen_distrib
         self.gen_states = gen_states
-        self.retpos_list = retpos
-
 
 def main(unused_argv, conf_script= None):
 
@@ -277,31 +280,6 @@ def main(unused_argv, conf_script= None):
     t_iter = []
     # Run training.
     fft_weights = calc_fft_weight()
-
-    ###### debugging
-    # from PIL import Image
-    # itr = 0
-    # feed_dict = {model.prefix: 'train',
-    #              model.iter_num: np.float32(itr),
-    #              model.lr: conf['learning_rate'],
-    #              }
-    # true_retina, retpos, gen_distrib, initpos, imdata = sess.run([model.true_retinas, model.retpos_list, model.gen_distrib, init_pos, images ],
-    #                                 feed_dict)
-    #
-    # pdb.set_trace()
-    # print 'retina pos:'
-    # for b in range(4):
-    #     Image.fromarray((true_retina[0][b] * 255).astype(np.uint8)).show()
-    #     Image.fromarray((np.squeeze(gen_distrib[0][b]) * 255).astype(np.uint8)).show()
-    #     Image.fromarray((imdata[b][0] * 255).astype(np.uint8)).show()
-    #
-    #     print 'retpos', retpos[b]
-    #     print 'initpos', init_pos[0]
-    #
-    #     pdb.set_trace()
-    #
-    # pdb.set_trace()
-    # ###### end debugging
 
 
     for itr in range(itr_0, conf['num_iterations'], 1):
