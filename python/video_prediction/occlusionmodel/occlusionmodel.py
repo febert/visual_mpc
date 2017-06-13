@@ -27,7 +27,7 @@ import pdb
 
 # Amount to use when lower bounding tensors
 RELU_SHIFT = 1e-12
-
+DNA_KERN_SIZE = 9
 
 class Occlusion_Model(object):
     def __init__(self,
@@ -41,6 +41,12 @@ class Occlusion_Model(object):
         self.iter_num = iter_num
         self.conf = conf
         self.images = images
+
+        self.cdna, self.stp = False, False
+        if self.conf['model'] == 'CDNA':
+            self.cdna = True
+        elif self.conf['model'] == 'STP':
+            self.stp = True
 
         self.k = conf['schedsamp_k']
         self.use_state = conf['use_state']
@@ -200,10 +206,17 @@ class Occlusion_Model(object):
                 if 'pos_dependent_assembly' in self.conf:
                     moved_images = self.stp_transformation(self.images[1], stp_input1, self.num_masks, reuse_stp)
                 else:
-                    moved_images, moved_masks, transforms = self.stp_transformation_mask(
+                    if self.stp:
+                        moved_images, moved_masks, transforms = self.stp_transformation_mask(
                                 self.images[1], self.objectmasks, stp_input1, self.num_masks, reuse_stp)
 
-                    self.list_of_trafos.append(transforms)
+                    cdna_input = tf.reshape(hidden5, [int(self.batch_size), -1])
+                    if self.cdna:
+                        moved_images, moved_masks, _ = self.cdna_transformation_mask(prev_image, self.objectmasks, cdna_input, self.num_masks,
+                                                     reuse_sc=None)
+
+
+                self.list_of_trafos.append(transforms)
 
                 if 'exp_comp' in self.conf or 'quad_comp' in self.conf or 'sign_comp' in self.conf:
                     activation = None
@@ -220,8 +233,8 @@ class Occlusion_Model(object):
                     comp_fact_input = tf.exp(comp_fact_input)
                 elif 'quad_comp' in self.conf:
                     comp_fact_input = tf.square(comp_fact_input)
-                elif 'sign_comp' in self.conf:
-                    comp_fact_input = tf.sign(comp_fact_input)
+                elif 'abs_comp' in self.conf:
+                    comp_fact_input = tf.abs(comp_fact_input)
 
                 comp_fact_input = tf.split(1, num_comp_fact, comp_fact_input)
 
@@ -384,6 +397,65 @@ class Occlusion_Model(object):
             transformed_masks.append(transf_mask)
 
         return transformed_parts, transformed_masks, transforms
+
+    def cdna_transformation_mask(self, prev_image, init_masks, cdna_input, num_masks, reuse_sc=None):
+        """Apply convolutional dynamic neural advection to previous image.
+
+        Args:
+          prev_image: previous image to be transformed.
+          cdna_input: hidden lyaer to be used for computing CDNA kernels.
+          num_masks: the number of masks and hence the number of CDNA transformations.
+          color_channels: the number of color channels in the images.
+        Returns:
+          List of images transformed by the predicted CDNA kernels.
+        """
+
+        # Predict kernels using linear function of last hidden layer.
+        cdna_kerns = slim.layers.fully_connected(
+            cdna_input,
+            DNA_KERN_SIZE * DNA_KERN_SIZE * num_masks,
+            scope='cdna_params',
+            activation_fn=None,
+            reuse=reuse_sc)
+
+        # Reshape and normalize.
+        cdna_kerns = tf.reshape(
+            cdna_kerns, [self.batch_size, DNA_KERN_SIZE, DNA_KERN_SIZE, 1, num_masks])
+        cdna_kerns = tf.nn.relu(cdna_kerns - RELU_SHIFT) + RELU_SHIFT
+        norm_factor = tf.reduce_sum(cdna_kerns, [1, 2, 3], keep_dims=True)
+        cdna_kerns /= norm_factor
+        cdna_kerns_summary = cdna_kerns
+        cdna_kerns = tf.tile(cdna_kerns, [1, 1, 1, self.color_channels, 1])
+        cdna_kerns = tf.split(0, self.batch_size, cdna_kerns)
+        prev_images = tf.split(0, self.batch_size, prev_image)
+        # Transform image.
+        transformed = []
+        transformed_masks = []
+        for i_b, kernel, preimg in zip(range(self.batch_size), cdna_kerns, prev_images):
+            kernel = tf.squeeze(kernel)
+            if len(kernel.get_shape()) == 3:
+                kernel = tf.expand_dims(kernel, -2)  # correction! ( was -1 before)
+            transformed.append(
+                tf.nn.depthwise_conv2d(preimg, kernel, [1, 1, 1, 1], 'SAME'))
+
+            sing_ex_trafo = []
+            for i_mask in range(self.num_masks):
+                sing_ex_mask = tf.slice(init_masks[i_mask],[i_b,0,0,0], [1,-1,-1,-1])
+                mask_kernel = tf.slice(kernel,[0,0,0,i_mask],[-1,-1,1,1])
+                sing_ex_trafo.append(
+                    tf.nn.depthwise_conv2d(sing_ex_mask, mask_kernel, [1, 1, 1, 1], 'SAME'))
+
+            sing_ex_trafo = tf.concat(0, sing_ex_trafo)
+            sing_ex_trafo = tf.expand_dims(sing_ex_trafo,0)
+            transformed_masks.append(sing_ex_trafo)
+
+        transformed_masks = tf.concat(0, transformed_masks)
+        transformed_masks = tf.split(1, self.num_masks, transformed_masks)
+
+        transformed = tf.concat(0, transformed)
+        transformed = tf.split(3, num_masks, transformed)
+
+        return transformed, transformed_masks, cdna_kerns_summary
 
 
 def scheduled_sample(ground_truth_x, generated_x, batch_size, num_ground_truth):

@@ -258,7 +258,7 @@ def main(unused_argv, conf_script= None):
         cPickle.dump(mask_list, open(file_path + '/mask_list.pkl', 'wb'))
         print 'written files to:' + file_path
 
-        trajectories = utils_vpred.create_gif.comp_video(conf['output_dir'], conf)
+        trajectories = video_prediction.utils_vpred.create_gif.comp_video(conf['output_dir'], conf)
         # utils_vpred.create_gif.comp_masks(conf['output_dir'], conf, trajectories)
         return
 

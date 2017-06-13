@@ -167,11 +167,10 @@ class Model(object):
             pix_distrib = [tf.squeeze(pix) for pix in pix_distrib]
 
         if reuse_scope is None:
-            gen_images, gen_states, gen_masks, gen_distrib, retpos = construct_model(
+            gen_images, gen_states, gen_masks, gen_distrib = construct_model(
                 images,
                 actions,
                 states,
-                init_obj_pose,
                 iter_num=self.iter_num,
                 k=conf['schedsamp_k'],
                 use_state=conf['use_state'],
@@ -184,11 +183,10 @@ class Model(object):
                 conf=conf)
         else:  # If it's a validation or test model.
             with tf.variable_scope(reuse_scope, reuse=True):
-                gen_images, gen_states, gen_masks, gen_distrib, retpos = construct_model(
+                gen_images, gen_states, gen_masks, gen_distrib = construct_model(
                     images,
                     actions,
                     states,
-                    init_obj_pose,
                     iter_num=self.iter_num,
                     k=conf['schedsamp_k'],
                     use_state=conf['use_state'],

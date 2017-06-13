@@ -34,7 +34,6 @@ RELU_SHIFT = 1e-12
 def construct_model(images,
                     actions=None,
                     states=None,
-                    init_obj_pos = None,
                     iter_num=-1.0,
                     k=-1,
                     use_state=True,
@@ -304,9 +303,9 @@ def construct_model(images,
 
 
     if pix_distributions != None:
-        return gen_images, gen_states, gen_masks, gen_pix_distrib, retina_pos_list
+        return gen_images, gen_states, gen_masks, gen_pix_distrib
     else:
-        return gen_images, gen_states, gen_masks, None, retina_pos_list
+        return gen_images, gen_states, gen_masks, None
 
 
 ## Utility functions
