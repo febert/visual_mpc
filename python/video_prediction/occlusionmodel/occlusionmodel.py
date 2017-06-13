@@ -198,10 +198,10 @@ class Occlusion_Model(object):
                     reuse_stp = reuse
 
                 if 'pos_dependent_assembly' in self.conf:
-                    moved_images = self.stp_transformation(self.images[0], stp_input1, self.num_masks, reuse_stp)
+                    moved_images = self.stp_transformation(self.images[1], stp_input1, self.num_masks, reuse_stp)
                 else:
                     moved_images, moved_masks, transforms = self.stp_transformation_mask(
-                                self.images[0], self.objectmasks, stp_input1, self.num_masks, reuse_stp)
+                                self.images[1], self.objectmasks, stp_input1, self.num_masks, reuse_stp)
 
                     self.list_of_trafos.append(transforms)
 
@@ -237,7 +237,7 @@ class Occlusion_Model(object):
                     for part, mask in zip(moved_images, assembly_masks):
                         assembly += part * mask
                 else:
-                    if 'gen_pix_averagestep' in self.conf:
+                    if 'gen_pix_averagestep' in self.conf:  # insert the genearted pixels when averaging
                         moved_images = [generated_pix] + moved_images
                         moved_masks = [self.get_generationmask2(enc6)] + moved_masks
 
@@ -248,6 +248,7 @@ class Occlusion_Model(object):
                         normalizer += moved_mask*cfact
                     assembly /= (normalizer + tf.ones_like(normalizer) * 1e-3)
 
+                # insert the genearted pixels later
                 if 'gen_pix' in self.conf:
                     generation_mask = self.get_generationmask(enc6)
                     gen_image = generation_mask[0]*assembly + generation_mask[1]*generated_pix
