@@ -215,8 +215,6 @@ def construct_model(images,
                 normalizer_fn=tf_layers.layer_norm,
                 normalizer_params={'scope': 'layer_norm9'})
 
-
-
             if dna:
                 # Using largest hidden state for predicting untied conv kernels.
                 enc7 = slim.layers.conv2d_transpose(
