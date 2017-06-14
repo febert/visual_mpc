@@ -241,8 +241,10 @@ def construct_model(images,
                 # This allows the network to also generate one image from scratch,
                 # which is useful when regions of the image become unoccluded.
                 if 'single_view' not in conf:
-                    enc7_cam1 = slim.layers.conv2d_transpose(enc6, color_channels, 1, stride=1, scope='convt5_cam1')
-                    enc7_cam2 = slim.layers.conv2d_transpose(enc6, color_channels, 1, stride=1, scope='convt5_cam2')
+                    # changed activation to None! so that the sigmoid layer after it can generate
+                    # the full range of values.
+                    enc7_cam1 = slim.layers.conv2d_transpose(enc6, color_channels, 1, stride=1, scope='convt5_cam1', activation_fn= None)
+                    enc7_cam2 = slim.layers.conv2d_transpose(enc6, color_channels, 1, stride=1, scope='convt5_cam2', activation_fn= None)
                     transformed_cam1 = [tf.nn.sigmoid(enc7_cam1)]
                     transformed_cam2 = [tf.nn.sigmoid(enc7_cam2)]
                 else:
