@@ -259,7 +259,6 @@ class Model(object):
         self.gen_masks = gen_masks
         self.gen_distrib = gen_distrib
         self.gen_states = gen_states
-        self.retpos_list = retpos
 
 
 def main(unused_argv, conf_script= None):
