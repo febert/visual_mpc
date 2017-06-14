@@ -184,8 +184,10 @@ class Occlusion_Model(object):
                     normalizer_params={'scope': 'layer_norm9'})
 
                 # Using largest hidden state for predicting a new image layer.
+                # changed activation to None! so that the sigmoid layer after it can generate
+                # the full range of values.
                 enc7 = slim.layers.conv2d_transpose(
-                    enc6, self.color_channels, 1, stride=1, scope='convt4')
+                    enc6, self.color_channels, 1, stride=1, scope='convt4', activation_fn=None)
 
                 # This allows the network to also generate one image from scratch,
                 # which is useful when regions of the image become unoccluded.
