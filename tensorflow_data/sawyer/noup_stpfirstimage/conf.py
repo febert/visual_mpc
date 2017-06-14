@@ -2,7 +2,8 @@ import os
 current_dir = os.path.dirname(os.path.realpath(__file__))
 
 # tf record data location:
-DATA_DIR = '/'.join(str.split(current_dir, '/')[:-3]) + '/pushing_data/sawyer_noup_29/train'
+# DATA_DIR = '/'.join(str.split(current_dir, '/')[:-3]) + '/pushing_data/sawyer_noup_29/train'
+DATA_DIR = '/'.join(str.split(current_dir, '/')[:-3]) + '/pushing_data/softmotion30/train'
 
 # local output directory
 OUT_DIR = current_dir + '/modeldata'
@@ -30,7 +31,6 @@ configuration = {
 'downsize': construct_model,           #'create downsized model'
 'file_visual': '',          # datafile used for making visualizations
 'penal_last_only': False,   # penalize only the last state, to get sharper predictions
-'dna_size': 9,              #size of DNA kerns
 'sawyer':'',
 'numcam':2,
 'transform_from_firstimage':''

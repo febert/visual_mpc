@@ -225,8 +225,8 @@ def main(unused_argv, conf_script= None):
     else:
         print 'using CUDA_VISIBLE_DEVICES=', FLAGS.device
         os.environ["CUDA_VISIBLE_DEVICES"] = str(FLAGS.device)
-        tfconfig = gpu_options = tf.GPUOptions(per_process_gpu_memory_fraction=0.9)
-        tf.ConfigProto(gpu_options=gpu_options)
+        gpu_options = tf.GPUOptions(per_process_gpu_memory_fraction=0.9)
+        tfconfig = tf.ConfigProto(gpu_options=gpu_options)
 
         from tensorflow.python.client import device_lib
         print device_lib.list_local_devices()

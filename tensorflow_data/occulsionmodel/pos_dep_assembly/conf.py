@@ -19,7 +19,7 @@ configuration = {
 'context_frames': 2,        # of frames before predictions.' ,
 'use_state': 1,             #'Whether or not to give the state+action to the model' ,
 'model': 'STP',            #'model architecture to use - CDNA, DNA, or STP' ,
-'num_masks': 5,            # 'number of masks, usually 1 for DNA, 10 for CDNA, STN.' ,
+'num_masks': 10,            # 'number of masks, usually 1 for DNA, 10 for CDNA, STN.' ,
 'schedsamp_k': 900.0,       # 'The k hyperparameter for scheduled sampling -1 for no scheduled sampling.' ,
 'train_val_split': 0.95,    #'The percentage of files to use for the training set vs. the validation set.' ,
 'batch_size': 32,           #'batch size for training' ,
