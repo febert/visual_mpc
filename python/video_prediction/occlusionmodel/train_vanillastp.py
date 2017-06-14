@@ -13,7 +13,7 @@ from tensorflow.python.platform import app
 from tensorflow.python.platform import flags
 import video_prediction.utils_vpred.create_gif
 
-from vanilla_stp import construct_model
+from vanilla_stp_model import construct_model
 
 from video_prediction.read_tf_record import build_tfrecord_input
 
