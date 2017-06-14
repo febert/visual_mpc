@@ -30,7 +30,6 @@ RELU_SHIFT = 1e-12
 
 
 
-
 def construct_model(images,
                     actions=None,
                     states=None,
@@ -87,10 +86,7 @@ def construct_model(images,
     current_state = states[0]
     gen_pix_distrib = []
 
-
     summaries = []
-
-    retina_pos_list = []
 
     if k == -1:
         feedself = True
@@ -132,8 +128,6 @@ def construct_model(images,
                 # Scheduled sampling
                 prev_image = scheduled_sample(image, gen_images[-1], batch_size,
                                               num_ground_truth)
-                if pix_distributions != None:
-                    prev_pix_distrib = gen_pix_distrib[-1]
             else:
                 # Always feed in ground_truth
                 prev_image = image
@@ -147,6 +141,7 @@ def construct_model(images,
                     prev_image = images[1]
                     print 'using image 1'
 
+            # Predicted state is always fed back in
             state_action = tf.concat(1, [action, current_state])
 
             enc0 = slim.layers.conv2d(    #32x32x32
@@ -238,7 +233,7 @@ def construct_model(images,
                 if reuse:
                     reuse_stp = reuse
                 transformed = stp_transformation(prev_image, stp_input1, num_masks, reuse_stp)
-                # transformed += stp_transformation(prev_image, stp_input1, num_masks, reuse_stp)
+                # transformed += stp_transformation(prev_image, stp_input1, num_masks)
 
                 if pix_distributions != None:
                     transf_distrib = stp_transformation(prev_pix_distrib, stp_input1, num_masks, reuse=True)
@@ -300,7 +295,6 @@ def construct_model(images,
                 scope='state_pred',
                 activation_fn=None)
             gen_states.append(current_state)
-
 
     if pix_distributions != None:
         return gen_images, gen_states, gen_masks, gen_pix_distrib
@@ -450,84 +444,3 @@ def make_cdna_kerns_summary(cdna_kerns, t, suffix):
         )
 
     return  sum
-
-
-##############
-## Costmask code:
-
-def make_initial_pixdistrib(conf, init_object_pos):
-    desig_pix = mujoco_to_imagespace_tf(init_object_pos)
-
-    flat_ind = []
-    for b in range(conf['batch_size']):
-        r = tf.slice(desig_pix, [b, 0], [1, 1])
-        c = tf.slice(desig_pix, [b, 1], [1, 1])
-
-        flat_ind.append(r * 64+ c)
-
-    flat_ind = tf.concat(0, flat_ind)
-    one_hot = tf.one_hot(flat_ind, depth=64 ** 2, axis=-1)
-    one_hot = tf.reshape(one_hot, [conf['batch_size'], 64, 64])
-
-    return [one_hot, one_hot]
-
-
-def get_new_retinapos(conf, prev_pix_distrib, init_obj_pos, t, iter_num):
-
-    if 'moving_retina' in conf:
-        print 'using moving retina'
-        if t < 1:
-            ret_pix = mujoco_to_imagespace_tf(init_obj_pos)
-        else:
-            ret_pix = get_max_coord(conf, prev_pix_distrib)
-    else:
-        ret_pix = mujoco_to_imagespace_tf(init_obj_pos)
-
-    half_rh = conf['retina_size'] / 2
-    orig_imh = 64
-    current_rpos = tf.clip_by_value(tf.cast(ret_pix, dtype=tf.int32), half_rh, orig_imh - half_rh - 1)
-
-    return current_rpos
-
-
-def get_max_coord(conf, pix_distrib):
-    """
-    get new retina centerpos by selecting the pixel with the maximum probability in pix_distrib
-    :param conf: 
-    :param pix_distrib: 
-    :param current_rpos: 
-    :return: 
-    """
-    pix_distrib_shape = pix_distrib.get_shape()[1:]
-    maxcoord = tf.arg_max(tf.reshape(pix_distrib, [conf['batch_size'], -1]), dimension=1)
-    maxcoord = unravel_argmax(maxcoord, pix_distrib_shape)
-
-    return maxcoord
-
-def unravel_argmax(argmax, shape):
-    output_list = []
-    output_list.append(argmax / (shape[0]))
-    output_list.append(argmax % shape[1])
-    return tf.cast(tf.pack(output_list, 1), dtype=tf.int32)
-
-def mujoco_to_imagespace_tf(mujoco_coord, numpix = 64):
-    """
-    convert form Mujoco-Coord to numpix x numpix image space:
-    :param numpix: number of pixels of square image
-    :param mujoco_coord: batch_size x 2
-    :return: pixel_coord: batch_size x 2
-    """
-    mujoco_coord = tf.cast(mujoco_coord, tf.float32)
-
-    viewer_distance = .75  # distance from camera to the viewing plane
-    window_height = 2 * np.tan(75 / 2 / 180. * np.pi) * viewer_distance  # window height in Mujoco coords
-    pixelheight = window_height / numpix  # height of one pixel
-    middle_pixel = numpix / 2
-    r = -tf.slice(mujoco_coord,[0,1], [-1,1])
-    c =  tf.slice(mujoco_coord,[0,0], [-1,1])
-    pixel_coord = tf.concat(1, [r,c])/pixelheight
-    pixel_coord += middle_pixel
-    pixel_coord = tf.round(pixel_coord)
-    pixel_coord = tf.cast(pixel_coord, tf.int32)
-
-    return pixel_coord
