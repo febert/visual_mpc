@@ -238,7 +238,7 @@ def construct_model(images,
                 if reuse:
                     reuse_stp = reuse
                 transformed = stp_transformation(prev_image, stp_input1, num_masks, reuse_stp)
-                # transformed += stp_transformation(prev_image, stp_input1, num_masks)
+                # transformed += stp_transformation(prev_image, stp_input1, num_masks, reuse_stp)
 
                 if pix_distributions != None:
                     transf_distrib = stp_transformation(prev_pix_distrib, stp_input1, num_masks, reuse=True)

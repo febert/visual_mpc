@@ -286,6 +286,7 @@ def main(unused_argv, conf_script= None):
     if FLAGS.visualize:
         print 'creating visualizations ...'
         conf = adapt_params_visualize(conf, FLAGS.visualize)
+
     print '-------------------------------------------------------------------'
     print 'verify current settings!! '
     for key in conf.keys():
@@ -340,7 +341,7 @@ def main(unused_argv, conf_script= None):
         print 'written files to:' + file_path
 
         trajectories = utils_vpred.create_gif.comp_video(conf['output_dir'], conf)
-        # utils_vpred.create_gif.comp_masks(conf['output_dir'], conf, trajectories)
+        utils_vpred.create_gif.comp_masks(conf['output_dir'], conf, trajectories)
         return
 
     itr_0 =0
