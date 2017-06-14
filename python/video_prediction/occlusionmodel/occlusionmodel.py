@@ -209,14 +209,13 @@ class Occlusion_Model(object):
                     if self.stp:
                         moved_images, moved_masks, transforms = self.stp_transformation_mask(
                                 self.images[1], self.objectmasks, stp_input1, self.num_masks, reuse_stp)
+                        self.list_of_trafos.append(transforms)
 
-                    cdna_input = tf.reshape(hidden5, [int(self.batch_size), -1])
                     if self.cdna:
+                        cdna_input = tf.reshape(hidden5, [int(self.batch_size), -1])
                         moved_images, moved_masks, _ = self.cdna_transformation_mask(prev_image, self.objectmasks, cdna_input, self.num_masks,
-                                                     reuse_sc=None)
+                                                     reuse_sc=reuse)
 
-
-                self.list_of_trafos.append(transforms)
 
                 if 'exp_comp' in self.conf or 'quad_comp' in self.conf or 'sign_comp' in self.conf:
                     activation = None
@@ -451,6 +450,7 @@ class Occlusion_Model(object):
 
         transformed_masks = tf.concat(0, transformed_masks)
         transformed_masks = tf.split(1, self.num_masks, transformed_masks)
+        transformed_masks = [tf.reshape(m, [self.batch_size, 64,64,1]) for m in transformed_masks]
 
         transformed = tf.concat(0, transformed)
         transformed = tf.split(3, num_masks, transformed)
