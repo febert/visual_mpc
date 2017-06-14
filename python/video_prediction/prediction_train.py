@@ -56,51 +56,7 @@ def mean_squared_error(true, pred):
     Returns:
       mean squared error between ground truth and predicted image.
     """
-
     return tf.reduce_sum(tf.square(true - pred)) / tf.to_float(tf.size(pred))
-
-
-def mujoco_to_imagespace_tf(mujoco_coord, numpix = 64):
-    """
-    convert form Mujoco-Coord to numpix x numpix image space:
-    :param numpix: number of pixels of square image
-    :param mujoco_coord: batch_size x 2
-    :return: pixel_coord: batch_size x 2
-    """
-    mujoco_coord = tf.cast(mujoco_coord, tf.float32)
-
-    viewer_distance = .75  # distance from camera to the viewing plane
-    window_height = 2 * np.tan(75 / 2 / 180. * np.pi) * viewer_distance  # window height in Mujoco coords
-    pixelheight = window_height / numpix  # height of one pixel
-    middle_pixel = numpix / 2
-    r = -tf.slice(mujoco_coord,[0,1], [-1,1])
-    c =  tf.slice(mujoco_coord,[0,0], [-1,1])
-    pixel_coord = tf.concat(1, [r,c])/pixelheight
-    pixel_coord += middle_pixel
-    pixel_coord = tf.round(pixel_coord)
-
-    return pixel_coord
-
-def mean_squared_error_costmask(true, pred, current_rpos, conf):
-    retina_size = conf['retina_size']
-    half_rh = retina_size / 2  # half retina height
-
-    true_retinas = []
-    pred_retinas = []
-    for b in range(conf['batch_size']):
-        begin = tf.squeeze(tf.slice(current_rpos, [b, 0], [1, -1]) - tf.constant([half_rh], dtype= tf.int32))
-        begin = tf.concat(0, [tf.zeros([1], dtype=tf.int32), begin, tf.zeros([1], dtype=tf.int32)])
-        len = tf.constant([-1, retina_size, retina_size, -1], dtype=tf.int32)
-        b_true = tf.slice(true, [b, 0, 0, 0], [1, -1, -1, -1])
-        b_pred = tf.slice(pred, [b, 0, 0, 0], [1, -1, -1, -1])
-
-        true_retinas.append(tf.slice(b_true, begin, len))
-        pred_retinas.append(tf.slice(b_pred, begin, len))
-
-    true_retinas = tf.concat(0, true_retinas)
-    pred_retinas = tf.concat(0, pred_retinas)
-    cost = tf.reduce_sum(tf.square(true_retinas - pred_retinas)) / tf.to_float(tf.size(pred_retinas))
-    return cost, true_retinas, pred_retinas
 
 
 def fft_cost(true, pred, conf, fft_weights = None):
@@ -131,14 +87,13 @@ def fft_cost(true, pred, conf, fft_weights = None):
 
     return cost, true_fft_abssum, pred_fft_abssum
 
-
 class Model(object):
     def __init__(self,
                  conf,
                  images=None,
                  actions=None,
                  states=None,
-                 init_obj_pose= None,
+                 sequence_length=None,
                  reuse_scope=None,
                  pix_distrib=None):
 
@@ -146,6 +101,9 @@ class Model(object):
             construct_model = conf['prediction_model']
         else:
             from prediction_model_downsized_lesslayer import construct_model
+
+        if sequence_length is None:
+            sequence_length = conf['sequence_length']
 
         self.prefix = prefix = tf.placeholder(tf.string, [])
         self.iter_num = tf.placeholder(tf.float32, [])
@@ -158,10 +116,8 @@ class Model(object):
         if states != None:
             states = tf.split(1, states.get_shape()[1], states)
             states = [tf.squeeze(st) for st in states]
-
         images = tf.split(1, images.get_shape()[1], images)
         images = [tf.squeeze(img) for img in images]
-
         if pix_distrib != None:
             pix_distrib = tf.split(1, pix_distrib.get_shape()[1], pix_distrib)
             pix_distrib = [tf.squeeze(pix) for pix in pix_distrib]
@@ -199,11 +155,9 @@ class Model(object):
 
         # L2 loss, PSNR for eval.
         true_fft_list, pred_fft_list = [], []
-
         loss, psnr_all = 0.0, 0.0
 
         self.fft_weights = tf.placeholder(tf.float32, [64, 64])
-
 
         for i, x, gx in zip(
                 range(len(gen_images)), images[conf['context_frames']:],
@@ -261,16 +215,18 @@ class Model(object):
         self.gen_states = gen_states
 
 
+
 def main(unused_argv, conf_script= None):
 
     if FLAGS.device ==-1:   # using cpu!
-        os.environ["CUDA_VISIBLE_DEVICES"] = ""
-        tfconfig = None
+        tfconfig = tf.ConfigProto(
+            device_count={'GPU': 0}
+        )
     else:
         print 'using CUDA_VISIBLE_DEVICES=', FLAGS.device
         os.environ["CUDA_VISIBLE_DEVICES"] = str(FLAGS.device)
-        gpu_options = tf.GPUOptions(per_process_gpu_memory_fraction=0.9)
-        tfconfig = tf.ConfigProto(gpu_options=gpu_options)
+        tfconfig = gpu_options = tf.GPUOptions(per_process_gpu_memory_fraction=0.9)
+        tf.ConfigProto(gpu_options=gpu_options)
 
         from tensorflow.python.client import device_lib
         print device_lib.list_local_devices()
@@ -286,7 +242,6 @@ def main(unused_argv, conf_script= None):
     if FLAGS.visualize:
         print 'creating visualizations ...'
         conf = adapt_params_visualize(conf, FLAGS.visualize)
-
     print '-------------------------------------------------------------------'
     print 'verify current settings!! '
     for key in conf.keys():
@@ -296,11 +251,12 @@ def main(unused_argv, conf_script= None):
     print 'Constructing models and inputs.'
     with tf.variable_scope('model', reuse=None) as training_scope:
         images, actions, states = build_tfrecord_input(conf, training=True)
-        model = Model(conf, images, actions, states)
+        model = Model(conf, images, actions, states, conf['sequence_length'])
 
     with tf.variable_scope('val_model', reuse=None):
         val_images, val_actions, val_states = build_tfrecord_input(conf, training=False)
-        val_model = Model(conf, val_images, val_actions, val_states, training_scope)
+        val_model = Model(conf, val_images, val_actions, val_states,
+                          conf['sequence_length'], training_scope)
 
     print 'Constructing saver.'
     # Make saver.
@@ -329,11 +285,11 @@ def main(unused_argv, conf_script= None):
                                                            feed_dict)
             cPickle.dump(true_fft, open(file_path + '/true_fft.pkl', 'wb'))
             cPickle.dump(pred_fft, open(file_path + '/pred_fft.pkl', 'wb'))
-
-        gen_images, ground_truth, mask_list = sess.run([val_model.gen_images,
-                                                        val_images, val_model.gen_masks,
-                                                        ],
-                                                       feed_dict)
+        else:
+            gen_images, ground_truth, mask_list = sess.run([val_model.gen_images,
+                                                            val_images, val_model.gen_masks,
+                                                            ],
+                                                           feed_dict)
 
         cPickle.dump(gen_images, open(file_path + '/gen_image_seq.pkl','wb'))
         cPickle.dump(ground_truth, open(file_path + '/ground_truth.pkl', 'wb'))
@@ -362,32 +318,6 @@ def main(unused_argv, conf_script= None):
     t_iter = []
     # Run training.
     fft_weights = calc_fft_weight()
-
-    ###### debugging
-    # from PIL import Image
-    # itr = 0
-    # feed_dict = {model.prefix: 'train',
-    #              model.iter_num: np.float32(itr),
-    #              model.lr: conf['learning_rate'],
-    #              }
-    # true_retina, retpos, gen_distrib, initpos, imdata = sess.run([model.true_retinas, model.retpos_list, model.gen_distrib, init_pos, images ],
-    #                                 feed_dict)
-    #
-    # pdb.set_trace()
-    # print 'retina pos:'
-    # for b in range(4):
-    #     Image.fromarray((true_retina[0][b] * 255).astype(np.uint8)).show()
-    #     Image.fromarray((np.squeeze(gen_distrib[0][b]) * 255).astype(np.uint8)).show()
-    #     Image.fromarray((imdata[b][0] * 255).astype(np.uint8)).show()
-    #
-    #     print 'retpos', retpos[b]
-    #     print 'initpos', init_pos[0]
-    #
-    #     pdb.set_trace()
-    #
-    # pdb.set_trace()
-    # ###### end debugging
-
 
     for itr in range(itr_0, conf['num_iterations'], 1):
         t_startiter = datetime.now()
