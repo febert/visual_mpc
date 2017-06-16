@@ -258,7 +258,6 @@ def construct_model(images,
                                                                            reuse_sc= True)
                     summaries += make_cdna_kerns_summary(new_cdna_distrib_filter, t, 'distrib')
 
-
             elif dna:
                 # Only one mask is supported (more should be unnecessary).
                 if num_masks != 1:

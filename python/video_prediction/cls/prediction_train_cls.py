@@ -16,7 +16,8 @@ import video_prediction.utils_vpred.create_gif
 from video_prediction.read_tf_record import build_tfrecord_input
 
 from video_prediction.utils_vpred.skip_example import skip_example
-from occlusionmodel import Occlusion_Model
+
+from prediction_model_cls import Prediction_Model
 import makegifs
 
 from datetime import datetime
@@ -35,6 +36,7 @@ flags.DEFINE_string('hyper', '', 'hyperparameters configuration file')
 flags.DEFINE_string('visualize', '', 'model within hyperparameter folder from which to create gifs')
 flags.DEFINE_integer('device', 0 ,'the value for CUDA_VISIBLE_DEVICES variable, -1 uses cpu')
 flags.DEFINE_string('pretrained', None, 'path to model file from which to resume training')
+
 
 ## Helper functions
 def peak_signal_to_noise_ratio(true, pred):
@@ -58,8 +60,9 @@ def mean_squared_error(true, pred):
     Returns:
       mean squared error between ground truth and predicted image.
     """
-
     return tf.reduce_sum(tf.square(true - pred)) / tf.to_float(tf.size(pred))
+
+
 
 
 class Model(object):
@@ -68,8 +71,17 @@ class Model(object):
                  images=None,
                  actions=None,
                  states=None,
+                 sequence_length=None,
                  reuse_scope=None,
-                 ):
+                 pix_distrib=None):
+
+        if 'prediction_model' in conf:
+            construct_model = conf['prediction_model']
+        else:
+            from video_prediction.prediction_model_downsized_lesslayer import construct_model
+
+        if sequence_length is None:
+            sequence_length = conf['sequence_length']
 
         self.prefix = prefix = tf.placeholder(tf.string, [])
         self.iter_num = tf.placeholder(tf.float32, [])
@@ -82,34 +94,41 @@ class Model(object):
         if states != None:
             states = tf.split(1, states.get_shape()[1], states)
             states = [tf.squeeze(st) for st in states]
-
         images = tf.split(1, images.get_shape()[1], images)
         images = [tf.squeeze(img) for img in images]
+        if pix_distrib != None:
+            pix_distrib = tf.split(1, pix_distrib.get_shape()[1], pix_distrib)
+            pix_distrib = [tf.squeeze(pix) for pix in pix_distrib]
 
         if reuse_scope is None:
-            self.om = Occlusion_Model(
+            self.m = Prediction_Model(
                 images,
                 actions,
                 states,
+                pix_distrib,
                 iter_num=self.iter_num,
                 conf=conf)
-            self.om.build()
+            self.m.build()
         else:  # If it's a validation or test model.
             with tf.variable_scope(reuse_scope, reuse=True):
-                self.om = Occlusion_Model(
+                self.m = Prediction_Model(
                     images,
                     actions,
                     states,
+                    pix_distrib,
                     iter_num=self.iter_num,
-                    conf= conf)
-                self.om.build()
+                    conf=conf)
+                self.m.build()
 
         # L2 loss, PSNR for eval.
+        true_fft_list, pred_fft_list = [], []
         loss, psnr_all = 0.0, 0.0
 
+        self.fft_weights = tf.placeholder(tf.float32, [64, 64])
+
         for i, x, gx in zip(
-                range(len(self.om.gen_images)), images[conf['context_frames']:],
-                self.om.gen_images[conf['context_frames'] - 1:]):
+                range(len(self.m.gen_images)), images[conf['context_frames']:],
+                self.m.gen_images[conf['context_frames'] - 1:]):
             recon_cost_mse = mean_squared_error(x, gx)
 
             psnr_i = peak_signal_to_noise_ratio(x, gx)
@@ -119,33 +138,31 @@ class Model(object):
             summaries.append(tf.scalar_summary(prefix + '_psnr' + str(i), psnr_i))
 
             recon_cost = recon_cost_mse
-
             loss += recon_cost
 
         for i, state, gen_state in zip(
-                range(len(self.om.gen_states)), states[conf['context_frames']:],
-                self.om.gen_states[conf['context_frames'] - 1:]):
+                range(len(self.m.gen_states)), states[conf['context_frames']:],
+                self.m.gen_states[conf['context_frames'] - 1:]):
             state_cost = mean_squared_error(state, gen_state) * 1e-4 * conf['use_state']
             summaries.append(
                 tf.scalar_summary(prefix + '_state_cost' + str(i), state_cost))
             loss += state_cost
         summaries.append(tf.scalar_summary(prefix + '_psnr_all', psnr_all))
         self.psnr_all = psnr_all
-
         self.loss = loss = loss / np.float32(len(images) - conf['context_frames'])
 
         summaries.append(tf.scalar_summary(prefix + '_loss', loss))
 
         self.lr = tf.placeholder_with_default(conf['learning_rate'], ())
-
         self.train_op = tf.train.AdamOptimizer(self.lr).minimize(loss)
         self.summ_op = tf.merge_summary(summaries)
 
 def main(unused_argv, conf_script= None):
 
     if FLAGS.device ==-1:   # using cpu!
-        os.environ["CUDA_VISIBLE_DEVICES"] = ""
-        tfconfig = None
+        tfconfig = tf.ConfigProto(
+            device_count={'GPU': 0}
+        )
     else:
         print 'using CUDA_VISIBLE_DEVICES=', FLAGS.device
         os.environ["CUDA_VISIBLE_DEVICES"] = str(FLAGS.device)
@@ -160,8 +177,8 @@ def main(unused_argv, conf_script= None):
 
     if not os.path.exists(FLAGS.hyper):
         sys.exit("Experiment configuration not found")
-
     hyperparams = imp.load_source('hyperparams', conf_file)
+
     conf = hyperparams.configuration
     if FLAGS.visualize:
         print 'creating visualizations ...'
@@ -175,11 +192,12 @@ def main(unused_argv, conf_script= None):
     print 'Constructing models and inputs.'
     with tf.variable_scope('model', reuse=None) as training_scope:
         images, actions, states = build_tfrecord_input(conf, training=True)
-        model = Model(conf, images, actions, states)
+        model = Model(conf, images, actions, states, conf['sequence_length'])
 
     with tf.variable_scope('val_model', reuse=None):
         val_images, val_actions, val_states = build_tfrecord_input(conf, training=False)
-        val_model = Model(conf, val_images, val_actions, val_states, training_scope)
+        val_model = Model(conf, val_images, val_actions, val_states,
+                          conf['sequence_length'], training_scope)
 
     print 'Constructing saver.'
     # Make saver.
@@ -202,28 +220,24 @@ def main(unused_argv, conf_script= None):
                      val_model.iter_num: 0 }
         file_path = conf['output_dir']
 
-        ground_truth, gen_images, object_masks, moved_parts, trafos, comp_factors = sess.run([
-                                                        val_images,
-                                                        val_model.om.gen_images,
-                                                        val_model.om.objectmasks,
-                                                        val_model.om.moved_parts,
-                                                        val_model.om.list_of_trafos,
-                                                        val_model.om.list_of_comp_factors
-                                                        ],
-                                                        feed_dict)
-        dict_ = {}
-        dict_['ground_truth'] = ground_truth
-        dict_['gen_images'] = gen_images
-        dict_['object_masks'] = object_masks
-        dict_['moved_parts'] = moved_parts
-        dict_['trafos'] = trafos
-        dict_['comp_factors'] = comp_factors
+        ground_truth, gen_images, gen_masks, gen_pix_distrib, moved_parts = sess.run([val_images,
+                                                        val_model.m.gen_images,
+                                                        val_model.m.gen_masks,
+                                                        val_model.m.gen_pix_distrib,
+                                                        val_model.m.moved_parts
+                                                            ],
+                                                           feed_dict)
 
-        cPickle.dump(dict_, open(file_path + '/dict_.pkl', 'wb'))
+        dict = {}
+        dict['gen_images'] = gen_images
+        dict['ground_truth'] = ground_truth
+        dict['gen_masks'] = gen_masks
+        dict['gen_pix_distrib'] = gen_pix_distrib
+        dict['moved_parts'] = moved_parts
+        cPickle.dump(dict, open(file_path + '/pred.pkl','wb'))
         print 'written files to:' + file_path
 
-        trajectories = makegifs.comp_gif(conf, conf['output_dir'])
-        # utils_vpred.create_gif.comp_masks(conf['output_dir'], conf, trajectories)
+        trajectories = makegifs.comp_gif(conf, conf['output_dir'], append_masks=True, show_parts=True)
         return
 
     itr_0 =0
@@ -242,7 +256,8 @@ def main(unused_argv, conf_script= None):
 
     starttime = datetime.now()
     t_iter = []
-
+    # Run training.
+    fft_weights = calc_fft_weight()
 
     for itr in range(itr_0, conf['num_iterations'], 1):
         t_startiter = datetime.now()
@@ -250,7 +265,7 @@ def main(unused_argv, conf_script= None):
         feed_dict = {model.prefix: 'train',
                      model.iter_num: np.float32(itr),
                      model.lr: conf['learning_rate'],
-                     }
+                     model.fft_weights: fft_weights}
         cost, _, summary_str = sess.run([model.loss, model.train_op, model.summ_op],
                                         feed_dict)
 
@@ -263,7 +278,7 @@ def main(unused_argv, conf_script= None):
             feed_dict = {val_model.lr: 0.0,
                          val_model.prefix: 'val',
                          val_model.iter_num: np.float32(itr),
-                         }
+                         val_model.fft_weights: fft_weights}
             _, val_summary_str = sess.run([val_model.train_op, val_model.summ_op],
                                           feed_dict)
             summary_writer.add_summary(val_summary_str, itr)
@@ -271,10 +286,6 @@ def main(unused_argv, conf_script= None):
 
         if (itr) % SAVE_INTERVAL == 2:
             tf.logging.info('Saving model to' + conf['output_dir'])
-            # oldfile = conf['output_dir'] + '/model' + str(itr - SAVE_INTERVAL)
-            # if os.path.isfile(oldfile):
-            #     os.system("rm {}".format(oldfile))
-            #     os.system("rm {}".format(oldfile + '.meta'))
             saver.save(sess, conf['output_dir'] + '/model' + str(itr))
 
         t_iter.append((datetime.now() - t_startiter).seconds * 1e6 +  (datetime.now() - t_startiter).microseconds )
@@ -297,6 +308,18 @@ def main(unused_argv, conf_script= None):
     tf.logging.info('Training complete')
     tf.logging.flush()
 
+
+def calc_fft_weight():
+
+    weight = np.zeros((64,64))
+    for row in range(64):
+        for col in range(64):
+            p = np.array([row,col])
+            c = np.array([31,31])
+            weight[row, col] = np.linalg.norm(p -c)**2
+
+    weight /= np.max(weight)
+    return weight
 
 if __name__ == '__main__':
     tf.logging.set_verbosity(tf.logging.INFO)

@@ -344,9 +344,9 @@ def main(unused_argv, conf_script= None):
 
                 sel_img = np.concatenate([sel_img_main, sel_img_aux1], axis= 3)
 
-            c = Getdesig(sel_img_aux1, conf, 'b{}'.format(b_exp))
-            desig_pos_aux1 = c.coords.astype(np.int32)
-            # desig_pos_aux1 = np.array([8, 49])
+            # c = Getdesig(sel_img_aux1, conf, 'b{}'.format(b_exp))
+            # desig_pos_aux1 = c.coords.astype(np.int32)
+            desig_pos_aux1 = np.array([16, 42])
 
             print "selected designated position for aux1 [row,col]:", desig_pos_aux1
 
