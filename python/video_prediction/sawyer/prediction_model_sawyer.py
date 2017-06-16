@@ -301,7 +301,9 @@ def construct_model(images,
                                                           scope='convt7_cam2',extra_masks=extra_masks)
                 output = tf.concat(3, [output_cam1, output_cam2])
             else:
-                output, mask_list_cam2 = fuse_trafos(conf, enc6, prev_image,
+                if '1stimg_bckgd' in conf:
+                    background = images[0]
+                output, mask_list_cam2 = fuse_trafos(conf, enc6, background,
                                                      transformed_cam2l, batch_size,
                                                      scope='convt7_cam2', extra_masks= extra_masks)
             gen_images.append(output)
@@ -326,7 +328,7 @@ def construct_model(images,
 
     return gen_images, gen_states, gen_masks, gen_pix_distrib, moved_images, moved_pix_distrib, trafos
 
-def fuse_trafos(conf, enc6, prev_image, transformed, batch_size, scope, extra_masks):
+def fuse_trafos(conf, enc6, background_image, transformed, batch_size, scope, extra_masks):
     masks = slim.layers.conv2d_transpose(
         enc6, (conf['num_masks']+ extra_masks), 1, stride=1, scope=scope)
 
@@ -343,7 +345,7 @@ def fuse_trafos(conf, enc6, prev_image, transformed, batch_size, scope, extra_ma
         tf.nn.softmax(tf.reshape(masks, [-1, num_masks +extra_masks])),
         [int(batch_size), int(img_height), int(img_width), num_masks +extra_masks])
     mask_list = tf.split(3, num_masks +extra_masks, masks)
-    output = mask_list[0] * prev_image
+    output = mask_list[0] * background_image
 
     for layer, mask in zip(transformed, mask_list[1:]):
         output += layer * mask
@@ -375,8 +377,7 @@ def stp_transformation(prev_image, stp_input, num_masks, reuse= None, suffix = N
             activation_fn=None,
             reuse= reuse) + identity_params
         outsize = (prev_image.get_shape()[1], prev_image.get_shape()[2])
-        transformed.append(tf.reshape(
-            transformer(prev_image, params, outsize), [32,64,64,3]))
+        transformed.append(transformer(prev_image, params, outsize))
         trafos.append(params)
 
     return transformed, trafos

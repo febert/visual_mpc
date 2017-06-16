@@ -46,27 +46,24 @@ def create_gif(file_path, conf, suffix = None, numexp = 8, append_masks = False)
 def get_masks(conf, file_path, repeat_last_dim = False):
     masks = cPickle.load(open(file_path + '/gen_masks.pkl', "rb"))
 
-    tsteps = len(masks)
-    nmasks = len(masks[0])
-
-
+    # tsteps = len(masks)
+    # nmasks = len(masks[0])
     # print mask statistics:
-    pix_pos = np.array([8, 49])
-    print 'evaluate mask values at designated pixel:',pix_pos
-    for t in range(tsteps):
-        for imask in range(nmasks):
-            print 't{0}: mask {1}: value= {2}'.format(t, imask, masks[t][imask][0, pix_pos[0], pix_pos[1]])
-
-    print 'mask statistics...'
-    for t in range(tsteps):
-        sum_permask = []
-        print 'mask of time {}'.format(t)
-        for imask in range(nmasks):
-            sum_permask.append(np.sum(masks[t][imask]))
-            print 'sum of mask{0} :{1}'.format(imask,sum_permask[imask])
-
-        sum_all_move = np.sum(np.stack(sum_permask[2:]))
-        print 'sum of all movment-masks:', sum_all_move
+    # pix_pos = np.array([8, 49])
+    # print 'evaluate mask values at designated pixel:',pix_pos
+    # for t in range(tsteps):
+    #     for imask in range(nmasks):
+    #         print 't{0}: mask {1}: value= {2}'.format(t, imask, masks[t][imask][0, pix_pos[0], pix_pos[1]])
+    # print 'mask statistics...'
+    # for t in range(tsteps):
+    #     sum_permask = []
+    #     print 'mask of time {}'.format(t)
+    #     for imask in range(nmasks):
+    #         sum_permask.append(np.sum(masks[t][imask]))
+    #         print 'sum of mask{0} :{1}'.format(imask,sum_permask[imask])
+    #
+    #     sum_all_move = np.sum(np.stack(sum_permask[2:]))
+    #     print 'sum of all movment-masks:', sum_all_move
     # end mask statistics:
 
     return convert_to_videolist(masks, repeat_last_dim)
@@ -90,7 +87,7 @@ def convert_to_videolist(input, repeat_last_dim):
     return list_of_videos
 
 
-def create_video_pixdistrib_gif(file_path, conf, t, suffix = "", n_exp = 8, suppress_number = False,
+def create_video_pixdistrib_gif(file_path, conf, t=0, suffix = "", n_exp = 8, suppress_number = False,
                                 append_masks = False, show_moved= False):
     gen_images = cPickle.load(open(file_path + '/gen_image_t{}.pkl'.format(t), "rb"))
     gen_distrib = cPickle.load(open(file_path + '/gen_distrib_t{}.pkl'.format(t), "rb"))
@@ -126,19 +123,15 @@ def create_video_pixdistrib_gif(file_path, conf, t, suffix = "", n_exp = 8, supp
         else:
             gen_distrib = [np.repeat(g, 3, axis=3) for g in gen_distrib]
 
-
-
         video_list = [gen_images, gen_distrib]
-
-
         if append_masks:
             list_of_maskvideos = get_masks(conf, file_path, repeat_last_dim=True)
             # list_of_maskvideos = [make_color_scheme(v) for v in list_of_maskvideos]
             video_list += list_of_maskvideos
 
         if show_moved:
-            moved_im = cPickle.load(open(file_path + '/moved_im.pkl'.format(t), "rb"))
-            moved_pix = cPickle.load(open(file_path + '/moved_pix.pkl'.format(t), "rb"))
+            moved_im = cPickle.load(open(file_path + '/moved_im.pkl', "rb"))
+            moved_pix = cPickle.load(open(file_path + '/moved_pix.pkl', "rb"))
             moved_im = convert_to_videolist(moved_im, repeat_last_dim=False)
             moved_pix = convert_to_videolist(moved_pix, repeat_last_dim=True)
 
@@ -185,7 +178,7 @@ if __name__ == '__main__':
     # file_path = '/home/guser/Desktop/src/lsdc/experiments/cem_exp/benchmarks_sawyer/predprop/verbose'
     # hyperparams = imp.load_source('hyperparams', '/home/guser/Desktop/src/lsdc/experiments/cem_exp/benchmarks_sawyer/predprop/conf.py')
 
-    exp_dir = '/home/frederik/Documents/catkin_ws/src/lsdc/tensorflow_data/sawyer/stpfirstimage_genpix'
+    exp_dir = '/home/frederik/Documents/catkin_ws/src/lsdc/tensorflow_data/sawyer/stpfirstimage'
 
     hyperparams = imp.load_source('hyperparams', exp_dir +'/conf.py')
     conf = hyperparams.configuration
