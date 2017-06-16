@@ -237,6 +237,8 @@ def construct_model(images,
                         transf_distrib_cam2 = dna_transformation(prev_pix_distrib, trafo_input_cam2, DNA_KERN_SIZE)
                         gen_pix_distrib.append(transf_distrib_cam2)
 
+                extra_masks = 1
+
 
             if conf['model']=='STP':
                 # This allows the network to also generate one image from scratch,
@@ -303,20 +305,27 @@ def construct_model(images,
             else:
                 if '1stimg_bckgd' in conf:
                     background = images[0]
+                    print 'using background from first image..'
+                else: background = prev_image
                 output, mask_list_cam2 = fuse_trafos(conf, enc6, background,
                                                      transformed_cam2l, batch_size,
                                                      scope='convt7_cam2', extra_masks= extra_masks)
             gen_images.append(output)
             gen_masks.append(mask_list_cam2)
 
-            if conf['model']=='STP':
-                if pix_distributions!=None:
-                    pix_distrib_output = mask_list_cam2[0] * prev_pix_distrib
-                    mult_list = []
-                    for i in range(num_masks):
-                        mult_list.append(transf_distrib_cam2[i] * mask_list_cam2[i+extra_masks])
-                        pix_distrib_output += mult_list[i]
-                    gen_pix_distrib.append(pix_distrib_output)
+
+
+            if pix_distributions!=None:
+                if '1stimg_bckgd' in conf:
+                    background_pix = pix_distributions[0]
+                    print 'using pix_distrib-background from first image..'
+                else:
+                    background_pix = prev_pix_distrib
+
+                pix_distrib_output = mask_list_cam2[0] * background_pix
+                for i in range(num_masks):
+                    pix_distrib_output += transf_distrib_cam2[i] * mask_list_cam2[i+extra_masks]
+                gen_pix_distrib.append(pix_distrib_output)
 
             if current_state != None:
                 current_state = slim.layers.fully_connected(
