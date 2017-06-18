@@ -206,7 +206,7 @@ def main(unused_argv, conf_script= None):
                                                         val_images,
                                                         val_model.om.gen_images,
                                                         val_model.om.objectmasks,
-                                                        val_model.om.moved_parts,
+                                                        val_model.om.moved_imagesl,
                                                         val_model.om.list_of_trafos,
                                                         val_model.om.list_of_comp_factors
                                                         ],

@@ -27,7 +27,7 @@ import pdb
 
 # Amount to use when lower bounding tensors
 RELU_SHIFT = 1e-12
-DNA_KERN_SIZE = 9
+
 
 class Occlusion_Model(object):
     def __init__(self,
@@ -47,6 +47,15 @@ class Occlusion_Model(object):
             self.cdna = True
         elif self.conf['model'] == 'STP':
             self.stp = True
+        elif self.conf['model'] == 'DNA':
+            self.dna = True
+
+
+        if 'dna_size' in conf:
+            self.DNA_KERN_SIZE = conf['dna_size']
+        else:
+            self.DNA_KERN_SIZE = 5
+
 
         self.k = conf['schedsamp_k']
         self.use_state = conf['use_state']
@@ -60,8 +69,8 @@ class Occlusion_Model(object):
 
         # Generated robot states and images.
         self.gen_states, self.gen_images = [], []
-        self.moved_parts = []
-        self.moved_masks = []
+        self.moved_imagesl = []
+        self.moved_masksl = []
         self.assembly_masks_list = []
         self.list_of_trafos = []
         self.list_of_comp_factors = []
@@ -183,18 +192,23 @@ class Occlusion_Model(object):
                     normalizer_fn=tf_layers.layer_norm,
                     normalizer_params={'scope': 'layer_norm9'})
 
-                # Using largest hidden state for predicting a new image layer.
-                # changed activation to None! so that the sigmoid layer after it can generate
-                # the full range of values.
-                enc7 = slim.layers.conv2d_transpose(
-                    enc6, self.color_channels, 1, stride=1, scope='convt4', activation_fn=None)
+                if not self.dna:
+                    # Using largest hidden state for predicting a new image layer.
+                    # changed activation to None! so that the sigmoid layer after it can generate
+                    # the full range of values.
+                    enc7 = slim.layers.conv2d_transpose(
+                        enc6, self.color_channels, 1, stride=1, scope='convt4', activation_fn=None)
 
-                # This allows the network to also generate one image from scratch,
-                # which is useful when regions of the image become unoccluded.
-                generated_pix = tf.nn.sigmoid(enc7)
+                    # This allows the network to also generate one image from scratch,
+                    # which is useful when regions of the image become unoccluded.
+                    generated_pix = tf.nn.sigmoid(enc7)
 
-                # if t ==0:
-                #     self.objectmasks = self.decompose_firstimage(enc6)
+                if t ==0:
+                    self.objectmasks = self.decompose_firstimage(enc6)
+
+                    self.moved_masksl.append(self.objectmasks)
+                    prev_imagel = [prev_image for _ in range(self.num_masks)]
+                    self.moved_imagesl.append(prev_imagel)
 
                 stp_input0 = tf.reshape(hidden5, [int(self.batch_size), -1])
                 stp_input1 = slim.layers.fully_connected(
@@ -218,6 +232,12 @@ class Occlusion_Model(object):
                         moved_images, moved_masks, _ = self.cdna_transformation_mask(prev_image, self.objectmasks, cdna_input, self.num_masks,
                                                      reuse_sc=reuse)
 
+                    if self.dna:
+                        moved_images, moved_masks = self.apply_dna_separately(enc6)
+
+                    self.moved_masksl.append(moved_masks)
+
+                self.moved_imagesl.append(moved_images)
 
                 if 'exp_comp' in self.conf or 'quad_comp' in self.conf or 'sign_comp' in self.conf:
                     activation = None
@@ -275,9 +295,6 @@ class Occlusion_Model(object):
                 else:
                     gen_image = assembly
 
-                self.moved_parts.append(moved_images)
-                if 'pos_dependent_assembly' not in self.conf:
-                    self.moved_masks.append(moved_masks)
                 self.gen_images.append(gen_image)
 
                 self.current_state = slim.layers.fully_connected(
@@ -399,6 +416,60 @@ class Occlusion_Model(object):
 
         return transformed_parts, transformed_masks, transforms
 
+
+    def apply_dna_separately(self, enc6):
+        moved_images = []
+        moved_masks = []
+
+        for imask in range(self.num_masks):
+            scope = 'convt_dnainput{}'.format(imask)
+            # Using largest hidden state for predicting untied conv kernels.
+            enc7 = slim.layers.conv2d_transpose(
+                enc6, self.DNA_KERN_SIZE ** 2, 1, stride=1, scope=scope)
+
+            prev_moved_image = self.moved_imagesl[-1][imask]
+            moved_images.append(self.dna_transformation(prev_moved_image,enc7))
+
+            prev_moved_mask = self.moved_masksl[-1][imask]
+            moved_masks.append(self.dna_transformation(prev_moved_mask,enc7))
+
+        return moved_images, moved_masks
+
+
+    def dna_transformation(self, prev_image, dna_input):
+        """Apply dynamic neural advection to previous image.
+
+        Args:
+          prev_image: previous image to be transformed.
+          dna_input: hidden lyaer to be used for computing DNA transformation.
+        Returns:
+          List of images transformed by the predicted CDNA kernels.
+        """
+        # Construct translated images.
+
+        pad_len = int(np.floor(self.DNA_KERN_SIZE / 2))
+        prev_image_pad = tf.pad(prev_image, [[0, 0], [pad_len, pad_len], [pad_len, pad_len], [0, 0]])
+        image_height = int(prev_image.get_shape()[1])
+        image_width = int(prev_image.get_shape()[2])
+
+        inputs = []
+        for xkern in range(self.DNA_KERN_SIZE):
+            for ykern in range(self.DNA_KERN_SIZE):
+                inputs.append(
+                    tf.expand_dims(
+                        tf.slice(prev_image_pad, [0, xkern, ykern, 0],
+                                 [-1, image_height, image_width, -1]), [3]))
+        inputs = tf.concat(3, inputs)
+
+        # Normalize channels to 1.
+        kernel = tf.nn.relu(dna_input - RELU_SHIFT) + RELU_SHIFT
+        kernel = tf.expand_dims(
+            kernel / tf.reduce_sum(
+                kernel, [3], keep_dims=True), [4])
+
+        return tf.reduce_sum(kernel * inputs, [3], keep_dims=False)
+
+
     def cdna_transformation_mask(self, prev_image, init_masks, cdna_input, num_masks, reuse_sc=None):
         """Apply convolutional dynamic neural advection to previous image.
 
@@ -414,14 +485,14 @@ class Occlusion_Model(object):
         # Predict kernels using linear function of last hidden layer.
         cdna_kerns = slim.layers.fully_connected(
             cdna_input,
-            DNA_KERN_SIZE * DNA_KERN_SIZE * num_masks,
+            self.DNA_KERN_SIZE * self.DNA_KERN_SIZE * num_masks,
             scope='cdna_params',
             activation_fn=None,
             reuse=reuse_sc)
 
         # Reshape and normalize.
         cdna_kerns = tf.reshape(
-            cdna_kerns, [self.batch_size, DNA_KERN_SIZE, DNA_KERN_SIZE, 1, num_masks])
+            cdna_kerns, [self.batch_size, self.DNA_KERN_SIZE, self.DNA_KERN_SIZE, 1, num_masks])
         cdna_kerns = tf.nn.relu(cdna_kerns - RELU_SHIFT) + RELU_SHIFT
         norm_factor = tf.reduce_sum(cdna_kerns, [1, 2, 3], keep_dims=True)
         cdna_kerns /= norm_factor
