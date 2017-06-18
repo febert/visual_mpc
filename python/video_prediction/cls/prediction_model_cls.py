@@ -375,8 +375,15 @@ class Prediction_Model(object):
                 kernel = tf.expand_dims(kernel, -2)   #correction! ( was -1 before)
             transformed.append(
                 tf.nn.depthwise_conv2d(preimg, kernel, [1, 1, 1, 1], 'SAME'))
+
         transformed = tf.concat(0, transformed)
-        transformed = tf.split(3, num_masks, transformed)
+
+        new_split = True
+        if new_split:
+            transformed = tf.reshape(transformed, [self.batch_size, 64,64,color_channels,num_masks])
+            transformed = tf.unpack(transformed, axis=4)
+        else:
+            transformed = tf.split(3, num_masks, transformed)
 
         return transformed, cdna_kerns_summary
 
