@@ -237,7 +237,7 @@ def construct_model(images,
                         transf_distrib_cam2 = dna_transformation(prev_pix_distrib, trafo_input_cam2, DNA_KERN_SIZE)
                         gen_pix_distrib.append(transf_distrib_cam2)
 
-                extra_masks = 1
+                extra_masks = 1  ## extra_masks = 2 is needed for running singleview_shifted
 
 
             if conf['model']=='STP':
@@ -313,11 +313,10 @@ def construct_model(images,
             gen_images.append(output)
             gen_masks.append(mask_list_cam2)
 
-
-
             if pix_distributions!=None:
                 if '1stimg_bckgd' in conf:
                     background_pix = pix_distributions[0]
+                    background_pix = tf.expand_dims(background_pix, -1)
                     print 'using pix_distrib-background from first image..'
                 else:
                     background_pix = prev_pix_distrib

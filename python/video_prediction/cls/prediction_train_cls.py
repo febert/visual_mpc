@@ -237,7 +237,7 @@ def main(unused_argv, conf_script= None):
         cPickle.dump(dict, open(file_path + '/pred.pkl','wb'))
         print 'written files to:' + file_path
 
-        trajectories = makegifs.comp_gif(conf, conf['output_dir'], append_masks=True, show_parts=True)
+        makegifs.comp_gif(conf, conf['output_dir'], append_masks=True, show_parts=True)
         return
 
     itr_0 =0

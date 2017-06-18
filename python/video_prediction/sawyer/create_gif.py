@@ -117,7 +117,7 @@ def create_video_pixdistrib_gif(file_path, conf, t=0, suffix = "", n_exp = 8, su
 
         fused_gif = assemble_gif([gen_images_main, gen_distrib_main, gen_images_aux1, gen_distrib_aux1], n_exp)
     else:
-        makecolor = False
+        makecolor = True
         if makecolor:
             gen_distrib = make_color_scheme(gen_distrib)
         else:
