@@ -344,9 +344,9 @@ def main(unused_argv, conf_script= None):
 
                 sel_img = np.concatenate([sel_img_main, sel_img_aux1], axis= 3)
 
-            # c = Getdesig(sel_img_aux1, conf, 'b{}'.format(b_exp))
-            # desig_pos_aux1 = c.coords.astype(np.int32)
-            desig_pos_aux1 = np.array([16, 42])
+            c = Getdesig(sel_img_aux1, conf, 'b{}'.format(b_exp))
+            desig_pos_aux1 = c.coords.astype(np.int32)
+            # desig_pos_aux1 = np.array([16, 42])
 
             print "selected designated position for aux1 [row,col]:", desig_pos_aux1
 
@@ -410,7 +410,7 @@ def main(unused_argv, conf_script= None):
 
             create_video_pixdistrib_gif(file_path, conf,0,
                                         suffix='_diffmotions_b{}_l{}'.format(b_exp, conf['sequence_length']), n_exp=10,
-                                        append_masks=True, show_moved=True)
+                                        append_masks=True, show_moved=False)
         else:
             gen_images, ground_truth, gen_masks = sess.run([val_model.gen_images, val_model.images_sel, val_model.gen_masks],
                                                 feed_dict)

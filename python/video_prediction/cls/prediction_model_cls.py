@@ -252,8 +252,10 @@ class Prediction_Model(object):
                                                                     cdna_input,
                                                                                 self.num_masks,
                                                                     int(color_channels),
+                                                                    DNA_KERN_SIZE=DNA_KERN_SIZE,
                                                                     reuse_sc= reuse)
                     transformed += new_transformed
+                    self.moved_parts.append(transformed)
 
                     summaries+= make_cdna_kerns_summary(new_cdna_filter, t, 'image')
 
@@ -261,8 +263,7 @@ class Prediction_Model(object):
                         transf_distrib, new_cdna_distrib_filter = self.cdna_transformation(prev_pix_distrib,
                                                                                cdna_input,
                                                                                 self.num_masks,
-                                                                               1,
-                                                                               reuse_sc= True)
+                                                                               1,DNA_KERN_SIZE=DNA_KERN_SIZE, reuse_sc= True)
                         summaries += make_cdna_kerns_summary(new_cdna_distrib_filter, t, 'distrib')
 
 
@@ -332,7 +333,7 @@ class Prediction_Model(object):
         return transformed
 
 
-    def cdna_transformation(self, prev_image, cdna_input, num_masks, color_channels, reuse_sc = None):
+    def cdna_transformation(self, prev_image, cdna_input, num_masks, color_channels, DNA_KERN_SIZE, reuse_sc = None):
         """Apply convolutional dynamic neural advection to previous image.
 
         Args:
@@ -376,8 +377,8 @@ class Prediction_Model(object):
                 tf.nn.depthwise_conv2d(preimg, kernel, [1, 1, 1, 1], 'SAME'))
         transformed = tf.concat(0, transformed)
         transformed = tf.split(3, num_masks, transformed)
-        return transformed, cdna_kerns_summary
 
+        return transformed, cdna_kerns_summary
 
     def dna_transformation(self, prev_image, dna_input, DNA_KERN_SIZE):
         """Apply dynamic neural advection to previous image.
