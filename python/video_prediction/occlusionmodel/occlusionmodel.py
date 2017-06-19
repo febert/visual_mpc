@@ -230,7 +230,7 @@ class Occlusion_Model(object):
 
                     if self.cdna:
                         cdna_input = tf.reshape(hidden5, [int(self.batch_size), -1])
-                        moved_images, moved_masks, _ = self.cdna_transformation_mask(self.moved_imagesl[-1],
+                        moved_images, moved_masks, _ = self.cdna_transformation_imagewise(self.moved_imagesl[-1],
                                                                          self.moved_masksl[-1], cdna_input, self.num_masks,
                                                      reuse_sc=reuse)
 
@@ -275,19 +275,23 @@ class Occlusion_Model(object):
 
                     # moved_images += [generated_pix]
 
-                    for part, mask in zip(moved_images, assembly_masks):
-                        assembly += part * mask
+                    for mimage, mask in zip(moved_images, assembly_masks):
+                        assembly += mimage * mask
                 else:
                     if 'gen_pix_averagestep' in self.conf:  # insert the genearted pixels when averaging
                         moved_images = [generated_pix] + moved_images
                         moved_masks = [self.get_generationmask2(enc6)] + moved_masks
 
+                    parts = []
                     normalizer = tf.zeros([self.batch_size, 64, 64, 1], dtype=tf.float32)
-                    for part, moved_mask, cfact in zip(moved_images, moved_masks, comp_fact_input):
+                    for mimage, moved_mask, cfact in zip(moved_images, moved_masks, comp_fact_input):
                         cfact = tf.reshape(cfact, [self.batch_size, 1, 1, 1])
-                        assembly += part*moved_mask*cfact
+                        parts.append(mimage*moved_mask)
+                        assembly += mimage*moved_mask*cfact
                         normalizer += moved_mask*cfact
                     assembly /= (normalizer + tf.ones_like(normalizer) * 1e-4)
+
+                    self.moved_partsl.append(parts)
 
                 # insert the genearted pixels later
                 if 'gen_pix' in self.conf:
@@ -471,6 +475,51 @@ class Occlusion_Model(object):
 
         return tf.reduce_sum(kernel * inputs, [3], keep_dims=False)
 
+
+    def cdna_transformation_imagewise(self, prev_images, prev_masks, cdna_input, num_masks, reuse_sc=None):
+
+        transformed = []
+        transformed_masks = []
+        for i_img in range(num_masks):
+        # Predict kernels using linear function of last hidden layer.
+            cdna_kerns = slim.layers.fully_connected(
+                cdna_input,
+                self.DNA_KERN_SIZE * self.DNA_KERN_SIZE,
+                scope='cdna_params{}'.format(i_img),
+                activation_fn=None,
+                reuse=reuse_sc)
+
+            # Reshape and normalize.
+            cdna_kerns = tf.reshape(
+                cdna_kerns, [self.batch_size, self.DNA_KERN_SIZE, self.DNA_KERN_SIZE, 1, 1])
+            cdna_kerns = tf.nn.relu(cdna_kerns - RELU_SHIFT) + RELU_SHIFT
+            norm_factor = tf.reduce_sum(cdna_kerns, [1, 2, 3], keep_dims=True)
+            cdna_kerns /= norm_factor
+            cdna_kerns_summary = cdna_kerns
+            cdna_kerns = tf.tile(cdna_kerns, [1, 1, 1, self.color_channels, 1])
+            cdna_kerns = tf.split(0, self.batch_size, cdna_kerns)
+            target_image = tf.split(0, self.batch_size, prev_images[i_img])
+            target_mask = tf.split(0, self.batch_size, prev_masks[i_img])
+            # Transform image.
+            transformed_ex = []
+            transformed_ex_mask = []
+            for i_b, kernel, preimg, premsk in zip(range(self.batch_size), cdna_kerns, target_image, target_mask):
+                kernel = tf.squeeze(kernel)
+                kernel = tf.expand_dims(kernel, 3)
+                transformed_ex.append(
+                    tf.nn.depthwise_conv2d(preimg, kernel, [1, 1, 1, 1], 'SAME'))
+
+                kernel = tf.slice(kernel,[0,0,0,0], [-1,-1,1,-1])
+                transformed_ex_mask.append(
+                    tf.nn.depthwise_conv2d(premsk, kernel, [1, 1, 1, 1], 'SAME'))
+
+            transformed_ex = tf.concat(0, transformed_ex)
+            transformed.append(transformed_ex)
+
+            transformed_ex_mask = tf.concat(0, transformed_ex_mask)
+            transformed_masks.append(transformed_ex_mask)
+
+        return transformed, transformed_masks, cdna_kerns_summary
 
     def cdna_transformation_mask(self, prev_image, init_masks, cdna_input, num_masks, reuse_sc=None):
         """Apply convolutional dynamic neural advection to previous image.

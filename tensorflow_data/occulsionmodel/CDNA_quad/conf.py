@@ -27,4 +27,5 @@ configuration = {
 'visualize': '',            #'load model from which to generate visualizations
 'file_visual': '',          # datafile used for making visualizations
 'quad_comp':'',
+'dna_size':9
 }
