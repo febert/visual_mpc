@@ -73,6 +73,7 @@ class Model(object):
 
         self.prefix = prefix = tf.placeholder(tf.string, [])
         self.iter_num = tf.placeholder(tf.float32, [])
+        self.conf = conf
         summaries = []
 
         # Split into timesteps.
@@ -111,15 +112,9 @@ class Model(object):
                 range(len(self.om.gen_images)), images[conf['context_frames']:],
                 self.om.gen_images[conf['context_frames'] - 1:]):
             recon_cost_mse = mean_squared_error(x, gx)
-
-            psnr_i = peak_signal_to_noise_ratio(x, gx)
-            psnr_all += psnr_i
             summaries.append(
                 tf.scalar_summary(prefix + '_recon_cost' + str(i), recon_cost_mse))
-            summaries.append(tf.scalar_summary(prefix + '_psnr' + str(i), psnr_i))
-
             recon_cost = recon_cost_mse
-
             loss += recon_cost
 
         for i, state, gen_state in zip(
@@ -129,8 +124,9 @@ class Model(object):
             summaries.append(
                 tf.scalar_summary(prefix + '_state_cost' + str(i), state_cost))
             loss += state_cost
-        summaries.append(tf.scalar_summary(prefix + '_psnr_all', psnr_all))
-        self.psnr_all = psnr_all
+
+        if 'mask_distinction_cost' in conf:
+            loss += self.distinction_loss(self.om.objectmasks)*conf['mask_distinction_cost']
 
         self.loss = loss = loss / np.float32(len(images) - conf['context_frames'])
 
@@ -140,6 +136,16 @@ class Model(object):
 
         self.train_op = tf.train.AdamOptimizer(self.lr).minimize(loss)
         self.summ_op = tf.merge_summary(summaries)
+
+    def distinction_loss(self, masks):
+
+        delta = 0.
+        for i in range(self.conf['num_masks']):
+            for j in range(self.conf['num_masks']):
+                if i == j:
+                    continue
+                delta -= tf.reduce_sum((masks[i]-masks[j]))
+
 
 def main(unused_argv, conf_script= None):
 
