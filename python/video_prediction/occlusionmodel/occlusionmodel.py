@@ -42,7 +42,7 @@ class Occlusion_Model(object):
         self.conf = conf
         self.images = images
 
-        self.cdna, self.stp = False, False
+        self.cdna, self.stp, self.dna = False, False, False
         if self.conf['model'] == 'CDNA':
             self.cdna = True
         elif self.conf['model'] == 'STP':
