@@ -239,6 +239,32 @@ def construct_model(images,
 
                 extra_masks = 1  ## extra_masks = 2 is needed for running singleview_shifted
 
+            if conf['model'] == 'CDNA':
+                if 'gen_pix' in conf:
+                    transformed_cam2l = [tf.nn.sigmoid(enc7)]
+                    extra_masks = 2
+                else:
+                    transformed_cam2l = []
+                    extra_masks = 1
+
+                cdna_input = tf.reshape(hidden5, [int(batch_size), -1])
+
+                new_transformed, new_cdna_filter = cdna_transformation(conf,prev_image,
+                                                                            cdna_input,
+                                                                            num_masks,
+                                                                            int(color_channels),
+                                                                            DNA_KERN_SIZE=DNA_KERN_SIZE,
+                                                                            reuse_sc=reuse)
+                transformed_cam2l += new_transformed
+                moved_images.append(transformed_cam2l)
+
+                if pix_distributions != None:
+                    transf_distrib_cam2, new_cdna_distrib_filter = cdna_transformation(conf, prev_pix_distrib,
+                                                                                       cdna_input,
+                                                                                       num_masks,
+                                                                                       1, DNA_KERN_SIZE=DNA_KERN_SIZE,
+                                                                                       reuse_sc=True)
+                    moved_pix_distrib.append(transf_distrib_cam2)
 
             if conf['model']=='STP':
                 # This allows the network to also generate one image from scratch,
@@ -422,6 +448,56 @@ def dna_transformation(prev_image, dna_input, DNA_KERN_SIZE):
             kernel, [3], keep_dims=True), [4])
 
     return tf.reduce_sum(kernel * inputs, [3], keep_dims=False)
+
+def cdna_transformation(conf, prev_image, cdna_input, num_masks, color_channels, DNA_KERN_SIZE, reuse_sc = None):
+    """Apply convolutional dynamic neural advection to previous image.
+
+    Args:
+      prev_image: previous image to be transformed.
+      cdna_input: hidden lyaer to be used for computing CDNA kernels.
+      num_masks: the number of masks and hence the number of CDNA transformations.
+      color_channels: the number of color channels in the images.
+    Returns:
+      List of images transformed by the predicted CDNA kernels.
+    """
+    batch_size = int(cdna_input.get_shape()[0])
+
+    # Predict kernels using linear function of last hidden layer.
+    cdna_kerns = slim.layers.fully_connected(
+        cdna_input,
+        DNA_KERN_SIZE * DNA_KERN_SIZE * num_masks,
+        scope='cdna_params',
+        activation_fn=None,
+        reuse = reuse_sc)
+
+
+    # Reshape and normalize.
+    cdna_kerns = tf.reshape(
+        cdna_kerns, [batch_size, DNA_KERN_SIZE, DNA_KERN_SIZE, 1, num_masks])
+    cdna_kerns = tf.nn.relu(cdna_kerns - RELU_SHIFT) + RELU_SHIFT
+    norm_factor = tf.reduce_sum(cdna_kerns, [1, 2, 3], keep_dims=True)
+    cdna_kerns /= norm_factor
+    cdna_kerns_summary = cdna_kerns
+
+    cdna_kerns = tf.tile(cdna_kerns, [1, 1, 1, color_channels, 1])
+    cdna_kerns = tf.split(0, batch_size, cdna_kerns)
+    prev_images = tf.split(0, batch_size, prev_image)
+
+    # Transform image.
+    transformed = []
+    for kernel, preimg in zip(cdna_kerns, prev_images):
+        kernel = tf.squeeze(kernel)
+        if len(kernel.get_shape()) == 3:
+            kernel = tf.expand_dims(kernel, -2)   #correction! ( was -1 before)
+        transformed.append(
+            tf.nn.depthwise_conv2d(preimg, kernel, [1, 1, 1, 1], 'SAME'))
+
+    transformed = tf.concat(0, transformed)
+
+    transformed = tf.reshape(transformed, [conf['batch_size'], 64,64,color_channels,num_masks])
+    transformed = tf.unpack(transformed, axis=4)
+
+    return transformed, cdna_kerns_summary
 
 
 def scheduled_sample(ground_truth_x, generated_x, batch_size, num_ground_truth):

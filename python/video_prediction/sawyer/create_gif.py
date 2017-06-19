@@ -30,6 +30,7 @@ def create_gif(file_path, conf, suffix = None, numexp = 8, append_masks = False)
         gen_images_aux1 = [img[:, :, :, 3:] for img in gen_images]
         ground_truth = np.split(ground_truth,ground_truth.shape[1], 1)
         ground_truth = [np.squeeze(img) for img in ground_truth]
+        ground_truth = ground_truth[1:]
         ground_truth_main = [img[:, :, :, :3] for img in ground_truth]
         ground_truth_aux1 = [img[:, :, :, 3:] for img in ground_truth]
 
