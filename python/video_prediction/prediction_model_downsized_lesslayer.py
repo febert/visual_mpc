@@ -372,7 +372,10 @@ def cdna_transformation(prev_image, cdna_input, num_masks, color_channels, reuse
         transformed.append(
             tf.nn.depthwise_conv2d(preimg, kernel, [1, 1, 1, 1], 'SAME'))
     transformed = tf.concat(0, transformed)
-    transformed = tf.split(3, num_masks, transformed)
+
+    transformed = tf.reshape(transformed, [batch_size, 64, 64, 3, num_masks])
+    transformed = tf.unpack(transformed, axis=4)
+
     return transformed, cdna_kerns_summary
 
 
