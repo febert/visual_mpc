@@ -378,12 +378,8 @@ class Prediction_Model(object):
 
         transformed = tf.concat(0, transformed)
 
-        new_split = True
-        if new_split:
-            transformed = tf.reshape(transformed, [self.batch_size, 64,64,color_channels,num_masks])
-            transformed = tf.unpack(transformed, axis=4)
-        else:
-            transformed = tf.split(3, num_masks, transformed)
+        transformed = tf.reshape(transformed, [self.batch_size, 64,64,color_channels,num_masks])
+        transformed = tf.unpack(transformed, axis=4)
 
         return transformed, cdna_kerns_summary
 
