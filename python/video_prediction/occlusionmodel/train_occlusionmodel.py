@@ -125,8 +125,11 @@ class Model(object):
                 tf.scalar_summary(prefix + '_state_cost' + str(i), state_cost))
             loss += state_cost
 
-        if 'mask_distinction_cost' in conf:
-            loss += self.distinction_loss(self.om.objectmasks)*conf['mask_distinction_cost']
+        if 'mask_distinction_loss' in conf:
+            dcost = self.distinction_loss(self.om.objectmasks) * conf['mask_distinction_loss']
+            summaries.append(
+                tf.scalar_summary(prefix + '_mask_distinction_cost', dcost))
+            loss += dcost
 
         self.loss = loss = loss / np.float32(len(images) - conf['context_frames'])
 
@@ -138,14 +141,13 @@ class Model(object):
         self.summ_op = tf.merge_summary(summaries)
 
     def distinction_loss(self, masks):
-
         delta = 0.
         for i in range(self.conf['num_masks']):
             for j in range(self.conf['num_masks']):
                 if i == j:
                     continue
-                delta -= tf.reduce_sum((masks[i]-masks[j]))
-
+                delta -= tf.reduce_sum(tf.abs(masks[i]-masks[j]))
+        return delta
 
 def main(unused_argv, conf_script= None):
 

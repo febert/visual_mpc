@@ -31,19 +31,6 @@ flags.DEFINE_integer('device', 0 ,'the value for CUDA_VISIBLE_DEVICES variable, 
 flags.DEFINE_string('pretrained', None, 'path to model file from which to resume training')
 
 
-## Helper functions
-def peak_signal_to_noise_ratio(true, pred):
-    """Image quality metric based on maximal signal power vs. power of the noise.
-
-    Args:
-      true: the ground truth image.
-      pred: the predicted image.
-    Returns:
-      peak signal to noise ratio (PSNR)
-    """
-    return 10.0 * tf.log(1.0 / mean_squared_error(true, pred)) / tf.log(10.0)
-
-
 def mean_squared_error(true, pred):
     """L2 distance between tensors true and pred.
 
@@ -118,13 +105,8 @@ class Model(object):
                 range(len(self.m.gen_images)), images[conf['context_frames']:],
                 self.m.gen_images[conf['context_frames'] - 1:]):
             recon_cost_mse = mean_squared_error(x, gx)
-
-            psnr_i = peak_signal_to_noise_ratio(x, gx)
-            psnr_all += psnr_i
             summaries.append(
                 tf.scalar_summary(prefix + '_recon_cost' + str(i), recon_cost_mse))
-            summaries.append(tf.scalar_summary(prefix + '_psnr' + str(i), psnr_i))
-
             recon_cost = recon_cost_mse
             loss += recon_cost
 
@@ -135,8 +117,13 @@ class Model(object):
             summaries.append(
                 tf.scalar_summary(prefix + '_state_cost' + str(i), state_cost))
             loss += state_cost
-        summaries.append(tf.scalar_summary(prefix + '_psnr_all', psnr_all))
-        self.psnr_all = psnr_all
+
+        if 'mask_distinction_loss' in conf:
+            dcost = self.distinction_loss(self.om.objectmasks) * conf['mask_distinction_loss']
+            summaries.append(
+                tf.scalar_summary(prefix + '_mask_distinction_cost', dcost))
+            loss += dcost
+
         self.loss = loss = loss / np.float32(len(images) - conf['context_frames'])
 
         summaries.append(tf.scalar_summary(prefix + '_loss', loss))
@@ -162,6 +149,15 @@ class Model(object):
         states_sel = tf.slice(states, start, [-1, uselen, -1])
 
         return images_sel, states_sel, actions_sel
+
+    def distinction_loss(self, masks):
+        delta = 0.
+        for i in range(self.conf['num_masks']):
+            for j in range(self.conf['num_masks']):
+                if i == j:
+                    continue
+                delta -= tf.reduce_sum(tf.abs(masks[i]-masks[j]))
+        return delta
 
 def main(unused_argv, conf_script= None):
 
