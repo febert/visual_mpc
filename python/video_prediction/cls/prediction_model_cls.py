@@ -257,14 +257,14 @@ class Prediction_Model(object):
                     transformed += new_transformed
                     self.moved_parts.append(transformed)
 
-                    summaries+= make_cdna_kerns_summary(new_cdna_filter, t, 'image')
+                    summaries+= self.make_cdna_kerns_summary(new_cdna_filter, t, 'image')
 
                     if self.pix_distribution != None:
                         transf_distrib, new_cdna_distrib_filter = self.cdna_transformation(prev_pix_distrib,
                                                                                cdna_input,
                                                                                 self.num_masks,
                                                                                1,DNA_KERN_SIZE=DNA_KERN_SIZE, reuse_sc= True)
-                        summaries += make_cdna_kerns_summary(new_cdna_distrib_filter, t, 'distrib')
+                        summaries += self.make_cdna_kerns_summary(new_cdna_distrib_filter, t, 'distrib')
 
 
                 elif self.dna:
@@ -303,6 +303,19 @@ class Prediction_Model(object):
                     scope='state_pred',
                     activation_fn=None)
                 self.gen_states.append(current_state)
+
+    def make_cdna_kerns_summary(self,cdna_kerns, t, suffix):
+
+        sum = []
+        cdna_kerns = tf.split(4, self.num_masks, cdna_kerns)
+        for i, kern in enumerate(cdna_kerns):
+            kern = tf.squeeze(kern)
+            kern = tf.expand_dims(kern, -1)
+            sum.append(
+                tf.image_summary('step' + str(t) + '_filter' + str(i) + suffix, kern)
+            )
+
+        return sum
 
 
 ## Utility functions
@@ -438,15 +451,4 @@ def scheduled_sample(ground_truth_x, generated_x, batch_size, num_ground_truth):
                              [ground_truth_examps, generated_examps])
 
 
-def make_cdna_kerns_summary(cdna_kerns, t, suffix):
 
-    sum = []
-    cdna_kerns = tf.split(4, 10, cdna_kerns)
-    for i, kern in enumerate(cdna_kerns):
-        kern = tf.squeeze(kern)
-        kern = tf.expand_dims(kern,-1)
-        sum.append(
-            tf.image_summary('step' + str(t) +'_filter'+ str(i)+ suffix, kern)
-        )
-
-    return  sum
