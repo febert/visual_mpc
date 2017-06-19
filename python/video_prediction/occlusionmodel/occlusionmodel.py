@@ -526,7 +526,9 @@ class Occlusion_Model(object):
         transformed_masks = [tf.reshape(m, [self.batch_size, 64,64,1]) for m in transformed_masks]
 
         transformed = tf.concat(0, transformed)
-        transformed = tf.split(3, num_masks, transformed)
+
+        transformed = tf.reshape(transformed, [self.batch_size, 64, 64, 3, num_masks])
+        transformed = tf.unpack(transformed, axis=4)
 
         return transformed, transformed_masks, cdna_kerns_summary
 
