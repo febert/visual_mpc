@@ -1,21 +1,14 @@
 import os
 import numpy as np
 import tensorflow as tf
-import imp
 import sys
 import cPickle
 import pdb
-
 import imp
 
 from video_prediction.utils_vpred.adapt_params_visualize import adapt_params_visualize
 from tensorflow.python.platform import app
 from tensorflow.python.platform import flags
-import video_prediction.utils_vpred.create_gif
-
-from video_prediction.read_tf_record import build_tfrecord_input
-
-from video_prediction.utils_vpred.skip_example import skip_example
 
 from prediction_model_cls import Prediction_Model
 import makegifs
@@ -63,25 +56,20 @@ def mean_squared_error(true, pred):
     return tf.reduce_sum(tf.square(true - pred)) / tf.to_float(tf.size(pred))
 
 
-
-
 class Model(object):
     def __init__(self,
                  conf,
                  images=None,
                  actions=None,
                  states=None,
-                 sequence_length=None,
                  reuse_scope=None,
                  pix_distrib=None):
 
-        if 'prediction_model' in conf:
-            construct_model = conf['prediction_model']
-        else:
-            from video_prediction.prediction_model_downsized_lesslayer import construct_model
+        self.conf = conf
 
-        if sequence_length is None:
-            sequence_length = conf['sequence_length']
+        if 'use_len' in conf:
+            #randomly shift videos for data augmentation
+            images, states, actions  = self.random_shift(images, states, actions)
 
         self.prefix = prefix = tf.placeholder(tf.string, [])
         self.iter_num = tf.placeholder(tf.float32, [])
@@ -157,6 +145,24 @@ class Model(object):
         self.train_op = tf.train.AdamOptimizer(self.lr).minimize(loss)
         self.summ_op = tf.merge_summary(summaries)
 
+    def random_shift(self, images, states, actions):
+        print 'shifting the video sequence randomly in time'
+        tshift = 2
+        uselen = self.conf['use_len']
+        fulllength = self.conf['sequence_length']
+        nshifts = (fulllength - uselen) / 2 + 1
+        rand_ind = tf.random_uniform([1], 0, nshifts, dtype=tf.int64)
+        self.rand_ind = rand_ind
+
+        start = tf.concat(0, [tf.zeros(1, dtype=tf.int64), rand_ind * tshift, tf.zeros(3, dtype=tf.int64)])
+        images_sel = tf.slice(images, start, [-1, uselen, -1, -1, -1])
+        start = tf.concat(0, [tf.zeros(1, dtype=tf.int64), rand_ind * tshift, tf.zeros(1, dtype=tf.int64)])
+        actions_sel = tf.slice(actions, start, [-1, uselen, -1])
+        start = tf.concat(0, [tf.zeros(1, dtype=tf.int64), rand_ind * tshift, tf.zeros(1, dtype=tf.int64)])
+        states_sel = tf.slice(states, start, [-1, uselen, -1])
+
+        return images_sel, states_sel, actions_sel
+
 def main(unused_argv, conf_script= None):
 
     if FLAGS.device ==-1:   # using cpu!
@@ -189,15 +195,20 @@ def main(unused_argv, conf_script= None):
         print key, ': ', conf[key]
     print '-------------------------------------------------------------------'
 
+    if 'sawyer' in conf:
+        from video_prediction.sawyer.read_tf_record_sawyer import build_tfrecord_input
+    else:
+        from video_prediction.read_tf_record import build_tfrecord_input
+
     print 'Constructing models and inputs.'
     with tf.variable_scope('model', reuse=None) as training_scope:
         images, actions, states = build_tfrecord_input(conf, training=True)
-        model = Model(conf, images, actions, states, conf['sequence_length'])
+        model = Model(conf, images, actions, states)
 
     with tf.variable_scope('val_model', reuse=None):
         val_images, val_actions, val_states = build_tfrecord_input(conf, training=False)
         val_model = Model(conf, val_images, val_actions, val_states,
-                          conf['sequence_length'], training_scope)
+                           training_scope)
 
     print 'Constructing saver.'
     # Make saver.
