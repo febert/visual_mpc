@@ -57,7 +57,7 @@ class Prediction_Model(object):
         self.num_masks = conf['num_masks']
         self.context_frames = conf['context_frames']
 
-        print 'constructing occulsion network...'
+        print 'constructing cls network...'
 
         self.batch_size, self.img_height, self.img_width, self.color_channels = [int(i) for i in images[0].get_shape()[0:4]]
         self.lstm_func = basic_conv_lstm_cell
