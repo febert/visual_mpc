@@ -310,8 +310,9 @@ if __name__ == '__main__':
         # image_main, image_aux, actions, endeff = sess.run([image_main_batch, image_aux_batch, action_batch, endeff_pos_batch])
         image_aux, actions, endeff = sess.run([image_aux_batch, action_batch, endeff_pos_batch])
 
-        file_path = '/'.join(str.split(DATA_DIR, '/')[:-1])
+        file_path = '/'.join(str.split(DATA_DIR, '/')[:-1]+['/preview'])
         comp_single_video(file_path, image_aux)
+
 
         # show some frames
 
@@ -327,6 +328,7 @@ if __name__ == '__main__':
             image_aux = np.squeeze(image_aux)
             img = np.uint8(255. * image_aux[0, i])
             img = Image.fromarray(img, 'RGB')
+            img.save(file_path,'PNG')
             img.show()
 
             pdb.set_trace()
