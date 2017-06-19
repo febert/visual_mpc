@@ -63,9 +63,10 @@ class Prediction_Model(object):
         self.lstm_func = basic_conv_lstm_cell
 
         # Generated robot states and images.
-        self.gen_states, self.gen_images = [], []
-
+        self.gen_states = []
+        self.gen_images = []
         self.gen_masks = []
+
         self.moved_parts = []
         self.assembly_masks_list = []
         self.list_of_trafos = []
@@ -87,9 +88,8 @@ class Prediction_Model(object):
         lstm_func = basic_conv_lstm_cell
 
         # Generated robot states and images.
-        gen_states, gen_images, gen_masks = [], [], []
+        # gen_states, gen_images, gen_masks = [], [], []
         current_state = self.states[0]
-        gen_pix_distrib = []
 
         summaries = []
 
@@ -119,7 +119,7 @@ class Prediction_Model(object):
             reuse = bool(self.gen_images)
             print 't',t
 
-            done_warm_start = len(gen_images) > self.context_frames - 1
+            done_warm_start = len(self.gen_images) > self.context_frames - 1
             with slim.arg_scope(
                     [lstm_func, slim.layers.conv2d, slim.layers.fully_connected,
                      tf_layers.layer_norm, slim.layers.conv2d_transpose],
@@ -127,12 +127,12 @@ class Prediction_Model(object):
 
                 if feedself and done_warm_start:
                     # Feed in generated image.
-                    prev_image = gen_images[-1]
+                    prev_image = self.gen_images[-1]
                     if self.pix_distribution != None:
-                        prev_pix_distrib = gen_pix_distrib[-1]
+                        prev_pix_distrib = self.gen_pix_distrib[-1]
                 elif done_warm_start:
                     # Scheduled sampling
-                    prev_image = scheduled_sample(image, gen_images[-1], batch_size,
+                    prev_image = scheduled_sample(image, self.gen_images[-1], batch_size,
                                                   num_ground_truth)
                 else:
                     # Always feed in ground_truth
