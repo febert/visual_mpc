@@ -70,6 +70,7 @@ class Occlusion_Model(object):
         # Generated robot states and images.
         self.gen_states, self.gen_images = [], []
         self.moved_imagesl = []
+        self.moved_partsl = []
         self.moved_masksl = []
         self.assembly_masks_list = []
         self.list_of_trafos = []
@@ -229,7 +230,8 @@ class Occlusion_Model(object):
 
                     if self.cdna:
                         cdna_input = tf.reshape(hidden5, [int(self.batch_size), -1])
-                        moved_images, moved_masks, _ = self.cdna_transformation_mask(prev_image, self.objectmasks, cdna_input, self.num_masks,
+                        moved_images, moved_masks, _ = self.cdna_transformation_mask(self.moved_imagesl[-1],
+                                                                         self.moved_masksl[-1], cdna_input, self.num_masks,
                                                      reuse_sc=reuse)
 
                     if self.dna:
