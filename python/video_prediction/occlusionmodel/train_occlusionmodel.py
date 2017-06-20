@@ -159,6 +159,7 @@ class Model(object):
         return act_cost
 
     def distinction_loss(self, masks):
+        print 'adding mask distinction loss'
         delta = 0.
         for i in range(self.conf['num_masks']):
             for j in range(self.conf['num_masks']):
