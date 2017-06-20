@@ -13,7 +13,6 @@ from tensorflow.python.platform import app
 from tensorflow.python.platform import flags
 import video_prediction.utils_vpred.create_gif
 
-from video_prediction.read_tf_record import build_tfrecord_input
 
 from video_prediction.utils_vpred.skip_example import skip_example
 from occlusionmodel import Occlusion_Model
@@ -71,9 +70,15 @@ class Model(object):
                  reuse_scope=None,
                  ):
 
+
+
         self.prefix = prefix = tf.placeholder(tf.string, [])
         self.iter_num = tf.placeholder(tf.float32, [])
         self.conf = conf
+
+        if 'use_len' in conf:
+            images, states, actions  = self.random_shift(images, states, actions)
+
         summaries = []
 
         # Split into timesteps.
@@ -125,8 +130,14 @@ class Model(object):
                 tf.scalar_summary(prefix + '_state_cost' + str(i), state_cost))
             loss += state_cost
 
-        if 'mask_distinction_loss' in conf:
-            dcost = self.distinction_loss(self.om.objectmasks) * conf['mask_distinction_loss']
+        if 'mask_act_cost' in conf:  #encourage all masks but the first to have small regions of activation
+            act_cost = self.mask_act_loss(self.om.objectmasks) * conf['mask_act_cost']
+            summaries.append(
+                tf.scalar_summary(prefix + '_mask_act_cost', act_cost))
+            loss += act_cost
+
+        if 'mask_distinction_cost' in conf:
+            dcost = self.distinction_loss(self.om.objectmasks) * conf['mask_distinction_cost']
             summaries.append(
                 tf.scalar_summary(prefix + '_mask_distinction_cost', dcost))
             loss += dcost
@@ -140,6 +151,12 @@ class Model(object):
         self.train_op = tf.train.AdamOptimizer(self.lr).minimize(loss)
         self.summ_op = tf.merge_summary(summaries)
 
+    def mask_act_loss(self, masks):
+        act_cost = 0
+        for mask in masks[1:]:
+            act_cost += tf.reduce_sum(mask)
+        return act_cost
+
     def distinction_loss(self, masks):
         delta = 0.
         for i in range(self.conf['num_masks']):
@@ -148,6 +165,24 @@ class Model(object):
                     continue
                 delta -= tf.reduce_sum(tf.abs(masks[i]-masks[j]))
         return delta
+
+    def random_shift(self, images, states, actions):
+        print 'shifting the video sequence randomly in time'
+        tshift = 2
+        uselen = self.conf['use_len']
+        fulllength = self.conf['sequence_length']
+        nshifts = (fulllength - uselen) / 2 + 1
+        rand_ind = tf.random_uniform([1], 0, nshifts, dtype=tf.int64)
+        self.rand_ind = rand_ind
+
+        start = tf.concat(0,[tf.zeros(1, dtype=tf.int64), rand_ind * tshift, tf.zeros(3, dtype=tf.int64)])
+        images_sel = tf.slice(images, start, [-1, uselen, -1, -1, -1])
+        start = tf.concat(0, [tf.zeros(1, dtype=tf.int64), rand_ind * tshift, tf.zeros(1, dtype=tf.int64)])
+        actions_sel = tf.slice(actions, start, [-1, uselen, -1])
+        start = tf.concat(0, [tf.zeros(1, dtype=tf.int64), rand_ind * tshift, tf.zeros(1, dtype=tf.int64)])
+        states_sel = tf.slice(states, start, [-1, uselen, -1])
+
+        return images_sel, states_sel, actions_sel
 
 def main(unused_argv, conf_script= None):
 
@@ -174,11 +209,19 @@ def main(unused_argv, conf_script= None):
     if FLAGS.visualize:
         print 'creating visualizations ...'
         conf = adapt_params_visualize(conf, FLAGS.visualize)
+        conf.pop('use_len', None)
+        conf['sequence_length'] = 15
+
     print '-------------------------------------------------------------------'
     print 'verify current settings!! '
     for key in conf.keys():
         print key, ': ', conf[key]
     print '-------------------------------------------------------------------'
+
+    if 'sawyer' in conf:
+        from video_prediction.sawyer.read_tf_record_sawyer import build_tfrecord_input
+    else:
+        from video_prediction.read_tf_record import build_tfrecord_input
 
     print 'Constructing models and inputs.'
     with tf.variable_scope('model', reuse=None) as training_scope:
@@ -210,27 +253,29 @@ def main(unused_argv, conf_script= None):
                      val_model.iter_num: 0 }
         file_path = conf['output_dir']
 
-        ground_truth, gen_images, object_masks, moved_parts, trafos, comp_factors = sess.run([
+        ground_truth, gen_images, object_masks, moved_images, trafos, comp_factors, moved_parts = sess.run([
                                                         val_images,
                                                         val_model.om.gen_images,
                                                         val_model.om.objectmasks,
                                                         val_model.om.moved_imagesl,
                                                         val_model.om.list_of_trafos,
-                                                        val_model.om.list_of_comp_factors
+                                                        val_model.om.list_of_comp_factors,
+                                                        val_model.om.moved_partsl
                                                         ],
                                                         feed_dict)
         dict_ = {}
         dict_['ground_truth'] = ground_truth
         dict_['gen_images'] = gen_images
         dict_['object_masks'] = object_masks
-        dict_['moved_parts'] = moved_parts
+        dict_['moved_images'] = moved_images
         dict_['trafos'] = trafos
         dict_['comp_factors'] = comp_factors
+        dict_['moved_parts'] = moved_parts
 
         cPickle.dump(dict_, open(file_path + '/dict_.pkl', 'wb'))
         print 'written files to:' + file_path
 
-        trajectories = makegifs.comp_gif(conf, conf['output_dir'])
+        trajectories = makegifs.comp_gif(conf, conf['output_dir'], show_parts=True)
         # utils_vpred.create_gif.comp_masks(conf['output_dir'], conf, trajectories)
         return
 

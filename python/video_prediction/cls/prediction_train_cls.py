@@ -55,7 +55,7 @@ class Model(object):
         self.conf = conf
 
         if 'use_len' in conf:
-            #randomly shift videos for data augmentation
+            print  'randomly shift videos for data augmentation'
             images, states, actions  = self.random_shift(images, states, actions)
 
         self.prefix = prefix = tf.placeholder(tf.string, [])
@@ -185,6 +185,9 @@ def main(unused_argv, conf_script= None):
     if FLAGS.visualize:
         print 'creating visualizations ...'
         conf = adapt_params_visualize(conf, FLAGS.visualize)
+        conf.pop('use_len', None)
+        conf['sequence_length'] = 15
+
     print '-------------------------------------------------------------------'
     print 'verify current settings!! '
     for key in conf.keys():
