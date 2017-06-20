@@ -152,6 +152,7 @@ class Model(object):
         self.summ_op = tf.merge_summary(summaries)
 
     def mask_act_loss(self, masks):
+        print 'adding mask activation loss'
         act_cost = 0
         for mask in masks[1:]:
             act_cost += tf.reduce_sum(mask)
