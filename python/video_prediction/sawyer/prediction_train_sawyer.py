@@ -330,7 +330,7 @@ def main(unused_argv, conf_script= None):
 
         if FLAGS.diffmotions:
 
-            b_exp, ind0 = 0, 0
+            b_exp, ind0 = 3, 0
 
             if 'single_view' in conf:
                 img, state = sess.run([val_images, val_states])

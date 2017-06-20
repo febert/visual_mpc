@@ -237,7 +237,7 @@ def construct_model(images,
                         transf_distrib_cam2 = dna_transformation(prev_pix_distrib, trafo_input_cam2, DNA_KERN_SIZE)
                         gen_pix_distrib.append(transf_distrib_cam2)
 
-                extra_masks = 1  ## extra_masks = 2 is needed for running singleview_shifted
+                extra_masks = 1  ## extra_masks = 2 is needed for running singleview_shifted!!
 
             if conf['model'] == 'CDNA':
                 if 'gen_pix' in conf:
