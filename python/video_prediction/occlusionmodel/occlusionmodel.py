@@ -220,22 +220,19 @@ class Occlusion_Model(object):
                 if reuse:
                     reuse_stp = reuse
 
-                if 'pos_dependent_assembly' in self.conf:
-                    moved_images = self.stp_transformation(self.images[1], stp_input1, self.num_masks, reuse_stp)
-                else:
-                    if self.stp:
-                        moved_images, moved_masks, transforms = self.stp_transformation_mask(
-                                self.images[1], self.objectmasks, stp_input1, self.num_masks, reuse_stp)
-                        self.list_of_trafos.append(transforms)
+                if self.stp:
+                    moved_images, moved_masks, transforms = self.stp_transformation_mask(
+                            self.images[1], self.objectmasks, stp_input1, self.num_masks, reuse_stp)
+                    self.list_of_trafos.append(transforms)
 
-                    if self.cdna:
-                        cdna_input = tf.reshape(hidden5, [int(self.batch_size), -1])
-                        moved_images, moved_masks, _ = self.cdna_transformation_imagewise(self.moved_imagesl[-1],
-                                                                         self.moved_masksl[-1], cdna_input, self.num_masks,
-                                                     reuse_sc=reuse)
+                if self.cdna:
+                    cdna_input = tf.reshape(hidden5, [int(self.batch_size), -1])
+                    moved_images, moved_masks, _ = self.cdna_transformation_imagewise(self.moved_imagesl[-1],
+                                                                     self.moved_masksl[-1], cdna_input, self.num_masks,
+                                                 reuse_sc=reuse)
 
-                    if self.dna:
-                        moved_images, moved_masks = self.apply_dna_separately(enc6)
+                if self.dna:
+                    moved_images, moved_masks = self.apply_dna_separately(enc6)
 
                     self.moved_masksl.append(moved_masks)
 
@@ -266,15 +263,13 @@ class Occlusion_Model(object):
                 assembly = tf.zeros([self.batch_size, 64, 64, 3], dtype=tf.float32)
                 if 'pos_dependent_assembly' in self.conf:
                     masks = slim.layers.conv2d_transpose(
-                        enc6, self.num_masks+1, 1, stride=1, scope='convt7_posdep')
+                        enc6, self.num_masks, 1, stride=1, scope='convt7_posdep')
                     masks = tf.reshape(
-                        tf.nn.softmax(tf.reshape(masks, [-1, self.num_masks+1])),
-                        [int(self.batch_size), int(self.img_height), int(self.img_width), self.num_masks+1])
-                    assembly_masks = tf.split(3, self.num_masks+1, masks)
+                        tf.nn.softmax(tf.reshape(masks, [-1, self.num_masks])),
+                        [int(self.batch_size), int(self.img_height), int(self.img_width), self.num_masks])
+                    assembly_masks = tf.split(3, self.num_masks, masks)
                     self.assembly_masks_list.append(assembly_masks)
-
                     # moved_images += [generated_pix]
-
                     for mimage, mask in zip(moved_images, assembly_masks):
                         assembly += mimage * mask
                 else:
@@ -509,15 +504,17 @@ class Occlusion_Model(object):
                 transformed_ex.append(
                     tf.nn.depthwise_conv2d(preimg, kernel, [1, 1, 1, 1], 'SAME'))
 
-                kernel = tf.slice(kernel,[0,0,0,0], [-1,-1,1,-1])
-                transformed_ex_mask.append(
-                    tf.nn.depthwise_conv2d(premsk, kernel, [1, 1, 1, 1], 'SAME'))
+                if 'pos_dependent_assembly' not in self.conf:
+                    kernel = tf.slice(kernel,[0,0,0,0], [-1,-1,1,-1])
+                    transformed_ex_mask.append(
+                        tf.nn.depthwise_conv2d(premsk, kernel, [1, 1, 1, 1], 'SAME'))
 
             transformed_ex = tf.concat(0, transformed_ex)
             transformed.append(transformed_ex)
 
-            transformed_ex_mask = tf.concat(0, transformed_ex_mask)
-            transformed_masks.append(transformed_ex_mask)
+            if 'pos_dependent_assembly' not in self.conf:
+                transformed_ex_mask = tf.concat(0, transformed_ex_mask)
+                transformed_masks.append(transformed_ex_mask)
 
         return transformed, transformed_masks, cdna_kerns_summary
 
