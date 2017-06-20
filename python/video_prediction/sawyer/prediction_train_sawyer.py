@@ -77,7 +77,7 @@ class Model(object):
 
 
         if 'use_len' in conf:
-            #randomly shift videos for data augmentation
+            print 'randomly shift videos for data augmentation'
             images, states, actions  = self.random_shift(images, states, actions)
 
         self.images_sel = images
@@ -176,7 +176,6 @@ class Model(object):
         self.trafos = trafos
 
     def random_shift(self, images, states, actions):
-
         print 'shifting the video sequence randomly in time'
         tshift = 2
         uselen = self.conf['use_len']
@@ -248,7 +247,7 @@ def main(unused_argv, conf_script= None):
         conf['sequence_length'] = 15
         if FLAGS.diffmotions:
             inference = True
-            conf['sequence_length'] = 15
+            conf['sequence_length'] = 30
 
     print 'Constructing models and inputs.'
     if FLAGS.diffmotions:
@@ -331,7 +330,7 @@ def main(unused_argv, conf_script= None):
 
         if FLAGS.diffmotions:
 
-            b_exp, ind0 = 5, 0
+            b_exp, ind0 = 0, 0
 
             if 'single_view' in conf:
                 img, state = sess.run([val_images, val_states])
