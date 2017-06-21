@@ -247,7 +247,7 @@ def main(unused_argv, conf_script= None):
         conf['sequence_length'] = 15
         if FLAGS.diffmotions:
             inference = True
-            conf['sequence_length'] = 30
+            conf['sequence_length'] = 15
 
     print 'Constructing models and inputs.'
     if FLAGS.diffmotions:
