@@ -145,9 +145,21 @@ class Model(object):
 
         if 'mask_distinction_cost' in conf:
             dcost = self.distinction_loss(self.om.objectmasks) * conf['mask_distinction_cost']
-            summaries.append(
-                tf.scalar_summary(prefix + '_mask_distinction_cost', dcost))
+            summaries.append(tf.scalar_summary(prefix + '_mask_distinction_cost', dcost))
             loss += dcost
+
+        if 'padding_usage_penalty' in self.conf:
+            padding_usage_loss = 0
+            for i, gmask, pmap in zip(
+                    range(len(self.om.gen_states)), self.om.gen_masks,
+                    self.om.padding_map[1:]):
+                for p in range(len(gmask)):
+                    pmap[p] += 1
+                    padding_usage_loss += tf.reduce_sum(gmask[p]*pmap[p])
+
+            padding_usage_loss *= self.conf['padding_usage_penalty']
+            summaries.append(tf.scalar_summary(prefix + '_padding_usage_', padding_usage_loss))
+            loss+= padding_usage_loss
 
         self.loss = loss = loss / np.float32(len(images) - conf['context_frames'])
 
@@ -262,35 +274,35 @@ def main(unused_argv, conf_script= None):
         file_path = conf['output_dir']
 
         if FLAGS.diffmotions:
-            feed_dict = val_model.visualize_diffmotions(sess)
-            val_images = val_model.val_images
+            val_model.visualize_diffmotions(file_path, sess)
+            return
         else:
             feed_dict = {val_model.lr: 0.0,
                          val_model.prefix: 'vis',
                          val_model.iter_num: 0}
 
-        ground_truth, gen_images, object_masks, moved_images, trafos, comp_factors, moved_parts = sess.run([
-                                                        val_images,
-                                                        val_model.om.gen_images,
-                                                        val_model.om.objectmasks,
-                                                        val_model.om.moved_imagesl,
-                                                        val_model.om.list_of_trafos,
-                                                        val_model.om.list_of_comp_factors,
-                                                        val_model.om.moved_partsl
-                                                        ],
-                                                        feed_dict)
-        dict_ = {}
-        dict_['ground_truth'] = ground_truth
-        dict_['gen_images'] = gen_images
-        dict_['object_masks'] = object_masks
-        dict_['moved_images'] = moved_images
-        dict_['trafos'] = trafos
-        dict_['comp_factors'] = comp_factors
-        dict_['moved_parts'] = moved_parts
-        cPickle.dump(dict_, open(file_path + '/dict_.pkl', 'wb'))
-        print 'written files to:' + file_path
-        makegifs.comp_gif(conf, conf['output_dir'], show_parts=True)
-        return
+            ground_truth, gen_images, object_masks, moved_images, trafos, comp_factors, moved_parts = sess.run([
+                                                            val_images,
+                                                            val_model.om.gen_images,
+                                                            val_model.om.objectmasks,
+                                                            val_model.om.moved_imagesl,
+                                                            val_model.om.list_of_trafos,
+                                                            val_model.om.list_of_comp_factors,
+                                                            val_model.om.moved_partsl
+                                                            ],
+                                                            feed_dict)
+            dict_ = {}
+            dict_['ground_truth'] = ground_truth
+            dict_['gen_images'] = gen_images
+            dict_['object_masks'] = object_masks
+            dict_['moved_images'] = moved_images
+            dict_['trafos'] = trafos
+            dict_['comp_factors'] = comp_factors
+            dict_['moved_parts'] = moved_parts
+            cPickle.dump(dict_, open(file_path + '/dict_.pkl', 'wb'))
+            print 'written files to:' + file_path
+            makegifs.comp_gif(conf, conf['output_dir'], show_parts=True)
+            return
 
     itr_0 =0
 
@@ -363,7 +375,7 @@ def main(unused_argv, conf_script= None):
     tf.logging.info('Training complete')
     tf.logging.flush()
 
-class Diffmotion_model(object):
+class Diffmotion_model(Model):
     def __init__(self, conf, build_tfrecord_input):
         self.conf = conf
         self.actions_pl = tf.placeholder(tf.float32, name='actions',
@@ -376,23 +388,23 @@ class Diffmotion_model(object):
 
         self.pix_distrib_pl = tf.placeholder(tf.float32, name='states',
                                         shape=(conf['batch_size'], conf['sequence_length'], 64, 64, 1))
+
         with tf.variable_scope('model', reuse=None):
-            self.m = Model(conf, self.images_pl, self.actions_pl, self.states_pl, pix_distrib=self.pix_distrib_pl)
+            Model.__init__(self, conf, self.images_pl, self.actions_pl, self.states_pl, pix_distrib=self.pix_distrib_pl)
 
-    def visualize_diffmotions(self, sess):
+    def visualize_diffmotions(self,file_path, sess):
 
-        feed_dict = {self.m.lr: 0.0,
-                     self.m.prefix: 'vis',
-                     self.m.iter_num: 0}
+        feed_dict = {self.lr: 0.0,
+                     self.prefix: 'vis',
+                     self.iter_num: 0}
 
-        b_exp, ind0 = 3, 0
+        b_exp, ind0 = 15, 0
         img, state = sess.run([self.val_images, self.val_states])
         sel_img = img[b_exp, ind0:ind0 + 2]
-        sel_img_aux1 = sel_img[0]
 
-        c = Getdesig(sel_img_aux1, self.conf, 'b{}'.format(b_exp))
+        c = Getdesig(sel_img[0], self.conf, 'b{}'.format(b_exp))
         desig_pos_aux1 = c.coords.astype(np.int32)
-        # desig_pos_aux1 = np.array([16, 42])
+        # desig_pos_aux1 = np.array([14, 45])
         print "selected designated position for aux1 [row,col]:", desig_pos_aux1
         one_hot = create_one_hot(self.conf, desig_pos_aux1)
 
@@ -425,7 +437,38 @@ class Diffmotion_model(object):
         actions[b, 1] = np.array([0, 0, 0, 4])
         feed_dict[self.actions_pl] = actions
 
-        return feed_dict
+        gen_images, object_masks, moved_images, trafos, comp_factors, moved_parts, gen_pix_distrib, gen_masks, moved_pix_distrib = sess.run([
+            self.om.gen_images,
+            self.om.objectmasks,
+            self.om.moved_imagesl,
+            self.om.list_of_trafos,
+            self.om.list_of_comp_factors,
+            self.om.moved_partsl,
+            self.om.gen_pix_distrib,
+            self.om.gen_masks,
+            self.om.moved_pix_distrib
+        ],
+            feed_dict)
+        dict_ = {}
+        dict_['gen_images'] = gen_images
+        if 'pos_dependent_assembly' not in self.conf:
+            dict_['object_masks'] = object_masks
+
+        dict_['moved_images'] = moved_images
+        dict_['trafos'] = trafos
+        dict_['comp_factors'] = comp_factors
+        dict_['moved_parts'] = moved_parts
+        dict_['gen_pix_distrib'] = gen_pix_distrib
+        dict_['gen_masks'] = gen_masks
+        dict_['moved_pix_distrib'] = moved_pix_distrib
+
+
+        cPickle.dump(dict_, open(file_path + '/dict_.pkl', 'wb'))
+        print 'written files to:' + file_path
+        makegifs.comp_gif(self.conf, self.conf['output_dir'],
+                          name='b{}_l{}'.format(b_exp, self.conf['sequence_length']),
+                          show_parts=True)
+        return
 
 def create_one_hot(conf, desig_pix):
     one_hot = np.zeros((1, 1, 64, 64, 1), dtype=np.float32)

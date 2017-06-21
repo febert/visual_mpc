@@ -20,15 +20,13 @@ def add_crosshairs(distrib, pix_list):
     return distrib
 
 
-def comp_gif(conf, file_path, name= None, examples = 10, show_parts=False):
+def comp_gif(conf, file_path, name= "", examples = 10, show_parts=False):
     dict_ = cPickle.load(open(file_path + '/dict_.pkl', "rb"))
 
-    ground_truth =dict_['ground_truth']
-    gen_images = dict_['gen_images']
-    object_masks = dict_['object_masks']
+    if 'ground_truth' in dict_:
+        ground_truth = dict_['ground_truth']
 
-    moved_images = dict_['moved_images']
-    moved_images = prepare_masks(moved_images, copy_last_dim=False)
+    gen_images = dict_['gen_images']
 
     trafos = dict_['trafos']
     comp_factors = dict_['comp_factors']
@@ -36,26 +34,55 @@ def comp_gif(conf, file_path, name= None, examples = 10, show_parts=False):
 
     print 'finished loading ...'
 
-    img = create_images(object_masks, examples)
-    img = Image.fromarray(img)
-    img.save(file_path +'/objectparts_masks.png')
+    if 'object_masks' in dict_:
+        object_masks = dict_['object_masks']
+        img = create_images(object_masks, examples)
+        img = Image.fromarray(img)
+        img.save(file_path +'/objectparts_masks.png')
 
-    if not isinstance(ground_truth, list):
-        ground_truth = np.split(ground_truth, ground_truth.shape[1], axis=1)
-        ground_truth = [np.squeeze(g) for g in ground_truth]
+    videolist  =[]
+    if 'ground_truth' in dict_:
+        if not isinstance(ground_truth, list):
+            ground_truth = np.split(ground_truth, ground_truth.shape[1], axis=1)
+            ground_truth = [np.squeeze(g) for g in ground_truth]
 
-    videolist = [ground_truth, gen_images] + moved_images
+        videolist = [ground_truth]
 
-    if show_parts:
-        moved_parts = dict_['moved_parts']
-        moved_parts = prepare_masks(moved_parts, copy_last_dim=False)
-        videolist += moved_parts
+    videolist.append(gen_images)
+
+    if 'gen_pix_distrib' in dict_:
+        gen_pix_distrib = dict_['gen_pix_distrib']
+        plot_psum_overtime(gen_pix_distrib, examples,file_path+"/"+ name)
+        videolist.append(make_color_scheme(gen_pix_distrib))
+
+    if 'moved_pix_distrib' in dict_:
+        moved_pix_distrib = dict_['moved_pix_distrib']
+        # moved_pix_distrib_ = []
+        # for t in range(len(moved_pix_distrib)):
+        #     moved_pix_t = [m[:examples] for m in moved_pix_distrib[t]]
+        #     moved_pix_distrib_.append(moved_pix_t)
+        moved_pix_distrib = prepare_video(moved_pix_distrib, copy_last_dim=True)
+        # moved_pix_distrib = [make_color_scheme(m) for m in moved_pix_distrib]
+        videolist += moved_pix_distrib
+
+
+    moved_images = dict_['moved_images']
+    moved_images = prepare_video(moved_images, copy_last_dim=False)
+    videolist += moved_images
+
+    if 'gen_masks' in dict_:
+        gen_masks = dict_['gen_masks']
+        videolist += prepare_video(gen_masks, copy_last_dim=True)
+
+    # if show_parts:
+    #     moved_parts = dict_['moved_parts']
+    #     videolist += prepare_video(moved_parts, copy_last_dim=False)
 
     suffix = ''
     itr_vis = re.match('.*?([0-9]+)$', conf['visualize']).group(1)
 
     fused_gif = assemble_gif(videolist, num_exp= examples)
-    npy_to_gif(fused_gif, file_path + '/vid_'+itr_vis+ suffix)
+    npy_to_gif(fused_gif, file_path + '/' +name +'vid_'+itr_vis+ suffix)
 
 def create_images(object_masks, nexp):
     object_masks = [np.repeat(m, 3, axis=-1) for m in object_masks]
@@ -71,7 +98,24 @@ def create_images(object_masks, nexp):
     combined = (np.concatenate(rows, axis=0)*255.).astype(np.uint8)
     return combined
 
-def prepare_masks(masks, copy_last_dim):
+def plot_psum_overtime(gen_distrib, n_exp, name):
+    plt.figure(figsize=(25, 2),dpi=80)
+
+    for ex in range(n_exp):
+        psum = []
+        plt.subplot(1,n_exp, ex+1)
+        for t in range(len(gen_distrib)):
+            psum.append(np.sum(gen_distrib[t][ex]))
+
+        psum = np.array(psum)
+        plt.plot(range(len(gen_distrib)), psum)
+        plt.ylim([0,2.5])
+
+    # plt.show()
+    plt.savefig(name +"_psum.png")
+    plt.close('all')
+
+def prepare_video(masks, copy_last_dim):
     tsteps = len(masks)
     nmasks = len(masks[0])
     list_of_maskvideos = []
@@ -108,11 +152,11 @@ def pad_pos(conf, vid, pos, origsize = 64):
     return padded_vid
 
 if __name__ == '__main__':
-    file_path = '/home/frederik/Documents/lsdc/tensorflow_data/occulsionmodel/firsttest'
+    file_path = '/home/frederik/Documents/lsdc/tensorflow_data/occulsionmodel/CDNA_sawyer_posdep'
     hyperparams = imp.load_source('hyperparams', file_path +'/conf.py')
 
     conf = hyperparams.configuration
-    conf['visualize'] = conf['output_dir'] + '/model24002'
+    conf['visualize'] = conf['output_dir'] + '/model12002'
 
 
-    comp_gif(conf, file_path + '/modeldata')
+    comp_gif(conf, file_path + '/modeldata', show_parts=False)
