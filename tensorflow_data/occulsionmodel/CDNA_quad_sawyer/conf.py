@@ -26,6 +26,7 @@ configuration = {
 'learning_rate': 0.001,     #'the base learning rate of the generator' ,
 'visualize': '',            #'load model from which to generate visualizations
 'file_visual': '',          # datafile used for making visualizations
+'quad_comp':'',
 'dna_size':9,
 'sawyer':'',
 'single_view':"",

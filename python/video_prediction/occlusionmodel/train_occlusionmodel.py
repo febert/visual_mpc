@@ -5,6 +5,7 @@ import imp
 import sys
 import cPickle
 import pdb
+import matplotlib.pyplot as plt
 
 import imp
 
@@ -34,6 +35,7 @@ flags.DEFINE_string('hyper', '', 'hyperparameters configuration file')
 flags.DEFINE_string('visualize', '', 'model within hyperparameter folder from which to create gifs')
 flags.DEFINE_integer('device', 0 ,'the value for CUDA_VISIBLE_DEVICES variable, -1 uses cpu')
 flags.DEFINE_string('pretrained', None, 'path to model file from which to resume training')
+flags.DEFINE_bool('diffmotions', False, 'visualize several different motions for a single scene')
 
 ## Helper functions
 def peak_signal_to_noise_ratio(true, pred):
@@ -68,9 +70,8 @@ class Model(object):
                  actions=None,
                  states=None,
                  reuse_scope=None,
+                 pix_distrib=None
                  ):
-
-
 
         self.prefix = prefix = tf.placeholder(tf.string, [])
         self.iter_num = tf.placeholder(tf.float32, [])
@@ -89,6 +90,10 @@ class Model(object):
             states = tf.split(1, states.get_shape()[1], states)
             states = [tf.squeeze(st) for st in states]
 
+        if pix_distrib != None:
+            pix_distrib = tf.split(1, pix_distrib.get_shape()[1], pix_distrib)
+            pix_distrib = [tf.squeeze(st) for st in pix_distrib]
+
         images = tf.split(1, images.get_shape()[1], images)
         images = [tf.squeeze(img) for img in images]
 
@@ -98,7 +103,8 @@ class Model(object):
                 actions,
                 states,
                 iter_num=self.iter_num,
-                conf=conf)
+                conf=conf,
+                pix_distibution=pix_distrib)
             self.om.build()
         else:  # If it's a validation or test model.
             with tf.variable_scope(reuse_scope, reuse=True):
@@ -107,7 +113,8 @@ class Model(object):
                     actions,
                     states,
                     iter_num=self.iter_num,
-                    conf= conf)
+                    conf= conf,
+                    pix_distibution=pix_distrib)
                 self.om.build()
 
         # L2 loss, PSNR for eval.
@@ -225,14 +232,17 @@ def main(unused_argv, conf_script= None):
     else:
         from video_prediction.read_tf_record import build_tfrecord_input
 
-    print 'Constructing models and inputs.'
-    with tf.variable_scope('model', reuse=None) as training_scope:
-        images, actions, states = build_tfrecord_input(conf, training=True)
-        model = Model(conf, images, actions, states)
+    if FLAGS.diffmotions:
+        val_model = Diffmotion_model(conf, build_tfrecord_input)
+    else:
+        print 'Constructing models and inputs.'
+        with tf.variable_scope('model', reuse=None) as training_scope:
+            images, actions, states = build_tfrecord_input(conf, training=True)
+            model = Model(conf, images, actions, states)
 
-    with tf.variable_scope('val_model', reuse=None):
-        val_images, val_actions, val_states = build_tfrecord_input(conf, training=False)
-        val_model = Model(conf, val_images, val_actions, val_states, training_scope)
+        with tf.variable_scope('val_model', reuse=None):
+            val_images, val_actions, val_states = build_tfrecord_input(conf, training=False)
+            val_model = Model(conf, val_images, val_actions, val_states, training_scope)
 
     print 'Constructing saver.'
     # Make saver.
@@ -249,11 +259,15 @@ def main(unused_argv, conf_script= None):
 
     if conf['visualize']:
         saver.restore(sess, conf['visualize'])
-
-        feed_dict = {val_model.lr: 0.0,
-                     val_model.prefix: 'vis',
-                     val_model.iter_num: 0 }
         file_path = conf['output_dir']
+
+        if FLAGS.diffmotions:
+            feed_dict = val_model.visualize_diffmotions(sess)
+            val_images = val_model.val_images
+        else:
+            feed_dict = {val_model.lr: 0.0,
+                         val_model.prefix: 'vis',
+                         val_model.iter_num: 0}
 
         ground_truth, gen_images, object_masks, moved_images, trafos, comp_factors, moved_parts = sess.run([
                                                         val_images,
@@ -273,12 +287,9 @@ def main(unused_argv, conf_script= None):
         dict_['trafos'] = trafos
         dict_['comp_factors'] = comp_factors
         dict_['moved_parts'] = moved_parts
-
         cPickle.dump(dict_, open(file_path + '/dict_.pkl', 'wb'))
         print 'written files to:' + file_path
-
-        trajectories = makegifs.comp_gif(conf, conf['output_dir'], show_parts=True)
-        # utils_vpred.create_gif.comp_masks(conf['output_dir'], conf, trajectories)
+        makegifs.comp_gif(conf, conf['output_dir'], show_parts=True)
         return
 
     itr_0 =0
@@ -352,6 +363,109 @@ def main(unused_argv, conf_script= None):
     tf.logging.info('Training complete')
     tf.logging.flush()
 
+class Diffmotion_model(object):
+    def __init__(self, conf, build_tfrecord_input):
+        self.conf = conf
+        self.actions_pl = tf.placeholder(tf.float32, name='actions',
+                                    shape=(conf['batch_size'], conf['sequence_length'], 4))
+        self.states_pl = tf.placeholder(tf.float32, name='states',
+                                   shape=(conf['batch_size'], conf['sequence_length'], 3))
+        self.images_pl = tf.placeholder(tf.float32, name='images',
+                                   shape=(conf['batch_size'], conf['sequence_length'], 64, 64, 3))
+        self.val_images, _, self.val_states = build_tfrecord_input(conf, training=False)
+
+        self.pix_distrib_pl = tf.placeholder(tf.float32, name='states',
+                                        shape=(conf['batch_size'], conf['sequence_length'], 64, 64, 1))
+        with tf.variable_scope('model', reuse=None):
+            self.m = Model(conf, self.images_pl, self.actions_pl, self.states_pl, pix_distrib=self.pix_distrib_pl)
+
+    def visualize_diffmotions(self, sess):
+
+        feed_dict = {self.m.lr: 0.0,
+                     self.m.prefix: 'vis',
+                     self.m.iter_num: 0}
+
+        b_exp, ind0 = 3, 0
+        img, state = sess.run([self.val_images, self.val_states])
+        sel_img = img[b_exp, ind0:ind0 + 2]
+        sel_img_aux1 = sel_img[0]
+
+        c = Getdesig(sel_img_aux1, self.conf, 'b{}'.format(b_exp))
+        desig_pos_aux1 = c.coords.astype(np.int32)
+        # desig_pos_aux1 = np.array([16, 42])
+        print "selected designated position for aux1 [row,col]:", desig_pos_aux1
+        one_hot = create_one_hot(self.conf, desig_pos_aux1)
+
+        feed_dict[self.pix_distrib_pl] = one_hot
+        sel_state = np.stack([state[b_exp, ind0], state[b_exp, ind0 + 1]], axis=0)
+        start_states = np.concatenate([sel_state, np.zeros((self.conf['sequence_length'] - 2, 3))])
+        start_states = np.expand_dims(start_states, axis=0)
+        start_states = np.repeat(start_states, self.conf['batch_size'], axis=0)  # copy over batch
+        feed_dict[self.states_pl] = start_states
+        if 'single_view' not in self.conf:
+            start_images = np.concatenate([sel_img, np.zeros((self.conf['sequence_length'] - 2, 64, 64, 6))])
+        else:
+            start_images = np.concatenate([sel_img, np.zeros((self.conf['sequence_length'] - 2, 64, 64, 3))])
+        start_images = np.expand_dims(start_images, axis=0)
+        start_images = np.repeat(start_images, self.conf['batch_size'], axis=0)  # copy over batch
+        feed_dict[self.images_pl] = start_images
+        actions = np.zeros([self.conf['batch_size'], self.conf['sequence_length'], 4])
+        step = .025
+        n_angles = 8
+        for b in range(n_angles):
+            for i in range(self.conf['sequence_length']):
+                actions[b, i] = np.array(
+                    [np.cos(b / float(n_angles) * 2 * np.pi) * step, np.sin(b / float(n_angles) * 2 * np.pi) * step, 0,
+                     0])
+        b += 1
+        actions[b, 0] = np.array([0, 0, 4, 0])
+        actions[b, 1] = np.array([0, 0, 4, 0])
+        b += 1
+        actions[b, 0] = np.array([0, 0, 0, 4])
+        actions[b, 1] = np.array([0, 0, 0, 4])
+        feed_dict[self.actions_pl] = actions
+
+        return feed_dict
+
+def create_one_hot(conf, desig_pix):
+    one_hot = np.zeros((1, 1, 64, 64, 1), dtype=np.float32)
+    # switch on pixels
+    one_hot[0, 0, desig_pix[0], desig_pix[1]] = 1.
+
+    # plt.figure()
+    # plt.imshow(np.squeeze(one_hot[0, 0]))
+    # plt.show()
+    one_hot = np.repeat(one_hot, conf['context_frames'], axis=1)
+    app_zeros = np.zeros((1, conf['sequence_length']- conf['context_frames'], 64, 64, 1), dtype=np.float32)
+    one_hot = np.concatenate([one_hot, app_zeros], axis=1)
+    one_hot = np.repeat(one_hot, conf['batch_size'], axis=0)
+
+    return one_hot
+
+class Getdesig(object):
+    def __init__(self,img,conf,img_namesuffix):
+        self.suf = img_namesuffix
+        self.conf = conf
+        self.img = img
+        fig = plt.figure()
+        self.ax = fig.add_subplot(111)
+        self.ax.set_xlim(0, 63)
+        self.ax.set_ylim(63, 0)
+        plt.imshow(img)
+
+        self.coords = None
+        cid = fig.canvas.mpl_connect('button_press_event', self.onclick)
+        plt.show()
+
+    def onclick(self, event):
+        print('button=%d, x=%d, y=%d, xdata=%f, ydata=%f' %
+              (event.button, event.x, event.y, event.xdata, event.ydata))
+        self.coords = np.array([event.ydata, event.xdata])
+        self.ax.scatter(self.coords[1], self.coords[0], s=60, facecolors='none', edgecolors='b')
+        self.ax.set_xlim(0, 63)
+        self.ax.set_ylim(63, 0)
+        plt.draw()
+        plt.savefig(self.conf['output_dir']+'/img_desigpix'+self.suf)
 
 if __name__ == '__main__':
     tf.logging.set_verbosity(tf.logging.INFO)
