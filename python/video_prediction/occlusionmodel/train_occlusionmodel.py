@@ -150,9 +150,7 @@ class Model(object):
 
         if 'padding_usage_penalty' in self.conf:
             padding_usage_loss = 0
-            for i, gmask, pmap in zip(
-                    range(len(self.om.gen_states)), self.om.gen_masks,
-                    self.om.padding_map[1:]):
+            for gmask, pmap in zip(self.om.gen_masks, self.om.padding_map[1:]):
                 for p in range(len(gmask)):
                     pmap[p] += 1
                     padding_usage_loss += tf.reduce_sum(gmask[p]*pmap[p])

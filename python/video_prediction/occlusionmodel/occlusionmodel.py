@@ -134,7 +134,11 @@ class Occlusion_Model(object):
                     prev_image = image
 
                 print 'building step', t
-                state_action = tf.concat(1, [action, self.current_state])
+
+                if 'use_fullactions' in self.conf:
+                    state_action = tf.concat(1, [action, self.current_state, self.actions])
+                else:
+                    state_action = tf.concat(1, [action, self.current_state])
 
                 enc0 = slim.layers.conv2d(    #32x32x32
                     prev_image,

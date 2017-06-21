@@ -264,6 +264,10 @@ def mujoco_to_imagespace(mujoco_coord, numpix=64):
                   np.array([middle_pixel, middle_pixel])
     return pixel_coord
 
+
+# def create_canoncical_examples():
+
+
 if __name__ == '__main__':
     # for debugging only:
     os.environ["CUDA_VISIBLE_DEVICES"] = "1"
@@ -300,8 +304,6 @@ if __name__ == '__main__':
     sess.run(tf.initialize_all_variables())
 
     from video_prediction.utils_vpred.create_gif import comp_single_video
-
-
 
 
     for i in range(1):
