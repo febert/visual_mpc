@@ -271,6 +271,8 @@ if __name__ == '__main__':
     conf = {}
 
     DATA_DIR = '/home/frederik/Documents/lsdc/pushing_data/softmotion30/test'
+    current_dir = os.path.dirname(os.path.realpath(__file__))
+    DATA_DIR = '/'.join(str.split(current_dir, '/')[:-3]) + '/pushing_data/softmotion30/train'
 
     conf['schedsamp_k'] = -1  # don't feed ground truth
     conf['data_dir'] = DATA_DIR  # 'directory containing data_files.' ,
@@ -297,12 +299,20 @@ if __name__ == '__main__':
     tf.train.start_queue_runners(sess)
     sess.run(tf.initialize_all_variables())
 
+    from video_prediction.utils_vpred.create_gif import comp_single_video
+
+
+
 
     for i in range(1):
         print 'run number ', i
 
         # image_main, image_aux, actions, endeff = sess.run([image_main_batch, image_aux_batch, action_batch, endeff_pos_batch])
         image_aux, actions, endeff = sess.run([image_aux_batch, action_batch, endeff_pos_batch])
+
+        file_path = '/'.join(str.split(DATA_DIR, '/')[:-1]+['/preview'])
+        comp_single_video(file_path, image_aux)
+
 
         # show some frames
 
@@ -318,6 +328,7 @@ if __name__ == '__main__':
             image_aux = np.squeeze(image_aux)
             img = np.uint8(255. * image_aux[0, i])
             img = Image.fromarray(img, 'RGB')
+            img.save(file_path,'PNG')
             img.show()
 
             pdb.set_trace()

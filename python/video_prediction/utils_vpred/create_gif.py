@@ -97,7 +97,7 @@ def comp_single_video(file_path, ground_truth, predicted = None, num_exp = 8):
 def make_color_scheme(input_img_list, n_exp= None, convert_to_float = True):
     """
     :param input_img_list: list of single channel images
-    :param output_img_list: list of single channel images
+    :param output_img_list: list of three channel images
     change to jet colorscheme, mark maximum value pixel
     :return:
     """

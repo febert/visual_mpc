@@ -32,7 +32,6 @@ def build_tfrecord_input(conf, training=True, gtruth_pred = False, shuffle_vis =
     Raises:
       RuntimeError: if no files found.
     """
-
     filenames = gfile.Glob(os.path.join(conf['data_dir'], '*'))
     if not filenames:
         raise RuntimeError('No data_files files found.')

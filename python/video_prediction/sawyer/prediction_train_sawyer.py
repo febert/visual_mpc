@@ -77,7 +77,7 @@ class Model(object):
 
 
         if 'use_len' in conf:
-            #randomly shift videos for data augmentation
+            print 'randomly shift videos for data augmentation'
             images, states, actions  = self.random_shift(images, states, actions)
 
         self.images_sel = images
@@ -102,7 +102,7 @@ class Model(object):
             pix_distrib = [tf.squeeze(pix) for pix in pix_distrib]
 
         if reuse_scope is None:
-            gen_images, gen_states, gen_masks, gen_distrib = construct_model(
+            gen_images, gen_states, gen_masks, gen_distrib, moved_im, moved_pix, trafos = construct_model(
                 images,
                 actions,
                 states,
@@ -114,7 +114,7 @@ class Model(object):
                 conf=conf)
         else:  # If it's a validation or test model.
             with tf.variable_scope(reuse_scope, reuse=True):
-                gen_images, gen_states, gen_masks, gen_distrib = construct_model(
+                gen_images, gen_states, gen_masks, gen_distrib, moved_im, moved_pix, trafos = construct_model(
                     images,
                     actions,
                     states,
@@ -171,9 +171,11 @@ class Model(object):
         self.gen_masks = gen_masks
         self.gen_distrib = gen_distrib
         self.gen_states = gen_states
+        self.moved_im = moved_im
+        self.moved_pix = moved_pix
+        self.trafos = trafos
 
     def random_shift(self, images, states, actions):
-
         print 'shifting the video sequence randomly in time'
         tshift = 2
         uselen = self.conf['use_len']
@@ -242,10 +244,10 @@ def main(unused_argv, conf_script= None):
         conf.pop('use_len', None)
         conf['batch_size'] = 32
 
+        conf['sequence_length'] = 15
         if FLAGS.diffmotions:
             inference = True
-
-        conf['sequence_length'] = 15
+            conf['sequence_length'] = 30
 
     print 'Constructing models and inputs.'
     if FLAGS.diffmotions:
@@ -260,18 +262,15 @@ def main(unused_argv, conf_script= None):
         if 'single_view' in conf:
             images_pl = tf.placeholder(tf.float32, name='images',
                                        shape=(conf['batch_size'], conf['sequence_length'], 64, 64, 3))
-            pix_distrib_pl = tf.placeholder(tf.float32, name='states',
-                                            shape=(conf['batch_size'], conf['sequence_length'], 64, 64, 1))
-
             val_images, _, val_states = build_tfrecord_input(conf, training=False)
 
         else:
             images_pl = tf.placeholder(tf.float32, name='images',
                                        shape=(conf['batch_size'], conf['sequence_length'], 64, 64, 6))
-
-            pix_distrib_pl = tf.placeholder(tf.float32, name='states',
-                                            shape=(conf['batch_size'], conf['sequence_length'], 64, 64, 2))
             val_images_main, val_images_aux1, _, val_states = build_tfrecord_input(conf, training=True)
+
+        pix_distrib_pl = tf.placeholder(tf.float32, name='states',
+                                        shape=(conf['batch_size'], conf['sequence_length'], 64, 64, 1))
 
         with tf.variable_scope('model', reuse=None):
             val_model = Model(conf, images_pl, actions_pl, states_pl, pix_distrib=pix_distrib_pl,
@@ -331,7 +330,7 @@ def main(unused_argv, conf_script= None):
 
         if FLAGS.diffmotions:
 
-            b_exp, ind0 = 8, 0
+            b_exp, ind0 = 3, 0
 
             if 'single_view' in conf:
                 img, state = sess.run([val_images, val_states])
@@ -344,11 +343,9 @@ def main(unused_argv, conf_script= None):
 
                 sel_img = np.concatenate([sel_img_main, sel_img_aux1], axis= 3)
 
-
-            c = Getdesig(sel_img_aux1[0], conf, 'b{}'.format(b_exp))
+            c = Getdesig(sel_img_aux1, conf, 'b{}'.format(b_exp))
             desig_pos_aux1 = c.coords.astype(np.int32)
-            # desig_pos_aux1 = np.array([16, 31])
-            # desig_pos = np.array([23, 36])
+            # desig_pos_aux1 = np.array([16, 42])
 
             print "selected designated position for aux1 [row,col]:", desig_pos_aux1
 
@@ -400,19 +397,26 @@ def main(unused_argv, conf_script= None):
 
             feed_dict[actions_pl] = actions
 
-            gen_images, gen_distrib = sess.run([val_model.gen_images, val_model.gen_distrib],feed_dict)
+            gen_images, gen_distrib, gen_masks, moved_im, moved_pix, trafos = sess.run([val_model.gen_images, val_model.gen_distrib, val_model.gen_masks,
+                                                                                val_model.moved_im, val_model.moved_pix, val_model.trafos],feed_dict)
 
-            cPickle.dump(gen_images, open(file_path + '/gen_image.pkl', 'wb'))
-            cPickle.dump(gen_distrib, open(file_path + '/gen_distrib.pkl', 'wb'))
-            create_video_pixdistrib_gif(file_path, conf,
-                                        suffix='_diffmotions_b{}_l{}'.format(b_exp, conf['sequence_length']), n_exp=10)
+            cPickle.dump(gen_images, open(file_path + '/gen_image_t0.pkl', 'wb'))
+            cPickle.dump(gen_distrib, open(file_path + '/gen_distrib_t0.pkl', 'wb'))
+            cPickle.dump(gen_masks, open(file_path + '/gen_masks.pkl', 'wb'))
+            cPickle.dump(moved_im, open(file_path + '/moved_im.pkl', 'wb'))
+            cPickle.dump(moved_pix, open(file_path + '/moved_pix.pkl', 'wb'))
+            cPickle.dump(trafos, open(file_path + '/trafos.pkl', 'wb'))
+
+            create_video_pixdistrib_gif(file_path, conf,0,
+                                        suffix='_diffmotions_b{}_l{}'.format(b_exp, conf['sequence_length']), n_exp=10,
+                                        append_masks=True, show_moved=False)
         else:
             gen_images, ground_truth, gen_masks = sess.run([val_model.gen_images, val_model.images_sel, val_model.gen_masks],
                                                 feed_dict)
             cPickle.dump(ground_truth, open(file_path + '/ground_truth.pkl', 'wb'))
             cPickle.dump(gen_masks, open(file_path + '/gen_masks.pkl', 'wb'))
             cPickle.dump(gen_images, open(file_path + '/gen_image.pkl','wb'))
-            create_gif(file_path, conf, numexp= 20, append_masks= True)
+            create_gif(file_path, conf, numexp= 8, append_masks= True)
 
         return
 
