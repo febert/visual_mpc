@@ -247,7 +247,7 @@ def main(unused_argv, conf_script= None):
         conf['sequence_length'] = 15
         if FLAGS.diffmotions:
             inference = True
-            conf['sequence_length'] = 15
+            conf['sequence_length'] = 30
 
     print 'Constructing models and inputs.'
     if FLAGS.diffmotions:
@@ -330,12 +330,11 @@ def main(unused_argv, conf_script= None):
 
         if FLAGS.diffmotions:
 
-            b_exp, ind0 = 3, 0
+            b_exp, ind0 = 11, 0
 
             if 'single_view' in conf:
                 img, state = sess.run([val_images, val_states])
                 sel_img= img[b_exp,ind0:ind0+2]
-                sel_img_aux1 = sel_img[0]
             else:
                 img_main, img_aux1, state = sess.run([val_images_main, val_images_aux1, val_states])
                 sel_img_main = img_main[b_exp,ind0:ind0+2]
@@ -343,9 +342,9 @@ def main(unused_argv, conf_script= None):
 
                 sel_img = np.concatenate([sel_img_main, sel_img_aux1], axis= 3)
 
-            c = Getdesig(sel_img_aux1, conf, 'b{}'.format(b_exp))
-            desig_pos_aux1 = c.coords.astype(np.int32)
-            # desig_pos_aux1 = np.array([16, 42])
+            # c = Getdesig(sel_img[0], conf, 'b{}'.format(b_exp))
+            # desig_pos_aux1 = c.coords.astype(np.int32)
+            desig_pos_aux1 = np.array([23, 39])
 
             print "selected designated position for aux1 [row,col]:", desig_pos_aux1
 

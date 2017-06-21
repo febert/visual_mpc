@@ -234,8 +234,8 @@ def construct_model(images,
                 else:
                     transformed_cam2l = [dna_transformation(prev_image, trafo_input_cam2, conf['dna_size'])]
                     if pix_distributions != None:
-                        transf_distrib_cam2 = dna_transformation(prev_pix_distrib, trafo_input_cam2, DNA_KERN_SIZE)
-                        gen_pix_distrib.append(transf_distrib_cam2)
+                        transf_distrib_cam2 = [dna_transformation(prev_pix_distrib, trafo_input_cam2, DNA_KERN_SIZE)]
+                        # gen_pix_distrib.append(transf_distrib_cam2[0])
 
                 extra_masks = 1  ## extra_masks = 2 is needed for running singleview_shifted!!
 
