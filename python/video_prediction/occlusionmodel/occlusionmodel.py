@@ -35,12 +35,18 @@ class Occlusion_Model(object):
                 actions=None,
                 states=None,
                 iter_num=-1.0,
-                conf = None):
+                conf = None,
+                pix_distibution=None,
+                 ):
 
         self.actions = actions
         self.iter_num = iter_num
         self.conf = conf
         self.images = images
+        self.pix_distribution = pix_distibution
+
+        self.moved_pix_distrib = []
+
 
         self.cdna, self.stp, self.dna = False, False, False
         if self.conf['model'] == 'CDNA':
@@ -49,6 +55,8 @@ class Occlusion_Model(object):
             self.stp = True
         elif self.conf['model'] == 'DNA':
             self.dna = True
+        if self.stp + self.cdna + self.dna != 1:
+            raise ValueError("More than one option selected!")
 
 
         if 'dna_size' in conf:
@@ -228,8 +236,18 @@ class Occlusion_Model(object):
                 if self.cdna:
                     cdna_input = tf.reshape(hidden5, [int(self.batch_size), -1])
                     moved_images, moved_masks, _ = self.cdna_transformation_imagewise(self.moved_imagesl[-1],
-                                                                     self.moved_masksl[-1], cdna_input, self.num_masks,
-                                                 reuse_sc=reuse)
+                                                         self.moved_masksl[-1], cdna_input, self.num_masks,
+                                                         reuse_sc=reuse)
+                    if self.pix_distribution != None:
+                        if t == 0:
+                            self.moved_pix_distrib.append([
+                            tf.reshape(self.pix_distribution[0], shape=[self.batch_size, 64,64,1]) for _ in range(self.num_masks)])
+                        moved_pix, _, _ = self.cdna_transformation_imagewise(self.moved_pix_distrib[-1],
+                                                                                          None,
+                                                                                          cdna_input,
+                                                                                          self.num_masks,
+                                                                                          reuse_sc=True)
+                        self.moved_pix_distrib.append(moved_pix)
 
                 if self.dna:
                     moved_images, moved_masks = self.apply_dna_separately(enc6)
@@ -270,8 +288,15 @@ class Occlusion_Model(object):
                     assembly_masks = tf.split(3, self.num_masks, masks)
                     self.assembly_masks_list.append(assembly_masks)
                     # moved_images += [generated_pix]
-                    for mimage, mask in zip(moved_images, assembly_masks):
+                    for mimage, mask in zip(self.moved_imagesl[-1], assembly_masks):
                         assembly += mimage * mask
+
+                    if self.pix_distribution != None:
+                        pix_assembly = tf.zeros([self.batch_size, 64, 64, 3], dtype=tf.float32)
+                        for pix, mask in zip(self.moved_pix_distrib[-1], assembly_masks):
+                            pix_assembly += pix * mask
+                        self.gen_pix_distrib.append(pix_assembly)
+
                 else:
                     if 'gen_pix_averagestep' in self.conf:  # insert the genearted pixels when averaging
                         moved_images = [generated_pix] + moved_images
@@ -285,8 +310,17 @@ class Occlusion_Model(object):
                         assembly += mimage*moved_mask*cfact
                         normalizer += moved_mask*cfact
                     assembly /= (normalizer + tf.ones_like(normalizer) * 1e-4)
-
                     self.moved_partsl.append(parts)
+
+                    if self.pix_distribution != None:
+                        pix_assembly = tf.zeros([self.batch_size, 64, 64, 3], dtype=tf.float32)
+                        normalizer = tf.zeros([self.batch_size, 64, 64, 1], dtype=tf.float32)
+                        for mimage, moved_mask, cfact in zip(moved_images, moved_masks, comp_fact_input):
+                            cfact = tf.reshape(cfact, [self.batch_size, 1, 1, 1])
+                            pix_assembly += mimage * moved_mask * cfact
+                            normalizer += moved_mask * cfact
+                        pix_assembly /= (normalizer + tf.ones_like(normalizer) * 1e-4)
+                        self.gen_pix_distrib.append(pix_assembly)
 
                 # insert the genearted pixels later
                 if 'gen_pix' in self.conf:
@@ -473,6 +507,8 @@ class Occlusion_Model(object):
 
     def cdna_transformation_imagewise(self, prev_images, prev_masks, cdna_input, num_masks, reuse_sc=None):
 
+        color_channels = int(prev_images[0].get_shape()[3])
+
         transformed = []
         transformed_masks = []
         for i_img in range(num_masks):
@@ -491,28 +527,31 @@ class Occlusion_Model(object):
             norm_factor = tf.reduce_sum(cdna_kerns, [1, 2, 3], keep_dims=True)
             cdna_kerns /= norm_factor
             cdna_kerns_summary = cdna_kerns
-            cdna_kerns = tf.tile(cdna_kerns, [1, 1, 1, self.color_channels, 1])
+            cdna_kerns = tf.tile(cdna_kerns, [1, 1, 1, color_channels, 1])
             cdna_kerns = tf.split(0, self.batch_size, cdna_kerns)
             target_image = tf.split(0, self.batch_size, prev_images[i_img])
-            target_mask = tf.split(0, self.batch_size, prev_masks[i_img])
+
+            if prev_masks != None:
+                target_mask = tf.split(0, self.batch_size, prev_masks[i_img])
+
             # Transform image.
             transformed_ex = []
             transformed_ex_mask = []
-            for i_b, kernel, preimg, premsk in zip(range(self.batch_size), cdna_kerns, target_image, target_mask):
-                kernel = tf.squeeze(kernel)
-                kernel = tf.expand_dims(kernel, 3)
+            for i_b, kernel, preimg in zip(range(self.batch_size), cdna_kerns, target_image):
+
+                kernel = tf.reshape(kernel, [self.DNA_KERN_SIZE, self.DNA_KERN_SIZE,color_channels,1])
                 transformed_ex.append(
                     tf.nn.depthwise_conv2d(preimg, kernel, [1, 1, 1, 1], 'SAME'))
 
-                if 'pos_dependent_assembly' not in self.conf:
+                if 'pos_dependent_assembly' not in self.conf and prev_masks != None:
                     kernel = tf.slice(kernel,[0,0,0,0], [-1,-1,1,-1])
                     transformed_ex_mask.append(
-                        tf.nn.depthwise_conv2d(premsk, kernel, [1, 1, 1, 1], 'SAME'))
+                        tf.nn.depthwise_conv2d(target_mask[i_b], kernel, [1, 1, 1, 1], 'SAME'))
 
             transformed_ex = tf.concat(0, transformed_ex)
             transformed.append(transformed_ex)
 
-            if 'pos_dependent_assembly' not in self.conf:
+            if 'pos_dependent_assembly' not in self.conf and prev_masks != None:
                 transformed_ex_mask = tf.concat(0, transformed_ex_mask)
                 transformed_masks.append(transformed_ex_mask)
 
