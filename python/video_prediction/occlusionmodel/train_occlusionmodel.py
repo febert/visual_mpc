@@ -241,6 +241,7 @@ def main(unused_argv, conf_script= None):
         conf = adapt_params_visualize(conf, FLAGS.visualize)
         conf.pop('use_len', None)
         conf['sequence_length'] = 15
+        conf['batch_size'] = 10
 
     print '-------------------------------------------------------------------'
     print 'verify current settings!! '
