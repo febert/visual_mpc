@@ -496,10 +496,6 @@ def create_one_hot(conf, desig_pix):
     one_hot = np.zeros((1, 1, 64, 64, 1), dtype=np.float32)
     # switch on pixels
     one_hot[0, 0, desig_pix[0], desig_pix[1]] = 1.
-
-    # plt.figure()
-    # plt.imshow(np.squeeze(one_hot[0, 0]))
-    # plt.show()
     one_hot = np.repeat(one_hot, conf['context_frames'], axis=1)
     app_zeros = np.zeros((1, conf['sequence_length']- conf['context_frames'], 64, 64, 1), dtype=np.float32)
     one_hot = np.concatenate([one_hot, app_zeros], axis=1)

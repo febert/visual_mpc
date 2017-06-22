@@ -245,6 +245,8 @@ class Occlusion_Model(object):
                                                          self.moved_masksl[-1], cdna_input, self.num_masks,
                                                          reuse_sc=reuse)
 
+                    self.moved_masksl.append(moved_masks)
+
                     if 'padding_usage_penalty' in self.conf:
                         if t == 0:
                             pad_map = [tf.ones([self.batch_size, 64, 64, 1], tf.float32) * -1 for _ in range(self.num_masks)]
@@ -270,7 +272,6 @@ class Occlusion_Model(object):
 
                 if self.dna:
                     moved_images, moved_masks = self.apply_dna_separately(enc6)
-
                     self.moved_masksl.append(moved_masks)
 
                 self.moved_imagesl.append(moved_images)
@@ -566,7 +567,8 @@ class Occlusion_Model(object):
                 transformed_ex.append(
                     tf.nn.depthwise_conv2d(preimg, kernel, [1, 1, 1, 1], 'SAME'))
 
-                if 'pos_dependent_assembly' not in self.conf and prev_masks != None:
+                if ('pos_dependent_assembly' not in self.conf and prev_masks != None) \
+                        or 'mask_consistency_loss' in self.conf:
                     kernel = tf.slice(kernel,[0,0,0,0], [-1,-1,1,-1])
                     transformed_ex_mask.append(
                         tf.nn.depthwise_conv2d(target_mask[i_b], kernel, [1, 1, 1, 1], 'SAME'))
@@ -574,7 +576,8 @@ class Occlusion_Model(object):
             transformed_ex = tf.concat(0, transformed_ex)
             transformed.append(transformed_ex)
 
-            if 'pos_dependent_assembly' not in self.conf and prev_masks != None:
+            if ('pos_dependent_assembly' not in self.conf and prev_masks != None) \
+                    or 'mask_consistency_loss' in self.conf:
                 transformed_ex_mask = tf.concat(0, transformed_ex_mask)
                 transformed_masks.append(transformed_ex_mask)
 
