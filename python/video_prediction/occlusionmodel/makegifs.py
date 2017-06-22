@@ -74,9 +74,9 @@ def comp_gif(conf, file_path, name= "", examples = 10, show_parts=False):
         gen_masks = dict_['gen_masks']
         videolist += prepare_video(gen_masks, copy_last_dim=True)
 
-    # if show_parts:
-    #     moved_parts = dict_['moved_parts']
-    #     videolist += prepare_video(moved_parts, copy_last_dim=False)
+    if show_parts:
+        moved_parts = dict_['moved_parts']
+        videolist += prepare_video(moved_parts, copy_last_dim=False)
 
     suffix = ''
     itr_vis = re.match('.*?([0-9]+)$', conf['visualize']).group(1)

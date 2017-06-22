@@ -142,13 +142,23 @@ class Occlusion_Model(object):
                 else:
                     state_action = tf.concat(1, [action, self.current_state])
 
+                if 'refeed_parts' in self.conf:
+                    print 'refeeding parts and objectmask'
+                    if t > 0:
+                        conv1_input = tf.concat(3, [prev_image] + self.objectmasks+self.moved_imagesl[-1]+self.moved_masksl[-1])
+                    else:
+                        conv1_input  = tf.concat(3, [prev_image, tf.zeros([self.batch_size,64,64,50], tf.float32)])
+                else:
+                    conv1_input =prev_image
+
                 enc0 = slim.layers.conv2d(    #32x32x32
-                    prev_image,
+                    conv1_input,
                     32, [5, 5],
                     stride=2,
-                    scope='scale1_conv1',
+                    scope='conv1',
                     normalizer_fn=tf_layers.layer_norm,
-                    normalizer_params={'scope': 'layer_norm1'})
+                    normalizer_params={'scope': 'layer_norm1'},
+                    )
 
                 hidden1, lstm_state1 = self.lstm_func(       # 32x32x16
                     enc0, lstm_state1, lstm_size[0], scope='state1')
@@ -336,14 +346,19 @@ class Occlusion_Model(object):
                         moved_images = [generated_pix] + moved_images
                         moved_masks = [self.get_generationmask2(enc6)] + moved_masks
 
-                    parts = []
+
                     normalizer = tf.zeros([self.batch_size, 64, 64, 1], dtype=tf.float32)
                     for mimage, moved_mask, cfact in zip(moved_images, moved_masks, comp_fact_input):
                         cfact = tf.reshape(cfact, [self.batch_size, 1, 1, 1])
-                        parts.append(mimage*moved_mask)
                         assembly += mimage*moved_mask*cfact
                         normalizer += moved_mask*cfact
                     assembly /= (normalizer + tf.ones_like(normalizer) * 1e-4)
+
+                    parts = []
+                    for mimage, moved_mask, cfact in zip(moved_images, moved_masks, comp_fact_input):
+                        cfact = tf.reshape(cfact, [self.batch_size, 1, 1, 1])
+                        part = mimage*moved_mask*cfact/(normalizer + tf.ones_like(normalizer) * 1e-4)
+                        parts.append(part)
                     self.moved_partsl.append(parts)
 
                     if self.pix_distribution != None:

@@ -26,10 +26,11 @@ configuration = {
 'learning_rate': 0.001,     #'the base learning rate of the generator' ,
 'visualize': '',            #'load model from which to generate visualizations
 'file_visual': '',          # datafile used for making visualizations
+'quad_comp':'',
 'dna_size':9,
 'sawyer':'',
 'single_view':"",
 'use_len':14,                # number of steps used for training where the starting location is selected randomly within sequencelength
-'pos_dependent_assembly':'',
-'mask_consistency_loss':1e-7
+'use_fullactions':'',
+'refeed_parts':''
 }
