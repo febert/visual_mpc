@@ -136,6 +136,7 @@ class Occlusion_Model(object):
                 print 'building step', t
 
                 if 'use_fullactions' in self.conf:
+                    print 'feeding in full actions'
                     state_action = tf.concat(1, [action, self.current_state, self.actions])
                 else:
                     state_action = tf.concat(1, [action, self.current_state])
@@ -241,8 +242,16 @@ class Occlusion_Model(object):
 
                 if self.cdna:
                     cdna_input = tf.reshape(hidden5, [int(self.batch_size), -1])
+
+                    if 'pos_dependent_assembly' in self.conf:
+                        prev_masks = None
+                    else:
+                        prev_masks = self.moved_masksl[-1]
+                    if 'mask_consistency_loss' in self.conf:
+                        prev_masks = self.moved_masksl[-1]
+
                     moved_images, moved_masks, _ = self.cdna_transformation_imagewise(self.moved_imagesl[-1],
-                                                         self.moved_masksl[-1], cdna_input, self.num_masks,
+                                                         prev_masks, cdna_input, self.num_masks,
                                                          reuse_sc=reuse)
 
                     self.moved_masksl.append(moved_masks)
@@ -567,8 +576,7 @@ class Occlusion_Model(object):
                 transformed_ex.append(
                     tf.nn.depthwise_conv2d(preimg, kernel, [1, 1, 1, 1], 'SAME'))
 
-                if ('pos_dependent_assembly' not in self.conf and prev_masks != None) \
-                        or 'mask_consistency_loss' in self.conf:
+                if prev_masks != None:
                     kernel = tf.slice(kernel,[0,0,0,0], [-1,-1,1,-1])
                     transformed_ex_mask.append(
                         tf.nn.depthwise_conv2d(target_mask[i_b], kernel, [1, 1, 1, 1], 'SAME'))
@@ -576,8 +584,7 @@ class Occlusion_Model(object):
             transformed_ex = tf.concat(0, transformed_ex)
             transformed.append(transformed_ex)
 
-            if ('pos_dependent_assembly' not in self.conf and prev_masks != None) \
-                    or 'mask_consistency_loss' in self.conf:
+            if prev_masks != None:
                 transformed_ex_mask = tf.concat(0, transformed_ex_mask)
                 transformed_masks.append(transformed_ex_mask)
 
