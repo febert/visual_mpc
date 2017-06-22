@@ -137,7 +137,8 @@ class Occlusion_Model(object):
 
                 if 'use_fullactions' in self.conf:
                     print 'feeding in full actions'
-                    state_action = tf.concat(1, [action, self.current_state, self.actions])
+                    full_actions = tf.concat(1, self.actions)
+                    state_action = tf.concat(1, [action, self.current_state, full_actions])
                 else:
                     state_action = tf.concat(1, [action, self.current_state])
 
