@@ -138,6 +138,7 @@ class Model(object):
             loss += state_cost
 
         if 'mask_act_cost' in conf:  #encourage all masks but the first to have small regions of activation
+            print 'computing mask_act_cost with factor:', conf['mask_act_cost']
             act_cost = self.mask_act_loss(self.om.objectmasks) * conf['mask_act_cost']
             summaries.append(
                 tf.scalar_summary(prefix + '_mask_act_cost', act_cost))
@@ -149,6 +150,7 @@ class Model(object):
             loss += dcost
 
         if 'padding_usage_penalty' in self.conf:
+            print 'computing padding_usage_penalty with factor:', conf['padding_usage_penalty']
             padding_usage_loss = 0
             for gmask, pmap in zip(self.om.gen_masks, self.om.padding_map[1:]):
                 for p in range(len(gmask)):
@@ -160,6 +162,7 @@ class Model(object):
             loss+= padding_usage_loss
 
         if 'mask_consistency_loss' in self.conf:
+            print 'computing mask_consistency_loss with factor:', conf['mask_consistency_loss']
             m_cons_loss = 0
 
             for gmask, mmask in zip(self.om.gen_masks, self.om.moved_masksl[1:]):

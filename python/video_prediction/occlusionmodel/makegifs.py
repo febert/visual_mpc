@@ -23,9 +23,6 @@ def add_crosshairs(distrib, pix_list):
 def comp_gif(conf, file_path, name= "", examples = 10, show_parts=False):
     dict_ = cPickle.load(open(file_path + '/dict_.pkl', "rb"))
 
-    if 'ground_truth' in dict_:
-        ground_truth = dict_['ground_truth']
-
     gen_images = dict_['gen_images']
 
     trafos = dict_['trafos']
@@ -41,10 +38,13 @@ def comp_gif(conf, file_path, name= "", examples = 10, show_parts=False):
         img.save(file_path +'/objectparts_masks.png')
 
     videolist  =[]
+
     if 'ground_truth' in dict_:
+        ground_truth = dict_['ground_truth']
         if not isinstance(ground_truth, list):
             ground_truth = np.split(ground_truth, ground_truth.shape[1], axis=1)
             ground_truth = [np.squeeze(g) for g in ground_truth]
+        ground_truth = ground_truth[1:]
 
         videolist = [ground_truth]
 
