@@ -82,6 +82,8 @@ class Occlusion_Model(object):
         self.moved_imagesl = []
         self.moved_partsl = []
         self.moved_masksl = []
+        self.first_step_masks = []
+        self.cdna_kern_tlist = []
         self.gen_masks = []
         self.list_of_trafos = []
         self.list_of_comp_factors = []
@@ -256,14 +258,18 @@ class Occlusion_Model(object):
 
                     if 'pos_dependent_assembly' in self.conf:
                         prev_masks = None
+                    elif 'dynamic_first_step_mask' in self.conf:
+                        print 'using dyanmic first step mask'
+                        prev_masks = self.get_dynamic_mask(t,enc6)
                     else:
                         prev_masks = self.moved_masksl[-1]
                     if 'mask_consistency_loss' in self.conf:
                         prev_masks = self.moved_masksl[-1]
 
-                    moved_images, moved_masks, _ = self.cdna_transformation_imagewise(self.moved_imagesl[-1],
+                    moved_images, moved_masks, cdna_kerns = self.cdna_transformation_imagewise(self.moved_imagesl[-1],
                                                          prev_masks, cdna_input, self.num_masks,
                                                          reuse_sc=reuse)
+                    self.cdna_kern_tlist.append(cdna_kerns)
 
                     self.moved_masksl.append(moved_masks)
 
@@ -412,6 +418,16 @@ class Occlusion_Model(object):
         mask = tf.exp(mask)
         return mask
 
+    def get_dynamic_mask(self, t, enc6):
+        if t == 0:
+            mask = self.objectmasks
+        else:
+            prev_masks = self.decompose_firstimage(enc6)
+            for kerns in self.cdna_kern_tlist:
+                mask = self.apply_cdna_kern(prev_masks, kerns)
+                prev_masks = mask
+        self.first_step_masks.append(mask)
+        return mask
 
     ## Utility functions
     def stp_transformation(self,prev_image, stp_input, num_masks, reuse=None):
@@ -560,6 +576,8 @@ class Occlusion_Model(object):
 
         transformed = []
         transformed_masks = []
+        cdna_kerns_list = []
+
         for i_img in range(num_masks):
         # Predict kernels using linear function of last hidden layer.
             cdna_kerns = slim.layers.fully_connected(
@@ -575,9 +593,9 @@ class Occlusion_Model(object):
             cdna_kerns = tf.nn.relu(cdna_kerns - RELU_SHIFT) + RELU_SHIFT
             norm_factor = tf.reduce_sum(cdna_kerns, [1, 2, 3], keep_dims=True)
             cdna_kerns /= norm_factor
-            cdna_kerns_summary = cdna_kerns
             cdna_kerns = tf.tile(cdna_kerns, [1, 1, 1, color_channels, 1])
             cdna_kerns = tf.split(0, self.batch_size, cdna_kerns)
+            cdna_kerns_list.append(cdna_kerns)
             target_image = tf.split(0, self.batch_size, prev_images[i_img])
 
             if prev_masks != None:
@@ -604,7 +622,29 @@ class Occlusion_Model(object):
                 transformed_ex_mask = tf.concat(0, transformed_ex_mask)
                 transformed_masks.append(transformed_ex_mask)
 
-        return transformed, transformed_masks, cdna_kerns_summary
+        return transformed, transformed_masks, cdna_kerns_list
+
+
+    def apply_cdna_kern(self, prev_masks, cdna_kerns_list):
+
+        transformed_masks = []
+
+        for i_mask in range(self.num_masks):
+            target_mask = tf.split(0, self.batch_size, prev_masks[i_mask])
+            cdna_kerns = cdna_kerns_list[i_mask]
+
+            # Transform image.
+            transformed_ex_mask = []
+            for i_b, kernel in zip(range(self.batch_size), cdna_kerns):
+                kernel = tf.reshape(kernel, [self.DNA_KERN_SIZE, self.DNA_KERN_SIZE, 3, 1])
+                kernel = tf.slice(kernel,[0,0,0,0], [-1,-1,1,-1])
+                transformed_ex_mask.append(
+                    tf.nn.depthwise_conv2d(target_mask[i_b], kernel, [1, 1, 1, 1], 'SAME'))
+
+            transformed_ex_mask = tf.concat(0, transformed_ex_mask)
+            transformed_masks.append(transformed_ex_mask)
+
+        return transformed_masks
 
     def cdna_transformation_mask(self, prev_image, init_masks, cdna_input, num_masks, reuse_sc=None):
         """Apply convolutional dynamic neural advection to previous image.
