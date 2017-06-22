@@ -27,5 +27,5 @@ configuration = {
 'visualize': '',            #'load model from which to generate visualizations
 'file_visual': '',          # datafile used for making visualizations
 'quad_comp':'',
-'mask_distinction_loss':1e-6,
+'mask_distinction_loss':1e-8,
 }
