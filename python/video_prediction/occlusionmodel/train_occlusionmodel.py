@@ -159,6 +159,18 @@ class Model(object):
             summaries.append(tf.scalar_summary(prefix + '_padding_usage_', padding_usage_loss))
             loss+= padding_usage_loss
 
+        if 'mask_consistency_loss' in self.conf:
+            m_cons_loss = 0
+
+            for gmask, mmask in zip(self.om.gen_masks, self.om.moved_masksl[1:]):
+                for p in range(len(gmask)):
+                    pdb.set_trace()
+                    m_cons_loss += mean_squared_error(gmask[p], mmask[p])*conf['mask_consistency_loss']
+
+
+            summaries.append(tf.scalar_summary(prefix + '_mask_consistency_loss', m_cons_loss))
+            loss += m_cons_loss
+
         self.loss = loss = loss / np.float32(len(images) - conf['context_frames'])
 
         summaries.append(tf.scalar_summary(prefix + '_loss', loss))
