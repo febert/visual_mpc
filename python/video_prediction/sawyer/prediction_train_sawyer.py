@@ -330,12 +330,11 @@ def main(unused_argv, conf_script= None):
 
         if FLAGS.diffmotions:
 
-            b_exp, ind0 = 3, 0
+            b_exp, ind0 = 11, 0
 
             if 'single_view' in conf:
                 img, state = sess.run([val_images, val_states])
                 sel_img= img[b_exp,ind0:ind0+2]
-                sel_img_aux1 = sel_img[0]
             else:
                 img_main, img_aux1, state = sess.run([val_images_main, val_images_aux1, val_states])
                 sel_img_main = img_main[b_exp,ind0:ind0+2]
@@ -343,9 +342,9 @@ def main(unused_argv, conf_script= None):
 
                 sel_img = np.concatenate([sel_img_main, sel_img_aux1], axis= 3)
 
-            c = Getdesig(sel_img_aux1, conf, 'b{}'.format(b_exp))
-            desig_pos_aux1 = c.coords.astype(np.int32)
-            # desig_pos_aux1 = np.array([16, 42])
+            # c = Getdesig(sel_img[0], conf, 'b{}'.format(b_exp))
+            # desig_pos_aux1 = c.coords.astype(np.int32)
+            desig_pos_aux1 = np.array([23, 39])
 
             print "selected designated position for aux1 [row,col]:", desig_pos_aux1
 
@@ -497,10 +496,6 @@ def create_one_hot(conf, desig_pix):
     one_hot = np.zeros((1, 1, 64, 64, 1), dtype=np.float32)
     # switch on pixels
     one_hot[0, 0, desig_pix[0], desig_pix[1]] = 1.
-
-    # plt.figure()
-    # plt.imshow(np.squeeze(one_hot[0, 0]))
-    # plt.show()
     one_hot = np.repeat(one_hot, conf['context_frames'], axis=1)
     app_zeros = np.zeros((1, conf['sequence_length']- conf['context_frames'], 64, 64, 1), dtype=np.float32)
     one_hot = np.concatenate([one_hot, app_zeros], axis=1)

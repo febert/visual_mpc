@@ -30,5 +30,6 @@ configuration = {
 'sawyer':'',
 'single_view':"",
 'use_len':14,                # number of steps used for training where the starting location is selected randomly within sequencelength
-'pos_dependent_assembly':''
+'pos_dependent_assembly':'',
+'padding_usage_penalty':1e-6
 }
