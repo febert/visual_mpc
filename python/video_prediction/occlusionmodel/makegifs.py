@@ -71,8 +71,9 @@ def comp_gif(conf, file_path, name= "", examples = 10, show_parts=False):
     videolist += moved_images
 
     if 'gen_masks' in dict_:
-        gen_masks = dict_['gen_masks']
-        videolist += prepare_video(gen_masks, copy_last_dim=True)
+        if dict_['gen_masks'] != []:
+            gen_masks = dict_['gen_masks']
+            videolist += prepare_video(gen_masks, copy_last_dim=True)
 
     if show_parts:
         moved_parts = dict_['moved_parts']
@@ -152,11 +153,11 @@ def pad_pos(conf, vid, pos, origsize = 64):
     return padded_vid
 
 if __name__ == '__main__':
-    file_path = '/home/frederik/Documents/lsdc/tensorflow_data/occulsionmodel/CDNA_sawyer_posdep'
+    file_path = '/home/frederik/Documents/lsdc/tensorflow_data/occulsionmodel/CDNA_quad_sawyer_fullactions'
     hyperparams = imp.load_source('hyperparams', file_path +'/conf.py')
 
     conf = hyperparams.configuration
-    conf['visualize'] = conf['output_dir'] + '/model12002'
+    conf['visualize'] = conf['output_dir'] + '/model78002'
 
 
-    comp_gif(conf, file_path + '/modeldata', show_parts=False)
+    comp_gif(conf, file_path + '/modeldata', show_parts=True)
