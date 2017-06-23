@@ -9,7 +9,7 @@ import pdb
 from PIL import Image
 import imp
 
-
+import cPickle
 
 # Dimension of the state and action.
 STATE_DIM = 3
@@ -340,89 +340,8 @@ def write_tf_records(images, actions, states, filepath, init_pix_distrib, init_p
 
     writer.close()
 
-def create_one_hot(conf, desig_pix):
-    one_hot = np.zeros((1, 64, 64, 1), dtype=np.float32)
-    # switch on pixels
-    one_hot[0, desig_pix[0], desig_pix[1]] = 1.
-    one_hot = np.repeat(one_hot, conf['context_frames'], axis=0)
-    app_zeros = np.zeros((conf['sequence_length']- conf['context_frames'], 64, 64, 1), dtype=np.float32)
-    one_hot = np.concatenate([one_hot, app_zeros], axis=0)
-
-    return one_hot
-
-def create_canoncical_examples():
-
-    os.environ["CUDA_VISIBLE_DEVICES"] = "1"
-    print 'using CUDA_VISIBLE_DEVICES=', os.environ["CUDA_VISIBLE_DEVICES"]
-    conf = {}
-
-    current_dir = os.path.dirname(os.path.realpath(__file__))
-    DATA_DIR = '/'.join(str.split(current_dir, '/')[:-3]) + '/pushing_data/softmotion30/test'
-
-    conf['schedsamp_k'] = -1  # don't feed ground truth
-    conf['data_dir'] = DATA_DIR  # 'directory containing data_files.' ,
-    conf['skip_frame'] = 1
-    conf['train_val_split'] = 0.95
-    conf['sequence_length'] = 15  # 'sequence length, including context frames.'
-    conf['use_state'] = True
-    conf['batch_size'] = 20
-    conf['visualize'] = True
-    conf['single_view'] = ''
-    conf['context_frames'] = 2
-
-    image_aux_batch, action_batch, endeff_pos_batch = build_tfrecord_input(conf, training=False)
-
-    sess = tf.InteractiveSession()
-    tf.train.start_queue_runners(sess)
-    sess.run(tf.initialize_all_variables())
-
-    images, actions, endeff = sess.run([image_aux_batch, action_batch, endeff_pos_batch])
-
-    desig_pix = []
-    init_pix_distrib = []
-    file_path = '/home/frederik/Documents/catkin_ws/src/lsdc/pushing_data/canonical_examples'
-
-    for ex in range(images.shape[0]):
-        c = Getdesig(images[ex,0], file_path, 'b{}'.format(ex))
-        desig_pix.append(c.coords.astype(np.int32))
-
-        init_pix_distrib.append(create_one_hot(conf, desig_pix[-1]))
-
-    write_tf_records(images, actions, endeff, file_path, init_pix_distrib, desig_pix)
-
-    import sys
-    sys.exit()
-
-class Getdesig(object):
-    def __init__(self, img, path, img_namesuffix):
-        self.suf = img_namesuffix
-        self.img = img
-        fig = plt.figure()
-        self.ax = fig.add_subplot(111)
-        self.ax.set_xlim(0, 63)
-        self.ax.set_ylim(63, 0)
-        plt.imshow(img)
-
-        self.path = path
-
-        self.coords = None
-        cid = fig.canvas.mpl_connect('button_press_event', self.onclick)
-        plt.show()
-
-    def onclick(self, event):
-        print('button=%d, x=%d, y=%d, xdata=%f, ydata=%f' %
-              (event.button, event.x, event.y, event.xdata, event.ydata))
-        self.coords = np.array([event.ydata, event.xdata])
-        self.ax.scatter(self.coords[1], self.coords[0], s=60, facecolors='none', edgecolors='b')
-        self.ax.set_xlim(0, 63)
-        self.ax.set_ylim(63, 0)
-        plt.draw()
-        plt.savefig(self.path + '/desig_pix_images/img_desigpix' + self.suf)
-
 
 if __name__ == '__main__':
-    create_canoncical_examples()
-
     # for debugging only:
     os.environ["CUDA_VISIBLE_DEVICES"] = "1"
     print 'using CUDA_VISIBLE_DEVICES=', os.environ["CUDA_VISIBLE_DEVICES"]
