@@ -31,11 +31,14 @@ def comp_gif(conf, file_path, name= "", examples = 10, show_parts=False):
 
     print 'finished loading ...'
 
+    suffix = ''
+    itr_vis = re.match('.*?([0-9]+)$', conf['visualize']).group(1)
+
     if 'object_masks' in dict_:
         object_masks = dict_['object_masks']
         img = create_images(object_masks, examples)
         img = Image.fromarray(img)
-        img.save(file_path +'/objectparts_masks.png')
+        img.save(file_path +'/objectparts_masks{}.png'.format(itr_vis))
 
     videolist  =[]
 
@@ -87,8 +90,7 @@ def comp_gif(conf, file_path, name= "", examples = 10, show_parts=False):
         first_step_masks = dict_['first_step_masks']
         videolist += prepare_video(first_step_masks, copy_last_dim=True)
 
-    suffix = ''
-    itr_vis = re.match('.*?([0-9]+)$', conf['visualize']).group(1)
+
 
     fused_gif = assemble_gif(videolist, num_exp= examples)
     npy_to_gif(fused_gif, file_path + '/' +name +'vid_'+itr_vis+ suffix)
