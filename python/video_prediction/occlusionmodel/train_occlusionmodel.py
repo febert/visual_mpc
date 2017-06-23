@@ -171,6 +171,17 @@ class Model(object):
             summaries.append(tf.scalar_summary(prefix + '_mask_consistency_loss', m_cons_loss))
             loss += m_cons_loss
 
+        if 'compfact_slowness' in self.conf:
+            print 'computing compfact_slowness loss with factor:', conf['compfact_slowness']
+            cfact_loss = 0
+            cfact = self.om.list_of_comp_factors
+            cfact = [tf.concat(1, c) for c in cfact]
+
+            for i in range(len(cfact)-1):
+                cfact_loss += mean_squared_error(cfact[i], cfact[i+1]) * conf['compfact_slowness']
+            summaries.append(tf.scalar_summary(prefix + '_compfact_slowness', cfact_loss))
+            loss += cfact_loss
+
         self.loss = loss = loss / np.float32(len(images) - conf['context_frames'])
 
         summaries.append(tf.scalar_summary(prefix + '_loss', loss))
@@ -242,7 +253,7 @@ def main(unused_argv, conf_script= None):
         conf = adapt_params_visualize(conf, FLAGS.visualize)
         conf.pop('use_len', None)
         conf['sequence_length'] = 14
-        conf['batch_size'] = 4
+        conf['batch_size'] = 10
 
     print '-------------------------------------------------------------------'
     print 'verify current settings!! '
@@ -320,7 +331,7 @@ def main(unused_argv, conf_script= None):
 
             cPickle.dump(dict_, open(file_path + '/dict_.pkl', 'wb'))
             print 'written files to:' + file_path
-            makegifs.comp_gif(conf, conf['output_dir'], show_parts=True, examples=4)
+            makegifs.comp_gif(conf, conf['output_dir'], show_parts=True, examples=10)
             return
 
     itr_0 =0

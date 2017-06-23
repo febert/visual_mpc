@@ -67,7 +67,7 @@ class Occlusion_Model(object):
 
         self.k = conf['schedsamp_k']
         self.use_state = conf['use_state']
-        self.num_masks = conf['num_masks']
+        self.num_objmasks = conf['num_masks']
         self.context_frames = conf['context_frames']
 
         print 'constructing occulsion network...'
@@ -157,11 +157,12 @@ class Occlusion_Model(object):
                     conv1_input,
                     32, [5, 5],
                     stride=2,
-                    scope='conv1',   # refeed needs conv1, the rest needs scale1_conv1
-                    # scope='scale1_conv1',  # refeed needs conv1, the rest needs scale1_conv1
+                    # scope='conv1',   # refeed needs conv1, the rest needs scale1_conv1
+                    scope='scale1_conv1',
                     normalizer_fn=tf_layers.layer_norm,
                     normalizer_params={'scope': 'layer_norm1'},
                     )
+                # print 'using conv1 scope!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!1'
 
                 hidden1, lstm_state1 = self.lstm_func(       # 32x32x16
                     enc0, lstm_state1, lstm_size[0], scope='state1')
@@ -222,36 +223,37 @@ class Occlusion_Model(object):
                     normalizer_fn=tf_layers.layer_norm,
                     normalizer_params={'scope': 'layer_norm9'})
 
-                if not self.dna:
+
+                if t ==0:
+                    self.background_mask, self.objectmasks = self.decompose_firstimage(enc6)
+
+                    self.moved_masksl.append(self.objectmasks)
+                    prev_imagel = [prev_image for _ in range(self.num_objmasks)]
+                    self.moved_imagesl.append(prev_imagel)
+
+                if 'backgd_genpix' in self.conf and t==0:
                     # Using largest hidden state for predicting a new image layer.
                     # changed activation to None! so that the sigmoid layer after it can generate
                     # the full range of values.
                     enc7 = slim.layers.conv2d_transpose(
                         enc6, self.color_channels, 1, stride=1, scope='convt4', activation_fn=None)
-
                     # This allows the network to also generate one image from scratch,
                     # which is useful when regions of the image become unoccluded.
                     generated_pix = tf.nn.sigmoid(enc7)
 
-                if t ==0:
-                    self.objectmasks = self.decompose_firstimage(enc6)
-
-                    self.moved_masksl.append(self.objectmasks)
-                    prev_imagel = [prev_image for _ in range(self.num_masks)]
-                    self.moved_imagesl.append(prev_imagel)
+                    print 'composing background...'
+                    self.background = self.background_mask*self.images[0] +\
+                                      (1.-self.background_mask)*generated_pix
 
                 stp_input0 = tf.reshape(hidden5, [int(self.batch_size), -1])
                 stp_input1 = slim.layers.fully_connected(
                     stp_input0, 100, scope='fc_stp')
-
-                # disabling capability to generete pixels
                 reuse_stp = None
                 if reuse:
                     reuse_stp = reuse
-
                 if self.stp:
                     moved_images, moved_masks, transforms = self.stp_transformation_mask(
-                            self.images[1], self.objectmasks, stp_input1, self.num_masks, reuse_stp)
+                            self.images[1], self.objectmasks, stp_input1, self.num_objmasks, reuse_stp)
                     self.list_of_trafos.append(transforms)
 
                 if self.cdna:
@@ -268,33 +270,34 @@ class Occlusion_Model(object):
                         prev_masks = self.moved_masksl[-1]
 
                     moved_images, moved_masks, cdna_kerns = self.cdna_transformation_imagewise(self.moved_imagesl[-1],
-                                                         prev_masks, cdna_input, self.num_masks,
-                                                         reuse_sc=reuse)
+                                                                                               prev_masks, cdna_input, self.num_objmasks,
+                                                                                               reuse_sc=reuse)
+
                     self.cdna_kern_tlist.append(cdna_kerns)
 
                     self.moved_masksl.append(moved_masks)
 
                     if 'padding_usage_penalty' in self.conf:
                         if t == 0:
-                            pad_map = [tf.ones([self.batch_size, 64, 64, 1], tf.float32) * -1 for _ in range(self.num_masks)]
+                            pad_map = [tf.ones([self.batch_size, 64, 64, 1], tf.float32) * -1 for _ in range(self.num_objmasks)]
                             self.padding_map.append(pad_map)
                         pad_map, _, _ = self.cdna_transformation_imagewise(self.padding_map[-1],
                                                                            None,
                                                                            cdna_input,
-                                                                           self.num_masks,
+                                                                           self.num_objmasks,
                                                                            reuse_sc=True)
                         self.padding_map.append(pad_map)
 
                     if self.pix_distribution != None:
                         if t == 0:
                             self.moved_pix_distrib.append([
-                            tf.reshape(self.pix_distribution[0], shape=[self.batch_size, 64,64,1]) for _ in range(self.num_masks)])
+                            tf.reshape(self.pix_distribution[0], shape=[self.batch_size, 64,64,1]) for _ in range(self.num_objmasks)])
 
                         moved_pix, _, _ = self.cdna_transformation_imagewise(self.moved_pix_distrib[-1],
-                                                                                          None,
-                                                                                          cdna_input,
-                                                                                          self.num_masks,
-                                                                                          reuse_sc=True)
+                                                                             None,
+                                                                             cdna_input,
+                                                                             self.num_objmasks,
+                                                                             reuse_sc=True)
                         self.moved_pix_distrib.append(moved_pix)
 
                 if self.dna:
@@ -309,8 +312,8 @@ class Occlusion_Model(object):
                     activation = tf.nn.relu
 
                 if 'gen_pix_averagestep' in self.conf:
-                    num_comp_fact = self.num_masks + 1
-                else: num_comp_fact = self.num_masks
+                    num_comp_fact = self.num_objmasks + 1
+                else: num_comp_fact = self.num_objmasks
                 comp_fact_input = slim.layers.fully_connected(tf.reshape(hidden5, [self.batch_size, -1]),
                                                               num_comp_fact, scope='fc_compfactors',
                                                                     activation_fn= activation)
@@ -321,6 +324,9 @@ class Occlusion_Model(object):
                 elif 'abs_comp' in self.conf:
                     comp_fact_input = tf.abs(comp_fact_input)
 
+                if 'comp_fact_add1' in self.conf:
+                    comp_fact_input += 1.
+
                 comp_fact_input = tf.split(1, num_comp_fact, comp_fact_input)
 
                 self.list_of_comp_factors.append(comp_fact_input)
@@ -328,15 +334,16 @@ class Occlusion_Model(object):
                 assembly = tf.zeros([self.batch_size, 64, 64, 3], dtype=tf.float32)
                 if 'pos_dependent_assembly' in self.conf:
                     masks = slim.layers.conv2d_transpose(
-                        enc6, self.num_masks, 1, stride=1, scope='convt7_posdep')
+                        enc6, self.num_objmasks, 1, stride=1, scope='convt7_posdep')
                     masks = tf.reshape(
-                        tf.nn.softmax(tf.reshape(masks, [-1, self.num_masks])),
-                        [int(self.batch_size), int(self.img_height), int(self.img_width), self.num_masks])
-                    assembly_masks = tf.split(3, self.num_masks, masks)
+                        tf.nn.softmax(tf.reshape(masks, [-1, self.num_objmasks])),
+                        [int(self.batch_size), int(self.img_height), int(self.img_width), self.num_objmasks])
+                    assembly_masks = tf.split(3, self.num_objmasks, masks)
                     self.gen_masks.append(assembly_masks)
                     # moved_images += [generated_pix]
 
                     parts = []
+
                     for mimage, mask in zip(self.moved_imagesl[-1], assembly_masks):
                         parts.append(mimage * mask)
                         assembly += mimage * mask
@@ -349,16 +356,20 @@ class Occlusion_Model(object):
                         self.gen_pix_distrib.append(pix_assembly)
 
                 else:
-                    if 'gen_pix_averagestep' in self.conf:  # insert the genearted pixels when averaging
-                        moved_images = [generated_pix] + moved_images
-                        moved_masks = [self.get_generationmask2(enc6)] + moved_masks
-
                     normalizer = tf.zeros([self.batch_size, 64, 64, 1], dtype=tf.float32)
+
+                    if 'backgd_genpix' in self.conf:
+                        backgd_mask = tf.ones([self.batch_size, 64, 64, 1], dtype=tf.float32)
+                        assert 'comp_fact_add1' in self.conf
+                        backgd_comp_fact = 1.
+                        normalizer += backgd_mask*backgd_comp_fact
+                        assembly += backgd_mask*backgd_comp_fact*self.background
+
                     for mimage, moved_mask, cfact in zip(moved_images, moved_masks, comp_fact_input):
                         cfact = tf.reshape(cfact, [self.batch_size, 1, 1, 1])
                         assembly += mimage*moved_mask*cfact
                         normalizer += moved_mask*cfact
-                    assembly /= (normalizer + tf.ones_like(normalizer) * 1e-4)
+                    assembly /= (normalizer + tf.ones_like(normalizer) * 1e-7)
 
                     parts = []
                     for mimage, moved_mask, cfact in zip(moved_images, moved_masks, comp_fact_input):
@@ -395,14 +406,27 @@ class Occlusion_Model(object):
                 self.gen_states.append(self.current_state)
 
     def decompose_firstimage(self, enc6):
-        masks = slim.layers.conv2d_transpose(
-            enc6, self.num_masks, 1, stride=1, scope='convt7_objectmask')
-        masks = tf.reshape(
-            tf.nn.softmax(tf.reshape(masks, [-1, self.num_masks])),
-            [int(self.batch_size), int(self.img_height), int(self.img_width), self.num_masks])
-        mask_list = tf.split(3, self.num_masks, masks)
 
-        return mask_list
+        if 'separate_background' in self.conf:
+            num_allmasks = self.num_objmasks + 1
+        else:
+            num_allmasks = self.num_objmasks
+
+        masks = slim.layers.conv2d_transpose(
+            enc6, num_allmasks, 1, stride=1, scope='convt7_objectmask')
+        masks = tf.reshape(
+            tf.nn.softmax(tf.reshape(masks, [-1,num_allmasks])),
+            [int(self.batch_size), int(self.img_height), int(self.img_width), num_allmasks])
+        mask_list = tf.split(3, num_allmasks, masks)
+
+        if 'separate_background' in self.conf:
+            background_mask = mask_list[0]
+            objectmasks = mask_list[1:]
+        else:
+            objectmasks = mask_list
+            background_mask = None
+
+        return background_mask, objectmasks
 
     def get_generationmask(self, enc6):
         masks = slim.layers.conv2d_transpose(
@@ -523,7 +547,7 @@ class Occlusion_Model(object):
         moved_images = []
         moved_masks = []
 
-        for imask in range(self.num_masks):
+        for imask in range(self.num_objmasks):
             scope = 'convt_dnainput{}'.format(imask)
             # Using largest hidden state for predicting untied conv kernels.
             enc7 = slim.layers.conv2d_transpose(
@@ -631,7 +655,7 @@ class Occlusion_Model(object):
 
         transformed_masks = []
 
-        for i_mask in range(self.num_masks):
+        for i_mask in range(self.num_objmasks):
             target_mask = tf.split(0, self.batch_size, prev_masks[i_mask])
             cdna_kerns = cdna_kerns_list[i_mask]
 
@@ -689,7 +713,7 @@ class Occlusion_Model(object):
                 tf.nn.depthwise_conv2d(preimg, kernel, [1, 1, 1, 1], 'SAME'))
 
             sing_ex_trafo = []
-            for i_mask in range(self.num_masks):
+            for i_mask in range(self.num_objmasks):
                 sing_ex_mask = tf.slice(init_masks[i_mask],[i_b,0,0,0], [1,-1,-1,-1])
                 mask_kernel = tf.slice(kernel,[0,0,0,i_mask],[-1,-1,1,1])
                 sing_ex_trafo.append(
@@ -700,7 +724,7 @@ class Occlusion_Model(object):
             transformed_masks.append(sing_ex_trafo)
 
         transformed_masks = tf.concat(0, transformed_masks)
-        transformed_masks = tf.split(1, self.num_masks, transformed_masks)
+        transformed_masks = tf.split(1, self.num_objmasks, transformed_masks)
         transformed_masks = [tf.reshape(m, [self.batch_size, 64,64,1]) for m in transformed_masks]
 
         transformed = tf.concat(0, transformed)
