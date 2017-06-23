@@ -259,7 +259,7 @@ class Occlusion_Model(object):
                     if 'pos_dependent_assembly' in self.conf:
                         prev_masks = None
                     elif 'dynamic_first_step_mask' in self.conf:
-                        print 'using dyanmic first step mask'
+                        print 'using dynamic first step mask'
                         prev_masks = self.get_dynamic_mask(t,enc6)
                     else:
                         prev_masks = self.moved_masksl[-1]
@@ -421,12 +421,14 @@ class Occlusion_Model(object):
     def get_dynamic_mask(self, t, enc6):
         if t == 0:
             mask = self.objectmasks
+            self.first_step_masks.append(mask)
         else:
+            # print 'length cdna_kern_list', len(self.cdna_kern_tlist)
             prev_masks = self.decompose_firstimage(enc6)
+            self.first_step_masks.append(prev_masks)
             for kerns in self.cdna_kern_tlist:
                 mask = self.apply_cdna_kern(prev_masks, kerns)
                 prev_masks = mask
-        self.first_step_masks.append(mask)
         return mask
 
     ## Utility functions
