@@ -36,6 +36,7 @@ flags.DEFINE_string('visualize', '', 'model within hyperparameter folder from wh
 flags.DEFINE_integer('device', 0 ,'the value for CUDA_VISIBLE_DEVICES variable, -1 uses cpu')
 flags.DEFINE_string('pretrained', None, 'path to model file from which to resume training')
 flags.DEFINE_bool('diffmotions', False, 'visualize several different motions for a single scene')
+flags.DEFINE_bool('canon', False, 'use canonical examples')
 
 ## Helper functions
 def peak_signal_to_noise_ratio(true, pred):
@@ -254,7 +255,9 @@ def main(unused_argv, conf_script= None):
     else:
         from video_prediction.read_tf_record import build_tfrecord_input
 
-    if FLAGS.diffmotions:
+    pdb.set_trace()
+    if FLAGS.diffmotions or FLAGS.canon:
+        print 'visualizing pixel motion'
         val_model = Diffmotion_model(conf, build_tfrecord_input)
     else:
         print 'Constructing models and inputs.'
@@ -279,11 +282,14 @@ def main(unused_argv, conf_script= None):
     tf.train.start_queue_runners(sess)
     sess.run(tf.initialize_all_variables())
 
+    pdb.set_trace()
+
     if conf['visualize']:
         saver.restore(sess, conf['visualize'])
         file_path = conf['output_dir']
 
-        if FLAGS.diffmotions:
+
+        if FLAGS.diffmotions or FLAGS.canon:
             val_model.visualize_diffmotions(file_path, sess)
             return
         else:
@@ -409,17 +415,33 @@ class Diffmotion_model(Model):
                      self.iter_num: 0}
 
         b_exp, ind0 = 15, 0
-        img, state = sess.run([self.val_images, self.val_states])
-        sel_img = img[b_exp, ind0:ind0 + 2]
 
-        c = Getdesig(sel_img[0], self.conf, 'b{}'.format(b_exp))
-        desig_pos_aux1 = c.coords.astype(np.int32)
-        # desig_pos_aux1 = np.array([14, 45])
-        print "selected designated position for aux1 [row,col]:", desig_pos_aux1
-        one_hot = create_one_hot(self.conf, desig_pos_aux1)
+
+        if FLAGS.cannon:
+            i_canon = 0
+            file_path = '/home/frederik/Documents/catkin_ws/src/lsdc/pushing_data/canonical_examples'
+            dict = cPickle.load(open(file_path + '/pkl/example{}.pkl'.format(i_canon), 'rb'))
+
+            desig_pix = dict['desig_pix']
+            one_hot = create_one_hot(self.conf, desig_pix)
+            pdb.set_trace()
+            sel_img = dict['images']
+            sel_img = sel_img[:2]
+            state = dict['endeff']
+            sel_state = state[:2]
+        else:
+            img, state = sess.run([self.val_images, self.val_states])
+            sel_img = img[b_exp, ind0:ind0 + 2]
+            c = Getdesig(sel_img[0], self.conf, 'b{}'.format(b_exp))
+            desig_pos_aux1 = c.coords.astype(np.int32)
+
+            # desig_pos_aux1 = np.array([14, 45])
+            print "selected designated position for aux1 [row,col]:", desig_pos_aux1
+            one_hot = create_one_hot(self.conf, desig_pos_aux1)
+            sel_state = np.stack([state[b_exp, ind0], state[b_exp, ind0 + 1]], axis=0)
 
         feed_dict[self.pix_distrib_pl] = one_hot
-        sel_state = np.stack([state[b_exp, ind0], state[b_exp, ind0 + 1]], axis=0)
+
         start_states = np.concatenate([sel_state, np.zeros((self.conf['sequence_length'] - 2, 3))])
         start_states = np.expand_dims(start_states, axis=0)
         start_states = np.repeat(start_states, self.conf['batch_size'], axis=0)  # copy over batch
