@@ -157,7 +157,7 @@ class Occlusion_Model(object):
                     conv1_input,
                     32, [5, 5],
                     stride=2,
-                    scope='conv1',
+                    scope='scale1_conv1',
                     normalizer_fn=tf_layers.layer_norm,
                     normalizer_params={'scope': 'layer_norm1'},
                     )

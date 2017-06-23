@@ -255,7 +255,6 @@ def main(unused_argv, conf_script= None):
     else:
         from video_prediction.read_tf_record import build_tfrecord_input
 
-    pdb.set_trace()
     if FLAGS.diffmotions or FLAGS.canon:
         print 'visualizing pixel motion'
         val_model = Diffmotion_model(conf, build_tfrecord_input)
@@ -282,7 +281,6 @@ def main(unused_argv, conf_script= None):
     tf.train.start_queue_runners(sess)
     sess.run(tf.initialize_all_variables())
 
-    pdb.set_trace()
 
     if conf['visualize']:
         saver.restore(sess, conf['visualize'])
@@ -414,17 +412,14 @@ class Diffmotion_model(Model):
                      self.prefix: 'vis',
                      self.iter_num: 0}
 
-        b_exp, ind0 = 15, 0
+        b_exp, ind0 = 0, 0
 
-
-        if FLAGS.cannon:
-            i_canon = 0
-            file_path = '/home/frederik/Documents/catkin_ws/src/lsdc/pushing_data/canonical_examples'
-            dict = cPickle.load(open(file_path + '/pkl/example{}.pkl'.format(i_canon), 'rb'))
-
+        if FLAGS.canon:
+            b_exp = 0
+            file_path_canon = '/home/frederik/Documents/catkin_ws/src/lsdc/pushing_data/canonical_examples'
+            dict = cPickle.load(open(file_path_canon + '/pkl/example{}.pkl'.format(b_exp), 'rb'))
             desig_pix = dict['desig_pix']
             one_hot = create_one_hot(self.conf, desig_pix)
-            pdb.set_trace()
             sel_img = dict['images']
             sel_img = sel_img[:2]
             state = dict['endeff']
@@ -446,13 +441,12 @@ class Diffmotion_model(Model):
         start_states = np.expand_dims(start_states, axis=0)
         start_states = np.repeat(start_states, self.conf['batch_size'], axis=0)  # copy over batch
         feed_dict[self.states_pl] = start_states
-        if 'single_view' not in self.conf:
-            start_images = np.concatenate([sel_img, np.zeros((self.conf['sequence_length'] - 2, 64, 64, 6))])
-        else:
-            start_images = np.concatenate([sel_img, np.zeros((self.conf['sequence_length'] - 2, 64, 64, 3))])
+
+        start_images = np.concatenate([sel_img, np.zeros((self.conf['sequence_length'] - 2, 64, 64, 3))])
         start_images = np.expand_dims(start_images, axis=0)
         start_images = np.repeat(start_images, self.conf['batch_size'], axis=0)  # copy over batch
         feed_dict[self.images_pl] = start_images
+
         actions = np.zeros([self.conf['batch_size'], self.conf['sequence_length'], 4])
         step = .025
         n_angles = 8
@@ -506,15 +500,10 @@ def create_one_hot(conf, desig_pix):
     one_hot = np.zeros((1, 1, 64, 64, 1), dtype=np.float32)
     # switch on pixels
     one_hot[0, 0, desig_pix[0], desig_pix[1]] = 1.
-
-    # plt.figure()
-    # plt.imshow(np.squeeze(one_hot[0, 0]))
-    # plt.show()
     one_hot = np.repeat(one_hot, conf['context_frames'], axis=1)
     app_zeros = np.zeros((1, conf['sequence_length']- conf['context_frames'], 64, 64, 1), dtype=np.float32)
     one_hot = np.concatenate([one_hot, app_zeros], axis=1)
     one_hot = np.repeat(one_hot, conf['batch_size'], axis=0)
-
     return one_hot
 
 class Getdesig(object):
