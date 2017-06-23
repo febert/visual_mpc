@@ -327,6 +327,7 @@ class Occlusion_Model(object):
                 if 'comp_fact_add1' in self.conf:
                     comp_fact_input += 1.
 
+
                 comp_fact_input = tf.split(1, num_comp_fact, comp_fact_input)
 
                 self.list_of_comp_factors.append(comp_fact_input)
