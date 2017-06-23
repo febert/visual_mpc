@@ -157,7 +157,8 @@ class Occlusion_Model(object):
                     conv1_input,
                     32, [5, 5],
                     stride=2,
-                    scope='scale1_conv1',
+                    scope='conv1',   # refeed needs conv1, the rest needs scale1_conv1
+                    # scope='scale1_conv1',  # refeed needs conv1, the rest needs scale1_conv1
                     normalizer_fn=tf_layers.layer_norm,
                     normalizer_params={'scope': 'layer_norm1'},
                     )
@@ -351,7 +352,6 @@ class Occlusion_Model(object):
                     if 'gen_pix_averagestep' in self.conf:  # insert the genearted pixels when averaging
                         moved_images = [generated_pix] + moved_images
                         moved_masks = [self.get_generationmask2(enc6)] + moved_masks
-
 
                     normalizer = tf.zeros([self.batch_size, 64, 64, 1], dtype=tf.float32)
                     for mimage, moved_mask, cfact in zip(moved_images, moved_masks, comp_fact_input):
