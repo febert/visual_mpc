@@ -101,6 +101,7 @@ def make_color_scheme(input_img_list, n_exp= None, convert_to_float = True):
     change to jet colorscheme, mark maximum value pixel
     :return:
     """
+    print 'making color scheme'
     output_image_list = []
 
     if n_exp == None:

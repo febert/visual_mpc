@@ -252,8 +252,8 @@ def main(unused_argv, conf_script= None):
         print 'creating visualizations ...'
         conf = adapt_params_visualize(conf, FLAGS.visualize)
         conf.pop('use_len', None)
-        conf['sequence_length'] = 14
-        conf['batch_size'] = 4
+        conf['sequence_length'] = 30
+        conf['batch_size'] = 10
 
     print '-------------------------------------------------------------------'
     print 'verify current settings!! '
@@ -296,7 +296,6 @@ def main(unused_argv, conf_script= None):
     if conf['visualize']:
         saver.restore(sess, conf['visualize'])
         file_path = conf['output_dir']
-
 
         if FLAGS.diffmotions or FLAGS.canon:
             val_model.visualize_diffmotions(file_path, sess)
@@ -427,12 +426,8 @@ class Diffmotion_model(Model):
             Model.__init__(self, conf, self.images_pl, self.actions_pl, self.states_pl, pix_distrib=self.pix_distrib_pl)
 
     def visualize_diffmotions(self,file_path, sess):
-
-        feed_dict = {self.lr: 0.0,
-                     self.prefix: 'vis',
-                     self.iter_num: 0}
-
-        b_exp, ind0 = 0, 0
+        feed_dict = {self.lr: 0.0, self.prefix: 'vis', self.iter_num: 0}
+        b_exp, ind0 = 9, 0 #9
 
         if FLAGS.canon:
             b_exp = 0
@@ -448,11 +443,11 @@ class Diffmotion_model(Model):
             img, state = sess.run([self.val_images, self.val_states])
             sel_img = img[b_exp, ind0:ind0 + 2]
             c = Getdesig(sel_img[0], self.conf, 'b{}'.format(b_exp))
-            desig_pos_aux1 = c.coords.astype(np.int32)
+            desig_pix = c.coords.astype(np.int32)
 
             # desig_pos_aux1 = np.array([14, 45])
-            print "selected designated position for aux1 [row,col]:", desig_pos_aux1
-            one_hot = create_one_hot(self.conf, desig_pos_aux1)
+            print "selected designated position for aux1 [row,col]:", desig_pix
+            one_hot = create_one_hot(self.conf, desig_pix)
             sel_state = np.stack([state[b_exp, ind0], state[b_exp, ind0 + 1]], axis=0)
 
         feed_dict[self.pix_distrib_pl] = one_hot
@@ -472,9 +467,7 @@ class Diffmotion_model(Model):
         n_angles = 8
         for b in range(n_angles):
             for i in range(self.conf['sequence_length']):
-                actions[b, i] = np.array(
-                    [np.cos(b / float(n_angles) * 2 * np.pi) * step, np.sin(b / float(n_angles) * 2 * np.pi) * step, 0,
-                     0])
+                actions[b, i] = np.array([np.cos(b / float(n_angles) * 2 * np.pi) * step, np.sin(b / float(n_angles) * 2 * np.pi) * step, 0,0])
         b += 1
         actions[b, 0] = np.array([0, 0, 4, 0])
         actions[b, 1] = np.array([0, 0, 4, 0])
@@ -497,8 +490,7 @@ class Diffmotion_model(Model):
             feed_dict)
         dict_ = {}
         dict_['gen_images'] = gen_images
-        if 'pos_dependent_assembly' not in self.conf:
-            dict_['object_masks'] = object_masks
+        dict_['object_masks'] = object_masks
 
         dict_['moved_images'] = moved_images
         dict_['trafos'] = trafos
@@ -507,13 +499,13 @@ class Diffmotion_model(Model):
         dict_['gen_pix_distrib'] = gen_pix_distrib
         dict_['gen_masks'] = gen_masks
         dict_['moved_pix_distrib'] = moved_pix_distrib
-
+        dict_['desig_pix'] = desig_pix
 
         cPickle.dump(dict_, open(file_path + '/dict_.pkl', 'wb'))
         print 'written files to:' + file_path
         makegifs.comp_gif(self.conf, self.conf['output_dir'],
-                          name='b{}_l{}'.format(b_exp, self.conf['sequence_length']),
-                          show_parts=True)
+                          name='pixelmotion_b{}_l{}'.format(b_exp, self.conf['sequence_length']),
+                          show_parts=True, examples= self.conf['batch_size'])
         return
 
 def create_one_hot(conf, desig_pix):
