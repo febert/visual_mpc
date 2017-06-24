@@ -159,12 +159,12 @@ class Occlusion_Model(object):
                     conv1_input,
                     32, [5, 5],
                     stride=2,
-                    scope='conv1',   # refeed needs conv1, the rest needs scale1_conv1
-                    # scope='scale1_conv1',
+                    # scope='conv1',   # refeed needs conv1, the rest needs scale1_conv1
+                    scope='scale1_conv1',
                     normalizer_fn=tf_layers.layer_norm,
                     normalizer_params={'scope': 'layer_norm1'},
                     )
-                print 'using conv1 scope!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!1'
+                # print 'using conv1 scope!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!1'
 
                 hidden1, lstm_state1 = self.lstm_func(       # 32x32x16
                     enc0, lstm_state1, lstm_size[0], scope='state1')
@@ -346,11 +346,8 @@ class Occlusion_Model(object):
                         tf.nn.softmax(tf.reshape(masks, [-1, total_num_masks])),
                         [int(self.batch_size), int(self.img_height), int(self.img_width), total_num_masks])
                     assembly_masks = tf.split(3, total_num_masks, masks)
-                    self.gen_masks.append(assembly_masks)
-                    # moved_images += [generated_pix]
 
                     parts = []
-
                     if 'backgd_genpix' in self.conf:
                         assembly += assembly_masks[0]*self.background
                         assembly_masks = assembly_masks[1:]
@@ -359,6 +356,7 @@ class Occlusion_Model(object):
                         parts.append(mimage * mask)
                         assembly += mimage * mask
                     self.moved_partsl.append(parts)
+                    self.gen_masks.append(assembly_masks)
 
                     if self.pix_distribution != None:
                         pix_assembly = tf.zeros([self.batch_size, 64, 64, 1], dtype=tf.float32)
@@ -418,7 +416,7 @@ class Occlusion_Model(object):
 
     def decompose_firstimage(self, enc6):
 
-        if 'separate_background' in self.conf:
+        if 'backgd_genpix' in self.conf:
             num_allmasks = self.num_objmasks + 1
         else:
             num_allmasks = self.num_objmasks
@@ -430,7 +428,7 @@ class Occlusion_Model(object):
             [int(self.batch_size), int(self.img_height), int(self.img_width), num_allmasks])
         mask_list = tf.split(3, num_allmasks, masks)
 
-        if 'separate_background' in self.conf:
+        if 'backgd_genpix' in self.conf:
             background_mask = mask_list[0]
             objectmasks = mask_list[1:]
         else:
