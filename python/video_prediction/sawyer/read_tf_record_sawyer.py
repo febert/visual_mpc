@@ -9,7 +9,7 @@ import pdb
 from PIL import Image
 import imp
 
-
+import cPickle
 
 # Dimension of the state and action.
 STATE_DIM = 3
@@ -44,12 +44,13 @@ def build_tfrecord_input(conf, training=True):
         shuffle = False
     else: shuffle = True
 
+
     filename_queue = tf.train.string_input_producer(filenames, shuffle=shuffle)
     reader = tf.TFRecordReader()
     _, serialized_example = reader.read(filename_queue)
 
-    image_aux1_seq, image_main_seq, endeffector_pos_seq, action_seq, object_pos_seq = [], [], [], [], []
-
+    image_aux1_seq, image_main_seq, endeffector_pos_seq, action_seq, object_pos_seq, init_pix_distrib_seq = [], [], [], [], [], []
+    init_pix_pos_seq = []
 
     load_indx = range(0, 30, conf['skip_frame'])
     load_indx = load_indx[:conf['sequence_length']]
@@ -63,6 +64,10 @@ def build_tfrecord_input(conf, training=True):
         endeffector_pos_name = str(i) + '/endeffector_pos'
         # state_name = 'move/' +str(i) + '/state'
 
+        if 'canon_ex' in conf:
+            init_pix_pos_name = '/init_pix_pos'
+            init_pix_distrib_name = str(i) +'/init_pix_distrib'
+
         features = {
 
                     image_aux1_name: tf.FixedLenFeature([1], tf.string),
@@ -71,6 +76,10 @@ def build_tfrecord_input(conf, training=True):
         }
         if 'single_view' not in conf:
             (features[image_main_name]) = tf.FixedLenFeature([1], tf.string)
+
+        if 'canon_ex' in conf:
+            (features[init_pix_distrib_name]) = tf.FixedLenFeature([1], tf.string)
+            (features[init_pix_pos_name]) = tf.FixedLenFeature([2], tf.float32)
 
         features = tf.parse_single_example(serialized_example, features=features)
 
@@ -99,8 +108,6 @@ def build_tfrecord_input(conf, training=True):
             image = tf.cast(image, tf.float32) / 255.0
             image_main_seq.append(image)
 
-
-
         image = tf.decode_raw(features[image_aux1_name], tf.uint8)
         image = tf.reshape(image, shape=[1, ORIGINAL_HEIGHT * ORIGINAL_WIDTH * COLOR_CHAN])
         image = tf.reshape(image, shape=[ORIGINAL_HEIGHT, ORIGINAL_WIDTH, COLOR_CHAN])
@@ -113,6 +120,20 @@ def build_tfrecord_input(conf, training=True):
         image = tf.cast(image, tf.float32) / 255.0
         image_aux1_seq.append(image)
 
+        if 'canon_ex' in conf:
+            init_pix_distrib = tf.decode_raw(features[init_pix_distrib_name], tf.uint8)
+            init_pix_distrib = tf.reshape(init_pix_distrib, shape=[1, ORIGINAL_HEIGHT * ORIGINAL_WIDTH])
+            init_pix_distrib = tf.reshape(init_pix_distrib, shape=[ORIGINAL_HEIGHT, ORIGINAL_WIDTH, 1])
+            crop_size = min(ORIGINAL_HEIGHT, ORIGINAL_WIDTH)
+            init_pix_distrib = tf.image.resize_image_with_crop_or_pad(init_pix_distrib, crop_size, crop_size)
+            init_pix_distrib = tf.reshape(init_pix_distrib, [1, crop_size, crop_size, 1])
+            init_pix_distrib = tf.image.resize_bicubic(init_pix_distrib, [IMG_HEIGHT, IMG_WIDTH])
+            init_pix_distrib = tf.cast(init_pix_distrib, tf.float32) / 255.0
+            init_pix_distrib_seq.append(init_pix_distrib)
+
+            init_pix_pos = tf.reshape(features[init_pix_pos_name], shape=[1, 2])
+            init_pix_pos_seq.append(init_pix_pos)
+
         endeffector_pos = tf.reshape(features[endeffector_pos_name], shape=[1, STATE_DIM])
         endeffector_pos_seq.append(endeffector_pos)
         action = tf.reshape(features[action_name], shape=[1, ACION_DIM])
@@ -120,6 +141,7 @@ def build_tfrecord_input(conf, training=True):
 
     if 'single_view' not in conf:
         image_main_seq = tf.concat(0, image_main_seq)
+
     image_aux1_seq = tf.concat(0, image_aux1_seq)
 
     if conf['visualize']: num_threads = 1
@@ -132,6 +154,19 @@ def build_tfrecord_input(conf, training=True):
                                     num_threads=num_threads,
                                     capacity=100 * conf['batch_size'])
         return image_main_batch, image_aux1_batch, None, None
+    elif 'canon_ex' in conf:
+        endeffector_pos_seq = tf.concat(0, endeffector_pos_seq)
+        action_seq = tf.concat(0, action_seq)
+
+        init_pix_pos_seq = tf.concat(0, init_pix_pos_seq)
+        init_pix_distrib_seq = tf.concat(0, init_pix_distrib_seq)
+
+        [image_aux1_batch, action_batch, endeffector_pos_batch, init_pix_distrib_batch, init_pix_pos_batch] = tf.train.batch(
+            [image_aux1_seq, action_seq, endeffector_pos_seq, init_pix_distrib_seq, init_pix_pos_seq],
+            conf['batch_size'],
+            num_threads=num_threads,
+            capacity=100 * conf['batch_size'])
+        return image_aux1_batch, action_batch, endeffector_pos_batch, init_pix_distrib_batch, init_pix_pos_batch
 
     elif 'single_view' in conf:
         endeffector_pos_seq = tf.concat(0, endeffector_pos_seq)
@@ -142,6 +177,7 @@ def build_tfrecord_input(conf, training=True):
             num_threads=num_threads,
             capacity=100 * conf['batch_size'])
         return image_aux1_batch, action_batch, endeffector_pos_batch
+
     else:
         endeffector_pos_seq = tf.concat(0, endeffector_pos_seq)
         action_seq = tf.concat(0, action_seq)
@@ -263,13 +299,59 @@ def mujoco_to_imagespace(mujoco_coord, numpix=64):
                   np.array([middle_pixel, middle_pixel])
     return pixel_coord
 
+
+
+def _float_feature(value):
+    return tf.train.Feature(float_list=tf.train.FloatList(value=value))
+
+def _bytes_feature(value):
+    return tf.train.Feature(bytes_list=tf.train.BytesList(value=[value]))
+
+def _int64_feature(value):
+  return tf.train.Feature(int64_list=tf.train.Int64List(value=value))
+
+def write_tf_records(images, actions, states, filepath, init_pix_distrib, init_pix_pos):
+    filename = os.path.join(dir, filepath + '/tfrecords/canon_examples.tfrecords')
+    print('Writing', filename)
+    writer = tf.python_io.TFRecordWriter(filename)
+
+    feature = {}
+
+    for ex in range(images.shape[0]):
+        sequence_length = 15
+
+        for tind in range(sequence_length):
+            image_raw = (images[ex,tind]*255.).astype(np.uint8)
+            image_raw = image_raw.tostring()
+
+            feature[str(tind) + '/action'] = _float_feature(actions[ex, tind].tolist())
+            feature[str(tind) + '/endeffector_pos'] = _float_feature(states[ex,tind].tolist())
+            feature[str(tind) + '/image_aux1/encoded'] = _bytes_feature(image_raw)
+
+            pix_raw = (init_pix_distrib[ex][tind]*255.).astype(np.uint8)
+            pix_raw = pix_raw.tostring()
+            feature[str(tind) + '/init_pix_distrib'] = _bytes_feature(pix_raw)
+
+            if tind == 0:
+                feature['/init_pix_pos'] = _float_feature(init_pix_pos[ex].tolist())
+
+        example = tf.train.Example(features=tf.train.Features(feature=feature))
+        writer.write(example.SerializeToString())
+
+    writer.close()
+
+
 if __name__ == '__main__':
     # for debugging only:
     os.environ["CUDA_VISIBLE_DEVICES"] = "1"
     print 'using CUDA_VISIBLE_DEVICES=', os.environ["CUDA_VISIBLE_DEVICES"]
     conf = {}
 
-    DATA_DIR = '/home/frederik/Documents/lsdc/pushing_data/softmotion30/test'
+    current_dir = os.path.dirname(os.path.realpath(__file__))
+    DATA_DIR = '/'.join(str.split(current_dir, '/')[:-3]) + '/pushing_data/canonical_examples/tfrecords'
+    conf['canon_ex'] = ""
+
+    # DATA_DIR = '/'.join(str.split(current_dir, '/')[:-3]) + '/pushing_data/softmotion30/test'
 
     conf['schedsamp_k'] = -1  # don't feed ground truth
     conf['data_dir'] = DATA_DIR  # 'directory containing data_files.' ,
@@ -277,9 +359,10 @@ if __name__ == '__main__':
     conf['train_val_split']= 0.95
     conf['sequence_length']= 15      # 'sequence length, including context frames.'
     conf['use_state'] = True
-    conf['batch_size']= 32
+    conf['batch_size']= 20
     conf['visualize']= True
     conf['single_view'] = ''
+    conf['context_frames'] = 2
 
     print '-------------------------------------------------------------------'
     print 'verify current settings!! '
@@ -290,33 +373,46 @@ if __name__ == '__main__':
     print 'testing the reader'
 
     # image_main_batch, image_aux_batch, action_batch, endeff_pos_batch  = build_tfrecord_input(conf, training=False)
-    image_aux_batch, action_batch, endeff_pos_batch = build_tfrecord_input(conf, training=False)
+    if 'canon_ex' in conf:
+        image_aux_batch, action_batch, endeff_pos_batch, pix_distrib_batch, pix_pos_batch = build_tfrecord_input(conf, training=False)
+    else:
+        image_aux_batch, action_batch, endeff_pos_batch = build_tfrecord_input(conf, training=False)
 
     sess = tf.InteractiveSession()
     tf.train.start_queue_runners(sess)
     sess.run(tf.initialize_all_variables())
 
+    from video_prediction.utils_vpred.create_gif import comp_single_video
 
-    for i in range(1):
+
+
+    for i in range(2):
         print 'run number ', i
 
         # image_main, image_aux, actions, endeff = sess.run([image_main_batch, image_aux_batch, action_batch, endeff_pos_batch])
-        image_aux, actions, endeff = sess.run([image_aux_batch, action_batch, endeff_pos_batch])
+        if 'canon_ex' in conf:
+            image_aux, actions, endeff, init_pix_distrib, init_pix_pos  = sess.run([image_aux_batch, action_batch, endeff_pos_batch, pix_distrib_batch, pix_pos_batch])
+        else:
+            image_aux, actions, endeff = sess.run([image_aux_batch, action_batch, endeff_pos_batch])
+
+        # file_path = '/'.join(str.split(DATA_DIR, '/')[:-1]+['/preview'])
+        # comp_single_video(file_path, image_aux)
 
         # show some frames
-
-        for i in range(3):
+        for i in range(2):
 
             print actions[i]
             print endeff[i]
 
-            # img = np.uint8(255. *image_main[0, i])
-            # img = Image.fromarray(img, 'RGB')
-            # img.show()
+            if 'canon_ex' in conf:
+                img = np.uint8(255. *init_pix_distrib[i, 2])
+                img = Image.fromarray(np.squeeze(img))
+                img.show()
 
             image_aux = np.squeeze(image_aux)
-            img = np.uint8(255. * image_aux[0, i])
+            img = np.uint8(255. * image_aux[i, 0])
             img = Image.fromarray(img, 'RGB')
+            # img.save(file_path,'PNG')
             img.show()
 
-            pdb.set_trace()
+            # pdb.set_trace()
