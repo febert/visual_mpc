@@ -42,8 +42,9 @@ def plot_comp_factors(comp_factors, n_exp, itr_vis, file_path):
     plt.savefig(file_path +'/comp_fact{}.png'.format(itr_vis))
 
 
-def comp_gif(conf, file_path, name= "", examples = 4, show_parts=False):
+def comp_gif(conf, file_path, name= "", examples = 10, show_parts=False):
     dict_ = cPickle.load(open(file_path + '/dict_.pkl', "rb"))
+    print 'finished loading ...'
 
     suffix = ''
     itr_vis = re.match('.*?([0-9]+)$', conf['visualize']).group(1)
@@ -53,12 +54,9 @@ def comp_gif(conf, file_path, name= "", examples = 4, show_parts=False):
     trafos = dict_['trafos']
     comp_factors = dict_['comp_factors']
     comp_factors = [np.stack(c) for c in comp_factors]
-
     plot_comp_factors(comp_factors, examples,itr_vis, file_path)
 
-    print 'finished loading ...'
-
-
+    desig_pix = dict_['desig_pix']
 
     if 'object_masks' in dict_:
         object_masks = dict_['object_masks']
@@ -72,8 +70,13 @@ def comp_gif(conf, file_path, name= "", examples = 4, show_parts=False):
         else:
             img = create_images(object_masks, examples)
 
+
         img = Image.fromarray(img)
         img.save(file_path +'/objectparts_masks{}.png'.format(itr_vis))
+
+        b_ind = 0
+        for m in range(len(object_masks)):
+            print 'mask {0}: value{1}'.format(m, object_masks[m][b_ind,desig_pix[0], desig_pix[1]])
 
     videolist  =[]
 
@@ -95,14 +98,14 @@ def comp_gif(conf, file_path, name= "", examples = 4, show_parts=False):
 
     if 'moved_pix_distrib' in dict_:
         moved_pix_distrib = dict_['moved_pix_distrib']
-        # moved_pix_distrib_ = []
-        # for t in range(len(moved_pix_distrib)):
-        #     moved_pix_t = [m[:examples] for m in moved_pix_distrib[t]]
-        #     moved_pix_distrib_.append(moved_pix_t)
-        moved_pix_distrib = prepare_video(moved_pix_distrib, copy_last_dim=True)
-        # moved_pix_distrib = [make_color_scheme(m) for m in moved_pix_distrib]
-        videolist += moved_pix_distrib
 
+        moved_pix_distrib = prepare_video(moved_pix_distrib, copy_last_dim=False)
+        colored_pix_distrib = []
+        for m in moved_pix_distrib:
+            colored_pix_distrib.append(make_color_scheme(m))
+        moved_pix_distrib = colored_pix_distrib
+
+        videolist += moved_pix_distrib
 
     moved_images = dict_['moved_images']
     moved_images = prepare_video(moved_images, copy_last_dim=False)
@@ -113,9 +116,10 @@ def comp_gif(conf, file_path, name= "", examples = 4, show_parts=False):
             gen_masks = dict_['gen_masks']
             videolist += prepare_video(gen_masks, copy_last_dim=True)
 
-    if dict_['moved_masks'] != []:
-        moved_masks = dict_['moved_masks']
-        videolist += prepare_video(moved_masks, copy_last_dim=True)
+    if 'moved_masks' in dict_:
+        if dict_['moved_masks'] != []:
+            moved_masks = dict_['moved_masks']
+            videolist += prepare_video(moved_masks, copy_last_dim=True)
 
     if show_parts:
         moved_parts = dict_['moved_parts']
@@ -125,10 +129,10 @@ def comp_gif(conf, file_path, name= "", examples = 4, show_parts=False):
         first_step_masks = dict_['first_step_masks']
         videolist += prepare_video(first_step_masks, copy_last_dim=True)
 
-
-
     fused_gif = assemble_gif(videolist, num_exp= examples)
     npy_to_gif(fused_gif, file_path + '/' +name +'vid_'+itr_vis+ suffix)
+
+    pdb.set_trace()
 
 def create_images(object_masks, nexp, background=None, background_mask=None):
     object_masks = [np.repeat(m, 3, axis=-1) for m in object_masks]
@@ -208,11 +212,11 @@ def pad_pos(conf, vid, pos, origsize = 64):
 
 if __name__ == '__main__':
     # file_path = '/home/frederik/Documents/lsdc/tensorflow_data/occulsionmodel/CDNA_compfact_slowness'
-    file_path = '/home/frederik/Documents/lsdc/tensorflow_data/occulsionmodel/CDNA_backgd_genpix'
+    file_path = '/home/frederik/Documents/lsdc/tensorflow_data/occulsionmodel/CDNA_sawyer_mask_consistencyloss'
     hyperparams = imp.load_source('hyperparams', file_path +'/conf.py')
 
     conf = hyperparams.configuration
-    conf['visualize'] = conf['output_dir'] + '/model24002'
+    conf['visualize'] = conf['output_dir'] + '/model96002'
 
 
     comp_gif(conf, file_path + '/modeldata', show_parts=True)

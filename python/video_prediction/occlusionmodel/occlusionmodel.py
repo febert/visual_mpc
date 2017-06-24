@@ -159,12 +159,12 @@ class Occlusion_Model(object):
                     conv1_input,
                     32, [5, 5],
                     stride=2,
-                    # scope='conv1',   # refeed needs conv1, the rest needs scale1_conv1
-                    scope='scale1_conv1',
+                    scope='conv1',   # refeed needs conv1, the rest needs scale1_conv1
+                    # scope='scale1_conv1',
                     normalizer_fn=tf_layers.layer_norm,
                     normalizer_params={'scope': 'layer_norm1'},
                     )
-                # print 'using conv1 scope!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!1'
+                print 'using conv1 scope!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!1'
 
                 hidden1, lstm_state1 = self.lstm_func(       # 32x32x16
                     enc0, lstm_state1, lstm_size[0], scope='state1')
@@ -228,8 +228,8 @@ class Occlusion_Model(object):
 
                 if t ==0:
                     self.background_mask, self.objectmasks = self.decompose_firstimage(enc6)
-
                     self.moved_masksl.append(self.objectmasks)
+
                     prev_imagel = [prev_image for _ in range(self.num_objmasks)]
                     self.moved_imagesl.append(prev_imagel)
 
@@ -336,16 +336,24 @@ class Occlusion_Model(object):
 
                 assembly = tf.zeros([self.batch_size, 64, 64, 3], dtype=tf.float32)
                 if 'pos_dependent_assembly' in self.conf:
+                    if 'backgd_genpix' in self.conf:
+                        total_num_masks = self.num_objmasks +1
+                    else: total_num_masks = self.num_objmasks
+
                     masks = slim.layers.conv2d_transpose(
-                        enc6, self.num_objmasks, 1, stride=1, scope='convt7_posdep')
+                        enc6, total_num_masks, 1, stride=1, scope='convt7_posdep')
                     masks = tf.reshape(
-                        tf.nn.softmax(tf.reshape(masks, [-1, self.num_objmasks])),
-                        [int(self.batch_size), int(self.img_height), int(self.img_width), self.num_objmasks])
-                    assembly_masks = tf.split(3, self.num_objmasks, masks)
+                        tf.nn.softmax(tf.reshape(masks, [-1, total_num_masks])),
+                        [int(self.batch_size), int(self.img_height), int(self.img_width), total_num_masks])
+                    assembly_masks = tf.split(3, total_num_masks, masks)
                     self.gen_masks.append(assembly_masks)
                     # moved_images += [generated_pix]
 
                     parts = []
+
+                    if 'backgd_genpix' in self.conf:
+                        assembly += assembly_masks[0]*self.background
+                        assembly_masks = assembly_masks[1:]
 
                     for mimage, mask in zip(self.moved_imagesl[-1], assembly_masks):
                         parts.append(mimage * mask)
