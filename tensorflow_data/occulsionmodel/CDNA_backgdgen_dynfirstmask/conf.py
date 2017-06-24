@@ -34,7 +34,6 @@ configuration = {
 'use_fullactions':'',
 'refeed_parts':'',
 'backgd_genpix':'',
-'separate_background':"",
 'comp_fact_add1':'',
 'dynamic_first_step_mask':'',
 'compfact_slowness':1e-6
