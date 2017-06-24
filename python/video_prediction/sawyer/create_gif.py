@@ -75,7 +75,7 @@ def create_video_pixdistrib_gif(file_path, conf, t, suffix = "", n_exp = 8, supp
             name = file_path + '/vid_' + conf['experiment_name'] + '_' + str(itr_vis) + suffix
 
     if 'single_view' in conf:
-        plot_psum_overtime(gen_distrib, n_exp, name)
+        plot_psum_overtime(conf, gen_distrib, n_exp, name, file_path)
 
     if 'single_view' not in conf:
         gen_images_main = [img[:, :, :, :3] for img in gen_images]
@@ -106,16 +106,22 @@ def create_video_gif(file_path, conf, t, suffix = None, n_exp = 8):
     npy_to_gif(fused_gif, name)
 
 
-def plot_psum_overtime(gen_distrib, n_exp, name):
+def plot_psum_overtime(conf, gen_distrib, n_exp, name, filepath):
     plt.figure(figsize=(25, 2),dpi=80)
+
+    if 'avoid_occlusions' in conf:
+        occlusioncost = cPickle.load(open(filepath + '/occulsioncost_bestactions.pkl','rb'))
 
     for ex in range(n_exp):
         psum = []
-        plt.subplot(1,n_exp, ex+1)
+        ax = plt.subplot(1,n_exp, ex+1)
         for t in range(len(gen_distrib)):
             psum.append(np.sum(gen_distrib[t][ex]))
-
         psum = np.array(psum)
+
+        if 'avoid_occlusions' in conf:
+            ax.set_title("occlusioncost: {}".format(occlusioncost[ex]))
+
         plt.plot(range(len(gen_distrib)), psum)
         plt.ylim([0,2.5])
 
@@ -125,18 +131,18 @@ def plot_psum_overtime(gen_distrib, n_exp, name):
 
 
 def go_through_timesteps(filepath):
-    for t in range(1,9):
+    for t in range(1,20):
         create_video_pixdistrib_gif(file_path, conf, t, suffix='_t{}'.format(t), n_exp=10, suppress_number=True)
 
 
 if __name__ == '__main__':
-    file_path = '/home/guser/catkin_ws/src/lsdc/experiments/cem_exp/benchmarks_sawyer/avoid_occlusions_firstplan/verbose'
-    hyperparams = imp.load_source('hyperparams', '/home/guser/catkin_ws/src/lsdc/experiments/cem_exp/benchmarks_sawyer/avoid_occlusions_firstplan/conf.py')
+    file_path = '/home/guser/catkin_ws/src/lsdc/experiments/cem_exp/benchmarks_sawyer/avoid_occlusions/verbose'
+    hyperparams = imp.load_source('hyperparams', '/home/guser/catkin_ws/src/lsdc/experiments/cem_exp/benchmarks_sawyer/avoid_occlusions/conf.py')
     # file_path = '/home/guser/Desktop/src/lsdc/experiments/cem_exp/benchmarks_sawyer/predprop/verbose'
     # hyperparams = imp.load_source('hyperparams', '/home/guser/Desktop/src/lsdc/experiments/cem_exp/benchmarks_sawyer/predprop/conf.py')
     conf = hyperparams.configuration
     # conf['visualize'] = conf['output_dir'] + '/model22002'
-    create_video_pixdistrib_gif(file_path, conf, t=1, suppress_number=True)
+    # create_video_pixdistrib_gif(file_path, conf, t=1, suppress_number=True)
     # create_video_pixdistrib_gif(file_path, conf, n_exp= 10, suppress_number= True)
     #
-    # go_through_timesteps(file_path)
+    go_through_timesteps(file_path)

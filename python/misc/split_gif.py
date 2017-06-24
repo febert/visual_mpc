@@ -30,7 +30,7 @@ def getFrames(ind):
 
 
 if __name__ == '__main__':
-    nframes = extractFrames('traj6_conf2.gif', 'splitted')
+    nframes = extractFrames('traj0_gr0_withpixdistrib.gif', 'splitted')
 
 
     ind = range(4,int(nframes/2)+10, 5*2)

@@ -17,6 +17,8 @@ policy = {
     # 'use_goalimage':"",
     # 'usepixelerror':''
     'use_first_plan':'',
+    'rew_all_steps':"",
+    'finalweight':10
 }
 
 agent = {
