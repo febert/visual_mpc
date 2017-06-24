@@ -12,7 +12,7 @@ configuration = {
 'setup_predictor': setup_predictor,
 'current_dir': current_dir, #'directory for writing gifs' ,
 # 'filepath of a pretrained model to use for cem
-'pretrained_model': LSDC_BASE +'/tensorflow_data/sawyer/singleview_shifted/modeldata/model114002',
+'pretrained_model': LSDC_BASE +'/tensorflow_data/sawyer/1stimg_bckgd_cdna/modeldata/model64002',
 'sequence_length': 15,      # 'sequence length, including context frames.' ,
 'context_frames': 2,        # of frames before predictions.' ,
 'use_state': 1,             #'Whether or not to give the state+action to the model' ,
@@ -21,9 +21,10 @@ configuration = {
 'schedsamp_k': -1,       # 'The k hyperparameter for scheduled sampling -1 for no scheduled sampling.' ,
 'batch_size': 200,           #batch size for evaluation' ,
 'learning_rate': 0,     #'the base learning rate of the generator' ,
-'visualize': '',            #'load model from which to generate visualizations
 'file_visual': '',          # datafile used for making visualizations,
 'dna_size': 9,              #size of DNA kerns
 'sawyer':'',
-'single_view':""
+'single_view':"",
+'use_len':14,                # number of steps used for training where the starting location is selected randomly within sequencelength
+'1stimg_bckgd':''
 }
