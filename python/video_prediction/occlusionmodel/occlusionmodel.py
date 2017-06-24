@@ -76,6 +76,8 @@ class Occlusion_Model(object):
         self.lstm_func = basic_conv_lstm_cell
 
         self.padding_map = []
+        self.background = []
+        self.background_mask = []
 
         # Generated robot states and images.
         self.gen_states, self.gen_images = [], []
@@ -360,11 +362,11 @@ class Occlusion_Model(object):
                     normalizer = tf.zeros([self.batch_size, 64, 64, 1], dtype=tf.float32)
 
                     if 'backgd_genpix' in self.conf:
-                        backgd_mask = tf.ones([self.batch_size, 64, 64, 1], dtype=tf.float32)
+                        final_backgd_mask = tf.ones([self.batch_size, 64, 64, 1], dtype=tf.float32)
                         assert 'comp_fact_add1' in self.conf
                         backgd_comp_fact = 1.
-                        normalizer += backgd_mask*backgd_comp_fact
-                        assembly += backgd_mask*backgd_comp_fact*self.background
+                        normalizer += final_backgd_mask*backgd_comp_fact
+                        assembly += final_backgd_mask*backgd_comp_fact*self.background
 
                     for mimage, moved_mask, cfact in zip(moved_images, moved_masks, comp_fact_input):
                         cfact = tf.reshape(cfact, [self.batch_size, 1, 1, 1])
@@ -449,7 +451,7 @@ class Occlusion_Model(object):
             self.first_step_masks.append(mask)
         else:
             # print 'length cdna_kern_list', len(self.cdna_kern_tlist)
-            prev_masks = self.decompose_firstimage(enc6)
+            _,  prev_masks = self.decompose_firstimage(enc6)
             self.first_step_masks.append(prev_masks)
             for kerns in self.cdna_kern_tlist:
                 mask = self.apply_cdna_kern(prev_masks, kerns)
