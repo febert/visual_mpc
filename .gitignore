@@ -121,4 +121,6 @@ results
 MUJOCO_LOG.TXT
 goalimage/
 tfrecords/
+desig_pix_img/
+pkl/
 

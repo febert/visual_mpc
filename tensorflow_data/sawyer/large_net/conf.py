@@ -1,4 +1,6 @@
 import os
+import numpy as np
+
 current_dir = os.path.dirname(os.path.realpath(__file__))
 
 # tf record data location:
@@ -32,5 +34,6 @@ configuration = {
 'dna_size': 9,              #size of DNA kerns
 'sawyer':'',
 'single_view':"",
-'use_len':14                # number of steps used for training where the starting location is selected randomly within sequencelength
+'use_len':14,                # number of steps used for training where the starting location is selected randomly within sequencelength
+'lstm_size':np.array([64, 128, 256, 128,  64])  # 4 times bigger than usual
 }

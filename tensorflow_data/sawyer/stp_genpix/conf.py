@@ -32,5 +32,6 @@ configuration = {
 'penal_last_only': False,   # penalize only the last state, to get sharper predictions
 'sawyer':'',
 'single_view':'',
-'use_len':14                # number of steps used for training where the starting location is selected randomly within sequencelength
+'use_len':14,                # number of steps used for training where the starting location is selected randomly within sequencelength
+'gen_pix':'',
 }

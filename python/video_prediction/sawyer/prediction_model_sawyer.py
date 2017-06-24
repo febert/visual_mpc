@@ -28,8 +28,6 @@ import pdb
 RELU_SHIFT = 1e-12
 
 
-
-
 def construct_model(images,
                     actions=None,
                     states=None,
@@ -51,6 +49,8 @@ def construct_model(images,
 
     # Generated robot states and images.
     gen_states, gen_images, gen_masks = [], [], []
+    moved_images, moved_pix_distrib, trafos = [], [], []
+
     if states != None:
         current_state = states[0]
     else:
@@ -203,6 +203,9 @@ def construct_model(images,
 
             if 'transform_from_firstimage' in conf:
                 prev_image = images[1]
+                if pix_distributions != None:
+                    prev_pix_distrib = pix_distributions[1]
+                    prev_pix_distrib = tf.expand_dims(prev_pix_distrib, -1)
                 print 'transform from image 1'
 
             if 'single_view' not in conf:
@@ -217,8 +220,8 @@ def construct_model(images,
                     enc6, DNA_KERN_SIZE ** 2, 1, stride=1, scope='convt4_cam2')
 
                 if 'single_view' not in conf:
-                    transformed_cam1 = [dna_transformation(prev_image_cam1, trafo_input_cam1, conf['dna_size'])]
-                    transformed_cam2 = [dna_transformation(prev_image_cam2, trafo_input_cam2, conf['dna_size'])]
+                    transformed_cam1l = [dna_transformation(prev_image_cam1, trafo_input_cam1, conf['dna_size'])]
+                    transformed_cam2l = [dna_transformation(prev_image_cam2, trafo_input_cam2, conf['dna_size'])]
 
                     if pix_distributions != None:
                         prev_pix_distrib_cam1 = tf.slice(prev_pix_distrib, [0, 0, 0, 0], [-1, -1, -1, 1])
@@ -229,32 +232,71 @@ def construct_model(images,
                         transf_distrib = tf.concat(3, [transf_distrib_cam1, transf_distrib_cam2])
                         gen_pix_distrib.append(transf_distrib)
                 else:
-                    transformed_cam2 = [dna_transformation(prev_image, trafo_input_cam2, conf['dna_size'])]
+                    transformed_cam2l = [dna_transformation(prev_image, trafo_input_cam2, conf['dna_size'])]
                     if pix_distributions != None:
-                        if 'single_view' in conf:
-                            transf_distrib_cam2 = dna_transformation(prev_pix_distrib, trafo_input_cam2, DNA_KERN_SIZE)
-                            gen_pix_distrib.append(transf_distrib_cam2)
+                        transf_distrib_cam2 = [dna_transformation(prev_pix_distrib, trafo_input_cam2, DNA_KERN_SIZE)]
+                        # gen_pix_distrib.append(transf_distrib_cam2[0])
 
+                extra_masks = 1  ## extra_masks = 2 is needed for running singleview_shifted!!
+
+            if conf['model'] == 'CDNA':
+                if 'gen_pix' in conf:
+                    transformed_cam2l = [tf.nn.sigmoid(enc7)]
+                    extra_masks = 2
+                else:
+                    transformed_cam2l = []
+                    extra_masks = 1
+
+                cdna_input = tf.reshape(hidden5, [int(batch_size), -1])
+
+                new_transformed, new_cdna_filter = cdna_transformation(conf,prev_image,
+                                                                            cdna_input,
+                                                                            num_masks,
+                                                                            int(color_channels),
+                                                                            DNA_KERN_SIZE=DNA_KERN_SIZE,
+                                                                            reuse_sc=reuse)
+                transformed_cam2l += new_transformed
+                moved_images.append(transformed_cam2l)
+
+                if pix_distributions != None:
+                    transf_distrib_cam2, new_cdna_distrib_filter = cdna_transformation(conf, prev_pix_distrib,
+                                                                                       cdna_input,
+                                                                                       num_masks,
+                                                                                       1, DNA_KERN_SIZE=DNA_KERN_SIZE,
+                                                                                       reuse_sc=True)
+                    moved_pix_distrib.append(transf_distrib_cam2)
 
             if conf['model']=='STP':
-
                 # This allows the network to also generate one image from scratch,
                 # which is useful when regions of the image become unoccluded.
                 if 'single_view' not in conf:
-                    enc7_cam1 = slim.layers.conv2d_transpose(enc6, color_channels, 1, stride=1, scope='convt5_cam1')
-                    enc7_cam2 = slim.layers.conv2d_transpose(enc6, color_channels, 1, stride=1, scope='convt5_cam2')
-                    transformed_cam1 = [tf.nn.sigmoid(enc7_cam1)]
-                    transformed_cam2 = [tf.nn.sigmoid(enc7_cam2)]
+                    # changed activation to None! so that the sigmoid layer after it can generate
+                    # the full range of values.
+                    enc7_cam1 = slim.layers.conv2d_transpose(enc6, color_channels, 1, stride=1, scope='convt5_cam1', activation_fn= None)
+                    enc7_cam2 = slim.layers.conv2d_transpose(enc6, color_channels, 1, stride=1, scope='convt5_cam2', activation_fn= None)
+                    if 'gen_pix' in conf:
+                        transformed_cam1l = [tf.nn.sigmoid(enc7_cam1)]
+                        transformed_cam2l = [tf.nn.sigmoid(enc7_cam2)]
+                        extra_masks = 2
+                    else:
+                        extra_masks = 1
+                        transformed_cam1l = []
+                        transformed_cam2l = []
                 else:
-                    enc7 = slim.layers.conv2d_transpose(enc6, color_channels, 1, stride=1, scope='convt5')
-                    transformed_cam2 = [tf.nn.sigmoid(enc7)]
+                    enc7 = slim.layers.conv2d_transpose(enc6, color_channels, 1, stride=1, scope='convt5', activation_fn= None)
+                    if 'gen_pix' in conf:
+                        transformed_cam2l = [tf.nn.sigmoid(enc7)]
+                        extra_masks = 2
+                    else:
+                        transformed_cam2l = []
+                        extra_masks = 1
 
                 enc_stp = tf.reshape(hidden5, [int(batch_size), -1])
                 stp_input_cam1 = slim.layers.fully_connected(
-                    enc_stp, 100, scope='fc_stp_cam1')
+                    enc_stp, 200, scope='fc_stp_cam1')
 
                 stp_input_cam2 = slim.layers.fully_connected(
-                    enc_stp, 100, scope='fc_stp_cam2')
+                    enc_stp, 200, scope='fc_stp_cam2')
 
                 # disabling capability to generete pixels
                 reuse_stp = None
@@ -263,41 +305,52 @@ def construct_model(images,
 
                 # enable the generation of pixels:
                 if 'single_view' not in conf:
-                    transformed_cam1 +=stp_transformation(prev_image_cam1, stp_input_cam1, num_masks, reuse_stp, suffix='cam1')
-                    transformed_cam2 += stp_transformation(prev_image_cam2, stp_input_cam2, num_masks, reuse_stp,suffix='cam2')
+                    transformed_cam1, _ =stp_transformation(prev_image_cam1, stp_input_cam1, num_masks, reuse_stp, suffix='cam1')
+                    transformed_cam1l += transformed_cam1
+                    transformed_cam2, trafo = stp_transformation(prev_image_cam2, stp_input_cam2, num_masks, reuse_stp,suffix='cam2')
+                    transformed_cam2l += transformed_cam2
                 else:
-                    transformed_cam2 +=stp_transformation(prev_image, stp_input_cam2, num_masks, reuse_stp, suffix='cam2')
+                    transformed_cam2, trafo = stp_transformation(prev_image, stp_input_cam2, num_masks, reuse_stp, suffix='cam2')
+                    transformed_cam2l += transformed_cam2
 
-                    if pix_distributions != None:
-                        transf_distrib_cam2 = stp_transformation(prev_pix_distrib, stp_input_cam2, num_masks,suffix='cam2', reuse=True)
+                trafos.append(trafo)
+                moved_images.append(transformed_cam2l)
 
-            masks_cam1 = slim.layers.conv2d_transpose(
-                enc6, (num_masks + 2), 1, stride=1, scope='convt7_cam1')
-
-            masks_cam2 = slim.layers.conv2d_transpose(
-                enc6, (num_masks + 2), 1, stride=1, scope='convt7_cam2')
+                if pix_distributions != None:  # supports only pix_distrib_cam2 in both sinlge and dual view
+                    transf_distrib_cam2, _ = stp_transformation(prev_pix_distrib, stp_input_cam2, num_masks,suffix='cam2', reuse=True)
+                    moved_pix_distrib.append(transf_distrib_cam2)
 
             if 'single_view' not in conf:
-                output_cam1, mask_list_cam1 = fuse_trafos(conf, masks_cam1, prev_image_cam1,
-                                                          transformed_cam1, batch_size)
-                output_cam2, mask_list_cam2 = fuse_trafos(conf, masks_cam2, prev_image_cam2,
-                                                          transformed_cam2, batch_size)
+                output_cam1, mask_list_cam1 = fuse_trafos(conf, enc6, prev_image_cam1,
+                                                          transformed_cam1l, batch_size,
+                                                          scope='convt7_cam1',extra_masks= extra_masks)
+                output_cam2, mask_list_cam2 = fuse_trafos(conf, enc6, prev_image_cam2,
+                                                          transformed_cam2l, batch_size,
+                                                          scope='convt7_cam2',extra_masks=extra_masks)
                 output = tf.concat(3, [output_cam1, output_cam2])
             else:
-                output, mask_list_cam2 = fuse_trafos(conf, masks_cam2, prev_image, transformed_cam2, batch_size)
-
+                if '1stimg_bckgd' in conf:
+                    background = images[0]
+                    print 'using background from first image..'
+                else: background = prev_image
+                output, mask_list_cam2 = fuse_trafos(conf, enc6, background,
+                                                     transformed_cam2l, batch_size,
+                                                     scope='convt7_cam2', extra_masks= extra_masks)
             gen_images.append(output)
             gen_masks.append(mask_list_cam2)
 
-            if conf['model']=='STP':
-                if pix_distributions!=None:
-                    pix_distrib_output = mask_list_cam2[0] * prev_pix_distrib
-                    mult_list = []
-                    for i in range(num_masks):
-                        mult_list.append(transf_distrib_cam2[i] * mask_list_cam2[i+1])
-                        pix_distrib_output += mult_list[i]
-                    gen_pix_distrib.append(pix_distrib_output)
+            if pix_distributions!=None:
+                if '1stimg_bckgd' in conf:
+                    background_pix = pix_distributions[0]
+                    background_pix = tf.expand_dims(background_pix, -1)
+                    print 'using pix_distrib-background from first image..'
+                else:
+                    background_pix = prev_pix_distrib
 
+                pix_distrib_output = mask_list_cam2[0] * background_pix
+                for i in range(num_masks):
+                    pix_distrib_output += transf_distrib_cam2[i] * mask_list_cam2[i+extra_masks]
+                gen_pix_distrib.append(pix_distrib_output)
 
             if current_state != None:
                 current_state = slim.layers.fully_connected(
@@ -307,12 +360,12 @@ def construct_model(images,
                     activation_fn=None)
             gen_states.append(current_state)
 
-    if pix_distributions != None:
-        return gen_images, gen_states, gen_masks, gen_pix_distrib
-    else:
-        return gen_images, gen_states, gen_masks, None
+    return gen_images, gen_states, gen_masks, gen_pix_distrib, moved_images, moved_pix_distrib, trafos
 
-def fuse_trafos(conf, masks, prev_image, transformed, batch_size):
+def fuse_trafos(conf, enc6, background_image, transformed, batch_size, scope, extra_masks):
+    masks = slim.layers.conv2d_transpose(
+        enc6, (conf['num_masks']+ extra_masks), 1, stride=1, scope=scope)
+
     img_height = 64
     img_width = 64
     num_masks = conf['num_masks']
@@ -321,12 +374,12 @@ def fuse_trafos(conf, masks, prev_image, transformed, batch_size):
         if num_masks != 1:
             raise ValueError('Only one mask is supported for DNA model.')
 
-    # the total number of masks is num_masks + 2 because of background and generated pixels!
+    # the total number of masks is num_masks +extra_masks because of background and generated pixels!
     masks = tf.reshape(
-        tf.nn.softmax(tf.reshape(masks, [-1, num_masks + 2])),
-        [int(batch_size), int(img_height), int(img_width), num_masks + 2])
-    mask_list = tf.split(3, num_masks + 2, masks)
-    output = mask_list[0] * prev_image
+        tf.nn.softmax(tf.reshape(masks, [-1, num_masks +extra_masks])),
+        [int(batch_size), int(img_height), int(img_width), num_masks +extra_masks])
+    mask_list = tf.split(3, num_masks +extra_masks, masks)
+    output = mask_list[0] * background_image
 
     for layer, mask in zip(transformed, mask_list[1:]):
         output += layer * mask
@@ -351,6 +404,7 @@ def stp_transformation(prev_image, stp_input, num_masks, reuse= None, suffix = N
     identity_params = tf.convert_to_tensor(
         np.array([1.0, 0.0, 0.0, 0.0, 1.0, 0.0], np.float32))
     transformed = []
+    trafos = []
     for i in range(num_masks):
         params = slim.layers.fully_connected(
             stp_input, 6, scope='stp_params' + str(i) + suffix,
@@ -358,8 +412,9 @@ def stp_transformation(prev_image, stp_input, num_masks, reuse= None, suffix = N
             reuse= reuse) + identity_params
         outsize = (prev_image.get_shape()[1], prev_image.get_shape()[2])
         transformed.append(transformer(prev_image, params, outsize))
+        trafos.append(params)
 
-    return transformed
+    return transformed, trafos
 
 
 def dna_transformation(prev_image, dna_input, DNA_KERN_SIZE):
@@ -393,6 +448,56 @@ def dna_transformation(prev_image, dna_input, DNA_KERN_SIZE):
             kernel, [3], keep_dims=True), [4])
 
     return tf.reduce_sum(kernel * inputs, [3], keep_dims=False)
+
+def cdna_transformation(conf, prev_image, cdna_input, num_masks, color_channels, DNA_KERN_SIZE, reuse_sc = None):
+    """Apply convolutional dynamic neural advection to previous image.
+
+    Args:
+      prev_image: previous image to be transformed.
+      cdna_input: hidden lyaer to be used for computing CDNA kernels.
+      num_masks: the number of masks and hence the number of CDNA transformations.
+      color_channels: the number of color channels in the images.
+    Returns:
+      List of images transformed by the predicted CDNA kernels.
+    """
+    batch_size = int(cdna_input.get_shape()[0])
+
+    # Predict kernels using linear function of last hidden layer.
+    cdna_kerns = slim.layers.fully_connected(
+        cdna_input,
+        DNA_KERN_SIZE * DNA_KERN_SIZE * num_masks,
+        scope='cdna_params',
+        activation_fn=None,
+        reuse = reuse_sc)
+
+
+    # Reshape and normalize.
+    cdna_kerns = tf.reshape(
+        cdna_kerns, [batch_size, DNA_KERN_SIZE, DNA_KERN_SIZE, 1, num_masks])
+    cdna_kerns = tf.nn.relu(cdna_kerns - RELU_SHIFT) + RELU_SHIFT
+    norm_factor = tf.reduce_sum(cdna_kerns, [1, 2, 3], keep_dims=True)
+    cdna_kerns /= norm_factor
+    cdna_kerns_summary = cdna_kerns
+
+    cdna_kerns = tf.tile(cdna_kerns, [1, 1, 1, color_channels, 1])
+    cdna_kerns = tf.split(0, batch_size, cdna_kerns)
+    prev_images = tf.split(0, batch_size, prev_image)
+
+    # Transform image.
+    transformed = []
+    for kernel, preimg in zip(cdna_kerns, prev_images):
+        kernel = tf.squeeze(kernel)
+        if len(kernel.get_shape()) == 3:
+            kernel = tf.expand_dims(kernel, -2)   #correction! ( was -1 before)
+        transformed.append(
+            tf.nn.depthwise_conv2d(preimg, kernel, [1, 1, 1, 1], 'SAME'))
+
+    transformed = tf.concat(0, transformed)
+
+    transformed = tf.reshape(transformed, [conf['batch_size'], 64,64,color_channels,num_masks])
+    transformed = tf.unpack(transformed, axis=4)
+
+    return transformed, cdna_kerns_summary
 
 
 def scheduled_sample(ground_truth_x, generated_x, batch_size, num_ground_truth):

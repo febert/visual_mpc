@@ -35,16 +35,39 @@ class Occlusion_Model(object):
                 actions=None,
                 states=None,
                 iter_num=-1.0,
-                conf = None):
+                conf = None,
+                pix_distibution=None,
+                 ):
 
         self.actions = actions
         self.iter_num = iter_num
         self.conf = conf
         self.images = images
+        self.pix_distribution = pix_distibution
+
+        self.moved_pix_distrib = []
+
+
+        self.cdna, self.stp, self.dna = False, False, False
+        if self.conf['model'] == 'CDNA':
+            self.cdna = True
+        elif self.conf['model'] == 'STP':
+            self.stp = True
+        elif self.conf['model'] == 'DNA':
+            self.dna = True
+        if self.stp + self.cdna + self.dna != 1:
+            raise ValueError("More than one option selected!")
+
+
+        if 'dna_size' in conf:
+            self.DNA_KERN_SIZE = conf['dna_size']
+        else:
+            self.DNA_KERN_SIZE = 5
+
 
         self.k = conf['schedsamp_k']
         self.use_state = conf['use_state']
-        self.num_masks = conf['num_masks']
+        self.num_objmasks = conf['num_masks']
         self.context_frames = conf['context_frames']
 
         print 'constructing occulsion network...'
@@ -52,11 +75,21 @@ class Occlusion_Model(object):
         self.batch_size, self.img_height, self.img_width, self.color_channels = [int(i) for i in images[0].get_shape()[0:4]]
         self.lstm_func = basic_conv_lstm_cell
 
+        self.padding_map = []
+        self.background = []
+        self.background_mask = []
+
         # Generated robot states and images.
         self.gen_states, self.gen_images = [], []
-        self.background_masks = []
-        self.generation_masks = []
+        self.moved_imagesl = []
+        self.moved_partsl = []
+        self.moved_masksl = []
+        self.first_step_masks = []
+        self.cdna_kern_tlist = []
+        self.gen_masks = []
         self.list_of_trafos = []
+        self.list_of_comp_factors = []
+        self.generation_masks = []
         self.current_state = states[0]
         self.gen_pix_distrib = []
 
@@ -105,15 +138,33 @@ class Occlusion_Model(object):
                     prev_image = image
 
                 print 'building step', t
-                state_action = tf.concat(1, [action, self.current_state])
+
+                if 'use_fullactions' in self.conf:
+                    print 'feeding in full actions'
+                    full_actions = tf.concat(1, self.actions)
+                    state_action = tf.concat(1, [action, self.current_state, full_actions])
+                else:
+                    state_action = tf.concat(1, [action, self.current_state])
+
+                if 'refeed_parts' in self.conf:
+                    print 'refeeding parts and objectmask'
+                    if t > 0:
+                        conv1_input = tf.concat(3, [prev_image] + self.objectmasks+self.moved_imagesl[-1]+self.moved_masksl[-1])
+                    else:
+                        conv1_input  = tf.concat(3, [prev_image, tf.zeros([self.batch_size,64,64,50], tf.float32)])
+                else:
+                    conv1_input =prev_image
 
                 enc0 = slim.layers.conv2d(    #32x32x32
-                    prev_image,
+                    conv1_input,
                     32, [5, 5],
                     stride=2,
+                    # scope='conv1',   # refeed needs conv1, the rest needs scale1_conv1
                     scope='scale1_conv1',
                     normalizer_fn=tf_layers.layer_norm,
-                    normalizer_params={'scope': 'layer_norm1'})
+                    normalizer_params={'scope': 'layer_norm1'},
+                    )
+                # print 'using conv1 scope!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!1'
 
                 hidden1, lstm_state1 = self.lstm_func(       # 32x32x16
                     enc0, lstm_state1, lstm_size[0], scope='state1')
@@ -174,55 +225,187 @@ class Occlusion_Model(object):
                     normalizer_fn=tf_layers.layer_norm,
                     normalizer_params={'scope': 'layer_norm9'})
 
-                # Using largest hidden state for predicting a new image layer.
-                enc7 = slim.layers.conv2d_transpose(
-                    enc6, self.color_channels, 1, stride=1, scope='convt4')
-
-                # This allows the network to also generate one image from scratch,
-                # which is useful when regions of the image become unoccluded.
-                generated_pix = tf.nn.sigmoid(enc7)
 
                 if t ==0:
-                    self.image_parts, self.objectmasks = self.decompose_firstimage(enc6)
+                    self.background_mask, self.objectmasks = self.decompose_firstimage(enc6)
+                    self.moved_masksl.append(self.objectmasks)
+
+                    prev_imagel = [prev_image for _ in range(self.num_objmasks)]
+                    self.moved_imagesl.append(prev_imagel)
+
+                if 'backgd_genpix' in self.conf and t==0:
+                    # Using largest hidden state for predicting a new image layer.
+                    # changed activation to None! so that the sigmoid layer after it can generate
+                    # the full range of values.
+                    enc7 = slim.layers.conv2d_transpose(
+                        enc6, self.color_channels, 1, stride=1, scope='convt4', activation_fn=None)
+                    # This allows the network to also generate one image from scratch,
+                    # which is useful when regions of the image become unoccluded.
+                    generated_pix = tf.nn.sigmoid(enc7)
+
+                    print 'composing background...'
+                    self.background = self.background_mask*self.images[0] +\
+                                      (1.-self.background_mask)*generated_pix
 
                 stp_input0 = tf.reshape(hidden5, [int(self.batch_size), -1])
                 stp_input1 = slim.layers.fully_connected(
                     stp_input0, 100, scope='fc_stp')
-
-                # disabling capability to generete pixels
                 reuse_stp = None
                 if reuse:
                     reuse_stp = reuse
+                if self.stp:
+                    moved_images, moved_masks, transforms = self.stp_transformation_mask(
+                            self.images[1], self.objectmasks, stp_input1, self.num_objmasks, reuse_stp)
+                    self.list_of_trafos.append(transforms)
 
-                moved_parts, moved_masks, tansforms = self.stp_transformation_mask(self.image_parts, self.objectmasks, stp_input1, self.num_masks, reuse_stp)
-                self.list_of_trafos.append(tansforms)
+                if self.cdna:
+                    cdna_input = tf.reshape(hidden5, [int(self.batch_size), -1])
 
-                comp_fact_input = slim.layers.fully_connected(tf.reshape(hidden5,[self.batch_size, -1]),
-                                                    self.num_masks, scope='fc_compfactors')
-                comp_factors = tf.split(1, self.num_masks, tf.nn.softmax(comp_fact_input))
+                    if 'pos_dependent_assembly' in self.conf:
+                        prev_masks = None
+                    elif 'dynamic_first_step_mask' in self.conf:
+                        print 'using dynamic first step mask'
+                        prev_masks = self.get_dynamic_mask(t,enc6)
+                    else:
+                        prev_masks = self.moved_masksl[-1]
+                    if 'mask_consistency_loss' in self.conf:
+                        prev_masks = self.moved_masksl[-1]
 
-                pre_assembly = tf.zeros([self.batch_size, 64, 64, 3], dtype=tf.float32)
-                for part, factor in zip(moved_parts, comp_factors):
-                    factor = tf.reshape(factor, [self.batch_size, 1, 1, 1])
-                    pre_assembly += tf.mul(part, factor)
+                    moved_images, moved_masks, cdna_kerns = self.cdna_transformation_imagewise(self.moved_imagesl[-1],
+                                                                                               prev_masks, cdna_input, self.num_objmasks,
+                                                                                               reuse_sc=reuse)
 
-                composed_mask = tf.zeros([self.batch_size, 64, 64, 1], dtype=tf.float32)
-                for mask, factor in zip(moved_masks, comp_factors):
-                    factor = tf.reshape(factor, [self.batch_size, 1, 1, 1])
-                    composed_mask += tf.mul(mask, factor)
+                    self.cdna_kern_tlist.append(cdna_kerns)
 
-                backgd_mask = 1. - composed_mask
-                assembled_image = tf.mul(backgd_mask,self.images[0]) + tf.mul(composed_mask, pre_assembly)
+                    self.moved_masksl.append(moved_masks)
 
-                self.background_masks.append(backgd_mask)
+                    if 'padding_usage_penalty' in self.conf:
+                        if t == 0:
+                            pad_map = [tf.ones([self.batch_size, 64, 64, 1], tf.float32) * -1 for _ in range(self.num_objmasks)]
+                            self.padding_map.append(pad_map)
+                        pad_map, _, _ = self.cdna_transformation_imagewise(self.padding_map[-1],
+                                                                           None,
+                                                                           cdna_input,
+                                                                           self.num_objmasks,
+                                                                           reuse_sc=True)
+                        self.padding_map.append(pad_map)
 
+                    if self.pix_distribution != None:
+                        if t == 0:
+                            self.moved_pix_distrib.append([
+                            tf.reshape(self.pix_distribution[0], shape=[self.batch_size, 64,64,1]) for _ in range(self.num_objmasks)])
+
+                        moved_pix, _, _ = self.cdna_transformation_imagewise(self.moved_pix_distrib[-1],
+                                                                             None,
+                                                                             cdna_input,
+                                                                             self.num_objmasks,
+                                                                             reuse_sc=True)
+                        self.moved_pix_distrib.append(moved_pix)
+
+                if self.dna:
+                    moved_images, moved_masks = self.apply_dna_separately(enc6)
+                    self.moved_masksl.append(moved_masks)
+
+                self.moved_imagesl.append(moved_images)
+
+                if 'exp_comp' in self.conf or 'quad_comp' in self.conf or 'sign_comp' in self.conf:
+                    activation = None
+                else:
+                    activation = tf.nn.relu
+
+                if 'gen_pix_averagestep' in self.conf:
+                    num_comp_fact = self.num_objmasks + 1
+                else: num_comp_fact = self.num_objmasks
+                comp_fact_input = slim.layers.fully_connected(tf.reshape(hidden5, [self.batch_size, -1]),
+                                                              num_comp_fact, scope='fc_compfactors',
+                                                                    activation_fn= activation)
+                if 'exp_comp' in self.conf:
+                    comp_fact_input = tf.exp(comp_fact_input)
+                elif 'quad_comp' in self.conf:
+                    comp_fact_input = tf.square(comp_fact_input)
+                elif 'abs_comp' in self.conf:
+                    comp_fact_input = tf.abs(comp_fact_input)
+
+                if 'comp_fact_add1' in self.conf:
+                    comp_fact_input += 1.
+
+
+                comp_fact_input = tf.split(1, num_comp_fact, comp_fact_input)
+
+                self.list_of_comp_factors.append(comp_fact_input)
+
+                assembly = tf.zeros([self.batch_size, 64, 64, 3], dtype=tf.float32)
+                if 'pos_dependent_assembly' in self.conf:
+                    if 'backgd_genpix' in self.conf:
+                        total_num_masks = self.num_objmasks +1
+                    else: total_num_masks = self.num_objmasks
+
+                    masks = slim.layers.conv2d_transpose(
+                        enc6, total_num_masks, 1, stride=1, scope='convt7_posdep')
+                    masks = tf.reshape(
+                        tf.nn.softmax(tf.reshape(masks, [-1, total_num_masks])),
+                        [int(self.batch_size), int(self.img_height), int(self.img_width), total_num_masks])
+                    assembly_masks = tf.split(3, total_num_masks, masks)
+
+                    parts = []
+                    if 'backgd_genpix' in self.conf:
+                        assembly += assembly_masks[0]*self.background
+                        assembly_masks = assembly_masks[1:]
+
+                    for mimage, mask in zip(self.moved_imagesl[-1], assembly_masks):
+                        parts.append(mimage * mask)
+                        assembly += mimage * mask
+                    self.moved_partsl.append(parts)
+                    self.gen_masks.append(assembly_masks)
+
+                    if self.pix_distribution != None:
+                        pix_assembly = tf.zeros([self.batch_size, 64, 64, 1], dtype=tf.float32)
+                        for pix, mask in zip(self.moved_pix_distrib[-1], assembly_masks):
+                            pix_assembly += pix * mask
+                        self.gen_pix_distrib.append(pix_assembly)
+
+                else:
+                    normalizer = tf.zeros([self.batch_size, 64, 64, 1], dtype=tf.float32)
+
+                    if 'backgd_genpix' in self.conf:
+                        final_backgd_mask = tf.ones([self.batch_size, 64, 64, 1], dtype=tf.float32)
+                        assert 'comp_fact_add1' in self.conf
+                        backgd_comp_fact = 1.
+                        normalizer += final_backgd_mask*backgd_comp_fact
+                        assembly += final_backgd_mask*backgd_comp_fact*self.background
+
+                    for mimage, moved_mask, cfact in zip(moved_images, moved_masks, comp_fact_input):
+                        cfact = tf.reshape(cfact, [self.batch_size, 1, 1, 1])
+                        assembly += mimage*moved_mask*cfact
+                        normalizer += moved_mask*cfact
+                    assembly /= (normalizer + tf.ones_like(normalizer) * 1e-7)
+
+                    parts = []
+                    for mimage, moved_mask, cfact in zip(moved_images, moved_masks, comp_fact_input):
+                        cfact = tf.reshape(cfact, [self.batch_size, 1, 1, 1])
+                        part = mimage*moved_mask*cfact/(normalizer + tf.ones_like(normalizer) * 1e-4)
+                        parts.append(part)
+                    self.moved_partsl.append(parts)
+
+                    if self.pix_distribution != None:
+                        pix_assembly = tf.zeros([self.batch_size, 64, 64, 1], dtype=tf.float32)
+                        normalizer = tf.zeros([self.batch_size, 64, 64, 1], dtype=tf.float32)
+                        for pix, moved_mask, cfact in zip(self.moved_pix_distrib[-1], moved_masks, comp_fact_input):
+                            cfact = tf.reshape(cfact, [self.batch_size, 1, 1, 1])
+                            pix_assembly += pix * moved_mask * cfact
+                            normalizer += moved_mask * cfact
+                        pix_assembly /= (normalizer + tf.ones_like(normalizer) * 1e-4)
+                        self.gen_pix_distrib.append(pix_assembly)
+
+                # insert the genearted pixels later
                 if 'gen_pix' in self.conf:
                     generation_mask = self.get_generationmask(enc6)
-                    gen_image = generation_mask[0]*assembled_image + generation_mask[1]*generated_pix
+                    gen_image = generation_mask[0]*assembly + generation_mask[1]*generated_pix
                     self.generation_masks.append(generation_mask)
-                    self.gen_images.append(gen_image)
                 else:
-                    self.gen_images.append(assembled_image)
+                    gen_image = assembly
+
+                self.gen_images.append(gen_image)
 
                 self.current_state = slim.layers.fully_connected(
                     tf.reshape(hidden5, [self.batch_size, -1]),
@@ -232,18 +415,27 @@ class Occlusion_Model(object):
                 self.gen_states.append(self.current_state)
 
     def decompose_firstimage(self, enc6):
+
+        if 'backgd_genpix' in self.conf:
+            num_allmasks = self.num_objmasks + 1
+        else:
+            num_allmasks = self.num_objmasks
+
         masks = slim.layers.conv2d_transpose(
-            enc6, self.num_masks, 1, stride=1, scope='convt7_objectmask')
+            enc6, num_allmasks, 1, stride=1, scope='convt7_objectmask')
         masks = tf.reshape(
-            tf.nn.softmax(tf.reshape(masks, [-1, self.num_masks])),
-            [int(self.batch_size), int(self.img_height), int(self.img_width), self.num_masks])
-        mask_list = tf.split(3, self.num_masks, masks)
+            tf.nn.softmax(tf.reshape(masks, [-1,num_allmasks])),
+            [int(self.batch_size), int(self.img_height), int(self.img_width), num_allmasks])
+        mask_list = tf.split(3, num_allmasks, masks)
 
-        image_partlist = []
-        for mask in mask_list:
-            image_partlist.append(tf.mul(self.images[0], mask))
+        if 'backgd_genpix' in self.conf:
+            background_mask = mask_list[0]
+            objectmasks = mask_list[1:]
+        else:
+            objectmasks = mask_list
+            background_mask = None
 
-        return image_partlist, mask_list
+        return background_mask, objectmasks
 
     def get_generationmask(self, enc6):
         masks = slim.layers.conv2d_transpose(
@@ -253,13 +445,31 @@ class Occlusion_Model(object):
             [int(self.batch_size), int(self.img_height), int(self.img_width), 2])
         return tf.split(3, 2, masks)
 
+    def get_generationmask2(self, enc6):
+        mask = slim.layers.conv2d_transpose(
+            enc6, 1, 1, stride=1, scope='convt7_generationmask', activation_fn=None)
+        mask = tf.exp(mask)
+        return mask
+
+    def get_dynamic_mask(self, t, enc6):
+        if t == 0:
+            mask = self.objectmasks
+            self.first_step_masks.append(mask)
+        else:
+            # print 'length cdna_kern_list', len(self.cdna_kern_tlist)
+            _,  prev_masks = self.decompose_firstimage(enc6)
+            self.first_step_masks.append(prev_masks)
+            for kerns in self.cdna_kern_tlist:
+                mask = self.apply_cdna_kern(prev_masks, kerns)
+                prev_masks = mask
+        return mask
 
     ## Utility functions
-    def stp_transformation_mask(self, prev_image_list, prev_mask_list, stp_input, num_masks, reuse= None):
+    def stp_transformation(self,prev_image, stp_input, num_masks, reuse=None):
         """Apply spatial transformer predictor (STP) to previous image.
-    
+
         Args:
-          prev_image_list: previous image to be transformed.
+          prev_image: previous image to be transformed.
           stp_input: hidden layer to be used for computing STN parameters.
           num_masks: number of masks and hence the number of STP transformations.
         Returns:
@@ -270,28 +480,268 @@ class Occlusion_Model(object):
 
         identity_params = tf.convert_to_tensor(
             np.array([1.0, 0.0, 0.0, 0.0, 1.0, 0.0], np.float32))
-        transformed_parts = []
-        transformed_masks = []
-        transforms = []
-        prev_mask_list = [tf.tile(m, [1, 1, 1, 3]) for m in prev_mask_list]  # copy the color channel
-
+        transformed = []
         for i in range(num_masks):
             params = slim.layers.fully_connected(
                 stp_input, 6, scope='stp_params' + str(i),
                 activation_fn=None,
-                reuse= reuse) + identity_params
+                reuse=reuse) + identity_params
+            outsize = (prev_image.get_shape()[1], prev_image.get_shape()[2])
+            transformed.append(transformer(prev_image, params, outsize))
+
+        return transformed
+
+
+    def stp_transformation_mask(self, first_image, prev_mask_list, stp_input, num_masks, reuse= None):
+        """Apply spatial transformer predictor (STP) to previous image.
+    
+        Args:
+          first_image: first image which is transformed.
+          stp_input: hidden layer to be used for computing STN parameters.
+          num_masks: number of masks and hence the number of STP transformations.
+        Returns:
+          List of images transformed by the predicted STP parameters.
+        """
+        # Only import spatial transformer if needed.
+        from video_prediction.transformer.spatial_transformer import transformer
+
+        identity_params = tf.convert_to_tensor(
+            np.array([1.0, 0.0, 0.0, 0.0, 1.0, 0.0], np.float32))
+        identity_params = tf.reshape(identity_params,[1,6])
+        identity_params = tf.tile(identity_params,[self.batch_size,1])
+
+        transformed_parts = []
+        transformed_masks = []
+        transforms = []
+
+        if 'movement_factor' in self.conf:
+            movement_factor = self.conf['movement_factor']
+        else: movement_factor = 1.
+
+        for i in range(num_masks):
+            if 'norotation' in self.conf:
+                params = slim.layers.fully_connected(
+                    stp_input, 2, scope='stp_params' + str(i),
+                    activation_fn=None,
+                    reuse=reuse)*movement_factor
+                params = tf.reshape(params, [32,2,1])
+                init_val = np.stack([np.identity(2) for _ in range(self.batch_size)])
+                identity_mat = tf.Variable(init_val, dtype=tf.float32)
+                params = tf.reshape(tf.concat(2, [identity_mat, params]),[32, 6])
+            else:
+                params = slim.layers.fully_connected(
+                    stp_input, 6, scope='stp_params' + str(i),
+                    activation_fn=None,
+                    reuse= reuse)*movement_factor + identity_params
+
+            if i == 0:
+                #static background:
+                params = identity_params
+
             transforms.append(params)
+            outsize = (first_image.get_shape()[1], first_image.get_shape()[2])
 
-            outsize = (prev_image_list[0].get_shape()[1], prev_image_list[0].get_shape()[2])
-
-            transformed_part = tf.reshape(transformer(prev_image_list[i], params, outsize), [self.batch_size, 64, 64, 3])
+            transformed_part = transformer(first_image, params, outsize)
+            transformed_part = tf.reshape(transformed_part, [self.batch_size, 64, 64, 3])
             transformed_parts.append(transformed_part)
 
-            transf_mask = tf.slice(transformer(prev_mask_list[i], params, outsize), [0, 0, 0, 0], [-1, -1, -1, 1])
+            transf_mask = transformer(prev_mask_list[i], params, outsize)
             transf_mask = tf.reshape(transf_mask, [self.batch_size, 64, 64, 1])
             transformed_masks.append(transf_mask)
 
         return transformed_parts, transformed_masks, transforms
+
+
+    def apply_dna_separately(self, enc6):
+        moved_images = []
+        moved_masks = []
+
+        for imask in range(self.num_objmasks):
+            scope = 'convt_dnainput{}'.format(imask)
+            # Using largest hidden state for predicting untied conv kernels.
+            enc7 = slim.layers.conv2d_transpose(
+                enc6, self.DNA_KERN_SIZE ** 2, 1, stride=1, scope=scope)
+
+            prev_moved_image = self.moved_imagesl[-1][imask]
+            moved_images.append(self.dna_transformation(prev_moved_image,enc7))
+
+            prev_moved_mask = self.moved_masksl[-1][imask]
+            moved_masks.append(self.dna_transformation(prev_moved_mask,enc7))
+
+        return moved_images, moved_masks
+
+
+    def dna_transformation(self, prev_image, dna_input):
+        """Apply dynamic neural advection to previous image.
+
+        Args:
+          prev_image: previous image to be transformed.
+          dna_input: hidden lyaer to be used for computing DNA transformation.
+        Returns:
+          List of images transformed by the predicted CDNA kernels.
+        """
+        # Construct translated images.
+
+        pad_len = int(np.floor(self.DNA_KERN_SIZE / 2))
+        prev_image_pad = tf.pad(prev_image, [[0, 0], [pad_len, pad_len], [pad_len, pad_len], [0, 0]])
+        image_height = int(prev_image.get_shape()[1])
+        image_width = int(prev_image.get_shape()[2])
+
+        inputs = []
+        for xkern in range(self.DNA_KERN_SIZE):
+            for ykern in range(self.DNA_KERN_SIZE):
+                inputs.append(
+                    tf.expand_dims(
+                        tf.slice(prev_image_pad, [0, xkern, ykern, 0],
+                                 [-1, image_height, image_width, -1]), [3]))
+        inputs = tf.concat(3, inputs)
+
+        # Normalize channels to 1.
+        kernel = tf.nn.relu(dna_input - RELU_SHIFT) + RELU_SHIFT
+        kernel = tf.expand_dims(
+            kernel / tf.reduce_sum(
+                kernel, [3], keep_dims=True), [4])
+
+        return tf.reduce_sum(kernel * inputs, [3], keep_dims=False)
+
+
+    def cdna_transformation_imagewise(self, prev_images, prev_masks, cdna_input, num_masks, reuse_sc=None):
+
+        color_channels = int(prev_images[0].get_shape()[3])
+
+        transformed = []
+        transformed_masks = []
+        cdna_kerns_list = []
+
+        for i_img in range(num_masks):
+        # Predict kernels using linear function of last hidden layer.
+            cdna_kerns = slim.layers.fully_connected(
+                cdna_input,
+                self.DNA_KERN_SIZE * self.DNA_KERN_SIZE,
+                scope='cdna_params{}'.format(i_img),
+                activation_fn=None,
+                reuse=reuse_sc)
+
+            # Reshape and normalize.
+            cdna_kerns = tf.reshape(
+                cdna_kerns, [self.batch_size, self.DNA_KERN_SIZE, self.DNA_KERN_SIZE, 1, 1])
+            cdna_kerns = tf.nn.relu(cdna_kerns - RELU_SHIFT) + RELU_SHIFT
+            norm_factor = tf.reduce_sum(cdna_kerns, [1, 2, 3], keep_dims=True)
+            cdna_kerns /= norm_factor
+            cdna_kerns = tf.tile(cdna_kerns, [1, 1, 1, color_channels, 1])
+            cdna_kerns = tf.split(0, self.batch_size, cdna_kerns)
+            cdna_kerns_list.append(cdna_kerns)
+            target_image = tf.split(0, self.batch_size, prev_images[i_img])
+
+            if prev_masks != None:
+                target_mask = tf.split(0, self.batch_size, prev_masks[i_img])
+
+            # Transform image.
+            transformed_ex = []
+            transformed_ex_mask = []
+            for i_b, kernel, preimg in zip(range(self.batch_size), cdna_kerns, target_image):
+
+                kernel = tf.reshape(kernel, [self.DNA_KERN_SIZE, self.DNA_KERN_SIZE,color_channels,1])
+                transformed_ex.append(
+                    tf.nn.depthwise_conv2d(preimg, kernel, [1, 1, 1, 1], 'SAME'))
+
+                if prev_masks != None:
+                    kernel = tf.slice(kernel,[0,0,0,0], [-1,-1,1,-1])
+                    transformed_ex_mask.append(
+                        tf.nn.depthwise_conv2d(target_mask[i_b], kernel, [1, 1, 1, 1], 'SAME'))
+
+            transformed_ex = tf.concat(0, transformed_ex)
+            transformed.append(transformed_ex)
+
+            if prev_masks != None:
+                transformed_ex_mask = tf.concat(0, transformed_ex_mask)
+                transformed_masks.append(transformed_ex_mask)
+
+        return transformed, transformed_masks, cdna_kerns_list
+
+
+    def apply_cdna_kern(self, prev_masks, cdna_kerns_list):
+
+        transformed_masks = []
+
+        for i_mask in range(self.num_objmasks):
+            target_mask = tf.split(0, self.batch_size, prev_masks[i_mask])
+            cdna_kerns = cdna_kerns_list[i_mask]
+
+            # Transform image.
+            transformed_ex_mask = []
+            for i_b, kernel in zip(range(self.batch_size), cdna_kerns):
+                kernel = tf.reshape(kernel, [self.DNA_KERN_SIZE, self.DNA_KERN_SIZE, 3, 1])
+                kernel = tf.slice(kernel,[0,0,0,0], [-1,-1,1,-1])
+                transformed_ex_mask.append(
+                    tf.nn.depthwise_conv2d(target_mask[i_b], kernel, [1, 1, 1, 1], 'SAME'))
+
+            transformed_ex_mask = tf.concat(0, transformed_ex_mask)
+            transformed_masks.append(transformed_ex_mask)
+
+        return transformed_masks
+
+    def cdna_transformation_mask(self, prev_image, init_masks, cdna_input, num_masks, reuse_sc=None):
+        """Apply convolutional dynamic neural advection to previous image.
+
+        Args:
+          prev_image: previous image to be transformed.
+          cdna_input: hidden lyaer to be used for computing CDNA kernels.
+          num_masks: the number of masks and hence the number of CDNA transformations.
+          color_channels: the number of color channels in the images.
+        Returns:
+          List of images transformed by the predicted CDNA kernels.
+        """
+
+        # Predict kernels using linear function of last hidden layer.
+        cdna_kerns = slim.layers.fully_connected(
+            cdna_input,
+            self.DNA_KERN_SIZE * self.DNA_KERN_SIZE * num_masks,
+            scope='cdna_params',
+            activation_fn=None,
+            reuse=reuse_sc)
+
+        # Reshape and normalize.
+        cdna_kerns = tf.reshape(
+            cdna_kerns, [self.batch_size, self.DNA_KERN_SIZE, self.DNA_KERN_SIZE, 1, num_masks])
+        cdna_kerns = tf.nn.relu(cdna_kerns - RELU_SHIFT) + RELU_SHIFT
+        norm_factor = tf.reduce_sum(cdna_kerns, [1, 2, 3], keep_dims=True)
+        cdna_kerns /= norm_factor
+        cdna_kerns_summary = cdna_kerns
+        cdna_kerns = tf.tile(cdna_kerns, [1, 1, 1, self.color_channels, 1])
+        cdna_kerns = tf.split(0, self.batch_size, cdna_kerns)
+        prev_images = tf.split(0, self.batch_size, prev_image)
+        # Transform image.
+        transformed = []
+        transformed_masks = []
+        for i_b, kernel, preimg in zip(range(self.batch_size), cdna_kerns, prev_images):
+            kernel = tf.squeeze(kernel)
+            if len(kernel.get_shape()) == 3:
+                kernel = tf.expand_dims(kernel, -2)  # correction! ( was -1 before)
+            transformed.append(
+                tf.nn.depthwise_conv2d(preimg, kernel, [1, 1, 1, 1], 'SAME'))
+
+            sing_ex_trafo = []
+            for i_mask in range(self.num_objmasks):
+                sing_ex_mask = tf.slice(init_masks[i_mask],[i_b,0,0,0], [1,-1,-1,-1])
+                mask_kernel = tf.slice(kernel,[0,0,0,i_mask],[-1,-1,1,1])
+                sing_ex_trafo.append(
+                    tf.nn.depthwise_conv2d(sing_ex_mask, mask_kernel, [1, 1, 1, 1], 'SAME'))
+
+            sing_ex_trafo = tf.concat(0, sing_ex_trafo)
+            sing_ex_trafo = tf.expand_dims(sing_ex_trafo,0)
+            transformed_masks.append(sing_ex_trafo)
+
+        transformed_masks = tf.concat(0, transformed_masks)
+        transformed_masks = tf.split(1, self.num_objmasks, transformed_masks)
+        transformed_masks = [tf.reshape(m, [self.batch_size, 64,64,1]) for m in transformed_masks]
+
+        transformed = tf.concat(0, transformed)
+
+        transformed = tf.reshape(transformed, [self.batch_size, 64, 64, 3, num_masks])
+        transformed = tf.unpack(transformed, axis=4)
+
+        return transformed, transformed_masks, cdna_kerns_summary
 
 
 def scheduled_sample(ground_truth_x, generated_x, batch_size, num_ground_truth):
@@ -315,82 +765,3 @@ def scheduled_sample(ground_truth_x, generated_x, batch_size, num_ground_truth):
     return tf.dynamic_stitch([ground_truth_idx, generated_idx],
                              [ground_truth_examps, generated_examps])
 
-##############
-## Costmask code:
-
-def make_initial_pixdistrib(conf, init_object_pos):
-    desig_pix = mujoco_to_imagespace_tf(init_object_pos)
-
-    flat_ind = []
-    for b in range(conf['batch_size']):
-        r = tf.slice(desig_pix, [b, 0], [1, 1])
-        c = tf.slice(desig_pix, [b, 1], [1, 1])
-
-        flat_ind.append(r * 64+ c)
-
-    flat_ind = tf.concat(0, flat_ind)
-    one_hot = tf.one_hot(flat_ind, depth=64 ** 2, axis=-1)
-    one_hot = tf.reshape(one_hot, [conf['batch_size'], 64, 64])
-
-    return [one_hot, one_hot]
-
-
-def get_new_retinapos(conf, prev_pix_distrib, init_obj_pos, t, iter_num):
-
-    if 'moving_retina' in conf:
-        print 'using moving retina'
-        if t < 1:
-            ret_pix = mujoco_to_imagespace_tf(init_obj_pos)
-        else:
-            ret_pix = get_max_coord(conf, prev_pix_distrib)
-    else:
-        ret_pix = mujoco_to_imagespace_tf(init_obj_pos)
-
-    half_rh = conf['retina_size'] / 2
-    orig_imh = 64
-    current_rpos = tf.clip_by_value(tf.cast(ret_pix, dtype=tf.int32), half_rh, orig_imh - half_rh - 1)
-
-    return current_rpos
-
-
-def get_max_coord(conf, pix_distrib):
-    """
-    get new retina centerpos by selecting the pixel with the maximum probability in pix_distrib
-    :param conf: 
-    :param pix_distrib: 
-    :param current_rpos: 
-    :return: 
-    """
-    pix_distrib_shape = pix_distrib.get_shape()[1:]
-    maxcoord = tf.arg_max(tf.reshape(pix_distrib, [conf['batch_size'], -1]), dimension=1)
-    maxcoord = unravel_argmax(maxcoord, pix_distrib_shape)
-
-    return maxcoord
-
-def unravel_argmax(argmax, shape):
-    output_list = []
-    output_list.append(argmax / (shape[0]))
-    output_list.append(argmax % shape[1])
-    return tf.cast(tf.pack(output_list, 1), dtype=tf.int32)
-
-def mujoco_to_imagespace_tf(mujoco_coord, numpix = 64):
-    """
-    convert form Mujoco-Coord to numpix x numpix image space:
-    :param numpix: number of pixels of square image
-    :param mujoco_coord: batch_size x 2
-    :return: pixel_coord: batch_size x 2
-    """
-    mujoco_coord = tf.cast(mujoco_coord, tf.float32)
-
-    viewer_distance = .75  # distance from camera to the viewing plane
-    window_height = 2 * np.tan(75 / 2 / 180. * np.pi) * viewer_distance  # window height in Mujoco coords
-    pixelheight = window_height / numpix  # height of one pixel
-    middle_pixel = numpix / 2
-    r = -tf.slice(mujoco_coord,[0,1], [-1,1])
-    c =  tf.slice(mujoco_coord,[0,0], [-1,1])
-    pixel_coord = tf.concat(1, [r,c])/pixelheight
-    pixel_coord += middle_pixel
-    pixel_coord = tf.round(pixel_coord)
-    pixel_coord = tf.cast(pixel_coord, tf.int32)
-
-    return pixel_coord
