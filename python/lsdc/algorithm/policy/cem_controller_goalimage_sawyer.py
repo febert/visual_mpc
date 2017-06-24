@@ -252,22 +252,27 @@ class CEM_controller():
                 occlusion_cfactor = self.policyparams['avoid_occlusions']
                 occulsioncost = np.zeros(self.netconf['batch_size'])
                 if 'predictor_propagation' in self.policyparams:
-                    psum_initval = np.sum(self.rec_input_distrib[-1][0])
-                else: psum_initval = 1.
-                print 'initial frame psum:', psum_initval
+                    psum_initval = np.sum(self.rec_input_distrib[-1][0])*self.policyparams['violation_threshold']
+                else: psum_initval = self.policyparams['violation_threshold']
+
+                print 'occlusion cost threshold:', psum_initval
 
                 for tstep in range(self.netconf['sequence_length'] - 1):
                     for b in range(self.netconf['batch_size']):
                         occulsioncost[b] =  np.maximum(psum_initval - np.sum(gen_distrib[tstep][b]), 0)*occlusion_cfactor
                         scores[b] += occulsioncost[b]
-                pdb.set_trace()
 
                 print 'occlusion cost of best action', occulsioncost[scores.argsort()[0]]
                 print 'occlusion cost of worst action', occulsioncost[scores.argsort()[-1]]
                 bestindices = scores.argsort()[:self.K]
+                occulsioncost_bestactions = []
                 for i in range(self.K):
                     ind = bestindices[i]
+                    occulsioncost_bestactions.append(occulsioncost[ind])
                     print 'rank{} , totalcost {}, occlusioncost {}'.format(i, scores[ind], occulsioncost[ind])
+                cPickle.dump(occulsioncost_bestactions, open(self.netconf['current_dir'] +
+                                    '/verbose/occulsioncost_bestactions.pkl', 'wb'))
+
 
         # for predictor_propagation only!!
         if 'predictor_propagation' in self.policyparams:
@@ -280,7 +285,6 @@ class CEM_controller():
 
         bestindices = scores.argsort()[:self.K]
 
-        # compare prediciton with simulation
         if self.verbose and itr == self.policyparams['iterations']-1:
             # print 'creating visuals for best sampled actions at last iteration...'
             file_path = self.netconf['current_dir'] + '/verbose'

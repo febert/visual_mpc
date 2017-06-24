@@ -305,7 +305,7 @@ def main(unused_argv, conf_script= None):
                          val_model.prefix: 'vis',
                          val_model.iter_num: 0}
 
-            ground_truth, gen_images, object_masks, moved_images, trafos, comp_factors, moved_parts, first_step_masks, moved_masks, background, background_mask = sess.run([
+            ground_truth, gen_images, object_masks, moved_images, trafos, comp_factors, moved_parts, first_step_masks, moved_masks, background, background_mask, gen_masks = sess.run([
                                                             val_images,
                                                             val_model.om.gen_images,
                                                             val_model.om.objectmasks,
@@ -316,7 +316,8 @@ def main(unused_argv, conf_script= None):
                                                             val_model.om.first_step_masks,
                                                             val_model.om.moved_masksl,
                                                             val_model.om.background,
-                                                            val_model.om.background_mask
+                                                            val_model.om.background_mask,
+                                                            val_model.om.gen_masks
                                                             ],
                                                             feed_dict)
             dict_ = {}
@@ -331,6 +332,7 @@ def main(unused_argv, conf_script= None):
             dict_['moved_masks'] = moved_masks
             dict_['background'] = background
             dict_['background_mask'] = background_mask
+            dict_['gen_masks'] = gen_masks
 
             cPickle.dump(dict_, open(file_path + '/dict_.pkl', 'wb'))
             print 'written files to:' + file_path
@@ -427,10 +429,9 @@ class Diffmotion_model(Model):
 
     def visualize_diffmotions(self,file_path, sess):
         feed_dict = {self.lr: 0.0, self.prefix: 'vis', self.iter_num: 0}
-        b_exp, ind0 = 9, 0 #9
+        b_exp, ind0 = 5, 0 #9
 
         if FLAGS.canon:
-            b_exp = 0
             file_path_canon = '/home/frederik/Documents/catkin_ws/src/lsdc/pushing_data/canonical_examples'
             dict = cPickle.load(open(file_path_canon + '/pkl/example{}.pkl'.format(b_exp), 'rb'))
             desig_pix = dict['desig_pix']
@@ -476,28 +477,32 @@ class Diffmotion_model(Model):
         actions[b, 1] = np.array([0, 0, 0, 4])
         feed_dict[self.actions_pl] = actions
 
-        gen_images, object_masks, moved_images, trafos, comp_factors, moved_parts, gen_pix_distrib, gen_masks, moved_pix_distrib = sess.run([
-            self.om.gen_images,
-            self.om.objectmasks,
-            self.om.moved_imagesl,
-            self.om.list_of_trafos,
-            self.om.list_of_comp_factors,
-            self.om.moved_partsl,
-            self.om.gen_pix_distrib,
-            self.om.gen_masks,
-            self.om.moved_pix_distrib
-        ],
+        gen_images, object_masks, moved_images, trafos, comp_factors, moved_parts, first_step_masks, moved_masks, background, background_mask, moved_pix_distrib = sess.run(
+            [
+                self.om.gen_images,
+                self.om.objectmasks,
+                self.om.moved_imagesl,
+                self.om.list_of_trafos,
+                self.om.list_of_comp_factors,
+                self.om.moved_partsl,
+                self.om.first_step_masks,
+                self.om.moved_masksl,
+                self.om.background,
+                self.om.background_mask,
+                self.om.moved_pix_distrib,
+            ],
             feed_dict)
         dict_ = {}
         dict_['gen_images'] = gen_images
         dict_['object_masks'] = object_masks
-
         dict_['moved_images'] = moved_images
         dict_['trafos'] = trafos
         dict_['comp_factors'] = comp_factors
         dict_['moved_parts'] = moved_parts
-        dict_['gen_pix_distrib'] = gen_pix_distrib
-        dict_['gen_masks'] = gen_masks
+        dict_['first_step_masks'] = first_step_masks
+        dict_['moved_masks'] = moved_masks
+        dict_['background'] = background
+        dict_['background_mask'] = background_mask
         dict_['moved_pix_distrib'] = moved_pix_distrib
         dict_['desig_pix'] = desig_pix
 

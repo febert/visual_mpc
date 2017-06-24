@@ -330,7 +330,7 @@ def main(unused_argv, conf_script= None):
 
         if FLAGS.diffmotions:
 
-            b_exp, ind0 = 11, 0
+            b_exp, ind0 = 9, 0
 
             if 'single_view' in conf:
                 img, state = sess.run([val_images, val_states])
@@ -342,9 +342,9 @@ def main(unused_argv, conf_script= None):
 
                 sel_img = np.concatenate([sel_img_main, sel_img_aux1], axis= 3)
 
-            # c = Getdesig(sel_img[0], conf, 'b{}'.format(b_exp))
-            # desig_pos_aux1 = c.coords.astype(np.int32)
-            desig_pos_aux1 = np.array([23, 39])
+            c = Getdesig(sel_img[0], conf, 'b{}'.format(b_exp))
+            desig_pos_aux1 = c.coords.astype(np.int32)
+            # desig_pos_aux1 = np.array([23, 39])
 
             print "selected designated position for aux1 [row,col]:", desig_pos_aux1
 

@@ -56,7 +56,11 @@ def comp_gif(conf, file_path, name= "", examples = 10, show_parts=False):
     comp_factors = [np.stack(c) for c in comp_factors]
     plot_comp_factors(comp_factors, examples,itr_vis, file_path)
 
-    desig_pix = dict_['desig_pix']
+    # b_exp =  0
+    # file_path_canon = '/home/frederik/Documents/catkin_ws/src/lsdc/pushing_data/canonical_examples'
+    # dict = cPickle.load(open(file_path_canon + '/pkl/example{}.pkl'.format(b_exp), 'rb'))
+    # dict_['desig_pix'] = dict['desig_pix']
+
 
     if 'object_masks' in dict_:
         object_masks = dict_['object_masks']
@@ -72,11 +76,13 @@ def comp_gif(conf, file_path, name= "", examples = 10, show_parts=False):
 
 
         img = Image.fromarray(img)
-        img.save(file_path +'/objectparts_masks{}.png'.format(itr_vis))
+        img.save(file_path +'/{}_objectparts_masks{}.png'.format(name, itr_vis))
 
-        b_ind = 0
-        for m in range(len(object_masks)):
-            print 'mask {0}: value{1}'.format(m, object_masks[m][b_ind,desig_pix[0], desig_pix[1]])
+        if 'desig_pix' in dict_:
+            desig_pix = dict_['desig_pix']
+            b_ind = 0
+            for m in range(len(object_masks)):
+                print 'mask {0}: value at desig pos:{1}'.format(m, object_masks[m][b_ind,desig_pix[0], desig_pix[1]])
 
     videolist  =[]
 
@@ -88,13 +94,17 @@ def comp_gif(conf, file_path, name= "", examples = 10, show_parts=False):
         ground_truth = ground_truth[1:]
 
         videolist = [ground_truth]
+        print 'adding ground_truth'
+
 
     videolist.append(gen_images)
+    print 'adding gen_images'
 
     if 'gen_pix_distrib' in dict_:
         gen_pix_distrib = dict_['gen_pix_distrib']
         plot_psum_overtime(gen_pix_distrib, examples,file_path+"/"+ name)
         videolist.append(make_color_scheme(gen_pix_distrib))
+        print 'adding gen_pix_distrib'
 
     if 'moved_pix_distrib' in dict_:
         moved_pix_distrib = dict_['moved_pix_distrib']
@@ -106,6 +116,7 @@ def comp_gif(conf, file_path, name= "", examples = 10, show_parts=False):
         moved_pix_distrib = colored_pix_distrib
 
         videolist += moved_pix_distrib
+        print 'adding moved_pix_distrib'
 
     moved_images = dict_['moved_images']
     moved_images = prepare_video(moved_images, copy_last_dim=False)
@@ -115,19 +126,23 @@ def comp_gif(conf, file_path, name= "", examples = 10, show_parts=False):
         if dict_['gen_masks'] != []:
             gen_masks = dict_['gen_masks']
             videolist += prepare_video(gen_masks, copy_last_dim=True)
+            print 'adding gen_masks'
 
     if 'moved_masks' in dict_:
         if dict_['moved_masks'] != []:
             moved_masks = dict_['moved_masks']
             videolist += prepare_video(moved_masks, copy_last_dim=True)
+            print 'adding moved_masks'
 
     if show_parts:
         moved_parts = dict_['moved_parts']
         videolist += prepare_video(moved_parts, copy_last_dim=False)
+        print 'adding parts'
 
     if 'dynamic_first_step_mask' in conf:
         first_step_masks = dict_['first_step_masks']
         videolist += prepare_video(first_step_masks, copy_last_dim=True)
+        print 'adding dynamic_first_step_mask'
 
     fused_gif = assemble_gif(videolist, num_exp= examples)
     npy_to_gif(fused_gif, file_path + '/' +name +'vid_'+itr_vis+ suffix)
@@ -212,11 +227,11 @@ def pad_pos(conf, vid, pos, origsize = 64):
 
 if __name__ == '__main__':
     # file_path = '/home/frederik/Documents/lsdc/tensorflow_data/occulsionmodel/CDNA_compfact_slowness'
-    file_path = '/home/frederik/Documents/lsdc/tensorflow_data/occulsionmodel/CDNA_sawyer_mask_consistencyloss'
+    file_path = '/home/frederik/Documents/lsdc/tensorflow_data/occulsionmodel/CDNA_backgd_genpix'
     hyperparams = imp.load_source('hyperparams', file_path +'/conf.py')
 
     conf = hyperparams.configuration
-    conf['visualize'] = conf['output_dir'] + '/model96002'
+    conf['visualize'] = conf['output_dir'] + '/model54002'
 
 
     comp_gif(conf, file_path + '/modeldata', show_parts=True)
