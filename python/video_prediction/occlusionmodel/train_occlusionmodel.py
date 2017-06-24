@@ -253,7 +253,7 @@ def main(unused_argv, conf_script= None):
         conf = adapt_params_visualize(conf, FLAGS.visualize)
         conf.pop('use_len', None)
         conf['sequence_length'] = 14
-        conf['batch_size'] = 10
+        conf['batch_size'] = 4
 
     print '-------------------------------------------------------------------'
     print 'verify current settings!! '
@@ -306,7 +306,7 @@ def main(unused_argv, conf_script= None):
                          val_model.prefix: 'vis',
                          val_model.iter_num: 0}
 
-            ground_truth, gen_images, object_masks, moved_images, trafos, comp_factors, moved_parts, first_step_masks, moved_masks = sess.run([
+            ground_truth, gen_images, object_masks, moved_images, trafos, comp_factors, moved_parts, first_step_masks, moved_masks, background, background_mask = sess.run([
                                                             val_images,
                                                             val_model.om.gen_images,
                                                             val_model.om.objectmasks,
@@ -315,7 +315,9 @@ def main(unused_argv, conf_script= None):
                                                             val_model.om.list_of_comp_factors,
                                                             val_model.om.moved_partsl,
                                                             val_model.om.first_step_masks,
-                                                            val_model.om.moved_masksl
+                                                            val_model.om.moved_masksl,
+                                                            val_model.om.background,
+                                                            val_model.om.background_mask
                                                             ],
                                                             feed_dict)
             dict_ = {}
@@ -328,6 +330,8 @@ def main(unused_argv, conf_script= None):
             dict_['moved_parts'] = moved_parts
             dict_['first_step_masks'] = first_step_masks
             dict_['moved_masks'] = moved_masks
+            dict_['background'] = background
+            dict_['background_mask'] = background_mask
 
             cPickle.dump(dict_, open(file_path + '/dict_.pkl', 'wb'))
             print 'written files to:' + file_path

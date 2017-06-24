@@ -5,6 +5,7 @@ import imp
 import re
 import pdb
 
+
 def create_gif(file_path, conf, suffix = None, numexp = 8, append_masks = False):
     print 'reading files from:', file_path
     ground_truth = cPickle.load(open(file_path + '/ground_truth.pkl', "rb"))

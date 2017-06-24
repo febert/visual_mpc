@@ -2,6 +2,7 @@ import cPickle
 import numpy
 from video_prediction.utils_vpred.create_gif import *
 from PIL import Image
+from matplotlib import pyplot as plt
 
 def add_crosshairs(distrib, pix_list):
     """
@@ -20,8 +21,32 @@ def add_crosshairs(distrib, pix_list):
     return distrib
 
 
-def comp_gif(conf, file_path, name= "", examples = 10, show_parts=False):
+def plot_comp_factors(comp_factors, n_exp, itr_vis, file_path):
+    plt.figure(figsize=(25, 2), dpi=80)
+
+    nmasks = comp_factors[0].shape[0]
+    tstep = len(comp_factors)
+
+    for ex in range(n_exp):
+        plt.subplot(1, n_exp, ex + 1)
+
+        for m in range(nmasks):
+            cfact_overtime = []
+            for t in range(tstep):
+                cfact_overtime.append(comp_factors[t][m,ex])
+
+            cfact_overtime = np.concatenate(cfact_overtime)
+            plt.plot(cfact_overtime)
+
+    # plt.show()
+    plt.savefig(file_path +'/comp_fact{}.png'.format(itr_vis))
+
+
+def comp_gif(conf, file_path, name= "", examples = 4, show_parts=False):
     dict_ = cPickle.load(open(file_path + '/dict_.pkl', "rb"))
+
+    suffix = ''
+    itr_vis = re.match('.*?([0-9]+)$', conf['visualize']).group(1)
 
     gen_images = dict_['gen_images']
 
@@ -29,14 +54,24 @@ def comp_gif(conf, file_path, name= "", examples = 10, show_parts=False):
     comp_factors = dict_['comp_factors']
     comp_factors = [np.stack(c) for c in comp_factors]
 
+    plot_comp_factors(comp_factors, examples,itr_vis, file_path)
+
     print 'finished loading ...'
 
-    suffix = ''
-    itr_vis = re.match('.*?([0-9]+)$', conf['visualize']).group(1)
+
 
     if 'object_masks' in dict_:
         object_masks = dict_['object_masks']
-        img = create_images(object_masks, examples)
+
+        if 'background' not in  dict_:
+            dict_['background'] = []
+        if dict_['background'] != []:
+            background = dict_['background']
+            background_mask = dict_['background_mask']
+            img = create_images(object_masks, examples, background= background, background_mask = background_mask)
+        else:
+            img = create_images(object_masks, examples)
+
         img = Image.fromarray(img)
         img.save(file_path +'/objectparts_masks{}.png'.format(itr_vis))
 
@@ -95,9 +130,18 @@ def comp_gif(conf, file_path, name= "", examples = 10, show_parts=False):
     fused_gif = assemble_gif(videolist, num_exp= examples)
     npy_to_gif(fused_gif, file_path + '/' +name +'vid_'+itr_vis+ suffix)
 
-def create_images(object_masks, nexp):
+def create_images(object_masks, nexp, background=None, background_mask=None):
     object_masks = [np.repeat(m, 3, axis=-1) for m in object_masks]
+
     rows = []
+    if background != None:
+        background_mask = np.repeat(background_mask, 3, axis=-1)
+        background = np.split(background, background.shape[0], 0)
+        background = [np.squeeze(b) for b in background]
+        background_mask = np.split(background_mask, background_mask.shape[0], 0)
+        background_mask = [np.squeeze(b) for b in background_mask]
+        rows.append(np.concatenate(background, 1))
+        rows.append(np.concatenate(background_mask, 1))
 
     num_objects = len(object_masks)
     for ob in range(num_objects):
@@ -163,11 +207,12 @@ def pad_pos(conf, vid, pos, origsize = 64):
     return padded_vid
 
 if __name__ == '__main__':
-    file_path = '/home/frederik/Documents/lsdc/tensorflow_data/occulsionmodel/CDNA_quad_sawyer_fullactions'
+    # file_path = '/home/frederik/Documents/lsdc/tensorflow_data/occulsionmodel/CDNA_compfact_slowness'
+    file_path = '/home/frederik/Documents/lsdc/tensorflow_data/occulsionmodel/CDNA_backgd_genpix'
     hyperparams = imp.load_source('hyperparams', file_path +'/conf.py')
 
     conf = hyperparams.configuration
-    conf['visualize'] = conf['output_dir'] + '/model78002'
+    conf['visualize'] = conf['output_dir'] + '/model24002'
 
 
     comp_gif(conf, file_path + '/modeldata', show_parts=True)
