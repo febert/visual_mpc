@@ -14,15 +14,15 @@ policy = {
     'iterations': 3,
     'load_goal_image':'make_easy_goal',
     'verbose':'',
+    'predictor_propagation': '',   # use the model get the designated pixel for the next step!
     'action_cost_factor': 0,
     'no_instant_gif':"",
     'rew_all_steps':"",
     'finalweight':10,
-    'use_first_plan':'',
-    'avoid_occlusions':100,
-    'violation_threshold':0.5  # threshold as a fraction of the sum of the probability mask at the first step
+    'avoid_occlusions':1000,  #100
+    'violation_threshold':0.7  #.6 threshold as a fraction of the sum of the probability mask at the first step
 }
 
 agent = {
-    'T': 15,
+    'T': 20,
 }
