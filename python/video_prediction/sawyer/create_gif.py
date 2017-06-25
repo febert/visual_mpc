@@ -93,7 +93,8 @@ def create_video_pixdistrib_gif(file_path, conf, t=0, suffix = "", n_exp = 8, su
                                 append_masks = False, show_moved= False):
     gen_images = cPickle.load(open(file_path + '/gen_image_t{}.pkl'.format(t), "rb"))
     gen_distrib = cPickle.load(open(file_path + '/gen_distrib_t{}.pkl'.format(t), "rb"))
-    trafos = cPickle.load(open(file_path + '/trafos.pkl'.format(t), "rb"))
+
+    # trafos = cPickle.load(open(file_path + '/trafos.pkl'.format(t), "rb"))
 
     if  suppress_number:
         name = file_path + '/vid_' + conf['experiment_name'] + suffix
@@ -176,23 +177,19 @@ def plot_psum_overtime(conf, gen_distrib, n_exp, name, filepath):
 
 
 def go_through_timesteps(file_path):
-    for t in range(1,9):
+    for t in range(1,2):
         create_video_pixdistrib_gif(file_path, conf, t, suffix='_t{}'.format(t), n_exp=10, suppress_number=True)
 
 
 if __name__ == '__main__':
-    file_path = '/home/guser/catkin_ws/src/lsdc/experiments/cem_exp/benchmarks_sawyer/avoid_occlusions/verbose'
-    hyperparams = imp.load_source('hyperparams', '/home/guser/catkin_ws/src/lsdc/experiments/cem_exp/benchmarks_sawyer/avoid_occlusions/conf.py')
-    # file_path = '/home/guser/Desktop/src/lsdc/experiments/cem_exp/benchmarks_sawyer/predprop/verbose'
-    # hyperparams = imp.load_source('hyperparams', '/home/guser/Desktop/src/lsdc/experiments/cem_exp/benchmarks_sawyer/predprop/conf.py')
+    # file_path = '/home/guser/catkin_ws/src/lsdc/experiments/cem_exp/benchmarks_sawyer/predprop_1stimg_bckgd'
+    file_path = '/home/frederik/Documents/catkin_ws/src/lsdc/experiments/cem_exp/benchmarks_sawyer/predprop_1stimg_bckgd'
+    hyperparams = imp.load_source('hyperparams', file_path + '/conf.py')
 
-    exp_dir = '/home/frederik/Documents/catkin_ws/src/lsdc/tensorflow_data/sawyer/stpfirstimage'
-
-    hyperparams = imp.load_source('hyperparams', exp_dir +'/conf.py')
     conf = hyperparams.configuration
     # conf['visualize'] = conf['output_dir'] + '/model22002'
     # create_video_pixdistrib_gif(file_path, conf, t=1, suppress_number=True)
-    create_video_pixdistrib_gif(exp_dir + '/modeldata', conf, t=0, suppress_number=True, append_masks=True, show_moved=True)
+    # create_video_pixdistrib_gif(exp_dir + '/modeldata', conf, t=0, suppress_number=True, append_masks=True, show_moved=True)
     # create_video_pixdistrib_gif(file_path, conf, n_exp= 10, suppress_number= True)
     #
-    go_through_timesteps(file_path)
+    go_through_timesteps(file_path +'/verbose')

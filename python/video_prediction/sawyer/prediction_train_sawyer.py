@@ -242,7 +242,7 @@ def main(unused_argv, conf_script= None):
         conf['visualize'] = conf['output_dir'] + '/' + FLAGS.visualize
         conf['event_log_dir'] = '/tmp'
         conf.pop('use_len', None)
-        conf['batch_size'] = 32
+        conf['batch_size'] = 10
 
         conf['sequence_length'] = 15
         if FLAGS.diffmotions:
@@ -256,8 +256,6 @@ def main(unused_argv, conf_script= None):
                                     shape=(conf['batch_size'], conf['sequence_length'], 4))
         states_pl = tf.placeholder(tf.float32, name='states',
                                    shape=(conf['batch_size'], conf['sequence_length'], 3))
-
-
 
         if 'single_view' in conf:
             images_pl = tf.placeholder(tf.float32, name='images',
@@ -330,7 +328,7 @@ def main(unused_argv, conf_script= None):
 
         if FLAGS.diffmotions:
 
-            b_exp, ind0 = 9, 0
+            b_exp, ind0 = 0, 0
 
             if 'single_view' in conf:
                 img, state = sess.run([val_images, val_states])

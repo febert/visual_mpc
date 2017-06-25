@@ -238,6 +238,9 @@ def construct_model(images,
                         # gen_pix_distrib.append(transf_distrib_cam2[0])
 
                 extra_masks = 1  ## extra_masks = 2 is needed for running singleview_shifted!!
+                # print 'using extra masks 2 because of single view shifted!!'
+                # extra_masks = 2
+
 
             if conf['model'] == 'CDNA':
                 if 'gen_pix' in conf:

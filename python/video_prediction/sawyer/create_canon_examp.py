@@ -17,7 +17,7 @@ def create_one_hot(conf, desig_pix):
     return one_hot
 
 
-class Getdesig(object):
+class _Getdesig(object):
     def __init__(self,img,filepath):
         self.filepath = filepath
         self.img = img
@@ -40,6 +40,48 @@ class Getdesig(object):
         self.ax.set_ylim(63, 0)
         plt.draw()
         plt.savefig(self.filepath)
+
+
+class Getdesig(object):
+    def __init__(self,img,filepath):
+        self.filepath = filepath
+        self.img = img
+        fig = plt.figure()
+        self.ax = fig.add_subplot(111)
+        self.ax.set_xlim(0, 63)
+        self.ax.set_ylim(63, 0)
+        plt.imshow(img)
+
+        self.desig = None
+        self.goal = None
+        cid = fig.canvas.mpl_connect('button_press_event', self.onclick)
+        self.i_click = 0
+        plt.show()
+
+    def onclick(self, event):
+        print('button=%d, x=%d, y=%d, xdata=%f, ydata=%f' %
+              (event.button, event.x, event.y, event.xdata, event.ydata))
+
+        self.ax.set_xlim(0, 63)
+        self.ax.set_ylim(63, 0)
+
+        self.i_click += 1
+        print self.i_click
+
+        if self.i_click == 1:
+
+            self.desig = np.array([event.ydata, event.xdata]).astype(np.int32)
+            self.ax.scatter(self.desig[1], self.desig[0], s=60, facecolors='none', edgecolors='b')
+            plt.draw()
+        elif self.i_click == 2:
+            self.goal = np.array([event.ydata, event.xdata]).astype(np.int32)
+            self.ax.scatter(self.goal[1], self.goal[0], s=60, facecolors='none', edgecolors='g')
+            plt.draw()
+
+        else:
+            plt.draw()
+            plt.savefig(self.filepath)
+            plt.close()
 
 def create_canoncical_examples(file_path):
     os.environ["CUDA_VISIBLE_DEVICES"] = "1"
@@ -71,12 +113,14 @@ def create_canoncical_examples(file_path):
 
     for ex in range(num_ex):
         c = Getdesig(images[ex, 0], file_path +'/desig_pix_img/img{}'.format(ex))
-        desig_pix = c.coords
+        desig_pix = c.desig
+        goal_pix = c.goal
 
         init_pix_distrib = (create_one_hot(conf, desig_pix))
 
         dict = {}
         dict['desig_pix'] = desig_pix
+        dict['goal_pix'] = goal_pix
         dict['init_pix_distrib'] =init_pix_distrib
         dict['images'] = images[ex]
         dict['actions'] = actions[ex]
