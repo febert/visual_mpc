@@ -322,7 +322,7 @@ def create_accum_tf_factorized_generator(images, states, actions, iter_num=None,
 
             gen_transformed_images.append(transformed)
 
-    return gen_images, gen_masks, gen_states, gen_transformed_images
+    return gen_images, gen_masks, gen_states, gen_transformed_images, gen_pix_distrib
 
 
 def construct_model(images,
@@ -340,18 +340,19 @@ def construct_model(images,
         DNA_KERN_SIZE = 5
     print 'constructing sawyer network'
     assert DNA_KERN_SIZE == 5
-    gen_images, gen_masks, gen_states, gen_transformed_images = \
-        create_accum_tf_factorized_generator(images, states, actions,
-                                             iter_num=iter_num,
-                                             schedule_sampling_k=k,
-                                             num_masks=num_masks,
-                                             context_frames=context_frames,
-                                             dependent_mask=True,
-                                             stp=conf['model'] == 'STP',
-                                             cdna=conf['model'] == 'CDNA',
-                                             dna=conf['model'] == 'DNA',
-                                             pix_distributions=None,)
-    return gen_images, gen_states, gen_masks
+    with tf.variable_scope("generator") as scope:
+        gen_images, gen_masks, gen_states, gen_transformed_images, gen_pix_distrib = \
+            create_accum_tf_factorized_generator(images, states, actions,
+                                                 iter_num=iter_num,
+                                                 schedule_sampling_k=k,
+                                                 num_masks=num_masks,
+                                                 context_frames=context_frames,
+                                                 dependent_mask=True,
+                                                 stp=conf['model'] == 'STP',
+                                                 cdna=conf['model'] == 'CDNA',
+                                                 dna=conf['model'] == 'DNA',
+                                                 pix_distributions=None)
+    return gen_images, gen_states, gen_masks, gen_pix_distrib
 
 
 def cdna_transformations(prev_images, cdna_input, num_masks, color_channels, reuse_sc = None):
