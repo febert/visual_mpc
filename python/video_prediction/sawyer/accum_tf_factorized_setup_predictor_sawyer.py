@@ -119,9 +119,9 @@ def setup_predictor(conf, gpu_id=0, ngpu=1):
         t_comb_gen_img = [to.model.gen_images[t] for to in towers]
         comb_gen_img.append(tf.concat(axis=0, values=t_comb_gen_img))
 
-        # if not 'no_pix_distrib' in conf:
-        #     t_comb_pix_distrib = [to.model.gen_distrib[t] for to in towers]
-        #     comb_pix_distrib.append(tf.concat(axis=0, values=t_comb_pix_distrib))
+        if not 'no_pix_distrib' in conf:
+            t_comb_pix_distrib = [to.model.gen_distrib[t] for to in towers]
+            comb_pix_distrib.append(tf.concat(axis=0, values=t_comb_pix_distrib))
 
         t_comb_gen_states = [to.model.gen_states[t] for to in towers]
         comb_gen_states.append(tf.concat(axis=0, values=t_comb_gen_states))
