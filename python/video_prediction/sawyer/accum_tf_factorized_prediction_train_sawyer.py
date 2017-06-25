@@ -68,10 +68,8 @@ class Model(object):
                  images=None,
                  actions=None,
                  states=None,
-                 reuse_scope=None,
                  pix_distrib=None,
-                 inference = False,
-                 prefix=''):
+                 inference=False):
 
         self.conf = conf
         from accum_tf_factorized_prediction_model_sawyer import construct_model
@@ -101,29 +99,16 @@ class Model(object):
             pix_distrib = tf.split(axis= 1,num_or_size_splits= pix_distrib.get_shape()[1], value=pix_distrib)
             pix_distrib = [tf.squeeze(pix) for pix in pix_distrib]
 
-        if reuse_scope is None:
-            gen_images, gen_states, gen_masks = construct_model(
-                images,
-                actions,
-                states,
-                iter_num=self.iter_num,
-                k=conf['schedsamp_k'],
-                num_masks=conf['num_masks'],
-                context_frames=conf['context_frames'],
-                pix_distributions= pix_distrib,
-                conf=conf)
-        else:  # If it's a validation or test model.
-            with tf.variable_scope(reuse_scope, reuse=True):
-                gen_images, gen_states, gen_masks = construct_model(
-                    images,
-                    actions,
-                    states,
-                    iter_num=self.iter_num,
-                    k=conf['schedsamp_k'],
-                    num_masks=conf['num_masks'],
-                    context_frames=conf['context_frames'],
-                    pix_distributions=pix_distrib,
-                    conf= conf)
+        gen_images, gen_states, gen_masks, gen_pix_distrib = construct_model(
+            images,
+            actions,
+            states,
+            iter_num=self.iter_num,
+            k=conf['schedsamp_k'],
+            num_masks=conf['num_masks'],
+            context_frames=conf['context_frames'],
+            pix_distributions= pix_distrib,
+            conf=conf)
 
         self.lr = tf.placeholder_with_default(conf['learning_rate'], ())
 
@@ -142,8 +127,8 @@ class Model(object):
                 psnr_i = peak_signal_to_noise_ratio(x, gx)
                 psnr_all += psnr_i
                 summaries.append(
-                    tf.summary.scalar(prefix + '_recon_cost' + str(i), recon_cost_mse))
-                summaries.append(tf.summary.scalar(prefix + '_psnr' + str(i), psnr_i))
+                    tf.summary.scalar('recon_cost' + str(i), recon_cost_mse))
+                summaries.append(tf.summary.scalar('psnr' + str(i), psnr_i))
 
                 recon_cost = recon_cost_mse
 
@@ -155,21 +140,21 @@ class Model(object):
                         gen_states[conf['context_frames'] - 1:]):
                     state_cost = mean_squared_error(state, gen_state) * 1e-4 * conf['use_state']
                     summaries.append(
-                        tf.summary.scalar(prefix + '_state_cost' + str(i), state_cost))
+                        tf.summary.scalar('state_cost' + str(i), state_cost))
                     loss += state_cost
 
-            summaries.append(tf.summary.scalar(prefix + '_psnr_all', psnr_all))
+            summaries.append(tf.summary.scalar('psnr_all', psnr_all))
             self.psnr_all = psnr_all
 
             self.loss = loss = loss / np.float32(len(images) - conf['context_frames'])
 
-            summaries.append(tf.summary.scalar(prefix + '_loss', loss))
+            summaries.append(tf.summary.scalar('loss', loss))
             self.train_op = tf.train.AdamOptimizer(self.lr).minimize(loss)
             self.summ_op = tf.summary.merge(summaries)
 
         self.gen_images= gen_images
         self.gen_masks = gen_masks
-        self.gen_distrib = None
+        self.gen_distrib = gen_pix_distrib
         self.gen_states = gen_states
         self.moved_im = None
         self.moved_pix = None
@@ -272,32 +257,30 @@ def main(unused_argv, conf_script= None):
         pix_distrib_pl = tf.placeholder(tf.float32, name='states',
                                         shape=(conf['batch_size'], conf['sequence_length'], 64, 64, 1))
 
-        with tf.variable_scope('model', reuse=None):
+        with tf.variable_scope('', reuse=None):
             val_model = Model(conf, images_pl, actions_pl, states_pl, pix_distrib=pix_distrib_pl,
-                              inference=inference, prefix='val')
+                              inference=inference)
 
     else:
-        with tf.variable_scope('model', reuse=None) as training_scope:
 
-            if 'single_view' in conf:
-                images_aux1, actions, states = build_tfrecord_input(conf, training=True)
-                images = images_aux1
-            else:
-                images_main, images_aux1, actions, states = build_tfrecord_input(conf, training=True)
-                images_aux1 = tf.squeeze(images_aux1)
-                images = tf.concat(4, [images_main, images_aux1])
-
+        if 'single_view' in conf:
+            images_aux1, actions, states = build_tfrecord_input(conf, training=True)
+            images = images_aux1
+        else:
+            images_main, images_aux1, actions, states = build_tfrecord_input(conf, training=True)
+            images_aux1 = tf.squeeze(images_aux1)
+            images = tf.concat(4, [images_main, images_aux1])
+        with tf.variable_scope('', reuse=None) as training_scope:
             model = Model(conf, images, actions, states, inference=inference)
 
-        with tf.variable_scope('val_model', reuse=None):
-            if 'single_view' in conf:
-                val_images_aux1, val_actions, val_states = build_tfrecord_input(conf, training=False)
-                val_images = val_images_aux1
-            else:
-                val_images_main, val_images_aux1, val_actions, val_states = build_tfrecord_input(conf, training=False)
-                val_images_aux1 = tf.squeeze(val_images_aux1)
-                val_images = tf.concat(4, [val_images_main, val_images_aux1])
-
+        if 'single_view' in conf:
+            val_images_aux1, val_actions, val_states = build_tfrecord_input(conf, training=False)
+            val_images = val_images_aux1
+        else:
+            val_images_main, val_images_aux1, val_actions, val_states = build_tfrecord_input(conf, training=False)
+            val_images_aux1 = tf.squeeze(val_images_aux1)
+            val_images = tf.concat(4, [val_images_main, val_images_aux1])
+        with tf.variable_scope(training_scope, reuse=True):
             val_model = Model(conf, val_images, val_actions, val_states,
                               training_scope, inference=inference)
 
@@ -323,7 +306,6 @@ def main(unused_argv, conf_script= None):
 
         saver.restore(sess, conf['visualize'])
         feed_dict = {val_model.lr: 0.0,
-                     val_model.prefix: 'vis',
                      val_model.iter_num: 0 }
 
         file_path = conf['output_dir']
@@ -446,8 +428,7 @@ def main(unused_argv, conf_script= None):
     for itr in range(itr_0, conf['num_iterations'], 1):
         t_startiter = datetime.now()
         # Generate new batch of data_files.
-        feed_dict = {model.prefix: 'train',
-                     model.iter_num: np.float32(itr),
+        feed_dict = {model.iter_num: np.float32(itr),
                      model.lr: conf['learning_rate'],
                      }
         cost, _, summary_str = sess.run([model.loss, model.train_op, model.summ_op],
@@ -459,7 +440,6 @@ def main(unused_argv, conf_script= None):
         if (itr) % VAL_INTERVAL == 2:
             # Run through validation set.
             feed_dict = {val_model.lr: 0.0,
-                         val_model.prefix: 'val',
                          val_model.iter_num: np.float32(itr),
                          }
             _, val_summary_str = sess.run([val_model.train_op, val_model.summ_op],

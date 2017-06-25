@@ -5,7 +5,7 @@ current_dir = os.path.dirname(os.path.realpath(__file__))
 # tf record data location:
 LSDC_BASE = '/'.join(str.split(current_dir, '/')[:-4])
 
-from video_prediction.sawyer.setup_predictor_sawyer import setup_predictor
+from video_prediction.sawyer.accum_tf_factorized_setup_predictor_sawyer import setup_predictor
 from video_prediction.sawyer.accum_tf_factorized_prediction_train_sawyer import Model
 
 configuration = {
@@ -16,7 +16,7 @@ configuration = {
 # 'filepath of a pretrained model to use for cem
 'pretrained_model': LSDC_BASE +'/tensorflow_data/occulsionmodel/alex_model/modeldata/',
 # 'pretrained_model': LSDC_BASE +'/tensorflow_data/sawyer/singleview_shifted/modeldata/model114002',
-'sequence_length': 4,#############15,      # 'sequence length, including context frames.' ,
+'sequence_length': 15,      # 'sequence length, including context frames.' ,
 'context_frames': 2,        # of frames before predictions.' ,
 'use_state': 1,             #'Whether or not to give the state+action to the model' ,
 'model': 'CDNA',            #'model architecture to use - CDNA, DNA, or STP' ,
