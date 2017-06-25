@@ -91,10 +91,6 @@ def setup_predictor(conf, gpu_id=0, ngpu=1):
     # sess.run(tf.global_variables_initializer())
 
     saver = tf.train.Saver(tf.get_collection(tf.GraphKeys.VARIABLES), max_to_keep=0)
-
-    # checkpoint = tf.train.latest_checkpoint(conf['pretrained_model'])
-    # saver.restore(sess, checkpoint)
-
     saver.restore(sess, conf['pretrained_model'])
     print 'restore done. '
 
