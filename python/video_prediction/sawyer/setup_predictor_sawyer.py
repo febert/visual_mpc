@@ -87,14 +87,15 @@ def setup_predictor(conf, gpu_id=0, ngpu=1):
     with tf.variable_scope('model', reuse=None) as training_scope:
         model = Model(conf, start_images, actions, start_states, pix_distrib= pix_distrib)
 
-    # sess.run(tf.initialize_all_variables())
-    sess.run(tf.global_variables_initializer())
+    sess.run(tf.initialize_all_variables())
+    # sess.run(tf.global_variables_initializer())
 
     saver = tf.train.Saver(tf.get_collection(tf.GraphKeys.VARIABLES), max_to_keep=0)
-    # saver.restore(sess, conf['pretrained_model'])
 
-    checkpoint = tf.train.latest_checkpoint(conf['pretrained_model'])
-    saver.restore(sess, checkpoint)
+    # checkpoint = tf.train.latest_checkpoint(conf['pretrained_model'])
+    # saver.restore(sess, checkpoint)
+
+    saver.restore(sess, conf['pretrained_model'])
     print 'restore done. '
 
     #making the towers
