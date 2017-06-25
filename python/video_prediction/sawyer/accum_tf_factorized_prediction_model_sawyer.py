@@ -135,6 +135,7 @@ def create_accum_tf_factorized_generator(images, states, actions, iter_num=None,
     gen_states = []
     gen_pix_distrib = []
     gen_transformed_images = []
+    gen_transformed_distrib = []
     current_state = states[0]
 
     k = schedule_sampling_k
@@ -169,6 +170,8 @@ def create_accum_tf_factorized_generator(images, states, actions, iter_num=None,
 
                 if pix_distributions != None:
                     prev_pix_distrib = gen_pix_distrib[-1]
+                    transformed_pix_distrib = gen_transformed_distrib[-1][2:]
+
             elif done_warm_start:
                 # this is not compatible with python 2
                 # prev_image, *transformed_images = \
@@ -184,9 +187,9 @@ def create_accum_tf_factorized_generator(images, states, actions, iter_num=None,
                 prev_image = image
                 transformed_images = [image] * (num_masks - 1)
 
-            if pix_distributions != None:
-                prev_pix_distrib = pix_distributions[t]
-                prev_pix_distrib = tf.expand_dims(prev_pix_distrib, -1)
+                if pix_distributions != None:
+                    prev_pix_distrib = tf.expand_dims(pix_distributions[t], axis=-1)
+                    transformed_pix_distrib = [tf.expand_dims(pix_distributions[t], -1)] * (num_masks - 1)
 
             # Predicted state is always fed back in
             state_action = tf.concat(axis=1, values=[action, current_state])
@@ -278,9 +281,8 @@ def create_accum_tf_factorized_generator(images, states, actions, iter_num=None,
                 assert len(transformed_images) == num_masks - 1
                 transformed += cdna_transformations(transformed_images, cdna_input, num_masks - 1,
                                                     int(color_channels), reuse_sc= reuse)
-
                 if pix_distributions != None:
-                    transf_distrib = cdna_transformations(prev_pix_distrib,cdna_input,
+                    transf_distrib = cdna_transformations(transformed_pix_distrib,cdna_input,
                                                                num_masks - 1,1,reuse_sc= True)
             elif dna:
                 raise NotImplementedError
@@ -306,10 +308,12 @@ def create_accum_tf_factorized_generator(images, states, actions, iter_num=None,
             gen_images.append(output)
             gen_masks.append(mask_list)
 
+            transf_distrib.insert(0, prev_pix_distrib)
+            transf_distrib.insert(1, 0)  # to replace the generated pixels which don't exist for pixdistrib
             if pix_distributions!=None:
-                pix_distrib_output = mask_list[0] * prev_pix_distrib
-                for i in range(num_masks-1):
-                    pix_distrib_output += transf_distrib[i] * mask_list[i+2]
+                pix_distrib_output = 0
+                for layer, mask in zip(transf_distrib, mask_list):
+                    pix_distrib_output += layer * mask
 
                 gen_pix_distrib.append(pix_distrib_output)
 
@@ -320,6 +324,7 @@ def create_accum_tf_factorized_generator(images, states, actions, iter_num=None,
                 activation_fn=None)
             gen_states.append(current_state)
 
+            gen_transformed_distrib.append(transf_distrib)
             gen_transformed_images.append(transformed)
 
     return gen_images, gen_masks, gen_states, gen_transformed_images, gen_pix_distrib
@@ -351,7 +356,7 @@ def construct_model(images,
                                                  stp=conf['model'] == 'STP',
                                                  cdna=conf['model'] == 'CDNA',
                                                  dna=conf['model'] == 'DNA',
-                                                 pix_distributions=None)
+                                                 pix_distributions= pix_distributions)
     return gen_images, gen_states, gen_masks, gen_pix_distrib
 
 
@@ -388,7 +393,7 @@ def cdna_transformations(prev_images, cdna_input, num_masks, color_channels, reu
 
     cdna_kerns = tf.tile(cdna_kerns, [1, 1, 1, color_channels, 1])
     cdna_kerns = tf.split(axis=0, num_or_size_splits=batch_size, value=cdna_kerns)
-    prev_images = tf.stack(prev_images, axis=-1) # same as below:
+    prev_images = tf.stack(values=prev_images, axis=-1) # same as below:
     prev_images = tf.concat(axis=4, values=prev_images)
     prev_images = tf.split(axis=0, num_or_size_splits=batch_size, value=prev_images)
 

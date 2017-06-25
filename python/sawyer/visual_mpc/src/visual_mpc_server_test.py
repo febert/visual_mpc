@@ -90,7 +90,7 @@ class Visual_MPC_Server(object):
             self.test_canon_examples()
 
     def test_canon_examples(self):
-        b_exp = 5
+        b_exp = 2 #5drill  #2
         file_path_canon = '/home/frederik/Documents/catkin_ws/src/lsdc/pushing_data/canonical_examples'
         dict = cPickle.load(open(file_path_canon + '/pkl/example{}.pkl'.format(b_exp), 'rb'))
         desig_pix = dict['desig_pix']
