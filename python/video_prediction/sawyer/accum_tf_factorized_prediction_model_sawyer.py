@@ -20,15 +20,105 @@ import tensorflow as tf
 
 import tensorflow.contrib.slim as slim
 from tensorflow.contrib.layers.python import layers as tf_layers
-from video_prediction.lstm_ops import basic_conv_lstm_cell as lstm_func
-
+# from video_prediction.lstm_ops import basic_conv_lstm_cell as lstm_func
+import pdb
 
 # Amount to use when lower bounding tensors
 RELU_SHIFT = 1e-12
 
 
+
+from tensorflow.contrib.slim import add_arg_scope
+from tensorflow.contrib.slim import layers
+
+
+def init_state(inputs,
+               state_shape,
+               state_initializer=tf.zeros_initializer(),
+               dtype=tf.float32):
+  """Helper function to create an initial state given inputs.
+
+  Args:
+    inputs: input Tensor, at least 2D, the first dimension being batch_size
+    state_shape: the shape of the state.
+    state_initializer: Initializer(shape, dtype) for state Tensor.
+    dtype: Optional dtype, needed when inputs is None.
+  Returns:
+     A tensors representing the initial state.
+  """
+  if inputs is not None:
+    # Handle both the dynamic shape as well as the inferred shape.
+    inferred_batch_size = inputs.get_shape().with_rank_at_least(1)[0]
+    dtype = inputs.dtype
+  else:
+    inferred_batch_size = 0
+  initial_state = state_initializer(
+      [inferred_batch_size] + state_shape, dtype=dtype)
+  return initial_state
+
+
+@add_arg_scope
+def basic_conv_lstm_cell(inputs,
+                         state,
+                         num_channels,
+                         filter_size=5,
+                         forget_bias=1.0,
+                         scope=None,
+                         reuse=None):
+  """Basic LSTM recurrent network cell, with 2D convolution connctions.
+
+  We add forget_bias (default: 1) to the biases of the forget gate in order to
+  reduce the scale of forgetting in the beginning of the training.
+
+  It does not allow cell clipping, a projection layer, and does not
+  use peep-hole connections: it is the basic baseline.
+
+  Args:
+    inputs: input Tensor, 4D, batch x height x width x channels.
+    state: state Tensor, 4D, batch x height x width x channels.
+    num_channels: the number of output channels in the layer.
+    filter_size: the shape of the each convolution filter.
+    forget_bias: the initial value of the forget biases.
+    scope: Optional scope for variable_scope.
+    reuse: whether or not the layer and the variables should be reused.
+
+  Returns:
+     a tuple of tensors representing output and the new state.
+  """
+  spatial_size = inputs.get_shape()[1:3]
+  if state is None:
+    state = init_state(inputs, list(spatial_size) + [2 * num_channels])
+  with tf.variable_scope(scope,
+                         'BasicConvLstmCell',
+                         [inputs, state],
+                         reuse=reuse):
+    inputs.get_shape().assert_has_rank(4)
+    state.get_shape().assert_has_rank(4)
+    c, h = tf.split(axis=3, num_or_size_splits=2, value=state)
+    inputs_h = tf.concat(axis=3, values=[inputs, h])
+    # Parameters of gates are concatenated into one conv for efficiency.
+    i_j_f_o = layers.conv2d(inputs_h,
+                            4 * num_channels, [filter_size, filter_size],
+                            stride=1,
+                            activation_fn=None,
+                            scope='Gates')
+
+    # i = input_gate, j = new_input, f = forget_gate, o = output_gate
+    i, j, f, o = tf.split(axis=3, num_or_size_splits=4, value=i_j_f_o)
+
+    new_c = c * tf.sigmoid(f + forget_bias) + tf.sigmoid(i) * tf.tanh(j)
+    new_h = tf.tanh(new_c) * tf.sigmoid(o)
+
+    return new_h, tf.concat(axis=3, values=[new_c, new_h])
+
+
+lstm_func = basic_conv_lstm_cell
+
+
+
+
 def create_accum_tf_factorized_generator(images, states, actions, iter_num=None, schedule_sampling_k=None, context_frames=None,
-                                         num_masks=None, dependent_mask=None, stp=False, cdna=True, dna=False, **kwargs):
+                                         num_masks=None, dependent_mask=None, stp=False, cdna=True, dna=False, pix_distributions=None, **kwargs):
     """
     like create_accum_tf_generator except the transformed images are the inputs of the convnet
     and that the masks depend on the transformed images
@@ -43,6 +133,7 @@ def create_accum_tf_factorized_generator(images, states, actions, iter_num=None,
     gen_images = []
     gen_masks = []
     gen_states = []
+    gen_pix_distrib = []
     gen_transformed_images = []
     current_state = states[0]
 
@@ -61,7 +152,7 @@ def create_accum_tf_factorized_generator(images, states, actions, iter_num=None,
     lstm_state5, lstm_state6, lstm_state7 = None, None, None
 
     # actual mask is unused
-    for image, state, action in zip(images[:-1], states[:-1], actions[:-1]):
+    for image, action, t in zip(images[:-1], actions[:-1], range(len(images))):
         # Reuse variables after the first timestep.
         reuse = bool(gen_images)
 
@@ -71,9 +162,13 @@ def create_accum_tf_factorized_generator(images, states, actions, iter_num=None,
                  tf_layers.layer_norm, slim.layers.conv2d_transpose],
                 reuse=reuse):
 
+            print t
             if feedself and done_warm_start:
                 prev_image = gen_images[-1]
                 transformed_images = gen_transformed_images[-1][2:]
+
+                if pix_distributions != None:
+                    prev_pix_distrib = gen_pix_distrib[-1]
             elif done_warm_start:
                 # this is not compatible with python 2
                 # prev_image, *transformed_images = \
@@ -89,11 +184,15 @@ def create_accum_tf_factorized_generator(images, states, actions, iter_num=None,
                 prev_image = image
                 transformed_images = [image] * (num_masks - 1)
 
+            if pix_distributions != None:
+                prev_pix_distrib = pix_distributions[t]
+                prev_pix_distrib = tf.expand_dims(prev_pix_distrib, -1)
+
             # Predicted state is always fed back in
             state_action = tf.concat(axis=1, values=[action, current_state])
 
             enc0 = slim.layers.conv2d(    #32x32x32
-                tf.concat(transformed_images, axis=-1),
+                tf.concat(axis=3, values=transformed_images),
                 32, [5, 5],
                 stride=2,
                 scope='scale1_conv1',
@@ -178,7 +277,11 @@ def create_accum_tf_factorized_generator(images, states, actions, iter_num=None,
                 cdna_input = tf.reshape(hidden5, [int(batch_size), -1])
                 assert len(transformed_images) == num_masks - 1
                 transformed += cdna_transformations(transformed_images, cdna_input, num_masks - 1,
-                                                    int(color_channels))
+                                                    int(color_channels), reuse_sc= reuse)
+
+                if pix_distributions != None:
+                    transf_distrib = cdna_transformations(prev_pix_distrib,cdna_input,
+                                                               num_masks - 1,1,reuse_sc= True)
             elif dna:
                 raise NotImplementedError
                 # Only one mask is supported (more should be unnecessary).
@@ -188,7 +291,7 @@ def create_accum_tf_factorized_generator(images, states, actions, iter_num=None,
 
             if dependent_mask:
                 masks = slim.layers.conv2d_transpose(
-                    tf.concat([enc6] + transformed, axis=-1), num_masks + 1, 1, stride=1, scope='convt7')
+                    tf.concat(axis=3, values=[enc6] + transformed), num_masks + 1, 1, stride=1, scope='convt7')
             else:
                 masks = slim.layers.conv2d_transpose(
                     enc6, num_masks + 1, 1, stride=1, scope='convt7')
@@ -202,6 +305,13 @@ def create_accum_tf_factorized_generator(images, states, actions, iter_num=None,
                 output += layer * mask
             gen_images.append(output)
             gen_masks.append(mask_list)
+
+            if pix_distributions!=None:
+                pix_distrib_output = mask_list[0] * prev_pix_distrib
+                for i in range(num_masks-1):
+                    pix_distrib_output += transf_distrib[i] * mask_list[i+2]
+
+                gen_pix_distrib.append(pix_distrib_output)
 
             current_state = slim.layers.fully_connected(
                 state_action,
@@ -230,7 +340,6 @@ def construct_model(images,
         DNA_KERN_SIZE = 5
     print 'constructing sawyer network'
     assert DNA_KERN_SIZE == 5
-    assert pix_distributions is None
     gen_images, gen_masks, gen_states, gen_transformed_images = \
         create_accum_tf_factorized_generator(images, states, actions,
                                              iter_num=iter_num,
@@ -240,11 +349,12 @@ def construct_model(images,
                                              dependent_mask=True,
                                              stp=conf['model'] == 'STP',
                                              cdna=conf['model'] == 'CDNA',
-                                             dna=conf['model'] == 'DNA')
-    return gen_images, gen_masks, gen_states
+                                             dna=conf['model'] == 'DNA',
+                                             pix_distributions=None,)
+    return gen_images, gen_states, gen_masks
 
 
-def cdna_transformations(prev_images, cdna_input, num_masks, color_channels):
+def cdna_transformations(prev_images, cdna_input, num_masks, color_channels, reuse_sc = None):
     """Apply convolutional dynamic neural advection to previous image.
 
     Args:
@@ -265,7 +375,8 @@ def cdna_transformations(prev_images, cdna_input, num_masks, color_channels):
         cdna_input,
         DNA_KERN_SIZE * DNA_KERN_SIZE * num_masks,
         scope='cdna_params',
-        activation_fn=None)
+        activation_fn=None,
+        reuse=reuse_sc)
 
     # Reshape and normalize.
     cdna_kerns = tf.reshape(
@@ -276,12 +387,14 @@ def cdna_transformations(prev_images, cdna_input, num_masks, color_channels):
 
     cdna_kerns = tf.tile(cdna_kerns, [1, 1, 1, color_channels, 1])
     cdna_kerns = tf.split(axis=0, num_or_size_splits=batch_size, value=cdna_kerns)
-    prev_images = tf.stack(prev_images, axis=-1)
+    prev_images = tf.stack(prev_images, axis=-1) # same as below:
+    prev_images = tf.concat(axis=4, values=prev_images)
     prev_images = tf.split(axis=0, num_or_size_splits=batch_size, value=prev_images)
+
 
     transformed_images = []
     for kernel, prev_image in zip(cdna_kerns, prev_images):
-        kernel = tf.squeeze(kernel, axis=0)
+        kernel = tf.squeeze(kernel, [0])
         transformed_images_ = []
         for i in range(num_masks):
             transformed_image = tf.nn.depthwise_conv2d(prev_image[..., i], kernel[..., i:i + 1], [1, 1, 1, 1], 'SAME')

@@ -7,7 +7,6 @@ from PIL import Image
 import os
 
 from datetime import datetime
-from prediction_train_sawyer import Model
 
 class Tower(object):
     def __init__(self, conf, gpu_id, reuse_scope, start_images, actions, start_states, pix_distrib):
@@ -26,6 +25,11 @@ class Tower(object):
 
         print 'startindex for gpu {0}: {1}'.format(gpu_id, startidx)
 
+        if 'prediction_model' in conf:
+            Model = conf['prediction_model']
+        else:
+            from prediction_train_sawyer import Model
+
         self.model = Model(conf,start_images,per_gpu_actions,start_states, pix_distrib=pix_distrib, reuse_scope= reuse_scope)
 
 def setup_predictor(conf, gpu_id=0, ngpu=1):
@@ -37,6 +41,10 @@ def setup_predictor(conf, gpu_id=0, ngpu=1):
     conditioned on the actions
     """
 
+    if 'prediction_model' in conf:
+        Model = conf['prediction_model']
+    else:
+        from prediction_train_sawyer import Model
 
     conf['ngpu'] = ngpu
 
@@ -79,9 +87,14 @@ def setup_predictor(conf, gpu_id=0, ngpu=1):
     with tf.variable_scope('model', reuse=None) as training_scope:
         model = Model(conf, start_images, actions, start_states, pix_distrib= pix_distrib)
 
-    sess.run(tf.initialize_all_variables())
+    # sess.run(tf.initialize_all_variables())
+    sess.run(tf.global_variables_initializer())
+
     saver = tf.train.Saver(tf.get_collection(tf.GraphKeys.VARIABLES), max_to_keep=0)
-    saver.restore(sess, conf['pretrained_model'])
+    # saver.restore(sess, conf['pretrained_model'])
+
+    checkpoint = tf.train.latest_checkpoint(conf['pretrained_model'])
+    saver.restore(sess, checkpoint)
     print 'restore done. '
 
     #making the towers

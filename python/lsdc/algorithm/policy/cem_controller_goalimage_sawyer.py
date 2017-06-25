@@ -285,7 +285,7 @@ class CEM_controller():
 
         bestindices = scores.argsort()[:self.K]
 
-        if self.verbose and itr == self.policyparams['iterations']-1:
+        if self.verbose: #and itr == self.policyparams['iterations']-1:
             # print 'creating visuals for best sampled actions at last iteration...'
             file_path = self.netconf['current_dir'] + '/verbose'
 

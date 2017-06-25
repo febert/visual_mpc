@@ -70,7 +70,8 @@ class Model(object):
                  states=None,
                  reuse_scope=None,
                  pix_distrib=None,
-                 inference = False):
+                 inference = False,
+                 prefix=''):
 
         self.conf = conf
         from accum_tf_factorized_prediction_model_sawyer import construct_model
@@ -84,21 +85,20 @@ class Model(object):
         self.actions_sel = actions
         self.states_sel = states
 
-        self.prefix = prefix = tf.placeholder(tf.string, [])
         self.iter_num = tf.placeholder(tf.float32, [])
         summaries = []
 
         # Split into timesteps.
         if actions != None:
-            actions = tf.split(1, actions.get_shape()[1], actions)
+            actions = tf.split(axis=1, num_or_size_splits=actions.get_shape()[1], value=actions)
             actions = [tf.squeeze(act) for act in actions]
         if states != None:
-            states = tf.split(1, states.get_shape()[1], states)
+            states = tf.split(axis=1, num_or_size_splits=states.get_shape()[1], value=states)
             states = [tf.squeeze(st) for st in states]
-        images = tf.split(1, images.get_shape()[1], images)
+        images = tf.split(axis=1, num_or_size_splits=images.get_shape()[1], value=images)
         images = [tf.squeeze(img) for img in images]
         if pix_distrib != None:
-            pix_distrib = tf.split(1, pix_distrib.get_shape()[1], pix_distrib)
+            pix_distrib = tf.split(axis= 1,num_or_size_splits= pix_distrib.get_shape()[1], value=pix_distrib)
             pix_distrib = [tf.squeeze(pix) for pix in pix_distrib]
 
         if reuse_scope is None:
@@ -142,8 +142,8 @@ class Model(object):
                 psnr_i = peak_signal_to_noise_ratio(x, gx)
                 psnr_all += psnr_i
                 summaries.append(
-                    tf.scalar_summary(prefix + '_recon_cost' + str(i), recon_cost_mse))
-                summaries.append(tf.scalar_summary(prefix + '_psnr' + str(i), psnr_i))
+                    tf.summary.scalar(prefix + '_recon_cost' + str(i), recon_cost_mse))
+                summaries.append(tf.summary.scalar(prefix + '_psnr' + str(i), psnr_i))
 
                 recon_cost = recon_cost_mse
 
@@ -155,17 +155,17 @@ class Model(object):
                         gen_states[conf['context_frames'] - 1:]):
                     state_cost = mean_squared_error(state, gen_state) * 1e-4 * conf['use_state']
                     summaries.append(
-                        tf.scalar_summary(prefix + '_state_cost' + str(i), state_cost))
+                        tf.summary.scalar(prefix + '_state_cost' + str(i), state_cost))
                     loss += state_cost
 
-            summaries.append(tf.scalar_summary(prefix + '_psnr_all', psnr_all))
+            summaries.append(tf.summary.scalar(prefix + '_psnr_all', psnr_all))
             self.psnr_all = psnr_all
 
             self.loss = loss = loss / np.float32(len(images) - conf['context_frames'])
 
-            summaries.append(tf.scalar_summary(prefix + '_loss', loss))
+            summaries.append(tf.summary.scalar(prefix + '_loss', loss))
             self.train_op = tf.train.AdamOptimizer(self.lr).minimize(loss)
-            self.summ_op = tf.merge_summary(summaries)
+            self.summ_op = tf.summary.merge(summaries)
 
         self.gen_images= gen_images
         self.gen_masks = gen_masks
@@ -274,7 +274,7 @@ def main(unused_argv, conf_script= None):
 
         with tf.variable_scope('model', reuse=None):
             val_model = Model(conf, images_pl, actions_pl, states_pl, pix_distrib=pix_distrib_pl,
-                              inference=inference)
+                              inference=inference, prefix='val')
 
     else:
         with tf.variable_scope('model', reuse=None) as training_scope:
@@ -312,7 +312,7 @@ def main(unused_argv, conf_script= None):
     summary_writer = tf.train.SummaryWriter(conf['output_dir'], graph=sess.graph, flush_secs=10)
 
     tf.train.start_queue_runners(sess)
-    sess.run(tf.initialize_all_variables())
+    sess.run(tf.global_variables_initializer())
 
     if conf['visualize']:
         print '-------------------------------------------------------------------'
