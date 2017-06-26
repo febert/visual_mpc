@@ -360,7 +360,7 @@ def construct_model(images,
     return gen_images, gen_states, gen_masks, gen_pix_distrib
 
 
-def cdna_transformations(prev_images, cdna_input, num_masks, color_channels, reuse_sc = None):
+def cdna_transformations(prev_images, cdna_input, num_masks, color_channels, reuse_sc=None):
     """Apply convolutional dynamic neural advection to previous image.
 
     Args:
@@ -375,6 +375,8 @@ def cdna_transformations(prev_images, cdna_input, num_masks, color_channels, reu
     RELU_SHIFT = 1e-12
 
     batch_size = int(cdna_input.get_shape()[0])
+    height = int(prev_images[0].get_shape()[1])
+    width  = int(prev_images[0].get_shape()[2])
 
     # Predict kernels using linear function of last hidden layer.
     cdna_kerns = slim.layers.fully_connected(
@@ -391,25 +393,19 @@ def cdna_transformations(prev_images, cdna_input, num_masks, color_channels, reu
     norm_factor = tf.reduce_sum(cdna_kerns, [1, 2, 3], keep_dims=True)
     cdna_kerns /= norm_factor
 
-    cdna_kerns = tf.tile(cdna_kerns, [1, 1, 1, color_channels, 1])
-    cdna_kerns = tf.split(axis=0, num_or_size_splits=batch_size, value=cdna_kerns)
-    prev_images = tf.stack(values=prev_images, axis=-1) # same as below:
-    prev_images = tf.concat(axis=4, values=prev_images)
-    prev_images = tf.split(axis=0, num_or_size_splits=batch_size, value=prev_images)
+    # Transpose and reshape.
+    cdna_kerns = tf.transpose(cdna_kerns, [1, 2, 0, 4, 3])
+    cdna_kerns = tf.reshape(cdna_kerns, [DNA_KERN_SIZE, DNA_KERN_SIZE, -1, 1])
+    prev_images = tf.stack(prev_images, axis=0)
+    prev_images = tf.transpose(prev_images, [4, 2, 3, 1, 0])
+    prev_images = tf.reshape(prev_images, [color_channels, height, width, -1])
 
+    transformed_images = tf.nn.depthwise_conv2d(prev_images, cdna_kerns, [1, 1, 1, 1], 'SAME')
 
-    transformed_images = []
-    for kernel, prev_image in zip(cdna_kerns, prev_images):
-        kernel = tf.squeeze(kernel, [0])
-        transformed_images_ = []
-        for i in range(num_masks):
-            transformed_image = tf.nn.depthwise_conv2d(prev_image[..., i], kernel[..., i:i + 1], [1, 1, 1, 1], 'SAME')
-            transformed_images_.append(transformed_image)
-        transformed_images.append(tf.stack(transformed_images_, axis=-1))
-    transformed_images = tf.concat(axis=0, values=transformed_images)
-    transformed_images = tf.unstack(transformed_images, axis=-1)  # same as below
-    # transformed_images = tf.split(axis=4, num_or_size_splits=num_masks, value=transformed_images)
-    # transformed_images = [tf.squeeze(transformed_image, axis=-1) for transformed_image in transformed_images]
+    # Transpose and reshape.
+    transformed_images = tf.reshape(transformed_images, [color_channels, height, width, batch_size, num_masks])
+    transformed_images = tf.transpose(transformed_images, [3, 1, 2, 0, 4])
+    transformed_images = tf.unstack(transformed_images, axis=-1)
     return transformed_images
 
 
