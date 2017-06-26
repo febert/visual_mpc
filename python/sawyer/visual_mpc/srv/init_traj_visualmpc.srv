@@ -2,4 +2,5 @@ int64 itr
 int64 igrp
 sensor_msgs/Image goalmain
 sensor_msgs/Image goalaux1
+string save_subdir
 ---

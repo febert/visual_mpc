@@ -308,8 +308,13 @@ def create_accum_tf_factorized_generator(images, states, actions, iter_num=None,
             gen_images.append(output)
             gen_masks.append(mask_list)
 
-            transf_distrib.insert(0, prev_pix_distrib)
-            transf_distrib.insert(1, 0)  # to replace the generated pixels which don't exist for pixdistrib
+            no_previous_pix_distrib = True
+            if no_previous_pix_distrib:
+                transf_distrib.insert(0, 0)
+                print 'not using prev pixsdistrib'
+            else: transf_distrib.insert(0, prev_pix_distrib)
+
+            transf_distrib.insert(1, 0)  # to replace the generated pixels which don't exist with zeros
             if pix_distributions!=None:
                 pix_distrib_output = 0
                 for layer, mask in zip(transf_distrib, mask_list):

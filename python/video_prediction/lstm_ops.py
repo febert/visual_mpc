@@ -44,15 +44,15 @@ def init_state(inputs,
     inferred_batch_size = 0
     batch_size = 0
 
-  # initial_state = state_initializer(
-  #     tf.stack([batch_size] + state_shape),
-  #     dtype=dtype)
-  initial_state = state_initializer(
-      tf.stack([batch_size] + state_shape),
-      dtype=dtype)
-  # initial_state = state_initializer(
-  #     tf.pack([batch_size] + state_shape),
-  #     dtype=dtype)
+  if tf.__version__ == '0.11.0':
+      initial_state = state_initializer(
+          tf.pack([batch_size] + state_shape),
+          dtype=dtype)
+  else:
+      initial_state = state_initializer(
+          tf.stack([batch_size] + state_shape),
+          dtype=dtype)
+
   initial_state.set_shape([inferred_batch_size] + state_shape)
 
   return initial_state

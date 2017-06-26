@@ -22,11 +22,12 @@ class CEM_controller():
     """
     Cross Entropy Method Stochastic Optimizer
     """
-    def __init__(self, ag_params, policyparams, predictor = None):
+    def __init__(self, ag_params, policyparams, predictor = None, save_subdir=None):
         print 'init CEM controller'
         self.agentparams = ag_params
         self.policyparams = policyparams
 
+        self.save_subdir = save_subdir
         self.t = None
 
         if 'verbose' in self.policyparams:
@@ -287,7 +288,14 @@ class CEM_controller():
 
         if self.verbose: #and itr == self.policyparams['iterations']-1:
             # print 'creating visuals for best sampled actions at last iteration...'
-            file_path = self.netconf['current_dir'] + '/verbose'
+            if self.save_subdir != None:
+                file_path = self.netconf['current_dir']+ '/'+ self.save_subdir +'/verbose'
+            else:
+                file_path = self.netconf['current_dir'] + '/verbose'
+
+
+            if not os.path.exists(file_path):
+                os.makedirs(file_path)
 
             def best(inputlist):
                 outputlist = [np.zeros_like(a)[:self.K] for a in inputlist]
@@ -295,6 +303,7 @@ class CEM_controller():
                     for tstep in range(len(inputlist)):
                         outputlist[tstep][ind] = inputlist[tstep][bestindices[ind]]
                 return outputlist
+
 
             cPickle.dump(best(gen_images), open(file_path + '/gen_image_t{}.pkl'.format(self.t), 'wb'))
             if 'use_goalimage' not in self.policyparams:
