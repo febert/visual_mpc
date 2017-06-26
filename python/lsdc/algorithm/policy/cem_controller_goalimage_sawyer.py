@@ -197,7 +197,12 @@ class CEM_controller():
     def switch_on_pix(self):
         one_hot_images = np.zeros((self.netconf['batch_size'], self.netconf['context_frames'], 64, 64, 1), dtype=np.float32)
         # switch on pixels
-        one_hot_images[:, :, self.desig_pix[0], self.desig_pix[1]] = 1
+        desig_pix = self.desig_pix.reshape((2,2))
+        one_hot_images[:, :, desig_pix[0, 0], desig_pix[0, 1]] = 1
+
+        if '2_desig_pix' in self.policyparams:
+            one_hot_images[:, :, desig_pix[1, 0], desig_pix[1, 1]] = 1
+
         return one_hot_images
 
     def video_pred(self, last_frames, last_states, actions, itr):
