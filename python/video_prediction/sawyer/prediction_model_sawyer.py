@@ -452,7 +452,7 @@ def dna_transformation(prev_image, dna_input, DNA_KERN_SIZE):
 
     return tf.reduce_sum(kernel * inputs, [3], keep_dims=False)
 
-def cdna_transformation(conf, prev_image, cdna_input, num_masks, color_channels, DNA_KERN_SIZE, reuse_sc = None):
+def cdna_transformation(conf, prev_image, cdna_input, num_masks, color_channels, DNA_KERN_SIZE, reuse_sc=None):
     """Apply convolutional dynamic neural advection to previous image.
 
     Args:
@@ -464,6 +464,8 @@ def cdna_transformation(conf, prev_image, cdna_input, num_masks, color_channels,
       List of images transformed by the predicted CDNA kernels.
     """
     batch_size = int(cdna_input.get_shape()[0])
+    height = int(prev_image.get_shape()[1])
+    width = int(prev_image.get_shape()[2])
 
     # Predict kernels using linear function of last hidden layer.
     cdna_kerns = slim.layers.fully_connected(
@@ -473,7 +475,6 @@ def cdna_transformation(conf, prev_image, cdna_input, num_masks, color_channels,
         activation_fn=None,
         reuse = reuse_sc)
 
-
     # Reshape and normalize.
     cdna_kerns = tf.reshape(
         cdna_kerns, [batch_size, DNA_KERN_SIZE, DNA_KERN_SIZE, 1, num_masks])
@@ -482,23 +483,35 @@ def cdna_transformation(conf, prev_image, cdna_input, num_masks, color_channels,
     cdna_kerns /= norm_factor
     cdna_kerns_summary = cdna_kerns
 
-    cdna_kerns = tf.tile(cdna_kerns, [1, 1, 1, color_channels, 1])
-    cdna_kerns = tf.split(0, batch_size, cdna_kerns)
-    prev_images = tf.split(0, batch_size, prev_image)
+    # Transpose and reshape.
+    cdna_kerns = tf.transpose(cdna_kerns, [1, 2, 0, 4, 3])
+    cdna_kerns = tf.reshape(cdna_kerns, [DNA_KERN_SIZE, DNA_KERN_SIZE, batch_size, num_masks])
+    prev_image = tf.transpose(prev_image, [3, 1, 2, 0])
 
-    # Transform image.
-    transformed = []
-    for kernel, preimg in zip(cdna_kerns, prev_images):
-        kernel = tf.squeeze(kernel)
-        if len(kernel.get_shape()) == 3:
-            kernel = tf.expand_dims(kernel, -2)   #correction! ( was -1 before)
-        transformed.append(
-            tf.nn.depthwise_conv2d(preimg, kernel, [1, 1, 1, 1], 'SAME'))
+    transformed = tf.nn.depthwise_conv2d(prev_image, cdna_kerns, [1, 1, 1, 1], 'SAME')
 
-    transformed = tf.concat(0, transformed)
+    # Transpose and reshape.
+    transformed = tf.reshape(transformed, [color_channels, height, width, batch_size, num_masks])
+    transformed = tf.transpose(transformed, [3, 1, 2, 0, 4])
+    transformed = tf.unpack(value=transformed, axis=-1)
 
-    transformed = tf.reshape(transformed, [conf['batch_size'], 64,64,color_channels,num_masks])
-    transformed = tf.unpack(transformed, axis=4)
+    # cdna_kerns = tf.tile(cdna_kerns, [1, 1, 1, color_channels, 1])
+    # cdna_kerns = tf.split(0, batch_size, cdna_kerns)
+    # prev_images = tf.split(0, batch_size, prev_image)
+    #
+    # # Transform image.
+    # transformed = []
+    # for kernel, preimg in zip(cdna_kerns, prev_images):
+    #     kernel = tf.squeeze(kernel)
+    #     if len(kernel.get_shape()) == 3:
+    #         kernel = tf.expand_dims(kernel, -2)   #correction! ( was -1 before)
+    #     transformed.append(
+    #         tf.nn.depthwise_conv2d(preimg, kernel, [1, 1, 1, 1], 'SAME'))
+    #
+    # transformed = tf.concat(0, transformed)
+    #
+    # transformed = tf.reshape(transformed, [conf['batch_size'], 64,64,color_channels,num_masks])
+    # transformed = tf.unpack(transformed, axis=4)
 
     return transformed, cdna_kerns_summary
 
