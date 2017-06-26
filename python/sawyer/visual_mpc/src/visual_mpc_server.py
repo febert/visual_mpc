@@ -74,9 +74,12 @@ class Visual_MPC_Server(object):
             print key, ': ', self.agentparams[key]
         print '-------------------------------------------------------------------'
 
-        self.netconf = imp.load_source('params', self.policyparams['netconf']).configuration
-        ###########
-        self.predictor = self.netconf['setup_predictor'](self.netconf, gpu_id, ngpu)
+        if self.policyparams['usenet']:
+            self.netconf = imp.load_source('params', self.policyparams['netconf']).configuration
+            self.predictor = self.netconf['setup_predictor'](self.netconf, gpu_id, ngpu)
+        else:
+            self.netconf = {}
+            self.predictor = None
         self.cem_controller = CEM_controller(self.agentparams, self.policyparams, self.predictor)
         ###########
         self.t = 0
@@ -115,6 +118,7 @@ class Visual_MPC_Server(object):
         return init_traj_visualmpcResponse()
 
     def get_action_handler(self, req):
+
 
 
         self.traj.X_full[self.t, :] = req.state

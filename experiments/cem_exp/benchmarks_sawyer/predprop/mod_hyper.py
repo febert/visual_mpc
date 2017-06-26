@@ -15,10 +15,10 @@ policy = {
     'verbose':'',
     'predictor_propagation': '',   # use the model get the designated pixel for the next step!
     'action_cost_factor': 0,
-    'rew_all_steps':"",
     'no_pixdistrib_video':'',
     'no_instant_gif':"",
-    'finalweight':10
+    'finalweight':10,
+    'rew_all_steps':"",
 }
 
 agent = {

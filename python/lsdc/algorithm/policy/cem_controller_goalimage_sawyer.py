@@ -39,14 +39,18 @@ class CEM_controller():
         else: self.niter = 10  # number of iterations
 
         self.action_list = []
-
-        hyperparams = imp.load_source('hyperparams', self.policyparams['netconf'])
-        self.netconf = hyperparams.configuration
-
         self.naction_steps = self.policyparams['nactions']
         self.repeat = self.policyparams['repeat']
-        self.M = self.netconf['batch_size']
-        assert self.naction_steps * self.repeat == self.netconf['sequence_length']
+
+        if self.policyparams['usenet']:
+            hyperparams = imp.load_source('hyperparams', self.policyparams['netconf'])
+            self.netconf = hyperparams.configuration
+            self.M = self.netconf['batch_size']
+            assert self.naction_steps * self.repeat == self.netconf['sequence_length']
+        else:
+            self.netconf = {}
+            self.M = 1
+
         self.predictor = predictor
 
         self.K = 10  # only consider K best samples for refitting
@@ -120,6 +124,8 @@ class CEM_controller():
             diagonal[3::4] = 1
             self.sigma[np.diag_indices_from(self.sigma)] = diagonal
 
+
+
         else:
             print 'reusing mean form last MPC step...'
             mean_old = copy.deepcopy(self.mean)
@@ -152,6 +158,11 @@ class CEM_controller():
             actions = self.truncate_movement(actions)
 
             actions = np.repeat(actions, self.repeat, axis=1)
+
+            if 'random_policy' in self.policyparams:
+                print 'sampling random actions'
+                self.bestaction_withrepeat = actions[0]
+                return
 
             t_start = datetime.now()
             scores = self.video_pred(last_frames, last_states, actions, itr)
