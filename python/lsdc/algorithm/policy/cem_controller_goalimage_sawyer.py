@@ -22,11 +22,12 @@ class CEM_controller():
     """
     Cross Entropy Method Stochastic Optimizer
     """
-    def __init__(self, ag_params, policyparams, predictor = None):
+    def __init__(self, ag_params, policyparams, predictor = None, save_subdir=None):
         print 'init CEM controller'
         self.agentparams = ag_params
         self.policyparams = policyparams
 
+        self.save_subdir = save_subdir
         self.t = None
 
         if 'verbose' in self.policyparams:
@@ -38,14 +39,18 @@ class CEM_controller():
         else: self.niter = 10  # number of iterations
 
         self.action_list = []
-
-        hyperparams = imp.load_source('hyperparams', self.policyparams['netconf'])
-        self.netconf = hyperparams.configuration
-
         self.naction_steps = self.policyparams['nactions']
         self.repeat = self.policyparams['repeat']
-        self.M = self.netconf['batch_size']
-        assert self.naction_steps * self.repeat == self.netconf['sequence_length']
+
+        if self.policyparams['usenet']:
+            hyperparams = imp.load_source('hyperparams', self.policyparams['netconf'])
+            self.netconf = hyperparams.configuration
+            self.M = self.netconf['batch_size']
+            assert self.naction_steps * self.repeat == self.netconf['sequence_length']
+        else:
+            self.netconf = {}
+            self.M = 1
+
         self.predictor = predictor
 
         self.K = 10  # only consider K best samples for refitting
@@ -119,6 +124,8 @@ class CEM_controller():
             diagonal[3::4] = 1
             self.sigma[np.diag_indices_from(self.sigma)] = diagonal
 
+
+
         else:
             print 'reusing mean form last MPC step...'
             mean_old = copy.deepcopy(self.mean)
@@ -151,6 +158,11 @@ class CEM_controller():
             actions = self.truncate_movement(actions)
 
             actions = np.repeat(actions, self.repeat, axis=1)
+
+            if 'random_policy' in self.policyparams:
+                print 'sampling random actions'
+                self.bestaction_withrepeat = actions[0]
+                return
 
             t_start = datetime.now()
             scores = self.video_pred(last_frames, last_states, actions, itr)
@@ -185,7 +197,12 @@ class CEM_controller():
     def switch_on_pix(self):
         one_hot_images = np.zeros((self.netconf['batch_size'], self.netconf['context_frames'], 64, 64, 1), dtype=np.float32)
         # switch on pixels
-        one_hot_images[:, :, self.desig_pix[0], self.desig_pix[1]] = 1
+        desig_pix = self.desig_pix.reshape((2,2))
+        one_hot_images[:, :, desig_pix[0, 0], desig_pix[0, 1]] = 1
+
+        if '2_desig_pix' in self.policyparams:
+            one_hot_images[:, :, desig_pix[1, 0], desig_pix[1, 1]] = 1
+
         return one_hot_images
 
     def video_pred(self, last_frames, last_states, actions, itr):
@@ -287,7 +304,14 @@ class CEM_controller():
 
         if self.verbose: #and itr == self.policyparams['iterations']-1:
             # print 'creating visuals for best sampled actions at last iteration...'
-            file_path = self.netconf['current_dir'] + '/verbose'
+            if self.save_subdir != None:
+                file_path = self.netconf['current_dir']+ '/'+ self.save_subdir +'/verbose'
+            else:
+                file_path = self.netconf['current_dir'] + '/verbose'
+
+
+            if not os.path.exists(file_path):
+                os.makedirs(file_path)
 
             def best(inputlist):
                 outputlist = [np.zeros_like(a)[:self.K] for a in inputlist]
@@ -295,6 +319,7 @@ class CEM_controller():
                     for tstep in range(len(inputlist)):
                         outputlist[tstep][ind] = inputlist[tstep][bestindices[ind]]
                 return outputlist
+
 
             cPickle.dump(best(gen_images), open(file_path + '/gen_image_t{}.pkl'.format(self.t), 'wb'))
             if 'use_goalimage' not in self.policyparams:

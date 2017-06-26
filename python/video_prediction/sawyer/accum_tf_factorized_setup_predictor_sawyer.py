@@ -65,7 +65,7 @@ def setup_predictor(conf, gpu_id=0, ngpu=1):
                                                        log_device_placement=False))
 
     print '-------------------------------------------------------------------'
-    print 'verify current settings!! '
+    print 'verify network settings!! '
     for key in conf.keys():
         print key, ': ', conf[key]
     print '-------------------------------------------------------------------'

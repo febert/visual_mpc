@@ -52,6 +52,7 @@ class Visual_MPC_Server(object):
         self.conf = hyperparams.config
         self.policyparams = hyperparams.policy
         self.agentparams = hyperparams.agent
+
         # load specific agent settings for benchmark:
 
         bench_dir = cem_exp_dir + '/' + benchmark_name
@@ -65,14 +66,27 @@ class Visual_MPC_Server(object):
             self.policyparams.update(bench_conf.policy)
         if hasattr(bench_conf, 'agent'):
             self.agentparams.update(bench_conf.agent)
+        print '-------------------------------------------------------------------'
+        print 'verify planner settings!! '
+        for key in self.policyparams.keys():
+            print key, ': ', self.policyparams[key]
+        for key in self.agentparams.keys():
+            print key, ': ', self.agentparams[key]
+        print '-------------------------------------------------------------------'
 
-        self.netconf = imp.load_source('params', self.policyparams['netconf']).configuration
-        self.predictor = self.netconf['setup_predictor'](self.netconf, gpu_id, ngpu)
+        if self.policyparams['usenet']:
+            self.netconf = imp.load_source('params', self.policyparams['netconf']).configuration
+            self.predictor = self.netconf['setup_predictor'](self.netconf, gpu_id, ngpu)
+        else:
+            self.netconf = {}
+            self.predictor = None
         self.cem_controller = CEM_controller(self.agentparams, self.policyparams, self.predictor)
+        ###########
         self.t = 0
         self.traj = Trajectory(self.agentparams, self.netconf)
         self.bridge = CvBridge()
         self.initial_pix_distrib = []
+        self.save_subdir = None
 
         # initializing the servives:
         rospy.Service('get_action', get_action, self.get_action_handler)
@@ -85,6 +99,7 @@ class Visual_MPC_Server(object):
     def init_traj_visualmpc_handler(self, req):
         self.igrp = req.igrp
         self.i_traj = req.itr
+
         self.t = 0
         if 'use_goalimage' in self.policyparams:
             goal_main = self.bridge.imgmsg_to_cv2(req.goalmain)
@@ -98,10 +113,12 @@ class Visual_MPC_Server(object):
         print 'init traj{} group{}'.format(self.i_traj, self.igrp)
 
         self.initial_pix_distrib = []
-        self.cem_controller = CEM_controller(self.agentparams, self.policyparams, self.predictor)
+        self.cem_controller = CEM_controller(self.agentparams, self.policyparams, self.predictor, save_subdir=req.save_subdir)
+        self.save_subdir = req.save_subdir
         return init_traj_visualmpcResponse()
 
     def get_action_handler(self, req):
+
 
 
         self.traj.X_full[self.t, :] = req.state
@@ -129,13 +146,17 @@ class Visual_MPC_Server(object):
         self.traj.U[self.t, :] = mj_U
 
         if self.t == self.agentparams['T'] -1:
-            self.save_video()
+            if 'no_pixdistrib_video' not in self.policyparams:
+                self.save_video()
 
         self.t += 1
         return get_actionResponse(tuple(mj_U))
 
     def save_video(self):
         file_path = self.netconf['current_dir'] + '/videos'
+        if self.save_subdir != None:
+            file_path = self.netconf['current_dir'] + "/"+ self.save_subdir +'/videos'
+
         imlist = np.split(self.traj._sample_images, self.agentparams['T'], axis=0)
 
         imfilename = file_path + '/traj{0}_gr{1}'.format(self.i_traj, self.igrp)
