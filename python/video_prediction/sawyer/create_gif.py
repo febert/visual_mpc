@@ -92,9 +92,7 @@ def convert_to_videolist(input, repeat_last_dim):
 def create_video_pixdistrib_gif(file_path, conf, t=0, suffix = "", n_exp = 8, suppress_number = False,
                                 append_masks = False, show_moved= False):
     gen_images = cPickle.load(open(file_path + '/gen_image_t{}.pkl'.format(t), "rb"))
-    gen_distrib = cPickle.load(open(file_path + '/gen_distrib_t{}.pkl'.format(t), "rb"))
 
-    # trafos = cPickle.load(open(file_path + '/trafos.pkl'.format(t), "rb"))
 
     if  suppress_number:
         name = file_path + '/vid_' + conf['experiment_name'] + suffix
@@ -105,43 +103,51 @@ def create_video_pixdistrib_gif(file_path, conf, t=0, suffix = "", n_exp = 8, su
         else:
             name = file_path + '/vid_' + conf['experiment_name'] + '_' + str(itr_vis) + suffix
 
-    if 'single_view' in conf:
+    if 'ndesig' in conf:
+        gen_distrib1 = cPickle.load(open(file_path + '/gen_distrib1_t{}.pkl'.format(t), "rb"))
+        gen_distrib2 = cPickle.load(open(file_path + '/gen_distrib2_t{}.pkl'.format(t), "rb"))
+
+        plot_psum_overtime(conf, gen_distrib1, n_exp, name, file_path)
+        plot_psum_overtime(conf, gen_distrib2, n_exp, name, file_path)
+    else:
+        gen_distrib = cPickle.load(open(file_path + '/gen_distrib_t{}.pkl'.format(t), "rb"))
         plot_psum_overtime(conf, gen_distrib, n_exp, name, file_path)
 
-    if 'single_view' not in conf:
-        gen_images_main = [img[:, :, :, :3] for img in gen_images]
-        gen_images_aux1 = [img[:, :, :, 3:] for img in gen_images]
+    # trafos = cPickle.load(open(file_path + '/trafos.pkl'.format(t), "rb"))
 
-        gen_distrib_main = [d[:, :, :, 0] for d in gen_distrib]
-        gen_distrib_aux1 = [d[:, :, :, 1] for d in gen_distrib]
+    makecolor = True
 
-        gen_distrib_main = make_color_scheme(gen_distrib_main)
-        gen_distrib_aux1 = make_color_scheme(gen_distrib_aux1)
+    if 'ndesig' in conf:
+        if makecolor:
+            gen_distrib1 = make_color_scheme(gen_distrib1)
+            gen_distrib2 = make_color_scheme(gen_distrib2)
+        else:
+            gen_distrib1 = [np.repeat(g, 3, axis=3) for g in gen_distrib1]
+            gen_distrib2 = [np.repeat(g, 3, axis=3) for g in gen_distrib2]
 
-        fused_gif = assemble_gif([gen_images_main, gen_distrib_main, gen_images_aux1, gen_distrib_aux1], n_exp)
+        video_list = [gen_images, gen_distrib1, gen_distrib2]
     else:
-        makecolor = True
         if makecolor:
             gen_distrib = make_color_scheme(gen_distrib)
         else:
             gen_distrib = [np.repeat(g, 3, axis=3) for g in gen_distrib]
 
         video_list = [gen_images, gen_distrib]
-        if append_masks:
-            list_of_maskvideos = get_masks(conf, file_path, repeat_last_dim=True)
-            # list_of_maskvideos = [make_color_scheme(v) for v in list_of_maskvideos]
-            video_list += list_of_maskvideos
+    if append_masks:
+        list_of_maskvideos = get_masks(conf, file_path, repeat_last_dim=True)
+        # list_of_maskvideos = [make_color_scheme(v) for v in list_of_maskvideos]
+        video_list += list_of_maskvideos
 
-        if show_moved:
-            moved_im = cPickle.load(open(file_path + '/moved_im.pkl', "rb"))
-            moved_pix = cPickle.load(open(file_path + '/moved_pix.pkl', "rb"))
-            moved_im = convert_to_videolist(moved_im, repeat_last_dim=False)
-            moved_pix = convert_to_videolist(moved_pix, repeat_last_dim=True)
+    if show_moved:
+        moved_im = cPickle.load(open(file_path + '/moved_im.pkl', "rb"))
+        moved_pix = cPickle.load(open(file_path + '/moved_pix.pkl', "rb"))
+        moved_im = convert_to_videolist(moved_im, repeat_last_dim=False)
+        moved_pix = convert_to_videolist(moved_pix, repeat_last_dim=True)
 
-            video_list += moved_im
-            video_list += moved_pix
+        video_list += moved_im
+        video_list += moved_pix
 
-        fused_gif = assemble_gif(video_list, n_exp)
+    fused_gif = assemble_gif(video_list, n_exp)
 
     npy_to_gif(fused_gif, name)
 
@@ -183,7 +189,7 @@ def go_through_timesteps(file_path):
 
 if __name__ == '__main__':
     # file_path = '/home/guser/catkin_ws/src/lsdc/experiments/cem_exp/benchmarks_sawyer/predprop_1stimg_bckgd'
-    file_path = '/home/guser/catkin_ws/src/lsdc/experiments/cem_exp/benchmarks_sawyer/maintain_featuremaps_lstm_ln_5firstframes'
+    file_path = '/home/guser/catkin_ws/src/lsdc/experiments/cem_exp/benchmarks_sawyer/cdna_multobj_1stimg'
 
     # file_path = '/home/frederik/Documents/catkin_ws/src/lsdc/experiments/cem_exp/benchmarks_sawyer/predprop_1stimg_bckgd'
     hyperparams = imp.load_source('hyperparams', file_path + '/conf.py')

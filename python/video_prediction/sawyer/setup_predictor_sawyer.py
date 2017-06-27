@@ -9,7 +9,7 @@ import os
 from datetime import datetime
 
 class Tower(object):
-    def __init__(self, conf, gpu_id, reuse_scope, start_images, actions, start_states, pix_distrib):
+    def __init__(self, conf, gpu_id, reuse_scope, start_images, actions, start_states, pix_distrib1,pix_distrib2):
         nsmp_per_gpu = conf['batch_size']/ conf['ngpu']
 
 
@@ -21,7 +21,8 @@ class Tower(object):
         if 'no_pix_distrib' in conf:
          pix_distrib = None
         else:
-            pix_distrib = tf.slice(pix_distrib, [startidx, 0, 0, 0, 0], [nsmp_per_gpu, -1, -1, -1, -1])
+            pix_distrib1 = tf.slice(pix_distrib1, [startidx, 0, 0, 0, 0], [nsmp_per_gpu, -1, -1, -1, -1])
+            pix_distrib2 = tf.slice(pix_distrib2, [startidx, 0, 0, 0, 0], [nsmp_per_gpu, -1, -1, -1, -1])
 
         print 'startindex for gpu {0}: {1}'.format(gpu_id, startidx)
 
@@ -30,7 +31,11 @@ class Tower(object):
         else:
             from prediction_train_sawyer import Model
 
-        self.model = Model(conf,start_images,per_gpu_actions,start_states, pix_distrib=pix_distrib, reuse_scope= reuse_scope)
+        if 'ndesig' in conf:
+            self.model = Model(conf, start_images, per_gpu_actions, start_states, pix_distrib=pix_distrib1,pix_distrib2=pix_distrib2,
+                               reuse_scope=reuse_scope)
+        else:
+            self.model = Model(conf,start_images,per_gpu_actions,start_states, pix_distrib=pix_distrib1, reuse_scope= reuse_scope)
 
 def setup_predictor(conf, gpu_id=0, ngpu=1):
     """
@@ -81,11 +86,16 @@ def setup_predictor(conf, gpu_id=0, ngpu=1):
                                     shape=(conf['batch_size'],conf['sequence_length'], 4))
     start_states = tf.placeholder(tf.float32, name='states',
                                     shape=(conf['batch_size'],conf['context_frames'], 3))
-    pix_distrib = tf.placeholder(tf.float32, shape=(conf['batch_size'], conf['context_frames'], 64, 64, numcam))
+    pix_distrib_1 = tf.placeholder(tf.float32, shape=(conf['batch_size'], conf['context_frames'], 64, 64, numcam))
+    pix_distrib_2 = tf.placeholder(tf.float32, shape=(conf['batch_size'], conf['context_frames'], 64, 64, numcam))
 
     # creating dummy network to avoid issues with naming of variables
-    with tf.variable_scope('model', reuse=None) as training_scope:
-        model = Model(conf, start_images, actions, start_states, pix_distrib= pix_distrib)
+    if 'ndesig' in conf:
+        with tf.variable_scope('model', reuse=None) as training_scope:
+            model = Model(conf, start_images, actions, start_states, pix_distrib= pix_distrib_1, pix_distrib2=pix_distrib_2)
+    else:
+        with tf.variable_scope('model', reuse=None) as training_scope:
+            model = Model(conf, start_images, actions, start_states, pix_distrib= pix_distrib_1)
 
     sess.run(tf.initialize_all_variables())
     # sess.run(tf.global_variables_initializer())
@@ -102,12 +112,12 @@ def setup_predictor(conf, gpu_id=0, ngpu=1):
             with tf.name_scope('tower_%d' % (i_gpu)):
                 print('creating tower %d: in scope %s' % (i_gpu, tf.get_variable_scope()))
                 # print 'reuse: ', tf.get_variable_scope().reuse
-
-                towers.append(Tower(conf, i_gpu, training_scope, start_images, actions, start_states, pix_distrib))
+                towers.append(Tower(conf, i_gpu, training_scope, start_images, actions, start_states, pix_distrib_1, pix_distrib_2))
                 tf.get_variable_scope().reuse_variables()
 
     comb_gen_img = []
-    comb_pix_distrib = []
+    comb_pix_distrib1 = []
+    comb_pix_distrib2 = []
     comb_gen_states = []
 
     for t in range(conf['sequence_length']-1):
@@ -115,8 +125,11 @@ def setup_predictor(conf, gpu_id=0, ngpu=1):
         comb_gen_img.append(tf.concat(0, t_comb_gen_img))
 
         if not 'no_pix_distrib' in conf:
-            t_comb_pix_distrib = [to.model.gen_distrib[t] for to in towers]
-            comb_pix_distrib.append(tf.concat(0, t_comb_pix_distrib))
+            t_comb_pix_distrib1 = [to.model.gen_distrib1[t] for to in towers]
+            comb_pix_distrib1.append(tf.concat(0, t_comb_pix_distrib1))
+            if 'ndesig' in conf:
+                t_comb_pix_distrib2 = [to.model.gen_distrib2[t] for to in towers]
+                comb_pix_distrib2.append(tf.concat(0, t_comb_pix_distrib2))
 
         t_comb_gen_states = [to.model.gen_states[t] for to in towers]
         comb_gen_states.append(tf.concat(0, t_comb_gen_states))
@@ -128,7 +141,7 @@ def setup_predictor(conf, gpu_id=0, ngpu=1):
     saver = tf.train.Saver(restore_vars, max_to_keep=0)
     saver.restore(sess, conf['pretrained_model'])
 
-    def predictor_func(input_images=None, input_one_hot_images=None, input_state=None, input_actions=None):
+    def predictor_func(input_images=None, input_one_hot_images1=None, input_one_hot_images2=None, input_state=None, input_actions=None):
         """
         :param one_hot_images: the first two frames
         :param pixcoord: the coords of the disgnated pixel in images coord system
@@ -146,24 +159,36 @@ def setup_predictor(conf, gpu_id=0, ngpu=1):
         feed_dict[start_states] = input_state
         feed_dict[actions] = input_actions
 
-        gen_distrib = None
         if 'no_pix_distrib' in conf:
             gen_images, gen_states = sess.run([comb_gen_img,
                                               comb_gen_states],
                                               feed_dict)
 
-            gen_distrib = None
+            gen_distrib1 = None
+            gen_distrib2 = None
         else:
-            feed_dict[pix_distrib] = input_one_hot_images
-            gen_images, gen_distrib, gen_states = sess.run([comb_gen_img,
-                                                            comb_pix_distrib,
-                                                            comb_gen_states],
-                                                           feed_dict)
+            feed_dict[pix_distrib_1] = input_one_hot_images1
+            if 'ndesig' in conf:
+                print 'evaluating 2 pixdistrib..'
+                feed_dict[pix_distrib_2] = input_one_hot_images2
+
+                gen_images, gen_distrib1, gen_distrib2, gen_states = sess.run([comb_gen_img,
+                                                                comb_pix_distrib1,
+                                                                comb_pix_distrib2,
+                                                                comb_gen_states],
+                                                               feed_dict)
+            else:
+                gen_distrib2 = None
+                gen_images, gen_distrib1, gen_states = sess.run([comb_gen_img,
+                                                                comb_pix_distrib1,
+                                                                comb_gen_states],
+                                                               feed_dict)
 
         print 'time for evaluating {0} actions on {1} gpus : {2}'.format(
             conf['batch_size'],
             conf['ngpu'],
             (datetime.now() - t_startiter).seconds + (datetime.now() - t_startiter).microseconds/1e6)
-        return gen_images, gen_distrib, gen_states
+
+        return gen_images, gen_distrib1, gen_distrib2, gen_states
 
     return predictor_func

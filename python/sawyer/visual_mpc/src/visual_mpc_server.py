@@ -32,8 +32,6 @@ class Visual_MPC_Server(object):
         Similar functionality to mjc_agent and lsdc_main_mod, calling the policy
         """
         # if it is an auxiliary node advertise services
-        rospy.init_node('visual_mpc_server')
-        rospy.loginfo("init visual mpc server")
 
         lsdc_dir = '/'.join(str.split(lsdc_filepath, '/')[:-3])
         cem_exp_dir = lsdc_dir + '/experiments/cem_exp/benchmarks_sawyer'
@@ -43,7 +41,18 @@ class Visual_MPC_Server(object):
         parser.add_argument('benchmark', type=str, help='the name of the folder with agent setting for the benchmark')
         parser.add_argument('--gpu_id', type=int, default=0, help='value to set for cuda visible devices variable')
         parser.add_argument('--ngpu', type=int, default=1, help='number of gpus to use')
+        parser.add_argument('--userobot', type=str, default='True', help='number of gpus to use')
+
         args = parser.parse_args()
+
+        if args.userobot == 'True':
+            self.use_robot = True
+        elif args.userobot == 'False':
+            self.use_robot = False
+
+        if self.use_robot:
+            rospy.init_node('visual_mpc_server')
+            rospy.loginfo("init visual mpc server")
 
         benchmark_name = args.benchmark
         gpu_id = args.gpu_id
@@ -85,16 +94,48 @@ class Visual_MPC_Server(object):
         self.t = 0
         self.traj = Trajectory(self.agentparams, self.netconf)
         self.bridge = CvBridge()
-        self.initial_pix_distrib = []
+
+        if 'ndesig' in self.policyparams:
+            self.initial_pix_distrib1 = []
+            self.initial_pix_distrib2 = []
+        else:
+            self.initial_pix_distrib = []
+
+
         self.save_subdir = None
 
-        # initializing the servives:
-        rospy.Service('get_action', get_action, self.get_action_handler)
-        rospy.Service('init_traj_visualmpc', init_traj_visualmpc, self.init_traj_visualmpc_handler)
+        if self.use_robot:
+            # initializing the servives:
+            rospy.Service('get_action', get_action, self.get_action_handler)
+            rospy.Service('init_traj_visualmpc', init_traj_visualmpc, self.init_traj_visualmpc_handler)
 
-        ###
-        print 'visual mpc server ready for taking requests!'
-        rospy.spin()
+            ###
+            print 'visual mpc server ready for taking requests!'
+            rospy.spin()
+        else:
+            self.test_canon_examples()
+
+    def test_canon_examples(self):
+        b_exp = 2 #5drill  #2
+        file_path_canon = '/home/frederik/Documents/catkin_ws/src/lsdc/pushing_data/canonical_examples'
+        dict = cPickle.load(open(file_path_canon + '/pkl/example{}.pkl'.format(b_exp), 'rb'))
+        desig_pix = dict['desig_pix']
+        goal_pix = dict['goal_pix']
+
+        sel_img = dict['images']
+        sel_img = sel_img[:2]
+        sel_img = (sel_img*255.).astype(np.uint8)
+        state = dict['endeff']
+        sel_state = state[:2]
+
+        # for i in range(self.policyparams['T']):
+        for t in range(2):
+            self.traj.X_full[t, :] = sel_state[t]
+            self.traj._sample_images[t] = sel_img[t]
+
+            mj_U, pos, best_ind, init_pix_distrib = self.cem_controller.act(self.traj, t,
+                                                                        desig_pix,
+                                                                        goal_pix)
 
     def init_traj_visualmpc_handler(self, req):
         self.igrp = req.igrp
@@ -112,14 +153,17 @@ class Visual_MPC_Server(object):
 
         print 'init traj{} group{}'.format(self.i_traj, self.igrp)
 
-        self.initial_pix_distrib = []
+        if 'ndesig' in self.policyparams:
+            self.initial_pix_distrib = []
+        else:
+            self.initial_pix_distrib1 = []
+            self.initial_pix_distrib2 = []
+
         self.cem_controller = CEM_controller(self.agentparams, self.policyparams, self.predictor, save_subdir=req.save_subdir)
         self.save_subdir = req.save_subdir
         return init_traj_visualmpcResponse()
 
     def get_action_handler(self, req):
-
-
 
         self.traj.X_full[self.t, :] = req.state
         main_img = self.bridge.imgmsg_to_cv2(req.main)
@@ -136,12 +180,21 @@ class Visual_MPC_Server(object):
         self.desig_pos_aux1 = req.desig_pos_aux1
         self.goal_pos_aux1 = req.goal_pos_aux1
 
-        mj_U, pos, best_ind, init_pix_distrib = self.cem_controller.act(self.traj, self.t,
-                                                          req.desig_pos_aux1,
-                                                          req.goal_pos_aux1)
+        if 'ndesig' in self.policyparams:
+            mj_U, pos, best_ind, init_pix_distrib1, init_pix_distrib2  = self.cem_controller.act(self.traj, self.t,
+                                                                                  req.desig_pos_aux1,
+                                                                                  req.goal_pos_aux1)
 
-        if 'predictor_propagation' in self.policyparams and self.t > 0:
-            self.initial_pix_distrib.append(init_pix_distrib[-1][0])
+            if 'predictor_propagation' in self.policyparams and self.t > 0:
+                self.initial_pix_distrib1.append(init_pix_distrib1[-1][0])
+                self.initial_pix_distrib2.append(init_pix_distrib2[-1][0])
+        else:
+            mj_U, pos, best_ind, init_pix_distrib = self.cem_controller.act(self.traj, self.t,
+                                                                            req.desig_pos_aux1,
+                                                                            req.goal_pos_aux1)
+
+            if 'predictor_propagation' in self.policyparams and self.t > 0:
+                self.initial_pix_distrib.append(init_pix_distrib[-1][0])
 
         self.traj.U[self.t, :] = mj_U
 
@@ -163,11 +216,25 @@ class Visual_MPC_Server(object):
         cPickle.dump(imlist, open(imfilename+ '.pkl', 'wb'))
 
         if 'predictor_propagation' in self.policyparams:
-            cPickle.dump(self.initial_pix_distrib, open(file_path + '/initial_pix_distrib.pkl'.format(self.t), 'wb'))
-            self.initial_pix_distrib = [im.reshape((1,64,64)) for im in self.initial_pix_distrib]
-            pix_distrib = make_color_scheme(self.initial_pix_distrib, convert_to_float=False)
-            gif = assemble_gif([imlist, pix_distrib], num_exp=1, convert_from_float=False)
-            npy_to_gif(gif, file_path +'/traj{0}_gr{1}_withpixdistrib'.format(self.i_traj, self.igrp))
+            if 'ndesig' in self.policyparams:
+                cPickle.dump(self.initial_pix_distrib1,
+                             open(file_path + '/initial_pix_distrib1.pkl'.format(self.t), 'wb'))
+                cPickle.dump(self.initial_pix_distrib2,
+                             open(file_path + '/initial_pix_distrib2.pkl'.format(self.t), 'wb'))
+                self.initial_pix_distrib1 = [im.reshape((1, 64, 64)) for im in self.initial_pix_distrib1]
+                pix_distrib1 = make_color_scheme(self.initial_pix_distrib1, convert_to_float=False)
+
+                self.initial_pix_distrib2 = [im.reshape((1, 64, 64)) for im in self.initial_pix_distrib2]
+                pix_distrib2 = make_color_scheme(self.initial_pix_distrib2, convert_to_float=False)
+                gif = assemble_gif([imlist, pix_distrib1, pix_distrib2], num_exp=1, convert_from_float=False)
+
+                npy_to_gif(gif, file_path + '/traj{0}_gr{1}_withpixdistrib'.format(self.i_traj, self.igrp))
+            else:
+                cPickle.dump(self.initial_pix_distrib, open(file_path + '/initial_pix_distrib.pkl'.format(self.t), 'wb'))
+                self.initial_pix_distrib = [im.reshape((1,64,64)) for im in self.initial_pix_distrib]
+                pix_distrib = make_color_scheme(self.initial_pix_distrib, convert_to_float=False)
+                gif = assemble_gif([imlist, pix_distrib], num_exp=1, convert_from_float=False)
+                npy_to_gif(gif, file_path +'/traj{0}_gr{1}_withpixdistrib'.format(self.i_traj, self.igrp))
         else:
             imlist = [np.squeeze(im) for im in imlist]
             npy_to_gif(imlist, imfilename)

@@ -70,6 +70,7 @@ class Model(object):
                  states=None,
                  reuse_scope=None,
                  pix_distrib=None,
+                 pix_distrib2=None,
                  inference = False):
 
         self.conf = conf
@@ -101,8 +102,12 @@ class Model(object):
             pix_distrib = tf.split(1, pix_distrib.get_shape()[1], pix_distrib)
             pix_distrib = [tf.squeeze(pix) for pix in pix_distrib]
 
+        if pix_distrib2 != None:
+            pix_distrib2 = tf.split(1, pix_distrib2.get_shape()[1], pix_distrib2)
+            pix_distrib2= [tf.squeeze(pix) for pix in pix_distrib2]
+
         if reuse_scope is None:
-            gen_images, gen_states, gen_masks, gen_distrib, moved_im, moved_pix, trafos = construct_model(
+            gen_images, gen_states, gen_masks, gen_distrib1, gen_distrib2, moved_im, moved_pix, trafos = construct_model(
                 images,
                 actions,
                 states,
@@ -110,11 +115,12 @@ class Model(object):
                 k=conf['schedsamp_k'],
                 num_masks=conf['num_masks'],
                 context_frames=conf['context_frames'],
-                pix_distributions= pix_distrib,
+                pix_distributions1=pix_distrib,
+                pix_distributions2=pix_distrib2,
                 conf=conf)
         else:  # If it's a validation or test model.
             with tf.variable_scope(reuse_scope, reuse=True):
-                gen_images, gen_states, gen_masks, gen_distrib, moved_im, moved_pix, trafos = construct_model(
+                gen_images, gen_states, gen_masks, gen_distrib1, gen_distrib2, moved_im, moved_pix, trafos = construct_model(
                     images,
                     actions,
                     states,
@@ -122,7 +128,8 @@ class Model(object):
                     k=conf['schedsamp_k'],
                     num_masks=conf['num_masks'],
                     context_frames=conf['context_frames'],
-                    pix_distributions=pix_distrib,
+                    pix_distributions1=pix_distrib,
+                    pix_distributions2=pix_distrib2,
                     conf= conf)
 
         self.lr = tf.placeholder_with_default(conf['learning_rate'], ())
@@ -169,7 +176,8 @@ class Model(object):
 
         self.gen_images= gen_images
         self.gen_masks = gen_masks
-        self.gen_distrib = gen_distrib
+        self.gen_distrib1 = gen_distrib1
+        self.gen_distrib2 = gen_distrib2
         self.gen_states = gen_states
         self.moved_im = moved_im
         self.moved_pix = moved_pix

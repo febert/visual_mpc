@@ -18,6 +18,8 @@ from PIL import Image
 import pdb
 
 
+import matplotlib.pyplot as plt
+
 class CEM_controller():
     """
     Cross Entropy Method Stochastic Optimizer
@@ -73,6 +75,9 @@ class CEM_controller():
         self.indices =[]
 
         self.rec_input_distrib = []  # record the input distributions
+        if 'ndesig' in self.policyparams:
+            self.rec_input_distrib1 = []  # record the input distributions
+            self.rec_input_distrib2 = []  # record the input distributions
 
         self.target = np.zeros(2)
 
@@ -192,15 +197,11 @@ class CEM_controller():
             print 'overall time for iteration {}'.format(
                 (datetime.now() - t_startiter).seconds + (datetime.now() - t_startiter).microseconds / 1e6)
 
-    def switch_on_pix(self):
+    def switch_on_pix(self, desig):
         one_hot_images = np.zeros((self.netconf['batch_size'], self.netconf['context_frames'], 64, 64, 1), dtype=np.float32)
         # switch on pixels
-        one_hot_images[:, :, self.desig_pix[0, 0], self.desig_pix[0, 1]] = 1
-        print 'using desig pix0',self.desig_pix[0, 0], self.desig_pix[0, 1]
-
-        if '2_desig_pix' in self.policyparams:
-            one_hot_images[:, :, self.desig_pix[1, 0], self.desig_pix[1, 1]] = 1
-            print 'using desig pix1', self.desig_pix[1, 0], self.desig_pix[1, 1]
+        one_hot_images[:, :, desig[0], desig[1]] = 1
+        print 'using desig pix',desig[0], desig[1]
 
         return one_hot_images
 
@@ -219,57 +220,38 @@ class CEM_controller():
         last_frames = np.concatenate((last_frames, app_zeros), axis=1)
         last_frames = last_frames.astype(np.float32)/255.
 
-        if 'single_view' in self.netconf:
+        if 'ndesig' in self.policyparams:
+            input_distrib1, input_distrib2 = self.make_input_distrib(itr)
+            # plt.imshow(np.squeeze(input_distrib1[0,0]), zorder=0, cmap=plt.get_cmap('jet'), interpolation='none')
+            # plt.show()
+            # plt.imshow(np.squeeze(input_distrib2[0,0]), zorder=0, cmap=plt.get_cmap('jet'), interpolation='none')
+            # plt.show()
 
-            if 'use_goalimage' in self.policyparams:
-                input_distrib = None
-            else:
-                input_distrib = self.make_input_distrib(itr)
+            gen_images, gen_distrib1, gen_distrib2, gen_states = self.predictor(input_images=last_frames,input_state=last_states,input_actions=actions, input_one_hot_images1=input_distrib1,input_one_hot_images2=input_distrib2)
 
-            gen_images, gen_distrib, gen_states  = self.predictor(input_images=last_frames,
-                                                                  input_state=last_states,
-                                                                  input_actions=actions,
-                                                                  input_one_hot_images=input_distrib)
+            distance_grid1 = self.get_distancegrid(self.goal_pix[0])
+            distance_grid2 = self.get_distancegrid(self.goal_pix[1])
 
-        #evaluate distances to goalstate
-        scores = np.zeros(self.netconf['batch_size'])
+            _, scores1 = self.calc_scores(gen_distrib1, distance_grid1)
+            print 'best score1', np.min(scores1)
+            _, scores2 = self.calc_scores(gen_distrib2, distance_grid2)
+            print 'best score2', np.min(scores2)
+            scores = scores1 + scores2
 
-        if 'use_goalimage' in self.policyparams:
-            for b in range(self.netconf['batch_size']):
-                scores[b] = np.linalg.norm((self.goal_image - gen_images[-1][b]).flatten())
-        else: # evaluate pixel movement:
-            distance_grid = np.empty((64, 64))
-            for i in range(64):
-                for j in range(64):
-                    pos = np.array([i, j])
-                    distance_grid[i, j] = np.linalg.norm(self.goal_pix - pos)
-            expected_distance = np.zeros(self.netconf['batch_size'])
+            print 'scores1 of best traj: ', scores1[scores.argsort()[0]]
+            print 'scores2 of best traj: ', scores2[scores.argsort()[0]]
 
-            desig_pix_cost  = np.zeros(self.netconf['batch_size'])
-            if 'rew_all_steps' in self.policyparams:
-                for tstep in range(self.netconf['sequence_length'] - 1):
-                    t_mult = 1
-                    if 'finalweight' in self.policyparams:
-                        if tstep == self.netconf['sequence_length'] - 2:
-                            t_mult = self.policyparams['finalweight']
+        else:
+            input_distrib = self.make_input_distrib(itr)
+            en_images, gen_distrib, _, gen_states = self.predictor(input_images=last_frames,
+                                                                input_state=last_states,
+                                                                input_actions=actions,
+                                                                input_one_hot_images1=input_distrib)
 
-                    if 'desig_pix_cost' in self.policyparams:
-                        for b in range(self.netconf['batch_size']):
-                            desig_pix_cost[b] += gen_distrib[tstep][b][self.desig_pix[0, 0], self.desig_pix[0, 1]]*\
-                                                                                    self.policyparams['desig_pix_cost']
-                            expected_distance[b] += desig_pix_cost[b]
+            distance_grid = self.get_distancegrid(self.goal_pix[0])
+            desig_pix_cost, scores = self.calc_scores(gen_distrib, distance_grid)
 
-                    for b in range(self.netconf['batch_size']):
-                        gen = gen_distrib[tstep][b].squeeze() / np.sum(gen_distrib[tstep][b])
-                        expected_distance[b] += np.sum(np.multiply(gen, distance_grid)) * t_mult
-                scores = expected_distance
-            else:
-                for b in range(self.netconf['batch_size']):
-                    gen = gen_distrib[-1][b].squeeze() / np.sum(gen_distrib[-1][b])
-                    expected_distance[b] = np.sum(np.multiply(gen, distance_grid))
-                scores = expected_distance
-
-            if 'avoid_occlusions' in self.policyparams:
+        if 'avoid_occlusions' in self.policyparams:
                 occlusion_cfactor = self.policyparams['avoid_occlusions']
                 occulsioncost = np.zeros(self.netconf['batch_size'])
                 if 'predictor_propagation' in self.policyparams:
@@ -299,10 +281,20 @@ class CEM_controller():
         if 'predictor_propagation' in self.policyparams:
             assert not 'correctorconf' in self.policyparams
             if itr == (self.policyparams['iterations'] - 1):
-                # pick the prop distrib from the action actually chosen after the last iteration (i.e. self.indices[0])
-                bestind = scores.argsort()[0]
-                best_gen_distrib = gen_distrib[2][bestind].reshape(1, 64, 64, 1)
-                self.rec_input_distrib.append(np.repeat(best_gen_distrib, self.netconf['batch_size'], 0))
+                if 'ndesig' in self.policyparams:
+                    # pick the prop distrib from the action actually chosen after the last iteration (i.e. self.indices[0])
+                    bestind = scores.argsort()[0]
+                    best_gen_distrib1 = gen_distrib1[2][bestind].reshape(1, 64, 64, 1)
+                    self.rec_input_distrib1.append(np.repeat(best_gen_distrib1, self.netconf['batch_size'], 0))
+
+                    # pick the prop distrib from the action actually chosen after the last iteration (i.e. self.indices[0])
+                    best_gen_distrib2 = gen_distrib2[2][bestind].reshape(1, 64, 64, 1)
+                    self.rec_input_distrib2.append(np.repeat(best_gen_distrib2, self.netconf['batch_size'], 0))
+                else:
+                    # pick the prop distrib from the action actually chosen after the last iteration (i.e. self.indices[0])
+                    bestind = scores.argsort()[0]
+                    best_gen_distrib = gen_distrib[2][bestind].reshape(1, 64, 64, 1)
+                    self.rec_input_distrib.append(np.repeat(best_gen_distrib, self.netconf['batch_size'], 0))
 
         bestindices = scores.argsort()[:self.K]
 
@@ -311,12 +303,12 @@ class CEM_controller():
             print 'print desig_pix of best traj: ', desig_pix_cost[scores.argsort()[0]]
             print 'print desig_pix of worst traj: ', desig_pix_cost[scores.argsort()[-1]]
 
-        if self.verbose: #and itr == self.policyparams['iterations']-1:
+        if self.verbose and itr == self.policyparams['iterations']-1:
             # print 'creating visuals for best sampled actions at last iteration...'
             if self.save_subdir != None:
                 file_path = self.netconf['current_dir']+ '/'+ self.save_subdir +'/verbose'
             else:
-                file_path = self.netconf['current_dir'] + '/verbose'
+                file_path = self.netconf['current_dir'] + 'verbose'
 
 
             if not os.path.exists(file_path):
@@ -331,15 +323,16 @@ class CEM_controller():
 
 
             cPickle.dump(best(gen_images), open(file_path + '/gen_image_t{}.pkl'.format(self.t), 'wb'))
-            if 'use_goalimage' not in self.policyparams:
+
+            if 'ndesig' in self.policyparams:
+                cPickle.dump(best(gen_distrib1), open(file_path + '/gen_distrib1_t{}.pkl'.format(self.t), 'wb'))
+                cPickle.dump(best(gen_distrib2), open(file_path + '/gen_distrib2_t{}.pkl'.format(self.t), 'wb'))
+            else:
                 cPickle.dump(best(gen_distrib), open(file_path + '/gen_distrib_t{}.pkl'.format(self.t), 'wb'))
 
             print 'written files to:' + file_path
             if not 'no_instant_gif' in self.policyparams:
-                if 'use_goalimage' in self.policyparams:
-                    create_video_gif(file_path, self.netconf, t=self.t, n_exp=10, suffix='iter{}_t{}'.format(itr, self.t))
-                else:
-                    create_video_pixdistrib_gif(file_path, self.netconf, t=self.t, n_exp=10,
+                create_video_pixdistrib_gif(file_path, self.netconf, t=self.t, n_exp=10,
                                             suppress_number=True, suffix='iter{}_t{}'.format(itr, self.t))
 
             # f = open(file_path + '/actions_last_iter_t{}'.format(self.t), 'w')
@@ -356,19 +349,71 @@ class CEM_controller():
 
         return scores
 
-    def make_input_distrib(self, itr):
-        if 'predictor_propagation' in self.policyparams:  # using the predictor's DNA to propagate, no correction
-            print 'using predictor_propagation'
-            if self.t < self.netconf['context_frames']:
-                input_distrib = self.switch_on_pix()
-                if itr == 0:
-                    self.rec_input_distrib.append(input_distrib[:, 1])
-            else:
-                input_distrib = [self.rec_input_distrib[-2], self.rec_input_distrib[-1]]
-                input_distrib = [np.expand_dims(elem, axis=1) for elem in input_distrib]
-                input_distrib = np.concatenate(input_distrib, axis=1)
+    def calc_scores(self, gen_distrib, distance_grid):
+        expected_distance = np.zeros(self.netconf['batch_size'])
+        desig_pix_cost = np.zeros(self.netconf['batch_size'])
+        if 'rew_all_steps' in self.policyparams:
+            for tstep in range(self.netconf['sequence_length'] - 1):
+                t_mult = 1
+                if 'finalweight' in self.policyparams:
+                    if tstep == self.netconf['sequence_length'] - 2:
+                        t_mult = self.policyparams['finalweight']
+
+                if 'desig_pix_cost' in self.policyparams:
+                    for b in range(self.netconf['batch_size']):
+                        desig_pix_cost[b] += gen_distrib[tstep][b][self.desig_pix[0, 0], self.desig_pix[0, 1]] * \
+                                             self.policyparams['desig_pix_cost']
+                        expected_distance[b] += desig_pix_cost[b]
+
+                for b in range(self.netconf['batch_size']):
+                    gen = gen_distrib[tstep][b].squeeze() / np.sum(gen_distrib[tstep][b])
+                    expected_distance[b] += np.sum(np.multiply(gen, distance_grid)) * t_mult
+            scores = expected_distance
         else:
-            input_distrib = self.switch_on_pix()
+            for b in range(self.netconf['batch_size']):
+                gen = gen_distrib[-1][b].squeeze() / np.sum(gen_distrib[-1][b])
+                expected_distance[b] = np.sum(np.multiply(gen, distance_grid))
+            scores = expected_distance
+        return desig_pix_cost, scores
+
+    def get_distancegrid(self, goal_pix):
+        distance_grid = np.empty((64, 64))
+        for i in range(64):
+            for j in range(64):
+                pos = np.array([i, j])
+                distance_grid[i, j] = np.linalg.norm(goal_pix - pos)
+
+        print 'making distance grid with goal_pix', goal_pix
+        # plt.imshow(distance_grid, zorder=0, cmap=plt.get_cmap('jet'), interpolation='none')
+        # plt.show()
+        # pdb.set_trace()
+        return distance_grid
+
+    def make_input_distrib(self, itr):
+        if 'ndesig' in self.policyparams:
+            if 'predictor_propagation' in self.policyparams:  # using the predictor's DNA to propagate, no correction
+                input_distrib1 = self.get_recinput(itr, self.rec_input_distrib1, self.desig_pix[0])
+                input_distrib2 = self.get_recinput(itr, self.rec_input_distrib2, self.desig_pix[1])
+            else:
+                input_distrib1 = self.switch_on_pix(self.desig_pix[0])
+                input_distrib2 = self.switch_on_pix(self.desig_pix[1])
+            return input_distrib1, input_distrib2
+        else:
+            if 'predictor_propagation' in self.policyparams:  # using the predictor's DNA to propagate, no correction
+                input_distrib = self.get_recinput(itr, self.rec_input_distrib, self.desig_pix[0])
+            else:
+                input_distrib = self.switch_on_pix(self.desig_pix[0])
+            return input_distrib
+
+    def get_recinput(self, itr, rec_input_distrib, desig):
+        if self.t < self.netconf['context_frames']:
+            input_distrib = self.switch_on_pix(desig)
+            if itr == 0:
+                rec_input_distrib.append(input_distrib[:, 1])
+        else:
+            input_distrib = [rec_input_distrib[-2], rec_input_distrib[-1]]
+            input_distrib = [np.expand_dims(elem, axis=1) for elem in input_distrib]
+            input_distrib = np.concatenate(input_distrib, axis=1)
         return input_distrib
 
     def act(self, traj, t, desig_pix = None, goal_pix= None):
@@ -383,7 +428,7 @@ class CEM_controller():
         if t == 0:
             action = np.zeros(4)
             self.desig_pix = np.array(desig_pix).reshape((2,2))
-            self.goal_pix = goal_pix
+            self.goal_pix = np.array(goal_pix).reshape((2,2))
         else:
             if 'single_view' in self.netconf:
                 last_images = traj._sample_images[t - 1:t + 1]   # second image shall contain front view
@@ -410,4 +455,7 @@ class CEM_controller():
 
         force = action
 
-        return force, self.pred_pos, self.bestindices_of_iter, self.rec_input_distrib
+        if 'ndesig' in self.policyparams:
+            return force, self.pred_pos, self.bestindices_of_iter, self.rec_input_distrib1, self.rec_input_distrib2
+        else:
+            return force, self.pred_pos, self.bestindices_of_iter, self.rec_input_distrib
