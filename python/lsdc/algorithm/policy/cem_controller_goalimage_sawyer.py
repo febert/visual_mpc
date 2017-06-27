@@ -124,8 +124,6 @@ class CEM_controller():
             diagonal[3::4] = 1
             self.sigma[np.diag_indices_from(self.sigma)] = diagonal
 
-
-
         else:
             print 'reusing mean form last MPC step...'
             mean_old = copy.deepcopy(self.mean)
@@ -197,11 +195,11 @@ class CEM_controller():
     def switch_on_pix(self):
         one_hot_images = np.zeros((self.netconf['batch_size'], self.netconf['context_frames'], 64, 64, 1), dtype=np.float32)
         # switch on pixels
-        desig_pix = self.desig_pix.reshape((2,2))
-        one_hot_images[:, :, desig_pix[0, 0], desig_pix[0, 1]] = 1
+        one_hot_images[:, :, self.desig_pix[0, 0], self.desig_pix[0, 1]] = 1
+        print 'using desig pix',self.desig_pix[0, 0], self.desig_pix[0, 1]
 
         if '2_desig_pix' in self.policyparams:
-            one_hot_images[:, :, desig_pix[1, 0], desig_pix[1, 1]] = 1
+            one_hot_images[:, :, self.desig_pix[1, 0], self.desig_pix[1, 1]] = 1
 
         return one_hot_images
 
@@ -239,7 +237,6 @@ class CEM_controller():
             for b in range(self.netconf['batch_size']):
                 scores[b] = np.linalg.norm((self.goal_image - gen_images[-1][b]).flatten())
         else: # evaluate pixel movement:
-
             distance_grid = np.empty((64, 64))
             for i in range(64):
                 for j in range(64):
@@ -247,12 +244,19 @@ class CEM_controller():
                     distance_grid[i, j] = np.linalg.norm(self.goal_pix - pos)
             expected_distance = np.zeros(self.netconf['batch_size'])
 
+            desig_pix_cost  = np.zeros(self.netconf['batch_size'])
             if 'rew_all_steps' in self.policyparams:
                 for tstep in range(self.netconf['sequence_length'] - 1):
                     t_mult = 1
                     if 'finalweight' in self.policyparams:
                         if tstep == self.netconf['sequence_length'] - 2:
                             t_mult = self.policyparams['finalweight']
+
+                    # if 'desig_pix_cost' in self.policyparams:
+                    #     for b in range(self.netconf['batch_size']):
+                    #         desig_pix_cost[b] += 1/(np.abs(1-gen_distrib[tstep][b][self.desig_pix[0, 0], self.desig_pix[0, 1]]))*\
+                    #                                                                 self.policyparams['desig_pix_cost']
+                    #         expected_distance[b] += desig_pix_cost[b]
 
                     for b in range(self.netconf['batch_size']):
                         gen = gen_distrib[tstep][b].squeeze() / np.sum(gen_distrib[tstep][b])
@@ -263,7 +267,6 @@ class CEM_controller():
                     gen = gen_distrib[-1][b].squeeze() / np.sum(gen_distrib[-1][b])
                     expected_distance[b] = np.sum(np.multiply(gen, distance_grid))
                 scores = expected_distance
-
 
             if 'avoid_occlusions' in self.policyparams:
                 occlusion_cfactor = self.policyparams['avoid_occlusions']
@@ -301,6 +304,11 @@ class CEM_controller():
                 self.rec_input_distrib.append(np.repeat(best_gen_distrib, self.netconf['batch_size'], 0))
 
         bestindices = scores.argsort()[:self.K]
+
+        # if 'desig_pix_cost' in self.policyparams:
+        #     print 'desig_pix cost:', desig_pix_cost
+        #     print 'print desig_pix of best traj: ', desig_pix_cost[scores.argsort()[0]]
+        #     print 'print desig_pix of worst traj: ', desig_pix_cost[scores.argsort()[-1]]
 
         if self.verbose: #and itr == self.policyparams['iterations']-1:
             # print 'creating visuals for best sampled actions at last iteration...'
@@ -373,7 +381,7 @@ class CEM_controller():
 
         if t == 0:
             action = np.zeros(4)
-            self.desig_pix = desig_pix
+            self.desig_pix = np.array(desig_pix).reshape((2,2))
             self.goal_pix = goal_pix
         else:
             if 'single_view' in self.netconf:
