@@ -20,8 +20,6 @@ import tensorflow as tf
 
 import tensorflow.contrib.slim as slim
 from tensorflow.contrib.layers.python import layers as tf_layers
-# from video_prediction.lstm_ops import basic_conv_lstm_cell as lstm_func
-import pdb
 
 # Amount to use when lower bounding tensors
 RELU_SHIFT = 1e-12
@@ -112,9 +110,73 @@ def basic_conv_lstm_cell(inputs,
     return new_h, tf.concat(axis=3, values=[new_c, new_h])
 
 
-lstm_func = basic_conv_lstm_cell
+@add_arg_scope
+def layer_norm_basic_conv_lstm_cell(inputs,
+                                    state,
+                                    num_channels,
+                                    filter_size=5,
+                                    forget_bias=1.0,
+                                    norm_fn=None,
+                                    scope=None,
+                                    reuse=None):
+  """Basic LSTM recurrent network cell, with 2D convolution connctions.
 
+  We add forget_bias (default: 1) to the biases of the forget gate in order to
+  reduce the scale of forgetting in the beginning of the training.
 
+  It does not allow cell clipping, a projection layer, and does not
+  use peep-hole connections: it is the basic baseline.
+
+  Args:
+    inputs: input Tensor, 4D, batch x height x width x channels.
+    state: state Tensor, 4D, batch x height x width x channels.
+    num_channels: the number of output channels in the layer.
+    filter_size: the shape of the each convolution filter.
+    forget_bias: the initial value of the forget biases.
+    scope: Optional scope for variable_scope.
+    reuse: whether or not the layer and the variables should be reused.
+
+  Returns:
+     a tuple of tensors representing output and the new state.
+  """
+  spatial_size = inputs.get_shape()[1:3]
+  if state is None:
+    state = init_state(inputs, list(spatial_size) + [2 * num_channels])
+  if norm_fn is None:
+    norm_fn = tf.contrib.layers.layer_norm
+  with tf.variable_scope(scope,
+                         'LayerNormBasicConvLstmCell',
+                         [inputs, state],
+                         reuse=reuse):
+    inputs.get_shape().assert_has_rank(4)
+    state.get_shape().assert_has_rank(4)
+    c, h = tf.split(state, 2, axis=3)
+    inputs_h = tf.concat([inputs, h], axis=3)
+    # Parameters of gates are concatenated into one conv for efficiency.
+    i_j_f_o = layers.conv2d(inputs_h,
+                            4 * num_channels, [filter_size, filter_size],
+                            stride=1,
+                            activation_fn=None,
+                            biases_initializer=None,
+                            scope='Gates')
+
+    # i = input_gate, j = new_input, f = forget_gate, o = output_gate
+    i, j, f, o = tf.split(i_j_f_o, 4, axis=3)
+    # with tf.variable_scope('norm_input_gate'):
+    i = norm_fn(i, scope='norm_input_gate')
+    # with tf.variable_scope('norm_new_input'):
+    j = norm_fn(j, scope='norm_new_input')
+    # with tf.variable_scope('norm_forget_gate'):
+    f = norm_fn(f, scope='norm_forget_gate')
+    # with tf.variable_scope('norm_output_gate'):
+    o = norm_fn(o, scope='norm_output_gate')
+
+    new_c = c * tf.sigmoid(f + forget_bias) + tf.sigmoid(i) * tf.tanh(j)
+    # with tf.variable_scope('norm_cell'):
+    new_c = norm_fn(new_c, scope='norm_cell')
+    new_h = tf.tanh(new_c) * tf.sigmoid(o)
+
+    return new_h, tf.concat([new_c, new_h], axis=3)
 
 
 def create_accum_tf_factorized_generator(images, states, actions, iter_num=None, schedule_sampling_k=None, context_frames=None,
@@ -128,6 +190,7 @@ def create_accum_tf_factorized_generator(images, states, actions, iter_num=None,
 
     batch_size, img_height, img_width, color_channels = images[0].get_shape()[0:4]
     batch_size = int(batch_size)
+    lstm_func = basic_conv_lstm_cell
 
     # Generated robot states and images.
     gen_images = []
@@ -335,6 +398,286 @@ def create_accum_tf_factorized_generator(images, states, actions, iter_num=None,
     return gen_images, gen_masks, gen_states, gen_transformed_images, gen_pix_distrib
 
 
+def crop(image, height, width):
+    dh = int(image.shape[1]) - int(height)
+    dw = int(image.shape[2]) - int(width)
+    assert dh >= 0
+    assert dw >= 0
+    assert dh % 2 == 0
+    assert dw % 2 == 0
+    if dh or dw:
+        image = image[..., dh // 2:-dh // 2, dw // 2:-dw // 2, :]
+    return image
+
+
+def pad(image, height, width):
+    dh = int(height) - int(image.shape[1])
+    dw = int(width) - int(image.shape[2])
+    assert dh >= 0
+    assert dw >= 0
+    assert dh % 2 == 0
+    assert dw % 2 == 0
+    if dh or dw:
+        padding_pattern = [[0, 0] for _ in image.shape]
+        padding_pattern[-3] = [dh // 2, dh // 2]
+        padding_pattern[-2] = [dw // 2, dw // 2]
+        image = tf.pad(image, padding_pattern)
+    return image
+
+
+def create_accum_tf_factorized_generator(images, states, actions, iter_num=None, schedule_sampling_k=None, context_frames=None,
+                                         use_lstm_ln=None, use_full_images=None, num_first_frames=None,
+                                         use_hidden_skip_connection=None,
+                                         first_image_background=False, prev_image_background=True,
+                                         num_masks=None, dependent_mask=None, stp=False, cdna=True, dna=False,
+                                         pix_distributions=None, **kwargs):
+    """
+    like create_accum_tf_generator except the transformed images are the inputs of the convnet
+    and that the masks depend on the transformed images
+    """
+    import tensorflow.contrib.slim as slim
+    from tensorflow.contrib.layers.python import layers as tf_layers
+    if stp + cdna + dna != 1:
+        raise ValueError('More than one, or no network option specified.')
+    first_image_background = bool(first_image_background)
+    prev_image_background = bool(prev_image_background)
+    num_transformed_images = num_masks - num_first_frames - int(first_image_background) - int(prev_image_background)
+
+    batch_size, img_height, img_width, color_channels = images[0].get_shape()[0:4]
+    batch_size = int(batch_size)
+    if use_lstm_ln:
+        lstm_func = layer_norm_basic_conv_lstm_cell
+    else:
+        lstm_func = basic_conv_lstm_cell
+    # Generated robot states and images.
+    gen_images = []
+    gen_masks = []
+    gen_states = []
+    gen_transformed_images = []
+    gen_pix_distribs = []
+    current_state = states[0]
+
+    k = schedule_sampling_k
+    if k == -1:
+        feedself = True
+    else:
+        # Scheduled sampling:
+        # Calculate number of ground-truth frames to pass in.
+        num_ground_truth = tf.to_int32(tf.round(tf.to_float(batch_size) * (k / (k + tf.exp(tf.to_float(iter_num) / k)))))
+        feedself = False
+
+    # LSTM state sizes and states.
+    lstm_size = np.int32(np.array([16, 16, 32, 32, 64, 32, 16]))
+    lstm_state1, lstm_state2, lstm_state3, lstm_state4 = None, None, None, None
+    lstm_state5, lstm_state6, lstm_state7 = None, None, None
+
+    # actual mask is unused
+    for t, (image, action) in enumerate(zip(images[:-1], actions[:-1])):
+        print(t)
+        # Reuse variables after the first timestep.
+        reuse = bool(gen_images)
+
+        done_warm_start = len(gen_images) > context_frames - 1
+        with slim.arg_scope(
+                [lstm_func, slim.layers.conv2d, slim.layers.fully_connected,
+                 tf_layers.layer_norm, slim.layers.conv2d_transpose],
+                reuse=reuse):
+
+            if feedself and done_warm_start:
+                prev_image = gen_images[-1]
+                # transformed_full_images is fed back in
+                if pix_distributions is not None:
+                    prev_pix_distrib = gen_pix_distribs[-1]
+                    # transformed_full_pix_distribs is fed back in
+            elif done_warm_start:
+                padded_images = [pad(image, *transformed_full_image.shape[1:3]) for transformed_full_image in transformed_full_images]
+                prev_and_transformed_full_images = \
+                    scheduled_samples([image] + padded_images,
+                                      [gen_images[-1]] + transformed_full_images,
+                                      batch_size, num_ground_truth)
+                prev_image, transformed_full_images = prev_and_transformed_full_images[0], prev_and_transformed_full_images[1:]
+                if pix_distributions is not None:
+                    raise NotImplementedError
+            else:
+                prev_image = image
+                transformed_full_images = [image] * num_transformed_images
+                if pix_distributions is not None:
+                    prev_pix_distrib = tf.expand_dims(pix_distributions[t], axis=-1)
+                    transformed_full_pix_distribs = [tf.expand_dims(pix_distributions[t], -1)] * num_transformed_images
+
+            # Predicted state is always fed back in
+            state_action = tf.concat(axis=1, values=[action, current_state])
+
+            transformed_images = [crop(transformed_full_image, img_height, img_width)
+                                  for transformed_full_image in transformed_full_images]
+            enc0 = slim.layers.conv2d(    #32x32x32
+                tf.concat(transformed_images, axis=-1),
+                32, [5, 5],
+                stride=2,
+                scope='scale1_conv1',
+                normalizer_fn=tf_layers.layer_norm,
+                normalizer_params={'scope': 'layer_norm1'})
+
+            hidden1, lstm_state1 = lstm_func(       # 32x32x16
+                enc0, lstm_state1, lstm_size[0], scope='state1')
+            if not use_lstm_ln:  # don't apply layer_norm since it is applied inside the lstm_func
+                hidden1 = tf_layers.layer_norm(hidden1, scope='layer_norm2')
+            # hidden2, lstm_state2 = lstm_func(
+            #     hidden1, lstm_state2, lstm_size[1], scope='state2')
+            # hidden2 = tf_layers.layer_norm(hidden2, scope='layer_norm3')
+            enc1 = slim.layers.conv2d(     # 16x16x16
+                hidden1, hidden1.get_shape()[3], [3, 3], stride=2, scope='conv2')
+
+            hidden3, lstm_state3 = lstm_func(   #16x16x32
+                enc1, lstm_state3, lstm_size[2], scope='state3')
+            if not use_lstm_ln:  # don't apply layer_norm since it is applied inside the lstm_func
+                hidden3 = tf_layers.layer_norm(hidden3, scope='layer_norm4')
+            # hidden4, lstm_state4 = lstm_func(
+            #     hidden3, lstm_state4, lstm_size[3], scope='state4')
+            # hidden4 = tf_layers.layer_norm(hidden4, scope='layer_norm5')
+            enc2 = slim.layers.conv2d(    #8x8x32
+                hidden3, hidden3.get_shape()[3], [3, 3], stride=2, scope='conv3')
+
+            # Pass in state and action.
+            smear = tf.expand_dims(tf.expand_dims(state_action, 1), 1)
+            smear = tf.tile(
+                smear, [1, int(enc2.get_shape()[1]), int(enc2.get_shape()[2]), 1])
+            enc2 = tf.concat(axis=3, values=[enc2, smear])
+            enc3 = slim.layers.conv2d(   #8x8x32
+                enc2, hidden3.get_shape()[3], [1, 1], stride=1, scope='conv4')
+
+            hidden5, lstm_state5 = lstm_func(  #8x8x64
+                enc3, lstm_state5, lstm_size[4], scope='state5')
+            if not use_lstm_ln:  # don't apply layer_norm since it is applied inside the lstm_func
+                hidden5 = tf_layers.layer_norm(hidden5, scope='layer_norm6')
+            enc4 = slim.layers.conv2d_transpose(  #16x16x64
+                hidden5, hidden5.get_shape()[3], 3, stride=2, scope='convt1')
+
+            hidden6, lstm_state6 = lstm_func(  #16x16x32
+                enc4, lstm_state6, lstm_size[5], scope='state6')
+            if not use_lstm_ln:  # don't apply layer_norm since it is applied inside the lstm_func
+                hidden6 = tf_layers.layer_norm(hidden6, scope='layer_norm7')
+
+            # Skip connection.
+            if use_hidden_skip_connection:
+                hidden6 = tf.concat(axis=3, values=[hidden6, hidden3])  # both 16x16
+            else:
+                hidden6 = tf.concat(axis=3, values=[hidden6, enc1])  # both 16x16
+
+            enc5 = slim.layers.conv2d_transpose(  #32x32x32
+                hidden6, hidden6.get_shape()[3], 3, stride=2, scope='convt2')
+            hidden7, lstm_state7 = lstm_func( # 32x32x16
+                enc5, lstm_state7, lstm_size[6], scope='state7')
+            if not use_lstm_ln:  # don't apply layer_norm since it is applied inside the lstm_func
+                hidden7 = tf_layers.layer_norm(hidden7, scope='layer_norm8')
+
+            # Skip connection.
+            if use_hidden_skip_connection:
+                hidden7 = tf.concat(axis=3, values=[hidden7, hidden1])  # both 32x32
+            else:
+                hidden7 = tf.concat(axis=3, values=[hidden7, enc0])  # both 32x32
+
+            enc6 = slim.layers.conv2d_transpose(   # 64x64x16
+                hidden7,
+                hidden7.get_shape()[3], 3, stride=2, scope='convt3',
+                normalizer_fn=tf_layers.layer_norm,
+                normalizer_params={'scope': 'layer_norm9'})
+
+            DNA_KERN_SIZE = 5
+            if dna:
+                raise NotImplementedError
+                # Using largest hidden state for predicting untied conv kernels.
+                enc7 = slim.layers.conv2d_transpose(
+                    enc6, DNA_KERN_SIZE**2, 1, stride=1, scope='convt4')
+            else:
+                # Using largest hidden state for predicting a new image layer.
+                enc7 = slim.layers.conv2d_transpose(
+                    enc6, color_channels, 1, stride=1, scope='convt4')
+                # This allows the network to also generate one image from scratch,
+                # which is useful when regions of the image become unoccluded.
+                transformed = [tf.nn.sigmoid(enc7)]
+
+            if stp:
+                raise NotImplementedError
+                stp_input0 = tf.reshape(hidden5, [int(batch_size), -1])
+                stp_input1 = slim.layers.fully_connected(
+                    stp_input0, 100, scope='fc_stp')
+                transformed += stp_transformation(prev_image, stp_input1, num_masks)
+            elif cdna:
+                cdna_input = tf.reshape(hidden5, [int(batch_size), -1])
+                assert len(transformed_full_images) == num_transformed_images
+                transformed_full_images = cdna_transformations(transformed_full_images, cdna_input,
+                                                               num_transformed_images,
+                                                               int(color_channels),
+                                                               padding='FULL' if use_full_images else 'SAME',
+                                                               reuse_sc=reuse)
+                transformed += [crop(transformed_full_image, img_height, img_width)
+                                for transformed_full_image in transformed_full_images]
+                if pix_distributions is not None:
+                    transformed_pix_distribs = [0]  # to replace the generated pixels which don't exist for pixdistrib
+                    assert len(transformed_full_pix_distribs) == num_transformed_images
+                    transformed_full_pix_distribs = cdna_transformations(transformed_full_pix_distribs, cdna_input,
+                                                                         num_transformed_images,
+                                                                         1,
+                                                                         padding='FULL' if use_full_images else 'SAME',
+                                                                         reuse_sc=True)
+                    transformed_pix_distribs += [crop(transformed_full_pix_distrib, img_height, img_width)
+                                                 for transformed_full_pix_distrib in transformed_full_pix_distribs]
+            elif dna:
+                raise NotImplementedError
+                # Only one mask is supported (more should be unnecessary).
+                if num_masks != 1:
+                    raise ValueError('Only one mask is supported for DNA model.')
+                transformed = [dna_transformation(prev_image, enc7)]
+
+            if dependent_mask:
+                masks = slim.layers.conv2d_transpose(
+                    tf.concat([enc6] + transformed, axis=-1), num_masks + 1, 1, stride=1, scope='convt7')
+            else:
+                masks = slim.layers.conv2d_transpose(
+                    enc6, num_masks + 1, 1, stride=1, scope='convt7')
+            masks = tf.reshape(
+                tf.nn.softmax(tf.reshape(masks, [-1, num_masks + 1])),
+                [int(batch_size), int(img_height), int(img_width), num_masks + 1])
+            mask_list = tf.split(axis=3, num_or_size_splits=num_masks + 1, value=masks)
+            if first_image_background:
+                transformed.insert(0, images[0])
+            if prev_image_background:
+                transformed.insert(0, prev_image)
+            if num_first_frames:
+                transformed.extend([images[0]] * num_first_frames)
+            assert len(transformed) == len(mask_list)
+            output = 0
+            for layer, mask in zip(transformed, mask_list):
+                output += layer * mask
+            gen_images.append(output)
+            gen_masks.append(mask_list)
+
+            if pix_distributions is not None:
+                if first_image_background:
+                    transformed_pix_distribs.insert(0, tf.expand_dims(pix_distributions[0], -1))
+                if prev_image_background:
+                    transformed_pix_distribs.insert(0, prev_pix_distrib)
+                if num_first_frames:
+                    transformed_pix_distribs.extend([tf.expand_dims(pix_distributions[0], axis=-1)] * num_first_frames)
+                assert len(transformed_pix_distribs) == len(mask_list)
+                output_pix_distrib = 0
+                for layer, mask in zip(transformed_pix_distribs, mask_list):
+                    output_pix_distrib += layer * mask
+                gen_pix_distribs.append(output_pix_distrib)
+
+            current_state = slim.layers.fully_connected(
+                state_action,
+                int(current_state.get_shape()[1]),
+                scope='state_pred',
+                activation_fn=None)
+            gen_states.append(current_state)
+
+            gen_transformed_images.append(transformed)
+
+    return gen_images, gen_masks, gen_states, gen_transformed_images, gen_pix_distribs
+
+
 def construct_model(images,
                     actions=None,
                     states=None,
@@ -358,6 +701,12 @@ def construct_model(images,
                                                  num_masks=num_masks,
                                                  context_frames=context_frames,
                                                  dependent_mask=True,
+                                                 use_lstm_ln=conf['use_lstm_ln'],
+                                                 use_full_images=conf['use_full_images'],
+                                                 num_first_frames=conf['num_first_frames'],
+                                                 use_hidden_skip_connection=False,
+                                                 first_image_background=conf['first_image_background'],
+                                                 prev_image_background=conf['prev_image_background'],
                                                  stp=conf['model'] == 'STP',
                                                  cdna=conf['model'] == 'CDNA',
                                                  dna=conf['model'] == 'DNA',
@@ -365,7 +714,19 @@ def construct_model(images,
     return gen_images, gen_states, gen_masks, gen_pix_distrib
 
 
-def cdna_transformations(prev_images, cdna_input, num_masks, color_channels, reuse_sc=None):
+def depthwise_conv2d(input, filter, strides, padding, **kwargs):
+    if padding == 'FULL':
+        padding_pattern = np.tile((np.array(filter.get_shape()[:2], dtype=int)[:, None] - 1) // 2, (1, 2))
+        padding_pattern = [[0, 0],
+                           list(padding_pattern[0]),
+                           list(padding_pattern[1]),
+                           [0, 0]]
+        input = tf.pad(input, padding_pattern)
+        padding = 'SAME'
+    return tf.nn.depthwise_conv2d(input, filter, strides, padding)
+
+
+def cdna_transformations(prev_images, cdna_input, num_masks, color_channels, padding=None, reuse_sc=None):
     """Apply convolutional dynamic neural advection to previous image.
 
     Args:
@@ -378,6 +739,8 @@ def cdna_transformations(prev_images, cdna_input, num_masks, color_channels, reu
     """
     DNA_KERN_SIZE = 5
     RELU_SHIFT = 1e-12
+
+    padding = padding or 'SAME'
 
     batch_size = int(cdna_input.get_shape()[0])
     height = int(prev_images[0].get_shape()[1])
@@ -405,7 +768,7 @@ def cdna_transformations(prev_images, cdna_input, num_masks, color_channels, reu
     prev_images = tf.transpose(prev_images, [4, 2, 3, 1, 0])
     prev_images = tf.reshape(prev_images, [color_channels, height, width, -1])
 
-    transformed_images = tf.nn.depthwise_conv2d(prev_images, cdna_kerns, [1, 1, 1, 1], 'SAME')
+    transformed_images = depthwise_conv2d(prev_images, cdna_kerns, [1, 1, 1, 1], padding)
 
     # Transpose and reshape.
     transformed_images = tf.reshape(transformed_images, [color_channels, height, width, batch_size, num_masks])

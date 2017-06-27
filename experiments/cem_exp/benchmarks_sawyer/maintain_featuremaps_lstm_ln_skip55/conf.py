@@ -14,9 +14,10 @@ configuration = {
 'prediction_model':Model,
 'current_dir': current_dir, #'directory for writing gifs' ,
 # 'filepath of a pretrained model to use for cem
-'pretrained_model': LSDC_BASE +'/tensorflow_data/occulsionmodel/alex_model/modeldata/',
+'pretrained_model': '/home/alex/rll/pix2pix-tensorflow/log_softmotion/cdna_accum_tf_factorized_dependent_mask_lstm_ln_skip55_l2_1',
+# 'pretrained_model': LSDC_BASE +'/tensorflow_data/occulsionmodel/alex_model/modeldata/',
 # 'pretrained_model': LSDC_BASE +'/tensorflow_data/sawyer/singleview_shifted/modeldata/model114002',
-'sequence_length': 15,      # 'sequence length, including context frames.' ,
+'sequence_length': 10,      # 'sequence length, including context frames.' ,
 'context_frames': 2,        # of frames before predictions.' ,
 'use_state': 1,             #'Whether or not to give the state+action to the model' ,
 'model': 'CDNA',            #'model architecture to use - CDNA, DNA, or STP' ,
@@ -28,7 +29,7 @@ configuration = {
 'file_visual': '',          # datafile used for making visualizations,
 'dna_size': 5,              #size of DNA kerns
 'single_view':"",
-'use_lstm_ln': False,
+'use_lstm_ln': True,
 'use_full_images': False,
 'num_first_frames': 0,
 'first_image_background': False,
