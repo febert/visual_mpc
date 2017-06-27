@@ -196,10 +196,11 @@ class CEM_controller():
         one_hot_images = np.zeros((self.netconf['batch_size'], self.netconf['context_frames'], 64, 64, 1), dtype=np.float32)
         # switch on pixels
         one_hot_images[:, :, self.desig_pix[0, 0], self.desig_pix[0, 1]] = 1
-        print 'using desig pix',self.desig_pix[0, 0], self.desig_pix[0, 1]
+        print 'using desig pix0',self.desig_pix[0, 0], self.desig_pix[0, 1]
 
         if '2_desig_pix' in self.policyparams:
             one_hot_images[:, :, self.desig_pix[1, 0], self.desig_pix[1, 1]] = 1
+            print 'using desig pix1', self.desig_pix[1, 0], self.desig_pix[1, 1]
 
         return one_hot_images
 
