@@ -17,10 +17,13 @@ policy = {
     'action_cost_factor': 0,
     # 'reuse_mean_cov':'',
     # 'no_instant_gif':"",
-    # 'rew_all_steps':"",
-    # 'finalweight':10
+    'no_pixdistrib_video':'',
+    'use_first_plan':'',
+    'rew_all_steps':"",
+    'finalweight':10,
+    # 'desig_pix_cost':10
 }
 
 agent = {
-    'T': 20,
+    'T': 15,
 }

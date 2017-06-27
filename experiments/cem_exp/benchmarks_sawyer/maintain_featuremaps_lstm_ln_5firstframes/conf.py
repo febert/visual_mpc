@@ -14,7 +14,7 @@ configuration = {
 'prediction_model':Model,
 'current_dir': current_dir, #'directory for writing gifs' ,
 # 'filepath of a pretrained model to use for cem
-'pretrained_model': '/home/alex/rll/pix2pix-tensorflow/log_softmotion/cdna_accum_tf_factorized_dependent_mask_lstm_ln_5firstframes_l2',
+'pretrained_model':'/home/guser/catkin_ws/src/lsdc/tensorflow_data/sawyer/cdna_accum_tf_factorized_dependent_mask_lstm_ln_5firstframes_l2',
 # 'pretrained_model': LSDC_BASE +'/tensorflow_data/occulsionmodel/alex_model/modeldata/',
 # 'pretrained_model': LSDC_BASE +'/tensorflow_data/sawyer/singleview_shifted/modeldata/model114002',
 'sequence_length': 15,      # 'sequence length, including context frames.' ,

@@ -183,7 +183,7 @@ def go_through_timesteps(file_path):
 
 if __name__ == '__main__':
     # file_path = '/home/guser/catkin_ws/src/lsdc/experiments/cem_exp/benchmarks_sawyer/predprop_1stimg_bckgd'
-    file_path = '/home/guser/catkin_ws/src/lsdc/experiments/cem_exp/benchmarks_sawyer/maintain_featuremaps'
+    file_path = '/home/guser/catkin_ws/src/lsdc/experiments/cem_exp/benchmarks_sawyer/maintain_featuremaps_lstm_ln_5firstframes'
 
     # file_path = '/home/frederik/Documents/catkin_ws/src/lsdc/experiments/cem_exp/benchmarks_sawyer/predprop_1stimg_bckgd'
     hyperparams = imp.load_source('hyperparams', file_path + '/conf.py')
@@ -194,4 +194,4 @@ if __name__ == '__main__':
     # create_video_pixdistrib_gif(exp_dir + '/modeldata', conf, t=0, suppress_number=True, append_masks=True, show_moved=True)
     # create_video_pixdistrib_gif(file_path, conf, n_exp= 10, suppress_number= True)
     #
-    go_through_timesteps(file_path +'/longdistance/mf_ld9-6_o2/verbose')
+    go_through_timesteps(file_path +'/verbose')

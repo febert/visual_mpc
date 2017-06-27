@@ -252,11 +252,11 @@ class CEM_controller():
                         if tstep == self.netconf['sequence_length'] - 2:
                             t_mult = self.policyparams['finalweight']
 
-                    # if 'desig_pix_cost' in self.policyparams:
-                    #     for b in range(self.netconf['batch_size']):
-                    #         desig_pix_cost[b] += 1/(np.abs(1-gen_distrib[tstep][b][self.desig_pix[0, 0], self.desig_pix[0, 1]]))*\
-                    #                                                                 self.policyparams['desig_pix_cost']
-                    #         expected_distance[b] += desig_pix_cost[b]
+                    if 'desig_pix_cost' in self.policyparams:
+                        for b in range(self.netconf['batch_size']):
+                            desig_pix_cost[b] += gen_distrib[tstep][b][self.desig_pix[0, 0], self.desig_pix[0, 1]]*\
+                                                                                    self.policyparams['desig_pix_cost']
+                            expected_distance[b] += desig_pix_cost[b]
 
                     for b in range(self.netconf['batch_size']):
                         gen = gen_distrib[tstep][b].squeeze() / np.sum(gen_distrib[tstep][b])
@@ -305,10 +305,10 @@ class CEM_controller():
 
         bestindices = scores.argsort()[:self.K]
 
-        # if 'desig_pix_cost' in self.policyparams:
-        #     print 'desig_pix cost:', desig_pix_cost
-        #     print 'print desig_pix of best traj: ', desig_pix_cost[scores.argsort()[0]]
-        #     print 'print desig_pix of worst traj: ', desig_pix_cost[scores.argsort()[-1]]
+        if 'desig_pix_cost' in self.policyparams:
+            print 'desig_pix cost:', desig_pix_cost
+            print 'print desig_pix of best traj: ', desig_pix_cost[scores.argsort()[0]]
+            print 'print desig_pix of worst traj: ', desig_pix_cost[scores.argsort()[-1]]
 
         if self.verbose: #and itr == self.policyparams['iterations']-1:
             # print 'creating visuals for best sampled actions at last iteration...'
