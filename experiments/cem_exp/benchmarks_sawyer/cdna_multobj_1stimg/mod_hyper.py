@@ -15,7 +15,7 @@ policy = {
     'verbose':'',
     'predictor_propagation': '',   # use the model get the designated pixel for the next step!
     'action_cost_factor': 0,
-    # 'no_pixdistrib_video':'',
+    'no_pixdistrib_video':'',
     'no_instant_gif':"",
     'finalweight':10,
     'rew_all_steps':"",
