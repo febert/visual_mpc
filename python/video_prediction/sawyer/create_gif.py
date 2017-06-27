@@ -107,8 +107,8 @@ def create_video_pixdistrib_gif(file_path, conf, t=0, suffix = "", n_exp = 8, su
         gen_distrib1 = cPickle.load(open(file_path + '/gen_distrib1_t{}.pkl'.format(t), "rb"))
         gen_distrib2 = cPickle.load(open(file_path + '/gen_distrib2_t{}.pkl'.format(t), "rb"))
 
-        plot_psum_overtime(conf, gen_distrib1, n_exp, name, file_path)
-        plot_psum_overtime(conf, gen_distrib2, n_exp, name, file_path)
+        plot_psum_overtime(conf, gen_distrib1, n_exp, name+'_1', file_path)
+        plot_psum_overtime(conf, gen_distrib2, n_exp, name+'_2', file_path)
     else:
         gen_distrib = cPickle.load(open(file_path + '/gen_distrib_t{}.pkl'.format(t), "rb"))
         plot_psum_overtime(conf, gen_distrib, n_exp, name, file_path)
