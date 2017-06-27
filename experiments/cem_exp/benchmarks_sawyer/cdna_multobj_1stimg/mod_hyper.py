@@ -7,7 +7,7 @@ policy = {
     'type' : CEM_controller,
     'low_level_ctrl': None,
     'usenet': True,
-    'nactions': 5,
+    'nactions': 7,
     'repeat': 3,
     'initial_std': .035,
     'netconf': current_dir + '/conf.py',

@@ -13,7 +13,7 @@ configuration = {
 'current_dir': current_dir, #'directory for writing gifs' ,
 # 'filepath of a pretrained model to use for cem
 'pretrained_model': LSDC_BASE +'/tensorflow_data/sawyer/1stimg_bckgd_cdna/modeldata/model64002',
-'sequence_length': 15,      # 'sequence length, including context frames.' ,
+'sequence_length': 21,      # 'sequence length, including context frames.' ,
 'context_frames': 2,        # of frames before predictions.' ,
 'use_state': 1,             #'Whether or not to give the state+action to the model' ,
 'model': 'CDNA',            #'model architecture to use - CDNA, DNA, or STP' ,
