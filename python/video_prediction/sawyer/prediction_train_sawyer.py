@@ -221,7 +221,7 @@ class Getdesig(object):
         print('button=%d, x=%d, y=%d, xdata=%f, ydata=%f' %
               (event.button, event.x, event.y, event.xdata, event.ydata))
         self.coords = np.array([event.ydata, event.xdata])
-        self.ax.scatter(self.coords[1], self.coords[0], s=60, facecolors='none', edgecolors='b')
+        self.ax.scatter(self.coords[1], self.coords[0], marker= "o", s=70, facecolors='b', edgecolors='b')
         self.ax.set_xlim(0, 63)
         self.ax.set_ylim(63, 0)
         plt.draw()
@@ -255,7 +255,7 @@ def main(unused_argv, conf_script= None):
         conf['sequence_length'] = 15
         if FLAGS.diffmotions:
             inference = True
-            conf['sequence_length'] = 30
+            conf['sequence_length'] = 15
 
     print 'Constructing models and inputs.'
     if FLAGS.diffmotions:
@@ -336,7 +336,7 @@ def main(unused_argv, conf_script= None):
 
         if FLAGS.diffmotions:
 
-            b_exp, ind0 = 0, 0
+            b_exp, ind0 =0, 0
 
             if 'single_view' in conf:
                 img, state = sess.run([val_images, val_states])
@@ -386,7 +386,8 @@ def main(unused_argv, conf_script= None):
 
             actions = np.zeros([conf['batch_size'], conf['sequence_length'], 4])
 
-            step = .025
+            # step = .025
+            step = .05
             n_angles = 8
             for b in range(n_angles):
                 for i in range(conf['sequence_length']):
@@ -402,7 +403,7 @@ def main(unused_argv, conf_script= None):
 
             feed_dict[actions_pl] = actions
 
-            gen_images, gen_distrib, gen_masks, moved_im, moved_pix, trafos = sess.run([val_model.gen_images, val_model.gen_distrib, val_model.gen_masks,
+            gen_images, gen_distrib, gen_masks, moved_im, moved_pix, trafos = sess.run([val_model.gen_images, val_model.gen_distrib1, val_model.gen_masks,
                                                                                 val_model.moved_im, val_model.moved_pix, val_model.trafos],feed_dict)
 
             cPickle.dump(gen_images, open(file_path + '/gen_image_t0.pkl', 'wb'))
@@ -414,7 +415,7 @@ def main(unused_argv, conf_script= None):
 
             create_video_pixdistrib_gif(file_path, conf,0,
                                         suffix='_diffmotions_b{}_l{}'.format(b_exp, conf['sequence_length']), n_exp=10,
-                                        append_masks=True, show_moved=False)
+                                        append_masks=False, show_moved=False)
         else:
             gen_images, ground_truth, gen_masks = sess.run([val_model.gen_images, val_model.images_sel, val_model.gen_masks],
                                                 feed_dict)

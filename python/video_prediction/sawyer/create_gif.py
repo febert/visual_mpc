@@ -238,21 +238,28 @@ def get_jetmap(img):
 
 def make_psum_overtime_example(filepath, tmpc):
 
-    gen_distrib1 = cPickle.load(open(filepath + '/gen_distrib1_t{}.pkl'.format(tmpc), "rb"))
-    gen_distrib2 = cPickle.load(open(filepath + '/gen_distrib2_t{}.pkl'.format(tmpc), "rb"))
+    # gen_distrib1 = cPickle.load(open(filepath + '/gen_distrib1_t{}.pkl'.format(tmpc), "rb"))
+    # gen_distrib2 = cPickle.load(open(filepath + '/gen_distrib2_t{}.pkl'.format(tmpc), "rb"))
+
+    filepath = '/home/frederik/Documents/lsdc/tensorflow_data/sawyer/1stimg_bckgd_cdna/modeldata/'
+    gen_distrib1 = cPickle.load(open(filepath + '/gen_distrib_t0.pkl', "rb"))
+
+    filepath = '/home/frederik/Documents/lsdc/tensorflow_data/sawyer/dna_correct_nummask/modeldata/'
+    gen_distrib2 = cPickle.load(open(filepath + '/gen_distrib_t0.pkl', "rb"))
 
     fig = plt.figure(figsize=(8, 3), dpi=80)
     fig.suptitle("Spatial sum of probablity masks over time", fontsize=13, y=.95)
     plt.subplots_adjust(left=None, bottom=0.2, right=None, top=.8, wspace=.3, hspace=.2)
 
-    ex = 0
+    ex = 1
     psum = []
     ax = plt.subplot(1,2, 1)
     for t in range(len(gen_distrib1)):
         psum.append(np.sum(gen_distrib1[t][ex]))
     psum = np.array(psum)
     plt.plot(range(len(gen_distrib1)), psum, marker = "o")
-    ax.set_title("designated pixel on moved object", fontsize="10")
+    # ax.set_title("designated pixel on moved object", fontsize="10")
+    ax.set_title("proposed 1st-step background model", fontsize="10")
 
     plt.xlabel('Timestep t', fontsize=10)
     plt.ylabel('Pseudo-probability p', fontsize=10)
@@ -264,7 +271,8 @@ def make_psum_overtime_example(filepath, tmpc):
         psum.append(np.sum(gen_distrib2[t][ex]))
     psum = np.array(psum)
     plt.plot(range(len(gen_distrib2)), psum, color='g', marker = "d")
-    ax.set_title("designated pixel on occluded object", fontsize="10")
+    # ax.set_title("designated pixel on occluded object", fontsize="10")
+    ax.set_title("original DNA model", fontsize="10")
 
     plt.xlabel('Timestep t', fontsize=10)
     plt.ylabel('Pseudo-probability p', fontsize=10)
@@ -273,7 +281,7 @@ def make_psum_overtime_example(filepath, tmpc):
     # plt.show()
     filename = filepath + '/psum_overtime{}.png'.format(tmpc)
     print 'saving to ', filename
-    plt.savefig(filename)
+    plt.savefig(filename, dpi=200)
     plt.close('all')
 
 
@@ -282,16 +290,16 @@ if __name__ == '__main__':
     # file_path = '/home/guser/catkin_ws/src/lsdc/experiments/cem_exp/benchmarks_sawyer/dna_multobj'
 
     # file_path = '/home/frederik/Documents/catkin_ws/src/lsdc/experiments/cem_exp/benchmarks_sawyer/predprop_1stimg_bckgd'
-    hyperparams = imp.load_source('hyperparams', file_path + '/conf.py')
+    # hyperparams = imp.load_source('hyperparams', file_path + '/conf.py')
 
-    conf = hyperparams.configuration
+    # conf = hyperparams.configuration
     # conf['visualize'] = conf['output_dir'] + '/model22002'
     # create_video_pixdistrib_gif(file_path, conf, t=1, suppress_number=True)
     # create_video_pixdistrib_gif(exp_dir + '/modeldata', conf, t=0, suppress_number=True, append_masks=True, show_moved=True)
     # create_video_pixdistrib_gif(file_path, conf, n_exp= 10, suppress_number= True)
     #
-    go_through_timesteps(file_path +'/verbose')
+    # go_through_timesteps(file_path +'/verbose')
 
-    # mpcstep = 1
+    mpcstep = 1
     # genimage_color_scheme_overtime(file_path + '/verbose', mpcstep)
-    # make_psum_overtime_example(file_path + '/touching_alittle', mpcstep)
+    make_psum_overtime_example(file_path + '/touching_alittle', mpcstep)

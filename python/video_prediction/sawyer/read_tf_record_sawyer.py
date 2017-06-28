@@ -348,8 +348,9 @@ if __name__ == '__main__':
     conf = {}
 
     current_dir = os.path.dirname(os.path.realpath(__file__))
-    DATA_DIR = '/'.join(str.split(current_dir, '/')[:-3]) + '/pushing_data/canonical_examples/tfrecords'
-    conf['canon_ex'] = ""
+    # DATA_DIR = '/'.join(str.split(current_dir, '/')[:-3]) + '/pushing_data/canonical_examples/tfrecords'
+    DATA_DIR = '/'.join(str.split(current_dir, '/')[:-3]) + '/pushing_data/softmotion30/test'
+    # conf['canon_ex'] = ""
 
     # DATA_DIR = '/'.join(str.split(current_dir, '/')[:-3]) + '/pushing_data/softmotion30/test'
 
@@ -359,7 +360,7 @@ if __name__ == '__main__':
     conf['train_val_split']= 0.95
     conf['sequence_length']= 15      # 'sequence length, including context frames.'
     conf['use_state'] = True
-    conf['batch_size']= 20
+    conf['batch_size']= 32
     conf['visualize']= True
     conf['single_view'] = ''
     conf['context_frames'] = 2
@@ -384,8 +385,6 @@ if __name__ == '__main__':
 
     from video_prediction.utils_vpred.create_gif import comp_single_video
 
-
-
     for i in range(2):
         print 'run number ', i
 
@@ -399,7 +398,7 @@ if __name__ == '__main__':
         # comp_single_video(file_path, image_aux)
 
         # show some frames
-        for i in range(2):
+        for i in range(10,15):
 
             print actions[i]
             print endeff[i]
@@ -414,5 +413,7 @@ if __name__ == '__main__':
             img = Image.fromarray(img, 'RGB')
             # img.save(file_path,'PNG')
             img.show()
+            print i
+            pdb.set_trace()
 
             # pdb.set_trace()

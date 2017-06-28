@@ -465,6 +465,7 @@ class Diffmotion_model(Model):
 
         actions = np.zeros([self.conf['batch_size'], self.conf['sequence_length'], 4])
         step = .025
+        step = .05
         n_angles = 8
         for b in range(n_angles):
             for i in range(self.conf['sequence_length']):

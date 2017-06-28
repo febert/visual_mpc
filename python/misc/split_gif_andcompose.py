@@ -34,7 +34,7 @@ def getFrames(file):
 def make_gen_pix():
 
     # file = '/home/guser/catkin_ws/src/lsdc/experiments/cem_exp/benchmarks_sawyer/cdna_multobj_1stimg/success/vid_cem_control_t7.gif'
-    file ='/home/guser/catkin_ws/src/lsdc/experiments/cem_exp/benchmarks_sawyer/predprop_1stimg_bckgd/verbose/vid_cem_control_t2.gif'
+    file ='/home/frederik/Documents/catkin_ws/src/lsdc/tensorflow_data/sawyer/1stimg_bckgd_cdna/modeldata/vid_rndaction_var10_64002_diffmotions_b0_l15.gif'
 
     gen_pix = getFrames(file)
 
@@ -42,13 +42,14 @@ def make_gen_pix():
     for f in gen_pix:
         im = Image.fromarray(f)
         im = np.asarray(im)
-        im = im[:64*3,:64]
+        pic_row = 1
+        im = im[:64*3,pic_row*64:(pic_row+1)*64]
         # im = Image.fromarray(im).show()
         gen_pix_list.append(im)
 
     fullimg = np.concatenate(gen_pix_list, axis=1)
     # imgpath = '/home/guser/catkin_ws/src/lsdc/experiments/cem_exp/benchmarks_sawyer/cdna_multobj_1stimg/success/gen_pix_overtime.png'
-    imgpath = '/home/guser/catkin_ws/src/lsdc/experiments/cem_exp/benchmarks_sawyer/predprop_1stimg_bckgd/verbose/gen_pix_overtimet2.png'
+    imgpath = '/home/frederik/Documents/lsdc/tensorflow_data/sawyer/1stimg_bckgd_cdna/modeldata/gen_pixb0_overtime.png'
     print 'save to', imgpath
     Image.fromarray(fullimg).save(imgpath)
 
@@ -78,7 +79,7 @@ def make_highres():
 
 if __name__ == '__main__':
     make_gen_pix()
-    make_highres()
+    # make_highres()
 
 
 
