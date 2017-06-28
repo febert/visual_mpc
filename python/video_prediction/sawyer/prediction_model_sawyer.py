@@ -115,10 +115,12 @@ def construct_model(images,
                 prev_image = image
                 if pix_distributions1 != None:
                     prev_pix_distrib1 = pix_distributions1[t]
-                    prev_pix_distrib2 = pix_distributions2[t]
+                    if 'ndesig' in conf:
+                        prev_pix_distrib2 = pix_distributions2[t]
                     if len(prev_pix_distrib1.get_shape()) == 3:
                         prev_pix_distrib1 = tf.expand_dims(prev_pix_distrib1, -1)
-                        prev_pix_distrib2 = tf.expand_dims(prev_pix_distrib2, -1)
+                        if 'ndesig' in conf:
+                            prev_pix_distrib2 = tf.expand_dims(prev_pix_distrib2, -1)
 
             if 'refeed_firstimage' in conf:
                 assert conf['model']=='STP'

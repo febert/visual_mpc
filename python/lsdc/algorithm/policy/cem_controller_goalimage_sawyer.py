@@ -205,6 +205,14 @@ class CEM_controller():
 
         return one_hot_images
 
+    def singlepoint_prob_eval(self, gen_pixdistrib):
+        print 'using singlepoint_prob_eval'
+        scores = np.zeros(self.netconf['batch_size'])
+        for t in range(len(gen_pixdistrib)):
+            for b in range(self.netconf['batch_size']):
+                scores[b] -= gen_pixdistrib[t][b,self.goal_pix[0,0], self.goal_pix[0,1]]
+        return scores
+
     def video_pred(self, last_frames, last_states, actions, itr):
 
         last_states = np.expand_dims(last_states, axis=0)
@@ -243,13 +251,16 @@ class CEM_controller():
 
         else:
             input_distrib = self.make_input_distrib(itr)
-            en_images, gen_distrib, _, gen_states = self.predictor(input_images=last_frames,
+            gen_images, gen_distrib, _, gen_states = self.predictor(input_images=last_frames,
                                                                 input_state=last_states,
                                                                 input_actions=actions,
                                                                 input_one_hot_images1=input_distrib)
 
             distance_grid = self.get_distancegrid(self.goal_pix[0])
-            desig_pix_cost, scores = self.calc_scores(gen_distrib, distance_grid)
+            if 'singlepoint_prob_eval' in self.policyparams:
+                scores = self.singlepoint_prob_eval(gen_distrib)
+            else:
+                desig_pix_cost, scores = self.calc_scores(gen_distrib, distance_grid)
 
         if 'avoid_occlusions' in self.policyparams:
                 occlusion_cfactor = self.policyparams['avoid_occlusions']

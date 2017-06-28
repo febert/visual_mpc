@@ -188,12 +188,12 @@ def go_through_timesteps(file_path):
 
 
 
-def genimage_color_scheme_overtime(filepath_, tmpc):
+def genimage_color_scheme_overtime(filepath, tmpc):
 
-    gen_images = cPickle.load(open(filepath_ + '/gen_image_t{}.pkl'.format(tmpc), "rb"))
+    gen_images = cPickle.load(open(filepath + '/gen_image_t{}.pkl'.format(tmpc), "rb"))
 
-    gen_distrib1 = cPickle.load(open(filepath_ + '/gen_distrib1_t{}.pkl'.format(tmpc), "rb"))
-    gen_distrib2 = cPickle.load(open(filepath_ + '/gen_distrib2_t{}.pkl'.format(tmpc), "rb"))
+    gen_distrib1 = cPickle.load(open(filepath + '/gen_distrib1_t{}.pkl'.format(tmpc), "rb"))
+    gen_distrib2 = cPickle.load(open(filepath + '/gen_distrib2_t{}.pkl'.format(tmpc), "rb"))
 
     b = 0
     cols = []
@@ -278,7 +278,7 @@ def make_psum_overtime_example(filepath, tmpc):
 
 
 if __name__ == '__main__':
-    file_path = '/home/guser/catkin_ws/src/lsdc/experiments/cem_exp/benchmarks_sawyer/cdna_multobj_1stimg'
+    file_path = '/home/guser/catkin_ws/src/lsdc/experiments/cem_exp/benchmarks_sawyer/predprop_1stimg_bckgd'
     # file_path = '/home/guser/catkin_ws/src/lsdc/experiments/cem_exp/benchmarks_sawyer/dna_multobj'
 
     # file_path = '/home/frederik/Documents/catkin_ws/src/lsdc/experiments/cem_exp/benchmarks_sawyer/predprop_1stimg_bckgd'
@@ -290,8 +290,8 @@ if __name__ == '__main__':
     # create_video_pixdistrib_gif(exp_dir + '/modeldata', conf, t=0, suppress_number=True, append_masks=True, show_moved=True)
     # create_video_pixdistrib_gif(file_path, conf, n_exp= 10, suppress_number= True)
     #
-    # go_through_timesteps(file_path +'/verbose')
+    go_through_timesteps(file_path +'/verbose')
 
-    mpcstep = 4
-    # genimage_color_scheme_overtime(file_path + '/touching_alittle', mpcstep)
-    make_psum_overtime_example(file_path + '/touching_alittle', mpcstep)
+    # mpcstep = 1
+    # genimage_color_scheme_overtime(file_path + '/verbose', mpcstep)
+    # make_psum_overtime_example(file_path + '/touching_alittle', mpcstep)
