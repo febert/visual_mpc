@@ -187,6 +187,96 @@ def go_through_timesteps(file_path):
         create_video_pixdistrib_gif(file_path, conf, t, suffix='_t{}'.format(t), n_exp=10, suppress_number=True)
 
 
+
+def genimage_color_scheme_overtime(filepath_, tmpc):
+
+    gen_images = cPickle.load(open(filepath_ + '/gen_image_t{}.pkl'.format(tmpc), "rb"))
+
+    gen_distrib1 = cPickle.load(open(filepath_ + '/gen_distrib1_t{}.pkl'.format(tmpc), "rb"))
+    gen_distrib2 = cPickle.load(open(filepath_ + '/gen_distrib2_t{}.pkl'.format(tmpc), "rb"))
+
+    b = 0
+    cols = []
+
+    for t in range(13):
+
+        singlecolumn = []
+        singlecolumn.append((np.squeeze(gen_images[t][b])*255.).astype(np.uint8))
+        singlecolumn.append(get_jetmap(np.squeeze(gen_distrib1[t][b])))
+        singlecolumn.append(get_jetmap(np.squeeze(gen_distrib2[t][b])))
+
+        composed_col = np.concatenate(singlecolumn, axis=0)
+        cols.append(composed_col)
+
+    cols = [np.concatenate([c, np.ones((c.shape[0],5,3), dtype=np.uint8)*255], axis=1) for c in cols]
+    img = np.concatenate(cols, axis=1)
+
+    img_file = file_path +'/gen_image_color_overtime_t{}.png'.format(tmpc)
+    print 'saving to ', img_file
+    Image.fromarray(img).save(file_path +'/gen_image_color_overtime_t{}.png'.format(tmpc))
+
+
+def get_jetmap(img):
+
+    fig = plt.figure(figsize=(1, 1), dpi=64)
+    fig.add_subplot(111)
+    plt.subplots_adjust(left=0, bottom=0, right=1, top=1, wspace=0, hspace=0)
+
+    axes = plt.gca()
+    plt.cla()
+    axes.axis('off')
+    plt.imshow(img, zorder=0, cmap=plt.get_cmap('jet'), interpolation='none')
+    axes.autoscale(False)
+
+    fig.canvas.draw()  # draw the canvas, cache the renderer
+    data = np.fromstring(fig.canvas.tostring_rgb(), dtype=np.uint8, sep='')
+    data = data.reshape(fig.canvas.get_width_height()[::-1] + (3,))
+    plt.close('all')
+
+    return data
+
+
+def make_psum_overtime_example(filepath, tmpc):
+
+    gen_distrib1 = cPickle.load(open(filepath + '/gen_distrib1_t{}.pkl'.format(tmpc), "rb"))
+    gen_distrib2 = cPickle.load(open(filepath + '/gen_distrib2_t{}.pkl'.format(tmpc), "rb"))
+
+    fig = plt.figure(figsize=(8, 3), dpi=80)
+    fig.suptitle("Spatial sum of probablity masks over time", fontsize=13, y=.95)
+    plt.subplots_adjust(left=None, bottom=0.2, right=None, top=.8, wspace=.3, hspace=.2)
+
+    ex = 0
+    psum = []
+    ax = plt.subplot(1,2, 1)
+    for t in range(len(gen_distrib1)):
+        psum.append(np.sum(gen_distrib1[t][ex]))
+    psum = np.array(psum)
+    plt.plot(range(len(gen_distrib1)), psum, marker = "o")
+    ax.set_title("designated pixel on moved object", fontsize="10")
+
+    plt.xlabel('Timestep t', fontsize=10)
+    plt.ylabel('Pseudo-probability p', fontsize=10)
+    plt.ylim([0,1.3])
+
+    psum = []
+    ax = plt.subplot(1, 2, 2)
+    for t in range(len(gen_distrib2)):
+        psum.append(np.sum(gen_distrib2[t][ex]))
+    psum = np.array(psum)
+    plt.plot(range(len(gen_distrib2)), psum, color='g', marker = "d")
+    ax.set_title("designated pixel on occluded object", fontsize="10")
+
+    plt.xlabel('Timestep t', fontsize=10)
+    plt.ylabel('Pseudo-probability p', fontsize=10)
+    plt.ylim([0, 1.3])
+
+    # plt.show()
+    filename = filepath + '/psum_overtime{}.png'.format(tmpc)
+    print 'saving to ', filename
+    plt.savefig(filename)
+    plt.close('all')
+
+
 if __name__ == '__main__':
     file_path = '/home/guser/catkin_ws/src/lsdc/experiments/cem_exp/benchmarks_sawyer/cdna_multobj_1stimg'
     # file_path = '/home/guser/catkin_ws/src/lsdc/experiments/cem_exp/benchmarks_sawyer/dna_multobj'
@@ -200,4 +290,8 @@ if __name__ == '__main__':
     # create_video_pixdistrib_gif(exp_dir + '/modeldata', conf, t=0, suppress_number=True, append_masks=True, show_moved=True)
     # create_video_pixdistrib_gif(file_path, conf, n_exp= 10, suppress_number= True)
     #
-    go_through_timesteps(file_path +'/verbose')
+    # go_through_timesteps(file_path +'/verbose')
+
+    mpcstep = 4
+    # genimage_color_scheme_overtime(file_path + '/touching_alittle', mpcstep)
+    make_psum_overtime_example(file_path + '/touching_alittle', mpcstep)
