@@ -1,5 +1,7 @@
 # Byte-compiled / optimized / DLL files
 
+
+
 __pycache__/
 *.py[cod]
 *$py.class
@@ -128,3 +130,9 @@ lsdcdenv1.1/
 fail/
 
 splitted/
+
+exp/
+multobj_confs/
+longdistance/
+devel/
+cdna_accum_tf_factorized_dependent_mask_lstm_ln_5firstframes_l2/

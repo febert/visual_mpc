@@ -1,0 +1,1 @@
+ffmpeg -framerate 10 -f image2 -s 1125x810 -i main_full_cropped_im%02d.jpg -vf "scale=trunc(iw/2)*2:trunc(ih/2)*2" -vcodec libx264 -crf 25  -pix_fmt yuv420p -vframes 41 test.mp4
