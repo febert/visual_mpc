@@ -78,10 +78,10 @@ def make_highres():
 
 
 def put_genpix_in_frame():
-    file = '/home/guser/catkin_ws/src/lsdc/tensorflow_data/sawyer/dna_correct_nummask/vid_rndaction_var10_66002_diffmotions_b0_l15.gif'
+    file = '/home/guser/catkin_ws/src/lsdc/tensorflow_data/sawyer/dna_correct_nummask/vid_rndaction_var10_66002_diffmotions_b0_l30.gif'
     frames_dna = getFrames(file)
 
-    file = '/home/guser/catkin_ws/src/lsdc/tensorflow_data/sawyer/1stimg_bckgd_cdna/vid_rndaction_var10_64002_diffmotions_b0_l15.gif'
+    file = '/home/guser/catkin_ws/src/lsdc/tensorflow_data/sawyer/1stimg_bckgd_cdna/vid_rndaction_var10_64002_diffmotions_b0_l30.gif'
     frames_cdna = getFrames(file)
 
 
@@ -102,14 +102,14 @@ def put_genpix_in_frame():
 
         img_dna, size_insert = resize(img_dna)
         # Image.fromarray(img_dna)
-        startr = 200
-        startc = 295
+        startr = 230
+        startc = 650
         newimg[startr:startr + size_insert[0], startc: startc + size_insert[1]] = img_dna
 
         img_cdna, size_insert = resize(img_cdna)
         # Image.fromarray(img_cdna)
-        startr = 400
-        startc = 295
+        startr = 540
+        startc = 650
         newimg[startr:startr + size_insert[0], startc: startc + size_insert[1]] = img_cdna
 
         writer.append_data(newimg)
@@ -119,7 +119,7 @@ def put_genpix_in_frame():
 
 
 def resize(img):
-    img = img[:,:64*6]
+    img = img[:,64:64*2]
     origsize = img.shape
     img = Image.fromarray(img)
     img = img.resize((origsize[1] * 2, origsize[0] * 2), Image.ANTIALIAS)
