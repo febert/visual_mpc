@@ -1,5 +1,6 @@
 # Byte-compiled / optimized / DLL files
 
+
 __pycache__/
 *.py[cod]
 *$py.class
@@ -128,3 +129,6 @@ lsdcdenv1.1/
 fail/
 
 splitted/
+.catkin_workspace
+devel/
+src/CMakeLists.txt
