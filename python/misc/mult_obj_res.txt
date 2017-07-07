@@ -1,0 +1,27 @@
+dna_multobj
+novel
+
+average distance moved 11.9271059036, std:2.87970161438
+average distance stationary 0.970330297947, std:0.300619155169
+average improvement moved 0.853848457336, std:1.0418176651
+average improvement stat -0.970330297947, std:0.300619155169
+
+seen
+average distance moved 15.1852378845, std:3.93657970428
+average distance stationary 0.878927052021, std:0.747999727726
+average improvement moved 2.75286507607, std:3.9582824707
+average improvement stat -0.838748455048, std:0.747999727726
+
+
+cdna
+novel
+average distance moved 2.85606646538, std:2.3514149189
+average distance stationary 1.37422370911, std:0.692300319672
+average improvement moved 11.0134468079, std:3.33495855331
+average improvement stat -1.37422370911, std:0.692300319672
+
+seen
+average distance moved 8.14964008331, std:3.83417606354
+average distance stationary 1.124573946, std:0.725324213505
+average improvement moved 7.40854549408, std:3.17241668701
+average improvement stat -1.124573946, std:0.725324213505

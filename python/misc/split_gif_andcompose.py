@@ -3,8 +3,8 @@ from PIL import Image
 import numpy as np
 
 from scipy import misc
-
-
+import copy
+import imageio
 
 def extractFrames(inGif, outFolder):
 
@@ -77,9 +77,62 @@ def make_highres():
     Image.fromarray(fullimg).save(imgpath)
 
 
+def put_genpix_in_frame():
+    file = '/home/guser/catkin_ws/src/lsdc/tensorflow_data/sawyer/dna_correct_nummask/vid_rndaction_var10_66002_diffmotions_b0_l30.gif'
+    frames_dna = getFrames(file)
+
+    file = '/home/guser/catkin_ws/src/lsdc/tensorflow_data/sawyer/1stimg_bckgd_cdna/vid_rndaction_var10_64002_diffmotions_b0_l30.gif'
+    frames_cdna = getFrames(file)
+
+
+    t = 1
+    dest_path = '/home/guser/frederik/doc_video'
+
+    frame = Image.open(dest_path + '/frame_comp_oadna.png', mode='r')
+
+    writer = imageio.get_writer(dest_path + '/genpix_withframe.mp4', fps=3)
+
+    pic_path = dest_path + "/animated"
+    if not os.path.exists(pic_path):
+        os.mkdir(pic_path)
+
+
+    for i, img_dna, img_cdna in zip(range(len(frames_dna)), frames_dna, frames_cdna):
+        newimg = copy.deepcopy(np.asarray(frame)[:, :, :3])
+
+        img_dna, size_insert = resize(img_dna)
+        # Image.fromarray(img_dna)
+        startr = 230
+        startc = 650
+        newimg[startr:startr + size_insert[0], startc: startc + size_insert[1]] = img_dna
+
+        img_cdna, size_insert = resize(img_cdna)
+        # Image.fromarray(img_cdna)
+        startr = 540
+        startc = 650
+        newimg[startr:startr + size_insert[0], startc: startc + size_insert[1]] = img_cdna
+
+        writer.append_data(newimg)
+        Image.fromarray(newimg).save(pic_path + '/img{}.png'.format(i))
+
+    writer.close()
+
+
+def resize(img):
+    img = img[:,64:64*2]
+    origsize = img.shape
+    img = Image.fromarray(img)
+    img = img.resize((origsize[1] * 2, origsize[0] * 2), Image.ANTIALIAS)
+    img = np.asarray(img)
+    size_insert = img.shape
+    return img, size_insert
+
+
 if __name__ == '__main__':
-    make_gen_pix()
+    # make_gen_pix()
     # make_highres()
+
+    put_genpix_in_frame()
 
 
 

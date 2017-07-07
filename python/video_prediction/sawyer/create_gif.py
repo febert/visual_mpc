@@ -4,7 +4,7 @@ import numpy as np
 import imp
 import re
 import pdb
-
+import imageio
 
 def create_gif(file_path, conf, suffix = None, numexp = 8, append_masks = False):
     print 'reading files from:', file_path
@@ -90,7 +90,7 @@ def convert_to_videolist(input, repeat_last_dim):
 
 
 def create_video_pixdistrib_gif(file_path, conf, t=0, suffix = "", n_exp = 8, suppress_number = False,
-                                append_masks = False, show_moved= False):
+                                append_masks = False, show_moved= False, makegif = True):
     gen_images = cPickle.load(open(file_path + '/gen_image_t{}.pkl'.format(t), "rb"))
 
 
@@ -149,7 +149,10 @@ def create_video_pixdistrib_gif(file_path, conf, t=0, suffix = "", n_exp = 8, su
 
     fused_gif = assemble_gif(video_list, n_exp)
 
-    npy_to_gif(fused_gif, name)
+    if makegif:
+        npy_to_gif(fused_gif, name)
+    else:
+        return fused_gif
 
 def create_video_gif(file_path, conf, t, suffix = None, n_exp = 8):
     gen_images = cPickle.load(open(file_path + '/gen_image_t{}.pkl'.format(t), "rb"))
@@ -182,11 +185,47 @@ def plot_psum_overtime(conf, gen_distrib, n_exp, name, filepath):
     plt.close('all')
 
 
-def go_through_timesteps(file_path):
+def go_through_timesteps(file_path, conf):
     for t in range(1,15):
         create_video_pixdistrib_gif(file_path, conf, t, suffix='_t{}'.format(t), n_exp=10, suppress_number=True)
 
+# frame size (810, 1125, 3)
+# size insert array([256, 768])
 
+def insert_in_frame(file_path, conf):
+    t = 1
+    imlist = create_video_pixdistrib_gif(file_path, conf, t, suffix='_t{}'.format(t), n_exp=6, suppress_number=True, makegif= False)
+
+    frame = Image.open(file_path + '/frame.png', mode='r')
+
+    writer = imageio.get_writer(file_path + '/genpix_withframe.mp4', fps=3)
+
+    pic_path = file_path + "/animated"
+    if not os.path.exists(pic_path):
+        os.mkdir(pic_path)
+
+    import copy
+    for i, img in enumerate(imlist):
+        origsize = img.shape
+        img = Image.fromarray(img)
+        img = img.resize((origsize[1]*2, origsize[0]*2), Image.ANTIALIAS)
+        img = np.asarray(img)
+
+        size_insert = img.shape
+
+        newimg = copy.deepcopy(np.asarray(frame)[:,:,:3])
+        if 'ndesig' in conf:
+            startr = 350
+        else:
+            startr = 380
+        startc = 295
+        newimg[startr :startr + size_insert[0],startc: startc + size_insert[1]] = img
+        # Image.fromarray(newimg).show()
+
+        writer.append_data(newimg)
+        Image.fromarray(newimg).save(pic_path + '/img{}.png'.format(i))
+
+    writer.close()
 
 def genimage_color_scheme_overtime(filepath, tmpc):
 
@@ -286,20 +325,26 @@ def make_psum_overtime_example(filepath, tmpc):
 
 
 if __name__ == '__main__':
-    file_path = '/home/guser/catkin_ws/src/lsdc/experiments/cem_exp/benchmarks_sawyer/predprop_1stimg_bckgd'
+    # file_path = '/home/guser/catkin_ws/src/lsdc/experiments/cem_exp/benchmarks_sawyer/predprop_1stimg_bckgd'
     # file_path = '/home/guser/catkin_ws/src/lsdc/experiments/cem_exp/benchmarks_sawyer/dna_multobj'
+    file_path = '/home/guser/catkin_ws/src/lsdc/experiments/cem_exp/benchmarks_sawyer/cdna_multobj_1stimg'
 
     # file_path = '/home/frederik/Documents/catkin_ws/src/lsdc/experiments/cem_exp/benchmarks_sawyer/predprop_1stimg_bckgd'
-    # hyperparams = imp.load_source('hyperparams', file_path + '/conf.py')
+    hyperparams = imp.load_source('hyperparams', file_path + '/conf.py')
+    conf = hyperparams.configuration
 
-    # conf = hyperparams.configuration
     # conf['visualize'] = conf['output_dir'] + '/model22002'
     # create_video_pixdistrib_gif(file_path, conf, t=1, suppress_number=True)
     # create_video_pixdistrib_gif(exp_dir + '/modeldata', conf, t=0, suppress_number=True, append_masks=True, show_moved=True)
     # create_video_pixdistrib_gif(file_path, conf, n_exp= 10, suppress_number= True)
     #
-    # go_through_timesteps(file_path +'/verbose')
 
-    mpcstep = 1
+    # file_path += "/unseen_clutter"
+    file_path += "/vid"
+
+    go_through_timesteps(file_path +'/verbose', conf)
+    # insert_in_frame(file_path + '/verbose', conf)
+
+    # mpcstep = 1
     # genimage_color_scheme_overtime(file_path + '/verbose', mpcstep)
-    make_psum_overtime_example(file_path + '/touching_alittle', mpcstep)
+    # make_psum_overtime_example(file_path + '/touching_alittle', mpcstep)

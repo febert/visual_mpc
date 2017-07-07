@@ -1,0 +1,49 @@
+
+    # predprop
+    ## novel
+    # distance
+    # 17.776222229, std:9.77704715729
+    # improvement
+    # 8.13354587555, std:11.2376613617
+    ## seen
+    # distance
+    # 8.93782997131, std:7.92635583878
+    # improvement
+    # 16.2882537842, std:10.381569862
+
+
+    # predprop 1stimg bckgd
+    ## novel
+    # distance
+    # 18.3430862427, std:9.51663303375
+    # improvement
+    # 7.55137062073, std:10.5482397079
+    ## seen
+    # distance
+    # 12.8797960281, std:6.63888311386
+    # improvement
+    # 12.6818113327, std:9.66745758057
+
+    # singlepoint eval
+    ## novel
+    # distance
+    # 25.5136222839, std:11.0149526596
+    # improvement
+    # 1.23185265064, std:12.9094200134
+    #seen
+    # distance
+    # 26.2447719574, std:12.799656868
+    # improvement
+    # 4.95499944687, std:14.4209814072
+
+    # random:
+    # # novel
+    # distance
+    # 30.2451839447, std:3.61165213585
+    # improvement
+    # -1.86778211594, std:2.62041306496
+    # # seen
+    # distance
+    # 29.3524360657, std:3.21046972275
+    # improvement
+    # moved - 0.206884384155, std:0.502137124538
