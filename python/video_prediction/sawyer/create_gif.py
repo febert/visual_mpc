@@ -326,8 +326,8 @@ def make_psum_overtime_example(filepath, tmpc):
 
 if __name__ == '__main__':
     # file_path = '/home/guser/catkin_ws/src/lsdc/experiments/cem_exp/benchmarks_sawyer/predprop_1stimg_bckgd'
-    file_path = '/home/guser/catkin_ws/src/lsdc/experiments/cem_exp/benchmarks_sawyer/dna_multobj'
-    # file_path = '/home/guser/catkin_ws/src/lsdc/experiments/cem_exp/benchmarks_sawyer/cdna_multobj_1stimg'
+    # file_path = '/home/guser/catkin_ws/src/lsdc/experiments/cem_exp/benchmarks_sawyer/dna_multobj'
+    file_path = '/home/guser/catkin_ws/src/lsdc/experiments/cem_exp/benchmarks_sawyer/manual_correction'
 
     # file_path = '/home/frederik/Documents/catkin_ws/src/lsdc/experiments/cem_exp/benchmarks_sawyer/predprop_1stimg_bckgd'
     hyperparams = imp.load_source('hyperparams', file_path + '/conf.py')
@@ -340,10 +340,10 @@ if __name__ == '__main__':
     #
 
     # file_path += "/unseen_clutter"
-    file_path += "/vid"
+    file_path += "/4th_try"
 
-    # go_through_timesteps(file_path +'/verbose', conf)
-    insert_in_frame(file_path + '/verbose', conf)
+    go_through_timesteps(file_path +'/verbose', conf)
+    # insert_in_frame(file_path + '/verbose', conf)
 
     # mpcstep = 1
     # genimage_color_scheme_overtime(file_path + '/verbose', mpcstep)
