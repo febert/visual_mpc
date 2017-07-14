@@ -39,17 +39,19 @@ def make_gen_pix():
     gen_pix = getFrames(file)
 
     gen_pix_list = []
+    pic_col = 2
+
     for f in gen_pix:
         im = Image.fromarray(f)
         im = np.asarray(im)
-        pic_row = 1
-        im = im[:64*3,pic_row*64:(pic_row+1)*64]
+
+        im = im[:64*3,pic_col*64:(pic_col+1)*64]
         # im = Image.fromarray(im).show()
         gen_pix_list.append(im)
 
     fullimg = np.concatenate(gen_pix_list, axis=1)
     # imgpath = '/home/guser/catkin_ws/src/lsdc/experiments/cem_exp/benchmarks_sawyer/cdna_multobj_1stimg/success/gen_pix_overtime.png'
-    imgpath = '/home/frederik/Documents/lsdc/tensorflow_data/sawyer/1stimg_bckgd_cdna/modeldata/gen_pixb0_overtime.png'
+    imgpath = '/home/frederik/Documents/lsdc/tensorflow_data/sawyer/1stimg_bckgd_cdna/modeldata/gen_pixb0_overtime_col{}.png'.format(pic_col)
     print 'save to', imgpath
     Image.fromarray(fullimg).save(imgpath)
 
@@ -129,10 +131,10 @@ def resize(img):
 
 
 if __name__ == '__main__':
-    # make_gen_pix()
+    make_gen_pix()
     # make_highres()
 
-    put_genpix_in_frame()
+    # put_genpix_in_frame()
 
 
 
