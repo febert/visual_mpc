@@ -65,7 +65,6 @@ class Visual_MPC_Server(object):
         # load specific agent settings for benchmark:
 
         bench_dir = cem_exp_dir + '/' + benchmark_name
-        goalimg_save_dir = cem_exp_dir + '/benchmarks_goalimage/' + benchmark_name + '/goalimage'
 
         if not os.path.exists(bench_dir):
             raise ValueError('benchmark directory does not exist')
