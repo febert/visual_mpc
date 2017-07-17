@@ -230,7 +230,11 @@ class CEM_controller():
 
         if 'ndesig' in self.policyparams:
             input_distrib1, input_distrib2 = self.make_input_distrib(itr)
-            gen_images, gen_distrib1, gen_distrib2, gen_states = self.predictor(input_images=last_frames,input_state=last_states,input_actions=actions, input_one_hot_images1=input_distrib1,input_one_hot_images2=input_distrib2)
+            gen_images, gen_distrib1, gen_distrib2, gen_states = self.predictor(input_images=last_frames,
+                                                                                input_state=last_states,
+                                                                                input_actions=actions,
+                                                                                input_one_hot_images1=input_distrib1,
+                                                                                input_one_hot_images2=input_distrib2)
 
             distance_grid1 = self.get_distancegrid(self.goal_pix[0])
             distance_grid2 = self.get_distancegrid(self.goal_pix[1])
@@ -247,9 +251,9 @@ class CEM_controller():
         else:
             input_distrib = self.make_input_distrib(itr)
             gen_images, gen_distrib, _, gen_states = self.predictor(input_images=last_frames,
-                                                                input_state=last_states,
-                                                                input_actions=actions,
-                                                                input_one_hot_images1=input_distrib)
+                                                                    input_state=last_states,
+                                                                    input_actions=actions,
+                                                                    input_one_hot_images1=input_distrib)
 
             distance_grid = self.get_distancegrid(self.goal_pix[0])
             if 'singlepoint_prob_eval' in self.policyparams:

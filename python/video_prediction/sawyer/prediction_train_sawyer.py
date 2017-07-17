@@ -11,8 +11,8 @@ import matplotlib.pyplot as plt
 from video_prediction.utils_vpred.adapt_params_visualize import adapt_params_visualize
 from tensorflow.python.platform import app
 from tensorflow.python.platform import flags
-import video_prediction.utils_vpred.create_gif
-from create_gif import *
+# import video_prediction.utils_vpred.create_gif  !!!!!
+# from create_gif import * !!!!!1
 
 from read_tf_record_sawyer import build_tfrecord_input
 
