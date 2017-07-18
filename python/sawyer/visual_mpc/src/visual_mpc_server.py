@@ -1,5 +1,4 @@
 #!/usr/bin/env python
-from sensor_msgs.msg import Image as Image_msg
 import os
 import shutil
 import socket
@@ -10,8 +9,7 @@ from PIL import Image
 import cPickle
 import imp
 import argparse
-import cv2
-from cv_bridge import CvBridge, CvBridgeError
+
 
 from video_prediction.utils_vpred.create_gif import *
 import socket
@@ -20,18 +18,20 @@ from lsdc.algorithm.policy.cem_controller_goalimage_sawyer import CEM_controller
 
 from lsdc.utility.trajectory import Trajectory
 from lsdc import __file__ as lsdc_filepath
-import rospy
 
-import rospy.numpy_msg
-
-from visual_mpc.srv import *
+#!!!!!!!!!!!!!!
+# import rospy
+# import rospy.numpy_msg
+# from visual_mpc.srv import *
+# import cv2
+# from cv_bridge import CvBridge, CvBridgeError
+# from sensor_msgs.msg import Image as Image_msg
 
 class Visual_MPC_Server(object):
     def __init__(self):
         """
         Similar functionality to mjc_agent and lsdc_main_mod, calling the policy
         """
-        # if it is an auxiliary node advertise services
 
         lsdc_dir = '/'.join(str.split(lsdc_filepath, '/')[:-3])
         cem_exp_dir = lsdc_dir + '/experiments/cem_exp/benchmarks_sawyer'
@@ -84,7 +84,7 @@ class Visual_MPC_Server(object):
 
         if self.policyparams['usenet']:
             self.netconf = imp.load_source('params', self.policyparams['netconf']).configuration
-            self.predictor = self.netconf['setup_predictor'](self.netconf, gpu_id, ngpu)
+            self.predictor = self.netconf['setup_predictor'](self.netconf, gpu_id, ngpu, use_ray = True)
         else:
             self.netconf = {}
             self.predictor = None
@@ -92,7 +92,9 @@ class Visual_MPC_Server(object):
         ###########
         self.t = 0
         self.traj = Trajectory(self.agentparams, self.netconf)
-        self.bridge = CvBridge()
+
+        if self.use_robot:
+            self.bridge = CvBridge()
 
         if 'ndesig' in self.policyparams:
             self.initial_pix_distrib1 = []
@@ -118,8 +120,9 @@ class Visual_MPC_Server(object):
         b_exp = 2 #5drill  #2
         file_path_canon = '/home/frederik/Documents/catkin_ws/src/lsdc/pushing_data/canonical_examples'
         dict = cPickle.load(open(file_path_canon + '/pkl/example{}.pkl'.format(b_exp), 'rb'))
-        desig_pix = dict['desig_pix']
-        goal_pix = dict['goal_pix']
+        desig_pix = np.stack([dict['desig_pix'], np.zeros(2)]).astype(np.int32)
+        goal_pix = np.stack([dict['goal_pix'], np.zeros(2)]).astype(np.int32)
+
 
         sel_img = dict['images']
         sel_img = sel_img[:2]

@@ -14,14 +14,6 @@ import ray
 @ray.remote(num_gpus=1)
 class LocalServer(object):
     def __init__(self, conf, local_batch_size, use_ray= True):
-        """
-        Setup up the network for control
-        :param conf_file:
-        :param gpu_id
-        :param local_batch_size
-        :return: function which predicts a batch of whole trajectories
-        conditioned on the actions
-        """
         self.conf = conf
         if 'prediction_model' in conf:
             Model = conf['prediction_model']
@@ -85,25 +77,20 @@ class LocalServer(object):
         saver.restore(self.sess, conf['pretrained_model'])
 
 
-    def predict(self, input_images=None, input_one_hot_images1=None, input_one_hot_images2=None, input_state=None, input_actions=None):
-        """
-        :param one_hot_images: the first two frames
-        :param pixcoord: the coords of the disgnated pixel in images coord system
-        :return: the predicted pixcoord at the end of sequence
-        """
+    def predict(self, input_images=None, input_one_hot_images1=None, input_state=None, input_actions=None):
 
         t_startiter = datetime.now()
 
         feed_dict = {}
 
-        feed_dict[self.start_images] = input_images
+        feed_dict[self.start_images_pl] = input_images
         feed_dict[self.start_states_pl] = input_state
-        feed_dict[self.actions] = input_actions
+        feed_dict[self.actions_pl] = input_actions
 
-        feed_dict[self.self.pix_distrib_1] = input_one_hot_images1
+        feed_dict[self.pix_distrib_1_pl] = input_one_hot_images1
         if 'ndesig' in self.conf:
             print 'evaluating 2 pixdistrib..'
-            feed_dict[self.pix_distrib_2] = input_one_hot_images2
+            feed_dict[self.pix_distrib_2_pl] = input_one_hot_images2
 
             gen_images, gen_distrib1, gen_distrib2, gen_states = self.sess.run([self.model.gen_images,
                                                                          self.model.gen_distrib1,
@@ -118,25 +105,19 @@ class LocalServer(object):
                                                             ],
                                                            feed_dict)
 
-        print 'time for evaluating {0} actions on {1} gpus : {2}'.format(
+        print 'time for evaluating {0} actions: {1}'.format(
             self.conf['batch_size'],
-            self.conf['ngpu'],
             (datetime.now() - t_startiter).seconds + (datetime.now() - t_startiter).microseconds / 1e6)
 
         return gen_images, gen_distrib1, gen_distrib2, gen_states
 
 
-def setup_predictor_client(netconf, ngpu, use_ray = True):
-    """
-    :param netconf:
-    :param [[m1_gpu1, m1_gpu2], [m2_gpu1, m2_gpu2]]:
-    :return:
-    """
+def setup_predictor(netconf, gpu_id, ngpu, use_ray = True):
 
     if use_ray:
         ray.init(num_gpus=1)
 
-    local_bsize = np.floor(netconf['batch_size']/ngpu)
+    local_bsize = np.floor(netconf['batch_size']/ngpu).astype(np.int32)
     new_batch_size = local_bsize * ngpu
     workers = []
 
@@ -146,9 +127,9 @@ def setup_predictor_client(netconf, ngpu, use_ray = True):
     start_counter = 0
     for i in range(ngpu):
         if use_ray:
-            workers.append(LocalServer.remote(netconf, new_batch_size))
+            workers.append(LocalServer.remote(netconf, local_bsize))
         else:
-            workers.append(LocalServer(netconf, new_batch_size))
+            workers.append(LocalServer(netconf, local_bsize, use_ray = use_ray))
 
         startind.append(start_counter)
         endind.append(start_counter + local_bsize)
@@ -167,12 +148,21 @@ def setup_predictor_client(netconf, ngpu, use_ray = True):
         gen_states_list = []
 
         for i in range(ngpu):
-            gen_images, gen_distrib1, gen_distrib2, gen_states = workers[i].remote.predict(input_images[startind[i]:endind[i]],
-                               input_one_hot_images1[startind[i]:endind[i]],
-                               input_one_hot_images2[startind[i]:endind[i]],
-                               input_state[startind[i]:endind[i]],
-                               input_actions[startind[i]:endind[i]],
-                               )
+
+            if use_ray:
+                gen_images, gen_distrib1, gen_distrib2, gen_states = workers[i].predict.remote(
+                                   input_images[startind[i]:endind[i]],
+                                   input_one_hot_images1[startind[i]:endind[i]],
+                                   input_state[startind[i]:endind[i]],
+                                   input_actions[startind[i]:endind[i]]
+                                   )
+            else:
+                gen_images, gen_distrib1, gen_distrib2, gen_states = workers[i].predict(
+                    input_images[startind[i]:endind[i]],
+                    input_one_hot_images1[startind[i]:endind[i]],
+                    input_state[startind[i]:endind[i]],
+                    input_actions[startind[i]:endind[i]]
+                    )
 
             gen_image_list.append(gen_images)
             gen_distrib1_list.append(gen_distrib1)
@@ -187,18 +177,19 @@ def setup_predictor_client(netconf, ngpu, use_ray = True):
         else:
             gen_images = np.concatenate(gen_image_list)
             gen_distrib1 = np.concatenate(gen_distrib1_list)
-            gen_distrib2 = np.concatenate(gen_distrib2_list)
+            if 'ndesig' in netconf:
+                gen_distrib2 = np.concatenate(gen_distrib2_list)
+            else: gen_distrib2 = None
             gen_states = np.concatenate(gen_states_list)
-
 
         return gen_images, gen_distrib1, gen_distrib2, gen_states
 
-    return new_batch_size, predictor_func
+    return predictor_func
 
 
 if __name__ == '__main__':
 
     conffile = '/home/frederik/Documents/catkin_ws/src/lsdc/experiments/cem_exp/benchmarks_sawyer/predprop_1stimg_bckgd/conf.py'
     netconf = imp.load_source('mod_hyper', conffile).configuration
-    predfunc = setup_predictor_client(netconf,1)
+    predfunc = setup_predictor(netconf,None, 1, use_ray=True)
     pdb.set_trace()

@@ -530,24 +530,6 @@ def cdna_transformation(conf, prev_image, cdna_input, num_masks, color_channels,
     transformed = tf.transpose(transformed, [3, 1, 2, 0, 4])
     transformed = tf.unpack(value=transformed, axis=-1)
 
-    # cdna_kerns = tf.tile(cdna_kerns, [1, 1, 1, color_channels, 1])
-    # cdna_kerns = tf.split(0, batch_size, cdna_kerns)
-    # prev_images = tf.split(0, batch_size, prev_image)
-    #
-    # # Transform image.
-    # transformed = []
-    # for kernel, preimg in zip(cdna_kerns, prev_images):
-    #     kernel = tf.squeeze(kernel)
-    #     if len(kernel.get_shape()) == 3:
-    #         kernel = tf.expand_dims(kernel, -2)   #correction! ( was -1 before)
-    #     transformed.append(
-    #         tf.nn.depthwise_conv2d(preimg, kernel, [1, 1, 1, 1], 'SAME'))
-    #
-    # transformed = tf.concat(0, transformed)
-    #
-    # transformed = tf.reshape(transformed, [conf['batch_size'], 64,64,color_channels,num_masks])
-    # transformed = tf.unpack(transformed, axis=4)
-
     return transformed, cdna_kerns_summary
 
 
