@@ -19,13 +19,13 @@ from lsdc.algorithm.policy.cem_controller_goalimage_sawyer import CEM_controller
 from lsdc.utility.trajectory import Trajectory
 from lsdc import __file__ as lsdc_filepath
 
-#!!!!!!!!!!!!!!
-# import rospy
-# import rospy.numpy_msg
-# from visual_mpc.srv import *
-# import cv2
-# from cv_bridge import CvBridge, CvBridgeError
-# from sensor_msgs.msg import Image as Image_msg
+
+import rospy
+import rospy.numpy_msg
+from visual_mpc.srv import *
+import cv2
+from cv_bridge import CvBridge, CvBridgeError
+from sensor_msgs.msg import Image as Image_msg
 
 class Visual_MPC_Server(object):
     def __init__(self):
@@ -84,7 +84,7 @@ class Visual_MPC_Server(object):
 
         if self.policyparams['usenet']:
             self.netconf = imp.load_source('params', self.policyparams['netconf']).configuration
-            self.predictor = self.netconf['setup_predictor'](self.netconf, gpu_id, ngpu, use_ray = True)
+            self.predictor = self.netconf['setup_predictor'](self.netconf, gpu_id, ngpu, use_ray=True)
         else:
             self.netconf = {}
             self.predictor = None
@@ -122,7 +122,6 @@ class Visual_MPC_Server(object):
         dict = cPickle.load(open(file_path_canon + '/pkl/example{}.pkl'.format(b_exp), 'rb'))
         desig_pix = np.stack([dict['desig_pix'], np.zeros(2)]).astype(np.int32)
         goal_pix = np.stack([dict['goal_pix'], np.zeros(2)]).astype(np.int32)
-
 
         sel_img = dict['images']
         sel_img = sel_img[:2]

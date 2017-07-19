@@ -130,8 +130,7 @@ def setup_predictor(netconf, gpu_id, ngpu, use_ray = True):
     start_counter = 0
     for i in range(ngpu):
         if use_ray:
-            worker = LocalServer.remote(netconf, local_bsize)
-            # workers.append(LocalServer.remote(netconf, local_bsize))
+            workers.append(LocalServer.remote(netconf, local_bsize))
         else:
             workers.append(LocalServer(netconf, local_bsize, use_ray = use_ray))
 
