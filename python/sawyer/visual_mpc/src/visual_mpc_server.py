@@ -87,7 +87,8 @@ class Visual_MPC_Server(object):
             self.netconf = imp.load_source('params', self.policyparams['netconf']).configuration
             self.predictor = self.netconf['setup_predictor'](self.netconf, gpu_id, ngpu)
             if 'multmachine' in self.policyparams:
-                self.predictor = self.netconf['setup_predictor'](self.netconf, ngpu, args.redis)
+                print 'got redis', args.redis
+                self.predictor = self.netconf['setup_predictor'](self.netconf, args.redis, use_ray = True)
         else:
             self.netconf = {}
             self.predictor = None

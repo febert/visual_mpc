@@ -115,7 +115,7 @@ class LocalServer(object):
         return gen_images, gen_distrib1, gen_distrib2, gen_states
 
 
-def setup_predictor(netconf, ngpu, redis_address, use_ray = True):
+def setup_predictor(netconf, redis_address, use_ray = True):
 
     if use_ray:
         print 'using redis address', redis_address
