@@ -159,6 +159,7 @@ def setup_predictor(netconf, ngpu, redis_address):
         gen_states_list = []
 
         for i in range(ngpu):
+            # create lists of length ngpu of lists of length sequence_length
             gen_images, gen_distrib1, gen_distrib2, gen_states  = ray.get(result_list[i])
 
             gen_image_list.append(gen_images)
@@ -167,14 +168,23 @@ def setup_predictor(netconf, ngpu, redis_address):
                 gen_distrib2_list.append(gen_distrib2)
             gen_states_list.append(gen_states)
 
-        gen_images = np.concatenate(gen_image_list)
-        gen_distrib1 = np.concatenate(gen_distrib1_list)
+        gen_images = []
+        gen_distrib1 = []
+        gen_distrib2 = []
+        gen_states = []
+        for t in range(netconf['sequence_length']-1):
+            gen_images.append(np.concatenate([gi[t] for gi in gen_image_list]))
+            gen_distrib1.append(np.concatenate([g[t] for g in gen_distrib1_list]))
+
+            if 'ndesig' in netconf:
+                gen_distrib2.append(np.concatenate([g[t] for g in gen_distrib2_list]))
+            else:
+                gen_distrib2 = None
+
+            gen_states.append(np.concatenate([s[t] for s in gen_states_list]))
+
         print 'gen_distrib1 shape after assembly',gen_distrib1.shape
         pdb.set_trace()
-        if 'ndesig' in netconf:
-            gen_distrib2 = np.concatenate(gen_distrib2_list)
-        else: gen_distrib2 = None
-        gen_states = np.concatenate(gen_states_list)
 
         return gen_images, gen_distrib1, gen_distrib2, gen_states
 
