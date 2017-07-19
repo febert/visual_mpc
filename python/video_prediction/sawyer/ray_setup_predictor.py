@@ -115,10 +115,10 @@ class LocalServer(object):
         return gen_images, gen_distrib1, gen_distrib2, gen_states
 
 
-def setup_predictor(netconf, gpu_id, ngpu, use_ray = True):
+def setup_predictor(netconf, ngpu, redis_address, use_ray = True):
 
     if use_ray:
-        ray.init(num_gpus=ngpu)
+        ray.init(num_gpus=ngpu, redis_address= redis_address)
 
     local_bsize = np.floor(netconf['batch_size']/ngpu).astype(np.int32)
     new_batch_size = local_bsize * ngpu
@@ -196,7 +196,6 @@ def setup_predictor(netconf, gpu_id, ngpu, use_ray = True):
 
 
 if __name__ == '__main__':
-
     conffile = '/home/frederik/Documents/catkin_ws/src/lsdc/experiments/cem_exp/benchmarks_sawyer/predprop_1stimg_bckgd/conf.py'
     netconf = imp.load_source('mod_hyper', conffile).configuration
     predfunc = setup_predictor(netconf,None, 1, use_ray=True)

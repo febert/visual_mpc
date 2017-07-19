@@ -43,6 +43,8 @@ class Visual_MPC_Server(object):
         parser.add_argument('--ngpu', type=int, default=1, help='number of gpus to use')
         parser.add_argument('--userobot', type=str, default='True', help='number of gpus to use')
 
+        parser.add_argument('--redis', type=str, default='', help='necessary when using ray: the redis address of the head node')
+
         args = parser.parse_args()
 
         if args.userobot == 'True':
@@ -63,7 +65,6 @@ class Visual_MPC_Server(object):
         self.agentparams = hyperparams.agent
 
         # load specific agent settings for benchmark:
-
         bench_dir = cem_exp_dir + '/' + benchmark_name
 
         if not os.path.exists(bench_dir):
@@ -84,7 +85,9 @@ class Visual_MPC_Server(object):
 
         if self.policyparams['usenet']:
             self.netconf = imp.load_source('params', self.policyparams['netconf']).configuration
-            self.predictor = self.netconf['setup_predictor'](self.netconf, gpu_id, ngpu, use_ray=True)
+            self.predictor = self.netconf['setup_predictor'](self.netconf, gpu_id, ngpu)
+            if 'multmachine' in self.policyparams:
+                self.predictor = self.netconf['setup_predictor'](self.netconf, ngpu, args.redis)
         else:
             self.netconf = {}
             self.predictor = None
