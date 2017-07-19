@@ -23,7 +23,6 @@ class LocalServer(object):
             from video_prediction.sawyer.prediction_train_sawyer import Model
 
         print 'using CUDA_VISIBLE_DEVICES=', ray.get_gpu_ids()
-        print 'ray_getgpou', ray.get_gpu_ids()
         os.environ["CUDA_VISIBLE_DEVICES"] = str(ray.get_gpu_ids()[0])
 
         from tensorflow.python.client import device_lib
