@@ -140,6 +140,7 @@ def setup_predictor(netconf, ngpu, redis_address):
         start_counter += local_bsize
 
     print 'IP addresses of actors', ray.get([a.get_ip_address.remote() for a in workers])
+    pdb.set_trace()
 
     def predictor_func(input_images=None,
                        input_one_hot_images1=None,
