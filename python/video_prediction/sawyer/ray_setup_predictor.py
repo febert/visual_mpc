@@ -183,6 +183,8 @@ def setup_predictor(netconf, ngpu, redis_address):
                 gen_distrib2 = None
             gen_states.append(np.concatenate([s[t] for s in gen_states_list]))
 
+        pdb.set_trace()
+
         return gen_images, gen_distrib1, gen_distrib2, gen_states
 
     return predictor_func
