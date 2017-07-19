@@ -133,15 +133,12 @@ lsdcdenv1.1/
 fail/
 
 splitted/
-<<<<<<< HEAD
 .catkin_workspace
 devel/
 src/CMakeLists.txt
-=======
 
 exp/
 multobj_confs/
 longdistance/
 devel/
 cdna_accum_tf_factorized_dependent_mask_lstm_ln_5firstframes_l2/
->>>>>>> cd0c962e08d584869728411fa837133dbe7351bd
