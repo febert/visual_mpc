@@ -143,12 +143,12 @@ def setup_predictor(netconf, ngpu, redis_address):
                        input_actions=None):
 
         result_list = []
-        for i in range(ngpu):
-            result = workers[i].predict.remote(
-                               input_images[startind[i]:endind[i]],
-                               input_one_hot_images1[startind[i]:endind[i]],
-                               input_state[startind[i]:endind[i]],
-                               input_actions[startind[i]:endind[i]]
+        for igpu in range(ngpu):
+            result = workers[igpu].predict.remote(
+                               input_images[startind[igpu]:endind[igpu]],
+                               input_one_hot_images1[startind[igpu]:endind[igpu]],
+                               input_state[startind[igpu]:endind[igpu]],
+                               input_actions[startind[igpu]:endind[igpu]]
                                )
 
             result_list.append(result)
@@ -158,9 +158,11 @@ def setup_predictor(netconf, ngpu, redis_address):
         gen_distrib2_list = []
         gen_states_list = []
 
-        for i in range(ngpu):
+        result_list = ray.get(result_list)  # do computation in parallel
+
+        for igpu in range(ngpu):
             # create lists of length ngpu of lists of length sequence_length
-            gen_images, gen_distrib1, gen_distrib2, gen_states  = ray.get(result_list[i])
+            gen_images, gen_distrib1, gen_distrib2, gen_states = result_list[igpu]
 
             gen_image_list.append(gen_images)
             gen_distrib1_list.append(gen_distrib1)
@@ -172,15 +174,14 @@ def setup_predictor(netconf, ngpu, redis_address):
         gen_distrib1 = []
         gen_distrib2 = []
         gen_states = []
+
         for t in range(netconf['sequence_length']-1):
             gen_images.append(np.concatenate([gi[t] for gi in gen_image_list]))
             gen_distrib1.append(np.concatenate([g[t] for g in gen_distrib1_list]))
-
             if 'ndesig' in netconf:
                 gen_distrib2.append(np.concatenate([g[t] for g in gen_distrib2_list]))
             else:
                 gen_distrib2 = None
-
             gen_states.append(np.concatenate([s[t] for s in gen_states_list]))
 
         return gen_images, gen_distrib1, gen_distrib2, gen_states
