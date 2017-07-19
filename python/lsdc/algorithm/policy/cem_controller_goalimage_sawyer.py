@@ -318,7 +318,7 @@ class CEM_controller():
             if self.save_subdir != None:
                 file_path = self.netconf['current_dir']+ '/'+ self.save_subdir +'/verbose'
             else:
-                file_path = self.netconf['current_dir'] + 'verbose'
+                file_path = self.netconf['current_dir'] + '/verbose'
 
 
             if not os.path.exists(file_path):
