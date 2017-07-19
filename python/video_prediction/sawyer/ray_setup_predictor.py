@@ -139,7 +139,7 @@ def setup_predictor(netconf, ngpu, redis_address):
         print 'indices for gpu {0}: {1} to {2}'.format(i, startind[-1], endind[-1])
         start_counter += local_bsize
 
-    print 'IP addresses of actors', ray.get([a.remote() for a in workers])
+    print 'IP addresses of actors', ray.get([a.get_ip_address.remote() for a in workers])
 
     def predictor_func(input_images=None,
                        input_one_hot_images1=None,
