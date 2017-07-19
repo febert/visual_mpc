@@ -118,7 +118,7 @@ class LocalServer(object):
 def setup_predictor(netconf, ngpu, redis_address, use_ray = True):
 
     if use_ray:
-        ray.init(num_gpus=ngpu, redis_address= redis_address)
+        ray.init(redis_address= redis_address)
 
     local_bsize = np.floor(netconf['batch_size']/ngpu).astype(np.int32)
     new_batch_size = local_bsize * ngpu
