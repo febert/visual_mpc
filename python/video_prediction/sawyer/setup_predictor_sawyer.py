@@ -19,7 +19,7 @@ class Tower(object):
         start_images = tf.slice(start_images, [startidx, 0, 0, 0, 0], [nsmp_per_gpu, -1, -1, -1, -1])
         start_states = tf.slice(start_states, [startidx, 0, 0], [nsmp_per_gpu, -1, -1])
         if 'no_pix_distrib' in conf:
-         pix_distrib = None
+             pix_distrib = None
         else:
             pix_distrib1 = tf.slice(pix_distrib1, [startidx, 0, 0, 0, 0], [nsmp_per_gpu, -1, -1, -1, -1])
             pix_distrib2 = tf.slice(pix_distrib2, [startidx, 0, 0, 0, 0], [nsmp_per_gpu, -1, -1, -1, -1])
@@ -98,7 +98,6 @@ def setup_predictor(conf, gpu_id=0, ngpu=1):
             model = Model(conf, start_images, actions, start_states, pix_distrib= pix_distrib_1)
 
     sess.run(tf.initialize_all_variables())
-    # sess.run(tf.global_variables_initializer())
 
     saver = tf.train.Saver(tf.get_collection(tf.GraphKeys.VARIABLES), max_to_keep=0)
     saver.restore(sess, conf['pretrained_model'])
@@ -192,3 +191,4 @@ def setup_predictor(conf, gpu_id=0, ngpu=1):
         return gen_images, gen_distrib1, gen_distrib2, gen_states
 
     return predictor_func
+

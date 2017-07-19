@@ -9,7 +9,7 @@ pip install --upgrade tensorflow-gpu
 pip install imageio==1.6
 pip install moviepy
 
-pip install mujoco_py
+pip install mujoco-py==0.5.7
 
 conda install  -f  numpy
 conda install mkl
@@ -25,3 +25,6 @@ xhost +
 When running ROS:
 pip install rospkg
 pip install empy
+
+When running visual-mpc server:
+pip install opencv-python

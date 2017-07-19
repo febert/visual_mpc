@@ -230,12 +230,11 @@ class CEM_controller():
 
         if 'ndesig' in self.policyparams:
             input_distrib1, input_distrib2 = self.make_input_distrib(itr)
-            # plt.imshow(np.squeeze(input_distrib1[0,0]), zorder=0, cmap=plt.get_cmap('jet'), interpolation='none')
-            # plt.show()
-            # plt.imshow(np.squeeze(input_distrib2[0,0]), zorder=0, cmap=plt.get_cmap('jet'), interpolation='none')
-            # plt.show()
-
-            gen_images, gen_distrib1, gen_distrib2, gen_states = self.predictor(input_images=last_frames,input_state=last_states,input_actions=actions, input_one_hot_images1=input_distrib1,input_one_hot_images2=input_distrib2)
+            gen_images, gen_distrib1, gen_distrib2, gen_states = self.predictor(input_images=last_frames,
+                                                                                input_state=last_states,
+                                                                                input_actions=actions,
+                                                                                input_one_hot_images1=input_distrib1,
+                                                                                input_one_hot_images2=input_distrib2)
 
             distance_grid1 = self.get_distancegrid(self.goal_pix[0])
             distance_grid2 = self.get_distancegrid(self.goal_pix[1])
@@ -252,9 +251,9 @@ class CEM_controller():
         else:
             input_distrib = self.make_input_distrib(itr)
             gen_images, gen_distrib, _, gen_states = self.predictor(input_images=last_frames,
-                                                                input_state=last_states,
-                                                                input_actions=actions,
-                                                                input_one_hot_images1=input_distrib)
+                                                                    input_state=last_states,
+                                                                    input_actions=actions,
+                                                                    input_one_hot_images1=input_distrib)
 
             distance_grid = self.get_distancegrid(self.goal_pix[0])
             if 'singlepoint_prob_eval' in self.policyparams:
@@ -319,7 +318,7 @@ class CEM_controller():
             if self.save_subdir != None:
                 file_path = self.netconf['current_dir']+ '/'+ self.save_subdir +'/verbose'
             else:
-                file_path = self.netconf['current_dir'] + 'verbose'
+                file_path = self.netconf['current_dir'] + '/verbose'
 
 
             if not os.path.exists(file_path):
@@ -436,9 +435,9 @@ class CEM_controller():
         """
         self.t = t
 
+        self.desig_pix = np.array(desig_pix).reshape((2, 2))
         if t == 0:
             action = np.zeros(4)
-            self.desig_pix = np.array(desig_pix).reshape((2,2))
             self.goal_pix = np.array(goal_pix).reshape((2,2))
         else:
             if 'single_view' in self.netconf:
