@@ -244,10 +244,6 @@ class CEM_controller():
             _, scores2 = self.calc_scores(gen_distrib2, distance_grid2)
             print 'best score2', np.min(scores2)
             scores = scores1 + scores2
-
-            print 'scores1 of best traj: ', scores1[scores.argsort()[0]]
-            print 'scores2 of best traj: ', scores2[scores.argsort()[0]]
-
         else:
             input_distrib = self.make_input_distrib(itr)
             gen_images, gen_distrib, _, gen_states = self.predictor(input_images=last_frames,
