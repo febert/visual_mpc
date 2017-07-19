@@ -10,7 +10,7 @@ import os
 
 from datetime import datetime
 import ray
-
+import time
 @ray.remote(num_gpus=1)
 class LocalServer(object):
     def __init__(self, conf, local_batch_size):
@@ -75,6 +75,10 @@ class LocalServer(object):
         saver.restore(self.sess, conf['pretrained_model'])
 
 
+    def get_ip_address(self):
+        time.sleep(0.01)
+        return ray.services.get_node_ip_address()
+
     def predict(self, input_images=None, input_one_hot_images1=None, input_state=None, input_actions=None):
 
         t_startiter = datetime.now()
@@ -134,6 +138,8 @@ def setup_predictor(netconf, ngpu, redis_address):
         endind.append(start_counter + local_bsize)
         print 'indices for gpu {0}: {1} to {2}'.format(i, startind[-1], endind[-1])
         start_counter += local_bsize
+
+    print 'IP addresses of actors', ray.get([a.remote() for a in workers])
 
     def predictor_func(input_images=None,
                        input_one_hot_images1=None,
