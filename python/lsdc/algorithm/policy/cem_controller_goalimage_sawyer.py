@@ -252,8 +252,8 @@ class CEM_controller():
             #                                                         input_one_hot_images1=input_distrib)
 
             self.predictor()
-            gen_images = np.zeros((200, 14, 64, 64, 3))
-            gen_distrib = np.zeros((200, 14, 64, 64, 1))
+            gen_images = [np.zeros((200, 64, 64, 3)) for _ in range(14)]
+            gen_distrib = [np.zeros((200, 64, 64, 1)) for _ in range(14)]
             gen_states = np.zeros((200, 14, 3))
 
             distance_grid = self.get_distancegrid(self.goal_pix[0])
