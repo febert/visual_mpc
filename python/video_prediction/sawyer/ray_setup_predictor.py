@@ -83,10 +83,10 @@ class LocalServer(object):
     # def predict(self, input_images=None, input_one_hot_images1=None, input_state=None, input_actions=None):  ##  original line
     def predict(self):
         ######################
-        input_images = tf.zeros(shape=(self.local_batch_size, 15, 64, 64, 3), dtype=np.float32)
+        input_images = np.zeros(shape=(self.local_batch_size, 15, 64, 64, 3), dtype=np.float32)
         input_one_hot_images1 = tf.zeros(shape=(self.local_batch_size, 2, 64, 64, 1), dtype=np.float32)
-        input_state = tf.zeros(shape=(self.local_batch_size, 2, 3), dtype=np.float32)
-        input_actions = tf.zeros(shape=(self.local_batch_size, 15, 4), dtype=np.float32)
+        input_state = np.zeros(shape=(self.local_batch_size, 2, 3), dtype=np.float32)
+        input_actions = np.zeros(shape=(self.local_batch_size, 15, 4), dtype=np.float32)
         #######################
 
         t_startiter = datetime.now()
