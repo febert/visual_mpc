@@ -10,10 +10,10 @@ import os
 
 from datetime import datetime
 import ray
-
+import time
 @ray.remote(num_gpus=1)
 class LocalServer(object):
-    def __init__(self, conf, local_batch_size, use_ray= True):
+    def __init__(self, conf, local_batch_size):
         print 'making LocalServer'
 
         self.local_batch_size = local_batch_size
@@ -24,13 +24,8 @@ class LocalServer(object):
         else:
             from video_prediction.sawyer.prediction_train_sawyer import Model
 
-        if use_ray:
-            print 'using CUDA_VISIBLE_DEVICES=', ray.get_gpu_ids()
-            print 'ray_getgpou', ray.get_gpu_ids()
-            os.environ["CUDA_VISIBLE_DEVICES"] = str(ray.get_gpu_ids()[0])
-        else:
-            print 'using CUDA_VISIBLE_DEVICES=', 0
-            os.environ["CUDA_VISIBLE_DEVICES"] = str(0)
+        print 'using CUDA_VISIBLE_DEVICES=', ray.get_gpu_ids()[0]%4
+        os.environ["CUDA_VISIBLE_DEVICES"] = str(ray.get_gpu_ids()[0]%4)
 
         from tensorflow.python.client import device_lib
         print device_lib.list_local_devices()
@@ -81,6 +76,9 @@ class LocalServer(object):
         saver = tf.train.Saver(restore_vars, max_to_keep=0)
         saver.restore(self.sess, conf['pretrained_model'])
 
+    def get_ip_address(self):
+        time.sleep(0.01)
+        return ray.services.get_node_ip_address()
 
     # def predict(self, input_images=None, input_one_hot_images1=None, input_state=None, input_actions=None):  ##  original line
     def predict(self):
@@ -90,7 +88,6 @@ class LocalServer(object):
         input_state = tf.zeros(shape=(self.local_batch_size, 2, 3))
         input_actions = tf.zeros(shape=(self.local_batch_size, 15, 4))
         #######################
-
 
         t_startiter = datetime.now()
 
@@ -126,10 +123,14 @@ class LocalServer(object):
         # return gen_images, gen_distrib1, gen_distrib2, gen_states !!!!!!!!!!!!!!!!!!!
 
 
-def setup_predictor(netconf, ngpu, redis_address, use_ray = True):
+def setup_predictor(netconf, ngpu, redis_address):
 
-    if use_ray:
-        ray.init(num_gpus=ngpu, redis_address= redis_address)
+    if redis_address == "":
+        ray.init(num_gpus=ngpu)
+        print 'using num gpus', ngpu
+    else:
+        ray.init(redis_address=redis_address)
+        print 'using redis_address', redis_address
 
     local_bsize = np.floor(netconf['batch_size']/ngpu).astype(np.int32)
     new_batch_size = local_bsize * ngpu
@@ -140,15 +141,14 @@ def setup_predictor(netconf, ngpu, redis_address, use_ray = True):
 
     start_counter = 0
     for i in range(ngpu):
-        if use_ray:
-            workers.append(LocalServer.remote(netconf, local_bsize))
-        else:
-            workers.append(LocalServer(netconf, local_bsize, use_ray = use_ray))
+        workers.append(LocalServer.remote(netconf, local_bsize))
 
         startind.append(start_counter)
         endind.append(start_counter + local_bsize)
         print 'indices for gpu {0}: {1} to {2}'.format(i, startind[-1], endind[-1])
         start_counter += local_bsize
+
+    print 'IP addresses of actors', ray.get([a.get_ip_address.remote() for a in workers])
 
     def predictor_func(input_images=None,
                        input_one_hot_images1=None,
@@ -156,50 +156,48 @@ def setup_predictor(netconf, ngpu, redis_address, use_ray = True):
                        input_state=None,
                        input_actions=None):
 
+        result_list = []
+        for igpu in range(ngpu):
+            result = workers[igpu].predict.remote(
+                               input_images[startind[igpu]:endind[igpu]],
+                               input_one_hot_images1[startind[igpu]:endind[igpu]],
+                               input_state[startind[igpu]:endind[igpu]],
+                               input_actions[startind[igpu]:endind[igpu]]
+                               )
+
+            result_list.append(result)
+
         gen_image_list = []
         gen_distrib1_list = []
         gen_distrib2_list = []
         gen_states_list = []
 
-        result_list = []
+        result_list = ray.get(result_list)  # do computation in parallel
 
-        for i in range(ngpu):
+        for igpu in range(ngpu):
+            # create lists of length ngpu of lists of length sequence_length
+            gen_images, gen_distrib1, gen_distrib2, gen_states = result_list[igpu]
 
-            if use_ray:
-                result = workers[i].predict.remote(
-                                   input_images[startind[i]:endind[i]],
-                                   input_one_hot_images1[startind[i]:endind[i]],
-                                   input_state[startind[i]:endind[i]],
-                                   input_actions[startind[i]:endind[i]]
-                                   )
+            gen_image_list.append(gen_images)
+            gen_distrib1_list.append(gen_distrib1)
+            if 'ndesig' in netconf:
+                gen_distrib2_list.append(gen_distrib2)
+            gen_states_list.append(gen_states)
 
-                result_list.append(result)
+        gen_images = []
+        gen_distrib1 = []
+        gen_distrib2 = []
+        gen_states = []
 
+        for t in range(netconf['sequence_length']-1):
+            gen_images.append(np.concatenate([gi[t] for gi in gen_image_list]))
+            gen_distrib1.append(np.concatenate([g[t] for g in gen_distrib1_list]))
+            if 'ndesig' in netconf:
+                gen_distrib2.append(np.concatenate([g[t] for g in gen_distrib2_list]))
             else:
-                gen_images, gen_distrib1, gen_distrib2, gen_states = workers[i].predict(
-                    input_images[startind[i]:endind[i]],
-                    input_one_hot_images1[startind[i]:endind[i]],
-                    input_state[startind[i]:endind[i]],
-                    input_actions[startind[i]:endind[i]]
-                    )
+                gen_distrib2 = None
+            gen_states.append(np.concatenate([s[t] for s in gen_states_list]))
 
-
-        if use_ray:
-            for i in range(ngpu):
-                gen_images, gen_distrib1, gen_distrib2, gen_states  = ray.get(result_list[i])
-
-                gen_image_list.append(gen_images)
-                gen_distrib1_list.append(gen_distrib1)
-                if 'ndesig' in netconf:
-                    gen_distrib2_list.append(gen_distrib2)
-                gen_states_list.append(gen_states)
-
-        gen_images = np.concatenate(gen_image_list)
-        gen_distrib1 = np.concatenate(gen_distrib1_list)
-        if 'ndesig' in netconf:
-            gen_distrib2 = np.concatenate(gen_distrib2_list)
-        else: gen_distrib2 = None
-        gen_states = np.concatenate(gen_states_list)
 
         return gen_images, gen_distrib1, gen_distrib2, gen_states
 
@@ -209,5 +207,5 @@ def setup_predictor(netconf, ngpu, redis_address, use_ray = True):
 if __name__ == '__main__':
     conffile = '/home/frederik/Documents/catkin_ws/src/lsdc/experiments/cem_exp/benchmarks_sawyer/predprop_1stimg_bckgd/conf.py'
     netconf = imp.load_source('mod_hyper', conffile).configuration
-    predfunc = setup_predictor(netconf,None, 1, use_ray=True)
+    predfunc = setup_predictor(netconf,None, 1)
     pdb.set_trace()
