@@ -13,12 +13,13 @@ import ray
 
 @ray.remote(num_gpus=1)
 class LocalServer(object):
-    def __init__(self, conf, local_batch_size, use_ray= True):
+    def __init__(self, netconf, local_batch_size, use_ray= True):
         print 'making LocalServer'
 
-        self.conf = conf
-        if 'prediction_model' in conf:
-            Model = conf['prediction_model']
+        self.local_batch_size = local_batch_size
+        self.netconf = netconf
+        if 'prediction_model' in netconf:
+            Model = netconf['prediction_model']
         else:
             from video_prediction.sawyer.prediction_train_sawyer import Model
 
@@ -42,33 +43,33 @@ class LocalServer(object):
 
         print '-------------------------------------------------------------------'
         print 'verify current settings!! '
-        for key in conf.keys():
-            print key, ': ', conf[key]
+        for key in netconf.keys():
+            print key, ': ', netconf[key]
         print '-------------------------------------------------------------------'
 
         print 'Constructing multi gpu model for control...'
 
-        if 'single_view' in conf:
+        if 'single_view' in netconf:
             numcam = 1
         else:
             numcam = 2
         self.start_images_pl = tf.placeholder(tf.float32, name='images',  # with zeros extension
-                                        shape=(local_batch_size, conf['sequence_length'], 64, 64, 3*numcam))
+                                        shape=(local_batch_size, netconf['sequence_length'], 64, 64, 3*numcam))
         self.actions_pl = tf.placeholder(tf.float32, name='actions',
-                                        shape=(local_batch_size,conf['sequence_length'], 4))
+                                        shape=(local_batch_size,netconf['sequence_length'], 4))
         self.start_states_pl = tf.placeholder(tf.float32, name='states',
-                                              shape=(local_batch_size,conf['context_frames'], 3))
-        self.pix_distrib_1_pl = tf.placeholder(tf.float32, shape=(local_batch_size, conf['context_frames'], 64, 64, numcam))
-        self.pix_distrib_2_pl = tf.placeholder(tf.float32, shape=(local_batch_size, conf['context_frames'], 64, 64, numcam))
+                                              shape=(local_batch_size,netconf['context_frames'], 3))
+        self.pix_distrib_1_pl = tf.placeholder(tf.float32, shape=(local_batch_size, netconf['context_frames'], 64, 64, numcam))
+        self.pix_distrib_2_pl = tf.placeholder(tf.float32, shape=(local_batch_size, netconf['context_frames'], 64, 64, numcam))
 
         with tf.variable_scope('model', reuse=None):
-            self.model = Model(conf, self.start_images_pl, self.actions_pl, self.start_states_pl,
+            self.model = Model(netconf, self.start_images_pl, self.actions_pl, self.start_states_pl,
                                pix_distrib=self.pix_distrib_1_pl)
 
         self.sess.run(tf.initialize_all_variables())
 
         saver = tf.train.Saver(tf.get_collection(tf.GraphKeys.VARIABLES), max_to_keep=0)
-        saver.restore(self.sess, conf['pretrained_model'])
+        saver.restore(self.sess, netconf['pretrained_model'])
         print 'restore done. '
 
 
@@ -77,46 +78,90 @@ class LocalServer(object):
         # for var in restore_vars:
         #     print var.name, var.get_shape()
         saver = tf.train.Saver(restore_vars, max_to_keep=0)
-        saver.restore(self.sess, conf['pretrained_model'])
+        saver.restore(self.sess, netconf['pretrained_model'])
 
 
-    def predict(self, input_images=None, input_one_hot_images1=None, input_state=None, input_actions=None):
+    def predict(self, last_frames=None, input_distrib=None, last_states=None, input_actions=None):
+
+        pdb.set_trace()
+        input_distrib = np.expand_dims(input_distrib, axis=0)
+        input_distrib = np.repeat(input_distrib, self.local_batch_size)
+        print input_distrib.shape
 
         t_startiter = datetime.now()
 
-        feed_dict = {}
+        last_states = np.expand_dims(last_states, axis=0)
+        input_state = np.repeat(last_states, self.local_batch_size, axis=0)
+        img_channels = 3
+        last_frames = np.expand_dims(last_frames, axis=0)
+        last_frames = np.repeat(last_frames, self.local_batch_size, axis=0)
 
+        app_zeros = np.zeros(shape=(self.local_batch_size, self.netconf['sequence_length'] -
+                                    self.netconf['context_frames'], 64, 64, img_channels))
+        last_frames = np.concatenate((last_frames, app_zeros), axis=1)
+        input_images = last_frames.astype(np.float32) / 255.
+
+        feed_dict = {}
         feed_dict[self.start_images_pl] = input_images
         feed_dict[self.start_states_pl] = input_state
         feed_dict[self.actions_pl] = input_actions
 
-        feed_dict[self.pix_distrib_1_pl] = input_one_hot_images1
-        if 'ndesig' in self.conf:
-            print 'evaluating 2 pixdistrib..'
-            feed_dict[self.pix_distrib_2_pl] = input_one_hot_images2
+        feed_dict[self.pix_distrib_1_pl] = input_distrib
 
-            gen_images, gen_distrib1, gen_distrib2, gen_states = self.sess.run([self.model.gen_images,
-                                                                         self.model.gen_distrib1,
-                                                                         self.model.gen_distrib2,
-                                                                         self.model.gen_states],
-                                                                                feed_dict)
-        else:
-            gen_distrib2 = None
-            gen_images, gen_distrib1, gen_states = self.sess.run([self.model.gen_images,
-                                                             self.model.gen_distrib1,
-                                                             self.model.gen_states,
-                                                            ],
-                                                           feed_dict)
+        distance_grid = self.get_distancegrid(self.goal_pix[0])
+        gen_images, gen_distrib, gen_states = self.sess.run([self.model.gen_images,
+                                                         self.model.gen_distrib1,
+                                                         self.model.gen_states,
+                                                        ],
+                                                       feed_dict)
+
+        scores = self.calc_scores(gen_distrib, distance_grid)
 
         print 'time for evaluating {0} actions: {1}'.format(
-            self.conf['batch_size'],
+            self.netconf['batch_size'],
             (datetime.now() - t_startiter).seconds + (datetime.now() - t_startiter).microseconds / 1e6)
 
-        return gen_images, gen_distrib1, gen_distrib2, gen_states
+        bestind = scores.argsort()[0]
+        best_gen_distrib = gen_distrib[2][bestind].reshape(1, 64, 64, 1)
+
+        return (best_gen_distrib, scores[bestind]), scores
+
+    def calc_scores(self, gen_distrib, distance_grid):
+        expected_distance = np.zeros(self.local_batch_size)
+        desig_pix_cost = np.zeros(self.local_batch_size)
+        if 'rew_all_steps' in self.policyparams:
+            for tstep in range(self.netconf['sequence_length'] - 1):
+                t_mult = 1
+                if 'finalweight' in self.policyparams:
+                    if tstep == self.netconf['sequence_length'] - 2:
+                        t_mult = self.policyparams['finalweight']
+
+                for b in range(self.local_batch_size):
+                    gen = gen_distrib[tstep][b].squeeze() / np.sum(gen_distrib[tstep][b])
+                    expected_distance[b] += np.sum(np.multiply(gen, distance_grid)) * t_mult
+            scores = expected_distance
+        else:
+            for b in range(self.local_batch_size):
+                gen = gen_distrib[-1][b].squeeze() / np.sum(gen_distrib[-1][b])
+                expected_distance[b] = np.sum(np.multiply(gen, distance_grid))
+            scores = expected_distance
+        return desig_pix_cost, scores
+
+    def get_distancegrid(self, goal_pix):
+        distance_grid = np.empty((64, 64))
+        for i in range(64):
+            for j in range(64):
+                pos = np.array([i, j])
+                distance_grid[i, j] = np.linalg.norm(goal_pix - pos)
+
+        print 'making distance grid with goal_pix', goal_pix
+        # plt.imshow(distance_grid, zorder=0, cmap=plt.get_cmap('jet'), interpolation='none')
+        # plt.show()
+        # pdb.set_trace()
+        return distance_grid
 
 
 def setup_predictor(netconf, ngpu, redis_address):
-
     if redis_address == '':
         ray.init(num_gpus=ngpu)
     else:
@@ -140,55 +185,41 @@ def setup_predictor(netconf, ngpu, redis_address):
 
     def predictor_func(input_images=None,
                        input_one_hot_images1=None,
-                       input_one_hot_images2=None,
                        input_state=None,
                        input_actions=None):
 
-        gen_image_list = []
-        gen_distrib1_list = []
-        gen_distrib2_list = []
-        gen_states_list = []
-
         result_list = []
-
         for i in range(ngpu):
-
+            pdb.set_trace()
             result = workers[i].predict.remote(
-                               input_images[startind[i]:endind[i]],
-                               input_one_hot_images1[startind[i]:endind[i]],
-                               input_state[startind[i]:endind[i]],
-                               input_actions[startind[i]:endind[i]]
-                               )
+                                       input_images,
+                                       input_one_hot_images1,
+                                       input_state,
+                                       input_actions
+                                       )
 
             result_list.append(result)
 
         result_list = ray.get(result_list)
 
+        scores_list = []
+        best_gen_distrib_list = []
+
         for i in range(ngpu):
-            gen_images, gen_distrib1, gen_distrib2, gen_states  = result_list[i]
+            best_gen_distrib, scores  = result_list[i]
+            best_gen_distrib_list.append(best_gen_distrib)
+            scores_list.append(scores)
 
-            gen_image_list.append(gen_images)
-            gen_distrib1_list.append(gen_distrib1)
-            if 'ndesig' in netconf:
-                gen_distrib2_list.append(gen_distrib2)
-            gen_states_list.append(gen_states)
+        scores = np.concatenate(scores)
 
-        gen_images = []
-        gen_distrib1 = []
-        gen_distrib2 = []
-        gen_states = []
+        pdb.set_trace()
+        best_gpuid = np.array([t[1] for t in best_gen_distrib_list]).argmin()
+        single_best_gen_distrib = best_gen_distrib_list[best_gpuid][0]
 
-        for t in range(netconf['sequence_length']-1):
-            gen_images.append(np.concatenate([iml[t] for iml in gen_image_list]))
-            gen_distrib1.append(np.concatenate([iml[t] for iml in gen_distrib1_list]))
-            if 'ndesig' in netconf:
-                gen_distrib2.append(np.concatenate([iml[t] for iml in gen_distrib2_list]))
-            else: gen_distrib2 = None
-            gen_states.append(np.concatenate([sl[t] for sl in gen_states_list]))
-        return gen_images, gen_distrib1, gen_distrib2, gen_states
+        pdb.set_trace()
+        return single_best_gen_distrib, scores
 
     return predictor_func
-
 
 if __name__ == '__main__':
     conffile = '/home/frederik/Documents/catkin_ws/src/lsdc/experiments/cem_exp/benchmarks_sawyer/predprop_1stimg_bckgd/conf.py'

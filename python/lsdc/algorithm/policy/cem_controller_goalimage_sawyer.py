@@ -168,7 +168,12 @@ class CEM_controller():
                 return
 
             t_start = datetime.now()
-            scores = self.video_pred(last_frames, last_states, actions, itr)
+
+            if 'multmachine' in self.policyparams:
+                scores = self.mult_machine_video_pred(last_frames, last_states, actions, itr)
+            else:
+                scores = self.video_pred(last_frames, last_states, actions, itr)
+
             print 'overall time for evaluating actions {}'.format(
                 (datetime.now() - t_start).seconds + (datetime.now() - t_start).microseconds / 1e6)
 
@@ -211,6 +216,26 @@ class CEM_controller():
         for t in range(len(gen_pixdistrib)):
             for b in range(self.netconf['batch_size']):
                 scores[b] -= gen_pixdistrib[t][b,self.goal_pix[0,0], self.goal_pix[0,1]]
+        return scores
+
+    def mult_machine_video_pred(self, last_frames, last_states, actions, itr):
+
+        input_distrib = self.make_input_distrib(itr)
+
+        pdb.set_trace()
+        input_distrib = input_distrib[0]
+        best_gen_distrib, scores = self.predictor(input_images=last_frames,
+                                last_states=last_states,
+                                input_actions=actions,
+                                input_distrib=input_distrib,
+                                goal_pix = self.goal_pix[0]
+                                )
+
+        if 'predictor_propagation' in self.policyparams:
+            # for predictor_propagation only!!
+            if itr == (self.policyparams['iterations'] - 1):
+                self.rec_input_distrib.append(np.repeat(best_gen_distrib, self.netconf['batch_size'], 0))
+
         return scores
 
     def video_pred(self, last_frames, last_states, actions, itr):
