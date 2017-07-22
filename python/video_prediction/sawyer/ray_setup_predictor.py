@@ -192,7 +192,6 @@ def setup_predictor(netconf, ngpu, redis_address):
 
         result_list = []
         for i in range(ngpu):
-            pdb.set_trace()
             result = workers[i].predict.remote(
                                        input_images,
                                        input_one_hot_images1,

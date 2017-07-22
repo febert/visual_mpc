@@ -222,7 +222,6 @@ class CEM_controller():
 
         input_distrib = self.make_input_distrib(itr)
 
-        pdb.set_trace()
         input_distrib = input_distrib[0]
         best_gen_distrib, scores = self.predictor(input_images=last_frames,
                                                   input_states=last_states,
