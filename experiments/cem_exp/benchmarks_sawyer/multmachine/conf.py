@@ -19,7 +19,7 @@ configuration = {
 'model': 'CDNA',            #'model architecture to use - CDNA, DNA, or STP' ,
 'num_masks': 10,            # 'number of masks, usually 1 for DNA, 10 for CDNA, STN.' ,
 'schedsamp_k': -1,       # 'The k hyperparameter for scheduled sampling -1 for no scheduled sampling.' ,
-'batch_size': 50,           #batch size for evaluation' ,
+'batch_size': 25,           #batch size for evaluation' ,
 'learning_rate': 0,     #'the base learning rate of the generator' ,
 'file_visual': '',          # datafile used for making visualizations,
 'dna_size': 9,              #size of DNA kerns
