@@ -117,7 +117,6 @@ class LocalServer(object):
 
 def setup_predictor(netconf, ngpu, redis_address):
 
-    pdb.set_trace()
     if redis_address == '':
         ray.init(num_gpus=ngpu)
     else:
@@ -186,7 +185,6 @@ def setup_predictor(netconf, ngpu, redis_address):
                 gen_distrib2.append(np.concatenate([iml[t] for iml in gen_distrib2_list]))
             else: gen_distrib2 = None
             gen_states.append(np.concatenate([sl[t] for sl in gen_states_list]))
-        pdb.set_trace()
         return gen_images, gen_distrib1, gen_distrib2, gen_states
 
     return predictor_func
