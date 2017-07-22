@@ -11,7 +11,7 @@ policy = {
     'repeat': 3,
     'initial_std': .035,
     'netconf': current_dir + '/conf.py',
-    'iterations': 3,
+    'iterations': 1,
     'verbose':'',
     'predictor_propagation': '',   # use the model get the designated pixel for the next step!
     'action_cost_factor': 0,
