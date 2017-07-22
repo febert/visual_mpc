@@ -163,7 +163,7 @@ def setup_predictor(netconf, ngpu, redis_address):
 
             result_list.append(result)
 
-        ray.get(result_list)
+        result_list = ray.get(result_list)
 
         for i in range(ngpu):
             gen_images, gen_distrib1, gen_distrib2, gen_states  = result_list[i]
