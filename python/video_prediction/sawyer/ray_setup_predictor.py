@@ -203,7 +203,10 @@ def setup_predictor(netconf, ngpu, redis_address):
 
             result_list.append(result)
 
+        pdb.set_trace()
         result_list = ray.get(result_list)
+
+        pdb.set_trace()
 
         scores_list = []
         best_gen_distrib_list = []
