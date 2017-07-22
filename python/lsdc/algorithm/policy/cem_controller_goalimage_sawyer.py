@@ -219,7 +219,6 @@ class CEM_controller():
         return scores
 
     def mult_machine_video_pred(self, last_frames, last_states, actions, itr):
-
         input_distrib = self.make_input_distrib(itr)
 
         input_distrib = input_distrib[0]
