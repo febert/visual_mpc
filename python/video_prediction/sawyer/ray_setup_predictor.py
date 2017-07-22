@@ -174,17 +174,19 @@ def setup_predictor(netconf, ngpu, redis_address):
                 gen_distrib2_list.append(gen_distrib2)
             gen_states_list.append(gen_states)
 
+        gen_images = []
+        gen_distrib1 = []
+        gen_distrib2 = []
+        gen_states = []
+
         for t in range(netconf['sequence_length']-1):
-
-            gen_images = np.concatenate([iml[t] for iml in gen_image_list])
-            gen_distrib1 = np.concatenate([iml[t] for iml in gen_distrib1_list])
+            gen_images.append(np.concatenate([iml[t] for iml in gen_image_list]))
+            gen_distrib1.append(np.concatenate([iml[t] for iml in gen_distrib1_list]))
             if 'ndesig' in netconf:
-                gen_distrib1 = np.concatenate([iml[t] for iml in gen_distrib2_list])
+                gen_distrib2.append(np.concatenate([iml[t] for iml in gen_distrib2_list]))
             else: gen_distrib2 = None
-            gen_states = np.concatenate([sl[t] for sl in gen_states_list])
-
+            gen_states.append(np.concatenate([sl[t] for sl in gen_states_list]))
         pdb.set_trace()
-
         return gen_images, gen_distrib1, gen_distrib2, gen_states
 
     return predictor_func
