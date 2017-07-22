@@ -222,11 +222,15 @@ class CEM_controller():
         input_distrib = self.make_input_distrib(itr)
 
         input_distrib = input_distrib[0]
+
+        pdb.set_trace()
         best_gen_distrib, scores = self.predictor(input_images=last_frames,
                                                   input_states=last_states,
                                                   input_actions=actions,
                                                   input_one_hot_images1=input_distrib,
                                                   goal_pix = self.goal_pix[0])
+
+        pdb.set_trace()
 
         if 'predictor_propagation' in self.policyparams:
             # for predictor_propagation only!!
