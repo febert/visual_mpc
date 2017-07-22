@@ -85,10 +85,9 @@ class Visual_MPC_Server(object):
 
         if self.policyparams['usenet']:
             self.netconf = imp.load_source('params', self.policyparams['netconf']).configuration
+            self.predictor = self.netconf['setup_predictor'](self.netconf, gpu_id, ngpu)
             if 'multmachine' in self.policyparams:
                 self.predictor = self.netconf['setup_predictor'](self.netconf, ngpu, args.redis)
-            else:
-                self.predictor = self.netconf['setup_predictor'](self.netconf, gpu_id, ngpu)
         else:
             self.netconf = {}
             self.predictor = None

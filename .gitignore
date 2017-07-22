@@ -1,10 +1,7 @@
 # Byte-compiled / optimized / DLL files
 
 
-<<<<<<< HEAD
-=======
 
->>>>>>> cd0c962e08d584869728411fa837133dbe7351bd
 __pycache__/
 *.py[cod]
 *$py.class
@@ -133,9 +130,6 @@ lsdcdenv1.1/
 fail/
 
 splitted/
-.catkin_workspace
-devel/
-src/CMakeLists.txt
 
 exp/
 multobj_confs/
