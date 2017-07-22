@@ -83,7 +83,6 @@ class LocalServer(object):
 
     def predict(self, last_frames=None, input_distrib=None, last_states=None, input_actions=None, goal_pix=None):
 
-        pdb.set_trace()
         input_distrib = np.expand_dims(input_distrib, axis=0)
         input_distrib = np.repeat(input_distrib, self.local_batch_size)
         print input_distrib.shape
