@@ -85,7 +85,6 @@ class LocalServer(object):
 
         input_distrib = np.expand_dims(input_distrib, axis=0)
         input_distrib = np.repeat(input_distrib, self.local_batch_size)
-        print input_distrib.shape
 
         t_startiter = datetime.now()
 
@@ -117,7 +116,7 @@ class LocalServer(object):
         scores = self.calc_scores(gen_distrib, distance_grid)
 
         print 'time for evaluating {0} actions: {1}'.format(
-            self.netconf['batch_size'],
+            self.local_batch_size,
             (datetime.now() - t_startiter).seconds + (datetime.now() - t_startiter).microseconds / 1e6)
 
         bestind = scores.argsort()[0]
@@ -196,7 +195,7 @@ def setup_predictor(netconf, ngpu, redis_address):
                                        input_images,
                                        input_one_hot_images1,
                                        input_states,
-                                       input_actions,
+                                       input_actions[startind[i], endind[i]],
                                        goal_pix
                                        )
 
