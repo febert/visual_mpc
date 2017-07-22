@@ -81,7 +81,7 @@ class LocalServer(object):
         saver.restore(self.sess, netconf['pretrained_model'])
 
 
-    def predict(self, last_frames=None, input_distrib=None, last_states=None, input_actions=None):
+    def predict(self, last_frames=None, input_distrib=None, last_states=None, input_actions=None, goal_pix):
 
         pdb.set_trace()
         input_distrib = np.expand_dims(input_distrib, axis=0)
@@ -108,7 +108,7 @@ class LocalServer(object):
 
         feed_dict[self.pix_distrib_1_pl] = input_distrib
 
-        distance_grid = self.get_distancegrid(self.goal_pix[0])
+        distance_grid = self.get_distancegrid(goal_pix)
         gen_images, gen_distrib, gen_states = self.sess.run([self.model.gen_images,
                                                          self.model.gen_distrib1,
                                                          self.model.gen_states,
@@ -185,8 +185,10 @@ def setup_predictor(netconf, ngpu, redis_address):
 
     def predictor_func(input_images=None,
                        input_one_hot_images1=None,
-                       input_state=None,
-                       input_actions=None):
+                       input_states=None,
+                       input_actions=None,
+                       goal_pix = None
+                        ):
 
         result_list = []
         for i in range(ngpu):
@@ -194,8 +196,9 @@ def setup_predictor(netconf, ngpu, redis_address):
             result = workers[i].predict.remote(
                                        input_images,
                                        input_one_hot_images1,
-                                       input_state,
-                                       input_actions
+                                       input_states,
+                                       input_actions,
+                                       goal_pix
                                        )
 
             result_list.append(result)
