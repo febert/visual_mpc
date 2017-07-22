@@ -118,7 +118,8 @@ class LocalServer(object):
 def setup_predictor(netconf, ngpu, redis_address, use_ray = True):
 
     if use_ray:
-        if redis_address == "":
+        pdb.set_trace()
+        if redis_address == '':
             ray.init(num_gpus=ngpu)
         else:
             ray.init(redis_address=redis_address)
