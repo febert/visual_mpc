@@ -16,8 +16,6 @@ class LocalServer(object):
     def __init__(self, conf, local_batch_size, use_ray= True):
         print 'making LocalServer'
 
-        self.local_batch_size = local_batch_size
-
         self.conf = conf
         if 'prediction_model' in conf:
             Model = conf['prediction_model']
@@ -82,15 +80,7 @@ class LocalServer(object):
         saver.restore(self.sess, conf['pretrained_model'])
 
 
-    # def predict(self, input_images=None, input_one_hot_images1=None, input_state=None, input_actions=None):  ##  original line
-    def predict(self):
-        ######################
-        input_images = tf.zeros(shape=(self.local_batch_size, 15, 64, 64, 3))
-        input_one_hot_images1 = tf.zeros(shape=(self.local_batch_size, 2, 64, 64, 1))
-        input_state = tf.zeros(shape=(self.local_batch_size, 2, 3))
-        input_actions = tf.zeros(shape=(self.local_batch_size, 15, 4))
-        #######################
-
+    def predict(self, input_images=None, input_one_hot_images1=None, input_state=None, input_actions=None):
 
         t_startiter = datetime.now()
 
@@ -122,8 +112,7 @@ class LocalServer(object):
             self.conf['batch_size'],
             (datetime.now() - t_startiter).seconds + (datetime.now() - t_startiter).microseconds / 1e6)
 
-
-        # return gen_images, gen_distrib1, gen_distrib2, gen_states !!!!!!!!!!!!!!!!!!!
+        return gen_images, gen_distrib1, gen_distrib2, gen_states
 
 
 def setup_predictor(netconf, ngpu, redis_address, use_ray = True):

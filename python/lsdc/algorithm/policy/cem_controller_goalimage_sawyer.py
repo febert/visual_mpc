@@ -250,15 +250,10 @@ class CEM_controller():
 
         else:
             input_distrib = self.make_input_distrib(itr)
-            # gen_images, gen_distrib, _, gen_states = self.predictor(input_images=last_frames,  ## original lines
-            #                                                         input_state=last_states,
-            #                                                         input_actions=actions,
-            #                                                         input_one_hot_images1=input_distrib)
-
-            self.predictor()
-            gen_images = np.zeros((200, 14, 64, 64, 3))
-            gen_distrib = np.zeros((200, 14, 64, 64, 1))
-            gen_states = np.zeros((200, 14, 3))
+            gen_images, gen_distrib, _, gen_states = self.predictor(input_images=last_frames,
+                                                                    input_state=last_states,
+                                                                    input_actions=actions,
+                                                                    input_one_hot_images1=input_distrib)
 
             distance_grid = self.get_distancegrid(self.goal_pix[0])
             if 'singlepoint_prob_eval' in self.policyparams:
