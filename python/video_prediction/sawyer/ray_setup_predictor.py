@@ -213,7 +213,7 @@ def setup_predictor(netconf, policyparams, ngpu, redis_address):
         scores = np.concatenate(scores_list)
 
         best_gpuid = np.array([t[1] for t in best_gen_distrib_list]).argmin()
-        single_best_gen_distrib = best_gen_distrib_list[best_gpuid][0].reshape((64,64,1))
+        single_best_gen_distrib = best_gen_distrib_list[best_gpuid][0].reshape((1,64,64,1))
 
         return single_best_gen_distrib, scores
 

@@ -445,6 +445,7 @@ class CEM_controller():
             if itr == 0:
                 rec_input_distrib.append(input_distrib[:, 1])
         else:
+            pdb.set_trace()
             input_distrib = [rec_input_distrib[-2], rec_input_distrib[-1]]
             input_distrib = [np.expand_dims(elem, axis=1) for elem in input_distrib]
             input_distrib = np.concatenate(input_distrib, axis=1)
