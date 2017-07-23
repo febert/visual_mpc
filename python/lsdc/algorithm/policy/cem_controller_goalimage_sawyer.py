@@ -223,12 +223,6 @@ class CEM_controller():
 
         input_distrib = input_distrib[0]
 
-        pdb.set_trace()
-        input_distrib = np.expand_dims(input_distrib, axis=0)
-        input_distrib = np.repeat(input_distrib, 50, 0)
-        pdb.set_trace()
-
-
         best_gen_distrib, scores = self.predictor(input_images=last_frames,
                                                   input_states=last_states,
                                                   input_actions=actions,
