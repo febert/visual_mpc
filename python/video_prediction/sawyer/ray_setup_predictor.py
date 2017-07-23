@@ -127,7 +127,6 @@ class LocalServer(object):
 
     def calc_scores(self, gen_distrib, distance_grid):
         expected_distance = np.zeros(self.local_batch_size)
-        desig_pix_cost = np.zeros(self.local_batch_size)
         if 'rew_all_steps' in self.policyparams:
             for tstep in range(self.netconf['sequence_length'] - 1):
                 t_mult = 1
@@ -144,7 +143,7 @@ class LocalServer(object):
                 gen = gen_distrib[-1][b].squeeze() / np.sum(gen_distrib[-1][b])
                 expected_distance[b] = np.sum(np.multiply(gen, distance_grid))
             scores = expected_distance
-        return desig_pix_cost, scores
+        return scores
 
     def get_distancegrid(self, goal_pix):
         distance_grid = np.empty((64, 64))
