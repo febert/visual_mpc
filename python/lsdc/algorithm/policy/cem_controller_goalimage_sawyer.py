@@ -229,7 +229,6 @@ class CEM_controller():
                                                   input_one_hot_images1=input_distrib,
                                                   goal_pix = self.goal_pix[0])
 
-        pdb.set_trace()
 
         if 'predictor_propagation' in self.policyparams:
             # for predictor_propagation only!!
