@@ -13,9 +13,10 @@ import ray
 
 @ray.remote(num_gpus=1)
 class LocalServer(object):
-    def __init__(self, netconf, local_batch_size, use_ray= True):
+    def __init__(self, netconf, policyparams, local_batch_size, use_ray= True):
         print 'making LocalServer'
 
+        self.policyparams = policyparams
         self.local_batch_size = local_batch_size
         self.netconf = netconf
         if 'prediction_model' in netconf:
@@ -159,7 +160,7 @@ class LocalServer(object):
         return distance_grid
 
 
-def setup_predictor(netconf, ngpu, redis_address):
+def setup_predictor(netconf, policyparams, ngpu, redis_address):
     if redis_address == '':
         ray.init(num_gpus=ngpu)
     else:
@@ -174,7 +175,7 @@ def setup_predictor(netconf, ngpu, redis_address):
 
     start_counter = 0
     for i in range(ngpu):
-        workers.append(LocalServer.remote(netconf, local_bsize))
+        workers.append(LocalServer.remote(netconf, policyparams, local_bsize))
 
         startind.append(start_counter)
         endind.append(start_counter + local_bsize)
@@ -190,7 +191,6 @@ def setup_predictor(netconf, ngpu, redis_address):
 
         result_list = []
         for i in range(ngpu):
-            pdb.set_trace()
             result = workers[i].predict.remote(
                                        input_images,
                                        input_one_hot_images1,
@@ -201,7 +201,6 @@ def setup_predictor(netconf, ngpu, redis_address):
 
             result_list.append(result)
 
-        pdb.set_trace()
         result_list = ray.get(result_list)
 
         pdb.set_trace()
