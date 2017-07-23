@@ -189,14 +189,13 @@ def setup_predictor(netconf, ngpu, redis_address):
                         ):
 
         result_list = []
-        pdb.set_trace()
         for i in range(ngpu):
             pdb.set_trace()
             result = workers[i].predict.remote(
                                        input_images,
                                        input_one_hot_images1,
                                        input_states,
-                                       input_actions[startind[i], endind[i]],
+                                       input_actions[startind[i]:endind[i]],
                                        goal_pix
                                        )
 
