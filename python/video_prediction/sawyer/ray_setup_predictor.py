@@ -202,8 +202,6 @@ def setup_predictor(netconf, policyparams, ngpu, redis_address):
 
         result_list = ray.get(result_list)
 
-        pdb.set_trace()
-
         scores_list = []
         best_gen_distrib_list = []
 
@@ -214,11 +212,9 @@ def setup_predictor(netconf, policyparams, ngpu, redis_address):
 
         scores = np.concatenate(scores_list)
 
-        pdb.set_trace()
         best_gpuid = np.array([t[1] for t in best_gen_distrib_list]).argmin()
-        single_best_gen_distrib = best_gen_distrib_list[best_gpuid][0]
+        single_best_gen_distrib = best_gen_distrib_list[best_gpuid][0].reshape((64,64,1))
 
-        pdb.set_trace()
         return single_best_gen_distrib, scores
 
     return predictor_func
