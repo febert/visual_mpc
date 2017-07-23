@@ -225,7 +225,7 @@ class CEM_controller():
 
         pdb.set_trace()
         input_distrib = np.expand_dims(input_distrib, axis=0)
-        input_distrib = np.repeat(input_distrib, 50)
+        input_distrib = np.repeat(input_distrib, 50, 0)
         pdb.set_trace()
 
 
