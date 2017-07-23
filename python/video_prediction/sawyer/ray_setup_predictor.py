@@ -212,7 +212,7 @@ def setup_predictor(netconf, policyparams, ngpu, redis_address):
             best_gen_distrib_list.append(best_gen_distrib)
             scores_list.append(scores)
 
-        scores = np.concatenate(scores)
+        scores = np.concatenate(scores_list)
 
         pdb.set_trace()
         best_gpuid = np.array([t[1] for t in best_gen_distrib_list]).argmin()
