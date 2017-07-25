@@ -219,17 +219,15 @@ class CEM_controller():
         return scores
 
     def mult_machine_video_pred(self, last_frames, last_states, actions, itr):
-
         input_distrib = self.make_input_distrib(itr)
 
-        pdb.set_trace()
         input_distrib = input_distrib[0]
+
         best_gen_distrib, scores = self.predictor(input_images=last_frames,
-                                last_states=last_states,
-                                input_actions=actions,
-                                input_distrib=input_distrib,
-                                goal_pix = self.goal_pix[0]
-                                )
+                                                  input_states=last_states,
+                                                  input_actions=actions,
+                                                  input_one_hot_images1=input_distrib,
+                                                  goal_pix = self.goal_pix[0])
 
         if 'predictor_propagation' in self.policyparams:
             # for predictor_propagation only!!

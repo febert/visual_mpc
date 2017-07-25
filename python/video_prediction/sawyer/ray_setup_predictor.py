@@ -13,9 +13,10 @@ import ray
 
 @ray.remote(num_gpus=1)
 class LocalServer(object):
-    def __init__(self, netconf, local_batch_size, use_ray= True):
+    def __init__(self, netconf, policyparams, local_batch_size, use_ray= True):
         print 'making LocalServer'
 
+        self.policyparams = policyparams
         self.local_batch_size = local_batch_size
         self.netconf = netconf
         if 'prediction_model' in netconf:
@@ -81,12 +82,10 @@ class LocalServer(object):
         saver.restore(self.sess, netconf['pretrained_model'])
 
 
-    def predict(self, last_frames=None, input_distrib=None, last_states=None, input_actions=None):
+    def predict(self, last_frames=None, input_distrib=None, last_states=None, input_actions=None, goal_pix=None):
 
-        pdb.set_trace()
         input_distrib = np.expand_dims(input_distrib, axis=0)
-        input_distrib = np.repeat(input_distrib, self.local_batch_size)
-        print input_distrib.shape
+        input_distrib = np.repeat(input_distrib, self.local_batch_size, 0)
 
         t_startiter = datetime.now()
 
@@ -108,7 +107,7 @@ class LocalServer(object):
 
         feed_dict[self.pix_distrib_1_pl] = input_distrib
 
-        distance_grid = self.get_distancegrid(self.goal_pix[0])
+        distance_grid = self.get_distancegrid(goal_pix)
         gen_images, gen_distrib, gen_states = self.sess.run([self.model.gen_images,
                                                          self.model.gen_distrib1,
                                                          self.model.gen_states,
@@ -118,7 +117,7 @@ class LocalServer(object):
         scores = self.calc_scores(gen_distrib, distance_grid)
 
         print 'time for evaluating {0} actions: {1}'.format(
-            self.netconf['batch_size'],
+            self.local_batch_size,
             (datetime.now() - t_startiter).seconds + (datetime.now() - t_startiter).microseconds / 1e6)
 
         bestind = scores.argsort()[0]
@@ -128,7 +127,6 @@ class LocalServer(object):
 
     def calc_scores(self, gen_distrib, distance_grid):
         expected_distance = np.zeros(self.local_batch_size)
-        desig_pix_cost = np.zeros(self.local_batch_size)
         if 'rew_all_steps' in self.policyparams:
             for tstep in range(self.netconf['sequence_length'] - 1):
                 t_mult = 1
@@ -145,7 +143,7 @@ class LocalServer(object):
                 gen = gen_distrib[-1][b].squeeze() / np.sum(gen_distrib[-1][b])
                 expected_distance[b] = np.sum(np.multiply(gen, distance_grid))
             scores = expected_distance
-        return desig_pix_cost, scores
+        return scores
 
     def get_distancegrid(self, goal_pix):
         distance_grid = np.empty((64, 64))
@@ -158,7 +156,7 @@ class LocalServer(object):
         return distance_grid
 
 
-def setup_predictor(netconf, ngpu, redis_address):
+def setup_predictor(netconf, policyparams, ngpu, redis_address):
     if redis_address == '':
         ray.init(num_gpus=ngpu)
     else:
@@ -173,7 +171,7 @@ def setup_predictor(netconf, ngpu, redis_address):
 
     start_counter = 0
     for i in range(ngpu):
-        workers.append(LocalServer.remote(netconf, local_bsize))
+        workers.append(LocalServer.remote(netconf, policyparams, local_bsize))
 
         startind.append(start_counter)
         endind.append(start_counter + local_bsize)
@@ -182,17 +180,19 @@ def setup_predictor(netconf, ngpu, redis_address):
 
     def predictor_func(input_images=None,
                        input_one_hot_images1=None,
-                       input_state=None,
-                       input_actions=None):
+                       input_states=None,
+                       input_actions=None,
+                       goal_pix = None
+                        ):
 
         result_list = []
         for i in range(ngpu):
-            pdb.set_trace()
             result = workers[i].predict.remote(
                                        input_images,
                                        input_one_hot_images1,
-                                       input_state,
-                                       input_actions
+                                       input_states,
+                                       input_actions[startind[i]:endind[i]],
+                                       goal_pix
                                        )
 
             result_list.append(result)
@@ -207,13 +207,11 @@ def setup_predictor(netconf, ngpu, redis_address):
             best_gen_distrib_list.append(best_gen_distrib)
             scores_list.append(scores)
 
-        scores = np.concatenate(scores)
+        scores = np.concatenate(scores_list)
 
-        pdb.set_trace()
         best_gpuid = np.array([t[1] for t in best_gen_distrib_list]).argmin()
-        single_best_gen_distrib = best_gen_distrib_list[best_gpuid][0]
+        single_best_gen_distrib = best_gen_distrib_list[best_gpuid][0].reshape((1,64,64,1))
 
-        pdb.set_trace()
         return single_best_gen_distrib, scores
 
     return predictor_func
