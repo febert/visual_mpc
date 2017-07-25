@@ -74,13 +74,9 @@ class Model(object):
                  pix_distrib=None
                  ):
 
+        from skipcon_window_model import Skipcon_Window as Occlusionmodel
 
-        if 'model' in conf:
-            Occlusion_Model = conf['model']
-        else:
-            from occlusionmodel import Occlusion_Model
-
-        self.prefix = prefix = tf.placeholder(tf.string, [])
+        # self.prefix = prefix = tf.placeholder(tf.string, [])
         self.iter_num = tf.placeholder(tf.float32, [])
         self.conf = conf
 
@@ -91,21 +87,21 @@ class Model(object):
 
         # Split into timesteps.
         if actions != None:
-            actions = tf.split(1, actions.get_shape()[1], actions)
+            actions = tf.split(actions, actions.get_shape()[1], axis=1)
             actions = [tf.squeeze(act) for act in actions]
         if states != None:
-            states = tf.split(1, states.get_shape()[1], states)
+            states = tf.split(states, states.get_shape()[1], axis=1)
             states = [tf.squeeze(st) for st in states]
 
         if pix_distrib != None:
-            pix_distrib = tf.split(1, pix_distrib.get_shape()[1], pix_distrib)
+            pix_distrib = tf.split(pix_distrib, pix_distrib.get_shape()[1], axis=1)
             pix_distrib = [tf.squeeze(st) for st in pix_distrib]
 
-        images = tf.split(1, images.get_shape()[1], images)
+        images = tf.split(images, images.get_shape()[1], axis=1)
         images = [tf.squeeze(img) for img in images]
 
         if reuse_scope is None:
-            self.om = Occlusion_Model(
+            self.om = Occlusionmodel(
                 images,
                 actions,
                 states,
@@ -115,7 +111,7 @@ class Model(object):
             self.om.build()
         else:  # If it's a validation or test model.
             with tf.variable_scope(reuse_scope, reuse=True):
-                self.om = Occlusion_Model(
+                self.om = Occlusionmodel(
                     images,
                     actions,
                     states,
@@ -131,8 +127,8 @@ class Model(object):
                 range(len(self.om.gen_images)), images[conf['context_frames']:],
                 self.om.gen_images[conf['context_frames'] - 1:]):
             recon_cost_mse = mean_squared_error(x, gx)
-            summaries.append(
-                tf.scalar_summary(prefix + '_recon_cost' + str(i), recon_cost_mse))
+            summaries.append(tf.summary.scalar('recon_cost' + str(i), recon_cost_mse))
+            # summaries.append(tf.summary.scalar(prefix + '_recon_cost' + str(i), recon_cost_mse))
             recon_cost = recon_cost_mse
             loss += recon_cost
 
@@ -140,62 +136,17 @@ class Model(object):
                 range(len(self.om.gen_states)), states[conf['context_frames']:],
                 self.om.gen_states[conf['context_frames'] - 1:]):
             state_cost = mean_squared_error(state, gen_state) * 1e-4 * conf['use_state']
-            summaries.append(
-                tf.scalar_summary(prefix + '_state_cost' + str(i), state_cost))
+            summaries.append(tf.summary.scalar('state_cost' + str(i), state_cost))
             loss += state_cost
-
-        if 'mask_act_cost' in conf:  #encourage all masks but the first to have small regions of activation
-            print 'computing mask_act_cost with factor:', conf['mask_act_cost']
-            act_cost = self.mask_act_loss(self.om.objectmasks) * conf['mask_act_cost']
-            summaries.append(
-                tf.scalar_summary(prefix + '_mask_act_cost', act_cost))
-            loss += act_cost
-
-        if 'mask_distinction_cost' in conf:
-            dcost = self.distinction_loss(self.om.objectmasks) * conf['mask_distinction_cost']
-            summaries.append(tf.scalar_summary(prefix + '_mask_distinction_cost', dcost))
-            loss += dcost
-
-        if 'padding_usage_penalty' in self.conf:
-            print 'computing padding_usage_penalty with factor:', conf['padding_usage_penalty']
-            padding_usage_loss = 0
-            for gmask, pmap in zip(self.om.gen_masks, self.om.padding_map[1:]):
-                for p in range(len(gmask)):
-                    pmap[p] += 1
-                    padding_usage_loss += tf.reduce_sum(gmask[p]*pmap[p])
-
-            padding_usage_loss *= self.conf['padding_usage_penalty']
-            summaries.append(tf.scalar_summary(prefix + '_padding_usage_', padding_usage_loss))
-            loss+= padding_usage_loss
-
-        if 'mask_consistency_loss' in self.conf:
-            print 'computing mask_consistency_loss with factor:', conf['mask_consistency_loss']
-            m_cons_loss = 0
-            for gmask, mmask in zip(self.om.gen_masks, self.om.moved_masksl[1:]):
-                for p in range(len(gmask)):
-                    m_cons_loss += mean_squared_error(gmask[p], mmask[p])*conf['mask_consistency_loss']
-            summaries.append(tf.scalar_summary(prefix + '_mask_consistency_loss', m_cons_loss))
-            loss += m_cons_loss
-
-        if 'compfact_slowness' in self.conf:
-            print 'computing compfact_slowness loss with factor:', conf['compfact_slowness']
-            cfact_loss = 0
-            cfact = self.om.list_of_comp_factors
-            cfact = [tf.concat(1, c) for c in cfact]
-
-            for i in range(len(cfact)-1):
-                cfact_loss += mean_squared_error(cfact[i], cfact[i+1]) * conf['compfact_slowness']
-            summaries.append(tf.scalar_summary(prefix + '_compfact_slowness', cfact_loss))
-            loss += cfact_loss
 
         self.loss = loss = loss / np.float32(len(images) - conf['context_frames'])
 
-        summaries.append(tf.scalar_summary(prefix + '_loss', loss))
+        summaries.append(tf.summary.scalar('loss', loss))
 
         self.lr = tf.placeholder_with_default(conf['learning_rate'], ())
 
         self.train_op = tf.train.AdamOptimizer(self.lr).minimize(loss)
-        self.summ_op = tf.merge_summary(summaries)
+        self.summ_op = tf.summary.merge(summaries)
 
     def mask_act_loss(self, masks):
         print 'adding mask activation loss'
@@ -223,11 +174,11 @@ class Model(object):
         rand_ind = tf.random_uniform([1], 0, nshifts, dtype=tf.int64)
         self.rand_ind = rand_ind
 
-        start = tf.concat(0,[tf.zeros(1, dtype=tf.int64), rand_ind * tshift, tf.zeros(3, dtype=tf.int64)])
+        start = tf.concat([tf.zeros(1, dtype=tf.int64), rand_ind * tshift, tf.zeros(3, dtype=tf.int64)], 0)
         images_sel = tf.slice(images, start, [-1, uselen, -1, -1, -1])
-        start = tf.concat(0, [tf.zeros(1, dtype=tf.int64), rand_ind * tshift, tf.zeros(1, dtype=tf.int64)])
+        start = tf.concat([tf.zeros(1, dtype=tf.int64), rand_ind * tshift, tf.zeros(1, dtype=tf.int64)], 0)
         actions_sel = tf.slice(actions, start, [-1, uselen, -1])
-        start = tf.concat(0, [tf.zeros(1, dtype=tf.int64), rand_ind * tshift, tf.zeros(1, dtype=tf.int64)])
+        start = tf.concat([tf.zeros(1, dtype=tf.int64), rand_ind * tshift, tf.zeros(1, dtype=tf.int64)], 0)
         states_sel = tf.slice(states, start, [-1, uselen, -1])
 
         return images_sel, states_sel, actions_sel
@@ -267,10 +218,7 @@ def main(unused_argv, conf_script= None):
         print key, ': ', conf[key]
     print '-------------------------------------------------------------------'
 
-    if 'sawyer' in conf:
-        from video_prediction.sawyer.read_tf_record_sawyer import build_tfrecord_input
-    else:
-        from video_prediction.read_tf_record import build_tfrecord_input
+    from read_tf_record_sawyer12 import build_tfrecord_input
 
     if FLAGS.diffmotions or FLAGS.canon:
         print 'visualizing pixel motion'
@@ -287,16 +235,15 @@ def main(unused_argv, conf_script= None):
 
     print 'Constructing saver.'
     # Make saver.
-    saver = tf.train.Saver(tf.get_collection(tf.GraphKeys.VARIABLES), max_to_keep=0)
-
+    saver = tf.train.Saver(tf.get_collection(tf.GraphKeys.GLOBAL_VARIABLES), max_to_keep=0)
 
     # Make training session.
     sess = tf.InteractiveSession(config= tfconfig)
-    summary_writer = tf.train.SummaryWriter(
+    summary_writer = tf.summary.FileWriter(
         conf['output_dir'], graph=sess.graph, flush_secs=10)
 
     tf.train.start_queue_runners(sess)
-    sess.run(tf.initialize_all_variables())
+    sess.run(tf.global_variables_initializer())
 
 
     if conf['visualize']:
@@ -314,16 +261,13 @@ def main(unused_argv, conf_script= None):
             ground_truth, gen_images, object_masks, moved_images, trafos, comp_factors, moved_parts, first_step_masks, moved_masks, background, background_mask, gen_masks = sess.run([
                                                             val_images,
                                                             val_model.om.gen_images,
-                                                            val_model.om.objectmasks,
                                                             val_model.om.moved_imagesl,
                                                             val_model.om.list_of_trafos,
                                                             val_model.om.list_of_comp_factors,
-                                                            val_model.om.moved_partsl,
-                                                            val_model.om.first_step_masks,
-                                                            val_model.om.moved_masksl,
                                                             val_model.om.background,
                                                             val_model.om.background_mask,
-                                                            val_model.om.gen_masks
+                                                            val_model.om.comp_masks_l,
+                                                            val_model.om.accum_masks_l
                                                             ],
                                                             feed_dict)
             dict_ = {}
@@ -366,7 +310,7 @@ def main(unused_argv, conf_script= None):
     for itr in range(itr_0, conf['num_iterations'], 1):
         t_startiter = datetime.now()
         # Generate new batch of data_files.
-        feed_dict = {model.prefix: 'train',
+        feed_dict = {
                      model.iter_num: np.float32(itr),
                      model.lr: conf['learning_rate'],
                      }
@@ -380,7 +324,6 @@ def main(unused_argv, conf_script= None):
         if (itr) % VAL_INTERVAL == 2:
             # Run through validation set.
             feed_dict = {val_model.lr: 0.0,
-                         val_model.prefix: 'val',
                          val_model.iter_num: np.float32(itr),
                          }
             _, val_summary_str = sess.run([val_model.train_op, val_model.summ_op],

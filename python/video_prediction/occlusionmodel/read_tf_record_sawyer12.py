@@ -140,9 +140,9 @@ def build_tfrecord_input(conf, training=True):
         action_seq.append(action)
 
     if 'single_view' not in conf:
-        image_main_seq = tf.concat(0,image_main_seq)
+        image_main_seq = tf.concat(image_main_seq, 0)
 
-    image_aux1_seq = tf.concat(0,image_aux1_seq)
+    image_aux1_seq = tf.concat(image_aux1_seq, 0)
 
     if conf['visualize']: num_threads = 1
     else: num_threads = np.min((conf['batch_size'], 32))
@@ -155,11 +155,11 @@ def build_tfrecord_input(conf, training=True):
                                     capacity=100 * conf['batch_size'])
         return image_main_batch, image_aux1_batch, None, None
     elif 'canon_ex' in conf:
-        endeffector_pos_seq = tf.concat(0,endeffector_pos_seq)
-        action_seq = tf.concat(0,action_seq)
+        endeffector_pos_seq = tf.concat(endeffector_pos_seq, 0)
+        action_seq = tf.concat(action_seq, 0)
 
-        init_pix_pos_seq = tf.concat(0, init_pix_pos_seq)
-        init_pix_distrib_seq = tf.concat(0, init_pix_distrib_seq)
+        init_pix_pos_seq = tf.concat(init_pix_pos_seq, 0)
+        init_pix_distrib_seq = tf.concat(init_pix_distrib_seq, 0)
 
         [image_aux1_batch, action_batch, endeffector_pos_batch, init_pix_distrib_batch, init_pix_pos_batch] = tf.train.batch(
             [image_aux1_seq, action_seq, endeffector_pos_seq, init_pix_distrib_seq, init_pix_pos_seq],
@@ -169,8 +169,8 @@ def build_tfrecord_input(conf, training=True):
         return image_aux1_batch, action_batch, endeffector_pos_batch, init_pix_distrib_batch, init_pix_pos_batch
 
     elif 'single_view' in conf:
-        endeffector_pos_seq = tf.concat(0, endeffector_pos_seq)
-        action_seq = tf.concat(0,action_seq)
+        endeffector_pos_seq = tf.concat(endeffector_pos_seq, 0)
+        action_seq = tf.concat(action_seq, 0)
         [image_aux1_batch, action_batch, endeffector_pos_batch] = tf.train.batch(
             [image_aux1_seq, action_seq, endeffector_pos_seq],
             conf['batch_size'],
@@ -179,8 +179,8 @@ def build_tfrecord_input(conf, training=True):
         return image_aux1_batch, action_batch, endeffector_pos_batch
 
     else:
-        endeffector_pos_seq = tf.concat(0,endeffector_pos_seq)
-        action_seq = tf.concat(0,action_seq)
+        endeffector_pos_seq = tf.concat(endeffector_pos_seq, 0)
+        action_seq = tf.concat(action_seq, 0)
         [image_main_batch, image_aux1_batch, action_batch, endeffector_pos_batch] = tf.train.batch(
                                     [image_main_seq,image_aux1_seq, action_seq, endeffector_pos_seq],
                                     conf['batch_size'],

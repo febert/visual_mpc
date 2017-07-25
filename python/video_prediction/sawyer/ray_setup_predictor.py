@@ -155,9 +155,6 @@ class LocalServer(object):
                 distance_grid[i, j] = np.linalg.norm(goal_pix - pos)
 
         print 'making distance grid with goal_pix', goal_pix
-        # plt.imshow(distance_grid, zorder=0, cmap=plt.get_cmap('jet'), interpolation='none')
-        # plt.show()
-        # pdb.set_trace()
         return distance_grid
 
 
