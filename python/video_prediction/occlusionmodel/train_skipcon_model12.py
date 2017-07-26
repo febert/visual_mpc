@@ -17,7 +17,7 @@ import video_prediction.utils_vpred.create_gif
 
 from video_prediction.utils_vpred.skip_example import skip_example
 
-import makegifs
+import makegifs_skipcon
 
 from datetime import datetime
 
@@ -209,8 +209,8 @@ def main(unused_argv, conf_script= None):
         print 'creating visualizations ...'
         conf = adapt_params_visualize(conf, FLAGS.visualize)
         conf.pop('use_len', None)
-        conf['sequence_length'] = 14
-        conf['batch_size'] = 10
+        conf['sequence_length'] = 20
+        # conf['batch_size'] = 10
 
     print '-------------------------------------------------------------------'
     print 'verify current settings!! '
@@ -245,7 +245,6 @@ def main(unused_argv, conf_script= None):
     tf.train.start_queue_runners(sess)
     sess.run(tf.global_variables_initializer())
 
-
     if conf['visualize']:
         saver.restore(sess, conf['visualize'])
         file_path = conf['output_dir']
@@ -255,34 +254,24 @@ def main(unused_argv, conf_script= None):
             return
         else:
             feed_dict = {val_model.lr: 0.0,
-                         val_model.prefix: 'vis',
                          val_model.iter_num: 0}
 
-            ground_truth, gen_images, object_masks, moved_images, trafos, comp_factors, moved_parts, first_step_masks, moved_masks, background, background_mask, gen_masks = sess.run([
+            ground_truth, gen_images, moved_imagesl, comp_masks_l, accum_Images_l, accum_masks_l = sess.run([
                                                             val_images,
                                                             val_model.om.gen_images,
                                                             val_model.om.moved_imagesl,
-                                                            val_model.om.list_of_trafos,
-                                                            val_model.om.list_of_comp_factors,
-                                                            val_model.om.background,
-                                                            val_model.om.background_mask,
                                                             val_model.om.comp_masks_l,
+                                                            val_model.om.accum_Images_l,
                                                             val_model.om.accum_masks_l
                                                             ],
                                                             feed_dict)
             dict_ = {}
             dict_['ground_truth'] = ground_truth
             dict_['gen_images'] = gen_images
-            dict_['object_masks'] = object_masks
-            dict_['moved_images'] = moved_images
-            dict_['trafos'] = trafos
-            dict_['comp_factors'] = comp_factors
-            dict_['moved_parts'] = moved_parts
-            dict_['first_step_masks'] = first_step_masks
-            dict_['moved_masks'] = moved_masks
-            dict_['background'] = background
-            dict_['background_mask'] = background_mask
-            dict_['gen_masks'] = gen_masks
+            dict_['moved_imagesl'] = moved_imagesl
+            dict_['comp_masks_l'] = comp_masks_l
+            dict_['accum_Images_l'] = accum_Images_l
+            dict_['accum_masks_l'] = accum_masks_l
 
             cPickle.dump(dict_, open(file_path + '/dict_.pkl', 'wb'))
             print 'written files to:' + file_path
@@ -430,13 +419,9 @@ class Diffmotion_model(Model):
         gen_images, object_masks, moved_images, trafos, comp_factors, moved_parts, first_step_masks, moved_masks, background, background_mask, moved_pix_distrib = sess.run(
             [
                 self.om.gen_images,
-                self.om.objectmasks,
                 self.om.moved_imagesl,
                 self.om.list_of_trafos,
                 self.om.list_of_comp_factors,
-                self.om.moved_partsl,
-                self.om.first_step_masks,
-                self.om.moved_masksl,
                 self.om.background,
                 self.om.background_mask,
                 self.om.moved_pix_distrib,

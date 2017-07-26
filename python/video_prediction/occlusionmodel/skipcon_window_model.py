@@ -112,7 +112,7 @@ class Skipcon_Window(object):
         lstm_state1, lstm_state2, lstm_state3, lstm_state4 = None, None, None, None
         lstm_state5, lstm_state6, lstm_state7 = None, None, None
 
-        for t in range(self.conf['use_len']-1):
+        for t in range(len(self.actions)-1):
             # Reuse variables after the first timestep.
             reuse = bool(self.gen_images)
 
