@@ -264,7 +264,7 @@ def construct_model(images,
 
                 cdna_input = tf.reshape(hidden5, [int(batch_size), -1])
 
-                new_transformed, new_cdna_filter = cdna_transformation(conf,prev_image,
+                new_transformed, _ = cdna_transformation(conf,prev_image,
                                                                             cdna_input,
                                                                             num_masks,
                                                                             int(color_channels),
@@ -274,14 +274,14 @@ def construct_model(images,
                 moved_images.append(transformed_cam2l)
 
                 if pix_distributions1 != None:
-                    transf_distrib_cam2_ndesig1, new_cdna_distrib_filter = cdna_transformation(conf, prev_pix_distrib1,
+                    transf_distrib_cam2_ndesig1, _ = cdna_transformation(conf, prev_pix_distrib1,
                                                                                        cdna_input,
                                                                                        num_masks,
                                                                                        1, DNA_KERN_SIZE=DNA_KERN_SIZE,
                                                                                        reuse_sc=True)
                     moved_pix_distrib.append(transf_distrib_cam2_ndesig1)
                     if 'ndesig' in conf:
-                        transf_distrib_cam2_ndesig2, new_cdna_distrib_filter = cdna_transformation(conf,
+                        transf_distrib_cam2_ndesig2, _ = cdna_transformation(conf,
                                                                                                    prev_pix_distrib2,
                                                                                                    cdna_input,
                                                                                                    num_masks,

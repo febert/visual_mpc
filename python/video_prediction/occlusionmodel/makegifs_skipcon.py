@@ -15,8 +15,6 @@ def comp_gif(conf, file_path, name= "", examples = 10, show_parts=False):
     gen_images = dict_['gen_images']
 
     total_length = len(gen_images)
-
-
     videolist  =[]
 
     if 'ground_truth' in dict_:
@@ -29,9 +27,27 @@ def comp_gif(conf, file_path, name= "", examples = 10, show_parts=False):
         videolist = [ground_truth]
         print 'adding ground_truth'
 
-
     videolist.append(gen_images)
     print 'adding gen_images'
+
+
+    if 'gen_pix_distrib' in dict_:
+        gen_pix_distrib = dict_['gen_pix_distrib']
+        plot_psum_overtime(gen_pix_distrib, examples,file_path+"/"+ name)
+        videolist.append(make_color_scheme(gen_pix_distrib))
+        print 'adding gen_pix_distrib'
+
+    if 'accum_pix_distrib_l' in dict_:
+        accum_pix = dict_['accum_pix_distrib_l']
+        accum_pix = prepare_video(accum_pix, copy_last_dim=False)
+        colored_pix_distrib = []
+        for m in accum_pix:
+            colored_pix_distrib.append(make_color_scheme(m))
+        accum_pix = colored_pix_distrib
+
+        videolist += accum_pix
+        print 'adding accum_pix'
+
 
     moved_images = dict_['moved_imagesl']
     moved_images = prepare_video(moved_images, copy_last_dim=False)
@@ -41,31 +57,33 @@ def comp_gif(conf, file_path, name= "", examples = 10, show_parts=False):
     comp_masks_l = prepare_video(comp_masks_l, copy_last_dim=True)
     videolist += comp_masks_l
 
-    accum_Images_l = dict_['accum_Images_l']
-    accum_Images_l = prepare_video(accum_Images_l, copy_last_dim=False)
-    videolist += accum_Images_l
+    if 'accum_Images_l' in dict_:
+        accum_Images_l = dict_['accum_Images_l']
+        accum_Images_l = prepare_video(accum_Images_l, copy_last_dim=False)
+        videolist += accum_Images_l
 
+    if 'accum_masks_l' in dict_:
+        accum_masks_l = dict_['accum_masks_l']
+        accum_l = len(accum_masks_l)
+        app_zeros = []
+        for i in range(total_length - accum_l):
+            app_zeros.append([np.zeros((32,64,64,1)) for _ in range(len(accum_masks_l[0]))])
+        accum_masks_l += app_zeros
+        accum_masks_l = prepare_video(accum_masks_l, copy_last_dim=True)
+        videolist += accum_masks_l
 
-    accum_masks_l = dict_['accum_masks_l']
-    accum_l = len(accum_masks_l)
-    app_zeros = []
-    for i in range(total_length - accum_l):
-        app_zeros.append([np.zeros((32,64,64,1)) for _ in range(len(accum_masks_l[0]))])
-    accum_masks_l += app_zeros
+    if 'accum_Images_l' in dict_:
+        accum_Images_l = dict_['accum_Images_l']
+        accum_Images_l = prepare_video(accum_Images_l, copy_last_dim=False)
+        videolist += accum_Images_l
+        print 'adding accum_Images_l'
 
-    accum_masks_l = prepare_video(accum_masks_l, copy_last_dim=True)
-    videolist += accum_masks_l
-
-    fused_gif = assemble_gif(videolist, num_exp= examples)
-
-
+    fused_gif = assemble_gif(videolist, num_exp=examples)
 
     npy_to_gif(fused_gif, file_path + '/' +name +'vid_'+itr_vis+ suffix)
 
-    # npy_to_gif(fused_gif[:10], file_path + '/context' + name + 'vid_' + itr_vis + suffix)
-    # npy_to_gif(fused_gif[10:], file_path + '/pred' + name + 'vid_' + itr_vis + suffix)
-
-
+    npy_to_gif(fused_gif[:conf['context_frames']], file_path + '/context' + name + 'vid_' + itr_vis + suffix)
+    npy_to_gif(fused_gif[conf['context_frames']:], file_path + '/pred' + name + 'vid_' + itr_vis + suffix)
 
     pdb.set_trace()
 
@@ -128,11 +146,13 @@ def prepare_video(masks, copy_last_dim):
     return list_of_maskvideos
 
 if __name__ == '__main__':
+    # file_path = '/home/frederik/Documents/lsdc/tensorflow_data/occulsionmodel/skipcon_window/no_maintainence'
     file_path = '/home/frederik/Documents/lsdc/tensorflow_data/occulsionmodel/skipcon_window/1st_test'
+
     hyperparams = imp.load_source('hyperparams', file_path +'/conf.py')
 
     conf = hyperparams.configuration
-    conf['visualize'] = conf['output_dir'] + '/model54002'
+    conf['visualize'] = conf['output_dir'] + '/model42002'
 
 
     comp_gif(conf, file_path + '/modeldata', show_parts=True)

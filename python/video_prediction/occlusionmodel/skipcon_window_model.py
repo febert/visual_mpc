@@ -42,8 +42,15 @@ class Skipcon_Window(object):
         self.actions = actions
         self.iter_num = iter_num
         self.conf = conf
+        self.ncontext = conf['context_frames']
         self.images = images
-        self.pix_distribution = pix_distibution
+        self.batch_size, self.img_height, self.img_width, self.color_channels = [int(i) for i in
+                                                                                 images[0].get_shape()[0:4]]
+
+        if pix_distibution != None:
+            self.pix_distribution = [tf.reshape(p, shape=[self.batch_size, 64,64,1]) for p in pix_distibution]
+        else:
+            self.pix_distribution = None
 
         self.moved_pix_distrib = []
 
@@ -72,7 +79,7 @@ class Skipcon_Window(object):
 
         print 'constructing occulsion network...'
 
-        self.batch_size, self.img_height, self.img_width, self.color_channels = [int(i) for i in images[0].get_shape()[0:4]]
+
         self.lstm_func = basic_conv_lstm_cell
 
         self.padding_map = []
@@ -84,6 +91,7 @@ class Skipcon_Window(object):
         self.moved_imagesl = []
         self.accum_masks_l = []
         self.accum_Images_l =[]
+        self.accum_pix_distrib_l = []
         self.comp_masks_l = []
         self.list_of_trafos = []
         self.list_of_comp_factors = []
@@ -149,7 +157,9 @@ class Skipcon_Window(object):
                 else:
                     conv1_input = prev_image
 
-                conv1_input = tf.concat([conv1_input, next_image], 3)
+                if 'use_next_img' in self.conf:
+                    print 'using next img'
+                    conv1_input = tf.concat([conv1_input, next_image], 3)
 
                 enc0 = slim.layers.conv2d(    #32x32x32
                     conv1_input,
@@ -218,24 +228,42 @@ class Skipcon_Window(object):
                 if self.cdna:
                     cdna_input = tf.reshape(hidden5, [int(self.batch_size), -1])
 
-
-                    if t == 0:
-                        img_for_trafo = [self.images[0] for _ in range(self.conf['num_masks'])]
+                    if 'no_maintainence' in self.conf:
+                        moved_images = self.cdna_transformation(prev_image,
+                                                                  cdna_input,
+                                                                  reuse_sc=reuse)
+                        if self.pix_distribution != None:
+                            if t == 0:
+                                pix_for_trafo = self.pix_distribution[0]
+                            else:
+                                pix_for_trafo = self.gen_pix_distrib[-1]
+                            moved_pix = self.cdna_transformation(pix_for_trafo,
+                                                                 cdna_input,
+                                                                 reuse_sc = True)
+                            self.moved_pix_distrib.append(moved_pix)
                     else:
-                        img_for_trafo = self.accum_Images_l[-1]
-
-                    moved_images = self.cdna_transformation_imagewise(img_for_trafo,
-                                                                      cdna_input,
-                                                                      reuse_sc=reuse)
-                    if self.pix_distribution != None:
                         if t == 0:
-                            self.moved_pix_distrib.append([
-                            tf.reshape(self.pix_distribution[0], shape=[self.batch_size, 64,64,1]) for _ in range(self.num_objmasks)])
+                            img_for_trafo = [self.images[0] for _ in range(self.conf['num_masks'])]
+                            if self.pix_distribution != None:
+                                pix_for_trafo = [tf.reshape(self.pix_distribution[0], [self.batch_size, 64,64,1]) for _ in range(self.conf['num_masks'])]
+                        else:
+                            img_for_trafo = self.accum_Images_l[-1]
+                            if self.pix_distribution != None:
+                                pix_for_trafo = self.accum_pix_distrib_l[-1]
 
-                        moved_pix, _, _ = self.cdna_transformation_imagewise(self.moved_pix_distrib[-1],
-                                                                              cdna_input,
-                                                                              reuse_sc = True)
-                        self.moved_pix_distrib.append(moved_pix)
+                        moved_images = self.cdna_transformation_imagewise(img_for_trafo,
+                                                                          cdna_input,
+                                                                          reuse_sc=reuse)
+
+                        if self.pix_distribution != None:
+                            if t == 0:
+                                self.moved_pix_distrib.append([
+                                self.pix_distribution[0] for _ in range(self.num_objmasks)])
+
+                            moved_pix = self.cdna_transformation_imagewise(pix_for_trafo,
+                                                                                 cdna_input,
+                                                                                 reuse_sc = True)
+                            self.moved_pix_distrib.append(moved_pix)
 
                 if self.dna:
                     moved_images, moved_masks = self.apply_dna_separately(enc6)
@@ -243,20 +271,12 @@ class Skipcon_Window(object):
 
                 self.moved_imagesl.append(moved_images)
 
-                total_num_masks = self.num_objmasks
+                if 'no_maintainence' in self.conf:
+                    total_num_masks = self.num_objmasks + self.ncontext
+                else:
+                    total_num_masks = self.num_objmasks
 
-                comp_masks = slim.layers.conv2d_transpose(
-                    enc6, total_num_masks, 1, stride=1, scope='convt7_posdep')
-                comp_masks = tf.reshape(
-                    tf.nn.softmax(tf.reshape(comp_masks, [-1, total_num_masks])),
-                    [int(self.batch_size), int(self.img_height), int(self.img_width), total_num_masks])
-                comp_masks = tf.split(comp_masks, total_num_masks,  axis=3)
-
-                assembly = tf.zeros([self.batch_size, 64, 64, 3], dtype=tf.float32)
-                for mimage, mask in zip(self.moved_imagesl[-1], comp_masks):
-                    assembly += mimage * mask
-                self.comp_masks_l.append(comp_masks)
-                self.gen_images.append(assembly)
+                comp_masks = self.get_masks(enc6, total_num_masks, 'convt7_posdep')
 
                 if self.pix_distribution != None:
                     pix_assembly = tf.zeros([self.batch_size, 64, 64, 1], dtype=tf.float32)
@@ -264,24 +284,53 @@ class Skipcon_Window(object):
                         pix_assembly += pix * mask
                     self.gen_pix_distrib.append(pix_assembly)
 
+                assembly = tf.zeros([self.batch_size, 64, 64, 3], dtype=tf.float32)
 
-                if t < self.conf['context_frames']:
-                    accum_masks = slim.layers.conv2d_transpose(
-                        enc6, total_num_masks, 1, stride=1, scope='convt7_accum')
-                    accum_masks = tf.reshape(
-                        tf.nn.softmax(tf.reshape(accum_masks, [-1, total_num_masks])),
-                        [int(self.batch_size), int(self.img_height), int(self.img_width), total_num_masks])
-                    accum_masks = tf.split(accum_masks, total_num_masks, 3)
+                if 'no_maintainence' in self.conf:
 
-                    self.accum_masks_l.append(accum_masks)
+                    if t < self.ncontext:
+                        context_img = self.images[:t + 1]
+                    else:
+                        context_img = self.images[:self.ncontext]
+                        context_img += self.gen_images[self.ncontext-1:t]
 
-                    accum_Images  = []
-                    for i in range(total_num_masks):
-                        accum_Images.append(accum_masks[i] * moved_images[i] + (1-accum_masks[i]) * self.images[t+1])
+                    for i in range(self.conf['use_len'] - len(context_img)):
+                        context_img.insert(0, self.images[0])
 
-                    self.accum_Images_l.append(accum_Images)
+                    for mimage, mask in zip(context_img, comp_masks[:self.ncontext]):
+                        assembly += mimage * mask
+
+                    for mimage, mask in zip(self.moved_imagesl[-1], comp_masks[self.ncontext:]):
+                        assembly += mimage * mask
                 else:
-                    self.accum_Images_l.append(moved_images)
+                    for mimage, mask in zip(self.moved_imagesl[-1], comp_masks):
+                        assembly += mimage * mask
+
+                self.comp_masks_l.append(comp_masks)
+                self.gen_images.append(assembly)
+
+                if 'no_maintainence' not in self.conf:
+                    if t < self.conf['context_frames']:
+                        accum_masks = self.get_masks(enc6, total_num_masks, 'convt7_accum')
+                        self.accum_masks_l.append(accum_masks)
+
+                        accum_Images  = []
+                        for i in range(total_num_masks):
+                            accum_Images.append(accum_masks[i] * moved_images[i] + (1-accum_masks[i]) * self.images[t+1])
+                        print 'making correction with image at t+1=',t+1
+
+                        self.accum_Images_l.append(accum_Images)
+
+                        if self.pix_distribution != None:
+                            accum_pix = []
+                            for i in range(total_num_masks):
+                                accum_pix.append(
+                                    accum_masks[i] * moved_pix[i] + (1 - accum_masks[i]) * self.pix_distribution[t + 1])
+                            self.accum_pix_distrib_l.append(accum_pix)
+                    else:
+                        self.accum_Images_l.append(moved_images)
+                        if self.pix_distribution != None:
+                            self.accum_pix_distrib_l.append(moved_pix)
 
                 self.current_state = slim.layers.fully_connected(
                     tf.reshape(hidden5, [self.batch_size, -1]),
@@ -290,6 +339,14 @@ class Skipcon_Window(object):
                     activation_fn=None)
                 self.gen_states.append(self.current_state)
 
+    def get_masks(self, enc6, total_num_masks, scope):
+        masks = slim.layers.conv2d_transpose(
+            enc6, total_num_masks, 1, stride=1, scope=scope)
+        masks = tf.reshape(
+            tf.nn.softmax(tf.reshape(masks, [-1, total_num_masks])),
+            [int(self.batch_size), int(self.img_height), int(self.img_width), total_num_masks])
+        masks = tf.split(masks, total_num_masks, axis=3)
+        return masks
 
     def apply_dna_separately(self, enc6):
         moved_images = []
@@ -391,6 +448,55 @@ class Skipcon_Window(object):
             transformed_list.append(transformed)
 
         return transformed_list
+
+    def cdna_transformation(self, prev_image, cdna_input, reuse_sc=None):
+        """Apply convolutional dynamic neural advection to previous image.
+
+        Args:
+          prev_image: previous image to be transformed.
+          cdna_input: hidden lyaer to be used for computing CDNA kernels.
+          num_masks: the number of masks and hence the number of CDNA transformations.
+          color_channels: the number of color channels in the images.
+        Returns:
+          List of images transformed by the predicted CDNA kernels.
+        """
+        DNA_KERN_SIZE = self.conf['kern_size']
+        num_masks = self.conf['num_masks']
+        color_channels = int(prev_image.get_shape()[3])
+
+        batch_size = int(cdna_input.get_shape()[0])
+        height = int(prev_image.get_shape()[1])
+        width = int(prev_image.get_shape()[2])
+
+        # Predict kernels using linear function of last hidden layer.
+        cdna_kerns = slim.layers.fully_connected(
+            cdna_input,
+            DNA_KERN_SIZE * DNA_KERN_SIZE * num_masks,
+            scope='cdna_params',
+            activation_fn=None,
+            reuse=reuse_sc)
+
+        # Reshape and normalize.
+        cdna_kerns = tf.reshape(
+            cdna_kerns, [batch_size, DNA_KERN_SIZE, DNA_KERN_SIZE, 1, num_masks])
+        cdna_kerns = tf.nn.relu(cdna_kerns - RELU_SHIFT) + RELU_SHIFT
+        norm_factor = tf.reduce_sum(cdna_kerns, [1, 2, 3], keep_dims=True)
+        cdna_kerns /= norm_factor
+        cdna_kerns_summary = cdna_kerns
+
+        # Transpose and reshape.
+        cdna_kerns = tf.transpose(cdna_kerns, [1, 2, 0, 4, 3])
+        cdna_kerns = tf.reshape(cdna_kerns, [DNA_KERN_SIZE, DNA_KERN_SIZE, batch_size, num_masks])
+        prev_image = tf.transpose(prev_image, [3, 1, 2, 0])
+
+        transformed = tf.nn.depthwise_conv2d(prev_image, cdna_kerns, [1, 1, 1, 1], 'SAME')
+
+        # Transpose and reshape.
+        transformed = tf.reshape(transformed, [color_channels, height, width, batch_size, num_masks])
+        transformed = tf.transpose(transformed, [3, 1, 2, 0, 4])
+        transformed = tf.unstack(value=transformed, axis=-1)
+
+        return transformed
 
 
 def scheduled_sample(ground_truth_x, generated_x, batch_size, num_ground_truth):

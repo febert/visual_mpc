@@ -249,7 +249,7 @@ def main(unused_argv, conf_script= None):
         saver.restore(sess, conf['visualize'])
         file_path = conf['output_dir']
 
-        if FLAGS.diffmotions or FLAGS.canon:
+        if FLAGS.diffmotions:
             val_model.visualize_diffmotions(file_path, sess)
             return
         else:
@@ -270,12 +270,13 @@ def main(unused_argv, conf_script= None):
             dict_['gen_images'] = gen_images
             dict_['moved_imagesl'] = moved_imagesl
             dict_['comp_masks_l'] = comp_masks_l
-            dict_['accum_Images_l'] = accum_Images_l
-            dict_['accum_masks_l'] = accum_masks_l
+            if 'no_maintainence' not in conf:
+                dict_['accum_Images_l'] = accum_Images_l
+                dict_['accum_masks_l'] = accum_masks_l
 
             cPickle.dump(dict_, open(file_path + '/dict_.pkl', 'wb'))
             print 'written files to:' + file_path
-            makegifs.comp_gif(conf, conf['output_dir'], show_parts=True, examples=10)
+            makegifs_skipcon.comp_gif(conf, conf['output_dir'], show_parts=True, examples=10)
             return
 
     itr_0 =0
@@ -357,7 +358,7 @@ class Diffmotion_model(Model):
                                    shape=(conf['batch_size'], conf['sequence_length'], 3))
         self.images_pl = tf.placeholder(tf.float32, name='images',
                                    shape=(conf['batch_size'], conf['sequence_length'], 64, 64, 3))
-        self.val_images, _, self.val_states = build_tfrecord_input(conf, training=False)
+        self.val_images, self.val_actions, self.val_states = build_tfrecord_input(conf, training=False)
 
         self.pix_distrib_pl = tf.placeholder(tf.float32, name='states',
                                         shape=(conf['batch_size'], conf['sequence_length'], 64, 64, 1))
@@ -366,47 +367,63 @@ class Diffmotion_model(Model):
             Model.__init__(self, conf, self.images_pl, self.actions_pl, self.states_pl, pix_distrib=self.pix_distrib_pl)
 
     def visualize_diffmotions(self,file_path, sess):
-        feed_dict = {self.lr: 0.0, self.prefix: 'vis', self.iter_num: 0}
+        feed_dict = {self.lr: 0.0, self.iter_num: 0}
         b_exp, ind0 = 5, 0 #9
 
         if FLAGS.canon:
+            print 'using canonical examples'
             file_path_canon = '/home/frederik/Documents/catkin_ws/src/lsdc/pushing_data/canonical_examples'
             dict = cPickle.load(open(file_path_canon + '/pkl/example{}.pkl'.format(b_exp), 'rb'))
             desig_pix = dict['desig_pix']
             one_hot = create_one_hot(self.conf, desig_pix)
             sel_img = dict['images']
-            sel_img = sel_img[:2]
+            sel_img = sel_img[0]
             state = dict['endeff']
-            sel_state = state[:2]
+            sel_state = state[0]
         else:
-            img, state = sess.run([self.val_images, self.val_states])
-            sel_img = img[b_exp, ind0:ind0 + 2]
+            img, state, actions = sess.run([self.val_images, self.val_states, self.val_actions])
+            sel_img = img[b_exp, :self.conf['context_frames']+1]
             c = Getdesig(sel_img[0], self.conf, 'b{}'.format(b_exp))
             desig_pix = c.coords.astype(np.int32)
 
             # desig_pos_aux1 = np.array([14, 45])
             print "selected designated position for aux1 [row,col]:", desig_pix
             one_hot = create_one_hot(self.conf, desig_pix)
-            sel_state = np.stack([state[b_exp, ind0], state[b_exp, ind0 + 1]], axis=0)
+            sel_state = state[b_exp, :self.conf['context_frames']+1]
 
         feed_dict[self.pix_distrib_pl] = one_hot
 
-        start_states = np.concatenate([sel_state, np.zeros((self.conf['sequence_length'] - 2, 3))])
+        # sel_state = np.expand_dims(sel_state, axis=0)
+        # sel_state = np.repeat(sel_state, self.conf['context_frames'], axis=0)
+        start_states = np.concatenate([sel_state, np.zeros((self.conf['sequence_length']-
+                                                            self.conf['context_frames']-1, 3))])
         start_states = np.expand_dims(start_states, axis=0)
         start_states = np.repeat(start_states, self.conf['batch_size'], axis=0)  # copy over batch
         feed_dict[self.states_pl] = start_states
 
-        start_images = np.concatenate([sel_img, np.zeros((self.conf['sequence_length'] - 2, 64, 64, 3))])
+        # sel_img = np.expand_dims(sel_img, axis=0)
+        # sel_img = np.repeat(sel_img, self.conf['context_frames'], axis=0)
+        app_zeros = np.zeros((self.conf['sequence_length'] - self.conf['context_frames']-1, 64, 64, 3))
+        start_images = np.concatenate([sel_img, app_zeros])
         start_images = np.expand_dims(start_images, axis=0)
         start_images = np.repeat(start_images, self.conf['batch_size'], axis=0)  # copy over batch
         feed_dict[self.images_pl] = start_images
 
-        actions = np.zeros([self.conf['batch_size'], self.conf['sequence_length'], 4])
-        step = .025
+        # from PIL import Image
+        # Image.fromarray((start_images[0, 9] * 255.).astype(np.uint8)).show()
+
+        actions = actions[b_exp,:self.conf['context_frames']+1]
+        actions = np.expand_dims(actions, 0)
+        actions = np.repeat(actions, self.conf['batch_size'], axis=0)
+        app_zeros = np.zeros([self.conf['batch_size'], self.conf['sequence_length']-self.conf['context_frames']-1, 4])
+        actions = np.concatenate([actions, app_zeros], axis=1)
+
+
+        # step = .025
         step = .05
         n_angles = 8
         for b in range(n_angles):
-            for i in range(self.conf['sequence_length']):
+            for i in range(self.conf['context_frames']+1, self.conf['sequence_length']):
                 actions[b, i] = np.array([np.cos(b / float(n_angles) * 2 * np.pi) * step, np.sin(b / float(n_angles) * 2 * np.pi) * step, 0,0])
         b += 1
         actions[b, 0] = np.array([0, 0, 4, 0])
@@ -416,36 +433,32 @@ class Diffmotion_model(Model):
         actions[b, 1] = np.array([0, 0, 0, 4])
         feed_dict[self.actions_pl] = actions
 
-        gen_images, object_masks, moved_images, trafos, comp_factors, moved_parts, first_step_masks, moved_masks, background, background_mask, moved_pix_distrib = sess.run(
-            [
-                self.om.gen_images,
-                self.om.moved_imagesl,
-                self.om.list_of_trafos,
-                self.om.list_of_comp_factors,
-                self.om.background,
-                self.om.background_mask,
-                self.om.moved_pix_distrib,
-            ],
+        gen_images, moved_imagesl, comp_masks_l, accum_Images_l, accum_masks_l,accum_pix_distrib_l, gen_pix_distrib  = sess.run([
+            self.om.gen_images,
+            self.om.moved_imagesl,
+            self.om.comp_masks_l,
+            self.om.accum_Images_l,
+            self.om.accum_masks_l,
+            self.om.accum_pix_distrib_l,
+            self.om.gen_pix_distrib
+        ],
             feed_dict)
         dict_ = {}
         dict_['gen_images'] = gen_images
-        dict_['object_masks'] = object_masks
-        dict_['moved_images'] = moved_images
-        dict_['trafos'] = trafos
-        dict_['comp_factors'] = comp_factors
-        dict_['moved_parts'] = moved_parts
-        dict_['first_step_masks'] = first_step_masks
-        dict_['moved_masks'] = moved_masks
-        dict_['background'] = background
-        dict_['background_mask'] = background_mask
-        dict_['moved_pix_distrib'] = moved_pix_distrib
-        dict_['desig_pix'] = desig_pix
+        dict_['moved_imagesl'] = moved_imagesl
+        dict_['comp_masks_l'] = comp_masks_l
+        if 'no_maintainence' not in self.conf:
+            dict_['accum_Images_l'] = accum_Images_l
+            dict_['accum_masks_l'] = accum_masks_l
+            dict_['accum_pix_distrib_l'] = accum_pix_distrib_l
+
+        dict_['gen_pix_distrib'] = gen_pix_distrib
 
         cPickle.dump(dict_, open(file_path + '/dict_.pkl', 'wb'))
         print 'written files to:' + file_path
-        makegifs.comp_gif(self.conf, self.conf['output_dir'],
+        makegifs_skipcon.comp_gif(self.conf, self.conf['output_dir'],
                           name='pixelmotion_b{}_l{}'.format(b_exp, self.conf['sequence_length']),
-                          show_parts=True, examples= self.conf['batch_size'])
+                          show_parts=True, examples= 10)
         return
 
 def create_one_hot(conf, desig_pix):

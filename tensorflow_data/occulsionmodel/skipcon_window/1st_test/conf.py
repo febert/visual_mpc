@@ -30,5 +30,6 @@ configuration = {
 'sawyer':'',
 'single_view':"",
 'use_len':20,                # number of steps used for training where the starting location is selected randomly within sequencelength
-'refeed_accum':''             #
+'refeed_accum':'',             #
+'use_next_img':''
 }
