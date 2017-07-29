@@ -272,17 +272,18 @@ class Skipcon_Window(object):
                 self.moved_imagesl.append(moved_images)
 
                 if 'no_maintainence' in self.conf:
-                    total_num_masks = self.num_objmasks + self.ncontext
+                    total_num_masks = self.num_objmasks + self.conf['use_len']
                 else:
                     total_num_masks = self.num_objmasks
 
                 comp_masks = self.get_masks(enc6, total_num_masks, 'convt7_posdep')
 
-                if self.pix_distribution != None:
-                    pix_assembly = tf.zeros([self.batch_size, 64, 64, 1], dtype=tf.float32)
-                    for pix, mask in zip(self.moved_pix_distrib[-1], comp_masks):
-                        pix_assembly += pix * mask
-                    self.gen_pix_distrib.append(pix_assembly)
+                if 'no_maintainence' not in self.conf:
+                    if self.pix_distribution != None:
+                        pix_assembly = tf.zeros([self.batch_size, 64, 64, 1], dtype=tf.float32)
+                        for pix, mask in zip_equal(self.moved_pix_distrib[-1], comp_masks):
+                            pix_assembly += pix * mask
+                        self.gen_pix_distrib.append(pix_assembly)
 
                 assembly = tf.zeros([self.batch_size, 64, 64, 3], dtype=tf.float32)
 
@@ -297,13 +298,31 @@ class Skipcon_Window(object):
                     for i in range(self.conf['use_len'] - len(context_img)):
                         context_img.insert(0, self.images[0])
 
-                    for mimage, mask in zip(context_img, comp_masks[:self.ncontext]):
+                    for mimage, mask in zip_equal(context_img, comp_masks[:self.conf['use_len']]):
                         assembly += mimage * mask
 
-                    for mimage, mask in zip(self.moved_imagesl[-1], comp_masks[self.ncontext:]):
+                    for mimage, mask in zip_equal(self.moved_imagesl[-1], comp_masks[self.conf['use_len']:]):
                         assembly += mimage * mask
+
+                    if self.pix_distribution != None:
+                        if t < self.ncontext:
+                            context_pix = self.pix_distribution[:t + 1]
+                        else:
+                            context_pix = self.pix_distribution[:self.ncontext]
+                            context_pix += self.gen_pix_distrib[self.ncontext - 1:t]
+
+                        for i in range(self.conf['use_len'] - len(context_pix)):
+                            context_pix.insert(0, self.pix_distribution[0])
+
+                        pix_assembly = tf.zeros([self.batch_size, 64, 64, 1], dtype=tf.float32)
+                        for pix, mask in zip_equal(context_pix, comp_masks[:self.conf['use_len']]):
+                            pix_assembly += pix * mask
+
+                        for pix, mask in zip_equal(self.moved_pix_distrib[-1], comp_masks[self.conf['use_len']:]):
+                            pix_assembly += pix * mask
+                        self.gen_pix_distrib.append(pix_assembly)
                 else:
-                    for mimage, mask in zip(self.moved_imagesl[-1], comp_masks):
+                    for mimage, mask in zip_equal(self.moved_imagesl[-1], comp_masks):
                         assembly += mimage * mask
 
                 self.comp_masks_l.append(comp_masks)
@@ -520,3 +539,7 @@ def scheduled_sample(ground_truth_x, generated_x, batch_size, num_ground_truth):
     return tf.dynamic_stitch([ground_truth_idx, generated_idx],
                              [ground_truth_examps, generated_examps])
 
+def zip_equal(it1, it2):
+    if len(it1) != len(it2):
+        raise ValueError("Lengths of iterables are different")
+    return zip(it1, it2)

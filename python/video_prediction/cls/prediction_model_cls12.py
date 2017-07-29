@@ -20,7 +20,7 @@ import tensorflow as tf
 
 import tensorflow.contrib.slim as slim
 from tensorflow.contrib.layers.python import layers as tf_layers
-from video_prediction.lstm_ops import basic_conv_lstm_cell
+from video_prediction.lstm_ops12 import basic_conv_lstm_cell
 
 import pdb
 
@@ -147,15 +147,16 @@ class Prediction_Model(object):
                         prev_image = self.images[1]
                         print 'using image 1'
 
-                # for making an experiment where the model is actually fed the complete sequence
-                if 'provide_gtruth' in self.conf:
-                    prev_image = tf.concat([prev_image, image], axis=3)
-
                 # Predicted state is always fed back in
-                state_action = tf.concat(1, [action, current_state])
+                state_action = tf.concat(axis=1, values=[action, current_state])
+
+                # for experiment where the model is actually fed the complete sequence
+                if 'provide_gtruth' in self.conf:
+                    print 'always feeding in the next ground truth image!!!'
+                    conv_input = tf.concat(values=[prev_image, self.images[t + 1]], axis=3)
 
                 enc0 = slim.layers.conv2d(    #32x32x32
-                    prev_image,
+                    conv_input,
                     32, [5, 5],
                     stride=2,
                     scope='scale1_conv1',
@@ -187,7 +188,7 @@ class Prediction_Model(object):
                 smear = tf.tile(
                     smear, [1, int(enc2.get_shape()[1]), int(enc2.get_shape()[2]), 1])
                 if self.use_state:
-                    enc2 = tf.concat(3, [enc2, smear])
+                    enc2 = tf.concat(axis=3, values=[enc2, smear])
                 enc3 = slim.layers.conv2d(   #8x8x32
                     enc2, hidden3.get_shape()[3], [1, 1], stride=1, scope='conv4')
 
@@ -203,7 +204,7 @@ class Prediction_Model(object):
 
                 if not 'noskip' in self.conf:
                     # Skip connection.
-                    hidden6 = tf.concat(3, [hidden6, enc1])  # both 16x16
+                    hidden6 = tf.concat(axis=3, values=[hidden6, enc1])  # both 16x16
 
                 enc5 = slim.layers.conv2d_transpose(  #32x32x32
                     hidden6, hidden6.get_shape()[3], 3, stride=2, scope='convt2')
@@ -213,7 +214,7 @@ class Prediction_Model(object):
 
                 if not 'noskip' in self.conf:
                     # Skip connection.
-                    hidden7 = tf.concat(3, [hidden7, enc0])  # both 32x32
+                    hidden7 = tf.concat(axis=3, values=[hidden7, enc0])  # both 32x32
 
                 enc6 = slim.layers.conv2d_transpose(   # 64x64x16
                     hidden7,
@@ -276,7 +277,7 @@ class Prediction_Model(object):
                 masks = tf.reshape(
                     tf.nn.softmax(tf.reshape(masks, [-1, self.num_masks + 1])),
                     [int(batch_size), int(img_height), int(img_width), self.num_masks + 1])
-                mask_list = tf.split(3, self.num_masks + 1, masks)
+                mask_list = tf.split(axis=3, num_or_size_splits=self.num_masks + 1, value=masks)
                 output = mask_list[0] * prev_image
                 for layer, mask in zip(transformed, mask_list[1:]):
                     output += layer * mask
@@ -305,12 +306,12 @@ class Prediction_Model(object):
     def make_cdna_kerns_summary(self,cdna_kerns, t, suffix):
 
         sum = []
-        cdna_kerns = tf.split(4, self.num_masks, cdna_kerns)
+        cdna_kerns = tf.split(axis=4, num_or_size_splits=self.num_masks, value=cdna_kerns)
         for i, kern in enumerate(cdna_kerns):
             kern = tf.squeeze(kern)
             kern = tf.expand_dims(kern, -1)
             sum.append(
-                tf.image_summary('step' + str(t) + '_filter' + str(i) + suffix, kern)
+                tf.summary.image('step' + str(t) + '_filter' + str(i) + suffix, kern)
             )
 
         return sum
@@ -415,7 +416,7 @@ class Prediction_Model(object):
                     tf.expand_dims(
                         tf.slice(prev_image_pad, [0, xkern, ykern, 0],
                                  [-1, image_height, image_width, -1]), [3]))
-        inputs = tf.concat(3, inputs)
+        inputs = tf.concat(axis=3, values=inputs)
 
         # Normalize channels to 1.
         kernel = tf.nn.relu(dna_input - RELU_SHIFT) + RELU_SHIFT

@@ -18,6 +18,10 @@ def comp_gif(conf, file_path, name= "", examples = 10, append_masks=False, show_
         ground_truth = np.split(ground_truth, ground_truth.shape[1], axis=1)
         ground_truth = [np.squeeze(g) for g in ground_truth]
 
+        print 'check lenght'
+        pdb.set_trace()
+        ground_truth = ground_truth[1:]
+
     videolist = [ground_truth, gen_images]
 
     if append_masks:

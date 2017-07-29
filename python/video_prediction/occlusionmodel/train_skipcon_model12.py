@@ -208,9 +208,7 @@ def main(unused_argv, conf_script= None):
     if FLAGS.visualize:
         print 'creating visualizations ...'
         conf = adapt_params_visualize(conf, FLAGS.visualize)
-        conf.pop('use_len', None)
-        conf['sequence_length'] = 20
-        # conf['batch_size'] = 10
+        conf['sequence_length'] = conf['use_len']
 
     print '-------------------------------------------------------------------'
     print 'verify current settings!! '
@@ -368,7 +366,7 @@ class Diffmotion_model(Model):
 
     def visualize_diffmotions(self,file_path, sess):
         feed_dict = {self.lr: 0.0, self.iter_num: 0}
-        b_exp, ind0 = 5, 0 #9
+        b_exp, ind0 = 0, 0 #9
 
         if FLAGS.canon:
             print 'using canonical examples'

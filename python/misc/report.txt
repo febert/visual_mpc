@@ -1,0 +1,157 @@
+--------------------------------------------------------------------------------
+Processing file '../video_prediction/cls/prediction_train_cls.py'
+ outputting to '../video_prediction/cls/prediction_train_cls12.py'
+--------------------------------------------------------------------------------
+
+'../video_prediction/cls/prediction_train_cls.py' Line 129
+--------------------------------------------------------------------------------
+
+Renamed function 'tf.scalar_summary' to 'tf.summary.scalar'
+
+    Old:         summaries.append(tf.scalar_summary(prefix + '_loss', loss))
+                                  ~~~~~~~~~~~~~~~~~                          
+    New:         summaries.append(tf.summary.scalar(prefix + '_loss', loss))
+                                  ~~~~~~~~~~~~~~~~~                          
+
+'../video_prediction/cls/prediction_train_cls.py' Line 67
+--------------------------------------------------------------------------------
+
+Added keyword 'axis' to reordered function 'tf.split'
+Added keyword 'num_or_size_splits' to reordered function 'tf.split'
+Added keyword 'value' to reordered function 'tf.split'
+
+    Old:             actions = tf.split(1, actions.get_shape()[1], actions)
+                                                                            
+    New:             actions = tf.split(axis=1, num_or_size_splits=actions.get_shape()[1], value=actions)
+                                        ~~~~~   ~~~~~~~~~~~~~~~~~~~                        ~~~~~~         
+
+'../video_prediction/cls/prediction_train_cls.py' Line 133
+--------------------------------------------------------------------------------
+
+Renamed function 'tf.merge_summary' to 'tf.summary.merge'
+
+    Old:         self.summ_op = tf.merge_summary(summaries)
+                                ~~~~~~~~~~~~~~~~            
+    New:         self.summ_op = tf.summary.merge(summaries)
+                                ~~~~~~~~~~~~~~~~            
+
+'../video_prediction/cls/prediction_train_cls.py' Line 70
+--------------------------------------------------------------------------------
+
+Added keyword 'axis' to reordered function 'tf.split'
+Added keyword 'num_or_size_splits' to reordered function 'tf.split'
+Added keyword 'value' to reordered function 'tf.split'
+
+    Old:             states = tf.split(1, states.get_shape()[1], states)
+                                                                         
+    New:             states = tf.split(axis=1, num_or_size_splits=states.get_shape()[1], value=states)
+                                       ~~~~~   ~~~~~~~~~~~~~~~~~~~                       ~~~~~~        
+
+'../video_prediction/cls/prediction_train_cls.py' Line 72
+--------------------------------------------------------------------------------
+
+Added keyword 'axis' to reordered function 'tf.split'
+Added keyword 'num_or_size_splits' to reordered function 'tf.split'
+Added keyword 'value' to reordered function 'tf.split'
+
+    Old:         images = tf.split(1, images.get_shape()[1], images)
+                                                                     
+    New:         images = tf.split(axis=1, num_or_size_splits=images.get_shape()[1], value=images)
+                                   ~~~~~   ~~~~~~~~~~~~~~~~~~~                       ~~~~~~        
+
+'../video_prediction/cls/prediction_train_cls.py' Line 75
+--------------------------------------------------------------------------------
+
+Added keyword 'axis' to reordered function 'tf.split'
+Added keyword 'num_or_size_splits' to reordered function 'tf.split'
+Added keyword 'value' to reordered function 'tf.split'
+
+    Old:             pix_distrib = tf.split(1, pix_distrib.get_shape()[1], pix_distrib)
+                                                                                        
+    New:             pix_distrib = tf.split(axis=1, num_or_size_splits=pix_distrib.get_shape()[1], value=pix_distrib)
+                                            ~~~~~   ~~~~~~~~~~~~~~~~~~~                            ~~~~~~             
+
+'../video_prediction/cls/prediction_train_cls.py' Line 109
+--------------------------------------------------------------------------------
+
+Renamed function 'tf.scalar_summary' to 'tf.summary.scalar'
+
+    Old:                 tf.scalar_summary(prefix + '_recon_cost' + str(i), recon_cost_mse))
+                         ~~~~~~~~~~~~~~~~~                                                   
+    New:                 tf.summary.scalar(prefix + '_recon_cost' + str(i), recon_cost_mse))
+                         ~~~~~~~~~~~~~~~~~                                                   
+
+'../video_prediction/cls/prediction_train_cls.py' Line 144
+--------------------------------------------------------------------------------
+
+Added keyword 'concat_dim' to reordered function 'tf.concat'
+Added keyword 'values' to reordered function 'tf.concat'
+
+    Old:         start = tf.concat(0, [tf.zeros(1, dtype=tf.int64), rand_ind * tshift, tf.zeros(3, dtype=tf.int64)])
+                                                                                                                     
+    New:         start = tf.concat(axis=0, values=[tf.zeros(1, dtype=tf.int64), rand_ind * tshift, tf.zeros(3, dtype=tf.int64)])
+                                   ~~~~~   ~~~~~~~                                                                               
+
+'../video_prediction/cls/prediction_train_cls.py' Line 146
+--------------------------------------------------------------------------------
+
+Added keyword 'concat_dim' to reordered function 'tf.concat'
+Added keyword 'values' to reordered function 'tf.concat'
+
+    Old:         start = tf.concat(0, [tf.zeros(1, dtype=tf.int64), rand_ind * tshift, tf.zeros(1, dtype=tf.int64)])
+                                                                                                                     
+    New:         start = tf.concat(axis=0, values=[tf.zeros(1, dtype=tf.int64), rand_ind * tshift, tf.zeros(1, dtype=tf.int64)])
+                                   ~~~~~   ~~~~~~~                                                                               
+
+'../video_prediction/cls/prediction_train_cls.py' Line 148
+--------------------------------------------------------------------------------
+
+Added keyword 'concat_dim' to reordered function 'tf.concat'
+Added keyword 'values' to reordered function 'tf.concat'
+
+    Old:         start = tf.concat(0, [tf.zeros(1, dtype=tf.int64), rand_ind * tshift, tf.zeros(1, dtype=tf.int64)])
+                                                                                                                     
+    New:         start = tf.concat(axis=0, values=[tf.zeros(1, dtype=tf.int64), rand_ind * tshift, tf.zeros(1, dtype=tf.int64)])
+                                   ~~~~~   ~~~~~~~                                                                               
+
+'../video_prediction/cls/prediction_train_cls.py' Line 118
+--------------------------------------------------------------------------------
+
+Renamed function 'tf.scalar_summary' to 'tf.summary.scalar'
+
+    Old:                 tf.scalar_summary(prefix + '_state_cost' + str(i), state_cost))
+                         ~~~~~~~~~~~~~~~~~                                               
+    New:                 tf.summary.scalar(prefix + '_state_cost' + str(i), state_cost))
+                         ~~~~~~~~~~~~~~~~~                                               
+
+'../video_prediction/cls/prediction_train_cls.py' Line 219
+--------------------------------------------------------------------------------
+
+Renamed function 'tf.train.SummaryWriter' to 'tf.summary.FileWriter'
+
+    Old:     summary_writer = tf.train.SummaryWriter(
+                              ~~~~~~~~~~~~~~~~~~~~~~  
+    New:     summary_writer = tf.summary.FileWriter(
+                              ~~~~~~~~~~~~~~~~~~~~~  
+
+'../video_prediction/cls/prediction_train_cls.py' Line 124
+--------------------------------------------------------------------------------
+
+Renamed function 'tf.scalar_summary' to 'tf.summary.scalar'
+
+    Old:                 tf.scalar_summary(prefix + '_mask_distinction_cost', dcost))
+                         ~~~~~~~~~~~~~~~~~                                            
+    New:                 tf.summary.scalar(prefix + '_mask_distinction_cost', dcost))
+                         ~~~~~~~~~~~~~~~~~                                            
+
+'../video_prediction/cls/prediction_train_cls.py' Line 223
+--------------------------------------------------------------------------------
+
+Renamed function 'tf.initialize_all_variables' to 'tf.global_variables_initializer'
+
+    Old:     sess.run(tf.initialize_all_variables())
+                      ~~~~~~~~~~~~~~~~~~~~~~~~~~~    
+    New:     sess.run(tf.global_variables_initializer())
+                      ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~    
+
+

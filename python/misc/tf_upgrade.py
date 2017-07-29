@@ -20,8 +20,8 @@ from __future__ import print_function
 
 import argparse
 
-from tensorflow.tools.compatibility import ast_edits
-
+# from tensorflow.tools.compatibility import ast_edits
+import ast_edits
 
 class TFAPIChangeSpec(ast_edits.APIChangeSpec):
   """List of maps that describe what changed in the API."""

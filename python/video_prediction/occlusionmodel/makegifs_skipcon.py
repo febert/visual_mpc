@@ -36,6 +36,9 @@ def comp_gif(conf, file_path, name= "", examples = 10, show_parts=False):
         plot_psum_overtime(gen_pix_distrib, examples,file_path+"/"+ name)
         videolist.append(make_color_scheme(gen_pix_distrib))
         print 'adding gen_pix_distrib'
+        # pdb.set_trace()
+        # from PIL import Image
+        # Image.fromarray((videolist[1][0][0]).astype(np.uint8)).show()
 
     if 'accum_pix_distrib_l' in dict_:
         accum_pix = dict_['accum_pix_distrib_l']
@@ -82,8 +85,8 @@ def comp_gif(conf, file_path, name= "", examples = 10, show_parts=False):
 
     npy_to_gif(fused_gif, file_path + '/' +name +'vid_'+itr_vis+ suffix)
 
-    npy_to_gif(fused_gif[:conf['context_frames']], file_path + '/context' + name + 'vid_' + itr_vis + suffix)
-    npy_to_gif(fused_gif[conf['context_frames']:], file_path + '/pred' + name + 'vid_' + itr_vis + suffix)
+    # npy_to_gif(fused_gif[:conf['context_frames']], file_path + '/context' + name + 'vid_' + itr_vis + suffix)
+    # npy_to_gif(fused_gif[conf['context_frames']:], file_path + '/pred' + name + 'vid_' + itr_vis + suffix)
 
     pdb.set_trace()
 
@@ -147,7 +150,7 @@ def prepare_video(masks, copy_last_dim):
 
 if __name__ == '__main__':
     # file_path = '/home/frederik/Documents/lsdc/tensorflow_data/occulsionmodel/skipcon_window/no_maintainence'
-    file_path = '/home/frederik/Documents/lsdc/tensorflow_data/occulsionmodel/skipcon_window/1st_test'
+    file_path = '/home/frederik/Documents/lsdc/tensorflow_data/occulsionmodel/skipcon_window/no_maintainence_normalcontext'
 
     hyperparams = imp.load_source('hyperparams', file_path +'/conf.py')
 
