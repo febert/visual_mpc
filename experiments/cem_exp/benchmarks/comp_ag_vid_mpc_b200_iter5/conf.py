@@ -1,8 +1,6 @@
 import os
 current_dir = os.path.dirname(os.path.realpath(__file__))
 
-
-
 from video_prediction.prediction_model_downsized_lesslayer import construct_model
 
 

@@ -6,7 +6,7 @@ import os.path
 
 import numpy as np
 
-from lsdc.agent.mjc.agent_mjc import AgentMuJoCo
+from python_visual_mpc.visual_mpc_core.agent.agent_mjc import AgentMuJoCo
 
 IMAGE_WIDTH = 64
 IMAGE_HEIGHT = 64
@@ -36,8 +36,8 @@ if not os.path.exists(common['data_files_dir']):
 alpha = 30*np.pi/180
 agent = {
     'type': AgentMuJoCo,
-    'filename': './mjc_models/pushing2d_controller.xml',
-    'filename_nomarkers': './mjc_models/pushing2d_controller_nomarkers.xml',
+    'filename': './../../mjc_models/pushing2d_controller.xml',
+    'filename_nomarkers': './../../mjc_models/pushing2d_controller_nomarkers.xml',
     'data_collection': False,
     'x0': np.array([0., 0., 0., 0.,
                     .1, .1, 0., np.cos(alpha/2), 0, 0, np.sin(alpha/2)  #object pose (x,y,z, quat)
@@ -61,14 +61,14 @@ agent = {
 
 
 
-from lsdc.algorithm.policy.pos_controller import Pos_Controller
+from python_visual_mpc.visual_mpc_core.algorithm.pos_controller import Pos_Controller
 low_level_conf = {
     'type': Pos_Controller,
     'mode': 'relative',
     'randomtargets' : False
 }
 
-from lsdc.algorithm.policy.cem_controller import CEM_controller
+from python_visual_mpc.visual_mpc_core.algorithm.cem_controller import CEM_controller
 policy = {
     'type' : CEM_controller,
     'current_dir': current_dir
