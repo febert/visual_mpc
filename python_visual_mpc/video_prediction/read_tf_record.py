@@ -16,8 +16,7 @@ STATE_DIM = 4
 ACION_DIM = 2
 OBJECT_POS_DIM = 3
 
-from utils_vpred.create_gif import *
-
+from python_visual_mpc.video_prediction.utils_vpred.create_gif_lib import *
 
 def build_tfrecord_input(conf, training=True, gtruth_pred = False, shuffle_vis = False):
     """Create input tfrecord tensors.

@@ -82,7 +82,6 @@ class Model(object):
         self.actions_sel = actions
         self.states_sel = states
 
-        self.prefix = prefix = tf.placeholder(tf.string, [])
         self.iter_num = tf.placeholder(tf.float32, [])
         summaries = []
 
@@ -141,9 +140,8 @@ class Model(object):
 
                 psnr_i = peak_signal_to_noise_ratio(x, gx)
                 psnr_all += psnr_i
-                summaries.append(
-                    tf.summary.scalar(prefix + '_recon_cost' + str(i), recon_cost_mse))
-                summaries.append(tf.summary.scalar(prefix + '_psnr' + str(i), psnr_i))
+                summaries.append(tf.summary.scalar('recon_cost' + str(i), recon_cost_mse))
+                summaries.append(tf.summary.scalar('psnr' + str(i), psnr_i))
 
                 recon_cost = recon_cost_mse
 
@@ -155,15 +153,15 @@ class Model(object):
                         self.m.gen_states[conf['context_frames'] - 1:]):
                     state_cost = mean_squared_error(state, gen_state) * 1e-4 * conf['use_state']
                     summaries.append(
-                        tf.summary.scalar(prefix + '_state_cost' + str(i), state_cost))
+                        tf.summary.scalar('state_cost' + str(i), state_cost))
                     loss += state_cost
 
-            summaries.append(tf.summary.scalar(prefix + '_psnr_all', psnr_all))
+            summaries.append(tf.summary.scalar('psnr_all', psnr_all))
             self.psnr_all = psnr_all
 
             self.loss = loss = loss / np.float32(len(images) - conf['context_frames'])
 
-            summaries.append(tf.summary.scalar(prefix + '_loss', loss))
+            summaries.append(tf.summary.scalar('loss', loss))
             self.train_op = tf.train.AdamOptimizer(self.lr).minimize(loss)
             self.summ_op = tf.summary.merge(summaries)
 
@@ -235,7 +233,7 @@ def main(unused_argv, conf_script= None):
         conf['visualize'] = conf['output_dir'] + '/' + FLAGS.visualize
         conf['event_log_dir'] = '/tmp'
         conf.pop('use_len', None)
-        conf['batch_size'] = 10
+        conf['batch_size'] = 32
 
         conf['sequence_length'] = 15
         if FLAGS.diffmotions:
@@ -300,7 +298,6 @@ def main(unused_argv, conf_script= None):
 
         saver.restore(sess, conf['visualize'])
         feed_dict = {val_model.lr: 0.0,
-                     val_model.prefix: 'vis',
                      val_model.iter_num: 0 }
 
         file_path = conf['output_dir']
@@ -412,7 +409,7 @@ def main(unused_argv, conf_script= None):
     for itr in range(itr_0, conf['num_iterations'], 1):
         t_startiter = datetime.now()
         # Generate new batch of data_files.
-        feed_dict = {model.prefix: 'train',
+        feed_dict = {
                      model.iter_num: np.float32(itr),
                      model.lr: conf['learning_rate'],
                      }
@@ -425,7 +422,6 @@ def main(unused_argv, conf_script= None):
         if (itr) % VAL_INTERVAL == 2:
             # Run through validation set.
             feed_dict = {val_model.lr: 0.0,
-                         val_model.prefix: 'val',
                          val_model.iter_num: np.float32(itr),
                          }
             _, val_summary_str = sess.run([val_model.train_op, val_model.summ_op],

@@ -20,7 +20,8 @@ import tensorflow as tf
 
 import tensorflow.contrib.slim as slim
 from tensorflow.contrib.layers.python import layers as tf_layers
-from video_prediction.lstm_ops import basic_conv_lstm_cell
+from python_visual_mpc.video_prediction.lstm_ops12 import basic_conv_lstm_cell
+from python_visual_mpc.misc.zip_equal import zip_equal
 
 import pdb
 
@@ -62,8 +63,6 @@ class Prediction_Model(object):
         self.num_masks = conf['num_masks']
         self.context_frames = conf['context_frames']
 
-        print 'constructing cls network...'
-
         self.batch_size, self.img_height, self.img_width, self.color_channels = [int(i) for i in
                                                                                  images[0].get_shape()[0:4]]
         self.lstm_func = basic_conv_lstm_cell
@@ -91,7 +90,7 @@ class Prediction_Model(object):
             DNA_KERN_SIZE = self.conf['dna_size']
         else:
             DNA_KERN_SIZE = 5
-        print 'constructing sawyer network'
+
         batch_size, img_height, img_width, color_channels = self.images[0].get_shape()[0:4]
         lstm_func = basic_conv_lstm_cell
 
@@ -102,9 +101,7 @@ class Prediction_Model(object):
             current_state = None
 
         if self.actions == None:
-            actions = [None for _ in self.images]
-
-        summaries = []
+            self.actions = [None for _ in self.images]
 
         if self.k == -1:
             feedself = True
@@ -128,7 +125,7 @@ class Prediction_Model(object):
         lstm_state5, lstm_state6, lstm_state7 = None, None, None
 
         t = -1
-        for image, action in zip(self.images[:-1], actions[:-1]):
+        for image, action in zip(self.images[:-1], self.actions[:-1]):
             t +=1
             print t
             # Reuse variables after the first timestep.
@@ -361,7 +358,6 @@ class Prediction_Model(object):
 
                         self.gen_distrib2.append(pix_distrib_output)
 
-
                 if current_state != None:
                     current_state = slim.layers.fully_connected(
                         state_action,
@@ -371,19 +367,7 @@ class Prediction_Model(object):
 
                 self.gen_states.append(current_state)
 
-    def fuse_pix_distrib(self, extra_masks, mask_list, pix_distributions, prev_pix_distrib,
-                         transf_distrib):
 
-        if '1stimg_bckgd' in self.conf:
-            background_pix = pix_distributions[0]
-            background_pix = tf.expand_dims(background_pix, -1)
-            print 'using pix_distrib-background from first image..'
-        else:
-            background_pix = prev_pix_distrib
-        pix_distrib_output = mask_list[0] * background_pix
-        for i in range(self.num_masks):
-            pix_distrib_output += transf_distrib[i] * mask_list[i + extra_masks]
-        return pix_distrib_output
 
 
     def fuse_trafos(self, enc6, background_image, transformed, scope, extra_masks):
@@ -405,10 +389,24 @@ class Prediction_Model(object):
         mask_list = tf.split(axis=3, num_or_size_splits=num_masks +extra_masks, value=masks)
         output = mask_list[0] * background_image
 
-        for layer, mask in zip(transformed, mask_list[1:]):
+        for layer, mask in zip_equal(transformed, mask_list[1:]):
             output += layer * mask
 
         return output, mask_list
+
+    def fuse_pix_distrib(self, extra_masks, mask_list, pix_distributions, prev_pix_distrib,
+                         transf_distrib):
+
+        if '1stimg_bckgd' in self.conf:
+            background_pix = pix_distributions[0]
+            background_pix = tf.expand_dims(background_pix, -1)
+            print 'using pix_distrib-background from first image..'
+        else:
+            background_pix = prev_pix_distrib
+        pix_distrib_output = mask_list[0] * background_pix
+        for i in range(self.num_masks):
+            pix_distrib_output += transf_distrib[i] * mask_list[i + extra_masks]
+        return pix_distrib_output
 
 
     ## Utility functions
@@ -423,7 +421,7 @@ class Prediction_Model(object):
           List of images transformed by the predicted STP parameters.
         """
         # Only import spatial transformer if needed.
-        from video_prediction.transformer.spatial_transformer import transformer
+        from python_visual_mpc.video_prediction.transformer.spatial_transformer import transformer
 
         identity_params = tf.convert_to_tensor(
             np.array([1.0, 0.0, 0.0, 0.0, 1.0, 0.0], np.float32))

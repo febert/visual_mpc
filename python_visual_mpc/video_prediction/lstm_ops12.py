@@ -99,8 +99,8 @@ def basic_conv_lstm_cell(inputs,
 
     inputs.get_shape().assert_has_rank(4)
     state.get_shape().assert_has_rank(4)
-    c, h = tf.split(axis=state, num_or_size_splits=2, value=3)
-    inputs_h = tf.concat(axis=[inputs, h], values=3)
+    c, h = tf.split(axis=3, num_or_size_splits=2, value=state)
+    inputs_h = tf.concat(values=[inputs, h], axis=3)
     # Parameters of gates are concatenated into one conv for efficiency.
     i_j_f_o = layers.conv2d(inputs_h,
                             4 * num_channels, [filter_size, filter_size],
@@ -110,9 +110,9 @@ def basic_conv_lstm_cell(inputs,
                             )
 
     # i = input_gate, j = new_input, f = forget_gate, o = output_gate
-    i, j, f, o = tf.split(axis=i_j_f_o, num_or_size_splits=4, value=3)
+    i, j, f, o = tf.split(value=i_j_f_o, num_or_size_splits=4, axis=3)
 
     new_c = c * tf.sigmoid(f + forget_bias) + tf.sigmoid(i) * tf.tanh(j)
     new_h = tf.tanh(new_c) * tf.sigmoid(o)
 
-    return new_h, tf.concat(axis=[new_c, new_h], values=3)
+    return new_h, tf.concat(values=[new_c, new_h], axis=3)
