@@ -86,10 +86,10 @@ class Prediction_Model(object):
 
     def build(self):
 
-        if 'dna_size' in self.conf.keys():
-            DNA_KERN_SIZE = self.conf['dna_size']
+        if 'kern_size' in self.conf.keys():
+            KERN_SIZE = self.conf['kern_size']
         else:
-            DNA_KERN_SIZE = 5
+            KERN_SIZE = 5
 
         batch_size, img_height, img_width, color_channels = self.images[0].get_shape()[0:4]
         lstm_func = basic_conv_lstm_cell
@@ -257,14 +257,14 @@ class Prediction_Model(object):
                 if self.conf['model']=='DNA':
                     # Using largest hidden state for predicting untied conv kernels.
                     trafo_input = slim.layers.conv2d_transpose(
-                        enc6, DNA_KERN_SIZE ** 2, 1, stride=1, scope='convt4_cam2')
+                        enc6, KERN_SIZE ** 2, 1, stride=1, scope='convt4_cam2')
 
-                    transformed_l = [self.dna_transformation(prev_image, trafo_input, self.conf['dna_size'])]
+                    transformed_l = [self.dna_transformation(prev_image, trafo_input, self.conf['kern_size'])]
                     if self.pix_distributions1 != None:
-                        transf_distrib_ndesig1 = [self.dna_transformation(prev_pix_distrib1, trafo_input, DNA_KERN_SIZE)]
+                        transf_distrib_ndesig1 = [self.dna_transformation(prev_pix_distrib1, trafo_input, KERN_SIZE)]
                         if 'ndesig' in self.conf:
                             transf_distrib_ndesig2 = [
-                                self.dna_transformation(prev_pix_distrib2, trafo_input, DNA_KERN_SIZE)]
+                                self.dna_transformation(prev_pix_distrib2, trafo_input, KERN_SIZE)]
 
 
                     extra_masks = 1  ## extra_masks = 2 is needed for running singleview_shifted!!
