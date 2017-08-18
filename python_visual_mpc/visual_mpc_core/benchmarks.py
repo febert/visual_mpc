@@ -125,16 +125,10 @@ def perform_benchmark(bench_conf = None):
             lsdc.agent._hyperparams['record'] = bench_dir + '/videos/traj{0}_conf{1}'.format(traj, i_conf)
 
             if 'usenet' in conf['policy']:
-                if conf['policy']['usenet']:
-                    lsdc.policy = conf['policy']['type'](lsdc.agent._hyperparams,
-                                                         conf['policy'], lsdc.predictor)
-                else:
-                    lsdc.policy = conf['policy']['type'](lsdc.agent._hyperparams,
-                                                         conf['policy'])
-            else:
                 lsdc.policy = conf['policy']['type'](lsdc.agent._hyperparams,
-                                                     conf['policy'])
-
+                                                     conf['policy'], lsdc.predictor)
+            else:
+                lsdc.policy = conf['policy']['type'](lsdc.agent._hyperparams, conf['policy'])
 
             lsdc.policy.policyparams['rec_distrib'] =  bench_dir + '/videos_distrib/traj{0}_conf{1}'.format(traj, i_conf)
             lsdc._take_sample(traj)

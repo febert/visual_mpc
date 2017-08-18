@@ -74,12 +74,12 @@ class LocalServer(object):
         print 'restore done. '
 
 
-        self.sess.run(tf.global_variables_initializer())
-        restore_vars = tf.get_default_graph().get_collection(name=tf.GraphKeys.VARIABLES, scope='model')
+        # self.sess.run(tf.global_variables_initializer())
+        # restore_vars = tf.get_default_graph().get_collection(name=tf.GraphKeys.VARIABLES, scope='model')
         # for var in restore_vars:
         #     print var.name, var.get_shape()
-        saver = tf.train.Saver(restore_vars, max_to_keep=0)
-        saver.restore(self.sess, netconf['pretrained_model'])
+        # saver = tf.train.Saver(restore_vars, max_to_keep=0)
+        # saver.restore(self.sess, netconf['pretrained_model'])
 
 
     def predict(self, last_frames=None, input_distrib=None, last_states=None, input_actions=None, goal_pix=None):
@@ -156,7 +156,7 @@ class LocalServer(object):
         return distance_grid
 
 
-def setup_predictor(netconf, policyparams, ngpu, redis_address):
+def setup_predictor(netconf, policyparams, ngpu, redis_address=''):
     if redis_address == '':
         ray.init(num_gpus=ngpu)
     else:

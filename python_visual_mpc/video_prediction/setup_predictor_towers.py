@@ -73,18 +73,22 @@ def setup_predictor(conf, gpu_id=0, ngpu=1):
 
     print 'Constructing multi gpu model for control...'
 
-    if 'single_view' in conf:
-        numcam = 1
-    else:
-        numcam = 2
     start_images = tf.placeholder(tf.float32, name='images',  # with zeros extension
-                                    shape=(conf['batch_size'], conf['sequence_length'], 64, 64, 3*numcam))
-    actions = tf.placeholder(tf.float32, name='actions',
-                                    shape=(conf['batch_size'],conf['sequence_length'], 4))
-    start_states = tf.placeholder(tf.float32, name='states',
-                                    shape=(conf['batch_size'],conf['context_frames'], 3))
-    pix_distrib_1 = tf.placeholder(tf.float32, shape=(conf['batch_size'], conf['context_frames'], 64, 64, numcam))
-    pix_distrib_2 = tf.placeholder(tf.float32, shape=(conf['batch_size'], conf['context_frames'], 64, 64, numcam))
+                                    shape=(conf['batch_size'], conf['sequence_length'], 64, 64, 3))
+
+    if 'sawyer' in conf:
+        actions = tf.placeholder(tf.float32, name='actions',
+                                        shape=(conf['batch_size'],conf['sequence_length'], 4))
+        start_states = tf.placeholder(tf.float32, name='states',
+                                        shape=(conf['batch_size'],conf['context_frames'], 3))
+    else:
+        actions = tf.placeholder(tf.float32, name='actions',
+                                 shape=(conf['batch_size'], conf['sequence_length'], 2))
+        start_states = tf.placeholder(tf.float32, name='states',
+                                      shape=(conf['batch_size'], conf['context_frames'], 4))
+
+    pix_distrib_1 = tf.placeholder(tf.float32, shape=(conf['batch_size'], conf['context_frames'], 64, 64, 1))
+    pix_distrib_2 = tf.placeholder(tf.float32, shape=(conf['batch_size'], conf['context_frames'], 64, 64, 1))
 
     # creating dummy network to avoid issues with naming of variables
     if 'ndesig' in conf:
@@ -96,7 +100,12 @@ def setup_predictor(conf, gpu_id=0, ngpu=1):
 
     sess.run(tf.global_variables_initializer())
 
-    saver = tf.train.Saver(tf.get_collection(tf.GraphKeys.VARIABLES), max_to_keep=0)
+    # saver = tf.train.Saver(tf.get_collection(tf.GraphKeys.GLOBAL_VARIABLES), max_to_keep=0)
+    vars = tf.get_collection(tf.GraphKeys.GLOBAL_VARIABLES)
+    # remove all states from group of variables which shall be saved and restored:
+    vars_no_state = filter_vars(vars)
+    saver = tf.train.Saver(vars_no_state, max_to_keep=0)
+
     saver.restore(sess, conf['pretrained_model'])
     print 'restore done. '
 
@@ -117,25 +126,27 @@ def setup_predictor(conf, gpu_id=0, ngpu=1):
     comb_gen_states = []
 
     for t in range(conf['sequence_length']-1):
-        t_comb_gen_img = [to.model.gen_images[t] for to in towers]
+        t_comb_gen_img = [to.model.m.gen_images[t] for to in towers]
         comb_gen_img.append(tf.concat(axis=0, values=t_comb_gen_img))
 
         if not 'no_pix_distrib' in conf:
-            t_comb_pix_distrib1 = [to.model.gen_distrib1[t] for to in towers]
+            t_comb_pix_distrib1 = [to.model.m.gen_distrib1[t] for to in towers]
             comb_pix_distrib1.append(tf.concat(axis=0, values=t_comb_pix_distrib1))
             if 'ndesig' in conf:
-                t_comb_pix_distrib2 = [to.model.gen_distrib2[t] for to in towers]
+                t_comb_pix_distrib2 = [to.model.m.gen_distrib2[t] for to in towers]
                 comb_pix_distrib2.append(tf.concat(axis=0, values=t_comb_pix_distrib2))
 
-        t_comb_gen_states = [to.model.gen_states[t] for to in towers]
+        t_comb_gen_states = [to.model.m.gen_states[t] for to in towers]
         comb_gen_states.append(tf.concat(axis=0, values=t_comb_gen_states))
 
-    sess.run(tf.global_variables_initializer())
-    restore_vars = tf.get_default_graph().get_collection(name=tf.GraphKeys.VARIABLES, scope='model')
+    # sess.run(tf.global_variables_initializer())
+    # restore_vars = tf.get_default_graph().get_collection(name=tf.GraphKeys.VARIABLES, scope='model')
     # for var in restore_vars:
     #     print var.name, var.get_shape()
-    saver = tf.train.Saver(restore_vars, max_to_keep=0)
-    saver.restore(sess, conf['pretrained_model'])
+    #
+    # pdb.set_trace()
+    # saver = tf.train.Saver(restore_vars, max_to_keep=0)
+    # saver.restore(sess, conf['pretrained_model'])
 
     def predictor_func(input_images=None, input_one_hot_images1=None, input_one_hot_images2=None, input_state=None, input_actions=None):
         """
@@ -185,7 +196,18 @@ def setup_predictor(conf, gpu_id=0, ngpu=1):
             conf['ngpu'],
             (datetime.now() - t_startiter).seconds + (datetime.now() - t_startiter).microseconds/1e6)
 
-        return gen_images, gen_distrib1, gen_distrib2, gen_states
+        return gen_images, gen_distrib1, gen_distrib2, gen_states, None
 
     return predictor_func
+
+
+def filter_vars(vars):
+    newlist = []
+    for v in vars:
+        if not '/state:' in v.name:
+            newlist.append(v)
+        else:
+            print 'removed state variable from saving-list: ', v.name
+
+    return newlist
 

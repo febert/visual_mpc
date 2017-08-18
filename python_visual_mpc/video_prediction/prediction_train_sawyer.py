@@ -279,7 +279,10 @@ def main(unused_argv, conf_script= None):
     print 'Constructing saver.'
     # Make saver.
 
-    saver = tf.train.Saver(tf.get_collection(tf.GraphKeys.VARIABLES), max_to_keep=0)
+    vars = tf.get_collection(tf.GraphKeys.GLOBAL_VARIABLES)
+    # remove all states from group of variables which shall be saved and restored:
+    vars_no_state = filter_vars(vars)
+    saver = tf.train.Saver(vars_no_state, max_to_keep=0)
 
     gpu_options = tf.GPUOptions(per_process_gpu_memory_fraction=0.9)
     # Make training session.
@@ -464,6 +467,17 @@ def create_one_hot(conf, desig_pix):
     one_hot = np.repeat(one_hot, conf['batch_size'], axis=0)
 
     return one_hot
+
+
+def filter_vars(vars):
+    newlist = []
+    for v in vars:
+        if not '/state:' in v.name:
+            newlist.append(v)
+        else:
+            print 'removed state variable from saving-list: ', v.name
+
+    return newlist
 
 if __name__ == '__main__':
     tf.logging.set_verbosity(tf.logging.INFO)

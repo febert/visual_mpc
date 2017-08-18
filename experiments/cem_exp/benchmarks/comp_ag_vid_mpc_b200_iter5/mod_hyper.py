@@ -7,7 +7,7 @@ from python_visual_mpc.visual_mpc_core.algorithm.cem_controller import CEM_contr
 policy = {
     'type' : CEM_controller,
     'low_level_ctrl': None,
-    'usenet': True,
+    'usenet':'',
     'nactions': 5,
     'repeat': 3,
     'initial_std': 7,

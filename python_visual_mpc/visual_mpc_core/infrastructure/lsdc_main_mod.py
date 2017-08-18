@@ -16,7 +16,7 @@ import time
 # Add lsdc/python to path so that imports work.
 sys.path.append('/'.join(str.split(__file__, '/')[:-2]))
 # from lsdc.gui.gps_training_gui import GPSTrainingGUI
-from python_visual_mpc.video_prediction.setup_predictor import setup_predictor
+from python_visual_mpc.video_prediction.setup_predictor_simple import setup_predictor
 from python_visual_mpc.visual_mpc_core.infrastructure.utility import *
 
 from datetime import datetime
@@ -45,17 +45,14 @@ class LSDCMain(object):
             netconf = params.configuration
 
         if 'usenet' in config['policy']:
-            if config['policy']['usenet']:
-                if 'setup_predictor' in netconf:
-                    if ngpu ==None:
-                        self.predictor = netconf['setup_predictor'](netconf, gpu_id)
-                    else:
-                        self.predictor = netconf['setup_predictor'](netconf, gpu_id, ngpu)
+            if 'setup_predictor' in netconf:
+                if 'use_ray' in netconf:
+                    self.predictor = netconf['setup_predictor'](netconf,config['policy'], ngpu)
                 else:
-                    self.predictor = setup_predictor(netconf, gpu_id)
-                self.policy = config['policy']['type'](config['agent'], config['policy'], self.predictor)
+                    self.predictor = netconf['setup_predictor'](netconf, gpu_id, ngpu)
             else:
-                self.policy = config['policy']['type'](config['agent'], config['policy'])
+                self.predictor = setup_predictor(netconf, gpu_id)
+            self.policy = config['policy']['type'](config['agent'], config['policy'], self.predictor)
         else:
             self.policy = config['policy']['type'](config['agent'], config['policy'])
 

@@ -49,8 +49,9 @@ def init_state(inputs,
   #     tf.pack([batch_size] + state_shape),
   #     dtype=dtype)
   with tf.variable_scope(scope):
+    # initial_state = tf.zeros_initializer(tf.stack([batch_size] + state_shape),dtype=tf.float32)
     initial_state = tf.get_variable('state',shape=[int(inferred_batch_size)] + state_shape,
-                                      initializer=tf.zeros_initializer(dtype))
+                                      initializer=tf.zeros_initializer(dtype), trainable=False)
 
   initial_state.set_shape([inferred_batch_size] + state_shape)
 

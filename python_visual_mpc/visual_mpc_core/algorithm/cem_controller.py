@@ -9,7 +9,7 @@ import copy
 import time
 import imp
 import cPickle
-from python_visual_mpc.video_prediction.utils_vpred.create_gif import *
+from python_visual_mpc.video_prediction.utils_vpred.create_gif_lib import *
 from datetime import datetime
 import os
 
@@ -23,6 +23,7 @@ class CEM_controller(Policy):
     """
     def __init__(self, ag_params, policyparams, predictor = None):
         Policy.__init__(self)
+
         self.agentparams = ag_params
         self.policyparams = policyparams
 
@@ -330,6 +331,7 @@ class CEM_controller(Policy):
 
         return pixel_coord
 
+
     def video_pred(self, last_frames, last_states, actions, itr):
 
         self.pred_pos[:, itr, 0] = self.mujoco_to_imagespace(last_states[-1, :2] , numpix=480)
@@ -361,10 +363,10 @@ class CEM_controller(Policy):
         last_frames = np.concatenate((last_frames, app_zeros), axis=1)
         last_frames = last_frames.astype(np.float32)/255.
 
-
-        gen_distrib, gen_images, gen_masks, gen_states = self.predictor(last_frames, input_distrib,
-                                                                        last_states, actions, self.init_retpos)
-
+        gen_images, gen_distrib1, _,gen_states, gen_masks,  = self.predictor(input_images=last_frames,
+                                                            input_state=last_states,
+                                                            input_actions=actions,
+                                                            input_one_hot_images1=input_distrib)
 
         for tstep in range(self.netconf['sequence_length']-1):
             for smp in range(self.M):
@@ -386,11 +388,11 @@ class CEM_controller(Policy):
                         t_mult = self.policyparams['finalweight']
 
                 for b in range(self.netconf['batch_size']):
-                    gen = gen_distrib[tstep][b].squeeze() / np.sum(gen_distrib[tstep][b])
+                    gen = gen_distrib1[tstep][b].squeeze() / np.sum(gen_distrib1[tstep][b])
                     expected_distance[b] += np.sum(np.multiply(gen, distance_grid)) * t_mult
         else:
             for b in range(self.netconf['batch_size']):
-                gen = gen_distrib[-1][b].squeeze()/ np.sum(gen_distrib[-1][b])
+                gen = gen_distrib1[-1][b].squeeze()/ np.sum(gen_distrib1[-1][b])
                 expected_distance[b] = np.sum(np.multiply(gen, distance_grid))
 
         # for predictor_propagation only!!
@@ -399,7 +401,7 @@ class CEM_controller(Policy):
             if itr == (self.policyparams['iterations']-1):
                 # pick the prop distrib from the action actually chosen after the last iteration (i.e. self.indices[0])
                 self.indices = expected_distance.argsort()[:self.K]
-                self.rec_input_distrib.append(gen_distrib[2][self.indices[0]].reshape(1, 64, 64, 1))
+                self.rec_input_distrib.append(gen_distrib1[2][self.indices[0]].reshape(1, 64, 64, 1))
 
         # compare prediciton with simulation
         if self.verbose and itr == self.policyparams['iterations']-1:
@@ -420,7 +422,7 @@ class CEM_controller(Policy):
                 return outputlist
 
             self.gtruth_images = [img.astype(np.float) / 255. for img in self.gtruth_images]  #[1:]
-            cPickle.dump(best(gen_distrib), open(file_path + '/gen_distrib.pkl', 'wb'))
+            cPickle.dump(best(gen_distrib1), open(file_path + '/gen_distrib.pkl', 'wb'))
             cPickle.dump(best(gen_images), open(file_path + '/gen_images.pkl', 'wb'))
             # cPickle.dump(best(concat_masks), open(file_path + '/gen_masks.pkl', 'wb'))
             cPickle.dump(best(self.gtruth_images), open(file_path + '/gtruth_images.pkl', 'wb'))
@@ -433,9 +435,7 @@ class CEM_controller(Policy):
                 f.write('index: {0}, score: {1}, rank: {2}'.format(i, expected_distance[i], np.where(sorted == i)[0][0]))
                 f.write('action {}\n'.format(actions[i]))
 
-
         return expected_distance
-
 
     def sim_rollout(self, actions, smp, itr):
         accum_score = 0
