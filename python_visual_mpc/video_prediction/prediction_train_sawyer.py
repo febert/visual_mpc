@@ -10,7 +10,7 @@ import imp
 import matplotlib.pyplot as plt
 from tensorflow.python.platform import app
 from tensorflow.python.platform import flags
-from create_gif import *
+from makegifs import comp_gif
 
 
 from datetime import datetime
@@ -354,34 +354,39 @@ def main(unused_argv, conf_script= None):
 
             feed_dict[actions_pl] = actions
 
-            gen_images, gen_distrib, gen_masks, moved_im, moved_pix, trafos = sess.run([val_model.m.gen_images,
-                                                                                        val_model.m.gen_distrib1,
-                                                                                        val_model.m.gen_masks,
-                                                                                        val_model.m.moved_images,
-                                                                                        val_model.m.moved_pix_distrib1,
-                                                                                        val_model.m.trafos]
-                                                                                       ,feed_dict)
+            gen_images, gen_distrib, gen_masks = sess.run([val_model.m.gen_images,
+                                                            val_model.m.gen_distrib1,
+                                                            val_model.m.gen_masks,
+                                                            ]
+                                                           ,feed_dict)
+            dict = {}
+            dict['gen_images'] = gen_images
+            dict['gen_masks'] = gen_masks
+            dict['gen_distrib'] = gen_distrib
+            cPickle.dump(dict, open(file_path + '/pred.pkl', 'wb'))
+            print 'written files to:' + file_path
 
-            cPickle.dump(gen_images, open(file_path + '/gen_image_t0.pkl', 'wb'))
-            cPickle.dump(gen_distrib, open(file_path + '/gen_distrib_t0.pkl', 'wb'))
-            cPickle.dump(gen_masks, open(file_path + '/gen_masks.pkl', 'wb'))
-            cPickle.dump(moved_im, open(file_path + '/moved_im.pkl', 'wb'))
-            cPickle.dump(moved_pix, open(file_path + '/moved_pix.pkl', 'wb'))
-            cPickle.dump(trafos, open(file_path + '/trafos.pkl', 'wb'))
+            comp_gif(conf,
+                     conf['output_dir'],
+                     append_masks=False,
+                     suffix='_diffmotions_b{}_l{}'.format(b_exp, conf['sequence_length']),
+                     examples=10)
 
-            create_video_pixdistrib_gif(file_path, conf,0,
-                                        suffix='_diffmotions_b{}_l{}'.format(b_exp, conf['sequence_length']), n_exp=10,
-                                        append_masks=False, show_moved=False)
         else:
-            gen_images, ground_truth, gen_masks = sess.run([val_model.m.gen_images,
-                                                            val_model.images_sel,
-                                                            val_model.m.gen_masks],
-                                                            feed_dict)
+            ground_truth, gen_images, gen_masks, = sess.run([val_images,
+                                                              val_model.m.gen_images,
+                                                              val_model.m.gen_masks,
+                                                              ],
+                                                             feed_dict)
 
-            cPickle.dump(ground_truth, open(file_path + '/ground_truth.pkl', 'wb'))
-            cPickle.dump(gen_masks, open(file_path + '/gen_masks.pkl', 'wb'))
-            cPickle.dump(gen_images, open(file_path + '/gen_image.pkl','wb'))
-            create_gif(file_path, conf, numexp= 6, append_masks= True)
+            dict = {}
+            dict['gen_images'] = gen_images
+            dict['ground_truth'] = ground_truth
+            dict['gen_masks'] = gen_masks
+            cPickle.dump(dict, open(file_path + '/pred.pkl', 'wb'))
+            print 'written files to:' + file_path
+
+            comp_gif(conf, conf['output_dir'], append_masks=True, show_parts=True)
 
         return
 

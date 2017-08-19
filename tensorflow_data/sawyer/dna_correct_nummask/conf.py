@@ -7,7 +7,6 @@ DATA_DIR = '/'.join(str.split(current_dir, '/')[:-3]) + '/pushing_data/softmotio
 # local output directory
 OUT_DIR = current_dir + '/modeldata'
 
-from video_prediction.prediction_model_downsized_lesslayer import construct_model
 
 configuration = {
 'experiment_name': 'rndaction_var10',
@@ -27,7 +26,6 @@ configuration = {
 'batch_size': 32,           #'batch size for training' ,
 'learning_rate': 0.001,     #'the base learning rate of the generator' ,
 'visualize': '',            #'load model from which to generate visualizations
-'downsize': construct_model,           #'create downsized model'
 'file_visual': '',          # datafile used for making visualizations
 'kern_size': 9,              #size of DNA kerns
 'sawyer':'',

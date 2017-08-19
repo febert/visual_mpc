@@ -11,6 +11,7 @@ def create_gif(file_path, conf, suffix = None, numexp = 8, append_masks = False)
     ground_truth = cPickle.load(open(file_path + '/ground_truth.pkl', "rb"))
     gen_images = cPickle.load(open(file_path + '/gen_image.pkl', "rb"))
 
+    masks = cPickle.load(open(file_path + '/gen_masks.pkl', "rb"))
 
     ground_truth = np.squeeze(ground_truth)
     if ground_truth.shape[4] == 3:
@@ -19,9 +20,17 @@ def create_gif(file_path, conf, suffix = None, numexp = 8, append_masks = False)
         ground_truth = [np.squeeze(img) for img in ground_truth]
         ground_truth = ground_truth[1:]
 
+        makecolor = False
+
         if append_masks:
             list_of_maskvideos = get_masks(conf, file_path)
-            list_of_maskvideos = [make_color_scheme(v) for v in list_of_maskvideos]
+
+            if makecolor:
+                list_of_maskvideos = convert_to_videolist(masks, repeat_last_dim=False)
+                list_of_maskvideos = [make_color_scheme(v) for v in list_of_maskvideos]
+            else:
+                list_of_maskvideos = convert_to_videolist(masks, repeat_last_dim=True)
+
             fused_gif = assemble_gif([ground_truth, gen_images] + list_of_maskvideos, numexp)
         else:
             fused_gif = assemble_gif([ground_truth, gen_images], numexp)
@@ -47,26 +56,6 @@ def create_gif(file_path, conf, suffix = None, numexp = 8, append_masks = False)
 
 def get_masks(conf, file_path, repeat_last_dim = False):
     masks = cPickle.load(open(file_path + '/gen_masks.pkl', "rb"))
-
-    # tsteps = len(masks)
-    # nmasks = len(masks[0])
-    # print mask statistics:
-    # pix_pos = np.array([8, 49])
-    # print 'evaluate mask values at designated pixel:',pix_pos
-    # for t in range(tsteps):
-    #     for imask in range(nmasks):
-    #         print 't{0}: mask {1}: value= {2}'.format(t, imask, masks[t][imask][0, pix_pos[0], pix_pos[1]])
-    # print 'mask statistics...'
-    # for t in range(tsteps):
-    #     sum_permask = []
-    #     print 'mask of time {}'.format(t)
-    #     for imask in range(nmasks):
-    #         sum_permask.append(np.sum(masks[t][imask]))
-    #         print 'sum of mask{0} :{1}'.format(imask,sum_permask[imask])
-    #
-    #     sum_all_move = np.sum(np.stack(sum_permask[2:]))
-    #     print 'sum of all movment-masks:', sum_all_move
-    # end mask statistics:
 
     return convert_to_videolist(masks, repeat_last_dim)
 
