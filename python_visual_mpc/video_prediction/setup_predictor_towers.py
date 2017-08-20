@@ -119,6 +119,7 @@ def setup_predictor(conf, gpu_id=0, ngpu=1):
     for var in tf.GraphKeys.GLOBAL_VARIABLES:
         print var.name
 
+
     for i_gpu in xrange(ngpu):
         with tf.device('/gpu:%d' % i_gpu):
             with tf.name_scope('tower_%d' % (i_gpu)):
