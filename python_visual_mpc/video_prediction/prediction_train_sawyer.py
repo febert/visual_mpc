@@ -162,8 +162,10 @@ class Model(object):
             self.loss = loss = loss / np.float32(len(images) - conf['context_frames'])
 
             summaries.append(tf.summary.scalar('loss', loss))
-            self.train_op = tf.train.AdamOptimizer(self.lr).minimize(loss)
-            self.summ_op = tf.summary.merge(summaries)
+
+            if not inference:
+                self.train_op = tf.train.AdamOptimizer(self.lr).minimize(loss)
+                self.summ_op = tf.summary.merge(summaries)
 
 
     def random_shift(self, images, states, actions):
