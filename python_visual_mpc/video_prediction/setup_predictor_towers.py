@@ -116,7 +116,7 @@ def setup_predictor(conf, gpu_id=0, ngpu=1):
     #making the towers
     towers = []
 
-    for var in tf.GraphKeys.GLOBAL_VARIABLES:
+    for var in tf.get_collection(tf.GraphKeys.GLOBAL_VARIABLES):
         print var.name
 
 
