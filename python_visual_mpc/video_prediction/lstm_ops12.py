@@ -51,7 +51,6 @@ def init_state(inputs,
   with tf.variable_scope(scope):
     # initial_state = tf.zeros_initializer(tf.stack([batch_size] + state_shape),dtype=tf.float32)
 
-    pdb.set_trace()
     initial_state = tf.get_variable('state',
                                     shape=[int(inferred_batch_size)] + state_shape,
                                     initializer=tf.zeros_initializer(dtype),
@@ -92,9 +91,6 @@ def basic_conv_lstm_cell(inputs,
   """
   spatial_size = inputs.get_shape()[1:3]
   spatial_size = [int(el) for el in spatial_size]  ## new
-
-  import pdb
-  pdb.set_trace()
 
 
   if state is None:

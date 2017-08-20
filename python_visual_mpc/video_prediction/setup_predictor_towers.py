@@ -26,7 +26,6 @@ class Tower(object):
 
         from prediction_train_sawyer import Model
 
-        pdb.set_trace()
         if 'ndesig' in conf:
             self.model = Model(conf, start_images, actions, start_states, pix_distrib=pix_distrib1,pix_distrib2=pix_distrib2,
                                reuse_scope=reuse_scope)
