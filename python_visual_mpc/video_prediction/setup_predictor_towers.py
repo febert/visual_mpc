@@ -126,10 +126,10 @@ def setup_predictor(conf, gpu_id=0, ngpu=1):
                 print('creating tower %d: in scope %s' % (i_gpu, tf.get_variable_scope()))
                 # print 'reuse: ', tf.get_variable_scope().reuse
 
-                towers.append(Tower(conf, i_gpu, training_scope, start_images, actions, start_states, pix_distrib_1, pix_distrib_2))
                 tf.get_variable_scope().reuse_variables()
+                towers.append(Tower(conf, i_gpu, training_scope, start_images, actions, start_states, pix_distrib_1, pix_distrib_2))
 
-                for var in tf.GraphKeys.GLOBAL_VARIABLES:
+                for var in tf.get_collection(tf.GraphKeys.GLOBAL_VARIABLES):
                     print var.name
 
     comb_gen_img = []
