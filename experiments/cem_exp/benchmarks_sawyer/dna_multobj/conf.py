@@ -7,6 +7,7 @@ LSDC_BASE = '/'.join(str.split(current_dir, '/')[:-4])
 
 from video_prediction.sawyer.setup_predictor_sawyer import setup_predictor
 
+
 configuration = {
 'experiment_name': 'cem_control',
 'setup_predictor': setup_predictor,
@@ -24,7 +25,7 @@ configuration = {
 'learning_rate': 0,     #'the base learning rate of the generator' ,
 'visualize': '',            #'load model from which to generate visualizations
 'file_visual': '',          # datafile used for making visualizations,
-'dna_size': 9,              #size of DNA kerns
+'kern_size': 9,              #size of DNA kerns
 'sawyer':'',
 'single_view':"",
 'ndesig':2

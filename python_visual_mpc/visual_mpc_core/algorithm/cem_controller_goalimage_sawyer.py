@@ -1,18 +1,13 @@
 """ This file defines the linear Gaussian policy class. """
 import numpy as np
 
-from lsdc.algorithm.policy.policy import Policy
-import mujoco_py
-from mujoco_py.mjtypes import *
-from lsdc.agent.config import AGENT_MUJOCO
 import copy
 import time
 import imp
 import cPickle
-from video_prediction.utils_vpred.create_gif import comp_video
 from datetime import datetime
 
-from video_prediction.sawyer.create_gif import *
+from python_visual_mpc.video_prediction.utils_vpred.create_gif_lib import *
 
 from PIL import Image
 import pdb
@@ -251,7 +246,7 @@ class CEM_controller():
 
         else:
             input_distrib = self.make_input_distrib(itr)
-            gen_images, gen_distrib, _, gen_states = self.predictor(input_images=last_frames,
+            gen_images, gen_distrib, _, gen_states, _ = self.predictor(input_images=last_frames,
                                                                     input_state=last_states,
                                                                     input_actions=actions,
                                                                     input_one_hot_images1=input_distrib)
