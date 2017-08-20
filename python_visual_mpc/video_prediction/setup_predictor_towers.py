@@ -18,16 +18,15 @@ class Tower(object):
         per_gpu_actions = tf.slice(actions, [startidx, 0, 0], [nsmp_per_gpu, -1, -1])
         start_images = tf.slice(start_images, [startidx, 0, 0, 0, 0], [nsmp_per_gpu, -1, -1, -1, -1])
         start_states = tf.slice(start_states, [startidx, 0, 0], [nsmp_per_gpu, -1, -1])
-        if 'no_pix_distrib' in conf:
-             pix_distrib = None
-        else:
-            pix_distrib1 = tf.slice(pix_distrib1, [startidx, 0, 0, 0, 0], [nsmp_per_gpu, -1, -1, -1, -1])
-            pix_distrib2 = tf.slice(pix_distrib2, [startidx, 0, 0, 0, 0], [nsmp_per_gpu, -1, -1, -1, -1])
+
+        pix_distrib1 = tf.slice(pix_distrib1, [startidx, 0, 0, 0, 0], [nsmp_per_gpu, -1, -1, -1, -1])
+        pix_distrib2 = tf.slice(pix_distrib2, [startidx, 0, 0, 0, 0], [nsmp_per_gpu, -1, -1, -1, -1])
 
         print 'startindex for gpu {0}: {1}'.format(gpu_id, startidx)
 
         from prediction_train_sawyer import Model
 
+        pdb.set_trace()
         if 'ndesig' in conf:
             self.model = Model(conf, start_images, per_gpu_actions, start_states, pix_distrib=pix_distrib1,pix_distrib2=pix_distrib2,
                                reuse_scope=reuse_scope)
