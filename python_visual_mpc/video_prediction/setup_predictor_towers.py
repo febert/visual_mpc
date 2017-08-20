@@ -15,7 +15,7 @@ class Tower(object):
 
         # picking different subset of the actions for each gpu
         startidx = gpu_id * nsmp_per_gpu
-        per_gpu_actions = tf.slice(actions, [startidx, 0, 0], [nsmp_per_gpu, -1, -1])
+        actions = tf.slice(actions, [startidx, 0, 0], [nsmp_per_gpu, -1, -1])
         start_images = tf.slice(start_images, [startidx, 0, 0, 0, 0], [nsmp_per_gpu, -1, -1, -1, -1])
         start_states = tf.slice(start_states, [startidx, 0, 0], [nsmp_per_gpu, -1, -1])
 
@@ -28,10 +28,10 @@ class Tower(object):
 
         pdb.set_trace()
         if 'ndesig' in conf:
-            self.model = Model(conf, start_images, per_gpu_actions, start_states, pix_distrib=pix_distrib1,pix_distrib2=pix_distrib2,
+            self.model = Model(conf, start_images, actions, start_states, pix_distrib=pix_distrib1,pix_distrib2=pix_distrib2,
                                reuse_scope=reuse_scope)
         else:
-            self.model = Model(conf,start_images,per_gpu_actions,start_states, pix_distrib=pix_distrib1, reuse_scope= reuse_scope)
+            self.model = Model(conf,start_images,actions,start_states, pix_distrib=pix_distrib1, reuse_scope= reuse_scope)
 
 def setup_predictor(conf, gpu_id=0, ngpu=1):
     """
@@ -85,9 +85,18 @@ def setup_predictor(conf, gpu_id=0, ngpu=1):
                                  shape=(conf['batch_size'], conf['sequence_length'], 2))
         start_states = tf.placeholder(tf.float32, name='states',
                                       shape=(conf['batch_size'], conf['context_frames'], 4))
-
     pix_distrib_1 = tf.placeholder(tf.float32, shape=(conf['batch_size'], conf['context_frames'], 64, 64, 1))
     pix_distrib_2 = tf.placeholder(tf.float32, shape=(conf['batch_size'], conf['context_frames'], 64, 64, 1))
+
+    ## taking subset of examples for 1 gpu
+    nsmp_per_gpu = conf['batch_size'] / conf['ngpu']
+    startidx = 0
+    actions = tf.slice(actions, [startidx, 0, 0], [nsmp_per_gpu, -1, -1])
+    start_images = tf.slice(start_images, [startidx, 0, 0, 0, 0], [nsmp_per_gpu, -1, -1, -1, -1])
+    start_states = tf.slice(start_states, [startidx, 0, 0], [nsmp_per_gpu, -1, -1])
+    pix_distrib_1 = tf.slice(pix_distrib_1, [startidx, 0, 0, 0, 0], [nsmp_per_gpu, -1, -1, -1, -1])
+    pix_distrib_2 = tf.slice(pix_distrib_2, [startidx, 0, 0, 0, 0], [nsmp_per_gpu, -1, -1, -1, -1])
+
 
     # creating dummy network to avoid issues with naming of variables
     if 'ndesig' in conf:

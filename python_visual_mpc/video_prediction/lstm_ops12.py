@@ -50,7 +50,7 @@ def init_state(inputs,
   #     dtype=dtype)
   with tf.variable_scope(scope):
     # initial_state = tf.zeros_initializer(tf.stack([batch_size] + state_shape),dtype=tf.float32)
-    
+
     pdb.set_trace()
     initial_state = tf.get_variable('state',
                                     shape=[int(inferred_batch_size)] + state_shape,
