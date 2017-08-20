@@ -41,10 +41,7 @@ def setup_predictor(conf, gpu_id=0, ngpu=1):
     conditioned on the actions
     """
 
-    if 'prediction_model' in conf:
-        Model = conf['prediction_model']
-    else:
-        from prediction_train_sawyer import Model
+    from prediction_train_sawyer import Model
 
     conf['ngpu'] = ngpu
 
@@ -119,13 +116,20 @@ def setup_predictor(conf, gpu_id=0, ngpu=1):
     #making the towers
     towers = []
 
+    for var in tf.GraphKeys.GLOBAL_VARIABLES:
+        print var.name
+
     for i_gpu in xrange(ngpu):
         with tf.device('/gpu:%d' % i_gpu):
             with tf.name_scope('tower_%d' % (i_gpu)):
                 print('creating tower %d: in scope %s' % (i_gpu, tf.get_variable_scope()))
                 # print 'reuse: ', tf.get_variable_scope().reuse
+
                 towers.append(Tower(conf, i_gpu, training_scope, start_images, actions, start_states, pix_distrib_1, pix_distrib_2))
                 tf.get_variable_scope().reuse_variables()
+
+                for var in tf.GraphKeys.GLOBAL_VARIABLES:
+                    print var.name
 
     comb_gen_img = []
     comb_pix_distrib1 = []
