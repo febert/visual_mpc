@@ -1,6 +1,6 @@
 <?xml version="1.0"?>
 <package>
-  <name>visual_mpc</name>
+  <name>visual_mpc_rospkg</name>
   <version>0.0.0</version>
   <description>The visual_mpc package</description>
 

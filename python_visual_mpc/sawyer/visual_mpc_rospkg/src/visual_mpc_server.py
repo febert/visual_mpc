@@ -10,14 +10,11 @@ import cPickle
 import imp
 import argparse
 
+from python_visual_mpc.video_prediction.utils_vpred.create_gif_lib import *
+from python_visual_mpc.visual_mpc_core.algorithm.cem_controller_goalimage_sawyer import CEM_controller
 
-from video_prediction.utils_vpred.create_gif import *
-import socket
-# if socket.gethostname() == 'newton1':
-from lsdc.algorithm.policy.cem_controller_goalimage_sawyer import CEM_controller
-
-from lsdc.utility.trajectory import Trajectory
-from lsdc import __file__ as lsdc_filepath
+from python_visual_mpc.visual_mpc_core.infrastructure.trajectory import Trajectory
+from python_visual_mpc import __file__ as base_filepath
 
 
 import rospy
@@ -29,12 +26,9 @@ from sensor_msgs.msg import Image as Image_msg
 
 class Visual_MPC_Server(object):
     def __init__(self):
-        """
-        Similar functionality to mjc_agent and lsdc_main_mod, calling the policy
-        """
+        base_dir = '/'.join(str.split(base_filepath, '/')[:-2])
 
-        lsdc_dir = '/'.join(str.split(lsdc_filepath, '/')[:-3])
-        cem_exp_dir = lsdc_dir + '/experiments/cem_exp/benchmarks_sawyer'
+        cem_exp_dir = base_dir + '/experiments/cem_exp/benchmarks_sawyer'
         hyperparams = imp.load_source('hyperparams', cem_exp_dir + '/base_hyperparams_sawyer.py')
 
         parser = argparse.ArgumentParser(description='Run benchmarks')

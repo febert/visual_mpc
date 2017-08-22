@@ -5,6 +5,7 @@ import cv2
 from cv_bridge import CvBridge, CvBridgeError
 import os
 import shutil
+import copy
 import socket
 import thread
 import numpy as np
@@ -13,6 +14,9 @@ import pdb
 from berkeley_sawyer.srv import *
 from PIL import Image
 import cPickle
+import imageio
+
+import moviepy.editor as mpy
 
 from rospy_tutorials.msg import Floats
 from rospy.numpy_msg import numpy_msg
@@ -35,7 +39,12 @@ class Latest_observation(object):
 
 
 class RobotRecorder(object):
-    def __init__(self, save_dir, seq_len = None):
+    def __init__(self, save_dir, seq_len = None, use_aux=True, save_video=False,
+                 save_actions=True, save_images = True):
+
+        self.save_actions = save_actions
+        self.save_images = save_images
+
         """
         Records joint data to a file at a specified rate.
         rate: recording frequency in Hertz
@@ -44,11 +53,22 @@ class RobotRecorder(object):
         :param start_loop whether to start recording in a loop
         :param whether the recorder instance is an auxiliary recorder
         """
+
         side = "right"
         self.state_sequence_length = seq_len
         self.overwrite = True
+        self.use_aux = use_aux
 
-        rospy.loginfo('hostname is :{}'.format(socket.gethostname()))
+        if save_video:
+            self.save_gif = True
+        else:
+            self.save_gif = False
+
+        self.image_folder = save_dir
+        self.itr = 0
+        self.highres_imglist = []
+
+        print 'hostname is :{}'.format(socket.gethostname())
         if socket.gethostname() == 'kullback':
             # the main instance one also records actions and joint angles
             self.instance_type = 'main'
@@ -170,11 +190,22 @@ class RobotRecorder(object):
         self.ltob.tstamp_img = rospy.get_time()
         cv_image = self.bridge.imgmsg_to_cv2(data, "bgr8")  #(1920, 1080)
 
-        self.ltob.img_cv2 =  cv_image
-        self.ltob.img_cropped = self.crop_colorimg(cv_image)
+        self.ltob.img_cv2 = self.crop_highres(cv_image)
+        self.ltob.img_cropped = self.crop_lowres(cv_image)
 
+    def crop_highres(self, cv_image):
+        startcol = 180
+        startrow = 0
+        endcol = startcol + 1500
+        endrow = startrow + 1500
+        cv_image = copy.deepcopy(cv_image[startrow:endrow, startcol:endcol])
 
-    def crop_colorimg(self, cv_image):
+        cv_image = cv2.resize(cv_image, (0, 0), fx=.75, fy=.75, interpolation=cv2.INTER_AREA)
+        if self.instance_type == 'main':
+            cv_image = imutils.rotate_bound(cv_image, 180)
+        return cv_image
+
+    def crop_lowres(self, cv_image):
         self.ltob.d_img_raw_npy = np.asarray(cv_image)
         if self.instance_type == 'main':
             img = cv2.resize(cv_image, (0, 0), fx=1 / 16., fy=1 / 16., interpolation=cv2.INTER_AREA)
@@ -198,12 +229,13 @@ class RobotRecorder(object):
     def init_traj(self, itr):
         assert self.instance_type == 'main'
         # request init service for auxiliary recorders
-        try:
-            rospy.wait_for_service('init_traj', timeout=1)
-            resp1 = self.init_traj_func(itr, self.igrp)
-        except (rospy.ServiceException, rospy.ROSException), e:
-            rospy.logerr("Service call failed: %s" % (e,))
-            raise ValueError('get_kinectdata service failed')
+        if self.use_aux:
+            try:
+                rospy.wait_for_service('init_traj', timeout=1)
+                resp1 = self.init_traj_func(itr, self.igrp)
+            except (rospy.ServiceException, rospy.ROSException), e:
+                rospy.logerr("Service call failed: %s" % (e,))
+                raise ValueError('get_kinectdata service failed')
 
         self._init_traj_local(itr)
 
@@ -215,6 +247,7 @@ class RobotRecorder(object):
         :param itr: number of current trajecotry
         :return:
         """
+        self.itr = itr
         self.group_folder = self.save_dir + '/traj_group{}'.format(self.igrp)
 
         rospy.loginfo("Init trajectory {} in group {}".format(itr, self.igrp))
@@ -247,12 +280,13 @@ class RobotRecorder(object):
 
     def delete_traj(self, tr):
         assert self.instance_type == 'main'
-        try:
-            rospy.wait_for_service('delete_traj', 0.1)
-            resp1 = self.delete_traj_func(tr, self.igrp)
-        except (rospy.ServiceException, rospy.ROSException), e:
-            rospy.logerr("Service call failed: %s" % (e,))
-            raise ValueError('delete traj service failed')
+        if self.use_aux:
+            try:
+                rospy.wait_for_service('delete_traj', 0.1)
+                resp1 = self.delete_traj_func(tr, self.igrp)
+            except (rospy.ServiceException, rospy.ROSException), e:
+                rospy.logerr("Service call failed: %s" % (e,))
+                raise ValueError('delete traj service failed')
         self._delete_traj_local(tr)
 
     def _delete_traj_local(self, i_tr):
@@ -265,15 +299,34 @@ class RobotRecorder(object):
         self.t_savereq = rospy.get_time()
         assert self.instance_type == 'main'
 
-        # request save at auxiliary recorders
-        try:
-            rospy.wait_for_service('get_kinectdata', 0.1)
-            resp1 = self.save_kinectdata_func(i_save)
-        except (rospy.ServiceException, rospy.ROSException), e:
-            rospy.logerr("Service call failed: %s" % (e,))
-            raise ValueError('get_kinectdata service failed')
-        self._save_img_local(i_save)
-        self._save_state_actions(i_save, action, endeffector_pose)
+        if self.use_aux:
+            # request save at auxiliary recorders
+            try:
+                rospy.wait_for_service('get_kinectdata', 0.1)
+                resp1 = self.save_kinectdata_func(i_save)
+            except (rospy.ServiceException, rospy.ROSException), e:
+                rospy.logerr("Service call failed: %s" % (e,))
+                raise ValueError('get_kinectdata service failed')
+
+        if self.save_images:
+            self._save_img_local(i_save)
+
+        if self.save_actions:
+            self._save_state_actions(i_save, action, endeffector_pose)
+
+        if self.save_gif:
+            highres = cv2.cvtColor(self.ltob.img_cv2, cv2.COLOR_BGR2RGB)
+            print 'highres dim',highres.shape
+            self.highres_imglist.append(highres)
+
+    def save_highres(self):
+        # clip = mpy.ImageSequenceClip(self.highres_imglist, fps=10)
+        # clip.write_gif(self.image_folder + '/highres_traj{}.mp4'.format(self.itr))
+        writer = imageio.get_writer(self.image_folder + '/highres_traj{}.mp4'.format(self.itr), fps=10)
+        print 'shape highes:', self.highres_imglist[0].shape
+        for im in self.highres_imglist:
+            writer.append_data(im)
+        writer.close()
 
     def get_aux_img(self):
         try:
@@ -317,21 +370,15 @@ class RobotRecorder(object):
             self.joint_angle_list = []
             self.cart_pos_list = []
 
-    def _save_img_local(self, i_tr):
+    def _save_img_local(self, i_save):
 
         pref = self.instance_type
 
         #saving image
         # saving the full resolution image
         if self.ltob.img_cv2 is not None:
-            image_name =  self.image_folder+ "/" + pref + "_full_cropped_im{0}_time{1}.jpg".format(i_tr, self.ltob.tstamp_img)
-            startcol = 180
-            startrow = 0
-            endcol = startcol + 1500
-            endrow = startrow + 1500
-            # crop image:
-            self.ltob.img_cv2 = self.ltob.img_cv2[startrow:endrow, startcol:endcol]
-            self.ltob.img_cv2 = cv2.resize(self.ltob.img_cv2, (0, 0), fx=.75, fy=.75, interpolation=cv2.INTER_AREA)
+            image_name = self.image_folder+ "/" + pref + "_full_cropped_im{0}".format(str(i_save).zfill(2))
+            image_name += "_time{1}.jpg".format(self.ltob.tstamp_img)
 
             cv2.imwrite(image_name, self.ltob.img_cv2, [int(cv2.IMWRITE_JPEG_QUALITY), 80])
         else:
@@ -339,28 +386,29 @@ class RobotRecorder(object):
 
         # saving the cropped and downsized image
         if self.ltob.img_cropped is not None:
-            image_name = self.image_folder + "/" + pref +"_cropped_im{0}_time{1}.png".format(i_tr, self.ltob.tstamp_img)
+            image_name = self.image_folder + "/" + pref +"_cropped_im{0}_time{1}.png".format(i_save, self.ltob.tstamp_img)
             cv2.imwrite(image_name, self.ltob.img_cropped, [cv2.IMWRITE_PNG_STRATEGY_DEFAULT,1])
+            print 'saving small image to ', image_name
         else:
             raise ValueError('img_cropped no data received')
 
         # saving the depth data
         # saving the cropped depth data in a Pickle file
         if self.ltob.d_img_cropped_npy is not None:
-            file = self.depth_image_folder + "/" + pref +"_depth_im{0}_time{1}.pkl".format(i_tr, self.ltob.tstamp_d_img)
+            file = self.depth_image_folder + "/" + pref +"_depth_im{0}_time{1}.pkl".format(i_save, self.ltob.tstamp_d_img)
             cPickle.dump(self.ltob.d_img_cropped_npy, open(file, 'wb'))
         else:
             raise ValueError('d_img_cropped_npy no data received')
 
         # saving downsampled 8bit images
         if self.ltob.d_img_cropped_8bit is not None:
-            image_name = self.depth_image_folder + "/" + pref + "_cropped_depth_im{0}_time{1}.png".format(i_tr, self.ltob.tstamp_d_img)
+            image_name = self.depth_image_folder + "/" + pref + "_cropped_depth_im{0}_time{1}.png".format(i_save, self.ltob.tstamp_d_img)
             cv2.imwrite(image_name, self.ltob.d_img_cropped_8bit, [cv2.IMWRITE_PNG_STRATEGY_DEFAULT, 1])
         else:
             raise ValueError('d_img_cropped_8bit no data received')
 
         self.t_finish_save.append(rospy.get_time())
-        if i_tr == (self.state_sequence_length-1):
+        if i_save == (self.state_sequence_length-1):
             with open(self.image_folder+'/{}_snapshot_timing.pkl'.format(pref), 'wb') as f:
                 dict = {'t_finish_save': self.t_finish_save }
                 if pref == 'aux1':

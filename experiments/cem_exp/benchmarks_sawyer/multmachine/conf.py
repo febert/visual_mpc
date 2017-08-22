@@ -5,7 +5,7 @@ current_dir = os.path.dirname(os.path.realpath(__file__))
 # tf record data location:
 LSDC_BASE = '/'.join(str.split(current_dir, '/')[:-4])
 
-from video_prediction.sawyer.ray_setup_predictor import setup_predictor
+from python_visual_mpc.video_prediction.ray_setup_predictor import setup_predictor
 
 configuration = {
 'experiment_name': 'cem_control',
@@ -22,7 +22,7 @@ configuration = {
 'batch_size': 200,           #batch size for evaluation' ,
 'learning_rate': 0,     #'the base learning rate of the generator' ,
 'file_visual': '',          # datafile used for making visualizations,
-'dna_size': 9,              #size of DNA kerns
+'kern_size': 9,              #size of DNA kerns
 'sawyer':'',
 'single_view':"",
 '1stimg_bckgd':''

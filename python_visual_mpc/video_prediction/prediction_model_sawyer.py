@@ -41,6 +41,9 @@ class Prediction_Model(object):
                 pix_distributions2=None,
                 conf = None):
 
+        print(tf.get_variable_scope().name)
+        pdb.set_trace()
+
         self.pix_distributions1 = pix_distributions1
         self.pix_distributions2 = pix_distributions2
         self.actions = actions

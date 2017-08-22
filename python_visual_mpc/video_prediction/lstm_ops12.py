@@ -19,7 +19,7 @@ import tensorflow as tf
 
 from tensorflow.contrib.slim import add_arg_scope
 from tensorflow.contrib.slim import layers
-
+import pdb
 
 def init_state(inputs,
                state_shape,
@@ -50,8 +50,11 @@ def init_state(inputs,
   #     dtype=dtype)
   with tf.variable_scope(scope):
     # initial_state = tf.zeros_initializer(tf.stack([batch_size] + state_shape),dtype=tf.float32)
-    initial_state = tf.get_variable('state',shape=[int(inferred_batch_size)] + state_shape,
-                                      initializer=tf.zeros_initializer(dtype), trainable=False)
+
+    initial_state = tf.get_variable('state',
+                                    shape=[int(inferred_batch_size)] + state_shape,
+                                    initializer=tf.zeros_initializer(dtype),
+                                    trainable=False)
 
   initial_state.set_shape([inferred_batch_size] + state_shape)
 
@@ -88,6 +91,7 @@ def basic_conv_lstm_cell(inputs,
   """
   spatial_size = inputs.get_shape()[1:3]
   spatial_size = [int(el) for el in spatial_size]  ## new
+
 
   if state is None:
     state = init_state(inputs, spatial_size + [2 * num_channels], scope=scope)

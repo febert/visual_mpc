@@ -34,10 +34,21 @@ def setup_predictor(conf, gpu_id = 0, ngpu=None):
 
             images_pl = tf.placeholder(tf.float32, name='images',
                                     shape=(conf['batch_size'], conf['sequence_length'], 64, 64, 3))
+
+            if 'sawyer' in conf:
+                adim = 4
+                sdim = 3
+            else:
+                adim = 2
+                sdim = 4
+
+            print 'adim', adim
+            print 'sdim', sdim
+
             actions_pl = tf.placeholder(tf.float32, name= 'actions',
-                                     shape=(conf['batch_size'], conf['sequence_length'], 2))
+                                     shape=(conf['batch_size'], conf['sequence_length'], adim))
             states_pl = tf.placeholder(tf.float32, name='states',
-                                         shape=(conf['batch_size'],conf['context_frames'] , 4))
+                                         shape=(conf['batch_size'],conf['context_frames'] , sdim))
 
             if 'no_pix_distrib' in conf:
                 pix_distrib = None
@@ -55,16 +66,14 @@ def setup_predictor(conf, gpu_id = 0, ngpu=None):
             saver = tf.train.Saver(vars_without_state, max_to_keep=0)
             saver.restore(sess, conf['pretrained_model'])
 
-            def predictor_func(input_images=None, one_hot_images=None,
+            def predictor_func(input_images=None, input_one_hot_images1=None,
                                input_state=None, input_actions=None):
                 """
                 :param one_hot_images: the first two frames
-                :param pixcoord: the coords of the disgnated pixel in images coord system
                 :return: the predicted pixcoord at the end of sequence
                 """
 
                 itr = 0
-
 
                 feed_dict = {
                              model.iter_num: np.float32(itr),
@@ -72,7 +81,7 @@ def setup_predictor(conf, gpu_id = 0, ngpu=None):
                              images_pl: input_images,
                              actions_pl: input_actions,
                              states_pl: input_state,
-                             pix_distrib: one_hot_images
+                             pix_distrib: input_one_hot_images1
                              }
 
 

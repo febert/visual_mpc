@@ -1,0 +1,9 @@
+<launch>
+    <remap from="/kinect2/sd/image_depth_rect" to="/aux1/kinect2/sd/image_depth_rect"/>
+    <remap from="/kinect2/hd/image_color" to="/aux1/kinect2/hd/image_color"/>
+    <include file="$(find kinect2_bridge)/launch/kinect2_bridge.launch">
+          <arg name="depth_method" value="opengl" />
+          <arg name="reg_method" value="cpu" />
+    </include>
+
+</launch>
