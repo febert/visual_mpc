@@ -86,41 +86,8 @@ def setup_predictor(conf, gpu_id=0, ngpu=1):
     pix_distrib_1 = tf.placeholder(tf.float32, shape=(conf['batch_size'], conf['context_frames'], 64, 64, 1))
     pix_distrib_2 = tf.placeholder(tf.float32, shape=(conf['batch_size'], conf['context_frames'], 64, 64, 1))
 
-    ## taking subset of examples for 1 gpu
-    # nsmp_per_gpu = conf['batch_size'] / conf['ngpu']
-    # startidx = 0
-    # actions = tf.slice(actions, [startidx, 0, 0], [nsmp_per_gpu, -1, -1])
-    # start_images = tf.slice(start_images, [startidx, 0, 0, 0, 0], [nsmp_per_gpu, -1, -1, -1, -1])
-    # start_states = tf.slice(start_states, [startidx, 0, 0], [nsmp_per_gpu, -1, -1])
-    # pix_distrib_1 = tf.slice(pix_distrib_1, [startidx, 0, 0, 0, 0], [nsmp_per_gpu, -1, -1, -1, -1])
-    # pix_distrib_2 = tf.slice(pix_distrib_2, [startidx, 0, 0, 0, 0], [nsmp_per_gpu, -1, -1, -1, -1])
-    #
-    #
-    # # creating dummy network to avoid issues with naming of variables
-    # if 'ndesig' in conf:
-    #     with tf.variable_scope('model', reuse=None) as training_scope:
-    #         model = Model(conf, start_images, actions, start_states, pix_distrib= pix_distrib_1, pix_distrib2=pix_distrib_2)
-    # else:
-    #     with tf.variable_scope('model', reuse=None) as training_scope:
-    #         model = Model(conf, start_images, actions, start_states, pix_distrib= pix_distrib_1)
-
-    # sess.run(tf.global_variables_initializer())
-    #
-    # # saver = tf.train.Saver(tf.get_collection(tf.GraphKeys.GLOBAL_VARIABLES), max_to_keep=0)
-    # vars = tf.get_collection(tf.GraphKeys.GLOBAL_VARIABLES)
-    # # remove all states from group of variables which shall be saved and restored:
-    # vars_no_state = filter_vars(vars)
-    # saver = tf.train.Saver(vars_no_state, max_to_keep=0)
-    #
-    # saver.restore(sess, conf['pretrained_model'])
-    # print 'restore done. '
-
-    #making the towers
+    # making the towers
     towers = []
-
-    for var in tf.get_collection(tf.GraphKeys.GLOBAL_VARIABLES):
-        print var.name
-
     with tf.variable_scope('model', reuse=None):
         for i_gpu in xrange(ngpu):
             with tf.device('/gpu:%d' % i_gpu):
@@ -133,9 +100,6 @@ def setup_predictor(conf, gpu_id=0, ngpu=1):
                     towers.append(Tower(conf, i_gpu, start_images, actions, start_states, pix_distrib_1,
                                         pix_distrib_2))
                     tf.get_variable_scope().reuse_variables()
-
-                    for var in tf.get_collection(tf.GraphKeys.GLOBAL_VARIABLES):
-                        print var.name
 
     sess.run(tf.global_variables_initializer())
 
@@ -166,7 +130,6 @@ def setup_predictor(conf, gpu_id=0, ngpu=1):
 
         t_comb_gen_states = [to.model.m.gen_states[t] for to in towers]
         comb_gen_states.append(tf.concat(axis=0, values=t_comb_gen_states))
-
 
 
     def predictor_func(input_images=None, input_one_hot_images1=None, input_one_hot_images2=None, input_state=None, input_actions=None):
