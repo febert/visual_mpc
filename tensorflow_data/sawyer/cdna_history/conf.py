@@ -7,8 +7,11 @@ DATA_DIR = '/'.join(str.split(current_dir, '/')[:-3]) + '/pushing_data/softmotio
 # local output directory
 OUT_DIR = current_dir + '/modeldata'
 
+from python_visual_mpc.video_prediction.prediction_model_sawyer_history import Prediction_Model
+
 configuration = {
-'experiment_name': 'rndaction_var10',
+'prediction_model':Prediction_Model,
+'experiment_name': 'cdna_with_history',
 'data_dir': DATA_DIR,       # 'directory containing data.' ,
 'output_dir': OUT_DIR,      #'directory for model checkpoints.' ,
 'current_dir': current_dir,   #'directory for writing summary.' ,
@@ -30,6 +33,4 @@ configuration = {
 'sawyer':'',
 'single_view':"",
 'use_len':14,                # number of steps used for training where the starting location is selected randomly within sequencelength
-'1stimg_bckgd':'',
-'visual_flowvec':''
 }

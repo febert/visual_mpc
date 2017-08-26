@@ -24,7 +24,6 @@ VAL_INTERVAL = 200
 # How often to save a model checkpoint
 SAVE_INTERVAL = 2000
 
-from prediction_model_sawyer import Prediction_Model
 
 from PIL import Image
 
@@ -71,6 +70,11 @@ class Model(object):
                  pix_distrib=None,
                  pix_distrib2=None,
                  inference = False):
+
+        if 'prediction_model' in conf:
+            Prediction_Model = conf['prediction_model']
+        else:
+            from prediction_model_sawyer import Prediction_Model
 
         self.conf = conf
 
@@ -235,7 +239,7 @@ def main(unused_argv, conf_script= None):
         conf['visualize'] = conf['output_dir'] + '/' + FLAGS.visualize
         conf['event_log_dir'] = '/tmp'
         conf.pop('use_len', None)
-        conf['batch_size'] = 32
+        conf['batch_size'] = 4
 
         conf['sequence_length'] = 15
         if FLAGS.diffmotions:
@@ -375,20 +379,21 @@ def main(unused_argv, conf_script= None):
                      examples=10)
 
         else:
-            ground_truth, gen_images, gen_masks, = sess.run([val_images,
-                                                              val_model.m.gen_images,
-                                                              val_model.m.gen_masks,
-                                                              ],
-                                                             feed_dict)
-
+            ground_truth, gen_images, gen_masks, flow_vectors = sess.run([val_images,
+                                                                val_model.m.gen_images,
+                                                                val_model.m.gen_masks,
+                                                                val_model.m.flow_vectors
+                                                                ],
+                                                                feed_dict)
             dict = {}
             dict['gen_images'] = gen_images
             dict['ground_truth'] = ground_truth
             dict['gen_masks'] = gen_masks
+            dict['flow_vectors'] = flow_vectors
             cPickle.dump(dict, open(file_path + '/pred.pkl', 'wb'))
             print 'written files to:' + file_path
 
-            comp_gif(conf, conf['output_dir'], append_masks=True, show_parts=True)
+            comp_gif(conf, conf['output_dir'], append_masks=True)
 
         return
 

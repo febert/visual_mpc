@@ -1,15 +1,23 @@
 import numpy as np
-from matplotlib import pyplot as plt
 from matplotlib import animation
 import matplotlib.gridspec as gridspec
 
-import matplotlib
 import pdb
 import cPickle
-from scrollable_window import ScrollableWindow
+
+import Tkinter as Tk
+
+from Tkinter import Button, Frame, Canvas, Scrollbar
+import Tkconstants
+
+from matplotlib import pyplot as plt
+from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
+
+frame = None
+canvas = None
 
 t = 0
-class Visualizer(object):
+class Visualizer_tkinter(object):
     # def __init__(self, conf, file_path, name= "", examples = 4, show_parts=False):
     def __init__(self, append_masks = True):
 
@@ -50,10 +58,33 @@ class Visualizer(object):
 
     def build_figure(self):
 
+
         # plot each markevery case for linear x and y scales
+        root = Tk.Tk()
+        root.rowconfigure(1, weight=1)
+        root.columnconfigure(1, weight=1)
+
+        frame = Frame(root)
+        frame.grid(column=1, row=1, sticky=Tkconstants.NSEW)
+        frame.rowconfigure(1, weight=1)
+        frame.columnconfigure(1, weight=1)
+
         standard_size = np.array([6, 24])
-        figsize = (standard_size*1.0).astype(np.int)
+        figsize = (standard_size * 1.0).astype(np.int)
         fig = plt.figure(num=1, figsize=figsize)
+
+        self.addScrollingFigure(fig, frame)
+
+        buttonFrame = Frame(root)
+        buttonFrame.grid(row=1, column=2, sticky=Tkconstants.NS)
+        biggerButton = Button(buttonFrame, text="larger",
+                              command=lambda: self.changeSize(fig, 1.5))
+        biggerButton.grid(column=1, row=1)
+        smallerButton = Button(buttonFrame, text="smaller",
+                               command=lambda: self.changeSize(fig, .5))
+        smallerButton.grid(column=1, row=2)
+
+
         axes_list = []
 
         self.num_rows = len(self.video_list)
@@ -106,8 +137,6 @@ class Visualizer(object):
         plt.axis('off')
         fig.tight_layout()
 
-
-
         # initialization function: plot the background of each frame
 
         # Set up formatting for the movie files
@@ -119,9 +148,58 @@ class Visualizer(object):
                                        fargs= [self.im_handle_list, self.video_list, self.num_ex, self.num_rows, tlen],
                                        frames=tlen, interval=100, blit=True)
         # anim.save('basic_animation.gif', writer='imagemagick')
+        root.mainloop()
 
-        a = ScrollableWindow(fig)
-        # plt.show()
+    def changeSize(self, figure, factor):
+        global canvas, mplCanvas, interior, interior_id, frame, cwid
+        oldSize = figure.get_size_inches()
+        print("old size is", oldSize)
+        figure.set_size_inches([factor * s for s in oldSize])
+        wi, hi = [i * figure.dpi for i in figure.get_size_inches()]
+        print("new size is", figure.get_size_inches())
+        print("new size pixels: ", wi, hi)
+        mplCanvas.config(width=wi, height=hi)
+        printBboxes("A")
+        # mplCanvas.grid(sticky=Tkconstants.NSEW)
+        canvas.itemconfigure(cwid, width=wi, height=hi)
+        printBboxes("B")
+        canvas.config(scrollregion=canvas.bbox(Tkconstants.ALL), width=200, height=200)
+        figure.canvas.draw()
+        printBboxes("C")
+        print()
+
+    def addScrollingFigure(self, figure, frame):
+        global canvas, mplCanvas, interior, interior_id, cwid
+        # set up a canvas with scrollbars
+        canvas = Canvas(frame)
+        canvas.grid(row=1, column=1, sticky=Tkconstants.NSEW)
+
+        xScrollbar = Scrollbar(frame, orient=Tkconstants.HORIZONTAL)
+        yScrollbar = Scrollbar(frame)
+
+        xScrollbar.grid(row=2, column=1, sticky=Tkconstants.EW)
+        yScrollbar.grid(row=1, column=2, sticky=Tkconstants.NS)
+
+        canvas.config(xscrollcommand=xScrollbar.set)
+        xScrollbar.config(command=canvas.xview)
+        canvas.config(yscrollcommand=yScrollbar.set)
+        yScrollbar.config(command=canvas.yview)
+
+        # plug in the figure
+        figAgg = FigureCanvasTkAgg(figure, canvas)
+        mplCanvas = figAgg.get_tk_widget()
+        # mplCanvas.grid(sticky=Tkconstants.NSEW)
+
+        # and connect figure with scrolling region
+        cwid = canvas.create_window(0, 0, window=mplCanvas, anchor=Tkconstants.NW)
+        printBboxes("Init")
+        canvas.config(scrollregion=canvas.bbox(Tkconstants.ALL), width=200, height=200)
+
+def printBboxes(label=""):
+  global canvas, mplCanvas, interior, interior_id, cwid
+  print("  "+label,
+    "canvas.bbox:", canvas.bbox(Tkconstants.ALL),
+    "mplCanvas.bbox:", mplCanvas.bbox(Tkconstants.ALL))
 
 def animate(*args):
     global t
@@ -166,4 +244,4 @@ def convert_to_videolist(input, repeat_last_dim):
 
 if __name__ == '__main__':
     file_path = '/home/frederik/Documents/catkin_ws/src/visual_mpc/tensorflow_data/sawyer/1stimg_bckgd_cdna/modeldata'
-    v  = Visualizer()
+    v  = Visualizer_tkinter()

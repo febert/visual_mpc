@@ -28,15 +28,6 @@ def comp_video(file_path, conf=None, suffix = None, gif_name= None):
     ground_truth = cPickle.load(open(file_path + '/ground_truth.pkl', "rb"))
     gen_images = cPickle.load(open(file_path + '/gen_image_seq.pkl', "rb"))
 
-    if conf != None:
-        if 'fftcost' in conf:
-            true_fft, pred_fft = visualize_fft(file_path)
-
-        if 'costmask' in conf:
-            true_ret = cPickle.load(open(file_path + '/true_ret.pkl', "rb"))
-            pred_ret = cPickle.load(open(file_path + '/pred_ret.pkl', "rb"))
-
-
     if not isinstance(ground_truth, list):
         ground_truth = np.split(ground_truth, ground_truth.shape[1], axis=1)
         ground_truth = [np.squeeze(g) for g in ground_truth]
@@ -44,12 +35,7 @@ def comp_video(file_path, conf=None, suffix = None, gif_name= None):
     ground_truth = ground_truth[1:]
     gen_images = [np.squeeze(g) for g in gen_images]
 
-    if conf != None:
-        if 'fftcost' in conf:
-            fused_gif = assemble_gif([ground_truth, true_fft, gen_images, pred_fft])
-        else: fused_gif = assemble_gif([ground_truth, gen_images])
-    else:
-        fused_gif = assemble_gif([ground_truth, gen_images])
+    fused_gif = assemble_gif([ground_truth, gen_images])
 
     if conf is not None:
         itr_vis = re.match('.*?([0-9]+)$', conf['visualize']).group(1)
@@ -60,11 +46,6 @@ def comp_video(file_path, conf=None, suffix = None, gif_name= None):
         name = file_path + '/' + gif_name
 
     npy_to_gif(fused_gif, name)
-
-    if 'costmask' in conf:
-        fused_gif = assemble_gif([true_ret, pred_ret])
-        name = file_path + '/retinas_' + str(itr_vis)
-        npy_to_gif(fused_gif, name)
 
     return fused_gif
 
