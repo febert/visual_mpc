@@ -83,7 +83,6 @@ class Prediction_Model(object):
 
         self.trafos = []
 
-        self.flow_vectors = []
 
 
     def build(self):
@@ -324,7 +323,7 @@ class Prediction_Model(object):
             history = self.images[:self.ncontext]
             history += self.gen_images[self.ncontext:t]
 
-        for i in range(self.conf['use_len'] - len(history) -1):
+        for i in range(self.T - len(history) -1):
             history.insert(0, self.images[0])
 
         return history

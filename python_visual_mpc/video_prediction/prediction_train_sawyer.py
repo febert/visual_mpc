@@ -25,6 +25,8 @@ VAL_INTERVAL = 200
 SAVE_INTERVAL = 2000
 
 
+from utils_vpred.animate_tkinter import Visualizer_tkinter
+
 from PIL import Image
 
 FLAGS = flags.FLAGS
@@ -239,9 +241,9 @@ def main(unused_argv, conf_script= None):
         conf['visualize'] = conf['output_dir'] + '/' + FLAGS.visualize
         conf['event_log_dir'] = '/tmp'
         conf.pop('use_len', None)
-        conf['batch_size'] = 4
+        conf['batch_size'] = 20
 
-        conf['sequence_length'] = 15
+        conf['sequence_length'] = 14
         if FLAGS.diffmotions:
             inference = True
             conf['sequence_length'] = 30
@@ -372,28 +374,38 @@ def main(unused_argv, conf_script= None):
             cPickle.dump(dict, open(file_path + '/pred.pkl', 'wb'))
             print 'written files to:' + file_path
 
-            comp_gif(conf,
-                     conf['output_dir'],
-                     append_masks=False,
-                     suffix='_diffmotions_b{}_l{}'.format(b_exp, conf['sequence_length']),
-                     examples=10)
+            make_gif = True
+            if make_gif:
+                comp_gif(conf, conf['output_dir'], append_masks=True,
+                         suffix='_diffmotions_b{}_l{}'.format(b_exp, conf['sequence_length']))
+            else:
+                v = Visualizer_tkinter(dict, numex=4, append_masks=True,
+                                       gif_savepath=conf['output_dir'],
+                                       suf='_diffmotions_b{}_l{}'.format(b_exp, conf['sequence_length']))
+                v.build_figure()
 
         else:
-            ground_truth, gen_images, gen_masks, flow_vectors = sess.run([val_images,
-                                                                val_model.m.gen_images,
-                                                                val_model.m.gen_masks,
-                                                                val_model.m.flow_vectors
-                                                                ],
-                                                                feed_dict)
+            ground_truth, gen_images, gen_masks = sess.run([val_images,
+                                                            val_model.m.gen_images,
+                                                            val_model.m.gen_masks
+                                                            ],
+                                                            feed_dict)
             dict = {}
             dict['gen_images'] = gen_images
             dict['ground_truth'] = ground_truth
             dict['gen_masks'] = gen_masks
-            dict['flow_vectors'] = flow_vectors
+
+
+
             cPickle.dump(dict, open(file_path + '/pred.pkl', 'wb'))
             print 'written files to:' + file_path
 
-            comp_gif(conf, conf['output_dir'], append_masks=True)
+            make_gif = False
+            if make_gif:
+                comp_gif(conf, conf['output_dir'], append_masks=True)
+            else:
+                v = Visualizer_tkinter(dict, numex=4, append_masks=True, gif_savepath=conf['output_dir'])
+                v.build_figure()
 
         return
 

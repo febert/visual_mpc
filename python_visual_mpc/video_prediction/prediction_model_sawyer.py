@@ -290,11 +290,26 @@ class Prediction_Model(object):
                     transformed_l += new_transformed
                     self.moved_images.append(transformed_l)
 
+                    ## move the background is chosen:
+                    if 'mov_bckgd' in self.conf:
+                        cdna_input = tf.reshape(hidden5, [int(self.batch_size), -1])
+                        bckgd_transformed, _ = self.cdna_transformation(self.images[0],
+                                                                        cdna_input,
+                                                                        reuse_sc=reuse,
+                                                                        scope='bckgd_trafo')
+
                     if self.pix_distributions1 != None:
                         transf_distrib_ndesig1, _ = self.cdna_transformation(prev_pix_distrib1,
                                                                        cdna_input,
                                                                          reuse_sc=True)
                         self.moved_pix_distrib1.append(transf_distrib_ndesig1)
+
+                        if 'mov_bckgd' in self.conf:
+                            bcgkd_distrib = tf.reshape(self.pix_distributions1[0], (self.batch_size,64,64,1))
+                            transf_distrib_bckgd, _ = self.cdna_transformation(bcgkd_distrib,
+                                                                                 cdna_input,
+                                                                                 reuse_sc=True,
+                                                                                 scope='bckgd_trafo')
                         if 'ndesig' in self.conf:
                             transf_distrib_ndesig2, _ = self.cdna_transformation(
                                                                                prev_pix_distrib2,
@@ -311,8 +326,7 @@ class Prediction_Model(object):
                 if 'mov_bckgd' in self.conf:
                     output, mask_list = self.fuse_trafos_movbckgd(
                                                          enc6,
-                                                         hidden5,
-                                                         background,
+                                                         bckgd_transformed,
                                                          transformed_l,
                                                          scope='convt7_cam2',
                                                          extra_masks=extra_masks,
@@ -326,11 +340,16 @@ class Prediction_Model(object):
                 self.gen_masks.append(mask_list)
 
                 if self.pix_distributions1!=None:
-                    pix_distrib_output = self.fuse_pix_distrib(extra_masks,
-                                                                mask_list,
-                                                                self.pix_distributions1,
-                                                                prev_pix_distrib1,
-                                                                transf_distrib_ndesig1)
+                    if 'mov_bckgd' in self.conf:
+                        pix_distrib_output = self.fuse_pix_movebckgd(mask_list,
+                                                                    transf_distrib_ndesig1,
+                                                                    transf_distrib_bckgd)
+                    else:
+                        pix_distrib_output = self.fuse_pix_distrib(extra_masks,
+                                                                    mask_list,
+                                                                    self.pix_distributions1,
+                                                                    prev_pix_distrib1,
+                                                                    transf_distrib_ndesig1)
 
                     self.gen_distrib1.append(pix_distrib_output)
 
@@ -387,18 +406,13 @@ class Prediction_Model(object):
 
         return output, mask_list
 
-    def fuse_trafos_movbckgd(self, enc6, hidden5, background_image, transformed, scope, extra_masks, reuse):
+    def fuse_trafos_movbckgd(self, enc6, moved_background_image, transformed, scope, extra_masks, reuse):
         print 'moving backgd'
         num_masks = self.conf['num_masks']
         img_height = 64
         img_width = 64
 
         ## moving the background
-        cdna_input = tf.reshape(hidden5, [int(self.batch_size), -1])
-        bckgd_transformed, _ = self.cdna_transformation(background_image,
-                                                           cdna_input,
-                                                           reuse_sc=reuse,
-                                                           scope='bckgd_trafo')
 
         masks = slim.layers.conv2d_transpose(
             enc6, (self.conf['num_masks']+ extra_masks), 1, stride=1, scope=scope)
@@ -407,13 +421,35 @@ class Prediction_Model(object):
             [int(self.batch_size), int(img_height), int(img_width), num_masks +extra_masks])
         mask_list = tf.split(axis=3, num_or_size_splits=num_masks +extra_masks, value=masks)
 
-        complete_transformed = bckgd_transformed + transformed
+        complete_transformed = moved_background_image + transformed
 
         output = 0
         for layer, mask in zip_equal(complete_transformed, mask_list):
             output += layer * mask
 
         return output, mask_list
+
+    def fuse_pix_distrib(self, extra_masks, mask_list, pix_distributions, prev_pix_distrib,
+                         transf_distrib):
+
+        if '1stimg_bckgd' in self.conf:
+            background_pix = pix_distributions[0]
+            background_pix = tf.expand_dims(background_pix, -1)
+            print 'using pix_distrib-background from first image..'
+        else:
+            background_pix = prev_pix_distrib
+        pix_distrib_output = mask_list[0] * background_pix
+        for i in range(self.num_masks):
+            pix_distrib_output += transf_distrib[i] * mask_list[i + extra_masks]
+        return pix_distrib_output
+
+    def fuse_pix_movebckgd(self, mask_list, transf_pix, transf_backgd_pix):
+        pix_distrib = transf_backgd_pix + transf_pix
+
+        pix_distrib_output = 0
+        for pix, mask in zip_equal(pix_distrib, mask_list):
+            pix_distrib_output += pix* mask
+        return pix_distrib_output
 
     def compute_motion_vector(self, cdna_kerns):
 
@@ -439,19 +475,7 @@ class Prediction_Model(object):
             vecs.append(tf.stack([vec_r,vec_c], axis=1))
         return vecs
 
-    def fuse_pix_distrib(self, extra_masks, mask_list, pix_distributions, prev_pix_distrib,
-                         transf_distrib):
 
-        if '1stimg_bckgd' in self.conf:
-            background_pix = pix_distributions[0]
-            background_pix = tf.expand_dims(background_pix, -1)
-            print 'using pix_distrib-background from first image..'
-        else:
-            background_pix = prev_pix_distrib
-        pix_distrib_output = mask_list[0] * background_pix
-        for i in range(self.num_masks):
-            pix_distrib_output += transf_distrib[i] * mask_list[i + extra_masks]
-        return pix_distrib_output
 
 
     ## Utility functions

@@ -6,7 +6,7 @@ from PIL import Image
 import colorsys
 
 
-def comp_gif(conf, file_path, name= "", examples = 10, append_masks=False, suffix = ''):
+def comp_gif(conf, file_path, name= "", examples = 4, append_masks=False, suffix = ''):
     dict_ = cPickle.load(open(file_path + '/pred.pkl','rb'))
 
     videolist = []
@@ -43,8 +43,6 @@ def comp_gif(conf, file_path, name= "", examples = 10, append_masks=False, suffi
 
     if 'flow_vectors' in dict_:
         videolist.append(visualize_flow(dict_))
-
-    pdb.set_trace()
 
     fused_gif = assemble_gif(videolist, num_exp= examples)
     itr_vis = re.match('.*?([0-9]+)$', conf['visualize']).group(1)
@@ -133,7 +131,7 @@ def visualize_flow(dict_):
 
 
 if __name__ == '__main__':
-    file_path = '/home/frederik/Documents/visual_mpc/tensorflow_data/sawyer/1stimg_bckgd_cdna'
+    file_path = '/home/frederik/Documents/visual_mpc/tensorflow_data/sawyer/move_1stbckgd_cdna'
     hyperparams = imp.load_source('hyperparams', file_path +'/conf.py')
 
     conf = hyperparams.configuration
