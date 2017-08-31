@@ -73,6 +73,7 @@ class Prediction_Model(object):
         self.gen_masks = []
 
         self.moved_images = []
+        self.moved_bckgd = []
 
         self.moved_pix_distrib1 = []
         self.moved_pix_distrib2 = []
@@ -82,6 +83,7 @@ class Prediction_Model(object):
         self.gen_distrib2 = []
 
         self.trafos = []
+        self.movd_parts_list = []
 
         self.flow_vectors = []
 
@@ -297,6 +299,7 @@ class Prediction_Model(object):
                                                                         cdna_input,
                                                                         reuse_sc=reuse,
                                                                         scope='bckgd_trafo')
+                        self.moved_bckgd.append(bckgd_transformed)
 
                     if self.pix_distributions1 != None:
                         transf_distrib_ndesig1, _ = self.cdna_transformation(prev_pix_distrib1,
@@ -324,13 +327,14 @@ class Prediction_Model(object):
                 else: background = prev_image
 
                 if 'mov_bckgd' in self.conf:
-                    output, mask_list = self.fuse_trafos_movbckgd(
+                    output, mask_list, moved_parts = self.fuse_trafos_movbckgd(
                                                          enc6,
                                                          bckgd_transformed,
                                                          transformed_l,
                                                          scope='convt7_cam2',
                                                          extra_masks=extra_masks,
                                                          reuse=reuse)
+                    self.movd_parts_list.append(moved_parts)
                 else:
                     output, mask_list = self.fuse_trafos(enc6, background,
                                                          transformed_l,
@@ -424,10 +428,12 @@ class Prediction_Model(object):
         complete_transformed = moved_background_image + transformed
 
         output = 0
+        moved_parts = []
         for layer, mask in zip_equal(complete_transformed, mask_list):
+            moved_parts.append(layer * mask)
             output += layer * mask
 
-        return output, mask_list
+        return output, mask_list, moved_parts
 
     def fuse_pix_distrib(self, extra_masks, mask_list, pix_distributions, prev_pix_distrib,
                          transf_distrib):

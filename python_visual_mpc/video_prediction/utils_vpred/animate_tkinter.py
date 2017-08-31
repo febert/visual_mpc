@@ -37,13 +37,13 @@ def plot_psum_overtime(gen_distrib, n_exp, filename):
 
 t = 0
 class Visualizer_tkinter(object):
-    # def __init__(self, conf, file_path, name= "", examples = 4, show_parts=False):
     def __init__(self, dict_ = None, append_masks = True, gif_savepath=None, numex = 4, suf= ""):
 
         if dict_ == None:
-            dict_ = cPickle.load(open(file_path + '/pred.pkl', "rb"))
+            dict_ = cPickle.load(open(gif_savepath + '/pred.pkl', "rb"))
 
         gen_images = dict_['gen_images']
+        self.iternum = dict_['iternum']
 
         if gen_images[0].shape[0] < numex:
             raise ValueError("batchsize too small for providing desired number of exmaples!")
@@ -64,7 +64,7 @@ class Visualizer_tkinter(object):
 
         if 'gen_distrib' in dict_:
             gen_pix_distrib = dict_['gen_distrib']
-            plot_psum_overtime(gen_pix_distrib, numex, file_path)
+            plot_psum_overtime(gen_pix_distrib, numex, gif_savepath)
             self.video_list.append((gen_pix_distrib, 'Gen distrib'))
 
         if append_masks:
@@ -74,9 +74,31 @@ class Visualizer_tkinter(object):
             for i,m in enumerate(gen_masks):
                 self.video_list.append((m,'mask {}'.format(i)))
 
+        if 'moved_parts' in dict_:
+            moved_parts = dict_['moved_parts']
+            moved_parts = convert_to_videolist(moved_parts, repeat_last_dim=False)
+
+            for i, m in enumerate(moved_parts):
+                self.video_list.append((m, 'moved part {}'.format(i)))
+
+        if 'moved_images' in dict_:
+            moved_images = dict_['moved_images']
+            moved_images = convert_to_videolist(moved_images, repeat_last_dim=False)
+
+            for i, m in enumerate(moved_images):
+                self.video_list.append((m, 'moved image {}'.format(i)))
+
+        if 'moved_bckgd' in dict_:
+            moved_bckgd = dict_['moved_bckgd']
+            moved_bckgd = convert_to_videolist(moved_bckgd, repeat_last_dim=False)
+
+            for i, m in enumerate(moved_bckgd):
+                self.video_list.append((m, 'moved_bckgd {}'.format(i)))
+
         # if 'flow_vectors' in dict_:
         #     self.videolist.append(visualize_flow(dict_))
-        self.renormalize_heatmaps = True
+        self.renormalize_heatmaps = False
+        print 'renormalizing heatmaps: ', self.renormalize_heatmaps
 
         self.gif_savepath = gif_savepath
         self.t = 0
@@ -172,7 +194,7 @@ class Visualizer_tkinter(object):
         if self.append_masks:
             self.suf = '_masks'+self.suf
         if self.gif_savepath != None:
-            filepath = self.gif_savepath + '/animation{}.gif'.format(self.suf)
+            filepath = self.gif_savepath + '/animation{}{}.gif'.format(self.iternum,self.suf)
             print 'saving gif under: ', filepath
             anim.save(filepath, writer='imagemagick')
         root.mainloop()
@@ -240,7 +262,7 @@ class Visualizer_tkinter(object):
                     im_handle_list[row][col].set_array(image_row[t][col])
             artistlist += im_handle_list[row]
 
-        print 'update at t', t
+        # print 'update at t', t
         t += 1
 
         if t == tlen:

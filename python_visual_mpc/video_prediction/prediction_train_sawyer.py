@@ -14,7 +14,6 @@ from makegifs import comp_gif
 
 
 from datetime import datetime
-
 # How often to record tensorboard summaries.
 SUMMARY_INTERVAL = 40
 
@@ -241,7 +240,7 @@ def main(unused_argv, conf_script= None):
         conf['visualize'] = conf['output_dir'] + '/' + FLAGS.visualize
         conf['event_log_dir'] = '/tmp'
         conf.pop('use_len', None)
-        conf['batch_size'] = 20
+        conf['batch_size'] = 10
 
         conf['sequence_length'] = 14
         if FLAGS.diffmotions:
@@ -307,7 +306,12 @@ def main(unused_argv, conf_script= None):
             print key, ': ', conf[key]
         print '-------------------------------------------------------------------'
 
+        import re
+        itr_vis = re.match('.*?([0-9]+)$', conf['visualize']).group(1)
+
         saver.restore(sess, conf['visualize'])
+        print 'restore done.'
+
         feed_dict = {val_model.lr: 0.0,
                      val_model.iter_num: 0 }
 
@@ -362,19 +366,27 @@ def main(unused_argv, conf_script= None):
 
             feed_dict[actions_pl] = actions
 
-            gen_images, gen_distrib, gen_masks = sess.run([val_model.m.gen_images,
+            gen_images, gen_distrib, gen_masks, moved_parts, moved_images, moved_bckgd = sess.run([val_model.m.gen_images,
                                                             val_model.m.gen_distrib1,
                                                             val_model.m.gen_masks,
+                                                            val_model.m.movd_parts_list,
+                                                            val_model.m.moved_images,
+                                                            val_model.m.moved_bckgd
                                                             ]
                                                            ,feed_dict)
             dict = {}
             dict['gen_images'] = gen_images
             dict['gen_masks'] = gen_masks
             dict['gen_distrib'] = gen_distrib
+            dict['iternum'] = itr_vis
+            dict['moved_parts'] = moved_parts
+            dict['moved_images'] = moved_images
+            dict['moved_bckgd'] = moved_bckgd
+
             cPickle.dump(dict, open(file_path + '/pred.pkl', 'wb'))
             print 'written files to:' + file_path
 
-            make_gif = True
+            make_gif = False
             if make_gif:
                 comp_gif(conf, conf['output_dir'], append_masks=True,
                          suffix='_diffmotions_b{}_l{}'.format(b_exp, conf['sequence_length']))
@@ -391,11 +403,10 @@ def main(unused_argv, conf_script= None):
                                                             ],
                                                             feed_dict)
             dict = {}
+            dict['iternum'] = itr_vis
             dict['gen_images'] = gen_images
             dict['ground_truth'] = ground_truth
             dict['gen_masks'] = gen_masks
-
-
 
             cPickle.dump(dict, open(file_path + '/pred.pkl', 'wb'))
             print 'written files to:' + file_path
@@ -404,8 +415,7 @@ def main(unused_argv, conf_script= None):
             if make_gif:
                 comp_gif(conf, conf['output_dir'], append_masks=True)
             else:
-                v = Visualizer_tkinter(dict, numex=4, append_masks=True, gif_savepath=conf['output_dir'])
-                v.build_figure()
+                Visualizer_tkinter(dict, numex=4, append_masks=True, gif_savepath=conf['output_dir'])
 
         return
 
