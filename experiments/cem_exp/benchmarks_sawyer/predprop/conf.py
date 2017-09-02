@@ -5,7 +5,7 @@ current_dir = os.path.dirname(os.path.realpath(__file__))
 # tf record data location:
 LSDC_BASE = '/'.join(str.split(current_dir, '/')[:-4])
 
-from video_prediction.sawyer.setup_predictor_sawyer import setup_predictor
+from python_visual_mpc.video_prediction.setup_predictor_towers import setup_predictor
 
 configuration = {
 'experiment_name': 'cem_control',

@@ -226,7 +226,7 @@ class CEM_controller():
 
         if 'ndesig' in self.policyparams:
             input_distrib1, input_distrib2 = self.make_input_distrib(itr)
-            gen_images, gen_distrib1, gen_distrib2, gen_states = self.predictor(input_images=last_frames,
+            gen_images, gen_distrib1, gen_distrib2, gen_states, _ = self.predictor(input_images=last_frames,
                                                                                 input_state=last_states,
                                                                                 input_actions=actions,
                                                                                 input_one_hot_images1=input_distrib1,

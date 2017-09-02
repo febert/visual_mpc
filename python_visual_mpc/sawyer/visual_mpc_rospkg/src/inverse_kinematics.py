@@ -16,11 +16,10 @@ import rospy
 from sensor_msgs.msg import JointState
 
 import socket
-if socket.gethostname() == 'kullback':
-    from intera_core_msgs.srv import (
-        SolvePositionIK,
-        SolvePositionIKRequest,
-    )
+from intera_core_msgs.srv import (
+    SolvePositionIK,
+    SolvePositionIKRequest,
+)
 
 def get_joint_angles(pose, seed_cmd = None, use_advanced_options = False):
     limb = "right"

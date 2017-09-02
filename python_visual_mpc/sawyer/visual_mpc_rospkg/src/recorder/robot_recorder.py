@@ -16,6 +16,8 @@ from PIL import Image
 import cPickle
 import imageio
 
+import argparse
+
 import moviepy.editor as mpy
 
 from rospy_tutorials.msg import Floats
@@ -68,19 +70,17 @@ class RobotRecorder(object):
         self.itr = 0
         self.highres_imglist = []
 
-        print 'hostname is :{}'.format(socket.gethostname())
-        if socket.gethostname() == 'kullback':
+        if __name__ !=  '__main__':
             # the main instance one also records actions and joint angles
             self.instance_type = 'main'
             self._gripper = None
             self.gripper_name = '_'.join([side, 'gripper'])
             import intera_interface
             self._limb_right = intera_interface.Limb(side)
-        elif socket.gethostname() == 'kinectbox1':
+        else:
             # auxiliary recorder
             rospy.init_node('aux_recorder1')
             rospy.loginfo("init node aux_recorder1")
-            # instance running on kullback is called main;
             self.instance_type = 'aux1'
 
         print 'init recorder with instance type', self.instance_type
@@ -102,9 +102,7 @@ class RobotRecorder(object):
         self.t_finish_save = []
 
         # if it is an auxiliary node advertise services
-        if socket.gethostname() == 'kinectbox1':
-
-
+        if self.instance_type == 'aux1':
             # initializing the server:
             rospy.Service('save_kinectdata', save_kinectdata, self.save_kinect_handler)
             rospy.Service('get_kinectdata', get_kinectdata, self.get_kinect_handler)
@@ -113,7 +111,8 @@ class RobotRecorder(object):
 
             self.t_get_request = []
             rospy.spin()
-        elif socket.gethostname() == 'kullback':
+
+        elif self.instance_type == 'main':
             # initializing the client:
             self.get_kinectdata_func = rospy.ServiceProxy('get_kinectdata', get_kinectdata)
             self.save_kinectdata_func = rospy.ServiceProxy('save_kinectdata', save_kinectdata)

@@ -314,11 +314,8 @@ def make_psum_overtime_example(filepath, tmpc):
 
 
 if __name__ == '__main__':
-    # file_path = '/home/guser/catkin_ws/src/lsdc/experiments/cem_exp/benchmarks_sawyer/predprop_1stimg_bckgd'
-    # file_path = '/home/guser/catkin_ws/src/lsdc/experiments/cem_exp/benchmarks_sawyer/dna_multobj'
-    file_path = '/home/guser/catkin_ws/src/lsdc/experiments/cem_exp/benchmarks_sawyer/manual_correction'
+    file_path = '/home/febert/Documents/catkin_ws/src/visual_mpc/experiments/cem_exp/benchmarks_sawyer/predprop_1stimg_bckgd'
 
-    # file_path = '/home/frederik/Documents/catkin_ws/src/lsdc/experiments/cem_exp/benchmarks_sawyer/predprop_1stimg_bckgd'
     hyperparams = imp.load_source('hyperparams', file_path + '/conf.py')
     conf = hyperparams.configuration
 
@@ -327,9 +324,6 @@ if __name__ == '__main__':
     # create_video_pixdistrib_gif(exp_dir + '/modeldata', conf, t=0, suppress_number=True, append_masks=True, show_moved=True)
     # create_video_pixdistrib_gif(file_path, conf, n_exp= 10, suppress_number= True)
     #
-
-    # file_path += "/unseen_clutter"
-    file_path += "/4th_try"
 
     go_through_timesteps(file_path +'/verbose', conf)
     # insert_in_frame(file_path + '/verbose', conf)

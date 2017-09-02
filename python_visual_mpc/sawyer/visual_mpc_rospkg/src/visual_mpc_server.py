@@ -19,7 +19,7 @@ from python_visual_mpc import __file__ as base_filepath
 
 import rospy
 import rospy.numpy_msg
-from visual_mpc.srv import *
+from visual_mpc_rospkg.srv import *
 import cv2
 from cv_bridge import CvBridge, CvBridgeError
 from sensor_msgs.msg import Image as Image_msg
