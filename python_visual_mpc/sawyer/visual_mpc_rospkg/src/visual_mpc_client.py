@@ -6,12 +6,12 @@ import rospy
 import matplotlib.pyplot as plt
 
 import socket
-if socket.gethostname() == 'kullback':
-    from intera_core_msgs.srv import (
-        SolvePositionFK,
-        SolvePositionFKRequest,
-    )
-    import intera_external_devices
+
+from intera_core_msgs.srv import (
+    SolvePositionFK,
+    SolvePositionFKRequest,
+)
+import intera_external_devices
 
 import argparse
 import imutils
@@ -57,6 +57,8 @@ class Visual_MPC_Client():
         parser.add_argument('--canon', default=-1, type=int, help='whether to store canonical example')
 
         args = parser.parse_args()
+
+
         self.base_dir = '/'.join(str.split(base_filepath, '/')[:-2])
         cem_exp_dir = self.base_dir + '/experiments/cem_exp/benchmarks_sawyer'
         benchmark_name = args.benchmark
@@ -198,12 +200,7 @@ class Visual_MPC_Client():
         self.imp_ctrl_release_spring_pub.publish(maxstiff)
 
     def run_visual_mpc(self):
-
-        # check if there is a checkpoint from which to resume
-        start_tr = 0
-
         while True:
-
             tstart = datetime.now()
             # self.run_trajectory_const_speed(tr)
             done = False
@@ -216,9 +213,6 @@ class Visual_MPC_Client():
 
             delta = datetime.now() - tstart
             print 'trajectory {0} took {1} seconds'.format(0, delta.total_seconds())
-
-        self.ctrl.set_neutral()
-
 
     def get_endeffector_pos(self, pos_only=True):
         """
@@ -294,6 +288,7 @@ class Visual_MPC_Client():
 
             num_pic_perstep = 4
             nsave = self.action_sequence_length*num_pic_perstep
+
             self.recorder = robot_recorder.RobotRecorder(save_dir=self.desig_pix_img_dir,
                                                          seq_len=nsave,
                                                          use_aux=self.use_aux,
@@ -331,93 +326,80 @@ class Visual_MPC_Client():
         if self.save_canon:
             self.save_canonical()
 
-        if not self.interpolate:
-            i_save = 0  # index of current saved step
-            for i_step in range(self.action_sequence_length):
+        # move to start:
+        start_time = rospy.get_time()  # in seconds
+        finish_time = start_time + self.traj_duration  # in seconds
+        print 'start time', start_time
+        print 'finish_time', finish_time
 
+        i_step = 0  # index of current commanded point
+
+        self.ctrl.limb.set_joint_position_speed(.20)
+        self.previous_des_pos = copy.deepcopy(self.des_pos)
+        start_time = -1
+
+        isave = 0
+
+        while i_step < self.action_sequence_length:
+
+            self.curr_delta_time = rospy.get_time() - start_time
+            if self.curr_delta_time > self.action_interval:
+                if 'manual_correction' in self.agentparams:
+                    imagemain = self.recorder.ltob.img_cropped
+                    imagemain = cv2.cvtColor(imagemain, cv2.COLOR_BGR2RGB)
+                    c_main = Getdesig(imagemain, self.desig_pix_img_dir, '_t{}'.format(i_step), self.ndesig,
+                                      self.canon_ind, self.canon_dir, only_desig=True)
+                    self.desig_pos_main = c_main.desig.astype(np.int64)
+
+                print 'current position error', self.des_pos - self.get_endeffector_pos(pos_only=True)
+
+                self.previous_des_pos = copy.deepcopy(self.des_pos)
                 action_vec = self.query_action()
-                self.apply_act(action_vec, i_step)
+                print 'action vec', action_vec
 
-                if self.save_active:
-                    self.recorder.save(i_save, action_vec, self.get_endeffector_pos())
-                    i_save += 1
+                self.des_pos = self.apply_act(action_vec, i_step, move=False)
+                start_time = rospy.get_time()
 
-                self.action_rate.sleep()
-        else:
-            # move to start:
-            start_time = rospy.get_time()  # in seconds
-            finish_time = start_time + self.traj_duration  # in seconds
-            print 'start time', start_time
-            print 'finish_time', finish_time
+                print 'prev_desired pos in step {0}: {1}'.format(i_step, self.previous_des_pos)
+                print 'new desired pos in step {0}: {1}'.format(i_step, self.des_pos)
 
-            i_step = 0  # index of current commanded point
+                self.t_prev = start_time
+                self.t_next = start_time + self.action_interval
+                print 't_prev', self.t_prev
+                print 't_next', self.t_next
 
-            self.ctrl.limb.set_joint_position_speed(.20)
-            self.previous_des_pos = copy.deepcopy(self.des_pos)
-            start_time = -1
+                isave_substep  = 0
+                tsave = np.linspace(self.t_prev, self.t_next, num=num_pic_perstep, dtype=np.float64)
+                print 'tsave', tsave
+                i_step += 1
 
-            isave = 0
+                print 'applying action{}'.format(i_step)
 
-            while i_step < self.action_sequence_length:
+            des_joint_angles = self.get_interpolated_joint_angles()
 
-                self.curr_delta_time = rospy.get_time() - start_time
-                if self.curr_delta_time > self.action_interval:
-                    if 'manual_correction' in self.agentparams:
-                        imagemain = self.recorder.ltob.img_cropped
-                        imagemain = cv2.cvtColor(imagemain, cv2.COLOR_BGR2RGB)
-                        c_main = Getdesig(imagemain, self.desig_pix_img_dir, '_t{}'.format(i_step), self.ndesig,
-                                          self.canon_ind, self.canon_dir, only_desig=True)
-                        self.desig_pos_main = c_main.desig.astype(np.int64)
+            if self.save_active:
+                if isave_substep < len(tsave):
+                    if rospy.get_time() > tsave[isave_substep] -.01:
+                        print 'saving index{}'.format(isave)
+                        print 'isave_substep', isave_substep
+                        self.recorder.save(isave, action_vec, self.get_endeffector_pos())
+                        isave_substep += 1
+                        isave += 1
 
-                    print 'current position error', self.des_pos - self.get_endeffector_pos(pos_only=True)
+            try:
+                if self.robot_move:
+                    self.move_with_impedance(des_joint_angles)
+                        # print des_joint_angles
+            except OSError:
+                rospy.logerr('collision detected, stopping trajectory, going to reset robot...')
+                rospy.sleep(.5)
+                raise Traj_aborted_except('raising Traj_aborted_except')
+            if self.ctrl.limb.has_collided():
+                rospy.logerr('collision detected!!!')
+                rospy.sleep(.5)
+                raise Traj_aborted_except('raising Traj_aborted_except')
 
-                    self.previous_des_pos = copy.deepcopy(self.des_pos)
-                    action_vec = self.query_action()
-                    print 'action vec', action_vec
-
-                    self.des_pos = self.apply_act(action_vec, i_step, move=False)
-                    start_time = rospy.get_time()
-
-                    print 'prev_desired pos in step {0}: {1}'.format(i_step, self.previous_des_pos)
-                    print 'new desired pos in step {0}: {1}'.format(i_step, self.des_pos)
-
-                    self.t_prev = start_time
-                    self.t_next = start_time + self.action_interval
-                    print 't_prev', self.t_prev
-                    print 't_next', self.t_next
-
-                    isave_substep  = 0
-                    tsave = np.linspace(self.t_prev, self.t_next, num=num_pic_perstep, dtype=np.float64)
-                    print 'tsave', tsave
-                    i_step += 1
-
-                    print 'applying action{}'.format(i_step)
-
-                des_joint_angles = self.get_interpolated_joint_angles()
-
-                if self.save_active:
-                    if isave_substep < len(tsave):
-                        if rospy.get_time() > tsave[isave_substep] -.01:
-                            print 'saving index{}'.format(isave)
-                            print 'isave_substep', isave_substep
-                            self.recorder.save(isave, action_vec, self.get_endeffector_pos())
-                            isave_substep += 1
-                            isave += 1
-
-                try:
-                    if self.robot_move:
-                        self.move_with_impedance(des_joint_angles)
-                            # print des_joint_angles
-                except OSError:
-                    rospy.logerr('collision detected, stopping trajectory, going to reset robot...')
-                    rospy.sleep(.5)
-                    raise Traj_aborted_except('raising Traj_aborted_except')
-                if self.ctrl.limb.has_collided():
-                    rospy.logerr('collision detected!!!')
-                    rospy.sleep(.5)
-                    raise Traj_aborted_except('raising Traj_aborted_except')
-
-                self.control_rate.sleep()
+            self.control_rate.sleep()
 
         self.save_final_image(i_tr)
         self.recorder.save_highres()

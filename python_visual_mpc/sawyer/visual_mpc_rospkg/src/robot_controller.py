@@ -4,13 +4,13 @@ import argparse
 import rospy
 
 import socket
-if socket.gethostname() == 'kullback':
-    import intera_interface
-    import intera_external_devices
-    from intera_interface import CHECK_VERSION
+import intera_interface
+import intera_external_devices
+from intera_interface import CHECK_VERSION
 
 import numpy as np
 import socket
+import pdb
 
 class RobotController(object):
 

@@ -273,7 +273,7 @@ class AgentMuJoCo(object):
 
     def quat_to_zangle(self, quat):
         """
-        :param quat: quaternion 
+        :param quat: quaternion with only
         :return: zangle in rad
         """
         theta = np.arctan2(2*quat[0]*quat[3], 1-2*quat[3]**2)
