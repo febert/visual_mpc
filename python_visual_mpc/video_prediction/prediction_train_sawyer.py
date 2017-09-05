@@ -95,7 +95,6 @@ class Model(object):
             actions = tf.split(axis=1, num_or_size_splits=actions.get_shape()[1], value=actions)
             actions = [tf.squeeze(act) for act in actions]
         if states != None:
-            pdb.set_trace()
             states = tf.split(axis=1, num_or_size_splits=states.get_shape()[1], value=states)
             states = [tf.squeeze(st) for st in states]
         images = tf.split(axis=1, num_or_size_splits=images.get_shape()[1], value=images)
@@ -130,7 +129,14 @@ class Model(object):
                     conf= conf)
                 self.m.build()
 
-        self.lr = tf.placeholder_with_default(conf['learning_rate'], ())
+
+
+        if conf['learning_rate'] == 'scheduled':
+            print('using scheduled learning rate')
+            self.global_step = tf.Variable(0, trainable=False)
+            self.lr = tf.train.piecewise_constant(self.global_step, conf['lr_boundaries'], conf['lr_values'])
+        else:
+            self.lr = tf.placeholder_with_default(conf['learning_rate'], ())
 
         if not inference:
             # L2 loss, PSNR for eval.
@@ -169,9 +175,8 @@ class Model(object):
 
             summaries.append(tf.summary.scalar('loss', loss))
 
-            if not inference:
-                self.train_op = tf.train.AdamOptimizer(self.lr).minimize(loss)
-                self.summ_op = tf.summary.merge(summaries)
+            self.train_op = tf.train.AdamOptimizer(self.lr).minimize(loss, self.global_step)
+            self.summ_op = tf.summary.merge(summaries)
 
 
     def random_shift(self, images, states, actions):
@@ -325,11 +330,10 @@ def main(unused_argv, conf_script= None):
             img, state = sess.run([val_images, val_states])
             sel_img= img[b_exp,ind0:ind0+2]
 
-            c = Getdesig(sel_img[0], conf, 'b{}'.format(b_exp))
-            desig_pos_aux1 = c.coords.astype(np.int32)
-            # desig_pos_aux1 = np.array([23, 39])
-
-            print "selected designated position for aux1 [row,col]:", desig_pos_aux1
+            # c = Getdesig(sel_img[0], conf, 'b{}'.format(b_exp))
+            # desig_pos_aux1 = c.coords.astype(np.int32)
+            desig_pos_aux1 = np.array([30, 31])
+            # print "selected designated position for aux1 [row,col]:", desig_pos_aux1
 
             one_hot = create_one_hot(conf, desig_pos_aux1)
 
@@ -380,19 +384,19 @@ def main(unused_argv, conf_script= None):
             dict['gen_masks'] = gen_masks
             dict['gen_distrib'] = gen_distrib
             dict['iternum'] = itr_vis
-            dict['moved_parts'] = moved_parts
-            dict['moved_images'] = moved_images
-            dict['moved_bckgd'] = moved_bckgd
+            # dict['moved_parts'] = moved_parts
+            # dict['moved_images'] = moved_images
+            # dict['moved_bckgd'] = moved_bckgd
 
             cPickle.dump(dict, open(file_path + '/pred.pkl', 'wb'))
             print 'written files to:' + file_path
 
             make_gif = False
             if make_gif:
-                comp_gif(conf, conf['output_dir'], append_masks=True,
+                comp_gif(conf, conf['output_dir'], append_masks=False,
                          suffix='_diffmotions_b{}_l{}'.format(b_exp, conf['sequence_length']))
             else:
-                v = Visualizer_tkinter(dict, numex=4, append_masks=True,
+                v = Visualizer_tkinter(dict, numex=4, append_masks=False,
                                        gif_savepath=conf['output_dir'],
                                        suf='_diffmotions_b{}_l{}'.format(b_exp, conf['sequence_length']))
                 v.build_figure()
@@ -421,7 +425,6 @@ def main(unused_argv, conf_script= None):
         return
 
     itr_0 =0
-
     if FLAGS.pretrained != None:
         conf['pretrained_model'] = FLAGS.pretrained
 

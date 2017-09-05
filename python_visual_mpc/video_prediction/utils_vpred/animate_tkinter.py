@@ -97,7 +97,7 @@ class Visualizer_tkinter(object):
 
         # if 'flow_vectors' in dict_:
         #     self.videolist.append(visualize_flow(dict_))
-        self.renormalize_heatmaps = False
+        self.renormalize_heatmaps = True
         print 'renormalizing heatmaps: ', self.renormalize_heatmaps
 
         self.gif_savepath = gif_savepath
@@ -105,7 +105,6 @@ class Visualizer_tkinter(object):
 
         self.suf = suf
         self.append_masks = append_masks
-        self.build_figure()
 
     def build_figure(self):
 

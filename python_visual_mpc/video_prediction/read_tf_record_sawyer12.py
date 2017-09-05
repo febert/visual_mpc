@@ -348,8 +348,8 @@ if __name__ == '__main__':
     conf = {}
 
     current_dir = os.path.dirname(os.path.realpath(__file__))
-    # DATA_DIR = '/'.join(str.split(current_dir, '/')[:-3]) + '/pushing_data/canonical_examples/tfrecords'
-    DATA_DIR = '/'.join(str.split(current_dir, '/')[:-3]) + '/pushing_data/softmotion30/test'
+
+    DATA_DIR = '/'.join(str.split(current_dir, '/')[:-2]) + '/pushing_data/wrist_rot/train'
     # conf['canon_ex'] = ""
 
     # DATA_DIR = '/'.join(str.split(current_dir, '/')[:-3]) + '/pushing_data/softmotion30/test'
@@ -360,7 +360,7 @@ if __name__ == '__main__':
     conf['train_val_split']= 0.95
     conf['sequence_length']= 15      # 'sequence length, including context frames.'
     conf['use_state'] = True
-    conf['batch_size']= 32
+    conf['batch_size']= 10
     conf['visualize']= True
     conf['single_view'] = ''
     conf['context_frames'] = 2
@@ -375,27 +375,27 @@ if __name__ == '__main__':
 
     # image_main_batch, image_aux_batch, action_batch, endeff_pos_batch  = build_tfrecord_input(conf, training=False)
     if 'canon_ex' in conf:
-        image_aux_batch, action_batch, endeff_pos_batch, pix_distrib_batch, pix_pos_batch = build_tfrecord_input(conf, training=False)
+        image_batch, action_batch, endeff_pos_batch, pix_distrib_batch, pix_pos_batch = build_tfrecord_input(conf, training=False)
     else:
-        image_aux_batch, action_batch, endeff_pos_batch = build_tfrecord_input(conf, training=False)
+        image_batch, action_batch, endeff_pos_batch = build_tfrecord_input(conf, training=False)
 
     sess = tf.InteractiveSession()
     tf.train.start_queue_runners(sess)
     sess.run(tf.global_variables_initializer())
 
-    from video_prediction.utils_vpred.create_gif import comp_single_video
+    from python_visual_mpc.video_prediction.utils_vpred.create_gif_lib import comp_single_video
 
     for i in range(2):
         print 'run number ', i
 
         # image_main, image_aux, actions, endeff = sess.run([image_main_batch, image_aux_batch, action_batch, endeff_pos_batch])
         if 'canon_ex' in conf:
-            image_aux, actions, endeff, init_pix_distrib, init_pix_pos  = sess.run([image_aux_batch, action_batch, endeff_pos_batch, pix_distrib_batch, pix_pos_batch])
+            image, actions, endeff, init_pix_distrib, init_pix_pos  = sess.run([image_batch, action_batch, endeff_pos_batch, pix_distrib_batch, pix_pos_batch])
         else:
-            image_aux, actions, endeff = sess.run([image_aux_batch, action_batch, endeff_pos_batch])
+            image, actions, endeff = sess.run([image_batch, action_batch, endeff_pos_batch])
 
-        # file_path = '/'.join(str.split(DATA_DIR, '/')[:-1]+['/preview'])
-        # comp_single_video(file_path, image_aux)
+        file_path = '/'.join(str.split(DATA_DIR, '/')[:-1]+['/preview'])
+        comp_single_video(file_path, image)
 
         # show some frames
         for i in range(10,15):
@@ -408,8 +408,8 @@ if __name__ == '__main__':
                 img = Image.fromarray(np.squeeze(img))
                 img.show()
 
-            image_aux = np.squeeze(image_aux)
-            img = np.uint8(255. * image_aux[i, 0])
+            image = np.squeeze(image)
+            img = np.uint8(255. * image[i, 0])
             img = Image.fromarray(img, 'RGB')
             # img.save(file_path,'PNG')
             img.show()
