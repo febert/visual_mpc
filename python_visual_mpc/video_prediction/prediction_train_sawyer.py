@@ -15,10 +15,10 @@ from makegifs import comp_gif
 
 from datetime import datetime
 # How often to record tensorboard summaries.
-SUMMARY_INTERVAL = 40
+SUMMARY_INTERVAL = 200
 
 # How often to run a batch through the validation model.
-VAL_INTERVAL = 200
+VAL_INTERVAL = 400
 
 # How often to save a model checkpoint
 SAVE_INTERVAL = 2000
