@@ -129,11 +129,10 @@ class Model(object):
                     conf= conf)
                 self.m.build()
 
-
-
-        if conf['learning_rate'] == 'scheduled':
+        self.global_step = tf.Variable(0, trainable=False)
+        if conf['learning_rate'] == 'scheduled' and not FLAGS.visualize:
             print('using scheduled learning rate')
-            self.global_step = tf.Variable(0, trainable=False)
+
             self.lr = tf.train.piecewise_constant(self.global_step, conf['lr_boundaries'], conf['lr_values'])
         else:
             self.lr = tf.placeholder_with_default(conf['learning_rate'], ())
@@ -450,10 +449,8 @@ def main(unused_argv, conf_script= None):
     for itr in range(itr_0, conf['num_iterations'], 1):
         t_startiter = datetime.now()
         # Generate new batch of data_files.
-        feed_dict = {
-                     model.iter_num: np.float32(itr),
-                     model.lr: conf['learning_rate'],
-                     }
+        feed_dict = {model.iter_num: np.float32(itr)}
+
         cost, _, summary_str = sess.run([model.loss, model.train_op, model.summ_op],
                                         feed_dict)
 
@@ -462,11 +459,8 @@ def main(unused_argv, conf_script= None):
 
         if (itr) % VAL_INTERVAL == 2:
             # Run through validation set.
-            feed_dict = {val_model.lr: 0.0,
-                         val_model.iter_num: np.float32(itr),
-                         }
-            _, val_summary_str = sess.run([val_model.train_op, val_model.summ_op],
-                                          feed_dict)
+            feed_dict = {val_model.iter_num: np.float32(itr)}
+            [val_summary_str] = sess.run([val_model.summ_op], feed_dict)
             summary_writer.add_summary(val_summary_str, itr)
 
 
