@@ -27,11 +27,7 @@ class Tower(object):
 
         if 'ndesig' in conf:
             self.model = Model(conf, start_images, actions, start_states, pix_distrib=pix_distrib1,pix_distrib2=pix_distrib2, inference=True)
-            # self.model = Model(conf, start_images, actions, start_states, pix_distrib=pix_distrib1,
-            #                    pix_distrib2=pix_distrib2,
-            #                    reuse_scope=reuse_scope)
         else:
-            # self.model = Model(conf,start_images,actions,start_states, pix_distrib=pix_distrib1, reuse_scope= reuse_scope)
             self.model = Model(conf, start_images, actions, start_states, pix_distrib=pix_distrib1, inference=True)
 
 def setup_predictor(conf, gpu_id=0, ngpu=1):

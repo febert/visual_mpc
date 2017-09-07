@@ -29,7 +29,6 @@ import pdb
 RELU_SHIFT = 1e-12
 
 
-
 class Prediction_Model(object):
 
     def __init__(self,

@@ -24,7 +24,7 @@ VAL_INTERVAL = 400
 SAVE_INTERVAL = 2000
 
 
-from utils_vpred.animate_tkinter import Visualizer_tkinter
+from python_visual_mpc.video_prediction.utils_vpred.animate_tkinter import Visualizer_tkinter
 
 from PIL import Image
 
@@ -36,165 +36,7 @@ flags.DEFINE_string('pretrained', None, 'path to model file from which to resume
 flags.DEFINE_bool('diffmotions', False, 'visualize several different motions for a single scene')
 
 
-## Helper functions
-def peak_signal_to_noise_ratio(true, pred):
-    """Image quality metric based on maximal signal power vs. power of the noise.
 
-    Args:
-      true: the ground truth image.
-      pred: the predicted image.
-    Returns:
-      peak signal to noise ratio (PSNR)
-    """
-    return 10.0 * tf.log(1.0 / mean_squared_error(true, pred)) / tf.log(10.0)
-
-
-def mean_squared_error(true, pred):
-    """L2 distance between tensors true and pred.
-
-    Args:
-      true: the ground truth image.
-      pred: the predicted image.
-    Returns:
-      mean squared error between ground truth and predicted image.
-    """
-    return tf.reduce_sum(tf.square(true - pred)) / tf.to_float(tf.size(pred))
-
-
-class Model(object):
-    def __init__(self,
-                 conf,
-                 images=None,
-                 actions=None,
-                 states=None,
-                 reuse_scope=None,
-                 pix_distrib=None,
-                 pix_distrib2=None,
-                 inference = False):
-
-        if 'prediction_model' in conf:
-            Prediction_Model = conf['prediction_model']
-        else:
-            from prediction_model_sawyer import Prediction_Model
-
-        self.conf = conf
-
-        if 'use_len' in conf:
-            print 'randomly shift videos for data augmentation'
-            images, states, actions  = self.random_shift(images, states, actions)
-
-        self.images_sel = images
-        self.actions_sel = actions
-        self.states_sel = states
-
-        self.iter_num = tf.placeholder(tf.float32, [])
-        summaries = []
-
-        # Split into timesteps.
-        if actions != None:
-            actions = tf.split(axis=1, num_or_size_splits=actions.get_shape()[1], value=actions)
-            actions = [tf.squeeze(act) for act in actions]
-        if states != None:
-            states = tf.split(axis=1, num_or_size_splits=states.get_shape()[1], value=states)
-            states = [tf.squeeze(st) for st in states]
-        images = tf.split(axis=1, num_or_size_splits=images.get_shape()[1], value=images)
-        images = [tf.squeeze(img) for img in images]
-        if pix_distrib != None:
-            pix_distrib = tf.split(axis=1, num_or_size_splits=pix_distrib.get_shape()[1], value=pix_distrib)
-            pix_distrib = [tf.squeeze(pix) for pix in pix_distrib]
-
-        if pix_distrib2 != None:
-            pix_distrib2 = tf.split(axis=1, num_or_size_splits=pix_distrib2.get_shape()[1], value=pix_distrib2)
-            pix_distrib2= [tf.squeeze(pix) for pix in pix_distrib2]
-
-        if reuse_scope is None:
-            self.m = Prediction_Model(
-                images,
-                actions,
-                states,
-                iter_num=self.iter_num,
-                pix_distributions1=pix_distrib,
-                pix_distributions2=pix_distrib2,
-                conf=conf)
-            self.m.build()
-        else:  # If it's a validation or test model.
-            with tf.variable_scope(reuse_scope, reuse=True):
-                self.m = Prediction_Model(
-                    images,
-                    actions,
-                    states,
-                    iter_num=self.iter_num,
-                    pix_distributions1=pix_distrib,
-                    pix_distributions2=pix_distrib2,
-                    conf= conf)
-                self.m.build()
-
-        self.global_step = tf.Variable(0, trainable=False)
-        if conf['learning_rate'] == 'scheduled' and not FLAGS.visualize:
-            print('using scheduled learning rate')
-
-            self.lr = tf.train.piecewise_constant(self.global_step, conf['lr_boundaries'], conf['lr_values'])
-        else:
-            self.lr = tf.placeholder_with_default(conf['learning_rate'], ())
-
-        if not inference:
-            # L2 loss, PSNR for eval.
-            true_fft_list, pred_fft_list = [], []
-            loss, psnr_all = 0.0, 0.0
-
-            self.fft_weights = tf.placeholder(tf.float32, [64, 64])
-
-            for i, x, gx in zip(
-                    range(len(self.m.gen_images)), images[conf['context_frames']:],
-                    self.m.gen_images[conf['context_frames'] - 1:]):
-                recon_cost_mse = mean_squared_error(x, gx)
-
-                psnr_i = peak_signal_to_noise_ratio(x, gx)
-                psnr_all += psnr_i
-                summaries.append(tf.summary.scalar('recon_cost' + str(i), recon_cost_mse))
-                summaries.append(tf.summary.scalar('psnr' + str(i), psnr_i))
-
-                recon_cost = recon_cost_mse
-
-                loss += recon_cost
-
-            if ('ignore_state_action' not in conf) and ('ignore_state' not in conf):
-                for i, state, gen_state in zip(
-                        range(len(self.m.gen_states)), states[conf['context_frames']:],
-                        self.m.gen_states[conf['context_frames'] - 1:]):
-                    state_cost = mean_squared_error(state, gen_state) * 1e-4 * conf['use_state']
-                    summaries.append(
-                        tf.summary.scalar('state_cost' + str(i), state_cost))
-                    loss += state_cost
-
-            summaries.append(tf.summary.scalar('psnr_all', psnr_all))
-            self.psnr_all = psnr_all
-
-            self.loss = loss = loss / np.float32(len(images) - conf['context_frames'])
-
-            summaries.append(tf.summary.scalar('loss', loss))
-
-            self.train_op = tf.train.AdamOptimizer(self.lr).minimize(loss, self.global_step)
-            self.summ_op = tf.summary.merge(summaries)
-
-
-    def random_shift(self, images, states, actions):
-        print 'shifting the video sequence randomly in time'
-        tshift = 2
-        uselen = self.conf['use_len']
-        fulllength = self.conf['sequence_length']
-        nshifts = (fulllength - uselen) / 2 + 1
-        rand_ind = tf.random_uniform([1], 0, nshifts, dtype=tf.int64)
-        self.rand_ind = rand_ind
-
-        start = tf.concat(axis=0,values=[tf.zeros(1, dtype=tf.int64), rand_ind * tshift, tf.zeros(3, dtype=tf.int64)])
-        images_sel = tf.slice(images, start, [-1, uselen, -1, -1, -1])
-        start = tf.concat(axis=0, values=[tf.zeros(1, dtype=tf.int64), rand_ind * tshift, tf.zeros(1, dtype=tf.int64)])
-        actions_sel = tf.slice(actions, start, [-1, uselen, -1])
-        start = tf.concat(axis=0, values=[tf.zeros(1, dtype=tf.int64), rand_ind * tshift, tf.zeros(1, dtype=tf.int64)])
-        states_sel = tf.slice(states, start, [-1, uselen, -1])
-
-        return images_sel, states_sel, actions_sel
 
 
 class Getdesig(object):
@@ -253,9 +95,11 @@ def main(unused_argv, conf_script= None):
             conf['sequence_length'] = 30
 
     if 'sawyer' in conf:
-        from read_tf_record_sawyer12 import build_tfrecord_input
+        from python_visual_mpc.video_prediction.read_tf_record_sawyer12 import build_tfrecord_input
     else:
-        from read_tf_record import build_tfrecord_input
+        from python_visual_mpc.video_prediction.read_tf_record import build_tfrecord_input
+
+    model= conf['model']
 
     print 'Constructing models and inputs.'
     if FLAGS.diffmotions:
@@ -317,7 +161,7 @@ def main(unused_argv, conf_script= None):
         saver.restore(sess, conf['visualize'])
         print 'restore done.'
 
-        feed_dict = {
+        feed_dict = {val_model.lr: 0.0,
                      val_model.iter_num: 0 }
 
         file_path = conf['output_dir']
@@ -419,8 +263,8 @@ def main(unused_argv, conf_script= None):
             if make_gif:
                 comp_gif(conf, conf['output_dir'], append_masks=True)
             else:
-                v = Visualizer_tkinter(dict, numex=4, append_masks=True, gif_savepath=conf['output_dir'])
-                v.build_figure()
+                Visualizer_tkinter(dict, numex=4, append_masks=True, gif_savepath=conf['output_dir'])
+
         return
 
     itr_0 =0
