@@ -41,6 +41,16 @@ class Prediction_Model(object):
                 pix_distributions2=None,
                 conf = None):
 
+        """
+        :param images: initial images I0:1
+        :param actions: initial actions a1:H
+        :param states: initial states x0:1
+        :param iter_num: number of iterations
+        :param pix_distributions1: distribution over designated pixel's position
+        :param pix_distributions2: distribution over designated pixel's position at next time step
+        :param conf: configuration dictionary
+        """
+
         self.pix_distributions1 = pix_distributions1
         self.pix_distributions2 = pix_distributions2
         self.actions = actions
