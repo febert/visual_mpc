@@ -22,7 +22,7 @@ configuration = {
 'num_masks': 10,            # 'number of masks, usually 1 for DNA, 10 for CDNA, STN.' ,
 'schedsamp_k': 900.0,       # 'The k hyperparameter for scheduled sampling -1 for no scheduled sampling.' ,
 'train_val_split': 0.95,    #'The percentage of files to use for the training set vs. the validation set.' ,
-'batch_size': 32,           #'batch size for training' ,
+'batch_size': 64,           #'batch size for training' ,
 'learning_rate': 'scheduled',     #'the base learning rate of the generator' ,
 'lr_boundaries':[int(4e4),int(6e4),int(8e4)],
 'lr_values':[1e-3,1e-4,1e-5,1e-6],
