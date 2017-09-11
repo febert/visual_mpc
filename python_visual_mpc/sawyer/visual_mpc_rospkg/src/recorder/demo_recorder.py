@@ -40,7 +40,7 @@ class Latest_observation(object):
         self.d_img_msg = None
 
 
-class RobotRecorder(object):
+class DemoRobotRecorder(object):
     def __init__(self, save_dir, seq_len = None, use_aux=True, save_video=False,
                  save_actions=True, save_images = True):
 
@@ -294,7 +294,7 @@ class RobotRecorder(object):
         shutil.rmtree(traj_folder)
         print 'deleted {}'.format(traj_folder)
 
-    def save(self, i_save, action, endeffector_pose):
+    def save(self, i_save, endeffector_pose):
         self.t_savereq = rospy.get_time()
         assert self.instance_type == 'main'
 
@@ -311,7 +311,7 @@ class RobotRecorder(object):
             self._save_img_local(i_save)
 
         if self.save_actions:
-            self._save_state_actions(i_save, action, endeffector_pose)
+            self._save_state_actions(i_save, endeffector_pose)
 
         if self.save_gif:
             highres = cv2.cvtColor(self.ltob.img_cv2, cv2.COLOR_BGR2RGB)
@@ -336,7 +336,7 @@ class RobotRecorder(object):
             rospy.logerr("Service call failed: %s" % (e,))
             raise ValueError('get_kinectdata service failed')
 
-    def _save_state_actions(self, i_save, action, endeff_pose):
+    def _save_state_actions(self, i_save, endeff_pose):
         joints_right = self._limb_right.joint_names()
         with open(self.state_action_data_file, 'a') as f:
             angles_right = [self._limb_right.joint_angle(j)
@@ -350,12 +350,12 @@ class RobotRecorder(object):
 
             # values = np.concatenate([angles_right, action])
             # only writing actions to text file
-            values = action
-            f.write(','.join([str(x) for x in values]) + '\n')
+            # values = action
+            # f.write(','.join([str(x) for x in values]) + '\n')
 
         self.joint_angle_list.append(angles_right)
         self.joint_velocity_list.append(velocities_right)
-        self.action_list.append(action)
+        # self.action_list.append(action)
         self.cart_pos_list.append(endeff_pose)
 
 
