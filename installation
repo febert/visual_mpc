@@ -9,6 +9,7 @@ pip install --upgrade tensorflow-gpu
 
 pip install imageio==1.6
 pip install moviepy
+pip install matplotlib
 
 pip install mujoco-py==0.5.7
 

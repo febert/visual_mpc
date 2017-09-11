@@ -21,6 +21,8 @@ import imp
 import sys
 import cPickle
 
+import matplotlib.pyplot as plt
+
 from python_visual_mpc.video_prediction.utils_vpred.adapt_params_visualize import adapt_params_visualize
 from tensorflow.python.platform import app
 from tensorflow.python.platform import flags
@@ -63,6 +65,32 @@ def mean_squared_error(true, pred):
       mean squared error between ground truth and predicted image.
     """
     return tf.reduce_sum(tf.square(true - pred)) / tf.to_float(tf.size(pred))
+
+
+class Getdesig(object):
+    def __init__(self,img,conf,img_namesuffix):
+        self.suf = img_namesuffix
+        self.conf = conf
+        self.img = img
+        fig = plt.figure()
+        self.ax = fig.add_subplot(111)
+        self.ax.set_xlim(0, 63)
+        self.ax.set_ylim(63, 0)
+        plt.imshow(img)
+
+        self.coords = None
+        cid = fig.canvas.mpl_connect('button_press_event', self.onclick)
+        plt.show()
+
+    def onclick(self, event):
+        print('button=%d, x=%d, y=%d, xdata=%f, ydata=%f' %
+              (event.button, event.x, event.y, event.xdata, event.ydata))
+        self.coords = np.array([event.ydata, event.xdata])
+        self.ax.scatter(self.coords[1], self.coords[0], marker= "o", s=70, facecolors='b', edgecolors='b')
+        self.ax.set_xlim(0, 63)
+        self.ax.set_ylim(63, 0)
+        plt.draw()
+        plt.savefig(self.conf['output_dir']+'/img_desigpix'+self.suf)
 
 
 class CorrectorModel(object):
@@ -110,14 +138,14 @@ class CorrectorModel(object):
         # L2 loss, PSNR for eval.
 
         loss = mean_squared_error(images[1], gen_images)
-        summaries.append(tf.summary.scalar('_recon_cost', loss))
+        summaries.append(tf.summary.scalar('recon_cost', loss))
 
         self.loss = loss
 
         self.lr = tf.placeholder_with_default(conf['learning_rate'], ())
 
         self.train_op = tf.train.AdamOptimizer(self.lr).minimize(loss)
-        self.summ_op = tf.merge_summary(summaries)
+        self.summ_op = tf.summary.merge(summaries)
 
         self.gen_images= gen_images
         self.gen_masks = gen_masks
@@ -146,6 +174,8 @@ def visualize(conf):
     gpu_options = tf.GPUOptions(per_process_gpu_memory_fraction=0.9)
     # Make training session.
 
+    conf['batch_size'] = 1
+
     sess = tf.InteractiveSession(config=tf.ConfigProto(gpu_options=gpu_options))
 
     tf.train.start_queue_runners(sess)
@@ -156,18 +186,26 @@ def visualize(conf):
                             shape=(conf['batch_size'], conf['sequence_length'], 64, 64, 3))
 
     with tf.variable_scope('model', reuse=None):
-        # val_images,_ , _ , object_pos   = build_tfrecord_input(conf, training=False)
-
         val_images, _, _   = build_tfrecord_input(conf, training=False)
         model = CorrectorModel(conf, images, pix_distrib= input_distrib)
 
     sess.run(tf.initialize_all_variables())
 
-    saver = tf.train.Saver(tf.get_collection(tf.GraphKeys.VARIABLES), max_to_keep=0)
+    saver = tf.train.Saver(tf.get_collection(tf.GraphKeys.GLOBAL_VARIABLES), max_to_keep=0)
     saver.restore(sess, conf['output_dir'] + '/' + FLAGS.visualize)
 
     ground_truth = sess.run([val_images])
 
+    b_exp = 0
+    ground_truth = ground_truth[b_exp]
+    c = Getdesig(ground_truth[0], conf, 'b{}'.format(b_exp))
+    desig_pos_aux1 = c.coords.astype(np.int32)
+    one_hot_img = np.zeros([conf['batch_size'], 64, 64])
+
+    one_hot_img[0,desig_pos_aux1[0], desig_pos_aux1[1]] = 1
+
+    plt.imshow(one_hot_img)
+    plt.show()
 
     output_distrib_list, gen_masks_list, gen_image_list = [], [], []
 
@@ -185,18 +223,31 @@ def visualize(conf):
                      }
 
         gen_image, gen_masks, output_distrib = sess.run([model.gen_images,
-                                                 model.gen_masks,
-                                                 model.gen_distrib
-                                                 ],
-                                                feed_dict)
+                                                         model.gen_masks,
+                                                         model.gen_distrib
+                                                         ],
+                                                         feed_dict)
 
-        combine_obj = np.zeros([conf['batch_size'], 64, 64])
-        for i in conf['num_objects']:
-            combine_obj += output_distrib[:,i]
-
-        output_distrib_list.append(combine_obj)
+        output_distrib_list.append(output_distrib)
         gen_image_list.append(gen_image)
         gen_masks_list.append(gen_masks)
+
+    dict = {}
+    dict['gen_images'] = gen_images
+    dict['gen_masks'] = gen_masks
+    dict['gen_distrib'] = gen_distrib
+    dict['iternum'] = itr_vis
+
+    cPickle.dump(dict, open(file_path + '/pred.pkl', 'wb'))
+    print 'written files to:' + file_path
+
+    from python_visual_mpc.video_prediction.utils_vpred.animate_tkinter import Visualizer_tkinter
+    v = Visualizer_tkinter(dict, numex=4, append_masks=False,
+                           gif_savepath=conf['output_dir'],
+                           suf='_diffmotions_b{}_l{}'.format(b_exp, conf['sequence_length']))
+    v.build_figure()
+
+
 
 
 def main(unused_argv, conf_script= None):
@@ -241,13 +292,11 @@ def main(unused_argv, conf_script= None):
     gpu_options = tf.GPUOptions(per_process_gpu_memory_fraction=0.9)
     # Make training session.
     sess = tf.InteractiveSession(config=tf.ConfigProto(gpu_options=gpu_options))
-    summary_writer = tf.train.SummaryWriter(
-        conf['output_dir'], graph=sess.graph, flush_secs=10)
-
-
-    sess.run(tf.initialize_all_variables())
+    summary_writer = tf.summary.FileWriter(conf['output_dir'], graph=sess.graph, flush_secs=10)
 
     tf.train.start_queue_runners(sess)
+    sess.run(tf.global_variables_initializer())
+
 
     itr_0 =0
     if conf['pretrained_model']:    # is the order of initialize_all_variables() and restore() important?!?
