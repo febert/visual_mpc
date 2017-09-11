@@ -24,7 +24,7 @@ configuration = {
 'train_val_split': 0.95,    #'The percentage of files to use for the training set vs. the validation set.' ,
 'batch_size': 32,           #'batch size for training' ,
 'learning_rate': 'scheduled',     #'the base learning rate of the generator' ,
-'lr_boundaries':[int(4e4),int(6e4),int(8e4)],
+'lr_boundaries':[int(2e4),int(5e4),int(8e4)],
 'lr_values':[1e-3,1e-4,1e-5,1e-6],
 'visualize': '',            #'load model from which to generate visualizations
 'file_visual': '',          # datafile used for making visualizations

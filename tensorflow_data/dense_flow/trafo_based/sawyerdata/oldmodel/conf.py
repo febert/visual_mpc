@@ -1,11 +1,16 @@
 import python_visual_mpc
 base_dir = python_visual_mpc.__file__
 
+base_dir = '/'.join(str.split(base_dir, '/')[:-2])
+
 # tf record data location:
-DATA_DIR = '/'.join(str.split(base_dir, '/')[:-2]) + '/pushing_data/softmotion30/train'
+DATA_DIR = base_dir + '/pushing_data/softmotion30/train'
+
+import os
+current_dir = os.path.dirname(os.path.realpath(__file__))
 
 # local output directory
-OUT_DIR = base_dir + '/modeldata'
+OUT_DIR = current_dir + '/modeldata'
 
 configuration = {
 'experiment_name': 'correction',
@@ -14,7 +19,7 @@ configuration = {
 'current_dir': base_dir,   #'directory for writing summary.' ,
 'num_iterations': 50000,   #'number of training iterations.' ,
 'pretrained_model': '',     # 'filepath of a pretrained model to resume training from.' ,
-'sequence_length': 15,      # 'sequence length, including context frames.' ,
+'sequence_length': 30,      # 'sequence length, including context frames.' ,
 'skip_frame': 1,            # 'use ever i-th frame to increase prediction horizon' ,
 'use_state': 1,             #'Whether or not to give the state+action to the model' ,
 'model': 'DNA',            #'model architecture to use - CDNA, DNA, or STP' ,

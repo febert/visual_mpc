@@ -1,6 +1,6 @@
 # Byte-compiled / optimized / DLL files
 
-
+img/
 
 __pycache__/
 *.py[cod]
@@ -102,13 +102,15 @@ modeldata/
 modeldata_olddata/
 train/
 test/
-train
-test
+
 
 old/
 
 #gif files
 *.gif
+
+#video files
+*.mp4
 
 videos/
 videos_distrib/
@@ -136,3 +138,4 @@ multobj_confs/
 longdistance/
 devel/
 cdna_accum_tf_factorized_dependent_mask_lstm_ln_5firstframes_l2/
+
