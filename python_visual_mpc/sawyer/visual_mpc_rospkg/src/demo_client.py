@@ -34,6 +34,7 @@ from intera_core_msgs.srv import (
 from recorder.demo_recorder import DemoRobotRecorder
 
 class Pushback_Recorder(object):
+    N_SAMPLES = 60
     def __init__(self, file = None):
         """
         Records joint data to a file at a specified rate.
@@ -77,6 +78,8 @@ class Pushback_Recorder(object):
         self.joint_pos = []
 
         self.set_neutral()
+        self.recorder = DemoRobotRecorder('/home/sudeep/outputs', self.N_SAMPLES, use_aux=False)
+
 
         if args.record == 'False':
             self.playback(file)
@@ -132,9 +135,9 @@ class Pushback_Recorder(object):
     def start_recording(self, data):
         if self.joint_pos != []:
             return
-
+        self.recorder.init_traj(0)
         print 'started recording'
-        recorder = DemoRobotRecorder('/home/sudeep/outputs/', 60, use_aux=False)
+
 
         self.collect_active = True
         self.imp_ctrl_active.publish(0)
@@ -146,10 +149,10 @@ class Pushback_Recorder(object):
             self.joint_pos.append(self.limb.joint_angles())
             pose = self.get_endeffector_pos()
             print 'recording ', len(self.joint_pos)
-            recorder.save(iter, pose)
+            self.recorder.save(iter, pose)
             iter += 1
 
-            if (iter > 60):
+            if (iter >= self.N_SAMPLES):
                 self.collect_active = False
 
         # filename = '/home/sudeep/outputs/pushback_traj_.pkl'

@@ -362,13 +362,13 @@ class DemoRobotRecorder(object):
         if i_save == self.state_sequence_length-1:
             joint_angles = np.stack(self.joint_angle_list)
             joint_velocities = np.stack(self.joint_velocity_list)
-            actions = np.stack(self.action_list)
+            #actions = np.stack(self.action_list)
             endeffector_pos = np.stack(self.cart_pos_list)
 
             with open(self.state_action_pkl_file, 'wb') as f:
                 dict= {'jointangles': joint_angles,
                        'jointvelocities': joint_velocities,
-                       'actions': actions,
+                       #'actions': actions,
                        'endeffector_pos':endeffector_pos}
                 cPickle.dump(dict, f)
             self.action_list = []
@@ -384,7 +384,7 @@ class DemoRobotRecorder(object):
         # saving the full resolution image
         if self.ltob.img_cv2 is not None:
             image_name = self.image_folder+ "/" + pref + "_full_cropped_im{0}".format(str(i_save).zfill(2))
-            image_name += "_time{1}.jpg".format(self.ltob.tstamp_img)
+            image_name += "_time{0}.jpg".format(self.ltob.tstamp_img)
 
             cv2.imwrite(image_name, self.ltob.img_cv2, [int(cv2.IMWRITE_JPEG_QUALITY), 80])
         else:
