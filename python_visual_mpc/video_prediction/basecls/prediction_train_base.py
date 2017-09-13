@@ -36,9 +36,6 @@ flags.DEFINE_string('pretrained', None, 'path to model file from which to resume
 flags.DEFINE_bool('diffmotions', False, 'visualize several different motions for a single scene')
 
 
-
-
-
 class Getdesig(object):
     def __init__(self,img,conf,img_namesuffix):
         self.suf = img_namesuffix
@@ -104,17 +101,7 @@ def main(unused_argv, conf_script= None):
     print 'Constructing models and inputs.'
     if FLAGS.diffmotions:
 
-        actions_pl = tf.placeholder(tf.float32, name='actions',
-                                    shape=(conf['batch_size'], conf['sequence_length'], 4))
-        states_pl = tf.placeholder(tf.float32, name='states',
-                                   shape=(conf['batch_size'], conf['sequence_length'], 3))
 
-        images_pl = tf.placeholder(tf.float32, name='images',
-                                   shape=(conf['batch_size'], conf['sequence_length'], 64, 64, 3))
-        val_images, _, val_states = build_tfrecord_input(conf, training=False)
-
-        pix_distrib_pl = tf.placeholder(tf.float32, name='states',
-                                        shape=(conf['batch_size'], conf['sequence_length'], 64, 64, 1))
 
         with tf.variable_scope('model', reuse=None):
             val_model = Model(conf, images_pl, actions_pl, states_pl, pix_distrib=pix_distrib_pl,

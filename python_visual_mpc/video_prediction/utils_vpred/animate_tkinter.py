@@ -12,10 +12,9 @@ import Tkconstants
 
 from matplotlib import pyplot as plt
 from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
-
+import colorsys
 frame = None
 canvas = None
-
 
 
 def plot_psum_overtime(gen_distrib, n_exp, filename):
@@ -35,9 +34,35 @@ def plot_psum_overtime(gen_distrib, n_exp, filename):
     plt.savefig(filename + "/psum.png")
     plt.close('all')
 
+
+def visualize_flow(flow_vecs):
+    bsize = flow_vecs[0].shape[0]
+    T = len(flow_vecs)
+
+    magnitudes = [np.linalg.norm(f, axis=3) + 1e-5 for f in flow_vecs]
+    max_magnitude = np.max(magnitudes)
+    norm_magnitudes = [m / max_magnitude for m in magnitudes]
+
+    magnitudes = [np.expand_dims(m, axis=3) for m in magnitudes]
+
+    #pixelflow vectors normalized for unit length
+    norm_flow = [np.divide(f, m) for f, m in zip(flow_vecs, magnitudes)]
+    flow_angle = [np.arctan2(p[:, :, :, 0], p[:, :, :, 1]) for p in norm_flow]
+    color_flow = [np.zeros((bsize, 64, 64, 3)) for _ in range(T)]
+
+    for t in range(T):
+        for b in range(bsize):
+            for r in range(64):
+                for c in range(64):
+                    color_flow[t][b, r, c] = colorsys.hsv_to_rgb((flow_angle[t][b, r, c] +np.pi) / 2 / np.pi,
+                                                              norm_magnitudes[t][b, r, c],
+                                                              1.)
+
+    return color_flow
+
 t = 0
 class Visualizer_tkinter(object):
-    def __init__(self, dict_ = None, append_masks = True, gif_savepath=None, numex = 4, suf= ""):
+    def __init__(self, dict_ = None, append_masks = True, gif_savepath=None, numex = 1, suf= ""):
 
         if dict_ == None:
             dict_ = cPickle.load(open(gif_savepath + '/pred.pkl', "rb"))
@@ -51,52 +76,40 @@ class Visualizer_tkinter(object):
         self.numex = numex
         self.video_list = []
 
-        if 'ground_truth' in dict_:
-            ground_truth = dict_['ground_truth']
-            if not isinstance(ground_truth, list):
-                ground_truth = np.split(ground_truth, ground_truth.shape[1], axis=1)
-                ground_truth = [np.squeeze(g) for g in ground_truth]
-            ground_truth = ground_truth[1:]
+        for key in dict_.keys():
+            data = dict_[key]
 
-            self.video_list.append((ground_truth, 'Ground Truth'))
+            if key ==  'ground_truth':  # special treatement for gtruth
+                ground_truth = dict_['ground_truth']
+                if not isinstance(ground_truth, list):
+                    ground_truth = np.split(ground_truth, ground_truth.shape[1], axis=1)
+                    if ground_truth[0].shape[0] == 1:
+                        ground_truth = [g.reshape((1,64,64,3)) for g in ground_truth]
+                    else:
+                        ground_truth = [np.squeeze(g) for g in ground_truth]
+                ground_truth = ground_truth[1:]
 
-        self.video_list.append((gen_images, 'Gen Images'))
+                self.video_list.append((ground_truth, 'Ground Truth'))
 
-        if 'gen_distrib' in dict_:
-            gen_pix_distrib = dict_['gen_distrib']
-            plot_psum_overtime(gen_pix_distrib, numex, gif_savepath)
-            self.video_list.append((gen_pix_distrib, 'Gen distrib'))
+            elif type(data[0]) is list:    # for lists of videos
+                print "the key \"{}\" contains {} videos".format(key, len(data[0]))
+                if key == 'gen_masks' and not append_masks:
+                    print 'skipping masks!'
+                    continue
+                vid_list = convert_to_videolist(data, repeat_last_dim=False)
 
-        if append_masks:
-            gen_masks = dict_['gen_masks']
-            gen_masks = convert_to_videolist(gen_masks, repeat_last_dim=False)
+                for i, m in enumerate(vid_list):
+                    self.video_list.append((m, '{} {}'.format(key, i)))
 
-            for i,m in enumerate(gen_masks):
-                self.video_list.append((m,'mask {}'.format(i)))
+            elif key =='flow':
+                self.video_list.append((visualize_flow(data), key))
 
-        if 'moved_parts' in dict_:
-            moved_parts = dict_['moved_parts']
-            moved_parts = convert_to_videolist(moved_parts, repeat_last_dim=False)
+            elif type(data[0]) is np.ndarray:  # for a single video channel
+                self.video_list.append((data, key))
 
-            for i, m in enumerate(moved_parts):
-                self.video_list.append((m, 'moved part {}'.format(i)))
+                if key == 'gen_distrib':  #if gen_distrib plot psum overtime!
+                    plot_psum_overtime(data, numex, gif_savepath)
 
-        if 'moved_images' in dict_:
-            moved_images = dict_['moved_images']
-            moved_images = convert_to_videolist(moved_images, repeat_last_dim=False)
-
-            for i, m in enumerate(moved_images):
-                self.video_list.append((m, 'moved image {}'.format(i)))
-
-        if 'moved_bckgd' in dict_:
-            moved_bckgd = dict_['moved_bckgd']
-            moved_bckgd = convert_to_videolist(moved_bckgd, repeat_last_dim=False)
-
-            for i, m in enumerate(moved_bckgd):
-                self.video_list.append((m, 'moved_bckgd {}'.format(i)))
-
-        # if 'flow_vectors' in dict_:
-        #     self.videolist.append(visualize_flow(dict_))
         self.renormalize_heatmaps = True
         print 'renormalizing heatmaps: ', self.renormalize_heatmaps
 
@@ -120,7 +133,7 @@ class Visualizer_tkinter(object):
         frame.rowconfigure(1, weight=1)
         frame.columnconfigure(1, weight=1)
 
-        standard_size = np.array([1.5 * self.numex, self.num_rows * 1.5])
+        standard_size = np.array([1.5 * self.numex, self.num_rows * 1.0])  ### 1.5
         # standard_size = np.array([6, 24])
         figsize = (standard_size * 1.0).astype(np.int)
         fig = plt.figure(num=1, figsize=figsize)
@@ -176,7 +189,7 @@ class Visualizer_tkinter(object):
                 im_handle_row.append(im_handle)
             self.im_handle_list.append(im_handle_row)
 
-            plt.figtext(.5, 1-(row*drow*0.995)-0.003, self.video_list[row][1], va="center", ha="center", size=8)
+            plt.figtext(.5, 1-(row*drow*0.995)-0.01, self.video_list[row][1], va="center", ha="center", size=8)
 
         plt.axis('off')
         fig.tight_layout()
@@ -298,5 +311,6 @@ def convert_to_videolist(input, repeat_last_dim):
 
 if __name__ == '__main__':
     # file_path = '/home/frederik/Documents/catkin_ws/src/visual_mpc/tensorflow_data/sawyer/cdna_history/modeldata'
-    file_path = '/home/frederik/Documents/catkin_ws/src/visual_mpc/tensorflow_data/sawyer/move_1stbckgd_cdna/modeldata'
+    file_path = '/home/frederik/Documents/catkin_ws/src/visual_mpc/tensorflow_data/dense_flow/trafo_based/sawyerdata/oldmodel/modeldata'
     v  = Visualizer_tkinter(append_masks=True, gif_savepath=file_path)
+    v.build_figure()

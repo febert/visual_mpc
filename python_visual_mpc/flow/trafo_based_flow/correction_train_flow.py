@@ -20,6 +20,7 @@ import tensorflow as tf
 import imp
 import sys
 import cPickle
+import pdb
 
 import matplotlib.pyplot as plt
 
@@ -114,11 +115,12 @@ class CorrectorModel(object):
             self.rand_ind = rand_ind
             images = [images[:,tf.squeeze(rand_ind)], images[:,tf.squeeze(rand_ind+1)]]
         else:
-            images = tf.split(1,2,images)
+            images = tf.split(images,2,1)
             images = [tf.reshape(im, (1, 64,64, 3)) for im in images]
 
         if reuse_scope is None:
-            gen_images, gen_masks, gen_distrib = construct_correction(
+            gen_images, gen_masks, gen_distrib, flow = construct_correction(
+                conf,
                 images,
                 num_masks=conf['num_masks'],
                 cdna=conf['model'] == 'CDNA',
@@ -127,7 +129,8 @@ class CorrectorModel(object):
                 pix_distrib_input= pix_distrib)
         else:  # If it's a validation or test model.
             with tf.variable_scope(reuse_scope, reuse=True):
-                gen_images, gen_masks, gen_distrib = construct_correction(
+                gen_images, gen_masks, gen_distrib, flow = construct_correction(
+                    conf,
                     images,
                     num_masks=conf['num_masks'],
                     cdna=conf['model'] == 'CDNA',
@@ -150,6 +153,8 @@ class CorrectorModel(object):
         self.gen_images= gen_images
         self.gen_masks = gen_masks
         self.gen_distrib = gen_distrib
+
+        self.flow = flow
 
 def mujoco_to_imagespace(mujoco_coord, numpix=64):
     """
@@ -180,74 +185,81 @@ def visualize(conf):
 
     tf.train.start_queue_runners(sess)
 
-    input_distrib = tf.placeholder(tf.float32, shape=(conf['batch_size'], conf['num_objects'], 64, 64))
+    input_distrib = tf.placeholder(tf.float32, shape=(conf['batch_size'], 64, 64, 1))
 
     images = tf.placeholder(tf.float32, name='images',
-                            shape=(conf['batch_size'], conf['sequence_length'], 64, 64, 3))
+                            shape=(conf['batch_size'], 2, 64, 64, 3))
 
     with tf.variable_scope('model', reuse=None):
         val_images, _, _   = build_tfrecord_input(conf, training=False)
-        model = CorrectorModel(conf, images, pix_distrib= input_distrib)
+        model = CorrectorModel(conf, images, pix_distrib= input_distrib, train=False)
 
-    sess.run(tf.initialize_all_variables())
+    tf.train.start_queue_runners(sess)
+    sess.run(tf.global_variables_initializer())
 
+    import re
+    itr_vis = re.match('.*?([0-9]+)$', conf['visualize']).group(1)
     saver = tf.train.Saver(tf.get_collection(tf.GraphKeys.GLOBAL_VARIABLES), max_to_keep=0)
     saver.restore(sess, conf['output_dir'] + '/' + FLAGS.visualize)
+    print 'restore done.'
 
-    ground_truth = sess.run([val_images])
+    [ground_truth] = sess.run([val_images])
 
     b_exp = 0
-    ground_truth = ground_truth[b_exp]
-    c = Getdesig(ground_truth[0], conf, 'b{}'.format(b_exp))
+    initial_img = ground_truth[b_exp][0]
+    c = Getdesig(initial_img, conf, 'b{}'.format(b_exp))
     desig_pos_aux1 = c.coords.astype(np.int32)
-    one_hot_img = np.zeros([conf['batch_size'], 64, 64])
+    # desig_pos_aux1 = np.array([31, 29])
+    start_one_hot = np.zeros([conf['batch_size'], 64, 64, 1])
 
-    one_hot_img[0,desig_pos_aux1[0], desig_pos_aux1[1]] = 1
+    start_one_hot[0, desig_pos_aux1[0], desig_pos_aux1[1]] = 1
 
-    plt.imshow(one_hot_img)
-    plt.show()
-
-    output_distrib_list, gen_masks_list, gen_image_list = [], [], []
+    output_distrib_list, gen_masks_list, gen_image_list, flow_list = [], [], [], []
 
     for t in range(conf['sequence_length']-1):
 
         if t == 0:
-            _one_hot_images = one_hot_img
+            next_input_distrib = start_one_hot
         else:
-            _one_hot_images = output_distrib
+            next_input_distrib = output_distrib
 
         feed_dict = {
                      model.lr: 0,
                      images: ground_truth[:,t:t+2],  #could alternatively feed in gen_image
-                     input_distrib: _one_hot_images
+                     input_distrib: next_input_distrib
                      }
 
-        gen_image, gen_masks, output_distrib = sess.run([model.gen_images,
-                                                         model.gen_masks,
-                                                         model.gen_distrib
-                                                         ],
-                                                         feed_dict)
+        gen_image, gen_masks, output_distrib, flow = sess.run([model.gen_images,
+                                                             model.gen_masks,
+                                                             model.gen_distrib,
+                                                             model.flow
+                                                             ],
+                                                             feed_dict)
 
         output_distrib_list.append(output_distrib)
         gen_image_list.append(gen_image)
         gen_masks_list.append(gen_masks)
+        flow_list.append(flow)
 
-    dict = {}
-    dict['gen_images'] = gen_images
-    dict['gen_masks'] = gen_masks
-    dict['gen_distrib'] = gen_distrib
+    import collections
+
+    dict = collections.OrderedDict()
+    dict['ground_truth'] = ground_truth
+    dict['gen_images'] = gen_image_list
+    dict['gen_masks'] = gen_masks_list
+    dict['gen_distrib'] = output_distrib_list
+    dict['flow'] = flow_list
+
     dict['iternum'] = itr_vis
 
-    cPickle.dump(dict, open(file_path + '/pred.pkl', 'wb'))
-    print 'written files to:' + file_path
+    cPickle.dump(dict, open(conf['output_dir'] + '/pred.pkl', 'wb'))
+    print 'written files to:' + conf['output_dir']
 
     from python_visual_mpc.video_prediction.utils_vpred.animate_tkinter import Visualizer_tkinter
-    v = Visualizer_tkinter(dict, numex=4, append_masks=False,
+    v = Visualizer_tkinter(dict, numex=1, append_masks=True,
                            gif_savepath=conf['output_dir'],
-                           suf='_diffmotions_b{}_l{}'.format(b_exp, conf['sequence_length']))
+                           suf='flow{}_l{}'.format(b_exp, conf['sequence_length']))
     v.build_figure()
-
-
 
 
 def main(unused_argv, conf_script= None):
@@ -279,11 +291,11 @@ def main(unused_argv, conf_script= None):
 
     print 'Constructing models and inputs'
     with tf.variable_scope('model', reuse=None) as training_scope:
-        images,_ , _ , _ = build_tfrecord_input(conf, training=True)
+        images,_ , _ = build_tfrecord_input(conf, training=True)
         model = CorrectorModel(conf, images)
 
     with tf.variable_scope('val_model', reuse=None):
-        val_images,_ , _ , _= build_tfrecord_input(conf, training=False)
+        val_images,_ , _ = build_tfrecord_input(conf, training=False)
         val_model = CorrectorModel(conf, val_images, reuse_scope=training_scope)
 
     print 'Constructing saver.'
