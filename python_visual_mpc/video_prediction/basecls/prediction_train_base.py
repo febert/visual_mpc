@@ -36,30 +36,7 @@ flags.DEFINE_string('pretrained', None, 'path to model file from which to resume
 flags.DEFINE_bool('diffmotions', False, 'visualize several different motions for a single scene')
 
 
-class Getdesig(object):
-    def __init__(self,img,conf,img_namesuffix):
-        self.suf = img_namesuffix
-        self.conf = conf
-        self.img = img
-        fig = plt.figure()
-        self.ax = fig.add_subplot(111)
-        self.ax.set_xlim(0, 63)
-        self.ax.set_ylim(63, 0)
-        plt.imshow(img)
 
-        self.coords = None
-        cid = fig.canvas.mpl_connect('button_press_event', self.onclick)
-        plt.show()
-
-    def onclick(self, event):
-        print('button=%d, x=%d, y=%d, xdata=%f, ydata=%f' %
-              (event.button, event.x, event.y, event.xdata, event.ydata))
-        self.coords = np.array([event.ydata, event.xdata])
-        self.ax.scatter(self.coords[1], self.coords[0], marker= "o", s=70, facecolors='b', edgecolors='b')
-        self.ax.set_xlim(0, 63)
-        self.ax.set_ylim(63, 0)
-        plt.draw()
-        plt.savefig(self.conf['output_dir']+'/img_desigpix'+self.suf)
 
 def main(unused_argv, conf_script= None):
     os.environ["CUDA_VISIBLE_DEVICES"] = str(FLAGS.device)
@@ -91,33 +68,14 @@ def main(unused_argv, conf_script= None):
             inference = True
             conf['sequence_length'] = 30
 
-    if 'sawyer' in conf:
-        from python_visual_mpc.video_prediction.read_tf_record_sawyer12 import build_tfrecord_input
-    else:
-        from python_visual_mpc.video_prediction.read_tf_record import build_tfrecord_input
-
-    model= conf['model']
+    Model= conf['model']
 
     print 'Constructing models and inputs.'
     if FLAGS.diffmotions:
 
+        model = Model(load_data = False)
+        model.visualize_diffmotions
 
-
-        with tf.variable_scope('model', reuse=None):
-            val_model = Model(conf, images_pl, actions_pl, states_pl, pix_distrib=pix_distrib_pl,
-                              inference=inference)
-
-    else:
-        with tf.variable_scope('model', reuse=None) as training_scope:
-            images_aux1, actions, states = build_tfrecord_input(conf, training=True)
-            images = images_aux1
-            model = Model(conf, images, actions, states, inference=inference)
-
-        with tf.variable_scope('val_model', reuse=None):
-            val_images_aux1, val_actions, val_states = build_tfrecord_input(conf, training=False)
-            val_images = val_images_aux1
-            val_model = Model(conf, val_images, val_actions, val_states,
-                              training_scope, inference=inference)
 
     print 'Constructing saver.'
     # Make saver.
