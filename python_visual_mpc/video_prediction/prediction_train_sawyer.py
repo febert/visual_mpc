@@ -253,7 +253,11 @@ def main(unused_argv, conf_script= None):
             conf['sequence_length'] = 30
 
     if 'sawyer' in conf:
-        from read_tf_record_sawyer12 import build_tfrecord_input
+        if 'wrist_rot' in conf['data_dir']:
+            from read_tf_record_wristrot import build_tfrecord_input
+            wrist_rot = True
+        else:
+            from read_tf_record_sawyer12 import build_tfrecord_input
     else:
         from read_tf_record import build_tfrecord_input
 

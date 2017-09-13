@@ -51,8 +51,7 @@ def build_tfrecord_input(conf, training=True):
 
     image_seq, image_main_seq, endeffector_pos_seq, action_seq, object_pos_seq, init_pix_distrib_seq = [], [], [], [], [], []
 
-    load_indx = range(0, 30, conf['skip_frame'])
-    load_indx = load_indx[:conf['sequence_length']]
+    load_indx = range(0, conf['sequence_length'], conf['skip_frame'])
     print 'using frame sequence: ', load_indx
 
     for i in load_indx:

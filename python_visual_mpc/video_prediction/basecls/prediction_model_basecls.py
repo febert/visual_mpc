@@ -32,13 +32,13 @@ RELU_SHIFT = 1e-12
 class Base_Prediction_Model(object):
 
     def __init__(self,
-                images,
+                images=None,
                 actions=None,
                 states=None,
                 iter_num=-1.0,
                 pix_distrib1=None,
-                pix_distrib2=None,
-                conf = None):
+                conf = None,
+                trafo_pix = True):
 
         self.cdna, self.stp, self.dna = False, False, False
         if self.conf['model'] == 'CDNA':
@@ -54,6 +54,26 @@ class Base_Prediction_Model(object):
         self.use_state = conf['use_state']
         self.num_masks = conf['num_masks']
         self.context_frames = conf['context_frames']
+
+        if actions is None:
+            self.actions_pl = tf.placeholder(tf.float32, name='actions',
+                                        shape=(conf['batch_size'], conf['sequence_length'], 4))
+            actions = self.actions_pl
+
+        if states is None:
+            self.states_pl = tf.placeholder(tf.float32, name='states',
+                                       shape=(conf['batch_size'], conf['sequence_length'], 3))
+            states = self.states_pl
+
+        if images is None:
+            self.images_pl = tf.placeholder(tf.float32, name='images',
+                                       shape=(conf['batch_size'], conf['sequence_length'], 64, 64, 3))
+            images = self.images_pl
+
+        if pix_distrib1 is None:
+            self.pix_distrib_pl = tf.placeholder(tf.float32, name='states',
+                                            shape=(conf['batch_size'], conf['sequence_length'], 64, 64, 1))
+
 
         self.batch_size, self.img_height, self.img_width, self.color_channels = [int(i) for i in
                                                                                  images[0].get_shape()[0:4]]
@@ -90,21 +110,14 @@ class Base_Prediction_Model(object):
         self.iter_num = tf.placeholder(tf.float32, [])
 
         # Split into timesteps.
-        if actions != None:
-            actions = tf.split(axis=1, num_or_size_splits=actions.get_shape()[1], value=actions)
-            actions = [tf.squeeze(act) for act in actions]
-        if states != None:
-            states = tf.split(axis=1, num_or_size_splits=states.get_shape()[1], value=states)
-            states = [tf.squeeze(st) for st in states]
+        actions = tf.split(axis=1, num_or_size_splits=actions.get_shape()[1], value=actions)
+        actions = [tf.squeeze(act) for act in actions]
+        states = tf.split(axis=1, num_or_size_splits=states.get_shape()[1], value=states)
+        states = [tf.squeeze(st) for st in states]
         images = tf.split(axis=1, num_or_size_splits=images.get_shape()[1], value=images)
         images = [tf.squeeze(img) for img in images]
-        if pix_distrib1 != None:
-            pix_distrib1 = tf.split(axis=1, num_or_size_splits=pix_distrib1.get_shape()[1], value=pix_distrib1)
-            self.pix_distrib1= [tf.squeeze(pix) for pix in pix_distrib1]
-
-        if pix_distrib2 != None:
-            pix_distrib2 = tf.split(axis=1, num_or_size_splits=pix_distrib2.get_shape()[1], value=pix_distrib2)
-            self.pix_distrib2= [tf.squeeze(pix) for pix in pix_distrib2]
+        pix_distrib1 = tf.split(axis=1, num_or_size_splits=pix_distrib1.get_shape()[1], value=pix_distrib1)
+        self.pix_distrib1= [tf.squeeze(pix) for pix in pix_distrib1]
 
         self.actions = actions
         self.iter_num = iter_num
@@ -220,7 +233,7 @@ class Base_Prediction_Model(object):
                                                                           prev_pix_distrib1,
                                                                           prev_pix_distrib2)
         if self.conf['model'] == 'CDNA':
-            cdna_kerns, tf_distrib_ndesig1, tf_distrib_ndesig2, tf_l = self.method_name(
+            cdna_kerns, tf_distrib_ndesig1, tf_distrib_ndesig2, tf_l = self.apply_cdna(
                 enc6, hidden5, prev_image, prev_pix_distrib1, prev_pix_distrib2, reuse)
         if '1stimg_bckgd' in self.conf:
             background = self.images[0]
@@ -247,6 +260,7 @@ class Base_Prediction_Model(object):
                                                            tf_distrib_ndesig2)
 
                 self.gen_distrib2.append(pix_distrib_output)
+
         if 'visual_flowvec' in self.conf:
             motion_vecs = self.compute_motion_vector(cdna_kerns)
             output = tf.zeros([self.conf['batch_size'], 64, 64, 2])
@@ -265,7 +279,7 @@ class Base_Prediction_Model(object):
         self.gen_states.append(current_state)
         return current_state
 
-    def method_name(self, enc6, hidden5, prev_image, prev_pix_distrib1, prev_pix_distrib2, reuse):
+    def apply_cdna(self, enc6, hidden5, prev_image, prev_pix_distrib1, prev_pix_distrib2, reuse):
         if 'gen_pix' in self.conf:
             enc7 = slim.layers.conv2d_transpose(
                 enc6, self.color_channels, 1, stride=1, scope='convt4')
@@ -313,7 +327,6 @@ class Base_Prediction_Model(object):
             if 'ndesig' in self.conf:
                 transf_distrib_ndesig2 = [
                     self.dna_transformation(prev_pix_distrib2, trafo_input, KERN_SIZE)]
-
             else:
                 transf_distrib_ndesig2 = None
         else:
@@ -386,7 +399,6 @@ class Base_Prediction_Model(object):
             hidden7.get_shape()[3], 3, stride=2, scope='convt3',
             normalizer_fn=tf_layers.layer_norm,
             normalizer_params={'scope': 'layer_norm9'})
-
 
         return enc6, hidden5, state_action
 
@@ -501,30 +513,6 @@ class Base_Prediction_Model(object):
 
         return output, mask_list
 
-    def fuse_trafos_movbckgd(self, enc6, moved_background_image, transformed, scope, extra_masks, reuse):
-        print 'moving backgd'
-        num_masks = self.conf['num_masks']
-        img_height = 64
-        img_width = 64
-
-        ## moving the background
-
-        masks = slim.layers.conv2d_transpose(
-            enc6, (self.conf['num_masks']+ extra_masks), 1, stride=1, scope=scope)
-        masks = tf.reshape(
-            tf.nn.softmax(tf.reshape(masks, [-1, num_masks +extra_masks])),
-            [int(self.batch_size), int(img_height), int(img_width), num_masks +extra_masks])
-        mask_list = tf.split(axis=3, num_or_size_splits=num_masks +extra_masks, value=masks)
-
-        complete_transformed = moved_background_image + transformed
-
-        output = 0
-        moved_parts = []
-        for layer, mask in zip_equal(complete_transformed, mask_list):
-            moved_parts.append(layer * mask)
-            output += layer * mask
-
-        return output, mask_list, moved_parts
 
     def fuse_pix_distrib(self, mask_list, pix_distributions, prev_pix_distrib,
                          transf_distrib):
@@ -571,7 +559,6 @@ class Base_Prediction_Model(object):
 
             vecs.append(tf.stack([vec_r,vec_c], axis=1))
         return vecs
-
 
     ## Utility functions
     def stp_transformation(self, prev_image, stp_input, num_masks, reuse= None, suffix = None):

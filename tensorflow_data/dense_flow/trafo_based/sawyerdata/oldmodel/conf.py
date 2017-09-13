@@ -29,4 +29,7 @@ configuration = {
 'learning_rate': 0.001,     #'the base learning rate of the generator' ,
 'visualize': '',            #'load model from which to generate visualizations
 'file_visual': '',          # datafile used for making visualizations
+'single_view':'',
+'visual_flowvec':'',
+'kern_size':5               # size of transformation kernels
 }
