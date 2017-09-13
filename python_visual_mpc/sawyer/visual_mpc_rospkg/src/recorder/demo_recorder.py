@@ -247,11 +247,11 @@ class DemoRobotRecorder(object):
         :return:
         """
         self.itr = itr
-        # self.group_folder = self.save_dir + '/traj_group{}'.format(self.igrp)
+        self.group_folder = self.save_dir + '/traj_group{}'.format(self.igrp)
 
         rospy.loginfo("Init trajectory {}".format(itr))
 
-        traj_folder = '/traj{}'.format(itr)
+        traj_folder = self.group_folder + '/traj{}'.format(itr)
         self.image_folder = traj_folder + '/images'
         self.depth_image_folder = traj_folder + '/depth_images'
 
@@ -287,8 +287,8 @@ class DemoRobotRecorder(object):
         self._delete_traj_local(tr)
 
     def _delete_traj_local(self, i_tr):
-        #self.group_folder = self.save_dir + '/traj_group{}'.format(self.igrp)
-        traj_folder = '/traj{}'.format(i_tr)
+        self.group_folder = self.save_dir + '/traj_group{}'.format(self.igrp)
+        traj_folder = self.group_folder + '/traj{}'.format(i_tr)
         shutil.rmtree(traj_folder)
         print 'deleted {}'.format(traj_folder)
 
