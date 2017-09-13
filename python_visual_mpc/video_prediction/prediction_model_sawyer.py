@@ -481,8 +481,6 @@ class Prediction_Model(object):
         return vecs
 
 
-
-
     ## Utility functions
     def stp_transformation(self, prev_image, stp_input, num_masks, reuse= None, suffix = None):
         """Apply spatial transformer predictor (STP) to previous image.
