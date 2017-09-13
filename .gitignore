@@ -102,6 +102,8 @@ modeldata/
 modeldata_olddata/
 train/
 test/
+train
+test
 
 
 old/
