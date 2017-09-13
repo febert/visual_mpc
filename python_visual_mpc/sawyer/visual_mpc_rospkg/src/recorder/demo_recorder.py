@@ -247,12 +247,11 @@ class DemoRobotRecorder(object):
         :return:
         """
         self.itr = itr
-        self.group_folder = self.save_dir + '/traj_group{}'.format(self.igrp)
+        # self.group_folder = self.save_dir + '/traj_group{}'.format(self.igrp)
 
-        rospy.loginfo("Init trajectory {} in group {}".format(itr, self.igrp))
+        rospy.loginfo("Init trajectory {}".format(itr))
 
-
-        traj_folder = self.group_folder + '/traj{}'.format(itr)
+        traj_folder = '/traj{}'.format(itr)
         self.image_folder = traj_folder + '/images'
         self.depth_image_folder = traj_folder + '/depth_images'
 
@@ -267,15 +266,14 @@ class DemoRobotRecorder(object):
             os.makedirs(self.depth_image_folder)
 
         if self.instance_type == 'main':
-            self.state_action_data_file = traj_folder + '/joint_angles_traj{}.txt'.format(itr)
-            self.state_action_pkl_file = traj_folder + '/joint_angles_traj{}.pkl'.format(itr)
+            self.state_action_data_file = traj_folder + '/joint_traj{}.txt'.format(itr)
+            self.state_action_pkl_file = traj_folder + '/joint_traj{}.pkl'.format(itr)
             joints_right = self._limb_right.joint_names()
             with open(self.state_action_data_file, 'w+') as f:
                 f.write('time,')
                 action_names = ['move','val_move_x','val_move_y','close','val_close','up','val_up']
                 captions = joints_right + action_names
                 f.write(','.join(captions) + ',' + '\n')
-
 
     def delete_traj(self, tr):
         assert self.instance_type == 'main'
@@ -289,8 +287,8 @@ class DemoRobotRecorder(object):
         self._delete_traj_local(tr)
 
     def _delete_traj_local(self, i_tr):
-        self.group_folder = self.save_dir + '/traj_group{}'.format(self.igrp)
-        traj_folder = self.group_folder + '/traj{}'.format(i_tr)
+        #self.group_folder = self.save_dir + '/traj_group{}'.format(self.igrp)
+        traj_folder = '/traj{}'.format(i_tr)
         shutil.rmtree(traj_folder)
         print 'deleted {}'.format(traj_folder)
 

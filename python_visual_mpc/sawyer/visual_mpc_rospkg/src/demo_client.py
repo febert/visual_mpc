@@ -63,6 +63,7 @@ class Pushback_Recorder(object):
         self.start_callid = self._navigator.register_callback(self.start_recording, 'right_button_ok')
         # Navigator Rethink button press
         self.stop_callid = self._navigator.register_callback(self.stop_recording, 'right_button_show')
+        self.delete_callid = self._navigator.register_callback(self.delete_recording, 'right_button_back')
 
         self.imp_ctrl_publisher = rospy.Publisher('desired_joint_pos', JointState, queue_size=1)
         self.imp_ctrl_release_spring_pub = rospy.Publisher('release_spring', Float32, queue_size=10)
@@ -79,7 +80,7 @@ class Pushback_Recorder(object):
 
         self.set_neutral()
         self.recorder = DemoRobotRecorder('/home/sudeep/outputs', self.N_SAMPLES, use_aux=False)
-
+        self.record_iter = 0
 
         if args.record == 'False':
             self.playback(file)
@@ -124,18 +125,22 @@ class Pushback_Recorder(object):
         js.position = [des_joint_angles[n] for n in js.name]
         self.imp_ctrl_publisher.publish(js)
 
+    def delete_recording(self):
+        self.record_iter -= 1
+        self.recorder.delete_traj(self.record_iter)
 
     def stop_recording(self, data):
         print 'stopped recording'
         self.collect_active = False
         # self.playback()
-        self.clean_shutdown()
-
+        # self.clean_shutdown()
+        self.set_neutral()
 
     def start_recording(self, data):
         if self.joint_pos != []:
             return
-        self.recorder.init_traj(0)
+        self.recorder.init_traj(self.record_iter)
+        self.record_iter += 1
         print 'started recording'
 
 
