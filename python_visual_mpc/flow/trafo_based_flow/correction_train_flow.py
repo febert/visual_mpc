@@ -119,23 +119,15 @@ class CorrectorModel(object):
             images = [tf.reshape(im, (1, 64,64, 3)) for im in images]
 
         if reuse_scope is None:
-            gen_images, gen_masks, gen_distrib, flow = construct_correction(
+            gen_images, gen_masks, gen_distrib, flow, kernels = construct_correction(
                 conf,
                 images,
-                num_masks=conf['num_masks'],
-                cdna=conf['model'] == 'CDNA',
-                dna=conf['model'] == 'DNA',
-                stp=conf['model'] == 'STP',
                 pix_distrib_input= pix_distrib)
         else:  # If it's a validation or test model.
             with tf.variable_scope(reuse_scope, reuse=True):
-                gen_images, gen_masks, gen_distrib, flow = construct_correction(
+                gen_images, gen_masks, gen_distrib, flow, kernels = construct_correction(
                     conf,
                     images,
-                    num_masks=conf['num_masks'],
-                    cdna=conf['model'] == 'CDNA',
-                    dna=conf['model'] == 'DNA',
-                    stp=conf['model'] == 'STP',
                     pix_distrib_input=pix_distrib)
 
         # L2 loss, PSNR for eval.
