@@ -12,6 +12,10 @@ to resume training from checkpoint add the option:
 for example
  ```--pretrained ../../tensorflow_data/sawyer/cdna/modeldata/model20002```
 
+ you can specify which gpu to use by setting:
+
+ ```--device <i_gpu>```
+
 
 ## Visualizing Video
 
@@ -22,4 +26,6 @@ for visualizing video prediction with action sequences and start-images from the
 for visualizing motions in different direction and the predicted probability distributions of the designated pixel add:
 
 `--diffmotions`
+
+
 
