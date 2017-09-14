@@ -94,6 +94,32 @@ class Getdesig(object):
         plt.savefig(self.conf['output_dir']+'/img_desigpix'+self.suf)
 
 
+def l1_deriv_loss(flow_field):
+
+    sobel_r = np.array([[ 1, 2, 1],
+                        [ 0, 0, 0],
+                        [-1,-2,-1]], dtype=np.float32)
+
+    sobel_c = np.transpose(sobel_r)
+    sobel_r = sobel_r.reshape([3,3,1,1])
+    sobel_c = sobel_c.reshape([3, 3,1, 1])
+
+    sobel_r = tf.constant(sobel_r, dtype=tf.float32)
+    sobel_c = tf.constant(sobel_c, dtype=tf.float32)
+
+    r_flow = tf.expand_dims(flow_field[:, :, :, 0], -1)
+    c_flow = tf.expand_dims(flow_field[:, :, :, 1], -1)
+
+    dr_dr_flow = tf.nn.conv2d(r_flow, sobel_r, strides=[1,1,1,1], padding='SAME')
+    dr_dc_flow = tf.nn.conv2d(r_flow, sobel_c, strides=[1,1,1,1], padding='SAME')
+
+    dc_dr_flow = tf.nn.conv2d(c_flow, sobel_r, strides=[1,1,1,1], padding='SAME')
+    dc_dc_flow = tf.nn.conv2d(c_flow, sobel_c, strides=[1,1,1,1], padding='SAME')
+
+    combined = tf.concat([dr_dr_flow, dr_dc_flow, dc_dr_flow, dc_dc_flow], axis= 3)
+    return tf.norm(combined, ord=1)
+
+
 class CorrectorModel(object):
     def __init__(self,
                  conf,
@@ -135,6 +161,12 @@ class CorrectorModel(object):
         loss = mean_squared_error(images[1], gen_images)
         summaries.append(tf.summary.scalar('recon_cost', loss))
 
+        if 'l1_deriv_flow_penal' in conf:
+            print 'applying l1 derivative penalty'
+            deriv_penal = l1_deriv_loss(flow)
+            summaries.append(tf.summary.scalar('flow l1 derivative penalty', deriv_penal))
+            loss += deriv_penal
+
         self.loss = loss
 
         self.lr = tf.placeholder_with_default(conf['learning_rate'], ())
@@ -168,7 +200,7 @@ def mujoco_to_imagespace(mujoco_coord, numpix=64):
 
 
 def visualize(conf):
-    gpu_options = tf.GPUOptions(per_process_gpu_memory_fraction=0.9)
+    gpu_options = tf.GPUOptions(per_process_gpu_memory_fraction=0.4)
     # Make training session.
 
     conf['batch_size'] = 1
