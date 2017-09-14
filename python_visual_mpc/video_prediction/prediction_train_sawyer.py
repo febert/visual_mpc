@@ -11,7 +11,7 @@ import matplotlib.pyplot as plt
 from tensorflow.python.platform import app
 from tensorflow.python.platform import flags
 from makegifs import comp_gif
-
+import collections
 
 from datetime import datetime
 # How often to record tensorboard summaries.
@@ -394,15 +394,10 @@ def main(unused_argv, conf_script= None):
             cPickle.dump(dict, open(file_path + '/pred.pkl', 'wb'))
             print 'written files to:' + file_path
 
-            make_gif = False
-            if make_gif:
-                comp_gif(conf, conf['output_dir'], append_masks=False,
-                         suffix='_diffmotions_b{}_l{}'.format(b_exp, conf['sequence_length']))
-            else:
-                v = Visualizer_tkinter(dict, numex=4, append_masks=False,
-                                       gif_savepath=conf['output_dir'],
-                                       suf='_diffmotions_b{}_l{}'.format(b_exp, conf['sequence_length']))
-                v.build_figure()
+            v = Visualizer_tkinter(dict, numex=4, append_masks=False,
+                                   gif_savepath=conf['output_dir'],
+                                   suf='_diffmotions_b{}_l{}'.format(b_exp, conf['sequence_length']))
+            v.build_figure()
 
         else:
             ground_truth, gen_images, gen_masks = sess.run([val_images,
@@ -410,7 +405,7 @@ def main(unused_argv, conf_script= None):
                                                             val_model.m.gen_masks
                                                             ],
                                                             feed_dict)
-            dict = {}
+            dict = collections.OrderedDict()
             dict['iternum'] = itr_vis
             dict['gen_images'] = gen_images
             dict['ground_truth'] = ground_truth
@@ -419,12 +414,8 @@ def main(unused_argv, conf_script= None):
             cPickle.dump(dict, open(file_path + '/pred.pkl', 'wb'))
             print 'written files to:' + file_path
 
-            make_gif = False
-            if make_gif:
-                comp_gif(conf, conf['output_dir'], append_masks=True)
-            else:
-                v = Visualizer_tkinter(dict, numex=4, append_masks=True, gif_savepath=conf['output_dir'])
-                v.build_figure()
+            v = Visualizer_tkinter(dict, numex=4, append_masks=True, gif_savepath=conf['output_dir'])
+            v.build_figure()
         return
 
     itr_0 =0
