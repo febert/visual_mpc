@@ -31,5 +31,6 @@ configuration = {
 'file_visual': '',          # datafile used for making visualizations
 'single_view':'',
 'visual_flowvec':'',
-'kern_size':5               # size of transformation kernels
+'kern_size':5,               # size of transformation kernels
+'l1_deriv_flow_penal':1e-3,
 }
