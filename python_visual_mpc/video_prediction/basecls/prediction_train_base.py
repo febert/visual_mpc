@@ -10,8 +10,6 @@ import imp
 import matplotlib.pyplot as plt
 from tensorflow.python.platform import app
 from tensorflow.python.platform import flags
-from makegifs import comp_gif
-
 
 from datetime import datetime
 # How often to record tensorboard summaries.
@@ -25,6 +23,7 @@ SAVE_INTERVAL = 2000
 
 
 from python_visual_mpc.video_prediction.utils_vpred.animate_tkinter import Visualizer_tkinter
+from utils.visualize_diffmotions import visualize_diffmotions
 
 from PIL import Image
 
@@ -34,8 +33,6 @@ flags.DEFINE_string('visualize', '', 'model within hyperparameter folder from wh
 flags.DEFINE_integer('device', 0 ,'the value for CUDA_VISIBLE_DEVICES variable')
 flags.DEFINE_string('pretrained', None, 'path to model file from which to resume training')
 flags.DEFINE_bool('diffmotions', False, 'visualize several different motions for a single scene')
-
-
 
 
 def main(unused_argv, conf_script= None):
@@ -68,14 +65,20 @@ def main(unused_argv, conf_script= None):
             inference = True
             conf['sequence_length'] = 30
 
-    Model= conf['model']
+
+    from prediction_model_basecls import Base_Prediction_Model
+    if 'pred_model' in conf:
+        Model = conf['pred_model']
+    else:
+        Model = Base_Prediction_Model
 
     print 'Constructing models and inputs.'
     if FLAGS.diffmotions:
+        model = Model(conf, load_data = False)
 
-        model = Model(load_data = False)
-        model.visualize_diffmotions
-
+    else:
+        model = Model(conf, load_data=True, mode='train', trafo_pix=False)
+        val_model = Model(conf, load_data=True, mode='val', trafo_pix=False)
 
     print 'Constructing saver.'
     # Make saver.
@@ -107,108 +110,25 @@ def main(unused_argv, conf_script= None):
         print 'restore done.'
 
         feed_dict = {val_model.lr: 0.0,
-                     val_model.iter_num: 0 }
+                     val_model.iter_num: 0}
 
         file_path = conf['output_dir']
 
-        if FLAGS.diffmotions:
+        ground_truth, gen_images, gen_masks = sess.run([val_model.images,
+                                                        val_model.gen_images,
+                                                        val_model.gen_masks
+                                                        ],
+                                                        feed_dict)
+        dict = {}
+        dict['iternum'] = itr_vis
+        dict['gen_images'] = gen_images
+        dict['ground_truth'] = ground_truth
+        dict['gen_masks'] = gen_masks
 
-            b_exp, ind0 =0, 0
+        cPickle.dump(dict, open(file_path + '/pred.pkl', 'wb'))
+        print 'written files to:' + file_path
 
-            img, state = sess.run([val_images, val_states])
-            sel_img= img[b_exp,ind0:ind0+2]
-
-            # c = Getdesig(sel_img[0], conf, 'b{}'.format(b_exp))
-            # desig_pos_aux1 = c.coords.astype(np.int32)
-            desig_pos_aux1 = np.array([30, 31])
-            # print "selected designated position for aux1 [row,col]:", desig_pos_aux1
-
-            one_hot = create_one_hot(conf, desig_pos_aux1)
-
-            feed_dict[pix_distrib_pl] = one_hot
-
-            sel_state = np.stack([state[b_exp,ind0],state[b_exp,ind0+1]], axis=0)
-
-            start_states = np.concatenate([sel_state,np.zeros((conf['sequence_length']-2, 3))])
-            start_states = np.expand_dims(start_states, axis=0)
-            start_states = np.repeat(start_states, conf['batch_size'], axis=0)  # copy over batch
-            feed_dict[states_pl] = start_states
-
-            start_images = np.concatenate([sel_img,np.zeros((conf['sequence_length']-2, 64, 64, 3))])
-
-            start_images = np.expand_dims(start_images, axis=0)
-            start_images = np.repeat(start_images, conf['batch_size'], axis=0)  # copy over batch
-            feed_dict[images_pl] = start_images
-
-            actions = np.zeros([conf['batch_size'], conf['sequence_length'], 4])
-
-            # step = .025
-            step = .055
-            n_angles = 8
-            for b in range(n_angles):
-                for i in range(conf['sequence_length']):
-                    actions[b,i] = np.array([np.cos(b/float(n_angles)*2*np.pi)*step, np.sin(b/float(n_angles)*2*np.pi)*step, 0, 0])
-
-            b+=1
-            actions[b, 0] = np.array([0, 0, 4, 0])
-            actions[b, 1] = np.array([0, 0, 4, 0])
-
-            b += 1
-            actions[b, 0] = np.array([0, 0, 0, 4])
-            actions[b, 1] = np.array([0, 0, 0, 4])
-
-            feed_dict[actions_pl] = actions
-
-            gen_images, gen_distrib, gen_masks, moved_parts, moved_images, moved_bckgd = sess.run([val_model.m.gen_images,
-                                                            val_model.m.gen_distrib1,
-                                                            val_model.m.gen_masks,
-                                                            val_model.m.movd_parts_list,
-                                                            val_model.m.moved_images,
-                                                            val_model.m.moved_bckgd
-                                                            ]
-                                                           ,feed_dict)
-            dict = {}
-            dict['gen_images'] = gen_images
-            dict['gen_masks'] = gen_masks
-            dict['gen_distrib'] = gen_distrib
-            dict['iternum'] = itr_vis
-            # dict['moved_parts'] = moved_parts
-            # dict['moved_images'] = moved_images
-            # dict['moved_bckgd'] = moved_bckgd
-
-            cPickle.dump(dict, open(file_path + '/pred.pkl', 'wb'))
-            print 'written files to:' + file_path
-
-            make_gif = False
-            if make_gif:
-                comp_gif(conf, conf['output_dir'], append_masks=False,
-                         suffix='_diffmotions_b{}_l{}'.format(b_exp, conf['sequence_length']))
-            else:
-                v = Visualizer_tkinter(dict, numex=4, append_masks=False,
-                                       gif_savepath=conf['output_dir'],
-                                       suf='_diffmotions_b{}_l{}'.format(b_exp, conf['sequence_length']))
-                v.build_figure()
-
-        else:
-            ground_truth, gen_images, gen_masks = sess.run([val_images,
-                                                            val_model.m.gen_images,
-                                                            val_model.m.gen_masks
-                                                            ],
-                                                            feed_dict)
-            dict = {}
-            dict['iternum'] = itr_vis
-            dict['gen_images'] = gen_images
-            dict['ground_truth'] = ground_truth
-            dict['gen_masks'] = gen_masks
-
-            cPickle.dump(dict, open(file_path + '/pred.pkl', 'wb'))
-            print 'written files to:' + file_path
-
-            make_gif = False
-            if make_gif:
-                comp_gif(conf, conf['output_dir'], append_masks=True)
-            else:
-                Visualizer_tkinter(dict, numex=4, append_masks=True, gif_savepath=conf['output_dir'])
+        Visualizer_tkinter(dict, numex=4, append_masks=True, gif_savepath=conf['output_dir'])
 
         return
 
@@ -252,7 +172,6 @@ def main(unused_argv, conf_script= None):
             [val_summary_str] = sess.run([val_model.summ_op], feed_dict)
             summary_writer.add_summary(val_summary_str, itr)
 
-
         if (itr) % SAVE_INTERVAL == 2:
             tf.logging.info('Saving model to' + conf['output_dir'])
             saver.save(sess, conf['output_dir'] + '/model' + str(itr))
@@ -263,7 +182,7 @@ def main(unused_argv, conf_script= None):
             hours = (datetime.now() -starttime).seconds/3600
             tf.logging.info('running for {0}d, {1}h, {2}min'.format(
                 (datetime.now() - starttime).days,
-                hours,
+                hours,+
                 (datetime.now() - starttime).seconds/60 - hours*60))
             avg_t_iter = np.sum(np.asarray(t_iter))/len(t_iter)
             tf.logging.info('time per iteration: {0}'.format(avg_t_iter/1e6))
