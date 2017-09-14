@@ -41,44 +41,21 @@ def construct_correction(conf,
     if pix_distrib_input != None:
         num_objects = pix_distrib_input.get_shape()[1]
 
-    concat_img = tf.concat([images[0], images[1]], axis=3)
+    concat_img = tf.concat([images[0], images[1]], axis=3)  #64x64x3
 
     with slim.arg_scope(
             [slim.layers.conv2d, slim.layers.fully_connected,
              tf_layers.layer_norm, slim.layers.conv2d_transpose],
             reuse=reuse):
 
-        enc0 = slim.layers.conv2d(
-            concat_img,
-            32, [5, 5],
-            stride=2,
-            scope='conv0',
-        )
-
-        enc1 = slim.layers.conv2d(
-            enc0,
-            64, [5, 5],
-            stride=2,
-            scope='conv1',
-        )
-
-        enc2 = slim.layers.conv2d_transpose(
-            enc1,
-            32, [5, 5],
-            stride=2,
-            scope='t_conv1',
-        )
-
-        enc3 = slim.layers.conv2d_transpose(
-            enc2,
-            32, [5, 5],
-            stride=2,
-            scope='t_conv2',
-        )
+        if 'large_core' in conf:
+            final_layer, middle_layer = build_large_core(concat_img)
+        else:
+            final_layer, middle_layer = build_core(concat_img)
 
         if conf['model'] == 'DNA':
             # Using largest hidden state for predicting untied conv kernels.
-            enc4 = slim.layers.conv2d_transpose(enc3, conf['kern_size'] ** 2, 1, stride=1, scope='convt4')
+            enc4 = slim.layers.conv2d_transpose(final_layer, conf['kern_size'] ** 2, 1, stride=1, scope='convt4')
 
             # Only one mask is supported (more should be unnecessary).
             if num_masks != 1:
@@ -87,12 +64,11 @@ def construct_correction(conf,
             transformed = [transformed]
 
         elif conf['model'] == 'CDNA':
-
-            cdna_input = tf.reshape(enc1, [int(batch_size), -1])
+            cdna_input = tf.reshape(middle_layer, [int(batch_size), -1])
             transformed, kernels = cdna_transformation(conf, images[0], cdna_input, scope='track_cdna', reuse_sc= reuse)
 
         masks = slim.layers.conv2d_transpose(
-            enc3, num_masks + 1, 1, stride=1, scope='convt7')
+            final_layer, num_masks + 1, 1, stride=1, scope='convt7')
         masks = tf.reshape(
             tf.nn.softmax(tf.reshape(masks, [-1, num_masks + 1])),
             [int(batch_size), int(img_height), int(img_width), num_masks + 1])
@@ -140,6 +116,84 @@ def construct_correction(conf,
         return gen_images, gen_masks, pix_distrib_output, flow_vectors, kernels
 
 
+def build_core(concat_img):
+
+    enc0 = slim.layers.conv2d(   #32x32x32
+                concat_img,
+                32, [5, 5],
+                stride=2,
+                scope='conv0',
+            )
+
+    enc1 = slim.layers.conv2d( #16x16x64
+        enc0,
+        64, [5, 5],
+        stride=2,
+        scope='conv1',
+    )
+
+    enc2 = slim.layers.conv2d_transpose(  #32x32x32
+        enc1,
+        32, [5, 5],
+        stride=2,
+        scope='t_conv1',
+    )
+
+    enc3 = slim.layers.conv2d_transpose( # 64x64x32
+        enc2,
+        32, [5, 5],
+        stride=2,
+        scope='t_conv2',
+    )
+
+    return enc3, enc1
+
+
+def build_large_core(concat_img):
+    enc0 = slim.layers.conv2d(  # 32x32x32
+        concat_img,
+        32, [5, 5],
+        stride=2,
+        scope='conv0',
+    )
+
+    enc1 = slim.layers.conv2d(  # 32x32x32
+        enc0,
+        32, [5, 5],
+        stride=1,
+        scope='conv1',
+    )
+
+    enc2 = slim.layers.conv2d(  # 16x16x64
+        enc1,
+        64, [5, 5],
+        stride=2,
+        scope='conv2',
+    )
+
+    enc3 = slim.layers.conv2d_transpose(  # 32x32x32
+        enc2,
+        32, [5, 5],
+        stride=2,
+        scope='t_conv1',
+    )
+
+    enc4 = slim.layers.conv2d_transpose(  # 32x32x32
+        enc3,
+        32, [5, 5],
+        stride=2,
+        scope='t_conv2',
+    )
+
+    enc5 = slim.layers.conv2d_transpose(  # 64x64x32
+        enc4,
+        32, [5, 5],
+        stride=2,
+        scope='t_conv3',
+    )
+
+    return enc5, enc2
+
 def compute_motion_vector_cdna(conf, cdna_kerns):
 
     range = conf['kern_size'] / 2
@@ -152,7 +206,7 @@ def compute_motion_vector_cdna(conf, cdna_kerns):
 
     cdna_kerns = tf.transpose(cdna_kerns, [2, 3, 0, 1])
     cdna_kerns = tf.split(cdna_kerns, conf['num_masks'], axis=1)
-    cdna_kerns = [tf.squeeze(k) for k in cdna_kerns]
+    cdna_kerns = [tf.reshape(k, [conf['batch_size'], conf['kern_size'], conf['kern_size']]) for k in cdna_kerns]
 
     vecs = []
     for kern in cdna_kerns:
