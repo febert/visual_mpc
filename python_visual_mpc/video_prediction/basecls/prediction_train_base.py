@@ -12,6 +12,7 @@ from tensorflow.python.platform import app
 from tensorflow.python.platform import flags
 
 from datetime import datetime
+import collections
 # How often to record tensorboard summaries.
 SUMMARY_INTERVAL = 200
 
@@ -119,7 +120,7 @@ def main(unused_argv, conf_script= None):
                                                         val_model.gen_masks
                                                         ],
                                                         feed_dict)
-        dict = {}
+        dict = collections.OrderedDict()
         dict['iternum'] = itr_vis
         dict['gen_images'] = gen_images
         dict['ground_truth'] = ground_truth
