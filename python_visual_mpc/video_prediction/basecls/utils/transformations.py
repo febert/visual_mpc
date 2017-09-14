@@ -1,9 +1,10 @@
 import numpy as np
 import tensorflow as tf
+import tensorflow.contrib.slim as slim
 
 RELU_SHIFT = 1e-12
 
-def dna_transformation(self, prev_image, dna_input, DNA_KERN_SIZE):
+def dna_transformation(conf, prev_image, dna_input):
     """Apply dynamic neural advection to previous image.
 
     Args:
@@ -13,6 +14,8 @@ def dna_transformation(self, prev_image, dna_input, DNA_KERN_SIZE):
       List of images transformed by the predicted CDNA kernels.
     """
     # Construct translated images.
+    DNA_KERN_SIZE = conf['kern_size']
+
     pad_len = int(np.floor(DNA_KERN_SIZE / 2))
     prev_image_pad = tf.pad(prev_image, [[0, 0], [pad_len, pad_len], [pad_len, pad_len], [0, 0]])
     image_height = int(prev_image.get_shape()[1])
@@ -33,10 +36,10 @@ def dna_transformation(self, prev_image, dna_input, DNA_KERN_SIZE):
         kernel / tf.reduce_sum(
             kernel, [3], keep_dims=True), [4])
 
-    return tf.reduce_sum(kernel * inputs, [3], keep_dims=False)
+    return tf.reduce_sum(kernel * inputs, [3], keep_dims=False), kernel
 
 
-def cdna_transformation(prev_image, cdna_input, reuse_sc=None, scope=None):
+def cdna_transformation(conf, prev_image, cdna_input, reuse_sc=None, scope=None):
     """Apply convolutional dynamic neural advection to previous image.
 
     Args:
@@ -51,8 +54,8 @@ def cdna_transformation(prev_image, cdna_input, reuse_sc=None, scope=None):
     height = int(prev_image.get_shape()[1])
     width = int(prev_image.get_shape()[2])
 
-    DNA_KERN_SIZE = self.conf['kern_size']
-    num_masks = self.conf['num_masks']
+    DNA_KERN_SIZE = conf['kern_size']
+    num_masks = conf['num_masks']
     color_channels = int(prev_image.get_shape()[3])
 
     if scope == None:
@@ -89,7 +92,7 @@ def cdna_transformation(prev_image, cdna_input, reuse_sc=None, scope=None):
 
 
 ## Utility functions
-def stp_transformation(self, prev_image, stp_input, num_masks, reuse= None, suffix = None):
+def stp_transformation(conf, prev_image, stp_input, num_masks, reuse= None, suffix = None):
     """Apply spatial transformer predictor (STP) to previous image.
 
     Args:
