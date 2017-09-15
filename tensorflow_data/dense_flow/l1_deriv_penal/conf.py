@@ -32,5 +32,5 @@ configuration = {
 'single_view':'',
 'visual_flowvec':'',
 'kern_size':5,               # size of transformation kernels
-'l1_deriv_flow_penal':1e-3,
+'l1_deriv_flow_penal':1e-9,
 }
