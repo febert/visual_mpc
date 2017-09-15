@@ -78,6 +78,7 @@ class Tracking_Model(Base_Prediction_Model):
             self.reuse = bool(self.gen_images)
             current_state = self.build_network_core(action, current_state, image)
 
+            print 'building tracker...'
             gen_images, gen_masks, pix_distrib_output, flow_vectors, kernels = construct_correction(self.conf,
                                                                                                     [self.images[t],
                                                                                                     self.images[t + 1]],
