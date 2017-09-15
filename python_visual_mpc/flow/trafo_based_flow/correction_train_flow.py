@@ -233,6 +233,7 @@ def visualize(conf):
     initial_img = ground_truth[b_exp][0]
     c = Getdesig(initial_img, conf, 'b{}'.format(b_exp))
     desig_pos_aux1 = c.coords.astype(np.int32)
+
     # desig_pos_aux1 = np.array([31, 29])
     start_one_hot = np.zeros([conf['batch_size'], 64, 64, 1])
 
