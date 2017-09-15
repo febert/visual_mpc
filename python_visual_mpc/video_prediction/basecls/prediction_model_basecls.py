@@ -96,7 +96,7 @@ class Base_Prediction_Model(object):
         self.movd_parts_list = []
         self.pred_dna_kerns = []
 
-        self.flow_vectors = []
+        self.prediction_flow = []
 
         if 'use_len' in conf:
             print 'randomly shift videos for data augmentation'
@@ -252,13 +252,13 @@ class Base_Prediction_Model(object):
                 self.gen_distrib2.append(pix_distrib_output)
 
         if 'visual_flowvec' in self.conf:
-            motion_vecs = self.compute_motion_vector(cdna_kerns)
+            motion_vecs = self.compute_motion_vector_cdna(cdna_kerns)
             output = tf.zeros([self.conf['batch_size'], 64, 64, 2])
             for vec, mask in zip(motion_vecs, mask_list[1:]):
                 vec = tf.reshape(vec, [self.conf['batch_size'], 1, 1, 2])
                 vec = tf.tile(vec, [1, 64, 64, 1])
                 output += vec * mask
-            self.flow_vectors.append(output)
+            self.prediction_flow.append(output)
 
         if current_state != None:
             current_state = slim.layers.fully_connected(
@@ -552,7 +552,7 @@ class Base_Prediction_Model(object):
             pix_distrib_output += pix* mask
         return pix_distrib_output
 
-    def compute_motion_vector(self, cdna_kerns):
+    def compute_motion_vector_cdna(self, cdna_kerns):
 
         range = self.conf['kern_size'] / 2
         dc = np.linspace(-range, range, num= self.conf['kern_size'])

@@ -62,7 +62,7 @@ def visualize_flow(flow_vecs):
 
 t = 0
 class Visualizer_tkinter(object):
-    def __init__(self, dict_ = None, append_masks = True, gif_savepath=None, numex = 1, suf= ""):
+    def __init__(self, dict_ = None, append_masks = True, gif_savepath=None, numex = 4, suf= ""):
 
         if dict_ == None:
             dict_ = cPickle.load(open(gif_savepath + '/pred.pkl', "rb"))
@@ -101,7 +101,8 @@ class Visualizer_tkinter(object):
                 for i, m in enumerate(vid_list):
                     self.video_list.append((m, '{} {}'.format(key, i)))
 
-            elif key =='flow':
+            elif 'flow' in key:
+                print 'visualizing key {} with colorflow'.format(key)
                 self.video_list.append((visualize_flow(data), key))
 
             elif type(data[0]) is np.ndarray:  # for a single video channel
@@ -189,7 +190,7 @@ class Visualizer_tkinter(object):
                 im_handle_row.append(im_handle)
             self.im_handle_list.append(im_handle_row)
 
-            plt.figtext(.5, 1-(row*drow*0.995)-0.01, self.video_list[row][1], va="center", ha="center", size=8)
+            plt.figtext(.5, 1-(row*drow*0.990)-0.01, self.video_list[row][1], va="center", ha="center", size=8)
 
         plt.axis('off')
         fig.tight_layout()
@@ -310,7 +311,6 @@ def convert_to_videolist(input, repeat_last_dim):
 
 
 if __name__ == '__main__':
-    # file_path = '/home/frederik/Documents/catkin_ws/src/visual_mpc/tensorflow_data/sawyer/cdna_history/modeldata'
-    file_path = '/home/frederik/Documents/catkin_ws/src/visual_mpc/tensorflow_data/dense_flow/trafo_based/sawyerdata/oldmodel/modeldata'
-    v  = Visualizer_tkinter(append_masks=True, gif_savepath=file_path)
+    file_path = '/home/frederik/Documents/catkin_ws/src/visual_mpc/tensorflow_data//sawyer/track_pred/1st_try/modeldata'
+    v  = Visualizer_tkinter(append_masks=False, gif_savepath=file_path)
     v.build_figure()

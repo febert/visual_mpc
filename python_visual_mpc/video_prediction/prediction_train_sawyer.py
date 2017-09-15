@@ -406,15 +406,15 @@ def main(unused_argv, conf_script= None):
                                                             ],
                                                             feed_dict)
             dict = collections.OrderedDict()
-            dict['iternum'] = itr_vis
-            dict['gen_images'] = gen_images
             dict['ground_truth'] = ground_truth
+            dict['gen_images'] = gen_images
             dict['gen_masks'] = gen_masks
+            dict['iternum'] = itr_vis
 
             cPickle.dump(dict, open(file_path + '/pred.pkl', 'wb'))
             print 'written files to:' + file_path
 
-            v = Visualizer_tkinter(dict, numex=4, append_masks=True, gif_savepath=conf['output_dir'])
+            v = Visualizer_tkinter(dict, numex=10, append_masks=False, gif_savepath=conf['output_dir'])
             v.build_figure()
         return
 

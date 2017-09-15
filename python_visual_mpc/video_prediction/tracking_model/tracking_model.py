@@ -33,11 +33,6 @@ class Tracking_Model(Base_Prediction_Model):
             :return:
         """
 
-        if 'kern_size' in self.conf.keys():
-            KERN_SIZE = self.conf['kern_size']
-        else:
-            KERN_SIZE = 5
-
         batch_size, img_height, img_width, self.color_channels = self.images[0].get_shape()[0:4]
 
         if self.states != None:
@@ -66,6 +61,7 @@ class Tracking_Model(Base_Prediction_Model):
         self.lstm_state5, self.lstm_state6, self.lstm_state7 = None, None, None
 
         self.tracking_kerns = []
+        self.tracking_gen_images = []
         self.tracking_flow = []
 
         t = -1
@@ -82,25 +78,17 @@ class Tracking_Model(Base_Prediction_Model):
             self.reuse = bool(self.gen_images)
             current_state = self.build_network_core(action, current_state, image)
 
-            flow_vectors, kernels = self.construct_correction(self.images[t], self.images[t+1])
+            gen_images, gen_masks, pix_distrib_output, flow_vectors, kernels = construct_correction(self.conf,
+                                                                                                    [self.images[t],
+                                                                                                    self.images[t + 1]],
+                                                                                                    reuse=self.reuse)
+            self.tracking_gen_images.append(gen_images)
             self.tracking_kerns.append(kernels)
             self.tracking_flow.append(flow_vectors)
 
+
         self.build_loss()
 
-
-    def construct_correction(self,
-                             image0,
-                             image1,
-                             pix_distrib_input=None):
-
-        """Build network for predicting optical flow
-
-        """
-        print 'build tracker'
-        gen_images, gen_masks, pix_distrib_output, flow_vectors, kernels = construct_correction(self.conf, [image0, image1], reuse=self.reuse)
-
-        return flow_vectors, kernels
 
     def build_loss(self):
         summaries = []
@@ -108,7 +96,6 @@ class Tracking_Model(Base_Prediction_Model):
         self.global_step = tf.Variable(0, trainable=False)
         if self.conf['learning_rate'] == 'scheduled' and not self.visualize:
             print('using scheduled learning rate')
-
             self.lr = tf.train.piecewise_constant(self.global_step, self.conf['lr_boundaries'], self.conf['lr_values'])
         else:
             self.lr = tf.placeholder_with_default(self.conf['learning_rate'], ())
@@ -118,32 +105,40 @@ class Tracking_Model(Base_Prediction_Model):
             true_fft_list, pred_fft_list = [], []
             loss, psnr_all = 0.0, 0.0
 
+            total_recon_cost = 0
             for i, x, gx in zip(
                     range(len(self.gen_images)), self.images[self.conf['context_frames']:],
                     self.gen_images[self.conf['context_frames'] - 1:]):
                 recon_cost_mse = self.mean_squared_error(x, gx)
-
                 summaries.append(tf.summary.scalar('recon_cost' + str(i), recon_cost_mse))
-
-                recon_cost = recon_cost_mse
-
-                loss += recon_cost
+                total_recon_cost += recon_cost_mse
+            summaries.append(tf.summary.scalar('total reconst cost', total_recon_cost))
+            loss += total_recon_cost
 
             if ('ignore_state_action' not in self.conf) and ('ignore_state' not in self.conf):
                 for i, state, gen_state in zip(
                         range(len(self.gen_states)), self.states[self.conf['context_frames']:],
                         self.gen_states[self.conf['context_frames'] - 1:]):
                     state_cost = self.mean_squared_error(state, gen_state) * 1e-4 * self.conf['use_state']
-                    summaries.append(
-                        tf.summary.scalar('state_cost' + str(i), state_cost))
+                    summaries.append(tf.summary.scalar('state_cost' + str(i), state_cost))
                     loss += state_cost
 
-            #adding tracking-prediction aggreement cost:
+            #tracking frame matching cost:
+            total_frame_match_cost = 0
+            for i, im, gen_im in zip_equal(range(len(self.tracking_gen_images)),
+                                       self.images[1:], self.tracking_gen_images):
+                cost = self.mean_squared_error(im, gen_im) * self.conf['track_agg_fact']
+                total_frame_match_cost += cost
+            summaries.append(tf.summary.scalar('total_frame_match_cost', total_frame_match_cost))
+            loss += total_frame_match_cost
+
+            #adding transformation aggreement cost:
+            total_trans_agg_cost = 0
             for i, k1, k2 in zip_equal(range(len(self.tracking_kerns)), self.tracking_kerns, self.pred_dna_kerns):
                 cost = self.mean_squared_error(k1, k2) * self.conf['track_agg_fact']
-                summaries.append(
-                    tf.summary.scalar('track_agg_cost' + str(i), cost))
-                loss += cost
+                total_trans_agg_cost += cost
+            summaries.append(tf.summary.scalar('total_trans_agg_cost', total_trans_agg_cost))
+            loss += total_trans_agg_cost
 
             self.loss = loss = loss / np.float32(len(self.images) - self.conf['context_frames'])
 
