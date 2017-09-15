@@ -51,7 +51,6 @@ def main(unused_argv, conf_script= None):
 
     conf = hyperparams.configuration
 
-    inference = False
     if FLAGS.visualize:
         print 'creating visualizations ...'
         conf['schedsamp_k'] = -1  # don't feed ground truth
@@ -90,13 +89,15 @@ def main(unused_argv, conf_script= None):
 
     gpu_options = tf.GPUOptions(per_process_gpu_memory_fraction=0.9)
     # Make training session.
-    sess = tf.InteractiveSession(config= tf.ConfigProto(gpu_options=gpu_options))
+    sess = tf.InteractiveSession(config=tf.ConfigProto(gpu_options=gpu_options))
     summary_writer = tf.summary.FileWriter(conf['output_dir'], graph=sess.graph, flush_secs=10)
 
     tf.train.start_queue_runners(sess)
     sess.run(tf.global_variables_initializer())
 
+
     if conf['visualize']:
+
         print '-------------------------------------------------------------------'
         print 'verify current settings!! '
         for key in conf.keys():
@@ -109,33 +110,30 @@ def main(unused_argv, conf_script= None):
         saver.restore(sess, conf['visualize'])
         print 'restore done.'
 
-        feed_dict = {val_model.lr: 0.0,
-                     val_model.iter_num: 0}
+        feed_dict = {
+            val_model.iter_num: 0}
 
         file_path = conf['output_dir']
 
-        ground_truth, gen_images, gen_masks, pred_flow, track_flow = sess.run([val_model.images,
+        ground_truth, gen_images, gen_masks = sess.run([val_model.images,
                                                         val_model.gen_images,
-                                                        val_model.gen_masks,
-                                                        val_model.prediction_flow,
-                                                        val_model.tracking_flow
+                                                        val_model.gen_masks
                                                         ],
-                                                        feed_dict)
+                                                       feed_dict)
         dict = collections.OrderedDict()
-        dict['iternum'] = itr_vis
         dict['ground_truth'] = ground_truth
         dict['gen_images'] = gen_images
-        dict['prediction_flow'] = pred_flow
-        dict['tracking_flow'] = track_flow
-        # dict['gen_masks'] = gen_masks
+        dict['gen_masks'] = gen_masks
+        dict['iternum'] = itr_vis
 
         cPickle.dump(dict, open(file_path + '/pred.pkl', 'wb'))
         print 'written files to:' + file_path
 
-        v = Visualizer_tkinter(dict, numex=10, append_masks=True, gif_savepath=conf['output_dir'])
+        v = Visualizer_tkinter(dict, numex=10, append_masks=False, gif_savepath=conf['output_dir'])
         v.build_figure()
 
         return
+
 
     itr_0 =0
     if FLAGS.pretrained != None:
@@ -213,7 +211,6 @@ def create_one_hot(conf, desig_pix):
 
     return one_hot
 
-
 def filter_vars(vars):
     newlist = []
     for v in vars:
@@ -223,6 +220,8 @@ def filter_vars(vars):
             print 'removed state variable from saving-list: ', v.name
 
     return newlist
+
+
 
 if __name__ == '__main__':
     tf.logging.set_verbosity(tf.logging.INFO)

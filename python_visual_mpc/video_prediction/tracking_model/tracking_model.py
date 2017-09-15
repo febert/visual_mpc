@@ -6,6 +6,9 @@ from tensorflow.contrib.layers.python import layers as tf_layers
 from python_visual_mpc.video_prediction.lstm_ops12 import basic_conv_lstm_cell
 from python_visual_mpc.misc.zip_equal import zip_equal
 
+import collections
+import cPickle
+from python_visual_mpc.video_prediction.utils_vpred.animate_tkinter import Visualizer_tkinter
 import pdb
 
 # Amount to use when lower bounding tensors
@@ -147,3 +150,44 @@ class Tracking_Model(Base_Prediction_Model):
 
             self.train_op = tf.train.AdamOptimizer(self.lr).minimize(loss, self.global_step)
             self.summ_op = tf.summary.merge(summaries)
+
+
+    def visualize(self):
+        print '-------------------------------------------------------------------'
+        print 'verify current settings!! '
+        for key in self.conf.keys():
+            print key, ': ', self.conf[key]
+        print '-------------------------------------------------------------------'
+
+        import re
+        itr_vis = re.match('.*?([0-9]+)$', self.conf['visualize']).group(1)
+
+        self.saver.restore(self.sess, self.conf['visualize'])
+        print 'restore done.'
+
+        feed_dict = {self.lr: 0.0,
+                     self.iter_num: 0}
+
+        file_path = self.conf['output_dir']
+
+        ground_truth, gen_images, gen_masks, pred_flow, track_flow = self.sess.run([self.images,
+                                                                               self.gen_images,
+                                                                               self.gen_masks,
+                                                                               self.prediction_flow,
+                                                                               self.tracking_flow
+                                                                               ],
+                                                                              feed_dict)
+
+        dict = collections.OrderedDict()
+        dict['iternum'] = itr_vis
+        dict['ground_truth'] = ground_truth
+        dict['gen_images'] = gen_images
+        dict['prediction_flow'] = pred_flow
+        dict['tracking_flow'] = track_flow
+        # dict['gen_masks'] = gen_masks
+
+        cPickle.dump(dict, open(file_path + '/pred.pkl', 'wb'))
+        print 'written files to:' + file_path
+
+        v = Visualizer_tkinter(dict, numex=10, append_masks=True, gif_savepath=self.conf['output_dir'])
+        v.build_figure()
