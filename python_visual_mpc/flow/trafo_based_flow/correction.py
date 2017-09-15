@@ -50,6 +50,7 @@ def construct_correction(conf,
 
         if 'large_core' in conf:
             final_layer, middle_layer = build_large_core(concat_img)
+            print 'using large core'
         else:
             final_layer, middle_layer = build_core(concat_img)
 

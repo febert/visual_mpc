@@ -162,8 +162,8 @@ class CorrectorModel(object):
         summaries.append(tf.summary.scalar('recon_cost', loss))
 
         if 'l1_deriv_flow_penal' in conf:
-            print 'applying l1 derivative penalty'
-            deriv_penal = l1_deriv_loss(flow)
+            print 'applying l1 derivative penalty with factor ', conf['l1_deriv_flow_penal']
+            deriv_penal = l1_deriv_loss(flow) * conf['l1_deriv_flow_penal']
             summaries.append(tf.summary.scalar('flow l1 derivative penalty', deriv_penal))
             loss += deriv_penal
 
