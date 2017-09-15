@@ -226,6 +226,7 @@ class Base_Prediction_Model(object):
         if self.cdna:
             cdna_kerns, tf_distrib_ndesig1, tf_distrib_ndesig2, tf_l = self.apply_cdna(
                 enc6, hidden5, self.prev_image, self.prev_pix_distrib1, self.prev_pix_distrib2)
+            
         if '1stimg_bckgd' in self.conf:
             background = self.images[0]
             print 'using background from first image..'
@@ -240,7 +241,6 @@ class Base_Prediction_Model(object):
                                                        self.pix_distrib1,
                                                        self.prev_pix_distrib1,
                                                        tf_distrib_ndesig1)
-
             self.gen_distrib1.append(pix_distrib_output)
 
             if 'ndesig' in self.conf:
@@ -248,7 +248,6 @@ class Base_Prediction_Model(object):
                                                            self.pix_distrib2,
                                                            self.prev_pix_distrib2,
                                                            tf_distrib_ndesig2)
-
                 self.gen_distrib2.append(pix_distrib_output)
 
         if 'visual_flowvec' in self.conf:
@@ -314,18 +313,21 @@ class Base_Prediction_Model(object):
 
     def apply_dna(self, enc6, prev_image, prev_pix_distrib1, prev_pix_distrib2):
         # Using largest hidden state for predicting untied conv kernels.
-        KERN_SIZE = self.conf['kern_sizes']
+        KERN_SIZE = self.conf['kern_size']
 
         trafo_input = slim.layers.conv2d_transpose(
             enc6, KERN_SIZE ** 2, 1, stride=1, scope='convt4_cam2')
-        [transformed_l], dna_kernel  = dna_transformation(self.conf, prev_image, trafo_input)
+        transformed_l, dna_kernel  = dna_transformation(self.conf, prev_image, trafo_input)
+        transformed_l = [transformed_l]
+
         self.pred_dna_kerns.append(dna_kernel)
 
         if self.trafo_pix:
-            transf_distrib_ndesig1 = [dna_transformation(self.conf, prev_pix_distrib1, trafo_input)]
+            transf_distrib_ndesig1, _ = dna_transformation(self.conf, prev_pix_distrib1, trafo_input)
+            transf_distrib_ndesig1 = [transf_distrib_ndesig1]
             if 'ndesig' in self.conf:
-                transf_distrib_ndesig2 = [
-                    dna_transformation(self.conf, prev_pix_distrib2, trafo_input)]
+                transf_distrib_ndesig2, _ = dna_transformation(self.conf, prev_pix_distrib2, trafo_input)
+                transf_distrib_ndesig2 = [transf_distrib_ndesig2]
             else:
                 transf_distrib_ndesig2 = None
         else:
@@ -575,6 +577,7 @@ class Base_Prediction_Model(object):
 
             vecs.append(tf.stack([vec_r,vec_c], axis=1))
         return vecs
+
 
 def scheduled_sample(ground_truth_x, generated_x, batch_size, num_ground_truth):
     """Sample batch with specified mix of ground truth and generated data_files points.
