@@ -76,7 +76,6 @@ def main(unused_argv, conf_script= None):
     print 'Constructing models and inputs.'
     if FLAGS.diffmotions:
         model = Model(conf, load_data = False)
-
     else:
         model = Model(conf, load_data=True, mode='train', trafo_pix=False)
         val_model = Model(conf, load_data=True, mode='val', trafo_pix=False)
@@ -115,21 +114,26 @@ def main(unused_argv, conf_script= None):
 
         file_path = conf['output_dir']
 
-        ground_truth, gen_images, gen_masks = sess.run([val_model.images,
+        ground_truth, gen_images, gen_masks, pred_flow, track_flow = sess.run([val_model.images,
                                                         val_model.gen_images,
-                                                        val_model.gen_masks
+                                                        val_model.gen_masks,
+                                                        val_model.prediction_flow,
+                                                        val_model.tracking_flow
                                                         ],
                                                         feed_dict)
         dict = collections.OrderedDict()
         dict['iternum'] = itr_vis
-        dict['gen_images'] = gen_images
         dict['ground_truth'] = ground_truth
-        dict['gen_masks'] = gen_masks
+        dict['gen_images'] = gen_images
+        dict['prediction_flow'] = pred_flow
+        dict['tracking_flow'] = track_flow
+        # dict['gen_masks'] = gen_masks
 
         cPickle.dump(dict, open(file_path + '/pred.pkl', 'wb'))
         print 'written files to:' + file_path
 
-        Visualizer_tkinter(dict, numex=4, append_masks=True, gif_savepath=conf['output_dir'])
+        v = Visualizer_tkinter(dict, numex=10, append_masks=True, gif_savepath=conf['output_dir'])
+        v.build_figure()
 
         return
 
