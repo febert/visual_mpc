@@ -14,13 +14,13 @@ from tensorflow.python.platform import flags
 from datetime import datetime
 import collections
 # How often to record tensorboard summaries.
-SUMMARY_INTERVAL = 200
+SUMMARY_INTERVAL = 400
 
 # How often to run a batch through the validation model.
-VAL_INTERVAL = 400
+VAL_INTERVAL = 500
 
 # How often to save a model checkpoint
-SAVE_INTERVAL = 2000
+SAVE_INTERVAL = 4000
 
 
 from python_visual_mpc.video_prediction.utils_vpred.animate_tkinter import Visualizer_tkinter
