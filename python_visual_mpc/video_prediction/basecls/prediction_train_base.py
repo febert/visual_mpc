@@ -74,10 +74,9 @@ def main(unused_argv, conf_script= None):
 
     print 'Constructing models and inputs.'
     if FLAGS.diffmotions:
-        model = Model(conf, load_data = False)
+        model = Model(conf, load_data =False,trafo_pix=False)
     else:
-        model = Model(conf, load_data=True, mode='train', trafo_pix=False)
-        val_model = Model(conf, load_data=True, mode='val', trafo_pix=False)
+        model = Model(conf, load_data=True, trafo_pix=False)
 
     print 'Constructing saver.'
     # Make saver.
@@ -110,14 +109,15 @@ def main(unused_argv, conf_script= None):
         saver.restore(sess, conf['visualize'])
         print 'restore done.'
 
-        feed_dict = {
-            val_model.iter_num: 0}
+        feed_dict = {model.iter_num: 0,
+                     model.train_cond: 0}
 
         file_path = conf['output_dir']
 
-        ground_truth, gen_images, gen_masks = sess.run([val_model.images,
-                                                        val_model.gen_images,
-                                                        val_model.gen_masks
+        assert conf['schedsamp_k'] == -1
+        ground_truth, gen_images, gen_masks = sess.run([model.images,
+                                                        model.gen_images,
+                                                        model.gen_masks
                                                         ],
                                                        feed_dict)
         dict = collections.OrderedDict()
@@ -131,7 +131,6 @@ def main(unused_argv, conf_script= None):
 
         v = Visualizer_tkinter(dict, numex=10, append_masks=False, gif_savepath=conf['output_dir'])
         v.build_figure()
-
         return
 
 
@@ -161,7 +160,8 @@ def main(unused_argv, conf_script= None):
     for itr in range(itr_0, conf['num_iterations'], 1):
         t_startiter = datetime.now()
         # Generate new batch of data_files.
-        feed_dict = {model.iter_num: np.float32(itr)}
+        feed_dict = {model.iter_num: np.float32(itr),
+                     model.train_cond: 1}
 
         cost, _, summary_str = sess.run([model.loss, model.train_op, model.summ_op],
                                         feed_dict)
@@ -171,8 +171,9 @@ def main(unused_argv, conf_script= None):
 
         if (itr) % VAL_INTERVAL == 2:
             # Run through validation set.
-            feed_dict = {val_model.iter_num: np.float32(itr)}
-            [val_summary_str] = sess.run([val_model.summ_op], feed_dict)
+            feed_dict = {model.iter_num: np.float32(itr),
+                         model.train_cond: 0}
+            [val_summary_str] = sess.run([model.summ_op], feed_dict)
             summary_writer.add_summary(val_summary_str, itr)
 
         if (itr) % SAVE_INTERVAL == 2:
