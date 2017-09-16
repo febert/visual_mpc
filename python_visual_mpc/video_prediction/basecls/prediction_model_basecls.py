@@ -66,12 +66,15 @@ class Base_Prediction_Model(object):
             else:
                 from python_visual_mpc.video_prediction.read_tf_record import build_tfrecord_input
 
-            if mode == 'train':
-                images, actions, states = build_tfrecord_input(conf, training=True)
-            elif mode == 'val':
-                images, actions, states = build_tfrecord_input(conf, training=False)
-            else:
-                raise ValueError
+
+            train_images, train_actions, train_states = build_tfrecord_input(conf, training=True)
+            val_images, val_actions, val_states = build_tfrecord_input(conf, training=False)
+
+            self.train_cond = tf.placeholder(tf.int32, shape=[], name="train_cond")
+            images, actions, states = tf.cond(self.train_cond > 0,  # if 1 use trainigbatch else validation batch
+                                             lambda: [train_images, train_actions, train_states],
+                                             lambda: [val_images, val_actions, val_states])
+
 
         self.color_channels = 3
 
@@ -120,14 +123,7 @@ class Base_Prediction_Model(object):
         self.images = images
         self.states = states
 
-        if mode == 'train':
-            with tf.variable_scope('model', reuse=None) as training_scope:
-                self.build()
-        elif mode == 'val':
-            with tf.variable_scope('val_model', reuse=None):
-                self.build()
-        else:
-            raise ValueError
+        self.build()
 
 
     def random_shift(self, images, states, actions):
@@ -200,11 +196,8 @@ class Base_Prediction_Model(object):
                                                                         image,
                                                                         t)
 
-
             current_state = self.build_network_core(action, current_state, image)
-
         self.build_loss()
-
 
     def apply_trafo_predict(self, current_state, enc6, hidden5, state_action):
         """
@@ -226,7 +219,7 @@ class Base_Prediction_Model(object):
         if self.cdna:
             cdna_kerns, tf_distrib_ndesig1, tf_distrib_ndesig2, tf_l = self.apply_cdna(
                 enc6, hidden5, self.prev_image, self.prev_pix_distrib1, self.prev_pix_distrib2)
-            
+
         if '1stimg_bckgd' in self.conf:
             background = self.images[0]
             print 'using background from first image..'
