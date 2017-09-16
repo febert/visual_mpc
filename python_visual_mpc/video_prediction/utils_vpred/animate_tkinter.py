@@ -134,7 +134,11 @@ class Visualizer_tkinter(object):
         frame.rowconfigure(1, weight=1)
         frame.columnconfigure(1, weight=1)
 
-        standard_size = np.array([1.5 * self.numex, self.num_rows * 1.0])  ### 1.5
+        if self.numex == 1:
+            width_per_ex = 1.5
+        else:
+            width_per_ex = 0.9
+        standard_size = np.array([width_per_ex*self.numex, self.num_rows * 1.0])  ### 1.5
         # standard_size = np.array([6, 24])
         figsize = (standard_size * 1.0).astype(np.int)
         fig = plt.figure(num=1, figsize=figsize)

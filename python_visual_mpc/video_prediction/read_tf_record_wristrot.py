@@ -44,6 +44,12 @@ def build_tfrecord_input(conf, training=True):
         shuffle = False
     else: shuffle = True
 
+    ### for debugging ### only
+    import random
+    random.shuffle(filenames)
+    filenames = [filenames[0]]
+    print 'using file', filenames
+    ### end for debugging ### only
 
     filename_queue = tf.train.string_input_producer(filenames, shuffle=shuffle)
     reader = tf.TFRecordReader()
@@ -169,7 +175,7 @@ if __name__ == '__main__':
     conf['sequence_length']= 15      # 'sequence length, including context frames.'
     conf['use_state'] = True
     conf['batch_size']= 10
-    conf['visualize']= True
+    conf['visualize']= False
     conf['single_view'] = ''
     conf['context_frames'] = 2
 
@@ -181,7 +187,7 @@ if __name__ == '__main__':
 
     print 'testing the reader'
 
-    image_batch, action_batch, endeff_pos_batch = build_tfrecord_input(conf, training=False)
+    image_batch, action_batch, endeff_pos_batch = build_tfrecord_input(conf, training=True)
 
     sess = tf.InteractiveSession()
     tf.train.start_queue_runners(sess)
@@ -194,8 +200,8 @@ if __name__ == '__main__':
 
         image, actions, endeff = sess.run([image_batch, action_batch, endeff_pos_batch])
 
-        file_path = '/'.join(str.split(DATA_DIR, '/')[:-1]+['preview'])
-        comp_single_video(file_path, image)
+        # file_path = '/'.join(str.split(DATA_DIR, '/')[:-1]+['preview'])
+        # comp_single_video(file_path, image)
 
         # show some frames
         for i in range(10):
@@ -209,6 +215,5 @@ if __name__ == '__main__':
             # img.save(file_path,'PNG')
             img.show()
             print i
-            pdb.set_trace()
 
-            # pdb.set_trace()
+        pdb.set_trace()
