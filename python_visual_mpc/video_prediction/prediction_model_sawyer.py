@@ -385,6 +385,7 @@ class Prediction_Model(object):
             enc6, (self.conf['num_masks']+ extra_masks), 1, stride=1, scope=scope)
 
         img_height = 64
+        # img_height = 48
         img_width = 64
         num_masks = self.conf['num_masks']
 
