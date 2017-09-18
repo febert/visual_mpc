@@ -166,7 +166,8 @@ class Tracking_Model(Base_Prediction_Model):
         print 'restore done.'
 
         feed_dict = {self.lr: 0.0,
-                     self.iter_num: 0}
+                     self.iter_num: 0,
+                     self.train_cond: 1}
 
         file_path = self.conf['output_dir']
 

@@ -74,7 +74,9 @@ def main(unused_argv, conf_script= None):
 
     print 'Constructing models and inputs.'
     if FLAGS.diffmotions:
-        model = Model(conf, load_data =False,trafo_pix=False)
+        model = Model(conf, load_data =False, trafo_pix=True)
+        from python_visual_mpc.video_prediction.read_tf_record_sawyer12 import build_tfrecord_input
+        images, _, states = build_tfrecord_input(conf, training=True)
     else:
         model = Model(conf, load_data=True, trafo_pix=False)
 
@@ -94,7 +96,6 @@ def main(unused_argv, conf_script= None):
     tf.train.start_queue_runners(sess)
     sess.run(tf.global_variables_initializer())
 
-
     if conf['visualize']:
 
         print '-------------------------------------------------------------------'
@@ -109,29 +110,104 @@ def main(unused_argv, conf_script= None):
         saver.restore(sess, conf['visualize'])
         print 'restore done.'
 
-        feed_dict = {model.iter_num: 0,
+        feed_dict = {
+                     model.iter_num: 0,
                      model.train_cond: 0}
 
         file_path = conf['output_dir']
 
-        assert conf['schedsamp_k'] == -1
-        ground_truth, gen_images, gen_masks = sess.run([model.images,
-                                                        model.gen_images,
-                                                        model.gen_masks
-                                                        ],
-                                                       feed_dict)
-        dict = collections.OrderedDict()
-        dict['ground_truth'] = ground_truth
-        dict['gen_images'] = gen_images
-        dict['gen_masks'] = gen_masks
-        dict['iternum'] = itr_vis
 
-        cPickle.dump(dict, open(file_path + '/pred.pkl', 'wb'))
-        print 'written files to:' + file_path
+        if FLAGS.diffmotions:
+            b_exp, ind0 = 0, 0
 
-        v = Visualizer_tkinter(dict, numex=10, append_masks=False, gif_savepath=conf['output_dir'])
-        v.build_figure()
-        return
+
+            img, state = sess.run([images, states])
+            sel_img = img[b_exp, ind0:ind0 + 2]
+
+            # c = Getdesig(sel_img[0], conf, 'b{}'.format(b_exp))
+            # desig_pos_aux1 = c.coords.astype(np.int32)
+            desig_pos_aux1 = np.array([30, 31])
+            # print "selected designated position for aux1 [row,col]:", desig_pos_aux1
+
+            one_hot = create_one_hot(conf, desig_pos_aux1)
+
+            feed_dict[model.pix_distrib_pl] = one_hot
+
+            sel_state = np.stack([state[b_exp, ind0], state[b_exp, ind0 + 1]], axis=0)
+
+            start_states = np.concatenate([sel_state, np.zeros((conf['sequence_length'] - 2, 3))])
+            start_states = np.expand_dims(start_states, axis=0)
+            start_states = np.repeat(start_states, conf['batch_size'], axis=0)  # copy over batch
+            feed_dict[model.states_pl] = start_states
+
+            start_images = np.concatenate([sel_img, np.zeros((conf['sequence_length'] - 2, 64, 64, 3))])
+
+            start_images = np.expand_dims(start_images, axis=0)
+            start_images = np.repeat(start_images, conf['batch_size'], axis=0)  # copy over batch
+            feed_dict[model.images_pl] = start_images
+
+            actions = np.zeros([conf['batch_size'], conf['sequence_length'], 4])
+
+            # step = .025
+            step = .055
+            n_angles = 8
+            for b in range(n_angles):
+                for i in range(conf['sequence_length']):
+                    actions[b, i] = np.array(
+                        [np.cos(b / float(n_angles) * 2 * np.pi) * step, np.sin(b / float(n_angles) * 2 * np.pi) * step,
+                         0, 0])
+
+            b += 1
+            actions[b, 0] = np.array([0, 0, 4, 0])
+            actions[b, 1] = np.array([0, 0, 4, 0])
+
+            b += 1
+            actions[b, 0] = np.array([0, 0, 0, 4])
+            actions[b, 1] = np.array([0, 0, 0, 4])
+
+            feed_dict[model.actions_pl] = actions
+
+            gen_images, gen_distrib, gen_masks = sess.run(
+                [model.gen_images,
+                 model.gen_distrib1,
+                 model.gen_masks,
+                 ]
+                , feed_dict)
+
+            dict = collections.OrderedDict()
+            dict['gen_images'] = gen_images
+            dict['gen_distrib'] = gen_distrib
+            dict['gen_masks'] = gen_masks
+            dict['iternum'] = itr_vis
+
+            cPickle.dump(dict, open(file_path + '/pred.pkl', 'wb'))
+            print 'written files to:' + file_path
+
+            v = Visualizer_tkinter(dict, numex=4, append_masks=False,
+                                   gif_savepath=conf['output_dir'],
+                                   suf='_diffmotions_b{}_l{}'.format(b_exp, conf['sequence_length']))
+            v.build_figure()
+
+        else:
+
+            assert conf['schedsamp_k'] == -1
+            ground_truth, gen_images, gen_masks = sess.run([model.images,
+                                                            model.gen_images,
+                                                            model.gen_masks
+                                                            ],
+                                                           feed_dict)
+            dict = collections.OrderedDict()
+            dict['ground_truth'] = ground_truth
+            dict['gen_images'] = gen_images
+            dict['gen_masks'] = gen_masks
+            dict['iternum'] = itr_vis
+
+            cPickle.dump(dict, open(file_path + '/pred.pkl', 'wb'))
+            print 'written files to:' + file_path
+
+            v = Visualizer_tkinter(dict, numex=10, append_masks=False, gif_savepath=conf['output_dir'])
+            v.build_figure()
+            return
 
 
     itr_0 =0
