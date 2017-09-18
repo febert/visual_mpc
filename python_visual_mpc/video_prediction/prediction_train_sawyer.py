@@ -382,7 +382,8 @@ def main(unused_argv, conf_script= None):
                                                             val_model.m.moved_bckgd
                                                             ]
                                                            ,feed_dict)
-            dict = {}
+
+            dict = collections.OrderedDict()
             dict['gen_images'] = gen_images
             dict['gen_masks'] = gen_masks
             dict['gen_distrib'] = gen_distrib
