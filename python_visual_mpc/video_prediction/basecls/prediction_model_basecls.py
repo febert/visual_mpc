@@ -43,6 +43,7 @@ class Base_Prediction_Model(object):
         self.context_frames = conf['context_frames']
         self.batch_size = conf['batch_size']
 
+        self.train_cond = tf.placeholder(tf.int32, shape=[], name="train_cond")
         if not load_data:
             self.actions_pl = tf.placeholder(tf.float32, name='actions',
                                         shape=(conf['batch_size'], conf['sequence_length'], 4))
@@ -70,7 +71,7 @@ class Base_Prediction_Model(object):
             train_images, train_actions, train_states = build_tfrecord_input(conf, training=True)
             val_images, val_actions, val_states = build_tfrecord_input(conf, training=False)
 
-            self.train_cond = tf.placeholder(tf.int32, shape=[], name="train_cond")
+
             images, actions, states = tf.cond(self.train_cond > 0,  # if 1 use trainigbatch else validation batch
                                              lambda: [train_images, train_actions, train_states],
                                              lambda: [val_images, val_actions, val_states])
@@ -124,7 +125,6 @@ class Base_Prediction_Model(object):
         self.states = states
 
         self.build()
-
 
     def random_shift(self, images, states, actions):
         print 'shifting the video sequence randomly in time'
@@ -196,10 +196,10 @@ class Base_Prediction_Model(object):
                                                                         image,
                                                                         t)
 
-            current_state = self.build_network_core(action, current_state, image)
+            current_state = self.build_network_core(action, current_state, self.prev_image)
         self.build_loss()
 
-    def apply_trafo_predict(self, current_state, enc6, hidden5, state_action):
+    def apply_trafo_predict(self, enc6, hidden5):
         """
         Apply the transformatios (DNA, CDNA) and combine them to from the output-image
         :param KERN_SIZE:
@@ -226,9 +226,10 @@ class Base_Prediction_Model(object):
         else:
             background = self.prev_image
 
-        output, mask_list = self.fuse_trafos(enc6, background,tf_l, scope='convt7_cam2')
+        output, mask_list = self.fuse_trafos(enc6, background, tf_l, scope='convt7_cam2')
         self.gen_images.append(output)
         self.gen_masks.append(mask_list)
+
         if self.trafo_pix:
             pix_distrib_output = self.fuse_pix_distrib(mask_list,
                                                        self.pix_distrib1,
@@ -251,15 +252,6 @@ class Base_Prediction_Model(object):
                 vec = tf.tile(vec, [1, 64, 64, 1])
                 output += vec * mask
             self.prediction_flow.append(output)
-
-        if current_state != None:
-            current_state = slim.layers.fully_connected(
-                state_action,
-                int(current_state.get_shape()[1]),
-                scope='state_pred',
-                activation_fn=None)
-        self.gen_states.append(current_state)
-        return current_state
 
 
     def apply_cdna(self, enc6, hidden5, prev_image, prev_pix_distrib1, prev_pix_distrib2):
@@ -399,12 +391,16 @@ class Base_Prediction_Model(object):
                 normalizer_fn=tf_layers.layer_norm,
                 normalizer_params={'scope': 'layer_norm9'})
 
+            if current_state != None:
+                current_state = slim.layers.fully_connected(
+                    state_action,
+                    int(current_state.get_shape()[1]),
+                    scope='state_pred',
+                    activation_fn=None)
+            self.gen_states.append(current_state)
 
+            self.apply_trafo_predict(enc6, hidden5)
 
-            current_state = self.apply_trafo_predict(current_state,
-                                                     enc6,
-                                                     hidden5,
-                                                     state_action)
             return current_state
 
 
@@ -414,6 +410,7 @@ class Base_Prediction_Model(object):
         prev_pix_distrib1, prev_pix_distrib2 = None, None
 
         if feedself and done_warm_start:
+            print 'feeding self'
             # Feed in generated image.
             prev_image = self.gen_images[-1]  # 64x64x6
             if self.trafo_pix:
@@ -421,11 +418,13 @@ class Base_Prediction_Model(object):
                 if 'ndesig' in self.conf:
                     prev_pix_distrib2 = self.gen_distrib2[-1]
         elif done_warm_start:
+            print 'doing sched sampling'
             # Scheduled sampling
             prev_image = scheduled_sample(image, self.gen_images[-1], self.batch_size,
                                           self.num_ground_truth)
         else:
             # Always feed in ground_truth
+            print 'feeding gtruth'
             prev_image = image
             if self.trafo_pix:
                 prev_pix_distrib1 = self.pix_distrib1[t]
