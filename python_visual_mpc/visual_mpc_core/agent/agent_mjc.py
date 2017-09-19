@@ -19,6 +19,7 @@ import cv2
 from mpl_toolkits.mplot3d import Axes3D
 import xml.etree.cElementTree as ET
 import xml.dom.minidom as minidom
+import pdb
 
 class AgentMuJoCo(object):
     """
@@ -39,6 +40,8 @@ class AgentMuJoCo(object):
         """
         if "varying_mass" in self._hyperparams:
             self.create_xml()
+
+        pdb.set_trace()
 
         self._model= mujoco_py.MjModel(self._hyperparams['filename'])
         self.model_nomarkers = mujoco_py.MjModel(self._hyperparams['filename_nomarkers'])
@@ -460,7 +463,7 @@ class AgentMuJoCo(object):
 
     def save_gif(self):
         file_path = self._hyperparams['record']
-        from python_visual_mpc.video_prediction.utils_vpred.create_gif import npy_to_gif
+        from python_visual_mpc.video_prediction.utils_vpred.create_gif_lib import npy_to_gif
         if 'random_baseline' in self._hyperparams:
             npy_to_gif(self.large_images, file_path)
         else:

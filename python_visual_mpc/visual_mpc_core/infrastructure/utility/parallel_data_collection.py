@@ -2,8 +2,7 @@ from multiprocessing import Pool
 import argparse
 import imp
 import os
-from lsdc.lsdc_main_mod import LSDCMain
-from python.lsdc.utility.benchmarks import perform_benchmark
+from python_visual_mpc.visual_mpc_core.infrastructure.lsdc_main_mod import LSDCMain
 import copy
 import random
 import numpy as np
@@ -57,9 +56,10 @@ def main():
         n_worker = 1
     print 'parallel ', bool(parallel)
 
-    from lsdc import __file__ as lsdc_filepath
-    lsdc_filepath = os.path.abspath(lsdc_filepath)
-    lsdc_dir = '/'.join(str.split(lsdc_filepath, '/')[:-3])
+    from python_visual_mpc import __file__ as basedir
+
+    basedir = os.path.abspath(basedir)
+    lsdc_dir = '/'.join(str.split(basedir, '/')[:-2])
     data_coll_dir = lsdc_dir + '/pushing_data/' + exp_name
     hyperparams_file = data_coll_dir + '/hyperparams.py'
     do_benchmark = False
@@ -82,7 +82,6 @@ def main():
     end_idx =  [traj_per_worker * (i+1)-1 for i in range(n_worker)]
 
     conflist = []
-
 
 
     for i in range(n_worker):

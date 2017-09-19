@@ -3,15 +3,13 @@ current_dir = os.path.dirname(os.path.realpath(__file__))
 
 lsdc_home = '/'.join(str.split(current_dir, '/')[:-4])
 
-# from python_visual_mpc.video_prediction.setup_predictor_simple import setup_predictor
-from python_visual_mpc.video_prediction.setup_predictor_towers import setup_predictor
+from python_visual_mpc.video_prediction.setup_predictor_simple import setup_predictor
 
 configuration = {
 'experiment_name': 'cem_control',
 'current_dir': current_dir, #'directory for writing gifs' ,
 # 'filepath of a pretrained model to use for cem
-# 'pretrained_model': lsdc_home + '/tensorflow_data/dna/modeldata/model48002',
-'pretrained_model': lsdc_home + '/tensorflow_data/dna/modeldata/model2',
+'pretrained_model': lsdc_home + '/tensorflow_data/dna/modeldata/model46002',
 'setup_predictor': setup_predictor,
 'sequence_length': 15,      # 'sequence length, including context frames.' ,
 'context_frames': 2,        # of frames before predictions.' ,
@@ -24,5 +22,5 @@ configuration = {
 'visualize': '',            #'load model from which to generate visualizations
 'file_visual': '',          # datafile used for making visualizations,
 'penal_last_only': False,
-'dna_size':9,
+'kern_size':9,
 }
