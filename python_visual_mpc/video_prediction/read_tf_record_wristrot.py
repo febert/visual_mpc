@@ -200,8 +200,8 @@ if __name__ == '__main__':
 
         image, actions, endeff = sess.run([image_batch, action_batch, endeff_pos_batch])
 
-        # file_path = '/'.join(str.split(DATA_DIR, '/')[:-1]+['preview'])
-        # comp_single_video(file_path, image)
+        file_path = '/'.join(str.split(DATA_DIR, '/')[:-1]+['preview'])
+        comp_single_video(file_path, image)
 
         # show some frames
         for i in range(10):
