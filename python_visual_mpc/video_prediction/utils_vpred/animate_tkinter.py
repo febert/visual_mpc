@@ -119,10 +119,70 @@ class Visualizer_tkinter(object):
 
         self.suf = suf
         self.append_masks = append_masks
+        self.num_rows = len(self.video_list)
+
+    def make_image_strip(self, i_ex, tstart=5, tend=15):
+        """
+        :param i_ex:  the index of the example to flatten to the image strip
+        :param tstart:
+        :param tend:
+        :return:
+        """
+
+        cols = tend - tstart +1
+
+        width_per_ex = 1.
+
+        standard_size = np.array([width_per_ex * cols, self.num_rows * 1.0])  ### 1.5
+        # standard_size = np.array([6, 24])
+        figsize = (standard_size * 1.0).astype(np.int)
+        fig = plt.figure(num=1, figsize=figsize)
+
+
+        outer_grid = gridspec.GridSpec(self.num_rows, 1)
+
+        drow = 1. / self.num_rows
+
+        self.im_handle_list = []
+
+        axes_list = []
+
+        for row in range(self.num_rows):
+            inner_grid = gridspec.GridSpecFromSubplotSpec(1, cols,
+                                                          subplot_spec=outer_grid[row], wspace=0.0, hspace=0.0)
+            image_row = self.video_list[row][0]
+
+            im_handle_row = []
+            col = 0
+            for t in range(tstart, tend):
+
+                ax = plt.Subplot(fig, inner_grid[col])
+                ax.set_xticks([])
+                ax.set_yticks([])
+                axes_list.append(fig.add_subplot(ax))
+
+                if image_row[0][i_ex].shape[-1] == 1:
+
+                    im_handle = axes_list[-1].imshow(np.squeeze(image_row[t][i_ex]),
+                                                     zorder=0, cmap=plt.get_cmap('jet'),
+                                                     interpolation='none',
+                                                     animated=True)
+                else:
+                    im_handle = axes_list[-1].imshow(image_row[t][i_ex], interpolation='none',
+                                                     animated=True)
+
+                im_handle_row.append(im_handle)
+
+                col += 1
+            self.im_handle_list.append(im_handle_row)
+
+            # plt.figtext(.5, 1 - (row * drow * 0.990) - 0.01, self.video_list[row][1], va="center", ha="center",
+            #             size=8)
+
+        plt.savefig(self.gif_savepath + '/iter{}ex{}_overtime.png'.format(self.iternum, i_ex))
+
 
     def build_figure(self):
-
-        self.num_rows = len(self.video_list)
 
         # plot each markevery case for linear x and y scales
         root = Tk.Tk()
@@ -315,6 +375,8 @@ def convert_to_videolist(input, repeat_last_dim):
 
 
 if __name__ == '__main__':
-    file_path = '/home/frederik/Documents/catkin_ws/src/visual_mpc/tensorflow_data//sawyer/track_pred/1st_try/modeldata'
+    # file_path = '/home/frederik/Documents/catkin_ws/src/visual_mpc/tensorflow_data/sawyer/data_amount_study/5percent_of_data/modeldata'
+    file_path = '/home/frederik/Documents/catkin_ws/src/visual_mpc/tensorflow_data/sawyer/1stimg_bckgd_cdna/modeldata'
     v  = Visualizer_tkinter(append_masks=False, gif_savepath=file_path)
-    v.build_figure()
+    # v.build_figure()
+    v.make_image_strip(i_ex=3)

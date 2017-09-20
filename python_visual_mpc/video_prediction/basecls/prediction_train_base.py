@@ -167,10 +167,12 @@ def main(unused_argv, conf_script= None):
 
             feed_dict[model.actions_pl] = actions
 
-            gen_images, gen_distrib, gen_masks = sess.run(
+            gen_images, gen_distrib, gen_masks, pred_flow, track_flow = sess.run(
                 [model.gen_images,
                  model.gen_distrib1,
                  model.gen_masks,
+                 model.prediction_flow,
+                 model.tracking_flow
                  ]
                 , feed_dict)
 
@@ -179,6 +181,9 @@ def main(unused_argv, conf_script= None):
             dict['gen_distrib'] = gen_distrib
             dict['gen_masks'] = gen_masks
             dict['iternum'] = itr_vis
+
+            dict['prediction_flow'] = pred_flow
+            dict['tracking_flow'] = track_flow
 
             cPickle.dump(dict, open(file_path + '/pred.pkl', 'wb'))
             print 'written files to:' + file_path
@@ -191,9 +196,11 @@ def main(unused_argv, conf_script= None):
         else:
 
             assert conf['schedsamp_k'] == -1
-            ground_truth, gen_images, gen_masks = sess.run([model.images,
+            ground_truth, gen_images, gen_masks, pred_flow, track_flow = sess.run([model.images,
                                                             model.gen_images,
-                                                            model.gen_masks
+                                                            model.gen_masks,
+                                                            model.prediction_flow,
+                                                            model.tracking_flow
                                                             ],
                                                            feed_dict)
             dict = collections.OrderedDict()
@@ -201,6 +208,8 @@ def main(unused_argv, conf_script= None):
             dict['gen_images'] = gen_images
             dict['gen_masks'] = gen_masks
             dict['iternum'] = itr_vis
+            dict['prediction_flow'] = pred_flow
+            dict['tracking_flow'] = track_flow
 
             cPickle.dump(dict, open(file_path + '/pred.pkl', 'wb'))
             print 'written files to:' + file_path

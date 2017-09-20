@@ -90,7 +90,6 @@ class Tracking_Model(Base_Prediction_Model):
             self.tracking_kerns.append(kernels)
             self.tracking_flow.append(flow_vectors)
 
-
         self.build_loss()
 
 

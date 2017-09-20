@@ -119,3 +119,58 @@ def stp_transformation(conf, prev_image, stp_input, num_masks, reuse= None, suff
         trafos.append(params)
 
     return transformed, trafos
+
+
+from python_visual_mpc.video_prediction.basecls.ops.ops import local2d
+def apply_kernel(image, kernel):
+    """
+    Args:
+        inputs: A 4-D tensor of shape
+            `[batch, in_height, in_width, in_channels]`.
+        kernel: A 5-D of shape
+            `[batch, in_height, in_width, kernel_size[0], kernel_size[1]]`.
+
+    Returns:
+        A 4-D tensor.
+    """
+    output = image
+    output = tf.split(output, output.get_shape().as_list()[-1], axis=3)
+    kernel_size = kernel.get_shape().as_list()[-2:]
+    kernel = kernel[..., None, None]
+    # TODO: 'SYMMETRIC' padding
+    output = [local2d(o, 1, kernel_size=kernel_size, kernel=kernel) for o in output]
+    output = tf.concat(output, axis=3)
+    return output
+
+def sep_dna_transformation(conf, prev_image, dna_input):
+    """
+    :param conf:
+    :param prev_image:
+    :param dna_input: batchsize, H, W, kernsize*2
+    :return:
+    """
+    h_kernels, v_kernels = tf.split(dna_input, 2, axis=3)
+    h_kernels = normalize_kernels(h_kernels)
+    v_kernels = normalize_kernels(v_kernels)
+
+    output0 = apply_kernel(prev_image, h_kernels[..., :, None])
+    output1 = apply_kernel(output0, v_kernels[..., None, :])
+
+    return output1
+
+
+def normalize_kernels(kernels, kernel_normalization="softmax"):
+
+    if kernel_normalization == "softmax":
+        kernels = tf.nn.softmax(kernels, dim=3)
+    elif kernel_normalization == "relu":
+        kernels = tf.nn.relu(kernels - RELU_SHIFT) + RELU_SHIFT
+        kernels = kernels / tf.reduce_sum(kernels, axis=3, keep_dims=True)
+    else:
+        raise ValueError
+    return kernels
+
+def sep_cdna_transformation(conf, prev_image, cdna_input, reuse_sc=None, scope=None):
+    ##TODO: sep cdna
+    pass
+    # return transformed, cdna_kerns
