@@ -23,6 +23,9 @@ from tensorflow.contrib.layers.python import layers as tf_layers
 from python_visual_mpc.video_prediction.lstm_ops12 import basic_conv_lstm_cell
 from python_visual_mpc.misc.zip_equal import zip_equal
 
+from python_visual_mpc.video_prediction.basecls.utils.transformations import dna_transformation, sep_dna_transformation
+from python_visual_mpc.video_prediction.basecls.utils.transformations import cdna_transformation, sep_cdna_transformation
+
 import pdb
 
 # Amount to use when lower bounding tensors
@@ -86,6 +89,12 @@ class Prediction_Model(object):
 
         self.flow_vectors = []
 
+        if 'separable_filters' in self.conf:
+            self.dna_transformation = sep_dna_transformation
+            self.cdna_transformation = sep_cdna_transformation
+        else:
+            self.dna_transformation = dna_transformation
+            self.cdna_transformation = cdna_transformation
 
     def build(self):
 
@@ -259,16 +268,20 @@ class Prediction_Model(object):
 
                 if self.conf['model']=='DNA':
                     # Using largest hidden state for predicting untied conv kernels.
+
+                    if 'separable_filters' in self.conf:
+                        num_filters = KERN_SIZE*2
+                    else:
+                        num_filters = KERN_SIZE**2
+
                     trafo_input = slim.layers.conv2d_transpose(
-                        enc6, KERN_SIZE ** 2, 1, stride=1, scope='convt4_cam2')
+                        enc6,num_filters, 1, stride=1, scope='convt4_cam2')
 
-                    transformed_l = [self.dna_transformation(prev_image, trafo_input, self.conf['kern_size'])]
+                    transformed_l = [self.dna_transformation(self.conf, prev_image, trafo_input)]
                     if self.pix_distributions1 != None:
-                        transf_distrib_ndesig1 = [self.dna_transformation(prev_pix_distrib1, trafo_input, KERN_SIZE)]
+                        transf_distrib_ndesig1 = [self.dna_transformation(self.conf, prev_pix_distrib1, trafo_input)]
                         if 'ndesig' in self.conf:
-                            transf_distrib_ndesig2 = [
-                                self.dna_transformation(prev_pix_distrib2, trafo_input, KERN_SIZE)]
-
+                            transf_distrib_ndesig2 = [self.dna_transformation(self.conf, prev_pix_distrib2, trafo_input)]
                     extra_masks = 1
 
                 if self.conf['model'] == 'CDNA':
@@ -302,8 +315,8 @@ class Prediction_Model(object):
 
                     if self.pix_distributions1 != None:
                         transf_distrib_ndesig1, _ = self.cdna_transformation(prev_pix_distrib1,
-                                                                       cdna_input,
-                                                                         reuse_sc=True)
+                                                                                   cdna_input,
+                                                                                     reuse_sc=True)
                         self.moved_pix_distrib1.append(transf_distrib_ndesig1)
 
                         if 'mov_bckgd' in self.conf:
@@ -509,90 +522,6 @@ class Prediction_Model(object):
             trafos.append(params)
 
         return transformed, trafos
-
-
-    def dna_transformation(self, prev_image, dna_input, DNA_KERN_SIZE):
-        """Apply dynamic neural advection to previous image.
-
-        Args:
-          prev_image: previous image to be transformed.
-          dna_input: hidden lyaer to be used for computing DNA transformation.
-        Returns:
-          List of images transformed by the predicted CDNA kernels.
-        """
-        # Construct translated images.
-        pad_len = int(np.floor(DNA_KERN_SIZE / 2))
-        prev_image_pad = tf.pad(prev_image, [[0, 0], [pad_len, pad_len], [pad_len, pad_len], [0, 0]])
-        image_height = int(prev_image.get_shape()[1])
-        image_width = int(prev_image.get_shape()[2])
-
-        inputs = []
-        for xkern in range(DNA_KERN_SIZE):
-            for ykern in range(DNA_KERN_SIZE):
-                inputs.append(
-                    tf.expand_dims(
-                        tf.slice(prev_image_pad, [0, xkern, ykern, 0],
-                                 [-1, image_height, image_width, -1]), [3]))
-        inputs = tf.concat(axis=3, values=inputs)
-
-        # Normalize channels to 1.
-        kernel = tf.nn.relu(dna_input - RELU_SHIFT) + RELU_SHIFT
-        kernel = tf.expand_dims(
-            kernel / tf.reduce_sum(
-                kernel, [3], keep_dims=True), [4])
-
-        return tf.reduce_sum(kernel * inputs, [3], keep_dims=False)
-
-    def cdna_transformation(self, prev_image, cdna_input, reuse_sc=None, scope=None):
-        """Apply convolutional dynamic neural advection to previous image.
-
-        Args:
-          prev_image: previous image to be transformed.
-          cdna_input: hidden lyaer to be used for computing CDNA kernels.
-          num_masks: the number of masks and hence the number of CDNA transformations.
-          color_channels: the number of color channels in the images.
-        Returns:
-          List of images transformed by the predicted CDNA kernels.
-        """
-        batch_size = int(cdna_input.get_shape()[0])
-        height = int(prev_image.get_shape()[1])
-        width = int(prev_image.get_shape()[2])
-
-        DNA_KERN_SIZE = self.conf['kern_size']
-        num_masks = self.conf['num_masks']
-        color_channels = int(prev_image.get_shape()[3])
-
-        if scope == None:
-            scope = 'cdna_params'
-        # Predict kernels using linear function of last hidden layer.
-        cdna_kerns = slim.layers.fully_connected(
-            cdna_input,
-            DNA_KERN_SIZE * DNA_KERN_SIZE * num_masks,
-            scope=scope,
-            activation_fn=None,
-            reuse = reuse_sc)
-
-        # Reshape and normalize.
-        cdna_kerns = tf.reshape(
-            cdna_kerns, [batch_size, DNA_KERN_SIZE, DNA_KERN_SIZE, 1, num_masks])
-        cdna_kerns = tf.nn.relu(cdna_kerns - RELU_SHIFT) + RELU_SHIFT
-        norm_factor = tf.reduce_sum(cdna_kerns, [1, 2, 3], keep_dims=True)
-        cdna_kerns /= norm_factor
-        cdna_kerns_summary = cdna_kerns
-
-        # Transpose and reshape.
-        cdna_kerns = tf.transpose(cdna_kerns, [1, 2, 0, 4, 3])
-        cdna_kerns = tf.reshape(cdna_kerns, [DNA_KERN_SIZE, DNA_KERN_SIZE, batch_size, num_masks])
-        prev_image = tf.transpose(prev_image, [3, 1, 2, 0])
-
-        transformed = tf.nn.depthwise_conv2d(prev_image, cdna_kerns, [1, 1, 1, 1], 'SAME')
-
-        # Transpose and reshape.
-        transformed = tf.reshape(transformed, [color_channels, height, width, batch_size, num_masks])
-        transformed = tf.transpose(transformed, [3, 1, 2, 0, 4])
-        transformed = tf.unstack(value=transformed, axis=-1)
-
-        return transformed, cdna_kerns
 
 
 def scheduled_sample(ground_truth_x, generated_x, batch_size, num_ground_truth):

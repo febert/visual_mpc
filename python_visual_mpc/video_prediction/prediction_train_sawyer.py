@@ -460,7 +460,7 @@ def main(unused_argv, conf_script= None):
             summary_writer.add_summary(val_summary_str, itr)
 
 
-        if (itr) % SAVE_INTERVAL == 2:
+        if (itr+1) % SAVE_INTERVAL == 0:
             tf.logging.info('Saving model to' + conf['output_dir'])
             saver.save(sess, conf['output_dir'] + '/model' + str(itr))
 
