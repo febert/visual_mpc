@@ -302,16 +302,13 @@ class Base_Prediction_Model(object):
         trafo_input = slim.layers.conv2d_transpose(
             enc6, KERN_SIZE ** 2, 1, stride=1, scope='convt4_cam2')
         transformed_l, dna_kernel  = dna_transformation(self.conf, prev_image, trafo_input)
-        transformed_l = [transformed_l]
 
         self.pred_dna_kerns.append(dna_kernel)
 
         if self.trafo_pix:
             transf_distrib_ndesig1, _ = dna_transformation(self.conf, prev_pix_distrib1, trafo_input)
-            transf_distrib_ndesig1 = [transf_distrib_ndesig1]
             if 'ndesig' in self.conf:
                 transf_distrib_ndesig2, _ = dna_transformation(self.conf, prev_pix_distrib2, trafo_input)
-                transf_distrib_ndesig2 = [transf_distrib_ndesig2]
             else:
                 transf_distrib_ndesig2 = None
         else:

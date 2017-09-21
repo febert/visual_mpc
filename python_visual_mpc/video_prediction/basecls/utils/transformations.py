@@ -36,7 +36,7 @@ def dna_transformation(conf, prev_image, dna_input):
         kernel / tf.reduce_sum(
             kernel, [3], keep_dims=True), [4])
 
-    return tf.reduce_sum(kernel * inputs, [3], keep_dims=False), kernel
+    return [tf.reduce_sum(kernel * inputs, [3], keep_dims=False)], kernel
 
 
 def cdna_transformation(conf, prev_image, cdna_input, reuse_sc=None, scope=None):
@@ -158,7 +158,7 @@ def sep_dna_transformation(conf, prev_image, dna_input):
 
     kerns = h_kernels[..., :, None] * v_kernels[..., None, :]
 
-    return output1, kerns
+    return [output1], kerns
 
 
 def normalize_kernels(kernels, kernel_normalization="softmax"):
