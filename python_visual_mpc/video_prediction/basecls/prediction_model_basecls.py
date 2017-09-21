@@ -76,7 +76,6 @@ class Base_Prediction_Model(object):
                                              lambda: [train_images, train_actions, train_states],
                                              lambda: [val_images, val_actions, val_states])
 
-
         self.color_channels = 3
 
         self.lstm_func = basic_conv_lstm_cell

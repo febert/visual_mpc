@@ -21,9 +21,11 @@ VAL_INTERVAL = 500
 
 # How often to save a model checkpoint
 SAVE_INTERVAL = 4000
-
+from utils.get_designated_pix import Getdesig
 
 from python_visual_mpc.video_prediction.utils_vpred.animate_tkinter import Visualizer_tkinter
+from python_visual_mpc.video_prediction.read_tf_record_sawyer12 import build_tfrecord_input
+from python_visual_mpc.video_prediction.tracking_model.tracking_model import Tracking_Model
 from utils.visualize_diffmotions import visualize_diffmotions
 
 from PIL import Image
@@ -54,11 +56,16 @@ def main(unused_argv, conf_script= None):
     if FLAGS.visualize:
         print 'creating visualizations ...'
         conf['schedsamp_k'] = -1  # don't feed ground truth
-        conf['data_dir'] = '/'.join(str.split(conf['data_dir'], '/')[:-1] + ['test'])
+        # conf['data_dir'] = '/'.join(str.split(conf['data_dir'], '/')[:-1] + ['test'])  !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+
+
+
+
+
         conf['visualize'] = conf['output_dir'] + '/' + FLAGS.visualize
         conf['event_log_dir'] = '/tmp'
         conf.pop('use_len', None)
-        conf['batch_size'] = 10
+        conf['batch_size'] = 5
 
         conf['sequence_length'] = 14
         if FLAGS.diffmotions:
@@ -73,10 +80,12 @@ def main(unused_argv, conf_script= None):
         Model = Base_Prediction_Model
 
     print 'Constructing models and inputs.'
+    images, actions, states = build_tfrecord_input(conf, training=True)
+
     if FLAGS.diffmotions:
         model = Model(conf, load_data =False, trafo_pix=True)
-        from python_visual_mpc.video_prediction.read_tf_record_sawyer12 import build_tfrecord_input
-        images, _, states = build_tfrecord_input(conf, training=True)
+    elif "visualize_tracking" in conf:
+        model = Model(conf, load_data=False, trafo_pix=True)
     else:
         model = Model(conf, load_data=True, trafo_pix=False)
 
@@ -120,16 +129,15 @@ def main(unused_argv, conf_script= None):
         if FLAGS.diffmotions:
             b_exp, ind0 = 0, 0
 
-
             img, state = sess.run([images, states])
             sel_img = img[b_exp, ind0:ind0 + 2]
 
             # c = Getdesig(sel_img[0], conf, 'b{}'.format(b_exp))
             # desig_pos_aux1 = c.coords.astype(np.int32)
-            desig_pos_aux1 = np.array([30, 31])
+            desig_pos = np.array([30, 31])
             # print "selected designated position for aux1 [row,col]:", desig_pos_aux1
 
-            one_hot = create_one_hot(conf, desig_pos_aux1)
+            one_hot = create_one_hot(conf, desig_pos)
 
             feed_dict[model.pix_distrib_pl] = one_hot
 
@@ -167,12 +175,12 @@ def main(unused_argv, conf_script= None):
 
             feed_dict[model.actions_pl] = actions
 
-            gen_images, gen_distrib, gen_masks, pred_flow, track_flow = sess.run(
+            gen_images, gen_distrib, gen_masks = sess.run(
                 [model.gen_images,
                  model.gen_distrib1,
                  model.gen_masks,
                  model.prediction_flow,
-                 model.tracking_flow
+                 # model.tracking_flow
                  ]
                 , feed_dict)
 
@@ -182,8 +190,8 @@ def main(unused_argv, conf_script= None):
             dict['gen_masks'] = gen_masks
             dict['iternum'] = itr_vis
 
-            dict['prediction_flow'] = pred_flow
-            dict['tracking_flow'] = track_flow
+            # dict['prediction_flow'] = pred_flow
+            # dict['tracking_flow'] = track_flow
 
             cPickle.dump(dict, open(file_path + '/pred.pkl', 'wb'))
             print 'written files to:' + file_path
@@ -192,17 +200,37 @@ def main(unused_argv, conf_script= None):
                                    gif_savepath=conf['output_dir'],
                                    suf='_diffmotions_b{}_l{}'.format(b_exp, conf['sequence_length']))
             v.build_figure()
-
         else:
+            image_data, actions_data, state_data = sess.run([images, actions, states])
+            if isinstance(model, Tracking_Model):
+                desig_pos_l = []
+                load_desig_pos = False
+                if load_desig_pos:
+                    desig_pos_l = cPickle.load(open('utils/desig_pos.pkl', "rb"))
+                else:
+                    for i in range(conf['batch_size']):
+                        c = Getdesig(image_data[i,0], conf, 'b{}'.format(i))
+                        desig_pos = c.coords.astype(np.int32)
+                        desig_pos_l.append(desig_pos)
+                        # print "selected designated position for aux1 [row,col]:", desig_pos_aux1
+                    cPickle.dump(desig_pos_l, open('utils/desig_pos.pkl', 'wb'))
+                pix_distrib = np.concatenate(create_one_hot(conf, desig_pos_l), axis=0)
+
+                feed_dict[model.pix_distrib_pl] = pix_distrib
+                feed_dict[model.states_pl] = state_data
+                feed_dict[model.images_pl] = image_data
+                feed_dict[model.actions_pl] = actions_data
 
             assert conf['schedsamp_k'] == -1
-            ground_truth, gen_images, gen_masks, pred_flow, track_flow = sess.run([model.images,
-                                                            model.gen_images,
-                                                            model.gen_masks,
-                                                            model.prediction_flow,
-                                                            model.tracking_flow
-                                                            ],
-                                                           feed_dict)
+            ground_truth, gen_images, gen_masks, pred_flow, track_flow, gen_distrib, track_gendistrib = sess.run([model.images,
+                                                                                model.gen_images,
+                                                                                model.gen_masks,
+                                                                                model.prediction_flow,
+                                                                                model.tracking_flow,
+                                                                                model.gen_distrib1,
+                                                                                model.tracking_gendistrib
+                                                                                ],
+                                                                               feed_dict)
             dict = collections.OrderedDict()
             dict['ground_truth'] = ground_truth
             dict['gen_images'] = gen_images
@@ -210,15 +238,15 @@ def main(unused_argv, conf_script= None):
             dict['iternum'] = itr_vis
             dict['prediction_flow'] = pred_flow
             dict['tracking_flow'] = track_flow
+            dict['gen_distrib'] = gen_distrib
+            dict['track_gen_distrib'] = track_gendistrib
 
             cPickle.dump(dict, open(file_path + '/pred.pkl', 'wb'))
             print 'written files to:' + file_path
 
-            v = Visualizer_tkinter(dict, numex=10, append_masks=False, gif_savepath=conf['output_dir'])
+            v = Visualizer_tkinter(dict, numex=conf['batch_size'], append_masks=False, gif_savepath=conf['output_dir'])
             v.build_figure()
             return
-
-
     itr_0 =0
     if FLAGS.pretrained != None:
         conf['pretrained_model'] = FLAGS.pretrained
@@ -286,16 +314,36 @@ def main(unused_argv, conf_script= None):
     tf.logging.flush()
 
 
-def create_one_hot(conf, desig_pix):
-    one_hot = np.zeros((1, 1, 64, 64, 1), dtype=np.float32)
-    # switch on pixels
-    one_hot[0, 0, desig_pix[0], desig_pix[1]] = 1.
-    one_hot = np.repeat(one_hot, conf['context_frames'], axis=1)
-    app_zeros = np.zeros((1, conf['sequence_length']- conf['context_frames'], 64, 64, 1), dtype=np.float32)
-    one_hot = np.concatenate([one_hot, app_zeros], axis=1)
-    one_hot = np.repeat(one_hot, conf['batch_size'], axis=0)
+def create_one_hot(conf, desig_pix_l):
+    """
+    :param conf:
+    :param desig_pix:
+    :param repeat_b: create batch of same distribs
+    :return:
+    """
+    if isinstance(desig_pix_l, list):
+        one_hot_l = []
+        for i in range(len(desig_pix_l)):
+            desig_pix = desig_pix_l[i]
+            one_hot = np.zeros((1, 1, 64, 64, 1), dtype=np.float32)
+            # switch on pixels
+            one_hot[0, 0, desig_pix[0], desig_pix[1]] = 1.
+            one_hot = np.repeat(one_hot, conf['context_frames'], axis=1)
+            app_zeros = np.zeros((1, conf['sequence_length'] - conf['context_frames'], 64, 64, 1), dtype=np.float32)
+            one_hot = np.concatenate([one_hot, app_zeros], axis=1)
+            one_hot_l.append(one_hot)
 
-    return one_hot
+        return one_hot_l
+    else:
+        one_hot = np.zeros((1, 1, 64, 64, 1), dtype=np.float32)
+        # switch on pixels
+        one_hot[0, 0, desig_pix[0], desig_pix[1]] = 1.
+        one_hot = np.repeat(one_hot, conf['context_frames'], axis=1)
+        app_zeros = np.zeros((1, conf['sequence_length']- conf['context_frames'], 64, 64, 1), dtype=np.float32)
+        one_hot = np.concatenate([one_hot, app_zeros], axis=1)
+        one_hot = np.repeat(one_hot, conf['batch_size'], axis=0)
+
+        return one_hot
 
 def filter_vars(vars):
     newlist = []

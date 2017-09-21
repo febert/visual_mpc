@@ -333,7 +333,7 @@ def main(unused_argv, conf_script= None):
             img, state = sess.run([val_images, val_states])
             sel_img= img[b_exp,ind0:ind0+2]
 
-            # c = Getdesig(sel_img[0], conf, 'b{}'.format(b_exp))
+            c = Getdesig(sel_img[0], conf, 'b{}'.format(b_exp))
             # desig_pos_aux1 = c.coords.astype(np.int32)
             desig_pos_aux1 = np.array([30, 31])
             # print "selected designated position for aux1 [row,col]:", desig_pos_aux1
@@ -460,7 +460,7 @@ def main(unused_argv, conf_script= None):
             summary_writer.add_summary(val_summary_str, itr)
 
 
-        if (itr+1) % SAVE_INTERVAL == 0:
+        if itr % SAVE_INTERVAL == 0 and itr != 0:
             tf.logging.info('Saving model to' + conf['output_dir'])
             saver.save(sess, conf['output_dir'] + '/model' + str(itr))
 
