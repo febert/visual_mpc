@@ -77,9 +77,9 @@ def cdna_transformation(conf, prev_image, cdna_input, reuse_sc=None, scope=None)
     cdna_kerns_summary = cdna_kerns
 
     # Transpose and reshape.
-    cdna_kerns = tf.transpose(cdna_kerns, [1, 2, 0, 4, 3])
+    cdna_kerns = tf.transpose(cdna_kerns, [1, 2, 0, 4, 3])   # kern_size, kern_size, batchsize, nummasks, 1]
     cdna_kerns = tf.reshape(cdna_kerns, [DNA_KERN_SIZE, DNA_KERN_SIZE, batch_size, num_masks])
-    prev_image = tf.transpose(prev_image, [3, 1, 2, 0])
+    prev_image = tf.transpose(prev_image, [3, 1, 2, 0])  # 3, 64,64, batchsize
 
     transformed = tf.nn.depthwise_conv2d(prev_image, cdna_kerns, [1, 1, 1, 1], 'SAME')
 
@@ -156,7 +156,9 @@ def sep_dna_transformation(conf, prev_image, dna_input):
     output0 = apply_kernel(prev_image, h_kernels[..., :, None])
     output1 = apply_kernel(output0, v_kernels[..., None, :])
 
-    return output1
+    kerns = h_kernels[..., :, None] * v_kernels[..., None, :]
+
+    return output1, kerns
 
 
 def normalize_kernels(kernels, kernel_normalization="softmax"):
@@ -171,6 +173,51 @@ def normalize_kernels(kernels, kernel_normalization="softmax"):
     return kernels
 
 def sep_cdna_transformation(conf, prev_image, cdna_input, reuse_sc=None, scope=None):
-    ##TODO: sep cdna
-    pass
-    # return transformed, cdna_kerns
+    DNA_KERN_SIZE = conf['kern_size']
+    num_masks = conf['num_masks']
+
+    batch_size = conf['batch_size']
+    color_channels = int(prev_image.get_shape()[3])
+
+    if scope == None:
+        scope = 'cdna_params'
+    # Predict kernels using linear function of last hidden layer.
+    cdna_kerns = slim.layers.fully_connected(
+        cdna_input,
+        DNA_KERN_SIZE * 2 * num_masks,
+        scope=scope,
+        activation_fn=None,
+        reuse=reuse_sc)
+
+    # Reshape and normalize.
+    cdna_kerns = tf.reshape(cdna_kerns, [conf['batch_size'], DNA_KERN_SIZE*2, num_masks])
+
+    h_kernels, v_kernels = tf.split(cdna_kerns, 2, axis=1)
+    h_kernels = tf.nn.softmax(h_kernels, dim=1)
+    v_kernels = tf.nn.softmax(v_kernels, dim=1)
+
+    # Transpose and reshape.
+    h_kernels = tf.transpose(h_kernels, [1, 0, 2])
+    v_kernels = tf.transpose(v_kernels, [1, 0, 2])
+
+    h_kernels = tf.reshape(h_kernels, [1, DNA_KERN_SIZE, batch_size, num_masks])
+    v_kernels = tf.reshape(v_kernels, [DNA_KERN_SIZE, 1, batch_size, num_masks])
+
+    prev_image = tf.transpose(prev_image, [3, 1, 2, 0])
+    transformed_l = []
+    combined_kerns = []
+    for i in range(num_masks):
+        h_kern = tf.expand_dims(h_kernels[:, :, :, i], -1)
+        v_kern = tf.expand_dims(v_kernels[:, :, :, i], -1)
+        output = tf.nn.depthwise_conv2d(prev_image, h_kern, [1, 1, 1, 1], 'SAME')
+        output = tf.nn.depthwise_conv2d(output, v_kern, [1, 1, 1, 1], 'SAME')
+
+        transformed_l.append(tf.transpose(output, [3,1,2,0]))
+
+        combined_kerns.append(h_kern*v_kern)
+
+    # the faster way
+    # transformed = tf.nn.depthwise_conv2d(prev_image, h_kernels, [1, 1, 1, 1], 'SAME')
+    # transformed = tf.nn.depthwise_conv2d(transformed, v_kernels, [1, 1, 1, 1], 'SAME')
+
+    return transformed_l, combined_kerns

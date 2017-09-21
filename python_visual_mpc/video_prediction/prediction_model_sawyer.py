@@ -90,6 +90,7 @@ class Prediction_Model(object):
         self.flow_vectors = []
 
         if 'separable_filters' in self.conf:
+            print 'applying separable filters'
             self.dna_transformation = sep_dna_transformation
             self.cdna_transformation = sep_cdna_transformation
         else:
@@ -298,7 +299,7 @@ class Prediction_Model(object):
                         extra_masks = self.num_masks
 
                     cdna_input = tf.reshape(hidden5, [int(batch_size), -1])
-                    new_transformed, cdna_kerns = self.cdna_transformation(prev_image,
+                    new_transformed, cdna_kerns = self.cdna_transformation(self.conf, prev_image,
                                                             cdna_input,
                                                             reuse_sc=reuse)
                     transformed_l += new_transformed
@@ -307,29 +308,29 @@ class Prediction_Model(object):
                     ## move the background is chosen:
                     if 'mov_bckgd' in self.conf:
                         cdna_input = tf.reshape(hidden5, [int(self.batch_size), -1])
-                        bckgd_transformed, _ = self.cdna_transformation(self.images[0],
+                        bckgd_transformed, _ = self.cdna_transformation(self.conf, self.images[0],
                                                                         cdna_input,
                                                                         reuse_sc=reuse,
                                                                         scope='bckgd_trafo')
                         self.moved_bckgd.append(bckgd_transformed)
 
                     if self.pix_distributions1 != None:
-                        transf_distrib_ndesig1, _ = self.cdna_transformation(prev_pix_distrib1,
+                        transf_distrib_ndesig1, _ = self.cdna_transformation(self.conf, prev_pix_distrib1,
                                                                                    cdna_input,
                                                                                      reuse_sc=True)
                         self.moved_pix_distrib1.append(transf_distrib_ndesig1)
 
                         if 'mov_bckgd' in self.conf:
                             bcgkd_distrib = tf.reshape(self.pix_distributions1[0], (self.batch_size,64,64,1))
-                            transf_distrib_bckgd, _ = self.cdna_transformation(bcgkd_distrib,
+                            transf_distrib_bckgd, _ = self.cdna_transformation(self.conf, bcgkd_distrib,
                                                                                  cdna_input,
                                                                                  reuse_sc=True,
                                                                                  scope='bckgd_trafo')
                         if 'ndesig' in self.conf:
-                            transf_distrib_ndesig2, _ = self.cdna_transformation(
-                                                                               prev_pix_distrib2,
-                                                                               cdna_input,
-                                                                               reuse_sc=True)
+                            transf_distrib_ndesig2, _ = self.cdna_transformation(self.conf,
+                                                                                   prev_pix_distrib2,
+                                                                                   cdna_input,
+                                                                                   reuse_sc=True)
 
                             self.moved_pix_distrib2.append(transf_distrib_ndesig2)
 

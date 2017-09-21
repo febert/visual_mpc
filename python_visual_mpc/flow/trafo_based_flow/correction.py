@@ -21,7 +21,8 @@ import pdb
 
 import tensorflow.contrib.slim as slim
 from tensorflow.contrib.layers.python import layers as tf_layers
-from python_visual_mpc.video_prediction.basecls.utils.transformations import dna_transformation, cdna_transformation
+from python_visual_mpc.video_prediction.basecls.utils.transformations import dna_transformation, sep_dna_transformation
+from python_visual_mpc.video_prediction.basecls.utils.transformations import cdna_transformation, sep_cdna_transformation
 
 # Amount to use when lower bounding tensors
 RELU_SHIFT = 1e-12
@@ -43,6 +44,11 @@ def construct_correction(conf,
 
     concat_img = tf.concat([images[0], images[1]], axis=3)  #64x64x3
 
+    if 'separable_filters' in conf:
+        print 'applying separable filters'
+        dna_transformation = sep_dna_transformation
+        cdna_transformation = sep_cdna_transformation
+
     with slim.arg_scope(
             [slim.layers.conv2d, slim.layers.fully_connected,
              tf_layers.layer_norm, slim.layers.conv2d_transpose],
@@ -55,8 +61,12 @@ def construct_correction(conf,
             final_layer, middle_layer = build_core(concat_img)
 
         if conf['model'] == 'DNA':
+
             # Using largest hidden state for predicting untied conv kernels.
-            enc4 = slim.layers.conv2d_transpose(final_layer, conf['kern_size'] ** 2, 1, stride=1, scope='convt4')
+            if 'separable_filters' in conf:
+                num_filters = conf['kern_size'] * 2
+            else: num_filters = conf['kern_size'] ** 2
+            enc4 = slim.layers.conv2d_transpose(final_layer, num_filters, 1, stride=1, scope='convt4')
 
             # Only one mask is supported (more should be unnecessary).
             if num_masks != 1:
