@@ -278,11 +278,11 @@ class Prediction_Model(object):
                     trafo_input = slim.layers.conv2d_transpose(
                         enc6,num_filters, 1, stride=1, scope='convt4_cam2')
 
-                    transformed_l = [self.dna_transformation(self.conf, prev_image, trafo_input)]
+                    transformed_l, _ = self.dna_transformation(self.conf, prev_image, trafo_input)
                     if self.pix_distributions1 != None:
-                        transf_distrib_ndesig1 = [self.dna_transformation(self.conf, prev_pix_distrib1, trafo_input)]
+                        transf_distrib_ndesig1, _ = self.dna_transformation(self.conf, prev_pix_distrib1, trafo_input)
                         if 'ndesig' in self.conf:
-                            transf_distrib_ndesig2 = [self.dna_transformation(self.conf, prev_pix_distrib2, trafo_input)]
+                            transf_distrib_ndesig2, _ = self.dna_transformation(self.conf, prev_pix_distrib2, trafo_input)
                     extra_masks = 1
 
                 if self.conf['model'] == 'CDNA':
