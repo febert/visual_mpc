@@ -29,6 +29,8 @@ class Tracking_Model(Base_Prediction_Model):
                                         load_data = load_data,
                                         mode=mode)
 
+        print "finished init tracking model"
+
 
     def build(self):
         """
@@ -66,6 +68,7 @@ class Tracking_Model(Base_Prediction_Model):
         self.tracking_kerns = []
         self.tracking_gen_images = []
         self.tracking_flow = []
+        self.tracking_gendistrib = []
 
         t = -1
         for image, action in zip(self.images[:-1], self.actions[:-1]):
@@ -82,10 +85,13 @@ class Tracking_Model(Base_Prediction_Model):
             current_state = self.build_network_core(action, current_state, self.prev_image)
 
             print 'building tracker...'
-            gen_images, gen_masks, pix_distrib_output, flow_vectors, kernels = construct_correction(self.conf,
+            gen_images, gen_masks, gen_distrib_output, flow_vectors, kernels = construct_correction(self.conf,
                                                                                                     [self.images[t],
                                                                                                     self.images[t + 1]],
+                                                                                                    pix_distrib_input= self.prev_pix_distrib1,
                                                                                                     reuse=self.reuse)
+
+            self.tracking_gendistrib.append(gen_distrib_output)
             self.tracking_gen_images.append(gen_images)
             self.tracking_kerns.append(kernels)
             self.tracking_flow.append(flow_vectors)
