@@ -36,6 +36,7 @@ flags.DEFINE_string('pretrained', None, 'path to model file from which to resume
 flags.DEFINE_bool('diffmotions', False, 'visualize several different motions for a single scene')
 
 
+
 ## Helper functions
 def peak_signal_to_noise_ratio(true, pred):
     """Image quality metric based on maximal signal power vs. power of the noise.
