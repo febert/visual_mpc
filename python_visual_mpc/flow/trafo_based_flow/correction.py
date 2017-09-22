@@ -72,7 +72,6 @@ def construct_correction(conf,
             if num_masks != 1:
                 raise ValueError('Only one mask is supported for DNA model.')
             transformed, kernels  = dna_transformation(conf, images[0], enc4)
-            transformed = [transformed]
 
         elif conf['model'] == 'CDNA':
             cdna_input = tf.reshape(middle_layer, [int(batch_size), -1])
@@ -109,7 +108,6 @@ def construct_correction(conf,
         if pix_distrib_input != None:
             if conf['model'] == 'DNA':
                 transf_distrib, kernels = dna_transformation(conf, pix_distrib_input, enc4)
-                transf_distrib = [transf_distrib]
             else:
                 transf_distrib, kernels = cdna_transformation(conf,
                                                             pix_distrib_input,
