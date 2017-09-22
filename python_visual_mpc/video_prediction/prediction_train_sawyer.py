@@ -245,7 +245,7 @@ def main(unused_argv, conf_script= None):
         conf['visualize'] = conf['output_dir'] + '/' + FLAGS.visualize
         conf['event_log_dir'] = '/tmp'
         conf.pop('use_len', None)
-        conf['batch_size'] = 10
+        conf['batch_size'] = 13
 
         conf['sequence_length'] = 14
         if FLAGS.diffmotions:
@@ -263,11 +263,18 @@ def main(unused_argv, conf_script= None):
 
     print 'Constructing models and inputs.'
     if FLAGS.diffmotions:
+        if 'adim' in conf:
+            adim = conf['adim']
+        else: adim = 4
+
+        if 'statedim' in conf:
+            statedim = conf['statedim']
+        else: statedim = 3
 
         actions_pl = tf.placeholder(tf.float32, name='actions',
-                                    shape=(conf['batch_size'], conf['sequence_length'], 4))
+                                    shape=(conf['batch_size'], conf['sequence_length'], adim))
         states_pl = tf.placeholder(tf.float32, name='states',
-                                   shape=(conf['batch_size'], conf['sequence_length'], 3))
+                                   shape=(conf['batch_size'], conf['sequence_length'], statedim))
 
         images_pl = tf.placeholder(tf.float32, name='images',
                                    shape=(conf['batch_size'], conf['sequence_length'], 64, 64, 3))
@@ -328,15 +335,22 @@ def main(unused_argv, conf_script= None):
 
         if FLAGS.diffmotions:
 
-            b_exp, ind0 =0, 0
+            b_exp, ind0 =4, 0
 
             img, state = sess.run([val_images, val_states])
             sel_img= img[b_exp,ind0:ind0+2]
 
+            # fig1 = plt.figure(1)
+            # plt.imshow(sel_img[0])
+            # fig2 = plt.figure(2)
+            # plt.imshow(sel_img[1])
+            # plt.show()
+            # pdb.set_trace()
+
             c = Getdesig(sel_img[0], conf, 'b{}'.format(b_exp))
-            # desig_pos_aux1 = c.coords.astype(np.int32)
-            desig_pos_aux1 = np.array([30, 31])
-            # print "selected designated position for aux1 [row,col]:", desig_pos_aux1
+            desig_pos_aux1 = c.coords.astype(np.int32)
+            # desig_pos_aux1 = np.array([29, 37])
+            print "selected designated position for aux1 [row,col]:", desig_pos_aux1
 
             one_hot = create_one_hot(conf, desig_pos_aux1)
 
@@ -344,7 +358,7 @@ def main(unused_argv, conf_script= None):
 
             sel_state = np.stack([state[b_exp,ind0],state[b_exp,ind0+1]], axis=0)
 
-            start_states = np.concatenate([sel_state,np.zeros((conf['sequence_length']-2, 3))])
+            start_states = np.concatenate([sel_state,np.zeros((conf['sequence_length']-2, statedim))])
             start_states = np.expand_dims(start_states, axis=0)
             start_states = np.repeat(start_states, conf['batch_size'], axis=0)  # copy over batch
             feed_dict[states_pl] = start_states
@@ -355,22 +369,50 @@ def main(unused_argv, conf_script= None):
             start_images = np.repeat(start_images, conf['batch_size'], axis=0)  # copy over batch
             feed_dict[images_pl] = start_images
 
-            actions = np.zeros([conf['batch_size'], conf['sequence_length'], 4])
+            actions = np.zeros([conf['batch_size'], conf['sequence_length'], adim])
 
             # step = .025
             step = .055
             n_angles = 8
+            col_titles = []
             for b in range(n_angles):
+                col_titles.append('move')
                 for i in range(conf['sequence_length']):
-                    actions[b,i] = np.array([np.cos(b/float(n_angles)*2*np.pi)*step, np.sin(b/float(n_angles)*2*np.pi)*step, 0, 0])
+                    actions[b,i][:2] = np.array([np.cos(b/float(n_angles)*2*np.pi)*step, np.sin(b/float(n_angles)*2*np.pi)*step])
 
-            b+=1
-            actions[b, 0] = np.array([0, 0, 4, 0])
-            actions[b, 1] = np.array([0, 0, 4, 0])
+            if adim == 5:
+                b += 1
+                actions[b, 0] = np.array([0, 0, 4, 0, 0])
+                actions[b, 1] = np.array([0, 0, 4, 0, 0])
+                col_titles.append('up/down')
 
-            b += 1
-            actions[b, 0] = np.array([0, 0, 0, 4])
-            actions[b, 1] = np.array([0, 0, 0, 4])
+                b += 1
+                actions[b, 0] = np.array([0, 0, 0, 0, 4])
+                actions[b, 1] = np.array([0, 0, 0, 0, 4])
+                col_titles.append('close/open')
+
+                delta_rot = 0.4
+                b += 1
+                for i in range(conf['sequence_length']):
+                    actions[b, i] = np.array([0, 0, 0, delta_rot, 0])
+                col_titles.append('rot +')
+
+                b += 1
+                for i in range(conf['sequence_length']):
+                    actions[b, i] = np.array([0, 0, 0, -delta_rot, 0])
+                col_titles.append('rot -')
+
+                col_titles.append('noaction')
+
+            elif adim == 4:
+                b+=1
+                actions[b, 0] = np.array([0, 0, 4, 0])
+                actions[b, 1] = np.array([0, 0, 4, 0])
+
+
+                b += 1
+                actions[b, 0] = np.array([0, 0, 0, 4])
+                actions[b, 1] = np.array([0, 0, 0, 4])
 
             feed_dict[actions_pl] = actions
 
@@ -395,9 +437,9 @@ def main(unused_argv, conf_script= None):
             cPickle.dump(dict, open(file_path + '/pred.pkl', 'wb'))
             print 'written files to:' + file_path
 
-            v = Visualizer_tkinter(dict, numex=4, append_masks=False,
+            v = Visualizer_tkinter(dict, numex=conf['batch_size'], append_masks=False,
                                    gif_savepath=conf['output_dir'],
-                                   suf='_diffmotions_b{}_l{}'.format(b_exp, conf['sequence_length']))
+                                   suf='_diffmotions_b{}_l{}'.format(b_exp, conf['sequence_length']), col_titles=col_titles)
             v.build_figure()
 
         else:

@@ -231,29 +231,24 @@ def visualize(conf):
 
     b_exp = 0
     initial_img = ground_truth[b_exp][0]
-    c = Getdesig(initial_img, conf, 'b{}'.format(b_exp))
-    desig_pos_aux1 = c.coords.astype(np.int32)
+    # c = Getdesig(initial_img, conf, 'b{}'.format(b_exp))
+    # desig_pos_aux1 = c.coords.astype(np.int32)
 
-    # desig_pos_aux1 = np.array([31, 29])
+    desig_pos_aux1 = np.array([31, 29])
     start_one_hot = np.zeros([conf['batch_size'], 64, 64, 1])
 
     start_one_hot[0, desig_pos_aux1[0], desig_pos_aux1[1]] = 1
 
     output_distrib_list, gen_masks_list, gen_image_list, flow_list = [], [], [], []
 
+    next_input_distrib = start_one_hot
     for t in range(conf['sequence_length']-1):
-
-        if t == 0:
-            next_input_distrib = start_one_hot
-        else:
-            next_input_distrib = output_distrib
 
         feed_dict = {
                      model.lr: 0,
                      images: ground_truth[:,t:t+2],  #could alternatively feed in gen_image
                      input_distrib: next_input_distrib
                      }
-
         gen_image, gen_masks, output_distrib, flow = sess.run([model.gen_images,
                                                              model.gen_masks,
                                                              model.gen_distrib,
@@ -261,6 +256,7 @@ def visualize(conf):
                                                              ],
                                                              feed_dict)
 
+        next_input_distrib = output_distrib
         output_distrib_list.append(output_distrib)
         gen_image_list.append(gen_image)
         gen_masks_list.append(gen_masks)

@@ -31,5 +31,7 @@ configuration = {
 'single_view':"",
 'use_len':14,                # number of steps used for training where the starting location is selected randomly within sequencelength
 '1stimg_bckgd':'',
-'visual_flowvec':''
+'visual_flowvec':'',
+'adim':5,
+'statedim':4
 }

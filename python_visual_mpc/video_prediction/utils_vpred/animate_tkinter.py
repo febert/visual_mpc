@@ -62,7 +62,7 @@ def visualize_flow(flow_vecs):
 
 t = 0
 class Visualizer_tkinter(object):
-    def __init__(self, dict_ = None, append_masks = True, gif_savepath=None, numex = 4, suf= ""):
+    def __init__(self, dict_ = None, append_masks = True, gif_savepath=None, numex = 4, suf= "", col_titles = None):
 
         if dict_ == None:
             dict_ = cPickle.load(open(gif_savepath + '/pred.pkl', "rb"))
@@ -120,6 +120,8 @@ class Visualizer_tkinter(object):
         self.suf = suf
         self.append_masks = append_masks
         self.num_rows = len(self.video_list)
+
+        self.col_titles = col_titles
 
     def make_image_strip(self, i_ex, tstart=5, tend=15):
         """
@@ -238,8 +240,8 @@ class Visualizer_tkinter(object):
                 ax.set_xticks([])
                 ax.set_yticks([])
                 axes_list.append(fig.add_subplot(ax))
-                # if row==0:
-                #     axes_list[-1].set_title('example {}'.format(col))
+                if row==0 and self.col_titles != None:
+                    axes_list[-1].set_title(self.col_titles[col])
 
                 if image_row[0][col].shape[-1] == 1:
 
