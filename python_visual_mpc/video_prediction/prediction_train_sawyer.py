@@ -135,7 +135,7 @@ class Model(object):
 
             self.lr = tf.train.piecewise_constant(self.global_step, conf['lr_boundaries'], conf['lr_values'])
         else:
-            self.lr = tf.placeholder_with_default(conf['learning_rate'], ())
+            self.lr = tf.placeholder_with_default(conf['learning_rate'], (), 'learning_rate')
 
         if not inference:
             # L2 loss, PSNR for eval.
