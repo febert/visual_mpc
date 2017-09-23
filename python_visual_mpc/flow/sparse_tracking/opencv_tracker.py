@@ -46,7 +46,10 @@ if __name__ == '__main__':
     for i_save in range(1, video_len):
 
         [imfile] = glob.glob(image_folder + "/main_full_cropped_im{}_*.jpg".format(str(i_save).zfill(2)))
-        frame = cv2.imread(imfile)
+
+        interval = 1
+        if i_save % interval == 0:
+            frame = cv2.imread(imfile)
 
         # Update tracker
         ok, bbox = tracker.update(frame)
@@ -56,9 +59,7 @@ if __name__ == '__main__':
             p1 = (int(bbox[0]), int(bbox[1]))
             p2 = (int(bbox[0] + bbox[2]), int(bbox[1] + bbox[3]))
             cv2.rectangle(frame, p1, p2, (0, 0, 255))
-
-        print 'tracking:', ok
-
+        print 'tracking ok:', ok
         # Display result
         cv2.imshow("Tracking", frame)
 
@@ -72,6 +73,8 @@ if __name__ == '__main__':
         # Exit if ESC pressed
         k = cv2.waitKey(1) & 0xff
         if k == 27: break
+
+        # pdb.set_trace()
 
 
     make_gif(im_with_bbox)

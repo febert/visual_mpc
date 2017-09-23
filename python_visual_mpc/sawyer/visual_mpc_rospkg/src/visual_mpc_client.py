@@ -350,6 +350,10 @@ class Visual_MPC_Client():
                     c_main = Getdesig(imagemain, self.desig_pix_img_dir, '_t{}'.format(i_step), self.ndesig,
                                       self.canon_ind, self.canon_dir, only_desig=True)
                     self.desig_pos_main = c_main.desig.astype(np.int64)
+                elif 'opencv_tracking' in self.agentparams:
+
+                    self.desig_pos_main = self.track_open_cv(i_step)
+
 
                 print 'current position error', self.des_pos - self.get_endeffector_pos(pos_only=True)
 
@@ -631,6 +635,48 @@ class Visual_MPC_Client():
                     do_repeat = True
                     break
 
+    def track_open_cv(self, t):
+        if t == 0:
+            frame = self.recorder.ltob.img_cv2
+            box_height = 50
+            loc = self.low_res_to_highres(self.desig_pos_main)
+            bbox = (loc[0], loc[1], 50, 50)  # for the small snow-man
+            ok = tracker.init(frame, bbox)
+
+        frame = self.recorder.ltob_aux1.img_msg
+        ok, bbox = self.tracker.update(frame)
+
+        new_loc = (int(bbox[0]), int(bbox[1])) + float(box_height)/2
+        # Draw bounding box
+        if ok:
+            p1 = (int(bbox[0]), int(bbox[1]))
+            p2 = (int(bbox[0] + bbox[2]), int(bbox[1] + bbox[3]))
+            cv2.rectangle(frame, p1, p2, (0, 0, 255))
+        print 'tracking ok:', ok
+        # Display result
+        cv2.imshow("Tracking", frame)
+        k = cv2.waitKey(1) & 0xff
+
+        return self.high_res_to_lowres(new_loc)
+
+    def low_res_to_highres(self, inp):
+        h = self.recorder.crop_highres_params
+        l = self.recorder.crop_lowres_params
+
+        canon = (inp + np.array(l['startrow'], l['startcol']))/l['shrink_after_crop']
+
+        #canon to highres:
+        highres = (canon - np.array(h['startrow'], h['startcol']))*h['shrink_after_crop']
+
+        return canon, highres
+
+    def high_res_to_lowres(self, inp):
+        h = self.recorder.crop_highres_params
+        l = self.recorder.crop_lowres_params
+
+
+
+
 
 class Getdesig(object):
     def __init__(self,img,basedir,img_namesuffix = '', n_desig=1, canon_ind=None, canon_dir = None, only_desig = False):
@@ -720,6 +766,9 @@ class Getdesig(object):
                 cPickle.dump(dict, f)
 
         self.i_click += 1
+
+
+
 
 if __name__ == '__main__':
     mpc = Visual_MPC_Client()

@@ -188,7 +188,6 @@ class RobotRecorder(object):
         self.ltob.img_msg = data
         self.ltob.tstamp_img = rospy.get_time()
         cv_image = self.bridge.imgmsg_to_cv2(data, "bgr8")  #(1920, 1080)
-
         self.ltob.img_cv2 = self.crop_highres(cv_image)
         self.ltob.img_cropped = self.crop_lowres(cv_image)
 
@@ -199,21 +198,26 @@ class RobotRecorder(object):
         endrow = startrow + 1500
         cv_image = copy.deepcopy(cv_image[startrow:endrow, startcol:endcol])
 
-        cv_image = cv2.resize(cv_image, (0, 0), fx=.75, fy=.75, interpolation=cv2.INTER_AREA)
+        shrink_after_crop = .75
+        cv_image = cv2.resize(cv_image, (0, 0), fx=shrink_after_crop, fy=shrink_after_crop, interpolation=cv2.INTER_AREA)
         if self.instance_type == 'main':
             cv_image = imutils.rotate_bound(cv_image, 180)
+
+        self.crop_highres_params = {'startcol':startcol, 'startrow':startrow,'shrink_after_crop':shrink_after_crop}
         return cv_image
 
     def crop_lowres(self, cv_image):
         self.ltob.d_img_raw_npy = np.asarray(cv_image)
         if self.instance_type == 'main':
-            img = cv2.resize(cv_image, (0, 0), fx=1 / 16., fy=1 / 16., interpolation=cv2.INTER_AREA)
+            shrink_before_crop = 1 / 16.
+            img = cv2.resize(cv_image, (0, 0), fx=shrink_before_crop, fy=shrink_before_crop, interpolation=cv2.INTER_AREA)
             startrow = 3
             startcol = 27
 
             img = imutils.rotate_bound(img, 180)
         else:
-            img = cv2.resize(cv_image, (0, 0), fx=1 / 15., fy=1 / 15., interpolation=cv2.INTER_AREA)
+            shrink_before_crop = 1 / 15.
+            img = cv2.resize(cv_image, (0, 0), fx=shrink_before_crop, fy=shrink_before_crop, interpolation=cv2.INTER_AREA)
             startrow = 2
             startcol = 27
         endcol = startcol + 64
@@ -222,6 +226,8 @@ class RobotRecorder(object):
         # crop image:
         img = img[startrow:endrow, startcol:endcol]
         assert img.shape == (64,64,3)
+
+        self.crop_lowres_params = {'startcol':startcol,'startrow':startrow,'shrink_before_crop':shrink_before_crop}
         return img
 
 
