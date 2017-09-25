@@ -44,12 +44,6 @@ def build_tfrecord_input(conf, training=True):
         shuffle = False
     else: shuffle = True
 
-    ### for debugging ### only
-    import random
-    random.shuffle(filenames)
-    filenames = [filenames[0]]
-    print 'using file', filenames
-    ### end for debugging ### only
 
     filename_queue = tf.train.string_input_producer(filenames, shuffle=shuffle)
     reader = tf.TFRecordReader()
@@ -206,7 +200,10 @@ if __name__ == '__main__':
         # show some frames
         for i in range(10):
 
+            print 'actions'
             print actions[i]
+
+            print 'endeff'
             print endeff[i]
 
             image = np.squeeze(image)

@@ -56,11 +56,7 @@ def main(unused_argv, conf_script= None):
     if FLAGS.visualize:
         print 'creating visualizations ...'
         conf['schedsamp_k'] = -1  # don't feed ground truth
-        # conf['data_dir'] = '/'.join(str.split(conf['data_dir'], '/')[:-1] + ['test'])  !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-
-
-
-
+        conf['data_dir'] = '/'.join(str.split(conf['data_dir'], '/')[:-1] + ['test'])
 
         conf['visualize'] = conf['output_dir'] + '/' + FLAGS.visualize
         conf['event_log_dir'] = '/tmp'
