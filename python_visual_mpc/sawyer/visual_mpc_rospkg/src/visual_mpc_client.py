@@ -636,12 +636,14 @@ class Visual_MPC_Client():
                     break
 
     def track_open_cv(self, t):
+        box_height = 50
         if t == 0:
             frame = self.recorder.ltob.img_cv2
-            box_height = 50
+
             loc = self.low_res_to_highres(self.desig_pos_main)
             bbox = (loc[0], loc[1], 50, 50)  # for the small snow-man
-            ok = tracker.init(frame, bbox)
+            tracker = cv2.Tracker_create("KCF")
+            tracker.init(frame, bbox)
 
         frame = self.recorder.ltob_aux1.img_msg
         ok, bbox = self.tracker.update(frame)
@@ -663,19 +665,23 @@ class Visual_MPC_Client():
         h = self.recorder.crop_highres_params
         l = self.recorder.crop_lowres_params
 
-        canon = (inp + np.array(l['startrow'], l['startcol']))/l['shrink_after_crop']
+        orig = (inp + np.array(l['startrow'], l['startcol']))/l['shrink_before_crop']
 
-        #canon to highres:
-        highres = (canon - np.array(h['startrow'], h['startcol']))*h['shrink_after_crop']
+        #orig to highres:
+        highres = (orig - np.array(h['startrow'], h['startcol']))*h['shrink_after_crop']
 
-        return canon, highres
+        return orig, highres
 
     def high_res_to_lowres(self, inp):
         h = self.recorder.crop_highres_params
         l = self.recorder.crop_lowres_params
 
+        orig = inp/ h['shrink_after_crop'] + np.array(h['startrow'], h['startcol'])
 
+        # orig to highres:
+        highres = orig* l['shrink_before_crop'] - np.array(l['startrow'], l['startcol'])
 
+        return orig, highres
 
 
 class Getdesig(object):
