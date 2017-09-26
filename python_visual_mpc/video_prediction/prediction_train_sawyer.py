@@ -23,7 +23,6 @@ VAL_INTERVAL = 500
 # How often to save a model checkpoint
 SAVE_INTERVAL = 4000
 
-
 from utils_vpred.animate_tkinter import Visualizer_tkinter
 
 from PIL import Image
