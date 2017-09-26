@@ -74,7 +74,7 @@ class Model(object):
 
         self.conf = conf
 
-        # images = images[:, :48, :]  # crop images
+        # images = images[:, :, :48, :, :]  # crop images
 
         if 'use_len' in conf:
             print 'randomly shift videos for data augmentation'
