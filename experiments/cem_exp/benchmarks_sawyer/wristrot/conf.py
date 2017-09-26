@@ -26,5 +26,7 @@ configuration = {
 'kern_size': 9,              #size of DNA kerns
 'sawyer':'',
 'single_view':"",
-'1stimg_bckgd':''
+'1stimg_bckgd':'',
+'adim':5,
+'statedim':4
 }
