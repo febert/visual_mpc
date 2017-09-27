@@ -11,6 +11,15 @@ from intera_core_msgs.srv import (
     SolvePositionFK,
     SolvePositionFKRequest,
 )
+
+from geometry_msgs.msg import (
+    PoseStamped,
+    PointStamped,
+    Pose,
+    Point,
+    Quaternion,
+)
+
 import intera_external_devices
 
 import argparse
@@ -71,6 +80,11 @@ class Visual_MPC_Client():
 
         self.benchname = benchmark_name
 
+        if self.agentparams['adim'] == 5:
+            self.enable_rot = True
+        else:
+            self.enable_rot = False
+
         self.args = args
         if 'ndesig' in self.policyparams:
             self.ndesig = self.policyparams['ndesig']
@@ -117,6 +131,9 @@ class Visual_MPC_Client():
         self.traj_duration = self.action_sequence_length*self.action_interval
         self.action_rate = rospy.Rate(self.action_interval)
         self.control_rate = rospy.Rate(1000)
+
+        self.sdim = self.agentparams['state_dim']
+        self.adim = self.agentparams['action_dim']
 
         rospy.sleep(.2)
         # drive to neutral position:
@@ -230,7 +247,7 @@ class Visual_MPC_Client():
         fkreq.configuration.append(joints)
         fkreq.tip_names.append('right_hand')
         try:
-            rospy.wait_for_service(self.name_of_service, 5)
+            rospy.wait_for_service(self.name_fksrv, 5)
             resp = self.fksvc(fkreq)
         except (rospy.ServiceException, rospy.ROSException), e:
             rospy.logerr("Service call failed: %s" % (e,))
@@ -238,8 +255,38 @@ class Visual_MPC_Client():
 
         pos = np.array([resp.pose_stamp[0].pose.position.x,
                          resp.pose_stamp[0].pose.position.y,
-                         resp.pose_stamp[0].pose.position.z])
-        return pos
+                         resp.pose_stamp[0].pose.position.z,
+                         ])
+
+        if pos_only:
+            return pos
+        else:
+            quat = np.array([resp.pose_stamp[0].pose.orientation.x,
+                             resp.pose_stamp[0].pose.orientation.y,
+                             resp.pose_stamp[0].pose.orientation.z,
+                             resp.pose_stamp[0].pose.orientation.w
+                             ])
+
+            zangle = self.quat_to_zangle(quat)
+            return np.concatenate([pos, zangle])
+
+    def quat_to_zangle(self, quat):
+        """
+        :param quat: quaternion with only
+        :return: zangle in rad
+        """
+        phi = np.arctan2(2*(quat[0]*quat[1] + quat[2]*quat[3]), 1 - 2 *(quat[1]**2 + quat[2]**2))
+        return np.array([phi])
+
+    def zangle_to_quat(self, zangle):
+        quat = Quaternion(  # downward and turn a little
+            x=np.cos(zangle / 2),
+            y=np.sin(zangle / 2),
+            z=0.0,
+            w=0.0
+        )
+
+        return  quat
 
     def init_traj(self):
         try:
@@ -307,7 +354,9 @@ class Visual_MPC_Client():
 
             self.init_traj()
 
-            self.lower_height = 0.20
+            self.lower_height = 0.16  #0.20 for old data set
+            self.delta_up = 0.12  #0.1 for old data set
+
             self.xlim = [0.44, 0.83]  # min, max in cartesian X-direction
             self.ylim = [-0.27, 0.18]  # min, max in cartesian Y-direction
 
@@ -316,7 +365,12 @@ class Visual_MPC_Client():
                 startpos = np.array([np.random.uniform(self.xlim[0], self.xlim[1]), np.random.uniform(self.ylim[0], self.ylim[1])])
             else: startpos = self.get_endeffector_pos()[:2]
 
-            self.des_pos = np.concatenate([startpos, np.asarray([self.lower_height])], axis=0)
+            if self.enable_rot:
+                start_angle = np.array([np.random.uniform(0., np.pi * 2)])
+                self.des_pos = np.concatenate([startpos, np.asarray([self.lower_height + self.delta_up]), start_angle],
+                                              axis=0)
+            else:
+                self.des_pos = np.concatenate([startpos, np.asarray([self.lower_height + self.delta_up])], axis=0)
 
             self.topen, self.t_down = 0, 0
 
@@ -466,7 +520,7 @@ class Visual_MPC_Client():
             imagemain = np.zeros((64,64,3))
             imagemain = self.bridge.cv2_to_imgmsg(imagemain)
             imageaux1 = self.bridge.cv2_to_imgmsg(self.test_img)
-            state = np.zeros(3)
+            state = np.zeros(self.sdim)
 
         try:
             rospy.wait_for_service('get_action', timeout=240)
@@ -480,6 +534,8 @@ class Visual_MPC_Client():
         except (rospy.ServiceException, rospy.ROSException), e:
             rospy.logerr("Service call failed: %s" % (e,))
             raise ValueError('get action service call failed')
+
+        action_vec = action_vec[:self.adim]
         return action_vec
 
 
@@ -540,21 +596,32 @@ class Visual_MPC_Client():
             raise Traj_aborted_except('raising Traj_aborted_except')
 
     def apply_act(self, action_vec, i_act, move=True):
-        self.des_pos[:2] += action_vec[:2]
+
+        # when rotation is enabled
+        posshift = action_vec[:2]
+        if self.enable_rot:
+            up_cmd = action_vec[2]
+            delta_rot = action_vec[3]
+            close_cmd = action_vec[4]
+            self.des_pos[3] += delta_rot
+        # when rotation is not enabled
+        else:
+            close_cmd = action_vec[2]
+            up_cmd = action_vec[3]
+
+        self.des_pos[:2] += posshift
+
         self.des_pos = self.truncate_pos(self.des_pos)  # make sure not outside defined region
         self.imp_ctrl_release_spring(120.)
 
-        close_cmd = action_vec[2]
         if close_cmd != 0:
             self.topen = i_act + close_cmd
             self.ctrl.gripper.close()
             self.gripper_closed = True
 
-        up_cmd = action_vec[3]
-        delta_up = .1
         if up_cmd != 0:
             self.t_down = i_act + up_cmd
-            self.des_pos[2] = self.lower_height + delta_up
+            self.des_pos[2] = self.lower_height + self.delta_up
             self.gripper_up = True
 
         if self.gripper_closed:
@@ -604,6 +671,11 @@ class Visual_MPC_Client():
         if pos[1] < ylim[0]:
             pos[1] = ylim[0]
 
+        if self.enable_rot:
+            alpha_min = -0.78539
+            alpha_max = np.pi
+            pos[3] = np.clip(pos[3], alpha_min, alpha_max)
+
         return  pos
 
 
@@ -636,12 +708,14 @@ class Visual_MPC_Client():
                     break
 
     def track_open_cv(self, t):
+        box_height = 50
         if t == 0:
             frame = self.recorder.ltob.img_cv2
-            box_height = 50
+
             loc = self.low_res_to_highres(self.desig_pos_main)
             bbox = (loc[0], loc[1], 50, 50)  # for the small snow-man
-            ok = tracker.init(frame, bbox)
+            tracker = cv2.Tracker_create("KCF")
+            tracker.init(frame, bbox)
 
         frame = self.recorder.ltob_aux1.img_msg
         ok, bbox = self.tracker.update(frame)
@@ -663,19 +737,23 @@ class Visual_MPC_Client():
         h = self.recorder.crop_highres_params
         l = self.recorder.crop_lowres_params
 
-        canon = (inp + np.array(l['startrow'], l['startcol']))/l['shrink_after_crop']
+        orig = (inp + np.array(l['startrow'], l['startcol']))/l['shrink_before_crop']
 
-        #canon to highres:
-        highres = (canon - np.array(h['startrow'], h['startcol']))*h['shrink_after_crop']
+        #orig to highres:
+        highres = (orig - np.array(h['startrow'], h['startcol']))*h['shrink_after_crop']
 
-        return canon, highres
+        return orig, highres
 
     def high_res_to_lowres(self, inp):
         h = self.recorder.crop_highres_params
         l = self.recorder.crop_lowres_params
 
+        orig = inp/ h['shrink_after_crop'] + np.array(h['startrow'], h['startcol'])
 
+        # orig to highres:
+        highres = orig* l['shrink_before_crop'] - np.array(l['startrow'], l['startcol'])
 
+        return orig, highres
 
 
 class Getdesig(object):

@@ -67,11 +67,12 @@ class Visualizer_tkinter(object):
         if dict_ == None:
             dict_ = cPickle.load(open(gif_savepath + '/pred.pkl', "rb"))
 
-        gen_images = dict_['gen_images']
         self.iternum = dict_['iternum']
 
-        if gen_images[0].shape[0] < numex:
-            raise ValueError("batchsize too small for providing desired number of exmaples!")
+        if 'gen_images' in dict_:
+            gen_images = dict_['gen_images']
+            if gen_images[0].shape[0] < numex:
+                raise ValueError("batchsize too small for providing desired number of exmaples!")
 
         self.numex = numex
         self.video_list = []
