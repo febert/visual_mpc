@@ -104,16 +104,18 @@ class Descriptor_Flow(object):
         # repeat d1 along kernel dimensions
         repeated_d1 = tf.tile(d1[:,:,:,:,None,None], [1,1,1,1, KERN_SIZE, KERN_SIZE])
 
-        # Normalize channels to 1.
-
-        if conf['metric'] == 'euclidean':
+        if conf['metric'] == 'inverse_euclidean':
             dist_fields = tf.reduce_sum(tf.square(repeated_d1-shifted_d2), 3)
+            inverse_dist_fields = tf.div(1., dist_fields + 1e-5)
             #normed_dist_fields should correspond DNA-like trafo kernels
-            normed_dist_fields = dist_fields / tf.reduce_sum(dist_fields, [3,4], keep_dims=True)
+            trafo = inverse_dist_fields / tf.reduce_sum(inverse_dist_fields, [3,4], keep_dims=True)
         elif conf['metric'] == 'cosine':
-            ValueError("not implemented!")
 
-        return normed_dist_fields
+            cos_dist = tf.reduce_sum(repeated_d1*shifted_d2, axis=3)/tf.norm(repeated_d1, axis=3)/tf.norm(shifted_d2, axis=3)
+            cos_dist = tf.reshape(cos_dist, [conf['batch_size'], 64, 64, KERN_SIZE**2])
+            trafo = tf.nn.softmax(cos_dist*conf['softmax_temp'], 3)
+
+        return trafo
 
 
     def build_descriptors(self, conf, img):
