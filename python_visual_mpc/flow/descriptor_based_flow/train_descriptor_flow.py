@@ -181,6 +181,9 @@ def search_region(conf, current_pos, d1, descp):
 
     distances = np.sum(np.square(region - descp), 2)
 
+    plt.imshow(distances)
+    plt.show()
+
     heatmap = np.zeros(d1_padded.shape[:2])
     heatmap[cur_r-ksize/2:cur_r+ksize/2, cur_c-ksize/2:cur_c+ksize/2] = distances
     heatmap = heatmap[ksize/2:ksize/2+64,ksize/2:ksize/2+64]
@@ -224,10 +227,10 @@ def visualize(conf):
 
     b_exp = 0
     initial_img = ground_truth[b_exp][0]
-    # c = Getdesig(initial_img, conf, 'b{}'.format(b_exp))
-    # desig_pos_aux1 = c.coords.astype(np.int32)
+    c = Getdesig(initial_img, conf, 'b{}'.format(b_exp))
+    desig_pos_aux1 = c.coords.astype(np.int32)
+    # desig_pos_aux1 = np.array([31, 29])
 
-    desig_pos_aux1 = np.array([31, 29])
     start_one_hot = np.zeros([conf['batch_size'], 64, 64, 1])
 
     start_one_hot[0, desig_pos_aux1[0], desig_pos_aux1[1]] = 1
