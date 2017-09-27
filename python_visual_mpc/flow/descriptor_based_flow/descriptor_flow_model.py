@@ -32,22 +32,22 @@ class Descriptor_Flow(object):
         """Build network for predicting optical flow
         """
         if 'large_core' in conf:
-            d0 = self.build_descriptors_large(images[0])
-            d1 = self.build_descriptors_large(images[1])
+            self.d0 = self.build_descriptors_large(images[0])
+            self.d1 = self.build_descriptors_large(images[1])
             print 'using large core'
         else:
             with tf.variable_scope('d0'):
-                d0 = self.build_descriptors(conf, images[0])
+                self.d0 = self.build_descriptors(conf, images[0])
 
             with tf.variable_scope('d1'):
-                d1 = self.build_descriptors(conf, images[1])
+                self.d1 = self.build_descriptors(conf, images[1])
 
-        trafo_kerns01 = self.get_trafo(conf, d0, d1)
+        trafo_kerns01 = self.get_trafo(conf, self.d0, self.d1)
         self.transformed01 = self.apply_trafo(conf, images[0], trafo_kerns01)
 
         if 'forward_backward' in conf:
             print 'using forward backward'
-            trafo_kerns10 = self.get_trafo(conf, d1, d0)
+            trafo_kerns10 = self.get_trafo(conf, self.d1, self.d0)
             self.transformed10 = self.apply_trafo(conf, images[1], trafo_kerns10)
 
     def apply_trafo(self, conf, prev_image, kerns):
@@ -144,6 +144,7 @@ class Descriptor_Flow(object):
             conf['desc_length'], [5, 5],
             stride=2,
             scope='t_conv2',
+            activation_fn=None
         )
 
         return enc3
@@ -190,6 +191,7 @@ class Descriptor_Flow(object):
             32, [5, 5],
             stride=2,
             scope='t_conv3',
+            activation_fn=None
         )
 
         return enc5
