@@ -120,7 +120,7 @@ def l1_deriv_loss(flow_field):
     return tf.norm(combined, ord=1)
 
 
-class CorrectorModel(object):
+class DescriptorModel(object):
     def __init__(self,
                  conf,
                  images=None,
@@ -169,6 +169,29 @@ class CorrectorModel(object):
         self.summ_op = tf.summary.merge(summaries)
 
 
+def search_region(conf, current_pos, d1, descp):
+
+    ksize = conf['kern_size']
+    d1_padded = np.lib.pad(d1, ((ksize/2, ksize/2),(ksize/2,ksize/2), (0,0)), 'constant', constant_values=((0, 0,), (0,0) , (0, 0)))
+
+    cur_r = current_pos[0]
+    cur_c = current_pos[1]
+
+    region = d1_padded[cur_r-ksize/2:cur_r+ksize/2, cur_c-ksize/2:cur_c+ksize/2]
+
+    distances = np.sum(np.square(region - descp), 2)
+
+    heatmap = np.zeros(d1_padded.shape[:2])
+    heatmap[cur_r-ksize/2:cur_r+ksize/2, cur_c-ksize/2:cur_c+ksize/2] = distances
+    heatmap = heatmap[ksize/2:ksize/2+64,ksize/2:ksize/2+64]
+    heatmap = heatmap[None, :, :]
+
+    newpos = current_pos + np.unravel_index(distances.argmin(), distances.shape) - np.array([ksize/2, ksize/2 ])
+    newpos = np.clip(newpos, 0, 63)
+
+    return newpos, heatmap
+
+
 def visualize(conf):
     gpu_options = tf.GPUOptions(per_process_gpu_memory_fraction=0.4)
     # Make training session.
@@ -186,7 +209,7 @@ def visualize(conf):
 
     with tf.variable_scope('model', reuse=None):
         val_images, _, _   = build_tfrecord_input(conf, training=False)
-        model = CorrectorModel(conf, images, pix_distrib= input_distrib, train=False)
+        model = DescriptorModel(conf, images, pix_distrib= input_distrib, train=False)
 
     tf.train.start_queue_runners(sess)
     sess.run(tf.global_variables_initializer())
@@ -209,37 +232,56 @@ def visualize(conf):
 
     start_one_hot[0, desig_pos_aux1[0], desig_pos_aux1[1]] = 1
 
-    output_distrib_list, gen_masks_list, gen_image_list, flow_list = [], [], [], []
+    output_distrib_list, transformed10_list, transformed01_list, flow_list = [], [], [], []
+
 
     next_input_distrib = start_one_hot
+
+    pos_list = []
+
+    heat_maps = []
+
     for t in range(conf['sequence_length']-1):
 
         feed_dict = {
                      model.lr: 0,
                      images: ground_truth[:,t:t+2],  #could alternatively feed in gen_image
-                     input_distrib: next_input_distrib
+                     # input_distrib: next_input_distrib
                      }
-        gen_image, gen_masks, output_distrib, flow = sess.run([model.gen_images,
-                                                             model.gen_masks,
-                                                             model.gen_distrib,
-                                                             model.flow
-                                                             ],
-                                                             feed_dict)
 
-        next_input_distrib = output_distrib
-        output_distrib_list.append(output_distrib)
-        gen_image_list.append(gen_image)
-        gen_masks_list.append(gen_masks)
-        flow_list.append(flow)
+
+        if 'forward_backward' in conf:
+            [transformed01, transformed10, d0, d1] = sess.run([model.d.transformed01, model.d.transformed10, model.d.d0, model.d.d1], feed_dict)
+            transformed10_list.append(transformed10)
+        else:
+            [transformed01, d0, d1] = sess.run([model.d.transformed01, model.d.d0, model.d.d1], feed_dict)
+
+        transformed01_list.append(transformed01)
+
+        d0 = np.squeeze(d0)
+        d1 = np.squeeze(d1)
+
+        if t == 0:
+            tar_descp =  d0[desig_pos_aux1[0], desig_pos_aux1[1]]
+            current_pos = desig_pos_aux1
+            pos_list.append(current_pos)
+
+        current_pos, heat_map = search_region(conf, current_pos, d1, tar_descp)
+        pos_list.append(current_pos)
+        heat_maps.append(heat_map)
 
     import collections
 
     dict = collections.OrderedDict()
     dict['ground_truth'] = ground_truth
-    dict['gen_images'] = gen_image_list
-    dict['gen_masks'] = gen_masks_list
-    dict['gen_distrib'] = output_distrib_list
-    dict['flow'] = flow_list
+    dict['transformed01'] = transformed01_list
+
+    dict['heat_map'] = heat_maps
+
+    if 'forward_backward' in conf:
+        dict['transformed10'] = transformed10_list
+
+    dict['transformed01'] = transformed01_list
 
     dict['iternum'] = itr_vis
 
@@ -282,11 +324,11 @@ def main(unused_argv, conf_script= None):
     print 'Constructing models and inputs'
     with tf.variable_scope('model', reuse=None) as training_scope:
         images,_ , _ = build_tfrecord_input(conf, training=True)
-        model = CorrectorModel(conf, images)
+        model = DescriptorModel(conf, images)
 
     with tf.variable_scope('val_model', reuse=None):
         val_images,_ , _ = build_tfrecord_input(conf, training=False)
-        val_model = CorrectorModel(conf, val_images, reuse_scope=training_scope)
+        val_model = DescriptorModel(conf, val_images, reuse_scope=training_scope)
 
     print 'Constructing saver.'
     saver = tf.train.Saver(tf.get_collection(tf.GraphKeys.VARIABLES), max_to_keep=0)
