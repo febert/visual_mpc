@@ -181,8 +181,8 @@ def search_region(conf, current_pos, d1, descp):
 
     distances = np.sum(np.square(region - descp), 2)
 
-    plt.imshow(distances)
-    plt.show()
+    # plt.imshow(distances)
+    # plt.show()
 
     heatmap = np.zeros(d1_padded.shape[:2])
     heatmap[cur_r-ksize/2:cur_r+ksize/2, cur_c-ksize/2:cur_c+ksize/2] = distances

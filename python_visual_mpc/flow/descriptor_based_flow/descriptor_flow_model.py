@@ -108,12 +108,16 @@ class Descriptor_Flow(object):
             dist_fields = tf.reduce_sum(tf.square(repeated_d1-shifted_d2), 3)
             inverse_dist_fields = tf.div(1., dist_fields + 1e-5)
             #normed_dist_fields should correspond DNA-like trafo kernels
-            trafo = inverse_dist_fields / tf.reduce_sum(inverse_dist_fields, [3,4], keep_dims=True)
+            trafo = inverse_dist_fields / (tf.reduce_sum(inverse_dist_fields, [3,4], keep_dims=True) + 1e-6)
+            print 'using inverse_euclidean'
         elif conf['metric'] == 'cosine':
 
-            cos_dist = tf.reduce_sum(repeated_d1*shifted_d2, axis=3)/tf.norm(repeated_d1, axis=3)/tf.norm(shifted_d2, axis=3)
+            cos_dist = tf.reduce_sum(repeated_d1*shifted_d2, axis=3)/(tf.norm(repeated_d1, axis=3)+1e-5)/(tf.norm(shifted_d2, axis=3) +1e-5)
             cos_dist = tf.reshape(cos_dist, [conf['batch_size'], 64, 64, KERN_SIZE**2])
             trafo = tf.nn.softmax(cos_dist*conf['softmax_temp'], 3)
+
+            trafo = tf.reshape(trafo, [conf['batch_size'], 64, 64, KERN_SIZE, KERN_SIZE])
+            print 'using cosine distance'
 
         return trafo
 
