@@ -33,3 +33,18 @@ pip install opencv-python
 
 For rotating images with open-cv python:
 pip install imutils
+
+
+
+#installing iai_kinect:
+Follow
+https://github.com/code-iai/iai_kinect2#install
+and
+
+https://github.com/OpenKinect/libfreenect2#debianubuntu-1404
+***but then do***
+cd ..
+mkdir build && cd build
+cmake .. (no -DCMAKE_INSTALL_PREFIX=$HOME/freenect2!!)
+make
+sudo make install

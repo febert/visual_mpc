@@ -644,6 +644,7 @@ class Visual_MPC_Client():
             bbox = (loc[0], loc[1], 50, 50)  # for the small snow-man
             tracker = cv2.Tracker_create("KCF")
             tracker.init(frame, bbox)
+            pdb.set_trace()
 
         frame = self.recorder.ltob_aux1.img_msg
         ok, bbox = self.tracker.update(frame)
