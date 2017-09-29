@@ -17,8 +17,8 @@ if __name__ == '__main__':
     # BOOSTING, KCF, TLD, MEDIANFLOW or GOTURN
 
     # tracker = cv2.Tracker_create("MIL")
-    tracker = cv2.Tracker_create("KCF")
-
+    # tracker = cv2.TrackerKCF_create()
+    tracker = cv2.TrackerMIL_create()
 
     # get the frist image of the sequence
     image_folder = 'testdata/img'
@@ -55,10 +55,10 @@ if __name__ == '__main__':
         ok, bbox = tracker.update(frame)
 
         # Draw bounding box
-        if ok:
-            p1 = (int(bbox[0]), int(bbox[1]))
-            p2 = (int(bbox[0] + bbox[2]), int(bbox[1] + bbox[3]))
-            cv2.rectangle(frame, p1, p2, (0, 0, 255))
+        # if ok:
+        p1 = (int(bbox[0]), int(bbox[1]))
+        p2 = (int(bbox[0] + bbox[2]), int(bbox[1] + bbox[3]))
+        cv2.rectangle(frame, p1, p2, (0, 0, 255))
         print 'tracking ok:', ok
         # Display result
         cv2.imshow("Tracking", frame)
