@@ -20,15 +20,13 @@ import tensorflow as tf
 
 import tensorflow.contrib.slim as slim
 from tensorflow.contrib.layers.python import layers as tf_layers
-from python_visual_mpc.video_prediction.lstm_ops12 import basic_conv_lstm_cell
+from lstm_ops12 import basic_conv_lstm_cell
 from python_visual_mpc.misc.zip_equal import zip_equal
 
 import pdb
 
 # Amount to use when lower bounding tensors
 RELU_SHIFT = 1e-12
-
-
 
 class Prediction_Model(object):
 
@@ -384,9 +382,13 @@ class Prediction_Model(object):
         masks = slim.layers.conv2d_transpose(
             enc6, (self.conf['num_masks']+ extra_masks), 1, stride=1, scope=scope)
 
-        img_height = 64
-        # img_height = 48
-        img_width = 64
+        if 'height' in self.conf and 'width' in self.conf:
+            img_height = self.conf['height']
+            img_width = self.conf['width']
+        else:
+            img_height = 64
+            img_width = 64
+
         num_masks = self.conf['num_masks']
 
         if self.conf['model']=='DNA':
@@ -520,14 +522,37 @@ class Prediction_Model(object):
         # Transpose and reshape.
         cdna_kerns = tf.transpose(cdna_kerns, [1, 2, 0, 4, 3])
         cdna_kerns = tf.reshape(cdna_kerns, [DNA_KERN_SIZE, DNA_KERN_SIZE, batch_size, num_masks])
-        prev_image = tf.transpose(prev_image, [3, 1, 2, 0])
 
-        transformed = tf.nn.depthwise_conv2d(prev_image, cdna_kerns, [1, 1, 1, 1], 'SAME')
+        if 'float16' in self.conf:
+            image_batch_conv = []
+            #implementation of depthwise_conv2d as for loop
+            for i in range(prev_image.shape[0]):
+                r_i,g_i,b_i = tf.unstack(prev_image[i, :, :, :], axis = 2)
+                r_i, g_i, b_i = tf.expand_dims(tf.expand_dims(r_i, axis = 0), axis = 3), \
+                                tf.expand_dims(tf.expand_dims(b_i, axis = 0), axis = 3), \
+                                tf.expand_dims(tf.expand_dims(g_i, axis = 0), axis = 3)
 
-        # Transpose and reshape.
-        transformed = tf.reshape(transformed, [color_channels, height, width, batch_size, num_masks])
-        transformed = tf.transpose(transformed, [3, 1, 2, 0, 4])
-        transformed = tf.unstack(value=transformed, axis=-1)
+                filt_i = tf.expand_dims(cdna_kerns[:, :, i, :], axis = 2)
+
+                conv_r_i = tf.squeeze(tf.nn.conv2d(r_i, filt_i, [1, 1, 1, 1], 'SAME'))
+                conv_g_i = tf.squeeze(tf.nn.conv2d(g_i, filt_i, [1, 1, 1, 1], 'SAME'))
+                conv_b_i = tf.squeeze(tf.nn.conv2d(b_i, filt_i, [1, 1, 1, 1], 'SAME'))
+
+                image_filt = tf.transpose(tf.stack([conv_r_i, conv_g_i, conv_b_i], axis=0), [1,2,0,3])
+                image_batch_conv.append(image_filt)
+
+            transformed = tf.stack(image_batch_conv, axis=0)
+            transformed = tf.unstack(value=transformed, axis=-1)
+
+
+        else:
+            prev_image = tf.transpose(prev_image, [3, 1, 2, 0])
+            transformed = tf.nn.depthwise_conv2d(prev_image, cdna_kerns, [1, 1, 1, 1], 'SAME')
+
+            # Transpose and reshape.
+            transformed = tf.reshape(transformed, [color_channels, height, width, batch_size, num_masks])
+            transformed = tf.transpose(transformed, [3, 1, 2, 0, 4])
+            transformed = tf.unstack(value=transformed, axis=-1)
 
         return transformed, cdna_kerns_summary
 

@@ -34,7 +34,7 @@ flags.DEFINE_string('visualize', '', 'model within hyperparameter folder from wh
 flags.DEFINE_integer('device', 0 ,'the value for CUDA_VISIBLE_DEVICES variable')
 flags.DEFINE_string('pretrained', None, 'path to model file from which to resume training')
 flags.DEFINE_bool('diffmotions', False, 'visualize several different motions for a single scene')
-
+flags.DEFINE_bool('float16', False, 'Loads Net as Float16')
 
 ## Helper functions
 def peak_signal_to_noise_ratio(true, pred):
@@ -46,6 +46,8 @@ def peak_signal_to_noise_ratio(true, pred):
     Returns:
       peak signal to noise ratio (PSNR)
     """
+    if FLAGS.float16:
+        return tf.cast(10.0, tf.float16) * tf.log(tf.cast(1.0, tf.float16) / mean_squared_error(true, pred)) / tf.cast(tf.log(10.0), tf.float16)
     return 10.0 * tf.log(1.0 / mean_squared_error(true, pred)) / tf.log(10.0)
 
 
@@ -58,6 +60,8 @@ def mean_squared_error(true, pred):
     Returns:
       mean squared error between ground truth and predicted image.
     """
+    if FLAGS.float16:
+        return tf.reduce_sum(tf.square(true - pred)) / tf.cast(tf.size(pred), tf.float16)
     return tf.reduce_sum(tf.square(true - pred)) / tf.to_float(tf.size(pred))
 
 
@@ -127,6 +131,10 @@ class Model(object):
                     conf= conf)
                 self.m.build()
 
+        # if FLAGS.float16:
+        #     self.m.images = tf.cast(self.m.images, tf.float16)
+        #     self.m.states = tf.cast(self.m.states, tf.float16)
+        #     self.m.actions = tf.cast(self.m.actions, tf.float16)
         self.lr = tf.placeholder_with_default(conf['learning_rate'], ())
 
         if not inference:
@@ -232,6 +240,9 @@ def main(unused_argv, conf_script= None):
     conf = hyperparams.configuration
 
     inference = False
+    if FLAGS.float16:
+        conf['float16'] = True
+
     if FLAGS.visualize:
         print 'creating visualizations ...'
         conf['schedsamp_k'] = -1  # don't feed ground truth
@@ -280,14 +291,26 @@ def main(unused_argv, conf_script= None):
         with tf.variable_scope('model', reuse=None) as training_scope:
             images_aux1, actions, states = build_tfrecord_input(conf, training=True)
             images = images_aux1
+            if FLAGS.float16:
+                images = tf.cast(images, tf.float16)
+                actions = tf.cast(actions, tf.float16)
+                states = tf.cast(states, tf.float16)
+
             model = Model(conf, images, actions, states, inference=inference)
 
         with tf.variable_scope('val_model', reuse=None):
             val_images_aux1, val_actions, val_states = build_tfrecord_input(conf, training=False)
             val_images = val_images_aux1
+
+            if FLAGS.float16:
+                val_images = tf.cast(val_images, tf.float16)
+                val_actions = tf.cast(val_actions, tf.float16)
+                val_states = tf.cast(val_states, tf.float16)
+
             val_model = Model(conf, val_images, val_actions, val_states,
                               training_scope, inference=inference)
 
+    print model.m.gen_images[0].dtype, 'final type'
     print 'Constructing saver.'
     # Make saver.
 
@@ -311,7 +334,11 @@ def main(unused_argv, conf_script= None):
             print key, ': ', conf[key]
         print '-------------------------------------------------------------------'
 
+
         saver.restore(sess, conf['visualize'])
+
+
+
         feed_dict = {val_model.lr: 0.0,
                      val_model.iter_num: 0 }
 
@@ -398,6 +425,7 @@ def main(unused_argv, conf_script= None):
             dict['gen_masks'] = gen_masks
             cPickle.dump(dict, open(file_path + '/pred.pkl', 'wb'))
             print 'written files to:' + file_path
+
 
             comp_gif(conf, conf['output_dir'], append_masks=True, show_parts=True)
 

@@ -94,7 +94,8 @@ def basic_conv_lstm_cell(inputs,
 
 
   if state is None:
-    state = init_state(inputs, spatial_size + [2 * num_channels], scope=scope)
+      state = tf.cast(init_state(inputs, spatial_size + [2 * num_channels], scope=scope), inputs.dtype)
+
 
   with tf.variable_scope(scope,
                          'BasicConvLstmCell',
@@ -105,7 +106,7 @@ def basic_conv_lstm_cell(inputs,
     inputs.get_shape().assert_has_rank(4)
     state.get_shape().assert_has_rank(4)
     c, h = tf.split(axis=3, num_or_size_splits=2, value=state)
-    inputs_h = tf.concat(values=[inputs, h], axis=3)
+    inputs_h = tf.concat(values=[inputs, tf.cast(h, inputs.dtype)], axis=3)
     # Parameters of gates are concatenated into one conv for efficiency.
     i_j_f_o = layers.conv2d(inputs_h,
                             4 * num_channels, [filter_size, filter_size],
