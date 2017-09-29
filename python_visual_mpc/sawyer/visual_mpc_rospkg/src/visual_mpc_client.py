@@ -80,7 +80,7 @@ class Visual_MPC_Client():
 
         self.benchname = benchmark_name
 
-        if self.agentparams['adim'] == 5:
+        if self.agentparams['action_dim'] == 5:
             self.enable_rot = True
         else:
             self.enable_rot = False
@@ -155,6 +155,7 @@ class Visual_MPC_Client():
     def mark_goal_desig(self, itr):
         print 'prepare to mark goalpos and designated pixel! press c to continue!'
         imagemain = self.recorder.ltob.img_cropped
+
         imagemain = cv2.cvtColor(imagemain, cv2.COLOR_BGR2RGB)
         c_main = Getdesig(imagemain, self.desig_pix_img_dir, '_traj{}'.format(itr), self.ndesig, self.canon_ind, self.canon_dir)
         self.desig_pos_main = c_main.desig.astype(np.int64)

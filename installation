@@ -29,8 +29,9 @@ pip install rospkg
 pip install empy
 
 When running visual-mpc server:
-basic:
-pip install opencv-python
+(contrib is because of tracking)
+pip install opencv-contrib-python
+
 
 when using tracker:
 conda install -c conda-forge opencv=3.2.0
