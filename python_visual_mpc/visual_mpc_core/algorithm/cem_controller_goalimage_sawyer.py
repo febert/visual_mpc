@@ -58,8 +58,17 @@ class CEM_controller():
             self.action_cost_factor = self.policyparams['action_cost_factor']
         else: self.action_cost_factor = 0
 
-        self.adim = 4  # action dimensions: deltax, delty, close_nstep, hold_nstep
+        #action dimensions:
+        #no rotations:  deltax, delty, close_nstep, goup_nstep;
+        # with rotations:  deltax, delty, goup_nstep, delta_rot, close_nstep
+        self.adim = self.agentparams['action_dim']
         self.initial_std = policyparams['initial_std']
+
+        # define which indices of the action vector shall be discretized:
+        if self.adim == 4:
+            self.discrete_ind = [2, 3]
+        elif self.adim == 5:
+            self.discrete_ind = [2, 4]
 
         # predicted positions
         self.pred_pos = np.zeros((self.M, self.niter, self.repeat * self.naction_steps, 2))
@@ -91,21 +100,19 @@ class CEM_controller():
     def discretize(self, actions):
         for b in range(self.M):
             for a in range(self.naction_steps):
-                actions[b, a, 2] = np.floor(actions[b, a, 2])
-                if actions[b, a, 2] < 0:
-                    actions[b, a, 2] = 0
-                if actions[b, a, 2] > 4:
-                    actions[b, a, 2] = 4
+                for ind in self.discrete_ind:
+                    actions[b, a, ind] = np.clip(np.floor(actions[b, a, ind]), 0, 4)
 
-                actions[b, a, 3] = np.floor(actions[b, a, 3])
-                if actions[b, a, 3] < 0:
-                    actions[b, a, 3] = 0
-                if actions[b, a, 3] > 4:
-                    actions[b, a, 3] = 4
         return actions
 
     def truncate_movement(self, actions):
-        actions[:,:,:2] = np.clip(actions[:,:,:2], -.07, .07)  # clip in units of meters
+
+        maxshift = .1
+        actions[:,:,:2] = np.clip(actions[:,:,:2], -maxshift, maxshift)  # clip in units of meters
+
+        if self.adim == 5: # if rotation is enabled
+            maxrot = np.pi / 4
+            actions = np.clip(actions[:, :, 3], -maxrot, maxrot)  # clip in units of meters
         return actions
 
     def perform_CEM(self,last_frames, last_states, t):

@@ -29,11 +29,15 @@ pip install rospkg
 pip install empy
 
 When running visual-mpc server:
+basic:
 pip install opencv-python
+
+when using tracker:
+conda install -c conda-forge opencv=3.2.0
+(might be required:) sudo apt-get install libopenblas-dev
 
 For rotating images with open-cv python:
 pip install imutils
-
 
 
 #installing iai_kinect:
