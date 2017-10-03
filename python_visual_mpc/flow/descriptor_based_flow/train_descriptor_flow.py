@@ -231,17 +231,9 @@ def visualize(conf):
     desig_pos_aux1 = c.coords.astype(np.int32)
     # desig_pos_aux1 = np.array([31, 29])
 
-    start_one_hot = np.zeros([conf['batch_size'], 64, 64, 1])
-
-    start_one_hot[0, desig_pos_aux1[0], desig_pos_aux1[1]] = 1
-
-    output_distrib_list, transformed10_list, transformed01_list, flow_list = [], [], [], []
-
-
-    next_input_distrib = start_one_hot
+    output_distrib_list, transformed10_list, transformed01_list, flow01_list, flow10_list = [], [], [], [], []
 
     pos_list = []
-
     heat_maps = []
 
     for t in range(conf['sequence_length']-1):
@@ -254,11 +246,18 @@ def visualize(conf):
 
 
         if 'forward_backward' in conf:
-            [transformed01, transformed10, d0, d1] = sess.run([model.d.transformed01, model.d.transformed10, model.d.d0, model.d.d1], feed_dict)
+            transformed01, transformed10, d0, d1, flow01, flow10 = sess.run([model.d.transformed01,
+                                                             model.d.transformed10,
+                                                             model.d.d0,
+                                                             model.d.d1,
+                                                             model.d.flow_01,
+                                                             model.d.flow_10], feed_dict)
             transformed10_list.append(transformed10)
+            flow10_list.append(flow10)
         else:
-            [transformed01, d0, d1] = sess.run([model.d.transformed01, model.d.d0, model.d.d1], feed_dict)
+            transformed01, d0, d1, flow01 = sess.run([model.d.transformed01, model.d.d0, model.d.d1, model.d.flow_01], feed_dict)
 
+        flow01_list.append(flow01)
         transformed01_list.append(transformed01)
 
         d0 = np.squeeze(d0)
@@ -280,9 +279,11 @@ def visualize(conf):
     dict['transformed01'] = transformed01_list
 
     dict['heat_map'] = heat_maps
+    dict['flow01'] = flow01_list
 
     if 'forward_backward' in conf:
         dict['transformed10'] = transformed10_list
+        dict['flow10'] = flow10_list
 
     dict['transformed01'] = transformed01_list
 
