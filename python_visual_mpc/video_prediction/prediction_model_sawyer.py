@@ -525,25 +525,15 @@ class Prediction_Model(object):
 
         if 'float16' in self.conf:
             image_batch_conv = []
-            #implementation of depthwise_conv2d as for loop
+            #implementation of depthwise_conv2d as for loop. conv done once for each batch
             for i in range(prev_image.shape[0]):
-                r_i,g_i,b_i = tf.unstack(prev_image[i, :, :, :], axis = 2)
-                r_i, g_i, b_i = tf.expand_dims(tf.expand_dims(r_i, axis = 0), axis = 3), \
-                                tf.expand_dims(tf.expand_dims(b_i, axis = 0), axis = 3), \
-                                tf.expand_dims(tf.expand_dims(g_i, axis = 0), axis = 3)
-
+                image_i = tf.expand_dims(tf.transpose(prev_image[i, :, :, :], [2,0,1]), axis = 3)
                 filt_i = tf.expand_dims(cdna_kerns[:, :, i, :], axis = 2)
-
-                conv_r_i = tf.squeeze(tf.nn.conv2d(r_i, filt_i, [1, 1, 1, 1], 'SAME'))
-                conv_g_i = tf.squeeze(tf.nn.conv2d(g_i, filt_i, [1, 1, 1, 1], 'SAME'))
-                conv_b_i = tf.squeeze(tf.nn.conv2d(b_i, filt_i, [1, 1, 1, 1], 'SAME'))
-
-                image_filt = tf.transpose(tf.stack([conv_r_i, conv_g_i, conv_b_i], axis=0), [1,2,0,3])
-                image_batch_conv.append(image_filt)
+                conv_result = tf.squeeze(tf.nn.conv2d(image_i, filt_i, [1, 1, 1, 1], 'SAME'))
+                image_batch_conv.append(tf.transpose(conv_result, [1,2,0,3]))
 
             transformed = tf.stack(image_batch_conv, axis=0)
             transformed = tf.unstack(value=transformed, axis=-1)
-
 
         else:
             prev_image = tf.transpose(prev_image, [3, 1, 2, 0])
@@ -553,6 +543,7 @@ class Prediction_Model(object):
             transformed = tf.reshape(transformed, [color_channels, height, width, batch_size, num_masks])
             transformed = tf.transpose(transformed, [3, 1, 2, 0, 4])
             transformed = tf.unstack(value=transformed, axis=-1)
+
 
         return transformed, cdna_kerns_summary
 

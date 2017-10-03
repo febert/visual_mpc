@@ -46,7 +46,7 @@ def peak_signal_to_noise_ratio(true, pred):
     Returns:
       peak signal to noise ratio (PSNR)
     """
-    if FLAGS.float16:
+    if pred.dtype == tf.float16:
         return tf.cast(10.0, tf.float16) * tf.log(tf.cast(1.0, tf.float16) / mean_squared_error(true, pred)) / tf.cast(tf.log(10.0), tf.float16)
     return 10.0 * tf.log(1.0 / mean_squared_error(true, pred)) / tf.log(10.0)
 
@@ -60,7 +60,7 @@ def mean_squared_error(true, pred):
     Returns:
       mean squared error between ground truth and predicted image.
     """
-    if FLAGS.float16:
+    if pred.dtype == tf.float16:
         return tf.reduce_sum(tf.square(true - pred)) / tf.cast(tf.size(pred), tf.float16)
     return tf.reduce_sum(tf.square(true - pred)) / tf.to_float(tf.size(pred))
 
@@ -291,10 +291,6 @@ def main(unused_argv, conf_script= None):
         with tf.variable_scope('model', reuse=None) as training_scope:
             images_aux1, actions, states = build_tfrecord_input(conf, training=True)
             images = images_aux1
-            if FLAGS.float16:
-                images = tf.cast(images, tf.float16)
-                actions = tf.cast(actions, tf.float16)
-                states = tf.cast(states, tf.float16)
 
             model = Model(conf, images, actions, states, inference=inference)
 
@@ -302,19 +298,25 @@ def main(unused_argv, conf_script= None):
             val_images_aux1, val_actions, val_states = build_tfrecord_input(conf, training=False)
             val_images = val_images_aux1
 
-            if FLAGS.float16:
+            val_model = Model(conf, val_images, val_actions, val_states,
+                              training_scope, inference=inference)
+        if FLAGS.float16:
+
+            with tf.variable_scope('half_float', reuse=None):
+                val_images_aux1, val_actions, val_states = build_tfrecord_input(conf, training=False)
+                val_images = val_images_aux1
+
                 val_images = tf.cast(val_images, tf.float16)
                 val_actions = tf.cast(val_actions, tf.float16)
                 val_states = tf.cast(val_states, tf.float16)
 
-            val_model = Model(conf, val_images, val_actions, val_states,
-                              training_scope, inference=inference)
+                half_float = Model(conf, val_images, val_actions, val_states, inference=inference)
 
-    print model.m.gen_images[0].dtype, 'final type'
+
     print 'Constructing saver.'
     # Make saver.
 
-    vars = tf.get_collection(tf.GraphKeys.GLOBAL_VARIABLES)
+    vars = tf.get_collection(tf.GraphKeys.GLOBAL_VARIABLES, scope = 'model') + tf.get_collection(tf.GraphKeys.GLOBAL_VARIABLES, scope = 'val_model')
     # remove all states from group of variables which shall be saved and restored:
     vars_no_state = filter_vars(vars)
     saver = tf.train.Saver(vars_no_state, max_to_keep=0)
@@ -337,10 +339,16 @@ def main(unused_argv, conf_script= None):
 
         saver.restore(sess, conf['visualize'])
 
+        if FLAGS.float16:
+            for i, j in zip(tf.get_collection(tf.GraphKeys.GLOBAL_VARIABLES, scope='half_float'), tf.get_collection(tf.GraphKeys.GLOBAL_VARIABLES, scope='model')):
+                sess.run(tf.assign(i, tf.cast(j, i.dtype)))
+            print 'casted!'
+            vis_model = half_float
+        else:
+            vis_model = val_model
 
-
-        feed_dict = {val_model.lr: 0.0,
-                     val_model.iter_num: 0 }
+        feed_dict = {vis_model.lr: 0.0,
+                     vis_model.iter_num: 0 }
 
         file_path = conf['output_dir']
 
@@ -394,9 +402,9 @@ def main(unused_argv, conf_script= None):
 
             feed_dict[actions_pl] = actions
 
-            gen_images, gen_distrib, gen_masks = sess.run([val_model.m.gen_images,
-                                                            val_model.m.gen_distrib1,
-                                                            val_model.m.gen_masks,
+            gen_images, gen_distrib, gen_masks = sess.run([vis_model.m.gen_images,
+                                                           vis_model.m.gen_distrib1,
+                                                           vis_model.m.gen_masks,
                                                             ]
                                                            ,feed_dict)
             dict = {}
@@ -414,8 +422,8 @@ def main(unused_argv, conf_script= None):
 
         else:
             ground_truth, gen_images, gen_masks, = sess.run([val_images,
-                                                              val_model.m.gen_images,
-                                                              val_model.m.gen_masks,
+                                                             vis_model.m.gen_images,
+                                                             vis_model.m.gen_masks,
                                                               ],
                                                              feed_dict)
 
