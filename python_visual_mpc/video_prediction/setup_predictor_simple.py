@@ -59,8 +59,7 @@ def setup_predictor(conf, gpu_id = 0, ngpu=None):
             with tf.variable_scope('model', reuse=None) as training_scope:
                 model = Model(conf, images_pl, actions_pl, states_pl,reuse_scope= None, pix_distrib= pix_distrib)
 
-
-            sess.run(tf.initialize_all_variables())
+            sess.run(tf.global_variables_initializer())
 
             vars_without_state = filter_vars(tf.get_collection(tf.GraphKeys.VARIABLES))
             saver = tf.train.Saver(vars_without_state, max_to_keep=0)
