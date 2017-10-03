@@ -43,11 +43,13 @@ class Descriptor_Flow(object):
                 self.d1 = self.build_descriptors(conf, images[1])
 
         trafo_kerns01 = self.get_trafo(conf, self.d0, self.d1)
+        self.flow_01 = compute_motion_vector_dna(conf, trafo_kerns01)
         self.transformed01 = self.apply_trafo(conf, images[0], trafo_kerns01)
 
         if 'forward_backward' in conf:
             print 'using forward backward'
             trafo_kerns10 = self.get_trafo(conf, self.d1, self.d0)
+            self.flow_10 = compute_motion_vector_dna(conf, trafo_kerns10)
             self.transformed10 = self.apply_trafo(conf, images[1], trafo_kerns10)
 
     def apply_trafo(self, conf, prev_image, kerns):
@@ -258,4 +260,4 @@ def compute_motion_vector_dna(conf, dna_kerns):
 
     flow = tf.concat([vec_r, vec_c], axis=-1)  # size: [conf['batch_size'], 64, 64, 2]
 
-    return [flow]
+    return flow

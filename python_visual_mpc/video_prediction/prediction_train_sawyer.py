@@ -131,8 +131,7 @@ class Model(object):
         self.global_step = tf.Variable(0, trainable=False)
         if conf['learning_rate'] == 'scheduled' and not FLAGS.visualize:
             print('using scheduled learning rate')
-
-            self.lr = tf.train.piecewise_constant(self.global_step, conf['lr_boundaries'], conf['lr_values'])
+            self.lr = tf.train.piecewise_constant(self.global_step, conf['lr_boundaries'], conf['lr_values'], name='learning_Rate')
         else:
             self.lr = tf.placeholder_with_default(conf['learning_rate'], (), 'learning_rate')
 
