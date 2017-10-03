@@ -11,6 +11,7 @@ from Tkinter import Button, Frame, Canvas, Scrollbar
 import Tkconstants
 
 from matplotlib import pyplot as plt
+import matplotlib
 from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
 import colorsys
 frame = None
@@ -32,6 +33,34 @@ def plot_psum_overtime(gen_distrib, n_exp, filename):
 
     # plt.show()
     plt.savefig(filename + "/psum.png")
+    plt.close('all')
+
+
+def plot_normed_at_desig_pos(gen_distrib, filename, desig_pos):
+    plt.figure(figsize=(5, 5),dpi=80)
+    b_exp = 1
+    p = []
+
+    for t in range(len(gen_distrib)):
+        p.append(gen_distrib[t][b_exp][desig_pos[0], desig_pos[1]]/ np.sum(gen_distrib[t][b_exp]))
+
+    psum = np.array(p)
+    plt.plot(range(len(gen_distrib)), psum, 'g','-o')
+
+    plt.xticks(range(0, len(gen_distrib),3))
+
+
+    # plt.rcParams.update({'font.size': 62})
+    a = plt.ylabel('probability of designated pixel')
+    a.set_fontsize(14)
+
+    b = plt.xlabel('time steps')
+    b.set_fontsize(14)
+
+    # plt.ylim([0,2.5])
+
+    # plt.show()
+    plt.savefig(filename + "/p_at_desig.png")
     plt.close('all')
 
 
@@ -111,6 +140,8 @@ class Visualizer_tkinter(object):
 
                 if key == 'gen_distrib':  #if gen_distrib plot psum overtime!
                     plot_psum_overtime(data, numex, gif_savepath)
+                    desig_pos = dict_['desig_pos']
+                    plot_normed_at_desig_pos(data, gif_savepath, desig_pos)
 
         self.renormalize_heatmaps = True
         print 'renormalizing heatmaps: ', self.renormalize_heatmaps
