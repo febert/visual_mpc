@@ -177,20 +177,28 @@ def search_region(conf, current_pos, d1, descp):
     cur_r = current_pos[0]
     cur_c = current_pos[1]
 
-    region = d1_padded[cur_r-ksize/2:cur_r+ksize/2, cur_c-ksize/2:cur_c+ksize/2]
-
-    distances = np.sum(np.square(region - descp), 2)
-
-    # plt.imshow(distances)
-    # plt.show()
+    search_region = d1_padded[cur_r-ksize/2:cur_r+ksize/2+1, cur_c-ksize/2:cur_c+ksize/2+1]
+    distances = np.sum(np.square(search_region - descp), 2)
 
     heatmap = np.zeros(d1_padded.shape[:2])
-    heatmap[cur_r-ksize/2:cur_r+ksize/2, cur_c-ksize/2:cur_c+ksize/2] = distances
+    heatmap[cur_r-ksize/2:cur_r+ksize/2+1, cur_c-ksize/2:cur_c+ksize/2+1] = distances
     heatmap = heatmap[ksize/2:ksize/2+64,ksize/2:ksize/2+64]
     heatmap = heatmap[None, :, :]
 
     newpos = current_pos + np.unravel_index(distances.argmin(), distances.shape) - np.array([ksize/2, ksize/2 ])
     newpos = np.clip(newpos, 0, 63)
+
+    # np.sum(np.square(search_region), -1)
+    # fig = plt.figure()
+    # plt.imshow(np.sum(np.square(search_region), -1), cmap=plt.get_cmap('jet'))
+    # fig.suptitle('squared euclidean norm of descriptors', fontsize=20)
+
+    # print 'mind index', np.unravel_index(distances.argmin(), distances.shape)
+    # print 'delta pos', np.unravel_index(distances.argmin(), distances.shape) - np.array([ksize/2, ksize/2 ])
+    # fig = plt.figure()
+    # plt.imshow(distances, cmap=plt.get_cmap('jet'))
+    # fig.suptitle('squared euclidean distance', fontsize=20)
+    # plt.show()
 
     return newpos, heatmap
 
@@ -199,22 +207,20 @@ def visualize(conf):
     gpu_options = tf.GPUOptions(per_process_gpu_memory_fraction=0.4)
     # Make training session.
 
-    conf['batch_size'] = 1
+
 
     sess = tf.InteractiveSession(config=tf.ConfigProto(gpu_options=gpu_options))
 
     tf.train.start_queue_runners(sess)
 
-    input_distrib = tf.placeholder(tf.float32, shape=(conf['batch_size'], 64, 64, 1))
+    input_distrib = tf.placeholder(tf.float32, shape=(1, 64, 64, 1))
 
     images = tf.placeholder(tf.float32, name='images',
-                            shape=(conf['batch_size'], 2, 64, 64, 3))
-
+                            shape=(1, 2, 64, 64, 3))
+    conf['batch_size'] = 1
     with tf.variable_scope('model', reuse=None):
-        val_images, _, _   = build_tfrecord_input(conf, training=False)
         model = DescriptorModel(conf, images, pix_distrib= input_distrib, train=False)
 
-    tf.train.start_queue_runners(sess)
     sess.run(tf.global_variables_initializer())
 
     import re
@@ -222,6 +228,10 @@ def visualize(conf):
     saver = tf.train.Saver(tf.get_collection(tf.GraphKeys.GLOBAL_VARIABLES), max_to_keep=0)
     saver.restore(sess, conf['output_dir'] + '/' + FLAGS.visualize)
     print 'restore done.'
+
+    conf['batch_size'] = 10
+    val_images, _, _ = build_tfrecord_input(conf, training=False)
+    tf.train.start_queue_runners(sess)
 
     [ground_truth] = sess.run([val_images])
 
@@ -231,38 +241,49 @@ def visualize(conf):
     desig_pos_aux1 = c.coords.astype(np.int32)
     # desig_pos_aux1 = np.array([31, 29])
 
-    start_one_hot = np.zeros([conf['batch_size'], 64, 64, 1])
-
-    start_one_hot[0, desig_pos_aux1[0], desig_pos_aux1[1]] = 1
-
-    output_distrib_list, transformed10_list, transformed01_list, flow_list = [], [], [], []
-
-
-    next_input_distrib = start_one_hot
+    output_distrib_list, transformed10_list, transformed01_list, flow01_list, flow10_list = [], [], [], [], []
 
     pos_list = []
-
     heat_maps = []
 
     for t in range(conf['sequence_length']-1):
-
         feed_dict = {
                      model.lr: 0,
-                     images: ground_truth[:,t:t+2],  #could alternatively feed in gen_image
+                     images: ground_truth[b_exp,t:t+2].reshape(1,2,64,64,3),  #could alternatively feed in gen_image
                      # input_distrib: next_input_distrib
                      }
 
-
         if 'forward_backward' in conf:
-            [transformed01, transformed10, d0, d1] = sess.run([model.d.transformed01, model.d.transformed10, model.d.d0, model.d.d1], feed_dict)
+            transformed01, transformed10, d0, d1, flow01, flow10 = sess.run([model.d.transformed01,
+                                                                             model.d.transformed10,
+                                                                             model.d.d0,
+                                                                             model.d.d1,
+                                                                             model.d.flow_01,
+                                                                             model.d.flow_10], feed_dict)
             transformed10_list.append(transformed10)
+            flow10_list.append(flow10)
         else:
-            [transformed01, d0, d1] = sess.run([model.d.transformed01, model.d.d0, model.d.d1], feed_dict)
+            transformed01, d0, d1, flow01 = sess.run([model.d.transformed01,
+                                                      model.d.d0,
+                                                      model.d.d1,
+                                                      model.d.flow_01], feed_dict)
 
+        flow01_list.append(flow01)
         transformed01_list.append(transformed01)
 
         d0 = np.squeeze(d0)
         d1 = np.squeeze(d1)
+
+        if t == 0:
+            plt.figure()
+            f, axarr = plt.subplots(1, 2)
+            axarr[0].imshow(np.sum(np.square(d0), -1), cmap=plt.get_cmap('jet'))
+            axarr[0].set_title('squared euclidean norm of descriptors d0', fontsize=8)
+
+            axarr[1].imshow(np.sum(np.square(d1), -1), cmap=plt.get_cmap('jet'))
+            axarr[1].set_title('squared euclidean norm of descriptors d1', fontsize=8)
+            plt.savefig(conf['output_dir']+ '/euclidean_norm_t0.png')
+            plt.close()
 
         if t == 0:
             tar_descp =  d0[desig_pos_aux1[0], desig_pos_aux1[1]]
@@ -276,13 +297,15 @@ def visualize(conf):
     import collections
 
     dict = collections.OrderedDict()
-    dict['ground_truth'] = ground_truth
+    dict['ground_truth'] = ground_truth[b_exp].reshape(1,conf['sequence_length'],64,64,3)
     dict['transformed01'] = transformed01_list
 
     dict['heat_map'] = heat_maps
+    dict['flow01'] = flow01_list
 
     if 'forward_backward' in conf:
         dict['transformed10'] = transformed10_list
+        dict['flow10'] = flow10_list
 
     dict['transformed01'] = transformed01_list
 
@@ -294,7 +317,7 @@ def visualize(conf):
     from python_visual_mpc.video_prediction.utils_vpred.animate_tkinter import Visualizer_tkinter
     v = Visualizer_tkinter(dict, numex=1, append_masks=True,
                            gif_savepath=conf['output_dir'],
-                           suf='flow{}_l{}'.format(b_exp, conf['sequence_length']))
+                           suf='flow_b{}_l{}'.format(b_exp, conf['sequence_length']))
     v.build_figure()
 
 

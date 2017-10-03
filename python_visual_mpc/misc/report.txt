@@ -1,0 +1,191 @@
+================================================================================
+Input tree: '/home/frederik/Documents/cloned_projects/mv3d'
+================================================================================
+--------------------------------------------------------------------------------
+Processing file '/home/frederik/Documents/cloned_projects/mv3d/nobg_dm.py'
+ outputting to '/home/frederik/Documents/cloned_projects/mv3d_1.3/nobg_dm.py'
+--------------------------------------------------------------------------------
+
+'/home/frederik/Documents/cloned_projects/mv3d/nobg_dm.py' Line 156
+--------------------------------------------------------------------------------
+
+Renamed function 'tf.train.SummaryWriter' to 'tf.summary.FileWriter'
+
+    Old:         self.writer = tf.train.SummaryWriter(
+                               ~~~~~~~~~~~~~~~~~~~~~~  
+    New:         self.writer = tf.summary.FileWriter(
+                               ~~~~~~~~~~~~~~~~~~~~~  
+
+'/home/frederik/Documents/cloned_projects/mv3d/nobg_dm.py' Line 60
+--------------------------------------------------------------------------------
+
+Added keyword 'concat_dim' to reordered function 'tf.concat'
+Added keyword 'values' to reordered function 'tf.concat'
+
+    Old:         concated = tf.concat(1, [e5, a2])
+                                                   
+    New:         concated = tf.concat(axis=1, values=[e5, a2])
+                                      ~~~~~   ~~~~~~~          
+
+'/home/frederik/Documents/cloned_projects/mv3d/nobg_dm.py' Line 94
+--------------------------------------------------------------------------------
+
+Renamed function 'tf.scalar_summary' to 'tf.summary.scalar'
+
+    Old:         self.training_summ = tf.scalar_summary("training_loss", self.loss)
+                                      ~~~~~~~~~~~~~~~~~                             
+    New:         self.training_summ = tf.summary.scalar("training_loss", self.loss)
+                                      ~~~~~~~~~~~~~~~~~                             
+
+
+--------------------------------------------------------------------------------
+Processing file '/home/frederik/Documents/cloned_projects/mv3d/bg_nodm.py'
+ outputting to '/home/frederik/Documents/cloned_projects/mv3d_1.3/bg_nodm.py'
+--------------------------------------------------------------------------------
+
+'/home/frederik/Documents/cloned_projects/mv3d/bg_nodm.py' Line 92
+--------------------------------------------------------------------------------
+
+Renamed function 'tf.mul' to 'tf.multiply'
+Renamed function 'tf.mul' to 'tf.multiply'
+
+    Old:         self.loss = euclidean_loss(tf.mul(gt_cm, sm), tf.mul(pr_cm, sm)) +\
+                                            ~~~~~~             ~~~~~~                
+    New:         self.loss = euclidean_loss(tf.multiply(gt_cm, sm), tf.multiply(pr_cm, sm)) +\
+                                            ~~~~~~~~~~~             ~~~~~~~~~~~                
+
+'/home/frederik/Documents/cloned_projects/mv3d/bg_nodm.py' Line 159
+--------------------------------------------------------------------------------
+
+Renamed function 'tf.train.SummaryWriter' to 'tf.summary.FileWriter'
+
+    Old:         self.writer = tf.train.SummaryWriter(
+                               ~~~~~~~~~~~~~~~~~~~~~~  
+    New:         self.writer = tf.summary.FileWriter(
+                               ~~~~~~~~~~~~~~~~~~~~~  
+
+'/home/frederik/Documents/cloned_projects/mv3d/bg_nodm.py' Line 60
+--------------------------------------------------------------------------------
+
+Added keyword 'concat_dim' to reordered function 'tf.concat'
+Added keyword 'values' to reordered function 'tf.concat'
+
+    Old:         concated = tf.concat(1, [e5, a2])
+                                                   
+    New:         concated = tf.concat(axis=1, values=[e5, a2])
+                                      ~~~~~   ~~~~~~~          
+
+'/home/frederik/Documents/cloned_projects/mv3d/bg_nodm.py' Line 109
+--------------------------------------------------------------------------------
+
+Renamed function 'tf.mul' to 'tf.multiply'
+
+    Old:         save_images(tf.mul(pr_cm, pr_sm*4.0/3.0).eval(session=self.sess),
+                             ~~~~~~                                                
+    New:         save_images(tf.multiply(pr_cm, pr_sm*4.0/3.0).eval(session=self.sess),
+                             ~~~~~~~~~~~                                                
+
+'/home/frederik/Documents/cloned_projects/mv3d/bg_nodm.py' Line 95
+--------------------------------------------------------------------------------
+
+Renamed function 'tf.scalar_summary' to 'tf.summary.scalar'
+
+    Old:         self.training_summ = tf.scalar_summary("training_loss", self.loss)
+                                      ~~~~~~~~~~~~~~~~~                             
+    New:         self.training_summ = tf.summary.scalar("training_loss", self.loss)
+                                      ~~~~~~~~~~~~~~~~~                             
+
+
+--------------------------------------------------------------------------------
+Processing file '/home/frederik/Documents/cloned_projects/mv3d/nobg_nodm.py'
+ outputting to '/home/frederik/Documents/cloned_projects/mv3d_1.3/nobg_nodm.py'
+--------------------------------------------------------------------------------
+
+'/home/frederik/Documents/cloned_projects/mv3d/nobg_nodm.py' Line 137
+--------------------------------------------------------------------------------
+
+Renamed function 'tf.train.SummaryWriter' to 'tf.summary.FileWriter'
+
+    Old:         self.writer = tf.train.SummaryWriter(
+                               ~~~~~~~~~~~~~~~~~~~~~~  
+    New:         self.writer = tf.summary.FileWriter(
+                               ~~~~~~~~~~~~~~~~~~~~~  
+
+'/home/frederik/Documents/cloned_projects/mv3d/nobg_nodm.py' Line 60
+--------------------------------------------------------------------------------
+
+Added keyword 'concat_dim' to reordered function 'tf.concat'
+Added keyword 'values' to reordered function 'tf.concat'
+
+    Old:         concated = tf.concat(1, [e5, a2])
+                                                   
+    New:         concated = tf.concat(axis=1, values=[e5, a2])
+                                      ~~~~~   ~~~~~~~          
+
+'/home/frederik/Documents/cloned_projects/mv3d/nobg_nodm.py' Line 86
+--------------------------------------------------------------------------------
+
+Renamed function 'tf.scalar_summary' to 'tf.summary.scalar'
+
+    Old:         self.training_summ = tf.scalar_summary("training_loss", self.loss)
+                                      ~~~~~~~~~~~~~~~~~                             
+    New:         self.training_summ = tf.summary.scalar("training_loss", self.loss)
+                                      ~~~~~~~~~~~~~~~~~                             
+
+
+--------------------------------------------------------------------------------
+Processing file '/home/frederik/Documents/cloned_projects/mv3d/download_data.py'
+ outputting to '/home/frederik/Documents/cloned_projects/mv3d_1.3/download_data.py'
+--------------------------------------------------------------------------------
+
+
+--------------------------------------------------------------------------------
+Processing file '/home/frederik/Documents/cloned_projects/mv3d/utils/render_test_set.py'
+ outputting to '/home/frederik/Documents/cloned_projects/mv3d_1.3/utils/render_test_set.py'
+--------------------------------------------------------------------------------
+
+
+--------------------------------------------------------------------------------
+Processing file '/home/frederik/Documents/cloned_projects/mv3d/utils/tf_utils.py'
+ outputting to '/home/frederik/Documents/cloned_projects/mv3d_1.3/utils/tf_utils.py'
+--------------------------------------------------------------------------------
+
+'/home/frederik/Documents/cloned_projects/mv3d/utils/tf_utils.py' Line 19
+--------------------------------------------------------------------------------
+
+Renamed function 'tf.sub' to 'tf.subtract'
+
+    Old:     return tf.reduce_mean(tf.reduce_sum(tf.pow(tf.sub(input1, input2), 2), 3))
+                                                        ~~~~~~                          
+    New:     return tf.reduce_mean(tf.reduce_sum(tf.pow(tf.subtract(input1, input2), 2), 3))
+                                                        ~~~~~~~~~~~                          
+
+'/home/frederik/Documents/cloned_projects/mv3d/utils/tf_utils.py' Line 23
+--------------------------------------------------------------------------------
+
+Renamed function 'tf.sub' to 'tf.subtract'
+
+    Old:     return tf.reduce_mean(tf.reduce_sum(tf.abs(tf.sub(input1, input2)), 3))
+                                                        ~~~~~~                       
+    New:     return tf.reduce_mean(tf.reduce_sum(tf.abs(tf.subtract(input1, input2)), 3))
+                                                        ~~~~~~~~~~~                       
+
+
+--------------------------------------------------------------------------------
+Processing file '/home/frederik/Documents/cloned_projects/mv3d/utils/realtime_renderer.py'
+ outputting to '/home/frederik/Documents/cloned_projects/mv3d_1.3/utils/realtime_renderer.py'
+--------------------------------------------------------------------------------
+
+
+--------------------------------------------------------------------------------
+Processing file '/home/frederik/Documents/cloned_projects/mv3d/utils/__init__.py'
+ outputting to '/home/frederik/Documents/cloned_projects/mv3d_1.3/utils/__init__.py'
+--------------------------------------------------------------------------------
+
+
+--------------------------------------------------------------------------------
+Processing file '/home/frederik/Documents/cloned_projects/mv3d/utils/renderer.py'
+ outputting to '/home/frederik/Documents/cloned_projects/mv3d_1.3/utils/renderer.py'
+--------------------------------------------------------------------------------
+
+

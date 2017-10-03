@@ -32,22 +32,30 @@ class Descriptor_Flow(object):
         """Build network for predicting optical flow
         """
         if 'large_core' in conf:
-            self.d0 = self.build_descriptors_large(images[0])
-            self.d1 = self.build_descriptors_large(images[1])
-            print 'using large core'
+            build_desc = self.build_descriptors_large
+        elif 'bilin_up' in conf:
+            build_desc = self.build_descriptor_bilin
         else:
-            with tf.variable_scope('d0'):
-                self.d0 = self.build_descriptors(conf, images[0])
+            build_desc = self.build_descriptors
 
+        with tf.variable_scope('d0') as d0_scope:
+            self.d0 = build_desc(conf, images[0])
+
+        if 'tied_descriptors' in conf:
+            with tf.variable_scope(d0_scope, reuse=True):
+                self.d1 = build_desc(conf, images[1])
+        else:
             with tf.variable_scope('d1'):
-                self.d1 = self.build_descriptors(conf, images[1])
+                self.d1 = build_desc(conf, images[1])
 
         trafo_kerns01 = self.get_trafo(conf, self.d0, self.d1)
+        self.flow_01 = compute_motion_vector_dna(conf, trafo_kerns01)
         self.transformed01 = self.apply_trafo(conf, images[0], trafo_kerns01)
 
         if 'forward_backward' in conf:
             print 'using forward backward'
             trafo_kerns10 = self.get_trafo(conf, self.d1, self.d0)
+            self.flow_10 = compute_motion_vector_dna(conf, trafo_kerns10)
             self.transformed10 = self.apply_trafo(conf, images[1], trafo_kerns10)
 
     def apply_trafo(self, conf, prev_image, kerns):
@@ -123,7 +131,7 @@ class Descriptor_Flow(object):
 
 
     def build_descriptors(self, conf, img):
-
+        print 'using standard descriptor network'
         enc0 = slim.layers.conv2d(   #32x32x32
                     img,
                     32, [5, 5],
@@ -155,8 +163,57 @@ class Descriptor_Flow(object):
 
         return enc3
 
+    def build_descriptor_bilin(self, conf, img):
+        print 'using bilinear updampling'
+
+        enc0 = slim.layers.conv2d(   #32x32x32
+                    img,
+                    32, [5, 5],
+                    stride=2,
+                    scope='conv0',
+                )
+
+        enc1 = slim.layers.conv2d( #16x16x64
+            enc0,
+            64, [5, 5],
+            stride=2,
+            scope='conv1',
+        )
+
+        enc1_up = tf.image.resize_images(
+            enc1,
+            [32,32],
+            method=tf.image.ResizeMethod.BILINEAR,
+            align_corners=False
+        )
+
+        enc2 = slim.layers.conv2d(  #32x32x32
+            enc1_up,
+            32, [5, 5],
+            stride=1,
+            scope='t_conv1',
+        )
+
+        enc2_up = tf.image.resize_images(
+            enc2,
+            [64, 64],
+            method=tf.image.ResizeMethod.BILINEAR,
+            align_corners=False
+        )
+
+        enc3 = slim.layers.conv2d( # 64x64x32
+            enc2_up,
+            conf['desc_length'], [5, 5],
+            stride=1,
+            scope='t_conv2',
+            activation_fn=None
+        )
+
+        return enc3
+
 
     def build_descriptors_large(self, concat_img):
+        print 'using large core'
         enc0 = slim.layers.conv2d(  # 32x32x32
             concat_img,
             32, [5, 5],
@@ -258,4 +315,4 @@ def compute_motion_vector_dna(conf, dna_kerns):
 
     flow = tf.concat([vec_r, vec_c], axis=-1)  # size: [conf['batch_size'], 64, 64, 2]
 
-    return [flow]
+    return flow

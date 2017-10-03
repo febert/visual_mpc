@@ -131,8 +131,7 @@ class Model(object):
         self.global_step = tf.Variable(0, trainable=False)
         if conf['learning_rate'] == 'scheduled' and not FLAGS.visualize:
             print('using scheduled learning rate')
-
-            self.lr = tf.train.piecewise_constant(self.global_step, conf['lr_boundaries'], conf['lr_values'])
+            self.lr = tf.train.piecewise_constant(self.global_step, conf['lr_boundaries'], conf['lr_values'], name='learning_Rate')
         else:
             self.lr = tf.placeholder_with_default(conf['learning_rate'], (), 'learning_rate')
 
@@ -334,7 +333,7 @@ def main(unused_argv, conf_script= None):
 
         if FLAGS.diffmotions:
 
-            b_exp, ind0 =4, 0
+            b_exp, ind0 =0, 0
 
             img, state = sess.run([val_images, val_states])
             sel_img= img[b_exp,ind0:ind0+2]
@@ -429,6 +428,8 @@ def main(unused_argv, conf_script= None):
             dict['gen_masks'] = gen_masks
             dict['gen_distrib'] = gen_distrib
             dict['iternum'] = itr_vis
+
+            dict['desig_pos'] = desig_pos_aux1
             # dict['moved_parts'] = moved_parts
             # dict['moved_images'] = moved_images
             # dict['moved_bckgd'] = moved_bckgd
@@ -501,7 +502,7 @@ def main(unused_argv, conf_script= None):
             summary_writer.add_summary(val_summary_str, itr)
 
 
-        if itr % SAVE_INTERVAL == 0 and itr != 0:
+        if itr % SAVE_INTERVAL == 0: #and itr != 0:
             tf.logging.info('Saving model to' + conf['output_dir'])
             saver.save(sess, conf['output_dir'] + '/model' + str(itr))
 
