@@ -163,6 +163,7 @@ class Visual_MPC_Server(object):
         return init_traj_visualmpcResponse()
 
     def get_action_handler(self, req):
+        print 'handling action'
 
         self.traj.X_full[self.t, :] = req.state[:self.agentparams['state_dim']]
         main_img = self.bridge.imgmsg_to_cv2(req.main)
@@ -203,8 +204,8 @@ class Visual_MPC_Server(object):
 
         self.t += 1
 
-        action_resp = np.zeros(self.policyparams['action_dim'])
-        action_resp[:self.policyparams['action_dim']] = mj_U
+        action_resp = np.zeros(self.agentparams['action_dim'])
+        action_resp[:self.agentparams['action_dim']] = mj_U
         return get_actionResponse(tuple(action_resp))
 
     def save_video(self):

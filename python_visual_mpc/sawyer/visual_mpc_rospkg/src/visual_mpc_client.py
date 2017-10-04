@@ -39,7 +39,7 @@ import cPickle
 from std_msgs.msg import Float32
 from std_msgs.msg import Int64
 
-from berkeley_sawyer.srv import *
+from visual_mpc_rospkg.srv import get_action, init_traj_visualmpc
 import copy
 import imp
 
@@ -119,8 +119,8 @@ class Visual_MPC_Client():
             self.imp_ctrl_publisher = rospy.Publisher('desired_joint_pos', JointState, queue_size=1)
             self.imp_ctrl_release_spring_pub = rospy.Publisher('release_spring', Float32, queue_size=10)
             self.imp_ctrl_active = rospy.Publisher('imp_ctrl_active', Int64, queue_size=10)
-            self.name_of_service = "ExternalTools/right/PositionKinematicsNode/FKService"
-            self.fksvc = rospy.ServiceProxy(self.name_of_service, SolvePositionFK)
+            self.fksrv_name = "ExternalTools/right/PositionKinematicsNode/FKService"
+            self.fksrv = rospy.ServiceProxy(self.fksrv_name, SolvePositionFK)
 
         self.use_imp_ctrl = True
         self.interpolate = True
@@ -134,6 +134,10 @@ class Visual_MPC_Client():
 
         self.sdim = self.agentparams['state_dim']
         self.adim = self.agentparams['action_dim']
+
+        if self.adim == 5:
+            self.wristrot = True
+        else: self.wristrot = False
 
         rospy.sleep(.2)
         # drive to neutral position:
@@ -232,7 +236,7 @@ class Visual_MPC_Client():
             delta = datetime.now() - tstart
             print 'trajectory {0} took {1} seconds'.format(0, delta.total_seconds())
 
-    def get_endeffector_pos(self, pos_only=True):
+    def get_endeffector_pos(self):
         """
         :param pos_only: only return postion
         :return:
@@ -248,8 +252,8 @@ class Visual_MPC_Client():
         fkreq.configuration.append(joints)
         fkreq.tip_names.append('right_hand')
         try:
-            rospy.wait_for_service(self.name_fksrv, 5)
-            resp = self.fksvc(fkreq)
+            rospy.wait_for_service(self.fksrv_name, 5)
+            resp = self.fksrv(fkreq)
         except (rospy.ServiceException, rospy.ROSException), e:
             rospy.logerr("Service call failed: %s" % (e,))
             return False
@@ -259,7 +263,7 @@ class Visual_MPC_Client():
                          resp.pose_stamp[0].pose.position.z,
                          ])
 
-        if pos_only:
+        if not self.wristrot:
             return pos
         else:
             quat = np.array([resp.pose_stamp[0].pose.orientation.x,
@@ -337,7 +341,8 @@ class Visual_MPC_Client():
             num_pic_perstep = 4
             nsave = self.action_sequence_length*num_pic_perstep
 
-            self.recorder = robot_recorder.RobotRecorder(save_dir=self.desig_pix_img_dir,
+            self.recorder = robot_recorder.RobotRecorder(agent_params=self.agentparams,
+                                                         save_dir=self.desig_pix_img_dir,
                                                          seq_len=nsave,
                                                          use_aux=self.use_aux,
                                                          save_video=True,
@@ -367,11 +372,11 @@ class Visual_MPC_Client():
             else: startpos = self.get_endeffector_pos()[:2]
 
             if self.enable_rot:
-                start_angle = np.array([np.random.uniform(0., np.pi * 2)])
-                self.des_pos = np.concatenate([startpos, np.asarray([self.lower_height + self.delta_up]), start_angle],
-                                              axis=0)
+                # start_angle = np.array([np.random.uniform(0., np.pi * 2)])
+                start_angle = np.array([0.])
+                self.des_pos = np.concatenate([startpos, np.array([self.lower_height]), start_angle], axis=0)
             else:
-                self.des_pos = np.concatenate([startpos, np.asarray([self.lower_height + self.delta_up])], axis=0)
+                self.des_pos = np.concatenate([startpos, np.array([self.lower_height])], axis=0)
 
             self.topen, self.t_down = 0, 0
 
@@ -406,17 +411,15 @@ class Visual_MPC_Client():
                                       self.canon_ind, self.canon_dir, only_desig=True)
                     self.desig_pos_main = c_main.desig.astype(np.int64)
                 elif 'opencv_tracking' in self.agentparams:
-
                     self.desig_pos_main = self.track_open_cv(i_step)
 
-
-                print 'current position error', self.des_pos - self.get_endeffector_pos(pos_only=True)
+                # print 'current position error', self.des_pos - self.get_endeffector_pos(pos_only=True)
 
                 self.previous_des_pos = copy.deepcopy(self.des_pos)
                 action_vec = self.query_action()
                 print 'action vec', action_vec
 
-                self.des_pos = self.apply_act(action_vec, i_step, move=False)
+                self.des_pos = self.apply_act(self.des_pos, action_vec, i_step)
                 start_time = rospy.get_time()
 
                 print 'prev_desired pos in step {0}: {1}'.format(i_step, self.previous_des_pos)
@@ -444,7 +447,6 @@ class Visual_MPC_Client():
                         self.recorder.save(isave, action_vec, self.get_endeffector_pos())
                         isave_substep += 1
                         isave += 1
-
             try:
                 if self.robot_move:
                     self.move_with_impedance(des_joint_angles)
@@ -463,6 +465,19 @@ class Visual_MPC_Client():
         self.save_final_image(i_tr)
         self.recorder.save_highres()
 
+    def get_des_pose(self, des_pos):
+
+        if self.enable_rot:
+            quat = self.zangle_to_quat(des_pos[3])
+        else:
+            quat = inverse_kinematics.EXAMPLE_O
+
+        desired_pose = inverse_kinematics.get_pose_stamped(des_pos[0],
+                                                           des_pos[1],
+                                                           des_pos[2],
+                                                           quat)
+        return desired_pose
+
     def save_final_image(self, i_tr):
         imagemain = self.recorder.ltob.img_cropped
         cv2.imwrite(self.desig_pix_img_dir+'/finalimage{}.png'.format(i_tr), imagemain, [cv2.IMWRITE_PNG_STRATEGY_DEFAULT, 1])
@@ -476,11 +491,8 @@ class Visual_MPC_Client():
         :param tnewpos:
         :return: des_pos
         """
-        assert (rospy.get_time() >= t_prev)
-        des_pos = previous_goalpoint + (next_goalpoint - previous_goalpoint) * (rospy.get_time()- t_prev)/ (t_next - t_prev)
-        if rospy.get_time() >= t_next:
-            des_pos = next_goalpoint
-            print 't > tnext'
+        assert (self.curr_delta_time >= t_prev) or (self.curr_delta_time <= t_next)
+        des_pos = previous_goalpoint + (next_goalpoint - previous_goalpoint) * (self.curr_delta_time- t_prev)/ (t_next - t_prev)
         # print 'current_delta_time: ', self.curr_delta_time
         # print "interpolated pos:", des_pos
         return des_pos
@@ -488,10 +500,8 @@ class Visual_MPC_Client():
     def get_interpolated_joint_angles(self):
         int_des_pos = self.calc_interpolation(self.previous_des_pos, self.des_pos, self.t_prev, self.t_next)
         # print 'interpolated: ', int_des_pos
-        desired_pose = inverse_kinematics.get_pose_stamped(int_des_pos[0],
-                                                           int_des_pos[1],
-                                                           int_des_pos[2],
-                                                           inverse_kinematics.EXAMPLE_O)
+
+        desired_pose = self.get_des_pose(int_des_pos)
         start_joints = self.ctrl.limb.joint_angles()
         try:
             des_joint_angles = inverse_kinematics.get_joint_angles(desired_pose, seed_cmd=start_joints,
@@ -526,7 +536,7 @@ class Visual_MPC_Client():
         try:
             rospy.wait_for_service('get_action', timeout=240)
             get_action_resp = self.get_action_func(imagemain, imageaux1,
-                                              tuple(state),
+                                              tuple(state.astype(np.float32)),
                                               tuple(self.desig_pos_main.flatten()),
                                               tuple(self.goal_pos_main.flatten()))
 
@@ -549,15 +559,22 @@ class Visual_MPC_Client():
         js.position = [des_joint_angles[n] for n in js.name]
         self.imp_ctrl_publisher.publish(js)
 
-    def move_with_impedance_sec(self, cmd, tsec = 2.):
-        """
-        blocking
-        """
-        tstart = rospy.get_time()
-        delta_t = 0
-        while delta_t < tsec:
-            delta_t = rospy.get_time() - tstart
+
+    def move_with_impedance_sec(self, cmd, duration=2.):
+        jointnames = self.ctrl.limb.joint_names()
+        prev_joint = [self.ctrl.limb.joint_angle(j) for j in jointnames]
+        new_joint = np.array([cmd[j] for j in jointnames])
+
+        start_time = rospy.get_time()  # in seconds
+        finish_time = start_time + duration  # in seconds
+
+        self.imp_ctrl_release_spring(50)
+        while rospy.get_time() < finish_time:
+            int_joints = prev_joint + (rospy.get_time()-start_time)/(finish_time-start_time)*(new_joint-prev_joint)
+            # print int_joints
+            cmd = dict(zip(self.ctrl.limb.joint_names(), list(int_joints)))
             self.move_with_impedance(cmd)
+            self.control_rate.sleep()
 
     def set_neutral_with_impedance(self):
         neutral_jointangles = [0.412271, -0.434908, -1.198768, 1.795462, 1.160788, 1.107675, 2.068076]
@@ -566,10 +583,7 @@ class Visual_MPC_Client():
         self.move_with_impedance_sec(cmd)
 
     def move_to_startpos(self, pos):
-        desired_pose = inverse_kinematics.get_pose_stamped(pos[0],
-                                                           pos[1],
-                                                           pos[2],
-                                                           inverse_kinematics.EXAMPLE_O)
+        desired_pose = self.get_des_pose(pos)
         start_joints = self.ctrl.limb.joint_angles()
         try:
             des_joint_angles = inverse_kinematics.get_joint_angles(desired_pose, seed_cmd=start_joints,
@@ -581,7 +595,7 @@ class Visual_MPC_Client():
             self.ctrl.limb.set_joint_positions(current_joints)
             raise Traj_aborted_except('raising Traj_aborted_except')
         try:
-            if self.use_robot:
+            if self.robot_move:
                 if self.use_imp_ctrl:
                     self.imp_ctrl_release_spring(30)
                     self.move_with_impedance_sec(des_joint_angles)
@@ -596,7 +610,7 @@ class Visual_MPC_Client():
             rospy.sleep(.5)
             raise Traj_aborted_except('raising Traj_aborted_except')
 
-    def apply_act(self, action_vec, i_act, move=True):
+    def apply_act(self, des_pos, action_vec, i_act):
 
         # when rotation is enabled
         posshift = action_vec[:2]
@@ -604,15 +618,15 @@ class Visual_MPC_Client():
             up_cmd = action_vec[2]
             delta_rot = action_vec[3]
             close_cmd = action_vec[4]
-            self.des_pos[3] += delta_rot
+            des_pos[3] += delta_rot
         # when rotation is not enabled
         else:
             close_cmd = action_vec[2]
             up_cmd = action_vec[3]
 
-        self.des_pos[:2] += posshift
+        des_pos[:2] += posshift
 
-        self.des_pos = self.truncate_pos(self.des_pos)  # make sure not outside defined region
+        des_pos = self.truncate_pos(des_pos)  # make sure not outside defined region
         self.imp_ctrl_release_spring(120.)
 
         if close_cmd != 0:
@@ -622,7 +636,7 @@ class Visual_MPC_Client():
 
         if up_cmd != 0:
             self.t_down = i_act + up_cmd
-            self.des_pos[2] = self.lower_height + self.delta_up
+            des_pos[2] = self.lower_height + self.delta_up
             self.gripper_up = True
 
         if self.gripper_closed:
@@ -633,30 +647,12 @@ class Visual_MPC_Client():
 
         if self.gripper_up:
             if i_act == self.t_down:
-                self.des_pos[2] = self.lower_height
+                des_pos[2] = self.lower_height
                 print 'going down'
                 self.imp_ctrl_release_spring(30.)
                 self.gripper_up = False
 
-        if move:
-            desired_pose = inverse_kinematics.get_pose_stamped(self.des_pos[0],
-                                                               self.des_pos[1],
-                                                               self.des_pos[2],
-                                                               inverse_kinematics.EXAMPLE_O)
-            start_joints = self.ctrl.limb.joint_angles()
-            try:
-                des_joint_angles = inverse_kinematics.get_joint_angles(desired_pose, seed_cmd=start_joints,
-                                                                       use_advanced_options=True)
-            except ValueError:
-                rospy.logerr('no inverse kinematics solution found, '
-                             'going to reset robot...')
-                current_joints = self.ctrl.limb.joint_angles()
-                self.ctrl.limb.set_joint_positions(current_joints)
-                raise Traj_aborted_except('raising Traj_aborted_except')
-
-            self.move_with_impedance(des_joint_angles)
-
-        return self.des_pos
+        return des_pos
 
     def truncate_pos(self, pos):
 

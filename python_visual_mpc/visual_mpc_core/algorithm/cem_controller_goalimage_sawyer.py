@@ -11,7 +11,7 @@ from python_visual_mpc.video_prediction.utils_vpred.create_gif_lib import *
 
 from PIL import Image
 import pdb
-
+from python_visual_mpc.video_prediction.misc.create_gif_old import create_video_pixdistrib_gif
 
 import matplotlib.pyplot as plt
 
@@ -96,7 +96,6 @@ class CEM_controller():
             actions_costs[smp]=np.sum(np.square(force_magnitudes)) * self.action_cost_factor
         return actions_costs
 
-
     def discretize(self, actions):
         for b in range(self.M):
             for a in range(self.naction_steps):
@@ -112,7 +111,7 @@ class CEM_controller():
 
         if self.adim == 5: # if rotation is enabled
             maxrot = np.pi / 4
-            actions = np.clip(actions[:, :, 3], -maxrot, maxrot)  # clip in units of meters
+            actions[:, :, 3] = np.clip(actions[:, :, 3], -maxrot, maxrot)
         return actions
 
     def perform_CEM(self,last_frames, last_states, t):
@@ -121,11 +120,14 @@ class CEM_controller():
         #initialize mean and variance of the discrete actions to their mean and variance used during data collection
         self.sigma = np.diag(np.ones(self.adim * self.naction_steps) * self.initial_std ** 2)
         # reducing the variance for goup and close actiondims
-        diagonal = copy.deepcopy(np.diag(self.sigma))
-        diagonal[2::4] = 1
-        diagonal[3::4] = 1
-        self.sigma[np.diag_indices_from(self.sigma)] = diagonal
 
+        diagonal = copy.deepcopy(np.diag(self.sigma))
+        for tind in range(self.naction_steps):
+            for ind in self.discrete_ind:
+                diagonal[tind*self.adim + ind] = 1.
+
+
+        self.sigma[np.diag_indices_from(self.sigma)] = diagonal
 
         print '------------------------------------------------'
         print 'starting CEM cylce'
@@ -134,7 +136,6 @@ class CEM_controller():
             print '------------'
             print 'iteration: ', itr
             t_startiter = datetime.now()
-
             actions = np.random.multivariate_normal(self.mean, self.sigma, self.M)
             actions = actions.reshape(self.M, self.naction_steps, self.adim)
             actions = self.discretize(actions)
@@ -254,7 +255,7 @@ class CEM_controller():
         else:
             input_distrib = self.make_input_distrib(itr)
             gen_images, gen_distrib, _, gen_states, _ = self.predictor(input_images=last_frames,
-                                                                    input_state=last_states,
+                                                                    input_state=last_states.astype(np.float32),
                                                                     input_actions=actions,
                                                                     input_one_hot_images1=input_distrib)
 
@@ -397,7 +398,7 @@ class CEM_controller():
 
         self.desig_pix = np.array(desig_pix).reshape((2, 2))
         if t == 0:
-            action = np.zeros(4)
+            action = np.zeros(self.agentparams['action_dim'])
             self.goal_pix = np.array(goal_pix).reshape((2,2))
         else:
             if 'single_view' in self.netconf:
