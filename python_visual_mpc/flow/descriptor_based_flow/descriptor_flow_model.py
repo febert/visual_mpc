@@ -164,7 +164,7 @@ class Descriptor_Flow(object):
         return enc3
 
     def build_descriptor_bilin(self, conf, img):
-        print 'using bilinear updampling'
+        print 'using bilinear upsampling'
 
         enc0 = slim.layers.conv2d(   #32x32x32
                     img,

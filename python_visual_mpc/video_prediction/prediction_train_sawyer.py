@@ -253,7 +253,6 @@ def main(unused_argv, conf_script= None):
     if 'sawyer' in conf:
         if 'wrist_rot' in conf['data_dir']:
             from read_tf_record_wristrot import build_tfrecord_input
-            wrist_rot = True
         else:
             from read_tf_record_sawyer12 import build_tfrecord_input
     else:

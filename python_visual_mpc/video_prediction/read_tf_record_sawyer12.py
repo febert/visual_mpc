@@ -145,7 +145,8 @@ def build_tfrecord_input(conf, training=True):
     image_aux1_seq = tf.concat(values=image_aux1_seq, axis=0)
 
     if conf['visualize']: num_threads = 1
-    else: num_threads = np.min((conf['batch_size'],10))
+    else: num_threads = 10 #np.min((conf['batch_size'],10))
+    print 'num_threads loader', num_threads
 
     if 'ignore_state_action' in conf:
         [image_main_batch, image_aux1_batch] = tf.train.batch(
