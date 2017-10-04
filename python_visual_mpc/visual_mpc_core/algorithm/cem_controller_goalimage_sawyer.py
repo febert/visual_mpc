@@ -11,7 +11,7 @@ from python_visual_mpc.video_prediction.utils_vpred.create_gif_lib import *
 
 from PIL import Image
 import pdb
-
+from python_visual_mpc.video_prediction.misc.create_gif_old import create_video_pixdistrib_gif
 
 import matplotlib.pyplot as plt
 
@@ -254,7 +254,6 @@ class CEM_controller():
 
         else:
             input_distrib = self.make_input_distrib(itr)
-            pdb.set_trace()
             gen_images, gen_distrib, _, gen_states, _ = self.predictor(input_images=last_frames,
                                                                     input_state=last_states.astype(np.float32),
                                                                     input_actions=actions,
