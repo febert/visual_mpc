@@ -17,7 +17,7 @@ policy = {
     'predictor_propagation': '',   # use the model get the designated pixel for the next step!
     'action_cost_factor': 0,
     # 'reuse_mean_cov':'',
-    'no_instant_gif':"",
+    # 'no_instant_gif':"",
     'rew_all_steps':"",
     'finalweight':10,
     'no_pixdistrib_video':'',

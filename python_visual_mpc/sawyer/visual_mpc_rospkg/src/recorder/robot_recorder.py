@@ -41,11 +41,13 @@ class Latest_observation(object):
 
 
 class RobotRecorder(object):
-    def __init__(self, save_dir, seq_len = None, use_aux=True, save_video=False,
+    def __init__(self, agent_params, save_dir, seq_len = None, use_aux=True, save_video=False,
                  save_actions=True, save_images = True):
 
         self.save_actions = save_actions
         self.save_images = save_images
+
+        self.agent_params = agent_params
 
         """
         Records joint data to a file at a specified rate.
@@ -190,7 +192,11 @@ class RobotRecorder(object):
 
         cv_image = self.bridge.imgmsg_to_cv2(data, "bgr8")  #(1920, 1080)
         self.ltob.img_cv2 = self.crop_highres(cv_image)
-        self.ltob.img_cropped = self.crop_lowres(cv_image)
+
+        if self.agent_params['action_dim'] == 5:  #if wristrot is enabled:
+            self.ltob.img_cropped = self.crop_lowres_wristrot(self.ltob.img_cv2)  # use the cropped highres image
+        else:
+            self.ltob.img_cropped = self.crop_lowres(cv_image)
 
     def crop_highres(self, cv_image):
         startcol = 180
@@ -209,6 +215,8 @@ class RobotRecorder(object):
 
     def crop_lowres(self, cv_image):
         self.ltob.d_img_raw_npy = np.asarray(cv_image)
+
+
         if self.instance_type == 'main':
             shrink_before_crop = 1 / 16.
             img = cv2.resize(cv_image, (0, 0), fx=shrink_before_crop, fy=shrink_before_crop, interpolation=cv2.INTER_AREA)
@@ -231,6 +239,15 @@ class RobotRecorder(object):
         self.crop_lowres_params = {'startcol':startcol,'startrow':startrow,'shrink_before_crop':shrink_before_crop}
         return img
 
+    def crop_lowres_wristrot(self, cv_image):
+        startrow = 10
+        startcol = 32  # 28
+        shrink_before_crop = 1 / 9.
+        img = cv2.resize(cv_image, (0, 0), fx=shrink_before_crop, fy=shrink_before_crop, interpolation=cv2.INTER_AREA)
+        img = img[startrow:startrow + 64, startcol:startcol + 64]
+        assert img.shape == (64, 64, 3)
+        self.crop_lowres_params = {'startcol': startcol, 'startrow': startrow, 'shrink_before_crop': shrink_before_crop}
+        return img
 
     def init_traj(self, itr):
         assert self.instance_type == 'main'

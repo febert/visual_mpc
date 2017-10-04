@@ -34,14 +34,18 @@ def setup_predictor(conf, gpu_id = 0, ngpu=None):
 
             images_pl = tf.placeholder(tf.float32, name='images',
                                     shape=(conf['batch_size'], conf['sequence_length'], 64, 64, 3))
-
-            if 'sawyer' in conf:
-                adim = 4
-                sdim = 3
+            if 'statedim' in conf:
+                sdim = conf['statedim']
             else:
-                adim = 2
-                sdim = 4
-
+                if 'sawyer' in conf:
+                    sdim = 3
+                else: sdim = 4
+            if 'adim' in conf:
+                adim = conf['adim']
+            else:
+                if 'sawyer' in conf:
+                    adim = 4
+                else: adim = 2
             print 'adim', adim
             print 'sdim', sdim
 
