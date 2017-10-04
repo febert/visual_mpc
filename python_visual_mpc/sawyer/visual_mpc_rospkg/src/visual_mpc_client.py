@@ -104,7 +104,7 @@ class Visual_MPC_Client():
 
         self.action_sequence_length = self.agentparams['T'] # number of snapshots that are taken
         self.use_robot = True
-        self.robot_move = False
+        self.robot_move = True
 
         self.save_subdir = ""
 
