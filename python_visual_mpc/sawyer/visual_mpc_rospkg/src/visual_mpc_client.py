@@ -433,9 +433,8 @@ class Visual_MPC_Client():
                 isave_substep  = 0
                 tsave = np.linspace(self.t_prev, self.t_next, num=num_pic_perstep, dtype=np.float64)
                 print 'tsave', tsave
-                i_step += 1
-
                 print 'applying action{}'.format(i_step)
+                i_step += 1
 
             des_joint_angles = self.get_interpolated_joint_angles()
 
@@ -491,15 +490,19 @@ class Visual_MPC_Client():
         :param tnewpos:
         :return: des_pos
         """
-        assert (self.curr_delta_time >= t_prev) or (self.curr_delta_time <= t_next)
-        des_pos = previous_goalpoint + (next_goalpoint - previous_goalpoint) * (self.curr_delta_time- t_prev)/ (t_next - t_prev)
-        # print 'current_delta_time: ', self.curr_delta_time
-        # print "interpolated pos:", des_pos
+        assert (rospy.get_time() >= t_prev)
+        des_pos = previous_goalpoint + (next_goalpoint - previous_goalpoint) * (rospy.get_time()- t_prev)/ (t_next - t_prev)
+        if rospy.get_time() >= t_next:
+            des_pos = next_goalpoint
+            print 't > tnext'
+        print 'current_delta_time: ', self.curr_delta_time
+        print "interpolated pos:", des_pos
+
         return des_pos
 
     def get_interpolated_joint_angles(self):
         int_des_pos = self.calc_interpolation(self.previous_des_pos, self.des_pos, self.t_prev, self.t_next)
-        # print 'interpolated: ', int_des_pos
+        # print 'interpolated des_pos: ', int_des_pos
 
         desired_pose = self.get_des_pose(int_des_pos)
         start_joints = self.ctrl.limb.joint_angles()
@@ -568,7 +571,6 @@ class Visual_MPC_Client():
         start_time = rospy.get_time()  # in seconds
         finish_time = start_time + duration  # in seconds
 
-        self.imp_ctrl_release_spring(50)
         while rospy.get_time() < finish_time:
             int_joints = prev_joint + (rospy.get_time()-start_time)/(finish_time-start_time)*(new_joint-prev_joint)
             # print int_joints
@@ -627,7 +629,11 @@ class Visual_MPC_Client():
         des_pos[:2] += posshift
 
         des_pos = self.truncate_pos(des_pos)  # make sure not outside defined region
-        self.imp_ctrl_release_spring(120.)
+
+        if self.enable_rot:
+            self.imp_ctrl_release_spring(80.)
+        else:
+            self.imp_ctrl_release_spring(120.)
 
         if close_cmd != 0:
             self.topen = i_act + close_cmd
