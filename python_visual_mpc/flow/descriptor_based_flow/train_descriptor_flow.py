@@ -177,11 +177,14 @@ def search_region(conf, current_pos, d1, descp):
     cur_r = current_pos[0]
     cur_c = current_pos[1]
 
-    search_region = d1_padded[cur_r-ksize/2:cur_r+ksize/2+1, cur_c-ksize/2:cur_c+ksize/2+1]
+    search_region = d1_padded[ksize/2 +cur_r-ksize/2:ksize/2 +cur_r+ksize/2+1,
+                              ksize/2 +cur_c-ksize/2:ksize/2 +cur_c+ksize/2+1]
     distances = np.sum(np.square(search_region - descp), 2)
 
     heatmap = np.zeros(d1_padded.shape[:2])
-    heatmap[cur_r-ksize/2:cur_r+ksize/2+1, cur_c-ksize/2:cur_c+ksize/2+1] = distances
+    heatmap[ksize/2 + cur_r-ksize/2:ksize/2 + cur_r+ksize/2+1,
+            ksize/2 + cur_c-ksize/2:ksize/2 + cur_c+ksize/2+1] = distances
+
     heatmap = heatmap[ksize/2:ksize/2+64,ksize/2:ksize/2+64]
     heatmap = heatmap[None, :, :]
 
@@ -235,7 +238,7 @@ def visualize(conf):
 
     [ground_truth] = sess.run([val_images])
 
-    b_exp = 0
+    b_exp = 2
     initial_img = ground_truth[b_exp][0]
     c = Getdesig(initial_img, conf, 'b{}'.format(b_exp))
     desig_pos_aux1 = c.coords.astype(np.int32)

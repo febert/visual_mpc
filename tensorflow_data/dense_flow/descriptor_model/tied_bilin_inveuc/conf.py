@@ -29,9 +29,9 @@ configuration = {
 'single_view':'',
 'visual_flowvec':'',
 'kern_size': 9,               # size of transformation kernels
-'desc_length': 3,
-'metric':'cosine',
-'softmax_temp':5.,
+'desc_length': 8,
+'metric':'inverse_euclidean',
 'forward_backward':"",
 'tied_descriptors':'',
+'bilin_up':""               #use bilinear upsampling
 }
