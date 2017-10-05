@@ -339,17 +339,28 @@ class RobotRecorder(object):
 
         if self.save_gif:
             highres = cv2.cvtColor(self.ltob.img_cv2, cv2.COLOR_BGR2RGB)
-            print 'highres dim',highres.shape
+
+            # add crosshairs to images in case of tracking:
+            if 'opencv_tracking' in self.agent_params:
+                
+
             self.highres_imglist.append(highres)
 
     def save_highres(self):
         # clip = mpy.ImageSequenceClip(self.highres_imglist, fps=10)
         # clip.write_gif(self.image_folder + '/highres_traj{}.mp4'.format(self.itr))
+
         writer = imageio.get_writer(self.image_folder + '/highres_traj{}.mp4'.format(self.itr), fps=10)
         print 'shape highes:', self.highres_imglist[0].shape
         for im in self.highres_imglist:
             writer.append_data(im)
         writer.close()
+
+        im_list = [cv2.resize(im, (0, 0), fx=0.5, fy=0.5, interpolation=cv2.INTER_AREA) for im in self.highres_imglist]
+        pdb.set_trace()
+        if self.agent_params['make_final_gif']:
+            clip = mpy.ImageSequenceClip(im_list, fps=4)
+            clip.write_gif(self.image_folder + '/highres_traj{}.gif'.format(self.itr))
 
     def get_aux_img(self):
         try:

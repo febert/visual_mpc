@@ -168,14 +168,8 @@ class Visual_MPC_Server(object):
         self.traj.X_full[self.t, :] = req.state[:self.agentparams['state_dim']]
         main_img = self.bridge.imgmsg_to_cv2(req.main)
         main_img = cv2.cvtColor(main_img, cv2.COLOR_BGR2RGB)
-        aux1_img = self.bridge.imgmsg_to_cv2(req.aux1)
-        aux1_img = cv2.cvtColor(aux1_img, cv2.COLOR_BGR2RGB)
 
-        if 'single_view' in self.netconf:
-            self.traj._sample_images[self.t] = main_img
-        else:
-            # flip order of main and aux1 to match training of double view architecture
-            self.traj._sample_images[self.t] = np.concatenate((aux1_img, main_img), 2)
+        self.traj._sample_images[self.t] = main_img
 
         self.desig_pos_aux1 = req.desig_pos_aux1
         self.goal_pos_aux1 = req.goal_pos_aux1

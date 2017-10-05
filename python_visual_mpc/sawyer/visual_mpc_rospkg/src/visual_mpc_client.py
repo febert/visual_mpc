@@ -411,7 +411,7 @@ class Visual_MPC_Client():
                                       self.canon_ind, self.canon_dir, only_desig=True)
                     self.desig_pos_main = c_main.desig.astype(np.int64)
                 elif 'opencv_tracking' in self.agentparams:
-                    self.desig_pos_main = self.track_open_cv(i_step)
+                    self.desig_pos_main[0] = self.track_open_cv(i_step)  #tracking only works for 1 desig. pixel!!
 
                 # print 'current position error', self.des_pos - self.get_endeffector_pos(pos_only=True)
 
@@ -441,9 +441,9 @@ class Visual_MPC_Client():
             if self.save_active:
                 if isave_substep < len(tsave):
                     if rospy.get_time() > tsave[isave_substep] -.01:
-                        print 'saving index{}'.format(isave)
-                        print 'isave_substep', isave_substep
-                        self.recorder.save(isave, action_vec, self.get_endeffector_pos())
+                        # print 'saving index{}'.format(isave)
+                        # print 'isave_substep', isave_substep
+                        self.recorder.save(isave, action_vec, self.get_endeffector_pos(), self.desig_pos_main)
                         isave_substep += 1
                         isave += 1
             try:
@@ -495,8 +495,9 @@ class Visual_MPC_Client():
         if rospy.get_time() >= t_next:
             des_pos = next_goalpoint
             print 't > tnext'
-        print 'current_delta_time: ', self.curr_delta_time
-        print "interpolated pos:", des_pos
+
+        # print 'current_delta_time: ', self.curr_delta_time
+        # print "interpolated pos:", des_pos
 
         return des_pos
 
@@ -538,6 +539,8 @@ class Visual_MPC_Client():
 
         try:
             rospy.wait_for_service('get_action', timeout=240)
+
+            pdb.set_trace()
             get_action_resp = self.get_action_func(imagemain, imageaux1,
                                               tuple(state.astype(np.float32)),
                                               tuple(self.desig_pos_main.flatten()),
@@ -714,49 +717,52 @@ class Visual_MPC_Client():
         box_height = 50
         if t == 0:
             frame = self.recorder.ltob.img_cv2
+            loc = self.low_res_to_highres(self.desig_pos_main[0])
+            bbox = (loc[1]- box_height/2., loc[0]- box_height/2., box_height, box_height)  # for the small snow-man
+            # bbox = cv2.selectROI(frame, False)
+            print 'bbox', bbox
+            self.tracker = cv2.TrackerMIL_create()
+            self.tracker.init(frame, bbox)
 
-            loc = self.low_res_to_highres(self.desig_pos_main)
-            bbox = (loc[0], loc[1], 50, 50)  # for the small snow-man
-            tracker = cv2.Tracker_create("KCF")
-            tracker.init(frame, bbox)
-
-        frame = self.recorder.ltob_aux1.img_msg
+        frame = self.recorder.ltob.img_cv2
         ok, bbox = self.tracker.update(frame)
 
-        new_loc = (int(bbox[0]), int(bbox[1])) + float(box_height)/2
+        new_loc = np.array([int(bbox[1]), int(bbox[0])]) + np.array([float(box_height)/2])
         # Draw bounding box
-        if ok:
-            p1 = (int(bbox[0]), int(bbox[1]))
-            p2 = (int(bbox[0] + bbox[2]), int(bbox[1] + bbox[3]))
-            cv2.rectangle(frame, p1, p2, (0, 0, 255))
-        print 'tracking ok:', ok
+        p1 = (int(bbox[0]), int(bbox[1]))
+        p2 = (int(bbox[0] + bbox[2]), int(bbox[1] + bbox[3]))
+        cv2.rectangle(frame, p1, p2, (0, 0, 255))
+
         # Display result
         cv2.imshow("Tracking", frame)
         k = cv2.waitKey(1) & 0xff
-
         return self.high_res_to_lowres(new_loc)
 
     def low_res_to_highres(self, inp):
         h = self.recorder.crop_highres_params
         l = self.recorder.crop_lowres_params
 
-        orig = (inp + np.array(l['startrow'], l['startcol']))/l['shrink_before_crop']
+        if self.adim ==5:
+            highres = (inp + np.array([l['startrow'], l['startcol']])).astype(np.float)/l['shrink_before_crop']
+        else:
+            orig = (inp + np.array([l['startrow'], l['startcol']])).astype(np.float)/l['shrink_before_crop']
+            highres = (orig - np.array([h['startrow'], h['startcol']]))*h['shrink_after_crop']
 
-        #orig to highres:
-        highres = (orig - np.array(h['startrow'], h['startcol']))*h['shrink_after_crop']
-
-        return orig, highres
+        highres = highres.astype(np.int64)
+        return highres
 
     def high_res_to_lowres(self, inp):
         h = self.recorder.crop_highres_params
         l = self.recorder.crop_lowres_params
 
-        orig = inp/ h['shrink_after_crop'] + np.array(h['startrow'], h['startcol'])
+        if self.adim == 5:
+            lowres = inp.astype(np.float) * l['shrink_before_crop'] - np.array([l['startrow'], l['startcol']])
+        else:
+            orig = inp.astype(np.float)/h['shrink_after_crop'] + np.array([h['startrow'], h['startcol']])
+            lowres = orig.astype(np.float)* l['shrink_before_crop'] - np.array([l['startrow'], l['startcol']])
 
-        # orig to highres:
-        highres = orig* l['shrink_before_crop'] - np.array(l['startrow'], l['startcol'])
-
-        return orig, highres
+        lowres = lowres.astype(np.int64)
+        return lowres
 
 
 class Getdesig(object):

@@ -77,10 +77,11 @@ class CEM_controller():
 
         self.indices =[]
 
-        self.rec_input_distrib = []  # record the input distributions
         if 'ndesig' in self.policyparams:
             self.rec_input_distrib1 = []  # record the input distributions
             self.rec_input_distrib2 = []  # record the input distributions
+        else:
+            self.rec_input_distrib = []  # record the input distributions
 
         self.target = np.zeros(2)
 
@@ -114,20 +115,49 @@ class CEM_controller():
             actions[:, :, 3] = np.clip(actions[:, :, 3], -maxrot, maxrot)
         return actions
 
+    def construct_initial_sigma(self):
+        xy_std = self.policyparams['initial_std']
+
+        if 'initial_std_grasp' in self.policyparams:
+            gr_std = self.policyparams['initial_std_grasp']
+        else: gr_std = 1.
+
+        if 'initial_std_lift' in self.policyparams:
+            lift_std = self.policyparams['initial_std_lift']
+        else: lift_std = 1.
+
+        if self.adim == 5:
+            if 'initial_std_rot' in self.policyparams:
+                rot_std = self.policyparams['initial_std_rot']
+            else: rot_std = 1.
+
+        diag = []
+        for t in range(self.naction_steps):
+            if self.adim == 5:
+                diag.append(np.array([xy_std, xy_std, lift_std, rot_std, gr_std]))
+            else:
+                diag.append(np.array([xy_std, xy_std, gr_std, lift_std]))
+
+        diagonal = np.concatenate(diag, axis=0)
+        sigma = np.diag(diagonal)
+        return sigma
+
     def perform_CEM(self,last_frames, last_states, t):
         # initialize mean and variance
         self.mean = np.zeros(self.adim * self.naction_steps)
         #initialize mean and variance of the discrete actions to their mean and variance used during data collection
-        self.sigma = np.diag(np.ones(self.adim * self.naction_steps) * self.initial_std ** 2)
-        # reducing the variance for goup and close actiondims
 
-        diagonal = copy.deepcopy(np.diag(self.sigma))
-        for tind in range(self.naction_steps):
-            for ind in self.discrete_ind:
-                diagonal[tind*self.adim + ind] = 1.
-
-
-        self.sigma[np.diag_indices_from(self.sigma)] = diagonal
+        self.sigma = self.construct_initial_sigma()
+        # self.sigma = np.diag(np.ones(self.adim * self.naction_steps) * self.initial_std ** 2)
+        # # reducing the variance for goup and close actiondims
+        #
+        # diagonal = copy.deepcopy(np.diag(self.sigma))
+        # for tind in range(self.naction_steps):
+        #     for ind in self.discrete_ind:
+        #         diagonal[tind*self.adim + ind] = 1.
+        #
+        #
+        # self.sigma[np.diag_indices_from(self.sigma)] = diagonal
 
         print '------------------------------------------------'
         print 'starting CEM cylce'
@@ -142,6 +172,7 @@ class CEM_controller():
             actions = self.truncate_movement(actions)
 
             actions = np.repeat(actions, self.repeat, axis=1)
+
 
             if 'random_policy' in self.policyparams:
                 print 'sampling random actions'
@@ -222,15 +253,14 @@ class CEM_controller():
         last_states = np.expand_dims(last_states, axis=0)
         last_states = np.repeat(last_states, self.netconf['batch_size'], axis=0)
 
-        if 'single_view' in self.netconf:
-            img_channels = 3
-        else: img_channels = 6
         last_frames = np.expand_dims(last_frames, axis=0)
         last_frames = np.repeat(last_frames, self.netconf['batch_size'], axis=0)
         app_zeros = np.zeros(shape=(self.netconf['batch_size'], self.netconf['sequence_length']-
-                                    self.netconf['context_frames'], 64, 64, img_channels))
+                                    self.netconf['context_frames'], 64, 64, 3))
         last_frames = np.concatenate((last_frames, app_zeros), axis=1)
         last_frames = last_frames.astype(np.float32)/255.
+
+
 
         if 'ndesig' in self.policyparams:
             input_distrib1, input_distrib2 = self.make_input_distrib(itr)
@@ -254,6 +284,23 @@ class CEM_controller():
 
         else:
             input_distrib = self.make_input_distrib(itr)
+
+            ## debug
+            pdb.set_trace()
+            plt.figure()
+            f, axarr = plt.subplots(2, 2)
+            axarr[0,0].imshow(last_frames[0][0], cmap=plt.get_cmap('jet'))
+            axarr[0,0].set_title('im0', fontsize=8)
+            axarr[0, 1].imshow(last_frames[0][1], cmap=plt.get_cmap('jet'))
+            axarr[0, 1].set_title('im1', fontsize=8)
+
+            axarr[0, 0].imshow(input_distrib[0][0], cmap=plt.get_cmap('jet'))
+            axarr[0, 0].set_title('p0', fontsize=8)
+            axarr[0, 1].imshow(input_distrib[0][1], cmap=plt.get_cmap('jet'))
+            axarr[0, 1].set_title('p1', fontsize=8)
+            pdb.set_trace()
+            ## end debug
+
             gen_images, gen_distrib, _, gen_states, _ = self.predictor(input_images=last_frames,
                                                                     input_state=last_states.astype(np.float32),
                                                                     input_actions=actions,
@@ -401,10 +448,7 @@ class CEM_controller():
             action = np.zeros(self.agentparams['action_dim'])
             self.goal_pix = np.array(goal_pix).reshape((2,2))
         else:
-            if 'single_view' in self.netconf:
-                last_images = traj._sample_images[t - 1:t + 1]   # second image shall contain front view
-            else:
-                last_images = traj._sample_images[t-1:t+1]
+            last_images = traj._sample_images[t - 1:t + 1]   # second image shall contain front view
             last_states = traj.X_full[t-1: t+1]
 
             if 'use_first_plan' in self.policyparams:
