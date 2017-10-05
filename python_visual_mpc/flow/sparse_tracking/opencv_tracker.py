@@ -31,8 +31,6 @@ if __name__ == '__main__':
     # Define an initial bounding box
     # bbox = (450, 100, 50, 50)  # for the arm
     # bbox = (550, 240, 50, 50)  # for the small snow-man
-    bbox = (50, 50, 50, 50)  # for the small snow-man
-
 
     # Uncomment the line below to select a different bounding box
     bbox = cv2.selectROI(frame, False)

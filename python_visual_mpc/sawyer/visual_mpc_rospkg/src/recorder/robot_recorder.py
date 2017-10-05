@@ -342,7 +342,7 @@ class RobotRecorder(object):
 
             # add crosshairs to images in case of tracking:
             if 'opencv_tracking' in self.agent_params:
-                
+
 
             self.highres_imglist.append(highres)
 
