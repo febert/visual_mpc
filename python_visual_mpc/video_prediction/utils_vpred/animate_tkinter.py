@@ -45,7 +45,7 @@ def plot_normed_at_desig_pos(gen_distrib, filename, desig_pos):
         p.append(gen_distrib[t][b_exp][desig_pos[0], desig_pos[1]]/ np.sum(gen_distrib[t][b_exp]))
 
     psum = np.array(p)
-    plt.plot(range(len(gen_distrib)), psum, 'g','-o')
+    plt.plot(range(len(gen_distrib)), psum, 'g-o',)
 
     plt.xticks(range(0, len(gen_distrib),3))
 
@@ -410,7 +410,7 @@ def convert_to_videolist(input, repeat_last_dim):
 
 if __name__ == '__main__':
     # file_path = '/home/frederik/Documents/catkin_ws/src/visual_mpc/tensorflow_data/sawyer/data_amount_study/5percent_of_data/modeldata'
-    file_path = '/home/frederik/Documents/catkin_ws/src/visual_mpc/tensorflow_data/sawyer/1stimg_bckgd_cdna/modeldata'
+    file_path = '/home/frederik/Documents/catkin_ws/src/visual_mpc/tensorflow_data/sawyer/dna_correct_nummask/modeldata'
     v  = Visualizer_tkinter(append_masks=False, gif_savepath=file_path)
-    # v.build_figure()
-    v.make_image_strip(i_ex=3)
+    v.build_figure()
+    # v.make_image_strip(i_ex=3)

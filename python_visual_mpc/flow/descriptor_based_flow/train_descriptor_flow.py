@@ -238,7 +238,7 @@ def visualize(conf):
 
     [ground_truth] = sess.run([val_images])
 
-    b_exp = 2
+    b_exp = 7
     initial_img = ground_truth[b_exp][0]
     c = Getdesig(initial_img, conf, 'b{}'.format(b_exp))
     desig_pos_aux1 = c.coords.astype(np.int32)
@@ -277,16 +277,16 @@ def visualize(conf):
         d0 = np.squeeze(d0)
         d1 = np.squeeze(d1)
 
-        if t == 0:
-            plt.figure()
-            f, axarr = plt.subplots(1, 2)
-            axarr[0].imshow(np.sum(np.square(d0), -1), cmap=plt.get_cmap('jet'))
-            axarr[0].set_title('squared euclidean norm of descriptors d0', fontsize=8)
-
-            axarr[1].imshow(np.sum(np.square(d1), -1), cmap=plt.get_cmap('jet'))
-            axarr[1].set_title('squared euclidean norm of descriptors d1', fontsize=8)
-            plt.savefig(conf['output_dir']+ '/euclidean_norm_t0.png')
-            plt.close()
+        # if t == 0:
+        #     plt.figure()
+        #     f, axarr = plt.subplots(1, 2)
+        #     axarr[0].imshow(np.sum(np.square(d0), -1), cmap=plt.get_cmap('jet'))
+        #     axarr[0].set_title('squared euclidean norm of descriptors d0', fontsize=8)
+        #
+        #     axarr[1].imshow(np.sum(np.square(d1), -1), cmap=plt.get_cmap('jet'))
+        #     axarr[1].set_title('squared euclidean norm of descriptors d1', fontsize=8)
+        #     plt.savefig(conf['output_dir']+ '/euclidean_norm_t0.png')
+        #     plt.close()
 
         if t == 0:
             tar_descp =  d0[desig_pos_aux1[0], desig_pos_aux1[1]]
