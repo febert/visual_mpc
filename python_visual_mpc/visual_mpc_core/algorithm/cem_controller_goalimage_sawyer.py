@@ -286,19 +286,19 @@ class CEM_controller():
             input_distrib = self.make_input_distrib(itr)
 
             ## debug
-            pdb.set_trace()
-            plt.figure()
-            f, axarr = plt.subplots(2, 2)
-            axarr[0,0].imshow(last_frames[0][0], cmap=plt.get_cmap('jet'))
-            axarr[0,0].set_title('im0', fontsize=8)
-            axarr[0, 1].imshow(last_frames[0][1], cmap=plt.get_cmap('jet'))
-            axarr[0, 1].set_title('im1', fontsize=8)
-
-            axarr[0, 0].imshow(input_distrib[0][0], cmap=plt.get_cmap('jet'))
-            axarr[0, 0].set_title('p0', fontsize=8)
-            axarr[0, 1].imshow(input_distrib[0][1], cmap=plt.get_cmap('jet'))
-            axarr[0, 1].set_title('p1', fontsize=8)
-            pdb.set_trace()
+            # plt.figure()
+            # f, axarr = plt.subplots(2, 2)
+            # axarr[0,0].imshow(np.squeeze(last_frames[0][0]), cmap=plt.get_cmap('jet'))
+            # axarr[0,0].set_title('im0', fontsize=8)
+            # axarr[0, 1].imshow(np.squeeze(last_frames[0][1]), cmap=plt.get_cmap('jet'))
+            # axarr[0, 1].set_title('im1', fontsize=8)
+            #
+            # axarr[1, 0].imshow(np.squeeze(input_distrib[0][0]), cmap=plt.get_cmap('jet'))
+            # axarr[1, 0].set_title('p0', fontsize=8)
+            # axarr[1, 1].imshow(np.squeeze(input_distrib[0][1]), cmap=plt.get_cmap('jet'))
+            # axarr[1, 1].set_title('p1', fontsize=8)
+            # plt.show()
+            # pdb.set_trace()
             ## end debug
 
             gen_images, gen_distrib, _, gen_states, _ = self.predictor(input_images=last_frames,

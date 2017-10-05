@@ -150,6 +150,9 @@ class Visual_MPC_Client():
         self.goal_pos_main = np.zeros([2,2])   # the first index is for the ndesig and the second is r,c
         self.desig_pos_main = np.zeros([2, 2])
 
+        #highres position used when doing tracking
+        self.desig_hpos_main = None
+
         if args.goalimage == "True":
             self.use_goalimage = True
         else: self.use_goalimage = False
@@ -443,7 +446,7 @@ class Visual_MPC_Client():
                     if rospy.get_time() > tsave[isave_substep] -.01:
                         # print 'saving index{}'.format(isave)
                         # print 'isave_substep', isave_substep
-                        self.recorder.save(isave, action_vec, self.get_endeffector_pos(), self.desig_pos_main)
+                        self.recorder.save(isave, action_vec, self.get_endeffector_pos(), self.desig_hpos_main)
                         isave_substep += 1
                         isave += 1
             try:
@@ -540,7 +543,6 @@ class Visual_MPC_Client():
         try:
             rospy.wait_for_service('get_action', timeout=240)
 
-            pdb.set_trace()
             get_action_resp = self.get_action_func(imagemain, imageaux1,
                                               tuple(state.astype(np.float32)),
                                               tuple(self.desig_pos_main.flatten()),
@@ -714,7 +716,7 @@ class Visual_MPC_Client():
                     break
 
     def track_open_cv(self, t):
-        box_height = 50
+        box_height = 100
         if t == 0:
             frame = self.recorder.ltob.img_cv2
             loc = self.low_res_to_highres(self.desig_pos_main[0])
@@ -728,6 +730,7 @@ class Visual_MPC_Client():
         ok, bbox = self.tracker.update(frame)
 
         new_loc = np.array([int(bbox[1]), int(bbox[0])]) + np.array([float(box_height)/2])
+        self.desig_hpos_main = new_loc
         # Draw bounding box
         p1 = (int(bbox[0]), int(bbox[1]))
         p2 = (int(bbox[0] + bbox[2]), int(bbox[1] + bbox[3]))
