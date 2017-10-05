@@ -186,7 +186,7 @@ def search_region(conf, current_pos, d1, descp):
             ksize/2 + cur_c-ksize/2:ksize/2 + cur_c+ksize/2+1] = distances
 
     heatmap = heatmap[ksize/2:ksize/2+64,ksize/2:ksize/2+64]
-    heatmap = heatmap[None, :, :]
+    heatmap = heatmap[None, :, :, None]
 
     newpos = current_pos + np.unravel_index(distances.argmin(), distances.shape) - np.array([ksize/2, ksize/2 ])
     newpos = np.clip(newpos, 0, 63)
@@ -238,7 +238,7 @@ def visualize(conf):
 
     [ground_truth] = sess.run([val_images])
 
-    b_exp = 7
+    b_exp = 2
     initial_img = ground_truth[b_exp][0]
     c = Getdesig(initial_img, conf, 'b{}'.format(b_exp))
     desig_pos_aux1 = c.coords.astype(np.int32)
@@ -277,16 +277,16 @@ def visualize(conf):
         d0 = np.squeeze(d0)
         d1 = np.squeeze(d1)
 
-        # if t == 0:
-        #     plt.figure()
-        #     f, axarr = plt.subplots(1, 2)
-        #     axarr[0].imshow(np.sum(np.square(d0), -1), cmap=plt.get_cmap('jet'))
-        #     axarr[0].set_title('squared euclidean norm of descriptors d0', fontsize=8)
-        #
-        #     axarr[1].imshow(np.sum(np.square(d1), -1), cmap=plt.get_cmap('jet'))
-        #     axarr[1].set_title('squared euclidean norm of descriptors d1', fontsize=8)
-        #     plt.savefig(conf['output_dir']+ '/euclidean_norm_t0.png')
-        #     plt.close()
+        if t == 0:
+            plt.figure()
+            f, axarr = plt.subplots(1, 2)
+            axarr[0].imshow(np.sum(np.square(d0), -1), cmap=plt.get_cmap('jet'))
+            axarr[0].set_title('squared euclidean norm of descriptors d0', fontsize=8)
+
+            axarr[1].imshow(np.sum(np.square(d1), -1), cmap=plt.get_cmap('jet'))
+            axarr[1].set_title('squared euclidean norm of descriptors d1', fontsize=8)
+            plt.savefig(conf['output_dir']+ '/euclidean_norm_t0.png')
+            plt.close()
 
         if t == 0:
             tar_descp =  d0[desig_pos_aux1[0], desig_pos_aux1[1]]
@@ -300,7 +300,11 @@ def visualize(conf):
     import collections
 
     dict = collections.OrderedDict()
-    dict['ground_truth'] = ground_truth[b_exp].reshape(1,conf['sequence_length'],64,64,3)
+    ground_truth = ground_truth[b_exp].reshape(1, conf['sequence_length'], 64, 64, 3)
+
+    ground_truth = add_crosshairs(ground_truth, pos_list)
+    dict['ground_truth'] = ground_truth
+
     dict['transformed01'] = transformed01_list
 
     dict['heat_map'] = heat_maps
@@ -312,6 +316,9 @@ def visualize(conf):
 
     dict['transformed01'] = transformed01_list
 
+    pos_list = [np.expand_dims(p,axis=0) for p in pos_list]
+    dict['overlay_ground_truth'] = pos_list
+
     dict['iternum'] = itr_vis
 
     cPickle.dump(dict, open(conf['output_dir'] + '/pred.pkl', 'wb'))
@@ -320,9 +327,34 @@ def visualize(conf):
     from python_visual_mpc.video_prediction.utils_vpred.animate_tkinter import Visualizer_tkinter
     v = Visualizer_tkinter(dict, numex=1, append_masks=True,
                            gif_savepath=conf['output_dir'],
-                           suf='flow_b{}_l{}'.format(b_exp, conf['sequence_length']))
+                           suf='flow_b{}_l{}'.format(b_exp, conf['sequence_length']),
+                           renorm_heatmpas=False)
     v.build_figure()
 
+def add_crosshairs(images, pos):
+
+    out = []
+
+    for t in range(images.shape[1]):
+        im = np.squeeze(images[:,t])
+        p = pos[t]
+        im[p[0]-5:p[0]-2,p[1]] = np.array([0, 1,1])
+        im[p[0]+3:p[0]+6, p[1]] = np.array([0, 1, 1])
+
+        im[p[0],p[1]-5:p[1]-2] = np.array([0, 1,1])
+
+        im[p[0], p[1]+3:p[1]+6] = np.array([0, 1, 1])
+
+        im[p[0], p[1]] = np.array([0, 1, 1])
+
+        # plt.imshow(im)
+        # plt.show()
+        out.append(im)
+
+    out = np.stack(out, axis=0)
+    out = out[None,...]
+
+    return out
 
 def main(unused_argv, conf_script= None):
     os.environ["CUDA_VISIBLE_DEVICES"] = str(FLAGS.device)
