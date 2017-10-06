@@ -340,14 +340,11 @@ class RobotRecorder(object):
 
         if self.save_gif:
             highres = cv2.cvtColor(self.ltob.img_cv2, cv2.COLOR_BGR2RGB)
-
             self.highres_imglist.append(highres)
 
     def add_cross_hairs(self, images, desig_pos):
         out = []
-        for t in range(len(images)):
-            im = images[t]
-            p = desig_pos[t]
+        for im, p in zip(images, desig_pos):
             im[p[0] - 5:p[0] - 2, p[1]] = np.array([0, 1, 1])
             im[p[0] + 3:p[0] + 6, p[1]] = np.array([0, 1, 1])
 
@@ -368,6 +365,7 @@ class RobotRecorder(object):
 
         # add crosshairs to images in case of tracking:
         if 'opencv_tracking' in self.agent_params:
+
             self.highres_imglist = self.add_cross_hairs(self.highres_imglist, self.desig_hpos_list)
 
         print 'shape highres:', self.highres_imglist[0].shape
@@ -390,7 +388,7 @@ class RobotRecorder(object):
             rospy.logerr("Service call failed: %s" % (e,))
             raise ValueError('get_kinectdata service failed')
 
-    def _save_state_actions(self, i_save, action, endeff_pose, desig_pos_main):
+    def _save_state_actions(self, i_save, action, endeff_pose, desig_hpos_main):
         joints_right = self._limb_right.joint_names()
         with open(self.state_action_data_file, 'a') as f:
             angles_right = [self._limb_right.joint_angle(j)
@@ -407,8 +405,8 @@ class RobotRecorder(object):
         self.joint_angle_list.append(angles_right)
         self.action_list.append(action)
         self.cart_pos_list.append(endeff_pose)
-        if desig_pos_main != None:
-            self.desig_hpos_list.append(desig_pos_main)
+        if desig_hpos_main != None:
+            self.desig_hpos_list.append(desig_hpos_main)
 
         if i_save == self.state_sequence_length-1:
             joint_angles = np.stack(self.joint_angle_list)

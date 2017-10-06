@@ -127,7 +127,7 @@ class Visual_MPC_Client():
         self.save_active = True
         self.bridge = CvBridge()
 
-        self.action_interval = 1 #Hz
+        self.action_interval = 1. #Hz
         self.traj_duration = self.action_sequence_length*self.action_interval
         self.action_rate = rospy.Rate(self.action_interval)
         self.control_rate = rospy.Rate(1000)
@@ -342,6 +342,7 @@ class Visual_MPC_Client():
                 os.makedirs(self.desig_pix_img_dir)
 
             num_pic_perstep = 4
+            num_track_perstep = 8
             nsave = self.action_sequence_length*num_pic_perstep
 
             self.recorder = robot_recorder.RobotRecorder(agent_params=self.agentparams,
@@ -435,11 +436,17 @@ class Visual_MPC_Client():
 
                 isave_substep  = 0
                 tsave = np.linspace(self.t_prev, self.t_next, num=num_pic_perstep, dtype=np.float64)
+                t_track = np.linspace(self.t_prev, self.t_next, num=num_track_perstep, dtype=np.float64)
                 print 'tsave', tsave
                 print 'applying action{}'.format(i_step)
                 i_step += 1
 
             des_joint_angles = self.get_interpolated_joint_angles()
+
+            if 'opencv_tracking' in self.agentparams:
+                if rospy.get_time() > t_track[isave_substep] - .01:
+                    print 'tracking'
+                    self.desig_pos_main[0] = self.track_open_cv(i_step)
 
             if self.save_active:
                 if isave_substep < len(tsave):
@@ -716,7 +723,7 @@ class Visual_MPC_Client():
                     break
 
     def track_open_cv(self, t):
-        box_height = 100
+        box_height = 120
         if t == 0:
             frame = self.recorder.ltob.img_cv2
             loc = self.low_res_to_highres(self.desig_pos_main[0])
