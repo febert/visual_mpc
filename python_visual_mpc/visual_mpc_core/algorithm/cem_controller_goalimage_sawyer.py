@@ -168,7 +168,6 @@ class CEM_controller():
             t_startiter = datetime.now()
             actions = np.random.multivariate_normal(self.mean, self.sigma, self.M)
             actions = actions.reshape(self.M, self.naction_steps, self.adim)
-            pdb.set_trace()
             actions = self.discretize(actions)
             actions = self.truncate_movement(actions)
 
