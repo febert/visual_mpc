@@ -465,11 +465,16 @@ class CEM_controller():
                 self.perform_CEM(last_images, last_states, t)
                 action = self.bestaction[0]
 
+                print '########'
+                print 'best action sequence: '
+                for i in range(self.bestaction.shape[0]):
+                    print "t{}: {}".format(i, self.bestaction[i])
+                print '########'
+
+
         self.action_list.append(action)
         # print 'timestep: ', t, ' taking action: ', action
-        print 'best action sequence: '
-        for i in range(self.bestaction.shape[0]):
-            print "t{}: {}".format(i, self.bestaction[i])
+
 
         force = action
 
