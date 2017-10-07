@@ -377,7 +377,7 @@ class Visual_MPC_Client():
 
             if self.enable_rot:
                 # start_angle = np.array([np.random.uniform(0., np.pi * 2)])
-                start_angle = np.array([0.])
+                start_angle = np.array([np.pi])
                 self.des_pos = np.concatenate([startpos, np.array([self.lower_height]), start_angle], axis=0)
             else:
                 self.des_pos = np.concatenate([startpos, np.array([self.lower_height])], axis=0)

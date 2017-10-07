@@ -365,7 +365,6 @@ class RobotRecorder(object):
         # add crosshairs to images in case of tracking:
         if 'opencv_tracking' in self.agent_params:
             self.highres_imglist = self.add_cross_hairs(self.highres_imglist, self.desig_hpos_list)
-        pdb.set_trace()
 
         print 'shape highres:', self.highres_imglist[0].shape
         for im in self.highres_imglist:
@@ -373,7 +372,6 @@ class RobotRecorder(object):
         writer.close()
 
         im_list = [cv2.resize(im, (0, 0), fx=0.5, fy=0.5, interpolation=cv2.INTER_AREA) for im in self.highres_imglist]
-        pdb.set_trace()
         if 'make_final_gif' in self.agent_params:
             clip = mpy.ImageSequenceClip(im_list, fps=4)
             clip.write_gif(self.image_folder + '/highres_traj{}.gif'.format(self.itr))
