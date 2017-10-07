@@ -134,9 +134,9 @@ class CEM_controller():
         diag = []
         for t in range(self.naction_steps):
             if self.adim == 5:
-                diag.append(np.array([xy_std, xy_std, lift_std, rot_std, gr_std]))
+                diag.append(np.array([xy_std**2, xy_std**2, lift_std**2, rot_std**2, gr_std**2]))
             else:
-                diag.append(np.array([xy_std, xy_std, gr_std, lift_std]))
+                diag.append(np.array([xy_std**2, xy_std**2, gr_std**2, lift_std**2]))
 
         diagonal = np.concatenate(diag, axis=0)
         sigma = np.diag(diagonal)
