@@ -314,7 +314,7 @@ def make_psum_overtime_example(filepath, tmpc):
 
 
 if __name__ == '__main__':
-    file_path = '/home/febert/Documents/catkin_ws/src/visual_mpc/experiments/cem_exp/benchmarks_sawyer/opencv_tracker'
+    file_path = '/home/febert/Documents/catkin_ws/src/visual_mpc/experiments/cem_exp/benchmarks_sawyer/opencv_tracker_lessvar'
 
     hyperparams = imp.load_source('hyperparams', file_path + '/conf.py')
     conf = hyperparams.configuration

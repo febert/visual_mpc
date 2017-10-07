@@ -11,7 +11,7 @@ policy = {
     'usenet': True,
     'nactions': 5,
     'repeat': 3,
-    'initial_std': .02,   #std dev. in xy
+    'initial_std': .015,   #std dev. in xy
     'initial_std_grasp': 1.,   #std dev. in xy
     'initial_std_lift': 1.,   #std dev. in xy
     'initial_std_rot': np.pi / 8,   #std dev. in xy
