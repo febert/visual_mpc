@@ -175,7 +175,7 @@ def plot_psum_overtime(conf, gen_distrib, n_exp, name, filepath):
 
 
 def go_through_timesteps(file_path, conf):
-    for t in range(1,15):
+    for t in range(1,20):
         create_video_pixdistrib_gif(file_path, conf, t, suffix='_t{}'.format(t), n_exp=10, suppress_number=True)
 
 # frame size (810, 1125, 3)
@@ -314,7 +314,7 @@ def make_psum_overtime_example(filepath, tmpc):
 
 
 if __name__ == '__main__':
-    file_path = '/home/febert/Documents/catkin_ws/src/visual_mpc/experiments/cem_exp/benchmarks_sawyer/wristrot'
+    file_path = '/home/febert/Documents/catkin_ws/src/visual_mpc/experiments/cem_exp/benchmarks_sawyer/opencv_tracker'
 
     hyperparams = imp.load_source('hyperparams', file_path + '/conf.py')
     conf = hyperparams.configuration

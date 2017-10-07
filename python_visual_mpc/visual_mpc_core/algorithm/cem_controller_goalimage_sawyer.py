@@ -11,7 +11,7 @@ from python_visual_mpc.video_prediction.utils_vpred.create_gif_lib import *
 
 from PIL import Image
 import pdb
-from python_visual_mpc.video_prediction.misc.create_gif_old import create_video_pixdistrib_gif
+from python_visual_mpc.video_prediction.misc.makegifs2 import create_video_pixdistrib_gif
 
 import matplotlib.pyplot as plt
 
@@ -466,7 +466,10 @@ class CEM_controller():
                 action = self.bestaction[0]
 
         self.action_list.append(action)
-        print 'timestep: ', t, ' taking action: ', action
+        # print 'timestep: ', t, ' taking action: ', action
+        print 'best action sequence: '
+        for i in range(self.bestaction.shape[0]):
+            print "t{}: {}".format(i, self.bestaction[i])
 
         force = action
 

@@ -319,7 +319,7 @@ class RobotRecorder(object):
         shutil.rmtree(traj_folder)
         print 'deleted {}'.format(traj_folder)
 
-    def save(self, i_save, action, endeffector_pose, desig_pos_main= None):
+    def save(self, i_save, action, endeffector_pose, desig_hpos_main= None):
         self.t_savereq = rospy.get_time()
         assert self.instance_type == 'main'
 
@@ -336,23 +336,22 @@ class RobotRecorder(object):
             self._save_img_local(i_save)
 
         if self.save_actions:
-            self._save_state_actions(i_save, action, endeffector_pose, desig_pos_main)
+            self._save_state_actions(i_save, action, endeffector_pose)
 
         if self.save_gif:
             highres = cv2.cvtColor(self.ltob.img_cv2, cv2.COLOR_BGR2RGB)
+            if desig_hpos_main is not None:
+                self.desig_hpos_list.append(desig_hpos_main)
             self.highres_imglist.append(highres)
 
     def add_cross_hairs(self, images, desig_pos):
         out = []
         for im, p in zip(images, desig_pos):
-            im[p[0] - 5:p[0] - 2, p[1]] = np.array([0, 1, 1])
-            im[p[0] + 3:p[0] + 6, p[1]] = np.array([0, 1, 1])
+            p = p.astype(np.int64)
 
-            im[p[0], p[1] - 5:p[1] - 2] = np.array([0, 1, 1])
+            im[:, p[1]] = np.array([0, 255., 255.])
+            im[p[0],:] = np.array([0, 255., 255.])
 
-            im[p[0], p[1] + 3:p[1] + 6] = np.array([0, 1, 1])
-
-            im[p[0], p[1]] = np.array([0, 1, 1])
             out.append(im)
         return out
 
@@ -365,8 +364,8 @@ class RobotRecorder(object):
 
         # add crosshairs to images in case of tracking:
         if 'opencv_tracking' in self.agent_params:
-
             self.highres_imglist = self.add_cross_hairs(self.highres_imglist, self.desig_hpos_list)
+        pdb.set_trace()
 
         print 'shape highres:', self.highres_imglist[0].shape
         for im in self.highres_imglist:
@@ -375,7 +374,7 @@ class RobotRecorder(object):
 
         im_list = [cv2.resize(im, (0, 0), fx=0.5, fy=0.5, interpolation=cv2.INTER_AREA) for im in self.highres_imglist]
         pdb.set_trace()
-        if self.agent_params['make_final_gif']:
+        if 'make_final_gif' in self.agent_params:
             clip = mpy.ImageSequenceClip(im_list, fps=4)
             clip.write_gif(self.image_folder + '/highres_traj{}.gif'.format(self.itr))
 
@@ -405,8 +404,8 @@ class RobotRecorder(object):
         self.joint_angle_list.append(angles_right)
         self.action_list.append(action)
         self.cart_pos_list.append(endeff_pose)
-        if desig_hpos_main != None:
-            self.desig_hpos_list.append(desig_hpos_main)
+
+        pdb.set_trace()
 
         if i_save == self.state_sequence_length-1:
             joint_angles = np.stack(self.joint_angle_list)
