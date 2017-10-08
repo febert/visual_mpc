@@ -66,19 +66,30 @@ def setup_predictor(conf, gpu_id=0, ngpu=1):
 
     print 'Constructing multi gpu model for control...'
 
-    start_images = tf.placeholder(tf.float32, name='images',  # with zeros extension
-                                    shape=(conf['batch_size'], conf['sequence_length'], 64, 64, 3))
-
-    if 'sawyer' in conf:
-        actions = tf.placeholder(tf.float32, name='actions',
-                                        shape=(conf['batch_size'],conf['sequence_length'], 4))
-        start_states = tf.placeholder(tf.float32, name='states',
-                                        shape=(conf['batch_size'],conf['context_frames'], 3))
+    images_pl = tf.placeholder(tf.float32, name='images',
+                               shape=(conf['batch_size'], conf['sequence_length'], 64, 64, 3))
+    if 'statedim' in conf:
+        sdim = conf['statedim']
     else:
-        actions = tf.placeholder(tf.float32, name='actions',
-                                 shape=(conf['batch_size'], conf['sequence_length'], 2))
-        start_states = tf.placeholder(tf.float32, name='states',
-                                      shape=(conf['batch_size'], conf['context_frames'], 4))
+        if 'sawyer' in conf:
+            sdim = 3
+        else:
+            sdim = 4
+    if 'adim' in conf:
+        adim = conf['adim']
+    else:
+        if 'sawyer' in conf:
+            adim = 4
+        else:
+            adim = 2
+    print 'adim', adim
+    print 'sdim', sdim
+
+    actions_pl = tf.placeholder(tf.float32, name='actions',
+                                shape=(conf['batch_size'], conf['sequence_length'], adim))
+    states_pl = tf.placeholder(tf.float32, name='states',
+                               shape=(conf['batch_size'], conf['context_frames'], sdim))
+
     pix_distrib_1 = tf.placeholder(tf.float32, shape=(conf['batch_size'], conf['context_frames'], 64, 64, 1))
     pix_distrib_2 = tf.placeholder(tf.float32, shape=(conf['batch_size'], conf['context_frames'], 64, 64, 1))
 
@@ -90,11 +101,9 @@ def setup_predictor(conf, gpu_id=0, ngpu=1):
                 with tf.name_scope('tower_%d' % (i_gpu)):
                     print('creating tower %d: in scope %s' % (i_gpu, tf.get_variable_scope()))
                     # print 'reuse: ', tf.get_variable_scope().reuse
-
-
                     # towers.append(Tower(conf, i_gpu, training_scope, start_images, actions, start_states, pix_distrib_1, pix_distrib_2))
-                    towers.append(Tower(conf, i_gpu, start_images, actions, start_states, pix_distrib_1,
-                                        pix_distrib_2))
+                    towers.append(Tower(conf, i_gpu, images_pl, actions_pl, states_pl, pix_distrib_1,
+                                                pix_distrib_2))
                     tf.get_variable_scope().reuse_variables()
 
     sess.run(tf.global_variables_initializer())
