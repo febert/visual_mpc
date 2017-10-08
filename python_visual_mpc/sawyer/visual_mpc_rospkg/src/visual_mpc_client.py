@@ -20,6 +20,9 @@ from geometry_msgs.msg import (
     Quaternion,
 )
 
+from utils.opencv_tracker import OpenCV_Tracker
+
+
 import intera_external_devices
 
 import argparse
@@ -384,8 +387,12 @@ class Visual_MPC_Client():
 
             self.topen, self.t_down = 0, 0
 
+
         #move to start:
         self.move_to_startpos(self.des_pos)
+
+        if 'opencv_tracking' in self.agentparams:
+            self.tracker = OpenCV_Tracker(self.agentparams, self.recorder, self.desig_pos_main)
 
         if self.save_canon:
             self.save_canonical()
@@ -415,7 +422,7 @@ class Visual_MPC_Client():
                                       self.canon_ind, self.canon_dir, only_desig=True)
                     self.desig_pos_main = c_main.desig.astype(np.int64)
                 elif 'opencv_tracking' in self.agentparams:
-                    self.desig_pos_main[0] = self.track_open_cv(i_step)  #tracking only works for 1 desig. pixel!!
+                    self.desig_pos_main[0], self.desig_hpos_main = self.tracker.track_open_cv()  #tracking only works for 1 desig. pixel!!
 
                 # print 'current position error', self.des_pos - self.get_endeffector_pos(pos_only=True)
 
@@ -446,7 +453,7 @@ class Visual_MPC_Client():
             if 'opencv_tracking' in self.agentparams:
                 if rospy.get_time() > t_track[isave_substep] - .01:
                     print 'tracking'
-                    self.desig_pos_main[0] = self.track_open_cv(i_step)
+                    self.desig_pos_main[0], self.desig_hpos_main = self.tracker.track_open_cv()
 
             if self.save_active:
                 if isave_substep < len(tsave):
@@ -721,59 +728,6 @@ class Visual_MPC_Client():
                 except:
                     do_repeat = True
                     break
-
-    def track_open_cv(self, t):
-        box_height = 120
-        if t == 0:
-            frame = self.recorder.ltob.img_cv2
-            loc = self.low_res_to_highres(self.desig_pos_main[0])
-            bbox = (loc[1]- box_height/2., loc[0]- box_height/2., box_height, box_height)  # for the small snow-man
-            # bbox = cv2.selectROI(frame, False)
-            print 'bbox', bbox
-            self.tracker = cv2.TrackerMIL_create()
-            self.tracker.init(frame, bbox)
-
-        frame = self.recorder.ltob.img_cv2
-        ok, bbox = self.tracker.update(frame)
-
-        new_loc = np.array([int(bbox[1]), int(bbox[0])]) + np.array([float(box_height)/2])
-        self.desig_hpos_main = new_loc
-        # Draw bounding box
-        p1 = (int(bbox[0]), int(bbox[1]))
-        p2 = (int(bbox[0] + bbox[2]), int(bbox[1] + bbox[3]))
-        cv2.rectangle(frame, p1, p2, (0, 0, 255))
-
-        # Display result
-        cv2.imshow("Tracking", frame)
-        k = cv2.waitKey(1) & 0xff
-        return self.high_res_to_lowres(new_loc)
-
-    def low_res_to_highres(self, inp):
-        h = self.recorder.crop_highres_params
-        l = self.recorder.crop_lowres_params
-
-        if self.adim ==5:
-            highres = (inp + np.array([l['startrow'], l['startcol']])).astype(np.float)/l['shrink_before_crop']
-        else:
-            orig = (inp + np.array([l['startrow'], l['startcol']])).astype(np.float)/l['shrink_before_crop']
-            highres = (orig - np.array([h['startrow'], h['startcol']]))*h['shrink_after_crop']
-
-        highres = highres.astype(np.int64)
-        return highres
-
-    def high_res_to_lowres(self, inp):
-        h = self.recorder.crop_highres_params
-        l = self.recorder.crop_lowres_params
-
-        if self.adim == 5:
-            lowres = inp.astype(np.float) * l['shrink_before_crop'] - np.array([l['startrow'], l['startcol']])
-        else:
-            orig = inp.astype(np.float)/h['shrink_after_crop'] + np.array([h['startrow'], h['startcol']])
-            lowres = orig.astype(np.float)* l['shrink_before_crop'] - np.array([l['startrow'], l['startcol']])
-
-        lowres = lowres.astype(np.int64)
-        return lowres
-
 
 class Getdesig(object):
     def __init__(self,img,basedir,img_namesuffix = '', n_desig=1, canon_ind=None, canon_dir = None, only_desig = False):

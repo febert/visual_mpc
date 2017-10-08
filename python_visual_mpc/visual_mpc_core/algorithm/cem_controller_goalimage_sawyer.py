@@ -106,8 +106,7 @@ class CEM_controller():
         return actions
 
     def truncate_movement(self, actions):
-
-        maxshift = .06
+        maxshift = .09
         actions[:,:,:2] = np.clip(actions[:,:,:2], -maxshift, maxshift)  # clip in units of meters
 
         if self.adim == 5: # if rotation is enabled
