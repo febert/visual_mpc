@@ -309,7 +309,7 @@ class Visual_MPC_Client():
             goal_img_main = self.bridge.cv2_to_imgmsg(goal_img_main)
             goal_img_aux1 = self.bridge.cv2_to_imgmsg(goal_img_aux1)
 
-            rospy.wait_for_service('init_traj_visualmpc', timeout=1)
+            rospy.wait_for_service('init_traj_visualmpc', timeout=2.)
             self.init_traj_visual_func(0, 0, goal_img_main, goal_img_aux1, self.save_subdir)
 
         except (rospy.ServiceException, rospy.ROSException), e:

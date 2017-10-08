@@ -151,9 +151,9 @@ def setup_predictor(conf, gpu_id=0, ngpu=1):
             feed_dict[t.model.iter_num] = 0
             feed_dict[t.model.lr] = 0.0
 
-        feed_dict[start_images] = input_images
-        feed_dict[start_states] = input_state
-        feed_dict[actions] = input_actions
+        feed_dict[images_pl] = input_images
+        feed_dict[states_pl] = input_state
+        feed_dict[actions_pl] = input_actions
 
         if 'no_pix_distrib' in conf:
             gen_images, gen_states = sess.run([comb_gen_img,
