@@ -127,6 +127,7 @@ class RobotRecorder(object):
             print "Recorder intialized."
             print "started spin thread"
             self.action_list, self.joint_angle_list, self.cart_pos_list = [], [], []
+            self.desig_hpos_list = []
 
 
     def save_kinect_handler(self, req):
@@ -318,7 +319,7 @@ class RobotRecorder(object):
         shutil.rmtree(traj_folder)
         print 'deleted {}'.format(traj_folder)
 
-    def save(self, i_save, action, endeffector_pose):
+    def save(self, i_save, action, endeffector_pose, desig_hpos_main= None):
         self.t_savereq = rospy.get_time()
         assert self.instance_type == 'main'
 
@@ -339,17 +340,41 @@ class RobotRecorder(object):
 
         if self.save_gif:
             highres = cv2.cvtColor(self.ltob.img_cv2, cv2.COLOR_BGR2RGB)
-            print 'highres dim',highres.shape
+            if desig_hpos_main is not None:
+                self.desig_hpos_list.append(desig_hpos_main)
             self.highres_imglist.append(highres)
+
+    def add_cross_hairs(self, images, desig_pos):
+        out = []
+        for im, p in zip(images, desig_pos):
+            p = p.astype(np.int64)
+
+            im[:, p[1]] = np.array([0, 255., 255.])
+            im[p[0],:] = np.array([0, 255., 255.])
+
+            out.append(im)
+        return out
+
 
     def save_highres(self):
         # clip = mpy.ImageSequenceClip(self.highres_imglist, fps=10)
         # clip.write_gif(self.image_folder + '/highres_traj{}.mp4'.format(self.itr))
+
         writer = imageio.get_writer(self.image_folder + '/highres_traj{}.mp4'.format(self.itr), fps=10)
-        print 'shape highes:', self.highres_imglist[0].shape
+
+        # add crosshairs to images in case of tracking:
+        if 'opencv_tracking' in self.agent_params:
+            self.highres_imglist = self.add_cross_hairs(self.highres_imglist, self.desig_hpos_list)
+
+        print 'shape highres:', self.highres_imglist[0].shape
         for im in self.highres_imglist:
             writer.append_data(im)
         writer.close()
+
+        im_list = [cv2.resize(im, (0, 0), fx=0.5, fy=0.5, interpolation=cv2.INTER_AREA) for im in self.highres_imglist]
+        if 'make_final_gif' in self.agent_params:
+            clip = mpy.ImageSequenceClip(im_list, fps=4)
+            clip.write_gif(self.image_folder + '/highres_traj{}.gif'.format(self.itr))
 
     def get_aux_img(self):
         try:
@@ -360,7 +385,7 @@ class RobotRecorder(object):
             rospy.logerr("Service call failed: %s" % (e,))
             raise ValueError('get_kinectdata service failed')
 
-    def _save_state_actions(self, i_save, action, endeff_pose):
+    def _save_state_actions(self, i_save, action, endeff_pose, desig_hpos_main):
         joints_right = self._limb_right.joint_names()
         with open(self.state_action_data_file, 'a') as f:
             angles_right = [self._limb_right.joint_angle(j)
@@ -378,6 +403,7 @@ class RobotRecorder(object):
         self.action_list.append(action)
         self.cart_pos_list.append(endeff_pose)
 
+        pdb.set_trace()
 
         if i_save == self.state_sequence_length-1:
             joint_angles = np.stack(self.joint_angle_list)
@@ -392,6 +418,7 @@ class RobotRecorder(object):
             self.action_list = []
             self.joint_angle_list = []
             self.cart_pos_list = []
+            self.desig_hpos_list = []
 
     def _save_img_local(self, i_save):
 

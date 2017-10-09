@@ -20,6 +20,9 @@ from geometry_msgs.msg import (
     Quaternion,
 )
 
+from utils.opencv_tracker import OpenCV_Tracker
+
+
 import intera_external_devices
 
 import argparse
@@ -127,7 +130,7 @@ class Visual_MPC_Client():
         self.save_active = True
         self.bridge = CvBridge()
 
-        self.action_interval = 1 #Hz
+        self.action_interval = 1. #Hz
         self.traj_duration = self.action_sequence_length*self.action_interval
         self.action_rate = rospy.Rate(self.action_interval)
         self.control_rate = rospy.Rate(1000)
@@ -149,6 +152,9 @@ class Visual_MPC_Client():
 
         self.goal_pos_main = np.zeros([2,2])   # the first index is for the ndesig and the second is r,c
         self.desig_pos_main = np.zeros([2, 2])
+
+        #highres position used when doing tracking
+        self.desig_hpos_main = None
 
         if args.goalimage == "True":
             self.use_goalimage = True
@@ -306,7 +312,7 @@ class Visual_MPC_Client():
             goal_img_main = self.bridge.cv2_to_imgmsg(goal_img_main)
             goal_img_aux1 = self.bridge.cv2_to_imgmsg(goal_img_aux1)
 
-            rospy.wait_for_service('init_traj_visualmpc', timeout=1)
+            rospy.wait_for_service('init_traj_visualmpc', timeout=2.)
             self.init_traj_visual_func(0, 0, goal_img_main, goal_img_aux1, self.save_subdir)
 
         except (rospy.ServiceException, rospy.ROSException), e:
@@ -339,6 +345,7 @@ class Visual_MPC_Client():
                 os.makedirs(self.desig_pix_img_dir)
 
             num_pic_perstep = 4
+            num_track_perstep = 8
             nsave = self.action_sequence_length*num_pic_perstep
 
             self.recorder = robot_recorder.RobotRecorder(agent_params=self.agentparams,
@@ -373,15 +380,19 @@ class Visual_MPC_Client():
 
             if self.enable_rot:
                 # start_angle = np.array([np.random.uniform(0., np.pi * 2)])
-                start_angle = np.array([0.])
+                start_angle = np.array([np.pi])
                 self.des_pos = np.concatenate([startpos, np.array([self.lower_height]), start_angle], axis=0)
             else:
                 self.des_pos = np.concatenate([startpos, np.array([self.lower_height])], axis=0)
 
             self.topen, self.t_down = 0, 0
 
+
         #move to start:
         self.move_to_startpos(self.des_pos)
+
+        if 'opencv_tracking' in self.agentparams:
+            self.tracker = OpenCV_Tracker(self.agentparams, self.recorder, self.desig_pos_main)
 
         if self.save_canon:
             self.save_canonical()
@@ -411,7 +422,7 @@ class Visual_MPC_Client():
                                       self.canon_ind, self.canon_dir, only_desig=True)
                     self.desig_pos_main = c_main.desig.astype(np.int64)
                 elif 'opencv_tracking' in self.agentparams:
-                    self.desig_pos_main = self.track_open_cv(i_step)
+                    self.desig_pos_main[0], self.desig_hpos_main = self.tracker.track_open_cv()  #tracking only works for 1 desig. pixel!!
 
                 # print 'current position error', self.des_pos - self.get_endeffector_pos(pos_only=True)
 
@@ -432,18 +443,24 @@ class Visual_MPC_Client():
 
                 isave_substep  = 0
                 tsave = np.linspace(self.t_prev, self.t_next, num=num_pic_perstep, dtype=np.float64)
+                t_track = np.linspace(self.t_prev, self.t_next, num=num_track_perstep, dtype=np.float64)
                 print 'tsave', tsave
                 print 'applying action{}'.format(i_step)
                 i_step += 1
 
             des_joint_angles = self.get_interpolated_joint_angles()
 
+            if 'opencv_tracking' in self.agentparams:
+                if rospy.get_time() > t_track[isave_substep] - .01:
+                    print 'tracking'
+                    self.desig_pos_main[0], self.desig_hpos_main = self.tracker.track_open_cv()
+
             if self.save_active:
                 if isave_substep < len(tsave):
                     if rospy.get_time() > tsave[isave_substep] -.01:
-                        print 'saving index{}'.format(isave)
-                        print 'isave_substep', isave_substep
-                        self.recorder.save(isave, action_vec, self.get_endeffector_pos())
+                        # print 'saving index{}'.format(isave)
+                        # print 'isave_substep', isave_substep
+                        self.recorder.save(isave, action_vec, self.get_endeffector_pos(), self.desig_hpos_main)
                         isave_substep += 1
                         isave += 1
             try:
@@ -495,8 +512,9 @@ class Visual_MPC_Client():
         if rospy.get_time() >= t_next:
             des_pos = next_goalpoint
             print 't > tnext'
-        print 'current_delta_time: ', self.curr_delta_time
-        print "interpolated pos:", des_pos
+
+        # print 'current_delta_time: ', self.curr_delta_time
+        # print "interpolated pos:", des_pos
 
         return des_pos
 
@@ -538,6 +556,7 @@ class Visual_MPC_Client():
 
         try:
             rospy.wait_for_service('get_action', timeout=240)
+
             get_action_resp = self.get_action_func(imagemain, imageaux1,
                                               tuple(state.astype(np.float32)),
                                               tuple(self.desig_pos_main.flatten()),
@@ -709,55 +728,6 @@ class Visual_MPC_Client():
                 except:
                     do_repeat = True
                     break
-
-    def track_open_cv(self, t):
-        box_height = 50
-        if t == 0:
-            frame = self.recorder.ltob.img_cv2
-
-            loc = self.low_res_to_highres(self.desig_pos_main)
-            bbox = (loc[0], loc[1], 50, 50)  # for the small snow-man
-            tracker = cv2.Tracker_create("KCF")
-            tracker.init(frame, bbox)
-
-        frame = self.recorder.ltob_aux1.img_msg
-        ok, bbox = self.tracker.update(frame)
-
-        new_loc = (int(bbox[0]), int(bbox[1])) + float(box_height)/2
-        # Draw bounding box
-        if ok:
-            p1 = (int(bbox[0]), int(bbox[1]))
-            p2 = (int(bbox[0] + bbox[2]), int(bbox[1] + bbox[3]))
-            cv2.rectangle(frame, p1, p2, (0, 0, 255))
-        print 'tracking ok:', ok
-        # Display result
-        cv2.imshow("Tracking", frame)
-        k = cv2.waitKey(1) & 0xff
-
-        return self.high_res_to_lowres(new_loc)
-
-    def low_res_to_highres(self, inp):
-        h = self.recorder.crop_highres_params
-        l = self.recorder.crop_lowres_params
-
-        orig = (inp + np.array(l['startrow'], l['startcol']))/l['shrink_before_crop']
-
-        #orig to highres:
-        highres = (orig - np.array(h['startrow'], h['startcol']))*h['shrink_after_crop']
-
-        return orig, highres
-
-    def high_res_to_lowres(self, inp):
-        h = self.recorder.crop_highres_params
-        l = self.recorder.crop_lowres_params
-
-        orig = inp/ h['shrink_after_crop'] + np.array(h['startrow'], h['startcol'])
-
-        # orig to highres:
-        highres = orig* l['shrink_before_crop'] - np.array(l['startrow'], l['startcol'])
-
-        return orig, highres
-
 
 class Getdesig(object):
     def __init__(self,img,basedir,img_namesuffix = '', n_desig=1, canon_ind=None, canon_dir = None, only_desig = False):
