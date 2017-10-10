@@ -104,7 +104,9 @@ class Visualizer_tkinter(object):
         if dict_ == None:
             dict_ = cPickle.load(open(gif_savepath + '/pred.pkl', "rb"))
 
-        self.iternum = dict_['iternum']
+        if 'iternum' in dict_:
+            self.iternum = dict_['iternum']
+        else: self.iternum = 0
 
         if 'gen_images' in dict_:
             gen_images = dict_['gen_images']
