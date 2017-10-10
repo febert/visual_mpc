@@ -25,7 +25,7 @@ policy = {
     'rew_all_steps':"",
     'finalweight':10,
     'no_pixdistrib_video':'',
-    'maxsift':0.05
+    'maxshift':0.05
 }
 
 agent = {

@@ -107,7 +107,7 @@ class CEM_controller():
 
     def truncate_movement(self, actions):
         if 'maxshift' in self.policyparams:
-            maxshift = .05
+            maxshift = self.policyparams['maxshift']
         else:
             maxshift = .09
         actions[:,:,:2] = np.clip(actions[:,:,:2], -maxshift, maxshift)  # clip in units of meters
