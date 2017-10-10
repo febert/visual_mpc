@@ -27,7 +27,7 @@ policy = {
 }
 
 agent = {
-    'T': 20,
+    'T': 4, ####20,
     'action_dim':5,
     'state_dim':4,
     'opencv_tracking':'',
