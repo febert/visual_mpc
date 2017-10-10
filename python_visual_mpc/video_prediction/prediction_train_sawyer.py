@@ -28,13 +28,7 @@ from prediction_model_sawyer import Prediction_Model
 
 from PIL import Image
 
-FLAGS = flags.FLAGS
-flags.DEFINE_string('hyper', '', 'hyperparameters configuration file')
-flags.DEFINE_string('visualize', '', 'model within hyperparameter folder from which to create gifs')
-flags.DEFINE_integer('device', 0 ,'the value for CUDA_VISIBLE_DEVICES variable')
-flags.DEFINE_string('pretrained', None, 'path to model file from which to resume training')
-flags.DEFINE_bool('diffmotions', False, 'visualize several different motions for a single scene')
-flags.DEFINE_bool('float16', False, 'Loads Net as Float16')
+
 
 ## Helper functions
 def peak_signal_to_noise_ratio(true, pred):
@@ -288,18 +282,6 @@ def main(unused_argv, conf_script= None):
                               inference=inference)
 
     else:
-        with tf.variable_scope('model', reuse=None) as training_scope:
-            images_aux1, actions, states = build_tfrecord_input(conf, training=True)
-            images = images_aux1
-
-            model = Model(conf, images, actions, states, inference=inference)
-
-        with tf.variable_scope('val_model', reuse=None):
-            val_images_aux1, val_actions, val_states = build_tfrecord_input(conf, training=False)
-            val_images = val_images_aux1
-
-            val_model = Model(conf, val_images, val_actions, val_states,
-                              training_scope, inference=inference)
         if FLAGS.float16:
 
             with tf.variable_scope('half_float', reuse=None):
@@ -311,12 +293,25 @@ def main(unused_argv, conf_script= None):
                 val_states = tf.cast(val_states, tf.float16)
 
                 half_float = Model(conf, val_images, val_actions, val_states, inference=inference)
+        else:
+            with tf.variable_scope('model', reuse=None) as training_scope:
+                images_aux1, actions, states = build_tfrecord_input(conf, training=True)
+                images = images_aux1
+
+                model = Model(conf, images, actions, states, inference=inference)
+
+            with tf.variable_scope('val_model', reuse=None):
+                val_images_aux1, val_actions, val_states = build_tfrecord_input(conf, training=False)
+                val_images = val_images_aux1
+
+                val_model = Model(conf, val_images, val_actions, val_states,
+                                  training_scope, inference=inference)
 
 
     print 'Constructing saver.'
     # Make saver.
 
-    vars = tf.get_collection(tf.GraphKeys.GLOBAL_VARIABLES, scope = 'model') + tf.get_collection(tf.GraphKeys.GLOBAL_VARIABLES, scope = 'val_model')
+    vars = tf.get_collection(tf.GraphKeys.GLOBAL_VARIABLES)
     # remove all states from group of variables which shall be saved and restored:
     vars_no_state = filter_vars(vars)
     saver = tf.train.Saver(vars_no_state, max_to_keep=0)
@@ -336,15 +331,11 @@ def main(unused_argv, conf_script= None):
             print key, ': ', conf[key]
         print '-------------------------------------------------------------------'
 
-
-        saver.restore(sess, conf['visualize'])
-
         if FLAGS.float16:
-            for i, j in zip(tf.get_collection(tf.GraphKeys.GLOBAL_VARIABLES, scope='half_float'), tf.get_collection(tf.GraphKeys.GLOBAL_VARIABLES, scope='model')):
-                sess.run(tf.assign(i, tf.cast(j, i.dtype)))
-            print 'casted!'
+            saver.restore(sess, conf['visualize'] + 'float16')
             vis_model = half_float
         else:
+            saver.restore(sess, conf['visualize'])
             vis_model = val_model
 
         feed_dict = {vis_model.lr: 0.0,
@@ -421,11 +412,21 @@ def main(unused_argv, conf_script= None):
                      examples=10)
 
         else:
-            ground_truth, gen_images, gen_masks, = sess.run([val_images,
+            ground_truth, mask_bef,mask, gen_images, gen_masks,_, = sess.run([val_images, vis_model.m.bef_output,vis_model.m.bef_output2,
                                                              vis_model.m.gen_images,
                                                              vis_model.m.gen_masks,
+                                                             vis_model.m.r_sum,
                                                               ],
                                                              feed_dict)
+            print np.sum(mask_bef.astype(np.float32))
+            print mask_bef.shape
+            # print mask_bef
+
+            print np.sum(mask.astype(np.float32))
+            print mask.shape
+            # print mask
+            # np.savetxt('enc6.out', mask_bef.astype(np.float32), delimiter=',')
+            # np.savetxt('hidden_7.out', mask.astype(np.float32), delimiter=',')
 
             dict = {}
             dict['gen_images'] = gen_images
@@ -536,5 +537,13 @@ def filter_vars(vars):
     return newlist
 
 if __name__ == '__main__':
+    FLAGS = flags.FLAGS
+    flags.DEFINE_string('hyper', '', 'hyperparameters configuration file')
+    flags.DEFINE_string('visualize', '', 'model within hyperparameter folder from which to create gifs')
+    flags.DEFINE_integer('device', 0, 'the value for CUDA_VISIBLE_DEVICES variable')
+    flags.DEFINE_string('pretrained', None, 'path to model file from which to resume training')
+    flags.DEFINE_bool('diffmotions', False, 'visualize several different motions for a single scene')
+    flags.DEFINE_bool('float16', False, 'Loads Net as Float16')
+
     tf.logging.set_verbosity(tf.logging.INFO)
     app.run()

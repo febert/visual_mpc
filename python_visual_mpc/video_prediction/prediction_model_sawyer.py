@@ -342,10 +342,13 @@ class Prediction_Model(object):
                     background = self.images[0]
                     print 'using background from first image..'
                 else: background = prev_image
+
                 output, mask_list = self.fuse_trafos(enc6, background,
                                                      transformed_l,
                                                      scope='convt7_cam2',
                                                      extra_masks= extra_masks)
+
+
                 self.gen_images.append(output)
                 self.gen_masks.append(mask_list)
 
@@ -379,8 +382,10 @@ class Prediction_Model(object):
 
 
     def fuse_trafos(self, enc6, background_image, transformed, scope, extra_masks):
-        masks = slim.layers.conv2d_transpose(
+        masks_bef = slim.layers.conv2d_transpose(
             enc6, (self.conf['num_masks']+ extra_masks), 1, stride=1, scope=scope)
+        # masks_bef = tf.Print(masks_bef, [tf.reduce_sum(tf.cast(tf.is_nan(masks_bef), tf.int64))], message="masks_bef nan check")
+
 
         if 'height' in self.conf and 'width' in self.conf:
             img_height = self.conf['height']
@@ -397,13 +402,25 @@ class Prediction_Model(object):
 
         # the total number of masks is num_masks +extra_masks because of background and generated pixels!
         masks = tf.reshape(
-            tf.nn.softmax(tf.reshape(masks, [-1, num_masks +extra_masks])),
+            tf.nn.softmax(tf.reshape(masks_bef, [-1, num_masks +extra_masks])),
             [int(self.batch_size), int(img_height), int(img_width), num_masks +extra_masks])
+
+        # masks = tf.Print(masks, [tf.reduce_sum(tf.cast(tf.is_nan(masks), tf.int64))], message="masks nan check")
+
         mask_list = tf.split(axis=3, num_or_size_splits=num_masks +extra_masks, value=masks)
         output = mask_list[0] * background_image
 
         for layer, mask in zip_equal(transformed, mask_list[1:]):
+            # mask = tf.Print(mask, [tf.reduce_sum(tf.cast(tf.is_nan(mask), tf.int64))], message="transformed mask nan check")
+            # layer = tf.Print(layer, [tf.reduce_sum(tf.cast(tf.is_nan(layer), tf.int64))],
+            #                 message="transformed layer nan check")
             output += layer * mask
+
+        # output = tf.Print(output, [tf.reduce_sum(tf.cast(tf.is_nan(output), tf.int64))], message="output nan check")
+
+        self.bef_output = masks_bef
+        self.bef_output2 = masks
+        self.r_sum = output
 
         return output, mask_list
 
@@ -502,7 +519,8 @@ class Prediction_Model(object):
         DNA_KERN_SIZE = self.conf['kern_size']
         num_masks = self.conf['num_masks']
         color_channels = int(prev_image.get_shape()[3])
-
+        cdna_input = tf.Print(cdna_input, [tf.reduce_sum(tf.cast(tf.logical_or(tf.is_nan(cdna_input), tf.is_inf(cdna_input)), tf.int64))],
+                 message="cdna input nan/inf check")
         # Predict kernels using linear function of last hidden layer.
         cdna_kerns = slim.layers.fully_connected(
             cdna_input,
@@ -514,25 +532,38 @@ class Prediction_Model(object):
         # Reshape and normalize.
         cdna_kerns = tf.reshape(
             cdna_kerns, [batch_size, DNA_KERN_SIZE, DNA_KERN_SIZE, 1, num_masks])
-        cdna_kerns = tf.nn.relu(cdna_kerns - RELU_SHIFT) + RELU_SHIFT
+        if prev_image.dtype == tf.float16:
+            shift = 1e-7
+        else:
+            shift = RELU_SHIFT
+        cdna_kerns = tf.nn.relu(cdna_kerns - shift) + shift
         norm_factor = tf.reduce_sum(cdna_kerns, [1, 2, 3], keep_dims=True)
+        norm_factor = tf.Print(norm_factor, [norm_factor],
+                              message="norm_factor values")
+        cdna_kerns = tf.Print(cdna_kerns, [
+            tf.reduce_sum(tf.cast(tf.logical_or(tf.is_inf(cdna_kerns), tf.is_nan(cdna_kerns)), tf.int64))],
+                              message="cdna kerns inf/nan check")
         cdna_kerns /= norm_factor
+
         cdna_kerns_summary = cdna_kerns
 
         # Transpose and reshape.
         cdna_kerns = tf.transpose(cdna_kerns, [1, 2, 0, 4, 3])
         cdna_kerns = tf.reshape(cdna_kerns, [DNA_KERN_SIZE, DNA_KERN_SIZE, batch_size, num_masks])
 
-        if 'float16' in self.conf:
+        if prev_image.dtype == tf.float16:
             image_batch_conv = []
             #implementation of depthwise_conv2d as for loop. conv done once for each batch
             for i in range(prev_image.shape[0]):
                 image_i = tf.expand_dims(tf.transpose(prev_image[i, :, :, :], [2,0,1]), axis = 3)
                 filt_i = tf.expand_dims(cdna_kerns[:, :, i, :], axis = 2)
+                filt_i = tf.Print(filt_i, [tf.reduce_sum(tf.cast(tf.is_nan(filt_i), tf.int64))], message="cdna filt_"+str(i) +"nan check")
                 conv_result = tf.squeeze(tf.nn.conv2d(image_i, filt_i, [1, 1, 1, 1], 'SAME'))
+                # conv_result = tf.Print(conv_result, [tf.reduce_sum(tf.cast(tf.is_nan(conv_result), tf.int64))], message="cdna conv_"+str(i) +" nan check")
                 image_batch_conv.append(tf.transpose(conv_result, [1,2,0,3]))
 
             transformed = tf.stack(image_batch_conv, axis=0)
+            transformed = tf.Print(transformed, [tf.reduce_sum(tf.cast(tf.is_nan(transformed), tf.int64))], message="cdna transformed nan check")
             transformed = tf.unstack(value=transformed, axis=-1)
 
         else:

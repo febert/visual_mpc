@@ -80,7 +80,7 @@ class Pushback_Recorder(object):
 
         self.set_neutral()
         self.recorder = DemoRobotRecorder('/home/sudeep/outputs', self.N_SAMPLES, use_aux=False)
-        self.record_iter = 6
+        self.record_iter = 0
 
         if args.record == 'False':
             self.playback(file)
@@ -223,5 +223,6 @@ class Pushback_Recorder(object):
         return pos
 
 if __name__ == '__main__':
+    print 'starting'
     P = Pushback_Recorder('/home/sudeep/outputs/pushback_traj_.pkl')  # playback file
 
