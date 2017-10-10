@@ -8,6 +8,7 @@ import numpy as np
 policy = {
     'type' : CEM_controller,
     'low_level_ctrl': None,
+    'current_dir':current_dir,
     'usenet': True,
     'nactions': 5,
     'repeat': 3,
