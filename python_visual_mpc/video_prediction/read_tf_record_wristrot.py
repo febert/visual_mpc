@@ -75,6 +75,12 @@ def build_tfrecord_input(conf, training=True):
         IMG_WIDTH = 64
         IMG_HEIGHT = 64
 
+        if 'im_height' in conf:
+            ORIGINAL_WIDTH = conf['im_height']
+            ORIGINAL_HEIGHT = conf['im_height']
+            IMG_WIDTH = conf['im_height']
+            IMG_HEIGHT = conf['im_height']
+
         image = tf.decode_raw(features[image_name], tf.uint8)
         image = tf.reshape(image, shape=[1, ORIGINAL_HEIGHT * ORIGINAL_WIDTH * COLOR_CHAN])
         image = tf.reshape(image, shape=[ORIGINAL_HEIGHT, ORIGINAL_WIDTH, COLOR_CHAN])
@@ -160,7 +166,8 @@ if __name__ == '__main__':
 
     current_dir = os.path.dirname(os.path.realpath(__file__))
 
-    DATA_DIR = '/'.join(str.split(current_dir, '/')[:-2]) + '/pushing_data/wrist_rot/train'
+    # DATA_DIR = '/'.join(str.split(current_dir, '/')[:-2]) + '/pushing_data/wrist_rot/train'
+    DATA_DIR = '/'.join(str.split(current_dir, '/')[:-2]) + '/pushing_data/wristrot_128x128/train'
 
     conf['schedsamp_k'] = -1  # don't feed ground truth
     conf['data_dir'] = DATA_DIR  # 'directory containing data_files.' ,
@@ -172,6 +179,7 @@ if __name__ == '__main__':
     conf['visualize']= False
     conf['single_view'] = ''
     conf['context_frames'] = 2
+    conf['im_height'] = 128
 
     print '-------------------------------------------------------------------'
     print 'verify current settings!! '
@@ -213,4 +221,4 @@ if __name__ == '__main__':
             img.show()
             print i
 
-        pdb.set_trace()
+            pdb.set_trace()

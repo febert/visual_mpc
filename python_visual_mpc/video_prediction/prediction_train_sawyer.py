@@ -174,6 +174,7 @@ class Model(object):
 
 
     def random_shift(self, images, states, actions):
+
         print 'shifting the video sequence randomly in time'
         tshift = 2
         uselen = self.conf['use_len']
@@ -236,11 +237,15 @@ def main(unused_argv, conf_script= None):
     if FLAGS.visualize:
         print 'creating visualizations ...'
         conf['schedsamp_k'] = -1  # don't feed ground truth
-        conf['data_dir'] = '/'.join(str.split(conf['data_dir'], '/')[:-1] + ['test'])
+
+        #####################################
+        # conf['data_dir'] = '/'.join(str.split(conf['data_dir'], '/')[:-1] + ['test'])
+        suf = '_traindata'
+
         conf['visualize'] = conf['output_dir'] + '/' + FLAGS.visualize
         conf['event_log_dir'] = '/tmp'
         conf.pop('use_len', None)
-        conf['batch_size'] = 13
+        conf['batch_size'] = 30
 
         conf['sequence_length'] = 14
         if FLAGS.diffmotions:
@@ -453,7 +458,7 @@ def main(unused_argv, conf_script= None):
             cPickle.dump(dict, open(file_path + '/pred.pkl', 'wb'))
             print 'written files to:' + file_path
 
-            v = Visualizer_tkinter(dict, numex=10, append_masks=False, gif_savepath=conf['output_dir'])
+            v = Visualizer_tkinter(dict, numex=conf['batch_size'], append_masks=False, gif_savepath=conf['output_dir'], suf=suf)
             v.build_figure()
         return
 
