@@ -486,8 +486,8 @@ class Visual_MPC_Client():
 
         #copy files with pix distributions from remote and make gifs
         scp_pix_distrib_files(self.policyparams, self.agentparams)
-        pdb.set_trace()
-        go_through_timesteps(self.policyparams['current_dir'], self.policyparams['netconf'])
+        netconf = imp.load_source('params', self.policyparams['netconf']).configuration
+        go_through_timesteps(self.policyparams['current_dir']+'/verbose', netconf)
 
     def get_des_pose(self, des_pos):
 
