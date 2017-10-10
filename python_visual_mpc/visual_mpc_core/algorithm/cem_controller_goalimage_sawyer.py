@@ -89,6 +89,8 @@ class CEM_controller():
         self.sigma =None
         self.goal_image = None
 
+        self.dict_ = {}
+
     def calc_action_cost(self, actions):
         actions_costs = np.zeros(self.M)
         for smp in range(self.M):
@@ -355,18 +357,22 @@ class CEM_controller():
                 return outputlist
 
 
-            cPickle.dump(best(gen_images), open(file_path + '/gen_image_t{}.pkl'.format(self.t), 'wb'))
+            self.dict_['gen_images_t{}'.format(self.t)] = best(gen_distrib1)
 
             if 'ndesig' in self.policyparams:
-                cPickle.dump(best(gen_distrib1), open(file_path + '/gen_distrib1_t{}.pkl'.format(self.t), 'wb'))
-                cPickle.dump(best(gen_distrib2), open(file_path + '/gen_distrib2_t{}.pkl'.format(self.t), 'wb'))
+                self.dict_['gen_distrib1_t{}'.format(self.t)] = best(gen_distrib1)
+                self.dict_['gen_distrib2_t{}'.format(self.t)] = best(gen_distrib2)
             else:
-                cPickle.dump(best(gen_distrib), open(file_path + '/gen_distrib_t{}.pkl'.format(self.t), 'wb'))
+                self.dict_['gen_distrib_t{}'.format(self.t)] = best(gen_distrib)
 
-            print 'written files to:' + file_path
+
             if not 'no_instant_gif' in self.policyparams:
                 create_video_pixdistrib_gif(file_path, self.netconf, t=self.t, n_exp=10,
                                             suppress_number=True, suffix='iter{}_t{}'.format(itr, self.t))
+
+            print 'started writing...'
+            cPickle.dump(self.dict_, open(file_path + '/pred.pkl', 'wb'))
+            print 'finished writing files to:' + file_path
 
         bestindex = scores.argsort()[0]
         if 'store_video_prediction' in self.agentparams and\
