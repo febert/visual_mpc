@@ -126,7 +126,6 @@ class Trafo_Flow(object):
                 self.gen_distrib_output = mask_list[0] * pix_distrib_input
                 for i in range(num_masks):
                     self.gen_distrib_output += transf_distrib[i] * mask_list[i + 1]
-
             else:
                 self.gen_distrib_output = None
 

@@ -9,11 +9,11 @@ OUT_DIR = current_dir + '/modeldata'
 
 from python_visual_mpc.video_prediction.tracking_model.tracking_model import Tracking_Model
 
-from python_visual_mpc.flow.trafo_based_flow.correction import Trafo_Flow
+from python_visual_mpc.flow.descriptor_based_flow.descriptor_flow_model import Descriptor_Flow
 
 configuration = {
 'pred_model': Tracking_Model,
-'tracker': Trafo_Flow,
+'tracker': Descriptor_Flow,
 'data_dir': DATA_DIR,       # 'directory containing data.' ,
 'output_dir': OUT_DIR,      #'directory for model checkpoints.' ,
 'current_dir': current_dir,   #'directory for writing summary.' ,

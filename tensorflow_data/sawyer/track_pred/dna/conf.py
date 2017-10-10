@@ -9,11 +9,10 @@ OUT_DIR = current_dir + '/modeldata'
 
 from python_visual_mpc.video_prediction.tracking_model.tracking_model import Tracking_Model
 
-from python_visual_mpc.flow.descriptor_based_flow.descriptor_flow_model import Descriptor_Flow
-
+from python_visual_mpc.flow.trafo_based_flow.correction import Trafo_Flow
 configuration = {
 'pred_model': Tracking_Model,
-'tracker': Descriptor_Flow,
+'tracker': Trafo_Flow,
 'data_dir': DATA_DIR,       # 'directory containing data.' ,
 'output_dir': OUT_DIR,      #'directory for model checkpoints.' ,
 'current_dir': current_dir,   #'directory for writing summary.' ,
@@ -34,7 +33,7 @@ configuration = {
 'kern_size': 9,              #size of DNA kerns
 'sawyer':'',
 'single_view':"",
-'use_len':14,                # number of steps used for training where the starting location is selected randomly within sequencelength
+'use_len':8,                # number of steps used for training where the starting location is selected randomly within sequencelength
 '1stimg_bckgd':'',
 'visual_flowvec':'',
 'track_agg_fact':1e-3

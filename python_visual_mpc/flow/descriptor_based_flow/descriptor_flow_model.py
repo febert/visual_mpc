@@ -28,7 +28,11 @@ from python_visual_mpc.video_prediction.basecls.utils.transformations import cdn
 RELU_SHIFT = 1e-12
 
 class Descriptor_Flow(object):
-    def __init__(self, conf, images, reuse = False):
+    def __init__(self,
+                 conf,
+                 images,
+                 pix_distrib_input=None,
+                 reuse = False):
         """Build network for predicting optical flow
         """
         self.conf = conf
@@ -70,23 +74,23 @@ class Descriptor_Flow(object):
                 print 'shifting same...'
                 trafo_kerns10 = self.get_trafo(self.d0, self.d1)  # shifts d1
                 self.flow_vectors10 = compute_motion_vector_dna(conf, trafo_kerns10)
-                self.transformed10 = self.apply_trafo(conf, images[1], trafo_kerns10)  # img d1
+                self.transformed10, _ = self.apply_trafo(conf, images[1], trafo_kerns10)  # img d1
 
                 if 'forward_backward' in conf:
                     print 'using forward backward'
                     trafo_kerns01 = self.get_trafo(self.d1, self.d0) # shifts d0
                     self.flow_vectors01 = compute_motion_vector_dna(conf, trafo_kerns01)
-                    self.transformed01 = self.apply_trafo(conf, images[0], trafo_kerns01)
+                    self.transformed01, _ = self.apply_trafo(conf, images[0], trafo_kerns01)
             else: #shifting d1 for descriptors and d0 for trafo application
                 trafo_kerns01 = self.get_trafo(self.d0, self.d1)  # shifts d1
                 self.flow_vectors01 = compute_motion_vector_dna(conf, trafo_kerns01)
-                self.transformed01 = self.apply_trafo(conf, images[0], trafo_kerns01) # img d0
+                self.transformed01, self.kernels = self.apply_trafo(conf, images[0], trafo_kerns01) # img d0
 
                 if 'forward_backward' in conf:
                     print 'using forward backward'
                     trafo_kerns10 = self.get_trafo(self.d1, self.d0)
                     self.flow_vectors10 = compute_motion_vector_dna(conf, trafo_kerns10)
-                    self.transformed10 = self.apply_trafo(conf, images[1], trafo_kerns10)
+                    self.transformed10, _ = self.apply_trafo(conf, images[1], trafo_kerns10)
 
             if 'use_masks' in conf:
                 self.transformed01 = self.masks01[0]*self.transformed01 + self.masks01[1]*self.gen01
@@ -96,16 +100,21 @@ class Descriptor_Flow(object):
                     self.transformed10 = self.masks10[0] * self.transformed10 + self.masks10[1] * self.gen10
                     self.flow_vectors10 = self.masks10[0] * self.flow_vectors10
 
+            if pix_distrib_input != None:
+                transf_distrib, _ = self.apply_trafo(conf, pix_distrib_input, trafo_kerns01)
+
+                if 'use_masks' in conf:
+                    self.gen_distrib_output = self.masks01[0] * transf_distrib
+                else:
+                    self.gen_distrib_output = transf_distrib
+            else:
+                self.gen_distrib_output = None
+
+        self.gen_images = self.transformed01
+
 
     def apply_trafo(self, conf, prev_image, kerns):
-        """Apply dynamic neural advection to previous image.
 
-            Args:
-              prev_image: previous image to be transformed.
-              dna_input: hidden lyaer to be used for computing DNA transformation.
-            Returns:
-              List of images transformed by the predicted CDNA kernels.
-            """
         # Construct translated images.
         KERN_SIZE = conf['kern_size']
 
@@ -123,9 +132,10 @@ class Descriptor_Flow(object):
         shifted = tf.stack(axis=3, values=shifted)
         shifted = tf.reshape(shifted, [conf['batch_size'], 64, 64, KERN_SIZE, KERN_SIZE, 3])
 
-        # Normalize channels to 1.
+        kerns = kerns[...,None]
 
-        return tf.reduce_sum(kerns[...,None] * shifted, [3,4], keep_dims=False)
+        return tf.reduce_sum(kerns * shifted, [3,4], keep_dims=False),\
+               tf.reshape(kerns, [conf['batch_size'], 64,64, KERN_SIZE**2, 1])
 
     def get_trafo(self, d1, d2):
 

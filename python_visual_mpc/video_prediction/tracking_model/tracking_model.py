@@ -33,10 +33,6 @@ class Tracking_Model(Base_Prediction_Model):
                                         load_data = load_data,
                                         mode=mode)
 
-
-
-
-
     def build(self):
         """
             Build the tracking-prediction network
