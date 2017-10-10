@@ -15,15 +15,14 @@ policy = {
     'initial_std': .035,   #std dev. in xy
     'initial_std_grasp': 1.,   #std dev. in xy
     'initial_std_lift': 1.,   #std dev. in xy
-    'initial_std_rot': np.pi / 8,   #std dev. in xy
+    'initial_std_rot': np.pi / 4 *.75,   #std dev. in xy
     'netconf': current_dir + '/conf.py',
     'iterations': 3,
     'verbose':'',
-    'predictor_propagation': '',   # use the model get the designated pixel for the next step!
     'action_cost_factor': 0,
     'no_instant_gif':"",
     'rew_all_steps':"",
-    'finalweight':10,
+    'finalweight':30, ############
     'no_pixdistrib_video':'',
     'maxshift':0.05
 }
@@ -32,5 +31,6 @@ agent = {
     'T': 20,
     'action_dim':5,
     'state_dim':4,
+    'opencv_tracking':'',
     'make_final_gif':''
 }
