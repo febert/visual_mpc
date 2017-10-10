@@ -30,5 +30,6 @@ agent = {
     'T': 20,
     'action_dim':5,
     'state_dim':4,
-    'opencv_tracking':''
+    'opencv_tracking':'',
+    'make_final_gif':''
 }

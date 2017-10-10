@@ -31,4 +31,5 @@ agent = {
     'T': 20,
     'action_dim':5,
     'state_dim':4,
+    'make_final_gif':''
 }

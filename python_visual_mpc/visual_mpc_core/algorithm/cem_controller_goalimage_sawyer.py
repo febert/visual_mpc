@@ -106,7 +106,10 @@ class CEM_controller():
         return actions
 
     def truncate_movement(self, actions):
-        maxshift = .09
+        if 'maxshift' in self.policyparams:
+            maxshift = .05
+        else:
+            maxshift = .09
         actions[:,:,:2] = np.clip(actions[:,:,:2], -maxshift, maxshift)  # clip in units of meters
 
         if self.adim == 5: # if rotation is enabled
@@ -441,6 +444,7 @@ class CEM_controller():
             init_model: mujoco model to initialize from
         """
         self.t = t
+        print 'starting cem at t{}...'.format(t)
 
         self.desig_pix = np.array(desig_pix).reshape((2, 2))
         if t == 0:
