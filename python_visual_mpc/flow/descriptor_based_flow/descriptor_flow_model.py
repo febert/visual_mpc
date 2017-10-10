@@ -28,37 +28,93 @@ from python_visual_mpc.video_prediction.basecls.utils.transformations import cdn
 RELU_SHIFT = 1e-12
 
 class Descriptor_Flow(object):
-    def __init__(self, conf, images):
+    def __init__(self,
+                 conf,
+                 images,
+                 pix_distrib_input=None,
+                 reuse = False):
         """Build network for predicting optical flow
         """
+        self.conf = conf
+
         if 'large_core' in conf:
-            d0 = self.build_descriptors_large(images[0])
-            d1 = self.build_descriptors_large(images[1])
-            print 'using large core'
+            build_desc = self.build_descriptors_large
+        elif 'bilin_up' in conf:
+            build_desc = self.build_descriptor_bilin
         else:
-            with tf.variable_scope('d0'):
-                d0 = self.build_descriptors(conf, images[0])
+            build_desc = self.build_descriptors
 
-            with tf.variable_scope('d1'):
-                d1 = self.build_descriptors(conf, images[1])
 
-        trafo_kerns01 = self.get_trafo(conf, d0, d1)
-        self.transformed01 = self.apply_trafo(conf, images[0], trafo_kerns01)
+        with slim.arg_scope([slim.layers.conv2d, slim.layers.fully_connected,
+                             slim.layers.conv2d_transpose], reuse=reuse):
 
-        if 'forward_backward' in conf:
-            print 'using forward backward'
-            trafo_kerns10 = self.get_trafo(conf, d1, d0)
-            self.transformed10 = self.apply_trafo(conf, images[1], trafo_kerns10)
+            with tf.variable_scope('d0') as d0_scope:
+                self.d0 = build_desc(images[0])
+
+            if 'use_masks' in conf:
+                print 'using masks..'
+
+                with tf.variable_scope("mask_gen_img01"):
+                    self.masks01, self.gen01 = self.build_genimg_mask_net(images)
+
+                with tf.variable_scope("mask_gen_img10"):
+                    self.masks10, self.gen10 = self.build_genimg_mask_net(images)
+            else:
+                self.masks = None
+
+
+            if 'tied_descriptors' in conf:
+                with tf.variable_scope(d0_scope, reuse=True):
+                    self.d1 = build_desc(images[1])
+            else:
+                with tf.variable_scope('d1'):
+                    self.d1 = build_desc(images[1])
+
+            if 'shift_same' in conf:  #shifting d1 for descriptors and d1 for trafo application
+                print 'shifting same...'
+                trafo_kerns10 = self.get_trafo(self.d0, self.d1)  # shifts d1
+                self.flow_vectors10 = compute_motion_vector_dna(conf, trafo_kerns10)
+                self.transformed10, _ = self.apply_trafo(conf, images[1], trafo_kerns10)  # img d1
+
+                if 'forward_backward' in conf:
+                    print 'using forward backward'
+                    trafo_kerns01 = self.get_trafo(self.d1, self.d0) # shifts d0
+                    self.flow_vectors01 = compute_motion_vector_dna(conf, trafo_kerns01)
+                    self.transformed01, _ = self.apply_trafo(conf, images[0], trafo_kerns01)
+            else: #shifting d1 for descriptors and d0 for trafo application
+                trafo_kerns01 = self.get_trafo(self.d0, self.d1)  # shifts d1
+                self.flow_vectors01 = compute_motion_vector_dna(conf, trafo_kerns01)
+                self.transformed01, self.kernels = self.apply_trafo(conf, images[0], trafo_kerns01) # img d0
+
+                if 'forward_backward' in conf:
+                    print 'using forward backward'
+                    trafo_kerns10 = self.get_trafo(self.d1, self.d0)
+                    self.flow_vectors10 = compute_motion_vector_dna(conf, trafo_kerns10)
+                    self.transformed10, _ = self.apply_trafo(conf, images[1], trafo_kerns10)
+
+            if 'use_masks' in conf:
+                self.transformed01 = self.masks01[0]*self.transformed01 + self.masks01[1]*self.gen01
+                self.flow_vectors01 = self.masks01[0] * self.flow_vectors01
+
+                if 'forward_backward' in conf:
+                    self.transformed10 = self.masks10[0] * self.transformed10 + self.masks10[1] * self.gen10
+                    self.flow_vectors10 = self.masks10[0] * self.flow_vectors10
+
+            if pix_distrib_input != None:
+                transf_distrib, _ = self.apply_trafo(conf, pix_distrib_input, trafo_kerns01)
+
+                if 'use_masks' in conf:
+                    self.gen_distrib_output = self.masks01[0] * transf_distrib
+                else:
+                    self.gen_distrib_output = transf_distrib
+            else:
+                self.gen_distrib_output = None
+
+        self.gen_images = self.transformed01
+
 
     def apply_trafo(self, conf, prev_image, kerns):
-        """Apply dynamic neural advection to previous image.
 
-            Args:
-              prev_image: previous image to be transformed.
-              dna_input: hidden lyaer to be used for computing DNA transformation.
-            Returns:
-              List of images transformed by the predicted CDNA kernels.
-            """
         # Construct translated images.
         KERN_SIZE = conf['kern_size']
 
@@ -76,15 +132,16 @@ class Descriptor_Flow(object):
         shifted = tf.stack(axis=3, values=shifted)
         shifted = tf.reshape(shifted, [conf['batch_size'], 64, 64, KERN_SIZE, KERN_SIZE, 3])
 
-        # Normalize channels to 1.
+        kerns = kerns[...,None]
 
-        return tf.reduce_sum(kerns[...,None] * shifted, [3,4], keep_dims=False)
+        return tf.reduce_sum(kerns * shifted, [3,4], keep_dims=False),\
+               tf.reshape(kerns, [conf['batch_size'], 64,64, KERN_SIZE**2, 1])
 
-    def get_trafo(self, conf, d1, d2):
+    def get_trafo(self, d1, d2):
 
         # Construct translated images.
-        KERN_SIZE = conf['kern_size']
-        DESC_LENGTH = conf['desc_length']
+        KERN_SIZE = self.conf['kern_size']
+        DESC_LENGTH = self.conf['desc_length']
 
         pad_len = int(np.floor(KERN_SIZE / 2))
         padded_d2 = tf.pad(d2, [[0, 0], [pad_len, pad_len], [pad_len, pad_len], [0, 0]])
@@ -99,25 +156,31 @@ class Descriptor_Flow(object):
 
         shifted_d2 = tf.stack(axis= -1, values=shifted_d2)
 
-        shifted_d2 = tf.reshape(shifted_d2, [conf['batch_size'], 64,64,DESC_LENGTH, KERN_SIZE,KERN_SIZE])
+        shifted_d2 = tf.reshape(shifted_d2, [self.conf['batch_size'], 64,64,DESC_LENGTH, KERN_SIZE,KERN_SIZE])
 
         # repeat d1 along kernel dimensions
         repeated_d1 = tf.tile(d1[:,:,:,:,None,None], [1,1,1,1, KERN_SIZE, KERN_SIZE])
 
-        # Normalize channels to 1.
-
-        if conf['metric'] == 'euclidean':
+        if self.conf['metric'] == 'inverse_euclidean':
             dist_fields = tf.reduce_sum(tf.square(repeated_d1-shifted_d2), 3)
+            inverse_dist_fields = tf.div(1., dist_fields + 1e-5)
             #normed_dist_fields should correspond DNA-like trafo kernels
-            normed_dist_fields = dist_fields / tf.reduce_sum(dist_fields, [3,4], keep_dims=True)
-        elif conf['metric'] == 'cosine':
-            ValueError("not implemented!")
+            trafo = inverse_dist_fields / (tf.reduce_sum(inverse_dist_fields, [3,4], keep_dims=True) + 1e-6)
+            print 'using inverse_euclidean'
+        elif self.conf['metric'] == 'cosine':
 
-        return normed_dist_fields
+            cos_dist = tf.reduce_sum(repeated_d1*shifted_d2, axis=3)/(tf.norm(repeated_d1, axis=3)+1e-5)/(tf.norm(shifted_d2, axis=3) +1e-5)
+            cos_dist = tf.reshape(cos_dist, [self.conf['batch_size'], 64, 64, KERN_SIZE**2])
+            trafo = tf.nn.softmax(cos_dist*self.conf['softmax_temp'], 3)
+
+            trafo = tf.reshape(trafo, [self.conf['batch_size'], 64, 64, KERN_SIZE, KERN_SIZE])
+            print 'using cosine distance'
+
+        return trafo
 
 
-    def build_descriptors(self, conf, img):
-
+    def build_descriptors(self, img):
+        print 'using standard descriptor network'
         enc0 = slim.layers.conv2d(   #32x32x32
                     img,
                     32, [5, 5],
@@ -141,15 +204,125 @@ class Descriptor_Flow(object):
 
         enc3 = slim.layers.conv2d_transpose( # 64x64x32
             enc2,
-            conf['desc_length'], [5, 5],
+            self.conf['desc_length'], [5, 5],
             stride=2,
             scope='t_conv2',
+            activation_fn=None
         )
 
         return enc3
 
+    def build_descriptor_bilin(self, img):
+        print 'using bilinear upsampling'
+
+        enc0 = slim.layers.conv2d(   #32x32x32
+                    img,
+                    32, [5, 5],
+                    stride=2,
+                    scope='conv0',
+                )
+
+        enc1 = slim.layers.conv2d( #16x16x64
+            enc0,
+            64, [5, 5],
+            stride=2,
+            scope='conv1',
+        )
+
+        enc1_up = tf.image.resize_images(
+            enc1,
+            [32,32],
+            method=tf.image.ResizeMethod.BILINEAR,
+            align_corners=False
+        )
+
+        enc2 = slim.layers.conv2d(  #32x32x32
+            enc1_up,
+            32, [5, 5],
+            stride=1,
+            scope='t_conv1',
+        )
+
+        enc2_up = tf.image.resize_images(
+            enc2,
+            [64, 64],
+            method=tf.image.ResizeMethod.BILINEAR,
+            align_corners=False
+        )
+
+        enc3 = slim.layers.conv2d( # 64x64x32
+            enc2_up,
+            self.conf['desc_length'], [5, 5],
+            stride=1,
+            scope='t_conv2',
+            activation_fn=None
+        )
+
+        return enc3
+
+    def build_genimg_mask_net(self, img):
+        img = tf.concat(img, axis=3)
+        enc0 = slim.layers.conv2d(   #32x32x32
+                    img,
+                    32, [5, 5],
+                    stride=2,
+                    scope='conv0',
+                )
+
+        enc1 = slim.layers.conv2d( #16x16x64
+            enc0,
+            64, [5, 5],
+            stride=2,
+            scope='conv1',
+        )
+
+        enc1_up = tf.image.resize_images(
+            enc1,
+            [32,32],
+            method=tf.image.ResizeMethod.BILINEAR,
+            align_corners=False
+        )
+
+        enc2 = slim.layers.conv2d(  #32x32x32
+            enc1_up,
+            32, [5, 5],
+            stride=1,
+            scope='t_conv1',
+        )
+
+        enc2_up = tf.image.resize_images(
+            enc2,
+            [64, 64],
+            method=tf.image.ResizeMethod.BILINEAR,
+            align_corners=False
+        )
+
+        masks = slim.layers.conv2d( # 64x64x32
+            enc2_up,
+            2, [5, 5],
+            stride=1,
+            scope='t_conv2_genmask',
+            activation_fn=None
+        )
+
+        masks = tf.reshape(
+            tf.nn.softmax(tf.reshape(masks, [-1, 2])),
+            [self.conf['batch_size'], 64,64,2])
+        mask_list = tf.split(axis=3, num_or_size_splits=2, value=masks)
+
+        gen_img = slim.layers.conv2d(  # 64x64x32
+            enc2_up,
+            3, [5, 5],
+            stride=1,
+            scope='t_conv2_genimg',
+            activation_fn=None
+        )
+
+        return mask_list, gen_img
+
 
     def build_descriptors_large(self, concat_img):
+        print 'using large core'
         enc0 = slim.layers.conv2d(  # 32x32x32
             concat_img,
             32, [5, 5],
@@ -190,6 +363,7 @@ class Descriptor_Flow(object):
             32, [5, 5],
             stride=2,
             scope='t_conv3',
+            activation_fn=None
         )
 
         return enc5
@@ -250,4 +424,4 @@ def compute_motion_vector_dna(conf, dna_kerns):
 
     flow = tf.concat([vec_r, vec_c], axis=-1)  # size: [conf['batch_size'], 64, 64, 2]
 
-    return [flow]
+    return flow

@@ -15,7 +15,10 @@ import pdb
 RELU_SHIFT = 1e-12
 from python_visual_mpc.video_prediction.basecls.utils.transformations import dna_transformation, cdna_transformation
 from python_visual_mpc.video_prediction.basecls.prediction_model_basecls import Base_Prediction_Model
-from python_visual_mpc.flow.trafo_based_flow.correction import compute_motion_vector_cdna, compute_motion_vector_dna, construct_correction
+from python_visual_mpc.flow.trafo_based_flow.correction import compute_motion_vector_cdna, compute_motion_vector_dna
+
+from python_visual_mpc.flow.trafo_based_flow.correction import Trafo_Flow
+from python_visual_mpc.flow.descriptor_based_flow.descriptor_flow_model import Descriptor_Flow
 
 class Tracking_Model(Base_Prediction_Model):
     def __init__(self,
@@ -23,14 +26,12 @@ class Tracking_Model(Base_Prediction_Model):
                 trafo_pix = True,
                 load_data = True,
                 mode=True):
+        self.build_tracker = conf['tracker']
         Base_Prediction_Model.__init__(self,
                                         conf = conf,
                                         trafo_pix = trafo_pix,
                                         load_data = load_data,
                                         mode=mode)
-
-        print "finished init tracking model"
-
 
     def build(self):
         """
@@ -67,12 +68,10 @@ class Tracking_Model(Base_Prediction_Model):
 
         self.tracking_kerns = []
         self.tracking_gen_images = []
-        self.tracking_flow = []
+        self.tracking_flow01 = []
         self.tracking_gendistrib = []
 
-        t = -1
-        for image, action in zip(self.images[:-1], self.actions[:-1]):
-            t += 1
+        for t, image, action in zip(range(len(self.images)-1), self.images[:-1], self.actions[:-1]):
             print t
 
 
@@ -85,16 +84,19 @@ class Tracking_Model(Base_Prediction_Model):
             current_state = self.build_network_core(action, current_state, self.prev_image)
 
             print 'building tracker...'
-            gen_images, gen_masks, gen_distrib_output, flow_vectors, kernels = construct_correction(self.conf,
-                                                                                                    [self.images[t],
-                                                                                                    self.images[t + 1]],
-                                                                                                    pix_distrib_input= self.prev_pix_distrib1,
-                                                                                                    reuse=self.reuse)
+            tr = self.build_tracker(self.conf,
+                                [self.images[t],
+                                self.images[t + 1]],
+                                pix_distrib_input= self.prev_pix_distrib1,
+                                reuse=self.reuse)
 
-            self.tracking_gendistrib.append(gen_distrib_output)
-            self.tracking_gen_images.append(gen_images)
-            self.tracking_kerns.append(kernels)
-            self.tracking_flow.append(flow_vectors)
+            self.tracking_gendistrib.append(tr.gen_distrib_output)
+            self.tracking_gen_images.append(tr.gen_images)
+            self.tracking_kerns.append(tr.kernels)
+
+            self.tracking_flow01.append(tr.flow_vectors01)
+            if isinstance(tr, Descriptor_Flow) and 'forward_backward' in self.conf:
+                self.tracking_flow01.append(tr.flow_vectors01)
 
         self.build_loss()
 
@@ -143,7 +145,7 @@ class Tracking_Model(Base_Prediction_Model):
 
             #adding transformation aggreement cost:
             total_trans_agg_cost = 0
-            for i, k1, k2 in zip_equal(range(len(self.tracking_kerns)), self.tracking_kerns, self.pred_dna_kerns):
+            for i, k1, k2 in zip_equal(range(len(self.tracking_kerns)), self.tracking_kerns, self.pred_kerns):
                 cost = self.mean_squared_error(k1, k2) * self.conf['track_agg_fact']
                 total_trans_agg_cost += cost
             summaries.append(tf.summary.scalar('total_trans_agg_cost', total_trans_agg_cost))
@@ -180,7 +182,7 @@ class Tracking_Model(Base_Prediction_Model):
                                                                                self.gen_images,
                                                                                self.gen_masks,
                                                                                self.prediction_flow,
-                                                                               self.tracking_flow
+                                                                               self.tracking_flow01
                                                                                ],
                                                                               feed_dict)
 

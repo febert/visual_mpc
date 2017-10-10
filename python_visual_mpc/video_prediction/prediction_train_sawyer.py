@@ -128,13 +128,9 @@ class Model(object):
                     conf= conf)
                 self.m.build()
 
-        self.global_step = tf.Variable(0, trainable=False)
-        if conf['learning_rate'] == 'scheduled' and not FLAGS.visualize:
-            print('using scheduled learning rate')
-
-            self.lr = tf.train.piecewise_constant(self.global_step, conf['lr_boundaries'], conf['lr_values'])
-        else:
-            self.lr = tf.placeholder_with_default(conf['learning_rate'], (), 'learning_rate')
+        # for i in tf.get_collection(tf.GraphKeys.GLOBAL_VARIABLES):
+        #     print i
+        self.lr = tf.placeholder_with_default(conf['learning_rate'], (), 'learning_rate')
 
         if not inference:
             # L2 loss, PSNR for eval.
@@ -178,6 +174,7 @@ class Model(object):
 
 
     def random_shift(self, images, states, actions):
+
         print 'shifting the video sequence randomly in time'
         tshift = 2
         uselen = self.conf['use_len']
@@ -240,11 +237,15 @@ def main(unused_argv, conf_script= None):
     if FLAGS.visualize:
         print 'creating visualizations ...'
         conf['schedsamp_k'] = -1  # don't feed ground truth
-        conf['data_dir'] = '/'.join(str.split(conf['data_dir'], '/')[:-1] + ['test'])
+
+        #####################################
+        # conf['data_dir'] = '/'.join(str.split(conf['data_dir'], '/')[:-1] + ['test'])
+        suf = '_traindata'
+
         conf['visualize'] = conf['output_dir'] + '/' + FLAGS.visualize
         conf['event_log_dir'] = '/tmp'
         conf.pop('use_len', None)
-        conf['batch_size'] = 13
+        conf['batch_size'] = 30
 
         conf['sequence_length'] = 14
         if FLAGS.diffmotions:
@@ -254,7 +255,6 @@ def main(unused_argv, conf_script= None):
     if 'sawyer' in conf:
         if 'wrist_rot' in conf['data_dir']:
             from read_tf_record_wristrot import build_tfrecord_input
-            wrist_rot = True
         else:
             from read_tf_record_sawyer12 import build_tfrecord_input
     else:
@@ -334,7 +334,7 @@ def main(unused_argv, conf_script= None):
 
         if FLAGS.diffmotions:
 
-            b_exp, ind0 =4, 0
+            b_exp, ind0 =0, 0
 
             img, state = sess.run([val_images, val_states])
             sel_img= img[b_exp,ind0:ind0+2]
@@ -429,6 +429,8 @@ def main(unused_argv, conf_script= None):
             dict['gen_masks'] = gen_masks
             dict['gen_distrib'] = gen_distrib
             dict['iternum'] = itr_vis
+
+            dict['desig_pos'] = desig_pos_aux1
             # dict['moved_parts'] = moved_parts
             # dict['moved_images'] = moved_images
             # dict['moved_bckgd'] = moved_bckgd
@@ -456,7 +458,7 @@ def main(unused_argv, conf_script= None):
             cPickle.dump(dict, open(file_path + '/pred.pkl', 'wb'))
             print 'written files to:' + file_path
 
-            v = Visualizer_tkinter(dict, numex=10, append_masks=False, gif_savepath=conf['output_dir'])
+            v = Visualizer_tkinter(dict, numex=conf['batch_size'], append_masks=False, gif_savepath=conf['output_dir'], suf=suf)
             v.build_figure()
         return
 
@@ -501,7 +503,7 @@ def main(unused_argv, conf_script= None):
             summary_writer.add_summary(val_summary_str, itr)
 
 
-        if itr % SAVE_INTERVAL == 0 and itr != 0:
+        if itr % SAVE_INTERVAL == 0: #and itr != 0:
             tf.logging.info('Saving model to' + conf['output_dir'])
             saver.save(sess, conf['output_dir'] + '/model' + str(itr))
 

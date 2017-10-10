@@ -24,17 +24,16 @@ if __name__ == '__main__':
     image_folder = 'testdata/img'
     [imfile] = glob.glob(image_folder + "/main_full_cropped_im{}_*.jpg".format(str(0).zfill(2)))
 
-    imread_flag = None
     frame = cv2.imread(imfile)
     # cv2.imshow("Tracking", frame)
     # cv2.waitKey()
 
     # Define an initial bounding box
     # bbox = (450, 100, 50, 50)  # for the arm
-    bbox = (550, 240, 50, 50)  # for the small snow-man
+    # bbox = (550, 240, 50, 50)  # for the small snow-man
 
     # Uncomment the line below to select a different bounding box
-    # bbox = cv2.selectROI(frame, False)
+    bbox = cv2.selectROI(frame, False)
 
     # Initialize tracker with first frame and bounding box
     ok = tracker.init(frame, bbox)

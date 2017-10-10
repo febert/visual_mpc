@@ -11,6 +11,7 @@ from Tkinter import Button, Frame, Canvas, Scrollbar
 import Tkconstants
 
 from matplotlib import pyplot as plt
+import matplotlib
 from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
 import colorsys
 frame = None
@@ -32,6 +33,34 @@ def plot_psum_overtime(gen_distrib, n_exp, filename):
 
     # plt.show()
     plt.savefig(filename + "/psum.png")
+    plt.close('all')
+
+
+def plot_normed_at_desig_pos(gen_distrib, filename, desig_pos):
+    plt.figure(figsize=(5, 5),dpi=80)
+    b_exp = 1
+    p = []
+
+    for t in range(len(gen_distrib)):
+        p.append(gen_distrib[t][b_exp][desig_pos[0], desig_pos[1]]/ np.sum(gen_distrib[t][b_exp]))
+
+    psum = np.array(p)
+    plt.plot(range(len(gen_distrib)), psum, 'g-o',)
+
+    plt.xticks(range(0, len(gen_distrib),3))
+
+
+    # plt.rcParams.update({'font.size': 62})
+    a = plt.ylabel('probability of designated pixel')
+    a.set_fontsize(14)
+
+    b = plt.xlabel('time steps')
+    b.set_fontsize(14)
+
+    # plt.ylim([0,2.5])
+
+    # plt.show()
+    plt.savefig(filename + "/p_at_desig.png")
     plt.close('all')
 
 
@@ -62,16 +91,25 @@ def visualize_flow(flow_vecs):
 
 t = 0
 class Visualizer_tkinter(object):
-    def __init__(self, dict_ = None, append_masks = True, gif_savepath=None, numex = 4, suf= "", col_titles = None):
+    def __init__(self, dict_ = None, append_masks = True, gif_savepath=None, numex = 4, suf= "", col_titles = None, renorm_heatmpas=True):
+        """
+        :param dict_:
+        :param append_masks:
+        :param gif_savepath:
+        :param numex:
+        :param suf:
+        :param col_titles:
+        """
 
         if dict_ == None:
             dict_ = cPickle.load(open(gif_savepath + '/pred.pkl', "rb"))
 
-        gen_images = dict_['gen_images']
         self.iternum = dict_['iternum']
 
-        if gen_images[0].shape[0] < numex:
-            raise ValueError("batchsize too small for providing desired number of exmaples!")
+        if 'gen_images' in dict_:
+            gen_images = dict_['gen_images']
+            if gen_images[0].shape[0] < numex:
+                raise ValueError("batchsize too small for providing desired number of exmaples!")
 
         self.numex = numex
         self.video_list = []
@@ -89,7 +127,11 @@ class Visualizer_tkinter(object):
                         ground_truth = [np.squeeze(g) for g in ground_truth]
                 ground_truth = ground_truth[1:]
 
-                self.video_list.append((ground_truth, 'Ground Truth'))
+                if 'overlay_'+key in dict_:
+                    overlay_points = dict_['overlay_'+key]
+                    self.video_list.append((ground_truth, 'Ground Truth', overlay_points))
+                else:
+                    self.video_list.append((ground_truth, 'Ground Truth'))
 
             elif type(data[0]) is list:    # for lists of videos
                 print "the key \"{}\" contains {} videos".format(key, len(data[0]))
@@ -105,13 +147,15 @@ class Visualizer_tkinter(object):
                 print 'visualizing key {} with colorflow'.format(key)
                 self.video_list.append((visualize_flow(data), key))
 
-            elif type(data[0]) is np.ndarray:  # for a single video channel
+            elif type(data[0]) is np.ndarray and not 'overlay' in key:  # for a single video channel
                 self.video_list.append((data, key))
 
                 if key == 'gen_distrib':  #if gen_distrib plot psum overtime!
                     plot_psum_overtime(data, numex, gif_savepath)
+                    desig_pos = dict_['desig_pos']
+                    plot_normed_at_desig_pos(data, gif_savepath, desig_pos)
 
-        self.renormalize_heatmaps = True
+        self.renormalize_heatmaps = renorm_heatmpas
         print 'renormalizing heatmaps: ', self.renormalize_heatmaps
 
         self.gif_savepath = gif_savepath
@@ -229,12 +273,14 @@ class Visualizer_tkinter(object):
         drow = 1./self.num_rows
 
         self.im_handle_list = []
+        self.plot_handle_list = []
         for row in range(self.num_rows):
             inner_grid = gridspec.GridSpecFromSubplotSpec(1, self.numex,
                                                           subplot_spec=outer_grid[row], wspace=0.0, hspace=0.0)
             image_row = self.video_list[row][0]
 
             im_handle_row = []
+            plot_handle_row = []
             for col in range(self.numex):
                 ax = plt.Subplot(fig, inner_grid[col])
                 ax.set_xticks([])
@@ -245,7 +291,7 @@ class Visualizer_tkinter(object):
 
                 if image_row[0][col].shape[-1] == 1:
 
-                    im_handle = axes_list[-1].imshow(np.squeeze(image_row[0][col]),
+                    im_handle = axes_list[-1].imshow(np.squeeze(image_row[0][col]),   # first timestep
                                                      zorder=0, cmap=plt.get_cmap('jet'),
                                                      interpolation='none',
                                                      animated=True)
@@ -253,8 +299,19 @@ class Visualizer_tkinter(object):
                     im_handle = axes_list[-1].imshow(image_row[0][col], interpolation='none',
                                                      animated=True)
 
+                if len(self.video_list[row]) == 3:
+                    #overlay with markers:
+                    coords = self.video_list[row][2][t][col]
+                    plothandle = axes_list[-1].scatter(coords[1], coords[0], marker= "d", s=70, edgecolors='r', facecolors="None")
+                    axes_list[-1].set_xlim(0, 63)
+                    axes_list[-1].set_ylim(63, 0)
+                    plot_handle_row.append(plothandle)
+                else:
+                    plot_handle_row.append(None)
+
                 im_handle_row.append(im_handle)
             self.im_handle_list.append(im_handle_row)
+            self.plot_handle_list.append(plot_handle_row)
 
             plt.figtext(.5, 1-(row*drow*0.990)-0.01, self.video_list[row][1], va="center", ha="center", size=8)
 
@@ -267,7 +324,7 @@ class Visualizer_tkinter(object):
 
         # call the animator.  blit=True means only re-draw the parts that have changed.
         anim = animation.FuncAnimation(fig, self.animate,
-                                       fargs= [self.im_handle_list, self.video_list, self.numex, self.num_rows, tlen],
+                                       fargs= [self.im_handle_list, self.plot_handle_list, self.video_list, self.numex, self.num_rows, tlen],
                                        frames=tlen, interval=200, blit=True)
 
         if self.append_masks:
@@ -325,11 +382,12 @@ class Visualizer_tkinter(object):
 
     def animate(self, *args):
         global t
-        _, im_handle_list, video_list, num_ex, num_rows, tlen = args
+        _, im_handle_list, plot_handle_list, video_list, num_ex, num_rows, tlen = args
 
         artistlist = []
         for row in range(num_rows):
-            image_row = video_list[row][0]
+            image_row = video_list[row][0]                       #0 stands for images
+
             for col in range(num_ex):
 
                 if image_row[0][col].shape[-1] == 1: # if visualizing with single-channel heatmap
@@ -339,8 +397,14 @@ class Visualizer_tkinter(object):
                     im_handle_list[row][col].set_array(im)
                 else:
                     im_handle_list[row][col].set_array(image_row[t][col])
-            artistlist += im_handle_list[row]
 
+                if len(video_list[row]) == 3:
+                    overlay_row = video_list[row][2]                       #2 stands for overlay
+                    plot_handle_list[row][col].set_array(overlay_row[t][col]) #2 stands for overlay
+                    # print "set array to", overlay_row[t][col]
+                    artistlist.append(plot_handle_list[row][col])
+
+            artistlist += im_handle_list[row]
         # print 'update at t', t
         t += 1
 
@@ -378,7 +442,9 @@ def convert_to_videolist(input, repeat_last_dim):
 
 if __name__ == '__main__':
     # file_path = '/home/frederik/Documents/catkin_ws/src/visual_mpc/tensorflow_data/sawyer/data_amount_study/5percent_of_data/modeldata'
-    file_path = '/home/frederik/Documents/catkin_ws/src/visual_mpc/tensorflow_data/sawyer/1stimg_bckgd_cdna/modeldata'
-    v  = Visualizer_tkinter(append_masks=False, gif_savepath=file_path)
-    # v.build_figure()
-    v.make_image_strip(i_ex=3)
+    # file_path = '/home/frederik/Documents/catkin_ws/src/visual_mpc/tensorflow_data/sawyer/dna_correct_nummask/modeldata'
+    file_path = '/home/frederik/Documents/catkin_ws/src/visual_mpc/tensorflow_data/dense_flow/descriptor_model/inv_euc_bilin_fwdbck/modeldata'
+
+    v  = Visualizer_tkinter(append_masks=False, gif_savepath=file_path, numex=1, renorm_heatmpas=False)
+    v.build_figure()
+    # v.make_image_strip(i_ex=3)
