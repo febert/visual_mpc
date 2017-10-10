@@ -357,7 +357,7 @@ class CEM_controller():
                 return outputlist
 
 
-            self.dict_['gen_images_t{}'.format(self.t)] = best(gen_distrib1)
+            self.dict_['gen_images_t{}'.format(self.t)] = best(gen_images)
 
             if 'ndesig' in self.policyparams:
                 self.dict_['gen_distrib1_t{}'.format(self.t)] = best(gen_distrib1)
