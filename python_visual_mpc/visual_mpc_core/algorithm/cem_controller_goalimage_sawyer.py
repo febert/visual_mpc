@@ -370,9 +370,9 @@ class CEM_controller():
                 create_video_pixdistrib_gif(file_path, self.netconf, t=self.t, n_exp=10,
                                             suppress_number=True, suffix='iter{}_t{}'.format(itr, self.t))
 
-            print 'started writing...'
-            cPickle.dump(self.dict_, open(file_path + '/pred.pkl', 'wb'))
-            print 'finished writing files to:' + file_path
+            # print 'started writing...'
+            # cPickle.dump(self.dict_, open(file_path + '/pred.pkl', 'wb'))
+            # print 'finished writing files to:' + file_path
 
         bestindex = scores.argsort()[0]
         if 'store_video_prediction' in self.agentparams and\
