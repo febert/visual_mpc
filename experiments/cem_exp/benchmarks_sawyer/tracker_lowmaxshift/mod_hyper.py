@@ -22,7 +22,7 @@ policy = {
     'action_cost_factor': 0,
     'no_instant_gif':"",
     'rew_all_steps':"",
-    'finalweight':30, ############
+    'finalweight':10,
     'no_pixdistrib_video':'',
     'maxshift':0.05
 }
