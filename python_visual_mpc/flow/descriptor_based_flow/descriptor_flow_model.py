@@ -28,7 +28,7 @@ from python_visual_mpc.video_prediction.basecls.utils.transformations import cdn
 RELU_SHIFT = 1e-12
 
 class Descriptor_Flow(object):
-    def __init__(self, conf, images):
+    def __init__(self, conf, images, reuse = False):
         """Build network for predicting optical flow
         """
         self.conf = conf
@@ -40,54 +40,62 @@ class Descriptor_Flow(object):
         else:
             build_desc = self.build_descriptors
 
-        with tf.variable_scope('d0') as d0_scope:
-            self.d0 = build_desc(images[0])
 
-        if 'use_masks' in conf:
-            print 'using masks..'
+        with slim.arg_scope([slim.layers.conv2d, slim.layers.fully_connected,
+                             slim.layers.conv2d_transpose], reuse=reuse):
 
-            with tf.variable_scope("mask_gen_img01"):
-                self.masks01, self.gen01 = self.build_genimg_mask_net(images)
+            with tf.variable_scope('d0') as d0_scope:
+                self.d0 = build_desc(images[0])
 
-            with tf.variable_scope("mask_gen_img10"):
-                self.masks10, self.gen10 = self.build_genimg_mask_net(images)
+            if 'use_masks' in conf:
+                print 'using masks..'
 
-        if 'tied_descriptors' in conf:
-            with tf.variable_scope(d0_scope, reuse=True):
-                self.d1 = build_desc(images[1])
-        else:
-            with tf.variable_scope('d1'):
-                self.d1 = build_desc(images[1])
+                with tf.variable_scope("mask_gen_img01"):
+                    self.masks01, self.gen01 = self.build_genimg_mask_net(images)
 
-        if 'shift_same' in conf:  #shifting d1 for descriptors and d1 for trafo application
-            print 'shifting same...'
-            trafo_kerns10 = self.get_trafo(self.d0, self.d1)  # shifts d1
-            self.flow_10 = compute_motion_vector_dna(conf, trafo_kerns10)
-            self.transformed10 = self.apply_trafo(conf, images[1], trafo_kerns10)  # img d1
+                with tf.variable_scope("mask_gen_img10"):
+                    self.masks10, self.gen10 = self.build_genimg_mask_net(images)
+            else:
+                self.masks = None
 
-            if 'forward_backward' in conf:
-                print 'using forward backward'
-                trafo_kerns01 = self.get_trafo(self.d1, self.d0) # shifts d0
-                self.flow_01 = compute_motion_vector_dna(conf, trafo_kerns01)
-                self.transformed01 = self.apply_trafo(conf, images[0], trafo_kerns01)
-        else: #shifting d1 for descriptors and d0 for trafo application
-            trafo_kerns01 = self.get_trafo(self.d0, self.d1)  # shifts d1
-            self.flow_01 = compute_motion_vector_dna(conf, trafo_kerns01)
-            self.transformed01 = self.apply_trafo(conf, images[0], trafo_kerns01) # img d0
 
-            if 'forward_backward' in conf:
-                print 'using forward backward'
-                trafo_kerns10 = self.get_trafo(self.d1, self.d0)
-                self.flow_10 = compute_motion_vector_dna(conf, trafo_kerns10)
-                self.transformed10 = self.apply_trafo(conf, images[1], trafo_kerns10)
+            if 'tied_descriptors' in conf:
+                with tf.variable_scope(d0_scope, reuse=True):
+                    self.d1 = build_desc(images[1])
+            else:
+                with tf.variable_scope('d1'):
+                    self.d1 = build_desc(images[1])
 
-        if 'use_masks' in conf:
-            self.transformed01 = self.masks01[0]*self.transformed01 + self.masks01[1]*self.gen01
-            self.flow_01 = self.masks01[0]*self.flow_01
+            if 'shift_same' in conf:  #shifting d1 for descriptors and d1 for trafo application
+                print 'shifting same...'
+                trafo_kerns10 = self.get_trafo(self.d0, self.d1)  # shifts d1
+                self.flow_vectors10 = compute_motion_vector_dna(conf, trafo_kerns10)
+                self.transformed10 = self.apply_trafo(conf, images[1], trafo_kerns10)  # img d1
 
-            if 'forward_backward' in conf:
-                self.transformed10 = self.masks10[0] * self.transformed10 + self.masks10[1] * self.gen10
-                self.flow_10 = self.masks10[0] * self.flow_10
+                if 'forward_backward' in conf:
+                    print 'using forward backward'
+                    trafo_kerns01 = self.get_trafo(self.d1, self.d0) # shifts d0
+                    self.flow_vectors01 = compute_motion_vector_dna(conf, trafo_kerns01)
+                    self.transformed01 = self.apply_trafo(conf, images[0], trafo_kerns01)
+            else: #shifting d1 for descriptors and d0 for trafo application
+                trafo_kerns01 = self.get_trafo(self.d0, self.d1)  # shifts d1
+                self.flow_vectors01 = compute_motion_vector_dna(conf, trafo_kerns01)
+                self.transformed01 = self.apply_trafo(conf, images[0], trafo_kerns01) # img d0
+
+                if 'forward_backward' in conf:
+                    print 'using forward backward'
+                    trafo_kerns10 = self.get_trafo(self.d1, self.d0)
+                    self.flow_vectors10 = compute_motion_vector_dna(conf, trafo_kerns10)
+                    self.transformed10 = self.apply_trafo(conf, images[1], trafo_kerns10)
+
+            if 'use_masks' in conf:
+                self.transformed01 = self.masks01[0]*self.transformed01 + self.masks01[1]*self.gen01
+                self.flow_vectors01 = self.masks01[0] * self.flow_vectors01
+
+                if 'forward_backward' in conf:
+                    self.transformed10 = self.masks10[0] * self.transformed10 + self.masks10[1] * self.gen10
+                    self.flow_vectors10 = self.masks10[0] * self.flow_vectors10
+
 
     def apply_trafo(self, conf, prev_image, kerns):
         """Apply dynamic neural advection to previous image.

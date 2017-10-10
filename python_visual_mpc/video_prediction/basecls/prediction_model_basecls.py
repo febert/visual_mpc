@@ -7,7 +7,7 @@ from python_visual_mpc.video_prediction.lstm_ops12 import basic_conv_lstm_cell
 from python_visual_mpc.misc.zip_equal import zip_equal
 
 from utils.transformations import dna_transformation, cdna_transformation
-
+from utils.compute_motion_vecs import compute_motion_vector_dna, compute_motion_vector_cdna
 
 import pdb
 
@@ -97,7 +97,7 @@ class Base_Prediction_Model(object):
 
         self.trafos = []
         self.movd_parts_list = []
-        self.pred_dna_kerns = []
+        self.pred_kerns = []
 
         self.prediction_flow = []
 
@@ -212,7 +212,7 @@ class Base_Prediction_Model(object):
         :return:
         """
         if self.dna:
-            tf_distrib_ndesig1, tf_distrib_ndesig2, tf_l = self.apply_dna(enc6,
+            dna_kernel, tf_distrib_ndesig1, tf_distrib_ndesig2, tf_l = self.apply_dna(enc6,
                           self.prev_image, self.prev_pix_distrib1, self.prev_pix_distrib2)
 
         if self.cdna:
@@ -244,13 +244,19 @@ class Base_Prediction_Model(object):
                 self.gen_distrib2.append(pix_distrib_output)
 
         if 'visual_flowvec' in self.conf:
-            motion_vecs = self.compute_motion_vector_cdna(cdna_kerns)
+            if self.cdna:
+                motion_vecs = compute_motion_vector_cdna(self.conf, cdna_kerns)
+
+            if self.dna:
+                motion_vecs = compute_motion_vector_dna(self.conf, dna_kernel)
+
             output = tf.zeros([self.conf['batch_size'], 64, 64, 2])
             for vec, mask in zip(motion_vecs, mask_list[1:]):
-                vec = tf.reshape(vec, [self.conf['batch_size'], 1, 1, 2])
-                vec = tf.tile(vec, [1, 64, 64, 1])
+                if self.conf['model'] == 'CDNA':
+                    vec = tf.reshape(vec, [self.conf['batch_size'], 1, 1, 2])
+                    vec = tf.tile(vec, [1, 64, 64, 1])
                 output += vec * mask
-            self.prediction_flow.append(output)
+            flow_vectors = output
 
 
     def apply_cdna(self, enc6, hidden5, prev_image, prev_pix_distrib1, prev_pix_distrib2):
@@ -269,7 +275,7 @@ class Base_Prediction_Model(object):
                                                                cdna_input,
                                                                reuse_sc=self.reuse)
 
-        self.pred_dna_kerns.append(cdna_kerns)
+        self.pred_kerns.append(cdna_kerns)
 
         transformed_l += new_transformed
         self.moved_images.append(transformed_l)
@@ -303,7 +309,7 @@ class Base_Prediction_Model(object):
             enc6, KERN_SIZE ** 2, 1, stride=1, scope='convt4_cam2')
         transformed_l, dna_kernel  = dna_transformation(self.conf, prev_image, trafo_input)
 
-        self.pred_dna_kerns.append(dna_kernel)
+        self.pred_kerns.append(dna_kernel)
 
         if self.trafo_pix:
             transf_distrib_ndesig1, _ = dna_transformation(self.conf, prev_pix_distrib1, trafo_input)
@@ -315,7 +321,7 @@ class Base_Prediction_Model(object):
             transf_distrib_ndesig1 = None
             transf_distrib_ndesig2 = None
         self.extra_masks = 1
-        return transf_distrib_ndesig1, transf_distrib_ndesig2, transformed_l
+        return dna_kernel, transf_distrib_ndesig1, transf_distrib_ndesig2, transformed_l
 
     def build_network_core(self, action, current_state, input_image):
         lstm_func = basic_conv_lstm_cell
@@ -542,29 +548,7 @@ class Base_Prediction_Model(object):
             pix_distrib_output += pix* mask
         return pix_distrib_output
 
-    def compute_motion_vector_cdna(self, cdna_kerns):
 
-        range = self.conf['kern_size'] / 2
-        dc = np.linspace(-range, range, num= self.conf['kern_size'])
-        dc = np.expand_dims(dc, axis=0)
-        dc = np.repeat(dc, self.conf['kern_size'], axis=0)
-        dr = np.transpose(dc)
-        dr = tf.constant(dr, dtype=tf.float32)
-        dc = tf.constant(dc, dtype=tf.float32)
-
-        cdna_kerns = tf.transpose(cdna_kerns, [2, 3, 0, 1])
-        cdna_kerns = tf.split(cdna_kerns, self.conf['num_masks'], axis=1)
-        cdna_kerns = [tf.squeeze(k) for k in cdna_kerns]
-
-        vecs = []
-        for kern in cdna_kerns:
-            vec_r = tf.multiply(dr, kern)
-            vec_r = tf.reduce_sum(vec_r, axis=[1,2])
-            vec_c = tf.multiply(dc, kern)
-            vec_c = tf.reduce_sum(vec_c, axis=[1, 2])
-
-            vecs.append(tf.stack([vec_r,vec_c], axis=1))
-        return vecs
 
 
 def scheduled_sample(ground_truth_x, generated_x, batch_size, num_ground_truth):

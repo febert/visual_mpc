@@ -75,8 +75,8 @@ def main(unused_argv, conf_script= None):
     else:
         Model = Base_Prediction_Model
 
-    print 'Constructing models and inputs.'
-    images, actions, states = build_tfrecord_input(conf, training=True)
+    if FLAGS.visualize:
+        images, actions, states = build_tfrecord_input(conf, training=True)
 
     if FLAGS.diffmotions:
         model = Model(conf, load_data =False, trafo_pix=True)
@@ -222,7 +222,7 @@ def main(unused_argv, conf_script= None):
                                                                                 model.gen_images,
                                                                                 model.gen_masks,
                                                                                 model.prediction_flow,
-                                                                                model.tracking_flow,
+                                                                                model.tracking_flow01,
                                                                                 model.gen_distrib1,
                                                                                 model.tracking_gendistrib
                                                                                 ],

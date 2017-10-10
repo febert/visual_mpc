@@ -21,109 +21,114 @@ import pdb
 
 import tensorflow.contrib.slim as slim
 from tensorflow.contrib.layers.python import layers as tf_layers
-from python_visual_mpc.video_prediction.basecls.utils.transformations import dna_transformation, sep_dna_transformation
-from python_visual_mpc.video_prediction.basecls.utils.transformations import cdna_transformation, sep_cdna_transformation
+
 
 # Amount to use when lower bounding tensors
 RELU_SHIFT = 1e-12
 
 
 
-def construct_correction(conf,
-                         images,
-                         pix_distrib_input=None,
-                         reuse=None):
-    """Build network for predicting optical flow
-    """
+class Trafo_Flow(object):
+    def __init__(self,
+                 conf,
+                 images,
+                 pix_distrib_input=None,
+                 reuse=None):
+        """Build network for predicting optical flow
+        """
 
-    num_masks = conf['num_masks']
+        num_masks = conf['num_masks']
 
-    batch_size, img_height, img_width, color_channels = images[0].get_shape()[0:4]
-    if pix_distrib_input != None:
-        num_objects = pix_distrib_input.get_shape()[1]
-
-    concat_img = tf.concat([images[0], images[1]], axis=3)  #64x64x3
-
-    if 'separable_filters' in conf:
-        print 'applying separable filters'
-        dna_transformation = sep_dna_transformation
-        cdna_transformation = sep_cdna_transformation
-
-    with slim.arg_scope(
-            [slim.layers.conv2d, slim.layers.fully_connected,
-             tf_layers.layer_norm, slim.layers.conv2d_transpose],
-            reuse=reuse):
-
-        if 'large_core' in conf:
-            final_layer, middle_layer = build_large_core(concat_img)
-            print 'using large core'
-        else:
-            final_layer, middle_layer = build_core(concat_img)
-
-        if conf['model'] == 'DNA':
-
-            # Using largest hidden state for predicting untied conv kernels.
-            if 'separable_filters' in conf:
-                num_filters = conf['kern_size'] * 2
-            else: num_filters = conf['kern_size'] ** 2
-            enc4 = slim.layers.conv2d_transpose(final_layer, num_filters, 1, stride=1, scope='convt4')
-
-            # Only one mask is supported (more should be unnecessary).
-            if num_masks != 1:
-                raise ValueError('Only one mask is supported for DNA model.')
-            transformed, kernels  = dna_transformation(conf, images[0], enc4)
-
-        elif conf['model'] == 'CDNA':
-            cdna_input = tf.reshape(middle_layer, [int(batch_size), -1])
-            transformed, kernels = cdna_transformation(conf, images[0], cdna_input, scope='track_cdna', reuse_sc= reuse)
-
-        masks = slim.layers.conv2d_transpose(
-            final_layer, num_masks + 1, 1, stride=1, scope='convt7')
-        masks = tf.reshape(
-            tf.nn.softmax(tf.reshape(masks, [-1, num_masks + 1])),
-            [int(batch_size), int(img_height), int(img_width), num_masks + 1])
-        mask_list = tf.split(masks,num_masks + 1, axis=3)
-        output = mask_list[0] * images[0]
-        for layer, mask in zip(transformed, mask_list[1:]):
-            output += layer * mask
-        gen_images= output
-        gen_masks= mask_list
-
-        if 'visual_flowvec' in conf:
-            if conf['model'] == 'DNA':
-                motion_vecs = compute_motion_vector_dna(conf, kernels)
-            elif conf['model'] == 'CDNA':
-                motion_vecs = compute_motion_vector_cdna(conf, kernels)
-
-            output = tf.zeros([conf['batch_size'], 64, 64, 2])
-            for vec, mask in zip(motion_vecs, mask_list[1:]):
-                if conf['model'] == 'CDNA':
-                    vec = tf.reshape(vec, [conf['batch_size'], 1, 1, 2])
-                    vec = tf.tile(vec, [1, 64, 64, 1])
-                output += vec * mask
-            flow_vectors = output
-        else:
-            flow_vectors = None
-
+        batch_size, img_height, img_width, color_channels = images[0].get_shape()[0:4]
         if pix_distrib_input != None:
-            if conf['model'] == 'DNA':
-                transf_distrib, kernels = dna_transformation(conf, pix_distrib_input, enc4)
-            else:
-                transf_distrib, kernels = cdna_transformation(conf,
-                                                            pix_distrib_input,
-                                                            cdna_input,
-                                                            scope = 'track_cdna',
-                                                            reuse_sc=True)
+            num_objects = pix_distrib_input.get_shape()[1]
 
-            pix_distrib_output = mask_list[0] * pix_distrib_input
-            for i in range(num_masks):
-                pix_distrib_output += transf_distrib[i] * mask_list[i+1]
+        concat_img = tf.concat([images[0], images[1]], axis=3)  #64x64x3
 
+        if 'separable_filters' in conf:
+            print 'applying separable filters'
+            from python_visual_mpc.video_prediction.basecls.utils.transformations import\
+                sep_dna_transformation as dna_transformation
+            from python_visual_mpc.video_prediction.basecls.utils.transformations import\
+                sep_cdna_transformation as cdna_transformation
         else:
-            pix_distrib_output = None
+            from python_visual_mpc.video_prediction.basecls.utils.transformations import \
+                dna_transformation as dna_transformation
+            from python_visual_mpc.video_prediction.basecls.utils.transformations import \
+                cdna_transformation as cdna_transformation
 
-        return gen_images, gen_masks, pix_distrib_output, flow_vectors, kernels
+        with slim.arg_scope(
+                [slim.layers.conv2d, slim.layers.fully_connected,
+                 tf_layers.layer_norm, slim.layers.conv2d_transpose],
+                reuse=reuse):
 
+            if 'large_core' in conf:
+                final_layer, middle_layer = build_large_core(concat_img)
+                print 'using large core'
+            else:
+                final_layer, middle_layer = build_core(concat_img)
+
+            if conf['model'] == 'DNA':
+
+                # Using largest hidden state for predicting untied conv kernels.
+                if 'separable_filters' in conf:
+                    num_filters = conf['kern_size'] * 2
+                else: num_filters = conf['kern_size'] ** 2
+                enc4 = slim.layers.conv2d_transpose(final_layer, num_filters, 1, stride=1, scope='convt4')
+
+                # Only one mask is supported (more should be unnecessary).
+                if num_masks != 1:
+                    raise ValueError('Only one mask is supported for DNA model.')
+                transformed, self.kernels  = dna_transformation(conf, images[0], enc4)
+
+            elif conf['model'] == 'CDNA':
+                cdna_input = tf.reshape(middle_layer, [int(batch_size), -1])
+                transformed, self.kernels = cdna_transformation(conf, images[0], cdna_input, scope='track_cdna', reuse_sc= reuse)
+
+            masks = slim.layers.conv2d_transpose(
+                final_layer, num_masks + 1, 1, stride=1, scope='convt7')
+            masks = tf.reshape(
+                tf.nn.softmax(tf.reshape(masks, [-1, num_masks + 1])),
+                [int(batch_size), int(img_height), int(img_width), num_masks + 1])
+            mask_list = tf.split(masks,num_masks + 1, axis=3)
+            output = mask_list[0] * images[0]
+            for layer, mask in zip(transformed, mask_list[1:]):
+                output += layer * mask
+            self.gen_images= output
+            self.gen_masks= mask_list
+
+            if 'visual_flowvec' in conf:
+                if conf['model'] == 'DNA':
+                    motion_vecs = compute_motion_vector_dna(conf, self.kernels)
+                elif conf['model'] == 'CDNA':
+                    motion_vecs = compute_motion_vector_cdna(conf, self.kernels)
+
+                output = tf.zeros([conf['batch_size'], 64, 64, 2])
+                for vec, mask in zip(motion_vecs, mask_list[1:]):
+                    if conf['model'] == 'CDNA':
+                        vec = tf.reshape(vec, [conf['batch_size'], 1, 1, 2])
+                        vec = tf.tile(vec, [1, 64, 64, 1])
+                    output += vec * mask
+                self.flow_vectors01 = output
+            else:
+                self.flow_vectors01 = None
+
+            if pix_distrib_input != None:
+                if conf['model'] == 'DNA':
+                    transf_distrib, self.kernels = dna_transformation(conf, pix_distrib_input, enc4)
+                else:
+                    transf_distrib, self.kernels = cdna_transformation(conf,
+                                                                pix_distrib_input,
+                                                                cdna_input,
+                                                                scope = 'track_cdna',
+                                                                reuse_sc=True)
+
+                self.gen_distrib_output = mask_list[0] * pix_distrib_input
+                for i in range(num_masks):
+                    self.gen_distrib_output += transf_distrib[i] * mask_list[i + 1]
+
+            else:
+                self.gen_distrib_output = None
 
 def build_core(concat_img):
 

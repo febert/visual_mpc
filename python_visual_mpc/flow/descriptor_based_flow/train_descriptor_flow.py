@@ -261,15 +261,15 @@ def visualize(conf):
                                                                              model.d.transformed10,
                                                                              model.d.d0,
                                                                              model.d.d1,
-                                                                             model.d.flow_01,
-                                                                             model.d.flow_10], feed_dict)
+                                                                             model.d.flow_vectors01,
+                                                                             model.d.flow_vectors10], feed_dict)
             transformed10_list.append(transformed10)
             flow10_list.append(flow10)
         else:
             transformed01, d0, d1, flow01 = sess.run([model.d.transformed01,
                                                       model.d.d0,
                                                       model.d.d1,
-                                                      model.d.flow_01], feed_dict)
+                                                      model.d.flow_vectors01], feed_dict)
 
         flow01_list.append(flow01)
         transformed01_list.append(transformed01)
