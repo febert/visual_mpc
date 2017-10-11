@@ -26,7 +26,7 @@ from python_visual_mpc.misc.zip_equal import zip_equal
 import pdb
 
 # Amount to use when lower bounding tensors
-RELU_SHIFT = 1e-12
+RELU_SHIFT = 1e-7
 
 class Prediction_Model(object):
 
@@ -418,9 +418,9 @@ class Prediction_Model(object):
 
         # output = tf.Print(output, [tf.reduce_sum(tf.cast(tf.is_nan(output), tf.int64))], message="output nan check")
 
-        self.bef_output = masks_bef
-        self.bef_output2 = masks
-        self.r_sum = output
+        # self.bef_output = masks_bef
+        # self.bef_output2 = masks
+        # self.r_sum = output
 
         return output, mask_list
 
@@ -519,8 +519,8 @@ class Prediction_Model(object):
         DNA_KERN_SIZE = self.conf['kern_size']
         num_masks = self.conf['num_masks']
         color_channels = int(prev_image.get_shape()[3])
-        cdna_input = tf.Print(cdna_input, [tf.reduce_sum(tf.cast(tf.logical_or(tf.is_nan(cdna_input), tf.is_inf(cdna_input)), tf.int64))],
-                 message="cdna input nan/inf check")
+        # cdna_input = tf.Print(cdna_input, [tf.reduce_sum(tf.cast(tf.logical_or(tf.is_nan(cdna_input), tf.is_inf(cdna_input)), tf.int64))],
+        #          message="cdna input nan/inf check")
         # Predict kernels using linear function of last hidden layer.
         cdna_kerns = slim.layers.fully_connected(
             cdna_input,
@@ -532,17 +532,14 @@ class Prediction_Model(object):
         # Reshape and normalize.
         cdna_kerns = tf.reshape(
             cdna_kerns, [batch_size, DNA_KERN_SIZE, DNA_KERN_SIZE, 1, num_masks])
-        if prev_image.dtype == tf.float16:
-            shift = 1e-7
-        else:
-            shift = RELU_SHIFT
-        cdna_kerns = tf.nn.relu(cdna_kerns - shift) + shift
+
+        cdna_kerns = tf.nn.relu(cdna_kerns - RELU_SHIFT) + RELU_SHIFT
         norm_factor = tf.reduce_sum(cdna_kerns, [1, 2, 3], keep_dims=True)
-        norm_factor = tf.Print(norm_factor, [norm_factor],
-                              message="norm_factor values")
-        cdna_kerns = tf.Print(cdna_kerns, [
-            tf.reduce_sum(tf.cast(tf.logical_or(tf.is_inf(cdna_kerns), tf.is_nan(cdna_kerns)), tf.int64))],
-                              message="cdna kerns inf/nan check")
+        # norm_factor = tf.Print(norm_factor, [norm_factor],
+        #                       message="norm_factor values")
+        # cdna_kerns = tf.Print(cdna_kerns, [
+        #     tf.reduce_sum(tf.cast(tf.logical_or(tf.is_inf(cdna_kerns), tf.is_nan(cdna_kerns)), tf.int64))],
+        #                       message="cdna kerns inf/nan check")
         cdna_kerns /= norm_factor
 
         cdna_kerns_summary = cdna_kerns
@@ -557,13 +554,13 @@ class Prediction_Model(object):
             for i in range(prev_image.shape[0]):
                 image_i = tf.expand_dims(tf.transpose(prev_image[i, :, :, :], [2,0,1]), axis = 3)
                 filt_i = tf.expand_dims(cdna_kerns[:, :, i, :], axis = 2)
-                filt_i = tf.Print(filt_i, [tf.reduce_sum(tf.cast(tf.is_nan(filt_i), tf.int64))], message="cdna filt_"+str(i) +"nan check")
+                # filt_i = tf.Print(filt_i, [tf.reduce_sum(tf.cast(tf.is_nan(filt_i), tf.int64))], message="cdna filt_"+str(i) +"nan check")
                 conv_result = tf.squeeze(tf.nn.conv2d(image_i, filt_i, [1, 1, 1, 1], 'SAME'))
                 # conv_result = tf.Print(conv_result, [tf.reduce_sum(tf.cast(tf.is_nan(conv_result), tf.int64))], message="cdna conv_"+str(i) +" nan check")
                 image_batch_conv.append(tf.transpose(conv_result, [1,2,0,3]))
 
             transformed = tf.stack(image_batch_conv, axis=0)
-            transformed = tf.Print(transformed, [tf.reduce_sum(tf.cast(tf.is_nan(transformed), tf.int64))], message="cdna transformed nan check")
+            # transformed = tf.Print(transformed, [tf.reduce_sum(tf.cast(tf.is_nan(transformed), tf.int64))], message="cdna transformed nan check")
             transformed = tf.unstack(value=transformed, axis=-1)
 
         else:

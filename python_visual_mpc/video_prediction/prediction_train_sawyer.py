@@ -412,21 +412,22 @@ def main(unused_argv, conf_script= None):
                      examples=10)
 
         else:
-            ground_truth, mask_bef,mask, gen_images, gen_masks,_, = sess.run([val_images, vis_model.m.bef_output,vis_model.m.bef_output2,
-                                                             vis_model.m.gen_images,
-                                                             vis_model.m.gen_masks,
-                                                             vis_model.m.r_sum,
-                                                              ],
-                                                             feed_dict)
-            print np.sum(mask_bef.astype(np.float32))
-            print mask_bef.shape
-            # print mask_bef
-
-            print np.sum(mask.astype(np.float32))
-            print mask.shape
-            # print mask
-            # np.savetxt('enc6.out', mask_bef.astype(np.float32), delimiter=',')
-            # np.savetxt('hidden_7.out', mask.astype(np.float32), delimiter=',')
+            if FLAGS.timeit:
+                import time
+                t0 = time.time()
+                for i in range(100):
+                    ground_truth, gen_images, gen_masks, = sess.run([val_images,
+                                                                     vis_model.m.gen_images,
+                                                                     vis_model.m.gen_masks,
+                                                                      ],
+                                                                     feed_dict)
+                print 'AVG TIME', (time.time() - t0) / 100.
+            else:
+                ground_truth, gen_images, gen_masks, = sess.run([val_images,
+                                                                 vis_model.m.gen_images,
+                                                                 vis_model.m.gen_masks,
+                                                                 ],
+                                                                feed_dict)
 
             dict = {}
             dict['gen_images'] = gen_images
@@ -544,6 +545,6 @@ if __name__ == '__main__':
     flags.DEFINE_string('pretrained', None, 'path to model file from which to resume training')
     flags.DEFINE_bool('diffmotions', False, 'visualize several different motions for a single scene')
     flags.DEFINE_bool('float16', False, 'Loads Net as Float16')
-
+    flags.DEFINE_bool('timeit', False, 'Runs forward pass 100 times and outputs average time (during visualize)')
     tf.logging.set_verbosity(tf.logging.INFO)
     app.run()
