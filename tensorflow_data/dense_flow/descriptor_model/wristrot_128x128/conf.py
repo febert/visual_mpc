@@ -4,7 +4,7 @@ base_dir = python_visual_mpc.__file__
 base_dir = '/'.join(str.split(base_dir, '/')[:-2])
 
 # tf record data location:
-DATA_DIR = base_dir + '/pushing_data/softmotion30/train'
+DATA_DIR = base_dir + '/pushing_data/wristrot_128x128/train'
 
 import os
 current_dir = os.path.dirname(os.path.realpath(__file__))
@@ -32,6 +32,9 @@ configuration = {
 'desc_length': 8,
 'metric':'inverse_euclidean',
 'forward_backward':"",
+'tied_descriptors':'',
 'bilin_up':"",               #use bilinear upsampling
-'shift_same':'',
+'adim':5,
+'statedim':4,
+'128x128':""
 }

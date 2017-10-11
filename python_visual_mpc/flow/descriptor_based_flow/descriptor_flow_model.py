@@ -37,7 +37,9 @@ class Descriptor_Flow(object):
         """
         self.conf = conf
 
-        if 'large_core' in conf:
+        if '128x128':
+            build_desc = self.build_descriptor_bilin128
+        elif 'large_core' in conf:
             build_desc = self.build_descriptors_large
         elif 'bilin_up' in conf:
             build_desc = self.build_descriptor_bilin
@@ -117,6 +119,9 @@ class Descriptor_Flow(object):
 
         # Construct translated images.
         KERN_SIZE = conf['kern_size']
+        if '128x128' in self.conf:
+            IMG_HEIGHT = 128
+        else: IMG_HEIGHT = 64
 
         pad_len = int(np.floor(KERN_SIZE / 2))
         prev_image_pad = tf.pad(prev_image, [[0, 0], [pad_len, pad_len], [pad_len, pad_len], [0, 0]])
@@ -130,18 +135,22 @@ class Descriptor_Flow(object):
                                  [-1, image_height, image_width, -1]))
 
         shifted = tf.stack(axis=3, values=shifted)
-        shifted = tf.reshape(shifted, [conf['batch_size'], 64, 64, KERN_SIZE, KERN_SIZE, 3])
+        shifted = tf.reshape(shifted, [conf['batch_size'], IMG_HEIGHT, IMG_HEIGHT, KERN_SIZE, KERN_SIZE, 3])
 
         kerns = kerns[...,None]
 
         return tf.reduce_sum(kerns * shifted, [3,4], keep_dims=False),\
-               tf.reshape(kerns, [conf['batch_size'], 64,64, KERN_SIZE**2, 1])
+               tf.reshape(kerns, [conf['batch_size'], IMG_HEIGHT,IMG_HEIGHT, KERN_SIZE**2, 1])
 
     def get_trafo(self, d1, d2):
 
         # Construct translated images.
         KERN_SIZE = self.conf['kern_size']
         DESC_LENGTH = self.conf['desc_length']
+
+        if '128x128' in self.conf:
+            IMG_HEIGHT = 128
+        else: IMG_HEIGHT = 64
 
         pad_len = int(np.floor(KERN_SIZE / 2))
         padded_d2 = tf.pad(d2, [[0, 0], [pad_len, pad_len], [pad_len, pad_len], [0, 0]])
@@ -156,7 +165,7 @@ class Descriptor_Flow(object):
 
         shifted_d2 = tf.stack(axis= -1, values=shifted_d2)
 
-        shifted_d2 = tf.reshape(shifted_d2, [self.conf['batch_size'], 64,64,DESC_LENGTH, KERN_SIZE,KERN_SIZE])
+        shifted_d2 = tf.reshape(shifted_d2, [self.conf['batch_size'], IMG_HEIGHT,IMG_HEIGHT,DESC_LENGTH, KERN_SIZE,KERN_SIZE])
 
         # repeat d1 along kernel dimensions
         repeated_d1 = tf.tile(d1[:,:,:,:,None,None], [1,1,1,1, KERN_SIZE, KERN_SIZE])
@@ -170,10 +179,10 @@ class Descriptor_Flow(object):
         elif self.conf['metric'] == 'cosine':
 
             cos_dist = tf.reduce_sum(repeated_d1*shifted_d2, axis=3)/(tf.norm(repeated_d1, axis=3)+1e-5)/(tf.norm(shifted_d2, axis=3) +1e-5)
-            cos_dist = tf.reshape(cos_dist, [self.conf['batch_size'], 64, 64, KERN_SIZE**2])
+            cos_dist = tf.reshape(cos_dist, [self.conf['batch_size'],IMG_HEIGHT,IMG_HEIGHT, KERN_SIZE**2])
             trafo = tf.nn.softmax(cos_dist*self.conf['softmax_temp'], 3)
 
-            trafo = tf.reshape(trafo, [self.conf['batch_size'], 64, 64, KERN_SIZE, KERN_SIZE])
+            trafo = tf.reshape(trafo, [self.conf['batch_size'],IMG_HEIGHT,IMG_HEIGHT, KERN_SIZE, KERN_SIZE])
             print 'using cosine distance'
 
         return trafo
@@ -212,6 +221,66 @@ class Descriptor_Flow(object):
 
         return enc3
 
+    def build_descriptor_bilin128(self, img):
+        print 'using bilinear upsampling'
+
+        enc0 = slim.layers.conv2d(   #64x64x32
+                    img,
+                    32, [5, 5],
+                    stride=2,
+                    scope='conv0')
+
+        enc1 = slim.layers.conv2d( #32x32x64
+            enc0,
+            64, [3, 3],
+            stride=2,
+            scope='conv1')
+
+        enc2 = slim.layers.conv2d(  # 16x16x64
+            enc1,
+            64, [3, 3],
+            stride=2,
+            scope='conv2')
+
+        enc2_up = tf.image.resize_images( #32x32x64
+            enc2,
+            [32,32],
+            method=tf.image.ResizeMethod.BILINEAR,
+            align_corners=False)
+
+        enc3 = slim.layers.conv2d(  #32x32x64
+            enc2_up,
+            64, [3, 3],
+            stride=1,
+            scope='conv3')
+
+        enc3_up = tf.image.resize_images( #64x64x64
+            enc3,
+            [64, 64],
+            method=tf.image.ResizeMethod.BILINEAR,
+            align_corners=False)
+
+        enc4 = slim.layers.conv2d( # 64x64x32
+            enc3_up,
+            32, [3, 3],
+            stride=1,
+            scope='conv4')
+
+        enc4_up = tf.image.resize_images(  # 128x128x32
+            enc4,
+            [128, 128],
+            method=tf.image.ResizeMethod.BILINEAR,
+            align_corners=False)
+
+        enc5 = slim.layers.conv2d(  # 128x128xdesc_length
+            enc4_up,
+            self.conf['desc_length'], [5, 5],
+            stride=1,
+            scope='conv5',
+            activation_fn=None)
+
+        return enc5
+
     def build_descriptor_bilin(self, img):
         print 'using bilinear upsampling'
 
@@ -219,44 +288,38 @@ class Descriptor_Flow(object):
                     img,
                     32, [5, 5],
                     stride=2,
-                    scope='conv0',
-                )
+                    scope='conv0')
 
         enc1 = slim.layers.conv2d( #16x16x64
             enc0,
             64, [5, 5],
             stride=2,
-            scope='conv1',
-        )
+            scope='conv1')
 
         enc1_up = tf.image.resize_images(
             enc1,
             [32,32],
             method=tf.image.ResizeMethod.BILINEAR,
-            align_corners=False
-        )
+            align_corners=False)
 
         enc2 = slim.layers.conv2d(  #32x32x32
             enc1_up,
             32, [5, 5],
             stride=1,
-            scope='t_conv1',
-        )
+            scope='t_conv1')
 
         enc2_up = tf.image.resize_images(
             enc2,
             [64, 64],
             method=tf.image.ResizeMethod.BILINEAR,
-            align_corners=False
-        )
+            align_corners=False)
 
         enc3 = slim.layers.conv2d( # 64x64x32
             enc2_up,
             self.conf['desc_length'], [5, 5],
             stride=1,
             scope='t_conv2',
-            activation_fn=None
-        )
+            activation_fn=None)
 
         return enc3
 
@@ -394,6 +457,9 @@ def compute_motion_vector_cdna(conf, cdna_kerns):
 
 
 def compute_motion_vector_dna(conf, dna_kerns):
+    if '128x128' in conf:
+        IMG_HEIGHT = 128
+    else: IMG_HEIGHT = 64
 
     range = conf['kern_size'] / 2
     dc = np.linspace(-range, range, num= conf['kern_size'])
@@ -401,15 +467,15 @@ def compute_motion_vector_dna(conf, dna_kerns):
     dc = np.repeat(dc, conf['kern_size'], axis=0)
 
     dc = dc.reshape([1,1,conf['kern_size'],conf['kern_size']])
-    dc = np.repeat(dc, 64, axis=0)
-    dc = np.repeat(dc, 64, axis=1)
+    dc = np.repeat(dc, IMG_HEIGHT, axis=0)
+    dc = np.repeat(dc, IMG_HEIGHT, axis=1)
 
     dr = np.transpose(dc, [0,1,3,2])
 
     dr = tf.constant(dr, dtype=tf.float32)
     dc = tf.constant(dc, dtype=tf.float32)
 
-    dna_kerns = tf.reshape(dna_kerns, [conf['batch_size'], 64,64,conf['kern_size'],conf['kern_size']])
+    dna_kerns = tf.reshape(dna_kerns, [conf['batch_size'], IMG_HEIGHT,IMG_HEIGHT,conf['kern_size'],conf['kern_size']])
 
     dr = tf.expand_dims(dr, axis=0)
     dc = tf.expand_dims(dc, axis=0)

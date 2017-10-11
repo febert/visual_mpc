@@ -28,7 +28,7 @@ from python_visual_mpc.video_prediction.utils_vpred.adapt_params_visualize impor
 from tensorflow.python.platform import app
 from tensorflow.python.platform import flags
 
-from python_visual_mpc.video_prediction.read_tf_record_sawyer12 import build_tfrecord_input
+from python_visual_mpc.video_prediction.read_tf_record_wristrot import build_tfrecord_input
 
 from datetime import datetime
 
@@ -394,7 +394,7 @@ def main(unused_argv, conf_script= None):
     print 'Constructing saver.'
     saver = tf.train.Saver(tf.get_collection(tf.GraphKeys.VARIABLES), max_to_keep=0)
 
-    gpu_options = tf.GPUOptions(per_process_gpu_memory_fraction=0.9)
+    gpu_options = tf.GPUOptions(per_process_gpu_memory_fraction=0.85)
     # Make training session.
     sess = tf.InteractiveSession(config=tf.ConfigProto(gpu_options=gpu_options))
     summary_writer = tf.summary.FileWriter(conf['output_dir'], graph=sess.graph, flush_secs=10)
