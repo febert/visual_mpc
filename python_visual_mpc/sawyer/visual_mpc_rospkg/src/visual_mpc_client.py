@@ -4,6 +4,10 @@ from datetime import datetime
 import pdb
 import rospy
 import matplotlib.pyplot as plt
+from utils.copy_from_remote import scp_pix_distrib_files
+
+from python_visual_mpc.video_prediction.misc.makegifs2 import go_through_timesteps
+from python_visual_mpc.video_prediction.utils_vpred.animate_tkinter import Visualizer_tkinter
 
 import socket
 
@@ -480,6 +484,17 @@ class Visual_MPC_Client():
 
         self.save_final_image(i_tr)
         self.recorder.save_highres()
+
+        #copy files with pix distributions from remote and make gifs
+        scp_pix_distrib_files(self.policyparams, self.agentparams)
+        netconf = imp.load_source('params', self.policyparams['netconf']).configuration
+
+        v = Visualizer_tkinter(self.policyparams['current_dir'] + '/verbose/pred.pkl',
+                               append_masks=False,
+                               gif_savepath=self.policyparams['current_dir'] + '/verbose/pred.pkl',
+                               numex=10)
+        v.build_figure()
+        # go_through_timesteps(self.policyparams['current_dir']+'/verbose', netconf)
 
     def get_des_pose(self, des_pos):
 

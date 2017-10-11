@@ -1,12 +1,22 @@
-import paramiko
+from paramiko import SSHClient
+from scp import SCPClient
+import pdb
 
+def scp_pix_distrib_files(policyparams, agentparams):
 
-def createSSHClient(server, port, user, password):
-    client = paramiko.SSHClient()
-    client.load_system_host_keys()
-    client.set_missing_host_key_policy(paramiko.AutoAddPolicy())
-    client.connect(server, port, user, password)
-    return client
+    ssh = SSHClient()
+    ssh.load_system_host_keys()
+    ssh.connect(hostname='newton4', username='febert')
 
-ssh = createSSHClient(server, port, user, password)
-scp = SCPClient(ssh.get_transport())
+    # SCPCLient takes a paramiko transport as its only argument
+    scp = SCPClient(ssh.get_transport())
+
+    scp.get(policyparams['current_dir'] + '/verbose/pred.pkl', policyparams['current_dir'] + '/verbose/pred.pkl')
+    # for i in range(1,agentparams['T']):
+    #     filename = '/verbose/gen_distrib_t{}.pkl'.format(i)
+    #     scp.get(policyparams['current_dir']+filename, policyparams['current_dir']+filename)
+    #
+    #     filename = '/verbose/gen_image_t{}.pkl'.format(i)
+    #     scp.get(policyparams['current_dir'] + filename, policyparams['current_dir'] + filename)
+
+    scp.close()

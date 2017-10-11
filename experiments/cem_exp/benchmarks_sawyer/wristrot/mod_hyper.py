@@ -8,6 +8,7 @@ import numpy as np
 policy = {
     'type' : CEM_controller,
     'low_level_ctrl': None,
+    'current_dir':current_dir,
     'usenet': True,
     'nactions': 5,
     'repeat': 3,
@@ -30,4 +31,5 @@ agent = {
     'T': 20,
     'action_dim':5,
     'state_dim':4,
+    'make_final_gif':''
 }
