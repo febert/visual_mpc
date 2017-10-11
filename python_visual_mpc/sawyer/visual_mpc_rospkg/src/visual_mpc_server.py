@@ -193,6 +193,9 @@ class Visual_MPC_Server(object):
         self.traj.U[self.t, :] = mj_U
 
         if self.t == self.agentparams['T'] -1:
+            cPickle.dump(self.cem_controller.dict_,open(self.netconf['current_dir'] + '/verbose/pred.pkl', 'wb'))
+            print 'finished writing files to:' + self.netconf['current_dir'] + '/verbose/pred.pkl'
+
             if 'no_pixdistrib_video' not in self.policyparams:
                 self.save_video()
 
