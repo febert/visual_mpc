@@ -11,9 +11,6 @@ import imp
 
 import cPickle
 
-# Dimension of the state and action.
-STATE_DIM = 4
-ACION_DIM = 5
 
 def build_tfrecord_input(conf, training=True):
     """Create input tfrecord tensors.
@@ -28,6 +25,16 @@ def build_tfrecord_input(conf, training=True):
     Raises:
       RuntimeError: if no files found.
     """
+
+    if 'statedim' in conf:
+        sdim = conf['statedim']
+    else: sdim = 3
+    if 'adim' in conf:
+        adim = conf['adim']
+    else: adim = 4
+    print 'adim', adim
+    print 'sdim', sdim
+
     filenames = gfile.Glob(os.path.join(conf['data_dir'], '*'))
     if not filenames:
         raise RuntimeError('No data_files files found.')
@@ -63,17 +70,23 @@ def build_tfrecord_input(conf, training=True):
         features = {
 
                     image_name: tf.FixedLenFeature([1], tf.string),
-                    action_name: tf.FixedLenFeature([ACION_DIM], tf.float32),
-                    endeffector_pos_name: tf.FixedLenFeature([STATE_DIM], tf.float32),
+                    action_name: tf.FixedLenFeature([adim], tf.float32),
+                    endeffector_pos_name: tf.FixedLenFeature([sdim], tf.float32),
         }
 
         features = tf.parse_single_example(serialized_example, features=features)
 
         COLOR_CHAN = 3
-        ORIGINAL_WIDTH = 64
-        ORIGINAL_HEIGHT = 64
-        IMG_WIDTH = 64
-        IMG_HEIGHT = 64
+        if '128x128' in conf:
+            ORIGINAL_WIDTH = 128
+            ORIGINAL_HEIGHT = 128
+            IMG_WIDTH = 128
+            IMG_HEIGHT = 128
+        else:
+            ORIGINAL_WIDTH = 64
+            ORIGINAL_HEIGHT = 64
+            IMG_WIDTH = 64
+            IMG_HEIGHT = 64
 
         if 'im_height' in conf:
             ORIGINAL_WIDTH = conf['im_height']
@@ -94,9 +107,9 @@ def build_tfrecord_input(conf, training=True):
         image_seq.append(image)
 
 
-        endeffector_pos = tf.reshape(features[endeffector_pos_name], shape=[1, STATE_DIM])
+        endeffector_pos = tf.reshape(features[endeffector_pos_name], shape=[1, sdim])
         endeffector_pos_seq.append(endeffector_pos)
-        action = tf.reshape(features[action_name], shape=[1, ACION_DIM])
+        action = tf.reshape(features[action_name], shape=[1, adim])
         action_seq.append(action)
 
 
