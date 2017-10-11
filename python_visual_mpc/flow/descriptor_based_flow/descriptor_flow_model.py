@@ -37,7 +37,7 @@ class Descriptor_Flow(object):
         """
         self.conf = conf
 
-        if '128x128':
+        if '128x128' in conf:
             build_desc = self.build_descriptor_bilin128
         elif 'large_core' in conf:
             build_desc = self.build_descriptors_large
