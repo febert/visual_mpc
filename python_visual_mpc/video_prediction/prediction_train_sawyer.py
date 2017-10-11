@@ -30,6 +30,7 @@ from PIL import Image
 
 
 
+
 ## Helper functions
 def peak_signal_to_noise_ratio(true, pred):
     """Image quality metric based on maximal signal power vs. power of the noise.
@@ -90,7 +91,6 @@ class Model(object):
             actions = tf.split(axis=1, num_or_size_splits=actions.get_shape()[1], value=actions)
             actions = [tf.squeeze(act) for act in actions]
         if states != None:
-            pdb.set_trace()
             states = tf.split(axis=1, num_or_size_splits=states.get_shape()[1], value=states)
             states = [tf.squeeze(st) for st in states]
         images = tf.split(axis=1, num_or_size_splits=images.get_shape()[1], value=images)

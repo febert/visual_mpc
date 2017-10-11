@@ -5,6 +5,8 @@ from python_visual_mpc.video_prediction.prediction_train_sawyer import Model
 from PIL import Image
 import os
 
+import pdb
+
 def setup_predictor(conf, gpu_id = 0, ngpu=None):
     """
     Setup up the network for control
@@ -17,7 +19,7 @@ def setup_predictor(conf, gpu_id = 0, ngpu=None):
     os.environ["CUDA_VISIBLE_DEVICES"] = str(gpu_id)
     print 'using CUDA_VISIBLE_DEVICES=', os.environ["CUDA_VISIBLE_DEVICES"]
 
-    gpu_options = tf.GPUOptions(per_process_gpu_memory_fraction=0.9)
+    gpu_options = tf.GPUOptions(per_process_gpu_memory_fraction=0.8)
     g_predictor = tf.Graph()
     sess = tf.Session(config=tf.ConfigProto(gpu_options=gpu_options), graph= g_predictor)
     with sess.as_default():
@@ -42,8 +44,6 @@ def setup_predictor(conf, gpu_id = 0, ngpu=None):
                 adim = 2
                 sdim = 4
 
-            print 'adim', adim
-            print 'sdim', sdim
 
             actions_pl = tf.placeholder(tf.float32, name= 'actions',
                                      shape=(conf['batch_size'], conf['sequence_length'], adim))
@@ -60,11 +60,12 @@ def setup_predictor(conf, gpu_id = 0, ngpu=None):
                 model = Model(conf, images_pl, actions_pl, states_pl,reuse_scope= None, pix_distrib= pix_distrib)
 
 
-            sess.run(tf.initialize_all_variables())
+            sess.run(tf.global_variables_initializer())
 
             vars_without_state = filter_vars(tf.get_collection(tf.GraphKeys.VARIABLES))
             saver = tf.train.Saver(vars_without_state, max_to_keep=0)
             saver.restore(sess, conf['pretrained_model'])
+
 
             def predictor_func(input_images=None, input_one_hot_images1=None,
                                input_state=None, input_actions=None):

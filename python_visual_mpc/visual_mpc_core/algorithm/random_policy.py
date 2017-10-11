@@ -1,16 +1,13 @@
 """ This file defines the linear Gaussian policy class. """
 import numpy as np
 
-from lsdc.algorithm.policy.policy import Policy
-from lsdc.utility.general_utils import check_shape
 
 
-class Randompolicy(Policy):
+class Randompolicy():
     """
     Random Policy
     """
     def __init__(self, agentparams, policyparams):
-        Policy.__init__(self)
         self.agentparams = agentparams
         self.policyparams = policyparams
         self.actions = []

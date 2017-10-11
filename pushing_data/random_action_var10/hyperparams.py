@@ -6,15 +6,10 @@ import os.path
 
 import numpy as np
 
-from lsdc import __file__ as gps_filepath
-from lsdc.agent.mjc.agent_mjc import AgentMuJoCo
-from lsdc.algorithm.policy.random_impedance_point import Random_impedance_point
-from lsdc.algorithm.policy.random_policy import Randompolicy
 
+from python_visual_mpc.visual_mpc_core.agent.agent_mjc import AgentMuJoCo
+from python_visual_mpc.visual_mpc_core.algorithm.random_policy import Randompolicy
 
-from lsdc.proto.gps_pb2 import JOINT_ANGLES, JOINT_VELOCITIES, \
-        END_EFFECTOR_POINTS, END_EFFECTOR_POINT_VELOCITIES, ACTION, \
-        RGB_IMAGE, RGB_IMAGE_SIZE
 
 IMAGE_WIDTH = 64
 IMAGE_HEIGHT = 64
@@ -23,16 +18,17 @@ IMAGE_CHANNELS = 3
 num_objects = 4
 
 SENSOR_DIMS = {
-    JOINT_ANGLES: 2+ 7*num_objects,  #adding 7 dof for position and orientation for every free object
-    JOINT_VELOCITIES: 2+ 6*num_objects,  #adding 6 dof for speed and angular vel for every free object; 2 + 6 = 8
-    END_EFFECTOR_POINTS: 3,
-    END_EFFECTOR_POINT_VELOCITIES: 3,
-    ACTION: 2,
+    "JOINT_ANGLES": 2+ 7*num_objects,  #adding 7 dof for position and orientation for every free object
+    "JOINT_VELOCITIES": 2+ 6*num_objects,  #adding 6 dof for speed and angular vel for every free object; 2 + 6 = 8
+    "END_EFFECTOR_POINTS": 3,
+    "END_EFFECTOR_POINT_VELOCITIES": 3,
+    "ACTION": 2,
     # RGB_IMAGE: IMAGE_WIDTH*IMAGE_HEIGHT*IMAGE_CHANNELS,
-    RGB_IMAGE_SIZE: 3,
+    "RGB_IMAGE_SIZE": 3,
 }
 
 BASE_DIR = '/'.join(str.split(__file__, '/')[:-1])
+VISUAL_MPC_DIR = '/'.join(str.split(__file__, '/')[:-3])
 
 common = {
     'experiment_name': 'my_experiment' + '_' + \
@@ -50,8 +46,8 @@ if not os.path.exists(common['data_files_dir']):
 
 agent = {
     'type': AgentMuJoCo,
-    'filename': './mjc_models/pushing2d.xml',
-    'filename_nomarkers': './mjc_models/pushing2d.xml',
+    'filename': VISUAL_MPC_DIR +'/mjc_models/pushing2d.xml',
+    'filename_nomarkers': VISUAL_MPC_DIR +'/mjc_models/pushing2d.xml',
     'data_collection': True,
     'x0': np.array([0., 0., 0., 0.]),
     'dt': 0.05,
@@ -59,15 +55,8 @@ agent = {
     'conditions': common['conditions'],
     'T': 15,
     'skip_first': 5,   #skip first N time steps to let the scene settle
-    'sensor_dims': SENSOR_DIMS,
-    'state_include': [JOINT_ANGLES, JOINT_VELOCITIES, END_EFFECTOR_POINTS,
-                      END_EFFECTOR_POINT_VELOCITIES],
-    'obs_include': [JOINT_ANGLES, JOINT_VELOCITIES, END_EFFECTOR_POINTS,
-                    END_EFFECTOR_POINT_VELOCITIES],
 
     #adding 7 dof for position and orentation of free object
-    'joint_angles': SENSOR_DIMS[JOINT_ANGLES],
-    'joint_velocities': SENSOR_DIMS[JOINT_VELOCITIES],
     'additional_viewer': True,
     'image_dir': common['data_files_dir'] + "imagedata_file",
     'image_height' : IMAGE_HEIGHT,
