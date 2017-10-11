@@ -258,6 +258,8 @@ class Base_Prediction_Model(object):
                 output += vec * mask
             flow_vectors = output
 
+            self.prediction_flow.append(flow_vectors)
+
 
     def apply_cdna(self, enc6, hidden5, prev_image, prev_pix_distrib1, prev_pix_distrib2):
         if 'gen_pix' in self.conf:

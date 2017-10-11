@@ -24,11 +24,15 @@ import pdb
 
 import matplotlib.pyplot as plt
 
+from python_visual_mpc.video_prediction.read_tf_record_sawyer12 import build_tfrecord_input as build_tfrecord_fn
+
+# from python_visual_mpc.video_prediction.read_tf_record_wristrot import build_tfrecord_input as build_tfrecord_fn
+
 from python_visual_mpc.video_prediction.utils_vpred.adapt_params_visualize import adapt_params_visualize
 from tensorflow.python.platform import app
 from tensorflow.python.platform import flags
 
-from python_visual_mpc.video_prediction.read_tf_record_wristrot import build_tfrecord_input
+
 
 from datetime import datetime
 
@@ -210,8 +214,6 @@ def visualize(conf):
     gpu_options = tf.GPUOptions(per_process_gpu_memory_fraction=0.4)
     # Make training session.
 
-
-
     sess = tf.InteractiveSession(config=tf.ConfigProto(gpu_options=gpu_options))
 
     tf.train.start_queue_runners(sess)
@@ -233,18 +235,21 @@ def visualize(conf):
     print 'restore done.'
 
     conf['batch_size'] = 10
-    val_images, _, _ = build_tfrecord_input(conf, training=False)
+
+
+    val_images, _, _ = build_tfrecord_fn(conf, training=False)
     tf.train.start_queue_runners(sess)
 
     [ground_truth] = sess.run([val_images])
 
-    b_exp = 2
+    b_exp = 1
     initial_img = ground_truth[b_exp][0]
     c = Getdesig(initial_img, conf, 'b{}'.format(b_exp))
     desig_pos_aux1 = c.coords.astype(np.int32)
     # desig_pos_aux1 = np.array([31, 29])
 
     output_distrib_list, transformed10_list, transformed01_list, flow01_list, flow10_list = [], [], [], [], []
+    masks01_l, masks10_l = [], []
 
     pos_list = []
     heat_maps = []
@@ -257,14 +262,18 @@ def visualize(conf):
                      }
 
         if 'forward_backward' in conf:
-            transformed01, transformed10, d0, d1, flow01, flow10 = sess.run([model.d.transformed01,
+            transformed01, transformed10, d0, d1, flow01, flow10, masks01, masks10 = sess.run([model.d.transformed01,
                                                                              model.d.transformed10,
                                                                              model.d.d0,
                                                                              model.d.d1,
                                                                              model.d.flow_vectors01,
-                                                                             model.d.flow_vectors10], feed_dict)
+                                                                             model.d.flow_vectors10,
+                                                                             model.d.masks01,
+                                                                             model.d.masks10], feed_dict)
             transformed10_list.append(transformed10)
             flow10_list.append(flow10)
+
+            masks10_l.append(masks10)
         else:
             transformed01, d0, d1, flow01 = sess.run([model.d.transformed01,
                                                       model.d.d0,
@@ -273,6 +282,7 @@ def visualize(conf):
 
         flow01_list.append(flow01)
         transformed01_list.append(transformed01)
+        masks01_l.append(masks01)
 
         d0 = np.squeeze(d0)
         d1 = np.squeeze(d1)
@@ -316,8 +326,11 @@ def visualize(conf):
 
     dict['transformed01'] = transformed01_list
 
-    pos_list = [np.expand_dims(p,axis=0) for p in pos_list]
-    dict['overlay_ground_truth'] = pos_list
+    dict['masks01'] = masks01_l
+    dict['masks10'] = masks10_l
+
+    # pos_list = [np.expand_dims(p,axis=0) for p in pos_list]
+    # dict['overlay_ground_truth'] = pos_list
 
     dict['iternum'] = itr_vis
 
@@ -378,17 +391,30 @@ def main(unused_argv, conf_script= None):
         print key, ': ', conf[key]
     print '-------------------------------------------------------------------'
 
+
+    # if 'adim' in conf:
+    #     if conf['adim'] == 5:
+    #         from python_visual_mpc.video_prediction.read_tf_record_wristrot import build_tfrecord_input as build_tfrecord_fn
+    #     else:
+    #         from python_visual_mpc.video_prediction.read_tf_record_sawyer12 import build_tfrecord_input as build_tfrecord_fn
+    # else:
+    #     from python_visual_mpc.video_prediction.read_tf_record_sawyer12 import build_tfrecord_input as build_tfrecord_fn
+
     if conf['visualize']:
         print 'visualizing'
         visualize(conf)
 
     print 'Constructing models and inputs'
     with tf.variable_scope('model', reuse=None) as training_scope:
-        images,_ , _ = build_tfrecord_input(conf, training=True)
+        images,_ , _ = build_tfrecord_fn(conf, training=True)
+        ##
+
+
+        ##
         model = DescriptorModel(conf, images)
 
     with tf.variable_scope('val_model', reuse=None):
-        val_images,_ , _ = build_tfrecord_input(conf, training=False)
+        val_images,_ , _ = build_tfrecord_fn(conf, training=False)
         val_model = DescriptorModel(conf, val_images, reuse_scope=training_scope)
 
     print 'Constructing saver.'

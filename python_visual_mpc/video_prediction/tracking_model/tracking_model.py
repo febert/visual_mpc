@@ -69,6 +69,7 @@ class Tracking_Model(Base_Prediction_Model):
         self.tracking_kerns = []
         self.tracking_gen_images = []
         self.tracking_flow01 = []
+        self.tracking_flow10 = []
         self.tracking_gendistrib = []
 
         for t, image, action in zip(range(len(self.images)-1), self.images[:-1], self.actions[:-1]):
@@ -96,7 +97,7 @@ class Tracking_Model(Base_Prediction_Model):
 
             self.tracking_flow01.append(tr.flow_vectors01)
             if isinstance(tr, Descriptor_Flow) and 'forward_backward' in self.conf:
-                self.tracking_flow01.append(tr.flow_vectors01)
+                self.tracking_flow10.append(tr.flow_vectors10)
 
         self.build_loss()
 

@@ -78,10 +78,11 @@ def main(unused_argv, conf_script= None):
     if FLAGS.visualize:
         images, actions, states = build_tfrecord_input(conf, training=True)
 
-    if FLAGS.diffmotions:
-        model = Model(conf, load_data =False, trafo_pix=True)
-    elif "visualize_tracking" in conf:
-        model = Model(conf, load_data=False, trafo_pix=True)
+    if FLAGS.visualize:
+        if FLAGS.diffmotions or "visualize_tracking" in conf:
+            model = Model(conf, load_data =False, trafo_pix=True)
+        else:
+            model = Model(conf, load_data=False, trafo_pix=False)
     else:
         model = Model(conf, load_data=True, trafo_pix=False)
 
@@ -198,7 +199,7 @@ def main(unused_argv, conf_script= None):
             v.build_figure()
         else:
             image_data, actions_data, state_data = sess.run([images, actions, states])
-            if isinstance(model, Tracking_Model):
+            if isinstance(model, Tracking_Model) and "visualize_tracking" in conf:
                 desig_pos_l = []
                 load_desig_pos = False
                 if load_desig_pos:
@@ -213,20 +214,32 @@ def main(unused_argv, conf_script= None):
                 pix_distrib = np.concatenate(create_one_hot(conf, desig_pos_l), axis=0)
 
                 feed_dict[model.pix_distrib_pl] = pix_distrib
-                feed_dict[model.states_pl] = state_data
-                feed_dict[model.images_pl] = image_data
-                feed_dict[model.actions_pl] = actions_data
+
+            feed_dict[model.states_pl] = state_data
+            feed_dict[model.images_pl] = image_data
+            feed_dict[model.actions_pl] = actions_data
 
             assert conf['schedsamp_k'] == -1
-            ground_truth, gen_images, gen_masks, pred_flow, track_flow, gen_distrib, track_gendistrib = sess.run([model.images,
-                                                                                model.gen_images,
-                                                                                model.gen_masks,
-                                                                                model.prediction_flow,
-                                                                                model.tracking_flow01,
-                                                                                model.gen_distrib1,
-                                                                                model.tracking_gendistrib
-                                                                                ],
-                                                                               feed_dict)
+            if "visualize_tracking" in conf:
+                ground_truth, gen_images, gen_masks, pred_flow, track_flow, gen_distrib, track_gendistrib = sess.run([model.images,
+                                                                                    model.gen_images,
+                                                                                    model.gen_masks,
+                                                                                    model.prediction_flow,
+                                                                                    model.tracking_flow01,
+                                                                                    model.gen_distrib1,
+                                                                                    model.tracking_gendistrib
+                                                                                    ],
+                                                                                   feed_dict)
+            else:
+                ground_truth, gen_images, gen_masks, pred_flow, track_flow = sess.run(
+                    [model.images,
+                     model.gen_images,
+                     model.gen_masks,
+                     model.prediction_flow,
+                     model.tracking_flow01,
+                     ],
+                    feed_dict)
+
             dict = collections.OrderedDict()
             dict['ground_truth'] = ground_truth
             dict['gen_images'] = gen_images
@@ -234,8 +247,10 @@ def main(unused_argv, conf_script= None):
             dict['iternum'] = itr_vis
             dict['prediction_flow'] = pred_flow
             dict['tracking_flow'] = track_flow
-            dict['gen_distrib'] = gen_distrib
-            dict['track_gen_distrib'] = track_gendistrib
+
+            if "visualize_tracking" in conf:
+                dict['gen_distrib'] = gen_distrib
+                dict['track_gen_distrib'] = track_gendistrib
 
             cPickle.dump(dict, open(file_path + '/pred.pkl', 'wb'))
             print 'written files to:' + file_path

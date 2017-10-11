@@ -445,7 +445,7 @@ def convert_to_videolist(input, repeat_last_dim):
 if __name__ == '__main__':
     # file_path = '/home/frederik/Documents/catkin_ws/src/visual_mpc/tensorflow_data/sawyer/data_amount_study/5percent_of_data/modeldata'
     # file_path = '/home/frederik/Documents/catkin_ws/src/visual_mpc/tensorflow_data/sawyer/dna_correct_nummask/modeldata'
-    file_path = '/home/frederik/Documents/catkin_ws/src/visual_mpc/tensorflow_data/dense_flow/descriptor_model/inv_euc_bilin_fwdbck/modeldata'
+    file_path = '/home/frederik/Documents/catkin_ws/src/visual_mpc/tensorflow_data/dense_flow/descriptor_model/masks/modeldata'
 
     v  = Visualizer_tkinter(append_masks=False, gif_savepath=file_path, numex=1, renorm_heatmpas=False)
     v.build_figure()
