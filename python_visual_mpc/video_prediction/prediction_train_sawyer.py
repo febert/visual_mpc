@@ -260,13 +260,12 @@ def main(unused_argv, conf_script= None):
     else:
         from read_tf_record import build_tfrecord_input
 
-
     if 'height' in conf and 'width' in conf:
-	img_height = conf['height']
-	img_width = conf['width']
+        img_height = conf['height']
+        img_width = conf['width']
     else:
-	img_height = 64
-	img_width = 64
+        img_height = 64
+        img_width = 64
 
     print 'Constructing models and inputs.'
     if FLAGS.diffmotions:
@@ -277,11 +276,11 @@ def main(unused_argv, conf_script= None):
                                    shape=(conf['batch_size'], conf['sequence_length'], 3))
 
         images_pl = tf.placeholder(tf.float32, name='images',
-				    shape=(conf['batch_size'], conf['sequence_length'], img_height, img_width, 3))
+                                   shape=(conf['batch_size'], conf['sequence_length'], img_height, img_width, 3))
         val_images, _, val_states = build_tfrecord_input(conf, training=False)
 
         pix_distrib_pl = tf.placeholder(tf.float32, name='states',
-					 shape=(conf['batch_size'], conf['sequence_length'], img_height, img_width, 1))
+                                        shape=(conf['batch_size'], conf['sequence_length'], img_height, img_width, 1))
 
         with tf.variable_scope('model', reuse=None):
             val_model = Model(conf, images_pl, actions_pl, states_pl, pix_distrib=pix_distrib_pl,
@@ -519,11 +518,11 @@ def main(unused_argv, conf_script= None):
 
 def create_one_hot(conf, desig_pix):
     if 'height' in conf and 'width' in conf:
-	 img_height = conf['height']
-	 img_width = conf['width']
+        img_height = conf['height']
+        img_width = conf['width']
     else:
-	 img_height = 64
-	 img_width = 64
+        img_height = 64
+        img_width = 64
     one_hot = np.zeros((1, 1, img_height, img_width, 1), dtype=np.float32)
     # switch on pixels
     one_hot[0, 0, desig_pix[0], desig_pix[1]] = 1.
