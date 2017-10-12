@@ -73,8 +73,6 @@ class Model(object):
 
         self.conf = conf
 
-        # images = images[:, :, :48, :, :]  # crop images
-
         if 'use_len' in conf:
             print 'randomly shift videos for data augmentation'
             images, states, actions  = self.random_shift(images, states, actions)
@@ -95,6 +93,7 @@ class Model(object):
             states = [tf.squeeze(st) for st in states]
         images = tf.split(axis=1, num_or_size_splits=images.get_shape()[1], value=images)
         images = [tf.squeeze(img) for img in images]
+
         if pix_distrib != None:
             pix_distrib = tf.split(axis=1, num_or_size_splits=pix_distrib.get_shape()[1], value=pix_distrib)
             pix_distrib = [tf.squeeze(pix) for pix in pix_distrib]
@@ -136,8 +135,13 @@ class Model(object):
             true_fft_list, pred_fft_list = [], []
             loss, psnr_all = 0.0, 0.0
 
-            self.fft_weights = tf.placeholder(tf.float32, [64, 64])
-            # self.fft_weights = tf.placeholder(tf.float32, [48, 64])
+	    if 'height' in conf and 'width' in conf:
+		img_height = conf['height']
+		img_width = conf['width']
+	    else:
+		img_height = 64
+		img_width = 64
+            self.fft_weights = tf.placeholder(tf.float32, [img_height, img_width])
 
             for i, x, gx in zip(
                     range(len(self.m.gen_images)), images[conf['context_frames']:],
@@ -256,6 +260,14 @@ def main(unused_argv, conf_script= None):
     else:
         from read_tf_record import build_tfrecord_input
 
+
+    if 'height' in conf and 'width' in conf:
+	img_height = conf['height']
+	img_width = conf['width']
+    else:
+	img_height = 64
+	img_width = 64
+
     print 'Constructing models and inputs.'
     if FLAGS.diffmotions:
 
@@ -265,17 +277,11 @@ def main(unused_argv, conf_script= None):
                                    shape=(conf['batch_size'], conf['sequence_length'], 3))
 
         images_pl = tf.placeholder(tf.float32, name='images',
-                                   shape=(conf['batch_size'], conf['sequence_length'], 64, 64, 3))
-
-        # images_pl = tf.placeholder(tf.float32, name='images',
-        #                            shape=(conf['batch_size'], conf['sequence_length'], 48, 64, 3))
+				    shape=(conf['batch_size'], conf['sequence_length'], img_height, img_width, 3))
         val_images, _, val_states = build_tfrecord_input(conf, training=False)
 
         pix_distrib_pl = tf.placeholder(tf.float32, name='states',
-                                        shape=(conf['batch_size'], conf['sequence_length'], 64, 64, 1))
-
-        # pix_distrib_pl = tf.placeholder(tf.float32, name='states',
-        #                                 shape=(conf['batch_size'], conf['sequence_length'], 48, 64, 1))
+					 shape=(conf['batch_size'], conf['sequence_length'], img_height, img_width, 1))
 
         with tf.variable_scope('model', reuse=None):
             val_model = Model(conf, images_pl, actions_pl, states_pl, pix_distrib=pix_distrib_pl,
@@ -286,7 +292,7 @@ def main(unused_argv, conf_script= None):
 
             with tf.variable_scope('half_float', reuse=None):
                 val_images_aux1, val_actions, val_states = build_tfrecord_input(conf, training=False)
-                val_images = val_images_aux1
+                val_images = val_images_aux1[:, :, :img_height, :, :]
 
                 val_images = tf.cast(val_images, tf.float16)
                 val_actions = tf.cast(val_actions, tf.float16)
@@ -296,17 +302,16 @@ def main(unused_argv, conf_script= None):
         else:
             with tf.variable_scope('model', reuse=None) as training_scope:
                 images_aux1, actions, states = build_tfrecord_input(conf, training=True)
-                images = images_aux1
+                images = images_aux1[:, :, :img_height, :, :]
 
                 model = Model(conf, images, actions, states, inference=inference)
 
             with tf.variable_scope('val_model', reuse=None):
                 val_images_aux1, val_actions, val_states = build_tfrecord_input(conf, training=False)
-                val_images = val_images_aux1
+                val_images = val_images_aux1[:, :, :img_height, :, :]
 
                 val_model = Model(conf, val_images, val_actions, val_states,
                                   training_scope, inference=inference)
-
 
     print 'Constructing saver.'
     # Make saver.
@@ -347,7 +352,7 @@ def main(unused_argv, conf_script= None):
 
             b_exp, ind0 =0, 0
 
-            img, state = sess.run([val_images, val_states])
+            img, state = sess.run([val_images[:, :, :img_height, :, :], val_states])
             sel_img= img[b_exp,ind0:ind0+2]
 
             c = Getdesig(sel_img[0], conf, 'b{}'.format(b_exp))
@@ -367,8 +372,7 @@ def main(unused_argv, conf_script= None):
             start_states = np.repeat(start_states, conf['batch_size'], axis=0)  # copy over batch
             feed_dict[states_pl] = start_states
 
-            start_images = np.concatenate([sel_img,np.zeros((conf['sequence_length']-2, 64, 64, 3))])
-            # start_images = np.concatenate([sel_img, np.zeros((conf['sequence_length'] - 2, 48, 64, 3))])
+            start_images = np.concatenate([sel_img, np.zeros((conf['sequence_length'] - 2, img_height, img_width, 3))])
 
             start_images = np.expand_dims(start_images, axis=0)
             start_images = np.repeat(start_images, conf['batch_size'], axis=0)  # copy over batch
@@ -514,13 +518,17 @@ def main(unused_argv, conf_script= None):
 
 
 def create_one_hot(conf, desig_pix):
-    one_hot = np.zeros((1, 1, 64, 64, 1), dtype=np.float32)
-    # one_hot = np.zeros((1, 1, 48, 64, 1), dtype=np.float32)
+    if 'height' in conf and 'width' in conf:
+	 img_height = conf['height']
+	 img_width = conf['width']
+    else:
+	 img_height = 64
+	 img_width = 64
+    one_hot = np.zeros((1, 1, img_height, img_width, 1), dtype=np.float32)
     # switch on pixels
     one_hot[0, 0, desig_pix[0], desig_pix[1]] = 1.
     one_hot = np.repeat(one_hot, conf['context_frames'], axis=1)
-    app_zeros = np.zeros((1, conf['sequence_length']- conf['context_frames'], 64, 64, 1), dtype=np.float32)
-    # app_zeros = np.zeros((1, conf['sequence_length']- conf['context_frames'], 48, 64, 1), dtype=np.float32)
+    app_zeros = np.zeros((1, conf['sequence_length'] - conf['context_frames'], img_height, img_width, 1), dtype=np.float32)
     one_hot = np.concatenate([one_hot, app_zeros], axis=1)
     one_hot = np.repeat(one_hot, conf['batch_size'], axis=0)
 
