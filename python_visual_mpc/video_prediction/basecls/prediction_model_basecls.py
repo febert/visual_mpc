@@ -62,15 +62,14 @@ class Base_Prediction_Model(object):
             pix_distrib1  = self.pix_distrib_pl
 
         else:
-            if 'sawyer' in conf:
-                from python_visual_mpc.video_prediction.read_tf_record_sawyer12 import build_tfrecord_input
+            if 'adim' in conf:
+                from python_visual_mpc.video_prediction.read_tf_record_wristrot import \
+                    build_tfrecord_input as build_tfrecord_fn
             else:
-                from python_visual_mpc.video_prediction.read_tf_record import build_tfrecord_input
-
-
-            train_images, train_actions, train_states = build_tfrecord_input(conf, training=True)
-            val_images, val_actions, val_states = build_tfrecord_input(conf, training=False)
-
+                from python_visual_mpc.video_prediction.read_tf_record_sawyer12 import \
+                    build_tfrecord_input as build_tfrecord_fn
+            train_images, train_actions, train_states = build_tfrecord_fn(conf, training=True)
+            val_images, val_actions, val_states = build_tfrecord_fn(conf, training=False)
 
             images, actions, states = tf.cond(self.train_cond > 0,  # if 1 use trainigbatch else validation batch
                                              lambda: [train_images, train_actions, train_states],
@@ -550,7 +549,8 @@ class Base_Prediction_Model(object):
             pix_distrib_output += pix* mask
         return pix_distrib_output
 
-
+    def visualize(self, sess, image_data, action_data, state_data):
+        raise NotImplementedError
 
 
 def scheduled_sample(ground_truth_x, generated_x, batch_size, num_ground_truth):

@@ -7,12 +7,11 @@ DATA_DIR = '/'.join(str.split(current_dir, '/')[:-4]) + '/pushing_data/softmotio
 # local output directory
 OUT_DIR = current_dir + '/modeldata'
 
-from python_visual_mpc.video_prediction.tracking_model.tracking_model import Tracking_Model
-
+from python_visual_mpc.video_prediction.tracking_model.descp_tracking_model import DescpTracking_Model
 from python_visual_mpc.flow.descriptor_based_flow.descriptor_flow_model import Descriptor_Flow
 
 configuration = {
-'pred_model': Tracking_Model,
+'pred_model': DescpTracking_Model,
 'tracker': Descriptor_Flow,
 'data_dir': DATA_DIR,       # 'directory containing data.' ,
 'output_dir': OUT_DIR,      #'directory for model checkpoints.' ,
