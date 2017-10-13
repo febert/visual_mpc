@@ -26,8 +26,8 @@ def build_tfrecord_input(conf, training=True):
       RuntimeError: if no files found.
     """
 
-    if 'statedim' in conf:
-        sdim = conf['statedim']
+    if 'sdim' in conf:
+        sdim = conf['sdim']
     else: sdim = 3
     if 'adim' in conf:
         adim = conf['adim']

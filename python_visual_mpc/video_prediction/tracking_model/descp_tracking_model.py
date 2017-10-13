@@ -28,7 +28,7 @@ class DescpTracking_Model(Tracking_Model):
 
         feed_dict = {}
         desig_pos_l = []
-        load_desig_pos = True
+        load_desig_pos = False
         if load_desig_pos:
             desig_pos_l = cPickle.load(open('utils/desig_pos.pkl', "rb"))
         else:
@@ -103,7 +103,7 @@ def add_crosshairs(images, pos):
     for b in range(images[0].shape[0]):
         for t in range(len(images)-1):
             im = np.squeeze(images[t+1][b])
-            p = pos[b,t]
+            p = pos[b,t].astype(np.int)
             im[p[0]-5:p[0]-2,p[1]] = np.array([0, 1,1])
             im[p[0]+3:p[0]+6, p[1]] = np.array([0, 1, 1])
 

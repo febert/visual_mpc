@@ -428,7 +428,7 @@ class RobotRecorder(object):
         # saving the full resolution image
         if self.ltob.img_cv2 is not None:
             image_name = self.image_folder+ "/" + pref + "_full_cropped_im{0}".format(str(i_save).zfill(2))
-            image_name += "_time{1}.jpg".format(self.ltob.tstamp_img)
+            image_name += "_time{0}.jpg".format(self.ltob.tstamp_img)
 
             cv2.imwrite(image_name, self.ltob.img_cv2, [int(cv2.IMWRITE_JPEG_QUALITY), 80])
         else:

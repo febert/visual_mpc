@@ -44,13 +44,16 @@ class Base_Prediction_Model(object):
         self.batch_size = conf['batch_size']
 
         self.train_cond = tf.placeholder(tf.int32, shape=[], name="train_cond")
+        self.sdim = conf['sdim']
+        self.adim = conf['adim']
+
         if not load_data:
             self.actions_pl = tf.placeholder(tf.float32, name='actions',
-                                        shape=(conf['batch_size'], conf['sequence_length'], 4))
+                                        shape=(conf['batch_size'], conf['sequence_length'], self.adim))
             actions = self.actions_pl
 
             self.states_pl = tf.placeholder(tf.float32, name='states',
-                                       shape=(conf['batch_size'], conf['sequence_length'], 3))
+                                       shape=(conf['batch_size'], conf['sequence_length'], self.sdim))
             states = self.states_pl
 
             self.images_pl = tf.placeholder(tf.float32, name='images',
