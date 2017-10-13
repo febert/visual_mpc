@@ -28,7 +28,6 @@ from python_visual_mpc.video_prediction.utils_vpred.animate_tkinter import Visua
 from python_visual_mpc.video_prediction.tracking_model.tracking_model import Tracking_Model
 from python_visual_mpc.flow.descriptor_based_flow.descriptor_flow_model import Descriptor_Flow
 from python_visual_mpc.flow.trafo_based_flow.correction import Trafo_Flow
-from utils.visualize_diffmotions import visualize_diffmotions
 
 from PIL import Image
 
@@ -40,7 +39,6 @@ if __name__ == '__main__':
     flags.DEFINE_integer('device', 0 ,'the value for CUDA_VISIBLE_DEVICES variable')
     flags.DEFINE_string('pretrained', None, 'path to model file from which to resume training')
     flags.DEFINE_bool('diffmotions', False, 'visualize several different motions for a single scene')
-
 
 
 def main(unused_argv, conf_script= None):
@@ -78,21 +76,10 @@ def main(unused_argv, conf_script= None):
     else:
         Model = Base_Prediction_Model
 
-    if 'adim' in conf:
-        from python_visual_mpc.video_prediction.read_tf_record_wristrot import \
-            build_tfrecord_input as build_tfrecord_fn
-    else:
-        from python_visual_mpc.video_prediction.read_tf_record_sawyer12 import \
-            build_tfrecord_input as build_tfrecord_fn
 
-    if FLAGS.visualize:
-        images, actions, states = build_tfrecord_fn(conf, training=True)
+    if FLAGS.diffmotions or "visualize_tracking" in conf:
 
-    if FLAGS.visualize:
-        if FLAGS.diffmotions or "visualize_tracking" in conf:
-            model = Model(conf, load_data =False, trafo_pix=True)
-        else:
-            model = Model(conf, load_data=False, trafo_pix=False)
+        model = Model(conf, load_data =False, trafo_pix=True)
     else:
         model = Model(conf, load_data=True, trafo_pix=False)
 
@@ -113,102 +100,19 @@ def main(unused_argv, conf_script= None):
     sess.run(tf.global_variables_initializer())
 
     if conf['visualize']:
-
         print '-------------------------------------------------------------------'
         print 'verify current settings!! '
         for key in conf.keys():
             print key, ': ', conf[key]
         print '-------------------------------------------------------------------'
 
-        import re
-        itr_vis = re.match('.*?([0-9]+)$', conf['visualize']).group(1)
-
         saver.restore(sess, conf['visualize'])
         print 'restore done.'
 
-        feed_dict = {
-                     model.iter_num: 0,
-                     model.train_cond: 0}
-
-        file_path = conf['output_dir']
-
-
         if FLAGS.diffmotions:
-            b_exp, ind0 = 0, 0
-
-            img, state = sess.run([images, states])
-            sel_img = img[b_exp, ind0:ind0 + 2]
-
-            # c = Getdesig(sel_img[0], conf, 'b{}'.format(b_exp))
-            # desig_pos_aux1 = c.coords.astype(np.int32)
-            desig_pos = np.array([30, 31])
-            # print "selected designated position for aux1 [row,col]:", desig_pos_aux1
-
-            one_hot = create_one_hot(conf, desig_pos)
-
-            feed_dict[model.pix_distrib_pl] = one_hot
-
-            sel_state = np.stack([state[b_exp, ind0], state[b_exp, ind0 + 1]], axis=0)
-
-            start_states = np.concatenate([sel_state, np.zeros((conf['sequence_length'] - 2, 3))])
-            start_states = np.expand_dims(start_states, axis=0)
-            start_states = np.repeat(start_states, conf['batch_size'], axis=0)  # copy over batch
-            feed_dict[model.states_pl] = start_states
-
-            start_images = np.concatenate([sel_img, np.zeros((conf['sequence_length'] - 2, 64, 64, 3))])
-
-            start_images = np.expand_dims(start_images, axis=0)
-            start_images = np.repeat(start_images, conf['batch_size'], axis=0)  # copy over batch
-            feed_dict[model.images_pl] = start_images
-
-            actions = np.zeros([conf['batch_size'], conf['sequence_length'], 4])
-
-            # step = .025
-            step = .055
-            n_angles = 8
-            for b in range(n_angles):
-                for i in range(conf['sequence_length']):
-                    actions[b, i] = np.array(
-                        [np.cos(b / float(n_angles) * 2 * np.pi) * step, np.sin(b / float(n_angles) * 2 * np.pi) * step,
-                         0, 0])
-
-            b += 1
-            actions[b, 0] = np.array([0, 0, 4, 0])
-            actions[b, 1] = np.array([0, 0, 4, 0])
-
-            b += 1
-            actions[b, 0] = np.array([0, 0, 0, 4])
-            actions[b, 1] = np.array([0, 0, 0, 4])
-
-            feed_dict[model.actions_pl] = actions
-
-            gen_images, gen_distrib, gen_masks = sess.run(
-                [model.gen_images,
-                 model.gen_distrib1,
-                 model.gen_masks,
-                 model.prediction_flow,
-                 # model.tracking_flow
-                 ]
-                , feed_dict)
-
-            dict = collections.OrderedDict()
-            dict['gen_images'] = gen_images
-            dict['gen_distrib'] = gen_distrib
-            dict['gen_masks'] = gen_masks
-            dict['iternum'] = itr_vis
-
-            # dict['prediction_flow'] = pred_flow
-            # dict['tracking_flow'] = track_flow
-
-            cPickle.dump(dict, open(file_path + '/pred.pkl', 'wb'))
-            print 'written files to:' + file_path
-
-            v = Visualizer_tkinter(dict, numex=4, append_masks=False,
-                                   gif_savepath=conf['output_dir'],
-                                   suf='_diffmotions_b{}_l{}'.format(b_exp, conf['sequence_length']))
-            v.build_figure()
+            model.visualize_diffmotions(sess)
         else:
-            model.visualize(sess, images, actions, states)
+            model.visualize(sess)
 
     itr_0 =0
     if FLAGS.pretrained != None:
@@ -277,36 +181,6 @@ def main(unused_argv, conf_script= None):
     tf.logging.flush()
 
 
-def create_one_hot(conf, desig_pix_l):
-    """
-    :param conf:
-    :param desig_pix:
-    :param repeat_b: create batch of same distribs
-    :return:
-    """
-    if isinstance(desig_pix_l, list):
-        one_hot_l = []
-        for i in range(len(desig_pix_l)):
-            desig_pix = desig_pix_l[i]
-            one_hot = np.zeros((1, 1, 64, 64, 1), dtype=np.float32)
-            # switch on pixels
-            one_hot[0, 0, desig_pix[0], desig_pix[1]] = 1.
-            one_hot = np.repeat(one_hot, conf['context_frames'], axis=1)
-            app_zeros = np.zeros((1, conf['sequence_length'] - conf['context_frames'], 64, 64, 1), dtype=np.float32)
-            one_hot = np.concatenate([one_hot, app_zeros], axis=1)
-            one_hot_l.append(one_hot)
-
-        return one_hot_l
-    else:
-        one_hot = np.zeros((1, 1, 64, 64, 1), dtype=np.float32)
-        # switch on pixels
-        one_hot[0, 0, desig_pix_l[0], desig_pix_l[1]] = 1.
-        one_hot = np.repeat(one_hot, conf['context_frames'], axis=1)
-        app_zeros = np.zeros((1, conf['sequence_length']- conf['context_frames'], 64, 64, 1), dtype=np.float32)
-        one_hot = np.concatenate([one_hot, app_zeros], axis=1)
-        one_hot = np.repeat(one_hot, conf['batch_size'], axis=0)
-
-        return one_hot
 
 def filter_vars(vars):
     newlist = []

@@ -24,6 +24,16 @@ class DescpTracking_Model(Tracking_Model):
                                 mode=mode)
 
     def visualize(self, sess, images, actions, states):
+        if 'adim' in self.conf:
+            from python_visual_mpc.video_prediction.read_tf_record_wristrot import \
+                build_tfrecord_input as build_tfrecord_fn
+        else:
+            from python_visual_mpc.video_prediction.read_tf_record_sawyer12 import \
+                build_tfrecord_input as build_tfrecord_fn
+
+        images, actions, states = build_tfrecord_fn(self.conf, training=True)
+        tf.train.start_queue_runners(sess)
+
         image_data, action_data, state_data = sess.run([images, actions, states])
 
         feed_dict = {}

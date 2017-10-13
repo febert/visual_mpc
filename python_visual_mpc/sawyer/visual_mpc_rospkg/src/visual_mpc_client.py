@@ -445,7 +445,7 @@ class Visual_MPC_Client():
                                       self.canon_ind, self.canon_dir, only_desig=True)
                     self.desig_pos_main = c_main.desig.astype(np.int64)
                 elif 'opencv_tracking' in self.agentparams:
-                    self.desig_pos_main[0], self.desig_hpos_main = self.tracker.track_open_cv()  #tracking only works for 1 desig. pixel!!
+                    self.desig_pos_main[0], self.desig_hpos_main = self.tracker.get_track_open_cv()  #tracking only works for 1 desig. pixel!!
 
                 # print 'current position error', self.des_pos - self.get_endeffector_pos(pos_only=True)
 
@@ -476,7 +476,7 @@ class Visual_MPC_Client():
             if 'opencv_tracking' in self.agentparams:
                 if rospy.get_time() > t_track[isave_substep] - .01:
                     print 'tracking'
-                    self.desig_pos_main[0], self.desig_hpos_main = self.tracker.track_open_cv()
+                    self.desig_pos_main[0], self.desig_hpos_main = self.tracker.get_track_open_cv()
 
             if self.save_active:
                 if isave_substep < len(tsave):

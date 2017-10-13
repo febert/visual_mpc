@@ -1,7 +1,12 @@
 import cv2
 import numpy as np
 
-class OpenCV_Tracker():
+from visual_mpc_rospkg.srv import bbox
+import rospy
+import pdb
+
+
+class OpenCV_Track_Listener():
     def __init__(self, agentparams, recorder, desig_pos_main):
         self.recorder = recorder
         self.adim = agentparams['action_dim']
@@ -12,25 +17,17 @@ class OpenCV_Tracker():
         bbox = (loc[1] - self.box_height / 2., loc[0] - self.box_height / 2., self.box_height, self.box_height)  # for the small snow-man
         # bbox = cv2.selectROI(frame, False)
         print 'bbox', bbox
-        self.tracker = cv2.TrackerMIL_create()
-        self.tracker.init(frame, bbox)
 
-    def track_open_cv(self):
+        rospy.Subscriber("track_bbox", bbox, self.store_latest_track)
 
-        frame = self.recorder.ltob.img_cv2
-        ok, bbox = self.tracker.update(frame)
+    def store_latest_track(self, data):
+        pdb.set_trace()
+        self.bbox = np.array(data)
 
-        new_loc = np.array([int(bbox[1]), int(bbox[0])]) + np.array([float(self.box_height) / 2])
+    def get_track_open_cv(self):
+        new_loc = np.array([int(self.bbox[1]), int(self.bbox[0])]) + np.array([float(self.box_height) / 2])
         # Draw bounding box
-        p1 = (int(bbox[0]), int(bbox[1]))
-        p2 = (int(bbox[0] + bbox[2]), int(bbox[1] + bbox[3]))
-        cv2.rectangle(frame, p1, p2, (0, 0, 255))
-
-        # Display result
-        cv2.imshow("Tracking", frame)
-        k = cv2.waitKey(1) & 0xff
         return self.high_res_to_lowres(new_loc), new_loc
-
 
     def low_res_to_highres(self, inp):
         h = self.recorder.crop_highres_params
@@ -44,7 +41,6 @@ class OpenCV_Tracker():
 
         highres = highres.astype(np.int64)
         return highres
-
 
     def high_res_to_lowres(self, inp):
         h = self.recorder.crop_highres_params

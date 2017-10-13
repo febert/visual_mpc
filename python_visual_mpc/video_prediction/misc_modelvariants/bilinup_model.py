@@ -32,6 +32,7 @@ class Bilinup_Model(Base_Prediction_Model):
     def build_network_core(self, action, current_state, input_image):
         lstm_func = basic_conv_lstm_cell
 
+        print 'using bilinear upsampling'
 
         with slim.arg_scope(
                 [lstm_func, slim.layers.conv2d, slim.layers.fully_connected,

@@ -166,7 +166,7 @@ class Tracking_Model(Base_Prediction_Model):
             self.summ_op = tf.summary.merge(summaries)
 
 
-    def visualize(self, sess, image_data, action_data, state_data):
+    def visualize(self, sess, images, actions, states):
         print '-------------------------------------------------------------------'
         print 'verify current settings!! '
         for key in self.conf.keys():

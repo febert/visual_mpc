@@ -8,9 +8,11 @@ from python_visual_mpc.misc.zip_equal import zip_equal
 
 from utils.transformations import dna_transformation, cdna_transformation
 from utils.compute_motion_vecs import compute_motion_vector_dna, compute_motion_vector_cdna
-
+from python_visual_mpc.video_prediction.utils_vpred.animate_tkinter import Visualizer_tkinter
+import cPickle
+import collections
 import pdb
-
+from utils.visualize import visualize_diffmotions, visualize
 
 class Base_Prediction_Model(object):
 
@@ -552,9 +554,12 @@ class Base_Prediction_Model(object):
             pix_distrib_output += pix* mask
         return pix_distrib_output
 
-    def visualize(self, sess, image_data, action_data, state_data):
-        raise NotImplementedError
 
+    def visualize(self, sess):
+        visualize(sess, self)
+
+    def visualize_diffmotions(self, sess):
+        visualize_diffmotions(sess, self)
 
 def scheduled_sample(ground_truth_x, generated_x, batch_size, num_ground_truth):
     """Sample batch with specified mix of ground truth and generated data_files points.
