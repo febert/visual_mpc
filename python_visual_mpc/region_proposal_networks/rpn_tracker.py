@@ -8,7 +8,7 @@ import sys
 from python_visual_mpc.region_proposal_networks.Featurizer import BBProposer, AlexNetFeaturizer
 
 
-class RPN_Tracker(object, conf):
+class RPN_Tracker(object):
     def __init__(self):
         self.pix2boxes = {}
         self.feats = {}
@@ -43,6 +43,4 @@ class RPN_Tracker(object, conf):
     def get_task(self, image):
 
         boxes, feats = self.get_regions(image)
-
-
-
+        #TODO: filter out boxes
