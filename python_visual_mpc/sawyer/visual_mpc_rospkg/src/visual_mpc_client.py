@@ -489,9 +489,8 @@ class Visual_MPC_Client():
         scp_pix_distrib_files(self.policyparams, self.agentparams)
         netconf = imp.load_source('params', self.policyparams['netconf']).configuration
 
-        v = Visualizer_tkinter(self.policyparams['current_dir'] + '/verbose/pred.pkl',
-                               append_masks=False,
-                               gif_savepath=self.policyparams['current_dir'] + '/verbose/pred.pkl',
+        v = Visualizer_tkinter(append_masks=False,
+                               filepath=self.policyparams['current_dir'] + '/verbose',
                                numex=10)
         v.build_figure()
         # go_through_timesteps(self.policyparams['current_dir']+'/verbose', netconf)

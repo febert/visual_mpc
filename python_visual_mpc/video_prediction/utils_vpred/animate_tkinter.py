@@ -91,19 +91,20 @@ def visualize_flow(flow_vecs):
 
 t = 0
 class Visualizer_tkinter(object):
-    def __init__(self, dict_ = None, append_masks = True, gif_savepath=None, numex = 4, suf= "", col_titles = None, renorm_heatmpas=True):
+    def __init__(self, dict_ = None, append_masks = True, filepath=None, numex = 4, suf="", col_titles = None, renorm_heatmpas=True):
         """
         :param dict_:
         :param append_masks:
-        :param gif_savepath:
+        :param filepath: directory where pred.pkl shall be loaded and where gifs are saved
         :param numex:
         :param suf:
         :param col_titles:
         """
 
         if dict_ == None:
-            dict_ = cPickle.load(open(gif_savepath + '/pred.pkl', "rb"))
+            dict_ = cPickle.load(open(filepath + '/pred.pkl', "rb"))
 
+        pdb.set_trace()
         if 'iternum' in dict_:
             self.iternum = dict_['iternum']
         else: self.iternum = 0
@@ -153,14 +154,14 @@ class Visualizer_tkinter(object):
                 self.video_list.append((data, key))
 
                 if key == 'gen_distrib':  #if gen_distrib plot psum overtime!
-                    plot_psum_overtime(data, numex, gif_savepath)
+                    plot_psum_overtime(data, numex, filepath)
                     desig_pos = dict_['desig_pos']
-                    plot_normed_at_desig_pos(data, gif_savepath, desig_pos)
+                    plot_normed_at_desig_pos(data, filepath, desig_pos)
 
         self.renormalize_heatmaps = renorm_heatmpas
         print 'renormalizing heatmaps: ', self.renormalize_heatmaps
 
-        self.gif_savepath = gif_savepath
+        self.gif_savepath = filepath
         self.t = 0
 
         self.suf = suf
@@ -445,8 +446,9 @@ def convert_to_videolist(input, repeat_last_dim):
 if __name__ == '__main__':
     # file_path = '/home/frederik/Documents/catkin_ws/src/visual_mpc/tensorflow_data/sawyer/data_amount_study/5percent_of_data/modeldata'
     # file_path = '/home/frederik/Documents/catkin_ws/src/visual_mpc/tensorflow_data/sawyer/dna_correct_nummask/modeldata'
-    file_path = '/home/frederik/Documents/catkin_ws/src/visual_mpc/tensorflow_data/dense_flow/descriptor_model/inv_euc_bilin_fwdbck/modeldata'
+    # file_path = '/home/frederik/Documents/catkin_ws/src/visual_mpc/tensorflow_data/dense_flow/descriptor_model/inv_euc_bilin_fwdbck/modeldata'
+    file_path = '/home/febert/Documents/catkin_ws/src/visual_mpc/experiments/cem_exp/benchmarks_sawyer/opencv_tracker/verbose'
 
-    v  = Visualizer_tkinter(append_masks=False, gif_savepath=file_path, numex=1, renorm_heatmpas=False)
+    v  = Visualizer_tkinter(append_masks=False, filepath=file_path, numex=10, renorm_heatmpas=False)
     v.build_figure()
     # v.make_image_strip(i_ex=3)

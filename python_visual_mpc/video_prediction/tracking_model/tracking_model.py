@@ -197,5 +197,5 @@ class Tracking_Model(Base_Prediction_Model):
         cPickle.dump(dict, open(file_path + '/pred.pkl', 'wb'))
         print 'written files to:' + file_path
 
-        v = Visualizer_tkinter(dict, numex=10, append_masks=True, gif_savepath=self.conf['output_dir'])
+        v = Visualizer_tkinter(dict, numex=10, append_masks=True, filepath=self.conf['output_dir'])
         v.build_figure()

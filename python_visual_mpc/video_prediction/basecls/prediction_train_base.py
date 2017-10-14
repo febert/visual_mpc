@@ -193,7 +193,7 @@ def main(unused_argv, conf_script= None):
             print 'written files to:' + file_path
 
             v = Visualizer_tkinter(dict, numex=4, append_masks=False,
-                                   gif_savepath=conf['output_dir'],
+                                   filepath=conf['output_dir'],
                                    suf='_diffmotions_b{}_l{}'.format(b_exp, conf['sequence_length']))
             v.build_figure()
         else:
@@ -240,7 +240,7 @@ def main(unused_argv, conf_script= None):
             cPickle.dump(dict, open(file_path + '/pred.pkl', 'wb'))
             print 'written files to:' + file_path
 
-            v = Visualizer_tkinter(dict, numex=conf['batch_size'], append_masks=False, gif_savepath=conf['output_dir'])
+            v = Visualizer_tkinter(dict, numex=conf['batch_size'], append_masks=False, filepath=conf['output_dir'])
             v.build_figure()
             return
     itr_0 =0
