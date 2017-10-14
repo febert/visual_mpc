@@ -90,7 +90,7 @@ class DescpTracking_Model(Tracking_Model):
         cPickle.dump(dict, open(file_path + '/pred.pkl', 'wb'))
         print 'written files to:' + file_path
 
-        v = Visualizer_tkinter(dict, numex=self.conf['batch_size'], append_masks=False, gif_savepath=self.conf['output_dir'], renorm_heatmpas=False)
+        v = Visualizer_tkinter(dict, numex=self.conf['batch_size'], append_masks=False, gif_savepath=self.conf['output_dir'], renorm_heatmaps=False)
         v.build_figure()
         return
 
