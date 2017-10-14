@@ -8,9 +8,11 @@ from python_visual_mpc.misc.zip_equal import zip_equal
 
 from utils.transformations import dna_transformation, cdna_transformation
 from utils.compute_motion_vecs import compute_motion_vector_dna, compute_motion_vector_cdna
-
+from python_visual_mpc.video_prediction.utils_vpred.animate_tkinter import Visualizer_tkinter
+import cPickle
+import collections
 import pdb
-
+from utils.visualize import visualize_diffmotions, visualize
 
 class Base_Prediction_Model(object):
 
@@ -44,13 +46,16 @@ class Base_Prediction_Model(object):
         self.batch_size = conf['batch_size']
 
         self.train_cond = tf.placeholder(tf.int32, shape=[], name="train_cond")
+        self.sdim = conf['sdim']
+        self.adim = conf['adim']
+
         if not load_data:
             self.actions_pl = tf.placeholder(tf.float32, name='actions',
-                                        shape=(conf['batch_size'], conf['sequence_length'], 4))
+                                        shape=(conf['batch_size'], conf['sequence_length'], self.adim))
             actions = self.actions_pl
 
             self.states_pl = tf.placeholder(tf.float32, name='states',
-                                       shape=(conf['batch_size'], conf['sequence_length'], 3))
+                                       shape=(conf['batch_size'], conf['sequence_length'], self.sdim))
             states = self.states_pl
 
             self.images_pl = tf.placeholder(tf.float32, name='images',
@@ -62,15 +67,14 @@ class Base_Prediction_Model(object):
             pix_distrib1  = self.pix_distrib_pl
 
         else:
-            if 'sawyer' in conf:
-                from python_visual_mpc.video_prediction.read_tf_record_sawyer12 import build_tfrecord_input
+            if 'adim' in conf:
+                from python_visual_mpc.video_prediction.read_tf_record_wristrot import \
+                    build_tfrecord_input as build_tfrecord_fn
             else:
-                from python_visual_mpc.video_prediction.read_tf_record import build_tfrecord_input
-
-
-            train_images, train_actions, train_states = build_tfrecord_input(conf, training=True)
-            val_images, val_actions, val_states = build_tfrecord_input(conf, training=False)
-
+                from python_visual_mpc.video_prediction.read_tf_record_sawyer12 import \
+                    build_tfrecord_input as build_tfrecord_fn
+            train_images, train_actions, train_states = build_tfrecord_fn(conf, training=True)
+            val_images, val_actions, val_states = build_tfrecord_fn(conf, training=False)
 
             images, actions, states = tf.cond(self.train_cond > 0,  # if 1 use trainigbatch else validation batch
                                              lambda: [train_images, train_actions, train_states],
@@ -257,6 +261,8 @@ class Base_Prediction_Model(object):
                     vec = tf.tile(vec, [1, 64, 64, 1])
                 output += vec * mask
             flow_vectors = output
+
+            self.prediction_flow.append(flow_vectors)
 
 
     def apply_cdna(self, enc6, hidden5, prev_image, prev_pix_distrib1, prev_pix_distrib2):
@@ -549,7 +555,11 @@ class Base_Prediction_Model(object):
         return pix_distrib_output
 
 
+    def visualize(self, sess):
+        visualize(sess, self)
 
+    def visualize_diffmotions(self, sess):
+        visualize_diffmotions(sess, self)
 
 def scheduled_sample(ground_truth_x, generated_x, batch_size, num_ground_truth):
     """Sample batch with specified mix of ground truth and generated data_files points.

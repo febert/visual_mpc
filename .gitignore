@@ -141,3 +141,6 @@ longdistance/
 devel/
 cdna_accum_tf_factorized_dependent_mask_lstm_ln_5firstframes_l2/
 
+model/
+python_visual_mpc/region_proposal_networks/rpn_net/model/fasterrcnn_vgg_coco_net.tfmodel
+

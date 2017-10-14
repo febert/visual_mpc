@@ -1,54 +1,35 @@
 #!/usr/bin/env python
-import numpy as np
-from datetime import datetime
+import argparse
+import cPickle
+import copy
+import imp
+import os
 import pdb
-import rospy
+from datetime import datetime
+
+import cv2
 import matplotlib.pyplot as plt
-from utils.copy_from_remote import scp_pix_distrib_files
-
-from python_visual_mpc.video_prediction.misc.makegifs2 import go_through_timesteps
-from python_visual_mpc.video_prediction.utils_vpred.animate_tkinter import Visualizer_tkinter
-
-import socket
-
+import numpy as np
+import rospy
+from cv_bridge import CvBridge
+from geometry_msgs.msg import (
+    Quaternion,
+)
 from intera_core_msgs.srv import (
     SolvePositionFK,
     SolvePositionFKRequest,
 )
-
-from geometry_msgs.msg import (
-    PoseStamped,
-    PointStamped,
-    Pose,
-    Point,
-    Quaternion,
-)
-
-from utils.opencv_tracker import OpenCV_Tracker
-
-
-import intera_external_devices
-
-import argparse
-import imutils
+from python_visual_mpc.sawyer.visual_mpc_rospkg.src.utils import inverse_kinematics, robot_controller, robot_recorder
+from python_visual_mpc.video_prediction.utils_vpred.animate_tkinter import Visualizer_tkinter
 from sensor_msgs.msg import JointState
-from std_msgs.msg import String
-
-import cv2
-from cv_bridge import CvBridge, CvBridgeError
-
-from PIL import Image
-import inverse_kinematics
-import robot_controller
-from recorder import robot_recorder
-import os
-import cPickle
 from std_msgs.msg import Float32
 from std_msgs.msg import Int64
-
+from utils.checkpoint import write_ckpt, write_timing_file, parse_ckpt
+from utils.copy_from_remote import scp_pix_distrib_files
+from utils.opencv_tracker import OpenCV_Tracker
 from visual_mpc_rospkg.srv import get_action, init_traj_visualmpc
-import copy
-import imp
+
+from python_visual_mpc.region_proposal_networks.rpn_tracker import RPN_Tracker
 
 class Traj_aborted_except(Exception):
     pass
@@ -68,12 +49,10 @@ class Visual_MPC_Client():
 
         parser = argparse.ArgumentParser(description='Run benchmarks')
         parser.add_argument('benchmark', type=str, help='the name of the folder with agent setting for the benchmark')
-        parser.add_argument('--goalimage', default='False', help='whether to collect goalimages')
         parser.add_argument('--save_subdir', default='False', type=str, help='')
         parser.add_argument('--canon', default=-1, type=int, help='whether to store canonical example')
 
         args = parser.parse_args()
-
 
         self.base_dir = '/'.join(str.split(base_filepath, '/')[:-2])
         cem_exp_dir = self.base_dir + '/experiments/cem_exp/benchmarks_sawyer'
@@ -160,18 +139,50 @@ class Visual_MPC_Client():
         #highres position used when doing tracking
         self.desig_hpos_main = None
 
-        if args.goalimage == "True":
-            self.use_goalimage = True
-        else: self.use_goalimage = False
 
-        self.run_visual_mpc()
+        if self.args.save_subdir == "True":
+            self.save_subdir = raw_input('enter subdir to save data:')
+            self.recorder_save_dir = self.base_dir + "/experiments/cem_exp/benchmarks_sawyer/" + self.benchname + \
+                                     '/' + self.save_subdir + "/videos"
+        else:
+            self.recorder_save_dir = self.base_dir + "/experiments/cem_exp/benchmarks_sawyer/" + self.benchname + "/videos"
+
+        self.num_pic_perstep = 4
+        self.num_track_perstep = 8
+        nsave = self.action_sequence_length * self.num_pic_perstep
+
+        if 'collect_data' in self.agentparams:
+            self.data_collection = True
+            save_video = False
+            save_actions = True
+            save_images = True
+        else:
+            save_video = False
+            save_actions = True
+            save_images = True
+
+        self.recorder = robot_recorder.RobotRecorder(agent_params=self.agentparams,
+                                                     save_dir=self.recorder_save_dir,
+                                                     seq_len=nsave,
+                                                     use_aux=self.use_aux,
+                                                     save_video=save_video,
+                                                     save_actions=save_actions,
+                                                     save_images=save_images)
+
+        if self.data_collection == True:
+            self.checkpoint_file = os.path.join(self.recorder.save_dir, 'checkpoint.txt')
+            self.rpn_tracker = RPN_Tracker()
+            self.run_data_collection()
+        else:
+            self.data_collection = False
+            self.run_visual_mpc()
 
     def mark_goal_desig(self, itr):
         print 'prepare to mark goalpos and designated pixel! press c to continue!'
         imagemain = self.recorder.ltob.img_cropped
 
         imagemain = cv2.cvtColor(imagemain, cv2.COLOR_BGR2RGB)
-        c_main = Getdesig(imagemain, self.desig_pix_img_dir, '_traj{}'.format(itr), self.ndesig, self.canon_ind, self.canon_dir)
+        c_main = Getdesig(imagemain, self.recorder_save_dir, '_traj{}'.format(itr), self.ndesig, self.canon_ind, self.canon_dir)
         self.desig_pos_main = c_main.desig.astype(np.int64)
         print 'desig pos aux1:', self.desig_pos_main
         self.goal_pos_main = c_main.goal.astype(np.int64)
@@ -191,42 +202,6 @@ class Visual_MPC_Client():
         cPickle.dump(dict, open(self.canon_dir +'/pkl/example{}.pkl'.format(ex), 'wb'))
         print 'saved canonical example to '+ self.canon_dir +'/pkl/example{}.pkl'.format(ex)
 
-    def collect_goal_image(self, ind=0):
-        savedir = self.recording_dir + '/goalimage'
-        if not os.path.exists(savedir):
-            os.makedirs(savedir)
-        done = False
-        print("Press g to take goalimage!")
-        while not done and not rospy.is_shutdown():
-            c = intera_external_devices.getch()
-            if c:
-                # catch Esc or ctrl-c
-                if c in ['\x1b', '\x03']:
-                    done = True
-                    rospy.signal_shutdown("Example finished.")
-                if c == 'g':
-                    print 'taking goalimage'
-
-                    imagemain = self.recorder.ltob.img_cropped
-
-                    cv2.imwrite( savedir+ "/goal_main{}.png".format(ind),
-                                imagemain, [cv2.IMWRITE_PNG_STRATEGY_DEFAULT, 1])
-                    state = self.get_endeffector_pos()
-                    with open(savedir + '/goalim{}.pkl'.format(ind), 'wb') as f:
-                        cPickle.dump({'main': imagemain, 'state': state}, f)
-                    break
-                else:
-                    print 'wrong key!'
-
-        print 'place object in different location!'
-        pdb.set_trace()
-
-
-    def load_goalimage(self, ind):
-        savedir = self.recording_dir + '/goalimage'
-        with open(savedir + '/goalim{}.pkl'.format(ind), 'rb') as f:
-            dict = cPickle.load(f)
-            return dict['main'], dict['state']
 
     def imp_ctrl_release_spring(self, maxstiff):
         self.imp_ctrl_release_spring_pub.publish(maxstiff)
@@ -245,6 +220,60 @@ class Visual_MPC_Client():
 
             delta = datetime.now() - tstart
             print 'trajectory {0} took {1} seconds'.format(0, delta.total_seconds())
+
+
+    def run_data_collection(self):
+
+        # check if there is a checkpoint from which to resume
+        if os.path.isfile(self.checkpoint_file):
+            last_tr, last_grp = parse_ckpt(self.checkpoint_file)
+            start_tr = last_tr + 1
+            print 'resuming data collection at trajectory {}'.format(start_tr)
+            self.recorder.igrp = last_grp
+            try:
+                self.recorder.delete_traj(start_tr)
+            except:
+                print 'trajectory was not deleted'
+        else:
+            start_tr = 0
+
+        accum_time = 0
+        nfail_traj = 0  #count number of failed trajectories within accum_time
+        for tr in range(start_tr, self.num_traj):
+
+            tstart = datetime.now()
+            # self.run_trajectory_const_speed(tr)
+            done = False
+            while not done:
+                try:
+                    self.run_trajectory(tr)
+                    done = True
+                except Traj_aborted_except:
+                    self.recorder.delete_traj(tr)
+                    nfail_traj +=1
+                    rospy.sleep(.2)
+
+            if ((tr+1)% 20) == 0:
+                self.redistribute_objects()
+
+            delta = datetime.now() - tstart
+            print 'trajectory {0} took {1} seconds'.format(tr, delta.total_seconds())
+            accum_time += delta.total_seconds()
+
+            avg_nstep = 80
+            if ((tr+1)% avg_nstep) == 0:
+                average = accum_time/avg_nstep
+                write_timing_file(self.recorder.save_dir, average, avg_nstep, nfail_traj)
+                accum_time = 0
+                nfail_traj = 0
+
+            write_ckpt(self.checkpoint_file, tr, self.recorder.igrp)
+
+            if ((tr+1) % 3000) == 0:
+                print 'change objects!'
+                pdb.set_trace()
+            self.alive_publisher.publish('still alive!')
+
 
     def get_endeffector_pos(self):
         """
@@ -325,71 +354,60 @@ class Visual_MPC_Client():
 
     def run_trajectory(self, i_tr):
 
-        if self.use_robot:
-            print 'setting neutral'
-            rospy.sleep(.2)
-            # drive to neutral position:
-            self.imp_ctrl_active.publish(0)
-            self.ctrl.set_neutral()
-            self.set_neutral_with_impedance()
-            self.imp_ctrl_active.publish(1)
-            rospy.sleep(.2)
+        print 'setting neutral'
+        rospy.sleep(.2)
+        # drive to neutral position:
+        self.imp_ctrl_active.publish(0)
+        self.ctrl.set_neutral()
+        self.set_neutral_with_impedance()
+        self.imp_ctrl_active.publish(1)
+        rospy.sleep(.2)
 
-            self.ctrl.gripper.open()
-            self.gripper_closed = False
-            self.gripper_up = False
+        self.ctrl.gripper.open()
+        self.gripper_closed = False
+        self.gripper_up = False
 
-            if self.args.save_subdir == "True":
-                self.save_subdir = raw_input('enter subdir to save data:')
-                self.desig_pix_img_dir = self.base_dir + "/experiments/cem_exp/benchmarks_sawyer/" + self.benchname + \
-                                         '/' + self.save_subdir + "/videos"
-            else:
-                self.desig_pix_img_dir = self.base_dir + "/experiments/cem_exp/benchmarks_sawyer/" + self.benchname + "/videos"
-            if not os.path.exists(self.desig_pix_img_dir):
-                os.makedirs(self.desig_pix_img_dir)
+        if self.args.save_subdir == "True":
+            self.save_subdir = raw_input('enter subdir to save data:')
+            self.recorder_save_dir = self.base_dir + "/experiments/cem_exp/benchmarks_sawyer/" + self.benchname + \
+                                     '/' + self.save_subdir + "/videos"
+            self.recorder.image_folder = self.recorder_save_dir
 
-            num_pic_perstep = 4
-            num_track_perstep = 8
-            nsave = self.action_sequence_length*num_pic_perstep
+        if self.data_collection:
+            self.recorder.init_traj(i_tr)
+        else:
+            if not os.path.exists(self.recorder_save_dir):
+                os.makedirs(self.recorder_save_dir)
 
-            self.recorder = robot_recorder.RobotRecorder(agent_params=self.agentparams,
-                                                         save_dir=self.desig_pix_img_dir,
-                                                         seq_len=nsave,
-                                                         use_aux=self.use_aux,
-                                                         save_video=True,
-                                                         save_actions=False,
-                                                         save_images=False
-                                                         )
+        print 'place object in new location!'
+        pdb.set_trace()
+        # rospy.sleep(.3)
 
-            print 'place object in new location!'
-            pdb.set_trace()
-            # rospy.sleep(.3)
-            if self.use_goalimage:
-                self.collect_goal_image(i_tr)
-            else:
-                self.mark_goal_desig(i_tr)
+        if self.data_collection:
+            self.desig_pos_main, self.goal_pos_main = self.rpn_tracker.get_task()
+        else:
+            self.mark_goal_desig(i_tr)
 
-            self.init_traj()
+        self.init_traj()
 
-            self.lower_height = 0.16  #0.20 for old data set
-            self.delta_up = 0.12  #0.1 for old data set
+        self.lower_height = 0.16  #0.20 for old data set
+        self.delta_up = 0.12  #0.1 for old data set
 
-            self.xlim = [0.44, 0.83]  # min, max in cartesian X-direction
-            self.ylim = [-0.27, 0.18]  # min, max in cartesian Y-direction
+        self.xlim = [0.46, 0.83]  # min, max in cartesian X-direction
+        self.ylim = [-0.17, 0.17]  # min, max in cartesian Y-directionn
 
-            random_start_pos = False
-            if random_start_pos:
-                startpos = np.array([np.random.uniform(self.xlim[0], self.xlim[1]), np.random.uniform(self.ylim[0], self.ylim[1])])
-            else: startpos = self.get_endeffector_pos()[:2]
+        if 'random_startpos' in self.policyparams:
+            startpos = np.array([np.random.uniform(self.xlim[0], self.xlim[1]), np.random.uniform(self.ylim[0], self.ylim[1])])
+        else: startpos = self.get_endeffector_pos()[:2]
 
-            if self.enable_rot:
-                # start_angle = np.array([np.random.uniform(0., np.pi * 2)])
-                start_angle = np.array([np.pi])
-                self.des_pos = np.concatenate([startpos, np.array([self.lower_height]), start_angle], axis=0)
-            else:
-                self.des_pos = np.concatenate([startpos, np.array([self.lower_height])], axis=0)
+        if self.enable_rot:
+            # start_angle = np.array([np.random.uniform(0., np.pi * 2)])
+            start_angle = np.array([np.pi])
+            self.des_pos = np.concatenate([startpos, np.array([self.lower_height]), start_angle], axis=0)
+        else:
+            self.des_pos = np.concatenate([startpos, np.array([self.lower_height])], axis=0)
 
-            self.topen, self.t_down = 0, 0
+        self.topen, self.t_down = 0, 0
 
 
         #move to start:
@@ -422,11 +440,11 @@ class Visual_MPC_Client():
                 if 'manual_correction' in self.agentparams:
                     imagemain = self.recorder.ltob.img_cropped
                     imagemain = cv2.cvtColor(imagemain, cv2.COLOR_BGR2RGB)
-                    c_main = Getdesig(imagemain, self.desig_pix_img_dir, '_t{}'.format(i_step), self.ndesig,
+                    c_main = Getdesig(imagemain, self.recorder_save_dir, '_t{}'.format(i_step), self.ndesig,
                                       self.canon_ind, self.canon_dir, only_desig=True)
                     self.desig_pos_main = c_main.desig.astype(np.int64)
                 elif 'opencv_tracking' in self.agentparams:
-                    self.desig_pos_main[0], self.desig_hpos_main = self.tracker.track_open_cv()  #tracking only works for 1 desig. pixel!!
+                    self.desig_pos_main[0], self.desig_hpos_main = self.tracker.get_track_open_cv()  #tracking only works for 1 desig. pixel!!
 
                 # print 'current position error', self.des_pos - self.get_endeffector_pos(pos_only=True)
 
@@ -446,8 +464,8 @@ class Visual_MPC_Client():
                 print 't_next', self.t_next
 
                 isave_substep  = 0
-                tsave = np.linspace(self.t_prev, self.t_next, num=num_pic_perstep, dtype=np.float64)
-                t_track = np.linspace(self.t_prev, self.t_next, num=num_track_perstep, dtype=np.float64)
+                tsave = np.linspace(self.t_prev, self.t_next, num=self.num_pic_perstep, dtype=np.float64)
+                t_track = np.linspace(self.t_prev, self.t_next, num=self.num_track_perstep, dtype=np.float64)
                 print 'tsave', tsave
                 print 'applying action{}'.format(i_step)
                 i_step += 1
@@ -457,7 +475,7 @@ class Visual_MPC_Client():
             if 'opencv_tracking' in self.agentparams:
                 if rospy.get_time() > t_track[isave_substep] - .01:
                     print 'tracking'
-                    self.desig_pos_main[0], self.desig_hpos_main = self.tracker.track_open_cv()
+                    self.desig_pos_main[0], self.desig_hpos_main = self.tracker.get_track_open_cv()
 
             if self.save_active:
                 if isave_substep < len(tsave):
@@ -510,7 +528,7 @@ class Visual_MPC_Client():
 
     def save_final_image(self, i_tr):
         imagemain = self.recorder.ltob.img_cropped
-        cv2.imwrite(self.desig_pix_img_dir+'/finalimage{}.png'.format(i_tr), imagemain, [cv2.IMWRITE_PNG_STRATEGY_DEFAULT, 1])
+        cv2.imwrite(self.recorder_save_dir + '/finalimage{}.png'.format(i_tr), imagemain, [cv2.IMWRITE_PNG_STRATEGY_DEFAULT, 1])
 
     def calc_interpolation(self, previous_goalpoint, next_goalpoint, t_prev, t_next):
         """
