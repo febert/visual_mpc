@@ -463,10 +463,6 @@ if __name__ == '__main__':
     # file_path = '/home/frederik/Documents/catkin_ws/src/visual_mpc/tensorflow_data/dense_flow/descriptor_model/inv_euc_bilin_fwdbck/modeldata'
     file_path = '/home/febert/Documents/catkin_ws/src/visual_mpc/experiments/cem_exp/benchmarks_sawyer/opencv_tracker/verbose'
 
-<<<<<<< HEAD
-    v  = Visualizer_tkinter(append_masks=False, filepath=file_path, numex=10, renorm_heatmpas=False)
-=======
-    v  = Visualizer_tkinter(append_masks=False, gif_savepath=file_path, numex=1, renorm_heatmaps=False)
->>>>>>> 762640f4eff2d6a7c9d0d65f46a15421d3b0fe30
+    v  = Visualizer_tkinter(append_masks=False, filepath=file_path, numex=10, renorm_heatmaps=False)
     v.build_figure()
     # v.make_image_strip(i_ex=3)
