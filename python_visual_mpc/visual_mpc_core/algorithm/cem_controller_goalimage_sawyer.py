@@ -48,6 +48,13 @@ class CEM_controller():
             self.netconf = {}
             self.M = 1
 
+        if 'img_height' in self.netconf and 'img_width' in self.netconf:
+            self.img_height = self.netconf['img_height']
+            self.img_width = self.netconf['img_width']
+        else:
+            self.img_height = 64
+            self.img_width = 64
+
         self.predictor = predictor
 
         self.K = 10  # only consider K best samples for refitting
@@ -176,7 +183,7 @@ class CEM_controller():
                 (datetime.now() - t_startiter).seconds + (datetime.now() - t_startiter).microseconds / 1e6)
 
     def switch_on_pix(self, desig):
-        one_hot_images = np.zeros((self.netconf['batch_size'], self.netconf['context_frames'], 64, 64, 1), dtype=np.float32)
+        one_hot_images = np.zeros((self.netconf['batch_size'], self.netconf['context_frames'], self.img_height, self.img_width, 1), dtype=np.float32)
         # switch on pixels
         one_hot_images[:, :, desig[0], desig[1]] = 1
         print 'using desig pix',desig[0], desig[1]
@@ -220,7 +227,7 @@ class CEM_controller():
         last_frames = np.expand_dims(last_frames, axis=0)
         last_frames = np.repeat(last_frames, self.netconf['batch_size'], axis=0)
         app_zeros = np.zeros(shape=(self.netconf['batch_size'], self.netconf['sequence_length']-
-                                    self.netconf['context_frames'], 64, 64, img_channels))
+                                    self.netconf['context_frames'], self.img_height, self.img_width, img_channels))
         last_frames = np.concatenate((last_frames, app_zeros), axis=1)
         last_frames = last_frames.astype(np.float32)/255.
 
@@ -264,16 +271,16 @@ class CEM_controller():
                 if 'ndesig' in self.policyparams:
                     # pick the prop distrib from the action actually chosen after the last iteration (i.e. self.indices[0])
                     bestind = scores.argsort()[0]
-                    best_gen_distrib1 = gen_distrib1[2][bestind].reshape(1, 64, 64, 1)
+                    best_gen_distrib1 = gen_distrib1[2][bestind].reshape(1, self.img_height, self.img_width, 1)
                     self.rec_input_distrib1.append(np.repeat(best_gen_distrib1, self.netconf['batch_size'], 0))
 
                     # pick the prop distrib from the action actually chosen after the last iteration (i.e. self.indices[0])
-                    best_gen_distrib2 = gen_distrib2[2][bestind].reshape(1, 64, 64, 1)
+                    best_gen_distrib2 = gen_distrib2[2][bestind].reshape(1, self.img_height, self.img_width, 1)
                     self.rec_input_distrib2.append(np.repeat(best_gen_distrib2, self.netconf['batch_size'], 0))
                 else:
                     # pick the prop distrib from the action actually chosen after the last iteration (i.e. self.indices[0])
                     bestind = scores.argsort()[0]
-                    best_gen_distrib = gen_distrib[2][bestind].reshape(1, 64, 64, 1)
+                    best_gen_distrib = gen_distrib[2][bestind].reshape(1, self.img_height, self.img_width, 1)
                     self.rec_input_distrib.append(np.repeat(best_gen_distrib, self.netconf['batch_size'], 0))
 
         bestindices = scores.argsort()[:self.K]
@@ -340,9 +347,9 @@ class CEM_controller():
         return desig_pix_cost, scores
 
     def get_distancegrid(self, goal_pix):
-        distance_grid = np.empty((64, 64))
-        for i in range(64):
-            for j in range(64):
+        distance_grid = np.empty((self.img_height, self.img_width))
+        for i in range(self.img_height):
+            for j in range(self.img_width):
                 pos = np.array([i, j])
                 distance_grid[i, j] = np.linalg.norm(goal_pix - pos)
 

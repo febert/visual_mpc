@@ -76,6 +76,15 @@ class Visual_MPC_Client():
             self.ndesig = self.policyparams['ndesig']
         else: self.ndesig = 1
 
+        hyperparams = imp.load_source('hyperparams', self.policyparams['netconf'])
+        self.netconf = hyperparams.configuration
+        if 'img_height' in self.netconf and 'img_width' in self.netconf:
+            self.img_height = self.netconf['img_height']
+            self.img_width = self.netconf['img_width']
+        else:
+            self.img_height = 64
+            self.img_width = 64
+
         if args.canon != -1:
             self.save_canon =True
             self.canon_dir = '/home/guser/catkin_ws/src/lsdc/pushing_data/canonical_singleobject'
@@ -246,10 +255,10 @@ class Visual_MPC_Client():
             # self.recorder.init_traj(itr)
             if self.use_goalimage:
                 goal_img_main, goal_state = self.load_goalimage()
-                goal_img_aux1 = np.zeros([64, 64, 3])
+                goal_img_aux1 = np.zeros([self.img_height, self.img_width, 3])
             else:
-                goal_img_main = np.zeros([64, 64, 3])
-                goal_img_aux1 = np.zeros([64, 64, 3])
+                goal_img_main = np.zeros([self.img_height, self.img_width, 3])
+                goal_img_aux1 = np.zeros([self.img_height, self.img_width, 3])
 
             goal_img_main = self.bridge.cv2_to_imgmsg(goal_img_main)
             goal_img_aux1 = self.bridge.cv2_to_imgmsg(goal_img_aux1)
@@ -294,7 +303,8 @@ class Visual_MPC_Client():
                                                          use_aux=self.use_aux,
                                                          save_video=True,
                                                          save_actions=False,
-                                                         save_images=False
+                                                         save_images=False,
+                                                         image_shape=(self.img_height, self.img_width)
                                                          )
 
             print 'place object in new location!'
@@ -453,13 +463,13 @@ class Visual_MPC_Client():
                 self.recorder.get_aux_img()
                 imageaux1 = self.recorder.ltob_aux1.img_msg
             else:
-                imageaux1 = np.zeros((64, 64, 3), dtype=np.uint8)
+                imageaux1 = np.zeros((self.img_height, self.img_width, 3), dtype=np.uint8)
                 imageaux1 = self.bridge.cv2_to_imgmsg(imageaux1)
 
             imagemain = self.bridge.cv2_to_imgmsg(self.recorder.ltob.img_cropped)
             state = self.get_endeffector_pos()
         else:
-            imagemain = np.zeros((64,64,3))
+            imagemain = np.zeros((self.img_height,self.img_width,3))
             imagemain = self.bridge.cv2_to_imgmsg(imagemain)
             imageaux1 = self.bridge.cv2_to_imgmsg(self.test_img)
             state = np.zeros(3)

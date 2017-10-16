@@ -135,12 +135,13 @@ class Model(object):
             true_fft_list, pred_fft_list = [], []
             loss, psnr_all = 0.0, 0.0
 
-	    if 'height' in conf and 'width' in conf:
-		img_height = conf['height']
-		img_width = conf['width']
-	    else:
-		img_height = 64
-		img_width = 64
+            if 'img_height' in conf and 'img_width' in conf:
+                img_height = conf['img_height']
+                img_width = conf['img_width']
+            else:
+                img_height = 64
+                img_width = 64
+
             self.fft_weights = tf.placeholder(tf.float32, [img_height, img_width])
 
             for i, x, gx in zip(
@@ -260,9 +261,9 @@ def main(unused_argv, conf_script= None):
     else:
         from read_tf_record import build_tfrecord_input
 
-    if 'height' in conf and 'width' in conf:
-        img_height = conf['height']
-        img_width = conf['width']
+    if 'img_height' in conf and 'img_width' in conf:
+        img_height = conf['img_height']
+        img_width = conf['img_width']
     else:
         img_height = 64
         img_width = 64
@@ -517,9 +518,9 @@ def main(unused_argv, conf_script= None):
 
 
 def create_one_hot(conf, desig_pix):
-    if 'height' in conf and 'width' in conf:
-        img_height = conf['height']
-        img_width = conf['width']
+    if 'img_height' in conf and 'img_width' in conf:
+        img_height = conf['img_height']
+        img_width = conf['img_width']
     else:
         img_height = 64
         img_width = 64

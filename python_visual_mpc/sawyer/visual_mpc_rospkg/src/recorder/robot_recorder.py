@@ -42,7 +42,7 @@ class Latest_observation(object):
 
 class RobotRecorder(object):
     def __init__(self, save_dir, seq_len = None, use_aux=True, save_video=False,
-                 save_actions=True, save_images = True):
+                 save_actions=True, save_images = True, image_shape=None):
 
         self.save_actions = save_actions
         self.save_images = save_images
@@ -69,6 +69,9 @@ class RobotRecorder(object):
         self.image_folder = save_dir
         self.itr = 0
         self.highres_imglist = []
+
+        self.img_height = image_shape[0]
+        self.img_width = image_shape[1]
 
         if __name__ !=  '__main__':
             # the main instance one also records actions and joint angles
@@ -171,8 +174,8 @@ class RobotRecorder(object):
 
         startcol = 7
         startrow = 0
-        endcol = startcol + 64
-        endrow = startrow + 64
+        endcol = startcol + self.img_width
+        endrow = startrow + self.img_height
         #crop image:
         img = img[startrow:endrow, startcol:endcol]
 
@@ -216,12 +219,12 @@ class RobotRecorder(object):
             img = cv2.resize(cv_image, (0, 0), fx=1 / 15., fy=1 / 15., interpolation=cv2.INTER_AREA)
             startrow = 2
             startcol = 27
-        endcol = startcol + 64
-        endrow = startrow + 64
+        endcol = startcol + self.img_width
+        endrow = startrow + self.img_height
 
         # crop image:
         img = img[startrow:endrow, startcol:endcol]
-        assert img.shape == (64,64,3)
+        assert img.shape == (self.img_height, self.img_width, 3)
         return img
 
 

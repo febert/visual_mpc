@@ -386,10 +386,9 @@ class Prediction_Model(object):
             enc6, (self.conf['num_masks']+ extra_masks), 1, stride=1, scope=scope)
         # masks_bef = tf.Print(masks_bef, [tf.reduce_sum(tf.cast(tf.is_nan(masks_bef), tf.int64))], message="masks_bef nan check")
 
-
-        if 'height' in self.conf and 'width' in self.conf:
-            img_height = self.conf['height']
-            img_width = self.conf['width']
+        if 'img_height' in self.conf and 'img_width' in self.conf:
+            img_height = self.conf['img_height']
+            img_width = self.conf['img_width']
         else:
             img_height = 64
             img_width = 64

@@ -31,6 +31,6 @@ configuration = {
 'single_view':"",
 'use_len':14,                # number of steps used for training where the starting location is selected randomly within sequencelength
 '1stimg_bckgd':'',
-'height' : 48,
-'width' : 64
+'img_height': 48,
+'img_width': 64
 }
