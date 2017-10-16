@@ -91,14 +91,28 @@ def visualize_flow(flow_vecs):
 
 t = 0
 class Visualizer_tkinter(object):
-    def __init__(self, dict_ = None, append_masks = True, filepath=None, numex = 4, suf="", col_titles = None, renorm_heatmpas=True):
+    def __init__(self, dict_ = None, append_masks = True, filepath=None, numex = 4, suf= "", col_titles = None, renorm_heatmaps=True):
         """
-        :param dict_:
-        :param append_masks:
-        :param filepath: directory where pred.pkl shall be loaded and where gifs are saved
-        :param numex:
-        :param suf:
-        :param col_titles:
+        :param dict_: dictionary containing image tensors
+        :param append_masks: whether to visualize the masks
+        :param gif_savepath: the path to save the gif
+        :param numex: how many examples of the batch to visualize
+        :param suf: append a suffix to the gif name
+        :param col_titles: a list of titles for each column
+
+        The dictionary contains keys-values pairs of {"video_name":"image_tensor_list"}
+        where "video_name" is used as the caption in the visualization
+        where "image_tensor_list" is a list with np.arrays (batchsize, 64,64,n_channel) for each time step.
+
+        If n_channel is 1 a heatmap will be shown. Use renorm_heatmaps=True to normalize the heatmaps
+        at every time step (this is necessary when the range of values changes significantly over time).
+
+        If the key contains the string "flow" a color-coded flow field will be shown.
+
+        if the key contains the string "masks" the image_tensor_list needs to be of the following form:
+        [mask_list_0, ..., mask_list_Tmax]
+        where mask_list_t = [mask_0, ..., mask_N]
+        where mask_i.shape = [batch_size, 64,64,1]
         """
 
         if dict_ == None:
@@ -158,7 +172,7 @@ class Visualizer_tkinter(object):
                     desig_pos = dict_['desig_pos']
                     plot_normed_at_desig_pos(data, filepath, desig_pos)
 
-        self.renormalize_heatmaps = renorm_heatmpas
+        self.renormalize_heatmaps = renorm_heatmaps
         print 'renormalizing heatmaps: ', self.renormalize_heatmaps
 
         self.gif_savepath = filepath
@@ -449,6 +463,10 @@ if __name__ == '__main__':
     # file_path = '/home/frederik/Documents/catkin_ws/src/visual_mpc/tensorflow_data/dense_flow/descriptor_model/inv_euc_bilin_fwdbck/modeldata'
     file_path = '/home/febert/Documents/catkin_ws/src/visual_mpc/experiments/cem_exp/benchmarks_sawyer/opencv_tracker/verbose'
 
+<<<<<<< HEAD
     v  = Visualizer_tkinter(append_masks=False, filepath=file_path, numex=10, renorm_heatmpas=False)
+=======
+    v  = Visualizer_tkinter(append_masks=False, gif_savepath=file_path, numex=1, renorm_heatmaps=False)
+>>>>>>> 762640f4eff2d6a7c9d0d65f46a15421d3b0fe30
     v.build_figure()
     # v.make_image_strip(i_ex=3)

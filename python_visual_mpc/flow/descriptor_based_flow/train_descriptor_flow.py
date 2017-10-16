@@ -319,7 +319,7 @@ def visualize(conf):
     v = Visualizer_tkinter(dict, numex=1, append_masks=True,
                            filepath=conf['output_dir'],
                            suf='flow_b{}_l{}'.format(b_exp, conf['sequence_length']),
-                           renorm_heatmpas=False)
+                           renorm_heatmaps=False)
     v.build_figure()
 
 def add_crosshairs(images, pos):
