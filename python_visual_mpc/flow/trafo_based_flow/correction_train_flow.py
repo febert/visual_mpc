@@ -278,7 +278,7 @@ def visualize(conf):
 
     from python_visual_mpc.video_prediction.utils_vpred.animate_tkinter import Visualizer_tkinter
     v = Visualizer_tkinter(dict, numex=1, append_masks=True,
-                           gif_savepath=conf['output_dir'],
+                           filepath=conf['output_dir'],
                            suf='flow{}_l{}'.format(b_exp, conf['sequence_length']))
     v.build_figure()
 

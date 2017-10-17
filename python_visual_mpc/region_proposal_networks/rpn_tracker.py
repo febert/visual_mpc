@@ -7,6 +7,7 @@ import numpy as np
 import sys
 from python_visual_mpc.region_proposal_networks.Featurizer import BBProposer, AlexNetFeaturizer
 
+import pdb
 
 class RPN_Tracker(object):
     def __init__(self):
@@ -43,4 +44,5 @@ class RPN_Tracker(object):
     def get_task(self, image):
 
         boxes, feats = self.get_regions(image)
+        pdb.set_trace()
         #TODO: filter out boxes

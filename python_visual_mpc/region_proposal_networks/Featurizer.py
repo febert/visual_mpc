@@ -4,11 +4,31 @@ import matplotlib.pyplot as plt
 import numpy as np
 import tensorflow as tf
 import sys
-curr_dir = sys.path[0]
-sys.path = [curr_dir, curr_dir+'/rpn_net/util/faster_rcnn_lib', curr_dir+'/rpn_net'] + sys.path[1:]
+import pdb
+
+import os
+
+# curr_dir = sys.path[0]
+curr_dir = os.path.dirname(os.path.realpath(__file__))
+
+# orig:
+# sys.path = [curr_dir, curr_dir+'/rpn_net/util/faster_rcnn_lib', curr_dir+'/rpn_net'] + sys.path[1:]
+
+#new:
+sys.path = [curr_dir,
+            curr_dir+'/rpn_net/util/faster_rcnn_lib',
+            curr_dir+'/rpn_net/util/faster_rcnn_lib/utils',
+            curr_dir+'/rpn_net'] + sys.path[1:]
+
 from fast_rcnn.config import cfg
 from fast_rcnn.test import im_proposal_tensorflow, im_detect_tensorflow
 from rpn_net import  fastrcnn_vgg_net, rpn_net
+
+
+# from python_visual_mpc.region_proposal_networks.rpn_net.util.faster_rcnn_lib.fast_rcnn.config import cfg
+# from python_visual_mpc.region_proposal_networks.rpn_net.util.faster_rcnn_lib.fast_rcnn.test import im_proposal_tensorflow, im_detect_tensorflow
+# from python_visual_mpc.region_proposal_networks.rpn_net import fastrcnn_vgg_net, rpn_net
+
 sess_tuple = None
 
 class BBProposer:

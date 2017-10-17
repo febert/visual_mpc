@@ -26,7 +26,7 @@ from std_msgs.msg import Float32
 from std_msgs.msg import Int64
 from utils.checkpoint import write_ckpt, write_timing_file, parse_ckpt
 from utils.copy_from_remote import scp_pix_distrib_files
-from utils.opencv_tracker import OpenCV_Tracker
+from utils.opencv_tracker_listener import OpenCV_Track_Listener
 from visual_mpc_rospkg.srv import get_action, init_traj_visualmpc
 
 from python_visual_mpc.region_proposal_networks.rpn_tracker import RPN_Tracker
@@ -160,6 +160,7 @@ class Visual_MPC_Client():
             save_video = False
             save_actions = True
             save_images = True
+            self.data_collection = False
 
         self.recorder = robot_recorder.RobotRecorder(agent_params=self.agentparams,
                                                      save_dir=self.recorder_save_dir,
@@ -174,7 +175,6 @@ class Visual_MPC_Client():
             self.rpn_tracker = RPN_Tracker()
             self.run_data_collection()
         else:
-            self.data_collection = False
             self.run_visual_mpc()
 
     def mark_goal_desig(self, itr):
@@ -334,14 +334,8 @@ class Visual_MPC_Client():
 
     def init_traj(self):
         try:
-            # self.recorder.init_traj(itr)
-            if self.use_goalimage:
-                goal_img_main, goal_state = self.load_goalimage()
-                goal_img_aux1 = np.zeros([64, 64, 3])
-            else:
-                goal_img_main = np.zeros([64, 64, 3])
-                goal_img_aux1 = np.zeros([64, 64, 3])
-
+            goal_img_main = np.zeros([64, 64, 3])
+            goal_img_aux1 = np.zeros([64, 64, 3])
             goal_img_main = self.bridge.cv2_to_imgmsg(goal_img_main)
             goal_img_aux1 = self.bridge.cv2_to_imgmsg(goal_img_aux1)
 
@@ -384,7 +378,8 @@ class Visual_MPC_Client():
         # rospy.sleep(.3)
 
         if self.data_collection:
-            self.desig_pos_main, self.goal_pos_main = self.rpn_tracker.get_task()
+            im = cv2.cvtColor(self.recorder.ltob.img_cv2, cv2.COLOR_BGR2RGB)
+            self.desig_pos_main, self.goal_pos_main = self.rpn_tracker.get_task(im)
         else:
             self.mark_goal_desig(i_tr)
 
@@ -414,7 +409,7 @@ class Visual_MPC_Client():
         self.move_to_startpos(self.des_pos)
 
         if 'opencv_tracking' in self.agentparams:
-            self.tracker = OpenCV_Tracker(self.agentparams, self.recorder, self.desig_pos_main)
+            self.tracker = OpenCV_Track_Listener(self.agentparams, self.recorder, self.desig_pos_main)
 
         if self.save_canon:
             self.save_canonical()
@@ -444,7 +439,8 @@ class Visual_MPC_Client():
                                       self.canon_ind, self.canon_dir, only_desig=True)
                     self.desig_pos_main = c_main.desig.astype(np.int64)
                 elif 'opencv_tracking' in self.agentparams:
-                    self.desig_pos_main[0], self.desig_hpos_main = self.tracker.get_track_open_cv()  #tracking only works for 1 desig. pixel!!
+                    pdb.set_trace()
+                    self.desig_pos_main[0], self.desig_hpos_main = self.tracker.get_track()  #tracking only works for 1 desig. pixel!!
 
                 # print 'current position error', self.des_pos - self.get_endeffector_pos(pos_only=True)
 
@@ -475,7 +471,7 @@ class Visual_MPC_Client():
             if 'opencv_tracking' in self.agentparams:
                 if rospy.get_time() > t_track[isave_substep] - .01:
                     print 'tracking'
-                    self.desig_pos_main[0], self.desig_hpos_main = self.tracker.get_track_open_cv()
+                    self.desig_pos_main[0], self.desig_hpos_main = self.tracker.get_track()
 
             if self.save_active:
                 if isave_substep < len(tsave):
@@ -507,9 +503,8 @@ class Visual_MPC_Client():
         scp_pix_distrib_files(self.policyparams, self.agentparams)
         netconf = imp.load_source('params', self.policyparams['netconf']).configuration
 
-        v = Visualizer_tkinter(self.policyparams['current_dir'] + '/verbose/pred.pkl',
-                               append_masks=False,
-                               gif_savepath=self.policyparams['current_dir'] + '/verbose/pred.pkl',
+        v = Visualizer_tkinter(append_masks=False,
+                               filepath=self.policyparams['current_dir'] + '/verbose',
                                numex=10)
         v.build_figure()
         # go_through_timesteps(self.policyparams['current_dir']+'/verbose', netconf)

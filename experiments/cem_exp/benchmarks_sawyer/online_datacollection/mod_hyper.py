@@ -24,12 +24,14 @@ policy = {
     'rew_all_steps':"",
     'finalweight':30,
     'no_pixdistrib_video':'',
+    'predictor_propagation': '',  #############
 }
 
 agent = {
     'T': 4, ####20,
     'action_dim':5,
     'state_dim':4,
-    'opencv_tracking':'',
-    'make_final_gif':''
+    # 'opencv_tracking':'',  #################
+    'make_final_gif':'',
+    'collect_data':''
 }
