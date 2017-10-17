@@ -10,19 +10,13 @@
 from fast_rcnn.config import cfg, get_output_dir
 from fast_rcnn.bbox_transform import clip_boxes, bbox_transform_inv
 import argparse
-import sys
-
-# import pdb
-# pdb.set_trace()
-# from utils.timer import Timer  ## orig
-from timer import Timer  ## new
-
+from utils.timer import Timer
 import numpy as np
+import IPython; IPython.embed()
 import cv2
 from fast_rcnn.nms_wrapper import nms
 import pickle
-# from utils.blob import im_list_to_blob  ## orig
-from blob import im_list_to_blob ##
+from utils.blob import im_list_to_blob
 import os
 
 def _get_image_blob(im):

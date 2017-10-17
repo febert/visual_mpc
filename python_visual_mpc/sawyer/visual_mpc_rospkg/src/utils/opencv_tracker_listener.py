@@ -21,15 +21,24 @@ class OpenCV_Track_Listener():
 
         self.box_height = 120
         loc = self.low_res_to_highres(desig_pos_main[0])
-        bbox = (loc[1] - self.box_height / 2., loc[0] - self.box_height / 2., self.box_height, self.box_height)  # for the small snow-man
+        bbox = (int(loc[1] - self.box_height / 2.),
+                int(loc[0] - self.box_height / 2.),
+                self.box_height, self.box_height)  # for the small snow-man
+
         # bbox = cv2.selectROI(frame, False)
-        print 'bbox', bbox
+        print 'requesting tracking target: ', bbox
+
+        bbox_pub = rospy.Publisher('tracking_target', Int32MultiArray, queue_size=1)
+        intlist = Int32MultiArray()
+        intlist.data = list(bbox)
+        bbox_pub.publish(intlist)
 
         rospy.Subscriber("track_bbox", Int32MultiArray, self.store_latest_track)
 
+        self.bbox = None
+
     def store_latest_track(self, data):
         print "getting latest track"
-        pdb.set_trace()
         self.bbox = np.array(data)
 
     def get_track(self):

@@ -1,15 +1,17 @@
 
 from __future__ import absolute_import, division, print_function
 
+import sys
+
+import cv2
 import numpy as np
 import tensorflow as tf
-import cv2
-import sys
 sys.path.append('./util/faster_rcnn_lib/')
 
 from fast_rcnn.config import cfg
 from fast_rcnn.test import im_proposal_tensorflow, im_detect_tensorflow
-import fastrcnn_vgg_net, python_visual_mpc.region_proposal_networks.rpn_net
+import fastrcnn_vgg_net
+from python_visual_mpc.region_proposal_networks import rpn_net
 
 
 model_file = 'model/fasterrcnn_vgg_coco_net.tfmodel'
@@ -23,8 +25,8 @@ class BBProposer:
         input_batch = tf.placeholder(tf.float32, [1, None, None, 3])
         iminfo_batch = tf.placeholder(tf.float32, [1, 3])
         conv5 = fastrcnn_vgg_net.vgg_conv5(input_batch, 'vgg_net')
-        rois, rpn_cls_score, rpn_bbox_pred = python_visual_mpc.region_proposal_networks.rpn_net.rpn_net(conv5, iminfo_batch, 'vgg_net',
-                                                                                                        anchor_scales=(4, 8, 16, 32), phase='TEST')
+        rois, rpn_cls_score, rpn_bbox_pred = rpn_net.rpn_net(conv5, iminfo_batch, 'vgg_net',
+                                                             anchor_scales=(4, 8, 16, 32), phase='TEST')
 
         sess = tf.Session(config=tf.ConfigProto(gpu_options=tf.GPUOptions(allow_growth=False)))
         saver = tf.train.Saver()

@@ -160,6 +160,7 @@ class Visual_MPC_Client():
             save_video = False
             save_actions = True
             save_images = True
+            self.data_collection = False
 
         self.recorder = robot_recorder.RobotRecorder(agent_params=self.agentparams,
                                                      save_dir=self.recorder_save_dir,
@@ -174,7 +175,6 @@ class Visual_MPC_Client():
             self.rpn_tracker = RPN_Tracker()
             self.run_data_collection()
         else:
-            self.data_collection = False
             self.run_visual_mpc()
 
     def mark_goal_desig(self, itr):
@@ -334,14 +334,8 @@ class Visual_MPC_Client():
 
     def init_traj(self):
         try:
-            # self.recorder.init_traj(itr)
-            if self.use_goalimage:
-                goal_img_main, goal_state = self.load_goalimage()
-                goal_img_aux1 = np.zeros([64, 64, 3])
-            else:
-                goal_img_main = np.zeros([64, 64, 3])
-                goal_img_aux1 = np.zeros([64, 64, 3])
-
+            goal_img_main = np.zeros([64, 64, 3])
+            goal_img_aux1 = np.zeros([64, 64, 3])
             goal_img_main = self.bridge.cv2_to_imgmsg(goal_img_main)
             goal_img_aux1 = self.bridge.cv2_to_imgmsg(goal_img_aux1)
 
@@ -384,7 +378,8 @@ class Visual_MPC_Client():
         # rospy.sleep(.3)
 
         if self.data_collection:
-            self.desig_pos_main, self.goal_pos_main = self.rpn_tracker.get_task()
+            im = cv2.cvtColor(self.recorder.ltob.img_cv2, cv2.COLOR_BGR2RGB)
+            self.desig_pos_main, self.goal_pos_main = self.rpn_tracker.get_task(im)
         else:
             self.mark_goal_desig(i_tr)
 
@@ -444,6 +439,7 @@ class Visual_MPC_Client():
                                       self.canon_ind, self.canon_dir, only_desig=True)
                     self.desig_pos_main = c_main.desig.astype(np.int64)
                 elif 'opencv_tracking' in self.agentparams:
+                    pdb.set_trace()
                     self.desig_pos_main[0], self.desig_hpos_main = self.tracker.get_track()  #tracking only works for 1 desig. pixel!!
 
                 # print 'current position error', self.des_pos - self.get_endeffector_pos(pos_only=True)

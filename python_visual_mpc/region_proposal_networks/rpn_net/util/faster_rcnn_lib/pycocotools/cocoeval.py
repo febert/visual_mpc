@@ -8,7 +8,6 @@ from collections import defaultdict
 import mask
 import numpy as np
 
-
 class COCOeval:
     # Interface for evaluating detection on the Microsoft COCO dataset.
     #

@@ -8,6 +8,7 @@ import cv2
 import numpy as np
 
 from std_msgs.msg import Int32MultiArray
+import pdb
 
 class Tracker(object):
     def __init__(self):
@@ -18,15 +19,20 @@ class Tracker(object):
         self.tracker_initialized = False
         self.bbox = None
 
-        rospy.Subscriber("main/kinect2/hd/image_color", Image_msg, self.init_bbx)
+        rospy.Subscriber("main/kinect2/hd/image_color", Image_msg, self.store_latest_im)
+
+        rospy.Subscriber("tracking_target", Int32MultiArray, self.init_bbx)
 
         self.bbox_pub = rospy.Publisher('tracked_bbox', Int32MultiArray, queue_size=1)
         self.bridge = CvBridge()
 
 
     def init_bbx(self, data):
-        print "initializing bounding box"
+
+        print "received new tracking target"
+        pdb.set_trace()
         self.bbx = np.array(data)
+
         self.tracker_initialized = False
 
     def store_latest_im(self, data):
