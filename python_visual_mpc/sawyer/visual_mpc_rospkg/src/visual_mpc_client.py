@@ -373,14 +373,15 @@ class Visual_MPC_Client():
             if not os.path.exists(self.recorder_save_dir):
                 os.makedirs(self.recorder_save_dir)
 
-        print 'place object in new location!'
-        pdb.set_trace()
-        # rospy.sleep(.3)
-
         if self.data_collection:
+            rospy.sleep(.3)
             im = cv2.cvtColor(self.recorder.ltob.img_cv2, cv2.COLOR_BGR2RGB)
+            pdb.set_trace()
             self.desig_pos_main, self.goal_pos_main = self.rpn_tracker.get_task(im)
         else:
+            print 'place object in new location!'
+            pdb.set_trace()
+            # rospy.sleep(.3)
             self.mark_goal_desig(i_tr)
 
         self.init_traj()
