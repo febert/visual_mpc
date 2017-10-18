@@ -18,7 +18,8 @@ def make_gif(im_list):
     clip.write_gif('modeldata/tracking.gif')
 
 class RPN_Tracker(object):
-    def __init__(self):
+    def __init__(self, savedir= None):
+        self.savedir = savedir
         self.pix2boxes = {}
         self.feats = {}
         self.proposer = BBProposer()
@@ -82,7 +83,7 @@ class RPN_Tracker(object):
 
         return im
 
-    def get_task(self, image):
+    def get_task(self, image, im_save_dir):
         """
         :param image:
         :return:
@@ -100,16 +101,26 @@ class RPN_Tracker(object):
 
         valid_boxes = []
         valid_center_coords = []
+
+        min_heigh_or_width = 50
         for b in boxes:
             center_coord = np.array([(b[0] + b[2])/2.,   #col, row
                                      (b[1] + b[3])/2.])
+
+            box_height = b[3] - b[1]
+            box_width = b[2] - b[0]
+            print 'box', b
+            print 'h', box_height
+            print 'w', box_width
             if  valid_region[0] < center_coord[0] < valid_region[2] and \
-                valid_region[1] < center_coord[1] < valid_region[3]:
+                valid_region[1] < center_coord[1] < valid_region[3] and \
+                    (box_height > min_heigh_or_width or box_width > min_heigh_or_width):
+
                 valid_boxes.append(b)
                 valid_center_coords.append(center_coord)
 
-        # for b in valid_boxes:
-        #     self.proposer.draw_box(b, self.clone, 1)  # green
+        for b in valid_boxes:
+            self.proposer.draw_box(b, self.clone, 0)  # red
 
         sel_ind = np.random.choice(range(len(valid_boxes)))
         desig_point = valid_center_coords[sel_ind]
@@ -126,7 +137,12 @@ class RPN_Tracker(object):
         self.draw_cross(desig_point, self.clone)
         self.draw_cross(goal_point, self.clone)
 
-        self.plot()
+        # self.plot()
+        import rospy
+        im  = Image.fromarray(np.array(self.clone).astype(np.uint8))
+        im.save(im_save_dir + '/task_{}.png'.format(rospy.get_time()))
+
+        return desig_point, goal_point
 
     ### for tracking:
     def test_tracking(self, files):

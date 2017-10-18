@@ -26,7 +26,7 @@ from std_msgs.msg import Float32
 from std_msgs.msg import Int64
 from utils.checkpoint import write_ckpt, write_timing_file, parse_ckpt
 from utils.copy_from_remote import scp_pix_distrib_files
-from utils.opencv_tracker_listener import OpenCV_Track_Listener
+from utils.tracking_client import OpenCV_Track_Listener
 from visual_mpc_rospkg.srv import get_action, init_traj_visualmpc
 
 from python_visual_mpc.region_proposal_networks.rpn_tracker import RPN_Tracker
@@ -172,7 +172,7 @@ class Visual_MPC_Client():
 
         if self.data_collection == True:
             self.checkpoint_file = os.path.join(self.recorder.save_dir, 'checkpoint.txt')
-            self.rpn_tracker = RPN_Tracker()
+            self.rpn_tracker = RPN_Tracker(self.recorder_save_dir)
             self.run_data_collection()
         else:
             self.run_visual_mpc()
@@ -376,15 +376,14 @@ class Visual_MPC_Client():
         if self.data_collection:
             rospy.sleep(.3)
             im = cv2.cvtColor(self.recorder.ltob.img_cv2, cv2.COLOR_BGR2RGB)
-            pdb.set_trace()
-            self.desig_pos_main, self.goal_pos_main = self.rpn_tracker.get_task(im)
+
+            self.desig_pos_main, self.goal_pos_main = self.rpn_tracker.get_task(im,self.recorder.image_folder)
+            self.init_traj()
         else:
             print 'place object in new location!'
             pdb.set_trace()
             # rospy.sleep(.3)
             self.mark_goal_desig(i_tr)
-
-        self.init_traj()
 
         self.lower_height = 0.16  #0.20 for old data set
         self.delta_up = 0.12  #0.1 for old data set

@@ -8,6 +8,8 @@ import cv2
 import numpy as np
 
 from std_msgs.msg import Int32MultiArray
+
+from visual_mpc_rospkg.srv import set_tracking_target, set_tracking_targetResponse
 import pdb
 
 class Tracker(object):
@@ -21,19 +23,28 @@ class Tracker(object):
 
         rospy.Subscriber("main/kinect2/hd/image_color", Image_msg, self.store_latest_im)
 
-        rospy.Subscriber("tracking_target", Int32MultiArray, self.init_bbx)
+        # rospy.Subscriber("tracking_target", Int32MultiArray, self.init_bbx)
 
-        self.bbox_pub = rospy.Publisher('tracked_bbox', Int32MultiArray, queue_size=1)
+        rospy.Service('set_tracking_target', set_tracking_target, self.init_bbx)
+
+        self.bbox_pub = rospy.Publisher('track_bbox', Int32MultiArray, queue_size=1)
         self.bridge = CvBridge()
 
 
-    def init_bbx(self, data):
+    # def init_bbx(self, data):
+    #
+    #     print "received new tracking target"
+    #     self.bbx = np.array(data)
+    #
+    #     self.tracker_initialized = False
 
-        print "received new tracking target"
-        pdb.set_trace()
-        self.bbx = np.array(data)
-
+    def init_bbx(self, req):
+        target = req.target
+        print "received new tracking target", target
         self.tracker_initialized = False
+        self.bbox = target
+        resp = set_tracking_targetResponse()
+        return resp
 
     def store_latest_im(self, data):
         cv_image = self.bridge.imgmsg_to_cv2(data, "bgr8")  #(1920, 1080)
@@ -60,10 +71,9 @@ class Tracker(object):
 
     def start(self):
         while not rospy.is_shutdown():
-            rospy.sleep(0.1)
-            print "waiting for tracker to be initialized"
             if self.tracker_initialized:
                 ok, bbox = self.cv_tracker.update(self.lt_img_cv2)
+                bbox = np.array(bbox).astype(np.int64)
                 self.bbox = bbox
 
                 p1 = (int(bbox[0]), int(bbox[1]))
@@ -74,7 +84,12 @@ class Tracker(object):
                 cv2.imshow("Tracking", self.lt_img_cv2)
                 k = cv2.waitKey(1) & 0xff
 
-                self.bbox_pub.publish(tuple(bbox))
+                intlist = Int32MultiArray()
+                intlist.data = list(bbox)
+                self.bbox_pub.publish(intlist)
+            else:
+                rospy.sleep(0.01)
+                print "waiting for tracker to be initialized"
 
 if __name__ == "__main__":
     r = Tracker()
