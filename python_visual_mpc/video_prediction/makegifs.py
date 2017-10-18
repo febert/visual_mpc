@@ -46,11 +46,11 @@ def comp_gif(conf, file_path, name= "", examples = 10, append_masks=False, suffi
     print 'videolist', videolist
     print 'examples', examples
     fused_gif = assemble_gif(videolist, num_exp= examples)
-    itr_vis = re.match('.*?([0-9]+)$', conf['visualize']).group(1)
-    if not name:
-        npy_to_gif(fused_gif, file_path + '/vid{}'.format(itr_vis) + suffix)
-    else:
-        npy_to_gif(fused_gif, file_path + '/' + name + suffix)
+    # itr_vis = re.match('.*?([0-9]+)$', conf['visualize']).group(1)
+    # if not name:
+    #     npy_to_gif(fused_gif, file_path + '/vid{}'.format(itr_vis) + suffix)
+    # else:
+    npy_to_gif(fused_gif, file_path + '/' + name + suffix)
 
 
 def create_images(object_masks, nexp):

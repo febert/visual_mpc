@@ -100,14 +100,17 @@ def make_color_scheme(input_img_list, n_exp= None, convert_to_float = True):
     for t in range(len(input_img_list)):
 
         height = input_img_list[0].shape[1]
+        width = input_img_list[0].shape[2]
 
-        output_image = np.zeros((input_img_list[0].shape[0], height, height, 3), dtype=np.float32)
+        output_image = np.zeros((input_img_list[0].shape[0], height, width, 3), dtype=np.float32)
 
         for b in range(n_exp):
 
             img = input_img_list[t][b].squeeze()
-
-            fig = plt.figure(figsize=(1, 1), dpi=height)
+            if height != width:
+                fig = plt.figure(figsize=(1, 0.75), dpi=width)
+            else:
+                fig = plt.figure(figsize=(1, 1), dpi=width)
             fig.add_subplot(111)
             plt.subplots_adjust(left=0, bottom=0, right=1, top=1, wspace=0, hspace=0)
 
