@@ -43,7 +43,8 @@ def comp_gif(conf, file_path, name= "", examples = 10, append_masks=False, suffi
         videolist.append(gen_pix_distrib)
 
     pdb.set_trace()
-
+    print 'videolist', videolist
+    print 'examples', examples
     fused_gif = assemble_gif(videolist, num_exp= examples)
     itr_vis = re.match('.*?([0-9]+)$', conf['visualize']).group(1)
     if not name:
