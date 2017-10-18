@@ -118,7 +118,6 @@ class Visualizer_tkinter(object):
         if dict_ == None:
             dict_ = cPickle.load(open(filepath + '/pred.pkl', "rb"))
 
-        pdb.set_trace()
         if 'iternum' in dict_:
             self.iternum = dict_['iternum']
         else: self.iternum = 0

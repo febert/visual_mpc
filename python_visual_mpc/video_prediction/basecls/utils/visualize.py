@@ -62,7 +62,7 @@ def visualize(sess, m):
     cPickle.dump(dict, open(file_path + '/pred.pkl', 'wb'))
     print 'written files to:' + file_path
 
-    v = Visualizer_tkinter(dict, numex=conf['batch_size'], append_masks=True, gif_savepath=conf['output_dir'])
+    v = Visualizer_tkinter(dict, numex=conf['batch_size'], append_masks=True, filepath=conf['output_dir'])
     v.build_figure()
 
 def visualize_diffmotions(sess, m):

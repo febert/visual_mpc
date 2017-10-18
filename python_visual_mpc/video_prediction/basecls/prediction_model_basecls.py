@@ -531,7 +531,6 @@ class Base_Prediction_Model(object):
 
         return output, mask_list
 
-
     def fuse_pix_distrib(self, mask_list, pix_distributions, prev_pix_distrib,
                          transf_distrib):
 

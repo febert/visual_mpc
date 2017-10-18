@@ -3,6 +3,11 @@ import tensorflow as tf
 
 
 def compute_motion_vector_cdna(conf, cdna_kerns):
+    """
+    :param conf:
+    :param cdna_kerns:  (H,W,N,C)
+    :return:
+    """
     range = conf['kern_size'] / 2
     dc = np.linspace(-range, range, num=conf['kern_size'])
     dc = np.expand_dims(dc, axis=0)
