@@ -63,10 +63,7 @@ class RobotRecorder(object):
         self.overwrite = True
         self.use_aux = use_aux
 
-        if save_video:
-            self.save_gif = True
-        else:
-            self.save_gif = False
+        self.save_video = save_video
 
         self.image_folder = save_dir
         self.itr = 0
@@ -338,7 +335,7 @@ class RobotRecorder(object):
         if self.save_actions:
             self._save_state_actions(i_save, action, endeffector_pose)
 
-        if self.save_gif:
+        if self.save_video:
             highres = cv2.cvtColor(self.ltob.img_cv2, cv2.COLOR_BGR2RGB)
             if desig_hpos_main is not None:
                 self.desig_hpos_list.append(desig_hpos_main)

@@ -157,7 +157,7 @@ class Visual_MPC_Client():
             save_actions = True
             save_images = True
         else:
-            save_video = False
+            save_video = True
             save_actions = False
             save_images = False
             self.data_collection = False
@@ -500,13 +500,10 @@ class Visual_MPC_Client():
 
         #copy files with pix distributions from remote and make gifs
         scp_pix_distrib_files(self.policyparams, self.agentparams)
-        netconf = imp.load_source('params', self.policyparams['netconf']).configuration
-
         v = Visualizer_tkinter(append_masks=False,
                                filepath=self.policyparams['current_dir'] + '/verbose',
                                numex=10)
         v.build_figure()
-        # go_through_timesteps(self.policyparams['current_dir']+'/verbose', netconf)
 
     def get_des_pose(self, des_pos):
 

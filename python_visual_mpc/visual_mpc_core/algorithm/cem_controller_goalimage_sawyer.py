@@ -14,6 +14,7 @@ import pdb
 from python_visual_mpc.video_prediction.misc.makegifs2 import create_video_pixdistrib_gif
 
 import matplotlib.pyplot as plt
+import collections
 
 class CEM_controller():
     """
@@ -89,7 +90,7 @@ class CEM_controller():
         self.sigma =None
         self.goal_image = None
 
-        self.dict_ = {}
+        self.dict_ = collections.OrderedDict()
 
     def calc_action_cost(self, actions):
         actions_costs = np.zeros(self.M)
