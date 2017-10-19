@@ -26,7 +26,7 @@ from std_msgs.msg import Float32
 from std_msgs.msg import Int64
 from utils.checkpoint import write_ckpt, write_timing_file, parse_ckpt
 from utils.copy_from_remote import scp_pix_distrib_files
-from utils.opencv_tracker_listener import OpenCV_Track_Listener
+from utils.tracking_client import OpenCV_Track_Listener
 from visual_mpc_rospkg.srv import get_action, init_traj_visualmpc
 
 from python_visual_mpc.region_proposal_networks.rpn_tracker import RPN_Tracker
@@ -157,9 +157,9 @@ class Visual_MPC_Client():
             save_actions = True
             save_images = True
         else:
-            save_video = False
-            save_actions = True
-            save_images = True
+            save_video = True
+            save_actions = False
+            save_images = False
             self.data_collection = False
 
         self.recorder = robot_recorder.RobotRecorder(agent_params=self.agentparams,
@@ -172,7 +172,7 @@ class Visual_MPC_Client():
 
         if self.data_collection == True:
             self.checkpoint_file = os.path.join(self.recorder.save_dir, 'checkpoint.txt')
-            self.rpn_tracker = RPN_Tracker()
+            self.rpn_tracker = RPN_Tracker(self.recorder_save_dir)
             self.run_data_collection()
         else:
             self.run_visual_mpc()
@@ -376,15 +376,15 @@ class Visual_MPC_Client():
         if self.data_collection:
             rospy.sleep(.3)
             im = cv2.cvtColor(self.recorder.ltob.img_cv2, cv2.COLOR_BGR2RGB)
+
+            self.desig_pos_main, self.goal_pos_main = self.rpn_tracker.get_task(im,self.recorder.image_folder)
             pdb.set_trace()
-            self.desig_pos_main, self.goal_pos_main = self.rpn_tracker.get_task(im)
+            self.init_traj()
         else:
             print 'place object in new location!'
             pdb.set_trace()
             # rospy.sleep(.3)
             self.mark_goal_desig(i_tr)
-
-        self.init_traj()
 
         self.lower_height = 0.16  #0.20 for old data set
         self.delta_up = 0.12  #0.1 for old data set
@@ -405,12 +405,12 @@ class Visual_MPC_Client():
 
         self.topen, self.t_down = 0, 0
 
-
         #move to start:
         self.move_to_startpos(self.des_pos)
 
         if 'opencv_tracking' in self.agentparams:
             self.tracker = OpenCV_Track_Listener(self.agentparams, self.recorder, self.desig_pos_main)
+        rospy.sleep(1)
 
         if self.save_canon:
             self.save_canonical()
@@ -440,7 +440,6 @@ class Visual_MPC_Client():
                                       self.canon_ind, self.canon_dir, only_desig=True)
                     self.desig_pos_main = c_main.desig.astype(np.int64)
                 elif 'opencv_tracking' in self.agentparams:
-                    pdb.set_trace()
                     self.desig_pos_main[0], self.desig_hpos_main = self.tracker.get_track()  #tracking only works for 1 desig. pixel!!
 
                 # print 'current position error', self.des_pos - self.get_endeffector_pos(pos_only=True)
@@ -471,7 +470,6 @@ class Visual_MPC_Client():
 
             if 'opencv_tracking' in self.agentparams:
                 if rospy.get_time() > t_track[isave_substep] - .01:
-                    print 'tracking'
                     self.desig_pos_main[0], self.desig_hpos_main = self.tracker.get_track()
 
             if self.save_active:
@@ -502,13 +500,10 @@ class Visual_MPC_Client():
 
         #copy files with pix distributions from remote and make gifs
         scp_pix_distrib_files(self.policyparams, self.agentparams)
-        netconf = imp.load_source('params', self.policyparams['netconf']).configuration
-
         v = Visualizer_tkinter(append_masks=False,
                                filepath=self.policyparams['current_dir'] + '/verbose',
                                numex=10)
         v.build_figure()
-        # go_through_timesteps(self.policyparams['current_dir']+'/verbose', netconf)
 
     def get_des_pose(self, des_pos):
 
@@ -584,7 +579,7 @@ class Visual_MPC_Client():
             state = np.zeros(self.sdim)
 
         try:
-            rospy.wait_for_service('get_action', timeout=240)
+            rospy.wait_for_service('get_action', timeout=3)
 
             get_action_resp = self.get_action_func(imagemain, imageaux1,
                                               tuple(state.astype(np.float32)),

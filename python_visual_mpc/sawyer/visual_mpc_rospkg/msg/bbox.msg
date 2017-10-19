@@ -1,1 +1,1 @@
-int64[4] bbox
+int32[4] bbox

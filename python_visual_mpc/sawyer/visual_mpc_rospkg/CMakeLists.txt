@@ -53,6 +53,7 @@ find_package(catkin REQUIRED COMPONENTS
  add_message_files(
    FILES
    bbox.msg
+   intarray.msg
 )
 
 ## Generate services in the 'srv' folder
@@ -60,6 +61,7 @@ find_package(catkin REQUIRED COMPONENTS
    FILES
    get_action.srv
    init_traj_visualmpc.srv
+   set_tracking_target.srv
  )
 
 ## Generate actions in the 'action' folder
