@@ -113,6 +113,8 @@ def main(unused_argv, conf_script= None):
         else:
             model.visualize(sess)
 
+        return
+
     itr_0 =0
     if FLAGS.pretrained != None:
         conf['pretrained_model'] = FLAGS.pretrained

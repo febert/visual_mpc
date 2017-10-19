@@ -7,7 +7,7 @@ DATA_DIR = '/'.join(str.split(current_dir, '/')[:-3]) + '/pushing_data/wrist_rot
 # local output directory
 OUT_DIR = current_dir + '/modeldata'
 
-modelconfiguration = {
+configuration = {
 'experiment_name': 'rndaction_var10',
 'data_dir': DATA_DIR,       # 'directory containing data.' ,
 'output_dir': OUT_DIR,      #'directory for model checkpoints.' ,
@@ -19,7 +19,7 @@ modelconfiguration = {
 'context_frames': 2,        # of frames before predictions.' ,
 'use_state': 1,             #'Whether or not to give the state+action to the model' ,
 'model': 'CDNA',            #'model architecture to use - CDNA, DNA, or STP' ,
-'num_transformed_images': 8,             # 'number of masks, usually 1 for DNA, 10 for CDNA, STN.' ,
+'num_masks': 8,             # 'number of masks, usually 1 for DNA, 10 for CDNA, STN.' ,
 'schedsamp_k': 1200.0,      # 'The k hyperparameter for scheduled sampling -1 for no scheduled sampling.' ,
 'train_val_split': 0.95,    #'The percentage of files to use for the training set vs. the validation set.' ,
 'batch_size': 16,           #'batch size for training' ,
@@ -36,9 +36,4 @@ modelconfiguration = {
 'sdim':4,
 'normalization':'in',
 'previmg_bckgd':'',
-'gen_img':''
-}
-
-dataconfiguration ={
-    
 }

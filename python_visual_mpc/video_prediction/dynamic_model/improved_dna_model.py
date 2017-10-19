@@ -28,13 +28,18 @@ class DNACell(tf.nn.rnn_cell.RNNCell):
                  use_state,
                  vgf_dim,
                  reuse=None,
-                 dependent_mask = True):
+                 dependent_mask = True,
+                 trafo_pix=False,
+                 first_pix_distrib=None):
 
         super(DNACell, self).__init__(_reuse=reuse)
 
         self.image_shape = image_shape
         self.state_dim = state_dim
         self.first_image = first_image
+        self.frist_pix_distrib = first_pix_distrib
+
+
         self.num_ground_truth = num_ground_truth
         self.kernel_size = [conf['kern_size'], conf['kern_size']]
         self.dilation_rate = list(dilation_rate) if isinstance(dilation_rate, (tuple, list)) else [dilation_rate] * 2
@@ -47,7 +52,7 @@ class DNACell(tf.nn.rnn_cell.RNNCell):
 
         self.context_frames = conf['context_frames']
         self.conf = conf
-
+        self.trafo_pix = trafo_pix
 
         if '1stimg_bckgd' in conf:
             self.first_image_background = True
@@ -89,7 +94,10 @@ class DNACell(tf.nn.rnn_cell.RNNCell):
         ]
 
         if 'visual_flowvec' in self.conf:
-            output_size.append(tf.TensorShape([height, height, 2]))
+            output_size.append(tf.TensorShape([height, width, 2]))
+
+        if trafo_pix:
+            output_size.append(tf.TensorShape([height, width, 1]))
 
         self._output_size = tuple(output_size)
 
@@ -121,6 +129,10 @@ class DNACell(tf.nn.rnn_cell.RNNCell):
             tf.TensorShape([]),
             lstm_state_size,
         ]
+
+        if trafo_pix:
+            state_size.append(tf.TensorShape([height, width, 1]))
+
         self._state_size = tuple(state_size)
 
     @property
@@ -291,6 +303,9 @@ class DNACell(tf.nn.rnn_cell.RNNCell):
         if self.model == 'DNA':
             with tf.variable_scope('transformed'):
                 transformed_images += apply_dna_kernels(image, kernels, dilation_rate=dilation_rate)
+
+                if self.trafo_pix:
+
         elif self.model == 'CDNA':
             with tf.variable_scope('transformed'):
                 transformed_images += apply_cdna_kernels(image, kernels, dilation_rate=dilation_rate)
@@ -401,6 +416,12 @@ class Base_Prediction_Model(object):
             print 'randomly shift videos for data augmentation'
             images, states, actions  = self.random_shift(images, states, actions)
 
+        ## start interface
+
+
+
+
+
         # Split into timesteps.
         actions = tf.split(axis=1, num_or_size_splits=actions.get_shape()[1], value=actions)
         actions = [tf.squeeze(act) for act in actions]
@@ -408,6 +429,8 @@ class Base_Prediction_Model(object):
         states = [tf.squeeze(st) for st in states]
         images = tf.split(axis=1, num_or_size_splits=images.get_shape()[1], value=images)
         images = [tf.squeeze(img) for img in images]
+
+        self.model = create_model(**conf)
 
         self.actions = actions
         self.images = images
@@ -525,10 +548,10 @@ class Base_Prediction_Model(object):
             self.summ_op = tf.summary.merge(summaries)
 
     def visualize(self, sess):
-        visualize(sess, self)
+        visualize(sess, self.model)
 
     def visualize_diffmotions(self, sess):
-        visualize_diffmotions(sess, self)
+        visualize_diffmotions(sess, self.model)
 
     def random_shift(self, images, states, actions):
         print 'shifting the video sequence randomly in time'

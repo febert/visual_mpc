@@ -20,7 +20,7 @@ class Base_Prediction_Model(object):
                 conf = None,
                 trafo_pix = True,
                 load_data = True,
-                mode=True):
+                ):
         """
         :param conf:
         :param trafo_pix: whether to transform  distributions of designated pixels

@@ -32,9 +32,8 @@ configuration = {
 'desc_length': 8,
 'metric':'inverse_euclidean',
 'forward_backward':"",
-'tied_descriptors':'',
 'bilin_up':"",               #use bilinear upsampling
 'adim':5,
 'sdim':4,
-'local_search':''
+'global_search':''
 }
