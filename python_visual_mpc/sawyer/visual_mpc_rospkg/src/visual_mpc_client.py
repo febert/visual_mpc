@@ -158,8 +158,8 @@ class Visual_MPC_Client():
             save_images = True
         else:
             save_video = False
-            save_actions = True
-            save_images = True
+            save_actions = False
+            save_images = False
             self.data_collection = False
 
         self.recorder = robot_recorder.RobotRecorder(agent_params=self.agentparams,
@@ -378,6 +378,7 @@ class Visual_MPC_Client():
             im = cv2.cvtColor(self.recorder.ltob.img_cv2, cv2.COLOR_BGR2RGB)
 
             self.desig_pos_main, self.goal_pos_main = self.rpn_tracker.get_task(im,self.recorder.image_folder)
+            pdb.set_trace()
             self.init_traj()
         else:
             print 'place object in new location!'
@@ -404,12 +405,12 @@ class Visual_MPC_Client():
 
         self.topen, self.t_down = 0, 0
 
-
         #move to start:
         self.move_to_startpos(self.des_pos)
 
         if 'opencv_tracking' in self.agentparams:
             self.tracker = OpenCV_Track_Listener(self.agentparams, self.recorder, self.desig_pos_main)
+        rospy.sleep(1)
 
         if self.save_canon:
             self.save_canonical()
@@ -439,7 +440,6 @@ class Visual_MPC_Client():
                                       self.canon_ind, self.canon_dir, only_desig=True)
                     self.desig_pos_main = c_main.desig.astype(np.int64)
                 elif 'opencv_tracking' in self.agentparams:
-                    pdb.set_trace()
                     self.desig_pos_main[0], self.desig_hpos_main = self.tracker.get_track()  #tracking only works for 1 desig. pixel!!
 
                 # print 'current position error', self.des_pos - self.get_endeffector_pos(pos_only=True)
@@ -470,7 +470,6 @@ class Visual_MPC_Client():
 
             if 'opencv_tracking' in self.agentparams:
                 if rospy.get_time() > t_track[isave_substep] - .01:
-                    print 'tracking'
                     self.desig_pos_main[0], self.desig_hpos_main = self.tracker.get_track()
 
             if self.save_active:
@@ -583,7 +582,7 @@ class Visual_MPC_Client():
             state = np.zeros(self.sdim)
 
         try:
-            rospy.wait_for_service('get_action', timeout=240)
+            rospy.wait_for_service('get_action', timeout=3)
 
             get_action_resp = self.get_action_func(imagemain, imageaux1,
                                               tuple(state.astype(np.float32)),

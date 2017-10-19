@@ -357,9 +357,6 @@ class RobotRecorder(object):
 
 
     def save_highres(self):
-        # clip = mpy.ImageSequenceClip(self.highres_imglist, fps=10)
-        # clip.write_gif(self.image_folder + '/highres_traj{}.mp4'.format(self.itr))
-
         writer = imageio.get_writer(self.image_folder + '/highres_traj{}.mp4'.format(self.itr), fps=10)
 
         # add crosshairs to images in case of tracking:
@@ -385,7 +382,7 @@ class RobotRecorder(object):
             rospy.logerr("Service call failed: %s" % (e,))
             raise ValueError('get_kinectdata service failed')
 
-    def _save_state_actions(self, i_save, action, endeff_pose, desig_hpos_main):
+    def _save_state_actions(self, i_save, action, endeff_pose):
         joints_right = self._limb_right.joint_names()
         with open(self.state_action_data_file, 'a') as f:
             angles_right = [self._limb_right.joint_angle(j)
@@ -402,8 +399,6 @@ class RobotRecorder(object):
         self.joint_angle_list.append(angles_right)
         self.action_list.append(action)
         self.cart_pos_list.append(endeff_pose)
-
-        pdb.set_trace()
 
         if i_save == self.state_sequence_length-1:
             joint_angles = np.stack(self.joint_angle_list)

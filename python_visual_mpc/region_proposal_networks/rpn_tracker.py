@@ -137,7 +137,7 @@ class RPN_Tracker(object):
         self.draw_cross(desig_point, self.clone)
         self.draw_cross(goal_point, self.clone)
 
-        # self.plot()
+        self.plot()
         import rospy
         im  = Image.fromarray(np.array(self.clone).astype(np.uint8))
         im.save(im_save_dir + '/task_{}.png'.format(rospy.get_time()))

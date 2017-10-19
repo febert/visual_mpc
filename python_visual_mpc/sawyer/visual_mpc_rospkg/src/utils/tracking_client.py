@@ -5,6 +5,10 @@ import rospy
 import pdb
 from std_msgs.msg import Int32MultiArray
 
+from rospy_tutorials.msg import Floats
+from visual_mpc_rospkg.msg import intarray
+from rospy.numpy_msg import numpy_msg
+
 class OpenCV_Track_Listener():
     def __init__(self, agentparams, recorder, desig_pos_main):
         """
@@ -25,7 +29,8 @@ class OpenCV_Track_Listener():
                 int(loc[0] - self.box_height / 2.),
                 self.box_height, self.box_height)  # for the small snow-man
 
-        rospy.Subscriber("track_bbox", Int32MultiArray, self.store_latest_track)
+        # rospy.Subscriber("track_bbox", Int32MultiArray, self.store_latest_track)
+        rospy.Subscriber("track_bbox", numpy_msg(intarray), self.store_latest_track)
 
         self.set_tracking_target_func = rospy.ServiceProxy('set_tracking_target', set_tracking_target)
         print 'requesting tracking target: ', bbox
@@ -35,8 +40,8 @@ class OpenCV_Track_Listener():
         self.bbox = None
 
     def store_latest_track(self, data):
-        # print "getting latest track"
-        self.bbox = np.array(data)
+        print "receiving latest track"
+        self.bbox = data.data
 
     def get_track(self):
         new_loc = np.array([int(self.bbox[1]), int(self.bbox[0])]) + np.array([float(self.box_height) / 2])
