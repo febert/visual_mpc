@@ -4,11 +4,11 @@ import numpy as np
 import tensorflow as tf
 from tensorflow.contrib.layers import layer_norm
 
-from python_visual_mpc.video_prediction.dynamic_model.layers import instance_norm
-from python_visual_mpc.video_prediction.dynamic_model.lstm_ops import BasicConv2DLSTMCell
-from python_visual_mpc.video_prediction.dynamic_model.ops import dense, pad2d, conv1d, conv2d, conv3d, upsample_conv2d, conv_pool2d, lrelu, instancenorm, flatten
-from python_visual_mpc.video_prediction.dynamic_model.ops import sigmoid_kl_with_logits
-from python_visual_mpc.video_prediction.dynamic_model.utils import preprocess, deprocess
+from python_visual_mpc.video_prediction.dynamic_rnn_model.layers import instance_norm
+from python_visual_mpc.video_prediction.dynamic_rnn_model.lstm_ops import BasicConv2DLSTMCell
+from python_visual_mpc.video_prediction.dynamic_rnn_model.ops import dense, pad2d, conv1d, conv2d, conv3d, upsample_conv2d, conv_pool2d, lrelu, instancenorm, flatten
+from python_visual_mpc.video_prediction.dynamic_rnn_model.ops import sigmoid_kl_with_logits
+from python_visual_mpc.video_prediction.dynamic_rnn_model.utils import preprocess, deprocess
 from python_visual_mpc.video_prediction.basecls.utils.visualize import visualize_diffmotions, visualize
 from python_visual_mpc.video_prediction.basecls.utils.compute_motion_vecs import compute_motion_vector_cdna, compute_motion_vector_dna
 
@@ -418,10 +418,6 @@ class Base_Prediction_Model(object):
 
         ## start interface
 
-
-
-
-
         # Split into timesteps.
         actions = tf.split(axis=1, num_or_size_splits=actions.get_shape()[1], value=actions)
         actions = [tf.squeeze(act) for act in actions]
@@ -430,7 +426,6 @@ class Base_Prediction_Model(object):
         images = tf.split(axis=1, num_or_size_splits=images.get_shape()[1], value=images)
         images = [tf.squeeze(img) for img in images]
 
-        self.model = create_model(**conf)
 
         self.actions = actions
         self.images = images

@@ -40,5 +40,5 @@ modelconfiguration = {
 }
 
 dataconfiguration ={
-    
+
 }
