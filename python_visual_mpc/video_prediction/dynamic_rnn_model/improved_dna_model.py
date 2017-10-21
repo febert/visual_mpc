@@ -304,8 +304,6 @@ class DNACell(tf.nn.rnn_cell.RNNCell):
             with tf.variable_scope('transformed'):
                 transformed_images += apply_dna_kernels(image, kernels, dilation_rate=dilation_rate)
 
-                if self.trafo_pix:
-
         elif self.model == 'CDNA':
             with tf.variable_scope('transformed'):
                 transformed_images += apply_cdna_kernels(image, kernels, dilation_rate=dilation_rate)

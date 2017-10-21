@@ -7,7 +7,6 @@ import cPickle
 import pdb
 
 import imp
-import matplotlib.pyplot as plt
 from tensorflow.python.platform import app
 from tensorflow.python.platform import flags
 
@@ -21,15 +20,6 @@ VAL_INTERVAL = 500
 
 # How often to save a model checkpoint
 SAVE_INTERVAL = 4000
-from python_visual_mpc.video_prediction.basecls.utils.get_designated_pix import Getdesig
-
-from python_visual_mpc.video_prediction.utils_vpred.animate_tkinter import Visualizer_tkinter
-
-from python_visual_mpc.video_prediction.tracking_model.tracking_model import Tracking_Model
-from python_visual_mpc.flow.descriptor_based_flow.descriptor_flow_model import Descriptor_Flow
-from python_visual_mpc.flow.trafo_based_flow.correction import Trafo_Flow
-
-from PIL import Image
 
 from improved_dna_model import Base_Prediction_Model
 
@@ -65,12 +55,15 @@ def main(unused_argv, conf_script= None):
         conf['visualize'] = conf['output_dir'] + '/' + FLAGS.visualize
         conf['event_log_dir'] = '/tmp'
         conf.pop('use_len', None)
-        conf['batch_size'] = 5
+        conf['batch_size'] = 15
 
         conf['sequence_length'] = 14
         if FLAGS.diffmotions:
             conf['sequence_length'] = 30
 
+        # when using alex interface:
+        if 'modelconfiguration' in conf:
+            conf['modelconfiguration']['schedule_sampling_k'] = conf['schedsamp_k']
 
     if 'pred_model' in conf:
         Model = conf['pred_model']
@@ -95,7 +88,9 @@ def main(unused_argv, conf_script= None):
     sess = tf.InteractiveSession(config=tf.ConfigProto(gpu_options=gpu_options))
     summary_writer = tf.summary.FileWriter(conf['output_dir'], graph=sess.graph, flush_secs=10)
 
-    tf.train.start_queue_runners(sess)
+    if not FLAGS.diffmotions:
+        tf.train.start_queue_runners(sess)
+
     sess.run(tf.global_variables_initializer())
 
     if conf['visualize']:

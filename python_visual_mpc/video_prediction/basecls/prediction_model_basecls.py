@@ -555,10 +555,10 @@ class Base_Prediction_Model(object):
 
 
     def visualize(self, sess):
-        visualize(sess, self)
+        visualize(sess, self.conf, self)
 
     def visualize_diffmotions(self, sess):
-        visualize_diffmotions(sess, self)
+        visualize_diffmotions(sess, self.conf, self)
 
 def scheduled_sample(ground_truth_x, generated_x, batch_size, num_ground_truth):
     """Sample batch with specified mix of ground truth and generated data_files points.
