@@ -180,7 +180,7 @@ if __name__ == '__main__':
     current_dir = os.path.dirname(os.path.realpath(__file__))
 
     # DATA_DIR = '/'.join(str.split(current_dir, '/')[:-2]) + '/pushing_data/wrist_rot/train'
-    DATA_DIR = '/'.join(str.split(current_dir, '/')[:-2]) + '/pushing_data/wristrot_128x128/train'
+    DATA_DIR = '/'.join(str.split(current_dir, '/')[:-2]) + '/pushing_data/wristrot_256x256/train'
 
     conf['schedsamp_k'] = -1  # don't feed ground truth
     conf['data_dir'] = DATA_DIR  # 'directory containing data_files.' ,
@@ -192,7 +192,10 @@ if __name__ == '__main__':
     conf['visualize']= False
     conf['single_view'] = ''
     conf['context_frames'] = 2
-    conf['im_height'] = 128
+
+    conf['im_height'] = 256
+    conf['sdim'] = 4
+    conf['adim'] = 5
 
     print '-------------------------------------------------------------------'
     print 'verify current settings!! '

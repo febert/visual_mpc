@@ -5,6 +5,8 @@ from python_visual_mpc.video_prediction.utils_vpred.animate_tkinter import Visua
 import tensorflow as tf
 import pdb
 
+from collections import OrderedDict
+
 from python_visual_mpc.video_prediction.basecls.utils.get_designated_pix import Getdesig
 
 def create_one_hot(conf, desig_pix_l):
@@ -30,7 +32,14 @@ def create_one_hot(conf, desig_pix_l):
     else:
         one_hot = np.zeros((1, 1, 64, 64, 1), dtype=np.float32)
         # switch on pixels
-        one_hot[0, 0, desig_pix_l[0], desig_pix_l[1]] = 1.
+        if 'modelconfiguration' in conf:
+            if conf['modelconfiguration']['dilation_rate'] == [2,2]:
+                one_hot[0, 0, desig_pix_l[0]-1:desig_pix_l[0]+1:, desig_pix_l[1]-1:desig_pix_l[1]+1] = 0.25
+            else:
+                one_hot[0, 0, desig_pix_l[0], desig_pix_l[1]] = 1.
+        else:
+            one_hot[0, 0, desig_pix_l[0], desig_pix_l[1]] = 1.
+
         one_hot = np.repeat(one_hot, conf['context_frames'], axis=1)
         app_zeros = np.zeros((1, conf['sequence_length']- conf['context_frames'], 64, 64, 1), dtype=np.float32)
         one_hot = np.concatenate([one_hot, app_zeros], axis=1)
@@ -57,7 +66,7 @@ def visualize(sess, conf, model):
                                        ],
                                        feed_dict)
 
-    dict = collections.OrderedDict()
+    dict = OrderedDict()
     import re
     itr_vis = re.match('.*?([0-9]+)$', conf['visualize']).group(1)
     dict['iternum'] = itr_vis
@@ -185,7 +194,7 @@ def visualize_diffmotions(sess, conf, model):
     #                                                                                        model.moved_bckgd
     #                                                                                        ]
     #                                                                                     ,feed_dict)
-    dict = {}
+    dict = OrderedDict()
     dict['gen_images'] = gen_images
     # dict['gen_masks'] = gen_masks
     dict['gen_distrib'] = gen_distrib
@@ -203,5 +212,6 @@ def visualize_diffmotions(sess, conf, model):
 
     v = Visualizer_tkinter(dict, numex=b+1, append_masks=False,
                            filepath=conf['output_dir'],
-                           suf='_diffmotions_b{}_l{}'.format(b_exp, conf['sequence_length']))
+                           suf='_diffmotions_b{}_l{}'.format(b_exp, conf['sequence_length']),
+                           renorm_heatmaps=False)
     v.build_figure()

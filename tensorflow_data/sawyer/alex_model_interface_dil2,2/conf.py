@@ -19,13 +19,13 @@ modelconfiguration = {
 'schedule_sampling_k': 1200,
 'context_frames': 2,
 'model': 'CDNA',
-'kernel_size': (17, 17),
+'kernel_size': (9, 9),
 'layer_normalization': 'in',
 'num_transformed_images': 4,
 'generate_scratch_image': True,
 'vgf_dim': 32,
 'trainable_generator_startswith':None,
-'dilation_rate': [1, 1]
+'dilation_rate': [2, 2]
 }
 
 configuration = {

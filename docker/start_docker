@@ -1,0 +1,1 @@
+sudo nvidia-docker run -v /home/$USER/Documents/visual_mpc:/docker_home -it -p 8888:8888 tensorflowimage /bin/bash
