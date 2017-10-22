@@ -28,7 +28,8 @@ class Visual_MPC_Server(object):
     def __init__(self):
         base_dir = '/'.join(str.split(base_filepath, '/')[:-2])
 
-        cem_exp_dir = base_dir + '/experiments/cem_exp/benchmarks_sawyer'
+        # cem_exp_dir = base_dir + '/experiments/cem_exp/benchmarks_sawyer'
+        cem_exp_dir = 'experiments/cem_exp/benchmarks_sawyer'
         hyperparams = imp.load_source('hyperparams', cem_exp_dir + '/base_hyperparams_sawyer.py')
 
         parser = argparse.ArgumentParser(description='Run benchmarks')
