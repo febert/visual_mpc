@@ -554,7 +554,7 @@ class Prediction_Model(object):
                 image_i = tf.expand_dims(tf.transpose(prev_image[i, :, :, :], [2,0,1]), axis = 3)
                 filt_i = tf.expand_dims(cdna_kerns[:, :, i, :], axis = 2)
                 # filt_i = tf.Print(filt_i, [tf.reduce_sum(tf.cast(tf.is_nan(filt_i), tf.int64))], message="cdna filt_"+str(i) +"nan check")
-                conv_result = tf.squeeze(tf.nn.conv2d(image_i, filt_i, [1, 1, 1, 1], 'SAME'))
+                conv_result = tf.nn.conv2d(image_i, filt_i, [1, 1, 1, 1], 'SAME')
                 # conv_result = tf.Print(conv_result, [tf.reduce_sum(tf.cast(tf.is_nan(conv_result), tf.int64))], message="cdna conv_"+str(i) +" nan check")
                 image_batch_conv.append(tf.transpose(conv_result, [1,2,0,3]))
 

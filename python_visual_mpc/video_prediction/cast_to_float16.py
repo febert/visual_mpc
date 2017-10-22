@@ -65,6 +65,7 @@ def main(conf, model):
     print 'beginning casting'
     for i, j in zip(tf.get_collection(tf.GraphKeys.GLOBAL_VARIABLES, scope='half_float'),
                     tf.get_collection(tf.GraphKeys.GLOBAL_VARIABLES, scope='model')):
+        print 'casting', j.name, 'to', i.name
         sess.run(tf.assign(i, tf.cast(j, i.dtype)))
 
     print 'casted!'
