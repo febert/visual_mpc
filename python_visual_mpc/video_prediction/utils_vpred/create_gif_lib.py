@@ -118,7 +118,7 @@ def make_color_scheme(input_img_list, n_exp= None, convert_to_float = True):
             plt.cla()
 
             axes.axis('off')
-            plt.imshow(img, zorder=0, cmap=plt.get_cmap('jet'), interpolation='none')
+            plt.imshow(img.astype(np.float32), zorder=0, cmap=plt.get_cmap('jet'), interpolation='none')
             axes.autoscale(False)
 
             fig.canvas.draw()  # draw the canvas, cache the renderer

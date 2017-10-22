@@ -186,6 +186,7 @@ def build_tfrecord_input(conf, training=True):
                                     conf['batch_size'],
                                     num_threads=num_threads,
                                     capacity=100 * conf['batch_size'])
+
         return image_main_batch, image_aux1_batch, action_batch, endeffector_pos_batch
 
 
