@@ -475,7 +475,7 @@ class Visual_MPC_Client():
             state = np.zeros(3)
 
         try:
-            rospy.wait_for_service('get_a`ction', timeout=240)
+            rospy.wait_for_service('get_action', timeout=240)
             get_action_resp = self.get_action_func(imagemain, imageaux1,
                                               tuple(state),
                                               tuple(self.desig_pos_main.flatten()),
