@@ -25,13 +25,8 @@ class Tower(object):
 
         from prediction_train_sawyer import Model
 
-        if 'float16' in conf:
-            start_images = tf.cast(start_images, tf.float16)
-            actions = tf.cast(actions, tf.float16)
-            start_states = tf.cast(start_states, tf.float16)
 
         if 'ndesig' in conf:
-
             self.model = Model(conf, start_images, actions, start_states, pix_distrib=pix_distrib1,pix_distrib2=pix_distrib2, inference=True)
             # self.model = Model(conf, start_images, actions, start_states, pix_distrib=pix_distrib1,
             #                    pix_distrib2=pix_distrib2,
@@ -76,8 +71,15 @@ def setup_predictor(conf, gpu_id=0, ngpu=1):
 
     print 'Constructing multi gpu model for control...'
 
+    if 'img_height' in conf and 'img_width' in conf:
+        img_height = conf['img_height']
+        img_width = conf['img_width']
+    else:
+        img_height = 64
+        img_width = 64
+
     start_images = tf.placeholder(tf.float32, name='images',  # with zeros extension
-                                    shape=(conf['batch_size'], conf['sequence_length'], 64, 64, 3))
+                                    shape=(conf['batch_size'], conf['sequence_length'], img_height, img_width, 3))
 
     if 'sawyer' in conf:
         actions = tf.placeholder(tf.float32, name='actions',
@@ -89,12 +91,21 @@ def setup_predictor(conf, gpu_id=0, ngpu=1):
                                  shape=(conf['batch_size'], conf['sequence_length'], 2))
         start_states = tf.placeholder(tf.float32, name='states',
                                       shape=(conf['batch_size'], conf['context_frames'], 4))
-    pix_distrib_1 = tf.placeholder(tf.float32, shape=(conf['batch_size'], conf['context_frames'], 64, 64, 1))
-    pix_distrib_2 = tf.placeholder(tf.float32, shape=(conf['batch_size'], conf['context_frames'], 64, 64, 1))
+    pix_distrib_1 = tf.placeholder(tf.float32, shape=(conf['batch_size'], conf['context_frames'], img_height, img_width, 1))
+    pix_distrib_2 = tf.placeholder(tf.float32, shape=(conf['batch_size'], conf['context_frames'], img_height, img_width, 1))
 
     # making the towers
     towers = []
-    with tf.variable_scope('model', reuse=None):
+    scope = 'model'
+    if 'float16' in conf:
+        start_images = tf.cast(start_images, tf.float16)
+        actions = tf.cast(actions, tf.float16)
+        start_states = tf.cast(start_states, tf.float16)
+        pix_distrib_1 = tf.cast(pix_distrib_1, tf.float16)
+        pix_distrib_2 = tf.cast(pix_distrib_2, tf.float16)
+        scope = 'half_float'
+
+    with tf.variable_scope(scope, reuse=None):
         for i_gpu in xrange(ngpu):
             with tf.device('/gpu:%d' % i_gpu):
                 with tf.name_scope('tower_%d' % (i_gpu)):
@@ -103,6 +114,7 @@ def setup_predictor(conf, gpu_id=0, ngpu=1):
 
 
                     # towers.append(Tower(conf, i_gpu, training_scope, start_images, actions, start_states, pix_distrib_1, pix_distrib_2))
+
                     towers.append(Tower(conf, i_gpu, start_images, actions, start_states, pix_distrib_1,
                                         pix_distrib_2))
                     tf.get_variable_scope().reuse_variables()
@@ -115,7 +127,12 @@ def setup_predictor(conf, gpu_id=0, ngpu=1):
     vars_no_state = filter_vars(vars)
     saver = tf.train.Saver(vars_no_state, max_to_keep=0)
 
-    saver.restore(sess, conf['pretrained_model'])
+    if 'float16' in conf:
+        restore_dir = conf['pretrained_model'] + 'float16'
+    else:
+        restore_dir = conf['pretrained_model']
+    print 'restoring from', restore_dir
+    saver.restore(sess, restore_dir)
     print 'restore done. '
 
     comb_gen_img = []

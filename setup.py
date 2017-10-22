@@ -1,8 +1,8 @@
 # setup.py
-from setuptools import setup
+from setuptools import setup, find_packages
 
 setup(
     name='visual_mpc',
     version='0.1.0',
-    packages=['python_visual_mpc'],
+    packages=find_packages(),
 )

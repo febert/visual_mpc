@@ -291,6 +291,7 @@ def main(unused_argv, conf_script= None):
             pix_distrib_pl = tf.cast(pix_distrib_pl, tf.float16)
 
             with tf.variable_scope('half_float', reuse=None):
+
                 half_float = Model(conf, images_pl, actions_pl, states_pl, pix_distrib=pix_distrib_pl,
                                   inference=inference)
         else:
