@@ -25,7 +25,13 @@ class Tower(object):
 
         from prediction_train_sawyer import Model
 
+        if 'float16' in conf:
+            start_images = tf.cast(start_images, tf.float16)
+            actions = tf.cast(actions, tf.float16)
+            start_states = tf.cast(start_states, tf.float16)
+
         if 'ndesig' in conf:
+
             self.model = Model(conf, start_images, actions, start_states, pix_distrib=pix_distrib1,pix_distrib2=pix_distrib2, inference=True)
             # self.model = Model(conf, start_images, actions, start_states, pix_distrib=pix_distrib1,
             #                    pix_distrib2=pix_distrib2,

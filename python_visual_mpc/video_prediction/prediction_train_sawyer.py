@@ -249,7 +249,7 @@ def main(unused_argv, conf_script= None):
         conf['visualize'] = conf['output_dir'] + '/' + FLAGS.visualize
         conf['event_log_dir'] = '/tmp'
         conf.pop('use_len', None)
-        conf['batch_size'] = 32
+        conf['batch_size'] = 128
 
         conf['sequence_length'] = 15
         if FLAGS.diffmotions:
@@ -282,10 +282,21 @@ def main(unused_argv, conf_script= None):
 
         pix_distrib_pl = tf.placeholder(tf.float32, name='states',
                                         shape=(conf['batch_size'], conf['sequence_length'], img_height, img_width, 1))
+        if FLAGS.float16:
+            actions_pl = tf.cast(actions_pl, tf.float16)
+            states_pl = tf.cast(states_pl, tf.float16)
+            images_pl = tf.cast(images_pl, tf.float16)
+            val_images = tf.cast(val_images, tf.float16)
+            val_states = tf.cast(val_states, tf.float16)
+            pix_distrib_pl = tf.cast(pix_distrib_pl, tf.float16)
 
-        with tf.variable_scope('model', reuse=None):
-            val_model = Model(conf, images_pl, actions_pl, states_pl, pix_distrib=pix_distrib_pl,
-                              inference=inference)
+            with tf.variable_scope('half_float', reuse=None):
+                half_float = Model(conf, images_pl, actions_pl, states_pl, pix_distrib=pix_distrib_pl,
+                                  inference=inference)
+        else:
+            with tf.variable_scope('model', reuse=None):
+                val_model = Model(conf, images_pl, actions_pl, states_pl, pix_distrib=pix_distrib_pl,
+                                  inference=inference)
 
     else:
         if FLAGS.float16:
@@ -297,7 +308,7 @@ def main(unused_argv, conf_script= None):
                 val_images = tf.cast(val_images, tf.float16)
                 val_actions = tf.cast(val_actions, tf.float16)
                 val_states = tf.cast(val_states, tf.float16)
-
+                print 'size', val_images
                 half_float = Model(conf, val_images, val_actions, val_states, inference=inference)
         else:
             with tf.variable_scope('model', reuse=None) as training_scope:
@@ -307,8 +318,10 @@ def main(unused_argv, conf_script= None):
                 model = Model(conf, images, actions, states, inference=inference)
 
             with tf.variable_scope('val_model', reuse=None):
+
                 val_images_aux1, val_actions, val_states = build_tfrecord_input(conf, training=False)
                 val_images = val_images_aux1[:, :, :img_height, :, :]
+                print 'size', val_images
 
                 val_model = Model(conf, val_images, val_actions, val_states,
                                   training_scope, inference=inference)
@@ -355,7 +368,7 @@ def main(unused_argv, conf_script= None):
             img, state = sess.run([val_images[:, :, :img_height, :, :], val_states])
             sel_img= img[b_exp,ind0:ind0+2]
 
-            c = Getdesig(sel_img[0], conf, 'b{}'.format(b_exp))
+            c = Getdesig(sel_img[0].astype(np.float32), conf, 'b{}'.format(b_exp))
             desig_pos_aux1 = c.coords.astype(np.int32)
             # desig_pos_aux1 = np.array([23, 39])
 
@@ -403,9 +416,10 @@ def main(unused_argv, conf_script= None):
                                                             ]
                                                            ,feed_dict)
             dict = {}
+
             dict['gen_images'] = gen_images
-            dict['gen_masks'] = gen_masks
-            dict['gen_distrib'] = gen_distrib
+            dict['gen_masks'] =  gen_masks
+            dict['gen_distrib'] =gen_distrib
             cPickle.dump(dict, open(file_path + '/pred.pkl', 'wb'))
             print 'written files to:' + file_path
 

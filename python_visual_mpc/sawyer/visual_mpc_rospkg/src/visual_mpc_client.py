@@ -60,7 +60,8 @@ class Visual_MPC_Client():
 
 
         self.base_dir = '/'.join(str.split(base_filepath, '/')[:-2])
-        cem_exp_dir = self.base_dir + '/experiments/cem_exp/benchmarks_sawyer'
+        # cem_exp_dir = self.base_dir + '/experiments/cem_exp/benchmarks_sawyer'
+        cem_exp_dir = 'experiments/cem_exp/benchmarks_sawyer'
         benchmark_name = args.benchmark
         bench_dir = cem_exp_dir + '/' + benchmark_name
         if not os.path.exists(bench_dir):
@@ -288,10 +289,15 @@ class Visual_MPC_Client():
 
             if self.args.save_subdir == "True":
                 self.save_subdir = raw_input('enter subdir to save data:')
-                self.desig_pix_img_dir = self.base_dir + "/experiments/cem_exp/benchmarks_sawyer/" + self.benchname + \
+                # self.desig_pix_img_dir = self.base_dir + "/experiments/cem_exp/benchmarks_sawyer/" + self.benchname + \
+                #                          '/' + self.save_subdir + "/videos"
+
+                self.desig_pix_img_dir = "experiments/cem_exp/benchmarks_sawyer/" + self.benchname + \
                                          '/' + self.save_subdir + "/videos"
             else:
-                self.desig_pix_img_dir = self.base_dir + "/experiments/cem_exp/benchmarks_sawyer/" + self.benchname + "/videos"
+                # self.desig_pix_img_dir = self.base_dir + "/experiments/cem_exp/benchmarks_sawyer/" + self.benchname + "/videos"
+
+                self.desig_pix_img_dir = "experiments/cem_exp/benchmarks_sawyer/" + self.benchname + "/videos"
             if not os.path.exists(self.desig_pix_img_dir):
                 os.makedirs(self.desig_pix_img_dir)
 
@@ -718,13 +724,15 @@ class Getdesig(object):
 
         if self.i_click == self.i_click_max:
             print 'saving desig-goal picture'
-            plt.savefig(self.basedir +'/startimg_'+self.suf)
+            # plt.savefig(self.basedir +'/startimg_'+self.suf)
+            plt.savefig('startimg_' + self.suf)
             if self.canon_ind != None:
                 print 'saving canonical example image to' + self.canon_dir + '/images/img{}'.format(self.canon_ind)
                 plt.savefig(self.canon_dir + '/images/img{}'.format(self.canon_ind))
 
             plt.close()
-            with open(self.basedir +'/desig_goal_pix{}.pkl'.format(self.suf), 'wb') as f:
+            # with open(self.basedir +'/desig_goal_pix{}.pkl'.format(self.suf), 'wb') as f:
+            with open('desig_goal_pix{}.pkl'.format(self.suf), 'wb') as f:
                 dict= {'desig_pix': self.desig,
                        'goal_pix': self.goal}
                 cPickle.dump(dict, f)
