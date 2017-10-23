@@ -15,9 +15,16 @@ class Trajectory(object):
         else:
             img_channels = 3
 
+        if 'img_height' in netconf and 'img_width' in netconf:
+            img_height = netconf['img_height']
+            img_width = netconf['img_width']
+        else:
+            img_height = hyperparams['image_height']
+            img_width = hyperparams['image_width']
+
         self._sample_images = np.zeros((self.T,
-                                        netconf['img_height'],
-                                        netconf['img_width'],
+                                        img_height,
+                                        img_width,
                                         img_channels), dtype='uint8')
 
         if 'large_images_retina' in hyperparams:
