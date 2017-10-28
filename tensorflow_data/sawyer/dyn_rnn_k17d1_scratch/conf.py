@@ -7,7 +7,7 @@ DATA_DIR = '/'.join(str.split(current_dir, '/')[:-3]) + '/pushing_data/wrist_rot
 # local output directory
 OUT_DIR = current_dir + '/modeldata'
 
-modelconfiguration = {
+configuration = {
 'experiment_name': 'rndaction_var10',
 'data_dir': DATA_DIR,       # 'directory containing data.' ,
 'output_dir': OUT_DIR,      #'directory for model checkpoints.' ,
@@ -18,15 +18,15 @@ modelconfiguration = {
 'skip_frame': 1,            # 'use ever i-th frame to increase prediction horizon' ,
 'context_frames': 2,        # of frames before predictions.' ,
 'use_state': 1,             #'Whether or not to give the state+action to the model' ,
-'model': 'CDNA',            #'model architecture to use - CDNA, DNA, or STP' ,
-'num_transformed_images': 8,             # 'number of masks, usually 1 for DNA, 10 for CDNA, STN.' ,
+'model': 'cdna',            #'model architecture to use - CDNA, DNA, or STP' ,
+'num_transformed_images': 4,   # 'number of masks, usually 1 for DNA, 10 for CDNA, STN.' ,
 'schedsamp_k': 1200.0,      # 'The k hyperparameter for scheduled sampling -1 for no scheduled sampling.' ,
 'train_val_split': 0.95,    #'The percentage of files to use for the training set vs. the validation set.' ,
 'batch_size': 16,           #'batch size for training' ,
 'learning_rate': 0.001,     #'the base learning rate of the generator' ,
 'visualize': '',            #'load model from which to generate visualizations
 'file_visual': '',          # datafile used for making visualizations
-'kern_size': 9,             #size of DNA kerns
+'kern_size': 17,             #size of DNA kerns
 'sawyer':'',
 'single_view':"",
 'use_len':14,                # number of steps used for training where the starting location is selected randomly within sequencelength
@@ -36,9 +36,5 @@ modelconfiguration = {
 'sdim':4,
 'normalization':'in',
 'previmg_bckgd':'',
-'gen_img':''
-}
-
-dataconfiguration ={
-
+'gen_img':'',
 }

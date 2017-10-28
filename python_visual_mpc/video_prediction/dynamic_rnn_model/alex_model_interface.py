@@ -9,11 +9,12 @@ from python_visual_mpc.video_prediction.dynamic_rnn_model.lstm_ops import BasicC
 from python_visual_mpc.video_prediction.dynamic_rnn_model.ops import dense, pad2d, conv1d, conv2d, conv3d, upsample_conv2d, conv_pool2d, lrelu, instancenorm, flatten
 from python_visual_mpc.video_prediction.dynamic_rnn_model.ops import sigmoid_kl_with_logits
 from python_visual_mpc.video_prediction.dynamic_rnn_model.utils import preprocess, deprocess
-from python_visual_mpc.video_prediction.basecls.utils.visualize import visualize_diffmotions, visualize
+from python_visual_mpc.video_prediction.basecls.utils.visualize import visualize_diffmotions, visualize, compute_metric
 from python_visual_mpc.video_prediction.basecls.utils.compute_motion_vecs import compute_motion_vector_cdna, compute_motion_vector_dna
 
 import pdb
-from docile.improved_dna_model import create_model
+from docile.improved_dna_model import create_model as create_model_improved
+
 
 class Base_Prediction_Model(object):
     def __init__(self,
@@ -72,6 +73,11 @@ class Base_Prediction_Model(object):
 
         ## start interface
 
+        if 'create_model' in conf:
+            create_model = conf['create_model']
+            print 'using different create_model'
+        else: create_model = create_model_improved
+
         if not trafo_pix:
             self.model = create_model(images, actions, states, **modelconfiguration)
         else:
@@ -87,6 +93,8 @@ class Base_Prediction_Model(object):
     def visualize_diffmotions(self, sess):
         visualize_diffmotions(sess, self.conf, self)
 
+    def compute_metric(self, sess, create_images):
+        compute_metric(sess, self.conf, self, create_images)
 
     def random_shift(self, images, states, actions):
         print 'shifting the video sequence randomly in time'

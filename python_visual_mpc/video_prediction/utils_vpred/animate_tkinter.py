@@ -89,6 +89,7 @@ def visualize_flow(flow_vecs):
 
     return color_flow
 
+
 t = 0
 class Visualizer_tkinter(object):
     def __init__(self, dict_ = None, append_masks = True, filepath=None, numex = 4, suf= "", col_titles = None, renorm_heatmaps=True):
@@ -131,6 +132,7 @@ class Visualizer_tkinter(object):
         self.video_list = []
 
         for key in dict_.keys():
+            print 'processing key {}'.format(key)
             data = dict_[key]
 
             if key ==  'ground_truth':  # special treatement for gtruth
@@ -149,7 +151,7 @@ class Visualizer_tkinter(object):
                 else:
                     self.video_list.append((ground_truth, 'Ground Truth'))
 
-            elif type(data[0]) is list:    # for lists of videos
+            elif type(data[0]) is list or '_l' in key:    # for lists of videos
                 print "the key \"{}\" contains {} videos".format(key, len(data[0]))
                 if key == 'gen_masks' and not append_masks:
                     print 'skipping masks!'
@@ -329,7 +331,7 @@ class Visualizer_tkinter(object):
             self.im_handle_list.append(im_handle_row)
             self.plot_handle_list.append(plot_handle_row)
 
-            plt.figtext(.5, 1-(row*drow*0.990)-0.01, self.video_list[row][1], va="center", ha="center", size=8)
+            plt.figtext(.5, 1-(row*drow*1.)-0.001, self.video_list[row][1], va="center", ha="center", size=8)
 
         plt.axis('off')
         fig.tight_layout()
@@ -458,10 +460,8 @@ def convert_to_videolist(input, repeat_last_dim):
 
 if __name__ == '__main__':
     # file_path = '/home/frederik/Documents/catkin_ws/src/visual_mpc/tensorflow_data/sawyer/data_amount_study/5percent_of_data/modeldata'
-    # file_path = '/home/frederik/Documents/catkin_ws/src/visual_mpc/tensorflow_data/sawyer/dna_correct_nummask/modeldata'
-    # file_path = '/home/frederik/Documents/catkin_ws/src/visual_mpc/tensorflow_data/dense_flow/descriptor_model/inv_euc_bilin_fwdbck/modeldata'
-    file_path = '/home/febert/Documents/catkin_ws/src/visual_mpc/experiments/cem_exp/benchmarks_sawyer/opencv_tracker/verbose'
+    file_path = '/home/frederik/Documents/catkin_ws/src/visual_mpc/tensorflow_data/sawyer/alexmodel_interface/cdna_wristrot_k17d1_transformed4_bs16/modeldata'
 
-    v  = Visualizer_tkinter(append_masks=False, filepath=file_path, numex=10, renorm_heatmaps=False)
+    v  = Visualizer_tkinter(append_masks=True, filepath=file_path, numex=10, renorm_heatmaps=False)
     v.build_figure()
     # v.make_image_strip(i_ex=3)

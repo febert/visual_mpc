@@ -10,7 +10,8 @@ import collections
 import cPickle
 from python_visual_mpc.video_prediction.utils_vpred.animate_tkinter import Visualizer_tkinter
 import pdb
-
+from tensorflow.contrib.layers import layer_norm
+from python_visual_mpc.video_prediction.dynamic_rnn_model.ops import dense, pad2d, conv1d, conv2d, conv3d, upsample_conv2d, conv_pool2d, lrelu, instancenorm, flatten
 # Amount to use when lower bounding tensors
 RELU_SHIFT = 1e-12
 from python_visual_mpc.video_prediction.basecls.utils.transformations import dna_transformation, cdna_transformation
@@ -20,18 +21,37 @@ from python_visual_mpc.flow.trafo_based_flow.correction import compute_motion_ve
 from python_visual_mpc.flow.trafo_based_flow.correction import Trafo_Flow
 from python_visual_mpc.flow.descriptor_based_flow.descriptor_flow_model import Descriptor_Flow
 
-class Tracking_Model(Base_Prediction_Model):
+from python_visual_mpc.video_prediction.dynamic_rnn_model.dynamic_base_model import Dynamic_Base_Model
+
+
+from python_visual_mpc.video_prediction.dynamic_rnn_model.layers import instance_norm
+class Single_Point_Tracking_Model(Dynamic_Base_Model):
     def __init__(self,
                 conf = None,
                 trafo_pix = True,
                 load_data = True,
                 mode=True):
         self.build_tracker = conf['tracker']
-        Base_Prediction_Model.__init__(self,
+
+        Dynamic_Base_Model.__init__(self,
                                         conf = conf,
                                         trafo_pix = trafo_pix,
                                         load_data = load_data,
+                                        build_loss = False
                                         )
+
+        self.layer_normalization = conf['normalization']
+        if conf['normalization'] == 'ln':
+            self.normalizer_fn = layer_norm
+        elif conf['normalization'] == 'in':
+            self.normalizer_fn = instance_norm
+        elif conf['normalization'] == 'none':
+            self.normalizer_fn = lambda x: x
+        else:
+            raise ValueError('Invalid layer normalization %s' % self.layer_normalization)
+
+        with tf.variable_scope('tracker'):
+            self.build()
 
     def build(self):
         """
@@ -39,73 +59,47 @@ class Tracking_Model(Base_Prediction_Model):
             :return:
         """
 
-        batch_size, img_height, img_width, self.color_channels = self.images[0].get_shape()[0:4]
-
-        if self.states != None:
-            current_state = self.states[0]
-        else:
-            current_state = None
-
-        if self.k == -1:
-            feedself = True
-        else:
-            # Scheduled sampling:
-            # Calculate number of ground-truth frames to pass in.
-            self.num_ground_truth = tf.to_int32(
-                tf.round(tf.to_float(batch_size) * (self.k / (self.k + tf.exp(self.iter_num / self.k)))))
-            feedself = False
-
-        # LSTM state sizes and states.
-
-        if 'lstm_size' in self.conf:
-            self.lstm_size = self.conf['lstm_size']
-            print 'using lstm size', self.lstm_size
-        else:
-            self.lstm_size = np.int32(np.array([16, 32, 64, 32, 16]))
-
-        self.lstm_state1, self.lstm_state2, self.lstm_state3, self.lstm_state4 = None, None, None, None
-        self.lstm_state5, self.lstm_state6, self.lstm_state7 = None, None, None
-
-        self.tracking_kerns = []
-        self.tracking_gen_images = []
-        self.tracking_flow01 = []
-        self.tracking_flow10 = []
-        self.tracking_gendistrib = []
-        self.descp0 = []
-        self.descp1 = []
-
-        for t, image, action in zip(range(len(self.images)-1), self.images[:-1], self.actions[:-1]):
-            print t
+        self.gen_
+        for i in range()
+        self.build_descriptors()
 
 
-            self.prev_image, self.prev_pix_distrib1, self.prev_pix_distrib2 = self.get_input_image(
-                feedself,
-                image,
-                t)
 
-            self.reuse = bool(self.gen_images)
-            current_state = self.build_network_core(action, current_state, self.prev_image)
+    def build_descriptors():
+        with tf.variable_scope('h0'):
+            h0 = conv_pool2d(image, vgf_dim, kernel_size=(5, 5), strides=(2, 2))
+            h0 = self.normalizer_fn(h0)
+            h0 = tf.nn.relu(h0)
+        with tf.variable_scope('h1'):
+            h1 = conv_pool2d(, vgf_dim * 2, kernel_size = (3, 3), strides = (2, 2))
+            h1 = self.normalizer_fn(h1)
+            h1 = tf.nn.relu(h1)
+        with tf.variable_scope('h2'):
+            h2 = conv_pool2d(lstm_h1, vgf_dim * 4, kernel_size=(3, 3), strides=(2, 2))
+            h2 = self.normalizer_fn(h2)
+            h2 = tf.nn.relu(h2)
+        with tf.variable_scope('h3'):
+            h3 = upsample_conv2d(lstm_h2, vgf_dim * 2, kernel_size=(3, 3), strides=(2, 2))
+            h3 = self.normalizer_fn(h3)
+            h3 = tf.nn.relu(h3)
+        with tf.variable_scope('h4'):
+            h4 = upsample_conv2d(tf.concat([lstm_h3, h1], axis=-1), vgf_dim, kernel_size=(3, 3), strides=(2, 2))
+            h4 = self.normalizer_fn(h4)
+            h4 = tf.nn.relu(h4)
+        with tf.variable_scope('h5'):
+            h5 = upsample_conv2d(tf.concat([lstm_h4, h0], axis=-1), vgf_dim, kernel_size=(3, 3), strides=(2, 2))
+            h5 = self.normalizer_fn(h5)
+            h5 = tf.nn.relu(h5)
+        with tf.variable_scope('h6_masks'):
+            h6_masks = conv2d(h5, vgf_dim, kernel_size=(3, 3), strides=(1, 1))
+            h6_masks = self.normalizer_fn(h6_masks)
+            h6_masks = tf.nn.relu(h6_masks)
 
-            print 'building tracker...'
-            tracker = self.build_tracker(self.conf,
-                                [self.images[t],
-                                self.images[t + 1]],
-                                pix_distrib_input= self.prev_pix_distrib1,
-                                reuse=self.reuse)
+    self.build_loss()
 
-            self.tracking_gendistrib.append(tracker.gen_distrib_output)
-            self.tracking_gen_images.append(tracker.gen_images)
-            self.tracking_kerns.append(tracker.kernels)
+    def compute_descriptors(self):
 
 
-            self.tracking_flow01.append(tracker.flow_vectors01)
-            if isinstance(tracker, Descriptor_Flow):
-                if 'forward_backward' in self.conf:
-                    self.tracking_flow10.append(tracker.flow_vectors10)
-                self.descp0.append(tracker.d0)
-                self.descp1.append(tracker.d1)
-
-        self.build_loss()
 
 
     def build_loss(self):

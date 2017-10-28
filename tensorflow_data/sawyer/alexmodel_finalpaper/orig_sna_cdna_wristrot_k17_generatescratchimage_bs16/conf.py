@@ -2,13 +2,14 @@ import os
 current_dir = os.path.dirname(os.path.realpath(__file__))
 
 # tf record data location:
-DATA_DIR = '/'.join(str.split(current_dir, '/')[:-3]) + '/pushing_data/wrist_rot/train'
+DATA_DIR = '/'.join(str.split(current_dir, '/')[:-4]) + '/pushing_data/wrist_rot/train'
 
 # local output directory
 OUT_DIR = current_dir + '/modeldata'
 
+# needs to be run with prediction_train_base.py!!!!!
 configuration = {
-'experiment_name': 'sna',
+'experiment_name': 'orig_sna_cdna_wristrot_k17_generatescratchimage_bs16',
 'data_dir': DATA_DIR,       # 'directory containing data.' ,
 'output_dir': OUT_DIR,      #'directory for model checkpoints.' ,
 'current_dir': current_dir,   #'directory for writing summary.' ,
@@ -26,7 +27,7 @@ configuration = {
 'learning_rate': 0.001,     #'the base learning rate of the generator' ,
 'visualize': '',            #'load model from which to generate visualizations
 'file_visual': '',          # datafile used for making visualizations
-'kern_size': 9,              #size of DNA kerns
+'kern_size': 17,              #size of DNA kerns
 'sawyer':'',
 'single_view':"",
 'use_len':14,                # number of steps used for training where the starting location is selected randomly within sequencelength

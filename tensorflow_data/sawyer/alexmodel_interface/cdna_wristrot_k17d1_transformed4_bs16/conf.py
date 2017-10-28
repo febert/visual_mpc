@@ -2,7 +2,7 @@ import os
 current_dir = os.path.dirname(os.path.realpath(__file__))
 
 # tf record data location:
-DATA_DIR = '/'.join(str.split(current_dir, '/')[:-3]) + '/pushing_data/wrist_rot/train'
+DATA_DIR = '/'.join(str.split(current_dir, '/')[:-4]) + '/pushing_data/wrist_rot/train'
 
 # local output directory
 OUT_DIR = current_dir + '/modeldata'
@@ -19,13 +19,13 @@ modelconfiguration = {
 'schedule_sampling_k': 1200,
 'context_frames': 2,
 'model': 'CDNA',
-'kernel_size': (9, 9),
+'kernel_size': (17, 17),
 'layer_normalization': 'in',
 'num_transformed_images': 4,
-'generate_scratch_image': True,
+'generate_scratch_image': False,
 'vgf_dim': 32,
 'trainable_generator_startswith':None,
-'dilation_rate': [2, 2]
+'dilation_rate': [1, 1]
 }
 
 configuration = {

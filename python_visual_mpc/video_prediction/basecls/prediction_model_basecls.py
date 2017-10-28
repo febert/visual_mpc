@@ -8,6 +8,7 @@ from python_visual_mpc.misc.zip_equal import zip_equal
 
 from utils.transformations import dna_transformation, cdna_transformation
 from utils.compute_motion_vecs import compute_motion_vector_dna, compute_motion_vector_cdna
+from python_visual_mpc.video_prediction.basecls.utils.visualize import visualize_diffmotions, visualize, compute_metric
 from python_visual_mpc.video_prediction.utils_vpred.animate_tkinter import Visualizer_tkinter
 import cPickle
 import collections
@@ -465,7 +466,6 @@ class Base_Prediction_Model(object):
     def build_loss(self):
         summaries = []
 
-        self.global_step = tf.Variable(0, trainable=False)
         if self.conf['learning_rate'] == 'scheduled' and not self.visualize:
             print('using scheduled learning rate')
 
@@ -559,6 +559,9 @@ class Base_Prediction_Model(object):
 
     def visualize_diffmotions(self, sess):
         visualize_diffmotions(sess, self.conf, self)
+
+    def compute_metric(self, sess, create_images):
+        compute_metric(sess, self.conf, self, create_images)
 
 def scheduled_sample(ground_truth_x, generated_x, batch_size, num_ground_truth):
     """Sample batch with specified mix of ground truth and generated data_files points.

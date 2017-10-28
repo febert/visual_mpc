@@ -34,6 +34,7 @@ flags.DEFINE_integer('device', 0 ,'the value for CUDA_VISIBLE_DEVICES variable')
 flags.DEFINE_string('pretrained', None, 'path to model file from which to resume training')
 flags.DEFINE_bool('diffmotions', False, 'visualize several different motions for a single scene')
 
+sys.path.append("/docker_home/visual_mpc/python_visual_mpc")
 
 ## Helper functions
 def peak_signal_to_noise_ratio(true, pred):
