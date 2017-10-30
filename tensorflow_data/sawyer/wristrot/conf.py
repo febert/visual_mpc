@@ -8,7 +8,7 @@ DATA_DIR = '/'.join(str.split(current_dir, '/')[:-3]) + '/pushing_data/wrist_rot
 OUT_DIR = current_dir + '/modeldata'
 
 configuration = {
-'experiment_name': 'rndaction_var10',
+'experiment_name': 'sna',
 'data_dir': DATA_DIR,       # 'directory containing data.' ,
 'output_dir': OUT_DIR,      #'directory for model checkpoints.' ,
 'current_dir': current_dir,   #'directory for writing summary.' ,
@@ -33,5 +33,5 @@ configuration = {
 '1stimg_bckgd':'',
 'visual_flowvec':'',
 'adim':5,
-'statedim':4
+'sdim':4
 }

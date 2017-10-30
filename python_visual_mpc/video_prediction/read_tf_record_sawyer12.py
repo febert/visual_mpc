@@ -44,7 +44,6 @@ def build_tfrecord_input(conf, training=True):
         shuffle = False
     else: shuffle = True
 
-
     filename_queue = tf.train.string_input_producer(filenames, shuffle=shuffle)
     reader = tf.TFRecordReader()
     _, serialized_example = reader.read(filename_queue)
@@ -350,10 +349,10 @@ if __name__ == '__main__':
 
     current_dir = os.path.dirname(os.path.realpath(__file__))
 
-    DATA_DIR = '/'.join(str.split(current_dir, '/')[:-2]) + '/pushing_data/wrist_rot/train'
+    # DATA_DIR = '/'.join(str.split(current_dir, '/')[:-2]) + '/pushing_data/wrist_rot/train'
     # conf['canon_ex'] = ""
 
-    # DATA_DIR = '/'.join(str.split(current_dir, '/')[:-3]) + '/pushing_data/softmotion30/test'
+    DATA_DIR = '/'.join(str.split(current_dir, '/')[:-2]) + '/pushing_data/softmotion30/test'
 
     conf['schedsamp_k'] = -1  # don't feed ground truth
     conf['data_dir'] = DATA_DIR  # 'directory containing data_files.' ,
@@ -399,7 +398,7 @@ if __name__ == '__main__':
         comp_single_video(file_path, image)
 
         # show some frames
-        for i in range(10,15):
+        for i in range(0,5):
 
             print actions[i]
             print endeff[i]

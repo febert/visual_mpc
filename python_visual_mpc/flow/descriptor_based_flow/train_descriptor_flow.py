@@ -23,15 +23,16 @@ import cPickle
 import pdb
 
 import matplotlib.pyplot as plt
+from python_visual_mpc.video_prediction.basecls.utils.get_designated_pix import Getdesig
 
 from python_visual_mpc.video_prediction.utils_vpred.adapt_params_visualize import adapt_params_visualize
 from tensorflow.python.platform import app
 from tensorflow.python.platform import flags
 
-from python_visual_mpc.video_prediction.read_tf_record_wristrot import build_tfrecord_input
+
 
 from datetime import datetime
-
+import collections
 # How often to record tensorboard summaries.
 SUMMARY_INTERVAL = 40
 
@@ -67,31 +68,6 @@ def mean_squared_error(true, pred):
     """
     return tf.reduce_sum(tf.square(true - pred)) / tf.to_float(tf.size(pred))
 
-
-class Getdesig(object):
-    def __init__(self,img,conf,img_namesuffix):
-        self.suf = img_namesuffix
-        self.conf = conf
-        self.img = img
-        fig = plt.figure()
-        self.ax = fig.add_subplot(111)
-        self.ax.set_xlim(0, 63)
-        self.ax.set_ylim(63, 0)
-        plt.imshow(img)
-
-        self.coords = None
-        cid = fig.canvas.mpl_connect('button_press_event', self.onclick)
-        plt.show()
-
-    def onclick(self, event):
-        print('button=%d, x=%d, y=%d, xdata=%f, ydata=%f' %
-              (event.button, event.x, event.y, event.xdata, event.ydata))
-        self.coords = np.array([event.ydata, event.xdata])
-        self.ax.scatter(self.coords[1], self.coords[0], marker= "o", s=70, facecolors='b', edgecolors='b')
-        self.ax.set_xlim(0, 63)
-        self.ax.set_ylim(63, 0)
-        plt.draw()
-        plt.savefig(self.conf['output_dir']+'/img_desigpix'+self.suf)
 
 
 def l1_deriv_loss(flow_field):
@@ -170,26 +146,46 @@ class DescriptorModel(object):
 
 
 def search_region(conf, current_pos, d1, descp):
+    if 'local_search' in conf:
+        ksize = conf['kern_size']
+        d1_padded = np.lib.pad(d1, ((ksize/2, ksize/2),(ksize/2,ksize/2), (0,0)), 'constant', constant_values=((0, 0,), (0,0) , (0, 0)))
 
-    ksize = conf['kern_size']
-    d1_padded = np.lib.pad(d1, ((ksize/2, ksize/2),(ksize/2,ksize/2), (0,0)), 'constant', constant_values=((0, 0,), (0,0) , (0, 0)))
+        cur_r = current_pos[0]
+        cur_c = current_pos[1]
 
-    cur_r = current_pos[0]
-    cur_c = current_pos[1]
+        search_region = d1_padded[ksize/2 +cur_r-ksize/2:ksize/2 +cur_r+ksize/2+1,
+                                  ksize/2 +cur_c-ksize/2:ksize/2 +cur_c+ksize/2+1]
+        distances = np.sum(np.square(search_region - descp), 2)
 
-    search_region = d1_padded[ksize/2 +cur_r-ksize/2:ksize/2 +cur_r+ksize/2+1,
-                              ksize/2 +cur_c-ksize/2:ksize/2 +cur_c+ksize/2+1]
-    distances = np.sum(np.square(search_region - descp), 2)
+        heatmap = np.zeros(d1_padded.shape[:2])
+        heatmap[ksize/2 + cur_r-ksize/2:ksize/2 + cur_r+ksize/2+1,
+                ksize/2 + cur_c-ksize/2:ksize/2 + cur_c+ksize/2+1] = distances
 
-    heatmap = np.zeros(d1_padded.shape[:2])
-    heatmap[ksize/2 + cur_r-ksize/2:ksize/2 + cur_r+ksize/2+1,
-            ksize/2 + cur_c-ksize/2:ksize/2 + cur_c+ksize/2+1] = distances
+        heatmap = heatmap[ksize/2:ksize/2+64,ksize/2:ksize/2+64]
+        heatmap = heatmap[None, :, :, None]
 
-    heatmap = heatmap[ksize/2:ksize/2+64,ksize/2:ksize/2+64]
-    heatmap = heatmap[None, :, :, None]
+        distances = np.sum(np.square(search_region - descp), 2)
 
-    newpos = current_pos + np.unravel_index(distances.argmin(), distances.shape) - np.array([ksize/2, ksize/2 ])
-    newpos = np.clip(newpos, 0, 63)
+        minimum_dist = distances.min()
+
+        newpos = current_pos + np.unravel_index(distances.argmin(), distances.shape) - np.array([ksize/2, ksize/2 ])
+        newpos = np.clip(newpos, 0, 63)
+
+        # if minimum_dist > 400:
+        #     print 'track lost, remaining on current pos'
+        #     newpos = current_pos
+
+        # print 'delta pos', np.unravel_index(distances.argmin(), distances.shape) - np.array([ksize / 2, ksize / 2])
+    elif 'global_search' in conf:
+        distances = np.sum(np.square(d1 - descp), 2)
+        newpos = np.unravel_index(distances.argmin(), distances.shape)
+
+        heatmap = distances[None, :, :, None]
+        minimum_dist = distances.min()
+    else:
+        raise ValueError("no search type specificed")
+
+
 
     # np.sum(np.square(search_region), -1)
     # fig = plt.figure()
@@ -197,20 +193,18 @@ def search_region(conf, current_pos, d1, descp):
     # fig.suptitle('squared euclidean norm of descriptors', fontsize=20)
 
     # print 'mind index', np.unravel_index(distances.argmin(), distances.shape)
-    # print 'delta pos', np.unravel_index(distances.argmin(), distances.shape) - np.array([ksize/2, ksize/2 ])
+    #
     # fig = plt.figure()
     # plt.imshow(distances, cmap=plt.get_cmap('jet'))
     # fig.suptitle('squared euclidean distance', fontsize=20)
     # plt.show()
 
-    return newpos, heatmap
+    return newpos, heatmap, minimum_dist
 
 
 def visualize(conf):
     gpu_options = tf.GPUOptions(per_process_gpu_memory_fraction=0.4)
     # Make training session.
-
-
 
     sess = tf.InteractiveSession(config=tf.ConfigProto(gpu_options=gpu_options))
 
@@ -233,21 +227,28 @@ def visualize(conf):
     print 'restore done.'
 
     conf['batch_size'] = 10
-    val_images, _, _ = build_tfrecord_input(conf, training=False)
+
+    if 'adim' in conf:
+        from python_visual_mpc.video_prediction.read_tf_record_wristrot import build_tfrecord_input as build_tfrecord_fn
+    else:
+        from python_visual_mpc.video_prediction.read_tf_record_sawyer12 import build_tfrecord_input as build_tfrecord_fn
+    val_images, _, _ = build_tfrecord_fn(conf, training=False)
     tf.train.start_queue_runners(sess)
 
     [ground_truth] = sess.run([val_images])
 
-    b_exp = 2
+    b_exp = 4
     initial_img = ground_truth[b_exp][0]
     c = Getdesig(initial_img, conf, 'b{}'.format(b_exp))
     desig_pos_aux1 = c.coords.astype(np.int32)
     # desig_pos_aux1 = np.array([31, 29])
 
     output_distrib_list, transformed10_list, transformed01_list, flow01_list, flow10_list = [], [], [], [], []
+    masks01_l, masks10_l = [], []
 
     pos_list = []
     heat_maps = []
+    min_dists = []
 
     for t in range(conf['sequence_length']-1):
         feed_dict = {
@@ -257,14 +258,19 @@ def visualize(conf):
                      }
 
         if 'forward_backward' in conf:
+            # transformed01, transformed10, d0, d1, flow01, flow10, masks01, masks10 = sess.run([model.d.transformed01,
             transformed01, transformed10, d0, d1, flow01, flow10 = sess.run([model.d.transformed01,
                                                                              model.d.transformed10,
                                                                              model.d.d0,
                                                                              model.d.d1,
                                                                              model.d.flow_vectors01,
-                                                                             model.d.flow_vectors10], feed_dict)
+                                                                             model.d.flow_vectors10,
+                                                                             # model.d.masks01,
+                                                                             # model.d.masks10
+                                                                             ], feed_dict)
             transformed10_list.append(transformed10)
             flow10_list.append(flow10)
+            # masks10_l.append(masks10)
         else:
             transformed01, d0, d1, flow01 = sess.run([model.d.transformed01,
                                                       model.d.d0,
@@ -273,6 +279,7 @@ def visualize(conf):
 
         flow01_list.append(flow01)
         transformed01_list.append(transformed01)
+        # masks01_l.append(masks01)
 
         d0 = np.squeeze(d0)
         d1 = np.squeeze(d1)
@@ -293,11 +300,18 @@ def visualize(conf):
             current_pos = desig_pos_aux1
             pos_list.append(current_pos)
 
-        current_pos, heat_map = search_region(conf, current_pos, d1, tar_descp)
+        current_pos, heat_map, min_dist = search_region(conf, current_pos, d1, tar_descp)
         pos_list.append(current_pos)
         heat_maps.append(heat_map)
+        min_dists.append(min_dist)
 
-    import collections
+
+    plt.figure()
+    plt.plot(min_dists)
+    plt.xlabel('steps')
+    plt.ylabel('minimum squared distanced to initial descriptor')
+    plt.savefig(conf['output_dir'] + '/min_dist_overtime')
+    plt.close()
 
     dict = collections.OrderedDict()
     ground_truth = ground_truth[b_exp].reshape(1, conf['sequence_length'], 64, 64, 3)
@@ -316,8 +330,11 @@ def visualize(conf):
 
     dict['transformed01'] = transformed01_list
 
-    pos_list = [np.expand_dims(p,axis=0) for p in pos_list]
-    dict['overlay_ground_truth'] = pos_list
+    # dict['masks01'] = masks01_l
+    # dict['masks10'] = masks10_l
+
+    # pos_list = [np.expand_dims(p,axis=0) for p in pos_list]
+    # dict['overlay_ground_truth'] = pos_list
 
     dict['iternum'] = itr_vis
 
@@ -326,9 +343,9 @@ def visualize(conf):
 
     from python_visual_mpc.video_prediction.utils_vpred.animate_tkinter import Visualizer_tkinter
     v = Visualizer_tkinter(dict, numex=1, append_masks=True,
-                           gif_savepath=conf['output_dir'],
+                           filepath=conf['output_dir'],
                            suf='flow_b{}_l{}'.format(b_exp, conf['sequence_length']),
-                           renorm_heatmpas=False)
+                           renorm_heatmaps=False)
     v.build_figure()
 
 def add_crosshairs(images, pos):
@@ -382,13 +399,20 @@ def main(unused_argv, conf_script= None):
         print 'visualizing'
         visualize(conf)
 
+    if 'adim' in conf:
+        from python_visual_mpc.video_prediction.read_tf_record_wristrot import \
+            build_tfrecord_input as build_tfrecord_fn
+    else:
+        from python_visual_mpc.video_prediction.read_tf_record_sawyer12 import \
+            build_tfrecord_input as build_tfrecord_fn
+
     print 'Constructing models and inputs'
     with tf.variable_scope('model', reuse=None) as training_scope:
-        images,_ , _ = build_tfrecord_input(conf, training=True)
+        images,_ , _ = build_tfrecord_fn(conf, training=True)
         model = DescriptorModel(conf, images)
 
     with tf.variable_scope('val_model', reuse=None):
-        val_images,_ , _ = build_tfrecord_input(conf, training=False)
+        val_images,_ , _ = build_tfrecord_fn(conf, training=False)
         val_model = DescriptorModel(conf, val_images, reuse_scope=training_scope)
 
     print 'Constructing saver.'

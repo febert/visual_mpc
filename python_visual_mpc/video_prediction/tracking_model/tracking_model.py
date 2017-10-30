@@ -31,7 +31,7 @@ class Tracking_Model(Base_Prediction_Model):
                                         conf = conf,
                                         trafo_pix = trafo_pix,
                                         load_data = load_data,
-                                        mode=mode)
+                                        )
 
     def build(self):
         """
@@ -69,7 +69,10 @@ class Tracking_Model(Base_Prediction_Model):
         self.tracking_kerns = []
         self.tracking_gen_images = []
         self.tracking_flow01 = []
+        self.tracking_flow10 = []
         self.tracking_gendistrib = []
+        self.descp0 = []
+        self.descp1 = []
 
         for t, image, action in zip(range(len(self.images)-1), self.images[:-1], self.actions[:-1]):
             print t
@@ -84,19 +87,23 @@ class Tracking_Model(Base_Prediction_Model):
             current_state = self.build_network_core(action, current_state, self.prev_image)
 
             print 'building tracker...'
-            tr = self.build_tracker(self.conf,
+            tracker = self.build_tracker(self.conf,
                                 [self.images[t],
                                 self.images[t + 1]],
                                 pix_distrib_input= self.prev_pix_distrib1,
                                 reuse=self.reuse)
 
-            self.tracking_gendistrib.append(tr.gen_distrib_output)
-            self.tracking_gen_images.append(tr.gen_images)
-            self.tracking_kerns.append(tr.kernels)
+            self.tracking_gendistrib.append(tracker.gen_distrib_output)
+            self.tracking_gen_images.append(tracker.gen_images)
+            self.tracking_kerns.append(tracker.kernels)
 
-            self.tracking_flow01.append(tr.flow_vectors01)
-            if isinstance(tr, Descriptor_Flow) and 'forward_backward' in self.conf:
-                self.tracking_flow01.append(tr.flow_vectors01)
+
+            self.tracking_flow01.append(tracker.flow_vectors01)
+            if isinstance(tracker, Descriptor_Flow):
+                if 'forward_backward' in self.conf:
+                    self.tracking_flow10.append(tracker.flow_vectors10)
+                self.descp0.append(tracker.d0)
+                self.descp1.append(tracker.d1)
 
         self.build_loss()
 
@@ -159,7 +166,7 @@ class Tracking_Model(Base_Prediction_Model):
             self.summ_op = tf.summary.merge(summaries)
 
 
-    def visualize(self):
+    def visualize(self, sess, images, actions, states):
         print '-------------------------------------------------------------------'
         print 'verify current settings!! '
         for key in self.conf.keys():
@@ -197,5 +204,5 @@ class Tracking_Model(Base_Prediction_Model):
         cPickle.dump(dict, open(file_path + '/pred.pkl', 'wb'))
         print 'written files to:' + file_path
 
-        v = Visualizer_tkinter(dict, numex=10, append_masks=True, gif_savepath=self.conf['output_dir'])
+        v = Visualizer_tkinter(dict, numex=10, append_masks=True, filepath=self.conf['output_dir'])
         v.build_figure()

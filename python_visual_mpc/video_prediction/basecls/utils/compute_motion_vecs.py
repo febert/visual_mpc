@@ -2,17 +2,22 @@ import numpy as np
 import tensorflow as tf
 
 
-def compute_motion_vector_cdna(self, cdna_kerns):
-    range = self.conf['kern_size'] / 2
-    dc = np.linspace(-range, range, num=self.conf['kern_size'])
+def compute_motion_vector_cdna(conf, cdna_kerns):
+    """
+    :param conf:
+    :param cdna_kerns:  (H,W,N,C)
+    :return:
+    """
+    range = conf['kern_size'] / 2
+    dc = np.linspace(-range, range, num=conf['kern_size'])
     dc = np.expand_dims(dc, axis=0)
-    dc = np.repeat(dc, self.conf['kern_size'], axis=0)
+    dc = np.repeat(dc, conf['kern_size'], axis=0)
     dr = np.transpose(dc)
     dr = tf.constant(dr, dtype=tf.float32)
     dc = tf.constant(dc, dtype=tf.float32)
 
     cdna_kerns = tf.transpose(cdna_kerns, [2, 3, 0, 1])
-    cdna_kerns = tf.split(cdna_kerns, self.conf['num_masks'], axis=1)
+    cdna_kerns = tf.split(cdna_kerns, conf['num_masks'], axis=1)
     cdna_kerns = [tf.squeeze(k) for k in cdna_kerns]
 
     vecs = []

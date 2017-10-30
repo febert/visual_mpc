@@ -34,6 +34,7 @@ flags.DEFINE_integer('device', 0 ,'the value for CUDA_VISIBLE_DEVICES variable')
 flags.DEFINE_string('pretrained', None, 'path to model file from which to resume training')
 flags.DEFINE_bool('diffmotions', False, 'visualize several different motions for a single scene')
 
+sys.path.append("/docker_home/visual_mpc/python_visual_mpc")
 
 ## Helper functions
 def peak_signal_to_noise_ratio(true, pred):
@@ -439,7 +440,7 @@ def main(unused_argv, conf_script= None):
             print 'written files to:' + file_path
 
             v = Visualizer_tkinter(dict, numex=conf['batch_size'], append_masks=False,
-                                   gif_savepath=conf['output_dir'],
+                                   filepath=conf['output_dir'],
                                    suf='_diffmotions_b{}_l{}'.format(b_exp, conf['sequence_length']), col_titles=col_titles)
             v.build_figure()
 
@@ -458,7 +459,7 @@ def main(unused_argv, conf_script= None):
             cPickle.dump(dict, open(file_path + '/pred.pkl', 'wb'))
             print 'written files to:' + file_path
 
-            v = Visualizer_tkinter(dict, numex=conf['batch_size'], append_masks=False, gif_savepath=conf['output_dir'], suf=suf)
+            v = Visualizer_tkinter(dict, numex=conf['batch_size'], append_masks=False, filepath=conf['output_dir'], suf=suf)
             v.build_figure()
         return
 

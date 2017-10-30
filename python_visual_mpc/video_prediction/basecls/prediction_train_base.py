@@ -24,18 +24,24 @@ SAVE_INTERVAL = 4000
 from utils.get_designated_pix import Getdesig
 
 from python_visual_mpc.video_prediction.utils_vpred.animate_tkinter import Visualizer_tkinter
-from python_visual_mpc.video_prediction.read_tf_record_sawyer12 import build_tfrecord_input
+
 from python_visual_mpc.video_prediction.tracking_model.tracking_model import Tracking_Model
-from utils.visualize_diffmotions import visualize_diffmotions
+from python_visual_mpc.flow.descriptor_based_flow.descriptor_flow_model import Descriptor_Flow
+from python_visual_mpc.flow.trafo_based_flow.correction import Trafo_Flow
 
 from PIL import Image
 
-FLAGS = flags.FLAGS
-flags.DEFINE_string('hyper', '', 'hyperparameters configuration file')
-flags.DEFINE_string('visualize', '', 'model within hyperparameter folder from which to create gifs')
-flags.DEFINE_integer('device', 0 ,'the value for CUDA_VISIBLE_DEVICES variable')
-flags.DEFINE_string('pretrained', None, 'path to model file from which to resume training')
-flags.DEFINE_bool('diffmotions', False, 'visualize several different motions for a single scene')
+
+if __name__ == '__main__':
+    FLAGS = flags.FLAGS
+    flags.DEFINE_string('hyper', '', 'hyperparameters configuration file')
+    flags.DEFINE_string('visualize', '', 'model within hyperparameter folder from which to create gifs')
+    flags.DEFINE_integer('device', 0 ,'the value for CUDA_VISIBLE_DEVICES variable')
+    flags.DEFINE_string('pretrained', None, 'path to model file from which to resume training')
+    flags.DEFINE_bool('diffmotions', False, 'visualize several different motions for a single scene')
+
+    flags.DEFINE_bool('metric', False, 'compute metric of expected distance to human-labled positions ob objects')
+    flags.DEFINE_bool('create_images', False, 'whether to create images')
 
 
 def main(unused_argv, conf_script= None):
@@ -61,13 +67,11 @@ def main(unused_argv, conf_script= None):
         conf['visualize'] = conf['output_dir'] + '/' + FLAGS.visualize
         conf['event_log_dir'] = '/tmp'
         conf.pop('use_len', None)
-        conf['batch_size'] = 5
+        conf['batch_size'] = 128
 
         conf['sequence_length'] = 14
         if FLAGS.diffmotions:
-            inference = True
             conf['sequence_length'] = 30
-
 
     from prediction_model_basecls import Base_Prediction_Model
     if 'pred_model' in conf:
@@ -75,15 +79,11 @@ def main(unused_argv, conf_script= None):
     else:
         Model = Base_Prediction_Model
 
-    if FLAGS.visualize:
-        images, actions, states = build_tfrecord_input(conf, training=True)
-
-    if FLAGS.diffmotions:
-        model = Model(conf, load_data =False, trafo_pix=True)
-    elif "visualize_tracking" in conf:
-        model = Model(conf, load_data=False, trafo_pix=True)
-    else:
-        model = Model(conf, load_data=True, trafo_pix=False)
+    with tf.variable_scope('generator'):  ################# just for making compatible with old training code
+        if FLAGS.diffmotions or "visualize_tracking" in conf or FLAGS.metric:
+            model = Model(conf, load_data=False, trafo_pix=True)
+        else:
+            model = Model(conf, load_data=True, trafo_pix=False)
 
     print 'Constructing saver.'
     # Make saver.
@@ -102,147 +102,24 @@ def main(unused_argv, conf_script= None):
     sess.run(tf.global_variables_initializer())
 
     if conf['visualize']:
-
         print '-------------------------------------------------------------------'
         print 'verify current settings!! '
         for key in conf.keys():
             print key, ': ', conf[key]
         print '-------------------------------------------------------------------'
 
-        import re
-        itr_vis = re.match('.*?([0-9]+)$', conf['visualize']).group(1)
-
         saver.restore(sess, conf['visualize'])
         print 'restore done.'
 
-        feed_dict = {
-                     model.iter_num: 0,
-                     model.train_cond: 0}
-
-        file_path = conf['output_dir']
-
-
         if FLAGS.diffmotions:
-            b_exp, ind0 = 0, 0
-
-            img, state = sess.run([images, states])
-            sel_img = img[b_exp, ind0:ind0 + 2]
-
-            # c = Getdesig(sel_img[0], conf, 'b{}'.format(b_exp))
-            # desig_pos_aux1 = c.coords.astype(np.int32)
-            desig_pos = np.array([30, 31])
-            # print "selected designated position for aux1 [row,col]:", desig_pos_aux1
-
-            one_hot = create_one_hot(conf, desig_pos)
-
-            feed_dict[model.pix_distrib_pl] = one_hot
-
-            sel_state = np.stack([state[b_exp, ind0], state[b_exp, ind0 + 1]], axis=0)
-
-            start_states = np.concatenate([sel_state, np.zeros((conf['sequence_length'] - 2, 3))])
-            start_states = np.expand_dims(start_states, axis=0)
-            start_states = np.repeat(start_states, conf['batch_size'], axis=0)  # copy over batch
-            feed_dict[model.states_pl] = start_states
-
-            start_images = np.concatenate([sel_img, np.zeros((conf['sequence_length'] - 2, 64, 64, 3))])
-
-            start_images = np.expand_dims(start_images, axis=0)
-            start_images = np.repeat(start_images, conf['batch_size'], axis=0)  # copy over batch
-            feed_dict[model.images_pl] = start_images
-
-            actions = np.zeros([conf['batch_size'], conf['sequence_length'], 4])
-
-            # step = .025
-            step = .055
-            n_angles = 8
-            for b in range(n_angles):
-                for i in range(conf['sequence_length']):
-                    actions[b, i] = np.array(
-                        [np.cos(b / float(n_angles) * 2 * np.pi) * step, np.sin(b / float(n_angles) * 2 * np.pi) * step,
-                         0, 0])
-
-            b += 1
-            actions[b, 0] = np.array([0, 0, 4, 0])
-            actions[b, 1] = np.array([0, 0, 4, 0])
-
-            b += 1
-            actions[b, 0] = np.array([0, 0, 0, 4])
-            actions[b, 1] = np.array([0, 0, 0, 4])
-
-            feed_dict[model.actions_pl] = actions
-
-            gen_images, gen_distrib, gen_masks = sess.run(
-                [model.gen_images,
-                 model.gen_distrib1,
-                 model.gen_masks,
-                 model.prediction_flow,
-                 # model.tracking_flow
-                 ]
-                , feed_dict)
-
-            dict = collections.OrderedDict()
-            dict['gen_images'] = gen_images
-            dict['gen_distrib'] = gen_distrib
-            dict['gen_masks'] = gen_masks
-            dict['iternum'] = itr_vis
-
-            # dict['prediction_flow'] = pred_flow
-            # dict['tracking_flow'] = track_flow
-
-            cPickle.dump(dict, open(file_path + '/pred.pkl', 'wb'))
-            print 'written files to:' + file_path
-
-            v = Visualizer_tkinter(dict, numex=4, append_masks=False,
-                                   gif_savepath=conf['output_dir'],
-                                   suf='_diffmotions_b{}_l{}'.format(b_exp, conf['sequence_length']))
-            v.build_figure()
+            model.visualize_diffmotions(sess)
+        elif FLAGS.metric:
+            model.compute_metric(sess, FLAGS.create_images)
         else:
-            image_data, actions_data, state_data = sess.run([images, actions, states])
-            if isinstance(model, Tracking_Model):
-                desig_pos_l = []
-                load_desig_pos = False
-                if load_desig_pos:
-                    desig_pos_l = cPickle.load(open('utils/desig_pos.pkl', "rb"))
-                else:
-                    for i in range(conf['batch_size']):
-                        c = Getdesig(image_data[i,0], conf, 'b{}'.format(i))
-                        desig_pos = c.coords.astype(np.int32)
-                        desig_pos_l.append(desig_pos)
-                        # print "selected designated position for aux1 [row,col]:", desig_pos_aux1
-                    cPickle.dump(desig_pos_l, open('utils/desig_pos.pkl', 'wb'))
-                pix_distrib = np.concatenate(create_one_hot(conf, desig_pos_l), axis=0)
+            model.visualize(sess)
 
-                feed_dict[model.pix_distrib_pl] = pix_distrib
-                feed_dict[model.states_pl] = state_data
-                feed_dict[model.images_pl] = image_data
-                feed_dict[model.actions_pl] = actions_data
+        return
 
-            assert conf['schedsamp_k'] == -1
-            ground_truth, gen_images, gen_masks, pred_flow, track_flow, gen_distrib, track_gendistrib = sess.run([model.images,
-                                                                                model.gen_images,
-                                                                                model.gen_masks,
-                                                                                model.prediction_flow,
-                                                                                model.tracking_flow01,
-                                                                                model.gen_distrib1,
-                                                                                model.tracking_gendistrib
-                                                                                ],
-                                                                               feed_dict)
-            dict = collections.OrderedDict()
-            dict['ground_truth'] = ground_truth
-            dict['gen_images'] = gen_images
-            dict['gen_masks'] = gen_masks
-            dict['iternum'] = itr_vis
-            dict['prediction_flow'] = pred_flow
-            dict['tracking_flow'] = track_flow
-            dict['gen_distrib'] = gen_distrib
-            dict['track_gen_distrib'] = track_gendistrib
-
-            cPickle.dump(dict, open(file_path + '/pred.pkl', 'wb'))
-            print 'written files to:' + file_path
-
-            v = Visualizer_tkinter(dict, numex=conf['batch_size'], append_masks=False, gif_savepath=conf['output_dir'])
-            v.build_figure()
-            return
     itr_0 =0
     if FLAGS.pretrained != None:
         conf['pretrained_model'] = FLAGS.pretrained
@@ -310,36 +187,6 @@ def main(unused_argv, conf_script= None):
     tf.logging.flush()
 
 
-def create_one_hot(conf, desig_pix_l):
-    """
-    :param conf:
-    :param desig_pix:
-    :param repeat_b: create batch of same distribs
-    :return:
-    """
-    if isinstance(desig_pix_l, list):
-        one_hot_l = []
-        for i in range(len(desig_pix_l)):
-            desig_pix = desig_pix_l[i]
-            one_hot = np.zeros((1, 1, 64, 64, 1), dtype=np.float32)
-            # switch on pixels
-            one_hot[0, 0, desig_pix[0], desig_pix[1]] = 1.
-            one_hot = np.repeat(one_hot, conf['context_frames'], axis=1)
-            app_zeros = np.zeros((1, conf['sequence_length'] - conf['context_frames'], 64, 64, 1), dtype=np.float32)
-            one_hot = np.concatenate([one_hot, app_zeros], axis=1)
-            one_hot_l.append(one_hot)
-
-        return one_hot_l
-    else:
-        one_hot = np.zeros((1, 1, 64, 64, 1), dtype=np.float32)
-        # switch on pixels
-        one_hot[0, 0, desig_pix[0], desig_pix[1]] = 1.
-        one_hot = np.repeat(one_hot, conf['context_frames'], axis=1)
-        app_zeros = np.zeros((1, conf['sequence_length']- conf['context_frames'], 64, 64, 1), dtype=np.float32)
-        one_hot = np.concatenate([one_hot, app_zeros], axis=1)
-        one_hot = np.repeat(one_hot, conf['batch_size'], axis=0)
-
-        return one_hot
 
 def filter_vars(vars):
     newlist = []
