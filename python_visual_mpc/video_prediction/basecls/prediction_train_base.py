@@ -40,6 +40,9 @@ if __name__ == '__main__':
     flags.DEFINE_string('pretrained', None, 'path to model file from which to resume training')
     flags.DEFINE_bool('diffmotions', False, 'visualize several different motions for a single scene')
 
+    flags.DEFINE_bool('metric', False, 'compute metric of expected distance to human-labled positions ob objects')
+    flags.DEFINE_bool('create_images', False, 'whether to create images')
+
 
 def main(unused_argv, conf_script= None):
     os.environ["CUDA_VISIBLE_DEVICES"] = str(FLAGS.device)
@@ -64,7 +67,7 @@ def main(unused_argv, conf_script= None):
         conf['visualize'] = conf['output_dir'] + '/' + FLAGS.visualize
         conf['event_log_dir'] = '/tmp'
         conf.pop('use_len', None)
-        conf['batch_size'] = 5
+        conf['batch_size'] = 128
 
         conf['sequence_length'] = 14
         if FLAGS.diffmotions:
@@ -76,12 +79,11 @@ def main(unused_argv, conf_script= None):
     else:
         Model = Base_Prediction_Model
 
-
-    if FLAGS.diffmotions or "visualize_tracking" in conf:
-
-        model = Model(conf, load_data =False, trafo_pix=True)
-    else:
-        model = Model(conf, load_data=True, trafo_pix=False)
+    with tf.variable_scope('generator'):  ################# just for making compatible with old training code
+        if FLAGS.diffmotions or "visualize_tracking" in conf or FLAGS.metric:
+            model = Model(conf, load_data=False, trafo_pix=True)
+        else:
+            model = Model(conf, load_data=True, trafo_pix=False)
 
     print 'Constructing saver.'
     # Make saver.
@@ -111,8 +113,12 @@ def main(unused_argv, conf_script= None):
 
         if FLAGS.diffmotions:
             model.visualize_diffmotions(sess)
+        elif FLAGS.metric:
+            model.compute_metric(sess, FLAGS.create_images)
         else:
             model.visualize(sess)
+
+        return
 
     itr_0 =0
     if FLAGS.pretrained != None:

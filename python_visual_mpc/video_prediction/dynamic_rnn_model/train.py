@@ -7,7 +7,6 @@ import cPickle
 import pdb
 
 import imp
-import matplotlib.pyplot as plt
 from tensorflow.python.platform import app
 from tensorflow.python.platform import flags
 
@@ -21,17 +20,11 @@ VAL_INTERVAL = 500
 
 # How often to save a model checkpoint
 SAVE_INTERVAL = 4000
-from python_visual_mpc.video_prediction.basecls.utils.get_designated_pix import Getdesig
 
-from python_visual_mpc.video_prediction.utils_vpred.animate_tkinter import Visualizer_tkinter
+from dynamic_base_model import Dynamic_Base_Model
+# from python_visual_mpc.video_prediction.tracking_model.single_point_tracking_model import Single_Point_Tracking_Model
 
-from python_visual_mpc.video_prediction.tracking_model.tracking_model import Tracking_Model
-from python_visual_mpc.flow.descriptor_based_flow.descriptor_flow_model import Descriptor_Flow
-from python_visual_mpc.flow.trafo_based_flow.correction import Trafo_Flow
 
-from PIL import Image
-
-from improved_dna_model import Base_Prediction_Model
 
 if __name__ == '__main__':
     FLAGS = flags.FLAGS
@@ -40,6 +33,9 @@ if __name__ == '__main__':
     flags.DEFINE_integer('device', 0 ,'the value for CUDA_VISIBLE_DEVICES variable')
     flags.DEFINE_string('pretrained', None, 'path to model file from which to resume training')
     flags.DEFINE_bool('diffmotions', False, 'visualize several different motions for a single scene')
+    flags.DEFINE_bool('metric', False, 'compute metric of expected distance to human-labled positions ob objects')
+
+    flags.DEFINE_bool('create_images', False, 'whether to create images')
 
 
 def main(unused_argv, conf_script= None):
@@ -65,25 +61,43 @@ def main(unused_argv, conf_script= None):
         conf['visualize'] = conf['output_dir'] + '/' + FLAGS.visualize
         conf['event_log_dir'] = '/tmp'
         conf.pop('use_len', None)
-        conf['batch_size'] = 5
+
+        if FLAGS.metric:
+            conf['batch_size'] = 128
+            conf['sequence_length'] = 15
+        else:
+            conf['batch_size'] = 15
 
         conf['sequence_length'] = 14
         if FLAGS.diffmotions:
             conf['sequence_length'] = 30
 
+        # when using alex interface:
+        if 'modelconfiguration' in conf:
+            conf['modelconfiguration']['schedule_sampling_k'] = conf['schedsamp_k']
 
     if 'pred_model' in conf:
         Model = conf['pred_model']
     else:
-        Model = Base_Prediction_Model
+        Model = Dynamic_Base_Model
 
-    if FLAGS.diffmotions or "visualize_tracking" in conf:
+    if FLAGS.diffmotions or "visualize_tracking" in conf or FLAGS.metric:
         model = Model(conf, load_data =False, trafo_pix=True)
     else:
         model = Model(conf, load_data=True, trafo_pix=False)
 
     print 'Constructing saver.'
     # Make saver.
+
+    # if isinstance(model, Single_Point_Tracking_Model) and not FLAGS.visualize:
+    #     # initialize the predictor from pretrained weights
+    #     # select weights that are *not* part of the tracker
+    #     vars = tf.get_collection(tf.GraphKeys.GLOBAL_VARIABLES)
+    #     predictor_vars = []
+    #     for var in vars:
+    #         if str.split(var.name, '/')[0] != 'tracker':
+    #             predictor_vars.append(var)
+
 
     vars = tf.get_collection(tf.GraphKeys.GLOBAL_VARIABLES)
     # remove all states from group of variables which shall be saved and restored:
@@ -95,7 +109,9 @@ def main(unused_argv, conf_script= None):
     sess = tf.InteractiveSession(config=tf.ConfigProto(gpu_options=gpu_options))
     summary_writer = tf.summary.FileWriter(conf['output_dir'], graph=sess.graph, flush_secs=10)
 
-    tf.train.start_queue_runners(sess)
+    if not FLAGS.diffmotions:
+        tf.train.start_queue_runners(sess)
+
     sess.run(tf.global_variables_initializer())
 
     if conf['visualize']:
@@ -110,8 +126,12 @@ def main(unused_argv, conf_script= None):
 
         if FLAGS.diffmotions:
             model.visualize_diffmotions(sess)
+        elif FLAGS.metric:
+            model.compute_metric(sess, FLAGS.create_images)
         else:
             model.visualize(sess)
+
+        return
 
     itr_0 =0
     if FLAGS.pretrained != None:

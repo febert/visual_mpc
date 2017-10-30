@@ -4,12 +4,12 @@ import numpy as np
 import tensorflow as tf
 from tensorflow.contrib.layers import layer_norm
 
-from python_visual_mpc.video_prediction.dynamic_model.layers import instance_norm
-from python_visual_mpc.video_prediction.dynamic_model.lstm_ops import BasicConv2DLSTMCell
-from python_visual_mpc.video_prediction.dynamic_model.ops import dense, pad2d, conv1d, conv2d, conv3d, upsample_conv2d, conv_pool2d, lrelu, instancenorm, flatten
-from python_visual_mpc.video_prediction.dynamic_model.ops import sigmoid_kl_with_logits
-from python_visual_mpc.video_prediction.dynamic_model.utils import preprocess, deprocess
-from python_visual_mpc.video_prediction.basecls.utils.visualize import visualize_diffmotions, visualize
+from python_visual_mpc.video_prediction.dynamic_rnn_model.layers import instance_norm
+from python_visual_mpc.video_prediction.dynamic_rnn_model.lstm_ops import BasicConv2DLSTMCell
+from python_visual_mpc.video_prediction.dynamic_rnn_model.ops import dense, pad2d, conv1d, conv2d, conv3d, upsample_conv2d, conv_pool2d, lrelu, instancenorm, flatten
+from python_visual_mpc.video_prediction.dynamic_rnn_model.ops import sigmoid_kl_with_logits
+from python_visual_mpc.video_prediction.dynamic_rnn_model.utils import preprocess, deprocess
+from python_visual_mpc.video_prediction.basecls.utils.visualize import visualize_diffmotions, visualize, compute_metric
 from python_visual_mpc.video_prediction.basecls.utils.compute_motion_vecs import compute_motion_vector_cdna, compute_motion_vector_dna
 
 # Amount to use when lower bounding tensors
@@ -21,33 +21,42 @@ class DNACell(tf.nn.rnn_cell.RNNCell):
                  image_shape,
                  state_dim,
                  first_image,
+                 first_pix_distrib,
                  num_ground_truth,
-                 dilation_rate,
                  lstm_skip_connection,
                  feedself,
                  use_state,
                  vgf_dim,
                  reuse=None,
-                 dependent_mask = True):
+                 dependent_mask = True,
+                 trafo_pix=False,
+                 ):
 
         super(DNACell, self).__init__(_reuse=reuse)
 
         self.image_shape = image_shape
         self.state_dim = state_dim
         self.first_image = first_image
+        self.first_pix_distrib = first_pix_distrib
+
+
         self.num_ground_truth = num_ground_truth
         self.kernel_size = [conf['kern_size'], conf['kern_size']]
+        if 'dilation_rate' in conf:
+            dilation_rate = conf['dilation_rate']
+        else: dilation_rate = (1,1)
         self.dilation_rate = list(dilation_rate) if isinstance(dilation_rate, (tuple, list)) else [dilation_rate] * 2
+
         self.lstm_skip_connection = lstm_skip_connection
         self.feedself = feedself
         self.use_state = use_state
-        self.num_transformed_images = conf['num_masks']
+        self.num_transformed_images = conf['num_transformed_images']
 
         self.model = conf['model']
 
         self.context_frames = conf['context_frames']
         self.conf = conf
-
+        self.trafo_pix = trafo_pix
 
         if '1stimg_bckgd' in conf:
             self.first_image_background = True
@@ -74,53 +83,53 @@ class DNACell(tf.nn.rnn_cell.RNNCell):
         else:
             raise ValueError('Invalid layer normalization %s' % self.layer_normalization)
 
-        # Compute output_size
+        # output_size
         height, width, _ = self.image_shape
         num_masks = int(bool(self.first_image_background)) + \
                     int(bool(self.prev_image_background)) + \
                     int(bool(self.generate_scratch_image)) + \
                     self.num_transformed_images
-
         output_size = [
             tf.TensorShape(self.image_shape),  # gen_image
             tf.TensorShape([self.state_dim]),  # gen_state
             [tf.TensorShape([height, width, 1])] * num_masks,  # masks
             [tf.TensorShape(self.image_shape)] * num_masks,  # transformed_images
+            tf.TensorShape([height, width, 2]),  # flow_map
         ]
-
-        if 'visual_flowvec' in self.conf:
-            output_size.append(tf.TensorShape([height, height, 2]))
+        if self.first_pix_distrib is not None:
+            output_size.append(tf.TensorShape([height, width, 1]))  # pix_distrib
+            output_size.append([tf.TensorShape([height, width, 1])] * num_masks)  # transformed_pix_distribs
 
         self._output_size = tuple(output_size)
 
-        # Compute state_size
+        # state_size
         if self.lstm_skip_connection:
             lstm_filters_multiplier = 2
         else:
             lstm_filters_multiplier = 1
         lstm_cell_sizes = [
-            tf.TensorShape([height / 2, width / 2, self.vgf_dim]),
-            tf.TensorShape([height / 4, width / 4, self.vgf_dim * 2]),
-            tf.TensorShape([height / 8, width / 8, self.vgf_dim * 4]),
-            tf.TensorShape([height / 4, width / 4, self.vgf_dim * 2]),
-            tf.TensorShape([height / 2, width / 2, self.vgf_dim]),
+            tf.TensorShape([height // 2, width // 2, self.vgf_dim]),
+            tf.TensorShape([height // 4, width // 4, self.vgf_dim * 2]),
+            tf.TensorShape([height // 8, width // 8, self.vgf_dim * 4]),
+            tf.TensorShape([height // 4, width // 4, self.vgf_dim * 2]),
+            tf.TensorShape([height // 2, width // 2, self.vgf_dim]),
         ]
         lstm_state_sizes = [
-            tf.TensorShape([height / 2, width / 2, lstm_filters_multiplier * self.vgf_dim]),
-            tf.TensorShape([height / 4, width / 4, lstm_filters_multiplier * self.vgf_dim * 2]),
-            tf.TensorShape([height / 8, width / 8, lstm_filters_multiplier * self.vgf_dim * 4]),
-            tf.TensorShape([height / 4, width / 4, lstm_filters_multiplier * self.vgf_dim * 2]),
-            tf.TensorShape([height / 2, width / 2, lstm_filters_multiplier * self.vgf_dim]),
+            tf.TensorShape([height // 2, width // 2, lstm_filters_multiplier * self.vgf_dim]),
+            tf.TensorShape([height // 4, width // 4, lstm_filters_multiplier * self.vgf_dim * 2]),
+            tf.TensorShape([height // 8, width // 8, lstm_filters_multiplier * self.vgf_dim * 4]),
+            tf.TensorShape([height // 4, width // 4, lstm_filters_multiplier * self.vgf_dim * 2]),
+            tf.TensorShape([height // 2, width // 2, lstm_filters_multiplier * self.vgf_dim]),
         ]
-        lstm_state_size = [tf.nn.rnn_cell.LSTMStateTuple(lstm_cell_size, lstm_state_size)
-                           for lstm_cell_size, lstm_state_size in zip(lstm_cell_sizes, lstm_state_sizes)]
-        lstm_state_size = tuple(lstm_state_size)
         state_size = [
-            tf.TensorShape(self.image_shape),
-            tf.TensorShape([self.state_dim]),
-            tf.TensorShape([]),
-            lstm_state_size,
+            tuple([tf.nn.rnn_cell.LSTMStateTuple(lstm_cell_size, lstm_state_size)
+                   for lstm_cell_size, lstm_state_size in zip(lstm_cell_sizes, lstm_state_sizes)]),  # lstm_states
+            tf.TensorShape([]),  # time
+            tf.TensorShape(self.image_shape),  # gen_image
+            tf.TensorShape([self.state_dim]),  # gen_state
         ]
+        if self.first_pix_distrib is not None:
+            state_size.append(tf.TensorShape([height, width, 1]))  # gen_pix_distrib
         self._state_size = tuple(state_size)
 
     @property
@@ -144,12 +153,20 @@ class DNACell(tf.nn.rnn_cell.RNNCell):
         return lstm_cell(inputs, state)
 
     def call(self, inputs, states):
-        image, action, state = inputs
-        gen_image, gen_state, time, lstm_states = states
+        # inputs
+        (image, action, state), other_inputs = inputs[:3], inputs[3:]
+        if other_inputs:
+            pix_distrib, = other_inputs
+        # states
+        (lstm_states, time, gen_image, gen_state), other_states = states[:4], states[4:]
         lstm_state0, lstm_state1, lstm_state2, lstm_state3, lstm_state4 = lstm_states
+        if other_states:
+            gen_pix_distrib, = other_states
 
         image_shape = image.get_shape().as_list()
         batch_size, height, width, color_channels = image_shape
+        assert height == width
+        scale_size = height
         _, state_dim = state.get_shape().as_list()
         kernel_size = self.kernel_size
         dilation_rate = self.dilation_rate
@@ -161,10 +178,17 @@ class DNACell(tf.nn.rnn_cell.RNNCell):
             image = tf.cond(tf.reduce_all(done_warm_start),
                             lambda: gen_image,  # feed in generated image
                             lambda: image)  # feed in ground_truth
+            if self.first_pix_distrib is not None:
+                pix_distrib = tf.cond(tf.reduce_all(done_warm_start),
+                                      lambda: gen_pix_distrib,  # feed in generated pixel distribution
+                                      lambda: pix_distrib)  # feed in ground_truth
         else:
             image = tf.cond(tf.reduce_all(done_warm_start),
-                            lambda: scheduled_sample(image, gen_image, batch_size, self.num_ground_truth),  # schedule sampling
+                            lambda: scheduled_sample(image, gen_image, batch_size, self.num_ground_truth),
+                            # schedule sampling
                             lambda: image)  # feed in ground_truth
+            if self.first_pix_distrib is not None:
+                raise NotImplementedError
         state = tf.cond(tf.reduce_all(time == 0),
                         lambda: state,  # feed in ground_truth state only for first time step
                         lambda: gen_state)  # feed in predicted state
@@ -243,19 +267,15 @@ class DNACell(tf.nn.rnn_cell.RNNCell):
             h6_masks = self.normalizer_fn(h6_masks)
             h6_masks = tf.nn.relu(h6_masks)
 
-        if self.model == 'DNA':
+        if self.model == 'dna':
             # Using largest hidden state for predicting untied conv kernels.
             with tf.variable_scope('dna_kernels'):
-                if dilation_rate == [1, 1]:
-                    kernels = conv2d(h6_dna_kernel, kernel_size[0] * kernel_size[1] * num_transformed_images,
-                                     kernel_size=(3, 3), strides=(1, 1))
-                else:
-                    kernels = conv_pool2d(h6_dna_kernel, kernel_size[0] * kernel_size[1] * num_transformed_images,
-                                          kernel_size=(3, 3), strides=dilation_rate)
-                kernels = tf.reshape(kernels, [batch_size, height // dilation_rate[0], width // dilation_rate[1],
+                kernels = conv2d(h6_dna_kernel, kernel_size[0] * kernel_size[1] * num_transformed_images,
+                                 kernel_size=(3, 3), strides=(1, 1))
+                kernels = tf.reshape(kernels, [batch_size, height, width,
                                                kernel_size[0], kernel_size[1], num_transformed_images])
             kernel_spatial_axes = [3, 4]
-        elif self.model == 'CDNA':
+        elif self.model == 'cdna':
             with tf.variable_scope('cdna_kernels'):
                 kernels = dense(flatten(lstm_h2), kernel_size[0] * kernel_size[1] * num_transformed_images)
                 kernels = tf.reshape(kernels, [batch_size, kernel_size[0], kernel_size[1], num_transformed_images])
@@ -263,18 +283,13 @@ class DNACell(tf.nn.rnn_cell.RNNCell):
         else:
             raise ValueError('Invalid model %s' % self.model)
 
-        if isinstance(kernels, (list, tuple)):
-            normalized_kernels = []
-            for kernel in kernels:
-                kernel = tf.nn.relu(kernel - RELU_SHIFT) + RELU_SHIFT
-                kernel /= tf.reduce_sum(kernel, axis=kernel_spatial_axes, keep_dims=True)
-                normalized_kernels.append(kernel)
-            kernels = normalized_kernels
-        else:
+        with tf.name_scope('kernel_normalization'):
             kernels = tf.nn.relu(kernels - RELU_SHIFT) + RELU_SHIFT
             kernels /= tf.reduce_sum(kernels, axis=kernel_spatial_axes, keep_dims=True)
 
         transformed_images = []
+        with tf.name_scope('transformed_images'):
+            transformed_images += apply_kernels(image, kernels, dilation_rate=dilation_rate)
         if self.first_image_background:
             transformed_images.append(self.first_image)
         if self.prev_image_background:
@@ -288,14 +303,16 @@ class DNACell(tf.nn.rnn_cell.RNNCell):
                 scratch_image = tf.nn.sigmoid(scratch_image)
                 transformed_images.append(scratch_image)
 
-        if self.model == 'DNA':
-            with tf.variable_scope('transformed'):
-                transformed_images += apply_dna_kernels(image, kernels, dilation_rate=dilation_rate)
-        elif self.model == 'CDNA':
-            with tf.variable_scope('transformed'):
-                transformed_images += apply_cdna_kernels(image, kernels, dilation_rate=dilation_rate)
-        else:
-            raise ValueError('Invalid model %s' % self.model)
+        if self.first_pix_distrib is not None:
+            transformed_pix_distribs = []
+            with tf.name_scope('transformed_pix_distrib'):
+                transformed_pix_distribs += apply_kernels(pix_distrib, kernels, dilation_rate=dilation_rate)
+            if self.first_image_background:
+                transformed_pix_distribs.append(self.first_pix_distrib)
+            if self.prev_image_background:
+                transformed_pix_distribs.append(pix_distrib)
+            if self.generate_scratch_image:
+                transformed_pix_distribs.append(tf.zeros_like(pix_distrib))
 
         with tf.variable_scope('masks'):
             if self.dependent_mask:
@@ -306,48 +323,50 @@ class DNACell(tf.nn.rnn_cell.RNNCell):
             masks = tf.nn.softmax(masks)
             masks = tf.split(masks, len(transformed_images), axis=-1)
 
-        if 'visual_flowvec' in self.conf:
-            if self.model == 'CDNA':
-                kernels = tf.transpose(kernels, [1,2,0,3])
-                motion_vecs = compute_motion_vector_cdna(self.conf, kernels)
+        with tf.name_scope('gen_image'):
+            assert len(transformed_images) == len(masks)
+            gen_image = tf.add_n([transformed_image * mask
+                                  for transformed_image, mask in zip(transformed_images, masks)])
 
-            if self.model == 'DNA':
-                motion_vecs = compute_motion_vector_dna(self.conf, kernels)
+        with tf.name_scope('flow_map'):
+            flow_map = compute_flow_map(kernels, masks[:num_transformed_images])
 
-            output = tf.zeros([self.conf['batch_size'], 64, 64, 2])
-            for vec, mask in zip(motion_vecs, masks[-num_transformed_images:]):
-                if self.conf['model'] == 'CDNA':
-                    vec = tf.reshape(vec, [self.conf['batch_size'], 1, 1, 2])
-                    vec = tf.tile(vec, [1, 64, 64, 1])
-                output += vec * mask
-            flow_vectors = output
-
-        assert len(transformed_images) == len(masks)
-        gen_image = tf.add_n([transformed_image * mask for transformed_image, mask in zip(transformed_images, masks)])
+        if self.first_pix_distrib is not None:
+            with tf.name_scope('gen_pix_distrib'):
+                assert len(transformed_pix_distribs) <= len(masks) <= len(
+                    transformed_pix_distribs) + 1  # there might be an extra mask because of the scratch image
+                gen_pix_distrib = tf.add_n([transformed_pix_distrib * mask
+                                            for transformed_pix_distrib, mask in zip(transformed_pix_distribs, masks)])
 
         with tf.variable_scope('state_pred'):
             gen_state = dense(state_action, state_dim)
 
-        if 'visual_flowvec' in self.conf:
-            outputs = gen_image, gen_state, masks, transformed_images, flow_vectors
-        else:
-            outputs = gen_image, gen_state, masks, transformed_images
+        # outputs
+        outputs = [gen_image, gen_state, masks, transformed_images, flow_map]
+        if self.first_pix_distrib is not None:
+            outputs.append(gen_pix_distrib)
+            outputs.append(transformed_pix_distribs)
 
+        outputs = tuple(outputs)
+        # states
         new_lstm_states = lstm_state0, lstm_state1, lstm_state2, lstm_state3, lstm_state4
-        new_states = gen_image, gen_state, time + 1, new_lstm_states
+        new_states = [new_lstm_states, time + 1, gen_image, gen_state]
+        if self.first_pix_distrib is not None:
+            new_states.append(gen_pix_distrib)
+        new_states = tuple(new_states)
         return outputs, new_states
 
 
-class Base_Prediction_Model(object):
+class Dynamic_Base_Model(object):
     def __init__(self,
                 conf = None,
                 trafo_pix = True,
                 load_data = True,
+                build_loss = True
                 ):
 
         self.iter_num = tf.placeholder(tf.float32, [])
-        kernel_size = (5, 5)
-        dilation_rate = (1, 1)
+
         use_state = True
 
         vgf_dim = 32
@@ -358,7 +377,7 @@ class Base_Prediction_Model(object):
 
         k = conf['schedsamp_k']
         self.use_state = conf['use_state']
-        self.num_masks = conf['num_masks']
+        self.num_transformed_images = conf['num_transformed_images']
         self.context_frames = conf['context_frames']
         self.batch_size = conf['batch_size']
 
@@ -366,6 +385,7 @@ class Base_Prediction_Model(object):
         self.sdim = conf['sdim']
         self.adim = conf['adim']
 
+        pix_distrib1 = None
         if not load_data:
             self.actions_pl = tf.placeholder(tf.float32, name='actions',
                                              shape=(conf['batch_size'], conf['sequence_length'], self.adim))
@@ -401,6 +421,8 @@ class Base_Prediction_Model(object):
             print 'randomly shift videos for data augmentation'
             images, states, actions  = self.random_shift(images, states, actions)
 
+        ## start interface
+
         # Split into timesteps.
         actions = tf.split(axis=1, num_or_size_splits=actions.get_shape()[1], value=actions)
         actions = [tf.squeeze(act) for act in actions]
@@ -409,16 +431,15 @@ class Base_Prediction_Model(object):
         images = tf.split(axis=1, num_or_size_splits=images.get_shape()[1], value=images)
         images = [tf.squeeze(img) for img in images]
 
+
         self.actions = actions
         self.images = images
         self.states = states
 
-        if trafo_pix:
+        if pix_distrib1 is not None:
             pix_distrib1 = tf.split(axis=1, num_or_size_splits=pix_distrib1.get_shape()[1], value=pix_distrib1)
-            self.pix_distrib1 = [tf.squeeze(pix) for pix in pix_distrib1]
+            pix_distrib1 = [tf.reshape(pix, [self.batch_size, 64,64, 1]) for pix in pix_distrib1]
 
-        dilation_rate = list(dilation_rate) if isinstance(dilation_rate, (tuple, list)) else [dilation_rate] * 2
-        rnn_type = rnn_type or 'dynamic'
         image_shape = images[0].get_shape().as_list()
         batch_size, height, width, color_channels = image_shape
         images_length = len(images)
@@ -448,39 +469,49 @@ class Base_Prediction_Model(object):
                                        lambda: num_ground_truth)
             feedself = False
 
+
+        first_pix_distrib = None if pix_distrib1 is None else pix_distrib1[0]
+
         cell = DNACell(conf,
                        [height, width, color_channels],
                        state_dim,
                        first_image=images[0],
+                       first_pix_distrib=first_pix_distrib,
                        num_ground_truth=num_ground_truth,
-                       dilation_rate=dilation_rate,
                        lstm_skip_connection=False,
                        feedself=feedself,
                        use_state=use_state,
                        vgf_dim=vgf_dim)
 
-        if rnn_type == 'dynamic':
-            inputs = [tf.stack(images[:sequence_length]), tf.stack(actions[:sequence_length]), tf.stack(states[:sequence_length])]
-            outputs, _ = tf.nn.dynamic_rnn(cell, inputs, sequence_length=[sequence_length] * batch_size, dtype=tf.float32,
-                                           swap_memory=True, time_major=True)
+        inputs = [tf.stack(images[:sequence_length]), tf.stack(actions[:sequence_length]), tf.stack(states[:sequence_length])]
+        if pix_distrib1 is not None:
+            inputs.append(tf.stack(pix_distrib1[:sequence_length]))
 
-            if 'visual_flowvec' in self.conf:
-                gen_images, gen_states, gen_masks, gen_transformed_images, flow_vectors = outputs[:5]
-                self.prediction_flow = tf.unstack(flow_vectors, axis=0)
-            else:
-                gen_images, gen_states, gen_masks, gen_transformed_images = outputs[:4]
-            self.gen_images = tf.unstack(gen_images, axis=0)
-            self.gen_states = tf.unstack(gen_states, axis=0)
-            self.gen_masks = list(zip(*[tf.unstack(gen_mask, axis=0) for gen_mask in gen_masks]))
-            self.gen_transformed_images = list(zip(*[tf.unstack(gen_transformed_image, axis=0) for gen_transformed_image in gen_transformed_images]))
-        elif rnn_type == 'static':
-            # Slower to compile than dynamic_rnn yet runtime performance is very similar.
-            # Raises OOM error when images are too large.
-            inputs = list(zip(images[:sequence_length], actions[:sequence_length], states[:sequence_length]))
-            outputs, _ = tf.nn.static_rnn(cell, inputs, dtype=tf.float32, sequence_length=[sequence_length] * batch_size)
-            self.gen_images, self.gen_states, self.gen_masks, self.gen_transformed_images = list(zip(*outputs))[:4]
-        else:
-            raise ValueError('Invalid rnn type %s' % rnn_type)
+        outputs, _ = tf.nn.dynamic_rnn(cell, inputs, sequence_length=[sequence_length] * batch_size, dtype=tf.float32,
+                                       swap_memory=True, time_major=True)
+
+        (gen_images, gen_states, gen_masks, gen_transformed_images, gen_flow_map), other_outputs = outputs[:5], outputs[5:]
+        self.gen_images = tf.unstack(gen_images, axis=0)
+        self.gen_states = tf.unstack(gen_states, axis=0)
+        self.gen_masks = list(zip(*[tf.unstack(gen_mask, axis=0) for gen_mask in gen_masks]))
+        self.gen_transformed_images = list(
+            zip(*[tf.unstack(gen_transformed_image, axis=0) for gen_transformed_image in gen_transformed_images]))
+        self.gen_flow_map = tf.unstack(gen_flow_map, axis=0)
+        other_outputs = list(other_outputs)
+
+        if pix_distrib1 is not None:
+            self.gen_distrib1 = other_outputs.pop(0)
+            self.gen_distrib1 = tf.unstack(self.gen_distrib1, axis=0)
+            self.gen_transformed_pixdistribs = other_outputs.pop(0)
+            self.gen_transformed_pixdistribs = list(zip(
+                *[tf.unstack(gen_transformed_pixdistrib, axis=0) for gen_transformed_pixdistrib in
+                  self.gen_transformed_pixdistribs]))
+        assert not other_outputs
+
+        if build_loss:
+            self.build_loss()
+
+    def build_loss(self):
 
         summaries = []
 
@@ -525,10 +556,13 @@ class Base_Prediction_Model(object):
             self.summ_op = tf.summary.merge(summaries)
 
     def visualize(self, sess):
-        visualize(sess, self)
+        visualize(sess, self.conf, self)
 
     def visualize_diffmotions(self, sess):
-        visualize_diffmotions(sess, self)
+        visualize_diffmotions(sess, self.conf, self)
+
+    def compute_metric(self, sess, create_images):
+        compute_metric(sess, self.conf, self, create_images)
 
     def random_shift(self, images, states, actions):
         print 'shifting the video sequence randomly in time'
@@ -621,6 +655,28 @@ def apply_dna_kernels(image, kernels, dilation_rate=(1, 1)):
     return outputs
 
 
+
+def apply_kernels(image, kernels, dilation_rate=(1, 1)):
+    """
+    Args:
+        image: A 4-D tensor of shape
+            `[batch, in_height, in_width, in_channels]`.
+        kernels: A 4-D or 6-D tensor of shape
+            `[batch, kernel_size[0], kernel_size[1], num_transformed_images]` or
+            `[batch, in_height, in_width, kernel_size[0], kernel_size[1], num_transformed_images]`.
+
+    Returns:
+        A list of `num_transformed_images` 4-D tensors, each of shape
+            `[batch, in_height, in_width, in_channels]`.
+    """
+    if len(kernels.get_shape()) == 4:
+        outputs = apply_cdna_kernels(image, kernels, dilation_rate=dilation_rate)
+    elif len(kernels.get_shape()) == 6:
+        outputs = apply_dna_kernels(image, kernels, dilation_rate=dilation_rate)
+    else:
+        raise ValueError
+    return outputs
+
 def apply_cdna_kernels(image, kernels, dilation_rate=(1, 1)):
     """
     Args:
@@ -690,6 +746,71 @@ def mean_squared_error(true, pred):
       mean squared error between ground truth and predicted image.
     """
     return tf.reduce_sum(tf.square(true - pred)) / tf.to_float(tf.size(pred))
+
+def compute_flow_map(kernels, masks=None):
+    """
+    Args:
+        kernels: A 4-D or 6-D tensor of shape
+            `[batch, kernel_size[0], kernel_size[1], num_transformed_images]` or
+            `[batch, in_height, in_width, kernel_size[0], kernel_size[1], num_transformed_images]`.
+        masks: A 4-D tensor of shape
+            `[batch, in_height, in_width, num_transformed_images]` or
+            a list of `num_transformed_images` 3-D tensors, each of shape
+            `[batch, in_height, in_width]`.
+
+    Returns:
+        A 4-D tensors of shape
+            `[batch, in_height, in_width, 2]`.
+
+    Coordinate convention: x axis goes from left to right and y axis goes
+    from top to bottom.
+    The flow indicates the relative location of where the pixel came from,
+    e.g. a negative x indicates that the pixel moved to the right from the
+    last frame to the current one, and a positive y indicates that the pixel
+    moved up.
+    """
+    if masks is not None and isinstance(masks, (tuple, list)):
+        masks = tf.concat(masks, axis=-1)
+    if len(kernels.get_shape()) == 4:
+        batch_size, kernel_height, kernel_width, num_transformed_images = kernels.get_shape().as_list()
+        if masks is not None:
+            _, height, width, _ = masks.get_shape().as_list()
+        else:
+            raise ValueError('Unable to infer the height and width of the image')
+    elif len(kernels.get_shape()) == 6:
+        batch_size, height, width, kernel_height, kernel_width, num_transformed_images = kernels.get_shape().as_list()
+    else:
+        raise ValueError
+    kernel_size = [kernel_height, kernel_width]
+
+    assert kernel_size[0] % 2 == 1 and kernel_size[1] % 2 == 1
+    range_x = (kernel_size[1] - 1) / 2.
+    range_y = (kernel_size[0] - 1) / 2.
+    x = tf.linspace(-range_x, range_x, kernel_size[1])
+    y = tf.linspace(-range_y, range_y, kernel_size[0])
+    xv, yv = tf.meshgrid(x, y)
+    if len(kernels.get_shape()) == 4:
+        # expand over batch and transformation dimensions
+        xv_expanded = xv[None, :, :, None]
+        yv_expanded = yv[None, :, :, None]
+    elif len(kernels.get_shape()) == 6:
+        # expand over batch, spatial and transformation dimensions
+        xv_expanded = xv[None, None, None, :, :, None]
+        yv_expanded = yv[None, None, None, :, :, None]
+    else:
+        raise ValueError
+    vec_x = tf.reduce_sum(xv_expanded * kernels, axis=(-3, -2))
+    vec_y = tf.reduce_sum(yv_expanded * kernels, axis=(-3, -2))
+    if len(kernels.get_shape()) == 4:
+        # replicate flows over the spatial dimensions
+        vec_x = tf.tile(vec_x[:, None, None, :], [1, height, width, 1])
+        vec_y = tf.tile(vec_y[:, None, None, :], [1, height, width, 1])
+    flow_map = tf.stack([vec_x, vec_y], axis=-2)
+    if masks is not None:
+        flow_map = tf.reduce_sum(flow_map * masks[..., None, :], axis=-1)
+    else:  # assume masks are uniform, so average the flows along the transformation dimension
+        flow_map = tf.reduce_mean(flow_map, axis=-1)
+    return flow_map
 
 
 

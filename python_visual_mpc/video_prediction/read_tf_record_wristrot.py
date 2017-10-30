@@ -12,7 +12,7 @@ import imp
 import cPickle
 
 
-def build_tfrecord_input(conf, training=True):
+def build_tfrecord_input(conf, training=True, input_file=None):
     """Create input tfrecord tensors.
 
     Args:
@@ -35,28 +35,33 @@ def build_tfrecord_input(conf, training=True):
     print 'adim', adim
     print 'sdim', sdim
 
-    filenames = gfile.Glob(os.path.join(conf['data_dir'], '*'))
-    if not filenames:
-        raise RuntimeError('No data_files files found.')
-
-    index = int(np.floor(conf['train_val_split'] * len(filenames)))
-    if training:
-        filenames = filenames[:index]
-    else:
-        filenames = filenames[index:]
-
-    if conf['visualize']:
-        filenames = gfile.Glob(os.path.join(conf['data_dir'], '*'))
-        print 'using input file', filenames
+    if input_file is not None:
+        filenames = [input_file]
         shuffle = False
-    else: shuffle = True
+    else:
+        filenames = gfile.Glob(os.path.join(conf['data_dir'], '*'))
+        if not filenames:
+            raise RuntimeError('No data_files files found.')
 
+        index = int(np.floor(conf['train_val_split'] * len(filenames)))
+        if training:
+            filenames = filenames[:index]
+        else:
+            filenames = filenames[index:]
+
+        if conf['visualize']:
+            filenames = gfile.Glob(os.path.join(conf['data_dir'], '*'))
+            shuffle = False
+        else:
+            shuffle = True
+
+    # print 'using input file', filenames
 
     filename_queue = tf.train.string_input_producer(filenames, shuffle=shuffle)
     reader = tf.TFRecordReader()
     _, serialized_example = reader.read(filename_queue)
 
-    image_seq, image_main_seq, endeffector_pos_seq, action_seq, object_pos_seq, init_pix_distrib_seq = [], [], [], [], [], []
+    image_seq, image_main_seq, endeffector_pos_seq, action_seq, object_pos_seq, robot_pos_seq = [], [], [], [], [], []
 
     load_indx = range(0, conf['sequence_length'], conf['skip_frame'])
     print 'using frame sequence: ', load_indx
@@ -73,6 +78,12 @@ def build_tfrecord_input(conf, training=True):
                     action_name: tf.FixedLenFeature([adim], tf.float32),
                     endeffector_pos_name: tf.FixedLenFeature([sdim], tf.float32),
         }
+
+        if 'test_metric' in conf:
+            robot_pos_name = str(i) + '/robot_pos'
+            object_pos_name = str(i) + '/object_pos'
+            features[robot_pos_name] = tf.FixedLenFeature([conf['test_metric']['robot_pos']*2], tf.int64)
+            features[object_pos_name] = tf.FixedLenFeature([conf['test_metric']['object_pos']*2], tf.int64)
 
         features = tf.parse_single_example(serialized_example, features=features)
 
@@ -112,6 +123,12 @@ def build_tfrecord_input(conf, training=True):
         action = tf.reshape(features[action_name], shape=[1, adim])
         action_seq.append(action)
 
+        if 'test_metric' in conf:
+            robot_pos = tf.reshape(features[robot_pos_name], shape=[1, 2])
+            robot_pos_seq.append(robot_pos)
+
+            object_pos = tf.reshape(features[object_pos_name], shape=[1, conf['test_metric']['object_pos'],2])
+            object_pos_seq.append(object_pos)
 
     image_seq = tf.concat(values=image_seq, axis=0)
 
@@ -120,12 +137,26 @@ def build_tfrecord_input(conf, training=True):
 
     endeffector_pos_seq = tf.concat(endeffector_pos_seq, 0)
     action_seq = tf.concat(action_seq, 0)
-    [image_batch, action_batch, endeffector_pos_batch] = tf.train.batch(
-        [image_seq, action_seq, endeffector_pos_seq],
-        conf['batch_size'],
-        num_threads=num_threads,
-        capacity=100 * conf['batch_size'])
-    return image_batch, action_batch, endeffector_pos_batch
+
+    if 'test_metric' in conf:
+        robot_pos_seq = tf.concat(robot_pos_seq, 0)
+        object_pos_seq = tf.concat(object_pos_seq, 0)
+
+    if 'test_metric' in conf:
+        [image_batch, action_batch, endeffector_pos_batch, robot_pos_batch, object_pos_batch] = tf.train.batch(
+            [image_seq, action_seq, endeffector_pos_seq, robot_pos_seq, object_pos_seq],
+            conf['batch_size'],
+            num_threads=num_threads,
+            capacity=100 * conf['batch_size'])
+        return image_batch, action_batch, endeffector_pos_batch, robot_pos_batch, object_pos_batch
+    else:
+        [image_batch, action_batch, endeffector_pos_batch] = tf.train.batch(
+            [image_seq, action_seq, endeffector_pos_seq],
+            conf['batch_size'],
+            num_threads=num_threads,
+            capacity=100 * conf['batch_size'])
+        return image_batch, action_batch, endeffector_pos_batch
+
 
 
 ##### code below is used for debugging
@@ -171,7 +202,26 @@ def write_tf_records(images, actions, states, filepath, init_pix_distrib, init_p
     writer.close()
 
 
-if __name__ == '__main__':
+def visualize_annotation(conf, images, robot_pos, object_pos):
+
+    for t in range(conf['sequence_length']):
+        fig = plt.figure()
+
+        ax = fig.add_subplot(111)
+        ax.set_xlim(0, 63)
+        ax.set_ylim(63, 0)
+
+        plt.imshow(images[t])
+
+        ax.scatter(robot_pos[t][1], robot_pos[t][0], s=20, marker="D", facecolors='r')
+
+        # object_pos is t, i_object, row_col
+        ax.scatter(object_pos[t][0][1], object_pos[t][0][0], s=20, marker="D", facecolors='b')
+        ax.scatter(object_pos[t][1][1], object_pos[t][1][0], s=20, marker="D", facecolors='b')
+        plt.show()
+
+
+def main():
     # for debugging only:
     os.environ["CUDA_VISIBLE_DEVICES"] = "1"
     print 'using CUDA_VISIBLE_DEVICES=', os.environ["CUDA_VISIBLE_DEVICES"]
@@ -180,19 +230,22 @@ if __name__ == '__main__':
     current_dir = os.path.dirname(os.path.realpath(__file__))
 
     # DATA_DIR = '/'.join(str.split(current_dir, '/')[:-2]) + '/pushing_data/wrist_rot/train'
-    DATA_DIR = '/'.join(str.split(current_dir, '/')[:-2]) + '/pushing_data/wristrot_128x128/train'
+    DATA_DIR = '/'.join(str.split(current_dir, '/')[:-2]) + '/pushing_data/wrist_rot/test_annotations'
 
     conf['schedsamp_k'] = -1  # don't feed ground truth
     conf['data_dir'] = DATA_DIR  # 'directory containing data_files.' ,
     conf['skip_frame'] = 1
     conf['train_val_split']= 0.95
     conf['sequence_length']= 15      # 'sequence length, including context frames.'
-    conf['use_state'] = True
-    conf['batch_size']= 10
-    conf['visualize']= False
-    conf['single_view'] = ''
+    conf['batch_size']= 128
+    conf['visualize']= True
     conf['context_frames'] = 2
-    conf['im_height'] = 128
+
+    conf['im_height'] = 64
+    conf['sdim'] = 4
+    conf['adim'] = 5
+
+    conf['test_metric'] = {'robot_pos': 1, 'object_pos': 2}
 
     print '-------------------------------------------------------------------'
     print 'verify current settings!! '
@@ -202,7 +255,8 @@ if __name__ == '__main__':
 
     print 'testing the reader'
 
-    image_batch, action_batch, endeff_pos_batch = build_tfrecord_input(conf, training=True)
+    # image_batch, action_batch, endeff_pos_batch = build_tfrecord_input(conf, training=True)
+    image_batch, action_batch, endeff_pos_batch, robot_pos_batch, object_pos_batch = build_tfrecord_input(conf, training=True)
 
     sess = tf.InteractiveSession()
     tf.train.start_queue_runners(sess)
@@ -210,28 +264,40 @@ if __name__ == '__main__':
 
     from python_visual_mpc.video_prediction.utils_vpred.create_gif_lib import comp_single_video
 
-    for i in range(2):
-        print 'run number ', i
+    for i_run in range(1):
+        print 'run number ', i_run
 
-        image, actions, endeff = sess.run([image_batch, action_batch, endeff_pos_batch])
+        # images, actions, endeff = sess.run([image_batch, action_batch, endeff_pos_batch])
+        images, actions, endeff, robot_pos, object_pos = sess.run([image_batch, action_batch, endeff_pos_batch, robot_pos_batch, object_pos_batch])
 
         file_path = '/'.join(str.split(DATA_DIR, '/')[:-1]+['preview'])
-        comp_single_video(file_path, image)
+        # comp_single_video(file_path, images)
 
         # show some frames
-        for i in range(10):
+        for b in range(conf['batch_size']):
 
             print 'actions'
-            print actions[i]
+            print actions[b]
 
             print 'endeff'
-            print endeff[i]
+            print endeff[b]
 
-            image = np.squeeze(image)
-            img = np.uint8(255. * image[i, 0])
-            img = Image.fromarray(img, 'RGB')
-            # img.save(file_path,'PNG')
-            img.show()
-            print i
+            print 'robot_pos'
+            print robot_pos
 
-            pdb.set_trace()
+            print 'object_pos'
+            print object_pos
+
+            visualize_annotation(conf, images[b], robot_pos[b], object_pos[b])
+
+            # images = np.squeeze(images)
+            # img = np.uint8(255. * images[b, 0])
+            # img = Image.fromarray(img, 'RGB')
+            # # img.save(file_path,'PNG')
+            # img.show()
+            # print b
+
+            # pdb.set_trace()
+
+if __name__ == '__main__':
+    main()

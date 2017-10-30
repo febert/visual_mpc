@@ -31,7 +31,7 @@ class Tracking_Model(Base_Prediction_Model):
                                         conf = conf,
                                         trafo_pix = trafo_pix,
                                         load_data = load_data,
-                                        mode=mode)
+                                        )
 
     def build(self):
         """

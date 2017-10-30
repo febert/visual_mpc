@@ -1,0 +1,1 @@
+sudo nvidia-docker run -v /home/$USER/Documents/visual_mpc/pushing_data:/docker_home/pushing_data -it -p 8888:8888 tf1.3_gpu /bin/bash

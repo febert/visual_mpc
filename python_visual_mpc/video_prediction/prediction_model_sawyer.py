@@ -97,6 +97,7 @@ class Prediction_Model(object):
             self.dna_transformation = dna_transformation
             self.cdna_transformation = cdna_transformation
 
+
     def build(self):
 
         if 'kern_size' in self.conf.keys():

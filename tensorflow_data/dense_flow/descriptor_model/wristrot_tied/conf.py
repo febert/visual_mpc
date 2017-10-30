@@ -35,5 +35,6 @@ configuration = {
 'tied_descriptors':'',
 'bilin_up':"",               #use bilinear upsampling
 'adim':5,
-'statedim':4
+'sdim':4,
+'local_search':''
 }
