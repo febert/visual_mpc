@@ -172,7 +172,7 @@ class Visual_MPC_Client():
 
         if self.data_collection == True:
             self.checkpoint_file = os.path.join(self.recorder.save_dir, 'checkpoint.txt')
-            self.rpn_tracker = RPN_Tracker(self.recorder_save_dir)
+            self.rpn_tracker = RPN_Tracker(self.recorder_save_dir, self.recorder)
             self.run_data_collection()
         else:
             self.run_visual_mpc()
@@ -377,8 +377,9 @@ class Visual_MPC_Client():
             rospy.sleep(.3)
             im = cv2.cvtColor(self.recorder.ltob.img_cv2, cv2.COLOR_BGR2RGB)
 
-            self.desig_pos_main, self.goal_pos_main = self.rpn_tracker.get_task(im,self.recorder.image_folder)
-            pdb.set_trace()
+            single_desig_pos, single_goal_pos = self.rpn_tracker.get_task(im,self.recorder.image_folder)
+            self.desig_pos_main[0] = single_desig_pos
+            self.goal_pos_main[0] = single_goal_pos
             self.init_traj()
         else:
             print 'place object in new location!'
@@ -410,6 +411,7 @@ class Visual_MPC_Client():
 
         if 'opencv_tracking' in self.agentparams:
             self.tracker = OpenCV_Track_Listener(self.agentparams, self.recorder, self.desig_pos_main)
+
         rospy.sleep(1)
 
         if self.save_canon:

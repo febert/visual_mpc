@@ -18,12 +18,14 @@ def make_gif(im_list):
     clip.write_gif('modeldata/tracking.gif')
 
 class RPN_Tracker(object):
-    def __init__(self, savedir= None):
+    def __init__(self, savedir= None, recorder=None):
         self.savedir = savedir
         self.pix2boxes = {}
         self.feats = {}
         self.proposer = BBProposer()
         self.featurizer = AlexNetFeaturizer()
+
+        self.recorder = recorder
 
         self.sel_feature_vec = None
 
@@ -109,13 +111,13 @@ class RPN_Tracker(object):
 
             box_height = b[3] - b[1]
             box_width = b[2] - b[0]
-            print 'box', b
-            print 'h', box_height
-            print 'w', box_width
+
             if  valid_region[0] < center_coord[0] < valid_region[2] and \
                 valid_region[1] < center_coord[1] < valid_region[3] and \
                     (box_height > min_heigh_or_width or box_width > min_heigh_or_width):
-
+                print 'box', b
+                print 'h', box_height
+                print 'w', box_width
                 valid_boxes.append(b)
                 valid_center_coords.append(center_coord)
 
@@ -127,7 +129,7 @@ class RPN_Tracker(object):
         self.proposer.draw_box(valid_boxes[sel_ind], self.clone, 1)
 
         while True:
-            disp_vec = np.random.uniform(-100,100,2)
+            disp_vec = np.random.uniform(-300,300,2)
 
             goal_point = desig_point + disp_vec
             if  valid_region[0] < goal_point[0] < valid_region[2] and \
@@ -141,6 +143,13 @@ class RPN_Tracker(object):
         import rospy
         im  = Image.fromarray(np.array(self.clone).astype(np.uint8))
         im.save(im_save_dir + '/task_{}.png'.format(rospy.get_time()))
+
+        #convert format x, y to r,c
+        desig_point = np.array([desig_point[1], desig_point[0]])
+        goal_point = np.array([desig_point[1], goal_point[0]])
+
+        desig_point = self.recorder.high_res_to_lowres(desig_point)
+        goal_point = self.recorder.high_res_to_lowres(goal_point)
 
         return desig_point, goal_point
 
