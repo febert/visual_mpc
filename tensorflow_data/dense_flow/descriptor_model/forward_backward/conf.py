@@ -30,6 +30,10 @@ configuration = {
 'visual_flowvec':'',
 'kern_size': 9,               # size of transformation kernels
 'desc_length': 8,
+<<<<<<< HEAD
+'metric':'euclidean',
+=======
 'metric':'inverse_euclidean',
+>>>>>>> 3c953e3b2b200f6ff65d6950833bbed6fdab63c4
 'forward_backward':""
 }
