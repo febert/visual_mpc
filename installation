@@ -53,3 +53,13 @@ mkdir build && cd build
 cmake .. (no -DCMAKE_INSTALL_PREFIX=$HOME/freenect2!!)
 make
 sudo make install
+
+
+How to install ros along with anaconda
+use default anaconda env!!
+pip install catkin_pkg
+pip install catking_pkg
+
+#go to anaconda dist packages folder and make links to global rospackages
+ln -s /usr/lib/python2.7/dist-packages/ .
+

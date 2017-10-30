@@ -229,8 +229,8 @@ def main():
 
     current_dir = os.path.dirname(os.path.realpath(__file__))
 
-    # DATA_DIR = '/'.join(str.split(current_dir, '/')[:-2]) + '/pushing_data/wrist_rot/train'
-    DATA_DIR = '/'.join(str.split(current_dir, '/')[:-2]) + '/pushing_data/wrist_rot/test_annotations'
+    DATA_DIR = '/'.join(str.split(current_dir, '/')[:-2]) + '/pushing_data/wrist_rot/test'
+    # DATA_DIR = '/'.join(str.split(current_dir, '/')[:-2]) + '/pushing_data/wrist_rot/test_annotations'
 
     conf['schedsamp_k'] = -1  # don't feed ground truth
     conf['data_dir'] = DATA_DIR  # 'directory containing data_files.' ,
@@ -245,7 +245,7 @@ def main():
     conf['sdim'] = 4
     conf['adim'] = 5
 
-    conf['test_metric'] = {'robot_pos': 1, 'object_pos': 2}
+    # conf['test_metric'] = {'robot_pos': 1, 'object_pos': 2}
 
     print '-------------------------------------------------------------------'
     print 'verify current settings!! '
@@ -255,8 +255,8 @@ def main():
 
     print 'testing the reader'
 
-    # image_batch, action_batch, endeff_pos_batch = build_tfrecord_input(conf, training=True)
-    image_batch, action_batch, endeff_pos_batch, robot_pos_batch, object_pos_batch = build_tfrecord_input(conf, training=True)
+    image_batch, action_batch, endeff_pos_batch = build_tfrecord_input(conf, training=True)
+    # image_batch, action_batch, endeff_pos_batch, robot_pos_batch, object_pos_batch = build_tfrecord_input(conf, training=True)
 
     sess = tf.InteractiveSession()
     tf.train.start_queue_runners(sess)
@@ -267,8 +267,8 @@ def main():
     for i_run in range(1):
         print 'run number ', i_run
 
-        # images, actions, endeff = sess.run([image_batch, action_batch, endeff_pos_batch])
-        images, actions, endeff, robot_pos, object_pos = sess.run([image_batch, action_batch, endeff_pos_batch, robot_pos_batch, object_pos_batch])
+        images, actions, endeff = sess.run([image_batch, action_batch, endeff_pos_batch])
+        # images, actions, endeff, robot_pos, object_pos = sess.run([image_batch, action_batch, endeff_pos_batch, robot_pos_batch, object_pos_batch])
 
         file_path = '/'.join(str.split(DATA_DIR, '/')[:-1]+['preview'])
         # comp_single_video(file_path, images)
@@ -282,22 +282,22 @@ def main():
             print 'endeff'
             print endeff[b]
 
-            print 'robot_pos'
-            print robot_pos
+            # print 'robot_pos'
+            # print robot_pos
+            #
+            # print 'object_pos'
+            # print object_pos
 
-            print 'object_pos'
-            print object_pos
+            # visualize_annotation(conf, images[b], robot_pos[b], object_pos[b])
 
-            visualize_annotation(conf, images[b], robot_pos[b], object_pos[b])
+            images = np.squeeze(images)
+            img = np.uint8(255. * images[b, 0])
+            img = Image.fromarray(img, 'RGB')
+            # img.save(file_path,'PNG')
+            img.show()
+            print b
 
-            # images = np.squeeze(images)
-            # img = np.uint8(255. * images[b, 0])
-            # img = Image.fromarray(img, 'RGB')
-            # # img.save(file_path,'PNG')
-            # img.show()
-            # print b
-
-            # pdb.set_trace()
+            pdb.set_trace()
 
 if __name__ == '__main__':
     main()
