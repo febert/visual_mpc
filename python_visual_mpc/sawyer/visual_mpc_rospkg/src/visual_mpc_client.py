@@ -1,6 +1,7 @@
 #!/usr/bin/env python
 import numpy as np
 from datetime import datetime
+import time
 import pdb
 import rospy
 import matplotlib.pyplot as plt
@@ -356,6 +357,9 @@ class Visual_MPC_Client():
 
         isave = 0
 
+        action_times = []
+        start_iters = time.time()
+
         while i_step < self.action_sequence_length:
 
             self.curr_delta_time = rospy.get_time() - start_time
@@ -370,7 +374,9 @@ class Visual_MPC_Client():
                 print 'current position error', self.des_pos - self.get_endeffector_pos(pos_only=True)
 
                 self.previous_des_pos = copy.deepcopy(self.des_pos)
+                get_action_start = time.time()
                 action_vec = self.query_action()
+                action_times.append(time.time() - get_action_start)
                 print 'action vec', action_vec
 
                 self.des_pos = self.apply_act(action_vec, i_step, move=False)
@@ -416,6 +422,9 @@ class Visual_MPC_Client():
                 raise Traj_aborted_except('raising Traj_aborted_except')
 
             self.control_rate.sleep()
+
+        print 'average iteration took {0} seconds'.format((time.time() - start_iters) / self.action_sequence_length)
+        print 'average action query took {0} seconds'.format(sum(action_times) / len(action_times))
 
         self.save_final_image(i_tr)
         self.recorder.save_highres()
