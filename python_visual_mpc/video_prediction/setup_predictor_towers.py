@@ -11,6 +11,8 @@ from datetime import datetime
 class Tower(object):
     def __init__(self, conf, gpu_id, start_images, actions, start_states, pix_distrib1,pix_distrib2):
         nsmp_per_gpu = conf['batch_size']/ conf['ngpu']
+        # setting the per gpu batch_size
+        conf['batch_size'] = nsmp_per_gpu
 
         # picking different subset of the actions for each gpu
         startidx = gpu_id * nsmp_per_gpu
@@ -23,7 +25,16 @@ class Tower(object):
 
         print 'startindex for gpu {0}: {1}'.format(gpu_id, startidx)
 
-        from prediction_train_sawyer import Model
+        if 'pred_model' in conf:
+            Model = conf['pred_model']
+            print 'using pred_model', Model
+        else:
+            from prediction_train_sawyer import Model
+
+        # this is to keep compatiblity with old model implementations (without basecls structure)
+        if hasattr(Model,'m'):
+            for name, value in Model.m.__dict__.iteritems():
+                setattr(Model, name, value)
 
         if 'ndesig' in conf:
             self.model = Model(conf, start_images, actions, start_states, pix_distrib=pix_distrib1,pix_distrib2=pix_distrib2, inference=True)
@@ -68,8 +79,8 @@ def setup_predictor(conf, gpu_id=0, ngpu=1):
 
     images_pl = tf.placeholder(tf.float32, name='images',
                                shape=(conf['batch_size'], conf['sequence_length'], 64, 64, 3))
-    if 'statedim' in conf:
-        sdim = conf['statedim']
+    if 'sdim' in conf:
+        sdim = conf['sdim']
     else:
         if 'sawyer' in conf:
             sdim = 3
@@ -112,9 +123,15 @@ def setup_predictor(conf, gpu_id=0, ngpu=1):
     vars = tf.get_collection(tf.GraphKeys.GLOBAL_VARIABLES)
     # remove all states from group of variables which shall be saved and restored:
     vars_no_state = filter_vars(vars)
-    saver = tf.train.Saver(vars_no_state, max_to_keep=0)
+    # try:
+    #     saver = tf.train.Saver(vars_no_state, max_to_keep=0)
+    #     saver.restore(sess, conf['pretrained_model'])
+    # except tf.errors.NotFoundError:
 
+    vars_no_state = dict([('/'.join(var.name.split(':')[0].split('/')[1:]), var) for var in vars_no_state])
+    saver = tf.train.Saver(vars_no_state, max_to_keep=0)
     saver.restore(sess, conf['pretrained_model'])
+
     print 'restore done. '
 
     comb_gen_img = []
@@ -123,17 +140,17 @@ def setup_predictor(conf, gpu_id=0, ngpu=1):
     comb_gen_states = []
 
     for t in range(conf['sequence_length']-1):
-        t_comb_gen_img = [to.model.m.gen_images[t] for to in towers]
+        t_comb_gen_img = [to.model.gen_images[t] for to in towers]
         comb_gen_img.append(tf.concat(axis=0, values=t_comb_gen_img))
 
         if not 'no_pix_distrib' in conf:
-            t_comb_pix_distrib1 = [to.model.m.gen_distrib1[t] for to in towers]
+            t_comb_pix_distrib1 = [to.model.gen_distrib1[t] for to in towers]
             comb_pix_distrib1.append(tf.concat(axis=0, values=t_comb_pix_distrib1))
             if 'ndesig' in conf:
-                t_comb_pix_distrib2 = [to.model.m.gen_distrib2[t] for to in towers]
+                t_comb_pix_distrib2 = [to.model.gen_distrib2[t] for to in towers]
                 comb_pix_distrib2.append(tf.concat(axis=0, values=t_comb_pix_distrib2))
 
-        t_comb_gen_states = [to.model.m.gen_states[t] for to in towers]
+        t_comb_gen_states = [to.model.gen_states[t] for to in towers]
         comb_gen_states.append(tf.concat(axis=0, values=t_comb_gen_states))
 
 

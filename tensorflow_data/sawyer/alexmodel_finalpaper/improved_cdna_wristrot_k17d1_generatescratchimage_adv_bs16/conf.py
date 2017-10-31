@@ -2,7 +2,9 @@ import os
 current_dir = os.path.dirname(os.path.realpath(__file__))
 
 # tf record data location:
-DATA_DIR = '/'.join(str.split(current_dir, '/')[:-4]) + '/pushing_data/wrist_rot/train'
+import python_visual_mpc
+
+DATA_DIR = '/'.join(str.split(python_visual_mpc.__file__, '/')[:-1]) + '/pushing_data/wrist_rotv1/train'
 
 # local output directory
 OUT_DIR = current_dir + '/modeldata'
@@ -38,7 +40,7 @@ configuration = {
 'current_dir': current_dir, #'directory for writing summary.' ,
 'num_iterations': 200000,   #'number of training iterations.' ,
 'pretrained_model': '',     # 'filepath of a pretrained model to resume training from.' ,
-'sequence_length': 48,      # 'sequence length to load, including context frames.' ,
+'sequence_length': 15,      # 'sequence length to load, including context frames.' ,
 'skip_frame': 1,            # 'use ever i-th frame to increase prediction horizon' ,
 'use_state': 1,             #'Whether or not to give the state+action to the model' ,
 'train_val_split': 0.95,    #'The percentage of files to use for the training set vs. the validation set.' ,
@@ -46,14 +48,11 @@ configuration = {
 'learning_rate': 0.001,     #'the base learning rate of the generator' ,
 'visualize': '',            #'load model from which to generate visualizations
 'file_visual': '',          # datafile used for making visualizations
-'kern_size': 9,             #size of DNA kerns
 'sawyer':'',
 'single_view':"",
 'use_len':14,                # number of steps used for training where the starting location is selected randomly within sequencelength
 'adim':5,
 'sdim':4,
-'normalization':'in',
-'gen_img':''
 }
 
 

@@ -186,34 +186,13 @@ def visualize_diffmotions(sess, conf, model):
 
     feed_dict[model.actions_pl] = actions
 
-    if not isinstance(model.gen_images, list):
-        model.gen_images = tf.unstack(model.gen_images, axis=1)
-
-    if hasattr(model, 'gen_pix_distribs'):
-        if model.gen_pix_distribs is not None:
-            if not isinstance(model.gen_pix_distribs, list):
-                gen_pix_distribs = tf.unstack(model.gen_pix_distribs, axis=1)
-    else:
-        gen_pix_distribs = model.gen_distrib1
-
     gen_images, gen_masks, gen_transf_images, gen_distrib, gen_transf_distribs = sess.run([model.gen_images,
                                         model.gen_masks,
                                         model.gen_transformed_images,
-                                        gen_pix_distribs,
+                                        model.gen_distrib1,
                                         model.gen_transformed_pixdistribs
                                         ]
                                         ,feed_dict)
-
-
-    # gen_images, gen_distrib, gen_masks, moved_parts, moved_images, moved_bckgd = sess.run([model.gen_images,
-    #                                                                                        model.gen_distrib1,
-    #                                                                                        model.gen_masks,
-    #                                                                                        model.moved_parts_list,
-    #                                                                                        model.moved_images,
-    #                                                                                        model.moved_bckgd
-    #                                                                                        ]
-    #                                                                                     ,feed_dict)
-
 
     dict = OrderedDict()
     dict['gen_images'] = gen_images
@@ -401,22 +380,10 @@ def compute_exp_distance(sess, conf, model, true_pos, images, actions, endeff):
 
     feed_dict[model.actions_pl] = actions
 
-    if not isinstance(model.gen_images, list):
-        model.gen_images = tf.unstack(model.gen_images, axis=1)
-
-    if hasattr(model, 'gen_pix_distribs'):
-        gen_pix_distribs = tf.unstack(model.gen_pix_distribs, axis=1)
-    else:
-        gen_pix_distribs = model.gen_distrib1
-
-    if hasattr(model, 'gen_flow_map'):
-        gen_flow = tf.unstack(model.gen_flow_map, axis=1)
-    else:
-        gen_flow = model.prediction_flow
 
     gen_images, gen_distrib, flow = sess.run([model.gen_images,
-                                              gen_pix_distribs,
-                                              gen_flow,
+                                              model.gen_distrib1,
+                                              model.prediction_flow,
                                               ]
                                               , feed_dict)
     # visualize_annotation(conf, images[0], true_pos[0])

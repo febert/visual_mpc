@@ -18,16 +18,28 @@ from docile.improved_dna_model import create_model as create_model_improved
 
 class Base_Prediction_Model(object):
     def __init__(self,
-                conf = None,
-                trafo_pix = True,
-                load_data = True,
-                ):
+                 conf = None,
+                 images=None,
+                 actions=None,
+                 states=None,
+                 pix_distrib= None,
+                 trafo_pix = True,
+                 load_data = True,
+                 inference = None
+                 ):
 
         modelconfiguration = conf['modelconfiguration']
 
         self.iter_num = tf.placeholder(tf.float32, [])
-
         self.trafo_pix = trafo_pix
+        if pix_distrib is not None:
+            self.trafo_pix = True
+            states = tf.concat([states,tf.zeros([conf['batch_size'],conf['sequence_length']-conf['context_frames'],conf['sdim']])], axis=1)
+            pix_distrib = tf.concat([pix_distrib, tf.zeros([conf['batch_size'], conf['sequence_length'] - conf['context_frames'], 64,64, 1])], axis=1)
+            pix_distrib1 = pix_distrib
+
+
+
         self.conf = conf
 
         self.batch_size = conf['batch_size']
@@ -36,36 +48,38 @@ class Base_Prediction_Model(object):
         self.sdim = conf['sdim']
         self.adim = conf['adim']
 
-        if not load_data:
-            self.actions_pl = tf.placeholder(tf.float32, name='actions',
-                                             shape=(conf['batch_size'], conf['sequence_length'], self.adim))
-            actions = self.actions_pl
+        if images is None:
+            if not load_data:
+                self.actions_pl = tf.placeholder(tf.float32, name='actions',
+                                                 shape=(conf['batch_size'], conf['sequence_length'], self.adim))
+                actions = self.actions_pl
 
-            self.states_pl = tf.placeholder(tf.float32, name='states',
-                                            shape=(conf['batch_size'], conf['sequence_length'], self.sdim))
-            states = self.states_pl
+                self.states_pl = tf.placeholder(tf.float32, name='states',
+                                                shape=(conf['batch_size'], conf['sequence_length'], self.sdim))
+                states = self.states_pl
 
-            self.images_pl = tf.placeholder(tf.float32, name='images',
-                                            shape=(conf['batch_size'], conf['sequence_length'], 64, 64, 3))
-            images = self.images_pl
+                self.images_pl = tf.placeholder(tf.float32, name='images',
+                                                shape=(conf['batch_size'], conf['sequence_length'], 64, 64, 3))
+                images = self.images_pl
 
-            self.pix_distrib_pl = tf.placeholder(tf.float32, name='states',
-                                                 shape=(conf['batch_size'], conf['sequence_length'], 64, 64, 1))
-            pix_distrib1 = self.pix_distrib_pl
+                self.pix_distrib_pl = tf.placeholder(tf.float32, name='states',
+                                                     shape=(conf['batch_size'], conf['sequence_length'], 64, 64, 1))
+                pix_distrib1 = self.pix_distrib_pl
 
-        else:
-            if 'adim' in conf:
-                from python_visual_mpc.video_prediction.read_tf_record_wristrot import \
-                    build_tfrecord_input as build_tfrecord_fn
             else:
-                from python_visual_mpc.video_prediction.read_tf_record_sawyer12 import \
-                    build_tfrecord_input as build_tfrecord_fn
-            train_images, train_actions, train_states = build_tfrecord_fn(conf, training=True)
-            val_images, val_actions, val_states = build_tfrecord_fn(conf, training=False)
+                if 'adim' in conf:
+                    from python_visual_mpc.video_prediction.read_tf_record_wristrot import \
+                        build_tfrecord_input as build_tfrecord_fn
+                else:
+                    from python_visual_mpc.video_prediction.read_tf_record_sawyer12 import \
+                        build_tfrecord_input as build_tfrecord_fn
+                train_images, train_actions, train_states = build_tfrecord_fn(conf, training=True)
+                val_images, val_actions, val_states = build_tfrecord_fn(conf, training=False)
 
-            images, actions, states = tf.cond(self.train_cond > 0,  # if 1 use trainigbatch else validation batch
-                                              lambda: [train_images, train_actions, train_states],
-                                              lambda: [val_images, val_actions, val_states])
+                images, actions, states = tf.cond(self.train_cond > 0,  # if 1 use trainigbatch else validation batch
+                                                  lambda: [train_images, train_actions, train_states],
+                                                  lambda: [val_images, val_actions, val_states])
+
 
         if 'use_len' in conf:
             print 'randomly shift videos for data augmentation'
@@ -83,9 +97,10 @@ class Base_Prediction_Model(object):
         else:
             self.model = create_model(images, actions, states, pix_distrib1, **modelconfiguration)
 
-        for key in self.model.__dict__.keys():
-            #copy all the placeholders attributes to the current object
-            setattr(self, key, self.model.__dict__[key])
+        self.gen_images = tf.unstack(self.model.gen_images, axis=1)
+        self.prediction_flow = tf.unstack(self.model.gen_flow_map, axis=1)
+        self.gen_distrib1 = tf.unstack(self.model.gen_pix_distribs, axis=1)
+        self.gen_states = tf.unstack(self.model.gen_states)
 
     def visualize(self, sess):
         visualize(sess, self.conf, self)

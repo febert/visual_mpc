@@ -265,8 +265,6 @@ class CEM_controller():
         last_frames = np.concatenate((last_frames, app_zeros), axis=1)
         last_frames = last_frames.astype(np.float32)/255.
 
-
-
         if 'ndesig' in self.policyparams:
             input_distrib1, input_distrib2 = self.make_input_distrib(itr)
             gen_images, gen_distrib1, gen_distrib2, gen_states, _ = self.predictor(input_images=last_frames,

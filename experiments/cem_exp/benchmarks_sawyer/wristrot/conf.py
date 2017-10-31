@@ -28,5 +28,5 @@ configuration = {
 'single_view':"",
 '1stimg_bckgd':'',
 'adim':5,
-'statedim':4
+'sdim':4
 }
