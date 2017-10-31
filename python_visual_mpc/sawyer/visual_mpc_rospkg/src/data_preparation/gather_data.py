@@ -242,13 +242,12 @@ class TF_rec_converter(object):
         """
         saves data_files from one sample trajectory into one tf-record file
         """
-        train_dir = os.path.join(self.tfrec_dir, 'train')
 
-        filename = os.path.join(train_dir, filename + '.tfrecords')
+        filename = os.path.join(self.tfrec_dir, filename + '.tfrecords')
         print('Writing', filename)
 
-        if not os.path.exists(train_dir):
-            os.makedirs(train_dir)
+        if not os.path.exists(self.tfrec_dir):
+            os.makedirs(self.tfrec_dir)
 
         writer = tf.python_io.TFRecordWriter(filename)
 

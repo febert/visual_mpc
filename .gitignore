@@ -145,3 +145,8 @@ python_visual_mpc/region_proposal_networks/rpn_net/model/fasterrcnn_vgg_coco_net
 
 /python_visual_mpc/region_proposal_networks/bvlc_alexnet.npy
 /python_visual_mpc/flow/sparse_tracking/testdata/
+annotation_ckpts/
+test_annotations
+
+
+preview

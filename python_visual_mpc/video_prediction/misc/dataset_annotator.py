@@ -185,21 +185,20 @@ def save_tf_record(conf, filename):
 
 def main():
     parser = argparse.ArgumentParser(description='Run annotation')
-    parser.add_argument('testdata', type=str, help='test data tf records file')
+    parser.add_argument('testdatafile', type=str, help='test data tf records file')
+    parser.add_argument('destdir', type=str, help='tfrecords destination dir')
 
     args = parser.parse_args()
-
-    sourcefilename = args.testdata
-
+    sourcefilename = args.testdatafile
     conf = {}
 
     import python_visual_mpc
-    data_source_dir = '/'.join(str.split(python_visual_mpc.__file__, '/')[:-2]) + '/pushing_data/wrist_rot/test'
-    data_dest_dir = '/'.join(str.split(python_visual_mpc.__file__, '/')[:-2]) + '/pushing_data/wrist_rot/test_annotations'
+    # data_source_dir = '/'.join(str.split(python_visual_mpc.__file__, '/')[:-2]) + '/pushing_data/wristrot_test_newobj/test'
+    # conf['data_dir'] = data_source_dir  # 'directory containing data_files.'
+    # data_dest_dir = '/'.join(str.split(python_visual_mpc.__file__, '/')[:-2]) + '/pushing_data/wristrot_test_newobj/test_annotations'
 
     conf['schedsamp_k'] = -1  # don't feed ground truth
-    conf['data_dir'] = data_source_dir  # 'directory containing data_files.' ,
-    conf['data_dest_dir'] = data_dest_dir
+    conf['data_dest_dir'] = args.destdir
     # folder to
     conf['train_val_split'] = 1.
     conf['sequence_length'] = 15 #48  # 'sequence length, including context frames.'
