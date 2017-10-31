@@ -33,5 +33,6 @@ agent = {
     'state_dim':4,
     'opencv_tracking':'',
     'make_final_gif':'',
-    'collect_data':''
+    'collect_data':'',
+    'wristrot':''
 }

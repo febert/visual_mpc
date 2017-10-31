@@ -191,7 +191,7 @@ class RobotRecorder(object):
         cv_image = self.bridge.imgmsg_to_cv2(data, "bgr8")  #(1920, 1080)
         self.ltob.img_cv2 = self.crop_highres(cv_image)
 
-        if self.agent_params['action_dim'] == 5:  #if wristrot is enabled:
+        if 'wristrot' in self.agent_params:  #if wristrot is enabled:
             self.ltob.img_cropped = self.crop_lowres_wristrot(self.ltob.img_cv2)  # use the cropped highres image
         else:
             self.ltob.img_cropped = self.crop_lowres(cv_image)
@@ -421,7 +421,6 @@ class RobotRecorder(object):
         if self.ltob.img_cv2 is not None:
             image_name = self.image_folder+ "/" + pref + "_full_cropped_im{0}".format(str(i_save).zfill(2))
             image_name += "_time{0}.jpg".format(self.ltob.tstamp_img)
-
             cv2.imwrite(image_name, self.ltob.img_cv2, [int(cv2.IMWRITE_JPEG_QUALITY), 80])
         else:
             raise ValueError('img_cv2 no data received')
@@ -430,7 +429,7 @@ class RobotRecorder(object):
         if self.ltob.img_cropped is not None:
             image_name = self.image_folder + "/" + pref +"_cropped_im{0}_time{1}.png".format(i_save, self.ltob.tstamp_img)
             cv2.imwrite(image_name, self.ltob.img_cropped, [cv2.IMWRITE_PNG_STRATEGY_DEFAULT,1])
-            print 'saving small image to ', image_name
+            # print 'saving small image to ', image_name
         else:
             raise ValueError('img_cropped no data received')
 
@@ -456,6 +455,32 @@ class RobotRecorder(object):
                 if pref == 'aux1':
                     dict['t_get_request'] = self.t_get_request
                 cPickle.dump(dict, f)
+
+    def low_res_to_highres(self, inp):
+        h = self.crop_highres_params
+        l = self.crop_lowres_params
+
+        if 'wristrot' in self.agent_params:
+            highres = (inp + np.array([l['startrow'], l['startcol']])).astype(np.float) / l['shrink_before_crop']
+        else:
+            orig = (inp + np.array([l['startrow'], l['startcol']])).astype(np.float) / l['shrink_before_crop']
+            highres = (orig - np.array([h['startrow'], h['startcol']])) * h['shrink_after_crop']
+
+        highres = highres.astype(np.int64)
+        return highres
+
+    def high_res_to_lowres(self, inp):
+        h = self.crop_highres_params
+        l = self.crop_lowres_params
+
+        if 'wristrot' in self.agent_params:
+            lowres = inp.astype(np.float) * l['shrink_before_crop'] - np.array([l['startrow'], l['startcol']])
+        else:
+            orig = inp.astype(np.float) / h['shrink_after_crop'] + np.array([h['startrow'], h['startcol']])
+            lowres = orig.astype(np.float) * l['shrink_before_crop'] - np.array([l['startrow'], l['startcol']])
+
+        lowres = lowres.astype(np.int64)
+        return lowres
 
 
 if __name__ ==  '__main__':

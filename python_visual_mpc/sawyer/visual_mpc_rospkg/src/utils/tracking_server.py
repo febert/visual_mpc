@@ -47,6 +47,7 @@ class Tracker(object):
             self.cv_tracker = cv2.TrackerMIL_create()
             self.cv_tracker.init(self.lt_img_cv2, self.bbox)
             self.tracker_initialized = True
+            print 'tracker initialized'
 
     def crop_highres(self, cv_image):
         #TODO: load the cropping parameters from parameter file
@@ -82,7 +83,7 @@ class Tracker(object):
                 print 'currrent bbox: ',bbox
             else:
                 rospy.sleep(0.1)
-                print "waiting for tracker to be initialized"
+                print "waiting for tracker to be initialized, bbox=", self.bbox
 
 if __name__ == "__main__":
     r = Tracker()
