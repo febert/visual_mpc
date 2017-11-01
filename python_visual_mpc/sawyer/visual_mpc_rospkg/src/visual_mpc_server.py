@@ -165,7 +165,7 @@ class Visual_MPC_Server(object):
     def get_action_handler(self, req):
         print 'handling action'
 
-        self.traj.X_full[self.t, :] = req.state[:self.agentparams['state_dim']]
+        self.traj.X_full[self.t, :] = req.state[:self.agentparams['sdim']]
         main_img = self.bridge.imgmsg_to_cv2(req.main)
         main_img = cv2.cvtColor(main_img, cv2.COLOR_BGR2RGB)
 
@@ -201,8 +201,8 @@ class Visual_MPC_Server(object):
 
         self.t += 1
 
-        action_resp = np.zeros(self.agentparams['action_dim'])
-        action_resp[:self.agentparams['action_dim']] = mj_U
+        action_resp = np.zeros(self.agentparams['adim'])
+        action_resp[:self.agentparams['adim']] = mj_U
         return get_actionResponse(tuple(action_resp))
 
     def save_video(self):

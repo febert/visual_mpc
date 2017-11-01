@@ -21,7 +21,7 @@ class OpenCV_Track_Listener():
         """
 
         self.recorder = recorder
-        self.adim = agentparams['action_dim']
+        self.adim = agentparams['adim']
 
         self.box_height = 120
         loc = self.recorder.low_res_to_highres(desig_pos_main[0])

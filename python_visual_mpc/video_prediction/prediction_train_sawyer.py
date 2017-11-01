@@ -267,8 +267,8 @@ def main(unused_argv, conf_script= None):
             adim = conf['adim']
         else: adim = 4
 
-        if 'statedim' in conf:
-            statedim = conf['statedim']
+        if 'sdim' in conf:
+            statedim = conf['sdim']
         else: statedim = 3
 
         actions_pl = tf.placeholder(tf.float32, name='actions',
