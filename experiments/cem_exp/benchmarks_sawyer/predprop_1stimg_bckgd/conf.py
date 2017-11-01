@@ -13,7 +13,7 @@ configuration = {
 'setup_predictor': setup_predictor,
 'current_dir': current_dir, #'directory for writing gifs' ,
 # 'filepath of a pretrained model to use for cem
-'pretrained_model': BASE + '/tensorflow_data/sawyer/1stimg_bckgd_cdna/modeldata/model',
+'pretrained_model': BASE + '/tensorflow_data/sawyer/1stimg_bckgd_cdna/modeldata/model80002',
 'sequence_length': 15,      # 'sequence length, including context frames.' ,
 'context_frames': 2,        # of frames before predictions.' ,
 'use_state': 1,             #'Whether or not to give the state+action to the model' ,
@@ -26,6 +26,5 @@ configuration = {
 'kern_size': 9,              #size of DNA kerns
 'sawyer':'',
 'single_view':"",
-'1stimg_bckgd':'',
-'float16':''
+'1stimg_bckgd':''
 }
