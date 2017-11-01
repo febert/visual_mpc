@@ -2,6 +2,7 @@ import tensorflow as tf
 import imp
 import numpy as np
 import pdb
+import copy
 
 from PIL import Image
 import os
@@ -12,7 +13,6 @@ class Tower(object):
     def __init__(self, conf, gpu_id, start_images, actions, start_states, pix_distrib1,pix_distrib2):
         nsmp_per_gpu = conf['batch_size']/ conf['ngpu']
         # setting the per gpu batch_size
-        conf['batch_size'] = nsmp_per_gpu
 
         # picking different subset of the actions for each gpu
         startidx = gpu_id * nsmp_per_gpu
@@ -36,10 +36,12 @@ class Tower(object):
             for name, value in Model.m.__dict__.iteritems():
                 setattr(Model, name, value)
 
+        modconf = copy.deepcopy(conf)
+        modconf['batch_size'] = nsmp_per_gpu
         if 'ndesig' in conf:
-            self.model = Model(conf, start_images, actions, start_states, pix_distrib=pix_distrib1,pix_distrib2=pix_distrib2, inference=True)
+            self.model = Model(modconf, start_images, actions, start_states, pix_distrib=pix_distrib1,pix_distrib2=pix_distrib2, inference=True)
         else:
-            self.model = Model(conf, start_images, actions, start_states, pix_distrib=pix_distrib1, inference=True)
+            self.model = Model(modconf, start_images, actions, start_states, pix_distrib=pix_distrib1, inference=True)
 
 def setup_predictor(conf, gpu_id=0, ngpu=1):
     """
