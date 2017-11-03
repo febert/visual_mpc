@@ -35,6 +35,8 @@ def build_tfrecord_input(conf, training=True, input_file=None):
     print 'adim', adim
     print 'sdim', sdim
 
+
+
     if input_file is not None:
         filenames = [input_file]
         shuffle = False
@@ -229,15 +231,15 @@ def main():
 
     current_dir = os.path.dirname(os.path.realpath(__file__))
 
-    # DATA_DIR = '/'.join(str.split(current_dir, '/')[:-2]) + '/pushing_data/wristrot_test_newobj/test'
-    DATA_DIR = '/'.join(str.split(current_dir, '/')[:-2]) + '/pushing_data/wristrot_test_newobj/test_annotations'
+    DATA_DIR = '/'.join(str.split(current_dir, '/')[:-2]) + '/pushing_data/wristrot_test_seenobj/test'
+    # DATA_DIR = '/'.join(str.split(current_dir, '/')[:-2]) + '/pushing_data/wristrot_test_newobj/test_annotations'
 
     conf['schedsamp_k'] = -1  # don't feed ground truth
     conf['data_dir'] = DATA_DIR  # 'directory containing data_files.' ,
     conf['skip_frame'] = 1
     conf['train_val_split']= 0.95
-    conf['sequence_length']= 4#####15      # 'sequence length, including context frames.'
-    conf['batch_size']= 3 # 128
+    conf['sequence_length']= 15      # 'sequence length, including context frames.'
+    conf['batch_size']= 128
     conf['visualize']= True
     conf['context_frames'] = 2
 
@@ -245,7 +247,7 @@ def main():
     conf['sdim'] = 4
     conf['adim'] = 5
 
-    conf['test_metric'] = {'robot_pos': 1, 'object_pos': 2}
+    # conf['test_metric'] = {'robot_pos': 1, 'object_pos': 2}
 
     print '-------------------------------------------------------------------'
     print 'verify current settings!! '
@@ -255,8 +257,8 @@ def main():
 
     print 'testing the reader'
 
-    # image_batch, action_batch, endeff_pos_batch = build_tfrecord_input(conf, training=True)
-    image_batch, action_batch, endeff_pos_batch, robot_pos_batch, object_pos_batch = build_tfrecord_input(conf, training=True)
+    image_batch, action_batch, endeff_pos_batch = build_tfrecord_input(conf, training=True)
+    # image_batch, action_batch, endeff_pos_batch, robot_pos_batch, object_pos_batch = build_tfrecord_input(conf, training=True)
 
     sess = tf.InteractiveSession()
     tf.train.start_queue_runners(sess)
@@ -267,11 +269,11 @@ def main():
     for i_run in range(1):
         print 'run number ', i_run
 
-        # images, actions, endeff = sess.run([image_batch, action_batch, endeff_pos_batch])
-        images, actions, endeff, robot_pos, object_pos = sess.run([image_batch, action_batch, endeff_pos_batch, robot_pos_batch, object_pos_batch])
+        images, actions, endeff = sess.run([image_batch, action_batch, endeff_pos_batch])
+        # images, actions, endeff, robot_pos, object_pos = sess.run([image_batch, action_batch, endeff_pos_batch, robot_pos_batch, object_pos_batch])
 
         file_path = '/'.join(str.split(DATA_DIR, '/')[:-1]+['preview'])
-        # comp_single_video(file_path, images)
+        comp_single_video(file_path, images)
 
         # show some frames
         for b in range(conf['batch_size']):
@@ -288,7 +290,7 @@ def main():
             # print 'object_pos'
             # print object_pos
 
-            visualize_annotation(conf, images[b], robot_pos[b], object_pos[b])
+            # visualize_annotation(conf, images[b], robot_pos[b], object_pos[b])
 
             # images = np.squeeze(images)
             # img = np.uint8(255. * images[b, 0])

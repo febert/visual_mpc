@@ -121,17 +121,9 @@ def setup_predictor(conf, gpu_id=0, ngpu=1):
 
     sess.run(tf.global_variables_initializer())
 
-    # saver = tf.train.Saver(tf.get_collection(tf.GraphKeys.GLOBAL_VARIABLES), max_to_keep=0)
     vars = tf.get_collection(tf.GraphKeys.GLOBAL_VARIABLES)
-    # remove all states from group of variables which shall be saved and restored:
-    vars_no_state = filter_vars(vars)
-    # try:
-    #     saver = tf.train.Saver(vars_no_state, max_to_keep=0)
-    #     saver.restore(sess, conf['pretrained_model'])
-    # except tf.errors.NotFoundError:
-
     #cutting off the /model tag
-    vars_no_state = dict([('/'.join(var.name.split(':')[0].split('/')[1:]), var) for var in vars_no_state])
+    vars_no_state = dict([('/'.join(var.name.split(':')[0].split('/')[1:]), var) for var in vars])
     saver = tf.train.Saver(vars_no_state, max_to_keep=0)
     saver.restore(sess, conf['pretrained_model'])
 
@@ -208,15 +200,3 @@ def setup_predictor(conf, gpu_id=0, ngpu=1):
         return gen_images, gen_distrib1, gen_distrib2, gen_states, None
 
     return predictor_func
-
-
-def filter_vars(vars):
-    newlist = []
-    for v in vars:
-        if not '/state:' in v.name:
-            newlist.append(v)
-        else:
-            print 'removed state variable from saving-list: ', v.name
-
-    return newlist
-

@@ -466,12 +466,7 @@ class Base_Prediction_Model(object):
     def build_loss(self):
         summaries = []
 
-        if self.conf['learning_rate'] == 'scheduled' and not self.visualize:
-            print('using scheduled learning rate')
-
-            self.lr = tf.train.piecewise_constant(self.global_step, self.conf['lr_boundaries'], self.conf['lr_values'])
-        else:
-            self.lr = tf.placeholder_with_default(self.conf['learning_rate'], ())
+        self.lr = tf.placeholder_with_default(self.conf['learning_rate'], ())
 
         if not self.trafo_pix:
             # L2 loss, PSNR for eval.
@@ -501,7 +496,7 @@ class Base_Prediction_Model(object):
             self.loss = loss = loss / np.float32(len(self.images) - self.conf['context_frames'])
             summaries.append(tf.summary.scalar('loss', loss))
 
-            self.train_op = tf.train.AdamOptimizer(self.lr).minimize(loss, self.global_step)
+            self.train_op = tf.train.AdamOptimizer(self.lr).minimize(loss)
             self.summ_op = tf.summary.merge(summaries)
 
 

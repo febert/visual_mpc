@@ -21,15 +21,16 @@ VAL_INTERVAL = 500
 # How often to save a model checkpoint
 SAVE_INTERVAL = 4000
 
-from dynamic_base_model import Dynamic_Base_Model
+from python_visual_mpc.video_prediction.dynamic_rnn_model.dynamic_base_model import Dynamic_Base_Model
 # from python_visual_mpc.video_prediction.tracking_model.single_point_tracking_model import Single_Point_Tracking_Model
-
+from python_visual_mpc.video_prediction.tracking_model.single_point_tracking_model import Single_Point_Tracking_Model
 
 
 if __name__ == '__main__':
     FLAGS = flags.FLAGS
     flags.DEFINE_string('hyper', '', 'hyperparameters configuration file')
-    flags.DEFINE_string('visualize', '', 'model within hyperparameter folder from which to create gifs')
+    flags.DEFINE_bool('visualize', False, 'visualize latest checkpoint')
+    flags.DEFINE_string('visualize_check', "", 'model within hyperparameter folder from which to create gifs')
     flags.DEFINE_integer('device', 0 ,'the value for CUDA_VISIBLE_DEVICES variable')
     flags.DEFINE_string('pretrained', None, 'path to model file from which to resume training')
     flags.DEFINE_bool('diffmotions', False, 'visualize several different motions for a single scene')
@@ -53,12 +54,18 @@ def main(unused_argv, conf_script= None):
 
     conf = hyperparams.configuration
 
-    if FLAGS.visualize:
+    if FLAGS.visualize or FLAGS.visualize_check:
         print 'creating visualizations ...'
         conf['schedsamp_k'] = -1  # don't feed ground truth
-        conf['data_dir'] = '/'.join(str.split(conf['data_dir'], '/')[:-1] + ['test'])
 
-        conf['visualize'] = conf['output_dir'] + '/' + FLAGS.visualize
+        if 'test_data_dir' in conf:
+            conf['data_dir'] = conf['test_data_dir']
+        else: conf['data_dir'] = '/'.join(str.split(conf['data_dir'], '/')[:-1] + ['test'])
+
+        if FLAGS.visualize_check:
+            conf['visualize_check'] = conf['output_dir'] + '/' + FLAGS.visualize_check
+        conf['visualize'] = True
+
         conf['event_log_dir'] = '/tmp'
         conf.pop('use_len', None)
 
@@ -66,7 +73,7 @@ def main(unused_argv, conf_script= None):
             conf['batch_size'] = 128
             conf['sequence_length'] = 15
         else:
-            conf['batch_size'] = 15
+            conf['batch_size'] = 40
 
         conf['sequence_length'] = 14
         if FLAGS.diffmotions:
@@ -76,33 +83,40 @@ def main(unused_argv, conf_script= None):
         if 'modelconfiguration' in conf:
             conf['modelconfiguration']['schedule_sampling_k'] = conf['schedsamp_k']
 
+        build_loss = False
+    else:
+        build_loss = True
+
     if 'pred_model' in conf:
         Model = conf['pred_model']
     else:
         Model = Dynamic_Base_Model
 
-    if FLAGS.diffmotions or "visualize_tracking" in conf or FLAGS.metric:
-        model = Model(conf, load_data =False, trafo_pix=True)
-    else:
-        model = Model(conf, load_data=True, trafo_pix=False)
+    with tf.variable_scope('generator'):  # TODO: get rid of this and make something automatic.
+        if FLAGS.diffmotions or "visualize_tracking" in conf or FLAGS.metric:
+            model = Model(conf, load_data=False, trafo_pix=True, build_loss=build_loss)
+        else:
+            model = Model(conf, load_data=True, trafo_pix=False, build_loss=build_loss)
 
     print 'Constructing saver.'
     # Make saver.
 
-    # if isinstance(model, Single_Point_Tracking_Model) and not FLAGS.visualize:
-    #     # initialize the predictor from pretrained weights
-    #     # select weights that are *not* part of the tracker
-    #     vars = tf.get_collection(tf.GraphKeys.GLOBAL_VARIABLES)
-    #     predictor_vars = []
-    #     for var in vars:
-    #         if str.split(var.name, '/')[0] != 'tracker':
-    #             predictor_vars.append(var)
+    vars = tf.get_collection(tf.GraphKeys.GLOBAL_VARIABLES)
+    for var in vars:
+        print var.name
 
+    if isinstance(model, Single_Point_Tracking_Model) and not (FLAGS.visualize or FLAGS.visualize_check):
+        # initialize the predictor from pretrained weights
+        # select weights that are *not* part of the tracker
+        vars = tf.get_collection(tf.GraphKeys.GLOBAL_VARIABLES)
+        predictor_vars = []
+        for var in vars:
+            if str.split(var.name, '/')[0] != 'tracker':
+                predictor_vars.append(var)
 
     vars = tf.get_collection(tf.GraphKeys.GLOBAL_VARIABLES)
     # remove all states from group of variables which shall be saved and restored:
-    vars_no_state = filter_vars(vars)
-    saver = tf.train.Saver(vars_no_state, max_to_keep=0)
+    saver = tf.train.Saver(vars, max_to_keep=0)
 
     gpu_options = tf.GPUOptions(per_process_gpu_memory_fraction=0.9)
     # Make training session.
@@ -115,14 +129,15 @@ def main(unused_argv, conf_script= None):
     sess.run(tf.global_variables_initializer())
 
     if conf['visualize']:
+        if FLAGS.visualize_check:
+            load_checkpoint(conf, sess, saver, conf['visualize_check'])
+        else: load_checkpoint(conf, sess, saver)
+
         print '-------------------------------------------------------------------'
         print 'verify current settings!! '
         for key in conf.keys():
             print key, ': ', conf[key]
         print '-------------------------------------------------------------------'
-
-        saver.restore(sess, conf['visualize'])
-        print 'restore done.'
 
         if FLAGS.diffmotions:
             model.visualize_diffmotions(sess)
@@ -130,19 +145,12 @@ def main(unused_argv, conf_script= None):
             model.compute_metric(sess, FLAGS.create_images)
         else:
             model.visualize(sess)
-
         return
 
     itr_0 =0
     if FLAGS.pretrained != None:
-        conf['pretrained_model'] = FLAGS.pretrained
-
-        saver.restore(sess, conf['pretrained_model'])
-        # resume training at iteration step of the loaded model:
-        import re
-        itr_0 = re.match('.*?([0-9]+)$', conf['pretrained_model']).group(1)
-        itr_0 = int(itr_0)
-        print 'resuming training at iteration:  ', itr_0
+        itr_0 = load_checkpoint(conf, sess, saver, model_file=FLAGS.pretrained)
+        print 'resuming training at iteration: ', itr_0
 
     print '-------------------------------------------------------------------'
     print 'verify current settings!! '
@@ -201,17 +209,25 @@ def main(unused_argv, conf_script= None):
 
 
 
-def filter_vars(vars):
-    newlist = []
-    for v in vars:
-        if not '/state:' in v.name:
-            newlist.append(v)
-        else:
-            print 'removed state variable from saving-list: ', v.name
 
-    return newlist
-
-
+def load_checkpoint(conf, sess, saver, model_file=None):
+    """
+    :param sess:
+    :param saver:
+    :param model_file: filename with model***** but no .data, .index etc.
+    :return:
+    """
+    import re
+    if model_file is not None:
+        saver.restore(sess, model_file)
+        num_iter = int(re.match('.*?([0-9]+)$', model_file).group(1))
+    else:
+        ckpt = tf.train.get_checkpoint_state(conf['output_dir'])
+        print("loading " + ckpt.model_checkpoint_path)
+        saver.restore(sess, ckpt.model_checkpoint_path)
+        num_iter = int(re.match('.*?([0-9]+)$', ckpt.model_checkpoint_path).group(1))
+    conf['num_iter'] = num_iter
+    return num_iter
 
 if __name__ == '__main__':
     tf.logging.set_verbosity(tf.logging.INFO)

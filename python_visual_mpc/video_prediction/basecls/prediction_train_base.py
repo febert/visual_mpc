@@ -35,7 +35,8 @@ from PIL import Image
 if __name__ == '__main__':
     FLAGS = flags.FLAGS
     flags.DEFINE_string('hyper', '', 'hyperparameters configuration file')
-    flags.DEFINE_string('visualize', '', 'model within hyperparameter folder from which to create gifs')
+    flags.DEFINE_bool('visualize', '', 'model within hyperparameter folder from which to create gifs')
+    flags.DEFINE_string('visualize_check', "", 'model within hyperparameter folder from which to create gifs')
     flags.DEFINE_integer('device', 0 ,'the value for CUDA_VISIBLE_DEVICES variable')
     flags.DEFINE_string('pretrained', None, 'path to model file from which to resume training')
     flags.DEFINE_bool('diffmotions', False, 'visualize several different motions for a single scene')
@@ -62,9 +63,15 @@ def main(unused_argv, conf_script= None):
     if FLAGS.visualize:
         print 'creating visualizations ...'
         conf['schedsamp_k'] = -1  # don't feed ground truth
-        conf['data_dir'] = '/'.join(str.split(conf['data_dir'], '/')[:-1] + ['test'])
+        if 'test_data_dir' in conf:
+            conf['data_dir'] = conf['test_data_dir']
+        else:
+            conf['data_dir'] = '/'.join(str.split(conf['data_dir'], '/')[:-1] + ['test'])
 
-        conf['visualize'] = conf['output_dir'] + '/' + FLAGS.visualize
+        if FLAGS.visualize_check:
+            conf['visualize_check'] = conf['output_dir'] + '/' + FLAGS.visualize_check
+        conf['visualize'] = True
+
         conf['event_log_dir'] = '/tmp'
         conf.pop('use_len', None)
         conf['batch_size'] = 128
@@ -79,11 +86,11 @@ def main(unused_argv, conf_script= None):
     else:
         Model = Base_Prediction_Model
 
-    with tf.variable_scope('generator'):  ################# just for making compatible with old training code
-        if FLAGS.diffmotions or "visualize_tracking" in conf or FLAGS.metric:
-            model = Model(conf, load_data=False, trafo_pix=True)
-        else:
-            model = Model(conf, load_data=True, trafo_pix=False)
+    # with tf.variable_scope('generator'):  ################# just for making compatible with old training code
+    if FLAGS.diffmotions or "visualize_tracking" in conf or FLAGS.metric:
+        model = Model(conf, load_data=False, trafo_pix=True)
+    else:
+        model = Model(conf, load_data=True, trafo_pix=False)
 
     print 'Constructing saver.'
     # Make saver.
@@ -102,14 +109,12 @@ def main(unused_argv, conf_script= None):
     sess.run(tf.global_variables_initializer())
 
     if conf['visualize']:
+        load_checkpoint(conf, sess, saver)
         print '-------------------------------------------------------------------'
         print 'verify current settings!! '
         for key in conf.keys():
             print key, ': ', conf[key]
         print '-------------------------------------------------------------------'
-
-        saver.restore(sess, conf['visualize'])
-        print 'restore done.'
 
         if FLAGS.diffmotions:
             model.visualize_diffmotions(sess)
@@ -120,16 +125,10 @@ def main(unused_argv, conf_script= None):
 
         return
 
-    itr_0 =0
+    itr_0 = 0
     if FLAGS.pretrained != None:
-        conf['pretrained_model'] = FLAGS.pretrained
-
-        saver.restore(sess, conf['pretrained_model'])
-        # resume training at iteration step of the loaded model:
-        import re
-        itr_0 = re.match('.*?([0-9]+)$', conf['pretrained_model']).group(1)
-        itr_0 = int(itr_0)
-        print 'resuming training at iteration:  ', itr_0
+        itr_0 = load_checkpoint(conf, sess, saver, model_file=FLAGS.pretrained)
+        print 'resuming training at iteration: ', itr_0
 
     print '-------------------------------------------------------------------'
     print 'verify current settings!! '
@@ -197,6 +196,25 @@ def filter_vars(vars):
             print 'removed state variable from saving-list: ', v.name
 
     return newlist
+
+def load_checkpoint(conf, sess, saver, model_file=None):
+    """
+    :param sess:
+    :param saver:
+    :param model_file: filename with model***** but no .data, .index etc.
+    :return:
+    """
+    import re
+    if model_file is not None:
+        saver.restore(sess, model_file)
+        num_iter = int(re.match('.*?([0-9]+)$', model_file).group(1))
+    else:
+        ckpt = tf.train.get_checkpoint_state(conf['output_dir'])
+        print("loading " + ckpt.model_checkpoint_path)
+        saver.restore(sess, ckpt.model_checkpoint_path)
+        num_iter = int(re.match('.*?([0-9]+)$', ckpt.model_checkpoint_path).group(1))
+    conf['num_iter'] = num_iter
+    return num_iter
 
 
 
