@@ -9,7 +9,7 @@ OUT_DIR = current_dir + '/modeldata'
 
 from docile.orig_dna_model import create_model
 
-from python_visual_mpc.video_prediction.dynamic_rnn_model.alex_model_interface import Base_Prediction_Model
+from python_visual_mpc.video_prediction.dynamic_rnn_model.alex_model_interface import Alex_Interface_Model
 
 modelconfiguration = {
 'lr': 0.001,
@@ -31,7 +31,7 @@ modelconfiguration = {
 }
 
 configuration = {
-'pred_model':Base_Prediction_Model,
+'pred_model':Alex_Interface_Model,
 'create_model':create_model,
 'context_frames': modelconfiguration['context_frames'],
 'experiment_name': 'orig_cdna_wristrot_k17_generatescratchimage_bs16',

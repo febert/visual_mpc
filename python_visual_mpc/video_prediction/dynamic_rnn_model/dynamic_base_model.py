@@ -11,7 +11,7 @@ from python_visual_mpc.video_prediction.dynamic_rnn_model.ops import sigmoid_kl_
 from python_visual_mpc.video_prediction.dynamic_rnn_model.utils import preprocess, deprocess
 from python_visual_mpc.video_prediction.basecls.utils.visualize import visualize_diffmotions, visualize, compute_metric
 from python_visual_mpc.video_prediction.basecls.utils.compute_motion_vecs import compute_motion_vector_cdna, compute_motion_vector_dna
-
+import pdb
 # Amount to use when lower bounding tensors
 RELU_SHIFT = 1e-12
 
@@ -40,7 +40,7 @@ class DNACell(tf.nn.rnn_cell.RNNCell):
         self.first_image = first_image
         self.first_pix_distrib1 = first_pix_distrib1
 
-        if ['ndesig'] in conf:
+        if 'ndesig' in conf:
             self.first_pix_distrib2 = first_pix_distrib2
 
         self.num_ground_truth = num_ground_truth
@@ -398,28 +398,29 @@ class DNACell(tf.nn.rnn_cell.RNNCell):
 
 class Dynamic_Base_Model(object):
     def __init__(self,
-                conf = None,
-                images=None,
-                actions=None,
-                states=None,
-                pix_distrib1=None,
-                pix_distrib2=None,
-                trafo_pix = True,
-                load_data = True,
-                build_loss = True,
-                ):
+                 conf = None,
+                 images=None,
+                 actions=None,
+                 states=None,
+                 pix_distrib=None,
+                 pix_distrib2=None,
+                 trafo_pix = True,
+                 load_data = True,
+                 inference = True,
+                 ):
 
         self.iter_num = tf.placeholder(tf.float32, [])
 
         self.trafo_pix = trafo_pix
-        if pix_distrib1 is not None:
+        if pix_distrib is not None:
             assert trafo_pix == True
             states = tf.concat([states, tf.zeros(
                 [conf['batch_size'], conf['sequence_length'] - conf['context_frames'], conf['sdim']])], axis=1)
-            pix_distrib1 = tf.concat([pix_distrib1, tf.zeros(
+            pix_distrib = tf.concat([pix_distrib, tf.zeros(
                 [conf['batch_size'], conf['sequence_length'] - conf['context_frames'], 64, 64, 1])], axis=1)
-            pix_distrib2 = tf.concat([pix_distrib2, tf.zeros(
-                [conf['batch_size'], conf['sequence_length'] - conf['context_frames'], 64, 64, 1])], axis=1)
+            if 'ndesig' in conf:
+                pix_distrib2 = tf.concat([pix_distrib2, tf.zeros(
+                    [conf['batch_size'], conf['sequence_length'] - conf['context_frames'], 64, 64, 1])], axis=1)
 
         use_state = True
 
@@ -441,7 +442,7 @@ class Dynamic_Base_Model(object):
         self.adim = conf['adim']
 
         if images is None:
-            pix_distrib1 = None
+            pix_distrib = None
             if not load_data:
                 self.actions_pl = tf.placeholder(tf.float32, name='actions',
                                                  shape=(conf['batch_size'], conf['sequence_length'], self.adim))
@@ -457,11 +458,12 @@ class Dynamic_Base_Model(object):
 
                 self.pix_distrib1_pl = tf.placeholder(tf.float32, name='states',
                                                       shape=(conf['batch_size'], conf['sequence_length'], 64, 64, 1))
-                pix_distrib1 = self.pix_distrib1_pl
+                pix_distrib = self.pix_distrib1_pl
 
-                self.pix_distrib2_pl = tf.placeholder(tf.float32, name='states',
-                                                      shape=(conf['batch_size'], conf['sequence_length'], 64, 64, 1))
-                pix_distrib2 = self.pix_distrib2_pl
+                if 'ndesig' in conf:
+                    self.pix_distrib2_pl = tf.placeholder(tf.float32, name='states',
+                                                          shape=(conf['batch_size'], conf['sequence_length'], 64, 64, 1))
+                    pix_distrib2 = self.pix_distrib2_pl
 
             else:
                 if 'adim' in conf:
@@ -490,9 +492,9 @@ class Dynamic_Base_Model(object):
         states = [tf.squeeze(st) for st in states]
         images = tf.split(axis=1, num_or_size_splits=images.get_shape()[1], value=images)
         images = [tf.squeeze(img) for img in images]
-        if pix_distrib1 is not None:
-            pix_distrib1 = tf.split(axis=1, num_or_size_splits=pix_distrib1.get_shape()[1], value=pix_distrib1)
-            pix_distrib1 = [tf.reshape(pix, [self.batch_size, 64,64, 1]) for pix in pix_distrib1]
+        if pix_distrib is not None:
+            pix_distrib = tf.split(axis=1, num_or_size_splits=pix_distrib.get_shape()[1], value=pix_distrib)
+            pix_distrib = [tf.reshape(pix, [self.batch_size, 64, 64, 1]) for pix in pix_distrib]
         if pix_distrib2 is not None:
             pix_distrib2 = tf.split(axis=1, num_or_size_splits=pix_distrib2.get_shape()[1], value=pix_distrib2)
             pix_distrib2 = [tf.reshape(pix, [self.batch_size, 64,64, 1]) for pix in pix_distrib2]
@@ -531,8 +533,9 @@ class Dynamic_Base_Model(object):
             feedself = False
 
 
-        first_pix_distrib1 = None if pix_distrib1 is None else pix_distrib1[0]
+        first_pix_distrib1 = None if pix_distrib is None else pix_distrib[0]
         first_pix_distrib2 = None if pix_distrib2 is None else pix_distrib2[0]
+
 
         cell = DNACell(conf,
                        [height, width, color_channels],
@@ -547,8 +550,10 @@ class Dynamic_Base_Model(object):
                        vgf_dim=vgf_dim)
 
         inputs = [tf.stack(images[:sequence_length]), tf.stack(actions[:sequence_length]), tf.stack(states[:sequence_length])]
-        if pix_distrib1 is not None:
-            inputs.append(tf.stack(pix_distrib1[:sequence_length]))
+        if pix_distrib is not None:
+            inputs.append(tf.stack(pix_distrib[:sequence_length]))
+        if pix_distrib2 is not None:
+            inputs.append(tf.stack(pix_distrib2[:sequence_length]))
 
         outputs, _ = tf.nn.dynamic_rnn(cell, inputs, sequence_length=[sequence_length] * batch_size, dtype=tf.float32,
                                        swap_memory=True, time_major=True)
@@ -562,7 +567,7 @@ class Dynamic_Base_Model(object):
         self.gen_flow_map = tf.unstack(gen_flow_map, axis=0)
         other_outputs = list(other_outputs)
 
-        if pix_distrib1 is not None:
+        if pix_distrib is not None:
             self.gen_distrib1 = other_outputs.pop(0)
             self.gen_distrib1 = tf.unstack(self.gen_distrib1, axis=0)
             self.gen_transformed_pixdistribs1 = other_outputs.pop(0)
@@ -578,7 +583,7 @@ class Dynamic_Base_Model(object):
                       self.gen_transformed_pixdistribs2]))
         assert not other_outputs
 
-        if build_loss:
+        if not inference:
             loss, summaries = self.build_loss()
             self.lr = tf.placeholder_with_default(self.conf['learning_rate'], ())
             self.train_op = tf.train.AdamOptimizer(self.lr).minimize(loss)

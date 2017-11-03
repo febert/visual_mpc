@@ -8,6 +8,8 @@ from PIL import Image
 import os
 
 from datetime import datetime
+from python_visual_mpc.video_prediction.dynamic_rnn_model.dynamic_base_model import Dynamic_Base_Model
+from python_visual_mpc.video_prediction.dynamic_rnn_model.alex_model_interface import Alex_Interface_Model
 
 class Tower(object):
     def __init__(self, conf, gpu_id, start_images, actions, start_states, pix_distrib1,pix_distrib2):
@@ -122,9 +124,30 @@ def setup_predictor(conf, gpu_id=0, ngpu=1):
     sess.run(tf.global_variables_initializer())
 
     vars = tf.get_collection(tf.GraphKeys.GLOBAL_VARIABLES)
-    #cutting off the /model tag
-    vars_no_state = dict([('/'.join(var.name.split(':')[0].split('/')[1:]), var) for var in vars])
-    saver = tf.train.Saver(vars_no_state, max_to_keep=0)
+
+    if conf['pred_model'] == Alex_Interface_Model or conf['pred_model'] == Dynamic_Base_Model:
+        print "removing /model tag"
+        #cutting off the /model tag
+        vars = dict([('/'.join(var.name.split(':')[0].split('/')[1:]), var) for var in vars])
+
+    # for k in vars.keys():
+    #     print k
+    # print 'variables to fill out'
+    # pdb.set_trace()
+
+    #add generator tag
+    pdb.set_trace()
+    if conf['pred_model'] ==  Dynamic_Base_Model:
+        print 'adding "generator" tag!!!'
+        newvars = {}
+        for key in vars.keys():
+            newvars['generator/' + key]  = vars[key]
+        vars = newvars
+    # for k in vars.keys():
+    #     print k
+    # print 'names to look for'
+    # pdb.set_trace()
+    saver = tf.train.Saver(vars, max_to_keep=0)
     saver.restore(sess, conf['pretrained_model'])
 
     print 'restore done. '

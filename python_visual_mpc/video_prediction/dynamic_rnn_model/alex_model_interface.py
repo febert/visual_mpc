@@ -16,7 +16,7 @@ import pdb
 from docile.improved_dna_model import create_model as create_model_improved
 
 
-class Base_Prediction_Model(object):
+class Alex_Interface_Model(object):
     def __init__(self,
                  conf = None,
                  images=None,

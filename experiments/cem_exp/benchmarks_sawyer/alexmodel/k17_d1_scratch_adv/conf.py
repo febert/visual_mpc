@@ -5,7 +5,7 @@ import python_visual_mpc
 BASE = '/'.join(str.split(python_visual_mpc.__file__, '/')[:-2])
 from python_visual_mpc.video_prediction.setup_predictor_towers import setup_predictor
 
-from python_visual_mpc.video_prediction.dynamic_rnn_model.alex_model_interface import Base_Prediction_Model
+from python_visual_mpc.video_prediction.dynamic_rnn_model.alex_model_interface import Alex_Interface_Model
 
 modelconfiguration = {
 'lr': 0.001,
@@ -31,7 +31,7 @@ configuration = {
 'experiment_name': 'improved_cdna_wristrot_k17d1_generatescratchimage_adv_bs16',
 'pretrained_model': BASE + '/tensorflow_data/sawyer/alexmodel_finalpaper/improved_cdna_wristrot_k17d1_generatescratchimage_adv_bs16/modeldata/model-205000',
 'modelconfiguration':modelconfiguration,
-'pred_model':Base_Prediction_Model,
+'pred_model':Alex_Interface_Model,
 'learning_rate':0.,
 'current_dir': current_dir, #'directory for writing summary.' ,
 'sequence_length': 15,      # 'sequence length to load, including context frames.' ,
