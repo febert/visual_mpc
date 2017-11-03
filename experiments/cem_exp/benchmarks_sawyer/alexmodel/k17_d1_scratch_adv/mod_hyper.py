@@ -6,6 +6,7 @@ from python_visual_mpc.visual_mpc_core.algorithm.cem_controller_goalimage_sawyer
 policy = {
     'type' : CEM_controller,
     'low_level_ctrl': None,
+    'current_dir':current_dir,
     'usenet': True,
     'nactions': 5,
     'repeat': 3,
