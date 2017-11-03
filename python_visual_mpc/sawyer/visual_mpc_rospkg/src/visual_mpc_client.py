@@ -506,7 +506,7 @@ class Visual_MPC_Client():
         scp_pix_distrib_files(self.policyparams, self.agentparams)
         v = Visualizer_tkinter(append_masks=False,
                                filepath=self.policyparams['current_dir'] + '/verbose',
-                               numex=10)
+                               numex=5)
         v.build_figure()
 
     def get_des_pose(self, des_pos):

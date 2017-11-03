@@ -130,6 +130,7 @@ def setup_predictor(conf, gpu_id=0, ngpu=1):
     #     saver.restore(sess, conf['pretrained_model'])
     # except tf.errors.NotFoundError:
 
+    #cutting off the /model tag
     vars_no_state = dict([('/'.join(var.name.split(':')[0].split('/')[1:]), var) for var in vars_no_state])
     saver = tf.train.Saver(vars_no_state, max_to_keep=0)
     saver.restore(sess, conf['pretrained_model'])
