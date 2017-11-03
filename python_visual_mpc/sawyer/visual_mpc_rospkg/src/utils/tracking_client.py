@@ -10,7 +10,7 @@ from visual_mpc_rospkg.msg import intarray
 from rospy.numpy_msg import numpy_msg
 
 class OpenCV_Track_Listener():
-    def __init__(self, agentparams, recorder, desig_pos_main):
+    def __init__(self, agentparams, policyparams, recorder, desig_pos_main):
         """
         :param agentparams:
         :param recorder:
@@ -25,17 +25,29 @@ class OpenCV_Track_Listener():
 
         self.box_height = 120
         loc = self.recorder.low_res_to_highres(desig_pos_main[0])
-        bbox = (int(loc[1] - self.box_height / 2.),
+        bbox1 = np.array([int(loc[1] - self.box_height / 2.),
                 int(loc[0] - self.box_height / 2.),
-                self.box_height, self.box_height)  # for the small snow-man
+                self.box_height, self.box_height])
+
+        if 'ndesig' in policyparams:
+            loc = self.recorder.low_res_to_highres(desig_pos_main[1])
+            bbox2 = np.array([int(loc[1] - self.box_height / 2.),
+                    int(loc[0] - self.box_height / 2.),
+                    self.box_height, self.box_height])
+        else:
+            bbox2 = np.zeros(4, dtype=np.int)
 
         # rospy.Subscriber("track_bbox", Int32MultiArray, self.store_latest_track)
         rospy.Subscriber("track_bbox", numpy_msg(intarray), self.store_latest_track)
 
         self.set_tracking_target_func = rospy.ServiceProxy('set_tracking_target', set_tracking_target)
-        print 'requesting tracking target: ', bbox
+        print 'requesting tracking target1: ', bbox1
+        if 'ndesig' in policyparams:
+            print 'requesting tracking target2: ', bbox2
         rospy.wait_for_service('set_tracking_target', timeout=2)
-        self.set_tracking_target_func(tuple(bbox))
+
+        bbox = np.stack([bbox1, bbox2], axis=0)
+        self.set_tracking_target_func(tuple(bbox.flatten()))
 
         self.bbox = None
 

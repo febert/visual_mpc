@@ -410,7 +410,9 @@ class Visual_MPC_Client():
         self.move_to_startpos(self.des_pos)
 
         if 'opencv_tracking' in self.agentparams:
-            self.tracker = OpenCV_Track_Listener(self.agentparams, self.recorder, self.desig_pos_main)
+            self.tracker = OpenCV_Track_Listener(self.agentparams, self.policyparams,
+                                                 self.recorder,
+                                                 self.desig_pos_main)
 
         rospy.sleep(1)
 

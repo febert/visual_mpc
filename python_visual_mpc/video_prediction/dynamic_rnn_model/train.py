@@ -83,19 +83,27 @@ def main(unused_argv, conf_script= None):
         if 'modelconfiguration' in conf:
             conf['modelconfiguration']['schedule_sampling_k'] = conf['schedsamp_k']
 
+        build_loss = False
+    else:
+        build_loss = True
+
     if 'pred_model' in conf:
         Model = conf['pred_model']
     else:
         Model = Dynamic_Base_Model
 
-    with tf.variable_scope('model'):
+    with tf.variable_scope('generator'):  # TODO: get rid of this and make something automatic.
         if FLAGS.diffmotions or "visualize_tracking" in conf or FLAGS.metric:
-            model = Model(conf, load_data =False, trafo_pix=True)
+            model = Model(conf, load_data=False, trafo_pix=True, build_loss=build_loss)
         else:
-            model = Model(conf, load_data=True, trafo_pix=False)
+            model = Model(conf, load_data=True, trafo_pix=False, build_loss=build_loss)
 
     print 'Constructing saver.'
     # Make saver.
+
+    vars = tf.get_collection(tf.GraphKeys.GLOBAL_VARIABLES)
+    for var in vars:
+        print var.name
 
     if isinstance(model, Single_Point_Tracking_Model) and not (FLAGS.visualize or FLAGS.visualize_check):
         # initialize the predictor from pretrained weights
@@ -121,7 +129,10 @@ def main(unused_argv, conf_script= None):
     sess.run(tf.global_variables_initializer())
 
     if conf['visualize']:
-        load_checkpoint(conf, sess, saver)
+        if FLAGS.visualize_check:
+            load_checkpoint(conf, sess, saver, conf['visualize_check'])
+        else: load_checkpoint(conf, sess, saver)
+
         print '-------------------------------------------------------------------'
         print 'verify current settings!! '
         for key in conf.keys():

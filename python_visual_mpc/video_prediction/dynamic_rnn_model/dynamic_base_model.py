@@ -21,7 +21,8 @@ class DNACell(tf.nn.rnn_cell.RNNCell):
                  image_shape,
                  state_dim,
                  first_image,
-                 first_pix_distrib,
+                 first_pix_distrib1,
+                 first_pix_distrib2,
                  num_ground_truth,
                  lstm_skip_connection,
                  feedself,
@@ -37,8 +38,10 @@ class DNACell(tf.nn.rnn_cell.RNNCell):
         self.image_shape = image_shape
         self.state_dim = state_dim
         self.first_image = first_image
-        self.first_pix_distrib = first_pix_distrib
+        self.first_pix_distrib1 = first_pix_distrib1
 
+        if ['ndesig'] in conf:
+            self.first_pix_distrib2 = first_pix_distrib2
 
         self.num_ground_truth = num_ground_truth
         self.kernel_size = [conf['kern_size'], conf['kern_size']]
@@ -96,9 +99,12 @@ class DNACell(tf.nn.rnn_cell.RNNCell):
             [tf.TensorShape(self.image_shape)] * num_masks,  # transformed_images
             tf.TensorShape([height, width, 2]),  # flow_map
         ]
-        if self.first_pix_distrib is not None:
-            output_size.append(tf.TensorShape([height, width, 1]))  # pix_distrib
-            output_size.append([tf.TensorShape([height, width, 1])] * num_masks)  # transformed_pix_distribs
+        if self.first_pix_distrib1 is not None:
+            output_size.append(tf.TensorShape([height, width, 1]))  # pix_distrib1
+            output_size.append([tf.TensorShape([height, width, 1])] * num_masks)  # transformed_pix_distribs1
+            if 'ndesig' in conf:
+                output_size.append(tf.TensorShape([height, width, 1]))  # pix_distrib2
+                output_size.append([tf.TensorShape([height, width, 1])] * num_masks)  # transformed_pix_distribs2
 
         self._output_size = tuple(output_size)
 
@@ -128,8 +134,10 @@ class DNACell(tf.nn.rnn_cell.RNNCell):
             tf.TensorShape(self.image_shape),  # gen_image
             tf.TensorShape([self.state_dim]),  # gen_state
         ]
-        if self.first_pix_distrib is not None:
-            state_size.append(tf.TensorShape([height, width, 1]))  # gen_pix_distrib
+        if self.first_pix_distrib1 is not None:
+            state_size.append(tf.TensorShape([height, width, 1]))  # gen_pix_distrib1
+            if 'ndesig' in conf:
+                state_size.append(tf.TensorShape([height, width, 1]))  # gen_pix_distrib1
         self._state_size = tuple(state_size)
 
     @property
@@ -156,12 +164,17 @@ class DNACell(tf.nn.rnn_cell.RNNCell):
         # inputs
         (image, action, state), other_inputs = inputs[:3], inputs[3:]
         if other_inputs:
-            pix_distrib, = other_inputs
+            if 'ndesig' in self.conf:
+                pix_distrib1, pix_distrib2 = other_inputs
+            else: pix_distrib1 = other_inputs
+
         # states
         (lstm_states, time, gen_image, gen_state), other_states = states[:4], states[4:]
         lstm_state0, lstm_state1, lstm_state2, lstm_state3, lstm_state4 = lstm_states
         if other_states:
-            gen_pix_distrib, = other_states
+            if 'ndesig' in self.conf:
+                gen_pix_distrib1, gen_pix_distrib2 = other_states
+            else: gen_pix_distrib1 = other_states
 
         image_shape = image.get_shape().as_list()
         batch_size, height, width, color_channels = image_shape
@@ -178,16 +191,20 @@ class DNACell(tf.nn.rnn_cell.RNNCell):
             image = tf.cond(tf.reduce_all(done_warm_start),
                             lambda: gen_image,  # feed in generated image
                             lambda: image)  # feed in ground_truth
-            if self.first_pix_distrib is not None:
-                pix_distrib = tf.cond(tf.reduce_all(done_warm_start),
-                                      lambda: gen_pix_distrib,  # feed in generated pixel distribution
-                                      lambda: pix_distrib)  # feed in ground_truth
+            if self.first_pix_distrib1 is not None:
+                pix_distrib1 = tf.cond(tf.reduce_all(done_warm_start),
+                                      lambda: gen_pix_distrib1,  # feed in generated pixel distribution
+                                      lambda: pix_distrib1)  # feed in ground_truth
+                if 'ndesig' in self.conf:
+                    pix_distrib2 = tf.cond(tf.reduce_all(done_warm_start),
+                                           lambda: gen_pix_distrib2,  # feed in generated pixel distribution
+                                           lambda: pix_distrib2)  # feed in ground_truth
         else:
             image = tf.cond(tf.reduce_all(done_warm_start),
                             lambda: scheduled_sample(image, gen_image, batch_size, self.num_ground_truth),
                             # schedule sampling
                             lambda: image)  # feed in ground_truth
-            if self.first_pix_distrib is not None:
+            if self.first_pix_distrib1 is not None:
                 raise NotImplementedError
         state = tf.cond(tf.reduce_all(time == 0),
                         lambda: state,  # feed in ground_truth state only for first time step
@@ -303,16 +320,27 @@ class DNACell(tf.nn.rnn_cell.RNNCell):
                 scratch_image = tf.nn.sigmoid(scratch_image)
                 transformed_images.append(scratch_image)
 
-        if self.first_pix_distrib is not None:
-            transformed_pix_distribs = []
+        if self.first_pix_distrib1 is not None:
+            transformed_pix_distribs1 = []
             with tf.name_scope('transformed_pix_distrib'):
-                transformed_pix_distribs += apply_kernels(pix_distrib, kernels, dilation_rate=dilation_rate)
+                transformed_pix_distribs1 += apply_kernels(pix_distrib1, kernels, dilation_rate=dilation_rate)
             if self.first_image_background:
-                transformed_pix_distribs.append(self.first_pix_distrib)
+                transformed_pix_distribs1.append(self.first_pix_distrib1)
             if self.prev_image_background:
-                transformed_pix_distribs.append(pix_distrib)
+                transformed_pix_distribs1.append(pix_distrib1)
             if self.generate_scratch_image:
-                transformed_pix_distribs.append(tf.zeros_like(pix_distrib))
+                transformed_pix_distribs1.append(tf.zeros_like(pix_distrib1))
+
+            if 'ndesig' in self.conf:
+                transformed_pix_distribs2 = []
+                with tf.name_scope('transformed_pix_distrib'):
+                    transformed_pix_distribs2 += apply_kernels(pix_distrib2, kernels, dilation_rate=dilation_rate)
+                if self.first_image_background:
+                    transformed_pix_distribs2.append(self.first_pix_distrib2)
+                if self.prev_image_background:
+                    transformed_pix_distribs2.append(pix_distrib2)
+                if self.generate_scratch_image:
+                    transformed_pix_distribs2.append(tf.zeros_like(pix_distrib2))
 
         with tf.variable_scope('masks'):
             if self.dependent_mask:
@@ -331,28 +359,39 @@ class DNACell(tf.nn.rnn_cell.RNNCell):
         with tf.name_scope('flow_map'):
             flow_map = compute_flow_map(kernels, masks[:num_transformed_images])
 
-        if self.first_pix_distrib is not None:
+        if self.first_pix_distrib1 is not None:
             with tf.name_scope('gen_pix_distrib'):
-                assert len(transformed_pix_distribs) <= len(masks) <= len(
-                    transformed_pix_distribs) + 1  # there might be an extra mask because of the scratch image
-                gen_pix_distrib = tf.add_n([transformed_pix_distrib * mask
-                                            for transformed_pix_distrib, mask in zip(transformed_pix_distribs, masks)])
+                assert len(transformed_pix_distribs1) <= len(masks) <= len(
+                    transformed_pix_distribs1) + 1  # there might be an extra mask because of the scratch image
+                gen_pix_distrib1 = tf.add_n([transformed_pix_distrib * mask
+                                            for transformed_pix_distrib, mask in zip(transformed_pix_distribs1, masks)])
+            if 'ndesig' in self.conf:
+                assert len(transformed_pix_distribs2) <= len(masks) <= len(
+                    transformed_pix_distribs2) + 1  # there might be an extra mask because of the scratch image
+                gen_pix_distrib1 = tf.add_n([transformed_pix_distrib * mask
+                                             for transformed_pix_distrib, mask in
+                                             zip(transformed_pix_distribs2, masks)])
 
         with tf.variable_scope('state_pred'):
             gen_state = dense(state_action, state_dim)
 
         # outputs
         outputs = [gen_image, gen_state, masks, transformed_images, flow_map]
-        if self.first_pix_distrib is not None:
-            outputs.append(gen_pix_distrib)
-            outputs.append(transformed_pix_distribs)
+        if self.first_pix_distrib1 is not None:
+            outputs.append(gen_pix_distrib1)
+            outputs.append(transformed_pix_distribs1)
+            if 'ndesig' in self.conf:
+                outputs.append(gen_pix_distrib1)
+                outputs.append(transformed_pix_distribs1)
 
         outputs = tuple(outputs)
         # states
         new_lstm_states = lstm_state0, lstm_state1, lstm_state2, lstm_state3, lstm_state4
         new_states = [new_lstm_states, time + 1, gen_image, gen_state]
-        if self.first_pix_distrib is not None:
-            new_states.append(gen_pix_distrib)
+        if self.first_pix_distrib1 is not None:
+            new_states.append(gen_pix_distrib1)
+            if 'ndesig' in self.conf:
+                new_states.append(gen_pix_distrib2)
         new_states = tuple(new_states)
         return outputs, new_states
 
@@ -364,6 +403,7 @@ class Dynamic_Base_Model(object):
                 actions=None,
                 states=None,
                 pix_distrib1=None,
+                pix_distrib2=None,
                 trafo_pix = True,
                 load_data = True,
                 build_loss = True,
@@ -377,6 +417,8 @@ class Dynamic_Base_Model(object):
             states = tf.concat([states, tf.zeros(
                 [conf['batch_size'], conf['sequence_length'] - conf['context_frames'], conf['sdim']])], axis=1)
             pix_distrib1 = tf.concat([pix_distrib1, tf.zeros(
+                [conf['batch_size'], conf['sequence_length'] - conf['context_frames'], 64, 64, 1])], axis=1)
+            pix_distrib2 = tf.concat([pix_distrib2, tf.zeros(
                 [conf['batch_size'], conf['sequence_length'] - conf['context_frames'], 64, 64, 1])], axis=1)
 
         use_state = True
@@ -413,9 +455,13 @@ class Dynamic_Base_Model(object):
                                                 shape=(conf['batch_size'], conf['sequence_length'], 64, 64, 3))
                 images = self.images_pl
 
-                self.pix_distrib_pl = tf.placeholder(tf.float32, name='states',
-                                                     shape=(conf['batch_size'], conf['sequence_length'], 64, 64, 1))
-                pix_distrib1 = self.pix_distrib_pl
+                self.pix_distrib1_pl = tf.placeholder(tf.float32, name='states',
+                                                      shape=(conf['batch_size'], conf['sequence_length'], 64, 64, 1))
+                pix_distrib1 = self.pix_distrib1_pl
+
+                self.pix_distrib2_pl = tf.placeholder(tf.float32, name='states',
+                                                      shape=(conf['batch_size'], conf['sequence_length'], 64, 64, 1))
+                pix_distrib2 = self.pix_distrib2_pl
 
             else:
                 if 'adim' in conf:
@@ -444,15 +490,16 @@ class Dynamic_Base_Model(object):
         states = [tf.squeeze(st) for st in states]
         images = tf.split(axis=1, num_or_size_splits=images.get_shape()[1], value=images)
         images = [tf.squeeze(img) for img in images]
-
+        if pix_distrib1 is not None:
+            pix_distrib1 = tf.split(axis=1, num_or_size_splits=pix_distrib1.get_shape()[1], value=pix_distrib1)
+            pix_distrib1 = [tf.reshape(pix, [self.batch_size, 64,64, 1]) for pix in pix_distrib1]
+        if pix_distrib2 is not None:
+            pix_distrib2 = tf.split(axis=1, num_or_size_splits=pix_distrib2.get_shape()[1], value=pix_distrib2)
+            pix_distrib2 = [tf.reshape(pix, [self.batch_size, 64,64, 1]) for pix in pix_distrib2]
 
         self.actions = actions
         self.images = images
         self.states = states
-
-        if pix_distrib1 is not None:
-            pix_distrib1 = tf.split(axis=1, num_or_size_splits=pix_distrib1.get_shape()[1], value=pix_distrib1)
-            pix_distrib1 = [tf.reshape(pix, [self.batch_size, 64,64, 1]) for pix in pix_distrib1]
 
         image_shape = images[0].get_shape().as_list()
         batch_size, height, width, color_channels = image_shape
@@ -484,13 +531,15 @@ class Dynamic_Base_Model(object):
             feedself = False
 
 
-        first_pix_distrib = None if pix_distrib1 is None else pix_distrib1[0]
+        first_pix_distrib1 = None if pix_distrib1 is None else pix_distrib1[0]
+        first_pix_distrib2 = None if pix_distrib2 is None else pix_distrib2[0]
 
         cell = DNACell(conf,
                        [height, width, color_channels],
                        state_dim,
                        first_image=images[0],
-                       first_pix_distrib=first_pix_distrib,
+                       first_pix_distrib1=first_pix_distrib1,
+                       first_pix_distrib2=first_pix_distrib2,
                        num_ground_truth=num_ground_truth,
                        lstm_skip_connection=False,
                        feedself=feedself,
@@ -516,10 +565,17 @@ class Dynamic_Base_Model(object):
         if pix_distrib1 is not None:
             self.gen_distrib1 = other_outputs.pop(0)
             self.gen_distrib1 = tf.unstack(self.gen_distrib1, axis=0)
-            self.gen_transformed_pixdistribs = other_outputs.pop(0)
-            self.gen_transformed_pixdistribs = list(zip(
+            self.gen_transformed_pixdistribs1 = other_outputs.pop(0)
+            self.gen_transformed_pixdistribs1 = list(zip(
                 *[tf.unstack(gen_transformed_pixdistrib, axis=0) for gen_transformed_pixdistrib in
-                  self.gen_transformed_pixdistribs]))
+                  self.gen_transformed_pixdistribs1]))
+            if 'ndesig' in conf:
+                self.gen_distrib2 = other_outputs.pop(0)
+                self.gen_distrib2 = tf.unstack(self.gen_distrib1, axis=0)
+                self.gen_transformed_pixdistribs2 = other_outputs.pop(0)
+                self.gen_transformed_pixdistribs2 = list(zip(
+                    *[tf.unstack(gen_transformed_pixdistrib, axis=0) for gen_transformed_pixdistrib in
+                      self.gen_transformed_pixdistribs2]))
         assert not other_outputs
 
         if build_loss:
