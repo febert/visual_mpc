@@ -19,7 +19,6 @@ policy = {
     'rew_all_steps':"",
     'finalweight':10,
     'no_pixdistrib_video':'',
-    'ndesig':2,
 }
 
 agent = {
