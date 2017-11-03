@@ -46,7 +46,8 @@ class OpenCV_Track_Listener():
             print 'requesting tracking target2: ', bbox2
         rospy.wait_for_service('set_tracking_target', timeout=2)
 
-        bbox = np.stack([bbox1, bbox2], axis=0)
+        bbox = np.stack([bbox1, bbox2], axis=0).astype(np.int64)
+        pdb.set_trace()
         self.set_tracking_target_func(tuple(bbox.flatten()))
 
         self.bbox = None
