@@ -136,7 +136,6 @@ def setup_predictor(conf, gpu_id=0, ngpu=1):
     # pdb.set_trace()
 
     #add generator tag
-    pdb.set_trace()
     if conf['pred_model'] ==  Dynamic_Base_Model:
         print 'adding "generator" tag!!!'
         newvars = {}
