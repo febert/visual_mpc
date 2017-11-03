@@ -13,7 +13,7 @@ agent = {
     'image_height' : IMAGE_HEIGHT,
     'image_width' : IMAGE_WIDTH,
     'num_objects': 1,
-    'action_dim': 4,
+    'adim': 4,
     'state_dim': 3,
 }
 

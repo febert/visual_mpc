@@ -32,6 +32,7 @@ configuration = {
 'pretrained_model': BASE + '/tensorflow_data/sawyer/alexmodel_finalpaper/improved_cdna_wristrot_k17d1_generatescratchimage_adv_bs16/modeldata/model-205000',
 'modelconfiguration':modelconfiguration,
 'pred_model':Base_Prediction_Model,
+'learning_rate':0.,
 'current_dir': current_dir, #'directory for writing summary.' ,
 'sequence_length': 15,      # 'sequence length to load, including context frames.' ,
 'skip_frame': 1,            # 'use ever i-th frame to increase prediction horizon' ,

@@ -62,7 +62,7 @@ class CEM_controller():
         #action dimensions:
         #no rotations:  deltax, delty, close_nstep, goup_nstep;
         # with rotations:  deltax, delty, goup_nstep, delta_rot, close_nstep
-        self.adim = self.agentparams['action_dim']
+        self.adim = self.agentparams['adim']
         self.initial_std = policyparams['initial_std']
 
         # define which indices of the action vector shall be discretized:
@@ -453,7 +453,7 @@ class CEM_controller():
 
         self.desig_pix = np.array(desig_pix).reshape((2, 2))
         if t == 0:
-            action = np.zeros(self.agentparams['action_dim'])
+            action = np.zeros(self.agentparams['adim'])
             self.goal_pix = np.array(goal_pix).reshape((2,2))
         else:
             last_images = traj._sample_images[t - 1:t + 1]   # second image shall contain front view

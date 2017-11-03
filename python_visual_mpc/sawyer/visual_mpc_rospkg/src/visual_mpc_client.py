@@ -66,7 +66,7 @@ class Visual_MPC_Client():
 
         self.benchname = benchmark_name
 
-        if self.agentparams['action_dim'] == 5:
+        if self.agentparams['adim'] == 5:
             self.enable_rot = True
         else:
             self.enable_rot = False
@@ -118,8 +118,8 @@ class Visual_MPC_Client():
         self.action_rate = rospy.Rate(self.action_interval)
         self.control_rate = rospy.Rate(1000)
 
-        self.sdim = self.agentparams['state_dim']
-        self.adim = self.agentparams['action_dim']
+        self.sdim = self.agentparams['sdim']
+        self.adim = self.agentparams['adim']
 
         if self.adim == 5:
             self.wristrot = True

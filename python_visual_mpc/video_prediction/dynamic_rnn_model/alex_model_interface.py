@@ -103,6 +103,8 @@ class Base_Prediction_Model(object):
             self.gen_distrib1 = tf.unstack(self.model.gen_pix_distribs, axis=1)
         self.gen_states = tf.unstack(self.model.gen_states)
 
+        self.lr = tf.placeholder_with_default(self.conf['learning_rate'], ())
+
     def visualize(self, sess):
         visualize(sess, self.conf, self)
 
