@@ -170,7 +170,7 @@ class Model(object):
 
             summaries.append(tf.summary.scalar('loss', loss))
 
-            self.train_op = tf.train.AdamOptimizer(self.lr).minimize(loss, self.global_step)
+            self.train_op = tf.train.AdamOptimizer(self.lr).minimize(loss)
             self.summ_op = tf.summary.merge(summaries)
 
 
@@ -239,9 +239,9 @@ def main(unused_argv, conf_script= None):
         print 'creating visualizations ...'
         conf['schedsamp_k'] = -1  # don't feed ground truth
 
-        #####################################
-        # conf['data_dir'] = '/'.join(str.split(conf['data_dir'], '/')[:-1] + ['test'])
-        suf = '_traindata'
+        if 'test_data_dir' in conf:
+            conf['data_dir'] = conf['test_data_dir']
+        else: conf['data_dir'] = '/'.join(str.split(conf['data_dir'], '/')[:-1] + ['test'])
 
         conf['visualize'] = conf['output_dir'] + '/' + FLAGS.visualize
         conf['event_log_dir'] = '/tmp'
@@ -254,7 +254,7 @@ def main(unused_argv, conf_script= None):
             conf['sequence_length'] = 30
 
     if 'sawyer' in conf:
-        if 'wrist_rot' in conf['data_dir']:
+        if conf['adim'] == 5:
             from read_tf_record_wristrot import build_tfrecord_input
         else:
             from read_tf_record_sawyer12 import build_tfrecord_input
@@ -459,7 +459,7 @@ def main(unused_argv, conf_script= None):
             cPickle.dump(dict, open(file_path + '/pred.pkl', 'wb'))
             print 'written files to:' + file_path
 
-            v = Visualizer_tkinter(dict, numex=conf['batch_size'], append_masks=False, filepath=conf['output_dir'], suf=suf)
+            v = Visualizer_tkinter(dict, numex=conf['batch_size'], append_masks=False, filepath=conf['output_dir'])
             v.build_figure()
         return
 

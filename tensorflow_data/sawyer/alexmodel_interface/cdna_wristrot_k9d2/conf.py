@@ -4,7 +4,7 @@ current_dir = os.path.dirname(os.path.realpath(__file__))
 # tf record data location:
 import python_visual_mpc
 
-DATA_DIR = '/'.join(str.split(python_visual_mpc.__file__, '/')[:-2]) + '/pushing_data/wrist_rot/train'
+DATA_DIR = '/'.join(str.split(python_visual_mpc.__file__, '/')[:-2]) + '/pushing_data/wrist_rotv1/train'
 
 
 # local output directory

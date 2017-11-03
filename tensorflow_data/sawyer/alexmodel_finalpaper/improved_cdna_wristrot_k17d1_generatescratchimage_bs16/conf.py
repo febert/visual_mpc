@@ -3,6 +3,7 @@ current_dir = os.path.dirname(os.path.realpath(__file__))
 
 # tf record data location:
 DATA_DIR = '/'.join(str.split(current_dir, '/')[:-4]) + '/pushing_data/wrist_rotv1/train'
+TEST_DATA_DIR = '/'.join(str.split(current_dir, '/')[:-4]) + '/pushing_data/wristrot_test_seenobj/test'
 
 # local output directory
 OUT_DIR = current_dir + '/modeldata'
@@ -34,6 +35,7 @@ configuration = {
 'modelconfiguration':modelconfiguration,
 'pred_model':Base_Prediction_Model,
 'data_dir': DATA_DIR,       # 'directory containing data.' ,
+'test_data_dir': TEST_DATA_DIR,       # 'directory containing data.' ,
 'output_dir': OUT_DIR,      #'directory for model checkpoints.' ,
 'current_dir': current_dir, #'directory for writing summary.' ,
 'num_iterations': 200000,   #'number of training iterations.' ,

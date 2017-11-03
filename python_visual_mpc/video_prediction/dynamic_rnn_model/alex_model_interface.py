@@ -33,12 +33,10 @@ class Base_Prediction_Model(object):
         self.iter_num = tf.placeholder(tf.float32, [])
         self.trafo_pix = trafo_pix
         if pix_distrib is not None:
-            self.trafo_pix = True
+            assert trafo_pix == True
             states = tf.concat([states,tf.zeros([conf['batch_size'],conf['sequence_length']-conf['context_frames'],conf['sdim']])], axis=1)
             pix_distrib = tf.concat([pix_distrib, tf.zeros([conf['batch_size'], conf['sequence_length'] - conf['context_frames'], 64,64, 1])], axis=1)
             pix_distrib1 = pix_distrib
-
-
 
         self.conf = conf
 
@@ -81,10 +79,12 @@ class Base_Prediction_Model(object):
                                                   lambda: [val_images, val_actions, val_states])
 
 
+
         if 'use_len' in conf:
             print 'randomly shift videos for data augmentation'
             images, states, actions  = self.random_shift(images, states, actions)
 
+        self.images = images
         ## start interface
 
         if 'create_model' in conf:
@@ -99,7 +99,8 @@ class Base_Prediction_Model(object):
 
         self.gen_images = tf.unstack(self.model.gen_images, axis=1)
         self.prediction_flow = tf.unstack(self.model.gen_flow_map, axis=1)
-        self.gen_distrib1 = tf.unstack(self.model.gen_pix_distribs, axis=1)
+        if trafo_pix:
+            self.gen_distrib1 = tf.unstack(self.model.gen_pix_distribs, axis=1)
         self.gen_states = tf.unstack(self.model.gen_states)
 
     def visualize(self, sess):

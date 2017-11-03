@@ -422,7 +422,6 @@ class Primitive_Executor(object):
         maxshift = .1
         maxrot = np.pi/4
         if self.enable_rot:
-            # posshift = np.concatenate((np.random.uniform(-maxshift, maxshift, 2), np.zeros(1), np.array([np.pi/8.])), axis=0)
             posshift = np.concatenate((np.random.uniform(-maxshift, maxshift, 2), np.zeros(1),
                                        np.random.uniform(-maxrot, maxrot, 1)),
                                       axis=0)
@@ -446,7 +445,6 @@ class Primitive_Executor(object):
             self.gripper_up = True
             print 'going up'
 
-
         if self.gripper_closed:
             if i_act == self.topen:
                 self.ctrl.gripper.open()
@@ -458,7 +456,6 @@ class Primitive_Executor(object):
                 self.des_pos[2] = self.lower_height
                 print 'going down'
                 self.gripper_up = False
-
 
         self.imp_ctrl_release_spring(80.)
         action_vec = np.concatenate([np.array([posshift[0]]),  # movement in plane

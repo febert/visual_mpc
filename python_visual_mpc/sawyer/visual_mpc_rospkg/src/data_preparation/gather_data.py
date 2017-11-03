@@ -339,7 +339,7 @@ def start_parallel(conf, gif_dir, traj_name_list, n_workers, crop_from_highres= 
     res = [ray.get(id) for id in id_list]
 
 
-def make_traj_name_list(conf, start_end_grp = None):
+def make_traj_name_list(conf, start_end_grp = None, shuffle=True):
 
     sourcedirs = conf['sourcedirs']
     traj_per_gr = Trajectory(conf).traj_per_group
@@ -383,7 +383,8 @@ def make_traj_name_list(conf, start_end_grp = None):
 
     assert len(trajname_ind_l) == len(set(trajname_ind_l))
 
-    random.shuffle(trajname_ind_l)
+    if shuffle:
+        random.shuffle(trajname_ind_l)
 
     return trajname_ind_l
 
@@ -395,6 +396,7 @@ def main():
     parser.add_argument('--end_gr', type=int, default=None, help='end group')
     parser.add_argument('--no_parallel', type=bool, default=False, help='do not use parallel processing')
     parser.add_argument('--n_workers', type=int, default=5, help='number of workers')
+    parser.add_argument('--no_shuffle', type=bool, default=False, help='whether to shuffle trajectories')
     args = parser.parse_args()
 
     conf_file = args.hyper
@@ -416,7 +418,8 @@ def main():
 
     parallel = not args.no_parallel
 
-    traj_name_list = make_traj_name_list(conf, start_end_grp = start_end_grp)
+    shuffle = not args.no_shuffle
+    traj_name_list = make_traj_name_list(conf, start_end_grp = start_end_grp, shuffle=shuffle)
 
     if parallel:
         start_parallel(conf, gif_file, traj_name_list, args.n_workers,

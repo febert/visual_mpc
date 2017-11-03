@@ -77,9 +77,7 @@ def visualize(sess, conf, model):
                                        feed_dict)
 
     dict = OrderedDict()
-    import re
-    itr_vis = re.match('.*?([0-9]+)$', conf['visualize']).group(1)
-    dict['iternum'] = itr_vis
+    dict['iternum'] = conf['num_iter']
     dict['ground_truth'] = ground_truth
     dict['gen_images'] = gen_images
     # dict['prediction_flow'] = pred_flow
