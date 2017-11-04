@@ -15,11 +15,11 @@ policy = {
     'iterations': 3,
     'verbose':'',
     'action_cost_factor': 0,
-    # 'no_instant_gif':"",
+    'no_instant_gif':"",
     'rew_all_steps':"",
     'finalweight':10,
     'no_pixdistrib_video':'',
-    'ndesig':2
+    # 'ndesig':2  #############################
 }
 
 agent = {

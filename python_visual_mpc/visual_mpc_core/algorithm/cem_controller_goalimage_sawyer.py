@@ -267,14 +267,12 @@ class CEM_controller():
 
         if 'ndesig' in self.policyparams:
             input_distrib1, input_distrib2 = self.make_input_distrib(itr)
-
-            f, axarr = plt.subplots(2, 1)
-            axarr[0].imshow(np.squeeze(input_distrib1[0][0]), cmap=plt.get_cmap('jet'))
-            axarr[0].set_title('input_distrib1', fontsize=8)
-            axarr[1].imshow(np.squeeze(input_distrib2[0][0]), cmap=plt.get_cmap('jet'))
-            axarr[1].set_title('input_distrib2', fontsize=8)
-            plt.show()
-
+            # f, axarr = plt.subplots(2, 1)
+            # axarr[0].imshow(np.squeeze(input_distrib1[0][0]), cmap=plt.get_cmap('jet'))
+            # axarr[0].set_title('input_distrib1', fontsize=8)
+            # axarr[1].imshow(np.squeeze(input_distrib2[0][0]), cmap=plt.get_cmap('jet'))
+            # axarr[1].set_title('input_distrib2', fontsize=8)
+            # plt.show()
             gen_images, gen_distrib1, gen_distrib2, gen_states, _ = self.predictor(input_images=last_frames,
                                                                                 input_state=last_states,
                                                                                 input_actions=actions,
