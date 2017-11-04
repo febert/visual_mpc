@@ -22,7 +22,7 @@ configuration = {
 'num_transformed_images': 4,   # 'number of masks, usually 1 for DNA, 10 for CDNA, STN.' ,
 'schedsamp_k': -1,      # 'The k hyperparameter for scheduled sampling -1 for no scheduled sampling.' ,
 'train_val_split': 0.95,    #'The percentage of files to use for the training set vs. the validation set.' ,
-'batch_size': 800,           #'batch size for training' ,
+'batch_size': 200, ################!!!!!!!!800,           #'batch size for training' ,
 'learning_rate': 0.0,     #'the base learning rate of the generator' ,
 'visualize': '',            #'load model from which to generate visualizations
 'file_visual': '',          # datafile used for making visualizations
@@ -37,5 +37,5 @@ configuration = {
 '1stimg_bckgd':'',
 'previmg_bckgd':'',
 'gen_img':'',
-'ndesig':2
+# 'ndesig':2  ##########################################
 }

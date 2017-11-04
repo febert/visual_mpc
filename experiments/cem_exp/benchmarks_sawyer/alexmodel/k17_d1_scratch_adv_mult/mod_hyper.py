@@ -15,7 +15,7 @@ policy = {
     'iterations': 3,
     'verbose':'',
     'action_cost_factor': 0,
-    'no_instant_gif':"",
+    # 'no_instant_gif':"",
     'rew_all_steps':"",
     'finalweight':10,
     'no_pixdistrib_video':'',
@@ -28,5 +28,5 @@ agent = {
     'sdim':4,
     'make_final_gif':'',
     'wristrot':'',
-    'opencv_tracking':'',
+    # 'opencv_tracking':'',
 }

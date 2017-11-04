@@ -576,7 +576,7 @@ class Dynamic_Base_Model(object):
                   self.gen_transformed_pixdistribs1]))
             if 'ndesig' in conf:
                 self.gen_distrib2 = other_outputs.pop(0)
-                self.gen_distrib2 = tf.unstack(self.gen_distrib1, axis=0)
+                self.gen_distrib2 = tf.unstack(self.gen_distrib2, axis=0)
                 self.gen_transformed_pixdistribs2 = other_outputs.pop(0)
                 self.gen_transformed_pixdistribs2 = list(zip(
                     *[tf.unstack(gen_transformed_pixdistrib, axis=0) for gen_transformed_pixdistrib in
