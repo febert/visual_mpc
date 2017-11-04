@@ -15,7 +15,6 @@ policy = {
     'iterations': 3,
     'verbose':'',
     'action_cost_factor': 0,
-    'predictor_propagation': '',   # use the model get the designated pixel for the next step!
     'no_instant_gif':"",
     'rew_all_steps':"",
     'finalweight':10,
@@ -29,4 +28,5 @@ agent = {
     'sdim':4,
     'make_final_gif':'',
     'wristrot':'',
+    'opencv_tracking':'',
 }
