@@ -94,12 +94,15 @@ class Tracker(object):
                 p2 = (bbox1[0] + bbox1[2], bbox1[1] + bbox1[3])
                 cv2.rectangle(self.lt_img_cv2, p1, p2, (0, 0, 255))
 
+                cv2.imshow("Tracking", self.lt_img_cv2)
+                k = cv2.waitKey(1) & 0xff
+
                 if 'ndesig' in self.policyparams:
                     ok, bbox2 = self.cv_tracker2.update(self.lt_img_cv2)
                     bbox2 = np.array(bbox2).astype(np.int32)
                     p1 = (bbox2[0], bbox2[1])
                     p2 = (bbox2[0] + bbox2[2], bbox2[1] + bbox2[3])
-                    cv2.rectangle(self.lt_img_cv2, p1, p2, (0, 0, 255))
+                    cv2.rectangle(self.lt_img_cv2, p1, p2, (0, 255, 0))
                 else:
                     bbox2 = np.zeros(4, np.int32)
 

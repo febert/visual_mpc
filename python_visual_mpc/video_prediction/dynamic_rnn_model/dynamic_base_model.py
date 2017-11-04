@@ -583,9 +583,9 @@ class Dynamic_Base_Model(object):
                       self.gen_transformed_pixdistribs2]))
         assert not other_outputs
 
+        self.lr = tf.placeholder_with_default(self.conf['learning_rate'], ())
         if not inference:
             loss, summaries = self.build_loss()
-            self.lr = tf.placeholder_with_default(self.conf['learning_rate'], ())
             self.train_op = tf.train.AdamOptimizer(self.lr).minimize(loss)
             self.summ_op = tf.summary.merge(summaries)
 
