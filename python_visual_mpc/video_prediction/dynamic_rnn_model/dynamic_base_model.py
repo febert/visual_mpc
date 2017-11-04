@@ -39,7 +39,6 @@ class DNACell(tf.nn.rnn_cell.RNNCell):
         self.state_dim = state_dim
         self.first_image = first_image
         self.first_pix_distrib1 = first_pix_distrib1
-
         if 'ndesig' in conf:
             self.first_pix_distrib2 = first_pix_distrib2
 
@@ -368,7 +367,7 @@ class DNACell(tf.nn.rnn_cell.RNNCell):
             if 'ndesig' in self.conf:
                 assert len(transformed_pix_distribs2) <= len(masks) <= len(
                     transformed_pix_distribs2) + 1  # there might be an extra mask because of the scratch image
-                gen_pix_distrib1 = tf.add_n([transformed_pix_distrib * mask
+                gen_pix_distrib2 = tf.add_n([transformed_pix_distrib * mask
                                              for transformed_pix_distrib, mask in
                                              zip(transformed_pix_distribs2, masks)])
 
@@ -381,8 +380,8 @@ class DNACell(tf.nn.rnn_cell.RNNCell):
             outputs.append(gen_pix_distrib1)
             outputs.append(transformed_pix_distribs1)
             if 'ndesig' in self.conf:
-                outputs.append(gen_pix_distrib1)
-                outputs.append(transformed_pix_distribs1)
+                outputs.append(gen_pix_distrib2)
+                outputs.append(transformed_pix_distribs2)
 
         outputs = tuple(outputs)
         # states
@@ -574,13 +573,14 @@ class Dynamic_Base_Model(object):
             self.gen_transformed_pixdistribs1 = list(zip(
                 *[tf.unstack(gen_transformed_pixdistrib, axis=0) for gen_transformed_pixdistrib in
                   self.gen_transformed_pixdistribs1]))
-            if 'ndesig' in conf:
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                if 'ndesig' in conf:
                 self.gen_distrib2 = other_outputs.pop(0)
                 self.gen_distrib2 = tf.unstack(self.gen_distrib2, axis=0)
                 self.gen_transformed_pixdistribs2 = other_outputs.pop(0)
                 self.gen_transformed_pixdistribs2 = list(zip(
                     *[tf.unstack(gen_transformed_pixdistrib, axis=0) for gen_transformed_pixdistrib in
                       self.gen_transformed_pixdistribs2]))
+
         assert not other_outputs
 
         self.lr = tf.placeholder_with_default(self.conf['learning_rate'], ())
