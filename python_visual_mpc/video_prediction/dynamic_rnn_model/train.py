@@ -92,18 +92,17 @@ def main(unused_argv, conf_script= None):
     else:
         Model = Dynamic_Base_Model
 
-    with tf.variable_scope('generator'):  # TODO: get rid of this and make something automatic.
-        if FLAGS.diffmotions or "visualize_tracking" in conf or FLAGS.metric:
-            model = Model(conf, load_data=False, trafo_pix=True, build_loss=build_loss)
-        else:
-            model = Model(conf, load_data=True, trafo_pix=False, build_loss=build_loss)
+    # with tf.variable_scope('generator'):  # TODO: get rid of this and make something automatic.
+    if FLAGS.diffmotions or "visualize_tracking" in conf or FLAGS.metric:
+        model = Model(conf, load_data=False, trafo_pix=True, build_loss=build_loss)
+    else:
+        model = Model(conf, load_data=True, trafo_pix=False, build_loss=build_loss)
 
     print 'Constructing saver.'
     # Make saver.
-
-    vars = tf.get_collection(tf.GraphKeys.GLOBAL_VARIABLES)
-    for var in vars:
-        print var.name
+    # vars = tf.get_collection(tf.GraphKeys.GLOBAL_VARIABLES)
+    # for var in vars:
+    #     print var.name
 
     if isinstance(model, Single_Point_Tracking_Model) and not (FLAGS.visualize or FLAGS.visualize_check):
         # initialize the predictor from pretrained weights

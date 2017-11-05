@@ -35,8 +35,6 @@ def build_tfrecord_input(conf, training=True, input_file=None):
     print 'adim', adim
     print 'sdim', sdim
 
-
-
     if input_file is not None:
         filenames = [input_file]
         shuffle = False

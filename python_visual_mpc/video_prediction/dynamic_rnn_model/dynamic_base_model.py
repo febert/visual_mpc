@@ -405,7 +405,7 @@ class Dynamic_Base_Model(object):
                  pix_distrib2=None,
                  trafo_pix = True,
                  load_data = True,
-                 inference = True,
+                 build_loss = True,
                  ):
 
         self.iter_num = tf.placeholder(tf.float32, [])
@@ -585,7 +585,7 @@ class Dynamic_Base_Model(object):
         assert not other_outputs
 
         self.lr = tf.placeholder_with_default(self.conf['learning_rate'], ())
-        if not inference:
+        if build_loss:
             loss, summaries = self.build_loss()
             self.train_op = tf.train.AdamOptimizer(self.lr).minimize(loss)
             self.summ_op = tf.summary.merge(summaries)

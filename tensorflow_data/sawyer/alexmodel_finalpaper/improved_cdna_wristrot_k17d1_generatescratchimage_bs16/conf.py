@@ -26,7 +26,8 @@ modelconfiguration = {
 'generate_scratch_image': True,
 'vgf_dim': 32,
 'trainable_generator_startswith':None,
-'dilation_rate': [1, 1]
+'dilation_rate': [1, 1],
+'ndesig':1,
 }
 
 configuration = {
@@ -55,7 +56,8 @@ configuration = {
 'adim':5,
 'sdim':4,
 'normalization':'in',
-'gen_img':''
+'gen_img':'',
+'ndesig':modelconfiguration['ndesig']
 }
 
 

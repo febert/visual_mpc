@@ -25,18 +25,19 @@ class Alex_Interface_Model(object):
                  pix_distrib= None,
                  trafo_pix = True,
                  load_data = True,
-                 inference = None
+                 build_loss = False
                  ):
 
         modelconfiguration = conf['modelconfiguration']
+        ndesig = conf['ndesig']
 
         self.iter_num = tf.placeholder(tf.float32, [])
         self.trafo_pix = trafo_pix
         if pix_distrib is not None:
             assert trafo_pix == True
             states = tf.concat([states,tf.zeros([conf['batch_size'],conf['sequence_length']-conf['context_frames'],conf['sdim']])], axis=1)
-            pix_distrib = tf.concat([pix_distrib, tf.zeros([conf['batch_size'], conf['sequence_length'] - conf['context_frames'], 64,64, 1])], axis=1)
-            pix_distrib1 = pix_distrib
+            pix_distrib = tf.concat([pix_distrib, tf.zeros([conf['batch_size'], conf['sequence_length'] - conf['context_frames'],ndesig, 64,64, 1])], axis=1)
+            pix_distrib = pix_distrib
 
         self.conf = conf
 
@@ -61,8 +62,8 @@ class Alex_Interface_Model(object):
                 images = self.images_pl
 
                 self.pix_distrib_pl = tf.placeholder(tf.float32, name='states',
-                                                     shape=(conf['batch_size'], conf['sequence_length'], 64, 64, 1))
-                pix_distrib1 = self.pix_distrib_pl
+                                                     shape=(conf['batch_size'], conf['sequence_length'], ndesig, 64, 64, 1))
+                pix_distrib = self.pix_distrib_pl
 
             else:
                 if 'adim' in conf:
@@ -78,11 +79,9 @@ class Alex_Interface_Model(object):
                                                   lambda: [train_images, train_actions, train_states],
                                                   lambda: [val_images, val_actions, val_states])
 
-
-
         if 'use_len' in conf:
             print 'randomly shift videos for data augmentation'
-            images, states, actions  = self.random_shift(images, states, actions)
+            images, states, actions = self.random_shift(images, states, actions)
 
         self.images = images
         ## start interface
@@ -95,12 +94,13 @@ class Alex_Interface_Model(object):
         if not trafo_pix:
             self.model = create_model(images, actions, states, **modelconfiguration)
         else:
-            self.model = create_model(images, actions, states, pix_distrib1, **modelconfiguration)
+            self.model = create_model(images, actions, states, pix_distrib, **modelconfiguration)
 
         self.gen_images = tf.unstack(self.model.gen_images, axis=1)
+        # self.gen_masks = tf.unstack(self.model.gen_masks)
         self.prediction_flow = tf.unstack(self.model.gen_flow_map, axis=1)
         if trafo_pix:
-            self.gen_distrib1 = tf.unstack(self.model.gen_pix_distribs, axis=1)
+            self.gen_distrib = tf.unstack(self.model.gen_pix_distribs, axis=1)
         self.gen_states = tf.unstack(self.model.gen_states)
 
         self.lr = tf.placeholder_with_default(self.conf['learning_rate'], ())

@@ -15,47 +15,35 @@ from python_visual_mpc.video_prediction.basecls.utils.get_designated_pix import 
 def create_one_hot(conf, desig_pix_l, batch_mode=False):
     """
     :param conf:
-    :param desig_pix:
+    :param desig_pix: list of np.arrays of size [ndesig, 2]
     :param repeat_b: create batch of same distribs
-    :return:
+    :return: one_hot_l with [batch_size, sequence_l, ndesig, 64,64,1]
     """
-    if batch_mode:
-        one_hot_l = []
-        for i in range(len(desig_pix_l)):
-            desig_pix = desig_pix_l[i]
-            one_hot = np.zeros((1, 1, 64, 64, 1), dtype=np.float32)
+    one_hot_l = []
+    ndesig = desig_pix_l[0].shape[0]
+
+    for i in range(len(desig_pix_l)):
+
+        desig_pix = desig_pix_l[i]
+        one_hot = np.zeros((1, conf['context_frames'], ndesig, 64, 64, 1), dtype=np.float32)
+        for p in range(ndesig):
             # switch on pixels
             if 'modelconfiguration' in conf:
                 if conf['modelconfiguration']['dilation_rate'] == [2, 2]:
-                    one_hot[0, 0, desig_pix[0] - 1:desig_pix[0] + 1:, desig_pix[1] - 1:desig_pix[1] + 1] = 0.25
+                    one_hot[0, 0, p, desig_pix[p, 0] - 1:desig_pix[p, 0] + 1:, desig_pix[p, 1] - 1:desig_pix[p, 1] + 1] = 0.25
                 else:
-                    one_hot[0, 0, desig_pix[0], desig_pix[1]] = 1.
+                    one_hot[0, 0, p, desig_pix[p, 0], desig_pix[p, 1]] = 1.
             else:
-                one_hot[0, 0, desig_pix[0], desig_pix[1]] = 1.
+                one_hot[0, 0, p, desig_pix[p, 0], desig_pix[p, 1]] = 1.
 
-            one_hot = np.repeat(one_hot, conf['context_frames'], axis=1)
-            app_zeros = np.zeros((1, conf['sequence_length'] - conf['context_frames'], 64, 64, 1), dtype=np.float32)
-            one_hot = np.concatenate([one_hot, app_zeros], axis=1)
-            one_hot_l.append(one_hot)
-
-        return one_hot_l
-    else:
-        one_hot = np.zeros((1, 1, 64, 64, 1), dtype=np.float32)
-        # switch on pixels
-        if 'modelconfiguration' in conf:
-            if conf['modelconfiguration']['dilation_rate'] == [2,2]:
-                one_hot[0, 0, desig_pix_l[0]-1:desig_pix_l[0]+1:, desig_pix_l[1]-1:desig_pix_l[1]+1] = 0.25
-            else:
-                one_hot[0, 0, desig_pix_l[0], desig_pix_l[1]] = 1.
-        else:
-            one_hot[0, 0, desig_pix_l[0], desig_pix_l[1]] = 1.
-
-        one_hot = np.repeat(one_hot, conf['context_frames'], axis=1)
-        app_zeros = np.zeros((1, conf['sequence_length']- conf['context_frames'], 64, 64, 1), dtype=np.float32)
+        app_zeros = np.zeros((1, conf['sequence_length'] - conf['context_frames'], ndesig, 64, 64, 1), dtype=np.float32)
         one_hot = np.concatenate([one_hot, app_zeros], axis=1)
-        one_hot = np.repeat(one_hot, conf['batch_size'], axis=0)
+        one_hot_l.append(one_hot)
 
-        return one_hot
+    if len(one_hot_l) == 1:
+        one_hot_l = [np.repeat(one_hot_l[0], conf['batch_size'], axis=0)]
+
+    return one_hot_l
 
 def visualize(sess, conf, model):
     feed_dict = {model.train_cond: 1}
@@ -116,11 +104,11 @@ def visualize_diffmotions(sess, conf, model):
     adim = conf['adim']
 
     c = Getdesig(sel_img[0], conf, 'b{}'.format(b_exp))
-    desig_pos = c.coords.astype(np.int32)
-    # desig_pos = np.array([36, 16])
+    desig_pos = c.coords.astype(np.int32).reshape([1,2])
+    # desig_pos = np.array([36, 16]).reshape([1,2])
     print "selected designated position for aux1 [row,col]:", desig_pos
 
-    one_hot = create_one_hot(conf, desig_pos)
+    one_hot = create_one_hot(conf, [desig_pos])[0]
 
     feed_dict[model.pix_distrib_pl] = one_hot
 
@@ -184,25 +172,29 @@ def visualize_diffmotions(sess, conf, model):
 
     feed_dict[model.actions_pl] = actions
 
-    gen_images, gen_masks, gen_transf_images, gen_distrib, gen_transf_distribs = sess.run([model.gen_images,
-                                        model.gen_masks,
-                                        model.gen_transformed_images,
-                                        model.gen_distrib1,
-                                        model.gen_transformed_pixdistribs
+    gen_images, gen_distrib = sess.run([model.gen_images,
+                                        model.gen_distrib,
+                                        # model.gen_masks,
+                                        # model.gen_transformed_images,
+                                        # model.gen_transformed_pixdistribs
                                         ]
                                         ,feed_dict)
 
     dict = OrderedDict()
     dict['gen_images'] = gen_images
+
+    assert gen_distrib[0].shape[1] == 1
+    gen_distrib = [d[:,0] for d in gen_distrib]
     dict['gen_distrib'] = gen_distrib
-    dict['gen_masks_l'] = gen_masks
-    dict['gen_transf_images_l'] = gen_transf_images
-    dict['gen_transf_distribs_l'] = gen_transf_distribs
+
+    # dict['gen_masks_l'] = gen_masks
+    # dict['gen_transf_images_l'] = gen_transf_images
+    # dict['gen_transf_distribs_l'] = gen_transf_distribs
 
     import re
-    itr_vis = re.match('.*?([0-9]+)$', conf['visualize']).group(1)
-    dict['iternum'] = itr_vis
-    dict['desig_pos'] = desig_pos
+    # itr_vis = re.match('.*?([0-9]+)$', conf['visualize']).group(1)
+    # dict['iternum'] = itr_vis
+    dict['desig_pos'] = desig_pos[0]
     # dict['moved_parts'] = moved_parts
     # dict['moved_images'] = moved_images
     # dict['moved_bckgd'] = moved_bckgd
@@ -380,7 +372,7 @@ def compute_exp_distance(sess, conf, model, true_pos, images, actions, endeff):
 
 
     gen_images, gen_distrib, flow = sess.run([model.gen_images,
-                                              model.gen_distrib1,
+                                              model.gen_distrib,
                                               model.prediction_flow,
                                               ]
                                               , feed_dict)
@@ -390,6 +382,8 @@ def compute_exp_distance(sess, conf, model, true_pos, images, actions, endeff):
     # plt.show()
 
     print 'calc exp dist'
+    assert gen_distrib.shape[2] == 1
+    gen_distrib = gen_distrib[:,:,0]
     exp_dist = calc_exp_dist(conf, gen_distrib, true_pos)
     print 'calc log prob'
     log_prob = calc_log_prob(conf, gen_distrib, true_pos)

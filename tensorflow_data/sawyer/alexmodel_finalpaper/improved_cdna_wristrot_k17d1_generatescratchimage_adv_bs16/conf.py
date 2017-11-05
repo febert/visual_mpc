@@ -27,7 +27,8 @@ modelconfiguration = {
 'generate_scratch_image': True,
 'vgf_dim': 32,
 'trainable_generator_startswith':None,
-'dilation_rate': [1, 1]
+'dilation_rate': [1, 1],
+'ndesig':1
 }
 
 configuration = {
@@ -53,6 +54,7 @@ configuration = {
 'use_len':14,                # number of steps used for training where the starting location is selected randomly within sequencelength
 'adim':5,
 'sdim':4,
+'ndesig':modelconfiguration['ndesig']
 }
 
 
