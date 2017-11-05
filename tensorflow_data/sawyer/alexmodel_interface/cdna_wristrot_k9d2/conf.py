@@ -11,7 +11,7 @@ DATA_DIR = '/'.join(str.split(python_visual_mpc.__file__, '/')[:-2]) + '/pushing
 OUT_DIR = current_dir + '/modeldata'
 
 
-from python_visual_mpc.video_prediction.dynamic_rnn_model.alex_model_interface import Base_Prediction_Model
+from python_visual_mpc.video_prediction.dynamic_rnn_model.alex_model_interface import Alex_Interface_Model
 
 modelconfiguration = {
 'lr': 0.001,
@@ -35,7 +35,7 @@ configuration = {
 'context_frames': modelconfiguration['context_frames'],
 'experiment_name': 'alex_model',
 'modelconfiguration':modelconfiguration,
-'pred_model':Base_Prediction_Model,
+'pred_model':Alex_Interface_Model,
 'data_dir': DATA_DIR,       # 'directory containing data.' ,
 'output_dir': OUT_DIR,      #'directory for model checkpoints.' ,
 'current_dir': current_dir, #'directory for writing summary.' ,

@@ -12,7 +12,7 @@ from python_visual_mpc.video_prediction.utils_vpred.create_gif_lib import *
 from PIL import Image
 import pdb
 from python_visual_mpc.video_prediction.misc.makegifs2 import create_video_pixdistrib_gif
-
+from python_visual_mpc.video_prediction.utils_vpred.animate_tkinter import Visualizer_tkinter
 import matplotlib.pyplot as plt
 import collections
 
@@ -267,6 +267,12 @@ class CEM_controller():
 
         if 'ndesig' in self.policyparams:
             input_distrib1, input_distrib2 = self.make_input_distrib(itr)
+            # f, axarr = plt.subplots(2, 1)
+            # axarr[0].imshow(np.squeeze(input_distrib1[0][0]), cmap=plt.get_cmap('jet'))
+            # axarr[0].set_title('input_distrib1', fontsize=8)
+            # axarr[1].imshow(np.squeeze(input_distrib2[0][0]), cmap=plt.get_cmap('jet'))
+            # axarr[1].set_title('input_distrib2', fontsize=8)
+            # plt.show()
             gen_images, gen_distrib1, gen_distrib2, gen_states, _ = self.predictor(input_images=last_frames,
                                                                                 input_state=last_states,
                                                                                 input_actions=actions,
@@ -288,7 +294,7 @@ class CEM_controller():
         else:
             input_distrib = self.make_input_distrib(itr)
 
-            ## debug
+            # debug
             # plt.figure()
             # f, axarr = plt.subplots(2, 2)
             # axarr[0,0].imshow(np.squeeze(last_frames[0][0]), cmap=plt.get_cmap('jet'))
@@ -302,7 +308,7 @@ class CEM_controller():
             # axarr[1, 1].set_title('p1', fontsize=8)
             # plt.show()
             # pdb.set_trace()
-            ## end debug
+            # end debug
 
             gen_images, gen_distrib, _, gen_states, _ = self.predictor(input_images=last_frames,
                                                                     input_state=last_states.astype(np.float32),
@@ -366,12 +372,17 @@ class CEM_controller():
 
 
             if not 'no_instant_gif' in self.policyparams:
-                create_video_pixdistrib_gif(file_path, self.netconf, t=self.t, n_exp=10,
-                                            suppress_number=True, suffix='iter{}_t{}'.format(itr, self.t))
-
-            # print 'started writing...'
-            # cPickle.dump(self.dict_, open(file_path + '/pred.pkl', 'wb'))
-            # print 'finished writing files to:' + file_path
+                t_dict_ = {}
+                t_dict_['gen_images_t{}'.format(self.t)] = best(gen_images)
+                if 'ndesig' in self.policyparams:
+                    t_dict_['gen_distrib1_t{}'.format(self.t)] = best(gen_distrib1)
+                    t_dict_['gen_distrib2_t{}'.format(self.t)] = best(gen_distrib2)
+                else:
+                    t_dict_['gen_distrib_t{}'.format(self.t)] = best(gen_distrib)
+                v = Visualizer_tkinter(t_dict_, append_masks=False,
+                                       filepath=self.policyparams['current_dir'] + '/verbose',
+                                       numex=5)
+                v.build_figure()
 
         bestindex = scores.argsort()[0]
         if 'store_video_prediction' in self.agentparams and\

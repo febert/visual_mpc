@@ -14,12 +14,13 @@ policy = {
     'netconf': current_dir + '/conf.py',
     'iterations': 3,
     'verbose':'',
-    'predictor_propagation': '',   # use the model get the designated pixel for the next step!
     'action_cost_factor': 0,
+    'predictor_propagation': '',   # use the model get the designated pixel for the next step!
     'no_instant_gif':"",
     'rew_all_steps':"",
     'finalweight':10,
     'no_pixdistrib_video':'',
+    'ndesig':2
 }
 
 agent = {
@@ -27,5 +28,5 @@ agent = {
     'adim':5,
     'sdim':4,
     'make_final_gif':'',
-    'wristrot':''
+    'wristrot':'',
 }

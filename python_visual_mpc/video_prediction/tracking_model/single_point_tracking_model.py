@@ -79,7 +79,7 @@ class Single_Point_Tracking_Model(Dynamic_Base_Model):
                                     images=images,
                                     actions=actions,
                                     states=states,
-                                    pix_distrib1=self.start_pix_distrib,
+                                    pix_distrib=self.start_pix_distrib,
                                     trafo_pix = True,
                                     load_data = load_data,
                                     build_loss = False  #don't build the loss now.

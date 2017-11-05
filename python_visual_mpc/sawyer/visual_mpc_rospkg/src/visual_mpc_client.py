@@ -380,12 +380,14 @@ class Visual_MPC_Client():
             single_desig_pos, single_goal_pos = self.rpn_tracker.get_task(im,self.recorder.image_folder)
             self.desig_pos_main[0] = single_desig_pos
             self.goal_pos_main[0] = single_goal_pos
-            self.init_traj()
+
         else:
             print 'place object in new location!'
             pdb.set_trace()
             # rospy.sleep(.3)
             self.mark_goal_desig(i_tr)
+
+        self.init_traj()
 
         self.lower_height = 0.16  #0.20 for old data set
         self.delta_up = 0.12  #0.1 for old data set
@@ -506,7 +508,7 @@ class Visual_MPC_Client():
         scp_pix_distrib_files(self.policyparams, self.agentparams)
         v = Visualizer_tkinter(append_masks=False,
                                filepath=self.policyparams['current_dir'] + '/verbose',
-                               numex=10)
+                               numex=5)
         v.build_figure()
 
     def get_des_pose(self, des_pos):

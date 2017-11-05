@@ -54,7 +54,7 @@ class Tracker(object):
         target = req.target
         print "received new tracking target", target
         self.tracker_initialized = False
-        self.bbox = target.reshape(2,4)
+        self.bbox = np.array(target).reshape(2,4)
         resp = set_tracking_targetResponse()
         return resp
 
@@ -64,10 +64,10 @@ class Tracker(object):
 
         if not self.tracker_initialized and self.bbox is not None:
             self.cv_tracker1 = cv2.TrackerMIL_create()
-            self.cv_tracker1.init(self.lt_img_cv2, self.bbox[0])
+            self.cv_tracker1.init(self.lt_img_cv2, tuple(self.bbox[0]))
             if 'ndesig' in self.policyparams:
                 self.cv_tracker2 = cv2.TrackerMIL_create()
-                self.cv_tracker2.init(self.lt_img_cv2, self.bbox[1])
+                self.cv_tracker2.init(self.lt_img_cv2, tuple(self.bbox[1]))
             self.tracker_initialized = True
             print 'tracker initialized'
 
@@ -89,19 +89,20 @@ class Tracker(object):
         while not rospy.is_shutdown():
             if self.tracker_initialized:
                 ok, bbox1 = self.cv_tracker1.update(self.lt_img_cv2)
-
                 bbox1 = np.array(bbox1).astype(np.int32)
                 p1 = (bbox1[0], bbox1[1])
                 p2 = (bbox1[0] + bbox1[2], bbox1[1] + bbox1[3])
                 cv2.rectangle(self.lt_img_cv2, p1, p2, (0, 0, 255))
 
+                cv2.imshow("Tracking", self.lt_img_cv2)
+                k = cv2.waitKey(1) & 0xff
+
                 if 'ndesig' in self.policyparams:
                     ok, bbox2 = self.cv_tracker2.update(self.lt_img_cv2)
-
                     bbox2 = np.array(bbox2).astype(np.int32)
                     p1 = (bbox2[0], bbox2[1])
                     p2 = (bbox2[0] + bbox2[2], bbox2[1] + bbox2[3])
-                    cv2.rectangle(self.lt_img_cv2, p1, p2, (0, 0, 255))
+                    cv2.rectangle(self.lt_img_cv2, p1, p2, (0, 255, 0))
                 else:
                     bbox2 = np.zeros(4, np.int32)
 
