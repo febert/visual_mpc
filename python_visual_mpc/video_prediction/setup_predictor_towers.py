@@ -125,27 +125,27 @@ def setup_predictor(conf, gpu_id=0, ngpu=1):
 
     vars = tf.get_collection(tf.GraphKeys.GLOBAL_VARIABLES)
 
-    if conf['pred_model'] == Alex_Interface_Model or conf['pred_model'] == Dynamic_Base_Model:
-        print "removing /model tag"
-        #cutting off the /model tag
-        vars = dict([('/'.join(var.name.split(':')[0].split('/')[1:]), var) for var in vars])
+    if 'pred_model' in conf:
+        if conf['pred_model'] == Alex_Interface_Model or conf['pred_model'] == Dynamic_Base_Model:
+            print "removing /model tag"
+            #cutting off the /model tag
+            vars = dict([('/'.join(var.name.split(':')[0].split('/')[1:]), var) for var in vars])
+        # for k in vars.keys():
+        #     print k
+        # print 'variables to fill out'
+        # pdb.set_trace()
+        #add generator tag
+        if conf['pred_model'] ==  Dynamic_Base_Model:
+            print 'adding "generator" tag!!!'
+            newvars = {}
+            for key in vars.keys():
+                newvars['generator/' + key]  = vars[key]
+            vars = newvars
+        # for k in vars.keys():
+        #     print k
+        # print 'names to look for'
+        # pdb.set_trace()
 
-    # for k in vars.keys():
-    #     print k
-    # print 'variables to fill out'
-    # pdb.set_trace()
-
-    #add generator tag
-    if conf['pred_model'] ==  Dynamic_Base_Model:
-        print 'adding "generator" tag!!!'
-        newvars = {}
-        for key in vars.keys():
-            newvars['generator/' + key]  = vars[key]
-        vars = newvars
-    # for k in vars.keys():
-    #     print k
-    # print 'names to look for'
-    # pdb.set_trace()
     saver = tf.train.Saver(vars, max_to_keep=0)
     saver.restore(sess, conf['pretrained_model'])
 
