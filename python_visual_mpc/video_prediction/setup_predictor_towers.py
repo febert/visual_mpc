@@ -124,6 +124,7 @@ def setup_predictor(conf, gpu_id=0, ngpu=1):
     sess.run(tf.global_variables_initializer())
 
     vars = tf.get_collection(tf.GraphKeys.GLOBAL_VARIABLES)
+    vars = filter_vars(vars)
 
     if 'pred_model' in conf:
         if conf['pred_model'] == Alex_Interface_Model or conf['pred_model'] == Dynamic_Base_Model:
@@ -222,3 +223,13 @@ def setup_predictor(conf, gpu_id=0, ngpu=1):
         return gen_images, gen_distrib1, gen_distrib2, gen_states, None
 
     return predictor_func
+
+def filter_vars(vars):
+    newlist = []
+    for v in vars:
+        if not '/state:' in v.name:
+            newlist.append(v)
+        else:
+            print 'removed state variable from saving-list: ', v.name
+
+    return newlist
