@@ -170,11 +170,12 @@ def comp_pix_distrib(file_path, name= None, masks = False, examples = 8):
         npy_to_gif(fused_gif, file_path + '/' + name + suffix)
 
 
-def assemble_gif(video_batch, num_exp = 8, convert_from_float = True):
+def assemble_gif(video_batch, num_exp = 8, convert_from_float = True, only_ind=None):
     """
     accepts a list of different video batches
     each video batch is a list of [batchsize, 64, 64, 3] with length timesteps, with type float32 and range 0 to 1
     :param image_rows:
+    :param only_ind, only assemble this index
     :return:
     """
 
@@ -190,13 +191,18 @@ def assemble_gif(video_batch, num_exp = 8, convert_from_float = True):
 
     fullframe_list = []
     for t in range(vid_length):
-        column_list = []
-        for exp in range(num_exp):
-            column_images = [video[t,exp] for video in video_batch]
-            column_images = np.concatenate(column_images, axis=0)  #make column
-            column_list.append(column_images)
+        if only_ind is not None:
+            column_images = [video[t, only_ind] for video in video_batch]
+            full_frame = np.concatenate(column_images, axis=0)  # make column
+        else:
+            column_list = []
+            for exp in range(num_exp):
+                column_images = [video[t,exp] for video in video_batch]
+                column_images = np.concatenate(column_images, axis=0)  #make column
+                column_list.append(column_images)
 
-        full_frame = np.concatenate(column_list, axis= 1)
+            full_frame = np.concatenate(column_list, axis= 1)
+
         if convert_from_float:
             full_frame = np.uint8(255 * full_frame)
 

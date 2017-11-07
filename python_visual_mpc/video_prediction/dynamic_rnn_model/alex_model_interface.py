@@ -91,6 +91,9 @@ class Alex_Interface_Model(object):
             print 'using different create_model'
         else: create_model = create_model_improved
 
+        self.actions = actions
+        self.states = states
+
         if not trafo_pix:
             self.model = create_model(images, actions, states, **modelconfiguration)
         else:

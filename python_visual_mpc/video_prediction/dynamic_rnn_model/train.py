@@ -73,7 +73,7 @@ def main(unused_argv, conf_script= None):
             conf['batch_size'] = 128
             conf['sequence_length'] = 15
         else:
-            conf['batch_size'] = 40
+            conf['batch_size'] = 10
 
         conf['sequence_length'] = 14
         if FLAGS.diffmotions:

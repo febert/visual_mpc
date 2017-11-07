@@ -57,8 +57,10 @@ def visualize(sess, conf, model):
     if not isinstance(model.gen_images, list):
         model.gen_images = tf.unstack(model.gen_images, axis=1)
 
-    ground_truth, gen_images = sess.run([model.images,
-                                       model.gen_images,
+    ground_truth, gen_images, states, actions = sess.run([model.images,
+                                         model.gen_images,
+                                         model.states,
+                                         model.actions
                                        # model.gen_masks,
                                        # model.prediction_flow,
                                        ],
@@ -68,6 +70,8 @@ def visualize(sess, conf, model):
     dict['iternum'] = conf['num_iter']
     dict['ground_truth'] = ground_truth
     dict['gen_images'] = gen_images
+    dict['actions'] = actions
+    dict['states'] = states
     # dict['prediction_flow'] = pred_flow
     # dict['gen_masks'] = gen_masks
 
@@ -85,7 +89,7 @@ def visualize_diffmotions(sess, conf, model):
     except AttributeError:
         feed_dict = {}
 
-    b_exp, ind0 = 7, 0
+    b_exp, ind0 = 15, 0
 
     if 'adim' in conf:
         from python_visual_mpc.video_prediction.read_tf_record_wristrot import \

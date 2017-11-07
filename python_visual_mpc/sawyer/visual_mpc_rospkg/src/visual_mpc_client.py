@@ -148,7 +148,6 @@ class Visual_MPC_Client():
             self.recorder_save_dir = self.base_dir + "/experiments/cem_exp/benchmarks_sawyer/" + self.benchname + "/videos"
 
         self.num_pic_perstep = 4
-        self.num_track_perstep = 8
         nsave = self.action_sequence_length * self.num_pic_perstep
 
         if 'collect_data' in self.agentparams:
@@ -466,7 +465,6 @@ class Visual_MPC_Client():
 
                 isave_substep  = 0
                 tsave = np.linspace(self.t_prev, self.t_next, num=self.num_pic_perstep, dtype=np.float64)
-                t_track = np.linspace(self.t_prev, self.t_next, num=self.num_track_perstep, dtype=np.float64)
                 print 'tsave', tsave
                 print 'applying action{}'.format(i_step)
                 i_step += 1

@@ -9,7 +9,7 @@ DATA_DIR = '/'.join(str.split(python_visual_mpc.__file__, '/')[:-1]) + '/pushing
 # local output directory
 OUT_DIR = current_dir + '/modeldata'
 
-
+TEST_DATA_DIR = '/'.join(str.split(current_dir, '/')[:-4]) + '/pushing_data/wristrot_test_seenobj/test'
 from python_visual_mpc.video_prediction.dynamic_rnn_model.alex_model_interface import Alex_Interface_Model
 
 modelconfiguration = {
@@ -37,6 +37,7 @@ configuration = {
 'modelconfiguration':modelconfiguration,
 'pred_model':Alex_Interface_Model,
 'data_dir': DATA_DIR,       # 'directory containing data.' ,
+'test_data_dir': TEST_DATA_DIR,       # 'directory containing data.' ,
 'output_dir': OUT_DIR,      #'directory for model checkpoints.' ,
 'current_dir': current_dir, #'directory for writing summary.' ,
 'num_iterations': 200000,   #'number of training iterations.' ,
