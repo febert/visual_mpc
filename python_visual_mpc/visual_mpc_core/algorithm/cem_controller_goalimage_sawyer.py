@@ -343,7 +343,9 @@ class CEM_controller():
         bestindices = scores.argsort()[:self.K]
 
 
-        if self.verbose and itr == self.policyparams['iterations']-1:
+        # if self.verbose and itr == self.policyparams['iterations']-1:
+
+        if self.verbose:
             # print 'creating visuals for best sampled actions at last iteration...'
             if self.save_subdir != None:
                 file_path = self.netconf['current_dir']+ '/'+ self.save_subdir +'/verbose'
@@ -361,28 +363,34 @@ class CEM_controller():
                         outputlist[tstep][ind] = inputlist[tstep][bestindices[ind]]
                 return outputlist
 
+            usebest = True
+            if usebest:
+                self.dict_['gen_images_t{}'.format(self.t)] = best(gen_images)
 
-            self.dict_['gen_images_t{}'.format(self.t)] = best(gen_images)
-
-            if 'ndesig' in self.policyparams:
-                self.dict_['gen_distrib1_t{}'.format(self.t)] = best(gen_distrib1)
-                self.dict_['gen_distrib2_t{}'.format(self.t)] = best(gen_distrib2)
-            else:
-                self.dict_['gen_distrib_t{}'.format(self.t)] = best(gen_distrib)
-
-
-            if not 'no_instant_gif' in self.policyparams:
-                t_dict_ = {}
-                t_dict_['gen_images_t{}'.format(self.t)] = best(gen_images)
                 if 'ndesig' in self.policyparams:
-                    t_dict_['gen_distrib1_t{}'.format(self.t)] = best(gen_distrib1)
-                    t_dict_['gen_distrib2_t{}'.format(self.t)] = best(gen_distrib2)
+                    self.dict_['gen_distrib1_t{}'.format(self.t)] = best(gen_distrib1)
+                    self.dict_['gen_distrib2_t{}'.format(self.t)] = best(gen_distrib2)
                 else:
-                    t_dict_['gen_distrib_t{}'.format(self.t)] = best(gen_distrib)
-                v = Visualizer_tkinter(t_dict_, append_masks=False,
-                                       filepath=self.policyparams['current_dir'] + '/verbose',
-                                       numex=5)
-                v.build_figure()
+                    self.dict_['gen_distrib_t{}'.format(self.t)] = best(gen_distrib)
+
+
+                if not 'no_instant_gif' in self.policyparams:
+                    t_dict_ = {}
+                    t_dict_['gen_images_t{}'.format(self.t)] = best(gen_images)
+                    if 'ndesig' in self.policyparams:
+                        t_dict_['gen_distrib1_t{}'.format(self.t)] = best(gen_distrib1)
+                        t_dict_['gen_distrib2_t{}'.format(self.t)] = best(gen_distrib2)
+                    else:
+                        t_dict_['gen_distrib_t{}'.format(self.t)] = best(gen_distrib)
+                    v = Visualizer_tkinter(t_dict_, append_masks=False,
+                                           filepath=self.policyparams['current_dir'] + '/verbose',
+                                           numex=5)
+                    v.build_figure()
+            else:
+                gen_images_every_kth = [g[::20] for g in gen_images]
+                gen_distrib_every_kth = [g[::20] for g in gen_distrib]
+                self.dict_['gen_images_t{}_iter{}'.format(self.t, itr)] = gen_images_every_kth
+                self.dict_['gen_distrib_t{}_iter{}'.format(self.t, itr)] = gen_distrib_every_kth
 
         bestindex = scores.argsort()[0]
         if 'store_video_prediction' in self.agentparams and\
