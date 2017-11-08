@@ -251,7 +251,7 @@ def main(unused_argv, conf_script= None):
         conf['sequence_length'] = 14
         if FLAGS.diffmotions:
             inference = True
-            conf['sequence_length'] = 30
+            conf['sequence_length'] = 15
 
     if 'sawyer' in conf:
         if conf['adim'] == 5:
@@ -335,7 +335,7 @@ def main(unused_argv, conf_script= None):
 
         if FLAGS.diffmotions:
 
-            b_exp, ind0 =0, 0
+            b_exp, ind0 =28, 0
 
             img, state = sess.run([val_images, val_states])
             sel_img= img[b_exp,ind0:ind0+2]
@@ -439,7 +439,7 @@ def main(unused_argv, conf_script= None):
             cPickle.dump(dict, open(file_path + '/pred.pkl', 'wb'))
             print 'written files to:' + file_path
 
-            v = Visualizer_tkinter(dict, numex=conf['batch_size'], append_masks=False,
+            v = Visualizer_tkinter(dict, numex=b+1, append_masks=False,
                                    filepath=conf['output_dir'],
                                    suf='_diffmotions_b{}_l{}'.format(b_exp, conf['sequence_length']), col_titles=col_titles)
             v.build_figure()
@@ -459,7 +459,8 @@ def main(unused_argv, conf_script= None):
             cPickle.dump(dict, open(file_path + '/pred.pkl', 'wb'))
             print 'written files to:' + file_path
 
-            v = Visualizer_tkinter(dict, numex=conf['batch_size'], append_masks=False, filepath=conf['output_dir'])
+            v = Visualizer_tkinter(dict, numex=conf['batch_size'], append_masks=False, filepath=conf['output_dir'],
+                                   col_titles=[str(i) for i in range(conf['batch_size'])])
             v.build_figure()
         return
 

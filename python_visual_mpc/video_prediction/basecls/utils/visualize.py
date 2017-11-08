@@ -57,11 +57,11 @@ def visualize(sess, conf, model):
     if not isinstance(model.gen_images, list):
         model.gen_images = tf.unstack(model.gen_images, axis=1)
 
-    ground_truth, gen_images, states, actions = sess.run([model.images,
+    ground_truth, gen_images, states, actions, gen_masks = sess.run([model.images,
                                          model.gen_images,
                                          model.states,
-                                         model.actions
-                                       # model.gen_masks,
+                                         model.actions,
+                                         model.gen_masks,
                                        # model.prediction_flow,
                                        ],
                                        feed_dict)
@@ -73,13 +73,13 @@ def visualize(sess, conf, model):
     dict['actions'] = actions
     dict['states'] = states
     # dict['prediction_flow'] = pred_flow
-    # dict['gen_masks'] = gen_masks
+    dict['gen_masks_l'] = gen_masks
 
     cPickle.dump(dict, open(file_path + '/pred.pkl', 'wb'))
     print 'written files to:' + file_path
 
-
-    v = Visualizer_tkinter(dict, numex=conf['batch_size'], append_masks=True, filepath=conf['output_dir'])
+    v = Visualizer_tkinter(dict, numex=conf['batch_size'], append_masks=False, filepath=conf['output_dir'],
+                           col_titles=[str(i) for i in range(conf['batch_size'])])
     v.build_figure()
 
 def visualize_diffmotions(sess, conf, model):
@@ -89,7 +89,7 @@ def visualize_diffmotions(sess, conf, model):
     except AttributeError:
         feed_dict = {}
 
-    b_exp, ind0 = 15, 0
+    b_exp, ind0 = 28, 0
 
     if 'adim' in conf:
         from python_visual_mpc.video_prediction.read_tf_record_wristrot import \
@@ -133,7 +133,7 @@ def visualize_diffmotions(sess, conf, model):
 
     # step = .025
     step = .055
-    n_angles = 4  # 8
+    n_angles = 8  # 8
     col_titles = []
     for b in range(n_angles):
         col_titles.append('move')

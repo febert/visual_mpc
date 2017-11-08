@@ -237,7 +237,7 @@ def main():
     conf['skip_frame'] = 1
     conf['train_val_split']= 0.95
     conf['sequence_length']= 15 #48      # 'sequence length, including context frames.'
-    conf['batch_size']= 128
+    conf['batch_size']= 60
     conf['visualize']= True
     conf['context_frames'] = 2
 
@@ -271,10 +271,11 @@ def main():
         # images, actions, endeff, robot_pos, object_pos = sess.run([image_batch, action_batch, endeff_pos_batch, robot_pos_batch, object_pos_batch])
 
         file_path = '/'.join(str.split(DATA_DIR, '/')[:-1]+['preview'])
-        comp_single_video(file_path, images)
+        comp_single_video(file_path, images, num_exp=conf['batch_size'])
 
         # show some frames
-        for b in range(conf['batch_size']):
+        for b in range(2, conf['batch_size']):
+            print 'batch index ',b
 
             print 'actions'
             print actions[b]
@@ -290,11 +291,10 @@ def main():
 
             # visualize_annotation(conf, images[b], robot_pos[b], object_pos[b])
 
-            # images = np.squeeze(images)
-            # img = np.uint8(255. * images[b, 0])
-            # img = Image.fromarray(img, 'RGB')
-            # # img.save(file_path,'PNG')
-            # img.show()
+            # for t in range(conf['sequence_length']):
+            #     print 't ',t
+            #     plt.imshow(images[b,t])
+            #     plt.show()
             # print b
 
             pdb.set_trace()

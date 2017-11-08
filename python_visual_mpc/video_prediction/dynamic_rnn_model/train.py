@@ -73,11 +73,11 @@ def main(unused_argv, conf_script= None):
             conf['batch_size'] = 128
             conf['sequence_length'] = 15
         else:
-            conf['batch_size'] = 10
+            conf['batch_size'] = 128
 
-        conf['sequence_length'] = 14
+        conf['sequence_length'] = 10
         if FLAGS.diffmotions:
-            conf['sequence_length'] = 30
+            conf['sequence_length'] = 15
 
         # when using alex interface:
         if 'modelconfiguration' in conf:

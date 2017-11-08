@@ -14,7 +14,7 @@ configuration = {
 'experiment_name': 'sna',
 'pred_model': Base_Prediction_Model,
 'data_dir': DATA_DIR,       # 'directory containing data.' ,
-# 'test_data_dir': TEST_DATA_DIR,       # 'directory containing data.' ,
+'test_data_dir': TEST_DATA_DIR,       # 'directory containing data.' ,
 'output_dir': OUT_DIR,      #'directory for model checkpoints.' ,
 'current_dir': current_dir,   #'directory for writing summary.' ,
 'num_iterations': 200000,   #'number of training iterations.' ,

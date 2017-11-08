@@ -105,6 +105,7 @@ class Alex_Interface_Model(object):
         if trafo_pix:
             self.gen_distrib = tf.unstack(self.model.gen_pix_distribs, axis=1)
         self.gen_states = tf.unstack(self.model.gen_states)
+        self.gen_masks = self.model.gen_masks
 
         self.lr = tf.placeholder_with_default(self.conf['learning_rate'], ())
 
