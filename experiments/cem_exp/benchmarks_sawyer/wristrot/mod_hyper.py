@@ -28,7 +28,7 @@ policy = {
 }
 
 agent = {
-    'T': 20,
+    'T': 2,#####20,
     'adim':5,
     'sdim':4,
     'state_dim':4,

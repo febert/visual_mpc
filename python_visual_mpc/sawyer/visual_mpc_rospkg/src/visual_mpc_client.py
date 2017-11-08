@@ -505,11 +505,11 @@ class Visual_MPC_Client():
         self.recorder.save_highres()
 
         #copy files with pix distributions from remote and make gifs
-        # scp_pix_distrib_files(self.policyparams, self.agentparams)
-        v = Visualizer_tkinter(append_masks=False,
-                               filepath=self.policyparams['current_dir'] + '/verbose',
-                               numex=5)
-        v.build_figure()
+        scp_pix_distrib_files(self.policyparams, self.agentparams)
+        # v = Visualizer_tkinter(append_masks=False,
+        #                        filepath=self.policyparams['current_dir'] + '/verbose',
+        #                        numex=5)
+        # v.build_figure()
 
     def get_des_pose(self, des_pos):
 
