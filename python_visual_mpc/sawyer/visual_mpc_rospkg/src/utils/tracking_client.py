@@ -57,6 +57,9 @@ class OpenCV_Track_Listener():
         self.bbox = data.data
 
     def get_track(self):
-        new_loc = np.array([int(self.bbox[1]), int(self.bbox[0])]) + np.array([float(self.box_height) / 2])
+        bbox1 = self.bbox[0]
+        new_loc = np.array([int(bbox1[1]), int(bbox1[0])]) + np.array([float(self.box_height) / 2])
+        bbox2 = self.bbox[1]
+        new_loc = np.array([int(bbox2[1]), int(bbox2[0])]) + np.array([float(self.box_height) / 2])
         # Draw bounding box
         return self.recorder.high_res_to_lowres(new_loc), new_loc

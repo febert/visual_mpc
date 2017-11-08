@@ -30,6 +30,7 @@ policy = {
 agent = {
     'T': 20,
     'adim':5,
+    'sdim':4,
     'state_dim':4,
     'make_final_gif':'',
     'wristrot':''

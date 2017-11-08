@@ -133,6 +133,12 @@ class Model(object):
         #     print i
         self.lr = tf.placeholder_with_default(conf['learning_rate'], (), 'learning_rate')
 
+        self.gen_images = self.m.gen_images
+        self.gen_distrib1 = self.m.gen_distrib1
+        self.gen_distrib2 = self.m.gen_distrib2
+        self.gen_states = self.m.gen_states
+        self.gen_masks = self.m.gen_masks
+
         if not inference:
             # L2 loss, PSNR for eval.
             true_fft_list, pred_fft_list = [], []
