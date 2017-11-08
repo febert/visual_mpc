@@ -343,7 +343,9 @@ class CEM_controller():
         bestindices = scores.argsort()[:self.K]
 
 
-        if self.verbose and itr == self.policyparams['iterations']-1:
+        # if self.verbose and itr == self.policyparams['iterations']-1:
+
+        if self.verbose:
             # print 'creating visuals for best sampled actions at last iteration...'
             if self.save_subdir != None:
                 file_path = self.netconf['current_dir']+ '/'+ self.save_subdir +'/verbose'
@@ -387,8 +389,8 @@ class CEM_controller():
             else:
                 gen_images_every_kth = [g[::20] for g in gen_images]
                 gen_distrib_every_kth = [g[::20] for g in gen_distrib]
-                self.dict_['gen_images_t{}'.format(self.t)] = gen_images_every_kth
-                self.dict_['gen_distrib_t{}'.format(self.t)] = gen_distrib_every_kth
+                self.dict_['gen_images_t{}_iter{}'.format(self.t, itr)] = gen_images_every_kth
+                self.dict_['gen_distrib_t{}_iter{}'.format(self.t, itr)] = gen_distrib_every_kth
 
         bestindex = scores.argsort()[0]
         if 'store_video_prediction' in self.agentparams and\
