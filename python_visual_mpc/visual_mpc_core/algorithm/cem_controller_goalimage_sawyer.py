@@ -363,7 +363,7 @@ class CEM_controller():
                         outputlist[tstep][ind] = inputlist[tstep][bestindices[ind]]
                 return outputlist
 
-            usebest = True
+            usebest = False
             if usebest:
                 self.dict_['gen_images_t{}'.format(self.t)] = best(gen_images)
 
@@ -387,6 +387,7 @@ class CEM_controller():
                                            numex=5)
                     v.build_figure()
             else:
+                print 'saving every 20th'
                 gen_images_every_kth = [g[::20] for g in gen_images]
                 gen_distrib_every_kth = [g[::20] for g in gen_distrib]
                 self.dict_['gen_images_t{}_iter{}'.format(self.t, itr)] = gen_images_every_kth
