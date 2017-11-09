@@ -9,6 +9,7 @@ pip install --upgrade tensorflow-gpu
 
 pip install imageio==1.6
 pip install moviepy
+pip install matplotlib
 
 pip install mujoco-py==0.5.7
 
@@ -27,4 +28,37 @@ pip install rospkg
 pip install empy
 
 When running visual-mpc server:
-pip install opencv-python
+(contrib is because of tracking)
+pip install opencv-contrib-python
+
+
+when using tracker:
+conda install -c conda-forge opencv=3.2.0
+(might be required:) sudo apt-get install libopenblas-dev
+
+For rotating images with open-cv python:
+pip install imutils
+
+
+#installing iai_kinect:
+Follow
+https://github.com/code-iai/iai_kinect2#install
+and
+
+https://github.com/OpenKinect/libfreenect2#debianubuntu-1404
+***but then do***
+cd ..
+mkdir build && cd build
+cmake .. (no -DCMAKE_INSTALL_PREFIX=$HOME/freenect2!!)
+make
+sudo make install
+
+
+How to install ros along with anaconda
+use default anaconda env!!
+pip install catkin_pkg
+pip install catking_pkg
+
+#go to anaconda dist packages folder and make links to global rospackages
+ln -s /usr/lib/python2.7/dist-packages/ .
+

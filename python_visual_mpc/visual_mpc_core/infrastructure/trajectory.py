@@ -40,13 +40,13 @@ class Trajectory(object):
         self.predicted_images = None
         self.gtruth_images = None
 
-        if 'action_dim' in hyperparams:
-            self.U = np.empty([self.T, hyperparams['action_dim']])
+        if 'adim' in hyperparams:
+            self.U = np.empty([self.T, hyperparams['adim']])
         else:
             self.U = np.empty([self.T, 2])
 
-        if 'state_dim' in hyperparams:
-            state_dim = hyperparams['state_dim']
+        if 'sdim' in hyperparams:
+            state_dim = hyperparams['sdim']
         else:
             state_dim = 2
 

@@ -11,25 +11,25 @@ import matplotlib.pyplot as plt
 from tensorflow.python.platform import app
 from tensorflow.python.platform import flags
 from makegifs import comp_gif
-
+import collections
 
 from datetime import datetime
-
 # How often to record tensorboard summaries.
-SUMMARY_INTERVAL = 40
+SUMMARY_INTERVAL = 400
 
 # How often to run a batch through the validation model.
-VAL_INTERVAL = 200
+VAL_INTERVAL = 500
 
 # How often to save a model checkpoint
-SAVE_INTERVAL = 2000
+SAVE_INTERVAL = 4000
 
-from prediction_model_sawyer import Prediction_Model
+from utils_vpred.animate_tkinter import Visualizer_tkinter
 
 from PIL import Image
 
 
 
+sys.path.append("/docker_home/visual_mpc/python_visual_mpc")
 
 ## Helper functions
 def peak_signal_to_noise_ratio(true, pred):
@@ -70,6 +70,11 @@ class Model(object):
                  pix_distrib=None,
                  pix_distrib2=None,
                  inference = False):
+
+        if 'prediction_model' in conf:
+            Prediction_Model = conf['prediction_model']
+        else:
+            from prediction_model_sawyer import Prediction_Model
 
         self.conf = conf
 
@@ -124,11 +129,15 @@ class Model(object):
                     conf= conf)
                 self.m.build()
 
-        # if FLAGS.float16:
-        #     self.m.images = tf.cast(self.m.images, tf.float16)
-        #     self.m.states = tf.cast(self.m.states, tf.float16)
-        #     self.m.actions = tf.cast(self.m.actions, tf.float16)
-        self.lr = tf.placeholder_with_default(conf['learning_rate'], ())
+        # for i in tf.get_collection(tf.GraphKeys.GLOBAL_VARIABLES):
+        #     print i
+        self.lr = tf.placeholder_with_default(conf['learning_rate'], (), 'learning_rate')
+
+        self.gen_images = self.m.gen_images
+        self.gen_distrib1 = self.m.gen_distrib1
+        self.gen_distrib2 = self.m.gen_distrib2
+        self.gen_states = self.m.gen_states
+        self.gen_masks = self.m.gen_masks
 
         if not inference:
             # L2 loss, PSNR for eval.
@@ -174,12 +183,12 @@ class Model(object):
 
             summaries.append(tf.summary.scalar('loss', loss))
 
-            if not inference:
-                self.train_op = tf.train.AdamOptimizer(self.lr).minimize(loss)
-                self.summ_op = tf.summary.merge(summaries)
+            self.train_op = tf.train.AdamOptimizer(self.lr).minimize(loss)
+            self.summ_op = tf.summary.merge(summaries)
 
 
     def random_shift(self, images, states, actions):
+
         print 'shifting the video sequence randomly in time'
         tshift = 2
         uselen = self.conf['use_len']
@@ -245,19 +254,26 @@ def main(unused_argv, conf_script= None):
     if FLAGS.visualize:
         print 'creating visualizations ...'
         conf['schedsamp_k'] = -1  # don't feed ground truth
-        conf['data_dir'] = '/'.join(str.split(conf['data_dir'], '/')[:-1] + ['test'])
+
+        if 'test_data_dir' in conf:
+            conf['data_dir'] = conf['test_data_dir']
+        else: conf['data_dir'] = '/'.join(str.split(conf['data_dir'], '/')[:-1] + ['test'])
+
         conf['visualize'] = conf['output_dir'] + '/' + FLAGS.visualize
         conf['event_log_dir'] = '/tmp'
         conf.pop('use_len', None)
-        conf['batch_size'] = 128
+        conf['batch_size'] = 30
 
-        conf['sequence_length'] = 15
+        conf['sequence_length'] = 14
         if FLAGS.diffmotions:
             inference = True
             conf['sequence_length'] = 30
 
     if 'sawyer' in conf:
-        from read_tf_record_sawyer12 import build_tfrecord_input
+        if conf['adim'] == 5:
+            from read_tf_record_wristrot import build_tfrecord_input
+        else:
+            from read_tf_record_sawyer12 import build_tfrecord_input
     else:
         from read_tf_record import build_tfrecord_input
 
@@ -270,11 +286,18 @@ def main(unused_argv, conf_script= None):
 
     print 'Constructing models and inputs.'
     if FLAGS.diffmotions:
+        if 'adim' in conf:
+            adim = conf['adim']
+        else: adim = 4
+
+        if 'sdim' in conf:
+            statedim = conf['sdim']
+        else: statedim = 3
 
         actions_pl = tf.placeholder(tf.float32, name='actions',
-                                    shape=(conf['batch_size'], conf['sequence_length'], 4))
+                                    shape=(conf['batch_size'], conf['sequence_length'], adim))
         states_pl = tf.placeholder(tf.float32, name='states',
-                                   shape=(conf['batch_size'], conf['sequence_length'], 3))
+                                   shape=(conf['batch_size'], conf['sequence_length'], statedim))
 
         images_pl = tf.placeholder(tf.float32, name='images',
                                    shape=(conf['batch_size'], conf['sequence_length'], img_height, img_width, 3))
@@ -350,6 +373,8 @@ def main(unused_argv, conf_script= None):
             print key, ': ', conf[key]
         print '-------------------------------------------------------------------'
 
+        import re
+        itr_vis = re.match('.*?([0-9]+)$', conf['visualize']).group(1)
         if FLAGS.float16:
             saver.restore(sess, conf['visualize'] + 'float16')
             vis_model = half_float
@@ -357,8 +382,7 @@ def main(unused_argv, conf_script= None):
             saver.restore(sess, conf['visualize'])
             vis_model = val_model
 
-        feed_dict = {vis_model.lr: 0.0,
-                     vis_model.iter_num: 0 }
+        feed_dict = {vis_model.iter_num: 0 }
 
         file_path = conf['output_dir']
 
@@ -369,10 +393,16 @@ def main(unused_argv, conf_script= None):
             img, state = sess.run([val_images[:, :, :img_height, :, :], val_states])
             sel_img= img[b_exp,ind0:ind0+2]
 
-            c = Getdesig(sel_img[0].astype(np.float32), conf, 'b{}'.format(b_exp))
-            desig_pos_aux1 = c.coords.astype(np.int32)
-            # desig_pos_aux1 = np.array([23, 39])
+            # fig1 = plt.figure(1)
+            # plt.imshow(sel_img[0])
+            # fig2 = plt.figure(2)
+            # plt.imshow(sel_img[1])
+            # plt.show()
+            # pdb.set_trace()
 
+            c = Getdesig(sel_img[0], conf, 'b{}'.format(b_exp))
+            desig_pos_aux1 = c.coords.astype(np.int32)
+            # desig_pos_aux1 = np.array([29, 37])
             print "selected designated position for aux1 [row,col]:", desig_pos_aux1
 
             one_hot = create_one_hot(conf, desig_pos_aux1)
@@ -381,7 +411,7 @@ def main(unused_argv, conf_script= None):
 
             sel_state = np.stack([state[b_exp,ind0],state[b_exp,ind0+1]], axis=0)
 
-            start_states = np.concatenate([sel_state,np.zeros((conf['sequence_length']-2, 3))])
+            start_states = np.concatenate([sel_state,np.zeros((conf['sequence_length']-2, statedim))])
             start_states = np.expand_dims(start_states, axis=0)
             start_states = np.repeat(start_states, conf['batch_size'], axis=0)  # copy over batch
             feed_dict[states_pl] = start_states
@@ -392,43 +422,79 @@ def main(unused_argv, conf_script= None):
             start_images = np.repeat(start_images, conf['batch_size'], axis=0)  # copy over batch
             feed_dict[images_pl] = start_images
 
-            actions = np.zeros([conf['batch_size'], conf['sequence_length'], 4])
+            actions = np.zeros([conf['batch_size'], conf['sequence_length'], adim])
 
             # step = .025
             step = .055
             n_angles = 8
+            col_titles = []
             for b in range(n_angles):
+                col_titles.append('move')
                 for i in range(conf['sequence_length']):
-                    actions[b,i] = np.array([np.cos(b/float(n_angles)*2*np.pi)*step, np.sin(b/float(n_angles)*2*np.pi)*step, 0, 0])
+                    actions[b,i][:2] = np.array([np.cos(b/float(n_angles)*2*np.pi)*step, np.sin(b/float(n_angles)*2*np.pi)*step])
 
-            b+=1
-            actions[b, 0] = np.array([0, 0, 4, 0])
-            actions[b, 1] = np.array([0, 0, 4, 0])
+            if adim == 5:
+                b += 1
+                actions[b, 0] = np.array([0, 0, 4, 0, 0])
+                actions[b, 1] = np.array([0, 0, 4, 0, 0])
+                col_titles.append('up/down')
 
-            b += 1
-            actions[b, 0] = np.array([0, 0, 0, 4])
-            actions[b, 1] = np.array([0, 0, 0, 4])
+                b += 1
+                actions[b, 0] = np.array([0, 0, 0, 0, 4])
+                actions[b, 1] = np.array([0, 0, 0, 0, 4])
+                col_titles.append('close/open')
+
+                delta_rot = 0.4
+                b += 1
+                for i in range(conf['sequence_length']):
+                    actions[b, i] = np.array([0, 0, 0, delta_rot, 0])
+                col_titles.append('rot +')
+
+                b += 1
+                for i in range(conf['sequence_length']):
+                    actions[b, i] = np.array([0, 0, 0, -delta_rot, 0])
+                col_titles.append('rot -')
+
+                col_titles.append('noaction')
+
+            elif adim == 4:
+                b+=1
+                actions[b, 0] = np.array([0, 0, 4, 0])
+                actions[b, 1] = np.array([0, 0, 4, 0])
+
+
+                b += 1
+                actions[b, 0] = np.array([0, 0, 0, 4])
+                actions[b, 1] = np.array([0, 0, 0, 4])
 
             feed_dict[actions_pl] = actions
 
-            gen_images, gen_distrib, gen_masks = sess.run([vis_model.m.gen_images,
-                                                           vis_model.m.gen_distrib1,
-                                                           vis_model.m.gen_masks,
-                                                            ]
-                                                           ,feed_dict)
-            dict = {}
+            gen_images, gen_distrib, gen_masks, moved_parts, moved_images, moved_bckgd = sess.run([vis_model.m.gen_images,
+                                                                                                   vis_model.m.gen_distrib1,
+                                                                                                   vis_model.m.gen_masks,
+                                                                                                   vis_model.m.movd_parts_list,
+                                                                                                   vis_model.m.moved_images,
+                                                                                                   vis_model.m.moved_bckgd
+                                                                                                   ],feed_dict)
 
+            dict = collections.OrderedDict()
             dict['gen_images'] = gen_images
-            dict['gen_masks'] =  gen_masks
-            dict['gen_distrib'] =gen_distrib
+            dict['gen_masks'] = gen_masks
+            dict['gen_distrib'] = gen_distrib
+            dict['iternum'] = itr_vis
+
+            dict['desig_pos'] = desig_pos_aux1
+            # dict['moved_parts'] = moved_parts
+            # dict['moved_images'] = moved_images
+            # dict['moved_bckgd'] = moved_bckgd
+
             cPickle.dump(dict, open(file_path + '/pred.pkl', 'wb'))
             print 'written files to:' + file_path
 
-            comp_gif(conf,
-                     conf['output_dir'],
-                     append_masks=False,
-                     suffix='_diffmotions_b{}_l{}'.format(b_exp, conf['sequence_length']),
-                     examples=10)
+            v = Visualizer_tkinter(dict, numex=conf['batch_size'], append_masks=False,
+                                   filepath=conf['output_dir'],
+                                   suf='_diffmotions_b{}_l{}'.format(b_exp, conf['sequence_length']), col_titles=col_titles)
+            v.build_figure()
 
         else:
             if FLAGS.timeit:
@@ -448,20 +514,20 @@ def main(unused_argv, conf_script= None):
                                                                  ],
                                                                 feed_dict)
 
-            dict = {}
-            dict['gen_images'] = gen_images
+            dict = collections.OrderedDict()
             dict['ground_truth'] = ground_truth
+            dict['gen_images'] = gen_images
             dict['gen_masks'] = gen_masks
+            dict['iternum'] = itr_vis
+
             cPickle.dump(dict, open(file_path + '/pred.pkl', 'wb'))
             print 'written files to:' + file_path
 
-
-            comp_gif(conf, conf['output_dir'], append_masks=True, show_parts=True)
-
+            v = Visualizer_tkinter(dict, numex=conf['batch_size'], append_masks=False, filepath=conf['output_dir'])
+            v.build_figure()
         return
 
     itr_0 =0
-
     if FLAGS.pretrained != None:
         conf['pretrained_model'] = FLAGS.pretrained
 
@@ -487,10 +553,8 @@ def main(unused_argv, conf_script= None):
     for itr in range(itr_0, conf['num_iterations'], 1):
         t_startiter = datetime.now()
         # Generate new batch of data_files.
-        feed_dict = {
-                     model.iter_num: np.float32(itr),
-                     model.lr: conf['learning_rate'],
-                     }
+        feed_dict = {model.iter_num: np.float32(itr)}
+
         cost, _, summary_str = sess.run([model.loss, model.train_op, model.summ_op],
                                         feed_dict)
 
@@ -499,15 +563,12 @@ def main(unused_argv, conf_script= None):
 
         if (itr) % VAL_INTERVAL == 2:
             # Run through validation set.
-            feed_dict = {val_model.lr: 0.0,
-                         val_model.iter_num: np.float32(itr),
-                         }
-            _, val_summary_str = sess.run([val_model.train_op, val_model.summ_op],
-                                          feed_dict)
+            feed_dict = {val_model.iter_num: np.float32(itr)}
+            [val_summary_str] = sess.run([val_model.summ_op], feed_dict)
             summary_writer.add_summary(val_summary_str, itr)
 
 
-        if (itr) % SAVE_INTERVAL == 2:
+        if itr % SAVE_INTERVAL == 0: #and itr != 0:
             tf.logging.info('Saving model to' + conf['output_dir'])
             saver.save(sess, conf['output_dir'] + '/model' + str(itr))
 
