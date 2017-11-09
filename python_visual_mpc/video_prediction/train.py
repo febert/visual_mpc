@@ -25,6 +25,8 @@ from python_visual_mpc.video_prediction.dynamic_rnn_model.dynamic_base_model imp
 # from python_visual_mpc.video_prediction.tracking_model.single_point_tracking_model import Single_Point_Tracking_Model
 from python_visual_mpc.video_prediction.tracking_model.single_point_tracking_model import Single_Point_Tracking_Model
 
+from python_visual_mpc.video_prediction.dynamic_rnn_model.alex_model_interface import Alex_Interface_Model
+
 
 if __name__ == '__main__':
     FLAGS = flags.FLAGS
@@ -87,23 +89,40 @@ def main(unused_argv, conf_script= None):
     else:
         build_loss = True
 
-    if 'pred_model' in conf:
-        Model = conf['pred_model']
-    else:
-        Model = Dynamic_Base_Model
+    Model = conf['pred_model']
 
-    with tf.variable_scope('generator'):  # TODO: get rid of this and make something automatic.
-        if FLAGS.diffmotions or "visualize_tracking" in conf or FLAGS.metric:
-            model = Model(conf, load_data=False, trafo_pix=True, build_loss=build_loss)
-        else:
-            model = Model(conf, load_data=True, trafo_pix=False, build_loss=build_loss)
+    # with tf.variable_scope('generator'):  # TODO: get rid of this and make something automatic.
+    if FLAGS.diffmotions or "visualize_tracking" in conf or FLAGS.metric:
+        model = Model(conf, load_data=False, trafo_pix=True, build_loss=build_loss)
+    else:
+        model = Model(conf, load_data=True, trafo_pix=False, build_loss=build_loss)
 
     print 'Constructing saver.'
     # Make saver.
-
     vars = tf.get_collection(tf.GraphKeys.GLOBAL_VARIABLES)
+    vars = filter_vars(vars)
+    saving_saver = tf.train.Saver(vars, max_to_keep=0)
+
+    print 'begin vars to fill out'
     for var in vars:
         print var.name
+    print 'end vars to fill out'
+    pdb.set_trace()
+
+    vars = dict([(var.name.split(':')[0], var) for var in vars])
+
+    if isinstance(Model, Alex_Interface_Model) or 'add_generator_tag' in conf:
+        print 'adding "generator" tag!!!'
+        newvars = {}
+        for key in vars.keys():
+            newvars['generator/' + key] = vars[key]
+        vars = newvars
+
+    print 'begin vars to load'
+    for k in vars.keys():
+        print k
+    print 'end vars to load'
+    pdb.set_trace()
 
     if isinstance(model, Single_Point_Tracking_Model) and not (FLAGS.visualize or FLAGS.visualize_check):
         # initialize the predictor from pretrained weights
@@ -114,9 +133,8 @@ def main(unused_argv, conf_script= None):
             if str.split(var.name, '/')[0] != 'tracker':
                 predictor_vars.append(var)
 
-    vars = tf.get_collection(tf.GraphKeys.GLOBAL_VARIABLES)
     # remove all states from group of variables which shall be saved and restored:
-    saver = tf.train.Saver(vars, max_to_keep=0)
+    loading_saver = tf.train.Saver(vars, max_to_keep=0)
 
     gpu_options = tf.GPUOptions(per_process_gpu_memory_fraction=0.9)
     # Make training session.
@@ -130,8 +148,8 @@ def main(unused_argv, conf_script= None):
 
     if conf['visualize']:
         if FLAGS.visualize_check:
-            load_checkpoint(conf, sess, saver, conf['visualize_check'])
-        else: load_checkpoint(conf, sess, saver)
+            load_checkpoint(conf, sess, loading_saver, conf['visualize_check'])
+        else: load_checkpoint(conf, sess, loading_saver)
 
         print '-------------------------------------------------------------------'
         print 'verify current settings!! '
@@ -149,7 +167,7 @@ def main(unused_argv, conf_script= None):
 
     itr_0 =0
     if FLAGS.pretrained != None:
-        itr_0 = load_checkpoint(conf, sess, saver, model_file=FLAGS.pretrained)
+        itr_0 = load_checkpoint(conf, sess, loading_saver, model_file=FLAGS.pretrained)
         print 'resuming training at iteration: ', itr_0
 
     print '-------------------------------------------------------------------'
@@ -185,7 +203,7 @@ def main(unused_argv, conf_script= None):
 
         if (itr) % SAVE_INTERVAL == 2:
             tf.logging.info('Saving model to' + conf['output_dir'])
-            saver.save(sess, conf['output_dir'] + '/model' + str(itr))
+            saving_saver.save(sess, conf['output_dir'] + '/model' + str(itr))
 
         t_iter.append((datetime.now() - t_startiter).seconds * 1e6 +  (datetime.now() - t_startiter).microseconds )
 
@@ -203,11 +221,9 @@ def main(unused_argv, conf_script= None):
             summary_writer.add_summary(summary_str, itr)
 
     tf.logging.info('Saving model.')
-    saver.save(sess, conf['output_dir'] + '/model')
+    saving_saver.save(sess, conf['output_dir'] + '/model')
     tf.logging.info('Training complete')
     tf.logging.flush()
-
-
 
 
 def load_checkpoint(conf, sess, saver, model_file=None):
@@ -228,6 +244,15 @@ def load_checkpoint(conf, sess, saver, model_file=None):
         num_iter = int(re.match('.*?([0-9]+)$', ckpt.model_checkpoint_path).group(1))
     conf['num_iter'] = num_iter
     return num_iter
+
+def filter_vars(vars):
+    newlist = []
+    for v in vars:
+        if not '/state:' in v.name:
+            newlist.append(v)
+        else:
+            print 'removed state variable from saving-list: ', v.name
+    return newlist
 
 if __name__ == '__main__':
     tf.logging.set_verbosity(tf.logging.INFO)

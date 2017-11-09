@@ -98,6 +98,13 @@ def main(unused_argv, conf_script= None):
     vars = tf.get_collection(tf.GraphKeys.GLOBAL_VARIABLES)
     # remove all states from group of variables which shall be saved and restored:
     vars_no_state = filter_vars(vars)
+
+    print 'vars to be restored:'
+    print '_____________'
+    for var in vars:
+        print var.name
+    pdb.set_trace()
+
     saver = tf.train.Saver(vars_no_state, max_to_keep=0)
 
     gpu_options = tf.GPUOptions(per_process_gpu_memory_fraction=0.9)

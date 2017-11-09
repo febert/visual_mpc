@@ -148,5 +148,5 @@ python_visual_mpc/region_proposal_networks/rpn_net/model/fasterrcnn_vgg_coco_net
 annotation_ckpts/
 test_annotations
 
-
+test_shuffled/
 preview

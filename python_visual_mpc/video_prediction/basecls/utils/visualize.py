@@ -305,7 +305,7 @@ def compute_metric(sess, conf, model, create_images=False):
                   'pos1_exp_dist_l':pos1_exp_dist_l
                   }, open(conf['output_dir'] + '/metric_values.pkl', 'wb'))
 
-    num_ex = 128
+    num_ex = 10
     fb_images = fb_images[:num_ex]
     if not create_images:
         fb_images = add_crosshairs(fb_images, fb_robot_pos, np.array([1,1,0]))

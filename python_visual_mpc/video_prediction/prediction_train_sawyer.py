@@ -554,7 +554,6 @@ def filter_vars(vars):
             newlist.append(v)
         else:
             print 'removed state variable from saving-list: ', v.name
-
     return newlist
 
 if __name__ == '__main__':

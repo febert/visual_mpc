@@ -25,7 +25,7 @@ class Alex_Interface_Model(object):
                  pix_distrib= None,
                  trafo_pix = True,
                  load_data = True,
-                 inference = None
+                 build_loss = None
                  ):
 
         modelconfiguration = conf['modelconfiguration']
@@ -101,6 +101,7 @@ class Alex_Interface_Model(object):
         self.prediction_flow = tf.unstack(self.model.gen_flow_map, axis=1)
         if trafo_pix:
             self.gen_distrib1 = tf.unstack(self.model.gen_pix_distribs, axis=1)
+
         self.gen_states = tf.unstack(self.model.gen_states)
 
         self.lr = tf.placeholder_with_default(self.conf['learning_rate'], ())

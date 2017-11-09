@@ -245,7 +245,7 @@ class Primitive_Executor(object):
                     # print 'current position error', self.des_pos[:3] - self.get_endeffector_pos(pos_only=True)
 
                     self.previous_des_pos = copy.deepcopy(self.des_pos)
-                    action_vec = self.act_joint(i_act)  # after completing trajectory save final state
+                    action_vec = self.act_random(i_act)  # after completing trajectory save final state
                     # print 'prev_desired pos in step {0}: {1}'.format(i_act, self.previous_des_pos)
                     # print 'new desired pos in step {0}: {1}'.format(i_act, self.des_pos)
                     # print 'action vec', action_vec
@@ -412,8 +412,7 @@ class Primitive_Executor(object):
             rospy.sleep(.5)
             raise Traj_aborted_except('raising Traj_aborted_except')
 
-
-    def act_joint(self, i_act):
+    def act_random(self, i_act):
         """
         only combined actions
         :param i_act:

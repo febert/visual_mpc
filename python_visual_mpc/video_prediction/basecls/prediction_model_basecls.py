@@ -21,6 +21,7 @@ class Base_Prediction_Model(object):
                 conf = None,
                 trafo_pix = True,
                 load_data = True,
+                build_loss = True
                 ):
         """
         :param conf:
@@ -130,6 +131,9 @@ class Base_Prediction_Model(object):
 
         self.build()
 
+        if build_loss:
+            self.build_loss()
+
     def random_shift(self, images, states, actions):
         print 'shifting the video sequence randomly in time'
         tshift = 2
@@ -201,7 +205,6 @@ class Base_Prediction_Model(object):
                                                                         t)
 
             current_state = self.build_network_core(action, current_state, self.prev_image)
-        self.build_loss()
 
     def apply_trafo_predict(self, enc6, hidden5):
         """
