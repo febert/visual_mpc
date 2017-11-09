@@ -270,7 +270,7 @@ def main(unused_argv, conf_script= None):
             conf['sequence_length'] = 30
 
     if 'sawyer' in conf:
-        if conf['adim'] == 5:
+        if 'adim' in conf and conf['adim'] == 5:
             from read_tf_record_wristrot import build_tfrecord_input
         else:
             from read_tf_record_sawyer12 import build_tfrecord_input
