@@ -56,6 +56,10 @@ def build_tfrecord_input(conf, training=True):
     load_indx = load_indx[:conf['sequence_length']]
     print 'using frame sequence: ', load_indx
 
+    rand_h = tf.random_uniform([1], minval=-0.3, maxval=0.3)
+    rand_s = tf.random_uniform([1], minval=-0.3, maxval=0.3)
+    rand_v = tf.random_uniform([1], minval=-0.3, maxval=0.3)
+
     for i in load_indx:
         if 'single_view' not in conf:
             image_main_name = str(i) + '/image_main/encoded'
@@ -105,7 +109,6 @@ def build_tfrecord_input(conf, training=True):
             image = tf.image.resize_image_with_crop_or_pad(image, crop_size, crop_size)
             image = tf.reshape(image, [1, crop_size, crop_size, COLOR_CHAN])
             image = tf.image.resize_bicubic(image, [IMG_HEIGHT, IMG_WIDTH])
-            image = tf.cast(image, tf.float32) / 255.0
             image_main_seq.append(image)
 
         image = tf.decode_raw(features[image_aux1_name], tf.uint8)
@@ -117,7 +120,18 @@ def build_tfrecord_input(conf, training=True):
         image = tf.image.resize_image_with_crop_or_pad(image, crop_size, crop_size)
         image = tf.reshape(image, [1, crop_size, crop_size, COLOR_CHAN])
         image = tf.image.resize_bicubic(image, [IMG_HEIGHT, IMG_WIDTH])
-        image = tf.cast(image, tf.float32) / 255.0
+
+        image_hsv = tf.image.rgb_to_hsv(image)
+        img_stack = [tf.unstack(imag, axis=2) for imag in tf.unstack(image_hsv, axis=0)]
+        stack_mod = [tf.stack([x[0] + rand_h,
+                               x[1] + rand_s,
+                               x[2] + rand_v]
+                              , axis=2) for x in img_stack]
+
+        image_rgb = tf.image.hsv_to_rgb(tf.stack(stack_mod))
+
+        image_rgb = tf.clip_by_value(image_rgb, 0.0, 255.0)
+        image = tf.cast(image_rgb, tf.float32) / 255.0
         image_aux1_seq.append(image)
 
         if 'canon_ex' in conf:
