@@ -114,7 +114,7 @@ def mult_task():
     # plt.bar(ind - width*0, dist_means_seen_stat, width, color='k', align='center', yerr=yerr_seen_stat, ecolor='k', label='seen objects stationary',alpha = .6)
 
     plt.ylabel('distance to goal in pixels')
-    plt.xticks(ind - width / 2, ('DNA [Finn et al] \nwith expected distance\n(ours)', 'OA-DNA \n with expected distance\n(ours)'))
+    plt.xticks(ind - width / 2, ('DNA [Finn et al] \nwith expected distance\n(ours)', 'SNA \n with expected distance\n(ours)'))
 
     plt.legend(loc="upper right")
     # plt.show()

@@ -164,18 +164,13 @@ class Visual_MPC_Server(object):
         return init_traj_visualmpcResponse()
 
     def get_action_handler(self, req):
+        print 'handling action'
 
-        self.traj.X_full[self.t, :] = req.state
+        self.traj.X_full[self.t, :] = req.state[:self.agentparams['sdim']]
         main_img = self.bridge.imgmsg_to_cv2(req.main)
         main_img = cv2.cvtColor(main_img, cv2.COLOR_BGR2RGB)
-        aux1_img = self.bridge.imgmsg_to_cv2(req.aux1)
-        aux1_img = cv2.cvtColor(aux1_img, cv2.COLOR_BGR2RGB)
 
-        if 'single_view' in self.netconf:
-            self.traj._sample_images[self.t] = main_img
-        else:
-            # flip order of main and aux1 to match training of double view architecture
-            self.traj._sample_images[self.t] = np.concatenate((aux1_img, main_img), 2)
+        self.traj._sample_images[self.t] = main_img
 
         self.desig_pos_aux1 = req.desig_pos_aux1
         self.goal_pos_aux1 = req.goal_pos_aux1
@@ -199,11 +194,17 @@ class Visual_MPC_Server(object):
         self.traj.U[self.t, :] = mj_U
 
         if self.t == self.agentparams['T'] -1:
+            cPickle.dump(self.cem_controller.dict_,open(self.netconf['current_dir'] + '/verbose/pred.pkl', 'wb'))
+            print 'finished writing files to:' + self.netconf['current_dir'] + '/verbose/pred.pkl'
+
             if 'no_pixdistrib_video' not in self.policyparams:
                 self.save_video()
 
         self.t += 1
-        return get_actionResponse(tuple(mj_U))
+
+        action_resp = np.zeros(self.agentparams['adim'])
+        action_resp[:self.agentparams['adim']] = mj_U
+        return get_actionResponse(tuple(action_resp))
 
     def save_video(self):
         file_path = self.netconf['current_dir'] + '/videos'

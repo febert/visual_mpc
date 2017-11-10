@@ -1,6 +1,6 @@
 # Byte-compiled / optimized / DLL files
 
-
+img/
 
 __pycache__/
 *.py[cod]
@@ -111,6 +111,9 @@ old/
 #gif files
 *.gif
 
+#video files
+*.mp4
+
 videos/
 videos_distrib/
 compare_graphs/
@@ -137,3 +140,14 @@ multobj_confs/
 longdistance/
 devel/
 cdna_accum_tf_factorized_dependent_mask_lstm_ln_5firstframes_l2/
+
+model/
+python_visual_mpc/region_proposal_networks/rpn_net/model/fasterrcnn_vgg_coco_net.tfmodel
+
+/python_visual_mpc/region_proposal_networks/bvlc_alexnet.npy
+/python_visual_mpc/flow/sparse_tracking/testdata/
+annotation_ckpts/
+test_annotations
+
+
+preview

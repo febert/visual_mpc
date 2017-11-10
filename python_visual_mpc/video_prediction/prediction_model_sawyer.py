@@ -23,6 +23,9 @@ from tensorflow.contrib.layers.python import layers as tf_layers
 from lstm_ops12 import basic_conv_lstm_cell
 from python_visual_mpc.misc.zip_equal import zip_equal
 
+from python_visual_mpc.video_prediction.basecls.utils.transformations import dna_transformation, sep_dna_transformation
+from python_visual_mpc.video_prediction.basecls.utils.transformations import cdna_transformation, sep_cdna_transformation
+
 import pdb
 
 # Amount to use when lower bounding tensors
@@ -81,6 +84,7 @@ class Prediction_Model(object):
         self.gen_masks = []
 
         self.moved_images = []
+        self.moved_bckgd = []
 
         self.moved_pix_distrib1 = []
         self.moved_pix_distrib2 = []
@@ -90,6 +94,17 @@ class Prediction_Model(object):
         self.gen_distrib2 = []
 
         self.trafos = []
+        self.movd_parts_list = []
+
+        self.flow_vectors = []
+
+        if 'separable_filters' in self.conf:
+            print 'applying separable filters'
+            self.dna_transformation = sep_dna_transformation
+            self.cdna_transformation = sep_cdna_transformation
+        else:
+            self.dna_transformation = dna_transformation
+            self.cdna_transformation = cdna_transformation
 
 
     def build(self):
@@ -264,102 +279,108 @@ class Prediction_Model(object):
 
                 if self.conf['model']=='DNA':
                     # Using largest hidden state for predicting untied conv kernels.
+
+                    if 'separable_filters' in self.conf:
+                        num_filters = KERN_SIZE*2
+                    else:
+                        num_filters = KERN_SIZE**2
+
                     trafo_input = slim.layers.conv2d_transpose(
-                        enc6, KERN_SIZE ** 2, 1, stride=1, scope='convt4_cam2')
+                        enc6,num_filters, 1, stride=1, scope='convt4_cam2')
 
-                    transformed_l = [self.dna_transformation(prev_image, trafo_input, self.conf['kern_size'])]
+                    transformed_l, _ = self.dna_transformation(self.conf, prev_image, trafo_input)
                     if self.pix_distributions1 != None:
-                        transf_distrib_ndesig1 = [self.dna_transformation(prev_pix_distrib1, trafo_input, KERN_SIZE)]
+                        transf_distrib_ndesig1, _ = self.dna_transformation(self.conf, prev_pix_distrib1, trafo_input)
                         if 'ndesig' in self.conf:
-                            transf_distrib_ndesig2 = [
-                                self.dna_transformation(prev_pix_distrib2, trafo_input, KERN_SIZE)]
-
-
-                    extra_masks = 1  ## extra_masks = 2 is needed for running singleview_shifted!!
-                    # print 'using extra masks 2 because of single view shifted!!'
-                    # extra_masks = 2
+                            transf_distrib_ndesig2, _ = self.dna_transformation(self.conf, prev_pix_distrib2, trafo_input)
+                    extra_masks = 1
 
                 if self.conf['model'] == 'CDNA':
                     if 'gen_pix' in self.conf:
+                        enc7 = slim.layers.conv2d_transpose(
+                            enc6, color_channels, 1, stride=1, scope='convt4')
                         transformed_l = [tf.nn.sigmoid(enc7)]
                         extra_masks = 2
                     else:
                         transformed_l = []
                         extra_masks = 1
 
+                    if 'mov_bckgd' in self.conf:
+                        extra_masks = self.num_masks
+
                     cdna_input = tf.reshape(hidden5, [int(batch_size), -1])
-                    new_transformed, _ = self.cdna_transformation(prev_image,
+                    new_transformed, cdna_kerns = self.cdna_transformation(self.conf, prev_image,
                                                             cdna_input,
                                                             reuse_sc=reuse)
                     transformed_l += new_transformed
                     self.moved_images.append(transformed_l)
 
+                    ## move the background is chosen:
+                    if 'mov_bckgd' in self.conf:
+                        cdna_input = tf.reshape(hidden5, [int(self.batch_size), -1])
+                        bckgd_transformed, _ = self.cdna_transformation(self.conf, self.images[0],
+                                                                        cdna_input,
+                                                                        reuse_sc=reuse,
+                                                                        scope='bckgd_trafo')
+                        self.moved_bckgd.append(bckgd_transformed)
+
                     if self.pix_distributions1 != None:
-                        transf_distrib_ndesig1, _ = self.cdna_transformation(prev_pix_distrib1,
-                                                                       cdna_input,
-                                                                         reuse_sc=True)
+                        transf_distrib_ndesig1, _ = self.cdna_transformation(self.conf, prev_pix_distrib1,
+                                                                                   cdna_input,
+                                                                                     reuse_sc=True)
                         self.moved_pix_distrib1.append(transf_distrib_ndesig1)
+
+                        if 'mov_bckgd' in self.conf:
+                            bcgkd_distrib = tf.reshape(self.pix_distributions1[0], (self.batch_size,64,64,1))
+                            transf_distrib_bckgd, _ = self.cdna_transformation(self.conf, bcgkd_distrib,
+                                                                                 cdna_input,
+                                                                                 reuse_sc=True,
+                                                                                 scope='bckgd_trafo')
                         if 'ndesig' in self.conf:
-                            transf_distrib_ndesig2, _ = self.cdna_transformation(
-                                                                               prev_pix_distrib2,
-                                                                               cdna_input,
-                                                                               reuse_sc=True)
+                            transf_distrib_ndesig2, _ = self.cdna_transformation(self.conf,
+                                                                                   prev_pix_distrib2,
+                                                                                   cdna_input,
+                                                                                   reuse_sc=True)
 
                             self.moved_pix_distrib2.append(transf_distrib_ndesig2)
-
-                if self.conf['model']=='STP':
-                    enc7 = slim.layers.conv2d_transpose(enc6, color_channels, 1, stride=1, scope='convt5', activation_fn= None)
-                    # This allows the network to also generate one image from scratch,
-                    # which is useful when regions of the image become unoccluded.
-                    if 'gen_pix' in self.conf:
-                        transformed_l = [tf.nn.sigmoid(enc7)]
-                        extra_masks = 2
-                    else:
-                        transformed_l = []
-                        extra_masks = 1
-
-                    enc_stp = tf.reshape(hidden5, [int(batch_size), -1])
-                    stp_input = slim.layers.fully_connected(
-                        enc_stp, 200, scope='fc_stp_cam2')
-
-                    # disabling capability to generete pixels
-                    reuse_stp = None
-                    if reuse:
-                        reuse_stp = reuse
-
-                    # enable the generation of pixels:
-                    transformed, trafo = self.stp_transformation(prev_image, stp_input, self.num_masks, reuse_stp, suffix='cam2')
-                    transformed_l += transformed
-
-                    self.trafos.append(trafo)
-                    self.moved_images.append(transformed_l)
-
-                    if self.pix_distributions1 != None:
-                        transf_distrib_ndesig1, _ = self.stp_transformation(prev_pix_distrib1, stp_input, suffix='cam2', reuse=True)
-                        self.moved_pix_distrib1.append(transf_distrib_ndesig1)
 
                 if '1stimg_bckgd' in self.conf:
                     background = self.images[0]
                     print 'using background from first image..'
                 else: background = prev_image
 
-                output, mask_list = self.fuse_trafos(enc6, background,
-                                                     transformed_l,
-                                                     scope='convt7_cam2',
-                                                     extra_masks= extra_masks)
-
+                if 'mov_bckgd' in self.conf:
+                    output, mask_list, moved_parts = self.fuse_trafos_movbckgd(
+                                                         enc6,
+                                                         bckgd_transformed,
+                                                         transformed_l,
+                                                         scope='convt7_cam2',
+                                                         extra_masks=extra_masks,
+                                                         reuse=reuse)
+                    self.movd_parts_list.append(moved_parts)
+                else:
+                    output, mask_list = self.fuse_trafos(enc6, background,
+                                                         transformed_l,
+                                                         scope='convt7_cam2',
+                                                         extra_masks= extra_masks)
 
                 self.gen_images.append(output)
                 self.gen_masks.append(mask_list)
 
                 if self.pix_distributions1!=None:
-                    pix_distrib_output = self.fuse_pix_distrib(extra_masks,
-                                                                mask_list,
-                                                                self.pix_distributions1,
-                                                                prev_pix_distrib1,
-                                                                transf_distrib_ndesig1)
+                    if 'mov_bckgd' in self.conf:
+                        pix_distrib_output = self.fuse_pix_movebckgd(mask_list,
+                                                                    transf_distrib_ndesig1,
+                                                                    transf_distrib_bckgd)
+                    else:
+                        pix_distrib_output = self.fuse_pix_distrib(extra_masks,
+                                                                    mask_list,
+                                                                    self.pix_distributions1,
+                                                                    prev_pix_distrib1,
+                                                                    transf_distrib_ndesig1)
 
                     self.gen_distrib1.append(pix_distrib_output)
+
                     if 'ndesig' in self.conf:
                         pix_distrib_output = self.fuse_pix_distrib(extra_masks,
                                                                     mask_list,
@@ -369,6 +390,16 @@ class Prediction_Model(object):
 
                         self.gen_distrib2.append(pix_distrib_output)
 
+                if 'visual_flowvec' in self.conf:
+                    motion_vecs = self.compute_motion_vector(cdna_kerns)
+                    output = tf.zeros([self.conf['batch_size'],64,64,2])
+                    for vec, mask in zip(motion_vecs, mask_list[1:]):
+                        vec = tf.reshape(vec, [self.conf['batch_size'], 1, 1, 2])
+                        vec = tf.tile(vec, [1, 64,64, 1])
+                        output += vec * mask
+
+                    self.flow_vectors.append(output)
+
                 if current_state != None:
                     current_state = slim.layers.fully_connected(
                         state_action,
@@ -377,8 +408,6 @@ class Prediction_Model(object):
                         activation_fn=None)
 
                 self.gen_states.append(current_state)
-
-
 
 
     def fuse_trafos(self, enc6, background_image, transformed, scope, extra_masks):
@@ -407,8 +436,8 @@ class Prediction_Model(object):
         # masks = tf.Print(masks, [tf.reduce_sum(tf.cast(tf.is_nan(masks), tf.int64))], message="masks nan check")
 
         mask_list = tf.split(axis=3, num_or_size_splits=num_masks +extra_masks, value=masks)
-        output = mask_list[0] * background_image
 
+        output = mask_list[0] * background_image
         for layer, mask in zip_equal(transformed, mask_list[1:]):
             # mask = tf.Print(mask, [tf.reduce_sum(tf.cast(tf.is_nan(mask), tf.int64))], message="transformed mask nan check")
             # layer = tf.Print(layer, [tf.reduce_sum(tf.cast(tf.is_nan(layer), tf.int64))],
@@ -423,6 +452,31 @@ class Prediction_Model(object):
 
         return output, mask_list
 
+    def fuse_trafos_movbckgd(self, enc6, moved_background_image, transformed, scope, extra_masks, reuse):
+        print 'moving backgd'
+        num_masks = self.conf['num_masks']
+        img_height = 64
+        img_width = 64
+
+        ## moving the background
+
+        masks = slim.layers.conv2d_transpose(
+            enc6, (self.conf['num_masks']+ extra_masks), 1, stride=1, scope=scope)
+        masks = tf.reshape(
+            tf.nn.softmax(tf.reshape(masks, [-1, num_masks +extra_masks])),
+            [int(self.batch_size), int(img_height), int(img_width), num_masks +extra_masks])
+        mask_list = tf.split(axis=3, num_or_size_splits=num_masks +extra_masks, value=masks)
+
+        complete_transformed = moved_background_image + transformed
+
+        output = 0
+        moved_parts = []
+        for layer, mask in zip_equal(complete_transformed, mask_list):
+            moved_parts.append(layer * mask)
+            output += layer * mask
+
+        return output, mask_list, moved_parts
+
     def fuse_pix_distrib(self, extra_masks, mask_list, pix_distributions, prev_pix_distrib,
                          transf_distrib):
 
@@ -436,6 +490,38 @@ class Prediction_Model(object):
         for i in range(self.num_masks):
             pix_distrib_output += transf_distrib[i] * mask_list[i + extra_masks]
         return pix_distrib_output
+
+    def fuse_pix_movebckgd(self, mask_list, transf_pix, transf_backgd_pix):
+        pix_distrib = transf_backgd_pix + transf_pix
+
+        pix_distrib_output = 0
+        for pix, mask in zip_equal(pix_distrib, mask_list):
+            pix_distrib_output += pix* mask
+        return pix_distrib_output
+
+    def compute_motion_vector(self, cdna_kerns):
+
+        range = self.conf['kern_size'] / 2
+        dc = np.linspace(-range, range, num= self.conf['kern_size'])
+        dc = np.expand_dims(dc, axis=0)
+        dc = np.repeat(dc, self.conf['kern_size'], axis=0)
+        dr = np.transpose(dc)
+        dr = tf.constant(dr, dtype=tf.float32)
+        dc = tf.constant(dc, dtype=tf.float32)
+
+        cdna_kerns = tf.transpose(cdna_kerns, [2, 3, 0, 1])
+        cdna_kerns = tf.split(cdna_kerns, self.conf['num_masks'], axis=1)
+        cdna_kerns = [tf.squeeze(k) for k in cdna_kerns]
+
+        vecs = []
+        for kern in cdna_kerns:
+            vec_r = tf.multiply(dr, kern)
+            vec_r = tf.reduce_sum(vec_r, axis=[1,2])
+            vec_c = tf.multiply(dc, kern)
+            vec_c = tf.reduce_sum(vec_c, axis=[1, 2])
+
+            vecs.append(tf.stack([vec_r,vec_c], axis=1))
+        return vecs
 
 
     ## Utility functions
@@ -466,113 +552,6 @@ class Prediction_Model(object):
             trafos.append(params)
 
         return transformed, trafos
-
-
-    def dna_transformation(self, prev_image, dna_input, DNA_KERN_SIZE):
-        """Apply dynamic neural advection to previous image.
-
-        Args:
-          prev_image: previous image to be transformed.
-          dna_input: hidden lyaer to be used for computing DNA transformation.
-        Returns:
-          List of images transformed by the predicted CDNA kernels.
-        """
-        # Construct translated images.
-        pad_len = int(np.floor(DNA_KERN_SIZE / 2))
-        prev_image_pad = tf.pad(prev_image, [[0, 0], [pad_len, pad_len], [pad_len, pad_len], [0, 0]])
-        image_height = int(prev_image.get_shape()[1])
-        image_width = int(prev_image.get_shape()[2])
-
-        inputs = []
-        for xkern in range(DNA_KERN_SIZE):
-            for ykern in range(DNA_KERN_SIZE):
-                inputs.append(
-                    tf.expand_dims(
-                        tf.slice(prev_image_pad, [0, xkern, ykern, 0],
-                                 [-1, image_height, image_width, -1]), [3]))
-        inputs = tf.concat(axis=3, values=inputs)
-
-        # Normalize channels to 1.
-        kernel = tf.nn.relu(dna_input - RELU_SHIFT) + RELU_SHIFT
-        kernel = tf.expand_dims(
-            kernel / tf.reduce_sum(
-                kernel, [3], keep_dims=True), [4])
-
-        return tf.reduce_sum(kernel * inputs, [3], keep_dims=False)
-
-    def cdna_transformation(self, prev_image, cdna_input, reuse_sc=None):
-        """Apply convolutional dynamic neural advection to previous image.
-
-        Args:
-          prev_image: previous image to be transformed.
-          cdna_input: hidden lyaer to be used for computing CDNA kernels.
-          num_masks: the number of masks and hence the number of CDNA transformations.
-          color_channels: the number of color channels in the images.
-        Returns:
-          List of images transformed by the predicted CDNA kernels.
-        """
-        batch_size = int(cdna_input.get_shape()[0])
-        height = int(prev_image.get_shape()[1])
-        width = int(prev_image.get_shape()[2])
-
-        DNA_KERN_SIZE = self.conf['kern_size']
-        num_masks = self.conf['num_masks']
-        color_channels = int(prev_image.get_shape()[3])
-        # cdna_input = tf.Print(cdna_input, [tf.reduce_sum(tf.cast(tf.logical_or(tf.is_nan(cdna_input), tf.is_inf(cdna_input)), tf.int64))],
-        #          message="cdna input nan/inf check")
-        # Predict kernels using linear function of last hidden layer.
-        cdna_kerns = slim.layers.fully_connected(
-            cdna_input,
-            DNA_KERN_SIZE * DNA_KERN_SIZE * num_masks,
-            scope='cdna_params',
-            activation_fn=None,
-            reuse = reuse_sc)
-
-        # Reshape and normalize.
-        cdna_kerns = tf.reshape(
-            cdna_kerns, [batch_size, DNA_KERN_SIZE, DNA_KERN_SIZE, 1, num_masks])
-
-        cdna_kerns = tf.nn.relu(cdna_kerns - RELU_SHIFT) + RELU_SHIFT
-        norm_factor = tf.reduce_sum(cdna_kerns, [1, 2, 3], keep_dims=True)
-        # norm_factor = tf.Print(norm_factor, [norm_factor],
-        #                       message="norm_factor values")
-        # cdna_kerns = tf.Print(cdna_kerns, [
-        #     tf.reduce_sum(tf.cast(tf.logical_or(tf.is_inf(cdna_kerns), tf.is_nan(cdna_kerns)), tf.int64))],
-        #                       message="cdna kerns inf/nan check")
-        cdna_kerns /= norm_factor
-
-        cdna_kerns_summary = cdna_kerns
-
-        # Transpose and reshape.
-        cdna_kerns = tf.transpose(cdna_kerns, [1, 2, 0, 4, 3])
-        cdna_kerns = tf.reshape(cdna_kerns, [DNA_KERN_SIZE, DNA_KERN_SIZE, batch_size, num_masks])
-
-        if prev_image.dtype == tf.float16:
-            image_batch_conv = []
-            #implementation of depthwise_conv2d as for loop. conv done once for each batch
-            for i in range(prev_image.shape[0]):
-                image_i = tf.expand_dims(tf.transpose(prev_image[i, :, :, :], [2,0,1]), axis = 3)
-                filt_i = tf.expand_dims(cdna_kerns[:, :, i, :], axis = 2)
-                # filt_i = tf.Print(filt_i, [tf.reduce_sum(tf.cast(tf.is_nan(filt_i), tf.int64))], message="cdna filt_"+str(i) +"nan check")
-                conv_result = tf.nn.conv2d(image_i, filt_i, [1, 1, 1, 1], 'SAME')
-                # conv_result = tf.Print(conv_result, [tf.reduce_sum(tf.cast(tf.is_nan(conv_result), tf.int64))], message="cdna conv_"+str(i) +" nan check")
-                image_batch_conv.append(tf.transpose(conv_result, [1,2,0,3]))
-
-            transformed = tf.stack(image_batch_conv, axis=0)
-            # transformed = tf.Print(transformed, [tf.reduce_sum(tf.cast(tf.is_nan(transformed), tf.int64))], message="cdna transformed nan check")
-            transformed = tf.unstack(value=transformed, axis=-1)
-
-        else:
-            prev_image = tf.transpose(prev_image, [3, 1, 2, 0])
-            transformed = tf.nn.depthwise_conv2d(prev_image, cdna_kerns, [1, 1, 1, 1], 'SAME')
-
-            # Transpose and reshape.
-            transformed = tf.reshape(transformed, [color_channels, height, width, batch_size, num_masks])
-            transformed = tf.transpose(transformed, [3, 1, 2, 0, 4])
-            transformed = tf.unstack(value=transformed, axis=-1)
-
-
-        return transformed, cdna_kerns_summary
 
 
 def scheduled_sample(ground_truth_x, generated_x, batch_size, num_ground_truth):

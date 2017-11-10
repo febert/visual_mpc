@@ -11,9 +11,10 @@ from python_visual_mpc.video_prediction.utils_vpred.create_gif_lib import *
 
 from PIL import Image
 import pdb
-
-
+from python_visual_mpc.video_prediction.misc.makegifs2 import create_video_pixdistrib_gif
+from python_visual_mpc.video_prediction.utils_vpred.animate_tkinter import Visualizer_tkinter
 import matplotlib.pyplot as plt
+import collections
 
 class CEM_controller():
     """
@@ -65,8 +66,17 @@ class CEM_controller():
             self.action_cost_factor = self.policyparams['action_cost_factor']
         else: self.action_cost_factor = 0
 
-        self.adim = 4  # action dimensions: deltax, delty, close_nstep, hold_nstep
+        #action dimensions:
+        #no rotations:  deltax, delty, close_nstep, goup_nstep;
+        # with rotations:  deltax, delty, goup_nstep, delta_rot, close_nstep
+        self.adim = self.agentparams['adim']
         self.initial_std = policyparams['initial_std']
+
+        # define which indices of the action vector shall be discretized:
+        if self.adim == 4:
+            self.discrete_ind = [2, 3]
+        elif self.adim == 5:
+            self.discrete_ind = [2, 4]
 
         # predicted positions
         self.pred_pos = np.zeros((self.M, self.niter, self.repeat * self.naction_steps, 2))
@@ -75,16 +85,19 @@ class CEM_controller():
 
         self.indices =[]
 
-        self.rec_input_distrib = []  # record the input distributions
         if 'ndesig' in self.policyparams:
             self.rec_input_distrib1 = []  # record the input distributions
             self.rec_input_distrib2 = []  # record the input distributions
+        else:
+            self.rec_input_distrib = []  # record the input distributions
 
         self.target = np.zeros(2)
 
         self.mean =None
         self.sigma =None
         self.goal_image = None
+
+        self.dict_ = collections.OrderedDict()
 
     def calc_action_cost(self, actions):
         actions_costs = np.zeros(self.M)
@@ -94,38 +107,69 @@ class CEM_controller():
             actions_costs[smp]=np.sum(np.square(force_magnitudes)) * self.action_cost_factor
         return actions_costs
 
-
     def discretize(self, actions):
         for b in range(self.M):
             for a in range(self.naction_steps):
-                actions[b, a, 2] = np.floor(actions[b, a, 2])
-                if actions[b, a, 2] < 0:
-                    actions[b, a, 2] = 0
-                if actions[b, a, 2] > 4:
-                    actions[b, a, 2] = 4
+                for ind in self.discrete_ind:
+                    actions[b, a, ind] = np.clip(np.floor(actions[b, a, ind]), 0, 4)
 
-                actions[b, a, 3] = np.floor(actions[b, a, 3])
-                if actions[b, a, 3] < 0:
-                    actions[b, a, 3] = 0
-                if actions[b, a, 3] > 4:
-                    actions[b, a, 3] = 4
         return actions
 
     def truncate_movement(self, actions):
-        actions[:,:,:2] = np.clip(actions[:,:,:2], -.07, .07)  # clip in units of meters
+        if 'maxshift' in self.policyparams:
+            maxshift = self.policyparams['maxshift']
+        else:
+            maxshift = .09
+        actions[:,:,:2] = np.clip(actions[:,:,:2], -maxshift, maxshift)  # clip in units of meters
+
+        if self.adim == 5: # if rotation is enabled
+            maxrot = np.pi / 4
+            actions[:, :, 3] = np.clip(actions[:, :, 3], -maxrot, maxrot)
         return actions
+
+    def construct_initial_sigma(self):
+        xy_std = self.policyparams['initial_std']
+
+        if 'initial_std_grasp' in self.policyparams:
+            gr_std = self.policyparams['initial_std_grasp']
+        else: gr_std = 1.
+
+        if 'initial_std_lift' in self.policyparams:
+            lift_std = self.policyparams['initial_std_lift']
+        else: lift_std = 1.
+
+        if self.adim == 5:
+            if 'initial_std_rot' in self.policyparams:
+                rot_std = self.policyparams['initial_std_rot']
+            else: rot_std = 1.
+
+        diag = []
+        for t in range(self.naction_steps):
+            if self.adim == 5:
+                diag.append(np.array([xy_std**2, xy_std**2, lift_std**2, rot_std**2, gr_std**2]))
+            else:
+                diag.append(np.array([xy_std**2, xy_std**2, gr_std**2, lift_std**2]))
+
+        diagonal = np.concatenate(diag, axis=0)
+        sigma = np.diag(diagonal)
+        return sigma
 
     def perform_CEM(self,last_frames, last_states, t):
         # initialize mean and variance
         self.mean = np.zeros(self.adim * self.naction_steps)
         #initialize mean and variance of the discrete actions to their mean and variance used during data collection
-        self.sigma = np.diag(np.ones(self.adim * self.naction_steps) * self.initial_std ** 2)
-        # reducing the variance for goup and close actiondims
-        diagonal = copy.deepcopy(np.diag(self.sigma))
-        diagonal[2::4] = 1
-        diagonal[3::4] = 1
-        self.sigma[np.diag_indices_from(self.sigma)] = diagonal
 
+        self.sigma = self.construct_initial_sigma()
+        # self.sigma = np.diag(np.ones(self.adim * self.naction_steps) * self.initial_std ** 2)
+        # # reducing the variance for goup and close actiondims
+        #
+        # diagonal = copy.deepcopy(np.diag(self.sigma))
+        # for tind in range(self.naction_steps):
+        #     for ind in self.discrete_ind:
+        #         diagonal[tind*self.adim + ind] = 1.
+        #
+        #
+        # self.sigma[np.diag_indices_from(self.sigma)] = diagonal
 
         print '------------------------------------------------'
         print 'starting CEM cylce'
@@ -134,13 +178,13 @@ class CEM_controller():
             print '------------'
             print 'iteration: ', itr
             t_startiter = datetime.now()
-
             actions = np.random.multivariate_normal(self.mean, self.sigma, self.M)
             actions = actions.reshape(self.M, self.naction_steps, self.adim)
             actions = self.discretize(actions)
             actions = self.truncate_movement(actions)
 
             actions = np.repeat(actions, self.repeat, axis=1)
+
 
             if 'random_policy' in self.policyparams:
                 print 'sampling random actions'
@@ -221,18 +265,21 @@ class CEM_controller():
         last_states = np.expand_dims(last_states, axis=0)
         last_states = np.repeat(last_states, self.netconf['batch_size'], axis=0)
 
-        if 'single_view' in self.netconf:
-            img_channels = 3
-        else: img_channels = 6
         last_frames = np.expand_dims(last_frames, axis=0)
         last_frames = np.repeat(last_frames, self.netconf['batch_size'], axis=0)
         app_zeros = np.zeros(shape=(self.netconf['batch_size'], self.netconf['sequence_length']-
-                                    self.netconf['context_frames'], self.img_height, self.img_width, img_channels))
+                                    self.netconf['context_frames'], self.img_height, self.img_width, 3))
         last_frames = np.concatenate((last_frames, app_zeros), axis=1)
         last_frames = last_frames.astype(np.float32)/255.
 
         if 'ndesig' in self.policyparams:
             input_distrib1, input_distrib2 = self.make_input_distrib(itr)
+            # f, axarr = plt.subplots(2, 1)
+            # axarr[0].imshow(np.squeeze(input_distrib1[0][0]), cmap=plt.get_cmap('jet'))
+            # axarr[0].set_title('input_distrib1', fontsize=8)
+            # axarr[1].imshow(np.squeeze(input_distrib2[0][0]), cmap=plt.get_cmap('jet'))
+            # axarr[1].set_title('input_distrib2', fontsize=8)
+            # plt.show()
             gen_images, gen_distrib1, gen_distrib2, gen_states, _ = self.predictor(input_images=last_frames,
                                                                                 input_state=last_states,
                                                                                 input_actions=actions,
@@ -253,8 +300,25 @@ class CEM_controller():
 
         else:
             input_distrib = self.make_input_distrib(itr)
+
+            # debug
+            # plt.figure()
+            # f, axarr = plt.subplots(2, 2)
+            # axarr[0,0].imshow(np.squeeze(last_frames[0][0]), cmap=plt.get_cmap('jet'))
+            # axarr[0,0].set_title('im0', fontsize=8)
+            # axarr[0, 1].imshow(np.squeeze(last_frames[0][1]), cmap=plt.get_cmap('jet'))
+            # axarr[0, 1].set_title('im1', fontsize=8)
+            #
+            # axarr[1, 0].imshow(np.squeeze(input_distrib[0][0]), cmap=plt.get_cmap('jet'))
+            # axarr[1, 0].set_title('p0', fontsize=8)
+            # axarr[1, 1].imshow(np.squeeze(input_distrib[0][1]), cmap=plt.get_cmap('jet'))
+            # axarr[1, 1].set_title('p1', fontsize=8)
+            # plt.show()
+            # pdb.set_trace()
+            # end debug
+
             gen_images, gen_distrib, _, gen_states, _ = self.predictor(input_images=last_frames,
-                                                                    input_state=last_states,
+                                                                    input_state=last_states.astype(np.float32),
                                                                     input_actions=actions,
                                                                     input_one_hot_images1=input_distrib)
 
@@ -286,7 +350,9 @@ class CEM_controller():
         bestindices = scores.argsort()[:self.K]
 
 
-        if self.verbose and itr == self.policyparams['iterations']-1:
+        # if self.verbose and itr == self.policyparams['iterations']-1:
+
+        if self.verbose:
             # print 'creating visuals for best sampled actions at last iteration...'
             if self.save_subdir != None:
                 file_path = self.netconf['current_dir']+ '/'+ self.save_subdir +'/verbose'
@@ -304,19 +370,35 @@ class CEM_controller():
                         outputlist[tstep][ind] = inputlist[tstep][bestindices[ind]]
                 return outputlist
 
+            usebest = False
+            if usebest:
+                self.dict_['gen_images_t{}'.format(self.t)] = best(gen_images)
 
-            cPickle.dump(best(gen_images), open(file_path + '/gen_image_t{}.pkl'.format(self.t), 'wb'))
+                if 'ndesig' in self.policyparams:
+                    self.dict_['gen_distrib1_t{}'.format(self.t)] = best(gen_distrib1)
+                    self.dict_['gen_distrib2_t{}'.format(self.t)] = best(gen_distrib2)
+                else:
+                    self.dict_['gen_distrib_t{}'.format(self.t)] = best(gen_distrib)
 
-            if 'ndesig' in self.policyparams:
-                cPickle.dump(best(gen_distrib1), open(file_path + '/gen_distrib1_t{}.pkl'.format(self.t), 'wb'))
-                cPickle.dump(best(gen_distrib2), open(file_path + '/gen_distrib2_t{}.pkl'.format(self.t), 'wb'))
+
+                if not 'no_instant_gif' in self.policyparams:
+                    t_dict_ = {}
+                    t_dict_['gen_images_t{}'.format(self.t)] = best(gen_images)
+                    if 'ndesig' in self.policyparams:
+                        t_dict_['gen_distrib1_t{}'.format(self.t)] = best(gen_distrib1)
+                        t_dict_['gen_distrib2_t{}'.format(self.t)] = best(gen_distrib2)
+                    else:
+                        t_dict_['gen_distrib_t{}'.format(self.t)] = best(gen_distrib)
+                    v = Visualizer_tkinter(t_dict_, append_masks=False,
+                                           filepath=self.policyparams['current_dir'] + '/verbose',
+                                           numex=5)
+                    v.build_figure()
             else:
-                cPickle.dump(best(gen_distrib), open(file_path + '/gen_distrib_t{}.pkl'.format(self.t), 'wb'))
-
-            print 'written files to:' + file_path
-            if not 'no_instant_gif' in self.policyparams:
-                create_video_pixdistrib_gif(file_path, self.netconf, t=self.t, n_exp=10,
-                                            suppress_number=True, suffix='iter{}_t{}'.format(itr, self.t))
+                print 'saving every 20th'
+                gen_images_every_kth = [g[::20] for g in gen_images]
+                gen_distrib_every_kth = [g[::20] for g in gen_distrib]
+                self.dict_['gen_images_t{}_iter{}'.format(self.t, itr)] = gen_images_every_kth
+                self.dict_['gen_distrib_t{}_iter{}'.format(self.t, itr)] = gen_distrib_every_kth
 
         bestindex = scores.argsort()[0]
         if 'store_video_prediction' in self.agentparams and\
@@ -394,16 +476,14 @@ class CEM_controller():
             init_model: mujoco model to initialize from
         """
         self.t = t
+        print 'starting cem at t{}...'.format(t)
 
         self.desig_pix = np.array(desig_pix).reshape((2, 2))
         if t == 0:
-            action = np.zeros(4)
+            action = np.zeros(self.agentparams['adim'])
             self.goal_pix = np.array(goal_pix).reshape((2,2))
         else:
-            if 'single_view' in self.netconf:
-                last_images = traj._sample_images[t - 1:t + 1]   # second image shall contain front view
-            else:
-                last_images = traj._sample_images[t-1:t+1]
+            last_images = traj._sample_images[t - 1:t + 1]   # second image shall contain front view
             last_states = traj.X_full[t-1: t+1]
 
             if 'use_first_plan' in self.policyparams:
@@ -420,8 +500,16 @@ class CEM_controller():
                 self.perform_CEM(last_images, last_states, t)
                 action = self.bestaction[0]
 
+                print '########'
+                print 'best action sequence: '
+                for i in range(self.bestaction.shape[0]):
+                    print "t{}: {}".format(i, self.bestaction[i])
+                print '########'
+
+
         self.action_list.append(action)
-        print 'timestep: ', t, ' taking action: ', action
+        # print 'timestep: ', t, ' taking action: ', action
+
 
         force = action
 

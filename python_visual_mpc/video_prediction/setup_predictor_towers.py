@@ -2,15 +2,19 @@ import tensorflow as tf
 import imp
 import numpy as np
 import pdb
+import copy
 
 from PIL import Image
 import os
 
 from datetime import datetime
+from python_visual_mpc.video_prediction.dynamic_rnn_model.dynamic_base_model import Dynamic_Base_Model
+from python_visual_mpc.video_prediction.dynamic_rnn_model.alex_model_interface import Alex_Interface_Model
 
 class Tower(object):
     def __init__(self, conf, gpu_id, start_images, actions, start_states, pix_distrib1,pix_distrib2):
         nsmp_per_gpu = conf['batch_size']/ conf['ngpu']
+        # setting the per gpu batch_size
 
         # picking different subset of the actions for each gpu
         startidx = gpu_id * nsmp_per_gpu
@@ -23,17 +27,23 @@ class Tower(object):
 
         print 'startindex for gpu {0}: {1}'.format(gpu_id, startidx)
 
-        from prediction_train_sawyer import Model
-
-
-        if 'ndesig' in conf:
-            self.model = Model(conf, start_images, actions, start_states, pix_distrib=pix_distrib1,pix_distrib2=pix_distrib2, inference=True)
-            # self.model = Model(conf, start_images, actions, start_states, pix_distrib=pix_distrib1,
-            #                    pix_distrib2=pix_distrib2,
-            #                    reuse_scope=reuse_scope)
+        if 'pred_model' in conf:
+            Model = conf['pred_model']
+            print 'using pred_model', Model
         else:
-            # self.model = Model(conf,start_images,actions,start_states, pix_distrib=pix_distrib1, reuse_scope= reuse_scope)
-            self.model = Model(conf, start_images, actions, start_states, pix_distrib=pix_distrib1, inference=True)
+            from prediction_train_sawyer import Model
+
+        # this is to keep compatiblity with old model implementations (without basecls structure)
+        if hasattr(Model,'m'):
+            for name, value in Model.m.__dict__.iteritems():
+                setattr(Model, name, value)
+
+        modconf = copy.deepcopy(conf)
+        modconf['batch_size'] = nsmp_per_gpu
+        if 'ndesig' in conf:
+            self.model = Model(modconf, start_images, actions, start_states, pix_distrib=pix_distrib1,pix_distrib2=pix_distrib2, inference=True)
+        else:
+            self.model = Model(modconf, start_images, actions, start_states, pix_distrib=pix_distrib1, inference=True)
 
 def setup_predictor(conf, gpu_id=0, ngpu=1):
     """
@@ -78,19 +88,30 @@ def setup_predictor(conf, gpu_id=0, ngpu=1):
         img_height = 64
         img_width = 64
 
-    start_images = tf.placeholder(tf.float32, name='images',  # with zeros extension
-                                    shape=(conf['batch_size'], conf['sequence_length'], img_height, img_width, 3))
-
-    if 'sawyer' in conf:
-        actions = tf.placeholder(tf.float32, name='actions',
-                                        shape=(conf['batch_size'],conf['sequence_length'], 4))
-        start_states = tf.placeholder(tf.float32, name='states',
-                                        shape=(conf['batch_size'],conf['context_frames'], 3))
+    images_pl = tf.placeholder(tf.float32, name='images',
+                               shape=(conf['batch_size'], conf['sequence_length'], img_height, img_width, 3))
+    if 'sdim' in conf:
+        sdim = conf['sdim']
     else:
-        actions = tf.placeholder(tf.float32, name='actions',
-                                 shape=(conf['batch_size'], conf['sequence_length'], 2))
-        start_states = tf.placeholder(tf.float32, name='states',
-                                      shape=(conf['batch_size'], conf['context_frames'], 4))
+        if 'sawyer' in conf:
+            sdim = 3
+        else:
+            sdim = 4
+    if 'adim' in conf:
+        adim = conf['adim']
+    else:
+        if 'sawyer' in conf:
+            adim = 4
+        else:
+            adim = 2
+    print 'adim', adim
+    print 'sdim', sdim
+
+    actions_pl = tf.placeholder(tf.float32, name='actions',
+                                shape=(conf['batch_size'], conf['sequence_length'], adim))
+    states_pl = tf.placeholder(tf.float32, name='states',
+                               shape=(conf['batch_size'], conf['context_frames'], sdim))
+
     pix_distrib_1 = tf.placeholder(tf.float32, shape=(conf['batch_size'], conf['context_frames'], img_height, img_width, 1))
     pix_distrib_2 = tf.placeholder(tf.float32, shape=(conf['batch_size'], conf['context_frames'], img_height, img_width, 1))
 
@@ -98,9 +119,6 @@ def setup_predictor(conf, gpu_id=0, ngpu=1):
     towers = []
     scope = 'model'
     if 'float16' in conf:
-        start_images = tf.cast(start_images, tf.float16)
-        actions = tf.cast(actions, tf.float16)
-        start_states = tf.cast(start_states, tf.float16)
         pix_distrib_1 = tf.cast(pix_distrib_1, tf.float16)
         pix_distrib_2 = tf.cast(pix_distrib_2, tf.float16)
         scope = 'half_float'
@@ -111,28 +129,45 @@ def setup_predictor(conf, gpu_id=0, ngpu=1):
                 with tf.name_scope('tower_%d' % (i_gpu)):
                     print('creating tower %d: in scope %s' % (i_gpu, tf.get_variable_scope()))
                     # print 'reuse: ', tf.get_variable_scope().reuse
-
-
                     # towers.append(Tower(conf, i_gpu, training_scope, start_images, actions, start_states, pix_distrib_1, pix_distrib_2))
-
-                    towers.append(Tower(conf, i_gpu, start_images, actions, start_states, pix_distrib_1,
-                                        pix_distrib_2))
+                    towers.append(Tower(conf, i_gpu, images_pl, actions_pl, states_pl, pix_distrib_1,
+                                                pix_distrib_2))
                     tf.get_variable_scope().reuse_variables()
 
     sess.run(tf.global_variables_initializer())
 
-    # saver = tf.train.Saver(tf.get_collection(tf.GraphKeys.GLOBAL_VARIABLES), max_to_keep=0)
     vars = tf.get_collection(tf.GraphKeys.GLOBAL_VARIABLES)
-    # remove all states from group of variables which shall be saved and restored:
-    vars_no_state = filter_vars(vars)
-    saver = tf.train.Saver(vars_no_state, max_to_keep=0)
+    vars = filter_vars(vars)
+
+    if 'pred_model' in conf:
+        if conf['pred_model'] == Alex_Interface_Model or conf['pred_model'] == Dynamic_Base_Model:
+            print "removing /model tag"
+            #cutting off the /model tag
+            vars = dict([('/'.join(var.name.split(':')[0].split('/')[1:]), var) for var in vars])
+        # for k in vars.keys():
+        #     print k
+        # print 'variables to fill out'
+        # pdb.set_trace()
+        #add generator tag
+        if conf['pred_model'] ==  Dynamic_Base_Model:
+            print 'adding "generator" tag!!!'
+            newvars = {}
+            for key in vars.keys():
+                newvars['generator/' + key]  = vars[key]
+            vars = newvars
+        # for k in vars.keys():
+        #     print k
+        # print 'names to look for'
+        # pdb.set_trace()
 
     if 'float16' in conf:
         restore_dir = conf['pretrained_model'] + 'float16'
     else:
         restore_dir = conf['pretrained_model']
-    print 'restoring from', restore_dir
+
+    saver = tf.train.Saver(vars, max_to_keep=0)
     saver.restore(sess, restore_dir)
+
     print 'restore done. '
 
     comb_gen_img = []
@@ -141,17 +176,17 @@ def setup_predictor(conf, gpu_id=0, ngpu=1):
     comb_gen_states = []
 
     for t in range(conf['sequence_length']-1):
-        t_comb_gen_img = [to.model.m.gen_images[t] for to in towers]
+        t_comb_gen_img = [to.model.gen_images[t] for to in towers]
         comb_gen_img.append(tf.concat(axis=0, values=t_comb_gen_img))
 
         if not 'no_pix_distrib' in conf:
-            t_comb_pix_distrib1 = [to.model.m.gen_distrib1[t] for to in towers]
+            t_comb_pix_distrib1 = [to.model.gen_distrib1[t] for to in towers]
             comb_pix_distrib1.append(tf.concat(axis=0, values=t_comb_pix_distrib1))
             if 'ndesig' in conf:
-                t_comb_pix_distrib2 = [to.model.m.gen_distrib2[t] for to in towers]
+                t_comb_pix_distrib2 = [to.model.gen_distrib2[t] for to in towers]
                 comb_pix_distrib2.append(tf.concat(axis=0, values=t_comb_pix_distrib2))
 
-        t_comb_gen_states = [to.model.m.gen_states[t] for to in towers]
+        t_comb_gen_states = [to.model.gen_states[t] for to in towers]
         comb_gen_states.append(tf.concat(axis=0, values=t_comb_gen_states))
 
 
@@ -169,9 +204,9 @@ def setup_predictor(conf, gpu_id=0, ngpu=1):
             feed_dict[t.model.iter_num] = 0
             feed_dict[t.model.lr] = 0.0
 
-        feed_dict[start_images] = input_images
-        feed_dict[start_states] = input_state
-        feed_dict[actions] = input_actions
+        feed_dict[images_pl] = input_images
+        feed_dict[states_pl] = input_state
+        feed_dict[actions_pl] = input_actions
 
         if 'no_pix_distrib' in conf:
             gen_images, gen_states = sess.run([comb_gen_img,
@@ -207,7 +242,6 @@ def setup_predictor(conf, gpu_id=0, ngpu=1):
 
     return predictor_func
 
-
 def filter_vars(vars):
     newlist = []
     for v in vars:
@@ -217,4 +251,3 @@ def filter_vars(vars):
             print 'removed state variable from saving-list: ', v.name
 
     return newlist
-

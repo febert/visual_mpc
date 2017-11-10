@@ -3,13 +3,12 @@ import numpy
 
 from python_visual_mpc.video_prediction.utils_vpred.create_gif_lib import *
 from PIL import Image
+import colorsys
 
 
-
-def comp_gif(conf, file_path, name= "", examples = 10, append_masks=False, suffix = ''):
+def comp_gif(conf, file_path, name= "", examples = 4, append_masks=False, suffix = ''):
     dict_ = cPickle.load(open(file_path + '/pred.pkl','rb'))
 
-    pdb.set_trace()
     videolist = []
 
     if 'ground_truth' in dict_:
@@ -20,7 +19,7 @@ def comp_gif(conf, file_path, name= "", examples = 10, append_masks=False, suffi
 
             ground_truth = ground_truth[1:]
 
-        videolist += ground_truth
+        videolist.append(ground_truth)
 
     gen_images = dict_['gen_images']
     videolist.append(gen_images)
@@ -42,6 +41,8 @@ def comp_gif(conf, file_path, name= "", examples = 10, append_masks=False, suffi
 
         videolist.append(gen_pix_distrib)
 
+    if 'flow_vectors' in dict_:
+        videolist.append(visualize_flow(dict_))
 
     fused_gif = assemble_gif(videolist, num_exp= examples)
     # itr_vis = re.match('.*?([0-9]+)$', conf['visualize']).group(1)
@@ -102,12 +103,39 @@ def pad_pos(conf, vid, pos, origsize = 64):
 
     return padded_vid
 
+def visualize_flow(dict_):
+    flow_vecs = dict_['flow_vectors']
+    bsize = flow_vecs[0].shape[0]
+    T = len(flow_vecs)
+
+    magnitudes = [np.linalg.norm(f, axis=3) for f in flow_vecs]
+    max_magnitude = np.max(magnitudes)
+    norm_magnitudes = [m / max_magnitude for m in magnitudes]
+
+    magnitudes = [np.expand_dims(m, axis=3) for m in magnitudes]
+
+    #pixelflow vectors normalized for unit length
+    norm_flow = [np.divide(f, m) for f, m in zip(flow_vecs, magnitudes)]
+    flow_angle = [np.arctan2(p[:, :, :, 0], p[:, :, :, 1]) for p in norm_flow]
+    color_flow = [np.zeros((bsize, 64, 64, 3)) for _ in range(T)]
+
+    for t in range(T):
+        for b in range(bsize):
+            for r in range(64):
+                for c in range(64):
+                    color_flow[t][b, r, c] = colorsys.hsv_to_rgb((flow_angle[t][b, r, c] +np.pi) / 2 / np.pi,
+                                                              norm_magnitudes[t][b, r, c],
+                                                              1.)
+
+    return color_flow
+
 
 if __name__ == '__main__':
-    file_path = '/home/frederik/Documents/visual_mpc/tensorflow_data/sawyer/1stimg_bckgd_cdna'
+    file_path = '/home/frederik/Documents/visual_mpc/tensorflow_data/sawyer/move_1stbckgd_cdna'
     hyperparams = imp.load_source('hyperparams', file_path +'/conf.py')
 
     conf = hyperparams.configuration
     conf['visualize'] = conf['output_dir'] + '/model92002'
 
-    comp_gif(conf, file_path + '/modeldata', append_masks=True, suffix='diffmotions')
+    comp_gif(conf, file_path + '/modeldata', append_masks=True)
+    # comp_gif(conf, file_path + '/modeldata', append_masks=True, suffix='diffmotions')
