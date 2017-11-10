@@ -103,34 +103,11 @@ def main(unused_argv, conf_script= None):
     vars = filter_vars(vars)
     saving_saver = tf.train.Saver(vars, max_to_keep=0)
 
-    vars = variable_checkpoint_matcher(conf, vars)
-
-    # print 'begin vars to fill out'
-    # for var in vars:
-    #     print var.name
-    # print 'end vars to fill out'
-    # pdb.set_trace()
-    #
-    # vars = dict([(var.name.split(':')[0], var) for var in vars])
-    #
-    # if isinstance(Model, Alex_Interface_Model) or 'add_generator_tag' in conf:
-    #     print 'adding "generator" tag!!!'
-    #     newvars = {}
-    #     for key in vars.keys():
-    #         newvars['generator/' + key] = vars[key]
-    #     vars = newvars
-    #
-    # print 'adding "model" tag!!!'
-    # newvars = {}
-    # for key in vars.keys():
-    #     newvars['model/' + key] = vars[key]
-    # vars = newvars
-    #
-    # print 'begin vars to load'
-    # for k in vars.keys():
-    #     print k
-    # print 'end vars to load'
-    # pdb.set_trace()
+    # for loading variables when visualizing
+    if FLAGS.visualize or FLAGS.visualize_check:
+        load_vars = variable_checkpoint_matcher(conf, vars)
+        # remove all states from group of variables which shall be saved and restored:
+        loading_saver = tf.train.Saver(load_vars, max_to_keep=0)
 
     if isinstance(model, Single_Point_Tracking_Model) and not (FLAGS.visualize or FLAGS.visualize_check):
         # initialize the predictor from pretrained weights
@@ -141,8 +118,6 @@ def main(unused_argv, conf_script= None):
             if str.split(var.name, '/')[0] != 'tracker':
                 predictor_vars.append(var)
 
-    # remove all states from group of variables which shall be saved and restored:
-    loading_saver = tf.train.Saver(vars, max_to_keep=0)
 
     gpu_options = tf.GPUOptions(per_process_gpu_memory_fraction=0.9)
     # Make training session.
