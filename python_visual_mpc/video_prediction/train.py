@@ -79,7 +79,7 @@ def main(unused_argv, conf_script= None):
 
         conf['sequence_length'] = 14
         if FLAGS.diffmotions:
-            conf['sequence_length'] = 30
+            conf['sequence_length'] = 15 #!!!!!!!!!!!!!!!!!!!
 
         # when using alex interface:
         if 'modelconfiguration' in conf:
@@ -103,26 +103,34 @@ def main(unused_argv, conf_script= None):
     vars = filter_vars(vars)
     saving_saver = tf.train.Saver(vars, max_to_keep=0)
 
-    print 'begin vars to fill out'
-    for var in vars:
-        print var.name
-    print 'end vars to fill out'
-    pdb.set_trace()
+    vars = variable_checkpoint_matcher(conf, vars)
 
-    vars = dict([(var.name.split(':')[0], var) for var in vars])
-
-    if isinstance(Model, Alex_Interface_Model) or 'add_generator_tag' in conf:
-        print 'adding "generator" tag!!!'
-        newvars = {}
-        for key in vars.keys():
-            newvars['generator/' + key] = vars[key]
-        vars = newvars
-
-    print 'begin vars to load'
-    for k in vars.keys():
-        print k
-    print 'end vars to load'
-    pdb.set_trace()
+    # print 'begin vars to fill out'
+    # for var in vars:
+    #     print var.name
+    # print 'end vars to fill out'
+    # pdb.set_trace()
+    #
+    # vars = dict([(var.name.split(':')[0], var) for var in vars])
+    #
+    # if isinstance(Model, Alex_Interface_Model) or 'add_generator_tag' in conf:
+    #     print 'adding "generator" tag!!!'
+    #     newvars = {}
+    #     for key in vars.keys():
+    #         newvars['generator/' + key] = vars[key]
+    #     vars = newvars
+    #
+    # print 'adding "model" tag!!!'
+    # newvars = {}
+    # for key in vars.keys():
+    #     newvars['model/' + key] = vars[key]
+    # vars = newvars
+    #
+    # print 'begin vars to load'
+    # for k in vars.keys():
+    #     print k
+    # print 'end vars to load'
+    # pdb.set_trace()
 
     if isinstance(model, Single_Point_Tracking_Model) and not (FLAGS.visualize or FLAGS.visualize_check):
         # initialize the predictor from pretrained weights
@@ -244,6 +252,41 @@ def load_checkpoint(conf, sess, saver, model_file=None):
         num_iter = int(re.match('.*?([0-9]+)$', ckpt.model_checkpoint_path).group(1))
     conf['num_iter'] = num_iter
     return num_iter
+
+
+def variable_checkpoint_matcher(conf, vars, model_file=None):
+    """
+    for every variable in vars takes its name and looks into the
+    checkpoint to find variable that matches its name beginning from the end
+    :param vars:
+    :return:
+    """
+    if model_file is None:
+        ckpt = tf.train.get_checkpoint_state(conf['output_dir'])
+        folder = ckpt.model_checkpoint_path
+    else:
+        folder = model_file
+
+    reader = tf.train.NewCheckpointReader(folder)
+    var_to_shape_map = reader.get_variable_to_shape_map()
+    check_names = var_to_shape_map.keys()
+
+    vars = dict([(var.name.split(':')[0], var) for var in vars])
+    new_vars = {}
+    for varname in vars.keys():
+        found = False
+        for ck_name in check_names:
+            ck_name_parts = ck_name.split('/')
+            varname_parts = varname.split('/')
+            if varname_parts == ck_name_parts[-len(varname_parts):]:
+                new_vars[ck_name] = vars[varname]
+                found = True
+                print "found {} in {}".format(varname, ck_name)
+                break
+        if not found:
+            raise ValueError("did not find variable{}".format(varname))
+    return new_vars
+
 
 def filter_vars(vars):
     newlist = []
