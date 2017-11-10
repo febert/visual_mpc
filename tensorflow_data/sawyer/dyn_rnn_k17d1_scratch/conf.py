@@ -7,8 +7,11 @@ DATA_DIR = '/'.join(str.split(current_dir, '/')[:-3]) + '/pushing_data/wrist_rot
 # local output directory
 OUT_DIR = current_dir + '/modeldata'
 
+from python_visual_mpc.video_prediction.dynamic_rnn_model.dynamic_base_model import Dynamic_Base_Model
+
 configuration = {
 'experiment_name': 'rndaction_var10',
+'pred_model':Dynamic_Base_Model,
 'data_dir': DATA_DIR,       # 'directory containing data.' ,
 'output_dir': OUT_DIR,      #'directory for model checkpoints.' ,
 'current_dir': current_dir, #'directory for writing summary.' ,

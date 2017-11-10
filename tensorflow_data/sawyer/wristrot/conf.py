@@ -38,5 +38,5 @@ configuration = {
 '1stimg_bckgd':'',
 'visual_flowvec':'',
 'adim':5,
-'sdim':4
+'sdim':4,
 }
