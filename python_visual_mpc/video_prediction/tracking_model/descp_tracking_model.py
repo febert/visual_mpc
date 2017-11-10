@@ -63,7 +63,7 @@ class DescpTracking_Model(Tracking_Model):
                                                                                             self.gen_masks,
                                                                                             self.prediction_flow,
                                                                                             self.tracking_flow01,
-                                                                                            self.gen_distrib1,
+                                                                                            self.gen_distrib,
                                                                                             self.descp0,
                                                                                             self.descp1,
                                                                                             ],

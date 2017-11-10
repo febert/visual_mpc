@@ -70,8 +70,8 @@ def visualize(sess, conf, model):
     dict['iternum'] = conf['num_iter']
     dict['ground_truth'] = ground_truth
     dict['gen_images'] = gen_images
-    dict['actions'] = actions
-    dict['states'] = states
+    # dict['actions'] = actions
+    # dict['states'] = states
     # dict['prediction_flow'] = pred_flow
     dict['gen_masks_l'] = gen_masks
 
