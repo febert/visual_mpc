@@ -29,14 +29,14 @@ configuration = {
 'learning_rate': 0.001,     #'the base learning rate of the generator' ,
 'visualize': '',            #'load model from which to generate visualizations
 'file_visual': '',          # datafile used for making visualizations
-'kern_size': 17,             #size of DNA kerns
+'kern_size':9,             #size of DNA kerns
 'sawyer':'',
 'single_view':"",
 'use_len':14,                # number of steps used for training where the starting location is selected randomly within sequencelength
-'1stimg_bckgd':'',
 'visual_flowvec':'',
 'adim':5,
 'sdim':4,
 'normalization':'in',
+'1stimg_bckgd':'',
 'previmg_bckgd':''
 }
