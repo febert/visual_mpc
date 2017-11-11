@@ -22,7 +22,7 @@ import moviepy.editor as mpy
 
 from rospy_tutorials.msg import Floats
 from rospy.numpy_msg import numpy_msg
-
+import matplotlib.pyplot as plt
 
 class Latest_observation(object):
     def __init__(self):
@@ -39,6 +39,15 @@ class Latest_observation(object):
         self.tstamp_d_img = None  # timestamp of image
         self.d_img_msg = None
 
+
+class Trajectory(object):
+    def __init__(self, sequence_length):
+        self.sequence_length = sequence_length
+        self.action_list = []
+        self.joint_angle_list = []
+        self.endeffector_pos_list = []
+        self.desig_hpos_list = []
+        self.highres_imglist = []
 
 class RobotRecorder(object):
     def __init__(self, agent_params, save_dir, seq_len = None, use_aux=True, save_video=False,
@@ -123,9 +132,8 @@ class RobotRecorder(object):
             thread.start_new(spin_thread, ())
             print "Recorder intialized."
             print "started spin thread"
-            self.action_list, self.joint_angle_list, self.cart_pos_list = [], [], []
-            self.desig_hpos_list = []
 
+        self.curr_traj = Trajectory(self.state_sequence_length)
 
     def save_kinect_handler(self, req):
         self.t_savereq = rospy.get_time()
@@ -165,6 +173,10 @@ class RobotRecorder(object):
         cv_image = self.bridge.imgmsg_to_cv2(data, '16UC1')
 
         self.ltob.d_img_raw_npy = np.asarray(cv_image)
+
+        plt.imshow(np.squeeze(self.ltob.d_img_raw_npy))
+        plt.show()
+        pdb.set_trace()
         img = cv2.resize(cv_image, (0, 0), fx=1 /5.5, fy=1 / 5.5, interpolation=cv2.INTER_AREA)
 
         img = np.clip(img,0, 1400)
@@ -213,8 +225,6 @@ class RobotRecorder(object):
 
     def crop_lowres(self, cv_image):
         self.ltob.d_img_raw_npy = np.asarray(cv_image)
-
-
         if self.instance_type == 'main':
             shrink_before_crop = 1 / 16.
             img = cv2.resize(cv_image, (0, 0), fx=shrink_before_crop, fy=shrink_before_crop, interpolation=cv2.INTER_AREA)
@@ -273,24 +283,24 @@ class RobotRecorder(object):
 
         rospy.loginfo("Init trajectory {} in group {}".format(itr, self.igrp))
 
-
         traj_folder = self.group_folder + '/traj{}'.format(itr)
         self.image_folder = traj_folder + '/images'
         self.depth_image_folder = traj_folder + '/depth_images'
 
-        if not os.path.exists(traj_folder):
-            os.makedirs(traj_folder)
-        else:
-            if not self.overwrite:
-                raise ValueError("trajectory {} already exists".format(traj_folder))
-        if not os.path.exists(self.image_folder):
-            os.makedirs(self.image_folder)
-        if not os.path.exists(self.depth_image_folder):
-            os.makedirs(self.depth_image_folder)
+        if os.path.exists(traj_folder):
+            print "################################"
+            print 'trajectory folder {} already exists, deleting the folder'.format(traj_folder)
+            shutil.rmtree(traj_folder)
+        os.makedirs(traj_folder)
+        os.makedirs(self.image_folder)
+        os.makedirs(self.depth_image_folder)
 
         if self.instance_type == 'main':
             self.state_action_data_file = traj_folder + '/joint_angles_traj{}.txt'.format(itr)
             self.state_action_pkl_file = traj_folder + '/joint_angles_traj{}.pkl'.format(itr)
+
+            self.curr_traj = Trajectory(self.state_sequence_length)
+
             joints_right = self._limb_right.joint_names()
             with open(self.state_action_data_file, 'w+') as f:
                 f.write('time,')
@@ -338,8 +348,8 @@ class RobotRecorder(object):
         if self.save_video:
             highres = cv2.cvtColor(self.ltob.img_cv2, cv2.COLOR_BGR2RGB)
             if desig_hpos_main is not None:
-                self.desig_hpos_list.append(desig_hpos_main)
-            self.highres_imglist.append(highres)
+                self.curr_traj.desig_hpos_list.append(desig_hpos_main)
+            self.curr_traj.highres_imglist.append(highres)
 
     def add_cross_hairs(self, images, desig_pos):
         out = []
@@ -358,7 +368,8 @@ class RobotRecorder(object):
 
         # add crosshairs to images in case of tracking:
         if 'opencv_tracking' in self.agent_params:
-            self.highres_imglist = self.add_cross_hairs(self.highres_imglist, self.desig_hpos_list)
+            self.highres_imglist = self.add_cross_hairs(self.curr_traj.highres_imglist,
+                                                        self.curr_traj.desig_hpos_list)
 
         print 'shape highres:', self.highres_imglist[0].shape
         for im in self.highres_imglist:
@@ -393,24 +404,23 @@ class RobotRecorder(object):
             values = action
             f.write(','.join([str(x) for x in values]) + '\n')
 
-        self.joint_angle_list.append(angles_right)
-        self.action_list.append(action)
-        self.cart_pos_list.append(endeff_pose)
+        self.curr_traj.joint_angle_list.append(angles_right)
+        self.curr_traj.action_list.append(action)
+        self.curr_traj.endeffector_pos_list.append(endeff_pose)
 
         if i_save == self.state_sequence_length-1:
-            joint_angles = np.stack(self.joint_angle_list)
-            actions = np.stack(self.action_list)
-            endeffector_pos = np.stack(self.cart_pos_list)
+            joint_angles = np.stack(self.curr_traj.joint_angle_list)
+            actions = np.stack(self.curr_traj.action_list)
+            endeffector_pos = np.stack(self.curr_traj.endeffector_pos_list)
+            assert joint_angles.shape[0] == self.state_sequence_length
+            assert actions.shape[0] == self.state_sequence_length
+            assert endeffector_pos.shape[0] == self.state_sequence_length
 
             with open(self.state_action_pkl_file, 'wb') as f:
                 dict= {'jointangles': joint_angles,
                        'actions': actions,
                        'endeffector_pos':endeffector_pos}
                 cPickle.dump(dict, f)
-            self.action_list = []
-            self.joint_angle_list = []
-            self.cart_pos_list = []
-            self.desig_hpos_list = []
 
     def _save_img_local(self, i_save):
 
@@ -424,14 +434,6 @@ class RobotRecorder(object):
             cv2.imwrite(image_name, self.ltob.img_cv2, [int(cv2.IMWRITE_JPEG_QUALITY), 80])
         else:
             raise ValueError('img_cv2 no data received')
-
-        # saving the cropped and downsized image
-        if self.ltob.img_cropped is not None:
-            image_name = self.image_folder + "/" + pref +"_cropped_im{0}_time{1}.png".format(i_save, self.ltob.tstamp_img)
-            cv2.imwrite(image_name, self.ltob.img_cropped, [cv2.IMWRITE_PNG_STRATEGY_DEFAULT,1])
-            # print 'saving small image to ', image_name
-        else:
-            raise ValueError('img_cropped no data received')
 
         # saving the depth data
         # saving the cropped depth data in a Pickle file
