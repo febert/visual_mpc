@@ -6,6 +6,7 @@ import tensorflow as tf
 import cPickle
 import imutils   #pip install imutils
 import random
+import copy
 import time
 from multiprocessing import Pool
 
@@ -18,6 +19,7 @@ def _int64_feature(value):
 
 import pdb
 import re
+import matplotlib.pyplot as plt
 
 import cv2
 import ray
@@ -60,8 +62,8 @@ class Trajectory(object):
         self.dimages = np.zeros((self.T, self.n_cam, h, w), dtype = np.uint8)
         self.dvalues = np.zeros((self.T, self.n_cam, h, w), dtype = np.float32)
 
-        action_dim = 5  # (for softmotion action_dim=4)
-        state_dim = 4  # (for softmotion action_dim=4)
+        action_dim = conf['adim']  # (for softmotion action_dim=4)
+        state_dim = conf['sdim']  # (for softmotion action_dim=4)
         self.actions = np.zeros((self.T, action_dim), dtype = np.float32)
         self.endeffector_pos = np.zeros((self.T, state_dim), dtype = np.float32)
         self.joint_angles = np.zeros((self.T, 7), dtype = np.float32)
@@ -124,7 +126,13 @@ class TF_rec_converter(object):
                 traj_subpath = '/'.join(str.split(trajname, '/')[-2:])   #string with only the group and trajectory
 
                 #load actions:
-                pkl_file = trajname + '/joint_angles_traj{}.pkl'.format(traj_index)
+                if 'pkl_source' in self.conf:
+                    trajname_pkl = copy.deepcopy(trajname).split('/')
+                    trajname_pkl[5] = self.conf['pkl_source']
+                    trajname_pkl = '/'.join(trajname_pkl)
+                    pkl_file = trajname_pkl + '/joint_angles_traj{}.pkl'.format(traj_index)
+                else:
+                    pkl_file = trajname + '/joint_angles_traj{}.pkl'.format(traj_index)
                 if not os.path.isfile(pkl_file):
                     nopkl_file += 1
                     print 'no pkl file found, file no: ', nopkl_file
@@ -162,7 +170,8 @@ class TF_rec_converter(object):
                         donegif = True
 
                 print 'processed {} trajectories'.format(len(traj_list))
-
+            except KeyboardInterrupt:
+                sys.exit()
             except:
                 print "error occured"
                 num_errors += 1
@@ -185,8 +194,12 @@ class TF_rec_converter(object):
 
             # getting color image:
             if self.crop_from_highres:
-                im_filename = self.traj_dir_src + '/images/{0}_full_cropped_im{1}_*'\
-                    .format(self.src_names[i_src], str(dataind).zfill(2))
+                if 'imagename_no_zfill' in self.conf:
+                    im_filename = self.traj_dir_src + '/images/{0}_full_cropped_im{1}_*' \
+                        .format(self.src_names[i_src], dataind)
+                else:
+                    im_filename = self.traj_dir_src + '/images/{0}_full_cropped_im{1}_*'\
+                        .format(self.src_names[i_src], str(dataind).zfill(2))
             else:
                 im_filename = self.traj_dir_src + '/images/{0}_cropped_im{1}_*.png'\
                     .format(self.src_names[i_src], dataind)
@@ -217,25 +230,35 @@ class TF_rec_converter(object):
     def crop_and_rot(self, file, i_src):
         img = cv2.imread(file)
         imheight = self.conf['target_res'][0]
-        imwidht = self.conf['target_res'][1]
+        imwidth = self.conf['target_res'][1]
 
-        shrink_factor = self.conf['shrink_before_crop']
-
-        img = cv2.resize(img, (0, 0), fx=shrink_factor, fy=shrink_factor, interpolation=cv2.INTER_AREA)
         rowstart = self.conf['rowstart']
         colstart = self.conf['colstart']
+        # setting used in wrist_rot
+        if 'shrink_before_crop' in self.conf:
+            shrink_factor = self.conf['shrink_before_crop']
+            img = cv2.resize(img, (0, 0), fx=shrink_factor, fy=shrink_factor, interpolation=cv2.INTER_AREA)
+            img = img[rowstart:rowstart+imheight, colstart:colstart+imwidth]
 
-        img = img[rowstart:rowstart+imheight, colstart:colstart+imwidht]
+        # setting used in softmotion30_v1
+        elif 'crop_before_shrink' in self.conf:
+            raw_image_height = self.conf['raw_image_height']
+            img = img[rowstart:rowstart + raw_image_height, colstart:colstart + raw_image_height]
+            # plt.imshow(img)
+            # plt.show()
+            target_res = self.conf['target_res']
+            img = cv2.resize(img, target_res, interpolation=cv2.INTER_AREA)
+        else:
+            raise NotImplementedError
+
         # assert img.shape == (64,64,3)
-        img = img[...,::-1]
+        img = img[...,::-1]  #bgr => rgb
 
         if self.src_names[i_src] == 'aux1':
             img = imutils.rotate_bound(img, 180)
 
-        # img = Image.fromarray(img)
-        # img.show()
-        # pdb.set_trace()
-
+        # plt.imshow(img)
+        # plt.show()
         return img
 
     def save_tf_record(self, filename, trajectory_list):
@@ -419,6 +442,7 @@ def main():
     parallel = not args.no_parallel
 
     shuffle = not args.no_shuffle
+    print 'shuffle: ', shuffle
     traj_name_list = make_traj_name_list(conf, start_end_grp = start_end_grp, shuffle=shuffle)
 
     if parallel:

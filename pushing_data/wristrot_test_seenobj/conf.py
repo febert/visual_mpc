@@ -12,5 +12,7 @@ configuration = {
 'target_res': (64,64),                             #128x128
 'shrink_before_crop':1/9.,
 'rowstart':10,
-'colstart':32
+'colstart':32,
+'adim':5,
+'sdim':4,
 }

@@ -231,21 +231,21 @@ def main():
 
     current_dir = os.path.dirname(os.path.realpath(__file__))
 
-    DATA_DIR = '/'.join(str.split(current_dir, '/')[:-2]) + '/pushing_data/wrist_rotv1/train'
+    DATA_DIR = '/'.join(str.split(current_dir, '/')[:-2]) + '/pushing_data/softmotion30_v1/train'
     # DATA_DIR = '/'.join(str.split(current_dir, '/')[:-2]) + '/pushing_data/wristrot_test_newobj/test_annotations'
 
     conf['schedsamp_k'] = -1  # don't feed ground truth
     conf['data_dir'] = DATA_DIR  # 'directory containing data_files.' ,
     conf['skip_frame'] = 1
     conf['train_val_split']= 0.95
-    conf['sequence_length']= 48      # 'sequence length, including context frames.'
-    conf['batch_size']= 128
+    conf['sequence_length']= 15      # 'sequence length, including context frames.'
+    conf['batch_size']= 32
     conf['visualize']= True
     conf['context_frames'] = 2
 
     conf['im_height'] = 64
-    conf['sdim'] = 4
-    conf['adim'] = 5
+    conf['sdim'] = 3
+    conf['adim'] = 4
 
     # conf['test_metric'] = {'robot_pos': 1, 'object_pos': 2}
 

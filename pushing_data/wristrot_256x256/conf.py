@@ -12,7 +12,9 @@ configuration = {
 'target_res': (256,256),                             #128x128
 'shrink_before_crop':1/2.5,
 'rowstart':25,
-'colstart':100
+'colstart':100,
+'adim':5,
+'sdim':4,
 }
 
 assert configuration['shrink_before_crop'] != 0
