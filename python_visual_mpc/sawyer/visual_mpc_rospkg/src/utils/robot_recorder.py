@@ -22,7 +22,7 @@ import moviepy.editor as mpy
 
 from rospy_tutorials.msg import Floats
 from rospy.numpy_msg import numpy_msg
-
+import matplotlib.pyplot as plt
 
 class Latest_observation(object):
     def __init__(self):
@@ -173,6 +173,10 @@ class RobotRecorder(object):
         cv_image = self.bridge.imgmsg_to_cv2(data, '16UC1')
 
         self.ltob.d_img_raw_npy = np.asarray(cv_image)
+
+        plt.imshow(np.squeeze(self.ltob.d_img_raw_npy))
+        plt.show()
+        pdb.set_trace()
         img = cv2.resize(cv_image, (0, 0), fx=1 /5.5, fy=1 / 5.5, interpolation=cv2.INTER_AREA)
 
         img = np.clip(img,0, 1400)

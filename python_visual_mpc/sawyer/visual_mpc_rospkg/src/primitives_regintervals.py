@@ -208,9 +208,10 @@ class Primitive_Executor(object):
             [np.random.uniform(self.xlim[0], self.xlim[1]), np.random.uniform(self.ylim[0], self.ylim[1])])
         if self.enable_rot:
             start_angle = np.array([np.random.uniform(0., np.pi * 2)])
-            self.des_pos = np.concatenate([startpos, np.asarray([self.lower_height + self.delta_up]), start_angle], axis=0)
         else:
-            self.des_pos = np.concatenate([startpos, np.asarray([self.lower_height + self.delta_up])], axis=0)
+            start_angle = np.array([0.])
+
+        self.des_pos = np.concatenate([startpos, np.asarray([self.lower_height + self.delta_up]), start_angle], axis=0)
 
         self.topen, self.t_down = 0, 0
 
@@ -420,14 +421,13 @@ class Primitive_Executor(object):
         :return:
         """
         maxshift = .1
-        maxrot = np.pi/4
         if self.enable_rot:
-            posshift = np.concatenate((np.random.uniform(-maxshift, maxshift, 2), np.zeros(1),
-                                       np.random.uniform(-maxrot, maxrot, 1)),
-                                      axis=0)
+            maxrot = np.pi/4
         else:
-            posshift = np.concatenate((np.random.uniform(-maxshift, maxshift, 2),
-                                       np.zeros(1)))
+            maxrot = np.pi / 4
+        posshift = np.concatenate((np.random.uniform(-maxshift, maxshift, 2), np.zeros(1),
+                                   np.random.uniform(-maxrot, maxrot, 1)),
+                                  axis=0)
 
         self.des_pos += posshift
         self.des_pos = self.truncate_pos(self.des_pos)  # make sure not outside defined region
