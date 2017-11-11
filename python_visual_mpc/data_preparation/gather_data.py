@@ -1,14 +1,14 @@
-import os
-import glob
-import numpy as np
-from PIL import Image
-import tensorflow as tf
 import cPickle
-import imutils   #pip install imutils
-import random
 import copy
-import time
-from multiprocessing import Pool
+import glob
+import os
+import random
+
+import imutils  # pip install imutils
+import numpy as np
+import tensorflow as tf
+from PIL import Image
+
 
 def _float_feature(value):
     return tf.train.Feature(float_list=tf.train.FloatList(value=value))
@@ -17,9 +17,6 @@ def _bytes_feature(value):
 def _int64_feature(value):
   return tf.train.Feature(int64_list=tf.train.Int64List(value=[value]))
 
-import pdb
-import re
-import matplotlib.pyplot as plt
 
 import cv2
 import ray
@@ -27,6 +24,7 @@ import create_gif
 import argparse
 import sys
 import imp
+import pdb
 
 
 class More_than_one_image_except(Exception):
@@ -429,6 +427,9 @@ def main():
 
     conf = hyperparams.configuration
 
+    #make sure the directory is empty
+    assert glob.glob(conf['tf_rec_dir'] + '/*') == []
+
     dir = conf["source_basedir"]
     sourcedirs = conf['sourcedirs']
 
@@ -456,5 +457,42 @@ def main():
                                            crop_from_highres=True)
         tfrec_converter.gather()
 
+    make_train_test_split(conf)
+
+def make_train_test_split(conf = None):
+    if conf is None:
+        parser = argparse.ArgumentParser(description='Run benchmarks')
+        parser.add_argument('hyper', type=str, help='configuration file name')
+        parser.add_argument('--start_gr', type=int, default=None, help='start group')
+        parser.add_argument('--end_gr', type=int, default=None, help='end group')
+        parser.add_argument('--no_parallel', type=bool, default=False, help='do not use parallel processing')
+        parser.add_argument('--n_workers', type=int, default=5, help='number of workers')
+        parser.add_argument('--no_shuffle', type=bool, default=False, help='whether to shuffle trajectories')
+        args = parser.parse_args()
+
+        conf_file = args.hyper
+        if not os.path.exists(args.hyper):
+            sys.exit("configuration not found")
+        hyperparams = imp.load_source('hyperparams', conf_file)
+
+        conf = hyperparams.configuration
+
+    traindir = conf["tf_rec_dir"]
+    testdir = '/'.join(conf["tf_rec_dir"].split('/')[:-1] + ['/test'])
+    import shutil
+    files = glob.glob(traindir + '/*')
+
+    files = sorted_alphanumeric(files)
+    shutil.move(files[0], testdir)
+
+import re
+
+def sorted_alphanumeric(l):
+    """ Sort the given iterable in the way that humans expect."""
+    convert = lambda text: int(text) if text.isdigit() else text
+    alphanum_key = lambda key: [ convert(c) for c in re.split('([0-9]+)', key) ]
+    return sorted(l, key = alphanum_key)
+
 if __name__ == "__main__":
+    # make_train_test_split()
     main()
