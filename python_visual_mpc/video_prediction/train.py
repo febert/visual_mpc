@@ -104,7 +104,7 @@ def main(unused_argv, conf_script= None):
     saving_saver = tf.train.Saver(vars, max_to_keep=0)
 
     # for loading variables when visualizing
-    if FLAGS.visualize or FLAGS.visualize_check:
+    if FLAGS.visualize or FLAGS.visualize_check or FLAGS.pretrained:
         load_vars = variable_checkpoint_matcher(conf, vars)
         # remove all states from group of variables which shall be saved and restored:
         loading_saver = tf.train.Saver(load_vars, max_to_keep=0)
@@ -256,7 +256,7 @@ def variable_checkpoint_matcher(conf, vars, model_file=None):
             if varname_parts == ck_name_parts[-len(varname_parts):]:
                 new_vars[ck_name] = vars[varname]
                 found = True
-                print "found {} in {}".format(varname, ck_name)
+                # print "found {} in {}".format(varname, ck_name)
                 break
         if not found:
             raise ValueError("did not find variable{}".format(varname))
