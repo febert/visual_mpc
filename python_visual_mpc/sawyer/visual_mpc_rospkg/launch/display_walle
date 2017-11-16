@@ -1,0 +1,2 @@
+# add Walle image:
+rosrun intera_examples head_display_image.py -f /home/febert/Desktop/walle1.jpg

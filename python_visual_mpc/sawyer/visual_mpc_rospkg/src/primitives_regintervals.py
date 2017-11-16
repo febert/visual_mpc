@@ -25,6 +25,7 @@ from utils.checkpoint import write_ckpt, write_timing_file, parse_ckpt
 class Traj_aborted_except(Exception):
     pass
 
+
 class Primitive_Executor(object):
     def __init__(self):
 
@@ -73,6 +74,7 @@ class Primitive_Executor(object):
         self.enable_rot = True
 
         self.checkpoint_file = os.path.join(self.recorder.save_dir, 'checkpoint.txt')
+
 
         print 'press c to start data collection..'
         pdb.set_trace()
@@ -424,7 +426,7 @@ class Primitive_Executor(object):
         if self.enable_rot:
             maxrot = np.pi/4
         else:
-            maxrot = np.pi / 4
+            maxrot = 0.
         posshift = np.concatenate((np.random.uniform(-maxshift, maxshift, 2), np.zeros(1),
                                    np.random.uniform(-maxrot, maxrot, 1)),
                                   axis=0)
