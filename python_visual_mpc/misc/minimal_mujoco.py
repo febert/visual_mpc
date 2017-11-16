@@ -22,6 +22,8 @@ viewer.set_model(model)
 viewer.cam.camid = 0
 print viewer.cam.camid
 
+import matplotlib.pyplot as plt
+
 
 T = 1
 for t in range(T):
@@ -35,6 +37,13 @@ for t in range(T):
     img_string, width, height = viewer.get_image()
     largeimage = np.fromstring(img_string, dtype='uint8').reshape(
         (480, 480, 3))[::-1, :, :]
+
+    img_string, width, height = viewer.get_depth()
+    largedimage = np.fromstring(img_string, dtype='uint8').reshape(
+        (480, 480, 1))[::-1, :, :]
+
+    plt.imshow(np.squeeze(largedimage))
+    plt.show()
 
     model.data.qvel.setflags(write=True)
 
