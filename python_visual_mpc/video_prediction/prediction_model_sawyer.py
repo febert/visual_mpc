@@ -29,7 +29,7 @@ from python_visual_mpc.video_prediction.basecls.utils.transformations import cdn
 import pdb
 
 # Amount to use when lower bounding tensors
-RELU_SHIFT = 1e-7
+
 
 class Prediction_Model(object):
 
