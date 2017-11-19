@@ -174,9 +174,9 @@ class RobotRecorder(object):
 
         self.ltob.d_img_raw_npy = np.asarray(cv_image)
 
-        plt.imshow(np.squeeze(self.ltob.d_img_raw_npy))
-        plt.show()
-        pdb.set_trace()
+        # plt.imshow(np.squeeze(self.ltob.d_img_raw_npy))
+        # plt.show()
+        # pdb.set_trace()
         img = cv2.resize(cv_image, (0, 0), fx=1 /5.5, fy=1 / 5.5, interpolation=cv2.INTER_AREA)
 
         img = np.clip(img,0, 1400)
