@@ -35,5 +35,6 @@ configuration = {
 'adim':5,
 'sdim':4,
 'normalization':'in',
-'previmg_bckgd':''
+'previmg_bckgd':'',
+'ndesig':1
 }

@@ -33,6 +33,7 @@ Intera SDK Joint Torque Example: joint springs
 import argparse
 import importlib
 
+import numpy as np
 import rospy
 from dynamic_reconfigure.server import Server
 from std_msgs.msg import Empty
@@ -43,6 +44,7 @@ from intera_interface import CHECK_VERSION
 import pdb
 from std_msgs.msg import Float32
 from std_msgs.msg import Int64
+from utils.sawyer_pykdl import EE_Calculator
 
 class JointSprings(object):
     """
@@ -97,10 +99,20 @@ class JointSprings(object):
             self._springs[joint] = 30
             self._damping[joint] = 4
 
-        print 'initial spring'
-        print self._springs
-        print 'initial damping'
-        print self._damping
+        self.comp_gripper_weight = True
+        if self.comp_gripper_weight:
+            self.ee_calc = EE_Calculator()
+
+    def calc_comp_torques(self):
+        joint_names = self._limb.joint_names()
+        joint_positions = [self._limb.joint_angle(j) for j in joint_names]
+        jac = self.ee_calc.jacobian(joint_positions)
+
+        cart_force = np.array([0., 0., 12., 0., 0., 0., 0.])
+        torques = (jac.transpose()).dot(cart_force)
+        pdb.set_trace()
+
+        return torques
 
     def _imp_ctrl_active(self, inp):
         if inp.data == 1:
@@ -158,6 +170,12 @@ class JointSprings(object):
                                                  cur_pos[joint])
             # damping portion
             cmd[joint] -= self._damping[joint] * cur_vel[joint]
+
+        if self.comp_gripper_weight:
+            comp_torques = self.calc_comp_torques()
+            pdb.set_trace()
+            for i, joint in enumerate(self._des_angles.keys()):
+                cmd[joint] += comp_torques[i]
 
         # command new joint torques
         if self._imp_ctrl_is_active:

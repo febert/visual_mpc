@@ -57,6 +57,7 @@ def build_tfrecord_input(conf, training=True, input_file=None):
         else:
             shuffle = True
 
+    print 'using shuffle files: ', shuffle
     # print 'using input file', filenames
 
     filename_queue = tf.train.string_input_producer(filenames, shuffle=shuffle)
@@ -231,7 +232,8 @@ def main():
 
     current_dir = os.path.dirname(os.path.realpath(__file__))
 
-    DATA_DIR = '/'.join(str.split(current_dir, '/')[:-2]) + '/pushing_data/softmotion30_v1/train'
+    # DATA_DIR = '/'.join(str.split(current_dir, '/')[:-2]) + '/pushing_data/softmotion30_v1/train'
+    DATA_DIR = '/'.join(str.split(current_dir, '/')[:-2]) + '/pushing_data/softmotion30_v1_256x256/train'
     # DATA_DIR = '/'.join(str.split(current_dir, '/')[:-2]) + '/pushing_data/wristrot_test_newobj/test_annotations'
 
     conf['schedsamp_k'] = -1  # don't feed ground truth
@@ -243,7 +245,7 @@ def main():
     conf['visualize']= True
     conf['context_frames'] = 2
 
-    conf['im_height'] = 64
+    conf['im_height'] = 256 # 64
     conf['sdim'] = 3
     conf['adim'] = 4
 
