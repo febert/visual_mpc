@@ -37,30 +37,39 @@ def get_joint_angles(pose, seed_cmd = None, use_advanced_options = False):
         # Optional Advanced IK parameters
         # The joint seed is where the IK position solver starts its optimization
         ikreq.seed_mode = ikreq.SEED_USER
-
         # if not seed_joints:
         #     seed = JointState()
         #     seed.name = ['right_j0', 'right_j1', 'right_j2', 'right_j3',
         #                  'right_j4', 'right_j5', 'right_j6']
         #     seed.position = [0.7, 0.4, -1.7, 1.4, -1.1, -1.6, -0.4]
         # else:
+
+        # seed = JointState()
+        # seed.name = ['right_j0', 'right_j1', 'right_j2', 'right_j3',
+        #              'right_j4', 'right_j5', 'right_j6']
+        # seed.position = [0.42, -0.38, -1.24, 1.78, 1.16, 1.11, 2.05]
+
+        ###############################
         seed = joint_state_from_cmd(seed_cmd)
+        ################################
+
         ikreq.seed_angles.append(seed)
 
         # Once the primary IK task is solved, the solver will then try to bias the
-        # the joint angles toward the goal joint configuration. The null space is 
+        # the joint angles toward the goal joint configuration. The null space is
         # the extra degrees of freedom the joints can move without affecting the
         # primary IK task.
-        # ikreq.use_nullspace_goal.append(True)
+        ikreq.use_nullspace_goal.append(True)
         # The nullspace goal can either be the full set or subset of joint angles
-        # goal = JointState()
-        # goal.name = ['right_j1', 'right_j2', 'right_j3']
-        # goal.position = [0.1, -0.3, 0.5]
-        # ikreq.nullspace_goal.append(goal)
+        goal = JointState()
+        goal.name = ['right_j0', 'right_j1', 'right_j2', 'right_j3']
+        goal.position = [0.409, -0.43, -1.2, 1.79]
+
+        ikreq.nullspace_goal.append(goal)
         # # The gain used to bias toward the nullspace goal. Must be [0.0, 1.0]
         # # If empty, the default gain of 0.4 will be used
-        # ikreq.nullspace_gain.append(0.4)
-    # else:
+        # ikreq.nullspace_gain.append(0.5)
+        # else:
         # rospy.loginfo("Running Simple IK Service Client example.")
 
     try:

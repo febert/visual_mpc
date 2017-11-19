@@ -20,11 +20,14 @@ from std_msgs.msg import Float32
 from std_msgs.msg import Int64
 from std_msgs.msg import String
 from utils.checkpoint import write_ckpt, write_timing_file, parse_ckpt
-
+import python_visual_mpc
 
 class Traj_aborted_except(Exception):
     pass
 
+
+
+from wsg_50_common.msg import Cmd, Status
 
 class Primitive_Executor(object):
     def __init__(self):
@@ -35,7 +38,7 @@ class Primitive_Executor(object):
         seq_length = 32
         n_traj_per_run = 3   # corresponds to
         self.act_every = 4
-        self.duration = 24 #16  # duration of trajectory in seconds
+        self.duration = 20#24 #16  # duration of trajectory in seconds
 
         self.state_sequence_length = seq_length*n_traj_per_run # number of snapshots that are taken
 
@@ -44,7 +47,7 @@ class Primitive_Executor(object):
         print 'time between actions:', 1 / action_frequency
 
         self.ctrl = robot_controller.RobotController()
-        self.recorder = robot_recorder.RobotRecorder(save_dir="/media/febert/harddisk/febert/sawyer_data/newrecording",
+        self.recorder = robot_recorder.RobotRecorder(agent_params={}, save_dir="/media/febert/harddisk/febert/sawyer_data/newrecording",
                                                      seq_len=self.state_sequence_length, use_aux=False)
 
         self.alive_publisher = rospy.Publisher('still_alive', String, queue_size=10)
@@ -52,6 +55,8 @@ class Primitive_Executor(object):
         self.imp_ctrl_publisher = rospy.Publisher('desired_joint_pos', JointState, queue_size=1)
         self.imp_ctrl_release_spring_pub = rospy.Publisher('release_spring', Float32, queue_size=10)
         self.imp_ctrl_active = rospy.Publisher('imp_ctrl_active', Int64, queue_size=10)
+
+        self.weiss_pub = rospy.Publisher('/wsg_50_driver/goal_position', Cmd, queue_size=10)
 
         self.control_rate = rospy.Rate(1000)
 
@@ -71,7 +76,7 @@ class Primitive_Executor(object):
         self.robot_move = True
         self.save_active = True
         self.interpolate = True
-        self.enable_rot = True
+        self.enable_rot = False
 
         self.checkpoint_file = os.path.join(self.recorder.save_dir, 'checkpoint.txt')
 
@@ -128,9 +133,6 @@ class Primitive_Executor(object):
 
             write_ckpt(self.checkpoint_file, tr, self.recorder.igrp)
 
-            if ((tr+1) % 3000) == 0:
-                print 'change objects!'
-                pdb.set_trace()
             self.alive_publisher.publish('still alive!')
 
     def get_endeffector_pos(self, pos_only=True):
@@ -190,18 +192,29 @@ class Primitive_Executor(object):
 
         return  quat
 
+    def set_weiss_griper(self, width):
+        cmd = Cmd()
+        cmd.pos = width
+        cmd.speed = 100.
+        self.weiss_pub.publish(cmd)
+
     def run_trajectory(self, i_tr):
 
         self.set_neutral_with_impedance(duration=1.)
 
-        self.ctrl.gripper.open()
+        if self.ctrl.has_gripper:
+            self.ctrl.gripper.open()
+        else:
+            self.set_weiss_griper(50.)
+
+
         self.gripper_closed = False
         self.gripper_up = False
         if self.save_active:
             self.recorder.init_traj(i_tr)
 
-        self.lower_height = 0.16
-        self.delta_up = 0.12
+        self.lower_height = 0.21  # using old gripper : 0.16
+        self.delta_up = 0.13
         self.xlim = [0.46, 0.83]  # min, max in cartesian X-direction
         # self.ylim = [-0.20, 0.18]  # min, max in cartesian Y-direction
         self.ylim = [-0.17, 0.17]  # min, max in cartesian Y-direction
@@ -237,6 +250,8 @@ class Primitive_Executor(object):
         i_save = 0  # index of current saved step
 
         self.ctrl.limb.set_joint_position_speed(.20)
+        self.imp_ctrl_release_spring(100.)
+
         self.previous_des_pos = copy.deepcopy(self.des_pos)
         self.t_prev = tact[0]
         self.t_next = tact[1]
@@ -245,7 +260,7 @@ class Primitive_Executor(object):
 
             if i_act < len(tact):
                 if self.curr_delta_time > tact[i_act]:
-                    # print 'current position error', self.des_pos[:3] - self.get_endeffector_pos(pos_only=True)
+                    print 'current position error', self.des_pos[:3] - self.get_endeffector_pos(pos_only=True)
 
                     self.previous_des_pos = copy.deepcopy(self.des_pos)
                     action_vec = self.act_joint(i_act)  # after completing trajectory save final state
@@ -289,6 +304,10 @@ class Primitive_Executor(object):
             raise Traj_aborted_except('trajectory not complete!')
 
         self.goup()
+        if self.ctrl.has_gripper:
+            self.ctrl.gripper.open()
+        else:
+            self.set_weiss_griper(100.)
 
     def calc_interpolation(self, previous_goalpoint, next_goalpoint, t_prev, t_next):
         """
@@ -326,7 +345,7 @@ class Primitive_Executor(object):
 
     def goup(self):
         print "going up at the end.."
-        self.des_pos[2] = self.lower_height + self.delta_up
+        self.des_pos[2] = self.lower_height + 0.15
         desired_pose = self.get_des_pose(self.des_pos)
         start_joints = self.ctrl.limb.joint_angles()
         try:
@@ -338,8 +357,7 @@ class Primitive_Executor(object):
             current_joints = self.ctrl.limb.joint_angles()
             self.ctrl.limb.set_joint_positions(current_joints)
             raise Traj_aborted_except('raising Traj_aborted_except')
-        self.imp_ctrl_release_spring(50)
-        self.move_with_impedance_sec(des_joint_angles, duration=.5)
+        self.move_with_impedance_sec(des_joint_angles, duration=1.)
 
     def godown(self):
         print "going down at trajectory start.."
@@ -355,7 +373,7 @@ class Primitive_Executor(object):
             current_joints = self.ctrl.limb.joint_angles()
             self.ctrl.limb.set_joint_positions(current_joints)
             raise Traj_aborted_except('raising Traj_aborted_except')
-        self.move_with_impedance_sec(des_joint_angles, duration=.7)
+        self.move_with_impedance_sec(des_joint_angles, duration=1.5)
 
     def imp_ctrl_release_spring(self, maxstiff):
         self.imp_ctrl_release_spring_pub.publish(maxstiff)
@@ -377,7 +395,7 @@ class Primitive_Executor(object):
         start_time = rospy.get_time()  # in seconds
         finish_time = start_time + duration  # in seconds
 
-        self.imp_ctrl_release_spring(50)
+        # self.imp_ctrl_release_spring(50)
         while rospy.get_time() < finish_time:
             int_joints = prev_joint + (rospy.get_time()-start_time)/(finish_time-start_time)*(new_joint-prev_joint)
             # print int_joints
@@ -391,7 +409,6 @@ class Primitive_Executor(object):
         self.move_with_impedance_sec(cmd, duration=duration)
 
     def move_to_startpos(self):
-
         desired_pose = self.get_des_pose(self.des_pos)
         start_joints = self.ctrl.limb.joint_angles()
         try:
@@ -406,7 +423,7 @@ class Primitive_Executor(object):
         try:
             if self.robot_move:
                 if self.use_imp_ctrl:
-                    self.imp_ctrl_release_spring(20)
+                    self.imp_ctrl_release_spring(100)
                     self.move_with_impedance_sec(des_joint_angles, duration=0.9)
                 else:
                     self.ctrl.limb.move_to_joint_positions(des_joint_angles)
@@ -434,11 +451,14 @@ class Primitive_Executor(object):
         self.des_pos += posshift
         self.des_pos = self.truncate_pos(self.des_pos)  # make sure not outside defined region
 
-        close_cmd = np.random.choice(range(5), p=[0.8, 0.05, 0.05, 0.05, 0.05])
-        if close_cmd != 0:
-            self.topen = i_act + close_cmd
-            self.ctrl.gripper.close()
-            self.gripper_closed = True
+        if self.ctrl.has_gripper:
+            close_cmd = np.random.choice(range(5), p=[0.8, 0.05, 0.05, 0.05, 0.05])
+            if close_cmd != 0:
+                self.topen = i_act + close_cmd
+                self.ctrl.gripper.close()
+                self.gripper_closed = True
+        else:
+            close_cmd = 0
 
         up_cmd = np.random.choice(range(5), p=[0.9, 0.025, 0.025, 0.025, 0.025])
         if up_cmd != 0:
@@ -449,9 +469,10 @@ class Primitive_Executor(object):
 
         if self.gripper_closed:
             if i_act == self.topen:
-                self.ctrl.gripper.open()
-                print 'opening gripper'
-                self.gripper_closed = False
+                if self.ctrl.has_gripper:
+                    self.ctrl.gripper.open()
+                    print 'opening gripper'
+                    self.gripper_closed = False
 
         if self.gripper_up:
             if i_act == self.t_down:
@@ -459,7 +480,8 @@ class Primitive_Executor(object):
                 print 'going down'
                 self.gripper_up = False
 
-        self.imp_ctrl_release_spring(80.)
+        # self.imp_ctrl_release_spring(80.)
+        # self.imp_ctrl_release_spring(200.)
         action_vec = np.concatenate([np.array([posshift[0]]),  # movement in plane
                                      np.array([posshift[1]]),  # movement in plane
                                      np.array([up_cmd]),
@@ -468,12 +490,7 @@ class Primitive_Executor(object):
         return action_vec
 
     def get_des_pose(self, des_pos):
-
-        if self.enable_rot:
-            quat = self.zangle_to_quat(des_pos[3])
-        else:
-            quat = inverse_kinematics.EXAMPLE_O
-
+        quat = self.zangle_to_quat(des_pos[3])
         desired_pose = inverse_kinematics.get_pose_stamped(des_pos[0],
                                                            des_pos[1],
                                                            des_pos[2],
@@ -506,7 +523,9 @@ class Primitive_Executor(object):
         self.set_neutral_with_impedance(duration=1.5)
         print 'redistribute...'
 
-        file = '/home/febert/Documents/catkin_ws/src/berkeley_sawyer/src/utility/pushback_traj_.pkl'
+        file = '/'.join(str.split(python_visual_mpc.__file__, "/")[
+                        :-1]) + '/sawyer/visual_mpc_rospkg/src/utils/pushback_traj_.pkl'
+
         self.joint_pos = cPickle.load(open(file, "rb"))
 
         self.imp_ctrl_release_spring(100)

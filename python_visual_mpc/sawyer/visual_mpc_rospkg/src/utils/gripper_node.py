@@ -25,7 +25,6 @@ class GripperNode(object):
         cmd = Cmd()
         cmd.pos = 50.
         cmd.speed = 100.
-
         self.pub.publish(cmd)
 
 def setup_srv():
@@ -33,7 +32,7 @@ def setup_srv():
 
     rospy.wait_for_service('/wsg_50_driver/Move', timeout=3.)
     set_pos_func = rospy.ServiceProxy('/wsg_50_driver/Move', Move)
-    set_pos_func((20., 10.))  #pos speed
+    set_pos_func((50., 10.))  #pos speed
 
     pdb.set_trace()
 
