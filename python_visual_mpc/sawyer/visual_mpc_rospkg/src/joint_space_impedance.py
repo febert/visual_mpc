@@ -106,9 +106,9 @@ class JointSprings(object):
         joint_positions = [self._limb.joint_angle(j) for j in joint_names]
         jac = self.ee_calc.jacobian(joint_positions)
 
-        cart_force = np.array([0., 0., 12., 0., 0., 0., 0.])
+        cart_force = np.array([0., 0., 14, 0., 0., 0.])
         torques = (jac.transpose()).dot(cart_force)
-        pdb.set_trace()
+        torques = np.asarray((torques)).reshape((7))
 
         return torques
 
@@ -171,8 +171,8 @@ class JointSprings(object):
 
         if self.comp_gripper_weight:
             comp_torques = self.calc_comp_torques()
-            pdb.set_trace()
             for i, joint in enumerate(self._des_angles.keys()):
+                print joint, comp_torques[i]
                 cmd[joint] += comp_torques[i]
 
         # command new joint torques
