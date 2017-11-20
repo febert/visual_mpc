@@ -285,6 +285,7 @@ def main(unused_argv, conf_script= None):
         img_width = 64
 
     print 'Constructing models and inputs.'
+
     if FLAGS.diffmotions:
         if 'adim' in conf:
             adim = conf['adim']
@@ -493,7 +494,7 @@ def main(unused_argv, conf_script= None):
 
             v = Visualizer_tkinter(dict, numex=conf['batch_size'], append_masks=False,
                                    filepath=conf['output_dir'],
-                                   suf='_diffmotions_b{}_l{}'.format(b_exp, conf['sequence_length']), col_titles=col_titles)
+                                   suf='_diffmotions_b{}_l{}'.format(b_exp, conf['sequence_length']), col_titles=None)
             v.build_figure()
 
         else:

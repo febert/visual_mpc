@@ -38,7 +38,7 @@ def dna_transformation(conf, prev_image, dna_input):
 
     return [tf.reduce_sum(kernel * inputs, [3], keep_dims=False)], kernel
 
-def cdna_transformation(self, prev_image, cdna_input, reuse_sc=None, scope = None):
+def cdna_transformation(conf, prev_image, cdna_input, reuse_sc=None, scope = None):
     """Apply convolutional dynamic neural advection to previous image.
     Args:
       prev_image: previous image to be transformed.
@@ -52,8 +52,8 @@ def cdna_transformation(self, prev_image, cdna_input, reuse_sc=None, scope = Non
     height = int(prev_image.get_shape()[1])
     width = int(prev_image.get_shape()[2])
 
-    DNA_KERN_SIZE = self.conf['kern_size']
-    num_masks = self.conf['num_masks']
+    DNA_KERN_SIZE = conf['kern_size']
+    num_masks = conf['num_masks']
     color_channels = int(prev_image.get_shape()[3])
 
     # Predict kernels using linear function of last hidden layer.

@@ -21,6 +21,16 @@ def main(conf, model):
     else:
         from read_tf_record import build_tfrecord_input
 
+    with tf.variable_scope('half_float', reuse=None):
+        val_images_aux1, val_actions, val_states = build_tfrecord_input(conf, training=False)
+        val_images = val_images_aux1
+
+        val_images = tf.cast(val_images, tf.float16)
+        val_actions = tf.cast(val_actions, tf.float16)
+        val_states = tf.cast(val_states, tf.float16)
+
+        half_float = Model(conf, val_images, val_actions, val_states, inference=False)
+
     with tf.variable_scope('model', reuse=None) as training_scope:
         images_aux1, actions, states = build_tfrecord_input(conf, training=True)
         images = images_aux1
@@ -34,15 +44,7 @@ def main(conf, model):
         val_model = Model(conf, val_images, val_actions, val_states,
                           training_scope, inference=False)
 
-    with tf.variable_scope('half_float', reuse=None):
-        val_images_aux1, val_actions, val_states = build_tfrecord_input(conf, training=False)
-        val_images = val_images_aux1
 
-        val_images = tf.cast(val_images, tf.float16)
-        val_actions = tf.cast(val_actions, tf.float16)
-        val_states = tf.cast(val_states, tf.float16)
-
-        half_float = Model(conf, val_images, val_actions, val_states, inference=False)
 
     vars = tf.get_collection(tf.GraphKeys.GLOBAL_VARIABLES, scope='model') + tf.get_collection(
         tf.GraphKeys.GLOBAL_VARIABLES, scope='val_model')
