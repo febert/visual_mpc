@@ -26,7 +26,6 @@ class Traj_aborted_except(Exception):
     pass
 
 
-
 from wsg_50_common.msg import Cmd, Status
 
 class Primitive_Executor(object):
@@ -35,12 +34,10 @@ class Primitive_Executor(object):
         self.num_traj = 50000
 
         # must be an uneven number
-        seq_length = 32
-        n_traj_per_run = 3   # corresponds to
         self.act_every = 4
-        self.duration = 20#24 #16  # duration of trajectory in seconds
+        self.duration = 10. #20.#24 #16  # duration of trajectory in seconds
 
-        self.state_sequence_length = seq_length*n_traj_per_run # number of snapshots that are taken
+        self.state_sequence_length = 96 # number of snapshots that are taken
 
         action_frequency = float(float(self.state_sequence_length)/float(self.duration)/float(self.act_every))
         print 'using action frequency of {}Hz'.format(action_frequency)
@@ -108,13 +105,13 @@ class Primitive_Executor(object):
             # self.run_trajectory_const_speed(tr)
             done = False
             while not done:
-                try:
-                    self.run_trajectory(tr)
-                    done = True
-                except Traj_aborted_except:
-                    self.recorder.delete_traj(tr)
-                    nfail_traj +=1
-                    rospy.sleep(.2)
+                # try:
+                self.run_trajectory(tr)
+                done = True
+                # except Traj_aborted_except:
+                #     self.recorder.delete_traj(tr)
+                #     nfail_traj +=1
+                #     rospy.sleep(.2)
 
             if ((tr+1)% 20) == 0:
                 self.redistribute_objects()
@@ -200,12 +197,13 @@ class Primitive_Executor(object):
     def run_trajectory(self, i_tr):
 
         self.set_neutral_with_impedance(duration=1.)
+        self.ctrl.limb.set_joint_position_speed(.20)
+        self.imp_ctrl_release_spring(100.)
 
         if self.ctrl.has_gripper:
             self.ctrl.gripper.open()
         else:
             self.set_weiss_griper(50.)
-
 
         self.gripper_closed = False
         self.gripper_up = False
@@ -233,45 +231,34 @@ class Primitive_Executor(object):
         self.move_to_startpos()
         self.godown()
 
-        start_time = rospy.get_time()  # in seconds
-        finish_time = start_time + self.duration  # in seconds
-        print 'start time', start_time
-        print 'finish_time', finish_time
-
-        tsave = np.linspace(0, self.duration, self.state_sequence_length)
-
-        # print 'save times', tsave
-
-        tact = tsave[::self.act_every]
-        # print 'cmd new pos times ', tact
-
         i_act = 0  # index of current commanded point
         i_save = 0  # index of current saved step
 
-        self.ctrl.limb.set_joint_position_speed(.20)
-        self.imp_ctrl_release_spring(100.)
-
         self.previous_des_pos = copy.deepcopy(self.des_pos)
-        self.t_prev = tact[0]
-        self.t_next = tact[1]
-        while rospy.get_time() < finish_time:
-            self.curr_delta_time = rospy.get_time() - start_time
+        num_act = self.state_sequence_length/self.act_every
+        self.t_next = rospy.get_time()
+        self.tsave_next = [np.inf]
+        while i_act < num_act or rospy.get_time() < self.t_next:
+            if rospy.get_time() > self.t_next:
+                self.t_prev = rospy.get_time()
+                print 'current position error', self.des_pos[:3] - self.get_endeffector_pos(pos_only=True)
 
-            if i_act < len(tact):
-                if self.curr_delta_time > tact[i_act]:
-                    print 'current position error', self.des_pos[:3] - self.get_endeffector_pos(pos_only=True)
+                self.previous_des_pos = copy.deepcopy(self.des_pos)
+                action_vec, godown = self.act_joint(i_act)  # after completing trajectory save final state
+                # print 'prev_desired pos in step {0}: {1}'.format(i_act, self.previous_des_pos)
+                # print 'new desired pos in step {0}: {1}'.format(i_act, self.des_pos)
+                # print 'action vec', action_vec
+                if godown:
+                    act_interval = float(self.duration/num_act)*2.
+                else:
+                    act_interval = float(self.duration/num_act)
 
-                    self.previous_des_pos = copy.deepcopy(self.des_pos)
-                    action_vec = self.act_joint(i_act)  # after completing trajectory save final state
-                    # print 'prev_desired pos in step {0}: {1}'.format(i_act, self.previous_des_pos)
-                    # print 'new desired pos in step {0}: {1}'.format(i_act, self.des_pos)
-                    # print 'action vec', action_vec
-                    self.t_prev = tact[i_act]
-                    if i_act == len(tact)-1:
-                        self.t_next = tsave[-1]
-                    else:
-                        self.t_next = tact[i_act + 1]
-                    i_act += 1
+                self.t_next = rospy.get_time() + act_interval
+                self.tsave_next = np.linspace(self.t_prev+ act_interval/self.act_every,self.t_next, self.act_every)
+
+                i_act += 1
+                print 'i_act', i_act, 't_act_next', self.t_next
+                print 'tsavenext',self.tsave_next
 
             if self.interpolate:
                 des_joint_angles = self.get_interpolated_joint_angles()
@@ -287,19 +274,21 @@ class Primitive_Executor(object):
                 rospy.sleep(.5)
                 raise Traj_aborted_except('raising Traj_aborted_except')
 
-            if self.curr_delta_time > tsave[i_save]:
+            if rospy.get_time() > self.tsave_next[i_save%self.act_every]:
                 if self.save_active:
                     self.recorder.save(i_save, action_vec, self.get_endeffector_pos(pos_only=False))
+                # print 'current position error', self.des_pos[:3] - self.get_endeffector_pos(pos_only=True)
+                print 'i_save', i_save
                 i_save += 1
-                print 'current position error', self.des_pos[:3] - self.get_endeffector_pos(pos_only=True)
 
             self.control_rate.sleep()
+
 
         #saving the final state:
         if self.save_active:
             self.recorder.save(i_save, action_vec, self.get_endeffector_pos(pos_only=False))
 
-        if i_save != (self.state_sequence_length -1):
+        if i_save != self.state_sequence_length:
             raise Traj_aborted_except('trajectory not complete!')
 
         self.goup()
@@ -317,8 +306,8 @@ class Primitive_Executor(object):
         :param tnewpos:
         :return: des_pos
         """
-        assert (self.curr_delta_time >= t_prev) or (self.curr_delta_time <= t_next)
-        des_pos = previous_goalpoint + (next_goalpoint - previous_goalpoint) * (self.curr_delta_time- t_prev)/ (t_next - t_prev)
+        # assert (rospy.get_time() >= t_prev) and (rospy.get_time() <= t_next)
+        des_pos = previous_goalpoint + (next_goalpoint - previous_goalpoint) * (rospy.get_time()- t_prev)/ (t_next - t_prev)
         # print 'current_delta_time: ', self.curr_delta_time
         # print "interpolated pos:", des_pos
         return des_pos
@@ -372,7 +361,7 @@ class Primitive_Executor(object):
             current_joints = self.ctrl.limb.joint_angles()
             self.ctrl.limb.set_joint_positions(current_joints)
             raise Traj_aborted_except('raising Traj_aborted_except')
-        self.move_with_impedance_sec(des_joint_angles, duration=1.5)
+        self.move_with_impedance_sec(des_joint_angles, duration=2)
 
     def imp_ctrl_release_spring(self, maxstiff):
         self.imp_ctrl_release_spring_pub.publish(maxstiff)
@@ -473,11 +462,15 @@ class Primitive_Executor(object):
                     print 'opening gripper'
                     self.gripper_closed = False
 
+        godown = False
         if self.gripper_up:
             if i_act == self.t_down:
                 self.des_pos[2] = self.lower_height
                 print 'going down'
                 self.gripper_up = False
+
+                godown = True
+
 
         # self.imp_ctrl_release_spring(80.)
         # self.imp_ctrl_release_spring(200.)
@@ -486,7 +479,7 @@ class Primitive_Executor(object):
                                      np.array([up_cmd]),
                                      np.array([posshift[3]]),
                                      np.array([close_cmd])])
-        return action_vec
+        return action_vec, godown
 
     def get_des_pose(self, des_pos):
         quat = self.zangle_to_quat(des_pos[3])

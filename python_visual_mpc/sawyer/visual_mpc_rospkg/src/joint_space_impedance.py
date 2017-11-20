@@ -99,7 +99,7 @@ class JointSprings(object):
             self._springs[joint] = 30
             self._damping[joint] = 4
 
-        self.comp_gripper_weight = True
+        self.comp_gripper_weight = False
         if self.comp_gripper_weight:
             self.ee_calc = EE_Calculator()
 
@@ -107,8 +107,7 @@ class JointSprings(object):
         joint_names = self._limb.joint_names()
         joint_positions = [self._limb.joint_angle(j) for j in joint_names]
         jac = self.ee_calc.jacobian(joint_positions)
-
-        cart_force = np.array([0., 0., 14, 0., 0., 0.])
+        cart_force = np.array([0., 0., 14., 0., 0., 0.])
         torques = (jac.transpose()).dot(cart_force)
         torques = np.asarray((torques)).reshape((7))
 
