@@ -24,14 +24,14 @@ policy = {
     'rew_all_steps':"",
     'finalweight':30,
     'no_pixdistrib_video':'',
-    # 'predictor_propagation': '',
+    'predictor_propagation': '',
 }
 
 agent = {
     'T': 20,
     'adim':5,
     'state_dim':4,
-    'opencv_tracking':'',
+    # 'opencv_tracking':'',
     'make_final_gif':'',
     'collect_data':'',
     'wristrot':''

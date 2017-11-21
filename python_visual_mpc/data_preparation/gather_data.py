@@ -43,8 +43,8 @@ class Trajectory(object):
         self.traj_per_group = 1000
 
         if 'take_ev_nth_step' in conf:
-            self.tspacing = conf['take_ev_nth_step']
-        else: self.tspacing = 2 #only use every n-step from the data (for softmotion take_ev_nth_step=1)
+            self.take_ev_nth_step = conf['take_ev_nth_step']
+        else: self.take_ev_nth_step = 2 #only use every n-step from the data (for softmotion take_ev_nth_step=1)
         split_seq_by = 1  #if greater than 1 split trajectory in n equal parts
 
         self.npictures = total_num_img/split_seq_by  #number of images after splitting (include images we use and not use)
@@ -52,7 +52,7 @@ class Trajectory(object):
         self.cameranames = ['main']
         self.n_cam = len(self.cameranames)  # number of cameras
 
-        self.T = total_num_img / split_seq_by / self.tspacing  # the number of timesteps in final trajectory
+        self.T = total_num_img / split_seq_by / self.take_ev_nth_step  # the number of timesteps in final trajectory
 
         h = conf['target_res'][0]
         w = conf['target_res'][1]
@@ -183,7 +183,7 @@ class TF_rec_converter(object):
     def step_from_to(self,  i_src):
         trajind = 0  # trajind is the index in the target trajectory
         end = Trajectory(self.conf).npictures
-        for dataind in range(0, end, self.traj.tspacing):  # dataind is the index in the source trajetory
+        for dataind in range(0, end, self.traj.take_ev_nth_step):  # dataind is the index in the source trajetory
 
             # get low dimensional data
             self.traj.actions[trajind] = self.all_actions[dataind]
@@ -204,7 +204,7 @@ class TF_rec_converter(object):
 
             if dataind == 0:
                 print 'processed from file {}'.format(im_filename)
-            if dataind == end - self.traj.tspacing:
+            if dataind == end - self.traj.take_ev_nth_step:
                 print 'processed to file {}'.format(im_filename)
 
             file = glob.glob(im_filename)
@@ -272,7 +272,7 @@ def crop_and_rot(conf, src_names, file, i_src):
     rowstart = conf['rowstart']
     colstart = conf['colstart']
     # setting used in wrist_rot
-    if 'shrink_before_crop' in self.conf:
+    if 'shrink_before_crop' in conf:
         shrink_factor = conf['shrink_before_crop']
         img = cv2.resize(img, (0, 0), fx=shrink_factor, fy=shrink_factor, interpolation=cv2.INTER_AREA)
         img = img[rowstart:rowstart+imheight, colstart:colstart+imwidth]
