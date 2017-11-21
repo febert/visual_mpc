@@ -9,7 +9,7 @@ def dna_transformation(conf, prev_image, dna_input):
 
     Args:
       prev_image: previous image to be transformed.
-      dna_input: hidden lyaer to be used for computing DNA transformation.
+      dna_input: hidden layer to be used for computing DNA transformation.
     Returns:
       List of images transformed by the predicted CDNA kernels.
     """
@@ -85,7 +85,7 @@ def cdna_transformation(conf, prev_image, cdna_input, reuse_sc=None, scope = Non
         for i in range(prev_image.shape[0]):
             image_i = tf.expand_dims(tf.transpose(prev_image[i, :, :, :], [2,0,1]), axis = 3)
             filt_i = tf.expand_dims(cdna_kerns[:, :, i, :], axis = 2)
-            conv_result = tf.squeeze(tf.nn.conv2d(image_i, filt_i, [1, 1, 1, 1], 'SAME'))
+            conv_result = tf.nn.conv2d(image_i, filt_i, [1, 1, 1, 1], 'SAME')
             image_batch_conv.append(tf.transpose(conv_result, [1,2,0,3]))
 
         transformed = tf.stack(image_batch_conv, axis=0)
