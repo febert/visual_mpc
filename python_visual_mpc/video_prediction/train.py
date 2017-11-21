@@ -21,8 +21,6 @@ VAL_INTERVAL = 500
 # How often to save a model checkpoint
 SAVE_INTERVAL = 4000
 
-from python_visual_mpc.video_prediction.dynamic_rnn_model.dynamic_base_model import Dynamic_Base_Model
-# from python_visual_mpc.video_prediction.tracking_model.single_point_tracking_model import Single_Point_Tracking_Model
 from python_visual_mpc.video_prediction.tracking_model.single_point_tracking_model import Single_Point_Tracking_Model
 
 from python_visual_mpc.video_prediction.dynamic_rnn_model.alex_model_interface import Alex_Interface_Model
@@ -79,7 +77,7 @@ def main(unused_argv, conf_script= None):
 
         conf['sequence_length'] = 14
         if FLAGS.diffmotions:
-            conf['sequence_length'] = 15 #!!!!!!!!!!!!!!!!!!!
+            conf['sequence_length'] = 30
 
         # when using alex interface:
         if 'modelconfiguration' in conf:

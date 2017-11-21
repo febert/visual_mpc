@@ -4,6 +4,7 @@ current_dir = os.path.dirname(os.path.realpath(__file__))
 source_basedir = "/mnt/sda1/sawyerdata/wrist_rot"
 
 configuration = {
+'current_dir': current_dir,
 'tf_rec_dir': current_dir + '/modeldata',      #'directory for model checkpoints.' ,
 'source_basedir': source_basedir,
 'sourcedirs': [source_basedir + '/main'],               # list of source dirs for different camera view-points
