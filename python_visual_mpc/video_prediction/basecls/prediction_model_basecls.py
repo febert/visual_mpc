@@ -203,7 +203,7 @@ class Base_Prediction_Model(object):
             # Reuse variables after the first timestep.
 
             self.reuse = bool(self.gen_images)
-            self.prev_image, self.prev_pix_distrib1 = self.get_input_image(
+            self.prev_image, self.prev_pix_distrib = self.get_input_image(
                                                                         feedself,
                                                                         image,
                                                                         t)
@@ -225,11 +225,11 @@ class Base_Prediction_Model(object):
         """
         if self.dna:
             dna_kernel, transformed_distrib, transformed_images = self.apply_dna(enc6,
-                          self.prev_image, self.prev_pix_distrib1)
+                                                                                 self.prev_image, self.prev_pix_distrib)
 
         if self.cdna:
             cdna_kerns, transformed_distrib, transformed_images = self.apply_cdna(
-                enc6, hidden5, self.prev_image, self.prev_pix_distrib1)
+                enc6, hidden5, self.prev_image, self.prev_pix_distrib)
 
         if '1stimg_bckgd' in self.conf:
             background = self.images[0]
@@ -244,7 +244,7 @@ class Base_Prediction_Model(object):
         if self.trafo_pix:
             pix_distrib_output = self.fuse_pix_distrib(mask_list,
                                                        self.pix_distrib[0],
-                                                       self.prev_pix_distrib1,
+                                                       self.prev_pix_distrib,
                                                        transformed_distrib)
             self.gen_distrib.append(pix_distrib_output)
 

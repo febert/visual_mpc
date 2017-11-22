@@ -195,9 +195,7 @@ def visualize_diffmotions(sess, conf, model):
     # dict['gen_transf_images_l'] = gen_transf_images
     # dict['gen_transf_distribs_l'] = gen_transf_distribs
 
-    import re
-    # itr_vis = re.match('.*?([0-9]+)$', conf['visualize']).group(1)
-    # dict['iternum'] = itr_vis
+    dict['iternum'] = conf['num_iter']
     dict['desig_pos'] = desig_pos[0]
     # dict['moved_parts'] = moved_parts
     # dict['moved_images'] = moved_images

@@ -30,7 +30,7 @@ from utils.tracking_client import OpenCV_Track_Listener
 from visual_mpc_rospkg.srv import get_action, init_traj_visualmpc
 
 from python_visual_mpc.region_proposal_networks.rpn_tracker import RPN_Tracker
-
+from std_msgs.msg import String
 class Traj_aborted_except(Exception):
     pass
 
@@ -100,6 +100,8 @@ class Visual_MPC_Client():
 
         self.get_action_func = rospy.ServiceProxy('get_action', get_action)
         self.init_traj_visual_func = rospy.ServiceProxy('init_traj_visualmpc', init_traj_visualmpc)
+
+        self.alive_publisher = rospy.Publisher('still_alive', String, queue_size=10)
 
         if self.use_robot:
             self.imp_ctrl_publisher = rospy.Publisher('desired_joint_pos', JointState, queue_size=1)
@@ -379,7 +381,6 @@ class Visual_MPC_Client():
             single_desig_pos, single_goal_pos = self.rpn_tracker.get_task(im,self.recorder.image_folder)
             self.desig_pos_main[0] = single_desig_pos
             self.goal_pos_main[0] = single_goal_pos
-
         else:
             print 'place object in new location!'
             pdb.set_trace()

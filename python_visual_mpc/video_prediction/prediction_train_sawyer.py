@@ -286,7 +286,6 @@ def main(unused_argv, conf_script= None):
         with tf.variable_scope('model', reuse=None):
             val_model = Model(conf, images_pl, actions_pl, states_pl, pix_distrib=pix_distrib_pl,
                               inference=inference)
-
     else:
         with tf.variable_scope('model', reuse=None) as training_scope:
             images_aux1, actions, states = build_tfrecord_input(conf, training=True)
