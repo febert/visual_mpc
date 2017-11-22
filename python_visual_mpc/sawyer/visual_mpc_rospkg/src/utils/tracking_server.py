@@ -68,7 +68,7 @@ class Tracker(object):
         if not self.tracker_initialized and self.bbox is not None:
             for p in range(self.ndesig):
                 tracker = cv2.TrackerMIL_create()
-                tracker.init(self.lt_img_cv2, tuple(self.bbox[0]))
+                tracker.init(self.lt_img_cv2, tuple(self.bbox[p]))
                 self.tracker_list.append(tracker)
 
             self.tracker_initialized = True
