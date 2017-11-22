@@ -99,33 +99,32 @@ def reading_thread(conf, subset_traj, enqueue_op, sess, images_pl, states_pl, ac
 
     for trajname in itertools.cycle(subset_traj):  # loop of traj0, traj1,..
 
-        # print 'processing {}, seq-part {}'.format(trajname, traj_tuple[1] )
-        # try:
-        traj_index = re.match('.*?([0-9]+)$', trajname).group(1)
-        traj = Trajectory(data_conf)
+        try:
+            traj_index = re.match('.*?([0-9]+)$', trajname).group(1)
+            traj = Trajectory(data_conf)
 
-        traj_tailpath = '/'.join(str.split(trajname, '/')[-2:])   #string with only the group and trajectory
-        traj_beginpath = '/'.join(str.split(trajname, '/')[:-3])   #string with only the group and trajectory
+            traj_tailpath = '/'.join(str.split(trajname, '/')[-2:])   #string with only the group and trajectory
+            traj_beginpath = '/'.join(str.split(trajname, '/')[:-3])   #string with only the group and trajectory
 
-        pkl_file = trajname + '/joint_angles_traj{}.pkl'.format(traj_index)
-        if not os.path.isfile(pkl_file):
-            print 'no pkl file found in', trajname
-            continue
+            pkl_file = trajname + '/joint_angles_traj{}.pkl'.format(traj_index)
+            if not os.path.isfile(pkl_file):
+                print 'no pkl file found in', trajname
+                continue
 
-        pkldata = cPickle.load(open(pkl_file, "rb"))
+            pkldata = cPickle.load(open(pkl_file, "rb"))
 
-        for i_src, tag in enumerate(data_conf['sourcetags']):  # loop over cameras: main, aux1, ..
-            traj_dir_src = traj_beginpath + tag + '/' + traj_tailpath
-            step_from_to(i_src, traj_dir_src, traj, pkldata)
+            for i_src, tag in enumerate(data_conf['sourcetags']):  # loop over cameras: main, aux1, ..
+                traj_dir_src = traj_beginpath + tag + '/' + traj_tailpath
+                step_from_to(i_src, traj_dir_src, traj, pkldata)
 
-        sess.run(enqueue_op, feed_dict={images_pl: np.squeeze(traj.images),
-                                        states_pl: traj.endeffector_pos,
-                                        actions_pl: traj.actions})
-        # except KeyboardInterrupt:
-        #     sys.exit()
-        # except:
-        #     print "error occured"
-        #     num_errors += 1
+            sess.run(enqueue_op, feed_dict={images_pl: np.squeeze(traj.images),
+                                            states_pl: traj.endeffector_pos,
+                                            actions_pl: traj.actions})
+        except KeyboardInterrupt:
+            sys.exit()
+        except:
+            print "error occured"
+            num_errors += 1
 
 class OnlineReader(object):
     def __init__(self, conf, mode, sess):
