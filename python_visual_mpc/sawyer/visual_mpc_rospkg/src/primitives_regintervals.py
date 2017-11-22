@@ -37,7 +37,7 @@ class Primitive_Executor(object):
 
         # must be an uneven number
         self.act_every = 4
-        self.duration = 10. #20.#24 #16  # duration of trajectory in seconds
+        self.duration = 20.#24 #16  # duration of trajectory in seconds
 
         self.state_sequence_length = 96 # number of snapshots that are taken
 
@@ -64,6 +64,7 @@ class Primitive_Executor(object):
         self.imp_ctrl_active = rospy.Publisher('imp_ctrl_active', Int64, queue_size=10)
 
         self.weiss_pub = rospy.Publisher('/wsg_50_driver/goal_position', Cmd, queue_size=10)
+        rospy.Subscriber("/wsg_50_driver/status", Status, self.save_weiss_pos)
 
         self.control_rate = rospy.Rate(1000)
 
@@ -84,6 +85,8 @@ class Primitive_Executor(object):
         self.save_active = True
         self.interpolate = True
         self.enable_rot = False
+
+        self.tlast_gripper_status  = rospy.get_time()
 
         self.checkpoint_file = os.path.join(self.recorder.save_dir, 'checkpoint.txt')
 
@@ -115,13 +118,13 @@ class Primitive_Executor(object):
             # self.run_trajectory_const_speed(tr)
             done = False
             while not done:
-                # try:
-                self.run_trajectory(tr)
-                done = True
-                # except Traj_aborted_except:
-                #     self.recorder.delete_traj(tr)
-                #     nfail_traj +=1
-                #     rospy.sleep(.2)
+                try:
+                    self.run_trajectory(tr)
+                    done = True
+                except Traj_aborted_except:
+                    self.recorder.delete_traj(tr)
+                    nfail_traj +=1
+                    rospy.sleep(.2)
 
             if ((tr+1)% 20) == 0:
                 self.redistribute_objects()
@@ -204,6 +207,10 @@ class Primitive_Executor(object):
         cmd.speed = 100.
         self.weiss_pub.publish(cmd)
 
+    def save_weiss_pos(self, status):
+        self.gripper_pos = status.width
+        self.tlast_gripper_status = rospy.get_time()
+
     def run_trajectory(self, i_tr):
 
         self.set_neutral_with_impedance(duration=1.)
@@ -233,13 +240,13 @@ class Primitive_Executor(object):
         else:
             start_angle = np.array([0.])
 
-        self.des_pos = np.concatenate([startpos, np.asarray([self.lower_height + self.delta_up]), start_angle], axis=0)
+        self.des_pos = np.concatenate([startpos, np.asarray([self.lower_height + 0.18]), start_angle], axis=0)
 
         self.topen, self.t_down = 0, 0
 
         #move to start:
         self.move_to_startpos()
-        self.godown()
+        self.go_down_atstart()
 
         i_act = 0  # index of current commanded point
         i_save = 0  # index of current saved step
@@ -247,11 +254,20 @@ class Primitive_Executor(object):
         self.previous_des_pos = copy.deepcopy(self.des_pos)
         num_act = self.state_sequence_length/self.act_every
         self.t_next = rospy.get_time()
-        self.tsave_next = [np.inf]
-        while i_act < num_act or rospy.get_time() < self.t_next:
-            if rospy.get_time() > self.t_next:
+        savecount = 4
+        while i_save < self.state_sequence_length:
+            if i_act > 0:
+                if rospy.get_time() > self.tsave_next[i_save]:
+                    if self.save_active:
+                        print 'saving {} at t{}, realtime{}'.format(i_save, self.tsave_next[i_save], rospy.get_time())
+                        self.recorder.save(i_save, action_vec, self.get_endeffector_pos(pos_only=False))
+                    # print 'current position error', self.des_pos[:3] - self.get_endeffector_pos(pos_only=True)
+                    i_save += 1
+                    savecount +=1
+
+            if rospy.get_time() > self.t_next and savecount == self.act_every:
                 self.t_prev = rospy.get_time()
-                print 'current position error', self.des_pos[:3] - self.get_endeffector_pos(pos_only=True)
+                # print 'current position error', self.des_pos[:3] - self.get_endeffector_pos(pos_only=True)
 
                 self.previous_des_pos = copy.deepcopy(self.des_pos)
                 action_vec, godown = self.act_joint(i_act)  # after completing trajectory save final state
@@ -264,11 +280,19 @@ class Primitive_Executor(object):
                     act_interval = float(self.duration/num_act)
 
                 self.t_next = rospy.get_time() + act_interval
-                self.tsave_next = np.linspace(self.t_prev+ act_interval/self.act_every,self.t_next, self.act_every)
+
+                if i_act == 0:
+                    self.tsave_next  = np.linspace(self.t_prev+ act_interval/self.act_every,self.t_next, self.act_every)
+                else:
+                    self.tsave_next = np.concatenate([self.tsave_next,
+                                    np.linspace(self.t_prev+ act_interval/self.act_every,self.t_next, self.act_every)])
+
+                print 'i_act', i_act, 't_act_next', self.t_next
+
+                assert savecount == self.act_every
+                savecount = 0
 
                 i_act += 1
-                print 'i_act', i_act, 't_act_next', self.t_next
-                print 'tsavenext',self.tsave_next
 
             if self.interpolate:
                 des_joint_angles = self.get_interpolated_joint_angles()
@@ -284,28 +308,30 @@ class Primitive_Executor(object):
                 rospy.sleep(.5)
                 raise Traj_aborted_except('raising Traj_aborted_except')
 
-            if rospy.get_time() > self.tsave_next[i_save%self.act_every]:
-                if self.save_active:
-                    self.recorder.save(i_save, action_vec, self.get_endeffector_pos(pos_only=False))
-                # print 'current position error', self.des_pos[:3] - self.get_endeffector_pos(pos_only=True)
-                print 'i_save', i_save
-                i_save += 1
 
+
+            # print 'sleep'
             self.control_rate.sleep()
 
-
-        #saving the final state:
-        if self.save_active:
-            self.recorder.save(i_save, action_vec, self.get_endeffector_pos(pos_only=False))
+        # #saving the final state:
+        # if self.save_active:
+        #     self.recorder.save(i_save, action_vec, self.get_endeffector_pos(pos_only=False))
 
         if i_save != self.state_sequence_length:
-            raise Traj_aborted_except('trajectory not complete!')
+            print 'trajectory not complete!'
+            raise Traj_aborted_except()
 
         self.goup()
         if self.ctrl.has_gripper:
             self.ctrl.gripper.open()
         else:
+            print 'delta t gripper status', rospy.get_time() - self.tlast_gripper_status
+            if rospy.get_time() - self.tlast_gripper_status > 10.:
+                print 'gripper stopped working!'
+                pdb.set_trace()
+
             self.set_weiss_griper(100.)
+
 
     def calc_interpolation(self, previous_goalpoint, next_goalpoint, t_prev, t_next):
         """
@@ -357,7 +383,7 @@ class Primitive_Executor(object):
             raise Traj_aborted_except('raising Traj_aborted_except')
         self.move_with_impedance_sec(des_joint_angles, duration=1.)
 
-    def godown(self):
+    def go_down_atstart(self):
         print "going down at trajectory start.."
         self.des_pos[2] = self.lower_height
         desired_pose = self.get_des_pose(self.des_pos)
@@ -371,7 +397,7 @@ class Primitive_Executor(object):
             current_joints = self.ctrl.limb.joint_angles()
             self.ctrl.limb.set_joint_positions(current_joints)
             raise Traj_aborted_except('raising Traj_aborted_except')
-        self.move_with_impedance_sec(des_joint_angles, duration=2)
+        self.move_with_impedance_sec(des_joint_angles, duration=3.)
 
     def imp_ctrl_release_spring(self, maxstiff):
         self.imp_ctrl_release_spring_pub.publish(maxstiff)
