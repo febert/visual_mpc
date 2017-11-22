@@ -16,6 +16,10 @@ from python_visual_mpc.video_prediction.utils_vpred.animate_tkinter import Visua
 import matplotlib.pyplot as plt
 import collections
 
+from visual_mpc_rospkg.msg import floatarray
+from rospy.numpy_msg import numpy_msg
+import rospy
+
 class CEM_controller():
     """
     Cross Entropy Method Stochastic Optimizer
@@ -89,6 +93,9 @@ class CEM_controller():
         self.goal_image = None
 
         self.dict_ = collections.OrderedDict()
+
+        self.gen_image_publisher = rospy.Publisher('gen_image', numpy_msg(floatarray), queue_size=10)
+        self.gen_pix_distrib_publisher = rospy.Publisher('gen_pix_distrib', numpy_msg(floatarray), queue_size=10)
 
     def calc_action_cost(self, actions):
         actions_costs = np.zeros(self.M)
@@ -308,7 +315,6 @@ class CEM_controller():
             else:
                 file_path = self.netconf['current_dir'] + '/verbose'
 
-
             if not os.path.exists(file_path):
                 os.makedirs(file_path)
 
@@ -319,22 +325,26 @@ class CEM_controller():
                         outputlist[tstep][ind] = inputlist[tstep][bestindices[ind]]
                 return outputlist
 
-
             self.dict_['gen_images_t{}'.format(self.t)] = best(gen_images)
 
 
             for p in range(self.ndesig):
-                self.dict_['gen_distrib{}_t{}'.format(p, self.t)] = best(gen_distrib)
+                self.dict_['gen_distrib{}_t{}'.format(p, self.t)] = best(gen_distrib[:,:,p])
 
             if not 'no_instant_gif' in self.policyparams:
                 t_dict_ = {}
                 t_dict_['gen_images_t{}'.format(self.t)] = best(gen_images)
                 for p in range(self.ndesig):
-                    t_dict_['gen_distrib{}_t{}'.format(p, self.t)] = best(gen_distrib)
+                    t_dict_['gen_distrib{}_t{}'.format(p, self.t)] = best(gen_distrib[:,:,p])
                 v = Visualizer_tkinter(t_dict_, append_masks=False,
                                        filepath=self.policyparams['current_dir'] + '/verbose',
                                        numex=5)
                 v.build_figure()
+
+            best_gen_images = gen_images[bestind]
+            best_gen_distrib_seq = gen_distrib[bestind]
+            self.gen_image_publisher.publish(best_gen_images)
+            self.gen_pix_distrib_publisher.publish(best_gen_distrib_seq)
 
         if 'store_video_prediction' in self.agentparams and\
                 itr == (self.policyparams['iterations']-1):
@@ -377,9 +387,9 @@ class CEM_controller():
 
     def make_input_distrib(self, itr):
         if 'predictor_propagation' in self.policyparams:  # using the predictor's DNA to propagate, no correction
-            input_distrib = self.get_recinput(itr, self.rec_input_distrib, self.desig_pix[0])
+            input_distrib = self.get_recinput(itr, self.rec_input_distrib, self.desig_pix)
         else:
-            input_distrib = self.switch_on_pix(self.desig_pix[0])
+            input_distrib = self.switch_on_pix(self.desig_pix)
         return input_distrib
 
     def get_recinput(self, itr, rec_input_distrib, desig):

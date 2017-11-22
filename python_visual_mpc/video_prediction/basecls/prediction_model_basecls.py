@@ -434,6 +434,7 @@ class Base_Prediction_Model(object):
 
         return prev_image, prev_pix_distrib
 
+
     def mean_squared_error(self, true, pred):
         """L2 distance between tensors true and pred.
 
@@ -508,6 +509,7 @@ class Base_Prediction_Model(object):
             output += layer * mask
 
         return output, mask_list
+
 
     def fuse_pix_distrib(self, mask_list, first_pix_distrib, prev_pix_distrib,
                          transf_distrib):
