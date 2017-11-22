@@ -22,6 +22,8 @@ from std_msgs.msg import String
 from utils.checkpoint import write_ckpt, write_timing_file, parse_ckpt
 import python_visual_mpc
 
+import argparse
+
 class Traj_aborted_except(Exception):
     pass
 
@@ -43,8 +45,16 @@ class Primitive_Executor(object):
         print 'using action frequency of {}Hz'.format(action_frequency)
         print 'time between actions:', 1 / action_frequency
 
+        parser = argparse.ArgumentParser(description='set robot to use')
+        parser.add_argument('robot', type=str, help='robot name')
+
+        args = parser.parse_args()
+
         self.ctrl = robot_controller.RobotController()
-        self.recorder = robot_recorder.RobotRecorder(agent_params={}, save_dir="/media/febert/harddisk/febert/sawyer_data/newrecording",
+
+        save_dir = "/media/febert/harddisk/febert/sawyer_data/newrecording_{}".format(args.robot)
+        assert os.path.exists(save_dir)
+        self.recorder = robot_recorder.RobotRecorder(agent_params={}, save_dir= save_dir,
                                                      seq_len=self.state_sequence_length, use_aux=False)
 
         self.alive_publisher = rospy.Publisher('still_alive', String, queue_size=10)
