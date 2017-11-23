@@ -53,7 +53,8 @@ class Primitive_Executor(object):
         self.ctrl = robot_controller.RobotController()
 
         save_dir = "/media/febert/harddisk/febert/sawyer_data/newrecording_{}".format(args.robot)
-        assert os.path.exists(save_dir)
+        if not os.path.exists(save_dir):
+            raise ValueError("{} does not exist".format(save_dir))
         self.recorder = robot_recorder.RobotRecorder(agent_params={}, save_dir= save_dir,
                                                      seq_len=self.state_sequence_length, use_aux=False)
 
