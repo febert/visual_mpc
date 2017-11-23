@@ -87,17 +87,19 @@ class JointSprings(object):
         rospy.Subscriber("release_spring", Float32, self._release)
         rospy.Subscriber("imp_ctrl_active", Int64, self._imp_ctrl_active)
 
-        self.max_stiffness = 20
+        self.max_stiffness = 100
         self.time_to_maxstiffness = .3  ######### 0.68
         self.t_release = rospy.get_time()
 
         self._imp_ctrl_is_active = True
 
+
+
         for joint in self._limb.joint_names():
             self._springs[joint] = 30
             self._damping[joint] = 4
 
-        self.comp_gripper_weight = True
+        self.comp_gripper_weight = False
         if self.comp_gripper_weight:
             self.ee_calc = EE_Calculator()
 
@@ -105,10 +107,9 @@ class JointSprings(object):
         joint_names = self._limb.joint_names()
         joint_positions = [self._limb.joint_angle(j) for j in joint_names]
         jac = self.ee_calc.jacobian(joint_positions)
-
-        cart_force = np.array([0., 0., 12., 0., 0., 0., 0.])
+        cart_force = np.array([0., 0., 14., 0., 0., 0.])
         torques = (jac.transpose()).dot(cart_force)
-        pdb.set_trace()
+        torques = np.asarray((torques)).reshape((7))
 
         return torques
 
@@ -171,8 +172,8 @@ class JointSprings(object):
 
         if self.comp_gripper_weight:
             comp_torques = self.calc_comp_torques()
-            pdb.set_trace()
             for i, joint in enumerate(self._des_angles.keys()):
+                print joint, comp_torques[i]
                 cmd[joint] += comp_torques[i]
 
         # command new joint torques

@@ -29,6 +29,10 @@ class RobotController(object):
 
         try:
             self.gripper = intera_interface.Gripper("right")
+
+            self.gripper.calibrate()
+            self.gripper.set_velocity(self.gripper.MAX_VELOCITY)  # "set 100% velocity"),
+            self.gripper.open()
         except:
             self.has_gripper = False
             rospy.logerr("Could not initalize the gripper.")
@@ -37,17 +41,6 @@ class RobotController(object):
 
         self.joint_names = self.limb.joint_names()
         print("Done initializing controller.")
-
-        # set gripper
-        try:
-            self.gripper = intera_interface.Gripper("right")
-        except ValueError:
-            rospy.logerr("Could not detect a gripper attached to the robot.")
-            return
-
-        self.gripper.calibrate()
-        self.gripper.set_velocity(self.gripper.MAX_VELOCITY) #"set 100% velocity"),
-        self.gripper.open()
 
 
     def set_joint_delta(self, joint_name, delta):
