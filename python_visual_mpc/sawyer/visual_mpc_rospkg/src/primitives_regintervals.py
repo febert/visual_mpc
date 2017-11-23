@@ -75,7 +75,6 @@ class Primitive_Executor(object):
 
         self.checkpoint_file = os.path.join(self.recorder.save_dir, 'checkpoint.txt')
 
-
         print 'press c to start data collection..'
         pdb.set_trace()
         self.run_data_collection()

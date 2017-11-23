@@ -58,7 +58,6 @@ def build_tfrecord_input(conf, training=True, input_file=None):
             shuffle = True
 
     print 'using shuffle files: ', shuffle
-    # print 'using input file', filenames
 
     filename_queue = tf.train.string_input_producer(filenames, shuffle=shuffle)
     reader = tf.TFRecordReader()
@@ -245,9 +244,9 @@ def main():
     conf['visualize']= True
     conf['context_frames'] = 2
 
-    conf['im_height'] = 256 # 64
-    conf['sdim'] = 3
-    conf['adim'] = 4
+    conf['im_height'] = 64
+    conf['sdim'] = 4
+    conf['adim'] = 5
 
     # conf['test_metric'] = {'robot_pos': 1, 'object_pos': 2}
 
@@ -275,7 +274,7 @@ def main():
         # images, actions, endeff, robot_pos, object_pos = sess.run([image_batch, action_batch, endeff_pos_batch, robot_pos_batch, object_pos_batch])
 
         file_path = '/'.join(str.split(DATA_DIR, '/')[:-1]+['preview'])
-        comp_single_video(file_path, images)
+        comp_single_video(file_path, images, num_exp=conf['batch_size'])
 
         # show some frames
         for b in range(conf['batch_size']):

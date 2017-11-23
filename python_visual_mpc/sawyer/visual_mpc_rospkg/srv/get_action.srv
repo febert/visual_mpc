@@ -1,8 +1,8 @@
 sensor_msgs/Image main
 sensor_msgs/Image aux1
 float32[4] state
-int64[4] desig_pos_aux1
-int64[4] goal_pos_aux1
+int64[] desig_pos_aux1
+int64[] goal_pos_aux1
 ---
 float32[5] action
 

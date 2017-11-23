@@ -37,8 +37,8 @@ class Trajectory(object):
     def __init__(self, conf):
 
         if 'total_num_img' in conf:
-            total_num_img = conf['total_num_img']
-        else: total_num_img = 96 #the actual number of images in the trajectory (for softmotion total_num_img=30)
+            self.total_num_img = conf['total_num_img']
+        else: self.total_num_img = 96 #the actual number of images in the trajectory (for softmotion total_num_img=30)
 
         self.traj_per_group = 1000
 
@@ -47,12 +47,12 @@ class Trajectory(object):
         else: self.take_ev_nth_step = 2 #only use every n-step from the data (for softmotion take_ev_nth_step=1)
         split_seq_by = 1  #if greater than 1 split trajectory in n equal parts
 
-        self.npictures = total_num_img/split_seq_by  #number of images after splitting (include images we use and not use)
+        self.npictures = self.total_num_img/split_seq_by  #number of images after splitting (include images we use and not use)
 
         self.cameranames = ['main']
         self.n_cam = len(self.cameranames)  # number of cameras
 
-        self.T = total_num_img / split_seq_by / self.take_ev_nth_step  # the number of timesteps in final trajectory
+        self.T = self.total_num_img / split_seq_by / self.take_ev_nth_step  # the number of timesteps in final trajectory
 
         h = conf['target_res'][0]
         w = conf['target_res'][1]
@@ -139,8 +139,11 @@ class TF_rec_converter(object):
 
                 pkldata = cPickle.load(open(pkl_file, "rb"))
                 self.all_actions = pkldata['actions']
+                assert self.all_actions.shape[0] == Trajectory(self.conf).total_num_img
                 self.all_joint_angles = pkldata['jointangles']
+                assert self.all_joint_angles.shape[0] == Trajectory(self.conf).total_num_img
                 self.all_endeffector_pos = pkldata['endeffector_pos']
+                assert self.all_endeffector_pos.shape[0] == Trajectory(self.conf).total_num_img
 
                 try:
                     for i_src, tag in enumerate(self.conf['sourcetags']):  # loop over cameras: main, aux1, ..

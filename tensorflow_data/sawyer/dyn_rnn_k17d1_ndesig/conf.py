@@ -7,8 +7,11 @@ DATA_DIR = '/'.join(str.split(current_dir, '/')[:-3]) + '/pushing_data/wrist_rot
 # local output directory
 OUT_DIR = current_dir + '/modeldata'
 
+from python_visual_mpc.video_prediction.dynamic_rnn_model.dynamic_base_model import Dynamic_Base_Model
+
 configuration = {
 'experiment_name': 'rndaction_var10',
+'pred_model':Dynamic_Base_Model,
 'data_dir': DATA_DIR,       # 'directory containing data.' ,
 'output_dir': OUT_DIR,      #'directory for model checkpoints.' ,
 'current_dir': current_dir, #'directory for writing summary.' ,
@@ -30,11 +33,10 @@ configuration = {
 'sawyer':'',
 'single_view':"",
 'use_len':14,                # number of steps used for training where the starting location is selected randomly within sequencelength
-'1stimg_bckgd':'',
 'visual_flowvec':'',
 'adim':5,
 'sdim':4,
 'normalization':'in',
-'previmg_bckgd':'',
-'ndesig':1
+'previmg_bckgd':''
+'1stimg_bckgd':''
 }

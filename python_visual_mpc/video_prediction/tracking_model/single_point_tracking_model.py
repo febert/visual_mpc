@@ -140,7 +140,7 @@ class Single_Point_Tracking_Model(Dynamic_Base_Model):
         self.track_distrib = []
 
         for t in range(self.conf['sequence_length']-1):
-            self.descp.append(self.build_descriptor(self.images[t+1], self.gen_distrib1[t+1], reuse=True))
+            self.descp.append(self.build_descriptor(self.images[t+1], self.gen_distrib[t + 1], reuse=True))
             self.track_distrib.append(self.get_distrib(self.descp[t], self.target_descp))
 
     def get_distrib(self, descp_field, target_descp):
@@ -203,7 +203,7 @@ class Single_Point_Tracking_Model(Dynamic_Base_Model):
         loss = 0
         summaries = []
         for t in range(self.conf['sequence_length']-1):
-            gen_dist = self.gen_distrib1[t]/ tf.reshape(tf.reduce_sum(self.gen_distrib1[t], axis=[1,2,3]),
+            gen_dist = self.gen_distrib[t] / tf.reshape(tf.reduce_sum(self.gen_distrib[t], axis=[1, 2, 3]),
                                                         [16,1,1,1])
             if self.conf['prob_dist_measure'] == 'kl':
                 pdist_loss = compute_kl(self.track_distrib[t], gen_dist)

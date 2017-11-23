@@ -67,8 +67,6 @@ class Image_Creator(object):
         where mask_i.shape = [batch_size, 64,64,1]
         """
 
-
-
         if dict_ == None:
             dict_ = cPickle.load(open(filepath + '/pred.pkl', "rb"))
 
@@ -148,10 +146,10 @@ class Image_Creator(object):
             im = Image.fromarray(im)
             im.save(os.path.join(folder, '%05d_%02d.png'%(self.i_ex, t)))
 
-def upsample_nearest(imlist):
+def upsample_nearest(imlist, size = (256,256)):
     out = []
     for im in imlist:
-        out.append(scipy.misc.imresize(im, [256,256], 'nearest'))
+        out.append(scipy.misc.imresize(im, size, 'nearest'))
 
     return out
 
@@ -175,22 +173,11 @@ def color_code_distrib(distrib_list, renormalize=False):
         cmap = plt.cm.get_cmap('jet')
         if renormalize:
             distrib /= (np.max(distrib)+1e-5)
-
-
-        # bounds = np.linspace(0, 1, 5)
-        # norm = mpl.colors.BoundaryNorm(bounds, cmap.N)
-        # normed = norm(np.squeeze(distrib))
         distrib = cmap(np.squeeze(distrib))[:, :, :3]
 
         distrib = scipy.misc.imresize(distrib, [256,256], 'bilinear')
 
         out_distrib.append(distrib)
-
-        # plt.figure()
-        # plt.imshow(np.squeeze(distrib))
-        # plt.show()
-        # plt.imshow(out_distrib[-1])
-        # plt.show()
 
     return out_distrib
 

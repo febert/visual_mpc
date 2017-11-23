@@ -181,41 +181,6 @@ def go_through_timesteps(file_path, conf):
 # frame size (810, 1125, 3)
 # size insert array([256, 768])
 
-def insert_in_frame(file_path, conf):
-    t = 1
-    imlist = create_video_pixdistrib_gif(file_path, conf, t, suffix='_t{}'.format(t), n_exp=6, suppress_number=True, makegif= False)
-
-    frame = Image.open(file_path + '/frame.png', mode='r')
-
-    writer = imageio.get_writer(file_path + '/genpix_withframe.mp4', fps=3)
-
-    pic_path = file_path + "/animated"
-    if not os.path.exists(pic_path):
-        os.mkdir(pic_path)
-
-    import copy
-    for i, img in enumerate(imlist):
-        origsize = img.shape
-        img = Image.fromarray(img)
-        img = img.resize((origsize[1]*2, origsize[0]*2), Image.ANTIALIAS)
-        img = np.asarray(img)
-
-        size_insert = img.shape
-
-        newimg = copy.deepcopy(np.asarray(frame)[:,:,:3])
-        if 'ndesig' in conf:
-            startr = 350
-        else:
-            startr = 380
-        startc = 295
-        newimg[startr :startr + size_insert[0],startc: startc + size_insert[1]] = img
-        # Image.fromarray(newimg).show()
-
-        writer.append_data(newimg)
-        Image.fromarray(newimg).save(pic_path + '/img{}.png'.format(i))
-
-    writer.close()
-
 def genimage_color_scheme_overtime(filepath, tmpc):
 
     gen_images = cPickle.load(open(filepath + '/gen_image_t{}.pkl'.format(tmpc), "rb"))

@@ -4,12 +4,12 @@ current_dir = os.path.dirname(os.path.realpath(__file__))
 # tf record data location:
 import python_visual_mpc
 
-DATA_DIR = '/'.join(str.split(python_visual_mpc.__file__, '/')[:-1]) + '/pushing_data/wrist_rotv1/train'
+DATA_DIR = '/'.join(str.split(python_visual_mpc.__file__, '/')[:-2]) + '/pushing_data/wrist_rotv1/train'
 
 # local output directory
 OUT_DIR = current_dir + '/modeldata'
 
-
+TEST_DATA_DIR = '/'.join(str.split(current_dir, '/')[:-4]) + '/pushing_data/wristrot_test_seenobj/test'
 from python_visual_mpc.video_prediction.dynamic_rnn_model.alex_model_interface import Alex_Interface_Model
 
 modelconfiguration = {
@@ -27,7 +27,8 @@ modelconfiguration = {
 'generate_scratch_image': True,
 'vgf_dim': 32,
 'trainable_generator_startswith':None,
-'dilation_rate': [1, 1]
+'dilation_rate': [1, 1],
+'ndesig':1
 }
 
 configuration = {
@@ -36,6 +37,7 @@ configuration = {
 'modelconfiguration':modelconfiguration,
 'pred_model':Alex_Interface_Model,
 'data_dir': DATA_DIR,       # 'directory containing data.' ,
+'test_data_dir': TEST_DATA_DIR,       # 'directory containing data.' ,
 'output_dir': OUT_DIR,      #'directory for model checkpoints.' ,
 'current_dir': current_dir, #'directory for writing summary.' ,
 'num_iterations': 200000,   #'number of training iterations.' ,
@@ -53,6 +55,7 @@ configuration = {
 'use_len':14,                # number of steps used for training where the starting location is selected randomly within sequencelength
 'adim':5,
 'sdim':4,
+'ndesig':modelconfiguration['ndesig']
 }
 
 

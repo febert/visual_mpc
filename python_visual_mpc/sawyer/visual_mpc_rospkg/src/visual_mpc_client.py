@@ -28,9 +28,11 @@ from utils.checkpoint import write_ckpt, write_timing_file, parse_ckpt
 from utils.copy_from_remote import scp_pix_distrib_files
 from utils.tracking_client import OpenCV_Track_Listener
 from visual_mpc_rospkg.srv import get_action, init_traj_visualmpc
+from rospy.numpy_msg import numpy_msg
+from visual_mpc_rospkg.msg import intarray
 
 from python_visual_mpc.region_proposal_networks.rpn_tracker import RPN_Tracker
-
+from std_msgs.msg import String
 class Traj_aborted_except(Exception):
     pass
 
@@ -51,8 +53,14 @@ class Visual_MPC_Client():
         parser.add_argument('benchmark', type=str, help='the name of the folder with agent setting for the benchmark')
         parser.add_argument('--save_subdir', default='False', type=str, help='')
         parser.add_argument('--canon', default=-1, type=int, help='whether to store canonical example')
+        parser.add_argument('--gui', default=-1, type=str, help='whether to use an external gui')
 
         args = parser.parse_args()
+
+        if args.gui == 'True':
+            self.use_gui = True
+        else:
+            self.use_gui = False
 
         self.base_dir = '/'.join(str.split(base_filepath, '/')[:-2])
         cem_exp_dir = self.base_dir + '/experiments/cem_exp/benchmarks_sawyer'
@@ -101,6 +109,8 @@ class Visual_MPC_Client():
         self.get_action_func = rospy.ServiceProxy('get_action', get_action)
         self.init_traj_visual_func = rospy.ServiceProxy('init_traj_visualmpc', init_traj_visualmpc)
 
+        self.alive_publisher = rospy.Publisher('still_alive', String, queue_size=10)
+
         if self.use_robot:
             self.imp_ctrl_publisher = rospy.Publisher('desired_joint_pos', JointState, queue_size=1)
             self.imp_ctrl_release_spring_pub = rospy.Publisher('release_spring', Float32, queue_size=10)
@@ -133,8 +143,8 @@ class Visual_MPC_Client():
         self.imp_ctrl_active.publish(1)
         rospy.sleep(.2)
 
-        self.goal_pos_main = np.zeros([2,2])   # the first index is for the ndesig and the second is r,c
-        self.desig_pos_main = np.zeros([2, 2])
+        self.goal_pos_main = np.zeros([self.ndesig,2])   # the first index is for the ndesig and the second is r,c
+        self.desig_pos_main = np.zeros([self.ndesig, 2])
 
         #highres position used when doing tracking
         self.desig_hpos_main = None
@@ -148,7 +158,6 @@ class Visual_MPC_Client():
             self.recorder_save_dir = self.base_dir + "/experiments/cem_exp/benchmarks_sawyer/" + self.benchname + "/videos"
 
         self.num_pic_perstep = 4
-        self.num_track_perstep = 8
         nsave = self.action_sequence_length * self.num_pic_perstep
 
         if 'collect_data' in self.agentparams:
@@ -174,8 +183,22 @@ class Visual_MPC_Client():
             self.checkpoint_file = os.path.join(self.recorder.save_dir, 'checkpoint.txt')
             self.rpn_tracker = RPN_Tracker(self.recorder_save_dir, self.recorder)
             self.run_data_collection()
+        elif self.use_gui:
+            rospy.Subscriber('visual_mpc_cmd', numpy_msg(intarray), self.run_visual_mpc_cmd)
+            rospy.spin()
         else:
             self.run_visual_mpc()
+
+
+    def run_visual_mpc_cmd(self, data):
+        """"
+        data is of shape [2, ndesig, 2]
+        data[0] contains designated pixel positions (row, column format)
+        data[1] contains goal pixel positions
+        """
+        self.desig_pos_main = data.data[0].reshape(self.ndesig,2)
+        self.goal_pos_main = data.data[1].reshape(self.ndesig,2)
+        self.run_trajectory(0)
 
     def mark_goal_desig(self, itr):
         print 'prepare to mark goalpos and designated pixel! press c to continue!'
@@ -349,13 +372,10 @@ class Visual_MPC_Client():
     def run_trajectory(self, i_tr):
 
         print 'setting neutral'
-        rospy.sleep(.2)
+        rospy.sleep(.1)
         # drive to neutral position:
-        self.imp_ctrl_active.publish(0)
-        self.ctrl.set_neutral()
         self.set_neutral_with_impedance()
-        self.imp_ctrl_active.publish(1)
-        rospy.sleep(.2)
+        rospy.sleep(.1)
 
         self.ctrl.gripper.open()
         self.gripper_closed = False
@@ -380,8 +400,7 @@ class Visual_MPC_Client():
             single_desig_pos, single_goal_pos = self.rpn_tracker.get_task(im,self.recorder.image_folder)
             self.desig_pos_main[0] = single_desig_pos
             self.goal_pos_main[0] = single_goal_pos
-
-        else:
+        elif not self.use_gui:
             print 'place object in new location!'
             pdb.set_trace()
             # rospy.sleep(.3)
@@ -415,7 +434,6 @@ class Visual_MPC_Client():
             self.tracker = OpenCV_Track_Listener(self.agentparams, self.policyparams,
                                                  self.recorder,
                                                  self.desig_pos_main)
-
         rospy.sleep(1)
 
         if self.save_canon:
@@ -446,7 +464,7 @@ class Visual_MPC_Client():
                                       self.canon_ind, self.canon_dir, only_desig=True)
                     self.desig_pos_main = c_main.desig.astype(np.int64)
                 elif 'opencv_tracking' in self.agentparams:
-                    self.desig_pos_main[0], self.desig_hpos_main = self.tracker.get_track()  #tracking only works for 1 desig. pixel!!
+                    self.desig_pos_main, _ = self.tracker.get_track()  #tracking only works for 1 desig. pixel!!
 
                 # print 'current position error', self.des_pos - self.get_endeffector_pos(pos_only=True)
 
@@ -467,22 +485,18 @@ class Visual_MPC_Client():
 
                 isave_substep  = 0
                 tsave = np.linspace(self.t_prev, self.t_next, num=self.num_pic_perstep, dtype=np.float64)
-                t_track = np.linspace(self.t_prev, self.t_next, num=self.num_track_perstep, dtype=np.float64)
                 print 'tsave', tsave
                 print 'applying action{}'.format(i_step)
                 i_step += 1
 
             des_joint_angles = self.get_interpolated_joint_angles()
 
-            if 'opencv_tracking' in self.agentparams:
-                if rospy.get_time() > t_track[isave_substep] - .01:
-                    self.desig_pos_main[0], self.desig_hpos_main = self.tracker.get_track()
-
             if self.save_active:
                 if isave_substep < len(tsave):
                     if rospy.get_time() > tsave[isave_substep] -.01:
                         # print 'saving index{}'.format(isave)
                         # print 'isave_substep', isave_substep
+                        _, self.desig_hpos_main = self.tracker.get_track()
                         self.recorder.save(isave, action_vec, self.get_endeffector_pos(), self.desig_hpos_main)
                         isave_substep += 1
                         isave += 1
@@ -778,20 +792,14 @@ class Getdesig(object):
         cid = fig.canvas.mpl_connect('button_press_event', self.onclick)
         self.i_click = 0
 
-        self.desig = np.zeros((2,2))  #idesig, (r,c)
-        self.goal = np.zeros((2, 2))  # idesig, (r,c)
+        self.desig = np.zeros((n_desig,2))  #idesig, (r,c)
+        self.goal = np.zeros((n_desig, 2))  # idesig, (r,c)
 
-        if self.n_desig == 1:
-            self.i_click_max = 2
-
-        if self.n_desig == 2:
-            self.i_click_max = 4
-
-        if only_desig:
-            self.i_click_max = 1
+        self.i_click_max = n_desig*2
 
         self.i_desig = 0
         self.i_goal = 0
+        self.marker_list = ['o',"D","v","^"]
 
         plt.show()
 
@@ -803,43 +811,24 @@ class Getdesig(object):
 
         print 'iclick', self.i_click
 
-        if self.n_desig == 1:
-            if self.i_click == 0:
-                self.desig[0,:] = np.array([event.ydata, event.xdata])
-                self.ax.scatter(self.desig[self.i_click,1], self.desig[self.i_click,0], s=100, marker="D", facecolors='r', edgecolors='r')
-                plt.draw()
-            if self.i_click == 1 and not self.only_desig:
-                self.goal[0,:] = np.array([event.ydata, event.xdata])
-                self.ax.scatter(self.goal[0,1], self.goal[0,0], s=100, facecolors='g', edgecolors='g')
-                plt.draw()
+        i_task = self.i_click//2
+        print 'i_task', i_task
 
-        if self.n_desig == 2:
-            if self.i_click == 0 or self.i_click == 2:
-                if self.i_desig == 0:
-                    marker = "D"
-                else:
-                    marker = "o"
-                self.desig[self.i_desig,:] = np.array([event.ydata, event.xdata])
-                self.ax.scatter(self.desig[self.i_desig,1], self.desig[self.i_desig,0], s=100, marker=marker, facecolors='r', edgecolors='r')
-                self.i_desig +=1
-                plt.draw()
-            if self.i_click == 1 or self.i_click == 3:
-                if self.i_goal == 0:
-                    marker = "D"
-                else:
-                    marker = "o"
-                self.goal[self.i_goal] = np.array([event.ydata, event.xdata])
-                self.ax.scatter(self.goal[self.i_goal,1], self.goal[self.i_goal,0], s=100, facecolors='g', edgecolors='g', marker=marker)
-                self.i_goal +=1
-                plt.draw()
+        rc_coord = np.array([event.ydata, event.xdata])
+        if self.i_click % 2 == 0:
+            self.desig[i_task, :] = rc_coord
+            color = "r"
+        else:
+            self.goal[i_task, :] = rc_coord
+            color = "g"
+        marker = self.marker_list[i_task]
+        self.ax.scatter(self.desig[self.i_click, 1], self.desig[self.i_click, 0], s=100, marker=marker, facecolors=color,
+                        edgecolors='r')
+        plt.draw()
 
         if self.i_click == self.i_click_max:
             print 'saving desig-goal picture'
             plt.savefig(self.basedir +'/startimg_'+self.suf)
-            if self.canon_ind != None:
-                print 'saving canonical example image to' + self.canon_dir + '/images/img{}'.format(self.canon_ind)
-                plt.savefig(self.canon_dir + '/images/img{}'.format(self.canon_ind))
-
             plt.close()
             with open(self.basedir +'/desig_goal_pix{}.pkl'.format(self.suf), 'wb') as f:
                 dict= {'desig_pix': self.desig,
@@ -847,8 +836,6 @@ class Getdesig(object):
                 cPickle.dump(dict, f)
 
         self.i_click += 1
-
-
 
 
 if __name__ == '__main__':
