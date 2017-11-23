@@ -22,7 +22,7 @@ VAL_INTERVAL = 500
 SAVE_INTERVAL = 4000
 
 from python_visual_mpc.video_prediction.tracking_model.single_point_tracking_model import Single_Point_Tracking_Model
-
+from python_visual_mpc.video_prediction.utils_vpred.variable_checkpoint_matcher import variable_checkpoint_matcher
 
 if __name__ == '__main__':
     FLAGS = flags.FLAGS
@@ -85,10 +85,7 @@ def main(unused_argv, conf_script= None):
     else:
         build_loss = True
 
-    if 'pred_model' in conf:
-        Model = conf['pred_model']
-    else:
-        Model = Dynamic_Base_Model
+    Model = conf['pred_model']
 
     # with tf.variable_scope('generator'):  # TODO: get rid of this and make something automatic.
     if FLAGS.diffmotions or "visualize_tracking" in conf or FLAGS.metric:
@@ -254,40 +251,6 @@ def load_checkpoint(conf, sess, saver, model_file=None):
         num_iter = int(re.match('.*?([0-9]+)$', ckpt.model_checkpoint_path).group(1))
     conf['num_iter'] = num_iter
     return num_iter
-
-
-def variable_checkpoint_matcher(conf, vars, model_file=None):
-    """
-    for every variable in vars takes its name and looks into the
-    checkpoint to find variable that matches its name beginning from the end
-    :param vars:
-    :return:
-    """
-    if model_file is None:
-        ckpt = tf.train.get_checkpoint_state(conf['output_dir'])
-        folder = ckpt.model_checkpoint_path
-    else:
-        folder = model_file
-
-    reader = tf.train.NewCheckpointReader(folder)
-    var_to_shape_map = reader.get_variable_to_shape_map()
-    check_names = var_to_shape_map.keys()
-
-    vars = dict([(var.name.split(':')[0], var) for var in vars])
-    new_vars = {}
-    for varname in vars.keys():
-        found = False
-        for ck_name in check_names:
-            ck_name_parts = ck_name.split('/')
-            varname_parts = varname.split('/')
-            if varname_parts == ck_name_parts[-len(varname_parts):]:
-                new_vars[ck_name] = vars[varname]
-                found = True
-                print "found {} in {}".format(varname, ck_name)
-                break
-        if not found:
-            raise ValueError("did not find variable{}".format(varname))
-    return new_vars
 
 
 def filter_vars(vars):

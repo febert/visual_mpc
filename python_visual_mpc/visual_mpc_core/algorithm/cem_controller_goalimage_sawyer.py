@@ -156,18 +156,7 @@ class CEM_controller():
         # initialize mean and variance
         self.mean = np.zeros(self.adim * self.naction_steps)
         #initialize mean and variance of the discrete actions to their mean and variance used during data collection
-
         self.sigma = self.construct_initial_sigma()
-        # self.sigma = np.diag(np.ones(self.adim * self.naction_steps) * self.initial_std ** 2)
-        # # reducing the variance for goup and close actiondims
-        #
-        # diagonal = copy.deepcopy(np.diag(self.sigma))
-        # for tind in range(self.naction_steps):
-        #     for ind in self.discrete_ind:
-        #         diagonal[tind*self.adim + ind] = 1.
-        #
-        #
-        # self.sigma[np.diag_indices_from(self.sigma)] = diagonal
 
         print '------------------------------------------------'
         print 'starting CEM cylce'
