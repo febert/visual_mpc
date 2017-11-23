@@ -29,6 +29,8 @@ from utils.checkpoint import write_ckpt, write_timing_file, parse_ckpt
 from utils.copy_from_remote import scp_pix_distrib_files
 from utils.tracking_client import OpenCV_Track_Listener
 from visual_mpc_rospkg.srv import get_action, init_traj_visualmpc
+from rospy.numpy_msg import numpy_msg
+from visual_mpc_rospkg.msg import intarray
 
 from python_visual_mpc.region_proposal_networks.rpn_tracker import RPN_Tracker
 
@@ -52,8 +54,14 @@ class Visual_MPC_Client():
         parser.add_argument('benchmark', type=str, help='the name of the folder with agent setting for the benchmark')
         parser.add_argument('--save_subdir', default='False', type=str, help='')
         parser.add_argument('--canon', default=-1, type=int, help='whether to store canonical example')
+        parser.add_argument('--gui', default=-1, type=str, help='whether to use an external gui')
 
         args = parser.parse_args()
+
+        if args.gui == 'True':
+            self.use_gui = True
+        else:
+            self.use_gui = False
 
         self.base_dir = '/'.join(str.split(base_filepath, '/')[:-2])
         # cem_exp_dir = self.base_dir + '/experiments/cem_exp/benchmarks_sawyer'
@@ -186,8 +194,22 @@ class Visual_MPC_Client():
             self.checkpoint_file = os.path.join(self.recorder.save_dir, 'checkpoint.txt')
             self.rpn_tracker = RPN_Tracker(self.recorder_save_dir, self.recorder)
             self.run_data_collection()
+        elif self.use_gui:
+            rospy.Subscriber('visual_mpc_cmd', numpy_msg(intarray), self.run_visual_mpc_cmd)
+            rospy.spin()
         else:
             self.run_visual_mpc()
+
+
+    def run_visual_mpc_cmd(self, data):
+        """"
+        data is of shape [2, ndesig, 2]
+        data[0] contains designated pixel positions (row, column format)
+        data[1] contains goal pixel positions
+        """
+        self.desig_pos_main = data.data[0].reshape(self.ndesig, 2)
+        self.goal_pos_main = data.data[1].reshape(self.ndesig, 2)
+        self.run_trajectory(0)
 
     def mark_goal_desig(self, itr):
         print 'prepare to mark goalpos and designated pixel! press c to continue!'
@@ -393,7 +415,7 @@ class Visual_MPC_Client():
             self.desig_pos_main[0] = single_desig_pos
             self.goal_pos_main[0] = single_goal_pos
 
-        else:
+        elif not self.use_gui:
             print 'place object in new location!'
             pdb.set_trace()
             # rospy.sleep(.3)
