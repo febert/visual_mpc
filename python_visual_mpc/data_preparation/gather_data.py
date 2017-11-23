@@ -82,7 +82,7 @@ class TF_rec_converter(object):
         :param crop_from_highres: whether to crop the image from the full resolution image
         """
 
-        self.sourcedirs = conf['sourcedirs']
+        self.sourcedirs = conf['source_basedirs']
         self.tfrec_dir = conf['tf_rec_dir']
         self.gif_dir = gif_dir
         self.crop_from_highres = crop_from_highres
@@ -194,11 +194,11 @@ class TF_rec_converter(object):
             # getting color image:
             if self.crop_from_highres:
                 if 'imagename_no_zfill' in self.conf:
-                    im_filename = self.traj_dir_src + '/images/{0}_full_cropped_im{1}_*' \
-                        .format(trajname, dataind)
+                    im_filename = trajname + '/images/{0}_full_cropped_im{1}_*' \
+                        .format(self.conf['sourcetags'][i_src], dataind)
                 else:
-                    im_filename = self.traj_dir_src + '/images/{0}_full_cropped_im{1}_*'\
-                        .format(trajname, str(dataind).zfill(2))
+                    im_filename = trajname + '/images/{0}_full_cropped_im{1}_*'\
+                        .format(self.conf['sourcetags'][i_src], str(dataind).zfill(2))
             else:
                 im_filename = self.traj_dir_src + '/images/{0}_cropped_im{1}_*.png'\
                     .format(trajname, dataind)
@@ -285,7 +285,7 @@ def crop_and_rot(conf, file, i_src):
     # assert img.shape == (64,64,3)
     img = img[...,::-1]  #bgr => rgb
 
-    if conf['source_tags'][i_src] == 'aux1':
+    if conf['sourcetags'][i_src] == 'aux1':
         img = imutils.rotate_bound(img, 180)
 
     # plt.imshow(img)
@@ -355,12 +355,12 @@ def start_parallel(conf, gif_dir, traj_name_list, n_workers, crop_from_highres= 
     res = [ray.get(id) for id in id_list]
 
 
-def make_traj_name_list(conf, source_dirs, start_end_grp = None, shuffle=True):
+def make_traj_name_list(conf, start_end_grp = None, shuffle=True):
     combined_list = []
     for source_dir in conf['source_basedirs']:
 
         traj_per_gr = Trajectory(conf).traj_per_group
-        max_traj = get_maxtraj(source_dir + conf['source_tags'][0])
+        max_traj = get_maxtraj([source_dir + conf['sourcetags'][0]])
 
         if start_end_grp != None:
             startgrp = start_end_grp[0]
@@ -378,7 +378,7 @@ def make_traj_name_list(conf, source_dirs, start_end_grp = None, shuffle=True):
 
         trajname_ind_l = []  # list of tuples (trajname, ind) where ind is 0,1,2 in range(self.split_seq_by)
         for gr in range(startgrp, endgrp + 1):  # loop over groups
-            gr_dir_main = source_dirs[0] + '/traj_group' + str(gr)
+            gr_dir_main = source_dir + conf['sourcetags'][0]+'/traj_group' + str(gr)
 
             if gr == startgrp:
                 trajstart = startidx
@@ -426,7 +426,7 @@ def main():
     #make sure the directory is empty
     assert glob.glob(conf['tf_rec_dir'] + '/*') == []
 
-    gif_file = conf['tf_rec_dir'] + '/preview_gather'
+    gif_file = '/'.join(str.split(conf['tf_rec_dir'], '/')[:-1]) + '/preview_gather'
 
     if args.start_gr != None:
         start_end_grp = [args.start_gr,args.end_gr]

@@ -1,7 +1,7 @@
 import os
 current_dir = os.path.dirname(os.path.realpath(__file__))
 
-source_basedir = "/mnt/sda1/sawyerdata/weiss_gripper"
+source_basedir = "/mnt/sda1/sawyerdata/weissgripper"
 
 configuration = {
 'tf_rec_dir': current_dir + '/train',      #'directory for model checkpoints.' ,
