@@ -70,7 +70,7 @@ class Model(object):
                  reuse_scope=None,
                  pix_distrib=None,
                  pix_distrib2=None,
-                 inference = False):
+                 build_loss = True):
 
         if 'prediction_model' in conf:
             Prediction_Model = conf['prediction_model']
@@ -139,7 +139,7 @@ class Model(object):
         self.gen_states = self.m.gen_states
         self.gen_masks = self.m.gen_masks
 
-        if not inference:
+        if build_loss:
             # L2 loss, PSNR for eval.
             true_fft_list, pred_fft_list = [], []
             loss, psnr_all = 0.0, 0.0

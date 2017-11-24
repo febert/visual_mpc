@@ -41,7 +41,7 @@ class Tower(object):
 
         modconf = copy.deepcopy(conf)
         modconf['batch_size'] = nsmp_per_gpu
-        self.model = Model(modconf, start_images, actions, start_states, pix_distrib=pix_distrib, inference=True)
+        self.model = Model(modconf, start_images, actions, start_states, pix_distrib=pix_distrib, build_loss=False)
 
 def setup_predictor(conf, gpu_id=0, ngpu=1):
     """
@@ -120,7 +120,10 @@ def setup_predictor(conf, gpu_id=0, ngpu=1):
     sess.run(tf.global_variables_initializer())
 
     vars = tf.get_collection(tf.GraphKeys.GLOBAL_VARIABLES)
+
     vars = filter_vars(vars)
+    for v in vars:
+        print v.name
     vars = variable_checkpoint_matcher(conf, vars, conf['pretrained_model'])
 
     # if 'pred_model' in conf:
@@ -158,7 +161,7 @@ def setup_predictor(conf, gpu_id=0, ngpu=1):
         comb_gen_img.append(tf.concat(axis=0, values=t_comb_gen_img))
 
         if not 'no_pix_distrib' in conf:
-            t_comb_pix_distrib = [to.model.gen_distrib1[t] for to in towers]
+            t_comb_pix_distrib = [to.model.gen_distrib[t] for to in towers]
             comb_pix_distrib.append(tf.concat(axis=0, values=t_comb_pix_distrib))
 
         t_comb_gen_states = [to.model.gen_states[t] for to in towers]

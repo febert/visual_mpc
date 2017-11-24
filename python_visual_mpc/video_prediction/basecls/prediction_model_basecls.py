@@ -18,10 +18,14 @@ from utils.visualize import visualize_diffmotions, visualize
 class Base_Prediction_Model(object):
 
     def __init__(self,
-                conf = None,
-                trafo_pix = True,
-                load_data = True,
-                build_loss=True,
+                 conf=None,
+                 images=None,
+                 actions=None,
+                 states=None,
+                 pix_distrib=None,
+                 trafo_pix=True,
+                 load_data=True,
+                 build_loss=False
                 ):
         """
         :param conf:
@@ -29,7 +33,6 @@ class Base_Prediction_Model(object):
         :param load_data:  whether to load data
         :param mode:  whether to build train- or val-model
         """
-
         if 'ndesig' in conf:
             self.ndesig = conf['ndesig']
         else:
@@ -58,36 +61,37 @@ class Base_Prediction_Model(object):
         self.sdim = conf['sdim']
         self.adim = conf['adim']
 
-        if not load_data:
-            self.actions_pl = tf.placeholder(tf.float32, name='actions',
-                                        shape=(conf['batch_size'], conf['sequence_length'], self.adim))
-            actions = self.actions_pl
+        if images is None:
+            if not load_data:
+                self.actions_pl = tf.placeholder(tf.float32, name='actions',
+                                            shape=(conf['batch_size'], conf['sequence_length'], self.adim))
+                actions = self.actions_pl
 
-            self.states_pl = tf.placeholder(tf.float32, name='states',
-                                       shape=(conf['batch_size'], conf['sequence_length'], self.sdim))
-            states = self.states_pl
+                self.states_pl = tf.placeholder(tf.float32, name='states',
+                                           shape=(conf['batch_size'], conf['sequence_length'], self.sdim))
+                states = self.states_pl
 
-            self.images_pl = tf.placeholder(tf.float32, name='images',
-                                       shape=(conf['batch_size'], conf['sequence_length'], 64, 64, 3))
-            images = self.images_pl
+                self.images_pl = tf.placeholder(tf.float32, name='images',
+                                           shape=(conf['batch_size'], conf['sequence_length'], 64, 64, 3))
+                images = self.images_pl
 
-            self.pix_distrib_pl = tf.placeholder(tf.float32, name='states',
-                                                 shape=(conf['batch_size'], conf['sequence_length'], self.ndesig, 64, 64, 1))
-            pix_distrib = self.pix_distrib_pl
+                self.pix_distrib_pl = tf.placeholder(tf.float32, name='states',
+                                                     shape=(conf['batch_size'], conf['sequence_length'], self.ndesig, 64, 64, 1))
+                pix_distrib = self.pix_distrib_pl
 
-        else:
-            if 'adim' in conf:
-                from python_visual_mpc.video_prediction.read_tf_record_wristrot import \
-                    build_tfrecord_input as build_tfrecord_fn
             else:
-                from python_visual_mpc.video_prediction.read_tf_record_sawyer12 import \
-                    build_tfrecord_input as build_tfrecord_fn
-            train_images, train_actions, train_states = build_tfrecord_fn(conf, training=True)
-            val_images, val_actions, val_states = build_tfrecord_fn(conf, training=False)
+                if 'adim' in conf:
+                    from python_visual_mpc.video_prediction.read_tf_record_wristrot import \
+                        build_tfrecord_input as build_tfrecord_fn
+                else:
+                    from python_visual_mpc.video_prediction.read_tf_record_sawyer12 import \
+                        build_tfrecord_input as build_tfrecord_fn
+                train_images, train_actions, train_states = build_tfrecord_fn(conf, training=True)
+                val_images, val_actions, val_states = build_tfrecord_fn(conf, training=False)
 
-            images, actions, states = tf.cond(self.train_cond > 0,  # if 1 use trainigbatch else validation batch
-                                             lambda: [train_images, train_actions, train_states],
-                                             lambda: [val_images, val_actions, val_states])
+                images, actions, states = tf.cond(self.train_cond > 0,  # if 1 use trainigbatch else validation batch
+                                                 lambda: [train_images, train_actions, train_states],
+                                                 lambda: [val_images, val_actions, val_states])
 
         self.color_channels = 3
 
@@ -133,6 +137,8 @@ class Base_Prediction_Model(object):
         self.actions = actions
         self.images = images
         self.states = states
+
+        self.build()
 
         if build_loss:
             self.build_loss()
