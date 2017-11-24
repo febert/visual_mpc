@@ -36,7 +36,6 @@ if __name__ == '__main__':
 
     flags.DEFINE_bool('create_images', False, 'whether to create images')
 
-
 def main(unused_argv, conf_script= None):
     os.environ["CUDA_VISIBLE_DEVICES"] = str(FLAGS.device)
     print 'using CUDA_VISIBLE_DEVICES=', FLAGS.device
@@ -87,49 +86,17 @@ def main(unused_argv, conf_script= None):
 
     Model = conf['pred_model']
 
-    # with tf.variable_scope('generator'):  # TODO: get rid of this and make something automatic.
     if FLAGS.diffmotions or "visualize_tracking" in conf or FLAGS.metric:
         model = Model(conf, load_data=False, trafo_pix=True, build_loss=build_loss)
     else:
         model = Model(conf, load_data=True, trafo_pix=False, build_loss=build_loss)
 
     print 'Constructing saver.'
-    # Make saver.
-    # vars = tf.get_collection(tf.GraphKeys.GLOBAL_VARIABLES)
-    # for var in vars:
-    #     print var.name
     vars = tf.get_collection(tf.GraphKeys.GLOBAL_VARIABLES)
     vars = filter_vars(vars)
     saving_saver = tf.train.Saver(vars, max_to_keep=0)
 
     vars = variable_checkpoint_matcher(conf, vars)
-
-    # print 'begin vars to fill out'
-    # for var in vars:
-    #     print var.name
-    # print 'end vars to fill out'
-    # pdb.set_trace()
-    #
-    # vars = dict([(var.name.split(':')[0], var) for var in vars])
-    #
-    # if isinstance(Model, Alex_Interface_Model) or 'add_generator_tag' in conf:
-    #     print 'adding "generator" tag!!!'
-    #     newvars = {}
-    #     for key in vars.keys():
-    #         newvars['generator/' + key] = vars[key]
-    #     vars = newvars
-    #
-    # print 'adding "model" tag!!!'
-    # newvars = {}
-    # for key in vars.keys():
-    #     newvars['model/' + key] = vars[key]
-    # vars = newvars
-    #
-    # print 'begin vars to load'
-    # for k in vars.keys():
-    #     print k
-    # print 'end vars to load'
-    # pdb.set_trace()
 
     if isinstance(model, Single_Point_Tracking_Model) and not (FLAGS.visualize or FLAGS.visualize_check):
         # initialize the predictor from pretrained weights

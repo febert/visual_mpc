@@ -35,8 +35,6 @@ def build_tfrecord_input(conf, training=True, input_file=None):
     print 'adim', adim
     print 'sdim', sdim
 
-
-
     if input_file is not None:
         filenames = [input_file]
         shuffle = False
@@ -68,6 +66,10 @@ def build_tfrecord_input(conf, training=True, input_file=None):
     load_indx = range(0, conf['sequence_length'], conf['skip_frame'])
     print 'using frame sequence: ', load_indx
 
+    rand_h = tf.random_uniform([1], minval=-0.2, maxval=0.2)
+    rand_s = tf.random_uniform([1], minval=-0.2, maxval=0.2)
+    rand_v = tf.random_uniform([1], minval=-0.2, maxval=0.2)
+
     for i in load_indx:
 
         image_name = str(i) + '/image_view0/encoded'
@@ -93,32 +95,42 @@ def build_tfrecord_input(conf, training=True, input_file=None):
         if '128x128' in conf:
             ORIGINAL_WIDTH = 128
             ORIGINAL_HEIGHT = 128
-            IMG_WIDTH = 128
-            IMG_HEIGHT = 128
         else:
             ORIGINAL_WIDTH = 64
             ORIGINAL_HEIGHT = 64
-            IMG_WIDTH = 64
-            IMG_HEIGHT = 64
 
         if 'im_height' in conf:
-            ORIGINAL_WIDTH = conf['im_height']
-            ORIGINAL_HEIGHT = conf['im_height']
-            IMG_WIDTH = conf['im_height']
             IMG_HEIGHT = conf['im_height']
+        else: IMG_HEIGHT = 64
+
+        if 'im_width' in conf:
+            IMG_WIDTH = conf['im_width']
+        else: IMG_WIDTH = 64
+
+        if 'row_start' in conf:
+            row_start = conf['row_start']
+        else: row_start = 0
 
         image = tf.decode_raw(features[image_name], tf.uint8)
         image = tf.reshape(image, shape=[1, ORIGINAL_HEIGHT * ORIGINAL_WIDTH * COLOR_CHAN])
         image = tf.reshape(image, shape=[ORIGINAL_HEIGHT, ORIGINAL_WIDTH, COLOR_CHAN])
-        if IMG_HEIGHT != IMG_WIDTH:
-            raise ValueError('Unequal height and width unsupported')
-        crop_size = min(ORIGINAL_HEIGHT, ORIGINAL_WIDTH)
-        image = tf.image.resize_image_with_crop_or_pad(image, crop_size, crop_size)
-        image = tf.reshape(image, [1, crop_size, crop_size, COLOR_CHAN])
-        image = tf.image.resize_bicubic(image, [IMG_HEIGHT, IMG_WIDTH])
+        image = image[row_start:row_start+IMG_HEIGHT]
+        image = tf.reshape(image, [1, IMG_HEIGHT, IMG_WIDTH, COLOR_CHAN])
         image = tf.cast(image, tf.float32) / 255.0
-        image_seq.append(image)
 
+        if 'color_augmentation' in conf:
+            print 'performing color augmentation'
+            image_hsv = tf.image.rgb_to_hsv(image)
+            img_stack = [tf.unstack(imag, axis=2) for imag in tf.unstack(image_hsv, axis=0)]
+            stack_mod = [tf.stack([x[0] + rand_h,
+                                   x[1] + rand_s,
+                                   x[2] + rand_v]
+                                  , axis=2) for x in img_stack]
+
+            image_rgb = tf.image.hsv_to_rgb(tf.stack(stack_mod))
+            image = tf.clip_by_value(image_rgb, 0.0, 1.0)
+
+        image_seq.append(image)
 
         endeffector_pos = tf.reshape(features[endeffector_pos_name], shape=[1, sdim])
         endeffector_pos_seq.append(endeffector_pos)
@@ -240,13 +252,15 @@ def main():
     conf['skip_frame'] = 1
     conf['train_val_split']= 0.95
     conf['sequence_length']= 48      # 'sequence length, including context frames.'
-    conf['batch_size']= 20
+    conf['batch_size']= 10
     conf['visualize']= True
     conf['context_frames'] = 2
 
     conf['im_height'] = 64
     conf['sdim'] = 4
     conf['adim'] = 5
+
+    conf['color_augmentation'] = ''
 
     # conf['test_metric'] = {'robot_pos': 1, 'object_pos': 2}
 
@@ -279,11 +293,11 @@ def main():
         # show some frames
         for b in range(conf['batch_size']):
 
-            # print 'actions'
-            # print actions[b]
-            #
-            # print 'endeff'
-            # print endeff[b]
+            print 'actions'
+            print actions[b]
+
+            print 'endeff'
+            print endeff[b]
 
             print 'video mean brightness', np.mean(images[b])
             if np.mean(images[b]) < 0.25:
