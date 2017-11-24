@@ -96,8 +96,6 @@ def main(unused_argv, conf_script= None):
     vars = filter_vars(vars)
     saving_saver = tf.train.Saver(vars, max_to_keep=0)
 
-    vars = variable_checkpoint_matcher(conf, vars)
-
     if isinstance(model, Single_Point_Tracking_Model) and not (FLAGS.visualize or FLAGS.visualize_check):
         # initialize the predictor from pretrained weights
         # select weights that are *not* part of the tracker
@@ -107,8 +105,10 @@ def main(unused_argv, conf_script= None):
             if str.split(var.name, '/')[0] != 'tracker':
                 predictor_vars.append(var)
 
-    # remove all states from group of variables which shall be saved and restored:
-    loading_saver = tf.train.Saver(vars, max_to_keep=0)
+    if FLAGS.visualize or FLAGS.pretrained:
+        vars = variable_checkpoint_matcher(conf, vars)
+        # remove all states from group of variables which shall be saved and restored:
+        loading_saver = tf.train.Saver(vars, max_to_keep=0)
 
     gpu_options = tf.GPUOptions(per_process_gpu_memory_fraction=0.9)
     # Make training session.

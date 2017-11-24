@@ -2,8 +2,7 @@ import os
 current_dir = os.path.dirname(os.path.realpath(__file__))
 
 # tf record data location:
-DATA_DIR = '/'.join(str.split(current_dir, '/')[:-3]) + '/pushing_data/weissgripper/train'
-TEST_DATA_DIR = '/'.join(str.split(current_dir, '/')[:-3]) + '/pushing_data/wristrot_test_seenobj/test'
+DATA_DIR = '/'.join(str.split(current_dir, '/')[:-3]) + '/pushing_data/weiss_gripper/train'
 
 # local output directory
 OUT_DIR = current_dir + '/modeldata'
@@ -14,7 +13,7 @@ configuration = {
 'experiment_name': 'sna',
 'pred_model': Base_Prediction_Model,
 'data_dir': DATA_DIR,       # 'directory containing data.' ,
-'test_data_dir': TEST_DATA_DIR,       # 'directory containing data.' ,
+# 'test_data_dir': TEST_DATA_DIR,       # 'directory containing data.' ,
 'output_dir': OUT_DIR,      #'directory for model checkpoints.' ,
 'current_dir': current_dir,   #'directory for writing summary.' ,
 'num_iterations': 200000,   #'number of training iterations.' ,
@@ -39,4 +38,7 @@ configuration = {
 'visual_flowvec':'',
 'adim':5,
 'sdim':4,
+'im_height':56,
+'im_width':64,
+'color_augmentation':""
 }

@@ -61,6 +61,9 @@ class Base_Prediction_Model(object):
         self.sdim = conf['sdim']
         self.adim = conf['adim']
 
+        self.im_height = self.conf['im_height']
+        self.im_width = self.conf['im_width']
+
         if images is None:
             if not load_data:
                 self.actions_pl = tf.placeholder(tf.float32, name='actions',
@@ -72,11 +75,11 @@ class Base_Prediction_Model(object):
                 states = self.states_pl
 
                 self.images_pl = tf.placeholder(tf.float32, name='images',
-                                           shape=(conf['batch_size'], conf['sequence_length'], 64, 64, 3))
+                                           shape=(conf['batch_size'], conf['sequence_length'], self.im_height, self.im_width, 3))
                 images = self.images_pl
 
                 self.pix_distrib_pl = tf.placeholder(tf.float32, name='states',
-                                                     shape=(conf['batch_size'], conf['sequence_length'], self.ndesig, 64, 64, 1))
+                                                     shape=(conf['batch_size'], conf['sequence_length'], self.ndesig, self.im_height, self.im_width, 1))
                 pix_distrib = self.pix_distrib_pl
 
             else:
@@ -132,7 +135,7 @@ class Base_Prediction_Model(object):
 
         if trafo_pix:
             pix_distrib = tf.split(axis=1, num_or_size_splits=pix_distrib.get_shape()[1], value=pix_distrib)
-            self.pix_distrib= [tf.reshape(pix, [self.batch_size, self.ndesig, 64,64, 1]) for pix in pix_distrib]
+            self.pix_distrib= [tf.reshape(pix, [self.batch_size, self.ndesig, self.im_height, self.im_width, 1]) for pix in pix_distrib]
 
         self.actions = actions
         self.images = images
@@ -260,11 +263,11 @@ class Base_Prediction_Model(object):
             if self.dna:
                 motion_vecs = compute_motion_vector_dna(self.conf, dna_kernel)
 
-            output = tf.zeros([self.conf['batch_size'], 64, 64, 2])
+            output = tf.zeros([self.conf['batch_size'], self.im_height, self.im_width, 2])
             for vec, mask in zip(motion_vecs, mask_list[1:]):
                 if self.conf['model'] == 'CDNA':
                     vec = tf.reshape(vec, [self.conf['batch_size'], 1, 1, 2])
-                    vec = tf.tile(vec, [1, 64, 64, 1])
+                    vec = tf.tile(vec, [1, self.im_height, self.im_width, 1])
                 output += vec * mask
             flow_vectors = output
 
@@ -495,8 +498,6 @@ class Base_Prediction_Model(object):
         masks = slim.layers.conv2d_transpose(
             enc6, (self.conf['num_masks']+ extra_masks), 1, stride=1, scope=scope)
 
-        img_height = 64
-        img_width = 64
         num_masks = self.conf['num_masks']
 
         if self.conf['model']=='DNA':
@@ -506,7 +507,7 @@ class Base_Prediction_Model(object):
         # the total number of masks is num_masks +extra_masks because of background and generated pixels!
         masks = tf.reshape(
             tf.nn.softmax(tf.reshape(masks, [-1, num_masks +extra_masks])),
-            [int(self.batch_size), int(img_height), int(img_width), num_masks +extra_masks])
+            [int(self.batch_size), int(self.im_height), int(self.im_width), num_masks +extra_masks])
         mask_list = tf.split(axis=3, num_or_size_splits=num_masks +extra_masks, value=masks)
 
         output = mask_list[0] * background_image

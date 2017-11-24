@@ -107,19 +107,15 @@ def build_tfrecord_input(conf, training=True, input_file=None):
             IMG_WIDTH = conf['im_width']
         else: IMG_WIDTH = 64
 
-        if 'row_start' in conf:
-            row_start = conf['row_start']
-        else: row_start = 0
-
         image = tf.decode_raw(features[image_name], tf.uint8)
         image = tf.reshape(image, shape=[1, ORIGINAL_HEIGHT * ORIGINAL_WIDTH * COLOR_CHAN])
         image = tf.reshape(image, shape=[ORIGINAL_HEIGHT, ORIGINAL_WIDTH, COLOR_CHAN])
-        image = image[row_start:row_start+IMG_HEIGHT]
+        image = image[0:IMG_HEIGHT]
         image = tf.reshape(image, [1, IMG_HEIGHT, IMG_WIDTH, COLOR_CHAN])
         image = tf.cast(image, tf.float32) / 255.0
 
         if 'color_augmentation' in conf:
-            print 'performing color augmentation'
+            # print 'performing color augmentation'
             image_hsv = tf.image.rgb_to_hsv(image)
             img_stack = [tf.unstack(imag, axis=2) for imag in tf.unstack(image_hsv, axis=0)]
             stack_mod = [tf.stack([x[0] + rand_h,
@@ -256,7 +252,8 @@ def main():
     conf['visualize']= True
     conf['context_frames'] = 2
 
-    conf['im_height'] = 64
+    conf['im_height'] = 54
+    conf['im_width'] = 64
     conf['sdim'] = 4
     conf['adim'] = 5
 
