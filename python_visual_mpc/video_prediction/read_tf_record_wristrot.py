@@ -232,15 +232,15 @@ def main():
     current_dir = os.path.dirname(os.path.realpath(__file__))
 
     # DATA_DIR = '/'.join(str.split(current_dir, '/')[:-2]) + '/pushing_data/softmotion30_v1/train'
-    DATA_DIR = '/'.join(str.split(current_dir, '/')[:-2]) + '/pushing_data/softmotion30_v1_256x256/train'
+    DATA_DIR = '/'.join(str.split(current_dir, '/')[:-2]) + '/pushing_data/weiss_gripper/train'
     # DATA_DIR = '/'.join(str.split(current_dir, '/')[:-2]) + '/pushing_data/wristrot_test_newobj/test_annotations'
 
     conf['schedsamp_k'] = -1  # don't feed ground truth
     conf['data_dir'] = DATA_DIR  # 'directory containing data_files.' ,
     conf['skip_frame'] = 1
     conf['train_val_split']= 0.95
-    conf['sequence_length']= 15      # 'sequence length, including context frames.'
-    conf['batch_size']= 32
+    conf['sequence_length']= 48      # 'sequence length, including context frames.'
+    conf['batch_size']= 20
     conf['visualize']= True
     conf['context_frames'] = 2
 
@@ -279,11 +279,17 @@ def main():
         # show some frames
         for b in range(conf['batch_size']):
 
-            print 'actions'
-            print actions[b]
+            # print 'actions'
+            # print actions[b]
+            #
+            # print 'endeff'
+            # print endeff[b]
 
-            print 'endeff'
-            print endeff[b]
+            print 'video mean brightness', np.mean(images[b])
+            if np.mean(images[b]) < 0.25:
+                print b
+                plt.imshow(images[b,0])
+                plt.show()
 
             # print 'robot_pos'
             # print robot_pos
@@ -292,15 +298,6 @@ def main():
             # print object_pos
 
             # visualize_annotation(conf, images[b], robot_pos[b], object_pos[b])
-
-            # images = np.squeeze(images)
-            # img = np.uint8(255. * images[b, 0])
-            # img = Image.fromarray(img, 'RGB')
-            # # img.save(file_path,'PNG')
-            # img.show()
-            # print b
-
-            pdb.set_trace()
 
 if __name__ == '__main__':
     main()

@@ -107,6 +107,7 @@ train
 test
 
 old/
+logs/
 
 #gif files
 *.gif

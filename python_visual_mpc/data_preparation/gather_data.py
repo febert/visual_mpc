@@ -33,6 +33,13 @@ class More_than_one_image_except(Exception):
     def __str__(self):
       return self.image_file
 
+
+class Image_dark_except(Exception):
+    def __init__(self, imagefile):
+        self.image_file = imagefile
+    def __str__(self):
+      return self.image_file
+
 class Trajectory(object):
     def __init__(self, conf):
 
@@ -84,12 +91,14 @@ class TF_rec_converter(object):
 
         self.sourcedirs = conf['source_basedirs']
         self.tfrec_dir = conf['tf_rec_dir']
-        self.gif_dir = gif_dir
+        self.gif_file = gif_dir
         self.crop_from_highres = crop_from_highres
         self.tf_start_ind = tf_start_ind
         self.traj_name_list = traj_name_list
         self.conf = conf
         print 'started process with PID:', os.getpid()
+
+        self.pid = os.getpid()
 
 
     def gather(self):
@@ -98,6 +107,7 @@ class TF_rec_converter(object):
         donegif = False
         i_more_than_one_image = 0
         num_errors = 0
+        self.dark_image_file_list = []
 
         nopkl_file = 0
 
@@ -153,6 +163,14 @@ class TF_rec_converter(object):
                     print "more than one image in ", e.image_file
                     i_more_than_one_image += 1
                     continue
+                except Image_dark_except as e:
+                    print "video too dark ", e.image_file
+                    self.dark_image_file_list.append(e.image_file)
+                    file = '/'.join(str.split(self.conf['tf_rec_dir'], '/')[:-1]) + '/logs/darkimages_w{}.txt'.format(self.pid)
+                    with open(file, 'w+') as f:
+                        for i in self.dark_image_file_list:
+                            f.write('{} \n'.format(i))
+                    continue
 
                 traj_list.append(self.traj)
                 maxlistlen = 128
@@ -165,9 +183,9 @@ class TF_rec_converter(object):
                     tf_start_ind += maxlistlen
                     traj_list = []
 
-                if self.gif_dir != None and not donegif:
+                if self.gif_file != None and not donegif:
                     if len(traj_list) == ntraj_gifmax:
-                        create_gif.comp_video(traj_list, self.gif_dir + 'worker{}'.format(os.getpid()))
+                        create_gif.comp_video(traj_list, self.gif_file + 'worker{}'.format(os.getpid()))
                         print 'created gif, exiting'
                         donegif = True
 
@@ -178,11 +196,13 @@ class TF_rec_converter(object):
                 print "error occured"
                 num_errors += 1
 
+
         print 'done, {} more_than_one_image occurred:'.format(i_more_than_one_image)
         print 'done, {} errors occurred:'.format(num_errors)
+        print '{} dark image errors'.format(len(self.dark_image_file_list))
+
 
         return 'done'
-
 
     def step_from_to(self, i_src, trajname):
         trajind = 0  # trajind is the index in the target trajectory
@@ -222,7 +242,10 @@ class TF_rec_converter(object):
 
             trajind += 1
 
-
+        if 'brightness_threshold' in self.conf:
+            print 'video brightness:', np.mean(self.traj.images)
+            if self.conf['brightness_threshold'] > np.mean(self.traj.images):
+                raise Image_dark_except(trajname)
 
     def save_tf_record(self, filename, trajectory_list):
         """
@@ -429,7 +452,7 @@ def main():
     #make sure the directory is empty
     assert glob.glob(conf['tf_rec_dir'] + '/*') == []
 
-    gif_file = '/'.join(str.split(conf['tf_rec_dir'], '/')[:-1]) + '/preview_gather'
+    gif_file = '/'.join(str.split(conf['tf_rec_dir'], '/')[:-1]) + '/logs/preview_gather'
 
     if args.start_gr != None:
         start_end_grp = [args.start_gr,args.end_gr]
