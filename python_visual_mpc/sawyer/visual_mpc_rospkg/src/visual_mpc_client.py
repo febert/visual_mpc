@@ -145,30 +145,15 @@ class Visual_MPC_Client():
             self.wristrot = True
         else: self.wristrot = False
 
-        rospy.sleep(.2)
         # drive to neutral position:
-        self.imp_ctrl_active.publish(0)
         self.ctrl.set_neutral()
         self.set_neutral_with_impedance()
-        self.imp_ctrl_active.publish(1)
-        rospy.sleep(.2)
 
         self.goal_pos_main = np.zeros([self.ndesig,2])   # the first index is for the ndesig and the second is r,c
         self.desig_pos_main = np.zeros([self.ndesig, 2])
 
         #highres position used when doing tracking
         self.desig_hpos_main = None
-
-
-        if self.args.save_subdir == "True":
-            self.save_subdir = raw_input('enter subdir to save data:')
-            self.recorder_save_dir = self.base_dir + "/experiments/cem_exp/benchmarks_sawyer/" + self.benchname + \
-                                     '/' + self.save_subdir + "/videos"
-        else:
-            self.recorder_save_dir = self.base_dir + "/experiments/cem_exp/benchmarks_sawyer/" + self.benchname + "/videos"
-
-        self.num_pic_perstep = 4
-        nsave = self.action_sequence_length * self.num_pic_perstep
 
         if 'collect_data' in self.agentparams:
             self.data_collection = True
@@ -180,6 +165,18 @@ class Visual_MPC_Client():
             save_actions = False
             save_images = False
             self.data_collection = False
+
+        if self.args.save_subdir == "True":
+            self.save_subdir = raw_input('enter subdir to save data:')
+            self.recorder_save_dir = self.base_dir + "/experiments/cem_exp/benchmarks_sawyer/" + self.benchname + \
+                                        '/' + self.save_subdir + "/videos"
+        elif self.data_collection:
+            self.recorder_save_dir  =self.base_dir + "/experiments/cem_exp/benchmarks_sawyer/" + self.benchname + "/data"
+        else:
+            self.recorder_save_dir = self.base_dir + "/experiments/cem_exp/benchmarks_sawyer/" + self.benchname + "/videos"
+
+        self.num_pic_perstep = 4
+        nsave = self.action_sequence_length * self.num_pic_perstep
 
         self.recorder = robot_recorder.RobotRecorder(agent_params=self.agentparams,
                                                      save_dir=self.recorder_save_dir,
@@ -303,9 +300,9 @@ class Visual_MPC_Client():
 
             write_ckpt(self.checkpoint_file, tr, self.recorder.igrp)
 
-            if ((tr+1) % 3000) == 0:
-                print 'change objects!'
-                pdb.set_trace()
+            # if ((tr+1) % 3000) == 0:
+            #     print 'change objects!'
+            #     pdb.set_trace()
             self.alive_publisher.publish('still alive!')
 
 
@@ -418,6 +415,7 @@ class Visual_MPC_Client():
             self.mark_goal_desig(i_tr)
 
         self.init_traj()
+        pdb.set_trace()
 
         self.lower_height = 0.16  #0.20 for old data set
         self.delta_up = 0.12  #0.1 for old data set
@@ -663,7 +661,7 @@ class Visual_MPC_Client():
     def set_neutral_with_impedance(self):
         neutral_jointangles = [0.412271, -0.434908, -1.198768, 1.795462, 1.160788, 1.107675, 2.068076]
         cmd = dict(zip(self.ctrl.limb.joint_names(), neutral_jointangles))
-        self.imp_ctrl_release_spring(20)
+        self.imp_ctrl_release_spring(100)
         self.move_with_impedance_sec(cmd)
 
     def move_to_startpos(self, pos):
@@ -681,7 +679,7 @@ class Visual_MPC_Client():
         try:
             if self.robot_move:
                 if self.use_imp_ctrl:
-                    self.imp_ctrl_release_spring(30)
+                    self.imp_ctrl_release_spring(100)
                     self.move_with_impedance_sec(des_joint_angles)
                 else:
                     self.ctrl.limb.move_to_joint_positions(des_joint_angles)

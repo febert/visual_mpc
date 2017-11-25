@@ -30,7 +30,7 @@ policy = {
 agent = {
     'T': 20,
     'adim':5,
-    'state_dim':4,
+    'sdim':4,
     # 'opencv_tracking':'',
     'make_final_gif':'',
     'collect_data':'',

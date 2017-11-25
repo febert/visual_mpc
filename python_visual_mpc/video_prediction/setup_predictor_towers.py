@@ -28,11 +28,8 @@ class Tower(object):
 
         print 'startindex for gpu {0}: {1}'.format(gpu_id, startidx)
 
-        if 'pred_model' in conf:
-            Model = conf['pred_model']
-            print 'using pred_model', Model
-        else:
-            from prediction_train_sawyer import Model
+        Model = conf['pred_model']
+        print 'using pred_model', Model
 
         # this is to keep compatiblity with old model implementations (without basecls structure)
         if hasattr(Model,'m'):
@@ -79,8 +76,9 @@ def setup_predictor(conf, gpu_id=0, ngpu=1):
 
     print 'Constructing multi gpu model for control...'
 
+    #TODO: float16!!!
     images_pl = tf.placeholder(tf.float32, name='images',
-                               shape=(conf['batch_size'], conf['sequence_length'], 64, 64, 3))
+                               shape=(conf['batch_size'], conf['sequence_length'], conf['im_height'], conf['im_width'], 3))
     if 'sdim' in conf:
         sdim = conf['sdim']
     else:
@@ -103,7 +101,7 @@ def setup_predictor(conf, gpu_id=0, ngpu=1):
     states_pl = tf.placeholder(tf.float32, name='states',
                                shape=(conf['batch_size'], conf['context_frames'], sdim))
 
-    pix_distrib = tf.placeholder(tf.float32, shape=(conf['batch_size'], conf['context_frames'], conf['ndesig'], 64, 64, 1))
+    pix_distrib = tf.placeholder(tf.float32, shape=(conf['batch_size'], conf['context_frames'], conf['ndesig'], conf['im_height'], conf['im_width'], 1))
 
     # making the towers
     towers = []

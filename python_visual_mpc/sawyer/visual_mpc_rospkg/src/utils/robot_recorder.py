@@ -73,12 +73,15 @@ class RobotRecorder(object):
 
         self.save_video = save_video
 
-        self.image_folder = save_dir
         self.itr = 0
         self.highres_imglist = []
 
-        self.img_height = image_shape[0]
-        self.img_width = image_shape[1]
+        if image_shape == None:
+            self.img_height = 64
+            self.img_width = 64
+        else:
+            self.img_height = image_shape[0]
+            self.img_width = image_shape[1]
 
         if __name__ !=  '__main__':
             # the main instance one also records actions and joint angles
