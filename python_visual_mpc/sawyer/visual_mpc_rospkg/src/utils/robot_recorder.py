@@ -257,7 +257,7 @@ class RobotRecorder(object):
         shrink_before_crop = 1 / 9.
         img = cv2.resize(cv_image, (0, 0), fx=shrink_before_crop, fy=shrink_before_crop, interpolation=cv2.INTER_AREA)
         img = img[startrow:startrow + self.img_height, startcol:startcol + self.img_width]
-        assert img.shape == (64, 64, 3)
+        assert img.shape == (self.img_height, self.img_width, 3)
         self.crop_lowres_params = {'startcol': startcol, 'startrow': startrow, 'shrink_before_crop': shrink_before_crop}
         return img
 

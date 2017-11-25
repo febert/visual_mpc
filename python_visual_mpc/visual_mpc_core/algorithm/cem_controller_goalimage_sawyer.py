@@ -57,8 +57,8 @@ class CEM_controller():
 
         self.K = 10  # only consider K best samples for refitting
 
-        self.im_height = self.netconf['im_height']
-        self.im_width = self.netconf['im_width']
+        self.img_height = self.netconf['img_height']
+        self.img_width = self.netconf['img_width']
 
         # the full horizon is actions*repeat
         # self.action_cost_mult = 0.00005
@@ -215,7 +215,7 @@ class CEM_controller():
                 (datetime.now() - t_startiter).seconds + (datetime.now() - t_startiter).microseconds / 1e6)
 
     def switch_on_pix(self, desig):
-        one_hot_images = np.zeros((self.netconf['batch_size'], self.netconf['context_frames'], self.ndesig, self.im_height, self.im_width, 1), dtype=np.float32)
+        one_hot_images = np.zeros((self.netconf['batch_size'], self.netconf['context_frames'], self.ndesig, self.img_height, self.img_width, 1), dtype=np.float32)
         # switch on pixels
         for p in range(self.ndesig):
             one_hot_images[:, :, p, desig[p, 0], desig[p, 1]] = 1
@@ -257,16 +257,15 @@ class CEM_controller():
         last_frames = np.expand_dims(last_frames, axis=0)
         last_frames = np.repeat(last_frames, self.netconf['batch_size'], axis=0)
         app_zeros = np.zeros(shape=(self.netconf['batch_size'], self.netconf['sequence_length']-
-                                    self.netconf['context_frames'], self.im_height, self.im_width, 3))
+                                    self.netconf['context_frames'], self.img_height, self.img_width, 3))
         last_frames = np.concatenate((last_frames, app_zeros), axis=1)
         last_frames = last_frames.astype(np.float32)/255.
 
         input_distrib = self.make_input_distrib(itr)
-        f, axarr = plt.subplots(1, self.ndesig)
-        for p in range(self.ndesig):
-            axarr[p].imshow(np.squeeze(input_distrib[p][0]), cmap=plt.get_cmap('jet'))
-            axarr[p].set_title('input_distrib{}'.format(p), fontsize=8)
-
+        # f, axarr = plt.subplots(1, self.ndesig)
+        # for p in range(self.ndesig):
+        plt.imshow(np.squeeze(input_distrib[0][0]), cmap=plt.get_cmap('jet'))
+            # axarr[p].set_title('input_distrib{}'.format(p), fontsize=8)
         plt.show()
         gen_images, gen_distrib, gen_states, _ = self.predictor(input_images=last_frames,
                                                                 input_state=last_states,
@@ -293,7 +292,7 @@ class CEM_controller():
             if itr == (self.policyparams['iterations'] - 1):
                 # pick the prop distrib from the action actually chosen after the last iteration (i.e. self.indices[0])
                 bestind = scores.argsort()[0]
-                best_gen_distrib = gen_distrib[2][bestind].reshape(1, self.ndesig, self.im_height, self.im_width, 1)
+                best_gen_distrib = gen_distrib[2][bestind].reshape(1, self.ndesig, self.img_height, self.img_width, 1)
                 self.rec_input_distrib.append(np.repeat(best_gen_distrib, self.netconf['batch_size'], 0))
 
         bestindices = scores.argsort()[:self.K]
@@ -363,9 +362,9 @@ class CEM_controller():
         return scores
 
     def get_distancegrid(self, goal_pix):
-        distance_grid = np.empty((self.im_height, self.im_width))
-        for i in range(self.im_height):
-            for j in range(self.im_width):
+        distance_grid = np.empty((self.img_height, self.img_width))
+        for i in range(self.img_height):
+            for j in range(self.img_width):
                 pos = np.array([i, j])
                 distance_grid[i, j] = np.linalg.norm(goal_pix - pos)
 
@@ -403,10 +402,10 @@ class CEM_controller():
         self.t = t
         print 'starting cem at t{}...'.format(t)
 
-        self.desig_pix = np.array(desig_pix).reshape((2, 2))
+        self.desig_pix = np.array(desig_pix).reshape((self.ndesig, 2))
         if t == 0:
             action = np.zeros(self.agentparams['adim'])
-            self.goal_pix = np.array(goal_pix).reshape((2,2))
+            self.goal_pix = np.array(goal_pix).reshape((self.ndesig,2))
         else:
             last_images = traj._sample_images[t - 1:t + 1]   # second image shall contain front view
             last_states = traj.X_full[t-1: t+1]

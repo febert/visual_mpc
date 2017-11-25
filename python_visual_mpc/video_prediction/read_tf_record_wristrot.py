@@ -99,12 +99,12 @@ def build_tfrecord_input(conf, training=True, input_file=None):
             ORIGINAL_WIDTH = 64
             ORIGINAL_HEIGHT = 64
 
-        if 'im_height' in conf:
-            IMG_HEIGHT = conf['im_height']
+        if 'img_height' in conf:
+            IMG_HEIGHT = conf['img_height']
         else: IMG_HEIGHT = 64
 
-        if 'im_width' in conf:
-            IMG_WIDTH = conf['im_width']
+        if 'img_width' in conf:
+            IMG_WIDTH = conf['img_width']
         else: IMG_WIDTH = 64
 
         image = tf.decode_raw(features[image_name], tf.uint8)
@@ -252,8 +252,8 @@ def main():
     conf['visualize']= True
     conf['context_frames'] = 2
 
-    conf['im_height'] = 54
-    conf['im_width'] = 64
+    conf['img_height'] = 54
+    conf['img_width'] = 64
     conf['sdim'] = 4
     conf['adim'] = 5
 

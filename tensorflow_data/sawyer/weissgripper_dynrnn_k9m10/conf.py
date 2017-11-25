@@ -40,7 +40,7 @@ configuration = {
 '1stimg_bckgd':'',
 'previmg_bckgd':'',
 'ndesig':1,
-'im_height':56,
-'im_width':64,
+'img_height':56,
+'img_width':64,
 'color_augmentation':""
 }

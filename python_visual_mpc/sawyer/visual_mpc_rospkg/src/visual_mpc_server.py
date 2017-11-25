@@ -29,7 +29,6 @@ class Visual_MPC_Server(object):
         base_dir = '/'.join(str.split(base_filepath, '/')[:-2])
 
         cem_exp_dir = base_dir + '/experiments/cem_exp/benchmarks_sawyer'
-        hyperparams = imp.load_source('hyperparams', cem_exp_dir + '/base_hyperparams_sawyer.py')
 
         parser = argparse.ArgumentParser(description='Run benchmarks')
         parser.add_argument('benchmark', type=str, help='the name of the folder with agent setting for the benchmark')
@@ -54,10 +53,6 @@ class Visual_MPC_Server(object):
         gpu_id = args.gpu_id
         ngpu = args.ngpu
 
-        self.conf = hyperparams.config
-        self.policyparams = hyperparams.policy
-        self.agentparams = hyperparams.agent
-
         # load specific agent settings for benchmark:
         bench_dir = cem_exp_dir + '/' + benchmark_name
 
@@ -66,9 +61,9 @@ class Visual_MPC_Server(object):
 
         bench_conf = imp.load_source('mod_hyper', bench_dir + '/mod_hyper.py')
         if hasattr(bench_conf, 'policy'):
-            self.policyparams.update(bench_conf.policy)
+            self.policyparams = bench_conf.policy
         if hasattr(bench_conf, 'agent'):
-            self.agentparams.update(bench_conf.agent)
+            self.agentparams = bench_conf.agent
         print '-------------------------------------------------------------------'
         print 'verify planner settings!! '
         for key in self.policyparams.keys():

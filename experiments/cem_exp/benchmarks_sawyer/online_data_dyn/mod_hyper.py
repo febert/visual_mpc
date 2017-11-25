@@ -13,9 +13,9 @@ policy = {
     'nactions': 5,
     'repeat': 3,
     'initial_std': .035,   #std dev. in xy
-    'initial_std_grasp': 1.,   #std dev. in xy
-    'initial_std_lift': 1.,   #std dev. in xy
-    'initial_std_rot': np.pi / 4 *.75,   #std dev. in xy
+    'initial_std_grasp': 0.,
+    'initial_std_lift': 1.,
+    'initial_std_rot': 0.,
     'netconf': current_dir + '/conf.py',
     'iterations': 3,
     'verbose':'',

@@ -204,7 +204,7 @@ def main():
     conf['sequence_length'] = 15 #48  # 'sequence length, including context frames.'
     conf['batch_size'] = 128  ## **must** correspond to the number of trajectories in each tf records file!!
     conf['visualize'] = True # in order not to do train val splitting
-    conf['im_height'] = 64
+    conf['img_height'] = 64
     conf['sdim'] = 4
     conf['adim'] = 5
     conf['skip_frame'] = 1

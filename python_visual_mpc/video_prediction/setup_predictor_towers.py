@@ -78,7 +78,7 @@ def setup_predictor(conf, gpu_id=0, ngpu=1):
 
     #TODO: float16!!!
     images_pl = tf.placeholder(tf.float32, name='images',
-                               shape=(conf['batch_size'], conf['sequence_length'], conf['im_height'], conf['im_width'], 3))
+                               shape=(conf['batch_size'], conf['sequence_length'], conf['img_height'], conf['img_width'], 3))
     if 'sdim' in conf:
         sdim = conf['sdim']
     else:
@@ -101,7 +101,7 @@ def setup_predictor(conf, gpu_id=0, ngpu=1):
     states_pl = tf.placeholder(tf.float32, name='states',
                                shape=(conf['batch_size'], conf['context_frames'], sdim))
 
-    pix_distrib = tf.placeholder(tf.float32, shape=(conf['batch_size'], conf['context_frames'], conf['ndesig'], conf['im_height'], conf['im_width'], 1))
+    pix_distrib = tf.placeholder(tf.float32, shape=(conf['batch_size'], conf['context_frames'], conf['ndesig'], conf['img_height'], conf['img_width'], 1))
 
     # making the towers
     towers = []

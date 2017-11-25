@@ -389,18 +389,18 @@ class Dynamic_Base_Model(object):
             ndesig = 1
             conf['ndesig'] = 1
 
-        if 'im_height' in conf:
-            self.im_height = conf['im_height']
-        else: self.im_height = 64
-        if 'im_width' in conf:
-            self.im_width = conf['im_width']
-        else: self.im_width = 64
+        if 'img_height' in conf:
+            self.img_height = conf['img_height']
+        else: self.img_height = 64
+        if 'img_width' in conf:
+            self.img_width = conf['img_width']
+        else: self.img_width = 64
 
         self.trafo_pix = trafo_pix
         if pix_distrib is not None:
             assert trafo_pix == True
             states = tf.concat([states,tf.zeros([conf['batch_size'],conf['sequence_length']-conf['context_frames'],conf['sdim']])], axis=1)
-            pix_distrib = tf.concat([pix_distrib, tf.zeros([conf['batch_size'], conf['sequence_length'] - conf['context_frames'],ndesig, self.im_height, self.im_width, 1])], axis=1)
+            pix_distrib = tf.concat([pix_distrib, tf.zeros([conf['batch_size'], conf['sequence_length'] - conf['context_frames'],ndesig, self.img_height, self.img_width, 1])], axis=1)
             pix_distrib = pix_distrib
 
         use_state = True
@@ -434,11 +434,11 @@ class Dynamic_Base_Model(object):
                 states = self.states_pl
 
                 self.images_pl = tf.placeholder(tf.float32, name='images',
-                                                shape=(conf['batch_size'], conf['sequence_length'], self.im_height, self.im_width, 3))
+                                                shape=(conf['batch_size'], conf['sequence_length'], self.img_height, self.img_width, 3))
                 images = self.images_pl
 
                 self.pix_distrib_pl = tf.placeholder(tf.float32, name='states',
-                                                     shape=(conf['batch_size'], conf['sequence_length'], ndesig, self.im_height, self.im_width, 1))
+                                                     shape=(conf['batch_size'], conf['sequence_length'], ndesig, self.img_height, self.img_width, 1))
                 pix_distrib = self.pix_distrib_pl
 
             else:
@@ -470,7 +470,7 @@ class Dynamic_Base_Model(object):
         images = [tf.squeeze(img) for img in images]
         if pix_distrib is not None:
             pix_distrib = tf.split(axis=1, num_or_size_splits=pix_distrib.get_shape()[1], value=pix_distrib)
-            pix_distrib = [tf.reshape(pix, [self.batch_size, ndesig, self.im_height, self.im_width, 1]) for pix in pix_distrib]
+            pix_distrib = [tf.reshape(pix, [self.batch_size, ndesig, self.img_height, self.img_width, 1]) for pix in pix_distrib]
 
         self.actions = actions
         self.images = images

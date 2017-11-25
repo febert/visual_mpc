@@ -218,7 +218,8 @@ class Visual_MPC_Client():
         imagemain = self.recorder.ltob.img_cropped
 
         imagemain = cv2.cvtColor(imagemain, cv2.COLOR_BGR2RGB)
-        c_main = Getdesig(imagemain, self.recorder_save_dir, '_traj{}'.format(itr), self.ndesig, self.canon_ind, self.canon_dir)
+        c_main = Getdesig(imagemain, self.recorder_save_dir, '_traj{}'.format(itr),
+                          self.ndesig, self.canon_ind, self.canon_dir, im_shape=[self.img_height, self.img_width])
         self.desig_pos_main = c_main.desig.astype(np.int64)
         print 'desig pos aux1:', self.desig_pos_main
         self.goal_pos_main = c_main.goal.astype(np.int64)
@@ -434,7 +435,6 @@ class Visual_MPC_Client():
             self.mark_goal_desig(i_tr)
 
         self.init_traj()
-        pdb.set_trace()
 
         self.lower_height = 0.16  #0.20 for old data set
         self.delta_up = 0.12  #0.1 for old data set
@@ -525,7 +525,8 @@ class Visual_MPC_Client():
                     if rospy.get_time() > tsave[isave_substep] -.01:
                         # print 'saving index{}'.format(isave)
                         # print 'isave_substep', isave_substep
-                        _, self.desig_hpos_main = self.tracker.get_track()
+                        if 'opencv_tracking' in self.agentparams:
+                            _, self.desig_hpos_main = self.tracker.get_track()
                         self.recorder.save(isave, action_vec, self.get_endeffector_pos(), self.desig_hpos_main)
                         isave_substep += 1
                         isave += 1
@@ -823,7 +824,10 @@ class Visual_MPC_Client():
                     break
 
 class Getdesig(object):
-    def __init__(self,img,basedir,img_namesuffix = '', n_desig=1, canon_ind=None, canon_dir = None, only_desig = False):
+    def __init__(self,img,basedir,img_namesuffix = '', n_desig=1, canon_ind=None, canon_dir = None, only_desig = False,
+                 im_shape = None):
+        self.im_shape = im_shape
+
         self.only_desig = only_desig
         self.canon_ind = canon_ind
         self.canon_dir = canon_dir
@@ -833,8 +837,8 @@ class Getdesig(object):
         self.img = img
         fig = plt.figure()
         self.ax = fig.add_subplot(111)
-        self.ax.set_xlim(0, 63)
-        self.ax.set_ylim(63, 0)
+        self.ax.set_xlim(0, self.im_shape[1])
+        self.ax.set_ylim(self.im_shape[0], 0)
         plt.imshow(img)
 
         self.goal = None
@@ -855,8 +859,8 @@ class Getdesig(object):
     def onclick(self, event):
         print('button=%d, x=%d, y=%d, xdata=%f, ydata=%f' %
               (event.button, event.x, event.y, event.xdata, event.ydata))
-        self.ax.set_xlim(0, 63)
-        self.ax.set_ylim(63, 0)
+        self.ax.set_xlim(0, self.im_shape[1])
+        self.ax.set_ylim(self.im_shape[0], 0)
 
         print 'iclick', self.i_click
 
@@ -871,20 +875,24 @@ class Getdesig(object):
             self.goal[i_task, :] = rc_coord
             color = "g"
         marker = self.marker_list[i_task]
-        self.ax.scatter(self.desig[self.i_click, 1], self.desig[self.i_click, 0], s=100, marker=marker, facecolors=color,
-                        edgecolors='r')
+        self.ax.scatter(rc_coord[1], rc_coord[0], s=100, marker=marker, facecolors=color)
+
         plt.draw()
 
+        self.i_click += 1
         if self.i_click == self.i_click_max:
             print 'saving desig-goal picture'
-            plt.savefig(self.basedir +'/startimg_'+self.suf)
-            plt.close()
+
             with open(self.basedir +'/desig_goal_pix{}.pkl'.format(self.suf), 'wb') as f:
                 dict= {'desig_pix': self.desig,
                        'goal_pix': self.goal}
                 cPickle.dump(dict, f)
 
-        self.i_click += 1
+            plt.savefig(self.basedir + '/startimg_' + self.suf)
+            plt.close()
+            return
+
+
 
 
 if __name__ == '__main__':
