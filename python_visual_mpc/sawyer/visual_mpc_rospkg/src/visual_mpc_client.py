@@ -189,7 +189,7 @@ class Visual_MPC_Client():
 
         if self.data_collection == True:
             self.checkpoint_file = os.path.join(self.recorder.save_dir, 'checkpoint.txt')
-            self.rpn_tracker = RPN_Tracker(self.recorder_save_dir, self.recorder)
+            self.rpn_tracker = RPN_Tracker(self.recorder_save_dir, self.recorder, gpu_id)
             self.run_data_collection()
         elif self.use_gui:
             rospy.Subscriber('visual_mpc_cmd', numpy_msg(intarray), self.run_visual_mpc_cmd)
