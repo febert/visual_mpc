@@ -36,9 +36,7 @@ class CEM_controller():
             self.verbose = True
         else: self.verbose = False
 
-        if 'iterations' in self.policyparams:
-            self.niter = self.policyparams['iterations']
-        else: self.niter = 10  # number of iterations
+        self.niter = self.policyparams['iterations']
 
         self.action_list = []
         self.naction_steps = self.policyparams['nactions']
@@ -58,6 +56,9 @@ class CEM_controller():
         self.ndesig = self.netconf['ndesig']
 
         self.K = 10  # only consider K best samples for refitting
+
+        self.im_height = self.netconf['im_height']
+        self.im_width = self.netconf['im_width']
 
         # the full horizon is actions*repeat
         # self.action_cost_mult = 0.00005
@@ -214,7 +215,7 @@ class CEM_controller():
                 (datetime.now() - t_startiter).seconds + (datetime.now() - t_startiter).microseconds / 1e6)
 
     def switch_on_pix(self, desig):
-        one_hot_images = np.zeros((self.netconf['batch_size'], self.netconf['context_frames'], self.ndesig, 64, 64, 1), dtype=np.float32)
+        one_hot_images = np.zeros((self.netconf['batch_size'], self.netconf['context_frames'], self.ndesig, self.im_height, self.im_width, 1), dtype=np.float32)
         # switch on pixels
         for p in range(self.ndesig):
             one_hot_images[:, :, p, desig[p, 0], desig[p, 1]] = 1
@@ -256,7 +257,7 @@ class CEM_controller():
         last_frames = np.expand_dims(last_frames, axis=0)
         last_frames = np.repeat(last_frames, self.netconf['batch_size'], axis=0)
         app_zeros = np.zeros(shape=(self.netconf['batch_size'], self.netconf['sequence_length']-
-                                    self.netconf['context_frames'], 64, 64, 3))
+                                    self.netconf['context_frames'], self.im_height, self.im_width, 3))
         last_frames = np.concatenate((last_frames, app_zeros), axis=1)
         last_frames = last_frames.astype(np.float32)/255.
 
@@ -292,7 +293,7 @@ class CEM_controller():
             if itr == (self.policyparams['iterations'] - 1):
                 # pick the prop distrib from the action actually chosen after the last iteration (i.e. self.indices[0])
                 bestind = scores.argsort()[0]
-                best_gen_distrib = gen_distrib[2][bestind].reshape(1, self.ndesig, 64, 64, 1)
+                best_gen_distrib = gen_distrib[2][bestind].reshape(1, self.ndesig, self.im_height, self.im_width, 1)
                 self.rec_input_distrib.append(np.repeat(best_gen_distrib, self.netconf['batch_size'], 0))
 
         bestindices = scores.argsort()[:self.K]
@@ -362,9 +363,9 @@ class CEM_controller():
         return scores
 
     def get_distancegrid(self, goal_pix):
-        distance_grid = np.empty((64, 64))
-        for i in range(64):
-            for j in range(64):
+        distance_grid = np.empty((self.im_height, self.im_width))
+        for i in range(self.im_height):
+            for j in range(self.im_width):
                 pos = np.array([i, j])
                 distance_grid[i, j] = np.linalg.norm(goal_pix - pos)
 

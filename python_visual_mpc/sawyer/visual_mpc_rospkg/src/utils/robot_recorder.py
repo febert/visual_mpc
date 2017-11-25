@@ -22,7 +22,7 @@ import moviepy.editor as mpy
 
 from rospy_tutorials.msg import Floats
 from rospy.numpy_msg import numpy_msg
-import matplotlib.pyplot as plt
+
 
 class Latest_observation(object):
     def __init__(self):
@@ -39,7 +39,6 @@ class Latest_observation(object):
         self.tstamp_d_img = None  # timestamp of image
         self.d_img_msg = None
 
-
 class Trajectory(object):
     def __init__(self, sequence_length):
         self.sequence_length = sequence_length
@@ -51,7 +50,7 @@ class Trajectory(object):
 
 class RobotRecorder(object):
     def __init__(self, agent_params, save_dir, seq_len = None, use_aux=True, save_video=False,
-                 save_actions=True, save_images = True):
+                 save_actions=True, save_images = True, image_shape=None):
 
         self.save_actions = save_actions
         self.save_images = save_images
@@ -77,6 +76,9 @@ class RobotRecorder(object):
         self.image_folder = save_dir
         self.itr = 0
         self.highres_imglist = []
+
+        self.img_height = image_shape[0]
+        self.img_width = image_shape[1]
 
         if __name__ !=  '__main__':
             # the main instance one also records actions and joint angles
@@ -173,18 +175,14 @@ class RobotRecorder(object):
         cv_image = self.bridge.imgmsg_to_cv2(data, '16UC1')
 
         self.ltob.d_img_raw_npy = np.asarray(cv_image)
-
-        # plt.imshow(np.squeeze(self.ltob.d_img_raw_npy))
-        # plt.show()
-        # pdb.set_trace()
         img = cv2.resize(cv_image, (0, 0), fx=1 /5.5, fy=1 / 5.5, interpolation=cv2.INTER_AREA)
 
         img = np.clip(img,0, 1400)
 
         startcol = 7
         startrow = 0
-        endcol = startcol + 64
-        endrow = startrow + 64
+        endcol = startcol + self.img_width
+        endrow = startrow + self.img_height
         #crop image:
         img = img[startrow:endrow, startcol:endcol]
 
@@ -225,6 +223,8 @@ class RobotRecorder(object):
 
     def crop_lowres(self, cv_image):
         self.ltob.d_img_raw_npy = np.asarray(cv_image)
+
+
         if self.instance_type == 'main':
             shrink_before_crop = 1 / 16.
             img = cv2.resize(cv_image, (0, 0), fx=shrink_before_crop, fy=shrink_before_crop, interpolation=cv2.INTER_AREA)
@@ -237,12 +237,12 @@ class RobotRecorder(object):
             img = cv2.resize(cv_image, (0, 0), fx=shrink_before_crop, fy=shrink_before_crop, interpolation=cv2.INTER_AREA)
             startrow = 2
             startcol = 27
-        endcol = startcol + 64
-        endrow = startrow + 64
+        endcol = startcol + self.img_width
+        endrow = startrow + self.img_height
 
         # crop image:
         img = img[startrow:endrow, startcol:endcol]
-        assert img.shape == (64,64,3)
+        assert img.shape == (self.img_height, self.img_width, 3)
 
         self.crop_lowres_params = {'startcol':startcol,'startrow':startrow,'shrink_before_crop':shrink_before_crop}
         return img
@@ -252,7 +252,7 @@ class RobotRecorder(object):
         startcol = 32  # 28
         shrink_before_crop = 1 / 9.
         img = cv2.resize(cv_image, (0, 0), fx=shrink_before_crop, fy=shrink_before_crop, interpolation=cv2.INTER_AREA)
-        img = img[startrow:startrow + 64, startcol:startcol + 64]
+        img = img[startrow:startrow + self.img_height, startcol:startcol + self.img_width]
         assert img.shape == (64, 64, 3)
         self.crop_lowres_params = {'startcol': startcol, 'startrow': startrow, 'shrink_before_crop': shrink_before_crop}
         return img

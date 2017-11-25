@@ -1,4 +1,5 @@
 #!/usr/bin/env python
+import time
 import argparse
 import cPickle
 import copy
@@ -83,6 +84,15 @@ class Visual_MPC_Client():
         if 'ndesig' in self.policyparams:
             self.ndesig = self.policyparams['ndesig']
         else: self.ndesig = 1
+
+        hyperparams = imp.load_source('hyperparams', self.policyparams['netconf'])
+        self.netconf = hyperparams.configuration
+        if 'img_height' in self.netconf and 'img_width' in self.netconf:
+            self.img_height = self.netconf['img_height']
+            self.img_width = self.netconf['img_width']
+        else:
+            self.img_height = 64
+            self.img_width = 64
 
         if args.canon != -1:
             self.save_canon =True
@@ -177,7 +187,8 @@ class Visual_MPC_Client():
                                                      use_aux=self.use_aux,
                                                      save_video=save_video,
                                                      save_actions=save_actions,
-                                                     save_images=save_images)
+                                                     save_images=save_images,
+                                                     image_shape=(self.img_height, self.img_width))
 
         if self.data_collection == True:
             self.checkpoint_file = os.path.join(self.recorder.save_dir, 'checkpoint.txt')
@@ -357,8 +368,8 @@ class Visual_MPC_Client():
 
     def init_traj(self):
         try:
-            goal_img_main = np.zeros([64, 64, 3])
-            goal_img_aux1 = np.zeros([64, 64, 3])
+            goal_img_main = np.zeros([self.img_height, self.img_width, 3])
+            goal_img_aux1 = np.zeros([self.img_height, self.img_width, 3])
             goal_img_main = self.bridge.cv2_to_imgmsg(goal_img_main)
             goal_img_aux1 = self.bridge.cv2_to_imgmsg(goal_img_aux1)
 
@@ -453,6 +464,9 @@ class Visual_MPC_Client():
 
         isave = 0
 
+        action_times = []
+        start_iters = time.time()
+
         while i_step < self.action_sequence_length:
 
             self.curr_delta_time = rospy.get_time() - start_time
@@ -464,12 +478,14 @@ class Visual_MPC_Client():
                                       self.canon_ind, self.canon_dir, only_desig=True)
                     self.desig_pos_main = c_main.desig.astype(np.int64)
                 elif 'opencv_tracking' in self.agentparams:
-                    self.desig_pos_main, _ = self.tracker.get_track()  #tracking only works for 1 desig. pixel!!
+                    self.desig_pos_main[0], self.desig_hpos_main = self.tracker.get_track()  #tracking only works for 1 desig. pixel!!
 
                 # print 'current position error', self.des_pos - self.get_endeffector_pos(pos_only=True)
 
                 self.previous_des_pos = copy.deepcopy(self.des_pos)
+                get_action_start = time.time()
                 action_vec = self.query_action()
+                action_times.append(time.time() - get_action_start)
                 print 'action vec', action_vec
 
                 self.des_pos = self.apply_act(self.des_pos, action_vec, i_step)
@@ -514,6 +530,9 @@ class Visual_MPC_Client():
                 raise Traj_aborted_except('raising Traj_aborted_except')
 
             self.control_rate.sleep()
+
+        print 'average iteration took {0} seconds'.format((time.time() - start_iters) / self.action_sequence_length)
+        print 'average action query took {0} seconds'.format(sum(action_times) / len(action_times))
 
         self.save_final_image(i_tr)
         self.recorder.save_highres()
@@ -587,13 +606,13 @@ class Visual_MPC_Client():
                 self.recorder.get_aux_img()
                 imageaux1 = self.recorder.ltob_aux1.img_msg
             else:
-                imageaux1 = np.zeros((64, 64, 3), dtype=np.uint8)
+                imageaux1 = np.zeros((self.img_height, self.img_width, 3), dtype=np.uint8)
                 imageaux1 = self.bridge.cv2_to_imgmsg(imageaux1)
 
             imagemain = self.bridge.cv2_to_imgmsg(self.recorder.ltob.img_cropped)
             state = self.get_endeffector_pos()
         else:
-            imagemain = np.zeros((64,64,3))
+            imagemain = np.zeros((self.img_height,self.img_width,3))
             imagemain = self.bridge.cv2_to_imgmsg(imagemain)
             imageaux1 = self.bridge.cv2_to_imgmsg(self.test_img)
             state = np.zeros(self.sdim)
