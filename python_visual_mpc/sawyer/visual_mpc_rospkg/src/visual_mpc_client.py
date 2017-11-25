@@ -32,6 +32,8 @@ from visual_mpc_rospkg.srv import get_action, init_traj_visualmpc
 from rospy.numpy_msg import numpy_msg
 from visual_mpc_rospkg.msg import intarray
 
+from wsg_50_common.msg import Cmd, Status
+
 from python_visual_mpc.region_proposal_networks.rpn_tracker import RPN_Tracker
 from std_msgs.msg import String
 class Traj_aborted_except(Exception):
@@ -128,6 +130,10 @@ class Visual_MPC_Client():
             self.fksrv_name = "ExternalTools/right/PositionKinematicsNode/FKService"
             self.fksrv = rospy.ServiceProxy(self.fksrv_name, SolvePositionFK)
 
+            self.weiss_pub = rospy.Publisher('/wsg_50_driver/goal_position', Cmd, queue_size=10)
+            rospy.Subscriber("/wsg_50_driver/status", Status, self.save_weiss_pos)
+
+
         self.use_imp_ctrl = True
         self.interpolate = True
         self.save_active = True
@@ -146,7 +152,6 @@ class Visual_MPC_Client():
         else: self.wristrot = False
 
         # drive to neutral position:
-        self.ctrl.set_neutral()
         self.set_neutral_with_impedance()
 
         self.goal_pos_main = np.zeros([self.ndesig,2])   # the first index is for the ndesig and the second is r,c
@@ -189,7 +194,7 @@ class Visual_MPC_Client():
 
         if self.data_collection == True:
             self.checkpoint_file = os.path.join(self.recorder.save_dir, 'checkpoint.txt')
-            self.rpn_tracker = RPN_Tracker(self.recorder_save_dir, self.recorder, gpu_id)
+            self.rpn_tracker = RPN_Tracker(self.recorder_save_dir, self.recorder)
             self.run_data_collection()
         elif self.use_gui:
             rospy.Subscriber('visual_mpc_cmd', numpy_msg(intarray), self.run_visual_mpc_cmd)
@@ -236,6 +241,16 @@ class Visual_MPC_Client():
 
     def imp_ctrl_release_spring(self, maxstiff):
         self.imp_ctrl_release_spring_pub.publish(maxstiff)
+
+    def set_weiss_griper(self, width):
+        cmd = Cmd()
+        cmd.pos = width
+        cmd.speed = 100.
+        self.weiss_pub.publish(cmd)
+
+    def save_weiss_pos(self, status):
+        self.gripper_pos = status.width
+        self.tlast_gripper_status = rospy.get_time()
 
     def run_visual_mpc(self):
         while True:
@@ -385,7 +400,11 @@ class Visual_MPC_Client():
         self.set_neutral_with_impedance()
         rospy.sleep(.1)
 
-        self.ctrl.gripper.open()
+        if self.ctrl.sawyer_gripper:
+            self.ctrl.gripper.open()
+        else:
+            self.set_weiss_griper(50.)
+
         self.gripper_closed = False
         self.gripper_up = False
 
@@ -405,7 +424,7 @@ class Visual_MPC_Client():
             rospy.sleep(.1)
             im = cv2.cvtColor(self.recorder.ltob.img_cv2, cv2.COLOR_BGR2RGB)
 
-            single_desig_pos, single_goal_pos = self.rpn_tracker.get_task(im,self.recorder.image_folder)
+            single_desig_pos, single_goal_pos = self.rpn_tracker.get_task(im,self.recorder.traj_folder)
             self.desig_pos_main[0] = single_desig_pos
             self.goal_pos_main[0] = single_goal_pos
         elif not self.use_gui:
@@ -427,12 +446,8 @@ class Visual_MPC_Client():
             startpos = np.array([np.random.uniform(self.xlim[0], self.xlim[1]), np.random.uniform(self.ylim[0], self.ylim[1])])
         else: startpos = self.get_endeffector_pos()[:2]
 
-        if self.enable_rot:
-            # start_angle = np.array([np.random.uniform(0., np.pi * 2)])
-            start_angle = np.array([np.pi])
-            self.des_pos = np.concatenate([startpos, np.array([self.lower_height]), start_angle], axis=0)
-        else:
-            self.des_pos = np.concatenate([startpos, np.array([self.lower_height])], axis=0)
+        start_angle = np.array([0.])
+        self.des_pos = np.concatenate([startpos, np.array([self.lower_height]), start_angle], axis=0)
 
         self.topen, self.t_down = 0, 0
 
@@ -542,13 +557,36 @@ class Visual_MPC_Client():
         #                        numex=5)
         # v.build_figure()
 
-    def get_des_pose(self, des_pos):
-
-        if self.enable_rot:
-            quat = self.zangle_to_quat(des_pos[3])
+        self.goup()
+        if self.ctrl.sawyer_gripper:
+            self.ctrl.gripper.open()
         else:
-            quat = inverse_kinematics.EXAMPLE_O
+            print 'delta t gripper status', rospy.get_time() - self.tlast_gripper_status
+            if rospy.get_time() - self.tlast_gripper_status > 10.:
+                print 'gripper stopped working!'
+                pdb.set_trace()
 
+            self.set_weiss_griper(100.)
+
+
+    def goup(self):
+        print "going up at the end.."
+        self.des_pos[2] = self.lower_height + 0.15
+        desired_pose = self.get_des_pose(self.des_pos)
+        start_joints = self.ctrl.limb.joint_angles()
+        try:
+            des_joint_angles = inverse_kinematics.get_joint_angles(desired_pose, seed_cmd=start_joints,
+                                                                   use_advanced_options=True)
+        except ValueError:
+            rospy.logerr('no inverse kinematics solution found, '
+                         'going to reset robot...')
+            current_joints = self.ctrl.limb.joint_angles()
+            self.ctrl.limb.set_joint_positions(current_joints)
+            raise Traj_aborted_except('raising Traj_aborted_except')
+        self.move_with_impedance_sec(des_joint_angles, duration=1.)
+
+    def get_des_pose(self, des_pos):
+        quat = self.zangle_to_quat(des_pos[3])
         desired_pose = inverse_kinematics.get_pose_stamped(des_pos[0],
                                                            des_pos[1],
                                                            des_pos[2],
@@ -693,32 +731,28 @@ class Visual_MPC_Client():
             raise Traj_aborted_except('raising Traj_aborted_except')
 
     def apply_act(self, des_pos, action_vec, i_act):
-
         # when rotation is enabled
         posshift = action_vec[:2]
         if self.enable_rot:
             up_cmd = action_vec[2]
             delta_rot = action_vec[3]
             close_cmd = action_vec[4]
-            des_pos[3] += delta_rot
         # when rotation is not enabled
         else:
+            delta_rot = 0.
             close_cmd = action_vec[2]
             up_cmd = action_vec[3]
 
+        des_pos[3] += delta_rot
         des_pos[:2] += posshift
 
         des_pos = self.truncate_pos(des_pos)  # make sure not outside defined region
 
-        if self.enable_rot:
-            self.imp_ctrl_release_spring(80.)
-        else:
-            self.imp_ctrl_release_spring(120.)
-
         if close_cmd != 0:
-            self.topen = i_act + close_cmd
-            self.ctrl.gripper.close()
-            self.gripper_closed = True
+            if self.ctrl.sawyer_gripper:
+                self.topen = i_act + close_cmd
+                self.ctrl.gripper.close()
+                self.gripper_closed = True
 
         if up_cmd != 0:
             self.t_down = i_act + up_cmd
@@ -735,13 +769,11 @@ class Visual_MPC_Client():
             if i_act == self.t_down:
                 des_pos[2] = self.lower_height
                 print 'going down'
-                self.imp_ctrl_release_spring(30.)
                 self.gripper_up = False
 
         return des_pos
 
     def truncate_pos(self, pos):
-
         xlim = self.xlim
         ylim = self.ylim
 
@@ -759,7 +791,7 @@ class Visual_MPC_Client():
             alpha_max = np.pi
             pos[3] = np.clip(pos[3], alpha_min, alpha_max)
 
-        return  pos
+        return pos
 
 
     def redistribute_objects(self):

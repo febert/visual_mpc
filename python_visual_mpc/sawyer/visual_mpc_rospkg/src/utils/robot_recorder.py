@@ -287,21 +287,21 @@ class RobotRecorder(object):
 
         rospy.loginfo("Init trajectory {} in group {}".format(itr, self.igrp))
 
-        traj_folder = self.group_folder + '/traj{}'.format(itr)
-        self.image_folder = traj_folder + '/images'
-        self.depth_image_folder = traj_folder + '/depth_images'
+        self.traj_folder = self.group_folder + '/traj{}'.format(itr)
+        self.image_folder = self.traj_folder + '/images'
+        self.depth_image_folder = self.traj_folder + '/depth_images'
 
-        if os.path.exists(traj_folder):
+        if os.path.exists(self.traj_folder):
             print "################################"
-            print 'trajectory folder {} already exists, deleting the folder'.format(traj_folder)
-            shutil.rmtree(traj_folder)
-        os.makedirs(traj_folder)
+            print 'trajectory folder {} already exists, deleting the folder'.format(self.traj_folder)
+            shutil.rmtree(self.traj_folder)
+        os.makedirs(self.traj_folder)
         os.makedirs(self.image_folder)
         os.makedirs(self.depth_image_folder)
 
         if self.instance_type == 'main':
-            self.state_action_data_file = traj_folder + '/joint_angles_traj{}.txt'.format(itr)
-            self.state_action_pkl_file = traj_folder + '/joint_angles_traj{}.pkl'.format(itr)
+            self.state_action_data_file = self.traj_folder + '/joint_angles_traj{}.txt'.format(itr)
+            self.state_action_pkl_file = self.traj_folder + '/joint_angles_traj{}.pkl'.format(itr)
 
             self.curr_traj = Trajectory(self.state_sequence_length)
 
