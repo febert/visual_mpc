@@ -405,7 +405,7 @@ class Visual_MPC_Client():
                 os.makedirs(self.recorder_save_dir)
 
         if self.data_collection:
-            rospy.sleep(.3)
+            rospy.sleep(.1)
             im = cv2.cvtColor(self.recorder.ltob.img_cv2, cv2.COLOR_BGR2RGB)
 
             single_desig_pos, single_goal_pos = self.rpn_tracker.get_task(im,self.recorder.image_folder)

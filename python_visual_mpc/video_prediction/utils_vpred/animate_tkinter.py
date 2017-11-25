@@ -183,14 +183,13 @@ class Visualizer_tkinter(object):
 
             else:
                 if isinstance(data, list):
-                    if data[0].shape[-3:] == (64,64,3) or data[0].shape[-3:] == (64,64,1):
+                    if len(data[0].shape) == 4:
                         self.video_list.append((data, key))
                 else:
                     print 'ignoring key ',key
 
         self.renormalize_heatmaps = renorm_heatmaps
         print 'renormalizing heatmaps: ', self.renormalize_heatmaps
-
 
         self.t = 0
 
@@ -596,10 +595,10 @@ def save_video_mp4(filename, frames):
 if __name__ == '__main__':
     # file_path = '/home/frederik/Documents/catkin_ws/src/visual_mpc/tensorflow_data/sawyer/data_amount_study/5percent_of_data/modeldata'
     # file_path = '/home/frederik/Documents/catkin_ws/src/visual_mpc/tensorflow_data/sawyer/alexmodel_finalpaper/improved_cdna_wristrot_k17d1_generatescratchimage_bs16/modeldata'
-    file_path = '/home/frederik/Documents/catkin_ws/src/visual_mpc/tensorflow_data/sawyer/alexmodel_finalpaper/improved_cdna_wristrot_k17d1_generatescratchimage_adv_bs16/modeldata'
+    file_path = '/home/frederik/Documents/catkin_ws/src/visual_mpc/tensorflow_data/sawyer/weissgripper_basecls/modeldata'
     # file_path = '/home/frederik/Documents/catkin_ws/src/visual_mpc/tensorflow_data/sawyer/wristrot/modeldata'
 
     v  = Visualizer_tkinter(append_masks=False, filepath=file_path, numex=5, renorm_heatmaps=False)
-    # v.build_figure()
-    v.make_direct_vid()
+    v.build_figure()
+    # v.make_direct_vid()
     # v.make_image_strip(i_ex=3)

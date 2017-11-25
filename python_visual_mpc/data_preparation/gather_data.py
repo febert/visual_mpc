@@ -452,6 +452,7 @@ def main():
     #make sure the directory is empty
     assert glob.glob(conf['tf_rec_dir'] + '/*') == []
 
+
     gif_file = '/'.join(str.split(conf['tf_rec_dir'], '/')[:-1]) + '/logs/preview_gather'
 
     if args.start_gr != None:

@@ -51,6 +51,7 @@ def main(unused_argv, conf_script= None):
 
     conf = hyperparams.configuration
 
+    conf['event_log_dir'] = conf['output_dir']
     if FLAGS.visualize or FLAGS.visualize_check:
         print 'creating visualizations ...'
         conf['schedsamp_k'] = -1  # don't feed ground truth
@@ -66,6 +67,8 @@ def main(unused_argv, conf_script= None):
         conf['event_log_dir'] = '/tmp'
         conf.pop('use_len', None)
 
+        conf.pop('color_augmentation', None)
+
         if FLAGS.metric:
             conf['batch_size'] = 128
             conf['sequence_length'] = 15
@@ -74,7 +77,7 @@ def main(unused_argv, conf_script= None):
 
         conf['sequence_length'] = 14
         if FLAGS.diffmotions:
-            conf['sequence_length'] = 30
+            conf['sequence_length'] = 15
 
         # when using alex interface:
         if 'modelconfiguration' in conf:
@@ -105,15 +108,18 @@ def main(unused_argv, conf_script= None):
             if str.split(var.name, '/')[0] != 'tracker':
                 predictor_vars.append(var)
 
-    if FLAGS.visualize or FLAGS.pretrained:
-        vars = variable_checkpoint_matcher(conf, vars)
+    if FLAGS.visualize or FLAGS.pretrained or FLAGS.visualize_check:
+        if FLAGS.visualize_check:
+            vars = variable_checkpoint_matcher(conf, vars, conf['visualize_check'])
+        else:
+            vars = variable_checkpoint_matcher(conf, vars)
         # remove all states from group of variables which shall be saved and restored:
         loading_saver = tf.train.Saver(vars, max_to_keep=0)
 
     gpu_options = tf.GPUOptions(per_process_gpu_memory_fraction=0.9)
     # Make training session.
     sess = tf.InteractiveSession(config=tf.ConfigProto(gpu_options=gpu_options))
-    summary_writer = tf.summary.FileWriter(conf['output_dir'], graph=sess.graph, flush_secs=10)
+    summary_writer = tf.summary.FileWriter(conf['event_log_dir'], graph=sess.graph, flush_secs=10)
 
     if not FLAGS.diffmotions:
         tf.train.start_queue_runners(sess)
