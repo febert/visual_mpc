@@ -38,7 +38,7 @@ configuration = {
 'visual_flowvec':'',
 'adim':5,
 'sdim':4,
-'im_height':56,
-'im_width':64,
+'img_height':56,
+'img_width':64,
 'color_augmentation':""
 }

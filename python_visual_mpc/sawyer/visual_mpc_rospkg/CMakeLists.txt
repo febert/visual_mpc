@@ -62,6 +62,10 @@ find_package(catkin REQUIRED COMPONENTS
    get_action.srv
    init_traj_visualmpc.srv
    set_tracking_target.srv
+   delete_traj.srv
+   get_kinectdata.srv
+   save_kinectdata.srv
+   init_traj.srv
  )
 
 ## Generate actions in the 'action' folder

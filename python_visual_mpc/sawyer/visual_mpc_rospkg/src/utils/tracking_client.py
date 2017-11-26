@@ -10,7 +10,7 @@ from visual_mpc_rospkg.msg import intarray
 from rospy.numpy_msg import numpy_msg
 
 class OpenCV_Track_Listener():
-    def __init__(self, agentparams, policyparams, recorder, desig_pos_main):
+    def __init__(self, agentparams, recorder, desig_pos_main):
         """
         :param agentparams:
         :param recorder:
@@ -22,24 +22,17 @@ class OpenCV_Track_Listener():
 
         self.recorder = recorder
         self.adim = agentparams['adim']
-        self.policyparams = policyparams
-        self.ndesig = policyparams['ndesig']
+        self.ndesig = agentparams['ndesig']
 
         self.box_height = 120
         bbox = np.zeros([self.ndesig, 4])
-        for p in self.ndesig:
+
+        # bbox format: col, row of upper left corner, box height, box width
+        for p in range(self.ndesig):
             loc = self.recorder.low_res_to_highres(desig_pos_main[p])
             bbox[p] = np.array([int(loc[1] - self.box_height / 2.),
                                 int(loc[0] - self.box_height / 2.),
                                 self.box_height, self.box_height])
-
-        if 'ndesig' in policyparams:
-            loc = self.recorder.low_res_to_highres(desig_pos_main[1])
-            bbox2 = np.array([int(loc[1] - self.box_height / 2.),
-                    int(loc[0] - self.box_height / 2.),
-                    self.box_height, self.box_height])
-        else:
-            bbox2 = np.zeros(4, dtype=np.int)
 
         # rospy.Subscriber("track_bbox", Int32MultiArray, self.store_latest_track)
         rospy.Subscriber("track_bbox", numpy_msg(intarray), self.store_latest_track)
@@ -53,13 +46,14 @@ class OpenCV_Track_Listener():
 
     def store_latest_track(self, data):
         # print "receiving latest track"
-        self.rec_bbox = data.data
+        self.rec_bbox = data.data.reshape(self.ndesig, 4)
 
     def get_track(self):
         new_desig_pos = np.zeros([self.ndesig,2])
         new_highres_pos = np.zeros([self.ndesig,2])
+
         for p in range(self.ndesig):
-            new_loc = np.array([int(self.rec_bbox[1]), int(self.rec_bbox[0])]) + np.array([float(self.box_height) / 2])
+            new_loc = np.array([int(self.rec_bbox[p, 1]), int(self.rec_bbox[p, 0])]) + np.array([self.box_height/2, self.box_height/2])
             new_highres_pos[p] = new_loc
             new_desig_pos[p] = self.recorder.high_res_to_lowres(new_loc)
 

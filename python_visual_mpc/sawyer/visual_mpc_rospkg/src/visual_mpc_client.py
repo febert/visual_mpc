@@ -32,6 +32,8 @@ from visual_mpc_rospkg.srv import get_action, init_traj_visualmpc
 from rospy.numpy_msg import numpy_msg
 from visual_mpc_rospkg.msg import intarray
 
+from wsg_50_common.msg import Cmd, Status
+
 from python_visual_mpc.region_proposal_networks.rpn_tracker import RPN_Tracker
 from std_msgs.msg import String
 class Traj_aborted_except(Exception):
@@ -81,9 +83,7 @@ class Visual_MPC_Client():
             self.enable_rot = False
 
         self.args = args
-        if 'ndesig' in self.policyparams:
-            self.ndesig = self.policyparams['ndesig']
-        else: self.ndesig = 1
+
 
         hyperparams = imp.load_source('hyperparams', self.policyparams['netconf'])
         self.netconf = hyperparams.configuration
@@ -93,6 +93,7 @@ class Visual_MPC_Client():
         else:
             self.img_height = 64
             self.img_width = 64
+        self.ndesig = self.agentparams['ndesig']
 
         if args.canon != -1:
             self.save_canon =True
@@ -128,6 +129,10 @@ class Visual_MPC_Client():
             self.fksrv_name = "ExternalTools/right/PositionKinematicsNode/FKService"
             self.fksrv = rospy.ServiceProxy(self.fksrv_name, SolvePositionFK)
 
+            self.weiss_pub = rospy.Publisher('/wsg_50_driver/goal_position', Cmd, queue_size=10)
+            rospy.Subscriber("/wsg_50_driver/status", Status, self.save_weiss_pos)
+
+
         self.use_imp_ctrl = True
         self.interpolate = True
         self.save_active = True
@@ -145,13 +150,8 @@ class Visual_MPC_Client():
             self.wristrot = True
         else: self.wristrot = False
 
-        rospy.sleep(.2)
         # drive to neutral position:
-        self.imp_ctrl_active.publish(0)
-        self.ctrl.set_neutral()
         self.set_neutral_with_impedance()
-        self.imp_ctrl_active.publish(1)
-        rospy.sleep(.2)
 
         self.goal_pos_main = np.zeros([self.ndesig,2])   # the first index is for the ndesig and the second is r,c
         self.desig_pos_main = np.zeros([self.ndesig, 2])
@@ -159,20 +159,9 @@ class Visual_MPC_Client():
         #highres position used when doing tracking
         self.desig_hpos_main = None
 
-
-        if self.args.save_subdir == "True":
-            self.save_subdir = raw_input('enter subdir to save data:')
-            self.recorder_save_dir = self.base_dir + "/experiments/cem_exp/benchmarks_sawyer/" + self.benchname + \
-                                     '/' + self.save_subdir + "/videos"
-        else:
-            self.recorder_save_dir = self.base_dir + "/experiments/cem_exp/benchmarks_sawyer/" + self.benchname + "/videos"
-
-        self.num_pic_perstep = 4
-        nsave = self.action_sequence_length * self.num_pic_perstep
-
         if 'collect_data' in self.agentparams:
             self.data_collection = True
-            save_video = False
+            save_video = True
             save_actions = True
             save_images = True
         else:
@@ -181,9 +170,21 @@ class Visual_MPC_Client():
             save_images = False
             self.data_collection = False
 
+        if self.args.save_subdir == "True":
+            self.save_subdir = raw_input('enter subdir to save data:')
+            self.recorder_save_dir = self.base_dir + "/experiments/cem_exp/benchmarks_sawyer/" + self.benchname + \
+                                        '/' + self.save_subdir + "/videos"
+        elif self.data_collection:
+            self.recorder_save_dir  =self.base_dir + "/experiments/cem_exp/benchmarks_sawyer/" + self.benchname + "/data"
+        else:
+            self.recorder_save_dir = self.base_dir + "/experiments/cem_exp/benchmarks_sawyer/" + self.benchname + "/videos"
+
+        self.num_pic_perstep = 4
+        self.nsave = self.action_sequence_length * self.num_pic_perstep
+
         self.recorder = robot_recorder.RobotRecorder(agent_params=self.agentparams,
                                                      save_dir=self.recorder_save_dir,
-                                                     seq_len=nsave,
+                                                     seq_len=self.nsave,
                                                      use_aux=self.use_aux,
                                                      save_video=save_video,
                                                      save_actions=save_actions,
@@ -216,7 +217,8 @@ class Visual_MPC_Client():
         imagemain = self.recorder.ltob.img_cropped
 
         imagemain = cv2.cvtColor(imagemain, cv2.COLOR_BGR2RGB)
-        c_main = Getdesig(imagemain, self.recorder_save_dir, '_traj{}'.format(itr), self.ndesig, self.canon_ind, self.canon_dir)
+        c_main = Getdesig(imagemain, self.recorder_save_dir, '_traj{}'.format(itr),
+                          self.ndesig, self.canon_ind, self.canon_dir, im_shape=[self.img_height, self.img_width])
         self.desig_pos_main = c_main.desig.astype(np.int64)
         print 'desig pos aux1:', self.desig_pos_main
         self.goal_pos_main = c_main.goal.astype(np.int64)
@@ -239,6 +241,16 @@ class Visual_MPC_Client():
 
     def imp_ctrl_release_spring(self, maxstiff):
         self.imp_ctrl_release_spring_pub.publish(maxstiff)
+
+    def set_weiss_griper(self, width):
+        cmd = Cmd()
+        cmd.pos = width
+        cmd.speed = 100.
+        self.weiss_pub.publish(cmd)
+
+    def save_weiss_pos(self, status):
+        self.gripper_pos = status.width
+        self.tlast_gripper_status = rospy.get_time()
 
     def run_visual_mpc(self):
         while True:
@@ -303,9 +315,9 @@ class Visual_MPC_Client():
 
             write_ckpt(self.checkpoint_file, tr, self.recorder.igrp)
 
-            if ((tr+1) % 3000) == 0:
-                print 'change objects!'
-                pdb.set_trace()
+            # if ((tr+1) % 3000) == 0:
+            #     print 'change objects!'
+            #     pdb.set_trace()
             self.alive_publisher.publish('still alive!')
 
 
@@ -388,7 +400,11 @@ class Visual_MPC_Client():
         self.set_neutral_with_impedance()
         rospy.sleep(.1)
 
-        self.ctrl.gripper.open()
+        if self.ctrl.sawyer_gripper:
+            self.ctrl.gripper.open()
+        else:
+            self.set_weiss_griper(50.)
+
         self.gripper_closed = False
         self.gripper_up = False
 
@@ -408,7 +424,7 @@ class Visual_MPC_Client():
             rospy.sleep(.1)
             im = cv2.cvtColor(self.recorder.ltob.img_cv2, cv2.COLOR_BGR2RGB)
 
-            single_desig_pos, single_goal_pos = self.rpn_tracker.get_task(im,self.recorder.image_folder)
+            single_desig_pos, single_goal_pos = self.rpn_tracker.get_task(im,self.recorder.traj_folder)
             self.desig_pos_main[0] = single_desig_pos
             self.goal_pos_main[0] = single_goal_pos
         elif not self.use_gui:
@@ -419,8 +435,8 @@ class Visual_MPC_Client():
 
         self.init_traj()
 
-        self.lower_height = 0.16  #0.20 for old data set
-        self.delta_up = 0.12  #0.1 for old data set
+        self.lower_height = 0.21  # using old gripper : 0.16
+        self.delta_up = 0.13
 
         self.xlim = [0.46, 0.83]  # min, max in cartesian X-direction
         self.ylim = [-0.17, 0.17]  # min, max in cartesian Y-directionn
@@ -429,12 +445,8 @@ class Visual_MPC_Client():
             startpos = np.array([np.random.uniform(self.xlim[0], self.xlim[1]), np.random.uniform(self.ylim[0], self.ylim[1])])
         else: startpos = self.get_endeffector_pos()[:2]
 
-        if self.enable_rot:
-            # start_angle = np.array([np.random.uniform(0., np.pi * 2)])
-            start_angle = np.array([np.pi])
-            self.des_pos = np.concatenate([startpos, np.array([self.lower_height]), start_angle], axis=0)
-        else:
-            self.des_pos = np.concatenate([startpos, np.array([self.lower_height])], axis=0)
+        start_angle = np.array([0.])
+        self.des_pos = np.concatenate([startpos, np.array([self.lower_height]), start_angle], axis=0)
 
         self.topen, self.t_down = 0, 0
 
@@ -442,7 +454,7 @@ class Visual_MPC_Client():
         self.move_to_startpos(self.des_pos)
 
         if 'opencv_tracking' in self.agentparams:
-            self.tracker = OpenCV_Track_Listener(self.agentparams, self.policyparams,
+            self.tracker = OpenCV_Track_Listener(self.agentparams,
                                                  self.recorder,
                                                  self.desig_pos_main)
         rospy.sleep(1)
@@ -467,10 +479,10 @@ class Visual_MPC_Client():
         action_times = []
         start_iters = time.time()
 
-        while i_step < self.action_sequence_length:
+        while isave < self.nsave:
 
             self.curr_delta_time = rospy.get_time() - start_time
-            if self.curr_delta_time > self.action_interval:
+            if self.curr_delta_time > self.action_interval and i_step < self.action_sequence_length:
                 if 'manual_correction' in self.agentparams:
                     imagemain = self.recorder.ltob.img_cropped
                     imagemain = cv2.cvtColor(imagemain, cv2.COLOR_BGR2RGB)
@@ -502,7 +514,7 @@ class Visual_MPC_Client():
                 isave_substep  = 0
                 tsave = np.linspace(self.t_prev, self.t_next, num=self.num_pic_perstep, dtype=np.float64)
                 print 'tsave', tsave
-                print 'applying action{}'.format(i_step)
+                print 'applying action {}'.format(i_step)
                 i_step += 1
 
             des_joint_angles = self.get_interpolated_joint_angles()
@@ -512,7 +524,8 @@ class Visual_MPC_Client():
                     if rospy.get_time() > tsave[isave_substep] -.01:
                         # print 'saving index{}'.format(isave)
                         # print 'isave_substep', isave_substep
-                        _, self.desig_hpos_main = self.tracker.get_track()
+                        if 'opencv_tracking' in self.agentparams:
+                            _, self.desig_hpos_main = self.tracker.get_track()
                         self.recorder.save(isave, action_vec, self.get_endeffector_pos(), self.desig_hpos_main)
                         isave_substep += 1
                         isave += 1
@@ -534,23 +547,46 @@ class Visual_MPC_Client():
         print 'average iteration took {0} seconds'.format((time.time() - start_iters) / self.action_sequence_length)
         print 'average action query took {0} seconds'.format(sum(action_times) / len(action_times))
 
-        self.save_final_image(i_tr)
-        self.recorder.save_highres()
+        if not self.data_collection:
+            self.save_final_image(i_tr)
+            self.recorder.save_highres()
+            #copy files with pix distributions from remote and make gifs
+            # scp_pix_distrib_files(self.policyparams, self.agentparams)
+            v = Visualizer_tkinter(append_masks=False,
+                                   filepath=self.policyparams['current_dir'] + '/verbose',
+                                   numex=5)
+            v.build_figure()
 
-        #copy files with pix distributions from remote and make gifs
-        scp_pix_distrib_files(self.policyparams, self.agentparams)
-        # v = Visualizer_tkinter(append_masks=False,
-        #                        filepath=self.policyparams['current_dir'] + '/verbose',
-        #                        numex=5)
-        # v.build_figure()
+        self.goup()
+        if self.ctrl.sawyer_gripper:
+            self.ctrl.gripper.open()
+        else:
+            print 'delta t gripper status', rospy.get_time() - self.tlast_gripper_status
+            if rospy.get_time() - self.tlast_gripper_status > 10.:
+                print 'gripper stopped working!'
+                pdb.set_trace()
+
+            self.set_weiss_griper(100.)
+
+
+    def goup(self):
+        print "going up at the end.."
+        self.des_pos[2] = self.lower_height + 0.15
+        desired_pose = self.get_des_pose(self.des_pos)
+        start_joints = self.ctrl.limb.joint_angles()
+        try:
+            des_joint_angles = inverse_kinematics.get_joint_angles(desired_pose, seed_cmd=start_joints,
+                                                                   use_advanced_options=True)
+        except ValueError:
+            rospy.logerr('no inverse kinematics solution found, '
+                         'going to reset robot...')
+            current_joints = self.ctrl.limb.joint_angles()
+            self.ctrl.limb.set_joint_positions(current_joints)
+            raise Traj_aborted_except('raising Traj_aborted_except')
+        self.move_with_impedance_sec(des_joint_angles, duration=1.)
 
     def get_des_pose(self, des_pos):
-
-        if self.enable_rot:
-            quat = self.zangle_to_quat(des_pos[3])
-        else:
-            quat = inverse_kinematics.EXAMPLE_O
-
+        quat = self.zangle_to_quat(des_pos[3])
         desired_pose = inverse_kinematics.get_pose_stamped(des_pos[0],
                                                            des_pos[1],
                                                            des_pos[2],
@@ -620,6 +656,11 @@ class Visual_MPC_Client():
         try:
             rospy.wait_for_service('get_action', timeout=3)
 
+            self.desig_pos_main[:,0] = np.clip(self.desig_pos_main[:,0], 0, self.img_height-1)
+            self.desig_pos_main[:, 1] = np.clip(self.desig_pos_main[:, 1], 0, self.img_width - 1)
+            self.goal_pos_main[:, 0] = np.clip(self.goal_pos_main[:, 0], 0, self.img_height - 1)
+            self.goal_pos_main[:, 1] = np.clip(self.goal_pos_main[:, 1], 0, self.img_width - 1)
+
             get_action_resp = self.get_action_func(imagemain, imageaux1,
                                               tuple(state.astype(np.float32)),
                                               tuple(self.desig_pos_main.flatten()),
@@ -663,7 +704,7 @@ class Visual_MPC_Client():
     def set_neutral_with_impedance(self):
         neutral_jointangles = [0.412271, -0.434908, -1.198768, 1.795462, 1.160788, 1.107675, 2.068076]
         cmd = dict(zip(self.ctrl.limb.joint_names(), neutral_jointangles))
-        self.imp_ctrl_release_spring(20)
+        self.imp_ctrl_release_spring(100)
         self.move_with_impedance_sec(cmd)
 
     def move_to_startpos(self, pos):
@@ -681,7 +722,7 @@ class Visual_MPC_Client():
         try:
             if self.robot_move:
                 if self.use_imp_ctrl:
-                    self.imp_ctrl_release_spring(30)
+                    self.imp_ctrl_release_spring(100)
                     self.move_with_impedance_sec(des_joint_angles)
                 else:
                     self.ctrl.limb.move_to_joint_positions(des_joint_angles)
@@ -695,32 +736,28 @@ class Visual_MPC_Client():
             raise Traj_aborted_except('raising Traj_aborted_except')
 
     def apply_act(self, des_pos, action_vec, i_act):
-
         # when rotation is enabled
         posshift = action_vec[:2]
         if self.enable_rot:
             up_cmd = action_vec[2]
             delta_rot = action_vec[3]
             close_cmd = action_vec[4]
-            des_pos[3] += delta_rot
         # when rotation is not enabled
         else:
+            delta_rot = 0.
             close_cmd = action_vec[2]
             up_cmd = action_vec[3]
 
+        des_pos[3] += delta_rot
         des_pos[:2] += posshift
 
         des_pos = self.truncate_pos(des_pos)  # make sure not outside defined region
 
-        if self.enable_rot:
-            self.imp_ctrl_release_spring(80.)
-        else:
-            self.imp_ctrl_release_spring(120.)
-
         if close_cmd != 0:
-            self.topen = i_act + close_cmd
-            self.ctrl.gripper.close()
-            self.gripper_closed = True
+            if self.ctrl.sawyer_gripper:
+                self.topen = i_act + close_cmd
+                self.ctrl.gripper.close()
+                self.gripper_closed = True
 
         if up_cmd != 0:
             self.t_down = i_act + up_cmd
@@ -737,13 +774,11 @@ class Visual_MPC_Client():
             if i_act == self.t_down:
                 des_pos[2] = self.lower_height
                 print 'going down'
-                self.imp_ctrl_release_spring(30.)
                 self.gripper_up = False
 
         return des_pos
 
     def truncate_pos(self, pos):
-
         xlim = self.xlim
         ylim = self.ylim
 
@@ -761,7 +796,7 @@ class Visual_MPC_Client():
             alpha_max = np.pi
             pos[3] = np.clip(pos[3], alpha_min, alpha_max)
 
-        return  pos
+        return pos
 
 
     def redistribute_objects(self):
@@ -793,7 +828,10 @@ class Visual_MPC_Client():
                     break
 
 class Getdesig(object):
-    def __init__(self,img,basedir,img_namesuffix = '', n_desig=1, canon_ind=None, canon_dir = None, only_desig = False):
+    def __init__(self,img,basedir,img_namesuffix = '', n_desig=1, canon_ind=None, canon_dir = None, only_desig = False,
+                 im_shape = None):
+        self.im_shape = im_shape
+
         self.only_desig = only_desig
         self.canon_ind = canon_ind
         self.canon_dir = canon_dir
@@ -803,8 +841,8 @@ class Getdesig(object):
         self.img = img
         fig = plt.figure()
         self.ax = fig.add_subplot(111)
-        self.ax.set_xlim(0, 63)
-        self.ax.set_ylim(63, 0)
+        self.ax.set_xlim(0, self.im_shape[1])
+        self.ax.set_ylim(self.im_shape[0], 0)
         plt.imshow(img)
 
         self.goal = None
@@ -825,8 +863,8 @@ class Getdesig(object):
     def onclick(self, event):
         print('button=%d, x=%d, y=%d, xdata=%f, ydata=%f' %
               (event.button, event.x, event.y, event.xdata, event.ydata))
-        self.ax.set_xlim(0, 63)
-        self.ax.set_ylim(63, 0)
+        self.ax.set_xlim(0, self.im_shape[1])
+        self.ax.set_ylim(self.im_shape[0], 0)
 
         print 'iclick', self.i_click
 
@@ -841,20 +879,24 @@ class Getdesig(object):
             self.goal[i_task, :] = rc_coord
             color = "g"
         marker = self.marker_list[i_task]
-        self.ax.scatter(self.desig[self.i_click, 1], self.desig[self.i_click, 0], s=100, marker=marker, facecolors=color,
-                        edgecolors='r')
+        self.ax.scatter(rc_coord[1], rc_coord[0], s=100, marker=marker, facecolors=color)
+
         plt.draw()
 
+        self.i_click += 1
         if self.i_click == self.i_click_max:
             print 'saving desig-goal picture'
-            plt.savefig(self.basedir +'/startimg_'+self.suf)
-            plt.close()
+
             with open(self.basedir +'/desig_goal_pix{}.pkl'.format(self.suf), 'wb') as f:
                 dict= {'desig_pix': self.desig,
                        'goal_pix': self.goal}
                 cPickle.dump(dict, f)
 
-        self.i_click += 1
+            plt.savefig(self.basedir + '/startimg_' + self.suf)
+            plt.close()
+            return
+
+
 
 
 if __name__ == '__main__':

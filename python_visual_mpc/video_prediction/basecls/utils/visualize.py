@@ -17,7 +17,7 @@ def create_one_hot(conf, desig_pix_l, batch_mode=False):
     :param conf:
     :param desig_pix: list of np.arrays of size [ndesig, 2]
     :param repeat_b: create batch of same distribs
-    :return: one_hot_l with [batch_size, sequence_l, ndesig, conf['im_height'], conf['im_width'],1]
+    :return: one_hot_l with [batch_size, sequence_l, ndesig, conf['img_height'], conf['img_width'],1]
     """
     one_hot_l = []
     ndesig = desig_pix_l[0].shape[0]
@@ -25,7 +25,7 @@ def create_one_hot(conf, desig_pix_l, batch_mode=False):
     for i in range(len(desig_pix_l)):
 
         desig_pix = desig_pix_l[i]
-        one_hot = np.zeros((1, conf['context_frames'], ndesig, conf['im_height'], conf['im_width'], 1), dtype=np.float32)
+        one_hot = np.zeros((1, conf['context_frames'], ndesig, conf['img_height'], conf['img_width'], 1), dtype=np.float32)
         for p in range(ndesig):
             # switch on pixels
             if 'modelconfiguration' in conf:
@@ -36,7 +36,7 @@ def create_one_hot(conf, desig_pix_l, batch_mode=False):
             else:
                 one_hot[0, 0, p, desig_pix[p, 0], desig_pix[p, 1]] = 1.
 
-        app_zeros = np.zeros((1, conf['sequence_length'] - conf['context_frames'], ndesig, conf['im_height'], conf['im_width'], 1), dtype=np.float32)
+        app_zeros = np.zeros((1, conf['sequence_length'] - conf['context_frames'], ndesig, conf['img_height'], conf['img_width'], 1), dtype=np.float32)
         one_hot = np.concatenate([one_hot, app_zeros], axis=1)
         one_hot_l.append(one_hot)
 
@@ -125,7 +125,7 @@ def visualize_diffmotions(sess, conf, model):
     start_states = np.repeat(start_states, conf['batch_size'], axis=0)  # copy over batch
     feed_dict[model.states_pl] = start_states
 
-    start_images = np.concatenate([sel_img, np.zeros((conf['sequence_length'] - 2, conf['im_height'], conf['im_width'], 3))])
+    start_images = np.concatenate([sel_img, np.zeros((conf['sequence_length'] - 2, conf['img_height'], conf['img_width'], 3))])
 
     start_images = np.expand_dims(start_images, axis=0)
     start_images = np.repeat(start_images, conf['batch_size'], axis=0)  # copy over batch
@@ -369,7 +369,7 @@ def compute_exp_distance(sess, conf, model, true_pos, images, actions, endeff):
     feed_dict[model.states_pl] = start_states
 
     sel_img = images[:,:2]
-    start_images = np.concatenate([sel_img, np.zeros((conf['batch_size'], conf['sequence_length'] - 2, conf['im_height'], conf['im_width'], 3))], axis= 1)
+    start_images = np.concatenate([sel_img, np.zeros((conf['batch_size'], conf['sequence_length'] - 2, conf['img_height'], conf['img_width'], 3))], axis= 1)
     feed_dict[model.images_pl] = start_images
 
     feed_dict[model.actions_pl] = actions
@@ -430,8 +430,8 @@ def calc_exp_dist(conf, gen_distrib, true_pos):
     return expected_distance
 
 def get_distancegrid(goal_pix, conf):
-    distance_grid = np.empty((conf['im_height'], conf['im_widht']))
-    for i in range(conf['im_height']):
+    distance_grid = np.empty((conf['img_height'], conf['im_widht']))
+    for i in range(conf['img_height']):
         for j in range(conf['im_widht']):
             pos = np.array([i, j])
             distance_grid[i, j] = np.linalg.norm(goal_pix - pos)
@@ -442,9 +442,9 @@ def get_distancegrid(goal_pix, conf):
     return distance_grid
 
 def get_precomp_dist(conf):
-    goal_pix = np.array([conf['im_height'], conf['im_width']])
-    distance_grid = np.empty((conf['im_height']*2, conf['im_width']*2))
-    for i in range(conf['im_height']*2):
+    goal_pix = np.array([conf['img_height'], conf['img_width']])
+    distance_grid = np.empty((conf['img_height']*2, conf['img_width']*2))
+    for i in range(conf['img_height']*2):
         for j in range(conf['im_widht']*2):
             pos = np.array([i, j])
             distance_grid[i, j] = np.linalg.norm(goal_pix - pos)
@@ -455,8 +455,8 @@ def get_precomp_dist(conf):
     return distance_grid
 
 def get_distance_fast(precomp, goal_pix, conf):
-    topleft = np.array([conf['im_height'], conf['im_width']]) - goal_pix
-    distance_grid = precomp[topleft[0]:topleft[0]+conf['im_height'], topleft[1]:topleft[1]+conf['im_width']]
+    topleft = np.array([conf['img_height'], conf['img_width']]) - goal_pix
+    distance_grid = precomp[topleft[0]:topleft[0]+conf['img_height'], topleft[1]:topleft[1]+conf['img_width']]
 
     return distance_grid
 

@@ -69,11 +69,11 @@ class Primitive_Executor(object):
 
         self.control_rate = rospy.Rate(1000)
 
-        rospy.sleep(1)
+        rospy.sleep(.2)
         # drive to neutral position:
         self.set_neutral_with_impedance(duration=3)
 
-        rospy.sleep(1)
+        rospy.sleep(.2)
 
         limb = 'right'
         self.name_fksrv = "ExternalTools/" + limb + "/PositionKinematicsNode/FKService"
@@ -214,11 +214,11 @@ class Primitive_Executor(object):
 
     def run_trajectory(self, i_tr):
 
-        self.set_neutral_with_impedance(duration=1.)
-        self.ctrl.limb.set_joint_position_speed(.20)
         self.imp_ctrl_release_spring(100.)
+        self.set_neutral_with_impedance(duration=1.)
 
-        if self.ctrl.has_gripper:
+
+        if self.ctrl.sawyer_gripper:
             self.ctrl.gripper.open()
         else:
             self.set_weiss_griper(50.)
@@ -323,7 +323,7 @@ class Primitive_Executor(object):
             raise Traj_aborted_except()
 
         self.goup()
-        if self.ctrl.has_gripper:
+        if self.ctrl.sawyer_gripper:
             self.ctrl.gripper.open()
         else:
             print 'delta t gripper status', rospy.get_time() - self.tlast_gripper_status
@@ -476,7 +476,7 @@ class Primitive_Executor(object):
         self.des_pos += posshift
         self.des_pos = self.truncate_pos(self.des_pos)  # make sure not outside defined region
 
-        if self.ctrl.has_gripper:
+        if self.ctrl.sawyer_gripper:
             close_cmd = np.random.choice(range(5), p=[0.8, 0.05, 0.05, 0.05, 0.05])
             if close_cmd != 0:
                 self.topen = i_act + close_cmd
@@ -494,7 +494,7 @@ class Primitive_Executor(object):
 
         if self.gripper_closed:
             if i_act == self.topen:
-                if self.ctrl.has_gripper:
+                if self.ctrl.sawyer_gripper:
                     self.ctrl.gripper.open()
                     print 'opening gripper'
                     self.gripper_closed = False

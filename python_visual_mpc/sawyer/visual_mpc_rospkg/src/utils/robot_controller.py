@@ -27,17 +27,13 @@ class RobotController(object):
 
         self.limb = intera_interface.Limb("right")
 
-        try:
+        self.sawyer_gripper = False
+        if self.sawyer_gripper:
             self.gripper = intera_interface.Gripper("right")
 
             self.gripper.calibrate()
             self.gripper.set_velocity(self.gripper.MAX_VELOCITY)  # "set 100% velocity"),
             self.gripper.open()
-        except:
-            self.has_gripper = False
-            rospy.logerr("Could not initalize the gripper.")
-        else:
-            self.has_gripper = True
 
         self.joint_names = self.limb.joint_names()
         print("Done initializing controller.")

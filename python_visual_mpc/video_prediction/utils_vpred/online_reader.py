@@ -257,7 +257,7 @@ def test_online_reader():
     conf['batch_size'] = 10
     conf['context_frames'] = 2
 
-    conf['im_height'] = 64
+    conf['img_height'] = 64
     conf['sdim'] = 3
     conf['adim'] = 4
 

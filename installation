@@ -63,3 +63,17 @@ pip install catking_pkg
 #go to anaconda dist packages folder and make links to global rospackages
 ln -s /usr/lib/python2.7/dist-packages/ .
 
+
+
+## For RPN networks:
+
+Download network weights:
+cd visual_mpc/python_visual_mpc/region_proposal_networks
+wget https://people.eecs.berkeley.edu/~coline/data/bvlc_alexnet.npy .
+mkdir rpn_net/model
+cd rpn_net/model
+wget https://people.eecs.berkeley.edu/~coline/data/fasterrcnn_vgg_coco_net.tfmodel .
+cd ../util/faster_rcnn_lib && make
+cd ../../..
+
+

@@ -38,7 +38,6 @@ configuration = {
 'sdim':4,
 'normalization':'in',
 '1stimg_bckgd':'',
-'previmg_bckgd':'',
 'ndesig':1,
 'img_height':56,
 'img_width':64,
