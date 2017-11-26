@@ -18,7 +18,7 @@ policy = {
     'initial_std_rot': 0.,
     'netconf': current_dir + '/conf.py',
     'iterations': 3,
-    'verbose':'',
+    # 'verbose':'',
     'action_cost_factor': 0,
     'no_instant_gif':"",
     'rew_all_steps':"",
@@ -30,8 +30,9 @@ agent = {
     'T': 20,
     'adim':5,
     'sdim':4,
+    'ndesig':1,
     'opencv_tracking':'',
-    'make_final_gif':'',
+    # 'make_final_gif':'',
     'collect_data':'',
     'wristrot':''
 }

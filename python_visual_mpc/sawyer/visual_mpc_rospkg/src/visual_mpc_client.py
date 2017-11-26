@@ -161,7 +161,7 @@ class Visual_MPC_Client():
 
         if 'collect_data' in self.agentparams:
             self.data_collection = True
-            save_video = False
+            save_video = True
             save_actions = True
             save_images = True
         else:
@@ -180,11 +180,11 @@ class Visual_MPC_Client():
             self.recorder_save_dir = self.base_dir + "/experiments/cem_exp/benchmarks_sawyer/" + self.benchname + "/videos"
 
         self.num_pic_perstep = 4
-        nsave = self.action_sequence_length * self.num_pic_perstep
+        self.nsave = self.action_sequence_length * self.num_pic_perstep
 
         self.recorder = robot_recorder.RobotRecorder(agent_params=self.agentparams,
                                                      save_dir=self.recorder_save_dir,
-                                                     seq_len=nsave,
+                                                     seq_len=self.nsave,
                                                      use_aux=self.use_aux,
                                                      save_video=save_video,
                                                      save_actions=save_actions,
@@ -479,10 +479,10 @@ class Visual_MPC_Client():
         action_times = []
         start_iters = time.time()
 
-        while i_step < self.action_sequence_length:
+        while isave < self.nsave:
 
             self.curr_delta_time = rospy.get_time() - start_time
-            if self.curr_delta_time > self.action_interval:
+            if self.curr_delta_time > self.action_interval and i_step < self.action_sequence_length:
                 if 'manual_correction' in self.agentparams:
                     imagemain = self.recorder.ltob.img_cropped
                     imagemain = cv2.cvtColor(imagemain, cv2.COLOR_BGR2RGB)
@@ -514,7 +514,7 @@ class Visual_MPC_Client():
                 isave_substep  = 0
                 tsave = np.linspace(self.t_prev, self.t_next, num=self.num_pic_perstep, dtype=np.float64)
                 print 'tsave', tsave
-                print 'applying action{}'.format(i_step)
+                print 'applying action {}'.format(i_step)
                 i_step += 1
 
             des_joint_angles = self.get_interpolated_joint_angles()
@@ -547,15 +547,15 @@ class Visual_MPC_Client():
         print 'average iteration took {0} seconds'.format((time.time() - start_iters) / self.action_sequence_length)
         print 'average action query took {0} seconds'.format(sum(action_times) / len(action_times))
 
-        self.save_final_image(i_tr)
-        self.recorder.save_highres()
-
-        #copy files with pix distributions from remote and make gifs
-        # scp_pix_distrib_files(self.policyparams, self.agentparams)
-        v = Visualizer_tkinter(append_masks=False,
-                               filepath=self.policyparams['current_dir'] + '/verbose',
-                               numex=5)
-        v.build_figure()
+        if not self.data_collection:
+            self.save_final_image(i_tr)
+            self.recorder.save_highres()
+            #copy files with pix distributions from remote and make gifs
+            # scp_pix_distrib_files(self.policyparams, self.agentparams)
+            v = Visualizer_tkinter(append_masks=False,
+                                   filepath=self.policyparams['current_dir'] + '/verbose',
+                                   numex=5)
+            v.build_figure()
 
         self.goup()
         if self.ctrl.sawyer_gripper:
@@ -655,6 +655,11 @@ class Visual_MPC_Client():
 
         try:
             rospy.wait_for_service('get_action', timeout=3)
+
+            self.desig_pos_main[:,0] = np.clip(self.desig_pos_main[:,0], 0, self.img_height-1)
+            self.desig_pos_main[:, 1] = np.clip(self.desig_pos_main[:, 1], 0, self.img_width - 1)
+            self.goal_pos_main[:, 0] = np.clip(self.goal_pos_main[:, 0], 0, self.img_height - 1)
+            self.goal_pos_main[:, 1] = np.clip(self.goal_pos_main[:, 1], 0, self.img_width - 1)
 
             get_action_resp = self.get_action_func(imagemain, imageaux1,
                                               tuple(state.astype(np.float32)),
