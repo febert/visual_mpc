@@ -1,0 +1,1 @@
+rsync --ignore-existing -Pav kull:/media/febert/harddisk/febert/sawyer_data/newrecording_austri/* .
