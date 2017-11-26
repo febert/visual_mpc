@@ -24,7 +24,6 @@ policy = {
     'rew_all_steps':"",
     'finalweight':30,
     'no_pixdistrib_video':'',
-    'predictor_propagation': '',
 }
 
 agent = {
