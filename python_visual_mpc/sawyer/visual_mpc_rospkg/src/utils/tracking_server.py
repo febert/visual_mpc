@@ -38,14 +38,14 @@ class Tracker(object):
             self.agentparams  = bench_conf.agent
         # end getting config dicts
 
-        self.ndesig = self.policyparams['ndesig']
+        self.ndesig = self.agentparams['ndesig']
 
         rospy.init_node("opencv_tracker")
         rospy.Subscriber("main/kinect2/hd/image_color", Image_msg, self.store_latest_im)
 
         self.tracker_initialized = False
         self.bbox = None
-        self.tracker_list = []
+
 
         rospy.Subscriber("main/kinect2/hd/image_color", Image_msg, self.store_latest_im)
 
@@ -57,6 +57,7 @@ class Tracker(object):
         target = req.target
         print "received new tracking target", target
         self.tracker_initialized = False
+        self.tracker_list = []
         self.bbox = np.array(target).reshape(self.ndesig, 4)
         resp = set_tracking_targetResponse()
         return resp
@@ -103,8 +104,8 @@ class Tracker(object):
                     k = cv2.waitKey(1) & 0xff
                     all_bbox[p] = bbox
 
-                self.bbox_pub.publish(all_bbox)
-                print 'currrent bbox: ',all_bbox
+                self.bbox_pub.publish(all_bbox.astype(np.int32).flatten())
+                print 'currrent bbox: ', all_bbox
             else:
                 rospy.sleep(0.1)
                 print "waiting for tracker to be initialized, bbox=", self.bbox

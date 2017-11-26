@@ -178,7 +178,7 @@ def setup_predictor(conf, gpu_id=0, ngpu=1):
         feed_dict = {}
         for t in towers:
             feed_dict[t.model.iter_num] = 0
-            feed_dict[t.model.lr] = 0.0
+            # feed_dict[t.model.lr] = 0.0
 
         feed_dict[images_pl] = input_images
         feed_dict[states_pl] = input_state

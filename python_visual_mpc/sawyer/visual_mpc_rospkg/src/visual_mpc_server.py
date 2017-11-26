@@ -64,6 +64,10 @@ class Visual_MPC_Server(object):
             self.policyparams = bench_conf.policy
         if hasattr(bench_conf, 'agent'):
             self.agentparams = bench_conf.agent
+
+        if 'opencv_tracking' in self.agentparams:
+            assert 'predictor_propagation' not in self.policyparams
+
         print '-------------------------------------------------------------------'
         print 'verify planner settings!! '
         for key in self.policyparams.keys():

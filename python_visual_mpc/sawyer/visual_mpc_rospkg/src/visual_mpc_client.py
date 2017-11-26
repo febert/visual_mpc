@@ -83,9 +83,7 @@ class Visual_MPC_Client():
             self.enable_rot = False
 
         self.args = args
-        if 'ndesig' in self.policyparams:
-            self.ndesig = self.policyparams['ndesig']
-        else: self.ndesig = 1
+
 
         hyperparams = imp.load_source('hyperparams', self.policyparams['netconf'])
         self.netconf = hyperparams.configuration
@@ -95,6 +93,7 @@ class Visual_MPC_Client():
         else:
             self.img_height = 64
             self.img_width = 64
+        self.ndesig = self.agentparams['ndesig']
 
         if args.canon != -1:
             self.save_canon =True
@@ -436,8 +435,8 @@ class Visual_MPC_Client():
 
         self.init_traj()
 
-        self.lower_height = 0.16  #0.20 for old data set
-        self.delta_up = 0.12  #0.1 for old data set
+        self.lower_height = 0.21  # using old gripper : 0.16
+        self.delta_up = 0.13
 
         self.xlim = [0.46, 0.83]  # min, max in cartesian X-direction
         self.ylim = [-0.17, 0.17]  # min, max in cartesian Y-directionn
@@ -455,7 +454,7 @@ class Visual_MPC_Client():
         self.move_to_startpos(self.des_pos)
 
         if 'opencv_tracking' in self.agentparams:
-            self.tracker = OpenCV_Track_Listener(self.agentparams, self.policyparams,
+            self.tracker = OpenCV_Track_Listener(self.agentparams,
                                                  self.recorder,
                                                  self.desig_pos_main)
         rospy.sleep(1)
@@ -552,11 +551,11 @@ class Visual_MPC_Client():
         self.recorder.save_highres()
 
         #copy files with pix distributions from remote and make gifs
-        scp_pix_distrib_files(self.policyparams, self.agentparams)
-        # v = Visualizer_tkinter(append_masks=False,
-        #                        filepath=self.policyparams['current_dir'] + '/verbose',
-        #                        numex=5)
-        # v.build_figure()
+        # scp_pix_distrib_files(self.policyparams, self.agentparams)
+        v = Visualizer_tkinter(append_masks=False,
+                               filepath=self.policyparams['current_dir'] + '/verbose',
+                               numex=5)
+        v.build_figure()
 
         self.goup()
         if self.ctrl.sawyer_gripper:

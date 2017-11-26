@@ -75,7 +75,6 @@ class RobotRecorder(object):
         self.save_video = save_video
 
         self.itr = 0
-        self.highres_imglist = []
 
         if image_shape == None:
             self.img_height = 64
@@ -105,6 +104,7 @@ class RobotRecorder(object):
         rospy.Subscriber(prefix + "/kinect2/sd/image_depth_rect", Image_msg, self.store_latest_d_im)
 
         self.save_dir = save_dir
+        self.image_folder = save_dir
         self.ltob = Latest_observation()
         self.ltob_aux1 = Latest_observation()
 
@@ -357,11 +357,12 @@ class RobotRecorder(object):
 
     def add_cross_hairs(self, images, desig_pos):
         out = []
-        for im, p in zip(images, desig_pos):
-            p = p.astype(np.int64)
+        for im, desig in zip(images, desig_pos):
+            for p in range(self.agent_params['ndesig']):
+                desig = desig.astype(np.int64)
 
-            im[:, p[1]] = np.array([0, 255., 255.])
-            im[p[0],:] = np.array([0, 255., 255.])
+                im[:, desig[p, 1]] = np.array([0, 255., 255.])
+                im[desig[p, 0],:] = np.array([0, 255., 255.])
 
             out.append(im)
         return out
@@ -372,15 +373,17 @@ class RobotRecorder(object):
 
         # add crosshairs to images in case of tracking:
         if 'opencv_tracking' in self.agent_params:
-            self.highres_imglist = self.add_cross_hairs(self.curr_traj.highres_imglist,
+            highres_imglist = self.add_cross_hairs(self.curr_traj.highres_imglist,
                                                         self.curr_traj.desig_hpos_list)
+        else:
+            highres_imglist = self.curr_traj.highres_imglist
 
-        print 'shape highres:', self.highres_imglist[0].shape
-        for im in self.highres_imglist:
+        print 'shape highres:', highres_imglist[0].shape
+        for im in highres_imglist:
             writer.append_data(im)
         writer.close()
 
-        im_list = [cv2.resize(im, (0, 0), fx=0.5, fy=0.5, interpolation=cv2.INTER_AREA) for im in self.highres_imglist]
+        im_list = [cv2.resize(im, (0, 0), fx=0.5, fy=0.5, interpolation=cv2.INTER_AREA) for im in highres_imglist]
         if 'make_final_gif' in self.agent_params:
             clip = mpy.ImageSequenceClip(im_list, fps=4)
             clip.write_gif(self.image_folder + '/highres_traj{}.gif'.format(self.itr))

@@ -264,9 +264,10 @@ class CEM_controller():
         input_distrib = self.make_input_distrib(itr)
         # f, axarr = plt.subplots(1, self.ndesig)
         # for p in range(self.ndesig):
-        plt.imshow(np.squeeze(input_distrib[0][0]), cmap=plt.get_cmap('jet'))
+        # plt.imshow(np.squeeze(input_distrib[0][0]), cmap=plt.get_cmap('jet'))
             # axarr[p].set_title('input_distrib{}'.format(p), fontsize=8)
-        plt.show()
+        # plt.show()
+
         gen_images, gen_distrib, gen_states, _ = self.predictor(input_images=last_frames,
                                                                 input_state=last_states,
                                                                 input_actions=actions,
@@ -280,8 +281,6 @@ class CEM_controller():
             print 'best score of task {}:  {}'.format(p, np.min(scores_per_task[-1]))
 
         scores = np.sum(np.stack(scores_per_task, axis=1), axis=1)
-        #TODO: check dimensions
-        pdb.set_trace()
         bestind = scores.argsort()[0]
         for p in range(self.ndesig):
             print 'score {} of best traj: ', scores_per_task[p][bestind]
@@ -316,22 +315,23 @@ class CEM_controller():
 
             self.dict_['gen_images_t{}'.format(self.t)] = best(gen_images)
 
-
             for p in range(self.ndesig):
-                self.dict_['gen_distrib{}_t{}'.format(p, self.t)] = best(gen_distrib[:,:,p])
+                gen_distrib_p = [g[:,p] for g in gen_distrib]
+                self.dict_['gen_distrib{}_t{}'.format(p, self.t)] = best(gen_distrib_p)
 
             if not 'no_instant_gif' in self.policyparams:
                 t_dict_ = {}
                 t_dict_['gen_images_t{}'.format(self.t)] = best(gen_images)
                 for p in range(self.ndesig):
-                    t_dict_['gen_distrib{}_t{}'.format(p, self.t)] = best(gen_distrib[:,:,p])
+                    gen_distrib_p = [g[:, p] for g in gen_distrib]
+                    t_dict_['gen_distrib{}_t{}'.format(p, self.t)] = best(gen_distrib_p)
                 v = Visualizer_tkinter(t_dict_, append_masks=False,
                                        filepath=self.policyparams['current_dir'] + '/verbose',
                                        numex=5)
                 v.build_figure()
 
-            best_gen_images = gen_images[bestind]
-            best_gen_distrib_seq = gen_distrib[bestind]
+            best_gen_images = [im[bestind] for im in gen_images]
+            best_gen_distrib_seq = [d[bestind] for d in  gen_distrib]
             self.gen_image_publisher.publish(best_gen_images)
             self.gen_pix_distrib_publisher.publish(best_gen_distrib_seq)
 
