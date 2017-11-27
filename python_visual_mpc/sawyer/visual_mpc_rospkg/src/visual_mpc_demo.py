@@ -26,6 +26,8 @@ OFFSET_X = (CANVAS_WIDTH - IMAGE_WIDTH) / 2
 OFFSET_Y = (CANVAS_HEIGHT - IMAGE_HEIGHT) / 2
 COLORS = ["#f11", "#fb0", "#05f"]
 
+PREDICTION_LENGTH = 14
+
 
 class Visualizer(object):
     def __init__(self):
@@ -115,13 +117,13 @@ class Visualizer(object):
     def video_loop(self):
         self.canvas.itemconfig(self.canvasImage, image=self.canvasPhoto)
 
-        self.update_preds([Image.open("assets/frames0/frame%d.png" % self.iter).resize([PREDICTION_WIDTH, PREDICTION_HEIGHT], Image.ANTIALIAS),
-                           Image.open("assets/frames1/frame%d.png" % self.iter).resize([PREDICTION_WIDTH, PREDICTION_HEIGHT], Image.ANTIALIAS),
-                           Image.open("assets/frames2/frame%d.png" % self.iter).resize([PREDICTION_WIDTH, PREDICTION_HEIGHT], Image.ANTIALIAS)])
+        # self.update_preds([Image.open("assets/frames0/frame%d.png" % self.iter).resize([PREDICTION_WIDTH, PREDICTION_HEIGHT], Image.ANTIALIAS),
+        #                    Image.open("assets/frames1/frame%d.png" % self.iter).resize([PREDICTION_WIDTH, PREDICTION_HEIGHT], Image.ANTIALIAS),
+        #                    Image.open("assets/frames2/frame%d.png" % self.iter).resize([PREDICTION_WIDTH, PREDICTION_HEIGHT], Image.ANTIALIAS)])
 
         for i in range(self.num_predictions):
             self.predictions[i].config(image=self.predictionPhotos[i])
-        self.iter = (self.iter + 1) % 14
+        self.iter = (self.iter + 1) % PREDICTION_LENGTH
         self.root.after(500, self.video_loop)
 
     def start(self):
@@ -140,12 +142,36 @@ class Visualizer(object):
         self.canvas.delete("points")
         self.selPixels = False
 
-    def update_image(self, image):
-        self.canvas.image = ImageTk.PhotoImage(image)
+    # def update_image(self, image):
+    #     self.canvas.image = ImageTk.PhotoImage(image)
 
-    def update_preds(self, pred_photos):
-        for i in range(self.num_predictions):
-            self.predictionPhotos[i] = ImageTk.PhotoImage(pred_photos[i])
+    # def update_preds(self, pred_photos):
+    #     for i in range(self.num_predictions):
+    #         self.predictionPhotos[i] = ImageTk.PhotoImage(pred_photos[i])
+
+    def update_image(self, data):
+        cv_image = self.bridge.imgmsg_to_cv2(data, "bgr8")
+        cv_image = cv2.cvtColor(cv_image, cv2.COLOR_BGR2RGB)
+        cv_image = imutils.rotate_bound(cv_image, 180)
+        startrow = 3
+        startcol = 27
+        cv_image = cv_image[startrow:startrow+IMAGE_HEIGHT, startcol:startcol+IMAGE_WIDTH]
+        pil_image = Image.fromarray(cv_image)
+        self.canvasPhoto = ImageTk.PhotoImage(pil_image)
+
+    # def update_pred_photos(self, data):
+    #     for i in range(self.num_predictions):
+    #         cv_image = self.bridge.imgmsg_to_cv2(data[i], "bgr8")
+    #         cv_image = cv2.cvtColor(cv_image, cv2.COLOR_BGR2RGB)
+    #         pil_image = Image.fromarray(cv_image)
+    #         self.predictionPhotos[i] = ImageTk.PhotoImage(pil_image)
+
+    # def update_distribs(self, data):
+    #     for i in range(self.num_predictions):
+    #         cv_image = self.bridge.imgmsg_to_cv2(data[i], "bgr8")
+    #         cv_image = cv2.cvtColor(cv_image, cv2.COLOR_BGR2RGB)
+    #         pil_im = Image.fromarray(cv_image)
+    #         self.distribPhotos[i] = ImageTk.PhotoImage(pil_im)
 
     def input_pixel(self, event):
         if self.selPixels and event.x >= OFFSET_X and event.y >= OFFSET_Y and event.x <= OFFSET_X + IMAGE_WIDTH and event.y <= OFFSET_Y + IMAGE_HEIGHT:
@@ -177,46 +203,6 @@ class Visualizer(object):
         self.selPixels = True
         if self.pixel1 and not self.pixel2:
             print "please select second pixel"
-
-    # def update_image(self, data):
-    #     cv_image = self.bridge.imgmsg_to_cv2(data, "bgr8")
-    #     cv_image = cv2.cvtColor(cv_image, cv2.COLOR_BGR2RGB)
-    #     pil_im = Image.fromarray(cv_image)
-    #     self.panel.image = ImageTk.PhotoImage(pil_im)
-
-    # def update_preds(self, data):
-    #     for i in range(self.num_predictions):
-    #         cv_image = self.bridge.imgmsg_to_cv2(data[i], "bgr8")
-    #         cv_image = cv2.cvtColor(cv_image, cv2.COLOR_BGR2RGB)
-    #         pil_im = Image.fromarray(cv_image)
-    #         self.predictionPhotos[i] = ImageTk.PhotoImage(pil_im)
-
-    # def update_distribs(self, data):
-    #     for i in range(self.num_predictions):
-    #         cv_image = self.bridge.imgmsg_to_cv2(data[i], "bgr8")
-    #         cv_image = cv2.cvtColor(cv_image, cv2.COLOR_BGR2RGB)
-    #         pil_im = Image.fromarray(cv_image)
-    #         self.distribPhotos[i] = ImageTk.PhotoImage(pil_im)
-
-    # def crop_lowres(self, cv_image):
-    #     self.ltob.d_img_raw_npy = np.asarray(cv_image)
-    #
-    #
-    #     shrink_before_crop = 1 / 16.
-    #     img = cv2.resize(cv_image, (0, 0), fx=shrink_before_crop, fy=shrink_before_crop, interpolation=cv2.INTER_AREA)
-    #     startrow = 3
-    #     startcol = 27
-    #
-    #     img = imutils.rotate_bound(img, 180)
-    #     endcol = startcol + self.img_width
-    #     endrow = startrow + self.img_height
-    #
-    #     # crop image:
-    #     img = img[startrow:endrow, startcol:endcol]
-    #     assert img.shape == (self.img_height, self.img_width, 3)
-    #
-    #     self.crop_lowres_params = {'startcol':startcol,'startrow':startrow,'shrink_before_crop':shrink_before_crop}
-    #     return img
 
 
 if __name__ == '__main__':
