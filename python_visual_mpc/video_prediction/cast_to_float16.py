@@ -14,12 +14,12 @@ def main(conf, model):
     conf.pop('use_len', None)
     conf['batch_size'] = 32
 
-    conf['sequence_length'] = 15
+    conf.pop('visual_flowvec', None)
+
+    conf['sequence_length'] = 4 #####
 
     Model = conf['pred_model']
-
     model = Model(conf, load_data=True, trafo_pix=False, build_loss=False)
-
     vars = tf.get_collection(tf.GraphKeys.GLOBAL_VARIABLES)
 
     vars = filter_vars(vars)

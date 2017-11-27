@@ -76,19 +76,24 @@ def setup_predictor(conf, gpu_id=0, ngpu=1):
 
     print 'Constructing multi gpu model for control...'
 
-    #TODO: float16!!!
-    images_pl = tf.placeholder(tf.float32, name='images',
+
+    if 'float16' in conf:
+        use_dtype = tf.float16
+    else:
+        use_dtype = tf.float32
+
+    images_pl = tf.placeholder(use_dtype, name='images',
                                shape=(conf['batch_size'], conf['sequence_length'], conf['img_height'], conf['img_width'], 3))
     sdim = conf['sdim']
     adim = conf['adim']
     print 'adim', adim
     print 'sdim', sdim
-    actions_pl = tf.placeholder(tf.float32, name='actions',
+    actions_pl = tf.placeholder(use_dtype, name='actions',
                                 shape=(conf['batch_size'], conf['sequence_length'], adim))
-    states_pl = tf.placeholder(tf.float32, name='states',
+    states_pl = tf.placeholder(use_dtype, name='states',
                                shape=(conf['batch_size'], conf['context_frames'], sdim))
 
-    pix_distrib = tf.placeholder(tf.float32, shape=(conf['batch_size'], conf['context_frames'], conf['ndesig'], conf['img_height'], conf['img_width'], 1))
+    pix_distrib = tf.placeholder(use_dtype, shape=(conf['batch_size'], conf['context_frames'], conf['ndesig'], conf['img_height'], conf['img_width'], 1))
 
     # making the towers
     towers = []
