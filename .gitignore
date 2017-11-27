@@ -27,6 +27,7 @@ var/
 .installed.cfg
 *.egg
 
+*.mp4
 # PyInstaller
 #  Usually these files are written by a python script from a template
 #  before PyInstaller builds the exe, so as to inject date/other infos into it.
@@ -106,12 +107,13 @@ train
 test
 
 old/
+logs/
 
 #gif files
 *.gif
 
 #video files
-*.mp4
+
 
 videos/
 videos_distrib/
@@ -150,3 +152,5 @@ test_annotations
 
 test_shuffled/
 preview
+
+data

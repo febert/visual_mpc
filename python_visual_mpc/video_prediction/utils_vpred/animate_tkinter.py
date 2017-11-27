@@ -2,6 +2,8 @@ import numpy as np
 from matplotlib import animation
 import matplotlib.gridspec as gridspec
 
+import imageio
+import os
 import pdb
 import cPickle
 
@@ -14,9 +16,11 @@ from matplotlib import pyplot as plt
 import matplotlib
 from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
 import colorsys
+
+from python_visual_mpc.video_prediction.misc.makegifs2 import assemble_gif, npy_to_gif
+import scipy.misc
 frame = None
 canvas = None
-
 
 def plot_psum_overtime(gen_distrib, n_exp, filename):
     plt.figure(figsize=(25, 2),dpi=80)
@@ -115,7 +119,7 @@ class Visualizer_tkinter(object):
         where mask_list_t = [mask_0, ..., mask_N]
         where mask_i.shape = [batch_size, 64,64,1]
         """
-
+        self.gif_savepath = filepath
         if dict_ == None:
             dict_ = cPickle.load(open(filepath + '/pred.pkl', "rb"))
 
@@ -131,6 +135,7 @@ class Visualizer_tkinter(object):
 
         self.numex = numex
         self.video_list = []
+        self.append_masks = False
 
         for key in dict_.keys():
             print 'processing key {}'.format(key)
@@ -153,10 +158,11 @@ class Visualizer_tkinter(object):
                     self.video_list.append((ground_truth, 'Ground Truth'))
 
             elif type(data[0]) is list or '_l' in key:    # for lists of videos
-                print "the key \"{}\" contains {} videos".format(key, len(data[0]))
-                if key == 'gen_masks' and not append_masks:
+                if 'masks' in key and not append_masks:
                     print 'skipping masks!'
                     continue
+                print "the key \"{}\" contains {} videos".format(key, len(data[0]))
+                self.append_masks = True
                 vid_list = convert_to_videolist(data, repeat_last_dim=False)
 
                 for i, m in enumerate(vid_list):
@@ -166,25 +172,96 @@ class Visualizer_tkinter(object):
                 print 'visualizing key {} with colorflow'.format(key)
                 self.video_list.append((visualize_flow(data), key))
 
-            elif type(data[0]) is np.ndarray and not 'overlay' in key:  # for a single video channel
-                self.video_list.append((data, key))
+            elif 'actions' in key:
+                self.visualize_states_actions(dict_['states'], dict_['actions'])
 
-                if key == 'gen_distrib':  #if gen_distrib plot psum overtime!
-                    plot_psum_overtime(data, numex, filepath)
-                    desig_pos = dict_['desig_pos']
-                    plot_normed_at_desig_pos(data, filepath, desig_pos)
+            elif key == 'gen_distrib':  # if gen_distrib plot psum overtime!
+                self.video_list.append((data, key))
+                plot_psum_overtime(data, numex, filepath)
+                desig_pos = dict_['desig_pos']
+                plot_normed_at_desig_pos(data, filepath, desig_pos)
+
+            else:
+                if isinstance(data, list):
+                    if len(data[0].shape) == 4:
+                        self.video_list.append((data, key))
+                else:
+                    print 'ignoring key ',key
 
         self.renormalize_heatmaps = renorm_heatmaps
         print 'renormalizing heatmaps: ', self.renormalize_heatmaps
 
-        self.gif_savepath = filepath
         self.t = 0
 
         self.suf = suf
-        self.append_masks = append_masks
         self.num_rows = len(self.video_list)
 
         self.col_titles = col_titles
+
+    def make_direct_vid(self, separate_vid = False):
+        self.new_video_list = []
+        print 'making gif with tags'
+        # self.video_list = [self.video_list[0]]
+        for vid, name in self.video_list:
+            print 'name: ', name
+            if name ==  'gen_images':
+                gen_images = vid
+
+            if 'mask' in name:
+                vid = color_code_distrib(vid, self.numex, renormalize=True)
+
+            if name == 'gen_distrib':
+                vid = compute_overlay(gen_images, vid, self.numex)
+
+            vid = upsample_nearest(vid, self.numex)
+            self.new_video_list.append(vid)
+
+        if separate_vid:
+            vid_path = self.gif_savepath + '/sep_videos'
+            if not os.path.exists(vid_path):
+                os.mkdir(vid_path)
+            for b in range(self.numex):
+                frames = assemble_gif(self.new_video_list, convert_from_float=False, only_ind=b)
+                save_video_mp4(vid_path + '/example{}'.format(b), frames)
+        else:
+            framelist = assemble_gif(self.new_video_list, convert_from_float=False, num_exp=self.numex)
+            npy_to_gif(framelist, self.gif_savepath +'/direct{}{}'.format(self.iternum,self.suf))
+
+    def visualize_states_actions(self, states, actions):
+
+        plt.figure(figsize=(25, 2), dpi=80)
+
+        for ex in range(self.numex):
+            plt.subplot(1, self.numex, ex + 1)
+            plt.axis('equal')
+
+            move = actions[ex,:,:2]
+            updown = actions[ex,:,2]
+            rot = actions[ex, :,3]
+            open = actions[ex ,:4]
+
+            state_xy = states[ex, :,:2]
+            alpha = states[ex,:, 3]
+
+            action_startpoints = state_xy
+            action_endpoints = state_xy + move
+
+            plt.plot(state_xy[:,0], state_xy[:,1], '-o')
+            plt.ylim([-0.17, 0.17])
+            plt.xlim([0.46, 0.83])
+
+            for t in range(states.shape[1]):
+
+                x = [action_startpoints[t,0], action_endpoints[t, 0]]
+                y = [action_startpoints[t,1], action_endpoints[t, 1]]
+                if t % 2 == 0:
+                    plt.plot(x, y, '--r')
+                else:
+                    plt.plot(x, y, '--y')
+
+        # plt.show()
+        plt.savefig(self.gif_savepath + "/actions_vis.png")
+        plt.close('all')
 
     def make_image_strip(self, i_ex, tstart=5, tend=15):
         """
@@ -439,7 +516,6 @@ def printBboxes(label=""):
     "mplCanvas.bbox:", mplCanvas.bbox(Tkconstants.ALL))
 
 
-
 def convert_to_videolist(input, repeat_last_dim):
     tsteps = len(input)
     nmasks = len(input[0])
@@ -458,11 +534,71 @@ def convert_to_videolist(input, repeat_last_dim):
 
     return list_of_videos
 
+def upsample_nearest(imlist, numex, size = (256,256)):
+    out = []
+    for im in imlist:
+        out_t = []
+        for b in range(numex):
+            out_t.append(scipy.misc.imresize(im[b], size, 'nearest'))
+        out_t = np.stack(out_t, 0)
+        out.append(out_t)
+    return out
+
+def color_code_distrib(distrib_list, num_ex, renormalize=False):
+    print 'renormalizing heatmaps: ', renormalize
+    out_distrib = []
+    for distrib in distrib_list:
+        out_t = []
+
+        for b in range(num_ex):
+            cmap = plt.cm.get_cmap('jet')
+            if renormalize:
+                distrib[b] /= (np.max(distrib[b])+1e-6)
+            colored_distrib = cmap(np.squeeze(distrib[b]))[:, :, :3]
+            out_t.append(colored_distrib)
+
+            # plt.imshow(np.squeeze(distrib[b]))
+            # plt.show()
+
+        out_t = np.stack(out_t, 0)
+        out_distrib.append(out_t)
+
+    return out_distrib
+
+def compute_overlay(images, color_coded_distrib, numex):
+    alpha = .6
+    output_list = []
+
+    for im, distrib in zip(images, color_coded_distrib):
+        out_t = []
+        for b in range(numex):
+
+            im_ex = im[b].astype(np.float32)
+            distrib_ex = distrib[b].astype(np.float32)
+
+            fused = distrib_ex * alpha + (1 - alpha) * im_ex
+            out_t.append(fused)
+        out_t = np.stack(out_t, 0)
+        output_list.append(out_t)
+    return output_list
+
+
+def save_video_mp4(filename, frames):
+    writer = imageio.get_writer(filename + '.mp4', fps=10)
+    for frame in frames:
+        writer.append_data(frame)
+    writer.close()
+    # import moviepy.editor as mpy
+    # clip = mpy.ImageSequenceClip(frames, fps=4)
+    # clip.write_gif(filename + '.gif')
 
 if __name__ == '__main__':
     # file_path = '/home/frederik/Documents/catkin_ws/src/visual_mpc/tensorflow_data/sawyer/data_amount_study/5percent_of_data/modeldata'
-    file_path = '/home/frederik/Documents/catkin_ws/src/visual_mpc/tensorflow_data/sawyer/alexmodel_interface/cdna_wristrot_k17d1_transformed4_bs16/modeldata'
+    # file_path = '/home/frederik/Documents/catkin_ws/src/visual_mpc/tensorflow_data/sawyer/alexmodel_finalpaper/improved_cdna_wristrot_k17d1_generatescratchimage_bs16/modeldata'
+    file_path = '/home/febert/Documents/catkin_ws/src/visual_mpc/experiments/cem_exp/benchmarks_sawyer/weissgripper/verbose'
+    # file_path = '/home/frederik/Documents/catkin_ws/src/visual_mpc/tensorflow_data/sawyer/wristrot/modeldata'
 
-    v  = Visualizer_tkinter(append_masks=True, filepath=file_path, numex=10, renorm_heatmaps=False)
+    v  = Visualizer_tkinter(append_masks=False, filepath=file_path, numex=5, renorm_heatmaps=True)
     v.build_figure()
+    # v.make_direct_vid()
     # v.make_image_strip(i_ex=3)

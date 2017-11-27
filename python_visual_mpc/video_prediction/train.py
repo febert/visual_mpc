@@ -21,12 +21,8 @@ VAL_INTERVAL = 500
 # How often to save a model checkpoint
 SAVE_INTERVAL = 4000
 
-from python_visual_mpc.video_prediction.dynamic_rnn_model.dynamic_base_model import Dynamic_Base_Model
-# from python_visual_mpc.video_prediction.tracking_model.single_point_tracking_model import Single_Point_Tracking_Model
 from python_visual_mpc.video_prediction.tracking_model.single_point_tracking_model import Single_Point_Tracking_Model
-
-from python_visual_mpc.video_prediction.dynamic_rnn_model.alex_model_interface import Alex_Interface_Model
-
+from python_visual_mpc.video_prediction.utils_vpred.variable_checkpoint_matcher import variable_checkpoint_matcher
 
 if __name__ == '__main__':
     FLAGS = flags.FLAGS
@@ -39,7 +35,6 @@ if __name__ == '__main__':
     flags.DEFINE_bool('metric', False, 'compute metric of expected distance to human-labled positions ob objects')
 
     flags.DEFINE_bool('create_images', False, 'whether to create images')
-
 
 def main(unused_argv, conf_script= None):
     os.environ["CUDA_VISIBLE_DEVICES"] = str(FLAGS.device)
@@ -56,6 +51,7 @@ def main(unused_argv, conf_script= None):
 
     conf = hyperparams.configuration
 
+    conf['event_log_dir'] = conf['output_dir']
     if FLAGS.visualize or FLAGS.visualize_check:
         print 'creating visualizations ...'
         conf['schedsamp_k'] = -1  # don't feed ground truth
@@ -71,6 +67,8 @@ def main(unused_argv, conf_script= None):
         conf['event_log_dir'] = '/tmp'
         conf.pop('use_len', None)
 
+        conf.pop('color_augmentation', None)
+
         if FLAGS.metric:
             conf['batch_size'] = 128
             conf['sequence_length'] = 15
@@ -79,7 +77,7 @@ def main(unused_argv, conf_script= None):
 
         conf['sequence_length'] = 14
         if FLAGS.diffmotions:
-            conf['sequence_length'] = 15 #!!!!!!!!!!!!!!!!!!!
+            conf['sequence_length'] = 15
 
         # when using alex interface:
         if 'modelconfiguration' in conf:
@@ -91,46 +89,15 @@ def main(unused_argv, conf_script= None):
 
     Model = conf['pred_model']
 
-    # with tf.variable_scope('generator'):  # TODO: get rid of this and make something automatic.
     if FLAGS.diffmotions or "visualize_tracking" in conf or FLAGS.metric:
         model = Model(conf, load_data=False, trafo_pix=True, build_loss=build_loss)
     else:
         model = Model(conf, load_data=True, trafo_pix=False, build_loss=build_loss)
 
     print 'Constructing saver.'
-    # Make saver.
     vars = tf.get_collection(tf.GraphKeys.GLOBAL_VARIABLES)
     vars = filter_vars(vars)
     saving_saver = tf.train.Saver(vars, max_to_keep=0)
-
-    vars = variable_checkpoint_matcher(conf, vars)
-
-    # print 'begin vars to fill out'
-    # for var in vars:
-    #     print var.name
-    # print 'end vars to fill out'
-    # pdb.set_trace()
-    #
-    # vars = dict([(var.name.split(':')[0], var) for var in vars])
-    #
-    # if isinstance(Model, Alex_Interface_Model) or 'add_generator_tag' in conf:
-    #     print 'adding "generator" tag!!!'
-    #     newvars = {}
-    #     for key in vars.keys():
-    #         newvars['generator/' + key] = vars[key]
-    #     vars = newvars
-    #
-    # print 'adding "model" tag!!!'
-    # newvars = {}
-    # for key in vars.keys():
-    #     newvars['model/' + key] = vars[key]
-    # vars = newvars
-    #
-    # print 'begin vars to load'
-    # for k in vars.keys():
-    #     print k
-    # print 'end vars to load'
-    # pdb.set_trace()
 
     if isinstance(model, Single_Point_Tracking_Model) and not (FLAGS.visualize or FLAGS.visualize_check):
         # initialize the predictor from pretrained weights
@@ -141,13 +108,18 @@ def main(unused_argv, conf_script= None):
             if str.split(var.name, '/')[0] != 'tracker':
                 predictor_vars.append(var)
 
-    # remove all states from group of variables which shall be saved and restored:
-    loading_saver = tf.train.Saver(vars, max_to_keep=0)
+    if FLAGS.visualize or FLAGS.pretrained or FLAGS.visualize_check:
+        if FLAGS.visualize_check:
+            vars = variable_checkpoint_matcher(conf, vars, conf['visualize_check'])
+        else:
+            vars = variable_checkpoint_matcher(conf, vars)
+        # remove all states from group of variables which shall be saved and restored:
+        loading_saver = tf.train.Saver(vars, max_to_keep=0)
 
     gpu_options = tf.GPUOptions(per_process_gpu_memory_fraction=0.9)
     # Make training session.
     sess = tf.InteractiveSession(config=tf.ConfigProto(gpu_options=gpu_options))
-    summary_writer = tf.summary.FileWriter(conf['output_dir'], graph=sess.graph, flush_secs=10)
+    summary_writer = tf.summary.FileWriter(conf['event_log_dir'], graph=sess.graph, flush_secs=10)
 
     if not FLAGS.diffmotions:
         tf.train.start_queue_runners(sess)
@@ -252,40 +224,6 @@ def load_checkpoint(conf, sess, saver, model_file=None):
         num_iter = int(re.match('.*?([0-9]+)$', ckpt.model_checkpoint_path).group(1))
     conf['num_iter'] = num_iter
     return num_iter
-
-
-def variable_checkpoint_matcher(conf, vars, model_file=None):
-    """
-    for every variable in vars takes its name and looks into the
-    checkpoint to find variable that matches its name beginning from the end
-    :param vars:
-    :return:
-    """
-    if model_file is None:
-        ckpt = tf.train.get_checkpoint_state(conf['output_dir'])
-        folder = ckpt.model_checkpoint_path
-    else:
-        folder = model_file
-
-    reader = tf.train.NewCheckpointReader(folder)
-    var_to_shape_map = reader.get_variable_to_shape_map()
-    check_names = var_to_shape_map.keys()
-
-    vars = dict([(var.name.split(':')[0], var) for var in vars])
-    new_vars = {}
-    for varname in vars.keys():
-        found = False
-        for ck_name in check_names:
-            ck_name_parts = ck_name.split('/')
-            varname_parts = varname.split('/')
-            if varname_parts == ck_name_parts[-len(varname_parts):]:
-                new_vars[ck_name] = vars[varname]
-                found = True
-                print "found {} in {}".format(varname, ck_name)
-                break
-        if not found:
-            raise ValueError("did not find variable{}".format(varname))
-    return new_vars
 
 
 def filter_vars(vars):

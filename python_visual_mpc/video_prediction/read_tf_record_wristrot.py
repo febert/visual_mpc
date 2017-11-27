@@ -35,8 +35,6 @@ def build_tfrecord_input(conf, training=True, input_file=None):
     print 'adim', adim
     print 'sdim', sdim
 
-
-
     if input_file is not None:
         filenames = [input_file]
         shuffle = False
@@ -58,7 +56,6 @@ def build_tfrecord_input(conf, training=True, input_file=None):
             shuffle = True
 
     print 'using shuffle files: ', shuffle
-    # print 'using input file', filenames
 
     filename_queue = tf.train.string_input_producer(filenames, shuffle=shuffle)
     reader = tf.TFRecordReader()
@@ -68,6 +65,10 @@ def build_tfrecord_input(conf, training=True, input_file=None):
 
     load_indx = range(0, conf['sequence_length'], conf['skip_frame'])
     print 'using frame sequence: ', load_indx
+
+    rand_h = tf.random_uniform([1], minval=-0.2, maxval=0.2)
+    rand_s = tf.random_uniform([1], minval=-0.2, maxval=0.2)
+    rand_v = tf.random_uniform([1], minval=-0.2, maxval=0.2)
 
     for i in load_indx:
 
@@ -94,32 +95,38 @@ def build_tfrecord_input(conf, training=True, input_file=None):
         if '128x128' in conf:
             ORIGINAL_WIDTH = 128
             ORIGINAL_HEIGHT = 128
-            IMG_WIDTH = 128
-            IMG_HEIGHT = 128
         else:
             ORIGINAL_WIDTH = 64
             ORIGINAL_HEIGHT = 64
-            IMG_WIDTH = 64
-            IMG_HEIGHT = 64
 
-        if 'im_height' in conf:
-            ORIGINAL_WIDTH = conf['im_height']
-            ORIGINAL_HEIGHT = conf['im_height']
-            IMG_WIDTH = conf['im_height']
-            IMG_HEIGHT = conf['im_height']
+        if 'img_height' in conf:
+            IMG_HEIGHT = conf['img_height']
+        else: IMG_HEIGHT = 64
+
+        if 'img_width' in conf:
+            IMG_WIDTH = conf['img_width']
+        else: IMG_WIDTH = 64
 
         image = tf.decode_raw(features[image_name], tf.uint8)
         image = tf.reshape(image, shape=[1, ORIGINAL_HEIGHT * ORIGINAL_WIDTH * COLOR_CHAN])
         image = tf.reshape(image, shape=[ORIGINAL_HEIGHT, ORIGINAL_WIDTH, COLOR_CHAN])
-        if IMG_HEIGHT != IMG_WIDTH:
-            raise ValueError('Unequal height and width unsupported')
-        crop_size = min(ORIGINAL_HEIGHT, ORIGINAL_WIDTH)
-        image = tf.image.resize_image_with_crop_or_pad(image, crop_size, crop_size)
-        image = tf.reshape(image, [1, crop_size, crop_size, COLOR_CHAN])
-        image = tf.image.resize_bicubic(image, [IMG_HEIGHT, IMG_WIDTH])
+        image = image[0:IMG_HEIGHT]
+        image = tf.reshape(image, [1, IMG_HEIGHT, IMG_WIDTH, COLOR_CHAN])
         image = tf.cast(image, tf.float32) / 255.0
-        image_seq.append(image)
 
+        if 'color_augmentation' in conf:
+            # print 'performing color augmentation'
+            image_hsv = tf.image.rgb_to_hsv(image)
+            img_stack = [tf.unstack(imag, axis=2) for imag in tf.unstack(image_hsv, axis=0)]
+            stack_mod = [tf.stack([x[0] + rand_h,
+                                   x[1] + rand_s,
+                                   x[2] + rand_v]
+                                  , axis=2) for x in img_stack]
+
+            image_rgb = tf.image.hsv_to_rgb(tf.stack(stack_mod))
+            image = tf.clip_by_value(image_rgb, 0.0, 1.0)
+
+        image_seq.append(image)
 
         endeffector_pos = tf.reshape(features[endeffector_pos_name], shape=[1, sdim])
         endeffector_pos_seq.append(endeffector_pos)
@@ -233,21 +240,24 @@ def main():
     current_dir = os.path.dirname(os.path.realpath(__file__))
 
     # DATA_DIR = '/'.join(str.split(current_dir, '/')[:-2]) + '/pushing_data/softmotion30_v1/train'
-    DATA_DIR = '/'.join(str.split(current_dir, '/')[:-2]) + '/pushing_data/softmotion30_v1_256x256/train'
+    DATA_DIR = '/'.join(str.split(current_dir, '/')[:-2]) + '/pushing_data/weiss_gripper/train'
     # DATA_DIR = '/'.join(str.split(current_dir, '/')[:-2]) + '/pushing_data/wristrot_test_newobj/test_annotations'
 
     conf['schedsamp_k'] = -1  # don't feed ground truth
     conf['data_dir'] = DATA_DIR  # 'directory containing data_files.' ,
     conf['skip_frame'] = 1
     conf['train_val_split']= 0.95
-    conf['sequence_length']= 15      # 'sequence length, including context frames.'
-    conf['batch_size']= 32
+    conf['sequence_length']= 48      # 'sequence length, including context frames.'
+    conf['batch_size']= 10
     conf['visualize']= True
     conf['context_frames'] = 2
 
-    conf['im_height'] = 256 # 64
-    conf['sdim'] = 3
-    conf['adim'] = 4
+    conf['img_height'] = 54
+    conf['img_width'] = 64
+    conf['sdim'] = 4
+    conf['adim'] = 5
+
+    conf['color_augmentation'] = ''
 
     # conf['test_metric'] = {'robot_pos': 1, 'object_pos': 2}
 
@@ -275,7 +285,7 @@ def main():
         # images, actions, endeff, robot_pos, object_pos = sess.run([image_batch, action_batch, endeff_pos_batch, robot_pos_batch, object_pos_batch])
 
         file_path = '/'.join(str.split(DATA_DIR, '/')[:-1]+['preview'])
-        comp_single_video(file_path, images)
+        comp_single_video(file_path, images, num_exp=conf['batch_size'])
 
         # show some frames
         for b in range(conf['batch_size']):
@@ -286,6 +296,12 @@ def main():
             print 'endeff'
             print endeff[b]
 
+            print 'video mean brightness', np.mean(images[b])
+            if np.mean(images[b]) < 0.25:
+                print b
+                plt.imshow(images[b,0])
+                plt.show()
+
             # print 'robot_pos'
             # print robot_pos
             #
@@ -293,15 +309,6 @@ def main():
             # print object_pos
 
             # visualize_annotation(conf, images[b], robot_pos[b], object_pos[b])
-
-            # images = np.squeeze(images)
-            # img = np.uint8(255. * images[b, 0])
-            # img = Image.fromarray(img, 'RGB')
-            # # img.save(file_path,'PNG')
-            # img.show()
-            # print b
-
-            pdb.set_trace()
 
 if __name__ == '__main__':
     main()

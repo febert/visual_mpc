@@ -18,10 +18,14 @@ from utils.visualize import visualize_diffmotions, visualize
 class Base_Prediction_Model(object):
 
     def __init__(self,
-                conf = None,
-                trafo_pix = True,
-                load_data = True,
-                build_loss = True
+                 conf=None,
+                 images=None,
+                 actions=None,
+                 states=None,
+                 pix_distrib=None,
+                 trafo_pix=True,
+                 load_data=True,
+                 build_loss=False
                 ):
         """
         :param conf:
@@ -29,6 +33,12 @@ class Base_Prediction_Model(object):
         :param load_data:  whether to load data
         :param mode:  whether to build train- or val-model
         """
+        if 'ndesig' in conf:
+            self.ndesig = conf['ndesig']
+        else:
+            self.ndesig = 1
+            conf['ndesig'] = 1
+
         self.trafo_pix = trafo_pix
         self.conf = conf
         self.cdna, self.stp, self.dna = False, False, False
@@ -51,36 +61,40 @@ class Base_Prediction_Model(object):
         self.sdim = conf['sdim']
         self.adim = conf['adim']
 
-        if not load_data:
-            self.actions_pl = tf.placeholder(tf.float32, name='actions',
-                                        shape=(conf['batch_size'], conf['sequence_length'], self.adim))
-            actions = self.actions_pl
+        self.img_height = self.conf['img_height']
+        self.img_width = self.conf['img_width']
 
-            self.states_pl = tf.placeholder(tf.float32, name='states',
-                                       shape=(conf['batch_size'], conf['sequence_length'], self.sdim))
-            states = self.states_pl
+        if images is None:
+            if not load_data:
+                self.actions_pl = tf.placeholder(tf.float32, name='actions',
+                                            shape=(conf['batch_size'], conf['sequence_length'], self.adim))
+                actions = self.actions_pl
 
-            self.images_pl = tf.placeholder(tf.float32, name='images',
-                                       shape=(conf['batch_size'], conf['sequence_length'], 64, 64, 3))
-            images = self.images_pl
+                self.states_pl = tf.placeholder(tf.float32, name='states',
+                                           shape=(conf['batch_size'], conf['sequence_length'], self.sdim))
+                states = self.states_pl
 
-            self.pix_distrib_pl = tf.placeholder(tf.float32, name='states',
-                                            shape=(conf['batch_size'], conf['sequence_length'], 64, 64, 1))
-            pix_distrib1  = self.pix_distrib_pl
+                self.images_pl = tf.placeholder(tf.float32, name='images',
+                                           shape=(conf['batch_size'], conf['sequence_length'], self.img_height, self.img_width, 3))
+                images = self.images_pl
 
-        else:
-            if 'adim' in conf:
-                from python_visual_mpc.video_prediction.read_tf_record_wristrot import \
-                    build_tfrecord_input as build_tfrecord_fn
+                self.pix_distrib_pl = tf.placeholder(tf.float32, name='states',
+                                                     shape=(conf['batch_size'], conf['sequence_length'], self.ndesig, self.img_height, self.img_width, 1))
+                pix_distrib = self.pix_distrib_pl
+
             else:
-                from python_visual_mpc.video_prediction.read_tf_record_sawyer12 import \
-                    build_tfrecord_input as build_tfrecord_fn
-            train_images, train_actions, train_states = build_tfrecord_fn(conf, training=True)
-            val_images, val_actions, val_states = build_tfrecord_fn(conf, training=False)
+                if 'adim' in conf:
+                    from python_visual_mpc.video_prediction.read_tf_record_wristrot import \
+                        build_tfrecord_input as build_tfrecord_fn
+                else:
+                    from python_visual_mpc.video_prediction.read_tf_record_sawyer12 import \
+                        build_tfrecord_input as build_tfrecord_fn
+                train_images, train_actions, train_states = build_tfrecord_fn(conf, training=True)
+                val_images, val_actions, val_states = build_tfrecord_fn(conf, training=False)
 
-            images, actions, states = tf.cond(self.train_cond > 0,  # if 1 use trainigbatch else validation batch
-                                             lambda: [train_images, train_actions, train_states],
-                                             lambda: [val_images, val_actions, val_states])
+                images, actions, states = tf.cond(self.train_cond > 0,  # if 1 use trainigbatch else validation batch
+                                                 lambda: [train_images, train_actions, train_states],
+                                                 lambda: [val_images, val_actions, val_states])
 
         self.color_channels = 3
 
@@ -94,12 +108,10 @@ class Base_Prediction_Model(object):
         self.moved_images = []
         self.moved_bckgd = []
 
-        self.moved_pix_distrib1 = []
-        self.moved_pix_distrib2 = []
+        self.moved_pix_distrib = []
 
         self.states = states
-        self.gen_distrib1 = []
-        self.gen_distrib2 = []
+        self.gen_distrib = []
 
         self.trafos = []
         self.movd_parts_list = []
@@ -122,8 +134,8 @@ class Base_Prediction_Model(object):
         images = [tf.squeeze(img) for img in images]
 
         if trafo_pix:
-            pix_distrib1 = tf.split(axis=1, num_or_size_splits=pix_distrib1.get_shape()[1], value=pix_distrib1)
-            self.pix_distrib1= [tf.squeeze(pix) for pix in pix_distrib1]
+            pix_distrib = tf.split(axis=1, num_or_size_splits=pix_distrib.get_shape()[1], value=pix_distrib)
+            self.pix_distrib= [tf.reshape(pix, [self.batch_size, self.ndesig, self.img_height, self.img_width, 1]) for pix in pix_distrib]
 
         self.actions = actions
         self.images = images
@@ -199,7 +211,7 @@ class Base_Prediction_Model(object):
             # Reuse variables after the first timestep.
 
             self.reuse = bool(self.gen_images)
-            self.prev_image, self.prev_pix_distrib1, self.prev_pix_distrib2 = self.get_input_image(
+            self.prev_image, self.prev_pix_distrib = self.get_input_image(
                                                                         feedself,
                                                                         image,
                                                                         t)
@@ -220,12 +232,12 @@ class Base_Prediction_Model(object):
         :return:
         """
         if self.dna:
-            dna_kernel, tf_distrib_ndesig1, tf_distrib_ndesig2, tf_l = self.apply_dna(enc6,
-                          self.prev_image, self.prev_pix_distrib1, self.prev_pix_distrib2)
+            dna_kernel, transformed_distrib, transformed_images = self.apply_dna(enc6,
+                                                                                 self.prev_image, self.prev_pix_distrib)
 
         if self.cdna:
-            cdna_kerns, tf_distrib_ndesig1, tf_distrib_ndesig2, tf_l = self.apply_cdna(
-                enc6, hidden5, self.prev_image, self.prev_pix_distrib1, self.prev_pix_distrib2)
+            cdna_kerns, transformed_distrib, transformed_images = self.apply_cdna(
+                enc6, hidden5, self.prev_image, self.prev_pix_distrib)
 
         if '1stimg_bckgd' in self.conf:
             background = self.images[0]
@@ -233,23 +245,16 @@ class Base_Prediction_Model(object):
         else:
             background = self.prev_image
 
-        output, mask_list = self.fuse_trafos(enc6, background, tf_l, scope='convt7_cam2')
+        output, mask_list = self.fuse_trafos(enc6, background, transformed_images, scope='convt7_cam2')
         self.gen_images.append(output)
         self.gen_masks.append(mask_list)
 
         if self.trafo_pix:
             pix_distrib_output = self.fuse_pix_distrib(mask_list,
-                                                       self.pix_distrib1,
-                                                       self.prev_pix_distrib1,
-                                                       tf_distrib_ndesig1)
-            self.gen_distrib1.append(pix_distrib_output)
-
-            if 'ndesig' in self.conf:
-                pix_distrib_output = self.fuse_pix_distrib(mask_list,
-                                                           self.pix_distrib2,
-                                                           self.prev_pix_distrib2,
-                                                           tf_distrib_ndesig2)
-                self.gen_distrib2.append(pix_distrib_output)
+                                                       self.pix_distrib[0],
+                                                       self.prev_pix_distrib,
+                                                       transformed_distrib)
+            self.gen_distrib.append(pix_distrib_output)
 
         if 'visual_flowvec' in self.conf:
             if self.cdna:
@@ -258,25 +263,25 @@ class Base_Prediction_Model(object):
             if self.dna:
                 motion_vecs = compute_motion_vector_dna(self.conf, dna_kernel)
 
-            output = tf.zeros([self.conf['batch_size'], 64, 64, 2])
+            output = tf.zeros([self.conf['batch_size'], self.img_height, self.img_width, 2])
             for vec, mask in zip(motion_vecs, mask_list[1:]):
                 if self.conf['model'] == 'CDNA':
                     vec = tf.reshape(vec, [self.conf['batch_size'], 1, 1, 2])
-                    vec = tf.tile(vec, [1, 64, 64, 1])
+                    vec = tf.tile(vec, [1, self.img_height, self.img_width, 1])
                 output += vec * mask
             flow_vectors = output
 
             self.prediction_flow.append(flow_vectors)
 
 
-    def apply_cdna(self, enc6, hidden5, prev_image, prev_pix_distrib1, prev_pix_distrib2):
+    def apply_cdna(self, enc6, hidden5, prev_image, prev_pix_distrib):
         if 'gen_pix' in self.conf:
             enc7 = slim.layers.conv2d_transpose(
-                enc6, self.color_channels, 1, stride=1, scope='convt4')
-            transformed_l = [tf.nn.sigmoid(enc7)]
+                enc6, self.color_channels, 1, stride=1, scope='convt4',activation_fn=None)
+            transformed_images = [tf.nn.sigmoid(enc7)]
             self.extra_masks = 2
         else:
-            transformed_l = []
+            transformed_images = []
             self.extra_masks = 1
         if 'mov_bckgd' in self.conf:
             self.extra_masks = self.num_masks
@@ -287,31 +292,28 @@ class Base_Prediction_Model(object):
 
         self.pred_kerns.append(cdna_kerns)
 
-        transformed_l += new_transformed
-        self.moved_images.append(transformed_l)
+        transformed_images += new_transformed
+        self.moved_images.append(transformed_images)
         if self.trafo_pix:
-            tf_distrib_ndesig1, _ = cdna_transformation(self.conf, prev_pix_distrib1,
-                                                                 cdna_input,
-                                                                 reuse_sc=True)
-            self.moved_pix_distrib1.append(tf_distrib_ndesig1)
+            tf_distrib_p_list = []
+            for p in range(self.ndesig):
+                tf_distrib_p, _ = cdna_transformation(self.conf, prev_pix_distrib[:,p],
+                                                      cdna_input,
+                                                      reuse_sc=True)
 
-            if 'ndesig' in self.conf:
-                tf_distrib_ndesig2, _ = cdna_transformation(
-                                        self.conf,
-                                        prev_pix_distrib2,
-                                        cdna_input,
-                                        reuse_sc=True)
+                tf_distrib_p_list.append(tf_distrib_p)
 
-                self.moved_pix_distrib2.append(tf_distrib_ndesig2)
-            else:
-                tf_distrib_ndesig2 = None
+            transformed_distrib = []
+            for n in range(self.num_masks):
+                ps_of_n  = [tf_distrib_p_list[p][n] for p in range(self.ndesig)]
+                transformed_distrib.append(tf.stack(ps_of_n, axis=1))
+            self.moved_pix_distrib.append(transformed_distrib)
         else:
-            tf_distrib_ndesig1 = None
-            tf_distrib_ndesig2 = None
+            transformed_distrib = None
 
-        return cdna_kerns, tf_distrib_ndesig1, tf_distrib_ndesig2, transformed_l
+        return cdna_kerns, transformed_distrib, transformed_images
 
-    def apply_dna(self, enc6, prev_image, prev_pix_distrib1, prev_pix_distrib2):
+    def apply_dna(self, enc6, prev_image, prev_pix_distrib1):
         # Using largest hidden state for predicting untied conv kernels.
         KERN_SIZE = self.conf['kern_size']
 
@@ -322,16 +324,11 @@ class Base_Prediction_Model(object):
         self.pred_kerns.append(dna_kernel)
 
         if self.trafo_pix:
-            transf_distrib_ndesig1, _ = dna_transformation(self.conf, prev_pix_distrib1, trafo_input)
-            if 'ndesig' in self.conf:
-                transf_distrib_ndesig2, _ = dna_transformation(self.conf, prev_pix_distrib2, trafo_input)
-            else:
-                transf_distrib_ndesig2 = None
+            transf_distrib_ndesig, _ = dna_transformation(self.conf, prev_pix_distrib1, trafo_input)
         else:
-            transf_distrib_ndesig1 = None
-            transf_distrib_ndesig2 = None
+            transf_distrib_ndesig = None
         self.extra_masks = 1
-        return dna_kernel, transf_distrib_ndesig1, transf_distrib_ndesig2, transformed_l
+        return dna_kernel, transf_distrib_ndesig, transformed_l
 
     def build_network_core(self, action, current_state, input_image):
         lstm_func = basic_conv_lstm_cell
@@ -419,16 +416,14 @@ class Base_Prediction_Model(object):
     def get_input_image(self, feedself, image, t):
         done_warm_start = len(self.gen_images) > self.context_frames - 1
 
-        prev_pix_distrib1, prev_pix_distrib2 = None, None
+        prev_pix_distrib = None
 
         if feedself and done_warm_start:
             print 'feeding self'
             # Feed in generated image.
             prev_image = self.gen_images[-1]  # 64x64x6
             if self.trafo_pix:
-                prev_pix_distrib1 = self.gen_distrib1[-1]
-                if 'ndesig' in self.conf:
-                    prev_pix_distrib2 = self.gen_distrib2[-1]
+                prev_pix_distrib = self.gen_distrib[-1]
         elif done_warm_start:
             print 'doing sched sampling'
             # Scheduled sampling
@@ -439,20 +434,14 @@ class Base_Prediction_Model(object):
             print 'feeding gtruth'
             prev_image = image
             if self.trafo_pix:
-                prev_pix_distrib1 = self.pix_distrib1[t]
-                if 'ndesig' in self.conf:
-                    prev_pix_distrib2 = self.pix_distrib2[t]
-                if len(prev_pix_distrib1.get_shape()) == 3:
-                    prev_pix_distrib1 = tf.expand_dims(prev_pix_distrib1, -1)
-                    if 'ndesig' in self.conf:
-                        prev_pix_distrib2 = tf.expand_dims(prev_pix_distrib2, -1)
-                    else:
-                        prev_pix_distrib2 = None
+                prev_pix_distrib = self.pix_distrib[t]
+                if len(prev_pix_distrib.get_shape()) == 3:
+                    prev_pix_distrib = tf.expand_dims(prev_pix_distrib, -1)
             else:
-                prev_pix_distrib1 = None
-                prev_pix_distrib2 = None
+                prev_pix_distrib = None
 
-        return prev_image, prev_pix_distrib1, prev_pix_distrib2
+        return prev_image, prev_pix_distrib
+
 
     def mean_squared_error(self, true, pred):
         """L2 distance between tensors true and pred.
@@ -509,8 +498,6 @@ class Base_Prediction_Model(object):
         masks = slim.layers.conv2d_transpose(
             enc6, (self.conf['num_masks']+ extra_masks), 1, stride=1, scope=scope)
 
-        img_height = 64
-        img_width = 64
         num_masks = self.conf['num_masks']
 
         if self.conf['model']=='DNA':
@@ -520,7 +507,7 @@ class Base_Prediction_Model(object):
         # the total number of masks is num_masks +extra_masks because of background and generated pixels!
         masks = tf.reshape(
             tf.nn.softmax(tf.reshape(masks, [-1, num_masks +extra_masks])),
-            [int(self.batch_size), int(img_height), int(img_width), num_masks +extra_masks])
+            [int(self.batch_size), int(self.img_height), int(self.img_width), num_masks +extra_masks])
         mask_list = tf.split(axis=3, num_or_size_splits=num_masks +extra_masks, value=masks)
 
         output = mask_list[0] * background_image
@@ -529,28 +516,23 @@ class Base_Prediction_Model(object):
 
         return output, mask_list
 
-    def fuse_pix_distrib(self, mask_list, pix_distributions, prev_pix_distrib,
-                         transf_distrib):
 
+    def fuse_pix_distrib(self, mask_list, first_pix_distrib, prev_pix_distrib,
+                         transf_distrib):
         if '1stimg_bckgd' in self.conf:
-            background_pix = pix_distributions[0]
-            background_pix = tf.expand_dims(background_pix, -1)
+            background_pix = first_pix_distrib
             print 'using pix_distrib-background from first image..'
         else:
             background_pix = prev_pix_distrib
-        pix_distrib_output = mask_list[0] * background_pix
-        for i in range(self.num_masks):
-            pix_distrib_output += transf_distrib[i] * mask_list[i + self.extra_masks]
-        return pix_distrib_output
 
-    def fuse_pix_movebckgd(self, mask_list, transf_pix, transf_backgd_pix):
-        pix_distrib = transf_backgd_pix + transf_pix
+        pix_distrib_output_p_list = []
+        for p in range(self.conf['ndesig']):
+            pix_distrib_output_p = mask_list[0] * background_pix[:,p]
+            for i in range(self.num_masks):
+                pix_distrib_output_p += transf_distrib[i][:,p] * mask_list[i + self.extra_masks]
+            pix_distrib_output_p_list.append(pix_distrib_output_p)
 
-        pix_distrib_output = 0
-        for pix, mask in zip_equal(pix_distrib, mask_list):
-            pix_distrib_output += pix* mask
-        return pix_distrib_output
-
+        return tf.stack(pix_distrib_output_p_list, axis=1)
 
     def visualize(self, sess):
         visualize(sess, self.conf, self)

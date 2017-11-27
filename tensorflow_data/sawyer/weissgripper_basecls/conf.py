@@ -2,14 +2,18 @@ import os
 current_dir = os.path.dirname(os.path.realpath(__file__))
 
 # tf record data location:
-DATA_DIR = '/'.join(str.split(current_dir, '/')[:-3]) + '/pushing_data/wrist_rot_0-9/train'
+DATA_DIR = '/'.join(str.split(current_dir, '/')[:-3]) + '/pushing_data/weiss_gripper/train'
 
 # local output directory
 OUT_DIR = current_dir + '/modeldata'
 
+from python_visual_mpc.video_prediction.basecls.prediction_model_basecls import Base_Prediction_Model
+
 configuration = {
-'experiment_name': 'rndaction_var10',
+'experiment_name': 'sna',
+'pred_model': Base_Prediction_Model,
 'data_dir': DATA_DIR,       # 'directory containing data.' ,
+# 'test_data_dir': TEST_DATA_DIR,       # 'directory containing data.' ,
 'output_dir': OUT_DIR,      #'directory for model checkpoints.' ,
 'current_dir': current_dir,   #'directory for writing summary.' ,
 'num_iterations': 200000,   #'number of training iterations.' ,
@@ -33,5 +37,8 @@ configuration = {
 '1stimg_bckgd':'',
 'visual_flowvec':'',
 'adim':5,
-'sdim':4
+'sdim':4,
+'img_height':56,
+'img_width':64,
+'color_augmentation':""
 }

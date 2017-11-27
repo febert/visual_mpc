@@ -25,9 +25,17 @@ import argparse
 import sys
 import imp
 import pdb
+import matplotlib.pyplot as plt
 
 
 class More_than_one_image_except(Exception):
+    def __init__(self, imagefile):
+        self.image_file = imagefile
+    def __str__(self):
+      return self.image_file
+
+
+class Image_dark_except(Exception):
     def __init__(self, imagefile):
         self.image_file = imagefile
     def __str__(self):
@@ -37,8 +45,8 @@ class Trajectory(object):
     def __init__(self, conf):
 
         if 'total_num_img' in conf:
-            total_num_img = conf['total_num_img']
-        else: total_num_img = 96 #the actual number of images in the trajectory (for softmotion total_num_img=30)
+            self.total_num_img = conf['total_num_img']
+        else: self.total_num_img = 96 #the actual number of images in the trajectory (for softmotion total_num_img=30)
 
         self.traj_per_group = 1000
 
@@ -47,12 +55,12 @@ class Trajectory(object):
         else: self.take_ev_nth_step = 2 #only use every n-step from the data (for softmotion take_ev_nth_step=1)
         split_seq_by = 1  #if greater than 1 split trajectory in n equal parts
 
-        self.npictures = total_num_img/split_seq_by  #number of images after splitting (include images we use and not use)
+        self.npictures = self.total_num_img/split_seq_by  #number of images after splitting (include images we use and not use)
 
         self.cameranames = ['main']
         self.n_cam = len(self.cameranames)  # number of cameras
 
-        self.T = total_num_img / split_seq_by / self.take_ev_nth_step  # the number of timesteps in final trajectory
+        self.T = self.total_num_img / split_seq_by / self.take_ev_nth_step  # the number of timesteps in final trajectory
 
         h = conf['target_res'][0]
         w = conf['target_res'][1]
@@ -82,14 +90,16 @@ class TF_rec_converter(object):
         :param crop_from_highres: whether to crop the image from the full resolution image
         """
 
-        self.sourcedirs = conf['sourcedirs']
+        self.sourcedirs = conf['source_basedirs']
         self.tfrec_dir = conf['tf_rec_dir']
-        self.gif_dir = gif_dir
+        self.gif_file = gif_dir
         self.crop_from_highres = crop_from_highres
         self.tf_start_ind = tf_start_ind
         self.traj_name_list = traj_name_list
         self.conf = conf
         print 'started process with PID:', os.getpid()
+
+        self.pid = os.getpid()
 
 
     def gather(self):
@@ -98,6 +108,7 @@ class TF_rec_converter(object):
         donegif = False
         i_more_than_one_image = 0
         num_errors = 0
+        self.dark_image_file_list = []
 
         nopkl_file = 0
 
@@ -121,7 +132,8 @@ class TF_rec_converter(object):
                 traj_index = re.match('.*?([0-9]+)$', trajname).group(1)
                 self.traj = Trajectory(self.conf)
 
-                traj_subpath = '/'.join(str.split(trajname, '/')[-2:])   #string with only the group and trajectory
+                traj_tailpath = '/'.join(str.split(trajname, '/')[-2:])
+                traj_beginpath = '/'.join(str.split(trajname, '/')[:-3])
 
                 #load actions:
                 if 'pkl_source' in self.conf:
@@ -138,16 +150,27 @@ class TF_rec_converter(object):
 
                 pkldata = cPickle.load(open(pkl_file, "rb"))
                 self.all_actions = pkldata['actions']
+                assert self.all_actions.shape[0] == Trajectory(self.conf).total_num_img
                 self.all_joint_angles = pkldata['jointangles']
+                assert self.all_joint_angles.shape[0] == Trajectory(self.conf).total_num_img
                 self.all_endeffector_pos = pkldata['endeffector_pos']
+                assert self.all_endeffector_pos.shape[0] == Trajectory(self.conf).total_num_img
 
                 try:
-                    for i_src, src in enumerate(self.sourcedirs):  # loop over cameras: main, aux1, ..
-                        self.traj_dir_src = os.path.join(src, traj_subpath)
-                        self.step_from_to(i_src)
+                    for i_src, tag in enumerate(self.conf['sourcetags']):  # loop over cameras: main, aux1, ..
+                        traj_dir_src = traj_beginpath + tag + '/' + traj_tailpath
+                        self.step_from_to(i_src, traj_dir_src)
                 except More_than_one_image_except as e:
                     print "more than one image in ", e.image_file
                     i_more_than_one_image += 1
+                    continue
+                except Image_dark_except as e:
+                    print "video too dark ", e.image_file
+                    self.dark_image_file_list.append(e.image_file)
+                    file = '/'.join(str.split(self.conf['tf_rec_dir'], '/')[:-1]) + '/logs/darkimages_w{}.txt'.format(self.pid)
+                    with open(file, 'w+') as f:
+                        for i in self.dark_image_file_list:
+                            f.write('{} \n'.format(i))
                     continue
 
                 traj_list.append(self.traj)
@@ -161,9 +184,9 @@ class TF_rec_converter(object):
                     tf_start_ind += maxlistlen
                     traj_list = []
 
-                if self.gif_dir != None and not donegif:
+                if self.gif_file != None and not donegif:
                     if len(traj_list) == ntraj_gifmax:
-                        create_gif.comp_video(traj_list, self.gif_dir + 'worker{}'.format(os.getpid()))
+                        create_gif.comp_video(traj_list, self.gif_file + 'worker{}'.format(os.getpid()))
                         print 'created gif, exiting'
                         donegif = True
 
@@ -174,13 +197,15 @@ class TF_rec_converter(object):
                 print "error occured"
                 num_errors += 1
 
+
         print 'done, {} more_than_one_image occurred:'.format(i_more_than_one_image)
         print 'done, {} errors occurred:'.format(num_errors)
+        print '{} dark image errors'.format(len(self.dark_image_file_list))
+
 
         return 'done'
 
-
-    def step_from_to(self,  i_src):
+    def step_from_to(self, i_src, trajname):
         trajind = 0  # trajind is the index in the target trajectory
         end = Trajectory(self.conf).npictures
         for dataind in range(0, end, self.traj.take_ev_nth_step):  # dataind is the index in the source trajetory
@@ -193,14 +218,14 @@ class TF_rec_converter(object):
             # getting color image:
             if self.crop_from_highres:
                 if 'imagename_no_zfill' in self.conf:
-                    im_filename = self.traj_dir_src + '/images/{0}_full_cropped_im{1}_*' \
-                        .format(self.src_names[i_src], dataind)
+                    im_filename = trajname + '/images/{0}_full_cropped_im{1}_*' \
+                        .format(self.conf['sourcetags'][i_src], dataind)
                 else:
-                    im_filename = self.traj_dir_src + '/images/{0}_full_cropped_im{1}_*'\
-                        .format(self.src_names[i_src], str(dataind).zfill(2))
+                    im_filename = trajname + '/images/{0}_full_cropped_im{1}_*'\
+                        .format(self.conf['sourcetags'][i_src], str(dataind).zfill(2))
             else:
                 im_filename = self.traj_dir_src + '/images/{0}_cropped_im{1}_*.png'\
-                    .format(self.src_names[i_src], dataind)
+                    .format(trajname, dataind)
 
             if dataind == 0:
                 print 'processed from file {}'.format(im_filename)
@@ -212,52 +237,16 @@ class TF_rec_converter(object):
                 raise More_than_one_image_except(im_filename)
             file = file[0]
 
-            if not self.crop_from_highres:
-                im = Image.open(file)
-                im.load()
-                if self.src_names[i_src] == 'aux1':
-                    im = im.rotate(180)
-                im = np.asarray(im)
-            else:
-                im = self.crop_and_rot(file, i_src)
+            im = crop_and_rot(self.conf, file, i_src)
 
             self.traj.images[trajind, i_src] = im
 
             trajind += 1
 
-    def crop_and_rot(self, file, i_src):
-        img = cv2.imread(file)
-        imheight = self.conf['target_res'][0]
-        imwidth = self.conf['target_res'][1]
-
-        rowstart = self.conf['rowstart']
-        colstart = self.conf['colstart']
-        # setting used in wrist_rot
-        if 'shrink_before_crop' in self.conf:
-            shrink_factor = self.conf['shrink_before_crop']
-            img = cv2.resize(img, (0, 0), fx=shrink_factor, fy=shrink_factor, interpolation=cv2.INTER_AREA)
-            img = img[rowstart:rowstart+imheight, colstart:colstart+imwidth]
-
-        # setting used in softmotion30_v1
-        elif 'crop_before_shrink' in self.conf:
-            raw_image_height = self.conf['raw_image_height']
-            img = img[rowstart:rowstart + raw_image_height, colstart:colstart + raw_image_height]
-            # plt.imshow(img)
-            # plt.show()
-            target_res = self.conf['target_res']
-            img = cv2.resize(img, target_res, interpolation=cv2.INTER_AREA)
-        else:
-            raise NotImplementedError
-
-        # assert img.shape == (64,64,3)
-        img = img[...,::-1]  #bgr => rgb
-
-        if self.src_names[i_src] == 'aux1':
-            img = imutils.rotate_bound(img, 180)
-
-        # plt.imshow(img)
-        # plt.show()
-        return img
+        if 'brightness_threshold' in self.conf:
+            print 'video brightness:', np.mean(self.traj.images)
+            if self.conf['brightness_threshold'] > np.mean(self.traj.images):
+                raise Image_dark_except(trajname)
 
     def save_tf_record(self, filename, trajectory_list):
         """
@@ -296,6 +285,38 @@ class TF_rec_converter(object):
 
         writer.close()
 
+def crop_and_rot(conf, file, i_src):
+    img = cv2.imread(file)
+    imheight = conf['target_res'][0]
+    imwidth = conf['target_res'][1]
+
+    rowstart = conf['rowstart']
+    colstart = conf['colstart']
+    # setting used in wrist_rot
+    if 'shrink_before_crop' in conf:
+        shrink_factor = conf['shrink_before_crop']
+        img = cv2.resize(img, (0, 0), fx=shrink_factor, fy=shrink_factor, interpolation=cv2.INTER_AREA)
+        img = img[rowstart:rowstart+imheight, colstart:colstart+imwidth]
+
+    # setting used in softmotion30_v1
+    elif 'crop_before_shrink' in conf:
+        raw_image_height = conf['raw_image_height']
+        img = img[rowstart:rowstart + raw_image_height, colstart:colstart + raw_image_height]
+
+        target_res = conf['target_res']
+        img = cv2.resize(img, target_res, interpolation=cv2.INTER_AREA)
+    else:
+        raise NotImplementedError
+
+    # assert img.shape == (64,64,3)
+    img = img[...,::-1]  #bgr => rgb
+
+    if conf['sourcetags'][i_src] == 'aux1':
+        img = imutils.rotate_bound(img, 180)
+
+    # plt.imshow(img)
+    # plt.show()
+    return img
 
 def get_maxtraj(sourcedirs):
     for dirs in sourcedirs:
@@ -361,53 +382,54 @@ def start_parallel(conf, gif_dir, traj_name_list, n_workers, crop_from_highres= 
 
 
 def make_traj_name_list(conf, start_end_grp = None, shuffle=True):
+    combined_list = []
+    for source_dir in conf['source_basedirs']:
 
-    sourcedirs = conf['sourcedirs']
-    traj_per_gr = Trajectory(conf).traj_per_group
-    max_traj = get_maxtraj(sourcedirs)
+        traj_per_gr = Trajectory(conf).traj_per_group
+        max_traj = get_maxtraj([source_dir + conf['sourcetags'][0]])
 
-    if start_end_grp != None:
-        startgrp = start_end_grp[0]
-        startidx = startgrp*Trajectory(conf).traj_per_group
-        endgrp = start_end_grp[1]
-        if max_traj < (endgrp+1)*traj_per_gr -1:
+        if start_end_grp != None:
+            startgrp = start_end_grp[0]
+            startidx = startgrp*Trajectory(conf).traj_per_group
+            endgrp = start_end_grp[1]
+            if max_traj < (endgrp+1)*traj_per_gr -1:
+                endidx = max_traj
+            else:
+                endidx = (endgrp+1)*traj_per_gr -1
+        else:
             endidx = max_traj
-        else:
-            endidx = (endgrp+1)*traj_per_gr -1
-    else:
-        endidx = max_traj
-        startgrp = 0
-        startidx = 0
-        endgrp = endidx / traj_per_gr
+            startgrp = 0
+            startidx = 0
+            endgrp = endidx / traj_per_gr
 
-    trajname_ind_l = []  # list of tuples (trajname, ind) where ind is 0,1,2 in range(self.split_seq_by)
-    for gr in range(startgrp, endgrp + 1):  # loop over groups
-        gr_dir_main = sourcedirs[0] + '/traj_group' + str(gr)
+        trajname_ind_l = []  # list of tuples (trajname, ind) where ind is 0,1,2 in range(self.split_seq_by)
+        for gr in range(startgrp, endgrp + 1):  # loop over groups
+            gr_dir_main = source_dir + conf['sourcetags'][0]+'/traj_group' + str(gr)
 
-        if gr == startgrp:
-            trajstart = startidx
-        else:
-            trajstart = gr * traj_per_gr
-        if gr == endgrp:
-            trajend = endidx
-        else:
-            trajend = (gr + 1) * traj_per_gr - 1
+            if gr == startgrp:
+                trajstart = startidx
+            else:
+                trajstart = gr * traj_per_gr
+            if gr == endgrp:
+                trajend = endidx
+            else:
+                trajend = (gr + 1) * traj_per_gr - 1
 
-        for i_tra in range(trajstart, trajend + 1):
-            trajdir = gr_dir_main + "/traj{}".format(i_tra)
-            if not os.path.exists(trajdir):
-                print 'file {} not found!'.format(trajdir)
-                continue
-            trajname_ind_l.append(trajdir)
+            for i_tra in range(trajstart, trajend + 1):
+                trajdir = gr_dir_main + "/traj{}".format(i_tra)
+                if not os.path.exists(trajdir):
+                    print 'file {} not found!'.format(trajdir)
+                    continue
+                trajname_ind_l.append(trajdir)
 
-    print 'length trajname_ind_l', len(trajname_ind_l)
-
-    assert len(trajname_ind_l) == len(set(trajname_ind_l))
+        print 'source_basedir: {}, length: {}'.format(source_dir,len(trajname_ind_l))
+        assert len(trajname_ind_l) == len(set(trajname_ind_l))  #check for duplicates
+        combined_list += trajname_ind_l
 
     if shuffle:
-        random.shuffle(trajname_ind_l)
+        random.shuffle(combined_list)
 
-    return trajname_ind_l
+    return combined_list
 
 
 def main():
@@ -430,10 +452,8 @@ def main():
     #make sure the directory is empty
     assert glob.glob(conf['tf_rec_dir'] + '/*') == []
 
-    dir = conf["source_basedir"]
-    sourcedirs = conf['sourcedirs']
 
-    gif_file = dir + '/preview'
+    gif_file = '/'.join(str.split(conf['tf_rec_dir'], '/')[:-1]) + '/logs/preview_gather'
 
     if args.start_gr != None:
         start_end_grp = [args.start_gr,args.end_gr]

@@ -29,7 +29,6 @@ class Visual_MPC_Server(object):
         base_dir = '/'.join(str.split(base_filepath, '/')[:-2])
 
         cem_exp_dir = base_dir + '/experiments/cem_exp/benchmarks_sawyer'
-        hyperparams = imp.load_source('hyperparams', cem_exp_dir + '/base_hyperparams_sawyer.py')
 
         parser = argparse.ArgumentParser(description='Run benchmarks')
         parser.add_argument('benchmark', type=str, help='the name of the folder with agent setting for the benchmark')
@@ -54,10 +53,6 @@ class Visual_MPC_Server(object):
         gpu_id = args.gpu_id
         ngpu = args.ngpu
 
-        self.conf = hyperparams.config
-        self.policyparams = hyperparams.policy
-        self.agentparams = hyperparams.agent
-
         # load specific agent settings for benchmark:
         bench_dir = cem_exp_dir + '/' + benchmark_name
 
@@ -66,9 +61,13 @@ class Visual_MPC_Server(object):
 
         bench_conf = imp.load_source('mod_hyper', bench_dir + '/mod_hyper.py')
         if hasattr(bench_conf, 'policy'):
-            self.policyparams.update(bench_conf.policy)
+            self.policyparams = bench_conf.policy
         if hasattr(bench_conf, 'agent'):
-            self.agentparams.update(bench_conf.agent)
+            self.agentparams = bench_conf.agent
+
+        if 'opencv_tracking' in self.agentparams:
+            assert 'predictor_propagation' not in self.policyparams
+
         print '-------------------------------------------------------------------'
         print 'verify planner settings!! '
         for key in self.policyparams.keys():
@@ -94,11 +93,7 @@ class Visual_MPC_Server(object):
         if self.use_robot:
             self.bridge = CvBridge()
 
-        if 'ndesig' in self.policyparams:
-            self.initial_pix_distrib1 = []
-            self.initial_pix_distrib2 = []
-        else:
-            self.initial_pix_distrib = []
+        self.initial_pix_distrib = []
 
 
         self.save_subdir = None
@@ -152,11 +147,7 @@ class Visual_MPC_Server(object):
 
         print 'init traj{} group{}'.format(self.i_traj, self.igrp)
 
-        if 'ndesig' in self.policyparams:
-            self.initial_pix_distrib = []
-        else:
-            self.initial_pix_distrib1 = []
-            self.initial_pix_distrib2 = []
+        self.initial_pix_distrib = []
 
         self.cem_controller = CEM_controller(self.agentparams, self.policyparams, self.predictor, save_subdir=req.save_subdir)
         self.save_subdir = req.save_subdir
@@ -174,28 +165,18 @@ class Visual_MPC_Server(object):
         self.desig_pos_aux1 = req.desig_pos_aux1
         self.goal_pos_aux1 = req.goal_pos_aux1
 
-        if 'ndesig' in self.policyparams:
-            mj_U, pos, best_ind, init_pix_distrib1, init_pix_distrib2  = self.cem_controller.act(self.traj, self.t,
-                                                                                  req.desig_pos_aux1,
-                                                                                  req.goal_pos_aux1)
+        mj_U, pos, best_ind, init_pix_distrib = self.cem_controller.act(self.traj, self.t,
+                                                                        req.desig_pos_aux1,
+                                                                        req.goal_pos_aux1)
 
-            if 'predictor_propagation' in self.policyparams and self.t > 0:
-                self.initial_pix_distrib1.append(init_pix_distrib1[-1][0])
-                self.initial_pix_distrib2.append(init_pix_distrib2[-1][0])
-        else:
-            mj_U, pos, best_ind, init_pix_distrib = self.cem_controller.act(self.traj, self.t,
-                                                                            req.desig_pos_aux1,
-                                                                            req.goal_pos_aux1)
-
-            if 'predictor_propagation' in self.policyparams and self.t > 0:
-                self.initial_pix_distrib.append(init_pix_distrib[-1][0])
+        if 'predictor_propagation' in self.policyparams and self.t > 0:
+            self.initial_pix_distrib.append(init_pix_distrib[-1][0])
 
         self.traj.U[self.t, :] = mj_U
 
         if self.t == self.agentparams['T'] -1:
             cPickle.dump(self.cem_controller.dict_,open(self.netconf['current_dir'] + '/verbose/pred.pkl', 'wb'))
             print 'finished writing files to:' + self.netconf['current_dir'] + '/verbose/pred.pkl'
-
             if 'no_pixdistrib_video' not in self.policyparams:
                 self.save_video()
 
