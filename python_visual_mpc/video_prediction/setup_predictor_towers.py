@@ -79,23 +79,10 @@ def setup_predictor(conf, gpu_id=0, ngpu=1):
     #TODO: float16!!!
     images_pl = tf.placeholder(tf.float32, name='images',
                                shape=(conf['batch_size'], conf['sequence_length'], conf['img_height'], conf['img_width'], 3))
-    if 'sdim' in conf:
-        sdim = conf['sdim']
-    else:
-        if 'sawyer' in conf:
-            sdim = 3
-        else:
-            sdim = 4
-    if 'adim' in conf:
-        adim = conf['adim']
-    else:
-        if 'sawyer' in conf:
-            adim = 4
-        else:
-            adim = 2
+    sdim = conf['sdim']
+    adim = conf['adim']
     print 'adim', adim
     print 'sdim', sdim
-
     actions_pl = tf.placeholder(tf.float32, name='actions',
                                 shape=(conf['batch_size'], conf['sequence_length'], adim))
     states_pl = tf.placeholder(tf.float32, name='states',
