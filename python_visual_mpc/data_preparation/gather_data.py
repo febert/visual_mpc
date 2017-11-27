@@ -25,6 +25,7 @@ import argparse
 import sys
 import imp
 import pdb
+import matplotlib.pyplot as plt
 
 
 class More_than_one_image_except(Exception):
@@ -301,8 +302,7 @@ def crop_and_rot(conf, file, i_src):
     elif 'crop_before_shrink' in conf:
         raw_image_height = conf['raw_image_height']
         img = img[rowstart:rowstart + raw_image_height, colstart:colstart + raw_image_height]
-        # plt.imshow(img)
-        # plt.show()
+
         target_res = conf['target_res']
         img = cv2.resize(img, target_res, interpolation=cv2.INTER_AREA)
     else:
