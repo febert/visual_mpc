@@ -29,7 +29,7 @@ import python_visual_mpc
 
 
 class Pushback_Recorder(object):
-    def __init__(self, file = None):
+    def __init__(self):
         """
         Records joint data to a file at a specified rate.
         rate: recording frequency in Hertz
@@ -39,9 +39,15 @@ class Pushback_Recorder(object):
         rospy.init_node("pushback_recorder")
 
         parser = argparse.ArgumentParser(description='select whehter to record or replay')
+        parser.add_argument('robot', type=str, help='robot name')
         parser.add_argument('--record', type=str, default='True', help='')
 
+
         args = parser.parse_args()
+        self.robotname = args.robot
+
+        self.file = '/'.join(str.split(python_visual_mpc.__file__, "/")[
+                        :-1]) + '/sawyer/visual_mpc_rospkg/src/utils/pushback_traj_{}.pkl'.format(self.robotname)
 
         self.rs = intera_interface.RobotEnable(CHECK_VERSION)
         self.init_state = self.rs.state().enabled
@@ -71,7 +77,7 @@ class Pushback_Recorder(object):
         self.joint_pos = []
 
         if args.record == 'False':
-            self.playback(file)
+            self.playback()
         if args.record == 'True':
             print 'ready for recording!'
             rospy.spin()
@@ -111,16 +117,13 @@ class Pushback_Recorder(object):
             self.joint_pos.append(self.limb.joint_angles())
             print 'recording ', len(self.joint_pos)
 
-        file = '/'.join(str.split(python_visual_mpc.__file__, "/")[:-1]) + '/sawyer/visual_mpc_rospkg/src/utils/pushback_traj_.pkl'
-        with open(file, 'wb') as f:
+        with open(self.file, 'wb') as f:
             cPickle.dump(self.joint_pos, f)
 
         print 'saved file to ', file
 
-    def playback(self, file = None):
-
-        pdb.set_trace()
-        self.joint_pos = cPickle.load(open(file, "rb"))
+    def playback(self):
+        self.joint_pos = cPickle.load(open(self.file, "rb"))
 
         print 'press c to start playback...'
         pdb.set_trace()
@@ -145,5 +148,5 @@ class Pushback_Recorder(object):
 
 
 if __name__ == '__main__':
-    P = Pushback_Recorder('/home/febert/Documents/catkin_ws/src/visual_mpc/python_visual_mpc/sawyer/visual_mpc_rospkg/src/utils/pushback_traj_.pkl')  # playback file
+    P = Pushback_Recorder()  # playback file
 
