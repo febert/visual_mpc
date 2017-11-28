@@ -115,6 +115,7 @@ class Visual_MPC_Client():
         self.action_sequence_length = self.agentparams['T'] # number of snapshots that are taken
         self.use_robot = True
         self.robot_move = True
+        self.reset_active = False # used by the gui to abort trajectories.
 
         self.save_subdir = ""
 
@@ -159,6 +160,7 @@ class Visual_MPC_Client():
 
         self.goal_pos_main = np.zeros([self.ndesig,2])   # the first index is for the ndesig and the second is r,c
         self.desig_pos_main = np.zeros([self.ndesig, 2])
+        self.desig_hpos_main = np.zeros([self.ndesig, 2])
 
         #highres position used when doing tracking
         self.desig_hpos_main = None
@@ -202,6 +204,7 @@ class Visual_MPC_Client():
             self.run_data_collection()
         elif self.use_gui:
             rospy.Subscriber('visual_mpc_cmd', numpy_msg(intarray), self.run_visual_mpc_cmd)
+            rospy.Subscriber('visual_mpc_reset_cmd', numpy_msg(intarray), self.run_visual_mpc_reset_cmd)
             rospy.spin()
         else:
             self.run_visual_mpc()
@@ -218,7 +221,18 @@ class Visual_MPC_Client():
         self.desig_pos_main.setflags(write=1)
         self.goal_pos_main = points[1]
         self.goal_pos_main.setflags(write=1)
+
+        self.reset_active = False
         self.run_trajectory(0)
+
+    def run_visual_mpc_reset_cmd(self, data):
+        """"
+        data is of shape [2, ndesig, 2]
+        data[0] contains designated pixel positions (row, column format)
+        data[1] contains goal pixel positions
+        """
+        print 'reset activated'
+        self.reset_active = True
 
     def mark_goal_desig(self, itr):
         print 'prepare to mark goalpos and designated pixel! press c to continue!'
@@ -484,7 +498,7 @@ class Visual_MPC_Client():
         t_start = time.time()
         query_times = []
 
-        while isave < self.nsave:
+        while isave < self.nsave and not self.reset_active:
             self.curr_delta_time = rospy.get_time() - start_time
             if self.curr_delta_time > self.action_interval and i_step < self.action_sequence_length:
                 if 'manual_correction' in self.agentparams:
@@ -494,7 +508,7 @@ class Visual_MPC_Client():
                                       self.canon_ind, self.canon_dir, only_desig=True)
                     self.desig_pos_main = c_main.desig.astype(np.int64)
                 elif 'opencv_tracking' in self.agentparams:
-                    self.desig_pos_main[0], self.desig_hpos_main = self.tracker.get_track()  #tracking only works for 1 desig. pixel!!
+                    self.desig_pos_main, self.desig_hpos_main = self.tracker.get_track()  #tracking only works for 1 desig. pixel!!
 
                 # print 'current position error', self.des_pos - self.get_endeffector_pos(pos_only=True)
 
@@ -554,6 +568,8 @@ class Visual_MPC_Client():
 
             self.control_rate.sleep()
 
+        if self.reset_active:
+            return
 
         print 'average iteration took {0} seconds'.format((time.time() - t_start) / self.action_sequence_length)
         print 'average action query took {0} seconds'.format(np.mean(np.array(query_times)))
@@ -576,8 +592,6 @@ class Visual_MPC_Client():
             # if rospy.get_time() - self.tlast_gripper_status > 10.:
             #     print 'gripper stopped working!'
             #     pdb.set_trace()
-            pass
-
             self.set_weiss_griper(100.)
 
 

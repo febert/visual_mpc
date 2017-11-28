@@ -31,7 +31,7 @@ agent = {
     'T': 20,
     'adim':5,
     'sdim':4,
-    'ndesig':1,
+    'ndesig':2,
     'opencv_tracking':'',
     'make_final_gif':'',
     'wristrot':''

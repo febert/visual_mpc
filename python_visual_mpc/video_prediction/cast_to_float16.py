@@ -21,10 +21,11 @@ def main(conf, model):
     conf['sequence_length'] = 4 #####
 
     Model = conf['pred_model']
-    model = Model(conf, load_data=True, trafo_pix=False, build_loss=False)
+    model = Model(conf, load_data=False, trafo_pix=False, build_loss=False)
+
     vars = tf.get_collection(tf.GraphKeys.GLOBAL_VARIABLES)
 
-    vars = filter_vars(vars)
+    orig_vars = vars = filter_vars(vars)
     vars = variable_checkpoint_matcher(conf, vars, source_model_file)
     orig_model_saver = tf.train.Saver(vars, max_to_keep=0)
 
@@ -46,9 +47,9 @@ def main(conf, model):
         half_float = Model(conf, images = images_pl, actions = actions_pl, states= states_pl,
                            load_data=True, trafo_pix=False, build_loss=False)
 
-    vars = tf.get_collection(tf.GraphKeys.GLOBAL_VARIABLES, scope='half_float')
-    vars_no_state = filter_vars(vars)
-    half_model_saver = tf.train.Saver(vars_no_state, max_to_keep=0)
+    half_float_vars = tf.get_collection(tf.GraphKeys.GLOBAL_VARIABLES, scope='half_float')
+    half_float_vars = filter_vars(half_float_vars)
+    half_model_saver = tf.train.Saver(half_float_vars, max_to_keep=0)
 
     gpu_options = tf.GPUOptions(per_process_gpu_memory_fraction=0.9)
     sess = tf.InteractiveSession(config=tf.ConfigProto(gpu_options=gpu_options))
@@ -60,10 +61,11 @@ def main(conf, model):
     print 'sucessfully restored!'
 
     print 'beginning casting'
-    for i, j in zip(tf.get_collection(tf.GraphKeys.GLOBAL_VARIABLES, scope='half_float'),
-                    tf.get_collection(tf.GraphKeys.GLOBAL_VARIABLES, scope='model')):
-        print 'casting', j.name, 'to', i.name
-        sess.run(tf.assign(i, tf.cast(j, i.dtype)))
+    for hf in half_float_vars:
+        for orig in orig_vars:
+            if '/'.join(str.split(str(hf.name), '/')[1:]) == str(orig.name):
+                print 'casting', orig.name, 'to', hf.name
+                sess.run(tf.assign(hf, tf.cast(orig, hf.dtype)))
 
     print 'casted!'
     half_model_saver.save(sess, source_model_file + 'float16')

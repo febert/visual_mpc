@@ -28,7 +28,7 @@ configuration = {
 'single_view':"",
 'adim':5,
 'sdim':4,
-'ndesig':1,
+'ndesig':2,
 'normalization':'in',
 '1stimg_bckgd':'',
 # 'previmg_bckgd':'',

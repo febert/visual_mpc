@@ -39,6 +39,7 @@ class Tracker(object):
         # end getting config dicts
 
         self.ndesig = self.agentparams['ndesig']
+        print 'initializing {} tracker'.format(self.ndesig)
 
         rospy.init_node("opencv_tracker")
         rospy.Subscriber("main/kinect2/hd/image_color", Image_msg, self.store_latest_im)
