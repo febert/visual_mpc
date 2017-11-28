@@ -13,8 +13,8 @@ def compute_motion_vector_cdna(conf, cdna_kerns):
     dc = np.expand_dims(dc, axis=0)
     dc = np.repeat(dc, conf['kern_size'], axis=0)
     dr = np.transpose(dc)
-    dr = tf.constant(dr, dtype=tf.float32)
-    dc = tf.constant(dc, dtype=tf.float32)
+    dr = tf.constant(dr, dtype=cdna_kerns.dtype)
+    dc = tf.constant(dc, dtype=cdna_kerns.dtype)
 
     cdna_kerns = tf.transpose(cdna_kerns, [2, 3, 0, 1])
     cdna_kerns = tf.split(cdna_kerns, conf['num_masks'], axis=1)

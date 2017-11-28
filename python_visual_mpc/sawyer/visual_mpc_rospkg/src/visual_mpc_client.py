@@ -20,14 +20,18 @@ from intera_core_msgs.srv import (
     SolvePositionFK,
     SolvePositionFKRequest,
 )
+
+from python_visual_mpc.region_proposal_networks.rpn_tracker import Too_few_objects_found_except
+
+import python_visual_mpc
 from python_visual_mpc.sawyer.visual_mpc_rospkg.src.utils import inverse_kinematics, robot_controller, robot_recorder
 from python_visual_mpc.video_prediction.utils_vpred.animate_tkinter import Visualizer_tkinter
 from sensor_msgs.msg import JointState
 from std_msgs.msg import Float32
 from std_msgs.msg import Int64
-from utils.checkpoint import write_ckpt, write_timing_file, parse_ckpt
-from utils.copy_from_remote import scp_pix_distrib_files
-from utils.tracking_client import OpenCV_Track_Listener
+from python_visual_mpc.sawyer.visual_mpc_rospkg.src.utils.checkpoint import write_ckpt, write_timing_file, parse_ckpt
+from python_visual_mpc.sawyer.visual_mpc_rospkg.src.utils.copy_from_remote import scp_pix_distrib_files
+from python_visual_mpc.sawyer.visual_mpc_rospkg.src.utils.tracking_client import OpenCV_Track_Listener
 from visual_mpc_rospkg.srv import get_action, init_traj_visualmpc
 from rospy.numpy_msg import numpy_msg
 from visual_mpc_rospkg.msg import intarray
@@ -106,7 +110,7 @@ class Visual_MPC_Client():
             self.canon_dir = ''
             self.canon_ind = None
 
-        self.num_traj = 50
+        self.num_traj = 5000
 
         self.action_sequence_length = self.agentparams['T'] # number of snapshots that are taken
         self.use_robot = True
@@ -141,7 +145,6 @@ class Visual_MPC_Client():
 
         self.action_interval = 1. #Hz
         self.traj_duration = self.action_sequence_length*self.action_interval
-        self.action_rate = rospy.Rate(self.action_interval)
         self.control_rate = rospy.Rate(1000)
 
         self.sdim = self.agentparams['sdim']
@@ -299,12 +302,15 @@ class Visual_MPC_Client():
                 try:
                     self.run_trajectory(tr)
                     done = True
+                except Too_few_objects_found_except:
+                    print 'too few objects found, redistributing !!'
+                    self.redistribute_objects()
                 except Traj_aborted_except:
                     self.recorder.delete_traj(tr)
                     nfail_traj +=1
                     rospy.sleep(.2)
 
-            if ((tr+1)% 20) == 0:
+            if ((tr+1)% 10) == 0:
                 self.redistribute_objects()
 
             delta = datetime.now() - tstart
@@ -467,11 +473,6 @@ class Visual_MPC_Client():
         if self.save_canon:
             self.save_canonical()
 
-        # move to start:
-        start_time = rospy.get_time()  # in seconds
-        finish_time = start_time + self.traj_duration  # in seconds
-        print 'start time', start_time
-        print 'finish_time', finish_time
 
         i_step = 0  # index of current commanded point
 
@@ -480,12 +481,10 @@ class Visual_MPC_Client():
         start_time = -1
 
         isave = 0
-
-        action_times = []
-        start_iters = time.time()
+        t_start = time.time()
+        query_times = []
 
         while isave < self.nsave:
-
             self.curr_delta_time = rospy.get_time() - start_time
             if self.curr_delta_time > self.action_interval and i_step < self.action_sequence_length:
                 if 'manual_correction' in self.agentparams:
@@ -502,14 +501,20 @@ class Visual_MPC_Client():
                 self.previous_des_pos = copy.deepcopy(self.des_pos)
                 get_action_start = time.time()
                 action_vec = self.query_action()
-                action_times.append(time.time() - get_action_start)
+                query_times.append(time.time()-get_action_start)
+
                 print 'action vec', action_vec
 
-                self.des_pos = self.apply_act(self.des_pos, action_vec, i_step)
+                self.des_pos, going_down = self.apply_act(self.des_pos, action_vec, i_step)
                 start_time = rospy.get_time()
 
                 print 'prev_desired pos in step {0}: {1}'.format(i_step, self.previous_des_pos)
                 print 'new desired pos in step {0}: {1}'.format(i_step, self.des_pos)
+
+                if going_down:
+                    self.action_interval = 1.5
+                else:
+                    self.action_interval = 1.
 
                 self.t_prev = start_time
                 self.t_next = start_time + self.action_interval
@@ -549,8 +554,9 @@ class Visual_MPC_Client():
 
             self.control_rate.sleep()
 
-        print 'average iteration took {0} seconds'.format((time.time() - start_iters) / self.action_sequence_length)
-        print 'average action query took {0} seconds'.format(sum(action_times) / len(action_times))
+
+        print 'average iteration took {0} seconds'.format((time.time() - t_start) / self.action_sequence_length)
+        print 'average action query took {0} seconds'.format(np.mean(np.array(query_times)))
 
         if not self.data_collection:
             self.save_final_image(i_tr)
@@ -566,10 +572,11 @@ class Visual_MPC_Client():
         if self.ctrl.sawyer_gripper:
             self.ctrl.gripper.open()
         else:
-            print 'delta t gripper status', rospy.get_time() - self.tlast_gripper_status
-            if rospy.get_time() - self.tlast_gripper_status > 10.:
-                print 'gripper stopped working!'
-                pdb.set_trace()
+            # print 'delta t gripper status', rospy.get_time() - self.tlast_gripper_status
+            # if rospy.get_time() - self.tlast_gripper_status > 10.:
+            #     print 'gripper stopped working!'
+            #     pdb.set_trace()
+            pass
 
             self.set_weiss_griper(100.)
 
@@ -706,11 +713,11 @@ class Visual_MPC_Client():
             self.move_with_impedance(cmd)
             self.control_rate.sleep()
 
-    def set_neutral_with_impedance(self):
+    def set_neutral_with_impedance(self, duration= 1.5):
         neutral_jointangles = [0.412271, -0.434908, -1.198768, 1.795462, 1.160788, 1.107675, 2.068076]
         cmd = dict(zip(self.ctrl.limb.joint_names(), neutral_jointangles))
         self.imp_ctrl_release_spring(100)
-        self.move_with_impedance_sec(cmd)
+        self.move_with_impedance_sec(cmd, duration)
 
     def move_to_startpos(self, pos):
         desired_pose = self.get_des_pose(pos)
@@ -775,13 +782,15 @@ class Visual_MPC_Client():
                 print 'opening gripper'
                 self.gripper_closed = False
 
+        going_down = False
         if self.gripper_up:
             if i_act == self.t_down:
                 des_pos[2] = self.lower_height
                 print 'going down'
                 self.gripper_up = False
+                going_down = True
 
-        return des_pos
+        return des_pos, going_down
 
     def truncate_pos(self, pos):
         xlim = self.xlim
@@ -805,32 +814,21 @@ class Visual_MPC_Client():
 
 
     def redistribute_objects(self):
-        """
-        Loops playback of recorded joint position waypoints until program is
-        exited
-        """
-        with open('/home/guser/catkin_ws/src/berkeley_sawyer/src/waypts.pkl', 'r') as f:
-            waypoints = cPickle.load(f)
-        rospy.loginfo("Waypoint Playback Started")
+        self.set_neutral_with_impedance(duration=1.5)
+        print 'redistribute...'
 
-        # Set joint position speed ratio for execution
-        self.ctrl.limb.set_joint_position_speed(.2)
+        file = '/'.join(str.split(python_visual_mpc.__file__, "/")[
+                        :-1]) + '/sawyer/visual_mpc_rospkg/src/utils/pushback_traj_.pkl'
+        self.joint_pos = cPickle.load(open(file, "rb"))
 
-        # Loop until program is exited
-        do_repeat = True
-        n_repeat = 0
-        while do_repeat and (n_repeat < 2):
-            do_repeat = False
-            n_repeat += 1
-            for i, waypoint in enumerate(waypoints):
-                if rospy.is_shutdown():
-                    break
-                try:
-                    print 'going to waypoint ', i
-                    self.ctrl.limb.move_to_joint_positions(waypoint, timeout=5.0)
-                except:
-                    do_repeat = True
-                    break
+        self.imp_ctrl_release_spring(100)
+        self.imp_ctrl_active.publish(1)
+
+        replay_rate = rospy.Rate(700)
+        for t in range(len(self.joint_pos)):
+            print 'step {0} joints: {1}'.format(t, self.joint_pos[t])
+            replay_rate.sleep()
+            self.move_with_impedance(self.joint_pos[t])
 
 class Getdesig(object):
     def __init__(self,img,basedir,img_namesuffix = '', n_desig=1, canon_ind=None, canon_dir = None, only_desig = False,

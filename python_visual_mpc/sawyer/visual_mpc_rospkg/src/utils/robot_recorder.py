@@ -196,7 +196,6 @@ class RobotRecorder(object):
         img = np.squeeze(img)
         self.ltob.d_img_cropped_8bit = img
 
-
     def store_latest_im(self, data):
 
         self.ltob.img_msg = data
@@ -207,6 +206,7 @@ class RobotRecorder(object):
 
 
         self.ltob.img_cropped = self._crop_lowres(self.ltob.img_cv2)  # use the cropped highres image
+
 
     def crop_highres(self, cv_image):
         colstart = 180

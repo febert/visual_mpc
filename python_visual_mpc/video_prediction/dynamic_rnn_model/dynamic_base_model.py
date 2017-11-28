@@ -34,6 +34,10 @@ class DNACell(tf.nn.rnn_cell.RNNCell):
 
         super(DNACell, self).__init__(_reuse=reuse)
 
+        if 'float16' in conf:
+            self.dtype = tf.float16
+        else: self.dtype = tf.float32
+
         self.ndesig = ndesig = conf['ndesig']
         self.image_shape = image_shape
         self.state_dim = state_dim
@@ -152,6 +156,7 @@ class DNACell(tf.nn.rnn_cell.RNNCell):
         return lstm_cell(inputs, state)
 
     def call(self, inputs, states):
+
         # inputs
         (image, action, state), other_inputs = inputs[:3], inputs[3:]
         if other_inputs:
@@ -256,7 +261,7 @@ class DNACell(tf.nn.rnn_cell.RNNCell):
 
         if self.generate_scratch_image:
             with tf.variable_scope('h6_scratch'):
-                h6_scratch = conv2d(h5, vgf_dim, kernel_size=(3, 3), strides=(1, 1))
+                h6_scratch = conv2d(h5, vgf_dim, kernel_size=(3, 3), strides=(1, 1), dtype=use)
                 h6_scratch = self.normalizer_fn(h6_scratch)
                 h6_scratch = tf.nn.relu(h6_scratch)
 
@@ -524,7 +529,10 @@ class Dynamic_Base_Model(object):
         if pix_distrib2 is not None:
             inputs.append(tf.stack(pix_distrib2[:sequence_length]))
 
-        outputs, _ = tf.nn.dynamic_rnn(cell, inputs, sequence_length=[sequence_length] * batch_size, dtype=tf.float32,
+        if 'float16' in conf:
+            use_dtype = tf.float16
+        else: use_dtype = tf.float32
+        outputs, _ = tf.nn.dynamic_rnn(cell, inputs, sequence_length=[sequence_length] * batch_size, dtype=use_dtype,
                                        swap_memory=True, time_major=True)
 
         (gen_images, gen_states, gen_masks, gen_transformed_images, gen_flow_map), other_outputs = outputs[:5], outputs[5:]

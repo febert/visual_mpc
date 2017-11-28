@@ -9,13 +9,11 @@ def variable_checkpoint_matcher(conf, vars, model_file=None):
   """
   if model_file is None:
     ckpt = tf.train.get_checkpoint_state(conf['output_dir'])
-    folder = ckpt.model_checkpoint_path
-  else:
-    folder = model_file
+    model_file = ckpt.model_checkpoint_path
 
-  print 'variable_checkpointn_matcher using model_file:',folder
+  print 'variable_checkpointn_matcher using model_file:',model_file
 
-  reader = tf.train.NewCheckpointReader(folder)
+  reader = tf.train.NewCheckpointReader(model_file)
   var_to_shape_map = reader.get_variable_to_shape_map()
   check_names = var_to_shape_map.keys()
 
