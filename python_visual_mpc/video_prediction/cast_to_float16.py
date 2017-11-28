@@ -14,6 +14,8 @@ def main(conf, model):
     conf.pop('use_len', None)
     conf['batch_size'] = 32
 
+
+
     conf.pop('visual_flowvec', None)
 
     conf['sequence_length'] = 4 #####
@@ -27,7 +29,7 @@ def main(conf, model):
     orig_model_saver = tf.train.Saver(vars, max_to_keep=0)
 
     with tf.variable_scope('half_float', reuse=None):
-
+        conf['float16'] = ''
         images_pl = tf.placeholder(tf.float16, name='images',
                                    shape=(
                                    conf['batch_size'], conf['sequence_length'], conf['img_height'], conf['img_width'],
@@ -39,7 +41,7 @@ def main(conf, model):
         actions_pl = tf.placeholder(tf.float16, name='actions',
                                     shape=(conf['batch_size'], conf['sequence_length'], adim))
         states_pl = tf.placeholder(tf.float16, name='states',
-                                   shape=(conf['batch_size'], conf['context_frames'], sdim))
+                                   shape=(conf['batch_size'], conf['sequence_length'], sdim))
 
         half_float = Model(conf, images = images_pl, actions = actions_pl, states= states_pl,
                            load_data=True, trafo_pix=False, build_loss=False)

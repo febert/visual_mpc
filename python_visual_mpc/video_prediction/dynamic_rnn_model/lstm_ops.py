@@ -83,7 +83,7 @@ def basic_conv_lstm_cell(inputs,
   """
   spatial_size = inputs.get_shape()[1:3]
   if state is None:
-    state = init_state(inputs, list(spatial_size) + [2 * num_channels])
+    state = init_state(inputs, list(spatial_size) + [2 * num_channels], dtype=inputs.dtype)
   with tf.variable_scope(scope,
                          'BasicConvLstmCell',
                          [inputs, state],
