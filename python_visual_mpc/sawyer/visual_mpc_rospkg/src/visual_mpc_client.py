@@ -210,8 +210,11 @@ class Visual_MPC_Client():
         data[0] contains designated pixel positions (row, column format)
         data[1] contains goal pixel positions
         """
-        self.desig_pos_main = data.data[0].reshape(self.ndesig,2)
-        self.goal_pos_main = data.data[1].reshape(self.ndesig,2)
+        points = data.data.reshape((2, self.ndesig, 2))
+        self.desig_pos_main = points[0]
+        self.desig_pos_main.setflags(write=1)
+        self.goal_pos_main = points[1]
+        self.goal_pos_main.setflags(write=1)
         self.run_trajectory(0)
 
     def mark_goal_desig(self, itr):
