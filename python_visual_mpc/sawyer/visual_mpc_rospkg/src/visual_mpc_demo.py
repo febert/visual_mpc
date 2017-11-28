@@ -8,12 +8,11 @@ from PIL import Image, ImageTk
 from matplotlib import pyplot as plt
 import cv2
 import imutils
-# from cv_bridge import CvBridge
-#
+from cv_bridge import CvBridge
 # from rospy.numpy_msg import numpy_msg
 # from visual_mpc_rospkg.msg import intarray, floatarray
-# from sensor_msgs.msg import Image as Image_msg
-# import rospy
+from sensor_msgs.msg import Image as Image_msg
+import rospy
 
 CANVAS_WIDTH = 1144
 CANVAS_HEIGHT = 888
@@ -36,9 +35,12 @@ class Visualizer(object):
         self.pixel1, self.pixel2 = None, None
         self.selPixels = False
 
-        # self.bridge = CvBridge()
+        self.bridge = CvBridge()
+
+        rospy.init_node('visual_mpc_demo')
+        rospy.loginfo("init node visual mpc demo")
         # self.visual_mpc_cmd_publisher = rospy.Publisher('visual_mpc_cmd', numpy_msg(intarray), queue_size=10)
-        # rospy.Subscriber("main/kinect2/hd/image_color", Image_msg, self.update_image)
+        rospy.Subscriber("main/kinect2/hd/image_color", Image_msg, self.update_image)
         # rospy.Subscriber('gen_image', numpy_msg(floatarray), self.update_preds)
         # rospy.Subscriber('gen_pix_distrib', numpy_msg(floatarray), self.update_distribs)
 
@@ -116,6 +118,7 @@ class Visualizer(object):
 
     def video_loop(self):
         self.canvas.itemconfig(self.canvasImage, image=self.canvasPhoto)
+        self.canvas.copy_image = self.canvasPhoto
 
         # self.update_preds([Image.open("assets/frames0/frame%d.png" % self.iter).resize([PREDICTION_WIDTH, PREDICTION_HEIGHT], Image.ANTIALIAS),
         #                    Image.open("assets/frames1/frame%d.png" % self.iter).resize([PREDICTION_WIDTH, PREDICTION_HEIGHT], Image.ANTIALIAS),
@@ -124,7 +127,7 @@ class Visualizer(object):
         for i in range(self.num_predictions):
             self.predictions[i].config(image=self.predictionPhotos[i])
         self.iter = (self.iter + 1) % PREDICTION_LENGTH
-        self.root.after(500, self.video_loop)
+        self.root.after(60, self.video_loop)
 
     def start(self):
         if self.num_pairs == 0:
@@ -151,11 +154,11 @@ class Visualizer(object):
 
     def update_image(self, data):
         cv_image = self.bridge.imgmsg_to_cv2(data, "bgr8")
-        cv_image = cv2.cvtColor(cv_image, cv2.COLOR_BGR2RGB)
         cv_image = imutils.rotate_bound(cv_image, 180)
-        startrow = 3
-        startcol = 27
+        startrow = 48           # 3x16
+        startcol = 432          # 27x16
         cv_image = cv_image[startrow:startrow+IMAGE_HEIGHT, startcol:startcol+IMAGE_WIDTH]
+        cv_image = cv2.cvtColor(cv_image, cv2.COLOR_BGR2RGB)
         pil_image = Image.fromarray(cv_image)
         self.canvasPhoto = ImageTk.PhotoImage(pil_image)
 
