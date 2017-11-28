@@ -330,8 +330,12 @@ class CEM_controller():
                                        numex=5)
                 v.build_figure()
 
-            best_gen_images = [im[bestind] for im in gen_images]
-            best_gen_distrib_seq = [d[bestind] for d in  gen_distrib]
+            # t, r, c, 3
+            best_gen_images = np.stack([im[bestind] for im in gen_images], axis=0).flatten()
+
+            # t, r, c, 1
+            best_gen_distrib_seq = np.stack([d[bestind] for d in  gen_distrib], axis=0).flatten()
+
             self.gen_image_publisher.publish(best_gen_images)
             self.gen_pix_distrib_publisher.publish(best_gen_distrib_seq)
 

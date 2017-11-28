@@ -17,6 +17,9 @@ def make_gif(im_list):
     clip = mpy.ImageSequenceClip(im_list, fps=4)
     clip.write_gif('modeldata/tracking.gif')
 
+class Too_few_objects_found_except(Exception):
+    pass
+
 class RPN_Tracker(object):
     def __init__(self, savedir= None, recorder=None):
         self.savedir = savedir
@@ -98,7 +101,8 @@ class RPN_Tracker(object):
         # for b in boxes:
         #     self.proposer.draw_box(b, self.clone, 0)  # red
 
-        valid_region = np.array([340,210,830,570])
+        # valid_region = np.array([340,210,830,570])  #big
+        valid_region = np.array([390,240,780,520])  #small
         self.proposer.draw_box(list(valid_region), self.clone, 2)  # blue
 
         valid_boxes = []
@@ -124,6 +128,9 @@ class RPN_Tracker(object):
         for b in valid_boxes:
             self.proposer.draw_box(b, self.clone, 0)  # red
 
+        if len(valid_boxes) < 4:
+            raise Too_few_objects_found_except
+
         sel_ind = np.random.choice(range(len(valid_boxes)))
         desig_point = valid_center_coords[sel_ind]
         self.proposer.draw_box(valid_boxes[sel_ind], self.clone, 1)
@@ -139,7 +146,7 @@ class RPN_Tracker(object):
         self.draw_cross(desig_point, self.clone)
         self.draw_cross(goal_point, self.clone)
 
-        self.plot()
+        # self.plot()
         import rospy
         im  = Image.fromarray(np.array(self.clone).astype(np.uint8))
         im.save(im_save_dir + '/task_{}.png'.format(rospy.get_time()))
