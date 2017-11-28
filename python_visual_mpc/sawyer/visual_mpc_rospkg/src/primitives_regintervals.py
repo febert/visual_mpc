@@ -47,14 +47,21 @@ class Primitive_Executor(object):
 
         parser = argparse.ArgumentParser(description='set robot to use')
         parser.add_argument('robot', type=str, help='robot name')
+        parser.add_argument('--savedir', default='', type=str, help='directory to save data')
 
         args = parser.parse_args()
 
         self.ctrl = robot_controller.RobotController()
+        self.robot_name = args.robot
 
-        save_dir = "/media/febert/harddisk/febert/sawyer_data/newrecording_{}".format(args.robot)
+
+        if args.savedir == '':
+            save_dir = "/media/febert/harddisk/febert/sawyer_data/newrecording_{}".format(self.robot_name)
+        else:
+            save_dir = args.savedir
         if not os.path.exists(save_dir):
             raise ValueError("{} does not exist".format(save_dir))
+
         self.recorder = robot_recorder.RobotRecorder(agent_params={}, save_dir= save_dir,
                                                      seq_len=self.state_sequence_length, use_aux=False)
 
@@ -553,7 +560,7 @@ class Primitive_Executor(object):
         print 'redistribute...'
 
         file = '/'.join(str.split(python_visual_mpc.__file__, "/")[
-                        :-1]) + '/sawyer/visual_mpc_rospkg/src/utils/pushback_traj_.pkl'
+                        :-1]) + '/sawyer/visual_mpc_rospkg/src/utils/pushback_traj_{}.pkl'.format(self.robot_name)
 
         self.joint_pos = cPickle.load(open(file, "rb"))
 

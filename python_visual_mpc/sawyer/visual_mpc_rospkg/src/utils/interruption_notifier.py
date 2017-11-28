@@ -3,12 +3,18 @@ import smtplib
 import rospy
 from std_msgs.msg import String
 import thread
+import argparse
 
 class Interruption_notifier(object):
     def __init__(self):
         print 'init node'
         rospy.init_node('interruption_notifier', anonymous=True)
         self.last_alive = rospy.get_time()
+
+        parser = argparse.ArgumentParser(description='set robot to use')
+        parser.add_argument('robot', type=str, help='robot name')
+        args = parser.parse_args()
+        self.robotname = args.robot
 
         thread.start_new(self.spin_thread, ())
 
@@ -37,7 +43,7 @@ class Interruption_notifier(object):
         if string != None:
             msg = string
         else:
-            msg = 'data collection interrupted'
+            msg = '{} data collection interrupted'.format(self.robotname)
 
         username = 'berkeley.sawyer@gmail.com'
         password = 'robots!!'

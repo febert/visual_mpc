@@ -15,7 +15,7 @@ configuration = {
 'setup_predictor': setup_predictor,
 'current_dir': current_dir, #'directory for writing gifs' ,
 # 'filepath of a pretrained model to use for cem
-'pretrained_model': BASE + '/tensorflow_data/sawyer/weissgripper_basecls/modeldata/model96002float16',
+'pretrained_model': BASE + '/tensorflow_data/sawyer/weissgripper_basecls/modeldata/model96002',
 # 'pretrained_model': BASE + '/tensorflow_data/sawyer/weissgripper_basecls/modeldata/model96002float16',
 'sequence_length': 15,      # 'sequence length, including context frames.' ,
 'context_frames': 2,        # of frames before predictions.' ,
