@@ -115,21 +115,15 @@ def visualize_diffmotions(sess, conf, model):
     print "selected designated position for aux1 [row,col]:", desig_pos
 
     one_hot = create_one_hot(conf, [desig_pos])[0]
-
-    feed_dict[model.pix_distrib_pl] = one_hot
-
     sel_state = np.stack([state[b_exp, ind0], state[b_exp, ind0 + 1]], axis=0)
 
     start_states = np.concatenate([sel_state, np.zeros((conf['sequence_length'] - 2, statedim))])
     start_states = np.expand_dims(start_states, axis=0)
     start_states = np.repeat(start_states, conf['batch_size'], axis=0)  # copy over batch
-    feed_dict[model.states_pl] = start_states
 
     start_images = np.concatenate([sel_img, np.zeros((conf['sequence_length'] - 2, conf['img_height'], conf['img_width'], 3))])
-
     start_images = np.expand_dims(start_images, axis=0)
     start_images = np.repeat(start_images, conf['batch_size'], axis=0)  # copy over batch
-    feed_dict[model.images_pl] = start_images
 
     actions = np.zeros([conf['batch_size'], conf['sequence_length'], adim])
 
@@ -176,7 +170,14 @@ def visualize_diffmotions(sess, conf, model):
         actions[b, 0] = np.array([0, 0, 0, 4])
         actions[b, 1] = np.array([0, 0, 0, 4])
 
-    feed_dict[model.actions_pl] = actions
+    if 'float16' in conf:
+        use_dtype = np.float16
+    else: use_dtype = np.float32
+
+    feed_dict[model.actions_pl] = actions.astype(use_dtype)
+    feed_dict[model.states_pl] = start_states.astype(use_dtype)
+    feed_dict[model.pix_distrib_pl] = one_hot.astype(use_dtype)
+    feed_dict[model.images_pl] = start_images.astype(use_dtype)
 
     gen_images, gen_distrib = sess.run([model.gen_images,
                                         model.gen_distrib,
@@ -187,8 +188,10 @@ def visualize_diffmotions(sess, conf, model):
                                         ,feed_dict)
 
     dict = OrderedDict()
+    gen_images = [im.astype(np.float32) for im in gen_images]
     dict['gen_images'] = gen_images
 
+    gen_distrib = [im.astype(np.float32) for im in gen_distrib]
     assert gen_distrib[0].shape[1] == 1
     gen_distrib = [d[:,0] for d in gen_distrib]
     dict['gen_distrib'] = gen_distrib

@@ -33,7 +33,7 @@ if __name__ == '__main__':
     flags.DEFINE_string('pretrained', None, 'path to model file from which to resume training')
     flags.DEFINE_bool('diffmotions', False, 'visualize several different motions for a single scene')
     flags.DEFINE_bool('metric', False, 'compute metric of expected distance to human-labled positions ob objects')
-
+    flags.DEFINE_bool('float16', False, 'whether to do inference with float16')
     flags.DEFINE_bool('create_images', False, 'whether to create images')
 
 def main(unused_argv, conf_script= None):
@@ -83,6 +83,10 @@ def main(unused_argv, conf_script= None):
         if 'modelconfiguration' in conf:
             conf['modelconfiguration']['schedule_sampling_k'] = conf['schedsamp_k']
 
+        if FLAGS.float16:
+            print 'using float16'
+            conf['float16'] = ''
+
         build_loss = False
     else:
         build_loss = True
@@ -126,7 +130,9 @@ def main(unused_argv, conf_script= None):
 
     sess.run(tf.global_variables_initializer())
 
+
     if conf['visualize']:
+
         if FLAGS.visualize_check:
             load_checkpoint(conf, sess, loading_saver, conf['visualize_check'])
         else: load_checkpoint(conf, sess, loading_saver)
