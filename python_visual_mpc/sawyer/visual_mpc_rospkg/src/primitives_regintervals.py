@@ -21,6 +21,8 @@ from std_msgs.msg import Int64
 from std_msgs.msg import String
 from utils.checkpoint import write_ckpt, write_timing_file, parse_ckpt
 import python_visual_mpc
+from python_visual_mpc import __file__ as base_filepath
+import imp
 
 import argparse
 
@@ -53,7 +55,6 @@ class Primitive_Executor(object):
 
         self.ctrl = robot_controller.RobotController()
         self.robot_name = args.robot
-
 
         if args.savedir == '':
             save_dir = "/media/febert/harddisk/febert/sawyer_data/newrecording_{}".format(self.robot_name)

@@ -98,6 +98,10 @@ class RobotRecorder(object):
 
         print 'init recorder with instance type', self.instance_type
 
+        if self.dataconf is not None:
+            self.crop_lowres = True
+        else: self.crop_lowres = False
+
         prefix = self.instance_type
 
         rospy.Subscriber(prefix + "/kinect2/hd/image_color", Image_msg, self.store_latest_im)
@@ -204,8 +208,8 @@ class RobotRecorder(object):
         cv_image = self.bridge.imgmsg_to_cv2(data, "bgr8")  #(1920, 1080)
         self.ltob.img_cv2 = self.crop_highres(cv_image)
 
-
-        self.ltob.img_cropped = self._crop_lowres(self.ltob.img_cv2)  # use the cropped highres image
+        if self.crop_lowres:
+            self.ltob.img_cropped = self._crop_lowres(self.ltob.img_cv2)  # use the cropped highres image
 
 
     def crop_highres(self, cv_image):
