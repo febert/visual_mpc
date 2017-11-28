@@ -474,7 +474,8 @@ def depthwise_conv2d(inputs, channel_multiplier, kernel_size, strides=(1, 1), pa
     return outputs
 
 
-def conv2d(inputs, filters, kernel_size, strides=(1, 1), padding='SAME', kernel=None, use_bias=True, bias=None):
+def conv2d(inputs, filters, kernel_size, strides=(1, 1), padding='SAME', kernel=None, use_bias=True, bias=None, dtype = tf.float32):
+
     """
     2-D convolution.
     """
@@ -496,7 +497,7 @@ def conv2d(inputs, filters, kernel_size, strides=(1, 1), padding='SAME', kernel=
     if use_bias:
         if bias is None:
             with tf.variable_scope('conv2d'):
-                bias = tf.get_variable('bias', [filters], dtype=tf.float32, initializer=tf.zeros_initializer())
+                bias = tf.get_variable('bias', [filters], dtype=dtype, initializer=tf.zeros_initializer())
                 outputs = tf.nn.bias_add(outputs, bias)
         else:
             bias_shape = [filters]

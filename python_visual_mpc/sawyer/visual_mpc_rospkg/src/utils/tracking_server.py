@@ -46,9 +46,7 @@ class Tracker(object):
         self.tracker_initialized = False
         self.bbox = None
 
-
         rospy.Subscriber("main/kinect2/hd/image_color", Image_msg, self.store_latest_im)
-
         rospy.Service('set_tracking_target', set_tracking_target, self.init_bbx)
         self.bbox_pub = rospy.Publisher('track_bbox', numpy_msg(intarray), queue_size=10)
         self.bridge = CvBridge()
@@ -75,7 +73,6 @@ class Tracker(object):
             self.tracker_initialized = True
             print 'tracker initialized'
 
-
     def crop_highres(self, cv_image):
         #TODO: load the cropping parameters from parameter file
         startcol = 180
@@ -88,7 +85,6 @@ class Tracker(object):
                               interpolation=cv2.INTER_AREA)
         cv_image = imutils.rotate_bound(cv_image, 180)
         return cv_image
-
 
     def start(self):
         while not rospy.is_shutdown():

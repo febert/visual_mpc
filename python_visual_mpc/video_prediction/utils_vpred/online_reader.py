@@ -208,6 +208,7 @@ class OnlineReader(object):
     def combine_traj_lists(self, datasets):
         combined = []
         for dset in datasets:
+            # select whether to use train, val or test data
             dset = dset[self.mode]
             combined += dset
         if self.shuffle:

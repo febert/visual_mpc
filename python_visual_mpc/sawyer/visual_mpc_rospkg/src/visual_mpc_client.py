@@ -88,9 +88,10 @@ class Visual_MPC_Client():
 
         self.args = args
 
-
         hyperparams = imp.load_source('hyperparams', self.policyparams['netconf'])
         self.netconf = hyperparams.configuration
+        dataconf_file = '/'.join(str.split(self.netconf['data_dir'], '/')[:-1]) + '/conf.py'
+        dataconf = imp.load_source('hyperparams', dataconf_file)
         if 'img_height' in self.netconf and 'img_width' in self.netconf:
             self.img_height = self.netconf['img_height']
             self.img_width = self.netconf['img_width']
@@ -187,6 +188,7 @@ class Visual_MPC_Client():
 
         self.recorder = robot_recorder.RobotRecorder(agent_params=self.agentparams,
                                                      save_dir=self.recorder_save_dir,
+                                                     dataconf=dataconf,
                                                      seq_len=self.nsave,
                                                      use_aux=self.use_aux,
                                                      save_video=save_video,

@@ -27,12 +27,13 @@ from utils_vpred.animate_tkinter import Visualizer_tkinter
 
 from PIL import Image
 
-FLAGS = flags.FLAGS
-flags.DEFINE_string('hyper', '', 'hyperparameters configuration file')
-flags.DEFINE_string('visualize', '', 'model within hyperparameter folder from which to create gifs')
-flags.DEFINE_integer('device', 0 ,'the value for CUDA_VISIBLE_DEVICES variable')
-flags.DEFINE_string('pretrained', None, 'path to model file from which to resume training')
-flags.DEFINE_bool('diffmotions', False, 'visualize several different motions for a single scene')
+if __name__ == '__main__':
+    FLAGS = flags.FLAGS
+    flags.DEFINE_string('hyper', '', 'hyperparameters configuration file')
+    flags.DEFINE_string('visualize', '', 'model within hyperparameter folder from which to create gifs')
+    flags.DEFINE_integer('device', 0 ,'the value for CUDA_VISIBLE_DEVICES variable')
+    flags.DEFINE_string('pretrained', None, 'path to model file from which to resume training')
+    flags.DEFINE_bool('diffmotions', False, 'visualize several different motions for a single scene')
 
 sys.path.append("/docker_home/visual_mpc/python_visual_mpc")
 

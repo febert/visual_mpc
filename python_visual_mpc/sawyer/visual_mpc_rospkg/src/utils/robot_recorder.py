@@ -50,14 +50,13 @@ class Trajectory(object):
         self.highres_imglist = []
 
 class RobotRecorder(object):
-    def __init__(self, agent_params, save_dir, seq_len = None, use_aux=True, save_video=False,
+    def __init__(self, agent_params, dataconf = None, save_dir = None, seq_len = None, use_aux=True, save_video=False,
                  save_actions=True, save_images = True, image_shape=None):
 
         self.save_actions = save_actions
         self.save_images = save_images
-
+        self.dataconf = dataconf
         self.agent_params = agent_params
-
         """
         Records joint data to a file at a specified rate.
         rate: recording frequency in Hertz
@@ -204,10 +203,7 @@ class RobotRecorder(object):
         cv_image = self.bridge.imgmsg_to_cv2(data, "bgr8")  #(1920, 1080)
         self.ltob.img_cv2 = self.crop_highres(cv_image)
 
-        if 'wristrot' in self.agent_params:  #if wristrot is enabled:
-            self.ltob.img_cropped = self.crop_lowres_wristrot(self.ltob.img_cv2)  # use the cropped highres image
-        else:
-            self.ltob.img_cropped = self.crop_lowres(cv_image)
+        self.ltob.img_cropped = self._crop_lowres(self.ltob.img_cv2)  # use the cropped highres image
 
 
     def crop_highres(self, cv_image):
@@ -225,36 +221,10 @@ class RobotRecorder(object):
         self.crop_highres_params = {'startcol':startcol, 'startrow':startrow,'shrink_after_crop':shrink_after_crop}
         return cv_image
 
-    def crop_lowres(self, cv_image):
-        self.ltob.d_img_raw_npy = np.asarray(cv_image)
-
-
-        if self.instance_type == 'main':
-            shrink_before_crop = 1 / 16.
-            img = cv2.resize(cv_image, (0, 0), fx=shrink_before_crop, fy=shrink_before_crop, interpolation=cv2.INTER_AREA)
-            startrow = 3
-            startcol = 27
-
-            img = imutils.rotate_bound(img, 180)
-        else:
-            shrink_before_crop = 1 / 15.
-            img = cv2.resize(cv_image, (0, 0), fx=shrink_before_crop, fy=shrink_before_crop, interpolation=cv2.INTER_AREA)
-            startrow = 2
-            startcol = 27
-        endcol = startcol + self.img_width
-        endrow = startrow + self.img_height
-
-        # crop image:
-        img = img[startrow:endrow, startcol:endcol]
-        assert img.shape == (self.img_height, self.img_width, 3)
-
-        self.crop_lowres_params = {'startcol':startcol,'startrow':startrow,'shrink_before_crop':shrink_before_crop}
-        return img
-
-    def crop_lowres_wristrot(self, cv_image):
-        startrow = 10
-        startcol = 32  # 28
-        shrink_before_crop = 1 / 9.
+    def _crop_lowres(self, cv_image):
+        startrow = self.dataconf['startrow']  #10
+        startcol = self.dataconf['startrow']  # 28
+        shrink_before_crop = self.dataconf['shrink_before_crop']
         img = cv2.resize(cv_image, (0, 0), fx=shrink_before_crop, fy=shrink_before_crop, interpolation=cv2.INTER_AREA)
         img = img[startrow:startrow + self.img_height, startcol:startcol + self.img_width]
         assert img.shape == (self.img_height, self.img_width, 3)
