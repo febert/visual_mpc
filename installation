@@ -76,4 +76,19 @@ wget https://people.eecs.berkeley.edu/~coline/data/fasterrcnn_vgg_coco_net.tfmod
 cd ../util/faster_rcnn_lib && make
 cd ../../..
 
+Also these are required:
+pip install --ignore-installed  numpy==1.11.0
+pip install matplotlib
+pip install easydict
+pip install Cython==0.26
+pip install pyyaml
+pip install rospy
+pip install --upgrade --ignore-installed tensorflow-gpu #pip install --upgrade tensorflow
+pip install opencv-python
+pip install tkinter
+pip install pillow
+pip install IPython
+pip install opencv-python
+pip install rospkg
+pip install catkin_pkg
 

@@ -16,6 +16,7 @@ from visual_mpc_rospkg.srv import *
 from PIL import Image
 import cPickle
 import imageio
+import matplotlib.pyplot as plt
 
 import argparse
 
@@ -182,12 +183,12 @@ class RobotRecorder(object):
 
         img = np.clip(img,0, 1400)
 
-        startcol = 7
+        colstart = 7
         startrow = 0
-        endcol = startcol + self.img_width
+        endcol = colstart + self.img_width
         endrow = startrow + self.img_height
         #crop image:
-        img = img[startrow:endrow, startcol:endcol]
+        img = img[startrow:endrow, colstart:endcol]
 
         self.ltob.d_img_cropped_npy = img
         img = img.astype(np.float32)/ np.max(img) *256
@@ -204,31 +205,32 @@ class RobotRecorder(object):
         cv_image = self.bridge.imgmsg_to_cv2(data, "bgr8")  #(1920, 1080)
         self.ltob.img_cv2 = self.crop_highres(cv_image)
 
+
         self.ltob.img_cropped = self._crop_lowres(self.ltob.img_cv2)  # use the cropped highres image
 
     def crop_highres(self, cv_image):
-        startcol = 180
-        startrow = 0
-        endcol = startcol + 1500
-        endrow = startrow + 1500
-        cv_image = copy.deepcopy(cv_image[startrow:endrow, startcol:endcol])
+        colstart = 180
+        rowstart = 0
+        endcol = colstart + 1500
+        endrow = rowstart + 1500
+        cv_image = copy.deepcopy(cv_image[rowstart:endrow, colstart:endcol])
 
         shrink_after_crop = .75
         cv_image = cv2.resize(cv_image, (0, 0), fx=shrink_after_crop, fy=shrink_after_crop, interpolation=cv2.INTER_AREA)
         if self.instance_type == 'main':
             cv_image = imutils.rotate_bound(cv_image, 180)
 
-        self.crop_highres_params = {'startcol':startcol, 'startrow':startrow,'shrink_after_crop':shrink_after_crop}
+        self.crop_highres_params = {'colstart':colstart, 'rowstart':rowstart,'shrink_after_crop':shrink_after_crop}
         return cv_image
 
     def _crop_lowres(self, cv_image):
-        startrow = self.dataconf['startrow']  #10
-        startcol = self.dataconf['startrow']  # 28
+        rowstart = self.dataconf['rowstart']  #10
+        colstart = self.dataconf['colstart']  # 28
         shrink_before_crop = self.dataconf['shrink_before_crop']
         img = cv2.resize(cv_image, (0, 0), fx=shrink_before_crop, fy=shrink_before_crop, interpolation=cv2.INTER_AREA)
-        img = img[startrow:startrow + self.img_height, startcol:startcol + self.img_width]
+        img = img[rowstart:rowstart + self.img_height, colstart:colstart + self.img_width]
         assert img.shape == (self.img_height, self.img_width, 3)
-        self.crop_lowres_params = {'startcol': startcol, 'startrow': startrow, 'shrink_before_crop': shrink_before_crop}
+        self.crop_lowres_params = {'colstart': colstart, 'rowstart': rowstart, 'shrink_before_crop': shrink_before_crop}
         return img
 
     def init_traj(self, itr):
@@ -440,10 +442,10 @@ class RobotRecorder(object):
         l = self.crop_lowres_params
 
         if 'wristrot' in self.agent_params:
-            highres = (inp + np.array([l['startrow'], l['startcol']])).astype(np.float) / l['shrink_before_crop']
+            highres = (inp + np.array([l['rowstart'], l['colstart']])).astype(np.float) / l['shrink_before_crop']
         else:
-            orig = (inp + np.array([l['startrow'], l['startcol']])).astype(np.float) / l['shrink_before_crop']
-            highres = (orig - np.array([h['startrow'], h['startcol']])) * h['shrink_after_crop']
+            orig = (inp + np.array([l['rowstart'], l['colstart']])).astype(np.float) / l['shrink_before_crop']
+            highres = (orig - np.array([h['rowstart'], h['colstart']])) * h['shrink_after_crop']
 
         highres = highres.astype(np.int64)
         return highres
@@ -453,10 +455,10 @@ class RobotRecorder(object):
         l = self.crop_lowres_params
 
         if 'wristrot' in self.agent_params:
-            lowres = inp.astype(np.float) * l['shrink_before_crop'] - np.array([l['startrow'], l['startcol']])
+            lowres = inp.astype(np.float) * l['shrink_before_crop'] - np.array([l['rowstart'], l['colstart']])
         else:
-            orig = inp.astype(np.float) / h['shrink_after_crop'] + np.array([h['startrow'], h['startcol']])
-            lowres = orig.astype(np.float) * l['shrink_before_crop'] - np.array([l['startrow'], l['startcol']])
+            orig = inp.astype(np.float) / h['shrink_after_crop'] + np.array([h['rowstart'], h['colstart']])
+            lowres = orig.astype(np.float) * l['shrink_before_crop'] - np.array([l['rowstart'], l['colstart']])
 
         lowres = lowres.astype(np.int64)
         return lowres

@@ -86,8 +86,8 @@ class Visual_MPC_Client():
 
         hyperparams = imp.load_source('hyperparams', self.policyparams['netconf'])
         self.netconf = hyperparams.configuration
-        dataconf_file = '/'.join(str.split(self.netconf['data_dir'], '/')[:-1]) + '/conf.py'
-        dataconf = imp.load_source('hyperparams', dataconf_file)
+        dataconf_file = self.base_dir + '/'.join(str.split(self.netconf['data_dir'], '/')[:-1]) + '/conf.py'
+        dataconf = imp.load_source('hyperparams', dataconf_file).configuration
         if 'img_height' in self.netconf and 'img_width' in self.netconf:
             self.img_height = self.netconf['img_height']
             self.img_width = self.netconf['img_width']
