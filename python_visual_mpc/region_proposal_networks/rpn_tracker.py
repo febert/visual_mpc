@@ -102,7 +102,7 @@ class RPN_Tracker(object):
         #     self.proposer.draw_box(b, self.clone, 0)  # red
 
         # valid_region = np.array([340,210,830,570])  #big
-        valid_region = np.array([390,240,780,520])  #small
+        valid_region = np.array([340,240,780,520])  #small
         self.proposer.draw_box(list(valid_region), self.clone, 2)  # blue
 
         valid_boxes = []
