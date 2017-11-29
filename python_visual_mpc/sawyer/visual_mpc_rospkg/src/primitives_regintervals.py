@@ -329,10 +329,10 @@ class Primitive_Executor(object):
         if self.ctrl.sawyer_gripper:
             self.ctrl.gripper.open()
         else:
-            print 'delta t gripper status', rospy.get_time() - self.tlast_gripper_status
-            if rospy.get_time() - self.tlast_gripper_status > 10.:
-                print 'gripper stopped working!'
-                pdb.set_trace()
+            # print 'delta t gripper status', rospy.get_time() - self.tlast_gripper_status
+            # if rospy.get_time() - self.tlast_gripper_status > 10.:
+            #     print 'gripper stopped working!'
+            #     pdb.set_trace()
 
             self.set_weiss_griper(100.)
 

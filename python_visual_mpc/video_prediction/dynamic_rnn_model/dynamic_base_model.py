@@ -35,8 +35,8 @@ class DNACell(tf.nn.rnn_cell.RNNCell):
         super(DNACell, self).__init__(_reuse=reuse)
 
         if 'float16' in conf:
-            self.dtype = tf.float16
-        else: self.dtype = tf.float32
+            self.use_dtype = tf.float16
+        else: self.use_dtype = tf.float32
 
         self.ndesig = ndesig = conf['ndesig']
         self.image_shape = image_shape

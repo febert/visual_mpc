@@ -112,6 +112,7 @@ def build_tfrecord_input(conf, training=True, input_file=None):
         image = tf.reshape(image, shape=[ORIGINAL_HEIGHT, ORIGINAL_WIDTH, COLOR_CHAN])
         image = image[0:IMG_HEIGHT]
         image = tf.reshape(image, [1, IMG_HEIGHT, IMG_WIDTH, COLOR_CHAN])
+
         image = tf.cast(image, tf.float32) / 255.0
 
         if 'color_augmentation' in conf:

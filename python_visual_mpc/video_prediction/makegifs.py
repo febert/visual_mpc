@@ -131,7 +131,7 @@ def visualize_flow(dict_):
 
 
 if __name__ == '__main__':
-    file_path = '/home/frederik/Documents/visual_mpc/tensorflow_data/sawyer/move_1stbckgd_cdna'
+    file_path = '/home/febert/Documents/catkin_ws/src/visual_mpc/tensorflow_data/sawyer/weissgripper_basecls_20k'
     hyperparams = imp.load_source('hyperparams', file_path +'/conf.py')
 
     conf = hyperparams.configuration

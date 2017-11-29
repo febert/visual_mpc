@@ -20,10 +20,10 @@ def main():
     # file = '/home/frederik/Documents/lsdc/experiments/cem_exp/benchmarks_sawyer/predprop_1stimg_bckgd/exp/unseen_clutter/verbose/gen_image_t3.pkl'
 
     app_gen_distrib = True
-    individual_ex = False
+    individual_ex = True
 
     for cem_dir in range(5):
-        filedir = '/home/frederik/Documents/catkin_ws/src/visual_mpc/experiments/cem_exp/benchmarks_sawyer/wristrot/videos/record_cem{}'.format(cem_dir)
+        filedir = '/home/febert/Documents/catkin_ws/src/visual_mpc/experiments/cem_exp/benchmarks_sawyer/weissgripper/verbose/record_cem{}'.format(cem_dir)
         print 'processing dir ', filedir
         dict = cPickle.load(open(filedir+'/pred.pkl', "rb"))
 
@@ -36,10 +36,10 @@ def main():
         b = 0
         suf = ''
 
-        for itr in range(3):
+        for itr in range(1):
             vid_list = []
-            gen_images = dict['gen_images_t{}_iter{}'.format(t, itr)]
-            gen_distrib = dict['gen_distrib_t{}_iter{}'.format(t, itr)]
+            gen_images = dict['gen_images_t{}'.format(t)]
+            gen_distrib = dict['gen_distrib0_t{}'.format(t)]
             gen_distrib = color_code_distrib(gen_distrib, 1, renormalize=True)
 
             if individual_ex:
@@ -58,7 +58,7 @@ def main():
                 out_im = assemble_gif(vid_list, num_exp=8)
                 suf = '_strip'
 
-            save_video_mp4(dest_dir + '/gen_images_b{}_t{}_iter{}{}'.format(b, t,itr,suf), out_im)
+            save_video_mp4(dest_dir + '/gen_images_b{}_t{}{}'.format(b, t,suf), out_im)
 
 if __name__ == '__main__':
     main()

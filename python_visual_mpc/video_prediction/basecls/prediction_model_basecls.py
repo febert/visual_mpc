@@ -64,21 +64,25 @@ class Base_Prediction_Model(object):
         self.img_height = self.conf['img_height']
         self.img_width = self.conf['img_width']
 
+        if 'float16' in conf:
+            use_dtype = tf.float16
+        else: use_dtype = tf.float32
+
         if images is None:
             if not load_data:
-                self.actions_pl = tf.placeholder(tf.float32, name='actions',
+                self.actions_pl = tf.placeholder(use_dtype, name='actions',
                                             shape=(conf['batch_size'], conf['sequence_length'], self.adim))
                 actions = self.actions_pl
 
-                self.states_pl = tf.placeholder(tf.float32, name='states',
+                self.states_pl = tf.placeholder(use_dtype, name='states',
                                            shape=(conf['batch_size'], conf['sequence_length'], self.sdim))
                 states = self.states_pl
 
-                self.images_pl = tf.placeholder(tf.float32, name='images',
+                self.images_pl = tf.placeholder(use_dtype, name='images',
                                            shape=(conf['batch_size'], conf['sequence_length'], self.img_height, self.img_width, 3))
                 images = self.images_pl
 
-                self.pix_distrib_pl = tf.placeholder(tf.float32, name='states',
+                self.pix_distrib_pl = tf.placeholder(use_dtype, name='states',
                                                      shape=(conf['batch_size'], conf['sequence_length'], self.ndesig, self.img_height, self.img_width, 1))
                 pix_distrib = self.pix_distrib_pl
 
