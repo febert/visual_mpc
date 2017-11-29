@@ -268,11 +268,13 @@ class CEM_controller():
             # axarr[p].set_title('input_distrib{}'.format(p), fontsize=8)
         # plt.show()
 
+        t_startpred = datetime.now()
         gen_images, gen_distrib, gen_states, _ = self.predictor(input_images=last_frames,
                                                                 input_state=last_states,
                                                                 input_actions=actions,
                                                                 input_one_hot_images=input_distrib,
                                                                 )
+        print 'time for videprediction {}'.format((datetime.now() - t_startpred).seconds + (datetime.now() - t_startpred).microseconds / 1e6)
 
         scores_per_task = []
         for p in range(self.ndesig):
@@ -330,14 +332,24 @@ class CEM_controller():
                                        numex=5)
                 v.build_figure()
 
+            sorted_inds = scores.argsort()
+            bestind = sorted_inds[0]
+            middle = sorted_inds[sorted_inds.shape[0] / 2]
+            worst = sorted_inds[-1]
+            sel_ind =[bestind, middle, worst]
             # t, r, c, 3
-            best_gen_images = np.stack([im[bestind] for im in gen_images], axis=0).flatten()
+            gen_im_l = []
+            gen_distrib_l = []
+            for ind in sel_ind:
+                gen_im_l.append(np.stack([im[ind] for im in gen_images], axis=0).flatten())
+                gen_distrib_l.append(np.stack([d[ind] for d in gen_distrib], axis=0).flatten())
 
-            # t, r, c, 1
-            best_gen_distrib_seq = np.stack([d[bestind] for d in  gen_distrib], axis=0).flatten()
+            gen_im_l = np.stack(gen_im_l, axis=0).flatten()
+            gen_distrib_l = np.stack(gen_distrib_l, axis=0).flatten()
+            print "-------------------------------", gen_im_l.shape, gen_distrib_l.shape
 
-            self.gen_image_publisher.publish(best_gen_images)
-            self.gen_pix_distrib_publisher.publish(best_gen_distrib_seq)
+            self.gen_image_publisher.publish(gen_im_l)
+            self.gen_pix_distrib_publisher.publish(gen_distrib_l)
 
         if 'store_video_prediction' in self.agentparams and\
                 itr == (self.policyparams['iterations']-1):
