@@ -56,23 +56,23 @@ from python_visual_mpc import __file__ as base_filepath
 class Visual_MPC_Client():
     def __init__(self):
 
-        parser = argparse.ArgumentParser(description='Run benchmarks')
-        parser.add_argument('benchmark', type=str, help='the name of the folder with agent setting for the benchmark')
-        parser.add_argument('--save_subdir', default='False', type=str, help='')
-        parser.add_argument('--canon', default=-1, type=int, help='whether to store canonical example')
-        parser.add_argument('--gui', default=-1, type=str, help='whether to use an external gui')
-        parser.add_argument('--robot', default="", type=str, help='which robot you are using, necssary for loading the correct pushback traj')
+        # parser = argparse.ArgumentParser(description='Run benchmarks')
+        # parser.add_argument('benchmark', type=str, help='the name of the folder with agent setting for the benchmark')
+        # parser.add_argument('--save_subdir', default='False', type=str, help='')
+        # parser.add_argument('--canon', default=-1, type=int, help='whether to store canonical example')
+        # parser.add_argument('--gui', default=-1, type=str, help='whether to use an external gui')
+        # args = parser.parse_args()
 
-        args = parser.parse_args()
-
-        if args.gui == 'True':
-            self.use_gui = True
-        else:
-            self.use_gui = False
+        # if args.gui == 'True':
+        #     self.use_gui = True
+        # else:
+        #     self.use_gui = False
+        self.use_gui = rospy.get_param('~gui')   #experiment name
 
         self.base_dir = '/'.join(str.split(base_filepath, '/')[:-2])
         cem_exp_dir = self.base_dir + '/experiments/cem_exp/benchmarks_sawyer'
-        benchmark_name = args.benchmark
+
+        benchmark_name = rospy.get_param('~exp')   #experiment name
         bench_dir = cem_exp_dir + '/' + benchmark_name
         if not os.path.exists(bench_dir):
             raise ValueError('benchmark directory does not exist')
@@ -87,8 +87,6 @@ class Visual_MPC_Client():
         else:
             self.enable_rot = False
 
-        self.args = args
-
         hyperparams = imp.load_source('hyperparams', self.policyparams['netconf'])
         self.netconf = hyperparams.configuration
         dataconf_file = self.base_dir + '/'.join(str.split(self.netconf['data_dir'], '/')[:-1]) + '/conf.py'
@@ -100,16 +98,6 @@ class Visual_MPC_Client():
             self.img_height = 64
             self.img_width = 64
         self.ndesig = self.agentparams['ndesig']
-
-        if args.canon != -1:
-            self.save_canon =True
-            self.canon_dir = '/home/guser/catkin_ws/src/lsdc/pushing_data/canonical_singleobject'
-            self.canon_ind = args.canon
-            pdb.set_trace()
-        else:
-            self.save_canon = False
-            self.canon_dir = ''
-            self.canon_ind = None
 
         self.num_traj = 5000
 
@@ -171,7 +159,7 @@ class Visual_MPC_Client():
             save_video = True
             save_actions = True
             save_images = True
-            self.robot_name = args.robot
+            self.robot_name = rospy.get_param('~robot')  # experiment name
             assert self.robot_name != ''
         else:
             save_video = True
@@ -179,7 +167,7 @@ class Visual_MPC_Client():
             save_images = False
             self.data_collection = False
 
-        if self.args.save_subdir == "True":
+        if self.save_subdir == "True":
             self.save_subdir = raw_input('enter subdir to save data:')
             self.recorder_save_dir = self.base_dir + "/experiments/cem_exp/benchmarks_sawyer/" + self.benchname + \
                                         '/' + self.save_subdir + "/videos"

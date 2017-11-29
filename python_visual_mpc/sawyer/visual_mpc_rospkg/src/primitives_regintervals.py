@@ -42,28 +42,23 @@ class Primitive_Executor(object):
         self.duration = 20.#24 #16  # duration of trajectory in seconds
 
         self.state_sequence_length = 96 # number of snapshots that are taken
+        self.ctrl = robot_controller.RobotController()
 
         action_frequency = float(float(self.state_sequence_length)/float(self.duration)/float(self.act_every))
         print 'using action frequency of {}Hz'.format(action_frequency)
         print 'time between actions:', 1 / action_frequency
 
-        parser = argparse.ArgumentParser(description='set robot to use')
-        parser.add_argument('robot', type=str, help='robot name')
-        parser.add_argument('--savedir', default='', type=str, help='directory to save data')
+        self.robot_name = rospy.get_param('~robot')
+        savedir = rospy.get_param('~savedir')
 
-        args = parser.parse_args()
-
-        self.ctrl = robot_controller.RobotController()
-        self.robot_name = args.robot
-
-        if args.savedir == '':
-            save_dir = "/media/febert/harddisk/febert/sawyer_data/newrecording_{}".format(self.robot_name)
+        if savedir == '':
+            savedir = "/media/febert/harddisk/febert/sawyer_data/newrecording_{}".format(self.robot_name)
         else:
-            save_dir = args.savedir
-        if not os.path.exists(save_dir):
-            raise ValueError("{} does not exist".format(save_dir))
+            savedir = savedir
+        if not os.path.exists(savedir):
+            raise ValueError("{} does not exist".format(savedir))
 
-        self.recorder = robot_recorder.RobotRecorder(agent_params={}, save_dir= save_dir,
+        self.recorder = robot_recorder.RobotRecorder(agent_params={}, save_dir= savedir,
                                                      seq_len=self.state_sequence_length, use_aux=False)
 
         self.alive_publisher = rospy.Publisher('still_alive', String, queue_size=10)
