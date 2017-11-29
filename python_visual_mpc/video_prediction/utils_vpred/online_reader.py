@@ -265,7 +265,7 @@ def test_online_reader():
     conf['current_dir'] = current_dir
     conf['shift_window'] = ''
 
-    dataconf_file = '/home/frederik/Documents/catkin_ws/src/visual_mpc/pushing_data/online_weiss/dataconf.py'
+    dataconf_file = '/home/frederik/Documents/catkin_ws/src/visual_mpc/pushing_data/online_weiss/conf.py'
     data = imp.load_source('hyperparams', dataconf_file)
     conf['data_configuration'] = data.data_configuration
     conf['data_configuration']['sequence_length'] = conf['sequence_length']
