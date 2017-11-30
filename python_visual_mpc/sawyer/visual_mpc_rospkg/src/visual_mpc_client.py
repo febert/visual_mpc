@@ -67,6 +67,8 @@ class Visual_MPC_Client():
         #     self.use_gui = True
         # else:
         #     self.use_gui = False
+        self.ctrl = robot_controller.RobotController()
+
         self.use_gui = rospy.get_param('~gui')   #experiment name
 
         self.base_dir = '/'.join(str.split(base_filepath, '/')[:-2])
@@ -109,8 +111,7 @@ class Visual_MPC_Client():
         self.save_subdir = ""
 
         self.use_aux = False
-        if self.use_robot:
-            self.ctrl = robot_controller.RobotController()
+
 
         self.get_action_func = rospy.ServiceProxy('get_action', get_action)
         self.init_traj_visual_func = rospy.ServiceProxy('init_traj_visualmpc', init_traj_visualmpc)
@@ -188,6 +189,8 @@ class Visual_MPC_Client():
                                                      save_actions=save_actions,
                                                      save_images=save_images,
                                                      image_shape=(self.img_height, self.img_width))
+
+
 
         if self.data_collection == True:
             self.checkpoint_file = os.path.join(self.recorder.save_dir, 'checkpoint.txt')

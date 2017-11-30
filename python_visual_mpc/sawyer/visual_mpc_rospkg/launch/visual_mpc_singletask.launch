@@ -1,5 +1,5 @@
 <launch>
-     <include file="$(find kinect2_bridge)/launch/kinect2_bridge.launch" launch-prefix="xterm -e"/>
+     <include file="$(find kinect2_bridge)/launch/kinect2_bridge.launch"/>
      <node pkg="visual_mpc_rospkg" type="joint_space_impedance.py" name="joint_space_impedance" launch-prefix="xterm -e"/>
      <!--<node pkg="visual_mpc_rospkg" type="visual_mpc_server.py" name="visual_mpc_server" launch-prefix="xterm -e">-->
           <!--<param name="robot" value="$(arg exp)"/>-->
@@ -8,5 +8,5 @@
           <param name="exp" value="$(arg exp)"/>
           <param name="gui" value="$(arg gui)"/>
      </node>
-     <include file="$(find visual_mpc_rospkg)/start_gripper_autoupdate_$(arg robot).launch" launch-prefix="xterm -e"/>
+     <include file="$(find visual_mpc_rospkg)/launch/start_gripper_autoupdate_$(arg robot).launch"/>
 </launch>
