@@ -67,6 +67,8 @@ class Visual_MPC_Client():
         #     self.use_gui = True
         # else:
         #     self.use_gui = False
+        self.ctrl = robot_controller.RobotController()
+
         self.use_gui = rospy.get_param('~gui')   #experiment name
 
         self.base_dir = '/'.join(str.split(base_filepath, '/')[:-2])
@@ -109,8 +111,7 @@ class Visual_MPC_Client():
         self.save_subdir = ""
 
         self.use_aux = False
-        if self.use_robot:
-            self.ctrl = robot_controller.RobotController()
+
 
         self.get_action_func = rospy.ServiceProxy('get_action', get_action)
         self.init_traj_visual_func = rospy.ServiceProxy('init_traj_visualmpc', init_traj_visualmpc)
@@ -159,6 +160,8 @@ class Visual_MPC_Client():
             save_video = True
             save_actions = True
             save_images = True
+            self.robot_name = rospy.get_param('~robot')  # experiment name
+            assert self.robot_name != ''
         else:
             save_video = True
             save_actions = False
@@ -186,6 +189,8 @@ class Visual_MPC_Client():
                                                      save_actions=save_actions,
                                                      save_images=save_images,
                                                      image_shape=(self.img_height, self.img_width))
+
+
 
         if self.data_collection == True:
             self.checkpoint_file = os.path.join(self.recorder.save_dir, 'checkpoint.txt')
@@ -545,7 +550,7 @@ class Visual_MPC_Client():
             try:
                 if self.robot_move:
                     self.move_with_impedance(des_joint_angles)
-                        # print des_joint_angles
+                    # print des_joint_angles
             except OSError:
                 rospy.logerr('collision detected, stopping trajectory, going to reset robot...')
                 rospy.sleep(.5)
@@ -577,10 +582,10 @@ class Visual_MPC_Client():
         if self.ctrl.sawyer_gripper:
             self.ctrl.gripper.open()
         else:
-            # print 'delta t gripper status', rospy.get_time() - self.tlast_gripper_status
-            # if rospy.get_time() - self.tlast_gripper_status > 10.:
-            #     print 'gripper stopped working!'
-            #     pdb.set_trace()
+            print 'delta t gripper status', rospy.get_time() - self.tlast_gripper_status
+            if rospy.get_time() - self.tlast_gripper_status > 10.:
+                print 'gripper stopped working!'
+                pdb.set_trace()
             self.set_weiss_griper(100.)
 
 
@@ -623,9 +628,10 @@ class Visual_MPC_Client():
         """
         assert (rospy.get_time() >= t_prev)
         des_pos = previous_goalpoint + (next_goalpoint - previous_goalpoint) * (rospy.get_time()- t_prev)/ (t_next - t_prev)
-        if rospy.get_time() >= t_next:
+        if rospy.get_time() - t_next > 0.2:
             des_pos = next_goalpoint
-            print 't > tnext'
+            print 't - tnext > 0.2!!!!'
+            pdb.set_trace()
 
         # print 'current_delta_time: ', self.curr_delta_time
         # print "interpolated pos:", des_pos
@@ -821,7 +827,7 @@ class Visual_MPC_Client():
         print 'redistribute...'
 
         file = '/'.join(str.split(python_visual_mpc.__file__, "/")[
-                        :-1]) + '/sawyer/visual_mpc_rospkg/src/utils/pushback_traj_.pkl'
+                        :-1]) + '/sawyer/visual_mpc_rospkg/src/utils/pushback_traj_{}.pkl'.format(self.robot_name)
         self.joint_pos = cPickle.load(open(file, "rb"))
 
         self.imp_ctrl_release_spring(100)
@@ -829,7 +835,7 @@ class Visual_MPC_Client():
 
         replay_rate = rospy.Rate(700)
         for t in range(len(self.joint_pos)):
-            print 'step {0} joints: {1}'.format(t, self.joint_pos[t])
+            # print 'step {0} joints: {1}'.format(t, self.joint_pos[t])
             replay_rate.sleep()
             self.move_with_impedance(self.joint_pos[t])
 
