@@ -30,28 +30,23 @@ class Visual_MPC_Server(object):
 
         cem_exp_dir = base_dir + '/experiments/cem_exp/benchmarks_sawyer'
 
-        parser = argparse.ArgumentParser(description='Run benchmarks')
-        parser.add_argument('benchmark', type=str, help='the name of the folder with agent setting for the benchmark')
-        parser.add_argument('--gpu_id', type=int, default=0, help='value to set for cuda visible devices variable')
-        parser.add_argument('--ngpu', type=int, default=1, help='number of gpus to use')
-        parser.add_argument('--userobot', type=str, default='True', help='number of gpus to use')
+        # parser = argparse.ArgumentParser(description='Run benchmarks')
+        # parser.add_argument('benchmark', type=str, help='the name of the folder with agent setting for the benchmark')
+        # parser.add_argument('--gpu_id', type=int, default=0, help='value to set for cuda visible devices variable')
+        # parser.add_argument('--ngpu', type=int, default=1, help='number of gpus to use')
+        # parser.add_argument('--userobot', type=str, default='True', help='number of gpus to use')
+        # parser.add_argument('--redis', type=str, default='', help='necessary when using ray: the redis address of the head node')
 
-        parser.add_argument('--redis', type=str, default='', help='necessary when using ray: the redis address of the head node')
+        # args = parser.parse_args()
 
-        args = parser.parse_args()
+        self.use_robot = True
 
-        if args.userobot == 'True':
-            self.use_robot = True
-        elif args.userobot == 'False':
-            self.use_robot = False
+        rospy.init_node('visual_mpc_server')
+        rospy.loginfo("init visual mpc server")
 
-        if self.use_robot:
-            rospy.init_node('visual_mpc_server')
-            rospy.loginfo("init visual mpc server")
-
-        benchmark_name = args.benchmark
-        gpu_id = args.gpu_id
-        ngpu = args.ngpu
+        benchmark_name = rospy.get_param('~exp')
+        gpu_id = rospy.get_param('~gpu_id')
+        ngpu = rospy.get_param('~ngpu')
 
         # load specific agent settings for benchmark:
         bench_dir = cem_exp_dir + '/' + benchmark_name
