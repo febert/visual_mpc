@@ -1,4 +1,4 @@
-<!--requires parameters exp-->
+     <!--requires parameters exp-->
 <launch>
      <include file="$(find kinect2_bridge)/launch/kinect2_bridge.launch"/>
      <!--<node pkg="visual_mpc_rospkg" type="joint_space_impedance.py" name="joint_space_impedance" launch-prefix="xterm -e"/>-->
