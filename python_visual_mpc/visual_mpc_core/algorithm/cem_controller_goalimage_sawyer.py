@@ -19,6 +19,9 @@ import collections
 from visual_mpc_rospkg.msg import floatarray
 from rospy.numpy_msg import numpy_msg
 import rospy
+import time
+# from profilehooks import coverage, timecall, profile, cProfile
+# from line_profiler import LineProfiler
 
 class CEM_controller():
     """
@@ -165,7 +168,7 @@ class CEM_controller():
         for itr in range(self.niter):
             print '------------'
             print 'iteration: ', itr
-            t_startiter = datetime.now()
+            t_startiter = time.time()
             actions = np.random.multivariate_normal(self.mean, self.sigma, self.M)
             actions = actions.reshape(self.M, self.naction_steps, self.adim)
             actions = self.discretize(actions)
@@ -179,15 +182,14 @@ class CEM_controller():
                 self.bestaction_withrepeat = actions[0]
                 return
 
-            t_start = datetime.now()
+            t_start = time.time()
 
             if 'multmachine' in self.policyparams:
                 scores = self.ray_video_pred(last_frames, last_states, actions, itr)
             else:
                 scores = self.video_pred(last_frames, last_states, actions, itr)
 
-            print 'overall time for evaluating actions {}'.format(
-                (datetime.now() - t_start).seconds + (datetime.now() - t_start).microseconds / 1e6)
+            print 'overall time for evaluating actions {}'.format(time.time() - t_start)
 
             actioncosts = self.calc_action_cost(actions)
             scores += actioncosts
@@ -211,8 +213,7 @@ class CEM_controller():
             print 'iter {0}, bestscore {1}'.format(itr, scores[self.indices[0]])
             print 'action cost of best action: ', actioncosts[self.indices[0]]
 
-            print 'overall time for iteration {}'.format(
-                (datetime.now() - t_startiter).seconds + (datetime.now() - t_startiter).microseconds / 1e6)
+            print 'overall time for iteration {}'.format(time.time() - t_startiter)
 
     def switch_on_pix(self, desig):
         one_hot_images = np.zeros((self.netconf['batch_size'], self.netconf['context_frames'], self.ndesig, self.img_height, self.img_width, 1), dtype=np.float32)
@@ -249,8 +250,10 @@ class CEM_controller():
 
         return scores
 
+
     def video_pred(self, last_frames, last_states, actions, itr):
 
+        t0 = time.time()
         last_states = np.expand_dims(last_states, axis=0)
         last_states = np.repeat(last_states, self.netconf['batch_size'], axis=0)
 
@@ -268,24 +271,34 @@ class CEM_controller():
             # axarr[p].set_title('input_distrib{}'.format(p), fontsize=8)
         # plt.show()
 
-        t_startpred = datetime.now()
+        print 't0', time.time() - t0
+
+        t_startpred = time.time()
         gen_images, gen_distrib, gen_states, _ = self.predictor(input_images=last_frames,
                                                                 input_state=last_states,
                                                                 input_actions=actions,
                                                                 input_one_hot_images=input_distrib,
                                                                 )
-        print 'time for videprediction {}'.format((datetime.now() - t_startpred).seconds + (datetime.now() - t_startpred).microseconds / 1e6)
+        print 'time for videprediction {}'.format(time.time() - t_startpred)
 
+        t_startcalcscores = time.time()
         scores_per_task = []
         for p in range(self.ndesig):
+            start_calc_dist = time.time()
             distance_grid = self.get_distancegrid(self.goal_pix[p])
+            print 'time to calc dist grid:', time.time() - start_calc_dist
+
             scores_per_task.append(self.calc_scores(gen_distrib, distance_grid))
             print 'best score of task {}:  {}'.format(p, np.min(scores_per_task[-1]))
+
+        print 'time to calc scores {}'.format(time.time()-t_startcalcscores)
+
+        start_t2 = time.time()
 
         scores = np.sum(np.stack(scores_per_task, axis=1), axis=1)
         bestind = scores.argsort()[0]
         for p in range(self.ndesig):
-            print 'score {} of best traj: ', scores_per_task[p][bestind]
+            print 'score of best traj: ', scores_per_task[p][bestind]
 
         # for predictor_propagation only!!
         if 'predictor_propagation' in self.policyparams:
@@ -354,6 +367,8 @@ class CEM_controller():
         if 'store_video_prediction' in self.agentparams and\
                 itr == (self.policyparams['iterations']-1):
             self.terminal_pred = gen_images[-1][bestind]
+
+        print 'td', time.time() - start_t2
 
         return scores
 

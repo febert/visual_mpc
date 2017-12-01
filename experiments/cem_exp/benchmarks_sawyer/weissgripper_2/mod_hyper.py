@@ -18,7 +18,7 @@ policy = {
     'initial_std_rot': 0.,   #std dev. in xy
     'netconf': current_dir + '/conf.py',
     'iterations': 2,
-    'verbose':'',
+    # 'verbose':'',
     # 'predictor_propagation': '',   # use the model get the designated pixel for the next step!
     'action_cost_factor': 0,
     'no_instant_gif':"",
