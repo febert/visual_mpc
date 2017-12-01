@@ -55,18 +55,6 @@ from python_visual_mpc import __file__ as base_filepath
 
 class Visual_MPC_Client():
     def __init__(self):
-
-        # parser = argparse.ArgumentParser(description='Run benchmarks')
-        # parser.add_argument('benchmark', type=str, help='the name of the folder with agent setting for the benchmark')
-        # parser.add_argument('--save_subdir', default='False', type=str, help='')
-        # parser.add_argument('--canon', default=-1, type=int, help='whether to store canonical example')
-        # parser.add_argument('--gui', default=-1, type=str, help='whether to use an external gui')
-        # args = parser.parse_args()
-
-        # if args.gui == 'True':
-        #     self.use_gui = True
-        # else:
-        #     self.use_gui = False
         self.ctrl = robot_controller.RobotController()
 
         self.use_gui = rospy.get_param('~gui')   #experiment name
@@ -102,6 +90,7 @@ class Visual_MPC_Client():
         self.ndesig = self.agentparams['ndesig']
 
         self.num_traj = 5000
+        self.use_save_subdir = False
 
         self.action_sequence_length = self.agentparams['T'] # number of snapshots that are taken
         self.use_robot = True
@@ -227,6 +216,7 @@ class Visual_MPC_Client():
         """
         print 'reset activated'
         self.reset_active = True
+        self.set_neutral_with_impedance(2.5)
 
     def mark_goal_desig(self, itr):
         print 'prepare to mark goalpos and designated pixel! press c to continue!'
@@ -427,7 +417,7 @@ class Visual_MPC_Client():
         self.gripper_closed = False
         self.gripper_up = False
 
-        if self.args.save_subdir == "True":
+        if self.use_save_subdir:
             self.save_subdir = raw_input('enter subdir to save data:')
             self.recorder_save_dir = self.base_dir + "/experiments/cem_exp/benchmarks_sawyer/" + self.benchname + \
                                      '/' + self.save_subdir + "/videos"
@@ -462,7 +452,23 @@ class Visual_MPC_Client():
 
         if 'random_startpos' in self.policyparams:
             startpos = np.array([np.random.uniform(self.xlim[0], self.xlim[1]), np.random.uniform(self.ylim[0], self.ylim[1])])
+        elif 'startpos_basedon_click' in self.agentparams:
+            print 'setting startpos based on click!'
+            assert self.ndesig == 1
+
+            print 'desig pos', self.desig_pos_main
+            startpos_x = self.desig_pos_main[0,0] / float(self.img_height) * (self.xlim[1] - self.xlim[0]) + self.xlim[0]
+            startpos_y = self.desig_pos_main[0,1] / float(self.img_width) * (self.ylim[1] - self.ylim[0]) + self.ylim[0]
+
+            x_offset = -0.07
+            startpos_x += x_offset
+            startpos_x = np.clip(startpos_x, self.xlim[0], self.xlim[1])
+            startpos_y = np.clip(startpos_y, self.ylim[0], self.ylim[1])
+
+            startpos = np.array([startpos_x, startpos_y])
+
         else: startpos = self.get_endeffector_pos()[:2]
+        print 'startpos', startpos
 
         start_angle = np.array([0.])
         self.des_pos = np.concatenate([startpos, np.array([self.lower_height]), start_angle], axis=0)
@@ -476,11 +482,7 @@ class Visual_MPC_Client():
             self.tracker = OpenCV_Track_Listener(self.agentparams,
                                                  self.recorder,
                                                  self.desig_pos_main)
-        rospy.sleep(1)
-
-        if self.save_canon:
-            self.save_canonical()
-
+        rospy.sleep(0.7)
 
         i_step = 0  # index of current commanded point
 
@@ -512,6 +514,7 @@ class Visual_MPC_Client():
                 query_times.append(time.time()-get_action_start)
 
                 print 'action vec', action_vec
+
 
                 self.des_pos, going_down = self.apply_act(self.des_pos, action_vec, i_step)
                 start_time = rospy.get_time()
@@ -548,7 +551,7 @@ class Visual_MPC_Client():
                         isave_substep += 1
                         isave += 1
             try:
-                if self.robot_move:
+                if self.robot_move and not self.reset_active:
                     self.move_with_impedance(des_joint_angles)
                     # print des_joint_angles
             except OSError:
@@ -568,7 +571,7 @@ class Visual_MPC_Client():
         print 'average iteration took {0} seconds'.format((time.time() - t_start) / self.action_sequence_length)
         print 'average action query took {0} seconds'.format(np.mean(np.array(query_times)))
 
-        if not self.data_collection:
+        if not self.data_collection or not self.use_gui:
             self.save_final_image(i_tr)
             self.recorder.save_highres()
             #copy files with pix distributions from remote and make gifs
@@ -578,7 +581,8 @@ class Visual_MPC_Client():
                                    numex=5)
             v.build_figure()
 
-        self.goup()
+        if not self.reset_active:
+            self.goup()
         if self.ctrl.sawyer_gripper:
             self.ctrl.gripper.open()
         else:

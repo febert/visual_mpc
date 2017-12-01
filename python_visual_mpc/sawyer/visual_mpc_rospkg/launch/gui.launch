@@ -1,0 +1,6 @@
+<launch>
+     <node pkg="visual_mpc_rospkg" type="visual_mpc_demo.py" name="visual_mpc_demo" output="screen">
+          <param name="exp" value="$(arg exp)"/>
+          <param name="ndesig" value="1"/>
+     </node>
+</launch>

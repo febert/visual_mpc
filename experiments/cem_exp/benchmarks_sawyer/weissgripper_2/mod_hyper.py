@@ -10,14 +10,14 @@ policy = {
     'low_level_ctrl': None,
     'current_dir':current_dir,
     'usenet': True,
-    'nactions': 5,
-    'repeat': 3,
+    'nactions': 8,
+    'repeat': 2,
     'initial_std': .035,   #std dev. in xy
     'initial_std_grasp': 0.,   #std dev. in xy
     'initial_std_lift': 1.,   #std dev. in xy
     'initial_std_rot': 0.,   #std dev. in xy
     'netconf': current_dir + '/conf.py',
-    'iterations': 3,
+    'iterations': 2,
     'verbose':'',
     # 'predictor_propagation': '',   # use the model get the designated pixel for the next step!
     'action_cost_factor': 0,
@@ -34,7 +34,7 @@ agent = {
     'adim':5,
     'sdim':4,
     'state_dim':4,
-    'make_final_gif':'',
+    # 'make_final_gif':'',
     'wristrot':'',
     'startpos_basedon_click':''
 }

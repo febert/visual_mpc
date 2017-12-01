@@ -17,22 +17,23 @@ policy = {
     'initial_std_lift': 1.,
     'initial_std_rot': 0.,
     'netconf': current_dir + '/conf.py',
-    'iterations': 3,
+    'iterations': 2,
     # 'verbose':'',
     'action_cost_factor': 0,
     'no_instant_gif':"",
     'rew_all_steps':"",
     'finalweight':30,
-    'no_pixdistrib_video':'',
+    'no_pixdistrib_video':''
 }
 
 agent = {
-    'T': 20,
+    'T': 14,
     'adim':5,
     'sdim':4,
     'ndesig':1,
     'opencv_tracking':'',
     # 'make_final_gif':'',
     'collect_data':'',
-    'wristrot':''
+    'wristrot':'',
+    'startpos_basedon_click':''
 }

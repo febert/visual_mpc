@@ -17,6 +17,7 @@ from visual_mpc_rospkg.msg import intarray, floatarray
 from sensor_msgs.msg import Image as Image_msg
 import rospy
 import python_visual_mpc
+import pdb
 
 from python_visual_mpc import __file__ as base_filepath
 
@@ -34,15 +35,13 @@ SEQUENCE_LENGTH = 14
 
 class Visualizer(object):
     def __init__(self):
-        parser = argparse.ArgumentParser(description='Run benchmarks')
-        parser.add_argument('benchmark', type=str, help='the name of the folder with agent setting for the benchmark')
-        parser.add_argument('ndesig', type=int, default=1, help='allowed number of designated points')
-
-        args = parser.parse_args()
+        rospy.init_node('visual_mpc_demo')
+        rospy.loginfo("init node visual mpc demo")
+        benchmark_name = rospy.get_param('~exp')
+        self.ndesig = rospy.get_param('~ndesig')
 
         self.base_dir = '/'.join(str.split(base_filepath, '/')[:-2])
         cem_exp_dir = self.base_dir + '/experiments/cem_exp/benchmarks_sawyer'
-        benchmark_name = args.benchmark
         bench_dir = cem_exp_dir + '/' + benchmark_name
         if not os.path.exists(bench_dir):
             raise ValueError('benchmark directory does not exist')
@@ -67,7 +66,7 @@ class Visualizer(object):
 
         self.prediction_length = self.netconf['sequence_length'] - 1
 
-        self.ndesig = args.ndesig
+        # self.ndesig = args.ndesig
 
         self.num_pairs = 0
         self.pairs = []
@@ -77,11 +76,10 @@ class Visualizer(object):
         self.receivingDistribs = True
 
         self.bridge = CvBridge()
-        rospy.init_node('visual_mpc_demo')
-        rospy.loginfo("init node visual mpc demo")
+
         self.visual_mpc_cmd_publisher = rospy.Publisher('visual_mpc_cmd', numpy_msg(intarray), queue_size=10)
         self.visual_mpc_reset_cmd_publisher = rospy.Publisher('visual_mpc_reset_cmd', numpy_msg(intarray), queue_size=10)
-        rospy.Subscriber("main/kinect2/hd/image_color", Image_msg, self.update_image)
+        rospy.Subscriber("/kinect2/hd/image_color", Image_msg, self.update_image)
         rospy.Subscriber('gen_image', numpy_msg(floatarray), self.update_pred_photos)
         rospy.Subscriber('gen_pix_distrib', numpy_msg(floatarray), self.update_distrib_photos)
 
@@ -263,7 +261,8 @@ class Visualizer(object):
             for i in range(self.num_predictions):
                 tempPhotos = []
                 for j in range(self.prediction_length):
-                    colored_distrib = 255 * self.cmap(np.squeeze(data[0, i, j]))[:, :, :3]
+                    renormalized_data = data[0, i, j]/np.max(data[0, i, j])
+                    colored_distrib = 255 * self.cmap(np.squeeze(renormalized_data))[:, :, :3]
                     colored_distrib = colored_distrib.astype(np.uint8)
                     pil_image = Image.fromarray(colored_distrib).resize([int(self.prediction_width * self.prediction_ratio),
                                                                          int(self.prediction_height * self.prediction_ratio)],

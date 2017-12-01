@@ -21,11 +21,8 @@ import pdb
 class Tracker(object):
     def __init__(self):
         print "Initializing node... "
-        # getting the config dictionaries
-        parser = argparse.ArgumentParser(description='Run benchmarks')
-        parser.add_argument('benchmark', type=str, help='the name of the folder with agent setting for the benchmark')
-        args = parser.parse_args()
-        benchmark_name = args.benchmark
+        rospy.init_node("opencv_tracker")
+        benchmark_name = rospy.get_param('~exp')
         base_dir = '/'.join(str.split(base_filepath, '/')[:-2])
         cem_exp_dir = base_dir + '/experiments/cem_exp/benchmarks_sawyer'
         bench_dir = cem_exp_dir + '/' + benchmark_name
@@ -41,13 +38,10 @@ class Tracker(object):
         self.ndesig = self.agentparams['ndesig']
         print 'initializing {} tracker'.format(self.ndesig)
 
-        rospy.init_node("opencv_tracker")
-        rospy.Subscriber("main/kinect2/hd/image_color", Image_msg, self.store_latest_im)
-
         self.tracker_initialized = False
         self.bbox = None
 
-        rospy.Subscriber("main/kinect2/hd/image_color", Image_msg, self.store_latest_im)
+        rospy.Subscriber("/kinect2/hd/image_color", Image_msg, self.store_latest_im)
         rospy.Service('set_tracking_target', set_tracking_target, self.init_bbx)
         self.bbox_pub = rospy.Publisher('track_bbox', numpy_msg(intarray), queue_size=10)
         self.bridge = CvBridge()
@@ -67,6 +61,7 @@ class Tracker(object):
 
         if not self.tracker_initialized and self.bbox is not None:
             for p in range(self.ndesig):
+                print 'initializing tracker ',p
                 tracker = cv2.TrackerMIL_create()
                 tracker.init(self.lt_img_cv2, tuple(self.bbox[p]))
                 self.tracker_list.append(tracker)

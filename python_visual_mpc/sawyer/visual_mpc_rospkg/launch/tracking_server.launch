@@ -1,0 +1,5 @@
+<launch>
+     <node pkg="visual_mpc_rospkg" type="tracking_server.py" name="tracking_server" output="screen">
+          <param name="exp" value="$(arg exp)"/>
+     </node>
+</launch>

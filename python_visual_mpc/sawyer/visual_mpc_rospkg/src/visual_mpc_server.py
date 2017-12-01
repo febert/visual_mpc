@@ -50,6 +50,7 @@ class Visual_MPC_Server(object):
 
         # load specific agent settings for benchmark:
         bench_dir = cem_exp_dir + '/' + benchmark_name
+        print 'using configuration: ',benchmark_name
 
         if not os.path.exists(bench_dir):
             raise ValueError('benchmark directory does not exist')
