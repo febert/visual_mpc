@@ -39,9 +39,10 @@ def get_scores(traj_name_list):
             continue
 
         pkldata = cPickle.load(open(pkl_file, "rb"))
-        all_actions = pkldata['tr']
-        all_joint_angles = pkldata['jointangles']
-        all_endeffector_pos = pkldata['endeffector_pos']
+        track = pkldata['track_desig']
+        track = pkldata['']
+
+
 
     print 'done, number of pkl files not found:', nopkl_file
 
