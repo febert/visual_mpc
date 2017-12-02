@@ -123,6 +123,8 @@ class Visualizer_tkinter(object):
         if dict_ == None:
             dict_ = cPickle.load(open(filepath + '/pred.pkl', "rb"))
 
+        self.dict_ = dict_
+
         if 'iternum' in dict_:
             self.iternum = dict_['iternum']
             del dict_['iternum']
@@ -199,33 +201,35 @@ class Visualizer_tkinter(object):
         self.col_titles = col_titles
 
     def make_direct_vid(self, separate_vid = False):
-        self.new_video_list = []
+
         print 'making gif with tags'
         # self.video_list = [self.video_list[0]]
-        for vid, name in self.video_list:
-            print 'name: ', name
-            if name ==  'gen_images':
-                gen_images = vid
 
-            if 'mask' in name:
-                vid = color_code_distrib(vid, self.numex, renormalize=True)
+        for t in range(1,20):
+            gen_images = self.dict_['gen_images_t{}'.format(t)]
+            gen_distrib = self.dict_['gen_distrib0_t{}'.format(t)]
 
-            if name == 'gen_distrib':
-                vid = compute_overlay(gen_images, vid, self.numex)
+            gen_distrib = color_code_distrib(gen_distrib, self.numex, renormalize=True)
 
-            vid = upsample_nearest(vid, self.numex)
-            self.new_video_list.append(vid)
+            overlay = compute_overlay(gen_images, gen_distrib, self.numex)
 
-        if separate_vid:
-            vid_path = self.gif_savepath + '/sep_videos'
-            if not os.path.exists(vid_path):
-                os.mkdir(vid_path)
-            for b in range(self.numex):
-                frames = assemble_gif(self.new_video_list, convert_from_float=False, only_ind=b)
-                save_video_mp4(vid_path + '/example{}'.format(b), frames)
-        else:
-            framelist = assemble_gif(self.new_video_list, convert_from_float=False, num_exp=self.numex)
-            npy_to_gif(framelist, self.gif_savepath +'/direct{}{}'.format(self.iternum,self.suf))
+            new_videolist = [gen_images, overlay]
+
+            framelist = assemble_gif(new_videolist, convert_from_float=False, num_exp=self.numex)
+            save_video_mp4(self.gif_savepath + '/prediction_at_t{}'.format(t), framelist)
+
+        # if separate_vid:
+        #     vid_path = self.gif_savepath + '/sep_videos'
+        #     if not os.path.exists(vid_path):
+        #         os.mkdir(vid_path)
+        #     for b in range(self.numex):
+        #         frames = assemble_gif(self.new_video_list, convert_from_float=False, only_ind=b)
+        #         save_video_mp4(vid_path + '/example{}'.format(b), frames)
+        # else:
+        #     framelist = assemble_gif(self.new_video_list, convert_from_float=False, num_exp=self.numex)
+
+            # save_video_mp4(self.gif_savepath +'/prediction_at_t{}')
+            # npy_to_gif(framelist, self.gif_savepath +'/direct{}{}'.format(self.iternum,self.suf))
 
     def visualize_states_actions(self, states, actions):
 
@@ -427,6 +431,7 @@ class Visualizer_tkinter(object):
             self.suf = '_masks'+self.suf
         if self.gif_savepath != None:
             filepath = self.gif_savepath + '/animation{}{}.gif'.format(self.iternum,self.suf)
+            # filepath = self.gif_savepath + '/animation{}{}.mp4'.format(self.iternum,self.suf)
             print 'saving gif under: ', filepath
             anim.save(filepath, writer='imagemagick')
         root.mainloop()
@@ -595,7 +600,7 @@ def save_video_mp4(filename, frames):
 if __name__ == '__main__':
     # file_path = '/home/frederik/Documents/catkin_ws/src/visual_mpc/tensorflow_data/sawyer/data_amount_study/5percent_of_data/modeldata'
     # file_path = '/home/frederik/Documents/catkin_ws/src/visual_mpc/tensorflow_data/sawyer/alexmodel_finalpaper/improved_cdna_wristrot_k17d1_generatescratchimage_bs16/modeldata'
-    file_path = '/home/febert/Documents/catkin_ws/src/visual_mpc/experiments/cem_exp/benchmarks_sawyer/weissgripper/verbose'
+    file_path = '/home/frederik/Documents/catkin_ws/src/visual_mpc/experiments/cem_exp/benchmarks_sawyer/weissgripper/verbose/record_cem2'
     # file_path = '/home/frederik/Documents/catkin_ws/src/visual_mpc/tensorflow_data/sawyer/wristrot/modeldata'
 
     v  = Visualizer_tkinter(append_masks=False, filepath=file_path, numex=5, renorm_heatmaps=True)

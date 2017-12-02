@@ -144,6 +144,8 @@ class Visual_MPC_Client():
         #highres position used when doing tracking
         self.desig_hpos_main = None
 
+        self.tlast_ctrl_alive = rospy.get_time()
+
         if 'collect_data' in self.agentparams:
             self.data_collection = True
             save_video = True
@@ -151,6 +153,7 @@ class Visual_MPC_Client():
             save_images = True
             self.robot_name = rospy.get_param('~robot')  # experiment name
             assert self.robot_name != ''
+            rospy.Subscriber("ctrl_alive", numpy_msg(intarray), self.ctr_alive)
         else:
             save_video = True
             save_actions = False
@@ -192,6 +195,8 @@ class Visual_MPC_Client():
         else:
             self.run_visual_mpc()
 
+    def ctr_alive(self, data):
+        self.tlast_ctrl_alive = rospy.get_time()
 
     def run_visual_mpc_cmd(self, data):
         """"
@@ -547,7 +552,7 @@ class Visual_MPC_Client():
                         # print 'isave_substep', isave_substep
                         if 'opencv_tracking' in self.agentparams:
                             _, self.desig_hpos_main = self.tracker.get_track()
-                        self.recorder.save(isave, action_vec, self.get_endeffector_pos(), self.desig_hpos_main)
+                        self.recorder.save(isave, action_vec, self.get_endeffector_pos(), self.desig_hpos_main, self.desig_pos_main, self.goal_pos_main)
                         isave_substep += 1
                         isave += 1
             try:
@@ -571,7 +576,8 @@ class Visual_MPC_Client():
         print 'average iteration took {0} seconds'.format((time.time() - t_start) / self.action_sequence_length)
         print 'average action query took {0} seconds'.format(np.mean(np.array(query_times)))
 
-        if not self.data_collection or not self.use_gui:
+
+        if not self.data_collection and not self.use_gui:
             self.save_final_image(i_tr)
             self.recorder.save_highres()
             #copy files with pix distributions from remote and make gifs
@@ -591,6 +597,11 @@ class Visual_MPC_Client():
                 print 'gripper stopped working!'
                 pdb.set_trace()
             self.set_weiss_griper(100.)
+
+        if self.data_collection:
+            if rospy.get_time() - self.tlast_ctrl_alive > 10.:
+                print 'controller failed'
+                pdb.set_trace()
 
 
     def goup(self):

@@ -171,8 +171,20 @@ def main(unused_argv, conf_script= None):
     for itr in range(itr_0, conf['num_iterations'], 1):
         t_startiter = datetime.now()
         # Generate new batch of data_files.
+
         feed_dict = {model.iter_num: np.float32(itr),
                      model.train_cond: 1}
+
+        if 'scheduled_finetuning' in conf:
+            dest_itr = conf['scheduled_finetuning_dest_itr']
+            p_dest_val = conf['scheduled_finetuning_dest_value']
+            p_val = np.array([(itr/dest_itr)*p_dest_val + (1.-itr/dest_itr)])
+            p_val = np.clip(p_val, p_dest_val, 1.)
+            i_dataset = np.random.choice(2,1,p=[p_val, 1-p_val])
+
+            if (itr) % 10 == 0:
+                print 'picked dataset:',i_dataset
+            feed_dict[model.dataset_sel_cond] = i_dataset
 
         cost, _, summary_str = sess.run([model.loss, model.train_op, model.summ_op],
                                         feed_dict)
