@@ -11,16 +11,11 @@
      <!--launch-prefix="gnome-terminal &#45;&#45;command"-->
      <node pkg="visual_mpc_rospkg" type="visual_mpc_client.py" name="visual_mpc_client" output="screen">
           <param name="exp" value=""/>
-          <param name="gui" value="True"/>
+          <param name="gui" value="False"/>
      </node>
 
      <node pkg="visual_mpc_rospkg" type="tracking_server.py" name="tracking_server" output="screen">
           <param name="exp" value="online_data"/>
-     </node>
-
-     <node pkg="visual_mpc_rospkg" type="visual_mpc_demo.py" name="visual_mpc_demo"  output="screen">
-          <param name="exp" value="online_data"/>
-          <param name="ndesig" value="1"/>
      </node>
 
      <include file="$(find visual_mpc_rospkg)/launch/start_gripper_autoupdate_$(arg robot).launch"/>
