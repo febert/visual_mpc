@@ -307,7 +307,7 @@ class RobotRecorder(object):
         shutil.rmtree(traj_folder)
         print 'deleted {}'.format(traj_folder)
 
-    def save(self, i_save, action, endeffector_pose, desig_hpos_main= None, track_desig_pos=None):
+    def save(self, i_save, action, endeffector_pose, desig_hpos_main= None, track_desig_pos=None, goal_pos=None):
         self.t_savereq = rospy.get_time()
         assert self.instance_type == 'main'
 
@@ -324,7 +324,7 @@ class RobotRecorder(object):
             self._save_img_local(i_save)
 
         if self.save_actions:
-            self._save_state_actions(i_save, action, endeffector_pose, track_desig_pos)
+            self._save_state_actions(i_save, action, endeffector_pose, track_desig_pos, goal_pos)
 
         if self.save_video:
             highres = cv2.cvtColor(self.ltob.img_cv2, cv2.COLOR_BGR2RGB)
@@ -374,7 +374,7 @@ class RobotRecorder(object):
             rospy.logerr("Service call failed: %s" % (e,))
             raise ValueError('get_kinectdata service failed')
 
-    def _save_state_actions(self, i_save, action, endeff_pose, track=None):
+    def _save_state_actions(self, i_save, action, endeff_pose, track=None, goal_pos = None):
         joints_right = self._limb_right.joint_names()
         with open(self.state_action_data_file, 'a') as f:
             angles_right = [self._limb_right.joint_angle(j)
@@ -411,6 +411,7 @@ class RobotRecorder(object):
                        'endeffector_pos':endeffector_pos}
                 if track is not None:
                     dict['track_desig'] = track_desig
+                    dict['goal_pos'] = goal_pos
                 cPickle.dump(dict, f)
 
     def _save_img_local(self, i_save):

@@ -1,35 +1,7 @@
 #!/usr/bin/env python
 
-# Copyright (c) 2013-2016, Rethink Robotics
-# All rights reserved.
-#
-# Redistribution and use in source and binary forms, with or without
-# modification, are permitted provided that the following conditions are met:
-#
-# 1. Redistributions of source code must retain the above copyright notice,
-#    this list of conditions and the following disclaimer.
-# 2. Redistributions in binary form must reproduce the above copyright
-#    notice, this list of conditions and the following disclaimer in the
-#    documentation and/or other materials provided with the distribution.
-# 3. Neither the name of the Rethink Robotics nor the names of its
-#    contributors may be used to endorse or promote products derived from
-#    this software without specific prior written permission.
-#
-# THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
-# AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
-# IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
-# ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT OWNER OR CONTRIBUTORS BE
-# LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR
-# CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF
-# SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS
-# INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN
-# CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
-# ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
-# POSSIBILITY OF SUCH DAMAGE.
-"""
-Intera SDK Joint Torque Example: joint springs
-"""
-
+from rospy.numpy_msg import numpy_msg
+from visual_mpc_rospkg.msg import intarray
 import argparse
 import importlib
 
@@ -87,13 +59,13 @@ class JointSprings(object):
         rospy.Subscriber("release_spring", Float32, self._release)
         rospy.Subscriber("imp_ctrl_active", Int64, self._imp_ctrl_active)
 
+        self.alive_pub = rospy.Publisher('ctrl_alive', numpy_msg(intarray), queue_size=10)
+
         self.max_stiffness = 100
         self.time_to_maxstiffness = .3  ######### 0.68
         self.t_release = rospy.get_time()
 
         self._imp_ctrl_is_active = True
-
-
 
         for joint in self._limb.joint_names():
             self._springs[joint] = 30
@@ -148,7 +120,6 @@ class JointSprings(object):
         and the current joint positions applying the joint torque spring forces
         as defined on the dynamic reconfigure server.
         """
-
         # print self._springs
         self.adjust_springs()
 
@@ -179,6 +150,8 @@ class JointSprings(object):
         # command new joint torques
         if self._imp_ctrl_is_active:
             self._limb.set_joint_torques(cmd)
+
+        self.alive_pub.publish(np.array([0.]))
 
     def move_to_neutral(self):
         """
