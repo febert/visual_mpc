@@ -17,7 +17,7 @@ configuration = {
 'current_dir': current_dir,   #'directory for writing summary.' ,
 'num_iterations': 200000,   #'number of training iterations.' ,
 'pretrained_model': '',     # 'filepath of a pretrained model to resume training from.' ,
-'sequence_length': 48,      # 'sequence length to load, including context frames.' ,
+'sequence_length': 20,      # 'sequence length to load, including context frames.' ,
 'skip_frame': 1,            # 'use ever i-th frame to increase prediction horizon' ,
 'context_frames': 2,        # of frames before predictions.' ,
 'use_state': 1,             #'Whether or not to give the state+action to the model' ,

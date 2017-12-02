@@ -19,9 +19,17 @@ import imp
 
 import re
 
+FINAL_WEIGHT = 10.
 
-def get_scores(traj_name_list):
+def get_scores(conf, traj_name_list):
     nopkl_file = 0
+
+    eval_files = []
+    scores = []
+    start_dist  =[]
+    final_dist = []
+    final_improvement = []
+
 
     for trajname in traj_name_list:  # loop of traj0, traj1,..
 
@@ -29,8 +37,8 @@ def get_scores(traj_name_list):
         # try:
         traj_index = re.match('.*?([0-9]+)$', trajname).group(1)
 
-        traj_tailpath = '/'.join(str.split(trajname, '/')[-2:])
-        traj_beginpath = '/'.join(str.split(trajname, '/')[:-3])
+        if int(traj_index) < 1448: ###################################################################################
+            continue
 
         pkl_file = trajname + '/joint_angles_traj{}.pkl'.format(traj_index)
         if not os.path.isfile(pkl_file):
@@ -39,14 +47,52 @@ def get_scores(traj_name_list):
             continue
 
         pkldata = cPickle.load(open(pkl_file, "rb"))
-        track = pkldata['track_desig']
-        track = pkldata['']
+        if 'track_desig' in pkldata and 'goal_pos' in pkldata:
+            print 'processing', trajname
+
+            track = np.squeeze(pkldata['track_desig'])
+            goal_pos = np.squeeze(pkldata['goal_pos'])
 
 
+            tlen = track.shape[0]
+
+            dist_t = [np.linalg.norm(goal_pos - track[t]) for t in range(tlen)]
+            score = 0
+            for t, dist in enumerate(dist_t):
+                if t == len(dist_t)-1:
+                    factor = FINAL_WEIGHT
+                else:
+                    factor = 1.
+                score += (dist_t[0] - dist)*factor
+            score /= tlen
+
+            scores.append(score)
+            start_dist.append(dist_t[0])
+            final_dist.append(dist_t[-1])
+            final_improvement.append(dist_t[0] - dist_t[-1])
+            eval_files.append(trajname)
+
+    avg_start_dist = np.mean(np.array(start_dist))
+    avg_final_dist = np.mean(np.array(final_dist))
+    avg_final_improvement = np.mean(np.array(final_improvement))
+    avg_score = np.mean(np.array(scores))
+
+    results_file = conf['source_basedirs'][0] +'/results_summary.txt'
+    print 'writing:', results_file
+    with open(results_file, 'w+') as f:
+        f.write('average start distances: {}\n'.format(avg_start_dist))
+        f.write('average final distances: {}\n'.format(avg_final_dist))
+        f.write('average final improvement: {}\n'.format(avg_final_improvement))
+        f.write('average score: {}   (calculated with finalweight {})\n'.format(avg_score, FINAL_WEIGHT))
+
+    file = conf['source_basedirs'][0] + '/per_traj_scores.txt'
+    print 'writing:', file
+    with open(file, 'w+') as f:
+        f.write('file, start distances, final distances, final improvement, score \n'.format(avg_start_dist))
+        for i, name in enumerate(eval_files):
+            f.write('{}:  {}; {}; {}; {}\n'.format(name, start_dist[i], final_dist[i], final_improvement[i], scores[i]))
 
     print 'done, number of pkl files not found:', nopkl_file
-
-
 
 def main():
     parser = argparse.ArgumentParser(description='Run benchmarks')
@@ -60,10 +106,8 @@ def main():
 
     conf = hyperparams.configuration
 
-    traj_name_list = make_traj_name_list(conf)
-
-
-    get_scores(traj_name_list)
+    traj_name_list = make_traj_name_list(conf, shuffle=False)
+    get_scores(conf, traj_name_list)
 
 
 if __name__ == "__main__":
