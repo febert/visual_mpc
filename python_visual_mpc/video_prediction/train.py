@@ -205,7 +205,7 @@ def main(unused_argv, conf_script= None):
             # Run through validation set.
             feed_dict = {model.iter_num: np.float32(itr),
                          model.train_cond: 0}
-            [val_summary_str] = sess.run([model.summ_op], feed_dict)
+            [val_summary_str] = sess.run([model.val_summ_op], feed_dict)
             summary_writer.add_summary(val_summary_str, itr)
 
         if (itr) % SAVE_INTERVAL == 2:
