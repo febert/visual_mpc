@@ -19,7 +19,7 @@ policy = {
     'netconf': current_dir + '/conf.py',
     'iterations': 3,
     'verbose':'',
-    # 'predictor_propagation': '',   # use the model get the designated pixel for the next step!
+    'predictor_propagation': '',   # use the model get the designated pixel for the next step!
     'action_cost_factor': 0,
     'no_instant_gif':"",
     'rew_all_steps':"",
@@ -28,13 +28,12 @@ policy = {
 }
 
 agent = {
-    'ndesig':1,
-    'opencv_tracking':'',
+    'ndesig':2,
+    # 'opencv_tracking':'',
     'T': 20,
     'adim':5,
     'sdim':4,
     'state_dim':4,
     'make_final_gif':'',
-    'wristrot':'',
-    'startpos_basedon_click':''
+    'wristrot':''
 }

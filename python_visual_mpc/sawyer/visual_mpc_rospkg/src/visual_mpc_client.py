@@ -55,23 +55,14 @@ from python_visual_mpc import __file__ as base_filepath
 
 class Visual_MPC_Client():
     def __init__(self):
+        self.ctrl = robot_controller.RobotController()
 
-        parser = argparse.ArgumentParser(description='Run benchmarks')
-        parser.add_argument('benchmark', type=str, help='the name of the folder with agent setting for the benchmark')
-        parser.add_argument('--save_subdir', default='False', type=str, help='')
-        parser.add_argument('--canon', default=-1, type=int, help='whether to store canonical example')
-        parser.add_argument('--gui', default=-1, type=str, help='whether to use an external gui')
-
-        args = parser.parse_args()
-
-        if args.gui == 'True':
-            self.use_gui = True
-        else:
-            self.use_gui = False
+        self.use_gui = rospy.get_param('~gui')   #experiment name
 
         self.base_dir = '/'.join(str.split(base_filepath, '/')[:-2])
         cem_exp_dir = self.base_dir + '/experiments/cem_exp/benchmarks_sawyer'
-        benchmark_name = args.benchmark
+
+        benchmark_name = rospy.get_param('~exp')   #experiment name
         bench_dir = cem_exp_dir + '/' + benchmark_name
         if not os.path.exists(bench_dir):
             raise ValueError('benchmark directory does not exist')
@@ -86,8 +77,6 @@ class Visual_MPC_Client():
         else:
             self.enable_rot = False
 
-        self.args = args
-
         hyperparams = imp.load_source('hyperparams', self.policyparams['netconf'])
         self.netconf = hyperparams.configuration
         dataconf_file = self.base_dir + '/'.join(str.split(self.netconf['data_dir'], '/')[:-1]) + '/conf.py'
@@ -100,27 +89,18 @@ class Visual_MPC_Client():
             self.img_width = 64
         self.ndesig = self.agentparams['ndesig']
 
-        if args.canon != -1:
-            self.save_canon =True
-            self.canon_dir = '/home/guser/catkin_ws/src/lsdc/pushing_data/canonical_singleobject'
-            self.canon_ind = args.canon
-            pdb.set_trace()
-        else:
-            self.save_canon = False
-            self.canon_dir = ''
-            self.canon_ind = None
-
         self.num_traj = 5000
+        self.use_save_subdir = False
 
         self.action_sequence_length = self.agentparams['T'] # number of snapshots that are taken
         self.use_robot = True
         self.robot_move = True
+        self.reset_active = False # used by the gui to abort trajectories.
 
         self.save_subdir = ""
 
         self.use_aux = False
-        if self.use_robot:
-            self.ctrl = robot_controller.RobotController()
+
 
         self.get_action_func = rospy.ServiceProxy('get_action', get_action)
         self.init_traj_visual_func = rospy.ServiceProxy('init_traj_visualmpc', init_traj_visualmpc)
@@ -159,6 +139,7 @@ class Visual_MPC_Client():
 
         self.goal_pos_main = np.zeros([self.ndesig,2])   # the first index is for the ndesig and the second is r,c
         self.desig_pos_main = np.zeros([self.ndesig, 2])
+        self.desig_hpos_main = np.zeros([self.ndesig, 2])
 
         #highres position used when doing tracking
         self.desig_hpos_main = None
@@ -168,13 +149,15 @@ class Visual_MPC_Client():
             save_video = True
             save_actions = True
             save_images = True
+            self.robot_name = rospy.get_param('~robot')  # experiment name
+            assert self.robot_name != ''
         else:
             save_video = True
             save_actions = False
             save_images = False
             self.data_collection = False
 
-        if self.args.save_subdir == "True":
+        if self.save_subdir == "True":
             self.save_subdir = raw_input('enter subdir to save data:')
             self.recorder_save_dir = self.base_dir + "/experiments/cem_exp/benchmarks_sawyer/" + self.benchname + \
                                         '/' + self.save_subdir + "/videos"
@@ -196,12 +179,15 @@ class Visual_MPC_Client():
                                                      save_images=save_images,
                                                      image_shape=(self.img_height, self.img_width))
 
+
+
         if self.data_collection == True:
             self.checkpoint_file = os.path.join(self.recorder.save_dir, 'checkpoint.txt')
             self.rpn_tracker = RPN_Tracker(self.recorder_save_dir, self.recorder)
             self.run_data_collection()
         elif self.use_gui:
             rospy.Subscriber('visual_mpc_cmd', numpy_msg(intarray), self.run_visual_mpc_cmd)
+            rospy.Subscriber('visual_mpc_reset_cmd', numpy_msg(intarray), self.run_visual_mpc_reset_cmd)
             rospy.spin()
         else:
             self.run_visual_mpc()
@@ -218,7 +204,19 @@ class Visual_MPC_Client():
         self.desig_pos_main.setflags(write=1)
         self.goal_pos_main = points[1]
         self.goal_pos_main.setflags(write=1)
+
+        self.reset_active = False
         self.run_trajectory(0)
+
+    def run_visual_mpc_reset_cmd(self, data):
+        """"
+        data is of shape [2, ndesig, 2]
+        data[0] contains designated pixel positions (row, column format)
+        data[1] contains goal pixel positions
+        """
+        print 'reset activated'
+        self.reset_active = True
+        self.set_neutral_with_impedance(2.5)
 
     def mark_goal_desig(self, itr):
         print 'prepare to mark goalpos and designated pixel! press c to continue!'
@@ -419,7 +417,7 @@ class Visual_MPC_Client():
         self.gripper_closed = False
         self.gripper_up = False
 
-        if self.args.save_subdir == "True":
+        if self.use_save_subdir:
             self.save_subdir = raw_input('enter subdir to save data:')
             self.recorder_save_dir = self.base_dir + "/experiments/cem_exp/benchmarks_sawyer/" + self.benchname + \
                                      '/' + self.save_subdir + "/videos"
@@ -454,7 +452,23 @@ class Visual_MPC_Client():
 
         if 'random_startpos' in self.policyparams:
             startpos = np.array([np.random.uniform(self.xlim[0], self.xlim[1]), np.random.uniform(self.ylim[0], self.ylim[1])])
+        elif 'startpos_basedon_click' in self.agentparams:
+            print 'setting startpos based on click!'
+            assert self.ndesig == 1
+
+            print 'desig pos', self.desig_pos_main
+            startpos_x = self.desig_pos_main[0,0] / float(self.img_height) * (self.xlim[1] - self.xlim[0]) + self.xlim[0]
+            startpos_y = self.desig_pos_main[0,1] / float(self.img_width) * (self.ylim[1] - self.ylim[0]) + self.ylim[0]
+
+            x_offset = -0.07
+            startpos_x += x_offset
+            startpos_x = np.clip(startpos_x, self.xlim[0], self.xlim[1])
+            startpos_y = np.clip(startpos_y, self.ylim[0], self.ylim[1])
+
+            startpos = np.array([startpos_x, startpos_y])
+
         else: startpos = self.get_endeffector_pos()[:2]
+        print 'startpos', startpos
 
         start_angle = np.array([0.])
         self.des_pos = np.concatenate([startpos, np.array([self.lower_height]), start_angle], axis=0)
@@ -468,11 +482,7 @@ class Visual_MPC_Client():
             self.tracker = OpenCV_Track_Listener(self.agentparams,
                                                  self.recorder,
                                                  self.desig_pos_main)
-        rospy.sleep(1)
-
-        if self.save_canon:
-            self.save_canonical()
-
+        rospy.sleep(0.7)
 
         i_step = 0  # index of current commanded point
 
@@ -484,7 +494,7 @@ class Visual_MPC_Client():
         t_start = time.time()
         query_times = []
 
-        while isave < self.nsave:
+        while isave < self.nsave and not self.reset_active:
             self.curr_delta_time = rospy.get_time() - start_time
             if self.curr_delta_time > self.action_interval and i_step < self.action_sequence_length:
                 if 'manual_correction' in self.agentparams:
@@ -494,7 +504,7 @@ class Visual_MPC_Client():
                                       self.canon_ind, self.canon_dir, only_desig=True)
                     self.desig_pos_main = c_main.desig.astype(np.int64)
                 elif 'opencv_tracking' in self.agentparams:
-                    self.desig_pos_main[0], self.desig_hpos_main = self.tracker.get_track()  #tracking only works for 1 desig. pixel!!
+                    self.desig_pos_main, self.desig_hpos_main = self.tracker.get_track()  #tracking only works for 1 desig. pixel!!
 
                 # print 'current position error', self.des_pos - self.get_endeffector_pos(pos_only=True)
 
@@ -504,6 +514,7 @@ class Visual_MPC_Client():
                 query_times.append(time.time()-get_action_start)
 
                 print 'action vec', action_vec
+
 
                 self.des_pos, going_down = self.apply_act(self.des_pos, action_vec, i_step)
                 start_time = rospy.get_time()
@@ -536,13 +547,13 @@ class Visual_MPC_Client():
                         # print 'isave_substep', isave_substep
                         if 'opencv_tracking' in self.agentparams:
                             _, self.desig_hpos_main = self.tracker.get_track()
-                        self.recorder.save(isave, action_vec, self.get_endeffector_pos(), self.desig_hpos_main)
+                        self.recorder.save(isave, action_vec, self.get_endeffector_pos(), self.desig_hpos_main, self.desig_pos_main)
                         isave_substep += 1
                         isave += 1
             try:
-                if self.robot_move:
+                if self.robot_move and not self.reset_active:
                     self.move_with_impedance(des_joint_angles)
-                        # print des_joint_angles
+                    # print des_joint_angles
             except OSError:
                 rospy.logerr('collision detected, stopping trajectory, going to reset robot...')
                 rospy.sleep(.5)
@@ -554,11 +565,14 @@ class Visual_MPC_Client():
 
             self.control_rate.sleep()
 
+        if self.reset_active:
+            return
 
         print 'average iteration took {0} seconds'.format((time.time() - t_start) / self.action_sequence_length)
         print 'average action query took {0} seconds'.format(np.mean(np.array(query_times)))
 
-        if not self.data_collection:
+
+        if not self.data_collection and not self.use_gui:
             self.save_final_image(i_tr)
             self.recorder.save_highres()
             #copy files with pix distributions from remote and make gifs
@@ -568,16 +582,15 @@ class Visual_MPC_Client():
                                    numex=5)
             v.build_figure()
 
-        self.goup()
+        if not self.reset_active:
+            self.goup()
         if self.ctrl.sawyer_gripper:
             self.ctrl.gripper.open()
         else:
-            # print 'delta t gripper status', rospy.get_time() - self.tlast_gripper_status
-            # if rospy.get_time() - self.tlast_gripper_status > 10.:
-            #     print 'gripper stopped working!'
-            #     pdb.set_trace()
-            pass
-
+            print 'delta t gripper status', rospy.get_time() - self.tlast_gripper_status
+            if rospy.get_time() - self.tlast_gripper_status > 10.:
+                print 'gripper stopped working!'
+                pdb.set_trace()
             self.set_weiss_griper(100.)
 
 
@@ -620,9 +633,10 @@ class Visual_MPC_Client():
         """
         assert (rospy.get_time() >= t_prev)
         des_pos = previous_goalpoint + (next_goalpoint - previous_goalpoint) * (rospy.get_time()- t_prev)/ (t_next - t_prev)
-        if rospy.get_time() >= t_next:
+        if rospy.get_time() - t_next > 0.2:
             des_pos = next_goalpoint
-            print 't > tnext'
+            print 't - tnext > 0.2!!!!'
+            pdb.set_trace()
 
         # print 'current_delta_time: ', self.curr_delta_time
         # print "interpolated pos:", des_pos
@@ -818,7 +832,7 @@ class Visual_MPC_Client():
         print 'redistribute...'
 
         file = '/'.join(str.split(python_visual_mpc.__file__, "/")[
-                        :-1]) + '/sawyer/visual_mpc_rospkg/src/utils/pushback_traj_.pkl'
+                        :-1]) + '/sawyer/visual_mpc_rospkg/src/utils/pushback_traj_{}.pkl'.format(self.robot_name)
         self.joint_pos = cPickle.load(open(file, "rb"))
 
         self.imp_ctrl_release_spring(100)
@@ -826,7 +840,7 @@ class Visual_MPC_Client():
 
         replay_rate = rospy.Rate(700)
         for t in range(len(self.joint_pos)):
-            print 'step {0} joints: {1}'.format(t, self.joint_pos[t])
+            # print 'step {0} joints: {1}'.format(t, self.joint_pos[t])
             replay_rate.sleep()
             self.move_with_impedance(self.joint_pos[t])
 

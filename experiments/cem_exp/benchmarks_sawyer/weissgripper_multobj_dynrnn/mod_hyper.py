@@ -13,28 +13,26 @@ policy = {
     'nactions': 5,
     'repeat': 3,
     'initial_std': .035,   #std dev. in xy
-    'initial_std_grasp': 0.,   #std dev. in xy
-    'initial_std_lift': 1.,   #std dev. in xy
-    'initial_std_rot': 0.,   #std dev. in xy
+    'initial_std_grasp': 0.,
+    'initial_std_lift': 1.,
+    'initial_std_rot': 0.,
     'netconf': current_dir + '/conf.py',
     'iterations': 3,
     'verbose':'',
-    # 'predictor_propagation': '',   # use the model get the designated pixel for the next step!
     'action_cost_factor': 0,
     'no_instant_gif':"",
     'rew_all_steps':"",
-    'finalweight':10,
+    'finalweight':30,
     'no_pixdistrib_video':'',
+    # 'predictor_propagation': '',
 }
 
 agent = {
-    'ndesig':1,
-    'opencv_tracking':'',
     'T': 20,
     'adim':5,
     'sdim':4,
-    'state_dim':4,
+    'ndesig':2,
+    'opencv_tracking':'',
     'make_final_gif':'',
-    'wristrot':'',
-    'startpos_basedon_click':''
+    'wristrot':''
 }

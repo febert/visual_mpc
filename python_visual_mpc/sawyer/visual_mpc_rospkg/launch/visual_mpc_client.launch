@@ -1,0 +1,7 @@
+<launch>
+     <node pkg="visual_mpc_rospkg" type="visual_mpc_client.py" name="visual_mpc_client" output="screen">
+          <param name="exp" value="$(arg exp)"/>
+          <param name="gui" value="$(arg gui)"/>
+          <param name="robot" value="$(arg robot)"/>
+     </node>
+</launch>

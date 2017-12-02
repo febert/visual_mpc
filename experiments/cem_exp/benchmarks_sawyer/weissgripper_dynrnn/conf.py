@@ -13,7 +13,7 @@ configuration = {
 'pred_model':Dynamic_Base_Model,
 'setup_predictor': setup_predictor,
 'current_dir': current_dir, #'directory for writing gifs' ,
-'pretrained_model': BASE + '/tensorflow_data/sawyer/weissgripper_dynrnn_k9m10/modeldata/model80002',
+'pretrained_model': BASE + '/tensorflow_data/sawyer/weissgripper_dynrnn_noprev_20k/modeldata/model124002',
 'sequence_length': 15,      # 'sequence length, including context frames.' ,
 'context_frames': 2,        # of frames before predictions.' ,
 'use_state': 1,             #'Whether or not to give the state+action to the model' ,
@@ -31,7 +31,8 @@ configuration = {
 'ndesig':1,
 'normalization':'in',
 '1stimg_bckgd':'',
-'previmg_bckgd':'',
+# 'previmg_bckgd':'',
 'img_height':56,
 'img_width':64,
+'data_dir':'/pushing_data/weiss_gripper_20k/conf.py',
 }

@@ -1,0 +1,8 @@
+<!--requires parameters exp-->
+<launch>
+     <node pkg="visual_mpc_rospkg" type="visual_mpc_server.py" name="visual_mpc_server" output="screen">
+          <param name="exp" value="$(arg exp)"/>
+          <param name="ngpu" value="$(arg ngpu)"/>
+          <param name="gpu_id" value="0"/>
+     </node>
+</launch>

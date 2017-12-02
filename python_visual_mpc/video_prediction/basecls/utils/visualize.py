@@ -187,6 +187,8 @@ def visualize_diffmotions(sess, conf, model):
                                         ]
                                         ,feed_dict)
 
+    pdb.set_trace()
+
     dict = OrderedDict()
     gen_images = [im.astype(np.float32) for im in gen_images]
     dict['gen_images'] = gen_images

@@ -30,31 +30,27 @@ class Visual_MPC_Server(object):
 
         cem_exp_dir = base_dir + '/experiments/cem_exp/benchmarks_sawyer'
 
-        parser = argparse.ArgumentParser(description='Run benchmarks')
-        parser.add_argument('benchmark', type=str, help='the name of the folder with agent setting for the benchmark')
-        parser.add_argument('--gpu_id', type=int, default=0, help='value to set for cuda visible devices variable')
-        parser.add_argument('--ngpu', type=int, default=1, help='number of gpus to use')
-        parser.add_argument('--userobot', type=str, default='True', help='number of gpus to use')
+        # parser = argparse.ArgumentParser(description='Run benchmarks')
+        # parser.add_argument('benchmark', type=str, help='the name of the folder with agent setting for the benchmark')
+        # parser.add_argument('--gpu_id', type=int, default=0, help='value to set for cuda visible devices variable')
+        # parser.add_argument('--ngpu', type=int, default=1, help='number of gpus to use')
+        # parser.add_argument('--userobot', type=str, default='True', help='number of gpus to use')
+        # parser.add_argument('--redis', type=str, default='', help='necessary when using ray: the redis address of the head node')
 
-        parser.add_argument('--redis', type=str, default='', help='necessary when using ray: the redis address of the head node')
+        # args = parser.parse_args()
 
-        args = parser.parse_args()
+        self.use_robot = True
 
-        if args.userobot == 'True':
-            self.use_robot = True
-        elif args.userobot == 'False':
-            self.use_robot = False
+        rospy.init_node('visual_mpc_server')
+        rospy.loginfo("init visual mpc server")
 
-        if self.use_robot:
-            rospy.init_node('visual_mpc_server')
-            rospy.loginfo("init visual mpc server")
-
-        benchmark_name = args.benchmark
-        gpu_id = args.gpu_id
-        ngpu = args.ngpu
+        benchmark_name = rospy.get_param('~exp')
+        gpu_id = rospy.get_param('~gpu_id')
+        ngpu = rospy.get_param('~ngpu')
 
         # load specific agent settings for benchmark:
         bench_dir = cem_exp_dir + '/' + benchmark_name
+        print 'using configuration: ',benchmark_name
 
         if not os.path.exists(bench_dir):
             raise ValueError('benchmark directory does not exist')
@@ -106,30 +102,7 @@ class Visual_MPC_Server(object):
             ###
             print 'visual mpc server ready for taking requests!'
             rospy.spin()
-        else:
-            self.test_canon_examples()
 
-    def test_canon_examples(self):
-        b_exp = 2 #5drill  #2
-        file_path_canon = '/home/frederik/Documents/catkin_ws/src/lsdc/pushing_data/canonical_examples'
-        dict = cPickle.load(open(file_path_canon + '/pkl/example{}.pkl'.format(b_exp), 'rb'))
-        desig_pix = np.stack([dict['desig_pix'], np.zeros(2)]).astype(np.int32)
-        goal_pix = np.stack([dict['goal_pix'], np.zeros(2)]).astype(np.int32)
-
-        sel_img = dict['images']
-        sel_img = sel_img[:2]
-        sel_img = (sel_img*255.).astype(np.uint8)
-        state = dict['endeff']
-        sel_state = state[:2]
-
-        # for i in range(self.policyparams['T']):
-        for t in range(2):
-            self.traj.X_full[t, :] = sel_state[t]
-            self.traj._sample_images[t] = sel_img[t]
-
-            mj_U, pos, best_ind, init_pix_distrib = self.cem_controller.act(self.traj, t,
-                                                                        desig_pix,
-                                                                        goal_pix)
 
     def init_traj_visualmpc_handler(self, req):
         self.igrp = req.igrp
@@ -174,8 +147,10 @@ class Visual_MPC_Server(object):
 
         self.traj.U[self.t, :] = mj_U
 
+
         if self.t == self.agentparams['T'] -1:
-            cPickle.dump(self.cem_controller.dict_,open(self.netconf['current_dir'] + '/verbose/pred.pkl', 'wb'))
+            if 'verbose' in self.policyparams:
+                cPickle.dump(self.cem_controller.dict_,open(self.netconf['current_dir'] + '/verbose/pred.pkl', 'wb'))
             print 'finished writing files to:' + self.netconf['current_dir'] + '/verbose/pred.pkl'
             if 'no_pixdistrib_video' not in self.policyparams:
                 self.save_video()
