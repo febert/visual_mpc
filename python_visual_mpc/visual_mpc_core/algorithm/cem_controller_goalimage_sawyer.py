@@ -100,6 +100,7 @@ class CEM_controller():
 
         self.gen_image_publisher = rospy.Publisher('gen_image', numpy_msg(floatarray), queue_size=10)
         self.gen_pix_distrib_publisher = rospy.Publisher('gen_pix_distrib', numpy_msg(floatarray), queue_size=10)
+        self.gen_score_publisher = rospy.Publisher('gen_score', numpy_msg(floatarray), queue_size=10)
 
     def calc_action_cost(self, actions):
         actions_costs = np.zeros(self.M)
@@ -353,16 +354,18 @@ class CEM_controller():
             # t, r, c, 3
             gen_im_l = []
             gen_distrib_l = []
+            gen_score_l = []
             for ind in sel_ind:
                 gen_im_l.append(np.stack([im[ind] for im in gen_images], axis=0).flatten())
                 gen_distrib_l.append(np.stack([d[ind] for d in gen_distrib], axis=0).flatten())
+                gen_score_l.append(scores[ind])
 
             gen_im_l = np.stack(gen_im_l, axis=0).flatten()
             gen_distrib_l = np.stack(gen_distrib_l, axis=0).flatten()
-            print "-------------------------------", gen_im_l.shape, gen_distrib_l.shape
-
+            gen_score_l = np.array(gen_score_l)
             self.gen_image_publisher.publish(gen_im_l)
             self.gen_pix_distrib_publisher.publish(gen_distrib_l)
+            self.gen_score_publisher.publish(gen_score_l)
 
         if 'store_video_prediction' in self.agentparams and\
                 itr == (self.policyparams['iterations']-1):
