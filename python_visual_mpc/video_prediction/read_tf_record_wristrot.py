@@ -239,15 +239,14 @@ def main():
 
     current_dir = os.path.dirname(os.path.realpath(__file__))
 
-    # DATA_DIR = '/'.join(str.split(current_dir, '/')[:-2]) + '/pushing_data/softmotion30_v1/train'
-    DATA_DIR = '/'.join(str.split(current_dir, '/')[:-2]) + '/pushing_data/online_data1/train'
-    # DATA_DIR = '/'.join(str.split(current_dir, '/')[:-2]) + '/pushing_data/wristrot_test_newobj/test_annotations'
+    # DATA_DIR = '/'.join(str.split(current_dir, '/')[:-2]) + '/pushing_data/online_data1/train'
+    DATA_DIR = '/'.join(str.split(current_dir, '/')[:-2]) + '/pushing_data/weiss_gripper_20k/train'
 
     conf['schedsamp_k'] = -1  # don't feed ground truth
     conf['data_dir'] = DATA_DIR  # 'directory containing data_files.' ,
     conf['skip_frame'] = 1
     conf['train_val_split']= 0.95
-    conf['sequence_length']= 14 #48      # 'sequence length, including context frames.'
+    conf['sequence_length']= 20 #48      # 'sequence length, including context frames.'
     conf['batch_size']= 10
     conf['visualize']= True
     conf['context_frames'] = 2
@@ -278,7 +277,7 @@ def main():
 
     from python_visual_mpc.video_prediction.utils_vpred.create_gif_lib import comp_single_video
 
-    for i_run in range(1):
+    for i_run in range(10):
         print 'run number ', i_run
 
         images, actions, endeff = sess.run([image_batch, action_batch, endeff_pos_batch])

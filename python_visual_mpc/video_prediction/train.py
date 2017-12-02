@@ -30,7 +30,7 @@ if __name__ == '__main__':
     flags.DEFINE_bool('visualize', False, 'visualize latest checkpoint')
     flags.DEFINE_string('visualize_check', "", 'model within hyperparameter folder from which to create gifs')
     flags.DEFINE_integer('device', 0 ,'the value for CUDA_VISIBLE_DEVICES variable')
-    flags.DEFINE_string('pretrained', None, 'path to model file from which to resume training')
+    flags.DEFINE_string('resume', None, 'path to model file from which to resume training')
     flags.DEFINE_bool('diffmotions', False, 'visualize several different motions for a single scene')
     flags.DEFINE_bool('metric', False, 'compute metric of expected distance to human-labled positions ob objects')
     flags.DEFINE_bool('float16', False, 'whether to do inference with float16')
@@ -103,21 +103,24 @@ def main(unused_argv, conf_script= None):
     vars = filter_vars(vars)
     saving_saver = tf.train.Saver(vars, max_to_keep=0)
 
-    if isinstance(model, Single_Point_Tracking_Model) and not (FLAGS.visualize or FLAGS.visualize_check):
-        # initialize the predictor from pretrained weights
-        # select weights that are *not* part of the tracker
-        vars = tf.get_collection(tf.GraphKeys.GLOBAL_VARIABLES)
-        predictor_vars = []
-        for var in vars:
-            if str.split(var.name, '/')[0] != 'tracker':
-                predictor_vars.append(var)
+    # if isinstance(model, Single_Point_Tracking_Model) and not (FLAGS.visualize or FLAGS.visualize_check):
+    #     # initialize the predictor from resume weights
+    #     # select weights that are *not* part of the tracker
+    #     vars = tf.get_collection(tf.GraphKeys.GLOBAL_VARIABLES)
+    #     predictor_vars = []
+    #     for var in vars:
+    #         if str.split(var.name, '/')[0] != 'tracker':
+    #             predictor_vars.append(var)
 
-    if FLAGS.visualize or FLAGS.pretrained or FLAGS.visualize_check:
-        if FLAGS.visualize_check:
-            vars = variable_checkpoint_matcher(conf, vars, conf['visualize_check'])
-        else:
-            vars = variable_checkpoint_matcher(conf, vars)
-        # remove all states from group of variables which shall be saved and restored:
+
+    if 'load_pretrained' in conf:
+        vars = variable_checkpoint_matcher(conf, vars, conf['load_pretrained'])
+        loading_saver = tf.train.Saver(vars, max_to_keep=0)
+    if FLAGS.visualize_check:
+        vars = variable_checkpoint_matcher(conf, vars, conf['visualize_check'])
+        loading_saver = tf.train.Saver(vars, max_to_keep=0)
+    if FLAGS.visualize:
+        vars = variable_checkpoint_matcher(conf, vars)
         loading_saver = tf.train.Saver(vars, max_to_keep=0)
 
     gpu_options = tf.GPUOptions(per_process_gpu_memory_fraction=0.9)
@@ -132,7 +135,6 @@ def main(unused_argv, conf_script= None):
 
 
     if conf['visualize']:
-
         if FLAGS.visualize_check:
             load_checkpoint(conf, sess, loading_saver, conf['visualize_check'])
         else: load_checkpoint(conf, sess, loading_saver)
@@ -152,9 +154,12 @@ def main(unused_argv, conf_script= None):
         return
 
     itr_0 =0
-    if FLAGS.pretrained != None:
-        itr_0 = load_checkpoint(conf, sess, loading_saver, model_file=FLAGS.pretrained)
+    if FLAGS.resume != None:
+        itr_0 = load_checkpoint(conf, sess, loading_saver, model_file=FLAGS.resume)
         print 'resuming training at iteration: ', itr_0
+
+    if 'load_pretrained' in conf:
+        itr_0 = load_checkpoint(conf, sess, loading_saver, model_file=conf['load_pretrained'])
 
     print '-------------------------------------------------------------------'
     print 'verify current settings!! '
@@ -175,16 +180,20 @@ def main(unused_argv, conf_script= None):
         feed_dict = {model.iter_num: np.float32(itr),
                      model.train_cond: 1}
 
-        if 'scheduled_finetuning' in conf:
-            dest_itr = conf['scheduled_finetuning_dest_itr']
-            p_dest_val = conf['scheduled_finetuning_dest_value']
-            p_val = np.array([(itr/dest_itr)*p_dest_val + (1.-itr/dest_itr)])
-            p_val = np.clip(p_val, p_dest_val, 1.)
-            i_dataset = np.random.choice(2,1,p=[p_val, 1-p_val])
+        if len(conf['data_dir']) == 2:
+            if 'scheduled_finetuning' in conf:
+                dest_itr = conf['scheduled_finetuning_dest_itr']
+                ratio_dest_val = conf['scheduled_finetuning_dest_value']
+                ratio01 = np.array([(itr/dest_itr)*ratio_dest_val + (1.-itr/dest_itr)])
+                ratio01 = np.clip(ratio01, ratio_dest_val, 1.)
+
+                feed_dict[model.dataset_01ratio] = ratio01
+            else:
+                ratio01 = 0.2
+                feed_dict[model.dataset_01ratio] = ratio01
 
             if (itr) % 10 == 0:
-                print 'picked dataset:',i_dataset
-            feed_dict[model.dataset_sel_cond] = i_dataset
+                print 'ratio old data/batchsize:', ratio01
 
         cost, _, summary_str = sess.run([model.loss, model.train_op, model.summ_op],
                                         feed_dict)

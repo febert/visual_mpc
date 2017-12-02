@@ -27,7 +27,7 @@ import imp
 import pdb
 import matplotlib.pyplot as plt
 
-MAXLISTLEN = 20 ##128
+MAXLISTLEN = 128
 
 class More_than_one_image_except(Exception):
     def __init__(self, imagefile):

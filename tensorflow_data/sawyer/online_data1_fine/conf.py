@@ -2,10 +2,8 @@ import os
 current_dir = os.path.dirname(os.path.realpath(__file__))
 
 # tf record data location:
-
+DATA_BASE_DIR = '/'.join(str.split(current_dir, '/')[:-3]) + '/pushing_data'
 BASE_DIR = '/'.join(str.split(current_dir, '/')[:-3])
-DATA_BASE_DIR = '/'.join(str.split(current_dir, '/')[:-3]) + '/pushing_data/'
-
 # local output directory
 OUT_DIR = current_dir + '/modeldata'
 
@@ -18,7 +16,8 @@ configuration = {
 'output_dir': OUT_DIR,      #'directory for model checkpoints.' ,
 'current_dir': current_dir,   #'directory for writing summary.' ,
 'num_iterations': 200000,   #'number of training iterations.' ,
-'resume': '',     # 'filepath of a pretrained model to resume training from.' ,
+'resume_pretrained': '',     # 'filepath of a pretrained model to resume training from.' ,
+'data_dir':[DATA_BASE_DIR+ '/weiss_gripper_20k/train',DATA_BASE_DIR + '/online_data1/train'],
 'load_pretrained':BASE_DIR + '/tensorflow_data/sawyer/weissgripper_basecls_20k/modeldata/model96002',
 'sequence_length': 14,      # 'sequence length to load, including context frames.' ,
 'skip_frame': 1,            # 'use ever i-th frame to increase prediction horizon' ,
@@ -43,8 +42,4 @@ configuration = {
 'img_height':56,
 'img_width':64,
 'color_augmentation':"",
-'scheduled_finetuning':'',
-'data_dir':[DATA_BASE_DIR+ '/weiss_gripper_20k/train',DATA_BASE_DIR + '/online_data1/train'],
-'scheduled_finetuning_dest_itr':50e3,
-'scheduled_finetuning_dest_value':0.2
 }
