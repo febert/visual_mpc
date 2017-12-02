@@ -226,7 +226,7 @@ class Visualizer(object):
             self.predictionPhotos.append([self.emptyImage])
             self.distributionPhotos.append([self.emptyImage])
             self.scoreTexts.append("")
-            self.scores.config(text="")
+            self.scores[i].config(text="")
 
         self.startButton.config(state=Tkconstants.DISABLED)
         if self.ndesig == 1:
