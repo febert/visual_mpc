@@ -159,7 +159,7 @@ def main(unused_argv, conf_script= None):
         print 'resuming training at iteration: ', itr_0
 
     if 'load_pretrained' in conf:
-        itr_0 = load_checkpoint(conf, sess, loading_saver, model_file=conf['load_pretrained'])
+        load_checkpoint(conf, sess, loading_saver, model_file=conf['load_pretrained'])
 
     print '-------------------------------------------------------------------'
     print 'verify current settings!! '
@@ -186,7 +186,7 @@ def main(unused_argv, conf_script= None):
                 ratio_dest_val = conf['scheduled_finetuning_dest_value']
                 ratio01 = np.array([(itr/dest_itr)*ratio_dest_val + (1.-itr/dest_itr)])
                 ratio01 = np.clip(ratio01, ratio_dest_val, 1.)
-
+                ratio01 = np.squeeze(ratio01)
                 feed_dict[model.dataset_01ratio] = ratio01
             else:
                 ratio01 = 0.2
