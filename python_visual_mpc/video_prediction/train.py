@@ -195,7 +195,7 @@ def main(unused_argv, conf_script= None):
             if (itr) % 10 == 0:
                 print 'ratio old data/batchsize:', ratio01
 
-        cost, _, summary_str = sess.run([model.loss, model.train_op, model.summ_op],
+        cost, _, summary_str = sess.run([model.loss, model.train_op, model.train_summ_op],
                                         feed_dict)
 
         if (itr) % 10 ==0:
