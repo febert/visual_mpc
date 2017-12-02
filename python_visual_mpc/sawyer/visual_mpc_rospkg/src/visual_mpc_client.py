@@ -547,7 +547,7 @@ class Visual_MPC_Client():
                         # print 'isave_substep', isave_substep
                         if 'opencv_tracking' in self.agentparams:
                             _, self.desig_hpos_main = self.tracker.get_track()
-                        self.recorder.save(isave, action_vec, self.get_endeffector_pos(), self.desig_hpos_main)
+                        self.recorder.save(isave, action_vec, self.get_endeffector_pos(), self.desig_hpos_main, self.desig_pos_main)
                         isave_substep += 1
                         isave += 1
             try:
@@ -571,7 +571,8 @@ class Visual_MPC_Client():
         print 'average iteration took {0} seconds'.format((time.time() - t_start) / self.action_sequence_length)
         print 'average action query took {0} seconds'.format(np.mean(np.array(query_times)))
 
-        if not self.data_collection or not self.use_gui:
+
+        if not self.data_collection and not self.use_gui:
             self.save_final_image(i_tr)
             self.recorder.save_highres()
             #copy files with pix distributions from remote and make gifs
