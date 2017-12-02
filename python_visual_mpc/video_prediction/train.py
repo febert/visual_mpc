@@ -205,6 +205,8 @@ def main(unused_argv, conf_script= None):
             # Run through validation set.
             feed_dict = {model.iter_num: np.float32(itr),
                          model.train_cond: 0}
+            if len(conf['data_dir']) == 2:
+                feed_dict[model.dataset_01ratio] = ratio01
             [val_summary_str] = sess.run([model.val_summ_op], feed_dict)
             summary_writer.add_summary(val_summary_str, itr)
 
