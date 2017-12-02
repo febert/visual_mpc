@@ -14,6 +14,7 @@ import cPickle
 import collections
 import pdb
 from utils.visualize import visualize_diffmotions, visualize
+from copy import deepcopy
 
 class Base_Prediction_Model(object):
 
@@ -93,8 +94,30 @@ class Base_Prediction_Model(object):
                 else:
                     from python_visual_mpc.video_prediction.read_tf_record_sawyer12 import \
                         build_tfrecord_input as build_tfrecord_fn
-                train_images, train_actions, train_states = build_tfrecord_fn(conf, training=True)
-                val_images, val_actions, val_states = build_tfrecord_fn(conf, training=False)
+
+                if 'scheduled_finetuning' in self.conf:
+                    # mixing ratio num(dataset1)/num(dataset2) in batch
+                    self.dataset_01ratio = tf.placeholder(tf.float32, shape=[], name="dataset_01ratio")
+                    d0_conf = deepcopy(self.conf)         # the larger source dataset
+                    d0_conf['data_dir'] = self.conf['scheduled_finetuning'][0]
+                    d0_train_images, d0_train_actions, d0_train_states = build_tfrecord_fn(d0_conf, training=True)
+                    d0_val_images, d0_val_actions, d0_val_states = build_tfrecord_fn(d0_conf, training=False)
+
+                    d1_conf = deepcopy(self.conf)
+                    d1_conf['data_dir'] = self.conf['scheduled_finetuning'][1]
+                    d1_train_images, d1_train_actions, d1_train_states = build_tfrecord_fn(d1_conf, training=True)
+                    d1_val_images, d1_val_actions, d1_val_states = build_tfrecord_fn(d1_conf, training=False)
+
+                    train_images, train_actions, train_states = mix_datasets([d0_train_images, d0_train_actions, d0_train_states],
+                                 [d1_train_images, d1_train_actions, d1_train_states], self.batch_size,
+                                 self.dataset_01ratio)
+
+                    val_images, val_actions, val_states = mix_datasets([d0_val_images, d0_val_actions, d0_val_states],
+                                 [d1_val_images, d1_val_actions, d1_val_states], self.batch_size,
+                                 self.dataset_01ratio)
+                else:
+                    train_images, train_actions, train_states = build_tfrecord_fn(conf, training=True)
+                    val_images, val_actions, val_states = build_tfrecord_fn(conf, training=False)
 
                 images, actions, states = tf.cond(self.train_cond > 0,  # if 1 use trainigbatch else validation batch
                                                  lambda: [train_images, train_actions, train_states],
@@ -460,8 +483,8 @@ class Base_Prediction_Model(object):
 
 
     def build_loss(self):
-        summaries = []
-
+        train_summaries = []
+        val_summaries = []
         self.lr = tf.placeholder_with_default(self.conf['learning_rate'], ())
 
         if not self.trafo_pix:
@@ -473,11 +496,9 @@ class Base_Prediction_Model(object):
                     range(len(self.gen_images)), self.images[self.conf['context_frames']:],
                     self.gen_images[self.conf['context_frames'] - 1:]):
                 recon_cost_mse = self.mean_squared_error(x, gx)
-
-                summaries.append(tf.summary.scalar('recon_cost' + str(i), recon_cost_mse))
-
+                train_summaries.append(tf.summary.scalar('recon_cost' + str(i), recon_cost_mse))
+                val_summaries.append(tf.summary.scalar('val_recon_cost' + str(i), recon_cost_mse))
                 recon_cost = recon_cost_mse
-
                 loss += recon_cost
 
             if ('ignore_state_action' not in self.conf) and ('ignore_state' not in self.conf):
@@ -485,15 +506,17 @@ class Base_Prediction_Model(object):
                         range(len(self.gen_states)), self.states[self.conf['context_frames']:],
                         self.gen_states[self.conf['context_frames'] - 1:]):
                     state_cost = self.mean_squared_error(state, gen_state) * 1e-4 * self.conf['use_state']
-                    summaries.append(
-                        tf.summary.scalar('state_cost' + str(i), state_cost))
+                    train_summaries.append(tf.summary.scalar('state_cost' + str(i), state_cost))
+                    val_summaries.append(tf.summary.scalar('val_state_cost' + str(i), state_cost))
                     loss += state_cost
 
             self.loss = loss = loss / np.float32(len(self.images) - self.conf['context_frames'])
-            summaries.append(tf.summary.scalar('loss', loss))
+            train_summaries.append(tf.summary.scalar('loss', loss))
+            val_summaries.append(tf.summary.scalar('val_loss', loss))
 
             self.train_op = tf.train.AdamOptimizer(self.lr).minimize(loss)
-            self.summ_op = tf.summary.merge(summaries)
+            self.train_summ_op = tf.summary.merge(train_summaries)
+            self.val_summ_op = tf.summary.merge(val_summaries)
 
 
     def fuse_trafos(self, enc6, background_image, transformed, scope):
@@ -567,3 +590,31 @@ def scheduled_sample(ground_truth_x, generated_x, batch_size, num_ground_truth):
     generated_examps = tf.gather(generated_x, generated_idx)
     return tf.dynamic_stitch([ground_truth_idx, generated_idx],
                              [ground_truth_examps, generated_examps])
+
+
+def mix_datasets(dataset0, dataset1, batch_size, ratio_01):
+    """Sample batch with specified mix of ground truth and generated data_files points.
+
+    Args:
+      ground_truth_x: tensor of ground-truth data_files points.
+      generated_x: tensor of generated data_files points.
+      batch_size: batch size
+      num_set0: number of ground-truth examples to include in batch.
+    Returns:
+      New batch with num_ground_truth sampled from ground_truth_x and the rest
+      from generated_x.
+    """
+    num_set0 = tf.cast(int(batch_size)*ratio_01, tf.int64)
+
+    idx = tf.random_shuffle(tf.range(int(batch_size)))
+
+    set0_idx = tf.gather(idx, tf.range(num_set0))
+    set1_idx = tf.gather(idx, tf.range(num_set0, int(batch_size)))
+
+    output = []
+    for set0, set1 in zip_equal(dataset0, dataset1):
+        dataset0_examps = tf.gather(set0, set0_idx)
+        dataset1_examps = tf.gather(set1, set1_idx)
+        output.append(tf.dynamic_stitch([set0_idx, set1_idx],
+                                 [dataset0_examps, dataset1_examps]))
+    return output

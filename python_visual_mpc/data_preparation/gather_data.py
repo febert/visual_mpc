@@ -27,6 +27,7 @@ import imp
 import pdb
 import matplotlib.pyplot as plt
 
+MAXLISTLEN = 20 ##128
 
 class More_than_one_image_except(Exception):
     def __init__(self, imagefile):
@@ -128,74 +129,79 @@ class TF_rec_converter(object):
         for trajname in self.traj_name_list:  # loop of traj0, traj1,..
 
             # print 'processing {}, seq-part {}'.format(trajname, traj_tuple[1] )
-            try:
-                traj_index = re.match('.*?([0-9]+)$', trajname).group(1)
-                self.traj = Trajectory(self.conf)
+            # try:
+            traj_index = re.match('.*?([0-9]+)$', trajname).group(1)
+            self.traj = Trajectory(self.conf)
 
-                traj_tailpath = '/'.join(str.split(trajname, '/')[-2:])
-                traj_beginpath = '/'.join(str.split(trajname, '/')[:-3])
+            traj_tailpath = '/'.join(str.split(trajname, '/')[-2:])
+            traj_beginpath = '/'.join(str.split(trajname, '/')[:-3])
 
-                #load actions:
-                if 'pkl_source' in self.conf:
-                    trajname_pkl = copy.deepcopy(trajname).split('/')
-                    trajname_pkl[5] = self.conf['pkl_source']
-                    trajname_pkl = '/'.join(trajname_pkl)
-                    pkl_file = trajname_pkl + '/joint_angles_traj{}.pkl'.format(traj_index)
-                else:
-                    pkl_file = trajname + '/joint_angles_traj{}.pkl'.format(traj_index)
-                if not os.path.isfile(pkl_file):
-                    nopkl_file += 1
-                    print 'no pkl file found, file no: ', nopkl_file
-                    continue
+            #load actions:
+            if 'pkl_source' in self.conf:
+                trajname_pkl = copy.deepcopy(trajname).split('/')
+                trajname_pkl[5] = self.conf['pkl_source']
+                trajname_pkl = '/'.join(trajname_pkl)
+                pkl_file = trajname_pkl + '/joint_angles_traj{}.pkl'.format(traj_index)
+            else:
+                pkl_file = trajname + '/joint_angles_traj{}.pkl'.format(traj_index)
+            if not os.path.isfile(pkl_file):
+                nopkl_file += 1
+                print 'no pkl file found, file no: ', nopkl_file
+                continue
 
-                pkldata = cPickle.load(open(pkl_file, "rb"))
-                self.all_actions = pkldata['actions']
+            pkldata = cPickle.load(open(pkl_file, "rb"))
+            self.all_actions = pkldata['actions']
+            self.all_joint_angles = pkldata['jointangles']
+            self.all_endeffector_pos = pkldata['endeffector_pos']
+            if 'allow_totalnumimg_smaller_numactions' not in self.conf:
                 assert self.all_actions.shape[0] == Trajectory(self.conf).total_num_img
-                self.all_joint_angles = pkldata['jointangles']
                 assert self.all_joint_angles.shape[0] == Trajectory(self.conf).total_num_img
-                self.all_endeffector_pos = pkldata['endeffector_pos']
                 assert self.all_endeffector_pos.shape[0] == Trajectory(self.conf).total_num_img
 
-                try:
-                    for i_src, tag in enumerate(self.conf['sourcetags']):  # loop over cameras: main, aux1, ..
-                        traj_dir_src = traj_beginpath + tag + '/' + traj_tailpath
-                        self.step_from_to(i_src, traj_dir_src)
-                except More_than_one_image_except as e:
-                    print "more than one image in ", e.image_file
-                    i_more_than_one_image += 1
-                    continue
-                except Image_dark_except as e:
-                    print "video too dark ", e.image_file
-                    self.dark_image_file_list.append(e.image_file)
-                    file = '/'.join(str.split(self.conf['tf_rec_dir'], '/')[:-1]) + '/logs/darkimages_w{}.txt'.format(self.pid)
-                    with open(file, 'w+') as f:
-                        for i in self.dark_image_file_list:
-                            f.write('{} \n'.format(i))
-                    continue
+            try:
+                for i_src, tag in enumerate(self.conf['sourcetags']):  # loop over cameras: main, aux1, ..
+                    traj_dir_src = traj_beginpath + tag + '/' + traj_tailpath
+                    self.step_from_to(i_src, traj_dir_src)
+            except More_than_one_image_except as e:
+                print "more than one image in ", e.image_file
+                i_more_than_one_image += 1
+                continue
+            except Image_dark_except as e:
+                print "video too dark ", e.image_file
+                self.dark_image_file_list.append(e.image_file)
+                file = '/'.join(str.split(self.conf['tf_rec_dir'], '/')[:-1]) + '/logs/darkimages_w{}.txt'.format(self.pid)
+                with open(file, 'w+') as f:
+                    for i in self.dark_image_file_list:
+                        f.write('{} \n'.format(i))
+                continue
 
-                traj_list.append(self.traj)
-                maxlistlen = 128
+            traj_list.append(self.traj)
 
-                if maxlistlen == len(traj_list):
+            if MAXLISTLEN != 128:
+                print '#####################################################'
+                print '#####################################################'
+                print 'using wrong maxlistlen'
 
-                    filename = 'traj_{0}_to_{1}' \
-                        .format(tf_start_ind,tf_start_ind + maxlistlen-1)
-                    self.save_tf_record(filename, traj_list)
-                    tf_start_ind += maxlistlen
-                    traj_list = []
+            if MAXLISTLEN == len(traj_list):
 
-                if self.gif_file != None and not donegif:
-                    if len(traj_list) == ntraj_gifmax:
-                        create_gif.comp_video(traj_list, self.gif_file + 'worker{}'.format(os.getpid()))
-                        print 'created gif, exiting'
-                        donegif = True
+                filename = 'traj_{0}_to_{1}' \
+                    .format(tf_start_ind,tf_start_ind + MAXLISTLEN-1)
+                self.save_tf_record(filename, traj_list)
+                tf_start_ind += MAXLISTLEN
+                traj_list = []
 
-                print 'processed {} trajectories'.format(len(traj_list))
-            except KeyboardInterrupt:
-                sys.exit()
-            except:
-                print "error occured"
-                num_errors += 1
+            if self.gif_file != None and not donegif:
+                if len(traj_list) == ntraj_gifmax:
+                    create_gif.comp_video(traj_list, self.gif_file + 'worker{}'.format(os.getpid()))
+                    print 'created gif, exiting'
+                    donegif = True
+
+            print 'processed {} trajectories'.format(len(traj_list))
+            # except KeyboardInterrupt:
+            #     sys.exit()
+            # except:
+            #     print "error occured"
+            #     num_errors += 1
 
 
         print 'done, {} more_than_one_image occurred:'.format(i_more_than_one_image)
