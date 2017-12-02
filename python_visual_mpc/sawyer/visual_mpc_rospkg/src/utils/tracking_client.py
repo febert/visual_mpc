@@ -45,7 +45,7 @@ class OpenCV_Track_Listener():
         self.rec_bbox = None
 
     def store_latest_track(self, data):
-        print "receiving latest track"
+        # print "receiving latest track"
         self.rec_bbox = data.data.reshape(self.ndesig, 4)
 
     def get_track(self):

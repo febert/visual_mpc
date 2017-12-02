@@ -102,30 +102,7 @@ class Visual_MPC_Server(object):
             ###
             print 'visual mpc server ready for taking requests!'
             rospy.spin()
-        else:
-            self.test_canon_examples()
 
-    def test_canon_examples(self):
-        b_exp = 2 #5drill  #2
-        file_path_canon = '/home/frederik/Documents/catkin_ws/src/lsdc/pushing_data/canonical_examples'
-        dict = cPickle.load(open(file_path_canon + '/pkl/example{}.pkl'.format(b_exp), 'rb'))
-        desig_pix = np.stack([dict['desig_pix'], np.zeros(2)]).astype(np.int32)
-        goal_pix = np.stack([dict['goal_pix'], np.zeros(2)]).astype(np.int32)
-
-        sel_img = dict['images']
-        sel_img = sel_img[:2]
-        sel_img = (sel_img*255.).astype(np.uint8)
-        state = dict['endeff']
-        sel_state = state[:2]
-
-        # for i in range(self.policyparams['T']):
-        for t in range(2):
-            self.traj.X_full[t, :] = sel_state[t]
-            self.traj._sample_images[t] = sel_img[t]
-
-            mj_U, pos, best_ind, init_pix_distrib = self.cem_controller.act(self.traj, t,
-                                                                        desig_pix,
-                                                                        goal_pix)
 
     def init_traj_visualmpc_handler(self, req):
         self.igrp = req.igrp
@@ -170,8 +147,10 @@ class Visual_MPC_Server(object):
 
         self.traj.U[self.t, :] = mj_U
 
+
         if self.t == self.agentparams['T'] -1:
-            cPickle.dump(self.cem_controller.dict_,open(self.netconf['current_dir'] + '/verbose/pred.pkl', 'wb'))
+            if 'verbose' in self.policyparams:
+                cPickle.dump(self.cem_controller.dict_,open(self.netconf['current_dir'] + '/verbose/pred.pkl', 'wb'))
             print 'finished writing files to:' + self.netconf['current_dir'] + '/verbose/pred.pkl'
             if 'no_pixdistrib_video' not in self.policyparams:
                 self.save_video()

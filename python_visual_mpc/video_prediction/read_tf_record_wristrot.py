@@ -25,7 +25,6 @@ def build_tfrecord_input(conf, training=True, input_file=None):
     Raises:
       RuntimeError: if no files found.
     """
-
     if 'sdim' in conf:
         sdim = conf['sdim']
     else: sdim = 3
@@ -241,14 +240,14 @@ def main():
     current_dir = os.path.dirname(os.path.realpath(__file__))
 
     # DATA_DIR = '/'.join(str.split(current_dir, '/')[:-2]) + '/pushing_data/softmotion30_v1/train'
-    DATA_DIR = '/'.join(str.split(current_dir, '/')[:-2]) + '/pushing_data/weiss_gripper/train'
+    DATA_DIR = '/'.join(str.split(current_dir, '/')[:-2]) + '/pushing_data/online_data1/train'
     # DATA_DIR = '/'.join(str.split(current_dir, '/')[:-2]) + '/pushing_data/wristrot_test_newobj/test_annotations'
 
     conf['schedsamp_k'] = -1  # don't feed ground truth
     conf['data_dir'] = DATA_DIR  # 'directory containing data_files.' ,
     conf['skip_frame'] = 1
     conf['train_val_split']= 0.95
-    conf['sequence_length']= 48      # 'sequence length, including context frames.'
+    conf['sequence_length']= 14 #48      # 'sequence length, including context frames.'
     conf['batch_size']= 10
     conf['visualize']= True
     conf['context_frames'] = 2

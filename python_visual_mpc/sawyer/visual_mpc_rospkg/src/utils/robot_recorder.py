@@ -49,6 +49,7 @@ class Trajectory(object):
         self.endeffector_pos_list = []
         self.desig_hpos_list = []
         self.highres_imglist = []
+        self.track_desig_list = []
 
 class RobotRecorder(object):
     def __init__(self, agent_params, dataconf = None, save_dir = None, seq_len = None, use_aux=True, save_video=False,
@@ -306,7 +307,7 @@ class RobotRecorder(object):
         shutil.rmtree(traj_folder)
         print 'deleted {}'.format(traj_folder)
 
-    def save(self, i_save, action, endeffector_pose, desig_hpos_main= None):
+    def save(self, i_save, action, endeffector_pose, desig_hpos_main= None, track_desig_pos=None, goal_pos=None):
         self.t_savereq = rospy.get_time()
         assert self.instance_type == 'main'
 
@@ -323,7 +324,7 @@ class RobotRecorder(object):
             self._save_img_local(i_save)
 
         if self.save_actions:
-            self._save_state_actions(i_save, action, endeffector_pose)
+            self._save_state_actions(i_save, action, endeffector_pose, track_desig_pos, goal_pos)
 
         if self.save_video:
             highres = cv2.cvtColor(self.ltob.img_cv2, cv2.COLOR_BGR2RGB)
@@ -373,7 +374,7 @@ class RobotRecorder(object):
             rospy.logerr("Service call failed: %s" % (e,))
             raise ValueError('get_kinectdata service failed')
 
-    def _save_state_actions(self, i_save, action, endeff_pose):
+    def _save_state_actions(self, i_save, action, endeff_pose, track=None, goal_pos = None):
         joints_right = self._limb_right.joint_names()
         with open(self.state_action_data_file, 'a') as f:
             angles_right = [self._limb_right.joint_angle(j)
@@ -390,19 +391,27 @@ class RobotRecorder(object):
         self.curr_traj.joint_angle_list.append(angles_right)
         self.curr_traj.action_list.append(action)
         self.curr_traj.endeffector_pos_list.append(endeff_pose)
+        if track is not None:
+            self.curr_traj.track_desig_list.append(track)
 
         if i_save == self.state_sequence_length-1:
             joint_angles = np.stack(self.curr_traj.joint_angle_list)
             actions = np.stack(self.curr_traj.action_list)
             endeffector_pos = np.stack(self.curr_traj.endeffector_pos_list)
+            if track is not None:
+                track_desig = np.stack(self.curr_traj.track_desig_list)
             assert joint_angles.shape[0] == self.state_sequence_length
             assert actions.shape[0] == self.state_sequence_length
+            assert endeffector_pos.shape[0] == self.state_sequence_length
             assert endeffector_pos.shape[0] == self.state_sequence_length
 
             with open(self.state_action_pkl_file, 'wb') as f:
                 dict= {'jointangles': joint_angles,
                        'actions': actions,
                        'endeffector_pos':endeffector_pos}
+                if track is not None:
+                    dict['track_desig'] = track_desig
+                    dict['goal_pos'] = goal_pos
                 cPickle.dump(dict, f)
 
     def _save_img_local(self, i_save):
