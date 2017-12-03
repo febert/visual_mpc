@@ -37,9 +37,6 @@ def get_scores(conf, traj_name_list):
         # try:
         traj_index = re.match('.*?([0-9]+)$', trajname).group(1)
 
-        if int(traj_index) < 1448: ###################################################################################
-            continue
-
         pkl_file = trajname + '/joint_angles_traj{}.pkl'.format(traj_index)
         if not os.path.isfile(pkl_file):
             nopkl_file += 1
@@ -77,15 +74,22 @@ def get_scores(conf, traj_name_list):
     avg_final_improvement = np.mean(np.array(final_improvement))
     avg_score = np.mean(np.array(scores))
 
-    results_file = conf['source_basedirs'][0] +'/results_summary.txt'
-    print 'writing:', results_file
-    with open(results_file, 'w+') as f:
-        f.write('average start distances: {}\n'.format(avg_start_dist))
-        f.write('average final distances: {}\n'.format(avg_final_dist))
-        f.write('average final improvement: {}\n'.format(avg_final_improvement))
-        f.write('average score: {}   (calculated with finalweight {})\n'.format(avg_score, FINAL_WEIGHT))
+    n = len(start_dist)
+    std_start_dist = np.std(np.array(start_dist))/np.sqrt(n)
+    std_final_dist = np.mean(np.array(final_dist))/np.sqrt(n)
+    std_final_improvement = np.mean(np.array(final_improvement))/np.sqrt(n)
+    std_score = np.mean(np.array(scores))/np.sqrt(n)
 
-    file = conf['source_basedirs'][0] + '/per_traj_scores.txt'
+    file = conf['current_dir'] +'/results_summary.txt'
+    print 'writing:', file
+    with open(file, 'w+') as f:
+        f.write('evaluated {} trajectories \n'.format(n))
+        f.write('average start distances: {} std. err {}\n'.format(avg_start_dist, std_start_dist))
+        f.write('average final distances: {}  std. err {}\n'.format(avg_final_dist, std_final_dist))
+        f.write('average final improvement: {} std. err {}\n'.format(avg_final_improvement, std_final_improvement))
+        f.write('average score: {} std. err {}  (calculated with finalweight {})\n'.format(avg_score, std_score, FINAL_WEIGHT))
+
+    file = conf['current_dir'] + '/per_traj_scores.txt'
     print 'writing:', file
     with open(file, 'w+') as f:
         f.write('file, start distances, final distances, final improvement, score \n'.format(avg_start_dist))

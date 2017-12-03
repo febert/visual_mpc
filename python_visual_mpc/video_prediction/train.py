@@ -58,6 +58,8 @@ def main(unused_argv, conf_script= None):
 
         if 'test_data_dir' in conf:
             conf['data_dir'] = conf['test_data_dir']
+        elif 'test_data_ind' in conf:
+            conf['data_dir'] = '/'.join(str.split(conf['data_dir'][conf['test_data_ind']], '/')[:-1] + ['test'])
         else: conf['data_dir'] = '/'.join(str.split(conf['data_dir'], '/')[:-1] + ['test'])
 
         if FLAGS.visualize_check:
@@ -77,7 +79,7 @@ def main(unused_argv, conf_script= None):
 
         conf['sequence_length'] = 14
         if FLAGS.diffmotions:
-            conf['sequence_length'] = 15
+            conf['sequence_length'] = 14
 
         # when using alex interface:
         if 'modelconfiguration' in conf:
@@ -113,9 +115,10 @@ def main(unused_argv, conf_script= None):
     #             predictor_vars.append(var)
 
 
-    if 'load_pretrained' in conf:
+    if 'load_pretrained' in conf and not FLAGS.visualize_check and not FLAGS.visualize:
         vars = variable_checkpoint_matcher(conf, vars, conf['load_pretrained'])
         loading_saver = tf.train.Saver(vars, max_to_keep=0)
+
     if FLAGS.visualize_check:
         vars = variable_checkpoint_matcher(conf, vars, conf['visualize_check'])
         loading_saver = tf.train.Saver(vars, max_to_keep=0)

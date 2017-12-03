@@ -93,13 +93,16 @@ def visualize_diffmotions(sess, conf, model):
 
     b_exp, ind0 = 28, 0
 
+    copied_conf = deepcopy(conf)
+    copied_conf['sequence_length'] = 2
+
     if 'adim' in conf:
         from python_visual_mpc.video_prediction.read_tf_record_wristrot import \
             build_tfrecord_input as build_tfrecord_fn
     else:
         from python_visual_mpc.video_prediction.read_tf_record_sawyer12 import \
             build_tfrecord_input as build_tfrecord_fn
-    val_images, _, val_states = build_tfrecord_fn(conf, training=False)
+    val_images, _, val_states = build_tfrecord_fn(copied_conf, training=False)
 
     tf.train.start_queue_runners(sess)
     img, state = sess.run([val_images, val_states])
@@ -211,10 +214,13 @@ def visualize_diffmotions(sess, conf, model):
     file_path = conf['output_dir']
     cPickle.dump(dict, open(file_path + '/pred.pkl', 'wb'))
     print 'written files to:' + file_path
+    if 'test_data_ind' in conf:
+        suf = '_dataind{}'.format(conf['test_data_ind'])
+    else: suf = ''
 
     v = Visualizer_tkinter(dict, numex=b+1, append_masks=True,
                            filepath=conf['output_dir'],
-                           suf='_diffmotions_b{}_l{}'.format(b_exp, conf['sequence_length']),
+                           suf='_diffmotions_b{}_l{}'.format(b_exp, conf['sequence_length'])+suf,
                            renorm_heatmaps=True)
     v.build_figure()
 
