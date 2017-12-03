@@ -207,8 +207,13 @@ def main(unused_argv, conf_script= None):
                          model.train_cond: 0}
             if len(conf['data_dir']) == 2:
                 feed_dict[model.dataset_01ratio] = ratio01
-            [val_summary_str] = sess.run([model.val_summ_op], feed_dict)
-            summary_writer.add_summary(val_summary_str, itr)
+                [val_summary_str, val_0_summary_str, val_1_summary_str] = sess.run([model.val_summ_op, model.val_0_summ_op, model.val_1_summ_op], feed_dict)
+                summary_writer.add_summary(val_summary_str, itr)
+                summary_writer.add_summary(val_0_summary_str, itr)
+                summary_writer.add_summary(val_1_summary_str, itr)
+            else:
+                [val_summary_str] = sess.run([model.val_summ_op], feed_dict)
+                summary_writer.add_summary(val_summary_str, itr)
 
         if (itr) % SAVE_INTERVAL == 2:
             tf.logging.info('Saving model to' + conf['output_dir'])

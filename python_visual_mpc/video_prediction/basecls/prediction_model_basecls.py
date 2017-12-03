@@ -488,6 +488,8 @@ class Base_Prediction_Model(object):
     def build_loss(self):
         train_summaries = []
         val_summaries = []
+        val_0_summaries = []
+        val_1_summaries = []
         self.lr = tf.placeholder_with_default(self.conf['learning_rate'], ())
 
         if not self.trafo_pix:
@@ -516,10 +518,14 @@ class Base_Prediction_Model(object):
             self.loss = loss = loss / np.float32(len(self.images) - self.conf['context_frames'])
             train_summaries.append(tf.summary.scalar('loss', loss))
             val_summaries.append(tf.summary.scalar('val_loss', loss))
+            val_0_summaries.append(tf.summary.scalar('val_0_loss', loss))
+            val_1_summaries.append(tf.summary.scalar('val_1_loss', loss))
 
             self.train_op = tf.train.AdamOptimizer(self.lr).minimize(loss)
             self.train_summ_op = tf.summary.merge(train_summaries)
             self.val_summ_op = tf.summary.merge(val_summaries)
+            self.val_0_summ_op = tf.summary.merge(val_0_summaries)
+            self.val_1_summ_op = tf.summary.merge(val_1_summaries)
 
 
     def fuse_trafos(self, enc6, background_image, transformed, scope):
