@@ -604,6 +604,7 @@ if __name__ == '__main__':
     # file_path = '/home/frederik/Documents/catkin_ws/src/visual_mpc/tensorflow_data/sawyer/wristrot/modeldata'
 
     v  = Visualizer_tkinter(append_masks=False, filepath=file_path, numex=5, renorm_heatmaps=True)
-    v.build_figure()
+    # v.build_figure()
     # v.make_direct_vid()
-    # v.make_image_strip(i_ex=3)
+    for i in range(11):
+        v.make_image_strip(i_ex=i)
