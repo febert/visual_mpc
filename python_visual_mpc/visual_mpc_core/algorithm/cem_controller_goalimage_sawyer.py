@@ -257,14 +257,22 @@ class CEM_controller():
         t0 = time.time()
         last_states = np.expand_dims(last_states, axis=0)
         last_states = np.repeat(last_states, self.netconf['batch_size'], axis=0)
+        print 'construct last state', time.time() - t0
 
+        t0 = time.time()
+        last_frames = last_frames.astype(np.float32, copy=False) / 255.
+        print 'last frames cast', time.time() - t0
+
+        t0 = time.time()
         last_frames = np.expand_dims(last_frames, axis=0)
         last_frames = np.repeat(last_frames, self.netconf['batch_size'], axis=0)
         app_zeros = np.zeros(shape=(self.netconf['batch_size'], self.netconf['sequence_length']-
-                                    self.netconf['context_frames'], self.img_height, self.img_width, 3))
-        last_frames = np.concatenate((last_frames, app_zeros), axis=1)
-        last_frames = last_frames.astype(np.float32)/255.
+                                    self.netconf['context_frames'], self.img_height, self.img_width, 3), dtype=np.float32)
+        print 'last frames and construct app_zeros', time.time() - t0
 
+        last_frames = np.concatenate((last_frames, app_zeros), axis=1)
+
+        t0 = time.time()
         input_distrib = self.make_input_distrib(itr)
         # f, axarr = plt.subplots(1, self.ndesig)
         # for p in range(self.ndesig):
@@ -272,7 +280,7 @@ class CEM_controller():
             # axarr[p].set_title('input_distrib{}'.format(p), fontsize=8)
         # plt.show()
 
-        print 't0', time.time() - t0
+        print 'input_distrib', time.time() - t0
 
         t_startpred = time.time()
         gen_images, gen_distrib, gen_states, _ = self.predictor(input_images=last_frames,
@@ -362,7 +370,9 @@ class CEM_controller():
 
             gen_im_l = np.stack(gen_im_l, axis=0).flatten()
             gen_distrib_l = np.stack(gen_distrib_l, axis=0).flatten()
-            gen_score_l = np.array(gen_score_l)
+            gen_score_l = np.array(gen_score_l, dtype=np.float32)
+            print 'gen_score_l', gen_score_l
+
             self.gen_image_publisher.publish(gen_im_l)
             self.gen_pix_distrib_publisher.publish(gen_distrib_l)
             self.gen_score_publisher.publish(gen_score_l)

@@ -19,7 +19,7 @@ def _int64_feature(value):
 
 
 import cv2
-import ray
+# import ray
 import create_gif
 import argparse
 import sys
@@ -75,7 +75,7 @@ class Trajectory(object):
         self.endeffector_pos = np.zeros((self.T, state_dim), dtype = np.float32)
         self.joint_angles = np.zeros((self.T, 7), dtype = np.float32)
 
-@ray.remote
+# @ray.remote
 class TF_rec_converter(object):
     def __init__(self, conf,
                        gif_dir= None,

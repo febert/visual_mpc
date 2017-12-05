@@ -61,7 +61,8 @@ def setup_predictor(conf, gpu_id=0, ngpu=1):
     from tensorflow.python.client import device_lib
     print device_lib.list_local_devices()
 
-    gpu_options = tf.GPUOptions(per_process_gpu_memory_fraction=0.9)
+    ##### changed from 0.9
+    gpu_options = tf.GPUOptions(per_process_gpu_memory_fraction=0.3)
 
     # Make training session.
     sess = tf.InteractiveSession(config=tf.ConfigProto(gpu_options=gpu_options,

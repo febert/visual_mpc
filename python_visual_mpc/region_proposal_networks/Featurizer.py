@@ -42,7 +42,12 @@ class BBProposer:
         rois, rpn_cls_score, rpn_bbox_pred = rpn_net.rpn_net(conv5, iminfo_batch, 'vgg_net',
                                                              anchor_scales=(4, 8, 16, 32), phase='TEST')
 
-        sess = tf.Session(config=tf.ConfigProto(gpu_options=tf.GPUOptions(allow_growth=True)))
+        var = 3
+        print('sess 0 using CUDA_VISIBLE_DEVICES=',var)
+        os.environ["CUDA_VISIBLE_DEVICES"] = str(var)
+        gpu_options = tf.GPUOptions(per_process_gpu_memory_fraction=0.3)
+        sess = tf.Session(config=tf.ConfigProto(gpu_options=gpu_options))
+        # sess = tf.Session(config=tf.ConfigProto(gpu_options=tf.GPUOptions(allow_growth=True)))
         saver = tf.train.Saver()
         saver.restore(sess, self.model_file)
         sess_tuple = (sess, input_batch, iminfo_batch, rois)
@@ -177,9 +182,16 @@ class AlexNetFeaturizer:
         maxpool5 = tf.nn.max_pool(conv5, ksize=[1, k_h, k_w, 1], strides=[1, s_h, s_w, 1], padding=padding)
 
         init = tf.global_variables_initializer()
-        config = tf.ConfigProto()
-        config.gpu_options.allow_growth=True
-        self.sess = tf.Session(config=config)
+        # config = tf.ConfigProto()
+        # config.gpu_options.allow_growth=True
+        # self.sess = tf.Session(config=config)
+
+        var = 3
+        print('sess1 using CUDA_VISIBLE_DEVICES=', var)
+        os.environ["CUDA_VISIBLE_DEVICES"] = str(var)
+        gpu_options = tf.GPUOptions(per_process_gpu_memory_fraction=0.3)
+        self.sess = tf.Session(config=tf.ConfigProto(gpu_options=gpu_options))
+
         # self.sess = tf.Session()
         self.sess.run(init)
 

@@ -294,6 +294,8 @@ class Visualizer(object):
             self.receivingScores = False
             data = data.data
             for i in range(self.num_predictions):
+                print data.dtype
+                print data
                 self.scoreTexts[i] = str(data[i])
         else:
             self.receivingScores = True
@@ -307,7 +309,7 @@ class Visualizer(object):
             y = int(round((self.canvas.canvasy(event.y) - self.offset_y) / self.image_ratio))
 
             if self.pixel1:
-                self.canvas.create_oval(event.x - 6, event.y - 6, event.x + 6, event.y + 6,
+                self.canvas.create_oval(event.x - 10, event.y - 10, event.x + 10, event.y + 10,
                                         outline=self.colors[self.num_pairs % len(self.colors)],
                                         width=4,
                                         tags="points")

@@ -182,8 +182,6 @@ class Visual_MPC_Client():
                                                      save_images=save_images,
                                                      image_shape=(self.img_height, self.img_width))
 
-
-
         if self.data_collection == True:
             self.checkpoint_file = os.path.join(self.recorder.save_dir, 'checkpoint.txt')
             self.rpn_tracker = RPN_Tracker(self.recorder_save_dir, self.recorder)
@@ -229,25 +227,11 @@ class Visual_MPC_Client():
 
         imagemain = cv2.cvtColor(imagemain, cv2.COLOR_BGR2RGB)
         c_main = Getdesig(imagemain, self.recorder_save_dir, '_traj{}'.format(itr),
-                          self.ndesig, self.canon_ind, self.canon_dir, im_shape=[self.img_height, self.img_width])
+                          self.ndesig, im_shape=[self.img_height, self.img_width])
         self.desig_pos_main = c_main.desig.astype(np.int64)
         print 'desig pos aux1:', self.desig_pos_main
         self.goal_pos_main = c_main.goal.astype(np.int64)
         print 'goal pos main:', self.goal_pos_main
-
-    def save_canonical(self):
-        imagemain = self.recorder.ltob.img_cropped
-        imagemain = np.stack([imagemain, imagemain], axis=0)
-        state = self.get_endeffector_pos()
-        state = np.stack([state, state], axis=0)
-        dict = {}
-        dict['desig_pix'] = self.desig_pos_main
-        dict['goal_pix'] = self.goal_pos_main
-        dict['images'] = imagemain
-        dict['endeff'] = state
-        ex = self.canon_ind
-        cPickle.dump(dict, open(self.canon_dir +'/pkl/example{}.pkl'.format(ex), 'wb'))
-        print 'saved canonical example to '+ self.canon_dir +'/pkl/example{}.pkl'.format(ex)
 
 
     def imp_ctrl_release_spring(self, maxstiff):
@@ -390,7 +374,7 @@ class Visual_MPC_Client():
             w=0.0
         )
 
-        return  quat
+        return quat
 
     def init_traj(self):
         try:
@@ -420,7 +404,7 @@ class Visual_MPC_Client():
             self.set_weiss_griper(50.)
 
         self.gripper_closed = False
-        self.gripper_up = False
+
 
         if self.use_save_subdir:
             self.save_subdir = raw_input('enter subdir to save data:')
@@ -476,7 +460,15 @@ class Visual_MPC_Client():
         print 'startpos', startpos
 
         start_angle = np.array([0.])
-        self.des_pos = np.concatenate([startpos, np.array([self.lower_height]), start_angle], axis=0)
+
+        go_up_at_start = True
+
+        if go_up_at_start:
+            self.des_pos = np.concatenate([startpos, np.array([self.lower_height+self.delta_up]), start_angle], axis=0)
+            self.gripper_up = True
+        else:
+            self.des_pos = np.concatenate([startpos, np.array([self.lower_height]), start_angle], axis=0)
+            self.gripper_up = False
 
         self.topen, self.t_down = 0, 0
 
@@ -505,8 +497,7 @@ class Visual_MPC_Client():
                 if 'manual_correction' in self.agentparams:
                     imagemain = self.recorder.ltob.img_cropped
                     imagemain = cv2.cvtColor(imagemain, cv2.COLOR_BGR2RGB)
-                    c_main = Getdesig(imagemain, self.recorder_save_dir, '_t{}'.format(i_step), self.ndesig,
-                                      self.canon_ind, self.canon_dir, only_desig=True)
+                    c_main = Getdesig(imagemain, self.recorder_save_dir, '_t{}'.format(i_step), self.ndesig, only_desig=True)
                     self.desig_pos_main = c_main.desig.astype(np.int64)
                 elif 'opencv_tracking' in self.agentparams:
                     self.desig_pos_main, self.desig_hpos_main = self.tracker.get_track()  #tracking only works for 1 desig. pixel!!
@@ -519,7 +510,6 @@ class Visual_MPC_Client():
                 query_times.append(time.time()-get_action_start)
 
                 print 'action vec', action_vec
-
 
                 self.des_pos, going_down = self.apply_act(self.des_pos, action_vec, i_step)
                 start_time = rospy.get_time()
@@ -552,6 +542,7 @@ class Visual_MPC_Client():
                         # print 'isave_substep', isave_substep
                         if 'opencv_tracking' in self.agentparams:
                             _, self.desig_hpos_main = self.tracker.get_track()
+                        print 'isave', isave
                         self.recorder.save(isave, action_vec, self.get_endeffector_pos(), self.desig_hpos_main, self.desig_pos_main, self.goal_pos_main)
                         isave_substep += 1
                         isave += 1
@@ -643,9 +634,9 @@ class Visual_MPC_Client():
         """
         assert (rospy.get_time() >= t_prev)
         des_pos = previous_goalpoint + (next_goalpoint - previous_goalpoint) * (rospy.get_time()- t_prev)/ (t_next - t_prev)
-        if rospy.get_time() - t_next > 0.2:
+        if rospy.get_time() - t_next > 1.5:
             des_pos = next_goalpoint
-            print 't - tnext > 0.2!!!!'
+            print 't - tnext > 1.5!!!!'
             pdb.set_trace()
 
         # print 'current_delta_time: ', self.curr_delta_time
@@ -855,13 +846,11 @@ class Visual_MPC_Client():
             self.move_with_impedance(self.joint_pos[t])
 
 class Getdesig(object):
-    def __init__(self,img,basedir,img_namesuffix = '', n_desig=1, canon_ind=None, canon_dir = None, only_desig = False,
+    def __init__(self,img,basedir,img_namesuffix = '', n_desig=1, only_desig = False,
                  im_shape = None):
         self.im_shape = im_shape
 
         self.only_desig = only_desig
-        self.canon_ind = canon_ind
-        self.canon_dir = canon_dir
         self.n_desig = n_desig
         self.suf = img_namesuffix
         self.basedir = basedir

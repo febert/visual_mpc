@@ -53,7 +53,7 @@ class Visual_MPC_Server(object):
         print 'using configuration: ',benchmark_name
 
         if not os.path.exists(bench_dir):
-            raise ValueError('benchmark directory does not exist')
+            raise ValueError('benchmark directory does not exist {}'.format(bench_dir))
 
         bench_conf = imp.load_source('mod_hyper', bench_dir + '/mod_hyper.py')
         if hasattr(bench_conf, 'policy'):
@@ -151,7 +151,7 @@ class Visual_MPC_Server(object):
         if self.t == self.agentparams['T'] -1:
             if 'verbose' in self.policyparams:
                 cPickle.dump(self.cem_controller.dict_,open(self.netconf['current_dir'] + '/verbose/pred.pkl', 'wb'))
-            print 'finished writing files to:' + self.netconf['current_dir'] + '/verbose/pred.pkl'
+                print 'finished writing files to:' + self.netconf['current_dir'] + '/verbose/pred.pkl'
             if 'no_pixdistrib_video' not in self.policyparams:
                 self.save_video()
 

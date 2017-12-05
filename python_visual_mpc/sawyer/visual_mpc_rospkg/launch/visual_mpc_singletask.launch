@@ -1,27 +1,29 @@
 <!--requires parameters exp-->
 <launch>
-     <include file="$(find kinect2_bridge)/launch/kinect2_bridge.launch"/>
-     <!--<node pkg="visual_mpc_rospkg" type="joint_space_impedance.py" name="joint_space_impedance" launch-prefix="xterm -e"/>-->
+     <!--<include file="$(find kinect2_bridge)/launch/kinect2_bridge.launch"/>-->
+     <node pkg="visual_mpc_rospkg" type="joint_space_impedance.py" name="joint_space_impedance" launch-prefix="gnome-terminal --command"     />
 
-     <!--<node pkg="visual_mpc_rospkg" type="visual_mpc_server.py" name="visual_mpc_server" launch-prefix="xterm -e">-->
-          <!--<param name="exp" value="$(arg exp)"/>-->
-          <!--<param name="ngpu" value="4"/>-->
-          <!--<param name="gpu_id" value="0"/>-->
-     <!--</node>-->
-     <!--launch-prefix="gnome-terminal &#45;&#45;command"-->
-     <node pkg="visual_mpc_rospkg" type="visual_mpc_client.py" name="visual_mpc_client" output="screen">
+     <node pkg="visual_mpc_rospkg" type="visual_mpc_server.py" name="visual_mpc_server" launch-prefix="gnome-terminal --command">
+          <param name="exp" value="$(arg exp)"/>
+          <param name="ngpu" value="4"/>
+          <param name="gpu_id" value="0"/>
+     </node>
+     launch-prefix="gnome-terminal --command"
+     <node pkg="visual_mpc_rospkg" type="visual_mpc_client.py" name="visual_mpc_client" launch-prefix="gnome-terminal --command">
           <param name="exp" value="$(arg exp)"/>
           <param name="gui" value="True"/>
      </node>
 
-     <node pkg="visual_mpc_rospkg" type="tracking_server.py" name="tracking_server" output="screen">
+     <!--output="screen"-->
+
+     <node pkg="visual_mpc_rospkg" type="tracking_server.py" name="tracking_server" launch-prefix="gnome-terminal --command">
           <param name="exp" value="$(arg exp)"/>
      </node>
 
-     <node pkg="visual_mpc_rospkg" type="visual_mpc_demo.py" name="visual_mpc_demo"  output="screen">
+     <node pkg="visual_mpc_rospkg" type="visual_mpc_demo.py" name="visual_mpc_demo"  launch-prefix="gnome-terminal --command">
           <param name="exp" value="$(arg exp)"/>
           <param name="ndesig" value="1"/>
      </node>
 
-     <include file="$(find visual_mpc_rospkg)/launch/start_gripper_autoupdate_$(arg robot).launch"/>
+     <!--<include file="$(find visual_mpc_rospkg)/launch/start_gripper_autoupdate_$(arg robot).launch"/>-->
 </launch>
