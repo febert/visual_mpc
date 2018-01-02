@@ -1,10 +1,11 @@
 # How to start visual-MPC on Sawyer
-
-### start kinect-bridge node:
+start kinect-bridge node:
 ```cd visual_mpc/python_visual_mpc/sawyer/visual_mpc_rospkg/launch/bridgeonly.launch```
 
 and run
 ```./startkinect.sh```
+
+To launch visual MPC run:
 
 ```roslaunch visual_mpc_rospkg visual_mpc_singletask.launch robot:=<robot_name> exp:=<name_of_folder_inside:visual_mpc/experiments/cem_exp/benchmarks_sawyer>```
 
