@@ -1,4 +1,4 @@
-# How to start visual-MPC
+# How to start visual-MPC on Sawyer
 
 ### start kinect-bridge node:
 ```cd visual_mpc/python_visual_mpc/sawyer/visual_mpc_rospkg/launch/bridgeonly.launch```
@@ -10,7 +10,7 @@ and run
 
 The parameter exp specifies which configuration file inside ```:visual_mpc/experiments/cem_exp/benchmarks_sawyer```  to use.
 
-#Information for Simulation Setup:
+# Information for Simulation Setup:
 
 In order to run rendering remotely on a different machine it is necessary to give remote users access to the x server:
 Log into graphical session on remote computer and give access by typing:
