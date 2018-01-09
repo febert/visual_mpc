@@ -154,3 +154,6 @@ test_shuffled/
 preview
 
 data
+
+.DS_STORE
+

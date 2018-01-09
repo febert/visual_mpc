@@ -82,7 +82,10 @@ def visualize(sess, conf, model):
     # v = Visualizer_tkinter(dict, numex=conf['batch_size'], append_masks=False, filepath=conf['output_dir'],
     #                        col_titles=[str(i) for i in range(conf['batch_size'])])
     v = Visualizer_tkinter(dict, numex=conf['batch_size'], append_masks=False, filepath=conf['output_dir'])
-    v.build_figure()
+    # v.build_figure()
+
+    for i in range(11):
+        v.make_image_strip(i_ex=i)
 
 def visualize_diffmotions(sess, conf, model):
 
