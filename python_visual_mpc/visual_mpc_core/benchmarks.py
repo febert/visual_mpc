@@ -1,4 +1,4 @@
-from infrastructure.lsdc_main_mod import LSDCMain
+from infrastructure.run_sim import Sim
 import argparse
 import imp
 import os
@@ -81,7 +81,7 @@ def perform_benchmark(bench_conf = None):
         n_reseed = 3
 
     anglecost = []
-    lsdc = LSDCMain(conf, gpu_id= gpu_id, ngpu= ngpu)
+    sim = Sim(conf, gpu_id= gpu_id, ngpu= ngpu)
 
     if 'start_confs' not in conf['agent']:
         benchconfiguration = cPickle.load(open('infrastructure/benchmarkconfigs', "rb"))
@@ -105,9 +105,9 @@ def perform_benchmark(bench_conf = None):
 
     while traj < nruns:
 
-        lsdc.agent._hyperparams['x0'] = initialposes[i_conf]
+        sim.agent._hyperparams['x0'] = initialposes[i_conf]
         if 'use_goalimage' not in conf['policy']:
-            lsdc.agent._hyperparams['goal_point'] = goalpoints[i_conf]
+            sim.agent._hyperparams['goal_point'] = goalpoints[i_conf]
 
         for j in range(n_reseed):
             if traj > nruns -1:
@@ -122,21 +122,21 @@ def perform_benchmark(bench_conf = None):
             print 'using random seed', seed
             print '-------------------------------------------------------------------'
 
-            lsdc.agent._hyperparams['record'] = bench_dir + '/videos/traj{0}_conf{1}'.format(traj, i_conf)
+            sim.agent._hyperparams['record'] = bench_dir + '/videos/traj{0}_conf{1}'.format(traj, i_conf)
 
             if 'usenet' in conf['policy']:
-                lsdc.policy = conf['policy']['type'](lsdc.agent._hyperparams,
-                                                     conf['policy'], lsdc.predictor)
+                sim.policy = conf['policy']['type'](sim.agent._hyperparams,
+                                                     conf['policy'], sim.predictor)
             else:
-                lsdc.policy = conf['policy']['type'](lsdc.agent._hyperparams, conf['policy'])
+                sim.policy = conf['policy']['type'](sim.agent._hyperparams, conf['policy'])
 
-            lsdc.policy.policyparams['rec_distrib'] =  bench_dir + '/videos_distrib/traj{0}_conf{1}'.format(traj, i_conf)
-            lsdc._take_sample(traj)
+            sim.policy.policyparams['rec_distrib'] =  bench_dir + '/videos_distrib/traj{0}_conf{1}'.format(traj, i_conf)
+            sim._take_sample(traj)
 
-            scores[traj] = lsdc.agent.final_poscost
+            scores[traj] = sim.agent.final_poscost
 
             if 'use_goalimage' in conf['agent']:
-                anglecost.append(lsdc.agent.final_anglecost)
+                anglecost.append(sim.agent.final_anglecost)
 
             print 'score of traj', traj, ':', scores[traj]
 

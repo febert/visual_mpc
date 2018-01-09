@@ -9,16 +9,15 @@ import cPickle
 from PIL import Image
 import matplotlib.pyplot as plt
 
-
-
 import time
 from python_visual_mpc.visual_mpc_core.infrastructure.trajectory import Trajectory
 from matplotlib.backends.backend_agg import FigureCanvasAgg as FigureCanvas
 from matplotlib.figure import Figure
 import cv2
 from mpl_toolkits.mplot3d import Axes3D
-import xml.etree.cElementTree as ET
-import xml.dom.minidom as minidom
+
+from utils.create_xml import create_xml
+
 
 class AgentMuJoCo(object):
     """
@@ -28,7 +27,8 @@ class AgentMuJoCo(object):
     def __init__(self, hyperparams):
         self._hyperparams = hyperparams
         self.T = self._hyperparams['T']
-
+        self.sdim = self._hyperparams['sdim']
+        self.adim = self._hyperparams['adim']
         self._setup_world()
 
     def _setup_world(self):
@@ -37,8 +37,8 @@ class AgentMuJoCo(object):
         Args:
             filename: Path to XML file containing the world information.
         """
-        if "varying_mass" in self._hyperparams:
-            self.create_xml()
+        if "gen_xml" in self._hyperparams:
+            create_xml(self._hyperparams)
 
         self._model= mujoco_py.MjModel(self._hyperparams['filename'])
         self.model_nomarkers = mujoco_py.MjModel(self._hyperparams['filename_nomarkers'])
@@ -57,32 +57,16 @@ class AgentMuJoCo(object):
             self._large_viewer.cam.camid = 0
 
 
-    def create_xml(self):
-
-        for i in range(self._hyperparams['num_objects']):
-            xmldir = '/'.join(str.split(self._hyperparams['filename'], '/')[:-1])
-            mass = np.random.uniform(.01, 1.)
-            root = ET.Element("top")
-            ET.SubElement(root, "inertial", pos="0 0 0", mass="{}".format(mass),
-                          diaginertia="{0} {1} {2}".format(mass/2., mass/2., mass/2.))
-            tree = ET.ElementTree(root)
-            xml_str = minidom.parseString(ET.tostring(
-                    tree.getroot(),
-                    'utf-8')).toprettyxml(indent="    ")
-
-            xml_str = xml_str.splitlines()[1:]
-            xml_str = "\n".join(xml_str)
-
-            with open(xmldir+"/mass{}.xml".format(i), "wb") as f:
-                f.write(xml_str)
-
-    def sample(self, policy, verbose=True, save=True, noisy=False):
+    def sample(self, policy, i_tr, verbose=True, save=True, noisy=False):
         """
         Runs a trial and constructs a new sample containing information
         about the trial.
         """
-        if "varying_mass" in self._hyperparams:
-            self._setup_world()
+        if "gen_xml" in self._hyperparams:
+            if i_tr % self._hyperparams['gen_xml'] == 0:
+                self._small_viewer.finish()
+                self._large_viewer.finish()
+                self._setup_world()
 
         traj_ok = False
         i_trial = 0
@@ -90,6 +74,7 @@ class AgentMuJoCo(object):
         while not traj_ok and i_trial < imax:
             i_trial += 1
             traj_ok, traj = self.rollout(policy)
+
         print 'needed {} trials'.format(i_trial)
 
         tfinal = self._hyperparams['T'] -1
@@ -105,13 +90,8 @@ class AgentMuJoCo(object):
         if not 'novideo' in self._hyperparams:
             self.save_gif()
 
-        if "varying_mass" in self._hyperparams:
-            self._small_viewer.finish()
-            self._large_viewer.finish()
-
         policy.finish()
         return traj
-
 
     def get_max_move_pose(self, traj):
 
@@ -126,7 +106,6 @@ class AgentMuJoCo(object):
         return traj
 
     def rollout(self, policy):
-        # Create new sample, populate first time step.
         self._init()
         traj = Trajectory(self._hyperparams)
 
@@ -147,8 +126,8 @@ class AgentMuJoCo(object):
 
         # Take the sample.
         for t in range(self.T):
-            traj.X_full[t, :] = self._model.data.qpos[:2].squeeze()
-            traj.Xdot_full[t, :] = self._model.data.qvel[:2].squeeze()
+            traj.X_full[t, :] = self._model.data.qpos[:self.sdim].squeeze()
+            traj.Xdot_full[t, :] = self._model.data.qvel[:self.sdim].squeeze()
             traj.X_Xdot_full[t, :] = np.concatenate([traj.X_full[t, :], traj.Xdot_full[t, :]])
             for i in range(self._hyperparams['num_objects']):
                 fullpose = self._model.data.qpos[i * 7 + 2:i * 7 + 9].squeeze()
@@ -171,9 +150,9 @@ class AgentMuJoCo(object):
                     self.large_images_traj += self.add_traj_visual(self.large_images[t], pos, ind, targets)
 
             if 'poscontroller' in self._hyperparams.keys():
-                traj.U[t, :] = target_inc
+                traj.actions[t, :] = target_inc
             else:
-                traj.U[t, :] = mj_U
+                traj.actions[t, :] = mj_U
 
             accum_touch = np.zeros_like(self._model.data.sensordata)
 
@@ -478,26 +457,27 @@ class AgentMuJoCo(object):
             for i in range(self._hyperparams['num_objects']):
                 pos = np.random.uniform(-.35, .35, 2)
                 alpha = np.random.uniform(0, np.pi*2)
+
                 ori = np.array([np.cos(alpha/2), 0, 0, np.sin(alpha/2) ])
                 poses.append(np.concatenate((pos, np.array([0]), ori), axis= 0))
             return np.concatenate(poses)
 
-        if self._hyperparams['x0'].shape[0] > 4: # if object pose explicit do not sample poses
-            object_pos = self._hyperparams['x0'][4:]
+        if 'sample_objectpos' in self._hyperparams: # if object pose explicit do not sample poses
+            object_pos = create_pos()
         else:
-            object_pos= create_pos()
+            object_pos = self._hyperparams['object_pos0']
 
         # Initialize world/run kinematics
+        xpos0 = self._hyperparams['xpos0']
         if 'randomize_ballinitpos' in self._hyperparams:
-            x0 = np.random.uniform(-.35, .35, 2)
-        else:
-            x0 = self._hyperparams['x0']
+            xpos0[:2] = np.random.uniform(-.35, .35, 2)
+
         if 'goal_point' in self._hyperparams.keys():
             goal = np.append(self._hyperparams['goal_point'], [.1])   # goal point
             ref = np.append(object_pos[:2], [.1]) # reference point on the block
-            self._model.data.qpos = np.concatenate((x0[:2], object_pos,goal, ref), 0)
+            self._model.data.qpos = np.concatenate((xpos0, object_pos,goal, ref), 0)
         else:
-            self._model.data.qpos = np.concatenate((x0[:2], object_pos), 0)
+            self._model.data.qpos = np.concatenate((xpos0, object_pos), 0)
 
         self._model.data.qvel = np.zeros_like(self._model.data.qvel)
 

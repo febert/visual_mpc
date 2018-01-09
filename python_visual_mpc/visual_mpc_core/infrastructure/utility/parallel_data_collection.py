@@ -2,12 +2,13 @@ from multiprocessing import Pool
 import argparse
 import imp
 import os
-from lsdc.lsdc_main_mod import LSDCMain
-from python.lsdc.utility.benchmarks import perform_benchmark
+from python_visual_mpc.visual_mpc_core.infrastructure.run_sim import Sim
+from python_visual_mpc.visual_mpc_core.benchmarks import perform_benchmark
 import copy
 import random
 import numpy as np
 import shutil
+import python_visual_mpc
 import pdb
 
 def worker(conf):
@@ -20,9 +21,8 @@ def worker(conf):
     random.seed(None)
     np.random.seed(None)
 
-    lsdc = LSDCMain(conf)
-    lsdc.run()
-
+    s = Sim(conf)
+    s.run()
 
 def bench_worker(conf):
     print 'started process with PID:', os.getpid()
@@ -41,7 +41,7 @@ class Modhyper(object):
 def main():
     parser = argparse.ArgumentParser(description='run parllel data collection')
     parser.add_argument('experiment', type=str, help='experiment name')
-    parser.add_argument('--parallel', type=str, help='use multiple threads or not', default=True)
+    parser.add_argument('--parallel', type=str, help='use multiple threads or not', default='True')
 
     args = parser.parse_args()
     exp_name = args.experiment
@@ -57,10 +57,9 @@ def main():
         n_worker = 1
     print 'parallel ', bool(parallel)
 
-    from lsdc import __file__ as lsdc_filepath
-    lsdc_filepath = os.path.abspath(lsdc_filepath)
-    lsdc_dir = '/'.join(str.split(lsdc_filepath, '/')[:-3])
-    data_coll_dir = lsdc_dir + '/pushing_data/' + exp_name
+    basepath = os.path.abspath(python_visual_mpc.__file__)
+    basepath = '/'.join(str.split(basepath, '/')[:-2])
+    data_coll_dir = basepath + '/pushing_data/' + exp_name
     hyperparams_file = data_coll_dir + '/hyperparams.py'
     do_benchmark = False
 
@@ -70,7 +69,7 @@ def main():
     else:
         print 'doing benchmark ...'
         do_benchmark = True
-        experimentdir = lsdc_dir + '/experiments/cem_exp/benchmarks_goalimage/' + exp_name
+        experimentdir = basepath + '/experiments/cem_exp/benchmarks_goalimage/' + exp_name
         hyperparams_file = experimentdir + '/mod_hyper.py'
         mod_hyperparams = imp.load_source('hyperparams', hyperparams_file)
         n_traj = mod_hyperparams.config['end_index']
@@ -82,7 +81,6 @@ def main():
     end_idx =  [traj_per_worker * (i+1)-1 for i in range(n_worker)]
 
     conflist = []
-
 
 
     for i in range(n_worker):
