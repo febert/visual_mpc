@@ -153,6 +153,8 @@ test_annotations
 test_shuffled/
 preview
 
+auto_gen/
+
 data
 
 .DS_STORE

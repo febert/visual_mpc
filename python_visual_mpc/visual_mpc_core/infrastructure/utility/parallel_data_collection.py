@@ -99,6 +99,9 @@ def main():
         use_worker = bench_worker
     else: use_worker = worker
 
+    if 'gen_xml' in conflist[0]['agent']:
+        os.system("rm {}".format('/'.join(str.split(modconf['agent']['filename'], '/')[:-1]) + '/auto_gen/*'))
+
     if parallel:
         p = Pool(n_worker)
         p.map(use_worker, conflist)

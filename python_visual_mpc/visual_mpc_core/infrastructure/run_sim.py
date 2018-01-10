@@ -57,7 +57,7 @@ class Sim(object):
             pass
 
     def run(self):
-        for i in range(self._hyperparams['start_index'], self._hyperparams['end_index']):
+        for i in range(self._hyperparams['start_index'], self._hyperparams['end_index']+1):
             self._take_sample(i)
 
     def _take_sample(self, sample_index):

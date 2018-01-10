@@ -39,6 +39,7 @@ agent = {
     'num_objects': num_objects,
     'novideo':'',
     'gen_xml':10,   #generate xml every nth trajecotry
+    'randomize_ballinitpos':'',
 }
 
 policy = {
@@ -57,5 +58,5 @@ config = {
     'end_index': 60000,
     'agent': agent,
     'policy': policy,
-    'ngroup':20     ###
+    'ngroup': 1000
 }

@@ -12,6 +12,8 @@ import glob
 import cv2
 import cPickle
 
+import time
+
 from python_visual_mpc.visual_mpc_core.infrastructure.trajectory import Trajectory
 
 from dataloading_utils import get_maxtraj, make_traj_name_list
@@ -62,9 +64,7 @@ def read_images(conf, trajname, traj):
         trajind += 1
 
 class VideoDataset(Dataset):
-    """Face Landmarks dataset."""
-
-    def __init__(self, dataconf, trainconf, randomize_ind=True):
+    def __init__(self, dataconf, trainconf, train=True):
         """
         Args:
             csv_file (string): Path to the csv file with annotations.
@@ -76,14 +76,14 @@ class VideoDataset(Dataset):
         self.policyparams = dataconf['policy']
         self.conf = dataconf
 
-        self.randomize_ind = randomize_ind
-        self.root_dir = self.agentparams['data_files_dir']
+        if train:
+            self.root_dir = self.agentparams['data_files_dir']
+        else: self.root_dir = '/'.join(str.split(self.agentparams['data_files_dir'] , '/')[:-1]) + '/test'
 
         self.transform=transforms.Compose([Crop(trainconf['startrow'], trainconf['endrow']), ToTensor()])
 
         get_maxtraj(self.root_dir)
         self.traj_name_list = make_traj_name_list(dataconf, shuffle=False)
-
 
     def __len__(self):
         return len(self.traj_name_list)
@@ -109,13 +109,13 @@ class VideoDataset(Dataset):
 
         return sample
 
-def make_video_loader(dataconf, trainconf):
-    dataset = VideoDataset(dataconf, trainconf)
+def make_video_loader(dataconf, trainconf, train=True):
+    dataset = VideoDataset(dataconf, trainconf, train=train)
 
     return DataLoader(dataset, batch_size=trainconf['batch_size'],
-                            shuffle=True, num_workers=1)
+                            shuffle=True, num_workers=10)
 
-def main():
+def test_videoloader():
     hyperparams_file = '/home/frederik/Documents/catkin_ws/src/visual_mpc/pushing_data/cartgripper_genobj/hyperparams.py'
     hyperparams = imp.load_source('hyperparams', hyperparams_file)
     config = hyperparams.config
@@ -126,21 +126,26 @@ def main():
 
     dataloader = make_video_loader(config, trainconf)
 
+    end = time.time()
     for i_batch, sample_batched in enumerate(dataloader):
 
         images = sample_batched['images']
         states = sample_batched['states']
         actions = sample_batched['actions']
 
-        print i_batch, images.size(), states.size(), actions.size()
+        if i_batch % 10 == 0:
+            print 'tload{}'.format(time.time() - end)
+        end = time.time()
 
-        images = images.numpy().transpose((0, 1, 3, 4, 2))
-        file = '/'.join(str.split(config['agent']['data_files_dir'], '/')[:-1]) + '/example'
-        comp_single_video(file, images)
-
-        # observe 4th batch and stop.
-        if i_batch == 10:
-            break
+        # print i_batch, images.size(), states.size(), actions.size()
+        #
+        # images = images.numpy().transpose((0, 1, 3, 4, 2))
+        # file = '/'.join(str.split(config['agent']['data_files_dir'], '/')[:-1]) + '/example'
+        # comp_single_video(file, images)
+        #
+        # # observe 4th batch and stop.
+        # if i_batch == 10:
+        #     break
 
 if __name__ == '__main__':
-    main()
+    test_videoloader()

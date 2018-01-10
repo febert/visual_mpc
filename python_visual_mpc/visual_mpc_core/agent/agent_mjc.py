@@ -16,8 +16,17 @@ from matplotlib.figure import Figure
 import cv2
 from mpl_toolkits.mplot3d import Axes3D
 
-from utils.create_xml import create_xml
+from utils.create_xml import create_object_xml, create_root_xml
+import os
+from time import sleep
 
+
+def file_len(fname):
+    i = 0
+    with open(fname) as f:
+        for i, l in enumerate(f):
+            pass
+    return i + 1
 
 class AgentMuJoCo(object):
     """
@@ -38,10 +47,15 @@ class AgentMuJoCo(object):
             filename: Path to XML file containing the world information.
         """
         if "gen_xml" in self._hyperparams:
-            create_xml(self._hyperparams)
+            create_object_xml(self._hyperparams)
+            xmlfilename = create_root_xml(self._hyperparams)
+            xmlfilename_nomarkers = xmlfilename
+        else:
+            xmlfilename = self._hyperparams['filename']
+            xmlfilename_nomarkers = self._hyperparams['filename_nomarkers']
 
-        self._model= mujoco_py.MjModel(self._hyperparams['filename'])
-        self.model_nomarkers = mujoco_py.MjModel(self._hyperparams['filename_nomarkers'])
+        self._model= mujoco_py.MjModel(xmlfilename)
+        self.model_nomarkers = mujoco_py.MjModel(xmlfilename_nomarkers)
 
         gofast = True
         self._small_viewer = mujoco_py.MjViewer(visible=True,
