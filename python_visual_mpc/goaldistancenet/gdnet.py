@@ -68,8 +68,8 @@ class GoalDistanceNet(object):
 
     def sel_images(self):
         sequence_length = self.conf['sequence_length']
-        delta_t = tf.cast(tf.ceil(sequence_length * (self.iter_num + 1) / 4e4), dtype=tf.int32)
-        delta_t = tf.clip_by_value(delta_t, 1, sequence_length)
+        delta_t = tf.cast(tf.ceil(sequence_length * (self.iter_num + 1) / 100), dtype=tf.int32)  #################
+        delta_t = tf.clip_by_value(delta_t, 1, sequence_length-1)
 
         self.tstart = tf.random_uniform([1], 0, sequence_length - delta_t, dtype=tf.int32)
 
