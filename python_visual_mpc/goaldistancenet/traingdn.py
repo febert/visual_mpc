@@ -52,11 +52,7 @@ def main(unused_argv, conf_script= None):
         print 'creating visualizations ...'
         conf['schedsamp_k'] = -1  # don't feed ground truth
 
-        if 'test_data_dir' in conf:
-            conf['data_dir'] = conf['test_data_dir']
-        elif 'test_data_ind' in conf:
-            conf['data_dir'] = '/'.join(str.split(conf['data_dir'][conf['test_data_ind']], '/')[:-1] + ['test'])
-        else: conf['data_dir'] = '/'.join(str.split(conf['data_dir'], '/')[:-1] + ['test'])
+        conf['data_dir'] = '/'.join(str.split(conf['data_dir'], '/')[:-1] + ['test'])
 
         if FLAGS.visualize_check:
             conf['visualize_check'] = conf['output_dir'] + '/' + FLAGS.visualize_check
@@ -67,19 +63,11 @@ def main(unused_argv, conf_script= None):
 
         conf.pop('color_augmentation', None)
 
-        conf['batch_size'] = 40
-
-        conf['sequence_length'] = 14
-        if FLAGS.diffmotions:
-            conf['sequence_length'] = 14
+        conf['batch_size'] = 10
 
         # when using alex interface:
         if 'modelconfiguration' in conf:
             conf['modelconfiguration']['schedule_sampling_k'] = conf['schedsamp_k']
-
-        if FLAGS.float16:
-            print 'using float16'
-            conf['float16'] = ''
 
         build_loss = False
     else:
@@ -87,7 +75,10 @@ def main(unused_argv, conf_script= None):
 
     from gdnet import GoalDistanceNet
 
-    model = GoalDistanceNet(conf, None, build_loss)
+    if FLAGS.visualize or FLAGS.visualize_check:
+        model = GoalDistanceNet(conf, build_loss, load_data=False)
+    else:
+        model = GoalDistanceNet(conf, build_loss, load_data=True)
 
     print 'Constructing saver.'
     vars = tf.get_collection(tf.GraphKeys.GLOBAL_VARIABLES)

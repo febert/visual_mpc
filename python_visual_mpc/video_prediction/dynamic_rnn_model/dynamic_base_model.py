@@ -11,6 +11,7 @@ from python_visual_mpc.video_prediction.dynamic_rnn_model.ops import sigmoid_kl_
 from python_visual_mpc.video_prediction.dynamic_rnn_model.utils import preprocess, deprocess
 from python_visual_mpc.video_prediction.basecls.utils.visualize import visualize_diffmotions, visualize, compute_metric
 from python_visual_mpc.video_prediction.basecls.utils.compute_motion_vecs import compute_motion_vector_cdna, compute_motion_vector_dna
+from python_visual_mpc.video_prediction.read_tf_records import build_tfrecord_input as build_tfrecord_fn
 import pdb
 # Amount to use when lower bounding tensors
 RELU_SHIFT = 1e-12
@@ -447,12 +448,7 @@ class Dynamic_Base_Model(object):
                 pix_distrib = self.pix_distrib_pl
 
             else:
-                if 'adim' in conf:
-                    from python_visual_mpc.video_prediction.read_tf_record_wristrot import \
-                        build_tfrecord_input as build_tfrecord_fn
-                else:
-                    from python_visual_mpc.video_prediction.read_tf_record_sawyer12 import \
-                        build_tfrecord_input as build_tfrecord_fn
+
                 train_images, train_actions, train_states = build_tfrecord_fn(conf, training=True)
                 val_images, val_actions, val_states = build_tfrecord_fn(conf, training=False)
 

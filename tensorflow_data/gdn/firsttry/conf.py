@@ -28,7 +28,6 @@ configuration = {
 'row_start':15,              # cropping the image
 'row_end':63,
 'normalization':'None',
-'basedim':16,
 'sdim' :6,
 'adim' :3
 }
