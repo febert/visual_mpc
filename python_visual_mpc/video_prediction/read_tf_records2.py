@@ -157,7 +157,15 @@ def build_tfrecord_input(conf, training=True, input_file=None):
     iterator = dataset.make_one_shot_iterator()
     next_element = iterator.get_next()
 
-    return next_element['images'], next_element['actions'], next_element['endeffector_pos']
+    images = next_element['images']
+    actions = next_element['actions']
+    states = next_element['endeffector_pos']
+
+    images = tf.reshape(images, [conf['batch_size']] + images.get_shape().as_list()[1:])
+    actions = tf.reshape(actions, [conf['batch_size']] + actions.get_shape().as_list()[1:])
+    states = tf.reshape(states, [conf['batch_size']] + states.get_shape().as_list()[1:])
+
+    return images, actions, states
 
 
 def main():

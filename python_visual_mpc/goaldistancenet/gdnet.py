@@ -55,12 +55,7 @@ class GoalDistanceNet(object):
             train_images, train_actions, train_states = build_tfrecord_fn(conf, training=True)
             val_images, val_actions, val_states = build_tfrecord_fn(conf, training=False)
 
-            train_images = tf.reshape(train_images, [conf['batch_size']]+train_images.get_shape().as_list()[1:])
-            train_actions = tf.reshape(train_actions, [conf['batch_size']] + train_actions.get_shape().as_list()[1:])
-            train_states = tf.reshape(train_states, [conf['batch_size']] + train_states.get_shape().as_list()[1:])
-            val_images = tf.reshape(val_images, [conf['batch_size']] + val_images.get_shape().as_list()[1:])
-            val_actions = tf.reshape(val_actions, [conf['batch_size']] + val_actions.get_shape().as_list()[1:])
-            val_states = tf.reshape(val_states, [conf['batch_size']] + val_states.get_shape().as_list()[1:])
+
 
             self.images, self.actions, self.states = tf.cond(self.train_cond > 0,  # if 1 use trainigbatch else validation batch
                                               lambda: [train_images, train_actions, train_states],
