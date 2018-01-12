@@ -31,10 +31,6 @@ if __name__ == '__main__':
     flags.DEFINE_string('visualize_check', "", 'model within hyperparameter folder from which to create gifs')
     flags.DEFINE_integer('device', 0 ,'the value for CUDA_VISIBLE_DEVICES variable')
     flags.DEFINE_string('resume', None, 'path to model file from which to resume training')
-    flags.DEFINE_bool('diffmotions', False, 'visualize several different motions for a single scene')
-    flags.DEFINE_bool('metric', False, 'compute metric of expected distance to human-labled positions ob objects')
-    flags.DEFINE_bool('float16', False, 'whether to do inference with float16')
-    flags.DEFINE_bool('create_images', False, 'whether to create images')
 
 def main(unused_argv, conf_script= None):
     os.environ["CUDA_VISIBLE_DEVICES"] = str(FLAGS.device)
@@ -71,11 +67,7 @@ def main(unused_argv, conf_script= None):
 
         conf.pop('color_augmentation', None)
 
-        if FLAGS.metric:
-            conf['batch_size'] = 128
-            conf['sequence_length'] = 15
-        else:
-            conf['batch_size'] = 40
+        conf['batch_size'] = 40
 
         conf['sequence_length'] = 14
         if FLAGS.diffmotions:
@@ -93,26 +85,14 @@ def main(unused_argv, conf_script= None):
     else:
         build_loss = True
 
-    Model = conf['pred_model']
+    from gdnet import GoalDistanceNet
 
-    if FLAGS.diffmotions or "visualize_tracking" in conf or FLAGS.metric:
-        model = Model(conf, load_data=False, trafo_pix=True, build_loss=build_loss)
-    else:
-        model = Model(conf, load_data=True, trafo_pix=False, build_loss=build_loss)
+    model = GoalDistanceNet(conf, None, build_loss)
 
     print 'Constructing saver.'
     vars = tf.get_collection(tf.GraphKeys.GLOBAL_VARIABLES)
     vars = filter_vars(vars)
     saving_saver = tf.train.Saver(vars, max_to_keep=0)
-
-    # if isinstance(model, Single_Point_Tracking_Model) and not (FLAGS.visualize or FLAGS.visualize_check):
-    #     # initialize the predictor from resume weights
-    #     # select weights that are *not* part of the tracker
-    #     vars = tf.get_collection(tf.GraphKeys.GLOBAL_VARIABLES)
-    #     predictor_vars = []
-    #     for var in vars:
-    #         if str.split(var.name, '/')[0] != 'tracker':
-    #             predictor_vars.append(var)
 
 
     if 'load_pretrained' in conf and not FLAGS.visualize_check and not FLAGS.visualize:
@@ -131,8 +111,7 @@ def main(unused_argv, conf_script= None):
     sess = tf.InteractiveSession(config=tf.ConfigProto(gpu_options=gpu_options))
     summary_writer = tf.summary.FileWriter(conf['event_log_dir'], graph=sess.graph, flush_secs=10)
 
-    if not FLAGS.diffmotions:
-        tf.train.start_queue_runners(sess)
+    tf.train.start_queue_runners(sess)
 
     sess.run(tf.global_variables_initializer())
 
@@ -148,12 +127,7 @@ def main(unused_argv, conf_script= None):
             print key, ': ', conf[key]
         print '-------------------------------------------------------------------'
 
-        if FLAGS.diffmotions:
-            model.visualize_diffmotions(sess)
-        elif FLAGS.metric:
-            model.compute_metric(sess, FLAGS.create_images)
-        else:
-            model.visualize(sess)
+        model.visualize(sess)
         return
 
     itr_0 =0
@@ -183,21 +157,6 @@ def main(unused_argv, conf_script= None):
         feed_dict = {model.iter_num: np.float32(itr),
                      model.train_cond: 1}
 
-        if len(conf['data_dir']) == 2:
-            if 'scheduled_finetuning' in conf:
-                dest_itr = conf['scheduled_finetuning_dest_itr']
-                ratio_dest_val = conf['scheduled_finetuning_dest_value']
-                ratio01 = np.array([(itr/dest_itr)*ratio_dest_val + (1.-itr/dest_itr)])
-                ratio01 = np.clip(ratio01, ratio_dest_val, 1.)
-                ratio01 = np.squeeze(ratio01)
-                feed_dict[model.dataset_01ratio] = ratio01
-            else:
-                ratio01 = 0.2
-                feed_dict[model.dataset_01ratio] = ratio01
-
-            if (itr) % 10 == 0:
-                print 'ratio old data/batchsize:', ratio01
-
         cost, _, summary_str = sess.run([model.loss, model.train_op, model.train_summ_op],
                                         feed_dict)
 
@@ -208,15 +167,8 @@ def main(unused_argv, conf_script= None):
             # Run through validation set.
             feed_dict = {model.iter_num: np.float32(itr),
                          model.train_cond: 0}
-            if len(conf['data_dir']) == 2:
-                feed_dict[model.dataset_01ratio] = ratio01
-                [val_summary_str, val_0_summary_str, val_1_summary_str] = sess.run([model.val_summ_op, model.val_0_summ_op, model.val_1_summ_op], feed_dict)
-                summary_writer.add_summary(val_summary_str, itr)
-                summary_writer.add_summary(val_0_summary_str, itr)
-                summary_writer.add_summary(val_1_summary_str, itr)
-            else:
-                [val_summary_str] = sess.run([model.val_summ_op], feed_dict)
-                summary_writer.add_summary(val_summary_str, itr)
+            [val_summary_str] = sess.run([model.val_summ_op], feed_dict)
+            summary_writer.add_summary(val_summary_str, itr)
 
         if (itr) % SAVE_INTERVAL == 2:
             tf.logging.info('Saving model to' + conf['output_dir'])

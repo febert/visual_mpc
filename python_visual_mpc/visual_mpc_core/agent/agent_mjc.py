@@ -108,6 +108,11 @@ class AgentMuJoCo(object):
         return traj
 
     def get_max_move_pose(self, traj):
+        """
+        get pose trajectory of the object with maximum accumulated motion
+        :param traj:
+        :return:
+        """
 
         delta_move = np.zeros(self._hyperparams['num_objects'])
         for i in range(self._hyperparams['num_objects']):
@@ -132,7 +137,7 @@ class AgentMuJoCo(object):
         # apply action of zero for the first few steps, to let the scene settle
         for t in range(self._hyperparams['skip_first']):
             for _ in range(self._hyperparams['substeps']):
-                self._model.data.ctrl = np.array([0., 0.])
+                self._model.data.ctrl = np.zeros(self._hyperparams['adim'])
                 self._model.step()
 
         self.large_images_traj = []

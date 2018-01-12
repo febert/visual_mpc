@@ -32,11 +32,10 @@ def get_maxtraj(sourcedir):
     return max_traj
 
 
-def make_traj_name_list(conf, start_end_grp = None, shuffle=True):
+def make_traj_name_list(conf, datadir, start_end_grp = None, shuffle=True):
 
     traj_per_gr = conf['ngroup']
-    source_dir = conf['agent']['data_files_dir']
-    max_traj = get_maxtraj(source_dir)
+    max_traj = get_maxtraj(datadir)
 
     if start_end_grp != None:
         startgrp = start_end_grp[0]
@@ -54,7 +53,7 @@ def make_traj_name_list(conf, start_end_grp = None, shuffle=True):
 
     trajname_ind_l = []  # list of tuples (trajname, ind) where ind is 0,1,2 in range(self.split_seq_by)
     for gr in range(startgrp, endgrp + 1):  # loop over groups
-        gr_dir_main = source_dir + '/traj_group' + str(gr)
+        gr_dir_main = datadir + '/traj_group' + str(gr)
 
         if gr == startgrp:
             trajstart = startidx
@@ -72,7 +71,7 @@ def make_traj_name_list(conf, start_end_grp = None, shuffle=True):
                 continue
             trajname_ind_l.append(trajdir)
 
-    print 'source_basedir: {}, length: {}'.format(source_dir,len(trajname_ind_l))
+    print 'source_basedir: {}, length: {}'.format(datadir,len(trajname_ind_l))
     assert len(trajname_ind_l) == len(set(trajname_ind_l))  #check for duplicates
 
     if shuffle:

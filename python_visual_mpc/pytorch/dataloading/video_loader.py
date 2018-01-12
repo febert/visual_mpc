@@ -83,7 +83,7 @@ class VideoDataset(Dataset):
         self.transform=transforms.Compose([Crop(trainconf['startrow'], trainconf['endrow']), ToTensor()])
 
         get_maxtraj(self.root_dir)
-        self.traj_name_list = make_traj_name_list(dataconf, shuffle=False)
+        self.traj_name_list = make_traj_name_list(dataconf, self.root_dir, shuffle=False)
 
     def __len__(self):
         return len(self.traj_name_list)
@@ -116,7 +116,7 @@ def make_video_loader(dataconf, trainconf, train=True):
                             shuffle=True, num_workers=10)
 
 def test_videoloader():
-    hyperparams_file = '/home/frederik/Documents/catkin_ws/src/visual_mpc/pushing_data/cartgripper_genobj/hyperparams.py'
+    hyperparams_file = '/home/frederik/Documents/catkin_ws/src/visual_mpc/pushing_data/cartgripper_largedisp/hyperparams.py'
     hyperparams = imp.load_source('hyperparams', hyperparams_file)
     config = hyperparams.config
 
@@ -137,15 +137,15 @@ def test_videoloader():
             print 'tload{}'.format(time.time() - end)
         end = time.time()
 
-        # print i_batch, images.size(), states.size(), actions.size()
-        #
-        # images = images.numpy().transpose((0, 1, 3, 4, 2))
-        # file = '/'.join(str.split(config['agent']['data_files_dir'], '/')[:-1]) + '/example'
-        # comp_single_video(file, images)
-        #
-        # # observe 4th batch and stop.
-        # if i_batch == 10:
-        #     break
+        print i_batch, images.size(), states.size(), actions.size()
+
+        images = images.numpy().transpose((0, 1, 3, 4, 2))
+        file = '/'.join(str.split(config['agent']['data_files_dir'], '/')[:-1]) + '/example'
+        comp_single_video(file, images)
+
+        # observe 4th batch and stop.
+        if i_batch == 10:
+            break
 
 if __name__ == '__main__':
     test_videoloader()

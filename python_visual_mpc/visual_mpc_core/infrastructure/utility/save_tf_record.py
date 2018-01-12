@@ -3,10 +3,8 @@ import tensorflow as tf
 import numpy as np
 import pdb
 
-
 def _float_feature(value):
     return tf.train.Feature(float_list=tf.train.FloatList(value=value))
-
 
 def _bytes_feature(value):
     return tf.train.Feature(bytes_list=tf.train.BytesList(value=[value]))
@@ -42,7 +40,7 @@ def save_tf_record(filename, trajectory_list, params):
             else:
                 image_raw = traj._sample_images[tind].tostring()
 
-            feature[str(tind) + '/action']= _float_feature(traj.U[tind,:].tolist())
+            feature[str(tind) + '/action']= _float_feature(traj.actions[tind,:].tolist())
             feature[str(tind) + '/endeffector_pos'] = _float_feature(traj.X_Xdot_full[tind,:].tolist())
             feature[str(tind) + '/image_view0/encoded'] = _bytes_feature(image_raw)
 

@@ -15,7 +15,7 @@ import collections
 import pdb
 from utils.visualize import visualize_diffmotions, visualize
 from copy import deepcopy
-from python_visual_mpc.video_prediction.read_tf_record_wristrot import \
+from python_visual_mpc.video_prediction.read_tf_records import \
                     build_tfrecord_input as build_tfrecord_fn
 
 class Base_Prediction_Model(object):

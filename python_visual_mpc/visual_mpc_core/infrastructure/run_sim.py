@@ -118,12 +118,6 @@ class Sim(object):
             for t in range(traj.T):
                 image_name = self.image_folder+ "/im{}.png".format(t)
                 cv2.imwrite(image_name, traj._sample_images[t], [cv2.IMWRITE_PNG_STRATEGY_DEFAULT, 1])
-
-            # with open(self.state_action_data_file, 'wb') as f:
-            #     names = dict.keys()
-            #     captions = names
-            #     f.write(','.join(captions) + ',' + '\n')
-
         else:
             #save tfrecords
             traj = copy.deepcopy(traj)

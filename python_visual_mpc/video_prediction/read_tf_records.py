@@ -98,8 +98,8 @@ def build_tfrecord_input(conf, training=True, input_file=None):
             ORIGINAL_WIDTH = 64
             ORIGINAL_HEIGHT = 64
 
-        if 'img_height' in conf:
-            IMG_HEIGHT = conf['img_height']
+        if 'row_start' in conf:
+            IMG_HEIGHT = conf['row_end']-conf['row_start']
         else: IMG_HEIGHT = 64
 
         if 'img_width' in conf:
@@ -109,7 +109,7 @@ def build_tfrecord_input(conf, training=True, input_file=None):
         image = tf.decode_raw(features[image_name], tf.uint8)
         image = tf.reshape(image, shape=[1, ORIGINAL_HEIGHT * ORIGINAL_WIDTH * COLOR_CHAN])
         image = tf.reshape(image, shape=[ORIGINAL_HEIGHT, ORIGINAL_WIDTH, COLOR_CHAN])
-        image = image[0:IMG_HEIGHT]
+        image = image[conf['row_start']:conf['row_end']]
         image = tf.reshape(image, [1, IMG_HEIGHT, IMG_WIDTH, COLOR_CHAN])
 
         image = tf.cast(image, tf.float32) / 255.0
@@ -238,25 +238,24 @@ def main():
     conf = {}
 
     current_dir = os.path.dirname(os.path.realpath(__file__))
-
-    # DATA_DIR = '/'.join(str.split(current_dir, '/')[:-2]) + '/pushing_data/online_data1/train'
-    DATA_DIR = '/'.join(str.split(current_dir, '/')[:-2]) + '/pushing_data/weiss_gripper_20k/train'
+    DATA_DIR = '/'.join(str.split(current_dir, '/')[:-2]) + '/pushing_data/cartgripper/train'
 
     conf['schedsamp_k'] = -1  # don't feed ground truth
     conf['data_dir'] = DATA_DIR  # 'directory containing data_files.' ,
     conf['skip_frame'] = 1
     conf['train_val_split']= 0.95
-    conf['sequence_length']= 20 #48      # 'sequence length, including context frames.'
+    conf['sequence_length']= 15 #48      # 'sequence length, including context frames.'
     conf['batch_size']= 10
     conf['visualize']= True
     conf['context_frames'] = 2
 
-    conf['img_height'] = 54
+    conf['row_start'] = 15
+    conf['row_end'] = 63
     conf['img_width'] = 64
-    conf['sdim'] = 4
-    conf['adim'] = 5
+    conf['sdim'] = 6
+    conf['adim'] = 3
 
-    conf['color_augmentation'] = ''
+    # conf['color_augmentation'] = ''
 
     # conf['test_metric'] = {'robot_pos': 1, 'object_pos': 2}
 
