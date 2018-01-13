@@ -11,14 +11,14 @@ from python_visual_mpc.video_prediction.read_tf_records2 import \
 import tensorflow.contrib.slim as slim
 from tensorflow.contrib.layers.python import layers as tf_layers
 
-def coords(h, w, batch_size):
-    y = tf.cast(tf.range(h), tf.float32)
-    x = tf.cast(tf.range(w), tf.float32)
+def get_coords(img_shape):
+    y = tf.cast(tf.range(img_shape[1]), tf.float32)
+    x = tf.cast(tf.range(img_shape[2]), tf.float32)
+    batch_size = img_shape[0]
 
     X,Y = tf.meshgrid(x,y)
-    partial_tile_shape = tf.constant([1,1,1])
-    tile_shape = tf.concat([tf.reshape(batch_size, [-1]), partial_tile_shape], 0)
-    coords = tf.tile(tf.expand_dims(tf.stack((Y,X), axis=2), axis=0), tile_shape)
+    coords = tf.expand_dims(tf.stack((X, Y), axis=2), axis=0)
+    coords = tf.tile(coords, [batch_size, 1,1,1])
     return coords
 
 def resample_layer(src_img, warp_pts, name="tgt_img"):
@@ -27,8 +27,8 @@ def resample_layer(src_img, warp_pts, name="tgt_img"):
 
 def warp_pts_layer(flow_field, name="warp_pts"):
     with tf.variable_scope(name):
-        img_shape = tf.shape(flow_field)
-        return flow_field + coords(img_shape[1], img_shape[2], img_shape[0])
+        img_shape = flow_field.get_shape().as_list()
+        return flow_field + get_coords(img_shape)
 
 def mean_squared_error(true, pred):
     return tf.reduce_sum(tf.square(true - pred)) / tf.to_float(tf.size(pred))
