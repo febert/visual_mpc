@@ -1,6 +1,6 @@
 import tensorflow as tf
 import numpy as np
-import Image
+from PIL import Image
 import sys
 from python_visual_mpc.video_prediction.dynamic_rnn_model.ops import dense, pad2d, conv1d, conv2d, conv3d, upsample_conv2d, conv_pool2d, lrelu, instancenorm, flatten
 from python_visual_mpc.video_prediction.dynamic_rnn_model.layers import instance_norm
