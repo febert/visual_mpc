@@ -262,7 +262,7 @@ class DNACell(tf.nn.rnn_cell.RNNCell):
 
         if self.generate_scratch_image:
             with tf.variable_scope('h6_scratch'):
-                h6_scratch = conv2d(h5, vgf_dim, kernel_size=(3, 3), strides=(1, 1), dtype=use)
+                h6_scratch = conv2d(h5, vgf_dim, kernel_size=(3, 3), strides=(1, 1))
                 h6_scratch = self.normalizer_fn(h6_scratch)
                 h6_scratch = tf.nn.relu(h6_scratch)
 
@@ -552,13 +552,12 @@ class Dynamic_Base_Model(object):
 
         self.lr = tf.placeholder_with_default(self.conf['learning_rate'], ())
         if build_loss:
-            loss, summaries = self.build_loss()
+            loss = self.build_loss()
             self.train_op = tf.train.AdamOptimizer(self.lr).minimize(loss)
-            self.summ_op = tf.summary.merge(summaries)
 
     def build_loss(self):
-
-        summaries = []
+        train_summaries = []
+        val_summaries = []
         # L2 loss, PSNR for eval.
         loss, psnr_all = 0.0, 0.0
 
@@ -566,7 +565,8 @@ class Dynamic_Base_Model(object):
                 range(len(self.gen_images)), self.images[self.conf['context_frames']:],
                 self.gen_images[self.conf['context_frames'] - 1:]):
             recon_cost_mse = mean_squared_error(x, gx)
-            summaries.append(tf.summary.scalar('recon_cost' + str(i), recon_cost_mse))
+            # train_summaries.append(tf.summary.scalar('recon_cost' + str(i), recon_cost_mse))
+            # val_summaries.append(tf.summary.scalar('val_recon_cost' + str(i), recon_cost_mse))
             recon_cost = recon_cost_mse
 
             loss += recon_cost
@@ -576,14 +576,18 @@ class Dynamic_Base_Model(object):
                     range(len(self.gen_states)), self.states[self.conf['context_frames']:],
                     self.gen_states[self.conf['context_frames'] - 1:]):
                 state_cost = mean_squared_error(state, gen_state) * 1e-4 * self.conf['use_state']
-                summaries.append(
-                    tf.summary.scalar('state_cost' + str(i), state_cost))
+                # train_summaries.append(tf.summary.scalar('state_cost' + str(i), state_cost))
+                # val_summaries.append(tf.summary.scalar('val_state_cost' + str(i), state_cost))
                 loss += state_cost
 
         self.loss = loss = loss / np.float32(len(self.images) - self.conf['context_frames'])
-        summaries.append(tf.summary.scalar('loss', loss))
+        train_summaries.append(tf.summary.scalar('loss', loss))
+        val_summaries.append(tf.summary.scalar('val_loss', loss))
 
-        return loss, summaries
+        self.train_summ_op = tf.summary.merge(train_summaries)
+        self.val_summ_op = tf.summary.merge(val_summaries)
+
+        return loss
 
 
     def visualize(self, sess):
