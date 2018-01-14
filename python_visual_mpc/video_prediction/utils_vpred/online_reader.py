@@ -19,10 +19,6 @@ import logging
 class Trajectory(object):
     def __init__(self, conf):
 
-        if 'total_num_img' in conf:
-            total_num_img = conf['total_num_img']
-        else: total_num_img = 96 #the actual number of images in the trajectory (for softmotion total_num_img=30)
-
         self.traj_per_group = 1000
         self.n_cam = len(conf['sourcetags'])  # number of cameras
 
@@ -129,6 +125,11 @@ def reading_thread(conf, subset_traj, enqueue_op, sess, images_pl, states_pl, ac
 class OnlineReader(object):
     def __init__(self, conf, mode, sess):
         """
+        the configuration file needs:
+
+        source_basedirs key: a list of directories where to load the data from, data is concatenated (advantage: no renumbering needed when using multiple sources)
+
+
         :param conf:
         :param mode: training, validation, test
         """
@@ -157,16 +158,29 @@ class OnlineReader(object):
                                                                                  self.states_pl.get_shape().as_list()])
         self.enqueue_op = self.q.enqueue([self.images_pl, self.actions_pl, self.states_pl])
 
-        data_sets = self.search_data()
-        combined_traj_list = self.combine_traj_lists(data_sets)
-        self.start_threads(combined_traj_list)
+        auto_split = False  # automatically divide dataset into train, val, test and save the split to pkl-file
+        if auto_split:
+            data_sets = self.search_data()
+            traj_list = self.combine_traj_lists(data_sets)
+        else:
+            traj_list = self.get_traj_list()
+
+        self.start_threads(traj_list)
 
     def get_batch_tensors(self):
 
         image_batch, action_batch, states_batch = self.q.dequeue_many(self.conf['batch_size'])
         return image_batch, action_batch, states_batch
 
+    def get_traj_list(self):
+
+
     def search_data(self):
+        """
+        automatically divide dataset into train, val, test and save the split to pkl-file;
+        if pkl-file already exists load the split
+        :return: train, val, test datasets for every source
+        """
 
         print 'searching data'
         datasets = []
@@ -181,8 +195,7 @@ class OnlineReader(object):
                 print 'loading datasplit from ', split_file
                 dataset_i = cPickle.load(open(split_file, "rb"))
             else:
-                traj_list = make_traj_name_list(self.data_conf, [dir + self.data_conf['sourcetags'][0]],
-                                                shuffle=True)
+                traj_list = make_traj_name_list(self.data_conf, shuffle=True)
 
                 #make train, val, test split
                 test_traj = traj_list[:256]  # use first 256 for test
@@ -265,10 +278,8 @@ def test_online_reader():
     conf['current_dir'] = current_dir
     conf['shift_window'] = ''
 
-    dataconf_file = '/home/frederik/Documents/catkin_ws/src/visual_mpc/pushing_data/online_weiss/conf.py'
-    data = imp.load_source('hyperparams', dataconf_file)
-    conf['data_configuration'] = data.data_configuration
-    conf['data_configuration']['sequence_length'] = conf['sequence_length']
+    conf['source_basedirs'] = ['/home/frederik/Documents/catkin_ws/src/visual_mpc/pushing_data/cartgripper_img']
+
 
     print '-------------------------------------------------------------------'
     print 'verify current settings!! '

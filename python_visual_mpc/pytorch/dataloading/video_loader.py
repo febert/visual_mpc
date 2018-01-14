@@ -113,10 +113,10 @@ def make_video_loader(dataconf, trainconf, train=True):
     dataset = VideoDataset(dataconf, trainconf, train=train)
 
     return DataLoader(dataset, batch_size=trainconf['batch_size'],
-                            shuffle=True, num_workers=10)
+                            shuffle=True, num_workers=20)
 
 def test_videoloader():
-    hyperparams_file = '/home/frederik/Documents/catkin_ws/src/visual_mpc/pushing_data/cartgripper_largedisp/hyperparams.py'
+    hyperparams_file = '/home/frederik/Documents/catkin_ws/src/visual_mpc/pushing_data/cartgripper_img/hyperparams.py'
     hyperparams = imp.load_source('hyperparams', hyperparams_file)
     config = hyperparams.config
 
@@ -137,15 +137,17 @@ def test_videoloader():
             print 'tload{}'.format(time.time() - end)
         end = time.time()
 
-        print i_batch, images.size(), states.size(), actions.size()
 
-        images = images.numpy().transpose((0, 1, 3, 4, 2))
-        file = '/'.join(str.split(config['agent']['data_files_dir'], '/')[:-1]) + '/example'
-        comp_single_video(file, images)
 
-        # observe 4th batch and stop.
-        if i_batch == 10:
-            break
+        # print i_batch, images.size(), states.size(), actions.size()
+
+        # images = images.numpy().transpose((0, 1, 3, 4, 2))
+        # file = '/'.join(str.split(config['agent']['data_files_dir'], '/')[:-1]) + '/example'
+        # comp_single_video(file, images)
+        #
+        # # observe 4th batch and stop.
+        # if i_batch == 10:
+        #     break
 
 if __name__ == '__main__':
     test_videoloader()

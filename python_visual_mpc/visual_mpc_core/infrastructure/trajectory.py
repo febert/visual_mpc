@@ -45,7 +45,8 @@ class Trajectory(object):
         self.Xdot_full = np.empty([self.T, state_dim])
         self.X_Xdot_full = np.empty([self.T, 2*state_dim])
 
-        self.Object_pose = np.empty([self.T, agentparams['num_objects'], 3])  # x,y rot of  block
+        if 'num_objects' in agentparams:
+            self.Object_pose = np.empty([self.T, agentparams['num_objects'], 3])  # x,y rot of  block
 
         self.desig_pos = np.empty([self.T, 2])
         self.score = np.empty([self.T])

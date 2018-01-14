@@ -48,7 +48,7 @@ def build_tfrecord_input(conf, training=True, input_file=None):
         else:
             filenames = filenames[index:]
 
-        if conf['visualize']:
+        if conf['visualize']:  #if visualize do not perform train val split
             filenames = gfile.Glob(os.path.join(conf['data_dir'], '*'))
             shuffle = False
         else:
@@ -59,7 +59,8 @@ def build_tfrecord_input(conf, training=True, input_file=None):
     # Reads an image from a file, decodes it into a dense tensor, and resizes it
     # to a fixed shape.
     def _parse_function(serialized_example):
-        image_seq, image_main_seq, endeffector_pos_seq, action_seq, object_pos_seq, robot_pos_seq = [], [], [], [], [], []
+        image_seq, image_main_seq, endeffector_pos_seq, gen_images_seq, gen_states_seq,\
+        action_seq, object_pos_seq, robot_pos_seq = [], [], [], [], [], [], [], []
 
         load_indx = range(0, conf['sequence_length'], conf['skip_frame'])
         print 'using frame sequence: ', load_indx
@@ -75,7 +76,6 @@ def build_tfrecord_input(conf, training=True, input_file=None):
             endeffector_pos_name = str(i) + '/endeffector_pos'
 
             features = {
-
                 image_name: tf.FixedLenFeature([1], tf.string),
                 action_name: tf.FixedLenFeature([adim], tf.float32),
                 endeffector_pos_name: tf.FixedLenFeature([sdim], tf.float32),
@@ -86,6 +86,12 @@ def build_tfrecord_input(conf, training=True, input_file=None):
                 object_pos_name = str(i) + '/object_pos'
                 features[robot_pos_name] = tf.FixedLenFeature([conf['test_metric']['robot_pos'] * 2], tf.int64)
                 features[object_pos_name] = tf.FixedLenFeature([conf['test_metric']['object_pos'] * 2], tf.int64)
+
+            if 'vidpred_data' in conf:
+                gen_image_name = str(i) + '/gen_images'
+                gen_states_name = str(i) + '/gen_states'
+                features[gen_image_name] = tf.FixedLenFeature([1], tf.string)
+                features[gen_states_name] = tf.FixedLenFeature([sdim], tf.float32)
 
             features = tf.parse_single_example(serialized_example, features=features)
 
@@ -141,31 +147,49 @@ def build_tfrecord_input(conf, training=True, input_file=None):
                 object_pos = tf.reshape(features[object_pos_name], shape=[1, conf['test_metric']['object_pos'], 2])
                 object_pos_seq.append(object_pos)
 
+            if 'vidpred_data' in conf:
+                gen_images = tf.decode_raw(features[gen_image_name], tf.uint8)
+                ORIGINAL_HEIGHT = conf['row_end'] - conf['row_start']
+                gen_images = tf.reshape(gen_images, shape=[1, ORIGINAL_HEIGHT * ORIGINAL_WIDTH * COLOR_CHAN])
+                gen_images = tf.reshape(gen_images, shape=[ORIGINAL_HEIGHT, ORIGINAL_WIDTH, COLOR_CHAN])
+                gen_images = tf.reshape(gen_images, [1, IMG_HEIGHT, IMG_WIDTH, COLOR_CHAN])
+                gen_images = tf.cast(gen_images, tf.float32) / 255.0
+                gen_images_seq.append(gen_images)
+
+                gen_states = tf.reshape(features[gen_states_name], shape=[1, sdim])
+                gen_states_seq.append(gen_states)
+
         image_seq = tf.concat(values=image_seq, axis=0)
 
         endeffector_pos_seq = tf.concat(endeffector_pos_seq, 0)
         action_seq = tf.concat(action_seq, 0)
 
-        return {"images": image_seq, "endeffector_pos": endeffector_pos_seq, "actions": action_seq}
+        return_dict = {"images": image_seq, "endeffector_pos": endeffector_pos_seq, "actions": action_seq}
+
+        if 'vidpred_data' in conf:
+            return_dict['gen_images'] = gen_images_seq
+            return_dict['gen_states'] = gen_states_seq
+
+        return return_dict
 
     dataset = tf.data.TFRecordDataset(filenames)
     dataset = dataset.map(_parse_function)
-    dataset = dataset.repeat()
+
+    if 'max_epoch' in conf:
+        dataset = dataset.repeat(conf['max_epoch'])
+    else: dataset = dataset.repeat()
+
     if shuffle:
         dataset = dataset.shuffle(buffer_size=10000)
     dataset = dataset.batch(conf['batch_size'])
     iterator = dataset.make_one_shot_iterator()
     next_element = iterator.get_next()
 
-    images = next_element['images']
-    actions = next_element['actions']
-    states = next_element['endeffector_pos']
+    output_element = {}
+    for k in next_element.keys():
+        output_element[k] = tf.reshape(next_element[k], [conf['batch_size']] + next_element[k].get_shape().as_list()[1:])
 
-    images = tf.reshape(images, [conf['batch_size']] + images.get_shape().as_list()[1:])
-    actions = tf.reshape(actions, [conf['batch_size']] + actions.get_shape().as_list()[1:])
-    states = tf.reshape(states, [conf['batch_size']] + states.get_shape().as_list()[1:])
-
-    return images, actions, states
+    return output_element
 
 
 def main():
@@ -181,7 +205,7 @@ def main():
     conf['data_dir'] = DATA_DIR  # 'directory containing data_files.' ,
     conf['skip_frame'] = 1
     conf['train_val_split']= 0.95
-    conf['sequence_length']= 15 #48      # 'sequence length, including context frames.'
+    conf['sequence_length']= 14 #48      # 'sequence length, including context frames.'
     conf['batch_size']= 10
     conf['visualize']= True
     conf['context_frames'] = 2
@@ -191,6 +215,8 @@ def main():
     conf['img_width'] = 64
     conf['sdim'] = 6
     conf['adim'] = 3
+
+    # conf['vidpred_data'] = ''
 
     # conf['color_augmentation'] = ''
 
@@ -205,7 +231,6 @@ def main():
     print 'testing the reader'
 
     dict = build_tfrecord_input(conf, training=True)
-    # image_batch, action_batch, endeff_pos_batch, robot_pos_batch, object_pos_batch = build_tfrecord_input(conf, training=True)
 
     sess = tf.InteractiveSession()
     tf.train.start_queue_runners(sess)
@@ -216,11 +241,14 @@ def main():
     for i_run in range(10):
         print 'run number ', i_run
 
+        # images, actions, endeff, gen_images, gen_endeff = sess.run([dict['images'], dict['actions'], dict['endeffector_pos'], dict['gen_images'], dict['gen_states']])
         images, actions, endeff = sess.run([dict['images'], dict['actions'], dict['endeffector_pos']])
-        # images, actions, endeff, robot_pos, object_pos = sess.run([image_batch, action_batch, endeff_pos_batch, robot_pos_batch, object_pos_batch])
 
         file_path = '/'.join(str.split(DATA_DIR, '/')[:-1]+['preview'])
         comp_single_video(file_path, images, num_exp=conf['batch_size'])
+
+        # file_path = '/'.join(str.split(DATA_DIR, '/')[:-1] + ['preview_gen_images'])
+        # comp_single_video(file_path, gen_images, num_exp=conf['batch_size'])
 
         # show some frames
         for b in range(conf['batch_size']):
@@ -231,11 +259,19 @@ def main():
             print 'endeff'
             print endeff[b]
 
-            print 'video mean brightness', np.mean(images[b])
-            if np.mean(images[b]) < 0.25:
-                print b
-                plt.imshow(images[b,0])
-                plt.show()
+            # print 'gen_endeff'
+            # print gen_endeff[b]
+
+            # print 'video mean brightness', np.mean(images[b])
+            # if np.mean(images[b]) < 0.25:
+            #     print b
+            #     plt.imshow(images[b,0])
+            #     plt.show()
+
+            plt.imshow(images[0, 0])
+            plt.show()
+
+            pdb.set_trace()
 
             # print 'robot_pos'
             # print robot_pos

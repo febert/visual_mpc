@@ -59,6 +59,10 @@ def save_tf_record(filename, trajectory_list, params):
                 feature['move/' + str(tind) + '/retina/encoded'] = _bytes_feature(image_raw)
                 feature['initial_retpos'] = _int64_feature(traj.initial_ret_pos.tolist())
 
+            if hasattr(traj, 'gen_images'):
+                feature[str(tind) + '/gen_images'] = _bytes_feature(traj.gen_images[tind].tostring())
+                feature[str(tind) + '/gen_states'] = _float_feature(traj.gen_states[tind,:].tolist())
+
         example = tf.train.Example(features=tf.train.Features(feature=feature))
         writer.write(example.SerializeToString())
 
