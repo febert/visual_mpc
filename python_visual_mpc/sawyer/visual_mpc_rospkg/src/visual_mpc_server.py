@@ -149,7 +149,7 @@ class Visual_MPC_Server(object):
         if 'predictor_propagation' in self.policyparams and self.t > 0:
             self.initial_pix_distrib.append(init_pix_distrib[-1][0])
 
-        self.traj.U[self.t, :] = mj_U
+        self.traj.actions[self.t, :] = mj_U
 
 
         if self.t == self.agentparams['T'] -1:

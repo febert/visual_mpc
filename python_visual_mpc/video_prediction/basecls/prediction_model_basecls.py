@@ -15,6 +15,8 @@ import collections
 import pdb
 from utils.visualize import visualize_diffmotions, visualize
 from copy import deepcopy
+from python_visual_mpc.video_prediction.read_tf_records2 import \
+                    build_tfrecord_input as build_tfrecord_fn
 
 class Base_Prediction_Model(object):
 
@@ -88,33 +90,34 @@ class Base_Prediction_Model(object):
                 pix_distrib = self.pix_distrib_pl
 
             else:
-                if 'adim' in conf:
-                    from python_visual_mpc.video_prediction.read_tf_record_wristrot import \
-                        build_tfrecord_input as build_tfrecord_fn
-                else:
-                    from python_visual_mpc.video_prediction.read_tf_record_sawyer12 import \
-                        build_tfrecord_input as build_tfrecord_fn
-
-                if 'scheduled_finetuning' in self.conf:
-                    # mixing ratio num(dataset1)/num(dataset2) in batch
+                if len(conf['data_dir']) == 2:
+                    print 'building file readers for 2 datasets'
+                    # mixing ratio num(dataset0)/batch_size
                     self.dataset_01ratio = tf.placeholder(tf.float32, shape=[], name="dataset_01ratio")
                     d0_conf = deepcopy(self.conf)         # the larger source dataset
-                    d0_conf['data_dir'] = self.conf['scheduled_finetuning'][0]
+                    d0_conf['data_dir'] = self.conf['data_dir'][0]
                     d0_train_images, d0_train_actions, d0_train_states = build_tfrecord_fn(d0_conf, training=True)
                     d0_val_images, d0_val_actions, d0_val_states = build_tfrecord_fn(d0_conf, training=False)
 
                     d1_conf = deepcopy(self.conf)
-                    d1_conf['data_dir'] = self.conf['scheduled_finetuning'][1]
+                    d1_conf['data_dir'] = self.conf['data_dir'][1]
                     d1_train_images, d1_train_actions, d1_train_states = build_tfrecord_fn(d1_conf, training=True)
                     d1_val_images, d1_val_actions, d1_val_states = build_tfrecord_fn(d1_conf, training=False)
 
                     train_images, train_actions, train_states = mix_datasets([d0_train_images, d0_train_actions, d0_train_states],
                                  [d1_train_images, d1_train_actions, d1_train_states], self.batch_size,
                                  self.dataset_01ratio)
+                    train_images = tf.reshape(train_images, [self.batch_size, self.conf['sequence_length'], self.img_height,self.img_width,3])
+                    train_actions = tf.reshape(train_actions, [self.batch_size, self.conf['sequence_length'], self.adim])
+                    train_states = tf.reshape(train_states, [self.batch_size, self.conf['sequence_length'], self.sdim])
 
                     val_images, val_actions, val_states = mix_datasets([d0_val_images, d0_val_actions, d0_val_states],
                                  [d1_val_images, d1_val_actions, d1_val_states], self.batch_size,
                                  self.dataset_01ratio)
+                    val_images = tf.reshape(val_images, [self.batch_size, self.conf['sequence_length'], self.img_height,self.img_width, 3])
+                    val_actions = tf.reshape(val_actions, [self.batch_size, self.conf['sequence_length'], self.adim])
+                    val_states = tf.reshape(val_states, [self.batch_size, self.conf['sequence_length'],self.sdim])
+
                 else:
                     train_images, train_actions, train_states = build_tfrecord_fn(conf, training=True)
                     val_images, val_actions, val_states = build_tfrecord_fn(conf, training=False)
@@ -485,6 +488,8 @@ class Base_Prediction_Model(object):
     def build_loss(self):
         train_summaries = []
         val_summaries = []
+        val_0_summaries = []
+        val_1_summaries = []
         self.lr = tf.placeholder_with_default(self.conf['learning_rate'], ())
 
         if not self.trafo_pix:
@@ -513,10 +518,14 @@ class Base_Prediction_Model(object):
             self.loss = loss = loss / np.float32(len(self.images) - self.conf['context_frames'])
             train_summaries.append(tf.summary.scalar('loss', loss))
             val_summaries.append(tf.summary.scalar('val_loss', loss))
+            val_0_summaries.append(tf.summary.scalar('val_0_loss', loss))
+            val_1_summaries.append(tf.summary.scalar('val_1_loss', loss))
 
             self.train_op = tf.train.AdamOptimizer(self.lr).minimize(loss)
             self.train_summ_op = tf.summary.merge(train_summaries)
             self.val_summ_op = tf.summary.merge(val_summaries)
+            self.val_0_summ_op = tf.summary.merge(val_0_summaries)
+            self.val_1_summ_op = tf.summary.merge(val_1_summaries)
 
 
     def fuse_trafos(self, enc6, background_image, transformed, scope):
@@ -617,4 +626,5 @@ def mix_datasets(dataset0, dataset1, batch_size, ratio_01):
         dataset1_examps = tf.gather(set1, set1_idx)
         output.append(tf.dynamic_stitch([set0_idx, set1_idx],
                                  [dataset0_examps, dataset1_examps]))
+
     return output

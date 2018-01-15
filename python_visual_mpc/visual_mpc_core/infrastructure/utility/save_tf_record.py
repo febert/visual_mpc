@@ -3,10 +3,8 @@ import tensorflow as tf
 import numpy as np
 import pdb
 
-
 def _float_feature(value):
     return tf.train.Feature(float_list=tf.train.FloatList(value=value))
-
 
 def _bytes_feature(value):
     return tf.train.Feature(bytes_list=tf.train.BytesList(value=[value]))
@@ -15,11 +13,12 @@ def _int64_feature(value):
   return tf.train.Feature(int64_list=tf.train.Int64List(value=value))
 
 
-def save_tf_record(dir, filename, trajectory_list, params):
+def save_tf_record(filename, trajectory_list, params):
     """
     saves data_files from one sample trajectory into one tf-record file
     """
 
+    dir = params['data_files_dir']
     filename = os.path.join(dir, filename + '.tfrecords')
     print('Writing', filename)
     writer = tf.python_io.TFRecordWriter(filename)
@@ -41,10 +40,12 @@ def save_tf_record(dir, filename, trajectory_list, params):
             else:
                 image_raw = traj._sample_images[tind].tostring()
 
-            feature['move/' + str(tind) + '/action']= _float_feature(traj.U[tind,:].tolist())
-            feature['move/' + str(tind) + '/state'] = _float_feature(traj.X_Xdot_full[tind,:].tolist())
-            feature['move/' + str(tind) + '/image/encoded'] = _bytes_feature(image_raw)
-            feature['touchdata/' + str(tind)] = _float_feature(traj.touchdata[tind, :].tolist())
+            feature[str(tind) + '/action']= _float_feature(traj.actions[tind,:].tolist())
+            feature[str(tind) + '/endeffector_pos'] = _float_feature(traj.X_Xdot_full[tind,:].tolist())
+            feature[str(tind) + '/image_view0/encoded'] = _bytes_feature(image_raw)
+
+            if hasattr(traj, 'touchdata'):
+                feature['touchdata/' + str(tind)] = _float_feature(traj.touchdata[tind, :].tolist())
 
             if hasattr(traj, 'Object_pose'):
                 Object_pos_flat = traj.Object_pose[tind].flatten()
@@ -57,6 +58,10 @@ def save_tf_record(dir, filename, trajectory_list, params):
                 image_raw = traj.large_images_retina[tind].tostring()
                 feature['move/' + str(tind) + '/retina/encoded'] = _bytes_feature(image_raw)
                 feature['initial_retpos'] = _int64_feature(traj.initial_ret_pos.tolist())
+
+            if hasattr(traj, 'gen_images'):
+                feature[str(tind) + '/gen_images'] = _bytes_feature(traj.gen_images[tind].tostring())
+                feature[str(tind) + '/gen_states'] = _float_feature(traj.gen_states[tind,:].tolist())
 
         example = tf.train.Example(features=tf.train.Features(feature=feature))
         writer.write(example.SerializeToString())

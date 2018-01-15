@@ -4,8 +4,9 @@ current_dir = os.path.dirname(os.path.realpath(__file__))
 source_basedir = "/mnt/sda1/sawyerdata/online_data"
 
 configuration = {
+'current_dir':current_dir,
 'tf_rec_dir': current_dir + '/train',      #'directory for model checkpoints.' ,
-'source_basedirs': [source_basedir],
+'source_basedirs': [source_basedir+'/source0', source_basedir+'/source1'],
 'sourcetags': ['/main'],               # list of source dirs for different camera view-points
 'total_num_img': 56,
 'take_ev_nth_step': 4,                          # subsample trajectories

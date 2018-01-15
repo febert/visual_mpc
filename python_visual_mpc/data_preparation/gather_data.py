@@ -27,7 +27,7 @@ import imp
 import pdb
 import matplotlib.pyplot as plt
 
-MAXLISTLEN = 20 ##128
+MAXLISTLEN = 128
 
 class More_than_one_image_except(Exception):
     def __init__(self, imagefile):
@@ -324,13 +324,12 @@ def crop_and_rot(conf, file, i_src):
     # plt.show()
     return img
 
-def get_maxtraj(sourcedirs):
-    for dirs in sourcedirs:
-        if not os.path.exists(dirs):
-            raise ValueError('path {} does not exist!'.format(dirs))
+def get_maxtraj(sourcedir):
+    if not os.path.exists(sourcedir):
+        raise ValueError('path {} does not exist!'.format(sourcedir))
 
     # go to first source and get group names:
-    groupnames = glob.glob(os.path.join(sourcedirs[0], '*'))
+    groupnames = glob.glob(os.path.join(sourcedir, '*'))
     groupnames = [str.split(n, '/')[-1] for n in groupnames]
     gr_ind = []
     for grname in groupnames:
@@ -340,7 +339,7 @@ def get_maxtraj(sourcedirs):
             continue
     max_gr = np.max(np.array(gr_ind))
 
-    trajdir = sourcedirs[0] + "/traj_group{}".format(max_gr)
+    trajdir = sourcedir + "/traj_group{}".format(max_gr)
     trajname_l = glob.glob(trajdir +'/*')
     trajname_l = [str.split(n, '/')[-1] for n in trajname_l]
     traj_num = []
@@ -390,9 +389,10 @@ def start_parallel(conf, gif_dir, traj_name_list, n_workers, crop_from_highres= 
 def make_traj_name_list(conf, start_end_grp = None, shuffle=True):
     combined_list = []
     for source_dir in conf['source_basedirs']:
+        assert source_dir.split('/')[-1] == 'train' or source_dir.split('/')[-1] == 'test'
 
-        traj_per_gr = Trajectory(conf).traj_per_group
-        max_traj = get_maxtraj([source_dir + conf['sourcetags'][0]])
+        traj_per_gr = 1000
+        max_traj = get_maxtraj(source_dir)
 
         if start_end_grp != None:
             startgrp = start_end_grp[0]
@@ -410,7 +410,7 @@ def make_traj_name_list(conf, start_end_grp = None, shuffle=True):
 
         trajname_ind_l = []  # list of tuples (trajname, ind) where ind is 0,1,2 in range(self.split_seq_by)
         for gr in range(startgrp, endgrp + 1):  # loop over groups
-            gr_dir_main = source_dir + conf['sourcetags'][0]+'/traj_group' + str(gr)
+            gr_dir_main = source_dir +'/traj_group' + str(gr)
 
             if gr == startgrp:
                 trajstart = startidx

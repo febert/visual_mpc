@@ -14,9 +14,16 @@ class Trajectory(object):
         else:
             img_channels = 3
 
+        if netconf is None:
+            img_height = 64
+            img_width = 64
+        else:
+            img_height = netconf['img_height']
+            img_width = netconf['img_width']
+
         self._sample_images = np.zeros((self.T,
-                                        netconf['img_height'],
-                                        netconf['img_width'],
+                                        img_height,
+                                        img_width,
                                         img_channels), dtype='uint8')
 
         # for storing the terminal predicted images of the K best actions at each time step:
@@ -25,9 +32,9 @@ class Trajectory(object):
         self.gtruth_images = None
 
         if 'adim' in agentparams:
-            self.U = np.empty([self.T, agentparams['adim']])
+            self.actions = np.empty([self.T, agentparams['adim']])
         else:
-            self.U = np.empty([self.T, 2])
+            self.actions = np.empty([self.T, 2])
 
         if 'sdim' in agentparams:
             state_dim = agentparams['sdim']
@@ -38,6 +45,8 @@ class Trajectory(object):
         self.Xdot_full = np.empty([self.T, state_dim])
         self.X_Xdot_full = np.empty([self.T, 2*state_dim])
 
+        if 'num_objects' in agentparams:
+            self.Object_pose = np.empty([self.T, agentparams['num_objects'], 3])  # x,y rot of  block
+
         self.desig_pos = np.empty([self.T, 2])
         self.score = np.empty([self.T])
-

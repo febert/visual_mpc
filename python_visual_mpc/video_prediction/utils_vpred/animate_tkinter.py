@@ -200,36 +200,41 @@ class Visualizer_tkinter(object):
 
         self.col_titles = col_titles
 
-    def make_direct_vid(self, separate_vid = False):
+    def make_direct_vid(self, separate_vid = False, mpc_data =False):
 
         print 'making gif with tags'
         # self.video_list = [self.video_list[0]]
 
-        for t in range(1,20):
-            gen_images = self.dict_['gen_images_t{}'.format(t)]
-            gen_distrib = self.dict_['gen_distrib0_t{}'.format(t)]
+        if mpc_data:
+            for t in range(1,20):
+                gen_images = self.dict_['gen_images_t{}'.format(t)]
+                gen_distrib = self.dict_['gen_distrib0_t{}'.format(t)]
 
-            gen_distrib = color_code_distrib(gen_distrib, self.numex, renormalize=True)
+                gen_distrib = color_code_distrib(gen_distrib, self.numex, renormalize=True)
 
-            overlay = compute_overlay(gen_images, gen_distrib, self.numex)
+                overlay = compute_overlay(gen_images, gen_distrib, self.numex)
 
-            new_videolist = [gen_images, overlay]
+                new_videolist = [gen_images, overlay]
 
-            framelist = assemble_gif(new_videolist, convert_from_float=False, num_exp=self.numex)
-            save_video_mp4(self.gif_savepath + '/prediction_at_t{}'.format(t), framelist)
+                framelist = assemble_gif(new_videolist, convert_from_float=False, num_exp=self.numex)
+                save_video_mp4(self.gif_savepath + '/prediction_at_t{}'.format(t), framelist)
 
-        # if separate_vid:
-        #     vid_path = self.gif_savepath + '/sep_videos'
-        #     if not os.path.exists(vid_path):
-        #         os.mkdir(vid_path)
-        #     for b in range(self.numex):
-        #         frames = assemble_gif(self.new_video_list, convert_from_float=False, only_ind=b)
-        #         save_video_mp4(vid_path + '/example{}'.format(b), frames)
-        # else:
-        #     framelist = assemble_gif(self.new_video_list, convert_from_float=False, num_exp=self.numex)
+        else:
+            new_videolist = []
+            for vid in self.video_list:
+                new_videolist.append(vid[0])
 
+        if separate_vid:
+            vid_path = self.gif_savepath + '/sep_videos'
+            if not os.path.exists(vid_path):
+                os.mkdir(vid_path)
+            for b in range(self.numex):
+                frames = assemble_gif(new_videolist, convert_from_float=False, only_ind=b)
+                save_video_mp4(vid_path + '/example{}'.format(b), frames)
+        else:
+            framelist = assemble_gif(new_videolist, convert_from_float=True, num_exp=self.numex)
             # save_video_mp4(self.gif_savepath +'/prediction_at_t{}')
-            # npy_to_gif(framelist, self.gif_savepath +'/direct{}{}'.format(self.iternum,self.suf))
+            npy_to_gif(framelist, self.gif_savepath +'/direct{}{}'.format(self.iternum,self.suf))
 
     def visualize_states_actions(self, states, actions):
 
@@ -267,7 +272,7 @@ class Visualizer_tkinter(object):
         plt.savefig(self.gif_savepath + "/actions_vis.png")
         plt.close('all')
 
-    def make_image_strip(self, i_ex, tstart=5, tend=15):
+    def make_image_strip(self, i_ex, tstart=1, tend=13):
         """
         :param i_ex:  the index of the example to flatten to the image strip
         :param tstart:
@@ -329,6 +334,7 @@ class Visualizer_tkinter(object):
 
 
     def build_figure(self):
+        print 'building figure...'
 
         # plot each markevery case for linear x and y scales
         root = Tk.Tk()
@@ -603,7 +609,8 @@ if __name__ == '__main__':
     file_path = '/home/febert/Documents/catkin_ws/src/visual_mpc/experiments/cem_exp/benchmarks_sawyer/od_schedfine/verbose'
     # file_path = '/home/frederik/Documents/catkin_ws/src/visual_mpc/tensorflow_data/sawyer/wristrot/modeldata'
 
-    v  = Visualizer_tkinter(append_masks=False, filepath=file_path, numex=5, renorm_heatmaps=True)
-    v.build_figure()
-    # v.make_direct_vid()
-    # v.make_image_strip(i_ex=3)
+    v  = Visualizer_tkinter(append_masks=False, filepath=file_path, numex=10, renorm_heatmaps=True)
+    # v.build_figure()
+    v.make_direct_vid()
+    # for i in range(5):
+    #     v.make_image_strip(i_ex=i)
