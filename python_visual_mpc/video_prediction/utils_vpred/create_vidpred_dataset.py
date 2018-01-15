@@ -18,6 +18,7 @@ from tensorflow.python.platform import flags
 
 from datetime import datetime
 import collections
+import time
 # How often to record tensorboard summaries.
 SUMMARY_INTERVAL = 400
 
@@ -39,6 +40,7 @@ if __name__ == '__main__':
 class Trajectory(object):
     def __init__(self):
         self._sample_images, self.X_Xdot_full, self.actions, self.gen_images, self.gen_states = None, None, None, None, None
+
 
 def main(unused_argv, conf_script= None):
     os.environ["CUDA_VISIBLE_DEVICES"] = str(FLAGS.device)
@@ -102,6 +104,7 @@ def main(unused_argv, conf_script= None):
     traj_counter = 0
 
     while True:
+        t0 = time.time()
         # Generate new batch of data_files.
         feed_dict = {model.iter_num: np.float32(0),
                      model.train_cond: 1}
@@ -115,6 +118,7 @@ def main(unused_argv, conf_script= None):
                                                                         feed_dict)
         except tf.errors.OutOfRangeError:  # leave for loop after the 1st epoch
             break
+        t1 = time.time()
 
         images = np.stack(images, axis=0)[1:]
         images = (images * 255).astype(np.uint8)
@@ -151,6 +155,9 @@ def main(unused_argv, conf_script= None):
                 traj_list = []
 
             traj_counter += 1
+
+        print 'complete time', time.time() - t0
+        print 'time to save:', time.time() - t1
 
 
 def load_checkpoint(conf, sess, saver, model_file=None):

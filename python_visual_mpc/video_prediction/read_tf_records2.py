@@ -97,9 +97,10 @@ def build_tfrecord_input(conf, training=True, input_file=None):
             features = tf.parse_single_example(serialized_example, features=features)
 
             COLOR_CHAN = 3
-            if '128x128' in conf:
-                ORIGINAL_WIDTH = 128
-                ORIGINAL_HEIGHT = 128
+
+            if 'orig_size' in conf:
+                ORIGINAL_HEIGHT = conf['orig_size'][0]
+                ORIGINAL_WIDTH = conf['orig_size'][1]
             else:
                 ORIGINAL_WIDTH = 64
                 ORIGINAL_HEIGHT = 64
@@ -107,7 +108,7 @@ def build_tfrecord_input(conf, training=True, input_file=None):
             if 'row_start' in conf:
                 IMG_HEIGHT = conf['row_end'] - conf['row_start']
             else:
-                IMG_HEIGHT = 64
+                IMG_HEIGHT = ORIGINAL_HEIGHT
 
             if 'img_width' in conf:
                 IMG_WIDTH = conf['img_width']
@@ -117,7 +118,8 @@ def build_tfrecord_input(conf, training=True, input_file=None):
             image = tf.decode_raw(features[image_name], tf.uint8)
             image = tf.reshape(image, shape=[1, ORIGINAL_HEIGHT * ORIGINAL_WIDTH * COLOR_CHAN])
             image = tf.reshape(image, shape=[ORIGINAL_HEIGHT, ORIGINAL_WIDTH, COLOR_CHAN])
-            image = image[conf['row_start']:conf['row_end']]
+            if 'row_start' in conf:
+                image = image[conf['row_start']:conf['row_end']]
             image = tf.reshape(image, [1, IMG_HEIGHT, IMG_WIDTH, COLOR_CHAN])
 
             image = tf.cast(image, tf.float32) / 255.0
@@ -199,24 +201,27 @@ def main():
     conf = {}
 
     current_dir = os.path.dirname(os.path.realpath(__file__))
-    DATA_DIR = '/'.join(str.split(current_dir, '/')[:-2]) + '/pushing_data/cartgripper/train'
+    DATA_DIR = '/'.join(str.split(current_dir, '/')[:-2]) + '/pushing_data/cartgripper_vidpred/train'
 
     conf['schedsamp_k'] = -1  # don't feed ground truth
     conf['data_dir'] = DATA_DIR  # 'directory containing data_files.' ,
     conf['skip_frame'] = 1
     conf['train_val_split']= 0.95
     conf['sequence_length']= 14 #48      # 'sequence length, including context frames.'
-    conf['batch_size']= 10
+    conf['batch_size']= 32
     conf['visualize']= True
     conf['context_frames'] = 2
 
-    conf['row_start'] = 0
-    conf['row_end'] = 63
+    # conf['row_start'] = 15
+    # conf['row_end'] = 63
+
     conf['img_width'] = 64
     conf['sdim'] = 6
     conf['adim'] = 3
 
-    # conf['vidpred_data'] = ''
+    conf['orig_size'] = [48,64]   # for vid pred data only!!!
+
+    conf['vidpred_data'] = ''
 
     # conf['color_augmentation'] = ''
 
@@ -242,8 +247,8 @@ def main():
     for i_run in range(100):
         print 'run number ', i_run
 
-        # images, actions, endeff, gen_images, gen_endeff = sess.run([dict['images'], dict['actions'], dict['endeffector_pos'], dict['gen_images'], dict['gen_states']])
-        images, actions, endeff = sess.run([dict['images'], dict['actions'], dict['endeffector_pos']])
+        images, actions, endeff, gen_images, gen_endeff = sess.run([dict['images'], dict['actions'], dict['endeffector_pos'], dict['gen_images'], dict['gen_states']])
+        # images, actions, endeff = sess.run([dict['images'], dict['actions'], dict['endeffector_pos']])
 
         file_path = '/'.join(str.split(DATA_DIR, '/')[:-1]+['preview'])
         comp_single_video(file_path, images, num_exp=conf['batch_size'])
@@ -258,13 +263,16 @@ def main():
         end = time.time()
 
         # show some frames
-        # for b in range(conf['batch_size']):
-        #
-        #     print 'actions'
-        #     print actions[b]
-        #
-        #     print 'endeff'
-        #     print endeff[b]
+        for b in range(conf['batch_size']):
+
+            print 'actions'
+            print actions[b]
+
+            print 'endeff'
+            print endeff[b]
+
+            print 'gen_endeff'
+            print gen_endeff[b]
 
             # print 'gen_endeff'
             # print gen_endeff[b]

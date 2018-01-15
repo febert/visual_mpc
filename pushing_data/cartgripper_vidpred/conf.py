@@ -6,7 +6,7 @@ import os
 current_dir = os.path.dirname(os.path.realpath(__file__))
 
 # tf record data location:
-DATA_DIR = base_dir + '/pushing_data/cartgripper/train'
+DATA_DIR = base_dir + '/pushing_data/cartgripper_warptrainvidpred/train'
 
 # local output directory
 OUT_DIR = current_dir + '/modeldata'

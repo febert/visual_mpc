@@ -54,14 +54,19 @@ class GoalDistanceNet(object):
         self.train_cond = tf.placeholder(tf.int32, shape=[], name="train_cond")
 
         if load_data:
-            train_images, train_actions, train_states = build_tfrecord_fn(conf, training=True)
-            val_images, val_actions, val_states = build_tfrecord_fn(conf, training=False)
-
-
-
-            self.images, self.actions, self.states = tf.cond(self.train_cond > 0,  # if 1 use trainigbatch else validation batch
-                                              lambda: [train_images, train_actions, train_states],
-                                              lambda: [val_images, val_actions, val_states])
+            if 'vid_pred_to_real' in conf: # register predicted video to real
+                train_images, train_actions, train_states, train_pred_images, train_pred_states = build_tfrecord_fn(conf, training=True)
+                val_images, val_actions, val_states, val_pred_images, val_pred_states = build_tfrecord_fn(conf, training=False)
+                self.images, self.actions, self.states, self.pred_images, self.pred_states = tf.cond(self.train_cond > 0,
+                                                                 # if 1 use trainigbatch else validation batch
+                                                                 lambda: [train_images, train_actions, train_states, train_pred_images, train_pred_states],
+                                                                 lambda: [val_images, val_actions, val_states, val_pred_images, val_pred_states])
+            else:  # real to real
+                train_images, train_actions, train_states = build_tfrecord_fn(conf, training=True)
+                val_images, val_actions, val_states = build_tfrecord_fn(conf, training=False)
+                self.images, self.actions, self.states = tf.cond(self.train_cond > 0,  # if 1 use trainigbatch else validation batch
+                                                  lambda: [train_images, train_actions, train_states],
+                                                  lambda: [val_images, val_actions, val_states])
 
             self.I0, self.I1 = self.sel_images()
 
@@ -88,7 +93,11 @@ class GoalDistanceNet(object):
         self.tend = self.tstart + tf.random_uniform([1], tf.ones([], dtype=tf.int32), delta_t + 1, dtype=tf.int32)
 
         begin = tf.stack([0, tf.squeeze(self.tstart), 0, 0, 0],0)
-        I0 = tf.squeeze(tf.slice(self.images, begin, [-1, 1, -1, -1, -1]))
+
+        if 'vid_pred_to_real' in self.conf:
+            I0 = tf.squeeze(tf.slice(self.pred_images, begin, [-1, 1, -1, -1, -1]))
+        else:
+            I0 = tf.squeeze(tf.slice(self.images, begin, [-1, 1, -1, -1, -1]))
 
         begin = tf.stack([0, tf.squeeze(self.tend), 0, 0, 0], 0)
         I1 = tf.squeeze(tf.slice(self.images, begin, [-1, 1, -1, -1, -1]))
