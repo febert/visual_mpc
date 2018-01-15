@@ -28,6 +28,7 @@ class Visualizer(object):
         rospy.loginfo("init node visual mpc demo")
         benchmark_name = rospy.get_param('~exp')
         self.ndesig = rospy.get_param('~ndesig')
+        print 'ndesig', self.ndesig
 
         self.base_dir = '/'.join(str.split(base_filepath, '/')[:-2])
         cem_exp_dir = self.base_dir + '/experiments/cem_exp/benchmarks_sawyer'
@@ -62,13 +63,15 @@ class Visualizer(object):
         # self.ndesig = args.ndesig
 
         self.num_pairs = 0
-        self.pairs = []
+        # self.pairs = []
+        self.startPixels = []
+        self.goalPixels = []
         self.pixel1, self.pixel2 = None, None
         self.selPixels = True
         self.receivingPreds = True
         self.receivingDistribs = True
         self.receivingScores = True
-        self.colors = ["#f11", "#fb0", "#05f"]
+        self.colors = ["#f11", "#05f", "#fb0"]
 
         self.bridge = CvBridge()
 
@@ -133,30 +136,40 @@ class Visualizer(object):
             predVideo.grid(row=i+1, column=0, padx=(0, 10), pady=(10, 0))
             predVideo.config(bg="white")
 
-            distribVideo = Label(self.right_panel, image=self.emptyPhoto)
-            distribVideo.image = self.emptyPhoto
-            distribVideo.grid(row=i+1, column=1, padx=(0, 50), pady=(10, 0))
-            distribVideo.config(bg="white")
+            distributionPhotosCol = []
+            distributionsCol = []
+            for j in range(self.ndesig):
+                distribVideo = Label(self.right_panel, image=self.emptyPhoto)
+                distribVideo.image = self.emptyPhoto
+                distribVideo.grid(row=i+1, column=j+1, padx=(0, 10), pady=(10, 0))
+                distribVideo.config(bg="white")
+                distributionPhotosCol.append([self.emptyImage])
+                distributionsCol.append(distribVideo)
 
-            score = Label(self.right_panel, text="0.00", font=("Helvetica", 20))
-            score.grid(row=i+1, column=2, padx=(0, 50), pady=(10, 0))
+            score = Label(self.right_panel, text="", font=("Helvetica", 20))
+            score.grid(row=i+1, column=3, padx=(50, 50), pady=(10, 0))
             score.config(bg="white")
 
             self.predictionPhotos.append([self.emptyImage])
             self.predictions.append(predVideo)
 
-            self.distributionPhotos.append([self.emptyImage])
-            self.distributions.append(distribVideo)
+            self.distributionPhotos.append(distributionPhotosCol)
+            self.distributions.append(distributionsCol)
 
             self.scoreTexts.append("")
             self.scores.append(score)
 
         self.predictions[0].grid(pady=(50, 0))
-        self.distributions[0].grid(pady=(50, 0))
+        # self.distributions[0].grid(pady=(50, 0))
         self.scores[0].grid(pady=(50, 0))
         self.predictions[-1].grid(pady=(10, 45))
-        self.distributions[-1].grid(pady=(10, 45))
+        # self.distributions[-1].grid(pady=(10, 45))
         self.scores[-1].grid(pady=(10, 45))
+
+        print len(self.distributions), len(self.distributions[0])
+        for j in range(self.ndesig):
+            self.distributions[0][j].grid(pady=(50, 0))
+            self.distributions[-1][j].grid(pady=(10, 45))
 
         addPhoto = ImageTk.PhotoImage(Image.open(self.assetsdir + "/add.png"))
         self.addButton = Button(self.left_panel, image=addPhoto, command=self.begin_input)
@@ -187,17 +200,21 @@ class Visualizer(object):
         self.canvas.copy_image = self.canvasPhoto
         self.iter = (self.iter + 1) % len(self.predictionPhotos[0])
         for i in range(self.num_predictions):
-            if len(self.distributionPhotos[i]) < self.prediction_length or len(self.predictionPhotos[i]) < self.prediction_length:
+            distributionPhotosCol = []
+            if len(self.distributionPhotos[i][-1]) < self.prediction_length or len(self.predictionPhotos[i]) < self.prediction_length:
                 predictionPhoto = self.emptyPhoto
-                distributionPhoto = self.emptyPhoto
+                for j in range(self.ndesig):
+                    distributionPhotosCol.append(self.emptyPhoto)
             else:
                 predictionPhoto = ImageTk.PhotoImage(self.predictionPhotos[i][self.iter])
-                distributionPhoto = ImageTk.PhotoImage(self.distributionPhotos[i][self.iter])
+                for j in range(self.ndesig):
+                    distributionPhotosCol.append(ImageTk.PhotoImage(self.distributionPhotos[i][j][self.iter]))
                 self.scores[i].config(text=self.scoreTexts[i])
             self.predictions[i].config(image=predictionPhoto)
             self.predictions[i].image = predictionPhoto
-            self.distributions[i].config(image=distributionPhoto)
-            self.distributions[i].image = distributionPhoto
+            for j in range(self.ndesig):
+                self.distributions[i][j].config(image=distributionPhotosCol[j])
+                self.distributions[i][j].image = distributionPhotosCol[j]
         self.root.after(200, self.video_loop)
 
     def start(self):
@@ -207,11 +224,13 @@ class Visualizer(object):
             print "please select second pixel"
         else:
             print "starting"
-            self.visual_mpc_cmd_publisher.publish(np.array(self.pairs, dtype=np.uint32))
+            self.visual_mpc_cmd_publisher.publish(np.array(self.startPixels + self.goalPixels, dtype=np.uint32))
             self.publish_to_head(self.exec_splash)
 
     def reset_demo(self):
-        self.pairs = []
+        # self.pairs = []
+        self.startPixels = []
+        self.goalPixels = []
         self.pixel1, self.pixel2 = None, None
         self.selPixels = True
         self.canvas.delete("points")
@@ -224,9 +243,16 @@ class Visualizer(object):
         self.num_pairs = 0
         for i in range(self.num_predictions):
             self.predictionPhotos.append([self.emptyImage])
-            self.distributionPhotos.append([self.emptyImage])
+            distributionPhotosCol = []
+            for j in range(self.ndesig):
+                distributionPhotosCol.append([self.emptyImage])
+            self.distributionPhotos.append(distributionPhotosCol)
             self.scoreTexts.append("")
             self.scores[i].config(text="")
+
+        for i in range(self.num_predictions):
+            for j in range(self.ndesig):
+                self.distributions[i][j].config(highlightthickness=0)
 
         self.startButton.config(state=Tkconstants.DISABLED)
         if self.ndesig == 1:
@@ -273,19 +299,24 @@ class Visualizer(object):
     def update_distrib_photos(self, data):
         if self.receivingDistribs:
             self.receivingDistribs = False
-            data = data.data.reshape((self.num_pairs, self.num_predictions, self.prediction_length,
+            data = data.data.reshape((self.num_predictions, self.prediction_length, self.num_pairs,
                                       self.prediction_height, self.prediction_width))
             for i in range(self.num_predictions):
-                tempPhotos = []
-                for j in range(self.prediction_length):
-                    renormalized_data = data[0, i, j]/np.max(data[0, i, j])
-                    colored_distrib = 255 * self.cmap(np.squeeze(renormalized_data))[:, :, :3]
-                    colored_distrib = colored_distrib.astype(np.uint8)
-                    pil_image = Image.fromarray(colored_distrib).resize([int(self.prediction_width * self.prediction_ratio),
-                                                                         int(self.prediction_height * self.prediction_ratio)],
-                                                                        resample=Image.LANCZOS)
-                    tempPhotos.append(pil_image)
-                self.distributionPhotos[i] = tempPhotos
+                for j in range(self.ndesig):
+                    tempPhotos = []
+                    for k in range(self.prediction_length):
+                        renormalized_data = data[i, k, j]/np.max(data[i, k, j])
+                        colored_distrib = 255 * self.cmap(np.squeeze(renormalized_data))[:, :, :3]
+                        colored_distrib = colored_distrib.astype(np.uint8)
+                        pil_image = Image.fromarray(colored_distrib).resize([int(self.prediction_width * self.prediction_ratio),
+                                                                             int(self.prediction_height * self.prediction_ratio)],
+                                                                            resample=Image.LANCZOS)
+                        tempPhotos.append(pil_image)
+                    self.distributionPhotos[i][j] = tempPhotos
+
+            for i in range(self.num_predictions):
+                for j in range(self.ndesig):
+                    self.distributions[i][j].config(highlightbackground=self.colors[j], highlightthickness=2)
         else:
             self.receivingDistribs = True
 
@@ -294,51 +325,52 @@ class Visualizer(object):
             self.receivingScores = False
             data = data.data
             for i in range(self.num_predictions):
-                print data.dtype
-                print data
                 self.scoreTexts[i] = str(data[i])
         else:
             self.receivingScores = True
 
     def input_pixel(self, event):
-        if self.selPixels and event.x >= self.offset_x \
-                and event.y >= self.offset_y \
-                and event.x <= self.offset_x + self.image_width \
-                and event.y <= self.offset_y + self.image_height:
+        if self.selPixels and event.x >= self.offset_x and event.y >= self.offset_y and event.x <= self.offset_x + self.image_width and event.y <= self.offset_y + self.image_height:
             x = int(round((self.canvas.canvasx(event.x) - self.offset_x) / self.image_ratio))
             y = int(round((self.canvas.canvasy(event.y) - self.offset_y) / self.image_ratio))
 
             if self.pixel1:
                 self.canvas.create_oval(event.x - 10, event.y - 10, event.x + 10, event.y + 10,
                                         outline=self.colors[self.num_pairs % len(self.colors)],
-                                        width=4,
+                                        width=8,
                                         tags="points")
 
                 print "pixel 2: ", y, x
                 self.pixel2 = [y, x]
-                self.selPixels = False
+                # self.selPixels = False
 
-                self.pairs.extend(self.pixel1)
-                self.pairs.extend(self.pixel2)
+                self.goalPixels.extend(self.pixel2)
+
+                # self.pairs.extend(self.pixel1)
+                # self.pairs.extend(self.pixel2)
                 self.num_pairs += 1
                 self.pixel1 = None
                 self.pixel2 = None
 
-                self.startButton.config(state=Tkconstants.NORMAL)
+                if self.num_pairs == self.ndesig:
+                    self.startButton.config(state=Tkconstants.NORMAL)
+                    self.selPixels = False
             else:
-                self.canvas.create_oval(event.x - 6, event.y - 6, event.x + 6, event.y + 6,
+                self.canvas.create_oval(event.x - 10, event.y - 10, event.x + 10, event.y + 10,
                                         outline=self.colors[self.num_pairs % len(self.colors)],
                                         fill=self.colors[self.num_pairs % len(self.colors)],
-                                        width=4,
+                                        width=8,
                                         tags="points")
 
                 print "pixel 1: ", y, x
                 self.pixel1 = [y, x]
+
+                self.startPixels.extend(self.pixel1)
                 self.startButton.config(state=Tkconstants.DISABLED)
 
     def begin_input(self):
         print "ready for inputs"
-        self.selPixels = True
+        # self.selPixels = True
         if self.pixel1 and not self.pixel2:
             print "please select second pixel"
         if self.num_pairs + 1 >= self.ndesig:

@@ -24,7 +24,7 @@
 
      <node pkg="visual_mpc_rospkg" type="visual_mpc_demo.py" name="visual_mpc_demo"  launch-prefix="xterm -e">
           <param name="exp" value="$(arg exp)"/>
-          <param name="ndesig" value="1"/>
+          <param name="ndesig" value="2"/>
      </node>
 
      <!--<include file="$(find visual_mpc_rospkg)/launch/start_gripper_autoupdate_$(arg robot).launch"/>-->

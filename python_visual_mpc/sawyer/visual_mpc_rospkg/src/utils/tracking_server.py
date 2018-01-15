@@ -20,7 +20,9 @@ import pdb
 
 class Tracker(object):
     def __init__(self):
-        print "Initializing node... "
+
+        print 'started tracking server'
+        # pdb.set_trace()
         rospy.init_node("opencv_tracker")
         benchmark_name = rospy.get_param('~exp')
         base_dir = '/'.join(str.split(base_filepath, '/')[:-2])

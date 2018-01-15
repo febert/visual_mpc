@@ -26,6 +26,10 @@ from sensor_msgs.msg import Image as Image_msg
 
 class Visual_MPC_Server(object):
     def __init__(self):
+
+        print 'started visual MPC server'
+        # pdb.set_trace()
+
         base_dir = '/'.join(str.split(base_filepath, '/')[:-2])
 
         cem_exp_dir = base_dir + '/experiments/cem_exp/benchmarks_sawyer'

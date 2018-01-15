@@ -34,5 +34,5 @@ agent = {
     'ndesig':2,
     'opencv_tracking':'',
     'make_final_gif':'',
-    'wristrot':''
+    'wristrot':'',
 }

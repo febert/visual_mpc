@@ -28,11 +28,12 @@ policy = {
 }
 
 agent = {
-    'T': 20,
+    'T': 30,
     'adim':5,
     'sdim':4,
     'ndesig':1,
     'opencv_tracking':'',
     'make_final_gif':'',
-    'wristrot':''
+    'wristrot':'',
+    'startpos_basedon_click':''
 }

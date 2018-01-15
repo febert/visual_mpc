@@ -257,18 +257,18 @@ class CEM_controller():
         t0 = time.time()
         last_states = np.expand_dims(last_states, axis=0)
         last_states = np.repeat(last_states, self.netconf['batch_size'], axis=0)
-        print 'construct last state', time.time() - t0
+        # print 'construct last state', time.time() - t0
 
         t0 = time.time()
         last_frames = last_frames.astype(np.float32, copy=False) / 255.
-        print 'last frames cast', time.time() - t0
+        # print 'last frames cast', time.time() - t0
 
         t0 = time.time()
         last_frames = np.expand_dims(last_frames, axis=0)
         last_frames = np.repeat(last_frames, self.netconf['batch_size'], axis=0)
         app_zeros = np.zeros(shape=(self.netconf['batch_size'], self.netconf['sequence_length']-
                                     self.netconf['context_frames'], self.img_height, self.img_width, 3), dtype=np.float32)
-        print 'last frames and construct app_zeros', time.time() - t0
+        # print 'last frames and construct app_zeros', time.time() - t0
 
         last_frames = np.concatenate((last_frames, app_zeros), axis=1)
 
@@ -280,7 +280,7 @@ class CEM_controller():
             # axarr[p].set_title('input_distrib{}'.format(p), fontsize=8)
         # plt.show()
 
-        print 'input_distrib', time.time() - t0
+        # print 'input_distrib', time.time() - t0
 
         t_startpred = time.time()
         gen_images, gen_distrib, gen_states, _ = self.predictor(input_images=last_frames,
@@ -288,19 +288,20 @@ class CEM_controller():
                                                                 input_actions=actions,
                                                                 input_one_hot_images=input_distrib,
                                                                 )
-        print 'time for videprediction {}'.format(time.time() - t_startpred)
+        # batch, time, ndesig
+        # print 'time for videprediction {}'.format(time.time() - t_startpred)
 
         t_startcalcscores = time.time()
         scores_per_task = []
         for p in range(self.ndesig):
             start_calc_dist = time.time()
             distance_grid = self.get_distancegrid(self.goal_pix[p])
-            print 'time to calc dist grid:', time.time() - start_calc_dist
+            # print 'time to calc dist grid:', time.time() - start_calc_dist
 
             scores_per_task.append(self.calc_scores(gen_distrib, distance_grid))
             print 'best score of task {}:  {}'.format(p, np.min(scores_per_task[-1]))
 
-        print 'time to calc scores {}'.format(time.time()-t_startcalcscores)
+        # print 'time to calc scores {}'.format(time.time()-t_startcalcscores)
 
         start_t2 = time.time()
 
@@ -371,7 +372,7 @@ class CEM_controller():
             gen_im_l = np.stack(gen_im_l, axis=0).flatten()
             gen_distrib_l = np.stack(gen_distrib_l, axis=0).flatten()
             gen_score_l = np.array(gen_score_l, dtype=np.float32)
-            print 'gen_score_l', gen_score_l
+            # print 'gen_score_l', gen_score_l
 
             self.gen_image_publisher.publish(gen_im_l)
             self.gen_pix_distrib_publisher.publish(gen_distrib_l)

@@ -55,6 +55,9 @@ from python_visual_mpc import __file__ as base_filepath
 
 class Visual_MPC_Client():
     def __init__(self):
+        print 'started visual MPC client'
+        # pdb.set_trace()
+
         self.ctrl = robot_controller.RobotController()
 
         self.use_gui = rospy.get_param('~gui')   #experiment name
