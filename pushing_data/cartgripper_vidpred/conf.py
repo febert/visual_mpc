@@ -1,3 +1,5 @@
+# data to train the goalimage warper
+
 import python_visual_mpc
 base_dir = python_visual_mpc.__file__
 base_dir = '/'.join(str.split(base_dir, '/')[:-2])

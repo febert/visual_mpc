@@ -175,9 +175,9 @@ class GoalDistanceNet(object):
 
     def visualize(self, sess):
 
-        train_images, train_actions, train_states = build_tfrecord_fn(self.conf)
+        dict = build_tfrecord_fn(self.conf)
 
-        images = sess.run(train_images)
+        images = sess.run(dict['images'])
 
         warped_images = []
 

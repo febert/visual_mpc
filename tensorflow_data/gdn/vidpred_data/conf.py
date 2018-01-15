@@ -4,7 +4,7 @@ base_dir = python_visual_mpc.__file__
 base_dir = '/'.join(str.split(base_dir, '/')[:-2])
 
 # tf record data location:
-DATA_DIR = base_dir + '/pushing_data/cartgripper/train'
+DATA_DIR = base_dir + '/pushing_data/cartgripper_vidpred/train'
 
 import os
 current_dir = os.path.dirname(os.path.realpath(__file__))
@@ -25,10 +25,10 @@ configuration = {
 'num_epochs': 40,   #'number of training iterations.' ,
 'batch_size': 64,           #'batch size for training' ,
 'learning_rate': 0.001,     #'the base learning rate of the generator' ,
-'row_start':15,              # cropping the image
-'row_end':63,
+'ori'
 'normalization':'None',
 'sdim' :6,
 'adim' :3,
-'vidpred_data':''           # if using video prediction data
+'orig_size': [48,64],
+'vidpred_data':''           # tell loader to get video prediction data
 }

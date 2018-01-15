@@ -219,7 +219,7 @@ def main():
     conf['sdim'] = 6
     conf['adim'] = 3
 
-    conf['orig_size'] = [48,64]   # for vid pred data only!!!
+    conf['orig_size'] = [48, 64]   # for vid pred data only!!!
 
     conf['vidpred_data'] = ''
 
