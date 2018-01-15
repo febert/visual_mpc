@@ -117,6 +117,7 @@ def main(unused_argv, conf_script= None):
             break
 
         images = np.stack(images, axis=0)[1:]
+        images = (images * 255).astype(np.uint8)
         states = np.stack(states, axis=0)[1:]
         actions = np.stack(actions, axis=0)[1:]
         gen_images= np.stack(gen_images, axis=0)
@@ -124,7 +125,6 @@ def main(unused_argv, conf_script= None):
         gen_states = np.stack(gen_states, axis=0)
 
         for b in range(conf['batch_size']):
-
 
             traj = Trajectory()
             traj._sample_images= images[:,b]

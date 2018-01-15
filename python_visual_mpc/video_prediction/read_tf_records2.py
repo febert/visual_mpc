@@ -5,6 +5,7 @@ from tensorflow.python.platform import gfile
 import matplotlib.pyplot as plt
 
 import pdb
+import time
 
 from PIL import Image
 import imp
@@ -149,7 +150,6 @@ def build_tfrecord_input(conf, training=True, input_file=None):
 
             if 'vidpred_data' in conf:
                 gen_images = tf.decode_raw(features[gen_image_name], tf.uint8)
-                ORIGINAL_HEIGHT = conf['row_end'] - conf['row_start']
                 gen_images = tf.reshape(gen_images, shape=[1, ORIGINAL_HEIGHT * ORIGINAL_WIDTH * COLOR_CHAN])
                 gen_images = tf.reshape(gen_images, shape=[ORIGINAL_HEIGHT, ORIGINAL_WIDTH, COLOR_CHAN])
                 gen_images = tf.reshape(gen_images, [1, IMG_HEIGHT, IMG_WIDTH, COLOR_CHAN])
@@ -210,7 +210,7 @@ def main():
     conf['visualize']= True
     conf['context_frames'] = 2
 
-    conf['row_start'] = 15
+    conf['row_start'] = 0
     conf['row_end'] = 63
     conf['img_width'] = 64
     conf['sdim'] = 6
@@ -237,8 +237,9 @@ def main():
     sess.run(tf.global_variables_initializer())
 
     from python_visual_mpc.video_prediction.utils_vpred.create_gif_lib import comp_single_video
-
-    for i_run in range(10):
+    deltat = []
+    end = time.time()
+    for i_run in range(100):
         print 'run number ', i_run
 
         # images, actions, endeff, gen_images, gen_endeff = sess.run([dict['images'], dict['actions'], dict['endeffector_pos'], dict['gen_images'], dict['gen_states']])
@@ -247,17 +248,23 @@ def main():
         file_path = '/'.join(str.split(DATA_DIR, '/')[:-1]+['preview'])
         comp_single_video(file_path, images, num_exp=conf['batch_size'])
 
-        # file_path = '/'.join(str.split(DATA_DIR, '/')[:-1] + ['preview_gen_images'])
-        # comp_single_video(file_path, gen_images, num_exp=conf['batch_size'])
+        file_path = '/'.join(str.split(DATA_DIR, '/')[:-1] + ['preview_gen_images'])
+        comp_single_video(file_path, gen_images, num_exp=conf['batch_size'])
+
+        deltat.append(time.time() - end)
+        if i_run % 10 == 0:
+            print 'tload{}'.format(time.time() - end)
+            print 'average time:', np.average(np.array(deltat))
+        end = time.time()
 
         # show some frames
-        for b in range(conf['batch_size']):
-
-            print 'actions'
-            print actions[b]
-
-            print 'endeff'
-            print endeff[b]
+        # for b in range(conf['batch_size']):
+        #
+        #     print 'actions'
+        #     print actions[b]
+        #
+        #     print 'endeff'
+        #     print endeff[b]
 
             # print 'gen_endeff'
             # print gen_endeff[b]
@@ -268,10 +275,10 @@ def main():
             #     plt.imshow(images[b,0])
             #     plt.show()
 
-            plt.imshow(images[0, 0])
-            plt.show()
-
-            pdb.set_trace()
+            # plt.imshow(images[0, 0])
+            # plt.show()
+            #
+            # pdb.set_trace()
 
             # print 'robot_pos'
             # print robot_pos

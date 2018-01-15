@@ -11,6 +11,7 @@ import imp
 import glob
 import cv2
 import cPickle
+import tarfile
 
 import time
 
@@ -46,7 +47,7 @@ class ToTensor(object):
         images = images.transpose((0, 3, 1, 2))
         return {'images': torch.from_numpy(images), 'states': torch.from_numpy(states), 'actions': torch.from_numpy(actions)}
 
-def read_images(conf, trajname, traj):
+def read_images(conf, trajname, traj, tar):
     trajind = 0  # trajind is the index in the target trajectory
     end = conf['T']
 
@@ -54,13 +55,11 @@ def read_images(conf, trajname, traj):
     for dataind in range(0, end, take_ev_nth_step):  # dataind is the index in the source trajetory
 
         im_filename = trajname + '/images/im{}.png'.format(dataind)
-        # if dataind == 0:
-        #     print 'processed from file {}'.format(im_filename)
-        # if dataind == end - take_ev_nth_step:
-        #     print'processed to file {}'.format(im_filename)
-        file = glob.glob(im_filename)
-        file = file[0]
-        traj._sample_images[trajind] = cv2.imread(file)
+
+        img_stream = tar.extractfile(im_filename[1:])
+        file_bytes = np.asarray(bytearray(img_stream.read()), dtype=np.uint8)
+        traj._sample_images[trajind] = cv2.imdecode(file_bytes, 1)
+
         trajind += 1
 
 class VideoDataset(Dataset):
@@ -89,14 +88,15 @@ class VideoDataset(Dataset):
         return len(self.traj_name_list)
 
     def __getitem__(self, idx):
+        t0 = time.time()
 
         trajname = self.traj_name_list[idx]
-
         traj = Trajectory(self.agentparams)
-        read_images(self.agentparams, trajname, traj)
 
-        pkl_file = trajname+'/state_action.pkl'
-        pkldata = cPickle.load(open(pkl_file, "rb"))
+        with tarfile.open(trajname + "/traj.tar") as tar:
+            read_images(self.agentparams, trajname, traj, tar)
+            pkl_file_stream = tar.extractfile(trajname[1:] + '/state_action.pkl')
+            pkldata = cPickle.load(pkl_file_stream)
 
         states = np.concatenate([pkldata['qpos'],  pkldata['qvel']], axis=1)
         actions = pkldata['actions']
@@ -106,6 +106,9 @@ class VideoDataset(Dataset):
 
         if self.transform:
             sample = self.transform(sample)
+
+        if idx % 10 ==0:
+            print 'tread images: ', time.time() - t0
 
         return sample
 
@@ -126,6 +129,7 @@ def test_videoloader():
 
     dataloader = make_video_loader(config, trainconf)
 
+    deltat = []
     end = time.time()
     for i_batch, sample_batched in enumerate(dataloader):
 
@@ -133,11 +137,12 @@ def test_videoloader():
         states = sample_batched['states']
         actions = sample_batched['actions']
 
+        deltat.append(time.time() - end)
         if i_batch % 10 == 0:
+
             print 'tload{}'.format(time.time() - end)
+            print 'average time:',np.average(np.array(deltat))
         end = time.time()
-
-
 
         # print i_batch, images.size(), states.size(), actions.size()
 

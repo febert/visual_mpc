@@ -14,121 +14,134 @@ import itertools
 import threading
 import imp
 import logging
+import tarfile
+import cv2
+from collections import OrderedDict
+import matplotlib.pyplot as plt
+from PIL import Image
+import time
 
 
-class Trajectory(object):
-    def __init__(self, conf):
 
-        self.traj_per_group = 1000
-        self.n_cam = len(conf['sourcetags'])  # number of cameras
-
-        h = conf['target_res'][0]
-        w = conf['target_res'][1]
-
-        self.T = conf['sequence_length']
-        self.images = np.zeros((self.T, self.n_cam, h, w, 3), dtype = np.float32)  # n_cam=0: main, n_cam=1: aux1
-
-        action_dim = conf['adim']  # (for softmotion action_dim=4)
-        state_dim = conf['sdim']  # (for softmotion action_dim=4)
-        self.actions = np.zeros((self.T, action_dim), dtype = np.float32)
-        self.endeffector_pos = np.zeros((self.T, state_dim), dtype = np.float32)
-        self.joint_angles = np.zeros((self.T, 7), dtype = np.float32)
-
-
-def reading_thread(conf, subset_traj, enqueue_op, sess, images_pl, states_pl, actions_pl):
+def reading_thread(conf, subset_traj, enqueue_op, sess, placeholders):
     num_errors = 0
-    conf = conf
-    data_conf = conf['data_configuration']
-    sourcetags = data_conf['sourcetags']
     print 'started process with PID:', os.getpid()
 
-    def step_from_to(i_src, traj_dir_src, traj, pkldata):
-        trajind = 0  # trajind is the index in the target trajectory
-        end = data_conf['total_num_img']
-
-        t_ev_nstep = data_conf['take_ev_nth_step']
-
-
-        smp_range = end // t_ev_nstep  - conf['sequence_length']
-
+    def get_start_end(conf):
+        end = conf['total_num_img']
+        t_ev_nstep = conf['take_ev_nth_step']
+        smp_range = end // t_ev_nstep - conf['sequence_length']
         if 'shift_window' in conf:
             print 'performing shifting in time'
             start = np.random.random_integers(0, smp_range) * t_ev_nstep
         else:
             start = 0
-
         end = start + conf['sequence_length'] * t_ev_nstep
 
-        all_actions = pkldata['actions']
-        all_joint_angles = pkldata['jointangles']
-        all_endeffector_pos = pkldata['endeffector_pos']
+        return start, end
 
-        for dataind in range(start, end, t_ev_nstep):  # dataind is the index in the source trajetory
-            # get low dimensional data
-            traj.actions[trajind] = all_actions[dataind]
-            traj.joint_angles[trajind] = all_joint_angles[dataind]
-            traj.endeffector_pos[trajind] = all_endeffector_pos[dataind]
 
-            if 'imagename_no_zfill' in conf:
-                im_filename = traj_dir_src + '/images/{0}_full_cropped_im{1}_*' \
-                    .format(sourcetags[i_src], dataind)
-            else:
-                im_filename = traj_dir_src + '/images/{0}_full_cropped_im{1}_*' \
-                    .format(sourcetags[i_src], str(dataind).zfill(2))
-            # if dataind == 0:
-            #     print 'processed from file {}'.format(im_filename)
-            # if dataind == end - t_ev_nstep:
-            #     print 'processed to file {}'.format(im_filename)
+    def read_img(tar, tag_dict, dataind):
+        traj_base_dir = tar.getmembers()[0].path
+        im_filename = traj_base_dir + tag_dict['file'].format(dataind)
+        img_stream = tar.extractfile(im_filename)
+        file_bytes = np.asarray(bytearray(img_stream.read()), dtype=np.uint8)
 
-            file = glob.glob(im_filename)
-            if len(file) > 1:
-                raise ValueError
-            file = file[0]
+        img = cv2.imdecode(file_bytes, 1)
 
-            im = crop_and_rot(data_conf, sourcetags, file, i_src)
-            im = im.astype(np.float32)/255.
+        imheight = tag_dict['shape'][0]
+        imwidth = tag_dict['shape'][1]
 
-            traj.images[trajind, i_src] = im
-            trajind += 1
+        rowstart = tag_dict['rowstart']
+        colstart = tag_dict['colstart']
+        # setting used in wrist_rot
+        if 'shrink_before_crop' in tag_dict:
+            shrink_factor = tag_dict['shrink_before_crop']
+            img = cv2.resize(img, (0, 0), fx=shrink_factor, fy=shrink_factor, interpolation=cv2.INTER_AREA)
+            img = img[rowstart:rowstart + imheight, colstart:colstart + imwidth]
+        # setting used in softmotion30_v1
+        elif 'crop_before_shrink' in tag_dict:
+            raw_image_height = img.shape[0]
+            img = img[rowstart:rowstart + raw_image_height, colstart:colstart + raw_image_height]
+            target_res = tag_dict['target_res']
+            img = cv2.resize(img, target_res, interpolation=cv2.INTER_AREA)
+        else:
+            img = img[rowstart:rowstart + imheight, colstart:colstart + imwidth]
 
-        return traj
+        # Image.fromarray(img).show()
+
+        img = img.astype(np.float32) / 255.
+        return img
+
 
     for trajname in itertools.cycle(subset_traj):  # loop of traj0, traj1,..
+        t0 = time.time()
+        # try:
+        traj_index = int(re.match('.*?([0-9]+)$', trajname).group(1))
 
-        try:
-            traj_index = re.match('.*?([0-9]+)$', trajname).group(1)
-            traj = Trajectory(data_conf)
+        nump_array_dict = {}
+        for tag_dict in conf['sourcetags']:
+            numpy_arr = np.zeros([conf['sequence_length']] + tag_dict['shape'], dtype=np.float32)
+            nump_array_dict[tag_dict['name']] = numpy_arr
 
-            traj_tailpath = '/'.join(str.split(trajname, '/')[-2:])   #string with only the group and trajectory
-            traj_beginpath = '/'.join(str.split(trajname, '/')[:-3])   #string with only the group and trajectory
+        with tarfile.open(trajname + "/traj.tar") as tar:
+            traj_base_dir = tar.getmembers()[0].path
+            pkl_file_stream = tar.extractfile(traj_base_dir + '/state_action.pkl')
+            pkldata = cPickle.load(pkl_file_stream)
 
-            pkl_file = trajname + '/joint_angles_traj{}.pkl'.format(traj_index)
-            if not os.path.isfile(pkl_file):
-                print 'no pkl file found in', trajname
-                continue
+            start, end = get_start_end(conf)
 
-            pkldata = cPickle.load(open(pkl_file, "rb"))
+            trajind = 0
+            for dataind in range(start, end, conf['take_ev_nth_step']):
 
-            for i_src, tag in enumerate(data_conf['sourcetags']):  # loop over cameras: main, aux1, ..
-                traj_dir_src = traj_beginpath + tag + '/' + traj_tailpath
-                step_from_to(i_src, traj_dir_src, traj, pkldata)
+                for tag_dict in conf['sourcetags']:
+                    tag_name = tag_dict['name']
 
-            sess.run(enqueue_op, feed_dict={images_pl: np.squeeze(traj.images),
-                                            states_pl: traj.endeffector_pos,
-                                            actions_pl: traj.actions})
-        except KeyboardInterrupt:
-            sys.exit()
-        except:
-            print "error occured"
-            num_errors += 1
+                    if '.pkl' in tag_dict['file']:   # if it's data from Pickle file
+                        if 'pkl_names' in tag_dict:  # if a tag, e.g. the the state is split up into multiple tags
+                            pklread0 = pkldata[tag_dict['pkl_names'][0]]
+                            pklread1 = pkldata[tag_dict['pkl_names'][1]]
+                            nump_array_dict[tag_name][trajind] = np.concatenate([pklread0[dataind], pklread1[dataind]], axis=0)
+                        else:
+                            nump_array_dict[tag_name][trajind] = pkldata[tag_dict['name']][dataind]
+                    else:   # if it's image data
+                         nump_array_dict[tag_name][trajind] = read_img(tar, tag_dict, dataind)
+
+                trajind += 1
+
+        feed_dict = {}
+        for tag_dict in conf['sourcetags']:
+            tag_name = tag_dict['name']
+            feed_dict[placeholders[tag_name]] = nump_array_dict[tag_name]
+
+
+        t1 = time.time()
+        sess.run(enqueue_op, feed_dict=feed_dict)
+
+        # if traj_index % 10 == 0:
+        #     print 't ful enqueu', time.time() - t0
+        #     print 't enqueu run', time.time() - t1
+
+        # except KeyboardInterrupt:
+        #     sys.exit()
+        # except:
+        #     print "error occured"
+        #     num_errors += 1
 
 class OnlineReader(object):
     def __init__(self, conf, mode, sess):
         """
         the configuration file needs:
-
         source_basedirs key: a list of directories where to load the data from, data is concatenated (advantage: no renumbering needed when using multiple sources)
-
+        sourcetags: a list of tags where each tag is a dict with
+            # name: the name of the data field
+            # dtype: the dtype
+            # shape: the target shape, will be cropped to match this shape
+            # rowstart: starting row for cropping
+            # rowend: end row for cropping
+            # colstart: start column for cropping
+            # shrink_before_crop: shrink image according to this ratio before cropping
+            # brightness_threshold: if average pixel value lower discard video
 
         :param conf:
         :param mode: training, validation, test
@@ -136,44 +149,47 @@ class OnlineReader(object):
 
         self.sess = sess
         self.conf = conf
-        self.data_conf = conf['data_configuration']
         self.mode = mode
 
-        self.images_pl = tf.placeholder(tf.float32, name='images', shape=(conf['sequence_length'], 64, 64, 3))
-        adim = 5
-        sdim = 4
-        self.actions_pl = tf.placeholder(tf.float32, name='actions', shape=(conf['sequence_length'], adim))
-        self.states_pl = tf.placeholder(tf.float32, name='states', shape=(conf['sequence_length'], sdim))
+        self.place_holders = OrderedDict()
 
+        pl_shapes  = []
+        self.tag_names = []
+        # loop through tags
+        for tag_dict in conf['sourcetags']:
+            pl_shapes.append([conf['sequence_length']]+tag_dict['shape'])
+            self.tag_names.append(tag_dict['name'])
+            self.place_holders[tag_dict['name']] = tf.placeholder(tf.float32,
+                                                                 name=tag_dict['name'],
+                                                                 shape=pl_shapes[-1])
         if mode == 'train' or mode == 'val':
-            self.num_threads = 1
+            self.num_threads = 10
         else: self.num_threads = 1
 
         if mode == 'test':
             self.shuffle = False
         else: self.shuffle = True
 
-        self.q = tf.FIFOQueue(20, [tf.float32, tf.float32, tf.float32], shapes=[self.images_pl.get_shape().as_list(),
-                                                                                 self.actions_pl.get_shape().as_list(),
-                                                                                 self.states_pl.get_shape().as_list()])
-        self.enqueue_op = self.q.enqueue([self.images_pl, self.actions_pl, self.states_pl])
+        tf_dtypes = [tf.float32]*len(pl_shapes)
+
+        self.q = tf.FIFOQueue(1000, tf_dtypes, shapes=pl_shapes)
+        self.enqueue_op = self.q.enqueue(self.place_holders.values())
 
         auto_split = False  # automatically divide dataset into train, val, test and save the split to pkl-file
         if auto_split:
             data_sets = self.search_data()
             traj_list = self.combine_traj_lists(data_sets)
         else:
-            traj_list = self.get_traj_list()
+            traj_list = make_traj_name_list(conf, shuffle=self.shuffle)
 
         self.start_threads(traj_list)
 
     def get_batch_tensors(self):
+        images, states, actions = self.q.dequeue_many(self.conf['batch_size'])
 
-        image_batch, action_batch, states_batch = self.q.dequeue_many(self.conf['batch_size'])
-        return image_batch, action_batch, states_batch
-
-    def get_traj_list(self):
-
+        # dequed = {name:value for name, value in zip(self.tag_names, dequed)}
+        # return dequed
+        return images, states, actions
 
     def search_data(self):
         """
@@ -184,18 +200,18 @@ class OnlineReader(object):
 
         print 'searching data'
         datasets = []
-        for dir in self.data_conf['source_basedirs']:
+        for dir in self.conf['source_basedirs']:
             source_name = str.split(dir, '/')[-1]
 
             print 'preparing source_basedir', dir
-            split_file = self.data_conf['current_dir'] + '/' + source_name + '_split.pkl'
+            split_file = self.conf['current_dir'] + '/' + source_name + '_split.pkl'
 
             dataset_i = {}
             if os.path.isfile(split_file):
                 print 'loading datasplit from ', split_file
                 dataset_i = cPickle.load(open(split_file, "rb"))
             else:
-                traj_list = make_traj_name_list(self.data_conf, shuffle=True)
+                traj_list = make_traj_name_list(self.conf, shuffle=True)
 
                 #make train, val, test split
                 test_traj = traj_list[:256]  # use first 256 for test
@@ -251,8 +267,10 @@ class OnlineReader(object):
             print 'worker {} going from {} to {} '.format(i, start_idx[i], end_idx[i])
             subset_traj = traj_list[start_idx[i]:end_idx[i]]
 
-            t = threading.Thread(target=reading_thread, args=(self.conf, subset_traj, self.enqueue_op, self.sess,
-                                                 self.images_pl, self.states_pl, self.actions_pl))
+            t = threading.Thread(target=reading_thread, args=(self.conf, subset_traj,
+                                                              self.enqueue_op, self.sess,
+                                                              self.place_holders
+                                                                ))
             t.setDaemon(True)
             t.start()
 
@@ -262,24 +280,12 @@ def test_online_reader():
     # for debugging only:
     os.environ["CUDA_VISIBLE_DEVICES"] = "1"
     print 'using CUDA_VISIBLE_DEVICES=', os.environ["CUDA_VISIBLE_DEVICES"]
-    conf = {}
 
-    current_dir = os.path.dirname(os.path.realpath(__file__))
+    hyperparams_file = '/home/frederik/Documents/catkin_ws/src/visual_mpc/pushing_data/cartgripper_img/conf.py'
+    hyperparams = imp.load_source('hyperparams', hyperparams_file)
+    conf = hyperparams.configuration
 
-    conf['train_val_split'] = 0.95
-    conf['sequence_length'] = 15  # 'sequence length, including context frames.'
-    conf['batch_size'] = 10
-    conf['context_frames'] = 2
-
-    conf['img_height'] = 64
-    conf['sdim'] = 3
-    conf['adim'] = 4
-
-    conf['current_dir'] = current_dir
-    conf['shift_window'] = ''
-
-    conf['source_basedirs'] = ['/home/frederik/Documents/catkin_ws/src/visual_mpc/pushing_data/cartgripper_img']
-
+    conf['batch_size'] = 32
 
     print '-------------------------------------------------------------------'
     print 'verify current settings!! '
@@ -291,25 +297,37 @@ def test_online_reader():
 
     sess = tf.InteractiveSession()
     r = OnlineReader(conf, 'train', sess=sess)
-    image_batch, action_batch, endeff_pos_batch = r.get_batch_tensors()
+    image_batch, endeff_pos_batch, action_batch = r.get_batch_tensors()
+
 
     from python_visual_mpc.video_prediction.utils_vpred.create_gif_lib import comp_single_video
 
-    for i_run in range(1):
-        print 'run number ', i_run
+    deltat = []
+    end = time.time()
+    for i_run in range(100):
+        # print 'run number ', i_run
 
         images, actions, endeff = sess.run([image_batch, action_batch, endeff_pos_batch])
 
-        file_path = conf['data_configuration']['current_dir'] + '/preview'
-        comp_single_video(file_path, images)
+        deltat.append(time.time() - end)
+        if i_run % 10 == 0:
+            print 'tload{}'.format(time.time() - end)
+            print 'average time:', np.average(np.array(deltat))
+        end = time.time()
+
+        # file_path = conf['current_dir'] + '/preview'
+        # comp_single_video(file_path, images)
 
         # show some frames
-        for b in range(conf['batch_size']):
-            print 'actions'
-            print actions[b]
-
-            print 'endeff'
-            print endeff[b]
+        # for b in range(conf['batch_size']):
+        #     print 'actions'
+        #     print actions[b]
+        #
+        #     print 'endeff'
+        #     print endeff[b]
+        #
+        #     plt.imshow(images[b,0])
+        #     plt.show()
 
             # print 'robot_pos'
             # print robot_pos
@@ -326,7 +344,7 @@ def test_online_reader():
             # img.show()
             # print b
 
-            pdb.set_trace()
+            # pdb.set_trace()
 
 if __name__ == '__main__':
     test_online_reader()

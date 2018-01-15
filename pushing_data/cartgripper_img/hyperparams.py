@@ -19,7 +19,7 @@ DATA_DIR = '/'.join(str.split(python_visual_mpc.__file__, '/')[:-2])
 agent = {
     'type': AgentMuJoCo,
     # 'data_files_dir': BASE_DIR + '/train',
-    'data_files_dir': '/mnt/sda1/pushingdata/cartgripper_genobj/train',
+    'data_files_dir': '/mnt/sda1/pushingdata/cartgripper_genobj/test',
     'filename': DATA_DIR+'/mjc_models/cartgripper.xml',
     'filename_nomarkers': DATA_DIR+'/mjc_models/cartgripper.xml',
     'data_collection': True,

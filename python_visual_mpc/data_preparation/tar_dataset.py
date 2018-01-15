@@ -7,7 +7,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 
 conf = {}
-conf['source_basedirs'] = ['/home/frederik/Documents/catkin_ws/src/visual_mpc/pushing_data/cartgripper_img/train']
+conf['source_basedirs'] = ['/mnt/sda1/pushingdata/cartgripper_img/test']
 conf['target_res'] = [64,64]
 conf['adim'] = 3
 conf['sdim'] = 6
@@ -16,6 +16,7 @@ traj_list = make_traj_name_list(conf, shuffle=False)
 
 for traj in traj_list:
     with tarfile.open(traj + "/traj.tar", "w") as tar:
+        print 'taring ', traj
         tar.add(traj)
 
     # with tarfile.open(traj + "/traj.tar") as tar:
