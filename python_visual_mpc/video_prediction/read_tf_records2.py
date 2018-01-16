@@ -227,6 +227,7 @@ def main():
 
     # conf['test_metric'] = {'robot_pos': 1, 'object_pos': 2}
 
+
     print '-------------------------------------------------------------------'
     print 'verify current settings!! '
     for key in conf.keys():
