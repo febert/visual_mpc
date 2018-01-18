@@ -183,7 +183,6 @@ class TF_rec_converter(object):
                 print 'using wrong maxlistlen'
 
             if MAXLISTLEN == len(traj_list):
-
                 filename = 'traj_{0}_to_{1}' \
                     .format(tf_start_ind,tf_start_ind + MAXLISTLEN-1)
                 self.save_tf_record(filename, traj_list)
@@ -391,12 +390,12 @@ def make_traj_name_list(conf, start_end_grp = None, shuffle=True):
     for source_dir in conf['source_basedirs']:
         assert source_dir.split('/')[-1] == 'train' or source_dir.split('/')[-1] == 'test'
 
-        traj_per_gr = 1000
+        traj_per_gr = conf['ngroup']
         max_traj = get_maxtraj(source_dir)
 
         if start_end_grp != None:
             startgrp = start_end_grp[0]
-            startidx = startgrp*Trajectory(conf).traj_per_group
+            startidx = startgrp*traj_per_gr
             endgrp = start_end_grp[1]
             if max_traj < (endgrp+1)*traj_per_gr -1:
                 endidx = max_traj

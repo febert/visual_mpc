@@ -52,7 +52,7 @@ policy = {
 
 config = {
     'traj_per_file':128,
-    'save_data': True,
+    'save_data': False,
     'start_index':0,
     'end_index': 60000,
     'agent': agent,

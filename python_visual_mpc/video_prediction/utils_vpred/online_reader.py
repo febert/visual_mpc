@@ -22,98 +22,90 @@ from PIL import Image
 import time
 
 
+def get_start_end(conf):
+    """
+    get start and end time indices, which will be read from trajectory
+    :param conf:
+    :return:
+    """
+    if 'total_num_img' in conf:
+        end = conf['total_num_img']
+        t_ev_nstep = conf['take_ev_nth_step']
+    else:
+        end = conf['sequence_length']
+
+    smp_range = end // t_ev_nstep - conf['sequence_length']
+    if 'shift_window' in conf:
+        print 'performing shifting in time'
+        start = np.random.random_integers(0, smp_range) * t_ev_nstep
+    else:
+        start = 0
+    end = start + conf['sequence_length'] * t_ev_nstep
+
+    if 'take_ev_nth_step' in conf:
+        take_ev_nth_step = conf['take_ev_nth_step']
+    else: take_ev_nth_step = 1
+
+    return start, end, take_ev_nth_step
+
+
+def read_img(tag_dict, dataind, tar=None, trajname=None):
+    """
+    read a single image, either from tar-file or directly
+    :param tar:  far file handle
+    :param tag_dict: dictionary describing the tag
+    :param dataind: the timestep in the data folder (may not be equal to the timestep used for the allocated array)
+    :return:
+    """
+
+    if tar != None:
+        traj_base_dir = tar.getmembers()[0].path
+        im_filename = traj_base_dir + tag_dict['file'].format(dataind)
+        img_stream = tar.extractfile(im_filename)
+        file_bytes = np.asarray(bytearray(img_stream.read()), dtype=np.uint8)
+        img = cv2.imdecode(file_bytes, 1)
+    else:
+        img = cv2.imread(trajname + tag_dict['file'].format(dataind))
+
+    imheight = tag_dict['shape'][0]     # get target im_sizes
+    imwidth = tag_dict['shape'][1]
+
+    if 'rowstart' in tag_dict:         # get target cropping if specified
+        rowstart = tag_dict['rowstart']
+        colstart = tag_dict['colstart']
+
+    # setting used in wrist_rot
+    if 'shrink_before_crop' in tag_dict:
+        shrink_factor = tag_dict['shrink_before_crop']
+        img = cv2.resize(img, (0, 0), fx=shrink_factor, fy=shrink_factor, interpolation=cv2.INTER_AREA)
+        img = img[rowstart:rowstart + imheight, colstart:colstart + imwidth]
+    # setting used in softmotion30_v1
+    elif 'crop_before_shrink' in tag_dict:
+        raw_image_height = img.shape[0]
+        img = img[rowstart:rowstart + raw_image_height, colstart:colstart + raw_image_height]
+        target_res = tag_dict['target_res']
+        img = cv2.resize(img, target_res, interpolation=cv2.INTER_AREA)
+    elif 'rowstart' in tag_dict:
+        img = img[rowstart:rowstart + imheight, colstart:colstart + imwidth]
+
+    # Image.fromarray(img).show()
+    # pdb.set_trace()
+
+    img = img.astype(np.float32) / 255.
+    return img
+
 
 def reading_thread(conf, subset_traj, enqueue_op, sess, placeholders):
     num_errors = 0
     print 'started process with PID:', os.getpid()
 
-    def get_start_end(conf):
-        end = conf['total_num_img']
-        t_ev_nstep = conf['take_ev_nth_step']
-        smp_range = end // t_ev_nstep - conf['sequence_length']
-        if 'shift_window' in conf:
-            print 'performing shifting in time'
-            start = np.random.random_integers(0, smp_range) * t_ev_nstep
-        else:
-            start = 0
-        end = start + conf['sequence_length'] * t_ev_nstep
-
-        return start, end
-
-
-    def read_img(tar, tag_dict, dataind):
-        traj_base_dir = tar.getmembers()[0].path
-        im_filename = traj_base_dir + tag_dict['file'].format(dataind)
-        img_stream = tar.extractfile(im_filename)
-        file_bytes = np.asarray(bytearray(img_stream.read()), dtype=np.uint8)
-
-        img = cv2.imdecode(file_bytes, 1)
-
-        imheight = tag_dict['shape'][0]
-        imwidth = tag_dict['shape'][1]
-
-        rowstart = tag_dict['rowstart']
-        colstart = tag_dict['colstart']
-        # setting used in wrist_rot
-        if 'shrink_before_crop' in tag_dict:
-            shrink_factor = tag_dict['shrink_before_crop']
-            img = cv2.resize(img, (0, 0), fx=shrink_factor, fy=shrink_factor, interpolation=cv2.INTER_AREA)
-            img = img[rowstart:rowstart + imheight, colstart:colstart + imwidth]
-        # setting used in softmotion30_v1
-        elif 'crop_before_shrink' in tag_dict:
-            raw_image_height = img.shape[0]
-            img = img[rowstart:rowstart + raw_image_height, colstart:colstart + raw_image_height]
-            target_res = tag_dict['target_res']
-            img = cv2.resize(img, target_res, interpolation=cv2.INTER_AREA)
-        else:
-            img = img[rowstart:rowstart + imheight, colstart:colstart + imwidth]
-
-        # Image.fromarray(img).show()
-
-        img = img.astype(np.float32) / 255.
-        return img
-
-
     for trajname in itertools.cycle(subset_traj):  # loop of traj0, traj1,..
-        t0 = time.time()
-        # try:
-        traj_index = int(re.match('.*?([0-9]+)$', trajname).group(1))
-
-        nump_array_dict = {}
-        for tag_dict in conf['sourcetags']:
-            numpy_arr = np.zeros([conf['sequence_length']] + tag_dict['shape'], dtype=np.float32)
-            nump_array_dict[tag_dict['name']] = numpy_arr
-
-        with tarfile.open(trajname + "/traj.tar") as tar:
-            traj_base_dir = tar.getmembers()[0].path
-            pkl_file_stream = tar.extractfile(traj_base_dir + '/state_action.pkl')
-            pkldata = cPickle.load(pkl_file_stream)
-
-            start, end = get_start_end(conf)
-
-            trajind = 0
-            for dataind in range(start, end, conf['take_ev_nth_step']):
-
-                for tag_dict in conf['sourcetags']:
-                    tag_name = tag_dict['name']
-
-                    if '.pkl' in tag_dict['file']:   # if it's data from Pickle file
-                        if 'pkl_names' in tag_dict:  # if a tag, e.g. the the state is split up into multiple tags
-                            pklread0 = pkldata[tag_dict['pkl_names'][0]]
-                            pklread1 = pkldata[tag_dict['pkl_names'][1]]
-                            nump_array_dict[tag_name][trajind] = np.concatenate([pklread0[dataind], pklread1[dataind]], axis=0)
-                        else:
-                            nump_array_dict[tag_name][trajind] = pkldata[tag_dict['name']][dataind]
-                    else:   # if it's image data
-                         nump_array_dict[tag_name][trajind] = read_img(tar, tag_dict, dataind)
-
-                trajind += 1
+        nump_array_dict = read_trajectory(conf, trajname)
 
         feed_dict = {}
         for tag_dict in conf['sourcetags']:
             tag_name = tag_dict['name']
             feed_dict[placeholders[tag_name]] = nump_array_dict[tag_name]
-
 
         t1 = time.time()
         sess.run(enqueue_op, feed_dict=feed_dict)
@@ -128,6 +120,60 @@ def reading_thread(conf, subset_traj, enqueue_op, sess, placeholders):
         #     print "error occured"
         #     num_errors += 1
 
+
+def read_trajectory(conf, trajname, use_tar = False):
+    """
+    parses trajectory into numpy arrays
+    :param conf: dictionary that contains:
+        sourcetags
+        sequence_length
+    :param trajname:
+    :return: dicitonary of numpy arrays
+    """
+
+    t0 = time.time()
+    # try:
+    traj_index = int(re.match('.*?([0-9]+)$', trajname).group(1))
+    nump_array_dict = {}
+    for tag_dict in conf['sourcetags']:
+        numpy_arr = np.zeros([conf['sequence_length']] + tag_dict['shape'], dtype=np.float32)
+        nump_array_dict[tag_dict['name']] = numpy_arr
+
+    if use_tar:
+        tar = open(trajname + "/traj.tar")
+        traj_base_dir = tar.getmembers()[0].path
+        pkl_file_stream = tar.extractfile(traj_base_dir + '/state_action.pkl')
+        pkldata = cPickle.load(pkl_file_stream)
+    else:
+        tar = None
+        pkldata = cPickle.load(open(trajname + '/state_action.pkl', 'rb'))
+
+    start, end, take_ev_nth_step = get_start_end(conf)
+
+    trajind = 0
+    for dataind in range(start, end, take_ev_nth_step):
+
+        for tag_dict in conf['sourcetags']:
+            tag_name = tag_dict['name']
+
+            if '.pkl' in tag_dict['file']:  # if it's data from Pickle file
+                if 'pkl_names' in tag_dict:  # if a tag, e.g. the the state is split up into multiple tags
+                    pklread0 = pkldata[tag_dict['pkl_names'][0]]
+                    pklread1 = pkldata[tag_dict['pkl_names'][1]]
+                    nump_array_dict[tag_name][trajind] = np.concatenate([pklread0[dataind], pklread1[dataind]],
+                                                                        axis=0)
+                else:
+                    nump_array_dict[tag_name][trajind] = pkldata[tag_dict['name']][dataind]
+            else:  # if it's image data
+                nump_array_dict[tag_name][trajind] = read_img(tag_dict, dataind, trajname=trajname, tar=tar)
+
+        trajind += 1
+
+    # important: close file
+    tar.close()
+    return nump_array_dict
+
+
 class OnlineReader(object):
     def __init__(self, conf, mode, sess):
         """
@@ -135,7 +181,6 @@ class OnlineReader(object):
         source_basedirs key: a list of directories where to load the data from, data is concatenated (advantage: no renumbering needed when using multiple sources)
         sourcetags: a list of tags where each tag is a dict with
             # name: the name of the data field
-            # dtype: the dtype
             # shape: the target shape, will be cropped to match this shape
             # rowstart: starting row for cropping
             # rowend: end row for cropping
@@ -178,11 +223,10 @@ class OnlineReader(object):
         auto_split = False  # automatically divide dataset into train, val, test and save the split to pkl-file
         if auto_split:
             data_sets = self.search_data()
-            traj_list = self.combine_traj_lists(data_sets)
+            self.traj_list = self.combine_traj_lists(data_sets)
         else:
-            traj_list = make_traj_name_list(conf, shuffle=self.shuffle)
+            self.traj_list = make_traj_name_list(conf, shuffle=self.shuffle)
 
-        self.start_threads(traj_list)
 
     def get_batch_tensors(self):
         images, states, actions = self.q.dequeue_many(self.conf['batch_size'])

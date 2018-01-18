@@ -7,10 +7,11 @@ import matplotlib.pyplot as plt
 import numpy as np
 
 conf = {}
-conf['source_basedirs'] = ['/mnt/sda1/pushingdata/cartgripper_img/test']
+conf['source_basedirs'] = ['/home/frederik/Documents/catkin_ws/src/visual_mpc/pushing_data/cartgripper_bench_conf/train']
 conf['target_res'] = [64,64]
 conf['adim'] = 3
 conf['sdim'] = 6
+conf['ngroup'] = 100
 
 traj_list = make_traj_name_list(conf, shuffle=False)
 

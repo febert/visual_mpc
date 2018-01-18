@@ -18,8 +18,7 @@ DATA_DIR = '/'.join(str.split(python_visual_mpc.__file__, '/')[:-2])
 
 agent = {
     'type': AgentMuJoCo,
-    # 'data_files_dir': BASE_DIR + '/train',
-    'data_files_dir': '/mnt/sda1/pushingdata/cartgripper_genobj/test',
+    'data_files_dir': BASE_DIR + '/train',
     'filename': DATA_DIR+'/mjc_models/cartgripper.xml',
     'filename_nomarkers': DATA_DIR+'/mjc_models/cartgripper.xml',
     'data_collection': True,
@@ -44,8 +43,8 @@ agent = {
 
 policy = {
     'type' : Randompolicy,
-    'nactions': 5,
-    'repeats': 3, # number of repeats for each action
+    'nactions': 15,
+    'repeats': 1, # number of repeats for each action
     'initial_std': 10.,   #std dev. in xy
     'initial_std_lift': 1e-5,   #std dev. in xy
     # 'initial_std_grasp': 1e-5,   #std dev. in xy
@@ -53,7 +52,6 @@ policy = {
 
 config = {
     'save_raw_images':'',
-    'traj_per_file':128,
     'save_data': True,
     'start_index':0,
     'end_index': 60000,

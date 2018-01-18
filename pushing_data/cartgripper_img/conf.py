@@ -18,18 +18,17 @@ source_tag_images = {'name': 'images',
                      'shape':[48,64,3],
                      'rowstart':15,
                      'colstart':0,
-                     'dtype':'uint8',
                      }
+
 source_tag_states = {'name': 'states',
                      'shape':[6],
-                     'dtype':'float32',
                      'file':'/state_action.pkl',
                      'pkl_names':['qpos','qvel']}
 
 source_tag_actions = {'name':'actions',
                       'shape': [3],
-                      'dtype': 'float32',
-                      'file':'/state_action.pkl'}
+                      'file':'/state_action.pkl'
+                      }
 
 sequence_length = 15
 take_ev_nth_step = 1
@@ -44,4 +43,5 @@ configuration = {
 'sequence_length':sequence_length,
 'take_ev_nth_step': take_ev_nth_step,                          # subsample trajectories
 'total_num_img': total_num_img,                 # total number of images in folders
+'ngroup':1000
 }

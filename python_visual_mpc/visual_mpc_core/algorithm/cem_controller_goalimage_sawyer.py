@@ -23,11 +23,30 @@ import time
 # from profilehooks import coverage, timecall, profile, cProfile
 # from line_profiler import LineProfiler
 
+def compute_warp_lengths(conf, flow_field):
+    """
+    :param flow_field:  shape: batch, time, r, c, 2
+    :return:
+    """
+    flow_field = np.sum(np.linalg.norm(flow_field, axis=4), axis=[2, 3])
+
+    per_time_multiplier = np.ones(flow_field.shape[0], flow_field.shape[1])
+    per_time_multiplier[:, -1] = conf['final_weight']
+
+    return np.sum(flow_field*per_time_multiplier, axis=1)
+
 class CEM_controller():
     """
     Cross Entropy Method Stochastic Optimizer
     """
-    def __init__(self, ag_params, policyparams, predictor = None, save_subdir=None):
+    def __init__(self, ag_params, policyparams, predictor=None, goal_image_warper=None, save_subdir=None):
+        """
+        :param ag_params:
+        :param policyparams:
+        :param predictor:
+        :param save_subdir:
+        :param gdnet: goal-distance network
+        """
         print 'init CEM controller'
         self.agentparams = ag_params
         self.policyparams = policyparams
@@ -55,6 +74,8 @@ class CEM_controller():
             self.M = 1
 
         self.predictor = predictor
+        self.goal_image_warper = goal_image_warper
+        self.goal_image = None
 
         self.ndesig = self.netconf['ndesig']
 
@@ -150,8 +171,10 @@ class CEM_controller():
         for t in range(self.naction_steps):
             if self.adim == 5:
                 diag.append(np.array([xy_std**2, xy_std**2, lift_std**2, rot_std**2, gr_std**2]))
-            else:
+            elif self.adim == 4:
                 diag.append(np.array([xy_std**2, xy_std**2, gr_std**2, lift_std**2]))
+            elif self.adim == 3:
+                diag.append(np.array([xy_std**2, xy_std**2, lift_std**2]))
 
         diagonal = np.concatenate(diag, axis=0)
         sigma = np.diag(diagonal)
@@ -248,7 +271,6 @@ class CEM_controller():
             # for predictor_propagation only!!
             if itr == (self.policyparams['iterations'] - 1):
                 self.rec_input_distrib.append(np.repeat(best_gen_distrib, self.netconf['batch_size'], 0))
-
         return scores
 
 
@@ -293,31 +315,36 @@ class CEM_controller():
 
         t_startcalcscores = time.time()
         scores_per_task = []
-        for p in range(self.ndesig):
-            start_calc_dist = time.time()
-            distance_grid = self.get_distancegrid(self.goal_pix[p])
-            # print 'time to calc dist grid:', time.time() - start_calc_dist
 
-            scores_per_task.append(self.calc_scores(gen_distrib, distance_grid))
-            print 'best score of task {}:  {}'.format(p, np.min(scores_per_task[-1]))
+        if 'use_goal_image' in conf:
+            # evaluate images with goal-distance network
+            warped_images, flow_field = self.goal_image_warper(gen_images, self.goal_image)
+            scores = compute_warp_lengths(self.policyparams, flow_field)
+        else:
+            for p in range(self.ndesig):
+                start_calc_dist = time.time()
+                distance_grid = self.get_distancegrid(self.goal_pix[p])
+                # print 'time to calc dist grid:', time.time() - start_calc_dist
+                scores_per_task.append(self.calc_scores(gen_distrib, distance_grid))
+                print 'best score of task {}:  {}'.format(p, np.min(scores_per_task[-1]))
 
-        # print 'time to calc scores {}'.format(time.time()-t_startcalcscores)
+            # print 'time to calc scores {}'.format(time.time()-t_startcalcscores)
 
-        start_t2 = time.time()
+            start_t2 = time.time()
 
-        scores = np.sum(np.stack(scores_per_task, axis=1), axis=1)
-        bestind = scores.argsort()[0]
-        for p in range(self.ndesig):
-            print 'score of best traj: ', scores_per_task[p][bestind]
+            scores = np.sum(np.stack(scores_per_task, axis=1), axis=1)
+            bestind = scores.argsort()[0]
+            for p in range(self.ndesig):
+                print 'score of best traj: ', scores_per_task[p][bestind]
 
-        # for predictor_propagation only!!
-        if 'predictor_propagation' in self.policyparams:
-            assert not 'correctorconf' in self.policyparams
-            if itr == (self.policyparams['iterations'] - 1):
-                # pick the prop distrib from the action actually chosen after the last iteration (i.e. self.indices[0])
-                bestind = scores.argsort()[0]
-                best_gen_distrib = gen_distrib[2][bestind].reshape(1, self.ndesig, self.img_height, self.img_width, 1)
-                self.rec_input_distrib.append(np.repeat(best_gen_distrib, self.netconf['batch_size'], 0))
+            # for predictor_propagation only!!
+            if 'predictor_propagation' in self.policyparams:
+                assert not 'correctorconf' in self.policyparams
+                if itr == (self.policyparams['iterations'] - 1):
+                    # pick the prop distrib from the action actually chosen after the last iteration (i.e. self.indices[0])
+                    bestind = scores.argsort()[0]
+                    best_gen_distrib = gen_distrib[2][bestind].reshape(1, self.ndesig, self.img_height, self.img_width, 1)
+                    self.rec_input_distrib.append(np.repeat(best_gen_distrib, self.netconf['batch_size'], 0))
 
         bestindices = scores.argsort()[:self.K]
 
@@ -344,7 +371,7 @@ class CEM_controller():
                 gen_distrib_p = [g[:,p] for g in gen_distrib]
                 self.dict_['gen_distrib{}_t{}'.format(p, self.t)] = best(gen_distrib_p)
 
-            if not 'no_instant_gif' in self.policyparams:
+            if not 'no_instant_gif' in self.agentparams:
                 t_dict_ = {}
                 t_dict_['gen_images_t{}'.format(self.t)] = best(gen_images)
                 for p in range(self.ndesig):

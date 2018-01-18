@@ -47,6 +47,7 @@ class Trajectory(object):
 
         if 'num_objects' in agentparams:
             self.Object_pose = np.empty([self.T, agentparams['num_objects'], 3])  # x,y rot of  block
+            self.Object_full_pose = np.empty([self.T, agentparams['num_objects'], 7])  # xyz and quaternion pose
 
         self.desig_pos = np.empty([self.T, 2])
         self.score = np.empty([self.T])

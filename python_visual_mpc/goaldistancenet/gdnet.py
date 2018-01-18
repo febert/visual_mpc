@@ -54,25 +54,30 @@ class GoalDistanceNet(object):
         self.train_cond = tf.placeholder(tf.int32, shape=[], name="train_cond")
 
         if load_data:
-            if 'vid_pred_to_real' in conf: # register predicted video to real
-                train_images, train_actions, train_states, train_pred_images, train_pred_states = build_tfrecord_fn(conf, training=True)
-                val_images, val_actions, val_states, val_pred_images, val_pred_states = build_tfrecord_fn(conf, training=False)
-                self.images, self.actions, self.states, self.pred_images, self.pred_states = tf.cond(self.train_cond > 0,
-                                                                 # if 1 use trainigbatch else validation batch
-                                                                 lambda: [train_images, train_actions, train_states, train_pred_images, train_pred_states],
-                                                                 lambda: [val_images, val_actions, val_states, val_pred_images, val_pred_states])
-            else:  # real to real
-                train_images, train_actions, train_states = build_tfrecord_fn(conf, training=True)
-                val_images, val_actions, val_states = build_tfrecord_fn(conf, training=False)
-                self.images, self.actions, self.states = tf.cond(self.train_cond > 0,  # if 1 use trainigbatch else validation batch
-                                                  lambda: [train_images, train_actions, train_states],
-                                                  lambda: [val_images, val_actions, val_states])
+
+            train_dict = build_tfrecord_fn(conf, training=True)
+            val_dict = build_tfrecord_fn(conf, training=False)
+            dict = tf.cond(self.train_cond > 0,
+                             # if 1 use trainigbatch else validation batch
+                             lambda: train_dict,
+                             lambda: val_dict)
+            self.images = dict['images']
+            self.states = dict['endeffector_pos']
+            self.actions = dict['actions']
+
+            if 'vidpred_data' in conf:  # register predicted video to real
+                self.pred_images = tf.squeeze(dict['gen_images'])
+                self.pred_states = tf.squeeze(dict['gen_states'])
 
             self.I0, self.I1 = self.sel_images()
 
         else:
-            self.img_height = conf['row_end'] - conf['row_start']
-            self.img_width = 64
+            if 'orig_size' in self.conf:
+                self.img_height = self.conf['orig_size'][0]
+                self.img_width = self.conf['orig_size'][1]
+            else:
+                self.img_height = conf['row_end'] - conf['row_start']
+                self.img_width = 64
             self.I0 = self.I0_pl= tf.placeholder(tf.float32, name='images',
                                     shape=(conf['batch_size'], self.img_height, self.img_width, 3))
             self.I1 = self.I1_pl= tf.placeholder(tf.float32, name='images',
@@ -94,7 +99,7 @@ class GoalDistanceNet(object):
 
         begin = tf.stack([0, tf.squeeze(self.tstart), 0, 0, 0],0)
 
-        if 'vid_pred_to_real' in self.conf:
+        if 'vidpred_data' in self.conf:
             I0 = tf.squeeze(tf.slice(self.pred_images, begin, [-1, 1, -1, -1, -1]))
         else:
             I0 = tf.squeeze(tf.slice(self.images, begin, [-1, 1, -1, -1, -1]))
@@ -176,17 +181,19 @@ class GoalDistanceNet(object):
     def visualize(self, sess):
 
         dict = build_tfrecord_fn(self.conf)
-
-        images = sess.run(dict['images'])
-
+        images, pred_images = sess.run([dict['images'], dict['gen_images']])
+        pred_images = np.squeeze(pred_images)
         warped_images = []
 
         num_examples = self.conf['batch_size']
         I1 = images[:, -1]
 
-
         for t in range(14):
-            I0_t = images[:, t]
+            if 'vidpred_data' in self.conf:
+                I0_t = pred_images[:, t]
+                I0_t_real = images[:, t]
+            else:
+                I0_t = images[:, t]
 
             [output, flow] = sess.run([self.gen_image, self.flow_field], {self.I0_pl:I0_t, self.I1_pl: I1})
 
@@ -206,11 +213,17 @@ class GoalDistanceNet(object):
             im_width = output.shape[2]
             warped_column = np.squeeze(np.split(output, num_examples, axis=0))
 
-            input_column = I0_t
-            input_column = np.squeeze(np.split(input_column, num_examples, axis=0))
+            I0_t = np.squeeze(np.split(I0_t, num_examples, axis=0))
 
-            warped_column = [np.concatenate([inp, warp, fmag], axis=0) for inp, warp, fmag in
-                             zip(input_column, warped_column, flow_mag)]
+            if 'vidpred_data' in self.conf:
+                I0_t_real = np.squeeze(np.split(I0_t_real, num_examples, axis=0))
+                I0_t = np.squeeze(np.split(I0_t, num_examples, axis=0))
+
+                warped_column = [np.concatenate([inp_real, inp, warp, fmag], axis=0) for inp_real, inp, warp, fmag in
+                                 zip(I0_t_real, I0_t, warped_column, flow_mag)]
+            else:
+                warped_column = [np.concatenate([inp, warp, fmag], axis=0) for inp, warp, fmag in
+                                 zip(I0_t, warped_column, flow_mag, )]
 
             warped_column = np.concatenate(warped_column, axis=0)
 

@@ -148,11 +148,14 @@ def main(unused_argv, conf_script= None):
         feed_dict = {model.iter_num: np.float32(itr),
                      model.train_cond: 1}
 
-        cost, _, summary_str = sess.run([model.loss, model.train_op, model.train_summ_op],
+        cost, _, summary_str, tstart, tend = sess.run([model.loss, model.train_op, model.train_summ_op, model.tstart, model.tend],
                                         feed_dict)
 
         if (itr) % 10 ==0:
             tf.logging.info(str(itr) + ' ' + str(cost))
+
+        if (itr) % 50 == 0:
+            print 'tstart {} tend {}'.format(tstart, tend)
 
         if (itr) % VAL_INTERVAL == 2:
             # Run through validation set.

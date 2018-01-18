@@ -12,33 +12,40 @@ def file_len(fname):
             pass
     return i + 1
 
-def create_object_xml(hyperparams):
-        xmldir = '/'.join(str.split(hyperparams['filename'], '/')[:-1])
-        root = ET.Element("top")
-        for i in range(hyperparams['num_objects']):
-            obj = ET.SubElement(root, "body", name="object{}".format(i), pos="0 0 0")
-            ET.SubElement(obj, "joint", type="free")
-            l1 = np.random.uniform(0.01,0.2)
-            color = np.random.uniform(0.3, 1., 3)
-            ET.SubElement(obj, "geom", type="box", size=".03 {} .03".format(l1), rgba="{} {} {} 1".format(color[0], color[1], color[2]))
+def create_object_xml(hyperparams, dict_list=None):
+    """
+    :param hyperparams:
+    :param dict_list: if not none load configuration, instead of sampling
+    :return:
+    """
+    xmldir = '/'.join(str.split(hyperparams['filename'], '/')[:-1])
+    root = ET.Element("top")
+    for i in range(hyperparams['num_objects']):
+        obj = ET.SubElement(root, "body", name="object{}".format(i), pos="0 0 0")
+        ET.SubElement(obj, "joint", type="free")
+        l1 = np.random.uniform(0.01,0.2)
+        color1 = np.random.uniform(0.3, 1., 3)
+        ET.SubElement(obj, "geom", type="box", size=".03 {} .03".format(l1), rgba="{} {} {} 1".format(color1[0], color1[1], color1[2]))
 
-            color = np.random.uniform(0.3, 1., 3)
-            l2 = np.random.uniform(0.01, 0.2)
-            pos2 = np.random.uniform(0.01, l1)
-            ET.SubElement(obj, "geom", pos="{} {} 0.0".format(l2, pos2), type="box", size="{} .03 .03".format(l2),
-                          rgba="{} {} {} 1".format(color[0], color[1], color[2]))
+        color2 = np.random.uniform(0.3, 1., 3)
+        l2 = np.random.uniform(0.01, 0.2)
+        pos2 = np.random.uniform(0.01, l1)
+        ET.SubElement(obj, "geom", pos="{} {} 0.0".format(l2, pos2), type="box", size="{} .03 .03".format(l2),
+                      rgba="{} {} {} 1".format(color2[0], color2[1], color2[2]))
 
-        tree = ET.ElementTree(root)
+    tree = ET.ElementTree(root)
 
-        xml_str = minidom.parseString(ET.tostring(
-            tree.getroot(),
-            'utf-8')).toprettyxml(indent="    ")
+    xml_str = minidom.parseString(ET.tostring(
+        tree.getroot(),
+        'utf-8')).toprettyxml(indent="    ")
 
-        xml_str = xml_str.splitlines()[1:]
-        xml_str = "\n".join(xml_str)
+    xml_str = xml_str.splitlines()[1:]
+    xml_str = "\n".join(xml_str)
 
-        with open(xmldir + "/auto_gen/objects{}.xml".format(os.getpid()), "wb") as f:
-            f.write(xml_str)
+    with open(xmldir + "/auto_gen/objects{}.xml".format(os.getpid()), "wb") as f:
+        f.write(xml_str)
+
+    return dict_list
 
 
 def create_root_xml(hyperparams):

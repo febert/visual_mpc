@@ -1,8 +1,4 @@
-""" pushing data which for which videopredictions are created that are used as a dataset
-for the warping network. This is different from the dataset used for training the video prediction
- network to avoid using predicted images that were part of the training set
- for training the warping network"""
-
+""" Hyperparameters for Large Scale Data Collection (LSDC) """
 from __future__ import division
 import os.path
 
@@ -23,15 +19,15 @@ DATA_DIR = '/'.join(str.split(python_visual_mpc.__file__, '/')[:-2])
 agent = {
     'type': AgentMuJoCo,
     'data_files_dir': BASE_DIR + '/train',
-    'filename': DATA_DIR+'/mjc_models/cartgripper.xml',
-    'filename_nomarkers': DATA_DIR+'/mjc_models/cartgripper.xml',
+    'filename': DATA_DIR+'/mjc_models/cartgripper_test.xml',
+    'filename_nomarkers': DATA_DIR+'/mjc_models/cartgripper_test.xml',
     'data_collection': True,
     'sample_objectpos':'',
     'adim':3,
     'sdim':3,
     'xpos0': np.array([0., 0., 0.]),
     'dt': 0.05,
-    'substeps': 20,  #6
+    'substeps': 200,  #6
     'T': 15,
     'skip_first': 40,   #skip first N time steps to let the scene settle
     'additional_viewer': True,
@@ -42,20 +38,22 @@ agent = {
     'novideo':'',
     'gen_xml':10,   #generate xml every nth trajecotry
     'randomize_ballinitpos':'',
-    # 'displacement_threshold':0.1,
+    'displacement_threshold':0.2,
 }
 
 policy = {
     'type' : Randompolicy,
-    'nactions': 15,
-    'repeats': 1, # number of repeats for each action
+    'nactions': 5,
+    'repeats': 3, # number of repeats for each action
     'initial_std': 10.,   #std dev. in xy
-    'initial_std_lift': 1e-5,   #std dev. in xy
+    'initial_std_lift': 0, #1e-5,   #std dev. in xy
     # 'initial_std_grasp': 1e-5,   #std dev. in xy
 }
 
+
+
 config = {
-    'traj_per_file':128,
+    'traj_per_file':4,
     'save_data': True,
     'start_index':0,
     'end_index': 60000,

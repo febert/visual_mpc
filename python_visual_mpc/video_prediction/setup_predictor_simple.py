@@ -75,9 +75,7 @@ def setup_predictor(conf, gpu_id = 0, ngpu=None):
                 :param one_hot_images: the first two frames
                 :return: the predicted pixcoord at the end of sequence
                 """
-
                 itr = 0
-
                 feed_dict = {
                              model.iter_num: np.float32(itr),
                              model.lr: conf['learning_rate'],
@@ -99,7 +97,6 @@ def setup_predictor(conf, gpu_id = 0, ngpu=None):
 
             return predictor_func
 
-
 def filter_vars(vars):
     newlist = []
     for v in vars:
@@ -107,5 +104,4 @@ def filter_vars(vars):
             newlist.append(v)
         else:
             print 'removed state variable from saving-list: ', v.name
-
     return newlist

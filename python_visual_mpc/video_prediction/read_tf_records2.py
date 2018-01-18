@@ -182,7 +182,7 @@ def build_tfrecord_input(conf, training=True, input_file=None):
     else: dataset = dataset.repeat()
 
     if shuffle:
-        dataset = dataset.shuffle(buffer_size=10000)
+        dataset = dataset.shuffle(buffer_size=1000)
     dataset = dataset.batch(conf['batch_size'])
     iterator = dataset.make_one_shot_iterator()
     next_element = iterator.get_next()
@@ -201,32 +201,29 @@ def main():
     conf = {}
 
     current_dir = os.path.dirname(os.path.realpath(__file__))
-    DATA_DIR = '/'.join(str.split(current_dir, '/')[:-2]) + '/pushing_data/cartgripper_vidpred/train'
+    DATA_DIR = '/'.join(str.split(current_dir, '/')[:-2]) + '/pushing_data/cart_test/train'
 
     conf['schedsamp_k'] = -1  # don't feed ground truth
     conf['data_dir'] = DATA_DIR  # 'directory containing data_files.' ,
     conf['skip_frame'] = 1
     conf['train_val_split']= 0.95
     conf['sequence_length']= 14 #48      # 'sequence length, including context frames.'
-    conf['batch_size']= 32
+    conf['batch_size']= 25
     conf['visualize']= True
     conf['context_frames'] = 2
 
-    # conf['row_start'] = 15
-    # conf['row_end'] = 63
+    conf['row_start'] = 15
+    conf['row_end'] = 63
 
     conf['img_width'] = 64
     conf['sdim'] = 6
     conf['adim'] = 3
 
-    conf['orig_size'] = [48, 64]   # for vid pred data only!!!
-
-    conf['vidpred_data'] = ''
+    # conf['orig_size'] = [48, 64]   # for vid pred data only!!!
+    # conf['vidpred_data'] = ''
 
     # conf['color_augmentation'] = ''
-
     # conf['test_metric'] = {'robot_pos': 1, 'object_pos': 2}
-
 
     print '-------------------------------------------------------------------'
     print 'verify current settings!! '
@@ -248,14 +245,14 @@ def main():
     for i_run in range(100):
         print 'run number ', i_run
 
-        images, actions, endeff, gen_images, gen_endeff = sess.run([dict['images'], dict['actions'], dict['endeffector_pos'], dict['gen_images'], dict['gen_states']])
-        # images, actions, endeff = sess.run([dict['images'], dict['actions'], dict['endeffector_pos']])
+        # images, actions, endeff, gen_images, gen_endeff = sess.run([dict['images'], dict['actions'], dict['endeffector_pos'], dict['gen_images'], dict['gen_states']])
+        images, actions, endeff = sess.run([dict['images'], dict['actions'], dict['endeffector_pos']])
 
         file_path = '/'.join(str.split(DATA_DIR, '/')[:-1]+['preview'])
         comp_single_video(file_path, images, num_exp=conf['batch_size'])
 
-        file_path = '/'.join(str.split(DATA_DIR, '/')[:-1] + ['preview_gen_images'])
-        comp_single_video(file_path, gen_images, num_exp=conf['batch_size'])
+        # file_path = '/'.join(str.split(DATA_DIR, '/')[:-1] + ['preview_gen_images'])
+        # comp_single_video(file_path, gen_images, num_exp=conf['batch_size'])
 
         deltat.append(time.time() - end)
         if i_run % 10 == 0:

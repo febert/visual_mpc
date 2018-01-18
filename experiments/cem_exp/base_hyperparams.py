@@ -16,23 +16,6 @@ num_objects = 1
 
 current_dir = '/'.join(str.split(__file__, '/')[:-1])
 
-common = {
-    'experiment_name': 'my_experiment' + '_' + \
-            datetime.strftime(datetime.now(), '%m-%d-%y_%H-%M'),
-    'experiment_dir': current_dir,
-    # 'data_files_dir': current_dir + 'data_files/',
-    # 'data_files_dir': '/media/frederik/FrederikUSB/pushing_data/',
-    'data_files_dir': '/tmp/',
-
-    'target_filename': current_dir + 'target.npz',
-    'log_filename': current_dir + 'log.txt',
-    'conditions': 1,
-    'no_sample_logging': True,
-}
-
-if not os.path.exists(common['data_files_dir']):
-    os.makedirs(common['data_files_dir'])
-
 alpha = 30*np.pi/180
 agent = {
     'type': AgentMuJoCo,
@@ -45,11 +28,9 @@ agent = {
     'state_dim': 2,
     'dt': 0.05,
     'substeps': 20,  #10
-    'conditions': common['conditions'],
     'T': 15,
     'skip_first': 0,
     'additional_viewer': True,
-    'image_dir': common['data_files_dir'] + "imagedata_file",
     'image_height' : IMAGE_HEIGHT,
     'image_width' : IMAGE_WIDTH,
     'image_channels' : IMAGE_CHANNELS,
@@ -58,8 +39,6 @@ agent = {
     'record': current_dir + '/data_files/rec',
     'add_traj': True
 }
-
-
 
 from python_visual_mpc.visual_mpc_core.algorithm.pos_controller import Pos_Controller
 low_level_conf = {
@@ -74,13 +53,11 @@ policy = {
     'current_dir': current_dir
 }
 
-
 config = {
     'save_data': False,
     'start_index':None,
     'end_index': None,
     'verbose_policy_trials': 0,
-    'common': common,
     'agent': agent,
     'policy': policy
 }

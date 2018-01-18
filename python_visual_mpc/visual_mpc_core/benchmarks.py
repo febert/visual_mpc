@@ -8,8 +8,11 @@ import copy
 import random
 import cPickle
 from PIL import Image
+from python_visual_mpc.video_prediction.utils_vpred.online_reader import read_trajectory
 
 from python_visual_mpc import __file__ as python_vmpc_path
+from python_visual_mpc.data_preparation.gather_data import make_traj_name_list
+
 
 def perform_benchmark(bench_conf = None):
     cem_exp_dir = '/'.join(str.split(python_vmpc_path, '/')[:-2])  + '/experiments/cem_exp'
@@ -103,9 +106,21 @@ def perform_benchmark(bench_conf = None):
 
     scores = np.zeros(nruns)
 
-    while traj < nruns:
+    if 'bench_conf_pertraj' in conf:  # load data per trajectory
+        traj_names = make_traj_name_list({'source_basedirs': conf['agent']['bench_conf_pertraj'],
+                                                  'ngroup': conf['agent']['ngroup']})
 
-        sim.agent._hyperparams['x0'] = initialposes[i_conf]
+    while traj < nruns:
+        if 'bench_conf_pertraj' in conf:  #load data per trajectory
+            dict = read_trajectory(conf, traj_names[traj])
+            sim.agent._hyperparams['xpos0'] = dict['qpos']
+            sim.agent._hyperparams['object_pos0'] = dict['object_full_pose']
+            sim.policy.goal_img = dict['images'][-1]  # assign last image of trajectory as goalimage
+
+        else: #load when loading data from a single file
+            sim.agent._hyperparams['xpos0'] = initialposes[i_conf]
+            sim.agent._hyperparams['object_pos0'] = goalpoints[i_conf]
+
         if 'use_goalimage' not in conf['policy']:
             sim.agent._hyperparams['goal_point'] = goalpoints[i_conf]
 
@@ -124,13 +139,19 @@ def perform_benchmark(bench_conf = None):
 
             sim.agent._hyperparams['record'] = bench_dir + '/videos/traj{0}_conf{1}'.format(traj, i_conf)
 
+            sim.policy.policyparams['rec_distrib'] = bench_dir + '/videos_distrib/traj{0}_conf{1}'.format(traj, i_conf)
+
             if 'usenet' in conf['policy']:
-                sim.policy = conf['policy']['type'](sim.agent._hyperparams,
+                if 'use_goal_image' in conf['policy']:
+                    sim.policy = conf['policy']['type'](sim.agent._hyperparams,
+                                            conf['policy'], sim.predictor, sim.goal_image_waper)
+                else:
+                    sim.policy = conf['policy']['type'](sim.agent._hyperparams,
                                                      conf['policy'], sim.predictor)
             else:
                 sim.policy = conf['policy']['type'](sim.agent._hyperparams, conf['policy'])
 
-            sim.policy.policyparams['rec_distrib'] =  bench_dir + '/videos_distrib/traj{0}_conf{1}'.format(traj, i_conf)
+
             sim._take_sample(traj)
 
             scores[traj] = sim.agent.final_poscost

@@ -1,8 +1,4 @@
-""" pushing data which for which videopredictions are created that are used as a dataset
-for the warping network. This is different from the dataset used for training the video prediction
- network to avoid using predicted images that were part of the training set
- for training the warping network"""
-
+""" Hyperparameters for Large Scale Data Collection (LSDC) """
 from __future__ import division
 import os.path
 
@@ -18,13 +14,13 @@ IMAGE_CHANNELS = 3
 BASE_DIR = '/'.join(str.split(__file__, '/')[:-1])
 
 import python_visual_mpc
-DATA_DIR = '/'.join(str.split(python_visual_mpc.__file__, '/')[:-2])
+ROOT_DIR = '/'.join(str.split(python_visual_mpc.__file__, '/')[:-2])
 
 agent = {
     'type': AgentMuJoCo,
     'data_files_dir': BASE_DIR + '/train',
-    'filename': DATA_DIR+'/mjc_models/cartgripper.xml',
-    'filename_nomarkers': DATA_DIR+'/mjc_models/cartgripper.xml',
+    'filename': ROOT_DIR + '/mjc_models/cartgripper.xml',
+    'filename_nomarkers': ROOT_DIR + '/mjc_models/cartgripper.xml',
     'data_collection': True,
     'sample_objectpos':'',
     'adim':3,
@@ -47,19 +43,35 @@ agent = {
 
 policy = {
     'type' : Randompolicy,
-    'nactions': 15,
-    'repeats': 1, # number of repeats for each action
+    'nactions': 5,
+    'repeats': 3, # number of repeats for each action
     'initial_std': 10.,   #std dev. in xy
     'initial_std_lift': 1e-5,   #std dev. in xy
     # 'initial_std_grasp': 1e-5,   #std dev. in xy
+    'use_goal_image':''
 }
 
+source_tag_images = {'name': 'images',
+                     'file':'/images/im{}.png',   # only tindex
+                     'shape':[48,64,3],
+                     'dtype':'uint8'}
+tag_qpos = {'name': 'qpos',
+             'shape':[6],
+             'dtype':'float32',
+             'file':'/state_action.pkl'}
+tag_object_full_pose = {'name': 'object_full_pose',
+                         'shape':[6],
+                         'dtype':'float32',
+                         'file':'/state_action.pkl'}
+
 config = {
-    'traj_per_file':128,
+    'save_raw_images':'',
     'save_data': True,
-    'start_index':0,
-    'end_index': 60000,
+    'start_index': 0,
+    'end_index': 1000,
     'agent': agent,
     'policy': policy,
-    'ngroup': 1000
+    'ngroup': 100,
+    'sourcetags':[tag_qpos, tag_object_full_pose],
+    'sequence_length':agent['T']
 }

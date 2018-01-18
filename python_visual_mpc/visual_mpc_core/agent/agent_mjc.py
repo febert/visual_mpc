@@ -149,9 +149,10 @@ class AgentMuJoCo(object):
             traj.Xdot_full[t, :] = self._model.data.qvel[:self.sdim].squeeze()
             traj.X_Xdot_full[t, :] = np.concatenate([traj.X_full[t, :], traj.Xdot_full[t, :]])
             for i in range(self._hyperparams['num_objects']):
-                fullpose = self._model.data.qpos[i * 7 + 2:i * 7 + 9].squeeze()
+                fullpose = self._model.data.qpos[i * 7 + self.sdim:(i+1) * 7 + self.sdim].squeeze()
+                traj.Object_full_pose[t, i, :] = fullpose
                 zangle = self.quat_to_zangle(fullpose[3:])
-                traj.Object_pose[t, i, :] = np.concatenate([fullpose[:2], zangle])
+                traj.Object_pose[t, i, :] = np.concatenate([fullpose[:2], zangle])  # save only xyz, theta
 
             if not self._hyperparams['data_collection']:
                 traj.score[t] = self.eval_action(traj, t)
@@ -494,7 +495,7 @@ class AgentMuJoCo(object):
         if 'goal_point' in self._hyperparams.keys():
             goal = np.append(self._hyperparams['goal_point'], [.1])   # goal point
             ref = np.append(object_pos[:2], [.1]) # reference point on the block
-            self._model.data.qpos = np.concatenate((xpos0, object_pos,goal, ref), 0)
+            self._model.data.qpos = np.concatenate((xpos0, object_pos,goal,ref), 0)
         else:
             self._model.data.qpos = np.concatenate((xpos0, object_pos), 0)
 

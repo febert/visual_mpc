@@ -12,6 +12,7 @@ import time
 sys.path.append('/'.join(str.split(__file__, '/')[:-2]))
 # from lsdc.gui.gps_training_gui import GPSTrainingGUI
 from python_visual_mpc.video_prediction.setup_predictor_simple import setup_predictor
+from python_visual_mpc.goaldistancenet.setup_gdn import setup_gdn
 from python_visual_mpc.visual_mpc_core.infrastructure.utility import *
 
 from datetime import datetime
@@ -30,7 +31,7 @@ class Sim(object):
         self._hyperparams = config
         self.agent = config['agent']['type'](config['agent'])
         self.agentparams = config['agent']
-        self._data_files_dir = self.agentparams['data_files_dir']
+        self._data_files_dir = self.agentparams['data_files_dir']  # directory where to save trajectories
 
         if 'netconf' in config['policy']:
             params = imp.load_source('params', config['policy']['netconf'])
@@ -44,7 +45,15 @@ class Sim(object):
                     self.predictor = netconf['setup_predictor'](netconf, gpu_id, ngpu)
             else:
                 self.predictor = setup_predictor(netconf, gpu_id)
-            self.policy = config['policy']['type'](config['agent'], config['policy'], self.predictor)
+
+            if 'use_goal_image' in config['policy']:
+                params = imp.load_source('params', config['policy']['gdnconf'])
+                gdnconf = params.configuration
+                self.goal_image_waper = setup_gdn(gdnconf, gpu_id)
+                self.policy = config['policy']['type'](config['agent'], config['policy'], self.predictor, self.goal_image_waper)
+            else:
+                self.policy = config['policy']['type'](config['agent'], config['policy'], self.predictor)
+
         else:
             self.policy = config['policy']['type'](config['agent'], config['policy'])
 
@@ -112,7 +121,9 @@ class Sim(object):
             with open(self.state_action_pkl_file, 'wb') as f:
                 dict = {'qpos': traj.X_full,
                         'qvel': traj.Xdot_full,
-                        'actions': traj.actions}
+                        'actions': traj.actions,
+                        'object_full_pose': traj.Object_full_pose}
+
                 cPickle.dump(dict, f)
 
             for t in range(traj.T):

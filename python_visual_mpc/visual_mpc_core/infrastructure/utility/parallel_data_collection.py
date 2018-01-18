@@ -82,7 +82,6 @@ def main():
 
     conflist = []
 
-
     for i in range(n_worker):
         if do_benchmark:
             modconf = copy.deepcopy(mod_hyper)
