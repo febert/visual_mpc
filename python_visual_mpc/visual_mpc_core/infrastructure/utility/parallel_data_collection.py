@@ -10,6 +10,8 @@ import numpy as np
 import shutil
 import python_visual_mpc
 import pdb
+import glob
+import re
 
 def worker(conf):
     print 'started process with PID:', os.getpid()
@@ -94,24 +96,31 @@ def main():
 
         conflist.append(modconf)
 
-    if do_benchmark:
-        use_worker = bench_worker
-    else: use_worker = worker
+    # if do_benchmark:
+    #     use_worker = bench_worker
+    # else: use_worker = worker
+    #
+    # if 'gen_xml' in conflist[0]['agent']:
+    #     os.system("rm {}".format('/'.join(str.split(modconf['agent']['filename'], '/')[:-1]) + '/auto_gen/*'))
+    #
+    # if parallel:
+    #     p = Pool(n_worker)
+    #     p.map(use_worker, conflist)
+    # else:
+    #     use_worker(conflist[0])
 
-    if 'gen_xml' in conflist[0]['agent']:
-        os.system("rm {}".format('/'.join(str.split(modconf['agent']['filename'], '/')[:-1]) + '/auto_gen/*'))
+    traindir = modconf['agent']["data_files_dir"]
+    testdir = '/'.join(traindir.split('/')[:-1] + ['/test'])
+    import shutil
+    files = glob.glob(traindir + '/*')
+    files = sorted_alphanumeric(files)
+    shutil.move(files[0], testdir)
 
-    if parallel:
-        p = Pool(n_worker)
-        p.map(use_worker, conflist)
-    else:
-        use_worker(conflist[0])
-
-    # move first file from train to test
-    conf = hyperparams.common
-    file = conf['data_files_dir']+ '/traj_0_to_255.tfrecords'
-    dest_file = '/'.join(str.split(conf['data_files_dir'], '/')[:-1]) + '/test/traj_0_to_255.tfrecords'
-    shutil.move(file, dest_file)
+def sorted_alphanumeric(l):
+    """ Sort the given iterable in the way that humans expect."""
+    convert = lambda text: int(text) if text.isdigit() else text
+    alphanum_key = lambda key: [ convert(c) for c in re.split('([0-9]+)', key) ]
+    return sorted(l, key = alphanum_key)
 
 if __name__ == '__main__':
     main()
