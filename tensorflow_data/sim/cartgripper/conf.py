@@ -40,6 +40,5 @@ configuration = {
 'normalization':'in',
 'previmg_bckgd':'',
 'gen_img':'',
-'row_start':15,              # cropping the image
-'row_end': 63
+'orig_size':[48,64]
 }
