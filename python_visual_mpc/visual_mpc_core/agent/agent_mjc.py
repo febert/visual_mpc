@@ -19,6 +19,7 @@ from mpl_toolkits.mplot3d import Axes3D
 from utils.create_xml import create_object_xml, create_root_xml
 import os
 from time import sleep
+import cv2
 
 
 def file_len(fname):
@@ -38,6 +39,8 @@ class AgentMuJoCo(object):
         self.T = self._hyperparams['T']
         self.sdim = self._hyperparams['sdim']
         self.adim = self._hyperparams['adim']
+
+        self.load_obj_statprop = None  #loaded static object properties
         self._setup_world()
 
     def _setup_world(self):
@@ -47,7 +50,7 @@ class AgentMuJoCo(object):
             filename: Path to XML file containing the world information.
         """
         if "gen_xml" in self._hyperparams:
-            create_object_xml(self._hyperparams)
+            self.obj_statprop = create_object_xml(self._hyperparams, self.load_obj_statprop)
             xmlfilename = create_root_xml(self._hyperparams)
             xmlfilename_nomarkers = xmlfilename
         else:
@@ -59,17 +62,11 @@ class AgentMuJoCo(object):
 
         gofast = True
         self._small_viewer = mujoco_py.MjViewer(visible=True,
-                                                init_width=self._hyperparams['image_width'],
-                                                init_height=self._hyperparams['image_height'],
+                                                init_width=self._hyperparams['viewer_image_width'],
+                                                init_height=self._hyperparams['viewer_image_height'],
                                                 go_fast=gofast)
         self._small_viewer.start()
         self._small_viewer.cam.camid = 0
-        if self._hyperparams['additional_viewer']:
-            self._large_viewer = mujoco_py.MjViewer(visible=True, init_width=480,
-                                                    init_height=480, go_fast=gofast)
-            self._large_viewer.start()
-            self._large_viewer.cam.camid = 0
-
 
     def sample(self, policy, i_tr, verbose=True, save=True, noisy=False):
         """
@@ -79,7 +76,6 @@ class AgentMuJoCo(object):
         if "gen_xml" in self._hyperparams:
             if i_tr % self._hyperparams['gen_xml'] == 0:
                 self._small_viewer.finish()
-                self._large_viewer.finish()
                 self._setup_world()
 
         traj_ok = False
@@ -92,11 +88,11 @@ class AgentMuJoCo(object):
         print 'needed {} trials'.format(i_trial)
 
         tfinal = self._hyperparams['T'] -1
-        if not self._hyperparams['data_collection']:
-            if 'use_goalimage' in self._hyperparams:
-                self.final_poscost, self.final_anglecost = self.eval_action(traj, tfinal, getanglecost=True)
-            else:
-                self.final_poscost = self.eval_action(traj, tfinal)
+        # if not self._hyperparams['data_collection']:  ############
+        #     if 'use_goal_image' in self._hyperparams:
+        #         self.final_poscost, self.final_anglecost = self.eval_action(traj, tfinal, getanglecost=True)
+        #     else:
+        #         self.final_poscost = self.eval_action(traj, tfinal)
 
         if 'save_goal_image' in self._hyperparams:
             self.save_goal_image_conf(traj)
@@ -127,12 +123,11 @@ class AgentMuJoCo(object):
     def rollout(self, policy):
         self._init()
         traj = Trajectory(self._hyperparams)
+        if 'gen_xml' in self._hyperparams:
+            traj.obj_statprop = self.obj_statprop
 
         self._small_viewer.set_model(self.model_nomarkers)
-        if self._hyperparams['additional_viewer']:
-            self._large_viewer.set_model(self._model)
         self._small_viewer.cam.camid = 0
-        self._large_viewer.cam.camid = 0
 
         # apply action of zero for the first few steps, to let the scene settle
         for t in range(self._hyperparams['skip_first']):
@@ -145,29 +140,30 @@ class AgentMuJoCo(object):
 
         # Take the sample.
         for t in range(self.T):
-            traj.X_full[t, :] = self._model.data.qpos[:self.sdim].squeeze()
-            traj.Xdot_full[t, :] = self._model.data.qvel[:self.sdim].squeeze()
+            qpos_dim = self.sdim / 2  # the states contains pos and vel
+            traj.X_full[t, :] = self._model.data.qpos[:qpos_dim].squeeze()
+            traj.Xdot_full[t, :] = self._model.data.qvel[:qpos_dim].squeeze()
             traj.X_Xdot_full[t, :] = np.concatenate([traj.X_full[t, :], traj.Xdot_full[t, :]])
+            assert self._model.data.qpos.shape[0] == qpos_dim + 7 * self._hyperparams['num_objects']
             for i in range(self._hyperparams['num_objects']):
-                fullpose = self._model.data.qpos[i * 7 + self.sdim:(i+1) * 7 + self.sdim].squeeze()
+                fullpose = self._model.data.qpos[i * 7 + qpos_dim:(i+1) * 7 + qpos_dim].squeeze()
                 traj.Object_full_pose[t, i, :] = fullpose
                 zangle = self.quat_to_zangle(fullpose[3:])
                 traj.Object_pose[t, i, :] = np.concatenate([fullpose[:2], zangle])  # save only xyz, theta
 
-            if not self._hyperparams['data_collection']:
-                traj.score[t] = self.eval_action(traj, t)
+            # if 'data_collection' not in  self._hyperparams:
+            #     traj.score[t] = self.eval_action(traj, t)
 
             self._store_image(t, traj, policy)
 
-            if self._hyperparams['data_collection'] or 'random_baseline' in self._hyperparams:
+            if 'data_collection' in self._hyperparams or 'random_baseline' in self._hyperparams:
                 mj_U, target_inc = policy.act(traj, t)
-            else:
+            elif 'gtruth_planner' in self._hyperparams:
                 mj_U, pos, ind, targets = policy.act(traj, t, init_model=self._model)
-
-                traj.desig_pos[t, :] = self._model.data.site_xpos[0, :2]
-
-                if self._hyperparams['add_traj']:  # whether to add visuals for trajectory
-                    self.large_images_traj += self.add_traj_visual(self.large_images[t], pos, ind, targets)
+            else:
+                mj_U, bestindices_of_iter, rec_input_distrib = policy.act(traj, t)
+                # if self._hyperparams['add_traj']:  # whether to add visuals for trajectory
+                #     self.large_images_traj += self.add_traj_visual(self.large_images[t], pos, ind, targets)
 
             if 'poscontroller' in self._hyperparams.keys():
                 traj.actions[t, :] = target_inc
@@ -240,7 +236,7 @@ class AgentMuJoCo(object):
         img.save(self._hyperparams['save_goal_image'] + '.png',)
 
     def eval_action(self, traj, t, getanglecost=False):
-        if 'use_goalimage' not in self._hyperparams:
+        if 'use_goal_image' not in self._hyperparams:
             goalpoint = np.array(self._hyperparams['goal_point'])
             refpoint = self._model.data.site_xpos[0,:2]
             return np.linalg.norm(goalpoint - refpoint)
@@ -346,42 +342,6 @@ class AgentMuJoCo(object):
         """
         store image at time index t
         """
-        if self._hyperparams['additional_viewer']:
-            self._large_viewer.loop_once()
-
-        img_string, width, height = self._large_viewer.get_image()
-        largeimage = np.fromstring(img_string, dtype='uint8').reshape(
-                (480, 480, self._hyperparams['image_channels']))[::-1, :, :]
-        self.large_images.append(largeimage)
-
-        # collect retina image
-        if 'large_images_retina' in self._hyperparams:
-            imheight = self._hyperparams['large_images_retina']
-            traj.large_images_retina[t] = cv2.resize(largeimage, (imheight, imheight), interpolation=cv2.INTER_AREA)
-
-            # save initial retina position:
-            if t == 0:
-                rh = self._hyperparams['retina_size']
-                block_coord = traj.Object_pos[t, 0, :2]
-                # angle = traj.Object_pos[t, 0, 2]
-                # adjusted_blockcoord = block_coord+ .1 *np.array([np.cos(angle), np.sin(angle)])
-                img_coord = self.mujoco_to_imagespace(block_coord, numpix=imheight)
-                if img_coord[0] < rh/2:
-                    img_coord[0] = rh/2
-                if img_coord[1] < rh/2:
-                    img_coord[1] = rh/2
-                if img_coord[0] > imheight - rh/2 -1:
-                    img_coord[0] = imheight - rh/2
-                if img_coord[1] > imheight - rh/2 -1:
-                    img_coord[1] = imheight - rh/2
-
-                traj.initial_ret_pos = img_coord
-                # ret = traj.large_images_retina[t][ img_coord[0]-rh/2:img_coord[0]+rh/2,
-                #                                                            img_coord[1]-rh/2:img_coord[1] + rh/2]
-                # Image.fromarray(ret).show()
-                # pdb.set_trace()
-
-        ######
         #small viewer:
         self.model_nomarkers.data.qpos = self._model.data.qpos
         self.model_nomarkers.data.qvel = self._model.data.qvel
@@ -389,9 +349,10 @@ class AgentMuJoCo(object):
         self._small_viewer.loop_once()
 
         img_string, width, height = self._small_viewer.get_image()
-        img = np.fromstring(img_string, dtype='uint8').reshape((height, width, self._hyperparams['image_channels']))[::-1,:,:]
+        large_img = np.fromstring(img_string, dtype='uint8').reshape((height, width, 3))[::-1,:,:]
+        self.large_images.append(large_img)
 
-        traj._sample_images[t,:,:,:] = img
+        traj._sample_images[t,:,:,:] = cv2.resize(large_img, dsize=(self._hyperparams['image_width'], self._hyperparams['image_height']))
 
         if 'gen_point_cloud' in self._hyperparams:
             # getting depth values
@@ -492,12 +453,12 @@ class AgentMuJoCo(object):
         if 'randomize_ballinitpos' in self._hyperparams:
             xpos0[:2] = np.random.uniform(-.35, .35, 2)
 
-        if 'goal_point' in self._hyperparams.keys():
+        if 'goal_point' in self._hyperparams:
             goal = np.append(self._hyperparams['goal_point'], [.1])   # goal point
             ref = np.append(object_pos[:2], [.1]) # reference point on the block
             self._model.data.qpos = np.concatenate((xpos0, object_pos,goal,ref), 0)
         else:
-            self._model.data.qpos = np.concatenate((xpos0, object_pos), 0)
+            self._model.data.qpos = np.concatenate((xpos0, object_pos.flatten()), 0)
 
         self._model.data.qvel = np.zeros_like(self._model.data.qvel)
 

@@ -20,7 +20,7 @@ DATA_DIR = '/'.join(str.split(python_visual_mpc.__file__, '/')[:-2])
 
 agent = {
     'type': AgentMuJoCo,
-    'data_files_dir': BASE_DIR + '/train',
+    'data_save_dir': BASE_DIR + '/train',
     'filename': DATA_DIR+'/mjc_models/pushing2d.xml',
     'filename_nomarkers': DATA_DIR+'/mjc_models/pushing2d.xml',
     'data_collection': True,

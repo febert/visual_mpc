@@ -124,7 +124,6 @@ class CEM_controller(Policy):
 
         self.target = np.zeros(2)
 
-
     def finish(self):
         self.small_viewer.finish()
         self.viewer.finish()
@@ -247,7 +246,6 @@ class CEM_controller(Policy):
                 scores[smp] = self.eval_action()
 
         return scores
-
 
     def mujoco_one_hot_images(self):
         one_hot_images = np.zeros((1, self.netconf['context_frames'], 64, 64, 1), dtype=np.float32)

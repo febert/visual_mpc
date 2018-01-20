@@ -151,7 +151,7 @@ def main(unused_argv, conf_script= None):
                     .format(traj_counter - traj_per_file + 1, traj_counter)
 
                 from python_visual_mpc.visual_mpc_core.infrastructure.utility.save_tf_record import save_tf_record
-                save_tf_record(filename, traj_list, {'data_files_dir': conf['data_dest_dir']})
+                save_tf_record(filename, traj_list, {'data_save_dir': conf['data_dest_dir']})
                 traj_list = []
 
             traj_counter += 1

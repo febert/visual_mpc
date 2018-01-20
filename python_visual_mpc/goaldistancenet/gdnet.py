@@ -1,12 +1,16 @@
 import tensorflow as tf
 import numpy as np
+from PIL import ImageFont
 from PIL import Image
+from PIL import ImageDraw
+import cPickle
 import sys
 from python_visual_mpc.video_prediction.dynamic_rnn_model.ops import dense, pad2d, conv1d, conv2d, conv3d, upsample_conv2d, conv_pool2d, lrelu, instancenorm, flatten
 from python_visual_mpc.video_prediction.dynamic_rnn_model.layers import instance_norm
 import matplotlib.pyplot as plt
 from python_visual_mpc.video_prediction.read_tf_records2 import \
                 build_tfrecord_input as build_tfrecord_fn
+import matplotlib.gridspec as gridspec
 
 import tensorflow.contrib.slim as slim
 from tensorflow.contrib.layers.python import layers as tf_layers
@@ -182,59 +186,164 @@ class GoalDistanceNet(object):
 
         dict = build_tfrecord_fn(self.conf)
         images, pred_images = sess.run([dict['images'], dict['gen_images']])
+
         pred_images = np.squeeze(pred_images)
-        warped_images = []
 
         num_examples = self.conf['batch_size']
         I1 = images[:, -1]
+
+        outputs = []
+        I0_t_reals = []
+        I0_ts = []
+        flow_mags = []
+        warpscores = []
 
         for t in range(14):
             if 'vidpred_data' in self.conf:
                 I0_t = pred_images[:, t]
                 I0_t_real = images[:, t]
+
+                I0_t_reals.append(I0_t_real)
             else:
                 I0_t = images[:, t]
 
+            I0_ts.append(I0_t)
+
             [output, flow] = sess.run([self.gen_image, self.flow_field], {self.I0_pl:I0_t, self.I1_pl: I1})
 
+            outputs.append(output)
+
             flow_mag = np.linalg.norm(flow, axis=3)
-            flow_mag = np.squeeze(np.split(flow_mag, num_examples, axis=0))
+            flow_mag = np.split(np.squeeze(flow_mag), num_examples, axis=0)
             cmap = plt.cm.get_cmap('jet')
             flow_mag_ = []
+
+            warpscores.append(np.mean(np.mean(flow_mag, axis=1),axis=1))
 
             for b in range(num_examples):
                 f = flow_mag[b]/(np.max(flow_mag[b]) + 1e-6)
                 f = cmap(f)[:, :, :3]
                 flow_mag_.append(f)
-            flow_mag = flow_mag_
-            plt.imshow(flow_mag[0])
 
-            im_height = output.shape[1]
-            im_width = output.shape[2]
-            warped_column = np.squeeze(np.split(output, num_examples, axis=0))
+            flow_mags.append(flow_mag)
 
-            I0_t = np.squeeze(np.split(I0_t, num_examples, axis=0))
+        dict = {
+            'I0_t_real':I0_t_reals,
+            'I0_t':I0_ts,
+            'flow_mags':flow_mags,
+            'outputs':outputs,
+            'warpscores':warpscores}
 
-            if 'vidpred_data' in self.conf:
-                I0_t_real = np.squeeze(np.split(I0_t_real, num_examples, axis=0))
-                I0_t = np.squeeze(np.split(I0_t, num_examples, axis=0))
+        cPickle.dump(dict, open(self.conf['output_dir'] + '/data.pkl', 'wb'))
+        make_plots(dict)
 
-                warped_column = [np.concatenate([inp_real, inp, warp, fmag], axis=0) for inp_real, inp, warp, fmag in
-                                 zip(I0_t_real, I0_t, warped_column, flow_mag)]
-            else:
-                warped_column = [np.concatenate([inp, warp, fmag], axis=0) for inp, warp, fmag in
-                                 zip(I0_t, warped_column, flow_mag, )]
+        #     im_height = output.shape[1]
+        #     im_width = output.shape[2]
+        #     warped_column = np.squeeze(np.split(output, num_examples, axis=0))
+        #
+        #     I0_t = np.squeeze(np.split(I0_t, num_examples, axis=0))
+        #
+        #     if 'vidpred_data' in self.conf:
+        #         I0_t_real = np.squeeze(np.split(I0_t_real, num_examples, axis=0))
+        #         I0_t = np.squeeze(np.split(I0_t, num_examples, axis=0))
+        #
+        #         warped_column = [np.concatenate([inp_real, inp, warp, fmag], axis=0) for inp_real, inp, warp, fmag in
+        #                          zip(I0_t_real, I0_t, warped_column, flow_mag)]
+        #     else:
+        #         warped_column = [np.concatenate([inp, warp, fmag], axis=0) for inp, warp, fmag in
+        #                          zip(I0_t, warped_column, flow_mag)]
+        #
+        #     warped_column = np.concatenate(warped_column, axis=0)
+        #
+        #     warped_images.append(warped_column)
+        #
+        # warped_images = np.concatenate(warped_images, axis=1)
+        #
+        # dir = self.conf['output_dir']
+        # Image.fromarray((warped_images*255.).astype(np.uint8)).save(dir + '/warped.png')
+        #
+        # I1 = I1.reshape(num_examples*im_height, im_width,3)
+        # Image.fromarray((I1 * 255.).astype(np.uint8)).save(dir + '/finalimage.png')
+        #
+        # sys.exit('complete!')
 
-            warped_column = np.concatenate(warped_column, axis=0)
 
-            warped_images.append(warped_column)
+def make_plots(conf, dict=None, filename = None):
+    if dict == None:
+        dict = cPickle.load(open(filename))
 
-        warped_images = np.concatenate(warped_images, axis=1)
+    print 'loaded'
 
-        dir = self.conf['output_dir']
-        Image.fromarray((warped_images*255.).astype(np.uint8)).save(dir + '/warped.png')
+    I0_t_reals = dict['I0_t_real']
+    I0_ts =dict['I0_t']
+    flow_mags =dict['flow_mags']
+    outputs =dict['outputs']
+    warpscores =dict['warpscores']
 
-        I1 = I1.reshape(num_examples*im_height, im_width,3)
-        Image.fromarray((I1 * 255.).astype(np.uint8)).save(dir + '/finalimage.png')
+    # num_exp = I0_t_reals[0].shape[0]
+    num_ex = 3
+    start_ex = 10
 
-        sys.exit('complete!')
+    num_rows = num_ex*4
+    num_cols = len(I0_t_reals)
+
+    # plt.figure(figsize=(num_rows, num_cols))
+    # gs1 = gridspec.GridSpec(num_rows, num_cols)
+    # gs1.update(wspace=0.025, hspace=0.05)
+
+    width_per_ex = 0.9
+
+    standard_size = np.array([width_per_ex * num_cols, num_rows * 1.0])  ### 1.5
+    figsize = (standard_size).astype(np.int)
+
+    f, axarr = plt.subplots(num_rows, num_cols, figsize=figsize)
+
+    for col in range(num_cols):
+        row = 0
+        for ex in range(start_ex, start_ex + num_ex, 1):
+            print 'ex{}'.format(ex)
+
+            axarr[row, col].imshow(I0_t_reals[col][ex], interpolation='none')
+            axarr[row, col].axis('off')
+            row += 1
+
+            axarr[row, col].imshow(I0_ts[col][ex], interpolation='none')
+            axarr[row, col].axis('off')
+
+            row += 1
+            axarr[row, col].set_title('{:10.3f}'.format(warpscores[col][ex]), fontsize=5)
+            axarr[row, col].imshow(flow_mags[col][ex], interpolation='none')
+            axarr[row, col].axis('off')
+            row += 1
+
+            axarr[row, col].imshow(outputs[col][ex], interpolation='none')
+            axarr[row, col].axis('off')
+            row += 1
+
+    # plt.axis('off')
+    f.subplots_adjust(wspace=0, hspace=0.3)
+
+    # f.subplots_adjust(vspace=0.1)
+    # plt.show()
+    plt.savefig(conf['output_dir']+'/warp_costs.png')
+
+
+def calc_warpscores(flow_field):
+    return np.sum(np.linalg.norm(flow_field, axis=3), axis=[2, 3])
+
+def draw_text(img, float):
+    img = (img*255.).astype(np.uint8)
+    img = Image.fromarray(img)
+    draw = ImageDraw.Draw(img)
+    font = ImageFont.truetype("/usr/share/fonts/dejavu/DejaVuSans.ttf", 5)
+    draw.text((0, 0), "{}".format(float), (255, 255, 0), font=font)
+    img = np.asarray(img).astype(np.float32)/255.
+
+    return img
+
+
+if __name__ == '__main__':
+    filedir = '/home/frederik/Documents/catkin_ws/src/visual_mpc/tensorflow_data/gdn/vidpred_data/modeldata'
+    conf = {}
+    conf['output_dir'] = filedir
+    make_plots(conf, filename= filedir + '/data.pkl')

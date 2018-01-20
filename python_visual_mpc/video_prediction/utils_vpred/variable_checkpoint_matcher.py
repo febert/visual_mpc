@@ -2,7 +2,7 @@ import tensorflow as tf
 
 def variable_checkpoint_matcher(conf, vars, model_file=None):
   """
-  for every variable in vars takes its name and looks into the
+  for every variable in vars takes its name and looks inside the
   checkpoint to find variable that matches its name beginning from the end
   :param vars:
   :return:

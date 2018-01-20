@@ -28,11 +28,9 @@ def compute_warp_lengths(conf, flow_field):
     :param flow_field:  shape: batch, time, r, c, 2
     :return:
     """
-    flow_field = np.sum(np.linalg.norm(flow_field, axis=4), axis=[2, 3])
-
-    per_time_multiplier = np.ones(flow_field.shape[0], flow_field.shape[1])
-    per_time_multiplier[:, -1] = conf['final_weight']
-
+    flow_field = np.mean(np.mean(np.linalg.norm(flow_field, axis=4), axis=2), axis=2)
+    per_time_multiplier = np.ones([flow_field.shape[0], flow_field.shape[1]])
+    per_time_multiplier[:, -1] = conf['finalweight']
     return np.sum(flow_field*per_time_multiplier, axis=1)
 
 class CEM_controller():
@@ -77,7 +75,9 @@ class CEM_controller():
         self.goal_image_warper = goal_image_warper
         self.goal_image = None
 
-        self.ndesig = self.netconf['ndesig']
+        if 'ndesig' in self.netconf:
+            self.ndesig = self.netconf['ndesig']
+        else: self.ndesig = 1
 
         self.K = 10  # only consider K best samples for refitting
 
@@ -101,9 +101,10 @@ class CEM_controller():
             self.discrete_ind = [2, 3]
         elif self.adim == 5:
             self.discrete_ind = [2, 4]
+        else:
+            self.discrete_ind = None
 
         # predicted positions
-        self.pred_pos = np.zeros((self.M, self.niter, self.repeat * self.naction_steps, 2))
         self.rec_target_pos = np.zeros((self.M, self.niter, self.repeat * self.naction_steps, 2))
         self.bestindices_of_iter = np.zeros((self.niter, self.K))
 
@@ -195,7 +196,8 @@ class CEM_controller():
             t_startiter = time.time()
             actions = np.random.multivariate_normal(self.mean, self.sigma, self.M)
             actions = actions.reshape(self.M, self.naction_steps, self.adim)
-            actions = self.discretize(actions)
+            if self.discrete_ind != None:
+                actions = self.discretize(actions)
             actions = self.truncate_movement(actions)
 
             actions = np.repeat(actions, self.repeat, axis=1)
@@ -295,7 +297,11 @@ class CEM_controller():
         last_frames = np.concatenate((last_frames, app_zeros), axis=1)
 
         t0 = time.time()
-        input_distrib = self.make_input_distrib(itr)
+
+        if 'use_goal_image' in self.policyparams:
+            input_distrib = None
+        else:
+            input_distrib = self.make_input_distrib(itr)
         # f, axarr = plt.subplots(1, self.ndesig)
         # for p in range(self.ndesig):
         # plt.imshow(np.squeeze(input_distrib[0][0]), cmap=plt.get_cmap('jet'))
@@ -316,10 +322,15 @@ class CEM_controller():
         t_startcalcscores = time.time()
         scores_per_task = []
 
-        if 'use_goal_image' in conf:
+        if 'use_goal_image' in self.policyparams:
             # evaluate images with goal-distance network
-            warped_images, flow_field = self.goal_image_warper(gen_images, self.goal_image)
-            scores = compute_warp_lengths(self.policyparams, flow_field)
+            flow_fields = []
+            goal_image = np.repeat(self.goal_image[None], self.netconf['batch_size'], axis=0)
+            for tstep in range(self.netconf['sequence_length'] - 1):
+                warped_images, flow_field = self.goal_image_warper(gen_images[tstep], goal_image)
+                flow_fields.append(flow_field)
+            flow_fields = np.stack(flow_fields, axis=1)
+            scores = compute_warp_lengths(self.policyparams, flow_fields)
         else:
             for p in range(self.ndesig):
                 start_calc_dist = time.time()
@@ -409,7 +420,7 @@ class CEM_controller():
                 itr == (self.policyparams['iterations']-1):
             self.terminal_pred = gen_images[-1][bestind]
 
-        print 'td', time.time() - start_t2
+        # print 'td', time.time() - start_t2
 
         return scores
 
@@ -474,13 +485,19 @@ class CEM_controller():
         self.t = t
         print 'starting cem at t{}...'.format(t)
 
-        self.desig_pix = np.array(desig_pix).reshape((self.ndesig, 2))
+        if not 'use_goal_image' in self.policyparams:
+            self.desig_pix = np.array(desig_pix).reshape((self.ndesig, 2))
+
         if t == 0:
             action = np.zeros(self.agentparams['adim'])
-            self.goal_pix = np.array(goal_pix).reshape((self.ndesig,2))
+            if not 'use_goal_image' in self.policyparams:
+                self.goal_pix = np.array(goal_pix).reshape((self.ndesig,2))
         else:
             last_images = traj._sample_images[t - 1:t + 1]   # second image shall contain front view
-            last_states = traj.X_full[t-1: t+1]
+
+            if 'use_vel' in self.netconf:
+                last_states = traj.X_Xdot_full[t-1: t+1]
+            else: last_states = traj.X_full[t - 1: t + 1]
 
             if 'use_first_plan' in self.policyparams:
                 print 'using actions of first plan, no replanning!!'
@@ -488,7 +505,6 @@ class CEM_controller():
                     self.perform_CEM(last_images, last_states, t)
                 else:
                     # only showing last iteration
-                    self.pred_pos = self.pred_pos[:,-1].reshape((self.M, 1, self.repeat * self.naction_steps, 2))
                     self.bestindices_of_iter = self.bestindices_of_iter[-1, :].reshape((1, self.K))
                 action = self.bestaction_withrepeat[t - 1]
 
@@ -504,4 +520,4 @@ class CEM_controller():
 
         self.action_list.append(action)
         # print 'timestep: ', t, ' taking action: ', action
-        return action, self.pred_pos, self.bestindices_of_iter, self.rec_input_distrib
+        return action, self.bestindices_of_iter, self.rec_input_distrib

@@ -43,20 +43,17 @@ class Modhyper(object):
 def main():
     parser = argparse.ArgumentParser(description='run parllel data collection')
     parser.add_argument('experiment', type=str, help='experiment name')
-    parser.add_argument('--parallel', type=str, help='use multiple threads or not', default='True')
+    parser.add_argument('--nworkers', type=int, help='use multiple threads or not', default=10)
 
     args = parser.parse_args()
     exp_name = args.experiment
     parallel= args.parallel
 
-
-    if parallel == 'True':
-        n_worker = 10
-        parallel = True
-        print 'using ', n_worker, ' workers'
-    if parallel == 'False':
+    n_worker = args.nworkers
+    if args.nworkers == 1:
         parallel = False
-        n_worker = 1
+    else:
+        parallel = True
     print 'parallel ', bool(parallel)
 
     basepath = os.path.abspath(python_visual_mpc.__file__)
@@ -96,20 +93,20 @@ def main():
 
         conflist.append(modconf)
 
-    # if do_benchmark:
-    #     use_worker = bench_worker
-    # else: use_worker = worker
-    #
-    # if 'gen_xml' in conflist[0]['agent']:
-    #     os.system("rm {}".format('/'.join(str.split(modconf['agent']['filename'], '/')[:-1]) + '/auto_gen/*'))
-    #
-    # if parallel:
-    #     p = Pool(n_worker)
-    #     p.map(use_worker, conflist)
-    # else:
-    #     use_worker(conflist[0])
+    if do_benchmark:
+        use_worker = bench_worker
+    else: use_worker = worker
 
-    traindir = modconf['agent']["data_files_dir"]
+    if 'gen_xml' in conflist[0]['agent']:
+        os.system("rm {}".format('/'.join(str.split(modconf['agent']['filename'], '/')[:-1]) + '/auto_gen/*'))
+
+    if parallel:
+        p = Pool(n_worker)
+        p.map(use_worker, conflist)
+    else:
+        use_worker(conflist[0])
+
+    traindir = modconf['agent']["data_save_dir"]
     testdir = '/'.join(traindir.split('/')[:-1] + ['/test'])
     import shutil
     files = glob.glob(traindir + '/*')

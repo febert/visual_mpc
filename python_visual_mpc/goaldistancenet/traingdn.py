@@ -63,7 +63,7 @@ def main(unused_argv, conf_script= None):
 
         conf.pop('color_augmentation', None)
 
-        conf['batch_size'] = 10
+        conf['batch_size'] = 40
 
         # when using alex interface:
         if 'modelconfiguration' in conf:

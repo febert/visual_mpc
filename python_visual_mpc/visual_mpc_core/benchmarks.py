@@ -14,22 +14,20 @@ from python_visual_mpc import __file__ as python_vmpc_path
 from python_visual_mpc.data_preparation.gather_data import make_traj_name_list
 
 
-def perform_benchmark(bench_conf = None):
+def perform_benchmark(conf = None):
     cem_exp_dir = '/'.join(str.split(python_vmpc_path, '/')[:-2])  + '/experiments/cem_exp'
-    hyperparams = imp.load_source('hyperparams', cem_exp_dir + '/base_hyperparams.py')
-    conf = hyperparams.config
 
-    if bench_conf != None:
+    if conf != None:
         benchmark_name = 'parallel'
         gpu_id = 0
         ngpu = 1
-        bench_dir = bench_conf.config['bench_dir']
+        bench_dir = conf.config['bench_dir']
         goalimg_save_dir = bench_dir + '/goalimage'
     else:
         parser = argparse.ArgumentParser(description='Run benchmarks')
         parser.add_argument('benchmark', type=str, help='the name of the folder with agent setting for the benchmark')
         parser.add_argument('--gpu_id', type=int, default=0, help='value to set for cuda visible devices variable')
-        parser.add_argument('--ngpu', type=int, default=None, help='number of gpus to use')
+        parser.add_argument('--ngpu', type=int, default=1, help='number of gpus to use')
         args = parser.parse_args()
 
         benchmark_name = args.benchmark
@@ -41,22 +39,11 @@ def perform_benchmark(bench_conf = None):
         if not os.path.exists(bench_dir):
             print 'performing goal image benchmark ...'
             bench_dir = cem_exp_dir + '/benchmarks_goalimage/' + benchmark_name
-            goalimg_save_dir = cem_exp_dir + '/benchmarks_goalimage/' + benchmark_name + '/goalimage'
             if not os.path.exists(bench_dir):
                 raise ValueError('benchmark directory does not exist')
 
-        bench_conf = imp.load_source('mod_hyper', bench_dir + '/mod_hyper.py')
-
-    conf['policy'].update(bench_conf.policy)
-
-    if hasattr(bench_conf, 'agent'):
-        conf['agent'].update(bench_conf.agent)
-
-    if hasattr(bench_conf, 'config'):
-        conf.update(bench_conf.config)
-
-    if hasattr(bench_conf, 'common'):
-        conf['common'].update(bench_conf.common)
+        conf = imp.load_source('mod_hyper', bench_dir + '/mod_hyper.py')
+        conf = conf.config
 
     conf['agent']['skip_first'] = 10
 
@@ -106,22 +93,21 @@ def perform_benchmark(bench_conf = None):
 
     scores = np.zeros(nruns)
 
-    if 'bench_conf_pertraj' in conf:  # load data per trajectory
-        traj_names = make_traj_name_list({'source_basedirs': conf['agent']['bench_conf_pertraj'],
-                                                  'ngroup': conf['agent']['ngroup']})
+    if 'sourcetags' in conf:  # load data per trajectory
+        traj_names = make_traj_name_list({'source_basedirs': conf['source_basedirs'],
+                                                  'ngroup': conf['ngroup']}, shuffle=False)
 
     while traj < nruns:
-        if 'bench_conf_pertraj' in conf:  #load data per trajectory
+        if 'sourcetags' in conf:  #load data per trajectory from folder structure
             dict = read_trajectory(conf, traj_names[traj])
-            sim.agent._hyperparams['xpos0'] = dict['qpos']
-            sim.agent._hyperparams['object_pos0'] = dict['object_full_pose']
-            sim.policy.goal_img = dict['images'][-1]  # assign last image of trajectory as goalimage
-
+            sim.agent._hyperparams['xpos0'] = dict['qpos'][0]
+            sim.agent._hyperparams['object_pos0'] = dict['object_full_pose'][0]
+            sim.agent.load_obj_statprop = dict['obj_statprop']
         else: #load when loading data from a single file
             sim.agent._hyperparams['xpos0'] = initialposes[i_conf]
             sim.agent._hyperparams['object_pos0'] = goalpoints[i_conf]
 
-        if 'use_goalimage' not in conf['policy']:
+        if 'use_goal_image' not in conf['policy']:
             sim.agent._hyperparams['goal_point'] = goalpoints[i_conf]
 
         for j in range(n_reseed):
@@ -139,8 +125,7 @@ def perform_benchmark(bench_conf = None):
 
             sim.agent._hyperparams['record'] = bench_dir + '/videos/traj{0}_conf{1}'.format(traj, i_conf)
 
-            sim.policy.policyparams['rec_distrib'] = bench_dir + '/videos_distrib/traj{0}_conf{1}'.format(traj, i_conf)
-
+            # reinitilize policy between rollouts
             if 'usenet' in conf['policy']:
                 if 'use_goal_image' in conf['policy']:
                     sim.policy = conf['policy']['type'](sim.agent._hyperparams,
@@ -151,12 +136,15 @@ def perform_benchmark(bench_conf = None):
             else:
                 sim.policy = conf['policy']['type'](sim.agent._hyperparams, conf['policy'])
 
+            sim.policy.policyparams['rec_distrib'] = bench_dir + '/videos_distrib/traj{0}_conf{1}'.format(traj, i_conf)
 
+            if 'sourcetags' in conf:
+                sim.policy.goal_image = dict['images'][-1]  # assign last image of trajectory as goalimage
             sim._take_sample(traj)
 
             scores[traj] = sim.agent.final_poscost
 
-            if 'use_goalimage' in conf['agent']:
+            if 'use_goal_image' in conf['agent']:
                 anglecost.append(sim.agent.final_anglecost)
 
             print 'score of traj', traj, ':', scores[traj]
@@ -177,7 +165,7 @@ def perform_benchmark(bench_conf = None):
         f.write('traj: score, anglecost, rank\n')
         f.write('----------------------\n')
         for t in range(traj):
-            if 'use_goalimage' in conf['agent']:
+            if 'use_goal_image' in conf['agent']:
                 f.write('{0}: {1}, {2}, :{3}\n'.format(t, rel_scores[t], anglecost[t], np.where(sorted_ind == t)[0][0]))
             else:
                 f.write('{0}: {1}, :{2}\n'.format(t, rel_scores[t], np.where(sorted_ind == t)[0][0]))

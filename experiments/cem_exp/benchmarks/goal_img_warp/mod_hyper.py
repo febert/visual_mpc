@@ -8,26 +8,13 @@ from python_visual_mpc.visual_mpc_core.algorithm.cem_controller_goalimage_sawyer
 ROOT_DIR = os.path.abspath(python_visual_mpc.__file__)
 ROOT_DIR = '/'.join(str.split(ROOT_DIR, '/')[:-2])
 
-policy = {
-    'type' : CEM_controller,
-    'low_level_ctrl': None,
-    'current_dir':current_dir,
-    'usenet': True,
-    'nactions': 15,
-    'repeat': 1,
-    'initial_std': .035,   #std dev. in xy
-    'initial_std_lift': 0.,
-    'gdnconf': current_dir + '/gdnconf.py',
-    'netconf': current_dir + '/conf.py',
-    'iterations': 3,
-    'action_cost_factor': 0,
-    'rew_all_steps':"",
-    'finalweight':30,
-    'goal_image':''
-}
+from python_visual_mpc.visual_mpc_core.agent.agent_mjc import AgentMuJoCo
+
 
 agent = {
-    'T': 30,
+    'type': AgentMuJoCo,
+    'T': 3, ##############325,
+    'substeps':20,
     'adim':3,
     'sdim':6,
     'make_final_gif':'',
@@ -37,4 +24,56 @@ agent = {
     'ngroup',
     'filename': ROOT_DIR + '/mjc_models/cartgripper.xml',
     'filename_nomarkers': ROOT_DIR + '/mjc_models/cartgripper.xml',
+    'gen_xml':1,   #generate xml every nth trajecotry
+    'num_objects': 4,
+    'viewer_image_height' : 480,
+    'viewer_image_width' : 640,
+    'image_height':48,
+    'image_width':64,
+    'additional_viewer':'',
+    'data_save_dir':'',
+}
+
+policy = {
+    'type' : CEM_controller,
+    'low_level_ctrl': None,
+    'current_dir':current_dir,
+    'usenet': True,
+    'nactions': 5,
+    'repeat': 3,
+    'initial_std': .035,   #std dev. in xy
+    'initial_std_lift': 0.,
+    'gdnconf': current_dir + '/gdnconf.py',
+    'netconf': current_dir + '/conf.py',
+    'iterations': 3,
+    'action_cost_factor': 0,
+    'rew_all_steps':"",
+    'finalweight':10,
+    'use_goal_image':''
+}
+
+tag_images = {'name': 'images',
+             'file':'/images/im{}.png',   # only tindex
+             'shape':[agent['image_height'],agent['image_width'],3],
+               }
+
+tag_qpos = {'name': 'qpos',
+             'shape':[3],
+             'file':'/state_action.pkl'}
+tag_object_full_pose = {'name': 'object_full_pose',
+                         'shape':[4,7],
+                         'file':'/state_action.pkl'}
+tag_object_statprop = {'name': 'obj_statprop',
+                     'not_per_timestep':''}
+
+config = {
+    'save_data': False,
+    'start_index':0,
+    'end_index': 100,
+    'agent':agent,
+    'policy':policy,
+    'ngroup': 100,
+    'sourcetags':[tag_images, tag_qpos, tag_object_full_pose, tag_object_statprop],
+    'source_basedirs':[ROOT_DIR + '/pushing_data/cartgripper_bench_conf/train'],
+    'sequence_length':15
 }

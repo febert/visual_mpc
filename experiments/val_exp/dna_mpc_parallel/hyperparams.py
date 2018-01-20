@@ -38,13 +38,13 @@ common = {
     'experiment_name': 'my_experiment' + '_' + \
             datetime.strftime(datetime.now(), '%m-%d-%y_%H-%M'),
     'experiment_dir': current_dir,
-    'data_files_dir': current_dir +'/train',
+    'data_save_dir': current_dir +'/train',
     'conditions': 1,
     'no_sample_logging': True,
 }
 
-if not os.path.exists(common['data_files_dir']):
-    os.makedirs(common['data_files_dir'])
+if not os.path.exists(common['data_save_dir']):
+    os.makedirs(common['data_save_dir'])
 
 alpha = 30*np.pi/180
 agent = {
@@ -64,7 +64,7 @@ agent = {
     'joint_angles': SENSOR_DIMS[JOINT_ANGLES],  #adding 7 dof for position and orentation of free object
     'joint_velocities': SENSOR_DIMS[JOINT_VELOCITIES],
     'additional_viewer': True,
-    'image_dir': common['data_files_dir'] + "imagedata_file",
+    'image_dir': common['data_save_dir'] + "imagedata_file",
     'image_height' : IMAGE_HEIGHT,
     'image_width' : IMAGE_WIDTH,
     'image_channels' : IMAGE_CHANNELS,

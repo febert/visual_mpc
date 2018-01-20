@@ -1,0 +1,13 @@
+first create train data in
+cartgripper (use action repeat 3, num_actions 5)
+
+train video predmodel on cartgripper
+
+create distinct dataset cartgripper_warptrainvidepred for which the vidpred dataset is created (is this necessary?)
+
+create cartgripper_vidpred
+
+train gdn on cargripper_vidpred
+
+
+

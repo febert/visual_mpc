@@ -18,7 +18,7 @@ def save_tf_record(filename, trajectory_list, params):
     saves data_files from one sample trajectory into one tf-record file
     """
 
-    dir = params['data_files_dir']
+    dir = params['data_save_dir']
     filename = os.path.join(dir, filename + '.tfrecords')
     print('Writing', filename)
     writer = tf.python_io.TFRecordWriter(filename)

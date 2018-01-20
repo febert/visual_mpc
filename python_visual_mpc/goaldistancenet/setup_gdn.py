@@ -25,13 +25,13 @@ def setup_gdn(conf, gpu_id = 0):
             # print 'predictor default session:', tf.get_default_session()
             # print 'predictor default graph:', tf.get_default_graph()
             print '-------------------------------------------------------------------'
-            print 'verify current settings!! '
+            print 'Goal Distance Network Settings'
             for key in conf.keys():
                 print key, ': ', conf[key]
             print '-------------------------------------------------------------------'
 
             print 'Constructing model for control'
-            model = GoalDistanceNet(conf = None,
+            model = GoalDistanceNet(conf = conf,
                                      build_loss=False,
                                      load_data = False)
 
@@ -40,6 +40,7 @@ def setup_gdn(conf, gpu_id = 0):
             vars_without_state = filter_vars(tf.get_collection(tf.GraphKeys.VARIABLES))
             saver = tf.train.Saver(vars_without_state, max_to_keep=0)
             saver.restore(sess, conf['pretrained_model'])
+            print 'gdn restore done.'
 
             def predictor_func(pred_images, goal_image):
                 feed_dict = {

@@ -9,7 +9,7 @@
     </default>
 
     <worldbody>
-        <camera name="maincam" mode= "fixed" fovy="32" euler="0.7 0 0" pos="0 -1.3 1.7"/>
+        <camera name="maincam" mode= "fixed" fovy="32" euler="0.7 0 0" pos="0 -1.1 1.3"/>
         <body name="gripper" pos="0 0 0.25">
             <inertial pos="0 0 0" mass="30" diaginertia="166.667 166.667 166.667"/>
             <geom type="box" size=".1 .03 .03" rgba="0.1 0.0 0.9 1" />

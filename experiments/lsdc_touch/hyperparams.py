@@ -39,14 +39,14 @@ common = {
     'experiment_name': 'my_experiment' + '_' + \
             datetime.strftime(datetime.now(), '%m-%d-%y_%H-%M'),
     'experiment_dir': BASE_DIR,
-    'data_files_dir': BASE_DIR + '/train',
+    'data_save_dir': BASE_DIR + '/train',
     'target_filename': BASE_DIR + 'target.npz',
     'log_filename': BASE_DIR + 'log.txt',
     'conditions': 1,
     'no_sample_logging': True,
 }
 
-if not os.path.exists(common['data_files_dir']):
+if not os.path.exists(common['data_save_dir']):
     raise ValueError('data files directory not found!')
 
 
@@ -71,7 +71,7 @@ agent = {
     'joint_angles': SENSOR_DIMS[JOINT_ANGLES],
     'joint_velocities': SENSOR_DIMS[JOINT_VELOCITIES],
     'additional_viewer': True,
-    'image_dir': common['data_files_dir'] + "imagedata_file",
+    'image_dir': common['data_save_dir'] + "imagedata_file",
     'image_height' : IMAGE_HEIGHT,
     'image_width' : IMAGE_WIDTH,
     'image_channels' : IMAGE_CHANNELS,

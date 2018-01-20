@@ -12,23 +12,37 @@ def file_len(fname):
             pass
     return i + 1
 
-def create_object_xml(hyperparams, dict_list=None):
+def create_object_xml(hyperparams, load_dict_list=None):
     """
     :param hyperparams:
-    :param dict_list: if not none load configuration, instead of sampling
-    :return:
+    :param load_dict_list: if not none load configuration, instead of sampling
+    :return: if not loading, save dictionary with static object properties
     """
     xmldir = '/'.join(str.split(hyperparams['filename'], '/')[:-1])
     root = ET.Element("top")
+
+    save_dict_list = []
+
     for i in range(hyperparams['num_objects']):
         obj = ET.SubElement(root, "body", name="object{}".format(i), pos="0 0 0")
         ET.SubElement(obj, "joint", type="free")
-        l1 = np.random.uniform(0.01,0.2)
-        color1 = np.random.uniform(0.3, 1., 3)
+
+        if load_dict_list == None:
+            dict = {}
+            color1 = dict['color1'] = np.random.uniform(0.3, 1., 3)
+            color2 = dict['color2'] = np.random.uniform(0.3, 1., 3)
+            l1 = dict['l1'] =np.random.uniform(0.01, 0.2)
+            l2 = dict['l2'] =np.random.uniform(0.01, 0.2)
+            save_dict_list.append(dict)
+        else:
+            dict = load_dict_list[i]
+            color1 = dict['color1']
+            color2 = dict['color2']
+            l1 = dict['l1']
+            l2 = dict['l2']
+
         ET.SubElement(obj, "geom", type="box", size=".03 {} .03".format(l1), rgba="{} {} {} 1".format(color1[0], color1[1], color1[2]))
 
-        color2 = np.random.uniform(0.3, 1., 3)
-        l2 = np.random.uniform(0.01, 0.2)
         pos2 = np.random.uniform(0.01, l1)
         ET.SubElement(obj, "geom", pos="{} {} 0.0".format(l2, pos2), type="box", size="{} .03 .03".format(l2),
                       rgba="{} {} {} 1".format(color2[0], color2[1], color2[2]))
@@ -45,7 +59,7 @@ def create_object_xml(hyperparams, dict_list=None):
     with open(xmldir + "/auto_gen/objects{}.xml".format(os.getpid()), "wb") as f:
         f.write(xml_str)
 
-    return dict_list
+    return save_dict_list
 
 
 def create_root_xml(hyperparams):

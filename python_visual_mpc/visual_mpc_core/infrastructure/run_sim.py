@@ -11,7 +11,8 @@ import time
 # Add lsdc/python to path so that imports work.
 sys.path.append('/'.join(str.split(__file__, '/')[:-2]))
 # from lsdc.gui.gps_training_gui import GPSTrainingGUI
-from python_visual_mpc.video_prediction.setup_predictor_simple import setup_predictor
+# from python_visual_mpc.video_prediction.setup_predictor_simple import setup_predictor
+from python_visual_mpc.video_prediction.setup_predictor_towers import setup_predictor
 from python_visual_mpc.goaldistancenet.setup_gdn import setup_gdn
 from python_visual_mpc.visual_mpc_core.infrastructure.utility import *
 
@@ -21,17 +22,16 @@ import cPickle
 import cv2
 import shutil
 
-
 class Sim(object):
     """ Main class to run algorithms and experiments. """
 
-    def __init__(self, config, quit_on_end=False, gpu_id=0, ngpu=None):
+    def __init__(self, config, quit_on_end=False, gpu_id=0, ngpu=1):
 
         self._quit_on_end = quit_on_end
         self._hyperparams = config
         self.agent = config['agent']['type'](config['agent'])
         self.agentparams = config['agent']
-        self._data_files_dir = self.agentparams['data_files_dir']  # directory where to save trajectories
+        self._data_save_dir = self.agentparams['data_save_dir']  # directory where to save trajectories
 
         if 'netconf' in config['policy']:
             params = imp.load_source('params', config['policy']['netconf'])
@@ -78,9 +78,7 @@ class Sim(object):
             sample_index: Sample index.
         Returns: None
         """
-
         start = datetime.now()
-
         traj = self.agent.sample(self.policy, sample_index)
 
         if self._hyperparams['save_data']:
@@ -100,7 +98,7 @@ class Sim(object):
             ngroup = self._hyperparams['ngroup']
             if itr % ngroup == 0:
                 self.igrp = itr / ngroup
-                self.group_folder = self._data_files_dir + '/traj_group{}'.format(self.igrp)
+                self.group_folder = self._data_save_dir + '/traj_group{}'.format(self.igrp)
                 os.makedirs(self.group_folder)
 
             self.traj_folder = self.group_folder + '/traj{}'.format(itr)
@@ -122,13 +120,15 @@ class Sim(object):
                 dict = {'qpos': traj.X_full,
                         'qvel': traj.Xdot_full,
                         'actions': traj.actions,
-                        'object_full_pose': traj.Object_full_pose}
-
+                        'object_full_pose': traj.Object_full_pose
+                        }
+                if 'gen_xml' in self.agentparams:
+                    dict['obj_statprop'] = traj.obj_statprop
                 cPickle.dump(dict, f)
 
             for t in range(traj.T):
                 image_name = self.image_folder+ "/im{}.png".format(t)
-                cv2.imwrite(image_name, traj._sample_images[t], [cv2.IMWRITE_PNG_STRATEGY_DEFAULT, 1])
+                cv2.imwrite(image_name, traj._sample_images[t][:,:,::-1], [cv2.IMWRITE_PNG_STRATEGY_DEFAULT, 1])
         else:
             #save tfrecords
             traj = copy.deepcopy(traj)

@@ -76,8 +76,8 @@ class VideoDataset(Dataset):
         self.conf = dataconf
 
         if train:
-            self.root_dir = self.agentparams['data_files_dir']
-        else: self.root_dir = '/'.join(str.split(self.agentparams['data_files_dir'] , '/')[:-1]) + '/test'
+            self.root_dir = self.agentparams['data_save_dir']
+        else: self.root_dir = '/'.join(str.split(self.agentparams['data_save_dir'] , '/')[:-1]) + '/test'
 
         self.transform=transforms.Compose([Crop(trainconf['startrow'], trainconf['endrow']), ToTensor()])
 
@@ -147,7 +147,7 @@ def test_videoloader():
         # print i_batch, images.size(), states.size(), actions.size()
 
         images = images.numpy().transpose((0, 1, 3, 4, 2))
-        file = '/'.join(str.split(config['agent']['data_files_dir'], '/')[:-1]) + '/example'
+        file = '/'.join(str.split(config['agent']['data_save_dir'], '/')[:-1]) + '/example'
         comp_single_video(file, images)
         #
         # # observe 4th batch and stop.

@@ -113,7 +113,7 @@ class Visual_MPC_Server(object):
         self.i_traj = req.itr
 
         self.t = 0
-        if 'use_goalimage' in self.policyparams:
+        if 'use_goal_image' in self.policyparams:
             goal_main = self.bridge.imgmsg_to_cv2(req.goalmain)
             goal_main = cv2.cvtColor(goal_main, cv2.COLOR_BGR2RGB)
             # goal_aux1 = self.bridge.imgmsg_to_cv2(req.goalaux1)
@@ -142,7 +142,7 @@ class Visual_MPC_Server(object):
         self.desig_pos_aux1 = req.desig_pos_aux1
         self.goal_pos_aux1 = req.goal_pos_aux1
 
-        mj_U, pos, best_ind, init_pix_distrib = self.cem_controller.act(self.traj, self.t,
+        mj_U, best_ind, init_pix_distrib = self.cem_controller.act(self.traj, self.t,
                                                                         req.desig_pos_aux1,
                                                                         req.goal_pos_aux1)
 

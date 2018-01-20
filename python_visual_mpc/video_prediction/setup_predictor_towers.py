@@ -24,7 +24,8 @@ class Tower(object):
         start_images = tf.slice(start_images, [startidx, 0, 0, 0, 0], [nsmp_per_gpu, -1, -1, -1, -1])
         start_states = tf.slice(start_states, [startidx, 0, 0], [nsmp_per_gpu, -1, -1])
 
-        pix_distrib = tf.slice(pix_distrib, [startidx, 0, 0, 0, 0, 0], [nsmp_per_gpu, -1, -1, -1, -1, -1])
+        if pix_distrib is not None:
+            pix_distrib = tf.slice(pix_distrib, [startidx, 0, 0, 0, 0, 0], [nsmp_per_gpu, -1, -1, -1, -1, -1])
 
         print 'startindex for gpu {0}: {1}'.format(gpu_id, startidx)
 
@@ -48,9 +49,6 @@ def setup_predictor(conf, gpu_id=0, ngpu=1):
     :return: function which predicts a batch of whole trajectories
     conditioned on the actions
     """
-
-    from prediction_train_sawyer import Model
-
     conf['ngpu'] = ngpu
 
     start_id = gpu_id
@@ -61,142 +59,124 @@ def setup_predictor(conf, gpu_id=0, ngpu=1):
     from tensorflow.python.client import device_lib
     print device_lib.list_local_devices()
 
-    ##### changed from 0.9
-    gpu_options = tf.GPUOptions(per_process_gpu_memory_fraction=0.3)
+    gpu_options = tf.GPUOptions(per_process_gpu_memory_fraction=0.6)
+    g_predictor = tf.Graph()
+    sess = tf.Session(config=tf.ConfigProto(gpu_options=gpu_options, allow_soft_placement=True), graph=g_predictor)
+    with sess.as_default():
+        with g_predictor.as_default():
 
-    # Make training session.
-    sess = tf.InteractiveSession(config=tf.ConfigProto(gpu_options=gpu_options,
-                                                       allow_soft_placement=True,
-                                                       log_device_placement=False))
+            print '-------------------------------------------------------------------'
+            print 'verify current settings!! '
+            for key in conf.keys():
+                print key, ': ', conf[key]
+            print '-------------------------------------------------------------------'
 
-    print '-------------------------------------------------------------------'
-    print 'verify current settings!! '
-    for key in conf.keys():
-        print key, ': ', conf[key]
-    print '-------------------------------------------------------------------'
+            print 'Constructing multi gpu model for control...'
 
-    print 'Constructing multi gpu model for control...'
+            if 'float16' in conf:
+                use_dtype = tf.float16
+            else:
+                use_dtype = tf.float32
 
+            images_pl = tf.placeholder(use_dtype, name='images',
+                                       shape=(conf['batch_size'], conf['sequence_length'], conf['img_height'],
+                                              conf['img_width'], 3))
+            sdim = conf['sdim']
+            adim = conf['adim']
+            print 'adim', adim
+            print 'sdim', sdim
+            actions_pl = tf.placeholder(use_dtype, name='actions',
+                                        shape=(conf['batch_size'], conf['sequence_length'], adim))
+            states_pl = tf.placeholder(use_dtype, name='states',
+                                       shape=(conf['batch_size'], conf['context_frames'], sdim))
 
-    if 'float16' in conf:
-        use_dtype = tf.float16
-    else:
-        use_dtype = tf.float32
+            if 'use_goal_image' in conf:
+                pix_distrib = None
+            else:
+                pix_distrib = tf.placeholder(use_dtype, shape=(
+                conf['batch_size'], conf['context_frames'], conf['ndesig'], conf['img_height'], conf['img_width'], 1))
 
-    images_pl = tf.placeholder(use_dtype, name='images',
-                               shape=(conf['batch_size'], conf['sequence_length'], conf['img_height'], conf['img_width'], 3))
-    sdim = conf['sdim']
-    adim = conf['adim']
-    print 'adim', adim
-    print 'sdim', sdim
-    actions_pl = tf.placeholder(use_dtype, name='actions',
-                                shape=(conf['batch_size'], conf['sequence_length'], adim))
-    states_pl = tf.placeholder(use_dtype, name='states',
-                               shape=(conf['batch_size'], conf['context_frames'], sdim))
+            # making the towers
+            towers = []
 
-    pix_distrib = tf.placeholder(use_dtype, shape=(conf['batch_size'], conf['context_frames'], conf['ndesig'], conf['img_height'], conf['img_width'], 1))
+            # with tf.variable_scope('model', reuse=None):
+            for i_gpu in xrange(ngpu):
+                with tf.device('/gpu:%d' % i_gpu):
+                    with tf.name_scope('tower_%d' % (i_gpu)):
+                        print('creating tower %d: in scope %s' % (i_gpu, tf.get_variable_scope()))
+                        # print 'reuse: ', tf.get_variable_scope().reuse
+                        # towers.append(Tower(conf, i_gpu, training_scope, start_images, actions, start_states, pix_distrib_1, pix_distrib_2))
+                        towers.append(Tower(conf, i_gpu, images_pl, actions_pl, states_pl, pix_distrib))
+                        tf.get_variable_scope().reuse_variables()
 
-    # making the towers
-    towers = []
-    # with tf.variable_scope('model', reuse=None):
-    for i_gpu in xrange(ngpu):
-        with tf.device('/gpu:%d' % i_gpu):
-            with tf.name_scope('tower_%d' % (i_gpu)):
-                print('creating tower %d: in scope %s' % (i_gpu, tf.get_variable_scope()))
-                # print 'reuse: ', tf.get_variable_scope().reuse
-                # towers.append(Tower(conf, i_gpu, training_scope, start_images, actions, start_states, pix_distrib_1, pix_distrib_2))
-                towers.append(Tower(conf, i_gpu, images_pl, actions_pl, states_pl, pix_distrib))
-                tf.get_variable_scope().reuse_variables()
+            sess.run(tf.global_variables_initializer())
 
-    sess.run(tf.global_variables_initializer())
+            vars = tf.get_collection(tf.GraphKeys.GLOBAL_VARIABLES)
 
-    vars = tf.get_collection(tf.GraphKeys.GLOBAL_VARIABLES)
+            vars = filter_vars(vars)
+            for v in vars:
+                print v.name
+            vars = variable_checkpoint_matcher(conf, vars, conf['pretrained_model'])
 
-    vars = filter_vars(vars)
-    for v in vars:
-        print v.name
-    vars = variable_checkpoint_matcher(conf, vars, conf['pretrained_model'])
+            saver = tf.train.Saver(vars, max_to_keep=0)
+            saver.restore(sess, conf['pretrained_model'])
 
-    # if 'pred_model' in conf:
-    #     if conf['pred_model'] == Alex_Interface_Model or conf['pred_model'] == Dynamic_Base_Model:
-    #         print "removing /model tag"
-    #         #cutting off the /model tag
-    #         vars = dict([('/'.join(var.name.split(':')[0].split('/')[1:]), var) for var in vars])
-    #     # for k in vars.keys():
-    #     #     print k
-    #     # print 'variables to fill out'
-    #     # pdb.set_trace()
-    #     #add generator tag
-    #     if conf['pred_model'] ==  Dynamic_Base_Model:
-    #         print 'adding "generator" tag!!!'
-    #         newvars = {}
-    #         for key in vars.keys():
-    #             newvars['generator/' + key]  = vars[key]
-    #         vars = newvars
-        # for k in vars.keys():
-        #     print k
-        # print 'names to look for'
-        # pdb.set_trace()
+            print 'restore done. '
 
-    saver = tf.train.Saver(vars, max_to_keep=0)
-    saver.restore(sess, conf['pretrained_model'])
+            comb_gen_img = []
+            comb_pix_distrib = []
+            comb_gen_states = []
 
-    print 'restore done. '
+            for t in range(conf['sequence_length']-1):
+                t_comb_gen_img = [to.model.gen_images[t] for to in towers]
+                comb_gen_img.append(tf.concat(axis=0, values=t_comb_gen_img))
 
-    comb_gen_img = []
-    comb_pix_distrib = []
-    comb_gen_states = []
+                if not 'no_pix_distrib' in conf:
+                    t_comb_pix_distrib = [to.model.gen_distrib[t] for to in towers]
+                    comb_pix_distrib.append(tf.concat(axis=0, values=t_comb_pix_distrib))
 
-    for t in range(conf['sequence_length']-1):
-        t_comb_gen_img = [to.model.gen_images[t] for to in towers]
-        comb_gen_img.append(tf.concat(axis=0, values=t_comb_gen_img))
-
-        if not 'no_pix_distrib' in conf:
-            t_comb_pix_distrib = [to.model.gen_distrib[t] for to in towers]
-            comb_pix_distrib.append(tf.concat(axis=0, values=t_comb_pix_distrib))
-
-        t_comb_gen_states = [to.model.gen_states[t] for to in towers]
-        comb_gen_states.append(tf.concat(axis=0, values=t_comb_gen_states))
+                t_comb_gen_states = [to.model.gen_states[t] for to in towers]
+                comb_gen_states.append(tf.concat(axis=0, values=t_comb_gen_states))
 
 
-    def predictor_func(input_images=None, input_one_hot_images=None, input_state=None, input_actions=None):
-        """
-        :param one_hot_images: the first two frames
-        :param pixcoord: the coords of the disgnated pixel in images coord system
-        :return: the predicted pixcoord at the end of sequence
-        """
+            def predictor_func(input_images=None, input_one_hot_images=None, input_state=None, input_actions=None):
+                """
+                :param one_hot_images: the first two frames
+                :param pixcoord: the coords of the disgnated pixel in images coord system
+                :return: the predicted pixcoord at the end of sequence
+                """
 
-        t_startiter = datetime.now()
+                t_startiter = datetime.now()
 
-        feed_dict = {}
-        for t in towers:
-            feed_dict[t.model.iter_num] = 0
-            # feed_dict[t.model.lr] = 0.0
+                feed_dict = {}
+                for t in towers:
+                    feed_dict[t.model.iter_num] = 0
+                    # feed_dict[t.model.lr] = 0.0
 
-        feed_dict[images_pl] = input_images
-        feed_dict[states_pl] = input_state
-        feed_dict[actions_pl] = input_actions
+                feed_dict[images_pl] = input_images
+                feed_dict[states_pl] = input_state
+                feed_dict[actions_pl] = input_actions
 
-        if 'no_pix_distrib' in conf:
-            gen_images, gen_states = sess.run([comb_gen_img,
-                                              comb_gen_states],
-                                              feed_dict)
-            gen_distrib = None
-        else:
-            feed_dict[pix_distrib] = input_one_hot_images
-            gen_images, gen_distrib, gen_states = sess.run([comb_gen_img,
-                                                            comb_pix_distrib,
-                                                            comb_gen_states],
-                                                           feed_dict)
+                if input_one_hot_images == None:
+                    gen_images, gen_states = sess.run([comb_gen_img,
+                                                      comb_gen_states],
+                                                      feed_dict)
+                    gen_distrib = None
+                else:
+                    feed_dict[pix_distrib] = input_one_hot_images
+                    gen_images, gen_distrib, gen_states = sess.run([comb_gen_img,
+                                                                    comb_pix_distrib,
+                                                                    comb_gen_states],
+                                                                   feed_dict)
 
-        print 'time for evaluating {0} actions on {1} gpus : {2}'.format(
-            conf['batch_size'],
-            conf['ngpu'],
-            (datetime.now() - t_startiter).seconds + (datetime.now() - t_startiter).microseconds/1e6)
+                print 'time for evaluating {0} actions on {1} gpus : {2}'.format(
+                    conf['batch_size'],
+                    conf['ngpu'],
+                    (datetime.now() - t_startiter).seconds + (datetime.now() - t_startiter).microseconds/1e6)
 
-        return gen_images, gen_distrib, gen_states, None
+                return gen_images, gen_distrib, gen_states, None
 
-    return predictor_func
+            return predictor_func
 
 def filter_vars(vars):
     newlist = []

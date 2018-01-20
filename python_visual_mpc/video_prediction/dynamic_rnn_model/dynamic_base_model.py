@@ -402,10 +402,14 @@ class Dynamic_Base_Model(object):
             self.img_width = conf['img_width']
         else: self.img_width = 64
 
+        if states.get_shape().as_list()[1] != conf['sequence_length']:  # append zeros if states is shorter than sequence length
+            states = tf.concat(
+                [states, tf.zeros([conf['batch_size'], conf['sequence_length'] - conf['context_frames'], conf['sdim']])],
+                axis=1)
+
         self.trafo_pix = trafo_pix
         if pix_distrib is not None:
             assert trafo_pix == True
-            states = tf.concat([states,tf.zeros([conf['batch_size'],conf['sequence_length']-conf['context_frames'],conf['sdim']])], axis=1)
             pix_distrib = tf.concat([pix_distrib, tf.zeros([conf['batch_size'], conf['sequence_length'] - conf['context_frames'],ndesig, self.img_height, self.img_width, 1])], axis=1)
             pix_distrib = pix_distrib
 

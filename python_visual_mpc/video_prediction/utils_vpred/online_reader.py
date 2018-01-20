@@ -32,6 +32,7 @@ def get_start_end(conf):
         end = conf['total_num_img']
         t_ev_nstep = conf['take_ev_nth_step']
     else:
+        t_ev_nstep = 1
         end = conf['sequence_length']
 
     smp_range = end // t_ev_nstep - conf['sequence_length']
@@ -90,7 +91,7 @@ def read_img(tag_dict, dataind, tar=None, trajname=None):
 
     # Image.fromarray(img).show()
     # pdb.set_trace()
-
+    img = img[:,:,::-1]  #bgr => rgb
     img = img.astype(np.float32) / 255.
     return img
 
@@ -123,21 +124,26 @@ def reading_thread(conf, subset_traj, enqueue_op, sess, placeholders):
 
 def read_trajectory(conf, trajname, use_tar = False):
     """
-    parses trajectory into numpy arrays
-    :param conf: dictionary that contains:
-        sourcetags
-        sequence_length
-    :param trajname:
-    :return: dicitonary of numpy arrays
-    """
+    the configuration file needs:
+    source_basedirs key: a list of directories where to load the data from, data is concatenated (advantage: no renumbering needed when using multiple sources)
+    sourcetags: a list of tags where each tag is a dict with
+        # name: the name of the data field
+        # shape: the target shape, will be cropped to match this shape
+        # rowstart: starting row for cropping
+        # rowend: end row for cropping
+        # colstart: start column for cropping
+        # shrink_before_crop: shrink image according to this ratio before cropping
+        # brightness_threshold: if average pixel value lower discard video
+        # not_per_timestep: if this key is there, load the data for this tag at once from pkl file
 
+    :param conf:
+    :param trajname: folder of trajectory to be loaded
+    :param use_tar: whether to load from tar files
+    """
     t0 = time.time()
     # try:
     traj_index = int(re.match('.*?([0-9]+)$', trajname).group(1))
     nump_array_dict = {}
-    for tag_dict in conf['sourcetags']:
-        numpy_arr = np.zeros([conf['sequence_length']] + tag_dict['shape'], dtype=np.float32)
-        nump_array_dict[tag_dict['name']] = numpy_arr
 
     if use_tar:
         tar = open(trajname + "/traj.tar")
@@ -148,12 +154,24 @@ def read_trajectory(conf, trajname, use_tar = False):
         tar = None
         pkldata = cPickle.load(open(trajname + '/state_action.pkl', 'rb'))
 
+    for tag_dict in conf['sourcetags']:
+        if 'not_per_timestep' not in tag_dict:
+            numpy_arr = np.zeros([conf['sequence_length']] + tag_dict['shape'], dtype=np.float32)
+            nump_array_dict[tag_dict['name']] = numpy_arr
+
     start, end, take_ev_nth_step = get_start_end(conf)
+
+    filtered_source_tags = []
+    for tag_dict in conf['sourcetags']:
+        if 'not_per_timestep' in tag_dict:
+            nump_array_dict[tag_dict['name']] = pkldata[tag_dict['name']]
+        else:
+            filtered_source_tags.append(tag_dict)
 
     trajind = 0
     for dataind in range(start, end, take_ev_nth_step):
 
-        for tag_dict in conf['sourcetags']:
+        for tag_dict in filtered_source_tags:
             tag_name = tag_dict['name']
 
             if '.pkl' in tag_dict['file']:  # if it's data from Pickle file
@@ -169,28 +187,14 @@ def read_trajectory(conf, trajname, use_tar = False):
 
         trajind += 1
 
-    # important: close file
-    tar.close()
+    if use_tar:
+        tar.close() # important: close file
     return nump_array_dict
 
 
 class OnlineReader(object):
     def __init__(self, conf, mode, sess):
-        """
-        the configuration file needs:
-        source_basedirs key: a list of directories where to load the data from, data is concatenated (advantage: no renumbering needed when using multiple sources)
-        sourcetags: a list of tags where each tag is a dict with
-            # name: the name of the data field
-            # shape: the target shape, will be cropped to match this shape
-            # rowstart: starting row for cropping
-            # rowend: end row for cropping
-            # colstart: start column for cropping
-            # shrink_before_crop: shrink image according to this ratio before cropping
-            # brightness_threshold: if average pixel value lower discard video
 
-        :param conf:
-        :param mode: training, validation, test
-        """
 
         self.sess = sess
         self.conf = conf
