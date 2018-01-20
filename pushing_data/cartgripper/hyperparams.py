@@ -31,8 +31,10 @@ agent = {
     'T': 15,
     'skip_first': 40,   #skip first N time steps to let the scene settle
     'additional_viewer': True,
-    'image_height' : 64,
+    'image_height' : 48,
     'image_width' : 64,
+    'viewer_image_height' : 480,
+    'viewer_image_width' : 640,
     'image_channels' : 3,
     'num_objects': 4,
     'novideo':'',
@@ -52,7 +54,7 @@ policy = {
 
 config = {
     'traj_per_file':128,
-    'save_data': False,
+    'save_data': True,
     'start_index':0,
     'end_index': 60000,
     'agent': agent,

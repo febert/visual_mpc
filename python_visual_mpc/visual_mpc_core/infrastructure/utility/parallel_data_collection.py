@@ -47,7 +47,6 @@ def main():
 
     args = parser.parse_args()
     exp_name = args.experiment
-    parallel= args.parallel
 
     n_worker = args.nworkers
     if args.nworkers == 1:

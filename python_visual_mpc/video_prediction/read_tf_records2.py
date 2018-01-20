@@ -201,7 +201,7 @@ def main():
     conf = {}
 
     current_dir = os.path.dirname(os.path.realpath(__file__))
-    DATA_DIR = '/'.join(str.split(current_dir, '/')[:-2]) + '/pushing_data/cart_test/train'
+    DATA_DIR = '/'.join(str.split(current_dir, '/')[:-2]) + '/pushing_data/cartgripper_warptrainvidpred/train'
 
     conf['schedsamp_k'] = -1  # don't feed ground truth
     conf['data_dir'] = DATA_DIR  # 'directory containing data_files.' ,
@@ -212,14 +212,13 @@ def main():
     conf['visualize']= True
     conf['context_frames'] = 2
 
-    conf['row_start'] = 15
-    conf['row_end'] = 63
+    # conf['row_start'] = 15
+    # conf['row_end'] = 63
 
-    conf['img_width'] = 64
     conf['sdim'] = 6
     conf['adim'] = 3
 
-    # conf['orig_size'] = [48, 64]   # for vid pred data only!!!
+    conf['orig_size'] = [48, 64]
     # conf['vidpred_data'] = ''
 
     # conf['color_augmentation'] = ''

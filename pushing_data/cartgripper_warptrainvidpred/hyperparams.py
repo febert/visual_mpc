@@ -11,6 +11,13 @@ import numpy as np
 from python_visual_mpc.visual_mpc_core.algorithm.random_policy import Randompolicy
 from python_visual_mpc.visual_mpc_core.agent.agent_mjc import AgentMuJoCo
 
+import os.path
+
+import numpy as np
+
+from python_visual_mpc.visual_mpc_core.algorithm.random_policy import Randompolicy
+from python_visual_mpc.visual_mpc_core.agent.agent_mjc import AgentMuJoCo
+
 IMAGE_WIDTH = 64
 IMAGE_HEIGHT = 64
 IMAGE_CHANNELS = 3
@@ -28,15 +35,17 @@ agent = {
     'data_collection': True,
     'sample_objectpos':'',
     'adim':3,
-    'sdim':3,
+    'sdim':6,
     'xpos0': np.array([0., 0., 0.]),
     'dt': 0.05,
     'substeps': 20,  #6
     'T': 15,
     'skip_first': 40,   #skip first N time steps to let the scene settle
     'additional_viewer': True,
-    'image_height' : 64,
+    'image_height' : 48,
     'image_width' : 64,
+    'viewer_image_height' : 480,
+    'viewer_image_width' : 640,
     'image_channels' : 3,
     'num_objects': 4,
     'novideo':'',
@@ -47,8 +56,8 @@ agent = {
 
 policy = {
     'type' : Randompolicy,
-    'nactions': 15,
-    'repeats': 1, # number of repeats for each action
+    'nactions': 5,
+    'repeats': 3, # number of repeats for each action
     'initial_std': 10.,   #std dev. in xy
     'initial_std_lift': 1e-5,   #std dev. in xy
     # 'initial_std_grasp': 1e-5,   #std dev. in xy
@@ -63,3 +72,4 @@ config = {
     'policy': policy,
     'ngroup': 1000
 }
+
