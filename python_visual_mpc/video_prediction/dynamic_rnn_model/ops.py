@@ -2,6 +2,28 @@ import numpy as np
 import tensorflow as tf
 
 
+def get_coords(img_shape):
+    """
+    returns coordinate grid corresponding to identity appearance flow
+    :param img_shape:
+    :return:
+    """
+    y = tf.cast(tf.range(img_shape[1]), tf.float32)
+    x = tf.cast(tf.range(img_shape[2]), tf.float32)
+    batch_size = img_shape[0]
+
+    X,Y = tf.meshgrid(x,y)
+    coords = tf.expand_dims(tf.stack((X, Y), axis=2), axis=0)
+    coords = tf.tile(coords, [batch_size, 1,1,1])
+    return coords
+
+def resample_layer(src_img, warp_pts):
+    return tf.contrib.resampler.resampler(src_img, warp_pts)
+
+def warp_pts_layer(flow_field):
+    img_shape = flow_field.get_shape().as_list()
+    return flow_field + get_coords(img_shape)
+
 def dense(inputs, units):
     with tf.variable_scope('dense'):
         input_shape = inputs.get_shape().as_list()

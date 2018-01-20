@@ -16,6 +16,11 @@ import tensorflow.contrib.slim as slim
 from tensorflow.contrib.layers.python import layers as tf_layers
 
 def get_coords(img_shape):
+    """
+    returns coordinate grid corresponding to identity appearance flow
+    :param img_shape:
+    :return:
+    """
     y = tf.cast(tf.range(img_shape[1]), tf.float32)
     x = tf.cast(tf.range(img_shape[2]), tf.float32)
     batch_size = img_shape[0]
