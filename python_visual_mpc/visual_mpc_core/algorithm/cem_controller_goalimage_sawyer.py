@@ -23,15 +23,27 @@ import time
 # from profilehooks import coverage, timecall, profile, cProfile
 # from line_profiler import LineProfiler
 
-def compute_warp_lengths(conf, flow_field):
+
+
+def compute_warp_lengths(conf, flow_field, goal_pix=None):
     """
     :param flow_field:  shape: batch, time, r, c, 2
+    :param goal_pix: if not None evaluate flowvec only at position of goal pix
     :return:
     """
-    flow_field = np.mean(np.mean(np.linalg.norm(flow_field, axis=4), axis=2), axis=2)
-    per_time_multiplier = np.ones([flow_field.shape[0], flow_field.shape[1]])
+    flow_mags = np.linalg.norm(flow_field, axis=4)
+
+    if goal_pix != None:
+        flow_scores = 0
+        for ob in range(goal_pix.shape[0]):
+            flow_scores += flow_mags[goal_pix[ob, 0], goal_pix[ob, 1]]
+        pdb.set_trace()
+    else:
+        flow_scores = np.mean(np.mean(flow_mags, axis=2), axis=2)
+
+    per_time_multiplier = np.ones([flow_scores.shape[0], flow_scores.shape[1]])
     per_time_multiplier[:, -1] = conf['finalweight']
-    return np.sum(flow_field*per_time_multiplier, axis=1)
+    return np.sum(flow_scores*per_time_multiplier, axis=1)
 
 class CEM_controller():
     """
@@ -75,9 +87,7 @@ class CEM_controller():
         self.goal_image_warper = goal_image_warper
         self.goal_image = None
 
-        if 'ndesig' in self.netconf:
-            self.ndesig = self.netconf['ndesig']
-        else: self.ndesig = 1
+        self.ndesig = None
 
         self.K = 10  # only consider K best samples for refitting
 
@@ -198,10 +208,10 @@ class CEM_controller():
             actions = actions.reshape(self.M, self.naction_steps, self.adim)
             if self.discrete_ind != None:
                 actions = self.discretize(actions)
-            actions = self.truncate_movement(actions)
+            if 'no_action_bound' not in self.policyparams:
+                actions = self.truncate_movement(actions)
 
             actions = np.repeat(actions, self.repeat, axis=1)
-
 
             if 'random_policy' in self.policyparams:
                 print 'sampling random actions'
@@ -276,7 +286,7 @@ class CEM_controller():
         return scores
 
 
-    def video_pred(self, last_frames, last_states, actions, itr):
+    def video_pred(self, last_frames, last_states, actions, cem_itr):
 
         t0 = time.time()
         last_states = np.expand_dims(last_states, axis=0)
@@ -301,7 +311,7 @@ class CEM_controller():
         if 'use_goal_image' in self.policyparams:
             input_distrib = None
         else:
-            input_distrib = self.make_input_distrib(itr)
+            input_distrib = self.make_input_distrib(cem_itr)
         # f, axarr = plt.subplots(1, self.ndesig)
         # for p in range(self.ndesig):
         # plt.imshow(np.squeeze(input_distrib[0][0]), cmap=plt.get_cmap('jet'))
@@ -316,8 +326,7 @@ class CEM_controller():
                                                                 input_actions=actions,
                                                                 input_one_hot_images=input_distrib,
                                                                 )
-        # batch, time, ndesig
-        # print 'time for videprediction {}'.format(time.time() - t_startpred)
+        print 'time for videprediction {}'.format(time.time() - t_startpred)
 
         t_startcalcscores = time.time()
         scores_per_task = []
@@ -326,11 +335,16 @@ class CEM_controller():
             # evaluate images with goal-distance network
             flow_fields = []
             goal_image = np.repeat(self.goal_image[None], self.netconf['batch_size'], axis=0)
+            warped_image_list = []
             for tstep in range(self.netconf['sequence_length'] - 1):
-                warped_images, flow_field = self.goal_image_warper(gen_images[tstep], goal_image)
+                warped_image, flow_field = self.goal_image_warper(gen_images[tstep], goal_image)
                 flow_fields.append(flow_field)
+                warped_image_list.append(warped_image)
             flow_fields = np.stack(flow_fields, axis=1)
-            scores = compute_warp_lengths(self.policyparams, flow_fields)
+            if 'compute_warp_length_spot':
+                scores = compute_warp_lengths(self.policyparams, flow_fields, self.goal_pix)
+            else:
+                scores = compute_warp_lengths(self.policyparams, flow_fields)
         else:
             for p in range(self.ndesig):
                 start_calc_dist = time.time()
@@ -346,20 +360,25 @@ class CEM_controller():
             scores = np.sum(np.stack(scores_per_task, axis=1), axis=1)
             bestind = scores.argsort()[0]
             for p in range(self.ndesig):
-                print 'score of best traj: ', scores_per_task[p][bestind]
+                print 'score of best traj for task{}: {}'.format(p, scores_per_task[p][bestind])
 
             # for predictor_propagation only!!
             if 'predictor_propagation' in self.policyparams:
                 assert not 'correctorconf' in self.policyparams
-                if itr == (self.policyparams['iterations'] - 1):
+                if cem_itr == (self.policyparams['iterations'] - 1):
                     # pick the prop distrib from the action actually chosen after the last iteration (i.e. self.indices[0])
                     bestind = scores.argsort()[0]
                     best_gen_distrib = gen_distrib[2][bestind].reshape(1, self.ndesig, self.img_height, self.img_width, 1)
                     self.rec_input_distrib.append(np.repeat(best_gen_distrib, self.netconf['batch_size'], 0))
 
+        print 'time to calc scores {}'.format(time.time()-t_startcalcscores)
+
         bestindices = scores.argsort()[:self.K]
 
-        if self.verbose and itr == self.policyparams['iterations']-1:
+        tstart_verbose = time.time()
+
+        if self.verbose and cem_itr == self.policyparams['iterations']-1:
+            # if self.verbose:
             # print 'creating visuals for best sampled actions at last iteration...'
             if self.save_subdir != None:
                 file_path = self.netconf['current_dir']+ '/'+ self.save_subdir +'/verbose'
@@ -370,57 +389,76 @@ class CEM_controller():
                 os.makedirs(file_path)
 
             def best(inputlist):
+                """
+                get the self.K videos with the lowest cost
+                :param inputlist:
+                :return:
+                """
                 outputlist = [np.zeros_like(a)[:self.K] for a in inputlist]
                 for ind in range(self.K):
                     for tstep in range(len(inputlist)):
                         outputlist[tstep][ind] = inputlist[tstep][bestindices[ind]]
                 return outputlist
 
-            self.dict_['gen_images_t{}'.format(self.t)] = best(gen_images)
+            def get_first_n(inputlist):
+                return [inp[:self.K] for inp in inputlist]
 
-            for p in range(self.ndesig):
-                gen_distrib_p = [g[:,p] for g in gen_distrib]
-                self.dict_['gen_distrib{}_t{}'.format(p, self.t)] = best(gen_distrib_p)
+            sel_func = best
 
-            if not 'no_instant_gif' in self.agentparams:
-                t_dict_ = {}
-                t_dict_['gen_images_t{}'.format(self.t)] = best(gen_images)
+            t_dict_ = collections.OrderedDict()
+            t_dict_['gen_images_t{}'.format(self.t)] = sel_func(gen_images)
+
+            if 'use_goal_image' in self.policyparams:
+                t_dict_['warped_im_t{}'.format(self.t)] = sel_func(warped_image_list)
+            else:
                 for p in range(self.ndesig):
                     gen_distrib_p = [g[:, p] for g in gen_distrib]
-                    t_dict_['gen_distrib{}_t{}'.format(p, self.t)] = best(gen_distrib_p)
+                    t_dict_['gen_distrib{}_t{}'.format(p, self.t)] = sel_func(gen_distrib_p)
+
+            print 'itr{} best scores: {}'.format(cem_itr, [scores[bestindices[ind]] for ind in range(self.K)])
+            if self.t == 1 and 'use_goal_image' in self.policyparams:
+                t_dict_['goal_image'] = [np.repeat(np.expand_dims(self.goal_image, axis=0), self.K, axis=0) for _ in
+                                         range(len(gen_images))]
+            self.dict_.update(t_dict_)
+
+            if not 'no_instant_gif' in self.agentparams:
+                t_dict_['goal_image'] = [np.repeat(np.expand_dims(self.goal_image, axis=0), self.K, axis=0) for _ in
+                                         range(len(gen_images))]
                 v = Visualizer_tkinter(t_dict_, append_masks=False,
-                                       filepath=self.policyparams['current_dir'] + '/verbose',
-                                       numex=5)
-                v.build_figure()
+                                       filepath=self.agentparams['record'] + '/plan/',
+                                       numex=self.K, suf='t{}iter_{}'.format(self.t, cem_itr))
+                # v.build_figure()
+                v.make_direct_vid()
 
-            sorted_inds = scores.argsort()
-            bestind = sorted_inds[0]
-            middle = sorted_inds[sorted_inds.shape[0] / 2]
-            worst = sorted_inds[-1]
-            sel_ind =[bestind, middle, worst]
-            # t, r, c, 3
-            gen_im_l = []
-            gen_distrib_l = []
-            gen_score_l = []
-            for ind in sel_ind:
-                gen_im_l.append(np.stack([im[ind] for im in gen_images], axis=0).flatten())
-                gen_distrib_l.append(np.stack([d[ind] for d in gen_distrib], axis=0).flatten())
-                gen_score_l.append(scores[ind])
+            if 'sawyer' in self.agentparams:
+                sorted_inds = scores.argsort()
+                bestind = sorted_inds[0]
+                middle = sorted_inds[sorted_inds.shape[0] / 2]
+                worst = sorted_inds[-1]
+                sel_ind =[bestind, middle, worst]
+                # t, r, c, 3
+                gen_im_l = []
+                gen_distrib_l = []
+                gen_score_l = []
+                for ind in sel_ind:
+                    gen_im_l.append(np.stack([im[ind] for im in gen_images], axis=0).flatten())
+                    gen_distrib_l.append(np.stack([d[ind] for d in gen_distrib], axis=0).flatten())
+                    gen_score_l.append(scores[ind])
 
-            gen_im_l = np.stack(gen_im_l, axis=0).flatten()
-            gen_distrib_l = np.stack(gen_distrib_l, axis=0).flatten()
-            gen_score_l = np.array(gen_score_l, dtype=np.float32)
-            # print 'gen_score_l', gen_score_l
+                gen_im_l = np.stack(gen_im_l, axis=0).flatten()
+                gen_distrib_l = np.stack(gen_distrib_l, axis=0).flatten()
+                gen_score_l = np.array(gen_score_l, dtype=np.float32)
+                # print 'gen_score_l', gen_score_l
 
-            self.gen_image_publisher.publish(gen_im_l)
-            self.gen_pix_distrib_publisher.publish(gen_distrib_l)
-            self.gen_score_publisher.publish(gen_score_l)
+                self.gen_image_publisher.publish(gen_im_l)
+                self.gen_pix_distrib_publisher.publish(gen_distrib_l)
+                self.gen_score_publisher.publish(gen_score_l)
 
         if 'store_video_prediction' in self.agentparams and\
-                itr == (self.policyparams['iterations']-1):
+                cem_itr == (self.policyparams['iterations']-1):
             self.terminal_pred = gen_images[-1][bestind]
 
-        # print 'td', time.time() - start_t2
+        print 'verbose time', time.time() - tstart_verbose
 
         return scores
 
@@ -475,18 +513,20 @@ class CEM_controller():
             input_distrib = np.concatenate(input_distrib, axis=1)
         return input_distrib
 
-    def act(self, traj, t, desig_pix = None, goal_pix= None):
+    def act(self, traj, t, desig_pix = None, goal_pix= None, goal_image=None):
         """
         Return a random action for a state.
         Args:
             t: the current controller's Time step
             init_model: mujoco model to initialize from
         """
+        self.goal_image = goal_image
+        self.goal_pix = goal_pix
+        self.desig_pix = np.array(desig_pix).reshape((-1, 2))
+        self.ndesig = self.desig_pix.shape[0]
+
         self.t = t
         print 'starting cem at t{}...'.format(t)
-
-        if not 'use_goal_image' in self.policyparams:
-            self.desig_pix = np.array(desig_pix).reshape((self.ndesig, 2))
 
         if t == 0:
             action = np.zeros(self.agentparams['adim'])

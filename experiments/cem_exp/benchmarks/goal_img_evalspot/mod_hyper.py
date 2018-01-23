@@ -51,6 +51,7 @@ policy = {
     'finalweight':10,
     'use_goal_image':'',
     'no_action_bound':"",
+    'compute_warp_length_spot':''
 }
 
 tag_images = {'name': 'images',

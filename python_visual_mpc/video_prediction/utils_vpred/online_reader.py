@@ -231,6 +231,8 @@ class OnlineReader(object):
         else:
             self.traj_list = make_traj_name_list(conf, shuffle=self.shuffle)
 
+        self.start_threads(self.traj_list)
+
 
     def get_batch_tensors(self):
         images, states, actions = self.q.dequeue_many(self.conf['batch_size'])
@@ -329,11 +331,11 @@ def test_online_reader():
     os.environ["CUDA_VISIBLE_DEVICES"] = "1"
     print 'using CUDA_VISIBLE_DEVICES=', os.environ["CUDA_VISIBLE_DEVICES"]
 
-    hyperparams_file = '/home/frederik/Documents/catkin_ws/src/visual_mpc/pushing_data/cartgripper_img/conf.py'
+    hyperparams_file = '/home/frederik/Documents/catkin_ws/src/visual_mpc/pushing_data/cartgripper_bench_conf/hyperparams.py'
     hyperparams = imp.load_source('hyperparams', hyperparams_file)
-    conf = hyperparams.configuration
+    conf = hyperparams.config
 
-    conf['batch_size'] = 32
+    conf['batch_size'] = 10
 
     print '-------------------------------------------------------------------'
     print 'verify current settings!! '
@@ -344,9 +346,9 @@ def test_online_reader():
     print 'testing the reader'
 
     sess = tf.InteractiveSession()
-    r = OnlineReader(conf, 'train', sess=sess)
-    image_batch, endeff_pos_batch, action_batch = r.get_batch_tensors()
+    r = OnlineReader(conf, 'test', sess=sess)
 
+    image_batch, endeff_pos_batch, action_batch = r.get_batch_tensors()
 
     from python_visual_mpc.video_prediction.utils_vpred.create_gif_lib import comp_single_video
 
@@ -363,8 +365,9 @@ def test_online_reader():
             print 'average time:', np.average(np.array(deltat))
         end = time.time()
 
-        # file_path = conf['current_dir'] + '/preview'
-        # comp_single_video(file_path, images)
+        file_path = conf['current_dir'] + '/preview'
+        comp_single_video(file_path, images)
+        pdb.set_trace()
 
         # show some frames
         # for b in range(conf['batch_size']):

@@ -27,7 +27,7 @@ def variable_checkpoint_matcher(conf, vars, model_file=None):
       if varname_parts == ck_name_parts[-len(varname_parts):]:
         new_vars[ck_name] = vars[varname]
         found = True
-        print "found {} in {}".format(varname, ck_name)
+        # print "found {} in {}".format(varname, ck_name)
         break
     if not found:
       raise ValueError("did not find variable{}".format(varname))

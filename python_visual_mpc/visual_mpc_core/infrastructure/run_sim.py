@@ -53,7 +53,6 @@ class Sim(object):
                 self.policy = config['policy']['type'](config['agent'], config['policy'], self.predictor, self.goal_image_waper)
             else:
                 self.policy = config['policy']['type'](config['agent'], config['policy'], self.predictor)
-
         else:
             self.policy = config['policy']['type'](config['agent'], config['policy'])
 
@@ -80,6 +79,7 @@ class Sim(object):
         """
         start = datetime.now()
         traj = self.agent.sample(self.policy, sample_index)
+
 
         if self._hyperparams['save_data']:
             self.save_data(traj, sample_index)

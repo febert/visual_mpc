@@ -99,7 +99,8 @@ class GoalDistanceNet(object):
 
     def sel_images(self):
         sequence_length = self.conf['sequence_length']
-        delta_t = tf.cast(tf.ceil(sequence_length * (self.iter_num + 1) / 100), dtype=tf.int32)  #################
+        t_fullrange = 2e4
+        delta_t = tf.cast(tf.ceil(sequence_length * (self.iter_num + 1) / t_fullrange), dtype=tf.int32)
         delta_t = tf.clip_by_value(delta_t, 1, sequence_length-1)
 
         self.tstart = tf.random_uniform([1], 0, sequence_length - delta_t, dtype=tf.int32)
@@ -219,7 +220,6 @@ class GoalDistanceNet(object):
             outputs.append(output)
 
             flow_mag = np.linalg.norm(flow, axis=3)
-            flow_mag = np.split(np.squeeze(flow_mag), num_examples, axis=0)
             cmap = plt.cm.get_cmap('jet')
             flow_mag_ = []
 
@@ -240,7 +240,7 @@ class GoalDistanceNet(object):
             'warpscores':warpscores}
 
         cPickle.dump(dict, open(self.conf['output_dir'] + '/data.pkl', 'wb'))
-        make_plots(dict)
+        make_plots(self.conf, dict=dict)
 
         #     im_height = output.shape[1]
         #     im_width = output.shape[2]

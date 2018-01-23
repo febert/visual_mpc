@@ -33,6 +33,8 @@ def create_object_xml(hyperparams, load_dict_list=None):
             color2 = dict['color2'] = np.random.uniform(0.3, 1., 3)
             l1 = dict['l1'] =np.random.uniform(0.01, 0.2)
             l2 = dict['l2'] =np.random.uniform(0.01, 0.2)
+
+            pos2 = dict['pos2']= np.random.uniform(0.01, l1)
             save_dict_list.append(dict)
         else:
             dict = load_dict_list[i]
@@ -40,10 +42,11 @@ def create_object_xml(hyperparams, load_dict_list=None):
             color2 = dict['color2']
             l1 = dict['l1']
             l2 = dict['l2']
+            pos2 = dict['pos2']
 
         ET.SubElement(obj, "geom", type="box", size=".03 {} .03".format(l1), rgba="{} {} {} 1".format(color1[0], color1[1], color1[2]))
 
-        pos2 = np.random.uniform(0.01, l1)
+
         ET.SubElement(obj, "geom", pos="{} {} 0.0".format(l2, pos2), type="box", size="{} .03 .03".format(l2),
                       rgba="{} {} {} 1".format(color2[0], color2[1], color2[2]))
 

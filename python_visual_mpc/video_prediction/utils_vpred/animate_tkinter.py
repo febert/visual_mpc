@@ -128,7 +128,7 @@ class Visualizer_tkinter(object):
         if 'iternum' in dict_:
             self.iternum = dict_['iternum']
             del dict_['iternum']
-        else: self.iternum = 0
+        else: self.iternum = ""
 
         if 'gen_images' in dict_:
             gen_images = dict_['gen_images']

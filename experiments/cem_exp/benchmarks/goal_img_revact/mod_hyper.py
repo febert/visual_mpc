@@ -68,6 +68,7 @@ tag_object_statprop = {'name': 'obj_statprop',
                      'not_per_timestep':''}
 
 config = {
+    'reverse_action':'',
     'save_data': False,
     'save_raw_images':'',
     'start_index':0,

@@ -43,28 +43,6 @@ class Randompolicy(Policy):
         sigma = np.diag(diag)
         return sigma
 
-    # def construct_initial_sigma(self):
-    #     xy_std = self.policyparams['initial_std']
-    #
-    #     if 'initial_std_grasp' in self.policyparams:
-    #         gr_std = self.policyparams['initial_std_grasp']
-    #     else:
-    #         gr_std = 1.
-    #
-    #     if 'initial_std_lift' in self.policyparams:
-    #         lift_std = self.policyparams['initial_std_lift']
-    #     else:
-    #         lift_std = 1.
-    #
-    #     diag = []
-    #     if self.adim == 4:
-    #         diag.append(np.array([xy_std ** 2, xy_std ** 2, lift_std ** 2, gr_std ** 2]))
-    #     elif self.adim == 3:
-    #         diag.append(np.array([xy_std ** 2, xy_std ** 2, lift_std ** 2]))
-    #
-    #     sigma = np.diag(diag[0])
-    #     return sigma
-
 
     def act(self, traj, t):
 
@@ -72,7 +50,6 @@ class Randompolicy(Policy):
 
         assert self.agentparams['T'] == self.naction_steps*repeat
 
-        # mvn samples are wrong sometimes for some strange reason
         if t ==0:
             mean = np.zeros(self.adim * self.naction_steps)
             # initialize mean and variance of the discrete actions to their mean and variance used during data collection
@@ -84,11 +61,6 @@ class Randompolicy(Policy):
             self.actions = self.actions.reshape(self.naction_steps, self.adim)
             self.actions = np.repeat(self.actions, repeat, axis=0)
 
-        # mean = np.zeros(self.adim)
-        # sigma = self.construct_initial_sigma()
-        # self.actions = np.random.multivariate_normal(mean, sigma)
-        #
-        # return self.actions, None
         return self.actions[t], None
 
     def finish(self):

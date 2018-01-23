@@ -8,6 +8,8 @@ import pdb
 import cPickle
 from PIL import Image
 import matplotlib.pyplot as plt
+from python_visual_mpc.video_prediction.misc.makegifs2 import assemble_gif, npy_to_gif
+from pyquaternion import Quaternion
 
 import time
 from python_visual_mpc.visual_mpc_core.infrastructure.trajectory import Trajectory
@@ -40,6 +42,9 @@ class AgentMuJoCo(object):
         self.sdim = self._hyperparams['sdim']
         self.adim = self._hyperparams['adim']
 
+        self.goal_obj_pose = None
+        self.goal_image = None
+
         self.load_obj_statprop = None  #loaded static object properties
         self._setup_world()
 
@@ -61,12 +66,12 @@ class AgentMuJoCo(object):
         self.model_nomarkers = mujoco_py.MjModel(xmlfilename_nomarkers)
 
         gofast = True
-        self._small_viewer = mujoco_py.MjViewer(visible=True,
-                                                init_width=self._hyperparams['viewer_image_width'],
-                                                init_height=self._hyperparams['viewer_image_height'],
-                                                go_fast=gofast)
-        self._small_viewer.start()
-        self._small_viewer.cam.camid = 0
+        self.viewer = mujoco_py.MjViewer(visible=True,
+                                         init_width=self._hyperparams['viewer_image_width'],
+                                         init_height=self._hyperparams['viewer_image_height'],
+                                         go_fast=gofast)
+        self.viewer.start()
+        self.viewer.cam.camid = 0
 
     def sample(self, policy, i_tr, verbose=True, save=True, noisy=False):
         """
@@ -75,7 +80,7 @@ class AgentMuJoCo(object):
         """
         if "gen_xml" in self._hyperparams:
             if i_tr % self._hyperparams['gen_xml'] == 0:
-                self._small_viewer.finish()
+                self.viewer.finish()
                 self._setup_world()
 
         traj_ok = False
@@ -88,19 +93,15 @@ class AgentMuJoCo(object):
         print 'needed {} trials'.format(i_trial)
 
         tfinal = self._hyperparams['T'] -1
-        # if not self._hyperparams['data_collection']:  ############
-        #     if 'use_goal_image' in self._hyperparams:
-        #         self.final_poscost, self.final_anglecost = self.eval_action(traj, tfinal, getanglecost=True)
-        #     else:
-        #         self.final_poscost = self.eval_action(traj, tfinal)
+        if not 'data_collection' in self._hyperparams:
+            self.final_poscost, self.final_anglecost = self.eval_action(traj, tfinal, getanglecost=True)
 
         if 'save_goal_image' in self._hyperparams:
             self.save_goal_image_conf(traj)
 
-        if not 'novideo' in self._hyperparams:
+        if 'make_final_gif' in self._hyperparams:
             self.save_gif()
 
-        policy.finish()
         return traj
 
     def get_max_move_pose(self, traj):
@@ -109,7 +110,6 @@ class AgentMuJoCo(object):
         :param traj:
         :return:
         """
-
         delta_move = np.zeros(self._hyperparams['num_objects'])
         for i in range(self._hyperparams['num_objects']):
             for t in range(self.T-1):
@@ -120,14 +120,50 @@ class AgentMuJoCo(object):
 
         return traj
 
+    def get_desig_pix(self, round=True):
+        qpos_dim = self.sdim / 2  # the states contains pos and vel
+        assert self._model.data.qpos.shape[0] == qpos_dim + 7 * self._hyperparams['num_objects']
+        desigpix = []
+        for i in range(self._hyperparams['num_objects']):
+            fullpose = self._model.data.qpos[i * 7 + qpos_dim:(i + 1) * 7 + qpos_dim].squeeze()
+            desigpix.append(self.viewer.project_point(fullpose[:3]))
+        ratio = self._hyperparams['viewer_image_width']/self._hyperparams['image_width']
+        desig_pix = np.stack(desigpix) / ratio
+        if round:
+            desig_pix = np.around(desig_pix).astype(np.int)
+        return desig_pix
+
+    def get_goal_pix(self, round=True):
+        goal_pix = []
+        for i in range(self._hyperparams['num_objects']):
+            goal_pix.append(self.viewer.project_point(self.goal_obj_pose[i, :3]))
+
+        ratio = self._hyperparams['viewer_image_width'] / self._hyperparams['image_width']
+
+        goal_pix = np.stack(goal_pix) / ratio
+        if round:
+            goal_pix = np.around(goal_pix).astype(np.int)
+
+        # img = self.goal_image
+        # for i in range(self._hyperparams['num_objects']):
+        #     img[goal_pix[i, 0], goal_pix[i, 1]] = np.array([1., 1., 1.])
+        # plt.imshow(img)
+        # plt.show()
+        # print 'goal_pix', goal_pix
+        # print 'goal obj pose', self.goal_obj_pose
+        return goal_pix
+
     def rollout(self, policy):
+        self.viewer.set_model(self.model_nomarkers)
+        self.viewer.cam.camid = 0
+
         self._init()
+        if 'data_collection' not in self._hyperparams:
+            self.goal_pix = self.get_goal_pix()   # has to occurr after self.viewer.cam.camid = 0 and set_model!!!
+
         traj = Trajectory(self._hyperparams)
         if 'gen_xml' in self._hyperparams:
             traj.obj_statprop = self.obj_statprop
-
-        self._small_viewer.set_model(self.model_nomarkers)
-        self._small_viewer.cam.camid = 0
 
         # apply action of zero for the first few steps, to let the scene settle
         for t in range(self._hyperparams['skip_first']):
@@ -151,9 +187,7 @@ class AgentMuJoCo(object):
                 zangle = self.quat_to_zangle(fullpose[3:])
                 traj.Object_pose[t, i, :] = np.concatenate([fullpose[:2], zangle])  # save only xyz, theta
 
-            # if 'data_collection' not in  self._hyperparams:
-            #     traj.score[t] = self.eval_action(traj, t)
-
+            self.desig_pix = self.get_desig_pix()
             self._store_image(t, traj, policy)
 
             if 'data_collection' in self._hyperparams or 'random_baseline' in self._hyperparams:
@@ -161,9 +195,11 @@ class AgentMuJoCo(object):
             elif 'gtruth_planner' in self._hyperparams:
                 mj_U, pos, ind, targets = policy.act(traj, t, init_model=self._model)
             else:
-                mj_U, bestindices_of_iter, rec_input_distrib = policy.act(traj, t)
-                # if self._hyperparams['add_traj']:  # whether to add visuals for trajectory
-                #     self.large_images_traj += self.add_traj_visual(self.large_images[t], pos, ind, targets)
+                mj_U, bestindices_of_iter, rec_input_distrib = policy.act(traj, t, desig_pix=self.desig_pix,goal_pix=self.goal_pix, goal_image=self.goal_image)
+                if 'add_traj_visual' in self._hyperparams:  # whether to add visuals for trajectory
+                    self.large_images_traj += self.add_traj_visual(self.large_images[t], pos, ind, targets)
+                else:
+                    self.large_images_traj.append(self.large_images[t])
 
             if 'poscontroller' in self._hyperparams.keys():
                 traj.actions[t, :] = target_inc
@@ -205,6 +241,12 @@ class AgentMuJoCo(object):
         else:
             traj_ok = True
 
+        #discarding trajecotries where an object falls out of the bin:
+        end_zpos = [traj.Object_full_pose[-1, i, 2] for i in range(self._hyperparams['num_objects'])]
+        if any(zval < -2e-2 for zval in end_zpos):
+            print 'object fell out!!!'
+            traj_ok = False
+
         return traj_ok, traj
 
     def save_goal_image_conf(self, traj):
@@ -236,28 +278,24 @@ class AgentMuJoCo(object):
         img.save(self._hyperparams['save_goal_image'] + '.png',)
 
     def eval_action(self, traj, t, getanglecost=False):
-        if 'use_goal_image' not in self._hyperparams:
-            goalpoint = np.array(self._hyperparams['goal_point'])
-            refpoint = self._model.data.site_xpos[0,:2]
-            return np.linalg.norm(goalpoint - refpoint)
-        else:
-            goalpos = self._hyperparams['goal_object_pose'][0][0:2]
-            goal_quat= self._hyperparams['goal_object_pose'][0][3:]
-            curr_pos = traj.Object_pos[t, 0, 0:2]
 
-            goalangle = self.quat_to_zangle(goal_quat)
-            currangle = traj.Object_pos[t, 0, 2]
-            anglediff = self.calc_anglediff(goalangle, currangle)
-            mult = 0.01 #0.1
-            anglecost = np.abs(anglediff) / np.pi *180 * mult
+        abs_distances = []
+        abs_angle_dist = []
 
-            poscost = np.linalg.norm(goalpos - curr_pos)
-            print 'angle diff cost :', anglecost
-            print 'pos cost: ', poscost
+        for i_ob in range(self._hyperparams['num_objects']):
 
-            if getanglecost:
-                return poscost, anglecost
-            else: return poscost
+            goal_pos = self.goal_obj_pose[i_ob, :3]
+            curr_pos = traj.Object_full_pose[t, i_ob, :3]
+            abs_distances.append(np.linalg.norm(goal_pos - curr_pos))
+
+            goal_quat = Quaternion(self.goal_obj_pose[i_ob, 3:])
+            curr_quat = Quaternion(traj.Object_full_pose[t, i_ob, 3:])
+
+            diff_quat = curr_quat.conjugate*goal_quat
+            abs_angle_dist.append(np.abs(diff_quat.radians))
+
+        return np.sum(np.array(abs_distances)), np.sum(np.array(abs_angle_dist))
+
 
     def zangle_to_quat(self, zangle):
         """
@@ -281,23 +319,6 @@ class AgentMuJoCo(object):
         while delta < -np.pi:
             delta += 2*np.pi
         return delta
-
-    def enforce(self, model):
-        vel = model.data.qvel[:2].squeeze()
-        des_vel = deepcopy(vel)
-        vmax = self._hyperparams['vellimit']
-        des_vel[des_vel> vmax] = vmax
-        des_vel[des_vel<-vmax] = -vmax
-        gain = 1000
-        force = -(vel - des_vel) * gain
-        # if np.any(force != 0):
-            # print 'enforcing vel constraint', force
-            # print 'vel ',vel
-            # print 'des_vel ', des_vel
-            # print 'velocity constraint violation', (vel - des_vel)
-            # print 'correction force:', force
-        return force
-
 
     def get_world_coord(self, proj_mat, depth_image, pix_pos):
         depth = depth_image[pix_pos[0], pix_pos[1]]
@@ -337,7 +358,6 @@ class AgentMuJoCo(object):
         Axes3D.scatter(ax, px, py, pz)
         plt.show()
 
-
     def _store_image(self,t, traj, policy):
         """
         store image at time index t
@@ -346,27 +366,23 @@ class AgentMuJoCo(object):
         self.model_nomarkers.data.qpos = self._model.data.qpos
         self.model_nomarkers.data.qvel = self._model.data.qvel
         self.model_nomarkers.step()
-        self._small_viewer.loop_once()
+        self.viewer.loop_once()
 
-        img_string, width, height = self._small_viewer.get_image()
+        img_string, width, height = self.viewer.get_image()
         large_img = np.fromstring(img_string, dtype='uint8').reshape((height, width, 3))[::-1,:,:]
         self.large_images.append(large_img)
 
+        assert self._hyperparams['viewer_image_width']/self._hyperparams['image_width'] == self._hyperparams['viewer_image_height']/self._hyperparams['image_height']
         traj._sample_images[t,:,:,:] = cv2.resize(large_img, dsize=(self._hyperparams['image_width'], self._hyperparams['image_height']))
 
-        if 'gen_point_cloud' in self._hyperparams:
-            # getting depth values
-            (img_string, width, height), proj_mat = self._small_viewer.get_depth()
-            dimage = np.fromstring(img_string, dtype=np.float32).reshape(
-                (width, height, 1))[::-1, :, :]
-            Image.fromarray(np.squeeze(dimage*255.).astype(np.uint8)).show()
-            pcl_dict = {}
-            pcl = self.get_point_cloud(dimage, proj_mat)
-            pcl_dict['pcl'] = pcl
-            pcl_dict['image'] = img
-            cPickle.dump(pcl_dict, open(self._hyperparams['pcldir']+'cloud.pkl' ,'wb'))
-            # self.plot_point_cloud(pcl)
-            pdb.set_trace()
+        # img = traj._sample_images[t,:,:,:] # verify desigpos
+        # desig_pix = np.around(self.desig_pix).astype(np.int)
+        # # img = large_img
+        # for i in range(self._hyperparams['num_objects']):
+        #     img[desig_pix[i][0], desig_pix[i][1]] = np.array([255, 255, 255])
+        # print 'desig_pix', desig_pix
+        # plt.imshow(img)
+        # plt.show()
 
         if 'store_video_prediction' in self._hyperparams:
             if t > 1:
@@ -420,11 +436,10 @@ class AgentMuJoCo(object):
 
     def save_gif(self):
         file_path = self._hyperparams['record']
-        from python_visual_mpc.video_prediction.utils_vpred.create_gif import npy_to_gif
         if 'random_baseline' in self._hyperparams:
-            npy_to_gif(self.large_images, file_path)
+            npy_to_gif(self.large_images, file_path +'/video')
         else:
-            npy_to_gif(self.large_images_traj, file_path)
+            npy_to_gif(self.large_images_traj, file_path +'/video')
 
     def _init(self):
         """

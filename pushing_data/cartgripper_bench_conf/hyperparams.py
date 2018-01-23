@@ -7,6 +7,10 @@ import numpy as np
 from python_visual_mpc.visual_mpc_core.algorithm.random_policy import Randompolicy
 from python_visual_mpc.visual_mpc_core.agent.agent_mjc import AgentMuJoCo
 
+import os
+
+current_dir = '/'.join(str.split(__file__, '/')[:-1])
+
 IMAGE_WIDTH = 64
 IMAGE_HEIGHT = 64
 IMAGE_CHANNELS = 3
@@ -53,29 +57,35 @@ policy = {
     'use_goal_image':''
 }
 
-source_tag_images = {'name': 'images',
-                     'file':'/images/im{}.png',   # only tindex
-                     'shape':[48,64,3],
-                     'dtype':'uint8'}
+tag_images = {'name': 'images',
+             'file':'/images/im{}.png',   # only tindex
+             'shape':[agent['image_height'],agent['image_width'],3],
+               }
+
 tag_qpos = {'name': 'qpos',
-             'shape':[6],
-             'dtype':'float32',
+             'shape':[3],
              'file':'/state_action.pkl'}
 tag_object_full_pose = {'name': 'object_full_pose',
-                         'shape':[6],
-                         'dtype':'float32',
+                         'shape':[4,7],
                          'file':'/state_action.pkl'}
 tag_object_statprop = {'name': 'obj_statprop',
                      'not_per_timestep':''}
+
+source_tag_actions = {'name':'actions',
+                      'shape': [3],
+                      'file':'/state_action.pkl'
+                      }
 
 config = {
     'save_raw_images':'',
     'save_data': True,
     'start_index': 0,
-    'end_index': 10000,
+    'end_index': 1000,
     'agent': agent,
     'policy': policy,
     'ngroup': 100,
-    'sourcetags':[tag_qpos, tag_object_full_pose, tag_object_statprop],
-    'sequence_length':agent['T']
+    'sourcetags':[tag_images, tag_qpos, source_tag_actions],
+    'sequence_length':agent['T'],
+    'source_basedirs':[current_dir + '/train'],
+    'current_dir':current_dir,
 }

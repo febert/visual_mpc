@@ -61,14 +61,10 @@ def perform_benchmark(conf = None):
 
     # sample intial conditions and goalpoints
 
-    if 'verbose' in conf['policy']:
-        print 'verbose mode!! just running 1 configuration'
-        nruns = 1
-
     if 'n_reseed' in conf['policy']:
         n_reseed = conf['policy']['n_reseed']
     else:
-        n_reseed = 3
+        n_reseed = 1
 
     anglecost = []
     sim = Sim(conf, gpu_id= gpu_id, ngpu= ngpu)
@@ -88,21 +84,37 @@ def perform_benchmark(conf = None):
         i_conf = 0
         traj = 0
 
+    # if 'verbose' in conf['policy']:
+    #     print 'verbose mode!! just running 1 configuration'
+    #     nruns = 1
+
     goalpoints = benchconfiguration['goalpoints']
     initialposes = benchconfiguration['initialpos']
 
-    scores = np.zeros(nruns)
+    scores_l = []
+    anglecost_l = []
 
     if 'sourcetags' in conf:  # load data per trajectory
         traj_names = make_traj_name_list({'source_basedirs': conf['source_basedirs'],
                                                   'ngroup': conf['ngroup']}, shuffle=False)
 
     while traj < nruns:
+
         if 'sourcetags' in conf:  #load data per trajectory from folder structure
             dict = read_trajectory(conf, traj_names[traj])
-            sim.agent._hyperparams['xpos0'] = dict['qpos'][0]
-            sim.agent._hyperparams['object_pos0'] = dict['object_full_pose'][0]
             sim.agent.load_obj_statprop = dict['obj_statprop']
+            if 'reverse_action' in conf:
+                init_index = -1
+                goal_index = 0
+            else:
+                init_index = 0
+                goal_index = -1
+            sim.agent._hyperparams['xpos0'] = dict['qpos'][init_index]
+            sim.agent._hyperparams['object_pos0'] = dict['object_full_pose'][init_index]
+            sim.agent.object_full_pose_t = dict['object_full_pose']
+            sim.agent.goal_obj_pose = dict['object_full_pose'][goal_index]   #needed for calculating the score
+            sim.agent.goal_image = dict['images'][goal_index]  # assign last image of trajectory as goalimage
+
         else: #load when loading data from a single file
             sim.agent._hyperparams['xpos0'] = initialposes[i_conf]
             sim.agent._hyperparams['object_pos0'] = goalpoints[i_conf]
@@ -123,7 +135,10 @@ def perform_benchmark(conf = None):
             print 'using random seed', seed
             print '-------------------------------------------------------------------'
 
-            sim.agent._hyperparams['record'] = bench_dir + '/videos/traj{0}_conf{1}'.format(traj, i_conf)
+            record_dir = bench_dir + '/verbose/traj{0}_conf{1}'.format(traj, i_conf)
+            if not os.path.exists(record_dir):
+                os.makedirs(record_dir)
+            sim.agent._hyperparams['record'] = record_dir
 
             # reinitilize policy between rollouts
             if 'usenet' in conf['policy']:
@@ -138,37 +153,34 @@ def perform_benchmark(conf = None):
 
             sim.policy.policyparams['rec_distrib'] = bench_dir + '/videos_distrib/traj{0}_conf{1}'.format(traj, i_conf)
 
-            if 'sourcetags' in conf:
-                sim.policy.goal_image = dict['images'][-1]  # assign last image of trajectory as goalimage
             sim._take_sample(traj)
 
-            scores[traj] = sim.agent.final_poscost
+            scores_l.append(sim.agent.final_poscost)
+            anglecost_l.append(sim.agent.final_anglecost)
 
-            if 'use_goal_image' in conf['agent']:
-                anglecost.append(sim.agent.final_anglecost)
-
-            print 'score of traj', traj, ':', scores[traj]
+            print 'score of traj{},{} anglecost{}'.format(traj, scores_l[-1], anglecost_l[-1])
 
             traj +=1 #increment trajectories every step!
 
         i_conf += 1 #increment configurations every three steps!
 
-        rel_scores = scores[:traj]
-        sorted_ind = rel_scores.argsort()
+        scores = np.array(scores_l)
+        sorted_ind = scores.argsort()
+        anglecost = np.array(anglecost_l)
         f = open(bench_dir + '/results', 'w')
         f.write('experiment name: ' + benchmark_name + '\n')
-        f.write('overall best pos score: {0} of traj {1}\n'.format(rel_scores[sorted_ind[0]], sorted_ind[0]))
-        f.write('overall worst pos score: {0} of traj {1}\n'.format(rel_scores[sorted_ind[-1]], sorted_ind[-1]))
-        f.write('average pos score: {0}\n'.format(np.sum(rel_scores) / traj))
-        f.write('standard deviation {0}\n'.format(np.sqrt(np.var(rel_scores))))
+        f.write('overall best pos score: {0} of traj {1}\n'.format(scores[sorted_ind[0]], sorted_ind[0]))
+        f.write('overall worst pos score: {0} of traj {1}\n'.format(scores[sorted_ind[-1]], sorted_ind[-1]))
+        f.write('average pos score: {0}\n'.format(np.mean(scores)))
+        f.write('standard deviation of population {0}\n'.format(np.std(scores)))
+        f.write('standard error of the mean (SEM) {0}\n'.format(np.std(scores)/np.sqrt(scores.shape[0])))
+        f.write('---\n')
+        f.write('average angle cost: {0}\n'.format(np.mean(anglecost)))
         f.write('----------------------\n')
         f.write('traj: score, anglecost, rank\n')
         f.write('----------------------\n')
         for t in range(traj):
-            if 'use_goal_image' in conf['agent']:
-                f.write('{0}: {1}, {2}, :{3}\n'.format(t, rel_scores[t], anglecost[t], np.where(sorted_ind == t)[0][0]))
-            else:
-                f.write('{0}: {1}, :{2}\n'.format(t, rel_scores[t], np.where(sorted_ind == t)[0][0]))
+            f.write('{0}: {1}, {2}, :{3}\n'.format(t, scores[t], anglecost[t], np.where(sorted_ind == t)[0][0]))
         f.close()
 
     print 'overall best score: {0} of traj {1}'.format(scores[sorted_ind[0]], sorted_ind[0])

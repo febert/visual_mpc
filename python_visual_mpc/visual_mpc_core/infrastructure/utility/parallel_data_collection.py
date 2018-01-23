@@ -110,7 +110,8 @@ def main():
     import shutil
     files = glob.glob(traindir + '/*')
     files = sorted_alphanumeric(files)
-    shutil.move(files[0], testdir)
+    if os.path.isfile(files[0]): #don't do anything if directory
+        shutil.move(files[0], testdir)
 
 def sorted_alphanumeric(l):
     """ Sort the given iterable in the way that humans expect."""
