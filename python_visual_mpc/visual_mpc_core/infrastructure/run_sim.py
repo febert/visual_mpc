@@ -27,7 +27,6 @@ class Sim(object):
 
     def __init__(self, config, quit_on_end=False, gpu_id=0, ngpu=1):
 
-        self._quit_on_end = quit_on_end
         self._hyperparams = config
         self.agent = config['agent']['type'](config['agent'])
         self.agentparams = config['agent']
@@ -79,7 +78,6 @@ class Sim(object):
         """
         start = datetime.now()
         traj = self.agent.sample(self.policy, sample_index)
-
 
         if self._hyperparams['save_data']:
             self.save_data(traj, sample_index)

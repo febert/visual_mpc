@@ -167,6 +167,8 @@ def perform_benchmark(conf = None):
         scores = np.array(scores_l)
         sorted_ind = scores.argsort()
         anglecost = np.array(anglecost_l)
+        if os.path.isfile(bench_dir + '/results'):
+            raise ValueError("the file {} already exists!!".format(bench_dir + '/results'))
         f = open(bench_dir + '/results', 'w')
         f.write('experiment name: ' + benchmark_name + '\n')
         f.write('overall best pos score: {0} of traj {1}\n'.format(scores[sorted_ind[0]], sorted_ind[0]))

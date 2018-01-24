@@ -13,7 +13,7 @@ from python_visual_mpc.visual_mpc_core.agent.agent_mjc import AgentMuJoCo
 
 agent = {
     'type': AgentMuJoCo,
-    'T': 20,
+    'T': 25,
     'substeps':20,
     'adim':3,
     'sdim':6,
@@ -24,7 +24,7 @@ agent = {
     'filename': ROOT_DIR + '/mjc_models/cartgripper.xml',
     'filename_nomarkers': ROOT_DIR + '/mjc_models/cartgripper.xml',
     'gen_xml':1,   #generate xml every nth trajecotry
-    'num_objects': 4,
+    'num_objects': 1,
     'viewer_image_height' : 480,
     'viewer_image_width' : 640,
     'image_height':48,
@@ -51,7 +51,6 @@ policy = {
     'finalweight':10,
     'use_goal_image':'',
     'no_action_bound':"",
-    'compute_warp_length_spot':''
 }
 
 tag_images = {'name': 'images',
@@ -69,7 +68,6 @@ tag_object_statprop = {'name': 'obj_statprop',
                      'not_per_timestep':''}
 
 config = {
-    'reverse_action':'',
     'save_data': False,
     'save_raw_images':'',
     'start_index':0,
@@ -78,6 +76,6 @@ config = {
     'policy':policy,
     'ngroup': 100,
     'sourcetags':[tag_images, tag_qpos, tag_object_full_pose, tag_object_statprop],
-    'source_basedirs':[ROOT_DIR + '/pushing_data/cartgripper_bench_conf/train'],
-    'sequence_length':15
+    'source_basedirs':[ROOT_DIR + '/pushing_data/cartgripper_startgoal/train'],
+    'sequence_length':2
 }

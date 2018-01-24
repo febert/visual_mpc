@@ -358,7 +358,7 @@ class AgentMuJoCo(object):
         Axes3D.scatter(ax, px, py, pz)
         plt.show()
 
-    def _store_image(self,t, traj, policy):
+    def _store_image(self,t, traj, policy=None):
         """
         store image at time index t
         """
@@ -373,7 +373,7 @@ class AgentMuJoCo(object):
         self.large_images.append(large_img)
 
         assert self._hyperparams['viewer_image_width']/self._hyperparams['image_width'] == self._hyperparams['viewer_image_height']/self._hyperparams['image_height']
-        traj._sample_images[t,:,:,:] = cv2.resize(large_img, dsize=(self._hyperparams['image_width'], self._hyperparams['image_height']))
+        traj._sample_images[t,:,:,:] = cv2.resize(large_img, dsize=(self._hyperparams['image_width'], self._hyperparams['image_height']), interpolation = cv2.INTER_AREA)
 
         # img = traj._sample_images[t,:,:,:] # verify desigpos
         # desig_pix = np.around(self.desig_pix).astype(np.int)
@@ -476,22 +476,3 @@ class AgentMuJoCo(object):
             self._model.data.qpos = np.concatenate((xpos0, object_pos.flatten()), 0)
 
         self._model.data.qvel = np.zeros_like(self._model.data.qvel)
-
-    def mujoco_to_imagespace(self, mujoco_coord, numpix=64, truncate=False):
-        """
-        convert form Mujoco-Coord to numpix x numpix image space:
-        :param numpix: number of pixels of square image
-        :param mujoco_coord:
-        :return: pixel_coord
-        """
-        viewer_distance = .75  # distance from camera to the viewing plane
-        window_height = 2 * np.tan(75 / 2 / 180. * np.pi) * viewer_distance  # window height in Mujoco coords
-        pixelheight = window_height / numpix  # height of one pixel
-        pixelwidth = pixelheight
-        window_width = pixelwidth * numpix
-        middle_pixel = numpix / 2
-        pixel_coord = np.rint(np.array([-mujoco_coord[1], mujoco_coord[0]]) /
-                              pixelwidth + np.array([middle_pixel, middle_pixel]))
-        pixel_coord = pixel_coord.astype(int)
-
-        return pixel_coord

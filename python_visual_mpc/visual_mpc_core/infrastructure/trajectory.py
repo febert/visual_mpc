@@ -3,7 +3,6 @@ import numpy as np
 
 class Trajectory(object):
     def __init__(self, conf):
-
         self.T = conf['T']
 
         img_channels = 3
@@ -26,22 +25,22 @@ class Trajectory(object):
         self.gtruth_images = None
 
         if 'adim' in conf:
-            self.actions = np.empty([self.T, conf['adim']])
+            self.actions = np.zeros([self.T, conf['adim']])
         else:
-            self.actions = np.empty([self.T, 2])
+            self.actions = np.zeros([self.T, 2])
 
         if 'sdim' in conf:
             state_dim = conf['sdim']
         else:
             state_dim = 2
 
-        self.X_full = np.empty([self.T, state_dim/2])
-        self.Xdot_full = np.empty([self.T, state_dim/2])
-        self.X_Xdot_full = np.empty([self.T, state_dim])
+        self.X_full = np.zeros([self.T, state_dim/2])
+        self.Xdot_full = np.zeros([self.T, state_dim/2])
+        self.X_Xdot_full = np.zeros([self.T, state_dim])
 
         if 'num_objects' in conf:
-            self.Object_pose = np.empty([self.T, conf['num_objects'], 3])  # x,y rot of  block
-            self.Object_full_pose = np.empty([self.T, conf['num_objects'], 7])  # xyz and quaternion pose
+            self.Object_pose = np.zeros([self.T, conf['num_objects'], 3])  # x,y rot of  block
+            self.Object_full_pose = np.zeros([self.T, conf['num_objects'], 7])  # xyz and quaternion pose
 
-        self.desig_pos = np.empty([self.T, 2])
-        self.score = np.empty([self.T])
+        self.desig_pos = np.zeros([self.T, 2])
+        self.score = np.zeros([self.T])

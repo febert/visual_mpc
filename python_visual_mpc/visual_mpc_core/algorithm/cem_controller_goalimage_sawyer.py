@@ -32,12 +32,17 @@ def compute_warp_lengths(conf, flow_field, goal_pix=None):
     :return:
     """
     flow_mags = np.linalg.norm(flow_field, axis=4)
-
     if goal_pix != None:
-        flow_scores = 0
-        for ob in range(goal_pix.shape[0]):
-            flow_scores += flow_mags[goal_pix[ob, 0], goal_pix[ob, 1]]
-        pdb.set_trace()
+        flow_scores = []
+        for t in range(flow_field.shape[1]):
+            flow_scores_t = 0
+            for ob in range(goal_pix.shape[0]):
+                flow_scores_t += flow_mags[:,t,goal_pix[ob, 0], goal_pix[ob, 1]]
+            flow_scores.append(np.stack(flow_scores_t))
+        flow_scores = np.stack(flow_scores, axis=1)
+
+        print 'evaluating at goal point only!!'
+
     else:
         flow_scores = np.mean(np.mean(flow_mags, axis=2), axis=2)
 
@@ -341,7 +346,7 @@ class CEM_controller():
                 flow_fields.append(flow_field)
                 warped_image_list.append(warped_image)
             flow_fields = np.stack(flow_fields, axis=1)
-            if 'compute_warp_length_spot':
+            if 'compute_warp_length_spot' in self.policyparams:
                 scores = compute_warp_lengths(self.policyparams, flow_fields, self.goal_pix)
             else:
                 scores = compute_warp_lengths(self.policyparams, flow_fields)
