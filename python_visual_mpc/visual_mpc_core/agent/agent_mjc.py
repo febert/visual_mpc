@@ -375,6 +375,12 @@ class AgentMuJoCo(object):
         assert self._hyperparams['viewer_image_width']/self._hyperparams['image_width'] == self._hyperparams['viewer_image_height']/self._hyperparams['image_height']
         traj._sample_images[t,:,:,:] = cv2.resize(large_img, dsize=(self._hyperparams['image_width'], self._hyperparams['image_height']), interpolation = cv2.INTER_AREA)
 
+        # img_string, width, height = self.viewer.get_depth()
+        # largedimage = np.fromstring(img_string, dtype='uint8').reshape(
+        #     (480, 640, 1))[::-1, :, :]
+        # plt.imshow(np.squeeze(largedimage))
+        # plt.show()
+
         # img = traj._sample_images[t,:,:,:] # verify desigpos
         # desig_pix = np.around(self.desig_pix).astype(np.int)
         # # img = large_img

@@ -22,7 +22,6 @@ configuration = {
 'train_val_split':.95,
 'visualize':'',
 'skip_frame':1,
-'num_epochs': 40,   #'number of training iterations.' ,
 'batch_size': 64,           #'batch size for training' ,
 'learning_rate': 0.001,     #'the base learning rate of the generator' ,
 'normalization':'None',

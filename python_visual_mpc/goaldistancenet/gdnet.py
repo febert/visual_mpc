@@ -46,7 +46,9 @@ class GoalDistanceNet(object):
     def __init__(self,
                  conf = None,
                  build_loss=True,
-                 load_data = True
+                 load_data = True,
+                 images = None,
+                 pred_images = None
                  ):
 
         self.layer_normalization = conf['normalization']
@@ -80,7 +82,7 @@ class GoalDistanceNet(object):
 
             self.I0, self.I1 = self.sel_images()
 
-        else:
+        elif images == None:  #feed values at test time
             if 'orig_size' in self.conf:
                 self.img_height = self.conf['orig_size'][0]
                 self.img_width = self.conf['orig_size'][1]
@@ -91,8 +93,13 @@ class GoalDistanceNet(object):
                                     shape=(conf['batch_size'], self.img_height, self.img_width, 3))
             self.I1 = self.I1_pl= tf.placeholder(tf.float32, name='images',
                                      shape=(conf['batch_size'], self.img_height, self.img_width, 3))
-        self.build()
 
+        else:  # get tensors from RNN
+            self.pred_images = pred_images
+            self.images = images[1:] # cutting off first image since there is no pred image for it
+            self.conf['sequence_length'] = self.conf['sequence_length']-1
+            self.I0, self.I1 = self.sel_images()
+        self.build()
         if build_loss:
             self.build_loss()
 
@@ -111,6 +118,7 @@ class GoalDistanceNet(object):
 
         if 'vidpred_data' in self.conf:
             I0 = tf.squeeze(tf.slice(self.pred_images, begin, [-1, 1, -1, -1, -1]))
+            print 'using pred images'
         else:
             I0 = tf.squeeze(tf.slice(self.images, begin, [-1, 1, -1, -1, -1]))
 
@@ -118,19 +126,6 @@ class GoalDistanceNet(object):
         I1 = tf.squeeze(tf.slice(self.images, begin, [-1, 1, -1, -1, -1]))
 
         return I0, I1
-
-
-    # def conv_relu_block(self, input, channel_mult, k=3, strides=2, upsmp=False):
-    #     if not upsmp:
-    #         h = conv_pool2d(input, self.conf['basedim'] * channel_mult, kernel_size=(k, k),
-    #                         strides=(strides, strides))  # 20x32x3
-    #     else:
-    #         h = upsample_conv2d(input, self.conf['basedim'] * channel_mult, kernel_size=(k, k),
-    #                         strides=(strides, strides))  # 20x32x3
-    #
-    #     h = self.normalizer_fn(h)
-    #     h = tf.nn.relu(h)
-    #     return h
 
     def conv_relu_block(self, input, out_ch, k=3, upsmp=False):
         h = slim.layers.conv2d(  # 32x32x64
@@ -175,6 +170,7 @@ class GoalDistanceNet(object):
 
         self.warp_pts = warp_pts_layer(self.flow_field)
         self.gen_image = resample_layer(self.I0, self.warp_pts)
+
 
     def build_loss(self):
 

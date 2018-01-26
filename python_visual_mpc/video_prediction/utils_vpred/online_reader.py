@@ -331,7 +331,7 @@ def test_online_reader():
     os.environ["CUDA_VISIBLE_DEVICES"] = "1"
     print 'using CUDA_VISIBLE_DEVICES=', os.environ["CUDA_VISIBLE_DEVICES"]
 
-    hyperparams_file = '/home/frederik/Documents/catkin_ws/src/visual_mpc/pushing_data/cartgripper_bench_conf/hyperparams.py'
+    hyperparams_file = '/home/frederik/Documents/catkin_ws/src/visual_mpc/pushing_data/cartgripper_rgb/hyperparams.py'
     hyperparams = imp.load_source('hyperparams', hyperparams_file)
     conf = hyperparams.config
 
