@@ -474,13 +474,22 @@ def get_distance_fast(precomp, goal_pix, conf):
     return distance_grid
 
 
-def add_crosshairs(images, pos, color):
+def add_crosshairs(inp_images, pos, color=None):
     """
-    :param images:
-    :param pos:
+    :param images: shape: batch, t, r, c, 3 or list of lenght t with batch, r, c, 3
+    :param pos: shape: batch, t, 2
     :param color: color needs to be vector with in [0,1]
-    :return:
+    :return: images in the same shape as input
     """
+    if isinstance(inp_images, list):
+        images = np.stack(inp_images, axis=1)
+
+    if color == None:
+        if images.dtype == np.float32:
+            color = np.array([0., 1., 1.])
+        else:
+            color = np.array([0, 255, 255])
+
     out = np.zeros_like(images)
     for b in range(images.shape[0]):
         for t in range(images.shape[1]):
@@ -499,8 +508,10 @@ def add_crosshairs(images, pos, color):
             # plt.show()
             out[b, t] = im
 
+    if isinstance(inp_images, list):
+        out = np.split(out, len(inp_images), axis=1)
+        out = [np.squeeze(el) for el in out]
     return out
-
 
 def visualize_annotation(conf, images, pos):
     for t in range(conf['sequence_length']):

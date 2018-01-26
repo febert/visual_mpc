@@ -28,7 +28,7 @@ im = im[15:63]
 
 im = im.reshape([1,48,64,3])
 
-flow_field = np.ones([1, im.shape[1], im.shape[2], 2])
+flow_field = np.zeros([1, im.shape[1], im.shape[2], 2])
 
 im_pl = tf.placeholder(tf.float32, im.shape)
 flow_field_pl = tf.placeholder(tf.float32, flow_field.shape)
@@ -38,9 +38,10 @@ flow_field_pl = tf.placeholder(tf.float32, flow_field.shape)
 warp_pts = warp_pts_layer(flow_field_pl)
 warped = resample_layer(im, warp_pts)
 
+
 sess = tf.InteractiveSession()
 
-[warped_im] = sess.run(warped, feed_dict={flow_field_pl: flow_field, im_pl: im})
+[warped_im, warp_pts] = sess.run([warped, warp_pts], feed_dict={flow_field_pl: flow_field, im_pl: im})
 
 plt.imshow(warped_im)
 plt.show()

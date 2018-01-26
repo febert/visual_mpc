@@ -1,13 +1,15 @@
 """ This file defines the linear Gaussian policy class. """
 import numpy as np
 
+import os
 import copy
 import time
 import imp
 import cPickle
 from datetime import datetime
+from python_visual_mpc.video_prediction.basecls.utils.visualize import add_crosshairs
 
-from python_visual_mpc.video_prediction.utils_vpred.create_gif_lib import *
+# from python_visual_mpc.video_prediction.utils_vpred.create_gif_lib import *
 
 from PIL import Image
 import pdb
@@ -25,14 +27,14 @@ import time
 
 
 
-def compute_warp_lengths(conf, flow_field, goal_pix=None):
+def compute_warp_cost(conf, flow_field, goal_pix=None, warped_images=None, goal_image=None):
     """
     :param flow_field:  shape: batch, time, r, c, 2
     :param goal_pix: if not None evaluate flowvec only at position of goal pix
     :return:
     """
     flow_mags = np.linalg.norm(flow_field, axis=4)
-    if goal_pix != None:
+    if 'compute_warp_length_spot' in conf:
         flow_scores = []
         for t in range(flow_field.shape[1]):
             flow_scores_t = 0
@@ -45,6 +47,13 @@ def compute_warp_lengths(conf, flow_field, goal_pix=None):
 
     else:
         flow_scores = np.mean(np.mean(flow_mags, axis=2), axis=2)
+
+    if 'warp_success_cost' in conf:
+        print 'adding warp warp_success_cost'
+        squared_diff = np.square(warped_images - goal_image)
+        mean_erros = np.mean(np.mean(squared_diff, axis=2), axis=2)
+
+        flow_scores += mean_erros
 
     per_time_multiplier = np.ones([flow_scores.shape[0], flow_scores.shape[1]])
     per_time_multiplier[:, -1] = conf['finalweight']
@@ -82,8 +91,10 @@ class CEM_controller():
         if self.policyparams['usenet']:
             hyperparams = imp.load_source('hyperparams', self.policyparams['netconf'])
             self.netconf = hyperparams.configuration
-            self.M = self.netconf['batch_size']
-            assert self.naction_steps * self.repeat == self.netconf['sequence_length']
+            self.bsize = self.netconf['batch_size']
+            self.seqlen = self.netconf['sequence_length']
+            self.M = self.bsize
+            assert self.naction_steps * self.repeat == self.seqlen
         else:
             self.netconf = {}
             self.M = 1
@@ -257,7 +268,7 @@ class CEM_controller():
             print 'overall time for iteration {}'.format(time.time() - t_startiter)
 
     def switch_on_pix(self, desig):
-        one_hot_images = np.zeros((self.netconf['batch_size'], self.netconf['context_frames'], self.ndesig, self.img_height, self.img_width, 1), dtype=np.float32)
+        one_hot_images = np.zeros((self.bsize, self.netconf['context_frames'], self.ndesig, self.img_height, self.img_width, 1), dtype=np.float32)
         # switch on pixels
         for p in range(self.ndesig):
             one_hot_images[:, :, p, desig[p, 0], desig[p, 1]] = 1
@@ -267,9 +278,9 @@ class CEM_controller():
 
     def singlepoint_prob_eval(self, gen_pixdistrib):
         print 'using singlepoint_prob_eval'
-        scores = np.zeros(self.netconf['batch_size'])
+        scores = np.zeros(self.bsize)
         for t in range(len(gen_pixdistrib)):
-            for b in range(self.netconf['batch_size']):
+            for b in range(self.bsize):
                 scores[b] -= gen_pixdistrib[t][b,self.goal_pix[0,0], self.goal_pix[0,1]]
         return scores
 
@@ -287,7 +298,7 @@ class CEM_controller():
         if 'predictor_propagation' in self.policyparams:
             # for predictor_propagation only!!
             if itr == (self.policyparams['iterations'] - 1):
-                self.rec_input_distrib.append(np.repeat(best_gen_distrib, self.netconf['batch_size'], 0))
+                self.rec_input_distrib.append(np.repeat(best_gen_distrib, self.bsize, 0))
         return scores
 
 
@@ -295,7 +306,7 @@ class CEM_controller():
 
         t0 = time.time()
         last_states = np.expand_dims(last_states, axis=0)
-        last_states = np.repeat(last_states, self.netconf['batch_size'], axis=0)
+        last_states = np.repeat(last_states, self.bsize, axis=0)
         # print 'construct last state', time.time() - t0
 
         t0 = time.time()
@@ -304,8 +315,8 @@ class CEM_controller():
 
         t0 = time.time()
         last_frames = np.expand_dims(last_frames, axis=0)
-        last_frames = np.repeat(last_frames, self.netconf['batch_size'], axis=0)
-        app_zeros = np.zeros(shape=(self.netconf['batch_size'], self.netconf['sequence_length']-
+        last_frames = np.repeat(last_frames, self.bsize, axis=0)
+        app_zeros = np.zeros(shape=(self.bsize, self.seqlen-
                                     self.netconf['context_frames'], self.img_height, self.img_width, 3), dtype=np.float32)
         # print 'last frames and construct app_zeros', time.time() - t0
 
@@ -338,18 +349,20 @@ class CEM_controller():
 
         if 'use_goal_image' in self.policyparams:
             # evaluate images with goal-distance network
-            flow_fields = []
-            goal_image = np.repeat(self.goal_image[None], self.netconf['batch_size'], axis=0)
-            warped_image_list = []
-            for tstep in range(self.netconf['sequence_length'] - 1):
-                warped_image, flow_field = self.goal_image_warper(gen_images[tstep], goal_image)
-                flow_fields.append(flow_field)
-                warped_image_list.append(warped_image)
-            flow_fields = np.stack(flow_fields, axis=1)
+            flow_fields_l = []
+            goal_image = np.repeat(self.goal_image[None], self.bsize, axis=0)
+            warped_image_l = []
+            warp_pts_l = []
+            for tstep in range(self.seqlen - 1):
+                warped_image, flow_field, warp_pts = self.goal_image_warper(gen_images[tstep], goal_image)
+                flow_fields_l.append(flow_field)
+                warped_image_l.append(warped_image)
+                warp_pts_l.append(warp_pts)
+            flow_fields = np.stack(flow_fields_l, axis=1)
             if 'compute_warp_length_spot' in self.policyparams:
-                scores = compute_warp_lengths(self.policyparams, flow_fields, self.goal_pix)
+                scores = compute_warp_cost(self.policyparams, flow_fields, self.goal_pix)
             else:
-                scores = compute_warp_lengths(self.policyparams, flow_fields)
+                scores = compute_warp_cost(self.policyparams, flow_fields)
         else:
             for p in range(self.ndesig):
                 start_calc_dist = time.time()
@@ -374,7 +387,7 @@ class CEM_controller():
                     # pick the prop distrib from the action actually chosen after the last iteration (i.e. self.indices[0])
                     bestind = scores.argsort()[0]
                     best_gen_distrib = gen_distrib[2][bestind].reshape(1, self.ndesig, self.img_height, self.img_width, 1)
-                    self.rec_input_distrib.append(np.repeat(best_gen_distrib, self.netconf['batch_size'], 0))
+                    self.rec_input_distrib.append(np.repeat(best_gen_distrib, self.bsize, 0))
 
         print 'time to calc scores {}'.format(time.time()-t_startcalcscores)
 
@@ -411,29 +424,35 @@ class CEM_controller():
             sel_func = best
 
             t_dict_ = collections.OrderedDict()
-            t_dict_['gen_images_t{}'.format(self.t)] = sel_func(gen_images)
 
             if 'use_goal_image' in self.policyparams:
-                t_dict_['warped_im_t{}'.format(self.t)] = sel_func(warped_image_list)
+                if 'compute_warp_length_spot' in self.policyparams:
+                    warped_image_l = self.image_addgoalpix(warped_image_l)
+                    gen_images = self.gen_images_addwarppix(gen_images, warp_pts_l)
+                t_dict_['warped_im_t{}'.format(self.t)] = sel_func(warped_image_l)
             else:
                 for p in range(self.ndesig):
                     gen_distrib_p = [g[:, p] for g in gen_distrib]
                     t_dict_['gen_distrib{}_t{}'.format(p, self.t)] = sel_func(gen_distrib_p)
+            t_dict_['gen_images_t{}'.format(self.t)] = sel_func(gen_images)
 
             print 'itr{} best scores: {}'.format(cem_itr, [scores[bestindices[ind]] for ind in range(self.K)])
-            if self.t == 1 and 'use_goal_image' in self.policyparams:
-                t_dict_['goal_image'] = [np.repeat(np.expand_dims(self.goal_image, axis=0), self.K, axis=0) for _ in
-                                         range(len(gen_images))]
             self.dict_.update(t_dict_)
 
             if not 'no_instant_gif' in self.agentparams:
-                t_dict_['goal_image'] = [np.repeat(np.expand_dims(self.goal_image, axis=0), self.K, axis=0) for _ in
+                goal_image = [np.repeat(np.expand_dims(self.goal_image, axis=0), self.K, axis=0) for _ in
                                          range(len(gen_images))]
+                t_dict_['goal_image'] = self.image_addgoalpix(goal_image)
                 v = Visualizer_tkinter(t_dict_, append_masks=False,
                                        filepath=self.agentparams['record'] + '/plan/',
                                        numex=self.K, suf='t{}iter_{}'.format(self.t, cem_itr))
                 # v.build_figure()
                 v.make_direct_vid()
+
+
+                t_dict_['warp_pts_t{}'.format(self.t)] = sel_func(warp_pts_l)
+                t_dict_['flow_fields{}'.format(self.t)] = sel_func(flow_fields_l)
+                cPickle.dump(t_dict_, open(self.agentparams['record'] + '/plan/data{}.pkl'.format(self.t), 'wb'))
 
             if 'sawyer' in self.agentparams:
                 sorted_inds = scores.argsort()
@@ -467,21 +486,35 @@ class CEM_controller():
 
         return scores
 
+    def image_addgoalpix(self, image_l):
+        for ob in range(self.agentparams['num_objects']):
+            goal_pix_ob = self.goal_pix[ob]
+            goal_pix_ob = np.tile(goal_pix_ob[None, None, :], [self.bsize, self.seqlen - 1, 1])
+            image_l = add_crosshairs(image_l, goal_pix_ob)
+        return image_l
+
+    def gen_images_addwarppix(self, gen_images, warp_pts_l):
+        warp_pts_arr = np.stack(warp_pts_l, axis=1)
+        for ob in range(self.agentparams['num_objects']):
+            warp_pts_ob = warp_pts_arr[:, :, self.goal_pix[ob, 0], self.goal_pix[ob, 1]]
+            gen_images = add_crosshairs(gen_images, warp_pts_ob)
+        return gen_images
+
     def calc_scores(self, gen_distrib, distance_grid):
-        expected_distance = np.zeros(self.netconf['batch_size'])
+        expected_distance = np.zeros(self.bsize)
         if 'rew_all_steps' in self.policyparams:
-            for tstep in range(self.netconf['sequence_length'] - 1):
+            for tstep in range(self.seqlen - 1):
                 t_mult = 1
                 if 'finalweight' in self.policyparams:
-                    if tstep == self.netconf['sequence_length'] - 2:
+                    if tstep == self.seqlen - 2:
                         t_mult = self.policyparams['finalweight']
 
-                for b in range(self.netconf['batch_size']):
+                for b in range(self.bsize):
                     gen = gen_distrib[tstep][b].squeeze() / np.sum(gen_distrib[tstep][b])
                     expected_distance[b] += np.sum(np.multiply(gen, distance_grid)) * t_mult
             scores = expected_distance
         else:
-            for b in range(self.netconf['batch_size']):
+            for b in range(self.bsize):
                 gen = gen_distrib[-1][b].squeeze() / np.sum(gen_distrib[-1][b])
                 expected_distance[b] = np.sum(np.multiply(gen, distance_grid))
             scores = expected_distance

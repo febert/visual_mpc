@@ -29,8 +29,12 @@ def create_object_xml(hyperparams, load_dict_list=None):
 
         if load_dict_list == None:
             dict = {}
-            color1 = dict['color1'] = np.random.uniform(0.3, 1., 3)
-            color2 = dict['color2'] = np.random.uniform(0.3, 1., 3)
+            if 'objects_red' not in hyperparams:
+                color1 = dict['color1'] = np.random.uniform(0.3, 1., 3)
+                color2 = dict['color2'] = np.random.uniform(0.3, 1., 3)
+            else:
+                color1 = np.array([1., 0., 0.])
+                color2 = np.array([1., 0., 0.])
             l1 = dict['l1'] =np.random.uniform(0.01, 0.2)
             l2 = dict['l2'] =np.random.uniform(0.01, 0.2)
 
