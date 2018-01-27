@@ -88,7 +88,7 @@ def build_tfrecord_input(conf, training=True, input_file=None):
                 features[robot_pos_name] = tf.FixedLenFeature([conf['test_metric']['robot_pos'] * 2], tf.int64)
                 features[object_pos_name] = tf.FixedLenFeature([conf['test_metric']['object_pos'] * 2], tf.int64)
 
-            if 'vidpred_data' in conf:
+            if 'load_vidpred_data' in conf:
                 gen_image_name = str(i) + '/gen_images'
                 gen_states_name = str(i) + '/gen_states'
                 features[gen_image_name] = tf.FixedLenFeature([1], tf.string)
@@ -150,7 +150,7 @@ def build_tfrecord_input(conf, training=True, input_file=None):
                 object_pos = tf.reshape(features[object_pos_name], shape=[1, conf['test_metric']['object_pos'], 2])
                 object_pos_seq.append(object_pos)
 
-            if 'vidpred_data' in conf:
+            if 'load_vidpred_data' in conf:
                 gen_images = tf.decode_raw(features[gen_image_name], tf.uint8)
                 gen_images = tf.reshape(gen_images, shape=[1, ORIGINAL_HEIGHT * ORIGINAL_WIDTH * COLOR_CHAN])
                 gen_images = tf.reshape(gen_images, shape=[ORIGINAL_HEIGHT, ORIGINAL_WIDTH, COLOR_CHAN])
@@ -168,7 +168,7 @@ def build_tfrecord_input(conf, training=True, input_file=None):
 
         return_dict = {"images": image_seq, "endeffector_pos": endeffector_pos_seq, "actions": action_seq}
 
-        if 'vidpred_data' in conf:
+        if 'load_vidpred_data' in conf:
             return_dict['gen_images'] = gen_images_seq
             return_dict['gen_states'] = gen_states_seq
 
@@ -219,7 +219,7 @@ def main():
     conf['adim'] = 3
 
     conf['orig_size'] = [48, 64]
-    # conf['vidpred_data'] = ''
+    # conf['load_vidpred_data'] = ''
 
     # conf['color_augmentation'] = ''
     # conf['test_metric'] = {'robot_pos': 1, 'object_pos': 2}

@@ -123,7 +123,7 @@ class CollectGoalImageSim(Sim):
         return new_q
 
 def main():
-    parser = argparse.ArgumentParser(description='run parllel data collection')
+    parser = argparse.ArgumentParser(description='create goal configs')
     parser.add_argument('experiment', type=str, help='experiment name')
 
     args = parser.parse_args()

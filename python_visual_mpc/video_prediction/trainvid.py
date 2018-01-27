@@ -10,6 +10,8 @@ import imp
 from tensorflow.python.platform import app
 from tensorflow.python.platform import flags
 
+from python_visual_mpc.video_prediction.utils_vpred.convert_tensorsummary_to_gif import convert_tensor_to_gif_summary
+
 from datetime import datetime
 import collections
 # How often to record tensorboard summaries.
@@ -17,6 +19,8 @@ SUMMARY_INTERVAL = 400
 
 # How often to run a batch through the validation model.
 VAL_INTERVAL = 500
+
+VIDEO_INTERVAL = 10  #########
 
 # How often to save a model checkpoint
 SAVE_INTERVAL = 4000
@@ -208,6 +212,12 @@ def main(unused_argv, conf_script= None):
             else:
                 [val_summary_str] = sess.run([model.val_summ_op], feed_dict)
                 summary_writer.add_summary(val_summary_str, itr)
+
+        if (itr) % VIDEO_INTERVAL == 2:
+            feed_dict = {model.iter_num: np.float32(itr),
+                         model.train_cond: 0}
+            video_proto = sess.run(model.val_video_summaries, feed_dict = feed_dict)
+            summary_writer.add_summary(convert_tensor_to_gif_summary(video_proto))
 
         if (itr) % SAVE_INTERVAL == 2:
             tf.logging.info('Saving model to' + conf['output_dir'])

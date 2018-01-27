@@ -37,7 +37,7 @@ class VidPred_GDN_Model():
                  build_loss = True,
                  ):
 
-        self.iter_num = tf.placeholder(tf.float32, [])
+        self.iter_num = tf.placeholder(tf.float32, [], name='iternum')
 
         if 'ndesig' in conf:
             ndesig = conf['ndesig']
@@ -187,6 +187,13 @@ class VidPred_GDN_Model():
                                        swap_memory=True, time_major=True)
 
         (gen_images, gen_states, gen_masks, gen_transformed_images), other_outputs = outputs[:5], outputs[5:]
+
+        #making video summaries
+        # self.train_video_summaries = tf.summary.merge([tf.summary.tensor_summary('train_images', images),
+        #                                                tf.summary.tensor_summary('gen_images_traindata',gen_images)])
+        self.val_video_summaries = tf.summary.merge([tf.summary.tensor_summary('val_images', tf.cast(images*255, tf.uint8)),
+                                               tf.summary.tensor_summary('val_images_valdata', tf.cast(gen_images*255, tf.uint8))])
+
         self.gen_images = tf.unstack(gen_images, axis=0)
         self.gen_states = tf.unstack(gen_states, axis=0)
         self.gen_masks = list(zip(*[tf.unstack(gen_mask, axis=0) for gen_mask in gen_masks]))
@@ -209,7 +216,8 @@ class VidPred_GDN_Model():
         # put in gdn here!
 
         gen_images_stopped = [tf.stop_gradient(el) for el in self.gen_images]
-        self.gdn = GoalDistanceNet(conf, images = self.images, pred_images = gen_images_stopped, load_data = False)
+        self.gdn = GoalDistanceNet(conf, images = self.images, pred_images = gen_images_stopped,
+                                   load_data = False, iter_num=self.iter_num)
 
         assert not other_outputs
 
@@ -219,6 +227,8 @@ class VidPred_GDN_Model():
             self.train_op = tf.train.AdamOptimizer(self.lr).minimize(loss)
 
             self.gdn.build_loss()
+            self.train_summ_op = tf.summary.merge([self.train_summ_op, self.gdn.train_summ_op])
+            self.val_summ_op = tf.summary.merge([self.val_summ_op, self.gdn.val_summ_op])
 
     def build_loss(self):
         train_summaries = []

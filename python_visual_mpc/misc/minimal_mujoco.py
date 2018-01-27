@@ -3,7 +3,6 @@ from copy import deepcopy
 import numpy as np
 
 import mujoco_py
-from mujoco_py.mjlib import mjlib
 from mujoco_py.mjtypes import *
 
 from PIL import Image
@@ -46,22 +45,22 @@ for t in range(T):
         (480, 480, 3))[::-1, :, :]
 
     img_string, width, height = viewer.get_depth()
-    largedimage = np.fromstring(img_string, dtype='uint8').reshape(
+    largedimage = np.fromstring(img_string, dtype=np.float32).reshape(
         (480, 480, 1))[::-1, :, :]
 
     # plt.imshow(np.squeeze(largedimage))
 
-    if t % 10 ==0:
-        r, c = viewer.project_point(model.data.qpos)
-        print 'model.data.qpos', model.data.qpos
-        print "row, col", r, c
-        r = int(r)
-        c = int(c)
-
-        largeimage[r,:] = [255, 255, 255]
-        largeimage[:, c] = [255, 255, 255]
-        plt.imshow(largeimage)
-        plt.show()
+    # if t % 10 ==0:
+    #     r, c = viewer.project_point(model.data.qpos)
+    #     print 'model.data.qpos', model.data.qpos
+    #     print "row, col", r, c
+    #     r = int(r)
+    #     c = int(c)
+    #
+    #     largeimage[r,:] = [255, 255, 255]
+    #     largeimage[:, c] = [255, 255, 255]
+    #     plt.imshow(largeimage)
+    #     plt.show()
 
     # model.data.qvel.setflags(write=True)
 

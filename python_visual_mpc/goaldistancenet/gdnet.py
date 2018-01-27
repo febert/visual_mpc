@@ -48,6 +48,7 @@ class GoalDistanceNet(object):
                  build_loss=True,
                  load_data = True,
                  images = None,
+                 iter_num = None,
                  pred_images = None
                  ):
 
@@ -60,11 +61,12 @@ class GoalDistanceNet(object):
             raise ValueError('Invalid layer normalization %s' % self.layer_normalization)
 
         self.conf = conf
-        self.iter_num = tf.placeholder(tf.float32, [])
+
         self.lr = tf.placeholder_with_default(self.conf['learning_rate'], ())
         self.train_cond = tf.placeholder(tf.int32, shape=[], name="train_cond")
 
         if load_data:
+            self.iter_num = tf.placeholder(tf.float32, [], name='iternum')
 
             train_dict = build_tfrecord_fn(conf, training=True)
             val_dict = build_tfrecord_fn(conf, training=False)
@@ -94,11 +96,13 @@ class GoalDistanceNet(object):
             self.I1 = self.I1_pl= tf.placeholder(tf.float32, name='images',
                                      shape=(conf['batch_size'], self.img_height, self.img_width, 3))
 
-        else:  # get tensors from RNN
-            self.pred_images = pred_images
-            self.images = images[1:] # cutting off first image since there is no pred image for it
+        else:  # get tensors from videoprediction model
+            self.iter_num = iter_num
+            self.pred_images = tf.stack(pred_images, axis=1)
+            self.images = tf.stack(images[1:], axis=1) # cutting off first image since there is no pred image for it
             self.conf['sequence_length'] = self.conf['sequence_length']-1
             self.I0, self.I1 = self.sel_images()
+
         self.build()
         if build_loss:
             self.build_loss()
@@ -176,10 +180,10 @@ class GoalDistanceNet(object):
 
         summaries = []
         self.loss = mean_squared_error(self.gen_image, self.I1)
-        summaries.append(tf.summary.scalar('train_recon_cost', self.loss))
+        summaries.append(tf.summary.scalar('gdn_train_recon_cost', self.loss))
         self.train_summ_op = tf.summary.merge(summaries)
 
-        summaries.append(tf.summary.scalar('val_recon_cost', self.loss))
+        summaries.append(tf.summary.scalar('gdn_val_recon_cost', self.loss))
         self.val_summ_op = tf.summary.merge(summaries)
 
         self.train_op = tf.train.AdamOptimizer(self.lr).minimize(self.loss)

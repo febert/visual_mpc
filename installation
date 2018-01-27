@@ -11,7 +11,8 @@ pip install imageio==1.6
 pip install moviepy
 pip install matplotlib
 
-pip install mujoco-py==0.5.7
+# to install mujoco_py run
+python setup_mujoco.py develop
 
 conda install  -f  numpy
 conda install mkl
