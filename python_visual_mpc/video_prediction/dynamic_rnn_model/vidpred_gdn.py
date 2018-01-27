@@ -23,6 +23,15 @@ from dynamic_base_model import DNACell
 from dynamic_base_model import Dynamic_Base_Model
 from python_visual_mpc.goaldistancenet.gdnet import GoalDistanceNet
 
+def make_video_summaries(seq_len, videos):
+    columns = []
+    videos = [vid[-(seq_len-1):] for vid in videos]
+    for t in range(seq_len-1):
+        colimages = [vid[t] for vid in videos]
+        columns.append(tf.concat(colimages, axis=1))
+    summary = tf.summary.tensor_summary('val_images', tf.cast(tf.stack(columns, axis=1) * 255, tf.uint8))
+    return summary
+
 
 class VidPred_GDN_Model():
     def __init__(self,
@@ -188,18 +197,15 @@ class VidPred_GDN_Model():
 
         (gen_images, gen_states, gen_masks, gen_transformed_images), other_outputs = outputs[:5], outputs[5:]
 
-        #making video summaries
-        # self.train_video_summaries = tf.summary.merge([tf.summary.tensor_summary('train_images', images),
-        #                                                tf.summary.tensor_summary('gen_images_traindata',gen_images)])
-        self.val_video_summaries = tf.summary.merge([tf.summary.tensor_summary('val_images', tf.cast(images*255, tf.uint8)),
-                                               tf.summary.tensor_summary('val_images_valdata', tf.cast(gen_images*255, tf.uint8))])
-
         self.gen_images = tf.unstack(gen_images, axis=0)
         self.gen_states = tf.unstack(gen_states, axis=0)
         self.gen_masks = list(zip(*[tf.unstack(gen_mask, axis=0) for gen_mask in gen_masks]))
         self.gen_transformed_images = list(
             zip(*[tf.unstack(gen_transformed_image, axis=0) for gen_transformed_image in gen_transformed_images]))
         other_outputs = list(other_outputs)
+
+        # making video summaries
+        self.val_video_summaries = make_video_summaries(conf['sequence_length'], [self.images, self.gen_images])
 
         if 'compute_flow_map' in self.conf:
             gen_flow_map = other_outputs.pop(0)

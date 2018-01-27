@@ -15,12 +15,12 @@ from python_visual_mpc.video_prediction.utils_vpred.convert_tensorsummary_to_gif
 from datetime import datetime
 import collections
 # How often to record tensorboard summaries.
-SUMMARY_INTERVAL = 400
+SUMMARY_INTERVAL = 100
 
 # How often to run a batch through the validation model.
 VAL_INTERVAL = 500
 
-VIDEO_INTERVAL = 10  #########
+VIDEO_INTERVAL = 10000
 
 # How often to save a model checkpoint
 SAVE_INTERVAL = 4000
@@ -213,7 +213,7 @@ def main(unused_argv, conf_script= None):
                 [val_summary_str] = sess.run([model.val_summ_op], feed_dict)
                 summary_writer.add_summary(val_summary_str, itr)
 
-        if (itr) % VIDEO_INTERVAL == 2:
+        if (itr) % VIDEO_INTERVAL == 2 and hasattr(model, 'val_video_summaries'):
             feed_dict = {model.iter_num: np.float32(itr),
                          model.train_cond: 0}
             video_proto = sess.run(model.val_video_summaries, feed_dict = feed_dict)
@@ -235,7 +235,7 @@ def main(unused_argv, conf_script= None):
             tf.logging.info('time per iteration: {0}'.format(avg_t_iter/1e6))
             tf.logging.info('expected for complete training: {0}h '.format(avg_t_iter /1e6/3600 * conf['num_iterations']))
 
-        if (itr) % SUMMARY_INTERVAL:
+        if (itr) % SUMMARY_INTERVAL == 2:
             summary_writer.add_summary(summary_str, itr)
 
     tf.logging.info('Saving model.')

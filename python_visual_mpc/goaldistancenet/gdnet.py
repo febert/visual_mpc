@@ -106,7 +106,8 @@ class GoalDistanceNet(object):
         self.build()
         if build_loss:
             self.build_loss()
-
+            # image_summary:
+            # self.build_image_summary()
 
     def sel_images(self):
         sequence_length = self.conf['sequence_length']
@@ -143,7 +144,6 @@ class GoalDistanceNet(object):
         imsize = np.array(h.get_shape().as_list()[1:3])*mult
 
         h = tf.image.resize_images(h, imsize, method=tf.image.ResizeMethod.BILINEAR)
-
         return h
 
 
@@ -175,6 +175,9 @@ class GoalDistanceNet(object):
         self.warp_pts = warp_pts_layer(self.flow_field)
         self.gen_image = resample_layer(self.I0, self.warp_pts)
 
+    # def build_image_summary(self):
+    #     for t in range(self.conf['sequence_length']-1):
+    #         self.I0
 
     def build_loss(self):
 
