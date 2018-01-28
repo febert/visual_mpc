@@ -16,6 +16,8 @@ import pdb
 # Amount to use when lower bounding tensors
 RELU_SHIFT = 1e-12
 
+from python_visual_mpc.video_prediction.utils_vpred.video_summary import make_video_summaries
+
 class DNACell(tf.nn.rnn_cell.RNNCell):
     def __init__(self,
                  conf,
@@ -565,6 +567,9 @@ class Dynamic_Base_Model(object):
         self.gen_transformed_images = list(
             zip(*[tf.unstack(gen_transformed_image, axis=0) for gen_transformed_image in gen_transformed_images]))
         other_outputs = list(other_outputs)
+
+        # making video summaries
+        self.val_video_summaries = make_video_summaries(conf['sequence_length'], [self.images, self.gen_images])
 
         if 'compute_flow_map' in self.conf:
             gen_flow_map = other_outputs.pop(0)

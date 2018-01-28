@@ -15,6 +15,81 @@ import matplotlib.gridspec as gridspec
 import tensorflow.contrib.slim as slim
 from tensorflow.contrib.layers.python import layers as tf_layers
 
+
+
+def mean_square(x):
+    return tf.reduce_mean(tf.square(x))
+
+def charbonnier_loss(x, mask=None, truncate=None, alpha=0.45, beta=1.0, epsilon=0.001):
+    """Compute the generalized charbonnier loss of the difference tensor x.
+    All positions where mask == 0 are not taken into account.
+
+    Args:
+        x: a tensor of shape [num_batch, height, width, channels].
+        mask: a mask of shape [num_batch, height, width, mask_channels],
+            where mask channels must be either 1 or the same number as
+            the number of channels of x. Entries should be 0 or 1.
+    Returns:
+        loss as tf.float32
+    """
+    with tf.variable_scope('charbonnier_loss'):
+        batch, height, width, channels = tf.unstack(tf.shape(x))
+        normalization = tf.cast(batch * height * width * channels, tf.float32)
+
+        error = tf.pow(tf.square(x * beta) + tf.square(epsilon), alpha)
+
+        if mask is not None:
+            error = tf.multiply(mask, error)
+
+        if truncate is not None:
+            error = tf.minimum(error, truncate)
+
+        return tf.reduce_sum(error) / normalization
+
+
+def flow_smooth_cost(flow, norm, mode):
+    """
+    computes the norms of the derivatives and averages over the image
+    :param flow_field:
+    :return:
+    """
+    if mode == '2nd':  # compute 2nd derivative
+        filter_x = [[0, 0, 0],
+                    [1, -2, 1],
+                    [0, 0, 0]]
+        filter_y = [[0, 1, 0],
+                    [0, -2, 0],
+                    [0, 1, 0]]
+        filter_diag1 = [[1, 0, 0],
+                        [0, -2, 0],
+                        [0, 0, 1]]
+        filter_diag2 = [[0, 0, 1],
+                        [0, -2, 0],
+                        [1, 0, 0]]
+        weight_array = np.ones([3, 3, 1, 4])
+        weight_array[:, :, 0, 0] = filter_x
+        weight_array[:, :, 0, 1] = filter_y
+        weight_array[:, :, 0, 2] = filter_diag1
+        weight_array[:, :, 0, 3] = filter_diag2
+
+    elif mode == 'sobel':
+        filter_x = [[-1, 0, 1], [-2, 0, 2], [-1, 0, 1]]  # sobel filter
+        filter_y = np.transpose(filter_x)
+        weight_array = np.ones([3, 3, 1, 2])
+        weight_array[:, :, 0, 0] = filter_x
+        weight_array[:, :, 0, 1] = filter_y
+
+    weights = tf.constant(weight_array, dtype=tf.float32)
+
+    flow_u, flow_v = tf.split(axis=3, num_or_size_splits=2, value=flow)
+    delta_u =  tf.nn.conv2d(flow_u, weights, strides=[1, 1, 1, 1], padding='SAME')
+    delta_v =  tf.nn.conv2d(flow_v, weights, strides=[1, 1, 1, 1], padding='SAME')
+
+    deltas = tf.concat([delta_u, delta_v], axis=3)
+
+    return norm(deltas)
+
+
 def get_coords(img_shape):
     """
     returns coordinate grid corresponding to identity appearance flow
@@ -25,9 +100,9 @@ def get_coords(img_shape):
     x = tf.cast(tf.range(img_shape[2]), tf.float32)
     batch_size = img_shape[0]
 
-    X,Y = tf.meshgrid(x,y)
+    X, Y = tf.meshgrid(x, y)
     coords = tf.expand_dims(tf.stack((X, Y), axis=2), axis=0)
-    coords = tf.tile(coords, [batch_size, 1,1,1])
+    coords = tf.tile(coords, [batch_size, 1, 1, 1])
     return coords
 
 def resample_layer(src_img, warp_pts, name="tgt_img"):
@@ -39,8 +114,9 @@ def warp_pts_layer(flow_field, name="warp_pts"):
         img_shape = flow_field.get_shape().as_list()
         return flow_field + get_coords(img_shape)
 
-def mean_squared_error(true, pred):
-    return tf.reduce_sum(tf.square(true - pred)) / tf.to_float(tf.size(pred))
+def warp(I0, flow_field):
+    warp_pts = warp_pts_layer(flow_field)
+    return resample_layer(I0, warp_pts)
 
 class GoalDistanceNet(object):
     def __init__(self,
@@ -103,7 +179,44 @@ class GoalDistanceNet(object):
             self.conf['sequence_length'] = self.conf['sequence_length']-1
             self.I0, self.I1 = self.sel_images()
 
-        self.build()
+        self.occ_mask_fwd = tf.ones_like(self.I0)  # initialize as ones
+        self.occ_mask_bwd = tf.ones_like(self.I0)
+
+        if 'fwd_bwd' in self.conf:
+            with tf.variable_scope('fwd'):
+                self.warped_image_I1, self.warp_pts, self.flow_fwd, h6_fwd = self.warp(self.I0, self.I1)
+            with tf.variable_scope('bwd'):
+                self.warped_image_I0, self.warp_pts_bwd, self.flow_bwd, h6_bwd = self.warp(self.I1, self.I0)
+
+            bwd_flow_warped_fwd = warp(self.flow_bwd, self.flow_fwd)
+            self.diff_flow_fwd = self.flow_fwd - bwd_flow_warped_fwd
+
+            fwd_flow_warped_bwd = warp(self.flow_fwd, self.flow_bwd)
+            self.diff_flow_bwd = self.flow_bwd - fwd_flow_warped_bwd
+
+            if 'occlusion_handling' in self.conf:
+                bias = self.conf['occlusion_handling']['bias']
+                scale = self.conf['occlusion_handling']['scale']
+                diff_flow_fwd_normed = tf.reduce_sum(tf.square(self.diff_flow_fwd), axis=3)
+                diff_flow_bwd_normed = tf.reduce_sum(tf.square(self.diff_flow_bwd), axis=3)
+                self.occ_mask_fwd = tf.nn.sigmoid(diff_flow_fwd_normed * scale + bias)  # gets 1 if occluded 0 otherwise
+                self.occ_mask_bwd = tf.nn.sigmoid(diff_flow_bwd_normed * scale + bias)
+
+                with tf.variable_scope('gen_img'):
+                    scratch_image_fwd = slim.layers.conv2d(  # 128x128xdesc_length
+                        h6_fwd, 3, [5, 5], stride=1, activation_fn=tf.nn.sigmoid)
+                    scratch_image_bwd = slim.layers.conv2d(  # 128x128xdesc_length
+                        h6_bwd, 3, [5, 5], stride=1, activation_fn=tf.nn.sigmoid)
+
+                self.gen_image_I1 = scratch_image_fwd * self.occ_mask_fwd[:,:,:,None] + (1 - self.occ_mask_fwd[:,:,:,None]) * self.warped_image_I1
+                self.gen_image_I0 = scratch_image_bwd * self.occ_mask_fwd[:,:,:,None] + (1 - self.occ_mask_bwd[:,:,:,None]) * self.warped_image_I0
+            else:
+                self.gen_image_I1 = self.warped_image_I1
+                self.gen_image_I0 = self.warped_image_I0
+        else:
+            self.warped_image_I1, self.warp_pts, self.flow_fwd, _ = self.warp(self.I0, self.I1)
+            self.gen_image_I1 = self.warped_image_I1
+
         if build_loss:
             self.build_loss()
             # image_summary:
@@ -147,8 +260,15 @@ class GoalDistanceNet(object):
         return h
 
 
-    def build(self):
-        I0_I1 = tf.concat([self.I0, self.I1], axis=3)
+    def warp(self, I0, I1):
+        """
+        warps I0 onto I1
+        :param I0:
+        :param I1:
+        :return:
+        """
+
+        I0_I1 = tf.concat([I0, I1], axis=3)
 
         with tf.variable_scope('h1'):
             h1 = self.conv_relu_block(I0_I1, out_ch=32)  #24x32x3
@@ -169,11 +289,13 @@ class GoalDistanceNet(object):
             h6 = self.conv_relu_block(h5, out_ch=16, upsmp=True)  #48x64x3
 
         with tf.variable_scope('h7'):
-            self.flow_field = slim.layers.conv2d(  # 128x128xdesc_length
+            flow_field = slim.layers.conv2d(  # 128x128xdesc_length
                 h6,  2, [5, 5], stride=1, activation_fn=None)
 
-        self.warp_pts = warp_pts_layer(self.flow_field)
-        self.gen_image = resample_layer(self.I0, self.warp_pts)
+        warp_pts = warp_pts_layer(flow_field)
+        gen_image = resample_layer(I0, warp_pts)
+
+        return gen_image, warp_pts, flow_field, h6
 
     # def build_image_summary(self):
     #     for t in range(self.conf['sequence_length']-1):
@@ -181,18 +303,63 @@ class GoalDistanceNet(object):
 
     def build_loss(self):
 
-        summaries = []
-        self.loss = mean_squared_error(self.gen_image, self.I1)
-        summaries.append(tf.summary.scalar('gdn_train_recon_cost', self.loss))
-        self.train_summ_op = tf.summary.merge(summaries)
+        train_summaries = []
+        val_summaries = []
 
-        summaries.append(tf.summary.scalar('gdn_val_recon_cost', self.loss))
-        self.val_summ_op = tf.summary.merge(summaries)
+        if self.conf['norm'] == 'l2':
+            norm = mean_square
+        elif self.conf['norm'] == 'charbonnier':
+            norm = charbonnier_loss
+        else: raise ValueError("norm not defined!")
+
+        self.loss = 0
+        fwd_recon_cost = norm(self.gen_image_I1 - self.I1)
+        train_summaries.append(tf.summary.scalar('train_fwd_recon_cost', fwd_recon_cost))
+        val_summaries.append(tf.summary.scalar('val_fwd_recon_cost', fwd_recon_cost))
+        self.loss += fwd_recon_cost
+
+        if 'fwd_bwd' in self.conf:
+            bwd_loss = norm(self.gen_image_I0 - self.I0)
+            train_summaries.append(tf.summary.scalar('train_bwd_recon_cost', bwd_loss))
+            val_summaries.append(tf.summary.scalar('val_bwd_recon_cost', bwd_loss))
+            self.loss += bwd_loss
+
+            fd = self.conf['flow_diff_cost']
+            flow_diff_cost = (norm(self.diff_flow_fwd) + norm(self.diff_flow_bwd))*fd
+            train_summaries.append(tf.summary.scalar('train_flow_diff_cost', flow_diff_cost))
+            val_summaries.append(tf.summary.scalar('val_flow_diff_cost', flow_diff_cost))
+            self.loss += flow_diff_cost
+
+            if 'occlusion_handling' in self.conf:
+                occ = self.conf['occlusion_handling']['reg_cost']
+                occ_reg_cost =  (tf.reduce_mean(self.occ_mask_fwd) + tf.reduce_mean(self.occ_mask_fwd))*occ
+                train_summaries.append(tf.summary.scalar('train_occlusion_handling', occ_reg_cost))
+                val_summaries.append(tf.summary.scalar('val_occlusion_handling', occ_reg_cost))
+                self.loss += occ_reg_cost
+
+        if 'smoothcost' in self.conf:
+            sc = self.conf['smoothcost']
+            smooth_cost_fwd = flow_smooth_cost(self.flow_fwd, norm, self.conf['smoothmode'])*sc
+            train_summaries.append(tf.summary.scalar('train_smooth_2ndorder_fwd', smooth_cost_fwd))
+            val_summaries.append(tf.summary.scalar('val_smooth_2ndorder_fwd', smooth_cost_fwd))
+            self.loss += smooth_cost_fwd
+
+            if 'fwd_bwd' in self.conf:
+                smooth_cost_bwd = flow_smooth_cost(self.flow_bwd, norm, self.conf['smoothmode'])*sc
+                train_summaries.append(tf.summary.scalar('train_smooth_2ndorder_bwd', smooth_cost_fwd))
+                val_summaries.append(tf.summary.scalar('val_smooth_2ndorder_bwd', smooth_cost_fwd))
+                self.loss += smooth_cost_bwd
+
+        train_summaries.append(tf.summary.scalar('train_total', self.loss))
+        val_summaries.append(tf.summary.scalar('val_total', self.loss))
+
+        self.train_summ_op = tf.summary.merge(train_summaries)
+        self.val_summ_op = tf.summary.merge(val_summaries)
 
         self.train_op = tf.train.AdamOptimizer(self.lr).minimize(self.loss)
 
-    def visualize(self, sess):
 
+    def visualize(self, sess):
         dict = build_tfrecord_fn(self.conf)
         images, pred_images = sess.run([dict['images'], dict['gen_images']])
 
@@ -218,7 +385,7 @@ class GoalDistanceNet(object):
 
             I0_ts.append(I0_t)
 
-            [output, flow] = sess.run([self.gen_image, self.flow_field], {self.I0_pl:I0_t, self.I1_pl: I1})
+            [output, flow] = sess.run([self.gen_image_I1, self.flow_fwd], {self.I0_pl:I0_t, self.I1_pl: I1})
 
             outputs.append(output)
 
@@ -244,37 +411,6 @@ class GoalDistanceNet(object):
 
         cPickle.dump(dict, open(self.conf['output_dir'] + '/data.pkl', 'wb'))
         make_plots(self.conf, dict=dict)
-
-        #     im_height = output.shape[1]
-        #     im_width = output.shape[2]
-        #     warped_column = np.squeeze(np.split(output, num_examples, axis=0))
-        #
-        #     I0_t = np.squeeze(np.split(I0_t, num_examples, axis=0))
-        #
-        #     if 'vidpred_data' in self.conf:
-        #         I0_t_real = np.squeeze(np.split(I0_t_real, num_examples, axis=0))
-        #         I0_t = np.squeeze(np.split(I0_t, num_examples, axis=0))
-        #
-        #         warped_column = [np.concatenate([inp_real, inp, warp, fmag], axis=0) for inp_real, inp, warp, fmag in
-        #                          zip(I0_t_real, I0_t, warped_column, flow_mag)]
-        #     else:
-        #         warped_column = [np.concatenate([inp, warp, fmag], axis=0) for inp, warp, fmag in
-        #                          zip(I0_t, warped_column, flow_mag)]
-        #
-        #     warped_column = np.concatenate(warped_column, axis=0)
-        #
-        #     warped_images.append(warped_column)
-        #
-        # warped_images = np.concatenate(warped_images, axis=1)
-        #
-        # dir = self.conf['output_dir']
-        # Image.fromarray((warped_images*255.).astype(np.uint8)).save(dir + '/warped.png')
-        #
-        # I1 = I1.reshape(num_examples*im_height, im_width,3)
-        # Image.fromarray((I1 * 255.).astype(np.uint8)).save(dir + '/finalimage.png')
-        #
-        # sys.exit('complete!')
-
 
 def make_plots(conf, dict=None, filename = None):
     if dict == None:

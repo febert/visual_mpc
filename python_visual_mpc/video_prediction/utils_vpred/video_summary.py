@@ -3,6 +3,16 @@ import moviepy.editor as mpy
 import numpy as np
 import tensorflow as tf
 
+
+def make_video_summaries(seq_len, videos):
+    columns = []
+    videos = [vid[-(seq_len-1):] for vid in videos]
+    for t in range(seq_len-1):
+        colimages = [vid[t] for vid in videos]
+        columns.append(tf.concat(colimages, axis=1))
+    summary = tf.summary.tensor_summary('val_images', tf.cast(tf.stack(columns, axis=1) * 255, tf.uint8))
+    return summary
+
 def convert_tensor_to_gif_summary(summ):
     if isinstance(summ, bytes):
         summary_proto = tf.Summary()
