@@ -31,9 +31,9 @@ configuration = {
 'load_vidpred_data':'',           # tell loader to get video prediction data
 'vidpred_data':'',                # use video prediction data
 'norm':'charbonnier',
-'smoothcost':0.01,
+'smoothcost':1e-6,
 'smoothmode':'sobel',
 'fwd_bwd':'',
 'flow_diff_cost':0.01,
-'occlusion_handling':{'bias':-3., 'scale':1., 'reg_cost':0.01}
+'occlusion_handling':{'bias':-3., 'scale':1., 'reg_cost':1.}
 }

@@ -347,7 +347,7 @@ class GoalDistanceNet(object):
 
             if 'occlusion_handling' in self.conf:
                 occ = self.conf['occlusion_handling']['reg_cost']
-                occ_reg_cost =  (tf.reduce_mean(self.occ_mask_fwd) + tf.reduce_mean(self.occ_mask_fwd))*occ
+                occ_reg_cost =  (tf.reduce_mean(self.occ_mask_fwd) + tf.reduce_mean(self.occ_mask_bwd))*occ
                 train_summaries.append(tf.summary.scalar('train_occlusion_handling', occ_reg_cost))
                 val_summaries.append(tf.summary.scalar('val_occlusion_handling', occ_reg_cost))
                 self.loss += occ_reg_cost
@@ -387,6 +387,7 @@ class GoalDistanceNet(object):
         I0_t_reals = []
         I0_ts = []
         flow_mags = []
+        occ_masks_fwd = []
         warpscores = []
 
         for t in range(14):
@@ -400,32 +401,47 @@ class GoalDistanceNet(object):
 
             I0_ts.append(I0_t)
 
-            [output, flow] = sess.run([self.gen_image_I1, self.flow_fwd], {self.I0_pl:I0_t, self.I1_pl: I1})
+            if 'occlusion_handling' in self.conf:
+                [output, flow, occ_mask_fwd] = sess.run([self.gen_image_I1, self.flow_fwd, self.occ_mask_fwd], {self.I0_pl: I0_t, self.I1_pl: I1})
+                occ_masks_fwd.append(self.color_code(occ_mask_fwd, num_examples))
+            else:
+                [output, flow] = sess.run([self.gen_image_I1, self.flow_fwd], {self.I0_pl:I0_t, self.I1_pl: I1})
 
             outputs.append(output)
 
             flow_mag = np.linalg.norm(flow, axis=3)
-            cmap = plt.cm.get_cmap('jet')
-            flow_mag_ = []
+            if 'occlusion_handling' in self.conf:
+                warpscores.append(np.mean(np.mean(flow_mag, axis=1), axis=1))
+            else:
+                warpscores.append(np.mean(np.mean(flow_mag*occ_mask_fwd, axis=1), axis=1))
 
-            warpscores.append(np.mean(np.mean(flow_mag, axis=1),axis=1))
-
-            for b in range(num_examples):
-                f = flow_mag[b]/(np.max(flow_mag[b]) + 1e-6)
-                f = cmap(f)[:, :, :3]
-                flow_mag_.append(f)
-
-            flow_mags.append(flow_mag)
+            flow_mags.append(self.color_code(flow_mag, num_examples))
 
         dict = {
             'I0_t_real':I0_t_reals,
             'I0_t':I0_ts,
             'flow_mags':flow_mags,
             'outputs':outputs,
-            'warpscores':warpscores}
+            'warpscores':warpscores,
+        }
+
+        if 'occlusion_handling' in self.conf:
+            dict['occ_mask_fwd'] = occ_masks_fwd
 
         cPickle.dump(dict, open(self.conf['output_dir'] + '/data.pkl', 'wb'))
         make_plots(self.conf, dict=dict)
+
+    def color_code(self, input, num_examples):
+        cmap = plt.cm.get_cmap()
+
+        l = []
+        for b in range(num_examples):
+            f = input[b] / (np.max(input[b]) + 1e-6)
+            f = cmap(f)[:, :, :3]
+            l.append(f)
+
+        return np.stack(l, axis=0)
+
 
 def make_plots(conf, dict=None, filename = None):
     if dict == None:
@@ -437,13 +453,17 @@ def make_plots(conf, dict=None, filename = None):
     I0_ts =dict['I0_t']
     flow_mags =dict['flow_mags']
     outputs =dict['outputs']
-    warpscores =dict['warpscores']
+    warpscores = dict['warpscores']
 
     # num_exp = I0_t_reals[0].shape[0]
     num_ex = 3
     start_ex = 10
 
-    num_rows = num_ex*4
+    if 'occ_mask_fwd' in dict:
+        num_rows = num_ex*5
+    else:
+        num_rows = num_ex * 4
+
     num_cols = len(I0_t_reals)
 
     # plt.figure(figsize=(num_rows, num_cols))
@@ -460,7 +480,6 @@ def make_plots(conf, dict=None, filename = None):
     for col in range(num_cols):
         row = 0
         for ex in range(start_ex, start_ex + num_ex, 1):
-            print 'ex{}'.format(ex)
 
             axarr[row, col].imshow(I0_t_reals[col][ex], interpolation='none')
             axarr[row, col].axis('off')
@@ -468,12 +487,17 @@ def make_plots(conf, dict=None, filename = None):
 
             axarr[row, col].imshow(I0_ts[col][ex], interpolation='none')
             axarr[row, col].axis('off')
-
             row += 1
+
             axarr[row, col].set_title('{:10.3f}'.format(warpscores[col][ex]), fontsize=5)
             axarr[row, col].imshow(flow_mags[col][ex], interpolation='none')
             axarr[row, col].axis('off')
             row += 1
+
+            if 'occ_mask_fwd' in dict:
+                axarr[row, col].imshow(dict['occ_mask_fwd'][col][ex], interpolation='none')
+                axarr[row, col].axis('off')
+                row += 1
 
             axarr[row, col].imshow(outputs[col][ex], interpolation='none')
             axarr[row, col].axis('off')
