@@ -18,6 +18,8 @@ SUMMARY_INTERVAL = 400
 # How often to run a batch through the validation model.
 VAL_INTERVAL = 500
 
+IMAGE_INTERVAL = 5000
+
 # How often to save a model checkpoint
 SAVE_INTERVAL = 4000
 
@@ -167,6 +169,13 @@ def main(unused_argv, conf_script= None):
             [val_summary_str] = sess.run([model.val_summ_op], feed_dict)
             summary_writer.add_summary(val_summary_str, itr)
 
+        if itr % IMAGE_INTERVAL ==0:
+            print 'making image summ'
+            feed_dict = {model.iter_num: np.float32(itr),
+                         model.train_cond: 0}
+            [val_image_summary_str] = sess.run([model.image_summaries], feed_dict)
+            summary_writer.add_summary(val_image_summary_str, itr)
+
         if (itr) % SAVE_INTERVAL == 2:
             tf.logging.info('Saving model to' + conf['output_dir'])
             saving_saver.save(sess, conf['output_dir'] + '/model' + str(itr))
@@ -183,7 +192,7 @@ def main(unused_argv, conf_script= None):
             tf.logging.info('time per iteration: {0}'.format(avg_t_iter/1e6))
             tf.logging.info('expected for complete training: {0}h '.format(avg_t_iter /1e6/3600 * conf['num_iterations']))
 
-        if (itr) % SUMMARY_INTERVAL:
+        if (itr) % SUMMARY_INTERVAL == 0:
             summary_writer.add_summary(summary_str, itr)
 
     tf.logging.info('Saving model.')

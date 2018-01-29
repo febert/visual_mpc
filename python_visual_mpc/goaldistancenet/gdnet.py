@@ -217,10 +217,13 @@ class GoalDistanceNet(object):
             self.warped_image_I1, self.warp_pts, self.flow_fwd, _ = self.warp(self.I0, self.I1)
             self.gen_image_I1 = self.warped_image_I1
 
+
+
         if build_loss:
             self.build_loss()
             # image_summary:
-            # self.build_image_summary()
+            self.image_summaries = self.build_image_summary()
+
 
     def sel_images(self):
         sequence_length = self.conf['sequence_length']
@@ -297,9 +300,21 @@ class GoalDistanceNet(object):
 
         return gen_image, warp_pts, flow_field, h6
 
-    # def build_image_summary(self):
-    #     for t in range(self.conf['sequence_length']-1):
-    #         self.I0
+    def build_image_summary(self):
+        image_I0_l = tf.unstack(self.I0, axis=0)[:16]
+        images_I0 = tf.concat(image_I0_l, axis=1)
+
+        image_I1_l = tf.unstack(self.I1, axis=0)[:16]
+        images_I1 = tf.concat(image_I1_l, axis=1)
+
+        genimage_I1_l = tf.unstack(self.gen_image_I1, axis=0)[:16]
+        genimages_I1 = tf.concat(genimage_I1_l, axis=1)
+
+        image = tf.concat([images_I0, images_I1, genimages_I1], axis=0)
+        image = tf.reshape(image, [1]+image.get_shape().as_list())
+
+        return tf.summary.image('I0_I1_genI1', image)
+
 
     def build_loss(self):
 

@@ -10,7 +10,7 @@ import imp
 from tensorflow.python.platform import app
 from tensorflow.python.platform import flags
 
-from python_visual_mpc.video_prediction.utils_vpred.convert_tensorsummary_to_gif import convert_tensor_to_gif_summary
+from python_visual_mpc.video_prediction.utils_vpred.video_summary import convert_tensor_to_gif_summary
 
 from datetime import datetime
 import collections

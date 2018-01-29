@@ -30,4 +30,5 @@ configuration = {
 'orig_size': [48,64],
 'load_vidpred_data':'',           # tell loader to get video prediction data
 'vidpred_data':'',                # use video prediction data
+'norm':'l2'
 }
