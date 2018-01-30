@@ -38,7 +38,8 @@ configuration = {
 'norm':'l2',
 'smoothcost':1e-6,
 'smoothmode':'sobel',
-
+'late_fusion':'',
+    
 'ngroup':100,
 'sourcetags':[tag_images],
 'source_basedirs':[base_dir + '/pushing_data/cartgripper_startgoal/train'],

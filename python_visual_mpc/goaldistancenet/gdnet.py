@@ -197,8 +197,8 @@ class GoalDistanceNet(object):
             fwd_flow_warped_bwd = warp(self.flow_fwd, self.flow_bwd)
             self.diff_flow_bwd = self.flow_bwd + fwd_flow_warped_bwd
 
-            bias = self.conf['occlusion_handling']['bias']
-            scale = self.conf['occlusion_handling']['scale']
+            bias = self.conf['occlusion_handling_bias']
+            scale = self.conf['occlusion_handling_scale']
             diff_flow_fwd_normed = tf.reduce_sum(tf.square(self.diff_flow_fwd), axis=3)
             diff_flow_bwd_normed = tf.reduce_sum(tf.square(self.diff_flow_bwd), axis=3)
             self.occ_mask_fwd = tf.nn.sigmoid(diff_flow_fwd_normed * scale + bias)  # gets 1 if occluded 0 otherwise
@@ -366,7 +366,7 @@ class GoalDistanceNet(object):
             self.loss += flow_diff_cost
 
             if 'occlusion_handling' in self.conf:
-                occ = self.conf['occlusion_handling']['reg_cost']
+                occ = self.conf['occlusion_handling']
                 occ_reg_cost =  (tf.reduce_mean(self.occ_mask_fwd) + tf.reduce_mean(self.occ_mask_bwd))*occ
                 train_summaries.append(tf.summary.scalar('train_occlusion_handling', occ_reg_cost))
                 val_summaries.append(tf.summary.scalar('val_occlusion_handling', occ_reg_cost))

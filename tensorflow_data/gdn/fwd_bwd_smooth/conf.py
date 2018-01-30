@@ -34,5 +34,8 @@ configuration = {
 'smoothcost':1e-6,
 'smoothmode':'sobel',
 'fwd_bwd':'',
-'flow_diff_cost':0.01
+'flow_diff_cost':0.01,
+
+'occlusion_handling_bias':-3.,  # occlusion handling is only active when 'occlusion_handling' is in dict
+'occlusion_handling_scale':1.,
 }
