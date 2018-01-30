@@ -12,8 +12,12 @@ from python_visual_mpc.video_prediction.read_tf_records2 import \
                 build_tfrecord_input as build_tfrecord_fn
 import matplotlib.gridspec as gridspec
 
+from python_visual_mpc.video_prediction.utils_vpred.online_reader import OnlineReader
 import tensorflow.contrib.slim as slim
 from tensorflow.contrib.layers.python import layers as tf_layers
+from python_visual_mpc.video_prediction.utils_vpred.online_reader import read_trajectory
+
+from python_visual_mpc.data_preparation.gather_data import make_traj_name_list
 
 
 
@@ -128,13 +132,12 @@ class GoalDistanceNet(object):
                  pred_images = None
                  ):
 
-        self.layer_normalization = conf['normalization']
         if conf['normalization'] == 'in':
             self.normalizer_fn = instance_norm
         elif conf['normalization'] == 'None':
             self.normalizer_fn = lambda x: x
         else:
-            raise ValueError('Invalid layer normalization %s' % self.layer_normalization)
+            raise ValueError('Invalid layer normalization %s' % conf['normalization'])
 
         self.conf = conf
 
@@ -189,19 +192,19 @@ class GoalDistanceNet(object):
                 self.warped_image_I0, self.warp_pts_bwd, self.flow_bwd, h6_bwd = self.warp(self.I1, self.I0)
 
             bwd_flow_warped_fwd = warp(self.flow_bwd, self.flow_fwd)
-            self.diff_flow_fwd = self.flow_fwd - bwd_flow_warped_fwd
+            self.diff_flow_fwd = self.flow_fwd + bwd_flow_warped_fwd
 
             fwd_flow_warped_bwd = warp(self.flow_fwd, self.flow_bwd)
-            self.diff_flow_bwd = self.flow_bwd - fwd_flow_warped_bwd
+            self.diff_flow_bwd = self.flow_bwd + fwd_flow_warped_bwd
+
+            bias = self.conf['occlusion_handling']['bias']
+            scale = self.conf['occlusion_handling']['scale']
+            diff_flow_fwd_normed = tf.reduce_sum(tf.square(self.diff_flow_fwd), axis=3)
+            diff_flow_bwd_normed = tf.reduce_sum(tf.square(self.diff_flow_bwd), axis=3)
+            self.occ_mask_fwd = tf.nn.sigmoid(diff_flow_fwd_normed * scale + bias)  # gets 1 if occluded 0 otherwise
+            self.occ_mask_bwd = tf.nn.sigmoid(diff_flow_bwd_normed * scale + bias)
 
             if 'occlusion_handling' in self.conf:
-                bias = self.conf['occlusion_handling']['bias']
-                scale = self.conf['occlusion_handling']['scale']
-                diff_flow_fwd_normed = tf.reduce_sum(tf.square(self.diff_flow_fwd), axis=3)
-                diff_flow_bwd_normed = tf.reduce_sum(tf.square(self.diff_flow_bwd), axis=3)
-                self.occ_mask_fwd = tf.nn.sigmoid(diff_flow_fwd_normed * scale + bias)  # gets 1 if occluded 0 otherwise
-                self.occ_mask_bwd = tf.nn.sigmoid(diff_flow_bwd_normed * scale + bias)
-
                 with tf.variable_scope('gen_img'):
                     scratch_image_fwd = slim.layers.conv2d(  # 128x128xdesc_length
                         h6_fwd, 3, [5, 5], stride=1, activation_fn=tf.nn.sigmoid)
@@ -216,7 +219,6 @@ class GoalDistanceNet(object):
         else:
             self.warped_image_I1, self.warp_pts, self.flow_fwd, _ = self.warp(self.I0, self.I1)
             self.gen_image_I1 = self.warped_image_I1
-
 
 
         if build_loss:
@@ -262,43 +264,62 @@ class GoalDistanceNet(object):
         h = tf.image.resize_images(h, imsize, method=tf.image.ResizeMethod.BILINEAR)
         return h
 
-
-    def warp(self, I0, I1):
+    def warp(self, source_image, dest_image):
         """
         warps I0 onto I1
-        :param I0:
-        :param I1:
+        :param source_image:
+        :param dest_image:
         :return:
         """
 
-        I0_I1 = tf.concat([I0, I1], axis=3)
+        if 'ch_mult' in self.conf:
+            ch_mult = self.conf['ch_mult']
+        else: ch_mult = 1
 
-        with tf.variable_scope('h1'):
-            h1 = self.conv_relu_block(I0_I1, out_ch=32)  #24x32x3
+        if 'late_fusion' in self.conf:
+            print 'building late fusion net'
+            with tf.variable_scope('pre_proc_source'):
+                h3_1 = self.pre_proc_net(source_image, ch_mult)
+            with tf.variable_scope('pre_proc_dest'):
+                h3_2 = self.pre_proc_net(dest_image, ch_mult)
+            h3 = tf.concat([h3_1, h3_2], axis=3)
+        else:
+            I0_I1 = tf.concat([source_image, dest_image], axis=3)
+            with tf.variable_scope('h1'):
+                h1 = self.conv_relu_block(I0_I1, out_ch=32*ch_mult)  #24x32x3
 
-        with tf.variable_scope('h2'):
-            h2 = self.conv_relu_block(h1, out_ch=64)  #12x16x3
+            with tf.variable_scope('h2'):
+                h2 = self.conv_relu_block(h1, out_ch=64*ch_mult)  #12x16x3
 
-        with tf.variable_scope('h3'):
-            h3 = self.conv_relu_block(h2, out_ch=128)  #6x8x3
+            with tf.variable_scope('h3'):
+                h3 = self.conv_relu_block(h2, out_ch=128*ch_mult)  #6x8x3
 
         with tf.variable_scope('h4'):
-            h4 = self.conv_relu_block(h3, out_ch=64, upsmp=True)  #12x16x3
+            h4 = self.conv_relu_block(h3, out_ch=64*ch_mult, upsmp=True)  #12x16x3
 
         with tf.variable_scope('h5'):
-            h5 = self.conv_relu_block(h4, out_ch=32, upsmp=True)  #24x32x3
+            h5 = self.conv_relu_block(h4, out_ch=32*ch_mult, upsmp=True)  #24x32x3
 
         with tf.variable_scope('h6'):
-            h6 = self.conv_relu_block(h5, out_ch=16, upsmp=True)  #48x64x3
+            h6 = self.conv_relu_block(h5, out_ch=16*ch_mult, upsmp=True)  #48x64x3
 
         with tf.variable_scope('h7'):
             flow_field = slim.layers.conv2d(  # 128x128xdesc_length
                 h6,  2, [5, 5], stride=1, activation_fn=None)
 
         warp_pts = warp_pts_layer(flow_field)
-        gen_image = resample_layer(I0, warp_pts)
+        gen_image = resample_layer(source_image, warp_pts)
 
         return gen_image, warp_pts, flow_field, h6
+
+    def pre_proc_net(self, input, ch_mult):
+        with tf.variable_scope('h1'):
+            h1 = self.conv_relu_block(input, out_ch=32 * ch_mult)  # 24x32x3
+        with tf.variable_scope('h2'):
+            h2 = self.conv_relu_block(h1, out_ch=64 * ch_mult)  # 12x16x3
+        with tf.variable_scope('h3'):
+            h3 = self.conv_relu_block(h2, out_ch=128 * ch_mult)  # 6x8x3
+        return h3
 
     def build_image_summary(self):
         image_I0_l = tf.unstack(self.I0, axis=0)[:16]
@@ -314,7 +335,6 @@ class GoalDistanceNet(object):
         image = tf.reshape(image, [1]+image.get_shape().as_list())
 
         return tf.summary.image('I0_I1_genI1', image)
-
 
     def build_loss(self):
 
@@ -375,10 +395,17 @@ class GoalDistanceNet(object):
 
 
     def visualize(self, sess):
-        dict = build_tfrecord_fn(self.conf)
-        images, pred_images = sess.run([dict['images'], dict['gen_images']])
+        if 'source_basedirs' in self.conf:
+            self.conf['sequence_length'] = 2
+            self.conf.pop('vidpred_data', None)
+            r = OnlineReader(self.conf, 'test', sess=sess)
+            images = r.get_batch_tensors()
+            [images] = sess.run([images])
+        else:
+            videos = build_tfrecord_fn(self.conf)
+            images, pred_images = sess.run([videos['images'], videos['gen_images']])
 
-        pred_images = np.squeeze(pred_images)
+            pred_images = np.squeeze(pred_images)
 
         num_examples = self.conf['batch_size']
         I1 = images[:, -1]
@@ -390,7 +417,7 @@ class GoalDistanceNet(object):
         occ_masks_fwd = []
         warpscores = []
 
-        for t in range(14):
+        for t in range(self.conf['sequence_length']):
             if 'vidpred_data' in self.conf:
                 I0_t = pred_images[:, t]
                 I0_t_real = images[:, t]
@@ -411,22 +438,26 @@ class GoalDistanceNet(object):
 
             flow_mag = np.linalg.norm(flow, axis=3)
             if 'occlusion_handling' in self.conf:
-                warpscores.append(np.mean(np.mean(flow_mag, axis=1), axis=1))
+                warpscores.append(np.mean(np.mean(flow_mag * occ_mask_fwd, axis=1), axis=1))
             else:
-                warpscores.append(np.mean(np.mean(flow_mag*occ_mask_fwd, axis=1), axis=1))
+                warpscores.append(np.mean(np.mean(flow_mag, axis=1), axis=1))
+
 
             flow_mags.append(self.color_code(flow_mag, num_examples))
 
-        dict = {
-            'I0_t_real':I0_t_reals,
+        videos = {
             'I0_t':I0_ts,
             'flow_mags':flow_mags,
             'outputs':outputs,
-            'warpscores':warpscores,
         }
+        if 'vidpred_data' in self.conf:
+            videos['I0_t_real'] = I0_t_reals
 
         if 'occlusion_handling' in self.conf:
-            dict['occ_mask_fwd'] = occ_masks_fwd
+            videos['occ_mask_fwd'] = occ_masks_fwd
+
+        name = str.split(self.conf['output_dir'], '/')[-2]
+        dict = {'videos':videos, 'warpscores':warpscores, 'name':name}
 
         cPickle.dump(dict, open(self.conf['output_dir'] + '/data.pkl', 'wb'))
         make_plots(self.conf, dict=dict)
@@ -448,31 +479,29 @@ def make_plots(conf, dict=None, filename = None):
         dict = cPickle.load(open(filename))
 
     print 'loaded'
+    videos = dict['videos']
 
-    I0_t_reals = dict['I0_t_real']
-    I0_ts =dict['I0_t']
-    flow_mags =dict['flow_mags']
-    outputs =dict['outputs']
+    I0_ts =videos['I0_t']
+    flow_mags =videos['flow_mags']
+    outputs =videos['outputs']
+
     warpscores = dict['warpscores']
 
     # num_exp = I0_t_reals[0].shape[0]
-    num_ex = 3
-    start_ex = 10
+    num_ex = 4
+    start_ex = 00
 
-    if 'occ_mask_fwd' in dict:
-        num_rows = num_ex*5
-    else:
-        num_rows = num_ex * 4
+    num_rows = num_ex*len(videos.keys())
 
-    num_cols = len(I0_t_reals)
+    num_cols = len(I0_ts)
 
     # plt.figure(figsize=(num_rows, num_cols))
     # gs1 = gridspec.GridSpec(num_rows, num_cols)
     # gs1.update(wspace=0.025, hspace=0.05)
 
-    width_per_ex = 0.9
+    width_per_ex = 1.5
 
-    standard_size = np.array([width_per_ex * num_cols, num_rows * 1.0])  ### 1.5
+    standard_size = np.array([width_per_ex * num_cols, num_rows * 1.5])  ### 1.5
     figsize = (standard_size).astype(np.int)
 
     f, axarr = plt.subplots(num_rows, num_cols, figsize=figsize)
@@ -481,9 +510,10 @@ def make_plots(conf, dict=None, filename = None):
         row = 0
         for ex in range(start_ex, start_ex + num_ex, 1):
 
-            axarr[row, col].imshow(I0_t_reals[col][ex], interpolation='none')
-            axarr[row, col].axis('off')
-            row += 1
+            if 'I0_t_real' in videos:
+                axarr[row, col].imshow(videos['I0_t_real'][col][ex], interpolation='none')
+                axarr[row, col].axis('off')
+                row += 1
 
             axarr[row, col].imshow(I0_ts[col][ex], interpolation='none')
             axarr[row, col].axis('off')
@@ -494,8 +524,8 @@ def make_plots(conf, dict=None, filename = None):
             axarr[row, col].axis('off')
             row += 1
 
-            if 'occ_mask_fwd' in dict:
-                axarr[row, col].imshow(dict['occ_mask_fwd'][col][ex], interpolation='none')
+            if 'occ_mask_fwd' in videos:
+                axarr[row, col].imshow(videos['occ_mask_fwd'][col][ex], interpolation='none')
                 axarr[row, col].axis('off')
                 row += 1
 
@@ -508,7 +538,7 @@ def make_plots(conf, dict=None, filename = None):
 
     # f.subplots_adjust(vspace=0.1)
     # plt.show()
-    plt.savefig(conf['output_dir']+'/warp_costs.png')
+    plt.savefig(conf['output_dir']+'/warp_costs_{}.png'.format(dict['name']))
 
 
 def calc_warpscores(flow_field):
@@ -526,7 +556,7 @@ def draw_text(img, float):
 
 
 if __name__ == '__main__':
-    filedir = '/home/frederik/Documents/catkin_ws/src/visual_mpc/tensorflow_data/gdn/vidpred_data/modeldata'
+    filedir = '/home/frederik/Documents/catkin_ws/src/visual_mpc/tensorflow_data/gdn/l2_smooth/modeldata'
     conf = {}
     conf['output_dir'] = filedir
     make_plots(conf, filename= filedir + '/data.pkl')

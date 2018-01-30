@@ -12,6 +12,11 @@ current_dir = os.path.dirname(os.path.realpath(__file__))
 # local output directory
 OUT_DIR = current_dir + '/modeldata'
 
+tag_images = {'name': 'images',
+             'file':'/images/im{}.png',   # only tindex
+             'shape':[48, 64,3],
+               }
+
 configuration = {
 'experiment_name': 'correction',
 'data_dir': DATA_DIR,       # 'directory containing data.' ,
@@ -30,5 +35,9 @@ configuration = {
 'orig_size': [48,64],
 'load_vidpred_data':'',           # tell loader to get video prediction data
 'vidpred_data':'',                # use video prediction data
-'norm':'l2'
+'norm':'l2',
+
+'ngroup':100,
+'sourcetags':[tag_images],
+'source_basedirs':[base_dir + '/pushing_data/cartgripper_startgoal/train'],
 }

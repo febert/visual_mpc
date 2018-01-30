@@ -233,13 +233,14 @@ class OnlineReader(object):
 
         self.start_threads(self.traj_list)
 
-
     def get_batch_tensors(self):
-        images, states, actions = self.q.dequeue_many(self.conf['batch_size'])
-
+        # images, states, actions = self.q.dequeue_many(self.conf['batch_size'])
+        images = self.q.dequeue_many(self.conf['batch_size'])
         # dequed = {name:value for name, value in zip(self.tag_names, dequed)}
         # return dequed
-        return images, states, actions
+        # return images, states, actions
+        return images
+
 
     def search_data(self):
         """
@@ -347,7 +348,6 @@ def test_online_reader():
 
     sess = tf.InteractiveSession()
     r = OnlineReader(conf, 'test', sess=sess)
-
     image_batch, endeff_pos_batch, action_batch = r.get_batch_tensors()
 
     from python_visual_mpc.video_prediction.utils_vpred.create_gif_lib import comp_single_video

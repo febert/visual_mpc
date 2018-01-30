@@ -38,7 +38,7 @@ configuration = {
 'vidpred_data':'',                # use video prediction data
 'norm':'charbonnier',
 'smoothcost':1e-6,
-'smoothmode':'sobel',
+'smoothmode':'2nd',
 
 'ngroup':100,
 'sourcetags':[tag_images],

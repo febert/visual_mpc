@@ -224,9 +224,12 @@ class VidPred_GDN_Model():
         if build_loss:
             self.lr = tf.placeholder_with_default(self.conf['learning_rate'], ())
             loss = self.build_loss()
-            self.train_op = tf.train.AdamOptimizer(self.lr).minimize(loss)
 
             self.gdn.build_loss()
+            loss += self.gdn.loss
+
+            self.train_op = tf.train.AdamOptimizer(self.lr).minimize(loss)
+
             self.train_summ_op = tf.summary.merge([self.train_summ_op, self.gdn.train_summ_op])
             self.val_summ_op = tf.summary.merge([self.val_summ_op, self.gdn.val_summ_op])
 
