@@ -183,8 +183,8 @@ class GoalDistanceNet(object):
             self.conf['sequence_length'] = self.conf['sequence_length']-1
             self.I0, self.I1 = self.sel_images()
 
-        self.occ_mask_fwd = tf.ones_like(self.I0)  # initialize as ones
-        self.occ_mask_bwd = tf.ones_like(self.I0)
+        self.occ_mask_fwd = tf.ones(self.I0.get_shape().as_list()[:3])  # initialize as ones
+        self.occ_mask_bwd = tf.ones(self.I0.get_shape().as_list()[:3])
 
         if 'fwd_bwd' in self.conf:
             with tf.variable_scope('fwd'):
@@ -354,15 +354,15 @@ class GoalDistanceNet(object):
         self.norm_occ_mask_fwd = (self.occ_mask_fwd / tf.reduce_mean(self.occ_mask_fwd))[:,:,:,None]
 
         self.loss = 0
-        I0_recon_cost = norm((self.gen_image_I0 - self.I0)*self.norm_occ_mask_fwd)
-        train_summaries.append(tf.summary.scalar('train_I0_recon_cost', I0_recon_cost))
-        self.loss += I0_recon_cost
 
+        I1_recon_cost = norm((self.gen_image_I1 - self.I1) * self.norm_occ_mask_bwd)
+        train_summaries.append(tf.summary.scalar('train_I1_recon_cost', I1_recon_cost))
+        self.loss += I1_recon_cost
 
         if 'fwd_bwd' in self.conf:
-            I1_recon_cost = norm((self.gen_image_I1 - self.I1)*self.norm_occ_mask_bwd)
-            train_summaries.append(tf.summary.scalar('train_I1_recon_cost', I1_recon_cost))
-            self.loss += I1_recon_cost
+            I0_recon_cost = norm((self.gen_image_I0 - self.I0) * self.norm_occ_mask_fwd)
+            train_summaries.append(tf.summary.scalar('train_I0_recon_cost', I0_recon_cost))
+            self.loss += I0_recon_cost
 
             fd = self.conf['flow_diff_cost']
             flow_diff_cost =   (norm(self.diff_flow_fwd*self.norm_occ_mask_fwd)
@@ -378,16 +378,16 @@ class GoalDistanceNet(object):
 
         if 'smoothcost' in self.conf:
             sc = self.conf['smoothcost']
-            smooth_cost_fwd = flow_smooth_cost(self.flow_fwd, norm, self.conf['smoothmode'],
-                                               self.norm_occ_mask_fwd)*sc
-            train_summaries.append(tf.summary.scalar('train_smooth_fwd', smooth_cost_fwd))
-            self.loss += smooth_cost_fwd
+            smooth_cost_bwd = flow_smooth_cost(self.flow_bwd, norm, self.conf['smoothmode'],
+                                               self.norm_occ_mask_bwd) * sc
+            train_summaries.append(tf.summary.scalar('train_smooth_bwd', smooth_cost_bwd))
+            self.loss += smooth_cost_bwd
 
             if 'fwd_bwd' in self.conf:
-                smooth_cost_bwd = flow_smooth_cost(self.flow_bwd, norm, self.conf['smoothmode'],
-                                                   self.norm_occ_mask_bwd)*sc
-                train_summaries.append(tf.summary.scalar('train_smooth_bwd', smooth_cost_fwd))
-                self.loss += smooth_cost_bwd
+                smooth_cost_fwd = flow_smooth_cost(self.flow_fwd, norm, self.conf['smoothmode'],
+                                                   self.norm_occ_mask_fwd) * sc
+                train_summaries.append(tf.summary.scalar('train_smooth_fwd', smooth_cost_fwd))
+                self.loss += smooth_cost_fwd
 
         train_summaries.append(tf.summary.scalar('train_total', self.loss))
         val_summaries.append(tf.summary.scalar('val_total', self.loss))
