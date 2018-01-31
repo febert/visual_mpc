@@ -39,7 +39,7 @@ configuration = {
 'smoothcost':1e-6,
 'smoothmode':'sobel',
 
-'ngroup':100,
-'sourcetags':[tag_images],
-'source_basedirs':[base_dir + '/pushing_data/cartgripper_startgoal/train'],
+# 'ngroup':100,
+# 'sourcetags':[tag_images],
+# 'source_basedirs':[base_dir + '/pushing_data/cartgripper_startgoal/train'],
 }

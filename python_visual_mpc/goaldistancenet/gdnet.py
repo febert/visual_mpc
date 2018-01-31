@@ -51,10 +51,11 @@ def charbonnier_loss(x, mask=None, truncate=None, alpha=0.45, beta=1.0, epsilon=
         return tf.reduce_sum(error) / normalization
 
 
-def flow_smooth_cost(flow, norm, mode):
+def flow_smooth_cost(flow, norm, mode, mask):
     """
     computes the norms of the derivatives and averages over the image
     :param flow_field:
+
     :return:
     """
     if mode == '2nd':  # compute 2nd derivative
@@ -91,7 +92,7 @@ def flow_smooth_cost(flow, norm, mode):
 
     deltas = tf.concat([delta_u, delta_v], axis=3)
 
-    return norm(deltas)
+    return norm(deltas*mask)
 
 
 def get_coords(img_shape):
@@ -187,9 +188,9 @@ class GoalDistanceNet(object):
 
         if 'fwd_bwd' in self.conf:
             with tf.variable_scope('fwd'):
-                self.warped_image_I1, self.warp_pts, self.flow_fwd, h6_fwd = self.warp(self.I0, self.I1)
+                self.warped_I0_to_I1, self.warp_pts_bwd, self.flow_bwd, h6_bwd = self.warp(self.I0, self.I1)
             with tf.variable_scope('bwd'):
-                self.warped_image_I0, self.warp_pts_bwd, self.flow_bwd, h6_bwd = self.warp(self.I1, self.I0)
+                self.warped_I1_to_I0, self.warp_pts_fwd, self.flow_fwd, h6_fwd = self.warp(self.I1, self.I0)
 
             bwd_flow_warped_fwd = warp(self.flow_bwd, self.flow_fwd)
             self.diff_flow_fwd = self.flow_fwd + bwd_flow_warped_fwd
@@ -204,22 +205,24 @@ class GoalDistanceNet(object):
             self.occ_mask_fwd = tf.nn.sigmoid(diff_flow_fwd_normed * scale + bias)  # gets 1 if occluded 0 otherwise
             self.occ_mask_bwd = tf.nn.sigmoid(diff_flow_bwd_normed * scale + bias)
 
-            if 'occlusion_handling' in self.conf:
-                with tf.variable_scope('gen_img'):
-                    scratch_image_fwd = slim.layers.conv2d(  # 128x128xdesc_length
-                        h6_fwd, 3, [5, 5], stride=1, activation_fn=tf.nn.sigmoid)
-                    scratch_image_bwd = slim.layers.conv2d(  # 128x128xdesc_length
-                        h6_bwd, 3, [5, 5], stride=1, activation_fn=tf.nn.sigmoid)
+            # if 'occlusion_handling' in self.conf:
+            #     with tf.variable_scope('gen_img'):
+            #         scratch_image_fwd = slim.layers.conv2d(  # 128x128xdesc_length
+            #             h6_fwd, 3, [5, 5], stride=1, activation_fn=tf.nn.sigmoid)
+            #         scratch_image_bwd = slim.layers.conv2d(  # 128x128xdesc_length
+            #             h6_bwd, 3, [5, 5], stride=1, activation_fn=tf.nn.sigmoid)
+            #
+            #     self.gen_image_I1 = scratch_image_fwd * self.occ_mask_fwd[:,:,:,None] + (1 - self.occ_mask_fwd[:,:,:,None]) * self.warped_I0_to_I1
+            #     self.gen_image_I0 = scratch_image_bwd * self.occ_mask_fwd[:,:,:,None] + (1 - self.occ_mask_bwd[:,:,:,None]) * self.warped_I1_to_I0
+            # else:
+            #     self.gen_image_I1 = self.warped_I0_to_I1
+            #     self.gen_image_I0 = self.warped_I1_to_I0
 
-                self.gen_image_I1 = scratch_image_fwd * self.occ_mask_fwd[:,:,:,None] + (1 - self.occ_mask_fwd[:,:,:,None]) * self.warped_image_I1
-                self.gen_image_I0 = scratch_image_bwd * self.occ_mask_fwd[:,:,:,None] + (1 - self.occ_mask_bwd[:,:,:,None]) * self.warped_image_I0
-            else:
-                self.gen_image_I1 = self.warped_image_I1
-                self.gen_image_I0 = self.warped_image_I0
+            self.gen_image_I1 = self.warped_I0_to_I1
+            self.gen_image_I0 = self.warped_I1_to_I0
         else:
-            self.warped_image_I1, self.warp_pts, self.flow_fwd, _ = self.warp(self.I0, self.I1)
-            self.gen_image_I1 = self.warped_image_I1
-
+            self.warped_I0_to_I1, self.warp_pts_bwd, self.flow_bwd, _ = self.warp(self.I0, self.I1)
+            self.gen_image_I1 = self.warped_I0_to_I1
 
         if build_loss:
             self.build_loss()
@@ -347,42 +350,43 @@ class GoalDistanceNet(object):
             norm = charbonnier_loss
         else: raise ValueError("norm not defined!")
 
+        self.norm_occ_mask_bwd = (self.occ_mask_bwd / tf.reduce_mean(self.occ_mask_bwd))[:,:,:,None]
+        self.norm_occ_mask_fwd = (self.occ_mask_fwd / tf.reduce_mean(self.occ_mask_fwd))[:,:,:,None]
+
         self.loss = 0
-        fwd_recon_cost = norm(self.gen_image_I1 - self.I1)
-        train_summaries.append(tf.summary.scalar('train_fwd_recon_cost', fwd_recon_cost))
-        val_summaries.append(tf.summary.scalar('val_fwd_recon_cost', fwd_recon_cost))
-        self.loss += fwd_recon_cost
+        I0_recon_cost = norm((self.gen_image_I0 - self.I0)*self.norm_occ_mask_fwd)
+        train_summaries.append(tf.summary.scalar('train_I0_recon_cost', I0_recon_cost))
+        self.loss += I0_recon_cost
+
 
         if 'fwd_bwd' in self.conf:
-            bwd_loss = norm(self.gen_image_I0 - self.I0)
-            train_summaries.append(tf.summary.scalar('train_bwd_recon_cost', bwd_loss))
-            val_summaries.append(tf.summary.scalar('val_bwd_recon_cost', bwd_loss))
-            self.loss += bwd_loss
+            I1_recon_cost = norm((self.gen_image_I1 - self.I1)*self.norm_occ_mask_bwd)
+            train_summaries.append(tf.summary.scalar('train_I1_recon_cost', I1_recon_cost))
+            self.loss += I1_recon_cost
 
             fd = self.conf['flow_diff_cost']
-            flow_diff_cost = (norm(self.diff_flow_fwd) + norm(self.diff_flow_bwd))*fd
+            flow_diff_cost =   (norm(self.diff_flow_fwd*self.norm_occ_mask_fwd)
+                              + norm(self.diff_flow_bwd*self.norm_occ_mask_bwd))*fd
             train_summaries.append(tf.summary.scalar('train_flow_diff_cost', flow_diff_cost))
-            val_summaries.append(tf.summary.scalar('val_flow_diff_cost', flow_diff_cost))
             self.loss += flow_diff_cost
 
-            if 'occlusion_handling' in self.conf:
-                occ = self.conf['occlusion_handling']
-                occ_reg_cost =  (tf.reduce_mean(self.occ_mask_fwd) + tf.reduce_mean(self.occ_mask_bwd))*occ
-                train_summaries.append(tf.summary.scalar('train_occlusion_handling', occ_reg_cost))
-                val_summaries.append(tf.summary.scalar('val_occlusion_handling', occ_reg_cost))
-                self.loss += occ_reg_cost
+            # if 'occlusion_handling' in self.conf:
+            #     occ = self.conf['occlusion_handling']
+            #     occ_reg_cost =  (tf.reduce_mean(self.occ_mask_fwd) + tf.reduce_mean(self.occ_mask_bwd))*occ
+            #     train_summaries.append(tf.summary.scalar('train_occlusion_handling', occ_reg_cost))
+            #     self.loss += occ_reg_cost
 
         if 'smoothcost' in self.conf:
             sc = self.conf['smoothcost']
-            smooth_cost_fwd = flow_smooth_cost(self.flow_fwd, norm, self.conf['smoothmode'])*sc
-            train_summaries.append(tf.summary.scalar('train_smooth_2ndorder_fwd', smooth_cost_fwd))
-            val_summaries.append(tf.summary.scalar('val_smooth_2ndorder_fwd', smooth_cost_fwd))
+            smooth_cost_fwd = flow_smooth_cost(self.flow_fwd, norm, self.conf['smoothmode'],
+                                               self.norm_occ_mask_fwd)*sc
+            train_summaries.append(tf.summary.scalar('train_smooth_fwd', smooth_cost_fwd))
             self.loss += smooth_cost_fwd
 
             if 'fwd_bwd' in self.conf:
-                smooth_cost_bwd = flow_smooth_cost(self.flow_bwd, norm, self.conf['smoothmode'])*sc
-                train_summaries.append(tf.summary.scalar('train_smooth_2ndorder_bwd', smooth_cost_fwd))
-                val_summaries.append(tf.summary.scalar('val_smooth_2ndorder_bwd', smooth_cost_fwd))
+                smooth_cost_bwd = flow_smooth_cost(self.flow_bwd, norm, self.conf['smoothmode'],
+                                                   self.norm_occ_mask_bwd)*sc
+                train_summaries.append(tf.summary.scalar('train_smooth_bwd', smooth_cost_fwd))
                 self.loss += smooth_cost_bwd
 
         train_summaries.append(tf.summary.scalar('train_total', self.loss))
@@ -428,22 +432,23 @@ class GoalDistanceNet(object):
 
             I0_ts.append(I0_t)
 
-            if 'occlusion_handling' in self.conf:
-                [output, flow, occ_mask_fwd] = sess.run([self.gen_image_I1, self.flow_fwd, self.occ_mask_fwd], {self.I0_pl: I0_t, self.I1_pl: I1})
-                occ_masks_fwd.append(self.color_code(occ_mask_fwd, num_examples))
+            if 'fwd_bwd' in self.conf:
+                [output, flow, occ_mask_bwd] = sess.run([self.gen_image_I1, self.flow_bwd, self.occ_mask_bwd], {self.I0_pl: I0_t, self.I1_pl: I1})
+                # occ_masks_fwd.append(self.color_code(occ_mask_fwd, num_examples))
+                occ_masks_fwd.append(occ_mask_bwd)
             else:
-                [output, flow] = sess.run([self.gen_image_I1, self.flow_fwd], {self.I0_pl:I0_t, self.I1_pl: I1})
+                [output, flow] = sess.run([self.gen_image_I1, self.flow_bwd], {self.I0_pl:I0_t, self.I1_pl: I1})
 
             outputs.append(output)
 
             flow_mag = np.linalg.norm(flow, axis=3)
-            if 'occlusion_handling' in self.conf:
-                warpscores.append(np.mean(np.mean(flow_mag * occ_mask_fwd, axis=1), axis=1))
+            if 'fwd_bwd' in self.conf:
+                warpscores.append(np.mean(np.mean(flow_mag * occ_mask_bwd, axis=1), axis=1))
             else:
                 warpscores.append(np.mean(np.mean(flow_mag, axis=1), axis=1))
 
-
-            flow_mags.append(self.color_code(flow_mag, num_examples))
+            # flow_mags.append(self.color_code(flow_mag, num_examples))
+            flow_mags.append(flow_mag)
 
         videos = {
             'I0_t':I0_ts,
@@ -453,7 +458,7 @@ class GoalDistanceNet(object):
         if 'vidpred_data' in self.conf:
             videos['I0_t_real'] = I0_t_reals
 
-        if 'occlusion_handling' in self.conf:
+        if 'fwd_bwd' in self.conf:
             videos['occ_mask_fwd'] = occ_masks_fwd
 
         name = str.split(self.conf['output_dir'], '/')[-2]
@@ -499,7 +504,7 @@ def make_plots(conf, dict=None, filename = None):
     # gs1 = gridspec.GridSpec(num_rows, num_cols)
     # gs1.update(wspace=0.025, hspace=0.05)
 
-    width_per_ex = 1.5
+    width_per_ex = 2.5
 
     standard_size = np.array([width_per_ex * num_cols, num_rows * 1.5])  ### 1.5
     figsize = (standard_size).astype(np.int)
@@ -520,12 +525,14 @@ def make_plots(conf, dict=None, filename = None):
             row += 1
 
             axarr[row, col].set_title('{:10.3f}'.format(warpscores[col][ex]), fontsize=5)
-            axarr[row, col].imshow(flow_mags[col][ex], interpolation='none')
+            h = axarr[row, col].imshow(np.squeeze(flow_mags[col][ex]), interpolation='none')
+            plt.colorbar(h, ax=axarr[row, col])
             axarr[row, col].axis('off')
             row += 1
 
             if 'occ_mask_fwd' in videos:
-                axarr[row, col].imshow(videos['occ_mask_fwd'][col][ex], interpolation='none')
+                h = axarr[row, col].imshow(np.squeeze(videos['occ_mask_fwd'][col][ex]), interpolation='none')
+                plt.colorbar(h, ax=axarr[row, col])
                 axarr[row, col].axis('off')
                 row += 1
 
@@ -556,7 +563,7 @@ def draw_text(img, float):
 
 
 if __name__ == '__main__':
-    filedir = '/home/frederik/Documents/catkin_ws/src/visual_mpc/tensorflow_data/gdn/l2_smooth/modeldata'
+    filedir = '/home/frederik/Documents/catkin_ws/src/visual_mpc/tensorflow_data/gdn/fwd_bwd_smooth/modeldata'
     conf = {}
     conf['output_dir'] = filedir
     make_plots(conf, filename= filedir + '/data.pkl')

@@ -48,9 +48,9 @@ def setup_gdn(conf, gpu_id = 0):
                             model.I1_pl:goal_image}
 
                 warped_images, flow_field, warp_pts = sess.run([model.gen_image_I1,
-                                                              model.flow_fwd,
-                                                              model.warp_pts],
-                                                              feed_dict)
+                                                                model.flow_fwd,
+                                                                model.warp_pts_bwd],
+                                                               feed_dict)
                 return warped_images, flow_field, warp_pts
 
             return predictor_func

@@ -37,7 +37,7 @@ configuration = {
 'load_vidpred_data':'',           # tell loader to get video prediction data
 'vidpred_data':'',                # use video prediction data
 'norm':'charbonnier',
-'smoothcost':1e-6,
+'smoothcost':1e-5,
 'smoothmode':'sobel',
 
 'ngroup':100,

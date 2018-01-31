@@ -12,6 +12,11 @@ current_dir = os.path.dirname(os.path.realpath(__file__))
 # local output directory
 OUT_DIR = current_dir + '/modeldata'
 
+tag_images = {'name': 'images',
+             'file':'/images/im{}.png',   # only tindex
+             'shape':[48, 64,3],
+               }
+
 configuration = {
 'experiment_name': 'correction',
 'data_dir': DATA_DIR,       # 'directory containing data.' ,
@@ -35,6 +40,10 @@ configuration = {
 'smoothmode':'sobel',
 'fwd_bwd':'',
 'flow_diff_cost':0.01,
+
+'ngroup':100,
+'sourcetags':[tag_images],
+'source_basedirs':[base_dir + '/pushing_data/cartgripper_startgoal/train'],
 
 'occlusion_handling_bias':-3.,  # occlusion handling is only active when 'occlusion_handling' is in dict
 'occlusion_handling_scale':1.,
