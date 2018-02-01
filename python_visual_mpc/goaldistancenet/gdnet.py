@@ -183,8 +183,8 @@ class GoalDistanceNet(object):
             self.conf['sequence_length'] = self.conf['sequence_length']-1
             self.I0, self.I1 = self.sel_images()
 
-        self.occ_mask_fwd = tf.ones(self.I0.get_shape().as_list()[:3])  # initialize as ones
-        self.occ_mask_bwd = tf.ones(self.I0.get_shape().as_list()[:3])
+        self.occ_fwd = tf.ones(self.I0.get_shape().as_list()[:3])  # initialize as ones
+        self.occ_bwd = tf.ones(self.I0.get_shape().as_list()[:3])
 
         if 'fwd_bwd' in self.conf:
             with tf.variable_scope('fwd'):
@@ -202,8 +202,8 @@ class GoalDistanceNet(object):
             scale = self.conf['occlusion_handling_scale']
             diff_flow_fwd_normed = tf.reduce_sum(tf.square(self.diff_flow_fwd), axis=3)
             diff_flow_bwd_normed = tf.reduce_sum(tf.square(self.diff_flow_bwd), axis=3)
-            self.occ_mask_fwd = tf.nn.sigmoid(diff_flow_fwd_normed * scale + bias)  # gets 1 if occluded 0 otherwise
-            self.occ_mask_bwd = tf.nn.sigmoid(diff_flow_bwd_normed * scale + bias)
+            self.occ_fwd = tf.nn.sigmoid(diff_flow_fwd_normed * scale + bias)  # gets 1 if occluded 0 otherwise
+            self.occ_bwd = tf.nn.sigmoid(diff_flow_bwd_normed * scale + bias)
 
             # if 'occlusion_handling' in self.conf:
             #     with tf.variable_scope('gen_img'):
@@ -350,8 +350,10 @@ class GoalDistanceNet(object):
             norm = charbonnier_loss
         else: raise ValueError("norm not defined!")
 
-        self.norm_occ_mask_bwd = (self.occ_mask_bwd / tf.reduce_mean(self.occ_mask_bwd))[:,:,:,None]
-        self.norm_occ_mask_fwd = (self.occ_mask_fwd / tf.reduce_mean(self.occ_mask_fwd))[:,:,:,None]
+        occ_mask_bwd = 1-self.occ_bwd   # 0 at occlusion
+        occ_mask_fwd = 1-self.occ_fwd
+        self.norm_occ_mask_bwd = (occ_mask_bwd / tf.reduce_mean(occ_mask_bwd, axis=[1,2]))[:, :, :, None]
+        self.norm_occ_mask_fwd = (occ_mask_fwd / tf.reduce_mean(occ_mask_fwd, axis=[1,2]))[:, :, :, None]
 
         self.loss = 0
 
@@ -372,7 +374,7 @@ class GoalDistanceNet(object):
 
             if 'occlusion_handling' in self.conf:
                 occ = self.conf['occlusion_handling']
-                occ_reg_cost =  (tf.reduce_mean(self.occ_mask_fwd) + tf.reduce_mean(self.occ_mask_bwd))*occ
+                occ_reg_cost = (tf.reduce_mean(self.occ_fwd) + tf.reduce_mean(self.occ_bwd)) * occ
                 train_summaries.append(tf.summary.scalar('train_occlusion_handling', occ_reg_cost))
                 self.loss += occ_reg_cost
 
@@ -433,7 +435,7 @@ class GoalDistanceNet(object):
             I0_ts.append(I0_t)
 
             if 'fwd_bwd' in self.conf:
-                [output, flow, occ_mask_bwd] = sess.run([self.gen_image_I1, self.flow_bwd, self.occ_mask_bwd], {self.I0_pl: I0_t, self.I1_pl: I1})
+                [output, flow, occ_mask_bwd] = sess.run([self.gen_image_I1, self.flow_bwd, self.occ_bwd], {self.I0_pl: I0_t, self.I1_pl: I1})
                 # occ_masks_fwd.append(self.color_code(occ_mask_fwd, num_examples))
                 occ_masks_fwd.append(occ_mask_bwd)
             else:
