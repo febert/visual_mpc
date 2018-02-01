@@ -17,6 +17,7 @@ tag_images = {'name': 'images',
              'shape':[48, 64,3],
                }
 
+
 configuration = {
 'experiment_name': 'correction',
 'data_dir': DATA_DIR,       # 'directory containing data.' ,
@@ -38,11 +39,6 @@ configuration = {
 'norm':'charbonnier',
 'smoothcost':1e-6,
 'smoothmode':'sobel',
-'fwd_bwd':'',
-'flow_diff_cost':1e-4,
-'occlusion_handling':1e-6,
-'occlusion_handling_bias':-3.,
-'occlusion_handling_scale':1.,
 
 'ngroup':100,
 'sourcetags':[tag_images],

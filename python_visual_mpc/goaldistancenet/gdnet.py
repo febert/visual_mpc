@@ -370,11 +370,11 @@ class GoalDistanceNet(object):
             train_summaries.append(tf.summary.scalar('train_flow_diff_cost', flow_diff_cost))
             self.loss += flow_diff_cost
 
-            # if 'occlusion_handling' in self.conf:
-            #     occ = self.conf['occlusion_handling']
-            #     occ_reg_cost =  (tf.reduce_mean(self.occ_mask_fwd) + tf.reduce_mean(self.occ_mask_bwd))*occ
-            #     train_summaries.append(tf.summary.scalar('train_occlusion_handling', occ_reg_cost))
-            #     self.loss += occ_reg_cost
+            if 'occlusion_handling' in self.conf:
+                occ = self.conf['occlusion_handling']
+                occ_reg_cost =  (tf.reduce_mean(self.occ_mask_fwd) + tf.reduce_mean(self.occ_mask_bwd))*occ
+                train_summaries.append(tf.summary.scalar('train_occlusion_handling', occ_reg_cost))
+                self.loss += occ_reg_cost
 
         if 'smoothcost' in self.conf:
             sc = self.conf['smoothcost']
