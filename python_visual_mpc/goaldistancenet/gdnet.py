@@ -352,8 +352,8 @@ class GoalDistanceNet(object):
 
         occ_mask_bwd = 1-self.occ_bwd   # 0 at occlusion
         occ_mask_fwd = 1-self.occ_fwd
-        self.norm_occ_mask_bwd = (occ_mask_bwd / tf.reduce_mean(occ_mask_bwd, axis=[1,2]))[:, :, :, None]
-        self.norm_occ_mask_fwd = (occ_mask_fwd / tf.reduce_mean(occ_mask_fwd, axis=[1,2]))[:, :, :, None]
+        self.norm_occ_mask_bwd = (occ_mask_bwd / (1e-5+tf.reduce_mean(occ_mask_bwd, axis=[1,2])))[:, :, :, None]
+        self.norm_occ_mask_fwd = (occ_mask_fwd / (1e-5+tf.reduce_mean(occ_mask_fwd, axis=[1,2])))[:, :, :, None]
 
         self.loss = 0
 
