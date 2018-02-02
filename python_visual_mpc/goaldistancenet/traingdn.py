@@ -74,7 +74,7 @@ def main(unused_argv, conf_script= None):
         if 'modelconfiguration' in conf:
             conf['modelconfiguration']['schedule_sampling_k'] = conf['schedsamp_k']
 
-        build_loss = False
+        build_loss = True
     else:
         build_loss = True
 

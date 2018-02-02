@@ -40,7 +40,7 @@ configuration = {
 'smoothmode':'sobel',
 'fwd_bwd':'',
 'flow_diff_cost':1e-4,
-'occlusion_handling':1.,
+'occlusion_handling':1e-2,
 'occlusion_handling_bias':-3.,
 'occlusion_handling_scale':1.,
 

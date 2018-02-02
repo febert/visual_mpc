@@ -352,8 +352,11 @@ class GoalDistanceNet(object):
 
         occ_mask_bwd = 1-self.occ_bwd   # 0 at occlusion
         occ_mask_fwd = 1-self.occ_fwd
-        self.norm_occ_mask_bwd = (occ_mask_bwd / (1e-5+tf.reduce_mean(occ_mask_bwd, axis=[1,2])))[:, :, :, None]
-        self.norm_occ_mask_fwd = (occ_mask_fwd / (1e-5+tf.reduce_mean(occ_mask_fwd, axis=[1,2])))[:, :, :, None]
+
+        self.norm_occ_mask_bwd = (occ_mask_bwd / (1e-5+tf.reduce_mean(occ_mask_bwd, axis=[1,2])[:,None, None]))
+        self.norm_occ_mask_bwd = self.norm_occ_mask_bwd[:, :, :, None]
+        self.norm_occ_mask_fwd = (occ_mask_fwd / (1e-5+tf.reduce_mean(occ_mask_fwd, axis=[1,2])[:,None, None]))
+        self.norm_occ_mask_fwd = self.norm_occ_mask_fwd[:, :, :, None]
 
         self.loss = 0
 
@@ -420,7 +423,7 @@ class GoalDistanceNet(object):
         I0_t_reals = []
         I0_ts = []
         flow_mags = []
-        occ_masks_fwd = []
+        occ_bwd_l = []
         warpscores = []
 
         for t in range(self.conf['sequence_length']):
@@ -435,9 +438,9 @@ class GoalDistanceNet(object):
             I0_ts.append(I0_t)
 
             if 'fwd_bwd' in self.conf:
-                [output, flow, occ_mask_bwd] = sess.run([self.gen_image_I1, self.flow_bwd, self.occ_bwd], {self.I0_pl: I0_t, self.I1_pl: I1})
+                [output, flow, occ_bwd, norm_occ_mask_bwd] = sess.run([self.gen_image_I1, self.flow_bwd, self.occ_bwd, self.norm_occ_mask_bwd], {self.I0_pl: I0_t, self.I1_pl: I1})
                 # occ_masks_fwd.append(self.color_code(occ_mask_fwd, num_examples))
-                occ_masks_fwd.append(occ_mask_bwd)
+                occ_bwd_l.append(occ_bwd)
             else:
                 [output, flow] = sess.run([self.gen_image_I1, self.flow_bwd], {self.I0_pl:I0_t, self.I1_pl: I1})
 
@@ -445,7 +448,7 @@ class GoalDistanceNet(object):
 
             flow_mag = np.linalg.norm(flow, axis=3)
             if 'fwd_bwd' in self.conf:
-                warpscores.append(np.mean(np.mean(flow_mag * occ_mask_bwd, axis=1), axis=1))
+                warpscores.append(np.mean(np.mean(flow_mag * occ_bwd, axis=1), axis=1))
             else:
                 warpscores.append(np.mean(np.mean(flow_mag, axis=1), axis=1))
 
@@ -461,7 +464,7 @@ class GoalDistanceNet(object):
             videos['I0_t_real'] = I0_t_reals
 
         if 'fwd_bwd' in self.conf:
-            videos['occ_mask_fwd'] = occ_masks_fwd
+            videos['occ_bwd'] = occ_bwd_l
 
         name = str.split(self.conf['output_dir'], '/')[-2]
         dict = {'videos':videos, 'warpscores':warpscores, 'name':name}
@@ -532,7 +535,7 @@ def make_plots(conf, dict=None, filename = None):
             axarr[row, col].axis('off')
             row += 1
 
-            if 'occ_mask_fwd' in videos:
+            if 'occ_bwd' in videos:
                 h = axarr[row, col].imshow(np.squeeze(videos['occ_mask_fwd'][col][ex]), interpolation='none')
                 plt.colorbar(h, ax=axarr[row, col])
                 axarr[row, col].axis('off')
