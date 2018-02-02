@@ -536,7 +536,7 @@ def make_plots(conf, dict=None, filename = None):
             row += 1
 
             if 'occ_bwd' in videos:
-                h = axarr[row, col].imshow(np.squeeze(videos['occ_mask_fwd'][col][ex]), interpolation='none')
+                h = axarr[row, col].imshow(np.squeeze(videos['occ_bwd'][col][ex]), interpolation='none')
                 plt.colorbar(h, ax=axarr[row, col])
                 axarr[row, col].axis('off')
                 row += 1
