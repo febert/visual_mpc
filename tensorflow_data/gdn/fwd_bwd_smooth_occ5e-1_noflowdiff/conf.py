@@ -39,10 +39,11 @@ configuration = {
 'smoothcost':1e-6,
 'smoothmode':'sobel',
 'fwd_bwd':'',
-'flow_diff_cost':0,
+'flow_diff_cost':0.,
 'occlusion_handling':1e-1,
 'occlusion_handling_bias':-3.,
 'occlusion_handling_scale':1.,
+'ch_mult':5,
 
 'ngroup':100,
 'sourcetags':[tag_images],
