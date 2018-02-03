@@ -31,7 +31,6 @@ agent = {
     'image_width':64,
     'additional_viewer':'',
     'data_save_dir':current_dir + '/data/train',
-    'ndesig':1,
 }
 
 policy = {
@@ -50,7 +49,6 @@ policy = {
     'action_cost_factor': 0,
     'rew_all_steps':"",
     'finalweight':10,
-    'use_goal_image':'',
     'no_action_bound':"",
 }
 

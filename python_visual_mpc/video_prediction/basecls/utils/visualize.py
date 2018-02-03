@@ -11,6 +11,7 @@ from copy import deepcopy
 from collections import OrderedDict
 
 from python_visual_mpc.video_prediction.basecls.utils.get_designated_pix import Getdesig
+from python_visual_mpc.video_prediction.read_tf_records2 import build_tfrecord_input
 
 def create_one_hot(conf, desig_pix_l, batch_mode=False):
     """
@@ -98,13 +99,8 @@ def visualize_diffmotions(sess, conf, model):
     copied_conf = deepcopy(conf)
     copied_conf['sequence_length'] = 2
 
-    if 'adim' in conf:
-        from python_visual_mpc.video_prediction.read_tf_record_wristrot import \
-            build_tfrecord_input as build_tfrecord_fn
-    else:
-        from python_visual_mpc.video_prediction.read_tf_record_sawyer12 import \
-            build_tfrecord_input as build_tfrecord_fn
-    val_images, _, val_states = build_tfrecord_fn(copied_conf, training=False)
+    dict = build_tfrecord_input(conf, training=False)
+    val_images, _, val_states = dict['images'], dict['actions'], dict['endeffector_pos']
 
     tf.train.start_queue_runners(sess)
     img, state = sess.run([val_images, val_states])

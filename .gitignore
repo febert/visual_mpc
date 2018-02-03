@@ -156,6 +156,7 @@ preview
 auto_gen/
 
 data
+mjkey.txt
 
 .DS_STORE
 

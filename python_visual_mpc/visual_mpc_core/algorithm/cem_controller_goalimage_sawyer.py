@@ -559,8 +559,8 @@ class CEM_controller():
             init_model: mujoco model to initialize from
         """
         self.goal_image = goal_image
-        self.goal_pix = goal_pix
         self.desig_pix = np.array(desig_pix).reshape((-1, 2))
+        self.goal_pix = np.array(goal_pix).reshape((self.ndesig, 2))
         self.ndesig = self.desig_pix.shape[0]
 
         self.t = t
@@ -568,8 +568,6 @@ class CEM_controller():
 
         if t == 0:
             action = np.zeros(self.agentparams['adim'])
-            if not 'use_goal_image' in self.policyparams:
-                self.goal_pix = np.array(goal_pix).reshape((self.ndesig,2))
         else:
             last_images = traj._sample_images[t - 1:t + 1]   # second image shall contain front view
 

@@ -21,6 +21,9 @@ from python_visual_mpc.data_preparation.gather_data import make_traj_name_list
 
 
 
+def length_sq(x):
+    return tf.reduce_sum(tf.square(x), 3, keep_dims=True)
+
 def mean_square(x):
     return tf.reduce_mean(tf.square(x))
 
@@ -198,25 +201,21 @@ class GoalDistanceNet(object):
             fwd_flow_warped_bwd = warp(self.flow_fwd, self.flow_bwd)
             self.diff_flow_bwd = self.flow_bwd + fwd_flow_warped_bwd
 
-            bias = self.conf['occlusion_handling_bias']
-            scale = self.conf['occlusion_handling_scale']
             diff_flow_fwd_normed = tf.reduce_sum(tf.square(self.diff_flow_fwd), axis=3)
             diff_flow_bwd_normed = tf.reduce_sum(tf.square(self.diff_flow_bwd), axis=3)
-            self.occ_fwd = tf.nn.sigmoid(diff_flow_fwd_normed * scale + bias)  # gets 1 if occluded 0 otherwise
-            self.occ_bwd = tf.nn.sigmoid(diff_flow_bwd_normed * scale + bias)
 
-            # if 'occlusion_handling' in self.conf:
-            #     with tf.variable_scope('gen_img'):
-            #         scratch_image_fwd = slim.layers.conv2d(  # 128x128xdesc_length
-            #             h6_fwd, 3, [5, 5], stride=1, activation_fn=tf.nn.sigmoid)
-            #         scratch_image_bwd = slim.layers.conv2d(  # 128x128xdesc_length
-            #             h6_bwd, 3, [5, 5], stride=1, activation_fn=tf.nn.sigmoid)
-            #
-            #     self.gen_image_I1 = scratch_image_fwd * self.occ_mask_fwd[:,:,:,None] + (1 - self.occ_mask_fwd[:,:,:,None]) * self.warped_I0_to_I1
-            #     self.gen_image_I0 = scratch_image_bwd * self.occ_mask_fwd[:,:,:,None] + (1 - self.occ_mask_bwd[:,:,:,None]) * self.warped_I1_to_I0
-            # else:
-            #     self.gen_image_I1 = self.warped_I0_to_I1
-            #     self.gen_image_I0 = self.warped_I1_to_I0
+            if 'hard_occ_thresh' in self.conf:
+                print 'doing hard occ thresholding'
+                mag_sq = length_sq(self.flow_fwd) + length_sq(self.flow_bwd)
+
+                occ_thresh = 0.01 * mag_sq + 0.5
+                self.occ_fwd = tf.squeeze(tf.cast(length_sq(self.diff_flow_fwd) > occ_thresh, tf.float32))
+                self.occ_bwd = tf.squeeze(tf.cast(length_sq(self.diff_flow_bwd) > occ_thresh, tf.float32))
+            else:
+                bias = self.conf['occlusion_handling_bias']
+                scale = self.conf['occlusion_handling_scale']
+                self.occ_fwd = tf.nn.sigmoid(diff_flow_fwd_normed * scale + bias)  # gets 1 if occluded 0 otherwise
+                self.occ_bwd = tf.nn.sigmoid(diff_flow_bwd_normed * scale + bias)
 
             self.gen_image_I1 = self.warped_I0_to_I1
             self.gen_image_I0 = self.warped_I1_to_I0
@@ -358,6 +357,11 @@ class GoalDistanceNet(object):
         self.norm_occ_mask_fwd = (occ_mask_fwd / (1e-5+tf.reduce_mean(occ_mask_fwd, axis=[1,2])[:,None, None]))
         self.norm_occ_mask_fwd = self.norm_occ_mask_fwd[:, :, :, None]
 
+        if 'stop_occ_grad' in self.conf:
+            print 'stopping occ mask grads'
+            self.norm_occ_mask_bwd = tf.stop_gradient(self.norm_occ_mask_bwd)
+            self.norm_occ_mask_fwd = tf.stop_gradient(self.norm_occ_mask_fwd)
+
         self.loss = 0
 
         I1_recon_cost = norm((self.gen_image_I1 - self.I1) * self.norm_occ_mask_bwd)
@@ -438,15 +442,22 @@ class GoalDistanceNet(object):
             I0_ts.append(I0_t)
 
             if 'fwd_bwd' in self.conf:
-                [output, flow, occ_bwd, norm_occ_mask_bwd] = sess.run([self.gen_image_I1, self.flow_bwd, self.occ_bwd, self.norm_occ_mask_bwd], {self.I0_pl: I0_t, self.I1_pl: I1})
+                [output, bwd_flow, occ_bwd, norm_occ_mask_bwd, fwd_flow, occ_fwd, norm_occ_mask_fwd] = sess.run([self.gen_image_I1,
+                                                                                                                 self.flow_bwd,
+                                                                                                                 self.occ_bwd,
+                                                                                                                 self.norm_occ_mask_bwd,
+                                                                                                                 self.flow_fwd,
+                                                                                                                 self.occ_fwd,
+                                                                                                                 self.norm_occ_mask_fwd,
+                                                                                                                 ], {self.I0_pl: I0_t, self.I1_pl: I1})
                 # occ_masks_fwd.append(self.color_code(occ_mask_fwd, num_examples))
                 occ_bwd_l.append(occ_bwd)
             else:
-                [output, flow] = sess.run([self.gen_image_I1, self.flow_bwd], {self.I0_pl:I0_t, self.I1_pl: I1})
+                [output, bwd_flow] = sess.run([self.gen_image_I1, self.flow_bwd], {self.I0_pl:I0_t, self.I1_pl: I1})
 
             outputs.append(output)
 
-            flow_mag = np.linalg.norm(flow, axis=3)
+            flow_mag = np.linalg.norm(bwd_flow, axis=3)
             if 'fwd_bwd' in self.conf:
                 warpscores.append(np.mean(np.mean(flow_mag * occ_bwd, axis=1), axis=1))
             else:

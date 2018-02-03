@@ -201,7 +201,7 @@ def main():
     conf = {}
 
     current_dir = os.path.dirname(os.path.realpath(__file__))
-    DATA_DIR = '/'.join(str.split(current_dir, '/')[:-2]) + '/pushing_data/cartgripper_vidpred_rgb/train'
+    DATA_DIR = '/'.join(str.split(current_dir, '/')[:-2]) + '/pushing_data/cartgripper/train'
 
     conf['schedsamp_k'] = -1  # don't feed ground truth
     conf['data_dir'] = DATA_DIR  # 'directory containing data_files.' ,
@@ -219,7 +219,7 @@ def main():
     conf['adim'] = 3
 
     conf['orig_size'] = [48, 64]
-    conf['load_vidpred_data'] = ''
+    # conf['load_vidpred_data'] = ''
 
     # conf['color_augmentation'] = ''
     # conf['test_metric'] = {'robot_pos': 1, 'object_pos': 2}
@@ -245,7 +245,8 @@ def main():
         print 'run number ', i_run
 
         # images, actions, endeff, gen_images, gen_endeff = sess.run([dict['images'], dict['actions'], dict['endeffector_pos'], dict['gen_images'], dict['gen_states']])
-        images, actions, endeff = sess.run([dict['gen_images'], dict['actions'], dict['endeffector_pos']])
+        # images, actions, endeff = sess.run([dict['gen_images'], dict['actions'], dict['endeffector_pos']])
+        images, actions, endeff = sess.run([dict['images'], dict['actions'], dict['endeffector_pos']])
 
         file_path = '/'.join(str.split(DATA_DIR, '/')[:-1]+['preview'])
         comp_single_video(file_path, images, num_exp=conf['batch_size'])

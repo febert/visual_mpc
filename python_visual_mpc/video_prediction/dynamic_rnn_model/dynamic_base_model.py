@@ -560,7 +560,7 @@ class Dynamic_Base_Model(object):
         outputs, _ = tf.nn.dynamic_rnn(cell, inputs, sequence_length=[sequence_length] * batch_size, dtype=use_dtype,
                                        swap_memory=True, time_major=True)
 
-        (gen_images, gen_states, gen_masks, gen_transformed_images), other_outputs = outputs[:5], outputs[5:]
+        (gen_images, gen_states, gen_masks, gen_transformed_images), other_outputs = outputs[:4], outputs[4:]
         self.gen_images = tf.unstack(gen_images, axis=0)
         self.gen_states = tf.unstack(gen_states, axis=0)
         self.gen_masks = list(zip(*[tf.unstack(gen_mask, axis=0) for gen_mask in gen_masks]))
