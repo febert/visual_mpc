@@ -4,7 +4,7 @@ base_dir = python_visual_mpc.__file__
 base_dir = '/'.join(str.split(base_dir, '/')[:-2])
 
 # tf record data location:
-DATA_DIR = base_dir + '/pushing_data/cartgripper_vidpred/train'
+DATA_DIR = base_dir + '/pushing_data/cartgripper/train'
 
 import os
 current_dir = os.path.dirname(os.path.realpath(__file__))
