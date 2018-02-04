@@ -19,7 +19,7 @@ from python_visual_mpc.video_prediction.utils_vpred.online_reader import read_tr
 
 from python_visual_mpc.data_preparation.gather_data import make_traj_name_list
 
-
+import collections
 
 def length_sq(x):
     return tf.reduce_sum(tf.square(x), 3, keep_dims=True)
@@ -190,9 +190,9 @@ class GoalDistanceNet(object):
         self.occ_bwd = tf.ones(self.I0.get_shape().as_list()[:3])
 
         if 'fwd_bwd' in self.conf:
-            with tf.variable_scope('fwd'):
+            with tf.variable_scope('warpnet'):
                 self.warped_I0_to_I1, self.warp_pts_bwd, self.flow_bwd, h6_bwd = self.warp(self.I0, self.I1)
-            with tf.variable_scope('bwd'):
+            with tf.variable_scope('warpnet', reuse=True):
                 self.warped_I1_to_I0, self.warp_pts_fwd, self.flow_fwd, h6_fwd = self.warp(self.I1, self.I0)
 
             bwd_flow_warped_fwd = warp(self.flow_bwd, self.flow_fwd)
@@ -200,9 +200,6 @@ class GoalDistanceNet(object):
 
             fwd_flow_warped_bwd = warp(self.flow_fwd, self.flow_bwd)
             self.diff_flow_bwd = self.flow_bwd + fwd_flow_warped_bwd
-
-            diff_flow_fwd_normed = tf.reduce_sum(tf.square(self.diff_flow_fwd), axis=3)
-            diff_flow_bwd_normed = tf.reduce_sum(tf.square(self.diff_flow_bwd), axis=3)
 
             if 'hard_occ_thresh' in self.conf:
                 print 'doing hard occ thresholding'
@@ -214,8 +211,10 @@ class GoalDistanceNet(object):
             else:
                 bias = self.conf['occlusion_handling_bias']
                 scale = self.conf['occlusion_handling_scale']
-                self.occ_fwd = tf.nn.sigmoid(diff_flow_fwd_normed * scale + bias)  # gets 1 if occluded 0 otherwise
-                self.occ_bwd = tf.nn.sigmoid(diff_flow_bwd_normed * scale + bias)
+                diff_flow_fwd_sqlen = tf.reduce_sum(tf.square(self.diff_flow_fwd), axis=3)
+                diff_flow_bwd_sqlen = tf.reduce_sum(tf.square(self.diff_flow_bwd), axis=3)
+                self.occ_fwd = tf.nn.sigmoid(diff_flow_fwd_sqlen * scale + bias)  # gets 1 if occluded 0 otherwise
+                self.occ_bwd = tf.nn.sigmoid(diff_flow_bwd_sqlen * scale + bias)
 
             self.gen_image_I1 = self.warped_I0_to_I1
             self.gen_image_I0 = self.warped_I1_to_I0
@@ -349,33 +348,33 @@ class GoalDistanceNet(object):
             norm = charbonnier_loss
         else: raise ValueError("norm not defined!")
 
-        occ_mask_bwd = 1-self.occ_bwd   # 0 at occlusion
-        occ_mask_fwd = 1-self.occ_fwd
+        self.occ_mask_bwd = 1-self.occ_bwd   # 0 at occlusion
+        self.occ_mask_fwd = 1-self.occ_fwd
 
-        self.norm_occ_mask_bwd = (occ_mask_bwd / (1e-5+tf.reduce_mean(occ_mask_bwd, axis=[1,2])[:,None, None]))
-        self.norm_occ_mask_bwd = self.norm_occ_mask_bwd[:, :, :, None]
-        self.norm_occ_mask_fwd = (occ_mask_fwd / (1e-5+tf.reduce_mean(occ_mask_fwd, axis=[1,2])[:,None, None]))
-        self.norm_occ_mask_fwd = self.norm_occ_mask_fwd[:, :, :, None]
+        # self.occ_mask_bwd = (self.occ_mask_bwd / (1e-5 + tf.reduce_mean(self.occ_mask_bwd, axis=[1, 2])[:, None, None]))
+        self.occ_mask_bwd = self.occ_mask_bwd[:, :, :, None]
+        # self.occ_mask_fwd = (self.occ_mask_fwd / (1e-5 + tf.reduce_mean(self.occ_mask_fwd, axis=[1, 2])[:, None, None]))
+        self.occ_mask_fwd = self.occ_mask_fwd[:, :, :, None]
 
         if 'stop_occ_grad' in self.conf:
             print 'stopping occ mask grads'
-            self.norm_occ_mask_bwd = tf.stop_gradient(self.norm_occ_mask_bwd)
-            self.norm_occ_mask_fwd = tf.stop_gradient(self.norm_occ_mask_fwd)
+            self.occ_mask_bwd = tf.stop_gradient(self.occ_mask_bwd)
+            self.occ_mask_fwd = tf.stop_gradient(self.occ_mask_fwd)
 
         self.loss = 0
 
-        I1_recon_cost = norm((self.gen_image_I1 - self.I1) * self.norm_occ_mask_bwd)
+        I1_recon_cost = norm((self.gen_image_I1 - self.I1), self.occ_mask_bwd)
         train_summaries.append(tf.summary.scalar('train_I1_recon_cost', I1_recon_cost))
         self.loss += I1_recon_cost
 
         if 'fwd_bwd' in self.conf:
-            I0_recon_cost = norm((self.gen_image_I0 - self.I0) * self.norm_occ_mask_fwd)
+            I0_recon_cost = norm((self.gen_image_I0 - self.I0), self.occ_mask_fwd)
             train_summaries.append(tf.summary.scalar('train_I0_recon_cost', I0_recon_cost))
             self.loss += I0_recon_cost
 
             fd = self.conf['flow_diff_cost']
-            flow_diff_cost =   (norm(self.diff_flow_fwd*self.norm_occ_mask_fwd)
-                              + norm(self.diff_flow_bwd*self.norm_occ_mask_bwd))*fd
+            flow_diff_cost =   (norm(self.diff_flow_fwd, self.occ_mask_fwd)
+                              + norm(self.diff_flow_bwd, self.occ_mask_bwd)) * fd
             train_summaries.append(tf.summary.scalar('train_flow_diff_cost', flow_diff_cost))
             self.loss += flow_diff_cost
 
@@ -388,13 +387,13 @@ class GoalDistanceNet(object):
         if 'smoothcost' in self.conf:
             sc = self.conf['smoothcost']
             smooth_cost_bwd = flow_smooth_cost(self.flow_bwd, norm, self.conf['smoothmode'],
-                                               self.norm_occ_mask_bwd) * sc
+                                               self.occ_mask_bwd) * sc
             train_summaries.append(tf.summary.scalar('train_smooth_bwd', smooth_cost_bwd))
             self.loss += smooth_cost_bwd
 
             if 'fwd_bwd' in self.conf:
                 smooth_cost_fwd = flow_smooth_cost(self.flow_fwd, norm, self.conf['smoothmode'],
-                                                   self.norm_occ_mask_fwd) * sc
+                                                   self.occ_mask_fwd) * sc
                 train_summaries.append(tf.summary.scalar('train_smooth_fwd', smooth_cost_fwd))
                 self.loss += smooth_cost_fwd
 
@@ -408,13 +407,14 @@ class GoalDistanceNet(object):
 
 
     def visualize(self, sess):
-        if 'source_basedirs' in self.conf:
+        if 'source_basedirs' in self.conf:  # visualizing single warps from pairs of images
             self.conf['sequence_length'] = 2
             self.conf.pop('vidpred_data', None)
             r = OnlineReader(self.conf, 'test', sess=sess)
             images = r.get_batch_tensors()
             [images] = sess.run([images])
-        else:
+
+        else:  # when visualizing sequence of warps from video
             videos = build_tfrecord_fn(self.conf)
             images, pred_images = sess.run([videos['images'], videos['gen_images']])
 
@@ -423,14 +423,18 @@ class GoalDistanceNet(object):
         num_examples = self.conf['batch_size']
         I1 = images[:, -1]
 
-        outputs = []
+        gen_images_I0 = []
+        gen_images_I1 = []
         I0_t_reals = []
         I0_ts = []
-        flow_mags = []
+        flow_mags_bwd = []
+        flow_mags_fwd = []
         occ_bwd_l = []
-        warpscores = []
+        occ_fwd_l = []
+        warpscores_bwd = []
+        warpscores_fwd = []
 
-        for t in range(self.conf['sequence_length']):
+        for t in range(self.conf['sequence_length']-1):
             if 'vidpred_data' in self.conf:
                 I0_t = pred_images[:, t]
                 I0_t_real = images[:, t]
@@ -442,43 +446,53 @@ class GoalDistanceNet(object):
             I0_ts.append(I0_t)
 
             if 'fwd_bwd' in self.conf:
-                [output, bwd_flow, occ_bwd, norm_occ_mask_bwd, fwd_flow, occ_fwd, norm_occ_mask_fwd] = sess.run([self.gen_image_I1,
-                                                                                                                 self.flow_bwd,
-                                                                                                                 self.occ_bwd,
-                                                                                                                 self.norm_occ_mask_bwd,
-                                                                                                                 self.flow_fwd,
-                                                                                                                 self.occ_fwd,
-                                                                                                                 self.norm_occ_mask_fwd,
-                                                                                                                 ], {self.I0_pl: I0_t, self.I1_pl: I1})
-                # occ_masks_fwd.append(self.color_code(occ_mask_fwd, num_examples))
+                [gen_image_I1, bwd_flow, occ_bwd, norm_occ_mask_bwd,
+                 gen_image_I0, fwd_flow, occ_fwd, norm_occ_mask_fwd] = sess.run([self.gen_image_I1,
+                                                                                 self.flow_bwd,
+                                                                                 self.occ_bwd,
+                                                                                 self.occ_mask_bwd,
+                                                                                 self.gen_image_I0,
+                                                                                 self.flow_fwd,
+                                                                                 self.occ_fwd,
+                                                                                 self.occ_mask_fwd,
+                                                                                 ], {self.I0_pl: I0_t, self.I1_pl: I1})
                 occ_bwd_l.append(occ_bwd)
+                occ_fwd_l.append(occ_fwd)
             else:
-                [output, bwd_flow] = sess.run([self.gen_image_I1, self.flow_bwd], {self.I0_pl:I0_t, self.I1_pl: I1})
+                [gen_image_I1, bwd_flow] = sess.run([self.gen_image_I1, self.flow_bwd], {self.I0_pl:I0_t, self.I1_pl: I1})
 
-            outputs.append(output)
+            gen_images_I1.append(gen_image_I1)
+            gen_images_I0.append(gen_image_I0)
 
-            flow_mag = np.linalg.norm(bwd_flow, axis=3)
+            flow_mag_bwd = np.linalg.norm(bwd_flow, axis=3)
+            flow_mags_bwd.append(flow_mag_bwd)
             if 'fwd_bwd' in self.conf:
-                warpscores.append(np.mean(np.mean(flow_mag * occ_bwd, axis=1), axis=1))
+                flow_mag_fwd = np.linalg.norm(fwd_flow, axis=3)
+                flow_mags_fwd.append(flow_mag_fwd)
+                warpscores_bwd.append(np.mean(np.mean(flow_mag_bwd * np.squeeze(norm_occ_mask_bwd), axis=1), axis=1))
+                warpscores_fwd.append(np.mean(np.mean(flow_mag_fwd * np.squeeze(norm_occ_mask_fwd), axis=1), axis=1))
             else:
-                warpscores.append(np.mean(np.mean(flow_mag, axis=1), axis=1))
+                warpscores_bwd.append(np.mean(np.mean(flow_mag_bwd, axis=1), axis=1))
 
             # flow_mags.append(self.color_code(flow_mag, num_examples))
-            flow_mags.append(flow_mag)
 
-        videos = {
-            'I0_t':I0_ts,
-            'flow_mags':flow_mags,
-            'outputs':outputs,
-        }
+        videos = collections.OrderedDict()
+        videos['I0_ts'] = I0_ts
+        videos['gen_images_I1'] = gen_images_I1
+        videos['flow_mags_bwd'] = (flow_mags_bwd, warpscores_bwd)
+
         if 'vidpred_data' in self.conf:
             videos['I0_t_real'] = I0_t_reals
 
         if 'fwd_bwd' in self.conf:
             videos['occ_bwd'] = occ_bwd_l
 
+            videos['gen_images_I0'] = gen_images_I0
+            videos['flow_mags_fwd'] = (flow_mags_fwd, warpscores_fwd)
+            videos['occ_fwd'] = occ_fwd_l
+
         name = str.split(self.conf['output_dir'], '/')[-2]
-        dict = {'videos':videos, 'warpscores':warpscores, 'name':name}
+        dict = {'videos':videos, 'name':name, 'I1':I1}
 
         cPickle.dump(dict, open(self.conf['output_dir'] + '/data.pkl', 'wb'))
         make_plots(self.conf, dict=dict)
@@ -502,19 +516,15 @@ def make_plots(conf, dict=None, filename = None):
     print 'loaded'
     videos = dict['videos']
 
-    I0_ts =videos['I0_t']
-    flow_mags =videos['flow_mags']
-    outputs =videos['outputs']
-
-    warpscores = dict['warpscores']
+    I0_ts = videos['I0_ts']
 
     # num_exp = I0_t_reals[0].shape[0]
     num_ex = 4
-    start_ex = 00
+    start_ex = 0
 
     num_rows = num_ex*len(videos.keys())
 
-    num_cols = len(I0_ts)
+    num_cols = len(I0_ts) + 1
 
     # plt.figure(figsize=(num_rows, num_cols))
     # gs1 = gridspec.GridSpec(num_rows, num_cols)
@@ -527,34 +537,34 @@ def make_plots(conf, dict=None, filename = None):
 
     f, axarr = plt.subplots(num_rows, num_cols, figsize=figsize)
 
-    for col in range(num_cols):
+    for col in range(num_cols -1):
         row = 0
         for ex in range(start_ex, start_ex + num_ex, 1):
 
-            if 'I0_t_real' in videos:
-                axarr[row, col].imshow(videos['I0_t_real'][col][ex], interpolation='none')
+            for tag in videos.keys():
+                print 'doing tag {}'.format(tag)
+                if isinstance(videos[tag], tuple):
+                    im = videos[tag][0][col]
+                    score = videos[tag][1]
+                    axarr[row, col].set_title('{:10.3f}'.format(score[col][ex]), fontsize=5)
+                else:
+                    im = videos[tag][col]
+
+                h = axarr[row, col].imshow(np.squeeze(im[ex]), interpolation='none')
+
+                if len(im.shape) == 2:
+                    plt.colorbar(h, ax=axarr[row, col])
                 axarr[row, col].axis('off')
                 row += 1
 
-            axarr[row, col].imshow(I0_ts[col][ex], interpolation='none')
-            axarr[row, col].axis('off')
-            row += 1
-
-            axarr[row, col].set_title('{:10.3f}'.format(warpscores[col][ex]), fontsize=5)
-            h = axarr[row, col].imshow(np.squeeze(flow_mags[col][ex]), interpolation='none')
-            plt.colorbar(h, ax=axarr[row, col])
-            axarr[row, col].axis('off')
-            row += 1
-
-            if 'occ_bwd' in videos:
-                h = axarr[row, col].imshow(np.squeeze(videos['occ_bwd'][col][ex]), interpolation='none')
-                plt.colorbar(h, ax=axarr[row, col])
-                axarr[row, col].axis('off')
-                row += 1
-
-            axarr[row, col].imshow(outputs[col][ex], interpolation='none')
-            axarr[row, col].axis('off')
-            row += 1
+    row = 0
+    col = num_cols-1
+    for ex in range(start_ex, start_ex + num_ex, 1):
+        im = dict['I1'][ex]
+        h = axarr[row, col].imshow(np.squeeze(im), interpolation='none')
+        plt.colorbar(h, ax=axarr[row, col])
+        axarr[row, col].axis('off')
+        row += len(videos.keys())
 
     # plt.axis('off')
     f.subplots_adjust(wspace=0, hspace=0.3)
@@ -579,7 +589,7 @@ def draw_text(img, float):
 
 
 if __name__ == '__main__':
-    filedir = '/home/frederik/Documents/catkin_ws/src/visual_mpc/tensorflow_data/gdn/fwd_bwd_smooth/modeldata'
+    filedir = '/home/frederik/Documents/catkin_ws/src/visual_mpc/tensorflow_data/gdn/fwd_bwd_hardthres_stopgrad/modeldata'
     conf = {}
     conf['output_dir'] = filedir
     make_plots(conf, filename= filedir + '/data.pkl')
