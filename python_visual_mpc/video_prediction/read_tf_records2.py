@@ -73,14 +73,18 @@ def build_tfrecord_input(conf, training=True, input_file=None):
         for i in load_indx:
 
             image_name = str(i) + '/image_view0/encoded'
-            action_name = str(i) + '/action'
-            endeffector_pos_name = str(i) + '/endeffector_pos'
+
+            if 'image_only' not in conf:
+                action_name = str(i) + '/action'
+                endeffector_pos_name = str(i) + '/endeffector_pos'
 
             features = {
                 image_name: tf.FixedLenFeature([1], tf.string),
-                action_name: tf.FixedLenFeature([adim], tf.float32),
-                endeffector_pos_name: tf.FixedLenFeature([sdim], tf.float32),
             }
+
+            if 'image_only' not in conf:
+                features[action_name] = tf.FixedLenFeature([adim], tf.float32)
+                features[endeffector_pos_name] = tf.FixedLenFeature([sdim], tf.float32)
 
             if 'test_metric' in conf:
                 robot_pos_name = str(i) + '/robot_pos'
@@ -113,7 +117,7 @@ def build_tfrecord_input(conf, training=True, input_file=None):
             if 'img_width' in conf:
                 IMG_WIDTH = conf['img_width']
             else:
-                IMG_WIDTH = 64
+                IMG_WIDTH = ORIGINAL_WIDTH
 
             image = tf.decode_raw(features[image_name], tf.uint8)
             image = tf.reshape(image, shape=[1, ORIGINAL_HEIGHT * ORIGINAL_WIDTH * COLOR_CHAN])
@@ -138,10 +142,11 @@ def build_tfrecord_input(conf, training=True, input_file=None):
 
             image_seq.append(image)
 
-            endeffector_pos = tf.reshape(features[endeffector_pos_name], shape=[1, sdim])
-            endeffector_pos_seq.append(endeffector_pos)
-            action = tf.reshape(features[action_name], shape=[1, adim])
-            action_seq.append(action)
+            if 'image_only' not in conf:
+                endeffector_pos = tf.reshape(features[endeffector_pos_name], shape=[1, sdim])
+                endeffector_pos_seq.append(endeffector_pos)
+                action = tf.reshape(features[action_name], shape=[1, adim])
+                action_seq.append(action)
 
             if 'test_metric' in conf:
                 robot_pos = tf.reshape(features[robot_pos_name], shape=[1, 2])
@@ -162,11 +167,12 @@ def build_tfrecord_input(conf, training=True, input_file=None):
                 gen_states_seq.append(gen_states)
 
         image_seq = tf.concat(values=image_seq, axis=0)
+        return_dict = {}
+        return_dict['images'] = image_seq
 
-        endeffector_pos_seq = tf.concat(endeffector_pos_seq, 0)
-        action_seq = tf.concat(action_seq, 0)
-
-        return_dict = {"images": image_seq, "endeffector_pos": endeffector_pos_seq, "actions": action_seq}
+        if 'image_only' not in conf:
+            return_dict['endeffector_pos'] = tf.concat(endeffector_pos_seq, 0)
+            return_dict['actions'] = tf.concat(action_seq, 0)
 
         if 'load_vidpred_data' in conf:
             return_dict['gen_images'] = gen_images_seq
@@ -201,14 +207,14 @@ def main():
     conf = {}
 
     current_dir = os.path.dirname(os.path.realpath(__file__))
-    DATA_DIR = '/'.join(str.split(current_dir, '/')[:-2]) + '/pushing_data/cartgripper/train'
+    DATA_DIR = '/'.join(str.split(current_dir, '/')[:-2]) + '/pushing_data/cartgripper_startgoal_large4step/train'
 
     conf['schedsamp_k'] = -1  # don't feed ground truth
     conf['data_dir'] = DATA_DIR  # 'directory containing data_files.' ,
     conf['skip_frame'] = 1
     conf['train_val_split']= 0.95
-    conf['sequence_length']= 14 #48      # 'sequence length, including context frames.'
-    conf['batch_size']= 25
+    conf['sequence_length']= 4 #48      # 'sequence length, including context frames.'
+    conf['batch_size']= 10
     conf['visualize']= True
     conf['context_frames'] = 2
 
@@ -218,7 +224,10 @@ def main():
     conf['sdim'] = 6
     conf['adim'] = 3
 
-    conf['orig_size'] = [48, 64]
+    conf['image_only'] = ''
+
+    # conf['orig_size'] = [48, 64]
+    conf['orig_size'] = [480, 640]
     # conf['load_vidpred_data'] = ''
 
     # conf['color_augmentation'] = ''
@@ -246,7 +255,8 @@ def main():
 
         # images, actions, endeff, gen_images, gen_endeff = sess.run([dict['images'], dict['actions'], dict['endeffector_pos'], dict['gen_images'], dict['gen_states']])
         # images, actions, endeff = sess.run([dict['gen_images'], dict['actions'], dict['endeffector_pos']])
-        images, actions, endeff = sess.run([dict['images'], dict['actions'], dict['endeffector_pos']])
+        # images, actions, endeff = sess.run([dict['images'], dict['actions'], dict['endeffector_pos']])
+        [images] = sess.run([dict['images']])
 
         file_path = '/'.join(str.split(DATA_DIR, '/')[:-1]+['preview'])
         comp_single_video(file_path, images, num_exp=conf['batch_size'])

@@ -21,8 +21,6 @@ class CollectGoalImageSim(Sim):
 
         self.num_ob = self.agentparams['num_objects']
 
-        self.run()
-
     def _take_sample(self, sample_index):
         if "gen_xml" in self.agentparams:
             self.agent.viewer.finish()
@@ -58,9 +56,11 @@ class CollectGoalImageSim(Sim):
                 self.agent._model.step()
                 # self.agent.viewer.loop_once()
 
-        self.store_data(0, traj)
-        self.move_objects(traj)
-        self.store_data(1, traj)
+        for t in range(self.agentparams['T']-1):
+            self.store_data(t, traj)
+            self.move_objects(traj)
+        t += 1
+        self.store_data(t, traj)
 
         # for t in range(self.agentparams['skip_first']):
         #     for _ in range(20):
@@ -135,7 +135,8 @@ def main():
     hyperparams_file = data_coll_dir + '/hyperparams.py'
 
     hyperparams = imp.load_source('hyperparams', hyperparams_file)
-    CollectGoalImageSim(hyperparams.config)
+    c =CollectGoalImageSim(hyperparams.config)
+    c.run()
 
 if __name__ == "__main__":
     # seed = 0

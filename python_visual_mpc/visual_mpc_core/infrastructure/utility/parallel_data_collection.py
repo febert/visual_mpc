@@ -13,6 +13,9 @@ import pdb
 import glob
 import re
 
+from python_visual_mpc.visual_mpc_core.infrastructure.utility.create_configs import CollectGoalImageSim
+
+
 def worker(conf):
     print 'started process with PID:', os.getpid()
     print 'making trajectories {0} to {1}'.format(
@@ -23,7 +26,15 @@ def worker(conf):
     random.seed(None)
     np.random.seed(None)
 
-    s = Sim(conf)
+    if 'simulator' in conf:
+        Simulator = CollectGoalImageSim
+        print 'use collect goalimage sim'
+    else:
+        Simulator = Sim
+
+    # Simulator = Sim
+
+    s = Simulator(conf)
     s.run()
 
 def bench_worker(conf):

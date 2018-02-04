@@ -51,8 +51,9 @@ def save_tf_record(filename, trajectory_list, params):
                 Object_pos_flat = traj.Object_pose[tind].flatten()
                 feature['move/' + str(tind) + '/object_pos'] = _float_feature(Object_pos_flat.tolist())
 
-                max_move_pose = traj.max_move_pose[tind].flatten()
-                feature['move/' + str(tind) + '/max_move_pose'] = _float_feature(max_move_pose.tolist())
+                if hasattr(traj, 'max_move_pose'):
+                    max_move_pose = traj.max_move_pose[tind].flatten()
+                    feature['move/' + str(tind) + '/max_move_pose'] = _float_feature(max_move_pose.tolist())
 
             if hasattr(traj, 'large_images_retina'):
                 image_raw = traj.large_images_retina[tind].tostring()
