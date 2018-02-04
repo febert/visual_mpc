@@ -33,8 +33,6 @@ configuration = {
 'sdim' :6,
 'adim' :3,
 'orig_size': [48,64],
-'load_vidpred_data':'',           # tell loader to get video prediction data
-'vidpred_data':'',                # use video prediction data
 'norm':'charbonnier',
 'smoothcost':1e-6,
 'smoothmode':'2nd',
