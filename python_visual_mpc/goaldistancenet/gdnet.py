@@ -552,7 +552,7 @@ def make_plots(conf, dict=None, filename = None):
 
                 h = axarr[row, col].imshow(np.squeeze(im[ex]), interpolation='none')
 
-                if len(im.shape) == 2:
+                if len(im.shape) == 3:
                     plt.colorbar(h, ax=axarr[row, col])
                 axarr[row, col].axis('off')
                 row += 1
@@ -589,7 +589,7 @@ def draw_text(img, float):
 
 
 if __name__ == '__main__':
-    filedir = '/home/frederik/Documents/catkin_ws/src/visual_mpc/tensorflow_data/gdn/fwd_bwd_hardthres_stopgrad/modeldata'
+    filedir = '/home/frederik/Documents/catkin_ws/src/visual_mpc/tensorflow_data/gdn/hardthres/modeldata'
     conf = {}
     conf['output_dir'] = filedir
     make_plots(conf, filename= filedir + '/data.pkl')

@@ -39,6 +39,7 @@ configuration = {
 'fwd_bwd':'',
 'flow_diff_cost':1e-4,
 'hard_occ_thresh':'',
+'occlusion_handling':1e-4,
 
 'ngroup':100,
 'sourcetags':[tag_images],
