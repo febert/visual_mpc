@@ -12,10 +12,6 @@ current_dir = os.path.dirname(os.path.realpath(__file__))
 # local output directory
 OUT_DIR = current_dir + '/modeldata'
 
-tag_images = {'name': 'images',
-             'file':'/images/im{}.png',   # only tindex
-             'shape':[48, 64,3],
-               }
 
 configuration = {
 'experiment_name': 'correction',
@@ -30,8 +26,6 @@ configuration = {
 'batch_size': 64,           #'batch size for training' ,
 'learning_rate': 0.001,     #'the base learning rate of the generator' ,
 'normalization':'None',
-'sdim' :6,
-'adim' :3,
 'orig_size': [48,64],
 'norm':'charbonnier',
 'smoothcost':1e-6,
@@ -43,8 +37,5 @@ configuration = {
 'occ_thres_mult':0.1,
 'occ_thres_offset':0.5,
 'flow_penal':1e-4,
-
-'ngroup':100,
-'sourcetags':[tag_images],
-'source_basedirs':[base_dir + '/pushing_data/cartgripper_startgoal/train'],
+'image_only':'',
 }

@@ -12,10 +12,6 @@ current_dir = os.path.dirname(os.path.realpath(__file__))
 # local output directory
 OUT_DIR = current_dir + '/modeldata'
 
-tag_images = {'name': 'images',
-             'file':'/images/im{}.png',   # only tindex
-             'shape':[48, 64,3],
-               }
 
 configuration = {
 'experiment_name': 'correction',
@@ -42,8 +38,5 @@ configuration = {
 'occlusion_handling':1e-4,
 'occ_thres_mult':0.1,
 'occ_thres_offset':0.5,
-
-'ngroup':100,
-'sourcetags':[tag_images],
-'source_basedirs':[base_dir + '/pushing_data/cartgripper_startgoal/train'],
+'image_only':'',
 }
