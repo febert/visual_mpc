@@ -188,7 +188,7 @@ def build_tfrecord_input(conf, training=True, input_file=None):
     else: dataset = dataset.repeat()
 
     if shuffle:
-        dataset = dataset.shuffle(buffer_size=1000)
+        dataset = dataset.shuffle(buffer_size=256)
     dataset = dataset.batch(conf['batch_size'])
     iterator = dataset.make_one_shot_iterator()
     next_element = iterator.get_next()
@@ -207,7 +207,7 @@ def main():
     conf = {}
 
     current_dir = os.path.dirname(os.path.realpath(__file__))
-    DATA_DIR = '/'.join(str.split(current_dir, '/')[:-2]) + '/pushing_data/cartgripper_startgoal_large4step/train'
+    DATA_DIR = '/'.join(str.split(current_dir, '/')[:-2]) + '/pushing_data/cartgripper_startgoal_4step/train'
 
     conf['schedsamp_k'] = -1  # don't feed ground truth
     conf['data_dir'] = DATA_DIR  # 'directory containing data_files.' ,
@@ -221,13 +221,15 @@ def main():
     # conf['row_start'] = 15
     # conf['row_end'] = 63
 
-    conf['sdim'] = 6
-    conf['adim'] = 3
+    # conf['sdim'] = 6
+    # conf['adim'] = 3
+    conf['sdim'] = 4
+    conf['adim'] = 5
 
     conf['image_only'] = ''
 
-    # conf['orig_size'] = [48, 64]
-    conf['orig_size'] = [480, 640]
+    conf['orig_size'] = [48, 64]
+    # conf['orig_size'] = [480, 640]
     # conf['load_vidpred_data'] = ''
 
     # conf['color_augmentation'] = ''

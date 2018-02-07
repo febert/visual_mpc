@@ -14,6 +14,8 @@ import matplotlib.gridspec as gridspec
 
 from python_visual_mpc.video_prediction.utils_vpred.online_reader import OnlineReader
 import tensorflow.contrib.slim as slim
+
+from python_visual_mpc.utils.colorize_tf import colorize
 from tensorflow.contrib.layers.python import layers as tf_layers
 from python_visual_mpc.video_prediction.utils_vpred.online_reader import read_trajectory
 
@@ -23,6 +25,9 @@ import collections
 
 def length_sq(x):
     return tf.reduce_sum(tf.square(x), 3, keep_dims=True)
+
+def length(x):
+    return tf.sqrt(tf.reduce_sum(tf.square(x), 3))
 
 def mean_square(x):
     return tf.reduce_mean(tf.square(x))
@@ -95,7 +100,7 @@ def flow_smooth_cost(flow, norm, mode, mask):
 
     deltas = tf.concat([delta_u, delta_v], axis=3)
 
-    return norm(deltas*mask)
+    return norm(deltas, mask)
 
 
 def get_coords(img_shape):
@@ -158,8 +163,6 @@ class GoalDistanceNet(object):
                              lambda: train_dict,
                              lambda: val_dict)
             self.images = dict['images']
-            self.states = dict['endeffector_pos']
-            self.actions = dict['actions']
 
             if 'vidpred_data' in conf:  # register predicted video to real
                 self.pred_images = tf.squeeze(dict['gen_images'])
@@ -186,9 +189,21 @@ class GoalDistanceNet(object):
             self.conf['sequence_length'] = self.conf['sequence_length']-1
             self.I0, self.I1 = self.sel_images()
 
-        self.occ_fwd = tf.ones(self.I0.get_shape().as_list()[:3])  # initialize as ones
-        self.occ_bwd = tf.ones(self.I0.get_shape().as_list()[:3])
+        self.occ_fwd = tf.zeros(self.I0.get_shape().as_list()[:3])  # initialize as ones
+        self.occ_bwd = tf.zeros(self.I0.get_shape().as_list()[:3])
 
+        self.build_net()
+
+        if build_loss:
+            self.build_loss()
+            # image_summary:
+            if 'fwd_bwd' in self.conf:
+                self.image_summaries = self.build_image_summary(
+                    [self.I0, self.I1, self.gen_image_I0, self.gen_image_I1, length(self.flow_bwd), length(self.flow_fwd), self.occ_mask_bwd, self.occ_mask_fwd])
+            else:
+                self.image_summaries = self.build_image_summary([self.I0, self.I1, self.gen_image_I1, length(self.flow_bwd)])
+
+    def build_net(self):
         if 'fwd_bwd' in self.conf:
             with tf.variable_scope('warpnet'):
                 self.warped_I0_to_I1, self.warp_pts_bwd, self.flow_bwd, h6_bwd = self.warp(self.I0, self.I1)
@@ -205,7 +220,14 @@ class GoalDistanceNet(object):
                 print 'doing hard occ thresholding'
                 mag_sq = length_sq(self.flow_fwd) + length_sq(self.flow_bwd)
 
-                occ_thresh = 0.01 * mag_sq + 0.5
+                if 'occ_thres_mult' in self.conf:
+                    occ_thres_mult = self.conf['occ_thres_mult']
+                    occ_thres_offset = self.conf['occ_thres_offset']
+                else:
+                    occ_thres_mult = 0.01
+                    occ_thres_offset = 0.5
+
+                occ_thresh = occ_thres_mult * mag_sq + occ_thres_offset
                 self.occ_fwd = tf.squeeze(tf.cast(length_sq(self.diff_flow_fwd) > occ_thresh, tf.float32))
                 self.occ_bwd = tf.squeeze(tf.cast(length_sq(self.diff_flow_bwd) > occ_thresh, tf.float32))
             else:
@@ -222,20 +244,13 @@ class GoalDistanceNet(object):
             self.warped_I0_to_I1, self.warp_pts_bwd, self.flow_bwd, _ = self.warp(self.I0, self.I1)
             self.gen_image_I1 = self.warped_I0_to_I1
 
-        if build_loss:
-            self.build_loss()
-            # image_summary:
-            self.image_summaries = self.build_image_summary()
-
-
     def sel_images(self):
         sequence_length = self.conf['sequence_length']
         t_fullrange = 2e4
-        delta_t = tf.cast(tf.ceil(sequence_length * (self.iter_num + 1) / t_fullrange), dtype=tf.int32)
+        delta_t = tf.cast(tf.ceil(sequence_length * (tf.cast(self.iter_num + 1, tf.float32)) / t_fullrange), dtype=tf.int32)
         delta_t = tf.clip_by_value(delta_t, 1, sequence_length-1)
 
         self.tstart = tf.random_uniform([1], 0, sequence_length - delta_t, dtype=tf.int32)
-
         self.tend = self.tstart + tf.random_uniform([1], tf.ones([], dtype=tf.int32), delta_t + 1, dtype=tf.int32)
 
         begin = tf.stack([0, tf.squeeze(self.tstart), 0, 0, 0],0)
@@ -322,20 +337,28 @@ class GoalDistanceNet(object):
             h3 = self.conv_relu_block(h2, out_ch=128 * ch_mult)  # 6x8x3
         return h3
 
-    def build_image_summary(self):
-        image_I0_l = tf.unstack(self.I0, axis=0)[:16]
-        images_I0 = tf.concat(image_I0_l, axis=1)
+    def build_image_summary(self, tensors, numex=16):
+        """
+        takes numex examples from every tensor and concatentes examples side by side
+        and the different tensors from top to bottom
+        :param tensors:
+        :param numex:
+        :return:
+        """
 
-        image_I1_l = tf.unstack(self.I1, axis=0)[:16]
-        images_I1 = tf.concat(image_I1_l, axis=1)
+        ten_list = []
 
-        genimage_I1_l = tf.unstack(self.gen_image_I1, axis=0)[:16]
-        genimages_I1 = tf.concat(genimage_I1_l, axis=1)
+        for ten in tensors:
+            if len(ten.get_shape().as_list()) == 3:
+                ten = colorize(ten, tf.reduce_min(ten), tf.reduce_max(ten), 'plasma')
+            unstacked = tf.unstack(ten, axis=0)[:numex]
+            concated = tf.concat(unstacked, axis=1)
+            ten_list.append(concated)
 
-        image = tf.concat([images_I0, images_I1, genimages_I1], axis=0)
-        image = tf.reshape(image, [1]+image.get_shape().as_list())
+        combined = tf.concat(ten_list, axis=0)
+        combined = tf.reshape(combined, [1]+combined.get_shape().as_list())
 
-        return tf.summary.image('I0_I1_genI1', image)
+        return tf.summary.image('Images', combined)
 
     def build_loss(self):
 
@@ -373,7 +396,7 @@ class GoalDistanceNet(object):
             self.loss += I0_recon_cost
 
             fd = self.conf['flow_diff_cost']
-            flow_diff_cost =   (norm(self.diff_flow_fwd, self.occ_mask_fwd)
+            flow_diff_cost = (norm(self.diff_flow_fwd, self.occ_mask_fwd)
                               + norm(self.diff_flow_bwd, self.occ_mask_bwd)) * fd
             train_summaries.append(tf.summary.scalar('train_flow_diff_cost', flow_diff_cost))
             self.loss += flow_diff_cost
@@ -396,6 +419,13 @@ class GoalDistanceNet(object):
                                                    self.occ_mask_fwd) * sc
                 train_summaries.append(tf.summary.scalar('train_smooth_fwd', smooth_cost_fwd))
                 self.loss += smooth_cost_fwd
+
+        if 'flow_penal' in self.conf:
+            flow_penal = (tf.reduce_mean(tf.square(self.flow_bwd)) +
+                          tf.reduce_mean(tf.square(self.flow_fwd))) * self.conf['flow_penal']
+            train_summaries.append(tf.summary.scalar('flow_penal', flow_penal))
+            self.loss += flow_penal
+
 
         train_summaries.append(tf.summary.scalar('train_total', self.loss))
         val_summaries.append(tf.summary.scalar('val_total', self.loss))

@@ -1,3 +1,4 @@
+from __future__ import print_function
 import glob
 import moviepy.editor as mpy
 import numpy as np
@@ -10,12 +11,14 @@ import matplotlib.pyplot as plt
 import pdb
 
 
+
+
 def npy_to_gif(im_list, filename):
 
     save_dir = '/'.join(str.split(filename, '/')[:-1])
 
     if not os.path.exists(save_dir):
-        print 'creating directory: ', save_dir
+        print('creating directory: ', save_dir)
         os.mkdir(save_dir)
 
     clip = mpy.ImageSequenceClip(im_list, fps=4)
@@ -24,7 +27,7 @@ def npy_to_gif(im_list, filename):
 
 
 def comp_video(file_path, conf=None, suffix = None, gif_name= None):
-    print 'reading files from:', file_path
+    print('reading files from:', file_path)
     ground_truth = cPickle.load(open(file_path + '/ground_truth.pkl', "rb"))
     gen_images = cPickle.load(open(file_path + '/gen_image_seq.pkl', "rb"))
 
@@ -72,7 +75,7 @@ def make_color_scheme(input_img_list, n_exp= None, convert_to_float = True):
     change to jet colorscheme, mark maximum value pixel
     :return:
     """
-    print 'making color scheme'
+    print('making color scheme')
     output_image_list = []
 
     if n_exp == None:
@@ -142,7 +145,7 @@ def comp_pix_distrib(file_path, name= None, masks = False, examples = 8):
     gen_images = cPickle.load(open(file_path + '/gen_images.pkl', "rb"))
     gtruth_images = cPickle.load(open(file_path + '/gtruth_images.pkl', "rb"))
 
-    print 'finished loading'
+    print('finished loading')
 
     pix_distrib = make_color_scheme(pix_distrib)
 
@@ -180,7 +183,7 @@ def assemble_gif(video_batch, num_exp = 8, convert_from_float = True, only_ind=N
     """
 
     vid_length = min([len(vid) for vid in video_batch])
-    print 'smallest length of all videos', vid_length
+    print('smallest length of all videos', vid_length)
     for i in range(len(video_batch)):
         video_batch[i] = [np.expand_dims(videoframe, axis=0) for videoframe in video_batch[i]]
 

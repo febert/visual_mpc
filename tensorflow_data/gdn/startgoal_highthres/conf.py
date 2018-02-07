@@ -4,7 +4,7 @@ base_dir = python_visual_mpc.__file__
 base_dir = '/'.join(str.split(base_dir, '/')[:-2])
 
 # tf record data location:
-DATA_DIR = base_dir + '/pushing_data/cartgripper_vidpred/train'
+DATA_DIR = base_dir + '/pushing_data/cartgripper_startgoal_4step/train'
 
 import os
 current_dir = os.path.dirname(os.path.realpath(__file__))
@@ -33,16 +33,15 @@ configuration = {
 'sdim' :6,
 'adim' :3,
 'orig_size': [48,64],
-'load_vidpred_data':'',           # tell loader to get video prediction data
-'vidpred_data':'',                # use video prediction data
 'norm':'charbonnier',
 'smoothcost':1e-6,
-'smoothmode':'sobel',
+'smoothmode':'2nd',
 'fwd_bwd':'',
 'flow_diff_cost':1e-4,
-'occlusion_handling':1e-2,
-'occlusion_handling_bias':-3.,
-'occlusion_handling_scale':1.,
+'hard_occ_thresh':'',
+'occlusion_handling':1e-4,
+'occ_thres_mult':0.1,
+'occ_thres_offset':0.5,
 
 'ngroup':100,
 'sourcetags':[tag_images],

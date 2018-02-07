@@ -4,7 +4,7 @@ base_dir = python_visual_mpc.__file__
 base_dir = '/'.join(str.split(base_dir, '/')[:-2])
 
 # tf record data location:
-DATA_DIR = base_dir + '/pushing_data/cartgripper_vidpred/train'
+DATA_DIR = base_dir + '/pushing_data/weiss_gripper_20k/train'
 
 import os
 current_dir = os.path.dirname(os.path.realpath(__file__))
@@ -12,10 +12,6 @@ current_dir = os.path.dirname(os.path.realpath(__file__))
 # local output directory
 OUT_DIR = current_dir + '/modeldata'
 
-tag_images = {'name': 'images',
-             'file':'/images/im{}.png',   # only tindex
-             'shape':[48, 64,3],
-               }
 
 configuration = {
 'experiment_name': 'correction',
@@ -30,22 +26,14 @@ configuration = {
 'batch_size': 64,           #'batch size for training' ,
 'learning_rate': 0.001,     #'the base learning rate of the generator' ,
 'normalization':'None',
-'sdim' :6,
-'adim' :3,
-'orig_size': [48,64],
-'load_vidpred_data':'',           # tell loader to get video prediction data
-'vidpred_data':'',                # use video prediction data
+'sdim' :4,
+'adim' :5,
+'orig_size': [64,64],
+# 'row_start':0,
+# 'row_end':48,
 'norm':'charbonnier',
 'smoothcost':1e-6,
-'smoothmode':'sobel',
-'fwd_bwd':'',
-'flow_diff_cost':0.,
-'occlusion_handling':1e-1,
-'occlusion_handling_bias':-3.,
-'occlusion_handling_scale':1.,
-'ch_mult':5,
+'smoothmode':'2nd',
 
-# 'ngroup':100,
-# 'sourcetags':[tag_images],
-# 'source_basedirs':[base_dir + '/pushing_data/cartgripper_startgoal/train'],
+'ch_mult':4,
 }
