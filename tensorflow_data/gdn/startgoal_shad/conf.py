@@ -3,9 +3,10 @@ base_dir = python_visual_mpc.__file__
 
 base_dir = '/'.join(str.split(base_dir, '/')[:-2])
 
+
 import os
 # tf record data location:
-DATA_DIR = os.environ['VMPC_TRAIN_DATA'] + '/cartgripper_startgoal_4step/train'
+DATA_DIR = os.environ['VMPC_DATA_DIR'] + '/cartgripper_startgoal_4step_shad/train'
 
 import os
 current_dir = os.path.dirname(os.path.realpath(__file__))
@@ -31,12 +32,6 @@ configuration = {
 'norm':'charbonnier',
 'smoothcost':1e-6,
 'smoothmode':'2nd',
-'fwd_bwd':'',
-'flow_diff_cost':1e-4,
-'hard_occ_thresh':'',
-'occlusion_handling':1e-4,
-'occ_thres_mult':0.5,
-'occ_thres_offset':1.,
-'flow_penal':1e-4,
 'image_only':'',
+'ch_mult':4,
 }
