@@ -13,12 +13,14 @@ from python_visual_mpc.visual_mpc_core.agent.agent_mjc import AgentMuJoCo
 
 agent = {
     'type': AgentMuJoCo,
-    'T': 21,
+    'T': 25,
     'substeps':20,
     'adim':3,
     'sdim':6,
     'make_final_gif':'',
     # 'no_instant_gif':"",
+    'bench_conf_pertraj': ROOT_DIR + '/pushing_data/cartgripper_bench_conf/train'  #folder where to load configurations and images
+    'ngroup',
     'filename': ROOT_DIR + '/mjc_models/cartgripper.xml',
     'filename_nomarkers': ROOT_DIR + '/mjc_models/cartgripper.xml',
     'gen_xml':1,   #generate xml every nth trajecotry
@@ -29,6 +31,7 @@ agent = {
     'image_width':64,
     'additional_viewer':'',
     'data_save_dir':current_dir + '/data/train',
+    'ndesig':1,
 }
 
 policy = {
@@ -47,8 +50,9 @@ policy = {
     'action_cost_factor': 0,
     'rew_all_steps':"",
     'finalweight':10,
+    'use_goal_image':'',
     'no_action_bound':"",
-    'predictor_propagation': '',   # use the model get the designated pixel for the next step!
+    'compute_warp_length_spot':''
 }
 
 tag_images = {'name': 'images',

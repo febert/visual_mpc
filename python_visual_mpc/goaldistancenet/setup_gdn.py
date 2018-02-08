@@ -47,8 +47,8 @@ def setup_gdn(conf, gpu_id = 0):
                             model.I0_pl:pred_images,
                             model.I1_pl:goal_image}
 
-                warped_images, flow_field, warp_pts = sess.run([model.gen_image_I1,
-                                                                model.flow_fwd,
+                warped_images, flow_field, warp_pts = sess.run([model.warped_I0_to_I1,
+                                                                model.flow_bwd,
                                                                 model.warp_pts_bwd],
                                                                feed_dict)
                 return warped_images, flow_field, warp_pts

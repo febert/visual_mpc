@@ -15,15 +15,14 @@ OUT_DIR = current_dir + '/modeldata'
 
 configuration = {
 'experiment_name': 'correction',
-'data_dir': DATA_DIR,       # 'directory containing data.' ,
+'pretrained_model': base_dir + '/tensorflow_data/gdn/startgoal/modeldata/model48002',
 'output_dir': OUT_DIR,      #'directory for model checkpoints.' ,
 'current_dir': base_dir,   #'directory for writing summary.' ,
 'num_iterations':50000,
 'sequence_length':4,
 'train_val_split':.95,
-'visualize':'',
 'skip_frame':1,
-'batch_size': 64,           #'batch size for training' ,
+'batch_size': 200,           #'batch size for training' ,
 'learning_rate': 0.001,     #'the base learning rate of the generator' ,
 'normalization':'None',
 'orig_size': [48,64],

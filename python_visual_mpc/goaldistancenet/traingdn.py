@@ -63,13 +63,11 @@ def main(unused_argv, conf_script= None):
         conf['event_log_dir'] = '/tmp'
         conf.pop('use_len', None)
 
-        conf['sequence_length']= 14
-
         conf.pop('color_augmentation', None)
 
         conf['batch_size'] = 20
 
-        conf['load_vidpred_data'] = ''
+        # conf['load_vidpred_data'] = ''
         # when using alex interface:
         if 'modelconfiguration' in conf:
             conf['modelconfiguration']['schedule_sampling_k'] = conf['schedsamp_k']

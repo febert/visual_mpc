@@ -222,7 +222,10 @@ class Visualizer_tkinter(object):
         else:
             new_videolist = []
             for vid in self.video_list:
-                new_videolist.append(vid[0])
+                images = vid[0]
+                if images[0].shape[-1] == 1:
+                    images = color_code_distrib(images, self.numex, renormalize=True)
+                new_videolist.append(images)
 
         if separate_vid:
             vid_path = self.gif_savepath + '/sep_videos'

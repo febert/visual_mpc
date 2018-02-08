@@ -4,7 +4,7 @@ base_dir = python_visual_mpc.__file__
 base_dir = '/'.join(str.split(base_dir, '/')[:-2])
 
 # tf record data location:
-DATA_DIR = base_dir + '/pushing_data/cartgripper_startgoal_4step/train'
+DATA_DIR = base_dir + '/pushing_data/weiss_gripper_20k/train'
 
 import os
 current_dir = os.path.dirname(os.path.realpath(__file__))
@@ -19,17 +19,28 @@ configuration = {
 'output_dir': OUT_DIR,      #'directory for model checkpoints.' ,
 'current_dir': base_dir,   #'directory for writing summary.' ,
 'num_iterations':50000,
-'sequence_length':4,
+'sequence_length':14,
 'train_val_split':.95,
 'visualize':'',
 'skip_frame':1,
 'batch_size': 64,           #'batch size for training' ,
 'learning_rate': 0.001,     #'the base learning rate of the generator' ,
 'normalization':'None',
-'orig_size': [48,64],
+'sdim' :4,
+'adim' :5,
+'orig_size': [64,64],
+# 'row_start':0,
+# 'row_end':48,
 'norm':'charbonnier',
 'smoothcost':1e-6,
 'smoothmode':'2nd',
-'image_only':'',
+'fwd_bwd':'',
+'flow_diff_cost':1e-4,
+'hard_occ_thresh':'',
+'occlusion_handling':1e-4,
+'occ_thres_mult':0.5,
+'occ_thres_offset':1.,
+'flow_penal':1e-4,
+
 'ch_mult':4,
 }

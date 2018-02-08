@@ -422,13 +422,12 @@ class CEM_controller():
                 return [inp[:self.K] for inp in inputlist]
 
             sel_func = best
-
             t_dict_ = collections.OrderedDict()
 
             if 'use_goal_image' in self.policyparams:
                 if 'compute_warp_length_spot' in self.policyparams:
                     warped_image_l = self.image_addgoalpix(warped_image_l)
-                    gen_images = self.gen_images_addwarppix(gen_images, warp_pts_l)
+                    gen_images = self.gen_images_addwarppix(gen_images,warp_pts_l)
                 t_dict_['warped_im_t{}'.format(self.t)] = sel_func(warped_image_l)
             else:
                 for p in range(self.ndesig):
@@ -440,6 +439,7 @@ class CEM_controller():
             self.dict_.update(t_dict_)
 
             if not 'no_instant_gif' in self.agentparams:
+
                 goal_image = [np.repeat(np.expand_dims(self.goal_image, axis=0), self.K, axis=0) for _ in
                                          range(len(gen_images))]
                 t_dict_['goal_image'] = self.image_addgoalpix(goal_image)
@@ -449,9 +449,9 @@ class CEM_controller():
                 # v.build_figure()
                 v.make_direct_vid()
 
-
-                t_dict_['warp_pts_t{}'.format(self.t)] = sel_func(warp_pts_l)
-                t_dict_['flow_fields{}'.format(self.t)] = sel_func(flow_fields_l)
+                if 'use_goal_image' in self.policyparams:
+                    t_dict_['warp_pts_t{}'.format(self.t)] = sel_func(warp_pts_l)
+                    t_dict_['flow_fields{}'.format(self.t)] = sel_func(flow_fields_l)
                 cPickle.dump(t_dict_, open(self.agentparams['record'] + '/plan/data{}.pkl'.format(self.t), 'wb'))
 
             if 'sawyer' in self.agentparams:
@@ -497,7 +497,7 @@ class CEM_controller():
         warp_pts_arr = np.stack(warp_pts_l, axis=1)
         for ob in range(self.agentparams['num_objects']):
             warp_pts_ob = warp_pts_arr[:, :, self.goal_pix[ob, 0], self.goal_pix[ob, 1]]
-            gen_images = add_crosshairs(gen_images, warp_pts_ob)
+            gen_images = add_crosshairs(gen_images, np.flip(warp_pts_ob, 2))
         return gen_images
 
     def calc_scores(self, gen_distrib, distance_grid):
@@ -556,11 +556,10 @@ class CEM_controller():
         Return a random action for a state.
         Args:
             t: the current controller's Time step
-            init_model: mujoco model to initialize from
         """
         self.goal_image = goal_image
         self.desig_pix = np.array(desig_pix).reshape((-1, 2))
-        self.goal_pix = np.array(goal_pix).reshape((self.ndesig, 2))
+        self.goal_pix = np.array(goal_pix).reshape((-1, 2))
         self.ndesig = self.desig_pix.shape[0]
 
         self.t = t

@@ -30,6 +30,12 @@ configuration = {
 'norm':'charbonnier',
 'smoothcost':1e-6,
 'smoothmode':'2nd',
+'fwd_bwd':'',
+'flow_diff_cost':1e-4,
+'hard_occ_thresh':'',
+'occlusion_handling':1e-4,
+'occ_thres_mult':0.5,
+'occ_thres_offset':1.,
+'flow_penal':1e-4,
 'image_only':'',
-'ch_mult':4,
 }

@@ -114,8 +114,8 @@ def setup_predictor(conf, gpu_id=0, ngpu=1):
             vars = tf.get_collection(tf.GraphKeys.GLOBAL_VARIABLES)
 
             vars = filter_vars(vars)
-            for v in vars:
-                print v.name
+            # for v in vars:
+            #     print v.name
             vars = variable_checkpoint_matcher(conf, vars, conf['pretrained_model'])
 
             saver = tf.train.Saver(vars, max_to_keep=0)

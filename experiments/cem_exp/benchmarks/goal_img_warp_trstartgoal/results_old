@@ -1,0 +1,14 @@
+experiment name: goal_img_warp_trstartgoal
+overall best pos score: 0.176308115196 of traj 2
+overall worst pos score: 0.458505096405 of traj 1
+average pos score: 0.306316121817
+standard deviation of population 0.116269172056
+standard error of the mean (SEM) 0.0671280377849
+---
+average angle cost: 1.19805775143
+----------------------
+traj: score, anglecost, rank
+----------------------
+0: 0.28413515385, 1.44131661833, :1
+1: 0.458505096405, 0.643695565492, :2
+2: 0.176308115196, 1.50916107047, :0

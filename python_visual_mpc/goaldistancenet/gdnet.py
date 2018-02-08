@@ -350,7 +350,7 @@ class GoalDistanceNet(object):
 
         for ten in tensors:
             if len(ten.get_shape().as_list()) == 3 or ten.get_shape().as_list()[-1] == 1:
-                ten = colorize(ten, tf.reduce_min(ten), tf.reduce_max(ten), 'plasma')
+                ten = colorize(ten, tf.reduce_min(ten), tf.reduce_max(ten), 'viridis')
             unstacked = tf.unstack(ten, axis=0)[:numex]
             concated = tf.concat(unstacked, axis=1)
             ten_list.append(concated)
@@ -446,9 +446,13 @@ class GoalDistanceNet(object):
 
         else:  # when visualizing sequence of warps from video
             videos = build_tfrecord_fn(self.conf)
-            images, pred_images = sess.run([videos['images'], videos['gen_images']])
 
-            pred_images = np.squeeze(pred_images)
+
+            if 'vidpred_data' in self.conf:
+                images, pred_images = sess.run([videos['images'], videos['gen_images']])
+                pred_images = np.squeeze(pred_images)
+            else:
+                [images] = sess.run([videos['images']])
 
         num_examples = self.conf['batch_size']
         I1 = images[:, -1]
@@ -488,11 +492,12 @@ class GoalDistanceNet(object):
                                                                                  ], {self.I0_pl: I0_t, self.I1_pl: I1})
                 occ_bwd_l.append(occ_bwd)
                 occ_fwd_l.append(occ_fwd)
+
+                gen_images_I0.append(gen_image_I0)
             else:
                 [gen_image_I1, bwd_flow] = sess.run([self.gen_image_I1, self.flow_bwd], {self.I0_pl:I0_t, self.I1_pl: I1})
 
             gen_images_I1.append(gen_image_I1)
-            gen_images_I0.append(gen_image_I0)
 
             flow_mag_bwd = np.linalg.norm(bwd_flow, axis=3)
             flow_mags_bwd.append(flow_mag_bwd)

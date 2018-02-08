@@ -69,10 +69,10 @@ def perform_benchmark(conf = None):
     anglecost = []
     sim = Sim(conf, gpu_id= gpu_id, ngpu= ngpu)
 
-    if 'start_confs' not in conf['agent']:
-        benchconfiguration = cPickle.load(open('infrastructure/benchmarkconfigs', "rb"))
-    else:
-        benchconfiguration = cPickle.load(open(conf['agent']['start_confs'], "rb"))
+    # if 'start_confs' not in conf['agent']:
+    #     benchconfiguration = cPickle.load(open('infrastructure/benchmarkconfigs', "rb"))
+    # else:
+    #     benchconfiguration = cPickle.load(open(conf['agent']['start_confs'], "rb"))
 
     if conf['start_index'] != None:  # used when doing multiprocessing
         traj = conf['start_index']
@@ -88,8 +88,8 @@ def perform_benchmark(conf = None):
     #     print 'verbose mode!! just running 1 configuration'
     #     nruns = 1
 
-    goalpoints = benchconfiguration['goalpoints']
-    initialposes = benchconfiguration['initialpos']
+    # goalpoints = benchconfiguration['goalpoints']
+    # initialposes = benchconfiguration['initialpos']
 
     scores_l = []
     anglecost_l = []
@@ -122,8 +122,8 @@ def perform_benchmark(conf = None):
             sim.agent._hyperparams['xpos0'] = initialposes[i_conf]
             sim.agent._hyperparams['object_pos0'] = goalpoints[i_conf]
 
-        if 'use_goal_image' not in conf['policy']:
-            sim.agent._hyperparams['goal_point'] = goalpoints[i_conf]
+        # if 'use_goal_image' not in conf['policy']:
+        #     sim.agent._hyperparams['goal_point'] = goalpoints[i_conf]
 
         for j in range(n_reseed):
             if traj > nruns -1:
