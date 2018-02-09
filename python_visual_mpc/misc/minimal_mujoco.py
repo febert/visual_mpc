@@ -68,6 +68,8 @@ for t in range(T):
 
     # import pdb; pdb.set_trace()
 
+viewer.finish()
+
 
 
 j = Image.fromarray(largeimage)
