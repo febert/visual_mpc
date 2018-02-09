@@ -22,7 +22,7 @@ from utils.create_xml import create_object_xml, create_root_xml
 import os
 from time import sleep
 import cv2
-
+from python_visual_mpc.goaldistancenet.misc.draw_polygon import draw_poly
 
 def file_len(fname):
     i = 0
@@ -44,6 +44,8 @@ class AgentMuJoCo(object):
 
         self.goal_obj_pose = None
         self.goal_image = None
+        self.goal_mask = None
+        self.goal_pix = None
 
         self.load_obj_statprop = None  #loaded static object properties
         self._setup_world()
@@ -82,6 +84,9 @@ class AgentMuJoCo(object):
             if i_tr % self._hyperparams['gen_xml'] == 0:
                 self.viewer.finish()
                 self._setup_world()
+
+        # if 'goal_mask' in self._hyperparams:
+        #     self.goal_mask = draw_poly(self.goal_image)
 
         traj_ok = False
         i_trial = 0
@@ -195,7 +200,8 @@ class AgentMuJoCo(object):
             elif 'gtruth_planner' in self._hyperparams:
                 mj_U, pos, ind, targets = policy.act(traj, t, init_model=self._model)
             else:
-                mj_U, bestindices_of_iter, rec_input_distrib = policy.act(traj, t, desig_pix=self.desig_pix,goal_pix=self.goal_pix, goal_image=self.goal_image)
+                mj_U, bestindices_of_iter, rec_input_distrib = policy.act(traj, t, desig_pix=self.desig_pix,goal_pix=self.goal_pix,
+                                                                          goal_image=self.goal_image, goal_mask=self.goal_mask)
                 if 'add_traj_visual' in self._hyperparams:  # whether to add visuals for trajectory
                     self.large_images_traj += self.add_traj_visual(self.large_images[t], pos, ind, targets)
                 else:

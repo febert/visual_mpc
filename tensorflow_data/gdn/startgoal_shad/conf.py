@@ -14,7 +14,6 @@ current_dir = os.path.dirname(os.path.realpath(__file__))
 # local output directory
 OUT_DIR = current_dir + '/modeldata'
 
-
 configuration = {
 'experiment_name': 'correction',
 'data_dir': DATA_DIR,       # 'directory containing data.' ,

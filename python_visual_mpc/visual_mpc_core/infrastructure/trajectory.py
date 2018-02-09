@@ -44,3 +44,5 @@ class Trajectory(object):
 
         self.desig_pos = np.zeros([self.T, 2])
         self.score = np.zeros([self.T])
+
+        self.goal_mask = None

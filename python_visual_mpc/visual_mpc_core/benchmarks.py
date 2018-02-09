@@ -69,27 +69,14 @@ def perform_benchmark(conf = None):
     anglecost = []
     sim = Sim(conf, gpu_id= gpu_id, ngpu= ngpu)
 
-    # if 'start_confs' not in conf['agent']:
-    #     benchconfiguration = cPickle.load(open('infrastructure/benchmarkconfigs', "rb"))
-    # else:
-    #     benchconfiguration = cPickle.load(open(conf['agent']['start_confs'], "rb"))
-
-    if conf['start_index'] != None:  # used when doing multiprocessing
-        traj = conf['start_index']
-        i_conf = conf['start_index']
-        nruns = conf['end_index']
-        print 'started worker going from ind {} to in {}'.format(conf['start_index'], conf['end_index'])
-    else:
-        nruns = len(benchconfiguration['initialpos'])*n_reseed  # 60 in standard benchmark
-        i_conf = 0
-        traj = 0
+    traj = conf['start_index']
+    i_conf = conf['start_index']
+    nruns = conf['end_index']
+    print 'started worker going from ind {} to in {}'.format(conf['start_index'], conf['end_index'])
 
     # if 'verbose' in conf['policy']:
     #     print 'verbose mode!! just running 1 configuration'
     #     nruns = 1
-
-    # goalpoints = benchconfiguration['goalpoints']
-    # initialposes = benchconfiguration['initialpos']
 
     scores_l = []
     anglecost_l = []
@@ -102,28 +89,21 @@ def perform_benchmark(conf = None):
         raise ValueError("the file {} already exists!!".format(bench_dir + '/results'))
 
     while traj < nruns:
-
-        if 'sourcetags' in conf:  #load data per trajectory from folder structure
-            dict = read_trajectory(conf, traj_names[traj])
-            sim.agent.load_obj_statprop = dict['obj_statprop']
-            if 'reverse_action' in conf:
-                init_index = -1
-                goal_index = 0
-            else:
-                init_index = 0
-                goal_index = -1
-            sim.agent._hyperparams['xpos0'] = dict['qpos'][init_index]
-            sim.agent._hyperparams['object_pos0'] = dict['object_full_pose'][init_index]
-            sim.agent.object_full_pose_t = dict['object_full_pose']
-            sim.agent.goal_obj_pose = dict['object_full_pose'][goal_index]   #needed for calculating the score
-            sim.agent.goal_image = dict['images'][goal_index]  # assign last image of trajectory as goalimage
-
-        else: #load when loading data from a single file
-            sim.agent._hyperparams['xpos0'] = initialposes[i_conf]
-            sim.agent._hyperparams['object_pos0'] = goalpoints[i_conf]
-
-        # if 'use_goal_image' not in conf['policy']:
-        #     sim.agent._hyperparams['goal_point'] = goalpoints[i_conf]
+        dict = read_trajectory(conf, traj_names[traj])
+        sim.agent.load_obj_statprop = dict['obj_statprop']
+        if 'reverse_action' in conf:
+            init_index = -1
+            goal_index = 0
+        else:
+            init_index = 0
+            goal_index = -1
+        sim.agent._hyperparams['xpos0'] = dict['qpos'][init_index]
+        sim.agent._hyperparams['object_pos0'] = dict['object_full_pose'][init_index]
+        sim.agent.object_full_pose_t = dict['object_full_pose']
+        sim.agent.goal_obj_pose = dict['object_full_pose'][goal_index]   #needed for calculating the score
+        sim.agent.goal_image = dict['images'][goal_index]  # assign last image of trajectory as goalimage
+        if 'goal_mask' in conf['agent']:
+            sim.agent.goal_mask = dict['goal_mask'][goal_index]  # assign last image of trajectory as goalimage
 
         for j in range(n_reseed):
             if traj > nruns -1:
@@ -145,7 +125,7 @@ def perform_benchmark(conf = None):
 
             # reinitilize policy between rollouts
             if 'usenet' in conf['policy']:
-                if 'use_goal_image' in conf['policy']:
+                if 'warp_objective' in conf['policy']:
                     sim.policy = conf['policy']['type'](sim.agent._hyperparams,
                                             conf['policy'], sim.predictor, sim.goal_image_waper)
                 else:

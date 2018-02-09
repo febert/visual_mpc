@@ -9,7 +9,10 @@ import imp
 from python_visual_mpc.visual_mpc_core.infrastructure.trajectory import Trajectory
 from python_visual_mpc.visual_mpc_core.infrastructure.run_sim import Sim
 from pyquaternion import Quaternion
+import cv2
+import copy
 
+import matplotlib.pyplot as plt
 
 class CollectGoalImageSim(Sim):
     """
@@ -23,8 +26,9 @@ class CollectGoalImageSim(Sim):
 
     def _take_sample(self, sample_index):
         if "gen_xml" in self.agentparams:
-            self.agent.viewer.finish()
-            self.agent._setup_world()
+            if sample_index % self.agentparams['gen_xml'] == 0:
+                self.agent.viewer.finish()
+                self.agent._setup_world()
 
         traj_ok = False
         i_trial = 0
@@ -62,6 +66,9 @@ class CollectGoalImageSim(Sim):
         t += 1
         self.store_data(t, traj)
 
+        if 'goal_mask' in self.agentparams:
+            self.get_masks(traj)
+
         # for t in range(self.agentparams['skip_first']):
         #     for _ in range(20):
         #         self.agent._model.data.ctrl = np.zeros(self.agentparams['adim'])
@@ -78,6 +85,30 @@ class CollectGoalImageSim(Sim):
 
         return traj_ok, traj
 
+    def get_image(self):
+        self.agent.viewer.loop_once()
+        img_string, width, height = self.agent.viewer.get_image()
+        large_img = np.fromstring(img_string, dtype='uint8').reshape((height, width, 3))[::-1, :, :]
+        img = cv2.resize(large_img, dsize=(
+        self.agentparams['image_width'], self.agentparams['image_height']), interpolation=cv2.INTER_AREA)
+        return img
+
+    def get_masks(self, traj):
+        complete_img = self.get_image()
+        masks = []
+        for i in range(self.num_ob):
+            qpos = copy.deepcopy(self.agent._model.data.qpos)
+            qpos[3+2+i*7] -= 1
+            self.agent._model.data.qpos = qpos
+            self.agent._model.step()
+            img = self.get_image()
+            masks.append(np.uint8(np.any(complete_img != img, axis=-1))*1)
+            qpos[3 + 2 + i * 7] += 1
+            self.agent._model.data.qpos = qpos
+            # plt.imshow(masks[-1])
+            # plt.show()
+
+        traj.goal_mask = np.stack(masks, 0)
 
     def store_data(self, t, traj):
         qpos_dim = self.agent.sdim / 2  # the states contains pos and vel

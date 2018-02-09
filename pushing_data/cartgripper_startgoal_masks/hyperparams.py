@@ -1,5 +1,13 @@
-""" Hyperparameters for Large Scale Data Collection (LSDC) """
+""" creates dataset of start end configurations """
+
 from __future__ import division
+import os.path
+
+import numpy as np
+
+from python_visual_mpc.visual_mpc_core.algorithm.random_policy import Randompolicy
+from python_visual_mpc.visual_mpc_core.agent.agent_mjc import AgentMuJoCo
+
 import os.path
 
 import numpy as np
@@ -19,8 +27,8 @@ DATA_DIR = '/'.join(str.split(python_visual_mpc.__file__, '/')[:-2])
 agent = {
     'type': AgentMuJoCo,
     'data_save_dir': BASE_DIR + '/train',
-    'filename': DATA_DIR+'/mjc_models/cartgripper_rgb.xml',
-    'filename_nomarkers': DATA_DIR+'/mjc_models/cartgripper_rgb.xml',
+    'filename': DATA_DIR+'/mjc_models/cartgripper.xml',
+    'filename_nomarkers': DATA_DIR+'/mjc_models/cartgripper.xml',
     'data_collection': True,
     'sample_objectpos':'',
     'adim':3,
@@ -28,37 +36,35 @@ agent = {
     'xpos0': np.array([0., 0., 0.]),
     'dt': 0.05,
     'substeps': 20,  #6
-    'T': 15,
-    'skip_first': 40,   #skip first N time steps to let the scene settle
+    'T': 2,
+    'skip_first': 20,   #skip first N time steps to let the scene settle
     'additional_viewer': True,
     'image_height' : 48,
     'image_width' : 64,
     'viewer_image_height' : 480,
     'viewer_image_width' : 640,
     'image_channels' : 3,
-    'num_objects': 4,
+    'num_objects': 1,
     'novideo':'',
-    'gen_xml':10,   #generate xml every nth trajecotry
+    'gen_xml':5,   #generate xml every nth trajecotry
     'randomize_ballinitpos':'',
-    # 'displacement_threshold':0.1,
-    'objects_red':''
+    'pos_disp_range':0.5,
+    'ang_disp_range':np.pi/8,
+    'arm_disp_range':0.2,
+    'goal_mask':'',
 }
 
 policy = {
-    'type' : Randompolicy,
-    'nactions': 5,
-    'repeats': 3, # number of repeats for each action
-    'initial_std': 10.,   #std dev. in xy
-    'initial_std_lift': 1e-5,   #std dev. in xy
-    # 'initial_std_grasp': 1e-5,   #std dev. in xy
+    'type' : lambda x, y: None,
 }
 
 config = {
-    'traj_per_file':128,
+    'save_raw_images':'',
     'save_data': True,
     'start_index':0,
-    'end_index': 60000,
+    'end_index': 49,
     'agent': agent,
     'policy': policy,
     'ngroup': 1000
 }
+

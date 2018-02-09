@@ -45,7 +45,7 @@ class Sim(object):
             else:
                 self.predictor = setup_predictor(netconf, gpu_id)
 
-            if 'use_goal_image' in config['policy']:
+            if 'warp_objective' in config['policy']:
                 params = imp.load_source('params', config['policy']['gdnconf'])
                 gdnconf = params.configuration
                 self.goal_image_waper = setup_gdn(gdnconf, gpu_id)
@@ -111,6 +111,10 @@ class Sim(object):
             os.makedirs(self.image_folder)
             os.makedirs(self.depth_image_folder)
 
+            if traj.goal_mask != None:
+                self.mask_folder = self.traj_folder + '/goal_masks'
+                os.makedirs(self.mask_folder)
+
             self.state_action_pkl_file = self.traj_folder + '/state_action.pkl'
 
             #save pkl file:
@@ -122,11 +126,19 @@ class Sim(object):
                         }
                 if 'gen_xml' in self.agentparams:
                     dict['obj_statprop'] = traj.obj_statprop
+
+                if 'goal_mask' in self.agentparams:
+                    dict['goal_mask'] = traj.goal_mask
                 cPickle.dump(dict, f)
 
             for t in range(traj.T):
                 image_name = self.image_folder+ "/im{}.png".format(t)
                 cv2.imwrite(image_name, traj._sample_images[t][:,:,::-1], [cv2.IMWRITE_PNG_STRATEGY_DEFAULT, 1])
+
+            if traj.goal_mask != None:
+                for i in range(traj.goal_mask.shape[0]):
+                    name = self.mask_folder + "/goal_mask_ob{}.png".format(i)
+                    cv2.imwrite(name, 255*traj.goal_mask[i][:, :], [cv2.IMWRITE_PNG_STRATEGY_DEFAULT, 1])
         else:
             #save tfrecords
             traj = copy.deepcopy(traj)

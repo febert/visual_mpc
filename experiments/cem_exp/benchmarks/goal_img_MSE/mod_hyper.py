@@ -31,7 +31,7 @@ agent = {
     'image_width':64,
     'additional_viewer':'',
     'data_save_dir':current_dir + '/data/train',
-    'ndesig':1,
+    'goal_mask':''
 }
 
 policy = {
@@ -51,9 +51,8 @@ policy = {
     'rew_all_steps':"",
     'finalweight':10,
     'use_goal_image':'',
-    'warp_objective':'',
     'no_action_bound':"",
-    'compute_warp_length_spot':''
+    'MSE_objective':'',
 }
 
 tag_images = {'name': 'images',
