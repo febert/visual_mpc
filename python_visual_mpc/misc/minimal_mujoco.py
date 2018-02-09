@@ -43,8 +43,8 @@ for t in range(T):
 
     largeimage = np.fromstring(img_string, dtype='uint8').reshape(
         (480, 480, 3))[::-1, :, :]
-    
-    Image.fromarray(largeimage).save('testimg')
+
+    Image.fromarray(largeimage).save('testimg.png')
 
     # img_string, width, height = viewer.get_depth()
     # largedimage = np.fromstring(img_string, dtype=np.float32).reshape(
