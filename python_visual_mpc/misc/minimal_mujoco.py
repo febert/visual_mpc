@@ -28,7 +28,7 @@ import matplotlib.pyplot as plt
 
 model.data.qpos = q = np.array([0., 0., 0.])
 
-T = 1000
+T = 10
 for t in range(T):
 
 
@@ -43,10 +43,12 @@ for t in range(T):
 
     largeimage = np.fromstring(img_string, dtype='uint8').reshape(
         (480, 480, 3))[::-1, :, :]
+    
+    Image.fromarray(largeimage).save('testimg')
 
-    img_string, width, height = viewer.get_depth()
-    largedimage = np.fromstring(img_string, dtype=np.float32).reshape(
-        (480, 480, 1))[::-1, :, :]
+    # img_string, width, height = viewer.get_depth()
+    # largedimage = np.fromstring(img_string, dtype=np.float32).reshape(
+    #     (480, 480, 1))[::-1, :, :]
 
     # plt.imshow(np.squeeze(largedimage))
 
