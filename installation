@@ -93,3 +93,8 @@ pip install opencv-python
 pip install rospkg
 pip install catkin_pkg
 
+
+# Docker:
+1. install docker as a .deb package
+
+

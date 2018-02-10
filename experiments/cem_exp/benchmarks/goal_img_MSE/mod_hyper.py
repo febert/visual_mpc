@@ -19,8 +19,6 @@ agent = {
     'sdim':6,
     'make_final_gif':'',
     # 'no_instant_gif':"",
-    'bench_conf_pertraj': ROOT_DIR + '/pushing_data/cartgripper_bench_conf/train'  #folder where to load configurations and images
-    'ngroup',
     'filename': ROOT_DIR + '/mjc_models/cartgripper.xml',
     'filename_nomarkers': ROOT_DIR + '/mjc_models/cartgripper.xml',
     'gen_xml':1,   #generate xml every nth trajecotry
@@ -69,6 +67,9 @@ tag_object_full_pose = {'name': 'object_full_pose',
 tag_object_statprop = {'name': 'obj_statprop',
                      'not_per_timestep':''}
 
+goal_mask = {'name': 'goal_mask',
+             'not_per_timestep':''}
+
 config = {
     'save_data': False,
     'save_raw_images':'',
@@ -77,7 +78,7 @@ config = {
     'agent':agent,
     'policy':policy,
     'ngroup': 100,
-    'sourcetags':[tag_images, tag_qpos, tag_object_full_pose, tag_object_statprop],
-    'source_basedirs':[ROOT_DIR + '/pushing_data/cartgripper_startgoal/train'],
+    'sourcetags':[tag_images, tag_qpos, tag_object_full_pose, tag_object_statprop, goal_mask],
+    'source_basedirs':[ROOT_DIR + '/pushing_data/cartgripper_startgoal_masks/train'],
     'sequence_length':2
 }
