@@ -470,15 +470,21 @@ def get_distance_fast(precomp, goal_pix, conf):
     return distance_grid
 
 
-def add_crosshairs(inp_images, pos, color=None):
+def add_crosshairs(images, pos, color=None):
     """
     :param images: shape: batch, t, r, c, 3 or list of lenght t with batch, r, c, 3
     :param pos: shape: batch, t, 2
     :param color: color needs to be vector with in [0,1]
     :return: images in the same shape as input
     """
-    if isinstance(inp_images, list):
-        images = np.stack(inp_images, axis=1)
+
+    if isinstance(images, list):
+        make_list_output = True
+        images = np.stack(images, axis=1)
+    else:
+        make_list_output = True
+
+    pos = np.clip(pos, images.shape[2], images.shape[3])
 
     if color == None:
         if images.dtype == np.float32:
@@ -504,8 +510,8 @@ def add_crosshairs(inp_images, pos, color=None):
             # plt.show()
             out[b, t] = im
 
-    if isinstance(inp_images, list):
-        out = np.split(out, len(inp_images), axis=1)
+    if make_list_output:
+        out = np.split(out, len(images), axis=1)
         out = [np.squeeze(el) for el in out]
     return out
 
