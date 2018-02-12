@@ -158,9 +158,10 @@ class CEM_controller():
 
         self.dict_ = collections.OrderedDict()
 
-        self.gen_image_publisher = rospy.Publisher('gen_image', numpy_msg(floatarray), queue_size=10)
-        self.gen_pix_distrib_publisher = rospy.Publisher('gen_pix_distrib', numpy_msg(floatarray), queue_size=10)
-        self.gen_score_publisher = rospy.Publisher('gen_score', numpy_msg(floatarray), queue_size=10)
+        if 'sawyer' in self.agentparams:
+            self.gen_image_publisher = rospy.Publisher('gen_image', numpy_msg(floatarray), queue_size=10)
+            self.gen_pix_distrib_publisher = rospy.Publisher('gen_pix_distrib', numpy_msg(floatarray), queue_size=10)
+            self.gen_score_publisher = rospy.Publisher('gen_score', numpy_msg(floatarray), queue_size=10)
 
         self.goal_mask = None
         self.goal_pix = None
