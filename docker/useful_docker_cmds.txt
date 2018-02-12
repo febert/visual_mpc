@@ -4,3 +4,7 @@ sudo docker exec -i -t 4a0792a3cadc  /bin/bash
 
 # remove all stopped containers
 sudo docker rm $(sudo docker ps -a -q -f status=exited)
+
+#push image to cloud
+docker push nvcr.io/my_org/my_team/image:0.1
+
