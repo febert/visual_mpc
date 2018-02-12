@@ -1,1 +1,2 @@
-sudo nvidia-docker run -v /home/$USER/Documents/catkin_ws/src/visual_mpc/pushing_data:/docker_home/pushing_data -it -p 8888:8888 febert/tf1.3_gpu_com2 /bin/bash -c "export VMPC_DATA_DIR=/docker_home/pushing_data && /bin/bash"
+sudo nvidia-docker run -v /mnt/sda1/pushing_data:/docker_home/pushing_data -it -p 8888:8888 nvcr.io/ucb_rail8888/tf1.4_gpu:latest /bin/bash -c "export VMPC_DATA_DIR=/docker_home/pushing_data && /bin/bash"
+#sudo nvidia-docker run -v /mnt/sda1/pushing_data:/docker_home/pushing_data -it -p 8888:8888 febert/tf1.3_gpu_com2 /bin/bash -c "export VMPC_DATA_DIR=/docker_home/pushing_data && /bin/bash"
