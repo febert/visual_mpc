@@ -1,0 +1,4 @@
+
+# go into running container
+sudo docker exec -i -t 4a0792a3cadc  /bin/bash
+

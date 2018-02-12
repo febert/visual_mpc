@@ -11,6 +11,8 @@ pip install imageio==1.6
 pip install moviepy
 pip install matplotlib
 
+conda install pyqt=4
+
 # to install mujoco_py run
 python setup_mujoco.py develop
 

@@ -51,7 +51,7 @@ def main(unused_argv, conf_script= None):
     conf = hyperparams.configuration
 
     if FLAGS.docker:
-        conf['output_dir'] = os.environ['RESULTS_DIR']
+        conf['output_dir'] = '/results'
         print 'output goes to ', conf['output_dir']
 
     conf['event_log_dir'] = conf['output_dir']
