@@ -18,13 +18,12 @@ from python_visual_mpc.video_prediction.utils_vpred.animate_tkinter import Visua
 import matplotlib.pyplot as plt
 import collections
 
-from visual_mpc_rospkg.msg import floatarray
-from rospy.numpy_msg import numpy_msg
-import rospy
-import time
-# from profilehooks import coverage, timecall, profile, cProfile
-# from line_profiler import LineProfiler
 
+if "NO_ROS" not in os.environ:
+    from visual_mpc_rospkg.msg import floatarray
+    from rospy.numpy_msg import numpy_msg
+    import rospy
+import time
 
 
 def compute_warp_cost(conf, flow_field, goal_pix=None, warped_images=None, goal_image=None, goal_mask=None):
