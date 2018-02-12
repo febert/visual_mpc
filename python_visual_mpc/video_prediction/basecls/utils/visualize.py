@@ -482,9 +482,9 @@ def add_crosshairs(images, pos, color=None):
         make_list_output = True
         images = np.stack(images, axis=1)
     else:
-        make_list_output = True
+        make_list_output = False
 
-    pos = np.clip(pos, images.shape[2], images.shape[3])
+    pos = np.clip(pos, np.zeros(2).reshape((1,1,2)),np.array(images.shape[2:4]).reshape((1,1,2)))
 
     if color == None:
         if images.dtype == np.float32:
@@ -511,7 +511,7 @@ def add_crosshairs(images, pos, color=None):
             out[b, t] = im
 
     if make_list_output:
-        out = np.split(out, len(images), axis=1)
+        out = np.split(out, images.shape[1], axis=1)
         out = [np.squeeze(el) for el in out]
     return out
 

@@ -451,6 +451,10 @@ class CEM_controller():
                 if 'warp_objective' in self.policyparams:
                     t_dict_['warp_pts_t{}'.format(self.t)] = sel_func(warp_pts_l)
                     t_dict_['flow_fields{}'.format(self.t)] = sel_func(flow_fields_l)
+                # t_dict_['last_frames'] = last_frames
+                # t_dict_['last_states'] = last_states
+                # t_dict_['actions'] = actions
+
                 cPickle.dump(t_dict_, open(self.agentparams['record'] + '/plan/data{}.pkl'.format(self.t), 'wb'))
 
             if 'sawyer' in self.agentparams:

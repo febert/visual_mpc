@@ -33,6 +33,7 @@ if __name__ == '__main__':
     flags.DEFINE_string('visualize_check', "", 'model within hyperparameter folder from which to create gifs')
     flags.DEFINE_integer('device', 0 ,'the value for CUDA_VISIBLE_DEVICES variable')
     flags.DEFINE_string('resume', None, 'path to model file from which to resume training')
+    flags.DEFINE_string('docker', False, 'whether to run inside docker')
 
 def main(unused_argv, conf_script= None):
     os.environ["CUDA_VISIBLE_DEVICES"] = str(FLAGS.device)
@@ -49,7 +50,13 @@ def main(unused_argv, conf_script= None):
 
     conf = hyperparams.configuration
 
+    if FLAGS.docker:
+        conf['output_dir'] = os.environ['RESULTS_DIR']
+        print 'output goes to ', conf['output_dir']
+
     conf['event_log_dir'] = conf['output_dir']
+
+
     if FLAGS.visualize or FLAGS.visualize_check:
         print 'creating visualizations ...'
         conf['schedsamp_k'] = -1  # don't feed ground truth
