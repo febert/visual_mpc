@@ -26,7 +26,7 @@ if "NO_ROS" not in os.environ:
 import time
 
 
-def compute_warp_cost(conf, flow_field, goal_pix=None, warped_images=None, goal_image=None, goal_mask=None):
+def compute_warp_cost(policyparams, flow_field, goal_pix=None, warped_images=None, goal_image=None, goal_mask=None):
     """
     :param flow_field:  shape: batch, time, r, c, 2
     :param goal_pix: if not None evaluate flowvec only at position of goal pix
@@ -37,7 +37,7 @@ def compute_warp_cost(conf, flow_field, goal_pix=None, warped_images=None, goal_
     print 'tc1 {}'.format(time.time() - tc1)
 
     tc2 = time.time()
-    if 'compute_warp_length_spot' in conf:
+    if 'compute_warp_length_spot' in policyparams:
         flow_scores = []
         for t in range(flow_field.shape[1]):
             flow_scores_t = 0
@@ -56,16 +56,21 @@ def compute_warp_cost(conf, flow_field, goal_pix=None, warped_images=None, goal_
 
     print 'tc2 {}'.format(time.time() - tc2)
 
-
-    if 'warp_success_cost' in conf:
+    if 'warp_success_cost' in policyparams:
         print 'adding warp warp_success_cost'
-        squared_diff = np.square(warped_images - goal_image)
-        mean_erros = np.mean(np.mean(squared_diff, axis=2), axis=2)
 
+        if goal_mask is not None:
+            diffs = (warped_images - goal_image[:, None])*goal_mask[None, None, :, :, None]
+            sqdiffs = np.square(diffs)
+            mean_erros = np.sum(sqdiffs.reshape([flow_field.shape[0], flow_field.shape[1], -1]), axis=-1)/np.sum(goal_mask)\
+                                  * policyparams['warp_success_cost']
+        else:
+            mean_erros = np.mean(np.mean(np.mean(np.square(warped_images - goal_image[:,None]), axis=2), axis=2), axis=2)*\
+            policyparams['warp_success_cost']
         flow_scores += mean_erros
 
     per_time_multiplier = np.ones([1, flow_scores.shape[1]])
-    per_time_multiplier[:, -1] = conf['finalweight']
+    per_time_multiplier[:, -1] = policyparams['finalweight']
 
     scores = np.sum(flow_scores*per_time_multiplier, axis=1)
     print 'tcg {}'.format(time.time() - tc1)

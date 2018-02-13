@@ -12,7 +12,6 @@ import time
 sys.path.append('/'.join(str.split(__file__, '/')[:-2]))
 # from lsdc.gui.gps_training_gui import GPSTrainingGUI
 # from python_visual_mpc.video_prediction.setup_predictor_simple import setup_predictor
-from python_visual_mpc.video_prediction.setup_predictor_towers import setup_predictor
 from python_visual_mpc.goaldistancenet.setup_gdn import setup_gdn
 from python_visual_mpc.visual_mpc_core.infrastructure.utility import *
 
@@ -42,8 +41,6 @@ class Sim(object):
                     self.predictor = netconf['setup_predictor'](netconf, config['policy'], ngpu)
                 else:
                     self.predictor = netconf['setup_predictor'](netconf, gpu_id, ngpu)
-            else:
-                self.predictor = setup_predictor(netconf, gpu_id)
 
             if 'warp_objective' in config['policy']:
                 params = imp.load_source('params', config['policy']['gdnconf'])
