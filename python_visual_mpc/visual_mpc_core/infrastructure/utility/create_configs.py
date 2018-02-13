@@ -62,7 +62,7 @@ class CollectGoalImageSim(Sim):
 
         for t in range(self.agentparams['T']-1):
             self.store_data(t, traj)
-            self.move_objects(traj)
+            self.move_objects(t, traj)
         t += 1
         self.store_data(t, traj)
 
@@ -122,7 +122,7 @@ class CollectGoalImageSim(Sim):
 
         self.agent._store_image(t, traj)
 
-    def move_objects(self, traj):
+    def move_objects(self, t, traj):
 
         new_poses = []
         for iob in range(self.num_ob):
@@ -131,9 +131,9 @@ class CollectGoalImageSim(Sim):
             delta_pos = np.concatenate([np.random.uniform(-pos_disp, pos_disp, 2), np.zeros([1])])
             delta_alpha = np.random.uniform(-angular_disp, angular_disp)
             delta_rot = Quaternion(axis=(0.0, 0.0, 1.0), radians=delta_alpha)
-            curr_quat =  Quaternion(traj.Object_full_pose[0, iob, 3:])
+            curr_quat =  Quaternion(traj.Object_full_pose[t, iob, 3:])
             newquat = delta_rot*curr_quat
-            newpos = traj.Object_full_pose[0, iob][:3] + delta_pos
+            newpos = traj.Object_full_pose[t, iob][:3] + delta_pos
             newpos = np.clip(newpos, -0.35, 0.35)
 
             new_poses.append(np.concatenate([newpos, newquat.elements]))

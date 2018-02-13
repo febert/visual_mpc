@@ -21,16 +21,16 @@ IMAGE_WIDTH = 64
 IMAGE_HEIGHT = 64
 IMAGE_CHANNELS = 3
 
-BASE_DIR = '/'.join(str.split(__file__, '/')[:-1])
+folder_name = '/'.join(str.split(__file__, '/')[-2:-1])
 
 import python_visual_mpc
-DATA_DIR = '/'.join(str.split(python_visual_mpc.__file__, '/')[:-2])
+BASE_DIR = '/'.join(str.split(python_visual_mpc.__file__, '/')[:-2])
 
 agent = {
     'type': AgentMuJoCo,
-    'data_save_dir': BASE_DIR + '/train',
-    'filename': DATA_DIR+'/mjc_models/cartgripper.xml',
-    'filename_nomarkers': DATA_DIR+'/mjc_models/cartgripper.xml',
+    'data_save_dir': folder_name + '/train',
+    'filename': BASE_DIR+'/mjc_models/cartgripper.xml',
+    'filename_nomarkers': BASE_DIR+'/mjc_models/cartgripper.xml',
     'data_collection': True,
     'sample_objectpos':'',
     'adim':3,
@@ -38,7 +38,7 @@ agent = {
     'xpos0': np.array([0., 0., 0.]),
     'dt': 0.05,
     'substeps': 20,  #6
-    'T': 4,
+    'T': 15,
     'skip_first': 20,   #skip first N time steps to let the scene settle
     'additional_viewer': True,
     'image_height' : 48,
