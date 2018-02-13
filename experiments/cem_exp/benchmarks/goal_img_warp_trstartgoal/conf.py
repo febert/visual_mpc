@@ -8,10 +8,12 @@ current_dir = '/'.join(str.split(__file__, '/')[:-1])
 OUT_DIR = current_dir + '/modeldata'
 
 from python_visual_mpc.video_prediction.dynamic_rnn_model.dynamic_base_model import Dynamic_Base_Model
+from python_visual_mpc.video_prediction.setup_predictor_towers import setup_predictor
 
 configuration = {
 'experiment_name': 'rndaction_var10',
 'pred_model':Dynamic_Base_Model,
+'setup_predictor':setup_predictor,
 'output_dir': OUT_DIR,      #'directory for model checkpoints.' ,
 'current_dir': current_dir, #'directory for writing summary.' ,
 'pretrained_model': base_dir + '/tensorflow_data/sim/cartgripper/modeldata/model144002',     # 'filepath of a pretrained model to resume training from.' ,
