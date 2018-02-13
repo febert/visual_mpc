@@ -10,10 +10,12 @@ base_dir = '/'.join(str.split(base_dir, '/')[:-2])
 OUT_DIR = current_dir + '/modeldata'
 
 from python_visual_mpc.video_prediction.dynamic_rnn_model.dynamic_base_model import Dynamic_Base_Model
+from python_visual_mpc.video_prediction.setup_predictor_towers import setup_predictor
 
 configuration = {
 'experiment_name': 'rndaction_var10',
 'pred_model':Dynamic_Base_Model,
+'setup_predictor':setup_predictor,
 'output_dir': OUT_DIR,      #'directory for model checkpoints.' ,
 'current_dir': current_dir, #'directory for writing summary.' ,
 'num_iterations': 200000,   #'number of training iterations.' ,
