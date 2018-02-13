@@ -38,7 +38,7 @@ agent = {
     'xpos0': np.array([0., 0., 0.]),
     'dt': 0.05,
     'substeps': 20,  #6
-    'T': 15,
+    'T': 16,
     'skip_first': 20,   #skip first N time steps to let the scene settle
     'additional_viewer': True,
     'image_height' : 48,
