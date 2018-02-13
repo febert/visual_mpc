@@ -309,6 +309,8 @@ class CEM_controller():
 
     def switch_on_pix(self, desig):
         one_hot_images = np.zeros((self.bsize, self.netconf['context_frames'], self.ndesig, self.img_height, self.img_width, 1), dtype=np.float32)
+
+        desig = np.clip(desig, np.zeros(2).reshape((1, 2)), np.array([self.img_height, self.img_width]).reshape((1, 2)) - 1).astype(np.int)
         # switch on pixels
         for p in range(self.ndesig):
             one_hot_images[:, :, p, desig[p, 0], desig[p, 1]] = 1
