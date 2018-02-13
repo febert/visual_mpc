@@ -36,11 +36,10 @@ class Sim(object):
             netconf = params.configuration
 
         if 'usenet' in config['policy']:
-            if 'setup_predictor' in netconf:
-                if 'use_ray' in netconf:
-                    self.predictor = netconf['setup_predictor'](netconf, config['policy'], ngpu)
-                else:
-                    self.predictor = netconf['setup_predictor'](netconf, gpu_id, ngpu)
+            if 'use_ray' in netconf:
+                self.predictor = netconf['setup_predictor'](netconf, config['policy'], ngpu)
+            else:
+                self.predictor = netconf['setup_predictor'](netconf, gpu_id, ngpu)
 
             if 'warp_objective' in config['policy']:
                 params = imp.load_source('params', config['policy']['gdnconf'])

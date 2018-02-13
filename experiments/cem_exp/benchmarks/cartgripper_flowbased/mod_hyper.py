@@ -10,7 +10,6 @@ ROOT_DIR = '/'.join(str.split(ROOT_DIR, '/')[:-2])
 
 from python_visual_mpc.visual_mpc_core.agent.agent_mjc import AgentMuJoCo
 
-
 agent = {
     'type': AgentMuJoCo,
     'T': 21,
@@ -74,6 +73,6 @@ config = {
     'policy':policy,
     'ngroup': 100,
     'sourcetags':[tag_images, tag_qpos, tag_object_full_pose, tag_object_statprop],
-    'source_basedirs':[ROOT_DIR + '/pushing_data/cartgripper_startgoal/train'],
+    'source_basedirs':[ROOT_DIR + '/pushing_data/cartgripper_startgoal_masks/train'],
     'sequence_length':2
 }

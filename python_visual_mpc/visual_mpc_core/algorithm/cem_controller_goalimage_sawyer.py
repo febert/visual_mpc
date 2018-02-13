@@ -7,6 +7,7 @@ import time
 import imp
 import cPickle
 from datetime import datetime
+import copy
 from python_visual_mpc.video_prediction.basecls.utils.visualize import add_crosshairs
 
 # from python_visual_mpc.video_prediction.utils_vpred.create_gif_lib import *
@@ -23,7 +24,20 @@ if "NO_ROS" not in os.environ:
     from visual_mpc_rospkg.msg import floatarray
     from rospy.numpy_msg import numpy_msg
     import rospy
+
 import time
+
+def standardize_and_tradeoff(flow_sc, warp_sc, flow_warp_tradeoff):
+    """
+    standardize cost vectors ca and cb, compute new scores weighted by tradeoff factor
+    :param ca:
+    :param cb:
+    :return:
+    """
+    stand_flow_scores = (flow_sc - np.mean(flow_sc)) / (np.std(flow_sc) + 1e-7)
+    stand_ws_costs = (warp_sc - np.mean(warp_sc)) / (np.std(warp_sc) + 1e-7)
+    w = flow_warp_tradeoff
+    return stand_flow_scores * w + stand_ws_costs * (1 - w)
 
 
 def compute_warp_cost(policyparams, flow_field, goal_pix=None, warped_images=None, goal_image=None, goal_mask=None):
@@ -56,23 +70,28 @@ def compute_warp_cost(policyparams, flow_field, goal_pix=None, warped_images=Non
 
     print 'tc2 {}'.format(time.time() - tc2)
 
-    if 'warp_success_cost' in policyparams:
-        print 'adding warp warp_success_cost'
-
-        if goal_mask is not None:
-            diffs = (warped_images - goal_image[:, None])*goal_mask[None, None, :, :, None]
-            sqdiffs = np.square(diffs)
-            mean_erros = np.sum(sqdiffs.reshape([flow_field.shape[0], flow_field.shape[1], -1]), axis=-1)/np.sum(goal_mask)\
-                                  * policyparams['warp_success_cost']
-        else:
-            mean_erros = np.mean(np.mean(np.mean(np.square(warped_images - goal_image[:,None]), axis=2), axis=2), axis=2)*\
-            policyparams['warp_success_cost']
-        flow_scores += mean_erros
-
     per_time_multiplier = np.ones([1, flow_scores.shape[1]])
     per_time_multiplier[:, -1] = policyparams['finalweight']
 
-    scores = np.sum(flow_scores*per_time_multiplier, axis=1)
+    if 'warp_success_cost' in policyparams:
+        print 'adding warp warp_success_cost'
+        if goal_mask is not None:
+            diffs = (warped_images - goal_image[:, None])*goal_mask[None, None, :, :, None]
+            sqdiffs = np.square(diffs)
+            ws_costs = np.sum(sqdiffs.reshape([flow_field.shape[0], flow_field.shape[1], -1]), axis=-1)/np.sum(goal_mask)
+        else:
+            ws_costs = np.mean(np.mean(np.mean(np.square(warped_images - goal_image[:,None]), axis=2), axis=2), axis=2)*\
+                                        policyparams['warp_success_cost']
+
+        flow_scores = np.sum(flow_scores*per_time_multiplier, axis=1)
+        ws_costs = np.sum(ws_costs * per_time_multiplier, axis=1)
+        stand_flow_scores = (flow_scores - np.mean(flow_scores)) / (np.std(flow_scores) + 1e-7)
+        stand_ws_costs = (ws_costs - np.mean(ws_costs)) / (np.std(ws_costs) + 1e-7)
+        w = policyparams['warp_success_cost']
+        scores = stand_flow_scores*(1-w) + stand_ws_costs*w
+    else:
+        scores = np.sum(flow_scores*per_time_multiplier, axis=1)
+
     print 'tcg {}'.format(time.time() - tc1)
     return scores
 
@@ -324,28 +343,16 @@ class CEM_controller():
 
 
     def video_pred(self, last_frames, last_states, actions, cem_itr):
-
-        t0 = time.time()
         last_states = np.expand_dims(last_states, axis=0)
         last_states = np.repeat(last_states, self.bsize, axis=0)
-        # print 'construct last state', time.time() - t0
-
-        t0 = time.time()
         last_frames = last_frames.astype(np.float32, copy=False) / 255.
-        # print 'last frames cast', time.time() - t0
-
-        t0 = time.time()
         last_frames = np.expand_dims(last_frames, axis=0)
         last_frames = np.repeat(last_frames, self.bsize, axis=0)
         app_zeros = np.zeros(shape=(self.bsize, self.seqlen-
                                     self.netconf['context_frames'], self.img_height, self.img_width, 3), dtype=np.float32)
-        # print 'last frames and construct app_zeros', time.time() - t0
-
         last_frames = np.concatenate((last_frames, app_zeros), axis=1)
 
-        t0 = time.time()
-
-        if 'use_goal_image' in self.policyparams:
+        if 'use_goal_image' in self.policyparams and 'comb_flow_warp' not in self.policyparams:
             input_distrib = None
         else:
             input_distrib = self.make_input_distrib(cem_itr)
@@ -367,21 +374,19 @@ class CEM_controller():
             if 'MSE_objective' in self.policyparams:
                 scores = self.MSE_based_score(gen_images, goal_image)
             elif 'warp_objective' in self.policyparams:
-                flow_fields_l, scores, warp_pts_l, warped_image_l = self.flow_based_score(gen_images, goal_image)
-        else:
-            for p in range(self.ndesig):
-                start_calc_dist = time.time()
-                distance_grid = self.get_distancegrid(self.goal_pix[p])
-                # print 'time to calc dist grid:', time.time() - start_calc_dist
-                scores_per_task.append(self.calc_scores(gen_distrib, distance_grid))
-                print 'best score of task {}:  {}'.format(p, np.min(scores_per_task[-1]))
+                flow_fields, scores, warp_pts_l, warped_images = self.flow_based_score(gen_images, goal_image)
+            warp_scores = copy.deepcopy(scores)
 
-            start_t2 = time.time()
+        if 'use_goal_image' not in self.policyparams or 'comb_flow_warp' in self.policyparams:
+            for p in range(self.ndesig):
+                distance_grid = self.get_distancegrid(self.goal_pix[p])
+                scores_per_task.append(self.calc_scores(gen_distrib, distance_grid))
+                print 'best flow score of task {}:  {}'.format(p, np.min(scores_per_task[-1]))
 
             scores = np.sum(np.stack(scores_per_task, axis=1), axis=1)
             bestind = scores.argsort()[0]
             for p in range(self.ndesig):
-                print 'score of best traj for task{}: {}'.format(p, scores_per_task[p][bestind])
+                print 'flow score of best traj for task{}: {}'.format(p, scores_per_task[p][bestind])
 
             # for predictor_propagation only!!
             if 'predictor_propagation' in self.policyparams:
@@ -391,6 +396,11 @@ class CEM_controller():
                     bestind = scores.argsort()[0]
                     best_gen_distrib = gen_distrib[2][bestind].reshape(1, self.ndesig, self.img_height, self.img_width, 1)
                     self.rec_input_distrib.append(np.repeat(best_gen_distrib, self.bsize, 0))
+
+            flow_scores = copy.deepcopy(scores)
+
+        if 'comb_flow_warp' in self.policyparams:
+            scores = standardize_and_tradeoff(flow_scores, warp_scores, self.policyparams['comb_flow_warp'])
 
         print 'time to calc scores {}'.format(time.time()-t_startcalcscores)
 
@@ -428,12 +438,13 @@ class CEM_controller():
             t_dict_ = collections.OrderedDict()
 
             if 'warp_objective' in self.policyparams:
-                warped_image_l = self.image_addgoalpix(warped_image_l)
+                warped_images = self.image_addgoalpix(warped_images)
                 gen_images = self.gen_images_addwarppix(gen_images,warp_pts_l)
-                t_dict_['warped_im_t{}'.format(self.t)] = sel_func(warped_image_l)
-            elif 'goal_mask' in self.agentparams:
-                pass
-            else:
+                warped_images = np.split(warped_images[bestindices[:self.K]], warped_images.shape[1], 1)
+                warped_images = list(np.squeeze(warped_images))
+                t_dict_['warped_im_t{}'.format(self.t)] = warped_images
+
+            if 'use_goal_image' not in self.policyparams or 'comb_flow_warp' in self.policyparams:
                 for p in range(self.ndesig):
                     gen_distrib_p = [g[:, p] for g in gen_distrib]
                     t_dict_['gen_distrib{}_t{}'.format(p, self.t)] = sel_func(gen_distrib_p)
@@ -455,12 +466,12 @@ class CEM_controller():
 
                 if 'warp_objective' in self.policyparams:
                     t_dict_['warp_pts_t{}'.format(self.t)] = sel_func(warp_pts_l)
-                    t_dict_['flow_fields{}'.format(self.t)] = sel_func(flow_fields_l)
+                    t_dict_['flow_fields{}'.format(self.t)] = flow_fields[bestindices[:self.K]]
                 # t_dict_['last_frames'] = last_frames
                 # t_dict_['last_states'] = last_states
                 # t_dict_['actions'] = actions
 
-                cPickle.dump(t_dict_, open(self.agentparams['record'] + '/plan/data{}.pkl'.format(self.t), 'wb'))
+                # cPickle.dump(t_dict_, open(self.agentparams['record'] + '/plan/data{}.pkl'.format(self.t), 'wb'))
 
             if 'sawyer' in self.agentparams:
                 sorted_inds = scores.argsort()
@@ -508,25 +519,24 @@ class CEM_controller():
 
 
     def flow_based_score(self, gen_images, goal_image):
-        flow_fields_l = []
-        warped_images_l = []
+        flow_fields = np.zeros([self.bsize, self.seqlen-1, self.img_height, self.img_width, 2])
+        warped_images = np.zeros([self.bsize, self.seqlen-1, self.img_height, self.img_width, 3])
         warp_pts_l = []
+
         for tstep in range(self.seqlen - 1):
             gdn_start = time.time()
             warped_image, flow_field, warp_pts = self.goal_image_warper(gen_images[tstep], goal_image)
             print 'time for gdn forward pass {}'.format(time.time() - gdn_start)
 
-            flow_fields_l.append(flow_field)
-            warped_images_l.append(warped_image)
+            flow_fields[:, tstep] = flow_field
+            warped_images[:, tstep] = warped_image
             warp_pts_l.append(warp_pts)
 
         t_fs1 = time.time()
-        flow_fields = np.stack(flow_fields_l, axis=1)
-        warped_images = np.stack(warped_images_l, axis=1)
         scores = compute_warp_cost(self.policyparams, flow_fields, self.goal_pix, warped_images, goal_image, self.goal_mask)
         print 't_fs1 {}'.format(time.time() - t_fs1)
 
-        return flow_fields_l, scores, warp_pts_l, warped_images_l
+        return flow_fields, scores, warp_pts_l, warped_images
 
     def image_addgoalpix(self, image_l):
         for ob in range(self.agentparams['num_objects']):
