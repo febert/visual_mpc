@@ -153,6 +153,8 @@ class GoalDistanceNet(object):
         self.lr = tf.placeholder_with_default(self.conf['learning_rate'], ())
         self.train_cond = tf.placeholder(tf.int32, shape=[], name="train_cond")
 
+        self.seq_len = self.conf['sequence_length']
+
         if load_data:
             self.iter_num = tf.placeholder(tf.float32, [], name='iternum')
 
@@ -168,7 +170,8 @@ class GoalDistanceNet(object):
                 self.pred_images = tf.squeeze(dict['gen_images'])
                 self.pred_states = tf.squeeze(dict['gen_states'])
 
-            self.I0, self.I1 = self.sel_images()
+            if 'temp_divide_and_conquer' not in self.conf:
+                self.I0, self.I1 = self.sel_images()
 
         elif images == None:  #feed values at test time
             if 'orig_size' in self.conf:
@@ -243,6 +246,8 @@ class GoalDistanceNet(object):
         else:
             self.warped_I0_to_I1, self.warp_pts_bwd, self.flow_bwd, _ = self.warp(self.I0, self.I1)
             self.gen_image_I1 = self.warped_I0_to_I1
+
+
 
     def sel_images(self):
         sequence_length = self.conf['sequence_length']
@@ -374,9 +379,7 @@ class GoalDistanceNet(object):
         self.occ_mask_bwd = 1-self.occ_bwd   # 0 at occlusion
         self.occ_mask_fwd = 1-self.occ_fwd
 
-        # self.occ_mask_bwd = (self.occ_mask_bwd / (1e-5 + tf.reduce_mean(self.occ_mask_bwd, axis=[1, 2])[:, None, None]))
         self.occ_mask_bwd = self.occ_mask_bwd[:, :, :, None]
-        # self.occ_mask_fwd = (self.occ_mask_fwd / (1e-5 + tf.reduce_mean(self.occ_mask_fwd, axis=[1, 2])[:, None, None]))
         self.occ_mask_fwd = self.occ_mask_fwd[:, :, :, None]
 
         if 'stop_occ_grad' in self.conf:
