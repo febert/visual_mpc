@@ -24,6 +24,12 @@ from python_visual_mpc.data_preparation.gather_data import make_traj_name_list
 import collections
 from python_visual_mpc.goaldistancenet.gdnet import GoalDistanceNet
 
+def mean_square(x):
+    return tf.reduce_mean(tf.square(x))
+
+def length(x):
+    return tf.sqrt(tf.reduce_sum(tf.square(x), 3))
+
 class Temp_DnC_GDnet(GoalDistanceNet):
     def __init__(self,
                  conf = None,
@@ -31,107 +37,57 @@ class Temp_DnC_GDnet(GoalDistanceNet):
                  load_data = True,
                  images = None,
                  iter_num = None,
-                 pred_images = None
                  ):
-        GoalDistanceNet.__init__(self, conf = None,
-                                 build_loss=True,
-                                 load_data = True,
-                                 images = None,
-                                 iter_num = None,
-                                 pred_images = None)
+        GoalDistanceNet.__init__(self, conf = conf,
+                                 build_loss=False,
+                                 load_data = load_data,
+                                 images = images,
+                                 iter_num = iter_num,
+                                 )
 
         self.build_net()
-
-
         if build_loss:
-            self.build_loss()
-            self.image_summaries = self.build_image_summary([self.I0, self.I1, self.gen_image_I1, length(self.flow_bwd)])
-
+            self.combine_losses()
+            self.image_summaries = self.build_image_summary([self.I0, self.I1, self.gen_I1, length(self.flow_bwd)])
 
     def build_net(self):
-        n_layer = np.log(self.seq_len)
+        n_layer = int(np.log2(self.seq_len))
+
+        if 'fwd_bwd' not in self.conf:
+            occ_bwd = self.occ_bwd
 
         used = False
+        flow_bwd_lm1 = None
+        cons_loss_per_layer_l = []
+
         for l in range(n_layer):
-            tstep = tf.pow(2,l)
+            tstep = int(np.power(2,l+1))
+            flow_bwd_l = []
+
+            cons_loss_per_layer = 0
             for t in range(0, self.seq_len, tstep):
+
+                I0 = self.images[:, t]
+                I1 = self.images[:, t + tstep-1]
                 with tf.variable_scope('warpnet', reuse=used):
-                    gen_image, warp_pts, flow_field, h6 = self.warp(self.images[:,t], self.images[:,t +tstep])
+                    gen_I1, warp_pts_bwd, flow_bwd, _ = self.warp(I0, I1)
+
+                self.add_pair_loss(I1, gen_I1, occ_bwd, flow_bwd)
                 used = True
+                if flow_bwd_lm1 is not None:
+                    cons_loss_per_layer += self.consistency_loss(t, tstep, flow_bwd_lm1, flow_bwd, occ_bwd)
+                flow_bwd_l.append(flow_bwd)
 
-    def build_loss(self):
+            cons_loss_per_layer_l.append(cons_loss_per_layer)
+            flow_bwd_lm1 = flow_bwd_l
 
-        train_summaries = []
-        val_summaries = []
+        self.I0, self.I1, self.gen_I1 =  I0, I1, gen_I1
 
-        if self.conf['norm'] == 'l2':
-            norm = mean_square
-        elif self.conf['norm'] == 'charbonnier':
-            norm = charbonnier_loss
-        else: raise ValueError("norm not defined!")
-
-        self.occ_mask_bwd = 1-self.occ_bwd   # 0 at occlusion
-        self.occ_mask_fwd = 1-self.occ_fwd
-
-        self.occ_mask_bwd = self.occ_mask_bwd[:, :, :, None]
-        self.occ_mask_fwd = self.occ_mask_fwd[:, :, :, None]
-
-        if 'stop_occ_grad' in self.conf:
-            print 'stopping occ mask grads'
-            self.occ_mask_bwd = tf.stop_gradient(self.occ_mask_bwd)
-            self.occ_mask_fwd = tf.stop_gradient(self.occ_mask_fwd)
-
-        self.loss = 0
-
-        I1_recon_cost = norm((self.gen_image_I1 - self.I1), self.occ_mask_bwd)
-        train_summaries.append(tf.summary.scalar('train_I1_recon_cost', I1_recon_cost))
-        self.loss += I1_recon_cost
-
-        if 'fwd_bwd' in self.conf:
-            I0_recon_cost = norm((self.gen_image_I0 - self.I0), self.occ_mask_fwd)
-            train_summaries.append(tf.summary.scalar('train_I0_recon_cost', I0_recon_cost))
-            self.loss += I0_recon_cost
-
-            fd = self.conf['flow_diff_cost']
-            flow_diff_cost = (norm(self.diff_flow_fwd, self.occ_mask_fwd)
-                              + norm(self.diff_flow_bwd, self.occ_mask_bwd)) * fd
-            train_summaries.append(tf.summary.scalar('train_flow_diff_cost', flow_diff_cost))
-            self.loss += flow_diff_cost
-
-            if 'occlusion_handling' in self.conf:
-                occ = self.conf['occlusion_handling']
-                occ_reg_cost = (tf.reduce_mean(self.occ_fwd) + tf.reduce_mean(self.occ_bwd)) * occ
-                train_summaries.append(tf.summary.scalar('train_occlusion_handling', occ_reg_cost))
-                self.loss += occ_reg_cost
-
-        if 'smoothcost' in self.conf:
-            sc = self.conf['smoothcost']
-            smooth_cost_bwd = flow_smooth_cost(self.flow_bwd, norm, self.conf['smoothmode'],
-                                               self.occ_mask_bwd) * sc
-            train_summaries.append(tf.summary.scalar('train_smooth_bwd', smooth_cost_bwd))
-            self.loss += smooth_cost_bwd
-
-            if 'fwd_bwd' in self.conf:
-                smooth_cost_fwd = flow_smooth_cost(self.flow_fwd, norm, self.conf['smoothmode'],
-                                                   self.occ_mask_fwd) * sc
-                train_summaries.append(tf.summary.scalar('train_smooth_fwd', smooth_cost_fwd))
-                self.loss += smooth_cost_fwd
-
-        if 'flow_penal' in self.conf:
-            flow_penal = (tf.reduce_mean(tf.square(self.flow_bwd)) +
-                          tf.reduce_mean(tf.square(self.flow_fwd))) * self.conf['flow_penal']
-            train_summaries.append(tf.summary.scalar('flow_penal', flow_penal))
-            self.loss += flow_penal
-
-
-        train_summaries.append(tf.summary.scalar('train_total', self.loss))
-        val_summaries.append(tf.summary.scalar('val_total', self.loss))
-
-        self.train_summ_op = tf.summary.merge(train_summaries)
-        self.val_summ_op = tf.summary.merge(val_summaries)
-
-        self.train_op = tf.train.AdamOptimizer(self.lr).minimize(self.loss)
-
+    def consistency_loss(self, tind, tstep, flow_bwd_lm1, flow_bwd, occ_bwd):
+        lower_level_flow = 0
+        for t in range(tind, tind+tstep, tstep/2):
+            lower_level_flow += flow_bwd_lm1[tind]
+        return tf.reduce_mean(tf.square(lower_level_flow - flow_bwd)*occ_bwd)
 
 def calc_warpscores(flow_field):
     return np.sum(np.linalg.norm(flow_field, axis=3), axis=[2, 3])

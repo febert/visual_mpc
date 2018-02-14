@@ -225,7 +225,7 @@ class VidPred_GDN_Model():
             self.lr = tf.placeholder_with_default(self.conf['learning_rate'], ())
             loss = self.build_loss()
 
-            self.gdn.build_loss()
+            self.gdn.add_pair_loss()
             loss += self.gdn.loss
 
             self.train_op = tf.train.AdamOptimizer(self.lr).minimize(loss)

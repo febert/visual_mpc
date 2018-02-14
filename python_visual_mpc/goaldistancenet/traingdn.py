@@ -25,6 +25,7 @@ SAVE_INTERVAL = 4000
 
 from python_visual_mpc.video_prediction.tracking_model.single_point_tracking_model import Single_Point_Tracking_Model
 from python_visual_mpc.video_prediction.utils_vpred.variable_checkpoint_matcher import variable_checkpoint_matcher
+from gdnet import GoalDistanceNet
 
 if __name__ == '__main__':
     FLAGS = flags.FLAGS
@@ -74,21 +75,19 @@ def main(unused_argv, conf_script= None):
 
         conf['batch_size'] = 20
 
-        # conf['load_vidpred_data'] = ''
-        # when using alex interface:
-        if 'modelconfiguration' in conf:
-            conf['modelconfiguration']['schedule_sampling_k'] = conf['schedsamp_k']
-
         build_loss = True
     else:
         build_loss = True
 
-    from gdnet import GoalDistanceNet
+    if 'model' in conf:
+        Model = conf['model']
+    else:
+        Model = GoalDistanceNet
 
     if FLAGS.visualize or FLAGS.visualize_check:
-        model = GoalDistanceNet(conf, build_loss, load_data=False)
+        model = Model(conf, build_loss, load_data=False)
     else:
-        model = GoalDistanceNet(conf, build_loss, load_data=True)
+        model = Model(conf, build_loss, load_data=True)
 
     print 'Constructing saver.'
     vars = tf.get_collection(tf.GraphKeys.GLOBAL_VARIABLES)

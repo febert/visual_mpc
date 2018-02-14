@@ -51,8 +51,7 @@ policy = {
     'predictor_propagation': '',   # use the model get the designated pixel for the next step!
     'comb_flow_warp':0.5,  # 1.0 corresponds to only flow, 0. to only warp
     'warp_objective':'',
-    'use_goal_image':'',
-    'warp_success_cost':0.5,
+    'use_goal_image':''
 }
 
 tag_images = {'name': 'images',
