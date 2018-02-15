@@ -23,7 +23,6 @@ IMAGE_INTERVAL = 5000
 # How often to save a model checkpoint
 SAVE_INTERVAL = 4000
 
-from python_visual_mpc.video_prediction.tracking_model.single_point_tracking_model import Single_Point_Tracking_Model
 from python_visual_mpc.video_prediction.utils_vpred.variable_checkpoint_matcher import variable_checkpoint_matcher
 from gdnet import GoalDistanceNet
 
