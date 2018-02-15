@@ -13,7 +13,7 @@ from tensorflow.python.platform import flags
 from datetime import datetime
 import collections
 # How often to record tensorboard summaries.
-SUMMARY_INTERVAL = 400
+SUMMARY_INTERVAL = 10 ##############400
 
 # How often to run a batch through the validation model.
 VAL_INTERVAL = 500

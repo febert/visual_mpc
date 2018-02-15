@@ -6,7 +6,7 @@ base_dir = '/'.join(str.split(base_dir, '/')[:-2])
 
 import os
 # tf record data location:
-DATA_DIR = os.environ['VMPC_DATA_DIR'] + '/cartgripper_startgoal_16step/train'
+DATA_DIR = os.environ['VMPC_DATA_DIR'] + '/cartgripper_startgoal_17step/train'
 
 import os
 current_dir = os.path.dirname(os.path.realpath(__file__))

@@ -1,27 +1,7 @@
 import tensorflow as tf
 import numpy as np
-import fnmatch
-from PIL import ImageFont
-from PIL import Image
-from PIL import ImageDraw
-import cPickle
-import sys
-from python_visual_mpc.video_prediction.dynamic_rnn_model.ops import dense, pad2d, conv1d, conv2d, conv3d, upsample_conv2d, conv_pool2d, lrelu, instancenorm, flatten
-from python_visual_mpc.video_prediction.dynamic_rnn_model.layers import instance_norm
-import matplotlib.pyplot as plt
-from python_visual_mpc.video_prediction.read_tf_records2 import \
-                build_tfrecord_input as build_tfrecord_fn
-import matplotlib.gridspec as gridspec
 
-from python_visual_mpc.video_prediction.utils_vpred.online_reader import OnlineReader
-import tensorflow.contrib.slim as slim
-
-from python_visual_mpc.utils.colorize_tf import colorize
-from tensorflow.contrib.layers.python import layers as tf_layers
-from python_visual_mpc.video_prediction.utils_vpred.online_reader import read_trajectory
-
-from python_visual_mpc.data_preparation.gather_data import make_traj_name_list
-
+from python_visual_mpc.goaldistancenet.gdnet import apply_warp
 import collections
 from python_visual_mpc.goaldistancenet.gdnet import GoalDistanceNet
 
@@ -88,7 +68,7 @@ class Temp_DnC_GDnet(GoalDistanceNet):
     def sched_layer_train(self):
         thresholds = self.conf['sched_layer_train']
         for l in range(self.n_layer):
-            layer_mult = tf.cast(self.iter_num > thresholds[l], tf.float32)
+            layer_mult = tf.cast(self.iter_num > tf.constant(thresholds[l], tf.int32), tf.float32)
             for k in self.losses.keys():
                 if 'l{}'.format(l) in k:
                     self.losses[k] = layer_mult
@@ -122,7 +102,7 @@ class Temp_DnC_GDnet(GoalDistanceNet):
                 used = True
 
                 if flow_bwd_lm1 is not None:
-                    cons_loss_per_layer += self.consistency_loss(i, flow_bwd_lm1, flow_bwd, occ_bwd)
+                    cons_loss_per_layer += self.consistency_loss(i, flow_bwd_lm1, flow_bwd)
                 flow_bwd_l.append(flow_bwd)
 
                 if i == 0:
@@ -133,16 +113,9 @@ class Temp_DnC_GDnet(GoalDistanceNet):
             self.losses['cons_loss/l{}'.format(l)] = cons_loss_per_layer*self.conf['cons_loss']
             flow_bwd_lm1 = flow_bwd_l
 
-    def consistency_loss(self, i, flow_bwd_lm1, flow_bwd, occ_bwd):
-        lower_level_flow = flow_bwd_lm1[i*2] + flow_bwd_lm1[i*2+1]
-        return tf.reduce_mean(tf.square(lower_level_flow - flow_bwd)*occ_bwd[:,:,:, None])
+    def consistency_loss(self, i, flow_bwd_lm1, flow_bwd):
+        lower_level_flow = apply_warp(flow_bwd_lm1[i*2],flow_bwd_lm1[i*2+1]) + flow_bwd_lm1[i*2+1]
+        return tf.reduce_mean(tf.square(lower_level_flow - flow_bwd))
 
 def calc_warpscores(flow_field):
     return np.sum(np.linalg.norm(flow_field, axis=3), axis=[2, 3])
-
-
-if __name__ == '__main__':
-    filedir = '/home/frederik/Documents/catkin_ws/src/visual_mpc/tensorflow_data/gdn/hardthres/modeldata'
-    conf = {}
-    conf['output_dir'] = filedir
-    make_plots(conf, filename= filedir + '/data.pkl')

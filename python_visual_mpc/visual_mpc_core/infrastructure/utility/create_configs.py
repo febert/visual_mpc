@@ -83,6 +83,12 @@ class CollectGoalImageSim(Sim):
         else:
             traj_ok = True
 
+        image_sums = np.sum(traj._sample_images.reshape([self.agentparams['T'], -1]), axis=-1)
+        if any(image_sums<10):
+            traj_ok = False
+            print 'image black!'
+        print image_sums
+
         return traj_ok, traj
 
     def get_image(self):

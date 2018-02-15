@@ -411,8 +411,11 @@ class GoalDistanceNet(object):
                 newlosses['train_smooth_fwd'+suf] = flow_smooth_cost(flow_fwd, norm, self.conf['smoothmode'],
                                                             occ_mask_fwd) * sc
         if 'flow_penal' in self.conf:
-            newlosses['flow_penal'+suf] = (tf.reduce_mean(tf.square(flow_bwd)) +
-                                            tf.reduce_mean(tf.square(flow_fwd))) * self.conf['flow_penal']
+            if 'fwd_bwd' in self.conf:
+                newlosses['flow_penal'+suf] = (tf.reduce_mean(tf.square(flow_bwd)) +
+                                                tf.reduce_mean(tf.square(flow_fwd))) * self.conf['flow_penal']
+            else:
+                newlosses['flow_penal' + suf] = (tf.reduce_mean(tf.square(flow_bwd))) * self.conf['flow_penal']
 
         for k in newlosses.keys():
             self.losses[k] = newlosses[k]*mult

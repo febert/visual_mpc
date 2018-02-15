@@ -38,7 +38,7 @@ agent = {
     'xpos0': np.array([0., 0., 0.]),
     'dt': 0.05,
     'substeps': 20,  #6
-    'T': 16,
+    'T': 17,
     'skip_first': 20,   #skip first N time steps to let the scene settle
     'additional_viewer': True,
     'image_height' : 48,
@@ -51,7 +51,7 @@ agent = {
     'gen_xml':10,   #generate xml every nth trajecotry
     'randomize_ballinitpos':'',
     'pos_disp_range':0.2,
-    'ang_disp_range':np.pi/4,
+    'ang_disp_range':np.pi/8,
     'arm_disp_range':0.2,
 }
 
@@ -66,7 +66,7 @@ policy = {
 }
 
 config = {
-    'traj_per_file':128,
+    'traj_per_file':10, ########3
     'save_data': True,
     'start_index':0,
     'end_index': 60000,
