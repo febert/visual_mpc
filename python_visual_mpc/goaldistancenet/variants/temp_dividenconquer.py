@@ -68,7 +68,7 @@ class Temp_DnC_GDnet(GoalDistanceNet):
     def sched_layer_train(self):
         thresholds = self.conf['sched_layer_train']
         for l in range(self.n_layer):
-            layer_mult = tf.cast(self.iter_num > tf.constant(int(thresholds[l]), tf.int32), tf.float32)
+            layer_mult = tf.cast(tf.cast(self.iter_num,tf.int32) > tf.constant(int(thresholds[l]), tf.int32), tf.float32)
             for k in self.losses.keys():
                 if 'l{}'.format(l) in k:
                     self.losses[k] = layer_mult
