@@ -6,7 +6,7 @@ base_dir = '/'.join(str.split(base_dir, '/')[:-2])
 
 import os
 # tf record data location:
-DATA_DIR = os.environ['VMPC_DATA_DIR'] + '/cartgripper_startgoal_4step_shad/train'
+DATA_DIR = os.environ['VMPC_DATA_DIR'] + '/cartgripper_startgoal_16step/train'
 
 import os
 current_dir = os.path.dirname(os.path.realpath(__file__))
@@ -23,7 +23,7 @@ configuration = {
 'output_dir': OUT_DIR,      #'directory for model checkpoints.' ,
 'current_dir': base_dir,   #'directory for writing summary.' ,
 'num_iterations':50000,
-'sequence_length':16,
+'sequence_length':9,
 'train_val_split':.95,
 'visualize':'',
 'skip_frame':1,
@@ -36,5 +36,6 @@ configuration = {
 'smoothmode':'2nd',
 'image_only':'',
 'ch_mult':4,
-'temp_divide_and_conquer':''
+'temp_divide_and_conquer':'',
+'cons_loss':0.1
 }

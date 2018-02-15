@@ -11,16 +11,19 @@ DATA_DIR = os.environ['VMPC_DATA_DIR'] + '/cartgripper_startgoal_16step/train'
 import os
 current_dir = os.path.dirname(os.path.realpath(__file__))
 
+from python_visual_mpc.goaldistancenet.variants.temp_dividenconquer import Temp_DnC_GDnet
+
 # local output directory
 OUT_DIR = current_dir + '/modeldata'
 
 configuration = {
+'model':Temp_DnC_GDnet,
 'experiment_name': 'correction',
 'data_dir': DATA_DIR,       # 'directory containing data.' ,
 'output_dir': OUT_DIR,      #'directory for model checkpoints.' ,
 'current_dir': base_dir,   #'directory for writing summary.' ,
 'num_iterations':50000,
-'sequence_length':4,
+'sequence_length':9,
 'train_val_split':.95,
 'visualize':'',
 'skip_frame':1,
@@ -33,4 +36,7 @@ configuration = {
 'smoothmode':'2nd',
 'image_only':'',
 'ch_mult':4,
+'temp_divide_and_conquer':'',
+'cons_loss':0.1,
+'sched_layer_train':[0, 1e4,2e4,3e4]
 }

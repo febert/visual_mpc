@@ -89,6 +89,8 @@ def main(unused_argv, conf_script= None):
     else:
         model = Model(conf, build_loss, load_data=True)
 
+    model.build_net()
+
     print 'Constructing saver.'
     vars = tf.get_collection(tf.GraphKeys.GLOBAL_VARIABLES)
     vars = filter_vars(vars)
@@ -112,9 +114,7 @@ def main(unused_argv, conf_script= None):
     summary_writer = tf.summary.FileWriter(conf['event_log_dir'], graph=sess.graph, flush_secs=10)
 
     tf.train.start_queue_runners(sess)
-
     sess.run(tf.global_variables_initializer())
-
 
     if conf['visualize']:
         if FLAGS.visualize_check:
@@ -157,14 +157,11 @@ def main(unused_argv, conf_script= None):
         feed_dict = {model.iter_num: np.float32(itr),
                      model.train_cond: 1}
 
-        cost, _, summary_str, tstart, tend = sess.run([model.loss, model.train_op, model.train_summ_op, model.tstart, model.tend],
+        cost, _, summary_str = sess.run([model.loss, model.train_op, model.train_summ_op],
                                         feed_dict)
 
         if (itr) % 10 ==0:
             tf.logging.info(str(itr) + ' ' + str(cost))
-
-        if (itr) % 50 == 0:
-            print 'tstart {} tend {}'.format(tstart, tend)
 
         if (itr) % VAL_INTERVAL == 2:
             # Run through validation set.

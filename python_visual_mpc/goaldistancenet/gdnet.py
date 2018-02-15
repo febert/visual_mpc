@@ -193,19 +193,9 @@ class GoalDistanceNet(object):
         self.occ_fwd = tf.zeros([self.bsize,  self.img_height,  self.img_width])
         self.occ_bwd = tf.zeros([self.bsize,  self.img_height,  self.img_width])
 
-        self.losses = []
-        self.build_net()
 
-        if build_loss:
-            self.add_pair_loss(self.I1, self.gen_I1, self.occ_bwd, self.flow_bwd,
-                               self.I0, self.gen_I0, self.occ_fwd, self.flow_fwd)
-            self.combine_losses()
-            # image_summary:
-            if 'fwd_bwd' in self.conf:
-                self.image_summaries = self.build_image_summary(
-                    [self.I0, self.I1, self.gen_I0, self.gen_I1, length(self.flow_bwd), length(self.flow_fwd), self.occ_mask_bwd, self.occ_mask_fwd])
-            else:
-                self.image_summaries = self.build_image_summary([self.I0, self.I1, self.gen_I1, length(self.flow_bwd)])
+        self.build_loss = build_loss
+        self.losses = {}
 
     def build_net(self):
         if 'fwd_bwd' in self.conf:
@@ -257,6 +247,17 @@ class GoalDistanceNet(object):
             print 'stopping occ mask grads'
             self.occ_mask_bwd = tf.stop_gradient(self.occ_mask_bwd)
             self.occ_mask_fwd = tf.stop_gradient(self.occ_mask_fwd)
+
+        if self.build_loss:
+            self.add_pair_loss(self.I1, self.gen_I1, self.occ_bwd, self.flow_bwd,
+                               self.I0, self.gen_I0, self.occ_fwd, self.flow_fwd)
+            self.combine_losses()
+            # image_summary:
+            if 'fwd_bwd' in self.conf:
+                self.image_summaries = self.build_image_summary(
+                    [self.I0, self.I1, self.gen_I0, self.gen_I1, length(self.flow_bwd), length(self.flow_fwd), self.occ_mask_bwd, self.occ_mask_fwd])
+            else:
+                self.image_summaries = self.build_image_summary([self.I0, self.I1, self.gen_I1, length(self.flow_bwd)])
 
 
     def sel_images(self):
@@ -352,7 +353,7 @@ class GoalDistanceNet(object):
             h3 = self.conv_relu_block(h2, out_ch=128 * ch_mult)  # 6x8x3
         return h3
 
-    def build_image_summary(self, tensors, numex=16):
+    def build_image_summary(self, tensors, numex=16, name=None):
         """
         takes numex examples from every tensor and concatentes examples side by side
         and the different tensors from top to bottom
@@ -369,10 +370,13 @@ class GoalDistanceNet(object):
             ten_list.append(concated)
         combined = tf.concat(ten_list, axis=0)
         combined = tf.reshape(combined, [1]+combined.get_shape().as_list())
-        return tf.summary.image('Images', combined)
+
+        if name ==None:
+            name = 'Images'
+        return tf.summary.image(name, combined)
 
     def add_pair_loss(self, I1, gen_I1, occ_bwd, flow_bwd, diff_flow_fwd=None,
-                      I0=None, gen_I0=None, occ_fwd=None, flow_fwd=None, diff_flow_bwd=None):
+                      I0=None, gen_I0=None, occ_fwd=None, flow_fwd=None, diff_flow_bwd=None, mult=1., suf=''):
         occ_mask_bwd = 1 - occ_bwd  # 0 at occlusion
         occ_mask_bwd = occ_mask_bwd[:, :, :, None]
         if occ_fwd is not None:
@@ -385,41 +389,42 @@ class GoalDistanceNet(object):
             norm = charbonnier_loss
         else: raise ValueError("norm not defined!")
 
-        self.losses.append((norm((gen_I1 - I1), occ_mask_bwd), 'train_I1_recon_cost'))
+        newlosses = {}
+        newlosses['train_I1_recon_cost'+suf] = norm((gen_I1 - I1), occ_mask_bwd)
 
         if 'fwd_bwd' in self.conf:
-            self.losses.append(norm((gen_I0 - I0), occ_mask_fwd), 'train_I0_recon_cost')
+            newlosses['train_I0_recon_cost'+suf] = norm((gen_I0 - I0), occ_mask_fwd)
 
             fd = self.conf['flow_diff_cost']
-            self.losses.append(((norm(diff_flow_fwd, occ_mask_fwd)
-                                +norm(diff_flow_bwd, occ_mask_bwd)) * fd), 'train_flow_diff_cost')
+            newlosses['train_flow_diff_cost'+suf] = (norm(diff_flow_fwd, occ_mask_fwd)
+                                                     +norm(diff_flow_bwd, occ_mask_bwd)) * fd
 
             if 'occlusion_handling' in self.conf:
                 occ = self.conf['occlusion_handling']
-                self.losses.append(((tf.reduce_mean(occ_fwd) + tf.reduce_mean(occ_bwd)) * occ,
-                                    'train_occlusion_handling'))
+                newlosses['train_occlusion_handling'+suf] = (tf.reduce_mean(occ_fwd) + tf.reduce_mean(occ_bwd)) * occ
 
         if 'smoothcost' in self.conf:
             sc = self.conf['smoothcost']
-            self.losses.append((flow_smooth_cost(flow_bwd, norm, self.conf['smoothmode'],
-                                               occ_mask_bwd) * sc, 'train_smooth_bwd'))
+            newlosses['train_smooth_bwd'+suf] = flow_smooth_cost(flow_bwd, norm, self.conf['smoothmode'],
+                                                                    occ_mask_bwd) * sc
             if 'fwd_bwd' in self.conf:
-                self.losses.append((flow_smooth_cost(flow_fwd, norm, self.conf['smoothmode'],
-                                                   occ_mask_fwd) * sc, 'train_smooth_fwd'))
+                newlosses['train_smooth_fwd'+suf] = flow_smooth_cost(flow_fwd, norm, self.conf['smoothmode'],
+                                                            occ_mask_fwd) * sc
         if 'flow_penal' in self.conf:
-            self.losses.append(((tf.reduce_mean(tf.square(flow_bwd)) +
-                                 tf.reduce_mean(tf.square(flow_fwd))) * self.conf['flow_penal'],
-                                 'flow_penal'))
+            newlosses['flow_penal'+suf] = (tf.reduce_mean(tf.square(flow_bwd)) +
+                                            tf.reduce_mean(tf.square(flow_fwd))) * self.conf['flow_penal']
+
+        for k in newlosses.keys():
+            self.losses[k] = newlosses[k]*mult
 
     def combine_losses(self):
         train_summaries = []
         val_summaries = []
         self.loss = 0
-        for l in self.losses:
-            name = l[1]
-            single_loss = l[0]
+        for k in self.losses.keys():
+            single_loss = self.losses[k]
             self.loss += single_loss
-            train_summaries.append(tf.summary.scalar(name, single_loss))
+            train_summaries.append(tf.summary.scalar(k, single_loss))
         train_summaries.append(tf.summary.scalar('train_total', self.loss))
         val_summaries.append(tf.summary.scalar('val_total', self.loss))
         self.train_summ_op = tf.summary.merge(train_summaries)

@@ -1,5 +1,6 @@
 import tensorflow as tf
 import numpy as np
+import fnmatch
 from PIL import ImageFont
 from PIL import Image
 from PIL import ImageDraw
@@ -44,50 +45,97 @@ class Temp_DnC_GDnet(GoalDistanceNet):
                                  images = images,
                                  iter_num = iter_num,
                                  )
-
-        self.build_net()
-        if build_loss:
-            self.combine_losses()
-            self.image_summaries = self.build_image_summary([self.I0, self.I1, self.gen_I1, length(self.flow_bwd)])
+        self.build_loss = build_loss
+        self.load_data = load_data
 
     def build_net(self):
-        n_layer = int(np.log2(self.seq_len))
+        if self.load_data:
+            self.build_cons_model()
+        else:
+            self.gen_I1, self.warp_pts_bwd, self.flow_bwd, _ = self.warp(self.I0, self.I1)
+            self.gen_I0, self.flow_fwd = None, None
 
+        if self.build_loss:
+            self.combine_losses()
+            if 'sched_layer_train' in self.conf:
+                self.sched_layer_train()
+
+    def merge_t_losses(self):
+        "add together losses with same name"
+        print 'merging same ts'
+        merged_losses = {}
+
+        loss_list = []
+        for n in self.losses.keys():
+            if '/t' in n:
+                n = str.split(n,'/')[:-1]
+                n ='/'.join(n)
+            loss_list.append(n)
+        unique_names_l = set(loss_list)
+
+        for uname in unique_names_l:
+            comb_loss_val = []
+            for l_ in self.losses.keys():
+                if uname in l_:
+                    comb_loss_val.append(self.losses[l_])
+                    print "merging", l_
+            print '-----'
+            comb_loss_val = tf.reduce_mean(tf.stack(comb_loss_val))
+            merged_losses[uname] = comb_loss_val
+
+        self.losses = merged_losses
+
+    def sched_layer_train(self):
+        thresholds = self.conf['sched_layer_train']
+        for l in range(self.n_layer):
+            layer_mult = tf.cast(self.iter_num > thresholds[l], tf.float32)
+            for k in self.losses.keys():
+                if 'l{}'.format(l) in k:
+                    self.losses[k] = layer_mult
+                    print 'multiplying {} with layer_mult{}'.format(k, l)
+
+    def combine_losses(self):
+        self.merge_t_losses()
+        super(Temp_DnC_GDnet, self).combine_losses()
+
+    def build_cons_model(self):
+        self.n_layer = int(np.log2(self.seq_len)) + 1
         if 'fwd_bwd' not in self.conf:
             occ_bwd = self.occ_bwd
-
         used = False
         flow_bwd_lm1 = None
-        cons_loss_per_layer_l = []
-
-        for l in range(n_layer):
-            tstep = int(np.power(2,l+1))
+        for l in range(self.n_layer):
+            tstep = int(np.power(2, l))
             flow_bwd_l = []
 
             cons_loss_per_layer = 0
-            for t in range(0, self.seq_len, tstep):
+            for i, t in enumerate(range(0, self.seq_len - 1, tstep)):
 
+                print 'l{}, t{}, warping im{} to im{}'.format(l, t, t, t + tstep)
                 I0 = self.images[:, t]
-                I1 = self.images[:, t + tstep-1]
+                I1 = self.images[:, t + tstep]
+
                 with tf.variable_scope('warpnet', reuse=used):
                     gen_I1, warp_pts_bwd, flow_bwd, _ = self.warp(I0, I1)
 
-                self.add_pair_loss(I1, gen_I1, occ_bwd, flow_bwd)
+                self.add_pair_loss(I1, gen_I1, occ_bwd, flow_bwd, suf='/l{}/t{}'.format(l,t))
                 used = True
+
                 if flow_bwd_lm1 is not None:
-                    cons_loss_per_layer += self.consistency_loss(t, tstep, flow_bwd_lm1, flow_bwd, occ_bwd)
+                    cons_loss_per_layer += self.consistency_loss(i, flow_bwd_lm1, flow_bwd, occ_bwd)
                 flow_bwd_l.append(flow_bwd)
 
-            cons_loss_per_layer_l.append(cons_loss_per_layer)
+                if i == 0:
+                    self.image_summaries = self.build_image_summary(
+                        [I0, I1, gen_I1, length(flow_bwd)],
+                        name='warp_im{}_to_im{}'.format(t, t + tstep))
+
+            self.losses['cons_loss/l{}'.format(l)] = cons_loss_per_layer*self.conf['cons_loss']
             flow_bwd_lm1 = flow_bwd_l
 
-        self.I0, self.I1, self.gen_I1 =  I0, I1, gen_I1
-
-    def consistency_loss(self, tind, tstep, flow_bwd_lm1, flow_bwd, occ_bwd):
-        lower_level_flow = 0
-        for t in range(tind, tind+tstep, tstep/2):
-            lower_level_flow += flow_bwd_lm1[tind]
-        return tf.reduce_mean(tf.square(lower_level_flow - flow_bwd)*occ_bwd)
+    def consistency_loss(self, i, flow_bwd_lm1, flow_bwd, occ_bwd):
+        lower_level_flow = flow_bwd_lm1[i*2] + flow_bwd_lm1[i*2+1]
+        return tf.reduce_mean(tf.square(lower_level_flow - flow_bwd)*occ_bwd[:,:,:, None])
 
 def calc_warpscores(flow_field):
     return np.sum(np.linalg.norm(flow_field, axis=3), axis=[2, 3])
