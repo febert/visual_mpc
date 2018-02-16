@@ -10,6 +10,7 @@ ROOT_DIR = '/'.join(str.split(ROOT_DIR, '/')[:-2])
 
 from python_visual_mpc.visual_mpc_core.agent.agent_mjc import AgentMuJoCo
 
+
 agent = {
     'type': AgentMuJoCo,
     'T': 30,
@@ -48,6 +49,10 @@ policy = {
     'finalweight':10,
     'no_action_bound':"",
     'predictor_propagation': '',   # use the model get the designated pixel for the next step!
+    'comb_flow_warp':0.5,  # 1.0 corresponds to only flow, 0. to only warp
+    'warp_objective':'',
+    'use_goal_image':'',
+    'warp_success_cost':0.5,
 }
 
 tag_images = {'name': 'images',
