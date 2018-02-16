@@ -73,17 +73,16 @@ def main():
     do_benchmark = False
 
     if os.path.isfile(hyperparams_file):
-        hyperparams = imp.load_source('hyperparams', hyperparams_file)
-        n_traj = hyperparams.config['end_index']
+        hyperparams = imp.load_source('hyperparams', hyperparams_file).config
+        n_traj = hyperparams['end_index']
     else:
         print 'doing benchmark ...'
         do_benchmark = True
         experimentdir = basepath + '/experiments/cem_exp/benchmarks_goalimage/' + exp_name
         hyperparams_file = experimentdir + '/mod_hyper.py'
-        mod_hyperparams = imp.load_source('hyperparams', hyperparams_file)
-        n_traj = mod_hyperparams.config['end_index']
-        mod_hyper = Modhyper(mod_hyperparams)
-        mod_hyper.config['bench_dir'] = experimentdir
+        hyperparams = imp.load_source('hyperparams', hyperparams_file).config
+        n_traj = hyperparams['end_index']
+        hyperparams['bench_dir'] = experimentdir
 
     traj_per_worker = int(n_traj / np.float32(n_worker))
     start_idx = [traj_per_worker * i for i in range(n_worker)]
@@ -91,16 +90,12 @@ def main():
 
     conflist = []
 
-    for i in range(n_worker):
-        if do_benchmark:
-            modconf = copy.deepcopy(mod_hyper)
-            modconf.config['start_index'] = start_idx[i]
-            modconf.config['end_index'] = end_idx[i]
-        else:
-            modconf = copy.deepcopy(hyperparams.config)
-            modconf['start_index'] = start_idx[i]
-            modconf['end_index'] = end_idx[i]
+    hyperparams['agent']['data_save_dir'] = os.path.join(os.environ['VMPC_DATA_DIR'], hyperparams['agent']['data_save_dir'])  # directory where to save trajectories
 
+    for i in range(n_worker):
+        modconf = copy.deepcopy(hyperparams)
+        modconf.config['start_index'] = start_idx[i]
+        modconf.config['end_index'] = end_idx[i]
         conflist.append(modconf)
 
     if do_benchmark:

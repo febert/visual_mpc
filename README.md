@@ -1,3 +1,17 @@
+# Installation
+
+Install all packages and required software as in ./installation
+run
+
+```python setup.py develop```
+
+if you need the custom mujoco-py do
+
+```python setup_mujoco.py develop```
+
+Next you need to set the an environment variable defining where to store and load training data:
+add ```export VMPC_DATA_DIR='/your/data/dir'``` to your ~/.bashrc
+
 # How to start visual-MPC on Sawyer
 start kinect-bridge node:
 ```cd visual_mpc/python_visual_mpc/sawyer/visual_mpc_rospkg/launch/bridgeonly.launch```

@@ -72,9 +72,9 @@ def main(unused_argv, conf_script= None):
 
         conf.pop('color_augmentation', None)
 
-        conf['batch_size'] = 20
+        conf['batch_size'] = 10
 
-        build_loss = True
+        build_loss = False
     else:
         build_loss = True
 

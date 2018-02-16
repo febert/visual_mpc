@@ -71,7 +71,7 @@ class Temp_DnC_GDnet(GoalDistanceNet):
             layer_mult = tf.cast(tf.cast(self.iter_num,tf.int32) > tf.constant(int(thresholds[l]), tf.int32), tf.float32)
             for k in self.losses.keys():
                 if 'l{}'.format(l) in k:
-                    self.losses[k] = layer_mult
+                    self.losses[k] *= layer_mult
                     print 'multiplying {} with layer_mult{}'.format(k, l)
 
     def combine_losses(self):
@@ -115,7 +115,7 @@ class Temp_DnC_GDnet(GoalDistanceNet):
 
     def consistency_loss(self, i, flow_bwd_lm1, flow_bwd):
         lower_level_flow = apply_warp(flow_bwd_lm1[i*2],flow_bwd_lm1[i*2+1]) + flow_bwd_lm1[i*2+1]
-        return tf.reduce_mean(tf.square(lower_level_flow - flow_bwd))
+        return tf.reduce_mean(tf.sqrt(tf.reduce_sum(tf.square(lower_level_flow - flow_bwd), axis=-1)))
 
 def calc_warpscores(flow_field):
     return np.sum(np.linalg.norm(flow_field, axis=3), axis=[2, 3])

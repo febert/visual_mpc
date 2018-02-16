@@ -30,8 +30,7 @@ class Sim(object):
         self.agent = config['agent']['type'](config['agent'])
         self.agentparams = config['agent']
 
-        self._data_save_dir = os.path.join(os.environ['VMPC_DATA_DIR'],self.agentparams['data_save_dir'])  # directory where to save trajectories
-        self.agentparams['data_save_dir'] = self._data_save_dir
+        self._data_save_dir = self.agentparams['data_save_dir']
 
         if 'netconf' in config['policy']:
             params = imp.load_source('params', config['policy']['netconf'])

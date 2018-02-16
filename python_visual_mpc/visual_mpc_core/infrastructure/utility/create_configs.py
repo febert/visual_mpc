@@ -69,12 +69,6 @@ class CollectGoalImageSim(Sim):
         if 'goal_mask' in self.agentparams:
             self.get_masks(traj)
 
-        # for t in range(self.agentparams['skip_first']):
-        #     for _ in range(20):
-        #         self.agent._model.data.ctrl = np.zeros(self.agentparams['adim'])
-        #         self.agent._model.step()
-                # self.agent.viewer.loop_once()
-
         # discarding trajecotries where an object falls out of the bin:
         end_zpos = [traj.Object_full_pose[-1, i, 2] for i in range(self.agentparams['num_objects'])]
         if any(zval < -2e-2 for zval in end_zpos):
