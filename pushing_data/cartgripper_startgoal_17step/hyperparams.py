@@ -66,7 +66,7 @@ policy = {
 }
 
 config = {
-    'traj_per_file':10, ########3
+    'traj_per_file':128,
     'save_data': True,
     'start_index':0,
     'end_index': 60000,

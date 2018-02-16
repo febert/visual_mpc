@@ -23,7 +23,7 @@ configuration = {
 'output_dir': OUT_DIR,      #'directory for model checkpoints.' ,
 'current_dir': base_dir,   #'directory for writing summary.' ,
 'num_iterations':50000,
-'sequence_length':17,
+'sequence_length':9,
 'train_val_split':.95,
 'visualize':'',
 'skip_frame':1,

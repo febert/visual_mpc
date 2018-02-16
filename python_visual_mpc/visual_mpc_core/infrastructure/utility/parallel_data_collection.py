@@ -118,6 +118,8 @@ def main():
 
     traindir = modconf['agent']["data_save_dir"]
     testdir = '/'.join(traindir.split('/')[:-1] + ['/test'])
+    if not os.path.exists(testdir):
+        os.makedirs(testdir)
     import shutil
     files = glob.glob(traindir + '/*')
     files = sorted_alphanumeric(files)
