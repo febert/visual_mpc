@@ -34,11 +34,11 @@ def setup_gdn(conf, gpu_id = 0):
             model = GoalDistanceNet(conf = conf,
                                      build_loss=False,
                                      load_data = False)
+            model.build_net()
 
             sess.run(tf.global_variables_initializer())
 
-            vars_without_state = filter_vars(tf.get_collection(tf.GraphKeys.VARIABLES))
-            saver = tf.train.Saver(vars_without_state, max_to_keep=0)
+            saver = tf.train.Saver(tf.get_collection(tf.GraphKeys.GLOBAL_VARIABLES), max_to_keep=0)
             saver.restore(sess, conf['pretrained_model'])
             print 'gdn restore done.'
 
@@ -54,13 +54,3 @@ def setup_gdn(conf, gpu_id = 0):
                 return warped_images, flow_field, warp_pts
 
             return predictor_func
-
-def filter_vars(vars):
-    newlist = []
-    for v in vars:
-        if not '/state:' in v.name:
-            newlist.append(v)
-        else:
-            print 'removed state variable from saving-list: ', v.name
-
-    return newlist
