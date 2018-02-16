@@ -30,7 +30,7 @@ configuration = {
 'batch_size': 64,           #'batch size for training' ,
 'learning_rate': 0.001,     #'the base learning rate of the generator' ,
 'normalization':'None',
-'orig_size': [48,64],
+'orig_size': [64,64],
 'norm':'charbonnier',
 'smoothcost':1e-6,
 'smoothmode':'2nd',
