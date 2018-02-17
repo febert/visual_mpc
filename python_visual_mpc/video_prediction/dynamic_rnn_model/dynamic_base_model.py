@@ -142,7 +142,7 @@ class DNACell(tf.nn.rnn_cell.RNNCell):
             state_size.append(tf.TensorShape([ndesig, height, width, 1]))  # gen_pix_distrib
 
         if 'appflow_chained' == self.conf['model']:
-            state_size.append(tf.TensorShape([ndesig, height, width, 2]))  # gen_pix_distrib
+            state_size.append(tf.TensorShape([height, width, 2]))  # gen_pix_distrib
 
         self._state_size = tuple(state_size)
 
@@ -182,7 +182,7 @@ class DNACell(tf.nn.rnn_cell.RNNCell):
                 gen_pix_distrib = other_states.pop(0)
 
             if 'appflow_chained' == self.conf['model']:
-                prev_flow_t_0 = tf.squeeze(other_states.pop(0))
+                prev_flow_t_0 = other_states.pop(0)
 
         image_shape = image.get_shape().as_list()
         batch_size, height, width, color_channels = image_shape
@@ -507,12 +507,11 @@ class Dynamic_Base_Model(object):
         ## start interface
 
         # Split into timesteps.
-        actions = tf.split(axis=1, num_or_size_splits=actions.get_shape()[1], value=actions)
-        actions = [tf.squeeze(act) for act in actions]
-        states = tf.split(axis=1, num_or_size_splits=states.get_shape()[1], value=states)
-        states = [tf.squeeze(st) for st in states]
-        images = tf.split(axis=1, num_or_size_splits=images.get_shape()[1], value=images)
-        images = [tf.squeeze(img) for img in images]
+
+        images = tf.unstack(images, axis=1)
+        states = tf.unstack(states, axis=1)
+        actions = tf.unstack(actions, axis=1)
+
         if pix_distrib is not None:
             pix_distrib = tf.split(axis=1, num_or_size_splits=pix_distrib.get_shape()[1], value=pix_distrib)
             pix_distrib = [tf.reshape(pix, [self.batch_size, ndesig, self.img_height, self.img_width, 1]) for pix in pix_distrib]
