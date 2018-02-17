@@ -56,7 +56,7 @@ def charbonnier_loss(x, mask=None, truncate=None, alpha=0.45, beta=1.0, epsilon=
         if truncate is not None:
             error = tf.minimum(error, truncate)
 
-        return tf.reduce_sum(error) / normalization
+        return tf.reduce_sum(error) / (normalization + 1e-6)
 
 
 def flow_smooth_cost(flow, norm, mode, mask):
