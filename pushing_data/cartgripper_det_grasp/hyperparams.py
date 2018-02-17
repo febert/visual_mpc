@@ -27,8 +27,8 @@ agent = {
     'sdim':10,
     'xpos0': np.zeros(5), #initialize state dimension to 5 zeros
     'dt': 0.05,
-    'substeps': 20,  #6
-    'T': 15,
+    'substeps': 50,  #6
+    'T': 25,
     'skip_first': 40,   #skip first N time steps to let the scene settle
     'additional_viewer': True,
     'image_height' : 48,
@@ -36,7 +36,7 @@ agent = {
     'viewer_image_height' : 480,
     'viewer_image_width' : 640,
     'image_channels' : 3,
-    'num_objects': 4,
+    'num_objects': 1,
     'novideo':'',
     'gen_xml':10,   #generate xml every nth trajecotry
     'randomize_ballinitpos':'', #randomize x, y
@@ -46,9 +46,9 @@ agent = {
 policy = {
     'type' : Randompolicy,
     'nactions': 5,
-    'repeats': 3, # number of repeats for each action
+    'repeats': 5, # number of repeats for each action
     'initial_std': 10.,   #std dev. in xy
-    'initial_std_lift': 1e-5,   #std dev. in xy
+    'initial_std_lift': 20,   #std dev. in xy
     # 'initial_std_grasp': 1e-5,   #std dev. in xy
 }
 

@@ -210,6 +210,7 @@ class AgentMuJoCo(object):
             if 'poscontroller' in self._hyperparams.keys():
                 traj.actions[t, :] = target_inc
             else:
+                mj_U[2]  = 100
                 traj.actions[t, :] = mj_U
 
             accum_touch = np.zeros_like(self._model.data.sensordata)
