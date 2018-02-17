@@ -46,3 +46,7 @@ class Trajectory(object):
         self.score = np.zeros([self.T])
 
         self.goal_mask = None
+
+        # world coordinates including the arm
+        self.obj_world_coords = np.zeros([self.T, conf['num_objects'] + 1, 7])  # xyz and quaternion pose
+

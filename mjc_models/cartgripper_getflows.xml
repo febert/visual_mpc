@@ -70,6 +70,8 @@
     <sensor>
         <framepos name="sens_ob0" objtype="xbody" objname="object0"/>
         <framequat name="sens_ob0" objtype="xbody" objname="object0"/>
+        <framepos name="gripper" objtype="xbody" objname="object0"/>
+        <framequat name="gripper" objtype="xbody" objname="object0"/>
     </sensor>
 
     <actuator>

@@ -6,7 +6,7 @@ from tensorflow.contrib.layers import layer_norm
 
 from python_visual_mpc.video_prediction.dynamic_rnn_model.layers import instance_norm
 from python_visual_mpc.video_prediction.dynamic_rnn_model.lstm_ops import BasicConv2DLSTMCell
-from python_visual_mpc.video_prediction.dynamic_rnn_model.ops import dense, pad2d, conv1d, conv2d, conv3d, upsample_conv2d, conv_pool2d, lrelu, instancenorm, flatten, resample_layer, warp_pts_layer
+from python_visual_mpc.video_prediction.dynamic_rnn_model.ops import dense, pad2d, conv1d, conv2d, conv3d, upsample_conv2d, conv_pool2d, lrelu, instancenorm, flatten, resample_layer, apply_warp
 from python_visual_mpc.video_prediction.dynamic_rnn_model.ops import sigmoid_kl_with_logits
 from python_visual_mpc.video_prediction.dynamic_rnn_model.utils import preprocess, deprocess
 from python_visual_mpc.video_prediction.basecls.utils.visualize import visualize_diffmotions, visualize, compute_metric
@@ -48,7 +48,7 @@ class DNACell(tf.nn.rnn_cell.RNNCell):
         self.first_pix_distrib = first_pix_distrib
 
         self.num_ground_truth = num_ground_truth
-        if conf['model'] != 'appflow':
+        if conf['model'] != 'appflow' and conf['model'] != 'appflow_chained':
             self.kernel_size = [conf['kern_size'], conf['kern_size']]
         else: self.kernel_size = None
         if 'dilation_rate' in conf:
@@ -140,6 +140,10 @@ class DNACell(tf.nn.rnn_cell.RNNCell):
         ]
         if self.first_pix_distrib is not None:
             state_size.append(tf.TensorShape([ndesig, height, width, 1]))  # gen_pix_distrib
+
+        if 'appflow_chained' == self.conf['model']:
+            state_size.append(tf.TensorShape([ndesig, height, width, 2]))  # gen_pix_distrib
+
         self._state_size = tuple(state_size)
 
     @property
@@ -167,12 +171,18 @@ class DNACell(tf.nn.rnn_cell.RNNCell):
         # inputs
         (image, action, state), other_inputs = inputs[:3], inputs[3:]
         if other_inputs:
-            pix_distrib, = other_inputs
+            pix_distrib = other_inputs.pop(0)
+
         # states
         (lstm_states, time, gen_image, gen_state), other_states = states[:4], states[4:]
         lstm_state0, lstm_state1, lstm_state2, lstm_state3, lstm_state4 = lstm_states
         if other_states:
-            gen_pix_distrib, = other_states
+            other_states = list(other_states)
+            if self.first_pix_distrib is not None:
+                gen_pix_distrib = other_states.pop(0)
+
+            if 'appflow_chained' == self.conf['model']:
+                prev_flow_t_0 = tf.squeeze(other_states.pop(0))
 
         image_shape = image.get_shape().as_list()
         batch_size, height, width, color_channels = image_shape
@@ -266,13 +276,13 @@ class DNACell(tf.nn.rnn_cell.RNNCell):
                 h6_dna_kernel = self.normalizer_fn(h6_dna_kernel)
                 h6_dna_kernel = tf.nn.relu(h6_dna_kernel)
 
-        if self.model == 'appflow':
+        if self.model == 'appflow' or self.model  == 'appflow_chained':
             with tf.variable_scope('pre_appflow'):
                 h6_appflow = conv2d(h5, vgf_dim, kernel_size=(3, 3), strides=(1, 1))
                 h6_appflow = self.normalizer_fn(h6_appflow)
                 h6_appflow = tf.nn.relu(h6_appflow)
             with tf.variable_scope('appflow'):
-                flowvecs = conv2d(h6_appflow, 2, kernel_size=(3, 3), strides=(1, 1))
+                flowvecs_tp1_t = conv2d(h6_appflow, 2, kernel_size=(3, 3), strides=(1, 1))
 
         if self.generate_scratch_image:
             with tf.variable_scope('h6_scratch'):
@@ -298,7 +308,7 @@ class DNACell(tf.nn.rnn_cell.RNNCell):
                 kernels = dense(flatten(lstm_h2), kernel_size[0] * kernel_size[1] * num_transformed_images)
                 kernels = tf.reshape(kernels, [batch_size, kernel_size[0], kernel_size[1], num_transformed_images])
             kernel_spatial_axes = [1, 2]
-        elif self.model == 'appflow':
+        elif self.model == 'appflow' or self.model == 'appflow_chained':
             pass # appearance flow doesn't have kernels
         else:
             raise ValueError('Invalid model %s' % self.model)
@@ -306,8 +316,10 @@ class DNACell(tf.nn.rnn_cell.RNNCell):
         transformed_images = []
         with tf.name_scope('transformed_images'):
             if self.model == 'appflow':
-                warp_pts = warp_pts_layer(flowvecs)
-                transformed_images += [resample_layer(image, warp_pts)]
+                transformed_images += [apply_warp(image, flowvecs_tp1_t)]
+            elif self.model == 'appflow_chained':
+                flow_tp1_0 = flowvecs_tp1_t + apply_warp(prev_flow_t_0, flowvecs_tp1_t)
+                transformed_images += [apply_warp(self.first_image, flow_tp1_0)]
             else:
                 with tf.name_scope('kernel_normalization'):
                     kernels = tf.nn.relu(kernels - RELU_SHIFT) + RELU_SHIFT
@@ -359,7 +371,7 @@ class DNACell(tf.nn.rnn_cell.RNNCell):
                                       for transformed_image, mask in zip(transformed_images, masks)])
 
         with tf.name_scope('flow_map'):
-            if self.model != 'appflow':
+            if self.model != 'appflow' and self.model != 'appflow_chained':
                 flow_map = compute_flow_map(kernels, masks[:num_transformed_images])
 
         if self.first_pix_distrib is not None:
@@ -391,9 +403,12 @@ class DNACell(tf.nn.rnn_cell.RNNCell):
         outputs = tuple(outputs)
         # states
         new_lstm_states = lstm_state0, lstm_state1, lstm_state2, lstm_state3, lstm_state4
-        new_states = [new_lstm_states, time + 1, gen_image, gen_state]
+        new_states = [new_lstm_states, time + 1, gen_image, gen_state, ]
         if self.first_pix_distrib is not None:
             new_states.append(gen_pix_distrib)
+        if self.model == 'appflow_chained':
+            new_states.append(flow_tp1_0)
+
         new_states = tuple(new_states)
         return outputs, new_states
 

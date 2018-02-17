@@ -52,6 +52,7 @@ agent = {
     'pos_disp_range':0.2,
     'ang_disp_range':np.pi/8,
     'arm_disp_range':0.2,
+    'make_gtruth_flows':''
 }
 
 

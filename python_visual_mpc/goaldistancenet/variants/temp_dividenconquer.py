@@ -36,9 +36,9 @@ class Temp_DnC_GDnet(GoalDistanceNet):
             self.gen_I0, self.flow_fwd = None, None
 
         if self.build_loss:
-            self.combine_losses()
             if 'sched_layer_train' in self.conf:
                 self.sched_layer_train()
+            self.combine_losses()
 
     def merge_t_losses(self):
         "add together losses with same name"
@@ -46,6 +46,7 @@ class Temp_DnC_GDnet(GoalDistanceNet):
         merged_losses = {}
 
         loss_list = []
+        # stripping of last tag
         for n in self.losses.keys():
             if '/t' in n:
                 n = str.split(n,'/')[:-1]
@@ -53,6 +54,7 @@ class Temp_DnC_GDnet(GoalDistanceNet):
             loss_list.append(n)
         unique_names_l = set(loss_list)
 
+        # merging losses of different time steps
         for uname in unique_names_l:
             comb_loss_val = []
             for l_ in self.losses.keys():

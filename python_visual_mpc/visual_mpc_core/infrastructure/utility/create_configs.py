@@ -120,6 +120,9 @@ class CollectGoalImageSim(Sim):
             fullpose = self.agent._model.data.qpos[i * 7 + qpos_dim:(i + 1) * 7 + qpos_dim].squeeze()
             traj.Object_full_pose[t, i, :] = fullpose
 
+        for i in range(self.num_ob+1):
+            traj.obj_world_coords[t,] = self.agent._model.sensordata
+
         self.agent._store_image(t, traj)
 
     def move_objects(self, t, traj):

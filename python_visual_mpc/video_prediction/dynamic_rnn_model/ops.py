@@ -24,6 +24,10 @@ def warp_pts_layer(flow_field):
     img_shape = flow_field.get_shape().as_list()
     return flow_field + get_coords(img_shape)
 
+def apply_warp(I0, flow_field):
+    warp_pts = warp_pts_layer(flow_field)
+    return resample_layer(I0, warp_pts)
+
 def dense(inputs, units):
     with tf.variable_scope('dense'):
         input_shape = inputs.get_shape().as_list()
