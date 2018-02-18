@@ -38,5 +38,5 @@ configuration = {
 'ch_mult':4,
 'temp_divide_and_conquer':'',
 'cons_loss':0.1,
-'sched_layer_train':[0, 1e4,2e4,3e4]
+'sched_layer_train':[0, 2e4,3e4,4e4]
 }

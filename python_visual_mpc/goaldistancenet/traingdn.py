@@ -26,6 +26,8 @@ SAVE_INTERVAL = 4000
 from python_visual_mpc.video_prediction.utils_vpred.variable_checkpoint_matcher import variable_checkpoint_matcher
 from gdnet import GoalDistanceNet
 
+from variants.temp_dividenconquer import Temp_DnC_GDnet
+
 if __name__ == '__main__':
     FLAGS = flags.FLAGS
     flags.DEFINE_string('hyper', '', 'hyperparameters configuration file')
@@ -84,7 +86,10 @@ def main(unused_argv, conf_script= None):
         Model = GoalDistanceNet
 
     if FLAGS.visualize or FLAGS.visualize_check:
-        model = Model(conf, build_loss, load_data=False)
+        # if isinstance(Model, Temp_DnC_GDnet):
+        model = Model(conf, build_loss, load_data=True)
+        # else:
+        #     model = Model(conf, build_loss, load_data=False)
     else:
         model = Model(conf, build_loss, load_data=True)
 

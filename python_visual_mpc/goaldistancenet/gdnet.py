@@ -235,7 +235,10 @@ class GoalDistanceNet(object):
             self.gen_I1 = self.warped_I0_to_I1
             self.gen_I0 = self.warped_I1_to_I0
         else:
-            self.warped_I0_to_I1, self.warp_pts_bwd, self.flow_bwd, _ = self.warp(self.I0, self.I1)
+            if 'multi_scale' in self.conf:
+                self.warped_I0_to_I1, self.warp_pts_bwd, self.flow_bwd, _ = self.warp_multiscale(self.I0, self.I1)
+            else:
+                self.warped_I0_to_I1, self.warp_pts_bwd, self.flow_bwd, _ = self.warp(self.I0, self.I1)
             self.gen_I1 = self.warped_I0_to_I1
             self.gen_I0, self.flow_fwd = None, None
 
@@ -258,6 +261,8 @@ class GoalDistanceNet(object):
                     [self.I0, self.I1, self.gen_I0, self.gen_I1, length(self.flow_bwd), length(self.flow_fwd), self.occ_mask_bwd, self.occ_mask_fwd])
             else:
                 self.image_summaries = self.build_image_summary([self.I0, self.I1, self.gen_I1, length(self.flow_bwd)])
+
+
 
 
     def sel_images(self):
@@ -295,6 +300,47 @@ class GoalDistanceNet(object):
 
         h = tf.image.resize_images(h, imsize, method=tf.image.ResizeMethod.BILINEAR)
         return h
+
+    def warp_multiscale(self, source_image, dest_image):
+        """
+        warps I0 onto I1
+        :param source_image:
+        :param dest_image:
+        :return:
+        """
+        if 'ch_mult' in self.conf:
+            ch_mult = self.conf['ch_mult']
+        else: ch_mult = 1
+
+        I0_I1 = tf.concat([source_image, dest_image], axis=3)
+        with tf.variable_scope('h1'):
+            h1 = self.conv_relu_block(I0_I1, out_ch=32*ch_mult)  #24x32x3
+
+        with tf.variable_scope('h2'):
+            h2 = self.conv_relu_block(h1, out_ch=64*ch_mult)  #12x16x3
+
+        with tf.variable_scope('h3'):
+            h3 = self.conv_relu_block(h2, out_ch=128*ch_mult)  #6x8x3
+
+        with tf.variable_scope('h4'):
+            h4 = self.conv_relu_block(h3, out_ch=64*ch_mult, upsmp=True)  #12x16x3
+
+        self.add_pair_loss(source_image)
+
+        with tf.variable_scope('h5'):
+            h5 = self.conv_relu_block(h4, out_ch=32*ch_mult, upsmp=True)  #24x32x3
+
+        with tf.variable_scope('h6'):
+            h6 = self.conv_relu_block(h5, out_ch=16*ch_mult, upsmp=True)  #48x64x3
+
+        with tf.variable_scope('h7'):
+            flow_field = slim.layers.conv2d(  # 128x128xdesc_length
+                h6,  2, [5, 5], stride=1, activation_fn=None)
+
+        warp_pts = warp_pts_layer(flow_field)
+        gen_image = resample_layer(source_image, warp_pts)
+
+        return gen_image, warp_pts, flow_field, h6
 
     def warp(self, source_image, dest_image):
         """
@@ -605,20 +651,6 @@ def make_plots(conf, dict=None, filename = None):
     # f.subplots_adjust(vspace=0.1)
     # plt.show()
     plt.savefig(conf['output_dir']+'/warp_costs_{}.png'.format(dict['name']))
-
-
-def calc_warpscores(flow_field):
-    return np.sum(np.linalg.norm(flow_field, axis=3), axis=[2, 3])
-
-def draw_text(img, float):
-    img = (img*255.).astype(np.uint8)
-    img = Image.fromarray(img)
-    draw = ImageDraw.Draw(img)
-    font = ImageFont.truetype("/usr/share/fonts/dejavu/DejaVuSans.ttf", 5)
-    draw.text((0, 0), "{}".format(float), (255, 255, 0), font=font)
-    img = np.asarray(img).astype(np.float32)/255.
-
-    return img
 
 
 if __name__ == '__main__':
