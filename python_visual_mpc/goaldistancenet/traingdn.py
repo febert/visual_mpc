@@ -18,8 +18,7 @@ SUMMARY_INTERVAL = 10 ##############400
 # How often to run a batch through the validation model.
 VAL_INTERVAL = 500
 
-# IMAGE_INTERVAL = 5000
-IMAGE_INTERVAL = 5
+IMAGE_INTERVAL = 5000
 
 # How often to save a model checkpoint
 SAVE_INTERVAL = 4000
