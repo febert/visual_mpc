@@ -94,6 +94,8 @@ class Temp_DnC_GDnet(GoalDistanceNet):
         self.flow_bwd_ll = [[] for _ in range(self.n_layer)]
         self.cons_diffs_ll = [[] for _ in range(self.n_layer)]
 
+        im_summ_l = []
+
         for l in range(self.n_layer):
             tstep = int(np.power(2, l))
             flow_bwd_l = []
@@ -121,9 +123,11 @@ class Temp_DnC_GDnet(GoalDistanceNet):
                 flow_bwd_l.append(flow_bwd)
 
                 if i == 0:
-                    self.image_summaries = self.build_image_summary(
+                    im_summ_l.append(self.build_image_summary(
                         [I0, I1, gen_I1, length(flow_bwd)],
-                        name='warp_im{}_to_im{}'.format(t, t + tstep))
+                        name='warp_im{}_to_im{}'.format(t, t + tstep)))
+
+            self.image_summaries = tf.summary.merge(im_summ_l)
 
             self.losses['cons_loss/l{}'.format(l)] = cons_loss_per_layer*self.conf['cons_loss']
             flow_bwd_lm1 = flow_bwd_l
