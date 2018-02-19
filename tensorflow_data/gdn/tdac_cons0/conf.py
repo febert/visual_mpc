@@ -37,5 +37,5 @@ configuration = {
 'image_only':'',
 'ch_mult':4,
 'temp_divide_and_conquer':'',
-'cons_loss':0.1
+'cons_loss':0.
 }
