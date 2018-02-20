@@ -177,7 +177,7 @@ def make_plots(conf, dict=None, filename = None):
 
     f, axarr = plt.subplots(num_rows, num_cols, figsize=figsize)
 
-    bexp = 0
+    bexp = 1
     #plot images:
     for col in range(num_cols):
         row = 0
