@@ -29,8 +29,8 @@ BASE_DIR = '/'.join(str.split(python_visual_mpc.__file__, '/')[:-2])
 agent = {
     'type': AgentMuJoCo,
     'data_save_dir': folder_name + '/train',
-    'filename': BASE_DIR+'/mjc_models/cartgripper.xml',
-    'filename_nomarkers': BASE_DIR+'/mjc_models/cartgripper.xml',
+    'filename': BASE_DIR+'/mjc_models/cartgripper_noshadow.xml',
+    'filename_nomarkers': BASE_DIR+'/mjc_models/cartgripper_noshadow.xml',
     'data_collection': True,
     'sample_objectpos':'',
     'adim':3,

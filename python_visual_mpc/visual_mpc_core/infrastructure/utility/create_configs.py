@@ -63,10 +63,10 @@ class CollectGoalImageSim(Sim):
 
         for t in range(self.agentparams['T']-1):
             self.store_data(t, traj)
-            traj.large_masks[t] = self.get_obj_masks()
+            traj.large_masks[t] = self.get_obj_masks(include_arm=True)
 
             if t> 0:
-                flow = self.compute_gtruth_flow(t, traj)
+                traj.bwd_flow[t-1] = self.compute_gtruth_flow(t, traj)
 
             self.move_objects(t, traj)
         t += 1
@@ -105,6 +105,7 @@ class CollectGoalImageSim(Sim):
 
         flow_field = np.zeros([self.agentparams['num_objects'], l_img_height, l_img_width, 2])
 
+
         for ob in range(self.agentparams['num_objects']):
             prev_pos = traj.Object_full_pose[t-1, ob, :3]
             prev_quat = Quaternion(traj.Object_full_pose[t-1, ob,3:])
@@ -116,15 +117,15 @@ class CollectGoalImageSim(Sim):
             diff_quat = curr_quat.conjugate * prev_quat  # rotates vector form curr_quat to prev_quat
 
 
-            # plt.ion()
+            plt.ion()
             # plt.figure()
             # plt.imshow(traj.largedimage[t])
             # plt.title('depthimage t1')
-            #
-            # plt.figure()
-            # plt.imshow(traj.large_masks[t,0])
-            # plt.title('masks t1')
-            #
+
+            plt.figure()
+            plt.imshow(traj.large_masks[t,ob])
+            plt.title('masks t1')
+
             # plt.figure()
             # plt.imshow(traj._sample_images[t])
             # plt.title('im1')
@@ -132,40 +133,17 @@ class CollectGoalImageSim(Sim):
             # plt.figure()
             # plt.imshow(traj._sample_images[t - 1])
             # plt.title('im0')
-            #
-            # plt.draw()
+
+            plt.draw()
 
             for i in range(inds.shape[0]):
                 coord = inds[i]
-                # # begin debug
-                # point_2d = self.agent.viewer.project_point(traj.Object_full_pose[t,0,:3], return_zval=True)
-                # print 'Object pos',  traj.Object_full_pose[t,0,:3]
-                # print 'proj point 2d', point_2d
-                #
-                # img = traj.largeimage[t] # verify desigpos
-                # desig_pix = np.around(point_2d).astype(np.int)
-                # # img = large_img
-                # img[desig_pix[0]-1:desig_pix[0]+1, :] = np.array([255, 255, 255])
-                # img[:, desig_pix[1]-1:desig_pix[1]+1] = np.array([255, 255, 255])
-                # print 'desig_pix', desig_pix
-                # plt.imshow(img)
-                # plt.show()
-                #
-                # point_3d = self.agent.viewer.get_3D(point_2d[0], point_2d[1], point_2d[2])
-                # print 'point 3d from float'
-                # point_3d = self.agent.viewer.get_3D(desig_pix.astype(np.float32)[0], desig_pix.astype(np.float32)[1], traj.largedimage[t, desig_pix[0], desig_pix[1]])
-                # print 'point 3d from integer'
-                #end debug
-
                 abs_pos_curr_sys = self.agent.viewer.get_3D(coord[0], coord[1], traj.largedimage[t, coord[0], coord[1]])
                 rel_pos_curr_sys = abs_pos_curr_sys - curr_pos
-
                 rel_pos_curr_sys = Quaternion(scalar= .0, vector=rel_pos_curr_sys)
                 rel_pos_prev_sys = diff_quat*rel_pos_curr_sys*diff_quat.conjugate
                 abs_pos_prev_sys = prev_pos + rel_pos_prev_sys.elements[1:]
-
                 pos_prev_sys_imspace = self.agent.viewer.project_point(abs_pos_prev_sys)
-
                 flow_field[ob, coord[0], coord[1]] = pos_prev_sys_imspace - coord
 
             plt.figure()
@@ -178,8 +156,11 @@ class CollectGoalImageSim(Sim):
 
             # plt.imshow(np.linalg.norm(flow_field[ob], axis =-1))
 
-            visualize_corresp(t, flow_field, traj.largeimage, inds)
+            visualize_corresp(t, flow_field, traj, inds)
 
+        flow_field_smallim = cv2.resize(flow_field, dsize=(self.agentparams['image_width'], self.agentparams['image_height']),
+                                interpolation=cv2.INTER_AREA)*self.agentparams['image_width']/self.agentparams['viewer_image_width']
+        return flow_field_smallim
 
     def get_image(self):
         self.agent.viewer.loop_once()
@@ -189,26 +170,54 @@ class CollectGoalImageSim(Sim):
         # self.agentparams['image_width'], self.agentparams['image_height']), interpolation=cv2.INTER_AREA)
         return large_img
 
-    def get_obj_masks(self, small=False):
+    def get_obj_masks(self, small=False, include_arm=False):
         complete_img = self.get_image()
         masks = []
+
+        if include_arm:
+            qpos = copy.deepcopy(self.agent._model.data.qpos)
+            qpos[2] -= 10
+            self.agent._model.data.qpos = qpos
+            self.agent._model.data.ctrl = np.zeros(3)
+            self.agent._model.step()
+            img = self.get_image()
+            mask = 1 - np.uint8(np.all(complete_img == img, axis=-1)) * 1
+            qpos[2] += 10
+            self.agent._model.data.qpos = qpos
+            self.agent._model.data.ctrl = np.zeros(3)
+            self.agent._model.step()
+            self.agent._model.data.qpos = qpos
+            self.agent.viewer.loop_once()
+            if small:
+                mask = cv2.resize(mask, dsize=(
+                    self.agentparams['image_width'], self.agentparams['image_height']), interpolation=cv2.INTER_NEAREST)
+            masks.append(mask)
+            plt.imshow(np.squeeze(mask))
+            plt.title('armmask')
+            plt.show()
+
         for i in range(self.num_ob):
             qpos = copy.deepcopy(self.agent._model.data.qpos)
             qpos[3+2+i*7] -= 1
             self.agent._model.data.qpos = qpos
+            self.agent._model.data.ctrl = np.zeros(3)
             self.agent._model.step()
             img = self.get_image()
             mask = 1 - np.uint8(np.all(complete_img == img, axis=-1))*1
             qpos[3 + 2 + i * 7] += 1
             self.agent._model.data.qpos = qpos
+            self.agent._model.data.ctrl = np.zeros(3)
+            self.agent._model.step()
+            self.agent.viewer.loop_once()
 
             if small:
                 mask = cv2.resize(mask, dsize=(
                 self.agentparams['image_width'], self.agentparams['image_height']), interpolation=cv2.INTER_NEAREST)
             masks.append(mask)
 
-            # plt.imshow(masks[-1])
-            # plt.show()
+            plt.imshow(masks[-1])
+            plt.title('objectmask')
+            plt.show()
 
         return np.stack(masks, 0)
 
@@ -263,11 +272,12 @@ class CollectGoalImageSim(Sim):
         return new_q
 
 
-def visualize_corresp(t, flow, largeim, mask_coords):
+def visualize_corresp(t, flow, traj, mask_coords):
     plt.figure()
     ax1 = plt.subplot(143)
     ax2 = plt.subplot(144)
 
+    largeim = traj.largeimage
     im0 = largeim[t-1]
     im1 = largeim[t]
     ax1.imshow(im0)
