@@ -19,6 +19,15 @@ class Trajectory(object):
                                         img_width,
                                         img_channels), dtype='uint8')
 
+        if 'make_gtruth_flows' in conf:
+            self.largeimage = np.zeros((self.T,
+                                         conf['viewer_image_height'],
+                                         conf['viewer_image_width'], 3), dtype='uint8')
+
+            self.largedimage = np.zeros((self.T,
+                                         conf['viewer_image_height'],
+                                         conf['viewer_image_width']), dtype=np.float32)
+
         # for storing the terminal predicted images of the K best actions at each time step:
         self.final_predicted_images = []
         self.predicted_images = None
@@ -46,6 +55,9 @@ class Trajectory(object):
         self.score = np.zeros([self.T])
 
         self.goal_mask = None
+
+        if 'make_gtruth_flows' in conf:
+            self.large_masks = np.zeros([self.T - 1, conf['num_objects'], conf['viewer_image_height'], conf['viewer_image_width']])  # x,y rot of  block
 
         # world coordinates including the arm
         self.obj_world_coords = np.zeros([self.T, conf['num_objects'] + 1, 7])  # xyz and quaternion pose

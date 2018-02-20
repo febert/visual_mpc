@@ -345,6 +345,8 @@ class CEM_controller():
 
 
     def video_pred(self, last_frames, last_states, actions, cem_itr):
+
+        t_0 = time.time()
         last_states = np.expand_dims(last_states, axis=0)
         last_states = np.repeat(last_states, self.bsize, axis=0)
         last_frames = last_frames.astype(np.float32, copy=False) / 255.
@@ -358,6 +360,8 @@ class CEM_controller():
             input_distrib = None
         else:
             input_distrib = self.make_input_distrib(cem_itr)
+
+        print 't0 ', time.time() - t_0
 
         t_startpred = time.time()
         gen_images, gen_distrib, gen_states, _ = self.predictor(input_images=last_frames,
@@ -527,7 +531,10 @@ class CEM_controller():
 
         for tstep in range(self.seqlen - 1):
             gdn_start = time.time()
-            warped_image, flow_field, warp_pts = self.goal_image_warper(gen_images[tstep], goal_image)
+            if 'warp_goal_to_pred' in self.policyparams:
+                warped_image, flow_field, warp_pts = self.goal_image_warper(goal_image, gen_images[tstep])
+            else:
+                warped_image, flow_field, warp_pts = self.goal_image_warper(gen_images[tstep], goal_image)
             print 'time for gdn forward pass {}'.format(time.time() - gdn_start)
 
             flow_fields[:, tstep] = flow_field

@@ -132,7 +132,7 @@ class AgentMuJoCo(object):
         for i in range(self._hyperparams['num_objects']):
             fullpose = self._model.data.qpos[i * 7 + qpos_dim:(i + 1) * 7 + qpos_dim].squeeze()
             desigpix.append(self.viewer.project_point(fullpose[:3]))
-        ratio = self._hyperparams['viewer_image_width']/self._hyperparams['image_width']
+        ratio = self._hyperparams['viewer_image_width']/float(self._hyperparams['image_width'])
         desig_pix = np.stack(desigpix) / ratio
         if round:
             desig_pix = np.around(desig_pix).astype(np.int)
@@ -379,11 +379,16 @@ class AgentMuJoCo(object):
         self.large_images.append(large_img)
 
         assert self._hyperparams['viewer_image_width']/self._hyperparams['image_width'] == self._hyperparams['viewer_image_height']/self._hyperparams['image_height']
-        traj._sample_images[t,:,:,:] = cv2.resize(large_img, dsize=(self._hyperparams['image_width'], self._hyperparams['image_height']), interpolation = cv2.INTER_AREA)
+        traj._sample_images[t] = cv2.resize(large_img, dsize=(self._hyperparams['image_width'], self._hyperparams['image_height']), interpolation = cv2.INTER_AREA)
 
-        # img_string, width, height = self.viewer.get_depth()
-        # largedimage = np.fromstring(img_string, dtype=np.float32).reshape(
-        #     (480, 640, 1))[::-1, :, :]
+        if 'make_gtruth_flows' in self._hyperparams:
+            traj.largeimage[t] = large_img
+
+            img_string, width, height = self.viewer.get_depth()
+            largedimage = np.fromstring(img_string, dtype=np.float32).reshape(
+                (self._hyperparams['viewer_image_height'], self._hyperparams['viewer_image_width']))[::-1]
+            traj.largedimage[t] = largedimage
+
         # img = traj._sample_images[t,:,:,:] # verify desigpos
         # desig_pix = np.around(self.desig_pix).astype(np.int)
         # # img = large_img

@@ -119,6 +119,8 @@ class MjViewer(object):
         """
         projects a point from the world coordinate system to the screen coordinate system
         """
+        p = p.astype(np.float32)
+
         GL_MODELVIEW_MATRIX = gl.glGetDouble(gl.GL_MODELVIEW_MATRIX)
         GL_PROJECTION_MATRIX = gl.glGetDouble(gl.GL_PROJECTION_MATRIX)
         view = gl.glGetIntegerv(gl.GL_VIEWPORT)
@@ -138,12 +140,17 @@ class MjViewer(object):
             return row, col
 
     def get_3D(self, r, c, z):
+        r = float(r)
+        c = float(c)
+        z = float(z)
+
         modelview = gl.glGetDoublev(gl.GL_MODELVIEW_MATRIX)
         projection = gl.glGetDoublev(gl.GL_PROJECTION_MATRIX)
         view = gl.glGetIntegerv(gl.GL_VIEWPORT)
         Vx, Vy, Vz = view[2], view[3], 1
         x0, y0 = view[0], view[1]
-        clip_x, clip_y, clip_z = 2 * (c - x0) / Vx - 1, 2 * (r - y0) / Vy - 1, 2 * z / Vz - 1
+        clip_x, clip_y, clip_z = 2 * (c - x0) / Vx - 1, -2 * (r - y0) / Vy + 1, 2 * z / Vz - 1
+        # clip_x, clip_y, clip_z = 2 * (c - x0) / Vx - 1, 2 * (r - y0) / Vy - 1, 2 * z / Vz - 1
         PVM = np.dot(projection.T, modelview.T)
         pos = np.array([clip_x, clip_y, clip_z, 1])
         world_pos = np.dot(np.linalg.inv(PVM), pos)
