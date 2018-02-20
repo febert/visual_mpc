@@ -3,6 +3,7 @@ import imp
 import numpy as np
 from python_visual_mpc.goaldistancenet.gdnet import GoalDistanceNet
 from PIL import Image
+from python_visual_mpc.video_prediction.utils_vpred.variable_checkpoint_matcher import variable_checkpoint_matcher
 import os
 
 def setup_gdn(conf, gpu_id = 0):
@@ -38,7 +39,11 @@ def setup_gdn(conf, gpu_id = 0):
 
             sess.run(tf.global_variables_initializer())
 
-            saver = tf.train.Saver(tf.get_collection(tf.GraphKeys.GLOBAL_VARIABLES), max_to_keep=0)
+            vars = tf.get_collection(tf.GraphKeys.GLOBAL_VARIABLES)
+            vars = variable_checkpoint_matcher(conf, vars, conf['pretrained_model'])
+            saver = tf.train.Saver(vars, max_to_keep=0)
+
+            # saver = tf.train.Saver(tf.get_collection(tf.GraphKeys.GLOBAL_VARIABLES), max_to_keep=0)
             saver.restore(sess, conf['pretrained_model'])
             print 'gdn restore done.'
 
