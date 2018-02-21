@@ -67,7 +67,7 @@ class AgentMuJoCo(object):
         self._model= mujoco_py.MjModel(xmlfilename)
         self.model_nomarkers = mujoco_py.MjModel(xmlfilename_nomarkers)
 
-        gofast = True
+        gofast = False
         self.viewer = mujoco_py.MjViewer(visible=True,
                                          init_width=self._hyperparams['viewer_image_width'],
                                          init_height=self._hyperparams['viewer_image_height'],
@@ -169,16 +169,23 @@ class AgentMuJoCo(object):
         traj = Trajectory(self._hyperparams)
         if 'gen_xml' in self._hyperparams:
             traj.obj_statprop = self.obj_statprop
-
         # apply action of zero for the first few steps, to let the scene settle
+
         for t in range(self._hyperparams['skip_first']):
             for _ in range(self._hyperparams['substeps']):
-                self._model.data.ctrl = np.zeros(self._hyperparams['adim'])
+                ctrl = np.zeros(self._hyperparams['adim'])
+                ctrl[:2] = self._model.data.qpos[:2].squeeze()
+                self._model.data.ctrl = ctrl
                 self._model.step()
+
 
         self.large_images_traj = []
         self.large_images = []
 
+        zs = []
+        zdot = []
+
+        print 'starting velocity', self._model.data.qvel[:5].squeeze()
         # Take the sample.
         for t in range(self.T):
             qpos_dim = self.sdim / 2  # the states contains pos and vel
@@ -210,7 +217,8 @@ class AgentMuJoCo(object):
             if 'poscontroller' in self._hyperparams.keys():
                 traj.actions[t, :] = target_inc
             else:
-                mj_U[2]  = 100
+                mj_U[:2] = traj.Object_pose[t, 0, :2]
+                mj_U[2]  = 0.12
                 traj.actions[t, :] = mj_U
 
             accum_touch = np.zeros_like(self._model.data.sensordata)
@@ -222,8 +230,13 @@ class AgentMuJoCo(object):
                     # calculate constraint enforcing force..
                     c_force = self.enforce(self._model)
                     mj_U += c_force
-                self._model.data.ctrl = mj_U
-                self._model.step()  # simulate the model in mujoco
+                ctrl = mj_U.copy()
+                ctrl[2] -= self._model.data.qpos[2].squeeze()
+                self._model.data.ctrl = ctrl
+                self._model.step()
+
+                zs.append(self._model.data.qpos[2])
+                zdot.append(self._model.data.qvel[2])
 
             if 'touch' in self._hyperparams:
                 traj.touchdata[t, :] = accum_touch.squeeze()
@@ -231,6 +244,13 @@ class AgentMuJoCo(object):
                 print accum_touch
 
         traj = self.get_max_move_pose(traj)
+        print 'obj gripper dist', np.sqrt(np.sum(np.power(traj.Object_pose[-1, 0, :2] - traj.X_full[-1, :2], 2)))
+        print 'last z', traj.X_full[-1, 2]
+        print 'target pose', traj.Object_pose[-1, 0, :2], 'actual final', traj.X_full[-1, :2]
+        plt.plot(zs)
+        plt.plot([0.12 for _ in xrange(len(zs))])
+        plt.plot(zdot)
+        plt.show()
 
         # only save trajectories which displace objects above threshold
         if 'displacement_threshold' in self._hyperparams:

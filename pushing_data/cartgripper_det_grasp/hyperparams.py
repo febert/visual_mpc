@@ -25,9 +25,9 @@ agent = {
     'sample_objectpos':'',
     'adim':4,
     'sdim':10,
-    'xpos0': np.zeros(5), #initialize state dimension to 5 zeros
+    'xpos0': np.array([0., 0., 0.05, 0., 0.]), #initialize state dimension to 5 zeros
     'dt': 0.05,
-    'substeps': 50,  #6
+    'substeps': 20,  #6
     'T': 25,
     'skip_first': 40,   #skip first N time steps to let the scene settle
     'additional_viewer': True,

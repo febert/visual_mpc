@@ -16,7 +16,7 @@
             <geom type="box" size=".07 .07 1" rgba="0.9 0.9 0.9 1" pos="0 0 1"/>
             <joint name="ball_x" type="slide" pos="0 0 0" axis="1 0 0" limited="true" range="-0.35 0.35"/>
             <joint name="ball_y" type="slide" pos="0 0 0" axis="0 1 0" limited="true" range="-0.35 0.35"/>
-            <joint name="ball_z" type="slide" pos="0 0 0" axis="0 0 1"  limited="true" range="-0.08 0.25"/>
+            <joint name="ball_z" type="slide" pos="0 0 0" axis="0 0 1"  limited="true" range="-0.08 0.15"/>
 
             <body name="finger1" pos="-0.07 0 -0.1">
                 <joint name="j_finger1" type="slide" pos="0 0 0" axis="1 0 0"  limited="true" range="0. 0.1"/>
@@ -65,12 +65,15 @@
 
     </worldbody>
 
+
     <actuator>
-        <motor joint="ball_x" ctrlrange="-100.0 100.0" ctrllimited="true"/>
-        <motor joint="ball_y" ctrlrange="-100.0 100.0" ctrllimited="true"/>
-        <motor joint="ball_z" ctrlrange="-100.0 100.0" ctrllimited="true"/>
+        <position joint="ball_x" ctrlrange="-100.0 100.0" ctrllimited="true" kp="4"/>
+        <position joint="ball_y" ctrlrange="-100.0 100.0" ctrllimited="true" kp="4"/>
+        <general joint="ball_z" ctrlrange="-100.0 1000.0" ctrllimited="true" gaintype="fixed" dyntype="none" dynprm="1 0 0" gainprm ="75 0 0" biastype="affine" biasprm="295.872 0 -75"/>
+
         <motor joint="j_finger1" ctrlrange="-100.0 100.0" ctrllimited="true"/>
     </actuator>
+
 
     <equality>
         <joint joint1="j_finger1" joint2="j_finger2" polycoef="0 -1 0 0 0" />
