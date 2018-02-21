@@ -66,7 +66,12 @@ def read_img(tag_dict, dataind, tar=None, trajname=None):
         file_bytes = np.asarray(bytearray(img_stream.read()), dtype=np.uint8)
         img = cv2.imdecode(file_bytes, 1)
     else:
-        img = cv2.imread(trajname + tag_dict['file'].format(dataind))
+        imfile = trajname + tag_dict['file'].format(dataind)
+        if not os.path.exists(imfile):
+            raise ValueError("file {} does not exist!".format(imfile))
+        img = cv2.imread(imfile)
+
+
 
     imheight = tag_dict['shape'][0]     # get target im_sizes
     imwidth = tag_dict['shape'][1]
@@ -161,6 +166,7 @@ def read_trajectory(conf, trajname, use_tar = False):
 
     start, end, take_ev_nth_step = get_start_end(conf)
 
+    # remove not_per_timestep tags
     filtered_source_tags = []
     for tag_dict in conf['sourcetags']:
         if 'not_per_timestep' in tag_dict:
@@ -194,7 +200,12 @@ def read_trajectory(conf, trajname, use_tar = False):
 
 class OnlineReader(object):
     def __init__(self, conf, mode, sess):
+        """
 
+        :param conf:
+        :param mode:  'train': shuffle data or 'test': don't shuffle
+        :param sess:
+        """
 
         self.sess = sess
         self.conf = conf
@@ -206,7 +217,10 @@ class OnlineReader(object):
         self.tag_names = []
         # loop through tags
         for tag_dict in conf['sourcetags']:
-            pl_shapes.append([conf['sequence_length']]+tag_dict['shape'])
+            if 'not_per_timestep' in tag_dict:
+                pl_shapes.append(tag_dict['shape'])
+            else:
+                pl_shapes.append([conf['sequence_length']] + tag_dict['shape'])
             self.tag_names.append(tag_dict['name'])
             self.place_holders[tag_dict['name']] = tf.placeholder(tf.float32,
                                                                  name=tag_dict['name'],
@@ -234,12 +248,8 @@ class OnlineReader(object):
         self.start_threads(self.traj_list)
 
     def get_batch_tensors(self):
-        # images, states, actions = self.q.dequeue_many(self.conf['batch_size'])
-        images = self.q.dequeue_many(self.conf['batch_size'])
-        # dequed = {name:value for name, value in zip(self.tag_names, dequed)}
-        # return dequed
-        # return images, states, actions
-        return images
+        tensor_list = self.q.dequeue_many(self.conf['batch_size'])
+        return tensor_list
 
 
     def search_data(self):
@@ -332,23 +342,40 @@ def test_online_reader():
     os.environ["CUDA_VISIBLE_DEVICES"] = "1"
     print 'using CUDA_VISIBLE_DEVICES=', os.environ["CUDA_VISIBLE_DEVICES"]
 
-    hyperparams_file = '/home/frederik/Documents/catkin_ws/src/visual_mpc/pushing_data/cartgripper_rgb/hyperparams.py'
-    hyperparams = imp.load_source('hyperparams', hyperparams_file)
-    conf = hyperparams.config
+    # hyperparams_file = '/home/frederik/Documents/catkin_ws/src/visual_mpc/pushing_data/cartgripper_rgb/hyperparams.py'
+    # hyperparams = imp.load_source('hyperparams', hyperparams_file)
+    # conf = hyperparams.config
+    #
+    # conf['batch_size'] = 10
+    #
+    # print '-------------------------------------------------------------------'
+    # print 'verify current settings!! '
+    # for key in conf.keys():
+    #     print key, ': ', conf[key]
+    # print '-------------------------------------------------------------------'
+    #
+    # print 'testing the reader'
+    tag_images = {'name': 'images',
+                  'file': '/images/im{}.png',  # only tindex
+                  'shape': [48, 64, 3],
+                  }
 
-    conf['batch_size'] = 10
+    tag_gtruth_flows = {'name': 'bwd_flow',
+                        'not_per_timestep': '',
+                        'shape': [8,48, 64, 2],
+                        }
 
-    print '-------------------------------------------------------------------'
-    print 'verify current settings!! '
-    for key in conf.keys():
-        print key, ': ', conf[key]
-    print '-------------------------------------------------------------------'
-
-    print 'testing the reader'
+    conf = {
+        'batch_size':10,
+        'sequence_length':9,
+        'ngroup': 1000,
+        'sourcetags': [tag_images, tag_gtruth_flows],
+        'source_basedirs': [os.environ['VMPC_DATA_DIR'] + '/cartgripper_gtruth_flow/train'],
+    }
 
     sess = tf.InteractiveSession()
     r = OnlineReader(conf, 'test', sess=sess)
-    image_batch, endeff_pos_batch, action_batch = r.get_batch_tensors()
+    image_batch, gtruth_flows_batch = r.get_batch_tensors()
 
     from python_visual_mpc.video_prediction.utils_vpred.create_gif_lib import comp_single_video
 
@@ -357,7 +384,8 @@ def test_online_reader():
     for i_run in range(100):
         # print 'run number ', i_run
 
-        images, actions, endeff = sess.run([image_batch, action_batch, endeff_pos_batch])
+        images, gtruth_flows = sess.run([image_batch, gtruth_flows_batch])
+        # images, actions, endeff = sess.run([image_batch, action_batch, endeff_pos_batch])
 
         deltat.append(time.time() - end)
         if i_run % 10 == 0:

@@ -1,5 +1,6 @@
 import tensorflow as tf
 import numpy as np
+import os
 from PIL import ImageFont
 from PIL import Image
 from PIL import ImageDraw
@@ -519,13 +520,85 @@ class GoalDistanceNet(object):
         self.val_summ_op = tf.summary.merge(val_summaries)
         self.train_op = tf.train.AdamOptimizer(self.lr).minimize(self.loss)
 
+
     def visualize(self, sess):
-        if 'source_basedirs' in self.conf:  # visualizing single warps from pairs of images
-            self.conf['sequence_length'] = 2
-            self.conf.pop('vidpred_data', None)
+        if 'compare_gtruth_flow' in self.conf:
+            self.conf['source_basedirs'] = [os.environ['VMPC_DATA_DIR'] + '/cartgripper_gtruth_flow/train']
+            tag_images = {'name': 'images',
+                          'file': '/images/im{}.png',  # only tindex
+                          'shape': [48, 64, 3]}
+            tag_bwd_flow = {'name': 'bwd_flow',
+                                'not_per_timestep': '',
+                                'shape': [8, 48, 64, 2]}
+            self.conf['sequence_length'] = 9
+            self.conf['sourcetags'] = [tag_images, tag_bwd_flow]
+            self.conf['ngroup'] = 100
+
             r = OnlineReader(self.conf, 'test', sess=sess)
-            images = r.get_batch_tensors()
-            [images] = sess.run([images])
+            images, tag_bwd_flow = r.get_batch_tensors()
+            [images, gtruth_bwd_flows] = sess.run([images, tag_bwd_flow])
+
+            gtruth_bwd_flows = np.flip(gtruth_bwd_flows, axis=-1)
+
+            gen_images_I1 = []
+            bwd_flows = []
+            flow_errs_mean = []
+            flow_errs = []
+            flow_mags_bwd = []
+            flow_mags_bwd_gtruth = []
+            gen_image_I1_gtruthwarp_l = []
+
+            gtruth_bwd_flows_pl = tf.placeholder(tf.float32, name='gtruth_bwd_flows_pl',
+                                                 shape=(self.conf['batch_size'], self.img_height, self.img_width, 2))
+
+            for t in range(images.shape[1]-1):
+                [gen_image_I1, bwd_flow] = sess.run([self.gen_I1, self.flow_bwd], {self.I0_pl: images[:,t],
+                                                                                   self.I1_pl: images[:,t+1]})
+                gen_images_I1.append(gen_image_I1)
+                bwd_flows.append(bwd_flow)
+
+                flow_errs.append(np.linalg.norm(bwd_flow - gtruth_bwd_flows[:,t], axis=-1))
+                flow_errs_mean.append(np.mean(np.mean(flow_errs[-1], axis=1), axis=1))
+                flow_mags_bwd.append(np.linalg.norm(bwd_flow, axis=-1))
+                flow_mags_bwd_gtruth.append(np.linalg.norm(gtruth_bwd_flows[:,t], axis=-1))
+
+                #verify gtruth optical flow:
+
+                gen_image_I1_gtruthwarp = apply_warp(self.I0_pl, gtruth_bwd_flows_pl)
+
+
+                gen_image_I1_gtruthwarp_l += sess.run([gen_image_I1_gtruthwarp], {self.I0_pl: images[:, t],
+                                                                                  gtruth_bwd_flows_pl: gtruth_bwd_flows[:,t]})
+
+            with open(self.conf['output_dir'] + '/gtruth_flow_err.txt', 'w') as f:
+                flow_errs_flat = np.stack(flow_errs_mean).flatten()
+                f.write('average one-step flowerrs on 50 example trajectories mean {} std err of the mean {} \n'.format(
+                                np.mean(flow_errs_flat), np.std(flow_errs_flat)/np.sqrt(flow_errs_flat.shape[0])))
+            print 'written output to ',self.conf['output_dir'] + '/gtruth_flow_err.txt'
+
+            videos = collections.OrderedDict()
+            videos['I0_ts'] = np.split(images, images.shape[1], axis=1)
+            videos['gen_images_I1'] = [np.zeros_like(gen_images_I1[0])] +gen_images_I1
+            videos['flow_mags_bwd'] = [np.zeros_like(flow_mags_bwd[0])] + flow_mags_bwd
+            videos['flow_mags_bwd_gtruth'] = [np.zeros_like(flow_mags_bwd_gtruth[0])]+ flow_mags_bwd_gtruth
+            videos['flow_errs'] = ([np.zeros_like(np.zeros_like(flow_errs[0]))] + flow_errs,
+                                   [np.zeros_like(flow_errs_mean[0])] + flow_errs_mean)
+            videos['gen_image_I1_gtruthwarp_l'] = [np.zeros_like(gen_image_I1_gtruthwarp_l[0])] + gen_image_I1_gtruthwarp_l
+
+            num_ex = 4
+            for k in videos.keys():
+                if isinstance(videos[k], tuple):
+                    videos[k] = ([el[:num_ex] for el in videos[k][0]], [el[:num_ex] for el in videos[k][1]])
+                else:
+                    videos[k] = [el[:num_ex] for el in videos[k]]
+
+            name = str.split(self.conf['output_dir'], '/')[-2]
+            dict = {'videos': videos, 'name': 'flow_err_' + name}
+
+            cPickle.dump(dict, open(self.conf['output_dir'] + '/data.pkl', 'wb'))
+            make_plots(self.conf, dict=dict)
+
+            return
 
         else:  # when visualizing sequence of warps from video
             videos = build_tfrecord_fn(self.conf)
@@ -550,6 +623,8 @@ class GoalDistanceNet(object):
         occ_fwd_l = []
         warpscores_bwd = []
         warpscores_fwd = []
+
+        avg_flow_error = []
 
         for t in range(self.conf['sequence_length']-1):
             if 'vidpred_data' in self.conf:
@@ -644,10 +719,6 @@ def make_plots(conf, dict=None, filename = None):
 
     num_cols = len(I0_ts) + 1
 
-    # plt.figure(figsize=(num_rows, num_cols))
-    # gs1 = gridspec.GridSpec(num_rows, num_cols)
-    # gs1.update(wspace=0.025, hspace=0.05)
-
     width_per_ex = 2.5
 
     standard_size = np.array([width_per_ex * num_cols, num_rows * 1.5])  ### 1.5
@@ -677,12 +748,14 @@ def make_plots(conf, dict=None, filename = None):
 
     row = 0
     col = num_cols-1
-    for ex in range(start_ex, start_ex + num_ex, 1):
-        im = dict['I1'][ex]
-        h = axarr[row, col].imshow(np.squeeze(im), interpolation='none')
-        plt.colorbar(h, ax=axarr[row, col])
-        axarr[row, col].axis('off')
-        row += len(videos.keys())
+
+    if 'I1' in dict:
+        for ex in range(start_ex, start_ex + num_ex, 1):
+            im = dict['I1'][ex]
+            h = axarr[row, col].imshow(np.squeeze(im), interpolation='none')
+            plt.colorbar(h, ax=axarr[row, col])
+            axarr[row, col].axis('off')
+            row += len(videos.keys())
 
     # plt.axis('off')
     f.subplots_adjust(wspace=0, hspace=0.3)
@@ -693,7 +766,7 @@ def make_plots(conf, dict=None, filename = None):
 
 
 if __name__ == '__main__':
-    filedir = '/home/frederik/Documents/catkin_ws/src/visual_mpc/tensorflow_data/gdn/hardthres/modeldata'
+    filedir = '/home/frederik/Documents/catkin_ws/src/visual_mpc/tensorflow_data/gdn/tdac_cons1e-4/modeldata'
     conf = {}
     conf['output_dir'] = filedir
     make_plots(conf, filename= filedir + '/data.pkl')

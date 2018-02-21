@@ -37,5 +37,6 @@ configuration = {
 'image_only':'',
 'ch_mult':4,
 'temp_divide_and_conquer':'',
-'cons_loss':1e-4,
+'cons_loss':0.,
+'flow_penal':1e-4,
 }

@@ -33,10 +33,11 @@ class Temp_DnC_GDnet(GoalDistanceNet):
         self.load_data = load_data
 
     def build_net(self):
-        self.build_cons_model()
-
-        # self.gen_I1, self.warp_pts_bwd, self.flow_bwd, _ = self.warp(self.I0, self.I1)
-        # self.gen_I0, self.flow_fwd = None, None
+        if 'compare_gtruth_flow' in self.conf:
+            self.gen_I1, self.warp_pts_bwd, self.flow_bwd, _ = self.warp(self.I0, self.I1)
+            self.gen_I0, self.flow_fwd = None, None
+        else:
+            self.build_cons_model()
 
         if self.build_loss:
             if 'sched_layer_train' in self.conf:
@@ -137,21 +138,23 @@ class Temp_DnC_GDnet(GoalDistanceNet):
 
 
     def visualize(self, sess):
-
-        images, gen_img_ll, flow_bwd_ll, cons_diffs, warped_int_flow = sess.run([self.images, self.gen_img_ll, self.flow_bwd_ll, self.cons_diffs_ll, self.img_warped_intflow], feed_dict = {self.train_cond:1})
-
-        dict = collections.OrderedDict()
-        dict['images'] = images
-        dict['gen_img_ll'] = gen_img_ll
-        dict['flow_bwd_ll'] = flow_bwd_ll
-        dict['cons_diffs'] = cons_diffs
-        dict['warped_int_flow'] = warped_int_flow
-
-        name = str.split(self.conf['output_dir'], '/')[-2]
-        dict['name'] = name
-
-        cPickle.dump(dict, open(self.conf['output_dir'] + '/data.pkl', 'wb'))
-        make_plots(self.conf, dict=dict)
+        if 'compare_gtruth_flow' in self.conf:  # visualizing single warps from pairs of images
+            super(Temp_DnC_GDnet, self).visualize(sess)
+        else:
+            images, gen_img_ll, flow_bwd_ll, cons_diffs, warped_int_flow = sess.run([self.images, self.gen_img_ll, self.flow_bwd_ll, self.cons_diffs_ll, self.img_warped_intflow], feed_dict = {self.train_cond:1})
+    
+            dict = collections.OrderedDict()
+            dict['images'] = images
+            dict['gen_img_ll'] = gen_img_ll
+            dict['flow_bwd_ll'] = flow_bwd_ll
+            dict['cons_diffs'] = cons_diffs
+            dict['warped_int_flow'] = warped_int_flow
+    
+            name = str.split(self.conf['output_dir'], '/')[-2]
+            dict['name'] = name
+    
+            cPickle.dump(dict, open(self.conf['output_dir'] + '/data.pkl', 'wb'))
+            make_plots(self.conf, dict=dict)
 
     def consistency_loss(self, i, flow_bwd_lm1, flow_bwd):
         int_flow = apply_warp(flow_bwd_lm1[i*2],flow_bwd_lm1[i*2+1]) + flow_bwd_lm1[i*2+1]
