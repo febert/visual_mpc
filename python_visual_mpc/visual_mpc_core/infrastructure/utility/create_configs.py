@@ -63,14 +63,22 @@ class CollectGoalImageSim(Sim):
 
         for t in range(self.agentparams['T']-1):
             self.store_data(t, traj)
-            traj.large_masks[t] = self.get_obj_masks(include_arm=True)
+            traj.large_ob_masks[t], traj.large_arm_masks[t] = self.get_obj_masks(include_arm=True)
 
             if t> 0:
                 traj.bwd_flow[t-1] = self.compute_gtruth_flow(t, traj)
+                # plt.figure()
+                # plt.imshow(traj.bwd_flow[t-1, :,:, 0])
+                # plt.figure()
+                # plt.imshow(traj.bwd_flow[t - 1, :, :, 1])
+                # plt.show()
 
             self.move_objects(t, traj)
         t += 1
         self.store_data(t, traj)
+
+        traj.large_ob_masks[t], traj.large_arm_masks[t] = self.get_obj_masks(include_arm=True)
+        traj.bwd_flow[t - 1] = self.compute_gtruth_flow(t, traj)
 
         if 'goal_mask' in self.agentparams:
             traj.goal_mask = self.get_obj_masks(small=True)
@@ -103,64 +111,47 @@ class CollectGoalImageSim(Sim):
         l_img_height = self.agentparams['viewer_image_height']
         l_img_width = self.agentparams['viewer_image_width']
 
-        flow_field = np.zeros([self.agentparams['num_objects'], l_img_height, l_img_width, 2])
+        flow_field = np.zeros([l_img_height, l_img_width, 2])
 
+        #compte flow for arm:
+        prev_pose = np.concatenate([traj.X_full[t-1], np.array((0.0, 0.0, 0.0, 1.0))])
+        curr_pose = np.concatenate([traj.X_full[t], np.array((0.0, 0.0, 0.0, 1.0))])
+        curr_mask = traj.large_arm_masks[t]
+        self.comp_flow_perob(prev_pose, curr_pose, flow_field, t, curr_mask, traj)
 
         for ob in range(self.agentparams['num_objects']):
-            prev_pos = traj.Object_full_pose[t-1, ob, :3]
-            prev_quat = Quaternion(traj.Object_full_pose[t-1, ob,3:])
-            curr_pos = traj.Object_full_pose[t, ob,:3]
-            curr_quat = Quaternion(traj.Object_full_pose[t, ob,3:])
-
-            inds = np.stack(np.where(traj.large_masks[t,ob]!=0.0), 1)
-
-            diff_quat = curr_quat.conjugate * prev_quat  # rotates vector form curr_quat to prev_quat
-
-
-            plt.ion()
-            # plt.figure()
-            # plt.imshow(traj.largedimage[t])
-            # plt.title('depthimage t1')
-
-            plt.figure()
-            plt.imshow(traj.large_masks[t,ob])
-            plt.title('masks t1')
-
-            # plt.figure()
-            # plt.imshow(traj._sample_images[t])
-            # plt.title('im1')
-            #
-            # plt.figure()
-            # plt.imshow(traj._sample_images[t - 1])
-            # plt.title('im0')
-
-            plt.draw()
-
-            for i in range(inds.shape[0]):
-                coord = inds[i]
-                abs_pos_curr_sys = self.agent.viewer.get_3D(coord[0], coord[1], traj.largedimage[t, coord[0], coord[1]])
-                rel_pos_curr_sys = abs_pos_curr_sys - curr_pos
-                rel_pos_curr_sys = Quaternion(scalar= .0, vector=rel_pos_curr_sys)
-                rel_pos_prev_sys = diff_quat*rel_pos_curr_sys*diff_quat.conjugate
-                abs_pos_prev_sys = prev_pos + rel_pos_prev_sys.elements[1:]
-                pos_prev_sys_imspace = self.agent.viewer.project_point(abs_pos_prev_sys)
-                flow_field[ob, coord[0], coord[1]] = pos_prev_sys_imspace - coord
-
-            plt.figure()
-            plt.imshow(np.squeeze(flow_field[ob, :, :, 0]))
-            plt.title('rowflow')
-
-            plt.figure()
-            plt.imshow(np.squeeze(flow_field[ob, :, :, 1]))
-            plt.title('colflow')
-
-            # plt.imshow(np.linalg.norm(flow_field[ob], axis =-1))
-
-            visualize_corresp(t, flow_field, traj, inds)
+            prev_pose = traj.Object_full_pose[t - 1, ob]
+            curr_pose = traj.Object_full_pose[t, ob]
+            curr_mask = traj.large_ob_masks[t, ob]
+            self.comp_flow_perob(prev_pose, curr_pose, flow_field, t, curr_mask, traj)
 
         flow_field_smallim = cv2.resize(flow_field, dsize=(self.agentparams['image_width'], self.agentparams['image_height']),
                                 interpolation=cv2.INTER_AREA)*self.agentparams['image_width']/self.agentparams['viewer_image_width']
         return flow_field_smallim
+
+    def comp_flow_perob(self, prev_pose, curr_pose, flow_field, t, ob_mask, traj):
+        prev_pos = prev_pose[:3]
+        prev_quat = Quaternion(prev_pose[3:])
+        curr_pos = curr_pose[:3]
+        curr_quat = Quaternion(curr_pose[3:])
+        inds = np.stack(np.where(ob_mask != 0.0), 1)
+        diff_quat = curr_quat.conjugate * prev_quat  # rotates vector form curr_quat to prev_quat
+        for i in range(inds.shape[0]):
+            coord = inds[i]
+            abs_pos_curr_sys = self.agent.viewer.get_3D(coord[0], coord[1], traj.largedimage[t, coord[0], coord[1]])
+            rel_pos_curr_sys = abs_pos_curr_sys - curr_pos
+            rel_pos_curr_sys = Quaternion(scalar=.0, vector=rel_pos_curr_sys)
+            rel_pos_prev_sys = diff_quat * rel_pos_curr_sys * diff_quat.conjugate
+            abs_pos_prev_sys = prev_pos + rel_pos_prev_sys.elements[1:]
+            pos_prev_sys_imspace = self.agent.viewer.project_point(abs_pos_prev_sys)
+            flow_field[coord[0], coord[1]] = pos_prev_sys_imspace - coord
+        # plt.figure()
+        # plt.imshow(np.squeeze(flow_field[:, :, 0]))
+        # plt.title('rowflow')
+        # plt.figure()
+        # plt.imshow(np.squeeze(flow_field[:, :, 1]))
+        # plt.title('colflow')
+        # visualize_corresp(t, flow_field, traj, inds)
 
     def get_image(self):
         self.agent.viewer.loop_once()
@@ -174,6 +165,7 @@ class CollectGoalImageSim(Sim):
         complete_img = self.get_image()
         masks = []
 
+        armmask = None
         if include_arm:
             qpos = copy.deepcopy(self.agent._model.data.qpos)
             qpos[2] -= 10
@@ -191,10 +183,14 @@ class CollectGoalImageSim(Sim):
             if small:
                 mask = cv2.resize(mask, dsize=(
                     self.agentparams['image_width'], self.agentparams['image_height']), interpolation=cv2.INTER_NEAREST)
-            masks.append(mask)
-            plt.imshow(np.squeeze(mask))
-            plt.title('armmask')
-            plt.show()
+
+            armmask = mask
+
+            # plt.ion()
+            # plt.figure()
+            # plt.imshow(np.squeeze(mask))
+            # plt.title('armmask')
+            # plt.draw()
 
         for i in range(self.num_ob):
             qpos = copy.deepcopy(self.agent._model.data.qpos)
@@ -202,12 +198,14 @@ class CollectGoalImageSim(Sim):
             self.agent._model.data.qpos = qpos
             self.agent._model.data.ctrl = np.zeros(3)
             self.agent._model.step()
+            self.agent._model.data.qpos = qpos
             img = self.get_image()
             mask = 1 - np.uint8(np.all(complete_img == img, axis=-1))*1
             qpos[3 + 2 + i * 7] += 1
             self.agent._model.data.qpos = qpos
             self.agent._model.data.ctrl = np.zeros(3)
             self.agent._model.step()
+            self.agent._model.data.qpos = qpos
             self.agent.viewer.loop_once()
 
             if small:
@@ -215,11 +213,14 @@ class CollectGoalImageSim(Sim):
                 self.agentparams['image_width'], self.agentparams['image_height']), interpolation=cv2.INTER_NEAREST)
             masks.append(mask)
 
-            plt.imshow(masks[-1])
-            plt.title('objectmask')
-            plt.show()
+            # plt.figure()
+            # plt.imshow(masks[-1])
+            # plt.title('objectmask')
+            # plt.draw()
 
-        return np.stack(masks, 0)
+        obmasks = np.stack(masks, 0)
+
+        return obmasks, armmask
 
     def store_data(self, t, traj):
         qpos_dim = self.agent.sdim / 2  # the states contains pos and vel
@@ -241,9 +242,8 @@ class CollectGoalImageSim(Sim):
             angular_disp = self.agentparams['ang_disp_range']
 
             delta_pos = np.concatenate([np.random.uniform(-pos_disp, pos_disp, 2), np.zeros([1])])
-            # delta_pos = np.array([0.1, 0., 0.])
+            # delta_pos = np.array([0., 0., 0.])
             # print 'const delta pos!!!!!!!!!!!!!!!!!!!! for test'
-
             delta_alpha = np.random.uniform(-angular_disp, angular_disp)
             # delta_alpha = 0.
             # print 'delta aplpha 0 !!!!!!!!!!!!!!!!!!!! for test'
@@ -260,6 +260,7 @@ class CollectGoalImageSim(Sim):
 
         arm_disp_range = self.agentparams['arm_disp_range']
         arm_disp = np.concatenate([np.random.uniform(-arm_disp_range, arm_disp_range, 2), np.zeros([1])])
+        # arm_disp = np.array([0.1 , 0., 0.])
 
         new_armpos = traj.X_full[0] + arm_disp
         new_armpos = np.clip(new_armpos, -0.35, 0.35)
@@ -268,6 +269,7 @@ class CollectGoalImageSim(Sim):
 
         self.agent._model.data.qpos = new_q
         self.agent._model.step()
+        self.agent._model.data.qpos = new_q
 
         return new_q
 
@@ -285,22 +287,14 @@ def visualize_corresp(t, flow, traj, mask_coords):
 
     coordsA = "data"
     coordsB = "data"
-    # random pts
 
     imheight = largeim.shape[1]
     imwidth = largeim.shape[2]
 
     num_samples = 10
-
     cols, rows = np.meshgrid(np.arange(imwidth), np.arange(imheight))
-
     pos = np.stack([rows, cols], 2)
-
     warp_pts = pos + np.squeeze(flow)
-
-    # row_inds = np.random.randint(0, imheight, size=(num_samples/2)).reshape((num_samples/2, 1))
-    # col_inds = np.random.randint(0, imwidth, size=(num_samples/2)).reshape((num_samples/2, 1))
-    # pts_output = np.concatenate([row_inds, col_inds], axis=1)
 
     coords = np.random.randint(0, mask_coords.shape[0], num_samples)
     on_object = [mask_coords[c] for c in coords]
@@ -318,11 +312,6 @@ def visualize_corresp(t, flow, traj, mask_coords):
                               axesA=ax2, axesB=ax1,
                               arrowstyle="<->", shrinkB=5, linewidth=1., color=np.random.uniform(0, 1., 3))
         ax2.add_artist(con)
-    # ax1.set_xlim(0, 128)
-    # ax1.set_ylim(0, 128)
-    # ax2.set_xlim(0, 128)
-    # ax2.set_ylim(0, 128)
-    # plt.draw()
     plt.show()
 
 

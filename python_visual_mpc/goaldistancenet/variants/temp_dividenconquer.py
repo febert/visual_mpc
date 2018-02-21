@@ -93,6 +93,7 @@ class Temp_DnC_GDnet(GoalDistanceNet):
         self.gen_img_ll = [[] for _ in range(self.n_layer)]
         self.flow_bwd_ll = [[] for _ in range(self.n_layer)]
         self.cons_diffs_ll = [[] for _ in range(self.n_layer)]
+        self.img_warped_intflow = [[] for _ in range(self.n_layer)]
 
         im_summ_l = []
 
@@ -117,9 +118,11 @@ class Temp_DnC_GDnet(GoalDistanceNet):
                 used = True
 
                 if flow_bwd_lm1 is not None:
-                    cons_loss, cons_diffs = self.consistency_loss(i, flow_bwd_lm1, flow_bwd)
+                    cons_loss, cons_diffs, int_flow = self.consistency_loss(i, flow_bwd_lm1, flow_bwd)
                     cons_loss_per_layer += cons_loss
                     self.cons_diffs_ll[l].append(cons_diffs)
+
+                    self.img_warped_intflow[l].append(apply_warp(I0, int_flow))
                 flow_bwd_l.append(flow_bwd)
 
                 if i == 0:
@@ -135,13 +138,14 @@ class Temp_DnC_GDnet(GoalDistanceNet):
 
     def visualize(self, sess):
 
-        images, gen_img_ll, flow_bwd_ll, cons_diffs = sess.run([self.images, self.gen_img_ll, self.flow_bwd_ll, self.cons_diffs_ll], feed_dict = {self.train_cond:1})
+        images, gen_img_ll, flow_bwd_ll, cons_diffs, warped_int_flow = sess.run([self.images, self.gen_img_ll, self.flow_bwd_ll, self.cons_diffs_ll, self.img_warped_intflow], feed_dict = {self.train_cond:1})
 
         dict = collections.OrderedDict()
         dict['images'] = images
         dict['gen_img_ll'] = gen_img_ll
         dict['flow_bwd_ll'] = flow_bwd_ll
         dict['cons_diffs'] = cons_diffs
+        dict['warped_int_flow'] = warped_int_flow
 
         name = str.split(self.conf['output_dir'], '/')[-2]
         dict['name'] = name
@@ -150,9 +154,11 @@ class Temp_DnC_GDnet(GoalDistanceNet):
         make_plots(self.conf, dict=dict)
 
     def consistency_loss(self, i, flow_bwd_lm1, flow_bwd):
-        lower_level_flow = apply_warp(flow_bwd_lm1[i*2],flow_bwd_lm1[i*2+1]) + flow_bwd_lm1[i*2+1]
-        # return tf.reduce_mean(tf.sqrt(tf.reduce_sum(tf.square(lower_level_flow - flow_bwd), axis=-1)))  # this does not seem to work
-        return tf.reduce_mean(tf.square(lower_level_flow - flow_bwd)), lower_level_flow - flow_bwd
+        int_flow = apply_warp(flow_bwd_lm1[i*2],flow_bwd_lm1[i*2+1]) + flow_bwd_lm1[i*2+1]
+        # return tf.reduce_mean(tf.sqrt(tf.reduce_sum(tf.square(int_flow - flow_bwd), axis=-1)))  # this does not seem to work
+
+        cons_diffs = int_flow - flow_bwd
+        return tf.reduce_mean(tf.square(int_flow - flow_bwd)), cons_diffs, int_flow
 
 
 def make_plots(conf, dict=None, filename = None):
@@ -164,8 +170,9 @@ def make_plots(conf, dict=None, filename = None):
     gen_img_ll = dict['gen_img_ll']
     flow_bwd_ll = dict['flow_bwd_ll']
     cons_diffs = dict['cons_diffs']
+    warped_int_flow = dict['warped_int_flow']
 
-    num_rows = len(gen_img_ll)*3 +1
+    num_rows = len(gen_img_ll)*4 +1
 
     seq_len = images.shape[1]
     num_cols = seq_len
@@ -189,26 +196,30 @@ def make_plots(conf, dict=None, filename = None):
         for i, t in enumerate(range(0, seq_len - 1, tstep)):
             print 'l{}, t{}, showing warp im{} to im{}'.format(l, t, t, t + tstep)
 
-            axarr[l*3+1, t + tstep].imshow(np.squeeze(gen_img_ll[l][i][bexp]), interpolation='none')
+            axarr[l*4+1, t + tstep].imshow(np.squeeze(gen_img_ll[l][i][bexp]), interpolation='none')
             sq_len = np.sqrt(np.sum(np.square(flow_bwd_ll[l][i][bexp]), -1))
-            h = axarr[l * 3 + 2, t+tstep].imshow(sq_len, interpolation='none')
-            plt.colorbar(h, ax=axarr[l * 3 + 2, t+tstep])
+            h = axarr[l * 4 + 2, t+tstep].imshow(sq_len, interpolation='none')
+            plt.colorbar(h, ax=axarr[l * 4 + 2, t+tstep])
 
             if l > 0:
+                im = warped_int_flow[l][i][bexp]
+                h = axarr[l * 4 + 3, t + tstep].imshow(im, interpolation='none')
+
                 sq_len_diff = np.sqrt(np.sum(np.square(cons_diffs[l][i][bexp]), -1))
-                h = axarr[l * 3 + 3, t + tstep].imshow(sq_len_diff, interpolation='none')
-                plt.colorbar(h, ax=axarr[l * 3 + 3, t+tstep])
+                h = axarr[l * 4 + 4, t + tstep].imshow(sq_len_diff, interpolation='none')
+                plt.colorbar(h, ax=axarr[l * 4 + 4, t+tstep])
 
     # plt.axis('off')
-    f.subplots_adjust(wspace=0, hspace=0.3)
+    f.subplots_adjust(wspace=0, hspace=0.0)
+    # f.subplots_adjust(wspace=0, hspace=0.3)
 
     # f.subplots_adjust(vspace=0.1)
-    # plt.show()
-    plt.savefig(conf['output_dir']+'/consloss{}.png'.format(dict['name']))
+    plt.show()
+    # plt.savefig(conf['output_dir']+'/consloss{}.png'.format(dict['name']))
 
 
 if __name__ == '__main__':
-    filedir = '/home/frederik/Documents/catkin_ws/src/visual_mpc/tensorflow_data/gdn/tdac/modeldata'
+    filedir = '/home/frederik/Documents/catkin_ws/src/visual_mpc/tensorflow_data/gdn/tdac_cons1e-4/modeldata'
     conf = {}
     conf['output_dir'] = filedir
     make_plots(conf, filename= filedir + '/data.pkl')

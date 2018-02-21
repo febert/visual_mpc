@@ -15,6 +15,7 @@ sys.path.append('/'.join(str.split(__file__, '/')[:-2]))
 from python_visual_mpc.goaldistancenet.setup_gdn import setup_gdn
 from python_visual_mpc.visual_mpc_core.infrastructure.utility import *
 
+import matplotlib.pyplot as plt
 from datetime import datetime
 import pdb
 import cPickle
@@ -108,10 +109,6 @@ class Sim(object):
             os.makedirs(self.image_folder)
             os.makedirs(self.depth_image_folder)
 
-            if traj.goal_mask != None:
-                self.mask_folder = self.traj_folder + '/goal_masks'
-                os.makedirs(self.mask_folder)
-
             self.state_action_pkl_file = self.traj_folder + '/state_action.pkl'
 
             #save pkl file:
@@ -126,6 +123,10 @@ class Sim(object):
 
                 if 'goal_mask' in self.agentparams:
                     dict['goal_mask'] = traj.goal_mask
+
+                if 'make_gtruth_flows' in self.agentparams:
+                    dict['bwd_flow'] = traj.bwd_flow
+
                 cPickle.dump(dict, f)
 
             for t in range(traj.T):
@@ -133,9 +134,21 @@ class Sim(object):
                 cv2.imwrite(image_name, traj._sample_images[t][:,:,::-1], [cv2.IMWRITE_PNG_STRATEGY_DEFAULT, 1])
 
             if traj.goal_mask != None:
+                folder = self.traj_folder + '/goal_masks'
+                os.makedirs(folder)
                 for i in range(traj.goal_mask.shape[0]):
-                    name = self.mask_folder + "/goal_mask_ob{}.png".format(i)
+                    name = folder + "/goal_mask_ob{}.png".format(i)
                     cv2.imwrite(name, 255*traj.goal_mask[i][:, :], [cv2.IMWRITE_PNG_STRATEGY_DEFAULT, 1])
+
+            if 'make_gtruth_flows' in self.agentparams:
+                folder = self.traj_folder + '/gtruth_flows'
+                os.makedirs(folder)
+                for t in range(traj.T-1):
+                    plt.imshow(traj.bwd_flow[t, :,:, 0])
+                    plt.savefig(folder + "/t{}_bwd_flow_col.png".format(t))
+                    plt.imshow(traj.bwd_flow[t, :, :, 1])
+                    plt.savefig(folder + "/t{}_bwd_flow_row.png".format(t))
+
         else:
             #save tfrecords
             traj = copy.deepcopy(traj)

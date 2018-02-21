@@ -94,8 +94,8 @@ def main():
 
     for i in range(n_worker):
         modconf = copy.deepcopy(hyperparams)
-        modconf.config['start_index'] = start_idx[i]
-        modconf.config['end_index'] = end_idx[i]
+        modconf['start_index'] = start_idx[i]
+        modconf['end_index'] = end_idx[i]
         conflist.append(modconf)
 
     if do_benchmark:

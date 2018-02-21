@@ -38,13 +38,13 @@ agent = {
     'xpos0': np.array([0., 0., 0.]),
     'dt': 0.05,
     'substeps': 20,  #6
-    'T': 17,
+    'T': 9,
     'skip_first': 20,   #skip first N time steps to let the scene settle
     'additional_viewer': True,
     'image_height' : 48,
     'image_width' : 64,
-    'viewer_image_height' : 480,
-    'viewer_image_width' : 640,
+    'viewer_image_height' : 240, #480,
+    'viewer_image_width' : 320, #640,
     'image_channels' : 3,
     'num_objects': 1,
     'novideo':'',
@@ -68,6 +68,7 @@ policy = {
 
 config = {
     'traj_per_file':128,
+    'save_raw_images':'',
     'save_data': True,
     'start_index':0,
     'end_index': 60000,

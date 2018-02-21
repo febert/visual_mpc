@@ -49,7 +49,9 @@ class Trajectory(object):
         self.goal_mask = None
 
         if 'make_gtruth_flows' in conf:
-            self.large_masks = np.zeros([self.T - 1, conf['num_objects']+1, conf['viewer_image_height'], conf['viewer_image_width']])  # x,y rot of  block
+            self.large_ob_masks = np.zeros([self.T, conf['num_objects'], conf['viewer_image_height'], conf['viewer_image_width']])  # x,y rot of  block
+            self.large_arm_masks = np.zeros([self.T, conf['viewer_image_height'],
+                                            conf['viewer_image_width']])  # x,y rot of  block
 
             self.largeimage = np.zeros((self.T,
                                         conf['viewer_image_height'],
@@ -61,7 +63,7 @@ class Trajectory(object):
 
             self.bwd_flow = np.zeros((self.T-1,
                                         conf['image_height'],
-                                        conf['image_width']), dtype='uint8')
+                                        conf['image_width'], 2), dtype=np.float32)
 
 
         # world coordinates including the arm
