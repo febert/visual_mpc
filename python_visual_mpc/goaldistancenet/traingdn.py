@@ -18,6 +18,8 @@ SUMMARY_INTERVAL = 10 ##############400
 # How often to run a batch through the validation model.
 VAL_INTERVAL = 500
 
+BENCH_INTERVAL = 1000
+
 IMAGE_INTERVAL = 5000
 
 # How often to save a model checkpoint
@@ -89,28 +91,32 @@ def main(unused_argv, conf_script= None):
     else:
         Model = GoalDistanceNet
 
-    if FLAGS.visualize or FLAGS.visualize_check:
-        model = Model(conf, build_loss, load_data=False)
-    else:
-        model = Model(conf, build_loss, load_data=True)
+    with tf.variable_scope('model'):
+        if FLAGS.visualize or FLAGS.visualize_check:
+            model = Model(conf, build_loss, load_data=False)
+        else:
+            model = Model(conf, build_loss, load_data=True)
+        model.build_net()
 
-    model.build_net()
+    #model for online benchmarking
+    with tf.variable_scope('model', reuse=True):
+        conf['compare_gtruth_flow'] = ''
+        benchmodel = Model(conf, build_loss =False, load_data=False)
+        benchmodel.build_net()
 
     print 'Constructing saver.'
     vars = tf.get_collection(tf.GraphKeys.GLOBAL_VARIABLES)
-    vars = filter_vars(vars)
     saving_saver = tf.train.Saver(vars, max_to_keep=0)
 
-
     if 'load_pretrained' in conf and not FLAGS.visualize_check and not FLAGS.visualize:
-        vars = variable_checkpoint_matcher(conf, vars, conf['load_pretrained'])
+        vars = variable_checkpoint_matcher(conf, vars, conf['load_pretrained'], True)
         loading_saver = tf.train.Saver(vars, max_to_keep=0)
 
     if FLAGS.visualize_check:
-        vars = variable_checkpoint_matcher(conf, vars, conf['visualize_check'])
+        vars = variable_checkpoint_matcher(conf, vars, conf['visualize_check'],  True)
         loading_saver = tf.train.Saver(vars, max_to_keep=0)
     if FLAGS.visualize:
-        vars = variable_checkpoint_matcher(conf, vars)
+        vars = variable_checkpoint_matcher(conf, vars,  True)
         loading_saver = tf.train.Saver(vars, max_to_keep=0)
 
     gpu_options = tf.GPUOptions(per_process_gpu_memory_fraction=0.9)
@@ -175,6 +181,9 @@ def main(unused_argv, conf_script= None):
             [val_summary_str] = sess.run([model.val_summ_op], feed_dict)
             summary_writer.add_summary(val_summary_str, itr)
 
+        if itr % BENCH_INTERVAL == 0:
+            summary_writer.add_summary(model.run_bench(benchmodel, sess), itr)
+
         if itr % IMAGE_INTERVAL ==0:
             print 'making image summ'
             feed_dict = {model.iter_num: np.float32(itr),
@@ -226,15 +235,6 @@ def load_checkpoint(conf, sess, saver, model_file=None):
     conf['num_iter'] = num_iter
     return num_iter
 
-
-def filter_vars(vars):
-    newlist = []
-    for v in vars:
-        if not '/state:' in v.name:
-            newlist.append(v)
-        else:
-            print 'removed state variable from saving-list: ', v.name
-    return newlist
 
 if __name__ == '__main__':
     tf.logging.set_verbosity(tf.logging.INFO)

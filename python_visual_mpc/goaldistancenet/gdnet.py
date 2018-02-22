@@ -523,57 +523,13 @@ class GoalDistanceNet(object):
 
     def visualize(self, sess):
         if 'compare_gtruth_flow' in self.conf:
-            self.conf['source_basedirs'] = [os.environ['VMPC_DATA_DIR'] + '/cartgripper_gtruth_flow/train']
-            tag_images = {'name': 'images',
-                          'file': '/images/im{}.png',  # only tindex
-                          'shape': [48, 64, 3]}
-            tag_bwd_flow = {'name': 'bwd_flow',
-                                'not_per_timestep': '',
-                                'shape': [8, 48, 64, 2]}
-            self.conf['sequence_length'] = 9
-            self.conf['sourcetags'] = [tag_images, tag_bwd_flow]
-            self.conf['ngroup'] = 100
-
-            r = OnlineReader(self.conf, 'test', sess=sess)
-            images, tag_bwd_flow = r.get_batch_tensors()
-            [images, gtruth_bwd_flows] = sess.run([images, tag_bwd_flow])
-
-            gtruth_bwd_flows = np.flip(gtruth_bwd_flows, axis=-1)
-
-            gen_images_I1 = []
-            bwd_flows = []
-            flow_errs_mean = []
-            flow_errs = []
-            flow_mags_bwd = []
-            flow_mags_bwd_gtruth = []
-            gen_image_I1_gtruthwarp_l = []
-
-            gtruth_bwd_flows_pl = tf.placeholder(tf.float32, name='gtruth_bwd_flows_pl',
-                                                 shape=(self.conf['batch_size'], self.img_height, self.img_width, 2))
-
-            for t in range(images.shape[1]-1):
-                [gen_image_I1, bwd_flow] = sess.run([self.gen_I1, self.flow_bwd], {self.I0_pl: images[:,t],
-                                                                                   self.I1_pl: images[:,t+1]})
-                gen_images_I1.append(gen_image_I1)
-                bwd_flows.append(bwd_flow)
-
-                flow_errs.append(np.linalg.norm(bwd_flow - gtruth_bwd_flows[:,t], axis=-1))
-                flow_errs_mean.append(np.mean(np.mean(flow_errs[-1], axis=1), axis=1))
-                flow_mags_bwd.append(np.linalg.norm(bwd_flow, axis=-1))
-                flow_mags_bwd_gtruth.append(np.linalg.norm(gtruth_bwd_flows[:,t], axis=-1))
-
-                #verify gtruth optical flow:
-
-                gen_image_I1_gtruthwarp = apply_warp(self.I0_pl, gtruth_bwd_flows_pl)
-
-
-                gen_image_I1_gtruthwarp_l += sess.run([gen_image_I1_gtruthwarp], {self.I0_pl: images[:, t],
-                                                                                  gtruth_bwd_flows_pl: gtruth_bwd_flows[:,t]})
-
+            flow_errs, flow_errs_mean, flow_mags_bwd, flow_mags_bwd_gtruth, gen_images_I1, images = self.compute_bench(self, sess)
             with open(self.conf['output_dir'] + '/gtruth_flow_err.txt', 'w') as f:
                 flow_errs_flat = np.stack(flow_errs_mean).flatten()
-                f.write('average one-step flowerrs on 50 example trajectories mean {} std err of the mean {} \n'.format(
-                                np.mean(flow_errs_flat), np.std(flow_errs_flat)/np.sqrt(flow_errs_flat.shape[0])))
+                string = 'average one-step flowerrs on 50 example trajectories mean {} std err of the mean {} \n'.format(
+                                np.mean(flow_errs_flat), np.std(flow_errs_flat)/np.sqrt(flow_errs_flat.shape[0]))
+                print string
+                f.write(string)
             print 'written output to ',self.conf['output_dir'] + '/gtruth_flow_err.txt'
 
             videos = collections.OrderedDict()
@@ -583,7 +539,7 @@ class GoalDistanceNet(object):
             videos['flow_mags_bwd_gtruth'] = [np.zeros_like(flow_mags_bwd_gtruth[0])]+ flow_mags_bwd_gtruth
             videos['flow_errs'] = ([np.zeros_like(np.zeros_like(flow_errs[0]))] + flow_errs,
                                    [np.zeros_like(flow_errs_mean[0])] + flow_errs_mean)
-            videos['gen_image_I1_gtruthwarp_l'] = [np.zeros_like(gen_image_I1_gtruthwarp_l[0])] + gen_image_I1_gtruthwarp_l
+            # videos['gen_image_I1_gtruthwarp_l'] = [np.zeros_like(gen_image_I1_gtruthwarp_l[0])] + gen_image_I1_gtruthwarp_l
 
             num_ex = 4
             for k in videos.keys():
@@ -689,6 +645,54 @@ class GoalDistanceNet(object):
 
         cPickle.dump(dict, open(self.conf['output_dir'] + '/data.pkl', 'wb'))
         make_plots(self.conf, dict=dict)
+
+    def run_bench(self, benchmodel, sess):
+        _, flow_errs_mean, _, _, _, _ = self.compute_bench(benchmodel, sess)
+        flow_errs_mean_pl = tf.placeholder(tf.float32, name='flow_errs_mean',
+                                             shape=())
+        flow_errs_mean = np.mean(np.stack(flow_errs_mean).flatten())
+        print 'benchmark result: ', flow_errs_mean
+        return sess.run([tf.summary.scalar('val_total', flow_errs_mean_pl)], feed_dict={flow_errs_mean_pl: flow_errs_mean})[0]
+
+    def compute_bench(self, model, sess):
+        self.conf['source_basedirs'] = [os.environ['VMPC_DATA_DIR'] + '/cartgripper_gtruth_flow/train']
+        tag_images = {'name': 'images',
+                      'file': '/images/im{}.png',  # only tindex
+                      'shape': [48, 64, 3]}
+        tag_bwd_flow = {'name': 'bwd_flow',
+                        'not_per_timestep': '',
+                        'shape': [8, 48, 64, 2]}
+        self.conf['sequence_length'] = 9
+        self.conf['sourcetags'] = [tag_images, tag_bwd_flow]
+        self.conf['ngroup'] = 100
+        r = OnlineReader(self.conf, 'val', sess=sess)
+        images, tag_bwd_flow = r.get_batch_tensors()
+        [images, gtruth_bwd_flows] = sess.run([images, tag_bwd_flow])
+        gtruth_bwd_flows = np.flip(gtruth_bwd_flows, axis=-1)  # important ! need to flip flow to make compatible
+        gen_images_I1 = []
+        bwd_flows = []
+        flow_errs_mean = []
+        flow_errs = []
+        flow_mags_bwd = []
+        flow_mags_bwd_gtruth = []
+        gen_image_I1_gtruthwarp_l = []
+        gtruth_bwd_flows_pl = tf.placeholder(tf.float32, name='gtruth_bwd_flows_pl',
+                                             shape=(self.conf['batch_size'], self.img_height, self.img_width, 2))
+
+        for t in range(images.shape[1] - 1):
+            [gen_image_I1, bwd_flow] = sess.run([model.gen_I1, model.flow_bwd], {model.I0_pl: images[:, t],
+                                                                                 model.I1_pl: images[:, t + 1]})
+            gen_images_I1.append(gen_image_I1)
+            bwd_flows.append(bwd_flow)
+            flow_errs.append(np.linalg.norm(bwd_flow - gtruth_bwd_flows[:, t], axis=-1))
+            flow_errs_mean.append(np.mean(np.mean(flow_errs[-1], axis=1), axis=1))
+            flow_mags_bwd.append(np.linalg.norm(bwd_flow, axis=-1))
+            flow_mags_bwd_gtruth.append(np.linalg.norm(gtruth_bwd_flows[:, t], axis=-1))
+            # verify gtruth optical flow:
+            # gen_image_I1_gtruthwarp = apply_warp(self.I0_pl, gtruth_bwd_flows_pl)
+            # gen_image_I1_gtruthwarp_l += sess.run([gen_image_I1_gtruthwarp], {self.I0_pl: images[:, t],
+            #                                                                   gtruth_bwd_flows_pl: gtruth_bwd_flows[:,t]})
+        return flow_errs, flow_errs_mean, flow_mags_bwd, flow_mags_bwd_gtruth, gen_images_I1, images
 
     def color_code(self, input, num_examples):
         cmap = plt.cm.get_cmap()

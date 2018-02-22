@@ -34,8 +34,9 @@ class Temp_DnC_GDnet(GoalDistanceNet):
 
     def build_net(self):
         if 'compare_gtruth_flow' in self.conf:
-            self.gen_I1, self.warp_pts_bwd, self.flow_bwd, _ = self.warp(self.I0, self.I1)
-            self.gen_I0, self.flow_fwd = None, None
+            # model for eval purposes:
+            with tf.variable_scope('warpnet'):
+                self.gen_I1, self.warp_pts_bwd, self.flow_bwd, _ = self.warp(self.I0, self.I1)
         else:
             self.build_cons_model()
 
