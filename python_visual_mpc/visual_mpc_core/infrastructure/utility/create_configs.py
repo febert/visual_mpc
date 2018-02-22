@@ -63,8 +63,8 @@ class CollectGoalImageSim(Sim):
 
         for t in range(self.agentparams['T']-1):
             self.store_data(t, traj)
-            traj.large_ob_masks[t], traj.large_arm_masks[t] = self.get_obj_masks(include_arm=True)
-
+            if 'make_gtruth_flows' in self.agentparams:
+                traj.large_ob_masks[t], traj.large_arm_masks[t] = self.get_obj_masks(include_arm=True)
             if t> 0:
                 traj.bwd_flow[t-1] = self.compute_gtruth_flow(t, traj)
                 # plt.figure()
@@ -76,12 +76,12 @@ class CollectGoalImageSim(Sim):
             self.move_objects(t, traj)
         t += 1
         self.store_data(t, traj)
-
-        traj.large_ob_masks[t], traj.large_arm_masks[t] = self.get_obj_masks(include_arm=True)
-        traj.bwd_flow[t - 1] = self.compute_gtruth_flow(t, traj)
+        if 'make_gtruth_flows' in self.agentparams:
+            traj.large_ob_masks[t], traj.large_arm_masks[t] = self.get_obj_masks(include_arm=True)
+            traj.bwd_flow[t - 1] = self.compute_gtruth_flow(t, traj)
 
         if 'goal_mask' in self.agentparams:
-            traj.goal_mask = self.get_obj_masks(small=True)
+            traj.goal_mask, _ = self.get_obj_masks(small=True)
 
         # discarding trajecotries where an object falls out of the bin:
         end_zpos = [traj.Object_full_pose[-1, i, 2] for i in range(self.agentparams['num_objects'])]
@@ -185,7 +185,6 @@ class CollectGoalImageSim(Sim):
                     self.agentparams['image_width'], self.agentparams['image_height']), interpolation=cv2.INTER_NEAREST)
 
             armmask = mask
-
             # plt.ion()
             # plt.figure()
             # plt.imshow(np.squeeze(mask))

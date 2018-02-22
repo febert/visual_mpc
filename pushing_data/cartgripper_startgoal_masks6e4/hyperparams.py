@@ -22,12 +22,15 @@ IMAGE_CHANNELS = 3
 
 import python_visual_mpc
 folder_name = '/'.join(str.split(__file__, '/')[-2:-1])
+from python_visual_mpc.visual_mpc_core.infrastructure.utility.create_configs import CollectGoalImageSim
+
+BASE_DIR = '/'.join(str.split(python_visual_mpc.__file__, '/')[:-2])
 
 agent = {
     'type': AgentMuJoCo,
     'data_save_dir': folder_name + '/train',
-    'filename': DATA_DIR+'/mjc_models/cartgripper.xml',
-    'filename_nomarkers': DATA_DIR+'/mjc_models/cartgripper.xml',
+    'filename': BASE_DIR+'/mjc_models/cartgripper.xml',
+    'filename_nomarkers': BASE_DIR+'/mjc_models/cartgripper.xml',
     'data_collection': True,
     'sample_objectpos':'',
     'adim':3,
@@ -64,6 +67,7 @@ config = {
     'end_index': 49,
     'agent': agent,
     'policy': policy,
-    'ngroup': 1000
+    'ngroup': 1000,
+    'simulator':CollectGoalImageSim
 }
 
