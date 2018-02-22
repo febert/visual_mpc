@@ -14,15 +14,13 @@ from python_visual_mpc import __file__ as python_vmpc_path
 from python_visual_mpc.data_preparation.gather_data import make_traj_name_list
 
 
-def perform_benchmark(conf = None):
+def perform_benchmark(conf = None, gpu_id=None):
     cem_exp_dir = '/'.join(str.split(python_vmpc_path, '/')[:-2])  + '/experiments/cem_exp'
 
     if conf != None:
         benchmark_name = 'parallel'
-        gpu_id = 0
         ngpu = 1
         bench_dir = conf.config['bench_dir']
-        goalimg_save_dir = bench_dir + '/goalimage'
     else:
         parser = argparse.ArgumentParser(description='Run benchmarks')
         parser.add_argument('benchmark', type=str, help='the name of the folder with agent setting for the benchmark')

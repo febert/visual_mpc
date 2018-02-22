@@ -42,7 +42,7 @@ def bench_worker(conf):
 
     random.seed(None)
     np.random.seed(None)
-    perform_benchmark(conf)
+    perform_benchmark(conf, gpu_id=conf['gpu_id'])
 
 class Modhyper(object):
     def __init__(self, conf):
@@ -96,6 +96,7 @@ def main():
         modconf = copy.deepcopy(hyperparams)
         modconf['start_index'] = start_idx[i]
         modconf['end_index'] = end_idx[i]
+        modconf['gpu_id'] = i
         conflist.append(modconf)
 
     if do_benchmark:
