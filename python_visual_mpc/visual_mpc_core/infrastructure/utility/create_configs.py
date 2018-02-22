@@ -326,8 +326,11 @@ def main():
     data_coll_dir = basepath + '/pushing_data/' + exp_name
     hyperparams_file = data_coll_dir + '/hyperparams.py'
 
-    hyperparams = imp.load_source('hyperparams', hyperparams_file)
-    c =CollectGoalImageSim(hyperparams.config)
+    hyperparams = imp.load_source('hyperparams', hyperparams_file).config
+    hyperparams['agent']['data_save_dir'] = os.path.join(os.environ['VMPC_DATA_DIR'], hyperparams['agent'][
+        'data_save_dir'])  # directory where to save trajectories
+
+    c =CollectGoalImageSim(hyperparams)
     c.run()
 
 if __name__ == "__main__":
