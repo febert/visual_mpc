@@ -652,7 +652,7 @@ class GoalDistanceNet(object):
                                              shape=())
         flow_errs_mean = np.mean(np.stack(flow_errs_mean).flatten())
         print 'benchmark result: ', flow_errs_mean
-        return sess.run([tf.summary.scalar('val_total', flow_errs_mean_pl)], feed_dict={flow_errs_mean_pl: flow_errs_mean})[0]
+        return sess.run([tf.summary.scalar('avg_gtruth_flow_err', flow_errs_mean_pl)], feed_dict={flow_errs_mean_pl: flow_errs_mean})[0]
 
     def compute_bench(self, model, sess):
         self.conf['source_basedirs'] = [os.environ['VMPC_DATA_DIR'] + '/cartgripper_gtruth_flow/train']
