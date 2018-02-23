@@ -2,7 +2,7 @@ import os
 current_dir = os.path.dirname(os.path.realpath(__file__))
 
 # tf record data location:
-DATA_DIR = '/'.join(str.split(current_dir, '/')[:-3]) + '/pushing_data/cartgripper/train'
+DATA_DIR = os.environ['VMPC_DATA_DIR'] + '/cartgripper/train'
 
 # local output directory
 OUT_DIR = current_dir + '/modeldata'
@@ -31,7 +31,6 @@ configuration = {
 'file_visual': '',          # datafile used for making visualizations
 'sawyer':'',
 'single_view':"",
-'use_len':14,                # number of steps used for training where the starting location is selected randomly within sequencelength
 '1stimg_bckgd':'',
 'visual_flowvec':'',
 'adim':3,

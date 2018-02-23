@@ -31,7 +31,6 @@ from python_visual_mpc.video_prediction.utils_vpred.variable_checkpoint_matcher 
 if __name__ == '__main__':
     FLAGS = flags.FLAGS
     flags.DEFINE_string('hyper', '', 'hyperparameters configuration file')
-    flags.DEFINE_bool('visualize', False, 'visualize latest checkpoint')
     flags.DEFINE_string('visualize_check', "", 'model within hyperparameter folder from which to create gifs')
     flags.DEFINE_integer('device', 0 ,'the value for CUDA_VISIBLE_DEVICES variable')
     flags.DEFINE_string('resume', None, 'path to model file from which to resume training')
@@ -56,7 +55,7 @@ def main(unused_argv, conf_script= None):
     conf = hyperparams.configuration
 
     conf['event_log_dir'] = conf['output_dir']
-    if FLAGS.visualize or FLAGS.visualize_check:
+    if FLAGS.visualize_check:
         print 'creating visualizations ...'
         conf['schedsamp_k'] = -1  # don't feed ground truth
 
@@ -110,15 +109,12 @@ def main(unused_argv, conf_script= None):
     saving_saver = tf.train.Saver(vars, max_to_keep=0)
 
 
-    if 'load_pretrained' in conf and not FLAGS.visualize_check and not FLAGS.visualize:
-        vars = variable_checkpoint_matcher(conf, vars, conf['load_pretrained'])
+    if FLAGS.resume:
+        vars = variable_checkpoint_matcher(conf, vars, FLAGS.resume)
         loading_saver = tf.train.Saver(vars, max_to_keep=0)
 
     if FLAGS.visualize_check:
         vars = variable_checkpoint_matcher(conf, vars, conf['visualize_check'])
-        loading_saver = tf.train.Saver(vars, max_to_keep=0)
-    if FLAGS.visualize:
-        vars = variable_checkpoint_matcher(conf, vars)
         loading_saver = tf.train.Saver(vars, max_to_keep=0)
 
     gpu_options = tf.GPUOptions(per_process_gpu_memory_fraction=0.9)
@@ -154,9 +150,6 @@ def main(unused_argv, conf_script= None):
     if FLAGS.resume != None:
         itr_0 = load_checkpoint(conf, sess, loading_saver, model_file=FLAGS.resume)
         print 'resuming training at iteration: ', itr_0
-
-    if 'load_pretrained' in conf:
-        load_checkpoint(conf, sess, loading_saver, model_file=conf['load_pretrained'])
 
     print '-------------------------------------------------------------------'
     print 'verify current settings!! '
