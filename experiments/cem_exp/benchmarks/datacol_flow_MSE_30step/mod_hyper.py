@@ -78,8 +78,8 @@ config = {
     'end_index': 10000,
     'agent':agent,
     'policy':policy,
-    'ngroup': 500,
+    'ngroup': 1000,
     'sourcetags':[tag_images, tag_qpos, tag_object_full_pose, tag_object_statprop, goal_mask],
-    'source_basedirs':[ROOT_DIR + '/pushing_data/cartgripper_startgoal_masks/train'],
+    'source_basedirs':[os.environ['VMPC_DATA_DIR'] + '/cartgripper_startgoal_masks6e4/train'],
     'sequence_length':2
 }
