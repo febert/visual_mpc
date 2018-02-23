@@ -4,7 +4,7 @@ import os.path
 
 import numpy as np
 
-from python_visual_mpc.visual_mpc_core.algorithm.random_policy import Randompolicy
+from python_visual_mpc.visual_mpc_core.algorithm.det_grasp_policy import DeterministicGraspPolicy
 from python_visual_mpc.visual_mpc_core.agent.agent_mjc import AgentMuJoCo
 
 IMAGE_WIDTH = 64
@@ -28,7 +28,7 @@ agent = {
     'xpos0': np.array([0., 0., 0.05, 0., 0.]), #initialize state dimension to 5 zeros
     'dt': 0.05,
     'substeps': 20,  #6
-    'T': 25,
+    'T': 100,
     'skip_first': 40,   #skip first N time steps to let the scene settle
     'additional_viewer': True,
     'image_height' : 48,
@@ -40,11 +40,14 @@ agent = {
     'novideo':'',
     'gen_xml':10,   #generate xml every nth trajecotry
     'randomize_ballinitpos':'', #randomize x, y
+    'custom_poscontroller':True,
+    'ztarget':0.13,
+    'drop_thresh':0.02
     # 'displacement_threshold':0.1,
 }
 
 policy = {
-    'type' : Randompolicy,
+    'type' : DeterministicGraspPolicy,
     'nactions': 5,
     'repeats': 5, # number of repeats for each action
     'initial_std': 10.,   #std dev. in xy
