@@ -39,7 +39,6 @@ def worker(conf):
 
 def bench_worker(conf):
     print 'started process with PID:', os.getpid()
-
     random.seed(None)
     np.random.seed(None)
     perform_benchmark(conf, gpu_id=conf['gpu_id'])
@@ -78,7 +77,7 @@ def main():
     else:
         print 'doing benchmark ...'
         do_benchmark = True
-        experimentdir = basepath + '/experiments/cem_exp/benchmarks_goalimage/' + exp_name
+        experimentdir = basepath + '/experiments/cem_exp/benchmarks/' + exp_name
         hyperparams_file = experimentdir + '/mod_hyper.py'
         hyperparams = imp.load_source('hyperparams', hyperparams_file).config
         n_traj = hyperparams['end_index']

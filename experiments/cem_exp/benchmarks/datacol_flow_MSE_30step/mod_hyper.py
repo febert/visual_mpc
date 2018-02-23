@@ -36,7 +36,6 @@ policy = {
     'verbose':'',
     'type' : CEM_controller,
     'low_level_ctrl': None,
-    'current_dir':current_dir,
     'usenet': True,
     'nactions': 5,
     'repeat': 3,
@@ -72,6 +71,7 @@ goal_mask = {'name': 'goal_mask',
              'not_per_timestep':''}
 
 config = {
+    'current_dir':current_dir,
     'save_data': False,
     'save_raw_images':'',
     'start_index':0,

@@ -20,7 +20,7 @@ def perform_benchmark(conf = None, gpu_id=None):
     if conf != None:
         benchmark_name = 'parallel'
         ngpu = 1
-        bench_dir = conf.config['bench_dir']
+        bench_dir = conf['current_dir']
     else:
         parser = argparse.ArgumentParser(description='Run benchmarks')
         parser.add_argument('benchmark', type=str, help='the name of the folder with agent setting for the benchmark')
