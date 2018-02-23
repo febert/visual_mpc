@@ -64,6 +64,6 @@ class DeterministicGraspPolicy(Policy):
             actions = np.zeros(self.adim)
             actions[:2] = traj.Object_pose[t, 0, :2]
             actions[2] = -0.08
-            actions[3] = 5. / 10 * self.graspTime
+            actions[3] = 5 / 10 * self.graspTime
             self.graspTime += 1
             return actions, None
