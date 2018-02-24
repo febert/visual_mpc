@@ -162,8 +162,8 @@ def perform_benchmark(conf = None, gpu_id=None):
         f.write('----------------------\n')
         f.write('traj: score, anglecost, rank\n')
         f.write('----------------------\n')
-        for t in range(conf['start_index'], traj):
-            f.write('{0}: {1}, {2}, :{3}\n'.format(t, scores[t], anglecost[t], np.where(sorted_ind == t)[0][0]))
+        for n, t in enumerate(range(conf['start_index'], traj)):
+            f.write('{0}: {1}, {2}, :{3}\n'.format(t, scores[n], anglecost[n], np.where(sorted_ind == n)[0][0]))
         f.close()
 
     print 'overall best score: {0} of traj {1}'.format(scores[sorted_ind[0]], sorted_ind[0])
