@@ -149,7 +149,7 @@ def perform_benchmark(conf = None, gpu_id=None):
         sorted_ind = scores.argsort()
         anglecost = np.array(anglecost_l)
 
-        f = open(bench_dir + '/results', 'w')
+        f = open(bench_dir + '/results_{}to{}'.format(conf['start_index'], conf['end_index']), 'w')
         f.write('experiment name: ' + benchmark_name + '\n')
         f.write('overall best pos score: {0} of traj {1}\n'.format(scores[sorted_ind[0]], sorted_ind[0]))
         f.write('overall worst pos score: {0} of traj {1}\n'.format(scores[sorted_ind[-1]], sorted_ind[-1]))
