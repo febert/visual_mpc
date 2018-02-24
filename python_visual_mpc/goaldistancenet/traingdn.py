@@ -18,7 +18,7 @@ SUMMARY_INTERVAL = 400
 # How often to run a batch through the validation model.
 VAL_INTERVAL = 500
 
-BENCH_INTERVAL = 10 ##################00
+BENCH_INTERVAL = 1000
 
 IMAGE_INTERVAL = 5000
 
