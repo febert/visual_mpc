@@ -194,7 +194,7 @@ class GoalDistanceNet(object):
         self.occ_fwd = tf.zeros([self.bsize,  self.img_height,  self.img_width])
         self.occ_bwd = tf.zeros([self.bsize,  self.img_height,  self.img_width])
 
-
+        self.avg_gtruth_flow_err_sum = None
         self.build_loss = build_loss
         self.losses = {}
 
@@ -648,11 +648,15 @@ class GoalDistanceNet(object):
 
     def run_bench(self, benchmodel, sess):
         _, flow_errs_mean, _, _, _, _ = self.compute_bench(benchmodel, sess)
-        flow_errs_mean_pl = tf.placeholder(tf.float32, name='flow_errs_mean',
-                                             shape=())
+
         flow_errs_mean = np.mean(np.stack(flow_errs_mean).flatten())
         print 'benchmark result: ', flow_errs_mean
-        return sess.run([tf.summary.scalar('avg_gtruth_flow_err', flow_errs_mean_pl)], feed_dict={flow_errs_mean_pl: flow_errs_mean})[0]
+
+        if self.avg_gtruth_flow_err_sum == None:
+            self.flow_errs_mean_pl = tf.placeholder(tf.float32, name='flow_errs_mean_pl', shape=[])
+            self.avg_gtruth_flow_err_sum = tf.summary.scalar('avg_gtruth_flow_err', self.flow_errs_mean_pl)
+
+        return sess.run([self.avg_gtruth_flow_err_sum], {self.flow_errs_mean_pl: flow_errs_mean})[0]
 
     def compute_bench(self, model, sess):
         self.conf['source_basedirs'] = [os.environ['VMPC_DATA_DIR'] + '/cartgripper_gtruth_flow/train']
