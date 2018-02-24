@@ -14,7 +14,7 @@ import glob
 import re
 
 from python_visual_mpc.visual_mpc_core.infrastructure.utility.create_configs import CollectGoalImageSim
-
+import ray
 
 def worker(conf):
     print 'started process with PID:', os.getpid()
@@ -37,6 +37,8 @@ def worker(conf):
     s = Simulator(conf)
     s.run()
 
+
+@ray.remote
 def bench_worker(conf):
     print 'started process with PID:', os.getpid()
     random.seed(None)
@@ -91,25 +93,38 @@ def main():
 
     hyperparams['agent']['data_save_dir'] = os.path.join(os.environ['VMPC_DATA_DIR'], hyperparams['agent']['data_save_dir'])  # directory where to save trajectories
 
-    for i in range(n_worker):
-        modconf = copy.deepcopy(hyperparams)
-        modconf['start_index'] = start_idx[i]
-        modconf['end_index'] = end_idx[i]
-        modconf['gpu_id'] = i
-        conflist.append(modconf)
+    if 'gen_xml' in hyperparams['agent']: #remove old auto-generated xml files
+        os.system("rm {}".format('/'.join(str.split(hyperparams['agent']['filename'], '/')[:-1]) + '/auto_gen/*'))
+
 
     if do_benchmark:
         use_worker = bench_worker
     else: use_worker = worker
 
-    if 'gen_xml' in conflist[0]['agent']:
-        os.system("rm {}".format('/'.join(str.split(modconf['agent']['filename'], '/')[:-1]) + '/auto_gen/*'))
+    use_ray = True
+    if use_ray:
+        ray.init()
+        id_list = []
+        for i in range(n_worker):
+            modconf = copy.deepcopy(hyperparams)
+            modconf['start_index'] = start_idx[i]
+            modconf['end_index'] = end_idx[i]
+            modconf['gpu_id'] = i
+            id_list.append(use_worker.remote(modconf))
 
-    if parallel:
-        p = Pool(n_worker)
-        p.map(use_worker, conflist)
+        res = [ray.get(id) for id in id_list]
     else:
-        use_worker(conflist[0])
+        for i in range(n_worker):
+            modconf = copy.deepcopy(hyperparams)
+            modconf['start_index'] = start_idx[i]
+            modconf['end_index'] = end_idx[i]
+            modconf['gpu_id'] = i
+            conflist.append(modconf)
+        if parallel:
+            p = Pool(n_worker)
+            p.map(use_worker, conflist)
+        else:
+            use_worker(conflist[0])
 
     traindir = modconf['agent']["data_save_dir"]
     testdir = '/'.join(traindir.split('/')[:-1] + ['/test'])
