@@ -83,8 +83,9 @@ def perform_benchmark(conf = None, gpu_id=None):
         traj_names = make_traj_name_list({'source_basedirs': conf['source_basedirs'],
                                                   'ngroup': conf['ngroup']}, shuffle=False)
 
-    if os.path.isfile(bench_dir + '/results'):
-        raise ValueError("the file {} already exists!!".format(bench_dir + '/results'))
+    result_file = bench_dir + '/results_{}to{}'.format(conf['start_index'], conf['end_index'])
+    if os.path.isfile(bench_dir + '/result_file'):
+        raise ValueError("the file {} already exists!!".format(result_file))
 
     while traj < nruns:
         dict = read_trajectory(conf, traj_names[traj])
@@ -149,7 +150,7 @@ def perform_benchmark(conf = None, gpu_id=None):
         sorted_ind = scores.argsort()
         anglecost = np.array(anglecost_l)
 
-        f = open(bench_dir + '/results_{}to{}'.format(conf['start_index'], conf['end_index']), 'w')
+        f = open(result_file, 'w')
         f.write('experiment name: ' + benchmark_name + '\n')
         f.write('overall best pos score: {0} of traj {1}\n'.format(scores[sorted_ind[0]], sorted_ind[0]))
         f.write('overall worst pos score: {0} of traj {1}\n'.format(scores[sorted_ind[-1]], sorted_ind[-1]))
