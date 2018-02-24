@@ -174,14 +174,12 @@ class AgentMuJoCo(object):
         for t in range(self._hyperparams['skip_first']):
             for _ in range(self._hyperparams['substeps']):
                 ctrl = np.zeros(self._hyperparams['adim'])
-
                 if 'custom_poscontroller' in self._hyperparams:
                     #keep gripper at default x,y positions
                     ctrl[:2] = self._model.data.qpos[:2].squeeze()
 
                 self._model.data.ctrl = ctrl
                 self._model.step()
-
 
         self.large_images_traj = []
         self.large_images = []
@@ -239,20 +237,17 @@ class AgentMuJoCo(object):
                 self._model.data.ctrl = ctrl
                 self._model.step()
 
-                # zs.append(self._model.data.qpos[2])
-                # zdot.append(self._model.data.qvel[2])
-
             if 'touch' in self._hyperparams:
                 traj.touchdata[t, :] = accum_touch.squeeze()
                 print 'accumulated force', t
                 print accum_touch
 
         traj = self.get_max_move_pose(traj)
-        # print 'obj gripper dist', np.sqrt(np.sum(np.power(traj.Object_pose[-1, 0, :2] - traj.X_full[-1, :2], 2)))
+        print 'obj gripper dist', np.sqrt(np.sum(np.power(traj.Object_pose[-1, 0, :2] - traj.X_full[-1, :2], 2)))
         # print 'last z', traj.X_full[-1, 2]
         # print 'target pose', traj.Object_pose[-1, 0, :2], 'actual final', traj.X_full[-1, :2]
         # plt.plot(zs)
-        # plt.plot([0.12 for _ in xrange(len(zs))])
+        # plt.plot([traj.Object_pose[-1, 0, 0] for _ in xrange(len(zs))])
         # plt.plot(zdot)
         # plt.show()
 
@@ -470,7 +465,7 @@ class AgentMuJoCo(object):
 
     def save_gif(self):
         file_path = self._hyperparams['record']
-        if 'random_baseline' in self._hyperparams:
+        if 'random_baseline' in self._hyperparams or not len(self.large_images_traj) > 0:
             npy_to_gif(self.large_images, file_path +'/video')
         else:
             npy_to_gif(self.large_images_traj, file_path +'/video')

@@ -27,7 +27,7 @@ agent = {
     'sdim':10,
     'xpos0': np.array([0., 0., 0.05, 0., 0.]), #initialize state dimension to 5 zeros
     'dt': 0.05,
-    'substeps': 20,  #6
+    'substeps': 50,  #6
     'T': 100,
     'skip_first': 40,   #skip first N time steps to let the scene settle
     'additional_viewer': True,
@@ -42,7 +42,9 @@ agent = {
     'randomize_ballinitpos':'', #randomize x, y
     'custom_poscontroller':True,
     'ztarget':0.13,
-    'drop_thresh':0.02
+    'drop_thresh':0.02,
+    #'make_final_gif':True,
+    #'record': BASE_DIR + '/record/'
     # 'displacement_threshold':0.1,
 }
 

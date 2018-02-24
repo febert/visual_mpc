@@ -14,18 +14,18 @@
             <inertial pos="0 0 0" mass="30" diaginertia="166.667 166.667 166.667"/>
             <geom type="box" size=".1 .03 .03" rgba="0.1 0.0 0.9 1" />
             <geom type="box" size=".07 .07 1" rgba="0.9 0.9 0.9 1" pos="0 0 1"/>
-            <joint name="ball_x" type="slide" pos="0 0 0" axis="1 0 0" limited="true" range="-0.35 0.35"/>
-            <joint name="ball_y" type="slide" pos="0 0 0" axis="0 1 0" limited="true" range="-0.35 0.35"/>
+            <joint name="ball_x" type="slide" pos="0 0 0" axis="1 0 0" limited="true" range="-0.35 0.35" armature="0" damping="10" stiffness="0"/>
+            <joint name="ball_y" type="slide" pos="0 0 0" axis="0 1 0" limited="true" range="-0.35 0.35" armature="0" damping="10" stiffness="0"/>
             <joint name="ball_z" type="slide" pos="0 0 0" axis="0 0 1"  limited="true" range="-0.08 0.15"/>
 
             <body name="finger1" pos="-0.07 0 -0.1">
                 <joint name="j_finger1" type="slide" pos="0 0 0" axis="1 0 0"  limited="true" range="0. 0.1" />
-                <geom type="box" size=".01 .01 .1" rgba="0.3 0.3 0.3 1" friction="2 0.010 0.0002"/>
+                <geom type="box" size=".01 .02 .1" rgba="0.3 0.3 0.3 1" friction="2 0.010 0.0002" mass="0.08"/>
             </body>
 
             <body name="finger2" pos="0.07 0 -0.1">
                 <joint name="j_finger2" type="slide" pos="0 0 0" axis="1 0 0" />
-                <geom type="box" size=".01 .01 .1" rgba="0.3 0.3 0.3 1" friction="2 0.010 0.0002"/>
+                <geom type="box" size=".01 .02 .1" rgba="0.3 0.3 0.3 1" friction="2 0.010 0.0002" mass="0.08"/>
             </body>
 
         </body>
@@ -67,11 +67,11 @@
 
 
     <actuator>
-        <position joint="ball_x" ctrlrange="-100.0 100.0" ctrllimited="true" kp="0.75"/>
-        <position joint="ball_y" ctrlrange="-100.0 100.0" ctrllimited="true" kp="0.75"/>
-        <general joint="ball_z" ctrlrange="-100.0 1000.0" ctrllimited="true" gaintype="fixed" dyntype="none" dynprm="1 0 0" gainprm ="75 0 0" biastype="affine" biasprm="295.872 0 -75"/>
+        <position joint="ball_x" ctrllimited="false" kp="0.8"/>
+        <position joint="ball_y" ctrllimited="false" kp="0.8"/>
+        <general joint="ball_z" gaintype="fixed" dyntype="none" dynprm="1 0 0" gainprm ="30 0 0" biastype="affine" biasprm="295.869 0 -50"/>
 
-        <motor joint="j_finger1" ctrlrange="-5 5" ctrllimited="true"/>
+        <motor joint="j_finger1" ctrllimited="false"/>
     </actuator>
 
 
