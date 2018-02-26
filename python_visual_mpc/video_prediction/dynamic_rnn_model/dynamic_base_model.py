@@ -342,8 +342,16 @@ class DNACell(tf.nn.rnn_cell.RNNCell):
         if self.first_pix_distrib is not None:
             transformed_pix_distribs = []
             with tf.name_scope('transformed_pix_distrib'):
-                transf_pix = [apply_kernels(pix_distrib[:, p], kernels, dilation_rate=dilation_rate) for p in
-                              range(self.ndesig)]
+
+                if self.model == 'appflow' or self.model == 'appflow_chained':
+                    if self.model == 'appflow_chained':
+                        trafoflow = flow_tp1_0
+                    else:
+                        trafoflow = flowvecs_tp1_t
+                    transf_pix = [[apply_warp(pix_distrib[:, p], trafoflow)] for p in range(self.ndesig)]
+                else:
+                    transf_pix = [apply_kernels(pix_distrib[:, p], kernels, dilation_rate=dilation_rate) for p in
+                                  range(self.ndesig)]
                 transf_pix_l = []
                 for n in range(self.num_transformed_images):
                     transf_pix_n = tf.stack([transf_pix[p][n] for p in range(self.ndesig)], axis=1)
@@ -434,12 +442,12 @@ class Dynamic_Base_Model(object):
             ndesig = 1
             conf['ndesig'] = 1
 
-        if 'img_height' in conf:
-            self.img_height = conf['img_height']
-        else: self.img_height = 64
-        if 'img_width' in conf:
-            self.img_width = conf['img_width']
-        else: self.img_width = 64
+        if 'orig_size' in conf:
+            self.img_height = conf['orig_size'][0]
+            self.img_width = conf['orig_size'][1]
+        else:
+            self.img_height = 64
+            self.img_width = 64
 
         if states is not None and states.get_shape().as_list()[1] != conf['sequence_length']:  # append zeros if states is shorter than sequence length
             states = tf.concat(

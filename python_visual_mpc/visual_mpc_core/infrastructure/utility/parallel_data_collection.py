@@ -32,25 +32,16 @@ def worker(conf):
     else:
         Simulator = Sim
 
-    # Simulator = Sim
-
     s = Simulator(conf)
     s.run()
 
-
-@ray.remote
+# @ray.remote
 def bench_worker(conf):
     print 'started process with PID:', os.getpid()
     random.seed(None)
     np.random.seed(None)
     perform_benchmark(conf, gpu_id=conf['gpu_id'])
 
-class Modhyper(object):
-    def __init__(self, conf):
-        self.agent = conf.agent
-        self.common = conf.common
-        self.config = conf.config
-        self.policy = conf.policy
 
 def main():
     parser = argparse.ArgumentParser(description='run parllel data collection')
@@ -101,7 +92,7 @@ def main():
         use_worker = bench_worker
     else: use_worker = worker
 
-    use_ray = True
+    use_ray = False
     if use_ray:
         ray.init()
         id_list = []

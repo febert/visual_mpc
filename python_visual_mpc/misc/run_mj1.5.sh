@@ -1,0 +1,1 @@
+LD_PRELOAD=/usr/lib/x86_64-linux-gnu/libGLEW.so python minimal_mujoco_1.5.py

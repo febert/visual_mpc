@@ -78,9 +78,9 @@ def setup_predictor(conf, gpu_id=0, ngpu=1):
             else:
                 use_dtype = tf.float32
 
+            orig_size = conf['orig_size']
             images_pl = tf.placeholder(use_dtype, name='images',
-                                       shape=(conf['batch_size'], conf['sequence_length'], conf['img_height'],
-                                              conf['img_width'], 3))
+                                       shape=(conf['batch_size'], conf['sequence_length'], orig_size[0], orig_size[1], 3))
             sdim = conf['sdim']
             adim = conf['adim']
             print 'adim', adim
@@ -94,7 +94,7 @@ def setup_predictor(conf, gpu_id=0, ngpu=1):
                 pix_distrib = None
             else:
                 pix_distrib = tf.placeholder(use_dtype, shape=(
-                conf['batch_size'], conf['context_frames'], conf['ndesig'], conf['img_height'], conf['img_width'], 1))
+                conf['batch_size'], conf['context_frames'], conf['ndesig'], orig_size[0], orig_size[1], 1))
 
             # making the towers
             towers = []

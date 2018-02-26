@@ -376,6 +376,9 @@ class AgentMuJoCo(object):
 
         img_string, width, height = self.viewer.get_image()
         large_img = np.fromstring(img_string, dtype='uint8').reshape((height, width, 3))[::-1,:,:]
+
+        if np.sum(large_img) < 1e-3:
+            print "agent_mj: image black !!!!!"
         self.large_images.append(large_img)
 
         assert self._hyperparams['viewer_image_width']/self._hyperparams['image_width'] == self._hyperparams['viewer_image_height']/self._hyperparams['image_height']

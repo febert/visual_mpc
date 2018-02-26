@@ -28,7 +28,7 @@ import matplotlib.pyplot as plt
 
 model.data.qpos = q = np.array([0., 0., 0.])
 
-T = 10
+T = 1000
 for t in range(T):
 
 
@@ -46,7 +46,7 @@ for t in range(T):
 
     Image.fromarray(largeimage).save('testimg.png')
 
-    # img_string, width, height = viewer.get_depth()
+    img_string, width, height = viewer.get_depth()
     # largedimage = np.fromstring(img_string, dtype=np.float32).reshape(
     #     (480, 480, 1))[::-1, :, :]
 

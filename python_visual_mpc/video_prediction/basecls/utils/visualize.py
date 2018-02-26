@@ -22,11 +22,12 @@ def create_one_hot(conf, desig_pix_l, batch_mode=False):
     """
     one_hot_l = []
     ndesig = desig_pix_l[0].shape[0]
+    orig_size = conf['orig_size']
 
     for i in range(len(desig_pix_l)):
 
         desig_pix = desig_pix_l[i]
-        one_hot = np.zeros((1, conf['context_frames'], ndesig, conf['img_height'], conf['img_width'], 1), dtype=np.float32)
+        one_hot = np.zeros((1, conf['context_frames'], ndesig, orig_size[0], orig_size[1], 1), dtype=np.float32)
         for p in range(ndesig):
             # switch on pixels
             if 'modelconfiguration' in conf:
@@ -37,7 +38,7 @@ def create_one_hot(conf, desig_pix_l, batch_mode=False):
             else:
                 one_hot[0, 0, p, desig_pix[p, 0], desig_pix[p, 1]] = 1.
 
-        app_zeros = np.zeros((1, conf['sequence_length'] - conf['context_frames'], ndesig, conf['img_height'], conf['img_width'], 1), dtype=np.float32)
+        app_zeros = np.zeros((1, conf['sequence_length'] - conf['context_frames'], ndesig, orig_size[0], orig_size[1], 1), dtype=np.float32)
         one_hot = np.concatenate([one_hot, app_zeros], axis=1)
         one_hot_l.append(one_hot)
 
@@ -116,20 +117,29 @@ def visualize_diffmotions(sess, conf, model):
     print "selected designated position for aux1 [row,col]:", desig_pos
 
     one_hot = create_one_hot(conf, [desig_pos])[0]
+
     sel_state = np.stack([state[b_exp, ind0], state[b_exp, ind0 + 1]], axis=0)
 
     start_states = np.concatenate([sel_state, np.zeros((conf['sequence_length'] - 2, statedim))])
     start_states = np.expand_dims(start_states, axis=0)
     start_states = np.repeat(start_states, conf['batch_size'], axis=0)  # copy over batch
 
-    start_images = np.concatenate([sel_img, np.zeros((conf['sequence_length'] - 2, conf['img_height'], conf['img_width'], 3))])
+    orig_size = conf['orig_size']
+
+    start_images = np.concatenate([sel_img, np.zeros((conf['sequence_length'] - 2, orig_size[0], orig_size[1], 3))])
     start_images = np.expand_dims(start_images, axis=0)
     start_images = np.repeat(start_images, conf['batch_size'], axis=0)  # copy over batch
 
     actions = np.zeros([conf['batch_size'], conf['sequence_length'], adim])
 
     # step = .025
-    step = .055
+
+    if adim == 3: # cartgripper sim
+        print 'visualizing cartgripper'
+        step = 10
+    else:
+        step = .055
+
     n_angles = 8  # 8
     col_titles = []
     for b in range(n_angles):
@@ -188,7 +198,6 @@ def visualize_diffmotions(sess, conf, model):
                                         ]
                                         ,feed_dict)
 
-    pdb.set_trace()
 
     dict = OrderedDict()
     gen_images = [im.astype(np.float32) for im in gen_images]
