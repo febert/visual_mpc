@@ -23,9 +23,9 @@ agent = {
     'filename_nomarkers': DATA_DIR+'/mjc_models/cartgripper_grasp.xml',
     'data_collection': True,
     'sample_objectpos':'',
-    'adim':4,
-    'sdim':10,
-    'xpos0': np.array([0., 0., 0.05, 0., 0.]), #initialize state dimension to 5 zeros
+    'adim':5,
+    'sdim':12,
+    'xpos0': np.array([0., 0., 0.05, 0., 0., 0.]), #initialize state dimension to 5 zeros
     'dt': 0.05,
     'substeps': 50,  #6
     'T': 100,

@@ -44,26 +44,27 @@ class DeterministicGraspPolicy(Policy):
             actions = np.zeros(self.adim)
             actions[:2] = traj.Object_pose[t, 0, :2]
             actions[2] = self.agentparams['ztarget']
-            actions[3] = -100
+            actions[3] = 3.14/4
+            actions[-1] = -100
             return actions, None
 
         elif self.drop:
             actions = np.zeros(self.adim)
             actions[:2] = traj.Object_pose[t, 0, :2]
             actions[2] = -0.08
-            actions[3] = -100
+            actions[-1] = -100
             return actions, None
         elif self.lift:
             actions = np.zeros(self.adim)
             actions[:2] = traj.Object_pose[t, 0, :2]
             actions[2] = self.agentparams['ztarget']
-            actions[3] = 21
+            actions[-1] = 21
 
             return actions, None
         elif self.grasp:
             actions = np.zeros(self.adim)
             actions[:2] = traj.Object_pose[t, 0, :2]
             actions[2] = -0.08
-            actions[3] = 5. / 10 * self.graspTime
+            actions[-1] = 5. / 10 * self.graspTime
             self.graspTime += 1
             return actions, None

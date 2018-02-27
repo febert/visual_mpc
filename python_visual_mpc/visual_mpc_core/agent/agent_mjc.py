@@ -189,8 +189,16 @@ class AgentMuJoCo(object):
 
         # Take the sample.
         for t in range(self.T):
+            # print 'qpos dim', self._model.data.qpos.shape
+            # print 'qvel dim', self._model.data.qvel.shape
+
             qpos_dim = self.sdim / 2  # the states contains pos and vel
             traj.X_full[t, :] = self._model.data.qpos[:qpos_dim].squeeze()
+            # print 'qpos', self._model.data.qpos.squeeze()
+            # print 'ctrl', self._model.data.ctrl
+            # print 1 / 0
+
+
             traj.Xdot_full[t, :] = self._model.data.qvel[:qpos_dim].squeeze()
             traj.X_Xdot_full[t, :] = np.concatenate([traj.X_full[t, :], traj.Xdot_full[t, :]])
             assert self._model.data.qpos.shape[0] == qpos_dim + 7 * self._hyperparams['num_objects']
@@ -235,7 +243,9 @@ class AgentMuJoCo(object):
                     ctrl[2] -= self._model.data.qpos[2].squeeze()
 
                 self._model.data.ctrl = ctrl
+                # print 'ncon', self._model.data.ncon
                 self._model.step()
+
 
             if 'touch' in self._hyperparams:
                 traj.touchdata[t, :] = accum_touch.squeeze()
@@ -272,7 +282,7 @@ class AgentMuJoCo(object):
         if any(zval < -2e-2 for zval in end_zpos):
             print 'object fell out!!!'
             traj_ok = False
-
+        print 'ret'
         return traj_ok, traj
 
     def save_goal_image_conf(self, traj):
