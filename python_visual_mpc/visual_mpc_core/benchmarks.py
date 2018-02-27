@@ -83,8 +83,8 @@ def perform_benchmark(conf = None, gpu_id=None):
         traj_names = make_traj_name_list({'source_basedirs': conf['source_basedirs'],
                                                   'ngroup': conf['ngroup']}, shuffle=False)
 
-    result_file = bench_dir + '/results_{}to{}.txt'.format(conf['start_index'], conf['end_index'])
-    scores_pkl_file = bench_dir + '/scores_{}to{}.pkl'.format(conf['start_index'], conf['end_index'])
+    result_file = bench_dir + '/results_{}to{}.txt'.format(conf['start_index'], conf['end_index']-1)
+    scores_pkl_file = bench_dir + '/scores_{}to{}.pkl'.format(conf['start_index'], conf['end_index']-1)
     if os.path.isfile(bench_dir + '/result_file'):
         raise ValueError("the file {} already exists!!".format(result_file))
 

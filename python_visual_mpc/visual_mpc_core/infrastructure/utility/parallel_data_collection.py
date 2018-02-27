@@ -143,15 +143,15 @@ def combine_scores(dir, start_idx, end_idx, exp_name):
     full_scores = []
     full_anglecost = []
     for st_ind, end_ind in zip(start_idx, end_idx):
-        filename = dir + '/scores_{}to{}.pkl'.format(st_ind, end_idx)
+        filename = dir + '/scores_{}to{}.pkl'.format(st_ind, end_ind)
         dict_ = cPickle.load(open(filename, "rb"))
 
-        full_scores += dict_['scores']
-        full_anglecost += dict_['anglecost']
+        full_scores.append(dict_['scores'])
+        full_anglecost.append(dict_['anglecost'])
 
-    scores = np.array(full_scores)
+    scores = np.concatenate(full_scores, axis=0)
     sorted_ind = scores.argsort()
-    anglecost = np.array(full_anglecost)
+    anglecost = np.concatenate(full_anglecost, axis=0)
 
     f = open(dir + '/results_all.txt', 'w')
     f.write('experiment name: ' + exp_name + '\n')
@@ -176,4 +176,14 @@ def sorted_alphanumeric(l):
     return sorted(l, key = alphanum_key)
 
 if __name__ == '__main__':
-    main()
+    # main()
+
+    n_worker = 1
+    n_traj = 51
+    dir = '/home/frederik/Documents/catkin_ws/src/visual_mpc/experiments/cem_exp/benchmarks/appflow'
+
+    traj_per_worker = int(n_traj / np.float32(n_worker))
+    start_idx = [traj_per_worker * i for i in range(n_worker)]
+    end_idx = [traj_per_worker * (i + 1) - 1 for i in range(n_worker)]
+
+    combine_scores(dir, start_idx, end_idx, 'test')
