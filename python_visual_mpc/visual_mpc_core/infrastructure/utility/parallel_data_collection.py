@@ -15,7 +15,7 @@ import re
 
 from python_visual_mpc.visual_mpc_core.infrastructure.utility.create_configs import CollectGoalImageSim
 import ray
-
+import cPickle
 def worker(conf):
     print 'started process with PID:', os.getpid()
     print 'making trajectories {0} to {1}'.format(
@@ -64,7 +64,7 @@ def main():
     hyperparams_file = data_coll_dir + '/hyperparams.py'
     do_benchmark = False
 
-    if os.path.isfile(hyperparams_file):
+    if os.path.isfile(hyperparams_file):  # if not found in data_coll_dir
         hyperparams = imp.load_source('hyperparams', hyperparams_file).config
         n_traj = hyperparams['end_index']
     else:
@@ -80,6 +80,13 @@ def main():
     start_idx = [traj_per_worker * i for i in range(n_worker)]
     end_idx =  [traj_per_worker * (i+1)-1 for i in range(n_worker)]
 
+
+    if do_benchmark:
+        try:
+            combine_scores(hyperparams['current_dir'], start_idx, end_idx, )
+        except:
+            pass
+
     conflist = []
 
     hyperparams['agent']['data_save_dir'] = os.path.join(os.environ['VMPC_DATA_DIR'], hyperparams['agent']['data_save_dir'])  # directory where to save trajectories
@@ -92,7 +99,7 @@ def main():
         use_worker = bench_worker
     else: use_worker = worker
 
-    use_ray = False
+    use_ray = False  # ray can cause black images!!
     if use_ray:
         ray.init()
         id_list = []
@@ -117,6 +124,9 @@ def main():
         else:
             use_worker(conflist[0])
 
+    if do_benchmark:
+        combine_scores(conflist)
+
     traindir = modconf['agent']["data_save_dir"]
     testdir = '/'.join(traindir.split('/')[:-1] + ['/test'])
     if not os.path.exists(testdir):
@@ -126,6 +136,38 @@ def main():
     files = sorted_alphanumeric(files)
     if os.path.isfile(files[0]): #don't do anything if directory
         shutil.move(files[0], testdir)
+
+
+def combine_scores(dir, start_idx, end_idx, exp_name):
+
+    full_scores = []
+    full_anglecost = []
+    for st_ind, end_ind in zip(start_idx, end_idx):
+        filename = dir + '/scores_{}to{}.pkl'.format(st_ind, end_idx)
+        dict_ = cPickle.load(open(filename, "rb"))
+
+        full_scores += dict_['scores']
+        full_anglecost += dict_['anglecost']
+
+    scores = np.array(full_scores)
+    sorted_ind = scores.argsort()
+    anglecost = np.array(full_anglecost)
+
+    f = open(dir + '/results_all.txt', 'w')
+    f.write('experiment name: ' + exp_name + '\n')
+    f.write('overall best pos score: {0} of traj {1}\n'.format(scores[sorted_ind[0]], sorted_ind[0]))
+    f.write('overall worst pos score: {0} of traj {1}\n'.format(scores[sorted_ind[-1]], sorted_ind[-1]))
+    f.write('average pos score: {0}\n'.format(np.mean(scores)))
+    f.write('standard deviation of population {0}\n'.format(np.std(scores)))
+    f.write('standard error of the mean (SEM) {0}\n'.format(np.std(scores) / np.sqrt(scores.shape[0])))
+    f.write('---\n')
+    f.write('average angle cost: {0}\n'.format(np.mean(anglecost)))
+    f.write('----------------------\n')
+    f.write('traj: score, anglecost, rank\n')
+    f.write('----------------------\n')
+    for n, t in enumerate(range(0, end_idx[-1]+1)):
+        f.write('{0}: {1}, {2}, :{3}\n'.format(t, scores[n], anglecost[n], np.where(sorted_ind == n)[0][0]))
+    f.close()
 
 def sorted_alphanumeric(l):
     """ Sort the given iterable in the way that humans expect."""

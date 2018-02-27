@@ -83,7 +83,8 @@ def perform_benchmark(conf = None, gpu_id=None):
         traj_names = make_traj_name_list({'source_basedirs': conf['source_basedirs'],
                                                   'ngroup': conf['ngroup']}, shuffle=False)
 
-    result_file = bench_dir + '/results_{}to{}'.format(conf['start_index'], conf['end_index'])
+    result_file = bench_dir + '/results_{}to{}.txt'.format(conf['start_index'], conf['end_index'])
+    scores_pkl_file = bench_dir + '/scores_{}to{}.pkl'.format(conf['start_index'], conf['end_index'])
     if os.path.isfile(bench_dir + '/result_file'):
         raise ValueError("the file {} already exists!!".format(result_file))
 
@@ -149,6 +150,8 @@ def perform_benchmark(conf = None, gpu_id=None):
         scores = np.array(scores_l)
         sorted_ind = scores.argsort()
         anglecost = np.array(anglecost_l)
+
+        cPickle.dump({'scores':scores, 'anglecost':anglecost}, open(scores_pkl_file, 'wb'))
 
         f = open(result_file, 'w')
         f.write('experiment name: ' + benchmark_name + '\n')
