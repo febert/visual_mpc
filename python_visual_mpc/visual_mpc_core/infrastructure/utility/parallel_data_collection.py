@@ -125,7 +125,7 @@ def main():
             use_worker(conflist[0])
 
     if do_benchmark:
-        combine_scores(conflist)
+        combine_scores(hyperparams['current_dir'], start_idx, end_idx, exp_name)
 
     traindir = modconf['agent']["data_save_dir"]
     testdir = '/'.join(traindir.split('/')[:-1] + ['/test'])
