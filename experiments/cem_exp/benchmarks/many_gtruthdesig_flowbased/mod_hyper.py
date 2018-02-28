@@ -28,10 +28,12 @@ agent = {
     'image_width':64,
     'additional_viewer':'',
     'data_save_dir':current_dir + '/data/train',
+    'get_curr_mask':'',
+    'gtruthdesig':'',
 }
 
 policy = {
-    'verbose':'',
+    # 'verbose':'',  #########
     'type' : CEM_controller,
     'low_level_ctrl': None,
     'current_dir':current_dir,

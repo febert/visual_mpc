@@ -14,7 +14,7 @@ import copy
 
 import matplotlib.pyplot as plt
 from matplotlib.patches import ConnectionPatch
-
+import pdb
 class CollectGoalImageSim(Sim):
     """
     All communication between the algorithms and MuJoCo is done through
@@ -64,7 +64,7 @@ class CollectGoalImageSim(Sim):
         for t in range(self.agentparams['T']-1):
             self.store_data(t, traj)
             if 'make_gtruth_flows' in self.agentparams:
-                traj.large_ob_masks[t], traj.large_arm_masks[t] = self.get_obj_masks(include_arm=True)
+                traj.ob_masks[t], traj.arm_masks[t], traj.large_ob_masks[t], traj.large_arm_masks[t] = self.get_obj_masks()
             if t> 0:
                 traj.bwd_flow[t-1] = self.compute_gtruth_flow(t, traj)
                 # plt.figure()
@@ -77,11 +77,11 @@ class CollectGoalImageSim(Sim):
         t += 1
         self.store_data(t, traj)
         if 'make_gtruth_flows' in self.agentparams:
-            traj.large_ob_masks[t], traj.large_arm_masks[t] = self.get_obj_masks(include_arm=True)
+            traj.ob_masks[t], traj.arm_masks[t], traj.large_ob_masks[t], traj.large_arm_masks[t] = self.get_obj_masks()
             traj.bwd_flow[t - 1] = self.compute_gtruth_flow(t, traj)
 
         if 'goal_mask' in self.agentparams:
-            traj.goal_mask, _ = self.get_obj_masks(small=True)
+            traj.goal_mask, _, _, _ = self.get_obj_masks()
 
         # discarding trajecotries where an object falls out of the bin:
         end_zpos = [traj.Object_full_pose[-1, i, 2] for i in range(self.agentparams['num_objects'])]
@@ -161,65 +161,63 @@ class CollectGoalImageSim(Sim):
         # self.agentparams['image_width'], self.agentparams['image_height']), interpolation=cv2.INTER_AREA)
         return large_img
 
-    # def get_obj_masks(self, small=False, include_arm=False):
-    #     complete_img = self.get_image()
-    #     masks = []
-    #
-    #     armmask = None
-    #     if include_arm:
-    #         qpos = copy.deepcopy(self.agent._model.data.qpos)
-    #         qpos[2] -= 10
-    #         self.agent._model.data.qpos = qpos
-    #         self.agent._model.data.ctrl = np.zeros(3)
-    #         self.agent._model.step()
-    #         img = self.get_image()
-    #         mask = 1 - np.uint8(np.all(complete_img == img, axis=-1)) * 1
-    #         qpos[2] += 10
-    #         self.agent._model.data.qpos = qpos
-    #         self.agent._model.data.ctrl = np.zeros(3)
-    #         self.agent._model.step()
-    #         self.agent._model.data.qpos = qpos
-    #         self.agent.viewer.loop_once()
-    #         if small:
-    #             mask = cv2.resize(mask, dsize=(
-    #                 self.agentparams['image_width'], self.agentparams['image_height']), interpolation=cv2.INTER_NEAREST)
-    #
-    #         armmask = mask
-    #         # plt.ion()
-    #         # plt.figure()
-    #         # plt.imshow(np.squeeze(mask))
-    #         # plt.title('armmask')
-    #         # plt.draw()
-    #
-    #     for i in range(self.num_ob):
-    #         qpos = copy.deepcopy(self.agent._model.data.qpos)
-    #         qpos[3+2+i*7] -= 1
-    #         self.agent._model.data.qpos = qpos
-    #         self.agent._model.data.ctrl = np.zeros(3)
-    #         self.agent._model.step()
-    #         self.agent._model.data.qpos = qpos
-    #         img = self.get_image()
-    #         mask = 1 - np.uint8(np.all(complete_img == img, axis=-1))*1
-    #         qpos[3 + 2 + i * 7] += 1
-    #         self.agent._model.data.qpos = qpos
-    #         self.agent._model.data.ctrl = np.zeros(3)
-    #         self.agent._model.step()
-    #         self.agent._model.data.qpos = qpos
-    #         self.agent.viewer.loop_once()
-    #
-    #         if small:
-    #             mask = cv2.resize(mask, dsize=(
-    #             self.agentparams['image_width'], self.agentparams['image_height']), interpolation=cv2.INTER_NEAREST)
-    #         masks.append(mask)
-    #
-    #         # plt.figure()
-    #         # plt.imshow(masks[-1])
-    #         # plt.title('objectmask')
-    #         # plt.draw()
-    #
-    #     obmasks = np.stack(masks, 0)
-    #
-    #     return obmasks, armmask
+    def get_obj_masks(self):
+        complete_img = self.get_image()
+        ob_masks = []
+        large_ob_masks = []
+
+        armmask = None
+        large_armmask = None
+
+        qpos = copy.deepcopy(self.agent._model.data.qpos)
+        qpos[2] -= 10
+        self.agent._model.data.qpos = qpos
+        self.agent._model.data.ctrl = np.zeros(3)
+        self.agent._model.step()
+        img = self.get_image()
+        mask = 1 - np.uint8(np.all(complete_img == img, axis=-1)) * 1
+        qpos[2] += 10
+        self.agent._model.data.qpos = qpos
+        self.agent._model.data.ctrl = np.zeros(3)
+        self.agent._model.step()
+        self.agent._model.data.qpos = qpos
+        self.agent.viewer.loop_once()
+        large_armmask = mask
+        mask = cv2.resize(mask, dsize=(self.agentparams['image_width'], self.agentparams['image_height']), interpolation=cv2.INTER_NEAREST)
+        armmask = mask
+        # plt.figure()
+        # plt.imshow(np.squeeze(mask))
+        # plt.title('armmask')
+        # plt.show()
+
+        for i in range(self.num_ob):
+            qpos = copy.deepcopy(self.agent._model.data.qpos)
+            qpos[3+2+i*7] -= 1
+            self.agent._model.data.qpos = qpos
+            self.agent._model.data.ctrl = np.zeros(3)
+            self.agent._model.step()
+            self.agent._model.data.qpos = qpos
+            img = self.get_image()
+            mask = 1 - np.uint8(np.all(complete_img == img, axis=-1))*1
+            qpos[3 + 2 + i * 7] += 1
+            self.agent._model.data.qpos = qpos
+            self.agent._model.data.ctrl = np.zeros(3)
+            self.agent._model.step()
+            self.agent._model.data.qpos = qpos
+            self.agent.viewer.loop_once()
+
+            large_ob_masks.append(mask)
+            mask = cv2.resize(mask, dsize=(self.agentparams['image_width'], self.agentparams['image_height']), interpolation=cv2.INTER_NEAREST)
+            ob_masks.append(mask)
+
+            # plt.figure()
+            # plt.imshow(masks[-1])
+            # plt.title('objectmask')
+            # plt.show()
+        ob_masks = np.stack(ob_masks, 0)
+        large_ob_masks = np.stack(large_ob_masks, 0)
+
+        return ob_masks, armmask, large_ob_masks, large_armmask
 
     def store_data(self, t, traj):
         qpos_dim = self.agent.sdim / 2  # the states contains pos and vel

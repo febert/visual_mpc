@@ -53,6 +53,11 @@ class Trajectory(object):
             self.large_arm_masks = np.zeros([self.T, conf['viewer_image_height'],
                                             conf['viewer_image_width']])  # x,y rot of  block
 
+            self.ob_masks = np.zeros([self.T, conf['num_objects'], conf['image_height'],
+                                             conf['image_width']])  # x,y rot of  block
+            self.arm_masks = np.zeros([self.T, conf['image_height'],
+                                             conf['image_width']])  # x,y rot of  block
+
             self.largeimage = np.zeros((self.T,
                                         conf['viewer_image_height'],
                                         conf['viewer_image_width'], 3), dtype='uint8')

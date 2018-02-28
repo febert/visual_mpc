@@ -15,9 +15,9 @@ from python_visual_mpc.video_prediction.setup_predictor_towers import setup_pred
 configuration = {
 'experiment_name': 'rndaction_var10',
 'pred_model':Dynamic_Base_Model,
+'setup_predictor':setup_predictor,
 'output_dir': OUT_DIR,      #'directory for model checkpoints.' ,
 'current_dir': current_dir, #'directory for writing summary.' ,
-'setup_predictor':setup_predictor,
 'num_iterations': 200000,   #'number of training iterations.' ,
 'pretrained_model':base_dir + '/tensorflow_data/sim/cartgripper_flowonly/modeldata/model196002',     # 'filepath of a pretrained model to resume training from.' ,
 'sequence_length': 15,      # 'sequence length to load, including context frames.' ,

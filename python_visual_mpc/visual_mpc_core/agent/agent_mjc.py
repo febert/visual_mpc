@@ -47,6 +47,7 @@ class AgentMuJoCo(object):
         self.goal_mask = None
         self.goal_pix = None
         self.curr_mask = None
+        self.desig_pix = None
 
         self.load_obj_statprop = None  #loaded static object properties
         self._setup_world()
@@ -151,14 +152,17 @@ class AgentMuJoCo(object):
             goal_pix = np.around(goal_pix).astype(np.int)
         return goal_pix
 
-    def get_obj_masks(self, small=False, include_arm=False):
-        self.viewer.loop_once()
+    def get_obj_masks(self, include_arm=False):
+        self.model_nomarkers.data.qpos = self._model.data.qpos
+        self.model_nomarkers.data.qvel = self._model.data.qvel
+        self.model_nomarkers.step()
         def get_image():
+            self.viewer.loop_once()
             img_string, width, height = self.viewer.get_image()
             return np.fromstring(img_string, dtype='uint8').reshape((height, width, 3))[::-1, :, :]
-        masks = []
+        large_ob_masks = []
+        ob_masks = []
         complete_img = get_image()
-
         armmask = None
         if include_arm:
             qpos = copy.deepcopy(self._model.data.qpos)
@@ -167,49 +171,43 @@ class AgentMuJoCo(object):
             self._model.data.ctrl = np.zeros(3)
             self._model.step()
             img = get_image()
-            mask = 1 - np.uint8(np.all(complete_img == img, axis=-1)) * 1
+            armmask = 1 - np.uint8(np.all(complete_img == img, axis=-1)) * 1
             qpos[2] += 10
             self._model.data.qpos = qpos
             self._model.data.ctrl = np.zeros(3)
             self._model.step()
             self._model.data.qpos = qpos
             self.viewer.loop_once()
-            if small:
-                mask = cv2.resize(mask, dsize=(
-                    self._hyperparams['image_width'], self._hyperparams['image_height']), interpolation=cv2.INTER_NEAREST)
-            armmask = mask
             # plt.ion()
             # plt.figure()
             # plt.imshow(np.squeeze(mask))
             # plt.title('armmask')
             # plt.draw()
-        for i in range(self._hyperparams['num_obj']):
+        for i in range(self._hyperparams['num_objects']):
             qpos = copy.deepcopy(self._model.data.qpos)
             qpos[3+2+i*7] -= 1
-            self._model.data.qpos = qpos
-            self._model.data.ctrl = np.zeros(3)
-            self._model.step()
-            self._model.data.qpos = qpos
+            self.model_nomarkers.data.qpos = qpos
+            self.model_nomarkers.data.ctrl = np.zeros(3)
+            self.model_nomarkers.step()
+            self.model_nomarkers.data.qpos = qpos
             img = get_image()
             mask = 1 - np.uint8(np.all(complete_img == img, axis=-1))*1
             qpos[3 + 2 + i * 7] += 1
-            self._model.data.qpos = qpos
-            self._model.data.ctrl = np.zeros(3)
-            self._model.step()
-            self._model.data.qpos = qpos
+            self.model_nomarkers.data.qpos = qpos
+            self.model_nomarkers.data.ctrl = np.zeros(3)
+            self.model_nomarkers.step()
+            self.model_nomarkers.data.qpos = qpos
             self.viewer.loop_once()
-            if small:
-                mask = cv2.resize(mask, dsize=(
-                self._hyperparams['image_width'], self._hyperparams['image_height']), interpolation=cv2.INTER_NEAREST)
-            masks.append(mask)
-            plt.figure()
-            plt.imshow(masks[-1])
-            plt.title('objectmask')
-            plt.draw()
+            large_ob_masks.append(mask)
+            ob_masks.append(cv2.resize(mask, dsize=(
+                self._hyperparams['image_width'], self._hyperparams['image_height']), interpolation=cv2.INTER_NEAREST))
+            # plt.figure()
+            # plt.imshow(masks[-1])
+            # plt.title('objectmask')
+            # plt.show()
+        ob_masks = np.stack(ob_masks, 0)
 
-        obmasks = np.stack(masks, 0)
-        return obmasks, armmask
-
+        return ob_masks, armmask
 
     def rollout(self, policy):
         self.viewer.set_model(self.model_nomarkers)
@@ -245,8 +243,12 @@ class AgentMuJoCo(object):
                 zangle = self.quat_to_zangle(fullpose[3:])
                 traj.Object_pose[t, i, :] = np.concatenate([fullpose[:2], zangle])  # save only xyz, theta
 
-            self.desig_pix = self.get_desig_pix()
-            self.curr_mask = self.get_curr_mask() #get target object mask
+            if 'get_curr_mask' in self._hyperparams:
+                self.curr_mask, _ = self.get_obj_masks(include_arm=False) #get target object mask
+                if 'gtruthdesig' in self._hyperparams: #generate many designated pixel goal-pixel pairs
+                    self.gen_gtruthdesig()
+            else:
+                self.desig_pix = self.get_desig_pix()
 
             self._store_image(t, traj, policy)
 
@@ -256,7 +258,7 @@ class AgentMuJoCo(object):
                 mj_U, pos, ind, targets = policy.act(traj, t, init_model=self._model)
             else:
                 mj_U, bestindices_of_iter, rec_input_distrib = policy.act(traj, t, desig_pix=self.desig_pix,goal_pix=self.goal_pix,
-                                                                          goal_image=self.goal_image, goal_mask=self.goal_mask, curr_mask=self.curr_mask)
+                                                              goal_image=self.goal_image, goal_mask=self.goal_mask, curr_mask=self.curr_mask)
                 if 'add_traj_visual' in self._hyperparams:  # whether to add visuals for trajectory
                     self.large_images_traj += self.add_traj_visual(self.large_images[t], pos, ind, targets)
                 else:
@@ -541,5 +543,4 @@ class AgentMuJoCo(object):
             self._model.data.qpos = np.concatenate((xpos0, object_pos,goal,ref), 0)
         else:
             self._model.data.qpos = np.concatenate((xpos0, object_pos.flatten()), 0)
-
         self._model.data.qvel = np.zeros_like(self._model.data.qvel)

@@ -95,6 +95,18 @@ def compute_warp_cost(policyparams, flow_field, goal_pix=None, warped_images=Non
     print 'tcg {}'.format(time.time() - tc1)
     return scores
 
+def get_mask_trafo_scores(policyparams, gen_distrib, goal_mask):
+    scores = []
+    bsize = gen_distrib[0].shape[0]
+    for t in range(len(gen_distrib)):
+        score = np.abs(np.clip(gen_distrib[t], 0,1) - goal_mask[None, None, ..., None])
+        score = np.mean(score.reshape(bsize, -1), -1)
+        scores.append(score)
+    scores = np.stack(scores, axis=1)
+    per_time_multiplier = np.ones([1, len(gen_distrib)])
+    per_time_multiplier[:, -1] = policyparams['finalweight']
+    return np.sum(scores * per_time_multiplier, axis=1)
+
 class CEM_controller():
     """
     Cross Entropy Method Stochastic Optimizer
@@ -175,6 +187,7 @@ class CEM_controller():
         self.rec_input_distrib = []  # record the input distributions
 
         self.target = np.zeros(2)
+        self.desig_pix = None
 
         self.mean =None
         self.sigma =None
@@ -309,7 +322,6 @@ class CEM_controller():
 
     def switch_on_pix(self, desig):
         one_hot_images = np.zeros((self.bsize, self.netconf['context_frames'], self.ndesig, self.img_height, self.img_width, 1), dtype=np.float32)
-
         desig = np.clip(desig, np.zeros(2).reshape((1, 2)), np.array([self.img_height, self.img_width]).reshape((1, 2)) - 1).astype(np.int)
         # switch on pixels
         for p in range(self.ndesig):
@@ -345,7 +357,6 @@ class CEM_controller():
 
 
     def video_pred(self, last_frames, last_states, actions, cem_itr):
-
         t_0 = time.time()
         last_states = np.expand_dims(last_states, axis=0)
         last_states = np.repeat(last_states, self.bsize, axis=0)
@@ -358,6 +369,9 @@ class CEM_controller():
 
         if 'use_goal_image' in self.policyparams and 'comb_flow_warp' not in self.policyparams:
             input_distrib = None
+        elif 'masktrafo_obj' in self.policyparams:
+            curr_obj_mask = np.repeat(self.curr_obj_mask[None], self.netconf['context_frames'], axis=0).astype(np.float32)
+            input_distrib = np.repeat(curr_obj_mask[None], self.bsize, axis=0)[...,None]
         else:
             input_distrib = self.make_input_distrib(cem_itr)
 
@@ -382,6 +396,9 @@ class CEM_controller():
             elif 'warp_objective' in self.policyparams:
                 flow_fields, scores, warp_pts_l, warped_images = self.flow_based_score(gen_images, goal_image)
             warp_scores = copy.deepcopy(scores)
+
+        if 'masktrafo_obj' in self.policyparams:
+            scores = get_mask_trafo_scores(self.policyparams, gen_distrib, self.goal_mask)
 
         if 'use_goal_image' not in self.policyparams or 'comb_flow_warp' in self.policyparams:
             for p in range(self.ndesig):
@@ -469,15 +486,9 @@ class CEM_controller():
                                        numex=self.K, suf='t{}iter_{}'.format(self.t, cem_itr))
                 # v.build_figure()
                 v.make_direct_vid()
-
                 if 'warp_objective' in self.policyparams:
                     t_dict_['warp_pts_t{}'.format(self.t)] = sel_func(warp_pts_l)
                     t_dict_['flow_fields{}'.format(self.t)] = flow_fields[bestindices[:self.K]]
-                # t_dict_['last_frames'] = last_frames
-                # t_dict_['last_states'] = last_states
-                # t_dict_['actions'] = actions
-
-                # cPickle.dump(t_dict_, open(self.agentparams['record'] + '/plan/data{}.pkl'.format(self.t), 'wb'))
 
             if 'sawyer' in self.agentparams:
                 sorted_inds = scores.argsort()
@@ -612,7 +623,7 @@ class CEM_controller():
             input_distrib = np.concatenate(input_distrib, axis=1)
         return input_distrib
 
-    def act(self, traj, t, desig_pix = None, goal_pix= None, goal_image=None, goal_mask = None):
+    def act(self, traj, t, desig_pix = None, goal_pix= None, goal_image=None, goal_mask = None, curr_mask=None):
         """
         Return a random action for a state.
         Args:
@@ -620,10 +631,15 @@ class CEM_controller():
         """
         self.goal_mask = goal_mask
         self.goal_image = goal_image
-        self.desig_pix = np.array(desig_pix).reshape((-1, 2))
+        if desig_pix != None:
+            self.desig_pix = np.array(desig_pix).reshape((-1, 2))
+            self.ndesig = self.desig_pix.shape[0]
+
         self.goal_pix = np.array(goal_pix).reshape((-1, 2))
         self.goal_mask = goal_mask
-        self.ndesig = self.desig_pix.shape[0]
+        self.curr_obj_mask = curr_mask
+        if curr_mask != None:
+            self.ndesig = 1
 
         self.t = t
         print 'starting cem at t{}...'.format(t)

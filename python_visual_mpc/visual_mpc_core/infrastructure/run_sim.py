@@ -126,6 +126,8 @@ class Sim(object):
 
                 if 'make_gtruth_flows' in self.agentparams:
                     dict['bwd_flow'] = traj.bwd_flow
+                    dict['ob_masks'] = traj.ob_masks
+                    dict['arm_masks'] = traj.arm_masks
 
                 cPickle.dump(dict, f)
 
