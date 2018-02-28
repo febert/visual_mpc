@@ -528,7 +528,7 @@ class GoalDistanceNet(object):
             flow_errs, flow_errs_mean, flow_mags_bwd, flow_mags_bwd_gtruth, gen_images_I1, images = self.compute_bench(self, sess)
             with open(self.conf['output_dir'] + '/gtruth_flow_err.txt', 'w') as f:
                 flow_errs_flat = np.stack(flow_errs_mean).flatten()
-                string = 'average one-step flowerrs on 50 example trajectories mean {} std err of the mean {} \n'.format(
+                string = 'average one-step flowerrs on {} example trajectories mean {} std err of the mean {} \n'.format(self.bsize,
                                 np.mean(flow_errs_flat), np.std(flow_errs_flat)/np.sqrt(flow_errs_flat.shape[0]))
                 print string
                 f.write(string)
@@ -661,19 +661,23 @@ class GoalDistanceNet(object):
         return sess.run([self.avg_gtruth_flow_err_sum], {self.flow_errs_mean_pl: flow_errs_mean})[0]
 
     def compute_bench(self, model, sess):
-        self.conf['source_basedirs'] = [os.environ['VMPC_DATA_DIR'] + '/cartgripper_gtruth_flow/train']
+        # self.conf['source_basedirs'] = [os.environ['VMPC_DATA_DIR'] + '/cartgripper_gtruth_flow/train']
+        self.conf['source_basedirs'] = [os.environ['VMPC_DATA_DIR'] + '/cartgripper_gtruth_flow_masks/train']
+        self.conf['sequence_length'] = 9
         tag_images = {'name': 'images',
                       'file': '/images/im{}.png',  # only tindex
                       'shape': [48, 64, 3]}
         tag_bwd_flow = {'name': 'bwd_flow',
                         'not_per_timestep': '',
-                        'shape': [8, 48, 64, 2]}
-        self.conf['sequence_length'] = 9
-        self.conf['sourcetags'] = [tag_images, tag_bwd_flow]
-        self.conf['ngroup'] = 100
+                        'shape': [self.conf['sequence_length']-1, 48, 64, 2]}
+        ob_masks = {'name': 'ob_masks',
+                    'not_per_timestep': '',
+                    'shape': [self.conf['sequence_length'], 1, 48, 64]}
+        self.conf['sourcetags'] = [tag_images, tag_bwd_flow, ob_masks]
+        self.conf['ngroup'] = 1000
         r = OnlineReader(self.conf, 'val', sess=sess)
-        images, tag_bwd_flow = r.get_batch_tensors()
-        [images, gtruth_bwd_flows] = sess.run([images, tag_bwd_flow])
+        images, tag_bwd_flow, ob_masks  = r.get_batch_tensors()
+        [images, gtruth_bwd_flows, ob_masks] = sess.run([images, tag_bwd_flow, tf.squeeze(ob_masks)])
         gtruth_bwd_flows = np.flip(gtruth_bwd_flows, axis=-1)  # important ! need to flip flow to make compatible
         gen_images_I1 = []
         bwd_flows = []
@@ -681,16 +685,14 @@ class GoalDistanceNet(object):
         flow_errs = []
         flow_mags_bwd = []
         flow_mags_bwd_gtruth = []
-        gen_image_I1_gtruthwarp_l = []
-        gtruth_bwd_flows_pl = tf.placeholder(tf.float32, name='gtruth_bwd_flows_pl',
-                                             shape=(self.conf['batch_size'], self.img_height, self.img_width, 2))
-
         for t in range(images.shape[1] - 1):
             [gen_image_I1, bwd_flow] = sess.run([model.gen_I1, model.flow_bwd], {model.I0_pl: images[:, t],
                                                                                  model.I1_pl: images[:, t + 1]})
             gen_images_I1.append(gen_image_I1)
             bwd_flows.append(bwd_flow)
-            flow_errs.append(np.linalg.norm(bwd_flow - gtruth_bwd_flows[:, t], axis=-1))
+
+            flow_diffs = bwd_flow - gtruth_bwd_flows[:, t]
+            flow_errs.append(np.linalg.norm(ob_masks[:, t,:,:,None]*flow_diffs, axis=-1))
             flow_errs_mean.append(np.mean(np.mean(flow_errs[-1], axis=1), axis=1))
             flow_mags_bwd.append(np.linalg.norm(bwd_flow, axis=-1))
             flow_mags_bwd_gtruth.append(np.linalg.norm(gtruth_bwd_flows[:, t], axis=-1))
@@ -724,10 +726,11 @@ def make_plots(conf, dict=None, filename = None):
     # num_exp = I0_t_reals[0].shape[0]
     num_ex = 4
     start_ex = 0
-
     num_rows = num_ex*len(videos.keys())
-
     num_cols = len(I0_ts) + 1
+
+    print 'num_rows', num_rows
+    print 'num_cols', num_cols
 
     width_per_ex = 2.5
 
@@ -736,10 +739,10 @@ def make_plots(conf, dict=None, filename = None):
 
     f, axarr = plt.subplots(num_rows, num_cols, figsize=figsize)
 
+    print 'start'
     for col in range(num_cols -1):
         row = 0
         for ex in range(start_ex, start_ex + num_ex, 1):
-
             for tag in videos.keys():
                 print 'doing tag {}'.format(tag)
                 if isinstance(videos[tag], tuple):
@@ -776,7 +779,7 @@ def make_plots(conf, dict=None, filename = None):
 
 
 if __name__ == '__main__':
-    filedir = '/home/frederik/Documents/catkin_ws/src/visual_mpc/tensorflow_data/gdn/tdac_cons1e-4/modeldata'
+    filedir = '/home/frederik/Documents/catkin_ws/src/visual_mpc/tensorflow_data/gdn/tdac_cons0_cartgripper/modeldata'
     conf = {}
     conf['output_dir'] = filedir
     make_plots(conf, filename= filedir + '/data.pkl')

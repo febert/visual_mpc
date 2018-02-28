@@ -18,7 +18,7 @@ SUMMARY_INTERVAL = 400
 # How often to run a batch through the validation model.
 VAL_INTERVAL = 500
 
-BENCH_INTERVAL = 1000
+BENCH_INTERVAL = -1
 
 IMAGE_INTERVAL = 5000
 
@@ -181,7 +181,7 @@ def main(unused_argv, conf_script= None):
             [val_summary_str] = sess.run([model.val_summ_op], feed_dict)
             summary_writer.add_summary(val_summary_str, itr)
 
-        if itr % BENCH_INTERVAL == 0:
+        if BENCH_INTERVAL != -1 and itr % BENCH_INTERVAL == 0:
             summary_writer.add_summary(model.run_bench(benchmodel, sess), itr)
 
         if itr % IMAGE_INTERVAL ==0:

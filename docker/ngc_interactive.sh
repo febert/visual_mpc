@@ -10,7 +10,7 @@ ngc batch run -n "Cloud-nv-us-west-2-111050" \
   --ace nv-us-west-2 \
   -in ngcv1 \
   --result /results \
-   --datasetid 8350:/docker_home/pushing_data \
+   --datasetid 8350:/docker_home/pushing_data,8522:/docker_home/pushing_data \
    -c "/bin/sleep 3600"
 
 
