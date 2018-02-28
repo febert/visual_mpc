@@ -288,6 +288,8 @@ class GoalDistanceNet(object):
             out_ch, [k, k],
             stride=1)
 
+        h = self.normalizer_fn(h)
+
         if upsmp:
             mult = 2
         else: mult = 0.5
