@@ -151,7 +151,7 @@ class CEM_controller():
         self.goal_image_warper = goal_image_warper
         self.goal_image = None
 
-        self.ndesig = None
+        self.ndesig = 1
 
         self.K = 10  # only consider K best samples for refitting
 
@@ -559,7 +559,7 @@ class CEM_controller():
         return flow_fields, scores, warp_pts_l, warped_images
 
     def image_addgoalpix(self, image_l):
-        for ob in range(self.agentparams['num_objects']):
+        for ob in range(self.goal_pix.shape[0]):
             goal_pix_ob = self.goal_pix[ob]
             goal_pix_ob = np.tile(goal_pix_ob[None, None, :], [self.bsize, self.seqlen - 1, 1])
             image_l = add_crosshairs(image_l, goal_pix_ob)
@@ -638,8 +638,6 @@ class CEM_controller():
         self.goal_pix = np.array(goal_pix).reshape((-1, 2))
         self.goal_mask = goal_mask
         self.curr_obj_mask = curr_mask
-        if curr_mask != None:
-            self.ndesig = 1
 
         self.t = t
         print 'starting cem at t{}...'.format(t)

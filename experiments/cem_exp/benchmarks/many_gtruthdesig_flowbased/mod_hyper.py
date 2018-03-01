@@ -30,10 +30,11 @@ agent = {
     'data_save_dir':current_dir + '/data/train',
     'get_curr_mask':'',
     'gtruthdesig':32,
+    'make_gtruth_flows':''
 }
 
 policy = {
-    # 'verbose':'',  #########
+    'verbose':'',
     'type' : CEM_controller,
     'low_level_ctrl': None,
     'current_dir':current_dir,

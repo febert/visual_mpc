@@ -47,9 +47,11 @@ def main():
     parser = argparse.ArgumentParser(description='run parllel data collection')
     parser.add_argument('experiment', type=str, help='experiment name')
     parser.add_argument('--nworkers', type=int, help='use multiple threads or not', default=10)
+    parser.add_argument('--gpu_id', type=int, help='the starting gpu_id', default=0)
 
     args = parser.parse_args()
     exp_name = args.experiment
+    gpu_id = args.gpu_id
 
     n_worker = args.nworkers
     if args.nworkers == 1:
@@ -107,7 +109,7 @@ def main():
             modconf = copy.deepcopy(hyperparams)
             modconf['start_index'] = start_idx[i]
             modconf['end_index'] = end_idx[i]
-            modconf['gpu_id'] = i
+            modconf['gpu_id'] = i + gpu_id
             id_list.append(use_worker.remote(modconf))
 
         res = [ray.get(id) for id in id_list]
