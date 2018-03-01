@@ -84,11 +84,11 @@ def perform_benchmark(conf = None, gpu_id=None):
                                                   'ngroup': conf['ngroup']}, shuffle=False)
 
     result_file = bench_dir + '/results_{}to{}.txt'.format(conf['start_index'], conf['end_index'])
-    scores_pkl_file = bench_dir + '/scores_{}to{}.pkl'.format(conf['start_index'], conf['end_index']-1)
+    scores_pkl_file = bench_dir + '/scores_{}to{}.pkl'.format(conf['start_index'], conf['end_index'])
     if os.path.isfile(bench_dir + '/result_file'):
         raise ValueError("the file {} already exists!!".format(result_file))
 
-    while traj < nruns:
+    while traj <= nruns:
         dict = read_trajectory(conf, traj_names[traj])
         sim.agent.load_obj_statprop = dict['obj_statprop']
         if 'reverse_action' in conf:
