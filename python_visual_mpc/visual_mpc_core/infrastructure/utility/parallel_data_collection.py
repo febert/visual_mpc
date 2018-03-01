@@ -178,14 +178,14 @@ def sorted_alphanumeric(l):
     return sorted(l, key = alphanum_key)
 
 if __name__ == '__main__':
-    # main()
+    main()
 
-    n_worker = 1
-    n_traj = 51
-    dir = '/home/frederik/Documents/catkin_ws/src/visual_mpc/experiments/cem_exp/benchmarks/appflow'
-
-    traj_per_worker = int(n_traj / np.float32(n_worker))
-    start_idx = [traj_per_worker * i for i in range(n_worker)]
-    end_idx = [traj_per_worker * (i + 1) - 1 for i in range(n_worker)]
-
-    combine_scores(dir, start_idx, end_idx, 'test')
+    # n_worker = 1
+    # n_traj = 51
+    # dir = '/home/frederik/Documents/catkin_ws/src/visual_mpc/experiments/cem_exp/benchmarks/appflow'
+    #
+    # traj_per_worker = int(n_traj / np.float32(n_worker))
+    # start_idx = [traj_per_worker * i for i in range(n_worker)]
+    # end_idx = [traj_per_worker * (i + 1) - 1 for i in range(n_worker)]
+    #
+    # combine_scores(dir, start_idx, end_idx, 'test')
