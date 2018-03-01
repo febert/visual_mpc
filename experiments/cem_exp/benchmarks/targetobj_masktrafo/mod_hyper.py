@@ -69,6 +69,7 @@ goal_mask = {'name': 'goal_mask',
              'not_per_timestep':''}
 
 config = {
+    'current_dir':current_dir,
     'save_data': False,
     'save_raw_images':'',
     'start_index':0,
