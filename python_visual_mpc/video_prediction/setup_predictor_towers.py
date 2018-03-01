@@ -155,7 +155,7 @@ def setup_predictor(conf, gpu_id=0, ngpu=1):
                 feed_dict[states_pl] = input_state
                 feed_dict[actions_pl] = input_actions
 
-                if input_one_hot_images == None:
+                if input_one_hot_images is None:
                     gen_images, gen_states = sess.run([comb_gen_img,
                                                       comb_gen_states],
                                                       feed_dict)
