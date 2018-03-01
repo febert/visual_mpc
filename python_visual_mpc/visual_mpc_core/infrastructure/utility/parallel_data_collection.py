@@ -118,7 +118,7 @@ def main():
             modconf = copy.deepcopy(hyperparams)
             modconf['start_index'] = start_idx[i]
             modconf['end_index'] = end_idx[i]
-            modconf['gpu_id'] = i
+            modconf['gpu_id'] = i + gpu_id
             conflist.append(modconf)
         if parallel:
             p = Pool(n_worker)
