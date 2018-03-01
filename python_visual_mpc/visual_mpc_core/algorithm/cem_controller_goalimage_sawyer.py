@@ -631,7 +631,7 @@ class CEM_controller():
         """
         self.goal_mask = goal_mask
         self.goal_image = goal_image
-        if desig_pix != None:
+        if desig_pix is not None:
             self.desig_pix = np.array(desig_pix).reshape((-1, 2))
             self.ndesig = self.desig_pix.shape[0]
 
