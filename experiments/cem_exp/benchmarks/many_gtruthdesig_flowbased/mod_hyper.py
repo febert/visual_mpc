@@ -29,7 +29,7 @@ agent = {
     'additional_viewer':'',
     'data_save_dir':current_dir + '/data/train',
     'get_curr_mask':'',
-    'gtruthdesig':'',
+    'gtruthdesig':32,
 }
 
 policy = {

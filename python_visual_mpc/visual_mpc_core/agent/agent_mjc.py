@@ -209,6 +209,45 @@ class AgentMuJoCo(object):
 
         return ob_masks, armmask
 
+    def gen_gtruthdesig(self, t, traj):
+        """
+        generate pairs of designated pixels and goal pixels by sampling designated pixels on the current object mask and finding the corresponding goal pixels
+        """
+        goal_pix = []
+        desig_pix = []
+        goal_pos = self.goal_obj_pose[0,:3]
+        goal_quat = Quaternion(self.goal_obj_pose[0, 3:])
+        curr_pos = traj.Object_full_pose[:3]
+        curr_quat = Quaternion(traj.Object_full_pose[3:])
+        inds = np.stack(np.where(self.curr_mask != 0.0), 1)
+        diff_quat = curr_quat.conjugate * goal_quat  # rotates vector form curr_quat to goal_quat
+
+        plt.imshow(self.curr_mask)
+        plt.show()
+
+        for i in range(self._hyperparams['gtruthdesig']):
+            coord = np.random.choice(inds)
+            desig_pix.append(coord)
+            abs_pos_curr_sys = self.viewer.get_3D(coord[0], coord[1], traj.largedimage[t, coord[0], coord[1]])
+            rel_pos_curr_sys = abs_pos_curr_sys - curr_pos
+            rel_pos_curr_sys = Quaternion(scalar=.0, vector=rel_pos_curr_sys)
+            rel_pos_prev_sys = diff_quat * rel_pos_curr_sys * diff_quat.conjugate
+            abs_pos_prev_sys = goal_pos + rel_pos_prev_sys.elements[1:]
+            goal_prev_sys_imspace = self.viewer.project_point(abs_pos_prev_sys)
+            goal_pix.append(goal_prev_sys_imspace)
+
+            plt.figure()
+            goalim = copy.deepcopy(self.goal_image)
+            goalim[goal_prev_sys_imspace[0], goal_prev_sys_imspace[1]] = np.array([255, 255, 255])
+            plt.imshow(goalim)
+
+            currimg = copy.deepcopy(traj._sample_images[t])
+            currimg[coord[0], coord[1]] = np.array([255, 255, 255])
+            plt.imshow(currimg)
+
+            plt.show()
+
+
     def rollout(self, policy):
         self.viewer.set_model(self.model_nomarkers)
         self.viewer.cam.camid = 0
@@ -245,12 +284,11 @@ class AgentMuJoCo(object):
 
             if 'get_curr_mask' in self._hyperparams:
                 self.curr_mask, _ = self.get_obj_masks(include_arm=False) #get target object mask
-                if 'gtruthdesig' in self._hyperparams: #generate many designated pixel goal-pixel pairs
-                    self.gen_gtruthdesig()
             else:
                 self.desig_pix = self.get_desig_pix()
-
             self._store_image(t, traj, policy)
+            if 'gtruthdesig' in self._hyperparams:  # generate many designated pixel goal-pixel pairs
+                self.desig_pix, self.goal_pix = self.gen_gtruthdesig()
 
             if 'data_collection' in self._hyperparams or 'random_baseline' in self._hyperparams:
                 mj_U, target_inc = policy.act(traj, t)

@@ -49,7 +49,7 @@ EXPOSE 6006
 EXPOSE 8888
 
 
-WORKDIR "/docker_home"
+WORKDIR "/workspace"
 
-# run with -v /home/$USER/Documents/lsdc:/docker_home
+# run with -v /home/$USER/Documents/lsdc:/workspace
 

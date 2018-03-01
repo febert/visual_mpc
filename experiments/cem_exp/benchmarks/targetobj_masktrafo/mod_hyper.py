@@ -57,7 +57,6 @@ tag_images = {'name': 'images',
              'file':'/images/im{}.png',   # only tindex
              'shape':[agent['image_height'],agent['image_width'],3],
                }
-
 tag_qpos = {'name': 'qpos',
              'shape':[3],
              'file':'/state_action.pkl'}
@@ -66,7 +65,6 @@ tag_object_full_pose = {'name': 'object_full_pose',
                          'file':'/state_action.pkl'}
 tag_object_statprop = {'name': 'obj_statprop',
                      'not_per_timestep':''}
-
 goal_mask = {'name': 'goal_mask',
              'not_per_timestep':''}
 

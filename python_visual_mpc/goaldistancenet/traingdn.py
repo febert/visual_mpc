@@ -58,6 +58,7 @@ def main(unused_argv, conf_script= None):
     if FLAGS.docker:
         conf['output_dir'] = '/results'
         print 'output goes to ', conf['output_dir']
+        conf['data_dir'] = os.environ['VMPC_DATA_DIR'] + '/train'
 
     conf['event_log_dir'] = conf['output_dir']
 
