@@ -21,6 +21,7 @@ agent = {
     'data_save_dir': BASE_DIR + '/train',
     'filename': DATA_DIR+'/mjc_models/cartgripper_grasp.xml',
     'filename_nomarkers': DATA_DIR+'/mjc_models/cartgripper_grasp.xml',
+    'gtruth_planner': True,
     'data_collection': True,
     'sample_objectpos':'',
     'adim':5,
@@ -50,7 +51,7 @@ agent = {
 
 policy = {
     'type' : DeterministicGraspPolicy,
-    'nactions': 5,
+    'nactions': 80,
     'repeats': 5, # number of repeats for each action
     'initial_std': 10.,   #std dev. in xy
     'initial_std_lift': 20,   #std dev. in xy

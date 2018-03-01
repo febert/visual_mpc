@@ -60,6 +60,7 @@ class AgentMuJoCo(object):
             self.obj_statprop = create_object_xml(self._hyperparams, self.load_obj_statprop)
             xmlfilename = create_root_xml(self._hyperparams)
             xmlfilename_nomarkers = xmlfilename
+            self._hyperparams['gen_xml_fname'] = xmlfilename
         else:
             xmlfilename = self._hyperparams['filename']
             xmlfilename_nomarkers = self._hyperparams['filename_nomarkers']
@@ -212,7 +213,10 @@ class AgentMuJoCo(object):
             self._store_image(t, traj, policy)
 
             if 'data_collection' in self._hyperparams or 'random_baseline' in self._hyperparams:
-                mj_U, target_inc = policy.act(traj, t)
+                if 'gtruth_planner' in self._hyperparams:
+                    mj_U, pos, ind, targets = policy.act(traj, t, init_model=self._model)
+                else:
+                    mj_U, target_inc = policy.act(traj, t)
             elif 'gtruth_planner' in self._hyperparams:
                 mj_U, pos, ind, targets = policy.act(traj, t, init_model=self._model)
             else:
