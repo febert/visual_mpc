@@ -226,6 +226,7 @@ class AgentMuJoCo(object):
         if len(onobject) == 0:
             print "zero pixel of object visible!"
             self.desig_pix = np.repeat(self.get_desig_pix(), self._hyperparams['gtruthdesig'], 0)
+            return
         diff_quat = curr_quat.conjugate * goal_quat  # rotates vector form curr_quat to goal_quat
         # plt.imshow(np.squeeze(self.curr_mask_large))
         # plt.show()
@@ -251,9 +252,7 @@ class AgentMuJoCo(object):
             # currimg[desig_pix[-1][0], desig_pix[-1][1]] = np.array([255, 255, 255])
             # plt.imshow(currimg)
             # plt.show()
-
         return np.stack(desig_pix, axis=0), np.stack(goal_pix, axis=0)
-
 
     def rollout(self, policy):
         self.viewer.set_model(self.model_nomarkers)
