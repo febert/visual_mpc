@@ -203,6 +203,8 @@ class CEM_controller():
         self.goal_mask = None
         self.goal_pix = None
 
+        self.plan_stat = {} #planning statistics
+
     def calc_action_cost(self, actions):
         actions_costs = np.zeros(self.M)
         for smp in range(self.M):
@@ -303,6 +305,8 @@ class CEM_controller():
             self.bestindices_of_iter[itr] = self.indices
 
             self.bestaction_withrepeat = actions[self.indices[0]]
+            self.plan_stat['scores_itr{}'.format(itr)] = scores
+            self.plan_stat['bestscore_itr{}'.format(itr)] = scores[self.indices[0]]
 
             actions = actions.reshape(self.M, self.naction_steps, self.repeat, self.adim)
             actions = actions[:,:,-1,:] #taking only one of the repeated actions
@@ -671,5 +675,6 @@ class CEM_controller():
                 print '########'
 
         self.action_list.append(action)
-        # print 'timestep: ', t, ' taking action: ', action
-        return action, self.bestindices_of_iter, self.rec_input_distrib
+
+        return action, self.plan_stat
+        # return action, self.bestindices_of_iter, self.rec_input_distrib

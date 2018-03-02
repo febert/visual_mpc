@@ -1,0 +1,13 @@
+{
+  "dockerImageName": "ucb_rail8888/tf1.4_gpu:based_nvidia",
+  "aceName": "nv-us-west-2",
+  "name": "interactive",
+  "command": "/bin/sleep 3600",
+  "datasetMounts": [
+    {
+      "containerMountPoint": "/workspace/pushing_data",
+      "id": 8350
+    }
+  ],  "resultContainerMountPoint": "/result",
+  "aceInstance": "ngcv1"
+}

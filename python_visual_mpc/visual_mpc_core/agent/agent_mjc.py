@@ -302,8 +302,9 @@ class AgentMuJoCo(object):
             elif 'gtruth_planner' in self._hyperparams:
                 mj_U, pos, ind, targets = policy.act(traj, t, init_model=self._model)
             else:
-                mj_U, bestindices_of_iter, rec_input_distrib = policy.act(traj, t, desig_pix=self.desig_pix,goal_pix=self.goal_pix,
+                mj_U, plan_stat = policy.act(traj, t, desig_pix=self.desig_pix,goal_pix=self.goal_pix,
                                                               goal_image=self.goal_image, goal_mask=self.goal_mask, curr_mask=self.curr_mask)
+                traj.plan_stat.append(plan_stat)
                 if 'add_traj_visual' in self._hyperparams:  # whether to add visuals for trajectory
                     self.large_images_traj += self.add_traj_visual(self.large_images[t], pos, ind, targets)
                 else:

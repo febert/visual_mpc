@@ -129,6 +129,9 @@ class Sim(object):
                     dict['ob_masks'] = traj.ob_masks
                     dict['arm_masks'] = traj.arm_masks
 
+                if hasattr(traj, "plan_stat"):
+                    dict['plan_stat'] = traj.plan_stat
+
                 cPickle.dump(dict, f)
 
             for t in range(traj.T):
