@@ -69,7 +69,7 @@ tag_object_statprop = {'name': 'obj_statprop',
 
 config = {
     'current_dir':current_dir,
-    'save_data': False,
+    'save_data': True,
     'save_raw_images':'',
     'start_index':0,
     'end_index': 59999,
