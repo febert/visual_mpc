@@ -223,6 +223,9 @@ class AgentMuJoCo(object):
         curr_pos = traj.Object_full_pose[t, 0, :3]
         curr_quat = Quaternion(traj.Object_full_pose[t, 0, 3:])
         onobject = np.stack(np.where(np.squeeze(self.curr_mask_large) != 0), 1)
+        if len(onobject) == 0:
+            print "zero pixel of object visible!"
+            self.desig_pix = np.repeat(self.get_desig_pix(), self._hyperparams['gtruthdesig'], 0)
         diff_quat = curr_quat.conjugate * goal_quat  # rotates vector form curr_quat to goal_quat
         # plt.imshow(np.squeeze(self.curr_mask_large))
         # plt.show()
