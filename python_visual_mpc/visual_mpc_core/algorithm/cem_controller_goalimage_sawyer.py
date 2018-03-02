@@ -127,8 +127,10 @@ class CEM_controller():
         self.t = None
 
         if 'verbose' in self.policyparams:
-            self.verbose = True
-        else: self.verbose = False
+            if isinstance(self.policyparams['verbose'], int):
+                self.verbose = self.policyparams['verbose']
+            else: self.verbose = self.agentparams['T']
+        else: self.verbose = -1
 
         self.niter = self.policyparams['iterations']
 
