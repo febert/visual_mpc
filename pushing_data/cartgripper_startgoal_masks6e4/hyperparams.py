@@ -56,6 +56,7 @@ agent = {
     'goal_mask':'',
 }
 
+
 policy = {
     'type' : lambda x, y: None,
 }
