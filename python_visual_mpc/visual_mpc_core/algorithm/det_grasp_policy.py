@@ -11,8 +11,13 @@ class DeterministicGraspPolicy(Policy):
         self.adim = agentparams['adim']
         self.n_actions = policyparams['nactions']
 
-        self.M = 20
-        self.K = 5
+        if 'num_samples' in self.policyparams:
+            self.M = self.policyparams['num_samples']
+        else: self.M = 20  # number of CEM Samples
+
+        if 'best_to_take' in self.policyparams:
+            self.K = self.policyparams['best_to_take']
+        else: self.K = 5  # best samples to average for next sampling
 
         assert self.adim >= 4, 'must have at least x, y, z + gripper actions'
 
@@ -33,15 +38,16 @@ class DeterministicGraspPolicy(Policy):
             else:
                 self.CEM_model = mujoco_py.MjModel(self.agentparams['filename'])
 
-            # CEM viewer for debugging purposes
-            gofast = False
-            self.viewer = mujoco_py.MjViewer(visible=True,
-                                             init_width=700,
-                                             init_height=480,
-                                             go_fast=gofast)
-            self.viewer.set_model(self.CEM_model)
-            self.viewer.start()
-            self.viewer.cam.camid = 0
+            if 'debug_viewer' in self.policyparams and self.policyparams['debug_viewer']:
+                # CEM viewer for debugging purposes
+                gofast = True
+                self.viewer = mujoco_py.MjViewer(visible=True,
+                                                 init_width=700,
+                                                 init_height=480,
+                                                 go_fast=gofast)
+                self.viewer.set_model(self.CEM_model)
+                self.viewer.start()
+                self.viewer.cam.camid = 0
 
         self.initial_qpos = init_model.data.qpos.copy()
         self.initial_qvel = init_model.data.qvel.copy()
@@ -54,24 +60,33 @@ class DeterministicGraspPolicy(Policy):
         self.viewer_refresh()
 
     def viewer_refresh(self):
-        self.viewer.loop_once()
+        if 'debug_viewer' in self.policyparams and self.policyparams['debug_viewer']:
+            self.viewer.loop_once()
 
     def perform_CEM(self, traj_t, traj):
-        angle_samps = np.random.normal(0.0, 3.14/2, size = self.M)
+        # print 'Beginning CEM'
+        angle_samps = np.random.normal(0.0, 3.14 / 4, size = self.M)
         scores = np.zeros(self.M)
         best_score, best_ang = -1, None
 
         for n in range(self.niter):
             for s in range(self.M):
+                # print 'On iter', n, 'sample', s
                 self.reset_CEM_model()
-                drop = True
+                move = True
+                drop = False
                 grasp = False
                 g_start = 0
                 lift = False
 
                 angle_actions = np.zeros((self.n_actions, self.adim))
-
                 for t in range(self.n_actions):
+                    cur_xy = self.CEM_model.data.qpos[:2].squeeze()
+
+                    if move and np.linalg.norm(traj.Object_pose[traj_t, 0, :2] - cur_xy, 2) <= self.agentparams['drop_thresh']:
+                        move = False
+                        drop = True
+
                     if drop and self.CEM_model.data.qpos[2] <= -0.079:
                         drop = False
                         grasp = True
@@ -79,7 +94,7 @@ class DeterministicGraspPolicy(Policy):
                     if grasp and t - g_start > 4:
                         grasp = False
                         lift = True
-                    if t < 25:
+                    if move:
                         angle_actions[t, :2] = traj.Object_pose[traj_t, 0, :2]
                         angle_actions[t, 2] = self.agentparams['ztarget']
                         angle_actions[t, 3] = angle_samps[s]
@@ -93,15 +108,18 @@ class DeterministicGraspPolicy(Policy):
                         angle_actions[t, :2] = traj.Object_pose[traj_t, 0, :2]
                         angle_actions[t, 2] = -0.08
                         angle_actions[t, 3] = angle_samps[s]
-                        angle_actions[t, 4] = 21
+                        angle_actions[t, 4] = 10
                     elif lift:
                         angle_actions[t, :2] = traj.Object_pose[traj_t, 0, :2]
                         angle_actions[t, 2] = self.agentparams['ztarget']
                         angle_actions[t, 3] = 0.
-                        angle_actions[t, 4] = 21
+                        angle_actions[t, 4] = 10
 
                     self.step_model(angle_actions[t])
-                scores[s] = self.CEM_model.data.qpos[8].squeeze() + 0.1 * np.abs(angle_samps[s])
+                # print 'final z', self.CEM_model.data.qpos[8].squeeze(), 'with angle', angle_samps[s]
+
+                scores[s] = self.CEM_model.data.qpos[8].squeeze() - 0.1 * np.abs(angle_samps[s])
+                # print 'score',scores[s]
 
             best_scores = np.argsort(-scores)[:self.K]
 
@@ -129,15 +147,15 @@ class DeterministicGraspPolicy(Policy):
 
 
     def act(self, traj, t, init_model = None):
+        self.setup_CEM_model(t, init_model)
+
         if t == 0:
             self.moveto = True
             self.drop = False
             self.lift = False
             self.grasp = False
             self.graspTime = 0
-
-
-        self.setup_CEM_model(t, init_model)
+            self.angle = self.perform_CEM(t, traj)
 
         if self.grasp and self.graspTime > 4:
             print 'lifting at time', t, '!', 'have z', traj.X_full[t, 2]
@@ -153,13 +171,13 @@ class DeterministicGraspPolicy(Policy):
             print 'swapping at time', t, '!'
             self.moveto = False
             self.drop = True
-            self.perform_CEM(t, traj)
+
 
         if self.moveto:
             actions = np.zeros(self.adim)
             actions[:2] = traj.Object_pose[t, 0, :2]
             actions[2] = self.agentparams['ztarget']
-            actions[3] = 0.
+            actions[3] = self.angle
             actions[-1] = -100
 
 
@@ -167,6 +185,7 @@ class DeterministicGraspPolicy(Policy):
             actions = np.zeros(self.adim)
             actions[:2] = traj.Object_pose[t, 0, :2]
             actions[2] = -0.08
+            actions[3] = self.angle
             actions[-1] = -100
 
             #self.sim_rollout(actions)
@@ -175,17 +194,19 @@ class DeterministicGraspPolicy(Policy):
             actions = np.zeros(self.adim)
             actions[:2] = traj.Object_pose[t, 0, :2]
             actions[2] = self.agentparams['ztarget']
-            actions[-1] = 21
+            actions[3] = 0.
+            actions[-1] = 10
 
 
         elif self.grasp:
             actions = np.zeros(self.adim)
             actions[:2] = traj.Object_pose[t, 0, :2]
             actions[2] = -0.08
-            actions[-1] = 5. / 10 * self.graspTime
+            actions[3] = self.angle
+            actions[-1] = 10. / 4 * self.graspTime
             self.graspTime += 1
 
-        if t == self.agentparams['T'] - 1:
+        if 'debug_viewer' in self.policyparams and self.policyparams['debug_viewer'] and t == self.agentparams['T'] - 1:
             self.viewer.finish()
 
         return actions, None, None, None

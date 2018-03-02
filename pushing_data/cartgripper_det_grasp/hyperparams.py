@@ -44,17 +44,21 @@ agent = {
     'custom_poscontroller':True,
     'ztarget':0.13,
     'drop_thresh':0.02,
-    #'make_final_gif':True,
-    #'record': BASE_DIR + '/record/'
+    'make_final_gif':True,
+    'record': BASE_DIR + '/record/'
     # 'displacement_threshold':0.1,
 }
 
 policy = {
     'type' : DeterministicGraspPolicy,
-    'nactions': 80,
+    'nactions': 100,
+    'iterations':1,
     'repeats': 5, # number of repeats for each action
     'initial_std': 10.,   #std dev. in xy
     'initial_std_lift': 20,   #std dev. in xy
+    'debug_viewer':True,
+    'num_samples':20,
+    'best_to_take':5,
     # 'initial_std_grasp': 1e-5,   #std dev. in xy
 }
 
