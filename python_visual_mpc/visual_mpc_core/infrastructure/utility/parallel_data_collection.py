@@ -49,6 +49,9 @@ def main():
     parser.add_argument('--nworkers', type=int, help='use multiple threads or not', default=10)
     parser.add_argument('--gpu_id', type=int, help='the starting gpu_id', default=0)
 
+    parser.add_argument('--nsplit', type=int, help='the starting gpu_id', default=-1)
+    parser.add_argument('--isplit', type=int, help='the starting gpu_id', default=-1)
+
     args = parser.parse_args()
     exp_name = args.experiment
     gpu_id = args.gpu_id
@@ -68,15 +71,22 @@ def main():
 
     if os.path.isfile(hyperparams_file):  # if not found in data_coll_dir
         hyperparams = imp.load_source('hyperparams', hyperparams_file).config
-        n_traj = hyperparams['end_index']
     else:
         print 'doing benchmark ...'
         do_benchmark = True
         experimentdir = basepath + '/experiments/cem_exp/benchmarks/' + exp_name
         hyperparams_file = experimentdir + '/mod_hyper.py'
         hyperparams = imp.load_source('hyperparams', hyperparams_file).config
-        n_traj = hyperparams['end_index']
         hyperparams['bench_dir'] = experimentdir
+
+    n_traj = hyperparams['end_index']
+
+    if args.nsplit != -1:
+        n_persplit = (hyperparams['end_index']+1)/args.nsplit
+        n_traj = n_persplit
+        hyperparams['start_index'] = args.isplit * n_persplit
+        hyperparams['end_index'] = (args.isplit+1) * n_persplit -1
+
 
     traj_per_worker = int(n_traj / np.float32(n_worker))
     start_idx = [traj_per_worker * i for i in range(n_worker)]
@@ -178,14 +188,14 @@ def sorted_alphanumeric(l):
     return sorted(l, key = alphanum_key)
 
 if __name__ == '__main__':
-    # main()
+    main()
 
-    n_worker = 2
-    n_traj = 50
-    dir = '/home/frederik/Documents/catkin_ws/src/visual_mpc/experiments/cem_exp/benchmarks/targetobj_masktrafo'
+    # n_worker = 2
+    # n_traj = 50
+    # dir = '/home/frederik/Documents/catkin_ws/src/visual_mpc/experiments/cem_exp/benchmarks/targetobj_masktrafo'
+    #
+    # traj_per_worker = int(n_traj / np.float32(n_worker))
+    # start_idx = [traj_per_worker * i for i in range(n_worker)]
+    # end_idx = [traj_per_worker * (i + 1) - 1 for i in range(n_worker)]
 
-    traj_per_worker = int(n_traj / np.float32(n_worker))
-    start_idx = [traj_per_worker * i for i in range(n_worker)]
-    end_idx = [traj_per_worker * (i + 1) - 1 for i in range(n_worker)]
-
-    combine_scores(dir, start_idx, end_idx, 'targetobj_masktrafo')
+    # combine_scores(dir, start_idx, end_idx, 'targetobj_masktrafo')

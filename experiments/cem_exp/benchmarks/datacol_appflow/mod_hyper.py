@@ -10,7 +10,6 @@ ROOT_DIR = '/'.join(str.split(ROOT_DIR, '/')[:-2])
 
 from python_visual_mpc.visual_mpc_core.agent.agent_mjc import AgentMuJoCo
 
-
 agent = {
     'type': AgentMuJoCo,
     'T': 30,
@@ -29,13 +28,13 @@ agent = {
     'image_width':64,
     'additional_viewer':'',
     'data_save_dir':current_dir + '/data/train',
-    'goal_mask':''
 }
 
 policy = {
     'verbose':'',
     'type' : CEM_controller,
     'low_level_ctrl': None,
+    'current_dir':current_dir,
     'usenet': True,
     'nactions': 5,
     'repeat': 3,
@@ -47,10 +46,11 @@ policy = {
     'action_cost_factor': 0,
     'rew_all_steps':"",
     'finalweight':10,
-    'use_goal_image':'',
     'no_action_bound':"",
-    'MSE_objective':'',
+    'use_goal_image':'',
+    'predictor_propagation': '',   # use the model get the designated pixel for the next step!
     'comb_flow_warp':0.5,  # 1.0 corresponds to only flow, 0. to only warp
+    'MSE_objective':'',
 }
 
 tag_images = {'name': 'images',
@@ -67,19 +67,16 @@ tag_object_full_pose = {'name': 'object_full_pose',
 tag_object_statprop = {'name': 'obj_statprop',
                      'not_per_timestep':''}
 
-goal_mask = {'name': 'goal_mask',
-             'not_per_timestep':''}
-
 config = {
     'current_dir':current_dir,
-    'save_data': True,
+    'save_data': False,
     'save_raw_images':'',
     'start_index':0,
     'end_index': 59999,
     'agent':agent,
     'policy':policy,
-    'ngroup': 1000,
-    'sourcetags':[tag_images, tag_qpos, tag_object_full_pose, tag_object_statprop, goal_mask],
+    'ngroup': 100,
+    'sourcetags':[tag_images, tag_qpos, tag_object_full_pose, tag_object_statprop],
     'source_basedirs':[os.environ['VMPC_DATA_DIR'] + '/cartgripper_startgoal_masks6e4/train'],
     'sequence_length':2
 }
