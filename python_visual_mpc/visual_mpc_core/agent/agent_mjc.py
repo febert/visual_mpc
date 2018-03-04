@@ -113,21 +113,6 @@ class AgentMuJoCo(object):
 
         return traj
 
-    def get_max_move_pose(self, traj):
-        """
-        get pose trajectory of the object with maximum accumulated motion
-        :param traj:
-        :return:
-        """
-        delta_move = np.zeros(self._hyperparams['num_objects'])
-        for i in range(self._hyperparams['num_objects']):
-            for t in range(self.T-1):
-                delta_move[i] += np.linalg.norm(traj.Object_pose[t+1,i,:2] -traj.Object_pose[t,i,:2])
-
-        imax = np.argmax(delta_move)
-        traj.max_move_pose = traj.Object_pose[:,imax]
-
-        return traj
 
     def get_desig_pix(self, round=True):
         qpos_dim = self.sdim / 2  # the states contains pos and vel
@@ -334,9 +319,9 @@ class AgentMuJoCo(object):
 
             accum_touch = np.zeros_like(self._model.data.sensordata)
 
-            print 'action ', mj_U
-            print 'pos', self._model.data.qpos[:self.adim]
-            print 'target pos', ctrl
+            # print 'action ', mj_U
+            # print 'pos', self._model.data.qpos[:self.adim]
+            # print 'target pos', ctrl
 
             for _ in range(self._hyperparams['substeps']):
                 self.model_nomarkers.data.qpos = self._model.data.qpos
@@ -366,14 +351,7 @@ class AgentMuJoCo(object):
                 print 'accumulated force', t
                 print accum_touch
 
-        traj = self.get_max_move_pose(traj)
         print 'obj gripper dist', np.sqrt(np.sum(np.power(traj.Object_pose[-1, 0, :2] - traj.X_full[-1, :2], 2)))
-        # print 'last z', traj.X_full[-1, 2]
-        # print 'target pose', traj.Object_pose[-1, 0, :2], 'actual final', traj.X_full[-1, :2]
-        # plt.plot(zs)
-        # plt.plot([traj.Object_pose[-1, 0, 0] for _ in xrange(len(zs))])
-        # plt.plot(zdot)
-        # plt.show()
 
         # only save trajectories which displace objects above threshold
         if 'displacement_threshold' in self._hyperparams:
@@ -397,7 +375,7 @@ class AgentMuJoCo(object):
             print 'object fell out!!!'
             traj_ok = False
 
-        self.plot_ctrls()
+        # self.plot_ctrls()
 
         return traj_ok, traj
 
@@ -602,17 +580,14 @@ class AgentMuJoCo(object):
         npy_to_gif(self.large_images_traj, file_path +'/video')
 
     def plot_ctrls(self):
-
         plt.figure()
         # a = plt.gca()
         self.hf_qpos_l = np.stack(self.hf_qpos_l, axis=0)
         self.hf_target_qpos_l = np.stack(self.hf_target_qpos_l, axis=0)
-
         tmax = self.hf_target_qpos_l.shape[0]
         for i in range(self.adim):
             plt.plot(range(tmax) , self.hf_qpos_l[:,i], label='q_{}'.format(i))
             plt.plot(range(tmax) , self.hf_target_qpos_l[:, i], label='q_target{}'.format(i))
-
             plt.legend()
             plt.show()
 
