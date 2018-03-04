@@ -246,10 +246,9 @@ class CEM_controller():
             lift_std = self.policyparams['initial_std_lift']
         else: lift_std = 1.
 
-        if self.adim == 5:
-            if 'initial_std_rot' in self.policyparams:
-                rot_std = self.policyparams['initial_std_rot']
-            else: rot_std = 1.
+        if 'initial_std_rot' in self.policyparams:
+            rot_std = self.policyparams['initial_std_rot']
+        else: rot_std = 1.
 
         diag = []
         for t in range(self.naction_steps):

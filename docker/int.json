@@ -5,7 +5,7 @@
   "command": "/bin/sleep 3600",
   "datasetMounts": [
     {
-      "containerMountPoint": "/workspace/pushing_data",
+      "containerMountPoint": "/mnt/pushing_data",
       "id": 8350
     }
   ],  "resultContainerMountPoint": "/result",

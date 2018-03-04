@@ -27,6 +27,11 @@ class Randompolicy(Policy):
         else:
             gr_std = 1.
 
+        if 'initial_std_rot' in self.policyparams:
+            rot_std = self.policyparams['initial_std_rot']
+        else:
+            rot_std = 1.
+
         if 'initial_std_lift' in self.policyparams:
             lift_std = self.policyparams['initial_std_lift']
         else:
@@ -34,17 +39,21 @@ class Randompolicy(Policy):
 
         diag = []
         for t in range(self.naction_steps):
+            if self.adim == 5:
+                diag.append(np.array([xy_std**2, xy_std**2, lift_std**2, rot_std**2, gr_std**2]))
             if self.adim == 4:
                 diag.append(np.array([xy_std ** 2, xy_std ** 2, lift_std ** 2, gr_std ** 2]))
             elif self.adim == 3:
                 diag.append(np.array([xy_std ** 2, xy_std ** 2, lift_std ** 2]))
+            elif self.adim == 2:
+                diag.append(np.array([xy_std ** 2, xy_std ** 2]))
 
         diag = np.concatenate(diag, axis=0)
         sigma = np.diag(diag)
         return sigma
 
 
-    def act(self, traj, t):
+    def act(self, traj, t, init_model=None):
 
         repeat = self.policyparams['repeats']  # repeat the same action to reduce number of repquired timesteps
 
@@ -61,7 +70,7 @@ class Randompolicy(Policy):
             self.actions = self.actions.reshape(self.naction_steps, self.adim)
             self.actions = np.repeat(self.actions, repeat, axis=0)
 
-        return self.actions[t], None
+        return self.actions[t]
 
     def finish(self):
         pass

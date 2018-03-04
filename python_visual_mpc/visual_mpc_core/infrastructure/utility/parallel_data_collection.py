@@ -87,17 +87,9 @@ def main():
         hyperparams['start_index'] = args.isplit * n_persplit
         hyperparams['end_index'] = (args.isplit+1) * n_persplit -1
 
-
     traj_per_worker = int(n_traj / np.float32(n_worker))
     start_idx = [traj_per_worker * i for i in range(n_worker)]
     end_idx =  [traj_per_worker * (i+1)-1 for i in range(n_worker)]
-
-
-    if do_benchmark:
-        try:
-            combine_scores(hyperparams['current_dir'], start_idx, end_idx, )
-        except:
-            pass
 
     conflist = []
 

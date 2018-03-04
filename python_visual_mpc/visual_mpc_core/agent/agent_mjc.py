@@ -63,6 +63,7 @@ class AgentMuJoCo(object):
             self.obj_statprop = create_object_xml(self._hyperparams, self.load_obj_statprop)
             xmlfilename = create_root_xml(self._hyperparams)
             xmlfilename_nomarkers = xmlfilename
+            self._hyperparams['gen_xml_fname'] = xmlfilename
         else:
             xmlfilename = self._hyperparams['filename']
             xmlfilename_nomarkers = self._hyperparams['filename_nomarkers']
@@ -101,7 +102,7 @@ class AgentMuJoCo(object):
         print 'needed {} trials'.format(i_trial)
 
         tfinal = self._hyperparams['T'] -1
-        if not 'data_collection' in self._hyperparams:
+        if self.goal_obj_pose is not None:
             self.final_poscost, self.final_anglecost = self.eval_action(traj, tfinal, getanglecost=True)
 
         if 'save_goal_image' in self._hyperparams:
@@ -255,12 +256,15 @@ class AgentMuJoCo(object):
             # plt.show()
         return np.stack(desig_pix, axis=0), np.stack(goal_pix, axis=0)
 
+    def clip_targetpos(self, pos):
+        return np.clip(pos, [-0.5, -0.5, -0.08, -1.57, 0.], [0.5, 0.5, 0.15, 1.57, 0.1])
+
     def rollout(self, policy):
         self.viewer.set_model(self.model_nomarkers)
         self.viewer.cam.camid = 0
 
         self._init()
-        if 'data_collection' not in self._hyperparams:
+        if self.goal_obj_pose is not None:
             self.goal_pix = self.get_goal_pix()   # has to occurr after self.viewer.cam.camid = 0 and set_model!!!
 
         traj = Trajectory(self._hyperparams)
@@ -270,11 +274,21 @@ class AgentMuJoCo(object):
         # apply action of zero for the first few steps, to let the scene settle
         for t in range(self._hyperparams['skip_first']):
             for _ in range(self._hyperparams['substeps']):
-                self._model.data.ctrl = np.zeros(self._hyperparams['adim'])
+                ctrl = np.zeros(self._hyperparams['adim'])
+                if 'custom_poscontroller' in self._hyperparams:
+                    #keep gripper at default x,y positions
+                    ctrl[:2] = self._model.data.qpos[:2].squeeze()
+
+                self._model.data.ctrl = ctrl
                 self._model.step()
 
         self.large_images_traj = []
         self.large_images = []
+
+        self.target_qpos = self._model.data.qpos[:2].squeeze()
+        self.hf_target_qpos_l = []
+        self.hf_qpos_l = []
+
 
         # Take the sample.
         for t in range(self.T):
@@ -297,30 +311,55 @@ class AgentMuJoCo(object):
             if 'gtruthdesig' in self._hyperparams:  # generate many designated pixel goal-pixel pairs
                 self.desig_pix, self.goal_pix = self.gen_gtruthdesig(t, traj)
 
-            if 'data_collection' in self._hyperparams or 'random_baseline' in self._hyperparams:
-                mj_U, target_inc = policy.act(traj, t)
-            elif 'gtruth_planner' in self._hyperparams:
-                mj_U, pos, ind, targets = policy.act(traj, t, init_model=self._model)
+            if 'not_use_images' in self._hyperparams:
+                mj_U = policy.act(traj, t, init_model=self._model)
             else:
                 mj_U, plan_stat = policy.act(traj, t, desig_pix=self.desig_pix,goal_pix=self.goal_pix,
                                                               goal_image=self.goal_image, goal_mask=self.goal_mask, curr_mask=self.curr_mask)
                 traj.plan_stat.append(plan_stat)
-                if 'add_traj_visual' in self._hyperparams:  # whether to add visuals for trajectory
-                    self.large_images_traj += self.add_traj_visual(self.large_images[t], pos, ind, targets)
-                else:
-                    self.large_images_traj.append(self.large_images[t])
 
-            if 'poscontroller' in self._hyperparams.keys():
-                traj.actions[t, :] = target_inc
+            if 'add_traj_visual' in self._hyperparams:  # whether to add visuals for trajectory
+                self.large_images_traj += self.add_traj_visual(self.large_images[t], pos, ind, targets)
+            else:
+                self.large_images_traj.append(self.large_images[t])
+
+            if 'posmode' in self._hyperparams:  #if the output of act is a positions
+                traj.actions[t, :] = mj_U
+                self.target_qpos = mj_U.copy() + self._model.data.qpos[:self.adim].squeeze()
+                self.target_qpos = self.clip_targetpos(self.target_qpos)
+                ctrl = self.target_qpos
             else:
                 traj.actions[t, :] = mj_U
+                ctrl = mj_U.copy()
 
             accum_touch = np.zeros_like(self._model.data.sensordata)
 
+            print 'action ', mj_U
+            print 'pos', self._model.data.qpos[:self.adim]
+            print 'target pos', ctrl
+
             for _ in range(self._hyperparams['substeps']):
+                self.model_nomarkers.data.qpos = self._model.data.qpos
+                self.model_nomarkers.data.qvel = self._model.data.qvel
+                self.model_nomarkers.step()
+                self.viewer.loop_once()
+
                 accum_touch += self._model.data.sensordata
-                self._model.data.ctrl = mj_U
-                self._model.step()  # simulate the model in mujoco
+                if 'poscontroller_offset' in self._hyperparams:
+                    #z controller has custom written actuator
+                    # assert 'posmode' in self._hyperparams
+                    # ctrl[2] -= self._model.data.qpos[2].squeeze()
+                    print 'pos ctrl errors', self._model.data.qpos[:self.adim].squeeze() - ctrl
+                self._model.data.ctrl = ctrl
+                self._model.step()
+
+                self.hf_qpos_l.append(self._model.data.qpos)
+                self.hf_target_qpos_l.append(ctrl)
+
+            if 'posmode' in self._hyperparams:  # if the output of act is a positions
+                print 'pos', self._model.data.qpos[:self.adim]
+                print 'target pos', ctrl
+                print 'final pos ctrl errors', self._model.data.qpos[:self.adim].squeeze() - ctrl
 
             if 'touch' in self._hyperparams:
                 traj.touchdata[t, :] = accum_touch.squeeze()
@@ -328,6 +367,13 @@ class AgentMuJoCo(object):
                 print accum_touch
 
         traj = self.get_max_move_pose(traj)
+        print 'obj gripper dist', np.sqrt(np.sum(np.power(traj.Object_pose[-1, 0, :2] - traj.X_full[-1, :2], 2)))
+        # print 'last z', traj.X_full[-1, 2]
+        # print 'target pose', traj.Object_pose[-1, 0, :2], 'actual final', traj.X_full[-1, :2]
+        # plt.plot(zs)
+        # plt.plot([traj.Object_pose[-1, 0, 0] for _ in xrange(len(zs))])
+        # plt.plot(zdot)
+        # plt.show()
 
         # only save trajectories which displace objects above threshold
         if 'displacement_threshold' in self._hyperparams:
@@ -350,6 +396,8 @@ class AgentMuJoCo(object):
         if any(zval < -2e-2 for zval in end_zpos):
             print 'object fell out!!!'
             traj_ok = False
+
+        self.plot_ctrls()
 
         return traj_ok, traj
 
@@ -551,10 +599,23 @@ class AgentMuJoCo(object):
 
     def save_gif(self):
         file_path = self._hyperparams['record']
-        if 'random_baseline' in self._hyperparams:
-            npy_to_gif(self.large_images, file_path +'/video')
-        else:
-            npy_to_gif(self.large_images_traj, file_path +'/video')
+        npy_to_gif(self.large_images_traj, file_path +'/video')
+
+    def plot_ctrls(self):
+
+        plt.figure()
+        # a = plt.gca()
+        self.hf_qpos_l = np.stack(self.hf_qpos_l, axis=0)
+        self.hf_target_qpos_l = np.stack(self.hf_target_qpos_l, axis=0)
+
+        tmax = self.hf_target_qpos_l.shape[0]
+        for i in range(self.adim):
+            plt.plot(range(tmax) , self.hf_qpos_l[:,i], label='q_{}'.format(i))
+            plt.plot(range(tmax) , self.hf_target_qpos_l[:, i], label='q_target{}'.format(i))
+
+            plt.legend()
+            plt.show()
+
 
     def _init(self):
         """
@@ -581,7 +642,7 @@ class AgentMuJoCo(object):
         # Initialize world/run kinematics
         xpos0 = self._hyperparams['xpos0']
         if 'randomize_ballinitpos' in self._hyperparams:
-            xpos0[:2] = np.random.uniform(-.35, .35, 2)
+            xpos0[:2] = np.random.uniform(-.25, .25, 2)
 
         if 'goal_point' in self._hyperparams:
             goal = np.append(self._hyperparams['goal_point'], [.1])   # goal point
@@ -589,4 +650,5 @@ class AgentMuJoCo(object):
             self._model.data.qpos = np.concatenate((xpos0, object_pos,goal,ref), 0)
         else:
             self._model.data.qpos = np.concatenate((xpos0, object_pos.flatten()), 0)
+
         self._model.data.qvel = np.zeros_like(self._model.data.qvel)

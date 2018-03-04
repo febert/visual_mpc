@@ -2,10 +2,10 @@
   "dockerImageName": "ucb_rail8888/tf1.4_gpu:based_nvidia",
   "aceName": "nv-us-west-2",
   "name": "train gdn",
-  "command": "export VMPC_DATA_DIR=/workspace/pushing_data; export MUJOCO_PY_MJKEY_PATH=/workspace/visual_mpc/mujoco/mjpro131/mjkey.txt; export MUJOCO_PY_MJPRO_PATH=/workspace/visual_mpc/mujoco/mjpro131;    export PATH=/opt/conda/bin:/usr/local/mpi/bin:/usr/local/nvidia/bin:/usr/local/cuda/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin; cd /workspace/visual_mpc/python_visual_mpc/goaldistancenet; python traingdn.py --hyper ../../tensorflow_data/gdn/tdac_cons0_cartgripper/conf.py --docker",
+  "command": "export VMPC_DATA_DIR=/mnt/pushing_data; export MUJOCO_PY_MJKEY_PATH=/workspace/visual_mpc/mujoco/mjpro131/mjkey.txt; export MUJOCO_PY_MJPRO_PATH=/workspace/visual_mpc/mujoco/mjpro131;    export PATH=/opt/conda/bin:/usr/local/mpi/bin:/usr/local/nvidia/bin:/usr/local/cuda/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin; cd /workspace/visual_mpc/python_visual_mpc/goaldistancenet; python traingdn.py --hyper ../../tensorflow_data/gdn/tdac_cons0_cartgripper/conf.py --docker",
   "datasetMounts": [
     {
-      "containerMountPoint": "/workspace/pushing_data",
+      "containerMountPoint": "/mnt/pushing_data",
       "id": 8350
     }
   ],  "resultContainerMountPoint": "/result",
