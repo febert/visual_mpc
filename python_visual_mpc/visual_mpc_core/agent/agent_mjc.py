@@ -330,7 +330,7 @@ class AgentMuJoCo(object):
 
             # print 'action ', mj_U
             # print 'pos', self._model.data.qpos[:self.adim]
-            print 'target pos', self.target_qpos
+            # print 'target pos', self.target_qpos
 
             for st in range(self._hyperparams['substeps']):
                 self.model_nomarkers.data.qpos = self._model.data.qpos
@@ -388,7 +388,7 @@ class AgentMuJoCo(object):
             print 'object fell out!!!'
             traj_ok = False
 
-        self.plot_ctrls()
+        # self.plot_ctrls()
 
         return traj_ok, traj
 

@@ -40,6 +40,7 @@ agent = {
     'novideo':'',
     'gen_xml':10,   #generate xml every nth trajecotry
     'randomize_ballinitpos':'',
+    'not_use_images':""
     # 'displacement_threshold':0.1,
 }
 
@@ -54,7 +55,7 @@ policy = {
 
 config = {
     'traj_per_file':128,
-    'save_data': True,
+    'save_data': False,
     'start_index':0,
     'end_index': 60000,
     'agent': agent,
