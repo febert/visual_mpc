@@ -35,7 +35,7 @@
                 <body name="finger2" pos="0.07 0 -0.1">
                     <joint name="j_finger2" type="slide" pos="0 0 0" axis="1 0 0" />
                     <!--<geom contype="1" conaffinity="1"  type="box" size=".01 .02 .1" rgba="0.3 0.3 0.3 1" mass="0.08"/>-->
-                    <geom contype="2" conaffinity="2"  type="box" size=".01 .02 .1" rgba="0.3 0.3 0.3 1" mass="0.08"/>
+                    <geom contype="4" conaffinity="4"  type="box" size=".01 .02 .1" rgba="0.3 0.3 0.3 1" mass="0.08"/>
                 </body>
             </body>
 
@@ -46,23 +46,23 @@
         <body name="container" pos="0  0  -0.05">
 
             <body name="border_front" pos="0 -.5  0">
-                 <geom type="box" size=".5 .01 .1" rgba="0 .1 .9 .3"/>
+                 <geom contype="7" conaffinity="7" type="box" size=".5 .01 .1" rgba="0 .1 .9 .3"/>
             </body>
 
             <body name="border_rear" pos="0 .5  0">
-                 <geom type="box" size=".5 .01 .1" rgba="0 .1 .9 .3"/>
+                 <geom contype="7" conaffinity="7" type="box" size=".5 .01 .1" rgba="0 .1 .9 .3"/>
             </body>
 
             <body name="border_right" pos=".5 0  0">
-                 <geom type="box" size=".01  .5 .1" rgba="0 .1 .9 .3"/>
+                 <geom contype="7" conaffinity="7" type="box" size=".01  .5 .1" rgba="0 .1 .9 .3"/>
             </body>
 
             <body name="border_left" pos="-.5 0  0">
-                 <geom type="box" size=".01  .5 .1" rgba="0 .1 .9 .3"/>
+                 <geom contype="7" conaffinity="7" type="box" size=".01  .5 .1" rgba="0 .1 .9 .3"/>
             </body>
 
             <body name="table" pos="0 0 -.01">
-                 <geom type="box" size=".5  .5 .01" rgba="0 .9 0 1"/>
+                 <geom contype="7" conaffinity="7" type="box" size=".5  .5 .01" rgba="0 .9 0 1"/>
             </body>
 
             <!--<body name="invisible_border_front" pos="0 -.5  0">-->
