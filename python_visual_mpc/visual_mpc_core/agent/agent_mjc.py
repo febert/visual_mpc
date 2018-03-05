@@ -71,7 +71,7 @@ class AgentMuJoCo(object):
         self._model= mujoco_py.MjModel(xmlfilename)
         self.model_nomarkers = mujoco_py.MjModel(xmlfilename_nomarkers)
 
-        gofast = True
+        gofast = False
         self.viewer = mujoco_py.MjViewer(visible=True,
                                          init_width=self._hyperparams['viewer_image_width'],
                                          init_height=self._hyperparams['viewer_image_height'],
@@ -265,10 +265,9 @@ class AgentMuJoCo(object):
         for t in range(self._hyperparams['skip_first']):
             for _ in range(self._hyperparams['substeps']):
                 ctrl = np.zeros(self._hyperparams['adim'])
-                if 'custom_poscontroller' in self._hyperparams:
+                if 'posmode' in self._hyperparams:
                     #keep gripper at default x,y positions
-                    ctrl[:2] = self._model.data.qpos[:2].squeeze()
-
+                    ctrl[:3] = self._model.data.qpos[:3].squeeze()
                 self._model.data.ctrl = ctrl
                 self._model.step()
 
@@ -327,37 +326,18 @@ class AgentMuJoCo(object):
 
             accum_touch = np.zeros_like(self._model.data.sensordata)
 
-            # print 'action ', mj_U
-            # print 'pos', self._model.data.qpos[:self.adim]
-            # print 'target pos', self.target_qpos
-
             for st in range(self._hyperparams['substeps']):
-                self.model_nomarkers.data.qpos = self._model.data.qpos
-                self.model_nomarkers.data.qvel = self._model.data.qvel
-                self.model_nomarkers.step()
-                self.viewer.loop_once()
-
-                # print 'prev_target qpos', self.prev_target_qpos
+                # self.model_nomarkers.data.qpos = self._model.data.qpos
+                # self.model_nomarkers.data.qvel = self._model.data.qvel
+                # self.model_nomarkers.step()
+                # self.viewer.loop_once()
                 if 'posmode' in self._hyperparams:
                     ctrl = self.get_int_targetpos(st, self.prev_target_qpos, self.target_qpos)
-
                 accum_touch += self._model.data.sensordata
-                # if 'poscontroller_offset' in self._hyperparams:
-                    #z controller has custom written actuator
-                    # assert 'posmode' in self._hyperparams
-                    # ctrl[2] -= self._model.data.qpos[2].squeeze()
-                    # print 'pos ctrl errors', self._model.data.qpos[:self.adim].squeeze() - ctrl
                 self._model.data.ctrl = ctrl
                 self._model.step()
-
                 self.hf_qpos_l.append(self._model.data.qpos)
                 self.hf_target_qpos_l.append(ctrl)
-
-            if 'posmode' in self._hyperparams:  # if the output of act is a positions
-                print 'pos', self._model.data.qpos[:self.adim]
-                print 'target pos', ctrl
-                print 'final pos ctrl errors', self._model.data.qpos[:self.adim].squeeze() - ctrl
-
             if 'touch' in self._hyperparams:
                 traj.touchdata[t, :] = accum_touch.squeeze()
                 print 'accumulated force', t
@@ -386,9 +366,7 @@ class AgentMuJoCo(object):
         if any(zval < -2e-2 for zval in end_zpos):
             print 'object fell out!!!'
             traj_ok = False
-
-        self.plot_ctrls()
-
+        # self.plot_ctrls()
         return traj_ok, traj
 
     def save_goal_image_conf(self, traj):
@@ -629,7 +607,8 @@ class AgentMuJoCo(object):
         # Initialize world/run kinematics
         xpos0 = self._hyperparams['xpos0']
         if 'randomize_ballinitpos' in self._hyperparams:
-            xpos0[:2] = np.random.uniform(-.25, .25, 2)
+            xpos0[:2] = np.random.uniform(-.4, .4, 2)
+            xpos0[2] = np.random.uniform(-0.08, .14)
 
         if 'goal_point' in self._hyperparams:
             goal = np.append(self._hyperparams['goal_point'], [.1])   # goal point

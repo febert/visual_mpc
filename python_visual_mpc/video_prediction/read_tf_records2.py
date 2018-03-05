@@ -207,23 +207,22 @@ def main():
     conf = {}
 
     current_dir = os.path.dirname(os.path.realpath(__file__))
-    DATA_DIR = '/mnt/sda1/pushing_data/cartgripper_startgoal_17step/train'
+    # DATA_DIR = '/mnt/sda1/pushing_data/cartgripper_startgoal_17step/train'
+    DATA_DIR = '/home/frederik/Documents/catkin_ws/src/visual_mpc/pushing_data/cartgripper_pos/train'
 
     conf['schedsamp_k'] = -1  # don't feed ground truth
     conf['data_dir'] = DATA_DIR  # 'directory containing data_files.' ,
     conf['skip_frame'] = 1
     conf['train_val_split']= 0.95
-    conf['sequence_length']= 16 #48      # 'sequence length, including context frames.'
-    conf['batch_size']= 10
+    conf['sequence_length']= 15 #48      # 'sequence length, including context frames.'
+    conf['batch_size']= 8
     conf['visualize']= False
     conf['context_frames'] = 2
 
     # conf['row_start'] = 15
     # conf['row_end'] = 63
-    # conf['sdim'] = 6
-    # conf['adim'] = 3
-    conf['sdim'] = 4
-    conf['adim'] = 5
+    conf['sdim'] = 6
+    conf['adim'] = 3
 
     conf['image_only'] = ''
 
