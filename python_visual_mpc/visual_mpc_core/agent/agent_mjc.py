@@ -318,8 +318,7 @@ class AgentMuJoCo(object):
                     self.target_qpos = self._model.data.qpos[:self.adim].squeeze()
                 else:
                     self.prev_target_qpos = self.target_qpos
-
-                mask_rel = self._hyperparams['mode_rel'].astype(np.float32) # mask out action dimensions with abs control with 0
+                mask_rel = self._hyperparams['mode_rel'].astype(np.float32) # mask out action dimensions that use absolute control with 0
                 self.target_qpos = mj_U.copy() + self.target_qpos * mask_rel
                 self.target_qpos = self.clip_targetpos(self.target_qpos)
             else:
@@ -388,7 +387,7 @@ class AgentMuJoCo(object):
             print 'object fell out!!!'
             traj_ok = False
 
-        # self.plot_ctrls()
+        self.plot_ctrls()
 
         return traj_ok, traj
 

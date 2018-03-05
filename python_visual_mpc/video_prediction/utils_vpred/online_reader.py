@@ -360,22 +360,35 @@ def test_online_reader():
                   'shape': [48, 64, 3],
                   }
 
-    tag_gtruth_flows = {'name': 'bwd_flow',
-                        'not_per_timestep': '',
-                        'shape': [8,48, 64, 2],
-                        }
+    # tag_gtruth_flows = {'name': 'bwd_flow',
+    #                     'not_per_timestep': '',
+    #                     'shape': [8,48, 64, 2],
+    #                     }
 
+    tag_actions = {'name': 'states',
+                  'file': '/state_action.pkl',  # only tindex
+                  'pkl_names': ['qpos', 'qvel'],
+                   'shape': [6],
+                  }
+
+    tag_states = {'name': 'actions',
+                  'file': '/state_action.pkl',  # only tindex
+                  'shape': [3],
+                  }
     conf = {
-        'batch_size':10,
-        'sequence_length':9,
+        'batch_size':40,
+        'sequence_length':30,
         'ngroup': 1000,
-        'sourcetags': [tag_images, tag_gtruth_flows],
-        'source_basedirs': [os.environ['VMPC_DATA_DIR'] + '/cartgripper_gtruth_flow/train'],
+        'sourcetags': [tag_images, tag_actions, tag_states],
+        'source_basedirs': [os.environ['VMPC_DATA_DIR'] + '/datacol_appflow/data/train'],
+        # 'source_basedirs': [os.environ['VMPC_DATA_DIR'] + '/cartgripper_gtruth_flow/train'],
+        'current_dir':os.environ['VMPC_DATA_DIR'] + '/datacol_appflow/'
     }
 
     sess = tf.InteractiveSession()
     r = OnlineReader(conf, 'test', sess=sess)
-    image_batch, gtruth_flows_batch = r.get_batch_tensors()
+    # image_batch, gtruth_flows_batch = r.get_batch_tensors()
+    image_batch, action_batch, endeff_pos_batch = r.get_batch_tensors()
 
     from python_visual_mpc.video_prediction.utils_vpred.create_gif_lib import comp_single_video
 
@@ -384,8 +397,8 @@ def test_online_reader():
     for i_run in range(100):
         # print 'run number ', i_run
 
-        images, gtruth_flows = sess.run([image_batch, gtruth_flows_batch])
-        # images, actions, endeff = sess.run([image_batch, action_batch, endeff_pos_batch])
+        # images, gtruth_flows = sess.run([image_batch, gtruth_flows_batch])
+        images, actions, endeff = sess.run([image_batch, action_batch, endeff_pos_batch])
 
         deltat.append(time.time() - end)
         if i_run % 10 == 0:
@@ -394,7 +407,7 @@ def test_online_reader():
         end = time.time()
 
         file_path = conf['current_dir'] + '/preview'
-        comp_single_video(file_path, images)
+        comp_single_video(file_path, images, num_exp=conf['batch_size'])
         pdb.set_trace()
 
         # show some frames
