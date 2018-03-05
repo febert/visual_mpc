@@ -146,10 +146,11 @@ def combine_scores(dir, start_idx, end_idx, exp_name):
 
     full_scores = []
     full_anglecost = []
-    for st_ind, end_ind in zip(start_idx, end_idx):
-        filename = dir + '/scores_{}to{}.pkl'.format(st_ind, end_ind)
-        dict_ = cPickle.load(open(filename, "rb"))
 
+    files = glob.glob(dir+'/scores_*')
+    
+    for f in files:
+        dict_ = cPickle.load(open(f, "rb"))
         full_scores.append(dict_['scores'])
         full_anglecost.append(dict_['anglecost'])
 
@@ -169,8 +170,8 @@ def combine_scores(dir, start_idx, end_idx, exp_name):
     f.write('----------------------\n')
     f.write('traj: score, anglecost, rank\n')
     f.write('----------------------\n')
-    for n, t in enumerate(range(0, end_idx[-1]+1)):
-        f.write('{0}: {1}, {2}, :{3}\n'.format(t, scores[n], anglecost[n], np.where(sorted_ind == n)[0][0]))
+    for t in range(scores.shape[0]):
+        f.write('{0}: {1}, {2}, :{3}\n'.format(t, scores[t], anglecost[t], np.where(sorted_ind == t)[0][0]))
     f.close()
 
 def sorted_alphanumeric(l):
@@ -182,12 +183,12 @@ def sorted_alphanumeric(l):
 if __name__ == '__main__':
     main()
 
-    # n_worker = 2
-    # n_traj = 50
-    # dir = '/home/frederik/Documents/catkin_ws/src/visual_mpc/experiments/cem_exp/benchmarks/targetobj_masktrafo'
+    # n_worker = 4
+    # n_traj = 49
+    # dir = '/home/frederik/Documents/catkin_ws/src/visual_mpc/experiments/cem_exp/benchmarks/flowbased_var20'
     #
     # traj_per_worker = int(n_traj / np.float32(n_worker))
     # start_idx = [traj_per_worker * i for i in range(n_worker)]
     # end_idx = [traj_per_worker * (i + 1) - 1 for i in range(n_worker)]
-
+    #
     # combine_scores(dir, start_idx, end_idx, 'targetobj_masktrafo')

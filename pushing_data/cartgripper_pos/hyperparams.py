@@ -26,10 +26,10 @@ agent = {
     'sample_objectpos':'',
     'adim':5,
     'sdim':12,
-    'xpos0': np.array([0., 0., 0.05, 0., 0., 0.]), #initialize state dimension to 5 zeros
+    'xpos0': np.array([0., 0., 0.01, 0., 0., 0.]), #initialize state dimension to 5 zeros
     'dt': 0.05,
-    'substeps': 1000,  #6
-    'T': 15,
+    'substeps': 200,  #6
+    'T': 60,
     'skip_first': 40,   #skip first N time steps to let the scene settle
     'additional_viewer': True,
     'image_height' : 48,
@@ -37,26 +37,26 @@ agent = {
     'viewer_image_height' : 480,
     'viewer_image_width' : 640,
     'image_channels' : 3,
-    'num_objects': 1,
+    'num_objects': 4,
     'novideo':'',
     'gen_xml':10,   #generate xml every nth trajecotry
     'randomize_ballinitpos':'', #randomize x, y
-    'poscontroller_offset':'',
-    'posmode':'rel',
     'make_final_gif':True,
+    'poscontroller_offset':'',
+    'posmode':"",
     'record': BASE_DIR + '/record/',
-    'zmax':0.13,
-    # 'displacement_threshold':0.1,
+    'targetpos_clip':[[-0.5, -0.5, -0.08, -np.pi*2, 0.], [0.5, 0.5, 0.15, np.pi*2, 0.1]],
+    'mode_rel':np.array([True, True, True, True, False])
 }
 
 policy = {
     'type' : Randompolicy,
-    'nactions': 5,
+    'nactions': 20,
     'repeats': 3,               # number of repeats for each action
     'initial_std': 0.05,        # std dev. in xy
-    'initial_std_lift': 0.1,
+    'initial_std_lift': 0.03,
+    'initial_std_rot': 0.1,
     'initial_std_grasp': 0.0,
-    'initial_std_rot': 0.5,
 }
 
 config = {

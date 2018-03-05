@@ -242,7 +242,12 @@ class AgentMuJoCo(object):
         return np.stack(desig_pix, axis=0), np.stack(goal_pix, axis=0)
 
     def clip_targetpos(self, pos):
-        return np.clip(pos, [-0.5, -0.5, -0.08, -1.57, 0.], [0.5, 0.5, 0.15, 1.57, 0.1])
+        pos_clip = self._hyperparams['targetpos_clip']
+        return np.clip(pos, pos_clip[0], pos_clip[1])
+
+    def get_int_targetpos(self, substep, prev, next):
+        assert substep >= 0 and substep < self._hyperparams['substeps']
+        return substep/float(self._hyperparams['substeps'])*(next - prev) + prev
 
     def rollout(self, policy):
         self.viewer.set_model(self.model_nomarkers)
@@ -270,10 +275,8 @@ class AgentMuJoCo(object):
         self.large_images_traj = []
         self.large_images = []
 
-        self.target_qpos = self._model.data.qpos[:2].squeeze()
         self.hf_target_qpos_l = []
         self.hf_qpos_l = []
-
 
         # Take the sample.
         for t in range(self.T):
@@ -310,9 +313,15 @@ class AgentMuJoCo(object):
 
             if 'posmode' in self._hyperparams:  #if the output of act is a positions
                 traj.actions[t, :] = mj_U
-                self.target_qpos = mj_U.copy() + self._model.data.qpos[:self.adim].squeeze()
+                if t == 0:
+                    self.prev_target_qpos = self._model.data.qpos[:self.adim].squeeze()
+                    self.target_qpos = self._model.data.qpos[:self.adim].squeeze()
+                else:
+                    self.prev_target_qpos = self.target_qpos
+
+                mask_rel = self._hyperparams['mode_rel'].astype(np.float32) # mask out action dimensions with abs control with 0
+                self.target_qpos = mj_U.copy() + self.target_qpos * mask_rel
                 self.target_qpos = self.clip_targetpos(self.target_qpos)
-                ctrl = self.target_qpos
             else:
                 traj.actions[t, :] = mj_U
                 ctrl = mj_U.copy()
@@ -321,20 +330,24 @@ class AgentMuJoCo(object):
 
             # print 'action ', mj_U
             # print 'pos', self._model.data.qpos[:self.adim]
-            # print 'target pos', ctrl
+            print 'target pos', self.target_qpos
 
-            for _ in range(self._hyperparams['substeps']):
+            for st in range(self._hyperparams['substeps']):
                 self.model_nomarkers.data.qpos = self._model.data.qpos
                 self.model_nomarkers.data.qvel = self._model.data.qvel
                 self.model_nomarkers.step()
                 self.viewer.loop_once()
 
+                # print 'prev_target qpos', self.prev_target_qpos
+                if 'posmode' in self._hyperparams:
+                    ctrl = self.get_int_targetpos(st, self.prev_target_qpos, self.target_qpos)
+
                 accum_touch += self._model.data.sensordata
-                if 'poscontroller_offset' in self._hyperparams:
+                # if 'poscontroller_offset' in self._hyperparams:
                     #z controller has custom written actuator
                     # assert 'posmode' in self._hyperparams
                     # ctrl[2] -= self._model.data.qpos[2].squeeze()
-                    print 'pos ctrl errors', self._model.data.qpos[:self.adim].squeeze() - ctrl
+                    # print 'pos ctrl errors', self._model.data.qpos[:self.adim].squeeze() - ctrl
                 self._model.data.ctrl = ctrl
                 self._model.step()
 
@@ -375,7 +388,7 @@ class AgentMuJoCo(object):
             print 'object fell out!!!'
             traj_ok = False
 
-        # self.plot_ctrls()
+        self.plot_ctrls()
 
         return traj_ok, traj
 
