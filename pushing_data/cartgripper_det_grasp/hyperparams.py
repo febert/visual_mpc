@@ -27,8 +27,8 @@ agent = {
     'sdim':12,
     'xpos0': np.array([0., 0., 0.05, 0., 0., 0.]), #initialize state dimension to 5 zeros
     'dt': 0.05,
-    'substeps': 50,  #6
-    'T': 100,
+    'substeps': 200,  #6
+    'T': 60,
     'skip_first': 40,   #skip first N time steps to let the scene settle
     'additional_viewer': True,
     'image_height' : 48,
@@ -45,13 +45,15 @@ agent = {
     'ztarget':0.13,
     'drop_thresh':0.02,
     'make_final_gif':True,
-    'record': BASE_DIR + '/record/'
+    'record': BASE_DIR + '/record/',
+    'targetpos_clip':[[-0.5, -0.5, -0.08, -np.pi*2, -5], [0.5, 0.5, 0.15, np.pi*2, 5]],
+    'mode_rel':np.array([True, True, True, True, False])
     # 'displacement_threshold':0.1,
 }
 
 policy = {
     'type' : DeterministicGraspPolicy,
-    'nactions': 100,
+    'nactions': 20,
     'iterations':1,
     'repeats': 5, # number of repeats for each action
     'initial_std': 10.,   #std dev. in xy

@@ -265,9 +265,9 @@ class AgentMuJoCo(object):
         for t in range(self._hyperparams['skip_first']):
             for _ in range(self._hyperparams['substeps']):
                 ctrl = np.zeros(self._hyperparams['adim'])
-                if 'custom_poscontroller' in self._hyperparams:
+                if 'posmode' in self._hyperparams:
                     #keep gripper at default x,y positions
-                    ctrl[:2] = self._model.data.qpos[:2].squeeze()
+                    ctrl[:3] = self._model.data.qpos[:3].squeeze()
 
                 self._model.data.ctrl = ctrl
                 self._model.step()

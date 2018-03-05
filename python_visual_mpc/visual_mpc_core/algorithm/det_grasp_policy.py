@@ -2,7 +2,7 @@ import numpy as np
 
 from python_visual_mpc.visual_mpc_core.algorithm.policy import Policy
 import mujoco_py
-
+import  matplotlib.pyplot as plt
 class DeterministicGraspPolicy(Policy):
     def __init__(self, agentparams, policyparams):
         Policy.__init__(self)
@@ -57,6 +57,10 @@ class DeterministicGraspPolicy(Policy):
     def reset_CEM_model(self):
         self.CEM_model.data.qpos = self.initial_qpos.copy()
         self.CEM_model.data.qvel = self.initial_qvel.copy()
+
+        self.prev_target = self.CEM_model.data.qpos[:self.adim].squeeze()
+        self.target = self.CEM_model.data.qpos[:self.adim].squeeze()
+
         self.viewer_refresh()
 
     def viewer_refresh(self):
@@ -78,7 +82,6 @@ class DeterministicGraspPolicy(Policy):
                 grasp = False
                 g_start = 0
                 lift = False
-
                 angle_actions = np.zeros((self.n_actions, self.adim))
                 for t in range(self.n_actions):
                     cur_xy = self.CEM_model.data.qpos[:2].squeeze()
@@ -86,6 +89,12 @@ class DeterministicGraspPolicy(Policy):
                     if move and np.linalg.norm(traj.Object_pose[traj_t, 0, :2] - cur_xy, 2) <= self.agentparams['drop_thresh']:
                         move = False
                         drop = True
+                        angle_actions[t, :2] = traj.Object_pose[traj_t, 0, :2]
+                        angle_actions[t, 2] = self.agentparams['ztarget']
+                        angle_actions[t, 3] = angle_samps[s]
+                        angle_actions[t, 4] = -100
+                        self.step_model(angle_actions[t])
+                        continue
 
                     if drop and self.CEM_model.data.qpos[2] <= -0.079:
                         drop = False
@@ -108,12 +117,12 @@ class DeterministicGraspPolicy(Policy):
                         angle_actions[t, :2] = traj.Object_pose[traj_t, 0, :2]
                         angle_actions[t, 2] = -0.08
                         angle_actions[t, 3] = angle_samps[s]
-                        angle_actions[t, 4] = 10
+                        angle_actions[t, 4] = 21
                     elif lift:
                         angle_actions[t, :2] = traj.Object_pose[traj_t, 0, :2]
                         angle_actions[t, 2] = self.agentparams['ztarget']
-                        angle_actions[t, 3] = 0.
-                        angle_actions[t, 4] = 10
+                        angle_actions[t, 3] = angle_samps[s]
+                        angle_actions[t, 4] = 21
 
                     self.step_model(angle_actions[t])
                 # print 'final z', self.CEM_model.data.qpos[8].squeeze(), 'with angle', angle_samps[s]
@@ -135,16 +144,24 @@ class DeterministicGraspPolicy(Policy):
 
         return best_ang
 
-    def step_model(self, actions):
-        for _ in range(self.agentparams['substeps']):
-            ctrl = actions.copy()
+    def step_model(self, input_actions):
+        #print "action", input_actions
 
-            ctrl[2] -= self.CEM_model.data.qpos[2].squeeze()
 
-            self.CEM_model.data.ctrl = ctrl
+        mask_rel = self.agentparams['mode_rel'].astype(np.float32)
+        pos_clip = self.agentparams['targetpos_clip']
+
+        self.prev_target = self.target.copy()
+        self.target = input_actions.copy()
+        self.target = np.clip(self.target, pos_clip[0], pos_clip[1])
+
+        for s in range(self.agentparams['substeps']):
+            step_action = s / float(self.agentparams['substeps']) * (self.target - self.prev_target) + self.prev_target
+            self.CEM_model.data.ctrl = step_action
             self.CEM_model.step()
-        self.viewer_refresh()
+            self.viewer_refresh()
 
+        #print "end", self.CEM_model.data.qpos[:4].squeeze()
 
     def act(self, traj, t, init_model = None):
         self.setup_CEM_model(t, init_model)

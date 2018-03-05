@@ -21,7 +21,7 @@
             <joint name="slide_x" type="slide" pos="0 0 0" axis="1 0 0" limited="true" range="-0.5 0.5" armature="0" damping="30" stiffness="0"/>
             <joint name="slide_y" type="slide" pos="0 0 0" axis="0 1 0" limited="true" range="-0.5 0.5" armature="0" damping="30" stiffness="0"/>
             <joint name="slide_z" type="slide" pos="0 0 0" axis="0 0 1"  limited="true" range="-0.08 0.15"/>
-            <joint name="hinge_z" type="hinge" pos="0 0 0" axis="0 0 1" limited="true" range="-3.14 3.14" damping="2"/>
+            <joint name="hinge_z" type="hinge" pos="0 0 0" axis="0 0 1" limited="true" range="-3.14 3.14" damping="150"/>
 
             <body name="fingers" pos="'0 0 0">
 
@@ -29,13 +29,13 @@
                 <body name="finger1" pos="-0.07 0 -0.1">
                     <joint name="j_finger1" type="slide" pos="0 0 0" axis="1 0 0"  limited="true" range="0. 0.1" />
                     <!--<geom contype="1" conaffinity="1" type="box" size=".01 .02 .1" rgba="0.3 0.3 0.3 1"  mass="0.08"/>-->
-                    <geom contype="2" conaffinity="2" type="box" size=".01 .02 .1" rgba="0.3 0.3 0.3 1"  mass="0.08"/>
+                    <geom contype="2" conaffinity="2" type="box" size=".01 .025 .1" rgba="0.3 0.3 0.3 1"  mass="0.08" friction="1 0.010 0.0002"/>
                 </body>
 
                 <body name="finger2" pos="0.07 0 -0.1">
                     <joint name="j_finger2" type="slide" pos="0 0 0" axis="1 0 0" />
                     <!--<geom contype="1" conaffinity="1"  type="box" size=".01 .02 .1" rgba="0.3 0.3 0.3 1" mass="0.08"/>-->
-                    <geom contype="4" conaffinity="4"  type="box" size=".01 .02 .1" rgba="0.3 0.3 0.3 1" mass="0.08"/>
+                    <geom contype="4" conaffinity="4"  type="box" size=".01 .025 .1" rgba="0.3 0.3 0.3 1" mass="0.08" friction="1 0.010 0.0002"/>
                 </body>
             </body>
 
