@@ -29,5 +29,6 @@ configuration = {
 'learning_rate': 0.0001,     #'the base learning rate of the generator' ,
 'normalization':'None',
 'tweights_reg':1e-4,
-'orig_size':[48, 64]
+'orig_size':[48, 64],
+'lt_cost_factor':1e-5,
 }
