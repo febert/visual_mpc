@@ -26,9 +26,7 @@ IMAGE_INTERVAL = 5000
 SAVE_INTERVAL = 4000
 
 from python_visual_mpc.video_prediction.utils_vpred.variable_checkpoint_matcher import variable_checkpoint_matcher
-from gdnet import GoalDistanceNet
-
-from variants.temp_dividenconquer import Temp_DnC_GDnet
+from wpnet import WaypointNet
 
 if __name__ == '__main__':
     FLAGS = flags.FLAGS
@@ -90,7 +88,7 @@ def main(unused_argv, conf_script= None):
     if 'model' in conf:
         Model = conf['model']
     else:
-        Model = GoalDistanceNet
+        Model = WaypointNet
 
     with tf.variable_scope('model'):
         if FLAGS.visualize or FLAGS.visualize_check:
@@ -98,6 +96,10 @@ def main(unused_argv, conf_script= None):
         else:
             model = Model(conf, build_loss, load_data=True)
         model.build_net()
+
+    with tf.variable_scope('testmodel'):
+        testmodel = Model(conf, build_loss, load_data=True)
+        testmodel.build_net(traintime=False)
 
     #model for online benchmarking
     with tf.variable_scope('model', reuse=True):
@@ -182,15 +184,17 @@ def main(unused_argv, conf_script= None):
             [val_summary_str] = sess.run([model.val_summ_op], feed_dict)
             summary_writer.add_summary(val_summary_str, itr)
 
-        if BENCH_INTERVAL != -1 and itr % BENCH_INTERVAL == 0:
-            summary_writer.add_summary(model.run_bench(benchmodel, sess), itr)
-
         if itr % IMAGE_INTERVAL ==0:
             print 'making image summ'
             feed_dict = {model.iter_num: np.float32(itr),
-                         model.train_cond: 0}
-            [val_image_summary_str] = sess.run([model.image_summaries], feed_dict)
-            summary_writer.add_summary(val_image_summary_str, itr)
+                         model.train_cond: 1}
+            [image_summary_str] = sess.run([model.image_summaries], feed_dict)
+            summary_writer.add_summary(image_summary_str, itr)
+
+            feed_dict = {testmodel.iter_num: np.float32(itr),
+                         testmodel.train_cond: 1}
+            [image_summary_str] = sess.run([testmodel.image_summaries], feed_dict)
+            summary_writer.add_summary(image_summary_str, itr)
 
         if (itr) % SAVE_INTERVAL == 2:
             tf.logging.info('Saving model to' + conf['output_dir'])

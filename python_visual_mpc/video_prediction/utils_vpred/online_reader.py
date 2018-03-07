@@ -222,9 +222,7 @@ class OnlineReader(object):
             else:
                 pl_shapes.append([conf['sequence_length']] + tag_dict['shape'])
             self.tag_names.append(tag_dict['name'])
-            self.place_holders[tag_dict['name']] = tf.placeholder(tf.float32,
-                                                                 name=tag_dict['name'],
-                                                                 shape=pl_shapes[-1])
+            self.place_holders[tag_dict['name']] = tf.placeholder(tf.float32, name=tag_dict['name'], shape=pl_shapes[-1])
         if mode == 'train' or mode == 'val':
             self.num_threads = 10
         else: self.num_threads = 1

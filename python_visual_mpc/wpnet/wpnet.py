@@ -46,11 +46,11 @@ def charbonnier_loss(x, weights=None, alpha=0.45, beta=1.0, epsilon=0.001):
         loss as tf.float32
     """
     with tf.variable_scope('charbonnier_loss'):
-        batch, height, width, channels = tf.unstack(tf.shape(x))
-        normalization = tf.cast(batch * height * width * channels, tf.float32)
+        batch, num_int, height, width, channels = tf.unstack(tf.shape(x))
+        normalization = tf.cast(batch * num_int * height * width * channels, tf.float32)
         error = tf.pow(tf.square(x * beta) + tf.square(epsilon), alpha)
         if weights is not None:
-            error *= weights.reshape([batch, 1,1, channels])
+            error *= tf.reshape(weights, [batch, num_int, 1,1, 1])
 
         return tf.reduce_sum(error) / (normalization + 1e-6)
 
@@ -61,8 +61,6 @@ class WaypointNet(object):
                  build_loss=True,
                  load_data = True,
                  images = None,
-                 iter_num = None,
-                 pred_images = None
                  ):
 
         if conf['normalization'] == 'in':
@@ -90,7 +88,7 @@ class WaypointNet(object):
             tag_images = {'name': 'images',
                           'file': '/images/im{}.png',  # only tindex
                           'shape': [48, 64, 3]}
-            conf['sequence_length'] = 30,
+            conf['sequence_length'] = 30
             conf['ngroup'] = 1000
             conf['sourcetags'] = [tag_images]
             sess = tf.InteractiveSession()
@@ -98,19 +96,21 @@ class WaypointNet(object):
             r = OnlineReader(conf, 'train', sess=sess)
             train_image_batch = r.get_batch_tensors()
 
-            r = OnlineReader(conf, 'val', sess=sess)
-            val_image_batch = r.get_batch_tensors()
+            # r = OnlineReader(conf, 'val', sess=sess)
+            # val_image_batch = r.get_batch_tensors()
+            #
+            # r = OnlineReader(conf, 'test', sess=sess)
+            # self.test_images = r.get_batch_tensors()
 
-            r = OnlineReader(conf, 'test', sess=sess)
-            self.test_images = r.get_batch_tensors()
+            # self.images = tf.cond(self.train_cond > 0,
+            #                  # if 1 use trainigbatch else validation batch
+            #                  lambda: train_image_batch,
+            #                  lambda: val_image_batch)
 
-            self.images = tf.cond(self.train_cond > 0,
-                             # if 1 use trainigbatch else validation batch
-                             lambda: train_image_batch,
-                             lambda: val_image_batch)
+            self.images = train_image_batch
 
             self.Istart = self.images[:,0]
-            self.I_intm = self.images[1:self.conf['sequence_lenght'] - 1]
+            self.I_intm = self.images[:, 1:self.conf['sequence_length'] - 1]
             self.Igoal = self.images[:, -1]
 
         elif images == None:  #feed values at test time
@@ -119,25 +119,20 @@ class WaypointNet(object):
             self.Igoal = self.I1_pl= tf.placeholder(tf.float32, name='images',
                                                     shape=(conf['batch_size'], self.img_height, self.img_width, 3))
         self.build_loss = build_loss
-        self.train_losses = {}
+        self.loss_dict = {}
 
-    def build_net(self):
-        # Encode our data into z, generate images, using train or val data
-        with tf.variable_scope("train_model"):
-            self.build_vae(traintime=True)
-
-        # sample from prior, no encoder
-        with tf.variable_scope("train_model"):  # Encode our data into z and return the mean and covariance
-            self.build_vae(traintime=False)
+    def build_net(self, traintime = True):
+        self.build_vae(traintime)
 
     def build_vae(self, traintime):
         self.ctxt_encoding = self.ctxt_enc(self.Istart, self.Igoal)
+
+        self.z = []
         if traintime:
             self.z_mean, self.z_log_sigma_sq, self.tweights = self.intm_enc(self.I_intm)
-            self.z = []
             for i in range(self.seq_len -2):
                 eps = tf.random_normal([self.bsize, self.nz], 0.0, 1.0, dtype=tf.float32)
-                self.z.append(tf.add(self.z_mean[:,i], tf.mul(tf.sqrt(tf.exp(self.z_log_sigma_sq[:, i])), eps)))
+                self.z.append(tf.add(self.z_mean[:,i], tf.multiply(tf.sqrt(tf.exp(self.z_log_sigma_sq[:, i])), eps)))
             self.z = tf.stack(self.z, axis=1)
         else:
             for i in range(self.seq_len -2):
@@ -149,6 +144,8 @@ class WaypointNet(object):
         self.x_reconstr_mean = self.decode(self.ctxt_encoding, self.z)
         self.z_summary = tf.summary.histogram("z", self.z)
         self.tweights_summary = tf.summary.histogram("tweights", self.tweights)
+
+        self.build_image_summary([self.Istart, self.I_intm, self.Igoal])
 
         self.create_loss_and_optimizer(self.x_reconstr_mean, self.I_intm,
                                        self.tweights, self.z_log_sigma_sq, self.z_mean)
@@ -188,18 +185,26 @@ class WaypointNet(object):
             ch_mult = self.conf['ch_mult']
         else: ch_mult = 1
 
-        with tf.variable_scope('h1'):
-            h1 = self.conv_relu_block(intm_images, out_ch=32*ch_mult)  #24x32x3
-        with tf.variable_scope('h2'):
-            h2 = self.conv_relu_block(h1, out_ch=64*ch_mult)  #12x16x3
-        with tf.variable_scope('h3'):
-            h3 = self.conv_relu_block(h2, out_ch=128*ch_mult)  #6x8x3
+        intm_images = tf.concat(tf.unstack(intm_images, axis= 1), -1)
 
-        mu = slim.layers.fully_connected(h3.reshape[self.bsize, -1], num_outputs=self.nz*(self.seq_len-2))
-        mu = tf.reshape(mu, [self.bsize, self.seq_len, self.nz])
-        log_sigma_diag = slim.layers.fully_connected(h3.reshape[self.bsize, -1], num_outputs=self.nz*(self.seq_len-2))
-        log_sigma_diag = tf.reshape(log_sigma_diag, [self.bsize, self.seq_len, self.nz])
-        timeweights = slim.layers.fully_connected(h3.reshape[self.bsize, -1], num_outputs=self.seq_len-2)
+        with tf.variable_scope('intm_enc'):
+            with tf.variable_scope('h1'):
+                h1 = self.conv_relu_block(intm_images, out_ch=32*ch_mult)  #24x32x3
+            with tf.variable_scope('h2'):
+                h2 = self.conv_relu_block(h1, out_ch=64*ch_mult)  #12x16x3
+            with tf.variable_scope('h3'):
+                h3 = self.conv_relu_block(h2, out_ch=64*ch_mult)  #6x8x3
+
+        h3 = tf.reshape(h3,[self.bsize, -1])
+
+        mu = slim.layers.fully_connected(h3, num_outputs=self.nz*(self.seq_len-2))
+        mu = tf.reshape(mu, [self.bsize, self.seq_len-2, self.nz])
+
+        log_sigma_diag = slim.layers.fully_connected(h3, num_outputs=self.nz*(self.seq_len-2))
+        log_sigma_diag = tf.reshape(log_sigma_diag, [self.bsize, self.seq_len-2, self.nz])
+
+        timeweights = slim.layers.fully_connected(h3, num_outputs=self.seq_len-2)
+        timeweights = timeweights/ (tf.reduce_sum(timeweights, axis=1, keep_dims=True) + 1e-5)
 
         return mu, log_sigma_diag, timeweights
 
@@ -209,14 +214,15 @@ class WaypointNet(object):
         else: ch_mult = 1
 
         I0_I1 = tf.concat([start_im, goal_im], axis=3)
-        with tf.variable_scope('h1'):
-            h1 = self.conv_relu_block(I0_I1, out_ch=32*ch_mult)  #24x32x3
-        with tf.variable_scope('h2'):
-            h2 = self.conv_relu_block(h1, out_ch=64*ch_mult)  #12x16x3
-        with tf.variable_scope('h3'):
-            h3 = self.conv_relu_block(h2, out_ch=128*ch_mult)  #6x8x3
+        with tf.variable_scope('ctxt_enc'):
+            with tf.variable_scope('h1'):
+                h1 = self.conv_relu_block(I0_I1, out_ch=32*ch_mult)  #24x32x3
+            with tf.variable_scope('h2'):
+                h2 = self.conv_relu_block(h1, out_ch=64*ch_mult)  #12x16x3
+            with tf.variable_scope('h3'):
+                h3 = self.conv_relu_block(h2, out_ch=128*ch_mult)  #6x8x3
 
-        ctxt_enc = slim.layers.fully_connected(h3.reshape[self.bsize, -1], num_outputs=self.nz)
+        ctxt_enc = slim.layers.fully_connected(tf.reshape(h3, [self.bsize, -1]), num_outputs=self.nz)
         return ctxt_enc
 
     def decode(self, ctxt_enc, z):
@@ -226,21 +232,34 @@ class WaypointNet(object):
         :param goal_im:
         :return:
         """
-        enc = tf.concat([ctxt_enc, z], axis=1)
         if 'ch_mult' in self.conf:
             ch_mult = self.conf['ch_mult']
         else:
             ch_mult = 1
-        enc = tf.tile(tf.reshape(enc,[self.bsize, 1,1,self.nz]), [1,6,8,1])
-        with tf.variable_scope('h1'):
-            h1 = self.conv_relu_block(enc, out_ch=32 * ch_mult, upsmp=True)  # 12, 16
-        with tf.variable_scope('h2'):
-            h2 = self.conv_relu_block(h1, out_ch=64 * ch_mult, upsmp=True)   # 24, 32
-        with tf.variable_scope('h3'):
-            h3 = self.conv_relu_block(h2, out_ch=(self.seq_len - 2)*3, upsmp=True)  # 48, 64
-        return tf.split(h3, self.seq_len - 1, axis=-1)
 
-    def build_image_summary(self, tensors, numex=16, name=None):
+        gen_images = []
+
+        for t in range(self.seq_len -2):
+            if  t== 0:
+                reuse = False
+            else: reuse = True
+
+            enc = tf.concat([ctxt_enc, z[:, t]], axis=1)
+            enc = tf.tile(tf.reshape(enc,[self.bsize, 1,1, enc.get_shape().as_list()[1]]), [1,6,8,1])
+
+            with tf.variable_scope('dec', reuse=reuse):
+                with tf.variable_scope('h1'):
+                    h1 = self.conv_relu_block(enc, out_ch=32 * ch_mult, upsmp=True)  # 12, 16
+                with tf.variable_scope('h2'):
+                    h2 = self.conv_relu_block(h1, out_ch=64 * ch_mult, upsmp=True)   # 24, 32
+                with tf.variable_scope('h3'):
+                    h3 = self.conv_relu_block(h2, out_ch=3, upsmp=True)  # 48, 64
+                with tf.variable_scope('h4'):
+                    gen_images.append(slim.layers.conv2d(h3, 3, kernel_size=[3, 3], stride=1, activation_fn=tf.nn.sigmoid))
+
+        return tf.stack(gen_images, axis=1)
+
+    def build_image_summary(self, tensors, numex=8, name=None):
         """
         takes numex examples from every tensor and concatentes examples side by side
         and the different tensors from top to bottom
@@ -268,22 +287,19 @@ class WaypointNet(object):
         self.val_summaries = {}
 
         reconstr_loss = charbonnier_loss(reconstr_mean - I_intm, weights=timeweights)
-        self.train_summaries['rec'] = reconstr_loss
-        self.val_summaries['rec'] = reconstr_loss
+        self.loss_dict['rec'] = reconstr_loss
 
         #regularization for time weights:
-        expected_t = tf.reduce_sum(tf.range(1,self.seq_len -2)[None, :]*timeweights)
+        expected_t = tf.reduce_sum(tf.cast(tf.range(1,self.seq_len -1)[None, :], tf.float32)*timeweights)
         tweights_reg = tf.square((self.seq_len - 2)/2 - expected_t)*self.conf['tweights_reg']
-        self.train_summaries['tweights_reg'] = tweights_reg
-        self.val_summaries['tweights_reg'] = tweights_reg
+        self.loss_dict['tweights_reg'] = tweights_reg
 
         # TODO: verify why is there no product for the determinant?
         latent_loss = 0
         for i in range(self.seq_len -2):
             latent_loss += -0.5 * tf.reduce_sum(1.0 + z_log_sigma_sq[:,i] - tf.square(z_mean[:,i])
                                                 - tf.exp(z_log_sigma_sq[:,i]), 1)
-        self.train_summaries['lt_loss'] = latent_loss
-        self.val_summaries['lt_loss'] = latent_loss
+        self.loss_dict['lt_loss'] = latent_loss
         self.combine_losses()
 
 
@@ -291,23 +307,19 @@ class WaypointNet(object):
 
         train_summaries = []
         val_summaries = []
-        self.train_loss = 0
-        for k in self.train_losses.keys():
-            single_loss = self.train_losses[k]
-            self.train_loss += single_loss
-            train_summaries.append(tf.summary.scalar(k, single_loss))
+        self.loss = 0.
+        for k in self.loss_dict.keys():
+            single_loss = self.loss_dict[k]
+            self.loss += single_loss
+            train_summaries.append(tf.summary.scalar('train_' + k, single_loss))
+            val_summaries.append(tf.summary.scalar('train_' + k, single_loss))
 
-        self.train_op = tf.train.AdamOptimizer(self.lr).minimize(self.train_loss)
-        train_summaries.append(tf.summary.scalar('train_total', self.train_loss))
+        self.train_op = tf.train.AdamOptimizer(self.lr).minimize(self.loss)
+
+        train_summaries.append(tf.summary.scalar('train_total', self.loss))
         self.train_summ_op = tf.summary.merge(train_summaries)
 
-        val_loss = 0
-        for k in self.val_losses.keys():
-            single_loss = self.val_losses[k]
-            val_loss += single_loss
-            train_summaries.append(tf.summary.scalar(k, single_loss))
-
-        val_summaries.append(tf.summary.scalar('val_total', val_loss))
+        val_summaries.append(tf.summary.scalar('val_total', self.loss))
         self.val_summ_op = tf.summary.merge(val_summaries)
 
 
