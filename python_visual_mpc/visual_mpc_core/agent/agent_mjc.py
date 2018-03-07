@@ -278,6 +278,11 @@ class AgentMuJoCo(object):
         self.hf_target_qpos_l = []
         self.hf_qpos_l = []
 
+
+        if 'posmode' in self._hyperparams:
+            traj.target_qpos[0, :] = self._model.data.qpos[:self.adim].squeeze()
+            traj.target_qpos[1, :] = self._model.data.qpos[:self.adim].squeeze()
+
         # Take the sample.
         for t in range(self.T):
             qpos_dim = self.sdim / 2  # the states contains pos and vel
@@ -313,15 +318,10 @@ class AgentMuJoCo(object):
 
             if 'posmode' in self._hyperparams:  #if the output of act is a positions
                 traj.actions[t, :] = mj_U
-                if t == 0:
-                    self.prev_target_qpos = self._model.data.qpos[:self.adim].squeeze()
-                    self.target_qpos = self._model.data.qpos[:self.adim].squeeze()
-                else:
-                    self.prev_target_qpos = self.target_qpos
 
-                mask_rel = self._hyperparams['mode_rel'].astype(np.float32) # mask out action dimensions with abs control with 0
-                self.target_qpos = mj_U.copy() + self.target_qpos * mask_rel
-                self.target_qpos = self.clip_targetpos(self.target_qpos)
+                # mask out action dimensions with abs control with 0
+                traj.target_qpos[t + 1, :] = mj_U.copy() + traj.target_qpos[t, :] * traj.mask_rel
+                traj.target_qpos[t + 1, :] = self.clip_targetpos(traj.target_qpos[t + 1, :])
             else:
                 traj.actions[t, :] = mj_U
                 ctrl = mj_U.copy()
@@ -340,7 +340,7 @@ class AgentMuJoCo(object):
 
                 # print 'prev_target qpos', self.prev_target_qpos
                 if 'posmode' in self._hyperparams:
-                    ctrl = self.get_int_targetpos(st, self.prev_target_qpos, self.target_qpos)
+                    ctrl = self.get_int_targetpos(st, traj.target_qpos[t, :], traj.target_qpos[t + 1, :])
 
                 accum_touch += self._model.data.sensordata
                 # if 'poscontroller_offset' in self._hyperparams:

@@ -223,4 +223,4 @@ class DeterministicGraspPolicy(Policy):
         if 'debug_viewer' in self.policyparams and self.policyparams['debug_viewer'] and t == self.agentparams['T'] - 1:
             self.viewer.finish()
 
-        return actions
+        return actions - traj.target_qpos[t, :] * traj.mask_rel
