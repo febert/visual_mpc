@@ -20,7 +20,7 @@ VAL_INTERVAL = 500
 
 BENCH_INTERVAL = -1
 
-IMAGE_INTERVAL = 10 #5000
+IMAGE_INTERVAL = 5000
 
 # How often to save a model checkpoint
 SAVE_INTERVAL = 4000
