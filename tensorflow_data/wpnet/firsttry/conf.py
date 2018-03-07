@@ -25,8 +25,8 @@ configuration = {
 'train_val_split':.95,
 'visualize':'',
 'skip_frame':1,
-'batch_size': 8,           #'batch size for training' ,
-'learning_rate': 0.001,     #'the base learning rate of the generator' ,
+'batch_size': 16,           #'batch size for training' ,
+'learning_rate': 0.0001,     #'the base learning rate of the generator' ,
 'normalization':'None',
 'tweights_reg':1.,
 'orig_size':[48, 64]

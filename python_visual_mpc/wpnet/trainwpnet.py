@@ -20,7 +20,7 @@ VAL_INTERVAL = 500
 
 BENCH_INTERVAL = -1
 
-IMAGE_INTERVAL = 5000
+IMAGE_INTERVAL = 10 #5000
 
 # How often to save a model checkpoint
 SAVE_INTERVAL = 4000
@@ -90,29 +90,27 @@ def main(unused_argv, conf_script= None):
     else:
         Model = WaypointNet
 
+    gpu_options = tf.GPUOptions(per_process_gpu_memory_fraction=0.9)
+    # Make training session.
+    sess = tf.InteractiveSession(config=tf.ConfigProto(gpu_options=gpu_options))
+
     with tf.variable_scope('model'):
         if FLAGS.visualize or FLAGS.visualize_check:
-            model = Model(conf, build_loss, load_data=False)
+            model = Model(conf, build_loss, load_data=False, sess = sess)
         else:
-            model = Model(conf, build_loss, load_data=True)
+            model = Model(conf, build_loss, load_data=True, sess = sess)
         model.build_net()
 
     with tf.variable_scope('testmodel'):
-        testmodel = Model(conf, build_loss, load_data=True)
+        testmodel = Model(conf, build_loss, load_data=True, sess = sess)
         testmodel.build_net(traintime=False)
-
-    #model for online benchmarking
-    with tf.variable_scope('model', reuse=True):
-        conf['compare_gtruth_flow'] = ''
-        benchmodel = Model(conf, build_loss =False, load_data=False)
-        benchmodel.build_net()
 
     print 'Constructing saver.'
     vars = tf.get_collection(tf.GraphKeys.GLOBAL_VARIABLES)
     saving_saver = tf.train.Saver(vars, max_to_keep=0)
 
-    if 'load_pretrained' in conf and not FLAGS.visualize_check and not FLAGS.visualize:
-        vars = variable_checkpoint_matcher(conf, vars, conf['load_pretrained'], True)
+    if FLAGS.resume and not FLAGS.visualize_check and not FLAGS.visualize:
+        vars = variable_checkpoint_matcher(conf, vars, FLAGS.resume, True)
         loading_saver = tf.train.Saver(vars, max_to_keep=0)
 
     if FLAGS.visualize_check:
@@ -122,9 +120,7 @@ def main(unused_argv, conf_script= None):
         vars = variable_checkpoint_matcher(conf, vars,  True)
         loading_saver = tf.train.Saver(vars, max_to_keep=0)
 
-    gpu_options = tf.GPUOptions(per_process_gpu_memory_fraction=0.9)
-    # Make training session.
-    sess = tf.InteractiveSession(config=tf.ConfigProto(gpu_options=gpu_options))
+
     summary_writer = tf.summary.FileWriter(conf['event_log_dir'], graph=sess.graph, flush_secs=10)
 
     tf.train.start_queue_runners(sess)
@@ -170,6 +166,17 @@ def main(unused_argv, conf_script= None):
 
         feed_dict = {model.iter_num: np.float32(itr),
                      model.train_cond: 1}
+
+        inspect = False
+        if inspect and itr % 10 == 0:
+            lt_loss, z_log_sigma_sq, z_mean = sess.run([model.loss_dict['lt_loss'], model.z_log_sigma_sq, model.z_mean],
+                                                feed_dict)
+            print 'lt_loss: ', lt_loss
+            for i in range(1):
+                # for t in range(z_log_sigma_sq.shape[1]):
+                for t in range(10):
+                    print 'z_log_sigma_sq', z_log_sigma_sq[i, t]
+                    print 'z_mean', z_mean[i, t]
 
         cost, _, summary_str = sess.run([model.loss, model.train_op, model.train_summ_op],
                                         feed_dict)

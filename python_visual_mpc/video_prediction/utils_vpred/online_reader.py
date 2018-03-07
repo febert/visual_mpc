@@ -101,12 +101,14 @@ def read_img(tag_dict, dataind, tar=None, trajname=None):
     return img
 
 
-def reading_thread(conf, subset_traj, enqueue_op, sess, placeholders):
+def reading_thread(conf, subset_traj, enqueue_op, sess, placeholders, use_tar):
     num_errors = 0
     print 'started process with PID:', os.getpid()
 
     for trajname in itertools.cycle(subset_traj):  # loop of traj0, traj1,..
-        nump_array_dict = read_trajectory(conf, trajname)
+        nump_array_dict = read_trajectory(conf, trajname, use_tar=use_tar)
+
+        # print 'reading ',trajname
 
         feed_dict = {}
         for tag_dict in conf['sourcetags']:
@@ -199,7 +201,7 @@ def read_trajectory(conf, trajname, use_tar = False):
 
 
 class OnlineReader(object):
-    def __init__(self, conf, mode, sess):
+    def __init__(self, conf, mode, sess, use_tar=False):
         """
 
         :param conf:
@@ -210,6 +212,8 @@ class OnlineReader(object):
         self.sess = sess
         self.conf = conf
         self.mode = mode
+
+        self.use_tar = use_tar
 
         self.place_holders = OrderedDict()
 
@@ -328,7 +332,7 @@ class OnlineReader(object):
 
             t = threading.Thread(target=reading_thread, args=(self.conf, subset_traj,
                                                               self.enqueue_op, self.sess,
-                                                              self.place_holders
+                                                              self.place_holders, self.use_tar
                                                                 ))
             t.setDaemon(True)
             t.start()
@@ -374,7 +378,7 @@ def test_online_reader():
                   'shape': [3],
                   }
     conf = {
-        'batch_size':40,
+        'batch_size':64,
         'sequence_length':30,
         'ngroup': 1000,
         'sourcetags': [tag_images, tag_actions, tag_states],
@@ -384,7 +388,7 @@ def test_online_reader():
     }
 
     sess = tf.InteractiveSession()
-    r = OnlineReader(conf, 'test', sess=sess)
+    r = OnlineReader(conf, 'train', sess=sess, use_tar=True)
     # image_batch, gtruth_flows_batch = r.get_batch_tensors()
     image_batch, action_batch, endeff_pos_batch = r.get_batch_tensors()
 
@@ -392,7 +396,7 @@ def test_online_reader():
 
     deltat = []
     end = time.time()
-    for i_run in range(100):
+    for i_run in range(1000):
         # print 'run number ', i_run
 
         # images, gtruth_flows = sess.run([image_batch, gtruth_flows_batch])
@@ -404,9 +408,9 @@ def test_online_reader():
             print 'average time:', np.average(np.array(deltat))
         end = time.time()
 
-        file_path = conf['current_dir'] + '/preview'
-        comp_single_video(file_path, images, num_exp=conf['batch_size'])
-        pdb.set_trace()
+        # file_path = conf['current_dir'] + '/preview'
+        # comp_single_video(file_path, images, num_exp=conf['batch_size'])
+        # pdb.set_trace()
 
         # show some frames
         # for b in range(conf['batch_size']):
