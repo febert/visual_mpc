@@ -54,13 +54,15 @@ agent = {
 policy = {
     'type' : DeterministicGraspPolicy,
     'nactions': 15,
-    'iterations':1,
+    'iterations':2,
     'repeats': 5, # number of repeats for each action
     'initial_std': 10.,   #std dev. in xy
     'initial_std_lift': 20,   #std dev. in xy
     'debug_viewer':True,
     'num_samples':20,
     'best_to_take':5,
+    'init_mean':np.zeros(3),
+    'init_cov':np.diag(np.array([(3.14 / 4) ** 2, 1e-3, 1e-3]))
     # 'initial_std_grasp': 1e-5,   #std dev. in xy
 }
 
