@@ -2,8 +2,9 @@ import numpy as np
 import xml.etree.cElementTree as ET
 import xml.dom.minidom as minidom
 import imp
+import glob
 import os
-import os
+import random
 
 def file_len(fname):
     i = 0
@@ -22,6 +23,9 @@ def create_object_xml(hyperparams, load_dict_list=None):
     root = ET.Element("top")
 
     save_dict_list = []
+
+    if 'object_meshes' in hyperparams:
+        assets = ET.SubElement(root, "assets")
 
     for i in range(hyperparams['num_objects']):
         obj = ET.SubElement(root, "body", name="object{}".format(i), pos="0 0 0")
@@ -47,18 +51,27 @@ def create_object_xml(hyperparams, load_dict_list=None):
             l1 = dict['l1']
             l2 = dict['l2']
             pos2 = dict['pos2']
+        if 'object_meshes' in hyperparams:
+            o_mesh = xmldir + '/' + random.choice(hyperparams['object_meshes']) +'/'
+            print 'import mesh dir', o_mesh
+            stl_files = glob.glob(o_mesh + '*.stl')
+            convex_hull_files = [x for x in stl_files if 'Shape_IndexedFaceSet' in x]
+            object_file = [x for x in stl_files
+                           if x not in convex_hull_files and 'Lamp' not in x and 'Camera' not in x][0]
 
-        ET.SubElement(obj, "geom", type="box", size=".03 {} .03".format(l1),
-                      rgba="{} {} {} 1".format(color1[0], color1[1], color1[2]), mass="0.01",
-                      contype="7", conaffinity = "7", friction="1 0.010 0.0002"
-                      )
+            print 1 / 0
+        else:
+            ET.SubElement(obj, "geom", type="box", size=".03 {} .03".format(l1),
+                          rgba="{} {} {} 1".format(color1[0], color1[1], color1[2]), mass="0.01",
+                          contype="7", conaffinity = "7", friction="1 0.010 0.0002"
+                          )
 
 
-        ET.SubElement(obj, "geom", pos="{} {} 0.0".format(l2, pos2),
-                      type="box", size="{} .03 .03".format(l2),
-                      rgba="{} {} {} 1".format(color2[0], color2[1], color2[2]), mass="0.01",
-                      contype="7", conaffinity="7", friction="1 0.010 0.0002"
-                      )
+            ET.SubElement(obj, "geom", pos="{} {} 0.0".format(l2, pos2),
+                          type="box", size="{} .03 .03".format(l2),
+                          rgba="{} {} {} 1".format(color2[0], color2[1], color2[2]), mass="0.01",
+                          contype="7", conaffinity="7", friction="1 0.010 0.0002"
+                          )
 
     tree = ET.ElementTree(root)
 

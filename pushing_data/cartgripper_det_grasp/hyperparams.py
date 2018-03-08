@@ -47,7 +47,8 @@ agent = {
     'make_final_gif':True,
     'record': BASE_DIR + '/record/',
     'targetpos_clip':[[-0.5, -0.5, -0.08, -np.pi*2, 0], [0.5, 0.5, 0.15, np.pi*2, 0.1]],
-    'mode_rel':np.array([True, True, True, True, False])
+    'mode_rel':np.array([True, True, True, True, False]),
+    'object_meshes':['1960_corvette'] #folder to original object + convex approximation
     # 'displacement_threshold':0.1,
 }
 

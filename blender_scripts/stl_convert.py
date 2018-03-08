@@ -52,7 +52,7 @@ for file_name in glob.glob(in_path +"/*.stl"):
 
     bpy.data.objects[blender_objname].select = True
     print("decomposing")
-    bpy.ops.object.vhacd()
+    bpy.ops.object.vhacd(depth = 32, planeDownsampling = 14, convexhullDownsampling = 14)
     print("exporting stl files in batch")
     bpy.ops.export_mesh.stl(filepath=output_path, batch_mode="OBJECT")
     print("finish!")
