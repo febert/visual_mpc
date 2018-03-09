@@ -31,6 +31,10 @@ def file_len(fname):
             pass
     return i + 1
 
+class Image_dark_except(Exception):
+    def __init__(self, imagefile):
+        pass
+
 class AgentMuJoCo(object):
     """
     All communication between the algorithms and MuJoCo is done through
@@ -97,7 +101,10 @@ class AgentMuJoCo(object):
         imax = 100
         while not traj_ok and i_trial < imax:
             i_trial += 1
-            traj_ok, traj = self.rollout(policy)
+            try:
+                traj_ok, traj = self.rollout(policy)
+            except Image_dark_except:
+                traj_ok = False
 
         print 'needed {} trials'.format(i_trial)
 
@@ -294,6 +301,7 @@ class AgentMuJoCo(object):
                 self.curr_mask, self.curr_mask_large = self.get_obj_masks(include_arm=False) #get target object mask
             else:
                 self.desig_pix = self.get_desig_pix()
+
             self._store_image(t, traj, policy)
             if 'gtruthdesig' in self._hyperparams:  # generate many designated pixel goal-pixel pairs
                 self.desig_pix, self.goal_pix = self.gen_gtruthdesig(t, traj)
@@ -492,7 +500,8 @@ class AgentMuJoCo(object):
         large_img = np.fromstring(img_string, dtype='uint8').reshape((height, width, 3))[::-1,:,:]
 
         if np.sum(large_img) < 1e-3:
-            print "agent_mj: image black !!!!!"
+            raise Image_dark_except
+
         self.large_images.append(large_img)
 
         assert self._hyperparams['viewer_image_width']/self._hyperparams['image_width'] == self._hyperparams['viewer_image_height']/self._hyperparams['image_height']

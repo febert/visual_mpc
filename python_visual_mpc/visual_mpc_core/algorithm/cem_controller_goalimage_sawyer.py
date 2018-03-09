@@ -650,7 +650,7 @@ class CEM_controller():
         if t == 0:
             action = np.zeros(self.agentparams['adim'])
         else:
-            last_images = traj._sample_images[t - 1:t + 1]   # second image shall contain front view
+            last_images = traj._sample_images[t - 1:t + 1]
 
             if 'use_vel' in self.netconf:
                 last_states = traj.X_Xdot_full[t-1: t+1]

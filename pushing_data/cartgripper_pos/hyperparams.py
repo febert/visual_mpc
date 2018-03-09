@@ -43,10 +43,7 @@ agent = {
     'novideo':'',
     'gen_xml':10,   #generate xml every nth trajecotry
     'randomize_ballinitpos':'', #randomize x, y
-    # 'make_final_gif':True,
-    'poscontroller_offset':'',
     'posmode':"",
-    'record': BASE_DIR + '/record/',
     'targetpos_clip':[[-0.45, -0.45, -0.08, -np.pi*2, 0.], [0.45, 0.45, 0.15, np.pi*2, 0.1]],
     'mode_rel':np.array([True, True, True, True, False])
 }
