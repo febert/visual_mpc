@@ -32,7 +32,7 @@ def file_len(fname):
     return i + 1
 
 class Image_dark_except(Exception):
-    def __init__(self, imagefile):
+    def __init__(self):
         pass
 
 class AgentMuJoCo(object):
@@ -500,6 +500,7 @@ class AgentMuJoCo(object):
         large_img = np.fromstring(img_string, dtype='uint8').reshape((height, width, 3))[::-1,:,:]
 
         if np.sum(large_img) < 1e-3:
+            print "image dark!!!"
             raise Image_dark_except
 
         self.large_images.append(large_img)
