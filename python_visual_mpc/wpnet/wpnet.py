@@ -81,7 +81,7 @@ class WaypointNet(object):
             raise ValueError('Invalid layer normalization %s' % conf['normalization'])
 
         self.conf = conf
-        self.nz = 8
+        self.nz = self.conf['lt_dim']
 
         self.lr = tf.placeholder_with_default(self.conf['learning_rate'], ())
         self.train_cond = tf.placeholder(tf.int32, shape=[], name="train_cond")
@@ -98,7 +98,6 @@ class WaypointNet(object):
             tag_images = {'name': 'images',
                           'file': '/images/im{}.png',  # only tindex
                           'shape': [48, 64, 3]}
-            conf['sequence_length'] = 30
             conf['ngroup'] = 1000
             conf['sourcetags'] = [tag_images]
 
@@ -194,25 +193,31 @@ class WaypointNet(object):
             ch_mult = self.conf['ch_mult']
         else: ch_mult = 1
 
-        intm_images = tf.concat(tf.unstack(intm_images, axis= 1), -1)
+        log_sigma_diag_l = []
+        mu_l = []
 
-        with tf.variable_scope('intm_enc'):
-            with tf.variable_scope('h1'):
-                h1 = self.conv_relu_block(intm_images, out_ch=32*ch_mult)  #24x32x3
-            with tf.variable_scope('h2'):
-                h2 = self.conv_relu_block(h1, out_ch=64*ch_mult)  #12x16x3
-            with tf.variable_scope('h3'):
-                h3 = self.conv_relu_block(h2, out_ch=8*ch_mult)  #6x8x3
+        for t in range(self.seq_len -2):
+            if  t== 0:
+                reuse = False
+            else: reuse = True
 
-        h3 = tf.reshape(h3,[self.bsize, -1])
+            with tf.variable_scope('intm_enc', reuse=reuse):
+                with tf.variable_scope('h1'):
+                    h1 = self.conv_relu_block(intm_images[t], out_ch=32 * ch_mult)  # 24x32x3
+                with tf.variable_scope('h2'):
+                    h2 = self.conv_relu_block(h1, out_ch=64 * ch_mult)  # 12x16x3
+                with tf.variable_scope('h3'):
+                    h3 = self.conv_relu_block(h2, out_ch=8 * ch_mult)  # 6x8x3
 
-        mu = slim.layers.fully_connected(h3, num_outputs=self.nz*(self.seq_len-2), activation_fn=None)
-        mu = tf.reshape(mu, [self.bsize, self.seq_len-2, self.nz])
+            h3 = tf.reshape(h3, [self.bsize, -1])
 
-        log_sigma_diag = slim.layers.fully_connected(h3, num_outputs=self.nz*(self.seq_len-2), activation_fn=None)
-        log_sigma_diag = tf.reshape(log_sigma_diag, [self.bsize, self.seq_len-2, self.nz])
+            mu = slim.layers.fully_connected(h3, num_outputs=self.nz, activation_fn=None)
+            mu_l.append(mu)
 
-        return mu, log_sigma_diag
+            log_sigma_diag = slim.layers.fully_connected(h3, num_outputs=self.nz, activation_fn=None)
+            log_sigma_diag_l.append(log_sigma_diag)
+
+        return tf.stack(mu_l,axis=1), tf.stack(log_sigma_diag_l,axis=1)
 
     def ctxt_enc(self, start_im, goal_im):
         if 'ch_mult' in self.conf:

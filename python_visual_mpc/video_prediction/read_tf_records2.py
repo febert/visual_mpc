@@ -278,8 +278,8 @@ def main():
             print 'endeff'
             print endeff[b]
 
-            print 'gen_endeff'
-            print gen_endeff[b]
+            # print 'gen_endeff'
+            # print gen_endeff[b]
 
             # print 'gen_endeff'
             # print gen_endeff[b]

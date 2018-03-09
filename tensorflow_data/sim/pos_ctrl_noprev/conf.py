@@ -36,7 +36,6 @@ configuration = {
 'adim':5,
 'sdim':12,
 'normalization':'in',
-'previmg_bckgd':'',
 'orig_size':[48,64],
 'img_height':48,
 'img_width':64,

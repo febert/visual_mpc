@@ -132,11 +132,9 @@ def visualize_diffmotions(sess, conf, model):
 
     actions = np.zeros([conf['batch_size'], conf['sequence_length'], adim])
 
-    # step = .025
-
-    if adim == 3: # cartgripper sim
-        print 'visualizing cartgripper'
-        step = 10
+    # step = 10
+    if 'vis_step' in conf:
+        step = conf['vis_step']
     else:
         step = .055
 
@@ -150,8 +148,16 @@ def visualize_diffmotions(sess, conf, model):
 
     if adim == 5:
         b += 1
-        actions[b, 0] = np.array([0, 0, 4, 0, 0])
-        actions[b, 1] = np.array([0, 0, 4, 0, 0])
+
+        if 'vis_updown_step' in conf:
+            updown_step = conf['vis_updown_step']
+        else:
+            updown_step = 4
+
+        # actions[b, 0] = np.array([0, 0, updown_step, 0, 0])
+        # actions[b, 1] = np.array([0, 0, updown_step, 0, 0])
+        actions[b, 0:7] = np.array([0, 0, updown_step, 0, 0])
+        actions[b, 7:15] = np.array([0, 0, -updown_step, 0, 0])
         col_titles.append('up/down')
 
         b += 1
@@ -159,15 +165,18 @@ def visualize_diffmotions(sess, conf, model):
         actions[b, 1] = np.array([0, 0, 0, 0, 4])
         col_titles.append('close/open')
 
-        delta_rot = 0.4
+        if 'vis_rot_step' in conf:
+            rot_step = conf['vis_rot_step']
+        else: rot_step = 4
+
         b += 1
         for i in range(conf['sequence_length']):
-            actions[b, i] = np.array([0, 0, 0, delta_rot, 0])
+            actions[b, i] = np.array([0, 0, 0, rot_step, 0])
         col_titles.append('rot +')
 
         b += 1
         for i in range(conf['sequence_length']):
-            actions[b, i] = np.array([0, 0, 0, -delta_rot, 0])
+            actions[b, i] = np.array([0, 0, 0, -rot_step, 0])
         col_titles.append('rot -')
 
         col_titles.append('noaction')

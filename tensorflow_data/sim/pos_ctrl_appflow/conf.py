@@ -21,26 +21,21 @@ configuration = {
 'skip_frame': 1,            # 'use ever i-th frame to increase prediction horizon' ,
 'context_frames': 2,        # of frames before predictions.' ,
 'use_state': 1,             #'Whether or not to give the state+action to the model' ,
-'model': 'cdna',            #'model architecture to use - CDNA, DNA, or STP' ,
-'num_transformed_images': 4,   # 'number of masks, usually 1 for DNA, 10 for CDNA, STN.' ,
+'model': 'appflow',            #'model architecture to use - CDNA, DNA, or STP' ,
+'num_transformed_images': 1,   # 'number of masks, usually 1 for DNA, 10 for CDNA, STN.' ,
 'schedsamp_k': 1200.0,      # 'The k hyperparameter for scheduled sampling -1 for no scheduled sampling.' ,
 'train_val_split': 0.95,    #'The percentage of files to use for the training set vs. the validation set.' ,
 'batch_size': 16,           #'batch size for training' ,
 'learning_rate': 0.001,     #'the base learning rate of the generator' ,
 'visualize': '',            #'load model from which to generate visualizations
 'file_visual': '',          # datafile used for making visualizations
-'kern_size': 17,            # size of DNA kerns
+'sawyer':'',
 'single_view':"",
 '1stimg_bckgd':'',
-# 'visual_flowvec':'',
-'adim':5,
-'sdim':12,
+'visual_flowvec':'',
+'adim':3,
+'sdim':6,
 'normalization':'in',
 'previmg_bckgd':'',
-'orig_size':[48,64],
-'img_height':48,
-'img_width':64,
-'vis_step':0.05,
-'vis_updown_step':0.1,
-'vis_rot_step':0.15,
+'orig_size':[48,64]
 }
