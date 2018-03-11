@@ -95,12 +95,6 @@ class DeterministicGraspPolicy(Policy):
                     if move and np.linalg.norm(targetxy_delta - cur_xy, 2) <= self.agentparams['drop_thresh']:
                         move = False
                         drop = True
-                        angle_action[:2] = targetxy_delta
-                        angle_action[2] = self.agentparams['ztarget']
-                        angle_action[3] = angle_delta
-                        angle_action[4] = -100
-                        self.step_model(angle_action)
-                        continue
 
                     if drop and self.CEM_model.data.qpos[2] <= -0.079:
                         drop = False

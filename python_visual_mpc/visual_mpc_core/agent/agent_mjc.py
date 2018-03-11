@@ -2,8 +2,6 @@
 from copy import deepcopy
 import copy
 import numpy as np
-import mujoco_py
-from mujoco_py.mjtypes import *
 import pdb
 import cPickle
 from PIL import Image
@@ -23,6 +21,9 @@ import os
 from time import sleep
 import cv2
 from python_visual_mpc.goaldistancenet.misc.draw_polygon import draw_poly
+
+import mujoco_py
+from mujoco_py.mjtypes import *
 
 def file_len(fname):
     i = 0

@@ -25,10 +25,11 @@ def create_object_xml(hyperparams, load_dict_list=None):
     save_dict_list = []
 
     if 'object_meshes' in hyperparams:
-        assets = ET.SubElement(root, "assets")
+        assets = ET.SubElement(root, "asset")
+    world_body = ET.SubElement(root, "worldbody")
 
     for i in range(hyperparams['num_objects']):
-        obj = ET.SubElement(root, "body", name="object{}".format(i), pos="0 0 0")
+        obj = ET.SubElement(world_body, "body", name="object{}".format(i), pos="0 0 0")
         ET.SubElement(obj, "joint", type="free")
 
         if load_dict_list == None:
@@ -52,14 +53,27 @@ def create_object_xml(hyperparams, load_dict_list=None):
             l2 = dict['l2']
             pos2 = dict['pos2']
         if 'object_meshes' in hyperparams:
+            obj_string = "object{}".format(i)
+
             o_mesh = xmldir + '/' + random.choice(hyperparams['object_meshes']) +'/'
             print 'import mesh dir', o_mesh
             stl_files = glob.glob(o_mesh + '*.stl')
             convex_hull_files = [x for x in stl_files if 'Shape_IndexedFaceSet' in x]
             object_file = [x for x in stl_files
-                           if x not in convex_hull_files and 'Lamp' not in x and 'Camera' not in x][0]
+                           if x not in convex_hull_files and 'Lamp' not in x and 'Camera' not in x and 'GM' not in x][0]
 
-            print 1 / 0
+            # print 'object_file', object_file
+            # print 'convex_hull files', convex_hull_files
+
+            ET.SubElement(assets, "mesh", name = obj_string + "_mesh", file = object_file, scale = "0.15 0.15 0.15")
+
+            ET.SubElement(obj, "geom", type="mesh", mesh = obj_string + "_mesh",
+                          rgba="{} {} {} 1".format(color1[0], color1[1], color1[2]), mass="0.01",
+                          contype="7", conaffinity="7"
+                          )
+            # for c in range(len(convex_hull_files)):
+            #     ET.SubElement(assets, "mesh", )
+
         else:
             ET.SubElement(obj, "geom", type="box", size=".03 {} .03".format(l1),
                           rgba="{} {} {} 1".format(color1[0], color1[1], color1[2]), mass="0.01",
