@@ -23,6 +23,7 @@ from python_visual_mpc.video_prediction.utils_vpred.online_reader import read_tr
 from python_visual_mpc.data_preparation.gather_data import make_traj_name_list
 
 import collections
+from python_visual_mpc.layers.batchnorm_layer import batchnorm_train, batchnorm_test
 
 def length_sq(x):
     return tf.reduce_sum(tf.square(x), 3, keep_dims=True)
@@ -75,6 +76,8 @@ class WaypointNet(object):
 
         if conf['normalization'] == 'in':
             self.normalizer_fn = instance_norm
+        if conf['normalization'] == 'bnorm':
+            self.normalizer_fn = batchnorm_train
         elif conf['normalization'] == 'None':
             self.normalizer_fn = lambda x: x
         else:
@@ -92,28 +95,40 @@ class WaypointNet(object):
         self.img_height = self.conf['orig_size'][0]
         self.img_width = self.conf['orig_size'][1]
 
+        self.train_summaries = []
+        self.val_summaries = []
+
         if load_data:
             self.iter_num = tf.placeholder(tf.float32, [], name='iternum')
 
-            tag_images = {'name': 'images',
-                          'file': '/images/im{}.png',  # only tindex
-                          'shape': [48, 64, 3]}
-            conf['ngroup'] = 1000
-            conf['sourcetags'] = [tag_images]
+            if 'source_basedirs' in self.conf:
+                tag_images = {'name': 'images',
+                              'file': '/images/im{}.png',  # only tindex
+                              'shape': [48, 64, 3]}
+                conf['ngroup'] = 1000
+                conf['sourcetags'] = [tag_images]
 
-            if not inference:
-                r = OnlineReader(conf, 'train', sess=sess)
-                train_image_batch = r.get_batch_tensors()
+                if not inference:
+                    r = OnlineReader(conf, 'train', sess=sess)
+                    train_image_batch = r.get_batch_tensors()
 
-                r = OnlineReader(conf, 'val', sess=sess)
-                val_image_batch = r.get_batch_tensors()
-                self.images = tf.cond(self.train_cond > 0,
-                                      # if 1 use trainigbatch else validation batch
-                                      lambda: train_image_batch,
-                                      lambda: val_image_batch)
+                    r = OnlineReader(conf, 'val', sess=sess)
+                    val_image_batch = r.get_batch_tensors()
+                    self.images = tf.cond(self.train_cond > 0,
+                                          # if 1 use trainigbatch else validation batch
+                                          lambda: train_image_batch,
+                                          lambda: val_image_batch)
+                else:
+                    r = OnlineReader(conf, 'test', sess=sess)
+                    self.images = r.get_batch_tensors()
             else:
-                r = OnlineReader(conf, 'test', sess=sess)
-                self.images = r.get_batch_tensors()
+                train_dict = build_tfrecord_fn(conf, training=True)
+                val_dict = build_tfrecord_fn(conf, training=False)
+                dict = tf.cond(self.train_cond > 0,
+                               # if 1 use trainigbatch else validation batch
+                               lambda: train_dict,
+                               lambda: val_dict)
+                self.images = dict['images']
 
             self.Istart = self.images[:,0]
             self.I_intm = self.images[:, 1:self.conf['sequence_length'] - 1]
@@ -310,47 +325,49 @@ class WaypointNet(object):
 
 
     def create_loss_and_optimizer(self, reconstr_mean, I_intm, z_log_sigma_sq, z_mean):
-        self.train_summaries = {}
-        self.val_summaries = {}
-
         diff = reconstr_mean - I_intm
         reconstr_errs = charbonnier_loss(diff, per_int_ex=True)
 
         self.weights = tf.nn.softmax(1/(reconstr_errs +1e-6), -1)
         reconstr_loss = charbonnier_loss(diff, weights=self.weights)
 
-        self.loss_dict['rec'] = reconstr_loss
+        self.loss_dict['rec'] = (reconstr_loss, 1.)
 
         dist = tf.square(tf.cast(tf.range(1, self.seq_len - 1), tf.float32) - self.seq_len/2)
-        weights_reg = dist[None]*self.weights*self.conf['tweights_reg']
-        self.loss_dict['tweights_reg'] = tf.reduce_mean(weights_reg)
+        weights_reg = dist[None]*self.weights
+        self.loss_dict['tweights_reg'] = (tf.reduce_mean(weights_reg), self.conf['tweights_reg'])
 
-        # TODO: verify why is there no product for the determinant?
         latent_loss = 0.
         for i in range(self.seq_len -2):
             latent_loss += -0.5 * tf.reduce_sum(1.0 + z_log_sigma_sq[:,i] - tf.square(z_mean[:,i])
                                                 - tf.exp(z_log_sigma_sq[:,i]))
-        self.loss_dict['lt_loss'] = latent_loss*self.conf['lt_cost_factor']
+        if 'sched_lt_cost' in self.conf:
+            mx_it = self.conf['sched_lt_cost'][1]
+            min_it = self.conf['sched_lt_cost'][0]
+            self.sched_lt_cost = tf.clip_by_value((self.iter_num-min_it)/(mx_it - min_it), 0., 1.)
+            self.train_summaries.append(tf.summary.scalar('sched_lt_cost', self.sched_lt_cost))
+        else:
+            self.sched_lt_cost = 1.
+
+        self.loss_dict['lt_loss'] = (latent_loss, self.conf['lt_cost_factor']*self.sched_lt_cost)
         self.combine_losses()
 
     def combine_losses(self):
 
-        train_summaries = []
-        val_summaries = []
         self.loss = 0.
         for k in self.loss_dict.keys():
-            single_loss = self.loss_dict[k]
-            self.loss += single_loss
-            train_summaries.append(tf.summary.scalar('train_' + k, single_loss))
-            val_summaries.append(tf.summary.scalar('val_' + k, single_loss))
+            single_loss, weight = self.loss_dict[k]
+            self.loss += single_loss*weight
+            self.train_summaries.append(tf.summary.scalar('train_' + k, single_loss))
+            self.val_summaries.append(tf.summary.scalar('val_' + k, single_loss))
 
         self.train_op = tf.train.AdamOptimizer(self.lr).minimize(self.loss)
 
-        train_summaries.append(tf.summary.scalar('train_total', self.loss))
-        self.train_summ_op = tf.summary.merge(train_summaries)
+        self.train_summaries.append(tf.summary.scalar('train_total', self.loss))
+        self.train_summ_op = tf.summary.merge(self.train_summaries)
 
-        val_summaries.append(tf.summary.scalar('val_total', self.loss))
-        self.val_summ_op = tf.summary.merge(val_summaries)
+        self.val_summaries.append(tf.summary.scalar('val_total', self.loss))
+        self.val_summ_op = tf.summary.merge(self.val_summaries)
 
 
     def visualize(self, sess):
