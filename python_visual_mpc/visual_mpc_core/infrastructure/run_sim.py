@@ -1,4 +1,3 @@
-import logging
 import imp
 import os
 import os.path
@@ -17,7 +16,6 @@ from python_visual_mpc.visual_mpc_core.infrastructure.utility import *
 
 import matplotlib.pyplot as plt
 from datetime import datetime
-import pdb
 import cPickle
 import cv2
 import shutil
@@ -25,7 +23,7 @@ import shutil
 class Sim(object):
     """ Main class to run algorithms and experiments. """
 
-    def __init__(self, config, quit_on_end=False, gpu_id=0, ngpu=1):
+    def __init__(self, config, gpu_id=0, ngpu=1):
 
         self._hyperparams = config
         self.agent = config['agent']['type'](config['agent'])
@@ -51,7 +49,7 @@ class Sim(object):
             else:
                 self.policy = config['policy']['type'](config['agent'], config['policy'], self.predictor)
         else:
-            self.policy = config['policy']['type'](config['agent'], config['policy'])
+            self.policy = config['policy']['type'](self.agent._hyperparams, config['policy'])
 
         self.trajectory_list = []
         self.im_score_list = []

@@ -53,7 +53,7 @@ class Randompolicy(Policy):
         return sigma
 
 
-    def act(self, traj, t, init_model=None):
+    def act(self, traj, t, init_model=None, goal_ob_pose=None, agentparams=None):
 
         repeat = self.policyparams['repeats']  # repeat the same action to reduce number of repquired timesteps
 

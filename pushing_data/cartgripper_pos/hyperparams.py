@@ -28,7 +28,7 @@ agent = {
     'sample_objectpos':'',
     'adim':5,
     'sdim':12,
-    'xpos0': np.array([0., 0., 0.01, 0., 0., 0.]), #initialize state dimension to 5 zeros
+    'xpos0': np.array([0., 0., 0.1, 0., 0., 0.]), #initialize state dimension to 5 zeros
     'dt': 0.05,
     'substeps': 200,  #6
     'T': 15,
@@ -53,7 +53,7 @@ policy = {
     'nactions': 5,
     'repeats': 3,               # number of repeats for each action
     'initial_std': 0.08,        # std dev. in xy
-    'initial_std_lift': 0.1,
+    'initial_std_lift': 0.1, #0.1,
     'initial_std_rot': 0.1,
     'initial_std_grasp': 0.0,
 }

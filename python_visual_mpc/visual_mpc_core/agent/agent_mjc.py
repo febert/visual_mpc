@@ -55,7 +55,7 @@ class AgentMuJoCo(object):
         self.desig_pix = None
 
         self.load_obj_statprop = None  #loaded static object properties
-        self._setup_world()
+        # self._setup_world()
 
     def _setup_world(self):
         """
@@ -90,7 +90,8 @@ class AgentMuJoCo(object):
         """
         if "gen_xml" in self._hyperparams:
             if i_tr % self._hyperparams['gen_xml'] == 0:
-                self.viewer.finish()
+                if hasattr(self, "viewer"):
+                    self.viewer.finish()
                 self._setup_world()
 
         # if 'goal_mask' in self._hyperparams:
@@ -110,7 +111,7 @@ class AgentMuJoCo(object):
 
         tfinal = self._hyperparams['T'] -1
         if self.goal_obj_pose is not None:
-            self.final_poscost, self.final_anglecost = self.eval_action(traj, tfinal, getanglecost=True)
+            self.final_poscost, self.final_anglecost = self.eval_action(traj, tfinal)
 
         if 'save_goal_image' in self._hyperparams:
             self.save_goal_image_conf(traj)
@@ -307,16 +308,13 @@ class AgentMuJoCo(object):
                 self.desig_pix, self.goal_pix = self.gen_gtruthdesig(t, traj)
 
             if 'not_use_images' in self._hyperparams:
-                mj_U = policy.act(traj, t, init_model=self._model)
+                mj_U = policy.act(traj, t, self._model, self.goal_obj_pose, self._hyperparams)
             else:
                 mj_U, plan_stat = policy.act(traj, t, desig_pix=self.desig_pix,goal_pix=self.goal_pix,
-                                                              goal_image=self.goal_image, goal_mask=self.goal_mask, curr_mask=self.curr_mask)
+                                          goal_image=self.goal_image, goal_mask=self.goal_mask, curr_mask=self.curr_mask)
                 traj.plan_stat.append(plan_stat)
 
-            if 'add_traj_visual' in self._hyperparams:  # whether to add visuals for trajectory
-                self.large_images_traj += self.add_traj_visual(self.large_images[t], pos, ind, targets)
-            else:
-                self.large_images_traj.append(self.large_images[t])
+            self.large_images_traj.append(self.large_images[t])
 
             if 'posmode' in self._hyperparams:  #if the output of act is a positions
                 traj.actions[t, :] = mj_U
@@ -405,7 +403,7 @@ class AgentMuJoCo(object):
         cPickle.dump(dict, open(self._hyperparams['save_goal_image'] + '.pkl', 'wb'))
         img.save(self._hyperparams['save_goal_image'] + '.png',)
 
-    def eval_action(self, traj, t, getanglecost=False):
+    def eval_action(self, traj, t):
 
         abs_distances = []
         abs_angle_dist = []
