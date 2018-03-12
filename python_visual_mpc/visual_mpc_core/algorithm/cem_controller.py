@@ -213,7 +213,6 @@ class CEM_controller(Policy):
             all_scores[smp] = np.sum(per_time_multiplier*score)
         return all_scores
 
-
     def sim_rollout(self, actions):
         costs = []
         self.hf_qpos_l = []
@@ -285,15 +284,13 @@ class CEM_controller(Policy):
             init_model: mujoco model to initialize from
         """
         self.agentparams = agent_params
-        if t == 0:
-            self.create_sim()
         self.goal_obj_pose = goal_obj_pose
-
         self.t = t
         self.init_model = init_model
 
         if t == 0:
             action = np.zeros(self.adim)
+            self.create_sim()
         else:
             self.perform_CEM(t)
             action = self.bestaction[0]
@@ -301,5 +298,6 @@ class CEM_controller(Policy):
         self.action_list.append(action)
         print 'timestep: ', t, ' taking action: ', action
 
+        # self.finish()
         return action
 

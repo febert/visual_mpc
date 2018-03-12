@@ -109,47 +109,39 @@ def perform_benchmark(conf = None, gpu_id=None):
         if 'goal_mask' in conf['agent']:
             sim.agent.goal_mask = dict['goal_mask'][goal_index]  # assign last image of trajectory as goalimage
 
-        for j in range(n_reseed):
-            if traj > nruns -1:
-                break
+        print 'run number ', traj
+        print 'loading done'
 
-            seed = traj+1
-            random.seed(seed)
-            np.random.seed(seed)
-            print '-------------------------------------------------------------------'
-            print 'run number ', traj
-            print 'configuration No. ', i_conf
-            print 'using random seed', seed
-            print '-------------------------------------------------------------------'
+        print '-------------------------------------------------------------------'
+        print 'run number ', traj
+        print '-------------------------------------------------------------------'
 
-            record_dir = bench_dir + '/verbose/traj{0}_conf{1}'.format(traj, i_conf)
-            if not os.path.exists(record_dir):
-                os.makedirs(record_dir)
-            sim.agent._hyperparams['record'] = record_dir
+        record_dir = bench_dir + '/verbose/traj{0}'.format(traj)
+        if not os.path.exists(record_dir):
+            os.makedirs(record_dir)
+        sim.agent._hyperparams['record'] = record_dir
 
-            # reinitilize policy between rollouts
-            if 'usenet' in conf['policy']:
-                if 'warp_objective' in conf['policy']:
-                    sim.policy = conf['policy']['type'](sim.agent._hyperparams,
-                                            conf['policy'], sim.predictor, sim.goal_image_waper)
-                else:
-                    sim.policy = conf['policy']['type'](sim.agent._hyperparams,
-                                                     conf['policy'], sim.predictor)
+        # reinitilize policy between rollouts
+        if 'usenet' in conf['policy']:
+            if 'warp_objective' in conf['policy']:
+                sim.policy = conf['policy']['type'](sim.agent._hyperparams,
+                                        conf['policy'], sim.predictor, sim.goal_image_waper)
             else:
-                sim.policy = conf['policy']['type'](sim.agent._hyperparams, conf['policy'])
+                sim.policy = conf['policy']['type'](sim.agent._hyperparams,
+                                                 conf['policy'], sim.predictor)
+        else:
+            sim.policy = conf['policy']['type'](sim.agent._hyperparams, conf['policy'])
 
-            sim.policy.policyparams['rec_distrib'] = bench_dir + '/videos_distrib/traj{0}_conf{1}'.format(traj, i_conf)
+        sim.policy.policyparams['rec_distrib'] = bench_dir + '/videos_distrib/traj{0}'.format(traj)
 
-            sim._take_sample(traj)
+        sim._take_sample(traj)
 
-            scores_l.append(sim.agent.final_poscost)
-            anglecost_l.append(sim.agent.final_anglecost)
+        scores_l.append(sim.agent.final_poscost)
+        anglecost_l.append(sim.agent.final_anglecost)
 
-            print 'score of traj{},{} anglecost{}'.format(traj, scores_l[-1], anglecost_l[-1])
+        print 'score of traj{},{} anglecost{}'.format(traj, scores_l[-1], anglecost_l[-1])
 
-            traj +=1 #increment trajectories every step!
-
-        i_conf += 1 #increment configurations every three steps!
+        traj +=1 #increment trajectories every step!
 
         scores = np.array(scores_l)
         sorted_ind = scores.argsort()

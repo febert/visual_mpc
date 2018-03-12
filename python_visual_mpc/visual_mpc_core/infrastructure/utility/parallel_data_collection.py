@@ -81,8 +81,6 @@ def main():
         hyperparams = imp.load_source('hyperparams', hyperparams_file).config
         hyperparams['bench_dir'] = experimentdir
 
-
-
     if args.nsplit != -1:
         n_persplit = (hyperparams['end_index']+1)/args.nsplit
         hyperparams['start_index'] = args.isplit * n_persplit

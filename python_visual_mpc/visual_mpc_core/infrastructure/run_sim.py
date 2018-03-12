@@ -30,6 +30,9 @@ class Sim(object):
         self.agentparams = config['agent']
 
         self._data_save_dir = os.environ['VMPC_DATA_DIR'] + self.agentparams['data_save_dir']
+        self._timing_file = self._data_save_dir + '/timing_file{}'.format(os.getpid())
+        with open(self._timing_file, 'wb') as f:
+            f.write("timing \n")
 
         if 'netconf' in config['policy']:
             params = imp.load_source('params', config['policy']['netconf'])
@@ -72,14 +75,17 @@ class Sim(object):
             sample_index: Sample index.
         Returns: None
         """
-        start = datetime.now()
+        t_traj = time.time()
         traj = self.agent.sample(self.policy, sample_index)
+        t_traj = time.time() - t_traj
 
+        t_save = time.time()
         if self._hyperparams['save_data']:
             self.save_data(traj, sample_index)
+        t_save = time.time() - t_save
 
-        end = datetime.now()
-        print 'time elapsed for one trajectory sim', end - start
+        with open(self._timing_file,'a') as f:
+            f.write("{} trajtime {} savetime {}\n".format(sample_index, t_traj, t_save))
 
     def save_data(self, traj, itr):
         """
