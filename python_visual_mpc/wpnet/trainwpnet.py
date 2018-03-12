@@ -59,7 +59,7 @@ def main(unused_argv, conf_script= None):
 
     if FLAGS.ow:
         print 'deleting {}'.format(conf['output_dir'])
-        os.system("rm {}".format(conf['output_dir'])[:-1] + '/*')
+        os.system("rm {}".format(conf['output_dir']) + '/*')
 
     conf['event_log_dir'] = conf['output_dir']
 
