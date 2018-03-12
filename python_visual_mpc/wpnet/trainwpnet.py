@@ -58,7 +58,8 @@ def main(unused_argv, conf_script= None):
         conf['data_dir'] = os.environ['VMPC_DATA_DIR'] + '/train'
 
     if FLAGS.ow:
-       os.system("rm {}".format(conf['output_dir'])[:-1] + '/*')
+        print 'deleting {}'.format(conf['output_dir'])
+        os.system("rm {}".format(conf['output_dir'])[:-1] + '/*')
 
     conf['event_log_dir'] = conf['output_dir']
 
