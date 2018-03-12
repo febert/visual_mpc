@@ -18,8 +18,6 @@ SUMMARY_INTERVAL = 400
 # How often to run a batch through the validation model.
 VAL_INTERVAL = 500
 
-BENCH_INTERVAL = -1
-
 IMAGE_INTERVAL = 5000
 
 # How often to save a model checkpoint
@@ -37,6 +35,7 @@ if __name__ == '__main__':
     flags.DEFINE_string('resume', None, 'path to model file from which to resume training')
     flags.DEFINE_bool('docker', False, 'whether to write outpufiles to /results folder, used when runing in docker')
     flags.DEFINE_bool('flowerr', False, 'whether to compute flowerr metric')
+    flags.DEFINE_bool('ow', False, 'overwrite previous experiment')
 
 def main(unused_argv, conf_script= None):
     os.environ["CUDA_VISIBLE_DEVICES"] = str(FLAGS.device)
@@ -57,6 +56,9 @@ def main(unused_argv, conf_script= None):
         conf['output_dir'] = '/results'
         print 'output goes to ', conf['output_dir']
         conf['data_dir'] = os.environ['VMPC_DATA_DIR'] + '/train'
+
+    if FLAGS.ow:
+       os.system("rm {}".format(conf['output_dir'])[:-1] + '/*')
 
     conf['event_log_dir'] = conf['output_dir']
 
