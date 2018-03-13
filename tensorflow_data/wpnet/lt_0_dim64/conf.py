@@ -3,7 +3,6 @@ base_dir = python_visual_mpc.__file__
 
 base_dir = '/'.join(str.split(base_dir, '/')[:-2])
 
-
 import os
 current_dir = os.path.dirname(os.path.realpath(__file__))
 

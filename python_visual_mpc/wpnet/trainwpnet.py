@@ -169,18 +169,6 @@ def main(unused_argv, conf_script= None):
 
         feed_dict = {model.iter_num: np.float32(itr),
                      model.train_cond: 1}
-
-        inspect = False
-        if inspect and itr % 10 == 0:
-            lt_loss, z_log_sigma_sq, z_mean = sess.run([model.loss_dict['lt_loss'], model.z_log_sigma_sq, model.z_mean],
-                                                feed_dict)
-            print 'lt_loss: ', lt_loss
-            for i in range(1):
-                # for t in range(z_log_sigma_sq.shape[1]):
-                for t in range(10):
-                    print 'z_log_sigma_sq', z_log_sigma_sq[i, t]
-                    print 'z_mean', z_mean[i, t]
-
         cost, _, summary_str = sess.run([model.loss, model.train_op, model.train_summ_op],
                                         feed_dict)
 
@@ -193,6 +181,11 @@ def main(unused_argv, conf_script= None):
                          model.train_cond: 0}
             [val_summary_str] = sess.run([model.val_summ_op], feed_dict)
             summary_writer.add_summary(val_summary_str, itr)
+
+            feed_dict = {testmodel.iter_num: np.float32(itr),
+                         testmodel.train_cond: 0}
+            [summary_str] = sess.run([testmodel.val_summ_op], feed_dict)
+            summary_writer.add_summary(summary_str, itr)
 
         if itr % IMAGE_INTERVAL ==0:
             print 'making image summ'
