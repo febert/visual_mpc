@@ -376,13 +376,14 @@ class WaypointNet(object):
             # unweighted !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
             reconstr_loss = tf.reduce_mean(tf.square(diff))
         else:
-            reconstr_errs = charbonnier_loss(diff, per_int_ex=True)
-            self.weights = tf.nn.softmax(1/(reconstr_errs +1e-6), -1)
-            reconstr_loss = charbonnier_loss(diff, weights=self.weights)
-
-            dist = tf.square(tf.cast(tf.range(1, self.seq_len - 1), tf.float32) - self.seq_len/2)
-            weights_reg = dist[None]*self.weights
-            self.loss_dict['tweights_reg'] = (tf.reduce_mean(weights_reg), self.conf['tweights_reg'])
+            # reconstr_errs = charbonnier_loss(diff, per_int_ex=True)
+            # self.weights = tf.nn.softmax(1/(reconstr_errs +1e-6), -1)
+            # reconstr_loss = charbonnier_loss(diff, weights=self.weights)
+            #
+            # dist = tf.square(tf.cast(tf.range(1, self.seq_len - 1), tf.float32) - self.seq_len/2)
+            # weights_reg = dist[None]*self.weights
+            # self.loss_dict['tweights_reg'] = (tf.reduce_mean(weights_reg), self.conf['tweights_reg'])
+            reconstr_loss = charbonnier_loss(diff)
 
         self.loss_dict['rec'] = (reconstr_loss, 1.)
 

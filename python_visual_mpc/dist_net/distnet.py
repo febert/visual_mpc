@@ -25,44 +25,6 @@ from python_visual_mpc.data_preparation.gather_data import make_traj_name_list
 import collections
 from python_visual_mpc.layers.batchnorm_layer import batchnorm_train, batchnorm_test
 
-def length_sq(x):
-    return tf.reduce_sum(tf.square(x), 3, keep_dims=True)
-
-def length(x):
-    return tf.sqrt(tf.reduce_sum(tf.square(x), 3))
-
-def mean_square(x):
-    return tf.reduce_mean(tf.square(x))
-
-def charbonnier_loss(x, weights=None, alpha=0.45, beta=1.0, epsilon=0.001, per_int_ex = False):
-    """Compute the generalized charbonnier loss of the difference tensor x.
-    All positions where mask == 0 are not taken into account.
-
-    Args:
-        x: a tensor of shape [num_batch, height, width, channels].
-        mask: a mask of shape [num_batch, height, width, mask_channels],
-            where mask channels must be either 1 or the same number as
-            the number of channels of x. Entries should be 0 or 1.
-    Returns:
-        loss as tf.float32
-    """
-    with tf.variable_scope('charbonnier_loss'):
-        batch, int, height, width, channels = tf.unstack(x.get_shape().as_list())
-
-        if per_int_ex:
-            normalization = tf.cast(height * width * channels, tf.float32)
-        else:
-            normalization = tf.cast(int * batch * height * width * channels, tf.float32)
-
-        error = tf.pow(tf.square(x * beta) + tf.square(epsilon), alpha)
-        if weights is not None:
-            error *= tf.reshape(weights, [batch, int, 1,1, 1])
-
-        if per_int_ex:
-            return tf.reduce_sum(error, axis=[2,3,4]) / normalization
-        else:
-            return tf.reduce_sum(error) / normalization
-
 
 class Dist_Net(object):
     def __init__(self,
