@@ -18,7 +18,7 @@ configuration = {
 'data_dir': DATA_DIR,      # 'directory containing data.' ,'
 'current_dir': base_dir,   #'directory for writing summary.' ,
 'num_iterations':100000,
-'sequence_length':5,
+'sequence_length':3,
 'train_val_split':.95,
 'visualize':'',
 'skip_frame':1,
