@@ -5,10 +5,6 @@ base_dir = '/'.join(str.split(base_dir, '/')[:-2])
 
 
 import os
-# tf record data location:
-DATA_DIR = os.environ['VMPC_DATA_DIR'] + '//train'
-
-import os
 current_dir = os.path.dirname(os.path.realpath(__file__))
 
 DATA_DIR = os.environ['VMPC_DATA_DIR'] + '/cartgripper/train'
@@ -33,4 +29,6 @@ configuration = {
 'orig_size':[48, 64],
 'lt_cost_factor':0.,
 'lt_dim':64,
+'sdim':6,
+'adim':3,
 }
