@@ -1,3 +1,4 @@
+#!/usr/bin/env bash
 ngc batch run -n "Cloud-nv-us-west-2-111050"\
     -i "ucb_rail8888/tf1.4_gpu:based_nvidia" \
     --ace nv-us-west-2 \
