@@ -20,7 +20,7 @@ configuration = {
 'data_dir': DATA_DIR,      # 'directory containing data.' ,'
 'output_dir': OUT_DIR,      #'directory for model checkpoints.' ,
 'current_dir': base_dir,   #'directory for writing summary.' ,
-'num_iterations':100000,
+'num_iterations':300000,
 'sequence_length':3,
 'train_val_split':.95,
 'visualize':'',
@@ -32,8 +32,7 @@ configuration = {
 'orig_size':[48, 64],
 'lt_cost_factor':1e-3,
 'lt_dim':64,
-'sched_lt_cost':[30000, 60000],
+'sched_lt_cost':[100000, 200000],
 'sdim':6,
 'adim':3,
-'ch_mult':8,
 }

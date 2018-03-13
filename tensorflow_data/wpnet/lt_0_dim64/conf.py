@@ -6,7 +6,7 @@ base_dir = '/'.join(str.split(base_dir, '/')[:-2])
 
 import os
 # tf record data location:
-DATA_DIR = os.environ['VMPC_DATA_DIR'] + '/cartgripper/train'
+DATA_DIR = os.environ['VMPC_DATA_DIR'] + '//train'
 
 import os
 current_dir = os.path.dirname(os.path.realpath(__file__))
@@ -17,23 +17,19 @@ OUT_DIR = current_dir + '/modeldata'
 
 configuration = {
 'experiment_name': 'correction',
-'data_dir': DATA_DIR,      # 'directory containing data.' ,'
+'source_basedirs': [os.environ['VMPC_DATA_DIR'] + '/datacol_appflow/data/train'],
 'output_dir': OUT_DIR,      #'directory for model checkpoints.' ,
 'current_dir': base_dir,   #'directory for writing summary.' ,
 'num_iterations':100000,
-'sequence_length':3,
+'sequence_length':5,
 'train_val_split':.95,
 'visualize':'',
 'skip_frame':1,
 'batch_size': 16,           #'batch size for training' ,
 'learning_rate': 0.0001,     #'the base learning rate of the generator' ,
-'normalization':'bnorm',
+'normalization':'None',
 'tweights_reg':0.,
 'orig_size':[48, 64],
-'lt_cost_factor':1e-3,
+'lt_cost_factor':0.,
 'lt_dim':64,
-'sched_lt_cost':[30000, 60000],
-'sdim':6,
-'adim':3,
-'ch_mult':8,
 }

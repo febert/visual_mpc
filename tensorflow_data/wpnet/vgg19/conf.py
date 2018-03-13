@@ -35,4 +35,5 @@ configuration = {
 'sched_lt_cost':[30000, 60000],
 'sdim':6,
 'adim':3,
+'vgg19':base_dir + '/tensorflow_data/VGG/vgg19/modeldata/vgg19.npy',
 }
