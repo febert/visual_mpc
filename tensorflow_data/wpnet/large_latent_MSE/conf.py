@@ -36,4 +36,5 @@ configuration = {
 'sdim':6,
 'adim':3,
 'ch_mult':8,
+'MSE':'',
 }
