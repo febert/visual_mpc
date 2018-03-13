@@ -11,15 +11,14 @@ DATA_DIR = os.environ['VMPC_DATA_DIR'] + '//train'
 import os
 current_dir = os.path.dirname(os.path.realpath(__file__))
 
-DATA_DIR = os.environ['VMPC_DATA_DIR'] + '/cartgripper/train'
 
 # local output directory
 OUT_DIR = current_dir + '/modeldata'
 
 configuration = {
 'experiment_name': 'correction',
-'output_dir': OUT_DIR,      #'directory for model checkpoints.' ,
 'data_dir': DATA_DIR,      # 'directory containing data.' ,'
+'output_dir': OUT_DIR,      #'directory for model checkpoints.' ,
 'current_dir': base_dir,   #'directory for writing summary.' ,
 'num_iterations':100000,
 'sequence_length':3,
