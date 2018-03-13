@@ -33,7 +33,7 @@ if __name__ == '__main__':
     flags.DEFINE_string('visualize_check', "", 'model within hyperparameter folder from which to create gifs')
     flags.DEFINE_integer('device', 0 ,'the value for CUDA_VISIBLE_DEVICES variable')
     flags.DEFINE_string('resume', None, 'path to model file from which to resume training')
-    flags.DEFINE_bool('docker', False, 'whether to write outpufiles to /results folder, used when runing in docker')
+    flags.DEFINE_bool('docker', False, 'whether to write outpufiles to /result folder, used when runing in docker')
     flags.DEFINE_bool('flowerr', False, 'whether to compute flowerr metric')
     flags.DEFINE_bool('ow', False, 'overwrite previous experiment')
 
@@ -53,7 +53,8 @@ def main(unused_argv, conf_script= None):
     conf = hyperparams.configuration
 
     if FLAGS.docker:
-        conf['output_dir'] = '/results'
+        conf['output_dir'] = '/result'
+        assert os.path.exists(conf['output_dir'])
         print 'output goes to ', conf['output_dir']
         conf['data_dir'] = os.environ['VMPC_DATA_DIR'] + '/train'
 

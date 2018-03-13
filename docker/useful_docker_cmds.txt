@@ -14,9 +14,12 @@ ngc dataset upload --source /mnt/sda1/pushing_data/ --desc "asdf" datasetname --
 docker push nvcr.io/my_org/my_team/image:0.1
 
 # view stdout/stderr
-ngc batch attach
+ngc batch attach <job_id>
 
 ngc batch run ‐f <file.json>
+
+# download results
+ngc result download <job_id>
 
 
 
