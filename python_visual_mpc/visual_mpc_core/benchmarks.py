@@ -99,7 +99,7 @@ def perform_benchmark(conf = None, gpu_id=None):
             goal_index = -1
 
         if sim.agent._hyperparams['sdim']/2 != dict['qpos'].shape[1]:
-            sim.agent._hyperparams['xpos0'] = np.concatenate([dict['qpos'][init_index], np.array([0.,0.,0.])])
+            sim.agent._hyperparams['xpos0'] = np.concatenate([dict['qpos'][init_index], np.array([0.,0.,0.])])  #testing in setting with updown rot, while data has only xyz
         else:
             sim.agent._hyperparams['xpos0'] = dict['qpos'][init_index]
         sim.agent._hyperparams['object_pos0'] = dict['object_full_pose'][init_index]

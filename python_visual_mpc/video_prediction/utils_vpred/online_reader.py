@@ -20,7 +20,11 @@ from collections import OrderedDict
 import matplotlib.pyplot as plt
 from PIL import Image
 import time
+import tarfile
+from python_visual_mpc.visual_mpc_core.infrastructure.trajectory import Trajectory
+from python_visual_mpc.visual_mpc_core.infrastructure.utility.save_tf_record import save_tf_record
 
+import copy
 
 def get_start_end(conf):
     """
@@ -60,8 +64,7 @@ def read_img(tag_dict, dataind, tar=None, trajname=None):
     """
 
     if tar != None:
-        traj_base_dir = tar.getmembers()[0].path
-        im_filename = traj_base_dir + tag_dict['file'].format(dataind)
+        im_filename = 'traj/images/im{}.png'.format(dataind)
         img_stream = tar.extractfile(im_filename)
         file_bytes = np.asarray(bytearray(img_stream.read()), dtype=np.uint8)
         img = cv2.imdecode(file_bytes, 1)
@@ -70,8 +73,6 @@ def read_img(tag_dict, dataind, tar=None, trajname=None):
         if not os.path.exists(imfile):
             raise ValueError("file {} does not exist!".format(imfile))
         img = cv2.imread(imfile)
-
-
 
     imheight = tag_dict['shape'][0]     # get target im_sizes
     imwidth = tag_dict['shape'][1]
@@ -153,9 +154,8 @@ def read_trajectory(conf, trajname, use_tar = False):
     nump_array_dict = {}
 
     if use_tar:
-        tar = open(trajname + "/traj.tar")
-        traj_base_dir = tar.getmembers()[0].path
-        pkl_file_stream = tar.extractfile(traj_base_dir + '/state_action.pkl')
+        tar = tarfile.open(trajname + "/traj.tar")
+        pkl_file_stream = tar.extractfile('traj/state_action.pkl')
         pkldata = cPickle.load(pkl_file_stream)
     else:
         tar = None
@@ -200,6 +200,7 @@ def read_trajectory(conf, trajname, use_tar = False):
     return nump_array_dict
 
 
+
 class OnlineReader(object):
     def __init__(self, conf, mode, sess, use_tar=False):
         """
@@ -217,7 +218,7 @@ class OnlineReader(object):
 
         self.place_holders = OrderedDict()
 
-        pl_shapes  = []
+        pl_shapes = []
         self.tag_names = []
         # loop through tags
         for tag_dict in conf['sourcetags']:
@@ -337,6 +338,70 @@ class OnlineReader(object):
             t.setDaemon(True)
             t.start()
 
+def convert_to_tfrec():
+    tag_images = {'name': 'images',
+                  'file': '/images/im{}.png',  # only tindex
+                  'shape': [48, 64, 3],
+                  }
+
+    tag_actions = {'name': 'states',
+                   'file': '/state_action.pkl',  # only tindex
+                   'pkl_names': ['qpos', 'qvel'],
+                   'shape': [6],
+                   }
+
+    tag_states = {'name': 'actions',
+                  'file': '/state_action.pkl',  # only tindex
+                  'shape': [3],
+                  }
+    traj_conf = {
+        'T':30,
+        'batch_size':64,
+        'sequence_length':30,
+        'ngroup': 1000,
+        'image_height':48,
+        'image_width':64,
+        ''
+        'sourcetags': [tag_images, tag_actions, tag_states],
+        'source_basedirs': [os.environ['VMPC_DATA_DIR'] + '/datacol_appflow/data/train'],
+        # 'source_basedirs': [os.environ['VMPC_DATA_DIR'] + '/cartgripper_gtruth_flow/train'],
+        'current_dir':os.environ['VMPC_DATA_DIR'] + '/datacol_appflow/',
+        'data_save_dir':'/mnt/sda1/pushing_data/datacol_appflow_tfrec/train',
+    }
+    trajlist = make_traj_name_list(traj_conf, shuffle=False)
+
+    tag_images = {'name': 'images',
+                  'file':'/images/im{}.png',   # only tindex
+                  'shape':[48, 64, 3]}
+    goal_img_conf = {
+        'ngroup': 1000,
+        'sequence_length':2,
+        'sourcetags':[tag_images],
+        'source_basedirs':[os.environ['VMPC_DATA_DIR'] + '/cartgripper_startgoal_masks6e4/train']}
+
+    trajectory_list = []
+    itr = 0
+    for trajname in trajlist:
+        traj = read_trajectory(traj_conf, trajname)
+        goal_img_traj = read_trajectory(goal_img_conf,
+                                        goal_img_conf['source_basedirs'][0] + '/' + '/'.join(str.split(trajname, '/')[-2:]))
+
+        t = Trajectory(traj_conf)
+        t._sample_images = (traj['images']*255.).astype(np.uint8)
+        t.actions = traj['actions']
+        t.X_Xdot_full = traj['states']
+        t.goal_image = (goal_img_traj['images'][-1]*255.).astype(np.uint8)
+
+        t = copy.deepcopy(t)
+        trajectory_list.append(t)
+        traj_per_file = 128
+        print 'traj_per_file', traj_per_file
+        if len(trajectory_list) == traj_per_file:
+            filename = 'traj_{0}_to_{1}' \
+                .format(itr - traj_per_file + 1, itr)
+            save_tf_record(filename, trajectory_list, traj_conf)
+            trajectory_list = []
+        itr += 1
 
 def test_online_reader():
 
@@ -388,7 +453,7 @@ def test_online_reader():
     }
 
     sess = tf.InteractiveSession()
-    r = OnlineReader(conf, 'train', sess=sess, use_tar=True)
+    r = OnlineReader(conf, 'test', sess=sess, use_tar=False)
     # image_batch, gtruth_flows_batch = r.get_batch_tensors()
     image_batch, action_batch, endeff_pos_batch = r.get_batch_tensors()
 
@@ -441,4 +506,5 @@ def test_online_reader():
             # pdb.set_trace()
 
 if __name__ == '__main__':
-    test_online_reader()
+    # test_online_reader()
+    convert_to_tfrec()

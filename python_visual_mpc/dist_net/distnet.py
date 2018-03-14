@@ -91,6 +91,8 @@ class Dist_Net(object):
                                lambda: train_dict,
                                lambda: val_dict)
                 self.images = dict['images']
+                if 'goal_image' in self.conf:
+                    self.goal_images = dict['goal_image']
                 self.actions = dict['actions']
 
         elif images == None:  #feed values at test time
@@ -102,7 +104,7 @@ class Dist_Net(object):
         self.loss_dict = {}
 
     def build_net(self):
-        self.gen_actions = self.reg_actions(self.images)
+        self.gen_actions = self.reg_actions()
         self.create_loss_and_optimizer(self.gen_actions, self.actions)
 
     def conv_relu_block(self, input, out_ch, k=3, upsmp=False):
@@ -117,7 +119,7 @@ class Dist_Net(object):
         h = tf.image.resize_images(h, imsize, method=tf.image.ResizeMethod.BILINEAR)
         return h
 
-    def reg_actions(self, inp_images):
+    def reg_actions(self):
         if 'ch_mult' in self.conf:
             ch_mult = self.conf['ch_mult']
             print 'using chmult', ch_mult
@@ -129,12 +131,17 @@ class Dist_Net(object):
                 reuse = False
             else: reuse = True
 
+            if 'goal_image' in self.conf:
+                inp = tf.concat([self.images[:, t], self.goal_images], axis= 3)
+            else:
+                inp = self.images[:,t]
+
             with tf.variable_scope('intm_enc', reuse=reuse):
                 with tf.variable_scope('h1'):
                     if 'vgg19' in self.conf:
-                        h1 = self.conv_relu_block(self.vgg_layer(inp_images[:, t]), out_ch=32 * ch_mult)  # 24x32x3
+                        h1 = self.conv_relu_block(self.vgg_layer(inp), out_ch=32 * ch_mult)  # 24x32x3
                     else:
-                        h1 = self.conv_relu_block(inp_images[:, t], out_ch=32 * ch_mult)  # 24x32x3
+                        h1 = self.conv_relu_block(inp, out_ch=32 * ch_mult)  # 24x32x3
                 with tf.variable_scope('h2'):
                     h2 = self.conv_relu_block(h1, out_ch=64 * ch_mult)  # 12x16x3
                 with tf.variable_scope('h3'):
