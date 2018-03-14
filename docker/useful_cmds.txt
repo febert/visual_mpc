@@ -21,7 +21,8 @@ ngc batch run ‐f <file.json>
 # download results
 ngc result download <job_id>
 
-
+# list current jobs
+ngc batch list
 
 
 

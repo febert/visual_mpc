@@ -225,7 +225,11 @@ class WaypointNet(object):
                     if 'vgg19' in self.conf:
                         h1 = self.conv_relu_block(self.vgg_layer(intm_images[:, t]), out_ch=32 * ch_mult)  # 24x32x3
                     else:
-                        h1 = self.conv_relu_block(intm_images[:, t], out_ch=32 * ch_mult)  # 24x32x3
+                        if 'inference_use_cont' in self.conf:
+                            inp = tf.concat([intm_images[:, t], self.Istart, self.Igoal], axis=3)
+                        else:
+                            inp = intm_images[:, t]
+                        h1 = self.conv_relu_block(inp, out_ch=32 * ch_mult)  # 24x32x3
                 with tf.variable_scope('h2'):
                     h2 = self.conv_relu_block(h1, out_ch=64 * ch_mult)  # 12x16x3
                 with tf.variable_scope('h3'):
@@ -257,13 +261,13 @@ class WaypointNet(object):
         with tf.variable_scope('ctxt_enc'):
             with tf.variable_scope('h1'):
                 h1 = self.conv_relu_block(I0_I1, out_ch=32*ch_mult)  #24x32x3
-                self.enc1.append(h1)
+                self.enc1 = h1
             with tf.variable_scope('h2'):
                 h2 = self.conv_relu_block(h1, out_ch=64*ch_mult)  #12x16x3
-                self.enc2.append(h2)
+                self.enc2 = h2
             with tf.variable_scope('h3'):
                 h3 = self.conv_relu_block(h2, out_ch=8*ch_mult)  #6x8x3
-                self.enc3.append(h3)
+                self.enc3 = h3
 
         ctxt_enc = slim.layers.fully_connected(tf.reshape(h3, [self.bsize, -1]), num_outputs=self.nz, activation_fn=None)
         return ctxt_enc
@@ -293,15 +297,15 @@ class WaypointNet(object):
             with tf.variable_scope('dec', reuse=reuse):
                 with tf.variable_scope('h1'):
                     if 'skipcon' in self.conf:
-                        enc = tf.concat([enc, self.enc3[t]], axis=3)
+                        enc = tf.concat([enc, self.enc3], axis=3)
                     h1 = self.conv_relu_block(enc, out_ch=32 * ch_mult, upsmp=True)  # 12, 16
                 with tf.variable_scope('h2'):
                     if 'skipcon' in self.conf:
-                        h1 = tf.concat([h1, self.enc2[t]], axis=3)
+                        h1 = tf.concat([h1, self.enc2], axis=3)
                     h2 = self.conv_relu_block(h1, out_ch=64 * ch_mult, upsmp=True)   # 24, 32
                 with tf.variable_scope('h3'):
                     if 'skipcon' in self.conf:
-                        h2 = tf.concat([h2, self.enc1[t]], axis=3)
+                        h2 = tf.concat([h2, self.enc1], axis=3)
                     h3 = self.conv_relu_block(h2, out_ch=3, upsmp=True)  # 48, 64
                 with tf.variable_scope('h4'):
                     gen_images.append(slim.layers.conv2d(h3, 3, kernel_size=[3, 3], stride=1, activation_fn=tf.nn.sigmoid))

@@ -10,4 +10,5 @@
     }
   ],  "resultContainerMountPoint": "/result",
   "aceInstance": "ngcv1"
+  "publishedContainerPorts":6006
 }

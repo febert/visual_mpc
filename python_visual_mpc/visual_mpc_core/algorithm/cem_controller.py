@@ -292,8 +292,14 @@ class CEM_controller(Policy):
             action = np.zeros(self.adim)
             self.create_sim()
         else:
-            self.perform_CEM(t)
-            action = self.bestaction[0]
+            if 'use_first_plan' in self.policyparams:
+                print 'using actions of first plan, no replanning!!'
+                if t == 1:
+                    self.perform_CEM(t)
+                action = self.bestaction_withrepeat[t - 1]
+            else:
+                self.perform_CEM(t)
+                action = self.bestaction[0]
 
         self.action_list.append(action)
         print 'timestep: ', t, ' taking action: ', action
