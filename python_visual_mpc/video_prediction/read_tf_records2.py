@@ -12,6 +12,31 @@ import imp
 
 import cPickle
 
+COLOR_CHAN = 3
+def decode_im(conf, features, image_name):
+
+    if 'orig_size' in conf:
+        ORIGINAL_HEIGHT = conf['orig_size'][0]
+        ORIGINAL_WIDTH = conf['orig_size'][1]
+    else:
+        ORIGINAL_WIDTH = 64
+        ORIGINAL_HEIGHT = 64
+    if 'row_start' in conf:
+        IMG_HEIGHT = conf['row_end'] - conf['row_start']
+    else:
+        IMG_HEIGHT = ORIGINAL_HEIGHT
+    if 'img_width' in conf:
+        IMG_WIDTH = conf['img_width']
+    else:
+        IMG_WIDTH = ORIGINAL_WIDTH
+    image = tf.decode_raw(features[image_name], tf.uint8)
+    image = tf.reshape(image, shape=[1, ORIGINAL_HEIGHT * ORIGINAL_WIDTH * COLOR_CHAN])
+    image = tf.reshape(image, shape=[ORIGINAL_HEIGHT, ORIGINAL_WIDTH, COLOR_CHAN])
+    if 'row_start' in conf:
+        image = image[conf['row_start']:conf['row_end']]
+    image = tf.reshape(image, [1, IMG_HEIGHT, IMG_WIDTH, COLOR_CHAN])
+    image = tf.cast(image, tf.float32) / 255.0
+    return image
 
 def build_tfrecord_input(conf, training=True, input_file=None):
     """Create input tfrecord tensors.
@@ -61,7 +86,7 @@ def build_tfrecord_input(conf, training=True, input_file=None):
     # to a fixed shape.
     def _parse_function(serialized_example):
         image_seq, image_main_seq, endeffector_pos_seq, gen_images_seq, gen_states_seq,\
-        action_seq, object_pos_seq, robot_pos_seq = [], [], [], [], [], [], [], []
+        action_seq, object_pos_seq, robot_pos_seq, goal_image = [], [], [], [], [], [], [], [], []
 
         load_indx = range(0, conf['sequence_length'], conf['skip_frame'])
         print 'using frame sequence: ', load_indx
@@ -78,55 +103,30 @@ def build_tfrecord_input(conf, training=True, input_file=None):
                 action_name = str(i) + '/action'
                 endeffector_pos_name = str(i) + '/endeffector_pos'
 
-            features = {
+            features_name = {
                 image_name: tf.FixedLenFeature([1], tf.string),
             }
 
             if 'image_only' not in conf:
-                features[action_name] = tf.FixedLenFeature([adim], tf.float32)
-                features[endeffector_pos_name] = tf.FixedLenFeature([sdim], tf.float32)
+                features_name[action_name] = tf.FixedLenFeature([adim], tf.float32)
+                features_name[endeffector_pos_name] = tf.FixedLenFeature([sdim], tf.float32)
 
             if 'test_metric' in conf:
                 robot_pos_name = str(i) + '/robot_pos'
                 object_pos_name = str(i) + '/object_pos'
-                features[robot_pos_name] = tf.FixedLenFeature([conf['test_metric']['robot_pos'] * 2], tf.int64)
-                features[object_pos_name] = tf.FixedLenFeature([conf['test_metric']['object_pos'] * 2], tf.int64)
+                features_name[robot_pos_name] = tf.FixedLenFeature([conf['test_metric']['robot_pos'] * 2], tf.int64)
+                features_name[object_pos_name] = tf.FixedLenFeature([conf['test_metric']['object_pos'] * 2], tf.int64)
 
             if 'load_vidpred_data' in conf:
                 gen_image_name = str(i) + '/gen_images'
                 gen_states_name = str(i) + '/gen_states'
-                features[gen_image_name] = tf.FixedLenFeature([1], tf.string)
-                features[gen_states_name] = tf.FixedLenFeature([sdim], tf.float32)
+                features_name[gen_image_name] = tf.FixedLenFeature([1], tf.string)
+                features_name[gen_states_name] = tf.FixedLenFeature([sdim], tf.float32)
 
-            features = tf.parse_single_example(serialized_example, features=features)
 
-            COLOR_CHAN = 3
+            features = tf.parse_single_example(serialized_example, features=features_name)
 
-            if 'orig_size' in conf:
-                ORIGINAL_HEIGHT = conf['orig_size'][0]
-                ORIGINAL_WIDTH = conf['orig_size'][1]
-            else:
-                ORIGINAL_WIDTH = 64
-                ORIGINAL_HEIGHT = 64
-
-            if 'row_start' in conf:
-                IMG_HEIGHT = conf['row_end'] - conf['row_start']
-            else:
-                IMG_HEIGHT = ORIGINAL_HEIGHT
-
-            if 'img_width' in conf:
-                IMG_WIDTH = conf['img_width']
-            else:
-                IMG_WIDTH = ORIGINAL_WIDTH
-
-            image = tf.decode_raw(features[image_name], tf.uint8)
-            image = tf.reshape(image, shape=[1, ORIGINAL_HEIGHT * ORIGINAL_WIDTH * COLOR_CHAN])
-            image = tf.reshape(image, shape=[ORIGINAL_HEIGHT, ORIGINAL_WIDTH, COLOR_CHAN])
-            if 'row_start' in conf:
-                image = image[conf['row_start']:conf['row_end']]
-            image = tf.reshape(image, [1, IMG_HEIGHT, IMG_WIDTH, COLOR_CHAN])
-
-            image = tf.cast(image, tf.float32) / 255.0
+            image = decode_im(conf, features, image_name)
 
             if 'color_augmentation' in conf:
                 # print 'performing color augmentation'
@@ -156,19 +156,20 @@ def build_tfrecord_input(conf, training=True, input_file=None):
                 object_pos_seq.append(object_pos)
 
             if 'load_vidpred_data' in conf:
-                gen_images = tf.decode_raw(features[gen_image_name], tf.uint8)
-                gen_images = tf.reshape(gen_images, shape=[1, ORIGINAL_HEIGHT * ORIGINAL_WIDTH * COLOR_CHAN])
-                gen_images = tf.reshape(gen_images, shape=[ORIGINAL_HEIGHT, ORIGINAL_WIDTH, COLOR_CHAN])
-                gen_images = tf.reshape(gen_images, [1, IMG_HEIGHT, IMG_WIDTH, COLOR_CHAN])
-                gen_images = tf.cast(gen_images, tf.float32) / 255.0
-                gen_images_seq.append(gen_images)
-
+                gen_images_seq.append(decode_im(gen_image_name))
                 gen_states = tf.reshape(features[gen_states_name], shape=[1, sdim])
                 gen_states_seq.append(gen_states)
 
-        image_seq = tf.concat(values=image_seq, axis=0)
         return_dict = {}
+        image_seq = tf.concat(values=image_seq, axis=0)
         return_dict['images'] = image_seq
+
+        if 'goal_image' in conf:
+            features_name = {}
+            features_name['/goal_image'] = tf.FixedLenFeature([1], tf.string)
+            features = tf.parse_single_example(serialized_example, features=features_name)
+            goal_image = tf.squeeze(decode_im(conf, features, '/goal_image'))
+            return_dict['goal_image'] = goal_image
 
         if 'image_only' not in conf:
             return_dict['endeffector_pos'] = tf.concat(endeffector_pos_seq, 0)
@@ -179,6 +180,7 @@ def build_tfrecord_input(conf, training=True, input_file=None):
             return_dict['gen_states'] = gen_states_seq
 
         return return_dict
+
 
     dataset = tf.data.TFRecordDataset(filenames)
     dataset = dataset.map(_parse_function)
@@ -208,7 +210,7 @@ def main():
 
     current_dir = os.path.dirname(os.path.realpath(__file__))
     # DATA_DIR = '/mnt/sda1/pushing_data/cartgripper_startgoal_17step/train'
-    DATA_DIR = '/mnt/sda1/pushing_data/cartgripper_pos/train'
+    DATA_DIR = '/mnt/sda1/pushing_data/datacol_appflow_tfrec/train'
 
     conf['schedsamp_k'] = -1  # don't feed ground truth
     conf['data_dir'] = DATA_DIR  # 'directory containing data_files.' ,
@@ -221,10 +223,11 @@ def main():
 
     # conf['row_start'] = 15
     # conf['row_end'] = 63
-    conf['sdim'] = 12
-    conf['adim'] = 5
+    conf['sdim'] = 6
+    conf['adim'] = 3
 
     # conf['image_only'] = ''
+    conf['goal_image'] = ""
 
     conf['orig_size'] = [48, 64]
     # conf['orig_size'] = [480, 640]
@@ -250,15 +253,20 @@ def main():
     deltat = []
     end = time.time()
     for i_run in range(100):
-        print 'run number ', i_run
+        # print 'run number ', i_run
 
         # images, actions, endeff, gen_images, gen_endeff = sess.run([dict['images'], dict['actions'], dict['endeffector_pos'], dict['gen_images'], dict['gen_states']])
         # images, actions, endeff = sess.run([dict['gen_images'], dict['actions'], dict['endeffector_pos']])
-        images, actions, endeff = sess.run([dict['images'], dict['actions'], dict['endeffector_pos']])
+        images, actions, endeff, goal_image = sess.run([dict['images'], dict['actions'], dict['endeffector_pos'], dict['goal_image']])
         # [images] = sess.run([dict['images']])
 
         file_path = '/'.join(str.split(DATA_DIR, '/')[:-1]+['preview'])
         comp_single_video(file_path, images, num_exp=conf['batch_size'])
+
+        for i in range(5):
+            plt.imshow(goal_image.squeeze()[i])
+            plt.show()
+
 
         # file_path = '/'.join(str.split(DATA_DIR, '/')[:-1] + ['preview_gen_images'])
         # comp_single_video(file_path, gen_images, num_exp=conf['batch_size'])
@@ -270,13 +278,13 @@ def main():
         end = time.time()
 
         # show some frames
-        for b in range(conf['batch_size']):
-
-            print 'actions'
-            print actions[b]
-
-            print 'endeff'
-            print endeff[b]
+        # for b in range(conf['batch_size']):
+        #
+        #     print 'actions'
+        #     print actions[b]
+        #
+        #     print 'endeff'
+        #     print endeff[b]
 
             # print 'gen_endeff'
             # print gen_endeff[b]

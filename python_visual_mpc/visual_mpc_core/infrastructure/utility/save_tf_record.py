@@ -66,6 +66,9 @@ def save_tf_record(filename, trajectory_list, params):
                 feature[str(tind) + '/gen_images'] = _bytes_feature(traj.gen_images[tind].tostring())
                 feature[str(tind) + '/gen_states'] = _float_feature(traj.gen_states[tind,:].tolist())
 
+        if hasattr(traj, 'goal_image'):
+            feature['/goal_image'] = _bytes_feature(traj.goal_image.tostring())
+
         example = tf.train.Example(features=tf.train.Features(feature=feature))
         writer.write(example.SerializeToString())
 

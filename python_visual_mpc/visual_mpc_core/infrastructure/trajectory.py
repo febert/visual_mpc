@@ -72,7 +72,8 @@ class Trajectory(object):
 
 
         # world coordinates including the arm
-        self.obj_world_coords = np.zeros([self.T, conf['num_objects'] + 1, 7])  # xyz and quaternion pose
+        if 'num_objects' in conf:
+            self.obj_world_coords = np.zeros([self.T, conf['num_objects'] + 1, 7])  # xyz and quaternion pose
 
         self.plan_stat = []   # statistics about the plan
 
