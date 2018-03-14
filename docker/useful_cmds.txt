@@ -24,5 +24,9 @@ ngc result download <job_id>
 # list current jobs
 ngc batch list
 
+# to access tensorboard for a container run
+ngc batch get <job_id>
+# then click on the URL listed under "Job Container Information/Host"
+
 
 
