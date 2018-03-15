@@ -90,11 +90,13 @@ class CEM_controller(Policy):
     def create_sim(self):
         gofast = True
         self.model = mujoco_py.MjModel(self.agentparams['gen_xml_fname'])
-        self.viewer = mujoco_py.MjViewer(visible=True, init_width=480,
-                                         init_height=480, go_fast=gofast)
-        self.viewer.start()
-        self.viewer.set_model(self.model)
-        self.viewer.cam.camid = 0
+
+        if self.verbose:
+            self.viewer = mujoco_py.MjViewer(visible=True, init_width=480,
+                                             init_height=480, go_fast=gofast)
+            self.viewer.start()
+            self.viewer.set_model(self.model)
+            self.viewer.cam.camid = 0
 
     def reinitialize(self):
         self.use_net = self.policyparams['usenet']
@@ -120,7 +122,8 @@ class CEM_controller(Policy):
         self.model.data.qpos = self.init_model.data.qpos
         self.model.data.qvel = self.init_model.data.qvel
         self.model.step()
-        self.viewer.loop_once()
+        if self.verbose:
+            self.viewer.loop_once()
 
     def eval_action(self):
         abs_distances = []
@@ -304,6 +307,7 @@ class CEM_controller(Policy):
         self.action_list.append(action)
         print 'timestep: ', t, ' taking action: ', action
 
-        # self.finish()
+        if self.verbose:
+            self.viewer.finish()
         return action
 
