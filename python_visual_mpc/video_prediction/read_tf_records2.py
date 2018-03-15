@@ -252,7 +252,7 @@ def main():
     from python_visual_mpc.video_prediction.utils_vpred.create_gif_lib import comp_single_video
     deltat = []
     end = time.time()
-    for i_run in range(100):
+    for i_run in range(10000):
         # print 'run number ', i_run
 
         # images, actions, endeff, gen_images, gen_endeff = sess.run([dict['images'], dict['actions'], dict['endeffector_pos'], dict['gen_images'], dict['gen_states']])
@@ -260,12 +260,12 @@ def main():
         images, actions, endeff, goal_image = sess.run([dict['images'], dict['actions'], dict['endeffector_pos'], dict['goal_image']])
         # [images] = sess.run([dict['images']])
 
-        file_path = '/'.join(str.split(DATA_DIR, '/')[:-1]+['preview'])
-        comp_single_video(file_path, images, num_exp=conf['batch_size'])
-
-        for i in range(5):
-            plt.imshow(goal_image.squeeze()[i])
-            plt.show()
+        # file_path = '/'.join(str.split(DATA_DIR, '/')[:-1]+['preview'])
+        # comp_single_video(file_path, images, num_exp=conf['batch_size'])
+        #
+        # for i in range(5):
+        #     plt.imshow(goal_image.squeeze()[i])
+        #     plt.show()
 
 
         # file_path = '/'.join(str.split(DATA_DIR, '/')[:-1] + ['preview_gen_images'])
