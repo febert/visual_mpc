@@ -154,6 +154,7 @@ def perform_benchmark(conf = None, gpu_id=None):
         f.write('overall best pos score: {0} of traj {1}\n'.format(scores[sorted_ind[0]], sorted_ind[0]))
         f.write('overall worst pos score: {0} of traj {1}\n'.format(scores[sorted_ind[-1]], sorted_ind[-1]))
         f.write('average pos score: {0}\n'.format(np.mean(scores)))
+        f.write('median pos score {}'.format(np.median(scores)))
         f.write('standard deviation of population {0}\n'.format(np.std(scores)))
         f.write('standard error of the mean (SEM) {0}\n'.format(np.std(scores)/np.sqrt(scores.shape[0])))
         f.write('---\n')

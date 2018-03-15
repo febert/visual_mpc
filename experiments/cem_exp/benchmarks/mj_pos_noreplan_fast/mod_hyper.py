@@ -13,7 +13,7 @@ import numpy as np
 
 agent = {
     'type': AgentMuJoCo,
-    'T': 18,
+    'T': 15,
     'substeps':50,
     'make_final_gif':'',
     'adim':5,
@@ -39,13 +39,13 @@ policy = {
     # 'verbose':10,
     'type' : CEM_controller,
     'current_dir':current_dir,
-    'nactions': 6,
+    'nactions': 5,
     'repeat': 3,
     'initial_std': 0.08,        # std dev. in xy
     'initial_std_lift': 0.1,
     'initial_std_rot': 0.1,
     'initial_std_grasp': 0.0,
-    'iterations': 3,
+    'iterations': 2,
     'action_cost_factor': 0,
     'rew_all_steps':"",
     'finalweight':10,
