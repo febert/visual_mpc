@@ -93,8 +93,6 @@ def main():
 
     conflist = []
 
-    hyperparams['agent']['data_save_dir'] = os.path.join(os.environ['VMPC_DATA_DIR'], hyperparams['agent']['data_save_dir'])  # directory where to save trajectories
-
     if 'gen_xml' in hyperparams['agent']: #remove old auto-generated xml files
         os.system("rm {}".format('/'.join(str.split(hyperparams['agent']['filename'], '/')[:-1]) + '/auto_gen/*'))
 

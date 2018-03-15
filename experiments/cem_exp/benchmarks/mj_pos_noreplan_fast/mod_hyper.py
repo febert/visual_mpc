@@ -28,7 +28,7 @@ agent = {
     'image_height':48,
     'image_width':64,
     'additional_viewer':'',
-    'data_save_dir':current_dir + '/data/train',
+    'data_save_dir': os.environ['VMPC_DATA_DIR'] + '/mj_pos_noreplan_fast',
     'posmode':"",
     'targetpos_clip':[[-0.45, -0.45, -0.08, -np.pi*2, 0.], [0.45, 0.45, 0.15, np.pi*2, 0.1]],
     'mode_rel':np.array([True, True, True, True, False]),
@@ -50,7 +50,7 @@ policy = {
     'rew_all_steps':"",
     'finalweight':10,
     'no_action_bound':"",
-    'num_samples':100,
+    'num_samples': 100,
     'use_first_plan':''
 }
 
@@ -76,8 +76,8 @@ config = {
     'end_index': 59999,
     'agent':agent,
     'policy':policy,
-    'ngroup': 100,
+    'ngroup': 1000,
     'sourcetags':[tag_images, tag_qpos, tag_object_full_pose, tag_object_statprop],
-    'source_basedirs':[ROOT_DIR + '/pushing_data/cartgripper_startgoal_masks6e4/train'],
+    'source_basedirs':[os.environ['VMPC_DATA_DIR']+ '/cartgripper_startgoal_masks6e4/train'],
     'sequence_length':2
 }

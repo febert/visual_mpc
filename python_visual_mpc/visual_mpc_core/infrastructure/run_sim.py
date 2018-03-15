@@ -29,7 +29,7 @@ class Sim(object):
         self.agent = config['agent']['type'](config['agent'])
         self.agentparams = config['agent']
 
-        self._data_save_dir = os.environ['VMPC_DATA_DIR'] + self.agentparams['data_save_dir']
+        self._data_save_dir = self.agentparams['data_save_dir']
         self._timing_file = self._hyperparams['current_dir'] + '/timing_file{}.txt'.format(os.getpid())
         with open(self._timing_file, 'wb') as f:
             f.write("timing \n")
