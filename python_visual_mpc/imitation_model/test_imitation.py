@@ -3,12 +3,14 @@ from tensorflow.python.platform import flags
 import os
 import imp
 from python_visual_mpc.imitation_model.imitation_model import ImitationBaseModel
+import numpy as np
 from python_visual_mpc.video_prediction.read_tf_records2 import \
                     build_tfrecord_input as build_tfrecord
 if __name__ == '__main__':
     FLAGS = flags.FLAGS
     flags.DEFINE_string('hyper', '', 'hyperparameters configuration file')
     flags.DEFINE_integer('device', 0 ,'the value for CUDA_VISIBLE_DEVICES variable')
+    flags.DEFINE_string('pretrained', '', 'pretrained model to evaluate')
 
 def main():
     os.environ["CUDA_VISIBLE_DEVICES"] = str(FLAGS.device)
@@ -22,6 +24,7 @@ def main():
     hyperparams = imp.load_source('hyperparams', FLAGS.hyper)
     conf = hyperparams.configuration
     conf['visualize'] = False
+    conf['pretrained'] = conf['model_dir'] + FLAGS.pretrained
 
     with tf.variable_scope('model', reuse = None) as training_scope:
         data_dict = build_tfrecord(conf, training=True)
@@ -46,14 +49,6 @@ def main():
             val_model = ImitationBaseModel(conf, val_images, val_actions, val_endeffector_pos)
             val_model.build()
 
-    if 'clip_grad' not in conf:
-        conf['clip_grad'] = 1.0
-
-    optimizer = tf.train.AdamOptimizer(conf['learning_rate'])
-    gradients, variables = zip(*optimizer.compute_gradients(model.loss))
-    gradients, _ = tf.clip_by_global_norm(gradients, conf['clip_grad'])
-    train_operation = optimizer.apply_gradients(zip(gradients, variables))
-
     gpu_options = tf.GPUOptions(per_process_gpu_memory_fraction=0.6)
 
     vars = tf.get_collection(tf.GraphKeys.GLOBAL_VARIABLES)
@@ -63,36 +58,33 @@ def main():
     tf.train.start_queue_runners(sess)
     sess.run(tf.global_variables_initializer())
 
-    summary_writer = tf.summary.FileWriter(conf['model_dir'], graph=sess.graph, flush_secs=10)
+    saver.restore(sess, conf['pretrained'])
 
-    for i in xrange(conf['n_iters']):
-        if i % conf['n_print'] == 0:
-            if 'MDN_loss' in conf:
-                model_loss, val_model_loss, val_model_diag, _ = sess.run(
-                    [model.loss, val_model.loss, val_model.diagnostic_l2loss, train_operation])
-                print 'At iteration', i, 'model likelihood is:', model_loss, 'and val_model likelihood is', val_model_loss, 'and val diagnostic', val_model_diag
-                itr_summary = tf.Summary()
-                itr_summary.value.add(tag="val_model/loglikelihood", simple_value=-val_model_loss)
-                itr_summary.value.add(tag="val_model/diagnostic_l2loss", simple_value=val_model_diag)
-                itr_summary.value.add(tag="model/loglikelihood", simple_value=-model_loss)
-                summary_writer.add_summary(itr_summary, i)
-            else:
-                model_loss, val_model_loss, _ = sess.run([model.loss, val_model.loss, train_operation])
-                print 'At iteration', i, 'model loss is:', model_loss, 'and val_model loss is', val_model_loss
-                itr_summary = tf.Summary()
-                itr_summary.value.add(tag="val_model/loss", simple_value=val_model_loss)
-                itr_summary.value.add(tag="model/loss", simple_value=model_loss)
-                summary_writer.add_summary(itr_summary, i)
-        else:
-            sess.run([train_operation])
+    gtruth_actions, pred_mean, pred_var, pred_mix = sess.run([val_actions, val_model.means, val_model.variance, val_model.mixing_parameters])
 
-        if i > 0 and i % conf['n_save'] == 0:
-            saver.save(sess, conf['model_dir'] + '/model' + str(i))
+    print 'gtruth_actions', gtruth_actions.shape
+    print 'pred_mean', pred_mean.shape
+    print 'prev_var', pred_var.shape
+    print 'pred_mix', pred_mix.shape
 
-    saver.save(sess, conf['model_dir'] + '/modelfinal' + str(i))
-    sess.close()
+    test_sequence = gtruth_actions[0, 0, :]
+    seq_means = pred_mean[0]
+    seq_var = pred_var[0]
+    seq_mix = pred_mix[0]
 
+    print 'test seq', test_sequence
+    print 'mean 1', seq_means[0]
+    print 'mean 2', seq_means[1]
+    print 'mix', seq_mix
+    print 'var', seq_var
 
+    mix_1 = np.random.multivariate_normal(seq_means[0], np.diag(np.ones(conf['adim'])) * seq_var[0], size=100)
+    mix_2 = np.random.multivariate_normal(seq_means[1], np.diag(np.ones(conf['adim'])) * seq_var[1], size=100)
+    final_mixs = seq_mix[0] * mix_1 + seq_mix[1] + mix_2
 
+    diffs = final_mixs - test_sequence
+    for i in range(100):
+     print 'final_mixs', i, 'is', final_mixs[i]
+    print np.sum(np.power(diffs, 2), axis = 1)
 if __name__ == '__main__':
     main()

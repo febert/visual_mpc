@@ -4,32 +4,47 @@ import tensorflow.contrib.slim as slim
 import numpy as np
 import os
 
-from python_visual_mpc.video_prediction.read_tf_records2 import \
-                    build_tfrecord_input as build_tfrecord
+
+
+NUMERICAL_EPS = 1e-7
 
 class ImitationBaseModel:
-    def __init__(self, conf):
+    def __init__(self, conf, images, actions, end_effector):
         self.conf = conf
 
-        data_dict = build_tfrecord(conf, training=True)
+        #input images
+        self.images = images
+        #ground truth
+        self.gtruth_actions = actions
+        self.gtruth_endeffector_pos = end_effector
 
-        self.images = data_dict['images']
-        self.actions = data_dict['actions']
-        self.endeffector_pos = data_dict['endeffector_pos']
+        assert ('adim' in self.conf), 'must specify action dimension in conf wiht key adim'
+        assert (self.conf['adim'] == self.gtruth_actions.get_shape()[2]), 'conf adim does not match tf record'
+        assert ('sdim' in self.conf), 'must specify state dimension in conf with key sdim'
+        assert (self.conf['sdim'] == self.gtruth_endeffector_pos.get_shape()[2]), 'conf sdim does not match tf record'
+
+        self.sdim, self.adim = self.conf['sdim'], self.conf['adim']
 
         vgg19_path = './'
         if 'vgg19_path' in conf:
             vgg19_path = conf['vgg19_path']
 
+        #for vgg layer
         self.vgg_dict = np.load(os.path.join(vgg19_path, "vgg19.npy"), encoding='latin1').item()
-
-        self.predicted_actions = None
-        self.predicted_eeps = None
 
     def build(self):
         with slim.arg_scope([slim.layers.conv2d, slim.layers.fully_connected, tf_layers.layer_norm]):
+            in_batch, in_time, in_rows, in_cols, _ = self.images.get_shape()
 
-            layer1 = tf_layers.layer_norm(self.vgg_layer(self.images), scope='conv1_norm')
+            input_images = tf.reshape(self.images, shape = (in_batch * in_time, in_rows, in_cols, 3))
+            raw_input_action = tf.reshape(self.gtruth_actions, shape = (in_batch * in_time, self.adim))
+            raw_input_splits = tf.split(raw_input_action, self.adim, axis = -1)
+            raw_input_splits[-1] = raw_input_splits[-1] / 100
+            input_action = tf.concat(raw_input_splits, axis = -1)
+
+            input_end_effector = tf.reshape(self.gtruth_endeffector_pos, shape=(in_batch * in_time, self.sdim))
+
+            layer1 = tf_layers.layer_norm(self.vgg_layer(input_images), scope='conv1_norm')
             layer2 = tf_layers.layer_norm(
                 slim.layers.conv2d(layer1, 32, [3, 3], stride=2, scope='conv2'), scope='conv2_norm')
 
@@ -56,40 +71,58 @@ class ImitationBaseModel:
 
             features = tf.reshape(tf.transpose(layer3, [0, 3, 1, 2]), [-1, num_rows * num_cols])
             softmax = tf.nn.softmax(features)
-            # print 'softmax', softmax
 
             fp_x = tf.reduce_sum(tf.multiply(x_map, softmax), [1], keep_dims=True)
             fp_y = tf.reduce_sum(tf.multiply(y_map, softmax), [1], keep_dims=True)
-            # print 'fp_x', fp_x
-            # print 'fp_y', fp_y
             fp_flat = tf.reshape(tf.concat([fp_x, fp_y], 1), [-1, num_fp * 2])
-            # print 'fp_flat', fp_flat
-            # print 'configs', self.robot_configs
 
 
-            self.predicted_eeps = slim.layers.fully_connected(fp_flat, 7, scope='predicted_eeps',
-                                                              activation_fn=None)  # dim of eeps: 3
+            # self.predicted_eeps = slim.layers.fully_connected(fp_flat, self.sdim, scope='predicted_state',
+            #                                                   activation_fn=None)
 
             conv_out = tf.concat([fp_flat,
-                                  self.robot_configs,  # dim of angles: 7, dim of eeps: 7
-                                  self.predicted_eeps],
+                                  input_end_effector],
                                  1)
 
-            fc_layer1 = slim.layers.fully_connected(conv_out, 100, scope='fc1')
+            last_fc = slim.layers.fully_connected(conv_out, 100, scope='fc1')
 
-            self.predicted_actions = slim.layers.fully_connected(fc_layer1, 6, scope='predicted_actions',
-                                                                 activation_fn=None)  # dim of velocities: 7
+
+            if 'MDN_loss' in self.conf:
+                num_mix = self.conf['MDN_loss']
+                mixture_activations = slim.layers.fully_connected(last_fc, (self.adim + 2) * num_mix,
+                                                                  scope = 'predicted_mixtures',activation_fn=None)
+                mixture_activations = tf.reshape(mixture_activations, shape = (-1, num_mix, self.adim + 2))
+                self.mixing_parameters = tf.nn.softmax(mixture_activations[:, :, 0])
+                self.std_dev = tf.exp(mixture_activations[:, :, 1]) + NUMERICAL_EPS
+                self.means = mixture_activations[:, :, 2:]
+
+                gtruth_mean_sub = tf.reduce_sum(
+                            tf.square(self.means - tf.reshape(input_action, shape = (-1, 1, self.adim))), axis = -1)
+
+                self.likelihoods = tf.exp(-0.5 * gtruth_mean_sub / tf.square(self.std_dev)) / self.std_dev / np.power(2 * np.pi, self.adim / 2) * self.mixing_parameters
+                self.loss = - tf.reduce_sum(tf.log(tf.reduce_sum(self.likelihoods, axis=-1) + NUMERICAL_EPS)) / self.conf['batch_size']
+
+                mix_mean = tf.reduce_sum(self.means* tf.reshape(self.mixing_parameters, shape=(-1, num_mix, 1)), axis = 1)
+
+                self.diagnostic_l2loss = tf.reduce_sum(tf.square(input_action - mix_mean)) / self.conf['batch_size']
+
+            else:
+                self.predicted_actions = slim.layers.fully_connected(last_fc, self.adim, scope='predicted_actions',
+                                                                     activation_fn=None)
+                total_loss = tf.reduce_sum(tf.square(input_action - self.predicted_actions)) \
+                            + 0.5 * tf.reduce_sum(tf.abs(input_action - self.predicted_actions))
+                self.loss = total_loss / float(self.conf['batch_size'] * int(in_time))
+
+
+
 
     # Source: https://github.com/machrisaa/tensorflow-vgg/blob/master/vgg19.py
     def vgg_layer(self, images):
         bgr_scaled = tf.to_float(images)
 
         vgg_mean = tf.convert_to_tensor(np.array([103.939, 116.779, 123.68], dtype=np.float32))
-        # print 'images', images
-        blue, green, red = tf.split(axis=3, num_or_size_splits=3, value=bgr_scaled)
-        # print 'blue', blue
-        # print 'green', green
-        # print 'red', red
+        blue, green, red = tf.split(axis=-1, num_or_size_splits=3, value=bgr_scaled)
+
 
         bgr = tf.concat(axis=3, values=[
             blue - vgg_mean[0],
@@ -107,6 +140,7 @@ class ImitationBaseModel:
             bias = tf.nn.bias_add(conv, conv_biases)
 
             out = tf.nn.relu(bias)
+
         return out
 
 

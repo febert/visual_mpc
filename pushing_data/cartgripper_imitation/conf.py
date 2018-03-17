@@ -1,9 +1,14 @@
 import os
 
-DATA_DIR = os.environ['VMPC_DATA_DIR'] + '/cartgripper_det_grasp/train/'
+DATA_DIR = os.environ['VMPC_DATA_DIR']
 
 configuration = {
-    'data_dir':DATA_DIR,
+    'data_dir':DATA_DIR  + '/cartgripper_det_grasp/train/',
+    'model_dir':DATA_DIR + '/cartgripper_det_grasp/trained_model/',
+    'n_iters':50000,
+    'n_print':100,
+    'n_save':500,
+    'learning_rate':0.001,
     'train_val_split':0.95,
     'adim':5,
     'sdim':12,
@@ -11,7 +16,8 @@ configuration = {
     'skip_frame' : 1,
     'sequence_length' : 15,
     'batch_size' : 64,
-    'vgg19_path': os.path.expanduser('~/Documents/visual_mpc/pushing_data/')
+    'vgg19_path': DATA_DIR,
+    'MDN_loss' : 3
 }
 
 
