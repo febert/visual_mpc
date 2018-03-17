@@ -150,19 +150,27 @@ class WaypointNet(object):
 
     def build_vae(self, traintime):
         self.ctxt_encoding = self.ctxt_enc(self.Istart, self.Igoal)
-
         self.z = []
         if traintime:
             self.z_mean, self.z_log_sigma_sq = self.intm_enc(self.I_intm)
-            for i in range(self.seq_len -2):
-                eps = tf.random_normal([self.bsize, self.nz], 0.0, 1.0, dtype=tf.float32)
-                self.z.append(tf.add(self.z_mean[:,i], tf.multiply(tf.sqrt(tf.exp(self.z_log_sigma_sq[:, i])), eps)))
-            self.z = tf.stack(self.z, axis=1)
+            if 'deterministic' in self.conf:
+                self.z = self.z_mean
+                print 'latent not sampled!! deterministic latent'
+            else:
+                for i in range(self.seq_len -2):
+                    eps = tf.random_normal([self.bsize, self.nz], 0.0, 1.0, dtype=tf.float32)
+                    self.z.append(tf.add(self.z_mean[:,i], tf.multiply(tf.sqrt(tf.exp(self.z_log_sigma_sq[:, i])), eps)))
+                self.z = tf.stack(self.z, axis=1)
         else:
             self.z_mean, self.z_log_sigma_sq = None, None
             for i in range(self.seq_len -2):
-                eps = tf.random_normal([self.bsize, self.nz], 0.0, 1.0, dtype=tf.float32)
+                if 'enc_avg_pool' in self.conf:
+                    eps = tf.random_normal([self.bsize, self.nz*self.conf['enc_avg_pool'][0]*self.conf['enc_avg_pool'][1]], 0.0, 1.0, dtype=tf.float32)
+                    eps = tf.reshape(eps, [self.bsize] + self.conf['enc_avg_pool'] + [self.nz])
+                else:
+                    eps = tf.random_normal([self.bsize, self.nz], 0.0, 1.0, dtype=tf.float32)
                 self.z.append(eps)
+
             self.z = tf.stack(self.z, axis=1)
 
         # Get the reconstructed mean from the decoder
@@ -232,16 +240,21 @@ class WaypointNet(object):
                         h1 = self.conv_relu_block(inp, out_ch=32 * ch_mult)  # 24x32x3
                 with tf.variable_scope('h2'):
                     h2 = self.conv_relu_block(h1, out_ch=64 * ch_mult)  # 12x16x3
-                with tf.variable_scope('h3'):
-                    h3 = self.conv_relu_block(h2, out_ch=8 * ch_mult)  # 6x8x3
 
-            h3 = tf.reshape(h3, [self.bsize, -1])
-
-            mu = slim.layers.fully_connected(h3, num_outputs=self.nz, activation_fn=None)
-            mu_l.append(mu)
-
-            log_sigma_diag = slim.layers.fully_connected(h3, num_outputs=self.nz, activation_fn=None)
-            log_sigma_diag_l.append(log_sigma_diag)
+                if 'enc_avg_pool' in self.conf:
+                    with tf.variable_scope('h3'):
+                        h3 = self.conv_relu_block(h2, out_ch=64 * ch_mult)  # 6x8x3
+                    with tf.variable_scope('h4'):
+                        h4_mu = slim.layers.conv2d(h3, self.nz, [3, 3], stride=1)
+                        h4_sigma = slim.layers.conv2d(h3, self.nz, [3, 3], stride=1)
+                    mu_l.append(tf.image.resize_images(h4_mu, self.conf['enc_avg_pool'], method=tf.image.ResizeMethod.BILINEAR))
+                    log_sigma_diag_l.append(tf.image.resize_images(h4_sigma, self.conf['enc_avg_pool'], method=tf.image.ResizeMethod.BILINEAR))
+                else:
+                    with tf.variable_scope('h3'):
+                        h3 = self.conv_relu_block(h2, out_ch=8 * ch_mult)  # 6x8x3
+                    h3 = tf.reshape(h3, [self.bsize, -1])
+                    mu_l.append(slim.layers.fully_connected(h3, num_outputs=self.nz, activation_fn=None))
+                    log_sigma_diag_l.append = slim.layers.fully_connected(h3, num_outputs=self.nz, activation_fn=None)
 
         return tf.stack(mu_l,axis=1), tf.stack(log_sigma_diag_l,axis=1)
 
@@ -283,18 +296,21 @@ class WaypointNet(object):
             ch_mult = self.conf['ch_mult']
         else:
             ch_mult = 1
-
         gen_images = []
 
         for t in range(self.seq_len -2):
             if  t== 0:
                 reuse = False
             else: reuse = True
-
-            enc = tf.concat([ctxt_enc, z[:, t]], axis=1)
-            enc = tf.tile(tf.reshape(enc,[self.bsize, 1,1, enc.get_shape().as_list()[1]]), [1,6,8,1])
-
             with tf.variable_scope('dec', reuse=reuse):
+                if 'enc_avg_pool' in self.conf:
+                    enc = z[:,t]
+                    with tf.variable_scope('h0'):
+                        enc = self.conv_relu_block(enc, out_ch=32 * ch_mult, upsmp=True)  # 12, 16
+                else:
+                    enc = tf.concat([ctxt_enc, z[:, t]], axis=1)
+                    enc = tf.tile(tf.reshape(enc,[self.bsize, 1,1, enc.get_shape().as_list()[1]]), [1,6,8,1])
+
                 with tf.variable_scope('h1'):
                     if 'skipcon' in self.conf:
                         enc = tf.concat([enc, self.enc3], axis=3)
@@ -306,7 +322,7 @@ class WaypointNet(object):
                 with tf.variable_scope('h3'):
                     if 'skipcon' in self.conf:
                         h2 = tf.concat([h2, self.enc1], axis=3)
-                    h3 = self.conv_relu_block(h2, out_ch=3, upsmp=True)  # 48, 64
+                    h3 = self.conv_relu_block(h2, out_ch=32* ch_mult, upsmp=True)  # 48, 64
                 with tf.variable_scope('h4'):
                     gen_images.append(slim.layers.conv2d(h3, 3, kernel_size=[3, 3], stride=1, activation_fn=tf.nn.sigmoid))
 
