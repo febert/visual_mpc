@@ -34,7 +34,7 @@ def main():
         train_actions = data_dict['actions']
         train_endeffector_pos = data_dict['endeffector_pos']
 
-        model = ImitationBaseModel(conf, train_images, train_actions, train_endeffector_pos)
+        model = conf['model'](conf, train_images, train_actions, train_endeffector_pos)
         model.build()
 
     with tf.variable_scope('val_model', reuse = None):
@@ -46,7 +46,7 @@ def main():
         val_endeffector_pos = data_dict['endeffector_pos']
 
         with tf.variable_scope(training_scope, reuse=True):
-            val_model = ImitationBaseModel(conf, val_images, val_actions, val_endeffector_pos)
+            val_model = conf['model'](conf, val_images, val_actions, val_endeffector_pos)
             val_model.build()
 
     gpu_options = tf.GPUOptions(per_process_gpu_memory_fraction=0.6)
@@ -60,31 +60,36 @@ def main():
 
     saver.restore(sess, conf['pretrained'])
 
-    gtruth_actions, pred_mean, pred_var, pred_mix = sess.run([val_actions, val_model.means, val_model.variance, val_model.mixing_parameters])
+    if 'MDN_loss' in conf:
+        gtruth_actions, pred_mean, pred_std, pred_mix = sess.run([val_actions, val_model.means, val_model.std_dev, val_model.mixing_parameters])
 
-    print 'gtruth_actions', gtruth_actions.shape
-    print 'pred_mean', pred_mean.shape
-    print 'prev_var', pred_var.shape
-    print 'pred_mix', pred_mix.shape
+        print 'gtruth_actions', gtruth_actions.shape
+        print 'pred_mean', pred_mean.shape
+        print 'prev_var', pred_std.shape
+        print 'pred_mix', pred_mix.shape
 
-    test_sequence = gtruth_actions[0, 0, :]
-    seq_means = pred_mean[0]
-    seq_var = pred_var[0]
-    seq_mix = pred_mix[0]
+        test_sequence = gtruth_actions[0, 0, :]
+        seq_means = pred_mean[0]
+        seq_std = pred_std[0]
+        seq_mix = pred_mix[0]
 
-    print 'test seq', test_sequence
-    print 'mean 1', seq_means[0]
-    print 'mean 2', seq_means[1]
-    print 'mix', seq_mix
-    print 'var', seq_var
-
-    mix_1 = np.random.multivariate_normal(seq_means[0], np.diag(np.ones(conf['adim'])) * seq_var[0], size=100)
-    mix_2 = np.random.multivariate_normal(seq_means[1], np.diag(np.ones(conf['adim'])) * seq_var[1], size=100)
-    final_mixs = seq_mix[0] * mix_1 + seq_mix[1] + mix_2
-
-    diffs = final_mixs - test_sequence
-    for i in range(100):
-     print 'final_mixs', i, 'is', final_mixs[i]
-    print np.sum(np.power(diffs, 2), axis = 1)
+        print 'test seq', test_sequence
+        print 'mean 1', seq_means[:, 0, :]
+        print 'mean 2', seq_means[:, 1, :]
+        print 'mean 3', seq_means[:, 2, :]
+        print 'mix', seq_mix
+        print 'std dev', seq_std
+    else:
+        val_images, gtruth_actions, gtruth_eep, pred_actions = \
+            sess.run([val_images, val_actions, val_endeffector_pos, val_model.predicted_actions])
+        print 'val_images', val_images.shape
+        import cv2
+        for i in range(15):
+            cv2.imshow('test', val_images[0, i])
+            cv2.waitKey(-1 )
+        print 'loss', np.sqrt(np.power(gtruth_actions - pred_actions.reshape((conf['batch_size'], -1, conf['adim'])), 2))
+        print 'gtruth actions', gtruth_actions[0]
+        print 'pred', pred_actions[0]
+        print 'gtruth_eep', gtruth_eep[0, :, :6]
 if __name__ == '__main__':
     main()

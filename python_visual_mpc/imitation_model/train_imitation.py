@@ -2,7 +2,7 @@ import tensorflow as tf
 from tensorflow.python.platform import flags
 import os
 import imp
-from python_visual_mpc.imitation_model.imitation_model import ImitationBaseModel
+
 from python_visual_mpc.video_prediction.read_tf_records2 import \
                     build_tfrecord_input as build_tfrecord
 if __name__ == '__main__':
@@ -31,7 +31,7 @@ def main():
         train_actions = data_dict['actions']
         train_endeffector_pos = data_dict['endeffector_pos']
 
-        model = ImitationBaseModel(conf, train_images, train_actions, train_endeffector_pos)
+        model = conf['model'](conf, train_images, train_actions, train_endeffector_pos)
         model.build()
 
     with tf.variable_scope('val_model', reuse = None):
@@ -43,16 +43,17 @@ def main():
         val_endeffector_pos = data_dict['endeffector_pos']
 
         with tf.variable_scope(training_scope, reuse=True):
-            val_model = ImitationBaseModel(conf, val_images, val_actions, val_endeffector_pos)
+            val_model = conf['model'](conf, val_images, val_actions, val_endeffector_pos)
             val_model.build()
 
     if 'clip_grad' not in conf:
         conf['clip_grad'] = 1.0
 
-    optimizer = tf.train.AdamOptimizer(conf['learning_rate'])
+    optimizer = tf.train.RMSPropOptimizer(conf['learning_rate'], decay=0.95)
     gradients, variables = zip(*optimizer.compute_gradients(model.loss))
-    gradients, _ = tf.clip_by_global_norm(gradients, conf['clip_grad'])
+    gradients = [tf.clip_by_value(g, -conf['clip_grad'], conf['clip_grad']) for g in gradients]
     train_operation = optimizer.apply_gradients(zip(gradients, variables))
+
 
     gpu_options = tf.GPUOptions(per_process_gpu_memory_fraction=0.6)
 
@@ -68,19 +69,24 @@ def main():
     for i in xrange(conf['n_iters']):
         if i % conf['n_print'] == 0:
             if 'MDN_loss' in conf:
-                model_loss, val_model_loss, val_model_diag, _ = sess.run(
-                    [model.loss, val_model.loss, val_model.diagnostic_l2loss, train_operation])
-                print 'At iteration', i, 'model likelihood is:', model_loss, 'and val_model likelihood is', val_model_loss, 'and val diagnostic', val_model_diag
+                model_loss, val_model_loss, val_model_diag, val_mdn_log, val_aux,  _ = sess.run(
+                    [model.loss, val_model.loss, val_model.diagnostic_l2loss,val_model.MDN_log_l, val_model.final_frame_aux_loss, train_operation])
+                print 'At iteration', i, 'model loss is:', model_loss, 'and val_model loss is', val_model_loss, 'and val diagnostic', val_model_diag
                 itr_summary = tf.Summary()
-                itr_summary.value.add(tag="val_model/loglikelihood", simple_value=-val_model_loss)
+                itr_summary.value.add(tag="val_model/loss", simple_value=val_model_loss)
+                itr_summary.value.add(tag="val_model/loglikelihood", simple_value=val_mdn_log)
+                itr_summary.value.add(tag="val_model/finaleep_loss", simple_value=val_aux)
                 itr_summary.value.add(tag="val_model/diagnostic_l2loss", simple_value=val_model_diag)
-                itr_summary.value.add(tag="model/loglikelihood", simple_value=-model_loss)
+                itr_summary.value.add(tag="model/loss", simple_value=model_loss)
                 summary_writer.add_summary(itr_summary, i)
             else:
-                model_loss, val_model_loss, _ = sess.run([model.loss, val_model.loss, train_operation])
+                model_loss, val_model_loss, val_action,val_aux,  _ = sess.run([model.loss, val_model.loss,
+                                                          val_model.action_loss, val_model.final_frame_aux_loss, train_operation])
                 print 'At iteration', i, 'model loss is:', model_loss, 'and val_model loss is', val_model_loss
                 itr_summary = tf.Summary()
                 itr_summary.value.add(tag="val_model/loss", simple_value=val_model_loss)
+                itr_summary.value.add(tag="val_model/action_loss", simple_value=val_action)
+                itr_summary.value.add(tag="val_model/finaleep_loss", simple_value=val_aux)
                 itr_summary.value.add(tag="model/loss", simple_value=model_loss)
                 summary_writer.add_summary(itr_summary, i)
         else:

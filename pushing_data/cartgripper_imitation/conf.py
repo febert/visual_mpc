@@ -1,8 +1,10 @@
 import os
+from python_visual_mpc.imitation_model.imitation_model import ImitationBaseModel
 
 DATA_DIR = os.environ['VMPC_DATA_DIR']
 
 configuration = {
+    'model' : ImitationBaseModel,
     'data_dir':DATA_DIR  + '/cartgripper_det_grasp/train/',
     'model_dir':DATA_DIR + '/cartgripper_det_grasp/trained_model/',
     'n_iters':50000,
