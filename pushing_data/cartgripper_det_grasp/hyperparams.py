@@ -44,7 +44,7 @@ agent = {
     'posmode':'abs',
     'ztarget':0.13,
     'drop_thresh':0.02,
-    'make_final_gif':True,
+    'make_final_gif':False,
     'record': BASE_DIR + '/record/',
     'targetpos_clip':[[-0.5, -0.5, -0.08, -np.pi*2, 0], [0.5, 0.5, 0.15, np.pi*2, 0.1]],
     'mode_rel':np.array([True, True, True, True, False]),
