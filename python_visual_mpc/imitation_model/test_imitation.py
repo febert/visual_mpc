@@ -61,27 +61,27 @@ def main():
     saver.restore(sess, conf['pretrained'])
 
     if 'MDN_loss' in conf:
-        gtruth_actions, pred_mean, pred_std, pred_mix = sess.run([val_actions, val_model.means, val_model.std_dev, val_model.mixing_parameters])
+        gtruth_actions, gtruth_eep, pred_mean, pred_std, pred_mix, final = sess.run([val_actions,val_endeffector_pos, val_model.means, val_model.std_dev,
+                                                                         val_model.mixing_parameters, val_model.final_frame_state_pred])
 
         print 'gtruth_actions', gtruth_actions.shape
         print 'pred_mean', pred_mean.shape
         print 'prev_var', pred_std.shape
         print 'pred_mix', pred_mix.shape
+        for j in range(2):
+            print 'timestep', j
+            print 'gtruth_step', gtruth_actions[0, j, :]
+            for i in range(conf['MDN_loss']):
+                print 'mean', i, 'has mix', pred_mix[0, j, i], 'and std', pred_std[0, j, i]
+                print 'with vec', pred_mean[0, j, i, :]
+            print ''
+        print 'final_pred', final[0, :]
+        print 'true final', gtruth_eep[0, -1, :6]
 
-        test_sequence = gtruth_actions[0, 0, :]
-        seq_means = pred_mean[0]
-        seq_std = pred_std[0]
-        seq_mix = pred_mix[0]
 
-        print 'test seq', test_sequence
-        print 'mean 1', seq_means[:, 0, :]
-        print 'mean 2', seq_means[:, 1, :]
-        print 'mean 3', seq_means[:, 2, :]
-        print 'mix', seq_mix
-        print 'std dev', seq_std
     else:
-        val_images, gtruth_actions, gtruth_eep, pred_actions = \
-            sess.run([val_images, val_actions, val_endeffector_pos, val_model.predicted_actions])
+        val_images, gtruth_actions, gtruth_eep, pred_actions, pred_final = \
+            sess.run([val_images, val_actions, val_endeffector_pos, val_model.predicted_actions,val_model.final_frame_state_pred])
         print 'val_images', val_images.shape
         import cv2
         for i in range(15):
@@ -89,6 +89,7 @@ def main():
             cv2.waitKey(-1 )
         print 'loss', np.sqrt(np.power(gtruth_actions - pred_actions.reshape((conf['batch_size'], -1, conf['adim'])), 2))
         print 'gtruth actions', gtruth_actions[0]
+        print 'pred final', pred_final[0]
         print 'pred', pred_actions[0]
         print 'gtruth_eep', gtruth_eep[0, :, :6]
 if __name__ == '__main__':
