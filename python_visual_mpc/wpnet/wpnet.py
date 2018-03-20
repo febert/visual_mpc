@@ -355,11 +355,12 @@ class WaypointNet(object):
         return out
 
     def make_histo(self, hist_dict):
-        summaries = []
+        self.train_hist_sum = []
+        self.val_hist_sum = []
         for k in hist_dict.keys():
             if hist_dict[k] is not None:
-                summaries.append(tf.summary.histogram('train_' + k, hist_dict[k]))
-        self.train_hist_summaries = summaries
+                self.train_hist_sum.append(tf.summary.histogram('train_' + k, hist_dict[k]))
+                self.val_hist_sum.append(tf.summary.histogram('val_' + k, hist_dict[k]))
 
     def build_image_summary(self, tensors=None, side_by_side=None, numex=8, name=None):
         """
@@ -450,10 +451,10 @@ class WaypointNet(object):
         self.train_op = tf.train.AdamOptimizer(self.lr).minimize(self.loss)
 
         self.train_summaries.append(tf.summary.scalar('train_total', self.loss))
-        self.train_summ_op = tf.summary.merge(self.train_summaries + [self.train_hist_summaries])
+        self.train_summ_op = tf.summary.merge(self.train_summaries + [self.train_hist_sum])
 
         self.val_summaries.append(tf.summary.scalar('val_total', self.loss))
-        self.val_summ_op = tf.summary.merge(self.val_summaries)
+        self.val_summ_op = tf.summary.merge(self.val_summaries + [self.train_hist_sum])
 
     def color_code(self, input, num_examples):
         cmap = plt.cm.get_cmap()
