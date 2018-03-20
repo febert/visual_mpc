@@ -14,7 +14,7 @@ data['dockerImageName'] = "ucb_rail8888/tf1.4_gpu:based_nvidia"
 data["aceName"] = "nv-us-west-2"
 data["name"] = str.split(command, '/')[-2]
 data["command"] =\
-"cd /result tensorboard --logdir . & \
+"cd /result && tensorboard --logdir . & \
  export VMPC_DATA_DIR=/mnt/pushing_data;\
  export MUJOCO_PY_MJKEY_PATH=/workspace/visual_mpc/mujoco/mjpro131/mjkey.txt;\
  export MUJOCO_PY_MJPRO_PATH=/workspace/visual_mpc/mujoco/mjpro131; \

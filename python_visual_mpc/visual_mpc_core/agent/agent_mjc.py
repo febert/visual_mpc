@@ -617,6 +617,9 @@ class AgentMuJoCo(object):
         if 'randomize_ballinitpos' in self._hyperparams:
             xpos0[:2] = np.random.uniform(-.4, .4, 2)
             xpos0[2] = np.random.uniform(-0.08, .14)
+        elif 'init_arm_near_obj' in self._hyperparams:
+            xpos0[:2] = np.random.uniform(-.4, .4, 2)
+            xpos0[2] = np.random.uniform(-0.08, .14)
 
         if 'goal_point' in self._hyperparams:
             goal = np.append(self._hyperparams['goal_point'], [.1])   # goal point

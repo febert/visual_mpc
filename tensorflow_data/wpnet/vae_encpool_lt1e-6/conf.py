@@ -30,11 +30,11 @@ configuration = {
     'normalization':'bnorm',
     'tweights_reg':0.,
     'orig_size':[48, 64],
-    'lt_cost_factor':1e-3,
+    'lt_cost_factor':1e-6,
     'lt_dim':128,
     'sched_lt_cost':[30000, 60000],
     'sdim':6,
     'adim':3,
     'MSE':'',
-    'enc_avg_pool':[1,1]
+    'enc_avg_pool':[3,4]
 }
