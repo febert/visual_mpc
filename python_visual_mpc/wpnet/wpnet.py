@@ -90,6 +90,7 @@ class WaypointNet(object):
         self.train_cond = tf.placeholder(tf.int32, shape=[], name="train_cond")
 
         self.seq_len = self.conf['sequence_length']
+        self.n_intm = self.seq_len - 2
         self.bsize = self.conf['batch_size']
 
         self.img_height = self.conf['orig_size'][0]
@@ -151,27 +152,23 @@ class WaypointNet(object):
     def build_vae(self, traintime):
         self.ctxt_encoding = self.ctxt_enc(self.Istart, self.Igoal)
         self.z = []
+
+        if 'enc_avg_pool' in self.conf:
+            eps = tf.random_normal([self.bsize, self.n_intm*self.nz*self.conf['enc_avg_pool'][0]*self.conf['enc_avg_pool'][1]], 0.0, 1.0, dtype=tf.float32)
+            eps = tf.reshape(eps, [self.bsize, self.n_intm] + self.conf['enc_avg_pool'] + [self.nz])
+        else:
+            eps = tf.random_normal([self.bsize, self.nz], 0.0, 1.0, dtype=tf.float32)
+
         if traintime:
             self.z_mean, self.z_log_sigma_sq = self.intm_enc(self.I_intm)
             if 'deterministic' in self.conf:
                 self.z = self.z_mean
                 print 'latent not sampled!! deterministic latent'
             else:
-                for i in range(self.seq_len -2):
-                    eps = tf.random_normal([self.bsize, self.nz], 0.0, 1.0, dtype=tf.float32)
-                    self.z.append(tf.add(self.z_mean[:,i], tf.multiply(tf.sqrt(tf.exp(self.z_log_sigma_sq[:, i])), eps)))
-                self.z = tf.stack(self.z, axis=1)
+                self.z = self.z_mean + tf.multiply(tf.sqrt(tf.exp(self.z_log_sigma_sq)), eps)
         else:
             self.z_mean, self.z_log_sigma_sq = None, None
-            for i in range(self.seq_len -2):
-                if 'enc_avg_pool' in self.conf:
-                    eps = tf.random_normal([self.bsize, self.nz*self.conf['enc_avg_pool'][0]*self.conf['enc_avg_pool'][1]], 0.0, 1.0, dtype=tf.float32)
-                    eps = tf.reshape(eps, [self.bsize] + self.conf['enc_avg_pool'] + [self.nz])
-                else:
-                    eps = tf.random_normal([self.bsize, self.nz], 0.0, 1.0, dtype=tf.float32)
-                self.z.append(eps)
-
-            self.z = tf.stack(self.z, axis=1)
+            self.z = eps
 
         # Get the reconstructed mean from the decoder
         self.x_reconstr_mean = self.decode(self.ctxt_encoding, self.z)
@@ -270,19 +267,22 @@ class WaypointNet(object):
         else:
             I0_I1 = tf.concat([start_im, goal_im], axis=3)
 
-        self.enc1, self.enc2, self.enc3 = [], [], []
         with tf.variable_scope('ctxt_enc'):
             with tf.variable_scope('h1'):
                 h1 = self.conv_relu_block(I0_I1, out_ch=32*ch_mult)  #24x32x3
-                self.enc1 = h1
             with tf.variable_scope('h2'):
                 h2 = self.conv_relu_block(h1, out_ch=64*ch_mult)  #12x16x3
-                self.enc2 = h2
-            with tf.variable_scope('h3'):
-                h3 = self.conv_relu_block(h2, out_ch=8*ch_mult)  #6x8x3
-                self.enc3 = h3
 
-        ctxt_enc = slim.layers.fully_connected(tf.reshape(h3, [self.bsize, -1]), num_outputs=self.nz, activation_fn=None)
+            if 'enc_avg_pool' in self.conf:
+                with tf.variable_scope('h3'):
+                    h3 = self.conv_relu_block(h2, out_ch=64 * ch_mult)  # 6x8x3
+                with tf.variable_scope('h4'):
+                    h4 = slim.layers.conv2d(h3, self.nz, [3, 3], stride=1)
+                ctxt_enc = tf.image.resize_images(h4, self.conf['enc_avg_pool'], method=tf.image.ResizeMethod.BILINEAR)
+            else:
+                with tf.variable_scope('h3'):
+                    h3 = self.conv_relu_block(h2, out_ch=8*ch_mult)  #6x8x3
+                ctxt_enc = slim.layers.fully_connected(tf.reshape(h3, [self.bsize, -1]), num_outputs=self.nz, activation_fn=None)
         return ctxt_enc
 
     def decode(self, ctxt_enc, z):
@@ -304,7 +304,9 @@ class WaypointNet(object):
             else: reuse = True
             with tf.variable_scope('dec', reuse=reuse):
                 if 'enc_avg_pool' in self.conf:
-                    enc = z[:,t]
+                    enc = tf.concat([ctxt_enc, z[:, t]], axis=3)
+                    if self.conf['enc_avg_pool'] == [1,1]:
+                        enc = tf.tile(enc, [1,3,4,1])
                     with tf.variable_scope('h0'):
                         enc = self.conv_relu_block(enc, out_ch=32 * ch_mult, upsmp=True)  # 12, 16
                 else:
@@ -390,7 +392,6 @@ class WaypointNet(object):
 
 
     def create_loss_and_optimizer(self, reconstr_mean, I_intm, z_log_sigma_sq, z_mean, traintime):
-
         diff = reconstr_mean - I_intm
         if 'MSE' in self.conf:
             # unweighted !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
@@ -449,70 +450,6 @@ class WaypointNet(object):
             f = cmap(f)[:, :, :3]
             l.append(f)
         return np.stack(l, axis=0)
-
-def make_plots(conf, dict=None, filename = None):
-    if dict == None:
-        dict = cPickle.load(open(filename))
-
-    print 'loaded'
-    videos = dict['videos']
-
-    I0_ts = videos['I0_ts']
-
-    # num_exp = I0_t_reals[0].shape[0]
-    num_ex = 4
-    start_ex = 0
-    num_rows = num_ex*len(videos.keys())
-    num_cols = len(I0_ts) + 1
-
-    print 'num_rows', num_rows
-    print 'num_cols', num_cols
-
-    width_per_ex = 2.5
-
-    standard_size = np.array([width_per_ex * num_cols, num_rows * 1.5])  ### 1.5
-    figsize = (standard_size).astype(np.int)
-
-    f, axarr = plt.subplots(num_rows, num_cols, figsize=figsize)
-
-    print 'start'
-    for col in range(num_cols -1):
-        row = 0
-        for ex in range(start_ex, start_ex + num_ex, 1):
-            for tag in videos.keys():
-                print 'doing tag {}'.format(tag)
-                if isinstance(videos[tag], tuple):
-                    im = videos[tag][0][col]
-                    score = videos[tag][1]
-                    axarr[row, col].set_title('{:10.3f}'.format(score[col][ex]), fontsize=5)
-                else:
-                    im = videos[tag][col]
-
-                h = axarr[row, col].imshow(np.squeeze(im[ex]), interpolation='none')
-
-                if len(im.shape) == 3:
-                    plt.colorbar(h, ax=axarr[row, col])
-                axarr[row, col].axis('off')
-                row += 1
-
-    row = 0
-    col = num_cols-1
-
-    if 'I1' in dict:
-        for ex in range(start_ex, start_ex + num_ex, 1):
-            im = dict['I1'][ex]
-            h = axarr[row, col].imshow(np.squeeze(im), interpolation='none')
-            plt.colorbar(h, ax=axarr[row, col])
-            axarr[row, col].axis('off')
-            row += len(videos.keys())
-
-    # plt.axis('off')
-    f.subplots_adjust(wspace=0, hspace=0.3)
-
-    # f.subplots_adjust(vspace=0.1)
-    # plt.show()
-    plt.savefig(conf['output_dir']+'/warp_costs_{}.png'.format(dict['name']))
-
 
 if __name__ == '__main__':
     filedir = '/home/frederik/Documents/catkin_ws/src/visual_mpc/tensorflow_data/gdn/tdac_cons0_cartgripper/modeldata'
