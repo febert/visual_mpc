@@ -179,6 +179,8 @@ class WaypointNet(object):
         self.image_summaries = self.build_image_summary(side_by_side=[[self.Istart, self.Igoal] + intm,
                                                                       [self.Istart, self.Igoal] + x_reconstr_mean])
 
+        self.make_histo({'z_mean':self.z_mean, 'z_log_sigma':self.z_log_sigma_sq, 'z_samples':self.z})
+
         self.create_loss_and_optimizer(self.x_reconstr_mean, self.I_intm, self.z_log_sigma_sq, self.z_mean, traintime)
 
     def sel_images(self):
@@ -352,6 +354,13 @@ class WaypointNet(object):
             out = out/255.
         return out
 
+    def make_histo(self, hist_dict):
+        summaries = []
+        for k in hist_dict.keys():
+            if hist_dict[k] is not None:
+                summaries.append(tf.summary.histogram('train_' + k, hist_dict[k]))
+        self.train_hist_summaries = summaries
+
     def build_image_summary(self, tensors=None, side_by_side=None, numex=8, name=None):
         """
         takes numex examples from every tensor and concatentes examples side by side
@@ -441,7 +450,7 @@ class WaypointNet(object):
         self.train_op = tf.train.AdamOptimizer(self.lr).minimize(self.loss)
 
         self.train_summaries.append(tf.summary.scalar('train_total', self.loss))
-        self.train_summ_op = tf.summary.merge(self.train_summaries)
+        self.train_summ_op = tf.summary.merge(self.train_summaries + [self.train_hist_summaries])
 
         self.val_summaries.append(tf.summary.scalar('val_total', self.loss))
         self.val_summ_op = tf.summary.merge(self.val_summaries)
