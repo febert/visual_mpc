@@ -18,6 +18,9 @@ ngc batch attach <job_id>
 
 ngc batch run ‐f <file.json>
 
+# connect interactive session in running container:
+ngc batch exec -c /bin/bash $1
+
 # download results
 ngc result download <job_id>
 

@@ -416,7 +416,12 @@ class WaypointNet(object):
             if 'sched_lt_cost' in self.conf:
                 mx_it = self.conf['sched_lt_cost'][1]
                 min_it = self.conf['sched_lt_cost'][0]
-                self.sched_lt_cost = tf.clip_by_value((self.iter_num-min_it)/(mx_it - min_it), 0., 1.)
+                if 'lt_cost_factor_start' in self.conf:
+                    clip_low = self.conf['lt_cost_factor_start']
+                else:
+                    clip_low = 0.
+
+                self.sched_lt_cost = tf.clip_by_value((self.iter_num-min_it)/(mx_it - min_it), clip_low, 1.)
                 self.train_summaries.append(tf.summary.scalar('sched_lt_cost', self.sched_lt_cost))
             else:
                 self.sched_lt_cost = 1.
