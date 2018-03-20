@@ -1,13 +1,20 @@
 import json
 import argparse
 import os
+
+import pdb
 parser = argparse.ArgumentParser(description='write json configuration for ngc')
-parser.add_argument('run_dir', type=str, help='directory withing visual_mpc to run from')
-parser.add_argument('command', type=str, help='use multiple threads or not', default=10)
+parser.add_argument('run_dir', type=str, help='relative directory to withing visual_mpc from where to run the script')
+parser.add_argument('hyper', type=str, help='relative path to hyperparams file', default=10)
 
 args = parser.parse_args()
-run_dir = args.run_dir
-command = args.command
+run_dir = '/'.join(str.split(args.run_dir, '/')[1:-1])
+
+hyper = '/'.join(str.split(args.hyper, '/')[1:])
+
+command = "python " + str.split(args.run_dir, '/')[-1] + " --hyper ../../" + hyper
+
+print "using command ", command
 
 data = {}
 data['dockerImageName'] = "ucb_rail8888/tf1.4_gpu:based_nvidia"

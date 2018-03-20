@@ -55,7 +55,7 @@ class AgentMuJoCo(object):
         self.desig_pix = None
 
         self.load_obj_statprop = None  #loaded static object properties
-        # self._setup_world()
+        self._setup_world()
 
     def _setup_world(self):
         """
@@ -592,10 +592,8 @@ class AgentMuJoCo(object):
 
     def _init(self):
         """
-        Set the world to a given model, and run kinematics.
-        Args:
+        Set the world to a given model
         """
-
         #create random starting poses for objects
         def create_pos():
             poses = []
@@ -618,7 +616,8 @@ class AgentMuJoCo(object):
             xpos0[:2] = np.random.uniform(-.4, .4, 2)
             xpos0[2] = np.random.uniform(-0.08, .14)
         elif 'init_arm_near_obj' in self._hyperparams:
-            xpos0[:2] = np.random.uniform(-.4, .4, 2)
+            r = self._hyperparams['init_arm_near_obj']
+            xpos0[:2] = object_pos[:2] + np.random.uniform(r, -r, 2)
             xpos0[2] = np.random.uniform(-0.08, .14)
 
         if 'goal_point' in self._hyperparams:

@@ -15,6 +15,7 @@ import numpy as np
 from python_visual_mpc.visual_mpc_core.algorithm.random_policy import Randompolicy
 from python_visual_mpc.visual_mpc_core.agent.agent_mjc import AgentMuJoCo
 
+current_dir = '/'.join(str.split(__file__, '/')[:-1])
 IMAGE_WIDTH = 64
 IMAGE_HEIGHT = 64
 IMAGE_CHANNELS = 3
@@ -28,7 +29,7 @@ BASE_DIR = '/'.join(str.split(python_visual_mpc.__file__, '/')[:-2])
 
 agent = {
     'type': AgentMuJoCo,
-    'data_save_dir': folder_name + '/train',
+    'data_save_dir': os.environ['VMPC_DATA_DIR'] + '/' + folder_name + '/train',
     'filename': BASE_DIR+'/mjc_models/cartgripper.xml',
     'filename_nomarkers': BASE_DIR+'/mjc_models/cartgripper.xml',
     'data_collection': True,
@@ -50,9 +51,9 @@ agent = {
     'novideo':'',
     'gen_xml':5,   #generate xml every nth trajecotry
     'init_arm_near_obj':1e-1,
-    'pos_disp_range':0.5,
-    'ang_disp_range':np.pi/8,
-    'arm_disp_range':0.2,
+    'pos_disp_range':0.1,
+    'ang_disp_range':np.pi/16,
+    'arm_disp_range':0.1,
     'goal_mask':'',
 }
 
@@ -62,10 +63,11 @@ policy = {
 }
 
 config = {
+    'current_dir':current_dir,
     'save_raw_images':'',
     'save_data': True,
     'start_index':0,
-    'end_index': 60000,
+    'end_index': 500,
     'agent': agent,
     'policy': policy,
     'ngroup': 1000,
