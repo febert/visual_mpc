@@ -12,7 +12,7 @@ from python_visual_mpc.visual_mpc_core.agent.agent_mjc import AgentMuJoCo
 
 agent = {
     'type': AgentMuJoCo,
-    'T': 10,
+    'T': 15,
     'substeps':20,
     'adim':3,
     'sdim':6,
@@ -69,7 +69,7 @@ config = {
     'current_dir':current_dir,
     'save_raw_images':'',
     'start_index':0,
-    'end_index': 49, #1000,
+    'end_index': 99, #1000,
     'agent':agent,
     'policy':policy,
     'ngroup': 100,
