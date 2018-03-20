@@ -12,7 +12,7 @@ from python_visual_mpc.visual_mpc_core.agent.agent_mjc import AgentMuJoCo
 import numpy as np
 agent = {
     'type': AgentMuJoCo,
-    'T': 30,
+    'T': 15,
     'substeps':20,
     'adim':5,
     'sdim':12,
@@ -74,11 +74,11 @@ config = {
     'current_dir':current_dir,
     'save_raw_images':'',
     'start_index':0,
-    'end_index': 49,
+    'end_index': 99,
     'agent':agent,
     'policy':policy,
     'ngroup': 100,
     'sourcetags':[tag_images, tag_qpos, tag_object_full_pose, tag_object_statprop],
-    'source_basedirs':[os.environ['VMPC_DATA_DIR'] + '/cartgripper_startgoal_masks/train'],
+    'source_basedirs':[os.environ['VMPC_DATA_DIR'] + '/cartgripper_startgoal_short/train'],
     'sequence_length':2
 }
