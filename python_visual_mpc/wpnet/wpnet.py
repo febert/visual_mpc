@@ -72,6 +72,7 @@ class WaypointNet(object):
                  images = None,
                  inference = False,
                  sess = None,
+                 pref = '',
                  ):
 
         if conf['normalization'] == 'in':
@@ -83,6 +84,7 @@ class WaypointNet(object):
         else:
             raise ValueError('Invalid layer normalization %s' % conf['normalization'])
 
+        self.pref = pref
         self.conf = conf
         self.nz = self.conf['lt_dim']
 
@@ -146,11 +148,17 @@ class WaypointNet(object):
         self.build_loss = build_loss
         self.loss_dict = {}
 
-    def build_net(self, traintime = True):
-        self.build_vae(traintime)
+
+    def build_net(self, traintime = True, reuse = False):
+        with tf.variable_scope('model', reuse=reuse):
+            self.build_vae(traintime)
+
 
     def build_vae(self, traintime):
-        self.ctxt_encoding = self.ctxt_enc(self.Istart, self.Igoal)
+        if 'uncond' not in self.conf:
+            self.ctxt_encoding = self.ctxt_enc(self.Istart, self.Igoal)
+        else:
+            self.ctxt_encoding = None
         self.z = []
 
         if 'enc_avg_pool' in self.conf:
@@ -172,7 +180,6 @@ class WaypointNet(object):
 
         # Get the reconstructed mean from the decoder
         self.x_reconstr_mean = self.decode(self.ctxt_encoding, self.z)
-        self.z_summary = tf.summary.histogram("z", self.z)
 
         intm = tf.unstack(self.I_intm, axis=1)
         x_reconstr_mean = tf.unstack(self.x_reconstr_mean, axis=1)
@@ -240,20 +247,13 @@ class WaypointNet(object):
                 with tf.variable_scope('h2'):
                     h2 = self.conv_relu_block(h1, out_ch=64 * ch_mult)  # 12x16x3
 
-                if 'enc_avg_pool' in self.conf:
-                    with tf.variable_scope('h3'):
-                        h3 = self.conv_relu_block(h2, out_ch=64 * ch_mult)  # 6x8x3
-                    with tf.variable_scope('h4'):
-                        h4_mu = slim.layers.conv2d(h3, self.nz, [3, 3], stride=1)
-                        h4_sigma = slim.layers.conv2d(h3, self.nz, [3, 3], stride=1)
-                    mu_l.append(tf.image.resize_images(h4_mu, self.conf['enc_avg_pool'], method=tf.image.ResizeMethod.BILINEAR))
-                    log_sigma_diag_l.append(tf.image.resize_images(h4_sigma, self.conf['enc_avg_pool'], method=tf.image.ResizeMethod.BILINEAR))
-                else:
-                    with tf.variable_scope('h3'):
-                        h3 = self.conv_relu_block(h2, out_ch=8 * ch_mult)  # 6x8x3
-                    h3 = tf.reshape(h3, [self.bsize, -1])
-                    mu_l.append(slim.layers.fully_connected(h3, num_outputs=self.nz, activation_fn=None))
-                    log_sigma_diag_l.append = slim.layers.fully_connected(h3, num_outputs=self.nz, activation_fn=None)
+                with tf.variable_scope('h3'):
+                    h3 = self.conv_relu_block(h2, out_ch=64 * ch_mult)  # 6x8x3
+                with tf.variable_scope('h4'):
+                    h4_mu = slim.layers.conv2d(h3, self.nz, [3, 3], stride=1)
+                    h4_sigma = slim.layers.conv2d(h3, self.nz, [3, 3], stride=1)
+                mu_l.append(tf.image.resize_images(h4_mu, self.conf['enc_avg_pool'], method=tf.image.ResizeMethod.BILINEAR))
+                log_sigma_diag_l.append(tf.image.resize_images(h4_sigma, self.conf['enc_avg_pool'], method=tf.image.ResizeMethod.BILINEAR))
 
         return tf.stack(mu_l,axis=1), tf.stack(log_sigma_diag_l,axis=1)
 
@@ -275,16 +275,11 @@ class WaypointNet(object):
             with tf.variable_scope('h2'):
                 h2 = self.conv_relu_block(h1, out_ch=64*ch_mult)  #12x16x3
 
-            if 'enc_avg_pool' in self.conf:
-                with tf.variable_scope('h3'):
-                    h3 = self.conv_relu_block(h2, out_ch=64 * ch_mult)  # 6x8x3
-                with tf.variable_scope('h4'):
-                    h4 = slim.layers.conv2d(h3, self.nz, [3, 3], stride=1)
-                ctxt_enc = tf.image.resize_images(h4, self.conf['enc_avg_pool'], method=tf.image.ResizeMethod.BILINEAR)
-            else:
-                with tf.variable_scope('h3'):
-                    h3 = self.conv_relu_block(h2, out_ch=8*ch_mult)  #6x8x3
-                ctxt_enc = slim.layers.fully_connected(tf.reshape(h3, [self.bsize, -1]), num_outputs=self.nz, activation_fn=None)
+            with tf.variable_scope('h3'):
+                h3 = self.conv_relu_block(h2, out_ch=64 * ch_mult)  # 6x8x3
+            with tf.variable_scope('h4'):
+                h4 = slim.layers.conv2d(h3, self.nz, [3, 3], stride=1)
+            ctxt_enc = tf.image.resize_images(h4, self.conf['enc_avg_pool'], method=tf.image.ResizeMethod.BILINEAR)
         return ctxt_enc
 
     def decode(self, ctxt_enc, z):
@@ -305,15 +300,14 @@ class WaypointNet(object):
                 reuse = False
             else: reuse = True
             with tf.variable_scope('dec', reuse=reuse):
-                if 'enc_avg_pool' in self.conf:
+                if ctxt_enc is not None:
                     enc = tf.concat([ctxt_enc, z[:, t]], axis=3)
-                    if self.conf['enc_avg_pool'] == [1,1]:
-                        enc = tf.tile(enc, [1,3,4,1])
-                    with tf.variable_scope('h0'):
-                        enc = self.conv_relu_block(enc, out_ch=32 * ch_mult, upsmp=True)  # 12, 16
                 else:
-                    enc = tf.concat([ctxt_enc, z[:, t]], axis=1)
-                    enc = tf.tile(tf.reshape(enc,[self.bsize, 1,1, enc.get_shape().as_list()[1]]), [1,6,8,1])
+                    enc = z[:,t]
+                if self.conf['enc_avg_pool'] == [1,1]:
+                    enc = tf.tile(enc, [1,3,4,1])
+                with tf.variable_scope('h0'):
+                    enc = self.conv_relu_block(enc, out_ch=32 * ch_mult, upsmp=True)  # 12, 16
 
                 with tf.variable_scope('h1'):
                     if 'skipcon' in self.conf:
@@ -359,8 +353,8 @@ class WaypointNet(object):
         self.val_hist_sum = []
         for k in hist_dict.keys():
             if hist_dict[k] is not None:
-                self.train_hist_sum.append(tf.summary.histogram('train_' + k, hist_dict[k]))
-                self.val_hist_sum.append(tf.summary.histogram('val_' + k, hist_dict[k]))
+                self.train_hist_sum.append(tf.summary.histogram(self.pref + '/train_' + k, hist_dict[k]))
+                self.val_hist_sum.append(tf.summary.histogram(self.pref + '/val_' + k, hist_dict[k]))
 
     def build_image_summary(self, tensors=None, side_by_side=None, numex=8, name=None):
         """
@@ -396,9 +390,9 @@ class WaypointNet(object):
         combined = tf.concat(ten_list, axis=0)
         combined = tf.reshape(combined, [1]+combined.get_shape().as_list())
 
-        if name ==None:
+        if name == None:
             name = 'Images'
-        return tf.summary.image(name, combined)
+        return tf.summary.image(self.pref + '/' + name, combined)
 
 
     def create_loss_and_optimizer(self, reconstr_mean, I_intm, z_log_sigma_sq, z_mean, traintime):
@@ -445,8 +439,8 @@ class WaypointNet(object):
         for k in self.loss_dict.keys():
             single_loss, weight = self.loss_dict[k]
             self.loss += single_loss*weight
-            self.train_summaries.append(tf.summary.scalar('train_' + k, single_loss))
-            self.val_summaries.append(tf.summary.scalar('val_' + k, single_loss))
+            self.train_summaries.append(tf.summary.scalar(self.pref + 'train_' + k, single_loss))
+            self.val_summaries.append(tf.summary.scalar(self.pref + 'val_' + k, single_loss))
 
         self.train_op = tf.train.AdamOptimizer(self.lr).minimize(self.loss)
 

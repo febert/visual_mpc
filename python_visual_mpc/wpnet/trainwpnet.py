@@ -98,16 +98,14 @@ def main(unused_argv, conf_script= None):
     # Make training session.
     sess = tf.InteractiveSession(config=tf.ConfigProto(gpu_options=gpu_options))
 
-    with tf.variable_scope('model'):
-        if FLAGS.visualize or FLAGS.visualize_check:
-            model = Model(conf, build_loss, load_data=False, sess = sess)
-        else:
-            model = Model(conf, build_loss, load_data=True, sess = sess)
-        model.build_net()
+    if FLAGS.visualize or FLAGS.visualize_check:
+        model = Model(conf, build_loss, load_data=False, sess = sess)
+    else:
+        model = Model(conf, build_loss, load_data=True, sess = sess, pref= 'test')
+    model.build_net()
 
-    with tf.variable_scope('testmodel'):
-        testmodel = Model(conf, build_loss, load_data=True, sess = sess)
-        testmodel.build_net(traintime=False)
+    testmodel = Model(conf, build_loss, load_data=True, sess = sess)
+    testmodel.build_net(traintime=False, reuse=True)
 
     print 'Constructing saver.'
     vars = tf.get_collection(tf.GraphKeys.GLOBAL_VARIABLES)
