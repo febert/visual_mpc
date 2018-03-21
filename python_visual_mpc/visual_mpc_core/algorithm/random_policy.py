@@ -21,42 +21,24 @@ class Randompolicy(Policy):
 
     def construct_initial_sigma(self):
         xy_std = self.policyparams['initial_std']
-
-        if 'initial_std_grasp' in self.policyparams:
-            gr_std = self.policyparams['initial_std_grasp']
-        else:
-            gr_std = 1.
-
-        if 'initial_std_rot' in self.policyparams:
-            rot_std = self.policyparams['initial_std_rot']
-        else:
-            rot_std = 1.
+        diag = []
+        diag += [xy_std**2, xy_std**2]
 
         if 'initial_std_lift' in self.policyparams:
-            lift_std = self.policyparams['initial_std_lift']
-        else:
-            lift_std = 1.
+            diag.append(self.policyparams['initial_std_lift'])
+        if 'initial_std_rot' in self.policyparams:
+            diag.append(self.policyparams['initial_std_rot'])
+        if 'initial_std_grasp' in self.policyparams:
+            diag.append(self.policyparams['initial_std_grasp'])
 
-        diag = []
-        for t in range(self.naction_steps):
-            if self.adim == 5:
-                diag.append(np.array([xy_std**2, xy_std**2, lift_std**2, rot_std**2, gr_std**2]))
-            if self.adim == 4:
-                diag.append(np.array([xy_std ** 2, xy_std ** 2, lift_std ** 2, gr_std ** 2]))
-            elif self.adim == 3:
-                diag.append(np.array([xy_std ** 2, xy_std ** 2, lift_std ** 2]))
-            elif self.adim == 2:
-                diag.append(np.array([xy_std ** 2, xy_std ** 2]))
-
-        diag = np.concatenate(diag, axis=0)
+        diag = np.tile(diag, self.naction_steps)
+        diag = np.array(diag)
         sigma = np.diag(diag)
         return sigma
-
 
     def act(self, traj, t, init_model=None, goal_ob_pose=None, agentparams=None):
 
         repeat = self.policyparams['repeats']  # repeat the same action to reduce number of repquired timesteps
-
         assert self.agentparams['T'] == self.naction_steps*repeat
 
         if t ==0:
@@ -70,11 +52,18 @@ class Randompolicy(Policy):
             self.actions = self.actions.reshape(self.naction_steps, self.adim)
             self.actions = np.repeat(self.actions, repeat, axis=0)
 
-            if 'stateful_action' in self.agentparams:
-                self.actions[2] = np.ceil(np.abs(self.actions[2])).astype(np.int)
+            if 'discrete_adim' in self.agentparams:
+                self.actions = discretize(self.actions, self.agentparams['discrete_adim'])
 
+                print self.actions
 
         return self.actions[t]
 
     def finish(self):
         pass
+
+def discretize(actions, discrete_ind):
+    for a in range(actions.shape[0]):
+        for ind in discrete_ind:
+            actions[a, ind] = np.clip(np.floor(actions[a, ind]), 0, 4)
+    return actions
