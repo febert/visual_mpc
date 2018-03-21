@@ -70,6 +70,10 @@ class Randompolicy(Policy):
             self.actions = self.actions.reshape(self.naction_steps, self.adim)
             self.actions = np.repeat(self.actions, repeat, axis=0)
 
+            if 'stateful_action' in self.agentparams:
+                self.actions[2] = np.ceil(np.abs(self.actions[2])).astype(np.int)
+
+
         return self.actions[t]
 
     def finish(self):

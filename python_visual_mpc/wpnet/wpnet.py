@@ -91,7 +91,7 @@ class WaypointNet(object):
         self.lr = tf.placeholder_with_default(self.conf['learning_rate'], ())
         self.train_cond = tf.placeholder(tf.int32, shape=[], name="train_cond")
 
-        self.seq_len = self.conf['sequence_length']
+        self.seq_len = self.conf['sequence_length']/self.conf['skip_frame']
         self.n_intm = self.seq_len - 2
         self.bsize = self.conf['batch_size']
 
@@ -137,7 +137,7 @@ class WaypointNet(object):
                 self.images = dict['images']
 
             self.Istart = self.images[:,0]
-            self.I_intm = self.images[:, 1:self.conf['sequence_length'] - 1]
+            self.I_intm = self.images[:, 1:self.seq_len - 1]
             self.Igoal = self.images[:, -1]
 
         elif images == None:  #feed values at test time

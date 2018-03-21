@@ -21,7 +21,7 @@ configuration = {
     'output_dir': OUT_DIR,      #'directory for model checkpoints.' ,
     'current_dir': base_dir,   #'directory for writing summary.' ,
     'num_iterations':100000,
-    'sequence_length':5,
+    'sequence_length':15,
     'train_val_split':.95,
     'visualize':'',
     'skip_frame':3,
@@ -36,5 +36,6 @@ configuration = {
     'sdim':6,
     'adim':3,
     'MSE':'',
-    'enc_avg_pool':[3,4]
+    'enc_avg_pool':[3,4],
+    'inference_use_cont':'',
 }

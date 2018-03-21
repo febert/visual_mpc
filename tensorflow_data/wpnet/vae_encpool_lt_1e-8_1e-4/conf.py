@@ -37,5 +37,6 @@ configuration = {
     'sdim':6,
     'adim':3,
     'MSE':'',
-    'enc_avg_pool':[3,4]
+    'enc_avg_pool':[3,4],
+    'inference_use_cont':'',
 }
