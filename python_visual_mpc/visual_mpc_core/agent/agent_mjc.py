@@ -173,11 +173,7 @@ class AgentMuJoCo(object):
             self._model.step()
             self._model.data.qpos = qpos
             self.viewer.loop_once()
-            # plt.ion()
-            # plt.figure()
-            # plt.imshow(np.squeeze(mask))
-            # plt.title('armmask')
-            # plt.draw()
+
         for i in range(self._hyperparams['num_objects']):
             qpos = copy.deepcopy(self._model.data.qpos)
             qpos[3+2+i*7] -= 1
@@ -196,10 +192,6 @@ class AgentMuJoCo(object):
             large_ob_masks.append(mask)
             ob_masks.append(cv2.resize(mask, dsize=(
                 self._hyperparams['image_width'], self._hyperparams['image_height']), interpolation=cv2.INTER_NEAREST))
-            # plt.figure()
-            # plt.imshow(masks[-1])
-            # plt.title('objectmask')
-            # plt.show()
         ob_masks = np.stack(ob_masks, 0)
         large_ob_masks = np.stack(large_ob_masks, 0)
 
@@ -223,8 +215,6 @@ class AgentMuJoCo(object):
             goal_pix = np.repeat(self.get_goal_pix(), self._hyperparams['gtruthdesig'], 0)
             return desig_pix, goal_pix
         diff_quat = curr_quat.conjugate * goal_quat  # rotates vector form curr_quat to goal_quat
-        # plt.imshow(np.squeeze(self.curr_mask_large))
-        # plt.show()
         dsample_factor = self._hyperparams['viewer_image_height']/float(self._hyperparams['image_height'])
 
         for i in range(self._hyperparams['gtruthdesig']):
@@ -238,15 +228,6 @@ class AgentMuJoCo(object):
             abs_pos_prev_sys = goal_pos + rel_pos_prev_sys.elements[1:]
             goal_prev_sys_imspace = np.array(self.viewer.project_point(abs_pos_prev_sys))
             goal_pix.append((goal_prev_sys_imspace/dsample_factor).astype(np.int))
-            # plt.figure()
-            # goalim = copy.deepcopy(self.goal_image)
-            # goalim[goal_pix[-1][0], goal_pix[-1][1]] = np.array([255, 255, 255])
-            # plt.imshow(goalim)
-            # plt.figure()
-            # currimg = copy.deepcopy(traj._sample_images[t])
-            # currimg[desig_pix[-1][0], desig_pix[-1][1]] = np.array([255, 255, 255])
-            # plt.imshow(currimg)
-            # plt.show()
         return np.stack(desig_pix, axis=0), np.stack(goal_pix, axis=0)
 
     def clip_targetpos(self, pos):
@@ -284,6 +265,9 @@ class AgentMuJoCo(object):
 
         self.hf_target_qpos_l = []
         self.hf_qpos_l = []
+
+        self.gripper_closed = False
+        self.gripper_up = True
 
         # Take the sample.
         for t in range(self.T):
@@ -323,8 +307,25 @@ class AgentMuJoCo(object):
                     self.target_qpos = self._model.data.qpos[:self.adim].squeeze()
                 else:
                     self.prev_target_qpos = self.target_qpos
-                mask_rel = self._hyperparams['mode_rel'].astype(np.float32) # mask out action dimensions that use absolute control with 0
-                self.target_qpos = mj_U.copy() + self.target_qpos * mask_rel
+
+                if 'stateful_action' in self._hyperparams:
+                    up_cmd = mj_U[2]
+                    assert isinstance(up_cmd.dtype, np.int)
+                    if up_cmd != 0:
+                        self.t_down = t + up_cmd
+                        self.target_qpos[2] = self._hyperparams['targetpos_clip'][1][2]
+                        self.gripper_up = True
+
+                    if self.gripper_up:
+                        if t == self.t_down:
+                            self.target_qpos[2] = self._hyperparams['targetpos_clip'][0][2]
+                            print 'going down'
+                            self.gripper_up = False
+
+                    self.target_qpos[:2] += mj_U[:2]
+                    self.target_qpos[3] += mj_U[3]
+                else:
+                    self.target_qpos = mj_U + self.target_qpos
                 self.target_qpos = self.clip_targetpos(self.target_qpos)
             else:
                 traj.actions[t, :] = mj_U
@@ -333,10 +334,10 @@ class AgentMuJoCo(object):
             accum_touch = np.zeros_like(self._model.data.sensordata)
 
             for st in range(self._hyperparams['substeps']):
-                # self.model_nomarkers.data.qpos = self._model.data.qpos
-                # self.model_nomarkers.data.qvel = self._model.data.qvel
-                # self.model_nomarkers.step()
-                # self.viewer.loop_once()
+                self.model_nomarkers.data.qpos = self._model.data.qpos
+                self.model_nomarkers.data.qvel = self._model.data.qvel
+                self.model_nomarkers.step()
+                self.viewer.loop_once()
                 if 'posmode' in self._hyperparams:
                     ctrl = self.get_int_targetpos(st, self.prev_target_qpos, self.target_qpos)
                 accum_touch += self._model.data.sensordata
@@ -372,7 +373,7 @@ class AgentMuJoCo(object):
         if any(zval < -2e-2 for zval in end_zpos):
             print 'object fell out!!!'
             traj_ok = False
-        # self.plot_ctrls()
+        self.plot_ctrls()
         return traj_ok, traj
 
     def save_goal_image_conf(self, traj):
