@@ -121,7 +121,6 @@ class AgentMuJoCo(object):
 
         return traj
 
-
     def get_desig_pix(self, round=True):
         qpos_dim = self.sdim / 2  # the states contains pos and vel
         assert self._model.data.qpos.shape[0] == qpos_dim + 7 * self._hyperparams['num_objects']
@@ -267,7 +266,7 @@ class AgentMuJoCo(object):
         self.hf_qpos_l = []
 
         self.gripper_closed = False
-        self.gripper_up = True
+        self.gripper_up = False
 
         # Take the sample.
         for t in range(self.T):
@@ -303,27 +302,25 @@ class AgentMuJoCo(object):
             if 'posmode' in self._hyperparams:  #if the output of act is a positions
                 traj.actions[t, :] = mj_U
                 if t == 0:
-                    self.prev_target_qpos = self._model.data.qpos[:self.adim].squeeze()
-                    self.target_qpos = self._model.data.qpos[:self.adim].squeeze()
+                    self.prev_target_qpos = copy.deepcopy(self._model.data.qpos[:self.adim].squeeze())
+                    self.target_qpos = copy.deepcopy(self._model.data.qpos[:self.adim].squeeze())
                 else:
-                    self.prev_target_qpos = self.target_qpos
+                    self.prev_target_qpos = copy.deepcopy(self.target_qpos)
 
-                if 'stateful_action' in self._hyperparams:
+                if 'discrete_adim' in self._hyperparams:
                     up_cmd = mj_U[2]
-                    assert isinstance(up_cmd.dtype, np.int)
+                    assert np.floor(up_cmd) == up_cmd
                     if up_cmd != 0:
                         self.t_down = t + up_cmd
                         self.target_qpos[2] = self._hyperparams['targetpos_clip'][1][2]
                         self.gripper_up = True
-
                     if self.gripper_up:
                         if t == self.t_down:
                             self.target_qpos[2] = self._hyperparams['targetpos_clip'][0][2]
-                            print 'going down'
                             self.gripper_up = False
-
                     self.target_qpos[:2] += mj_U[:2]
-                    self.target_qpos[3] += mj_U[3]
+                    if self.adim == 4:
+                        self.target_qpos[3] += mj_U[3]
                 else:
                     self.target_qpos = mj_U + self.target_qpos
                 self.target_qpos = self.clip_targetpos(self.target_qpos)
@@ -331,13 +328,16 @@ class AgentMuJoCo(object):
                 traj.actions[t, :] = mj_U
                 ctrl = mj_U.copy()
 
+            print 'action', mj_U
+
             accum_touch = np.zeros_like(self._model.data.sensordata)
 
+
             for st in range(self._hyperparams['substeps']):
-                self.model_nomarkers.data.qpos = self._model.data.qpos
-                self.model_nomarkers.data.qvel = self._model.data.qvel
-                self.model_nomarkers.step()
-                self.viewer.loop_once()
+                # self.model_nomarkers.data.qpos = self._model.data.qpos
+                # self.model_nomarkers.data.qvel = self._model.data.qvel
+                # self.model_nomarkers.step()
+                # self.viewer.loop_once()
                 if 'posmode' in self._hyperparams:
                     ctrl = self.get_int_targetpos(st, self.prev_target_qpos, self.target_qpos)
                 accum_touch += self._model.data.sensordata
@@ -590,7 +590,6 @@ class AgentMuJoCo(object):
             plt.legend()
             plt.show()
 
-
     def _init(self):
         """
         Set the world to a given model
@@ -611,8 +610,8 @@ class AgentMuJoCo(object):
         else:
             object_pos = self._hyperparams['object_pos0']
 
-        # Initialize world/run kinematics
         xpos0 = self._hyperparams['xpos0']
+        assert xpos0.shape[0] == self._hyperparams['sdim']/2
         if 'randomize_ballinitpos' in self._hyperparams:
             xpos0[:2] = np.random.uniform(-.4, .4, 2)
             xpos0[2] = np.random.uniform(-0.08, .14)

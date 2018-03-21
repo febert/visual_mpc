@@ -101,10 +101,10 @@ def main(unused_argv, conf_script= None):
     if FLAGS.visualize or FLAGS.visualize_check:
         model = Model(conf, build_loss, load_data=False, sess = sess)
     else:
-        model = Model(conf, build_loss, load_data=True, sess = sess, pref= 'test')
+        model = Model(conf, build_loss, load_data=True, sess = sess)
     model.build_net()
 
-    testmodel = Model(conf, build_loss, load_data=True, sess = sess)
+    testmodel = Model(conf, build_loss, load_data=True, sess = sess, pref='test')
     testmodel.build_net(traintime=False, reuse=True)
 
     print 'Constructing saver.'

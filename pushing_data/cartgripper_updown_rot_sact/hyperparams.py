@@ -7,8 +7,8 @@ import numpy as np
 from python_visual_mpc.visual_mpc_core.algorithm.det_grasp_policy import DeterministicGraspPolicy
 from python_visual_mpc.visual_mpc_core.agent.agent_mjc import AgentMuJoCo
 from python_visual_mpc.visual_mpc_core.algorithm.random_policy import Randompolicy
-current_dir = '/'.join(str.split(__file__, '/')[:-1])
 
+current_dir = '/'.join(str.split(__file__, '/')[:-1])
 IMAGE_WIDTH = 64
 IMAGE_HEIGHT = 64
 IMAGE_CHANNELS = 3
@@ -23,13 +23,13 @@ folder_name = '/'.join(str.split(__file__, '/')[-2:-1])
 agent = {
     'type': AgentMuJoCo,
     'data_save_dir': folder_name + '/train',
-    'filename': DATA_DIR+'/mjc_models/cartgripper_grasp.xml',
-    'filename_nomarkers': DATA_DIR+'/mjc_models/cartgripper_grasp.xml',
+    'filename': DATA_DIR+'/mjc_models/cartgripper_updown_rot.xml',
+    'filename_nomarkers': DATA_DIR+'/mjc_models/cartgripper_updown_rot.xml',
     'not_use_images':"",
     'sample_objectpos':'',
-    'adim':5,
-    'sdim':12,
-    'xpos0': np.array([0., 0., 0.1, 0., 0., 0.]), #initialize state dimension to 5 zeros
+    'adim':4,
+    'sdim':8,
+    'xpos0': np.array([0., 0., 0.1, 0.]), #initialize state dimension to 5 zeros
     'dt': 0.05,
     'substeps': 200,  #6
     'T': 15,
@@ -45,8 +45,8 @@ agent = {
     'gen_xml':10,   #generate xml every nth trajecotry
     'randomize_ballinitpos':'', #randomize x, y
     'posmode':"",
-    'targetpos_clip':[[-0.45, -0.45, -0.08, -np.pi*2, 0.], [0.45, 0.45, 0.15, np.pi*2, 0.1]],
-    'mode_rel':np.array([True, True, True, True, False])
+    'targetpos_clip':[[-0.45, -0.45, -0.08, -np.pi*2], [0.45, 0.45, 0.15, np.pi*2]],
+    'discrete_adim':[2],
 }
 
 policy = {
@@ -54,9 +54,8 @@ policy = {
     'nactions': 5,
     'repeats': 3,               # number of repeats for each action
     'initial_std': 0.08,        # std dev. in xy
-    'initial_std_lift': 0.1, #0.1,
+    'initial_std_lift': 2.5, #0.1,
     'initial_std_rot': 0.1,
-    'initial_std_grasp': 0.5,
 }
 
 config = {

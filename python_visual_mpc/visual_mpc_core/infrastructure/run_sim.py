@@ -31,8 +31,6 @@ class Sim(object):
 
         self._data_save_dir = self.agentparams['data_save_dir']
         self._timing_file = self._hyperparams['current_dir'] + '/timing_file{}.txt'.format(os.getpid())
-        with open(self._timing_file, 'wb') as f:
-            f.write("timing \n")
 
         if 'netconf' in config['policy']:
             params = imp.load_source('params', config['policy']['netconf'])
