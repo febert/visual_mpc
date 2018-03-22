@@ -16,8 +16,8 @@ filename = BASE_DIR + '/mjc_models/cartgripper_noautogen.xml'
 
 model= mujoco_py.MjModel(filename)
 
-height, width = 480, 480
-viewer = mujoco_py.MjViewer(visible=True, init_width=480, init_height=480)
+height, width = 480, 640
+viewer = mujoco_py.MjViewer(visible=True, init_width=width, init_height=height)
 viewer.start()
 viewer.set_model(model)
 viewer.cam.camid = 0
@@ -25,6 +25,8 @@ print viewer.cam.camid
 
 import matplotlib.pyplot as plt
 
+from python_visual_mpc import __file__ as python_vmpc_path
+root_dir = '/'.join(str.split(python_vmpc_path, '/')[:-1])
 
 model.data.qpos = q = np.array([0., 0., 0.])
 
@@ -38,9 +40,7 @@ for t in range(T):
     model.step()
 
     img_string, width, height= viewer.get_image()
-
     model_view, proj, viewport = viewer.get_mats()
-
 
     with open('cam_params_1.3.txt','w') as f:
         f.write("proj \n")
@@ -53,15 +53,20 @@ for t in range(T):
 
         f.write("{}".format(viewport))
 
+    mats = {}
+    mats['viewport'] = viewport
+    mats['modelview'] = model_view
+    mats['projection'] = proj
+    cPickle.dump(mats, open(root_dir + '/visual_mpc_core/agent/utils/proj_mats.pkl', 'wb'))
 
     largeimage = np.fromstring(img_string, dtype='uint8').reshape(
-        (480, 480, 3))[::-1, :, :]
+        (height, width, 3))[::-1, :, :]
 
     Image.fromarray(largeimage).save('testimg.png')
 
     img_string, width, height = viewer.get_depth()
     largedimage = np.fromstring(img_string, dtype=np.float32).reshape(
-        (480, 480, 1))[::-1, :, :]
+        (height, width, 1))[::-1, :, :]
     # plt.imshow(np.squeeze(largedimage))
 
     if t % 10 ==0:
