@@ -123,6 +123,12 @@ class MjViewer(object):
 
         GL_MODELVIEW_MATRIX = gl.glGetDouble(gl.GL_MODELVIEW_MATRIX)
         GL_PROJECTION_MATRIX = gl.glGetDouble(gl.GL_PROJECTION_MATRIX)
+        print "p", p
+        print "model view"
+        print GL_MODELVIEW_MATRIX
+        print "projection"
+        print GL_PROJECTION_MATRIX
+
         view = gl.glGetIntegerv(gl.GL_VIEWPORT)
         Vx, Vy, Vz = view[2], view[3], 1
         x0, y0 = view[0], view[1]
@@ -131,6 +137,8 @@ class MjViewer(object):
         eye_coord = np.dot(GL_MODELVIEW_MATRIX.T, obj_coord)
         clip_coord = np.dot(GL_PROJECTION_MATRIX.T, eye_coord)
 
+        print "clipcoord", clip_coord
+
         ndc = clip_coord[:3] / clip_coord[3]  # everything should now be in -1 to 1!!
         col, row, z = (ndc[0]+1)*Vx/2 + x0, (-ndc[1]+1)*Vy/2 + y0, (ndc[2]+1)*Vz/2
 
@@ -138,6 +146,12 @@ class MjViewer(object):
             return row, col, z
         else:
             return row, col
+
+    def get_mats(self):
+        GL_MODELVIEW_MATRIX = gl.glGetDouble(gl.GL_MODELVIEW_MATRIX)
+        GL_PROJECTION_MATRIX = gl.glGetDouble(gl.GL_PROJECTION_MATRIX)
+        view = gl.glGetIntegerv(gl.GL_VIEWPORT)
+        return GL_MODELVIEW_MATRIX, GL_PROJECTION_MATRIX, view
 
     def get_3D(self, r, c, z):
         r = float(r)
