@@ -46,7 +46,6 @@ for t in range(1000):
     t += 1
     sim.step()
     # viewer.render()
-
     largeimage = sim.render(width, height, camera_name="maincam")[::-1, :, :]
 
     r, c = project_point(sim.data.qpos)
@@ -58,5 +57,8 @@ for t in range(1000):
     largeimage[r,:] = [255, 255, 255]
     largeimage[:, c] = [255, 255, 255]
     plt.imshow(largeimage)
-    plt.show()
+    plt.savefig('/outputs/testimg.png')
+
+    import sys
+    sys.exit()
 
