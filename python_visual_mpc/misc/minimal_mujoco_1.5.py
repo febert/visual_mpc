@@ -15,7 +15,7 @@ import os
 
 from python_visual_mpc.visual_mpc_core.agent.utils.convert_world_imspace_mj1_5 import project_point
 from python_visual_mpc import __file__ as python_vmpc_path
-root_dir = '/'.join(str.split(python_vmpc_path, '/')[:-1])
+root_dir = '/'.join(str.split(python_vmpc_path, '/')[:-2])
 MODEL_XML = root_dir + "/mjc_models/cartgripper_noautogen.xml"
 import matplotlib.pyplot as plt
 
@@ -59,6 +59,7 @@ for t in range(1000):
     largeimage[:, c] = [255, 255, 255]
     plt.imshow(largeimage)
     plt.savefig('/outputs/testimg.png')
+    # plt.show()
 
     import sys
     sys.exit()
