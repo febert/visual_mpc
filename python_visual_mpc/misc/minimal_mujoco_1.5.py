@@ -14,8 +14,9 @@ import math
 import os
 
 from python_visual_mpc.visual_mpc_core.agent.utils.convert_world_imspace_mj1_5 import project_point
-
-MODEL_XML = "/home/frederik/Documents/catkin_ws/src/visual_mpc/mjc_models/cartgripper_noautogen.xml"
+from python_visual_mpc import __file__ as python_vmpc_path
+root_dir = '/'.join(str.split(python_vmpc_path, '/')[:-1])
+MODEL_XML = root_dir + "/visual_mpc/mjc_models/cartgripper_noautogen.xml"
 import matplotlib.pyplot as plt
 
 model = load_model_from_path(MODEL_XML)
