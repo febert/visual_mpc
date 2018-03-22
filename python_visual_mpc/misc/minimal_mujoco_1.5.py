@@ -20,9 +20,8 @@ MODEL_XML = root_dir + "/mjc_models/cartgripper_noautogen.xml"
 import matplotlib.pyplot as plt
 
 model = load_model_from_path(MODEL_XML)
-# model = load_model_from_xml(MODEL_XML)
 sim = MjSim(model)
-viewer = MjViewer(sim)
+# viewer = MjViewer(sim)
 t = 0
 
 height, width = 480, 640
@@ -58,8 +57,8 @@ for t in range(1000):
     largeimage[r,:] = [255, 255, 255]
     largeimage[:, c] = [255, 255, 255]
     plt.imshow(largeimage)
-    plt.savefig('/outputs/testimg.png')
-    # plt.show()
+    # plt.savefig('/outputs/testimg.png')
+    plt.show()
 
     import sys
     sys.exit()
