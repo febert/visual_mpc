@@ -4,7 +4,7 @@ import os
 from PIL import ImageFont
 from PIL import Image
 from PIL import ImageDraw
-import cPickle
+import pickle
 import sys
 from python_visual_mpc.video_prediction.dynamic_rnn_model.ops import dense, pad2d, conv1d, conv2d, conv3d, upsample_conv2d, conv_pool2d, lrelu, instancenorm, flatten
 from python_visual_mpc.video_prediction.dynamic_rnn_model.layers import instance_norm
@@ -122,7 +122,7 @@ class Dist_Net(object):
     def reg_actions(self):
         if 'ch_mult' in self.conf:
             ch_mult = self.conf['ch_mult']
-            print 'using chmult', ch_mult
+            print('using chmult', ch_mult)
         else: ch_mult = 1
 
         actions = []
@@ -206,7 +206,7 @@ class Dist_Net(object):
 
     def combine_losses(self):
         self.loss = 0.
-        for k in self.loss_dict.keys():
+        for k in list(self.loss_dict.keys()):
             single_loss, weight = self.loss_dict[k]
             self.loss += single_loss*weight
             self.train_summaries.append(tf.summary.scalar('train_' + k, single_loss))

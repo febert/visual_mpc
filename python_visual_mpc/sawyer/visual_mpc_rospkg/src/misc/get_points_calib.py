@@ -1,7 +1,7 @@
 import matplotlib.pyplot as plt
 import cv2
 import numpy as np
-import cPickle as pkl
+import pickle as pkl
 
 """ CALIBRATES VIEWER. USER CLICKS ON SQUARE BOARD CORNERS IN CLOCKWISE FASHION. START AT TOP LEFT"""
 

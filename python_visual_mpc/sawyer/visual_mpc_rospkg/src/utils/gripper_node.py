@@ -7,7 +7,7 @@ import pdb
 
 class GripperNode(object):
     def __init__(self):
-        print "Initializing gripper node... "
+        print("Initializing gripper node... ")
 
         rospy.init_node("gripper_node")
 
@@ -21,7 +21,7 @@ class GripperNode(object):
         self.pub = rospy.Publisher('/wsg_50_driver/goal_position', Cmd, queue_size=10)
 
     def ctrl_callback(self, status):
-        print 'status', status
+        print('status', status)
         cmd = Cmd()
         cmd.pos = 50.
         cmd.speed = 100.

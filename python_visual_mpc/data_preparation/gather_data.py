@@ -1,4 +1,4 @@
-import cPickle
+import pickle
 import copy
 import glob
 import os
@@ -20,7 +20,7 @@ def _int64_feature(value):
 
 import cv2
 # import ray
-import create_gif
+from . import create_gif
 import argparse
 import sys
 import imp
@@ -98,13 +98,13 @@ class TF_rec_converter(object):
         self.tf_start_ind = tf_start_ind
         self.traj_name_list = traj_name_list
         self.conf = conf
-        print 'started process with PID:', os.getpid()
+        print('started process with PID:', os.getpid())
 
         self.pid = os.getpid()
 
 
     def gather(self):
-        print
+        print()
 
         donegif = False
         i_more_than_one_image = 0
@@ -146,10 +146,10 @@ class TF_rec_converter(object):
                 pkl_file = trajname + '/joint_angles_traj{}.pkl'.format(traj_index)
             if not os.path.isfile(pkl_file):
                 nopkl_file += 1
-                print 'no pkl file found, file no: ', nopkl_file
+                print('no pkl file found, file no: ', nopkl_file)
                 continue
 
-            pkldata = cPickle.load(open(pkl_file, "rb"))
+            pkldata = pickle.load(open(pkl_file, "rb"))
             self.all_actions = pkldata['actions']
             self.all_joint_angles = pkldata['jointangles']
             self.all_endeffector_pos = pkldata['endeffector_pos']
@@ -163,11 +163,11 @@ class TF_rec_converter(object):
                     traj_dir_src = traj_beginpath + tag + '/' + traj_tailpath
                     self.step_from_to(i_src, traj_dir_src)
             except More_than_one_image_except as e:
-                print "more than one image in ", e.image_file
+                print("more than one image in ", e.image_file)
                 i_more_than_one_image += 1
                 continue
             except Image_dark_except as e:
-                print "video too dark ", e.image_file
+                print("video too dark ", e.image_file)
                 self.dark_image_file_list.append(e.image_file)
                 file = '/'.join(str.split(self.conf['tf_rec_dir'], '/')[:-1]) + '/logs/darkimages_w{}.txt'.format(self.pid)
                 with open(file, 'w+') as f:
@@ -178,9 +178,9 @@ class TF_rec_converter(object):
             traj_list.append(self.traj)
 
             if MAXLISTLEN != 128:
-                print '#####################################################'
-                print '#####################################################'
-                print 'using wrong maxlistlen'
+                print('#####################################################')
+                print('#####################################################')
+                print('using wrong maxlistlen')
 
             if MAXLISTLEN == len(traj_list):
                 filename = 'traj_{0}_to_{1}' \
@@ -192,10 +192,10 @@ class TF_rec_converter(object):
             if self.gif_file != None and not donegif:
                 if len(traj_list) == ntraj_gifmax:
                     create_gif.comp_video(traj_list, self.gif_file + 'worker{}'.format(os.getpid()))
-                    print 'created gif, exiting'
+                    print('created gif, exiting')
                     donegif = True
 
-            print 'processed {} trajectories'.format(len(traj_list))
+            print('processed {} trajectories'.format(len(traj_list)))
             # except KeyboardInterrupt:
             #     sys.exit()
             # except:
@@ -203,9 +203,9 @@ class TF_rec_converter(object):
             #     num_errors += 1
 
 
-        print 'done, {} more_than_one_image occurred:'.format(i_more_than_one_image)
-        print 'done, {} errors occurred:'.format(num_errors)
-        print '{} dark image errors'.format(len(self.dark_image_file_list))
+        print('done, {} more_than_one_image occurred:'.format(i_more_than_one_image))
+        print('done, {} errors occurred:'.format(num_errors))
+        print('{} dark image errors'.format(len(self.dark_image_file_list)))
 
 
         return 'done'
@@ -233,9 +233,9 @@ class TF_rec_converter(object):
                     .format(trajname, dataind)
 
             if dataind == 0:
-                print 'processed from file {}'.format(im_filename)
+                print('processed from file {}'.format(im_filename))
             if dataind == end - self.traj.take_ev_nth_step:
-                print 'processed to file {}'.format(im_filename)
+                print('processed to file {}'.format(im_filename))
 
             file = glob.glob(im_filename)
             if len(file) > 1:
@@ -249,7 +249,7 @@ class TF_rec_converter(object):
             trajind += 1
 
         if 'brightness_threshold' in self.conf:
-            print 'video brightness:', np.mean(self.traj.images)
+            print('video brightness:', np.mean(self.traj.images))
             if self.conf['brightness_threshold'] > np.mean(self.traj.images):
                 raise Image_dark_except(trajname)
 
@@ -259,7 +259,7 @@ class TF_rec_converter(object):
         """
 
         filename = os.path.join(self.tfrec_dir, filename + '.tfrecords')
-        print('Writing', filename)
+        print(('Writing', filename))
 
         if not os.path.exists(self.tfrec_dir):
             os.makedirs(self.tfrec_dir)
@@ -372,7 +372,7 @@ def start_parallel(conf, gif_dir, traj_name_list, n_workers, crop_from_highres= 
 
     workers = []
     for i in range(n_worker):
-        print 'worker {} going from {} to {} '.format(i, start_idx[i], end_idx[i])
+        print('worker {} going from {} to {} '.format(i, start_idx[i], end_idx[i]))
         subset_traj = traj_name_list[start_idx[i]:end_idx[i]]
         workers.append(TF_rec_converter.remote(conf, gif_dir,subset_traj, start_idx[i], crop_from_highres))
 
@@ -423,11 +423,11 @@ def make_traj_name_list(conf, start_end_grp = None, shuffle=True):
             for i_tra in range(trajstart, trajend + 1):
                 trajdir = gr_dir_main + "/traj{}".format(i_tra)
                 if not os.path.exists(trajdir):
-                    print 'file {} not found!'.format(trajdir)
+                    print('file {} not found!'.format(trajdir))
                     continue
                 trajname_ind_l.append(trajdir)
 
-        print 'source_basedir: {}, length: {}'.format(source_dir,len(trajname_ind_l))
+        print('source_basedir: {}, length: {}'.format(source_dir,len(trajname_ind_l)))
         assert len(trajname_ind_l) == len(set(trajname_ind_l))  #check for duplicates
         combined_list += trajname_ind_l
 
@@ -468,7 +468,7 @@ def main():
     parallel = not args.no_parallel
 
     shuffle = not args.no_shuffle
-    print 'shuffle: ', shuffle
+    print('shuffle: ', shuffle)
     traj_name_list = make_traj_name_list(conf, start_end_grp = start_end_grp, shuffle=shuffle)
 
     if parallel:

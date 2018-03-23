@@ -1,2 +1,5 @@
 tensorflow-gpu==1.4.1
 matplotlib
+imutils
+moviepy
+ray

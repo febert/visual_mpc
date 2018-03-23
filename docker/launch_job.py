@@ -14,7 +14,7 @@ hyper = '/'.join(str.split(args.hyper, '/')[1:])
 
 command = "python " + str.split(args.run_dir, '/')[-1] + " --hyper ../../" + hyper
 
-print "using command ", command
+print("using command ", command)
 
 data = {}
 data['dockerImageName'] = "ucb_rail8888/tf1.4_gpu:based_nvidia"

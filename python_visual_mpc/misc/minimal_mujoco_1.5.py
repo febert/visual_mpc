@@ -49,8 +49,8 @@ for t in range(1000):
     largeimage = sim.render(width, height, camera_name="maincam")[::-1, :, :]
 
     r, c = project_point(sim.data.qpos)
-    print('model.data.qpos', sim.data.qpos)
-    print("row, col", r, c)
+    print(('model.data.qpos', sim.data.qpos))
+    print(("row, col", r, c))
     r = int(r)
     c = int(c)
 

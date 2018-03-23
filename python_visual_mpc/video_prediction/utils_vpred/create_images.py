@@ -1,5 +1,5 @@
 import numpy as np
-import cPickle
+import pickle
 import colorsys
 import os
 import matplotlib.pyplot as plt
@@ -68,7 +68,7 @@ class Image_Creator(object):
         """
 
         if dict_ == None:
-            dict_ = cPickle.load(open(filepath + '/pred.pkl', "rb"))
+            dict_ = pickle.load(open(filepath + '/pred.pkl', "rb"))
 
         self.image_folder = os.path.join(filepath, dict_['exp_name'])
         if not os.path.exists(self.image_folder):
@@ -86,8 +86,8 @@ class Image_Creator(object):
         self.i_ex = i_ex
         self.video_list = []
 
-        for key in dict_.keys():
-            print 'processing key {}'.format(key)
+        for key in list(dict_.keys()):
+            print('processing key {}'.format(key))
             data = dict_[key]
 
             if key ==  'ground_truth':  # special treatement for gtruth
@@ -106,7 +106,7 @@ class Image_Creator(object):
                 self.save_imlist(ground_truth, 'images')
 
             elif 'flow' in key:
-                print 'visualizing key {} with colorflow'.format(key)
+                print('visualizing key {} with colorflow'.format(key))
 
                 flow = [im[i_ex] for im in data]
                 flow = visualize_flow(flow)
@@ -167,7 +167,7 @@ def compute_overlay(images, color_coded_distrib):
 
 
 def color_code_distrib(distrib_list, renormalize=False):
-    print 'renormalizing heatmaps: ', renormalize
+    print('renormalizing heatmaps: ', renormalize)
     out_distrib = []
     for distrib in distrib_list:
         cmap = plt.cm.get_cmap('jet')

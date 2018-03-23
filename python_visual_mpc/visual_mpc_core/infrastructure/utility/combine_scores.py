@@ -1,5 +1,5 @@
 import glob
-import cPickle
+import pickle
 import numpy as np
 
 def combine_scores(dir, exp_name):
@@ -9,8 +9,8 @@ def combine_scores(dir, exp_name):
     files = glob.glob(dir + '/scores_*')
 
     for f in files:
-        print 'load', f
-        dict_ = cPickle.load(open(f, "rb"))
+        print('load', f)
+        dict_ = pickle.load(open(f, "rb"))
         full_scores.append(dict_['scores'])
         full_anglecost.append(dict_['anglecost'])
 

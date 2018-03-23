@@ -52,7 +52,7 @@ def make_gen_pix():
     fullimg = np.concatenate(gen_pix_list, axis=1)
     # imgpath = '/home/guser/catkin_ws/src/lsdc/experiments/cem_exp/benchmarks_sawyer/cdna_multobj_1stimg/success/gen_pix_overtime.png'
     imgpath = '/home/frederik/Documents/lsdc/tensorflow_data/sawyer/1stimg_bckgd_cdna/modeldata/gen_pixb0_overtime_col{}.png'.format(pic_col)
-    print 'save to', imgpath
+    print('save to', imgpath)
     Image.fromarray(fullimg).save(imgpath)
 
 
@@ -75,7 +75,7 @@ def make_highres():
     fullimg = np.concatenate(downsampled,axis=1)
     # imgpath = '/home/guser/catkin_ws/src/lsdc/experiments/cem_exp/benchmarks_sawyer/cdna_multobj_1stimg/success/highres_overtime.png'
     imgpath = '/home/guser/catkin_ws/src/lsdc/experiments/cem_exp/benchmarks_sawyer/predprop_1stimg_bckgd/videos/highres_overtime.png'
-    print 'save to', imgpath
+    print('save to', imgpath)
     Image.fromarray(fullimg).save(imgpath)
 
 
@@ -99,7 +99,7 @@ def put_genpix_in_frame():
         os.mkdir(pic_path)
 
 
-    for i, img_dna, img_cdna in zip(range(len(frames_dna)), frames_dna, frames_cdna):
+    for i, img_dna, img_cdna in zip(list(range(len(frames_dna))), frames_dna, frames_cdna):
         newimg = copy.deepcopy(np.asarray(frame)[:, :, :3])
 
         img_dna, size_insert = resize(img_dna)

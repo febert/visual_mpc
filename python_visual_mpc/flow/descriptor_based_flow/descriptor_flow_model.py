@@ -54,7 +54,7 @@ class Descriptor_Flow(object):
                 self.d0 = build_desc(images[0])
 
             if 'use_masks' in conf:
-                print 'using masks..'
+                print('using masks..')
 
                 with tf.variable_scope("mask_gen_img01"):
                     self.masks01, self.gen01 = self.build_genimg_mask_net(images)
@@ -73,13 +73,13 @@ class Descriptor_Flow(object):
                     self.d1 = build_desc(images[1])
 
             if 'shift_same' in conf:  #shifting d1 for descriptors and d1 for trafo application
-                print 'shifting same...'
+                print('shifting same...')
                 trafo_kerns10 = self.get_trafo(self.d0, self.d1)  # shifts d1
                 self.flow_vectors10 = compute_motion_vector_dna(conf, trafo_kerns10)
                 self.transformed10, _ = self.apply_trafo(conf, images[1], trafo_kerns10)  # img d1
 
                 if 'forward_backward' in conf:
-                    print 'using forward backward'
+                    print('using forward backward')
                     trafo_kerns01 = self.get_trafo(self.d1, self.d0) # shifts d0
                     self.flow_vectors01 = compute_motion_vector_dna(conf, trafo_kerns01)
                     self.transformed01, _ = self.apply_trafo(conf, images[0], trafo_kerns01)
@@ -89,7 +89,7 @@ class Descriptor_Flow(object):
                 self.transformed01, self.kernels = self.apply_trafo(conf, images[0], trafo_kerns01) # img d0
 
                 if 'forward_backward' in conf:
-                    print 'using forward backward'
+                    print('using forward backward')
                     trafo_kerns10 = self.get_trafo(self.d1, self.d0)
                     self.flow_vectors10 = compute_motion_vector_dna(conf, trafo_kerns10)
                     self.transformed10, _ = self.apply_trafo(conf, images[1], trafo_kerns10)
@@ -175,7 +175,7 @@ class Descriptor_Flow(object):
             inverse_dist_fields = tf.div(1., dist_fields + 1e-5)
             #normed_dist_fields should correspond DNA-like trafo kernels
             trafo = inverse_dist_fields / (tf.reduce_sum(inverse_dist_fields, [3,4], keep_dims=True) + 1e-6)
-            print 'using inverse_euclidean'
+            print('using inverse_euclidean')
         elif self.conf['metric'] == 'cosine':
 
             cos_dist = tf.reduce_sum(repeated_d1*shifted_d2, axis=3)/(tf.norm(repeated_d1, axis=3)+1e-5)/(tf.norm(shifted_d2, axis=3) +1e-5)
@@ -183,13 +183,13 @@ class Descriptor_Flow(object):
             trafo = tf.nn.softmax(cos_dist*self.conf['softmax_temp'], 3)
 
             trafo = tf.reshape(trafo, [self.conf['batch_size'],IMG_HEIGHT,IMG_HEIGHT, KERN_SIZE, KERN_SIZE])
-            print 'using cosine distance'
+            print('using cosine distance')
 
         return trafo
 
 
     def build_descriptors(self, img):
-        print 'using standard descriptor network'
+        print('using standard descriptor network')
         enc0 = slim.layers.conv2d(   #32x32x32
                     img,
                     32, [5, 5],
@@ -222,7 +222,7 @@ class Descriptor_Flow(object):
         return enc3
 
     def build_descriptor_bilin128(self, img):
-        print 'using bilinear upsampling'
+        print('using bilinear upsampling')
 
         enc0 = slim.layers.conv2d(   #64x64x32
                     img,
@@ -282,7 +282,7 @@ class Descriptor_Flow(object):
         return enc5
 
     def build_descriptor_bilin(self, img):
-        print 'using bilinear upsampling'
+        print('using bilinear upsampling')
 
         enc0 = slim.layers.conv2d(   #32x32x32
                     img,
@@ -385,7 +385,7 @@ class Descriptor_Flow(object):
 
 
     def build_descriptors_large(self, concat_img):
-        print 'using large core'
+        print('using large core')
         enc0 = slim.layers.conv2d(  # 32x32x32
             concat_img,
             32, [5, 5],

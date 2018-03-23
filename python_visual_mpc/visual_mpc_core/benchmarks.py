@@ -1,4 +1,4 @@
-from infrastructure.run_sim import Sim
+from .infrastructure.run_sim import Sim
 import argparse
 import imp
 import os
@@ -6,7 +6,7 @@ import numpy as np
 import pdb
 import copy
 import random
-import cPickle
+import pickle
 from PIL import Image
 from python_visual_mpc.video_prediction.utils_vpred.online_reader import read_trajectory
 
@@ -35,7 +35,7 @@ def perform_benchmark(conf = None, gpu_id=None):
         # load specific agent settings for benchmark:
         bench_dir = cem_exp_dir + '/benchmarks/' + benchmark_name
         if not os.path.exists(bench_dir):
-            print 'performing goal image benchmark ...'
+            print('performing goal image benchmark ...')
             bench_dir = cem_exp_dir + '/benchmarks_goalimage/' + benchmark_name
             if not os.path.exists(bench_dir):
                 raise ValueError('benchmark directory does not exist')
@@ -45,17 +45,17 @@ def perform_benchmark(conf = None, gpu_id=None):
 
     conf['agent']['skip_first'] = 10
 
-    print '-------------------------------------------------------------------'
-    print 'name of algorithm setting: ' + benchmark_name
-    print 'agent settings'
-    for key in conf['agent'].keys():
-        print key, ': ', conf['agent'][key]
-    print '------------------------'
-    print '------------------------'
-    print 'policy settings'
-    for key in conf['policy'].keys():
-        print key, ': ', conf['policy'][key]
-    print '-------------------------------------------------------------------'
+    print('-------------------------------------------------------------------')
+    print('name of algorithm setting: ' + benchmark_name)
+    print('agent settings')
+    for key in list(conf['agent'].keys()):
+        print(key, ': ', conf['agent'][key])
+    print('------------------------')
+    print('------------------------')
+    print('policy settings')
+    for key in list(conf['policy'].keys()):
+        print(key, ': ', conf['policy'][key])
+    print('-------------------------------------------------------------------')
 
     # sample intial conditions and goalpoints
 
@@ -70,7 +70,7 @@ def perform_benchmark(conf = None, gpu_id=None):
     traj = conf['start_index']
     i_conf = conf['start_index']
     nruns = conf['end_index']
-    print 'started worker going from ind {} to in {}'.format(conf['start_index'], conf['end_index'])
+    print('started worker going from ind {} to in {}'.format(conf['start_index'], conf['end_index']))
 
     # if 'verbose' in conf['policy']:
     #     print 'verbose mode!! just running 1 configuration'
@@ -109,12 +109,12 @@ def perform_benchmark(conf = None, gpu_id=None):
         if 'goal_mask' in conf['agent']:
             sim.agent.goal_mask = dict['goal_mask'][goal_index]  # assign last image of trajectory as goalimage
 
-        print 'run number ', traj
-        print 'loading done'
+        print('run number ', traj)
+        print('loading done')
 
-        print '-------------------------------------------------------------------'
-        print 'run number ', traj
-        print '-------------------------------------------------------------------'
+        print('-------------------------------------------------------------------')
+        print('run number ', traj)
+        print('-------------------------------------------------------------------')
 
         record_dir = bench_dir + '/verbose/traj{0}'.format(traj)
         if not os.path.exists(record_dir):
@@ -139,7 +139,7 @@ def perform_benchmark(conf = None, gpu_id=None):
         scores_l.append(sim.agent.final_poscost)
         anglecost_l.append(sim.agent.final_anglecost)
 
-        print 'score of traj{},{} anglecost{}'.format(traj, scores_l[-1], anglecost_l[-1])
+        print('score of traj{},{} anglecost{}'.format(traj, scores_l[-1], anglecost_l[-1]))
 
         traj +=1 #increment trajectories every step!
 
@@ -147,7 +147,7 @@ def perform_benchmark(conf = None, gpu_id=None):
         sorted_ind = scores.argsort()
         anglecost = np.array(anglecost_l)
 
-        cPickle.dump({'scores':scores, 'anglecost':anglecost}, open(scores_pkl_file, 'wb'))
+        pickle.dump({'scores':scores, 'anglecost':anglecost}, open(scores_pkl_file, 'wb'))
 
         f = open(result_file, 'w')
         f.write('experiment name: ' + benchmark_name + '\n')
@@ -166,10 +166,10 @@ def perform_benchmark(conf = None, gpu_id=None):
             f.write('{0}: {1}, {2}, :{3}\n'.format(t, scores[n], anglecost[n], np.where(sorted_ind == n)[0][0]))
         f.close()
 
-    print 'overall best score: {0} of traj {1}'.format(scores[sorted_ind[0]], sorted_ind[0])
-    print 'overall worst score: {0} of traj {1}'.format(scores[sorted_ind[-1]], sorted_ind[-1])
-    print 'overall average score:', np.sum(scores)/scores.shape
-    print 'standard deviation {0}\n'.format(np.sqrt(np.var(scores)))
+    print('overall best score: {0} of traj {1}'.format(scores[sorted_ind[0]], sorted_ind[0]))
+    print('overall worst score: {0} of traj {1}'.format(scores[sorted_ind[-1]], sorted_ind[-1]))
+    print('overall average score:', np.sum(scores)/scores.shape)
+    print('standard deviation {0}\n'.format(np.sqrt(np.var(scores))))
 
 
 if __name__ == '__main__':

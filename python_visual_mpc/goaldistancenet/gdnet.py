@@ -4,7 +4,7 @@ import os
 from PIL import ImageFont
 from PIL import Image
 from PIL import ImageDraw
-import cPickle
+import pickle
 import sys
 from python_visual_mpc.video_prediction.dynamic_rnn_model.ops import dense, pad2d, conv1d, conv2d, conv3d, upsample_conv2d, conv_pool2d, lrelu, instancenorm, flatten
 from python_visual_mpc.video_prediction.dynamic_rnn_model.layers import instance_norm
@@ -212,7 +212,7 @@ class GoalDistanceNet(object):
             self.diff_flow_bwd = self.flow_bwd + fwd_flow_warped_bwd
 
             if 'hard_occ_thresh' in self.conf:
-                print 'doing hard occ thresholding'
+                print('doing hard occ thresholding')
                 mag_sq = length_sq(self.flow_fwd) + length_sq(self.flow_bwd)
 
                 if 'occ_thres_mult' in self.conf:
@@ -273,7 +273,7 @@ class GoalDistanceNet(object):
 
         if 'vidpred_data' in self.conf:
             I0 = tf.squeeze(tf.slice(self.pred_images, begin, [-1, 1, -1, -1, -1]))
-            print 'using pred images'
+            print('using pred images')
         else:
             I0 = tf.squeeze(tf.slice(self.images, begin, [-1, 1, -1, -1, -1]))
 
@@ -393,7 +393,7 @@ class GoalDistanceNet(object):
         else: ch_mult = 1
 
         if 'late_fusion' in self.conf:
-            print 'building late fusion net'
+            print('building late fusion net')
             with tf.variable_scope('pre_proc_source'):
                 h3_1 = self.pre_proc_net(source_image, ch_mult)
             with tf.variable_scope('pre_proc_dest'):
@@ -505,14 +505,14 @@ class GoalDistanceNet(object):
             else:
                 newlosses['flow_penal' + suf] = (tf.reduce_mean(tf.square(flow_bwd))) * self.conf['flow_penal']
 
-        for k in newlosses.keys():
+        for k in list(newlosses.keys()):
             self.losses[k] = newlosses[k]*mult
 
     def combine_losses(self):
         train_summaries = []
         val_summaries = []
         self.loss = 0
-        for k in self.losses.keys():
+        for k in list(self.losses.keys()):
             single_loss = self.losses[k]
             self.loss += single_loss
             train_summaries.append(tf.summary.scalar(k, single_loss))
@@ -530,9 +530,9 @@ class GoalDistanceNet(object):
                 flow_errs_flat = np.stack(flow_errs_mean).flatten()
                 string = 'average one-step flowerrs on {} example trajectories mean {} std err of the mean {} \n'.format(self.bsize,
                                 np.mean(flow_errs_flat), np.std(flow_errs_flat)/np.sqrt(flow_errs_flat.shape[0]))
-                print string
+                print(string)
                 f.write(string)
-            print 'written output to ',self.conf['output_dir'] + '/gtruth_flow_err.txt'
+            print('written output to ',self.conf['output_dir'] + '/gtruth_flow_err.txt')
 
             videos = collections.OrderedDict()
             videos['I0_ts'] = np.split(images, images.shape[1], axis=1)
@@ -544,7 +544,7 @@ class GoalDistanceNet(object):
             # videos['gen_image_I1_gtruthwarp_l'] = [np.zeros_like(gen_image_I1_gtruthwarp_l[0])] + gen_image_I1_gtruthwarp_l
 
             num_ex = 4
-            for k in videos.keys():
+            for k in list(videos.keys()):
                 if isinstance(videos[k], tuple):
                     videos[k] = ([el[:num_ex] for el in videos[k][0]], [el[:num_ex] for el in videos[k][1]])
                 else:
@@ -553,7 +553,7 @@ class GoalDistanceNet(object):
             name = str.split(self.conf['output_dir'], '/')[-2]
             dict = {'videos': videos, 'name': 'flow_err_' + name}
 
-            cPickle.dump(dict, open(self.conf['output_dir'] + '/data.pkl', 'wb'))
+            pickle.dump(dict, open(self.conf['output_dir'] + '/data.pkl', 'wb'))
             make_plots(self.conf, dict=dict)
 
             return
@@ -645,14 +645,14 @@ class GoalDistanceNet(object):
         name = str.split(self.conf['output_dir'], '/')[-2]
         dict = {'videos':videos, 'name':name, 'I1':I1}
 
-        cPickle.dump(dict, open(self.conf['output_dir'] + '/data.pkl', 'wb'))
+        pickle.dump(dict, open(self.conf['output_dir'] + '/data.pkl', 'wb'))
         make_plots(self.conf, dict=dict)
 
     def run_bench(self, benchmodel, sess):
         _, flow_errs_mean, _, _, _, _ = self.compute_bench(benchmodel, sess)
 
         flow_errs_mean = np.mean(np.stack(flow_errs_mean).flatten())
-        print 'benchmark result: ', flow_errs_mean
+        print('benchmark result: ', flow_errs_mean)
 
         if self.avg_gtruth_flow_err_sum == None:
             self.flow_errs_mean_pl = tf.placeholder(tf.float32, name='flow_errs_mean_pl', shape=[])
@@ -716,9 +716,9 @@ class GoalDistanceNet(object):
 
 def make_plots(conf, dict=None, filename = None):
     if dict == None:
-        dict = cPickle.load(open(filename))
+        dict = pickle.load(open(filename))
 
-    print 'loaded'
+    print('loaded')
     videos = dict['videos']
 
     I0_ts = videos['I0_ts']
@@ -726,11 +726,11 @@ def make_plots(conf, dict=None, filename = None):
     # num_exp = I0_t_reals[0].shape[0]
     num_ex = 4
     start_ex = 0
-    num_rows = num_ex*len(videos.keys())
+    num_rows = num_ex*len(list(videos.keys()))
     num_cols = len(I0_ts) + 1
 
-    print 'num_rows', num_rows
-    print 'num_cols', num_cols
+    print('num_rows', num_rows)
+    print('num_cols', num_cols)
 
     width_per_ex = 2.5
 
@@ -739,12 +739,12 @@ def make_plots(conf, dict=None, filename = None):
 
     f, axarr = plt.subplots(num_rows, num_cols, figsize=figsize)
 
-    print 'start'
+    print('start')
     for col in range(num_cols -1):
         row = 0
         for ex in range(start_ex, start_ex + num_ex, 1):
-            for tag in videos.keys():
-                print 'doing tag {}'.format(tag)
+            for tag in list(videos.keys()):
+                print('doing tag {}'.format(tag))
                 if isinstance(videos[tag], tuple):
                     im = videos[tag][0][col]
                     score = videos[tag][1]
@@ -768,7 +768,7 @@ def make_plots(conf, dict=None, filename = None):
             h = axarr[row, col].imshow(np.squeeze(im), interpolation='none')
             plt.colorbar(h, ax=axarr[row, col])
             axarr[row, col].axis('off')
-            row += len(videos.keys())
+            row += len(list(videos.keys()))
 
     # plt.axis('off')
     f.subplots_adjust(wspace=0, hspace=0.3)
