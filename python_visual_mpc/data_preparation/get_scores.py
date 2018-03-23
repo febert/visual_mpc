@@ -1,4 +1,4 @@
-import cPickle
+import pickle
 import copy
 import glob
 import os
@@ -12,7 +12,7 @@ from PIL import Image
 from python_visual_mpc.data_preparation.gather_data import make_traj_name_list
 import cv2
 # import ray
-import create_gif
+from . import create_gif
 import argparse
 import sys
 import imp
@@ -40,12 +40,12 @@ def get_scores(conf, traj_name_list):
         pkl_file = trajname + '/joint_angles_traj{}.pkl'.format(traj_index)
         if not os.path.isfile(pkl_file):
             nopkl_file += 1
-            print 'no pkl file found, file no: ', nopkl_file
+            print('no pkl file found, file no: ', nopkl_file)
             continue
 
-        pkldata = cPickle.load(open(pkl_file, "rb"))
+        pkldata = pickle.load(open(pkl_file, "rb"))
         if 'track_desig' in pkldata and 'goal_pos' in pkldata:
-            print 'processing', trajname
+            print('processing', trajname)
 
             track = np.squeeze(pkldata['track_desig'])
             goal_pos = np.squeeze(pkldata['goal_pos'])
@@ -81,7 +81,7 @@ def get_scores(conf, traj_name_list):
     std_score = np.mean(np.array(scores))/np.sqrt(n)
 
     file = conf['current_dir'] +'/results_summary.txt'
-    print 'writing:', file
+    print('writing:', file)
     with open(file, 'w+') as f:
         f.write('evaluated {} trajectories \n'.format(n))
         f.write('average start distances: {} std. err {}\n'.format(avg_start_dist, std_start_dist))
@@ -90,13 +90,13 @@ def get_scores(conf, traj_name_list):
         f.write('average score: {} std. err {}  (calculated with finalweight {})\n'.format(avg_score, std_score, FINAL_WEIGHT))
 
     file = conf['current_dir'] + '/per_traj_scores.txt'
-    print 'writing:', file
+    print('writing:', file)
     with open(file, 'w+') as f:
         f.write('file, start distances, final distances, final improvement, score \n'.format(avg_start_dist))
         for i, name in enumerate(eval_files):
             f.write('{}:  {}; {}; {}; {}\n'.format(name, start_dist[i], final_dist[i], final_improvement[i], scores[i]))
 
-    print 'done, number of pkl files not found:', nopkl_file
+    print('done, number of pkl files not found:', nopkl_file)
 
 def main():
     parser = argparse.ArgumentParser(description='Run benchmarks')

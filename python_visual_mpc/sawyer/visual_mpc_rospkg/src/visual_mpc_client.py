@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 import time
 import argparse
-import cPickle
+import pickle
 import copy
 import imp
 import os
@@ -55,7 +55,7 @@ from python_visual_mpc import __file__ as base_filepath
 
 class Visual_MPC_Client():
     def __init__(self):
-        print 'started visual MPC client'
+        print('started visual MPC client')
         # pdb.set_trace()
 
         self.ctrl = robot_controller.RobotController()
@@ -164,7 +164,7 @@ class Visual_MPC_Client():
             self.data_collection = False
 
         if self.save_subdir == "True":
-            self.save_subdir = raw_input('enter subdir to save data:')
+            self.save_subdir = input('enter subdir to save data:')
             self.recorder_save_dir = self.base_dir + "/experiments/cem_exp/benchmarks_sawyer/" + self.benchname + \
                                         '/' + self.save_subdir + "/videos"
         elif self.data_collection:
@@ -220,21 +220,21 @@ class Visual_MPC_Client():
         data[0] contains designated pixel positions (row, column format)
         data[1] contains goal pixel positions
         """
-        print 'reset activated'
+        print('reset activated')
         self.reset_active = True
         self.set_neutral_with_impedance(2.5)
 
     def mark_goal_desig(self, itr):
-        print 'prepare to mark goalpos and designated pixel! press c to continue!'
+        print('prepare to mark goalpos and designated pixel! press c to continue!')
         imagemain = self.recorder.ltob.img_cropped
 
         imagemain = cv2.cvtColor(imagemain, cv2.COLOR_BGR2RGB)
         c_main = Getdesig(imagemain, self.recorder_save_dir, '_traj{}'.format(itr),
                           self.ndesig, im_shape=[self.img_height, self.img_width])
         self.desig_pos_main = c_main.desig.astype(np.int64)
-        print 'desig pos aux1:', self.desig_pos_main
+        print('desig pos aux1:', self.desig_pos_main)
         self.goal_pos_main = c_main.goal.astype(np.int64)
-        print 'goal pos main:', self.goal_pos_main
+        print('goal pos main:', self.goal_pos_main)
 
 
     def imp_ctrl_release_spring(self, maxstiff):
@@ -263,7 +263,7 @@ class Visual_MPC_Client():
                     self.recorder.delete_traj(0)
 
             delta = datetime.now() - tstart
-            print 'trajectory {0} took {1} seconds'.format(0, delta.total_seconds())
+            print('trajectory {0} took {1} seconds'.format(0, delta.total_seconds()))
 
 
     def run_data_collection(self):
@@ -272,12 +272,12 @@ class Visual_MPC_Client():
         if os.path.isfile(self.checkpoint_file):
             last_tr, last_grp = parse_ckpt(self.checkpoint_file)
             start_tr = last_tr + 1
-            print 'resuming data collection at trajectory {}'.format(start_tr)
+            print('resuming data collection at trajectory {}'.format(start_tr))
             self.recorder.igrp = last_grp
             try:
                 self.recorder.delete_traj(start_tr)
             except:
-                print 'trajectory was not deleted'
+                print('trajectory was not deleted')
         else:
             start_tr = 0
 
@@ -293,7 +293,7 @@ class Visual_MPC_Client():
                     self.run_trajectory(tr)
                     done = True
                 except Too_few_objects_found_except:
-                    print 'too few objects found, redistributing !!'
+                    print('too few objects found, redistributing !!')
                     self.redistribute_objects()
                 except Traj_aborted_except:
                     self.recorder.delete_traj(tr)
@@ -304,7 +304,7 @@ class Visual_MPC_Client():
                 self.redistribute_objects()
 
             delta = datetime.now() - tstart
-            print 'trajectory {0} took {1} seconds'.format(tr, delta.total_seconds())
+            print('trajectory {0} took {1} seconds'.format(tr, delta.total_seconds()))
             accum_time += delta.total_seconds()
 
             avg_nstep = 80
@@ -340,7 +340,7 @@ class Visual_MPC_Client():
         try:
             rospy.wait_for_service(self.fksrv_name, 5)
             resp = self.fksrv(fkreq)
-        except (rospy.ServiceException, rospy.ROSException), e:
+        except (rospy.ServiceException, rospy.ROSException) as e:
             rospy.logerr("Service call failed: %s" % (e,))
             return False
 
@@ -389,13 +389,13 @@ class Visual_MPC_Client():
             rospy.wait_for_service('init_traj_visualmpc', timeout=2.)
             self.init_traj_visual_func(0, 0, goal_img_main, goal_img_aux1, self.save_subdir)
 
-        except (rospy.ServiceException, rospy.ROSException), e:
+        except (rospy.ServiceException, rospy.ROSException) as e:
             rospy.logerr("Service call failed: %s" % (e,))
             raise ValueError('get_kinectdata service failed')
 
     def run_trajectory(self, i_tr):
 
-        print 'setting neutral'
+        print('setting neutral')
         rospy.sleep(.1)
         # drive to neutral position:
         self.set_neutral_with_impedance()
@@ -410,7 +410,7 @@ class Visual_MPC_Client():
 
 
         if self.use_save_subdir:
-            self.save_subdir = raw_input('enter subdir to save data:')
+            self.save_subdir = input('enter subdir to save data:')
             self.recorder_save_dir = self.base_dir + "/experiments/cem_exp/benchmarks_sawyer/" + self.benchname + \
                                      '/' + self.save_subdir + "/videos"
             self.recorder.image_folder = self.recorder_save_dir
@@ -429,7 +429,7 @@ class Visual_MPC_Client():
             self.desig_pos_main[0] = single_desig_pos
             self.goal_pos_main[0] = single_goal_pos
         elif not self.use_gui:
-            print 'place object in new location!'
+            print('place object in new location!')
             pdb.set_trace()
             # rospy.sleep(.3)
             self.mark_goal_desig(i_tr)
@@ -445,10 +445,10 @@ class Visual_MPC_Client():
         if 'random_startpos' in self.policyparams:
             startpos = np.array([np.random.uniform(self.xlim[0], self.xlim[1]), np.random.uniform(self.ylim[0], self.ylim[1])])
         elif 'startpos_basedon_click' in self.agentparams:
-            print 'setting startpos based on click!'
+            print('setting startpos based on click!')
             assert self.ndesig == 1
 
-            print 'desig pos', self.desig_pos_main
+            print('desig pos', self.desig_pos_main)
             startpos_x = self.desig_pos_main[0,0] / float(self.img_height) * (self.xlim[1] - self.xlim[0]) + self.xlim[0]
             startpos_y = self.desig_pos_main[0,1] / float(self.img_width) * (self.ylim[1] - self.ylim[0]) + self.ylim[0]
 
@@ -460,7 +460,7 @@ class Visual_MPC_Client():
             startpos = np.array([startpos_x, startpos_y])
 
         else: startpos = self.get_endeffector_pos()[:2]
-        print 'startpos', startpos
+        print('startpos', startpos)
 
         start_angle = np.array([0.])
 
@@ -512,13 +512,13 @@ class Visual_MPC_Client():
                 action_vec = self.query_action()
                 query_times.append(time.time()-get_action_start)
 
-                print 'action vec', action_vec
+                print('action vec', action_vec)
 
                 self.des_pos, going_down = self.apply_act(self.des_pos, action_vec, i_step)
                 start_time = rospy.get_time()
 
-                print 'prev_desired pos in step {0}: {1}'.format(i_step, self.previous_des_pos)
-                print 'new desired pos in step {0}: {1}'.format(i_step, self.des_pos)
+                print('prev_desired pos in step {0}: {1}'.format(i_step, self.previous_des_pos))
+                print('new desired pos in step {0}: {1}'.format(i_step, self.des_pos))
 
                 if going_down:
                     self.action_interval = 1.5
@@ -527,13 +527,13 @@ class Visual_MPC_Client():
 
                 self.t_prev = start_time
                 self.t_next = start_time + self.action_interval
-                print 't_prev', self.t_prev
-                print 't_next', self.t_next
+                print('t_prev', self.t_prev)
+                print('t_next', self.t_next)
 
                 isave_substep  = 0
                 tsave = np.linspace(self.t_prev, self.t_next, num=self.num_pic_perstep, dtype=np.float64)
-                print 'tsave', tsave
-                print 'applying action {}'.format(i_step)
+                print('tsave', tsave)
+                print('applying action {}'.format(i_step))
                 i_step += 1
 
             des_joint_angles = self.get_interpolated_joint_angles()
@@ -545,7 +545,7 @@ class Visual_MPC_Client():
                         # print 'isave_substep', isave_substep
                         if 'opencv_tracking' in self.agentparams:
                             _, self.desig_hpos_main = self.tracker.get_track()
-                        print 'isave', isave
+                        print('isave', isave)
                         self.recorder.save(isave, action_vec, self.get_endeffector_pos(), self.desig_hpos_main, self.desig_pos_main, self.goal_pos_main)
                         isave_substep += 1
                         isave += 1
@@ -567,8 +567,8 @@ class Visual_MPC_Client():
         if self.reset_active:
             return
 
-        print 'average iteration took {0} seconds'.format((time.time() - t_start) / self.action_sequence_length)
-        print 'average action query took {0} seconds'.format(np.mean(np.array(query_times)))
+        print('average iteration took {0} seconds'.format((time.time() - t_start) / self.action_sequence_length))
+        print('average action query took {0} seconds'.format(np.mean(np.array(query_times))))
 
 
         if not self.data_collection and not self.use_gui:
@@ -586,20 +586,20 @@ class Visual_MPC_Client():
         if self.ctrl.sawyer_gripper:
             self.ctrl.gripper.open()
         else:
-            print 'delta t gripper status', rospy.get_time() - self.tlast_gripper_status
+            print('delta t gripper status', rospy.get_time() - self.tlast_gripper_status)
             if rospy.get_time() - self.tlast_gripper_status > 10.:
-                print 'gripper stopped working!'
+                print('gripper stopped working!')
                 pdb.set_trace()
             self.set_weiss_griper(100.)
 
         if self.data_collection:
             if rospy.get_time() - self.tlast_ctrl_alive > 10.:
-                print 'controller failed'
+                print('controller failed')
                 pdb.set_trace()
 
 
     def goup(self):
-        print "going up at the end.."
+        print("going up at the end..")
         self.des_pos[2] = self.lower_height + 0.15
         desired_pose = self.get_des_pose(self.des_pos)
         start_joints = self.ctrl.limb.joint_angles()
@@ -639,7 +639,7 @@ class Visual_MPC_Client():
         des_pos = previous_goalpoint + (next_goalpoint - previous_goalpoint) * (rospy.get_time()- t_prev)/ (t_next - t_prev)
         if rospy.get_time() - t_next > 1.5:
             des_pos = next_goalpoint
-            print 't - tnext > 1.5!!!!'
+            print('t - tnext > 1.5!!!!')
             pdb.set_trace()
 
         # print 'current_delta_time: ', self.curr_delta_time
@@ -698,7 +698,7 @@ class Visual_MPC_Client():
 
             action_vec = get_action_resp.action
 
-        except (rospy.ServiceException, rospy.ROSException), e:
+        except (rospy.ServiceException, rospy.ROSException) as e:
             rospy.logerr("Service call failed: %s" % (e,))
             raise ValueError('get action service call failed')
 
@@ -727,13 +727,13 @@ class Visual_MPC_Client():
         while rospy.get_time() < finish_time:
             int_joints = prev_joint + (rospy.get_time()-start_time)/(finish_time-start_time)*(new_joint-prev_joint)
             # print int_joints
-            cmd = dict(zip(self.ctrl.limb.joint_names(), list(int_joints)))
+            cmd = dict(list(zip(self.ctrl.limb.joint_names(), list(int_joints))))
             self.move_with_impedance(cmd)
             self.control_rate.sleep()
 
     def set_neutral_with_impedance(self, duration= 1.5):
         neutral_jointangles = [0.412271, -0.434908, -1.198768, 1.795462, 1.160788, 1.107675, 2.068076]
-        cmd = dict(zip(self.ctrl.limb.joint_names(), neutral_jointangles))
+        cmd = dict(list(zip(self.ctrl.limb.joint_names(), neutral_jointangles)))
         self.imp_ctrl_release_spring(100)
         self.move_with_impedance_sec(cmd, duration)
 
@@ -797,14 +797,14 @@ class Visual_MPC_Client():
         if self.gripper_closed:
             if i_act == self.topen:
                 self.ctrl.gripper.open()
-                print 'opening gripper'
+                print('opening gripper')
                 self.gripper_closed = False
 
         going_down = False
         if self.gripper_up:
             if i_act == self.t_down:
                 des_pos[2] = self.lower_height
-                print 'going down'
+                print('going down')
                 self.gripper_up = False
                 going_down = True
 
@@ -833,11 +833,11 @@ class Visual_MPC_Client():
 
     def redistribute_objects(self):
         self.set_neutral_with_impedance(duration=1.5)
-        print 'redistribute...'
+        print('redistribute...')
 
         file = '/'.join(str.split(python_visual_mpc.__file__, "/")[
                         :-1]) + '/sawyer/visual_mpc_rospkg/src/utils/pushback_traj_{}.pkl'.format(self.robot_name)
-        self.joint_pos = cPickle.load(open(file, "rb"))
+        self.joint_pos = pickle.load(open(file, "rb"))
 
         self.imp_ctrl_release_spring(100)
         self.imp_ctrl_active.publish(1)
@@ -880,15 +880,15 @@ class Getdesig(object):
         plt.show()
 
     def onclick(self, event):
-        print('button=%d, x=%d, y=%d, xdata=%f, ydata=%f' %
-              (event.button, event.x, event.y, event.xdata, event.ydata))
+        print(('button=%d, x=%d, y=%d, xdata=%f, ydata=%f' %
+              (event.button, event.x, event.y, event.xdata, event.ydata)))
         self.ax.set_xlim(0, self.im_shape[1])
         self.ax.set_ylim(self.im_shape[0], 0)
 
-        print 'iclick', self.i_click
+        print('iclick', self.i_click)
 
         i_task = self.i_click//2
-        print 'i_task', i_task
+        print('i_task', i_task)
 
         rc_coord = np.array([event.ydata, event.xdata])
         if self.i_click % 2 == 0:
@@ -904,12 +904,12 @@ class Getdesig(object):
 
         self.i_click += 1
         if self.i_click == self.i_click_max:
-            print 'saving desig-goal picture'
+            print('saving desig-goal picture')
 
             with open(self.basedir +'/desig_goal_pix{}.pkl'.format(self.suf), 'wb') as f:
                 dict= {'desig_pix': self.desig,
                        'goal_pix': self.goal}
-                cPickle.dump(dict, f)
+                pickle.dump(dict, f)
 
             plt.savefig(self.basedir + '/startimg_' + self.suf)
             plt.close()

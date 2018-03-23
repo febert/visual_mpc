@@ -13,24 +13,24 @@ import pdb
 import glob
 import re
 
-from combine_scores import combine_scores
+from .combine_scores import combine_scores
 
 from python_visual_mpc.visual_mpc_core.infrastructure.utility.create_configs import CollectGoalImageSim
 import ray
-import cPickle
+import pickle
 def worker(conf):
-    print 'started process with PID:', os.getpid()
-    print 'making trajectories {0} to {1}'.format(
+    print('started process with PID:', os.getpid())
+    print('making trajectories {0} to {1}'.format(
         conf['start_index'],
         conf['end_index'],
-    )
+    ))
 
     random.seed(None)
     np.random.seed(None)
 
     if 'simulator' in conf:
         Simulator = CollectGoalImageSim
-        print 'use collect goalimage sim'
+        print('use collect goalimage sim')
     else:
         Simulator = Sim
 
@@ -39,7 +39,7 @@ def worker(conf):
 
 # @ray.remote
 def bench_worker(conf):
-    print 'started process with PID:', os.getpid()
+    print('started process with PID:', os.getpid())
     random.seed(None)
     np.random.seed(None)
     perform_benchmark(conf, gpu_id=conf['gpu_id'])
@@ -63,7 +63,7 @@ def main():
         parallel = False
     else:
         parallel = True
-    print 'parallel ', bool(parallel)
+    print('parallel ', bool(parallel))
 
     basepath = os.path.abspath(python_visual_mpc.__file__)
     basepath = '/'.join(str.split(basepath, '/')[:-2])
@@ -74,7 +74,7 @@ def main():
     if os.path.isfile(hyperparams_file):  # if not found in data_coll_dir
         hyperparams = imp.load_source('hyperparams', hyperparams_file).config
     else:
-        print 'doing benchmark ...'
+        print('doing benchmark ...')
         do_benchmark = True
         experimentdir = basepath + '/experiments/cem_exp/benchmarks/' + exp_name
         hyperparams_file = experimentdir + '/mod_hyper.py'

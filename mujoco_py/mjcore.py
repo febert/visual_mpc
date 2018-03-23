@@ -29,7 +29,7 @@ class MjModel(MjModelWrapper):
         buf = create_string_buffer(1000)
         model_ptr = mjlib.mj_loadXML(xml_path, None, buf, 1000)
         if len(buf.value) > 0:
-            print("Warning: %s" % buf.value)
+            print(("Warning: %s" % buf.value))
         super(MjModel, self).__init__(model_ptr)
         data_ptr = mjlib.mj_makeData(model_ptr)
         fields = ["nq","nv","na","nu","nbody","nmocap","nuserdata","nsensordata","njnt","ngeom","nsite","ncam","nlight","ntendon","nwrap","nM","njmax","nemax"]
@@ -55,7 +55,7 @@ class MjModel(MjModelWrapper):
         body_vels = np.zeros((self.nbody, 6))
         # bodywise quantities
         mass = self.body_mass.flatten()
-        for i in xrange(self.nbody):
+        for i in range(self.nbody):
             # body velocity
             mjlib.mj_objectVelocity(
                 self.ptr, self.data.ptr, C.mjOBJ_BODY, i,
@@ -67,7 +67,7 @@ class MjModel(MjModelWrapper):
         # init subtree mass
         body_parentid = self.body_parentid
         # subtree com and com_vel
-        for i in xrange(self.nbody - 1, -1, -1):
+        for i in range(self.nbody - 1, -1, -1):
             if i > 0:
                 parent = body_parentid[i]
                 # add scaled velocities

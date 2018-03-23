@@ -1,7 +1,7 @@
 import tensorflow as tf
 from tensorflow.python.platform import flags
 import imp
-from prediction_train_sawyer import Model, filter_vars
+from .prediction_train_sawyer import Model, filter_vars
 from python_visual_mpc.video_prediction.utils_vpred.variable_checkpoint_matcher import variable_checkpoint_matcher
 """
 
@@ -37,8 +37,8 @@ def main(conf, model):
                                    3))
         sdim = conf['sdim']
         adim = conf['adim']
-        print 'adim', adim
-        print 'sdim', sdim
+        print('adim', adim)
+        print('sdim', sdim)
         actions_pl = tf.placeholder(tf.float16, name='actions',
                                     shape=(conf['batch_size'], conf['sequence_length'], adim))
         states_pl = tf.placeholder(tf.float16, name='states',
@@ -55,21 +55,21 @@ def main(conf, model):
     sess = tf.InteractiveSession(config=tf.ConfigProto(gpu_options=gpu_options))
 
     sess.run(tf.global_variables_initializer())
-    print 'Loading model', source_model_file
+    print('Loading model', source_model_file)
     orig_model_saver.restore(sess, source_model_file)
 
-    print 'sucessfully restored!'
+    print('sucessfully restored!')
 
-    print 'beginning casting'
+    print('beginning casting')
     for hf in half_float_vars:
         for orig in orig_vars:
             if '/'.join(str.split(str(hf.name), '/')[1:]) == str(orig.name):
-                print 'casting', orig.name, 'to', hf.name
+                print('casting', orig.name, 'to', hf.name)
                 sess.run(tf.assign(hf, tf.cast(orig, hf.dtype)))
 
-    print 'casted!'
+    print('casted!')
     half_model_saver.save(sess, source_model_file + 'float16')
-    print 'Save casted to', source_model_file + 'float16'
+    print('Save casted to', source_model_file + 'float16')
 
 if __name__ == '__main__':
     FLAGS = flags.FLAGS

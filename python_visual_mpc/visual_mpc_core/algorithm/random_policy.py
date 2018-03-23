@@ -55,7 +55,7 @@ class Randompolicy(Policy):
             if 'discrete_adim' in self.agentparams:
                 self.actions = discretize(self.actions, self.agentparams['discrete_adim'])
 
-                print self.actions
+                print(self.actions)
 
         return self.actions[t]
 

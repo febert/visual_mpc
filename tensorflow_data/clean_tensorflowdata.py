@@ -27,15 +27,15 @@ for path, subdirs, files in os.walk(current_dir):
                     if int(iter_num) not in iter_numbers:
                         iter_numbers.append(int(iter_num))
             except:
-                print "could not read internum in", file
+                print("could not read internum in", file)
 
     if iter_numbers != []:
         max_iter = np.max(np.array(iter_numbers))
         iter_numbers.remove(max_iter)
 
         if iter_numbers != []:
-            print 'max iternumber found in {}:{}'.format(path, max_iter)
-            print 'going to delete: {}'.format(iter_numbers)
+            print('max iternumber found in {}:{}'.format(path, max_iter))
+            print('going to delete: {}'.format(iter_numbers))
 
             for n in iter_numbers:
                 try:
@@ -44,4 +44,4 @@ for path, subdirs, files in os.walk(current_dir):
                         os.remove(os.path.join(path,'model' +str(n)) +'.index')
                         os.remove(os.path.join(path,'model' +str(n)+'.meta'))
                 except:
-                    print 'not able to remove'
+                    print('not able to remove')

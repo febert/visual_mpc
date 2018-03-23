@@ -16,4 +16,4 @@ while not time_step.last():
                              action_spec.maximum,
                              size=action_spec.shape)
   time_step = env.step(action)
-  print(time_step.reward, time_step.discount, time_step.observation)
+  print((time_step.reward, time_step.discount, time_step.observation))

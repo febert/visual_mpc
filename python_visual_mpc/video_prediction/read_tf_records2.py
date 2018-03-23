@@ -10,7 +10,7 @@ import time
 from PIL import Image
 import imp
 
-import cPickle
+import pickle
 
 COLOR_CHAN = 3
 def decode_im(conf, features, image_name):
@@ -57,8 +57,8 @@ def build_tfrecord_input(conf, training=True, input_file=None):
     if 'adim' in conf:
         adim = conf['adim']
     else: adim = 4
-    print 'adim', adim
-    print 'sdim', sdim
+    print('adim', adim)
+    print('sdim', sdim)
 
     if input_file is not None:
         filenames = [input_file]
@@ -80,7 +80,7 @@ def build_tfrecord_input(conf, training=True, input_file=None):
         else:
             shuffle = True
 
-    print 'using shuffle: ', shuffle
+    print('using shuffle: ', shuffle)
 
     # Reads an image from a file, decodes it into a dense tensor, and resizes it
     # to a fixed shape.
@@ -88,8 +88,8 @@ def build_tfrecord_input(conf, training=True, input_file=None):
         image_seq, image_main_seq, endeffector_pos_seq, gen_images_seq, gen_states_seq,\
         action_seq, object_pos_seq, robot_pos_seq, goal_image = [], [], [], [], [], [], [], [], []
 
-        load_indx = range(0, conf['sequence_length'], conf['skip_frame'])
-        print 'using frame sequence: ', load_indx
+        load_indx = list(range(0, conf['sequence_length'], conf['skip_frame']))
+        print('using frame sequence: ', load_indx)
 
         rand_h = tf.random_uniform([1], minval=-0.2, maxval=0.2)
         rand_s = tf.random_uniform([1], minval=-0.2, maxval=0.2)
@@ -196,7 +196,7 @@ def build_tfrecord_input(conf, training=True, input_file=None):
     next_element = iterator.get_next()
 
     output_element = {}
-    for k in next_element.keys():
+    for k in list(next_element.keys()):
         output_element[k] = tf.reshape(next_element[k], [conf['batch_size']] + next_element[k].get_shape().as_list()[1:])
 
     return output_element
@@ -205,7 +205,7 @@ def build_tfrecord_input(conf, training=True, input_file=None):
 def main():
     # for debugging only:
     os.environ["CUDA_VISIBLE_DEVICES"] = "1"
-    print 'using CUDA_VISIBLE_DEVICES=', os.environ["CUDA_VISIBLE_DEVICES"]
+    print('using CUDA_VISIBLE_DEVICES=', os.environ["CUDA_VISIBLE_DEVICES"])
     conf = {}
 
     current_dir = os.path.dirname(os.path.realpath(__file__))
@@ -235,13 +235,13 @@ def main():
     # conf['color_augmentation'] = ''
     # conf['test_metric'] = {'robot_pos': 1, 'object_pos': 2}
 
-    print '-------------------------------------------------------------------'
-    print 'verify current settings!! '
-    for key in conf.keys():
-        print key, ': ', conf[key]
-    print '-------------------------------------------------------------------'
+    print('-------------------------------------------------------------------')
+    print('verify current settings!! ')
+    for key in list(conf.keys()):
+        print(key, ': ', conf[key])
+    print('-------------------------------------------------------------------')
 
-    print 'testing the reader'
+    print('testing the reader')
 
     dict = build_tfrecord_input(conf, training=True)
 
@@ -273,8 +273,8 @@ def main():
 
         deltat.append(time.time() - end)
         if i_run % 10 == 0:
-            print 'tload{}'.format(time.time() - end)
-            print 'average time:', np.average(np.array(deltat))
+            print('tload{}'.format(time.time() - end))
+            print('average time:', np.average(np.array(deltat)))
         end = time.time()
 
         # show some frames

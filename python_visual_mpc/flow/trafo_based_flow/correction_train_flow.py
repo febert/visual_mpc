@@ -19,7 +19,7 @@ import numpy as np
 import tensorflow as tf
 import imp
 import sys
-import cPickle
+import pickle
 import pdb
 
 import matplotlib.pyplot as plt
@@ -84,8 +84,8 @@ class Getdesig(object):
         plt.show()
 
     def onclick(self, event):
-        print('button=%d, x=%d, y=%d, xdata=%f, ydata=%f' %
-              (event.button, event.x, event.y, event.xdata, event.ydata))
+        print(('button=%d, x=%d, y=%d, xdata=%f, ydata=%f' %
+              (event.button, event.x, event.y, event.xdata, event.ydata)))
         self.coords = np.array([event.ydata, event.xdata])
         self.ax.scatter(self.coords[1], self.coords[0], marker= "o", s=70, facecolors='b', edgecolors='b')
         self.ax.set_xlim(0, 63)
@@ -131,7 +131,7 @@ class CorrectorModel(object):
 
         self.conf = conf
 
-        from correction import construct_correction
+        from .correction import construct_correction
 
         self.iter_num = tf.placeholder(tf.float32, [])
         summaries = []
@@ -162,7 +162,7 @@ class CorrectorModel(object):
         summaries.append(tf.summary.scalar('recon_cost', loss))
 
         if 'l1_deriv_flow_penal' in conf:
-            print 'applying l1 derivative penalty with factor ', conf['l1_deriv_flow_penal']
+            print('applying l1 derivative penalty with factor ', conf['l1_deriv_flow_penal'])
             deriv_penal = l1_deriv_loss(flow) * conf['l1_deriv_flow_penal']
             summaries.append(tf.summary.scalar('flow l1 derivative penalty', deriv_penal))
             loss += deriv_penal
@@ -225,7 +225,7 @@ def visualize(conf):
     itr_vis = re.match('.*?([0-9]+)$', conf['visualize']).group(1)
     saver = tf.train.Saver(tf.get_collection(tf.GraphKeys.GLOBAL_VARIABLES), max_to_keep=0)
     saver.restore(sess, conf['output_dir'] + '/' + FLAGS.visualize)
-    print 'restore done.'
+    print('restore done.')
 
     [ground_truth] = sess.run([val_images])
 
@@ -273,8 +273,8 @@ def visualize(conf):
 
     dict['iternum'] = itr_vis
 
-    cPickle.dump(dict, open(conf['output_dir'] + '/pred.pkl', 'wb'))
-    print 'written files to:' + conf['output_dir']
+    pickle.dump(dict, open(conf['output_dir'] + '/pred.pkl', 'wb'))
+    print('written files to:' + conf['output_dir'])
 
     from python_visual_mpc.video_prediction.utils_vpred.animate_tkinter import Visualizer_tkinter
     v = Visualizer_tkinter(dict, numex=1, append_masks=True,
@@ -285,9 +285,9 @@ def visualize(conf):
 
 def main(unused_argv, conf_script= None):
     os.environ["CUDA_VISIBLE_DEVICES"] = str(FLAGS.device)
-    print 'using CUDA_VISIBLE_DEVICES=', FLAGS.device
+    print('using CUDA_VISIBLE_DEVICES=', FLAGS.device)
     from tensorflow.python.client import device_lib
-    print device_lib.list_local_devices()
+    print(device_lib.list_local_devices())
 
     if conf_script == None: conf_file = FLAGS.hyper
     else: conf_file = conf_script
@@ -297,20 +297,20 @@ def main(unused_argv, conf_script= None):
     hyperparams = imp.load_source('hyperparams', conf_file)
     conf = hyperparams.configuration
     if FLAGS.visualize:
-        print 'creating visualizations ...'
+        print('creating visualizations ...')
         conf = adapt_params_visualize(conf, FLAGS.visualize)
-    print '-------------------------------------------------------------------'
-    print 'verify current settings!! '
-    for key in conf.keys():
-        print key, ': ', conf[key]
-    print '-------------------------------------------------------------------'
+    print('-------------------------------------------------------------------')
+    print('verify current settings!! ')
+    for key in list(conf.keys()):
+        print(key, ': ', conf[key])
+    print('-------------------------------------------------------------------')
 
 
     if conf['visualize']:
-        print 'visualizing'
+        print('visualizing')
         visualize(conf)
 
-    print 'Constructing models and inputs'
+    print('Constructing models and inputs')
     with tf.variable_scope('model', reuse=None) as training_scope:
         images,_ , _ = build_tfrecord_input(conf, training=True)
         model = CorrectorModel(conf, images)
@@ -319,7 +319,7 @@ def main(unused_argv, conf_script= None):
         val_images,_ , _ = build_tfrecord_input(conf, training=False)
         val_model = CorrectorModel(conf, val_images, reuse_scope=training_scope)
 
-    print 'Constructing saver.'
+    print('Constructing saver.')
     saver = tf.train.Saver(tf.get_collection(tf.GraphKeys.VARIABLES), max_to_keep=0)
 
     gpu_options = tf.GPUOptions(per_process_gpu_memory_fraction=0.9)
@@ -338,7 +338,7 @@ def main(unused_argv, conf_script= None):
         import re
         itr_0 = re.match('.*?([0-9]+)$', conf['pretrained_model']).group(1)
         itr_0 = int(itr_0)
-        print 'resuming training at iteration:  ', itr_0
+        print('resuming training at iteration:  ', itr_0)
 
     tf.logging.info('iteration number, cost')
 

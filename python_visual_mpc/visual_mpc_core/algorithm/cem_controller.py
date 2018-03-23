@@ -8,7 +8,7 @@ from mujoco_py.mjtypes import *
 import copy
 import time
 import imp
-import cPickle
+import pickle
 from python_visual_mpc.video_prediction.utils_vpred.create_gif_lib import *
 from datetime import datetime
 import os
@@ -160,19 +160,19 @@ class CEM_controller(Policy):
         # initialize mean and variance of the discrete actions to their mean and variance used during data collection
         self.sigma = construct_initial_sigma(self.policyparams, self.adim)
 
-        print '------------------------------------------------'
-        print 'starting CEM cylce'
+        print('------------------------------------------------')
+        print('starting CEM cylce')
 
         for itr in range(self.niter):
-            print '------------'
-            print 'iteration: ', itr
+            print('------------')
+            print('iteration: ', itr)
             t_startiter = time.time()
             actions = np.random.multivariate_normal(self.mean, self.sigma, self.M)
             actions = actions.reshape(self.M, self.naction_steps, self.adim)
             actions = np.repeat(actions, self.repeat, axis=1)
 
             if 'random_policy' in self.policyparams:
-                print 'sampling random actions'
+                print('sampling random actions')
                 self.bestaction_withrepeat = actions[0]
                 return
 
@@ -180,7 +180,7 @@ class CEM_controller(Policy):
 
             scores = self.take_mujoco_smp(actions)
 
-            print 'overall time for evaluating actions {}'.format(time.time() - t_start)
+            print('overall time for evaluating actions {}'.format(time.time() - t_start))
 
             actioncosts = self.calc_action_cost(actions)
             scores += actioncosts
@@ -201,10 +201,10 @@ class CEM_controller(Policy):
             self.sigma = np.cov(arr_best_actions, rowvar=False, bias=False)
             self.mean = np.mean(arr_best_actions, axis=0)
 
-            print 'iter {0}, bestscore {1}'.format(itr, scores[self.indices[0]])
-            print 'action cost of best action: ', actioncosts[self.indices[0]]
+            print('iter {0}, bestscore {1}'.format(itr, scores[self.indices[0]]))
+            print('action cost of best action: ', actioncosts[self.indices[0]])
 
-            print 'overall time for iteration {}'.format(time.time() - t_startiter)
+            print('overall time for iteration {}'.format(time.time() - t_startiter))
 
     def take_mujoco_smp(self, actions):
         all_scores = np.empty(self.M, dtype=np.float64)
@@ -271,8 +271,8 @@ class CEM_controller(Policy):
         self.hf_target_qpos_l = np.stack(self.hf_target_qpos_l, axis=0)
         tmax = self.hf_target_qpos_l.shape[0]
         for i in range(self.adim):
-            plt.plot(range(tmax) , self.hf_qpos_l[:,i], label='q_{}'.format(i))
-            plt.plot(range(tmax) , self.hf_target_qpos_l[:, i], label='q_target{}'.format(i))
+            plt.plot(list(range(tmax)) , self.hf_qpos_l[:,i], label='q_{}'.format(i))
+            plt.plot(list(range(tmax)) , self.hf_target_qpos_l[:, i], label='q_target{}'.format(i))
             plt.legend()
             plt.show()
 
@@ -296,7 +296,7 @@ class CEM_controller(Policy):
             self.create_sim()
         else:
             if 'use_first_plan' in self.policyparams:
-                print 'using actions of first plan, no replanning!!'
+                print('using actions of first plan, no replanning!!')
                 if t == 1:
                     self.perform_CEM(t)
                 action = self.bestaction_withrepeat[t - 1]
@@ -305,7 +305,7 @@ class CEM_controller(Policy):
                 action = self.bestaction[0]
 
         self.action_list.append(action)
-        print 'timestep: ', t, ' taking action: ', action
+        print('timestep: ', t, ' taking action: ', action)
 
         if self.verbose:
             self.viewer.finish()

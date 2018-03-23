@@ -13,9 +13,9 @@
 # limitations under the License.
 # =============================================================================
 import tensorflow as tf
-from spatial_transformer import transformer
+from .spatial_transformer import transformer
 import numpy as np
-from tf_utils import weight_variable, bias_variable, dense_to_one_hot
+from .tf_utils import weight_variable, bias_variable, dense_to_one_hot
 
 # %% Load data_files
 mnist_cluttered = np.load('./data_files/mnist_sequence1_sample_5distortions5x5.npz')
@@ -158,17 +158,17 @@ for epoch_i in range(n_epochs):
                                 y: batch_ys,
                                 keep_prob: 1.0
                             })
-            print('Iteration: ' + str(iter_i) + ' Loss: ' + str(loss))
+            print(('Iteration: ' + str(iter_i) + ' Loss: ' + str(loss)))
 
         sess.run(optimizer, feed_dict={
             x: batch_xs, y: batch_ys, keep_prob: 0.8})
 
-    print('Accuracy (%d): ' % epoch_i + str(sess.run(accuracy,
+    print(('Accuracy (%d): ' % epoch_i + str(sess.run(accuracy,
                                                      feed_dict={
                                                          x: X_valid,
                                                          y: Y_valid,
                                                          keep_prob: 1.0
-                                                     })))
+                                                     }))))
     # theta = sess.run(h_fc_loc2, feed_dict={
     #        x: batch_xs, keep_prob: 1.0})
     # print(theta[0])

@@ -7,7 +7,7 @@ MAXINT = 9223372036854775807
 
 class UserString:
     def __init__(self, seq):
-        if isinstance(seq, basestring):
+        if isinstance(seq, str):
             self.data = seq
         elif isinstance(seq, UserString):
             self.data = seq.data[:]
@@ -16,7 +16,7 @@ class UserString:
     def __str__(self): return str(self.data)
     def __repr__(self): return repr(self.data)
     def __int__(self): return int(self.data)
-    def __long__(self): return long(self.data)
+    def __long__(self): return int(self.data)
     def __float__(self): return float(self.data)
     def __complex__(self): return complex(self.data)
     def __hash__(self): return hash(self.data)
@@ -38,12 +38,12 @@ class UserString:
     def __add__(self, other):
         if isinstance(other, UserString):
             return self.__class__(self.data + other.data)
-        elif isinstance(other, basestring):
+        elif isinstance(other, str):
             return self.__class__(self.data + other)
         else:
             return self.__class__(self.data + str(other))
     def __radd__(self, other):
-        if isinstance(other, basestring):
+        if isinstance(other, str):
             return self.__class__(other + self.data)
         else:
             return self.__class__(str(other) + self.data)
@@ -158,7 +158,7 @@ class MutableString(UserString):
         start = max(start, 0); end = max(end, 0)
         if isinstance(sub, UserString):
             self.data = self.data[:start]+sub.data+self.data[end:]
-        elif isinstance(sub, basestring):
+        elif isinstance(sub, str):
             self.data = self.data[:start]+sub+self.data[end:]
         else:
             self.data =  self.data[:start]+str(sub)+self.data[end:]
@@ -170,7 +170,7 @@ class MutableString(UserString):
     def __iadd__(self, other):
         if isinstance(other, UserString):
             self.data += other.data
-        elif isinstance(other, basestring):
+        elif isinstance(other, str):
             self.data += other
         else:
             self.data += str(other)

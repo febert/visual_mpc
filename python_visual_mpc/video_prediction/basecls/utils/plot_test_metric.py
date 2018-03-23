@@ -1,11 +1,11 @@
 import numpy as np
 import matplotlib.pyplot as plt
-import cPickle
+import pickle
 
 
 
 def add_plot(file, label, color):
-    dict = cPickle.load(open(file, "rb"))
+    dict = pickle.load(open(file, "rb"))
 
     pos0_exp_dist_l = dict['pos0_exp_dist_l']
     pos0_exp_dist = np.concatenate(pos0_exp_dist_l, axis=0)

@@ -3,14 +3,14 @@ import numpy as np
 import tensorflow as tf
 import imp
 import sys
-import cPickle
+import pickle
 import pdb
 
 import imp
 import matplotlib.pyplot as plt
 from tensorflow.python.platform import app
 from tensorflow.python.platform import flags
-from makegifs import comp_gif
+from .makegifs import comp_gif
 import collections
 
 from datetime import datetime
@@ -23,7 +23,7 @@ VAL_INTERVAL = 500
 # How often to save a model checkpoint
 SAVE_INTERVAL = 4000
 
-from utils_vpred.animate_tkinter import Visualizer_tkinter
+from .utils_vpred.animate_tkinter import Visualizer_tkinter
 
 from PIL import Image
 
@@ -76,12 +76,12 @@ class Model(object):
         if 'prediction_model' in conf:
             Prediction_Model = conf['prediction_model']
         else:
-            from prediction_model_sawyer import Prediction_Model
+            from .prediction_model_sawyer import Prediction_Model
 
         self.conf = conf
 
         if 'use_len' in conf:
-            print 'randomly shift videos for data augmentation'
+            print('randomly shift videos for data augmentation')
             images, states, actions  = self.random_shift(images, states, actions)
 
         self.images_sel = images
@@ -148,7 +148,7 @@ class Model(object):
             self.fft_weights = tf.placeholder(tf.float32, [64, 64])
 
             for i, x, gx in zip(
-                    range(len(self.m.gen_images)), images[conf['context_frames']:],
+                    list(range(len(self.m.gen_images))), images[conf['context_frames']:],
                     self.m.gen_images[conf['context_frames'] - 1:]):
                 recon_cost_mse = mean_squared_error(x, gx)
 
@@ -163,7 +163,7 @@ class Model(object):
 
             if ('ignore_state_action' not in conf) and ('ignore_state' not in conf):
                 for i, state, gen_state in zip(
-                        range(len(self.m.gen_states)), states[conf['context_frames']:],
+                        list(range(len(self.m.gen_states))), states[conf['context_frames']:],
                         self.m.gen_states[conf['context_frames'] - 1:]):
                     state_cost = mean_squared_error(state, gen_state) * 1e-4 * conf['use_state']
                     summaries.append(
@@ -183,7 +183,7 @@ class Model(object):
 
     def random_shift(self, images, states, actions):
 
-        print 'shifting the video sequence randomly in time'
+        print('shifting the video sequence randomly in time')
         tshift = 2
         uselen = self.conf['use_len']
         fulllength = self.conf['sequence_length']
@@ -217,8 +217,8 @@ class Getdesig(object):
         plt.show()
 
     def onclick(self, event):
-        print('button=%d, x=%d, y=%d, xdata=%f, ydata=%f' %
-              (event.button, event.x, event.y, event.xdata, event.ydata))
+        print(('button=%d, x=%d, y=%d, xdata=%f, ydata=%f' %
+              (event.button, event.x, event.y, event.xdata, event.ydata)))
         self.coords = np.array([event.ydata, event.xdata])
         self.ax.scatter(self.coords[1], self.coords[0], marker= "o", s=70, facecolors='b', edgecolors='b')
         self.ax.set_xlim(0, 63)
@@ -228,9 +228,9 @@ class Getdesig(object):
 
 def main(unused_argv, conf_script= None):
     os.environ["CUDA_VISIBLE_DEVICES"] = str(FLAGS.device)
-    print 'using CUDA_VISIBLE_DEVICES=', FLAGS.device
+    print('using CUDA_VISIBLE_DEVICES=', FLAGS.device)
     from tensorflow.python.client import device_lib
-    print device_lib.list_local_devices()
+    print(device_lib.list_local_devices())
 
     if conf_script == None: conf_file = FLAGS.hyper
     else: conf_file = conf_script
@@ -243,7 +243,7 @@ def main(unused_argv, conf_script= None):
 
     inference = False
     if FLAGS.visualize:
-        print 'creating visualizations ...'
+        print('creating visualizations ...')
         conf['schedsamp_k'] = -1  # don't feed ground truth
 
         if 'test_data_dir' in conf:
@@ -268,7 +268,7 @@ def main(unused_argv, conf_script= None):
     else:
         from read_tf_record import build_tfrecord_input
 
-    print 'Constructing models and inputs.'
+    print('Constructing models and inputs.')
     if FLAGS.diffmotions:
         if 'adim' in conf:
             adim = conf['adim']
@@ -305,7 +305,7 @@ def main(unused_argv, conf_script= None):
             val_model = Model(conf, val_images, val_actions, val_states,
                               training_scope, inference=inference)
 
-    print 'Constructing saver.'
+    print('Constructing saver.')
     # Make saver.
 
     vars = tf.get_collection(tf.GraphKeys.GLOBAL_VARIABLES)
@@ -322,17 +322,17 @@ def main(unused_argv, conf_script= None):
     sess.run(tf.global_variables_initializer())
 
     if conf['visualize']:
-        print '-------------------------------------------------------------------'
-        print 'verify current settings!! '
-        for key in conf.keys():
-            print key, ': ', conf[key]
-        print '-------------------------------------------------------------------'
+        print('-------------------------------------------------------------------')
+        print('verify current settings!! ')
+        for key in list(conf.keys()):
+            print(key, ': ', conf[key])
+        print('-------------------------------------------------------------------')
 
         import re
         itr_vis = re.match('.*?([0-9]+)$', conf['visualize']).group(1)
 
         saver.restore(sess, conf['visualize'])
-        print 'restore done.'
+        print('restore done.')
 
         feed_dict = {
                      val_model.iter_num: 0 }
@@ -356,7 +356,7 @@ def main(unused_argv, conf_script= None):
             c = Getdesig(sel_img[0], conf, 'b{}'.format(b_exp))
             desig_pos_aux1 = c.coords.astype(np.int32)
             # desig_pos_aux1 = np.array([29, 37])
-            print "selected designated position for aux1 [row,col]:", desig_pos_aux1
+            print("selected designated position for aux1 [row,col]:", desig_pos_aux1)
 
             one_hot = create_one_hot(conf, desig_pos_aux1)
 
@@ -442,8 +442,8 @@ def main(unused_argv, conf_script= None):
             # dict['moved_images'] = moved_images
             # dict['moved_bckgd'] = moved_bckgd
 
-            cPickle.dump(dict, open(file_path + '/pred.pkl', 'wb'))
-            print 'written files to:' + file_path
+            pickle.dump(dict, open(file_path + '/pred.pkl', 'wb'))
+            print('written files to:' + file_path)
 
             v = Visualizer_tkinter(dict, numex=b+1, append_masks=False,
                                    filepath=conf['output_dir'],
@@ -462,8 +462,8 @@ def main(unused_argv, conf_script= None):
             dict['gen_masks'] = gen_masks
             dict['iternum'] = itr_vis
 
-            cPickle.dump(dict, open(file_path + '/pred.pkl', 'wb'))
-            print 'written files to:' + file_path
+            pickle.dump(dict, open(file_path + '/pred.pkl', 'wb'))
+            print('written files to:' + file_path)
 
             v = Visualizer_tkinter(dict, numex=conf['batch_size'], append_masks=False, filepath=conf['output_dir'],
                                    col_titles=[str(i) for i in range(conf['batch_size'])])
@@ -479,13 +479,13 @@ def main(unused_argv, conf_script= None):
         import re
         itr_0 = re.match('.*?([0-9]+)$', conf['pretrained_model']).group(1)
         itr_0 = int(itr_0)
-        print 'resuming training at iteration:  ', itr_0
+        print('resuming training at iteration:  ', itr_0)
 
-    print '-------------------------------------------------------------------'
-    print 'verify current settings!! '
-    for key in conf.keys():
-        print key, ': ', conf[key]
-    print '-------------------------------------------------------------------'
+    print('-------------------------------------------------------------------')
+    print('verify current settings!! ')
+    for key in list(conf.keys()):
+        print(key, ': ', conf[key])
+    print('-------------------------------------------------------------------')
 
     tf.logging.info('iteration number, cost')
 
@@ -554,7 +554,7 @@ def filter_vars(vars):
         if not '/state:' in v.name:
             newlist.append(v)
         else:
-            print 'removed state variable from saving-list: ', v.name
+            print('removed state variable from saving-list: ', v.name)
     return newlist
 
 if __name__ == '__main__':

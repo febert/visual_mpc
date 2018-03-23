@@ -5,7 +5,7 @@ import numpy as np
 import mujoco_py
 from mujoco_py.mjtypes import *
 import pdb
-import cPickle
+import pickle
 from PIL import Image
 import matplotlib.pyplot as plt
 from python_visual_mpc.video_prediction.misc.makegifs2 import assemble_gif, npy_to_gif
@@ -18,7 +18,7 @@ from matplotlib.figure import Figure
 import cv2
 from mpl_toolkits.mplot3d import Axes3D
 
-from utils.create_xml import create_object_xml, create_root_xml
+from .utils.create_xml import create_object_xml, create_root_xml
 import os
 from time import sleep
 import cv2
@@ -107,7 +107,7 @@ class AgentMuJoCo(object):
             except Image_dark_except:
                 traj_ok = False
 
-        print 'needed {} trials'.format(i_trial)
+        print('needed {} trials'.format(i_trial))
 
         tfinal = self._hyperparams['T'] -1
         if self.goal_obj_pose is not None:
@@ -209,7 +209,7 @@ class AgentMuJoCo(object):
         curr_quat = Quaternion(traj.Object_full_pose[t, 0, 3:])
         onobject = np.stack(np.where(np.squeeze(self.curr_mask_large) != 0), 1)
         if len(onobject) == 0:
-            print "zero pixel of object visible!"
+            print("zero pixel of object visible!")
             desig_pix = np.repeat(self.get_desig_pix(), self._hyperparams['gtruthdesig'], 0)
             goal_pix = np.repeat(self.get_goal_pix(), self._hyperparams['gtruthdesig'], 0)
             return desig_pix, goal_pix
@@ -217,7 +217,7 @@ class AgentMuJoCo(object):
         dsample_factor = self._hyperparams['viewer_image_height']/float(self._hyperparams['image_height'])
 
         for i in range(self._hyperparams['gtruthdesig']):
-            id = np.random.choice(range(onobject.shape[0]))
+            id = np.random.choice(list(range(onobject.shape[0])))
             coord = onobject[id]
             desig_pix.append((coord/dsample_factor).astype(np.int))
             abs_pos_curr_sys = self.viewer.get_3D(coord[0], coord[1], traj.largedimage[t, coord[0], coord[1]])
@@ -328,7 +328,7 @@ class AgentMuJoCo(object):
                 traj.actions[t, :] = mj_U
                 ctrl = mj_U.copy()
 
-            print 'action', mj_U
+            print('action', mj_U)
 
             accum_touch = np.zeros_like(self._model.data.sensordata)
 
@@ -347,10 +347,10 @@ class AgentMuJoCo(object):
                 self.hf_target_qpos_l.append(ctrl)
             if 'touch' in self._hyperparams:
                 traj.touchdata[t, :] = accum_touch.squeeze()
-                print 'accumulated force', t
-                print accum_touch
+                print('accumulated force', t)
+                print(accum_touch)
 
-        print 'obj gripper dist', np.sqrt(np.sum(np.power(traj.Object_pose[-1, 0, :2] - traj.X_full[-1, :2], 2)))
+        print('obj gripper dist', np.sqrt(np.sum(np.power(traj.Object_pose[-1, 0, :2] - traj.X_full[-1, :2], 2))))
 
         # only save trajectories which displace objects above threshold
         if 'displacement_threshold' in self._hyperparams:
@@ -371,7 +371,7 @@ class AgentMuJoCo(object):
         #discarding trajecotries where an object falls out of the bin:
         end_zpos = [traj.Object_full_pose[-1, i, 2] for i in range(self._hyperparams['num_objects'])]
         if any(zval < -2e-2 for zval in end_zpos):
-            print 'object fell out!!!'
+            print('object fell out!!!')
             traj_ok = False
         self.plot_ctrls()
         return traj_ok, traj
@@ -385,9 +385,9 @@ class AgentMuJoCo(object):
                 first_best_index = i
                 break
 
-        print 'best_score', best_score
-        print 'allscores', traj.score
-        print 'goal index: ', first_best_index
+        print('best_score', best_score)
+        print('allscores', traj.score)
+        print('goal index: ', first_best_index)
 
         goalimage = traj._sample_images[first_best_index]
         goal_ballpos = np.concatenate([traj.X_full[first_best_index], np.zeros(2)])  #set velocity to zero
@@ -401,7 +401,7 @@ class AgentMuJoCo(object):
         dict['goal_ballpos'] = goal_ballpos
         dict['goal_object_pose'] = goal_object_pose
 
-        cPickle.dump(dict, open(self._hyperparams['save_goal_image'] + '.pkl', 'wb'))
+        pickle.dump(dict, open(self._hyperparams['save_goal_image'] + '.pkl', 'wb'))
         img.save(self._hyperparams['save_goal_image'] + '.png',)
 
     def eval_action(self, traj, t):
@@ -499,7 +499,7 @@ class AgentMuJoCo(object):
         large_img = np.fromstring(img_string, dtype='uint8').reshape((height, width, 3))[::-1,:,:]
 
         if np.sum(large_img) < 1e-3:
-            print "image dark!!!"
+            print("image dark!!!")
             raise Image_dark_except
 
         self.large_images.append(large_img)
@@ -585,8 +585,8 @@ class AgentMuJoCo(object):
         self.hf_target_qpos_l = np.stack(self.hf_target_qpos_l, axis=0)
         tmax = self.hf_target_qpos_l.shape[0]
         for i in range(self.adim):
-            plt.plot(range(tmax) , self.hf_qpos_l[:,i], label='q_{}'.format(i))
-            plt.plot(range(tmax) , self.hf_target_qpos_l[:, i], label='q_target{}'.format(i))
+            plt.plot(list(range(tmax)) , self.hf_qpos_l[:,i], label='q_{}'.format(i))
+            plt.plot(list(range(tmax)) , self.hf_target_qpos_l[:, i], label='q_target{}'.format(i))
             plt.legend()
             plt.show()
 

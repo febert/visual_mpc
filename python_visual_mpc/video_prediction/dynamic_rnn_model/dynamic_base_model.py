@@ -474,7 +474,7 @@ class Dynamic_Base_Model(object):
         self.batch_size = conf['batch_size']
 
         self.train_cond = tf.placeholder(tf.int32, shape=[], name="train_cond")
-        print 'base model uses traincond', self.train_cond
+        print('base model uses traincond', self.train_cond)
 
         self.sdim = conf['sdim']
         self.adim = conf['adim']
@@ -509,7 +509,7 @@ class Dynamic_Base_Model(object):
                                                   lambda: [val_images, val_actions, val_states])
 
             if 'use_len' in conf:
-                print 'randomly shift videos for data augmentation'
+                print('randomly shift videos for data augmentation')
                 images, states, actions  = self.random_shift(images, states, actions)
 
         ## start interface
@@ -619,7 +619,7 @@ class Dynamic_Base_Model(object):
         loss, psnr_all = 0.0, 0.0
 
         for i, x, gx in zip(
-                range(len(self.gen_images)), self.images[self.conf['context_frames']:],
+                list(range(len(self.gen_images))), self.images[self.conf['context_frames']:],
                 self.gen_images[self.conf['context_frames'] - 1:]):
             recon_cost_mse = mean_squared_error(x, gx)
             # train_summaries.append(tf.summary.scalar('recon_cost' + str(i), recon_cost_mse))
@@ -630,7 +630,7 @@ class Dynamic_Base_Model(object):
 
         if ('ignore_state_action' not in self.conf) and ('ignore_state' not in self.conf):
             for i, state, gen_state in zip(
-                    range(len(self.gen_states)), self.states[self.conf['context_frames']:],
+                    list(range(len(self.gen_states))), self.states[self.conf['context_frames']:],
                     self.gen_states[self.conf['context_frames'] - 1:]):
                 state_cost = mean_squared_error(state, gen_state) * 1e-4 * self.conf['use_state']
                 # train_summaries.append(tf.summary.scalar('state_cost' + str(i), state_cost))
@@ -657,7 +657,7 @@ class Dynamic_Base_Model(object):
         compute_metric(sess, self.conf, self, create_images)
 
     def random_shift(self, images, states, actions):
-        print 'shifting the video sequence randomly in time'
+        print('shifting the video sequence randomly in time')
         tshift = 2
         uselen = self.conf['use_len']
         fulllength = self.conf['sequence_length']

@@ -14,7 +14,7 @@ import ray
 @ray.remote(num_gpus=1)
 class LocalServer(object):
     def __init__(self, netconf, policyparams, local_batch_size, use_ray= True):
-        print 'making LocalServer'
+        print('making LocalServer')
 
         self.policyparams = policyparams
         self.local_batch_size = local_batch_size
@@ -25,15 +25,15 @@ class LocalServer(object):
             from video_prediction.sawyer.prediction_train_sawyer import Model
 
         if use_ray:
-            print 'using CUDA_VISIBLE_DEVICES=', ray.get_gpu_ids()
-            print 'ray_getgpou', ray.get_gpu_ids()
+            print('using CUDA_VISIBLE_DEVICES=', ray.get_gpu_ids())
+            print('ray_getgpou', ray.get_gpu_ids())
             os.environ["CUDA_VISIBLE_DEVICES"] = str(ray.get_gpu_ids()[0])
         else:
-            print 'using CUDA_VISIBLE_DEVICES=', 0
+            print('using CUDA_VISIBLE_DEVICES=', 0)
             os.environ["CUDA_VISIBLE_DEVICES"] = str(0)
 
         from tensorflow.python.client import device_lib
-        print device_lib.list_local_devices()
+        print(device_lib.list_local_devices())
 
         gpu_options = tf.GPUOptions(per_process_gpu_memory_fraction=0.9)
 
@@ -42,13 +42,13 @@ class LocalServer(object):
                                                            allow_soft_placement=True,
                                                            log_device_placement=False))
 
-        print '-------------------------------------------------------------------'
-        print 'verify current settings!! '
-        for key in netconf.keys():
-            print key, ': ', netconf[key]
-        print '-------------------------------------------------------------------'
+        print('-------------------------------------------------------------------')
+        print('verify current settings!! ')
+        for key in list(netconf.keys()):
+            print(key, ': ', netconf[key])
+        print('-------------------------------------------------------------------')
 
-        print 'Constructing multi gpu model for control...'
+        print('Constructing multi gpu model for control...')
 
         if 'single_view' in netconf:
             numcam = 1
@@ -71,7 +71,7 @@ class LocalServer(object):
 
         saver = tf.train.Saver(tf.get_collection(tf.GraphKeys.VARIABLES), max_to_keep=0)
         saver.restore(self.sess, netconf['pretrained_model'])
-        print 'restore done. '
+        print('restore done. ')
 
 
         # self.sess.run(tf.global_variables_initializer())
@@ -116,9 +116,9 @@ class LocalServer(object):
 
         scores = self.calc_scores(gen_distrib, distance_grid)
 
-        print 'time for evaluating {0} actions: {1}'.format(
+        print('time for evaluating {0} actions: {1}'.format(
             self.local_batch_size,
-            (datetime.now() - t_startiter).seconds + (datetime.now() - t_startiter).microseconds / 1e6)
+            (datetime.now() - t_startiter).seconds + (datetime.now() - t_startiter).microseconds / 1e6))
 
         bestind = scores.argsort()[0]
         best_gen_distrib = gen_distrib[2][bestind].reshape(1, 64, 64, 1)
@@ -152,7 +152,7 @@ class LocalServer(object):
                 pos = np.array([i, j])
                 distance_grid[i, j] = np.linalg.norm(goal_pix - pos)
 
-        print 'making distance grid with goal_pix', goal_pix
+        print('making distance grid with goal_pix', goal_pix)
         return distance_grid
 
 
@@ -175,7 +175,7 @@ def setup_predictor(netconf, policyparams, ngpu, redis_address=''):
 
         startind.append(start_counter)
         endind.append(start_counter + local_bsize)
-        print 'indices for gpu {0}: {1} to {2}'.format(i, startind[-1], endind[-1])
+        print('indices for gpu {0}: {1} to {2}'.format(i, startind[-1], endind[-1]))
         start_counter += local_bsize
 
     def predictor_func(input_images=None,

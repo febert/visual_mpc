@@ -13,10 +13,10 @@ import numpy as np
 import scipy.sparse
 import scipy.io as sio
 import utils.cython_bbox
-import cPickle
+import pickle
 import subprocess
 import uuid
-from voc_eval import voc_eval
+from .voc_eval import voc_eval
 from fast_rcnn.config import cfg
 
 class pascal_voc(imdb):
@@ -33,7 +33,7 @@ class pascal_voc(imdb):
                          'cow', 'diningtable', 'dog', 'horse',
                          'motorbike', 'person', 'pottedplant',
                          'sheep', 'sofa', 'train', 'tvmonitor')
-        self._class_to_ind = dict(zip(self.classes, range(self.num_classes)))
+        self._class_to_ind = dict(list(zip(self.classes, list(range(self.num_classes)))))
         self._image_ext = '.jpg'
         self._image_index = self._load_image_set_index()
         # Default to roidb handler
@@ -99,15 +99,15 @@ class pascal_voc(imdb):
         cache_file = os.path.join(self.cache_path, self.name + '_gt_roidb.pkl')
         if os.path.exists(cache_file):
             with open(cache_file, 'rb') as fid:
-                roidb = cPickle.load(fid)
-            print '{} gt roidb loaded from {}'.format(self.name, cache_file)
+                roidb = pickle.load(fid)
+            print('{} gt roidb loaded from {}'.format(self.name, cache_file))
             return roidb
 
         gt_roidb = [self._load_pascal_annotation(index)
                     for index in self.image_index]
         with open(cache_file, 'wb') as fid:
-            cPickle.dump(gt_roidb, fid, cPickle.HIGHEST_PROTOCOL)
-        print 'wrote gt roidb to {}'.format(cache_file)
+            pickle.dump(gt_roidb, fid, pickle.HIGHEST_PROTOCOL)
+        print('wrote gt roidb to {}'.format(cache_file))
 
         return gt_roidb
 
@@ -123,8 +123,8 @@ class pascal_voc(imdb):
 
         if os.path.exists(cache_file):
             with open(cache_file, 'rb') as fid:
-                roidb = cPickle.load(fid)
-            print '{} ss roidb loaded from {}'.format(self.name, cache_file)
+                roidb = pickle.load(fid)
+            print('{} ss roidb loaded from {}'.format(self.name, cache_file))
             return roidb
 
         if int(self._year) == 2007 or self._image_set != 'test':
@@ -134,8 +134,8 @@ class pascal_voc(imdb):
         else:
             roidb = self._load_selective_search_roidb(None)
         with open(cache_file, 'wb') as fid:
-            cPickle.dump(roidb, fid, cPickle.HIGHEST_PROTOCOL)
-        print 'wrote ss roidb to {}'.format(cache_file)
+            pickle.dump(roidb, fid, pickle.HIGHEST_PROTOCOL)
+        print('wrote ss roidb to {}'.format(cache_file))
 
         return roidb
 
@@ -151,11 +151,11 @@ class pascal_voc(imdb):
 
     def _load_rpn_roidb(self, gt_roidb):
         filename = self.config['rpn_file']
-        print 'loading {}'.format(filename)
+        print('loading {}'.format(filename))
         assert os.path.exists(filename), \
                'rpn data not found at: {}'.format(filename)
         with open(filename, 'rb') as f:
-            box_list = cPickle.load(f)
+            box_list = pickle.load(f)
         return self.create_roidb_from_box_list(box_list, gt_roidb)
 
     def _load_selective_search_roidb(self, gt_roidb):
@@ -243,7 +243,7 @@ class pascal_voc(imdb):
         for cls_ind, cls in enumerate(self.classes):
             if cls == '__background__':
                 continue
-            print 'Writing {} VOC results file'.format(cls)
+            print('Writing {} VOC results file'.format(cls))
             filename = self._get_voc_results_file_template().format(cls)
             with open(filename, 'wt') as f:
                 for im_ind, index in enumerate(self.image_index):
@@ -273,7 +273,7 @@ class pascal_voc(imdb):
         aps = []
         # The PASCAL VOC metric changed in 2010
         use_07_metric = True if int(self._year) < 2010 else False
-        print 'VOC07 metric? ' + ('Yes' if use_07_metric else 'No')
+        print('VOC07 metric? ' + ('Yes' if use_07_metric else 'No'))
         if not os.path.isdir(output_dir):
             os.mkdir(output_dir)
         for i, cls in enumerate(self._classes):
@@ -284,15 +284,15 @@ class pascal_voc(imdb):
                 filename, annopath, imagesetfile, cls, cachedir, ovthresh=0.5,
                 use_07_metric=use_07_metric)
             aps += [ap]
-            print('AP for {} = {:.4f}'.format(cls, ap))
+            print(('AP for {} = {:.4f}'.format(cls, ap)))
             with open(os.path.join(output_dir, cls + '_pr.pkl'), 'w') as f:
-                cPickle.dump({'rec': rec, 'prec': prec, 'ap': ap}, f)
-        print('Mean AP = {:.4f}'.format(np.mean(aps)))
+                pickle.dump({'rec': rec, 'prec': prec, 'ap': ap}, f)
+        print(('Mean AP = {:.4f}'.format(np.mean(aps))))
         print('~~~~~~~~')
         print('Results:')
         for ap in aps:
-            print('{:.3f}'.format(ap))
-        print('{:.3f}'.format(np.mean(aps)))
+            print(('{:.3f}'.format(ap)))
+        print(('{:.3f}'.format(np.mean(aps))))
         print('~~~~~~~~')
         print('')
         print('--------------------------------------------------------------')
@@ -303,9 +303,9 @@ class pascal_voc(imdb):
         print('--------------------------------------------------------------')
 
     def _do_matlab_eval(self, output_dir='output'):
-        print '-----------------------------------------------------'
-        print 'Computing results with the official MATLAB eval code.'
-        print '-----------------------------------------------------'
+        print('-----------------------------------------------------')
+        print('Computing results with the official MATLAB eval code.')
+        print('-----------------------------------------------------')
         path = os.path.join(cfg.ROOT_DIR, 'lib', 'datasets',
                             'VOCdevkit-matlab-wrapper')
         cmd = 'cd {} && '.format(path)
@@ -314,7 +314,7 @@ class pascal_voc(imdb):
         cmd += 'voc_eval(\'{:s}\',\'{:s}\',\'{:s}\',\'{:s}\'); quit;"' \
                .format(self._devkit_path, self._get_comp_id(),
                        self._image_set, output_dir)
-        print('Running:\n{}'.format(cmd))
+        print(('Running:\n{}'.format(cmd)))
         status = subprocess.call(cmd, shell=True)
 
     def evaluate_detections(self, all_boxes, output_dir):

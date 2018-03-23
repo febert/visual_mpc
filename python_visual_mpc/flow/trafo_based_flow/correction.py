@@ -46,7 +46,7 @@ class Trafo_Flow(object):
         concat_img = tf.concat([images[0], images[1]], axis=3)  #64x64x3
 
         if 'separable_filters' in conf:
-            print 'applying separable filters'
+            print('applying separable filters')
             from python_visual_mpc.video_prediction.basecls.utils.transformations import\
                 sep_dna_transformation as dna_transformation
             from python_visual_mpc.video_prediction.basecls.utils.transformations import\
@@ -64,7 +64,7 @@ class Trafo_Flow(object):
 
             if 'large_core' in conf:
                 final_layer, middle_layer = build_large_core(concat_img)
-                print 'using large core'
+                print('using large core')
             else:
                 final_layer, middle_layer = build_core(concat_img)
 

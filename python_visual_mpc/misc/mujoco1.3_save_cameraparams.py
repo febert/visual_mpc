@@ -6,7 +6,7 @@ import mujoco_py
 from mujoco_py.mjtypes import *
 
 from PIL import Image
-import cPickle
+import pickle
 
 import os
 cwd = os.getcwd()
@@ -21,7 +21,7 @@ viewer = mujoco_py.MjViewer(visible=True, init_width=width, init_height=height)
 viewer.start()
 viewer.set_model(model)
 viewer.cam.camid = 0
-print viewer.cam.camid
+print(viewer.cam.camid)
 
 import matplotlib.pyplot as plt
 
@@ -57,7 +57,7 @@ for t in range(T):
     mats['viewport'] = viewport
     mats['modelview'] = model_view
     mats['projection'] = proj
-    cPickle.dump(mats, open(root_dir + '/visual_mpc_core/agent/utils/proj_mats.pkl', 'wb'))
+    pickle.dump(mats, open(root_dir + '/visual_mpc_core/agent/utils/proj_mats.pkl', 'wb'))
 
     largeimage = np.fromstring(img_string, dtype='uint8').reshape(
         (height, width, 3))[::-1, :, :]
@@ -71,8 +71,8 @@ for t in range(T):
 
     if t % 10 ==0:
         r, c = viewer.project_point(model.data.qpos)
-        print 'model.data.qpos', model.data.qpos
-        print "row, col", r, c
+        print('model.data.qpos', model.data.qpos)
+        print("row, col", r, c)
         r = int(r)
         c = int(c)
 

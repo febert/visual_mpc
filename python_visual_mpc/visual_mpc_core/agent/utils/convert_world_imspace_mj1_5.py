@@ -14,7 +14,7 @@ def project_point(p, return_zval=False):
     projects a point from the world coordinate system to the screen coordinate system
     """
     p = p.astype(np.float32)
-    print("p", p)
+    print(("p", p))
     print("model view")
     print(GL_MODELVIEW_MATRIX)
     print("projection")
@@ -27,7 +27,7 @@ def project_point(p, return_zval=False):
     eye_coord = np.dot(GL_MODELVIEW_MATRIX.T, obj_coord)
     clip_coord = np.dot(GL_PROJECTION_MATRIX.T, eye_coord)
 
-    print("clip coord", clip_coord)
+    print(("clip coord", clip_coord))
 
     ndc = clip_coord[:3] / clip_coord[3]  # everything should now be in -1 to 1!!
     col, row, z = (ndc[0]+1)*Vx/2 + x0, (-ndc[1]+1)*Vy/2 + y0, (ndc[2]+1)*Vz/2

@@ -1,7 +1,7 @@
 # creates a collection of random configurations for pushing
 import numpy as np
 import random
-import cPickle
+import pickle
 import argparse
 import os
 import python_visual_mpc
@@ -86,7 +86,7 @@ class CollectGoalImageSim(Sim):
         # discarding trajecotries where an object falls out of the bin:
         end_zpos = [traj.Object_full_pose[-1, i, 2] for i in range(self.agentparams['num_objects'])]
         if any(zval < -2e-2 for zval in end_zpos):
-            print 'object fell out!!!'
+            print('object fell out!!!')
             traj_ok = False
         else:
             traj_ok = True
@@ -297,7 +297,7 @@ def visualize_corresp(t, flow, traj, mask_coords):
         pt_output = pts_output[p]
         sampled_location = warp_pts[pt_output[0], pt_output[1]].astype('uint32')
         # sampled_location = np.flip(sampled_location, 0)
-        print "point in warped img", pt_output, "sampled location", sampled_location
+        print("point in warped img", pt_output, "sampled location", sampled_location)
         con = ConnectionPatch(xyA=np.flip(pt_output, 0), xyB=np.flip(sampled_location, 0), coordsA=coordsA,
                               coordsB=coordsB,
                               axesA=ax2, axesB=ax1,

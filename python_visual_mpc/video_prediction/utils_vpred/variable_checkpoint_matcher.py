@@ -11,15 +11,15 @@ def variable_checkpoint_matcher(conf, vars, model_file=None, ignore_varname_firs
     ckpt = tf.train.get_checkpoint_state(conf['output_dir'])
     model_file = ckpt.model_checkpoint_path
 
-  print 'variable checkpoint matcher using model_file:',model_file
+  print('variable checkpoint matcher using model_file:',model_file)
 
   reader = tf.train.NewCheckpointReader(model_file)
   var_to_shape_map = reader.get_variable_to_shape_map()
-  check_names = var_to_shape_map.keys()
+  check_names = list(var_to_shape_map.keys())
 
   vars = dict([(var.name.split(':')[0], var) for var in vars])
   new_vars = {}
-  for varname in vars.keys():
+  for varname in list(vars.keys()):
     found = False
     for ck_name in check_names:
       ck_name_parts = ck_name.split('/')
