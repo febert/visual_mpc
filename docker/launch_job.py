@@ -29,7 +29,8 @@ data["command"] =\
  cd /workspace/visual_mpc/{0};\
  {1} --docker".format(run_dir, command)
 
-data["datasetMounts"] = [{"containerMountPoint": "/mnt/pushing_data", "id": 8350}]
+data["datasetMounts"] = [{"containerMountPoint": "/mnt/pushing_data", "id": 8350},  # cartgripper
+                         {"containerMountPoint": "/mnt/pushing_data", "id": 8807}]  #mj_pos_noreplan_fast_tfrec    | gtruth mujoco planning pushing
 data["resultContainerMountPoint"] = "/result"
 data["aceInstance"] = "ngcv1"
 data["publishedContainerPorts"] = [6006] #for tensorboard
