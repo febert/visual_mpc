@@ -5,6 +5,7 @@ import os
 import pdb
 parser = argparse.ArgumentParser(description='write json configuration for ngc')
 parser.add_argument('run_dir', type=str, help='relative directory to withing visual_mpc from where to run the script')
+
 parser.add_argument('hyper', type=str, help='relative path to hyperparams file', default=10)
 
 args = parser.parse_args()
@@ -29,7 +30,10 @@ data["command"] =\
  cd /workspace/visual_mpc/{0};\
  {1} --docker".format(run_dir, command)
 
-data["datasetMounts"] = [{"containerMountPoint": "/mnt/pushing_data", "id": 8350}]
+data["datasetMounts"] = [{"containerMountPoint": "/mnt/pushing_data/cartgripper", "id": 8350},
+                         {"containerMountPoint": "/mnt/pushing_data/mj_pos_noreplan_fast_tfrec", "id": 8807}]
+
+
 data["resultContainerMountPoint"] = "/result"
 data["aceInstance"] = "ngcv1"
 data["publishedContainerPorts"] = [6006] #for tensorboard
