@@ -338,7 +338,7 @@ class OnlineReader(object):
             t.setDaemon(True)
             t.start()
 
-def convert_to_tfrec():
+def convert_to_tfrec(sourcedir, destdir):
     tag_images = {'name': 'images',
                   'file': '/images/im{}.png',  # only tindex
                   'shape': [48, 64, 3],
@@ -347,27 +347,27 @@ def convert_to_tfrec():
     tag_actions = {'name': 'states',
                    'file': '/state_action.pkl',  # only tindex
                    'pkl_names': ['qpos', 'qvel'],
-                   'shape': [6],
+                   'shape': [12],
                    }
 
     tag_states = {'name': 'actions',
                   'file': '/state_action.pkl',  # only tindex
-                  'shape': [3],
+                  'shape': [5],
                   }
     traj_conf = {
-        'T':30,
         'batch_size':64,
-        'sequence_length':30,
+        'sequence_length':15,
         'ngroup': 1000,
         'image_height':48,
         'image_width':64,
         ''
         'sourcetags': [tag_images, tag_actions, tag_states],
-        'source_basedirs': [os.environ['VMPC_DATA_DIR'] + '/datacol_appflow/data/train'],
-        # 'source_basedirs': [os.environ['VMPC_DATA_DIR'] + '/cartgripper_gtruth_flow/train'],
-        'current_dir':os.environ['VMPC_DATA_DIR'] + '/datacol_appflow/',
-        'data_save_dir':'/mnt/sda1/pushing_data/datacol_appflow_tfrec/train',
+        'source_basedirs': [sourcedir],
+        # 'current_dir':os.environ['VMPC_DATA_DIR'] + '/datacol_appflow/',
+        'data_save_dir':destdir,
     }
+
+    traj_conf['T'] = traj_conf['sequence_length']
     trajlist = make_traj_name_list(traj_conf, shuffle=False)
 
     tag_images = {'name': 'images',
@@ -435,12 +435,12 @@ def test_online_reader():
     tag_actions = {'name': 'states',
                   'file': '/state_action.pkl',  # only tindex
                   'pkl_names': ['qpos', 'qvel'],
-                   'shape': [6],
+                   'shape': [12],
                   }
 
     tag_states = {'name': 'actions',
                   'file': '/state_action.pkl',  # only tindex
-                  'shape': [3],
+                  'shape': [6],
                   }
     conf = {
         'batch_size':64,
@@ -507,4 +507,4 @@ def test_online_reader():
 
 if __name__ == '__main__':
     # test_online_reader()
-    convert_to_tfrec()
+    convert_to_tfrec('/mnt/sda1/pushing_data/mj_pos_noreplan_fast/train', '/mnt/sda1/pushing_data/mj_pos_noreplan_fast_tfrec/train')
