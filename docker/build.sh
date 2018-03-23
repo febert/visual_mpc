@@ -1,1 +1,1 @@
-sudo docker build -t tf1.3_gpu .
+docker build -t tf_mj1.5 .

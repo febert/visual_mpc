@@ -1,5 +1,6 @@
-FROM mjpy #based on Dockerfile from mujoco-py
+#based on Dockerfile from mujoco-py
+FROM mjpy
 
+COPY ./requirements.txt /mujoco_py/
 RUN pip install --upgrade pip
-
-RUN pip3 install -r requirements.txt
+RUN pip install -r requirements.txt
