@@ -56,7 +56,7 @@ def main(unused_argv, conf_script= None):
         conf['output_dir'] = '/result'
         assert os.path.exists(conf['output_dir'])
         print 'output goes to ', conf['output_dir']
-        conf['data_dir'] = os.environ['VMPC_DATA_DIR'] + '/train'
+        # conf['data_dir'] = os.environ['VMPC_DATA_DIR'] + '/train'
 
     if FLAGS.ow:
         print 'deleting {}'.format(conf['output_dir'])
