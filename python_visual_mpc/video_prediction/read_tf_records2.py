@@ -210,24 +210,24 @@ def main():
 
     current_dir = os.path.dirname(os.path.realpath(__file__))
     # DATA_DIR = '/mnt/sda1/pushing_data/cartgripper_startgoal_17step/train'
-    DATA_DIR = '/mnt/sda1/pushing_data/datacol_appflow_tfrec/train'
+    DATA_DIR = '/mnt/sda1/pushing_data/mj_pos_noreplan_fast_tfrec/train'
 
     conf['schedsamp_k'] = -1  # don't feed ground truth
     conf['data_dir'] = DATA_DIR  # 'directory containing data_files.' ,
     conf['skip_frame'] = 1
     conf['train_val_split']= 0.95
     conf['sequence_length']= 15 #48      # 'sequence length, including context frames.'
-    conf['batch_size']= 32
+    conf['batch_size']= 10
     conf['visualize']= False
     conf['context_frames'] = 2
 
     # conf['row_start'] = 15
     # conf['row_end'] = 63
-    conf['sdim'] = 6
-    conf['adim'] = 3
+    conf['sdim'] = 12
+    conf['adim'] = 5
 
     # conf['image_only'] = ''
-    conf['goal_image'] = ""
+    # conf['goal_image'] = ""
 
     conf['orig_size'] = [48, 64]
     # conf['orig_size'] = [480, 640]
@@ -257,11 +257,11 @@ def main():
 
         # images, actions, endeff, gen_images, gen_endeff = sess.run([dict['images'], dict['actions'], dict['endeffector_pos'], dict['gen_images'], dict['gen_states']])
         # images, actions, endeff = sess.run([dict['gen_images'], dict['actions'], dict['endeffector_pos']])
-        images, actions, endeff, goal_image = sess.run([dict['images'], dict['actions'], dict['endeffector_pos'], dict['goal_image']])
+        images, actions, endeff = sess.run([dict['images'], dict['actions'], dict['endeffector_pos']])
         # [images] = sess.run([dict['images']])
 
-        # file_path = '/'.join(str.split(DATA_DIR, '/')[:-1]+['preview'])
-        # comp_single_video(file_path, images, num_exp=conf['batch_size'])
+        file_path = '/'.join(str.split(DATA_DIR, '/')[:-1]+['preview'])
+        comp_single_video(file_path, images, num_exp=conf['batch_size'])
         #
         # for i in range(5):
         #     plt.imshow(goal_image.squeeze()[i])
