@@ -38,7 +38,7 @@ def decode_im(conf, features, image_name):
     image = tf.cast(image, tf.float32) / 255.0
     return image
 
-def build_tfrecord_input(conf, training=True, input_file=None):
+def build_tfrecord_input(conf, training=True, input_file=None, shuffle=True):
     """Create input tfrecord tensors.
 
     Args:
@@ -77,8 +77,6 @@ def build_tfrecord_input(conf, training=True, input_file=None):
         if conf['visualize']:  #if visualize do not perform train val split
             filenames = gfile.Glob(os.path.join(conf['data_dir'], '*'))
             shuffle = False
-        else:
-            shuffle = True
 
     print 'using shuffle: ', shuffle
 

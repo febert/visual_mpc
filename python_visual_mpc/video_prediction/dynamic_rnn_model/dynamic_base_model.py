@@ -474,6 +474,7 @@ class Dynamic_Base_Model(object):
         self.batch_size = conf['batch_size']
 
         self.train_cond = tf.placeholder(tf.int32, shape=[], name="train_cond")
+        self.shuff_cond = tf.placeholder(tf.int32, shape=[], name="shuff_cond")
         print 'base model uses traincond', self.train_cond
 
         self.sdim = conf['sdim']
@@ -501,8 +502,14 @@ class Dynamic_Base_Model(object):
             else:
                 dict = build_tfrecord_fn(conf, training=True)
                 train_images, train_actions, train_states = dict['images'], dict['actions'], dict['endeffector_pos']
+                dict = build_tfrecord_fn(conf, training=False, shuffle=False)
+                noshuf_val_images, noshuf_val_actions, noshuf_val_states = dict['images'], dict['actions'], dict['endeffector_pos']
                 dict = build_tfrecord_fn(conf, training=False)
-                val_images, val_actions, val_states = dict['images'], dict['actions'], dict['endeffector_pos']
+                shuf_val_images, shuf_val_actions, shuf_val_states = dict['images'], dict['actions'], dict['endeffector_pos']
+
+                val_images, val_actions, val_states = tf.cond(self.shuff_cond > 0,  # if 1 use shuffled validation batch
+                                                    lambda: [shuf_val_images, shuf_val_actions, shuf_val_states],
+                                                    lambda: [noshuf_val_images, noshuf_val_actions, noshuf_val_states])
 
                 images, actions, states = tf.cond(self.train_cond > 0,  # if 1 use trainigbatch else validation batch
                                                   lambda: [train_images, train_actions, train_states],
