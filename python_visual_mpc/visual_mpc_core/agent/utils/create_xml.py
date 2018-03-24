@@ -6,6 +6,30 @@ import glob
 import os
 import random
 
+import numpy as np
+import stl
+from stl import mesh
+
+def find_mins_maxs(obj):
+    minx = maxx = miny = maxy = minz = maxz = None
+    for p in obj.points:
+        # p contains (x, y, z)
+        if minx is None:
+            minx = p[stl.Dimension.X]
+            maxx = p[stl.Dimension.X]
+            miny = p[stl.Dimension.Y]
+            maxy = p[stl.Dimension.Y]
+            minz = p[stl.Dimension.Z]
+            maxz = p[stl.Dimension.Z]
+        else:
+            maxx = max(p[stl.Dimension.X], maxx)
+            minx = min(p[stl.Dimension.X], minx)
+            maxy = max(p[stl.Dimension.Y], maxy)
+            miny = min(p[stl.Dimension.Y], miny)
+            maxz = max(p[stl.Dimension.Z], maxz)
+            minz = min(p[stl.Dimension.Z], minz)
+    return minx, maxx, miny, maxy, minz, maxz
+
 def file_len(fname):
     i = 0
     with open(fname) as f:
@@ -29,8 +53,7 @@ def create_object_xml(hyperparams, load_dict_list=None):
     world_body = ET.SubElement(root, "worldbody")
 
     for i in range(hyperparams['num_objects']):
-        obj = ET.SubElement(world_body, "body", name="object{}".format(i), pos="0 0 0")
-        ET.SubElement(obj, "joint", type="free")
+
 
         if load_dict_list == None:
             dict = {}
@@ -55,6 +78,7 @@ def create_object_xml(hyperparams, load_dict_list=None):
         if 'object_meshes' in hyperparams:
             obj_string = "object{}".format(i)
 
+
             o_mesh = xmldir + '/' + random.choice(hyperparams['object_meshes']) +'/'
             print 'import mesh dir', o_mesh
             stl_files = glob.glob(o_mesh + '*.stl')
@@ -65,7 +89,22 @@ def create_object_xml(hyperparams, load_dict_list=None):
             # print 'object_file', object_file
             # print 'convex_hull files', convex_hull_files
 
-            ET.SubElement(assets, "mesh", name = obj_string + "_mesh", file = object_file, scale = "0.15 0.15 0.15")
+            mesh_object = mesh.Mesh.from_file(object_file)
+            vol, cog, inertia = mesh_object.get_mass_properties()
+            minx, maxx, miny, maxy, minz, maxz = find_mins_maxs(mesh_object)
+            max_length = max((maxx - minx), max((maxy - miny), (maxz - minz)))
+
+            scale = 0.05
+            object_pos = [0., 0., 0.]
+            object_pos[0] -= scale * (minx + maxx) / 2.0
+            object_pos[1] -= scale * (miny + maxy) / 2.0
+            object_pos[2] = -0.08 - scale * minz
+
+            pos_str = "{} {} {}".format(object_pos[0], object_pos[1], object_pos[2])
+            obj = ET.SubElement(world_body, "body",name=obj_string, pos=pos_str)
+            ET.SubElement(obj, "joint", type="free")
+
+            ET.SubElement(assets, "mesh", name = obj_string + "_mesh", file = object_file, scale = "{} {} {}".format(scale, scale, scale))
 
             ET.SubElement(obj, "geom", type="mesh", mesh = obj_string + "_mesh",
                           rgba="{} {} {} 1".format(color1[0], color1[1], color1[2]), mass="0.01",
@@ -75,6 +114,9 @@ def create_object_xml(hyperparams, load_dict_list=None):
             #     ET.SubElement(assets, "mesh", )
 
         else:
+            obj = ET.SubElement(world_body, "body", name="object{}".format(i), pos="0 0 0")
+            ET.SubElement(obj, "joint", type="free")
+
             ET.SubElement(obj, "geom", type="box", size=".03 {} .03".format(l1),
                           rgba="{} {} {} 1".format(color1[0], color1[1], color1[2]), mass="0.01",
                           contype="7", conaffinity = "7", friction="1 0.010 0.0002"
