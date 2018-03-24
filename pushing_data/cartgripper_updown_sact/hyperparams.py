@@ -22,7 +22,7 @@ folder_name = '/'.join(str.split(__file__, '/')[-2:-1])
 
 agent = {
     'type': AgentMuJoCo,
-    'data_save_dir': folder_name + '/train',
+    'data_save_dir': os.environ['VMPC_DATA_DIR'] + '/' + folder_name + '/train',
     'filename': DATA_DIR+'/mjc_models/cartgripper_updown.xml',
     'filename_nomarkers': DATA_DIR+'/mjc_models/cartgripper_updown.xml',
     'not_use_images':"",
