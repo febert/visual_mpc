@@ -48,10 +48,11 @@ def main():
 
     if 'clip_grad' not in conf:
         conf['clip_grad'] = 1.0
-
-    optimizer = tf.train.RMSPropOptimizer(conf['learning_rate'], decay=0.95)
+    learning_rate = tf.placeholder(tf.float32, shape=[])
+    optimizer = tf.train.AdamOptimizer(learning_rate,  epsilon=1e-6)
     gradients, variables = zip(*optimizer.compute_gradients(model.loss))
-    gradients = [tf.clip_by_value(g, -conf['clip_grad'], conf['clip_grad']) for g in gradients]
+    #gradients = [tf.clip_by_value(g, -conf['clip_grad'], conf['clip_grad']) for g in gradients]
+    gradients, _ = tf.clip_by_global_norm(gradients, conf['clip_grad'])
     train_operation = optimizer.apply_gradients(zip(gradients, variables))
 
 
@@ -67,10 +68,14 @@ def main():
     summary_writer = tf.summary.FileWriter(conf['model_dir'], graph=sess.graph, flush_secs=10)
 
     for i in xrange(conf['n_iters']):
+        if 'lr_decay' in conf and i > 0 and i % conf['lr_decay'] == 0:
+            conf['learning_rate'] /= 5.
+
+        f_dict = {learning_rate:conf['learning_rate']}
         if i % conf['n_print'] == 0:
             if 'MDN_loss' in conf:
                 model_loss, val_model_loss, val_model_diag, val_mdn_log, val_aux,  _ = sess.run(
-                    [model.loss, val_model.loss, val_model.diagnostic_l2loss,val_model.MDN_log_l, val_model.final_frame_aux_loss, train_operation])
+                    [model.loss, val_model.loss, val_model.diagnostic_l2loss,val_model.MDN_log_l, val_model.final_frame_aux_loss, train_operation], feed_dict=f_dict)
                 print 'At iteration', i, 'model loss is:', model_loss, 'and val_model loss is', val_model_loss, 'and val diagnostic', val_model_diag
                 itr_summary = tf.Summary()
                 itr_summary.value.add(tag="val_model/loss", simple_value=val_model_loss)
@@ -81,7 +86,7 @@ def main():
                 summary_writer.add_summary(itr_summary, i)
             else:
                 model_loss, val_model_loss, val_action,val_aux,  _ = sess.run([model.loss, val_model.loss,
-                                                          val_model.action_loss, val_model.final_frame_aux_loss, train_operation])
+                                                          val_model.action_loss, val_model.final_frame_aux_loss, train_operation], feed_dict=f_dict)
                 print 'At iteration', i, 'model loss is:', model_loss, 'and val_model loss is', val_model_loss
                 itr_summary = tf.Summary()
                 itr_summary.value.add(tag="val_model/loss", simple_value=val_model_loss)
@@ -90,7 +95,7 @@ def main():
                 itr_summary.value.add(tag="model/loss", simple_value=model_loss)
                 summary_writer.add_summary(itr_summary, i)
         else:
-            sess.run([train_operation])
+            sess.run([train_operation], feed_dict=f_dict)
 
         if i > 0 and i % conf['n_save'] == 0:
             saver.save(sess, conf['model_dir'] + '/model' + str(i))
