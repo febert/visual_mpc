@@ -75,7 +75,7 @@ class AgentMuJoCo(object):
         self._model= mujoco_py.MjModel(xmlfilename)
         self.model_nomarkers = mujoco_py.MjModel(xmlfilename_nomarkers)
 
-        gofast = False
+        gofast = True
         self.viewer = mujoco_py.MjViewer(visible=True,
                                          init_width=self._hyperparams['viewer_image_width'],
                                          init_height=self._hyperparams['viewer_image_height'],
@@ -373,7 +373,7 @@ class AgentMuJoCo(object):
         if any(zval < -2e-2 for zval in end_zpos):
             print 'object fell out!!!'
             traj_ok = False
-        self.plot_ctrls()
+        # self.plot_ctrls()
         return traj_ok, traj
 
     def save_goal_image_conf(self, traj):
