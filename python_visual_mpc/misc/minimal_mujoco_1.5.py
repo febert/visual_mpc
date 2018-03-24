@@ -9,7 +9,7 @@ be pushed around with the robot. There's also a box without joints. Since
 the box doesn't have joints, it's fixed and can't be pushed around.
 """
 import numpy as np
-from mujoco_py import load_model_from_xml,load_model_from_path, MjSim, MjViewer
+from mujoco_py import load_model_from_xml,load_model_from_path, MjSim, MjViewer, MjViewerBasic
 import math
 import os
 
@@ -21,6 +21,7 @@ import matplotlib.pyplot as plt
 
 model = load_model_from_path(MODEL_XML)
 sim = MjSim(model)
+viewer = MjViewerBasic(sim)
 # viewer = MjViewer(sim)
 t = 0
 
@@ -46,7 +47,8 @@ for t in range(1000):
     t += 1
     sim.step()
     # viewer.render()
-    largeimage = sim.render(width, height, camera_name="maincam")[::-1, :, :]
+    largeimage = viewer.render(width, height, "maincam")[::-1, :, :]
+    # largeimage = sim.render(width, height, camera_name="maincam")[::-1, :, :]
 
     r, c = project_point(sim.data.qpos)
     print(('model.data.qpos', sim.data.qpos))
@@ -60,6 +62,6 @@ for t in range(1000):
     # plt.savefig('/outputs/testimg.png')
     plt.show()
 
-    import sys
-    sys.exit()
+    # import sys
+    # sys.exit()
 
