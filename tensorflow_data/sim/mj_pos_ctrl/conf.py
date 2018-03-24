@@ -2,7 +2,7 @@ import os
 current_dir = os.path.dirname(os.path.realpath(__file__))
 
 # tf record data location:
-DATA_DIR = os.environ['VMPC_DATA_DIR'] + '/cartgripper_pos/train'
+DATA_DIR = os.environ['VMPC_DATA_DIR'] + '/mj_pos_noreplan_fast_tfrec/train'
 
 # local output directory
 OUT_DIR = current_dir + '/modeldata'
