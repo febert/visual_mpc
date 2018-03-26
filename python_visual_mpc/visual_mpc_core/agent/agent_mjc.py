@@ -2,9 +2,9 @@
 from copy import deepcopy
 import copy
 import numpy as np
-import mujoco_py
-from mujoco_py.mjtypes import *
 import pdb
+from mujoco_py import load_model_from_xml,load_model_from_path, MjSim, MjViewer, MjViewerBasic
+from python_visual_mpc.visual_mpc_core.agent.utils.convert_world_imspace_mj1_5 import project_point
 import pickle
 from PIL import Image
 import matplotlib.pyplot as plt
@@ -71,7 +71,7 @@ class AgentMuJoCo(object):
         else:
             xmlfilename = self._hyperparams['filename']
 
-        self.model = MjSim(load_model_from_path(xmlfilename))
+        self.sim = MjSim(load_model_from_path(xmlfilename))
 
     def sample(self, policy, i_tr, verbose=True, save=True, noisy=False):
         """
@@ -111,12 +111,12 @@ class AgentMuJoCo(object):
         return traj
 
     def get_desig_pix(self, round=True):
-        qpos_dim = self.sdim / 2  # the states contains pos and vel
-        assert self.model.data.qpos.shape[0] == qpos_dim + 7 * self._hyperparams['num_objects']
+        qpos_dim = self.sdim // 2  # the states contains pos and vel
+        assert self.sim.data.qpos.shape[0] == qpos_dim + 7 * self._hyperparams['num_objects']
         desigpix = []
         for i in range(self._hyperparams['num_objects']):
-            fullpose = self.model.data.qpos[i * 7 + qpos_dim:(i + 1) * 7 + qpos_dim].squeeze()
-            desigpix.append(self.viewer.project_point(fullpose[:3]))
+            fullpose = self.sim.data.qpos[i * 7 + qpos_dim:(i + 1) * 7 + qpos_dim].squeeze()
+            desigpix.append(project_point(fullpose[:3]))
         ratio = self._hyperparams['viewer_image_width']/float(self._hyperparams['image_width'])
         desig_pix = np.stack(desigpix) / ratio
         if round:
@@ -126,7 +126,7 @@ class AgentMuJoCo(object):
     def get_goal_pix(self, round=True):
         goal_pix = []
         for i in range(self._hyperparams['num_objects']):
-            goal_pix.append(self.viewer.project_point(self.goal_obj_pose[i, :3]))
+            goal_pix.append(project_point(self.goal_obj_pose[i, :3]))
 
         ratio = self._hyperparams['viewer_image_width'] / self._hyperparams['image_width']
 
@@ -136,8 +136,8 @@ class AgentMuJoCo(object):
         return goal_pix
 
     def get_obj_masks(self, include_arm=False):
-        self.model_nomarkers.data.qpos = self.model.data.qpos
-        self.model_nomarkers.data.qvel = self.model.data.qvel
+        self.model_nomarkers.data.qpos = self.sim.data.qpos
+        self.model_nomarkers.data.qvel = self.sim.data.qvel
         self.model_nomarkers.step()
         def get_image():
             self.viewer.loop_once()
@@ -148,22 +148,22 @@ class AgentMuJoCo(object):
         complete_img = get_image()
         armmask = None
         if include_arm:
-            qpos = copy.deepcopy(self.model.data.qpos)
+            qpos = copy.deepcopy(self.sim.data.qpos)
             qpos[2] -= 10
-            self.model.data.qpos = qpos
-            self.model.data.ctrl = np.zeros(3)
-            self.model.step()
+            self.sim.data.qpos = qpos
+            self.sim.data.ctrl = np.zeros(3)
+            self.sim.step()
             img = get_image()
             armmask = 1 - np.uint8(np.all(complete_img == img, axis=-1)) * 1
             qpos[2] += 10
-            self.model.data.qpos = qpos
-            self.model.data.ctrl = np.zeros(3)
-            self.model.step()
-            self.model.data.qpos = qpos
+            self.sim.data.qpos = qpos
+            self.sim.data.ctrl = np.zeros(3)
+            self.sim.step()
+            self.sim.data.qpos = qpos
             self.viewer.loop_once()
 
         for i in range(self._hyperparams['num_objects']):
-            qpos = copy.deepcopy(self.model.data.qpos)
+            qpos = copy.deepcopy(self.sim.data.qpos)
             qpos[3+2+i*7] -= 1
             self.model_nomarkers.data.qpos = qpos
             self.model_nomarkers.data.ctrl = np.zeros(3)
@@ -241,9 +241,9 @@ class AgentMuJoCo(object):
                 ctrl = np.zeros(self._hyperparams['adim'])
                 if 'posmode' in self._hyperparams:
                     #keep gripper at default x,y positions
-                    ctrl[:3] = self.model.data.qpos[:3].squeeze()
-                self.model.data.ctrl = ctrl
-                self.model.step()
+                    ctrl[:3] = self.sim.data.qpos[:3].squeeze()
+                self.sim.data.ctrl[:] = ctrl
+                self.sim.step()
 
         self.large_images_traj = []
         self.large_images = []
@@ -256,13 +256,13 @@ class AgentMuJoCo(object):
 
         # Take the sample.
         for t in range(self.T):
-            qpos_dim = self.sdim / 2  # the states contains pos and vel
-            traj.X_full[t, :] = self.model.data.qpos[:qpos_dim].squeeze()
-            traj.Xdot_full[t, :] = self.model.data.qvel[:qpos_dim].squeeze()
+            qpos_dim = self.sdim // 2  # the states contains pos and vel
+            traj.X_full[t, :] = self.sim.data.qpos[:qpos_dim].squeeze()
+            traj.Xdot_full[t, :] = self.sim.data.qvel[:qpos_dim].squeeze()
             traj.X_Xdot_full[t, :] = np.concatenate([traj.X_full[t, :], traj.Xdot_full[t, :]])
-            assert self.model.data.qpos.shape[0] == qpos_dim + 7 * self._hyperparams['num_objects']
+            assert self.sim.data.qpos.shape[0] == qpos_dim + 7 * self._hyperparams['num_objects']
             for i in range(self._hyperparams['num_objects']):
-                fullpose = self.model.data.qpos[i * 7 + qpos_dim:(i + 1) * 7 + qpos_dim].squeeze()
+                fullpose = self.sim.data.qpos[i * 7 + qpos_dim:(i + 1) * 7 + qpos_dim].squeeze()
                 traj.Object_full_pose[t, i, :] = fullpose
                 zangle = self.quat_to_zangle(fullpose[3:])
                 traj.Object_pose[t, i, :] = np.concatenate([fullpose[:2], zangle])  # save only xyz, theta
@@ -277,7 +277,7 @@ class AgentMuJoCo(object):
                 self.desig_pix, self.goal_pix = self.gen_gtruthdesig(t, traj)
 
             if 'not_use_images' in self._hyperparams:
-                mj_U = policy.act(traj, t, self.model, self.goal_obj_pose, self._hyperparams)
+                mj_U = policy.act(traj, t, self.sim, self.goal_obj_pose, self._hyperparams)
             else:
                 mj_U, plan_stat = policy.act(traj, t, desig_pix=self.desig_pix,goal_pix=self.goal_pix,
                                           goal_image=self.goal_image, goal_mask=self.goal_mask, curr_mask=self.curr_mask)
@@ -288,8 +288,8 @@ class AgentMuJoCo(object):
             if 'posmode' in self._hyperparams:  #if the output of act is a positions
                 traj.actions[t, :] = mj_U
                 if t == 0:
-                    self.prev_target_qpos = copy.deepcopy(self.model.data.qpos[:self.adim].squeeze())
-                    self.target_qpos = copy.deepcopy(self.model.data.qpos[:self.adim].squeeze())
+                    self.prev_target_qpos = copy.deepcopy(self.sim.data.qpos[:self.adim].squeeze())
+                    self.target_qpos = copy.deepcopy(self.sim.data.qpos[:self.adim].squeeze())
                 else:
                     self.prev_target_qpos = copy.deepcopy(self.target_qpos)
 
@@ -319,9 +319,9 @@ class AgentMuJoCo(object):
             for st in range(self._hyperparams['substeps']):
                 if 'posmode' in self._hyperparams:
                     ctrl = self.get_int_targetpos(st, self.prev_target_qpos, self.target_qpos)
-                self.model.data.ctrl = ctrl
-                self.model.step()
-                self.hf_qpos_l.append(self.model.data.qpos)
+                self.sim.data.ctrl[:] = ctrl
+                self.sim.step()
+                self.hf_qpos_l.append(self.sim.data.qpos)
                 self.hf_target_qpos_l.append(ctrl)
 
         print('obj gripper dist', np.sqrt(np.sum(np.power(traj.Object_pose[-1, 0, :2] - traj.X_full[-1, :2], 2))))
@@ -465,7 +465,7 @@ class AgentMuJoCo(object):
         """
         width = self._hyperparams['viewer_image_width']
         height = self._hyperparams['viewer_image_height']
-        large_img = self.model.render(width, height, camera_name="maincam")[::-1, :, :]
+        large_img = self.sim.render(width, height, camera_name="maincam")[::-1, :, :]
 
         if np.sum(large_img) < 1e-3:
             print("image dark!!!")
@@ -478,7 +478,7 @@ class AgentMuJoCo(object):
 
         if 'make_gtruth_flows' in self._hyperparams:
             traj.largeimage[t] = large_img
-            dlarge_img = self.model.render(width, height, camera_name="maincam")[::-1, :, :]
+            dlarge_img = self.sim.render(width, height, camera_name="maincam")[::-1, :, :]
             traj.largedimage[t] = dlarge_img
 
         # img = traj._sample_images[t,:,:,:] # verify desigpos
@@ -581,11 +581,15 @@ class AgentMuJoCo(object):
             xpos0[:2] = object_pos[:2] + np.random.uniform(r, -r, 2)
             xpos0[2] = np.random.uniform(-0.08, .14)
 
+        sim_state = self.sim.get_state()
         if 'goal_point' in self._hyperparams:
             goal = np.append(self._hyperparams['goal_point'], [.1])   # goal point
             ref = np.append(object_pos[:2], [.1]) # reference point on the block
-            self.model.data.qpos = np.concatenate((xpos0, object_pos, goal, ref), 0)
+            sim_state.qpos[:]= np.concatenate((xpos0, object_pos, goal, ref), 0)
         else:
-            self.model.data.qpos = np.concatenate((xpos0, object_pos.flatten()), 0)
+            sim_state.qpos[:] = np.concatenate((xpos0, object_pos.flatten()), 0)
 
-        self.model.data.qvel = np.zeros_like(self.model.data.qvel)
+        sim_state.qvel[:] = np.zeros_like(sim_state.qvel)
+        self.sim.set_state(sim_state)
+        self.sim.forward()
+
