@@ -69,7 +69,7 @@ def create_object_xml(hyperparams, load_dict_list=None):
     xml_str = xml_str.splitlines()[1:]
     xml_str = "\n".join(xml_str)
 
-    with open(xmldir + "/auto_gen/objects{}.xml".format(os.getpid()), "wb") as f:
+    with open(xmldir + "/auto_gen/objects{}.xml".format(os.getpid()), "w") as f:
         f.write(xml_str)
 
     return save_dict_list

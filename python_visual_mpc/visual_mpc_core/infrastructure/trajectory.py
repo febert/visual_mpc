@@ -35,8 +35,8 @@ class Trajectory(object):
         else:
             state_dim = 2
 
-        self.X_full = np.zeros([self.T, state_dim/2])
-        self.Xdot_full = np.zeros([self.T, state_dim/2])
+        self.X_full = np.zeros([self.T, state_dim//2])
+        self.Xdot_full = np.zeros([self.T, state_dim//2])
         self.X_Xdot_full = np.zeros([self.T, state_dim])
 
         if 'num_objects' in conf:
