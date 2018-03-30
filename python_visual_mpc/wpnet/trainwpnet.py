@@ -99,12 +99,12 @@ def main(unused_argv, conf_script= None):
     sess = tf.InteractiveSession(config=tf.ConfigProto(gpu_options=gpu_options))
 
     if FLAGS.visualize or FLAGS.visualize_check:
-        model = Model(conf, build_loss, load_data=False, sess = sess)
+        model = Model(conf, build_loss, load_data=False, sess=sess)
     else:
-        model = Model(conf, build_loss, load_data=True, sess = sess)
+        model = Model(conf, build_loss, load_data=True, sess=sess)
     model.build_net()
 
-    testmodel = Model(conf, build_loss, load_data=True, sess = sess, pref='test')
+    testmodel = Model(conf, build_loss, load_data=True, sess=sess, pref='test')
     testmodel.build_net(traintime=False, reuse=True)
 
     print 'Constructing saver.'
