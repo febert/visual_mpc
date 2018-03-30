@@ -101,6 +101,8 @@ class WaypointNet(object):
         self.train_summaries = []
         self.val_summaries = []
 
+        self.masks = []
+
         if 'vgg19' in self.conf:
             self.vgg_dict = np.load(conf['vgg19'], encoding='latin1').item()
 
@@ -183,9 +185,19 @@ class WaypointNet(object):
 
         intm = tf.unstack(self.I_intm, axis=1)
         x_reconstr_mean = tf.unstack(self.x_reconstr_mean, axis=1)
-        self.image_summaries = self.build_image_summary(side_by_side=[[self.Istart, self.Igoal] + intm,
-                                                                      [self.Istart, self.Igoal] + x_reconstr_mean])
-
+        self.image_summaries = self.build_image_summary(side_by_side=[[self.Istart] + intm + [self.Igoal],
+                                                                      [self.Istart] + x_reconstr_mean + [self.Igoal]])
+        if 'condcpy' in self.conf:
+            masks = tf.stack(self.masks, axis=1)
+            masks = tf.unstack(masks, axis=-1)
+            masks = [tf.unstack(m, axis=1) for m in masks]
+            masksum = self.build_image_summary(name= 'masks', side_by_side= [[self.Istart] + intm + [self.Igoal],
+                                                                             [self.Istart] + x_reconstr_mean + [self.Igoal],
+                                                                             [self.Istart] + masks[0] + [self.Igoal],
+                                                                             [self.Istart] + masks[1] + [self.Igoal],
+                                                                             [self.Istart] + masks[2] + [self.Igoal]]
+                                                                             )
+            self.image_summaries = tf.summary.merge([self.image_summaries, masksum])
         self.make_histo({'z_mean':self.z_mean, 'z_log_sigma':self.z_log_sigma_sq, 'z_samples':self.z})
 
         self.create_loss_and_optimizer(self.x_reconstr_mean, self.I_intm, self.z_log_sigma_sq, self.z_mean, traintime)
@@ -306,8 +318,10 @@ class WaypointNet(object):
                     enc = z[:,t]
                 if self.conf['enc_avg_pool'] == [1,1]:
                     enc = tf.tile(enc, [1,3,4,1])
-                with tf.variable_scope('h0'):
-                    enc = self.conv_relu_block(enc, out_ch=32 * ch_mult, upsmp=True)  # 12, 16
+
+                if self.conf['enc_avg_pool'] != [6,8]:
+                    with tf.variable_scope('h0'):
+                        enc = self.conv_relu_block(enc, out_ch=32 * ch_mult, upsmp=True)  # 12, 16
 
                 with tf.variable_scope('h1'):
                     if 'skipcon' in self.conf:
@@ -322,8 +336,18 @@ class WaypointNet(object):
                         h2 = tf.concat([h2, self.enc1], axis=3)
                     h3 = self.conv_relu_block(h2, out_ch=32* ch_mult, upsmp=True)  # 48, 64
                 with tf.variable_scope('h4'):
-                    gen_images.append(slim.layers.conv2d(h3, 3, kernel_size=[3, 3], stride=1, activation_fn=tf.nn.sigmoid))
+                    gen_image = slim.layers.conv2d(h3, 3, kernel_size=[3, 3], stride=1, activation_fn=tf.nn.sigmoid)
 
+                if 'condcpy' in self.conf:
+                    with tf.variable_scope('masks'):
+                        h3 = self.conv_relu_block(h2, out_ch=32* ch_mult, upsmp=True)  # 48, 64
+                        h4_m = slim.layers.conv2d(h3, 3, [3,3], stride=1)
+                        masks = tf.nn.softmax(h4_m)
+                        self.masks.append(masks)
+                        masks = tf.split(masks, 3, axis=-1)
+                    gen_images.append(masks[0]*self.Istart + masks[1]*gen_image + masks[2]*self.Igoal)
+                else:
+                    gen_images.append(gen_image)
         return tf.stack(gen_images, axis=1)
 
     def vgg_layer(self, images):
@@ -356,29 +380,29 @@ class WaypointNet(object):
                 self.train_hist_sum.append(tf.summary.histogram(self.pref + '/train_' + k, hist_dict[k]))
                 self.val_hist_sum.append(tf.summary.histogram(self.pref + '/val_' + k, hist_dict[k]))
 
+
     def build_image_summary(self, tensors=None, side_by_side=None, numex=8, name=None):
         """
         takes numex examples from every tensor and concatentes examples side by side
         and the different tensors from top to bottom
+
+        side_by_side: list of list of timesteps of size [batchsize, w, h, ch]
         :param tensors:
         :param numex:
         :return:
         """
-
         ten_list = []
         if side_by_side is not None:
-            l_side, r_side = side_by_side
 
-            for l, r in zip(l_side, r_side):
-                if len(l.get_shape().as_list()) == 3 or l.get_shape().as_list()[-1] == 1:
-                    l = colorize(l, tf.reduce_min(l), tf.reduce_max(l), 'viridis')
-                l = tf.unstack(l, axis=0)[:numex]
-                if len(r.get_shape().as_list()) == 3 or r.get_shape().as_list()[-1] == 1:
-                    r = colorize(r, tf.reduce_min(r), tf.reduce_max(r), 'viridis')
-                r = tf.unstack(r, axis=0)[:numex]
-                lr = [tf.concat([l_, r_], axis=1) for l_, r_  in zip(l,r)]
-                concated = tf.concat(lr, axis=1)
-                ten_list.append(concated)
+            for t in range(len(side_by_side[0])):
+                t_lists = []
+                for list_el in side_by_side:
+                    list_el_t = list_el[t]
+                    if len(list_el_t.get_shape().as_list()) == 3 or list_el_t.get_shape().as_list()[-1] == 1:
+                        list_el_t = colorize(list_el_t, tf.reduce_min(list_el_t), tf.reduce_max(list_el_t), 'viridis')
+                    t_lists.append(tf.unstack(list_el_t[:numex], axis=0))
+                row = tf.concat([tf.concat(l, axis=1) for l in zip(*t_lists)], axis=1)
+                ten_list.append(row)
         else:
             for ten in tensors:
                 if len(ten.get_shape().as_list()) == 3 or ten.get_shape().as_list()[-1] == 1:
@@ -398,7 +422,6 @@ class WaypointNet(object):
     def create_loss_and_optimizer(self, reconstr_mean, I_intm, z_log_sigma_sq, z_mean, traintime):
         diff = reconstr_mean - I_intm
         if 'MSE' in self.conf:
-            # unweighted !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
             reconstr_loss = tf.reduce_mean(tf.square(diff))
         else:
             # reconstr_errs = charbonnier_loss(diff, per_int_ex=True)
