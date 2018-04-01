@@ -49,6 +49,12 @@ def perform_benchmark(conf = None, gpu_id=None):
 
         conf = conf.config
 
+    if 'RESULT_DIR' in os.environ:
+        result_dir = os.environ['RESULT_DIR']
+    else: result_dir = bench_dir
+    if 'verbose' in conf['policy'] and not os.path.exists(result_dir + '/verbose'):
+        os.makedirs(result_dir + '/verbose')
+
     conf['agent']['skip_first'] = 10
 
     print('-------------------------------------------------------------------')
@@ -65,16 +71,9 @@ def perform_benchmark(conf = None, gpu_id=None):
 
     # sample intial conditions and goalpoints
 
-    if 'n_reseed' in conf['policy']:
-        n_reseed = conf['policy']['n_reseed']
-    else:
-        n_reseed = 1
-
-    anglecost = []
     sim = Sim(conf, gpu_id= gpu_id, ngpu= ngpu)
 
     traj = conf['start_index']
-    i_conf = conf['start_index']
     nruns = conf['end_index']
     print('started worker going from ind {} to in {}'.format(conf['start_index'], conf['end_index']))
 
@@ -89,9 +88,9 @@ def perform_benchmark(conf = None, gpu_id=None):
         traj_names = make_traj_name_list({'source_basedirs': conf['source_basedirs'],
                                                   'ngroup': conf['ngroup']}, shuffle=False)
 
-    result_file = bench_dir + '/results_{}to{}.txt'.format(conf['start_index'], conf['end_index'])
-    scores_pkl_file = bench_dir + '/scores_{}to{}.pkl'.format(conf['start_index'], conf['end_index'])
-    if os.path.isfile(bench_dir + '/result_file'):
+    result_file = result_dir + '/results_{}to{}.txt'.format(conf['start_index'], conf['end_index'])
+    scores_pkl_file = result_dir + '/scores_{}to{}.pkl'.format(conf['start_index'], conf['end_index'])
+    if os.path.isfile(result_dir + '/result_file'):
         raise ValueError("the file {} already exists!!".format(result_file))
 
     while traj <= nruns:
@@ -122,7 +121,7 @@ def perform_benchmark(conf = None, gpu_id=None):
         print('run number ', traj)
         print('-------------------------------------------------------------------')
 
-        record_dir = bench_dir + '/verbose/traj{0}'.format(traj)
+        record_dir = result_dir + '/verbose/traj{0}'.format(traj)
         if not os.path.exists(record_dir):
             os.makedirs(record_dir)
         sim.agent._hyperparams['record'] = record_dir
@@ -138,7 +137,7 @@ def perform_benchmark(conf = None, gpu_id=None):
         else:
             sim.policy = conf['policy']['type'](sim.agent._hyperparams, conf['policy'])
 
-        sim.policy.policyparams['rec_distrib'] = bench_dir + '/videos_distrib/traj{0}'.format(traj)
+        sim.policy.policyparams['rec_distrib'] = result_dir + '/videos_distrib/traj{0}'.format(traj)
 
         sim._take_sample(traj)
 

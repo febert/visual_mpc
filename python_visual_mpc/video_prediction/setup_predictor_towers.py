@@ -114,6 +114,11 @@ def setup_predictor(conf, gpu_id=0, ngpu=1):
             vars = tf.get_collection(tf.GraphKeys.GLOBAL_VARIABLES)
 
             vars = filter_vars(vars)
+
+            if 'TEN_DATA' in os.environ:
+                tenpath = conf['pretrained_model'].partition('tensorflow_data')[2]
+                conf['pretrained_model'] = os.environ['TEN_DATA'] + tenpath
+
             vars = variable_checkpoint_matcher(conf, vars, conf['pretrained_model'])
 
             saver = tf.train.Saver(vars, max_to_keep=0)
