@@ -1,6 +1,8 @@
-from .infrastructure.run_sim import Sim
+from python_visual_mpc.visual_mpc_core.infrastructure.run_sim import Sim
 import argparse
-import imp
+import importlib.machinery
+import importlib.util
+import importlib as imp
 import os
 import numpy as np
 import pdb
@@ -40,7 +42,11 @@ def perform_benchmark(conf = None, gpu_id=None):
             if not os.path.exists(bench_dir):
                 raise ValueError('benchmark directory does not exist')
 
-        conf = imp.load_source('mod_hyper', bench_dir + '/mod_hyper.py')
+        loader = importlib.machinery.SourceFileLoader('mod_hyper', bench_dir + '/mod_hyper.py')
+        spec = importlib.util.spec_from_loader(loader.name, loader)
+        conf = importlib.util.module_from_spec(spec)
+        loader.exec_module(conf)
+
         conf = conf.config
 
     conf['agent']['skip_first'] = 10

@@ -15,7 +15,7 @@ from python_visual_mpc.video_prediction.utils_vpred.variable_checkpoint_matcher 
 
 class Tower(object):
     def __init__(self, conf, gpu_id, start_images, actions, start_states, pix_distrib):
-        nsmp_per_gpu = conf['batch_size']/ conf['ngpu']
+        nsmp_per_gpu = conf['batch_size']// conf['ngpu']
         # setting the per gpu batch_size
 
         # picking different subset of the actions for each gpu
