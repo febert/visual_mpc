@@ -73,6 +73,7 @@ goal_mask = {'name': 'goal_mask',
 
 config = {
     'save_data': False,
+    'current_dir':current_dir,
     'save_raw_images':'',
     'start_index':0,
     'end_index': 50, #1000,

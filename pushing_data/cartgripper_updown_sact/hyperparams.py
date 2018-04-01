@@ -1,5 +1,5 @@
 """ Hyperparameters for Large Scale Data Collection (LSDC) """
-
+from __future__ import division
 import os.path
 
 import numpy as np
@@ -22,7 +22,7 @@ folder_name = '/'.join(str.split(__file__, '/')[-2:-1])
 
 agent = {
     'type': AgentMuJoCo,
-    'data_save_dir': folder_name + '/train',
+    'data_save_dir': os.environ['VMPC_DATA_DIR'] + '/' + folder_name + '/train',
     'filename': DATA_DIR+'/mjc_models/cartgripper_updown.xml',
     'filename_nomarkers': DATA_DIR+'/mjc_models/cartgripper_updown.xml',
     'not_use_images':"",
@@ -47,6 +47,8 @@ agent = {
     'posmode':"",
     'targetpos_clip':[[-0.45, -0.45, -0.08], [0.45, 0.45, 0.15]],
     'discrete_adim':[2],
+    'make_final_gif':'',
+    'record':current_dir + '/verbose'
 }
 
 policy = {

@@ -405,7 +405,7 @@ def make_traj_name_list(conf, start_end_grp = None, shuffle=True):
             endidx = max_traj
             startgrp = 0
             startidx = 0
-            endgrp = endidx / traj_per_gr
+            endgrp = endidx // traj_per_gr
 
         trajname_ind_l = []  # list of tuples (trajname, ind) where ind is 0,1,2 in range(self.split_seq_by)
         for gr in range(startgrp, endgrp + 1):  # loop over groups
