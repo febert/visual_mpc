@@ -6,7 +6,7 @@ import pdb
 parser = argparse.ArgumentParser(description='write json configuration for ngc')
 parser.add_argument('run_dir', type=str, help='relative path to script to withing visual_mpc directory')
 parser.add_argument('hyper', type=str, help='relative path to hyperparams file', default=10)
-parser.add_argument('int', default='False', type=str, help='interactive')
+parser.add_argument('--int', default='False', type=str, help='interactive')
 
 args = parser.parse_args()
 run_dir = '/'.join(str.split(args.run_dir, '/')[1:-1])
@@ -16,7 +16,7 @@ hyper = '/'.join(str.split(args.hyper, '/')[1:])
 script_name = str.split(args.run_dir, '/')[-1]
 
 if args.int == 'True':
-    command = "/bin/bash"
+    command = "/bin/sleep 3600"
 else:
     command = "python " + script_name + " --hyper ../../" + hyper
 
@@ -32,10 +32,11 @@ data["command"] =\
  export RESULT_DIR=/result;\
  export PATH=/opt/conda/bin:/usr/local/mpi/bin:/usr/local/nvidia/bin:/usr/local/cuda/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin;\
  cd /workspace/visual_mpc/{0};\
- {1} --docker".format(run_dir, command)
+ {1}".format(run_dir, command)
 
 if 'benchmarks' or 'parallel_data_collection' in script_name:  #running benchmark...
-    data["datasetMounts"] = [{"containerMountPoint": "/mnt/tensorflow_data/sim", "id": 8906}]  # mj_pos_ctrl_appflow
+    data["datasetMounts"] = [{"containerMountPoint": "/mnt/tensorflow_data/sim/mj_pos_ctrl_appflow", "id": 8906},  # mj_pos_ctrl_appflow
+                             {"containerMountPoint": "/mnt/pushing_data/cartgripper_startgoal_masks", "id": 8914}]  # mj_pos_ctrl_appflow
     data['dockerImageName'] = "ucb_rail8888/tf_mj1.5:latest"
 else:
     data['dockerImageName'] = "ucb_rail8888/tf1.4_gpu:based_nvidia"

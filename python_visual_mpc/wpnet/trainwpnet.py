@@ -12,6 +12,7 @@ from tensorflow.python.platform import flags
 
 from datetime import datetime
 import collections
+import importlib
 # How often to record tensorboard summaries.
 SUMMARY_INTERVAL = 400
 
@@ -48,15 +49,24 @@ def main(unused_argv, conf_script= None):
 
     if not os.path.exists(FLAGS.hyper):
         sys.exit("Experiment configuration not found")
-    hyperparams = imp.load_source('hyperparams', conf_file)
-
-    conf = hyperparams.configuration
+    loader = importlib.machinery.SourceFileLoader('hyperparams', conf_file)
+    spec = importlib.util.spec_from_loader(loader.name, loader)
+    conf = importlib.util.module_from_spec(spec)
+    loader.exec_module(conf)
+    conf = conf.configuration
 
     if FLAGS.docker:
         conf['output_dir'] = '/result'
         assert os.path.exists(conf['output_dir'])
         print('output goes to ', conf['output_dir'])
         conf['data_dir'] = os.environ['VMPC_DATA_DIR'] + '/train'
+
+    if 'VMPC_DATA_DIR' in os.environ:
+        path = conf['data_dir'].partition('pushing_data')[2]
+        conf['data_dir'] = os.environ['VMPC_DATA_DIR'] + path
+
+    if 'RESULT_DIR' in os.environ:
+        conf['output_dir']= os.environ['RESULT_DIR']
 
     if FLAGS.ow:
         print('deleting {}'.format(conf['output_dir']))
