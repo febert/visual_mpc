@@ -102,10 +102,14 @@ def main():
     if 'gen_xml' in hyperparams['agent']: #remove old auto-generated xml files
         os.system("rm {}".format('/'.join(str.split(hyperparams['agent']['filename'], '/')[:-1]) + '/auto_gen/*'))
 
-
     if do_benchmark:
         use_worker = bench_worker
     else: use_worker = worker
+
+    if 'RESULT_DIR' in os.environ:
+        result_dir = os.environ['RESULT_DIR']
+        if 'verbose' in hyperparams['policy'] and not os.path.exists(result_dir + '/verbose'):
+            os.makedirs(result_dir + '/verbose')
 
     use_ray = False  # ray can cause black images!!
     if use_ray:
