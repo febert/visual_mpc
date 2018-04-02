@@ -1,7 +1,8 @@
 from multiprocessing import Pool
 import argparse
-import imp
 import os
+import importlib.machinery
+import importlib.util
 from python_visual_mpc.visual_mpc_core.infrastructure.run_sim import Sim
 from python_visual_mpc.visual_mpc_core.benchmarks import perform_benchmark
 import copy
@@ -71,15 +72,21 @@ def main():
     do_benchmark = False
 
     if os.path.isfile(hyperparams_file):  # if not found in data_coll_dir
-        hyperparams = imp.load_source('hyperparams', hyperparams_file).config
+        loader = importlib.machinery.SourceFileLoader('mod_hyper', hyperparams_file)
+        spec = importlib.util.spec_from_loader(loader.name, loader)
+        conf = importlib.util.module_from_spec(spec)
+        loader.exec_module(conf)
+        hyperparams = conf.config
     else:
         print('doing benchmark ...')
         do_benchmark = True
         experimentdir = basepath + '/experiments/cem_exp/benchmarks/' + exp_name
-        hyperparams_file = experimentdir + '/mod_hyper.py'
-        hyperparams = imp.load_source('hyperparams', hyperparams_file).config
+        loader = importlib.machinery.SourceFileLoader('mod_hyper', experimentdir + '/mod_hyper.py')
+        spec = importlib.util.spec_from_loader(loader.name, loader)
+        conf = importlib.util.module_from_spec(spec)
+        loader.exec_module(conf)
+        hyperparams = conf.config
         hyperparams['bench_dir'] = experimentdir
-
     if args.nsplit != -1:
         n_persplit = (hyperparams['end_index']+1)/args.nsplit
         hyperparams['start_index'] = args.isplit * n_persplit
