@@ -133,7 +133,10 @@ def main():
             use_worker(conflist[0])
 
     if do_benchmark:
-        combine_scores(hyperparams['current_dir'], exp_name)
+        if 'RESULT_DIR' in os.environ:
+            result_dir = os.environ['RESULT_DIR']
+        else: result_dir = hyperparams['current_dir']
+        combine_scores(result_dir, exp_name)
 
     traindir = modconf['agent']["data_save_dir"]
     testdir = '/'.join(traindir.split('/')[:-1] + ['/test'])

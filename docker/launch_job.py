@@ -28,7 +28,9 @@ data["command"] =\
  cd /workspace/visual_mpc/{0};".format(run_dir)
 
 if 'benchmarks' or 'parallel_data_collection' in script_name:  #running benchmark...
-    data["datasetMounts"] = [{"containerMountPoint": "/mnt/tensorflow_data/sim/mj_pos_ctrl_appflow", "id": 8906},  # mj_pos_ctrl_appflow
+    data["datasetMounts"] = [{"containerMountPoint": "/mnt/tensorflow_data/sim/mj_pos_ctrl_appflow", "id": 8906},
+                             {"containerMountPoint": "/mnt/tensorflow_data/sim/appflow_nogenpix", "id": 8929},
+                             {"containerMountPoint": "/mnt/tensorflow_data/sim/mj_pos_ctrl", "id": 8930},
                              {"containerMountPoint": "/mnt/pushing_data/cartgripper_startgoal_masks", "id": 8914}]  # mj_pos_ctrl_appflow
     data['dockerImageName'] = "ucb_rail8888/tf_mj1.5:latest"
     data["aceInstance"] = "ngcv8"
