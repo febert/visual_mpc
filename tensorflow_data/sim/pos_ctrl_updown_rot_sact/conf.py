@@ -2,7 +2,7 @@ import os
 current_dir = os.path.dirname(os.path.realpath(__file__))
 
 # tf record data location:
-DATA_DIR = os.environ['VMPC_DATA_DIR'] + '/cartgripper_updown_sact/train'
+DATA_DIR = os.environ['VMPC_DATA_DIR'] + '/cartgripper_updown_rot_sact/train'
 
 # local output directory
 OUT_DIR = current_dir + '/modeldata'
@@ -33,8 +33,8 @@ configuration = {
 'single_view':"",
 '1stimg_bckgd':'',
 'visual_flowvec':'',
-'adim':3,
-'sdim':6,
+'adim':4,
+'sdim':8,
 'normalization':'in',
 'previmg_bckgd':'',
 'orig_size':[48,64]
