@@ -75,6 +75,8 @@ class ImitationBaseModel:
         _, input_dim = input_action.get_shape()
         input_dim = int(input_dim)
 
+        self.debug_input = input_action
+
         if 'MDN_loss' in self.conf:
             num_mix = self.conf['MDN_loss']
             mixture_activations = slim.layers.fully_connected(last_fc, (input_dim + 2) * num_mix,
@@ -93,8 +95,9 @@ class ImitationBaseModel:
 
             self.likelihoods = tf.exp(-0.5 * gtruth_mean_sub / tf.square(self.std_dev)) / self.std_dev / np.power(
                 2 * np.pi, input_dim / 2.) * self.mixing_parameters
+            self.lg_likelihoods = tf.log(tf.reduce_sum(self.likelihoods, axis=-1) + NUMERICAL_EPS)
             self.MDN_log_l = tf.reduce_sum(tf.log(tf.reduce_sum(self.likelihoods, axis=-1) + NUMERICAL_EPS)) \
-                            / self.conf['batch_size']
+                            / self.conf['batch_size'] / float(int(T))
             self.loss = - self.MDN_log_l
 
             mix_mean = tf.reduce_sum(self.means * tf.reshape(self.mixing_parameters, shape=(-1, num_mix, 1)), axis=1)
@@ -196,17 +199,17 @@ class ImitationLSTMModel(ImitationBaseModel):
 
         #see if model can predict task from first frame
         first_frame_features = fp_flat[:, 0, :]
-        self.final_frame_state_pred = slim.layers.fully_connected(first_frame_features, self.sdim / 2,
+        self.final_frame_state_pred = slim.layers.fully_connected(first_frame_features, self.sdim,
                                     scope='predicted_final', activation_fn=None)
-        raw_final_loss = tf.reduce_sum(tf.square(self.final_frame_state_pred - input_end_effector[:, -1, :self.sdim/2])) \
-                         + 0.5 * tf.reduce_sum(tf.abs(self.final_frame_state_pred - input_end_effector[:, -1, :self.sdim/2]))
+        raw_final_loss = tf.reduce_sum(tf.square(self.final_frame_state_pred - input_end_effector[:, -1, :self.sdim])) \
+                         + 0.5 * tf.reduce_sum(tf.abs(self.final_frame_state_pred - input_end_effector[:, -1, :self.sdim]))
         self.final_frame_aux_loss = raw_final_loss / float(self.conf['batch_size'])
 
         final_pred_broadcast = tf.tile(tf.reshape(self.final_frame_state_pred,
-                                                  shape = (in_batch, 1, self.sdim /2)),
+                                                  shape = (in_batch, 1, self.sdim)),
                                        [1,in_time, 1])
 
-        lstm_in = tf.concat([fp_flat, input_end_effector[:, :, :self.sdim/2], final_pred_broadcast],-1)
+        lstm_in = tf.concat([fp_flat, input_end_effector[:, :, :self.sdim], final_pred_broadcast],-1)
 
         lstm_layers = tf.contrib.rnn.MultiRNNCell(
             [tf.contrib.rnn.BasicLSTMCell(l) for l in self.conf['lstm_layers']])
@@ -235,23 +238,23 @@ class ImitationLSTMModelState(ImitationBaseModel):
         input_images = tf.reshape(self.images[:, :-1,:,:,:], shape=(in_batch * in_time, in_rows, in_cols, 3))
         #actions are flattened for loss
         #but configs are not (fed into lstm)
-        output_end_effector = tf.reshape(self.gtruth_endeffector_pos[:, 1:, :self.sdim/2], shape = (in_batch * in_time, self.sdim/2))
+        output_end_effector = tf.reshape(self.gtruth_endeffector_pos[:, 1:], shape = (in_batch * in_time, self.sdim))
 
         fp_flat = tf.reshape(self._build_conv_layers(input_images), shape=(in_batch, in_time, -1))
 
         #see if model can predict task from first frame
         first_frame_features = fp_flat[:, 0, :]
-        self.final_frame_state_pred = slim.layers.fully_connected(first_frame_features, self.sdim / 2,
+        self.final_frame_state_pred = slim.layers.fully_connected(first_frame_features, self.sdim,
                                     scope='predicted_final', activation_fn=None)
-        raw_final_loss = tf.reduce_sum(tf.square(self.final_frame_state_pred - self.gtruth_endeffector_pos[:, -1, :self.sdim/2])) \
-                         + 0.5 * tf.reduce_sum(tf.abs(self.final_frame_state_pred - self.gtruth_endeffector_pos[:, -1, :self.sdim/2]))
+        raw_final_loss = tf.reduce_sum(tf.square(self.final_frame_state_pred - self.gtruth_endeffector_pos[:, -1, :self.sdim])) \
+                         + 0.5 * tf.reduce_sum(tf.abs(self.final_frame_state_pred - self.gtruth_endeffector_pos[:, -1, :self.sdim]))
         self.final_frame_aux_loss = raw_final_loss / float(self.conf['batch_size'])
 
-        final_pred_broadcast = tf.tile(tf.reshape(tf.stop_gradient(self.final_frame_state_pred),
-                                                  shape = (in_batch, 1, self.sdim /2)),
+        final_pred_broadcast = tf.tile(tf.reshape(self.final_frame_state_pred,
+                                                  shape = (in_batch, 1, self.sdim)),
                                        [1,in_time, 1])
 
-        lstm_in = tf.concat([fp_flat, final_pred_broadcast],-1)
+        lstm_in = tf.concat([fp_flat, final_pred_broadcast, self.gtruth_endeffector_pos[:, :-1, :]],-1)
 
         lstm_layers = tf.contrib.rnn.MultiRNNCell(
             [tf.contrib.rnn.BasicLSTMCell(l) for l in self.conf['lstm_layers']])
@@ -265,8 +268,9 @@ class ImitationLSTMModelState(ImitationBaseModel):
             num_mix = self.conf['MDN_loss']
             self.mixing_parameters = tf.reshape(self.mixing_parameters, shape=(in_batch, in_time, num_mix))
             self.std_dev = tf.reshape(self.std_dev, shape=(in_batch, in_time, num_mix))
-            self.means = tf.reshape(self.means, shape=(in_batch, in_time, num_mix, self.sdim / 2))
+            self.means = tf.reshape(self.means, shape=(in_batch, in_time, num_mix, self.sdim))
         else:
-            self.predicted_actions = tf.reshape(self.predicted_actions, shape=(in_batch, in_time, self.sdim / 2))
+            self.predicted_actions = tf.reshape(self.predicted_actions, shape=(in_batch, in_time, self.sdim))
 
         self.loss += self.final_frame_aux_loss
+        self.loss += 0.1 * self.diagnostic_l2loss
