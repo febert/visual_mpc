@@ -51,8 +51,7 @@ def perform_benchmark(conf = None, gpu_id=None):
     if 'RESULT_DIR' in os.environ:
         result_dir = os.environ['RESULT_DIR']
     else: result_dir = bench_dir
-    if 'verbose' in conf['policy'] and not os.path.exists(result_dir + '/verbose'):
-        os.makedirs(result_dir + '/verbose')
+    print('result dir {}'.format(result_dir))
 
     conf['agent']['skip_first'] = 10
 
