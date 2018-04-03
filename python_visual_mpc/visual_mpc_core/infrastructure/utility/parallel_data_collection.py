@@ -18,6 +18,7 @@ from python_visual_mpc.visual_mpc_core.infrastructure.utility.combine_scores imp
 from python_visual_mpc.visual_mpc_core.infrastructure.utility.create_configs import CollectGoalImageSim
 import ray
 import pickle
+
 def worker(conf):
     print('started process with PID:', os.getpid())
     print('making trajectories {0} to {1}'.format(
@@ -43,7 +44,6 @@ def bench_worker(conf):
     random.seed(None)
     np.random.seed(None)
     perform_benchmark(conf, gpu_id=conf['gpu_id'])
-
 
 def main():
     parser = argparse.ArgumentParser(description='run parllel data collection')
