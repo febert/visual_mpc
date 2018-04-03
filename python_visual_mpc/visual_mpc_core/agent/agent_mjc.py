@@ -4,7 +4,7 @@ import copy
 import numpy as np
 import pdb
 from mujoco_py import load_model_from_xml,load_model_from_path, MjSim, MjViewer, MjViewerBasic
-from python_visual_mpc.visual_mpc_core.agent.utils.convert_world_imspace_mj1_5 import project_point
+from python_visual_mpc.visual_mpc_core.agent.utils.convert_world_imspace_mj1_5 import project_point, get_3D
 import pickle
 from PIL import Image
 import matplotlib.pyplot as plt
@@ -80,11 +80,7 @@ class AgentMuJoCo(object):
         """
         if "gen_xml" in self._hyperparams:
             if i_tr % self._hyperparams['gen_xml'] == 0:
-                #TODO: finishe viewer?
                 self._setup_world()
-
-        # if 'goal_mask' in self._hyperparams:
-        #     self.goal_mask = draw_poly(self.goal_image)
 
         traj_ok = False
         i_trial = 0
@@ -101,6 +97,8 @@ class AgentMuJoCo(object):
         tfinal = self._hyperparams['T'] -1
         if self.goal_obj_pose is not None:
             self.final_poscost, self.final_anglecost = self.eval_action(traj, tfinal)
+            initial_poscost, _ = self.eval_action(traj, 0)
+            self.improvement = initial_poscost - self.final_poscost
 
         if 'save_goal_image' in self._hyperparams:
             self.save_goal_image_conf(traj)
@@ -136,50 +134,52 @@ class AgentMuJoCo(object):
         return goal_pix
 
     def get_obj_masks(self, include_arm=False):
-        self.model_nomarkers.data.qpos = self.sim.data.qpos
-        self.model_nomarkers.data.qvel = self.sim.data.qvel
-        self.model_nomarkers.step()
         def get_image():
-            self.viewer.loop_once()
-            img_string, width, height = self.viewer.get_image()
-            return np.fromstring(img_string, dtype='uint8').reshape((height, width, 3))[::-1, :, :]
+            width = self._hyperparams['viewer_image_width']
+            height = self._hyperparams['viewer_image_height']
+            return self.sim.render(width, height, camera_name="maincam")[::-1, :, :]
+
         large_ob_masks = []
         ob_masks = []
         complete_img = get_image()
         armmask = None
+        # plt.imshow(complete_img)
+        # plt.show()
         if include_arm:
             qpos = copy.deepcopy(self.sim.data.qpos)
             qpos[2] -= 10
-            self.sim.data.qpos = qpos
-            self.sim.data.ctrl = np.zeros(3)
-            self.sim.step()
+            sim_state = self.sim.get_state()
+            sim_state.qpos[:] = qpos
+            self.sim.set_state(sim_state)
+            self.sim.forward()
             img = get_image()
             armmask = 1 - np.uint8(np.all(complete_img == img, axis=-1)) * 1
             qpos[2] += 10
-            self.sim.data.qpos = qpos
-            self.sim.data.ctrl = np.zeros(3)
-            self.sim.step()
-            self.sim.data.qpos = qpos
-            self.viewer.loop_once()
+            sim_state.qpos[:] = qpos
+            self.sim.set_state(sim_state)
+            self.sim.forward()
 
         for i in range(self._hyperparams['num_objects']):
             qpos = copy.deepcopy(self.sim.data.qpos)
-            qpos[3+2+i*7] -= 1
-            self.model_nomarkers.data.qpos = qpos
-            self.model_nomarkers.data.ctrl = np.zeros(3)
-            self.model_nomarkers.step()
-            self.model_nomarkers.data.qpos = qpos
+            qpos[self.sdim//2 + 2+ i*7] -= 1
+            sim_state = self.sim.get_state()
+            sim_state.qpos[:] = qpos
+            self.sim.set_state(sim_state)
+            self.sim.forward()
             img = get_image()
-            mask = 1 - np.uint8(np.all(complete_img == img, axis=-1))*1
-            qpos[3 + 2 + i * 7] += 1
-            self.model_nomarkers.data.qpos = qpos
-            self.model_nomarkers.data.ctrl = np.zeros(3)
-            self.model_nomarkers.step()
-            self.model_nomarkers.data.qpos = qpos
-            self.viewer.loop_once()
+            # plt.imshow(img)
+            # plt.show()
+            mask = 1 - np.uint8(np.all(complete_img == img, axis=-1)) * 1
+            qpos[self.sdim//2 + 2+ i * 7] += 1
+            sim_state.qpos[:] = qpos
+            self.sim.set_state(sim_state)
+            self.sim.forward()
+
             large_ob_masks.append(mask)
             ob_masks.append(cv2.resize(mask, dsize=(
                 self._hyperparams['image_width'], self._hyperparams['image_height']), interpolation=cv2.INTER_NEAREST))
+            # plt.imshow(mask.squeeze())
+            # plt.show()
         ob_masks = np.stack(ob_masks, 0)
         large_ob_masks = np.stack(large_ob_masks, 0)
 
@@ -209,12 +209,12 @@ class AgentMuJoCo(object):
             id = np.random.choice(list(range(onobject.shape[0])))
             coord = onobject[id]
             desig_pix.append((coord/dsample_factor).astype(np.int))
-            abs_pos_curr_sys = self.viewer.get_3D(coord[0], coord[1], traj.largedimage[t, coord[0], coord[1]])
+            abs_pos_curr_sys = get_3D(coord[0], coord[1], traj.largedimage[t, coord[0], coord[1]])
             rel_pos_curr_sys = abs_pos_curr_sys - curr_pos
             rel_pos_curr_sys = Quaternion(scalar=.0, vector=rel_pos_curr_sys)
             rel_pos_prev_sys = diff_quat * rel_pos_curr_sys * diff_quat.conjugate
             abs_pos_prev_sys = goal_pos + rel_pos_prev_sys.elements[1:]
-            goal_prev_sys_imspace = np.array(self.viewer.project_point(abs_pos_prev_sys))
+            goal_prev_sys_imspace = np.array(project_point(abs_pos_prev_sys))
             goal_pix.append((goal_prev_sys_imspace/dsample_factor).astype(np.int))
         return np.stack(desig_pix, axis=0), np.stack(goal_pix, axis=0)
 
@@ -259,7 +259,6 @@ class AgentMuJoCo(object):
             qpos_dim = self.sdim // 2  # the states contains pos and vel
             traj.X_full[t, :] = self.sim.data.qpos[:qpos_dim].squeeze()
             traj.Xdot_full[t, :] = self.sim.data.qvel[:qpos_dim].squeeze()
-
             print(self.sim.data.qpos)
             traj.X_Xdot_full[t, :] = np.concatenate([traj.X_full[t, :], traj.Xdot_full[t, :]])
             assert self.sim.data.qpos.shape[0] == qpos_dim + 7 * self._hyperparams['num_objects']
@@ -478,7 +477,7 @@ class AgentMuJoCo(object):
 
         if 'make_gtruth_flows' in self._hyperparams:
             traj.largeimage[t] = large_img
-            dlarge_img = self.sim.render(width, height, camera_name="maincam")[::-1, :, :]
+            dlarge_img = self.sim.render(width, height, camera_name="maincam", depth=True)[1][::-1, :]
             traj.largedimage[t] = dlarge_img
 
         # img = traj._sample_images[t,:,:,:] # verify desigpos

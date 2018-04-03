@@ -81,6 +81,7 @@ def perform_benchmark(conf = None, gpu_id=None):
 
     scores_l = []
     anglecost_l = []
+    improvment_l = []
 
     if 'sourcetags' in conf:  # load data per trajectory
         traj_names = make_traj_name_list({'source_basedirs': conf['source_basedirs'],
@@ -137,38 +138,44 @@ def perform_benchmark(conf = None, gpu_id=None):
 
         scores_l.append(sim.agent.final_poscost)
         anglecost_l.append(sim.agent.final_anglecost)
+        improvment_l.append(sim.agent.improvement)
 
-        print('score of traj{},{} anglecost{}'.format(traj, scores_l[-1], anglecost_l[-1]))
-
+        print('improvement of traj{},{}'.format(traj, improvment_l[-1]))
         traj +=1 #increment trajectories every step!
 
-        scores = np.array(scores_l)
-        sorted_ind = scores.argsort()
+        score = np.array(scores_l)
         anglecost = np.array(anglecost_l)
+        improvement = np.array(improvment_l)
+        sorted_ind = improvement.argsort()
 
-        pickle.dump({'scores':scores, 'anglecost':anglecost}, open(scores_pkl_file, 'wb'))
+        pickle.dump({'improvement':improvement, 'scores':score, 'anglecost':anglecost}, open(scores_pkl_file, 'wb'))
 
         f = open(result_file, 'w')
         f.write('experiment name: ' + benchmark_name + '\n')
-        f.write('overall best pos score: {0} of traj {1}\n'.format(scores[sorted_ind[0]], sorted_ind[0]))
-        f.write('overall worst pos score: {0} of traj {1}\n'.format(scores[sorted_ind[-1]], sorted_ind[-1]))
-        f.write('average pos score: {0}\n'.format(np.mean(scores)))
-        f.write('median pos score {}'.format(np.median(scores)))
-        f.write('standard deviation of population {0}\n'.format(np.std(scores)))
-        f.write('standard error of the mean (SEM) {0}\n'.format(np.std(scores)/np.sqrt(scores.shape[0])))
+        f.write('overall best pos improvement: {0} of traj {1}\n'.format(improvement[sorted_ind[0]], sorted_ind[0]))
+        f.write('overall worst pos improvement: {0} of traj {1}\n'.format(improvement[sorted_ind[-1]], sorted_ind[-1]))
+        f.write('average pos improvemnt: {0}\n'.format(np.mean(improvement)))
+        f.write('median pos improvement {}'.format(np.median(improvement)))
+        f.write('standard deviation of population {0}\n'.format(np.std(improvement)))
+        f.write('standard error of the mean (SEM) {0}\n'.format(np.std(improvement)/np.sqrt(improvement.shape[0])))
+        f.write('---\n')
+        f.write('average pos score: {0}\n'.format(np.mean(score)))
+        f.write('median pos score {}'.format(np.median(score)))
+        f.write('standard deviation of population {0}\n'.format(np.std(score)))
+        f.write('standard error of the mean (SEM) {0}\n'.format(np.std(score)/np.sqrt(score.shape[0])))
         f.write('---\n')
         f.write('average angle cost: {0}\n'.format(np.mean(anglecost)))
         f.write('----------------------\n')
-        f.write('traj: score, anglecost, rank\n')
+        f.write('traj: improv, score, anglecost, rank\n')
         f.write('----------------------\n')
         for n, t in enumerate(range(conf['start_index'], traj)):
-            f.write('{0}: {1}, {2}, :{3}\n'.format(t, scores[n], anglecost[n], np.where(sorted_ind == n)[0][0]))
+            f.write('{}: {}, {}, {}, :{}\n'.format(t, improvement[n], score[n], anglecost[n], np.where(sorted_ind == n)[0][0]))
         f.close()
 
-    print('overall best score: {0} of traj {1}'.format(scores[sorted_ind[0]], sorted_ind[0]))
-    print('overall worst score: {0} of traj {1}'.format(scores[sorted_ind[-1]], sorted_ind[-1]))
-    print('overall average score:', np.sum(scores)/scores.shape)
-    print('standard deviation {0}\n'.format(np.sqrt(np.var(scores))))
+    print('overall best improvement: {0} of traj {1}'.format(improvement[sorted_ind[0]], sorted_ind[0]))
+    print('overall worst improvement: {0} of traj {1}'.format(improvement[sorted_ind[-1]], sorted_ind[-1]))
+    print('overall average improvement:', np.sum(improvement)/improvement.shape)
+    print('standard deviation {0}\n'.format(np.sqrt(np.var(improvement))))
 
 
 if __name__ == '__main__':
