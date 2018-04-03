@@ -571,7 +571,13 @@ class AgentMuJoCo(object):
         else:
             object_pos = self._hyperparams['object_pos0'][0]
 
-        xpos0 = self._hyperparams['xpos0']
+        xpos0_true_len = (self.sim.get_state().qpos.shape[0] - self._hyperparams['num_objects']*7)
+        len_xpos0 = self._hyperparams['xpos0'].shape[0]
+        if len_xpos0 != xpos0_true_len:
+            xpos0 = np.concatenate([self._hyperparams['xpos0'], np.zeros(xpos0_true_len - len_xpos0)])  #testing in setting with updown rot, while data has only xyz
+            print("appending zeros to initial robot configuration!!!")
+        else:
+            xpos0 = self._hyperparams['xpos0']
         assert xpos0.shape[0] == self._hyperparams['sdim']/2
         if 'randomize_ballinitpos' in self._hyperparams:
             xpos0[:2] = np.random.uniform(-.4, .4, 2)
