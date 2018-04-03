@@ -148,16 +148,15 @@ def visualize_diffmotions(sess, conf, model):
 
     if adim == 5:
         b += 1
-
         if 'vis_updown_step' in conf:
             updown_step = conf['vis_updown_step']
+            actions[b, 0:7] = np.array([0, 0, updown_step, 0, 0])
+            actions[b, 7:15] = np.array([0, 0, -updown_step, 0, 0])
         else:
             updown_step = 4
+            actions[b, 0] = np.array([0, 0, updown_step, 0, 0])
+            actions[b, 1] = np.array([0, 0, updown_step, 0, 0])
 
-        # actions[b, 0] = np.array([0, 0, updown_step, 0, 0])
-        # actions[b, 1] = np.array([0, 0, updown_step, 0, 0])
-        actions[b, 0:7] = np.array([0, 0, updown_step, 0, 0])
-        actions[b, 7:15] = np.array([0, 0, -updown_step, 0, 0])
         col_titles.append('up/down')
 
         b += 1

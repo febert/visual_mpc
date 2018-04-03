@@ -14,7 +14,7 @@ import numpy as np
 agent = {
     'type': AgentMuJoCo,
     'T': 30,
-    'substeps':50,
+    'substeps':200,
     'make_final_gif':'',
     'adim':5,
     'sdim':12,
@@ -31,7 +31,6 @@ agent = {
     'data_save_dir':current_dir + '/data/train',
     'posmode':"",
     'targetpos_clip':[[-0.45, -0.45, -0.08, -np.pi*2, 0.], [0.45, 0.45, 0.15, np.pi*2, 0.1]],
-    'mode_rel':np.array([True, True, True, True, False]),
     'not_use_images':"",
 }
 

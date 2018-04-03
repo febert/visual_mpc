@@ -13,7 +13,7 @@ import numpy as np
 agent = {
     'type': AgentMuJoCo,
     'T': 15,
-    'substeps':20,
+    'substeps':200,
     'adim':5,
     'sdim':12,
     'make_final_gif':'',
@@ -30,7 +30,6 @@ agent = {
     'data_save_dir':current_dir + '/data/train',
     'posmode':"",
     'targetpos_clip':[[-0.45, -0.45, -0.08, -np.pi*2, 0.], [0.45, 0.45, 0.15, np.pi*2, 0.1]],
-    'mode_rel':np.array([True, True, True, True, False])
 }
 
 policy = {
