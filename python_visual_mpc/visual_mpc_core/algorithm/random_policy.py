@@ -19,23 +19,6 @@ class Randompolicy(Policy):
 
         self.naction_steps = policyparams['nactions']
 
-    def construct_initial_sigma(self):
-        xy_std = self.policyparams['initial_std']
-        diag = []
-        diag += [xy_std**2, xy_std**2]
-
-        if 'initial_std_lift' in self.policyparams:
-            diag.append(self.policyparams['initial_std_lift'])
-        if 'initial_std_rot' in self.policyparams:
-            diag.append(self.policyparams['initial_std_rot'])
-        if 'initial_std_grasp' in self.policyparams:
-            diag.append(self.policyparams['initial_std_grasp'])
-
-        diag = np.tile(diag, self.naction_steps)
-        diag = np.array(diag)
-        sigma = np.diag(diag)
-        return sigma
-
     def act(self, traj, t, init_model=None, goal_ob_pose=None, agentparams=None):
 
         repeat = self.policyparams['repeats']  # repeat the same action to reduce number of repquired timesteps
@@ -44,7 +27,7 @@ class Randompolicy(Policy):
         if t ==0:
             mean = np.zeros(self.adim * self.naction_steps)
             # initialize mean and variance of the discrete actions to their mean and variance used during data collection
-            sigma = self.construct_initial_sigma()
+            sigma = construct_initial_sigma(self.policyparams)
 
             self.actions = np.random.multivariate_normal(mean, sigma)
             # rv = multivariate_normal(mean, sigma)

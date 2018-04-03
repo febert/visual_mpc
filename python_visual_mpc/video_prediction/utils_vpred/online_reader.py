@@ -5,7 +5,6 @@ import os
 import pickle
 from collections import namedtuple
 from python_visual_mpc.data_preparation.gather_data import make_traj_name_list, crop_and_rot
-import ray
 import re
 import sys
 import glob

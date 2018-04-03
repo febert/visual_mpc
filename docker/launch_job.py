@@ -34,6 +34,8 @@ if 'benchmarks' or 'parallel_data_collection' in script_name:  #running benchmar
                              {"containerMountPoint": "/mnt/tensorflow_data/sim/appflow_nogenpix", "id": 8933},
                              {"containerMountPoint": "/mnt/tensorflow_data/sim/mj_pos_ctrl", "id": 8930},
                              {"containerMountPoint": "/mnt/tensorflow_data/sim/pos_ctrl", "id": 8948},
+                             {"containerMountPoint": "/mnt/tensorflow_data/sim/pos_ctrl_updown_rot_sact", "id": 8951},
+                             {"containerMountPoint": "/mnt/tensorflow_data/sim/pos_ctrl_updown_sact", "id": 8950},
                              {"containerMountPoint": "/mnt/pushing_data/cartgripper_startgoal_short", "id": 8949},  # mj_pos_ctrl_appflow
                              {"containerMountPoint": "/mnt/pushing_data/cartgripper_startgoal_masks", "id": 8914}]  # mj_pos_ctrl_appflow
     data['dockerImageName'] = "ucb_rail8888/tf_mj1.5:latest"
