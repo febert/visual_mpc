@@ -100,7 +100,9 @@ def main():
     conflist = []
 
     if 'gen_xml' in hyperparams['agent']: #remove old auto-generated xml files
-        os.system("rm {}".format('/'.join(str.split(hyperparams['agent']['filename'], '/')[:-1]) + '/auto_gen/*'))
+        try:
+            os.system("rm {}".format('/'.join(str.split(hyperparams['agent']['filename'], '/')[:-1]) + '/auto_gen/*'))
+        except: pass
 
     if do_benchmark:
         use_worker = bench_worker
