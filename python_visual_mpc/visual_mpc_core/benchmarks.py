@@ -84,6 +84,9 @@ def perform_benchmark(conf = None, gpu_id=None):
     improvment_l = []
 
     if 'sourcetags' in conf:  # load data per trajectory
+        if 'VMPC_DATA_DIR' in os.environ:
+            datapath = conf['source_basedirs'][0].partition('pushing_data')[2]
+            conf['source_basedirs'] = [os.environ['VMPC_DATA_DIR'] + datapath]
         traj_names = make_traj_name_list({'source_basedirs': conf['source_basedirs'],
                                                   'ngroup': conf['ngroup']}, shuffle=False)
 
