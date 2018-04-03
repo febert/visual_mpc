@@ -16,7 +16,6 @@ import re
 
 from python_visual_mpc.visual_mpc_core.infrastructure.utility.combine_scores import combine_scores
 from python_visual_mpc.visual_mpc_core.infrastructure.utility.create_configs import CollectGoalImageSim
-import ray
 import pickle
 
 def worker(conf):
@@ -113,30 +112,30 @@ def main():
         if 'verbose' in hyperparams['policy'] and not os.path.exists(result_dir + '/verbose'):
             os.makedirs(result_dir + '/verbose')
 
-    use_ray = False  # ray can cause black images!!
-    if use_ray:
-        ray.init()
-        id_list = []
-        for i in range(n_worker):
-            modconf = copy.deepcopy(hyperparams)
-            modconf['start_index'] = start_idx[i]
-            modconf['end_index'] = end_idx[i]
-            modconf['gpu_id'] = i + gpu_id
-            id_list.append(use_worker.remote(modconf))
-
-        res = [ray.get(id) for id in id_list]
+    # use_ray = False  # ray can cause black images!!
+    # if use_ray:
+    #     ray.init()
+    #     id_list = []
+    #     for i in range(n_worker):
+    #         modconf = copy.deepcopy(hyperparams)
+    #         modconf['start_index'] = start_idx[i]
+    #         modconf['end_index'] = end_idx[i]
+    #         modconf['gpu_id'] = i + gpu_id
+    #         id_list.append(use_worker.remote(modconf))
+    #
+    #     res = [ray.get(id) for id in id_list]
+    # else:
+    for i in range(n_worker):
+        modconf = copy.deepcopy(hyperparams)
+        modconf['start_index'] = start_idx[i]
+        modconf['end_index'] = end_idx[i]
+        modconf['gpu_id'] = i + gpu_id
+        conflist.append(modconf)
+    if parallel:
+        p = Pool(n_worker)
+        p.map(use_worker, conflist)
     else:
-        for i in range(n_worker):
-            modconf = copy.deepcopy(hyperparams)
-            modconf['start_index'] = start_idx[i]
-            modconf['end_index'] = end_idx[i]
-            modconf['gpu_id'] = i + gpu_id
-            conflist.append(modconf)
-        if parallel:
-            p = Pool(n_worker)
-            p.map(use_worker, conflist)
-        else:
-            use_worker(conflist[0])
+        use_worker(conflist[0])
 
     if do_benchmark:
         if 'RESULT_DIR' in os.environ:

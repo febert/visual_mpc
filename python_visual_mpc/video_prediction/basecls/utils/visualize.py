@@ -146,48 +146,38 @@ def visualize_diffmotions(sess, conf, model):
             actions[b, i][:2] = np.array(
                 [np.cos(b / float(n_angles) * 2 * np.pi) * step, np.sin(b / float(n_angles) * 2 * np.pi) * step])
 
-    if adim == 5:
+    if adim >= 3:
         b += 1
         if 'vis_updown_step' in conf:
             updown_step = conf['vis_updown_step']
-            actions[b, 0:7] = np.array([0, 0, updown_step, 0, 0])
-            actions[b, 7:15] = np.array([0, 0, -updown_step, 0, 0])
+            actions[b, 0:7, 2] = updown_step
+            actions[b, 7:15, 2] = -updown_step
         else:
             updown_step = 4
-            actions[b, 0] = np.array([0, 0, updown_step, 0, 0])
-            actions[b, 1] = np.array([0, 0, updown_step, 0, 0])
-
+            actions[b, 0, 2] = updown_step
+            actions[b, 1, 2] = updown_step
         col_titles.append('up/down')
 
-        b += 1
-        actions[b, 0] = np.array([0, 0, 0, 0, 4])
-        actions[b, 1] = np.array([0, 0, 0, 0, 4])
-        col_titles.append('close/open')
-
+    if adim >= 4:
         if 'vis_rot_step' in conf:
             rot_step = conf['vis_rot_step']
         else: rot_step = 4
 
         b += 1
         for i in range(conf['sequence_length']):
-            actions[b, i] = np.array([0, 0, 0, rot_step, 0])
+            actions[b, i, 3] = rot_step
         col_titles.append('rot +')
 
         b += 1
         for i in range(conf['sequence_length']):
-            actions[b, i] = np.array([0, 0, 0, -rot_step, 0])
+            actions[b, i, 3] = -rot_step
         col_titles.append('rot -')
 
-        col_titles.append('noaction')
-
-    elif adim == 4:
+    if adim >= 5:
         b += 1
-        actions[b, 0] = np.array([0, 0, 4, 0])
-        actions[b, 1] = np.array([0, 0, 4, 0])
-
-        b += 1
-        actions[b, 0] = np.array([0, 0, 0, 4])
-        actions[b, 1] = np.array([0, 0, 0, 4])
+        actions[b, 0, 4] = 4
+        actions[b, 1, 4] = 4
+        col_titles.append('close/open')
 
     if 'float16' in conf:
         use_dtype = np.float16

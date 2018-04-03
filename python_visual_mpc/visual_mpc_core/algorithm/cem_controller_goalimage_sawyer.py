@@ -95,32 +95,21 @@ def compute_warp_cost(policyparams, flow_field, goal_pix=None, warped_images=Non
     print('tcg {}'.format(time.time() - tc1))
     return scores
 
-def construct_initial_sigma(policyparams, adim):
+def construct_initial_sigma(policyparams):
     xy_std = policyparams['initial_std']
-
-    if 'initial_std_grasp' in policyparams:
-        gr_std = policyparams['initial_std_grasp']
-    else: gr_std = 1.
+    diag = []
+    diag += [xy_std**2, xy_std**2]
 
     if 'initial_std_lift' in policyparams:
-        lift_std = policyparams['initial_std_lift']
-    else: lift_std = 1.
-
+        diag.append(policyparams['initial_std_lift'])
     if 'initial_std_rot' in policyparams:
-        rot_std = policyparams['initial_std_rot']
-    else: rot_std = 1.
+        diag.append(policyparams['initial_std_rot'])
+    if 'initial_std_grasp' in policyparams:
+        diag.append(policyparams['initial_std_grasp'])
 
-    diag = []
-    for t in range(policyparams['nactions']):
-        if adim == 5:
-            diag.append(np.array([xy_std**2, xy_std**2, lift_std**2, rot_std**2, gr_std**2]))
-        elif adim == 4:
-            diag.append(np.array([xy_std**2, xy_std**2, gr_std**2, lift_std**2]))
-        elif adim == 3:
-            diag.append(np.array([xy_std**2, xy_std**2, lift_std**2]))
-
-    diagonal = np.concatenate(diag, axis=0)
-    sigma = np.diag(diagonal)
+    diag = np.tile(diag, policyparams['nactions'])
+    diag = np.array(diag)
+    sigma = np.diag(diag)
     return sigma
 
 def get_mask_trafo_scores(policyparams, gen_distrib, goal_mask):
@@ -201,10 +190,8 @@ class CEM_controller():
         self.initial_std = policyparams['initial_std']
 
         # define which indices of the action vector shall be discretized:
-        if self.adim == 4:
-            self.discrete_ind = [2, 3]
-        elif self.adim == 5:
-            self.discrete_ind = [2, 4]
+        if 'discrete_adim' in self.agentparams:
+            self.discrete_ind = self.agentparams['discrete_adim']
         else:
             self.discrete_ind = None
 
@@ -268,7 +255,7 @@ class CEM_controller():
         # initialize mean and variance
         self.mean = np.zeros(self.adim * self.naction_steps)
         #initialize mean and variance of the discrete actions to their mean and variance used during data collection
-        self.sigma = construct_initial_sigma(self.policyparams, self.adim)
+        self.sigma = construct_initial_sigma(self.policyparams)
 
         print('------------------------------------------------')
         print('starting CEM cylce')

@@ -158,7 +158,7 @@ class CEM_controller(Policy):
         # initialize mean and variance
         self.mean = np.zeros(self.adim * self.naction_steps)
         # initialize mean and variance of the discrete actions to their mean and variance used during data collection
-        self.sigma = construct_initial_sigma(self.policyparams, self.adim)
+        self.sigma = construct_initial_sigma(self.policyparams)
 
         print('------------------------------------------------')
         print('starting CEM cylce')
