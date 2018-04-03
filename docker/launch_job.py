@@ -2,6 +2,8 @@ import json
 import argparse
 import os
 
+import re
+
 import pdb
 parser = argparse.ArgumentParser(description='write json configuration for ngc')
 parser.add_argument('run_dir', type=str, help='relative path to script to withing visual_mpc directory')
@@ -35,6 +37,8 @@ if 'benchmarks' or 'parallel_data_collection' in script_name:  #running benchmar
     data['dockerImageName'] = "ucb_rail8888/tf_mj1.5:latest"
     data["aceInstance"] = "ngcv8"
     command = "python " + script_name + " {}".format(args.arg)
+
+    data["name"] = '-'.join(re.compile('\w+').findall(args.arg))
 else:
     data["aceInstance"] = "ngcv1"
     data['dockerImageName'] = "ucb_rail8888/tf1.4_gpu:based_nvidia"
@@ -44,13 +48,13 @@ else:
                              {"containerMountPoint": "/mnt/pushing_data/cartgripper_updown_rot_sact", "id": 8834}]
 
     command = "python " + script_name + "--hyper ../../" + hyper
+    data["name"] = str.split(command, '/')[-2]
 
 if args.int == 'True':
     command = "/bin/sleep 3600"
 
 data["command"] += command
 
-data["name"] = str.split(command, '/')[-2]
 data["resultContainerMountPoint"] = "/result"
 data["publishedContainerPorts"] = [6006] #for tensorboard
 
