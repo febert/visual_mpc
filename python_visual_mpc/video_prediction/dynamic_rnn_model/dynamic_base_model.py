@@ -212,7 +212,11 @@ class DNACell(tf.nn.rnn_cell.RNNCell):
         state = tf.cond(tf.reduce_all(tf.equal(time, 0)),
                         lambda: state,  # feed in ground_truth state only for first time step
                         lambda: gen_state)  # feed in predicted state
-        state_action = tf.concat([action, state], axis=-1)
+
+        if 'ignore_state' in self.conf:
+            state_action = tf.concat([action], axis=-1)
+        else:
+            state_action = tf.concat([action, state], axis=-1)
 
         with tf.variable_scope('h0'):
             h0 = conv_pool2d(image, vgf_dim, kernel_size=(5, 5), strides=(2, 2))
