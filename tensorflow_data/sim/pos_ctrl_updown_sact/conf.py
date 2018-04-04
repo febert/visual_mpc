@@ -37,5 +37,6 @@ configuration = {
 'sdim':6,
 'normalization':'in',
 'previmg_bckgd':'',
-'orig_size':[48,64]
+'orig_size':[48,64],
+'vis_step':0.05,
 }

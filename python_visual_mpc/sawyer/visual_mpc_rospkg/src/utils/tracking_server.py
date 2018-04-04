@@ -21,7 +21,7 @@ import pdb
 class Tracker(object):
     def __init__(self):
 
-        print 'started tracking server'
+        print('started tracking server')
         # pdb.set_trace()
         rospy.init_node("opencv_tracker")
         benchmark_name = rospy.get_param('~exp')
@@ -38,7 +38,7 @@ class Tracker(object):
         # end getting config dicts
 
         self.ndesig = self.agentparams['ndesig']
-        print 'initializing {} tracker'.format(self.ndesig)
+        print('initializing {} tracker'.format(self.ndesig))
 
         self.tracker_initialized = False
         self.bbox = None
@@ -50,7 +50,7 @@ class Tracker(object):
 
     def init_bbx(self, req):
         target = req.target
-        print "received new tracking target", target
+        print("received new tracking target", target)
         self.tracker_initialized = False
         self.tracker_list = []
         self.bbox = np.array(target).reshape(self.ndesig, 4)
@@ -63,13 +63,13 @@ class Tracker(object):
 
         if not self.tracker_initialized and self.bbox is not None:
             for p in range(self.ndesig):
-                print 'initializing tracker ',p
+                print('initializing tracker ',p)
                 tracker = cv2.TrackerMIL_create()
                 tracker.init(self.lt_img_cv2, tuple(self.bbox[p]))
                 self.tracker_list.append(tracker)
 
             self.tracker_initialized = True
-            print 'tracker initialized'
+            print('tracker initialized')
 
     def crop_highres(self, cv_image):
         #TODO: load the cropping parameters from parameter file
@@ -99,10 +99,10 @@ class Tracker(object):
                     all_bbox[p] = bbox
 
                 self.bbox_pub.publish(all_bbox.astype(np.int32).flatten())
-                print 'currrent bbox: ', all_bbox
+                print('currrent bbox: ', all_bbox)
             else:
                 rospy.sleep(0.1)
-                print "waiting for tracker to be initialized, bbox=", self.bbox
+                print("waiting for tracker to be initialized, bbox=", self.bbox)
 
 if __name__ == "__main__":
     r = Tracker()

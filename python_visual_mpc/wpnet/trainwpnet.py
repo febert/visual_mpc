@@ -3,7 +3,7 @@ import numpy as np
 import tensorflow as tf
 import imp
 import sys
-import cPickle
+import pickle
 import pdb
 
 import imp
@@ -12,6 +12,7 @@ from tensorflow.python.platform import flags
 
 from datetime import datetime
 import collections
+import importlib
 # How often to record tensorboard summaries.
 SUMMARY_INTERVAL = 400
 
@@ -24,7 +25,7 @@ IMAGE_INTERVAL = 5000
 SAVE_INTERVAL = 4000
 
 from python_visual_mpc.video_prediction.utils_vpred.variable_checkpoint_matcher import variable_checkpoint_matcher
-from wpnet import WaypointNet
+from python_visual_mpc.wpnet.wpnet import WaypointNet
 
 if __name__ == '__main__':
     FLAGS = flags.FLAGS
@@ -39,34 +40,43 @@ if __name__ == '__main__':
 
 def main(unused_argv, conf_script= None):
     os.environ["CUDA_VISIBLE_DEVICES"] = str(FLAGS.device)
-    print 'using CUDA_VISIBLE_DEVICES=', FLAGS.device
+    print('using CUDA_VISIBLE_DEVICES=', FLAGS.device)
     from tensorflow.python.client import device_lib
-    print device_lib.list_local_devices()
+    print(device_lib.list_local_devices())
 
     if conf_script == None: conf_file = FLAGS.hyper
     else: conf_file = conf_script
 
     if not os.path.exists(FLAGS.hyper):
         sys.exit("Experiment configuration not found")
-    hyperparams = imp.load_source('hyperparams', conf_file)
-
-    conf = hyperparams.configuration
+    loader = importlib.machinery.SourceFileLoader('hyperparams', conf_file)
+    spec = importlib.util.spec_from_loader(loader.name, loader)
+    conf = importlib.util.module_from_spec(spec)
+    loader.exec_module(conf)
+    conf = conf.configuration
 
     if FLAGS.docker:
         conf['output_dir'] = '/result'
         assert os.path.exists(conf['output_dir'])
-        print 'output goes to ', conf['output_dir']
-        # conf['data_dir'] = os.environ['VMPC_DATA_DIR'] + '/train'
+        print('output goes to ', conf['output_dir'])
+        conf['data_dir'] = os.environ['VMPC_DATA_DIR'] + '/train'
+
+    if 'VMPC_DATA_DIR' in os.environ:
+        path = conf['data_dir'].partition('pushing_data')[2]
+        conf['data_dir'] = os.environ['VMPC_DATA_DIR'] + path
+
+    if 'RESULT_DIR' in os.environ:
+        conf['output_dir']= os.environ['RESULT_DIR']
 
     if FLAGS.ow:
-        print 'deleting {}'.format(conf['output_dir'])
+        print('deleting {}'.format(conf['output_dir']))
         os.system("rm {}".format(conf['output_dir']) + '/*')
 
     conf['event_log_dir'] = conf['output_dir']
 
 
     if FLAGS.visualize or FLAGS.visualize_check:
-        print 'creating visualizations ...'
+        print('creating visualizations ...')
         conf['schedsamp_k'] = -1  # don't feed ground truth
 
         conf['data_dir'] = '/'.join(str.split(conf['data_dir'], '/')[:-1] + ['test'])
@@ -99,15 +109,15 @@ def main(unused_argv, conf_script= None):
     sess = tf.InteractiveSession(config=tf.ConfigProto(gpu_options=gpu_options))
 
     if FLAGS.visualize or FLAGS.visualize_check:
-        model = Model(conf, build_loss, load_data=False, sess=sess)
+        model = Model(conf, build_loss, load_data=False, sess = sess)
     else:
-        model = Model(conf, build_loss, load_data=True, sess=sess)
+        model = Model(conf, build_loss, load_data=True, sess = sess)
     model.build_net()
 
-    testmodel = Model(conf, build_loss, load_data=True, sess=sess, pref='test')
+    testmodel = Model(conf, build_loss, load_data=True, sess = sess, pref='test')
     testmodel.build_net(traintime=False, reuse=True)
 
-    print 'Constructing saver.'
+    print('Constructing saver.')
     vars = tf.get_collection(tf.GraphKeys.GLOBAL_VARIABLES)
     saving_saver = tf.train.Saver(vars, max_to_keep=0)
 
@@ -133,11 +143,11 @@ def main(unused_argv, conf_script= None):
             load_checkpoint(conf, sess, loading_saver, conf['visualize_check'])
         else: load_checkpoint(conf, sess, loading_saver)
 
-        print '-------------------------------------------------------------------'
-        print 'verify current settings!! '
-        for key in conf.keys():
-            print key, ': ', conf[key]
-        print '-------------------------------------------------------------------'
+        print('-------------------------------------------------------------------')
+        print('verify current settings!! ')
+        for key in list(conf.keys()):
+            print(key, ': ', conf[key])
+        print('-------------------------------------------------------------------')
 
         model.visualize(sess)
         return
@@ -145,16 +155,16 @@ def main(unused_argv, conf_script= None):
     itr_0 =0
     if FLAGS.resume != None:
         itr_0 = load_checkpoint(conf, sess, loading_saver, model_file=FLAGS.resume)
-        print 'resuming training at iteration: ', itr_0
+        print('resuming training at iteration: ', itr_0)
 
     if 'load_pretrained' in conf:
         load_checkpoint(conf, sess, loading_saver, model_file=conf['load_pretrained'])
 
-    print '-------------------------------------------------------------------'
-    print 'verify current settings!! '
-    for key in conf.keys():
-        print key, ': ', conf[key]
-    print '-------------------------------------------------------------------'
+    print('-------------------------------------------------------------------')
+    print('verify current settings!! ')
+    for key in list(conf.keys()):
+        print(key, ': ', conf[key])
+    print('-------------------------------------------------------------------')
 
     tf.logging.info('iteration number, cost')
 
@@ -187,7 +197,7 @@ def main(unused_argv, conf_script= None):
             summary_writer.add_summary(summary_str, itr)
 
         if itr % IMAGE_INTERVAL ==0:
-            print 'making image summ'
+            print('making image summ')
             feed_dict = {model.iter_num: np.float32(itr),
                          model.train_cond: 1}
             [image_summary_str] = sess.run([model.image_summaries], feed_dict)
@@ -236,7 +246,7 @@ def load_checkpoint(conf, sess, saver, model_file=None):
         num_iter = int(re.match('.*?([0-9]+)$', model_file).group(1))
     else:
         ckpt = tf.train.get_checkpoint_state(conf['output_dir'])
-        print("loading " + ckpt.model_checkpoint_path)
+        print(("loading " + ckpt.model_checkpoint_path))
         saver.restore(sess, ckpt.model_checkpoint_path)
         num_iter = int(re.match('.*?([0-9]+)$', ckpt.model_checkpoint_path).group(1))
     conf['num_iter'] = num_iter

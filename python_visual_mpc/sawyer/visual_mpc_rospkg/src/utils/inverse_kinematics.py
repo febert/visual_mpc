@@ -75,7 +75,7 @@ def get_joint_angles(pose, seed_cmd = None, use_advanced_options = False):
     try:
         rospy.wait_for_service(name_of_service, 5.0)
         resp = iksvc(ikreq)
-    except (rospy.ServiceException, rospy.ROSException), e:
+    except (rospy.ServiceException, rospy.ROSException) as e:
         rospy.logerr("Service call failed: %s" % (e,))
         return False
 
@@ -89,7 +89,7 @@ def get_joint_angles(pose, seed_cmd = None, use_advanced_options = False):
         # rospy.loginfo("SUCCESS - Valid Joint Solution Found from Seed Type: %s" %
         #       (seed_str,))
         # Format solution into Limb API-compatible dictionary
-        limb_joints = dict(zip(resp.joints[0].name, resp.joints[0].position))
+        limb_joints = dict(list(zip(resp.joints[0].name, resp.joints[0].position)))
         # rospy.loginfo("\nIK Joint Solution:\n%s", limb_joints)
         # rospy.loginfo("------------------")
         # rospy.loginfo("Response Message:\n%s", resp)
@@ -127,8 +127,8 @@ def get_pose_stamped(x,y,z,o):
 
 def joint_state_from_cmd(cmd):
     js = JointState()
-    js.name = cmd.keys()
-    js.position = cmd.values()
+    js.name = list(cmd.keys())
+    js.position = list(cmd.values())
     return js
 
 FORWARD_POINT = Quaternion(
@@ -169,7 +169,7 @@ EXAMPLE_O = Quaternion(
 def main():
     rospy.init_node("inverse_kinematics_test")
     pose = get_pose_stamped(0.45, 0.16, 0.21, EXAMPLE_O)
-    print get_joint_angles(pose)
+    print(get_joint_angles(pose))
 
 if __name__ == '__main__':
     main()

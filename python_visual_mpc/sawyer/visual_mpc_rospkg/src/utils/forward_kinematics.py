@@ -62,7 +62,7 @@ def fk_service_client(limb = "right"):
     try:
         rospy.wait_for_service(ns, 5.0)
         resp = fksvc(fkreq)
-    except (rospy.ServiceException, rospy.ROSException), e:
+    except (rospy.ServiceException, rospy.ROSException) as e:
         rospy.logerr("Service call failed: %s" % (e,))
         return False
 

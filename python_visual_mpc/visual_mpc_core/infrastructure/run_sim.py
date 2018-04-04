@@ -16,7 +16,7 @@ from python_visual_mpc.visual_mpc_core.infrastructure.utility import *
 
 import matplotlib.pyplot as plt
 from datetime import datetime
-import cPickle
+import pickle
 import cv2
 import shutil
 
@@ -104,7 +104,7 @@ class Sim(object):
             self.depth_image_folder = self.traj_folder + '/depth_images'
 
             if os.path.exists(self.traj_folder):
-                print 'trajectory folder {} already exists, deleting the folder'.format(self.traj_folder)
+                print('trajectory folder {} already exists, deleting the folder'.format(self.traj_folder))
                 shutil.rmtree(self.traj_folder)
 
             os.makedirs(self.traj_folder)
@@ -134,7 +134,7 @@ class Sim(object):
                 if hasattr(traj, "plan_stat"):
                     dict['plan_stat'] = traj.plan_stat
 
-                cPickle.dump(dict, f)
+                pickle.dump(dict, f)
 
             for t in range(traj.T):
                 image_name = self.image_folder+ "/im{}.png".format(t)
@@ -164,12 +164,12 @@ class Sim(object):
                 traj_per_file = self._hyperparams['traj_per_file']
             else:
                 traj_per_file = 256
-            print 'traj_per_file', traj_per_file
+            print('traj_per_file', traj_per_file)
             if len(self.trajectory_list) == traj_per_file:
                 filename = 'traj_{0}_to_{1}' \
                     .format(itr - traj_per_file + 1, itr)
 
-                from utility.save_tf_record import save_tf_record
+                from .utility.save_tf_record import save_tf_record
                 save_tf_record(filename, self.trajectory_list, self.agentparams)
 
                 self.trajectory_list = []

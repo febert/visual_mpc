@@ -14,7 +14,7 @@ from python_visual_mpc.video_prediction.basecls.prediction_model_basecls import 
 def main():
     # for debugging only:
     os.environ["CUDA_VISIBLE_DEVICES"] = "1"
-    print 'using CUDA_VISIBLE_DEVICES=', os.environ["CUDA_VISIBLE_DEVICES"]
+    print('using CUDA_VISIBLE_DEVICES=', os.environ["CUDA_VISIBLE_DEVICES"])
     conf = {}
 
     current_dir = os.path.dirname(os.path.realpath(__file__))
@@ -61,7 +61,7 @@ def main():
     from python_visual_mpc.video_prediction.utils_vpred.create_gif_lib import comp_single_video
 
     for i_run in range(1):
-        print 'run number ', i_run
+        print('run number ', i_run)
 
         images, actions, endeff = sess.run([train_images, train_actions, train_states],{dataset_01ratio:0.5})
 
@@ -70,12 +70,12 @@ def main():
 
         # show some frames
         for b in range(conf['batch_size']):
-            print 'b',b
-            print 'actions'
-            print actions[b]
+            print('b',b)
+            print('actions')
+            print(actions[b])
 
-            print 'endeff'
-            print endeff[b]
+            print('endeff')
+            print(endeff[b])
 
             # print 'video mean brightness', np.mean(images[b])
             # if np.mean(images[b]) < 0.25:

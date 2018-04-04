@@ -58,7 +58,7 @@ if __name__ == '__main__':
         p1 = (int(bbox[0]), int(bbox[1]))
         p2 = (int(bbox[0] + bbox[2]), int(bbox[1] + bbox[3]))
         cv2.rectangle(frame, p1, p2, (0, 0, 255))
-        print 'tracking ok:', ok
+        print('tracking ok:', ok)
         # Display result
         cv2.imshow("Tracking", frame)
 

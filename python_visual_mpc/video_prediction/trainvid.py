@@ -3,7 +3,7 @@ import numpy as np
 import tensorflow as tf
 import imp
 import sys
-import cPickle
+import pickle
 import pdb
 
 import imp
@@ -41,9 +41,9 @@ if __name__ == '__main__':
 
 def main(unused_argv, conf_script= None):
     os.environ["CUDA_VISIBLE_DEVICES"] = str(FLAGS.device)
-    print 'using CUDA_VISIBLE_DEVICES=', FLAGS.device
+    print('using CUDA_VISIBLE_DEVICES=', FLAGS.device)
     from tensorflow.python.client import device_lib
-    print device_lib.list_local_devices()
+    print(device_lib.list_local_devices())
 
     if conf_script == None: conf_file = FLAGS.hyper
     else: conf_file = conf_script
@@ -56,7 +56,7 @@ def main(unused_argv, conf_script= None):
 
     conf['event_log_dir'] = conf['output_dir']
     if FLAGS.visualize_check:
-        print 'creating visualizations ...'
+        print('creating visualizations ...')
         conf['schedsamp_k'] = -1  # don't feed ground truth
 
         if 'test_data_dir' in conf:
@@ -89,7 +89,7 @@ def main(unused_argv, conf_script= None):
             conf['modelconfiguration']['schedule_sampling_k'] = conf['schedsamp_k']
 
         if FLAGS.float16:
-            print 'using float16'
+            print('using float16')
             conf['float16'] = ''
 
         build_loss = False
@@ -103,7 +103,7 @@ def main(unused_argv, conf_script= None):
     else:
         model = Model(conf, load_data=True, trafo_pix=False, build_loss=build_loss)
 
-    print 'Constructing saver.'
+    print('Constructing saver.')
     vars = tf.get_collection(tf.GraphKeys.GLOBAL_VARIABLES)
     vars = filter_vars(vars)
     saving_saver = tf.train.Saver(vars, max_to_keep=0)
@@ -132,11 +132,11 @@ def main(unused_argv, conf_script= None):
             load_checkpoint(conf, sess, loading_saver, conf['visualize_check'])
         else: load_checkpoint(conf, sess, loading_saver)
 
-        print '-------------------------------------------------------------------'
-        print 'verify current settings!! '
-        for key in conf.keys():
-            print key, ': ', conf[key]
-        print '-------------------------------------------------------------------'
+        print('-------------------------------------------------------------------')
+        print('verify current settings!! ')
+        for key in list(conf.keys()):
+            print(key, ': ', conf[key])
+        print('-------------------------------------------------------------------')
 
         if FLAGS.diffmotions:
             model.visualize_diffmotions(sess)
@@ -149,13 +149,13 @@ def main(unused_argv, conf_script= None):
     itr_0 =0
     if FLAGS.resume != None:
         itr_0 = load_checkpoint(conf, sess, loading_saver, model_file=FLAGS.resume)
-        print 'resuming training at iteration: ', itr_0
+        print('resuming training at iteration: ', itr_0)
 
-    print '-------------------------------------------------------------------'
-    print 'verify current settings!! '
-    for key in conf.keys():
-        print key, ': ', conf[key]
-    print '-------------------------------------------------------------------'
+    print('-------------------------------------------------------------------')
+    print('verify current settings!! ')
+    for key in list(conf.keys()):
+        print(key, ': ', conf[key])
+    print('-------------------------------------------------------------------')
 
     tf.logging.info('iteration number, cost')
 
@@ -168,8 +168,23 @@ def main(unused_argv, conf_script= None):
         # Generate new batch of data_files.
 
         feed_dict = {model.iter_num: np.float32(itr),
-                     model.train_cond: 1,
-                     model.shuff_cond: 1}
+                     model.train_cond: 1}
+
+        if len(conf['data_dir']) == 2:
+            if 'scheduled_finetuning' in conf:
+                dest_itr = conf['scheduled_finetuning_dest_itr']
+                ratio_dest_val = conf['scheduled_finetuning_dest_value']
+                ratio01 = np.array([(itr/dest_itr)*ratio_dest_val + (1.-itr/dest_itr)])
+                ratio01 = np.clip(ratio01, ratio_dest_val, 1.)
+                ratio01 = np.squeeze(ratio01)
+                feed_dict[model.dataset_01ratio] = ratio01
+            else:
+                ratio01 = 0.2
+                feed_dict[model.dataset_01ratio] = ratio01
+
+            if (itr) % 10 == 0:
+                print('ratio old data/batchsize:', ratio01)
+
 
         cost, _, summary_str = sess.run([model.loss, model.train_op, model.train_summ_op],
                                         feed_dict)
@@ -180,15 +195,20 @@ def main(unused_argv, conf_script= None):
         if (itr) % VAL_INTERVAL == 2:
             # Run through validation set.
             feed_dict = {model.iter_num: np.float32(itr),
-                         model.train_cond: 0,
-                         model.shuff_cond: 1}
-            [val_summary_str] = sess.run([model.val_summ_op], feed_dict)
-            summary_writer.add_summary(val_summary_str, itr)
+                         model.train_cond: 0}
+            if len(conf['data_dir']) == 2:
+                feed_dict[model.dataset_01ratio] = ratio01
+                [val_summary_str, val_0_summary_str, val_1_summary_str] = sess.run([model.val_summ_op, model.val_0_summ_op, model.val_1_summ_op], feed_dict)
+                summary_writer.add_summary(val_summary_str, itr)
+                summary_writer.add_summary(val_0_summary_str, itr)
+                summary_writer.add_summary(val_1_summary_str, itr)
+            else:
+                [val_summary_str] = sess.run([model.val_summ_op], feed_dict)
+                summary_writer.add_summary(val_summary_str, itr)
 
         if (itr) % VIDEO_INTERVAL == 2 and hasattr(model, 'val_video_summaries'):
             feed_dict = {model.iter_num: np.float32(itr),
-                         model.train_cond: 0,
-                         model.shuff_cond: 0}
+                         model.train_cond: 0}
             video_proto = sess.run(model.val_video_summaries, feed_dict = feed_dict)
             summary_writer.add_summary(convert_tensor_to_gif_summary(video_proto))
 
@@ -229,7 +249,7 @@ def load_checkpoint(conf, sess, saver, model_file=None):
         num_iter = int(re.match('.*?([0-9]+)$', model_file).group(1))
     else:
         ckpt = tf.train.get_checkpoint_state(conf['output_dir'])
-        print("loading " + ckpt.model_checkpoint_path)
+        print(("loading " + ckpt.model_checkpoint_path))
         saver.restore(sess, ckpt.model_checkpoint_path)
         num_iter = int(re.match('.*?([0-9]+)$', ckpt.model_checkpoint_path).group(1))
     conf['num_iter'] = num_iter
@@ -241,7 +261,7 @@ def filter_vars(vars):
         if not '/state:' in v.name:
             newlist.append(v)
         else:
-            print 'removed state variable from saving-list: ', v.name
+            print('removed state variable from saving-list: ', v.name)
     return newlist
 
 if __name__ == '__main__':

@@ -414,9 +414,9 @@ def kronecker_local2d(inputs, filters, kernel_size, strides=(1, 1), padding='SAM
                                  % (tuple(factor_kernel_shape), tuple([input_shape[0], factor_kernel_shape]),
                                     tuple(kernel.get_shape().as_list())))
         if channelwise:
-            filter_h_lengths, filter_w_lengths = zip(*[kernel.get_shape().as_list()[-3:-1] for kernel in kernels])
+            filter_h_lengths, filter_w_lengths = list(zip(*[kernel.get_shape().as_list()[-3:-1] for kernel in kernels]))
         else:
-            filter_h_lengths, filter_w_lengths = zip(*[kernel.get_shape().as_list()[-4:-2] for kernel in kernels])
+            filter_h_lengths, filter_w_lengths = list(zip(*[kernel.get_shape().as_list()[-4:-2] for kernel in kernels]))
         if [np.prod(filter_h_lengths), np.prod(filter_w_lengths)] != kernel_size:
             raise ValueError("Expecting kernel size %s but instead got kernel size %s"
                              % (tuple(kernel_size), tuple([np.prod(filter_h_lengths), np.prod(filter_w_lengths)])))

@@ -2,10 +2,9 @@ import numpy as np
 import tensorflow as tf
 import random
 import os
-import cPickle
+import pickle
 from collections import namedtuple
 from python_visual_mpc.data_preparation.gather_data import make_traj_name_list, crop_and_rot
-import ray
 import re
 import sys
 import glob
@@ -41,7 +40,7 @@ def get_start_end(conf):
 
     smp_range = end // t_ev_nstep - conf['sequence_length']
     if 'shift_window' in conf:
-        print 'performing shifting in time'
+        print('performing shifting in time')
         start = np.random.random_integers(0, smp_range) * t_ev_nstep
     else:
         start = 0
@@ -104,7 +103,7 @@ def read_img(tag_dict, dataind, tar=None, trajname=None):
 
 def reading_thread(conf, subset_traj, enqueue_op, sess, placeholders, use_tar):
     num_errors = 0
-    print 'started process with PID:', os.getpid()
+    print('started process with PID:', os.getpid())
 
     for trajname in itertools.cycle(subset_traj):  # loop of traj0, traj1,..
         nump_array_dict = read_trajectory(conf, trajname, use_tar=use_tar)
@@ -156,10 +155,10 @@ def read_trajectory(conf, trajname, use_tar = False):
     if use_tar:
         tar = tarfile.open(trajname + "/traj.tar")
         pkl_file_stream = tar.extractfile('traj/state_action.pkl')
-        pkldata = cPickle.load(pkl_file_stream)
+        pkldata = pickle.load(pkl_file_stream)
     else:
         tar = None
-        pkldata = cPickle.load(open(trajname + '/state_action.pkl', 'rb'))
+        pkldata = pickle.load(open(trajname + '/state_action.pkl', 'rb'), encoding='latin1')
 
     for tag_dict in conf['sourcetags']:
         if 'not_per_timestep' not in tag_dict:
@@ -239,7 +238,7 @@ class OnlineReader(object):
         tf_dtypes = [tf.float32]*len(pl_shapes)
 
         self.q = tf.FIFOQueue(1000, tf_dtypes, shapes=pl_shapes)
-        self.enqueue_op = self.q.enqueue(self.place_holders.values())
+        self.enqueue_op = self.q.enqueue(list(self.place_holders.values()))
 
         auto_split = False  # automatically divide dataset into train, val, test and save the split to pkl-file
         if auto_split:
@@ -262,18 +261,18 @@ class OnlineReader(object):
         :return: train, val, test datasets for every source
         """
 
-        print 'searching data'
+        print('searching data')
         datasets = []
         for dir in self.conf['source_basedirs']:
             source_name = str.split(dir, '/')[-1]
 
-            print 'preparing source_basedir', dir
+            print('preparing source_basedir', dir)
             split_file = self.conf['current_dir'] + '/' + source_name + '_split.pkl'
 
             dataset_i = {}
             if os.path.isfile(split_file):
-                print 'loading datasplit from ', split_file
-                dataset_i = cPickle.load(open(split_file, "rb"))
+                print('loading datasplit from ', split_file)
+                dataset_i = pickle.load(open(split_file, "rb"))
             else:
                 traj_list = make_traj_name_list(self.conf, shuffle=True)
 
@@ -292,7 +291,7 @@ class OnlineReader(object):
                 dataset_i['val'] = val_traj
                 dataset_i['test'] = test_traj
 
-                cPickle.dump(dataset_i, open(split_file, 'wb'))
+                pickle.dump(dataset_i, open(split_file, 'wb'))
 
             datasets.append(dataset_i)
 
@@ -328,7 +327,7 @@ class OnlineReader(object):
         end_idx = [itraj_start + traj_per_worker * (i + 1) - 1 for i in range(self.num_threads)]
 
         for i in range(self.num_threads):
-            print 'worker {} going from {} to {} '.format(i, start_idx[i], end_idx[i])
+            print('worker {} going from {} to {} '.format(i, start_idx[i], end_idx[i]))
             subset_traj = traj_list[start_idx[i]:end_idx[i]]
 
             t = threading.Thread(target=reading_thread, args=(self.conf, subset_traj,
@@ -338,7 +337,7 @@ class OnlineReader(object):
             t.setDaemon(True)
             t.start()
 
-def convert_to_tfrec():
+def convert_to_tfrec(sourcedir, destdir):
     tag_images = {'name': 'images',
                   'file': '/images/im{}.png',  # only tindex
                   'shape': [48, 64, 3],
@@ -347,27 +346,27 @@ def convert_to_tfrec():
     tag_actions = {'name': 'states',
                    'file': '/state_action.pkl',  # only tindex
                    'pkl_names': ['qpos', 'qvel'],
-                   'shape': [6],
+                   'shape': [12],
                    }
 
     tag_states = {'name': 'actions',
                   'file': '/state_action.pkl',  # only tindex
-                  'shape': [3],
+                  'shape': [5],
                   }
     traj_conf = {
-        'T':30,
         'batch_size':64,
-        'sequence_length':30,
+        'sequence_length':15,
         'ngroup': 1000,
         'image_height':48,
         'image_width':64,
         ''
         'sourcetags': [tag_images, tag_actions, tag_states],
-        'source_basedirs': [os.environ['VMPC_DATA_DIR'] + '/datacol_appflow/data/train'],
-        # 'source_basedirs': [os.environ['VMPC_DATA_DIR'] + '/cartgripper_gtruth_flow/train'],
-        'current_dir':os.environ['VMPC_DATA_DIR'] + '/datacol_appflow/',
-        'data_save_dir':'/mnt/sda1/pushing_data/datacol_appflow_tfrec/train',
+        'source_basedirs': [sourcedir],
+        # 'current_dir':os.environ['VMPC_DATA_DIR'] + '/datacol_appflow/',
+        'data_save_dir':destdir,
     }
+
+    traj_conf['T'] = traj_conf['sequence_length']
     trajlist = make_traj_name_list(traj_conf, shuffle=False)
 
     tag_images = {'name': 'images',
@@ -395,7 +394,7 @@ def convert_to_tfrec():
         t = copy.deepcopy(t)
         trajectory_list.append(t)
         traj_per_file = 128
-        print 'traj_per_file', traj_per_file
+        print('traj_per_file', traj_per_file)
         if len(trajectory_list) == traj_per_file:
             filename = 'traj_{0}_to_{1}' \
                 .format(itr - traj_per_file + 1, itr)
@@ -407,7 +406,7 @@ def test_online_reader():
 
     # for debugging only:
     os.environ["CUDA_VISIBLE_DEVICES"] = "1"
-    print 'using CUDA_VISIBLE_DEVICES=', os.environ["CUDA_VISIBLE_DEVICES"]
+    print('using CUDA_VISIBLE_DEVICES=', os.environ["CUDA_VISIBLE_DEVICES"])
 
     # hyperparams_file = '/home/frederik/Documents/catkin_ws/src/visual_mpc/pushing_data/cartgripper_rgb/hyperparams.py'
     # hyperparams = imp.load_source('hyperparams', hyperparams_file)
@@ -435,12 +434,12 @@ def test_online_reader():
     tag_actions = {'name': 'states',
                   'file': '/state_action.pkl',  # only tindex
                   'pkl_names': ['qpos', 'qvel'],
-                   'shape': [6],
+                   'shape': [12],
                   }
 
     tag_states = {'name': 'actions',
                   'file': '/state_action.pkl',  # only tindex
-                  'shape': [3],
+                  'shape': [6],
                   }
     conf = {
         'batch_size':64,
@@ -469,8 +468,8 @@ def test_online_reader():
 
         deltat.append(time.time() - end)
         if i_run % 10 == 0:
-            print 'tload{}'.format(time.time() - end)
-            print 'average time:', np.average(np.array(deltat))
+            print('tload{}'.format(time.time() - end))
+            print('average time:', np.average(np.array(deltat)))
         end = time.time()
 
         # file_path = conf['current_dir'] + '/preview'
@@ -507,4 +506,4 @@ def test_online_reader():
 
 if __name__ == '__main__':
     # test_online_reader()
-    convert_to_tfrec()
+    convert_to_tfrec('/mnt/sda1/pushing_data/mj_pos_noreplan_fast/train', '/mnt/sda1/pushing_data/mj_pos_noreplan_fast_tfrec/train')

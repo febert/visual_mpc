@@ -1,4 +1,4 @@
-import cPickle
+import pickle
 import numpy
 
 from python_visual_mpc.video_prediction.utils_vpred.create_gif_lib import *
@@ -7,7 +7,7 @@ import colorsys
 
 
 def comp_gif(conf, file_path, name= "", examples = 4, append_masks=False, suffix = ''):
-    dict_ = cPickle.load(open(file_path + '/pred.pkl','rb'))
+    dict_ = pickle.load(open(file_path + '/pred.pkl','rb'))
 
     videolist = []
 

@@ -1,4 +1,4 @@
-from __future__ import absolute_import, division, print_function
+
 # This module is adapted from the "proposal" PythonLayer in Faster-RCNN code
 
 import sys

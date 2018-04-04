@@ -3,7 +3,7 @@ import PyKDL
 
 from baxter_kdl.kdl_parser import kdl_tree_from_urdf_model
 from urdf_parser_py.urdf import URDF
-import cPickle as pkl
+import pickle as pkl
 import os
 
 class EE_Calculator:
@@ -90,4 +90,4 @@ if __name__ == '__main__':
 
             out_dict = {'demoX':out_states, 'demoU':out_actions}
             pkl.dump(out_dict, open(out_path, 'wb'))
-            print 'for type', c, 'converted obj dict:', file_num
+            print('for type', c, 'converted obj dict:', file_num)

@@ -87,7 +87,7 @@ class Prediction_Model(object):
 
     def build(self):
 
-        if 'kern_size' in self.conf.keys():
+        if 'kern_size' in list(self.conf.keys()):
             KERN_SIZE = self.conf['kern_size']
         else:
             KERN_SIZE = 5
@@ -117,7 +117,7 @@ class Prediction_Model(object):
 
         if 'lstm_size' in self.conf:
             lstm_size = self.conf['lstm_size']
-            print 'using lstm size', lstm_size
+            print('using lstm size', lstm_size)
         else:
             lstm_size = np.int32(np.array([16, 32, 64, 32, 16]))
 
@@ -130,7 +130,7 @@ class Prediction_Model(object):
 
         for image, action in zip(self.images[:-1], self.actions[:-1]):
             t +=1
-            print t
+            print(t)
             # Reuse variables after the first timestep.
             reuse = bool(self.gen_images)
 
@@ -167,7 +167,7 @@ class Prediction_Model(object):
                     assert self.conf['model']=='STP'
                     if t > 1:
                         input_image = self.images[1]
-                        print 'refeed with image 1'
+                        print('refeed with image 1')
                     else:
                         input_image = prev_image
                 else:
@@ -203,7 +203,7 @@ class Prediction_Model(object):
                     # Pass in state and action.
                     if 'ignore_state' in self.conf:
                         lowdim = action
-                        print 'ignoring state'
+                        print('ignoring state')
                     else:
                         lowdim = state_action
 
@@ -215,7 +215,7 @@ class Prediction_Model(object):
 
                     enc2 = tf.concat(axis=3, values=[enc2, smear])
                 else:
-                    print 'ignoring states and actions'
+                    print('ignoring states and actions')
 
                 enc3 = slim.layers.conv2d(   #8x8x32
                     enc2, hidden3.get_shape()[3], [1, 1], stride=1, scope='conv4')
@@ -375,7 +375,7 @@ class Prediction_Model(object):
         if '1stimg_bckgd' in self.conf:
             background_pix = pix_distributions[0]
             background_pix = tf.expand_dims(background_pix, -1)
-            print 'using pix_distrib-background from first image..'
+            print('using pix_distrib-background from first image..')
         else:
             background_pix = prev_pix_distrib
         pix_distrib_output = mask_list[0] * background_pix
