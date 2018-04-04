@@ -17,7 +17,7 @@ def main():
     for g in range(2,11):
         imlist = []
         for t in range(30):
-            print t
+            print(t)
             itr = g*1000
             image_folder = '/mnt/sda1/sawyerdata/wrist_rot/main/traj_group{}/traj{}/images'.format(g, itr)
             '/images/main_full_cropped_im{}_*'.format(str(t).zfill(2))

@@ -25,7 +25,7 @@ def main():
     t.start()
 
     d.join(1)
-    print 'd.isAlive()', d.isAlive()
+    print('d.isAlive()', d.isAlive())
     t.join()
 
 if __name__ == '__main__':

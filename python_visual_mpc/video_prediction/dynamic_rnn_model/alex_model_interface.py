@@ -80,7 +80,7 @@ class Alex_Interface_Model(object):
                                                   lambda: [val_images, val_actions, val_states])
 
         if 'use_len' in conf:
-            print 'randomly shift videos for data augmentation'
+            print('randomly shift videos for data augmentation')
             images, states, actions = self.random_shift(images, states, actions)
 
         self.images = images
@@ -88,7 +88,7 @@ class Alex_Interface_Model(object):
 
         if 'create_model' in conf:
             create_model = conf['create_model']
-            print 'using different create_model'
+            print('using different create_model')
         else: create_model = create_model_improved
 
         self.actions = actions
@@ -119,7 +119,7 @@ class Alex_Interface_Model(object):
         compute_metric(sess, self.conf, self, create_images)
 
     def random_shift(self, images, states, actions):
-        print 'shifting the video sequence randomly in time'
+        print('shifting the video sequence randomly in time')
         tshift = 2
         uselen = self.conf['use_len']
         fulllength = self.conf['sequence_length']

@@ -7,7 +7,7 @@ from python_visual_mpc.video_prediction.lstm_ops12 import basic_conv_lstm_cell
 from python_visual_mpc.misc.zip_equal import zip_equal
 
 import collections
-import cPickle
+import pickle
 from python_visual_mpc.video_prediction.utils_vpred.animate_tkinter import Visualizer_tkinter
 import pdb
 
@@ -32,7 +32,7 @@ class Bilinup_Model(Base_Prediction_Model):
     def build_network_core(self, action, current_state, input_image):
         lstm_func = basic_conv_lstm_cell
 
-        print 'using bilinear upsampling'
+        print('using bilinear upsampling')
 
         with slim.arg_scope(
                 [lstm_func, slim.layers.conv2d, slim.layers.fully_connected,
@@ -69,7 +69,7 @@ class Bilinup_Model(Base_Prediction_Model):
 
                 enc2 = tf.concat(axis=3, values=[enc2, smear])
             else:
-                print 'ignoring states and actions'
+                print('ignoring states and actions')
             enc3 = slim.layers.conv2d(  # 8x8x32
                 enc2, hidden3.get_shape()[3], [1, 1], stride=1, scope='conv4')
             hidden5, self.lstm_state5 = self.lstm_func(  # 8x8x64

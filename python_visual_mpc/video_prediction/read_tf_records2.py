@@ -10,7 +10,7 @@ import time
 from PIL import Image
 import imp
 
-import cPickle
+import pickle
 
 COLOR_CHAN = 3
 def decode_im(conf, features, image_name):
@@ -57,8 +57,8 @@ def build_tfrecord_input(conf, training=True, input_file=None, shuffle=True):
     if 'adim' in conf:
         adim = conf['adim']
     else: adim = 4
-    print 'adim', adim
-    print 'sdim', sdim
+    print('adim', adim)
+    print('sdim', sdim)
 
     if input_file is not None:
         filenames = [input_file]
@@ -78,7 +78,7 @@ def build_tfrecord_input(conf, training=True, input_file=None, shuffle=True):
             filenames = gfile.Glob(os.path.join(conf['data_dir'], '*'))
             shuffle = False
 
-    print 'using shuffle: ', shuffle
+    print('using shuffle: ', shuffle)
 
     # Reads an image from a file, decodes it into a dense tensor, and resizes it
     # to a fixed shape.
@@ -86,8 +86,8 @@ def build_tfrecord_input(conf, training=True, input_file=None, shuffle=True):
         image_seq, image_main_seq, endeffector_pos_seq, gen_images_seq, gen_states_seq,\
         action_seq, object_pos_seq, robot_pos_seq, goal_image = [], [], [], [], [], [], [], [], []
 
-        load_indx = range(0, conf['sequence_length'], conf['skip_frame'])
-        print 'using frame sequence: ', load_indx
+        load_indx = list(range(0, conf['sequence_length'], conf['skip_frame']))
+        print('using frame sequence: ', load_indx)
 
         rand_h = tf.random_uniform([1], minval=-0.2, maxval=0.2)
         rand_s = tf.random_uniform([1], minval=-0.2, maxval=0.2)
@@ -194,7 +194,7 @@ def build_tfrecord_input(conf, training=True, input_file=None, shuffle=True):
     next_element = iterator.get_next()
 
     output_element = {}
-    for k in next_element.keys():
+    for k in list(next_element.keys()):
         output_element[k] = tf.reshape(next_element[k], [conf['batch_size']] + next_element[k].get_shape().as_list()[1:])
 
     return output_element
@@ -203,19 +203,19 @@ def build_tfrecord_input(conf, training=True, input_file=None, shuffle=True):
 def main():
     # for debugging only:
     os.environ["CUDA_VISIBLE_DEVICES"] = "1"
-    print 'using CUDA_VISIBLE_DEVICES=', os.environ["CUDA_VISIBLE_DEVICES"]
+    print('using CUDA_VISIBLE_DEVICES=', os.environ["CUDA_VISIBLE_DEVICES"])
     conf = {}
 
     current_dir = os.path.dirname(os.path.realpath(__file__))
     # DATA_DIR = '/mnt/sda1/pushing_data/cartgripper_startgoal_17step/train'
-    DATA_DIR = '/mnt/sda1/pushing_data/datacol_appflow_tfrec/train'
+    DATA_DIR = '/mnt/sda1/pushing_data/cartgripper_mj1.5/train'
 
     conf['schedsamp_k'] = -1  # don't feed ground truth
     conf['data_dir'] = DATA_DIR  # 'directory containing data_files.' ,
     conf['skip_frame'] = 1
     conf['train_val_split']= 0.95
     conf['sequence_length']= 15 #48      # 'sequence length, including context frames.'
-    conf['batch_size']= 32
+    conf['batch_size']= 10
     conf['visualize']= False
     conf['context_frames'] = 2
 
@@ -225,7 +225,7 @@ def main():
     conf['adim'] = 3
 
     # conf['image_only'] = ''
-    conf['goal_image'] = ""
+    # conf['goal_image'] = ""
 
     conf['orig_size'] = [48, 64]
     # conf['orig_size'] = [480, 640]
@@ -233,13 +233,13 @@ def main():
     # conf['color_augmentation'] = ''
     # conf['test_metric'] = {'robot_pos': 1, 'object_pos': 2}
 
-    print '-------------------------------------------------------------------'
-    print 'verify current settings!! '
-    for key in conf.keys():
-        print key, ': ', conf[key]
-    print '-------------------------------------------------------------------'
+    print('-------------------------------------------------------------------')
+    print('verify current settings!! ')
+    for key in list(conf.keys()):
+        print(key, ': ', conf[key])
+    print('-------------------------------------------------------------------')
 
-    print 'testing the reader'
+    print('testing the reader')
 
     dict = build_tfrecord_input(conf, training=True)
 
@@ -255,11 +255,11 @@ def main():
 
         # images, actions, endeff, gen_images, gen_endeff = sess.run([dict['images'], dict['actions'], dict['endeffector_pos'], dict['gen_images'], dict['gen_states']])
         # images, actions, endeff = sess.run([dict['gen_images'], dict['actions'], dict['endeffector_pos']])
-        images, actions, endeff, goal_image = sess.run([dict['images'], dict['actions'], dict['endeffector_pos'], dict['goal_image']])
+        images, actions, endeff = sess.run([dict['images'], dict['actions'], dict['endeffector_pos']])
         # [images] = sess.run([dict['images']])
 
-        # file_path = '/'.join(str.split(DATA_DIR, '/')[:-1]+['preview'])
-        # comp_single_video(file_path, images, num_exp=conf['batch_size'])
+        file_path = '/'.join(str.split(DATA_DIR, '/')[:-1]+['preview'])
+        comp_single_video(file_path, images, num_exp=conf['batch_size'])
         #
         # for i in range(5):
         #     plt.imshow(goal_image.squeeze()[i])
@@ -271,8 +271,8 @@ def main():
 
         deltat.append(time.time() - end)
         if i_run % 10 == 0:
-            print 'tload{}'.format(time.time() - end)
-            print 'average time:', np.average(np.array(deltat))
+            print('tload{}'.format(time.time() - end))
+            print('average time:', np.average(np.array(deltat)))
         end = time.time()
 
         # show some frames

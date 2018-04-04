@@ -16,7 +16,7 @@ from intera_interface import CHECK_VERSION
 import pdb
 from std_msgs.msg import Float32
 from std_msgs.msg import Int64
-from utils.sawyer_pykdl import EE_Calculator
+from .utils.sawyer_pykdl import EE_Calculator
 
 class JointSprings(object):
     """
@@ -87,24 +87,24 @@ class JointSprings(object):
 
     def _imp_ctrl_active(self, inp):
         if inp.data == 1:
-            print 'impedance ctrl activated'
+            print('impedance ctrl activated')
             self._imp_ctrl_is_active = True
         if inp.data == 0:
-            print 'impedance ctrl deactivated'
+            print('impedance ctrl deactivated')
             self._imp_ctrl_is_active = False
 
     def _set_des_pos(self, jointstate):
-        self._des_angles = dict(zip(jointstate.name, jointstate.position))
+        self._des_angles = dict(list(zip(jointstate.name, jointstate.position)))
 
     def _release(self, maxstiff):
         maxstiff = maxstiff.data
         self.max_stiffness = float(maxstiff)
 
-        print "setting maxstiffness to", maxstiff
+        print("setting maxstiffness to", maxstiff)
         self.t_release = rospy.get_time()
 
     def adjust_springs(self):
-        for joint in self._des_angles.keys():
+        for joint in list(self._des_angles.keys()):
             t_delta = rospy.get_time() - self.t_release
             if t_delta > 0:
                 if t_delta < self.time_to_maxstiffness:
@@ -112,7 +112,7 @@ class JointSprings(object):
                 else:
                     self._springs[joint] = self.max_stiffness
             else:
-                print "warning t_delta smaller than zero!"
+                print("warning t_delta smaller than zero!")
 
     def _update_forces(self):
         """
@@ -134,7 +134,7 @@ class JointSprings(object):
         cur_vel = self._limb.joint_velocities()
         # calculate current forces
 
-        for joint in self._des_angles.keys():
+        for joint in list(self._des_angles.keys()):
             # spring portion
             cmd[joint] = self._springs[joint] * (self._des_angles[joint] -
                                                  cur_pos[joint])
@@ -144,7 +144,7 @@ class JointSprings(object):
         if self.comp_gripper_weight:
             comp_torques = self.calc_comp_torques()
             for i, joint in enumerate(self._des_angles.keys()):
-                print joint, comp_torques[i]
+                print(joint, comp_torques[i])
                 cmd[joint] += comp_torques[i]
 
         # command new joint torques

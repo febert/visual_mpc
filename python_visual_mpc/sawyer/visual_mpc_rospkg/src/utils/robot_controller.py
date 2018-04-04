@@ -76,7 +76,7 @@ class RobotController(object):
         # using a custom handpicked neutral position
         # starting from j0 to j6:
         neutral_jointangles = [0.412271, -0.434908, -1.198768, 1.795462, 1.160788, 1.107675, 2.068076]
-        cmd = dict(zip(self.joint_names, neutral_jointangles))
+        cmd = dict(list(zip(self.joint_names, neutral_jointangles)))
 
         self.limb.set_joint_position_speed(speed)
 
@@ -85,7 +85,7 @@ class RobotController(object):
             try:
                 self.set_joints(cmd)
             except:
-                print 'retrying set neutral...'
+                print('retrying set neutral...')
 
             done = True
 

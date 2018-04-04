@@ -6,12 +6,12 @@ from cv_bridge import CvBridge, CvBridgeError
 import os
 import shutil
 import socket
-import thread
+import _thread
 import numpy as np
 import pdb
 from berkeley_sawyer.srv import *
 from PIL import Image
-import cPickle
+import pickle
 import intera_interface
 from intera_interface import CHECK_VERSION
 from sensor_msgs.msg import JointState
@@ -79,7 +79,7 @@ class Pushback_Recorder(object):
         if args.record == 'False':
             self.playback()
         if args.record == 'True':
-            print 'ready for recording!'
+            print('ready for recording!')
             rospy.spin()
 
         raise ValueError('wrong argument!')
@@ -98,7 +98,7 @@ class Pushback_Recorder(object):
 
 
     def stop_recording(self, data):
-        print 'stopped recording'
+        print('stopped recording')
         self.collect_active = False
         # self.playback()
         self.clean_shutdown()
@@ -108,31 +108,31 @@ class Pushback_Recorder(object):
         if self.joint_pos != []:
             return
 
-        print 'started recording'
+        print('started recording')
         self.collect_active = True
         self.imp_ctrl_active.publish(0)
         self.joint_pos = []
         while(self.collect_active):
             self.control_rate.sleep()
             self.joint_pos.append(self.limb.joint_angles())
-            print 'recording ', len(self.joint_pos)
+            print('recording ', len(self.joint_pos))
 
         with open(self.file, 'wb') as f:
-            cPickle.dump(self.joint_pos, f)
+            pickle.dump(self.joint_pos, f)
 
-        print 'saved file to ', file
+        print('saved file to ', file)
 
     def playback(self):
-        self.joint_pos = cPickle.load(open(self.file, "rb"))
+        self.joint_pos = pickle.load(open(self.file, "rb"))
 
-        print 'press c to start playback...'
+        print('press c to start playback...')
         pdb.set_trace()
         self.imp_ctrl_release_spring(100)
         self.imp_ctrl_active.publish(1)
 
         replayrate = rospy.Rate(700)
         for t in range(len(self.joint_pos)):
-            print 'step {0} joints: {1}'.format(t, self.joint_pos[t])
+            print('step {0} joints: {1}'.format(t, self.joint_pos[t]))
             replayrate.sleep()
             self.move_with_impedance(self.joint_pos[t])
 

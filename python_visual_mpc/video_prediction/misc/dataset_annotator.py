@@ -3,7 +3,7 @@ import os
 import pdb
 import tensorflow as tf
 import matplotlib.pyplot as plt
-import cPickle
+import pickle
 from python_visual_mpc.video_prediction.read_tf_record_wristrot import build_tfrecord_input
 from matplotlib import animation
 from PIL import Image
@@ -52,7 +52,7 @@ class Getdesig(object):
                 plt.imshow(self.images[self.i_click])
                 plt.show()
         except:
-            print 'clicked in the wrong place!'
+            print('clicked in the wrong place!')
 
 
 t = 0
@@ -88,13 +88,13 @@ def run_annotation(conf, traj_data):
     images, actions, endeff_pos = traj_data
 
     for b in range(images.shape[0]):
-        print 'example {}'.format(b)
+        print('example {}'.format(b))
         done_example = False
         while not done_example:
             current_vid = images[b]
             # play_video(conf, current_vid)
 
-            print 'choose a point on the robot and track it!'
+            print('choose a point on the robot and track it!')
 
             tr = Getdesig(current_vid,conf['sequence_length'])
             robot_track = np.stack(tr.pos, axis=0)
@@ -102,7 +102,7 @@ def run_annotation(conf, traj_data):
 
             object_track_l = []
             for i in range(n_object_tracks):
-                print 'choose a point on an object and track it!'
+                print('choose a point on an object and track it!')
                 tr = Getdesig(current_vid, conf['sequence_length'], color='b')
                 object_track_l.append(np.stack(tr.pos, axis=0))
                 del (tr)
@@ -111,24 +111,24 @@ def run_annotation(conf, traj_data):
             # print 'len object_tracks', len(object_tracks)
             # print 'object tracks[0].shape', object_tracks[0].shape
 
-            print 'press c to continue, r to repeat'
+            print('press c to continue, r to repeat')
             done_enter = False
             while not done_enter:
-                cmd = raw_input('Input:')
+                cmd = input('Input:')
                 if cmd == 'c':
                     done_example = True
                     done_enter = True
                 elif cmd == 'r':
                     done_enter = True
-                    print 'repeating current example'
+                    print('repeating current example')
                     pdb.set_trace()
                 else:
-                    print 'wrong key'
-                    print 'press c to continue, r to repeat'
+                    print('wrong key')
+                    print('press c to continue, r to repeat')
 
             filename = conf['pkl_dir'] + '/b{}.pkl'.format(b)
-            print 'saving to', filename
-            cPickle.dump({'robot_pos':robot_track,
+            print('saving to', filename)
+            pickle.dump({'robot_pos':robot_track,
                           'object_pos':object_track,
                           'images':images[b],
                           'endeff_pos':endeff_pos[b],
@@ -149,7 +149,7 @@ def save_tf_record(conf, filename):
     saves data_files from one sample trajectory into one tf-record file
     """
     filename =os.path.join(conf['data_dest_dir'], filename)
-    print('Writing', filename)
+    print(('Writing', filename))
 
     writer = tf.python_io.TFRecordWriter(filename)
 
@@ -157,7 +157,7 @@ def save_tf_record(conf, filename):
 
     for b in range(conf['batch_size']):
 
-        dict = cPickle.load(open(conf['pkl_dir'] + '/b{}.pkl'.format(b), "rb"))
+        dict = pickle.load(open(conf['pkl_dir'] + '/b{}.pkl'.format(b), "rb"))
         actions = dict['actions']
         endeff_pos = dict['endeff_pos']
         object_pos = dict['object_pos']
@@ -212,13 +212,13 @@ def main():
     conf['robot_pos'] = 1
     conf['object_pos'] = 2  #number of tracked positions on objects
 
-    print '-------------------------------------------------------------------'
-    print 'verify current settings!! '
-    for key in conf.keys():
-        print key, ': ', conf[key]
-    print '-------------------------------------------------------------------'
+    print('-------------------------------------------------------------------')
+    print('verify current settings!! ')
+    for key in list(conf.keys()):
+        print(key, ': ', conf[key])
+    print('-------------------------------------------------------------------')
 
-    print 'testing the reader'
+    print('testing the reader')
 
     image_batch, action_batch, endeff_pos_batch = build_tfrecord_input(conf, training=True,
                                                                        input_file=sourcefilename)
@@ -232,7 +232,7 @@ def main():
     i_traj_start = 0
     i_traj_end = conf['batch_size'] -1
     for b in range(n_batches):
-        print 'using batch', b
+        print('using batch', b)
         [images, actions, endeff_pos] = sess.run([image_batch, action_batch, endeff_pos_batch])
 
         ckpt_path = '/'.join(str.split(sourcefilename, '/')[:-2]) + '/annotation_ckpts'
@@ -254,7 +254,7 @@ def main():
         i_traj_end += i_traj_start + conf['batch_size']-1
 
         pdb.set_trace()
-        print 'finished batch, press c + enter to continue'
+        print('finished batch, press c + enter to continue')
 
 
 if __name__ == '__main__':

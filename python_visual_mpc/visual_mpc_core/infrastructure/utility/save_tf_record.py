@@ -22,7 +22,7 @@ def save_tf_record(filename, trajectory_list, params):
     if not os.path.exists(dir):
         os.mkdir(dir)
     filename = os.path.join(dir, filename + '.tfrecords')
-    print('Writing', filename)
+    print(('Writing', filename))
     writer = tf.python_io.TFRecordWriter(filename)
 
     feature = {}
@@ -81,7 +81,7 @@ def save_tf_record_gtruthpred(dir, filename, trajectory_list, params):
     """
 
     filename = os.path.join(dir, filename + '.tfrecords')
-    print('Writing', filename)
+    print(('Writing', filename))
     writer = tf.python_io.TFRecordWriter(filename)
     feature = {}
 
@@ -108,7 +108,7 @@ def save_tf_record_lval(dir, filename, img_score_list):
     """
 
     filename = os.path.join(dir, filename + '.tfrecords')
-    print('Writing', filename)
+    print(('Writing', filename))
     writer = tf.python_io.TFRecordWriter(filename)
 
     feature = {}

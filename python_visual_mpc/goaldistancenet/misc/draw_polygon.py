@@ -27,8 +27,8 @@ class Getdesig(object):
         if self.i_click == self.maxclick:
             plt.close()
 
-        print('button=%d, x=%d, y=%d, xdata=%f, ydata=%f' %
-              (event.button, event.x, event.y, event.xdata, event.ydata))
+        print(('button=%d, x=%d, y=%d, xdata=%f, ydata=%f' %
+              (event.button, event.x, event.y, event.xdata, event.ydata)))
         self.coords = np.around(np.array([event.ydata, event.xdata])).astype(np.int32)
         self.ax.scatter(self.coords[1], self.coords[0], marker= "o", s=30, facecolors='b', edgecolors='b')
         self.ax.set_xlim(0, 63)

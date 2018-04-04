@@ -9,19 +9,20 @@ be pushed around with the robot. There's also a box without joints. Since
 the box doesn't have joints, it's fixed and can't be pushed around.
 """
 import numpy as np
-from mujoco_py import load_model_from_xml,load_model_from_path, MjSim, MjViewer
+from mujoco_py import load_model_from_xml,load_model_from_path, MjSim, MjViewer, MjViewerBasic
 import math
 import os
 
 from python_visual_mpc.visual_mpc_core.agent.utils.convert_world_imspace_mj1_5 import project_point
-
-MODEL_XML = "/home/frederik/Documents/catkin_ws/src/visual_mpc/mjc_models/cartgripper_noautogen.xml"
+from python_visual_mpc import __file__ as python_vmpc_path
+root_dir = '/'.join(str.split(python_vmpc_path, '/')[:-2])
+MODEL_XML = root_dir + "/mjc_models/cartgripper_noautogen.xml"
 import matplotlib.pyplot as plt
 
 model = load_model_from_path(MODEL_XML)
-# model = load_model_from_xml(MODEL_XML)
 sim = MjSim(model)
-viewer = MjViewer(sim)
+viewer = MjViewerBasic(sim)
+# viewer = MjViewer(sim)
 t = 0
 
 height, width = 480, 640
@@ -46,17 +47,21 @@ for t in range(1000):
     t += 1
     sim.step()
     # viewer.render()
-
-    largeimage = sim.render(width, height, camera_name="maincam")[::-1, :, :]
+    largeimage = viewer.render(width, height, "maincam")[::-1, :, :]
+    # largeimage = sim.render(width, height, camera_name="maincam")[::-1, :, :]
 
     r, c = project_point(sim.data.qpos)
-    print('model.data.qpos', sim.data.qpos)
-    print("row, col", r, c)
+    print(('model.data.qpos', sim.data.qpos))
+    print(("row, col", r, c))
     r = int(r)
     c = int(c)
 
     largeimage[r,:] = [255, 255, 255]
     largeimage[:, c] = [255, 255, 255]
     plt.imshow(largeimage)
+    # plt.savefig('/outputs/testimg.png')
     plt.show()
+
+    # import sys
+    # sys.exit()
 

@@ -3,7 +3,7 @@ import imageio
 from PIL import Image
 import numpy as np
 
-import cPickle
+import pickle
 import matplotlib.pyplot as plt
 from python_visual_mpc.video_prediction.utils_vpred.animate_tkinter import color_code_distrib
 from python_visual_mpc.video_prediction.misc.makegifs2 import assemble_gif
@@ -11,7 +11,7 @@ from python_visual_mpc.video_prediction.misc.makegifs2 import assemble_gif
 def save_video_mp4(filename, frames):
     writer = imageio.get_writer(filename + '.mp4', fps=10)
     for i, frame in enumerate(frames):
-        print 'frame',i
+        print('frame',i)
         writer.append_data(frame)
     writer.close()
 
@@ -24,8 +24,8 @@ def main():
 
     for cem_dir in range(5):
         filedir = '/home/febert/Documents/catkin_ws/src/visual_mpc/experiments/cem_exp/benchmarks_sawyer/weissgripper/verbose/record_cem{}'.format(cem_dir)
-        print 'processing dir ', filedir
-        dict = cPickle.load(open(filedir+'/pred.pkl', "rb"))
+        print('processing dir ', filedir)
+        dict = pickle.load(open(filedir+'/pred.pkl', "rb"))
 
         dest_dir = filedir
 

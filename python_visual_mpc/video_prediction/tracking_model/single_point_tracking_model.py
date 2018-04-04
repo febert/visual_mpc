@@ -7,7 +7,7 @@ from python_visual_mpc.video_prediction.lstm_ops12 import basic_conv_lstm_cell
 from python_visual_mpc.misc.zip_equal import zip_equal
 
 import collections
-import cPickle
+import pickle
 from python_visual_mpc.video_prediction.utils_vpred.animate_tkinter import Visualizer_tkinter
 import pdb
 from tensorflow.contrib.layers import layer_norm
@@ -62,7 +62,7 @@ class Single_Point_Tracking_Model(Dynamic_Base_Model):
             train_images, train_actions, train_states = build_tfrecord_fn(conf, training=True)
             val_images, val_actions, val_states = build_tfrecord_fn(conf, training=False)
 
-            print 'single point uses traincond', self.train_cond
+            print('single point uses traincond', self.train_cond)
             images, actions, states = tf.cond(self.train_cond > 0,  # if 1 use trainigbatch else validation batch
                                               lambda: [train_images, train_actions, train_states],
                                               lambda: [val_images, val_actions, val_states])
@@ -149,13 +149,13 @@ class Single_Point_Tracking_Model(Dynamic_Base_Model):
             inverse_dist_fields = tf.div(1., dist_fields + 1e-5)
             #normed_dist_fields should correspond DNA-like trafo kernels
             track_distrib = inverse_dist_fields / (tf.reduce_sum(inverse_dist_fields, [3,4], keep_dims=True) + 1e-6)
-            print 'using inverse_euclidean'
+            print('using inverse_euclidean')
         elif self.conf['metric'] == 'cosine':
             cos_dist = tf.reduce_sum(descp_field*target_descp, axis=3)/(tf.norm(target_descp, axis=3)+1e-5)/(tf.norm(descp_field, axis=3) +1e-5)
             cos_dist = tf.reshape(cos_dist, [self.conf['batch_size'],64**2])
             track_distrib = tf.nn.softmax(cos_dist*self.conf['softmax_temp'], 2)
 
-            print 'using cosine distance'
+            print('using cosine distance')
         else: raise NotImplementedError
         return tf.reshape(track_distrib, [self.conf['batch_size'], 64, 64, 1])
 
@@ -236,17 +236,17 @@ class Single_Point_Tracking_Model(Dynamic_Base_Model):
         self.summaries = base_summaries + summaries
 
     def visualize(self, sess, images, actions, states):
-        print '-------------------------------------------------------------------'
-        print 'verify current settings!! '
-        for key in self.conf.keys():
-            print key, ': ', self.conf[key]
-        print '-------------------------------------------------------------------'
+        print('-------------------------------------------------------------------')
+        print('verify current settings!! ')
+        for key in list(self.conf.keys()):
+            print(key, ': ', self.conf[key])
+        print('-------------------------------------------------------------------')
 
         import re
         itr_vis = re.match('.*?([0-9]+)$', self.conf['visualize']).group(1)
 
         self.saver.restore(sess, self.conf['visualize'])
-        print 'restore done.'
+        print('restore done.')
 
         feed_dict = {self.lr: 0.0,
                      self.iter_num: 0,
@@ -269,8 +269,8 @@ class Single_Point_Tracking_Model(Dynamic_Base_Model):
         dict['tracking_flow'] = track_flow
         # dict['gen_masks'] = gen_masks
 
-        cPickle.dump(dict, open(file_path + '/pred.pkl', 'wb'))
-        print 'written files to:' + file_path
+        pickle.dump(dict, open(file_path + '/pred.pkl', 'wb'))
+        print('written files to:' + file_path)
 
         v = Visualizer_tkinter(dict, numex=10, append_masks=True, filepath=self.conf['output_dir'])
         v.build_figure()

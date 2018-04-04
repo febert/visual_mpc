@@ -1,28 +1,15 @@
 import tensorflow as tf
 import numpy as np
-import os
-from PIL import ImageFont
-from PIL import Image
-from PIL import ImageDraw
-import cPickle
-import sys
-from python_visual_mpc.video_prediction.dynamic_rnn_model.ops import dense, pad2d, conv1d, conv2d, conv3d, upsample_conv2d, conv_pool2d, lrelu, instancenorm, flatten
 from python_visual_mpc.video_prediction.dynamic_rnn_model.layers import instance_norm
 import matplotlib.pyplot as plt
 from python_visual_mpc.video_prediction.read_tf_records2 import \
                 build_tfrecord_input as build_tfrecord_fn
-import matplotlib.gridspec as gridspec
 
 from python_visual_mpc.video_prediction.utils_vpred.online_reader import OnlineReader
 import tensorflow.contrib.slim as slim
 
 from python_visual_mpc.utils.colorize_tf import colorize
-from tensorflow.contrib.layers.python import layers as tf_layers
-from python_visual_mpc.video_prediction.utils_vpred.online_reader import read_trajectory
 
-from python_visual_mpc.data_preparation.gather_data import make_traj_name_list
-
-import collections
 from python_visual_mpc.layers.batchnorm_layer import batchnorm_train, batchnorm_test
 
 def length_sq(x):
@@ -91,7 +78,7 @@ class WaypointNet(object):
         self.lr = tf.placeholder_with_default(self.conf['learning_rate'], ())
         self.train_cond = tf.placeholder(tf.int32, shape=[], name="train_cond")
 
-        self.seq_len = self.conf['sequence_length']/self.conf['skip_frame']
+        self.seq_len = self.conf['sequence_length']//self.conf['skip_frame']
         self.n_intm = self.seq_len - 2
         self.bsize = self.conf['batch_size']
 
@@ -150,11 +137,9 @@ class WaypointNet(object):
         self.build_loss = build_loss
         self.loss_dict = {}
 
-
     def build_net(self, traintime = True, reuse = False):
         with tf.variable_scope('model', reuse=reuse):
             self.build_vae(traintime)
-
 
     def build_vae(self, traintime):
         if 'uncond' not in self.conf:
@@ -173,7 +158,7 @@ class WaypointNet(object):
             self.z_mean, self.z_log_sigma_sq = self.intm_enc(self.I_intm)
             if 'deterministic' in self.conf:
                 self.z = self.z_mean
-                print 'latent not sampled!! deterministic latent'
+                print('latent not sampled!! deterministic latent')
             else:
                 self.z = self.z_mean + tf.multiply(tf.sqrt(tf.exp(self.z_log_sigma_sq)), eps)
         else:
@@ -235,7 +220,7 @@ class WaypointNet(object):
     def intm_enc(self, intm_images):
         if 'ch_mult' in self.conf:
             ch_mult = self.conf['ch_mult']
-            print 'using chmult', ch_mult
+            print('using chmult', ch_mult)
         else: ch_mult = 1
 
         log_sigma_diag_l = []
@@ -375,7 +360,7 @@ class WaypointNet(object):
     def make_histo(self, hist_dict):
         self.train_hist_sum = []
         self.val_hist_sum = []
-        for k in hist_dict.keys():
+        for k in list(hist_dict.keys()):
             if hist_dict[k] is not None:
                 self.train_hist_sum.append(tf.summary.histogram(self.pref + '/train_' + k, hist_dict[k]))
                 self.val_hist_sum.append(tf.summary.histogram(self.pref + '/val_' + k, hist_dict[k]))
@@ -459,7 +444,7 @@ class WaypointNet(object):
 
     def combine_losses(self):
         self.loss = 0.
-        for k in self.loss_dict.keys():
+        for k in list(self.loss_dict.keys()):
             single_loss, weight = self.loss_dict[k]
             self.loss += single_loss*weight
             self.train_summaries.append(tf.summary.scalar(self.pref + 'train_' + k, single_loss))

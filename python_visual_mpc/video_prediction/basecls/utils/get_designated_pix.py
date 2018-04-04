@@ -17,8 +17,8 @@ class Getdesig(object):
         plt.show()
 
     def onclick(self, event):
-        print('button=%d, x=%d, y=%d, xdata=%f, ydata=%f' %
-              (event.button, event.x, event.y, event.xdata, event.ydata))
+        print(('button=%d, x=%d, y=%d, xdata=%f, ydata=%f' %
+              (event.button, event.x, event.y, event.xdata, event.ydata)))
         self.coords = np.array([event.ydata, event.xdata])
         self.ax.scatter(self.coords[1], self.coords[0], marker= "o", s=70, facecolors='b', edgecolors='b')
         self.ax.set_xlim(0, 63)

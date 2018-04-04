@@ -124,7 +124,7 @@ class DeterministicGraspPolicy(Policy):
             best_scores = np.argsort(-scores)[:self.K]
 
             if scores[best_scores[0]] > best_score or best_ang is None:
-                print scores[best_scores[0]]
+                print(scores[best_scores[0]])
                 best_score = scores[best_scores[0]]
                 best_ang = angle_samps[best_scores[0]]
 
@@ -158,17 +158,17 @@ class DeterministicGraspPolicy(Policy):
             self.angle = self.perform_CEM(t, traj)
 
         if self.grasp and self.graspTime > 4:
-            print 'lifting at time', t, '!', 'have z', traj.X_full[t, 2]
+            print('lifting at time', t, '!', 'have z', traj.X_full[t, 2])
             self.grasp = False
             self.lift = True
 
         if self.drop and traj.X_full[t, 2] <= -0.079:
-            print 'grasping at time', t, '!', 'have z', traj.X_full[t, 2]
+            print('grasping at time', t, '!', 'have z', traj.X_full[t, 2])
             self.drop = False
             self.grasp = True
 
         if self.moveto and np.linalg.norm(traj.Object_pose[t, 0, :2] - traj.X_full[t, :2], 2) <= self.agentparams['drop_thresh']:
-            print 'swapping at time', t, '!'
+            print('swapping at time', t, '!')
             self.moveto = False
             self.drop = True
 

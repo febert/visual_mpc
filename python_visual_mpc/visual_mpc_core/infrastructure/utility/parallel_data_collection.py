@@ -1,7 +1,8 @@
 from multiprocessing import Pool
 import argparse
-import imp
 import os
+import importlib.machinery
+import importlib.util
 from python_visual_mpc.visual_mpc_core.infrastructure.run_sim import Sim
 from python_visual_mpc.visual_mpc_core.benchmarks import perform_benchmark
 import copy
@@ -13,24 +14,23 @@ import pdb
 import glob
 import re
 
-from combine_scores import combine_scores
-
+from python_visual_mpc.visual_mpc_core.infrastructure.utility.combine_scores import combine_scores
 from python_visual_mpc.visual_mpc_core.infrastructure.utility.create_configs import CollectGoalImageSim
-import ray
-import cPickle
+import pickle
+
 def worker(conf):
-    print 'started process with PID:', os.getpid()
-    print 'making trajectories {0} to {1}'.format(
+    print('started process with PID:', os.getpid())
+    print('making trajectories {0} to {1}'.format(
         conf['start_index'],
         conf['end_index'],
-    )
+    ))
 
     random.seed(None)
     np.random.seed(None)
 
     if 'simulator' in conf:
         Simulator = CollectGoalImageSim
-        print 'use collect goalimage sim'
+        print('use collect goalimage sim')
     else:
         Simulator = Sim
 
@@ -39,11 +39,10 @@ def worker(conf):
 
 # @ray.remote
 def bench_worker(conf):
-    print 'started process with PID:', os.getpid()
+    print('started process with PID:', os.getpid())
     random.seed(None)
     np.random.seed(None)
     perform_benchmark(conf, gpu_id=conf['gpu_id'])
-
 
 def main():
     parser = argparse.ArgumentParser(description='run parllel data collection')
@@ -63,7 +62,7 @@ def main():
         parallel = False
     else:
         parallel = True
-    print 'parallel ', bool(parallel)
+    print('parallel ', bool(parallel))
 
     basepath = os.path.abspath(python_visual_mpc.__file__)
     basepath = '/'.join(str.split(basepath, '/')[:-2])
@@ -72,15 +71,21 @@ def main():
     do_benchmark = False
 
     if os.path.isfile(hyperparams_file):  # if not found in data_coll_dir
-        hyperparams = imp.load_source('hyperparams', hyperparams_file).config
+        loader = importlib.machinery.SourceFileLoader('mod_hyper', hyperparams_file)
+        spec = importlib.util.spec_from_loader(loader.name, loader)
+        conf = importlib.util.module_from_spec(spec)
+        loader.exec_module(conf)
+        hyperparams = conf.config
     else:
-        print 'doing benchmark ...'
+        print('doing benchmark ...')
         do_benchmark = True
         experimentdir = basepath + '/experiments/cem_exp/benchmarks/' + exp_name
-        hyperparams_file = experimentdir + '/mod_hyper.py'
-        hyperparams = imp.load_source('hyperparams', hyperparams_file).config
+        loader = importlib.machinery.SourceFileLoader('mod_hyper', experimentdir + '/mod_hyper.py')
+        spec = importlib.util.spec_from_loader(loader.name, loader)
+        conf = importlib.util.module_from_spec(spec)
+        loader.exec_module(conf)
+        hyperparams = conf.config
         hyperparams['bench_dir'] = experimentdir
-
     if args.nsplit != -1:
         n_persplit = (hyperparams['end_index']+1)/args.nsplit
         hyperparams['start_index'] = args.isplit * n_persplit
@@ -94,40 +99,49 @@ def main():
     conflist = []
 
     if 'gen_xml' in hyperparams['agent']: #remove old auto-generated xml files
-        os.system("rm {}".format('/'.join(str.split(hyperparams['agent']['filename'], '/')[:-1]) + '/auto_gen/*'))
-
+        try:
+            os.system("rm {}".format('/'.join(str.split(hyperparams['agent']['filename'], '/')[:-1]) + '/auto_gen/*'))
+        except: pass
 
     if do_benchmark:
         use_worker = bench_worker
     else: use_worker = worker
 
-    use_ray = False  # ray can cause black images!!
-    if use_ray:
-        ray.init()
-        id_list = []
-        for i in range(n_worker):
-            modconf = copy.deepcopy(hyperparams)
-            modconf['start_index'] = start_idx[i]
-            modconf['end_index'] = end_idx[i]
-            modconf['gpu_id'] = i + gpu_id
-            id_list.append(use_worker.remote(modconf))
+    if 'RESULT_DIR' in os.environ:
+        result_dir = os.environ['RESULT_DIR']
+        if 'verbose' in hyperparams['policy'] and not os.path.exists(result_dir + '/verbose'):
+            os.makedirs(result_dir + '/verbose')
 
-        res = [ray.get(id) for id in id_list]
+    # use_ray = False  # ray can cause black images!!
+    # if use_ray:
+    #     ray.init()
+    #     id_list = []
+    #     for i in range(n_worker):
+    #         modconf = copy.deepcopy(hyperparams)
+    #         modconf['start_index'] = start_idx[i]
+    #         modconf['end_index'] = end_idx[i]
+    #         modconf['gpu_id'] = i + gpu_id
+    #         id_list.append(use_worker.remote(modconf))
+    #
+    #     res = [ray.get(id) for id in id_list]
+    # else:
+    for i in range(n_worker):
+        modconf = copy.deepcopy(hyperparams)
+        modconf['start_index'] = start_idx[i]
+        modconf['end_index'] = end_idx[i]
+        modconf['gpu_id'] = i + gpu_id
+        conflist.append(modconf)
+    if parallel:
+        p = Pool(n_worker)
+        p.map(use_worker, conflist)
     else:
-        for i in range(n_worker):
-            modconf = copy.deepcopy(hyperparams)
-            modconf['start_index'] = start_idx[i]
-            modconf['end_index'] = end_idx[i]
-            modconf['gpu_id'] = i + gpu_id
-            conflist.append(modconf)
-        if parallel:
-            p = Pool(n_worker)
-            p.map(use_worker, conflist)
-        else:
-            use_worker(conflist[0])
+        use_worker(conflist[0])
 
     if do_benchmark:
-        combine_scores(hyperparams['current_dir'], exp_name)
+        if 'RESULT_DIR' in os.environ:
+            result_dir = os.environ['RESULT_DIR']
+        else: result_dir = hyperparams['current_dir']
+        combine_scores(result_dir, exp_name)
 
     traindir = modconf['agent']["data_save_dir"]
     testdir = '/'.join(traindir.split('/')[:-1] + ['/test'])
