@@ -6,19 +6,21 @@ import numpy as np
 
 from python_visual_mpc.visual_mpc_core.algorithm.random_policy import Randompolicy
 from python_visual_mpc.visual_mpc_core.agent.agent_mjc import AgentMuJoCo
+current_dir = '/'.join(str.split(__file__, '/')[:-1])
 
 IMAGE_WIDTH = 64
 IMAGE_HEIGHT = 64
 IMAGE_CHANNELS = 3
 
 BASE_DIR = '/'.join(str.split(__file__, '/')[:-1])
+folder_name = '/'.join(str.split(__file__, '/')[-2:-1])
 
 import python_visual_mpc
 DATA_DIR = '/'.join(str.split(python_visual_mpc.__file__, '/')[:-2])
 
 agent = {
     'type': AgentMuJoCo,
-    'data_save_dir': BASE_DIR + '/train',
+    'data_save_dir': os.environ['RESULT_DIR'] + '/' + folder_name + '/train',
     'filename': DATA_DIR+'/mjc_models/cartgripper.xml',
     'filename_nomarkers': DATA_DIR+'/mjc_models/cartgripper.xml',
     'data_collection': True,
@@ -55,6 +57,7 @@ policy = {
 
 config = {
     'traj_per_file':128,
+    'current_dir':current_dir,
     'save_data': False,
     'start_index':0,
     'end_index': 60000,

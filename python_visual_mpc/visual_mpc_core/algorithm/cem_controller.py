@@ -268,7 +268,6 @@ class CEM_controller(Policy):
                 images.append(self.sim.render(width, height, camera_name="maincam")[::-1, :, :])
 
             # print(t)
-
         # self.plot_ctrls()
         return np.stack(costs, axis=0)[:,0], images
 

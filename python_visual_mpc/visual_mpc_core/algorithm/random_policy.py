@@ -4,7 +4,7 @@ import numpy as np
 from python_visual_mpc.visual_mpc_core.algorithm.policy import Policy
 
 from scipy.stats import multivariate_normal
-
+from python_visual_mpc.visual_mpc_core.algorithm.cem_controller_goalimage_sawyer import construct_initial_sigma
 
 class Randompolicy(Policy):
     """
