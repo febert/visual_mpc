@@ -2,14 +2,10 @@
 import numpy as np
 
 from python_visual_mpc.visual_mpc_core.algorithm.policy import Policy
-import mujoco_py
-from mujoco_py.mjlib import mjlib
-from mujoco_py.mjtypes import *
-import copy
 import time
-import imp
-import pickle
 from python_visual_mpc.video_prediction.utils_vpred.create_gif_lib import *
+from mujoco_py import load_model_from_xml,load_model_from_path, MjSim, MjViewer
+import copy
 from datetime import datetime
 import os
 
@@ -18,6 +14,7 @@ import pdb
 from python_visual_mpc.visual_mpc_core.algorithm.cem_controller_goalimage_sawyer import construct_initial_sigma
 
 from pyquaternion import Quaternion
+from mujoco_py import load_model_from_xml,load_model_from_path, MjSim, MjViewer
 
 class CEM_controller(Policy):
     """
@@ -88,15 +85,7 @@ class CEM_controller(Policy):
         self.sigma =None
 
     def create_sim(self):
-        gofast = True
-        self.model = mujoco_py.MjModel(self.agentparams['gen_xml_fname'])
-
-        if self.verbose:
-            self.viewer = mujoco_py.MjViewer(visible=True, init_width=480,
-                                             init_height=480, go_fast=gofast)
-            self.viewer.start()
-            self.viewer.set_model(self.model)
-            self.viewer.cam.camid = 0
+        self.sim = MjSim(load_model_from_path(self.agentparams['gen_xml_fname']))
 
     def reinitialize(self):
         self.use_net = self.policyparams['usenet']
@@ -118,21 +107,20 @@ class CEM_controller(Policy):
         self.viewer.finish()
 
     def setup_mujoco(self):
-        # set initial conditions
-        self.model.data.qpos = self.init_model.data.qpos
-        self.model.data.qvel = self.init_model.data.qvel
-        self.model.step()
-        if self.verbose:
-            self.viewer.loop_once()
+        sim_state = self.sim.get_state()
+        sim_state.qpos[:] = self.init_model.data.qpos
+        sim_state.qvel[:] = self.init_model.data.qvel
+        self.sim.set_state(sim_state)
+        self.sim.forward()
 
     def eval_action(self):
         abs_distances = []
         abs_angle_dist = []
-        qpos_dim = self.sdim / 2  # the states contains pos and vel
+        qpos_dim = self.sdim // 2  # the states contains pos and vel
         for i_ob in range(self.agentparams['num_objects']):
 
             goal_pos = self.goal_obj_pose[i_ob, :3]
-            curr_pose = self.model.data.qpos[i_ob * 7 + qpos_dim:(i_ob+1) * 7 + qpos_dim].squeeze()
+            curr_pose = self.sim.data.qpos[i_ob * 7 + qpos_dim:(i_ob+1) * 7 + qpos_dim].squeeze()
             curr_pos = curr_pose[:3]
 
             abs_distances.append(np.linalg.norm(goal_pos - curr_pos))
@@ -210,55 +198,79 @@ class CEM_controller(Policy):
         all_scores = np.empty(self.M, dtype=np.float64)
         for smp in range(self.M):
             self.setup_mujoco()
-            score = self.sim_rollout(actions[smp])[:, 0]
+            score, images = self.sim_rollout(actions[smp])
             per_time_multiplier = np.ones([len(score)])
             per_time_multiplier[-1] = self.policyparams['finalweight']
             all_scores[smp] = np.sum(per_time_multiplier*score)
+
+            if smp % 1 == 0 and self.verbose:
+                self.save_gif(images, '_{}'.format(smp))
         return all_scores
+
+    def save_gif(self, images, name):
+        file_path = self.agentparams['record']
+        npy_to_gif(images, file_path +'/video'+name)
+
+    def clip_targetpos(self, pos):
+        pos_clip = self.agentparams['targetpos_clip']
+        return np.clip(pos, pos_clip[0], pos_clip[1])
 
     def sim_rollout(self, actions):
         costs = []
         self.hf_qpos_l = []
         self.hf_target_qpos_l = []
+
+        images = []
         for t in range(self.nactions*self.repeat):
-            currentaction = actions[t]
+            mj_U = actions[t]
             # print 'time ',t, ' target pos rollout: ', roll_target_pos
 
-            if 'posmode' in self.agentparams:  # if the output of act is a positions
+            if 'posmode' in self.agentparams:  #if the output of act is a positions
                 if t == 0:
-                    self.prev_target_qpos = self.model.data.qpos[:self.adim].squeeze()
-                    self.target_qpos = self.model.data.qpos[:self.adim].squeeze()
+                    self.prev_target_qpos = copy.deepcopy(self.sim.data.qpos[:self.adim].squeeze())
+                    self.target_qpos = copy.deepcopy(self.sim.data.qpos[:self.adim].squeeze())
                 else:
-                    self.prev_target_qpos = self.target_qpos
-                mask_rel = self.agentparams['mode_rel'].astype(np.float32)  # mask out action dimensions that use absolute control with 0
-                self.target_qpos = currentaction.copy() + self.target_qpos * mask_rel
-                # print 'current actions', currentaction
-                # print 'prev qpos {}'.format(self.prev_target_qpos)
-                # print 'target qpos {}'.format(self.target_qpos)
+                    self.prev_target_qpos = copy.deepcopy(self.target_qpos)
 
-                self.target_qpos = np.clip(self.target_qpos, self.agentparams['targetpos_clip'][0],
-                                                             self.agentparams['targetpos_clip'][1])
+                if 'discrete_adim' in self.agentparams:
+                    up_cmd = mj_U[2]
+                    assert np.floor(up_cmd) == up_cmd
+                    if up_cmd != 0:
+                        self.t_down = t + up_cmd
+                        self.target_qpos[2] = self.agentparams['targetpos_clip'][1][2]
+                        self.gripper_up = True
+                    if self.gripper_up:
+                        if t == self.t_down:
+                            self.target_qpos[2] = self.agentparams['targetpos_clip'][0][2]
+                            self.gripper_up = False
+                    self.target_qpos[:2] += mj_U[:2]
+                    if self.adim == 4:
+                        self.target_qpos[3] += mj_U[3]
+                else:
+                    self.target_qpos = mj_U + self.target_qpos
+                self.target_qpos = self.clip_targetpos(self.target_qpos)
             else:
-                ctrl = currentaction.copy()
+                ctrl = mj_U.copy()
 
             for st in range(self.agentparams['substeps']):
-                # self.viewer.loop_once()
                 if 'posmode' in self.agentparams:
                     ctrl = self.get_int_targetpos(st, self.prev_target_qpos, self.target_qpos)
-                    # if st%10==0:
-                        # print "prev qpos {}, targ qpos {}, int {}".format(self.prev_target_qpos, self.target_qpos, ctrl)
-                self.model.data.ctrl = ctrl
-                self.model.step()
-                self.hf_qpos_l.append(self.model.data.qpos)
-                self.hf_target_qpos_l.append(ctrl)
+                self.sim.data.ctrl[:] = ctrl
+                self.sim.step()
+                self.hf_qpos_l.append(copy.deepcopy(self.sim.data.qpos))
+                self.hf_target_qpos_l.append(copy.deepcopy(ctrl))
 
-                costs.append(self.eval_action())
+            costs.append(self.eval_action())
 
-                if self.verbose:
-                    self.viewer.loop_once()
+            if self.verbose:
+                width = self.agentparams['viewer_image_width']
+                height = self.agentparams['viewer_image_height']
+                images.append(self.sim.render(width, height, camera_name="maincam")[::-1, :, :])
 
-        # self.plot_ctrls()
-        return np.stack(costs, axis=0)
+            # print(t)
+
+        self.plot_ctrls()
+        return np.stack(costs, axis=0)[:,0], images
 
     def get_int_targetpos(self, substep, prev, next):
         assert substep >= 0 and substep < self.agentparams['substeps']
@@ -307,7 +319,5 @@ class CEM_controller(Policy):
         self.action_list.append(action)
         print('timestep: ', t, ' taking action: ', action)
 
-        if self.verbose:
-            self.viewer.finish()
         return action
 

@@ -16,11 +16,10 @@ agent = {
     'T': 30,
     'substeps':200,
     'make_final_gif':'',
-    'adim':5,
-    'sdim':12,
+    'adim':4,
+    'sdim':8,
     # 'no_instant_gif':"",
-    'filename': ROOT_DIR + '/mjc_models/cartgripper_grasp.xml',
-    'filename_nomarkers': ROOT_DIR + '/mjc_models/cartgripper_grasp.xml',
+    'filename': ROOT_DIR + '/mjc_models/cartgripper_updown_rot.xml',
     'gen_xml':1,   #generate xml every nth trajecotry
     'num_objects': 1,
     'viewer_image_height' : 480,
@@ -30,12 +29,12 @@ agent = {
     'additional_viewer':'',
     'data_save_dir':current_dir + '/data/train',
     'posmode':"",
-    'targetpos_clip':[[-0.45, -0.45, -0.08, -np.pi*2, 0.], [0.45, 0.45, 0.15, np.pi*2, 0.1]],
+    'targetpos_clip':[[-0.45, -0.45, -0.08, -np.pi*2], [0.45, 0.45, 0.15, np.pi*2]],
     'not_use_images':"",
 }
 
 policy = {
-    # 'verbose':10,
+    # 'verbose':1,
     'type' : CEM_controller,
     'current_dir':current_dir,
     'nactions': 5,
@@ -43,13 +42,12 @@ policy = {
     'initial_std': 0.08,        # std dev. in xy
     'initial_std_lift': 0.1,
     'initial_std_rot': 0.1,
-    'initial_std_grasp': 0.0,
     'iterations': 2,
     'action_cost_factor': 0,
     'rew_all_steps':"",
     'finalweight':10,
     'no_action_bound':"",
-    'num_samples':200,
+    'num_samples':100,
 }
 
 tag_images = {'name': 'images',

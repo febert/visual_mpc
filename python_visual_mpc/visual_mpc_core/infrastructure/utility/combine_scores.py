@@ -16,9 +16,9 @@ def combine_scores(dir, exp_name):
         anglecost_l.append(dict_['anglecost'])
         improvement_l.append(dict_['improvement'])
 
-    score = np.array(scores_l)
-    anglecost = np.array(anglecost_l)
-    improvement = np.array(improvement_l)
+    score = np.concatenate(scores_l, axis=0)
+    anglecost = np.concatenate(anglecost_l, axis=0)
+    improvement = np.concatenate(improvement_l, axis=0)
     sorted_ind = improvement.argsort()
 
     f = open(dir + '/results_all.txt', 'w')
@@ -47,7 +47,7 @@ def combine_scores(dir, exp_name):
 if __name__ == '__main__':
     n_worker = 4
     n_traj = 49
-    dir = '/home/frederik/Documents/catkin_ws/src/visual_mpc/experiments/cem_exp/benchmarks/mj_gtruth_data/appflow/37614'
+    dir = '/home/frederik/Documents/catkin_ws/src/visual_mpc/experiments/cem_exp/benchmarks/shorttask/many_gtruth_desig/38239'
 
     traj_per_worker = int(n_traj / np.float32(n_worker))
     start_idx = [traj_per_worker * i for i in range(n_worker)]
