@@ -269,7 +269,7 @@ class CEM_controller(Policy):
 
             # print(t)
 
-        self.plot_ctrls()
+        # self.plot_ctrls()
         return np.stack(costs, axis=0)[:,0], images
 
     def get_int_targetpos(self, substep, prev, next):
