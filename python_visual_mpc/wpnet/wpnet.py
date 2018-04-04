@@ -141,6 +141,7 @@ class WaypointNet(object):
         with tf.variable_scope('model', reuse=reuse):
             self.build_vae(traintime)
 
+
     def build_vae(self, traintime):
         if 'uncond' not in self.conf:
             self.ctxt_encoding = self.ctxt_enc(self.Istart, self.Igoal)
@@ -159,6 +160,10 @@ class WaypointNet(object):
             if 'deterministic' in self.conf:
                 self.z = self.z_mean
                 print('latent not sampled!! deterministic latent')
+            elif '3stage_training' in self.conf:
+                self.z = tf.cond(self.iter_num < self.conf['3stage_training'],
+                                  lambda: self.z_mean,
+                                  lambda: self.z_mean + tf.multiply(tf.sqrt(tf.exp(self.z_log_sigma_sq)), eps))
             else:
                 self.z = self.z_mean + tf.multiply(tf.sqrt(tf.exp(self.z_log_sigma_sq)), eps)
         else:
@@ -269,11 +274,13 @@ class WaypointNet(object):
         with tf.variable_scope('ctxt_enc'):
             with tf.variable_scope('h1'):
                 h1 = self.conv_relu_block(I0_I1, out_ch=32*ch_mult)  #24x32x3
+                self.enc1 = h1
             with tf.variable_scope('h2'):
                 h2 = self.conv_relu_block(h1, out_ch=64*ch_mult)  #12x16x3
-
+                self.enc2 = h2
             with tf.variable_scope('h3'):
                 h3 = self.conv_relu_block(h2, out_ch=64 * ch_mult)  # 6x8x3
+                self.enc3 = h3
             with tf.variable_scope('h4'):
                 h4 = slim.layers.conv2d(h3, self.nz, [3, 3], stride=1)
             ctxt_enc = tf.image.resize_images(h4, self.conf['enc_avg_pool'], method=tf.image.ResizeMethod.BILINEAR)
@@ -306,7 +313,7 @@ class WaypointNet(object):
 
                 if self.conf['enc_avg_pool'] != [6,8]:
                     with tf.variable_scope('h0'):
-                        enc = self.conv_relu_block(enc, out_ch=32 * ch_mult, upsmp=True)  # 12, 16
+                        enc = self.conv_relu_block(enc, out_ch=32 * ch_mult, upsmp=True)  # 6, 8
 
                 with tf.variable_scope('h1'):
                     if 'skipcon' in self.conf:
