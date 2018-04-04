@@ -135,11 +135,9 @@ class WaypointNet(object):
         self.build_loss = build_loss
         self.loss_dict = {}
 
-
     def build_net(self, traintime = True, reuse = False):
         with tf.variable_scope('model', reuse=reuse):
             self.build_vae(traintime)
-
 
     def build_vae(self, traintime):
         if 'uncond' not in self.conf:
