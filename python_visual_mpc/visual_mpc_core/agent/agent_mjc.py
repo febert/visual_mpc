@@ -258,7 +258,7 @@ class AgentMuJoCo(object):
             qpos_dim = self.sdim // 2  # the states contains pos and vel
             traj.X_full[t, :] = self.sim.data.qpos[:qpos_dim].squeeze()
             traj.Xdot_full[t, :] = self.sim.data.qvel[:qpos_dim].squeeze()
-            print(self.sim.data.qpos)
+            # print(self.sim.data.qpos)
             traj.X_Xdot_full[t, :] = np.concatenate([traj.X_full[t, :], traj.Xdot_full[t, :]])
             assert self.sim.data.qpos.shape[0] == qpos_dim + 7 * self._hyperparams['num_objects']
             for i in range(self._hyperparams['num_objects']):
@@ -322,7 +322,7 @@ class AgentMuJoCo(object):
                 self.hf_qpos_l.append(copy.deepcopy(self.sim.data.qpos))
                 self.hf_target_qpos_l.append(copy.deepcopy(ctrl))
 
-        print('obj gripper dist', np.sqrt(np.sum(np.power(traj.Object_pose[-1, 0, :2] - traj.X_full[-1, :2], 2))))
+        # print('obj gripper dist', np.sqrt(np.sum(np.power(traj.Object_pose[-1, 0, :2] - traj.X_full[-1, :2], 2))))
 
         # only save trajectories which displace objects above threshold
         if 'displacement_threshold' in self._hyperparams:

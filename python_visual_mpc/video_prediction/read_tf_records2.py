@@ -210,7 +210,7 @@ def main():
 
     current_dir = os.path.dirname(os.path.realpath(__file__))
     # DATA_DIR = '/mnt/sda1/pushing_data/cartgripper_startgoal_17step/train'
-    DATA_DIR = '/mnt/sda1/pushing_data/mj_pos_noreplan_fast_tfrec/train'
+    DATA_DIR = '/mnt/sda1/pushing_data/cartgripper_mj1.5/train'
 
     conf['schedsamp_k'] = -1  # don't feed ground truth
     conf['data_dir'] = DATA_DIR  # 'directory containing data_files.' ,
@@ -223,8 +223,8 @@ def main():
 
     # conf['row_start'] = 15
     # conf['row_end'] = 63
-    conf['sdim'] = 12
-    conf['adim'] = 5
+    conf['sdim'] = 6
+    conf['adim'] = 3
 
     # conf['image_only'] = ''
     # conf['goal_image'] = ""
