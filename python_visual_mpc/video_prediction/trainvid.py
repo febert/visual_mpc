@@ -54,6 +54,21 @@ def main(unused_argv, conf_script= None):
 
     conf = hyperparams.configuration
 
+    if FLAGS.docker:
+        conf['output_dir'] = '/result'
+        assert os.path.exists(conf['output_dir'])
+
+    if 'VMPC_DATA_DIR' in os.environ:
+        path = conf['data_dir'].partition('pushing_data')[2]
+        conf['data_dir'] = os.environ['VMPC_DATA_DIR'] + path
+
+    if 'RESULT_DIR' in os.environ:
+        conf['output_dir']= os.environ['RESULT_DIR']
+
+    if FLAGS.ow:
+        print('deleting {}'.format(conf['output_dir']))
+        os.system("rm {}".format(conf['output_dir']) + '/*')
+
     conf['event_log_dir'] = conf['output_dir']
     if FLAGS.visualize_check:
         print('creating visualizations ...')

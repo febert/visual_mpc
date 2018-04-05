@@ -58,8 +58,6 @@ def main(unused_argv, conf_script= None):
     if FLAGS.docker:
         conf['output_dir'] = '/result'
         assert os.path.exists(conf['output_dir'])
-        print('output goes to ', conf['output_dir'])
-        conf['data_dir'] = os.environ['VMPC_DATA_DIR'] + '/train'
 
     if 'VMPC_DATA_DIR' in os.environ:
         path = conf['data_dir'].partition('pushing_data')[2]
