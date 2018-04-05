@@ -58,7 +58,7 @@ else:
     data["name"] = str.split(command, '/')[-2]
 
 if args.int == 'True':
-    command = "/bin/sleep 3600"
+    command = "/bin/sleep 36000"
 
 data["command"] += command
 

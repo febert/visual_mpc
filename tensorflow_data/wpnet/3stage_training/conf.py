@@ -20,7 +20,7 @@ configuration = {
     'data_dir': DATA_DIR,      # 'directory containing data.' ,'
     'output_dir': OUT_DIR,      #'directory for model checkpoints.' ,
     'current_dir': base_dir,   #'directory for writing summary.' ,
-    'num_iterations':100000,
+    'num_iterations':150000,
     'sequence_length':15,
     'train_val_split':.95,
     'visualize':'',
