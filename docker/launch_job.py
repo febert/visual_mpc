@@ -48,6 +48,7 @@ if 'benchmarks' in script_name or 'parallel_data_collection' in script_name:  #r
 else:
     data["aceInstance"] = "ngcv1"
     data["datasetMounts"] = [{"containerMountPoint": "/mnt/pushing_data/cartgripper", "id": 8350},  # cartgripper
+                             {"containerMountPoint": "/mnt/pushing_data/cartgripper_mj1.5", "id": 8974},
                              {"containerMountPoint": "/mnt/pushing_data/mj_pos_noreplan_fast_tfrec", "id": 8807},  #mj_pos_noreplan_fast_tfrec    | gtruth mujoco planning pushing
                              {"containerMountPoint": "/mnt/pushing_data/mj_pos_noreplan_fast_tfrec_fewdata", "id": 8972},  #mj_pos_noreplan_fast_tfrec    | gtruth mujoco planning pushing
                              {"containerMountPoint": "/mnt/pushing_data/cartgripper_updown_sact", "id": 8950},

@@ -1,15 +1,19 @@
 {
     "dockerImageName": "ucb_rail8888/tf_mj1.5:latest", 
     "aceName": "nv-us-west-2", 
-    "name": "skipconn", 
+    "name": "appflow_nogenpix_mj1.5", 
     "publishedContainerPorts": [
         6006
     ], 
-    "command": "cd /result && tensorboard --logdir . &  export VMPC_DATA_DIR=/mnt/pushing_data; export TEN_DATA=/mnt/tensorflow_data; export RESULT_DIR=/result; export NO_ROS=''; export PATH=/opt/conda/bin:/usr/local/mpi/bin:/usr/local/nvidia/bin:/usr/local/cuda/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin; cd /workspace/visual_mpc/python_visual_mpc/wpnet;python trainwpnet.py --hyper ../../tensorflow_data/wpnet/skipconn/conf.py", 
+    "command": "cd /result && tensorboard --logdir . &  export VMPC_DATA_DIR=/mnt/pushing_data; export TEN_DATA=/mnt/tensorflow_data; export RESULT_DIR=/result; export NO_ROS=''; export PATH=/opt/conda/bin:/usr/local/mpi/bin:/usr/local/nvidia/bin:/usr/local/cuda/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin; cd /workspace/visual_mpc/python_visual_mpc/video_prediction;/bin/sleep 3600", 
     "datasetMounts": [
         {
             "containerMountPoint": "/mnt/pushing_data/cartgripper", 
             "id": 8350
+        }, 
+        {
+            "containerMountPoint": "/mnt/pushing_data/cartgripper_mj1.5", 
+            "id": 8974
         }, 
         {
             "containerMountPoint": "/mnt/pushing_data/mj_pos_noreplan_fast_tfrec", 
