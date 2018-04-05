@@ -38,6 +38,7 @@ if __name__ == '__main__':
     flags.DEFINE_bool('metric', False, 'compute metric of expected distance to human-labled positions ob objects')
     flags.DEFINE_bool('float16', False, 'whether to do inference with float16')
     flags.DEFINE_bool('create_images', False, 'whether to create images')
+    flags.DEFINE_bool('ow', False, 'overwrite previous experiment')
 
 def main(unused_argv, conf_script= None):
     os.environ["CUDA_VISIBLE_DEVICES"] = str(FLAGS.device)
@@ -53,10 +54,6 @@ def main(unused_argv, conf_script= None):
     hyperparams = imp.load_source('hyperparams', conf_file)
 
     conf = hyperparams.configuration
-
-    if FLAGS.docker:
-        conf['output_dir'] = '/result'
-        assert os.path.exists(conf['output_dir'])
 
     if 'VMPC_DATA_DIR' in os.environ:
         path = conf['data_dir'].partition('pushing_data')[2]
