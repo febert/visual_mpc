@@ -33,7 +33,6 @@ configuration = {
 'single_view':"",
 'use_len':14,                # number of steps used for training where the starting location is selected randomly within sequencelength
 '1stimg_bckgd':'',
-# 'visual_flowvec':'',
 'adim':3,
 'sdim':6,
 'normalization':'in',
@@ -41,4 +40,5 @@ configuration = {
 'orig_size':[48,64],
 'img_height':48,
 'img_width':64,
+'ignore_state':'',
 }
