@@ -29,6 +29,8 @@ data["command"] =\
  export PATH=/opt/conda/bin:/usr/local/mpi/bin:/usr/local/nvidia/bin:/usr/local/cuda/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin;\
  cd /workspace/visual_mpc/{0};".format(run_dir)
 
+data['dockerImageName'] = "ucb_rail8888/tf_mj1.5:latest"
+
 if 'benchmarks' in script_name or 'parallel_data_collection' in script_name:  #running benchmark...
     data["datasetMounts"] = [{"containerMountPoint": "/mnt/tensorflow_data/sim/mj_pos_ctrl_appflow", "id": 8906},
                              {"containerMountPoint": "/mnt/tensorflow_data/sim/appflow_nogenpix", "id": 8933},
@@ -39,16 +41,15 @@ if 'benchmarks' in script_name or 'parallel_data_collection' in script_name:  #r
                              {"containerMountPoint": "/mnt/tensorflow_data/sim/pos_ctrl_updown_sact", "id": 8950},
                              {"containerMountPoint": "/mnt/pushing_data/cartgripper_startgoal_short", "id": 8949},  # mj_pos_ctrl_appflow
                              {"containerMountPoint": "/mnt/pushing_data/cartgripper_startgoal_masks", "id": 8914}]  # mj_pos_ctrl_appflow
-    data['dockerImageName'] = "ucb_rail8888/tf_mj1.5:latest"
     data["aceInstance"] = "ngcv8"
     command = "python " + script_name + " {}".format(args.arg)
 
     data["name"] = '-'.join(re.compile('\w+').findall(args.arg))
 else:
     data["aceInstance"] = "ngcv1"
-    data['dockerImageName'] = "ucb_rail8888/tf1.4_gpu:based_nvidia"
     data["datasetMounts"] = [{"containerMountPoint": "/mnt/pushing_data/cartgripper", "id": 8350},  # cartgripper
                              {"containerMountPoint": "/mnt/pushing_data/mj_pos_noreplan_fast_tfrec", "id": 8807},  #mj_pos_noreplan_fast_tfrec    | gtruth mujoco planning pushing
+                             {"containerMountPoint": "/mnt/pushing_data/mj_pos_noreplan_fast_tfrec_fewdata", "id": 8972},  #mj_pos_noreplan_fast_tfrec    | gtruth mujoco planning pushing
                              {"containerMountPoint": "/mnt/pushing_data/cartgripper_updown_sact", "id": 8950},
                              {"containerMountPoint": "/mnt/pushing_data/cartgripper_updown_rot_sact", "id": 8951}]
 
@@ -64,6 +65,6 @@ data["resultContainerMountPoint"] = "/result"
 data["publishedContainerPorts"] = [6006] #for tensorboard
 
 with open('autogen.json', 'w') as outfile:
-    json.dump(data, outfile)
+    json.dump(data, outfile, indent=4)
 
 os.system("ngc batch run -f autogen.json")

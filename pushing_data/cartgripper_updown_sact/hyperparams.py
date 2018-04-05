@@ -47,7 +47,7 @@ agent = {
     'posmode':"",
     'targetpos_clip':[[-0.45, -0.45, -0.08], [0.45, 0.45, 0.15]],
     'discrete_adim':[2],
-    'make_final_gif':'',
+    # 'make_final_gif':'',
     'record':current_dir + '/verbose',
     'get_curr_mask':'',
 }

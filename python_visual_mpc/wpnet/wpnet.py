@@ -414,7 +414,13 @@ class WaypointNet(object):
     def create_loss_and_optimizer(self, reconstr_mean, I_intm, z_log_sigma_sq, z_mean, traintime):
         diff = reconstr_mean - I_intm
         if 'MSE' in self.conf:
-            reconstr_loss = tf.reduce_mean(tf.square(diff))
+            if 'min_loss' in self.conf:
+                reconstr_loss = tf.reduce_mean(tf.square(diff), [2,3,4])
+                self.loss_dict['rec_unweighted'] = (tf.reduce_mean(reconstr_loss), 0.)
+                self.weights = tf.nn.softmax(1/(reconstr_loss + 1e-6), -1)
+                reconstr_loss = tf.reduce_mean(reconstr_loss*self.weights)
+            else:
+                reconstr_loss = tf.reduce_mean(tf.square(diff))
         else:
             # reconstr_errs = charbonnier_loss(diff, per_int_ex=True)
             # self.weights = tf.nn.softmax(1/(reconstr_errs +1e-6), -1)
@@ -474,9 +480,3 @@ class WaypointNet(object):
             f = cmap(f)[:, :, :3]
             l.append(f)
         return np.stack(l, axis=0)
-
-if __name__ == '__main__':
-    filedir = '/home/frederik/Documents/catkin_ws/src/visual_mpc/tensorflow_data/gdn/tdac_cons0_cartgripper/modeldata'
-    conf = {}
-    conf['output_dir'] = filedir
-    make_plots(conf, filename= filedir + '/data.pkl')
