@@ -1,7 +1,7 @@
 {
     "dockerImageName": "ucb_rail8888/tf_mj1.5:latest", 
     "aceName": "nv-us-west-2", 
-    "name": "rot-sact-nworkers-200", 
+    "name": "sact-nworkers-200", 
     "publishedContainerPorts": [
         6006
     ], 
