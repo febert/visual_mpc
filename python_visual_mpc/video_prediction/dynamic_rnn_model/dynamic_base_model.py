@@ -665,7 +665,7 @@ class Dynamic_Base_Model(object):
         tshift = 2
         uselen = self.conf['use_len']
         fulllength = self.conf['sequence_length']
-        nshifts = (fulllength - uselen) / 2 + 1
+        nshifts = (fulllength - uselen) // tshift + 1
         rand_ind = tf.random_uniform([1], 0, nshifts, dtype=tf.int64)
         self.rand_ind = rand_ind
 
