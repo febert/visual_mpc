@@ -11,6 +11,7 @@ import tensorflow.contrib.slim as slim
 from python_visual_mpc.utils.colorize_tf import colorize
 
 from python_visual_mpc.layers.batchnorm_layer import batchnorm_train, batchnorm_test
+from python_visual_mpc.wpnet.operations import lrelu
 
 def length_sq(x):
     return tf.reduce_sum(tf.square(x), 3, keep_dims=True)
@@ -143,10 +144,6 @@ class WaypointNet(object):
 
 
     def build_vae(self, traintime):
-        if 'uncond' not in self.conf:
-            self.ctxt_encoding = self.ctxt_enc(self.Istart, self.Igoal)
-        else:
-            self.ctxt_encoding = None
         self.z = []
 
         if 'enc_avg_pool' in self.conf:
@@ -171,6 +168,10 @@ class WaypointNet(object):
             self.z = eps
 
         # Get the reconstructed mean from the decoder
+        if 'uncond' not in self.conf:
+            self.ctxt_encoding = self.ctxt_enc(self.Istart, self.Igoal)
+        else:
+            self.ctxt_encoding = None
         self.x_reconstr_mean = self.decode(self.ctxt_encoding, self.z)
 
         intm = tf.unstack(self.I_intm, axis=1)
@@ -211,7 +212,7 @@ class WaypointNet(object):
         return I0, I1
 
     def conv_relu_block(self, input, out_ch, k=3, upsmp=False):
-        h = slim.layers.conv2d(input, out_ch, [k, k], stride=1)
+        h = slim.layers.conv2d(input, out_ch, [k, k], stride=1, activation_fn=lambda x: lrelu(x, 0.1))
         h = self.normalizer_fn(h)
 
         if upsmp:
@@ -416,11 +417,13 @@ class WaypointNet(object):
         if 'MSE' in self.conf:
             if 'min_loss' in self.conf:
                 reconstr_loss = tf.reduce_mean(tf.square(diff), [2,3,4])
-                self.loss_dict['rec_unweighted'] = (tf.reduce_mean(reconstr_loss), 0.)
+                self.loss_dict['rec'] = (tf.reduce_mean(reconstr_loss), 0.)
                 self.weights = tf.nn.softmax(1/(reconstr_loss + 1e-6), -1)
                 reconstr_loss = tf.reduce_mean(reconstr_loss*self.weights)
+                self.loss_dict['rec_weighted'] = (reconstr_loss, 1.)
             else:
                 reconstr_loss = tf.reduce_mean(tf.square(diff))
+                self.loss_dict['rec'] = (reconstr_loss, 1.)
         else:
             # reconstr_errs = charbonnier_loss(diff, per_int_ex=True)
             # self.weights = tf.nn.softmax(1/(reconstr_errs +1e-6), -1)
@@ -430,14 +433,14 @@ class WaypointNet(object):
             # weights_reg = dist[None]*self.weights
             # self.loss_dict['tweights_reg'] = (tf.reduce_mean(weights_reg), self.conf['tweights_reg'])
             reconstr_loss = charbonnier_loss(diff)
+            self.loss_dict['rec'] = (reconstr_loss, 1.)
 
-        self.loss_dict['rec'] = (reconstr_loss, 1.)
 
         if traintime:
             latent_loss = 0.
             for i in range(self.seq_len -2):
-                latent_loss += -0.5 * tf.reduce_sum(1.0 + z_log_sigma_sq[:,i] - tf.square(z_mean[:,i])
-                                                    - tf.exp(z_log_sigma_sq[:,i]))
+                latent_loss += -0.5 * tf.reduce_mean(tf.reduce_sum(1.0 + z_log_sigma_sq[:,i] - tf.square(z_mean[:,i])
+                                                    - tf.exp(z_log_sigma_sq[:,i]), axis=[1,2,3]))
             if 'sched_lt_cost' in self.conf:
                 mx_it = self.conf['sched_lt_cost'][1]
                 min_it = self.conf['sched_lt_cost'][0]
