@@ -1,37 +1,53 @@
 {
     "dockerImageName": "ucb_rail8888/tf_mj1.5:latest", 
     "aceName": "nv-us-west-2", 
-    "name": "appflow_nogenpix_mj1.5", 
+    "name": "appflow_b2000-nworkers-8", 
     "publishedContainerPorts": [
         6006
     ], 
-    "command": "cd /result && tensorboard --logdir . &  export VMPC_DATA_DIR=/mnt/pushing_data; export TEN_DATA=/mnt/tensorflow_data; export RESULT_DIR=/result; export NO_ROS=''; export PATH=/opt/conda/bin:/usr/local/mpi/bin:/usr/local/nvidia/bin:/usr/local/cuda/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin; cd /workspace/visual_mpc/python_visual_mpc/video_prediction;python trainvid.py --hyper ../../tensorflow_data/sim/appflow_nogenpix_mj1.5/conf.py", 
+    "command": "cd /result && tensorboard --logdir . &  export VMPC_DATA_DIR=/mnt/pushing_data; export TEN_DATA=/mnt/tensorflow_data; export RESULT_DIR=/result; export NO_ROS=''; export PATH=/opt/conda/bin:/usr/local/mpi/bin:/usr/local/nvidia/bin:/usr/local/cuda/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin; cd /workspace/visual_mpc/python_visual_mpc/visual_mpc_core/infrastructure/utility;python parallel_data_collection.py appflow_b2000 --nworkers 8", 
     "datasetMounts": [
         {
-            "containerMountPoint": "/mnt/pushing_data/cartgripper", 
-            "id": 8350
+            "containerMountPoint": "/mnt/tensorflow_data/sim/mj_pos_ctrl_appflow", 
+            "id": 8906
         }, 
         {
-            "containerMountPoint": "/mnt/pushing_data/cartgripper_mj1.5", 
-            "id": 8974
+            "containerMountPoint": "/mnt/tensorflow_data/sim/appflow_nogenpix", 
+            "id": 8933
         }, 
         {
-            "containerMountPoint": "/mnt/pushing_data/mj_pos_noreplan_fast_tfrec", 
-            "id": 8807
+            "containerMountPoint": "/mnt/tensorflow_data/sim/appflow_nogenpix_mj1.5", 
+            "id": 8990
         }, 
         {
-            "containerMountPoint": "/mnt/pushing_data/mj_pos_noreplan_fast_tfrec_fewdata", 
-            "id": 8972
+            "containerMountPoint": "/mnt/tensorflow_data/sim/cartgripper_flowonly", 
+            "id": 8952
         }, 
         {
-            "containerMountPoint": "/mnt/pushing_data/cartgripper_updown_sact", 
+            "containerMountPoint": "/mnt/tensorflow_data/sim/mj_pos_ctrl", 
+            "id": 8930
+        }, 
+        {
+            "containerMountPoint": "/mnt/tensorflow_data/sim/pos_ctrl", 
+            "id": 8948
+        }, 
+        {
+            "containerMountPoint": "/mnt/tensorflow_data/sim/pos_ctrl_updown_rot_sact", 
+            "id": 8951
+        }, 
+        {
+            "containerMountPoint": "/mnt/tensorflow_data/sim/pos_ctrl_updown_sact", 
             "id": 8950
         }, 
         {
-            "containerMountPoint": "/mnt/pushing_data/cartgripper_updown_rot_sact", 
-            "id": 8951
+            "containerMountPoint": "/mnt/pushing_data/cartgripper_startgoal_short", 
+            "id": 8949
+        }, 
+        {
+            "containerMountPoint": "/mnt/pushing_data/cartgripper_startgoal_masks", 
+            "id": 8914
         }
     ], 
     "resultContainerMountPoint": "/result", 
-    "aceInstance": "ngcv1"
+    "aceInstance": "ngcv8"
 }
