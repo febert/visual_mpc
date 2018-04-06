@@ -34,7 +34,7 @@ data['dockerImageName'] = "ucb_rail8888/tf_mj1.5:latest"
 if 'benchmarks' in script_name or 'parallel_data_collection' in script_name:  #running benchmark...
     data["datasetMounts"] = [{"containerMountPoint": "/mnt/tensorflow_data/sim/mj_pos_ctrl_appflow", "id": 8906},
                              {"containerMountPoint": "/mnt/tensorflow_data/sim/appflow_nogenpix", "id": 8933},
-                             {"containerMountPoint": "/mnt/tensorflow_data/sim/appflow_nogenpix_mj1.5", "id": 8990},
+                             {"containerMountPoint": "/mnt/tensorflow_data/sim/appflow_nogenpix_mj1.5", "id": 9006},
                              {"containerMountPoint": "/mnt/tensorflow_data/sim/cartgripper_flowonly", "id": 8952},
                              {"containerMountPoint": "/mnt/tensorflow_data/sim/mj_pos_ctrl", "id": 8930},
                              {"containerMountPoint": "/mnt/tensorflow_data/sim/pos_ctrl", "id": 8948},
