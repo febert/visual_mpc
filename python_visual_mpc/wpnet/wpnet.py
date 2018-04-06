@@ -1,4 +1,8 @@
 import tensorflow as tf
+
+from python_visual_mpc.wpnet.visualize import make_plots
+import pickle
+import collections
 import numpy as np
 from python_visual_mpc.video_prediction.dynamic_rnn_model.layers import instance_norm
 import matplotlib.pyplot as plt
@@ -483,3 +487,18 @@ class WaypointNet(object):
             f = cmap(f)[:, :, :3]
             l.append(f)
         return np.stack(l, axis=0)
+
+    def visualize(self, sess):
+
+        # Run through validation set.
+        feed_dict = {self.iter_num: np.float32(100000),
+                     self.train_cond: 0}
+
+        [images, gen_images] = sess.run([self.images, self.x_reconstr_mean, self.weights], feed_dict)
+
+        dict = collections.OrderedDict()
+        dict['images'] = images
+        dict['gen_images'] = gen_images
+
+        pickle.dump(dict, open(self.conf['output_dir'] + '/data.pkl', 'wb'))
+        make_plots(self.conf, dict=dict)
