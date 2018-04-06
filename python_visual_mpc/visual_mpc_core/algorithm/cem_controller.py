@@ -63,6 +63,12 @@ class CEM_controller(Policy):
 
         self.naction_steps = self.policyparams['nactions']
 
+        # define which indices of the action vector shall be discretized:
+        if 'discrete_adim' in self.agentparams:
+            self.discrete_ind = self.agentparams['discrete_adim']
+        else:
+            self.discrete_ind = None
+
 
         self.init_model = None
         #history of designated pixels
@@ -140,6 +146,13 @@ class CEM_controller(Policy):
             actions_costs[smp]=np.sum(np.square(force_magnitudes)) * self.action_cost_mult
         return actions_costs
 
+    def discretize(self, actions):
+        for b in range(self.M):
+            for a in range(self.naction_steps):
+                for ind in self.discrete_ind:
+                    actions[b, a, ind] = np.clip(np.floor(actions[b, a, ind]), 0, 4)
+        return actions
+
     def perform_CEM(self, t):
         # initialize mean and variance
 
@@ -157,6 +170,8 @@ class CEM_controller(Policy):
             t_startiter = time.time()
             actions = np.random.multivariate_normal(self.mean, self.sigma, self.M)
             actions = actions.reshape(self.M, self.naction_steps, self.adim)
+            if self.discrete_ind != None:
+                actions = self.discretize(actions)
             actions = np.repeat(actions, self.repeat, axis=1)
 
             if 'random_policy' in self.policyparams:
@@ -221,6 +236,9 @@ class CEM_controller(Policy):
         self.hf_target_qpos_l = []
 
         images = []
+        self.gripper_closed = False
+        self.gripper_up = False
+
         for t in range(self.nactions*self.repeat):
             mj_U = actions[t]
             # print 'time ',t, ' target pos rollout: ', roll_target_pos

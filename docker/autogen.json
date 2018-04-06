@@ -1,11 +1,11 @@
 {
     "dockerImageName": "ucb_rail8888/tf_mj1.5:latest", 
     "aceName": "nv-us-west-2", 
-    "name": "appflow_b2000-nworkers-8", 
+    "name": "shorttask-mj_plan-nworkers-100", 
     "publishedContainerPorts": [
         6006
     ], 
-    "command": "cd /result && tensorboard --logdir . &  export VMPC_DATA_DIR=/mnt/pushing_data; export TEN_DATA=/mnt/tensorflow_data; export RESULT_DIR=/result; export NO_ROS=''; export PATH=/opt/conda/bin:/usr/local/mpi/bin:/usr/local/nvidia/bin:/usr/local/cuda/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin; cd /workspace/visual_mpc/python_visual_mpc/visual_mpc_core/infrastructure/utility;python parallel_data_collection.py appflow_b2000 --nworkers 8", 
+    "command": "cd /result && tensorboard --logdir . &  export VMPC_DATA_DIR=/mnt/pushing_data; export TEN_DATA=/mnt/tensorflow_data; export RESULT_DIR=/result; export NO_ROS=''; export PATH=/opt/conda/bin:/usr/local/mpi/bin:/usr/local/nvidia/bin:/usr/local/cuda/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin; cd /workspace/visual_mpc/python_visual_mpc/visual_mpc_core/infrastructure/utility;python parallel_data_collection.py shorttask/mj_plan --nworkers 100", 
     "datasetMounts": [
         {
             "containerMountPoint": "/mnt/tensorflow_data/sim/mj_pos_ctrl_appflow", 
@@ -21,7 +21,7 @@
         }, 
         {
             "containerMountPoint": "/mnt/tensorflow_data/sim/cartgripper_flowonly", 
-            "id": 8952
+            "id": 9007
         }, 
         {
             "containerMountPoint": "/mnt/tensorflow_data/sim/mj_pos_ctrl", 
