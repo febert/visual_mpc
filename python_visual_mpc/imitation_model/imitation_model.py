@@ -309,3 +309,47 @@ class ImitationLSTMModelState(ImitationBaseModel):
 
 
         #self.loss += 0.1 * self.diagnostic_l2loss
+class ImitationLSTMModelStateLegacy(ImitationBaseModel):
+    def build(self):
+
+        in_batch, in_time, in_rows, in_cols, _ = self.images.get_shape()
+        in_time -= 1
+        #images are flattened for convolution
+        input_images = tf.reshape(self.images[:, :-1,:,:,:], shape=(in_batch * in_time, in_rows, in_cols, 3))
+        #actions are flattened for loss
+        #but configs are not (fed into lstm)
+        output_end_effector = tf.reshape(self.gtruth_endeffector_pos[:, 1:, :self.sdim/2], shape = (in_batch * in_time, self.sdim/2))
+
+        fp_flat = tf.reshape(self._build_conv_layers(input_images), shape=(in_batch, in_time, -1))
+
+        #see if model can predict task from first frame
+        first_frame_features = fp_flat[:, 0, :]
+        self.final_frame_state_pred = slim.layers.fully_connected(first_frame_features, self.sdim / 2,
+                                    scope='predicted_final', activation_fn=None)
+        raw_final_loss = tf.reduce_sum(tf.square(self.final_frame_state_pred - self.gtruth_endeffector_pos[:, -1, :self.sdim/2])) \
+                         + 0.5 * tf.reduce_sum(tf.abs(self.final_frame_state_pred - self.gtruth_endeffector_pos[:, -1, :self.sdim/2]))
+        self.final_frame_aux_loss = raw_final_loss / float(self.conf['batch_size'])
+
+        final_pred_broadcast = tf.tile(tf.reshape(tf.stop_gradient(self.final_frame_state_pred),
+                                                  shape = (in_batch, 1, self.sdim /2)),
+                                       [1,in_time, 1])
+
+        lstm_in = tf.concat([fp_flat, final_pred_broadcast],-1)
+
+        lstm_layers = tf.contrib.rnn.MultiRNNCell(
+            [tf.contrib.rnn.BasicLSTMCell(l) for l in self.conf['lstm_layers']])
+        last_fc, states = tf.nn.dynamic_rnn(cell = lstm_layers, inputs = lstm_in,
+                                            dtype = tf.float32, parallel_iterations=int(in_batch))
+        last_fc = tf.reshape(last_fc, shape=(in_batch * in_time, -1))
+
+        self._build_loss(last_fc, output_end_effector, in_time)
+
+        if 'MDN_loss' in self.conf:
+            num_mix = self.conf['MDN_loss']
+            self.mixing_parameters = tf.reshape(self.mixing_parameters, shape=(in_batch, in_time, num_mix))
+            self.std_dev = tf.reshape(self.std_dev, shape=(in_batch, in_time, num_mix))
+            self.means = tf.reshape(self.means, shape=(in_batch, in_time, num_mix, self.sdim / 2))
+        else:
+            self.predicted_actions = tf.reshape(self.predicted_actions, shape=(in_batch, in_time, self.sdim / 2))
+
+        self.loss += self.final_frame_aux_loss
