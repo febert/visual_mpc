@@ -243,22 +243,18 @@ class ImitationLSTMModelState(ImitationBaseModel):
         fp_flat = tf.reshape(self._build_conv_layers(input_images), shape=(in_batch, in_time, -1))
 
         #see if model can predict task from first frame
-        first_frame_features = fp_flat[:, 0, :]
-        self.final_frame_state_pred = slim.layers.fully_connected(first_frame_features, self.sdim,
-                                    scope='predicted_final', activation_fn=None)
-        raw_final_loss = tf.reduce_sum(tf.square(self.final_frame_state_pred - self.gtruth_endeffector_pos[:, -1, :self.sdim])) \
-                         + 0.5 * tf.reduce_sum(tf.abs(self.final_frame_state_pred - self.gtruth_endeffector_pos[:, -1, :self.sdim]))
-        self.final_frame_aux_loss = raw_final_loss / float(self.conf['batch_size'])
-
-        final_pred_broadcast = tf.tile(tf.reshape(self.final_frame_state_pred,
-                                                  shape = (in_batch, 1, self.sdim)),
-                                       [1,in_time, 1])
-
-        lstm_in = tf.concat([fp_flat, final_pred_broadcast, self.gtruth_endeffector_pos[:, :-1, :]],-1)
+        first_initial = slim.layers.fully_connected(self.gtruth_endeffector_pos[:, 0, :], self.conf['lstm_layers'][0],
+                                    scope='first_hidden', activation_fn = tf.tanh)
+        lstm_in = fp_flat
 
         lstm_layers = tf.contrib.rnn.MultiRNNCell(
-            [tf.contrib.rnn.BasicLSTMCell(l) for l in self.conf['lstm_layers']])
-        last_fc, states = tf.nn.dynamic_rnn(cell = lstm_layers, inputs = lstm_in,
+            [tf.contrib.rnn.ResidualWrapper(tf.contrib.rnn.BasicLSTMCell(l)) for l in self.conf['lstm_layers']])
+
+        all_initial = tuple([tf.contrib.rnn.LSTMStateTuple(tf.zeros((in_batch, self.conf['lstm_layers'][0])), first_initial)]
+                            + [tf.contrib.rnn.LSTMStateTuple(tf.zeros((in_batch, l)), tf.zeros((in_batch, l)))
+                               for l in self.conf['lstm_layers'][1:]])
+
+        last_fc, states = tf.nn.dynamic_rnn(cell = lstm_layers, inputs = lstm_in, initial_state=all_initial,
                                             dtype = tf.float32, parallel_iterations=int(in_batch))
         last_fc = tf.reshape(last_fc, shape=(in_batch * in_time, -1))
 
@@ -272,5 +268,5 @@ class ImitationLSTMModelState(ImitationBaseModel):
         else:
             self.predicted_actions = tf.reshape(self.predicted_actions, shape=(in_batch, in_time, self.sdim))
 
-        self.loss += self.final_frame_aux_loss
-        self.loss += 0.1 * self.diagnostic_l2loss
+
+        #self.loss += 0.1 * self.diagnostic_l2loss

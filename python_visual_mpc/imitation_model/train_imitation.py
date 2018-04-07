@@ -2,7 +2,7 @@ import tensorflow as tf
 from tensorflow.python.platform import flags
 import os
 import imp
-
+import numpy as np
 from python_visual_mpc.video_prediction.read_tf_records2 import \
                     build_tfrecord_input as build_tfrecord
 if __name__ == '__main__':
@@ -49,7 +49,8 @@ def main():
     if 'clip_grad' not in conf:
         conf['clip_grad'] = 1.0
     learning_rate = tf.placeholder(tf.float32, shape=[])
-    optimizer = tf.train.AdamOptimizer(learning_rate,  epsilon=1e-6)
+    optimizer = tf.train.AdamOptimizer(learning_rate)
+    #optimizer = tf.train.RMSPropOptimizer(learning_rate, decay = 0.95, epsilon=1e-6)
     gradients, variables = zip(*optimizer.compute_gradients(model.loss))
     #gradients = [tf.clip_by_value(g, -conf['clip_grad'], conf['clip_grad']) for g in gradients]
     gradients, _ = tf.clip_by_global_norm(gradients, conf['clip_grad'])
@@ -74,16 +75,40 @@ def main():
         f_dict = {learning_rate:conf['learning_rate']}
         if i % conf['n_print'] == 0:
             if 'MDN_loss' in conf:
-                model_loss, val_model_loss, val_model_diag, val_mdn_log, val_aux,  _ = sess.run(
-                    [model.loss, val_model.loss, val_model.diagnostic_l2loss,val_model.MDN_log_l, val_model.final_frame_aux_loss, train_operation], feed_dict=f_dict)
+                model_loss, val_model_loss, val_model_diag, val_mdn_log,  _ = sess.run(
+                    [model.loss, val_model.loss, val_model.diagnostic_l2loss,val_model.MDN_log_l, train_operation], feed_dict=f_dict)
                 print 'At iteration', i, 'model loss is:', model_loss, 'and val_model loss is', val_model_loss, 'and val diagnostic', val_model_diag
                 itr_summary = tf.Summary()
                 itr_summary.value.add(tag="val_model/loss", simple_value=val_model_loss)
                 itr_summary.value.add(tag="val_model/loglikelihood", simple_value=val_mdn_log)
-                itr_summary.value.add(tag="val_model/finaleep_loss", simple_value=val_aux)
                 itr_summary.value.add(tag="val_model/diagnostic_l2loss", simple_value=val_model_diag)
                 itr_summary.value.add(tag="model/loss", simple_value=model_loss)
                 summary_writer.add_summary(itr_summary, i)
+                if np.isnan(model_loss):
+                    print "NAN ALERT at", i
+                    exit(-1)
+                    # print('std_dev', std_dev)
+                    # print('means',means)
+                    # print('mixing',mixing_params)
+                    # print('likelihoods', likelihoods)
+                    # print('lg likelihoods', lg_likelihoods)
+                    # z = np.isnan(lg_likelihoods)
+                    # print('likelihoods at', likelihoods[z])
+                    # print('means at', means.reshape(-1, 20, 5)[z])
+                    # print('mixing at', mixing_params.reshape(-1, 20)[z])
+                    # print('std_dev at', std_dev.reshape(-1, 20)[z])
+                    #
+                    # samp = samp[z].reshape((-1, 1, 5))
+                    # means = means.reshape(-1, 20, 5)[z]
+                    # std_dev = std_dev.reshape(-1, 20)[z]
+                    # mixing_params = mixing_params.reshape(-1, 20)[z]
+                    #
+                    # samp_l = np.exp(-0.5 * np.sum(np.square(samp - means), axis=1) / np.square(std_dev))
+                    # samp_l /= np.power(2 * np.pi, 5 / 2.) * std_dev
+                    # samp_l *= mixing_params
+
+
+
             else:
                 model_loss, val_model_loss, val_action,val_aux,  _ = sess.run([model.loss, val_model.loss,
                                                           val_model.action_loss, val_model.final_frame_aux_loss, train_operation], feed_dict=f_dict)
