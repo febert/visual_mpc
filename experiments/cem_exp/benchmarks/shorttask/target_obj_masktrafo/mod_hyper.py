@@ -78,6 +78,6 @@ config = {
     'policy':policy,
     'ngroup': 100,
     'sourcetags':[tag_images, tag_qpos, tag_object_full_pose, tag_object_statprop, goal_mask],
-    'source_basedirs':[ROOT_DIR + '/pushing_data/cartgripper_startgoal_masks/train'],
+    'source_basedirs':[ROOT_DIR + '/pushing_data/cartgripper_startgoal_short/train'],
     'sequence_length':2
 }
