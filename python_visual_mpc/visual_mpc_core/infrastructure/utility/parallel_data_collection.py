@@ -1,4 +1,5 @@
 from multiprocessing import Pool
+import sys
 import argparse
 import os
 import importlib.machinery
@@ -142,6 +143,7 @@ def main():
             result_dir = os.environ['RESULT_DIR']
         else: result_dir = hyperparams['current_dir']
         combine_scores(result_dir, exp_name)
+        sys.exit()
 
     traindir = modconf['agent']["data_save_dir"]
     testdir = '/'.join(traindir.split('/')[:-1] + ['/test'])

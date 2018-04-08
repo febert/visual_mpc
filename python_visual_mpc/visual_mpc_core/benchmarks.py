@@ -149,7 +149,7 @@ def perform_benchmark(conf = None, gpu_id=None):
         score = np.array(scores_l)
         anglecost = np.array(anglecost_l)
         improvement = np.array(improvment_l)
-        sorted_ind = improvement.argsort()
+        sorted_ind = improvement.argsort()[::-1]
 
         pickle.dump({'improvement':improvement, 'scores':score, 'anglecost':anglecost}, open(scores_pkl_file, 'wb'))
 
