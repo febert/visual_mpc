@@ -47,7 +47,7 @@ def combine_scores(dir, exp_name):
 if __name__ == '__main__':
     n_worker = 4
     n_traj = 49
-    dir = '/home/frederik/Documents/catkin_ws/src/visual_mpc/experiments/cem_exp/benchmarks/shorttask/many_gtruth_desig/38239'
+    dir = '/home/frederik/Documents/catkin_ws/src/visual_mpc/experiments/cem_exp/benchmarks/shorttask/mj_plan/39178'
 
     traj_per_worker = int(n_traj / np.float32(n_worker))
     start_idx = [traj_per_worker * i for i in range(n_worker)]
