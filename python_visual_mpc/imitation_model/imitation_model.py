@@ -28,7 +28,7 @@ class ImitationBaseModel:
         self.images = images
 
         raw_input_splits = tf.split(actions, self.adim, axis=-1)
-        raw_input_splits[-1] = raw_input_splits[-1] / 100
+        raw_input_splits[-1] = tf.clip_by_value(raw_input_splits[-1], 0, 0.1)
         self.gtruth_actions = tf.concat(raw_input_splits, axis=-1)
 
         # ground truth ep
@@ -135,7 +135,8 @@ class ImitationBaseModel:
 
             self._build_loss(last_fc, input_action, in_time)
 
-
+    def _dif_loss(self, pred, real, l1_scale = 0.5):
+        return tf.reduce_mean(tf.square(pred - real)) + l1_scale * tf.reduce_mean(tf.abs(pred - real))
     # Source: https://github.com/machrisaa/tensorflow-vgg/blob/master/vgg19.py
     def vgg_layer(self, images):
         bgr_scaled = tf.to_float(images)
@@ -199,24 +200,30 @@ class ImitationLSTMModel(ImitationBaseModel):
 
         #see if model can predict task from first frame
         first_frame_features = fp_flat[:, 0, :]
-        self.final_frame_state_pred = slim.layers.fully_connected(first_frame_features, self.sdim,
+        real_final = tf.gather(input_end_effector[:, -1, :], [0, 1, 3], axis = 1)
+
+        self.final_frame_state_pred = slim.layers.fully_connected(first_frame_features, 3,
                                     scope='predicted_final', activation_fn=None)
-        raw_final_loss = tf.reduce_sum(tf.square(self.final_frame_state_pred - input_end_effector[:, -1, :self.sdim])) \
-                         + 0.5 * tf.reduce_sum(tf.abs(self.final_frame_state_pred - input_end_effector[:, -1, :self.sdim]))
-        self.final_frame_aux_loss = raw_final_loss / float(self.conf['batch_size'])
 
-        final_pred_broadcast = tf.tile(tf.reshape(self.final_frame_state_pred,
-                                                  shape = (in_batch, 1, self.sdim)),
-                                       [1,in_time, 1])
+        self.final_frame_aux_loss = self._dif_loss(self.final_frame_state_pred, real_final)
 
-        lstm_in = tf.concat([fp_flat, input_end_effector[:, :, :self.sdim], final_pred_broadcast],-1)
+        first_hidden_pred_in = tf.concat([self.final_frame_state_pred,self.gtruth_endeffector_pos[:, 0, :]], axis = -1)
+        first_initial = slim.layers.fully_connected(first_hidden_pred_in, self.conf['lstm_layers'][0],
+                                                    scope='first_hidden', activation_fn=tf.tanh)
 
+        lstm_in = fp_flat
         lstm_layers = tf.contrib.rnn.MultiRNNCell(
-            [tf.contrib.rnn.BasicLSTMCell(l) for l in self.conf['lstm_layers']])
-        last_fc, states = tf.nn.dynamic_rnn(cell = lstm_layers, inputs = lstm_in,
-                                            dtype = tf.float32, parallel_iterations=int(in_batch))
-        last_fc = tf.reshape(last_fc, shape=(in_batch * in_time, -1))
+            [tf.contrib.rnn.ResidualWrapper(tf.contrib.rnn.BasicLSTMCell(l)) for l in self.conf['lstm_layers']])
 
+        all_initial = tuple(
+            [tf.contrib.rnn.LSTMStateTuple(tf.zeros((in_batch, self.conf['lstm_layers'][0])), first_initial)]
+            + [tf.contrib.rnn.LSTMStateTuple(tf.zeros((in_batch, l)), tf.zeros((in_batch, l)))
+               for l in self.conf['lstm_layers'][1:]])
+
+        last_fc, states = tf.nn.dynamic_rnn(cell=lstm_layers, inputs=lstm_in, initial_state=all_initial,
+                                            dtype=tf.float32, parallel_iterations=int(in_batch))
+
+        last_fc = tf.reshape(last_fc, shape=(in_batch * in_time, -1))
         self._build_loss(last_fc, input_action, in_time)
 
         if 'MDN_loss' in self.conf:
