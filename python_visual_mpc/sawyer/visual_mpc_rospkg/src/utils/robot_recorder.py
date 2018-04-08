@@ -7,14 +7,14 @@ import os
 import shutil
 import copy
 import socket
-import thread
+import _thread
 import numpy as np
 import imutils
 import pdb
 from visual_mpc_rospkg.srv import *
 
 from PIL import Image
-import cPickle
+import pickle
 import imageio
 import matplotlib.pyplot as plt
 
@@ -97,7 +97,7 @@ class RobotRecorder(object):
             rospy.loginfo("init node aux_recorder1")
             self.instance_type = 'aux1'
 
-        print 'init recorder with instance type', self.instance_type
+        print('init recorder with instance type', self.instance_type)
 
         if self.dataconf is not None:
             self.crop_lowres = True
@@ -140,9 +140,9 @@ class RobotRecorder(object):
 
             def spin_thread():
                 rospy.spin()
-            thread.start_new(spin_thread, ())
-            print "Recorder intialized."
-            print "started spin thread"
+            _thread.start_new(spin_thread, ())
+            print("Recorder intialized.")
+            print("started spin thread")
 
         self.curr_traj = Trajectory(self.state_sequence_length)
 
@@ -153,7 +153,7 @@ class RobotRecorder(object):
         return save_kinectdataResponse()
 
     def get_kinect_handler(self, req):
-        print "handle get_kinect_request"
+        print("handle get_kinect_request")
 
         img = np.asarray(self.ltob.img_cropped)
         img = self.bridge.cv2_to_imgmsg(img)
@@ -245,7 +245,7 @@ class RobotRecorder(object):
             try:
                 rospy.wait_for_service('init_traj', timeout=1)
                 resp1 = self.init_traj_func(itr, self.igrp)
-            except (rospy.ServiceException, rospy.ROSException), e:
+            except (rospy.ServiceException, rospy.ROSException) as e:
                 rospy.logerr("Service call failed: %s" % (e,))
                 raise ValueError('get_kinectdata service failed')
 
@@ -269,8 +269,8 @@ class RobotRecorder(object):
         self.depth_image_folder = self.traj_folder + '/depth_images'
 
         if os.path.exists(self.traj_folder):
-            print "################################"
-            print 'trajectory folder {} already exists, deleting the folder'.format(self.traj_folder)
+            print("################################")
+            print('trajectory folder {} already exists, deleting the folder'.format(self.traj_folder))
             shutil.rmtree(self.traj_folder)
         os.makedirs(self.traj_folder)
         os.makedirs(self.image_folder)
@@ -296,7 +296,7 @@ class RobotRecorder(object):
             try:
                 rospy.wait_for_service('delete_traj', 0.1)
                 resp1 = self.delete_traj_func(tr, self.igrp)
-            except (rospy.ServiceException, rospy.ROSException), e:
+            except (rospy.ServiceException, rospy.ROSException) as e:
                 rospy.logerr("Service call failed: %s" % (e,))
                 raise ValueError('delete traj service failed')
         self._delete_traj_local(tr)
@@ -305,7 +305,7 @@ class RobotRecorder(object):
         self.group_folder = self.save_dir + '/traj_group{}'.format(self.igrp)
         traj_folder = self.group_folder + '/traj{}'.format(i_tr)
         shutil.rmtree(traj_folder)
-        print 'deleted {}'.format(traj_folder)
+        print('deleted {}'.format(traj_folder))
 
     def save(self, i_save, action, endeffector_pose, desig_hpos_main= None, track_desig_pos=None, goal_pos=None):
         self.t_savereq = rospy.get_time()
@@ -316,7 +316,7 @@ class RobotRecorder(object):
             try:
                 rospy.wait_for_service('get_kinectdata', 0.1)
                 resp1 = self.save_kinectdata_func(i_save)
-            except (rospy.ServiceException, rospy.ROSException), e:
+            except (rospy.ServiceException, rospy.ROSException) as e:
                 rospy.logerr("Service call failed: %s" % (e,))
                 raise ValueError('get_kinectdata service failed')
 
@@ -355,7 +355,7 @@ class RobotRecorder(object):
         else:
             highres_imglist = self.curr_traj.highres_imglist
 
-        print 'shape highres:', highres_imglist[0].shape
+        print('shape highres:', highres_imglist[0].shape)
         for im in highres_imglist:
             writer.append_data(im)
         writer.close()
@@ -370,7 +370,7 @@ class RobotRecorder(object):
             rospy.wait_for_service('get_kinectdata', 0.1)
             resp1 = self.get_kinectdata_func()
             self.ltob_aux1.img_msg = resp1.image
-        except (rospy.ServiceException, rospy.ROSException), e:
+        except (rospy.ServiceException, rospy.ROSException) as e:
             rospy.logerr("Service call failed: %s" % (e,))
             raise ValueError('get_kinectdata service failed')
 
@@ -412,7 +412,7 @@ class RobotRecorder(object):
                 if track is not None:
                     dict['track_desig'] = track_desig
                     dict['goal_pos'] = goal_pos
-                cPickle.dump(dict, f)
+                pickle.dump(dict, f)
 
     def _save_img_local(self, i_save):
 
@@ -431,7 +431,7 @@ class RobotRecorder(object):
         # saving the cropped depth data in a Pickle file
         if self.ltob.d_img_cropped_npy is not None:
             file = self.depth_image_folder + "/" + pref +"_depth_im{0}_time{1}.pkl".format(i_save, self.ltob.tstamp_d_img)
-            cPickle.dump(self.ltob.d_img_cropped_npy, open(file, 'wb'))
+            pickle.dump(self.ltob.d_img_cropped_npy, open(file, 'wb'))
         else:
             raise ValueError('d_img_cropped_npy no data received')
 
@@ -448,7 +448,7 @@ class RobotRecorder(object):
                 dict = {'t_finish_save': self.t_finish_save }
                 if pref == 'aux1':
                     dict['t_get_request'] = self.t_get_request
-                cPickle.dump(dict, f)
+                pickle.dump(dict, f)
 
     def low_res_to_highres(self, inp):
         h = self.crop_highres_params
@@ -478,5 +478,5 @@ class RobotRecorder(object):
 
 
 if __name__ ==  '__main__':
-    print 'started'
+    print('started')
     rec = RobotRecorder('/home/guser/Documents/sawyer_data/newrecording', seq_len=48)

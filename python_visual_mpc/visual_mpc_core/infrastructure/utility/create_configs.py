@@ -1,7 +1,7 @@
 # creates a collection of random configurations for pushing
 import numpy as np
 import random
-import cPickle
+import pickle
 import argparse
 import os
 import python_visual_mpc
@@ -15,6 +15,9 @@ import copy
 import matplotlib.pyplot as plt
 from matplotlib.patches import ConnectionPatch
 import pdb
+
+from python_visual_mpc.visual_mpc_core.agent.agent_mjc import Image_dark_except
+
 class CollectGoalImageSim(Sim):
     """
     All communication between the algorithms and MuJoCo is done through
@@ -36,12 +39,15 @@ class CollectGoalImageSim(Sim):
         imax = 20
         while not traj_ok and i_trial < imax:
             i_trial += 1
-            traj_ok, traj = self.take_sample()
+            try:
+                traj_ok, traj = self.rollout()
+            except Image_dark_except:
+                traj_ok = False
 
         if self._hyperparams['save_data']:
             self.save_data(traj, sample_index)
 
-    def take_sample(self):
+    def rollout(self):
         traj = Trajectory(self.agentparams)
         self.agent.large_images_traj = []
         self.agent.large_images = []
@@ -59,7 +65,6 @@ class CollectGoalImageSim(Sim):
             for _ in range(self.agentparams['substeps']):
                 self.agent._model.data.ctrl = np.zeros(self.agentparams['adim'])
                 self.agent._model.step()
-                # self.agent.viewer.loop_once()
 
         for t in range(self.agentparams['T']-1):
             self.store_data(t, traj)
@@ -67,11 +72,6 @@ class CollectGoalImageSim(Sim):
                 traj.ob_masks[t], traj.arm_masks[t], traj.large_ob_masks[t], traj.large_arm_masks[t] = self.get_obj_masks()
             if t> 0:
                 traj.bwd_flow[t-1] = self.compute_gtruth_flow(t, traj)
-                # plt.figure()
-                # plt.imshow(traj.bwd_flow[t-1, :,:, 0])
-                # plt.figure()
-                # plt.imshow(traj.bwd_flow[t - 1, :, :, 1])
-                # plt.show()
 
             self.move_objects(t, traj)
         t += 1
@@ -86,16 +86,10 @@ class CollectGoalImageSim(Sim):
         # discarding trajecotries where an object falls out of the bin:
         end_zpos = [traj.Object_full_pose[-1, i, 2] for i in range(self.agentparams['num_objects'])]
         if any(zval < -2e-2 for zval in end_zpos):
-            print 'object fell out!!!'
+            print('object fell out!!!')
             traj_ok = False
         else:
             traj_ok = True
-
-        image_sums = np.sum(traj._sample_images.reshape([self.agentparams['T'], -1]), axis=-1)
-        if any(image_sums<10):
-            traj_ok = False
-            print 'image black!'
-        print image_sums
 
         return traj_ok, traj
 
@@ -303,7 +297,7 @@ def visualize_corresp(t, flow, traj, mask_coords):
         pt_output = pts_output[p]
         sampled_location = warp_pts[pt_output[0], pt_output[1]].astype('uint32')
         # sampled_location = np.flip(sampled_location, 0)
-        print "point in warped img", pt_output, "sampled location", sampled_location
+        print("point in warped img", pt_output, "sampled location", sampled_location)
         con = ConnectionPatch(xyA=np.flip(pt_output, 0), xyB=np.flip(sampled_location, 0), coordsA=coordsA,
                               coordsB=coordsB,
                               axesA=ax2, axesB=ax1,
@@ -325,8 +319,6 @@ def main():
     hyperparams_file = data_coll_dir + '/hyperparams.py'
 
     hyperparams = imp.load_source('hyperparams', hyperparams_file).config
-    hyperparams['agent']['data_save_dir'] = os.path.join(os.environ['VMPC_DATA_DIR'], hyperparams['agent'][
-        'data_save_dir'])  # directory where to save trajectories
 
     c =CollectGoalImageSim(hyperparams)
     c.run()

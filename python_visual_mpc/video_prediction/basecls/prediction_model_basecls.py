@@ -6,14 +6,14 @@ from tensorflow.contrib.layers.python import layers as tf_layers
 from python_visual_mpc.video_prediction.lstm_ops12 import basic_conv_lstm_cell
 from python_visual_mpc.misc.zip_equal import zip_equal
 
-from utils.transformations import dna_transformation, cdna_transformation
-from utils.compute_motion_vecs import compute_motion_vector_dna, compute_motion_vector_cdna
+from .utils.transformations import dna_transformation, cdna_transformation
+from .utils.compute_motion_vecs import compute_motion_vector_dna, compute_motion_vector_cdna
 from python_visual_mpc.video_prediction.basecls.utils.visualize import visualize_diffmotions, visualize, compute_metric
 from python_visual_mpc.video_prediction.utils_vpred.animate_tkinter import Visualizer_tkinter
-import cPickle
+import pickle
 import collections
 import pdb
-from utils.visualize import visualize_diffmotions, visualize
+from .utils.visualize import visualize_diffmotions, visualize
 from copy import deepcopy
 from python_visual_mpc.video_prediction.read_tf_records2 import \
                     build_tfrecord_input as build_tfrecord_fn
@@ -91,7 +91,7 @@ class Base_Prediction_Model(object):
 
             else:
                 if len(conf['data_dir']) == 2:
-                    print 'building file readers for 2 datasets'
+                    print('building file readers for 2 datasets')
                     # mixing ratio num(dataset0)/batch_size
                     self.dataset_01ratio = tf.placeholder(tf.float32, shape=[], name="dataset_01ratio")
                     d0_conf = deepcopy(self.conf)         # the larger source dataset
@@ -150,7 +150,7 @@ class Base_Prediction_Model(object):
         self.prediction_flow = []
 
         if 'use_len' in conf:
-            print 'randomly shift videos for data augmentation'
+            print('randomly shift videos for data augmentation')
             images, states, actions  = self.random_shift(images, states, actions)
 
         self.iter_num = tf.placeholder(tf.float32, [])
@@ -177,7 +177,7 @@ class Base_Prediction_Model(object):
             self.build_loss()
 
     def random_shift(self, images, states, actions):
-        print 'shifting the video sequence randomly in time'
+        print('shifting the video sequence randomly in time')
         tshift = 2
         uselen = self.conf['use_len']
         fulllength = self.conf['sequence_length']
@@ -201,7 +201,7 @@ class Base_Prediction_Model(object):
         :return:
         """
 
-        if 'kern_size' in self.conf.keys():
+        if 'kern_size' in list(self.conf.keys()):
             KERN_SIZE = self.conf['kern_size']
         else: KERN_SIZE = 5
 
@@ -226,7 +226,7 @@ class Base_Prediction_Model(object):
 
         if 'lstm_size' in self.conf:
             self.lstm_size = self.conf['lstm_size']
-            print 'using lstm size', self.lstm_size
+            print('using lstm size', self.lstm_size)
         else:
             self.lstm_size = np.int32(np.array([16, 32, 64, 32, 16]))
 
@@ -237,7 +237,7 @@ class Base_Prediction_Model(object):
         t = -1
         for image, action in zip(self.images[:-1], self.actions[:-1]):
             t +=1
-            print t
+            print(t)
             # Reuse variables after the first timestep.
 
             self.reuse = bool(self.gen_images)
@@ -271,7 +271,7 @@ class Base_Prediction_Model(object):
 
         if '1stimg_bckgd' in self.conf:
             background = self.images[0]
-            print 'using background from first image..'
+            print('using background from first image..')
         else:
             background = self.prev_image
 
@@ -399,7 +399,7 @@ class Base_Prediction_Model(object):
 
                 enc2 = tf.concat(axis=3, values=[enc2, smear])
             else:
-                print 'ignoring states and actions'
+                print('ignoring states and actions')
             enc3 = slim.layers.conv2d(  # 8x8x32
                 enc2, hidden3.get_shape()[3], [1, 1], stride=1, scope='conv4')
             hidden5, self.lstm_state5 = self.lstm_func(  # 8x8x64
@@ -449,19 +449,19 @@ class Base_Prediction_Model(object):
         prev_pix_distrib = None
 
         if feedself and done_warm_start:
-            print 'feeding self'
+            print('feeding self')
             # Feed in generated image.
             prev_image = self.gen_images[-1]  # 64x64x6
             if self.trafo_pix:
                 prev_pix_distrib = self.gen_distrib[-1]
         elif done_warm_start:
-            print 'doing sched sampling'
+            print('doing sched sampling')
             # Scheduled sampling
             prev_image = scheduled_sample(image, self.gen_images[-1], self.batch_size,
                                           self.num_ground_truth)
         else:
             # Always feed in ground_truth
-            print 'feeding gtruth'
+            print('feeding gtruth')
             prev_image = image
             if self.trafo_pix:
                 prev_pix_distrib = self.pix_distrib[t]
@@ -498,7 +498,7 @@ class Base_Prediction_Model(object):
             loss, psnr_all = 0.0, 0.0
 
             for i, x, gx in zip(
-                    range(len(self.gen_images)), self.images[self.conf['context_frames']:],
+                    list(range(len(self.gen_images))), self.images[self.conf['context_frames']:],
                     self.gen_images[self.conf['context_frames'] - 1:]):
                 recon_cost_mse = self.mean_squared_error(x, gx)
                 train_summaries.append(tf.summary.scalar('recon_cost' + str(i), recon_cost_mse))
@@ -508,7 +508,7 @@ class Base_Prediction_Model(object):
 
             if ('ignore_state_action' not in self.conf) and ('ignore_state' not in self.conf):
                 for i, state, gen_state in zip(
-                        range(len(self.gen_states)), self.states[self.conf['context_frames']:],
+                        list(range(len(self.gen_states))), self.states[self.conf['context_frames']:],
                         self.gen_states[self.conf['context_frames'] - 1:]):
                     state_cost = self.mean_squared_error(state, gen_state) * 1e-4 * self.conf['use_state']
                     train_summaries.append(tf.summary.scalar('state_cost' + str(i), state_cost))
@@ -557,7 +557,7 @@ class Base_Prediction_Model(object):
                          transf_distrib):
         if '1stimg_bckgd' in self.conf:
             background_pix = first_pix_distrib
-            print 'using pix_distrib-background from first image..'
+            print('using pix_distrib-background from first image..')
         else:
             background_pix = prev_pix_distrib
 

@@ -1,4 +1,4 @@
-from goalimage_warper import GoalImageWarper
+from .goalimage_warper import GoalImageWarper
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
@@ -97,15 +97,15 @@ class ModelTrainer():
 
     def load_weights(self, weights_file):
         if os.path.isfile(weights_file):
-            print("=> loading checkpoint '{}'".format(weights_file))
+            print(("=> loading checkpoint '{}'".format(weights_file)))
             checkpoint = torch.load(weights_file)
             start_epoch = checkpoint['epoch']
             self.model.load_state_dict(checkpoint['state_dict'])
             self.optimizer.load_state_dict(checkpoint['optimizer'])
-            print("=> loaded checkpoint '{}' (epoch {})"
-                  .format(weights_file, checkpoint['epoch']))
+            print(("=> loaded checkpoint '{}' (epoch {})"
+                  .format(weights_file, checkpoint['epoch'])))
         else:
-            print("=> no checkpoint found at '{}'".format(weights_file))
+            print(("=> no checkpoint found at '{}'".format(weights_file)))
 
     def init_tflogger(self):
         self.sess = tf.InteractiveSession()
@@ -138,8 +138,8 @@ class ModelTrainer():
         I1 = images[:, tend]
 
         if self.batch_idx % 100 == 0:
-            print 'tstart',tstart
-            print 'tend', tend
+            print('tstart',tstart)
+            print('tend', tend)
         return I0, I1
 
 
@@ -233,13 +233,13 @@ class ModelTrainer():
             end = time.time()
 
             if self.batch_idx % 10 == 0:
-                print('itr: {} Train Epoch: {} [{}/{} ({:.0f}%)]\tLoss: {:.6f}'.format(
+                print(('itr: {} Train Epoch: {} [{}/{} ({:.0f}%)]\tLoss: {:.6f}'.format(
                     self.global_step, epoch, self.batch_idx * self.conf['batch_size'], len(self.train_loader.dataset),
-                    100. * self.batch_idx / len(self.train_loader), loss.data[0]))
+                    100. * self.batch_idx / len(self.train_loader), loss.data[0])))
 
-                print 'avg loading time: {}, avg batch time: {}'.format(data_load_time, batch_time.val)
+                print('avg loading time: {}, avg batch time: {}'.format(data_load_time, batch_time.val))
                 comp_time = batch_time.avg*self.conf['num_epochs']*epoch_len/3600.
-                print 'expected time for complete training: {}h'.format(comp_time)
+                print('expected time for complete training: {}h'.format(comp_time))
 
 
     def val(self, epoch):
@@ -266,7 +266,7 @@ class ModelTrainer():
 
         avg_loss = np.mean(loss_list)
         self.tf_logg(self.global_step, val_loss=avg_loss)
-        print('\nTest set: Average loss: {:.4f}\n'.format(avg_loss))
+        print(('\nTest set: Average loss: {:.4f}\n'.format(avg_loss)))
 
 
 def main():

@@ -2,26 +2,25 @@
 import numpy as np
 
 from python_visual_mpc.visual_mpc_core.algorithm.policy import Policy
-import mujoco_py
-from mujoco_py.mjlib import mjlib
-from mujoco_py.mjtypes import *
-import copy
 import time
-import imp
-import cPickle
 from python_visual_mpc.video_prediction.utils_vpred.create_gif_lib import *
+from mujoco_py import load_model_from_xml,load_model_from_path, MjSim, MjViewer
+import copy
 from datetime import datetime
 import os
 
 from PIL import Image
 import pdb
+from python_visual_mpc.visual_mpc_core.algorithm.cem_controller_goalimage_sawyer import construct_initial_sigma
 
+from pyquaternion import Quaternion
+from mujoco_py import load_model_from_xml,load_model_from_path, MjSim, MjViewer
 
 class CEM_controller(Policy):
     """
     Cross Entropy Method Stochastic Optimizer
     """
-    def __init__(self, ag_params, policyparams, predictor = None):
+    def __init__(self, ag_params, policyparams):
         Policy.__init__(self)
 
         self.agentparams = ag_params
@@ -29,39 +28,25 @@ class CEM_controller(Policy):
 
         self.t = None
 
-        if self.policyparams['low_level_ctrl']:
+        if 'low_level_ctrl' in self.policyparams:
             self.low_level_ctrl = policyparams['low_level_ctrl']['type'](None, policyparams['low_level_ctrl'])
 
-        self.model = mujoco_py.MjModel(self.agentparams['filename'])
 
         if 'verbose' in self.policyparams:
             self.verbose = True
         else: self.verbose = False
 
+
         if 'iterations' in self.policyparams:
             self.niter = self.policyparams['iterations']
         else: self.niter = 10  # number of iterations
 
-        if 'usenet' in self.policyparams:
-            self.use_net = True
-        else: self.use_net = False
-
         self.action_list = []
-
-        if self.use_net:
-            hyperparams = imp.load_source('hyperparams', self.policyparams['netconf'])
-            self.netconf = hyperparams.configuration
 
         self.nactions = self.policyparams['nactions']
         self.repeat = self.policyparams['repeat']
-        if self.use_net:
-            self.M = self.netconf['batch_size']
-            assert self.nactions * self.repeat == self.netconf['sequence_length']
-            self.predictor = predictor
-            self.K = 10  # only consider K best samples for refitting
-        else:
-            self.M = self.policyparams['num_samples']
-            self.K = 10  # only consider K best samples for refitting
+        self.M = self.policyparams['num_samples']
+        self.K = 10  # only consider K best samples for refitting
 
         self.gtruth_images = [np.zeros((self.M, 64, 64, 3)) for _ in range(self.nactions * self.repeat)]
 
@@ -70,25 +55,22 @@ class CEM_controller(Policy):
             self.action_cost_mult = self.policyparams['action_cost_factor']
         else: self.action_cost_mult = 0.00005
 
-        self.adim = 2  # action dimension
+        self.adim = self.agentparams['adim'] # action dimension
+        self.sdim = self.agentparams['sdim'] # action dimension
         self.initial_std = policyparams['initial_std']
         if 'exp_factor' in policyparams:
             self.exp_factor = policyparams['exp_factor']
 
-        gofast = True
-        self.viewer = mujoco_py.MjViewer(visible=True, init_width=480,
-                                         init_height=480, go_fast=gofast)
-        self.viewer.start()
-        self.viewer.set_model(self.model)
-        self.viewer.cam.camid = 0
+        self.naction_steps = self.policyparams['nactions']
 
-        self.small_viewer = mujoco_py.MjViewer(visible=True, init_width=64,
-                                         init_height=64, go_fast=gofast)
-        self.small_viewer.start()
-        self.small_viewer.set_model(self.model)
-        self.small_viewer.cam.camid = 0
+        # define which indices of the action vector shall be discretized:
+        if 'discrete_adim' in self.agentparams:
+            self.discrete_ind = self.agentparams['discrete_adim']
+        else:
+            self.discrete_ind = None
 
-        self.init_model = []
+
+        self.init_model = None
         #history of designated pixels
         self.desig_pix = []
 
@@ -108,6 +90,9 @@ class CEM_controller(Policy):
         self.mean =None
         self.sigma =None
 
+    def create_sim(self):
+        self.sim = MjSim(load_model_from_path(self.agentparams['gen_xml_fname']))
+
     def reinitialize(self):
         self.use_net = self.policyparams['usenet']
         self.action_list = []
@@ -125,20 +110,33 @@ class CEM_controller(Policy):
         self.target = np.zeros(2)
 
     def finish(self):
-        self.small_viewer.finish()
         self.viewer.finish()
 
     def setup_mujoco(self):
-
-        # set initial conditions
-        self.model.data.qpos = self.init_model.data.qpos
-        self.model.data.qvel = self.init_model.data.qvel
+        sim_state = self.sim.get_state()
+        sim_state.qpos[:] = self.init_model.data.qpos
+        sim_state.qvel[:] = self.init_model.data.qvel
+        self.sim.set_state(sim_state)
+        self.sim.forward()
 
     def eval_action(self):
-        goalpoint = np.array(self.agentparams['goal_point'])
-        refpoint = self.model.data.site_xpos[0,:2]
+        abs_distances = []
+        abs_angle_dist = []
+        qpos_dim = self.sdim // 2  # the states contains pos and vel
+        for i_ob in range(self.agentparams['num_objects']):
 
-        return np.linalg.norm(goalpoint - refpoint)
+            goal_pos = self.goal_obj_pose[i_ob, :3]
+            curr_pose = self.sim.data.qpos[i_ob * 7 + qpos_dim:(i_ob+1) * 7 + qpos_dim].squeeze()
+            curr_pos = curr_pose[:3]
+
+            abs_distances.append(np.linalg.norm(goal_pos - curr_pos))
+
+            goal_quat = Quaternion(self.goal_obj_pose[i_ob, 3:])
+            curr_quat = Quaternion(curr_pose[3:])
+            diff_quat = curr_quat.conjugate*goal_quat
+            abs_angle_dist.append(np.abs(diff_quat.radians))
+
+        return np.sum(np.array(abs_distances)), np.sum(np.array(abs_angle_dist))
 
     def calc_action_cost(self, actions):
         actions_costs = np.zeros(self.M)
@@ -148,65 +146,44 @@ class CEM_controller(Policy):
             actions_costs[smp]=np.sum(np.square(force_magnitudes)) * self.action_cost_mult
         return actions_costs
 
-    def perform_CEM(self,last_frames, last_states, last_action, t):
+    def discretize(self, actions):
+        for b in range(self.M):
+            for a in range(self.naction_steps):
+                for ind in self.discrete_ind:
+                    actions[b, a, ind] = np.clip(np.floor(actions[b, a, ind]), 0, 4)
+        return actions
+
+    def perform_CEM(self, t):
         # initialize mean and variance
 
-        if 'exp_factor' in self.policyparams:  # if reusing covariance matrix and mean...
-            if t < 2:
-                self.mean = np.zeros(self.adim * self.nactions)
-                self.sigma = np.diag(np.ones(self.adim * self.nactions) * self.initial_std ** 2)
-            else:
-                print 'reusing mean form last MPC step...'
-                # if 'reduce_iter' in self.policyparams:
-                #     self.niter = 2
+        # initialize mean and variance
+        self.mean = np.zeros(self.adim * self.naction_steps)
+        # initialize mean and variance of the discrete actions to their mean and variance used during data collection
+        self.sigma = construct_initial_sigma(self.policyparams)
 
-                pdb.set_trace()
-                mean_old = copy.deepcopy(self.mean)
-
-                self.mean = np.zeros_like(mean_old)
-                self.mean[:-2] = mean_old[2:]
-                self.mean = self.mean.reshape(self.adim * self.nactions)
-
-                sigma_old = copy.deepcopy(self.sigma)
-                self.sigma = np.zeros_like(self.sigma)
-                self.sigma[0:-2,0:-2] = sigma_old[2:,2: ]
-                self.sigma[0:-2, 0:-2] += np.diag(np.ones(self.adim * (self.nactions-1)))*(self.initial_std/5)**2
-                self.sigma[-1,-1] = self.initial_std**2
-                self.sigma[-2,-2] = self.initial_std**2
-
-                # self.sigma = np.diag(np.ones(self.adim * self.nactions) * self.initial_std ** 2)
-        else:
-            self.mean = np.zeros(self.adim * self.nactions)
-            self.sigma = np.diag(np.ones(self.adim * self.nactions) * self.initial_std ** 2)
-
-
-        print '------------------------------------------------'
-        print 'starting CEM cylce'
-
-        # last_action = np.expand_dims(last_action, axis=0)
-        # last_action = np.repeat(last_action, self.netconf['batch_size'], axis=0)
-        # last_action = last_action.reshape(self.netconf['batch_size'], 1, self.adim)
+        print('------------------------------------------------')
+        print('starting CEM cylce')
 
         for itr in range(self.niter):
-            print '------------'
-            print 'iteration: ', itr
-            t_startiter = datetime.now()
-
+            print('------------')
+            print('iteration: ', itr)
+            t_startiter = time.time()
             actions = np.random.multivariate_normal(self.mean, self.sigma, self.M)
-            actions = actions.reshape(self.M, self.nactions, self.adim)
-            # import pdb; pdb.set_trace()
-
-            if self.verbose or not self.use_net:
-                scores = self.take_mujoco_smp(actions, itr)
-
+            actions = actions.reshape(self.M, self.naction_steps, self.adim)
+            if self.discrete_ind != None:
+                actions = self.discretize(actions)
             actions = np.repeat(actions, self.repeat, axis=1)
 
-            t_start = datetime.now()
+            if 'random_policy' in self.policyparams:
+                print('sampling random actions')
+                self.bestaction_withrepeat = actions[0]
+                return
 
-            if self.use_net:
-                scores = self.video_pred(last_frames, last_states, actions, itr)
-                print('overall time for evaluating actions {}'.format(
-                    (datetime.now() - t_start).seconds + (datetime.now() - t_start).microseconds / 1e6))
+            t_start = time.time()
+
+            scores = self.take_mujoco_smp(actions)
+
+            print('overall time for evaluating actions {}'.format(time.time() - t_start))
 
             actioncosts = self.calc_action_cost(actions)
             scores += actioncosts
@@ -216,300 +193,119 @@ class CEM_controller(Policy):
 
             self.bestaction_withrepeat = actions[self.indices[0]]
 
-            actions = actions.reshape(self.M, self.nactions, self.repeat, self.adim)
-            actions = actions[:,:,-1,:] #taking only one of the repeated actions
-            actions_flat = actions.reshape(self.M, self.nactions * self.adim)
+            actions = actions.reshape(self.M, self.naction_steps, self.repeat, self.adim)
+            actions = actions[:, :, -1, :]  # taking only one of the repeated actions
+            actions_flat = actions.reshape(self.M, self.naction_steps * self.adim)
 
             self.bestaction = actions[self.indices[0]]
             # print 'bestaction:', self.bestaction
 
             arr_best_actions = actions_flat[self.indices]  # only take the K best actions
-            self.sigma = np.cov(arr_best_actions, rowvar= False, bias= False)
-            self.mean = np.mean(arr_best_actions, axis= 0)
+            self.sigma = np.cov(arr_best_actions, rowvar=False, bias=False)
+            self.mean = np.mean(arr_best_actions, axis=0)
 
-            print 'iter {0}, bestscore {1}'.format(itr, scores[self.indices[0]])
-            print 'action cost of best action: ', actioncosts[self.indices[0]]
+            print('iter {0}, bestscore {1}'.format(itr, scores[self.indices[0]]))
+            print('action cost of best action: ', actioncosts[self.indices[0]])
 
-            print 'overall time for iteration {}'.format(
-                (datetime.now() - t_startiter).seconds + (datetime.now() - t_startiter).microseconds / 1e6)
+            print('overall time for iteration {}'.format(time.time() - t_startiter))
 
-    def take_mujoco_smp(self, actions, itr):
-
-        scores = np.empty(self.M, dtype=np.float64)
+    def take_mujoco_smp(self, actions):
+        all_scores = np.empty(self.M, dtype=np.float64)
         for smp in range(self.M):
             self.setup_mujoco()
-            accum_score = self.sim_rollout(actions[smp], smp, itr)
+            score, images = self.sim_rollout(actions[smp])
+            per_time_multiplier = np.ones([len(score)])
+            per_time_multiplier[-1] = self.policyparams['finalweight']
+            all_scores[smp] = np.sum(per_time_multiplier*score)
 
-            if 'rew_all_steps' in self.policyparams:
-                scores[smp] = accum_score
-            else:
-                scores[smp] = self.eval_action()
+            if smp % 1 == 0 and self.verbose:
+                self.save_gif(images, '_{}'.format(smp))
+        return all_scores
 
-        return scores
+    def save_gif(self, images, name):
+        file_path = self.agentparams['record']
+        npy_to_gif(images, file_path +'/video'+name)
 
-    def mujoco_one_hot_images(self):
-        one_hot_images = np.zeros((1, self.netconf['context_frames'], 64, 64, 1), dtype=np.float32)
-        # switch on pixels
-        one_hot_images[0, 0, self.desig_pix[-2][0], self.desig_pix[-2][1]] = 1
-        one_hot_images[0, 1, self.desig_pix[-1][0], self.desig_pix[-1][1]] = 1
+    def clip_targetpos(self, pos):
+        pos_clip = self.agentparams['targetpos_clip']
+        return np.clip(pos, pos_clip[0], pos_clip[1])
 
-        return one_hot_images
+    def sim_rollout(self, actions):
+        costs = []
+        self.hf_qpos_l = []
+        self.hf_target_qpos_l = []
 
-    def correct_distrib(self, full_images, t):
-        full_images = full_images.astype(np.float32) / 255.
-        if t == 0:  # use one hot image from mujoco
-            desig_pos = self.desig_pix[-1]
-            one_hot_image = np.zeros((1, 64, 64, 1), dtype=np.float32)
-            # switch on pixels
-            one_hot_image[0, desig_pos[0], desig_pos[1]] = 1
+        images = []
+        self.gripper_closed = False
+        self.gripper_up = False
 
-            self.rec_input_distrib.append(one_hot_image)
-            self.corr_gen_images.append(np.expand_dims(full_images[0], axis=0))
+        for t in range(self.nactions*self.repeat):
+            mj_U = actions[t]
+            # print 'time ',t, ' target pos rollout: ', roll_target_pos
 
-        else:
-            corr_input_distrib = self.rec_input_distrib[-1]
-
-            input_images = full_images[t-1:t+1]
-            input_images = np.expand_dims(input_images, axis= 0)
-            gen_image, _, output_distrib = self.corrector(input_images, corr_input_distrib)
-            self.rec_input_distrib.append(output_distrib)
-            self.corr_gen_images.append(gen_image)
-
-            if t == (self.agentparams['T']-1):
-                self.save_distrib_visual(full_images)
-
-    def save_distrib_visual(self, full_images, use_genimg = True):
-        #assumes full_images is already rescaled to [0,1]
-        orig_images = np.split(full_images, full_images.shape[0], axis = 0)
-        orig_images = [im.reshape(1,64,64,3) for im in orig_images]
-
-        # the first image of corr_gen_images is the first image of the original images!
-        file_path =self.policyparams['current_dir'] + '/videos_distrib'
-        if use_genimg:
-            cPickle.dump([orig_images, self.corr_gen_images, self.rec_input_distrib, self.desig_pix],
-                         open(file_path + '/correction.pkl', 'wb'))
-            distrib = make_color_scheme(self.rec_input_distrib)
-            distrib = add_crosshairs(distrib, self.desig_pix)
-            frame_list = assemble_gif([orig_images, self.corr_gen_images, distrib], num_exp=1)
-        else:
-            cPickle.dump([orig_images, self.rec_input_distrib],
-                         open(file_path + '/correction.pkl', 'wb'))
-            distrib = make_color_scheme(self.rec_input_distrib)
-            distrib = add_crosshairs(distrib, self.desig_pix)
-            frame_list = assemble_gif([orig_images, distrib], num_exp=1)
-
-        npy_to_gif(frame_list, self.policyparams['rec_distrib'])
-
-    def mujoco_to_imagespace(self, mujoco_coord, numpix = 64, truncate = False):
-        """
-        convert form Mujoco-Coord to numpix x numpix image space:
-        :param numpix: number of pixels of square image
-        :param mujoco_coord:
-        :return: pixel_coord
-        """
-        viewer_distance = .75  # distance from camera to the viewing plane
-        window_height = 2 * np.tan(75 / 2 / 180. * np.pi) * viewer_distance  # window height in Mujoco coords
-        pixelheight = window_height / numpix  # height of one pixel
-        pixelwidth = pixelheight
-        window_width = pixelwidth * numpix
-        middle_pixel = numpix / 2
-        pixel_coord = np.rint(np.array([-mujoco_coord[1], mujoco_coord[0]]) /
-                              pixelwidth + np.array([middle_pixel, middle_pixel]))
-        pixel_coord = pixel_coord.astype(int)
-
-        if truncate:
-            if np.any(pixel_coord < 0) or np.any(pixel_coord > numpix -1):
-                print '###################'
-                print 'designated pixel is outside the field!! Resetting it to be inside...'
-                print 'truncating...'
-                if np.any(pixel_coord < 0):
-                    pixel_coord[pixel_coord < 0] = 0
-                if np.any(pixel_coord > numpix-1):
-                    pixel_coord[pixel_coord > numpix-1]  = numpix-1
-
-        return pixel_coord
-
-
-    def video_pred(self, last_frames, last_states, actions, itr):
-
-        self.pred_pos[:, itr, 0] = self.mujoco_to_imagespace(last_states[-1, :2] , numpix=480)
-
-
-        if 'predictor_propagation' in self.policyparams:  #using the predictor's DNA to propagate, no correction
-            print 'using predictor_propagation'
-            if self.t < self.netconf['context_frames']:
-                input_distrib = self.mujoco_one_hot_images()
-                if itr == 0:
-                    self.rec_input_distrib.append(input_distrib[:,1])
-            else:
-                input_distrib = [self.rec_input_distrib[-2], self.rec_input_distrib[-1]]
-                input_distrib = [np.expand_dims(elem, axis=1) for elem in input_distrib]
-                input_distrib = np.concatenate(input_distrib, axis=1)
-
-        else: input_distrib = self.mujoco_one_hot_images()
-
-        last_states = np.expand_dims(last_states, axis=0)
-
-        last_states = np.repeat(last_states, self.netconf['batch_size'], axis=0)
-
-        input_distrib = np.repeat(input_distrib, self.netconf['batch_size'], axis=0)
-
-        last_frames = np.expand_dims(last_frames, axis=0)
-        last_frames = np.repeat(last_frames, self.netconf['batch_size'], axis=0)
-        app_zeros = np.zeros(shape=(self.netconf['batch_size'], self.netconf['sequence_length']-
-                                    self.netconf['context_frames'], 64, 64, 3))
-        last_frames = np.concatenate((last_frames, app_zeros), axis=1)
-        last_frames = last_frames.astype(np.float32)/255.
-
-        gen_images, gen_distrib1, _,gen_states, gen_masks,  = self.predictor(input_images=last_frames,
-                                                            input_state=last_states,
-                                                            input_actions=actions,
-                                                            input_one_hot_images1=input_distrib)
-
-        for tstep in range(self.netconf['sequence_length']-1):
-            for smp in range(self.M):
-                self.pred_pos[smp, itr, tstep+1] = self.mujoco_to_imagespace(gen_states[tstep][smp, :2], numpix=480)
-
-        goalpoint = self.mujoco_to_imagespace(self.agentparams['goal_point'])
-        distance_grid = np.empty((64,64))
-        for i in range(64):
-            for j in range(64):
-                pos = np.array([i,j])
-                distance_grid[i,j] = np.linalg.norm(goalpoint - pos)
-
-        expected_distance = np.zeros(self.netconf['batch_size'])
-        if 'rew_all_steps' in self.policyparams:
-            for tstep in range(self.netconf['sequence_length']-1):
-                t_mult = 1
-                if 'finalweight' in self.policyparams:
-                    if tstep == self.netconf['sequence_length']-2:
-                        t_mult = self.policyparams['finalweight']
-
-                for b in range(self.netconf['batch_size']):
-                    gen = gen_distrib1[tstep][b].squeeze() / np.sum(gen_distrib1[tstep][b])
-                    expected_distance[b] += np.sum(np.multiply(gen, distance_grid)) * t_mult
-        else:
-            for b in range(self.netconf['batch_size']):
-                gen = gen_distrib1[-1][b].squeeze()/ np.sum(gen_distrib1[-1][b])
-                expected_distance[b] = np.sum(np.multiply(gen, distance_grid))
-
-        # for predictor_propagation only!!
-        if 'predictor_propagation' in self.policyparams:
-            assert not 'correctorconf' in self.policyparams
-            if itr == (self.policyparams['iterations']-1):
-                # pick the prop distrib from the action actually chosen after the last iteration (i.e. self.indices[0])
-                self.indices = expected_distance.argsort()[:self.K]
-                self.rec_input_distrib.append(gen_distrib1[2][self.indices[0]].reshape(1, 64, 64, 1))
-
-        # compare prediciton with simulation
-        if self.verbose and itr == self.policyparams['iterations']-1:
-            print 'creating visuals for best sampled actions at last iteration...'
-
-            # concat_masks = [np.stack(gen_masks[t], axis=1) for t in range(14)]
-
-            file_path = self.netconf['current_dir'] + '/verbose'
-
-            bestindices = expected_distance.argsort()[:self.K]
-
-            def best(inputlist):
-                outputlist = [np.zeros_like(a)[:self.K] for a in inputlist]
-
-                for ind in range(self.K):
-                    for tstep in range(len(inputlist)):
-                        outputlist[tstep][ind] = inputlist[tstep][bestindices[ind]]
-                return outputlist
-
-            self.gtruth_images = [img.astype(np.float) / 255. for img in self.gtruth_images]  #[1:]
-            cPickle.dump(best(gen_distrib1), open(file_path + '/gen_distrib.pkl', 'wb'))
-            cPickle.dump(best(gen_images), open(file_path + '/gen_images.pkl', 'wb'))
-            # cPickle.dump(best(concat_masks), open(file_path + '/gen_masks.pkl', 'wb'))
-            cPickle.dump(best(self.gtruth_images), open(file_path + '/gtruth_images.pkl', 'wb'))
-            print 'written files to:' + file_path
-            comp_pix_distrib(file_path, name='check_eval_t{}'.format(self.t), masks=False, examples=self.K)
-
-            f = open(file_path + '/actions_last_iter_t{}'.format(self.t), 'w')
-            sorted = expected_distance.argsort()
-            for i in range(actions.shape[0]):
-                f.write('index: {0}, score: {1}, rank: {2}'.format(i, expected_distance[i], np.where(sorted == i)[0][0]))
-                f.write('action {}\n'.format(actions[i]))
-
-        return expected_distance
-
-    def sim_rollout(self, actions, smp, itr):
-        accum_score = 0
-
-        if self.policyparams['low_level_ctrl']:
-            rollout_ctrl = self.policyparams['low_level_ctrl']['type'](None, self.policyparams['low_level_ctrl'])
-            roll_target_pos = copy.deepcopy(self.init_model.data.qpos[:2].squeeze())
-
-        for hstep in range(self.nactions):
-            currentaction = actions[hstep]
-
-            if self.policyparams['low_level_ctrl']:
-                roll_target_pos += currentaction
-
-            for r in range(self.repeat):
-                t = hstep*self.repeat + r
-                # print 'time ',t, ' target pos rollout: ', roll_target_pos
-
-                if not self.use_net:
-                    ball_coord = self.model.data.qpos[:2].squeeze()
-                    self.pred_pos[smp, itr, t] = mujoco_to_imagespace(ball_coord, numpix=480)
-                    if self.policyparams['low_level_ctrl']:
-                        self.rec_target_pos[smp, itr, t] = mujoco_to_imagespace(roll_target_pos, numpix=480)
-
-                if self.policyparams['low_level_ctrl'] == None:
-                    force = currentaction
+            if 'posmode' in self.agentparams:  #if the output of act is a positions
+                if t == 0:
+                    self.prev_target_qpos = copy.deepcopy(self.sim.data.qpos[:self.adim].squeeze())
+                    self.target_qpos = copy.deepcopy(self.sim.data.qpos[:self.adim].squeeze())
                 else:
-                    qpos = self.model.data.qpos[:2].squeeze()
-                    qvel = self.model.data.qvel[:2].squeeze()
-                    force = rollout_ctrl.act(qpos, qvel, None, t, roll_target_pos)
+                    self.prev_target_qpos = copy.deepcopy(self.target_qpos)
 
-                for _ in range(self.agentparams['substeps']):
-                    self.model.data.ctrl = force
-                    self.model.step()  # simulate the model in mujoco
+                if 'discrete_adim' in self.agentparams:
+                    up_cmd = mj_U[2]
+                    assert np.floor(up_cmd) == up_cmd
+                    if up_cmd != 0:
+                        self.t_down = t + up_cmd
+                        self.target_qpos[2] = self.agentparams['targetpos_clip'][1][2]
+                        self.gripper_up = True
+                    if self.gripper_up:
+                        if t == self.t_down:
+                            self.target_qpos[2] = self.agentparams['targetpos_clip'][0][2]
+                            self.gripper_up = False
+                    self.target_qpos[:2] += mj_U[:2]
+                    if self.adim == 4:
+                        self.target_qpos[3] += mj_U[3]
+                else:
+                    self.target_qpos = mj_U + self.target_qpos
+                self.target_qpos = self.clip_targetpos(self.target_qpos)
+            else:
+                ctrl = mj_U.copy()
 
-                accum_score += self.eval_action()
+            for st in range(self.agentparams['substeps']):
+                if 'posmode' in self.agentparams:
+                    ctrl = self.get_int_targetpos(st, self.prev_target_qpos, self.target_qpos)
+                self.sim.data.ctrl[:] = ctrl
+                self.sim.step()
+                self.hf_qpos_l.append(copy.deepcopy(self.sim.data.qpos))
+                self.hf_target_qpos_l.append(copy.deepcopy(ctrl))
 
-                if self.verbose:
-                    self.viewer.loop_once()
+            costs.append(self.eval_action())
 
-                    self.small_viewer.loop_once()
-                    img_string, width, height = self.small_viewer.get_image()
-                    img = np.fromstring(img_string, dtype='uint8').reshape(
-                        (height, width, 3))[::-1, :, :]
-                    self.gtruth_images[t][smp] = img
-                    # self.check_conversion()
+            if self.verbose:
+                width = self.agentparams['viewer_image_width']
+                height = self.agentparams['viewer_image_height']
+                images.append(self.sim.render(width, height, camera_name="maincam")[::-1, :, :])
 
-        return accum_score
+            # print(t)
+        # self.plot_ctrls()
+        return np.stack(costs, axis=0)[:,0], images
 
-    def check_conversion(self):
-        # check conversion
-        img_string, width, height = self.viewer.get_image()
-        img = np.fromstring(img_string, dtype='uint8').reshape(
-            (height, width, 3))[::-1, :, :]
+    def get_int_targetpos(self, substep, prev, next):
+        assert substep >= 0 and substep < self.agentparams['substeps']
+        return substep/float(self.agentparams['substeps'])*(next - prev) + prev
 
-        refpoint = self.model.data.site_xpos[0, :2]
-        refpoint = self.mujoco_to_imagespace(refpoint, numpix=480)
-        img[refpoint[0], refpoint[1]] = np.array([255, 255, 255])
-        goalpoint = np.array(self.agentparams['goal_point'])
-        goalpoint = self.mujoco_to_imagespace(goalpoint, numpix=480)
-        img[goalpoint[0], goalpoint[1], :] = np.uint8(255)
-        from PIL import Image
-        Image.fromarray(img).show()
-        import pdb
-        pdb.set_trace()
+    def plot_ctrls(self):
+        plt.figure()
+        # a = plt.gca()
+        self.hf_qpos_l = np.stack(self.hf_qpos_l, axis=0)
+        self.hf_target_qpos_l = np.stack(self.hf_target_qpos_l, axis=0)
+        tmax = self.hf_target_qpos_l.shape[0]
+        for i in range(self.adim):
+            plt.plot(list(range(tmax)) , self.hf_qpos_l[:,i], label='q_{}'.format(i))
+            plt.plot(list(range(tmax)) , self.hf_target_qpos_l[:, i], label='q_target{}'.format(i))
+            plt.legend()
+            plt.show()
 
-    def quat_to_zangle(self, quat):
-        """
-        :param quat: quaternion 
-        :return: zangle in rad
-        """
-        theta = np.arctan2(2*quat[0]*quat[3], 1-2*quat[3]**2)
-        return np.array([theta])
-
-
-    def act(self,  traj, t, init_model= None):
+    def act(self, traj, t, init_model, goal_obj_pose, agent_params):
         """
         Return a random action for a state.
         Args:
@@ -519,84 +315,26 @@ class CEM_controller(Policy):
             t: the current controller's Time step
             init_model: mujoco model to initialize from
         """
+        self.agentparams = agent_params
+        self.goal_obj_pose = goal_obj_pose
         self.t = t
-
         self.init_model = init_model
 
-        desig_pos = self.init_model.data.site_xpos[0, :2]
-        self.desig_pix.append(mujoco_to_imagespace(desig_pos, truncate=True))
-
-        fullpose = self.init_model.data.qpos[2: 9].squeeze()
-        zangle = self.quat_to_zangle(fullpose[3:])
-        fullpose = np.concatenate([fullpose[:2], zangle])
-
         if t == 0:
-            action = np.zeros(2)
-            self.target = copy.deepcopy(self.init_model.data.qpos[:2].squeeze())
-            self.init_retpos = copy.deepcopy(fullpose)
+            action = np.zeros(self.adim)
+            self.create_sim()
         else:
-
-            last_images = traj._sample_images[t-1:t+1]
-            last_states = traj.X_Xdot_full[t-1: t+1]
-            last_action = self.action_list[-1]
-
             if 'use_first_plan' in self.policyparams:
-                print 'using actions of first plan, no replanning!!'
+                print('using actions of first plan, no replanning!!')
                 if t == 1:
-                    self.perform_CEM(last_images, last_states, last_action, t)
-                else:
-                    # only showing last iteration
-                    self.pred_pos = self.pred_pos[:,-1].reshape((self.M, 1, self.repeat * self.nactions, 2))
-                    self.rec_target_pos = self.rec_target_pos[:, -1].reshape((self.M, 1, self.repeat * self.nactions, 2))
-                    self.bestindices_of_iter = self.bestindices_of_iter[-1, :].reshape((1, self.K))
+                    self.perform_CEM(t)
                 action = self.bestaction_withrepeat[t - 1]
-
             else:
-                self.perform_CEM(last_images, last_states, last_action, t)
+                self.perform_CEM(t)
                 action = self.bestaction[0]
 
-            self.setup_mujoco()
-
-
         self.action_list.append(action)
-        print 'timestep: ', t, ' taking action: ', action
+        print('timestep: ', t, ' taking action: ', action)
 
-        if self.policyparams['low_level_ctrl'] == None:
-            force = action
-        else:
-            if (t-1) % self.repeat == 0:
-                self.target += action
+        return action
 
-            force = self.low_level_ctrl.act(traj.X_full[t], traj.Xdot_full[t], None, t, self.target)
-
-        return force, self.pred_pos, self.bestindices_of_iter, self.rec_target_pos
-
-
-def mujoco_to_imagespace(mujoco_coord, numpix = 64, truncate = False):
-    """
-    convert form Mujoco-Coord to numpix x numpix image space:
-    :param numpix: number of pixels of square image
-    :param mujoco_coord:
-    :return: pixel_coord
-    """
-    viewer_distance = .75  # distance from camera to the viewing plane
-    window_height = 2 * np.tan(75 / 2 / 180. * np.pi) * viewer_distance  # window height in Mujoco coords
-    pixelheight = window_height / numpix  # height of one pixel
-    pixelwidth = pixelheight
-    window_width = pixelwidth * numpix
-    middle_pixel = numpix / 2
-    pixel_coord = np.rint(np.array([-mujoco_coord[1], mujoco_coord[0]]) /
-                          pixelwidth + np.array([middle_pixel, middle_pixel]))
-    pixel_coord = pixel_coord.astype(int)
-
-    if truncate:
-        if np.any(pixel_coord < 0) or np.any(pixel_coord > numpix -1):
-            print '###################'
-            print 'designated pixel is outside the field!! Resetting it to be inside...'
-            print 'truncating...'
-            if np.any(pixel_coord < 0):
-                pixel_coord[pixel_coord < 0] = 0
-            if np.any(pixel_coord > numpix-1):
-                pixel_coord[pixel_coord > numpix-1]  = numpix-1
-
-    return pixel_coord

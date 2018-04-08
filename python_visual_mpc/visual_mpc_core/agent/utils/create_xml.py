@@ -117,6 +117,7 @@ def create_object_xml(hyperparams, load_dict_list=None):
             obj = ET.SubElement(world_body, "body", name="object{}".format(i), pos="0 0 0")
             ET.SubElement(obj, "joint", type="free")
 
+
             ET.SubElement(obj, "geom", type="box", size=".03 {} .03".format(l1),
                           rgba="{} {} {} 1".format(color1[0], color1[1], color1[2]), mass="0.01",
                           contype="7", conaffinity = "7", friction="1 0.010 0.0002"
@@ -129,6 +130,7 @@ def create_object_xml(hyperparams, load_dict_list=None):
                           contype="7", conaffinity="7", friction="1 0.010 0.0002"
                           )
 
+
     tree = ET.ElementTree(root)
 
     xml_str = minidom.parseString(ET.tostring(
@@ -138,7 +140,7 @@ def create_object_xml(hyperparams, load_dict_list=None):
     xml_str = xml_str.splitlines()[1:]
     xml_str = "\n".join(xml_str)
 
-    with open(xmldir + "/auto_gen/objects{}.xml".format(os.getpid()), "wb") as f:
+    with open(xmldir + "/auto_gen/objects{}.xml".format(os.getpid()), "w") as f:
         f.write(xml_str)
 
     return save_dict_list

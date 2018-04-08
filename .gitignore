@@ -163,3 +163,7 @@ mjkey.txt
 *.tar
 
 scores_*
+timing_file*
+autogen.json
+
+joblob.log

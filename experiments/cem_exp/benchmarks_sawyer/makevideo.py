@@ -12,7 +12,7 @@ images = []
 for i in range(0,40):
     imgname = glob.glob(img_dir + '/main_full_cropped_im{}_*'.format(i))
     if len(imgname) > 1:
-        print 'num img for step {} greater than 1'.format(i)
+        print('num img for step {} greater than 1'.format(i))
     images.append(imgname[0])
 
 
@@ -40,4 +40,4 @@ for image in images:
 out.release()
 cv2.destroyAllWindows()
 
-print("The output video is {}".format(output))
+print(("The output video is {}".format(output)))

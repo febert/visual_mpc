@@ -35,8 +35,8 @@ class Trajectory(object):
         else:
             state_dim = 2
 
-        self.X_full = np.zeros([self.T, state_dim/2])
-        self.Xdot_full = np.zeros([self.T, state_dim/2])
+        self.X_full = np.zeros([self.T, state_dim//2])
+        self.Xdot_full = np.zeros([self.T, state_dim//2])
         self.X_Xdot_full = np.zeros([self.T, state_dim])
 
         if 'posmode' in conf:
@@ -76,7 +76,8 @@ class Trajectory(object):
 
 
         # world coordinates including the arm
-        self.obj_world_coords = np.zeros([self.T, conf['num_objects'] + 1, 7])  # xyz and quaternion pose
+        if 'num_objects' in conf:
+            self.obj_world_coords = np.zeros([self.T, conf['num_objects'] + 1, 7])  # xyz and quaternion pose
 
         self.plan_stat = []   # statistics about the plan
 

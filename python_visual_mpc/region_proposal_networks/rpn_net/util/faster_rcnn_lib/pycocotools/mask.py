@@ -73,7 +73,7 @@ import pycocotools._mask as _mask
 # Code written by Piotr Dollar and Tsung-Yi Lin, 2015.
 # Licensed under the Simplified BSD License [see coco/license.txt]
 
-encode      = _mask.encode
+encode      = _mask.ctxt_enc
 decode      = _mask.decode
 iou         = _mask.iou
 merge       = _mask.merge

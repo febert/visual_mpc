@@ -3,7 +3,7 @@ import numpy as np
 import tensorflow as tf
 import imp
 import sys
-import cPickle
+import pickle
 import pdb
 
 import imp
@@ -21,7 +21,7 @@ VAL_INTERVAL = 500
 
 # How often to save a model checkpoint
 SAVE_INTERVAL = 4000
-from utils.get_designated_pix import Getdesig
+from .utils.get_designated_pix import Getdesig
 
 from python_visual_mpc.video_prediction.utils_vpred.animate_tkinter import Visualizer_tkinter
 
@@ -47,9 +47,9 @@ if __name__ == '__main__':
 
 def main(unused_argv, conf_script= None):
     os.environ["CUDA_VISIBLE_DEVICES"] = str(FLAGS.device)
-    print 'using CUDA_VISIBLE_DEVICES=', FLAGS.device
+    print('using CUDA_VISIBLE_DEVICES=', FLAGS.device)
     from tensorflow.python.client import device_lib
-    print device_lib.list_local_devices()
+    print(device_lib.list_local_devices())
 
     if conf_script == None: conf_file = FLAGS.hyper
     else: conf_file = conf_script
@@ -61,7 +61,7 @@ def main(unused_argv, conf_script= None):
     conf = hyperparams.configuration
 
     if FLAGS.visualize:
-        print 'creating visualizations ...'
+        print('creating visualizations ...')
         conf['schedsamp_k'] = -1  # don't feed ground truth
         if 'test_data_dir' in conf:
             conf['data_dir'] = conf['test_data_dir']
@@ -80,7 +80,7 @@ def main(unused_argv, conf_script= None):
         if FLAGS.diffmotions:
             conf['sequence_length'] = 30
 
-    from prediction_model_basecls import Base_Prediction_Model
+    from .prediction_model_basecls import Base_Prediction_Model
     if 'pred_model' in conf:
         Model = conf['pred_model']
     else:
@@ -92,17 +92,17 @@ def main(unused_argv, conf_script= None):
     else:
         model = Model(conf, load_data=True, trafo_pix=False)
 
-    print 'Constructing saver.'
+    print('Constructing saver.')
     # Make saver.
 
     vars = tf.get_collection(tf.GraphKeys.GLOBAL_VARIABLES)
     # remove all states from group of variables which shall be saved and restored:
     vars_no_state = filter_vars(vars)
 
-    print 'vars to be restored:'
-    print '_____________'
+    print('vars to be restored:')
+    print('_____________')
     for var in vars:
-        print var.name
+        print(var.name)
     pdb.set_trace()
 
     saver = tf.train.Saver(vars_no_state, max_to_keep=0)
@@ -117,11 +117,11 @@ def main(unused_argv, conf_script= None):
 
     if conf['visualize']:
         load_checkpoint(conf, sess, saver)
-        print '-------------------------------------------------------------------'
-        print 'verify current settings!! '
-        for key in conf.keys():
-            print key, ': ', conf[key]
-        print '-------------------------------------------------------------------'
+        print('-------------------------------------------------------------------')
+        print('verify current settings!! ')
+        for key in list(conf.keys()):
+            print(key, ': ', conf[key])
+        print('-------------------------------------------------------------------')
 
         if FLAGS.diffmotions:
             model.visualize_diffmotions(sess)
@@ -135,13 +135,13 @@ def main(unused_argv, conf_script= None):
     itr_0 = 0
     if FLAGS.pretrained != None:
         itr_0 = load_checkpoint(conf, sess, saver, model_file=FLAGS.pretrained)
-        print 'resuming training at iteration: ', itr_0
+        print('resuming training at iteration: ', itr_0)
 
-    print '-------------------------------------------------------------------'
-    print 'verify current settings!! '
-    for key in conf.keys():
-        print key, ': ', conf[key]
-    print '-------------------------------------------------------------------'
+    print('-------------------------------------------------------------------')
+    print('verify current settings!! ')
+    for key in list(conf.keys()):
+        print(key, ': ', conf[key])
+    print('-------------------------------------------------------------------')
 
     tf.logging.info('iteration number, cost')
 
@@ -200,7 +200,7 @@ def filter_vars(vars):
         if not '/state:' in v.name:
             newlist.append(v)
         else:
-            print 'removed state variable from saving-list: ', v.name
+            print('removed state variable from saving-list: ', v.name)
 
     return newlist
 
@@ -217,7 +217,7 @@ def load_checkpoint(conf, sess, saver, model_file=None):
         num_iter = int(re.match('.*?([0-9]+)$', model_file).group(1))
     else:
         ckpt = tf.train.get_checkpoint_state(conf['output_dir'])
-        print("loading " + ckpt.model_checkpoint_path)
+        print(("loading " + ckpt.model_checkpoint_path))
         saver.restore(sess, ckpt.model_checkpoint_path)
         num_iter = int(re.match('.*?([0-9]+)$', ckpt.model_checkpoint_path).group(1))
     conf['num_iter'] = num_iter
