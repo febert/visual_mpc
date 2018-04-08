@@ -1,9 +1,9 @@
 #!/usr/bin/env python
 import numpy as np
 import argparse
-import Tkinter as Tk
-from Tkinter import Button, Frame, Canvas, Scrollbar, Label
-import Tkconstants
+import tkinter as Tk
+from tkinter import Button, Frame, Canvas, Scrollbar, Label
+import tkinter.constants
 from PIL import Image, ImageTk
 from matplotlib import pyplot as plt
 import cv2
@@ -28,7 +28,7 @@ class Visualizer(object):
         rospy.loginfo("init node visual mpc demo")
         benchmark_name = rospy.get_param('~exp')
         self.ndesig = rospy.get_param('~ndesig')
-        print 'ndesig', self.ndesig
+        print('ndesig', self.ndesig)
 
         self.base_dir = '/'.join(str.split(base_filepath, '/')[:-2])
         cem_exp_dir = self.base_dir + '/experiments/cem_exp/benchmarks_sawyer'
@@ -108,7 +108,7 @@ class Visualizer(object):
         self.canvasPhoto = ImageTk.PhotoImage(Image.new("RGB", (self.image_width, self.image_height), "white"))
         self.canvas = Canvas(self.left_panel)
         self.canvas.bind("<Button-1>", self.input_pixel)
-        self.canvas.grid(row=0, column=0, columnspan=3, sticky=Tkconstants.NSEW)
+        self.canvas.grid(row=0, column=0, columnspan=3, sticky=tkinter.constants.NSEW)
 
         self.canvas.config(bg="white", width=self.canvas_width, height=self.canvas_height, borderwidth=0, highlightthickness=0)
         self.canvasImage = self.canvas.create_image(self.canvas_width / 2, self.canvas_height / 2, image=self.canvasPhoto)
@@ -166,7 +166,7 @@ class Visualizer(object):
         # self.distributions[-1].grid(pady=(10, 45))
         self.scores[-1].grid(pady=(10, 45))
 
-        print len(self.distributions), len(self.distributions[0])
+        print(len(self.distributions), len(self.distributions[0]))
         for j in range(self.ndesig):
             self.distributions[0][j].grid(pady=(50, 0))
             self.distributions[-1][j].grid(pady=(10, 45))
@@ -174,22 +174,22 @@ class Visualizer(object):
         addPhoto = ImageTk.PhotoImage(Image.open(self.assetsdir + "/add.png"))
         self.addButton = Button(self.left_panel, image=addPhoto, command=self.begin_input)
         self.addButton.image = addPhoto
-        self.addButton.grid(column=2, row=1, pady=(0, 50), padx=(0, 50), sticky=Tkconstants.E)
+        self.addButton.grid(column=2, row=1, pady=(0, 50), padx=(0, 50), sticky=tkinter.constants.E)
         self.addButton.config(bg="white", activebackground="white", borderwidth=0, highlightthickness=0)
         if self.ndesig == 1:
-            self.addButton.config(state=Tkconstants.DISABLED)
+            self.addButton.config(state=tkinter.constants.DISABLED)
 
         startPhoto = ImageTk.PhotoImage(Image.open(self.assetsdir + "/start.png"))
         self.startButton = Button(self.left_panel, image=startPhoto, command=self.start)
         self.startButton.image = startPhoto
-        self.startButton.grid(column=0, row=1, pady=(0, 50), padx=(50, 0), sticky=Tkconstants.W)
+        self.startButton.grid(column=0, row=1, pady=(0, 50), padx=(50, 0), sticky=tkinter.constants.W)
         self.startButton.config(bg="white", activebackground="white", borderwidth=0, highlightthickness=0,
-                                state=Tkconstants.DISABLED)
+                                state=tkinter.constants.DISABLED)
 
         resetPhoto = ImageTk.PhotoImage(Image.open(self.assetsdir + "/reset.png"))
         self.resetButton = Button(self.left_panel, image=resetPhoto, command=self.reset_demo)
         self.resetButton.image = resetPhoto
-        self.resetButton.grid(column=1, row=1, pady=(0, 50), sticky=Tkconstants.W)
+        self.resetButton.grid(column=1, row=1, pady=(0, 50), sticky=tkinter.constants.W)
         self.resetButton.config(bg="white", activebackground="white", borderwidth=0, highlightthickness=0)
 
         self.iter = 0
@@ -219,11 +219,11 @@ class Visualizer(object):
 
     def start(self):
         if self.num_pairs == 0:
-            print "please select a pair of points"
+            print("please select a pair of points")
         elif self.pixel1 and not self.pixel2:
-            print "please select second pixel"
+            print("please select second pixel")
         else:
-            print "starting"
+            print("starting")
             self.visual_mpc_cmd_publisher.publish(np.array(self.startPixels + self.goalPixels, dtype=np.uint32))
             self.publish_to_head(self.exec_splash)
 
@@ -254,11 +254,11 @@ class Visualizer(object):
             for j in range(self.ndesig):
                 self.distributions[i][j].config(highlightthickness=0)
 
-        self.startButton.config(state=Tkconstants.DISABLED)
+        self.startButton.config(state=tkinter.constants.DISABLED)
         if self.ndesig == 1:
-            self.addButton.config(state=Tkconstants.DISABLED)
+            self.addButton.config(state=tkinter.constants.DISABLED)
         else:
-            self.addButton.config(state=Tkconstants.NORMAL)
+            self.addButton.config(state=tkinter.constants.NORMAL)
         self.visual_mpc_reset_cmd_publisher.publish(np.array([1]))
         self.publish_to_head(self.ready_splash)
 
@@ -340,7 +340,7 @@ class Visualizer(object):
                                         width=8,
                                         tags="points")
 
-                print "pixel 2: ", y, x
+                print("pixel 2: ", y, x)
                 self.pixel2 = [y, x]
                 # self.selPixels = False
 
@@ -353,7 +353,7 @@ class Visualizer(object):
                 self.pixel2 = None
 
                 if self.num_pairs == self.ndesig:
-                    self.startButton.config(state=Tkconstants.NORMAL)
+                    self.startButton.config(state=tkinter.constants.NORMAL)
                     self.selPixels = False
             else:
                 self.canvas.create_oval(event.x - 10, event.y - 10, event.x + 10, event.y + 10,
@@ -362,19 +362,19 @@ class Visualizer(object):
                                         width=8,
                                         tags="points")
 
-                print "pixel 1: ", y, x
+                print("pixel 1: ", y, x)
                 self.pixel1 = [y, x]
 
                 self.startPixels.extend(self.pixel1)
-                self.startButton.config(state=Tkconstants.DISABLED)
+                self.startButton.config(state=tkinter.constants.DISABLED)
 
     def begin_input(self):
-        print "ready for inputs"
+        print("ready for inputs")
         # self.selPixels = True
         if self.pixel1 and not self.pixel2:
-            print "please select second pixel"
+            print("please select second pixel")
         if self.num_pairs + 1 >= self.ndesig:
-            self.addButton.config(state=Tkconstants.DISABLED)
+            self.addButton.config(state=tkinter.constants.DISABLED)
 
     def publish_to_head(self, img):
         num_rows, num_cols = img.shape[:2]

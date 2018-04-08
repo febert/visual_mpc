@@ -67,11 +67,11 @@ def make_traj_name_list(conf, datadir, start_end_grp = None, shuffle=True):
         for i_tra in range(trajstart, trajend + 1):
             trajdir = gr_dir_main + "/traj{}".format(i_tra)
             if not os.path.exists(trajdir):
-                print 'file {} not found!'.format(trajdir)
+                print('file {} not found!'.format(trajdir))
                 continue
             trajname_ind_l.append(trajdir)
 
-    print 'source_basedir: {}, length: {}'.format(datadir,len(trajname_ind_l))
+    print('source_basedir: {}, length: {}'.format(datadir,len(trajname_ind_l)))
     assert len(trajname_ind_l) == len(set(trajname_ind_l))  #check for duplicates
 
     if shuffle:

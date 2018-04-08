@@ -1,4 +1,4 @@
-from __future__ import print_function
+
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
@@ -21,7 +21,7 @@ class Sequential_cache_output(nn.Sequential):
 
     def forward(self, input):
         self.output_cache = []
-        for module in self._modules.values():
+        for module in list(self._modules.values()):
             input = module(input)
             self.output_cache.append(input)
         return input

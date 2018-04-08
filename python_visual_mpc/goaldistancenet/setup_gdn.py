@@ -16,7 +16,7 @@ def setup_gdn(conf, gpu_id = 0):
     if gpu_id == None:
         gpu_id = 0
     os.environ["CUDA_VISIBLE_DEVICES"] = str(gpu_id)
-    print 'using CUDA_VISIBLE_DEVICES=', os.environ["CUDA_VISIBLE_DEVICES"]
+    print('using CUDA_VISIBLE_DEVICES=', os.environ["CUDA_VISIBLE_DEVICES"])
 
     gpu_options = tf.GPUOptions(per_process_gpu_memory_fraction=0.2)
     g_predictor = tf.Graph()
@@ -25,13 +25,13 @@ def setup_gdn(conf, gpu_id = 0):
         with g_predictor.as_default():
             # print 'predictor default session:', tf.get_default_session()
             # print 'predictor default graph:', tf.get_default_graph()
-            print '-------------------------------------------------------------------'
-            print 'Goal Distance Network Settings'
-            for key in conf.keys():
-                print key, ': ', conf[key]
-            print '-------------------------------------------------------------------'
+            print('-------------------------------------------------------------------')
+            print('Goal Distance Network Settings')
+            for key in list(conf.keys()):
+                print(key, ': ', conf[key])
+            print('-------------------------------------------------------------------')
 
-            print 'Constructing model for control'
+            print('Constructing model for control')
             model = GoalDistanceNet(conf = conf,
                                      build_loss=False,
                                      load_data = False)
@@ -45,7 +45,7 @@ def setup_gdn(conf, gpu_id = 0):
 
             # saver = tf.train.Saver(tf.get_collection(tf.GraphKeys.GLOBAL_VARIABLES), max_to_keep=0)
             saver.restore(sess, conf['pretrained_model'])
-            print 'gdn restore done.'
+            print('gdn restore done.')
 
             def predictor_func(pred_images, goal_image):
                 feed_dict = {

@@ -136,7 +136,9 @@ class DeterministicGraspPolicy(Policy):
             best_scores = np.argsort(-scores)[:self.K]
 
             if scores[best_scores[0]] > best_score or best_ang is None:
-                print 'best', scores[best_scores[0]]
+
+                print('best', scores[best_scores[0]])
+
                 best_score = scores[best_scores[0]]
                 best_ang = ang_disp_samps[best_scores[0], 0]
                 best_xy = ang_disp_samps[best_scores[0], 1:]
@@ -178,23 +180,25 @@ class DeterministicGraspPolicy(Policy):
             self.targetxy += self.disp
 
         if self.grasp and self.switchTime > 0:
-            print 'lifting at time', t, '!', 'have z', traj.X_full[t, 2]
+            print('lifting at time', t, '!', 'have z', traj.X_full[t, 2])
+
             self.grasp = False
             self.lift = True
 
         if self.drop and traj.X_full[t, 2] <= -0.079:
-            print 'grasping at time', t, '!', 'have z', traj.X_full[t, 2]
+            print('grasping at time', t, '!', 'have z', traj.X_full[t, 2])
             self.drop = False
             self.grasp = True
 
         if self.moveto and np.linalg.norm(traj.X_full[t, :2] - self.targetxy, 2) <= self.agentparams['drop_thresh']:
             if self.switchTime >= 0:
-                print 'swapping at time', t, '!'
+                print('swapping at time', t, '!')
                 self.moveto = False
                 self.drop = True
                 self.switchTime = 0
             else:
                 self.switchTime += 1
+
 
 
         actions = np.zeros(self.adim)

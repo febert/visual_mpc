@@ -6,4 +6,4 @@ sigma = np.diag(sigma)
 mean = np.zeros(sigma.shape[0])
 
 smp = np.random.multivariate_normal(mean, sigma)
-print smp.reshape([n,3])
+print(smp.reshape([n,3]))

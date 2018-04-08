@@ -1,7 +1,7 @@
 import glob
 import moviepy.editor as mpy
 import numpy as np
-import cPickle
+import pickle
 import os
 import pdb
 import imp
@@ -67,7 +67,7 @@ def assemble_gif(video_batch):
 
     num_exp = video_batch[0][0].shape[0]
     vid_length = min([len(vid) for vid in video_batch])
-    print 'video length:', vid_length
+    print('video length:', vid_length)
     for i in range(len(video_batch)):
         video_batch[i] = [np.expand_dims(videoframe, axis=0) for videoframe in video_batch[i]]
 

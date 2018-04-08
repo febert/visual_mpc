@@ -20,9 +20,9 @@ def save_tf_record(filename, trajectory_list, params):
 
     dir = params['data_save_dir']
     if not os.path.exists(dir):
-        os.mkdir(dir)
+        os.makedirs(dir, exist_ok=True)
     filename = os.path.join(dir, filename + '.tfrecords')
-    print('Writing', filename)
+    print(('Writing', filename))
     writer = tf.python_io.TFRecordWriter(filename)
 
     feature = {}
@@ -66,6 +66,9 @@ def save_tf_record(filename, trajectory_list, params):
                 feature[str(tind) + '/gen_images'] = _bytes_feature(traj.gen_images[tind].tostring())
                 feature[str(tind) + '/gen_states'] = _float_feature(traj.gen_states[tind,:].tolist())
 
+        if hasattr(traj, 'goal_image'):
+            feature['/goal_image'] = _bytes_feature(traj.goal_image.tostring())
+
         example = tf.train.Example(features=tf.train.Features(feature=feature))
         writer.write(example.SerializeToString())
 
@@ -78,7 +81,7 @@ def save_tf_record_gtruthpred(dir, filename, trajectory_list, params):
     """
 
     filename = os.path.join(dir, filename + '.tfrecords')
-    print('Writing', filename)
+    print(('Writing', filename))
     writer = tf.python_io.TFRecordWriter(filename)
     feature = {}
 
@@ -105,7 +108,7 @@ def save_tf_record_lval(dir, filename, img_score_list):
     """
 
     filename = os.path.join(dir, filename + '.tfrecords')
-    print('Writing', filename)
+    print(('Writing', filename))
     writer = tf.python_io.TFRecordWriter(filename)
 
     feature = {}

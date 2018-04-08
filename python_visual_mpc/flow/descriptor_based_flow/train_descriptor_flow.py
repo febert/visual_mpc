@@ -19,7 +19,7 @@ import numpy as np
 import tensorflow as tf
 import imp
 import sys
-import cPickle
+import pickle
 import pdb
 
 import matplotlib.pyplot as plt
@@ -107,7 +107,7 @@ class DescriptorModel(object):
 
         self.conf = conf
 
-        from descriptor_flow_model import Descriptor_Flow
+        from .descriptor_flow_model import Descriptor_Flow
 
         self.iter_num = tf.placeholder(tf.float32, [])
         summaries = []
@@ -224,7 +224,7 @@ def visualize(conf):
     itr_vis = re.match('.*?([0-9]+)$', conf['visualize']).group(1)
     saver = tf.train.Saver(tf.get_collection(tf.GraphKeys.GLOBAL_VARIABLES), max_to_keep=0)
     saver.restore(sess, conf['output_dir'] + '/' + FLAGS.visualize)
-    print 'restore done.'
+    print('restore done.')
 
     conf['batch_size'] = 10
 
@@ -338,8 +338,8 @@ def visualize(conf):
 
     dict['iternum'] = itr_vis
 
-    cPickle.dump(dict, open(conf['output_dir'] + '/pred.pkl', 'wb'))
-    print 'written files to:' + conf['output_dir']
+    pickle.dump(dict, open(conf['output_dir'] + '/pred.pkl', 'wb'))
+    print('written files to:' + conf['output_dir'])
 
     from python_visual_mpc.video_prediction.utils_vpred.animate_tkinter import Visualizer_tkinter
     v = Visualizer_tkinter(dict, numex=1, append_masks=True,
@@ -375,9 +375,9 @@ def add_crosshairs(images, pos):
 
 def main(unused_argv, conf_script= None):
     os.environ["CUDA_VISIBLE_DEVICES"] = str(FLAGS.device)
-    print 'using CUDA_VISIBLE_DEVICES=', FLAGS.device
+    print('using CUDA_VISIBLE_DEVICES=', FLAGS.device)
     from tensorflow.python.client import device_lib
-    print device_lib.list_local_devices()
+    print(device_lib.list_local_devices())
 
     if conf_script == None: conf_file = FLAGS.hyper
     else: conf_file = conf_script
@@ -387,16 +387,16 @@ def main(unused_argv, conf_script= None):
     hyperparams = imp.load_source('hyperparams', conf_file)
     conf = hyperparams.configuration
     if FLAGS.visualize:
-        print 'creating visualizations ...'
+        print('creating visualizations ...')
         conf = adapt_params_visualize(conf, FLAGS.visualize)
-    print '-------------------------------------------------------------------'
-    print 'verify current settings!! '
-    for key in conf.keys():
-        print key, ': ', conf[key]
-    print '-------------------------------------------------------------------'
+    print('-------------------------------------------------------------------')
+    print('verify current settings!! ')
+    for key in list(conf.keys()):
+        print(key, ': ', conf[key])
+    print('-------------------------------------------------------------------')
 
     if conf['visualize']:
-        print 'visualizing'
+        print('visualizing')
         visualize(conf)
 
     if 'adim' in conf:
@@ -406,7 +406,7 @@ def main(unused_argv, conf_script= None):
         from python_visual_mpc.video_prediction.read_tf_record_sawyer12 import \
             build_tfrecord_input as build_tfrecord_fn
 
-    print 'Constructing models and inputs'
+    print('Constructing models and inputs')
     with tf.variable_scope('model', reuse=None) as training_scope:
         images,_ , _ = build_tfrecord_fn(conf, training=True)
         model = DescriptorModel(conf, images)
@@ -415,7 +415,7 @@ def main(unused_argv, conf_script= None):
         val_images,_ , _ = build_tfrecord_fn(conf, training=False)
         val_model = DescriptorModel(conf, val_images, reuse_scope=training_scope)
 
-    print 'Constructing saver.'
+    print('Constructing saver.')
     saver = tf.train.Saver(tf.get_collection(tf.GraphKeys.VARIABLES), max_to_keep=0)
 
     gpu_options = tf.GPUOptions(per_process_gpu_memory_fraction=0.85)
@@ -434,7 +434,7 @@ def main(unused_argv, conf_script= None):
         import re
         itr_0 = re.match('.*?([0-9]+)$', conf['pretrained_model']).group(1)
         itr_0 = int(itr_0)
-        print 'resuming training at iteration:  ', itr_0
+        print('resuming training at iteration:  ', itr_0)
 
     tf.logging.info('iteration number, cost')
 

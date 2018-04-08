@@ -1,5 +1,5 @@
 #!/usr/bin/env python
-import cPickle
+import pickle
 import copy
 import os
 import pdb
@@ -19,7 +19,7 @@ from sensor_msgs.msg import JointState
 from std_msgs.msg import Float32
 from std_msgs.msg import Int64
 from std_msgs.msg import String
-from utils.checkpoint import write_ckpt, write_timing_file, parse_ckpt
+from .utils.checkpoint import write_ckpt, write_timing_file, parse_ckpt
 import python_visual_mpc
 from python_visual_mpc import __file__ as base_filepath
 import imp
@@ -45,8 +45,8 @@ class Primitive_Executor(object):
         self.ctrl = robot_controller.RobotController()
 
         action_frequency = float(float(self.state_sequence_length)/float(self.duration)/float(self.act_every))
-        print 'using action frequency of {}Hz'.format(action_frequency)
-        print 'time between actions:', 1 / action_frequency
+        print('using action frequency of {}Hz'.format(action_frequency))
+        print('time between actions:', 1 / action_frequency)
 
         self.robot_name = rospy.get_param('~robot')
         savedir = rospy.get_param('~savedir')
@@ -94,7 +94,7 @@ class Primitive_Executor(object):
 
         self.checkpoint_file = os.path.join(self.recorder.save_dir, 'checkpoint.txt')
 
-        print 'press c to start data collection..'
+        print('press c to start data collection..')
         pdb.set_trace()
         self.run_data_collection()
 
@@ -105,12 +105,12 @@ class Primitive_Executor(object):
         if os.path.isfile(self.checkpoint_file):
             last_tr, last_grp = parse_ckpt(self.checkpoint_file)
             start_tr = last_tr + 1
-            print 'resuming data collection at trajectory {}'.format(start_tr)
+            print('resuming data collection at trajectory {}'.format(start_tr))
             self.recorder.igrp = last_grp
             try:
                 self.recorder.delete_traj(start_tr)
             except:
-                print 'trajectory was not deleted'
+                print('trajectory was not deleted')
         else:
             start_tr = 0
 
@@ -134,7 +134,7 @@ class Primitive_Executor(object):
                 self.redistribute_objects()
 
             delta = datetime.now() - tstart
-            print 'trajectory {0} took {1} seconds'.format(tr, delta.total_seconds())
+            print('trajectory {0} took {1} seconds'.format(tr, delta.total_seconds()))
             accum_time += delta.total_seconds()
 
             avg_nstep = 80
@@ -166,7 +166,7 @@ class Primitive_Executor(object):
         try:
             rospy.wait_for_service(self.name_fksrv, 5)
             resp = self.fksvc(fkreq)
-        except (rospy.ServiceException, rospy.ROSException), e:
+        except (rospy.ServiceException, rospy.ROSException) as e:
             rospy.logerr("Service call failed: %s" % (e,))
             return False
 
@@ -263,7 +263,7 @@ class Primitive_Executor(object):
             if i_act > 0:
                 if rospy.get_time() > self.tsave_next[i_save]:
                     if self.save_active:
-                        print 'saving {} at t{}, realtime{}'.format(i_save, self.tsave_next[i_save], rospy.get_time())
+                        print('saving {} at t{}, realtime{}'.format(i_save, self.tsave_next[i_save], rospy.get_time()))
                         self.recorder.save(i_save, action_vec, self.get_endeffector_pos(pos_only=False))
                     # print 'current position error', self.des_pos[:3] - self.get_endeffector_pos(pos_only=True)
                     i_save += 1
@@ -291,7 +291,7 @@ class Primitive_Executor(object):
                     self.tsave_next = np.concatenate([self.tsave_next,
                                     np.linspace(self.t_prev+ act_interval/self.act_every,self.t_next, self.act_every)])
 
-                print 'i_act', i_act, 't_act_next', self.t_next
+                print('i_act', i_act, 't_act_next', self.t_next)
 
                 assert savecount == self.act_every
                 savecount = 0
@@ -322,7 +322,7 @@ class Primitive_Executor(object):
         #     self.recorder.save(i_save, action_vec, self.get_endeffector_pos(pos_only=False))
 
         if i_save != self.state_sequence_length:
-            print 'trajectory not complete!'
+            print('trajectory not complete!')
             raise Traj_aborted_except()
 
         self.goup()
@@ -372,7 +372,7 @@ class Primitive_Executor(object):
 
 
     def goup(self):
-        print "going up at the end.."
+        print("going up at the end..")
         self.des_pos[2] = self.lower_height + 0.15
         desired_pose = self.get_des_pose(self.des_pos)
         start_joints = self.ctrl.limb.joint_angles()
@@ -388,7 +388,7 @@ class Primitive_Executor(object):
         self.move_with_impedance_sec(des_joint_angles, duration=1.)
 
     def go_down_atstart(self):
-        print "going down at trajectory start.."
+        print("going down at trajectory start..")
         self.des_pos[2] = self.lower_height
         desired_pose = self.get_des_pose(self.des_pos)
         start_joints = self.ctrl.limb.joint_angles()
@@ -427,13 +427,13 @@ class Primitive_Executor(object):
         while rospy.get_time() < finish_time:
             int_joints = prev_joint + (rospy.get_time()-start_time)/(finish_time-start_time)*(new_joint-prev_joint)
             # print int_joints
-            cmd = dict(zip(self.ctrl.limb.joint_names(), list(int_joints)))
+            cmd = dict(list(zip(self.ctrl.limb.joint_names(), list(int_joints))))
             self.move_with_impedance(cmd)
             self.control_rate.sleep()
 
     def set_neutral_with_impedance(self, duration= 1.5):
         neutral_config = np.array([0.412271, -0.434908, -1.198768, 1.795462, 1.160788, 1.107675, 2.068076])
-        cmd = dict(zip(self.ctrl.limb.joint_names(), list(neutral_config)))
+        cmd = dict(list(zip(self.ctrl.limb.joint_names(), list(neutral_config))))
         self.move_with_impedance_sec(cmd, duration=duration)
 
     def move_to_startpos(self):
@@ -480,7 +480,7 @@ class Primitive_Executor(object):
         self.des_pos = self.truncate_pos(self.des_pos)  # make sure not outside defined region
 
         if self.ctrl.sawyer_gripper:
-            close_cmd = np.random.choice(range(5), p=[0.8, 0.05, 0.05, 0.05, 0.05])
+            close_cmd = np.random.choice(list(range(5)), p=[0.8, 0.05, 0.05, 0.05, 0.05])
             if close_cmd != 0:
                 self.topen = i_act + close_cmd
                 self.ctrl.gripper.close()
@@ -488,25 +488,25 @@ class Primitive_Executor(object):
         else:
             close_cmd = 0
 
-        up_cmd = np.random.choice(range(5), p=[0.9, 0.025, 0.025, 0.025, 0.025])
+        up_cmd = np.random.choice(list(range(5)), p=[0.9, 0.025, 0.025, 0.025, 0.025])
         if up_cmd != 0:
             self.t_down = i_act + up_cmd
             self.des_pos[2] = self.lower_height + self.delta_up
             self.gripper_up = True
-            print 'going up'
+            print('going up')
 
         if self.gripper_closed:
             if i_act == self.topen:
                 if self.ctrl.sawyer_gripper:
                     self.ctrl.gripper.open()
-                    print 'opening gripper'
+                    print('opening gripper')
                     self.gripper_closed = False
 
         godown = False
         if self.gripper_up:
             if i_act == self.t_down:
                 self.des_pos[2] = self.lower_height
-                print 'going down'
+                print('going down')
                 self.gripper_up = False
 
                 godown = True
@@ -553,19 +553,19 @@ class Primitive_Executor(object):
 
     def redistribute_objects(self):
         self.set_neutral_with_impedance(duration=1.5)
-        print 'redistribute...'
+        print('redistribute...')
 
         file = '/'.join(str.split(python_visual_mpc.__file__, "/")[
                         :-1]) + '/sawyer/visual_mpc_rospkg/src/utils/pushback_traj_{}.pkl'.format(self.robot_name)
 
-        self.joint_pos = cPickle.load(open(file, "rb"))
+        self.joint_pos = pickle.load(open(file, "rb"))
 
         self.imp_ctrl_release_spring(100)
         self.imp_ctrl_active.publish(1)
 
         replay_rate = rospy.Rate(700)
         for t in range(len(self.joint_pos)):
-            print 'step {0} joints: {1}'.format(t, self.joint_pos[t])
+            print('step {0} joints: {1}'.format(t, self.joint_pos[t]))
             replay_rate.sleep()
             self.move_with_impedance(self.joint_pos[t])
 
