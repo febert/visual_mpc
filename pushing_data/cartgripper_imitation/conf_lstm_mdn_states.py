@@ -4,7 +4,7 @@ DATA_DIR = os.environ['VMPC_DATA_DIR']
 from python_visual_mpc.imitation_model.imitation_model import ImitationLSTMModelState
 configuration = {
     'model' : ImitationLSTMModelState,
-    'data_dir':DATA_DIR  + '/cartgripper_det_grasp/train/',
+    'data_dir':DATA_DIR  + '/cartgripper_imitation/train/',
     'model_dir':DATA_DIR + '/cartgripper_imitation/gru_model_mdn_states_slr/',
     'n_iters':80000,
     'n_print':100,

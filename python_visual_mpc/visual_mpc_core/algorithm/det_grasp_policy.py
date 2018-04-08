@@ -128,6 +128,9 @@ class DeterministicGraspPolicy(Policy):
                 # print 'final z', self.CEM_model.data.qpos[8].squeeze(), 'with angle', angle_samps[s]
 
                 scores[s] = self.CEM_model.data.qpos[8].squeeze() - 0.1 * np.abs(angle_delta)
+
+                if 'stop_iter_thresh' in self.policyparams and scores[s] > self.policyparams['stop_iter_thresh']:
+                    return ang_disp_samps[s, 0], ang_disp_samps[s, 1:]
                 # print 'score',scores[s]
 
             best_scores = np.argsort(-scores)[:self.K]
@@ -137,6 +140,8 @@ class DeterministicGraspPolicy(Policy):
                 best_score = scores[best_scores[0]]
                 best_ang = ang_disp_samps[best_scores[0], 0]
                 best_xy = ang_disp_samps[best_scores[0], 1:]
+
+
 
             ang_dis_mean = np.mean(ang_disp_samps[best_scores, :], axis = 0)
             ang_dis_cov = np.cov(ang_disp_samps[best_scores, :].T)
@@ -172,7 +177,7 @@ class DeterministicGraspPolicy(Policy):
             self.angle, self.disp = self.perform_CEM(self.targetxy)
             self.targetxy += self.disp
 
-        if self.grasp and self.switchTime > 2:
+        if self.grasp and self.switchTime > 0:
             print 'lifting at time', t, '!', 'have z', traj.X_full[t, 2]
             self.grasp = False
             self.lift = True
@@ -183,7 +188,7 @@ class DeterministicGraspPolicy(Policy):
             self.grasp = True
 
         if self.moveto and np.linalg.norm(traj.X_full[t, :2] - self.targetxy, 2) <= self.agentparams['drop_thresh']:
-            if self.switchTime >= 1:
+            if self.switchTime >= 0:
                 print 'swapping at time', t, '!'
                 self.moveto = False
                 self.drop = True
@@ -194,7 +199,10 @@ class DeterministicGraspPolicy(Policy):
 
         actions = np.zeros(self.adim)
         if self.moveto:
-            actions[:2] = self.targetxy
+            delta = self.targetxy - traj.target_qpos[t, :2]
+            norm = np.sqrt(np.sum(np.square(delta)))
+            new_norm = min(norm, self.policyparams['max_norm'])
+            actions[:2] = traj.target_qpos[t, :2] + delta / norm * new_norm
             actions[2] = self.agentparams['ztarget']
             actions[3] = self.angle
             actions[-1] = -100

@@ -22,6 +22,7 @@ agent = {
     'filename': DATA_DIR+'/mjc_models/cartgripper_grasp.xml',
     'filename_nomarkers': DATA_DIR+'/mjc_models/cartgripper_grasp.xml',
     'not_use_images':"",
+    'visible_viewer':False,
     'sample_objectpos':'',
     'adim':5,
     'sdim':12,
@@ -30,7 +31,7 @@ agent = {
     'substeps': 200,  #6
     'T': 15,
     'skip_first': 40,   #skip first N time steps to let the scene settle
-    'additional_viewer': True,
+    'additional_viewer': False,
     'image_height' : 48,
     'image_width' : 64,
     'viewer_image_height' : 480,
@@ -59,19 +60,22 @@ policy = {
     'repeats': 5, # number of repeats for each action
     'initial_std': 10.,   #std dev. in xy
     'initial_std_lift': 20,   #std dev. in xy
-    'debug_viewer':True,
+    'debug_viewer':False,
     'num_samples':20,
     'best_to_take':5,
     'init_mean':np.zeros(3),
-    'init_cov':np.diag(np.array([(3.14 / 4) ** 2, 1e-3, 1e-3]))
+    'init_cov':np.diag(np.array([(3.14 / 4) ** 2, 1e-3, 1e-3])),
+    'stop_iter_thresh':0.09,
+    'max_norm':0.1
     # 'initial_std_grasp': 1e-5,   #std dev. in xy
 }
 
 config = {
     'traj_per_file':128,
     'save_data': True,
+    'save_raw_images' : True,
     'start_index':0,
-    'end_index': 60000,
+    'end_index': 90000,
     'agent': agent,
     'policy': policy,
     'ngroup': 1000

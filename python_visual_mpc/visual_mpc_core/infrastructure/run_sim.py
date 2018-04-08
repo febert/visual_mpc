@@ -21,6 +21,7 @@ import pdb
 import cPickle
 import cv2
 import shutil
+import numpy as np
 
 class Sim(object):
     """ Main class to run algorithms and experiments. """
@@ -128,6 +129,9 @@ class Sim(object):
                     dict['bwd_flow'] = traj.bwd_flow
                     dict['ob_masks'] = traj.ob_masks
                     dict['arm_masks'] = traj.arm_masks
+                if 'posmode' in self.agentparams:
+                    dict['target_qpos'] = traj.target_qpos
+                    dict['mode_rel'] = traj.mask_rel.astype(np.bool)
 
                 if hasattr(traj, "plan_stat"):
                     dict['plan_stat'] = traj.plan_stat

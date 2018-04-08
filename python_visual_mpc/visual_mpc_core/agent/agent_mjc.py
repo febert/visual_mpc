@@ -73,7 +73,8 @@ class AgentMuJoCo(object):
         self.model_nomarkers = mujoco_py.MjModel(xmlfilename_nomarkers)
 
         gofast = True
-        self.viewer = mujoco_py.MjViewer(visible=True,
+        visible_viewer = self._hyperparams.get('visible_viewer', True)
+        self.viewer = mujoco_py.MjViewer(visible=visible_viewer,
                                          init_width=self._hyperparams['viewer_image_width'],
                                          init_height=self._hyperparams['viewer_image_height'],
                                          go_fast=gofast)
@@ -282,7 +283,6 @@ class AgentMuJoCo(object):
 
         if 'posmode' in self._hyperparams:
             traj.target_qpos[0, :] = self._model.data.qpos[:self.adim].squeeze()
-            traj.target_qpos[1, :] = self._model.data.qpos[:self.adim].squeeze()
 
         # Take the sample.
         for t in range(self.T):
