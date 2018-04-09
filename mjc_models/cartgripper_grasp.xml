@@ -21,7 +21,9 @@
             <joint name="slide_x" type="slide" pos="0 0 0" axis="1 0 0" limited="true" range="-0.5 0.5" armature="0" damping="30" stiffness="0"/>
             <joint name="slide_y" type="slide" pos="0 0 0" axis="0 1 0" limited="true" range="-0.5 0.5" armature="0" damping="30" stiffness="0"/>
             <joint name="slide_z" type="slide" pos="0 0 0" axis="0 0 1"  limited="true" range="-0.08 0.15"/>
+
             <joint name="hinge_z" type="hinge" pos="0 0 0" axis="0 0 1" limited="true" range="-6.28 6.28" damping="30"/>
+
 
             <body name="fingers" pos="'0 0 0">
 
@@ -82,9 +84,7 @@
             <!--</body>-->
         </body>
 
-        <!--begin_auto_replace -->
-        <include file="objects.xml"/>
-        <!--end_auto_replace -->
+
 
         <body name="light_body0" pos="0 0  1">
              <light name="light0" mode="fixed" directional="false" active="true" castshadow="true"/>
@@ -93,6 +93,9 @@
 
     </worldbody>
 
+    <!--begin_auto_replace -->
+        <include file="objects.xml"/>
+    <!--end_auto_replace -->
 
     <actuator>
         <position joint="slide_x" ctrllimited="false" kp="200"/>

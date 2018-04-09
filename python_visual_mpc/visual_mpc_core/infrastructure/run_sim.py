@@ -10,7 +10,7 @@ import time
 # Add lsdc/python to path so that imports work.
 sys.path.append('/'.join(str.split(__file__, '/')[:-2]))
 # from lsdc.gui.gps_training_gui import GPSTrainingGUI
-# from python_visual_mpc.video_prediction.setup_predictor_simple import setup_predictor
+#from python_visual_mpc.video_prediction.setup_predictor_simple import setup_predictor
 from python_visual_mpc.goaldistancenet.setup_gdn import setup_gdn
 from python_visual_mpc.visual_mpc_core.infrastructure.utility import *
 
@@ -19,6 +19,7 @@ from datetime import datetime
 import pickle
 import cv2
 import shutil
+import numpy as np
 
 class Sim(object):
     """ Main class to run algorithms and experiments. """
@@ -130,6 +131,9 @@ class Sim(object):
                     dict['bwd_flow'] = traj.bwd_flow
                     dict['ob_masks'] = traj.ob_masks
                     dict['arm_masks'] = traj.arm_masks
+                if 'posmode' in self.agentparams:
+                    dict['target_qpos'] = traj.target_qpos
+                    dict['mode_rel'] = traj.mask_rel.astype(np.bool)
 
                 if hasattr(traj, "plan_stat"):
                     dict['plan_stat'] = traj.plan_stat
