@@ -155,17 +155,16 @@ class CEM_controller():
         self.naction_steps = self.policyparams['nactions']
         self.repeat = self.policyparams['repeat']
 
-        if self.policyparams['usenet']:
-            hyperparams = imp.load_source('hyperparams', self.policyparams['netconf'])
-            self.netconf = hyperparams.configuration
-            self.bsize = self.netconf['batch_size']
-            self.seqlen = self.netconf['sequence_length']
-            self.M = self.bsize
-            assert self.naction_steps * self.repeat == self.seqlen
-        else:
-            self.netconf = {}
-            self.M = 1
 
+        hyperparams = imp.load_source('hyperparams', self.policyparams['netconf'])
+        self.netconf = hyperparams.configuration
+        self.bsize = self.netconf['batch_size']
+        self.seqlen = self.netconf['sequence_length']
+        self.M = self.bsize
+        assert self.naction_steps * self.repeat == self.seqlen
+
+        self.ncontxt = self.netconf['context_frames']
+        
         self.predictor = predictor
         self.goal_image_warper = goal_image_warper
         self.goal_image = None
@@ -568,7 +567,7 @@ class CEM_controller():
     def calc_scores(self, gen_distrib, distance_grid):
         expected_distance = np.zeros(self.bsize)
         if 'rew_all_steps' in self.policyparams:
-            for tstep in range(self.seqlen - 1):
+            for tstep in range(self.ncontxt - 1, self.seqlen - 1):
                 t_mult = 1
                 if 'finalweight' in self.policyparams:
                     if tstep == self.seqlen - 2:
