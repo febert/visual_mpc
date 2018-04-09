@@ -423,7 +423,8 @@ class CEM_controller():
 
         tstart_verbose = time.time()
 
-        if self.verbose and cem_itr == self.policyparams['iterations']-1:
+        # if self.verbose and cem_itr == self.policyparams['iterations']-1:
+        if self.verbose:
             # if self.verbose:
             # print 'creating visuals for best sampled actions at last iteration...'
             if self.save_subdir != None:
@@ -459,20 +460,25 @@ class CEM_controller():
                 warped_images = list(np.squeeze(warped_images))
                 t_dict_['warped_im_t{}'.format(self.t)] = warped_images
 
+            goal_image = [np.repeat(np.expand_dims(self.goal_image, axis=0), self.K, axis=0) for _ in
+                          range(len(gen_images))]
+            goal_image_annotated = self.image_addgoalpix(goal_image)
+            t_dict_['goal_image'] = goal_image_annotated
+
             if 'use_goal_image' not in self.policyparams or 'comb_flow_warp' in self.policyparams:
                 for p in range(self.ndesig):
                     gen_distrib_p = [g[:, p] for g in gen_distrib]
-                    t_dict_['gen_distrib{}_t{}'.format(p, self.t)] = sel_func(gen_distrib_p)
+                    sel_gen_distrib_p = sel_func(gen_distrib_p)
+                    t_dict_['gen_distrib{}_t{}'.format(p, self.t)] = sel_gen_distrib_p
+                    t_dict_['gen_distrib_goalim_overlay{}_t{}'.format(p, self.t)] = (self.image_addgoalpix(goal_image,
+                                                                            self.goal_pix[p]), sel_gen_distrib_p)
+
             t_dict_['gen_images_t{}'.format(self.t)] = sel_func(gen_images)
 
             print('itr{} best scores: {}'.format(cem_itr, [scores[bestindices[ind]] for ind in range(self.K)]))
             self.dict_.update(t_dict_)
 
             if not 'no_instant_gif' in self.agentparams:
-
-                goal_image = [np.repeat(np.expand_dims(self.goal_image, axis=0), self.K, axis=0) for _ in
-                                         range(len(gen_images))]
-                t_dict_['goal_image'] = self.image_addgoalpix(goal_image)
                 v = Visualizer_tkinter(t_dict_, append_masks=False,
                                        filepath=self.agentparams['record'] + '/plan/',
                                        numex=self.K, suf='t{}iter_{}'.format(self.t, cem_itr))
@@ -550,10 +556,14 @@ class CEM_controller():
 
         return flow_fields, scores, warp_pts_l, warped_images
 
-    def image_addgoalpix(self, image_l):
-        for ob in range(self.goal_pix.shape[0]):
-            goal_pix_ob = self.goal_pix[ob]
-            goal_pix_ob = np.tile(goal_pix_ob[None, None, :], [self.bsize, self.seqlen - 1, 1])
+    def image_addgoalpix(self, image_l, goal_pix=None):
+        if goal_pix is None:
+            for ob in range(self.goal_pix.shape[0]):
+                goal_pix_ob = self.goal_pix[ob]
+                goal_pix_ob = np.tile(goal_pix_ob[None, None, :], [self.bsize, self.seqlen - 1, 1])
+                image_l = add_crosshairs(image_l, goal_pix_ob)
+        else:
+            goal_pix_ob = np.tile(goal_pix[None, None, :], [self.bsize, self.seqlen - 1, 1])
             image_l = add_crosshairs(image_l, goal_pix_ob)
         return image_l
 
