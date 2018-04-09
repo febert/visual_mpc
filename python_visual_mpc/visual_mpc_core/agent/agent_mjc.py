@@ -243,7 +243,6 @@ class AgentMuJoCo(object):
                 ctrl = np.zeros(self._hyperparams['adim'])
                 if 'posmode' in self._hyperparams:
                     #keep gripper at default x,y positions
-
                     ctrl[:3] = self.sim.data.qpos[:3].squeeze()
                 self.sim.data.ctrl[:] = ctrl
 
