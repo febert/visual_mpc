@@ -1,7 +1,7 @@
 import numpy as np
 
 from python_visual_mpc.visual_mpc_core.algorithm.policy import Policy
-import mujoco_py
+from mujoco_py import load_model_from_xml,load_model_from_path, MjSim, MjViewer
 import  matplotlib.pyplot as plt
 class DeterministicGraspPolicy(Policy):
     def __init__(self, agentparams, policyparams):
@@ -33,9 +33,10 @@ class DeterministicGraspPolicy(Policy):
     def setup_CEM_model(self, t, init_model):
         if t == 0:
             if 'gen_xml' in self.agentparams:
-                self.CEM_model = mujoco_py.MjModel(self.agentparams['gen_xml_fname'])
+
+                self.CEM_model = MjSim(load_model_from_path(self.agentparams['gen_xml_fname']))
             else:
-                self.CEM_model = mujoco_py.MjModel(self.agentparams['filename'])
+                self.CEM_model = MjSim(load_model_from_path(self.agentparams['filename']))
 
             if 'debug_viewer' in self.policyparams and self.policyparams['debug_viewer']:
                 # CEM viewer for debugging purposes
@@ -54,8 +55,10 @@ class DeterministicGraspPolicy(Policy):
         self.reset_CEM_model()
 
     def reset_CEM_model(self):
-        self.CEM_model.data.qpos = self.initial_qpos.copy()
-        self.CEM_model.data.qvel = self.initial_qvel.copy()
+        sim_state = self.CEM_model.get_state()
+        sim_state.qpos[:] = self.initial_qpos.copy()
+        sim_state.qvel[:] = self.initial_qvel.copy()
+        self.CEM_model.set_state(sim_state)
 
         self.prev_target = self.CEM_model.data.qpos[:self.adim].squeeze()
         self.target = self.CEM_model.data.qpos[:self.adim].squeeze()
@@ -159,14 +162,14 @@ class DeterministicGraspPolicy(Policy):
 
         for s in range(self.agentparams['substeps']):
             step_action = s / float(self.agentparams['substeps']) * (self.target - self.prev_target) + self.prev_target
-            self.CEM_model.data.ctrl = step_action
+            self.CEM_model.data.ctrl[:] = step_action
             self.CEM_model.step()
 
         self.viewer_refresh()
 
         #print "end", self.CEM_model.data.qpos[:4].squeeze()
 
-    def act(self, traj, t, init_model = None):
+    def act(self, traj, t, init_model = None, goal_object_pose = None, hyperparams = None):
         self.setup_CEM_model(t, init_model)
 
         if t == 0:
