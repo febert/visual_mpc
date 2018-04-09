@@ -68,7 +68,7 @@ class DeterministicGraspPolicy(Policy):
             self.viewer.loop_once()
 
     def perform_CEM(self, targetxy):
-        print 'Beginning CEM'
+        print('Beginning CEM')
         ang_dis_mean = self.policyparams['init_mean'].copy()
         ang_dis_cov = self.policyparams['init_cov'].copy()
         scores = np.zeros(self.M)
@@ -78,7 +78,7 @@ class DeterministicGraspPolicy(Policy):
             ang_disp_samps = np.random.multivariate_normal(ang_dis_mean, ang_dis_cov, size=self.M)
 
             for s in range(self.M):
-                print 'On iter', n, 'sample', s
+                print('On iter', n, 'sample', s)
                 self.reset_CEM_model()
                 move = True
                 drop = False

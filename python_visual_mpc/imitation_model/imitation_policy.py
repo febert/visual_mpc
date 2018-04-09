@@ -75,8 +75,8 @@ class ImitationPolicy(Policy):
         mdn_mix, mdn_std_dev, mdn_means = self.sess.run([self.mdn_mix, self.mdn_std_dev, self.mdn_means], feed_dict=f_dict)
 
         samps = self.gen_mix_samples(mdn_means[-1, t], mdn_std_dev[-1, t], mdn_mix[-1, t])
-        print 'cur qpos', traj.target_qpos[t, :]
-        print 'top samp', samps[0][0], 'with likelihood', samps[0][1]
+        print('cur qpos', traj.target_qpos[t, :])
+        print('top samp', samps[0][0], 'with likelihood', samps[0][1])
 
         # actions = np.zeros(5)
         # actions[:4] = samps[0][0][:4]
