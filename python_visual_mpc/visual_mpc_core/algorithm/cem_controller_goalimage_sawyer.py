@@ -423,8 +423,8 @@ class CEM_controller():
 
         tstart_verbose = time.time()
 
-        # if self.verbose and cem_itr == self.policyparams['iterations']-1:
-        if self.verbose:
+        if self.verbose and cem_itr == self.policyparams['iterations']-1:
+        # if self.verbose:
             # if self.verbose:
             # print 'creating visuals for best sampled actions at last iteration...'
             if self.save_subdir != None:
