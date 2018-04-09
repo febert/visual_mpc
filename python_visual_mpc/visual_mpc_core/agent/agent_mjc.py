@@ -1,5 +1,6 @@
 """ This file defines an agent for the MuJoCo simulator environment. """
 from copy import deepcopy
+from python_visual_mpc.visual_mpc_core.agent.utils.gen_gtruth_desig import gen_gtruthdesig
 import copy
 import numpy as np
 import pdb
@@ -10,6 +11,8 @@ import matplotlib.pyplot as plt
 from python_visual_mpc.video_prediction.misc.makegifs2 import assemble_gif, npy_to_gif
 from pyquaternion import Quaternion
 from mujoco_py import load_model_from_xml,load_model_from_path, MjSim, MjViewer
+
+from python_visual_mpc.visual_mpc_core.agent.utils.get_masks import get_obj_masks
 
 import time
 from python_visual_mpc.visual_mpc_core.infrastructure.trajectory import Trajectory
@@ -132,90 +135,6 @@ class AgentMuJoCo(object):
             goal_pix = np.around(goal_pix).astype(np.int)
         return goal_pix
 
-    def get_obj_masks(self, include_arm=False):
-        def get_image():
-            width = self._hyperparams['viewer_image_width']
-            height = self._hyperparams['viewer_image_height']
-            return self.sim.render(width, height, camera_name="maincam")[::-1, :, :]
-
-        large_ob_masks = []
-        ob_masks = []
-        complete_img = get_image()
-        armmask = None
-        # plt.imshow(complete_img)
-        # plt.show()
-        if include_arm:
-            qpos = copy.deepcopy(self.sim.data.qpos)
-            qpos[2] -= 10
-            sim_state = self.sim.get_state()
-            sim_state.qpos[:] = qpos
-            self.sim.set_state(sim_state)
-            self.sim.forward()
-            img = get_image()
-            armmask = 1 - np.uint8(np.all(complete_img == img, axis=-1)) * 1
-            qpos[2] += 10
-            sim_state.qpos[:] = qpos
-            self.sim.set_state(sim_state)
-            self.sim.forward()
-
-        for i in range(self._hyperparams['num_objects']):
-            qpos = copy.deepcopy(self.sim.data.qpos)
-            qpos[self.sdim//2 + 2+ i*7] -= 1
-            sim_state = self.sim.get_state()
-            sim_state.qpos[:] = qpos
-            self.sim.set_state(sim_state)
-            self.sim.forward()
-            img = get_image()
-            # plt.imshow(img)
-            # plt.show()
-            mask = 1 - np.uint8(np.all(complete_img == img, axis=-1)) * 1
-            qpos[self.sdim//2 + 2+ i * 7] += 1
-            sim_state.qpos[:] = qpos
-            self.sim.set_state(sim_state)
-            self.sim.forward()
-
-            large_ob_masks.append(mask)
-            ob_masks.append(cv2.resize(mask, dsize=(
-                self._hyperparams['image_width'], self._hyperparams['image_height']), interpolation=cv2.INTER_NEAREST))
-            # plt.imshow(mask.squeeze())
-            # plt.show()
-        ob_masks = np.stack(ob_masks, 0)
-        large_ob_masks = np.stack(large_ob_masks, 0)
-
-        return ob_masks, large_ob_masks
-
-    def gen_gtruthdesig(self, t, traj):
-        """
-        generate pairs of designated pixels and goal pixels by sampling designated pixels on the current object mask and finding the corresponding goal pixels
-        """
-        assert self._hyperparams['num_objects'] == 1
-        goal_pix = []
-        desig_pix = []
-        goal_pos = self.goal_obj_pose[0,:3]
-        goal_quat = Quaternion(self.goal_obj_pose[0, 3:])
-        curr_pos = traj.Object_full_pose[t, 0, :3]
-        curr_quat = Quaternion(traj.Object_full_pose[t, 0, 3:])
-        onobject = np.stack(np.where(np.squeeze(self.curr_mask_large) != 0), 1)
-        if len(onobject) == 0:
-            print("zero pixel of object visible!")
-            desig_pix = np.repeat(self.get_desig_pix(), self._hyperparams['gtruthdesig'], 0)
-            goal_pix = np.repeat(self.get_goal_pix(), self._hyperparams['gtruthdesig'], 0)
-            return desig_pix, goal_pix
-        diff_quat = curr_quat.conjugate * goal_quat  # rotates vector form curr_quat to goal_quat
-        dsample_factor = self._hyperparams['viewer_image_height']/float(self._hyperparams['image_height'])
-
-        for i in range(self._hyperparams['gtruthdesig']):
-            id = np.random.choice(list(range(onobject.shape[0])))
-            coord = onobject[id]
-            desig_pix.append((coord/dsample_factor).astype(np.int))
-            abs_pos_curr_sys = get_3D(coord[0], coord[1], traj.largedimage[t, coord[0], coord[1]])
-            rel_pos_curr_sys = abs_pos_curr_sys - curr_pos
-            rel_pos_curr_sys = Quaternion(scalar=.0, vector=rel_pos_curr_sys)
-            rel_pos_prev_sys = diff_quat * rel_pos_curr_sys * diff_quat.conjugate
-            abs_pos_prev_sys = goal_pos + rel_pos_prev_sys.elements[1:]
-            goal_prev_sys_imspace = np.array(project_point(abs_pos_prev_sys))
-            goal_pix.append((goal_prev_sys_imspace/dsample_factor).astype(np.int))
-        return np.stack(desig_pix, axis=0), np.stack(goal_pix, axis=0)
 
     def clip_targetpos(self, pos):
         pos_clip = self._hyperparams['targetpos_clip']
@@ -268,16 +187,18 @@ class AgentMuJoCo(object):
                 traj.Object_pose[t, i, :] = np.concatenate([fullpose[:2], zangle])  # save only xyz, theta
 
             if 'get_curr_mask' in self._hyperparams:
-                self.curr_mask, self.curr_mask_large = self.get_obj_masks(include_arm=False) #get target object mask
+                self.curr_mask, self.curr_mask_large = get_obj_masks(self.sim, self._hyperparams, include_arm=False) #get target object mask
             else:
                 self.desig_pix = self.get_desig_pix()
 
             self._store_image(t, traj, policy)
             if 'gtruthdesig' in self._hyperparams:  # generate many designated pixel goal-pixel pairs
-                self.desig_pix, self.goal_pix = self.gen_gtruthdesig(t, traj)
+                self.desig_pix, self.goal_pix = gen_gtruthdesig(fullpose, self.goal_obj_pose,
+                                        self.curr_mask_large, traj.largedimage[t], self._hyperparams['gtruthdesig'],
+                                         self._hyperparams, traj._sample_images[t], self.goal_image)
 
             if 'not_use_images' in self._hyperparams:
-                mj_U = policy.act(traj, t, self.sim, self.goal_obj_pose, self._hyperparams)
+                mj_U = policy.act(traj, t, self.sim, self.goal_obj_pose, self._hyperparams, self.goal_image)
             else:
                 mj_U, plan_stat = policy.act(traj, t, desig_pix=self.desig_pix,goal_pix=self.goal_pix,
                                           goal_image=self.goal_image, goal_mask=self.goal_mask, curr_mask=self.curr_mask)
@@ -492,46 +413,6 @@ class AgentMuJoCo(object):
             if t > 1:
                 traj.predicted_images = policy.best_gen_images
                 traj.gtruth_images = policy.best_gtruth_images
-
-    def add_traj_visual(self, img, traj, bestindices, targets):
-
-        large_sample_images_traj = []
-        fig = plt.figure(figsize=(6, 6), dpi=80)
-        fig.add_subplot(111)
-        plt.subplots_adjust(left=0, bottom=0, right=1, top=1, wspace=0, hspace=0)
-
-        num_samples = traj.shape[0]
-        niter = traj.shape[1]
-
-        for itr in range(niter):
-
-            axes = plt.gca()
-            plt.cla()
-            axes.axis('off')
-            plt.imshow(img, zorder=0)
-            axes.autoscale(False)
-
-            for smp in range(num_samples):  # for each trajectory
-
-                x = traj[smp, itr, :, 1]
-                y = traj[smp, itr, :, 0]
-
-                if smp == bestindices[itr][0]:
-                    plt.plot(x, y, zorder=1, marker='o', color='y')
-                elif smp in bestindices[itr][1:]:
-                    plt.plot(x, y, zorder=1, marker='o', color='r')
-                else:
-                    if smp % 5 == 0:
-                        plt.plot(x, y, zorder=1, marker='o', color='b')
-
-            fig.canvas.draw()  # draw the canvas, cache the renderer
-
-            data = np.fromstring(fig.canvas.tostring_rgb(), dtype=np.uint8, sep='')
-            data = data.reshape(fig.canvas.get_width_height()[::-1] + (3,))
-
-            large_sample_images_traj.append(data)
-
-        return large_sample_images_traj
 
     def save_gif(self):
         file_path = self._hyperparams['record']

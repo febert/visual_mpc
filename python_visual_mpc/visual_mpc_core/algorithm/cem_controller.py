@@ -1,4 +1,5 @@
 """ This file defines the linear Gaussian policy class. """
+import cv2
 import numpy as np
 
 from python_visual_mpc.visual_mpc_core.algorithm.policy import Policy
@@ -15,6 +16,11 @@ from python_visual_mpc.visual_mpc_core.algorithm.cem_controller_goalimage_sawyer
 
 from pyquaternion import Quaternion
 from mujoco_py import load_model_from_xml,load_model_from_path, MjSim, MjViewer
+from python_visual_mpc.visual_mpc_core.agent.utils.get_masks import get_obj_masks
+from python_visual_mpc.visual_mpc_core.agent.utils.gen_gtruth_desig import gen_gtruthdesig
+from python_visual_mpc.visual_mpc_core.agent.utils.convert_world_imspace_mj1_5 import project_point, get_3D
+
+
 
 class CEM_controller(Policy):
     """
@@ -123,20 +129,38 @@ class CEM_controller(Policy):
         abs_distances = []
         abs_angle_dist = []
         qpos_dim = self.sdim // 2  # the states contains pos and vel
-        for i_ob in range(self.agentparams['num_objects']):
 
-            goal_pos = self.goal_obj_pose[i_ob, :3]
-            curr_pose = self.sim.data.qpos[i_ob * 7 + qpos_dim:(i_ob+1) * 7 + qpos_dim].squeeze()
-            curr_pos = curr_pose[:3]
+        if 'gtruth_desig_goal_dist' in self.policyparams:
+            width = self.agentparams['viewer_image_width']
+            height = self.agentparams['viewer_image_height']
+            dlarge_img = self.sim.render(width, height, camera_name="maincam", depth=True)[1][::-1, :]
+            large_img = self.sim.render(width, height, camera_name="maincam")[::-1, :, :]
+            curr_img = cv2.resize(large_img, dsize=(self.agentparams['image_width'], self.agentparams['image_height']), interpolation = cv2.INTER_AREA)
+            _, curr_large_mask = get_obj_masks(self.sim, self.agentparams)
+            qpos_dim = self.sdim//2
+            i_ob = 0
+            obj_pose = self.sim.data.qpos[i_ob * 7 + qpos_dim:(i_ob + 1) * 7 + qpos_dim].squeeze()
+            desig_pix, goal_pix = gen_gtruthdesig(obj_pose, self.goal_obj_pose, curr_large_mask, dlarge_img, 10, self.agentparams, curr_img, self.goal_image)
+            total_d = []
+            for i in range(desig_pix.shape[0]):
+                total_d.append(np.linalg.norm(desig_pix[i] - goal_pix[i]))
+            return np.mean(total_d)
+        else:
+            for i_ob in range(self.agentparams['num_objects']):
 
-            abs_distances.append(np.linalg.norm(goal_pos - curr_pos))
+                goal_pos = self.goal_obj_pose[i_ob, :3]
+                curr_pose = self.sim.data.qpos[i_ob * 7 + qpos_dim:(i_ob+1) * 7 + qpos_dim].squeeze()
+                curr_pos = curr_pose[:3]
 
-            goal_quat = Quaternion(self.goal_obj_pose[i_ob, 3:])
-            curr_quat = Quaternion(curr_pose[3:])
-            diff_quat = curr_quat.conjugate*goal_quat
-            abs_angle_dist.append(np.abs(diff_quat.radians))
+                abs_distances.append(np.linalg.norm(goal_pos - curr_pos))
 
-        return np.sum(np.array(abs_distances)), np.sum(np.array(abs_angle_dist))
+                goal_quat = Quaternion(self.goal_obj_pose[i_ob, 3:])
+                curr_quat = Quaternion(curr_pose[3:])
+                diff_quat = curr_quat.conjugate*goal_quat
+                abs_angle_dist.append(np.abs(diff_quat.radians))
+
+        # return np.sum(np.array(abs_distances)), np.sum(np.array(abs_angle_dist))
+        return np.sum(np.array(abs_distances))
 
     def calc_action_cost(self, actions):
         actions_costs = np.zeros(self.M)
@@ -214,6 +238,7 @@ class CEM_controller(Policy):
         for smp in range(self.M):
             self.setup_mujoco()
             score, images = self.sim_rollout(actions[smp])
+            # print('score', score)
             per_time_multiplier = np.ones([len(score)])
             per_time_multiplier[-1] = self.policyparams['finalweight']
             all_scores[smp] = np.sum(per_time_multiplier*score)
@@ -287,7 +312,7 @@ class CEM_controller(Policy):
 
             # print(t)
         # self.plot_ctrls()
-        return np.stack(costs, axis=0)[:,0], images
+        return np.stack(costs, axis=0), images
 
     def get_int_targetpos(self, substep, prev, next):
         assert substep >= 0 and substep < self.agentparams['substeps']
@@ -305,7 +330,7 @@ class CEM_controller(Policy):
             plt.legend()
             plt.show()
 
-    def act(self, traj, t, init_model, goal_obj_pose, agent_params):
+    def act(self, traj, t, init_model, goal_obj_pose, agent_params, goal_image):
         """
         Return a random action for a state.
         Args:
@@ -317,6 +342,7 @@ class CEM_controller(Policy):
         """
         self.agentparams = agent_params
         self.goal_obj_pose = goal_obj_pose
+        self.goal_image = goal_image
         self.t = t
         self.init_model = init_model
 

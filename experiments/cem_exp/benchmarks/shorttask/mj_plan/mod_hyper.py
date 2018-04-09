@@ -45,6 +45,7 @@ policy = {
     'finalweight':10,
     'no_action_bound':"",
     'num_samples':100,
+    # 'use_first_plan':''
 }
 
 tag_images = {'name': 'images',
