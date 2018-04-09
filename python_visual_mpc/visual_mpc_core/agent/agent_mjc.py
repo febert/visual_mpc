@@ -24,7 +24,6 @@ from time import sleep
 import cv2
 from python_visual_mpc.goaldistancenet.misc.draw_polygon import draw_poly
 
-
 def file_len(fname):
     i = 0
     with open(fname) as f:
@@ -71,9 +70,7 @@ class AgentMuJoCo(object):
         else:
             xmlfilename = self._hyperparams['filename']
 
-
         self.sim = MjSim(load_model_from_path(xmlfilename))
-
 
     def sample(self, policy, i_tr, verbose=True, save=True, noisy=False):
         """
@@ -245,7 +242,7 @@ class AgentMuJoCo(object):
                     #keep gripper at default x,y positions
                     ctrl[:3] = self.sim.data.qpos[:3].squeeze()
                 self.sim.data.ctrl[:] = ctrl
-
+                self.sim.step()
 
         self.large_images_traj = []
         self.large_images = []
@@ -253,12 +250,8 @@ class AgentMuJoCo(object):
         self.hf_target_qpos_l = []
         self.hf_qpos_l = []
 
-        if 'posmode' in self._hyperparams:
-            traj.target_qpos[0, :] = self.sim.data.qpos[:self.adim].squeeze()
-
         self.gripper_closed = False
         self.gripper_up = False
-
 
         # Take the sample.
         for t in range(self.T):
@@ -294,10 +287,6 @@ class AgentMuJoCo(object):
 
             if 'posmode' in self._hyperparams:  #if the output of act is a positions
                 traj.actions[t, :] = mj_U
-                # mask out action dimensions with abs control with 0
-                traj.target_qpos[t + 1, :] = mj_U.copy() + traj.target_qpos[t, :] * traj.mask_rel
-                traj.target_qpos[t + 1, :] = self.clip_targetpos(traj.target_qpos[t + 1, :])
-
                 if t == 0:
                     self.prev_target_qpos = copy.deepcopy(self.sim.data.qpos[:self.adim].squeeze())
                     self.target_qpos = copy.deepcopy(self.sim.data.qpos[:self.adim].squeeze())
@@ -321,21 +310,17 @@ class AgentMuJoCo(object):
                 else:
                     self.target_qpos = mj_U + self.target_qpos
                 self.target_qpos = self.clip_targetpos(self.target_qpos)
-
             else:
                 traj.actions[t, :] = mj_U
                 ctrl = mj_U.copy()
 
             for st in range(self._hyperparams['substeps']):
                 if 'posmode' in self._hyperparams:
-
-                    ctrl = self.get_int_targetpos(st, traj.target_qpos[t, :], traj.target_qpos[t + 1, :])
-
+                    ctrl = self.get_int_targetpos(st, self.prev_target_qpos, self.target_qpos)
                 self.sim.data.ctrl[:] = ctrl
                 self.sim.step()
                 self.hf_qpos_l.append(copy.deepcopy(self.sim.data.qpos))
                 self.hf_target_qpos_l.append(copy.deepcopy(ctrl))
-
 
         # print('obj gripper dist', np.sqrt(np.sum(np.power(traj.Object_pose[-1, 0, :2] - traj.X_full[-1, :2], 2))))
 
