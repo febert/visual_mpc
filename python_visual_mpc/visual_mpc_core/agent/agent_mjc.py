@@ -24,8 +24,6 @@ from time import sleep
 import cv2
 from python_visual_mpc.goaldistancenet.misc.draw_polygon import draw_poly
 
-import mujoco_py
-from mujoco_py.mjtypes import *
 
 def file_len(fname):
     i = 0
@@ -257,7 +255,7 @@ class AgentMuJoCo(object):
         self.hf_qpos_l = []
 
         if 'posmode' in self._hyperparams:
-            traj.target_qpos[0, :] = self._model.data.qpos[:self.adim].squeeze()
+            traj.target_qpos[0, :] = self.sim.data.qpos[:self.adim].squeeze()
 
         self.gripper_closed = False
         self.gripper_up = False

@@ -80,7 +80,7 @@ def create_object_xml(hyperparams, load_dict_list=None):
 
 
             o_mesh = xmldir + '/' + random.choice(hyperparams['object_meshes']) +'/'
-            print 'import mesh dir', o_mesh
+            print('import mesh dir', o_mesh)
             stl_files = glob.glob(o_mesh + '*.stl')
             convex_hull_files = [x for x in stl_files if 'Shape_IndexedFaceSet' in x]
             object_file = [x for x in stl_files

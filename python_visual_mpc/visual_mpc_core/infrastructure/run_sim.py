@@ -10,7 +10,7 @@ import time
 # Add lsdc/python to path so that imports work.
 sys.path.append('/'.join(str.split(__file__, '/')[:-2]))
 # from lsdc.gui.gps_training_gui import GPSTrainingGUI
-# from python_visual_mpc.video_prediction.setup_predictor_simple import setup_predictor
+#from python_visual_mpc.video_prediction.setup_predictor_simple import setup_predictor
 from python_visual_mpc.goaldistancenet.setup_gdn import setup_gdn
 from python_visual_mpc.visual_mpc_core.infrastructure.utility import *
 
