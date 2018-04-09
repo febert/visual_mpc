@@ -1,8 +1,8 @@
 import numpy as np
 
 from python_visual_mpc.visual_mpc_core.algorithm.policy import Policy
-import mujoco_py
-
+from mujoco_py import load_model_from_xml,load_model_from_path, MjSim, MjViewer
+import  matplotlib.pyplot as plt
 class DeterministicGraspPolicy(Policy):
     def __init__(self, agentparams, policyparams):
         Policy.__init__(self)
@@ -23,7 +23,6 @@ class DeterministicGraspPolicy(Policy):
 
         self.moveto = True
         self.drop = False
-        self.graspTime = 0
         self.grasp = False
         self.lift = False
 
@@ -34,9 +33,10 @@ class DeterministicGraspPolicy(Policy):
     def setup_CEM_model(self, t, init_model):
         if t == 0:
             if 'gen_xml' in self.agentparams:
-                self.CEM_model = mujoco_py.MjModel(self.agentparams['gen_xml_fname'])
+
+                self.CEM_model = MjSim(load_model_from_path(self.agentparams['gen_xml_fname']))
             else:
-                self.CEM_model = mujoco_py.MjModel(self.agentparams['filename'])
+                self.CEM_model = MjSim(load_model_from_path(self.agentparams['filename']))
 
             if 'debug_viewer' in self.policyparams and self.policyparams['debug_viewer']:
                 # CEM viewer for debugging purposes
@@ -55,23 +55,33 @@ class DeterministicGraspPolicy(Policy):
         self.reset_CEM_model()
 
     def reset_CEM_model(self):
-        self.CEM_model.data.qpos = self.initial_qpos.copy()
-        self.CEM_model.data.qvel = self.initial_qvel.copy()
+        sim_state = self.CEM_model.get_state()
+        sim_state.qpos[:] = self.initial_qpos.copy()
+        sim_state.qvel[:] = self.initial_qvel.copy()
+        self.CEM_model.set_state(sim_state)
+
+        self.prev_target = self.CEM_model.data.qpos[:self.adim].squeeze()
+        self.target = self.CEM_model.data.qpos[:self.adim].squeeze()
+
+
         self.viewer_refresh()
 
     def viewer_refresh(self):
         if 'debug_viewer' in self.policyparams and self.policyparams['debug_viewer']:
             self.viewer.loop_once()
 
-    def perform_CEM(self, traj_t, traj):
-        # print 'Beginning CEM'
-        angle_samps = np.random.normal(0.0, 3.14 / 4, size = self.M)
+    def perform_CEM(self, targetxy):
+        print('Beginning CEM')
+        ang_dis_mean = self.policyparams['init_mean'].copy()
+        ang_dis_cov = self.policyparams['init_cov'].copy()
         scores = np.zeros(self.M)
-        best_score, best_ang = -1, None
+        best_score, best_ang, best_xy = -1, None, None
 
         for n in range(self.niter):
+            ang_disp_samps = np.random.multivariate_normal(ang_dis_mean, ang_dis_cov, size=self.M)
+
             for s in range(self.M):
-                # print 'On iter', n, 'sample', s
+                print('On iter', n, 'sample', s)
                 self.reset_CEM_model()
                 move = True
                 drop = False
@@ -79,11 +89,13 @@ class DeterministicGraspPolicy(Policy):
                 g_start = 0
                 lift = False
 
-                angle_actions = np.zeros((self.n_actions, self.adim))
+                angle_delta = ang_disp_samps[s, 0]
+                targetxy_delta = targetxy + ang_disp_samps[s, 1:]
                 for t in range(self.n_actions):
+                    angle_action = np.zeros(self.adim)
                     cur_xy = self.CEM_model.data.qpos[:2].squeeze()
 
-                    if move and np.linalg.norm(traj.Object_pose[traj_t, 0, :2] - cur_xy, 2) <= self.agentparams['drop_thresh']:
+                    if move and np.linalg.norm(targetxy_delta - cur_xy, 2) <= self.agentparams['drop_thresh']:
                         move = False
                         drop = True
 
@@ -91,62 +103,73 @@ class DeterministicGraspPolicy(Policy):
                         drop = False
                         grasp = True
                         g_start = t
-                    if grasp and t - g_start > 4:
+                    if grasp and t - g_start > 2:
                         grasp = False
                         lift = True
                     if move:
-                        angle_actions[t, :2] = traj.Object_pose[traj_t, 0, :2]
-                        angle_actions[t, 2] = self.agentparams['ztarget']
-                        angle_actions[t, 3] = angle_samps[s]
-                        angle_actions[t, 4] = -100
+                        angle_action[:2] = targetxy_delta
+                        angle_action[2] = self.agentparams['ztarget']
+                        angle_action[3] = angle_delta
+                        angle_action[4] = -100
                     elif drop:
-                        angle_actions[t, :2] = traj.Object_pose[traj_t, 0, :2]
-                        angle_actions[t, 2] = -0.08
-                        angle_actions[t, 3] = angle_samps[s]
-                        angle_actions[t, 4] = -100
+                        angle_action[:2] = targetxy_delta
+                        angle_action[2] = -0.08
+                        angle_action[3] = angle_delta
+                        angle_action[4] = -100
                     elif grasp:
-                        angle_actions[t, :2] = traj.Object_pose[traj_t, 0, :2]
-                        angle_actions[t, 2] = -0.08
-                        angle_actions[t, 3] = angle_samps[s]
-                        angle_actions[t, 4] = 10
+                        angle_action[:2] = targetxy_delta
+                        angle_action[2] = -0.08
+                        angle_action[3] = angle_delta
+                        angle_action[4] = 21
                     elif lift:
-                        angle_actions[t, :2] = traj.Object_pose[traj_t, 0, :2]
-                        angle_actions[t, 2] = self.agentparams['ztarget']
-                        angle_actions[t, 3] = 0.
-                        angle_actions[t, 4] = 10
+                        angle_action[:2] = targetxy_delta
+                        angle_action[2] = self.agentparams['ztarget']
+                        angle_action[3] = angle_delta
+                        angle_action[4] = 21
 
-                    self.step_model(angle_actions[t])
+                    self.step_model(angle_action)
                 # print 'final z', self.CEM_model.data.qpos[8].squeeze(), 'with angle', angle_samps[s]
 
-                scores[s] = self.CEM_model.data.qpos[8].squeeze() - 0.1 * np.abs(angle_samps[s])
+                scores[s] = self.CEM_model.data.qpos[8].squeeze() - 0.1 * np.abs(angle_delta)
+
+                if 'stop_iter_thresh' in self.policyparams and scores[s] > self.policyparams['stop_iter_thresh']:
+                    return ang_disp_samps[s, 0], ang_disp_samps[s, 1:]
                 # print 'score',scores[s]
 
             best_scores = np.argsort(-scores)[:self.K]
 
             if scores[best_scores[0]] > best_score or best_ang is None:
-                print(scores[best_scores[0]])
+
+                print('best', scores[best_scores[0]])
+
                 best_score = scores[best_scores[0]]
-                best_ang = angle_samps[best_scores[0]]
+                best_ang = ang_disp_samps[best_scores[0], 0]
+                best_xy = ang_disp_samps[best_scores[0], 1:]
 
-            ang_mean = np.mean(angle_samps[best_scores])
-            ang_var = np.var(angle_samps[best_scores])
 
-            angle_samps = np.random.normal(ang_mean, np.sqrt(ang_var), size = self.M)
 
-        return best_ang
+            ang_dis_mean = np.mean(ang_disp_samps[best_scores, :], axis = 0)
+            ang_dis_cov = np.cov(ang_disp_samps[best_scores, :].T)
 
-    def step_model(self, actions):
-        for _ in range(self.agentparams['substeps']):
-            ctrl = actions.copy()
+        return best_ang, best_xy
 
-            ctrl[2] -= self.CEM_model.data.qpos[2].squeeze()
+    def step_model(self, input_actions):
+        pos_clip = self.agentparams['targetpos_clip']
 
-            self.CEM_model.data.ctrl = ctrl
+        self.prev_target = self.target.copy()
+        self.target = input_actions.copy()
+        self.target = np.clip(self.target, pos_clip[0], pos_clip[1])
+
+        for s in range(self.agentparams['substeps']):
+            step_action = s / float(self.agentparams['substeps']) * (self.target - self.prev_target) + self.prev_target
+            self.CEM_model.data.ctrl[:] = step_action
             self.CEM_model.step()
+
         self.viewer_refresh()
 
+        #print "end", self.CEM_model.data.qpos[:4].squeeze()
 
-    def act(self, traj, t, init_model = None):
+    def act(self, traj, t, init_model = None, goal_object_pose = None, hyperparams = None):
         self.setup_CEM_model(t, init_model)
 
         if t == 0:
@@ -154,11 +177,14 @@ class DeterministicGraspPolicy(Policy):
             self.drop = False
             self.lift = False
             self.grasp = False
-            self.graspTime = 0
-            self.angle = self.perform_CEM(t, traj)
+            self.switchTime = 0
+            self.targetxy = traj.Object_pose[t, 0, :2]
+            self.angle, self.disp = self.perform_CEM(self.targetxy)
+            self.targetxy += self.disp
 
-        if self.grasp and self.graspTime > 4:
+        if self.grasp and self.switchTime > 0:
             print('lifting at time', t, '!', 'have z', traj.X_full[t, 2])
+
             self.grasp = False
             self.lift = True
 
@@ -167,46 +193,49 @@ class DeterministicGraspPolicy(Policy):
             self.drop = False
             self.grasp = True
 
-        if self.moveto and np.linalg.norm(traj.Object_pose[t, 0, :2] - traj.X_full[t, :2], 2) <= self.agentparams['drop_thresh']:
-            print('swapping at time', t, '!')
-            self.moveto = False
-            self.drop = True
+        if self.moveto and np.linalg.norm(traj.X_full[t, :2] - self.targetxy, 2) <= self.agentparams['drop_thresh']:
+            if self.switchTime >= 0:
+                print('swapping at time', t, '!')
+                self.moveto = False
+                self.drop = True
+                self.switchTime = 0
+            else:
+                self.switchTime += 1
 
 
+
+        actions = np.zeros(self.adim)
         if self.moveto:
-            actions = np.zeros(self.adim)
-            actions[:2] = traj.Object_pose[t, 0, :2]
+            delta = self.targetxy - traj.target_qpos[t, :2]
+            norm = np.sqrt(np.sum(np.square(delta)))
+            new_norm = min(norm, self.policyparams['max_norm'])
+            actions[:2] = traj.target_qpos[t, :2] + delta / norm * new_norm
             actions[2] = self.agentparams['ztarget']
             actions[3] = self.angle
             actions[-1] = -100
 
 
         elif self.drop:
-            actions = np.zeros(self.adim)
-            actions[:2] = traj.Object_pose[t, 0, :2]
+            actions[:2] = self.targetxy
             actions[2] = -0.08
             actions[3] = self.angle
             actions[-1] = -100
 
-            #self.sim_rollout(actions)
-
         elif self.lift:
-            actions = np.zeros(self.adim)
-            actions[:2] = traj.Object_pose[t, 0, :2]
+            actions[:2] = self.targetxy
             actions[2] = self.agentparams['ztarget']
-            actions[3] = 0.
-            actions[-1] = 10
+            actions[3] = self.angle
+            actions[-1] = 21
 
 
         elif self.grasp:
-            actions = np.zeros(self.adim)
-            actions[:2] = traj.Object_pose[t, 0, :2]
+            actions[:2] = self.targetxy
             actions[2] = -0.08
             actions[3] = self.angle
-            actions[-1] = 10. / 4 * self.graspTime
-            self.graspTime += 1
+            actions[-1] = 21
+            self.switchTime += 1
 
         if 'debug_viewer' in self.policyparams and self.policyparams['debug_viewer'] and t == self.agentparams['T'] - 1:
             self.viewer.finish()
 
-        return actions
+        return actions - traj.target_qpos[t, :] * traj.mask_rel
