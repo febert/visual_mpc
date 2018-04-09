@@ -512,15 +512,29 @@ def add_crosshairs(images, pos, color=None):
             im[p[0], p[1]+3:p[1]+6] = color
 
             im[p[0], p[1]] = color
-
-            # plt.imshow(im)
-            # plt.show()
             out[b, t] = im
 
     if make_list_output:
         out = np.split(out, images.shape[1], axis=1)
         out = [np.squeeze(el) for el in out]
     return out
+
+def add_crosshairs_single(im, pos, color=None):
+    if color == None:
+        if im.dtype == np.float32:
+            color = np.array([0., 1., 1.])
+        else:
+            color = np.array([0, 255, 255])
+    p = pos.astype(np.int)
+    im[p[0]-5:p[0]-2,p[1]] = color
+    im[p[0]+3:p[0]+6, p[1]] = color
+
+    im[p[0],p[1]-5:p[1]-2] = color
+
+    im[p[0], p[1]+3:p[1]+6] = color
+    im[p[0], p[1]] = color
+
+    return im
 
 def visualize_annotation(conf, images, pos):
     for t in range(conf['sequence_length']):
