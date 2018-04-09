@@ -12,6 +12,7 @@ IMAGE_HEIGHT = 64
 IMAGE_CHANNELS = 3
 
 BASE_DIR = '/'.join(str.split(__file__, '/')[:-1])
+current_dir = os.path.dirname(os.path.realpath(__file__))
 
 import python_visual_mpc
 DATA_DIR = '/'.join(str.split(python_visual_mpc.__file__, '/')[:-2])
@@ -72,6 +73,7 @@ policy = {
 
 config = {
     'traj_per_file':128,
+    'current_dir' : current_dir,
     'save_data': True,
     'save_raw_images' : True,
     'start_index':0,
