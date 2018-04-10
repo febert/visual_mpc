@@ -82,6 +82,7 @@ def perform_benchmark(conf = None, gpu_id=None):
     scores_l = []
     anglecost_l = []
     improvment_l = []
+    initial_dist_l = []
 
     if 'sourcetags' in conf:  # load data per trajectory
         if 'VMPC_DATA_DIR' in os.environ:
@@ -142,6 +143,7 @@ def perform_benchmark(conf = None, gpu_id=None):
         scores_l.append(sim.agent.final_poscost)
         anglecost_l.append(sim.agent.final_anglecost)
         improvment_l.append(sim.agent.improvement)
+        initial_dist_l.append(sim.agent.initial_poscost)
 
         print('improvement of traj{},{}'.format(traj, improvment_l[-1]))
         traj +=1 #increment trajectories every step!
@@ -149,6 +151,7 @@ def perform_benchmark(conf = None, gpu_id=None):
         score = np.array(scores_l)
         anglecost = np.array(anglecost_l)
         improvement = np.array(improvment_l)
+        initial_dist_l = np.array(initial_dist_l)
         sorted_ind = improvement.argsort()[::-1]
 
         pickle.dump({'improvement':improvement, 'scores':score, 'anglecost':anglecost}, open(scores_pkl_file, 'wb'))
@@ -166,6 +169,9 @@ def perform_benchmark(conf = None, gpu_id=None):
         f.write('median pos score {}'.format(np.median(score)))
         f.write('standard deviation of population {0}\n'.format(np.std(score)))
         f.write('standard error of the mean (SEM) {0}\n'.format(np.std(score)/np.sqrt(score.shape[0])))
+        f.write('---\n')
+        f.write('average initial dist: {0}\n'.format(np.mean(initial_dist_l)))
+        f.write('median initial dist: {0}\n'.format(np.median(initial_dist_l)))
         f.write('---\n')
         f.write('average angle cost: {0}\n'.format(np.mean(anglecost)))
         f.write('----------------------\n')

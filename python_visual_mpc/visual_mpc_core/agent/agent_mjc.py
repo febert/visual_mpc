@@ -99,8 +99,8 @@ class AgentMuJoCo(object):
         tfinal = self._hyperparams['T'] -1
         if self.goal_obj_pose is not None:
             self.final_poscost, self.final_anglecost = self.eval_action(traj, tfinal)
-            initial_poscost, _ = self.eval_action(traj, 0)
-            self.improvement = initial_poscost - self.final_poscost
+            self.initial_poscost, _ = self.eval_action(traj, 0)
+            self.improvement = self.initial_poscost - self.final_poscost
 
         if 'save_goal_image' in self._hyperparams:
             self.save_goal_image_conf(traj)

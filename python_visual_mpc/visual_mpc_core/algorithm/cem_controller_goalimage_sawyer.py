@@ -615,12 +615,15 @@ class CEM_controller():
         return input_distrib
 
     def get_recinput(self, itr, rec_input_distrib, desig):
-        if self.t < self.netconf['context_frames']:
+        ctxt = self.netconf['context_frames']
+        # if self.t < ctxt:
+        if len(rec_input_distrib) < ctxt:
             input_distrib = self.switch_on_pix(desig)
             if itr == 0:
-                rec_input_distrib.append(input_distrib[:, 1])
+                rec_input_distrib.append(input_distrib[:, 0])
         else:
-            input_distrib = [rec_input_distrib[-2], rec_input_distrib[-1]]
+            # input_distrib = [rec_input_distrib[-2], rec_input_distrib[-1]]
+            input_distrib = [rec_input_distrib[c] for c in range(-ctxt, 0)]
             input_distrib = [np.expand_dims(elem, axis=1) for elem in input_distrib]
             input_distrib = np.concatenate(input_distrib, axis=1)
         return input_distrib
@@ -647,21 +650,18 @@ class CEM_controller():
         if t == 0:
             action = np.zeros(self.agentparams['adim'])
         else:
-            last_images = traj._sample_images[t - 1:t + 1]
+            ctxt = self.netconf['context_frames']
+            last_images = np.stack([traj._sample_images[c] for c in range(t-ctxt+1,t+1)], 0)  # same as [t - 1:t + 1] for context 2
 
             if 'use_vel' in self.netconf:
-                last_states = traj.X_Xdot_full[t-1: t+1]
-            else: last_states = traj.X_full[t - 1: t + 1]
+                last_states = np.stack([traj.X_Xdot_full[c] for c in range(t-ctxt+1,t+1)], 0)
+            else: last_states = np.stack([traj.X_full[c] for c in range(t-ctxt+1,t+1)], 0)
 
             if 'use_first_plan' in self.policyparams:
                 print('using actions of first plan, no replanning!!')
                 if t == 1:
                     self.perform_CEM(last_images, last_states, t)
-                else:
-                    # only showing last iteration
-                    self.bestindices_of_iter = self.bestindices_of_iter[-1, :].reshape((1, self.K))
                 action = self.bestaction_withrepeat[t - 1]
-
             else:
                 self.perform_CEM(last_images, last_states, t)
                 action = self.bestaction[0]
