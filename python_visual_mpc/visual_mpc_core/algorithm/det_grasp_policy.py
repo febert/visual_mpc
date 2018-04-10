@@ -95,7 +95,7 @@ class DeterministicGraspPolicy(Policy):
                     angle_action = np.zeros(self.adim)
                     cur_xy = self.CEM_model.data.qpos[:2].squeeze()
 
-                    if move and np.linalg.norm(targetxy_delta - cur_xy, 2) <= self.agentparams['drop_thresh']:
+                    if move and np.linalg.norm(targetxy_delta - cur_xy, 2) <= self.policyparams['drop_thresh']:
                         move = False
                         drop = True
 
@@ -193,7 +193,7 @@ class DeterministicGraspPolicy(Policy):
             self.drop = False
             self.grasp = True
 
-        if self.moveto and np.linalg.norm(traj.X_full[t, :2] - self.targetxy, 2) <= self.agentparams['drop_thresh']:
+        if self.moveto and np.linalg.norm(traj.X_full[t, :2] - self.targetxy, 2) <= self.policyparams['drop_thresh']:
             if self.switchTime >= 0:
                 print('swapping at time', t, '!')
                 self.moveto = False
@@ -208,11 +208,16 @@ class DeterministicGraspPolicy(Policy):
         if self.moveto:
             delta = self.targetxy - traj.target_qpos[t, :2]
             norm = np.sqrt(np.sum(np.square(delta)))
-            new_norm = min(norm, self.policyparams['max_norm'])
-            actions[:2] = traj.target_qpos[t, :2] + delta / norm * new_norm
+            if norm > self.policyparams['max_norm']:
+                actions[:2] = traj.target_qpos[t, :2] + delta / norm * self.policyparams['max_norm']
+            else:
+                actions[:2] = traj.target_qpos[t, :2] + delta
             actions[2] = self.agentparams['ztarget']
             actions[3] = self.angle
             actions[-1] = -100
+
+            if 'xyz_std' in self.policyparams and t < 9:
+                actions[:3] += self.policyparams['xyz_std'] * np.random.normal(size=3)
 
 
         elif self.drop:
@@ -237,5 +242,8 @@ class DeterministicGraspPolicy(Policy):
 
         if 'debug_viewer' in self.policyparams and self.policyparams['debug_viewer'] and t == self.agentparams['T'] - 1:
             self.viewer.finish()
+
+        if 'angle_std' in self.policyparams:
+            actions[3] += self.policyparams['angle_std'] * np.random.normal()
 
         return actions - traj.target_qpos[t, :] * traj.mask_rel
