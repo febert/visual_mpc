@@ -19,7 +19,7 @@ def combine_scores(dir, exp_name):
     score = np.concatenate(scores_l, axis=0)
     anglecost = np.concatenate(anglecost_l, axis=0)
     improvement = np.concatenate(improvement_l, axis=0)
-    sorted_ind = improvement.argsort()
+    sorted_ind = improvement.argsort()[::-1]
 
     f = open(dir + '/results_all.txt', 'w')
     f.write('experiment name: ' + exp_name + '\n')
