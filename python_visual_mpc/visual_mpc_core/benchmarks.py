@@ -151,7 +151,7 @@ def perform_benchmark(conf = None, gpu_id=None):
         score = np.array(scores_l)
         anglecost = np.array(anglecost_l)
         improvement = np.array(improvment_l)
-        initial_dist_l = np.array(initial_dist_l)
+        initial_dist = np.array(initial_dist_l)
         sorted_ind = improvement.argsort()[::-1]
 
         pickle.dump({'improvement':improvement, 'scores':score, 'anglecost':anglecost}, open(scores_pkl_file, 'wb'))
@@ -170,8 +170,8 @@ def perform_benchmark(conf = None, gpu_id=None):
         f.write('standard deviation of population {0}\n'.format(np.std(score)))
         f.write('standard error of the mean (SEM) {0}\n'.format(np.std(score)/np.sqrt(score.shape[0])))
         f.write('---\n')
-        f.write('average initial dist: {0}\n'.format(np.mean(initial_dist_l)))
-        f.write('median initial dist: {0}\n'.format(np.median(initial_dist_l)))
+        f.write('average initial dist: {0}\n'.format(np.mean(initial_dist)))
+        f.write('median initial dist: {0}\n'.format(np.median(initial_dist)))
         f.write('---\n')
         f.write('average angle cost: {0}\n'.format(np.mean(anglecost)))
         f.write('----------------------\n')
