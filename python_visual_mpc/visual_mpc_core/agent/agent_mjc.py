@@ -355,6 +355,13 @@ class AgentMuJoCo(object):
         else:
             traj_ok = True
 
+        #only save trajectories where object gets lifted
+        if 'min_z_lift' in self._hyperparams:
+            print('check z lift ball:', self.sim.data.qpos[8].squeeze(), 'vs target:', self._hyperparams['min_z_lift'])
+            if self.sim.data.qpos[8].squeeze() >= self._hyperparams['min_z_lift']:
+                traj_ok = True
+            else:
+                traj_ok = False
         #discarding trajecotries where an object falls out of the bin:
         end_zpos = [traj.Object_full_pose[-1, i, 2] for i in range(self._hyperparams['num_objects'])]
         if any(zval < -2e-2 for zval in end_zpos):
