@@ -39,11 +39,11 @@ def worker(conf):
     s.run()
 
 # @ray.remote
-def bench_worker(conf):
+def bench_worker(conf, iex=-1):
     print('started process with PID:', os.getpid())
     random.seed(None)
     np.random.seed(None)
-    perform_benchmark(conf, gpu_id=conf['gpu_id'])
+    perform_benchmark(conf, iex, gpu_id=conf['gpu_id'])
 
 def main():
     parser = argparse.ArgumentParser(description='run parllel data collection')
@@ -53,6 +53,8 @@ def main():
 
     parser.add_argument('--nsplit', type=int, help='the starting gpu_id', default=-1)
     parser.add_argument('--isplit', type=int, help='the starting gpu_id', default=-1)
+
+    parser.add_argument('--iex', type=int, help='if different from -1 use only do example', default=-1)
 
     args = parser.parse_args()
     exp_name = args.experiment
@@ -136,7 +138,7 @@ def main():
         p = Pool(n_worker)
         p.map(use_worker, conflist)
     else:
-        use_worker(conflist[0])
+        use_worker(conflist[0], args.iex)
 
     if do_benchmark:
         if 'RESULT_DIR' in os.environ:

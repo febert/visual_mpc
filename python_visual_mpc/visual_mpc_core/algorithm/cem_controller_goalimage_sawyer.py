@@ -144,10 +144,8 @@ class CEM_controller():
         self.t = None
 
         if 'verbose' in self.policyparams:
-            if isinstance(self.policyparams['verbose'], int):
-                self.verbose = self.policyparams['verbose']
-            else: self.verbose = self.agentparams['T']
-        else: self.verbose = -1
+            self.verbose = True
+        else: self.verbose = False
 
         self.niter = self.policyparams['iterations']
 
@@ -289,26 +287,32 @@ class CEM_controller():
             actioncosts = self.calc_action_cost(actions)
             scores += actioncosts
 
-            self.indices = scores.argsort()[:self.K]
-            self.bestindices_of_iter[itr] = self.indices
+            if 'exp_action_weighting' in self.policyparams:
+                temp = self.policyparams['exp_action_weighting']
+                scores = (scores-np.mean(scores))/np.std(scores)
+                exp_scores = np.exp(-scores*temp)
+                self.bestaction = np.sum(actions*exp_scores[:,None,None], axis=0)/np.sum(exp_scores)
+            else:
+                self.indices = scores.argsort()[:self.K]
+                self.bestindices_of_iter[itr] = self.indices
 
-            self.bestaction_withrepeat = actions[self.indices[0]]
-            self.plan_stat['scores_itr{}'.format(itr)] = scores
-            self.plan_stat['bestscore_itr{}'.format(itr)] = scores[self.indices[0]]
+                self.bestaction_withrepeat = actions[self.indices[0]]
+                self.plan_stat['scores_itr{}'.format(itr)] = scores
+                self.plan_stat['bestscore_itr{}'.format(itr)] = scores[self.indices[0]]
 
-            actions = actions.reshape(self.M, self.naction_steps, self.repeat, self.adim)
-            actions = actions[:,:,-1,:] #taking only one of the repeated actions
-            actions_flat = actions.reshape(self.M, self.naction_steps * self.adim)
+                actions = actions.reshape(self.M, self.naction_steps, self.repeat, self.adim)
+                actions = actions[:,:,-1,:] #taking only one of the repeated actions
+                actions_flat = actions.reshape(self.M, self.naction_steps * self.adim)
 
-            self.bestaction = actions[self.indices[0]]
-            # print 'bestaction:', self.bestaction
+                self.bestaction = actions[self.indices[0]]
+                # print 'bestaction:', self.bestaction
 
-            arr_best_actions = actions_flat[self.indices]  # only take the K best actions
-            self.sigma = np.cov(arr_best_actions, rowvar= False, bias= False)
-            self.mean = np.mean(arr_best_actions, axis= 0)
+                arr_best_actions = actions_flat[self.indices]  # only take the K best actions
+                self.sigma = np.cov(arr_best_actions, rowvar= False, bias= False)
+                self.mean = np.mean(arr_best_actions, axis= 0)
 
-            print('iter {0}, bestscore {1}'.format(itr, scores[self.indices[0]]))
-            print('action cost of best action: ', actioncosts[self.indices[0]])
+                print('iter {0}, bestscore {1}'.format(itr, scores[self.indices[0]]))
+                print('action cost of best action: ', actioncosts[self.indices[0]])
 
             print('overall time for iteration {}'.format(time.time() - t_startiter))
 
