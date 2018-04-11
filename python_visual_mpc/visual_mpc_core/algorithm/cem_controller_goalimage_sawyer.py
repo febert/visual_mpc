@@ -655,11 +655,11 @@ class CEM_controller():
             action = np.zeros(self.agentparams['adim'])
         else:
             ctxt = self.netconf['context_frames']
-            last_images = np.stack([traj._sample_images[c] for c in range(t-ctxt+1,t+1)], 0)  # same as [t - 1:t + 1] for context 2
+            last_images = traj._sample_images[t-ctxt+1:t+1]  # same as [t - 1:t + 1] for context 2
 
             if 'use_vel' in self.netconf:
-                last_states = np.stack([traj.X_Xdot_full[c] for c in range(t-ctxt+1,t+1)], 0)
-            else: last_states = np.stack([traj.X_full[c] for c in range(t-ctxt+1,t+1)], 0)
+                last_states = traj.X_Xdot_full[t-ctxt+1:t+1]
+            else: last_states = traj.X_full[t-ctxt+1:t+1]
 
             if 'use_first_plan' in self.policyparams:
                 print('using actions of first plan, no replanning!!')
