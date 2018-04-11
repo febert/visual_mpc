@@ -15,7 +15,13 @@ from python_visual_mpc import __file__ as python_vmpc_path
 from python_visual_mpc.data_preparation.gather_data import make_traj_name_list
 
 
-def perform_benchmark(conf = None, gpu_id=None):
+def perform_benchmark(conf = None, iex=-1, gpu_id=None):
+    """
+    :param conf:
+    :param iex:  if not -1 use only rollout this example
+    :param gpu_id:
+    :return:
+    """
     cem_exp_dir = '/'.join(str.split(python_vmpc_path, '/')[:-2])  + '/experiments/cem_exp'
 
     if conf != None:
@@ -71,13 +77,13 @@ def perform_benchmark(conf = None, gpu_id=None):
 
     sim = Sim(conf, gpu_id= gpu_id, ngpu= ngpu)
 
-    traj = conf['start_index']
-    nruns = conf['end_index']
-    print('started worker going from ind {} to in {}'.format(conf['start_index'], conf['end_index']))
-
-    # if 'verbose' in conf['policy']:
-    #     print 'verbose mode!! just running 1 configuration'
-    #     nruns = 1
+    if iex == -1:
+        traj = conf['start_index']
+        nruns = conf['end_index']
+        print('started worker going from ind {} to in {}'.format(conf['start_index'], conf['end_index']))
+    else:
+        traj = iex
+        nruns = iex
 
     scores_l = []
     anglecost_l = []
