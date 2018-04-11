@@ -45,7 +45,7 @@ agent = {
     'poscontroller_offset':'',
     'posmode':'abs',
     'ztarget':0.13,
-    'drop_thresh':0.02,
+    'min_z_lift':0.05,
     'make_final_gif':False,
     'record': BASE_DIR + '/record/',
     'targetpos_clip':[[-0.5, -0.5, -0.08, -np.pi*2, 0], [0.5, 0.5, 0.15, np.pi*2, 0.1]],
@@ -59,11 +59,12 @@ policy = {
     'nactions': 15,
     'iterations':2,
     'repeats': 5, # number of repeats for each action
-    'initial_std': 10.,   #std dev. in xy
-    'initial_std_lift': 20,   #std dev. in xy
+    'xyz_std': 1e-1,   #std dev. in xy
+    'angle_std': 5e-2,   #std dev. in xy
     'debug_viewer':False,
     'num_samples':20,
     'best_to_take':5,
+    'drop_thresh':0.02,
     'init_mean':np.zeros(3),
     'init_cov':np.diag(np.array([(3.14 / 4) ** 2, 1e-3, 1e-3])),
     'stop_iter_thresh':0.09,
