@@ -35,7 +35,7 @@ class ImitationBaseModel:
         self.gtruth_endeffector_pos = end_effector
 
     def _build_conv_layers(self, input_images):
-        layer1 = tf_layers.layer_norm(self.vgg_layer(input_images), scope='conv1_norm')
+        layer1 = tf_layers.layer_norm(self.vgg_layer(input_images[:, :, :, ::-1]), scope='conv1_norm')
         layer2 = tf_layers.layer_norm(
             slim.layers.conv2d(layer1, 32, [3, 3], stride=2, scope='conv2'), scope='conv2_norm')
 
@@ -306,6 +306,7 @@ class ImitationLSTMModelStateLegacy(ImitationBaseModel):
 
         lstm_layers = tf.contrib.rnn.MultiRNNCell(
             [tf.contrib.rnn.BasicLSTMCell(l) for l in self.conf['lstm_layers']])
+
         last_fc, states = tf.nn.dynamic_rnn(cell = lstm_layers, inputs = lstm_in,
                                             dtype = tf.float32, parallel_iterations=int(in_batch))
         last_fc = tf.reshape(last_fc, shape=(in_batch * in_time, -1))
@@ -321,3 +322,58 @@ class ImitationLSTMModelStateLegacy(ImitationBaseModel):
             self.predicted_actions = tf.reshape(self.predicted_actions, shape=(in_batch, in_time, self.sdim / 2))
 
         self.loss += self.final_frame_aux_loss
+
+class ImitationLSTMVAEAction(ImitationBaseModel):
+    def build(self):
+        latent_dim = self.conf['latent_dim']
+
+        in_batch, in_time, in_rows, in_cols, _ = self.images.get_shape()
+        in_time -= 1
+        #images are flattened for batch convolution
+        input_images = tf.reshape(self.images[:, :-1,:,:,:], shape=(in_batch * in_time, in_rows, in_cols, 3))
+
+        input_actions = self.gtruth_actions[:, :-1, :]
+        first_rel_state = tf.reshape(self.gtruth_endeffector_pos[:, 0, :4], (in_batch, 1, -1))
+        next_rel_states = self.gtruth_endeffector_pos[:, 1:, :4]
+        gripper_mask = tf.concat(
+                       [tf.cast(tf.expand_dims(self.gtruth_endeffector_pos[:, :-1, -1] <= 0.01, -1), tf.float32),
+                       tf.cast(tf.expand_dims(self.gtruth_endeffector_pos[:, :-1, -1] > 0.01, -1), tf.float32)],
+                       -1
+                       )
+
+        fp_flat = tf.reshape(self._build_conv_layers(input_images), shape=(in_batch, in_time, -1))
+        lstm_in = slim.layers.fully_connected(fp_flat, latent_dim,
+                                                   scope='lstm_in', activation_fn=None)
+
+        latent_state = slim.layers.fully_connected(fp_flat[:, 0, :], 2 * latent_dim,
+                                    scope='latent_state', activation_fn=tf.tanh)
+
+        self.latent_mean, latent_std_logits = tf.split(latent_state, 2, axis = -1)
+        self.latent_std = tf.exp(latent_std_logits)
+        latent_sample = self.latent_mean + self.latent_std * tf.random_normal(tf.shape(self.latent_mean))
+
+
+        lstm_layers = tf.contrib.rnn.MultiRNNCell(
+            [tf.contrib.rnn.ResidualWrapper(tf.contrib.rnn.BasicLSTMCell(l)) for l in self.conf['lstm_layers']])
+        all_initial = tuple(
+            [tf.contrib.rnn.LSTMStateTuple(tf.zeros((in_batch, self.conf['lstm_layers'][0])), latent_sample)]
+            + [tf.contrib.rnn.LSTMStateTuple(tf.zeros((in_batch, l)), tf.zeros((in_batch, l)))
+               for l in self.conf['lstm_layers'][1:]])
+        last_fc, states = tf.nn.dynamic_rnn(cell=lstm_layers, inputs=lstm_in, initial_state=all_initial,
+                                            dtype=tf.float32, parallel_iterations=int(in_batch))
+
+        self.predicted_actions = slim.layers.fully_connected(last_fc, self.sdim + 1,
+                                    scope='action_predictions', activation_fn=None)
+
+        self.predicted_rel_states = tf.cumsum(self.predicted_actions[:, :, :4], axis = 1) + first_rel_state
+        self.predicted_gripper_states = self.predicted_actions[:, :, -2:]
+
+        latent_var = tf.square(self.latent_std)
+        self.latent_loss = 0.5 * tf.reduce_mean(tf.square(self.latent_mean) + latent_var - tf.log(latent_var) - 1)
+
+        self.action_loss = self._dif_loss(self.predicted_actions[:, :, :4], input_actions[:, :, :4]) + \
+                           2 * self._dif_loss(self.predicted_rel_states, next_rel_states) + \
+                    tf.reduce_mean(tf.nn.sigmoid_cross_entropy_with_logits(labels = gripper_mask,
+                                                                           logits=self.predicted_gripper_states))
+
+        self.loss = self.latent_loss + self.action_loss

@@ -109,7 +109,18 @@ def main():
                     # samp_l *= mixing_params
 
 
+            elif 'latent_dim' in conf:
+                model_loss, val_model_loss, val_action, _ = sess.run([model.loss, val_model.loss,
+                                                                               val_model.action_loss,
+                                                                               train_operation], feed_dict=f_dict)
+                print 'At iteration', i, 'model loss is:', model_loss, 'and val_model loss is', val_model_loss, 'val_action loss', val_action
 
+                if i > 0:
+                    itr_summary = tf.Summary()
+                    itr_summary.value.add(tag="val_model/loss", simple_value=val_model_loss)
+                    itr_summary.value.add(tag="val_model/action_loss", simple_value=val_action)
+                    itr_summary.value.add(tag="model/loss", simple_value=model_loss)
+                    summary_writer.add_summary(itr_summary, i)
             else:
                 model_loss, val_model_loss, val_action,val_aux,  _ = sess.run([model.loss, val_model.loss,
                                                           val_model.action_loss, val_model.final_frame_aux_loss, train_operation], feed_dict=f_dict)
@@ -126,7 +137,7 @@ def main():
         if i > 0 and i % conf['n_save'] == 0:
             saver.save(sess, conf['model_dir'] + '/model' + str(i))
 
-    saver.save(sess, conf['model_dir'] + '/modelfinal' + str(i))
+    saver.save(sess, conf['model_dir'] + '/modelfinal')
     sess.close()
 
 

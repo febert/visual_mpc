@@ -95,6 +95,7 @@ def main():
                                                                          val_model.mixing_parameters, val_model.final_frame_state_pred])
 
         print 'gtruth_actions', gtruth_actions.shape
+        print 'gtruth_eep', gtruth_eep.shape
         print 'pred_mean', pred_mean.shape
         print 'prev_var', pred_std.shape
         print 'pred_mix', pred_mix.shape
@@ -111,7 +112,7 @@ def main():
         for i in range(14):
             samps = gen_mix_samples(200, pred_mean[0, i], pred_std[0, i], pred_mix[0, i])
             print 'top samp', samps[0][0], 'with likelihood', samps[0][1]
-            print 'gtruth', gtruth_actions[0, i + 1, :6]
+            print 'gtruth', gtruth_eep[0, i + 1, :6]
             print ''
         # for j in range(2):
         #     print 'timestep', j
@@ -123,7 +124,22 @@ def main():
         # print 'final_pred', final[0, :]
         # print 'true final', gtruth_eep[0, -1, :6]
 
+    elif 'latent_dim' in conf:
+        val_images, gtruth_actions, gtruth_eep, pred_actions, rel_states = \
+            sess.run([val_images, val_actions, val_endeffector_pos, val_model.predicted_actions, val_model.predicted_rel_states])
+        print 'val_images', val_images.shape
+        import cv2
+        for i in range(15):
+            cv2.imshow('test', val_images[0, i, :, :, ::-1])
+            cv2.waitKey(-1)
+        print 'start eep', gtruth_eep[0, 0, :6]
 
+        for i in range(14):
+            print 'pred action', pred_actions[0, i]
+            print 'gtruth', gtruth_actions[0, i, :6]
+            print 'gtruth_target', gtruth_eep[0, i + 1, :6]
+            print 'pred_target', rel_states[0, i]
+            print ''
     else:
         val_images, gtruth_actions, gtruth_eep, pred_actions, pred_final = \
             sess.run([val_images, val_actions, val_endeffector_pos, val_model.predicted_actions,val_model.final_frame_state_pred])
