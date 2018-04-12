@@ -133,9 +133,9 @@ def perform_benchmark(conf = None, iex=-1, gpu_id=None):
 
         # reinitilize policy between rollouts
         if 'usenet' in conf['policy']:
-            if 'warp_objective' in conf['policy']:
+            if 'warp_objective' in conf['policy'] or 'register_gtruth' in conf['policy']:
                 sim.policy = conf['policy']['type'](sim.agent._hyperparams,
-                                        conf['policy'], sim.predictor, sim.goal_image_waper)
+                                                    conf['policy'], sim.predictor, sim.goal_image_warper)
             else:
                 sim.policy = conf['policy']['type'](sim.agent._hyperparams,
                                                  conf['policy'], sim.predictor)

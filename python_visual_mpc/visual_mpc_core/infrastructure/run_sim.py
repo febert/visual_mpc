@@ -43,11 +43,11 @@ class Sim(object):
             else:
                 self.predictor = netconf['setup_predictor'](netconf, gpu_id, ngpu)
 
-            if 'warp_objective' in config['policy']:
+            if 'warp_objective' in config['policy'] or 'register_gtruth' in config['policy']:
                 params = imp.load_source('params', config['policy']['gdnconf'])
                 gdnconf = params.configuration
-                self.goal_image_waper = setup_gdn(gdnconf, gpu_id)
-                self.policy = config['policy']['type'](config['agent'], config['policy'], self.predictor, self.goal_image_waper)
+                self.goal_image_warper = setup_gdn(gdnconf, gpu_id)
+                self.policy = config['policy']['type'](config['agent'], config['policy'], self.predictor, self.goal_image_warper)
             else:
                 self.policy = config['policy']['type'](config['agent'], config['policy'], self.predictor)
         else:
