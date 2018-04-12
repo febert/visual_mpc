@@ -167,7 +167,9 @@ class CEM_controller():
         self.goal_image_warper = goal_image_warper
         self.goal_image = None
 
-        self.ndesig = 1
+        if 'ndesig' in self.netconf:
+            self.ndesig = self.netconf['ndesig']
+        else: self.ndesig = None
 
         self.K = 10  # only consider K best samples for refitting
 
@@ -354,6 +356,7 @@ class CEM_controller():
 
     def video_pred(self, last_frames, last_states, actions, cem_itr):
         t_0 = time.time()
+
         last_states = np.expand_dims(last_states, axis=0)
         last_states = np.repeat(last_states, self.bsize, axis=0)
         last_frames = last_frames.astype(np.float32, copy=False) / 255.
@@ -363,7 +366,18 @@ class CEM_controller():
                                     self.netconf['context_frames'], self.img_height, self.img_width, 3), dtype=np.float32)
         last_frames = np.concatenate((last_frames, app_zeros), axis=1)
 
-        if 'use_goal_image' in self.policyparams and 'comb_flow_warp' not in self.policyparams:
+        if 'register_gtruth':
+            #register current image to startimage
+            self.start_frame = copy.deepcopy(self.traj._sample_images[0]).astype(np.float32) / 255.
+            warped_image_goal, flow_field, goal_warp_pts = self.goal_image_warper(last_frames[0,1][None], self.goal_image[None])
+            desig_pix_reggoal = np.flip(goal_warp_pts[0, self.goal_pix[0,0],self.goal_pix[0,1]], 0)
+            warped_image_start, flow_field, start_warp_pts = self.goal_image_warper(last_frames[0,1][None],self.start_frame[None])
+            desig_pix_regstart = np.flip(start_warp_pts[0, self.desig_pix_t0[0,0], self.desig_pix_t0[0,1]], 0)
+
+            self.desig_pix = np.stack([desig_pix_reggoal, desig_pix_regstart])
+
+        if 'use_goal_image' in self.policyparams and 'comb_flow_warp' not in self.policyparams\
+                and 'register_gtruth' not in self.policyparams:
             input_distrib = None
         elif 'masktrafo_obj' in self.policyparams:
             curr_obj_mask = np.repeat(self.curr_obj_mask[None], self.netconf['context_frames'], axis=0).astype(np.float32)
@@ -372,7 +386,6 @@ class CEM_controller():
             input_distrib = self.make_input_distrib(cem_itr)
 
         print('t0 ', time.time() - t_0)
-
         t_startpred = time.time()
         gen_images, gen_distrib, gen_states, _ = self.predictor(input_images=last_frames,
                                                                 input_state=last_states,
@@ -384,19 +397,19 @@ class CEM_controller():
         t_startcalcscores = time.time()
         scores_per_task = []
 
-        if 'use_goal_image' in self.policyparams:
+        if 'use_goal_image' in self.policyparams and not 'register_gtruth' in self.policyparams:
             # evaluate images with goal-distance network
             goal_image = np.repeat(self.goal_image[None], self.bsize, axis=0)
             if 'MSE_objective' in self.policyparams:
                 scores = self.MSE_based_score(gen_images, goal_image)
             elif 'warp_objective' in self.policyparams:
-                flow_fields, scores, warp_pts_l, warped_images = self.flow_based_score(gen_images, goal_image)
+                flow_fields, scores, goal_warp_pts_l, warped_images = self.flow_based_score(gen_images, goal_image)
             warp_scores = copy.deepcopy(scores)
 
         if 'masktrafo_obj' in self.policyparams:
             scores = get_mask_trafo_scores(self.policyparams, gen_distrib, self.goal_mask)
 
-        if 'use_goal_image' not in self.policyparams or 'comb_flow_warp' in self.policyparams:
+        if 'use_goal_image' not in self.policyparams or 'comb_flow_warp' in self.policyparams or 'register_gtruth' in self.policyparams:
             for p in range(self.ndesig):
                 distance_grid = self.get_distancegrid(self.goal_pix[p])
                 scores_per_task.append(self.calc_scores(gen_distrib, distance_grid))
@@ -427,49 +440,58 @@ class CEM_controller():
 
         tstart_verbose = time.time()
 
-        if self.verbose and cem_itr == self.policyparams['iterations']-1:
-        # if self.verbose:
-            # if self.verbose:
-            # print 'creating visuals for best sampled actions at last iteration...'
+        # if self.verbose and cem_itr == self.policyparams['iterations']-1:
+        if self.verbose:
             if self.save_subdir != None:
                 file_path = self.netconf['current_dir']+ '/'+ self.save_subdir +'/verbose'
             else:
                 file_path = self.netconf['current_dir'] + '/verbose'
-
             if not os.path.exists(file_path):
                 os.makedirs(file_path)
-
             def best(inputlist):
                 """
                 get the self.K videos with the lowest cost
-                :param inputlist:
-                :return:
                 """
                 outputlist = [np.zeros_like(a)[:self.K] for a in inputlist]
                 for ind in range(self.K):
                     for tstep in range(len(inputlist)):
                         outputlist[tstep][ind] = inputlist[tstep][bestindices[ind]]
                 return outputlist
-
             def get_first_n(inputlist):
                 return [inp[:self.K] for inp in inputlist]
-
             sel_func = best
             t_dict_ = collections.OrderedDict()
 
             if 'warp_objective' in self.policyparams:
                 warped_images = self.image_addgoalpix(warped_images)
-                gen_images = self.gen_images_addwarppix(gen_images,warp_pts_l)
+                gen_images = self.images_addwarppix(gen_images, goal_warp_pts_l, self.goal_pix)
                 warped_images = np.split(warped_images[bestindices[:self.K]], warped_images.shape[1], 1)
                 warped_images = list(np.squeeze(warped_images))
                 t_dict_['warped_im_t{}'.format(self.t)] = warped_images
+
+            if 'register_gtruth' in self.policyparams:
+                t_dict_['warped_image_start '] = [np.repeat(np.expand_dims(warped_image_start.squeeze(), axis=0), self.K, axis=0) for _ in
+                              range(len(gen_images))]
+
+                startimage = [np.repeat(np.expand_dims(self.start_frame, axis=0), self.K, axis=0) for _ in
+                              range(len(gen_images))]
+                desig_pix_t0 = np.tile(self.desig_pix_t0[None, :], [self.K, self.seqlen - 1, 1])
+                t_dict_['start_image'] = add_crosshairs(startimage, desig_pix_t0)
+
+                desig_pix = np.tile(self.desig_pix[0][None, None, :], [self.bsize, self.seqlen - 1, 1])
+                gen_images = add_crosshairs(gen_images, desig_pix, color=[0, 255, 0])
+                desig_pix = np.tile(self.desig_pix[1][None, None, :], [self.bsize, self.seqlen - 1, 1])
+                gen_images = add_crosshairs(gen_images, desig_pix, color=[255, 0, 0])
+
+                t_dict_['warped_image_goal'] = [np.repeat(np.expand_dims(warped_image_goal.squeeze(), axis=0), self.K, axis=0) for _ in
+                                                  range(len(gen_images))]
 
             goal_image = [np.repeat(np.expand_dims(self.goal_image, axis=0), self.K, axis=0) for _ in
                           range(len(gen_images))]
             goal_image_annotated = self.image_addgoalpix(goal_image)
             t_dict_['goal_image'] = goal_image_annotated
 
-            if 'use_goal_image' not in self.policyparams or 'comb_flow_warp' in self.policyparams:
+            if 'use_goal_image' not in self.policyparams or 'comb_flow_warp' in self.policyparams or 'register_gtruth' in self.policyparams:
                 for p in range(self.ndesig):
                     gen_distrib_p = [g[:, p] for g in gen_distrib]
                     sel_gen_distrib_p = sel_func(gen_distrib_p)
@@ -489,7 +511,7 @@ class CEM_controller():
                 # v.build_figure()
                 v.make_direct_vid()
                 if 'warp_objective' in self.policyparams:
-                    t_dict_['warp_pts_t{}'.format(self.t)] = sel_func(warp_pts_l)
+                    t_dict_['warp_pts_t{}'.format(self.t)] = sel_func(goal_warp_pts_l)
                     t_dict_['flow_fields{}'.format(self.t)] = flow_fields[bestindices[:self.K]]
 
             if 'sawyer' in self.agentparams:
@@ -571,10 +593,10 @@ class CEM_controller():
             image_l = add_crosshairs(image_l, goal_pix_ob)
         return image_l
 
-    def gen_images_addwarppix(self, gen_images, warp_pts_l):
+    def images_addwarppix(self, gen_images, warp_pts_l, pix):
         warp_pts_arr = np.stack(warp_pts_l, axis=1)
         for ob in range(self.agentparams['num_objects']):
-            warp_pts_ob = warp_pts_arr[:, :, self.goal_pix[ob, 0], self.goal_pix[ob, 1]]
+            warp_pts_ob = warp_pts_arr[:, :, pix[ob, 0], pix[ob, 1]]
             gen_images = add_crosshairs(gen_images, np.flip(warp_pts_ob, 2))
         return gen_images
 
@@ -640,19 +662,21 @@ class CEM_controller():
         """
         self.goal_mask = goal_mask
         self.goal_image = goal_image
-        if desig_pix is not None:
-            self.desig_pix = np.array(desig_pix).reshape((-1, 2))
-            self.ndesig = self.desig_pix.shape[0]
+        self.desig_pix = np.array(desig_pix).reshape((-1, 2))
 
         self.goal_pix = np.array(goal_pix).reshape((-1, 2))
-        self.goal_mask = goal_mask
+        if 'register_gtruth' in self.policyparams:
+            self.goal_pix = np.tile(self.goal_pix, [2,1])
+
         self.curr_obj_mask = curr_mask
+        self.traj = traj
 
         self.t = t
         print('starting cem at t{}...'.format(t))
 
         if t == 0:
             action = np.zeros(self.agentparams['adim'])
+            self.desig_pix_t0 = desig_pix
         else:
             ctxt = self.netconf['context_frames']
             last_images = traj._sample_images[t-ctxt+1:t+1]  # same as [t - 1:t + 1] for context 2
