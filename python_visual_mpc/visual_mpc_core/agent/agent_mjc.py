@@ -295,32 +295,23 @@ class AgentMuJoCo(object):
             if 'posmode' in self._hyperparams:  #if the output of act is a positions
                 traj.actions[t, :] = mj_U
                 # mask out action dimensions with abs control with 0
-                traj.target_qpos[t + 1, :] = mj_U.copy() + traj.target_qpos[t, :] * traj.mask_rel
-                traj.target_qpos[t + 1, :] = self.clip_targetpos(traj.target_qpos[t + 1, :])
-
-                if t == 0:
-                    self.prev_target_qpos = copy.deepcopy(self.sim.data.qpos[:self.adim].squeeze())
-                    self.target_qpos = copy.deepcopy(self.sim.data.qpos[:self.adim].squeeze())
-                else:
-                    self.prev_target_qpos = copy.deepcopy(self.target_qpos)
-
                 if 'discrete_adim' in self._hyperparams:
                     up_cmd = mj_U[2]
                     assert np.floor(up_cmd) == up_cmd
                     if up_cmd != 0:
                         self.t_down = t + up_cmd
-                        self.target_qpos[2] = self._hyperparams['targetpos_clip'][1][2]
+                        traj.target_qpos[t + 1, 2] = self._hyperparams['targetpos_clip'][1][2]
                         self.gripper_up = True
                     if self.gripper_up:
                         if t == self.t_down:
-                            self.target_qpos[2] = self._hyperparams['targetpos_clip'][0][2]
+                            traj.target_qpos[t + 1, 2] = self._hyperparams['targetpos_clip'][0][2]
                             self.gripper_up = False
-                    self.target_qpos[:2] += mj_U[:2]
+                            traj.target_qpos[t + 1, :2] += mj_U[:2]
                     if self.adim == 4:
-                        self.target_qpos[3] += mj_U[3]
+                        traj.target_qpos[t + 1, :][3] += mj_U[3]
                 else:
-                    self.target_qpos = mj_U + self.target_qpos
-                self.target_qpos = self.clip_targetpos(self.target_qpos)
+                    traj.target_qpos[t + 1, :] = mj_U.copy() + traj.target_qpos[t, :] * traj.mask_rel
+                    traj.target_qpos[t + 1, :] = self.clip_targetpos(traj.target_qpos[t + 1, :])
 
             else:
                 traj.actions[t, :] = mj_U
@@ -328,7 +319,6 @@ class AgentMuJoCo(object):
 
             for st in range(self._hyperparams['substeps']):
                 if 'posmode' in self._hyperparams:
-
                     ctrl = self.get_int_targetpos(st, traj.target_qpos[t, :], traj.target_qpos[t + 1, :])
 
                 self.sim.data.ctrl[:] = ctrl
@@ -355,13 +345,7 @@ class AgentMuJoCo(object):
         else:
             traj_ok = True
 
-        #only save trajectories where object gets lifted
-        if 'min_z_lift' in self._hyperparams:
-            print('check z lift ball:', self.sim.data.qpos[8].squeeze(), 'vs target:', self._hyperparams['min_z_lift'])
-            if self.sim.data.qpos[8].squeeze() >= self._hyperparams['min_z_lift']:
-                traj_ok = True
-            else:
-                traj_ok = False
+
         #discarding trajecotries where an object falls out of the bin:
         end_zpos = [traj.Object_full_pose[-1, i, 2] for i in range(self._hyperparams['num_objects'])]
         if any(zval < -2e-2 for zval in end_zpos):

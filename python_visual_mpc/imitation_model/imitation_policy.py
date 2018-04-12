@@ -1,5 +1,6 @@
 from python_visual_mpc.visual_mpc_core.algorithm.policy import Policy
-import imp
+import importlib.machinery
+import importlib.util
 import tensorflow as tf
 import os
 import numpy as np
@@ -10,8 +11,12 @@ class ImitationPolicy(Policy):
         self.agentparams = agentparams
         self.policyparams = policyparams
 
-        hyperparams = imp.load_source('hyperparams', self.policyparams['net_config'])
-        self.net_config = hyperparams.configuration
+
+        loader = importlib.machinery.SourceFileLoader('mod_hyper', self.policyparams['net_config'])
+        spec = importlib.util.spec_from_loader(loader.name, loader)
+        conf = importlib.util.module_from_spec(spec)
+        loader.exec_module(conf)
+        self.net_config = conf.configuration
 
         self.policyparams['pretrained'] = os.path.join(self.net_config['model_dir'], self.policyparams['pretrained'])
 

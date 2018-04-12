@@ -59,8 +59,8 @@ policy = {
     'nactions': 15,
     'iterations':2,
     'repeats': 5, # number of repeats for each action
-    'xyz_std': 1e-1,   #std dev. in xy
-    'angle_std': 5e-2,   #std dev. in xy
+    #'xyz_std': 1e-1,   #std dev. in xy
+    #'angle_std': 5e-2,   #std dev. in xy
     'debug_viewer':False,
     'num_samples':20,
     'best_to_take':5,
@@ -68,7 +68,7 @@ policy = {
     'init_mean':np.zeros(3),
     'init_cov':np.diag(np.array([(3.14 / 4) ** 2, 1e-3, 1e-3])),
     'stop_iter_thresh':0.09,
-    'max_norm':0.1
+    'max_norm':0.15
     # 'initial_std_grasp': 1e-5,   #std dev. in xy
 }
 
