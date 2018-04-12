@@ -7,6 +7,8 @@ class DeterministicGraspPolicy(Policy):
     def __init__(self, agentparams, policyparams):
         Policy.__init__(self)
         self.agentparams = agentparams
+        self.min_lift = agentparams.get('min_z_lift', 0.05)
+
         self.policyparams = policyparams
         self.adim = agentparams['adim']
         self.n_actions = policyparams['nactions']
@@ -177,10 +179,17 @@ class DeterministicGraspPolicy(Policy):
             self.drop = False
             self.lift = False
             self.grasp = False
+            self.second_moveto = False
+            self.final_drop = False
             self.switchTime = 0
             self.targetxy = traj.Object_pose[t, 0, :2]
             self.angle, self.disp = self.perform_CEM(self.targetxy)
             self.targetxy += self.disp
+
+        if self.lift and traj.X_full[t, 2] >= self.min_lift:
+            self.second_moveto = True
+            self.lift = False
+            self.targetxy = 0.9 * np.random.uniform(size=(2)) - 0.45
 
         if self.grasp and self.switchTime > 0:
             print('lifting at time', t, '!', 'have z', traj.X_full[t, 2])
@@ -202,10 +211,13 @@ class DeterministicGraspPolicy(Policy):
             else:
                 self.switchTime += 1
 
-
+        if self.second_moveto and np.linalg.norm(traj.X_full[t, :2] - self.targetxy, 2) <= self.policyparams['drop_thresh']:
+            self.second_moveto = False
+            self.final_drop = True
+            self.switchTime = 0
 
         actions = np.zeros(self.adim)
-        if self.moveto:
+        if self.moveto or self.second_moveto:
             delta = self.targetxy - traj.target_qpos[t, :2]
             norm = np.sqrt(np.sum(np.square(delta)))
             if norm > self.policyparams['max_norm']:
@@ -214,7 +226,11 @@ class DeterministicGraspPolicy(Policy):
                 actions[:2] = traj.target_qpos[t, :2] + delta
             actions[2] = self.agentparams['ztarget']
             actions[3] = self.angle
-            actions[-1] = -100
+
+            if self.moveto:
+                actions[-1] = -100
+            else:
+                actions[-1] = 21
 
             if 'xyz_std' in self.policyparams and t < 9:
                 actions[:3] += self.policyparams['xyz_std'] * np.random.normal(size=3)
@@ -239,6 +255,21 @@ class DeterministicGraspPolicy(Policy):
             actions[3] = self.angle
             actions[-1] = 21
             self.switchTime += 1
+        elif self.final_drop:
+
+            if self.switchTime > 1:
+                print('on final drop, open')
+                actions[:2] = self.targetxy
+                actions[2] = -0.08
+                actions[3] = self.angle
+                actions[-1] = -100
+            else:
+                print('on final close')
+                actions[:2] = self.targetxy
+                actions[2] = -0.08
+                actions[3] = self.angle
+                actions[-1] = 21
+                self.switchTime += 1
 
         if 'debug_viewer' in self.policyparams and self.policyparams['debug_viewer'] and t == self.agentparams['T'] - 1:
             self.viewer.finish()
