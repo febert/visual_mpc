@@ -48,7 +48,7 @@ def bench_worker(conf, iex=-1):
 def main():
     parser = argparse.ArgumentParser(description='run parllel data collection')
     parser.add_argument('experiment', type=str, help='experiment name')
-    parser.add_argument('--nworkers', type=int, help='use multiple threads or not', default=10)
+    parser.add_argument('--nworkers', type=int, help='use multiple threads or not', default=1)
     parser.add_argument('--gpu_id', type=int, help='the starting gpu_id', default=0)
 
     parser.add_argument('--nsplit', type=int, help='the starting gpu_id', default=-1)
