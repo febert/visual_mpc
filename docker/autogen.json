@@ -5,7 +5,7 @@
     "publishedContainerPorts": [
         6006
     ], 
-    "command": "cd /result && tensorboard --logdir . &  export VMPC_DATA_DIR=/mnt/pushing_data; export TEN_DATA=/mnt/tensorflow_data; export RESULT_DIR=/result; export NO_ROS=''; export PATH=/opt/conda/bin:/usr/local/mpi/bin:/usr/local/nvidia/bin:/usr/local/cuda/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin; cd /workspace/visual_mpc/python_visual_mpc/visual_mpc_core;/bin/sleep 36000", 
+    "command": "cd /result && tensorboard --logdir . &  export VMPC_DATA_DIR=/mnt/pushing_data; export TEN_DATA=/mnt/tensorflow_data; export RESULT_DIR=/result; export NO_ROS=''; export PATH=/opt/conda/bin:/usr/local/mpi/bin:/usr/local/nvidia/bin:/usr/local/cuda/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin; cd /workspace/visual_mpc/python_visual_mpc/visual_mpc_core;python parallel_data_collection.py register_gtruth_flowb --nworkers 8", 
     "datasetMounts": [
         {
             "containerMountPoint": "/mnt/tensorflow_data/sim/mj_pos_ctrl_appflow", 

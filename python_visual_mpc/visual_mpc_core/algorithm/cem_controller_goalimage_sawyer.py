@@ -479,9 +479,9 @@ class CEM_controller():
                 t_dict_['start_image'] = add_crosshairs(startimage, desig_pix_t0)
 
                 desig_pix = np.tile(self.desig_pix[0][None, None, :], [self.bsize, self.seqlen - 1, 1])
-                gen_images = add_crosshairs(gen_images, desig_pix, color=[0, 255, 0])
+                gen_images = add_crosshairs(gen_images, desig_pix, color=[0, 1., 0])
                 desig_pix = np.tile(self.desig_pix[1][None, None, :], [self.bsize, self.seqlen - 1, 1])
-                gen_images = add_crosshairs(gen_images, desig_pix, color=[255, 0, 0])
+                gen_images = add_crosshairs(gen_images, desig_pix, color=[1., 0, 0])
 
                 t_dict_['warped_image_goal'] = [np.repeat(np.expand_dims(warped_image_goal.squeeze(), axis=0), self.K, axis=0) for _ in
                                                   range(len(gen_images))]
