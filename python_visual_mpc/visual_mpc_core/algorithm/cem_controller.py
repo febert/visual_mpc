@@ -249,7 +249,7 @@ class CEM_controller(Policy):
 
         if self.verbose:
             bestindices = all_scores.argsort()[:self.K]
-            best_vids = image_list[bestindices]
+            best_vids = [image_list[ind] for ind in bestindices]
             vid = [np.concatenate([b[t_] for b in best_vids], 1) for t_ in range(self.nactions*self.repeat)]
             self.save_gif(vid, 't{}_iter{}'.format(tstep, itr))
 

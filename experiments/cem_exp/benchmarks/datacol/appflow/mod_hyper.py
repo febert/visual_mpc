@@ -16,7 +16,7 @@ agent = {
     'substeps':20,
     'adim':3,
     'sdim':6,
-    'make_final_gif':'',
+    # 'make_final_gif':'',
     # 'no_instant_gif':"",
     'filename': ROOT_DIR + '/mjc_models/cartgripper.xml',
     'filename_nomarkers': ROOT_DIR + '/mjc_models/cartgripper.xml',
