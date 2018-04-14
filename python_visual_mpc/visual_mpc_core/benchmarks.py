@@ -115,6 +115,8 @@ def perform_benchmark(conf = None, iex=-1, gpu_id=None):
         sim.agent._hyperparams['object_pos0'] = dict['object_full_pose'][init_index]
         sim.agent.object_full_pose_t = dict['object_full_pose']
         sim.agent.goal_obj_pose = dict['object_full_pose'][goal_index]   #needed for calculating the score
+        if 'lift_object' in sim.agent._hyperparams:
+            sim.agent.goal_obj_pose[:,2] = sim.agent._hyperparams['targetpos_clip'][1][2]
         sim.agent.goal_image = dict['images'][goal_index]  # assign last image of trajectory as goalimage
         if 'goal_mask' in conf['agent']:
             sim.agent.goal_mask = dict['goal_mask'][goal_index]  # assign last image of trajectory as goalimage

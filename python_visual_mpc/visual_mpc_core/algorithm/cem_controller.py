@@ -147,7 +147,6 @@ class CEM_controller(Policy):
             return np.mean(total_d)
         else:
             for i_ob in range(self.agentparams['num_objects']):
-
                 goal_pos = self.goal_obj_pose[i_ob, :3]
                 curr_pose = self.sim.data.qpos[i_ob * 7 + qpos_dim:(i_ob+1) * 7 + qpos_dim].squeeze()
                 curr_pos = curr_pose[:3]
@@ -205,7 +204,7 @@ class CEM_controller(Policy):
 
             t_start = time.time()
 
-            scores = self.take_mujoco_smp(actions)
+            scores = self.take_mujoco_smp(actions, itr, self.t)
 
             print('overall time for evaluating actions {}'.format(time.time() - t_start))
 
@@ -233,18 +232,27 @@ class CEM_controller(Policy):
 
             print('overall time for iteration {}'.format(time.time() - t_startiter))
 
-    def take_mujoco_smp(self, actions):
+    def take_mujoco_smp(self, actions, itr, tstep):
         all_scores = np.empty(self.M, dtype=np.float64)
+        image_list = []
         for smp in range(self.M):
             self.setup_mujoco()
             score, images = self.sim_rollout(actions[smp])
+            image_list.append(images)
             # print('score', score)
             per_time_multiplier = np.ones([len(score)])
             per_time_multiplier[-1] = self.policyparams['finalweight']
             all_scores[smp] = np.sum(per_time_multiplier*score)
 
-            if smp % 1 == 0 and self.verbose:
-                self.save_gif(images, '_{}'.format(smp))
+            # if smp % 10 == 0 and self.verbose:
+            #     self.save_gif(images, '_{}'.format(smp))
+
+        if self.verbose:
+            bestindices = all_scores.argsort()[:self.K]
+            best_vids = image_list[bestindices]
+            vid = [np.concatenate([b[t_] for b in best_vids], 1) for t_ in range(self.nactions*self.repeat)]
+            self.save_gif(vid, 't{}_iter{}'.format(tstep, itr))
+
         return all_scores
 
     def save_gif(self, images, name):

@@ -16,11 +16,11 @@ agent = {
     'T': 15,
     'substeps':200,
     'make_final_gif':'',
-    'adim':3,
-    'sdim':6,
+    'adim':5,
+    'sdim':12,
     # 'no_instant_gif':"",
-    'filename': ROOT_DIR + '/mjc_models/cartgripper_updown.xml',
-    'filename_nomarkers': ROOT_DIR + '/mjc_models/cartgripper_updown.xml',
+    'filename': ROOT_DIR + '/mjc_models/cartgripper_grasp.xml',
+    'filename_nomarkers': ROOT_DIR + '/mjc_models/cartgripper_grasp.xml',
     'gen_xml':1,   #generate xml every nth trajecotry
     'num_objects': 1,
     'viewer_image_height' : 480,
@@ -30,25 +30,27 @@ agent = {
     'additional_viewer':'',
     'data_save_dir': os.environ['VMPC_DATA_DIR'] + '/mj_pos_noreplan_fast',
     'posmode':"",
-    'targetpos_clip':[[-0.45, -0.45, -0.08], [0.45, 0.45, 0.15]],
-    'discrete_adim':[2],
+    'targetpos_clip':[[-0.45, -0.45, -0.08, -np.pi*2, 0.], [0.45, 0.45, 0.15, np.pi*2, 0.1]],
     'not_use_images':"",
+    'lift_object':'',
 }
 
 policy = {
-    # 'verbose':10,
+    'verbose':"",
     'type' : CEM_controller,
     'current_dir':current_dir,
     'nactions': 5,
     'repeat': 3,
     'initial_std': 0.08,        # std dev. in xy
-    'initial_std_lift': 2.5,
+    'initial_std_lift': 0.1,
+    'initial_std_rot': 0.1,
+    'initial_std_grasp': 0.1,
     'iterations': 2,
     'action_cost_factor': 0,
     'rew_all_steps':"",
     'finalweight':10,
     'no_action_bound':"",
-    'num_samples': 100,
+    'num_samples': 50,
     'use_first_plan':''
 }
 
@@ -68,14 +70,15 @@ tag_object_statprop = {'name': 'obj_statprop',
 
 config = {
     'current_dir':current_dir,
-    'save_data': True,
-    'traj_per_file':32, 
+    'save_data': False,
+    'save_raw_images':'',
     'start_index':0,
-    'end_index': 59999,
+    'end_index': 49,
     'agent':agent,
     'policy':policy,
-    'ngroup': 1000,
+    'ngroup': 500,
     'sourcetags':[tag_images, tag_qpos, tag_object_full_pose, tag_object_statprop],
-    'source_basedirs':[os.environ['VMPC_DATA_DIR']+ '/cartgripper_startgoal_masks6e4/train'],
+    'source_basedirs':[os.environ['VMPC_DATA_DIR'] + '/cartgripper_startgoal_short/train'],
     'sequence_length':2
 }
+

@@ -7,6 +7,7 @@ nvidia-docker run  -v $2:/workspace/pushing_data \
 nvcr.io/ucb_rail8888/tf_mj1.5 \
 
 /bin/bash -c \
-"export VMPC_DATA_DIR=/workspace/pushing_data;
-/bin/bash"
+#"export VMPC_DATA_DIR=/workspace/pushing_data__;
+# export RESULT_DIR=/test;
+"/bin/bash"
 
