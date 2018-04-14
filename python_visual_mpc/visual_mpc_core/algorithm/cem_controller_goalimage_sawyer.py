@@ -521,6 +521,8 @@ class CEM_controller():
                 if 'finalweight' in self.policyparams:
                     if tstep == self.seqlen - 2:
                         t_mult = self.policyparams['finalweight']
+                elif 'discount' in self.policyparams:
+                    t_mult = self.policyparams['discount']**tstep
 
                 for b in range(self.bsize):
                     gen = gen_distrib[tstep][b].squeeze() / np.sum(gen_distrib[tstep][b])
