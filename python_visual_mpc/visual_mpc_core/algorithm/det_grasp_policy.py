@@ -83,7 +83,7 @@ class DeterministicGraspPolicy(Policy):
             ang_disp_samps = np.random.multivariate_normal(ang_dis_mean, ang_dis_cov, size=self.M)
 
             for s in range(self.M):
-                print('On iter', n, 'sample', s)
+                #print('On iter', n, 'sample', s)
                 self.reset_CEM_model()
                 move = True
                 drop = False
@@ -142,7 +142,7 @@ class DeterministicGraspPolicy(Policy):
 
             if scores[best_scores[0]] > best_score or best_ang is None:
 
-                print('best', scores[best_scores[0]])
+                #print('best', scores[best_scores[0]])
 
                 best_score = scores[best_scores[0]]
                 best_ang = ang_disp_samps[best_scores[0], 0]
@@ -181,15 +181,25 @@ class DeterministicGraspPolicy(Policy):
             self.grasp = False
             self.second_moveto = False
             self.final_drop = False
+            self.wiggle = False
             self.switchTime = 0
             self.targetxy = traj.Object_pose[t, 0, :2]
             self.angle, self.disp = self.perform_CEM(self.targetxy)
+            print('best angle', self.angle, 'best disp', self.disp)
             self.targetxy += self.disp
+            traj.desig_pos = np.zeros((2, 2))
+            traj.desig_pos[0] = self.targetxy.copy()
+
 
         if self.lift and traj.X_full[t, 2] >= self.min_lift:
             self.second_moveto = True
             self.lift = False
-            self.targetxy = 0.9 * np.random.uniform(size=(2)) - 0.45
+            #ang = np.random.uniform(0, 2 * np.pi)
+            #delta = self.agentparams.get('init_arm_near_obj', 0.3) * np.array([np.cos(ang), np.sin(ang)])
+            self.targetxy = np.random.uniform(-0.2, 0.2, size=2)
+            #self.targetxy = np.clip(self.targetxy, -0.3, 0.3)
+            print('dropping at', self.targetxy)
+            traj.desig_pos[1] = self.targetxy.copy()
 
         if self.grasp and self.switchTime > 0:
             print('lifting at time', t, '!', 'have z', traj.X_full[t, 2])
@@ -203,6 +213,7 @@ class DeterministicGraspPolicy(Policy):
             self.grasp = True
 
         if self.moveto and np.linalg.norm(traj.X_full[t, :2] - self.targetxy, 2) <= self.policyparams['drop_thresh']:
+            self.switchTime = 0
             if self.switchTime >= 0:
                 print('swapping at time', t, '!')
                 self.moveto = False
@@ -218,12 +229,17 @@ class DeterministicGraspPolicy(Policy):
 
         actions = np.zeros(self.adim)
         if self.moveto or self.second_moveto:
-            delta = self.targetxy - traj.target_qpos[t, :2]
+            delta = np.zeros(3)
+            delta[:2] = self.targetxy - traj.target_qpos[t, :2]
+
+            if 'xyz_std' in self.policyparams and self.switchTime < 2:
+                delta += self.policyparams['xyz_std'] * np.random.normal(size=3)
+
             norm = np.sqrt(np.sum(np.square(delta)))
             if norm > self.policyparams['max_norm']:
-                actions[:2] = traj.target_qpos[t, :2] + delta / norm * self.policyparams['max_norm']
-            else:
-                actions[:2] = traj.target_qpos[t, :2] + delta
+                delta *= self.policyparams['max_norm'] / norm
+
+            actions[:3] = traj.target_qpos[t, :3] + delta
             actions[2] = self.agentparams['ztarget']
             actions[3] = self.angle
 
@@ -232,8 +248,8 @@ class DeterministicGraspPolicy(Policy):
             else:
                 actions[-1] = 21
 
-            if 'xyz_std' in self.policyparams and t < 9:
-                actions[:3] += self.policyparams['xyz_std'] * np.random.normal(size=3)
+
+            self.switchTime += 1
 
 
         elif self.drop:
@@ -257,19 +273,44 @@ class DeterministicGraspPolicy(Policy):
             self.switchTime += 1
         elif self.final_drop:
 
-            if self.switchTime > 1:
-                print('on final drop, open')
+            if self.switchTime > 0:
+                print('opening')
                 actions[:2] = self.targetxy
                 actions[2] = -0.08
                 actions[3] = self.angle
                 actions[-1] = -100
+                self.switchTime += 1
+
+            if self.switchTime > 1:
+                print('up')
+                actions[:2] = self.targetxy
+                actions[2] = self.agentparams['ztarget'] + np.random.uniform(-0.03, 0.05)
+                actions[3] = self.angle + np.random.uniform(-np.pi / 4., np.pi / 4.)
+                actions[-1] = -100
+                self.final_drop = False
+                self.wiggle = True
+                self.switchTime = 0
             else:
-                print('on final close')
                 actions[:2] = self.targetxy
                 actions[2] = -0.08
                 actions[3] = self.angle
-                actions[-1] = 21
+                actions[-1] = -100
                 self.switchTime += 1
+
+
+        elif self.wiggle:
+            delta_vec = np.random.normal(size = 2)
+            norm = np.sqrt(np.sum(np.square(delta_vec)))
+            if norm > self.policyparams['max_norm']:
+                delta_vec *= self.policyparams['max_norm'] / norm
+            actions[:2] = np.clip(traj.target_qpos[t, :2] + delta_vec, -0.15, 0.15)
+            delta_z = np.random.uniform(-0.08 - traj.target_qpos[t, 2], 0.3 - traj.target_qpos[t, 2])
+            actions[2] = traj.target_qpos[t, 2] + delta_z
+            actions[3] = traj.target_qpos[t, 3] + np.random.uniform(-0.1, 0.1)
+            if np.random.uniform() > 0.5:
+                actions[4] = -100
+            else:
+                actions[4] = 21
 
         if 'debug_viewer' in self.policyparams and self.policyparams['debug_viewer'] and t == self.agentparams['T'] - 1:
             self.viewer.finish()

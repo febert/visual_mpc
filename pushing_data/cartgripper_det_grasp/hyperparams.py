@@ -30,7 +30,7 @@ agent = {
     'xpos0': np.array([0., 0., 0.05, 0., 0., 0.]), #initialize state dimension to 5 zeros
     'dt': 0.05,
     'substeps': 200,  #6
-    'T': 15,
+    'T': 20,
     'skip_first': 40,   #skip first N time steps to let the scene settle
     'additional_viewer': False,
     'image_height' : 48,
@@ -41,12 +41,12 @@ agent = {
     'num_objects': 1,
     'novideo':'',
     'gen_xml':10,   #generate xml every nth trajecotry
-    'randomize_ballinitpos':'', #randomize x, y
+    'init_arm_near_obj': 0.3, #randomize x, y
     'poscontroller_offset':'',
     'posmode':'abs',
     'ztarget':0.13,
     'min_z_lift':0.05,
-    'make_final_gif':False,
+    #'make_final_gif':'', #keep this key in if you want final gif to be created
     'record': BASE_DIR + '/record/',
     'targetpos_clip':[[-0.5, -0.5, -0.08, -np.pi*2, 0], [0.5, 0.5, 0.15, np.pi*2, 0.1]],
     'mode_rel':np.array([True, True, True, True, False]),
@@ -57,10 +57,10 @@ agent = {
 policy = {
     'type' : DeterministicGraspPolicy,
     'nactions': 15,
-    'iterations':2,
+    'iterations':1,
     'repeats': 5, # number of repeats for each action
-    #'xyz_std': 1e-1,   #std dev. in xy
-    #'angle_std': 5e-2,   #std dev. in xy
+    'xyz_std': 1e-1,   #std dev. in xy
+    'angle_std': 2e-1,   #std dev. in xy
     'debug_viewer':False,
     'num_samples':20,
     'best_to_take':5,
@@ -68,7 +68,7 @@ policy = {
     'init_mean':np.zeros(3),
     'init_cov':np.diag(np.array([(3.14 / 4) ** 2, 1e-3, 1e-3])),
     'stop_iter_thresh':0.09,
-    'max_norm':0.15
+    'max_norm':0.2
     # 'initial_std_grasp': 1e-5,   #std dev. in xy
 }
 
@@ -78,7 +78,7 @@ config = {
     'save_data': True,
     'save_raw_images' : True,
     'start_index':0,
-    'end_index': 256,
+    'end_index': 80000,
     'agent': agent,
     'policy': policy,
     'ngroup': 1000
