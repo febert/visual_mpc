@@ -31,6 +31,9 @@ class Sim(object):
         self.agentparams = config['agent']
 
         self._data_save_dir = self.agentparams['data_save_dir']
+        if 'RESULT_DIR' in os.environ:
+            self._data_save_dir= os.environ['RESULT_DIR'] + '/traindata'
+
         self._timing_file = self._hyperparams['current_dir'] + '/timing_file{}.txt'.format(os.getpid())
 
         if 'netconf' in config['policy']:

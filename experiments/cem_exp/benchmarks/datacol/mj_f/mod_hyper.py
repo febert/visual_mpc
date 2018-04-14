@@ -3,23 +3,23 @@ import python_visual_mpc
 current_dir = '/'.join(str.split(__file__, '/')[:-1])
 bench_dir = '/'.join(str.split(__file__, '/')[:-2])
 
-from python_visual_mpc.visual_mpc_core.algorithm.cem_controller_goalimage_sawyer import CEM_controller
+from python_visual_mpc.visual_mpc_core.algorithm.cem_controller import CEM_controller
 
 ROOT_DIR = os.path.abspath(python_visual_mpc.__file__)
 ROOT_DIR = '/'.join(str.split(ROOT_DIR, '/')[:-2])
 
 from python_visual_mpc.visual_mpc_core.agent.agent_mjc import AgentMuJoCo
+import numpy as np
 
 agent = {
     'type': AgentMuJoCo,
-    'T': 30,
+    'T': 15,
     'substeps':20,
+    'make_final_gif':'',
     'adim':3,
     'sdim':6,
-    'make_final_gif':'',
     # 'no_instant_gif':"",
     'filename': ROOT_DIR + '/mjc_models/cartgripper.xml',
-    'filename_nomarkers': ROOT_DIR + '/mjc_models/cartgripper.xml',
     'gen_xml':1,   #generate xml every nth trajecotry
     'num_objects': 1,
     'viewer_image_height' : 480,
@@ -28,29 +28,24 @@ agent = {
     'image_width':64,
     'additional_viewer':'',
     'data_save_dir':current_dir + '/data/train',
+    'not_use_images':"",
 }
 
 policy = {
-    'verbose':10,
+    # 'verbose':1,
     'type' : CEM_controller,
-    'low_level_ctrl': None,
     'current_dir':current_dir,
-    'usenet': True,
     'nactions': 5,
     'repeat': 3,
     'initial_std': 10.,   #std dev. in xy
     'initial_std_lift': 1e-5,   #std dev. in xy
-    'gdnconf': current_dir + '/gdnconf.py',
-    'netconf': current_dir + '/conf.py',
     'iterations': 3,
     'action_cost_factor': 0,
     'rew_all_steps':"",
     'finalweight':10,
     'no_action_bound':"",
-    'use_goal_image':'',
-    'predictor_propagation': '',   # use the model get the designated pixel for the next step!
-    'comb_flow_warp':0.5,  # 1.0 corresponds to only flow, 0. to only warp
-    'MSE_objective':'',
+    'num_samples':200,
+    'use_first_plan':''
 }
 
 tag_images = {'name': 'images',
@@ -70,7 +65,7 @@ tag_object_statprop = {'name': 'obj_statprop',
 config = {
     'current_dir':current_dir,
     'save_data': True,
-    'save_raw_images':'',
+    'traj_per_file':32, 
     'start_index':0,
     'end_index': 59999,
     'agent':agent,

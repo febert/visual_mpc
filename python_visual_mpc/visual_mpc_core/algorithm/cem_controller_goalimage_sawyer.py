@@ -10,13 +10,9 @@ from datetime import datetime
 import copy
 from python_visual_mpc.video_prediction.basecls.utils.visualize import add_crosshairs
 
+from python_visual_mpc.visual_mpc_core.algorithm.utils.make_visuals import make_visuals
 # from python_visual_mpc.video_prediction.utils_vpred.create_gif_lib import *
 
-from PIL import Image
-import pdb
-from python_visual_mpc.video_prediction.misc.makegifs2 import create_video_pixdistrib_gif
-from python_visual_mpc.video_prediction.utils_vpred.animate_tkinter import Visualizer_tkinter
-import matplotlib.pyplot as plt
 import collections
 
 
@@ -366,7 +362,8 @@ class CEM_controller():
                                     self.netconf['context_frames'], self.img_height, self.img_width, 3), dtype=np.float32)
         last_frames = np.concatenate((last_frames, app_zeros), axis=1)
 
-        if 'register_gtruth':
+        warped_image_goal, warped_image_start = None, None
+        if 'register_gtruth' in self.policyparams:
             #register current image to startimage
             self.start_frame = copy.deepcopy(self.traj._sample_images[0]).astype(np.float32) / 255.
             warped_image_goal, flow_field, goal_warp_pts = self.goal_image_warper(last_frames[0,1][None], self.goal_image[None])
@@ -397,6 +394,7 @@ class CEM_controller():
         t_startcalcscores = time.time()
         scores_per_task = []
 
+        flow_fields, warped_images, goal_warp_pts_l = None, None, None
         if 'use_goal_image' in self.policyparams and not 'register_gtruth' in self.policyparams:
             # evaluate images with goal-distance network
             goal_image = np.repeat(self.goal_image[None], self.bsize, axis=0)
@@ -440,103 +438,14 @@ class CEM_controller():
 
         tstart_verbose = time.time()
 
-        # if self.verbose and cem_itr == self.policyparams['iterations']-1:
-        if self.verbose:
-            if self.save_subdir != None:
-                file_path = self.netconf['current_dir']+ '/'+ self.save_subdir +'/verbose'
-            else:
-                file_path = self.netconf['current_dir'] + '/verbose'
-            if not os.path.exists(file_path):
-                os.makedirs(file_path)
-            def best(inputlist):
-                """
-                get the self.K videos with the lowest cost
-                """
-                outputlist = [np.zeros_like(a)[:self.K] for a in inputlist]
-                for ind in range(self.K):
-                    for tstep in range(len(inputlist)):
-                        outputlist[tstep][ind] = inputlist[tstep][bestindices[ind]]
-                return outputlist
-            def get_first_n(inputlist):
-                return [inp[:self.K] for inp in inputlist]
-            sel_func = best
-            t_dict_ = collections.OrderedDict()
-
-            if 'warp_objective' in self.policyparams:
-                warped_images = self.image_addgoalpix(warped_images)
-                gen_images = self.images_addwarppix(gen_images, goal_warp_pts_l, self.goal_pix)
-                warped_images = np.split(warped_images[bestindices[:self.K]], warped_images.shape[1], 1)
-                warped_images = list(np.squeeze(warped_images))
-                t_dict_['warped_im_t{}'.format(self.t)] = warped_images
-
-            if 'register_gtruth' in self.policyparams:
-                t_dict_['warped_image_start '] = [np.repeat(np.expand_dims(warped_image_start.squeeze(), axis=0), self.K, axis=0) for _ in
-                              range(len(gen_images))]
-
-                startimage = [np.repeat(np.expand_dims(self.start_frame, axis=0), self.K, axis=0) for _ in
-                              range(len(gen_images))]
-                desig_pix_t0 = np.tile(self.desig_pix_t0[None, :], [self.K, self.seqlen - 1, 1])
-                t_dict_['start_image'] = add_crosshairs(startimage, desig_pix_t0)
-
-                desig_pix = np.tile(self.desig_pix[0][None, None, :], [self.bsize, self.seqlen - 1, 1])
-                gen_images = add_crosshairs(gen_images, desig_pix, color=[0, 1., 0])
-                desig_pix = np.tile(self.desig_pix[1][None, None, :], [self.bsize, self.seqlen - 1, 1])
-                gen_images = add_crosshairs(gen_images, desig_pix, color=[1., 0, 0])
-
-                t_dict_['warped_image_goal'] = [np.repeat(np.expand_dims(warped_image_goal.squeeze(), axis=0), self.K, axis=0) for _ in
-                                                  range(len(gen_images))]
-
-            goal_image = [np.repeat(np.expand_dims(self.goal_image, axis=0), self.K, axis=0) for _ in
-                          range(len(gen_images))]
-            goal_image_annotated = self.image_addgoalpix(goal_image)
-            t_dict_['goal_image'] = goal_image_annotated
-
-            if 'use_goal_image' not in self.policyparams or 'comb_flow_warp' in self.policyparams or 'register_gtruth' in self.policyparams:
-                for p in range(self.ndesig):
-                    gen_distrib_p = [g[:, p] for g in gen_distrib]
-                    sel_gen_distrib_p = sel_func(gen_distrib_p)
-                    t_dict_['gen_distrib{}_t{}'.format(p, self.t)] = sel_gen_distrib_p
-                    t_dict_['gen_distrib_goalim_overlay{}_t{}'.format(p, self.t)] = (self.image_addgoalpix(goal_image,
-                                                                            self.goal_pix[p]), sel_gen_distrib_p)
-
-            t_dict_['gen_images_t{}'.format(self.t)] = sel_func(gen_images)
-
-            print('itr{} best scores: {}'.format(cem_itr, [scores[bestindices[ind]] for ind in range(self.K)]))
-            self.dict_.update(t_dict_)
-
-            if not 'no_instant_gif' in self.agentparams:
-                v = Visualizer_tkinter(t_dict_, append_masks=False,
-                                       filepath=self.agentparams['record'] + '/plan/',
-                                       numex=self.K, suf='t{}iter_{}'.format(self.t, cem_itr))
-                # v.build_figure()
-                v.make_direct_vid()
-                if 'warp_objective' in self.policyparams:
-                    t_dict_['warp_pts_t{}'.format(self.t)] = sel_func(goal_warp_pts_l)
-                    t_dict_['flow_fields{}'.format(self.t)] = flow_fields[bestindices[:self.K]]
-
+        if self.verbose and cem_itr == self.policyparams['iterations']-1:
+        # if self.verbose:
+            gen_images = make_visuals(self.t, actions, bestindices, cem_itr, flow_fields, gen_distrib, gen_images,
+                                           gen_states, last_frames, self.goal_image, goal_warp_pts_l, scores, warped_image_goal, warped_image_start,
+                                            warped_images, self.desig_pix, self.desig_pix_t0, self.goal_pix, self.agentparams, self.netconf, self.policyparams,
+                                            self.K, self.ndesig, self.save_subdir, self.dict_)
             if 'sawyer' in self.agentparams:
-                sorted_inds = scores.argsort()
-                bestind = sorted_inds[0]
-                middle = sorted_inds[sorted_inds.shape[0] / 2]
-                worst = sorted_inds[-1]
-                sel_ind =[bestind, middle, worst]
-                # t, r, c, 3
-                gen_im_l = []
-                gen_distrib_l = []
-                gen_score_l = []
-                for ind in sel_ind:
-                    gen_im_l.append(np.stack([im[ind] for im in gen_images], axis=0).flatten())
-                    gen_distrib_l.append(np.stack([d[ind] for d in gen_distrib], axis=0).flatten())
-                    gen_score_l.append(scores[ind])
-
-                gen_im_l = np.stack(gen_im_l, axis=0).flatten()
-                gen_distrib_l = np.stack(gen_distrib_l, axis=0).flatten()
-                gen_score_l = np.array(gen_score_l, dtype=np.float32)
-                # print 'gen_score_l', gen_score_l
-
-                self.gen_image_publisher.publish(gen_im_l)
-                self.gen_pix_distrib_publisher.publish(gen_distrib_l)
-                self.gen_score_publisher.publish(gen_score_l)
+                bestind = self.publish_sawyer(gen_distrib, gen_images, scores)
 
         if 'store_video_prediction' in self.agentparams and\
                 cem_itr == (self.policyparams['iterations']-1):
@@ -545,6 +454,28 @@ class CEM_controller():
         print('verbose time', time.time() - tstart_verbose)
 
         return scores
+
+    def publish_sawyer(self, gen_distrib, gen_images, scores):
+        sorted_inds = scores.argsort()
+        bestind = sorted_inds[0]
+        middle = sorted_inds[sorted_inds.shape[0] / 2]
+        worst = sorted_inds[-1]
+        sel_ind = [bestind, middle, worst]
+        # t, r, c, 3
+        gen_im_l = []
+        gen_distrib_l = []
+        gen_score_l = []
+        for ind in sel_ind:
+            gen_im_l.append(np.stack([im[ind] for im in gen_images], axis=0).flatten())
+            gen_distrib_l.append(np.stack([d[ind] for d in gen_distrib], axis=0).flatten())
+            gen_score_l.append(scores[ind])
+        gen_im_l = np.stack(gen_im_l, axis=0).flatten()
+        gen_distrib_l = np.stack(gen_distrib_l, axis=0).flatten()
+        gen_score_l = np.array(gen_score_l, dtype=np.float32)
+        self.gen_image_publisher.publish(gen_im_l)
+        self.gen_pix_distrib_publisher.publish(gen_distrib_l)
+        self.gen_score_publisher.publish(gen_score_l)
+        return bestind
 
     def MSE_based_score(self, gen_images, goal_image):
 
@@ -581,24 +512,6 @@ class CEM_controller():
         print('t_fs1 {}'.format(time.time() - t_fs1))
 
         return flow_fields, scores, warp_pts_l, warped_images
-
-    def image_addgoalpix(self, image_l, goal_pix=None):
-        if goal_pix is None:
-            for ob in range(self.goal_pix.shape[0]):
-                goal_pix_ob = self.goal_pix[ob]
-                goal_pix_ob = np.tile(goal_pix_ob[None, None, :], [self.bsize, self.seqlen - 1, 1])
-                image_l = add_crosshairs(image_l, goal_pix_ob)
-        else:
-            goal_pix_ob = np.tile(goal_pix[None, None, :], [self.bsize, self.seqlen - 1, 1])
-            image_l = add_crosshairs(image_l, goal_pix_ob)
-        return image_l
-
-    def images_addwarppix(self, gen_images, warp_pts_l, pix):
-        warp_pts_arr = np.stack(warp_pts_l, axis=1)
-        for ob in range(self.agentparams['num_objects']):
-            warp_pts_ob = warp_pts_arr[:, :, pix[ob, 0], pix[ob, 1]]
-            gen_images = add_crosshairs(gen_images, np.flip(warp_pts_ob, 2))
-        return gen_images
 
     def calc_scores(self, gen_distrib, distance_grid):
         expected_distance = np.zeros(self.bsize)

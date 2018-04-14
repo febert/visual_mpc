@@ -9,7 +9,7 @@ import os
 
 from datetime import datetime
 from python_visual_mpc.video_prediction.dynamic_rnn_model.dynamic_base_model import Dynamic_Base_Model
-# from python_visual_mpc.video_prediction.dynamic_rnn_model.alex_model_interface import Alex_Interface_Model
+from python_visual_mpc.video_prediction.dynamic_rnn_model.alex_model_interface import Alex_Interface_Model
 
 from python_visual_mpc.video_prediction.utils_vpred.variable_checkpoint_matcher import variable_checkpoint_matcher
 
@@ -98,31 +98,27 @@ def setup_predictor(conf, gpu_id=0, ngpu=1):
 
             # making the towers
             towers = []
-
-            # with tf.variable_scope('model', reuse=None):
             for i_gpu in range(ngpu):
                 with tf.device('/gpu:%d' % i_gpu):
                     with tf.name_scope('tower_%d' % (i_gpu)):
                         print(('creating tower %d: in scope %s' % (i_gpu, tf.get_variable_scope())))
-                        # print 'reuse: ', tf.get_variable_scope().reuse
-                        # towers.append(Tower(conf, i_gpu, training_scope, start_images, actions, start_states, pix_distrib_1, pix_distrib_2))
                         towers.append(Tower(conf, i_gpu, images_pl, actions_pl, states_pl, pix_distrib))
                         tf.get_variable_scope().reuse_variables()
 
             sess.run(tf.global_variables_initializer())
 
             vars = tf.get_collection(tf.GraphKeys.GLOBAL_VARIABLES)
-
             vars = filter_vars(vars)
-
             if 'TEN_DATA' in os.environ:
                 tenpath = conf['pretrained_model'].partition('tensorflow_data')[2]
                 conf['pretrained_model'] = os.environ['TEN_DATA'] + tenpath
 
-            vars = variable_checkpoint_matcher(conf, vars, conf['pretrained_model'])
-
-            saver = tf.train.Saver(vars, max_to_keep=0)
-            saver.restore(sess, conf['pretrained_model'])
+            if conf['pred_model'] ==  Alex_Interface_Model:
+                towers[0].model.restore(sess, conf['pretrained_model'])
+            else:
+                vars = variable_checkpoint_matcher(conf, vars, conf['pretrained_model'])
+                saver = tf.train.Saver(vars, max_to_keep=0)
+                saver.restore(sess, conf['pretrained_model'])
 
             print('restore done. ')
 
