@@ -135,6 +135,9 @@ class Sim(object):
                     dict['target_qpos'] = traj.target_qpos
                     dict['mode_rel'] = traj.mask_rel.astype(np.bool)
 
+                    if hasattr(traj, 'desig_pos'):
+                        dict['obj_start_end_pos'] = traj.desig_pos
+
                 if hasattr(traj, "plan_stat"):
                     dict['plan_stat'] = traj.plan_stat
 
