@@ -135,7 +135,6 @@ class AgentMuJoCo(object):
             goal_pix = np.around(goal_pix).astype(np.int)
         return goal_pix
 
-
     def clip_targetpos(self, pos):
         pos_clip = self._hyperparams['targetpos_clip']
         return np.clip(pos, pos_clip[0], pos_clip[1])
