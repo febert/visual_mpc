@@ -14,7 +14,7 @@ import numpy as np
 agent = {
     'type': AgentMuJoCo,
     'T': 15,
-    'substeps':200,
+    'substeps': 200,
     'make_final_gif':'',
     'adim':5,
     'sdim':12,
@@ -41,16 +41,16 @@ policy = {
     'current_dir':current_dir,
     'nactions': 5,
     'repeat': 3,
-    'initial_std': 0.08,        # std dev. in xy
-    'initial_std_lift': 0.1,
-    'initial_std_rot': 0.1,
-    'initial_std_grasp': 0.1,
+    'initial_std': 0.03,        # std dev. in xy
+    'initial_std_lift': 0.2,
+    'initial_std_rot': 0.2,
+    'initial_std_grasp': 0.2,
     'iterations': 2,
     'action_cost_factor': 0,
     'rew_all_steps':"",
     'finalweight':10,
     'no_action_bound':"",
-    'num_samples': 50,
+    'num_samples': 500,
     'use_first_plan':''
 }
 
