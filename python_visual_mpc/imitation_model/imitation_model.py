@@ -399,8 +399,54 @@ class ImitationLSTMModelStateLegacy(ImitationBaseModel):
         self.loss += self.final_frame_aux_loss
 
 class ImitationLSTMVAEAction(ImitationBaseModel):
-    def build(self):
+    def query(self, sess, traj, t, images = None, end_effector = None, actions = None):
+        if t == 0:
+            self.latent_vec = np.random.normal(size = (1, self.conf['latent_dim']))
+
+        f_dict = {self.input_images: images, self.latent_sample_pl: self.latent_vec}
+        pred_deltas = sess.run(self.predicted_actions, feed_dict=f_dict)
+        print(pred_deltas.shape)
+        print(pred_deltas[0, -1, :4])
+        actions = pred_deltas[0, -1, 5] + traj.target_qpos[t, :] * traj.mask_rel
+        if pred_deltas[0, -1, -1] > pred_deltas[0, -1, -2]:
+            actions[-1] = 21
+        else:
+            actions[-1] = -100
+        return actions
+
+    def build(self, is_Test = False):
         latent_dim = self.conf['latent_dim']
+
+        if is_Test:
+            in_batch, in_rows, in_cols = self.images.get_shape()[0], self.images.get_shape()[2], \
+                                         self.images.get_shape()[3]
+            in_time = tf.shape(self.images)[1]
+            self.latent_sample_pl = tf.placeholder(tf.float32, [1, latent_dim])
+
+            input_images = tf.reshape(self.images, shape=[-1, in_rows, in_cols, 3])
+            fp_flat = tf.reshape(self._build_conv_layers(input_images), shape=(in_batch, in_time, 128))
+            lstm_in = slim.layers.fully_connected(fp_flat, latent_dim,
+                                                  scope='lstm_in', activation_fn=None)
+
+            latent_state = slim.layers.fully_connected(fp_flat[:, 0, :], 2 * latent_dim,
+                                                       scope='latent_state', activation_fn=tf.tanh)
+
+            self.latent_mean, latent_std_logits = tf.split(latent_state, 2, axis=-1)
+            self.latent_std = tf.exp(latent_std_logits)
+            latent_sample = self.latent_mean + self.latent_std * self.latent_sample_pl
+
+            lstm_layers = tf.contrib.rnn.MultiRNNCell(
+                [tf.contrib.rnn.ResidualWrapper(tf.contrib.rnn.BasicLSTMCell(l)) for l in self.conf['lstm_layers']])
+            all_initial = tuple(
+                [tf.contrib.rnn.LSTMStateTuple(tf.zeros((in_batch, self.conf['lstm_layers'][0])), latent_sample)]
+                + [tf.contrib.rnn.LSTMStateTuple(tf.zeros((in_batch, l)), tf.zeros((in_batch, l)))
+                   for l in self.conf['lstm_layers'][1:]])
+            last_fc, states = tf.nn.dynamic_rnn(cell=lstm_layers, inputs=lstm_in, initial_state=all_initial,
+                                                dtype=tf.float32, parallel_iterations=int(in_batch))
+
+            self.predicted_actions = slim.layers.fully_connected(last_fc, self.sdim + 1,
+                                                                 scope='action_predictions', activation_fn=None)
+            return self.predicted_actions
 
         in_batch, in_time, in_rows, in_cols, _ = self.images.get_shape()
         in_time -= 1
