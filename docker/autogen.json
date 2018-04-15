@@ -1,11 +1,11 @@
 {
     "dockerImageName": "ucb_rail8888/tf_mj1.5:latest", 
     "aceName": "nv-us-west-2", 
-    "name": "datacol-updown_sact-nworkers-8", 
+    "name": "mj_f-nworkers-100", 
     "publishedContainerPorts": [
         6006
     ], 
-    "command": "cd /result && tensorboard --logdir . &  export VMPC_DATA_DIR=/mnt/pushing_data; export TEN_DATA=/mnt/tensorflow_data; export RESULT_DIR=/result; export NO_ROS=''; export PATH=/opt/conda/bin:/usr/local/mpi/bin:/usr/local/nvidia/bin:/usr/local/cuda/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin; cd /workspace/visual_mpc/python_visual_mpc/visual_mpc_core;python parallel_data_collection.py datacol/updown_sact --nworkers 8", 
+    "command": "cd /result && tensorboard --logdir . &  export VMPC_DATA_DIR=/mnt/pushing_data; export TEN_DATA=/mnt/tensorflow_data; export RESULT_DIR=/result; export NO_ROS=''; export PATH=/opt/conda/bin:/usr/local/mpi/bin:/usr/local/nvidia/bin:/usr/local/cuda/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin; cd /workspace/visual_mpc/python_visual_mpc/visual_mpc_core;python parallel_data_collection.py mj_f --nworkers 100", 
     "datasetMounts": [
         {
             "containerMountPoint": "/mnt/tensorflow_data/sim/mj_pos_ctrl_appflow", 
@@ -46,6 +46,10 @@
         {
             "containerMountPoint": "/mnt/pushing_data/cartgripper_startgoal_short", 
             "id": 8949
+        }, 
+        {
+            "containerMountPoint": "/mnt/pushing_data/cartgripper_startgoal_masks", 
+            "id": 8914
         }, 
         {
             "containerMountPoint": "/mnt/pushing_data/cartgripper_startgoal_masks", 

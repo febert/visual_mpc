@@ -18,7 +18,7 @@ def images_addwarppix(gen_images, warp_pts_l, pix, num_objects):
     return gen_images
 
 
-def make_visuals(tstep, actions, bestindices, cem_itr, flow_fields, gen_distrib, gen_images, gen_states, start_frame, goal_image,
+def make_visuals(tstep, actions, bestindices, cem_itr, flow_fields, gen_distrib, gen_images, gen_states, last_frames, goal_image,
                  goal_warp_pts_l, scores, warped_image_goal, warped_image_start, warped_images, desig_pix, desig_pix_t0, goal_pix,
                  agentparams, netconf, policyparams, K, ndesig, save_subdir, dict_):
 
@@ -56,20 +56,20 @@ def make_visuals(tstep, actions, bestindices, cem_itr, flow_fields, gen_distrib,
             warped_images = list(np.squeeze(warped_images))
             t_dict_['warped_im_t{}'.format(tstep)] = warped_images
 
+        ctxt = netconf['context_frames']
         if 'register_gtruth' in policyparams:
-            t_dict_['warped_image_start '] = [
-                np.repeat(np.expand_dims(warped_image_start.squeeze(), axis=0), K, axis=0) for _ in
+            t_dict_['warped_image_start '] = [np.repeat(np.expand_dims(warped_image_start.squeeze(), axis=0), K, axis=0) for _ in
                 range(len(gen_images))]
 
-            startimage = [np.repeat(np.expand_dims(start_frame, axis=0), K, axis=0) for _ in
-                          range(len(gen_images))]
+            startimages = [np.repeat(np.expand_dims(last_frames[0,ctxt-1], axis=0), K, axis=0) for _ in
+                           range(len(gen_images))]
             desig_pix_t0 = np.tile(desig_pix_t0[None, :], [K, seqlen - 1, 1])
-            t_dict_['start_image'] = add_crosshairs(startimage, desig_pix_t0)
+            t_dict_['start_image'] = add_crosshairs(startimages, desig_pix_t0)
 
-            desig_pix = np.tile(desig_pix[0][None, None, :], [bsize, seqlen - 1, 1])
-            gen_images = add_crosshairs(gen_images, desig_pix, color=[0, 1., 0])
-            desig_pix = np.tile(desig_pix[1][None, None, :], [bsize, seqlen - 1, 1])
-            gen_images = add_crosshairs(gen_images, desig_pix, color=[1., 0, 0])
+            desig_pix_start = np.tile(desig_pix[0][None, :], [bsize, seqlen - 1, 1])
+            gen_images = add_crosshairs(gen_images, desig_pix_start, color=[1., 1., 0])
+            desig_pix_goal = np.tile(desig_pix[1][None, :], [bsize, seqlen - 1, 1])
+            gen_images = add_crosshairs(gen_images, desig_pix_goal, color=[0, 1., 1.])
 
             t_dict_['warped_image_goal'] = [
                 np.repeat(np.expand_dims(warped_image_goal.squeeze(), axis=0), K, axis=0) for _ in
@@ -95,7 +95,7 @@ def make_visuals(tstep, actions, bestindices, cem_itr, flow_fields, gen_distrib,
             # v.build_figure()
             v.make_direct_vid()
 
-            start_frame_conc = np.concatenate([start_frame[0,0], start_frame[0,1]], 0).squeeze()
+            start_frame_conc = np.concatenate([last_frames[0, 0], last_frames[0, 1]], 0).squeeze()
             start_frame_conc = (start_frame_conc*255.).astype(np.uint8)
             Image.fromarray(start_frame_conc).save(agentparams['record'] + '/plan/start_frame{}iter_{}.png'.format(tstep, cem_itr))
 
