@@ -3,24 +3,24 @@ import python_visual_mpc
 current_dir = '/'.join(str.split(__file__, '/')[:-1])
 bench_dir = '/'.join(str.split(__file__, '/')[:-2])
 
-from python_visual_mpc.visual_mpc_core.algorithm.cem_controller import CEM_controller
+from python_visual_mpc.visual_mpc_core.algorithm.cem_controller_goalimage_sawyer import CEM_controller
 
 ROOT_DIR = os.path.abspath(python_visual_mpc.__file__)
 ROOT_DIR = '/'.join(str.split(ROOT_DIR, '/')[:-2])
 
 from python_visual_mpc.visual_mpc_core.agent.agent_mjc import AgentMuJoCo
-import numpy as np
+
 
 agent = {
     'type': AgentMuJoCo,
-    'T': 16,
-    'substeps': 75,
+    'T': 30,
+    'substeps':20,
+    'adim':3,
+    'sdim':6,
     'make_final_gif':'',
-    'adim':5,
-    'sdim':12,
     # 'no_instant_gif':"",
-    'filename': ROOT_DIR + '/mjc_models/cartgripper_grasp.xml',
-    'filename_nomarkers': ROOT_DIR + '/mjc_models/cartgripper_grasp.xml',
+    'filename': ROOT_DIR + '/mjc_models/cartgripper.xml',
+    'filename_nomarkers': ROOT_DIR + '/mjc_models/cartgripper.xml',
     'gen_xml':1,   #generate xml every nth trajecotry
     'num_objects': 1,
     'viewer_image_height' : 480,
@@ -28,30 +28,28 @@ agent = {
     'image_height':48,
     'image_width':64,
     'additional_viewer':'',
-    'data_save_dir': os.environ['VMPC_DATA_DIR'] + '/mj_pos_noreplan_fast',
-    'posmode':"",
-    'targetpos_clip':[[-0.45, -0.45, -0.08, -np.pi*2, 0.], [0.45, 0.45, 0.15, np.pi*2, 0.1]],
-    'not_use_images':"",
-    'lift_object':'',
+    'data_save_dir':current_dir + '/data/train',
 }
 
 policy = {
-    'verbose':"",
+    'verbose':'',
     'type' : CEM_controller,
+    'low_level_ctrl': None,
     'current_dir':current_dir,
-    'nactions': 8,
-    'repeat': 2,
-    'initial_std': 0.03,        # std dev. in xy
-    'initial_std_lift': 0.2,
-    'initial_std_rot': 0.1,
-    'initial_std_grasp': 0.2,
-    'iterations': 2,
+    'usenet': True,
+    'nactions': 5,
+    'repeat': 3,
+    'initial_std': 10.,   #std dev. in xy
+    'initial_std_lift': 1e-5,   #std dev. in xy
+    'gdnconf': current_dir + '/gdnconf.py',
+    'netconf': current_dir + '/conf.py',
+    'iterations': 3,
     'action_cost_factor': 0,
     'rew_all_steps':"",
     'finalweight':10,
     'no_action_bound':"",
-    'num_samples': 300,
-    'use_first_plan':''
+    'register_gtruth':'',
+    'use_goal_image':'',
 }
 
 tag_images = {'name': 'images',
@@ -73,12 +71,11 @@ config = {
     'save_data': False,
     'save_raw_images':'',
     'start_index':0,
-    'end_index': 49,
+    'end_index': 49, #1000,
     'agent':agent,
     'policy':policy,
-    'ngroup': 500,
+    'ngroup': 100,
     'sourcetags':[tag_images, tag_qpos, tag_object_full_pose, tag_object_statprop],
-    'source_basedirs':[os.environ['VMPC_DATA_DIR'] + '/cartgripper_startgoal_short/train'],
+    'source_basedirs':[ROOT_DIR + '/pushing_data/cartgripper_startgoal_masks/train'],
     'sequence_length':2
 }
-

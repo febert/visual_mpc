@@ -207,7 +207,7 @@ def main():
     conf = {}
 
     current_dir = os.path.dirname(os.path.realpath(__file__))
-    DATA_DIR = '/mnt/sda1/pushing_data/grasping_deltaaction_targeteep/train'
+    DATA_DIR = '/mnt/sda1/pushing_data/onpolicy/updown_sact/train'
     # DATA_DIR = '/mnt/sda1/pushing_data/cartgripper_mj1.5/train'
 
     conf['schedsamp_k'] = -1  # don't feed ground truth
@@ -273,6 +273,9 @@ def main():
             print('tload{}'.format(time.time() - end))
             print('average time:', np.average(np.array(deltat)))
         end = time.time()
+
+        import sys
+        sys.exit()
 
         # show some frames
         # for b in range(conf['batch_size']):

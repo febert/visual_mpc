@@ -358,20 +358,22 @@ class CEM_controller():
         last_frames = last_frames.astype(np.float32, copy=False) / 255.
         last_frames = np.expand_dims(last_frames, axis=0)
         last_frames = np.repeat(last_frames, self.bsize, axis=0)
-        app_zeros = np.zeros(shape=(self.bsize, self.seqlen-
-                                    self.netconf['context_frames'], self.img_height, self.img_width, 3), dtype=np.float32)
+        app_zeros = np.zeros(shape=(self.bsize, self.seqlen-self.netconf['context_frames'],
+                                    self.img_height, self.img_width, 3), dtype=np.float32)
         last_frames = np.concatenate((last_frames, app_zeros), axis=1)
 
         warped_image_goal, warped_image_start = None, None
         if 'register_gtruth' in self.policyparams:
             #register current image to startimage
+            ctxt = self.netconf['context_frames']
             self.start_frame = copy.deepcopy(self.traj._sample_images[0]).astype(np.float32) / 255.
-            warped_image_goal, flow_field, goal_warp_pts = self.goal_image_warper(last_frames[0,1][None], self.goal_image[None])
+            warped_image_goal, flow_field, goal_warp_pts = self.goal_image_warper(last_frames[0,ctxt-1][None], self.goal_image[None])
             desig_pix_reggoal = np.flip(goal_warp_pts[0, self.goal_pix[0,0],self.goal_pix[0,1]], 0)
-            warped_image_start, flow_field, start_warp_pts = self.goal_image_warper(last_frames[0,1][None],self.start_frame[None])
+            warped_image_start, flow_field, start_warp_pts = self.goal_image_warper(last_frames[0,ctxt-1][None],self.start_frame[None])
             desig_pix_regstart = np.flip(start_warp_pts[0, self.desig_pix_t0[0,0], self.desig_pix_t0[0,1]], 0)
 
-            self.desig_pix = np.stack([desig_pix_reggoal, desig_pix_regstart])
+            self.desig_pix = np.stack([desig_pix_regstart, desig_pix_reggoal])
+
 
         if 'use_goal_image' in self.policyparams and 'comb_flow_warp' not in self.policyparams\
                 and 'register_gtruth' not in self.policyparams:
