@@ -7,5 +7,6 @@ febert/tf_mj1.5:runmount \
 
 /bin/bash -c \
 "export VMPC_DATA_DIR=/workspace/pushing_data;
+pip install numpy-stl
 /bin/bash"
 
