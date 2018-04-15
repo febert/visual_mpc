@@ -15,6 +15,7 @@ BASE_DIR = '/'.join(str.split(__file__, '/')[:-1])
 
 import python_visual_mpc
 DATA_DIR = '/'.join(str.split(python_visual_mpc.__file__, '/')[:-2])
+current_dir = os.path.dirname(os.path.realpath(__file__))
 
 agent = {
     'type': AgentMuJoCo,
@@ -29,7 +30,7 @@ agent = {
     'xpos0': np.array([0., 0., 0.05, 0., 0., 0.]), #initialize state dimension to 5 zeros
     'dt': 0.05,
     'substeps': 200,  #6
-    'T': 15,
+    'T': 30,
     'skip_first': 40,   #skip first N time steps to let the scene settle
     'additional_viewer': False,
     'image_height' : 48,
@@ -56,12 +57,12 @@ agent = {
 policy = {
     'type' : ImitationPolicy,
     'net_config' : os.path.join(BASE_DIR, 'conf_lstm_mdn_states.py'),
-    'pretrained' : 'model75000',
-    'N_GEN' : 200
+    'pretrained' :'modelfinal', #'model65000',
 }
 
 config = {
     'traj_per_file':128,
+    'current_dir' : current_dir,
     'save_data': False,
     'save_raw_images' : True,
     'start_index':0,
