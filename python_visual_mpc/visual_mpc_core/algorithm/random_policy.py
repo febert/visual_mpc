@@ -19,7 +19,7 @@ class Randompolicy(Policy):
 
         self.naction_steps = policyparams['nactions']
 
-    def act(self, traj, t, init_model=None, goal_ob_pose=None, agentparams=None):
+    def act(self, traj, t, init_model=None, goal_ob_pose=None, agentparams=None, goal_image=None):
 
         repeat = self.policyparams['repeats']  # repeat the same action to reduce number of repquired timesteps
         assert self.agentparams['T'] == self.naction_steps*repeat
