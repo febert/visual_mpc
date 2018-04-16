@@ -113,8 +113,8 @@ def setup_predictor(conf, gpu_id=0, ngpu=1):
                 tenpath = conf['pretrained_model'].partition('tensorflow_data')[2]
                 conf['pretrained_model'] = os.environ['TEN_DATA'] + tenpath
 
-            if conf['pred_model'] ==  Alex_Interface_Model:
-                towers[0].model.restore(sess, conf['pretrained_model'])
+            if conf['pred_model'] == Alex_Interface_Model:
+                towers[0].model.m.restore(sess, conf['pretrained_model'])
             else:
                 vars = variable_checkpoint_matcher(conf, vars, conf['pretrained_model'])
                 saver = tf.train.Saver(vars, max_to_keep=0)
@@ -149,8 +149,8 @@ def setup_predictor(conf, gpu_id=0, ngpu=1):
 
                 feed_dict = {}
                 for t in towers:
-                    feed_dict[t.model.iter_num] = 0
-                    # feed_dict[t.model.lr] = 0.0
+                    if hasattr(t.model, 'iter_num'):
+                        feed_dict[t.model.iter_num] = 0
 
                 feed_dict[images_pl] = input_images
                 feed_dict[states_pl] = input_state

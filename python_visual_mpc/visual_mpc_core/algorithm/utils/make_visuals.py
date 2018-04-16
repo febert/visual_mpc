@@ -27,9 +27,9 @@ def make_visuals(tstep, actions, bestindices, cem_itr, flow_fields, gen_distrib,
 
 
         if save_subdir != None:
-            file_path = netconf['current_dir'] + '/' + save_subdir + '/verbose'
+            file_path = policyparams['current_dir'] + '/' + save_subdir + '/verbose'
         else:
-            file_path = netconf['current_dir'] + '/verbose'
+            file_path = policyparams['current_dir'] + '/verbose'
         if not os.path.exists(file_path):
             os.makedirs(file_path)
 
