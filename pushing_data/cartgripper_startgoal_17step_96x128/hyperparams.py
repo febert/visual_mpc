@@ -68,6 +68,7 @@ policy = {
 
 config = {
     'current_dir':current_dir,
+    # 'save_raw_images':'',
     'traj_per_file':128,
     'save_data': True,
     'start_index':0,

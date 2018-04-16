@@ -176,7 +176,6 @@ class AgentMuJoCo(object):
             qpos_dim = self.sdim // 2  # the states contains pos and vel
             traj.X_full[t, :] = self.sim.data.qpos[:qpos_dim].squeeze()
             traj.Xdot_full[t, :] = self.sim.data.qvel[:qpos_dim].squeeze()
-            # print(self.sim.data.qpos)
             traj.X_Xdot_full[t, :] = np.concatenate([traj.X_full[t, :], traj.Xdot_full[t, :]])
             assert self.sim.data.qpos.shape[0] == qpos_dim + 7 * self._hyperparams['num_objects']
             for i in range(self._hyperparams['num_objects']):
