@@ -403,11 +403,10 @@ class ImitationLSTMVAEAction(ImitationBaseModel):
         if t == 0:
             self.latent_vec = np.random.normal(size = (1, self.conf['latent_dim']))
 
-        f_dict = {self.input_images: images, self.latent_sample_pl: self.latent_vec}
+        f_dict = {self.input_images: images[:, :, :, :, ::-1], self.latent_sample_pl: self.latent_vec}
         pred_deltas = sess.run(self.predicted_actions, feed_dict=f_dict)
-        print(pred_deltas.shape)
-        print(pred_deltas[0, -1, :4])
-        actions = pred_deltas[0, -1, 5] + traj.target_qpos[t, :] * traj.mask_rel
+        print(pred_deltas[0, -1])
+        actions = (pred_deltas[0, -1, :5]  + traj.target_qpos[t, :]) * traj.mask_rel
         if pred_deltas[0, -1, -1] > pred_deltas[0, -1, -2]:
             actions[-1] = 21
         else:
@@ -421,9 +420,8 @@ class ImitationLSTMVAEAction(ImitationBaseModel):
             in_batch, in_rows, in_cols = self.images.get_shape()[0], self.images.get_shape()[2], \
                                          self.images.get_shape()[3]
             in_time = tf.shape(self.images)[1]
-            self.latent_sample_pl = tf.placeholder(tf.float32, [1, latent_dim])
+            input_images = tf.reshape(self.images[:, :, :, :, :], shape=(-1, in_rows, in_cols, 3))
 
-            input_images = tf.reshape(self.images, shape=[-1, in_rows, in_cols, 3])
             fp_flat = tf.reshape(self._build_conv_layers(input_images), shape=(in_batch, in_time, 128))
             lstm_in = slim.layers.fully_connected(fp_flat, latent_dim,
                                                   scope='lstm_in', activation_fn=None)
@@ -433,6 +431,7 @@ class ImitationLSTMVAEAction(ImitationBaseModel):
 
             self.latent_mean, latent_std_logits = tf.split(latent_state, 2, axis=-1)
             self.latent_std = tf.exp(latent_std_logits)
+            self.latent_sample_pl = tf.placeholder(tf.float32, [1, latent_dim])
             latent_sample = self.latent_mean + self.latent_std * self.latent_sample_pl
 
             lstm_layers = tf.contrib.rnn.MultiRNNCell(
@@ -446,6 +445,8 @@ class ImitationLSTMVAEAction(ImitationBaseModel):
 
             self.predicted_actions = slim.layers.fully_connected(last_fc, self.sdim + 1,
                                                                  scope='action_predictions', activation_fn=None)
+
+
             return self.predicted_actions
 
         in_batch, in_time, in_rows, in_cols, _ = self.images.get_shape()

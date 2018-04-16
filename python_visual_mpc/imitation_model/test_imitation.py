@@ -29,9 +29,9 @@ def gen_mix_samples(N, means, std_dev, mix_params):
     return sorted(samps, key = lambda x: -x[1])
 def main():
     os.environ["CUDA_VISIBLE_DEVICES"] = str(FLAGS.device)
-    print 'using CUDA_VISIBLE_DEVICES=', FLAGS.device
+    print('using CUDA_VISIBLE_DEVICES=', FLAGS.device)
     from tensorflow.python.client import device_lib
-    print device_lib.list_local_devices()
+    print(device_lib.list_local_devices())
 
     if not os.path.exists(FLAGS.hyper):
         raise RuntimeError("Experiment configuration not found")
@@ -79,40 +79,40 @@ def main():
         gtruth_eep, pred_mean, pred_std, pred_mix = sess.run(
             [val_endeffector_pos, val_model.means, val_model.std_dev, val_model.mixing_parameters])
 
-        print ''
+        print('')
         for i in range(64):
             samps = gen_mix_samples(200, pred_mean[i], pred_std[i], pred_mix[i])
             mean_samp = np.sum(pred_mean[i] * pred_mix[i].reshape((-1, 1)), axis=0)
-            print 'batch', i
-            print 'top samp', samps[0][0], 'with likelihood', samps[0][1]
-            print 'mean_samp', mean_samp
-            print 'true final', gtruth_eep[i, -1, :4]
-            print 'error', np.sum(np.square(gtruth_eep[i, -1, :4] - samps[0][0]))
-            print 'error_mean', np.sum(np.square(gtruth_eep[i, -1, :4] - mean_samp))
-            print ''
+            print('batch', i)
+            print('top samp', samps[0][0], 'with likelihood', samps[0][1])
+            print('mean_samp', mean_samp)
+            print('true final', gtruth_eep[i, -1, :4])
+            print('error', np.sum(np.square(gtruth_eep[i, -1, :4] - samps[0][0])))
+            print('error_mean', np.sum(np.square(gtruth_eep[i, -1, :4] - mean_samp)))
+            print('')
     elif 'MDN_loss' in conf:
         v_images, gtruth_actions, gtruth_eep, pred_mean, pred_std, pred_mix, final = sess.run([val_images, val_actions,val_endeffector_pos, val_model.means, val_model.std_dev,
                                                                          val_model.mixing_parameters, val_model.final_frame_state_pred])
 
-        print 'gtruth_actions', gtruth_actions.shape
-        print 'pred_mean', pred_mean.shape
-        print 'prev_var', pred_std.shape
-        print 'pred_mix', pred_mix.shape
+        print('gtruth_actions', gtruth_actions.shape)
+        print('pred_mean', pred_mean.shape)
+        print('prev_var', pred_std.shape)
+        print('pred_mix', pred_mix.shape)
 
         #import cv2
         #for i in range(14):
         #    cv2.imshow('test', v_images[0, i])
         #    cv2.waitKey(-1)
 
-        print 'true final', gtruth_eep[0, -1, :]
-        print 'pred final', final[0]
+        print('true final', gtruth_eep[0, -1, :])
+        print('pred final', final[0])
         #print ''
-        print 'start eep', gtruth_eep[0, 0,:6]
+        print('start eep', gtruth_eep[0, 0,:6])
         for i in range(14):
             samps = gen_mix_samples(200, pred_mean[0, i], pred_std[0, i], pred_mix[0, i])
-            print 'top samp', samps[0][0], 'with likelihood', samps[0][1]
-            print 'gtruth', gtruth_actions[0, i + 1, :6]
-            print ''
+            print('top samp', samps[0][0], 'with likelihood', samps[0][1])
+            print('gtruth', gtruth_actions[0, i + 1, :6])
+            print('')
         # for j in range(2):
         #     print 'timestep', j
         #     print 'gtruth_step', gtruth_actions[0, j, :]
@@ -127,14 +127,14 @@ def main():
     else:
         val_images, gtruth_actions, gtruth_eep, pred_actions, pred_final = \
             sess.run([val_images, val_actions, val_endeffector_pos, val_model.predicted_actions,val_model.final_frame_state_pred])
-        print 'val_images', val_images.shape
+        print('val_images', val_images.shape)
         import cv2
         for i in range(15):
             cv2.imshow('test', val_images[0, i])
             cv2.waitKey(-1 )
-        print 'gtruth actions', gtruth_actions[0]
-        print 'pred final', pred_final[0]
-        print 'pred', pred_actions[0]
-        print 'gtruth_eep', gtruth_eep[0, :, :6]
+        print('gtruth actions', gtruth_actions[0])
+        print('pred final', pred_final[0])
+        print('pred', pred_actions[0])
+        print('gtruth_eep', gtruth_eep[0, :, :6])
 if __name__ == '__main__':
     main()
