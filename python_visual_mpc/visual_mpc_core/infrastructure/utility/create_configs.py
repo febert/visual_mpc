@@ -31,7 +31,6 @@ class CollectGoalImageSim(Sim):
     def _take_sample(self, sample_index):
         if "gen_xml" in self.agentparams:
             if sample_index % self.agentparams['gen_xml'] == 0:
-                self.agent.viewer.finish()
                 self.agent._setup_world()
 
         traj_ok = False
@@ -52,9 +51,6 @@ class CollectGoalImageSim(Sim):
         self.agent.large_images_traj = []
         self.agent.large_images = []
 
-        self.agent.viewer.set_model(self.agent._model)
-        self.agent.viewer.cam.camid = 0
-
         self.agent._init()
 
         if 'gen_xml' in self.agentparams:
@@ -63,15 +59,15 @@ class CollectGoalImageSim(Sim):
         # apply action of zero for the first few steps, to let the scene settle
         for t in range(self.agentparams['skip_first']):
             for _ in range(self.agentparams['substeps']):
-                self.agent._model.data.ctrl = np.zeros(self.agentparams['adim'])
-                self.agent._model.step()
+                self.agent.sim.data.ctrl[:] = np.zeros(self.agentparams['adim'])
+                self.agent.sim.step()
 
         for t in range(self.agentparams['T']-1):
             self.store_data(t, traj)
             if 'make_gtruth_flows' in self.agentparams:
                 traj.ob_masks[t], traj.arm_masks[t], traj.large_ob_masks[t], traj.large_arm_masks[t] = self.get_obj_masks()
-            if t> 0:
-                traj.bwd_flow[t-1] = self.compute_gtruth_flow(t, traj)
+                if t > 0:
+                    traj.bwd_flow[t-1] = self.compute_gtruth_flow(t, traj)
 
             self.move_objects(t, traj)
         t += 1
@@ -214,13 +210,13 @@ class CollectGoalImageSim(Sim):
         return ob_masks, armmask, large_ob_masks, large_armmask
 
     def store_data(self, t, traj):
-        qpos_dim = self.agent.sdim / 2  # the states contains pos and vel
-        traj.X_full[t, :] = self.agent._model.data.qpos[:qpos_dim].squeeze()
-        traj.Xdot_full[t, :] = self.agent._model.data.qvel[:qpos_dim].squeeze()
+        qpos_dim = self.agent.sdim // 2  # the states contains pos and vel
+        traj.X_full[t, :] = self.agent.sim.data.qpos[:qpos_dim].squeeze()
+        traj.Xdot_full[t, :] = self.agent.sim.data.qvel[:qpos_dim].squeeze()
         traj.X_Xdot_full[t, :] = np.concatenate([traj.X_full[t, :], traj.Xdot_full[t, :]])
-        assert self.agent._model.data.qpos.shape[0] == qpos_dim + 7 * self.num_ob
+        assert self.agent.sim.data.qpos.shape[0] == qpos_dim + 7 * self.num_ob
         for i in range(self.num_ob):
-            fullpose = self.agent._model.data.qpos[i * 7 + qpos_dim:(i + 1) * 7 + qpos_dim].squeeze()
+            fullpose = self.agent.sim.data.qpos[i * 7 + qpos_dim:(i + 1) * 7 + qpos_dim].squeeze()
             traj.Object_full_pose[t, i, :] = fullpose
 
         self.agent._store_image(t, traj)
@@ -233,11 +229,7 @@ class CollectGoalImageSim(Sim):
             angular_disp = self.agentparams['ang_disp_range']
 
             delta_pos = np.concatenate([np.random.uniform(-pos_disp, pos_disp, 2), np.zeros([1])])
-            # delta_pos = np.array([0., 0., 0.])
-            # print 'const delta pos!!!!!!!!!!!!!!!!!!!! for test'
             delta_alpha = np.random.uniform(-angular_disp, angular_disp)
-            # delta_alpha = 0.
-            # print 'delta aplpha 0 !!!!!!!!!!!!!!!!!!!! for test'
 
             delta_rot = Quaternion(axis=(0.0, 0.0, 1.0), radians=delta_alpha)
             curr_quat =  Quaternion(traj.Object_full_pose[t, iob, 3:])
@@ -258,9 +250,11 @@ class CollectGoalImageSim(Sim):
 
         new_q = np.concatenate([new_armpos, newobj_poses])
 
-        self.agent._model.data.qpos = new_q
-        self.agent._model.step()
-        self.agent._model.data.qpos = new_q
+        sim_state = self.agent.sim.get_state()
+        sim_state.qpos[:] = new_q
+        sim_state.qvel[:] = np.zeros_like(sim_state.qvel)
+        self.agent.sim.set_state(sim_state)
+        self.agent.sim.forward()
 
         return new_q
 
