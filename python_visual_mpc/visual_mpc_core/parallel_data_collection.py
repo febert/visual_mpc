@@ -19,7 +19,7 @@ from python_visual_mpc.visual_mpc_core.infrastructure.utility.combine_scores imp
 from python_visual_mpc.visual_mpc_core.infrastructure.utility.create_configs import CollectGoalImageSim
 import pickle
 
-def worker(conf):
+def worker(conf, iex=-1):
     print('started process with PID:', os.getpid())
     print('making trajectories {0} to {1}'.format(
         conf['start_index'],
