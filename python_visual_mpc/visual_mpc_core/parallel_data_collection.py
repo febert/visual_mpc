@@ -90,12 +90,12 @@ def main():
         hyperparams = conf.config
         hyperparams['bench_dir'] = experimentdir
     if args.nsplit != -1:
-        n_persplit = (hyperparams['end_index']+1)/args.nsplit
+        n_persplit = (hyperparams['end_index']+1)//args.nsplit
         hyperparams['start_index'] = args.isplit * n_persplit
         hyperparams['end_index'] = (args.isplit+1) * n_persplit -1
 
     n_traj = hyperparams['end_index'] - hyperparams['start_index'] +1
-    traj_per_worker = int(n_traj / np.float32(n_worker))
+    traj_per_worker = int(n_traj // np.float32(n_worker))
     start_idx = [hyperparams['start_index'] + traj_per_worker * i for i in range(n_worker)]
     end_idx = [hyperparams['start_index'] + traj_per_worker * (i+1)-1 for i in range(n_worker)]
 
