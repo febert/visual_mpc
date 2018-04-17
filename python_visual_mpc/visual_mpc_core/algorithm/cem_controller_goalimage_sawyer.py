@@ -471,11 +471,11 @@ class CEM_controller():
         current_frame = last_frames[0, ctxt - 1]
         if 'start' in self.policyparams['register_gtruth']:
             warped_image_goal, flow_field, goal_warp_pts = self.goal_image_warper(current_frame[None],
-                                                                                  self.goal_image[None])
+                                                                                  self.start_image[None])
             desig_l.append(np.flip(goal_warp_pts[0, self.goal_pix[0, 0], self.goal_pix[0, 1]], 0))
         if 'goal' in self.policyparams['register_gtruth']:
             warped_image_start, flow_field, start_warp_pts = self.goal_image_warper(current_frame[None],
-                                                                                    self.start_image[None])
+                                                                                    self.goal_image[None])
             desig_l.append(np.flip(start_warp_pts[0, self.desig_pix_t0[0, 0], self.desig_pix_t0[0, 1]], 0))
         self.desig_pix = np.stack(desig_l, 0)
         return warped_image_goal, warped_image_start
