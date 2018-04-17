@@ -143,7 +143,7 @@ class Visualizer_tkinter(object):
             print('processing key {}'.format(key))
             data = dict_[key]
 
-            if key ==  'ground_truth':  # special treatement for gtruth
+            if key == 'ground_truth':  # special treatement for gtruth
                 ground_truth = dict_['ground_truth']
                 if not isinstance(ground_truth, list):
                     ground_truth = np.split(ground_truth, ground_truth.shape[1], axis=1)
@@ -158,6 +158,14 @@ class Visualizer_tkinter(object):
                     self.video_list.append((ground_truth, 'Ground Truth', overlay_points))
                 else:
                     self.video_list.append((ground_truth, 'Ground Truth'))
+
+            elif 'overlay' in key:
+                print('visualizing overlay')
+                gen_images = data[0]
+                gen_distrib = data[1]
+                gen_distrib = color_code_distrib(gen_distrib, self.numex, renormalize=True)
+                overlay = compute_overlay(gen_images, gen_distrib, self.numex)
+                self.video_list.append((overlay, key))
 
             elif type(data[0]) is list or '_l' in key:    # for lists of videos
                 if 'masks' in key and not append_masks:

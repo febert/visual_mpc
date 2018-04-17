@@ -30,6 +30,7 @@ def find_mins_maxs(obj):
             minz = min(p[stl.Dimension.Z], minz)
     return minx, maxx, miny, maxy, minz, maxz
 
+
 def file_len(fname):
     i = 0
     with open(fname) as f:
@@ -50,7 +51,6 @@ def create_object_xml(hyperparams, load_dict_list=None):
 
     if 'object_meshes' in hyperparams:
         assets = ET.SubElement(root, "asset")
-    world_body = ET.SubElement(root, "worldbody")
 
     for i in range(hyperparams['num_objects']):
 
@@ -101,7 +101,7 @@ def create_object_xml(hyperparams, load_dict_list=None):
             object_pos[2] = -0.08 - scale * minz
 
             pos_str = "{} {} {}".format(object_pos[0], object_pos[1], object_pos[2])
-            obj = ET.SubElement(world_body, "body",name=obj_string, pos=pos_str)
+            obj = ET.SubElement(root, "body",name=obj_string, pos=pos_str)
             ET.SubElement(obj, "joint", type="free")
 
             ET.SubElement(assets, "mesh", name = obj_string + "_mesh", file = object_file, scale = "{} {} {}".format(scale, scale, scale))
@@ -114,7 +114,7 @@ def create_object_xml(hyperparams, load_dict_list=None):
             #     ET.SubElement(assets, "mesh", )
 
         else:
-            obj = ET.SubElement(world_body, "body", name="object{}".format(i), pos="0 0 0")
+            obj = ET.SubElement(root, "body", name="object{}".format(i), pos="0 0 0")
             ET.SubElement(obj, "joint", type="free")
 
 

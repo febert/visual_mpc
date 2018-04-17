@@ -10,13 +10,9 @@ from datetime import datetime
 import copy
 from python_visual_mpc.video_prediction.basecls.utils.visualize import add_crosshairs
 
+from python_visual_mpc.visual_mpc_core.algorithm.utils.make_visuals import make_visuals
 # from python_visual_mpc.video_prediction.utils_vpred.create_gif_lib import *
 
-from PIL import Image
-import pdb
-from python_visual_mpc.video_prediction.misc.makegifs2 import create_video_pixdistrib_gif
-from python_visual_mpc.video_prediction.utils_vpred.animate_tkinter import Visualizer_tkinter
-import matplotlib.pyplot as plt
 import collections
 
 
@@ -112,6 +108,30 @@ def construct_initial_sigma(policyparams):
     sigma = np.diag(diag)
     return sigma
 
+
+def truncate_movement(actions, policyparams):
+    if 'maxshift' in policyparams:
+        maxshift = policyparams['maxshift']
+    else:
+        maxshift = policyparams['initial_std']*2
+
+    if len(actions.shape) == 3:
+        actions[:,:,:2] = np.clip(actions[:,:,:2], -maxshift, maxshift)  # clip in units of meters
+        if actions.shape[-1] == 5: # if rotation is enabled
+            maxrot = np.pi / 4
+            actions[:, :, 3] = np.clip(actions[:, :, 3], -maxrot, maxrot)
+
+    elif len(actions.shape) == 2:
+        actions[:,:2] = np.clip(actions[:,:2], -maxshift, maxshift)  # clip in units of meters
+        if actions.shape[-1] == 5: # if rotation is enabled
+            maxrot = np.pi / 4
+            actions[:, 3] = np.clip(actions[:, 3], -maxrot, maxrot)
+    else:
+        raise NotImplementedError
+
+    return actions
+
+
 def get_mask_trafo_scores(policyparams, gen_distrib, goal_mask):
     scores = []
     bsize = gen_distrib[0].shape[0]
@@ -144,10 +164,8 @@ class CEM_controller():
         self.t = None
 
         if 'verbose' in self.policyparams:
-            if isinstance(self.policyparams['verbose'], int):
-                self.verbose = self.policyparams['verbose']
-            else: self.verbose = self.agentparams['T']
-        else: self.verbose = -1
+            self.verbose = True
+        else: self.verbose = False
 
         self.niter = self.policyparams['iterations']
 
@@ -155,22 +173,23 @@ class CEM_controller():
         self.naction_steps = self.policyparams['nactions']
         self.repeat = self.policyparams['repeat']
 
-        if self.policyparams['usenet']:
-            hyperparams = imp.load_source('hyperparams', self.policyparams['netconf'])
-            self.netconf = hyperparams.configuration
-            self.bsize = self.netconf['batch_size']
-            self.seqlen = self.netconf['sequence_length']
-            self.M = self.bsize
-            assert self.naction_steps * self.repeat == self.seqlen
-        else:
-            self.netconf = {}
-            self.M = 1
 
+        hyperparams = imp.load_source('hyperparams', self.policyparams['netconf'])
+        self.netconf = hyperparams.configuration
+        self.bsize = self.netconf['batch_size']
+        self.seqlen = self.netconf['sequence_length']
+        self.M = self.bsize
+        assert self.naction_steps * self.repeat == self.seqlen
+
+        self.ncontxt = self.netconf['context_frames']
+        
         self.predictor = predictor
         self.goal_image_warper = goal_image_warper
         self.goal_image = None
 
-        self.ndesig = 1
+        if 'ndesig' in self.netconf:
+            self.ndesig = self.netconf['ndesig']
+        else: self.ndesig = None
 
         self.K = 10  # only consider K best samples for refitting
 
@@ -238,17 +257,6 @@ class CEM_controller():
 
         return actions
 
-    def truncate_movement(self, actions):
-        if 'maxshift' in self.policyparams:
-            maxshift = self.policyparams['maxshift']
-        else:
-            maxshift = .09
-        actions[:,:,:2] = np.clip(actions[:,:,:2], -maxshift, maxshift)  # clip in units of meters
-
-        if self.adim == 5: # if rotation is enabled
-            maxrot = np.pi / 4
-            actions[:, :, 3] = np.clip(actions[:, :, 3], -maxrot, maxrot)
-        return actions
 
 
     def perform_CEM(self,last_frames, last_states, t):
@@ -269,7 +277,7 @@ class CEM_controller():
             if self.discrete_ind != None:
                 actions = self.discretize(actions)
             if 'no_action_bound' not in self.policyparams:
-                actions = self.truncate_movement(actions)
+                actions = truncate_movement(actions, self.policyparams)
 
             actions = np.repeat(actions, self.repeat, axis=1)
 
@@ -290,26 +298,32 @@ class CEM_controller():
             actioncosts = self.calc_action_cost(actions)
             scores += actioncosts
 
-            self.indices = scores.argsort()[:self.K]
-            self.bestindices_of_iter[itr] = self.indices
+            if 'exp_action_weighting' in self.policyparams:
+                temp = self.policyparams['exp_action_weighting']
+                scores = (scores-np.mean(scores))/np.std(scores)
+                exp_scores = np.exp(-scores*temp)
+                self.bestaction = np.sum(actions*exp_scores[:,None,None], axis=0)/np.sum(exp_scores)
+            else:
+                self.indices = scores.argsort()[:self.K]
+                self.bestindices_of_iter[itr] = self.indices
 
-            self.bestaction_withrepeat = actions[self.indices[0]]
-            self.plan_stat['scores_itr{}'.format(itr)] = scores
-            self.plan_stat['bestscore_itr{}'.format(itr)] = scores[self.indices[0]]
+                self.bestaction_withrepeat = actions[self.indices[0]]
+                self.plan_stat['scores_itr{}'.format(itr)] = scores
+                self.plan_stat['bestscore_itr{}'.format(itr)] = scores[self.indices[0]]
 
-            actions = actions.reshape(self.M, self.naction_steps, self.repeat, self.adim)
-            actions = actions[:,:,-1,:] #taking only one of the repeated actions
-            actions_flat = actions.reshape(self.M, self.naction_steps * self.adim)
+                actions = actions.reshape(self.M, self.naction_steps, self.repeat, self.adim)
+                actions = actions[:,:,-1,:] #taking only one of the repeated actions
+                actions_flat = actions.reshape(self.M, self.naction_steps * self.adim)
 
-            self.bestaction = actions[self.indices[0]]
-            # print 'bestaction:', self.bestaction
+                self.bestaction = actions[self.indices[0]]
+                # print 'bestaction:', self.bestaction
 
-            arr_best_actions = actions_flat[self.indices]  # only take the K best actions
-            self.sigma = np.cov(arr_best_actions, rowvar= False, bias= False)
-            self.mean = np.mean(arr_best_actions, axis= 0)
+                arr_best_actions = actions_flat[self.indices]  # only take the K best actions
+                self.sigma = np.cov(arr_best_actions, rowvar= False, bias= False)
+                self.mean = np.mean(arr_best_actions, axis= 0)
 
-            print('iter {0}, bestscore {1}'.format(itr, scores[self.indices[0]]))
-            print('action cost of best action: ', actioncosts[self.indices[0]])
+                print('iter {0}, bestscore {1}'.format(itr, scores[self.indices[0]]))
+                print('action cost of best action: ', actioncosts[self.indices[0]])
 
             print('overall time for iteration {}'.format(time.time() - t_startiter))
 
@@ -351,16 +365,31 @@ class CEM_controller():
 
     def video_pred(self, last_frames, last_states, actions, cem_itr):
         t_0 = time.time()
+
         last_states = np.expand_dims(last_states, axis=0)
         last_states = np.repeat(last_states, self.bsize, axis=0)
         last_frames = last_frames.astype(np.float32, copy=False) / 255.
         last_frames = np.expand_dims(last_frames, axis=0)
         last_frames = np.repeat(last_frames, self.bsize, axis=0)
-        app_zeros = np.zeros(shape=(self.bsize, self.seqlen-
-                                    self.netconf['context_frames'], self.img_height, self.img_width, 3), dtype=np.float32)
+        app_zeros = np.zeros(shape=(self.bsize, self.seqlen-self.netconf['context_frames'],
+                                    self.img_height, self.img_width, 3), dtype=np.float32)
         last_frames = np.concatenate((last_frames, app_zeros), axis=1)
 
-        if 'use_goal_image' in self.policyparams and 'comb_flow_warp' not in self.policyparams:
+        warped_image_goal, warped_image_start = None, None
+        if 'register_gtruth' in self.policyparams:
+            #register current image to startimage
+            ctxt = self.netconf['context_frames']
+            self.start_frame = copy.deepcopy(self.traj._sample_images[0]).astype(np.float32) / 255.
+            warped_image_goal, flow_field, goal_warp_pts = self.goal_image_warper(last_frames[0,ctxt-1][None], self.goal_image[None])
+            desig_pix_reggoal = np.flip(goal_warp_pts[0, self.goal_pix[0,0],self.goal_pix[0,1]], 0)
+            warped_image_start, flow_field, start_warp_pts = self.goal_image_warper(last_frames[0,ctxt-1][None],self.start_frame[None])
+            desig_pix_regstart = np.flip(start_warp_pts[0, self.desig_pix_t0[0,0], self.desig_pix_t0[0,1]], 0)
+
+            self.desig_pix = np.stack([desig_pix_regstart, desig_pix_reggoal])
+
+
+        if 'use_goal_image' in self.policyparams and 'comb_flow_warp' not in self.policyparams\
+                and 'register_gtruth' not in self.policyparams:
             input_distrib = None
         elif 'masktrafo_obj' in self.policyparams:
             curr_obj_mask = np.repeat(self.curr_obj_mask[None], self.netconf['context_frames'], axis=0).astype(np.float32)
@@ -369,7 +398,6 @@ class CEM_controller():
             input_distrib = self.make_input_distrib(cem_itr)
 
         print('t0 ', time.time() - t_0)
-
         t_startpred = time.time()
         gen_images, gen_distrib, gen_states, _ = self.predictor(input_images=last_frames,
                                                                 input_state=last_states,
@@ -381,19 +409,20 @@ class CEM_controller():
         t_startcalcscores = time.time()
         scores_per_task = []
 
-        if 'use_goal_image' in self.policyparams:
+        flow_fields, warped_images, goal_warp_pts_l = None, None, None
+        if 'use_goal_image' in self.policyparams and not 'register_gtruth' in self.policyparams:
             # evaluate images with goal-distance network
             goal_image = np.repeat(self.goal_image[None], self.bsize, axis=0)
             if 'MSE_objective' in self.policyparams:
                 scores = self.MSE_based_score(gen_images, goal_image)
             elif 'warp_objective' in self.policyparams:
-                flow_fields, scores, warp_pts_l, warped_images = self.flow_based_score(gen_images, goal_image)
+                flow_fields, scores, goal_warp_pts_l, warped_images = self.flow_based_score(gen_images, goal_image)
             warp_scores = copy.deepcopy(scores)
 
         if 'masktrafo_obj' in self.policyparams:
             scores = get_mask_trafo_scores(self.policyparams, gen_distrib, self.goal_mask)
 
-        if 'use_goal_image' not in self.policyparams or 'comb_flow_warp' in self.policyparams:
+        if 'use_goal_image' not in self.policyparams or 'comb_flow_warp' in self.policyparams or 'register_gtruth' in self.policyparams:
             for p in range(self.ndesig):
                 distance_grid = self.get_distancegrid(self.goal_pix[p])
                 scores_per_task.append(self.calc_scores(gen_distrib, distance_grid))
@@ -425,87 +454,13 @@ class CEM_controller():
         tstart_verbose = time.time()
 
         if self.verbose and cem_itr == self.policyparams['iterations']-1:
-            # if self.verbose:
-            # print 'creating visuals for best sampled actions at last iteration...'
-            if self.save_subdir != None:
-                file_path = self.netconf['current_dir']+ '/'+ self.save_subdir +'/verbose'
-            else:
-                file_path = self.netconf['current_dir'] + '/verbose'
-
-            if not os.path.exists(file_path):
-                os.makedirs(file_path)
-
-            def best(inputlist):
-                """
-                get the self.K videos with the lowest cost
-                :param inputlist:
-                :return:
-                """
-                outputlist = [np.zeros_like(a)[:self.K] for a in inputlist]
-                for ind in range(self.K):
-                    for tstep in range(len(inputlist)):
-                        outputlist[tstep][ind] = inputlist[tstep][bestindices[ind]]
-                return outputlist
-
-            def get_first_n(inputlist):
-                return [inp[:self.K] for inp in inputlist]
-
-            sel_func = best
-            t_dict_ = collections.OrderedDict()
-
-            if 'warp_objective' in self.policyparams:
-                warped_images = self.image_addgoalpix(warped_images)
-                gen_images = self.gen_images_addwarppix(gen_images,warp_pts_l)
-                warped_images = np.split(warped_images[bestindices[:self.K]], warped_images.shape[1], 1)
-                warped_images = list(np.squeeze(warped_images))
-                t_dict_['warped_im_t{}'.format(self.t)] = warped_images
-
-            if 'use_goal_image' not in self.policyparams or 'comb_flow_warp' in self.policyparams:
-                for p in range(self.ndesig):
-                    gen_distrib_p = [g[:, p] for g in gen_distrib]
-                    t_dict_['gen_distrib{}_t{}'.format(p, self.t)] = sel_func(gen_distrib_p)
-            t_dict_['gen_images_t{}'.format(self.t)] = sel_func(gen_images)
-
-            print('itr{} best scores: {}'.format(cem_itr, [scores[bestindices[ind]] for ind in range(self.K)]))
-            self.dict_.update(t_dict_)
-
-            if not 'no_instant_gif' in self.agentparams:
-
-                goal_image = [np.repeat(np.expand_dims(self.goal_image, axis=0), self.K, axis=0) for _ in
-                                         range(len(gen_images))]
-                t_dict_['goal_image'] = self.image_addgoalpix(goal_image)
-                v = Visualizer_tkinter(t_dict_, append_masks=False,
-                                       filepath=self.agentparams['record'] + '/plan/',
-                                       numex=self.K, suf='t{}iter_{}'.format(self.t, cem_itr))
-                # v.build_figure()
-                v.make_direct_vid()
-                if 'warp_objective' in self.policyparams:
-                    t_dict_['warp_pts_t{}'.format(self.t)] = sel_func(warp_pts_l)
-                    t_dict_['flow_fields{}'.format(self.t)] = flow_fields[bestindices[:self.K]]
-
+        # if self.verbose:
+            gen_images = make_visuals(self.t, actions, bestindices, cem_itr, flow_fields, gen_distrib, gen_images,
+                                           gen_states, last_frames, self.goal_image, goal_warp_pts_l, scores, warped_image_goal, warped_image_start,
+                                            warped_images, self.desig_pix, self.desig_pix_t0, self.goal_pix, self.agentparams, self.netconf, self.policyparams,
+                                            self.K, self.ndesig, self.save_subdir, self.dict_)
             if 'sawyer' in self.agentparams:
-                sorted_inds = scores.argsort()
-                bestind = sorted_inds[0]
-                middle = sorted_inds[sorted_inds.shape[0] / 2]
-                worst = sorted_inds[-1]
-                sel_ind =[bestind, middle, worst]
-                # t, r, c, 3
-                gen_im_l = []
-                gen_distrib_l = []
-                gen_score_l = []
-                for ind in sel_ind:
-                    gen_im_l.append(np.stack([im[ind] for im in gen_images], axis=0).flatten())
-                    gen_distrib_l.append(np.stack([d[ind] for d in gen_distrib], axis=0).flatten())
-                    gen_score_l.append(scores[ind])
-
-                gen_im_l = np.stack(gen_im_l, axis=0).flatten()
-                gen_distrib_l = np.stack(gen_distrib_l, axis=0).flatten()
-                gen_score_l = np.array(gen_score_l, dtype=np.float32)
-                # print 'gen_score_l', gen_score_l
-
-                self.gen_image_publisher.publish(gen_im_l)
-                self.gen_pix_distrib_publisher.publish(gen_distrib_l)
-                self.gen_score_publisher.publish(gen_score_l)
+                bestind = self.publish_sawyer(gen_distrib, gen_images, scores)
 
         if 'store_video_prediction' in self.agentparams and\
                 cem_itr == (self.policyparams['iterations']-1):
@@ -514,6 +469,28 @@ class CEM_controller():
         print('verbose time', time.time() - tstart_verbose)
 
         return scores
+
+    def publish_sawyer(self, gen_distrib, gen_images, scores):
+        sorted_inds = scores.argsort()
+        bestind = sorted_inds[0]
+        middle = sorted_inds[sorted_inds.shape[0] / 2]
+        worst = sorted_inds[-1]
+        sel_ind = [bestind, middle, worst]
+        # t, r, c, 3
+        gen_im_l = []
+        gen_distrib_l = []
+        gen_score_l = []
+        for ind in sel_ind:
+            gen_im_l.append(np.stack([im[ind] for im in gen_images], axis=0).flatten())
+            gen_distrib_l.append(np.stack([d[ind] for d in gen_distrib], axis=0).flatten())
+            gen_score_l.append(scores[ind])
+        gen_im_l = np.stack(gen_im_l, axis=0).flatten()
+        gen_distrib_l = np.stack(gen_distrib_l, axis=0).flatten()
+        gen_score_l = np.array(gen_score_l, dtype=np.float32)
+        self.gen_image_publisher.publish(gen_im_l)
+        self.gen_pix_distrib_publisher.publish(gen_distrib_l)
+        self.gen_score_publisher.publish(gen_score_l)
+        return bestind
 
     def MSE_based_score(self, gen_images, goal_image):
 
@@ -551,28 +528,16 @@ class CEM_controller():
 
         return flow_fields, scores, warp_pts_l, warped_images
 
-    def image_addgoalpix(self, image_l):
-        for ob in range(self.goal_pix.shape[0]):
-            goal_pix_ob = self.goal_pix[ob]
-            goal_pix_ob = np.tile(goal_pix_ob[None, None, :], [self.bsize, self.seqlen - 1, 1])
-            image_l = add_crosshairs(image_l, goal_pix_ob)
-        return image_l
-
-    def gen_images_addwarppix(self, gen_images, warp_pts_l):
-        warp_pts_arr = np.stack(warp_pts_l, axis=1)
-        for ob in range(self.agentparams['num_objects']):
-            warp_pts_ob = warp_pts_arr[:, :, self.goal_pix[ob, 0], self.goal_pix[ob, 1]]
-            gen_images = add_crosshairs(gen_images, np.flip(warp_pts_ob, 2))
-        return gen_images
-
     def calc_scores(self, gen_distrib, distance_grid):
         expected_distance = np.zeros(self.bsize)
         if 'rew_all_steps' in self.policyparams:
-            for tstep in range(self.seqlen - 1):
+            for tstep in range(self.ncontxt - 1, self.seqlen - 1):
                 t_mult = 1
                 if 'finalweight' in self.policyparams:
                     if tstep == self.seqlen - 2:
                         t_mult = self.policyparams['finalweight']
+                elif 'discount' in self.policyparams:
+                    t_mult = self.policyparams['discount']**tstep
 
                 for b in range(self.bsize):
                     gen = gen_distrib[tstep][b].squeeze() / np.sum(gen_distrib[tstep][b])
@@ -606,12 +571,15 @@ class CEM_controller():
         return input_distrib
 
     def get_recinput(self, itr, rec_input_distrib, desig):
-        if self.t < self.netconf['context_frames']:
+        ctxt = self.netconf['context_frames']
+        # if self.t < ctxt:
+        if len(rec_input_distrib) < ctxt:
             input_distrib = self.switch_on_pix(desig)
             if itr == 0:
-                rec_input_distrib.append(input_distrib[:, 1])
+                rec_input_distrib.append(input_distrib[:, 0])
         else:
-            input_distrib = [rec_input_distrib[-2], rec_input_distrib[-1]]
+            # input_distrib = [rec_input_distrib[-2], rec_input_distrib[-1]]
+            input_distrib = [rec_input_distrib[c] for c in range(-ctxt, 0)]
             input_distrib = [np.expand_dims(elem, axis=1) for elem in input_distrib]
             input_distrib = np.concatenate(input_distrib, axis=1)
         return input_distrib
@@ -624,35 +592,34 @@ class CEM_controller():
         """
         self.goal_mask = goal_mask
         self.goal_image = goal_image
-        if desig_pix is not None:
-            self.desig_pix = np.array(desig_pix).reshape((-1, 2))
-            self.ndesig = self.desig_pix.shape[0]
+        self.desig_pix = np.array(desig_pix).reshape((-1, 2))
 
         self.goal_pix = np.array(goal_pix).reshape((-1, 2))
-        self.goal_mask = goal_mask
+        if 'register_gtruth' in self.policyparams:
+            self.goal_pix = np.tile(self.goal_pix, [2,1])
+
         self.curr_obj_mask = curr_mask
+        self.traj = traj
 
         self.t = t
         print('starting cem at t{}...'.format(t))
 
         if t == 0:
             action = np.zeros(self.agentparams['adim'])
+            self.desig_pix_t0 = desig_pix
         else:
-            last_images = traj._sample_images[t - 1:t + 1]
+            ctxt = self.netconf['context_frames']
+            last_images = traj._sample_images[t-ctxt+1:t+1]  # same as [t - 1:t + 1] for context 2
 
             if 'use_vel' in self.netconf:
-                last_states = traj.X_Xdot_full[t-1: t+1]
-            else: last_states = traj.X_full[t - 1: t + 1]
+                last_states = traj.X_Xdot_full[t-ctxt+1:t+1]
+            else: last_states = traj.X_full[t-ctxt+1:t+1]
 
             if 'use_first_plan' in self.policyparams:
                 print('using actions of first plan, no replanning!!')
                 if t == 1:
                     self.perform_CEM(last_images, last_states, t)
-                else:
-                    # only showing last iteration
-                    self.bestindices_of_iter = self.bestindices_of_iter[-1, :].reshape((1, self.K))
                 action = self.bestaction_withrepeat[t - 1]
-
             else:
                 self.perform_CEM(last_images, last_states, t)
                 action = self.bestaction[0]

@@ -207,7 +207,7 @@ def main():
     conf = {}
 
     current_dir = os.path.dirname(os.path.realpath(__file__))
-    DATA_DIR = '/mnt/sda1/pushing_data/mj_pos_noreplan_fast_tfrec/train'
+    DATA_DIR = '/mnt/sda1/pushing_data/onpolicy/updown_sact/train'
     # DATA_DIR = '/mnt/sda1/pushing_data/cartgripper_mj1.5/train'
 
     conf['schedsamp_k'] = -1  # don't feed ground truth
@@ -227,7 +227,7 @@ def main():
     # conf['goal_image'] = ""
 
     conf['orig_size'] = [48, 64]
-    # conf['orig_size'] = [480, 640]
+    # conf['orig_size'] = [96, 128]
     # conf['load_vidpred_data'] = ''
     # conf['color_augmentation'] = ''
     # conf['test_metric'] = {'robot_pos': 1, 'object_pos': 2}
@@ -273,6 +273,9 @@ def main():
             print('tload{}'.format(time.time() - end))
             print('average time:', np.average(np.array(deltat)))
         end = time.time()
+
+        import sys
+        sys.exit()
 
         # show some frames
         # for b in range(conf['batch_size']):
