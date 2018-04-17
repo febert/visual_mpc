@@ -44,11 +44,12 @@ policy = {
     'initial_std': 0.08,        # std dev. in xy
     'initial_std_lift': 2.5,
     'netconf': current_dir + '/conf.py',
+    'gdnconf': current_dir + '/gdnconf.py',
     'iterations': 3,
     'action_cost_factor': 0,
     'rew_all_steps':"",
     'finalweight':10,
-    'register_gtruth':'',
+    'register_gtruth':['start','goal'],
 }
 
 tag_images = {'name': 'images',
