@@ -16,6 +16,7 @@ class Alex_Interface_Model(object):
         with open(os.path.join(conf['json_dir'], "model_hparams.json")) as f:
             model_hparams_dict = json.loads(f.read())
             model_hparams_dict.pop('num_gpus', None)  # backwards-compatibility
+            model_hparams_dict['ndesig'] = conf['ndesig']
 
         self.m = SAVPVideoPredictionModel(mode='test', hparams_dict=model_hparams_dict)
 
