@@ -108,6 +108,30 @@ def construct_initial_sigma(policyparams):
     sigma = np.diag(diag)
     return sigma
 
+
+def truncate_movement(actions, policyparams):
+    if 'maxshift' in policyparams:
+        maxshift = policyparams['maxshift']
+    else:
+        maxshift = policyparams['initial_std']*2
+
+    if len(actions.shape) == 3:
+        actions[:,:,:2] = np.clip(actions[:,:,:2], -maxshift, maxshift)  # clip in units of meters
+        if actions.shape[-1] == 5: # if rotation is enabled
+            maxrot = np.pi / 4
+            actions[:, :, 3] = np.clip(actions[:, :, 3], -maxrot, maxrot)
+
+    elif len(actions.shape) == 2:
+        actions[:,:2] = np.clip(actions[:,:2], -maxshift, maxshift)  # clip in units of meters
+        if actions.shape[-1] == 5: # if rotation is enabled
+            maxrot = np.pi / 4
+            actions[:, 3] = np.clip(actions[:, 3], -maxrot, maxrot)
+    else:
+        raise NotImplementedError
+
+    return actions
+
+
 def get_mask_trafo_scores(policyparams, gen_distrib, goal_mask):
     scores = []
     bsize = gen_distrib[0].shape[0]
@@ -233,17 +257,6 @@ class CEM_controller():
 
         return actions
 
-    def truncate_movement(self, actions):
-        if 'maxshift' in self.policyparams:
-            maxshift = self.policyparams['maxshift']
-        else:
-            maxshift = .09
-        actions[:,:,:2] = np.clip(actions[:,:,:2], -maxshift, maxshift)  # clip in units of meters
-
-        if self.adim == 5: # if rotation is enabled
-            maxrot = np.pi / 4
-            actions[:, :, 3] = np.clip(actions[:, :, 3], -maxrot, maxrot)
-        return actions
 
 
     def perform_CEM(self,last_frames, last_states, t):
@@ -264,7 +277,7 @@ class CEM_controller():
             if self.discrete_ind != None:
                 actions = self.discretize(actions)
             if 'no_action_bound' not in self.policyparams:
-                actions = self.truncate_movement(actions)
+                actions = truncate_movement(actions, self.policyparams)
 
             actions = np.repeat(actions, self.repeat, axis=1)
 
