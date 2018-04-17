@@ -98,7 +98,7 @@ class Sim(object):
 
         if 'save_raw_images' in self._hyperparams:
             ngroup = self._hyperparams['ngroup']
-            self.igrp = itr / ngroup
+            self.igrp = itr // ngroup
             self.group_folder = self._data_save_dir + '/traj_group{}'.format(self.igrp)
             if not os.path.exists(self.group_folder):
                 os.makedirs(self.group_folder)
@@ -112,6 +112,7 @@ class Sim(object):
                 shutil.rmtree(self.traj_folder)
 
             os.makedirs(self.traj_folder)
+            print('writing: ', self.traj_folder)
             os.makedirs(self.image_folder)
             os.makedirs(self.depth_image_folder)
 
