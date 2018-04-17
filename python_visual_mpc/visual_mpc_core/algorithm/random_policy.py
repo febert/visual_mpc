@@ -1,10 +1,12 @@
 """ This file defines the linear Gaussian policy class. """
 import numpy as np
+import scipy
 
 from python_visual_mpc.visual_mpc_core.algorithm.policy import Policy
 
 from scipy.stats import multivariate_normal
 from python_visual_mpc.visual_mpc_core.algorithm.cem_controller_goalimage_sawyer import construct_initial_sigma
+from python_visual_mpc.visual_mpc_core.algorithm.cem_controller_goalimage_sawyer import truncate_movement
 
 class Randompolicy(Policy):
     """
@@ -19,7 +21,7 @@ class Randompolicy(Policy):
 
         self.naction_steps = policyparams['nactions']
 
-    def act(self, traj, t, init_model=None, goal_ob_pose=None, agentparams=None):
+    def act(self, traj, t, init_model=None, goal_ob_pose=None, agentparams=None, goal_image=None):
 
         repeat = self.policyparams['repeats']  # repeat the same action to reduce number of repquired timesteps
         assert self.agentparams['T'] == self.naction_steps*repeat
@@ -37,7 +39,9 @@ class Randompolicy(Policy):
 
             if 'discrete_adim' in self.agentparams:
                 self.actions = discretize(self.actions, self.agentparams['discrete_adim'])
-                # print(self.actions)
+
+            if 'no_action_bound' not in self.policyparams:
+                self.actions = truncate_movement(self.actions, self.policyparams)
 
         return self.actions[t]
 

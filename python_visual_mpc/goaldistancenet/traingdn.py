@@ -26,9 +26,8 @@ IMAGE_INTERVAL = 5000
 SAVE_INTERVAL = 4000
 
 from python_visual_mpc.video_prediction.utils_vpred.variable_checkpoint_matcher import variable_checkpoint_matcher
-from .gdnet import GoalDistanceNet
+from python_visual_mpc.goaldistancenet.gdnet import GoalDistanceNet
 
-from .variants.temp_dividenconquer import Temp_DnC_GDnet
 
 if __name__ == '__main__':
     FLAGS = flags.FLAGS

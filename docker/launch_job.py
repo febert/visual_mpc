@@ -20,10 +20,11 @@ script_name = str.split(args.run_dir, '/')[-1]
 
 data = {}
 data["aceName"] = "nv-us-west-2"
-data["command"] =\
+data["command"] = \
 "cd /result && tensorboard --logdir . & \
  export VMPC_DATA_DIR=/mnt/pushing_data;\
  export TEN_DATA=/mnt/tensorflow_data;\
+ export ALEX_DATA=/mnt/pretrained_models;\
  export RESULT_DIR=/result;\
  export NO_ROS='';\
  export PATH=/opt/conda/bin:/usr/local/mpi/bin:/usr/local/nvidia/bin:/usr/local/cuda/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin;\
@@ -40,6 +41,9 @@ if 'benchmarks' in script_name or 'parallel_data_collection' in script_name:  #r
                              {"containerMountPoint": "/mnt/tensorflow_data/sim/pos_ctrl", "id": 8948},
                              {"containerMountPoint": "/mnt/tensorflow_data/sim/pos_ctrl_updown_rot_sact", "id": 8951},
                              {"containerMountPoint": "/mnt/tensorflow_data/sim/pos_ctrl_updown_sact", "id": 8950},
+                             {"containerMountPoint": "/mnt/tensorflow_data/gdn/startgoal_shad", "id": 9087},
+                             {"containerMountPoint": "/mnt/pretrained_models/bair_action_free/model.savp.transformation.flow.last_frames.2.generate_scratch_image.false.batch_size.16", "id": 9161},
+                             {"containerMountPoint": "/mnt/pushing_data/cartgripper_startgoal_masks6e4", "id": 9138},  # mj_pos_ctrl_appflow
                              {"containerMountPoint": "/mnt/pushing_data/cartgripper_startgoal_short", "id": 8949},  # mj_pos_ctrl_appflow
                              {"containerMountPoint": "/mnt/pushing_data/cartgripper_startgoal_masks", "id": 8914}]  # mj_pos_ctrl_appflow
     data["aceInstance"] = "ngcv8"

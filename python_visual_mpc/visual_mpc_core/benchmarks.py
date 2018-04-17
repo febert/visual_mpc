@@ -15,7 +15,13 @@ from python_visual_mpc import __file__ as python_vmpc_path
 from python_visual_mpc.data_preparation.gather_data import make_traj_name_list
 
 
-def perform_benchmark(conf = None, gpu_id=None):
+def perform_benchmark(conf = None, iex=-1, gpu_id=None):
+    """
+    :param conf:
+    :param iex:  if not -1 use only rollout this example
+    :param gpu_id:
+    :return:
+    """
     cem_exp_dir = '/'.join(str.split(python_vmpc_path, '/')[:-2])  + '/experiments/cem_exp'
 
     if conf != None:
@@ -71,17 +77,18 @@ def perform_benchmark(conf = None, gpu_id=None):
 
     sim = Sim(conf, gpu_id= gpu_id, ngpu= ngpu)
 
-    traj = conf['start_index']
-    nruns = conf['end_index']
-    print('started worker going from ind {} to in {}'.format(conf['start_index'], conf['end_index']))
-
-    # if 'verbose' in conf['policy']:
-    #     print 'verbose mode!! just running 1 configuration'
-    #     nruns = 1
+    if iex == -1:
+        traj = conf['start_index']
+        nruns = conf['end_index']
+        print('started worker going from ind {} to in {}'.format(conf['start_index'], conf['end_index']))
+    else:
+        traj = iex
+        nruns = iex
 
     scores_l = []
     anglecost_l = []
     improvment_l = []
+    initial_dist_l = []
 
     if 'sourcetags' in conf:  # load data per trajectory
         if 'VMPC_DATA_DIR' in os.environ:
@@ -108,6 +115,8 @@ def perform_benchmark(conf = None, gpu_id=None):
         sim.agent._hyperparams['object_pos0'] = dict['object_full_pose'][init_index]
         sim.agent.object_full_pose_t = dict['object_full_pose']
         sim.agent.goal_obj_pose = dict['object_full_pose'][goal_index]   #needed for calculating the score
+        if 'lift_object' in sim.agent._hyperparams:
+            sim.agent.goal_obj_pose[:,2] = sim.agent._hyperparams['targetpos_clip'][1][2]
         sim.agent.goal_image = dict['images'][goal_index]  # assign last image of trajectory as goalimage
         if 'goal_mask' in conf['agent']:
             sim.agent.goal_mask = dict['goal_mask'][goal_index]  # assign last image of trajectory as goalimage
@@ -126,9 +135,9 @@ def perform_benchmark(conf = None, gpu_id=None):
 
         # reinitilize policy between rollouts
         if 'usenet' in conf['policy']:
-            if 'warp_objective' in conf['policy']:
+            if 'warp_objective' in conf['policy'] or 'register_gtruth' in conf['policy']:
                 sim.policy = conf['policy']['type'](sim.agent._hyperparams,
-                                        conf['policy'], sim.predictor, sim.goal_image_waper)
+                                                    conf['policy'], sim.predictor, sim.goal_image_warper)
             else:
                 sim.policy = conf['policy']['type'](sim.agent._hyperparams,
                                                  conf['policy'], sim.predictor)
@@ -142,6 +151,7 @@ def perform_benchmark(conf = None, gpu_id=None):
         scores_l.append(sim.agent.final_poscost)
         anglecost_l.append(sim.agent.final_anglecost)
         improvment_l.append(sim.agent.improvement)
+        initial_dist_l.append(sim.agent.initial_poscost)
 
         print('improvement of traj{},{}'.format(traj, improvment_l[-1]))
         traj +=1 #increment trajectories every step!
@@ -149,37 +159,45 @@ def perform_benchmark(conf = None, gpu_id=None):
         score = np.array(scores_l)
         anglecost = np.array(anglecost_l)
         improvement = np.array(improvment_l)
+        initial_dist = np.array(initial_dist_l)
         sorted_ind = improvement.argsort()[::-1]
 
         pickle.dump({'improvement':improvement, 'scores':score, 'anglecost':anglecost}, open(scores_pkl_file, 'wb'))
+
+        mean_imp = np.mean(improvement)
+        med_imp = np.median(improvement)
+        mean_dist = np.mean(score)
+        med_dist = np.median(score)
 
         f = open(result_file, 'w')
         f.write('experiment name: ' + benchmark_name + '\n')
         f.write('overall best pos improvement: {0} of traj {1}\n'.format(improvement[sorted_ind[0]], sorted_ind[0]))
         f.write('overall worst pos improvement: {0} of traj {1}\n'.format(improvement[sorted_ind[-1]], sorted_ind[-1]))
-        f.write('average pos improvemnt: {0}\n'.format(np.mean(improvement)))
-        f.write('median pos improvement {}'.format(np.median(improvement)))
+        f.write('average pos improvemnt: {0}\n'.format(mean_imp))
+        f.write('median pos improvement {}'.format(med_imp))
         f.write('standard deviation of population {0}\n'.format(np.std(improvement)))
         f.write('standard error of the mean (SEM) {0}\n'.format(np.std(improvement)/np.sqrt(improvement.shape[0])))
         f.write('---\n')
-        f.write('average pos score: {0}\n'.format(np.mean(score)))
-        f.write('median pos score {}'.format(np.median(score)))
+        f.write('average pos score: {0}\n'.format(mean_dist))
+        f.write('median pos score {}'.format(med_dist))
         f.write('standard deviation of population {0}\n'.format(np.std(score)))
         f.write('standard error of the mean (SEM) {0}\n'.format(np.std(score)/np.sqrt(score.shape[0])))
+        f.write('---\n')
+        f.write('mean imp, med imp, mean dist, med dist {}, {}, {}, {}\n'.format(mean_imp, med_imp, mean_dist, med_dist))
+        f.write('---\n')
+        f.write('average initial dist: {0}\n'.format(np.mean(initial_dist)))
+        f.write('median initial dist: {0}\n'.format(np.median(initial_dist)))
         f.write('---\n')
         f.write('average angle cost: {0}\n'.format(np.mean(anglecost)))
         f.write('----------------------\n')
         f.write('traj: improv, score, anglecost, rank\n')
         f.write('----------------------\n')
+
         for n, t in enumerate(range(conf['start_index'], traj)):
             f.write('{}: {}, {}, {}, :{}\n'.format(t, improvement[n], score[n], anglecost[n], np.where(sorted_ind == n)[0][0]))
         f.close()
 
-    print('overall best improvement: {0} of traj {1}'.format(improvement[sorted_ind[0]], sorted_ind[0]))
-    print('overall worst improvement: {0} of traj {1}'.format(improvement[sorted_ind[-1]], sorted_ind[-1]))
-    print('overall average improvement:', np.sum(improvement)/improvement.shape)
-    print('standard deviation {0}\n'.format(np.sqrt(np.var(improvement))))
-
+    print('mean imp, med imp, mean dist, med dist {}, {}, {}, {}\n'.format(mean_imp, med_imp, mean_dist, med_dist))
 
 if __name__ == '__main__':
     perform_benchmark()

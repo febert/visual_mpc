@@ -30,7 +30,10 @@ class Sim(object):
         self.agent = config['agent']['type'](config['agent'])
         self.agentparams = config['agent']
 
+        if 'RESULT_DIR' in os.environ:
+            self.agentparams['data_save_dir'] = os.environ['RESULT_DIR'] + '/traindata'
         self._data_save_dir = self.agentparams['data_save_dir']
+
         self._timing_file = self._hyperparams['current_dir'] + '/timing_file{}.txt'.format(os.getpid())
 
         if 'netconf' in config['policy']:
@@ -43,11 +46,11 @@ class Sim(object):
             else:
                 self.predictor = netconf['setup_predictor'](netconf, gpu_id, ngpu)
 
-            if 'warp_objective' in config['policy']:
+            if 'warp_objective' in config['policy'] or 'register_gtruth' in config['policy']:
                 params = imp.load_source('params', config['policy']['gdnconf'])
                 gdnconf = params.configuration
-                self.goal_image_waper = setup_gdn(gdnconf, gpu_id)
-                self.policy = config['policy']['type'](config['agent'], config['policy'], self.predictor, self.goal_image_waper)
+                self.goal_image_warper = setup_gdn(gdnconf, gpu_id)
+                self.policy = config['policy']['type'](config['agent'], config['policy'], self.predictor, self.goal_image_warper)
             else:
                 self.policy = config['policy']['type'](config['agent'], config['policy'], self.predictor)
         else:
@@ -95,7 +98,7 @@ class Sim(object):
 
         if 'save_raw_images' in self._hyperparams:
             ngroup = self._hyperparams['ngroup']
-            self.igrp = itr / ngroup
+            self.igrp = itr // ngroup
             self.group_folder = self._data_save_dir + '/traj_group{}'.format(self.igrp)
             if not os.path.exists(self.group_folder):
                 os.makedirs(self.group_folder)
@@ -109,6 +112,7 @@ class Sim(object):
                 shutil.rmtree(self.traj_folder)
 
             os.makedirs(self.traj_folder)
+            print('writing: ', self.traj_folder)
             os.makedirs(self.image_folder)
             os.makedirs(self.depth_image_folder)
 
