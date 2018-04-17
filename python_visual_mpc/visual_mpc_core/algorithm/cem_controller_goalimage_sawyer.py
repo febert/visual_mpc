@@ -377,16 +377,7 @@ class CEM_controller():
 
         warped_image_goal, warped_image_start = None, None
         if 'register_gtruth' in self.policyparams:
-            #register current image to startimage
-            ctxt = self.netconf['context_frames']
-            self.start_frame = copy.deepcopy(self.traj._sample_images[0]).astype(np.float32) / 255.
-            warped_image_goal, flow_field, goal_warp_pts = self.goal_image_warper(last_frames[0,ctxt-1][None], self.goal_image[None])
-            desig_pix_reggoal = np.flip(goal_warp_pts[0, self.goal_pix[0,0],self.goal_pix[0,1]], 0)
-            warped_image_start, flow_field, start_warp_pts = self.goal_image_warper(last_frames[0,ctxt-1][None],self.start_frame[None])
-            desig_pix_regstart = np.flip(start_warp_pts[0, self.desig_pix_t0[0,0], self.desig_pix_t0[0,1]], 0)
-
-            self.desig_pix = np.stack([desig_pix_regstart, desig_pix_reggoal])
-
+            warped_image_goal, warped_image_start = self.register_gtruth(last_frames, warped_image_goal, warped_image_start)
 
         if 'use_goal_image' in self.policyparams and 'comb_flow_warp' not in self.policyparams\
                 and 'register_gtruth' not in self.policyparams:
@@ -456,9 +447,9 @@ class CEM_controller():
         if self.verbose and cem_itr == self.policyparams['iterations']-1:
         # if self.verbose:
             gen_images = make_visuals(self.t, actions, bestindices, cem_itr, flow_fields, gen_distrib, gen_images,
-                                           gen_states, last_frames, self.goal_image, goal_warp_pts_l, scores, warped_image_goal, warped_image_start,
-                                            warped_images, self.desig_pix, self.desig_pix_t0, self.goal_pix, self.agentparams, self.netconf, self.policyparams,
-                                            self.K, self.ndesig, self.save_subdir, self.dict_)
+                                      gen_states, last_frames, self.start_image, self.goal_image, goal_warp_pts_l, scores, warped_image_goal, warped_image_start,
+                                      warped_images, self.desig_pix, self.desig_pix_t0, self.goal_pix, self.agentparams, self.netconf, self.policyparams,
+                                      self.K, self.ndesig, self.save_subdir, self.dict_)
             if 'sawyer' in self.agentparams:
                 bestind = self.publish_sawyer(gen_distrib, gen_images, scores)
 
@@ -469,6 +460,25 @@ class CEM_controller():
         print('verbose time', time.time() - tstart_verbose)
 
         return scores
+
+    def register_gtruth(self, last_frames, warped_image_goal, warped_image_start):
+        assert len(self.policyparams['register_gtruth']) == self.ndesig
+        # register current image to startimage
+        ctxt = self.netconf['context_frames']
+        self.start_image = copy.deepcopy(self.traj._sample_images[0]).astype(np.float32) / 255.
+        desig_l = []
+
+        current_frame = last_frames[0, ctxt - 1]
+        if 'start' in self.policyparams['register_gtruth']:
+            warped_image_goal, flow_field, goal_warp_pts = self.goal_image_warper(current_frame[None],
+                                                                                  self.goal_image[None])
+            desig_l.append(np.flip(goal_warp_pts[0, self.goal_pix[0, 0], self.goal_pix[0, 1]], 0))
+        if 'goal' in self.policyparams['register_gtruth']:
+            warped_image_start, flow_field, start_warp_pts = self.goal_image_warper(current_frame[None],
+                                                                                    self.start_image[None])
+            desig_l.append(np.flip(start_warp_pts[0, self.desig_pix_t0[0, 0], self.desig_pix_t0[0, 1]], 0))
+        self.desig_pix = np.stack(desig_l, 0)
+        return warped_image_goal, warped_image_start
 
     def publish_sawyer(self, gen_distrib, gen_images, scores):
         sorted_inds = scores.argsort()
