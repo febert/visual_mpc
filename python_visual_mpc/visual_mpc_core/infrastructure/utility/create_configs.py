@@ -228,6 +228,7 @@ class CollectGoalImageSim(Sim):
             pos_disp = self.agentparams['pos_disp_range']
             angular_disp = self.agentparams['ang_disp_range']
 
+
             delta_pos = np.concatenate([np.random.uniform(-pos_disp, pos_disp, 2), np.zeros([1])])
             delta_alpha = np.random.uniform(-angular_disp, angular_disp)
 
@@ -235,6 +236,9 @@ class CollectGoalImageSim(Sim):
             curr_quat =  Quaternion(traj.Object_full_pose[t, iob, 3:])
             newquat = delta_rot*curr_quat
             newpos = traj.Object_full_pose[t, iob][:3] + delta_pos
+
+            if 'lift_object' in self.agentparams:
+                newpos[2] = 0.15
             newpos = np.clip(newpos, -0.35, 0.35)
 
             new_poses.append(np.concatenate([newpos, newquat.elements]))
