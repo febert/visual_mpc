@@ -164,19 +164,26 @@ def perform_benchmark(conf = None, iex=-1, gpu_id=None):
 
         pickle.dump({'improvement':improvement, 'scores':score, 'anglecost':anglecost}, open(scores_pkl_file, 'wb'))
 
+        mean_imp = np.mean(improvement)
+        med_imp = np.median(improvement)
+        mean_dist = np.mean(score)
+        med_dist = np.median(score)
+
         f = open(result_file, 'w')
         f.write('experiment name: ' + benchmark_name + '\n')
         f.write('overall best pos improvement: {0} of traj {1}\n'.format(improvement[sorted_ind[0]], sorted_ind[0]))
         f.write('overall worst pos improvement: {0} of traj {1}\n'.format(improvement[sorted_ind[-1]], sorted_ind[-1]))
-        f.write('average pos improvemnt: {0}\n'.format(np.mean(improvement)))
-        f.write('median pos improvement {}'.format(np.median(improvement)))
+        f.write('average pos improvemnt: {0}\n'.format(mean_imp))
+        f.write('median pos improvement {}'.format(med_imp))
         f.write('standard deviation of population {0}\n'.format(np.std(improvement)))
         f.write('standard error of the mean (SEM) {0}\n'.format(np.std(improvement)/np.sqrt(improvement.shape[0])))
         f.write('---\n')
-        f.write('average pos score: {0}\n'.format(np.mean(score)))
-        f.write('median pos score {}'.format(np.median(score)))
+        f.write('average pos score: {0}\n'.format(mean_dist))
+        f.write('median pos score {}'.format(med_dist))
         f.write('standard deviation of population {0}\n'.format(np.std(score)))
         f.write('standard error of the mean (SEM) {0}\n'.format(np.std(score)/np.sqrt(score.shape[0])))
+        f.write('---\n')
+        f.write('mean imp, med imp, mean dist, med dist {}, {}, {}, {}\n'.format(mean_imp, med_imp, mean_dist, med_dist))
         f.write('---\n')
         f.write('average initial dist: {0}\n'.format(np.mean(initial_dist)))
         f.write('median initial dist: {0}\n'.format(np.median(initial_dist)))
@@ -185,15 +192,12 @@ def perform_benchmark(conf = None, iex=-1, gpu_id=None):
         f.write('----------------------\n')
         f.write('traj: improv, score, anglecost, rank\n')
         f.write('----------------------\n')
+
         for n, t in enumerate(range(conf['start_index'], traj)):
             f.write('{}: {}, {}, {}, :{}\n'.format(t, improvement[n], score[n], anglecost[n], np.where(sorted_ind == n)[0][0]))
         f.close()
 
-    print('overall best improvement: {0} of traj {1}'.format(improvement[sorted_ind[0]], sorted_ind[0]))
-    print('overall worst improvement: {0} of traj {1}'.format(improvement[sorted_ind[-1]], sorted_ind[-1]))
-    print('overall average improvement:', np.sum(improvement)/improvement.shape)
-    print('standard deviation {0}\n'.format(np.sqrt(np.var(improvement))))
-
+    print('mean imp, med imp, mean dist, med dist {}, {}, {}, {}\n'.format(mean_imp, med_imp, mean_dist, med_dist))
 
 if __name__ == '__main__':
     perform_benchmark()
