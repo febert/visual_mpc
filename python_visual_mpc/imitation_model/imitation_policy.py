@@ -4,8 +4,9 @@ import importlib.util
 import tensorflow as tf
 import os
 import numpy as np
-import cv2
+
 class ImitationPolicy(Policy):
+    MODEL_CREATION = False
     def __init__(self, agentparams, policyparams):
         Policy.__init__(self)
         self.agentparams = agentparams
@@ -29,10 +30,16 @@ class ImitationPolicy(Policy):
         images_pl = tf.placeholder(tf.uint8, [1, None, self.img_height, self.img_width, 3])
         actions = tf.placeholder(tf.float32, [1, None, self.adim])
         end_effector_pos_pl = tf.placeholder(tf.float32, [1, None, self.sdim])
+        if ImitationPolicy.MODEL_CREATION:
+            with tf.variable_scope('model', reuse=True) as training_scope:
+                self.model = self.net_config['model'](self.net_config, images_pl, actions, end_effector_pos_pl)
+                self.model.build(is_Test=True)
+        else:
+            with tf.variable_scope('model', reuse=None) as training_scope:
+                self.model = self.net_config['model'](self.net_config, images_pl, actions, end_effector_pos_pl)
+                self.model.build(is_Test=True)
 
-        with tf.variable_scope('model', reuse=None) as training_scope:
-            self.model = self.net_config['model'](self.net_config, images_pl, actions, end_effector_pos_pl)
-            self.model.build(is_Test=True)
+            ImitationPolicy.MODEL_CREATION = True
 
         vars = tf.get_collection(tf.GraphKeys.GLOBAL_VARIABLES)
         saver = tf.train.Saver(vars, max_to_keep=0)
@@ -45,7 +52,7 @@ class ImitationPolicy(Policy):
 
 
 
-    def act(self, traj, t, init_model = None, goal_object_pose = None, hyperparams = None):
+    def act(self, traj, t, init_model = None, goal_object_pose = None, hyperparams = None, goal_image = None):
         sample_images = traj._sample_images[:t + 1].reshape((1, -1, self.img_height, self.img_width, 3))
         sample_eep = traj.target_qpos[:t + 1, :].reshape((1, -1, self.sdim)).astype(np.float32)
 

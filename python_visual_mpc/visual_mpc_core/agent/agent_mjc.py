@@ -299,7 +299,10 @@ class AgentMuJoCo(object):
         img.save(self._hyperparams['save_goal_image'] + '.png',)
 
     def eval_action(self, traj, t):
-
+        if 'ztarget' in self._hyperparams:
+            obj_z = traj.Object_full_pose[t, 0, 2]
+            pos_score = np.abs(obj_z - self._hyperparams['ztarget'])
+            return pos_score, 0.
         abs_distances = []
         abs_angle_dist = []
 

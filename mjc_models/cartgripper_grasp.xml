@@ -84,15 +84,14 @@
             <!--</body>-->
         </body>
 
-        <!--begin_auto_replace -->
-        <include file="objects.xml"/>
-        <!--end_auto_replace -->
-
         <body name="light_body0" pos="0 0  1">
              <light name="light0" mode="fixed" directional="false" active="true" castshadow="true"/>
         </body>
     </worldbody>
 
+    <!--begin_auto_replace -->
+        <include file="objects.xml"/>
+    <!--end_auto_replace -->
 
     <actuator>
         <position joint="slide_x" ctrllimited="false" kp="200"/>

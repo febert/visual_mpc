@@ -51,7 +51,7 @@ def create_object_xml(hyperparams, load_dict_list=None):
 
     if 'object_meshes' in hyperparams:
         assets = ET.SubElement(root, "asset")
-
+    world_body = ET.SubElement(root, "worldbody")
     for i in range(hyperparams['num_objects']):
 
 
@@ -114,7 +114,7 @@ def create_object_xml(hyperparams, load_dict_list=None):
             #     ET.SubElement(assets, "mesh", )
 
         else:
-            obj = ET.SubElement(root, "body", name="object{}".format(i), pos="0 0 0")
+            obj = ET.SubElement(world_body, "body", name="object{}".format(i), pos="0 0 0")
             ET.SubElement(obj, "joint", type="free")
 
 
