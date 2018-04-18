@@ -171,7 +171,7 @@ class DeterministicGraspPolicy(Policy):
 
         #print "end", self.CEM_model.data.qpos[:4].squeeze()
 
-    def act(self, traj, t, init_model = None, goal_object_pose = None, hyperparams = None):
+    def act(self, traj, t, init_model = None, goal_object_pose = None, hyperparams = None, goal_image = None):
         self.setup_CEM_model(t, init_model)
 
         if t == 0:

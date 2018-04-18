@@ -48,8 +48,8 @@ agent = {
     'num_objects': 1,
     'novideo':'',
     'gen_xml':5,   #generate xml every nth trajecotry
-    'randomize_ballinitpos':'',
-    'pos_disp_range':0.5,
+    'init_arm_near_obj': 0.3, #randomize x, y
+    'pos_disp_range':0.,
     'ang_disp_range':np.pi/8,
     'arm_disp_range':0.2,
     'lift_object':''
