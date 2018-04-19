@@ -241,9 +241,8 @@ class AgentMuJoCo(object):
                 self.hf_qpos_l.append(copy.deepcopy(self.sim.data.qpos))
                 self.hf_target_qpos_l.append(copy.deepcopy(ctrl))
 
-            traj.goal_dist.append(self.eval_action(traj, t)[0])
-
-        # print('obj gripper dist', np.sqrt(np.sum(np.power(traj.Object_pose[-1, 0, :2] - traj.X_full[-1, :2], 2))))
+            if self.goal_obj_pose is not None:
+                traj.goal_dist.append(self.eval_action(traj, t)[0])
 
         # only save trajectories which displace objects above threshold
         if 'displacement_threshold' in self._hyperparams:
@@ -389,8 +388,6 @@ class AgentMuJoCo(object):
         if 'cameras' in self._hyperparams:
             for i, cam in enumerate(self._hyperparams['cameras']):
                 large_img = self.sim.render(width, height, camera_name=cam)[::-1, :, :]
-                plt.imshow(large_img)
-                plt.show()
                 if np.sum(large_img) < 1e-3:
                     print("image dark!!!")
                     raise Image_dark_except
