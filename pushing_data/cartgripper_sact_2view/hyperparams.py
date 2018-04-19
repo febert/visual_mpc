@@ -23,8 +23,8 @@ folder_name = '/'.join(str.split(__file__, '/')[-2:-1])
 agent = {
     'type': AgentMuJoCo,
     'data_save_dir': '/mnt/sda1/pushing_data/' + folder_name + '/train',
-    'filename': DATA_DIR+'/mjc_models/cartgripper_updown.xml',
-    'filename_nomarkers': DATA_DIR+'/mjc_models/cartgripper_updown.xml',
+    'filename': DATA_DIR+'/mjc_models/cartgripper_updown_2cam.xml',
+    'filename_nomarkers': DATA_DIR+'/mjc_models/cartgripper_updown_2cam.xml',
     'cameras':['maincam','leftcam'],
     'not_use_images':"",
     'sample_objectpos':'',
@@ -62,7 +62,7 @@ policy = {
 }
 
 config = {
-    'traj_per_file': 1,
+    'traj_per_file': 32,
     'current_dir':current_dir,
     'save_data': True,
     'start_index':0,

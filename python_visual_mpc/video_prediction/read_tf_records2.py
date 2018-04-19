@@ -6,7 +6,8 @@ import matplotlib.pyplot as plt
 
 import pdb
 import time
-
+from python_visual_mpc.video_prediction.utils_vpred.create_gif_lib import assemble_gif
+from python_visual_mpc.video_prediction.utils_vpred.create_gif_lib import npy_to_gif
 from PIL import Image
 import imp
 
@@ -93,17 +94,23 @@ def build_tfrecord_input(conf, training=True, input_file=None, shuffle=True):
         rand_s = tf.random_uniform([1], minval=-0.2, maxval=0.2)
         rand_v = tf.random_uniform([1], minval=-0.2, maxval=0.2)
 
+        features_name = {}
+
         for i in load_indx:
 
-            image_name = str(i) + '/image_view0/encoded'
+            image_names = []
+            if 'ncam' in conf:
+                ncam = conf['ncam']
+            else: ncam = 1
+
+            for icam in range(ncam):
+                image_names.append(str(i) + '/image_view{}/encoded'.format(icam))
+                features_name[image_names[-1]] = tf.FixedLenFeature([1], tf.string)
 
             if 'image_only' not in conf:
                 action_name = str(i) + '/action'
                 endeffector_pos_name = str(i) + '/endeffector_pos'
 
-            features_name = {
-                image_name: tf.FixedLenFeature([1], tf.string),
-            }
 
             if 'image_only' not in conf:
                 features_name[action_name] = tf.FixedLenFeature([adim], tf.float32)
@@ -124,21 +131,24 @@ def build_tfrecord_input(conf, training=True, input_file=None, shuffle=True):
 
             features = tf.parse_single_example(serialized_example, features=features_name)
 
-            image = decode_im(conf, features, image_name)
+            images_t = []
+            for image_name in image_names:
+                image = decode_im(conf, features, image_name)
 
-            if 'color_augmentation' in conf:
-                # print 'performing color augmentation'
-                image_hsv = tf.image.rgb_to_hsv(image)
-                img_stack = [tf.unstack(imag, axis=2) for imag in tf.unstack(image_hsv, axis=0)]
-                stack_mod = [tf.stack([x[0] + rand_h,
-                                       x[1] + rand_s,
-                                       x[2] + rand_v]
-                                      , axis=2) for x in img_stack]
+                if 'color_augmentation' in conf:
+                    # print 'performing color augmentation'
+                    image_hsv = tf.image.rgb_to_hsv(image)
+                    img_stack = [tf.unstack(imag, axis=2) for imag in tf.unstack(image_hsv, axis=0)]
+                    stack_mod = [tf.stack([x[0] + rand_h,
+                                           x[1] + rand_s,
+                                           x[2] + rand_v]
+                                          , axis=2) for x in img_stack]
 
-                image_rgb = tf.image.hsv_to_rgb(tf.stack(stack_mod))
-                image = tf.clip_by_value(image_rgb, 0.0, 1.0)
+                    image_rgb = tf.image.hsv_to_rgb(tf.stack(stack_mod))
+                    image = tf.clip_by_value(image_rgb, 0.0, 1.0)
+                images_t.append(image)
 
-            image_seq.append(image)
+            image_seq.append(tf.stack(images_t, axis=1))
 
             if 'image_only' not in conf:
                 endeffector_pos = tf.reshape(features[endeffector_pos_name], shape=[1, sdim])
@@ -160,7 +170,7 @@ def build_tfrecord_input(conf, training=True, input_file=None, shuffle=True):
 
         return_dict = {}
         image_seq = tf.concat(values=image_seq, axis=0)
-        return_dict['images'] = image_seq
+        return_dict['images'] = tf.squeeze(image_seq)
 
         if 'goal_image' in conf:
             features_name = {}
@@ -207,7 +217,7 @@ def main():
     conf = {}
 
     current_dir = os.path.dirname(os.path.realpath(__file__))
-    DATA_DIR = '/mnt/sda1/pushing_data/onpolicy/updown_sact_bounded_disc/train'
+    DATA_DIR = '/mnt/sda1/pushing_data/cartgripper_sact_2view/train'
     # DATA_DIR = '/mnt/sda1/pushing_data/cartgripper_mj1.5/train'
 
     conf['schedsamp_k'] = -1  # don't feed ground truth
@@ -215,9 +225,10 @@ def main():
     conf['skip_frame'] = 1
     conf['train_val_split']= 0.95
     conf['sequence_length']= 15 #48      # 'sequence length, including context frames.'
-    conf['batch_size']= 10
+    conf['batch_size']= 2
     conf['visualize']= False
     conf['context_frames'] = 2
+    conf['ncam'] = 2
 
     # conf['row_start'] = 15
     # conf['row_end'] = 63
@@ -258,7 +269,14 @@ def main():
         [images] = sess.run([dict['images']])
 
         file_path = '/'.join(str.split(DATA_DIR, '/')[:-1]+['preview'])
-        comp_single_video(file_path, images, num_exp=conf['batch_size'])
+
+        if 'ncam' in conf:
+            vidlist = []
+            for i in range(images.shape[2]):
+                video = [v.squeeze() for v in np.split(images[:,:,i],images.shape[1], 1)]
+                vidlist.append(video)
+            npy_to_gif(assemble_gif(vidlist, num_exp=conf['batch_size']), file_path)
+        else: comp_single_video(file_path, images, num_exp=conf['batch_size'])
         #
         # for i in range(5):
         #     plt.imshow(goal_image.squeeze()[i])
@@ -297,8 +315,7 @@ def main():
             #     print b
             #     plt.imshow(images[b,0])
             #     plt.show()
-
-            # plt.imshow(images[0, 0])
+# plt.imshow(images[0, 0])
             # plt.show()
             #
             # pdb.set_trace()
