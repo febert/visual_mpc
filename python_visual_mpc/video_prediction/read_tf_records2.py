@@ -207,7 +207,7 @@ def main():
     conf = {}
 
     current_dir = os.path.dirname(os.path.realpath(__file__))
-    DATA_DIR = '/mnt/sda1/pushing_data/onpolicy/updown_sact/train'
+    DATA_DIR = '/mnt/sda1/pushing_data/onpolicy/updown_sact_bounded_disc/train'
     # DATA_DIR = '/mnt/sda1/pushing_data/cartgripper_mj1.5/train'
 
     conf['schedsamp_k'] = -1  # don't feed ground truth

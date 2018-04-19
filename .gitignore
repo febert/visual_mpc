@@ -167,3 +167,12 @@ timing_file*
 autogen.json
 
 joblob.log
+
+score.png
+score_histo.txt
+imp_vs_dist.png
+improvement.png
+improvement_histo.txt
+fail_class.txt
+
+
