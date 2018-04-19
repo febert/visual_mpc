@@ -30,7 +30,7 @@ agent = {
     'xpos0': np.array([0., 0., 0.05, 0., 0., 0.]), #initialize state dimension to 5 zeros
     'dt': 0.05,
     'substeps': 200,  #6
-    'T': 20,
+    'T': 15,
     'skip_first': 40,   #skip first N time steps to let the scene settle
     'additional_viewer': False,
     'image_height' : 48,
@@ -46,27 +46,27 @@ agent = {
     'posmode':'abs',
     'ztarget':0.13,
     'min_z_lift':0.05,
-    #'make_final_gif':'', #keep this key in if you want final gif to be created
+    'make_final_gif':'', #keep this key in if you want final gif to be created
     'record': BASE_DIR + '/record/',
     'targetpos_clip':[[-0.5, -0.5, -0.08, -np.pi*2, 0], [0.5, 0.5, 0.15, np.pi*2, 0.1]],
     'mode_rel':np.array([True, True, True, True, False]),
-    #'object_meshes':['hubble_model_kit_1'] #folder to original object + convex approximation
+    'object_meshes':['giraffe'] #folder to original object + convex approximation
     # 'displacement_threshold':0.1,
 }
 
 policy = {
     'type' : DeterministicGraspPolicy,
     'nactions': 15,
-    'iterations':1,
+    'iterations':5,
     'repeats': 5, # number of repeats for each action
     'xyz_std': 1e-1,   #std dev. in xy
-    'angle_std': 2e-1,   #std dev. in xy
+    'angle_std': 2e-2,   #std dev. in xy
     'debug_viewer':False,
-    'num_samples':20,
+    'num_samples':50,
     'best_to_take':5,
     'drop_thresh':0.02,
     'init_mean':np.zeros(3),
-    'init_cov':np.diag(np.array([(3.14 / 4) ** 2, 1e-3, 1e-3])),
+    'init_cov':np.diag(np.array([(3.14 / 2) ** 2, 1e-3, 1e-3])),
     'stop_iter_thresh':0.09,
     'max_norm':0.2
     # 'initial_std_grasp': 1e-5,   #std dev. in xy

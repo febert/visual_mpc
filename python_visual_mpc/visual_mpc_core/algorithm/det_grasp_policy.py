@@ -2,7 +2,8 @@ import numpy as np
 
 from python_visual_mpc.visual_mpc_core.algorithm.policy import Policy
 from mujoco_py import load_model_from_xml,load_model_from_path, MjSim, MjViewer
-import  matplotlib.pyplot as plt
+import os
+from python_visual_mpc.video_prediction.misc.makegifs2 import npy_to_gif
 class DeterministicGraspPolicy(Policy):
     def __init__(self, agentparams, policyparams):
         Policy.__init__(self)
@@ -31,6 +32,8 @@ class DeterministicGraspPolicy(Policy):
         if 'iterations' in self.policyparams:
             self.niter = self.policyparams['iterations']
         else: self.niter = 10  # number of iterations
+        self.imgs = []
+        self.iter = 0
 
     def setup_CEM_model(self, t, init_model):
         if t == 0:
@@ -40,16 +43,7 @@ class DeterministicGraspPolicy(Policy):
             else:
                 self.CEM_model = MjSim(load_model_from_path(self.agentparams['filename']))
 
-            if 'debug_viewer' in self.policyparams and self.policyparams['debug_viewer']:
-                # CEM viewer for debugging purposes
-                gofast = True
-                self.viewer = mujoco_py.MjViewer(visible=True,
-                                                 init_width=700,
-                                                 init_height=480,
-                                                 go_fast=gofast)
-                self.viewer.set_model(self.CEM_model)
-                self.viewer.start()
-                self.viewer.cam.camid = 0
+
 
         self.initial_qpos = init_model.data.qpos.copy()
         self.initial_qvel = init_model.data.qvel.copy()
@@ -57,22 +51,35 @@ class DeterministicGraspPolicy(Policy):
         self.reset_CEM_model()
 
     def reset_CEM_model(self):
+        if len(self.imgs) > 0:
+            print('saving iter', self.iter, 'with frames:', len(self.imgs))
+            npy_to_gif(self.imgs, os.path.join(self.agentparams['record'], 'iter_{}'.format(self.iter)))
+            self.iter += 1
+
+
         sim_state = self.CEM_model.get_state()
         sim_state.qpos[:] = self.initial_qpos.copy()
         sim_state.qvel[:] = self.initial_qvel.copy()
         self.CEM_model.set_state(sim_state)
 
-        self.prev_target = self.CEM_model.data.qpos[:self.adim].squeeze()
-        self.target = self.CEM_model.data.qpos[:self.adim].squeeze()
+        self.prev_target = self.CEM_model.data.qpos[:self.adim].squeeze().copy()
+        self.target = self.CEM_model.data.qpos[:self.adim].squeeze().copy()
 
+        for _ in range(5):
+            self.step_model(self.target)
 
-        self.viewer_refresh()
+        self.imgs = []
 
     def viewer_refresh(self):
         if 'debug_viewer' in self.policyparams and self.policyparams['debug_viewer']:
-            self.viewer.loop_once()
+            large_img = self.CEM_model.render(640, 480, camera_name="maincam")[::-1, :, :]
+            self.imgs.append(large_img)
 
     def perform_CEM(self, targetxy):
+        self.reset_CEM_model()
+
+        if 'object_meshes' in self.agentparams:
+            targetxy = self.CEM_model.data.sensordata[:2].squeeze().copy()
         print('Beginning CEM')
         ang_dis_mean = self.policyparams['init_mean'].copy()
         ang_dis_cov = self.policyparams['init_cov'].copy()
@@ -93,6 +100,9 @@ class DeterministicGraspPolicy(Policy):
 
                 angle_delta = ang_disp_samps[s, 0]
                 targetxy_delta = targetxy + ang_disp_samps[s, 1:]
+                print('init iter')
+                print(targetxy)
+                print(angle_delta, targetxy_delta)
                 for t in range(self.n_actions):
                     angle_action = np.zeros(self.adim)
                     cur_xy = self.CEM_model.data.qpos[:2].squeeze()
@@ -132,7 +142,14 @@ class DeterministicGraspPolicy(Policy):
                     self.step_model(angle_action)
                 # print 'final z', self.CEM_model.data.qpos[8].squeeze(), 'with angle', angle_samps[s]
 
-                scores[s] = self.CEM_model.data.qpos[8].squeeze() - 0.1 * np.abs(angle_delta)
+                if 'object_meshes' in self.agentparams:
+                    obj_z = self.CEM_model.data.sensordata[2].squeeze()
+                else:
+                    obj_z = self.CEM_model.data.qpos[8].squeeze()
+
+                print('obj_z at iter', n * self.M + s, 'is', obj_z)
+
+                scores[s] = obj_z
 
                 if 'stop_iter_thresh' in self.policyparams and scores[s] > self.policyparams['stop_iter_thresh']:
                     return ang_disp_samps[s, 0], ang_disp_samps[s, 1:]
@@ -311,9 +328,6 @@ class DeterministicGraspPolicy(Policy):
                 actions[4] = -100
             else:
                 actions[4] = 21
-
-        if 'debug_viewer' in self.policyparams and self.policyparams['debug_viewer'] and t == self.agentparams['T'] - 1:
-            self.viewer.finish()
 
         if 'angle_std' in self.policyparams:
             actions[3] += self.policyparams['angle_std'] * np.random.normal()

@@ -152,12 +152,13 @@ class AgentMuJoCo(object):
         if 'gen_xml' in self._hyperparams:
             traj.obj_statprop = self.obj_statprop
 
+
         # apply action of zero for the first few steps, to let the scene settle
         for t in range(self._hyperparams['skip_first']):
             for _ in range(self._hyperparams['substeps']):
                 ctrl = np.zeros(self._hyperparams['adim'])
                 if 'posmode' in self._hyperparams:
-                    #keep gripper at default x,y positions
+                    # keep gripper at default x,y positions
                     ctrl[:3] = self.sim.data.qpos[:3].squeeze()
                 self.sim.data.ctrl[:] = ctrl
                 self.sim.step()
@@ -170,16 +171,19 @@ class AgentMuJoCo(object):
 
         self.gripper_closed = False
         self.gripper_up = False
-
         # Take the sample.
         for t in range(self.T):
             qpos_dim = self.sdim // 2  # the states contains pos and vel
-            traj.X_full[t, :] = self.sim.data.qpos[:qpos_dim].squeeze()
-            traj.Xdot_full[t, :] = self.sim.data.qvel[:qpos_dim].squeeze()
+            traj.X_full[t, :] = self.sim.data.qpos[:qpos_dim].squeeze().copy()
+            traj.Xdot_full[t, :] = self.sim.data.qvel[:qpos_dim].squeeze().copy()
             traj.X_Xdot_full[t, :] = np.concatenate([traj.X_full[t, :], traj.Xdot_full[t, :]])
             assert self.sim.data.qpos.shape[0] == qpos_dim + 7 * self._hyperparams['num_objects']
             for i in range(self._hyperparams['num_objects']):
-                fullpose = self.sim.data.qpos[i * 7 + qpos_dim:(i + 1) * 7 + qpos_dim].squeeze()
+                fullpose = self.sim.data.qpos[i * 7 + qpos_dim:(i + 1) * 7 + qpos_dim].squeeze().copy()
+
+                if 'object_meshes' in self._hyperparams:
+                    fullpose[:3] = self.sim.data.sensordata[i * 3 :(i + 1) * 3].copy()
+
                 traj.Object_full_pose[t, i, :] = fullpose
                 zangle = self.quat_to_zangle(fullpose[3:])
                 traj.Object_pose[t, i, :] = np.concatenate([fullpose[:2], zangle])  # save only xyz, theta
@@ -240,6 +244,10 @@ class AgentMuJoCo(object):
 
                 self.sim.data.ctrl[:] = ctrl
                 self.sim.step()
+                # width = self._hyperparams['viewer_image_width']
+                # height = self._hyperparams['viewer_image_height']
+                # cv2.imwrite('test{}.png'.format(t * self._hyperparams['substeps'] + st), self.sim.render(width, height, camera_name="maincam")[::-1, :, ::-1])
+
                 self.hf_qpos_l.append(copy.deepcopy(self.sim.data.qpos))
                 self.hf_target_qpos_l.append(copy.deepcopy(ctrl))
 
@@ -266,7 +274,7 @@ class AgentMuJoCo(object):
         end_zpos = [traj.Object_full_pose[-1, i, 2] for i in range(self._hyperparams['num_objects'])]
         if any(zval < -2e-2 for zval in end_zpos):
             print('object fell out!!!')
-            traj_ok = False
+            traj_ok = True
         # self.plot_ctrls()
         return traj_ok, traj
 
