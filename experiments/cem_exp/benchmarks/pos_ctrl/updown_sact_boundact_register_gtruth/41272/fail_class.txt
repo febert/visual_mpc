@@ -1,0 +1,4 @@
+30: warp from arm. Init desig pixel on arm
+2: Object slip through fingers, occlusion
+3: warp from arm
+8: warp from arm, occlusoin

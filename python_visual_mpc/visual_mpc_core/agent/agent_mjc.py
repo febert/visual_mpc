@@ -200,7 +200,7 @@ class AgentMuJoCo(object):
             else:
                 mj_U, plan_stat = policy.act(traj, t, desig_pix=self.desig_pix,goal_pix=self.goal_pix,
                                           goal_image=self.goal_image, goal_mask=self.goal_mask, curr_mask=self.curr_mask)
-                traj.plan_stat.append(plan_stat)
+                traj.plan_stat.append(copy.deepcopy(plan_stat))
 
             self.large_images_traj.append(self.large_images[t])
 
@@ -240,6 +240,8 @@ class AgentMuJoCo(object):
                 self.sim.step()
                 self.hf_qpos_l.append(copy.deepcopy(self.sim.data.qpos))
                 self.hf_target_qpos_l.append(copy.deepcopy(ctrl))
+
+            traj.goal_dist.append(self.eval_action(traj, t)[0])
 
         # print('obj gripper dist', np.sqrt(np.sum(np.power(traj.Object_pose[-1, 0, :2] - traj.X_full[-1, :2], 2))))
 
@@ -380,23 +382,36 @@ class AgentMuJoCo(object):
         """
         store image at time index t
         """
+        assert self._hyperparams['viewer_image_width']/self._hyperparams['image_width'] == self._hyperparams['viewer_image_height']/self._hyperparams['image_height']
         width = self._hyperparams['viewer_image_width']
         height = self._hyperparams['viewer_image_height']
-        large_img = self.sim.render(width, height, camera_name="maincam")[::-1, :, :]
 
-        if np.sum(large_img) < 1e-3:
-            print("image dark!!!")
-            raise Image_dark_except
-
-        self.large_images.append(large_img)
-
-        assert self._hyperparams['viewer_image_width']/self._hyperparams['image_width'] == self._hyperparams['viewer_image_height']/self._hyperparams['image_height']
-        traj._sample_images[t] = cv2.resize(large_img, dsize=(self._hyperparams['image_width'], self._hyperparams['image_height']), interpolation = cv2.INTER_AREA)
-
-        if 'make_gtruth_flows' in self._hyperparams:
-            traj.largeimage[t] = large_img
-            dlarge_img = self.sim.render(width, height, camera_name="maincam", depth=True)[1][::-1, :]
-            traj.largedimage[t] = dlarge_img
+        if 'cameras' in self._hyperparams:
+            for i, cam in enumerate(self._hyperparams['cameras']):
+                large_img = self.sim.render(width, height, camera_name=cam)[::-1, :, :]
+                plt.imshow(large_img)
+                plt.show()
+                if np.sum(large_img) < 1e-3:
+                    print("image dark!!!")
+                    raise Image_dark_except
+                if cam == 'maincam':
+                    self.large_images.append(large_img)
+                traj._sample_images[t, i] = cv2.resize(large_img, dsize=(self._hyperparams['image_width'], self._hyperparams['image_height']), interpolation = cv2.INTER_AREA)
+                if 'make_gtruth_flows' in self._hyperparams:
+                    traj.largeimage[t, i] = large_img
+                    dlarge_img = self.sim.render(width, height, camera_name="maincam", depth=True)[1][::-1, :]
+                    traj.largedimage[t, i] = dlarge_img
+        else:
+            large_img = self.sim.render(width, height, camera_name="maincam")[::-1, :, :]
+            if np.sum(large_img) < 1e-3:
+                print("image dark!!!")
+                raise Image_dark_except
+            self.large_images.append(large_img)
+            traj._sample_images[t] = cv2.resize(large_img, dsize=(self._hyperparams['image_width'], self._hyperparams['image_height']), interpolation = cv2.INTER_AREA)
+            if 'make_gtruth_flows' in self._hyperparams:
+                traj.largeimage[t] = large_img
+                dlarge_img = self.sim.render(width, height, camera_name="maincam", depth=True)[1][::-1, :]
+                traj.largedimage[t] = dlarge_img
 
         # img = traj._sample_images[t,:,:,:] # verify desigpos
         # desig_pix = np.around(self.desig_pix).astype(np.int)
