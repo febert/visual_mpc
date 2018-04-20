@@ -1,5 +1,5 @@
 """ Hyperparameters for Large Scale Data Collection (LSDC) """
-from __future__ import division
+
 import os.path
 
 import numpy as np

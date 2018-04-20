@@ -8,7 +8,7 @@ import numpy as np
 import tensorflow as tf
 import imp
 import sys
-import cPickle
+import pickle
 import pdb
 
 import imp
@@ -44,9 +44,9 @@ class Trajectory(object):
 
 def main(unused_argv, conf_script= None):
     os.environ["CUDA_VISIBLE_DEVICES"] = str(FLAGS.device)
-    print 'using CUDA_VISIBLE_DEVICES=', FLAGS.device
+    print('using CUDA_VISIBLE_DEVICES=', FLAGS.device)
     from tensorflow.python.client import device_lib
-    print device_lib.list_local_devices()
+    print(device_lib.list_local_devices())
 
     if conf_script == None: conf_file = FLAGS.hyper
     else: conf_file = conf_script
@@ -57,7 +57,7 @@ def main(unused_argv, conf_script= None):
 
     conf = hyperparams.configuration
 
-    print 'creating visualizations ...'
+    print('creating visualizations ...')
     conf['schedsamp_k'] = -1  # don't feed ground truth
 
 
@@ -68,7 +68,7 @@ def main(unused_argv, conf_script= None):
     Model = conf['pred_model']
     model = Model(conf, load_data=True, trafo_pix=False, build_loss=False)
 
-    print 'Constructing saver.'
+    print('Constructing saver.')
     vars = tf.get_collection(tf.GraphKeys.GLOBAL_VARIABLES)
     vars = filter_vars(vars)
 
@@ -86,19 +86,19 @@ def main(unused_argv, conf_script= None):
 
     load_checkpoint(conf, sess, loading_saver, model_file)
 
-    print '-------------------------------------------------------------------'
-    print 'verify current settings!! '
-    for key in conf.keys():
-        print key, ': ', conf[key]
-    print '-------------------------------------------------------------------'
+    print('-------------------------------------------------------------------')
+    print('verify current settings!! ')
+    for key in list(conf.keys()):
+        print(key, ': ', conf[key])
+    print('-------------------------------------------------------------------')
 
     itr_0 =0
 
-    print '-------------------------------------------------------------------'
-    print 'verify current settings!! '
-    for key in conf.keys():
-        print key, ': ', conf[key]
-    print '-------------------------------------------------------------------'
+    print('-------------------------------------------------------------------')
+    print('verify current settings!! ')
+    for key in list(conf.keys()):
+        print(key, ': ', conf[key])
+    print('-------------------------------------------------------------------')
 
     traj_list = []
     traj_counter = 0
@@ -146,7 +146,7 @@ def main(unused_argv, conf_script= None):
                 traj_per_file = 256
 
             if len(traj_list) == traj_per_file:
-                print 'traj_per_file', traj_per_file
+                print('traj_per_file', traj_per_file)
                 filename = 'traj_{0}_to_{1}' \
                     .format(traj_counter - traj_per_file + 1, traj_counter)
 
@@ -156,8 +156,8 @@ def main(unused_argv, conf_script= None):
 
             traj_counter += 1
 
-        print 'complete time', time.time() - t0
-        print 'time to save:', time.time() - t1
+        print('complete time', time.time() - t0)
+        print('time to save:', time.time() - t1)
 
 
 def load_checkpoint(conf, sess, saver, model_file=None):
@@ -173,7 +173,7 @@ def load_checkpoint(conf, sess, saver, model_file=None):
         num_iter = int(re.match('.*?([0-9]+)$', model_file).group(1))
     else:
         ckpt = tf.train.get_checkpoint_state(conf['output_dir'])
-        print("loading " + ckpt.model_checkpoint_path)
+        print(("loading " + ckpt.model_checkpoint_path))
         saver.restore(sess, ckpt.model_checkpoint_path)
         num_iter = int(re.match('.*?([0-9]+)$', ckpt.model_checkpoint_path).group(1))
     conf['num_iter'] = num_iter
@@ -185,7 +185,7 @@ def filter_vars(vars):
         if not '/state:' in v.name:
             newlist.append(v)
         else:
-            print 'removed state variable from saving-list: ', v.name
+            print('removed state variable from saving-list: ', v.name)
     return newlist
 
 if __name__ == '__main__':

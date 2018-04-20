@@ -33,20 +33,20 @@ if __name__ == '__main__':
     nframes = extractFrames('traj0_gr0_withpixdistrib.gif', 'splitted')
 
 
-    ind = range(4,int(nframes/2)+10, 5*2)
-    print ind
+    ind = list(range(4,int(nframes/2)+10, 5*2))
+    print(ind)
     last_iter = getFrames(ind)
     last_iter = np.concatenate(last_iter, axis=1)
     Image.fromarray(last_iter).save('last_iter_{0}to{1}.png'.format(ind[0], ind[-1]), 'PNG')
 
-    ind = range(ind[-1], nframes, 5 * 2)
-    print ind
+    ind = list(range(ind[-1], nframes, 5 * 2))
+    print(ind)
     last_iter = getFrames(ind)
     last_iter = np.concatenate(last_iter, axis=1)
     Image.fromarray(last_iter).save('last_iter_{0}to{1}.png'.format(ind[0], ind[-1]), 'PNG')
 
-    ind = range(5,10)
-    print ind
+    ind = list(range(5,10))
+    print(ind)
     last_iter = getFrames(ind)
     last_iter = np.concatenate(last_iter, axis=1)
     Image.fromarray(last_iter).save('show_iter.png', 'PNG')

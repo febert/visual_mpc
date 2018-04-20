@@ -1,6 +1,6 @@
-from tracking_model import Tracking_Model
+from .tracking_model import Tracking_Model
 import tensorflow as tf
-import cPickle
+import pickle
 import numpy as np
 import collections
 import matplotlib.pyplot as plt
@@ -40,14 +40,14 @@ class DescpTracking_Model(Tracking_Model):
         desig_pos_l = []
         load_desig_pos = False
         if load_desig_pos:
-            desig_pos_l = cPickle.load(open('utils/desig_pos.pkl', "rb"))
+            desig_pos_l = pickle.load(open('utils/desig_pos.pkl', "rb"))
         else:
             for i in range(self.conf['batch_size']):
                 c = Getdesig(image_data[i, 0], self.conf, 'b{}'.format(i))
                 desig_pos = c.coords.astype(np.int32)
                 desig_pos_l.append(desig_pos)
                 # print "selected designated position for aux1 [row,col]:", desig_pos_aux1
-            cPickle.dump(desig_pos_l, open('utils/desig_pos.pkl', 'wb'))
+            pickle.dump(desig_pos_l, open('utils/desig_pos.pkl', 'wb'))
 
         pix_distrib = np.concatenate(create_one_hot(self.conf, desig_pos_l), axis=0)
         feed_dict[self.pix_distrib_pl] = pix_distrib
@@ -87,8 +87,8 @@ class DescpTracking_Model(Tracking_Model):
             dict['gen_distrib'] = gen_distrib
 
         file_path = self.conf['output_dir']
-        cPickle.dump(dict, open(file_path + '/pred.pkl', 'wb'))
-        print 'written files to:' + file_path
+        pickle.dump(dict, open(file_path + '/pred.pkl', 'wb'))
+        print('written files to:' + file_path)
 
         v = Visualizer_tkinter(dict, numex=self.conf['batch_size'], append_masks=False, gif_savepath=self.conf['output_dir'], renorm_heatmaps=False)
         v.build_figure()

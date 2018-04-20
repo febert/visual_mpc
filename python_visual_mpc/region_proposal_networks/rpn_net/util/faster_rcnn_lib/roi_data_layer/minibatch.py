@@ -190,7 +190,7 @@ def _vis_minibatch(im_blob, rois_blob, labels_blob, overlaps):
         im = im.astype(np.uint8)
         cls = labels_blob[i]
         plt.imshow(im)
-        print 'class: ', cls, ' overlap: ', overlaps[i]
+        print('class: ', cls, ' overlap: ', overlaps[i])
         plt.gca().add_patch(
             plt.Rectangle((roi[0], roi[1]), roi[2] - roi[0],
                           roi[3] - roi[1], fill=False,

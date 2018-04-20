@@ -13,14 +13,14 @@ from python_visual_mpc.video_prediction.basecls.utils.visualize import visualize
 from python_visual_mpc.video_prediction.basecls.utils.compute_motion_vecs import compute_motion_vector_cdna, compute_motion_vector_dna
 from python_visual_mpc.video_prediction.read_tf_records2 import build_tfrecord_input as build_tfrecord_fn
 
-from dynamic_base_model import mean_squared_error
+from .dynamic_base_model import mean_squared_error
 import pdb
 # Amount to use when lower bounding tensors
 RELU_SHIFT = 1e-12
 
 
-from dynamic_base_model import DNACell
-from dynamic_base_model import Dynamic_Base_Model
+from .dynamic_base_model import DNACell
+from .dynamic_base_model import Dynamic_Base_Model
 from python_visual_mpc.goaldistancenet.gdnet import GoalDistanceNet
 
 
@@ -80,7 +80,7 @@ class VidPred_GDN_Model():
         self.batch_size = conf['batch_size']
 
         self.train_cond = tf.placeholder(tf.int32, shape=[], name="train_cond")
-        print 'base model uses traincond', self.train_cond
+        print('base model uses traincond', self.train_cond)
 
         self.sdim = conf['sdim']
         self.adim = conf['adim']
@@ -115,7 +115,7 @@ class VidPred_GDN_Model():
                                                   lambda: [val_images, val_actions, val_states])
 
             if 'use_len' in conf:
-                print 'randomly shift videos for data augmentation'
+                print('randomly shift videos for data augmentation')
                 images, states, actions  = self.random_shift(images, states, actions)
 
         ## start interface
@@ -240,7 +240,7 @@ class VidPred_GDN_Model():
         loss, psnr_all = 0.0, 0.0
 
         for i, x, gx in zip(
-                range(len(self.gen_images)), self.images[self.conf['context_frames']:],
+                list(range(len(self.gen_images))), self.images[self.conf['context_frames']:],
                 self.gen_images[self.conf['context_frames'] - 1:]):
             recon_cost_mse = mean_squared_error(x, gx)
             # train_summaries.append(tf.summary.scalar('recon_cost' + str(i), recon_cost_mse))
@@ -251,7 +251,7 @@ class VidPred_GDN_Model():
 
         if ('ignore_state_action' not in self.conf) and ('ignore_state' not in self.conf):
             for i, state, gen_state in zip(
-                    range(len(self.gen_states)), self.states[self.conf['context_frames']:],
+                    list(range(len(self.gen_states))), self.states[self.conf['context_frames']:],
                     self.gen_states[self.conf['context_frames'] - 1:]):
                 state_cost = mean_squared_error(state, gen_state) * 1e-4 * self.conf['use_state']
                 # train_summaries.append(tf.summary.scalar('state_cost' + str(i), state_cost))
@@ -278,7 +278,7 @@ class VidPred_GDN_Model():
         compute_metric(sess, self.conf, self, create_images)
 
     def random_shift(self, images, states, actions):
-        print 'shifting the video sequence randomly in time'
+        print('shifting the video sequence randomly in time')
         tshift = 2
         uselen = self.conf['use_len']
         fulllength = self.conf['sequence_length']

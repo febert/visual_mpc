@@ -1,7 +1,7 @@
 import matplotlib.pyplot as plt
 import numpy as np
 from matplotlib.patches import ConnectionPatch
-import cPickle
+import pickle
 
 
 
@@ -26,8 +26,8 @@ class Getdesig(object):
         plt.show()
 
     def onclick(self, event):
-        print('button=%d, x=%d, y=%d, xdata=%f, ydata=%f' %
-              (event.button, event.x, event.y, event.xdata, event.ydata))
+        print(('button=%d, x=%d, y=%d, xdata=%f, ydata=%f' %
+              (event.button, event.x, event.y, event.xdata, event.ydata)))
         self.coords = np.round(np.array([event.ydata, event.xdata])).astype(np.int)
         self.ax.scatter(self.coords[1], self.coords[0], marker= "o", s=70, facecolors='b', edgecolors='b')
         self.coord_list.append(self.coords)
@@ -40,7 +40,7 @@ class Getdesig(object):
 
 
 def visualize(file):
-    pkldata = cPickle.load(open(file, 'rb'))
+    pkldata = pickle.load(open(file, 'rb'))
 
     mpc_t = 1
     warped_images = pkldata['warped_im_t{}'.format(mpc_t)]
@@ -94,7 +94,7 @@ def visualize(file):
             pt_output = pts_output[p]
             sampled_location = warp_pts[t][b_ind,pt_output[0],pt_output[1]].astype('uint32')
             sampled_location = np.flip(sampled_location, 0)
-            print "point in warped img", pt_output, "sampled location", sampled_location
+            print("point in warped img", pt_output, "sampled location", sampled_location)
 
             con = ConnectionPatch(xyA=np.flip(pt_output,0), xyB=np.flip(sampled_location,0), coordsA=coordsA, coordsB=coordsB,
                          axesA=ax2, axesB=ax1,

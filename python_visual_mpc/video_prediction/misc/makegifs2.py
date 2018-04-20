@@ -1,4 +1,4 @@
-import cPickle
+import pickle
 from python_visual_mpc.video_prediction.utils_vpred.create_gif_lib import *
 import numpy as np
 import imp
@@ -7,11 +7,11 @@ import pdb
 import imageio
 
 def create_gif(file_path, conf, suffix = None, numexp = 8, append_masks = False):
-    print 'reading files from:', file_path
-    ground_truth = cPickle.load(open(file_path + '/ground_truth.pkl', "rb"))
-    gen_images = cPickle.load(open(file_path + '/gen_image.pkl', "rb"))
+    print('reading files from:', file_path)
+    ground_truth = pickle.load(open(file_path + '/ground_truth.pkl', "rb"))
+    gen_images = pickle.load(open(file_path + '/gen_image.pkl', "rb"))
 
-    masks = cPickle.load(open(file_path + '/gen_masks.pkl', "rb"))
+    masks = pickle.load(open(file_path + '/gen_masks.pkl', "rb"))
 
     ground_truth = np.squeeze(ground_truth)
     if ground_truth.shape[4] == 3:
@@ -55,7 +55,7 @@ def create_gif(file_path, conf, suffix = None, numexp = 8, append_masks = False)
 
 
 def get_masks(conf, file_path, repeat_last_dim = False):
-    masks = cPickle.load(open(file_path + '/gen_masks.pkl', "rb"))
+    masks = pickle.load(open(file_path + '/gen_masks.pkl', "rb"))
 
     return convert_to_videolist(masks, repeat_last_dim)
 
@@ -80,7 +80,7 @@ def convert_to_videolist(input, repeat_last_dim):
 
 def create_video_pixdistrib_gif(file_path, conf, t=0, suffix = "", n_exp = 8, suppress_number = False,
                                 append_masks = False, show_moved= False, makegif = True):
-    gen_images = cPickle.load(open(file_path + '/gen_image_t{}.pkl'.format(t), "rb"))
+    gen_images = pickle.load(open(file_path + '/gen_image_t{}.pkl'.format(t), "rb"))
 
 
     if  suppress_number:
@@ -93,13 +93,13 @@ def create_video_pixdistrib_gif(file_path, conf, t=0, suffix = "", n_exp = 8, su
             name = file_path + '/vid_' + conf['experiment_name'] + '_' + str(itr_vis) + suffix
 
     if 'ndesig' in conf:
-        gen_distrib1 = cPickle.load(open(file_path + '/gen_distrib1_t{}.pkl'.format(t), "rb"))
-        gen_distrib2 = cPickle.load(open(file_path + '/gen_distrib2_t{}.pkl'.format(t), "rb"))
+        gen_distrib1 = pickle.load(open(file_path + '/gen_distrib1_t{}.pkl'.format(t), "rb"))
+        gen_distrib2 = pickle.load(open(file_path + '/gen_distrib2_t{}.pkl'.format(t), "rb"))
 
         plot_psum_overtime(conf, gen_distrib1, n_exp, name+'_1', file_path)
         plot_psum_overtime(conf, gen_distrib2, n_exp, name+'_2', file_path)
     else:
-        gen_distrib = cPickle.load(open(file_path + '/gen_distrib_t{}.pkl'.format(t), "rb"))
+        gen_distrib = pickle.load(open(file_path + '/gen_distrib_t{}.pkl'.format(t), "rb"))
         plot_psum_overtime(conf, gen_distrib, n_exp, name, file_path)
 
     # trafos = cPickle.load(open(file_path + '/trafos.pkl'.format(t), "rb"))
@@ -128,8 +128,8 @@ def create_video_pixdistrib_gif(file_path, conf, t=0, suffix = "", n_exp = 8, su
         video_list += list_of_maskvideos
 
     if show_moved:
-        moved_im = cPickle.load(open(file_path + '/moved_im.pkl', "rb"))
-        moved_pix = cPickle.load(open(file_path + '/moved_pix.pkl', "rb"))
+        moved_im = pickle.load(open(file_path + '/moved_im.pkl', "rb"))
+        moved_pix = pickle.load(open(file_path + '/moved_pix.pkl', "rb"))
         moved_im = convert_to_videolist(moved_im, repeat_last_dim=False)
         moved_pix = convert_to_videolist(moved_pix, repeat_last_dim=True)
 
@@ -144,7 +144,7 @@ def create_video_pixdistrib_gif(file_path, conf, t=0, suffix = "", n_exp = 8, su
         return fused_gif
 
 def create_video_gif(file_path, conf, t, suffix = None, n_exp = 8):
-    gen_images = cPickle.load(open(file_path + '/gen_image_t{}.pkl'.format(t), "rb"))
+    gen_images = pickle.load(open(file_path + '/gen_image_t{}.pkl'.format(t), "rb"))
     name = file_path + '/vid_' + conf['experiment_name'] + suffix
     fused_gif = assemble_gif([gen_images], n_exp)
     npy_to_gif(fused_gif, name)
@@ -154,7 +154,7 @@ def plot_psum_overtime(conf, gen_distrib, n_exp, name, filepath):
     plt.figure(figsize=(25, 2),dpi=80)
 
     if 'avoid_occlusions' in conf:
-        occlusioncost = cPickle.load(open(filepath + '/occulsioncost_bestactions.pkl','rb'))
+        occlusioncost = pickle.load(open(filepath + '/occulsioncost_bestactions.pkl','rb'))
 
     for ex in range(n_exp):
         psum = []
@@ -166,7 +166,7 @@ def plot_psum_overtime(conf, gen_distrib, n_exp, name, filepath):
         if 'avoid_occlusions' in conf:
             ax.set_title("occlusioncost: {}".format(occlusioncost[ex]))
 
-        plt.plot(range(len(gen_distrib)), psum)
+        plt.plot(list(range(len(gen_distrib))), psum)
         plt.ylim([0,2.5])
 
     # plt.show()
@@ -183,10 +183,10 @@ def go_through_timesteps(file_path, conf):
 
 def genimage_color_scheme_overtime(filepath, tmpc):
 
-    gen_images = cPickle.load(open(filepath + '/gen_image_t{}.pkl'.format(tmpc), "rb"))
+    gen_images = pickle.load(open(filepath + '/gen_image_t{}.pkl'.format(tmpc), "rb"))
 
-    gen_distrib1 = cPickle.load(open(filepath + '/gen_distrib1_t{}.pkl'.format(tmpc), "rb"))
-    gen_distrib2 = cPickle.load(open(filepath + '/gen_distrib2_t{}.pkl'.format(tmpc), "rb"))
+    gen_distrib1 = pickle.load(open(filepath + '/gen_distrib1_t{}.pkl'.format(tmpc), "rb"))
+    gen_distrib2 = pickle.load(open(filepath + '/gen_distrib2_t{}.pkl'.format(tmpc), "rb"))
 
     b = 0
     cols = []
@@ -205,7 +205,7 @@ def genimage_color_scheme_overtime(filepath, tmpc):
     img = np.concatenate(cols, axis=1)
 
     img_file = file_path +'/gen_image_color_overtime_t{}.png'.format(tmpc)
-    print 'saving to ', img_file
+    print('saving to ', img_file)
     Image.fromarray(img).save(file_path +'/gen_image_color_overtime_t{}.png'.format(tmpc))
 
 
@@ -235,10 +235,10 @@ def make_psum_overtime_example(filepath, tmpc):
     # gen_distrib2 = cPickle.load(open(filepath + '/gen_distrib2_t{}.pkl'.format(tmpc), "rb"))
 
     filepath = '/home/frederik/Documents/lsdc/tensorflow_data/sawyer/1stimg_bckgd_cdna/modeldata/'
-    gen_distrib1 = cPickle.load(open(filepath + '/gen_distrib_t0.pkl', "rb"))
+    gen_distrib1 = pickle.load(open(filepath + '/gen_distrib_t0.pkl', "rb"))
 
     filepath = '/home/frederik/Documents/lsdc/tensorflow_data/sawyer/dna_correct_nummask/modeldata/'
-    gen_distrib2 = cPickle.load(open(filepath + '/gen_distrib_t0.pkl', "rb"))
+    gen_distrib2 = pickle.load(open(filepath + '/gen_distrib_t0.pkl', "rb"))
 
     fig = plt.figure(figsize=(8, 3), dpi=80)
     fig.suptitle("Spatial sum of probablity masks over time", fontsize=13, y=.95)
@@ -250,7 +250,7 @@ def make_psum_overtime_example(filepath, tmpc):
     for t in range(len(gen_distrib1)):
         psum.append(np.sum(gen_distrib1[t][ex]))
     psum = np.array(psum)
-    plt.plot(range(len(gen_distrib1)), psum, marker = "o")
+    plt.plot(list(range(len(gen_distrib1))), psum, marker = "o")
     # ax.set_title("designated pixel on moved object", fontsize="10")
     ax.set_title("proposed 1st-step background model", fontsize="10")
 
@@ -263,7 +263,7 @@ def make_psum_overtime_example(filepath, tmpc):
     for t in range(len(gen_distrib2)):
         psum.append(np.sum(gen_distrib2[t][ex]))
     psum = np.array(psum)
-    plt.plot(range(len(gen_distrib2)), psum, color='g', marker = "d")
+    plt.plot(list(range(len(gen_distrib2))), psum, color='g', marker = "d")
     # ax.set_title("designated pixel on occluded object", fontsize="10")
     ax.set_title("original DNA model", fontsize="10")
 
@@ -273,7 +273,7 @@ def make_psum_overtime_example(filepath, tmpc):
 
     # plt.show()
     filename = filepath + '/psum_overtime{}.png'.format(tmpc)
-    print 'saving to ', filename
+    print('saving to ', filename)
     plt.savefig(filename, dpi=200)
     plt.close('all')
 

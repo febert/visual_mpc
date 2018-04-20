@@ -14,10 +14,16 @@ class Trajectory(object):
             img_height = conf['image_height']
             img_width = conf['image_width']
 
-        self._sample_images = np.zeros((self.T,
-                                        img_height,
-                                        img_width,
-                                        img_channels), dtype='uint8')
+        if 'cameras' in conf:
+            self._sample_images = np.zeros((self.T, len(conf['cameras']),
+                                            img_height,
+                                            img_width,
+                                            img_channels), dtype='uint8')
+        else:
+            self._sample_images = np.zeros((self.T,
+                                            img_height,
+                                            img_width,
+                                            img_channels), dtype='uint8')
 
 
         # for storing the terminal predicted images of the K best actions at each time step:
@@ -35,13 +41,13 @@ class Trajectory(object):
         else:
             state_dim = 2
 
-        self.X_full = np.zeros([self.T, state_dim/2])
-        self.Xdot_full = np.zeros([self.T, state_dim/2])
+        self.X_full = np.zeros([self.T, state_dim//2])
+        self.Xdot_full = np.zeros([self.T, state_dim//2])
         self.X_Xdot_full = np.zeros([self.T, state_dim])
 
         if 'posmode' in conf:
             self.target_qpos = np.zeros([self.T + 1, conf['adim']])
-            self.mask_rel = conf['mode_rel'].astype(np.float32)
+            self.mask_rel = conf['mode_rel'].copy()
 
         if 'num_objects' in conf:
             self.Object_pose = np.zeros([self.T, conf['num_objects'], 3])  # x,y rot of  block
@@ -76,7 +82,10 @@ class Trajectory(object):
 
 
         # world coordinates including the arm
-        self.obj_world_coords = np.zeros([self.T, conf['num_objects'] + 1, 7])  # xyz and quaternion pose
+        if 'num_objects' in conf:
+            self.obj_world_coords = np.zeros([self.T, conf['num_objects'] + 1, 7])  # xyz and quaternion pose
 
         self.plan_stat = []   # statistics about the plan
+
+        self.goal_dist = []
 

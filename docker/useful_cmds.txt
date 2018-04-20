@@ -1,0 +1,35 @@
+## docker commands
+
+# go into running container
+sudo docker exec -i -t 4a0792a3cadc  /bin/bash
+
+# remove all stopped containers
+sudo docker rm $(sudo docker ps -a -q -f status=exited)
+
+
+## ngc commands
+ngc dataset upload --source /mnt/sda1/pushing_data/ --desc "asdf" datasetname --ace nv-us-west-2
+
+#push image to cloud
+docker push nvcr.io/my_org/my_team/image:0.1
+
+# view stdout/stderr
+ngc batch attach <job_id>
+
+ngc batch run ‐f <file.json>
+
+# connect interactive session in running container:
+ngc batch exec -c /bin/bash $1
+
+# download results
+ngc result download <job_id>
+
+# list current jobs
+ngc batch list
+
+# to access tensorboard for a container run
+ngc batch get <job_id>
+# then click on the URL listed under "Job Container Information/Host"
+
+
+

@@ -8,8 +8,27 @@ import os
 
 NUMERICAL_EPS = 1e-7
 
+
+def gen_mix_samples(N, means, std_dev, mix_params):
+
+    dist_choice = np.random.choice(mix_params.shape[0], size=N, p=mix_params)
+    samps = []
+    for i in range(N):
+        dist_mean = means[dist_choice[i]]
+        out_dim = dist_mean.shape[0]
+        dist_std = std_dev[dist_choice[i]]
+        samp = np.random.multivariate_normal(dist_mean, dist_std * dist_std * np.eye(out_dim))
+
+        samp_l = np.exp(-0.5 * np.sum(np.square(samp - means), axis=1) / np.square(dist_std))
+        samp_l /= np.power(2 * np.pi, out_dim / 2.) * dist_std
+        samp_l *= mix_params
+
+        samps.append((samp, np.sum(samp_l)))
+    return sorted(samps, key=lambda x: -x[1])
+
 class ImitationBaseModel:
     def __init__(self, conf, images, actions, end_effector):
+        self.input_images, self.input_actions, self.input_end_effector = images, actions, end_effector
         self.conf = conf
         assert ('adim' in self.conf), 'must specify action dimension in conf wiht key adim'
         assert (self.conf['adim'] == actions.get_shape()[2]), 'conf adim does not match input actions'
@@ -240,7 +259,59 @@ class ImitationLSTMModel(ImitationBaseModel):
         self.loss += self.final_frame_aux_loss
 
 class ImitationLSTMModelState(ImitationBaseModel):
-    def build(self):
+    def query(self, sess, traj, t, images = None, end_effector = None, actions = None):
+
+        f_dict = {self.input_images: images, self.input_end_effector: end_effector}
+        mdn_mix, mdn_std_dev, mdn_means = sess.run([self.mixing_parameters, self.std_dev, self.means],
+                                                        feed_dict=f_dict)
+
+        samps = gen_mix_samples(self.conf.get('N_GEN', 200), mdn_means[-1, t], mdn_std_dev[-1, t], mdn_mix[-1, t])
+        actions = samps[0][0].astype(np.float64)
+        if actions[-1] > 0.05:
+            actions[-1] = 21
+        else:
+            actions[-1] = -100
+        return actions
+
+    def build(self, is_Test = False):
+        if is_Test:
+            in_batch, in_rows, in_cols = self.images.get_shape()[0], self.images.get_shape()[2], self.images.get_shape()[3]
+            in_time = tf.shape(self.images)[1]
+
+            input_images = tf.reshape(self.images, shape=[-1, in_rows, in_cols, 3])
+            fp_flat = tf.reshape(self._build_conv_layers(input_images), shape=(in_batch, in_time, 128))
+
+            first_initial = slim.layers.fully_connected(self.gtruth_endeffector_pos[:, 0, :],
+                                                        self.conf['lstm_layers'][0],
+                                                        scope='first_hidden', activation_fn=tf.tanh)
+            lstm_in = fp_flat
+
+            lstm_layers = tf.contrib.rnn.MultiRNNCell(
+                [tf.contrib.rnn.ResidualWrapper(tf.contrib.rnn.BasicLSTMCell(l)) for l in self.conf['lstm_layers']])
+
+            all_initial = tuple(
+                [tf.contrib.rnn.LSTMStateTuple(tf.zeros((in_batch, self.conf['lstm_layers'][0])), first_initial)]
+                + [tf.contrib.rnn.LSTMStateTuple(tf.zeros((in_batch, l)), tf.zeros((in_batch, l)))
+                   for l in self.conf['lstm_layers'][1:]])
+
+            last_fc, states = tf.nn.dynamic_rnn(cell=lstm_layers, inputs=lstm_in, initial_state=all_initial,
+                                                dtype=tf.float32, parallel_iterations=int(in_batch))
+
+            last_fc = tf.reshape(last_fc, shape=(-1, self.conf['lstm_layers'][-1]))
+
+            num_mix = self.conf['MDN_loss']
+            mixture_activations = slim.layers.fully_connected(last_fc, (2 + self.sdim) * num_mix,
+                                                              scope='predicted_mixtures', activation_fn=None)
+            mixture_activations = tf.reshape(mixture_activations, shape=(-1, num_mix, 2 + self.sdim))
+            self.mixing_parameters = tf.nn.softmax(mixture_activations[:, :, 0])
+            self.std_dev = tf.exp(mixture_activations[:, :, 1]) + NUMERICAL_EPS
+            self.means = mixture_activations[:, :, 2:]
+
+            self.mixing_parameters = tf.reshape(self.mixing_parameters, shape=[in_batch, in_time, num_mix])
+            self.std_dev = tf.reshape(self.std_dev, shape=[in_batch, in_time, num_mix])
+            self.means = tf.reshape(self.means, shape=[in_batch, in_time, num_mix, self.sdim])
+
+            return self.mixing_parameters, self.std_dev, self.means
 
         in_batch, in_time, in_rows, in_cols, _ = self.images.get_shape()
         in_time -= 1
@@ -281,6 +352,7 @@ class ImitationLSTMModelState(ImitationBaseModel):
 
         #self.loss += 0.1 * self.diagnostic_l2loss
 class ImitationLSTMModelStateLegacy(ImitationBaseModel):
+
     def build(self):
 
         in_batch, in_time, in_rows, in_cols, _ = self.images.get_shape()
@@ -327,8 +399,55 @@ class ImitationLSTMModelStateLegacy(ImitationBaseModel):
         self.loss += self.final_frame_aux_loss
 
 class ImitationLSTMVAEAction(ImitationBaseModel):
-    def build(self):
+    def query(self, sess, traj, t, images = None, end_effector = None, actions = None):
+        if t == 0:
+            self.latent_vec = np.random.normal(size = (1, self.conf['latent_dim']))
+
+        f_dict = {self.input_images: images[:, :, :, :, ::-1], self.latent_sample_pl: self.latent_vec}
+        pred_deltas = sess.run(self.predicted_actions, feed_dict=f_dict)
+        print(pred_deltas[0, -1])
+        actions = (pred_deltas[0, -1, :5]  + traj.target_qpos[t, :]) * traj.mask_rel
+        if pred_deltas[0, -1, -1] > pred_deltas[0, -1, -2]:
+            actions[-1] = 21
+        else:
+            actions[-1] = -100
+        return actions
+
+    def build(self, is_Test = False):
         latent_dim = self.conf['latent_dim']
+
+        if is_Test:
+            in_batch, in_rows, in_cols = self.images.get_shape()[0], self.images.get_shape()[2], \
+                                         self.images.get_shape()[3]
+            in_time = tf.shape(self.images)[1]
+            input_images = tf.reshape(self.images[:, :, :, :, :], shape=(-1, in_rows, in_cols, 3))
+
+            fp_flat = tf.reshape(self._build_conv_layers(input_images), shape=(in_batch, in_time, 128))
+            lstm_in = slim.layers.fully_connected(fp_flat, latent_dim,
+                                                  scope='lstm_in', activation_fn=None)
+
+            latent_state = slim.layers.fully_connected(fp_flat[:, 0, :], 2 * latent_dim,
+                                                       scope='latent_state', activation_fn=tf.tanh)
+
+            self.latent_mean, latent_std_logits = tf.split(latent_state, 2, axis=-1)
+            self.latent_std = tf.exp(latent_std_logits)
+            self.latent_sample_pl = tf.placeholder(tf.float32, [1, latent_dim])
+            latent_sample = self.latent_mean + self.latent_std * self.latent_sample_pl
+
+            lstm_layers = tf.contrib.rnn.MultiRNNCell(
+                [tf.contrib.rnn.ResidualWrapper(tf.contrib.rnn.BasicLSTMCell(l)) for l in self.conf['lstm_layers']])
+            all_initial = tuple(
+                [tf.contrib.rnn.LSTMStateTuple(tf.zeros((in_batch, self.conf['lstm_layers'][0])), latent_sample)]
+                + [tf.contrib.rnn.LSTMStateTuple(tf.zeros((in_batch, l)), tf.zeros((in_batch, l)))
+                   for l in self.conf['lstm_layers'][1:]])
+            last_fc, states = tf.nn.dynamic_rnn(cell=lstm_layers, inputs=lstm_in, initial_state=all_initial,
+                                                dtype=tf.float32, parallel_iterations=int(in_batch))
+
+            self.predicted_actions = slim.layers.fully_connected(last_fc, self.sdim + 1,
+                                                                 scope='action_predictions', activation_fn=None)
+
+
+            return self.predicted_actions
 
         in_batch, in_time, in_rows, in_cols, _ = self.images.get_shape()
         in_time -= 1

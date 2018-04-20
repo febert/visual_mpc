@@ -12,9 +12,9 @@ if __name__ == '__main__':
 
 def main():
     os.environ["CUDA_VISIBLE_DEVICES"] = str(FLAGS.device)
-    print 'using CUDA_VISIBLE_DEVICES=', FLAGS.device
+    print('using CUDA_VISIBLE_DEVICES=', FLAGS.device)
     from tensorflow.python.client import device_lib
-    print device_lib.list_local_devices()
+    print(device_lib.list_local_devices())
 
     if not os.path.exists(FLAGS.hyper):
         raise RuntimeError("Experiment configuration not found")
@@ -68,7 +68,7 @@ def main():
 
     summary_writer = tf.summary.FileWriter(conf['model_dir'], graph=sess.graph, flush_secs=10)
 
-    for i in xrange(conf['n_iters']):
+    for i in range(conf['n_iters']):
         if 'lr_decay' in conf and i > 0 and i % conf['lr_decay'] == 0:
             conf['learning_rate'] /= 5.
 
@@ -77,7 +77,7 @@ def main():
             if 'MDN_loss' in conf:
                 model_loss, val_model_loss, val_model_diag, val_mdn_log,   _ = sess.run(
                     [model.loss, val_model.loss, val_model.diagnostic_l2loss,val_model.MDN_log_l,  train_operation], feed_dict=f_dict)
-                print 'At iteration', i, 'model loss is:', model_loss, 'and val_model loss is', val_model_loss, 'and val diagnostic', val_model_diag
+                print 'At iteration', i, 'model loss is:', model_loss, 'and val_model loss is', val_model_loss, 'and val diagnostic', val_model_diag)
                 itr_summary = tf.Summary()
                 itr_summary.value.add(tag="val_model/loss", simple_value=val_model_loss)
                 itr_summary.value.add(tag="val_model/loglikelihood", simple_value=val_mdn_log)
@@ -86,7 +86,7 @@ def main():
                 itr_summary.value.add(tag="model/loss", simple_value=model_loss)
                 summary_writer.add_summary(itr_summary, i)
                 if np.isnan(model_loss):
-                    print "NAN ALERT at", i
+                    print("NAN ALERT at", i)
                     exit(-1)
                     # print('std_dev', std_dev)
                     # print('means',means)
@@ -124,7 +124,7 @@ def main():
             else:
                 model_loss, val_model_loss, val_action,val_aux,  _ = sess.run([model.loss, val_model.loss,
                                                           val_model.action_loss, val_model.final_frame_aux_loss, train_operation], feed_dict=f_dict)
-                print 'At iteration', i, 'model loss is:', model_loss, 'and val_model loss is', val_model_loss
+                print('At iteration', i, 'model loss is:', model_loss, 'and val_model loss is', val_model_loss)
                 itr_summary = tf.Summary()
                 itr_summary.value.add(tag="val_model/loss", simple_value=val_model_loss)
                 itr_summary.value.add(tag="val_model/action_loss", simple_value=val_action)

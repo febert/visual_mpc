@@ -1,6 +1,6 @@
 import tensorflow as tf
 import numpy as np
-import cPickle
+import pickle
 import matplotlib.pyplot as plt
 
 from python_visual_mpc.goaldistancenet.gdnet import apply_warp
@@ -47,12 +47,12 @@ class Temp_DnC_GDnet(GoalDistanceNet):
 
     def merge_t_losses(self):
         "add together losses with same name"
-        print 'merging same ts'
+        print('merging same ts')
         merged_losses = {}
 
         loss_list = []
         # stripping of last tag
-        for n in self.losses.keys():
+        for n in list(self.losses.keys()):
             if '/t' in n:
                 n = str.split(n,'/')[:-1]
                 n ='/'.join(n)
@@ -62,11 +62,11 @@ class Temp_DnC_GDnet(GoalDistanceNet):
         # merging losses of different time steps
         for uname in unique_names_l:
             comb_loss_val = []
-            for l_ in self.losses.keys():
+            for l_ in list(self.losses.keys()):
                 if uname in l_:
                     comb_loss_val.append(self.losses[l_])
-                    print "merging", l_
-            print '-----'
+                    print("merging", l_)
+            print('-----')
             comb_loss_val = tf.reduce_mean(tf.stack(comb_loss_val))
             merged_losses[uname] = comb_loss_val
 
@@ -76,10 +76,10 @@ class Temp_DnC_GDnet(GoalDistanceNet):
         thresholds = self.conf['sched_layer_train']
         for l in range(self.n_layer):
             layer_mult = tf.cast(tf.cast(self.iter_num,tf.int32) > tf.constant(int(thresholds[l]), tf.int32), tf.float32)
-            for k in self.losses.keys():
+            for k in list(self.losses.keys()):
                 if 'l{}'.format(l) in k:
                     self.losses[k] *= layer_mult
-                    print 'multiplying {} with layer_mult{}'.format(k, l)
+                    print('multiplying {} with layer_mult{}'.format(k, l))
 
     def combine_losses(self):
         self.merge_t_losses()
@@ -106,7 +106,7 @@ class Temp_DnC_GDnet(GoalDistanceNet):
             cons_loss_per_layer = 0
             for i, t in enumerate(range(0, self.seq_len - 1, tstep)):
 
-                print 'l{}, t{}, warping im{} to im{}'.format(l, t, t, t + tstep)
+                print('l{}, t{}, warping im{} to im{}'.format(l, t, t, t + tstep))
                 I0 = self.images[:, t]
                 I1 = self.images[:, t + tstep]
 
@@ -154,7 +154,7 @@ class Temp_DnC_GDnet(GoalDistanceNet):
             name = str.split(self.conf['output_dir'], '/')[-2]
             dict['name'] = name
     
-            cPickle.dump(dict, open(self.conf['output_dir'] + '/data.pkl', 'wb'))
+            pickle.dump(dict, open(self.conf['output_dir'] + '/data.pkl', 'wb'))
             make_plots(self.conf, dict=dict)
 
     def consistency_loss(self, i, flow_bwd_lm1, flow_bwd):
@@ -167,9 +167,9 @@ class Temp_DnC_GDnet(GoalDistanceNet):
 
 def make_plots(conf, dict=None, filename = None):
     if dict == None:
-        dict = cPickle.load(open(filename))
+        dict = pickle.load(open(filename))
 
-    print 'loaded'
+    print('loaded')
     images = dict['images']
     gen_img_ll = dict['gen_img_ll']
     flow_bwd_ll = dict['flow_bwd_ll']
@@ -198,7 +198,7 @@ def make_plots(conf, dict=None, filename = None):
     for l in range(n_layers):
         tstep = int(np.power(2, l))
         for i, t in enumerate(range(0, seq_len - 1, tstep)):
-            print 'l{}, t{}, showing warp im{} to im{}'.format(l, t, t, t + tstep)
+            print('l{}, t{}, showing warp im{} to im{}'.format(l, t, t, t + tstep))
 
             axarr[l*4+1, t + tstep].imshow(np.squeeze(gen_img_ll[l][i][bexp]), interpolation='none')
             sq_len = np.sqrt(np.sum(np.square(flow_bwd_ll[l][i][bexp]), -1))

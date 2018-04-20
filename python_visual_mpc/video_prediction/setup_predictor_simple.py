@@ -15,7 +15,7 @@ def setup_predictor(conf, gpu_id = 0, ngpu=None):
     if gpu_id == None:
         gpu_id = 0
     os.environ["CUDA_VISIBLE_DEVICES"] = str(gpu_id)
-    print 'using CUDA_VISIBLE_DEVICES=', os.environ["CUDA_VISIBLE_DEVICES"]
+    print('using CUDA_VISIBLE_DEVICES=', os.environ["CUDA_VISIBLE_DEVICES"])
 
     gpu_options = tf.GPUOptions(per_process_gpu_memory_fraction=0.9)
     g_predictor = tf.Graph()
@@ -26,11 +26,11 @@ def setup_predictor(conf, gpu_id = 0, ngpu=None):
             # print 'predictor default session:', tf.get_default_session()
             # print 'predictor default graph:', tf.get_default_graph()
 
-            print '-------------------------------------------------------------------'
-            print 'verify current settings!! '
-            for key in conf.keys():
-                print key, ': ', conf[key]
-            print '-------------------------------------------------------------------'
+            print('-------------------------------------------------------------------')
+            print('verify current settings!! ')
+            for key in list(conf.keys()):
+                print(key, ': ', conf[key])
+            print('-------------------------------------------------------------------')
 
             images_pl = tf.placeholder(tf.float32, name='images',
                                     shape=(conf['batch_size'], conf['sequence_length'], 64, 64, 3))
@@ -46,8 +46,8 @@ def setup_predictor(conf, gpu_id = 0, ngpu=None):
                 if 'sawyer' in conf:
                     adim = 4
                 else: adim = 2
-            print 'adim', adim
-            print 'sdim', sdim
+            print('adim', adim)
+            print('sdim', sdim)
 
             actions_pl = tf.placeholder(tf.float32, name= 'actions',
                                      shape=(conf['batch_size'], conf['sequence_length'], adim))
@@ -59,7 +59,7 @@ def setup_predictor(conf, gpu_id = 0, ngpu=None):
             else:
                 pix_distrib = tf.placeholder(tf.float32, shape=(conf['batch_size'], conf['context_frames'], 64, 64, 1))
 
-            print 'Constructing model for control'
+            print('Constructing model for control')
             with tf.variable_scope('model', reuse=None) as training_scope:
                 model = Model(conf, images_pl, actions_pl, states_pl,reuse_scope= None, pix_distrib= pix_distrib)
 
@@ -103,5 +103,5 @@ def filter_vars(vars):
         if not '/state:' in v.name:
             newlist.append(v)
         else:
-            print 'removed state variable from saving-list: ', v.name
+            print('removed state variable from saving-list: ', v.name)
     return newlist

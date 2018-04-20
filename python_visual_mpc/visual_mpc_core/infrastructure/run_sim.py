@@ -1,4 +1,3 @@
-import logging
 import imp
 import os
 import os.path
@@ -11,27 +10,32 @@ import time
 # Add lsdc/python to path so that imports work.
 sys.path.append('/'.join(str.split(__file__, '/')[:-2]))
 # from lsdc.gui.gps_training_gui import GPSTrainingGUI
-# from python_visual_mpc.video_prediction.setup_predictor_simple import setup_predictor
+#from python_visual_mpc.video_prediction.setup_predictor_simple import setup_predictor
 from python_visual_mpc.goaldistancenet.setup_gdn import setup_gdn
 from python_visual_mpc.visual_mpc_core.infrastructure.utility import *
 
 import matplotlib.pyplot as plt
 from datetime import datetime
-import pdb
-import cPickle
+import pickle
 import cv2
 import shutil
+import numpy as np
 
 class Sim(object):
     """ Main class to run algorithms and experiments. """
 
-    def __init__(self, config, quit_on_end=False, gpu_id=0, ngpu=1):
+    def __init__(self, config, gpu_id=0, ngpu=1):
 
         self._hyperparams = config
         self.agent = config['agent']['type'](config['agent'])
         self.agentparams = config['agent']
+        self.policyparams = config['policy']
 
+        if 'RESULT_DIR' in os.environ:
+            self.agentparams['data_save_dir'] = os.environ['RESULT_DIR'] + '/traindata'
         self._data_save_dir = self.agentparams['data_save_dir']
+
+        self._timing_file = self._hyperparams['current_dir'] + '/timing_file{}.txt'.format(os.getpid())
 
         if 'netconf' in config['policy']:
             params = imp.load_source('params', config['policy']['netconf'])
@@ -43,15 +47,15 @@ class Sim(object):
             else:
                 self.predictor = netconf['setup_predictor'](netconf, gpu_id, ngpu)
 
-            if 'warp_objective' in config['policy']:
+            if 'warp_objective' in config['policy'] or 'register_gtruth' in config['policy']:
                 params = imp.load_source('params', config['policy']['gdnconf'])
                 gdnconf = params.configuration
-                self.goal_image_waper = setup_gdn(gdnconf, gpu_id)
-                self.policy = config['policy']['type'](config['agent'], config['policy'], self.predictor, self.goal_image_waper)
+                self.goal_image_warper = setup_gdn(gdnconf, gpu_id)
+                self.policy = config['policy']['type'](config['agent'], config['policy'], self.predictor, self.goal_image_warper)
             else:
                 self.policy = config['policy']['type'](config['agent'], config['policy'], self.predictor)
         else:
-            self.policy = config['policy']['type'](config['agent'], config['policy'])
+            self.policy = config['policy']['type'](self.agent._hyperparams, config['policy'])
 
         self.trajectory_list = []
         self.im_score_list = []
@@ -74,14 +78,23 @@ class Sim(object):
             sample_index: Sample index.
         Returns: None
         """
-        start = datetime.now()
+        t_traj = time.time()
         traj = self.agent.sample(self.policy, sample_index)
+        t_traj = time.time() - t_traj
 
+        t_save = time.time()
         if self._hyperparams['save_data']:
             self.save_data(traj, sample_index)
+        t_save = time.time() - t_save
 
-        end = datetime.now()
-        print 'time elapsed for one trajectory sim', end - start
+        with open(self._timing_file,'a') as f:
+            f.write("{} trajtime {} savetime {}\n".format(sample_index, t_traj, t_save))
+
+        if self.agent.goal_obj_pose is not None:
+            plot_dist(traj, self.agentparams['record'])
+
+        if 'register_gtruth' in self.policyparams:
+            plot_warp_err(traj, self.agentparams['record'])
 
     def save_data(self, traj, itr):
         """
@@ -92,7 +105,7 @@ class Sim(object):
 
         if 'save_raw_images' in self._hyperparams:
             ngroup = self._hyperparams['ngroup']
-            self.igrp = itr / ngroup
+            self.igrp = itr // ngroup
             self.group_folder = self._data_save_dir + '/traj_group{}'.format(self.igrp)
             if not os.path.exists(self.group_folder):
                 os.makedirs(self.group_folder)
@@ -102,10 +115,11 @@ class Sim(object):
             self.depth_image_folder = self.traj_folder + '/depth_images'
 
             if os.path.exists(self.traj_folder):
-                print 'trajectory folder {} already exists, deleting the folder'.format(self.traj_folder)
+                print('trajectory folder {} already exists, deleting the folder'.format(self.traj_folder))
                 shutil.rmtree(self.traj_folder)
 
             os.makedirs(self.traj_folder)
+            print('writing: ', self.traj_folder)
             os.makedirs(self.image_folder)
             os.makedirs(self.depth_image_folder)
 
@@ -128,11 +142,17 @@ class Sim(object):
                     dict['bwd_flow'] = traj.bwd_flow
                     dict['ob_masks'] = traj.ob_masks
                     dict['arm_masks'] = traj.arm_masks
+                if 'posmode' in self.agentparams:
+                    dict['target_qpos'] = traj.target_qpos
+                    dict['mode_rel'] = traj.mask_rel.astype(np.bool)
+
+                    if hasattr(traj, 'desig_pos'):
+                        dict['obj_start_end_pos'] = traj.desig_pos
 
                 if hasattr(traj, "plan_stat"):
                     dict['plan_stat'] = traj.plan_stat
 
-                cPickle.dump(dict, f)
+                pickle.dump(dict, f)
 
             for t in range(traj.T):
                 image_name = self.image_folder+ "/im{}.png".format(t)
@@ -162,12 +182,36 @@ class Sim(object):
                 traj_per_file = self._hyperparams['traj_per_file']
             else:
                 traj_per_file = 256
-            print 'traj_per_file', traj_per_file
+            print('traj_per_file', traj_per_file)
             if len(self.trajectory_list) == traj_per_file:
                 filename = 'traj_{0}_to_{1}' \
                     .format(itr - traj_per_file + 1, itr)
 
-                from utility.save_tf_record import save_tf_record
+                from .utility.save_tf_record import save_tf_record
                 save_tf_record(filename, self.trajectory_list, self.agentparams)
 
                 self.trajectory_list = []
+
+
+def plot_warp_err(traj, dir):
+    start_err = []
+    goal_err = []
+    for tstep in traj.plan_stat[1:]:
+        if 'start_warp_err' in tstep:
+            start_err.append(tstep['start_warp_err'])
+        if 'goal_warp_err' in tstep:
+            goal_err.append(tstep['goal_warp_err'])
+    start_err = np.array(start_err)
+    goal_err = np.array(goal_err)
+    plt.figure()
+    ax = plt.gca()
+    ax.plot(start_err, label='start')
+    ax.plot(goal_err, label='goal')
+    ax.legend()
+    plt.savefig(dir + '/warperrors.png')
+
+def plot_dist(traj, dir):
+    goal_dist = np.array(traj.goal_dist)
+    plt.figure()
+    plt.plot(goal_dist)
+    plt.savefig(dir + '/goal_dist.png')

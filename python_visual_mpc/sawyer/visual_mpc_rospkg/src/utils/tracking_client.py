@@ -38,7 +38,7 @@ class OpenCV_Track_Listener():
         rospy.Subscriber("track_bbox", numpy_msg(intarray), self.store_latest_track)
 
         self.set_tracking_target_func = rospy.ServiceProxy('set_tracking_target', set_tracking_target)
-        print 'requesting tracking target1: ', bbox
+        print('requesting tracking target1: ', bbox)
         rospy.wait_for_service('set_tracking_target', timeout=2)
 
         self.set_tracking_target_func(tuple(bbox.flatten()))

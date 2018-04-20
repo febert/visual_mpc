@@ -20,9 +20,9 @@ def save_tf_record(filename, trajectory_list, params):
 
     dir = params['data_save_dir']
     if not os.path.exists(dir):
-        os.mkdir(dir)
+        os.makedirs(dir, exist_ok=True)
     filename = os.path.join(dir, filename + '.tfrecords')
-    print('Writing', filename)
+    print(('Writing', filename))
     writer = tf.python_io.TFRecordWriter(filename)
 
     feature = {}
@@ -37,14 +37,20 @@ def save_tf_record(filename, trajectory_list, params):
             sequence_length = traj._sample_images.shape[0]
 
         for tind in range(sequence_length):
-            if 'store_video_prediction' in params:
-                image_raw = traj.final_predicted_images[tind].tostring()
-            else:
-                image_raw = traj._sample_images[tind].tostring()
 
             feature[str(tind) + '/action']= _float_feature(traj.actions[tind,:].tolist())
             feature[str(tind) + '/endeffector_pos'] = _float_feature(traj.X_Xdot_full[tind,:].tolist())
-            feature[str(tind) + '/image_view0/encoded'] = _bytes_feature(image_raw)
+
+            if 'cameras' in params:
+                for i in range(len(params['cameras'])):
+                    image_raw = traj._sample_images[tind, i].tostring()
+                    feature[str(tind) + '/image_view{}/encoded'.format(i)] = _bytes_feature(image_raw)
+            else:
+                if 'store_video_prediction' in params:
+                    image_raw = traj.final_predicted_images[tind].tostring()
+                else:
+                    image_raw = traj._sample_images[tind].tostring()
+                feature[str(tind) + '/image_view0/encoded'] = _bytes_feature(image_raw)
 
             if hasattr(traj, 'touchdata'):
                 feature['touchdata/' + str(tind)] = _float_feature(traj.touchdata[tind, :].tolist())
@@ -65,6 +71,9 @@ def save_tf_record(filename, trajectory_list, params):
             if hasattr(traj, 'gen_images'):
                 feature[str(tind) + '/gen_images'] = _bytes_feature(traj.gen_images[tind].tostring())
                 feature[str(tind) + '/gen_states'] = _float_feature(traj.gen_states[tind,:].tolist())
+
+        if hasattr(traj, 'goal_image'):
+            feature['/goal_image'] = _bytes_feature(traj.goal_image.tostring())
 
         example = tf.train.Example(features=tf.train.Features(feature=feature))
         writer.write(example.SerializeToString())
@@ -105,7 +114,7 @@ def save_tf_record_lval(dir, filename, img_score_list):
     """
 
     filename = os.path.join(dir, filename + '.tfrecords')
-    print('Writing', filename)
+    print(('Writing', filename))
     writer = tf.python_io.TFRecordWriter(filename)
 
     feature = {}
