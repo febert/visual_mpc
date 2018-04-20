@@ -21,7 +21,6 @@ from python_visual_mpc.visual_mpc_core.agent.utils.gen_gtruth_desig import gen_g
 from python_visual_mpc.visual_mpc_core.agent.utils.convert_world_imspace_mj1_5 import project_point, get_3D
 
 
-
 class CEM_controller(Policy):
     """
     Cross Entropy Method Stochastic Optimizer

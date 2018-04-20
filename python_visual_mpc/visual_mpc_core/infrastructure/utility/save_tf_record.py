@@ -37,14 +37,20 @@ def save_tf_record(filename, trajectory_list, params):
             sequence_length = traj._sample_images.shape[0]
 
         for tind in range(sequence_length):
-            if 'store_video_prediction' in params:
-                image_raw = traj.final_predicted_images[tind].tostring()
-            else:
-                image_raw = traj._sample_images[tind].tostring()
 
             feature[str(tind) + '/action']= _float_feature(traj.actions[tind,:].tolist())
             feature[str(tind) + '/endeffector_pos'] = _float_feature(traj.X_Xdot_full[tind,:].tolist())
-            feature[str(tind) + '/image_view0/encoded'] = _bytes_feature(image_raw)
+
+            if 'cameras' in params:
+                for i in range(len(params['cameras'])):
+                    image_raw = traj._sample_images[tind, i].tostring()
+                    feature[str(tind) + '/image_view{}/encoded'.format(i)] = _bytes_feature(image_raw)
+            else:
+                if 'store_video_prediction' in params:
+                    image_raw = traj.final_predicted_images[tind].tostring()
+                else:
+                    image_raw = traj._sample_images[tind].tostring()
+                feature[str(tind) + '/image_view0/encoded'] = _bytes_feature(image_raw)
 
             if hasattr(traj, 'touchdata'):
                 feature['touchdata/' + str(tind)] = _float_feature(traj.touchdata[tind, :].tolist())

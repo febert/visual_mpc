@@ -29,6 +29,7 @@ class Sim(object):
         self._hyperparams = config
         self.agent = config['agent']['type'](config['agent'])
         self.agentparams = config['agent']
+        self.policyparams = config['policy']
 
         if 'RESULT_DIR' in os.environ:
             self.agentparams['data_save_dir'] = os.environ['RESULT_DIR'] + '/traindata'
@@ -88,6 +89,12 @@ class Sim(object):
 
         with open(self._timing_file,'a') as f:
             f.write("{} trajtime {} savetime {}\n".format(sample_index, t_traj, t_save))
+
+        if self.agent.goal_obj_pose is not None:
+            plot_dist(traj, self.agentparams['record'])
+
+        if 'register_gtruth' in self.policyparams:
+            plot_warp_err(traj, self.agentparams['record'])
 
     def save_data(self, traj, itr):
         """
@@ -184,3 +191,27 @@ class Sim(object):
                 save_tf_record(filename, self.trajectory_list, self.agentparams)
 
                 self.trajectory_list = []
+
+
+def plot_warp_err(traj, dir):
+    start_err = []
+    goal_err = []
+    for tstep in traj.plan_stat[1:]:
+        if 'start_warp_err' in tstep:
+            start_err.append(tstep['start_warp_err'])
+        if 'goal_warp_err' in tstep:
+            goal_err.append(tstep['goal_warp_err'])
+    start_err = np.array(start_err)
+    goal_err = np.array(goal_err)
+    plt.figure()
+    ax = plt.gca()
+    ax.plot(start_err, label='start')
+    ax.plot(goal_err, label='goal')
+    ax.legend()
+    plt.savefig(dir + '/warperrors.png')
+
+def plot_dist(traj, dir):
+    goal_dist = np.array(traj.goal_dist)
+    plt.figure()
+    plt.plot(goal_dist)
+    plt.savefig(dir + '/goal_dist.png')
