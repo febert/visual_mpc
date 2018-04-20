@@ -2,11 +2,11 @@
 import os
 import shutil
 import socket
-import thread
+import _thread
 import numpy as np
 import pdb
 from PIL import Image
-import cPickle
+import pickle
 import imp
 import argparse
 
@@ -27,7 +27,7 @@ from sensor_msgs.msg import Image as Image_msg
 class Visual_MPC_Server(object):
     def __init__(self):
 
-        print 'started visual MPC server'
+        print('started visual MPC server')
         # pdb.set_trace()
 
         base_dir = '/'.join(str.split(base_filepath, '/')[:-2])
@@ -54,7 +54,7 @@ class Visual_MPC_Server(object):
 
         # load specific agent settings for benchmark:
         bench_dir = cem_exp_dir + '/' + benchmark_name
-        print 'using configuration: ',benchmark_name
+        print('using configuration: ',benchmark_name)
 
         if not os.path.exists(bench_dir):
             raise ValueError('benchmark directory does not exist {}'.format(bench_dir))
@@ -68,13 +68,13 @@ class Visual_MPC_Server(object):
         if 'opencv_tracking' in self.agentparams:
             assert 'predictor_propagation' not in self.policyparams
 
-        print '-------------------------------------------------------------------'
-        print 'verify planner settings!! '
-        for key in self.policyparams.keys():
-            print key, ': ', self.policyparams[key]
-        for key in self.agentparams.keys():
-            print key, ': ', self.agentparams[key]
-        print '-------------------------------------------------------------------'
+        print('-------------------------------------------------------------------')
+        print('verify planner settings!! ')
+        for key in list(self.policyparams.keys()):
+            print(key, ': ', self.policyparams[key])
+        for key in list(self.agentparams.keys()):
+            print(key, ': ', self.agentparams[key])
+        print('-------------------------------------------------------------------')
 
         if self.policyparams['usenet']:
             self.netconf = imp.load_source('params', self.policyparams['netconf']).configuration
@@ -104,7 +104,7 @@ class Visual_MPC_Server(object):
             rospy.Service('init_traj_visualmpc', init_traj_visualmpc, self.init_traj_visualmpc_handler)
 
             ###
-            print 'visual mpc server ready for taking requests!'
+            print('visual mpc server ready for taking requests!')
             rospy.spin()
 
 
@@ -122,7 +122,7 @@ class Visual_MPC_Server(object):
             goal_main = goal_main.astype(np.float32) / 255.
             self.cem_controller.goal_image = goal_main
 
-        print 'init traj{} group{}'.format(self.i_traj, self.igrp)
+        print('init traj{} group{}'.format(self.i_traj, self.igrp))
 
         self.initial_pix_distrib = []
 
@@ -131,7 +131,7 @@ class Visual_MPC_Server(object):
         return init_traj_visualmpcResponse()
 
     def get_action_handler(self, req):
-        print 'handling action'
+        print('handling action')
 
         self.traj.X_full[self.t, :] = req.state[:self.agentparams['sdim']]
         main_img = self.bridge.imgmsg_to_cv2(req.main)
@@ -154,8 +154,8 @@ class Visual_MPC_Server(object):
 
         if self.t == self.agentparams['T'] -1:
             if 'verbose' in self.policyparams:
-                cPickle.dump(self.cem_controller.dict_,open(self.netconf['current_dir'] + '/verbose/pred.pkl', 'wb'))
-                print 'finished writing files to:' + self.netconf['current_dir'] + '/verbose/pred.pkl'
+                pickle.dump(self.cem_controller.dict_,open(self.netconf['current_dir'] + '/verbose/pred.pkl', 'wb'))
+                print('finished writing files to:' + self.netconf['current_dir'] + '/verbose/pred.pkl')
             if 'no_pixdistrib_video' not in self.policyparams:
                 self.save_video()
 
@@ -173,13 +173,13 @@ class Visual_MPC_Server(object):
         imlist = np.split(self.traj._sample_images, self.agentparams['T'], axis=0)
 
         imfilename = file_path + '/traj{0}_gr{1}'.format(self.i_traj, self.igrp)
-        cPickle.dump(imlist, open(imfilename+ '.pkl', 'wb'))
+        pickle.dump(imlist, open(imfilename+ '.pkl', 'wb'))
 
         if 'predictor_propagation' in self.policyparams:
             if 'ndesig' in self.policyparams:
-                cPickle.dump(self.initial_pix_distrib1,
+                pickle.dump(self.initial_pix_distrib1,
                              open(file_path + '/initial_pix_distrib1.pkl'.format(self.t), 'wb'))
-                cPickle.dump(self.initial_pix_distrib2,
+                pickle.dump(self.initial_pix_distrib2,
                              open(file_path + '/initial_pix_distrib2.pkl'.format(self.t), 'wb'))
                 self.initial_pix_distrib1 = [im.reshape((1, 64, 64)) for im in self.initial_pix_distrib1]
                 pix_distrib1 = make_color_scheme(self.initial_pix_distrib1, convert_to_float=False)
@@ -190,7 +190,7 @@ class Visual_MPC_Server(object):
 
                 npy_to_gif(gif, file_path + '/traj{0}_gr{1}_withpixdistrib'.format(self.i_traj, self.igrp))
             else:
-                cPickle.dump(self.initial_pix_distrib, open(file_path + '/initial_pix_distrib.pkl'.format(self.t), 'wb'))
+                pickle.dump(self.initial_pix_distrib, open(file_path + '/initial_pix_distrib.pkl'.format(self.t), 'wb'))
                 self.initial_pix_distrib = [im.reshape((1,64,64)) for im in self.initial_pix_distrib]
                 pix_distrib = make_color_scheme(self.initial_pix_distrib, convert_to_float=False)
                 gif = assemble_gif([imlist, pix_distrib], num_exp=1, convert_from_float=False)

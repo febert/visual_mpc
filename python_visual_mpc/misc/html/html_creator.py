@@ -1,4 +1,4 @@
-from util import html
+from .util import html
 
 
 webpage = html.HTML('.','Results Viewer')

@@ -2,12 +2,12 @@
 import smtplib
 import rospy
 from std_msgs.msg import String
-import thread
+import _thread
 import argparse
 
 class Interruption_notifier(object):
     def __init__(self):
-        print 'init node'
+        print('init node')
         rospy.init_node('interruption_notifier', anonymous=True)
         self.last_alive = rospy.get_time()
 
@@ -16,17 +16,17 @@ class Interruption_notifier(object):
         args = parser.parse_args()
         self.robotname = args.robot
 
-        thread.start_new(self.spin_thread, ())
+        _thread.start_new(self.spin_thread, ())
 
 
     def spin_thread(self):
         while True:
             tdelta = rospy.get_time() - self.last_alive
             if tdelta > 60*20:
-                print 'sending notification mail...'
+                print('sending notification mail...')
                 self.send_mail()
                 return
-            print 'tdelta:', tdelta
+            print('tdelta:', tdelta)
             rospy.sleep(3)
 
     def callback(self, data):
@@ -37,7 +37,7 @@ class Interruption_notifier(object):
         rospy.spin()
 
     def send_mail(self, string = None):
-        print 'sending notification mail...'
+        print('sending notification mail...')
         fromaddr = 'berkeley.sawyer@gmail.com'
         toaddrs = 'frederik.david.ebert@gmail.com'
         if string != None:

@@ -4,7 +4,7 @@ from tensorflow.python.platform import flags
 FLAGS = flags.FLAGS
 
 def skip_example(*args):
-    print 'skipping every second example in every batch !!'
+    print('skipping every second example in every batch !!')
     res = []
     for arg in args:
 

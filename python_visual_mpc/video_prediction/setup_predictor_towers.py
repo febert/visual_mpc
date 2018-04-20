@@ -9,13 +9,13 @@ import os
 
 from datetime import datetime
 from python_visual_mpc.video_prediction.dynamic_rnn_model.dynamic_base_model import Dynamic_Base_Model
-# from python_visual_mpc.video_prediction.dynamic_rnn_model.alex_model_interface import Alex_Interface_Model
+from python_visual_mpc.video_prediction.dynamic_rnn_model.alex_model_interface import Alex_Interface_Model
 
 from python_visual_mpc.video_prediction.utils_vpred.variable_checkpoint_matcher import variable_checkpoint_matcher
 
 class Tower(object):
     def __init__(self, conf, gpu_id, start_images, actions, start_states, pix_distrib):
-        nsmp_per_gpu = conf['batch_size']/ conf['ngpu']
+        nsmp_per_gpu = conf['batch_size']// conf['ngpu']
         # setting the per gpu batch_size
 
         # picking different subset of the actions for each gpu
@@ -27,14 +27,14 @@ class Tower(object):
         if pix_distrib is not None:
             pix_distrib = tf.slice(pix_distrib, [startidx, 0, 0, 0, 0, 0], [nsmp_per_gpu, -1, -1, -1, -1, -1])
 
-        print 'startindex for gpu {0}: {1}'.format(gpu_id, startidx)
+        print('startindex for gpu {0}: {1}'.format(gpu_id, startidx))
 
         Model = conf['pred_model']
-        print 'using pred_model', Model
+        print('using pred_model', Model)
 
         # this is to keep compatiblity with old model implementations (without basecls structure)
         if hasattr(Model,'m'):
-            for name, value in Model.m.__dict__.iteritems():
+            for name, value in Model.m.__dict__.items():
                 setattr(Model, name, value)
 
         modconf = copy.deepcopy(conf)
@@ -54,10 +54,10 @@ def setup_predictor(conf, gpu_id=0, ngpu=1):
     start_id = gpu_id
     indexlist = [str(i_gpu) for i_gpu in range(start_id, start_id + ngpu)]
     var = ','.join(indexlist)
-    print 'using CUDA_VISIBLE_DEVICES=', var
+    print('using CUDA_VISIBLE_DEVICES=', var)
     os.environ["CUDA_VISIBLE_DEVICES"] = var
     from tensorflow.python.client import device_lib
-    print device_lib.list_local_devices()
+    print(device_lib.list_local_devices())
 
     gpu_options = tf.GPUOptions(per_process_gpu_memory_fraction=0.6)
     g_predictor = tf.Graph()
@@ -65,13 +65,13 @@ def setup_predictor(conf, gpu_id=0, ngpu=1):
     with sess.as_default():
         with g_predictor.as_default():
 
-            print '-------------------------------------------------------------------'
-            print 'verify current settings!! '
-            for key in conf.keys():
-                print key, ': ', conf[key]
-            print '-------------------------------------------------------------------'
+            print('-------------------------------------------------------------------')
+            print('verify current settings!! ')
+            for key in list(conf.keys()):
+                print(key, ': ', conf[key])
+            print('-------------------------------------------------------------------')
 
-            print 'Constructing multi gpu model for control...'
+            print('Constructing multi gpu model for control...')
 
             if 'float16' in conf:
                 use_dtype = tf.float16
@@ -83,8 +83,8 @@ def setup_predictor(conf, gpu_id=0, ngpu=1):
                                        shape=(conf['batch_size'], conf['sequence_length'], orig_size[0], orig_size[1], 3))
             sdim = conf['sdim']
             adim = conf['adim']
-            print 'adim', adim
-            print 'sdim', sdim
+            print('adim', adim)
+            print('sdim', sdim)
             actions_pl = tf.placeholder(use_dtype, name='actions',
                                         shape=(conf['batch_size'], conf['sequence_length'], adim))
             states_pl = tf.placeholder(use_dtype, name='states',
@@ -98,28 +98,32 @@ def setup_predictor(conf, gpu_id=0, ngpu=1):
 
             # making the towers
             towers = []
-
-            # with tf.variable_scope('model', reuse=None):
-            for i_gpu in xrange(ngpu):
+            for i_gpu in range(ngpu):
                 with tf.device('/gpu:%d' % i_gpu):
                     with tf.name_scope('tower_%d' % (i_gpu)):
-                        print('creating tower %d: in scope %s' % (i_gpu, tf.get_variable_scope()))
-                        # print 'reuse: ', tf.get_variable_scope().reuse
-                        # towers.append(Tower(conf, i_gpu, training_scope, start_images, actions, start_states, pix_distrib_1, pix_distrib_2))
+                        print(('creating tower %d: in scope %s' % (i_gpu, tf.get_variable_scope())))
                         towers.append(Tower(conf, i_gpu, images_pl, actions_pl, states_pl, pix_distrib))
                         tf.get_variable_scope().reuse_variables()
 
             sess.run(tf.global_variables_initializer())
 
             vars = tf.get_collection(tf.GraphKeys.GLOBAL_VARIABLES)
-
             vars = filter_vars(vars)
-            vars = variable_checkpoint_matcher(conf, vars, conf['pretrained_model'])
 
-            saver = tf.train.Saver(vars, max_to_keep=0)
-            saver.restore(sess, conf['pretrained_model'])
+            if conf['pred_model'] == Alex_Interface_Model:
+                if 'ALEX_DATA' in os.environ:
+                    tenpath = conf['pretrained_model'].partition('pretrained_models')[2]
+                    conf['pretrained_model'] = os.environ['ALEX_DATA'] + tenpath
+                towers[0].model.m.restore(sess, conf['pretrained_model'])
+            else:
+                if 'TEN_DATA' in os.environ:
+                    tenpath = conf['pretrained_model'].partition('tensorflow_data')[2]
+                    conf['pretrained_model'] = os.environ['TEN_DATA'] + tenpath
+                vars = variable_checkpoint_matcher(conf, vars, conf['pretrained_model'])
+                saver = tf.train.Saver(vars, max_to_keep=0)
+                saver.restore(sess, conf['pretrained_model'])
 
-            print 'restore done. '
+            print('restore done. ')
 
             comb_gen_img = []
             comb_pix_distrib = []
@@ -148,8 +152,8 @@ def setup_predictor(conf, gpu_id=0, ngpu=1):
 
                 feed_dict = {}
                 for t in towers:
-                    feed_dict[t.model.iter_num] = 0
-                    # feed_dict[t.model.lr] = 0.0
+                    if hasattr(t.model, 'iter_num'):
+                        feed_dict[t.model.iter_num] = 0
 
                 feed_dict[images_pl] = input_images
                 feed_dict[states_pl] = input_state
@@ -167,10 +171,10 @@ def setup_predictor(conf, gpu_id=0, ngpu=1):
                                                                     comb_gen_states],
                                                                    feed_dict)
 
-                print 'time for evaluating {0} actions on {1} gpus : {2}'.format(
+                print('time for evaluating {0} actions on {1} gpus : {2}'.format(
                     conf['batch_size'],
                     conf['ngpu'],
-                    (datetime.now() - t_startiter).seconds + (datetime.now() - t_startiter).microseconds/1e6)
+                    (datetime.now() - t_startiter).seconds + (datetime.now() - t_startiter).microseconds/1e6))
 
                 return gen_images, gen_distrib, gen_states, None
 
@@ -182,6 +186,6 @@ def filter_vars(vars):
         if not '/state:' in v.name:
             newlist.append(v)
         else:
-            print 'removed state variable from saving-list: ', v.name
+            print('removed state variable from saving-list: ', v.name)
 
     return newlist

@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+"run this with LD_PRELOAD=/usr/lib/x86_64-linux-gnu/libGLEW.so:/usr/lib/nvidia-384/libGL.so"
 """
 Example of how bodies interact with each other. For a body to be able to
 move it needs to have joints. In this example, the "robot" is a red ball
@@ -7,28 +8,60 @@ On the floor, there's a cylinder with X and Y slide joints, so it can
 be pushed around with the robot. There's also a box without joints. Since
 the box doesn't have joints, it's fixed and can't be pushed around.
 """
-from mujoco_py import load_model_from_xml,load_model_from_path, MjSim, MjViewer
+import numpy as np
+from mujoco_py import load_model_from_xml,load_model_from_path, MjSim, MjViewer, MjViewerBasic
 import math
 import os
 
-MODEL_XML = "/home/frederik/Documents/catkin_ws/src/visual_mpc/mjc_models/cartgripper_noautogen.xml"
+from python_visual_mpc.visual_mpc_core.agent.utils.convert_world_imspace_mj1_5 import project_point
+from python_visual_mpc import __file__ as python_vmpc_path
+root_dir = '/'.join(str.split(python_vmpc_path, '/')[:-2])
+MODEL_XML = root_dir + "/mjc_models/cartgripper_noautogen.xml"
 import matplotlib.pyplot as plt
 
 model = load_model_from_path(MODEL_XML)
-# model = load_model_from_xml(MODEL_XML)
 sim = MjSim(model)
-viewer = MjViewer(sim)
+viewer = MjViewerBasic(sim)
+# viewer = MjViewer(sim)
 t = 0
-while True:
-    sim.data.ctrl[0] = math.cos(t / 10.) * 0.01
-    sim.data.ctrl[1] = math.sin(t / 10.) * 0.01
+
+height, width = 480, 640
+
+for t in range(1000):
+    sim.data.ctrl[0] = 100
+    sim.data.ctrl[1] = 100
+
+    cam_xmat = sim.data.cam_xmat.reshape((3, 3))
+    print(cam_xmat)
+    cam_xpos = sim.data.cam_xpos
+    print(cam_xpos )
+
+    with open('cam_params_1.5.txt','w') as f:
+        f.write("cam_xmat \n")
+        for i in range(cam_xmat.shape[0]):
+            f.write("{} \n".format(cam_xmat[i]))
+
+        f.write("cam_xpos\n")
+        for i in range(cam_xpos .shape[0]):
+            f.write("{} \n".format(cam_xpos [i]))
     t += 1
     sim.step()
-    viewer.render()
+    # viewer.render()
+    largeimage = viewer.render(width, height, "maincam")[::-1, :, :]
+    # largeimage = sim.render(width, height, camera_name="maincam")[::-1, :, :]
 
-    # image = sim.render(400, 400, camera_name="maincam")
-    # plt.imshow(image)
-    # plt.show()
+    r, c = project_point(sim.data.qpos)
+    print(('model.data.qpos', sim.data.qpos))
+    print(("row, col", r, c))
+    r = int(r)
+    c = int(c)
 
-    if t > 100 and os.getenv('TESTING') is not None:
-        break
+    largeimage[r,:] = [255, 255, 255]
+    largeimage[:, c] = [255, 255, 255]
+    plt.imshow(largeimage)
+    # plt.savefig('/outputs/testimg.png')
+    plt.show()
+
+    # import sys
+    # sys.exit()
+

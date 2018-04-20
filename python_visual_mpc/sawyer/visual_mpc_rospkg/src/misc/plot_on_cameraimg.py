@@ -1,6 +1,6 @@
 import rospy
 import numpy as np
-import cPickle as pkl
+import pickle as pkl
 import cv2
 import matplotlib.pyplot as plt
 from cv_bridge import CvBridge, CvBridgeError

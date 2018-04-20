@@ -5,12 +5,12 @@ import matplotlib.gridspec as gridspec
 import imageio
 import os
 import pdb
-import cPickle
+import pickle
 
-import Tkinter as Tk
+import tkinter as Tk
 
-from Tkinter import Button, Frame, Canvas, Scrollbar
-import Tkconstants
+from tkinter import Button, Frame, Canvas, Scrollbar
+import tkinter.constants
 
 from matplotlib import pyplot as plt
 import matplotlib
@@ -32,7 +32,7 @@ def plot_psum_overtime(gen_distrib, n_exp, filename):
             psum.append(np.sum(gen_distrib[t][ex]))
 
         psum = np.array(psum)
-        plt.plot(range(len(gen_distrib)), psum)
+        plt.plot(list(range(len(gen_distrib))), psum)
         plt.ylim([0,2.5])
 
     # plt.show()
@@ -49,9 +49,9 @@ def plot_normed_at_desig_pos(gen_distrib, filename, desig_pos):
         p.append(gen_distrib[t][b_exp][desig_pos[0], desig_pos[1]]/ np.sum(gen_distrib[t][b_exp]))
 
     psum = np.array(p)
-    plt.plot(range(len(gen_distrib)), psum, 'g-o',)
+    plt.plot(list(range(len(gen_distrib))), psum, 'g-o',)
 
-    plt.xticks(range(0, len(gen_distrib),3))
+    plt.xticks(list(range(0, len(gen_distrib),3)))
 
 
     # plt.rcParams.update({'font.size': 62})
@@ -121,7 +121,7 @@ class Visualizer_tkinter(object):
         """
         self.gif_savepath = filepath
         if dict_ == None:
-            dict_ = cPickle.load(open(filepath + '/pred.pkl', "rb"))
+            dict_ = pickle.load(open(filepath + '/pred.pkl', "rb"))
 
         self.dict_ = dict_
 
@@ -139,11 +139,11 @@ class Visualizer_tkinter(object):
         self.video_list = []
         self.append_masks = False
 
-        for key in dict_.keys():
-            print 'processing key {}'.format(key)
+        for key in list(dict_.keys()):
+            print('processing key {}'.format(key))
             data = dict_[key]
 
-            if key ==  'ground_truth':  # special treatement for gtruth
+            if key == 'ground_truth':  # special treatement for gtruth
                 ground_truth = dict_['ground_truth']
                 if not isinstance(ground_truth, list):
                     ground_truth = np.split(ground_truth, ground_truth.shape[1], axis=1)
@@ -159,11 +159,19 @@ class Visualizer_tkinter(object):
                 else:
                     self.video_list.append((ground_truth, 'Ground Truth'))
 
+            elif 'overlay' in key:
+                print('visualizing overlay')
+                gen_images = data[0]
+                gen_distrib = data[1]
+                gen_distrib = color_code_distrib(gen_distrib, self.numex, renormalize=True)
+                overlay = compute_overlay(gen_images, gen_distrib, self.numex)
+                self.video_list.append((overlay, key))
+
             elif type(data[0]) is list or '_l' in key:    # for lists of videos
                 if 'masks' in key and not append_masks:
-                    print 'skipping masks!'
+                    print('skipping masks!')
                     continue
-                print "the key \"{}\" contains {} videos".format(key, len(data[0]))
+                print("the key \"{}\" contains {} videos".format(key, len(data[0])))
                 self.append_masks = True
                 vid_list = convert_to_videolist(data, repeat_last_dim=False)
 
@@ -171,7 +179,7 @@ class Visualizer_tkinter(object):
                     self.video_list.append((m, '{} {}'.format(key, i)))
 
             elif 'flow' in key:
-                print 'visualizing key {} with colorflow'.format(key)
+                print('visualizing key {} with colorflow'.format(key))
                 self.video_list.append((visualize_flow(data), key))
 
             elif 'actions' in key:
@@ -188,10 +196,10 @@ class Visualizer_tkinter(object):
                     if len(data[0].shape) == 4:
                         self.video_list.append((data, key))
                 else:
-                    print 'ignoring key ',key
+                    print('ignoring key ',key)
 
         self.renormalize_heatmaps = renorm_heatmaps
-        print 'renormalizing heatmaps: ', self.renormalize_heatmaps
+        print('renormalizing heatmaps: ', self.renormalize_heatmaps)
 
         self.t = 0
 
@@ -202,7 +210,7 @@ class Visualizer_tkinter(object):
 
     def make_direct_vid(self, separate_vid = False, mpc_data =False):
 
-        print 'making gif with tags'
+        print('making gif with tags')
         # self.video_list = [self.video_list[0]]
 
         if mpc_data:
@@ -337,7 +345,7 @@ class Visualizer_tkinter(object):
 
 
     def build_figure(self):
-        print 'building figure...'
+        print('building figure...')
 
         # plot each markevery case for linear x and y scales
         root = Tk.Tk()
@@ -345,7 +353,7 @@ class Visualizer_tkinter(object):
         root.columnconfigure(1, weight=1)
 
         frame = Frame(root)
-        frame.grid(column=1, row=1, sticky=Tkconstants.NSEW)
+        frame.grid(column=1, row=1, sticky=tkinter.constants.NSEW)
         frame.rowconfigure(1, weight=1)
         frame.columnconfigure(1, weight=1)
 
@@ -361,7 +369,7 @@ class Visualizer_tkinter(object):
         self.addScrollingFigure(fig, frame)
 
         buttonFrame = Frame(root)
-        buttonFrame.grid(row=1, column=2, sticky=Tkconstants.NS)
+        buttonFrame.grid(row=1, column=2, sticky=tkinter.constants.NS)
         biggerButton = Button(buttonFrame, text="larger",
                               command=lambda: self.changeSize(fig, 1.5))
         biggerButton.grid(column=1, row=1)
@@ -375,7 +383,7 @@ class Visualizer_tkinter(object):
         for vid in self.video_list:
             l.append(len(vid[0]))
         tlen = np.min(np.array(l))
-        print 'minimum video length',tlen
+        print('minimum video length',tlen)
 
         outer_grid = gridspec.GridSpec(self.num_rows, 1)
 
@@ -441,24 +449,24 @@ class Visualizer_tkinter(object):
         if self.gif_savepath != None:
             filepath = self.gif_savepath + '/animation{}{}.gif'.format(self.iternum,self.suf)
             # filepath = self.gif_savepath + '/animation{}{}.mp4'.format(self.iternum,self.suf)
-            print 'saving gif under: ', filepath
+            print('saving gif under: ', filepath)
             anim.save(filepath, writer='imagemagick')
         root.mainloop()
 
     def changeSize(self, figure, factor):
         global canvas, mplCanvas, interior, interior_id, frame, cwid
         oldSize = figure.get_size_inches()
-        print("old size is", oldSize)
+        print(("old size is", oldSize))
         figure.set_size_inches([factor * s for s in oldSize])
         wi, hi = [i * figure.dpi for i in figure.get_size_inches()]
-        print("new size is", figure.get_size_inches())
-        print("new size pixels: ", wi, hi)
+        print(("new size is", figure.get_size_inches()))
+        print(("new size pixels: ", wi, hi))
         mplCanvas.config(width=wi, height=hi)
         printBboxes("A")
         # mplCanvas.grid(sticky=Tkconstants.NSEW)
         canvas.itemconfigure(cwid, width=wi, height=hi)
         printBboxes("B")
-        canvas.config(scrollregion=canvas.bbox(Tkconstants.ALL), width=200, height=200)
+        canvas.config(scrollregion=canvas.bbox(tkinter.constants.ALL), width=200, height=200)
         figure.canvas.draw()
         printBboxes("C")
         print()
@@ -467,13 +475,13 @@ class Visualizer_tkinter(object):
         global canvas, mplCanvas, interior, interior_id, cwid
         # set up a canvas with scrollbars
         canvas = Canvas(frame)
-        canvas.grid(row=1, column=1, sticky=Tkconstants.NSEW)
+        canvas.grid(row=1, column=1, sticky=tkinter.constants.NSEW)
 
-        xScrollbar = Scrollbar(frame, orient=Tkconstants.HORIZONTAL)
+        xScrollbar = Scrollbar(frame, orient=tkinter.constants.HORIZONTAL)
         yScrollbar = Scrollbar(frame)
 
-        xScrollbar.grid(row=2, column=1, sticky=Tkconstants.EW)
-        yScrollbar.grid(row=1, column=2, sticky=Tkconstants.NS)
+        xScrollbar.grid(row=2, column=1, sticky=tkinter.constants.EW)
+        yScrollbar.grid(row=1, column=2, sticky=tkinter.constants.NS)
 
         canvas.config(xscrollcommand=xScrollbar.set)
         xScrollbar.config(command=canvas.xview)
@@ -486,9 +494,9 @@ class Visualizer_tkinter(object):
         # mplCanvas.grid(sticky=Tkconstants.NSEW)
 
         # and connect figure with scrolling region
-        cwid = canvas.create_window(0, 0, window=mplCanvas, anchor=Tkconstants.NW)
+        cwid = canvas.create_window(0, 0, window=mplCanvas, anchor=tkinter.constants.NW)
         printBboxes("Init")
-        canvas.config(scrollregion=canvas.bbox(Tkconstants.ALL), width=200, height=200)
+        canvas.config(scrollregion=canvas.bbox(tkinter.constants.ALL), width=200, height=200)
 
     def animate(self, *args):
         global t
@@ -525,9 +533,9 @@ class Visualizer_tkinter(object):
 
 def printBboxes(label=""):
   global canvas, mplCanvas, interior, interior_id, cwid
-  print("  "+label,
-    "canvas.bbox:", canvas.bbox(Tkconstants.ALL),
-    "mplCanvas.bbox:", mplCanvas.bbox(Tkconstants.ALL))
+  print(("  "+label,
+    "canvas.bbox:", canvas.bbox(tkinter.constants.ALL),
+    "mplCanvas.bbox:", mplCanvas.bbox(tkinter.constants.ALL)))
 
 
 def convert_to_videolist(input, repeat_last_dim):
@@ -559,7 +567,7 @@ def upsample_nearest(imlist, numex, size = (256,256)):
     return out
 
 def color_code_distrib(distrib_list, num_ex, renormalize=False):
-    print 'renormalizing heatmaps: ', renormalize
+    print('renormalizing heatmaps: ', renormalize)
     out_distrib = []
     for distrib in distrib_list:
         out_t = []

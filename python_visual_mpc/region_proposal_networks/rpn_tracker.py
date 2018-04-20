@@ -1,4 +1,4 @@
-import Tkinter
+import tkinter
 from PIL import Image, ImageTk
 from sys import argv
 
@@ -41,9 +41,9 @@ class RPN_Tracker(object):
         self.feats = {b: self.featurizer.getFeatures(c) for b,c in zip(self.boxes,crops)}
 
     def plot(self, interactive = False):
-        window = Tkinter.Tk(className="Image")
+        window = tkinter.Tk(className="Image")
         image = Image.fromarray(np.uint8(self.clone))
-        canvas = Tkinter.Canvas(window, width=image.size[0], height=image.size[1])
+        canvas = tkinter.Canvas(window, width=image.size[0], height=image.size[1])
         canvas.pack()
         self.image_tk = ImageTk.PhotoImage(image)
         self.canvasimage = canvas.create_image(image.size[0]//2,
@@ -119,9 +119,9 @@ class RPN_Tracker(object):
             if  valid_region[0] < center_coord[0] < valid_region[2] and \
                 valid_region[1] < center_coord[1] < valid_region[3] and \
                     (box_height > min_heigh_or_width or box_width > min_heigh_or_width):
-                print 'box', b
-                print 'h', box_height
-                print 'w', box_width
+                print('box', b)
+                print('h', box_height)
+                print('w', box_width)
                 valid_boxes.append(b)
                 valid_center_coords.append(center_coord)
 
@@ -131,7 +131,7 @@ class RPN_Tracker(object):
         if len(valid_boxes) < 4:
             raise Too_few_objects_found_except
 
-        sel_ind = np.random.choice(range(len(valid_boxes)))
+        sel_ind = np.random.choice(list(range(len(valid_boxes))))
         desig_point = valid_center_coords[sel_ind]
         self.proposer.draw_box(valid_boxes[sel_ind], self.clone, 1)
 
@@ -181,12 +181,12 @@ class RPN_Tracker(object):
                     self.proposer.draw_box(b, self.clone, 0)
 
                 self.plot(interactive=True)
-                Tkinter.mainloop()
+                tkinter.mainloop()
             else:
                 self.get_regions(img)
                 dist_box_dict = {}
                 dists = []
-                for box in self.feats.keys():
+                for box in list(self.feats.keys()):
                     dist = np.linalg.norm(self.sel_feature_vec - self.feats[box])
                     dist_box_dict[dist] = box
                     dists.append(dist)
@@ -235,7 +235,7 @@ class RPN_Tracker(object):
         self.drawbox(box)
 
     def savefeats(self, event):
-        print "You selected the box at", self.boxlist[self.listpos]
+        print("You selected the box at", self.boxlist[self.listpos])
         self.sel_feature_vec = self.feats[self.boxlist[self.listpos]]
 
     def click(self,event):
@@ -244,11 +244,11 @@ class RPN_Tracker(object):
         self.boxlist = self.pix2boxes[(x,y)]
         self.listpos = 0
         if len(self.boxlist) > 0:
-            print "There are", len(self.boxlist), "boxes around this pixel."
+            print("There are", len(self.boxlist), "boxes around this pixel.")
             self.drawbox(self.boxlist[self.listpos])
 
         else:
-            print "No box was selected, please try again"
+            print("No box was selected, please try again")
 
 
 

@@ -7,7 +7,7 @@ from python_visual_mpc.video_prediction.lstm_ops12 import basic_conv_lstm_cell
 from python_visual_mpc.misc.zip_equal import zip_equal
 
 import collections
-import cPickle
+import pickle
 from python_visual_mpc.video_prediction.utils_vpred.animate_tkinter import Visualizer_tkinter
 import pdb
 
@@ -59,7 +59,7 @@ class Tracking_Model(Base_Prediction_Model):
 
         if 'lstm_size' in self.conf:
             self.lstm_size = self.conf['lstm_size']
-            print 'using lstm size', self.lstm_size
+            print('using lstm size', self.lstm_size)
         else:
             self.lstm_size = np.int32(np.array([16, 32, 64, 32, 16]))
 
@@ -74,8 +74,8 @@ class Tracking_Model(Base_Prediction_Model):
         self.descp0 = []
         self.descp1 = []
 
-        for t, image, action in zip(range(len(self.images)-1), self.images[:-1], self.actions[:-1]):
-            print t
+        for t, image, action in zip(list(range(len(self.images)-1)), self.images[:-1], self.actions[:-1]):
+            print(t)
 
 
             self.prev_image, self.prev_pix_distrib1, self.prev_pix_distrib2 = self.get_input_image(
@@ -86,7 +86,7 @@ class Tracking_Model(Base_Prediction_Model):
             self.reuse = bool(self.gen_images)
             current_state = self.build_network_core(action, current_state, self.prev_image)
 
-            print 'building tracker...'
+            print('building tracker...')
             tracker = self.build_tracker(self.conf,
                                 [self.images[t],
                                 self.images[t + 1]],
@@ -125,7 +125,7 @@ class Tracking_Model(Base_Prediction_Model):
 
             total_recon_cost = 0
             for i, x, gx in zip(
-                    range(len(self.gen_images)), self.images[self.conf['context_frames']:],
+                    list(range(len(self.gen_images))), self.images[self.conf['context_frames']:],
                     self.gen_images[self.conf['context_frames'] - 1:]):
                 recon_cost_mse = self.mean_squared_error(x, gx)
                 summaries.append(tf.summary.scalar('recon_cost' + str(i), recon_cost_mse))
@@ -135,7 +135,7 @@ class Tracking_Model(Base_Prediction_Model):
 
             if ('ignore_state_action' not in self.conf) and ('ignore_state' not in self.conf):
                 for i, state, gen_state in zip(
-                        range(len(self.gen_states)), self.states[self.conf['context_frames']:],
+                        list(range(len(self.gen_states))), self.states[self.conf['context_frames']:],
                         self.gen_states[self.conf['context_frames'] - 1:]):
                     state_cost = self.mean_squared_error(state, gen_state) * 1e-4 * self.conf['use_state']
                     summaries.append(tf.summary.scalar('state_cost' + str(i), state_cost))
@@ -143,7 +143,7 @@ class Tracking_Model(Base_Prediction_Model):
 
             #tracking frame matching cost:
             total_frame_match_cost = 0
-            for i, im, gen_im in zip_equal(range(len(self.tracking_gen_images)),
+            for i, im, gen_im in zip_equal(list(range(len(self.tracking_gen_images))),
                                        self.images[1:], self.tracking_gen_images):
                 cost = self.mean_squared_error(im, gen_im) * self.conf['track_agg_fact']
                 total_frame_match_cost += cost
@@ -152,7 +152,7 @@ class Tracking_Model(Base_Prediction_Model):
 
             #adding transformation aggreement cost:
             total_trans_agg_cost = 0
-            for i, k1, k2 in zip_equal(range(len(self.tracking_kerns)), self.tracking_kerns, self.pred_kerns):
+            for i, k1, k2 in zip_equal(list(range(len(self.tracking_kerns))), self.tracking_kerns, self.pred_kerns):
                 cost = self.mean_squared_error(k1, k2) * self.conf['track_agg_fact']
                 total_trans_agg_cost += cost
             summaries.append(tf.summary.scalar('total_trans_agg_cost', total_trans_agg_cost))
@@ -167,17 +167,17 @@ class Tracking_Model(Base_Prediction_Model):
 
 
     def visualize(self, sess, images, actions, states):
-        print '-------------------------------------------------------------------'
-        print 'verify current settings!! '
-        for key in self.conf.keys():
-            print key, ': ', self.conf[key]
-        print '-------------------------------------------------------------------'
+        print('-------------------------------------------------------------------')
+        print('verify current settings!! ')
+        for key in list(self.conf.keys()):
+            print(key, ': ', self.conf[key])
+        print('-------------------------------------------------------------------')
 
         import re
         itr_vis = re.match('.*?([0-9]+)$', self.conf['visualize']).group(1)
 
         self.saver.restore(self.sess, self.conf['visualize'])
-        print 'restore done.'
+        print('restore done.')
 
         feed_dict = {self.lr: 0.0,
                      self.iter_num: 0,
@@ -201,8 +201,8 @@ class Tracking_Model(Base_Prediction_Model):
         dict['tracking_flow'] = track_flow
         # dict['gen_masks'] = gen_masks
 
-        cPickle.dump(dict, open(file_path + '/pred.pkl', 'wb'))
-        print 'written files to:' + file_path
+        pickle.dump(dict, open(file_path + '/pred.pkl', 'wb'))
+        print('written files to:' + file_path)
 
         v = Visualizer_tkinter(dict, numex=10, append_masks=True, filepath=self.conf['output_dir'])
         v.build_figure()

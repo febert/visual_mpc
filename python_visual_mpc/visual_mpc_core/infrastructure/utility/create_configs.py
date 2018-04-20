@@ -1,7 +1,7 @@
 # creates a collection of random configurations for pushing
 import numpy as np
 import random
-import cPickle
+import pickle
 import argparse
 import os
 import python_visual_mpc
@@ -15,6 +15,9 @@ import copy
 import matplotlib.pyplot as plt
 from matplotlib.patches import ConnectionPatch
 import pdb
+
+from python_visual_mpc.visual_mpc_core.agent.agent_mjc import Image_dark_except
+
 class CollectGoalImageSim(Sim):
     """
     All communication between the algorithms and MuJoCo is done through
@@ -28,7 +31,6 @@ class CollectGoalImageSim(Sim):
     def _take_sample(self, sample_index):
         if "gen_xml" in self.agentparams:
             if sample_index % self.agentparams['gen_xml'] == 0:
-                self.agent.viewer.finish()
                 self.agent._setup_world()
 
         traj_ok = False
@@ -36,18 +38,18 @@ class CollectGoalImageSim(Sim):
         imax = 20
         while not traj_ok and i_trial < imax:
             i_trial += 1
-            traj_ok, traj = self.take_sample()
+            try:
+                traj_ok, traj = self.rollout()
+            except Image_dark_except:
+                traj_ok = False
 
         if self._hyperparams['save_data']:
             self.save_data(traj, sample_index)
 
-    def take_sample(self):
+    def rollout(self):
         traj = Trajectory(self.agentparams)
         self.agent.large_images_traj = []
         self.agent.large_images = []
-
-        self.agent.viewer.set_model(self.agent._model)
-        self.agent.viewer.cam.camid = 0
 
         self.agent._init()
 
@@ -57,21 +59,15 @@ class CollectGoalImageSim(Sim):
         # apply action of zero for the first few steps, to let the scene settle
         for t in range(self.agentparams['skip_first']):
             for _ in range(self.agentparams['substeps']):
-                self.agent._model.data.ctrl = np.zeros(self.agentparams['adim'])
-                self.agent._model.step()
-                # self.agent.viewer.loop_once()
+                self.agent.sim.data.ctrl[:] = np.zeros(self.agentparams['adim'])
+                self.agent.sim.step()
 
         for t in range(self.agentparams['T']-1):
             self.store_data(t, traj)
             if 'make_gtruth_flows' in self.agentparams:
                 traj.ob_masks[t], traj.arm_masks[t], traj.large_ob_masks[t], traj.large_arm_masks[t] = self.get_obj_masks()
-            if t> 0:
-                traj.bwd_flow[t-1] = self.compute_gtruth_flow(t, traj)
-                # plt.figure()
-                # plt.imshow(traj.bwd_flow[t-1, :,:, 0])
-                # plt.figure()
-                # plt.imshow(traj.bwd_flow[t - 1, :, :, 1])
-                # plt.show()
+                if t > 0:
+                    traj.bwd_flow[t-1] = self.compute_gtruth_flow(t, traj)
 
             self.move_objects(t, traj)
         t += 1
@@ -86,16 +82,10 @@ class CollectGoalImageSim(Sim):
         # discarding trajecotries where an object falls out of the bin:
         end_zpos = [traj.Object_full_pose[-1, i, 2] for i in range(self.agentparams['num_objects'])]
         if any(zval < -2e-2 for zval in end_zpos):
-            print 'object fell out!!!'
+            print('object fell out!!!')
             traj_ok = False
         else:
             traj_ok = True
-
-        image_sums = np.sum(traj._sample_images.reshape([self.agentparams['T'], -1]), axis=-1)
-        if any(image_sums<10):
-            traj_ok = False
-            print 'image black!'
-        print image_sums
 
         return traj_ok, traj
 
@@ -220,13 +210,13 @@ class CollectGoalImageSim(Sim):
         return ob_masks, armmask, large_ob_masks, large_armmask
 
     def store_data(self, t, traj):
-        qpos_dim = self.agent.sdim / 2  # the states contains pos and vel
-        traj.X_full[t, :] = self.agent._model.data.qpos[:qpos_dim].squeeze()
-        traj.Xdot_full[t, :] = self.agent._model.data.qvel[:qpos_dim].squeeze()
+        qpos_dim = self.agent.sdim // 2  # the states contains pos and vel
+        traj.X_full[t, :] = self.agent.sim.data.qpos[:qpos_dim].squeeze()
+        traj.Xdot_full[t, :] = self.agent.sim.data.qvel[:qpos_dim].squeeze()
         traj.X_Xdot_full[t, :] = np.concatenate([traj.X_full[t, :], traj.Xdot_full[t, :]])
-        assert self.agent._model.data.qpos.shape[0] == qpos_dim + 7 * self.num_ob
+        assert self.agent.sim.data.qpos.shape[0] == qpos_dim + 7 * self.num_ob
         for i in range(self.num_ob):
-            fullpose = self.agent._model.data.qpos[i * 7 + qpos_dim:(i + 1) * 7 + qpos_dim].squeeze()
+            fullpose = self.agent.sim.data.qpos[i * 7 + qpos_dim:(i + 1) * 7 + qpos_dim].squeeze()
             traj.Object_full_pose[t, i, :] = fullpose
 
         self.agent._store_image(t, traj)
@@ -238,17 +228,17 @@ class CollectGoalImageSim(Sim):
             pos_disp = self.agentparams['pos_disp_range']
             angular_disp = self.agentparams['ang_disp_range']
 
+
             delta_pos = np.concatenate([np.random.uniform(-pos_disp, pos_disp, 2), np.zeros([1])])
-            # delta_pos = np.array([0., 0., 0.])
-            # print 'const delta pos!!!!!!!!!!!!!!!!!!!! for test'
             delta_alpha = np.random.uniform(-angular_disp, angular_disp)
-            # delta_alpha = 0.
-            # print 'delta aplpha 0 !!!!!!!!!!!!!!!!!!!! for test'
 
             delta_rot = Quaternion(axis=(0.0, 0.0, 1.0), radians=delta_alpha)
             curr_quat =  Quaternion(traj.Object_full_pose[t, iob, 3:])
             newquat = delta_rot*curr_quat
             newpos = traj.Object_full_pose[t, iob][:3] + delta_pos
+
+            if 'lift_object' in self.agentparams:
+                newpos[2] = 0.15
             newpos = np.clip(newpos, -0.35, 0.35)
 
             new_poses.append(np.concatenate([newpos, newquat.elements]))
@@ -264,9 +254,11 @@ class CollectGoalImageSim(Sim):
 
         new_q = np.concatenate([new_armpos, newobj_poses])
 
-        self.agent._model.data.qpos = new_q
-        self.agent._model.step()
-        self.agent._model.data.qpos = new_q
+        sim_state = self.agent.sim.get_state()
+        sim_state.qpos[:] = new_q
+        sim_state.qvel[:] = np.zeros_like(sim_state.qvel)
+        self.agent.sim.set_state(sim_state)
+        self.agent.sim.forward()
 
         return new_q
 
@@ -303,7 +295,7 @@ def visualize_corresp(t, flow, traj, mask_coords):
         pt_output = pts_output[p]
         sampled_location = warp_pts[pt_output[0], pt_output[1]].astype('uint32')
         # sampled_location = np.flip(sampled_location, 0)
-        print "point in warped img", pt_output, "sampled location", sampled_location
+        print("point in warped img", pt_output, "sampled location", sampled_location)
         con = ConnectionPatch(xyA=np.flip(pt_output, 0), xyB=np.flip(sampled_location, 0), coordsA=coordsA,
                               coordsB=coordsB,
                               axesA=ax2, axesB=ax1,
@@ -325,8 +317,6 @@ def main():
     hyperparams_file = data_coll_dir + '/hyperparams.py'
 
     hyperparams = imp.load_source('hyperparams', hyperparams_file).config
-    hyperparams['agent']['data_save_dir'] = os.path.join(os.environ['VMPC_DATA_DIR'], hyperparams['agent'][
-        'data_save_dir'])  # directory where to save trajectories
 
     c =CollectGoalImageSim(hyperparams)
     c.run()

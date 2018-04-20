@@ -1,6 +1,6 @@
 import numpy as np
 import collections
-import cPickle
+import pickle
 from python_visual_mpc.video_prediction.utils_vpred.animate_tkinter import Visualizer_tkinter
 from python_visual_mpc.video_prediction.utils_vpred.create_images import Image_Creator
 import tensorflow as tf
@@ -77,8 +77,8 @@ def visualize(sess, conf, model):
     # dict['prediction_flow'] = pred_flow
     dict['gen_masks_l'] = gen_masks
 
-    cPickle.dump(dict, open(file_path + '/pred.pkl', 'wb'))
-    print 'written files to:' + file_path
+    pickle.dump(dict, open(file_path + '/pred.pkl', 'wb'))
+    print('written files to:' + file_path)
 
     # v = Visualizer_tkinter(dict, numex=conf['batch_size'], append_masks=False, filepath=conf['output_dir'],
     #                        col_titles=[str(i) for i in range(conf['batch_size'])])
@@ -114,7 +114,7 @@ def visualize_diffmotions(sess, conf, model):
     c = Getdesig(sel_img[0], conf, 'b{}'.format(b_exp))
     desig_pos = c.coords.astype(np.int32).reshape([1,2])
     # desig_pos = np.array([36, 16]).reshape([1,2])
-    print "selected designated position for aux1 [row,col]:", desig_pos
+    print("selected designated position for aux1 [row,col]:", desig_pos)
 
     one_hot = create_one_hot(conf, [desig_pos])[0]
 
@@ -132,11 +132,9 @@ def visualize_diffmotions(sess, conf, model):
 
     actions = np.zeros([conf['batch_size'], conf['sequence_length'], adim])
 
-    # step = .025
-
-    if adim == 3: # cartgripper sim
-        print 'visualizing cartgripper'
-        step = 10
+    # step = 10
+    if 'vis_step' in conf:
+        step = conf['vis_step']
     else:
         step = .055
 
@@ -148,38 +146,38 @@ def visualize_diffmotions(sess, conf, model):
             actions[b, i][:2] = np.array(
                 [np.cos(b / float(n_angles) * 2 * np.pi) * step, np.sin(b / float(n_angles) * 2 * np.pi) * step])
 
-    if adim == 5:
+    if adim >= 3:
         b += 1
-        actions[b, 0] = np.array([0, 0, 4, 0, 0])
-        actions[b, 1] = np.array([0, 0, 4, 0, 0])
+        if 'vis_updown_step' in conf:
+            updown_step = conf['vis_updown_step']
+            actions[b, 0:7, 2] = updown_step
+            actions[b, 7:15, 2] = -updown_step
+        else:
+            updown_step = 4
+            actions[b, 0, 2] = updown_step
+            actions[b, 1, 2] = updown_step
         col_titles.append('up/down')
 
-        b += 1
-        actions[b, 0] = np.array([0, 0, 0, 0, 4])
-        actions[b, 1] = np.array([0, 0, 0, 0, 4])
-        col_titles.append('close/open')
+    if adim >= 4:
+        if 'vis_rot_step' in conf:
+            rot_step = conf['vis_rot_step']
+        else: rot_step = 4
 
-        delta_rot = 0.4
         b += 1
         for i in range(conf['sequence_length']):
-            actions[b, i] = np.array([0, 0, 0, delta_rot, 0])
+            actions[b, i, 3] = rot_step
         col_titles.append('rot +')
 
         b += 1
         for i in range(conf['sequence_length']):
-            actions[b, i] = np.array([0, 0, 0, -delta_rot, 0])
+            actions[b, i, 3] = -rot_step
         col_titles.append('rot -')
 
-        col_titles.append('noaction')
-
-    elif adim == 4:
+    if adim >= 5:
         b += 1
-        actions[b, 0] = np.array([0, 0, 4, 0])
-        actions[b, 1] = np.array([0, 0, 4, 0])
-
-        b += 1
-        actions[b, 0] = np.array([0, 0, 0, 4])
-        actions[b, 1] = np.array([0, 0, 0, 4])
+        actions[b, 0, 4] = 4
+        actions[b, 1, 4] = 4
+        col_titles.append('close/open')
 
     if 'float16' in conf:
         use_dtype = np.float16
@@ -219,8 +217,8 @@ def visualize_diffmotions(sess, conf, model):
     # dict['moved_bckgd'] = moved_bckgd
 
     file_path = conf['output_dir']
-    cPickle.dump(dict, open(file_path + '/pred.pkl', 'wb'))
-    print 'written files to:' + file_path
+    pickle.dump(dict, open(file_path + '/pred.pkl', 'wb'))
+    print('written files to:' + file_path)
     if 'test_data_ind' in conf:
         suf = '_dataind{}'.format(conf['test_data_ind'])
     else: suf = ''
@@ -288,8 +286,8 @@ def compute_metric(sess, conf, model, create_images=False):
     std_rob_exp_dist = np.std(np.stack(rob_exp_dist_l)) / np.sqrt(128)
     mean_rob_log_prob = np.mean(rob_log_prob_l)
     std_rob_log_prob = np.std(rob_log_prob_l) / np.sqrt(128)
-    print 'expected distance to true robot position: mean {}, std err {}'.format(mean_rob_exp_dist, std_rob_exp_dist)
-    print 'negative logprob of distrib of robot position: mean {}, std err {}'.format(mean_rob_log_prob, std_rob_log_prob)
+    print('expected distance to true robot position: mean {}, std err {}'.format(mean_rob_exp_dist, std_rob_exp_dist))
+    print('negative logprob of distrib of robot position: mean {}, std err {}'.format(mean_rob_log_prob, std_rob_log_prob))
 
     mean_pos_exp_dist = np.mean(np.stack([np.stack(pos0_exp_dist_l),
                                           np.stack(pos1_exp_dist_l)]))
@@ -302,8 +300,8 @@ def compute_metric(sess, conf, model, create_images=False):
     std_pos_log_prob = np.mean(np.stack([np.stack(pos0_log_prob_l),
                                           np.stack(pos1_log_prob_l)])) / np.sqrt(128)
 
-    print 'averaged expected distance to true object position mean {}, std error {}'.format(mean_pos_exp_dist, std_pos_exp_dist)
-    print 'negative averaged negative logprob of distribtion of ob position {}, std error {}'.format(mean_pos_log_prob, std_pos_log_prob)
+    print('averaged expected distance to true object position mean {}, std error {}'.format(mean_pos_exp_dist, std_pos_exp_dist))
+    print('negative averaged negative logprob of distribtion of ob position {}, std error {}'.format(mean_pos_log_prob, std_pos_log_prob))
 
     with open(conf['output_dir'] + '/metric.txt', 'w+') as f:
         f.write('averages over batchsize {} \n'.format(conf['batch_size']))
@@ -315,7 +313,7 @@ def compute_metric(sess, conf, model, create_images=False):
         f.write('expected distance: mean {}, std err {} \n'.format(mean_pos_exp_dist, std_pos_exp_dist))
         f.write('negative logprob of distrib over positions {} stderr {} \n'.format(mean_pos_log_prob, std_pos_log_prob))
 
-    cPickle.dump({'pos0_exp_dist_l':pos0_exp_dist_l,
+    pickle.dump({'pos0_exp_dist_l':pos0_exp_dist_l,
                   'pos1_exp_dist_l':pos1_exp_dist_l
                   }, open(conf['output_dir'] + '/metric_values.pkl', 'wb'))
 
@@ -352,8 +350,8 @@ def compute_metric(sess, conf, model, create_images=False):
     file_path = conf['output_dir']
     dict['exp_name'] = conf['experiment_name']
 
-    cPickle.dump(dict, open(file_path + '/pred.pkl', 'wb'))
-    print 'written files to:' + file_path
+    pickle.dump(dict, open(file_path + '/pred.pkl', 'wb'))
+    print('written files to:' + file_path)
 
     suf = '_metric_l{}_images'.format(conf['sequence_length']) if create_images else '_metric_l{}'.format(conf['sequence_length'])
 
@@ -403,11 +401,11 @@ def compute_exp_distance(sess, conf, model, true_pos, images, actions, endeff):
     # plt.imshow(np.squeeze(one_hot[0,0]))
     # plt.show()
 
-    print 'calc exp dist'
+    print('calc exp dist')
     assert gen_distrib.shape[2] == 1
     gen_distrib = gen_distrib[:,:,0]
     exp_dist = calc_exp_dist(conf, gen_distrib, true_pos)
-    print 'calc log prob'
+    print('calc log prob')
     log_prob = calc_log_prob(conf, gen_distrib, true_pos)
 
     return gen_images, gen_distrib, exp_dist, log_prob, flow
@@ -514,15 +512,29 @@ def add_crosshairs(images, pos, color=None):
             im[p[0], p[1]+3:p[1]+6] = color
 
             im[p[0], p[1]] = color
-
-            # plt.imshow(im)
-            # plt.show()
             out[b, t] = im
 
     if make_list_output:
         out = np.split(out, images.shape[1], axis=1)
         out = [np.squeeze(el) for el in out]
     return out
+
+def add_crosshairs_single(im, pos, color=None):
+    if color == None:
+        if im.dtype == np.float32:
+            color = np.array([0., 1., 1.])
+        else:
+            color = np.array([0, 255, 255])
+    p = pos.astype(np.int)
+    im[p[0]-5:p[0]-2,p[1]] = color
+    im[p[0]+3:p[0]+6, p[1]] = color
+
+    im[p[0],p[1]-5:p[1]-2] = color
+
+    im[p[0], p[1]+3:p[1]+6] = color
+    im[p[0], p[1]] = color
+
+    return im
 
 def visualize_annotation(conf, images, pos):
     for t in range(conf['sequence_length']):

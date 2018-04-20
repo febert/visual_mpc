@@ -1,7 +1,7 @@
 import tensorflow as tf
 import imp
 import numpy as np
-from correction_train_flow import CorrectorModel
+from .correction_train_flow import CorrectorModel
 from PIL import Image
 import os
 
@@ -27,11 +27,11 @@ def setup_corrector(conf_file):
             # print 'corrector default session:', tf.get_default_session()
             # print 'corrector default graph:', tf.get_default_graph()
 
-            print '-------------------------------------------------------------------'
-            print 'verify current settings!! '
-            for key in conf.keys():
-                print key, ': ', conf[key]
-            print '-------------------------------------------------------------------'
+            print('-------------------------------------------------------------------')
+            print('verify current settings!! ')
+            for key in list(conf.keys()):
+                print(key, ': ', conf[key])
+            print('-------------------------------------------------------------------')
 
             tf.train.start_queue_runners(sess)
 
@@ -39,7 +39,7 @@ def setup_corrector(conf_file):
 
             images = tf.placeholder(tf.float32, name='images', shape=(conf['batch_size'], 2, 64, 64, 3))
 
-            print 'Constructing Corrector...'
+            print('Constructing Corrector...')
             with tf.variable_scope('model', reuse=None):
                 model = CorrectorModel(conf, images, pix_distrib=input_distrib, train=False)
 

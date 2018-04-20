@@ -1,5 +1,5 @@
 """ Hyperparameters for Large Scale Data Collection (LSDC) """
-from __future__ import division
+
 import os.path
 
 import numpy as np
@@ -10,6 +10,7 @@ from python_visual_mpc.visual_mpc_core.agent.agent_mjc import AgentMuJoCo
 IMAGE_WIDTH = 64
 IMAGE_HEIGHT = 64
 IMAGE_CHANNELS = 3
+current_dir = '/'.join(str.split(__file__, '/')[:-1])
 
 BASE_DIR = '/'.join(str.split(__file__, '/')[:-1])
 
@@ -54,6 +55,7 @@ policy = {
 }
 
 config = {
+    'current_dir':current_dir,
     'traj_per_file':128,
     'save_data': False,
     'start_index':0,

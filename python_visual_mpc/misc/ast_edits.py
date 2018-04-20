@@ -14,9 +14,9 @@
 # ==============================================================================
 """Upgrader for Python scripts according to an API change specification."""
 
-from __future__ import absolute_import
-from __future__ import division
-from __future__ import print_function
+
+
+
 
 import ast
 import collections
@@ -84,7 +84,7 @@ class _FileEditRecorder(object):
     change_report = ""
 
     # Iterate of each line
-    for line, edits in self._line_to_edit.items():
+    for line, edits in list(self._line_to_edit.items()):
       offset = 0
       # sort by column so that edits are processed in order in order to make
       # indexing adjustments cumulative for changes that change the string

@@ -3,7 +3,7 @@ for the warping network. This is different from the dataset used for training th
  network to avoid using predicted images that were part of the training set
  for training the warping network"""
 
-from __future__ import division
+
 import os.path
 
 import numpy as np

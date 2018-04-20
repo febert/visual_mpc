@@ -10,14 +10,14 @@ import torchvision
 import imp
 import glob
 import cv2
-import cPickle
+import pickle
 import tarfile
 
 import time
 
 from python_visual_mpc.visual_mpc_core.infrastructure.trajectory import Trajectory
 
-from dataloading_utils import get_maxtraj, make_traj_name_list
+from .dataloading_utils import get_maxtraj, make_traj_name_list
 
 # Ignore warnings
 import warnings
@@ -96,7 +96,7 @@ class VideoDataset(Dataset):
         with tarfile.open(trajname + "/traj.tar") as tar:
             read_images(self.agentparams, trajname, traj, tar)
             pkl_file_stream = tar.extractfile(trajname[1:] + '/state_action.pkl')
-            pkldata = cPickle.load(pkl_file_stream)
+            pkldata = pickle.load(pkl_file_stream)
 
         states = np.concatenate([pkldata['qpos'],  pkldata['qvel']], axis=1)
         actions = pkldata['actions']
@@ -108,7 +108,7 @@ class VideoDataset(Dataset):
             sample = self.transform(sample)
 
         if idx % 10 ==0:
-            print 'tread images: ', time.time() - t0
+            print('tread images: ', time.time() - t0)
 
         return sample
 
@@ -140,8 +140,8 @@ def test_videoloader():
         deltat.append(time.time() - end)
         if i_batch % 10 == 0:
 
-            print 'tload{}'.format(time.time() - end)
-            print 'average time:',np.average(np.array(deltat))
+            print('tload{}'.format(time.time() - end))
+            print('average time:',np.average(np.array(deltat)))
         end = time.time()
 
         # print i_batch, images.size(), states.size(), actions.size()

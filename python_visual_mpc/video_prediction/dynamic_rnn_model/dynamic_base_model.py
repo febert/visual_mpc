@@ -212,7 +212,11 @@ class DNACell(tf.nn.rnn_cell.RNNCell):
         state = tf.cond(tf.reduce_all(tf.equal(time, 0)),
                         lambda: state,  # feed in ground_truth state only for first time step
                         lambda: gen_state)  # feed in predicted state
-        state_action = tf.concat([action, state], axis=-1)
+
+        if 'ignore_state' in self.conf:
+            state_action = tf.concat([action], axis=-1)
+        else:
+            state_action = tf.concat([action, state], axis=-1)
 
         with tf.variable_scope('h0'):
             h0 = conv_pool2d(image, vgf_dim, kernel_size=(5, 5), strides=(2, 2))
@@ -474,7 +478,7 @@ class Dynamic_Base_Model(object):
         self.batch_size = conf['batch_size']
 
         self.train_cond = tf.placeholder(tf.int32, shape=[], name="train_cond")
-        print 'base model uses traincond', self.train_cond
+        print('base model uses traincond', self.train_cond)
 
         self.sdim = conf['sdim']
         self.adim = conf['adim']
@@ -509,7 +513,7 @@ class Dynamic_Base_Model(object):
                                                   lambda: [val_images, val_actions, val_states])
 
             if 'use_len' in conf:
-                print 'randomly shift videos for data augmentation'
+                print('randomly shift videos for data augmentation')
                 images, states, actions  = self.random_shift(images, states, actions)
 
         ## start interface
@@ -619,7 +623,7 @@ class Dynamic_Base_Model(object):
         loss, psnr_all = 0.0, 0.0
 
         for i, x, gx in zip(
-                range(len(self.gen_images)), self.images[self.conf['context_frames']:],
+                list(range(len(self.gen_images))), self.images[self.conf['context_frames']:],
                 self.gen_images[self.conf['context_frames'] - 1:]):
             recon_cost_mse = mean_squared_error(x, gx)
             # train_summaries.append(tf.summary.scalar('recon_cost' + str(i), recon_cost_mse))
@@ -630,7 +634,7 @@ class Dynamic_Base_Model(object):
 
         if ('ignore_state_action' not in self.conf) and ('ignore_state' not in self.conf):
             for i, state, gen_state in zip(
-                    range(len(self.gen_states)), self.states[self.conf['context_frames']:],
+                    list(range(len(self.gen_states))), self.states[self.conf['context_frames']:],
                     self.gen_states[self.conf['context_frames'] - 1:]):
                 state_cost = mean_squared_error(state, gen_state) * 1e-4 * self.conf['use_state']
                 # train_summaries.append(tf.summary.scalar('state_cost' + str(i), state_cost))
@@ -657,11 +661,11 @@ class Dynamic_Base_Model(object):
         compute_metric(sess, self.conf, self, create_images)
 
     def random_shift(self, images, states, actions):
-        print 'shifting the video sequence randomly in time'
+        print('shifting the video sequence randomly in time')
         tshift = 2
         uselen = self.conf['use_len']
         fulllength = self.conf['sequence_length']
-        nshifts = (fulllength - uselen) / 2 + 1
+        nshifts = (fulllength - uselen) // tshift + 1
         rand_ind = tf.random_uniform([1], 0, nshifts, dtype=tf.int64)
         self.rand_ind = rand_ind
 
