@@ -14,10 +14,16 @@ class Trajectory(object):
             img_height = conf['image_height']
             img_width = conf['image_width']
 
-        self._sample_images = np.zeros((self.T,
-                                        img_height,
-                                        img_width,
-                                        img_channels), dtype='uint8')
+        if 'cameras' in conf:
+            self._sample_images = np.zeros((self.T, len(conf['cameras']),
+                                            img_height,
+                                            img_width,
+                                            img_channels), dtype='uint8')
+        else:
+            self._sample_images = np.zeros((self.T,
+                                            img_height,
+                                            img_width,
+                                            img_channels), dtype='uint8')
 
 
         # for storing the terminal predicted images of the K best actions at each time step:
@@ -80,4 +86,6 @@ class Trajectory(object):
             self.obj_world_coords = np.zeros([self.T, conf['num_objects'] + 1, 7])  # xyz and quaternion pose
 
         self.plan_stat = []   # statistics about the plan
+
+        self.goal_dist = []
 

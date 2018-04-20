@@ -43,14 +43,13 @@ policy = {
     'repeat': 3,
     'initial_std': 0.08,        # std dev. in xy
     'initial_std_lift': 2.5,
-    'gdnconf': current_dir + '/gdnconf.py',
     'netconf': current_dir + '/conf.py',
+    'gdnconf': current_dir + '/gdnconf.py',
     'iterations': 3,
     'action_cost_factor': 0,
     'rew_all_steps':"",
     'finalweight':10,
-    'register_gtruth': ['start','goal'],   # use the model get the designated pixel for the next step!
-    'use_goal_image':'',
+    'register_gtruth':['start','goal'],
 }
 
 tag_images = {'name': 'images',

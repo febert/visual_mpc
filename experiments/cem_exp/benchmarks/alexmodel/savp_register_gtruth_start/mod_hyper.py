@@ -49,7 +49,7 @@ policy = {
     'action_cost_factor': 0,
     'rew_all_steps':"",
     'finalweight':10,
-    'register_gtruth': ['start','goal'],   # use the model get the designated pixel for the next step!
+    'register_gtruth': ['start'],   # use the model get the designated pixel for the next step!
     'use_goal_image':'',
 }
 

@@ -48,7 +48,7 @@ policy = {
     'action_cost_factor': 0,
     'rew_all_steps':"",
     'finalweight':10,
-    'register_gtruth':'',
+    'no_action_bound':"",
 }
 
 tag_images = {'name': 'images',

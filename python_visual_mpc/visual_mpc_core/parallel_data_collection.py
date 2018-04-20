@@ -115,6 +115,9 @@ def main():
         if 'verbose' in hyperparams['policy'] and not os.path.exists(result_dir + '/verbose'):
             os.makedirs(result_dir + '/verbose')
 
+        data_save_path = conf[''].partition('pushing_data')[2]
+        conf['data_save_dir'] = os.environ['RESULT_DIR'] + data_save_path
+
     # use_ray = False  # ray can cause black images!!
     # if use_ray:
     #     ray.init()
