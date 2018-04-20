@@ -19,8 +19,8 @@ configuration = {
     'sequence_length' : 15,
     'batch_size' : 64,
     'vgg19_path': DATA_DIR,
-    'latent_dim' : 64,
-    'lstm_layers':[64, 64, 64]
+    'latent_dim' : 128,
+    'lstm_layers':[128, 128, 128]
 }
 
 

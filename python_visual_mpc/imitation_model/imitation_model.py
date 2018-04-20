@@ -139,7 +139,10 @@ class ImitationBaseModel:
         return tf.reduce_mean(tf.square(pred - real)) + l1_scale * tf.reduce_mean(tf.abs(pred - real))
     # Source: https://github.com/machrisaa/tensorflow-vgg/blob/master/vgg19.py
     def vgg_layer(self, images):
-        bgr_scaled = tf.to_float(images)
+        if images.dtype is tf.uint8:
+            bgr_scaled = tf.to_float(images)
+        else:
+            bgr_scaled = images * 255.
 
         vgg_mean = tf.convert_to_tensor(np.array([103.939, 116.779, 123.68], dtype=np.float32))
         blue, green, red = tf.split(axis=-1, num_or_size_splits=3, value=bgr_scaled)
@@ -371,9 +374,8 @@ class ImitationLSTMVAEAction(ImitationBaseModel):
         latent_var = tf.square(self.latent_std)
         self.latent_loss = 0.5 * tf.reduce_mean(tf.square(self.latent_mean) + latent_var - tf.log(latent_var) - 1)
 
-        self.action_loss = self._dif_loss(self.predicted_actions[:, :, :4], input_actions[:, :, :4]) + \
-                           2 * self._dif_loss(self.predicted_rel_states, next_rel_states) + \
-                    tf.reduce_mean(tf.nn.sigmoid_cross_entropy_with_logits(labels = gripper_mask,
+        self.action_loss = 2 * self._dif_loss(self.predicted_actions[:, :, :4], input_actions[:, :, :4]) + \
+                                tf.reduce_mean(tf.nn.sigmoid_cross_entropy_with_logits(labels = gripper_mask,
                                                                            logits=self.predicted_gripper_states))
 
         self.loss = self.latent_loss + self.action_loss

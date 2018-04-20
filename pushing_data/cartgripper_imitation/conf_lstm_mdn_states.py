@@ -5,7 +5,7 @@ from python_visual_mpc.imitation_model.imitation_model import ImitationLSTMModel
 configuration = {
     'model' : ImitationLSTMModelState,
     'data_dir':DATA_DIR  + '/cartgripper_det_grasp/train/',
-    'model_dir':DATA_DIR + '/cartgripper_imitation/gru_model_mdn_states_slr/',
+    'model_dir':DATA_DIR + '/cartgripper_imitation/lstm_model_mdn_states_slr/',
     'n_iters':80000,
     'n_print':100,
     'n_save':500,
