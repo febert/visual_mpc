@@ -73,7 +73,7 @@ def compute_warp_cost(policyparams, flow_field, goal_pix=None, warped_images=Non
         print('adding warp warp_success_cost')
         if goal_mask is not None:
             diffs = (warped_images - goal_image[:, None])*goal_mask[None, None, :, :, None]
-            sqdiffs = np.square(diffs)
+
             ws_costs = np.sum(sqdiffs.reshape([flow_field.shape[0], flow_field.shape[1], -1]), axis=-1)/np.sum(goal_mask)
         else:
             ws_costs = np.mean(np.mean(np.mean(np.square(warped_images - goal_image[:,None]), axis=2), axis=2), axis=2)*\
@@ -242,6 +242,9 @@ class CEM_controller():
         self.plan_stat = {} #planning statistics
 
         self.warped_image_goal, self.warped_image_start = None, None
+        if 'stochastic_planning' in self.policyparams:
+            self.smp_peract = self.policyparams['stochastic_planning'][0]
+        else: self.smp_peract = 1
 
     def calc_action_cost(self, actions):
         actions_costs = np.zeros(self.M)
@@ -256,8 +259,9 @@ class CEM_controller():
             for a in range(self.naction_steps):
                 for ind in self.discrete_ind:
                     actions[b, a, ind] = np.clip(np.floor(actions[b, a, ind]), 0, 4)
-
         return actions
+
+
 
     def perform_CEM(self,last_frames, last_states, t):
         # initialize mean and variance
@@ -294,32 +298,29 @@ class CEM_controller():
             actioncosts = self.calc_action_cost(actions)
             scores += actioncosts
 
-            if 'exp_action_weighting' in self.policyparams:
-                temp = self.policyparams['exp_action_weighting']
-                scores = (scores-np.mean(scores))/np.std(scores)
-                exp_scores = np.exp(-scores*temp)
-                self.bestaction = np.sum(actions*exp_scores[:,None,None], axis=0)/np.sum(exp_scores)
-            else:
-                self.indices = scores.argsort()[:self.K]
-                self.bestindices_of_iter[itr] = self.indices
+            if 'stochastic_planning' in self.policyparams:
+                actions, scores = self.action_preselection(actions, scores)
 
-                self.bestaction_withrepeat = actions[self.indices[0]]
-                self.plan_stat['scores_itr{}'.format(itr)] = scores
-                self.plan_stat['bestscore_itr{}'.format(itr)] = scores[self.indices[0]]
+            self.indices = scores.argsort()[:self.K]
+            self.bestindices_of_iter[itr] = self.indices
 
-                actions = actions.reshape(self.M, self.naction_steps, self.repeat, self.adim)
-                actions = actions[:,:,-1,:] #taking only one of the repeated actions
-                actions_flat = actions.reshape(self.M, self.naction_steps * self.adim)
+            self.bestaction_withrepeat = actions[self.indices[0]]
+            self.plan_stat['scores_itr{}'.format(itr)] = scores
+            self.plan_stat['bestscore_itr{}'.format(itr)] = scores[self.indices[0]]
 
-                self.bestaction = actions[self.indices[0]]
-                # print 'bestaction:', self.bestaction
+            actions = actions.reshape(self.M/self.smp_peract, self.naction_steps, self.repeat, self.adim)
+            actions = actions[:,:,-1,:] #taking only one of the repeated actions
+            actions_flat = actions.reshape(self.M/self.smp_peract, self.naction_steps * self.adim)
 
-                arr_best_actions = actions_flat[self.indices]  # only take the K best actions
-                self.sigma = np.cov(arr_best_actions, rowvar= False, bias= False)
-                self.mean = np.mean(arr_best_actions, axis= 0)
+            self.bestaction = actions[self.indices[0]]
+            # print 'bestaction:', self.bestaction
 
-                print('iter {0}, bestscore {1}'.format(itr, scores[self.indices[0]]))
-                print('action cost of best action: ', actioncosts[self.indices[0]])
+            arr_best_actions = actions_flat[self.indices]  # only take the K best actions
+            self.sigma = np.cov(arr_best_actions, rowvar= False, bias= False)
+            self.mean = np.mean(arr_best_actions, axis= 0)
+
+            print('iter {0}, bestscore {1}'.format(itr, scores[self.indices[0]]))
+            print('action cost of best action: ', actioncosts[self.indices[0]])
 
             print('overall time for iteration {}'.format(time.time() - t_startiter))
 
@@ -340,7 +341,13 @@ class CEM_controller():
         """
         runs = []
         actions = []
-        for i in range(self.M):
+
+        if 'stochastic_planning' in self.policyparams:
+            num_distinct_actions = self.M // self.smp_peract
+        else:
+            num_distinct_actions = self.M
+
+        for i in range(num_distinct_actions):
             ok = False
             i = 0
             while not ok:
@@ -360,9 +367,12 @@ class CEM_controller():
                 else: ok = True
 
             runs.append(i)
-
             actions.append(action_seq)
         actions = np.stack(actions, axis=0)
+
+        if 'stochastic_planning' in self.policyparams:
+            actions = np.repeat(actions,self.policyparams['stochastic_planning'][0], 0)
+
         print('rejectoin smp max trials', max(runs))
         if self.discrete_ind != None:
             actions = self.discretize(actions)
@@ -370,6 +380,17 @@ class CEM_controller():
             actions = truncate_movement(actions, self.policyparams)
         actions = np.repeat(actions, self.repeat, axis=1)
         return actions
+
+    def action_preselection(self, actions, scores):
+        actions = actions.reshape((self.M//self.smp_peract, self.smp_peract, self.naction_steps, self.repeat, self.adim))
+        scores = scores.reshape((self.M//self.smp_peract, self.smp_peract))
+        if self.policyparams['stochastic_planning'][1] == 'optimistic':
+            inds = np.argmax(scores, axis=1)
+        if self.policyparams['stochastic_planning'][1] == 'pessimistic':
+            inds = np.argmin(scores, axis=1)
+
+        actions = [actions[b, inds[b]] for b in range(self.M//self.smp_peract)]
+        return np.stack(actions, 0)
 
     def switch_on_pix(self, desig):
         one_hot_images = np.zeros((self.bsize, self.netconf['context_frames'], self.ndesig, self.img_height, self.img_width, 1), dtype=np.float32)
