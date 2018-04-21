@@ -228,7 +228,6 @@ class Visualizer_tkinter(object):
 
                 framelist = assemble_gif(new_videolist, convert_from_float=False, num_exp=self.numex)
                 save_video_mp4(self.gif_savepath + '/prediction_at_t{}'.format(t), framelist)
-
         else:
             new_videolist = []
             for vid in self.video_list:

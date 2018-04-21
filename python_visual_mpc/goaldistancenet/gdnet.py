@@ -17,7 +17,7 @@ from python_visual_mpc.video_prediction.utils_vpred.online_reader import OnlineR
 import tensorflow.contrib.slim as slim
 
 from python_visual_mpc.utils.colorize_tf import colorize
-from python_visual_mpc.goaldistancenet.visualize.make_plots import make_plots
+from python_visual_mpc.goaldistancenet.visualize.gdn_make_plots import make_plots
 from tensorflow.contrib.layers.python import layers as tf_layers
 from python_visual_mpc.video_prediction.utils_vpred.online_reader import read_trajectory
 
