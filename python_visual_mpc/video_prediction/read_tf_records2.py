@@ -13,6 +13,7 @@ import imp
 
 import pickle
 from random import shuffle as shuffle_list
+from python_visual_mpc.misc.zip_equal import zip_equal
 COLOR_CHAN = 3
 def decode_im(conf, features, image_name):
 
@@ -38,6 +39,39 @@ def decode_im(conf, features, image_name):
     image = tf.reshape(image, [1, IMG_HEIGHT, IMG_WIDTH, COLOR_CHAN])
     image = tf.cast(image, tf.float32) / 255.0
     return image
+
+
+def mix_datasets(dataset0, dataset1, batch_size, ratio_01):
+    """Sample batch with specified mix of ground truth and generated data_files points.
+
+    Args:
+      ground_truth_x: tensor of ground-truth data_files points.
+      generated_x: tensor of generated data_files points.
+      batch_size: batch size
+      num_set0: number of ground-truth examples to include in batch.
+    Returns:
+      New batch with num_ground_truth sampled from ground_truth_x and the rest
+      from generated_x.
+    """
+    num_set0 = tf.cast(int(batch_size)*ratio_01, tf.int64)
+
+    idx = tf.random_shuffle(tf.range(int(batch_size)))
+
+    set0_idx = tf.gather(idx, tf.range(num_set0))
+    set1_idx = tf.gather(idx, tf.range(num_set0, int(batch_size)))
+
+    output = []
+    for set0, set1 in zip_equal(dataset0, dataset1):
+        dataset0_examps = tf.gather(set0, set0_idx)
+        dataset1_examps = tf.gather(set1, set1_idx)
+        output.append(tf.dynamic_stitch([set0_idx, set1_idx],
+                                 [dataset0_examps, dataset1_examps]))
+
+    return output
+
+
+# def build_tfrecord_input_mixed
+
 
 def build_tfrecord_input(conf, training=True, input_file=None, shuffle=True):
     """Create input tfrecord tensors.

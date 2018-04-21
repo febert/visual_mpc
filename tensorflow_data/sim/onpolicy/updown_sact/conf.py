@@ -2,7 +2,7 @@ import os
 current_dir = os.path.dirname(os.path.realpath(__file__))
 
 # tf record data location:
-DATA_DIR = os.environ['VMPC_DATA_DIR'] + '/cartgripper_updown_sact/train'
+DATA_DIR = os.environ['VMPC_DATA_DIR']
 
 # local output directory
 OUT_DIR = current_dir + '/modeldata'
@@ -12,7 +12,7 @@ from python_visual_mpc.video_prediction.dynamic_rnn_model.dynamic_base_model imp
 configuration = {
 'experiment_name': 'rndaction_var10',
 'pred_model':Dynamic_Base_Model,
-'data_dir': DATA_DIR,       # 'directory containing data.' ,
+'data_dir': [DATA_DIR + '/cartgripper_updown_sact/train', DATA_DIR + '/onpolicy/updown_sact_bounded_disc/train'],       # 'directory containing data.' ,
 'output_dir': OUT_DIR,      #'directory for model checkpoints.' ,
 'current_dir': current_dir, #'directory for writing summary.' ,
 'num_iterations': 200000,   #'number of training iterations.' ,

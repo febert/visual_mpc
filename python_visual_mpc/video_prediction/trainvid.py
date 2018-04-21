@@ -56,8 +56,15 @@ def main(unused_argv, conf_script= None):
     conf = hyperparams.configuration
 
     if 'VMPC_DATA_DIR' in os.environ:
-        path = conf['data_dir'].partition('pushing_data')[2]
-        conf['data_dir'] = os.environ['VMPC_DATA_DIR'] + path
+        if isinstance(conf['data_dir'], (list, tuple)):
+            new_data_dirs = []
+            for d in conf['data_dir']:
+                path = d.partition('pushing_data')[2]
+                new_data_dirs.append(os.environ['VMPC_DATA_DIR'] + path)
+            conf['data_dir'] = new_data_dirs
+        else:
+            path = conf['data_dir'].partition('pushing_data')[2]
+            conf['data_dir'] = os.environ['VMPC_DATA_DIR'] + path
 
     if 'RESULT_DIR' in os.environ:
         conf['output_dir']= os.environ['RESULT_DIR']
@@ -181,23 +188,6 @@ def main(unused_argv, conf_script= None):
 
         feed_dict = {model.iter_num: np.float32(itr),
                      model.train_cond: 1}
-
-        if len(conf['data_dir']) == 2:
-            if 'scheduled_finetuning' in conf:
-                dest_itr = conf['scheduled_finetuning_dest_itr']
-                ratio_dest_val = conf['scheduled_finetuning_dest_value']
-                ratio01 = np.array([(itr/dest_itr)*ratio_dest_val + (1.-itr/dest_itr)])
-                ratio01 = np.clip(ratio01, ratio_dest_val, 1.)
-                ratio01 = np.squeeze(ratio01)
-                feed_dict[model.dataset_01ratio] = ratio01
-            else:
-                ratio01 = 0.2
-                feed_dict[model.dataset_01ratio] = ratio01
-
-            if (itr) % 10 == 0:
-                print('ratio old data/batchsize:', ratio01)
-
-
         cost, _, summary_str = sess.run([model.loss, model.train_op, model.train_summ_op],
                                         feed_dict)
 
@@ -208,15 +198,8 @@ def main(unused_argv, conf_script= None):
             # Run through validation set.
             feed_dict = {model.iter_num: np.float32(itr),
                          model.train_cond: 0}
-            if len(conf['data_dir']) == 2:
-                feed_dict[model.dataset_01ratio] = ratio01
-                [val_summary_str, val_0_summary_str, val_1_summary_str] = sess.run([model.val_summ_op, model.val_0_summ_op, model.val_1_summ_op], feed_dict)
-                summary_writer.add_summary(val_summary_str, itr)
-                summary_writer.add_summary(val_0_summary_str, itr)
-                summary_writer.add_summary(val_1_summary_str, itr)
-            else:
-                [val_summary_str] = sess.run([model.val_summ_op], feed_dict)
-                summary_writer.add_summary(val_summary_str, itr)
+            [val_summary_str] = sess.run([model.val_summ_op], feed_dict)
+            summary_writer.add_summary(val_summary_str, itr)
 
         if (itr) % VIDEO_INTERVAL == 2 and hasattr(model, 'val_video_summaries'):
             feed_dict = {model.iter_num: np.float32(itr),
