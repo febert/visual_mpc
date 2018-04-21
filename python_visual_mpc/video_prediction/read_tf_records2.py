@@ -12,7 +12,7 @@ from PIL import Image
 import imp
 
 import pickle
-
+from random import shuffle as shuffle_list
 COLOR_CHAN = 3
 def decode_im(conf, features, image_name):
 
@@ -65,7 +65,14 @@ def build_tfrecord_input(conf, training=True, input_file=None, shuffle=True):
         filenames = [input_file]
         shuffle = False
     else:
-        filenames = gfile.Glob(os.path.join(conf['data_dir'], '*'))
+        if isinstance(conf['data_dir'], (list, tuple)):
+            filenames = []
+            for dir in conf['data_dir']:
+                filenames += gfile.Glob(os.path.join(dir, '*'))
+            print(filenames)
+        else:
+            filenames = gfile.Glob(os.path.join(conf['data_dir'], '*'))
+        
         if not filenames:
             raise RuntimeError('No data_files files found.')
 
@@ -80,7 +87,8 @@ def build_tfrecord_input(conf, training=True, input_file=None, shuffle=True):
             shuffle = False
 
     print('using shuffle: ', shuffle)
-
+    if shuffle:
+        shuffle_list(filenames)
     # Reads an image from a file, decodes it into a dense tensor, and resizes it
     # to a fixed shape.
     def _parse_function(serialized_example):
@@ -198,7 +206,7 @@ def build_tfrecord_input(conf, training=True, input_file=None, shuffle=True):
     else: dataset = dataset.repeat()
 
     if shuffle:
-        dataset = dataset.shuffle(buffer_size=256)
+        dataset = dataset.shuffle(buffer_size=512)
     dataset = dataset.batch(conf['batch_size'])
     iterator = dataset.make_one_shot_iterator()
     next_element = iterator.get_next()
