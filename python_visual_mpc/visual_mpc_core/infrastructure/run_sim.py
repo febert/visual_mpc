@@ -15,11 +15,14 @@ from python_visual_mpc.goaldistancenet.setup_gdn import setup_gdn
 from python_visual_mpc.visual_mpc_core.infrastructure.utility import *
 
 import matplotlib.pyplot as plt
+import matplotlib
+matplotlib.use('Agg')
 from datetime import datetime
 import pickle
 import cv2
 import shutil
 import numpy as np
+
 
 class Sim(object):
     """ Main class to run algorithms and experiments. """
@@ -92,7 +95,6 @@ class Sim(object):
 
         if self.agent.goal_obj_pose is not None:
             plot_dist(traj, self.agentparams['record'])
-
         if 'register_gtruth' in self.policyparams:
             plot_warp_err(traj, self.agentparams['record'])
 
