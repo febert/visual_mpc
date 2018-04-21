@@ -69,7 +69,6 @@ def build_tfrecord_input(conf, training=True, input_file=None, shuffle=True):
             filenames = []
             for dir in conf['data_dir']:
                 filenames += gfile.Glob(os.path.join(dir, '*'))
-            print(filenames)
         else:
             filenames = gfile.Glob(os.path.join(conf['data_dir'], '*'))
         
