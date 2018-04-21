@@ -500,7 +500,7 @@ def add_crosshairs(images, pos, color=None):
             color = np.array([0, 255, 255])
 
     out = np.zeros_like(images)
-    for b in range(images.shape[0]):
+    for b in range(pos.shape[0]):
         for t in range(images.shape[1]):
             im = np.squeeze(images[b,t])
             p = pos[b,t].astype(np.int)
@@ -520,6 +520,12 @@ def add_crosshairs(images, pos, color=None):
     return out
 
 def add_crosshairs_single(im, pos, color=None):
+    """
+    :param im:  shape: r,c,3
+    :param pos:
+    :param color:
+    :return:
+    """
     if color == None:
         if im.dtype == np.float32:
             color = np.array([0., 1., 1.])

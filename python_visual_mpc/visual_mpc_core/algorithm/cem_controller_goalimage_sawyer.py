@@ -10,7 +10,7 @@ from datetime import datetime
 import copy
 from python_visual_mpc.video_prediction.basecls.utils.visualize import add_crosshairs
 
-from python_visual_mpc.visual_mpc_core.algorithm.utils.make_visuals import make_visuals
+from python_visual_mpc.visual_mpc_core.algorithm.utils.make_visuals import make_cem_visuals
 # from python_visual_mpc.video_prediction.utils_vpred.create_gif_lib import *
 
 import collections
@@ -259,7 +259,6 @@ class CEM_controller():
 
         return actions
 
-
     def perform_CEM(self,last_frames, last_states, t):
         # initialize mean and variance
         self.mean = np.zeros(self.adim * self.naction_steps)
@@ -273,20 +272,16 @@ class CEM_controller():
             print('------------')
             print('iteration: ', itr)
             t_startiter = time.time()
-            actions = np.random.multivariate_normal(self.mean, self.sigma, self.M)
-            actions = actions.reshape(self.M, self.naction_steps, self.adim)
-            if self.discrete_ind != None:
-                actions = self.discretize(actions)
-            if 'no_action_bound' not in self.policyparams:
-                actions = truncate_movement(actions, self.policyparams)
 
-            actions = np.repeat(actions, self.repeat, axis=1)
+            if 'rejection_sampling' in self.policyparams:
+                actions = self.sample_actions_rej()
+            else:
+                actions = self.sample_actions()
 
             if 'random_policy' in self.policyparams:
                 print('sampling random actions')
                 self.bestaction_withrepeat = actions[0]
                 return
-
             t_start = time.time()
 
             if 'multmachine' in self.policyparams:
@@ -327,6 +322,54 @@ class CEM_controller():
                 print('action cost of best action: ', actioncosts[self.indices[0]])
 
             print('overall time for iteration {}'.format(time.time() - t_startiter))
+
+    def sample_actions(self):
+        actions = np.random.multivariate_normal(self.mean, self.sigma, self.M)
+        actions = actions.reshape(self.M, self.naction_steps, self.adim)
+        if self.discrete_ind != None:
+            actions = self.discretize(actions)
+        if 'no_action_bound' not in self.policyparams:
+            actions = truncate_movement(actions, self.policyparams)
+        actions = np.repeat(actions, self.repeat, axis=1)
+        return actions
+
+    def sample_actions_rej(self):
+        """
+        Perform rejection sampling
+        :return:
+        """
+        runs = []
+        actions = []
+        for i in range(self.M):
+            ok = False
+            i = 0
+            while not ok:
+                i +=1
+                action_seq = np.random.multivariate_normal(self.mean, self.sigma, 1)
+
+                action_seq = action_seq.reshape(self.naction_steps, self.adim)
+                xy_std = self.policyparams['initial_std']
+                lift_std = self.policyparams['initial_std_lift']
+
+                std_fac = 1.5
+                if np.any(action_seq[:, :1] > xy_std*std_fac) or \
+                   np.any(action_seq[:, :1] < -xy_std*std_fac) or \
+                   np.any(action_seq[:, 2] > lift_std*std_fac) or \
+                   np.any(action_seq[:, 2] < -lift_std*std_fac):
+                    ok = False
+                else: ok = True
+
+            runs.append(i)
+
+            actions.append(action_seq)
+        actions = np.stack(actions, axis=0)
+        print('rejectoin smp max trials', max(runs))
+        if self.discrete_ind != None:
+            actions = self.discretize(actions)
+        if 'no_action_bound' not in self.policyparams:
+            actions = truncate_movement(actions, self.policyparams)
+        actions = np.repeat(actions, self.repeat, axis=1)
+        return actions
 
     def switch_on_pix(self, desig):
         one_hot_images = np.zeros((self.bsize, self.netconf['context_frames'], self.ndesig, self.img_height, self.img_width, 1), dtype=np.float32)
@@ -444,11 +487,11 @@ class CEM_controller():
 
         tstart_verbose = time.time()
 
-        if self.verbose and cem_itr == self.policyparams['iterations']-1:
-        # if self.verbose:
-            gen_images = make_visuals(self, actions, bestindices, cem_itr, flow_fields, gen_distrib, gen_images,
-                                      gen_states, last_frames, goal_warp_pts_l, scores, self.warped_image_goal,
-                                      self.warped_image_start, warped_images)
+        # if self.verbose and cem_itr == self.policyparams['iterations']-1:
+        if self.verbose:
+            gen_images = make_cem_visuals(self, actions, bestindices, cem_itr, flow_fields, gen_distrib, gen_images,
+                                          gen_states, last_frames, goal_warp_pts_l, scores, self.warped_image_goal,
+                                          self.warped_image_start, warped_images)
             if 'sawyer' in self.agentparams:
                 bestind = self.publish_sawyer(gen_distrib, gen_images, scores)
 
@@ -468,6 +511,7 @@ class CEM_controller():
         desig_l = []
 
         current_frame = last_frames[0, ctxt - 1]
+        warped_image_start, warped_image_goal = None, None
         if 'start' in self.policyparams['register_gtruth']:
             warped_image_start, flow_field, goal_warp_pts = self.goal_image_warper(current_frame[None],
                                                                                   self.start_image[None])

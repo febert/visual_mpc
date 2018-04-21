@@ -7,7 +7,7 @@ from python_visual_mpc.video_prediction.utils_vpred.animate_tkinter import Visua
 
 
 def image_addgoalpix(bsize, seqlen, image_l, goal_pix):
-    goal_pix_ob = np.tile(goal_pix[None, :], [bsize, seqlen - 1, 1])
+    goal_pix_ob = np.tile(goal_pix[None, None, :], [bsize, seqlen - 1, 1])
     return add_crosshairs(image_l, goal_pix_ob)
 
 def images_addwarppix(gen_images, warp_pts_l, pix, num_objects):
@@ -17,9 +17,8 @@ def images_addwarppix(gen_images, warp_pts_l, pix, num_objects):
         gen_images = add_crosshairs(gen_images, np.flip(warp_pts_ob, 2))
     return gen_images
 
-
-def make_visuals(ctrl, actions, bestindices, cem_itr, flow_fields, gen_distrib, gen_images, gen_states,
-                 last_frames, goal_warp_pts_l, scores, warped_image_goal, warped_image_start, warped_images):
+def make_cem_visuals(ctrl, actions, bestindices, cem_itr, flow_fields, gen_distrib, gen_images, gen_states,
+                     last_frames, goal_warp_pts_l, scores, warped_image_goal, warped_image_start, warped_images):
 
         seqlen = ctrl.netconf['sequence_length']
         bsize = ctrl.netconf['batch_size']
@@ -58,32 +57,36 @@ def make_visuals(ctrl, actions, bestindices, cem_itr, flow_fields, gen_distrib, 
             current_image = [np.repeat(np.expand_dims(last_frames[0, 1], axis=0), ctrl.K, axis=0) for _ in
                            range(len(gen_images))]
             t_dict_['current_image'] = current_image
-            t_dict_['warped_image_start '] = [np.repeat(np.expand_dims(warped_image_start.squeeze(), axis=0), ctrl.K, axis=0) for _ in
-                range(len(gen_images))]
+            if 'start' in ctrl.policyparams['register_gtruth']:
+                t_dict_['warped_image_start '] = [np.repeat(np.expand_dims(warped_image_start.squeeze(), axis=0), ctrl.K, axis=0) for _ in
+                    range(len(gen_images))]
 
             startimages = [np.repeat(np.expand_dims(ctrl.start_image, axis=0), ctrl.K, axis=0) for _ in
                            range(len(gen_images))]
             desig_pix_t0 = np.tile(ctrl.desig_pix_t0[None, :], [ctrl.K, seqlen - 1, 1])
             t_dict_['start_image'] = add_crosshairs(startimages, desig_pix_t0)
 
-            desig_pix_start = np.tile(ctrl.desig_pix[0][None, :], [bsize, seqlen - 1, 1])
-            gen_images = add_crosshairs(gen_images, desig_pix_start, color=[1., 0., 0])
-            desig_pix_goal = np.tile(ctrl.desig_pix[1][None, :], [bsize, seqlen - 1, 1])
-            gen_images = add_crosshairs(gen_images, desig_pix_goal, color=[0, 0, 1.])
+            if 'start' in ctrl.policyparams['register_gtruth']:
+                desig_pix_start = np.tile(ctrl.desig_pix[0][None, :], [bsize, seqlen - 1, 1])
+                gen_images = add_crosshairs(gen_images, desig_pix_start, color=[1., 0., 0])
+            if 'goal' in ctrl.policyparams['register_gtruth']:
+                desig_pix_goal = np.tile(ctrl.desig_pix[1][None, :], [bsize, seqlen - 1, 1])
+                gen_images = add_crosshairs(gen_images, desig_pix_goal, color=[0, 0, 1.])
 
-            t_dict_['warped_image_goal'] = [
-                np.repeat(np.expand_dims(warped_image_goal.squeeze(), axis=0), ctrl.K, axis=0) for _ in
-                range(len(gen_images))]
+                t_dict_['warped_image_goal'] = [
+                    np.repeat(np.expand_dims(warped_image_goal.squeeze(), axis=0), ctrl.K, axis=0) for _ in
+                    range(len(gen_images))]
         goal_image = [np.repeat(np.expand_dims(ctrl.goal_image, axis=0), ctrl.K, axis=0) for _ in
                       range(len(gen_images))]
-        goal_image_annotated = image_addgoalpix(bsize, seqlen, goal_image, ctrl.goal_pix)
+        for p in range(ctrl.goal_pix.shape[0]):
+            goal_image_annotated = image_addgoalpix(ctrl.K , seqlen, goal_image, ctrl.goal_pix[p])
         t_dict_['goal_image'] = goal_image_annotated
         if 'use_goal_image' not in ctrl.policyparams or 'comb_flow_warp' in ctrl.policyparams or 'register_gtruth' in ctrl.policyparams:
             for p in range(ctrl.ndesig):
                 gen_distrib_p = [g[:, p] for g in gen_distrib]
                 sel_gen_distrib_p = sel_func(gen_distrib_p)
                 t_dict_['gen_distrib{}_t{}'.format(p, ctrl.t)] = sel_gen_distrib_p
-                t_dict_['gen_distrib_goalim_overlay{}_t{}'.format(p, ctrl.t)] = (image_addgoalpix(bsize, seqlen, goal_image,
+                t_dict_['gen_distrib_goalim_overlay{}_t{}'.format(p, ctrl.t)] = (image_addgoalpix(ctrl.K, seqlen, goal_image,
                                                                                                  ctrl.goal_pix[p]), sel_gen_distrib_p)
         t_dict_['gen_images_t{}'.format(ctrl.t)] = sel_func(gen_images)
         print('itr{} best scores: {}'.format(cem_itr, [scores[bestindices[ind]] for ind in range(ctrl.K)]))
