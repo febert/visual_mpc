@@ -22,6 +22,8 @@ import scipy.misc
 frame = None
 canvas = None
 
+from python_visual_mpc.utils.txt_in_image import draw_text_image
+
 def plot_psum_overtime(gen_distrib, n_exp, filename):
     plt.figure(figsize=(25, 2),dpi=80)
 
@@ -231,9 +233,10 @@ class Visualizer_tkinter(object):
             new_videolist = []
             for vid in self.video_list:
                 images = vid[0]
+                name = vid[1]
                 if images[0].shape[-1] == 1:
                     images = color_code_distrib(images, self.numex, renormalize=True)
-                new_videolist.append(images)
+                new_videolist.append((images, name))
 
         if separate_vid:
             vid_path = self.gif_savepath + '/sep_videos'

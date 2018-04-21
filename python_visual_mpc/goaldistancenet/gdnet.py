@@ -17,6 +17,7 @@ from python_visual_mpc.video_prediction.utils_vpred.online_reader import OnlineR
 import tensorflow.contrib.slim as slim
 
 from python_visual_mpc.utils.colorize_tf import colorize
+from python_visual_mpc.goaldistancenet.visualize.make_plots import make_plots
 from tensorflow.contrib.layers.python import layers as tf_layers
 from python_visual_mpc.video_prediction.utils_vpred.online_reader import read_trajectory
 
@@ -243,6 +244,11 @@ class GoalDistanceNet(object):
             self.gen_I1 = self.warped_I0_to_I1
             self.gen_I0, self.flow_fwd = None, None
 
+        self.occ_mask_bwd = 1 - self.occ_bwd  # 0 at occlusion
+        self.occ_mask_fwd = 1 - self.occ_fwd
+        self.occ_mask_bwd = self.occ_mask_bwd[:, :, :, None]
+        self.occ_mask_fwd = self.occ_mask_fwd[:, :, :, None]
+
         if self.build_loss:
             if 'multi_scale' not in self.conf:
                 self.add_pair_loss(self.I1, self.gen_I1, self.occ_bwd, self.flow_bwd,
@@ -250,10 +256,6 @@ class GoalDistanceNet(object):
             self.combine_losses()
             # image_summary:
             if 'fwd_bwd' in self.conf:
-                self.occ_mask_bwd = 1 - self.occ_bwd  # 0 at occlusion
-                self.occ_mask_fwd = 1 - self.occ_fwd
-                self.occ_mask_bwd = self.occ_mask_bwd[:, :, :, None]
-                self.occ_mask_fwd = self.occ_mask_fwd[:, :, :, None]
 
                 self.image_summaries = self.build_image_summary(
                     [self.I0, self.I1, self.gen_I0, self.gen_I1, length(self.flow_bwd), length(self.flow_fwd), self.occ_mask_bwd, self.occ_mask_fwd])
@@ -567,7 +569,6 @@ class GoalDistanceNet(object):
         else:  # when visualizing sequence of warps from video
             videos = build_tfrecord_fn(self.conf)
 
-
             if 'vidpred_data' in self.conf:
                 images, pred_images = sess.run([videos['images'], videos['gen_images']])
                 pred_images = np.squeeze(pred_images)
@@ -588,7 +589,10 @@ class GoalDistanceNet(object):
         warpscores_bwd = []
         warpscores_fwd = []
 
-        avg_flow_error = []
+        bwd_flows_l = []
+        fwd_flows_l = []
+        warp_pts_bwd_l= []
+        warp_pts_fwd_l= []
 
         for t in range(self.conf['sequence_length']-1):
             if 'vidpred_data' in self.conf:
@@ -603,7 +607,7 @@ class GoalDistanceNet(object):
 
             if 'fwd_bwd' in self.conf:
                 [gen_image_I1, bwd_flow, occ_bwd, norm_occ_mask_bwd,
-                 gen_image_I0, fwd_flow, occ_fwd, norm_occ_mask_fwd] = sess.run([self.gen_I1,
+                 gen_image_I0, fwd_flow, occ_fwd, norm_occ_mask_fwd, warp_pts_bwd, warp_pts_fwd] = sess.run([self.gen_I1,
                                                                                  self.flow_bwd,
                                                                                  self.occ_bwd,
                                                                                  self.occ_mask_bwd,
@@ -611,14 +615,21 @@ class GoalDistanceNet(object):
                                                                                  self.flow_fwd,
                                                                                  self.occ_fwd,
                                                                                  self.occ_mask_fwd,
+                                                                                 self.warp_pts_bwd,
+                                                                                 self.warp_pts_fwd,
                                                                                  ], {self.I0_pl: I0_t, self.I1_pl: I1})
                 occ_bwd_l.append(occ_bwd)
                 occ_fwd_l.append(occ_fwd)
 
                 gen_images_I0.append(gen_image_I0)
+
+                fwd_flows_l.append(fwd_flow)
+                warp_pts_fwd_l.append(warp_pts_fwd)
             else:
                 [gen_image_I1, bwd_flow] = sess.run([self.gen_I1, self.flow_bwd], {self.I0_pl:I0_t, self.I1_pl: I1})
 
+            bwd_flows_l.append(bwd_flow)
+            warp_pts_bwd_l.append(warp_pts_bwd)
             gen_images_I1.append(gen_image_I1)
 
             flow_mag_bwd = np.linalg.norm(bwd_flow, axis=3)
@@ -637,13 +648,16 @@ class GoalDistanceNet(object):
         videos['I0_ts'] = I0_ts
         videos['gen_images_I1'] = gen_images_I1
         videos['flow_mags_bwd'] = (flow_mags_bwd, warpscores_bwd)
+        videos['bwd_flow'] = bwd_flows_l
+        videos['warp_pts_bwd'] = warp_pts_bwd_l
 
         if 'vidpred_data' in self.conf:
             videos['I0_t_real'] = I0_t_reals
 
         if 'fwd_bwd' in self.conf:
+            videos['warp_pts_fwd'] = warp_pts_fwd_l
+            videos['fwd_flow'] = fwd_flows_l
             videos['occ_bwd'] = occ_bwd_l
-
             videos['gen_images_I0'] = gen_images_I0
             videos['flow_mags_fwd'] = (flow_mags_fwd, warpscores_fwd)
             videos['occ_fwd'] = occ_fwd_l
@@ -652,7 +666,7 @@ class GoalDistanceNet(object):
         dict = {'videos':videos, 'name':name, 'I1':I1}
 
         pickle.dump(dict, open(self.conf['output_dir'] + '/data.pkl', 'wb'))
-        make_plots(self.conf, dict=dict)
+        # make_plots(self.conf, dict=dict)
 
     def run_bench(self, benchmodel, sess):
         _, flow_errs_mean, _, _, _, _ = self.compute_bench(benchmodel, sess)
@@ -720,72 +734,4 @@ class GoalDistanceNet(object):
         return np.stack(l, axis=0)
 
 
-def make_plots(conf, dict=None, filename = None):
-    if dict == None:
-        dict = pickle.load(open(filename))
 
-    print('loaded')
-    videos = dict['videos']
-
-    I0_ts = videos['I0_ts']
-
-    # num_exp = I0_t_reals[0].shape[0]
-    num_ex = 4
-    start_ex = 0
-    num_rows = num_ex*len(list(videos.keys()))
-    num_cols = len(I0_ts) + 1
-
-    print('num_rows', num_rows)
-    print('num_cols', num_cols)
-
-    width_per_ex = 2.5
-
-    standard_size = np.array([width_per_ex * num_cols, num_rows * 1.5])  ### 1.5
-    figsize = (standard_size).astype(np.int)
-
-    f, axarr = plt.subplots(num_rows, num_cols, figsize=figsize)
-
-    print('start')
-    for col in range(num_cols -1):
-        row = 0
-        for ex in range(start_ex, start_ex + num_ex, 1):
-            for tag in list(videos.keys()):
-                print('doing tag {}'.format(tag))
-                if isinstance(videos[tag], tuple):
-                    im = videos[tag][0][col]
-                    score = videos[tag][1]
-                    axarr[row, col].set_title('{:10.3f}'.format(score[col][ex]), fontsize=5)
-                else:
-                    im = videos[tag][col]
-
-                h = axarr[row, col].imshow(np.squeeze(im[ex]), interpolation='none')
-
-                if len(im.shape) == 3:
-                    plt.colorbar(h, ax=axarr[row, col])
-                axarr[row, col].axis('off')
-                row += 1
-
-    row = 0
-    col = num_cols-1
-
-    if 'I1' in dict:
-        for ex in range(start_ex, start_ex + num_ex, 1):
-            im = dict['I1'][ex]
-            h = axarr[row, col].imshow(np.squeeze(im), interpolation='none')
-            plt.colorbar(h, ax=axarr[row, col])
-            axarr[row, col].axis('off')
-            row += len(list(videos.keys()))
-
-    # plt.axis('off')
-    f.subplots_adjust(wspace=0, hspace=0.3)
-
-    # f.subplots_adjust(vspace=0.1)
-    # plt.show()
-    plt.savefig(conf['output_dir']+'/warp_costs_{}.png'.format(dict['name']))
-
-
-if __name__ == '__main__':
-    filedir = '/home/frederik/Documents/catkin_ws/src/visual_mpc/tensorflow_data/gdn/tdac_cons0_cartgripper/modeldata'
-    conf = {}
-    conf['output_dir'] = filedir
-    make_plots(conf, filename= filedir + '/data.pkl')

@@ -10,6 +10,7 @@ import re
 import matplotlib.pyplot as plt
 import pdb
 
+from python_visual_mpc.utils.txt_in_image import draw_text_image
 
 
 
@@ -175,15 +176,29 @@ def comp_pix_distrib(file_path, name= None, masks = False, examples = 8):
 
 def assemble_gif(video_batch, num_exp = 8, convert_from_float = True, only_ind=None):
     """
-    accepts a list of different video batches
+    :param video_batch: accepts a list of different video batches
     each video batch is a list of [batchsize, 64, 64, 3] with length timesteps, with type float32 and range 0 to 1
-    :param image_rows:
+    or each element of the list is tuple (video batch, name)
+
     :param only_ind, only assemble this index
     :return:
     """
 
+
     vid_length = min([len(vid) for vid in video_batch])
     print('smallest length of all videos', vid_length)
+
+    if isinstance(video_batch, tuple):
+        names = [v[1] for v in video_batch]
+        video_batch = [v[0] for v in video_batch]
+
+        txt_im = []
+        for name in names:
+            txt_im = draw_text_image(name, image_size=(64,64))
+        legend_col = np.concatenate(txt_im, 0)
+    else:
+        legend_col = None
+
     for i in range(len(video_batch)):
         video_batch[i] = [np.expand_dims(videoframe, axis=0) for videoframe in video_batch[i]]
 
@@ -192,6 +207,7 @@ def assemble_gif(video_batch, num_exp = 8, convert_from_float = True, only_ind=N
 
     #videobatch is a list of [timelength, batchsize, 64, 64, 3]
 
+
     fullframe_list = []
     for t in range(vid_length):
         if only_ind is not None:
@@ -199,6 +215,9 @@ def assemble_gif(video_batch, num_exp = 8, convert_from_float = True, only_ind=N
             full_frame = np.concatenate(column_images, axis=0)  # make column
         else:
             column_list = []
+            if legend_col is not None:
+                column_list.append(legend_col)
+
             for exp in range(num_exp):
                 column_images = [video[t,exp] for video in video_batch]
                 column_images = np.concatenate(column_images, axis=0)  #make column
