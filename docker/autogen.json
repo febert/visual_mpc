@@ -1,11 +1,11 @@
 {
     "dockerImageName": "ucb_rail8888/tf_mj1.5:latest", 
     "aceName": "nv-us-west-2", 
-    "name": "alexmodel-savp_register_gtruth_start-nworkers-8", 
+    "name": "alexmodel-savp_rejection_smp-nworkers-8", 
     "publishedContainerPorts": [
         6006
     ], 
-    "command": "cd /result && tensorboard --logdir . &  export VMPC_DATA_DIR=/mnt/pushing_data; export TEN_DATA=/mnt/tensorflow_data; export ALEX_DATA=/mnt/pretrained_models; export RESULT_DIR=/result; export NO_ROS=''; export PATH=/opt/conda/bin:/usr/local/mpi/bin:/usr/local/nvidia/bin:/usr/local/cuda/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin; cd /workspace/visual_mpc/python_visual_mpc/visual_mpc_core;/bin/sleep 36000", 
+    "command": "cd /result && tensorboard --logdir . &  export VMPC_DATA_DIR=/mnt/pushing_data; export TEN_DATA=/mnt/tensorflow_data; export ALEX_DATA=/mnt/pretrained_models; export RESULT_DIR=/result; export NO_ROS=''; export PATH=/opt/conda/bin:/usr/local/mpi/bin:/usr/local/nvidia/bin:/usr/local/cuda/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin; cd /workspace/visual_mpc/python_visual_mpc/visual_mpc_core;python parallel_data_collection.py alexmodel/savp_rejection_smp --nworkers 8", 
     "datasetMounts": [
         {
             "containerMountPoint": "/mnt/tensorflow_data/sim/mj_pos_ctrl_appflow", 
