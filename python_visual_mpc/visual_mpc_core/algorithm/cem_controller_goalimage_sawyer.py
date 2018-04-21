@@ -262,7 +262,6 @@ class CEM_controller():
         return actions
 
 
-
     def perform_CEM(self,last_frames, last_states, t):
         # initialize mean and variance
         self.mean = np.zeros(self.adim * self.naction_steps)
@@ -308,9 +307,9 @@ class CEM_controller():
             self.plan_stat['scores_itr{}'.format(itr)] = scores
             self.plan_stat['bestscore_itr{}'.format(itr)] = scores[self.indices[0]]
 
-            actions = actions.reshape(self.M/self.smp_peract, self.naction_steps, self.repeat, self.adim)
+            actions = actions.reshape(self.M//self.smp_peract, self.naction_steps, self.repeat, self.adim)
             actions = actions[:,:,-1,:] #taking only one of the repeated actions
-            actions_flat = actions.reshape(self.M/self.smp_peract, self.naction_steps * self.adim)
+            actions_flat = actions.reshape(self.M//self.smp_peract, self.naction_steps * self.adim)
 
             self.bestaction = actions[self.indices[0]]
             # print 'bestaction:', self.bestaction
@@ -373,7 +372,7 @@ class CEM_controller():
         if 'stochastic_planning' in self.policyparams:
             actions = np.repeat(actions,self.policyparams['stochastic_planning'][0], 0)
 
-        print('rejectoin smp max trials', max(runs))
+        print('rejection smp max trials', max(runs))
         if self.discrete_ind != None:
             actions = self.discretize(actions)
         if 'no_action_bound' not in self.policyparams:
@@ -386,11 +385,13 @@ class CEM_controller():
         scores = scores.reshape((self.M//self.smp_peract, self.smp_peract))
         if self.policyparams['stochastic_planning'][1] == 'optimistic':
             inds = np.argmax(scores, axis=1)
+            scores = np.max(scores, axis=1)
         if self.policyparams['stochastic_planning'][1] == 'pessimistic':
             inds = np.argmin(scores, axis=1)
+            scores = np.min(scores, axis=1)
 
         actions = [actions[b, inds[b]] for b in range(self.M//self.smp_peract)]
-        return np.stack(actions, 0)
+        return np.stack(actions, 0), scores
 
     def switch_on_pix(self, desig):
         one_hot_images = np.zeros((self.bsize, self.netconf['context_frames'], self.ndesig, self.img_height, self.img_width, 1), dtype=np.float32)
