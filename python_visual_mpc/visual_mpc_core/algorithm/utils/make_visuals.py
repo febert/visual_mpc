@@ -66,11 +66,13 @@ def make_cem_visuals(ctrl, actions, bestindices, cem_itr, flow_fields, gen_distr
             desig_pix_t0 = np.tile(ctrl.desig_pix_t0[None, :], [ctrl.K, seqlen - 1, 1])
             t_dict_['start_image'] = add_crosshairs(startimages, desig_pix_t0)
 
+            ipix = 0
             if 'start' in ctrl.policyparams['register_gtruth']:
                 desig_pix_start = np.tile(ctrl.desig_pix[0][None, :], [bsize, seqlen - 1, 1])
                 gen_images = add_crosshairs(gen_images, desig_pix_start, color=[1., 0., 0])
+                ipix +=1
             if 'goal' in ctrl.policyparams['register_gtruth']:
-                desig_pix_goal = np.tile(ctrl.desig_pix[1][None, :], [bsize, seqlen - 1, 1])
+                desig_pix_goal = np.tile(ctrl.desig_pix[ipix][None, :], [bsize, seqlen - 1, 1])
                 gen_images = add_crosshairs(gen_images, desig_pix_goal, color=[0, 0, 1.])
 
                 t_dict_['warped_image_goal'] = [
