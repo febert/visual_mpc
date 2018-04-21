@@ -76,18 +76,18 @@ def main():
     if os.path.isfile(hyperparams_file):  # if not found in data_coll_dir
         loader = importlib.machinery.SourceFileLoader('mod_hyper', hyperparams_file)
         spec = importlib.util.spec_from_loader(loader.name, loader)
-        conf = importlib.util.module_from_spec(spec)
-        loader.exec_module(conf)
-        hyperparams = conf.config
+        mod = importlib.util.module_from_spec(spec)
+        loader.exec_module(mod)
+        hyperparams = mod.config
     else:
         print('doing benchmark ...')
         do_benchmark = True
         experimentdir = basepath + '/experiments/cem_exp/benchmarks/' + exp_name
         loader = importlib.machinery.SourceFileLoader('mod_hyper', experimentdir + '/mod_hyper.py')
         spec = importlib.util.spec_from_loader(loader.name, loader)
-        conf = importlib.util.module_from_spec(spec)
-        loader.exec_module(conf)
-        hyperparams = conf.config
+        mod = importlib.util.module_from_spec(spec)
+        loader.exec_module(mod)
+        hyperparams = mod.config
         hyperparams['bench_dir'] = experimentdir
     if args.nsplit != -1:
         n_persplit = (hyperparams['end_index']+1)//args.nsplit
@@ -116,7 +116,7 @@ def main():
             os.makedirs(result_dir + '/verbose')
 
         data_save_path = hyperparams['agent']['data_save_dir'].partition('pushing_data')[2]
-        conf['agent']['data_save_dir'] = os.environ['RESULT_DIR'] + data_save_path
+        hyperparams['agent']['data_save_dir'] = os.environ['RESULT_DIR'] + data_save_path
 
     # use_ray = False  # ray can cause black images!!
     # if use_ray:
