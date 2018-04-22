@@ -260,7 +260,9 @@ def main():
 
     current_dir = os.path.dirname(os.path.realpath(__file__))
     # DATA_DIR = '/mnt/sda1/pushing_data/cartgripper_sact_2view/train'
-    DATA_DIR = '/mnt/sda1/pushing_data/weiss_gripper_20k/test'
+    # DATA_DIR = '/mnt/sda1/pushing_data/weiss_gripper_20k/test'
+    DATA_DIR = os.environ['VMPC_DATA_DIR']
+    DATA_DIR = [DATA_DIR + '/cartgripper_updown_sact/train', DATA_DIR + '/onpolicy/updown_sact_bounded_disc/train']
 
     conf['schedsamp_k'] = -1  # don't feed ground truth
     conf['data_dir'] = DATA_DIR  # 'directory containing data_files.' ,
@@ -268,7 +270,7 @@ def main():
     conf['train_val_split']= 0.95
     conf['sequence_length']= 15 #48      # 'sequence length, including context frames.'
     conf['batch_size']= 40
-    conf['visualize']= True
+    conf['visualize']= False
     conf['context_frames'] = 2
     # conf['ncam'] = 2
 
@@ -279,8 +281,8 @@ def main():
     conf['image_only'] = ''
     # conf['goal_image'] = ""
 
-    # conf['orig_size'] = [48, 64]
-    conf['orig_size'] = [64, 64]
+    conf['orig_size'] = [48, 64]
+    # conf['orig_size'] = [64, 64]
     # conf['orig_size'] = [96, 128]
     # conf['load_vidpred_data'] = ''
     # conf['color_augmentation'] = ''
@@ -311,7 +313,7 @@ def main():
         # images, actions, endeff = sess.run([dict['images'], dict['actions'], dict['endeffector_pos']])
         [images] = sess.run([dict['images']])
 
-        file_path = '/'.join(str.split(DATA_DIR, '/')[:-1]+['preview'])
+        file_path = '/'.join(str.split(DATA_DIR[0], '/')[:-1]+['preview'])
 
         if 'ncam' in conf:
             vidlist = []
