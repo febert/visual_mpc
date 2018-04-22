@@ -48,7 +48,8 @@ if 'benchmarks' in script_name or 'parallel_data_collection' in script_name:  #r
     data["aceInstance"] = "ngcv8"
     command = "python " + args.run_script + " " + args.hyper + " {}".format(args.arg)
 
-    data["name"] = '-'.join(re.compile('\w+').findall(args.arg))
+    expname = args.hyper.partition('benchmarks')[-1]
+    data["name"] = expname + '-'.join(re.compile('\w+').findall(args.arg))
 else:
     data["aceInstance"] = "ngcv1"
     data["datasetMounts"] = [{"containerMountPoint": "/mnt/pushing_data/cartgripper", "id": 8350},  # cartgripper
