@@ -14,6 +14,7 @@ import imp
 import pickle
 from random import shuffle as shuffle_list
 from python_visual_mpc.misc.zip_equal import zip_equal
+import copy
 COLOR_CHAN = 3
 def decode_im(conf, features, image_name):
 
@@ -41,18 +42,20 @@ def decode_im(conf, features, image_name):
     return image
 
 
-def mix_datasets(dataset0, dataset1, batch_size, ratio_01):
+def mix_tensors(tensor0, tensor1, ratio_01):
     """Sample batch with specified mix of ground truth and generated data_files points.
 
     Args:
       ground_truth_x: tensor of ground-truth data_files points.
       generated_x: tensor of generated data_files points.
       batch_size: batch size
-      num_set0: number of ground-truth examples to include in batch.
+      ratio_01: ratio between examples taken from the first dataset and the batchsize
     Returns:
       New batch with num_ground_truth sampled from ground_truth_x and the rest
       from generated_x.
     """
+    batch_size = tensor0.get_shape().as_list()[0]
+    # num_set0 = tf.cast(int(batch_size)*ratio_01, tf.int64)
     num_set0 = tf.cast(int(batch_size)*ratio_01, tf.int64)
 
     idx = tf.random_shuffle(tf.range(int(batch_size)))
@@ -61,19 +64,30 @@ def mix_datasets(dataset0, dataset1, batch_size, ratio_01):
     set1_idx = tf.gather(idx, tf.range(num_set0, int(batch_size)))
 
     output = []
-    for set0, set1 in zip_equal(dataset0, dataset1):
-        dataset0_examps = tf.gather(set0, set0_idx)
-        dataset1_examps = tf.gather(set1, set1_idx)
-        output.append(tf.dynamic_stitch([set0_idx, set1_idx],
-                                 [dataset0_examps, dataset1_examps]))
-
+    dataset0_examps = tf.gather(tensor0, set0_idx)
+    dataset1_examps = tf.gather(tensor1, set1_idx)
+    output.append(tf.dynamic_stitch([set0_idx, set1_idx],
+                             [dataset0_examps, dataset1_examps]))
+    output = tf.reshape(output, [batch_size] + tensor0.get_shape().as_list()[1:])
     return output
 
 
-# def build_tfrecord_input_mixed
-
-
 def build_tfrecord_input(conf, training=True, input_file=None, shuffle=True):
+    if isinstance(conf['data_dir'], (list, tuple)):
+        data_set = []
+        for dir in conf['data_dir']:
+            conf_ = copy.deepcopy(conf)
+            conf_['data_dir'] = dir
+            data_set.append(build_tfrecord_single(conf_, training, None, shuffle))
+        comb_dataset = {}
+        for tensor in data_set[0].keys():
+            comb_dataset[tensor] = mix_tensors(data_set[0][tensor], data_set[1][tensor], 0.5)
+        return comb_dataset
+    else:
+        return build_tfrecord_single(conf, training, input_file, shuffle)
+
+
+def build_tfrecord_single(conf, training=True, input_file=None, shuffle=True):
     """Create input tfrecord tensors.
 
     Args:
@@ -99,13 +113,7 @@ def build_tfrecord_input(conf, training=True, input_file=None, shuffle=True):
         filenames = [input_file]
         shuffle = False
     else:
-        if isinstance(conf['data_dir'], (list, tuple)):
-            filenames = []
-            for dir in conf['data_dir']:
-                filenames += gfile.Glob(os.path.join(dir, '*'))
-            print(filenames)
-        else:
-            filenames = gfile.Glob(os.path.join(conf['data_dir'], '*'))
+        filenames = gfile.Glob(os.path.join(conf['data_dir'], '*'))
         
         if not filenames:
             raise RuntimeError('No data_files files found.')
