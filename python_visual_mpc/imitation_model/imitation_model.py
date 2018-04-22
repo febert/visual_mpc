@@ -405,11 +405,13 @@ class ImitationLSTMVAEAction(ImitationBaseModel):
 
         f_dict = {self.input_images: images[:, :, :, :, ::-1], self.latent_sample_pl: self.latent_vec}
         pred_deltas = sess.run(self.predicted_actions, feed_dict=f_dict)
-        print(pred_deltas[0, -1])
+        #print(pred_deltas[0, -1])
         actions = (pred_deltas[0, -1, :5]  + traj.target_qpos[t, :]) * traj.mask_rel
-        if pred_deltas[0, -1, -1] > pred_deltas[0, -1, -2]:
+        if pred_deltas[0, -1, 4] >= 0.03:
+            print('close')
             actions[-1] = 21
         else:
+            print('open')
             actions[-1] = -100
         return actions
 
@@ -443,7 +445,7 @@ class ImitationLSTMVAEAction(ImitationBaseModel):
             last_fc, states = tf.nn.dynamic_rnn(cell=lstm_layers, inputs=lstm_in, initial_state=all_initial,
                                                 dtype=tf.float32, parallel_iterations=int(in_batch))
 
-            self.predicted_actions = slim.layers.fully_connected(last_fc, self.sdim + 1,
+            self.predicted_actions = slim.layers.fully_connected(last_fc, self.sdim,
                                                                  scope='action_predictions', activation_fn=None)
 
 
