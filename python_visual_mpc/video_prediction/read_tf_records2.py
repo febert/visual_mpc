@@ -58,7 +58,7 @@ def mix_datasets(dataset0, dataset1, ratio_01):
     # num_set0 = tf.cast(int(batch_size)*ratio_01, tf.int64)
     num_set0 = tf.cast(int(batch_size)*ratio_01, tf.int64)
 
-    idx = tf.random_shuffle(tf.range(int(batch_size)))
+    idx = tf.range(int(batch_size))
 
     set0_idx = tf.gather(idx, tf.range(num_set0))
     set1_idx = tf.gather(idx, tf.range(num_set0, int(batch_size)))
@@ -271,15 +271,16 @@ def main():
     # DATA_DIR = '/mnt/sda1/pushing_data/cartgripper_sact_2view/train'
     # DATA_DIR = '/mnt/sda1/pushing_data/weiss_gripper_20k/test'
     DATA_DIR = os.environ['VMPC_DATA_DIR']
-    DATA_DIR = [DATA_DIR + '/cartgripper_updown_sact/train', DATA_DIR + '/onpolicy/updown_sact_bounded_disc/train']
+    # DATA_DIR = [DATA_DIR + '/cartgripper_updown_sact/train', DATA_DIR + '/onpolicy/updown_sact_bounded_disc/train']
+    DATA_DIR = DATA_DIR + '/cartgripper_updown_sact/train'
 
     conf['schedsamp_k'] = -1  # don't feed ground truth
     conf['data_dir'] = DATA_DIR  # 'directory containing data_files.' ,
     conf['skip_frame'] = 1
     conf['train_val_split']= 0.95
     conf['sequence_length']= 15 #48      # 'sequence length, including context frames.'
-    conf['batch_size']= 40
-    conf['visualize']= False
+    conf['batch_size']= 10
+    conf['visualize']= True
     conf['context_frames'] = 2
     # conf['ncam'] = 2
 
