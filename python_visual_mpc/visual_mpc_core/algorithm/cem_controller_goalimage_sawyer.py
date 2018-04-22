@@ -482,7 +482,7 @@ class CEM_controller():
             for icam in range(self.ncam):
                 for p in range(self.ndesig):
                     distance_grid = self.get_distancegrid(self.goal_pix[icam, p])
-                    scores_per_task.append(self.calc_scores(gen_distrib, distance_grid))
+                    scores_per_task.append(self.calc_scores(gen_distrib[:,:, icam, :,:, p], distance_grid))
                     print('best flow score of task {}:  {}'.format(p, np.min(scores_per_task[-1])))
 
             scores = np.sum(np.stack(scores_per_task, axis=1), axis=1)
