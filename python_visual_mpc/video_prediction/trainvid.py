@@ -205,7 +205,7 @@ def main(unused_argv, conf_script= None):
             feed_dict = {model.iter_num: np.float32(itr),
                          model.train_cond: 0}
             video_proto = sess.run(model.val_video_summaries, feed_dict = feed_dict)
-            summary_writer.add_summary(convert_tensor_to_gif_summary(video_proto))
+            summary_writer.add_summary(convert_tensor_to_gif_summary(video_proto), itr)
 
         if (itr) % SAVE_INTERVAL == 2:
             tf.logging.info('Saving model to' + conf['output_dir'])

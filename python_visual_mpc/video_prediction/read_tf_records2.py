@@ -319,8 +319,8 @@ def main():
 
         # images, actions, endeff, gen_images, gen_endeff = sess.run([dict['images'], dict['actions'], dict['endeffector_pos'], dict['gen_images'], dict['gen_states']])
         # images, actions, endeff = sess.run([dict['gen_images'], dict['actions'], dict['endeffector_pos']])
-        # images, actions, endeff = sess.run([dict['images'], dict['actions'], dict['endeffector_pos']])
-        [images] = sess.run([dict['images']])
+        images, actions, endeff = sess.run([dict['images'], dict['actions'], dict['endeffector_pos']])
+        # [images] = sess.run([dict['images']])
 
         file_path = '/'.join(str.split(DATA_DIR[0], '/')[:-1]+['preview'])
 
@@ -335,33 +335,21 @@ def main():
             numbers = create_numbers(conf['sequence_length'], conf['batch_size'])
             npy_to_gif(assemble_gif([images, numbers], num_exp=conf['batch_size']), file_path)
 
-        # else: comp_single_video(file_path, images, num_exp=conf['batch_size'])
-        #
-        # for i in range(5):
-        #     plt.imshow(goal_image.squeeze()[i])
-        #     plt.show()
+        # comp_single_video(file_path, images, num_exp=conf['batch_size'])
+
+        # deltat.append(time.time() - end)
+        # if i_run % 10 == 0:
+        #     print('tload{}'.format(time.time() - end))
+        #     print('average time:', np.average(np.array(deltat)))
+        # end = time.time()
 
 
-        # file_path = '/'.join(str.split(DATA_DIR, '/')[:-1] + ['preview_gen_images'])
-        # comp_single_video(file_path, gen_images, num_exp=conf['batch_size'])
+        for b in range(10):
+            print('actions {}'.format(b))
+            print(actions[b])
 
-        deltat.append(time.time() - end)
-        if i_run % 10 == 0:
-            print('tload{}'.format(time.time() - end))
-            print('average time:', np.average(np.array(deltat)))
-        end = time.time()
-
-        import sys
-        sys.exit()
-
-        # show some frames
-        # for b in range(conf['batch_size']):
-        #
-        #     print 'actions'
-        #     print actions[b]
-        #
-        #     print 'endeff'
-        #     print endeff[b]
+            print('endeff {}'.format(b))
+            print(endeff[b])
 
             # print 'gen_endeff'
             # print gen_endeff[b]
@@ -374,7 +362,7 @@ def main():
             #     print b
             #     plt.imshow(images[b,0])
             #     plt.show()
-# plt.imshow(images[0, 0])
+            # plt.imshow(images[0, 0])
             # plt.show()
             #
             # pdb.set_trace()
@@ -386,6 +374,8 @@ def main():
             # print object_pos
 
             # visualize_annotation(conf, images[b], robot_pos[b], object_pos[b])
+        import sys
+        sys.exit()
 
 
 def create_numbers(t, size):
