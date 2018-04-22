@@ -57,6 +57,7 @@ def main():
 
     args = parser.parse_args()
     hyperparams_file = args.experiment
+    exp_name = str.split(hyperparams_file, '/')[:-1]
     gpu_id = args.gpu_id
 
     n_worker = args.nworkers
@@ -114,7 +115,6 @@ def main():
     #         modconf['end_index'] = end_idx[i]
     #         modconf['gpu_id'] = i + gpu_id
     #         id_list.append(use_worker.remote(modconf))
-    #
     #     res = [ray.get(id) for id in id_list]
     # else:
     for i in range(n_worker):
