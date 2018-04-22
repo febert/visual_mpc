@@ -481,7 +481,8 @@ class CEM_controller():
         if 'use_goal_image' not in self.policyparams or 'comb_flow_warp' in self.policyparams or 'register_gtruth' in self.policyparams:
             for p in range(self.ndesig):
                 distance_grid = self.get_distancegrid(self.goal_pix[p])
-                scores_per_task.append(self.calc_scores(gen_distrib, distance_grid))
+                gen_distrib_p = [g[:, p] for g in gen_distrib]
+                scores_per_task.append(self.calc_scores(gen_distrib_p, distance_grid))
                 print('best flow score of task {}:  {}'.format(p, np.min(scores_per_task[-1])))
 
             scores = np.sum(np.stack(scores_per_task, axis=1), axis=1)
