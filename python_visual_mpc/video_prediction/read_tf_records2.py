@@ -42,7 +42,7 @@ def decode_im(conf, features, image_name):
     return image
 
 
-def mix_tensors(tensor0, tensor1, ratio_01):
+def mix_datasets(dataset0, dataset1, ratio_01):
     """Sample batch with specified mix of ground truth and generated data_files points.
 
     Args:
@@ -54,7 +54,7 @@ def mix_tensors(tensor0, tensor1, ratio_01):
       New batch with num_ground_truth sampled from ground_truth_x and the rest
       from generated_x.
     """
-    batch_size = tensor0.get_shape().as_list()[0]
+    batch_size = dataset0['images'].get_shape().as_list()[0]
     # num_set0 = tf.cast(int(batch_size)*ratio_01, tf.int64)
     num_set0 = tf.cast(int(batch_size)*ratio_01, tf.int64)
 
@@ -63,12 +63,14 @@ def mix_tensors(tensor0, tensor1, ratio_01):
     set0_idx = tf.gather(idx, tf.range(num_set0))
     set1_idx = tf.gather(idx, tf.range(num_set0, int(batch_size)))
 
-    output = []
-    dataset0_examps = tf.gather(tensor0, set0_idx)
-    dataset1_examps = tf.gather(tensor1, set1_idx)
-    output.append(tf.dynamic_stitch([set0_idx, set1_idx],
-                             [dataset0_examps, dataset1_examps]))
-    output = tf.reshape(output, [batch_size] + tensor0.get_shape().as_list()[1:])
+    output = {}
+    for key in dataset0.keys():
+        ten0 = dataset0[key]
+        ten1 = dataset1[key]
+        dataset0_examps = tf.gather(ten0, set0_idx)
+        dataset1_examps = tf.gather(ten1, set1_idx)
+        output[key] = tf.reshape(tf.dynamic_stitch([set0_idx, set1_idx],
+                         [dataset0_examps, dataset1_examps]), [batch_size] + ten0.get_shape().as_list()[1:])
     return output
 
 
@@ -79,9 +81,8 @@ def build_tfrecord_input(conf, training=True, input_file=None, shuffle=True):
             conf_ = copy.deepcopy(conf)
             conf_['data_dir'] = dir
             data_set.append(build_tfrecord_single(conf_, training, None, shuffle))
-        comb_dataset = {}
-        for tensor in data_set[0].keys():
-            comb_dataset[tensor] = mix_tensors(data_set[0][tensor], data_set[1][tensor], 0.5)
+
+        comb_dataset = mix_datasets(data_set[0], data_set[1], 0.5)
         return comb_dataset
     else:
         return build_tfrecord_single(conf, training, input_file, shuffle)
@@ -284,9 +285,9 @@ def main():
 
     # conf['row_start'] = 15
     # conf['row_end'] = 63
-    # conf['sdim'] = 12
-    # conf['adim'] = 5
-    conf['image_only'] = ''
+    conf['sdim'] = 6
+    conf['adim'] = 3
+    # conf['image_only'] = ''
     # conf['goal_image'] = ""
 
     conf['orig_size'] = [48, 64]
