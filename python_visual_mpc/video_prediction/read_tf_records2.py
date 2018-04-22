@@ -55,11 +55,8 @@ def mix_datasets(dataset0, dataset1, ratio_01):
       from generated_x.
     """
     batch_size = dataset0['images'].get_shape().as_list()[0]
-    # num_set0 = tf.cast(int(batch_size)*ratio_01, tf.int64)
     num_set0 = tf.cast(int(batch_size)*ratio_01, tf.int64)
-
     idx = tf.range(int(batch_size))
-
     set0_idx = tf.gather(idx, tf.range(num_set0))
     set1_idx = tf.gather(idx, tf.range(num_set0, int(batch_size)))
 
