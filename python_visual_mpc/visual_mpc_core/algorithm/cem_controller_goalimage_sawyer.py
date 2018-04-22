@@ -479,10 +479,11 @@ class CEM_controller():
             scores = get_mask_trafo_scores(self.policyparams, gen_distrib, self.goal_mask)
 
         if 'use_goal_image' not in self.policyparams or 'comb_flow_warp' in self.policyparams or 'register_gtruth' in self.policyparams:
-            for p in range(self.ndesig):
-                distance_grid = self.get_distancegrid(self.goal_pix[p])
-                scores_per_task.append(self.calc_scores(gen_distrib, distance_grid))
-                print('best flow score of task {}:  {}'.format(p, np.min(scores_per_task[-1])))
+            for icam in range(self.ncam):
+                for p in range(self.ndesig):
+                    distance_grid = self.get_distancegrid(self.goal_pix[icam, p])
+                    scores_per_task.append(self.calc_scores(gen_distrib, distance_grid))
+                    print('best flow score of task {}:  {}'.format(p, np.min(scores_per_task[-1])))
 
             scores = np.sum(np.stack(scores_per_task, axis=1), axis=1)
             bestind = scores.argsort()[0]
