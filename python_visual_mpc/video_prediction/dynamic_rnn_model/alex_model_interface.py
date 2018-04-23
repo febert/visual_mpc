@@ -1,5 +1,5 @@
 import tensorflow as tf
-from video_prediction.models import SAVPVideoPredictionModel
+from video_prediction.models import MultiSAVPVideoPredictionModel
 import json
 import os
 
@@ -17,9 +17,9 @@ class Alex_Interface_Model(object):
             model_hparams_dict = json.loads(f.read())
             model_hparams_dict.pop('num_gpus', None)  # backwards-compatibility
 
-        self.m = SAVPVideoPredictionModel(mode='test', hparams_dict=model_hparams_dict)
+        self.m = MultiSAVPVideoPredictionModel(mode='test', hparams_dict=model_hparams_dict)
 
-        images, images1 = tf.unstack(images, 2)
+        images, images1 = tf.unstack(images, conf['ncam'], 2)
         inputs = {
             'images':images,
             'images1':images1,

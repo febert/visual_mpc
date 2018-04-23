@@ -114,7 +114,7 @@ class AgentMuJoCo(object):
     def get_desig_pix(self, round=True):
         qpos_dim = self.sdim // 2  # the states contains pos and vel
         assert self.sim.data.qpos.shape[0] == qpos_dim + 7 * self._hyperparams['num_objects']
-        desig_pix = np.zeros([self.ncam, self._hyperparams['num_objects']])
+        desig_pix = np.zeros([self.ncam, self._hyperparams['num_objects'], 2])
         ratio = self._hyperparams['viewer_image_width'] / self._hyperparams['image_width']
         for icam in range(self.ncam):
             for i in range(self._hyperparams['num_objects']):
@@ -127,7 +127,7 @@ class AgentMuJoCo(object):
         return desig_pix
 
     def get_goal_pix(self, round=True):
-        goal_pix = np.zeros([self.ncam, self._hyperparams['num_objects']])
+        goal_pix = np.zeros([self.ncam, self._hyperparams['num_objects'], 2])
         ratio = self._hyperparams['viewer_image_width'] / self._hyperparams['image_width']
         for icam in range(self.ncam):
             for i in range(self._hyperparams['num_objects']):

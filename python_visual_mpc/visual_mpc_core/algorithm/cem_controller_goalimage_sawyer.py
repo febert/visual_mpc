@@ -13,6 +13,8 @@ from python_visual_mpc.video_prediction.basecls.utils.visualize import add_cross
 from python_visual_mpc.visual_mpc_core.algorithm.utils.make_visuals import make_cem_visuals
 # from python_visual_mpc.video_prediction.utils_vpred.create_gif_lib import *
 
+import matplotlib.pyplot as plt
+
 import collections
 
 
@@ -220,6 +222,8 @@ class CEM_controller():
 
         self.indices =[]
 
+        self.ncam = len(self.agentparams['cameras'])
+
         self.rec_input_distrib = []  # record the input distributions
 
         self.target = np.zeros(2)
@@ -394,13 +398,13 @@ class CEM_controller():
         return np.stack(actions, 0), scores
 
     def switch_on_pix(self, desig):
-        one_hot_images = np.zeros((self.bsize, self.netconf['context_frames'], self.ndesig, self.img_height, self.img_width, 1), dtype=np.float32)
+        one_hot_images = np.zeros((self.bsize, self.netconf['context_frames'], self.ncam, self.img_height, self.img_width, self.ndesig), dtype=np.float32)
         desig = np.clip(desig, np.zeros(2).reshape((1, 2)), np.array([self.img_height, self.img_width]).reshape((1, 2)) - 1).astype(np.int)
         # switch on pixels
-        for p in range(self.ndesig):
-            one_hot_images[:, :, p, desig[p, 0], desig[p, 1]] = 1
-            print('using desig pix',desig[p, 0], desig[p, 1])
-
+        for icam in range(self.ncam):
+            for p in range(self.ndesig):
+                one_hot_images[:, :, icam, desig[icam, p, 0], desig[icam, p, 1], p] = 1.
+                print('using desig pix',desig[icam, p, 0], desig[icam, p, 1])
         return one_hot_images
 
     def singlepoint_prob_eval(self, gen_pixdistrib):
@@ -437,9 +441,6 @@ class CEM_controller():
         last_frames = last_frames.astype(np.float32, copy=False) / 255.
         last_frames = np.expand_dims(last_frames, axis=0)
         last_frames = np.repeat(last_frames, self.bsize, axis=0)
-        app_zeros = np.zeros(shape=(self.bsize, self.seqlen-self.netconf['context_frames'],
-                                    self.img_height, self.img_width, 3), dtype=np.float32)
-        last_frames = np.concatenate((last_frames, app_zeros), axis=1)
 
         if 'register_gtruth' in self.policyparams and cem_itr == 0:
             self.warped_image_start, self.warped_image_goal = self.register_gtruth(last_frames)
@@ -496,7 +497,7 @@ class CEM_controller():
                 if cem_itr == (self.policyparams['iterations'] - 1):
                     # pick the prop distrib from the action actually chosen after the last iteration (i.e. self.indices[0])
                     bestind = scores.argsort()[0]
-                    best_gen_distrib = gen_distrib[2][bestind].reshape(1, self.ndesig, self.img_height, self.img_width, 1)
+                    best_gen_distrib = gen_distrib[bestind, 2].reshape(1, self.ncam, self.img_height, self.img_width, self.ndesig)
                     self.rec_input_distrib.append(np.repeat(best_gen_distrib, self.bsize, 0))
 
             flow_scores = copy.deepcopy(scores)
@@ -611,25 +612,20 @@ class CEM_controller():
         return flow_fields, scores, warp_pts_l, warped_images
 
     def calc_scores(self, gen_distrib, distance_grid):
-        expected_distance = np.zeros(self.bsize)
-        if 'rew_all_steps' in self.policyparams:
-            for tstep in range(self.ncontxt - 1, self.seqlen - 1):
-                t_mult = 1
-                if 'finalweight' in self.policyparams:
-                    if tstep == self.seqlen - 2:
-                        t_mult = self.policyparams['finalweight']
-                elif 'discount' in self.policyparams:
-                    t_mult = self.policyparams['discount']**tstep
+        """
+        :param gen_distrib: shape [batch, t, r, c]
+        :param distance_grid: shape [r, c]
+        :return:
+        """
+        t_mult = np.ones([self.seqlen - self.netconf['context_frames']])
+        t_mult[-1] = self.policyparams['finalweight']
 
-                for b in range(self.bsize):
-                    gen = gen_distrib[tstep][b].squeeze() / np.sum(gen_distrib[tstep][b])
-                    expected_distance[b] += np.sum(np.multiply(gen, distance_grid)) * t_mult
-            scores = expected_distance
-        else:
-            for b in range(self.bsize):
-                gen = gen_distrib[-1][b].squeeze() / np.sum(gen_distrib[-1][b])
-                expected_distance[b] = np.sum(np.multiply(gen, distance_grid))
-            scores = expected_distance
+        #normalize prob distributions
+        gen_distrib /= np.sum(np.sum(gen_distrib, axis=2), 2)[:,:, None, None]
+        gen_distrib *= distance_grid[None, None]
+        scores = np.sum(np.sum(gen_distrib, axis=2),2)
+        scores *= t_mult[None]
+        scores = np.sum(scores, axis=1)
         return scores
 
     def get_distancegrid(self, goal_pix):
@@ -654,16 +650,13 @@ class CEM_controller():
 
     def get_recinput(self, itr, rec_input_distrib, desig):
         ctxt = self.netconf['context_frames']
-        # if self.t < ctxt:
         if len(rec_input_distrib) < ctxt:
             input_distrib = self.switch_on_pix(desig)
             if itr == 0:
                 rec_input_distrib.append(input_distrib[:, 0])
         else:
-            # input_distrib = [rec_input_distrib[-2], rec_input_distrib[-1]]
             input_distrib = [rec_input_distrib[c] for c in range(-ctxt, 0)]
-            input_distrib = [np.expand_dims(elem, axis=1) for elem in input_distrib]
-            input_distrib = np.concatenate(input_distrib, axis=1)
+            input_distrib = np.stack(input_distrib, axis=1)
         return input_distrib
 
     def act(self, traj, t, desig_pix = None, goal_pix= None, goal_image=None, goal_mask = None, curr_mask=None):
@@ -674,16 +667,16 @@ class CEM_controller():
         """
         self.goal_mask = goal_mask
         self.goal_image = goal_image
-        self.desig_pix = np.array(desig_pix).reshape((-1, 2))
+        self.desig_pix = np.array(desig_pix).reshape((self.ncam, self.ndesig, 2))
+        self.goal_pix = np.array(goal_pix).reshape((self.ncam, self.ndesig, 2))
 
-        self.goal_pix = np.array(goal_pix).reshape((-1, 2))
         if 'register_gtruth' in self.policyparams:
-            self.goal_pix = np.tile(self.goal_pix, [2,1])
+            self.goal_pix = np.tile(self.goal_pix, [self.ndesig,1])
 
         self.curr_obj_mask = curr_mask
         self.traj = traj
-
         self.t = t
+
         print('starting cem at t{}...'.format(t))
 
         if t == 0:

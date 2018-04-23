@@ -18,8 +18,8 @@ agent = {
     'sdim':6,
     'make_final_gif':'',
     # 'no_instant_gif':"",
-    'filename': ROOT_DIR + '/mjc_models/cartgripper_updown.xml',
-    'filename_nomarkers': ROOT_DIR + '/mjc_models/cartgripper_updown.xml',
+    'filename': ROOT_DIR + '/mjc_models/cartgripper_updown_2cam.xml',
+    'filename_nomarkers': ROOT_DIR + '/mjc_models/cartgripper_updown_2cam.xml',
     'gen_xml':1,   #generate xml every nth trajecotry
     'num_objects': 1,
     'viewer_image_height' : 480,
@@ -31,6 +31,7 @@ agent = {
     'posmode':"",
     'targetpos_clip':[[-0.45, -0.45, -0.08], [0.45, 0.45, 0.15]],
     'discrete_adim':[2],
+    'cameras':['maincam', 'leftcam']
 }
 
 policy = {
@@ -52,8 +53,9 @@ policy = {
 }
 
 tag_images = {'name': 'images',
-             'file':'/images/im{}.png',   # only tindex
-             'shape':[agent['image_height'],agent['image_width'],3],
+             'file':'/images/im{}_cam{}.png',   # only tindex
+             'shape':[2, agent['image_height'],agent['image_width'],3],
+             'ncam':2,
                }
 
 tag_qpos = {'name': 'qpos',
@@ -75,6 +77,6 @@ config = {
     'policy':policy,
     'ngroup': 100,
     'sourcetags':[tag_images, tag_qpos, tag_object_full_pose, tag_object_statprop],
-    'source_basedirs':[os.environ['VMPC_DATA_DIR'] + '/cartgripper_startgoal_masks/train'],
+    'source_basedirs':[os.environ['VMPC_DATA_DIR'] + '/cartgripper_startgoal_2view/train'],
     'sequence_length':2
 }

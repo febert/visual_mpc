@@ -38,7 +38,8 @@ class Sim(object):
             self.agentparams['data_save_dir'] = os.environ['RESULT_DIR'] + '/traindata'
         self._data_save_dir = self.agentparams['data_save_dir']
 
-        self._timing_file = self._hyperparams['current_dir'] + '/timing_file{}.txt'.format(os.getpid())
+        if 'timing' in self.agentparams:
+            self._timing_file = self._hyperparams['current_dir'] + '/timing_file{}.txt'.format(os.getpid())
 
         if 'netconf' in config['policy']:
             params = imp.load_source('params', config['policy']['netconf'])
@@ -90,9 +91,10 @@ class Sim(object):
             self.save_data(traj, sample_index)
         t_save = time.time() - t_save
 
-        with open(self._timing_file,'a') as f:
-            f.write("{} trajtime {} savetime {}\n".format(sample_index, t_traj, t_save))
 
+        if 'timing' in self.agentparams:
+            with open(self._timing_file,'a') as f:
+                f.write("{} trajtime {} savetime {}\n".format(sample_index, t_traj, t_save))
         # if self.agent.goal_obj_pose is not None:
         #     plot_dist(traj, self.agentparams['record'])
         # if 'register_gtruth' in self.policyparams:
@@ -154,8 +156,9 @@ class Sim(object):
                 pickle.dump(dict, f)
 
             for t in range(traj.T):
-                image_name = self.image_folder+ "/im{}.png".format(t)
-                cv2.imwrite(image_name, traj._sample_images[t][:,:,::-1], [cv2.IMWRITE_PNG_STRATEGY_DEFAULT, 1])
+                for icam in range(self.agent.ncam):
+                    image_name = self.image_folder+ "/im{}_cam{}.png".format(t, icam)
+                    cv2.imwrite(image_name, traj._sample_images[t, icam][:,:,::-1], [cv2.IMWRITE_PNG_STRATEGY_DEFAULT, 1])
 
             if traj.goal_mask != None:
                 folder = self.traj_folder + '/goal_masks'

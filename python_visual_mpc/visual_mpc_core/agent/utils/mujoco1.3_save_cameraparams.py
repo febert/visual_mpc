@@ -8,42 +8,53 @@ from mujoco_py.mjtypes import *
 from PIL import Image
 import pickle
 
+import matplotlib.pyplot as plt
 import os
 
-cwd = os.getcwd()
-BASE_DIR = '/'.join(str.split(cwd, '/')[:-2])
+from python_visual_mpc import __file__ as python_vmpc_path
 
-def save_params(xmlname, cam_id, savename):
+cwd = os.getcwd()
+BASE_DIR = '/'.join(str.split(cwd, '/')[:-4])
+
+def save_params(xmlname, cam_ids=[0], savename='params'):
     model= mujoco_py.MjModel(xmlname)
 
     height, width = 480, 640
-    viewer = mujoco_py.MjViewer(visible=True, init_width=width, init_height=height)
-    viewer.start()
-    viewer.set_model(model)
-    viewer.cam.camid = cam_id
-    print(viewer.cam.camid)
+    viewports, model_views, projections = [], [], []
 
-    import matplotlib.pyplot as plt
-
-    from python_visual_mpc import __file__ as python_vmpc_path
     root_dir = '/'.join(str.split(python_vmpc_path, '/')[:-1])
+    save_dir = root_dir + '/visual_mpc_core/agent/utils/{}.pkl'.format(savename)
 
-    model.data.qpos = q = np.array([0., 0., 0.])
+    for icam in cam_ids:
 
-    T = 1000
-    for t in range(T):
-        viewer.loop_once()
+        print('cam ', icam)
+        viewer = mujoco_py.MjViewer(visible=True, init_width=width, init_height=height)
+        viewer.start()
+        viewer.set_model(model)
+        viewer.cam.camid = icam
+        print(viewer.cam.camid)
 
-        mj_U = np.array([-10. , -10.])
+        model.data.qpos = np.array([0.1, 0.1, 0.])
+
+        # T = 1
+        # for t in range(T):
+        # viewer.loop_once()
+
+        mj_U = np.array([0., 0.])
         model.data.ctrl = mj_U
-
         model.step()
+
+        viewer.loop_once()
 
         img_string, width, height= viewer.get_image()
         model_view, proj, viewport = viewer.get_mats()
 
-        savefile = root_dir + '/visual_mpc_core/agent/utils/{}.txt'.format(savename)
-        with open(savefile,'w') as f:
+        model_views.append(model_view)
+        projections.append(proj)
+        viewports.append(viewport)
+
+        save_dir= root_dir + '/visual_mpc_core/agent/utils'
+        with open(save_dir + '/{}_cam{}.txt'.format(savename, icam),'w') as f:
             f.write("proj \n")
             for i in range(proj.shape[0]):
                 f.write("{} \n".format(proj[i]))
@@ -54,45 +65,41 @@ def save_params(xmlname, cam_id, savename):
 
             f.write("{}".format(viewport))
 
-        mats = {}
-        mats['viewport'] = viewport
-        mats['modelview'] = model_view
-        mats['projection'] = proj
-        savefile = root_dir + '/visual_mpc_core/agent/utils/{}.pkl'.format(savename)
-        pickle.dump(mats, open(savefile, 'wb'))
-
         largeimage = np.fromstring(img_string, dtype='uint8').reshape(
             (height, width, 3))[::-1, :, :]
 
         Image.fromarray(largeimage).save('testimg.png')
 
-        img_string, width, height = viewer.get_depth()
-        largedimage = np.fromstring(img_string, dtype=np.float32).reshape(
-            (height, width, 1))[::-1, :, :]
+        # img_string, width, height = viewer.get_depth()
+        # largedimage = np.fromstring(img_string, dtype=np.float32).reshape(
+        #     (height, width, 1))[::-1, :, :]
         # plt.imshow(np.squeeze(largedimage))
+        # plt.show()
 
-        if t % 10 ==0:
-            r, c = viewer.project_point(model.data.qpos)
-            print('model.data.qpos', model.data.qpos)
-            print("row, col", r, c)
-            r = int(r)
-            c = int(c)
+        # if t % 10 ==0:
+        r, c = viewer.project_point(model.data.qpos)
+        print('model.data.qpos', model.data.qpos)
+        print("row, col", r, c)
+        r = int(r)
+        c = int(c)
 
-            largeimage[r,:] = [255, 255, 255]
-            largeimage[:, c] = [255, 255, 255]
-            plt.imshow(largeimage)
-            plt.show()
+        largeimage[r-1:r+1,:] = [255, 255, 255]
+        largeimage[:, c-1:c+1] = [255, 255, 255]
+        plt.imshow(largeimage)
+        plt.show()
 
         model.data.qvel.setflags(write=True)
+        # import pdb; pdb.set_trace()
+        viewer.finish()
+        # j = Image.fromarray(largeimage)
+        # j.save("img", "BMP")
 
-        import pdb; pdb.set_trace()
+    mats = {}
+    mats['viewport'] = viewports
+    mats['modelview'] = model_views
+    mats['projection'] = projections
+    pickle.dump(mats, open(save_dir + '/proj_mats_dual.pkl', 'wb'))
 
-    viewer.finish()
-
-    j = Image.fromarray(largeimage)
-    j.save("img", "BMP")
-
-
-if '__name__' == '__main__':
-    filename = BASE_DIR + '/mjc_models/cartgripper_noautogen.xml'
-    save_params(filename, 0, 'proj_mats')
+if __name__ == '__main__':
+    filename = BASE_DIR + '/mjc_models/cartgripper_updown_2cam_noautogen.xml'
+    save_params(filename, [0,1], 'proj_mats')

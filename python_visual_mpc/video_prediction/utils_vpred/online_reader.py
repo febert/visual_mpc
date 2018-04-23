@@ -61,25 +61,35 @@ def read_img(tag_dict, dataind, tar=None, trajname=None):
     :param dataind: the timestep in the data folder (may not be equal to the timestep used for the allocated array)
     :return:
     """
+    if 'ncam' in tag_dict:
+        images = []
+        for icam in range(tag_dict['ncam']):
+            images.append(read_single_img(dataind, tag_dict, tar, trajname, icam))
+        img = np.stack(images, 0)
+    else:
+        img = read_single_img(dataind, tag_dict, tar, trajname)
+    return img
 
+
+def read_single_img(dataind, tag_dict, tar, trajname, icam=None):
     if tar != None:
         im_filename = 'traj/images/im{}.png'.format(dataind)
         img_stream = tar.extractfile(im_filename)
         file_bytes = np.asarray(bytearray(img_stream.read()), dtype=np.uint8)
         img = cv2.imdecode(file_bytes, 1)
     else:
-        imfile = trajname + tag_dict['file'].format(dataind)
+        if 'ncam' in tag_dict:
+            imfile = trajname + tag_dict['file'].format(dataind, icam)
+        else:
+            imfile = trajname + tag_dict['file'].format(dataind)
         if not os.path.exists(imfile):
             raise ValueError("file {} does not exist!".format(imfile))
         img = cv2.imread(imfile)
-
-    imheight = tag_dict['shape'][0]     # get target im_sizes
+    imheight = tag_dict['shape'][0]  # get target im_sizes
     imwidth = tag_dict['shape'][1]
-
-    if 'rowstart' in tag_dict:         # get target cropping if specified
+    if 'rowstart' in tag_dict:  # get target cropping if specified
         rowstart = tag_dict['rowstart']
         colstart = tag_dict['colstart']
-
     # setting used in wrist_rot
     if 'shrink_before_crop' in tag_dict:
         shrink_factor = tag_dict['shrink_before_crop']
@@ -94,9 +104,7 @@ def read_img(tag_dict, dataind, tar=None, trajname=None):
     elif 'rowstart' in tag_dict:
         img = img[rowstart:rowstart + imheight, colstart:colstart + imwidth]
 
-    # Image.fromarray(img).show()
-    # pdb.set_trace()
-    img = img[:,:,::-1]  #bgr => rgb
+    img = img[:, :, ::-1]  # bgr => rgb
     img = img.astype(np.float32) / 255.
     return img
 
@@ -191,7 +199,6 @@ def read_trajectory(conf, trajname, use_tar = False):
                     nump_array_dict[tag_name][trajind] = pkldata[tag_dict['name']][dataind]
             else:  # if it's image data
                 nump_array_dict[tag_name][trajind] = read_img(tag_dict, dataind, trajname=trajname, tar=tar)
-
         trajind += 1
 
     if use_tar:
@@ -339,8 +346,9 @@ class OnlineReader(object):
 
 def convert_to_tfrec(sourcedir, destdir):
     tag_images = {'name': 'images',
-                  'file': '/images/im{}.png',  # only tindex
+                  'file': '/images/im{}_cam{}.png',  # only tindex
                   'shape': [48, 64, 3],
+                  'ncam':2
                   }
 
     tag_actions = {'name': 'states',
@@ -422,14 +430,9 @@ def test_online_reader():
     #
     # print 'testing the reader'
     tag_images = {'name': 'images',
-                  'file': '/images/im{}.png',  # only tindex
+                  'file': '/images/im{}_cam{}.png',  # only tindex
                   'shape': [48, 64, 3],
                   }
-
-    # tag_gtruth_flows = {'name': 'bwd_flow',
-    #                     'not_per_timestep': '',
-    #                     'shape': [8,48, 64, 2],
-    #                     }
 
     tag_actions = {'name': 'states',
                   'file': '/state_action.pkl',  # only tindex
@@ -448,7 +451,8 @@ def test_online_reader():
         'sourcetags': [tag_images, tag_actions, tag_states],
         'source_basedirs': [os.environ['VMPC_DATA_DIR'] + '/datacol_appflow/data/train'],
         # 'source_basedirs': [os.environ['VMPC_DATA_DIR'] + '/cartgripper_gtruth_flow/train'],
-        'current_dir':os.environ['VMPC_DATA_DIR'] + '/datacol_appflow/'
+        'current_dir':os.environ['VMPC_DATA_DIR'] + '/datacol_appflow/',
+        'ncam':2
     }
 
     sess = tf.InteractiveSession()
