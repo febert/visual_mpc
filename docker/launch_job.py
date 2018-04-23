@@ -33,6 +33,8 @@ script_name = args.run_script
 
 if 'benchmarks' in script_name or 'parallel_data_collection' in script_name:  #running benchmark...
     data["datasetMounts"] = [{"containerMountPoint": "/mnt/tensorflow_data/sim/mj_pos_ctrl_appflow", "id": 8906},
+                             {"containerMountPoint": "/mnt/tensorflow_data/sim/onpolicy/updown_sact_onpolonly", "id": 9225},
+                             {"containerMountPoint": "/mnt/tensorflow_data/sim/onpolicy/updown_sact_comb", "id": 9224},
                              {"containerMountPoint": "/mnt/tensorflow_data/sim/appflow_nogenpix", "id": 8933},
                              {"containerMountPoint": "/mnt/tensorflow_data/sim/appflow_nogenpix_mj1.5", "id": 9006},
                              {"containerMountPoint": "/mnt/tensorflow_data/sim/cartgripper_flowonly", "id": 9007},

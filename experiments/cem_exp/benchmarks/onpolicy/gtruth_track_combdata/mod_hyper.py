@@ -13,13 +13,13 @@ import numpy as np
 agent = {
     'type': AgentMuJoCo,
     'T': 30,
-    'substeps':50,
-    'adim':5,
-    'sdim':12,
+    'substeps':200,
+    'adim':3,
+    'sdim':6,
     'make_final_gif':'',
     # 'no_instant_gif':"",
-    'filename': ROOT_DIR + '/mjc_models/cartgripper_grasp.xml',
-    'filename_nomarkers': ROOT_DIR + '/mjc_models/cartgripper_grasp.xml',
+    'filename': ROOT_DIR + '/mjc_models/cartgripper_updown.xml',
+    'filename_nomarkers': ROOT_DIR + '/mjc_models/cartgripper_updown.xml',
     'gen_xml':1,   #generate xml every nth trajecotry
     'num_objects': 1,
     'viewer_image_height' : 480,
@@ -29,7 +29,8 @@ agent = {
     'additional_viewer':'',
     'data_save_dir':current_dir + '/data/train',
     'posmode':"",
-    'targetpos_clip':[[-0.45, -0.45, -0.08, -np.pi*2, 0.], [0.45, 0.45, 0.15, np.pi*2, 0.1]],
+    'targetpos_clip':[[-0.45, -0.45, -0.08], [0.45, 0.45, 0.15]],
+    'discrete_adim':[2],
 }
 
 policy = {
@@ -41,17 +42,13 @@ policy = {
     'nactions': 5,
     'repeat': 3,
     'initial_std': 0.08,        # std dev. in xy
-    'initial_std_lift': 0.1,
-    'initial_std_rot': 0.1,
-    'initial_std_grasp': 0.0,
-    'gdnconf': current_dir + '/gdnconf.py',
+    'initial_std_lift': 2.5,
     'netconf': current_dir + '/conf.py',
     'iterations': 3,
     'action_cost_factor': 0,
     'rew_all_steps':"",
     'finalweight':10,
-    'no_action_bound':"",
-    'predictor_propagation': '',   # use the model get the designated pixel for the next step!
+    # 'predictor_propagation': '',   # use the model get the designated pixel for the next step!
 }
 
 tag_images = {'name': 'images',
@@ -73,7 +70,7 @@ config = {
     'save_data': False,
     'save_raw_images':'',
     'start_index':0,
-    'end_index': 47,
+    'end_index': 49,
     'agent':agent,
     'policy':policy,
     'ngroup': 100,
