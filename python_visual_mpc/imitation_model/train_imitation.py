@@ -77,7 +77,7 @@ def main():
             if 'MDN_loss' in conf:
                 model_loss, val_model_loss, val_model_diag, val_mdn_log,   _ = sess.run(
                     [model.loss, val_model.loss, val_model.diagnostic_l2loss,val_model.MDN_log_l,  train_operation], feed_dict=f_dict)
-                print 'At iteration', i, 'model loss is:', model_loss, 'and val_model loss is', val_model_loss, 'and val diagnostic', val_model_diag)
+                print('At iteration', i, 'model loss is:', model_loss, 'and val_model loss is', val_model_loss, 'and val diagnostic', val_model_diag)
                 itr_summary = tf.Summary()
                 itr_summary.value.add(tag="val_model/loss", simple_value=val_model_loss)
                 itr_summary.value.add(tag="val_model/loglikelihood", simple_value=val_mdn_log)
@@ -113,7 +113,7 @@ def main():
                 model_loss, val_model_loss, val_action, _ = sess.run([model.loss, val_model.loss,
                                                                                val_model.action_loss,
                                                                                train_operation], feed_dict=f_dict)
-                print 'At iteration', i, 'model loss is:', model_loss, 'and val_model loss is', val_model_loss, 'val_action loss', val_action
+                print('At iteration', i, 'model loss is:', model_loss, 'and val_model loss is', val_model_loss, 'val_action loss', val_action)
 
                 if i > 0:
                     itr_summary = tf.Summary()
@@ -139,7 +139,6 @@ def main():
 
     saver.save(sess, conf['model_dir'] + '/modelfinal')
     sess.close()
-
 
 
 if __name__ == '__main__':
