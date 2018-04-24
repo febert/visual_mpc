@@ -21,6 +21,6 @@ configuration = {
     'vgg19_path': DATA_DIR,
     'MDN_loss' : 20,
     'lstm_layers':[128, 128, 128],
-    'N_GEN' : 10000
+    'N_GEN' : 1000
 }
 
