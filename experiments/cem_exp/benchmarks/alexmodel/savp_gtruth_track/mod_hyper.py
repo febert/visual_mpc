@@ -53,8 +53,8 @@ policy = {
 
 tag_images = {'name': 'images',
              'file':'/images/im{}_cam{}.png',   # only tindex
-             'shape':[2, agent['image_height'],agent['image_width'],3],
-             'ncam':2,
+             'shape':[agent['image_height'],agent['image_width'],3],
+             'ncam':1,
                }
 
 tag_qpos = {'name': 'qpos',
