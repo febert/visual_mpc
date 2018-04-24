@@ -38,7 +38,7 @@ for bsize in batch_size:
     print('##################################')
     print('average iteration time with batchsize {}: {}'.format(bsize, average_times[-1]))
 
-for i in batch_size:
-    print('batch size {} average time {}'.format(batch_size[i], average_times[i]))
 pickle.dump({'average_times':average_times, 'batch_sizes':batch_size} , open('average_times.pkl','wb'))
+for i in range(len(batch_size)):
+    print('batch size {} average time {}'.format(batch_size[i], average_times[i]))
 
