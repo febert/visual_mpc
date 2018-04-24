@@ -131,9 +131,6 @@ def main(unused_argv, conf_dict= None, flags=None):
     if FLAGS.diffmotions or "visualize_tracking" in conf or FLAGS.metric:
         model = Model(conf, load_data=False, trafo_pix=True, build_loss=build_loss)
     else:
-        with open('params.txt', 'w') as f:
-            for key in sorted_nicely(list(conf.keys())):
-                f.write(key + ': ' + str(conf[key]) + '\n')
         model = Model(conf, load_data=True, trafo_pix=False, build_loss=build_loss)
 
     print('Constructing saver.')
@@ -152,7 +149,8 @@ def main(unused_argv, conf_dict= None, flags=None):
 
     gpu_options = tf.GPUOptions(per_process_gpu_memory_fraction=0.9)
     # Make training session.
-    sess = tf.InteractiveSession(config=tf.ConfigProto(gpu_options=gpu_options))
+    # sess = tf.InteractiveSession(config=tf.ConfigProto(gpu_options=gpu_options))
+    sess = tf.Session(config=tf.ConfigProto(gpu_options=gpu_options))
     summary_writer = tf.summary.FileWriter(conf['event_log_dir'], graph=sess.graph, flush_secs=10)
 
     if not FLAGS.diffmotions:
@@ -205,6 +203,8 @@ def main(unused_argv, conf_dict= None, flags=None):
         cost, _, summary_str = sess.run([model.loss, model.train_op, model.train_summ_op],
                                         feed_dict)
 
+        print("itr",itr)
+
         if (itr) % 10 ==0:
             tf.logging.info(str(itr) + ' ' + str(cost))
 
@@ -240,7 +240,13 @@ def main(unused_argv, conf_dict= None, flags=None):
         if (itr) % SUMMARY_INTERVAL == 2:
             summary_writer.add_summary(summary_str, itr)
 
+        if 'timingbreak' in conf:
+            if conf['timingbreak'] == itr:
+                break
+
     t_iter = np.mean(np.array(t_iter)/1e6)
+    sess.close()
+    tf.reset_default_graph()
     return t_iter
 
 def load_checkpoint(conf, sess, saver, model_file=None):
