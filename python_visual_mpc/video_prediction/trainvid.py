@@ -244,10 +244,9 @@ def main(unused_argv, conf_dict= None, flags=None):
             if conf['timingbreak'] == itr:
                 break
 
-    t_iter = np.mean(np.array(t_iter)/1e6)
     sess.close()
     tf.reset_default_graph()
-    return t_iter
+    return np.array(t_iter)/1e6
 
 def load_checkpoint(conf, sess, saver, model_file=None):
     """

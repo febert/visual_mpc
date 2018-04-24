@@ -5,6 +5,7 @@ import os
 from tensorflow.python.platform import flags
 
 from python_visual_mpc.video_prediction.trainvid import main
+import numpy as np
 
 
 if __name__ == '__main__':
@@ -19,7 +20,6 @@ if __name__ == '__main__':
     flags.DEFINE_bool('create_images', False, 'whether to create images')
     flags.DEFINE_bool('ow', False, 'overwrite previous experiment')
 
-# batch_size = [8,16,32,64,128]
 batch_size = [1,2,3,4,8,16,32]
 
 average_times = []
@@ -33,8 +33,11 @@ for bsize in batch_size:
     conf = hyperparams.configuration
 
     conf['batch_size'] = bsize
-    conf['timingbreak'] = 300
-    average_times.append(main(None, conf, FLAGS))
+    conf['timingbreak'] = 200
+    itertimes = main(None, conf, FLAGS)
+
+    # taking the average over the last fifty to avoid measureing slower warmup phase
+    average_times.append(np.mean(itertimes[-50:]))
     print('##################################')
     print('average iteration time with batchsize {}: {}'.format(bsize, average_times[-1]))
 
