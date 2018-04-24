@@ -20,7 +20,7 @@ if __name__ == '__main__':
     flags.DEFINE_bool('ow', False, 'overwrite previous experiment')
 
 # batch_size = [8,16,32,64,128]
-batch_size = [1,2,3,4]#,8,16,64,128]
+batch_size = [1,2,3,4,8,16,32]
 
 average_times = []
 for bsize in batch_size:
@@ -33,12 +33,12 @@ for bsize in batch_size:
     conf = hyperparams.configuration
 
     conf['batch_size'] = bsize
-    conf['timingbreak'] = 2
+    conf['timingbreak'] = 300
     average_times.append(main(None, conf, FLAGS))
     print('##################################')
     print('average iteration time with batchsize {}: {}'.format(bsize, average_times[-1]))
 
-print('average times: ')
-print(average_times)
-pickle.dump(average_times, open('average_times.pkl','wb'))
+for i in batch_size:
+    print('batch size {} average time {}'.format(batch_size[i], average_times[i]))
+pickle.dump({'average_times':average_times, 'batch_sizes':batch_size} , open('average_times.pkl','wb'))
 
