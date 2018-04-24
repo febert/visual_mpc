@@ -77,4 +77,5 @@ data["publishedContainerPorts"] = [6006] #for tensorboard
 with open('autogen.json', 'w') as outfile:
     json.dump(data, outfile, indent=4)
 
+
 os.system("ngc batch run -f autogen.json")

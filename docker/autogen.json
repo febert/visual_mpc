@@ -1,7 +1,7 @@
 {
     "dockerImageName": "ucb_rail8888/tf_mj1.5:latest", 
     "aceName": "nv-us-west-2", 
-    "name": "onpolicy-gtruth_track_combdata-nworkers-8int", 
+    "name": "onpolicy-gtruth_track_onpolonly-mod_hyper-py-nworkers-8int", 
     "publishedContainerPorts": [
         6006
     ], 
