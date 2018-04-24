@@ -1,3 +1,5 @@
+import matplotlib
+matplotlib.use('pdf')
 from multiprocessing import Pool
 import sys
 import argparse
