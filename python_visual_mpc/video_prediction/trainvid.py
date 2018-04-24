@@ -27,9 +27,16 @@ SAVE_INTERVAL = 4000
 
 from python_visual_mpc.video_prediction.tracking_model.single_point_tracking_model import Single_Point_Tracking_Model
 from python_visual_mpc.video_prediction.utils_vpred.variable_checkpoint_matcher import variable_checkpoint_matcher
+import re
+
+def sorted_nicely( l ):
+    """ Sort the given iterable in the way that humans expect."""
+    convert = lambda text: int(text) if text.isdigit() else text
+    alphanum_key = lambda key: [ convert(c) for c in re.split('([0-9]+)', key) ]
+    return sorted(l, key = alphanum_key)
 
 if __name__ == '__main__':
-    FLAGS = flags.FLAGS
+    FLAGS_ = flags.FLAGS
     flags.DEFINE_string('hyper', '', 'hyperparameters configuration file')
     flags.DEFINE_string('visualize_check', "", 'model within hyperparameter folder from which to create gifs')
     flags.DEFINE_integer('device', 0 ,'the value for CUDA_VISIBLE_DEVICES variable')
@@ -40,20 +47,24 @@ if __name__ == '__main__':
     flags.DEFINE_bool('create_images', False, 'whether to create images')
     flags.DEFINE_bool('ow', False, 'overwrite previous experiment')
 
-def main(unused_argv, conf_script= None):
+def main(unused_argv, conf_dict= None, flags=None):
+    if flags is not None:
+        FLAGS = flags
+    else: FLAGS = FLAGS_
+
     os.environ["CUDA_VISIBLE_DEVICES"] = str(FLAGS.device)
     print('using CUDA_VISIBLE_DEVICES=', FLAGS.device)
     from tensorflow.python.client import device_lib
     print(device_lib.list_local_devices())
 
-    if conf_script == None: conf_file = FLAGS.hyper
-    else: conf_file = conf_script
-
-    if not os.path.exists(FLAGS.hyper):
-        sys.exit("Experiment configuration not found")
-    hyperparams = imp.load_source('hyperparams', conf_file)
-
-    conf = hyperparams.configuration
+    if conf_dict == None:
+        conf_file = FLAGS.hyper
+        if not os.path.exists(FLAGS.hyper):
+            sys.exit("Experiment configuration not found")
+        hyperparams = imp.load_source('hyperparams', conf_file)
+        conf = hyperparams.configuration
+    else:
+        conf = conf_dict
 
     if 'VMPC_DATA_DIR' in os.environ:
         if isinstance(conf['data_dir'], (list, tuple)):
@@ -120,6 +131,9 @@ def main(unused_argv, conf_script= None):
     if FLAGS.diffmotions or "visualize_tracking" in conf or FLAGS.metric:
         model = Model(conf, load_data=False, trafo_pix=True, build_loss=build_loss)
     else:
+        with open('params.txt', 'w') as f:
+            for key in sorted_nicely(list(conf.keys())):
+                f.write(key + ': ' + str(conf[key]) + '\n')
         model = Model(conf, load_data=True, trafo_pix=False, build_loss=build_loss)
 
     print('Constructing saver.')
@@ -226,10 +240,8 @@ def main(unused_argv, conf_script= None):
         if (itr) % SUMMARY_INTERVAL == 2:
             summary_writer.add_summary(summary_str, itr)
 
-    tf.logging.info('Saving model.')
-    saving_saver.save(sess, conf['output_dir'] + '/model')
-    tf.logging.info('Training complete')
-    tf.logging.flush()
+    t_iter = np.mean(np.array(t_iter)/1e6)
+    return t_iter
 
 def load_checkpoint(conf, sess, saver, model_file=None):
     """
