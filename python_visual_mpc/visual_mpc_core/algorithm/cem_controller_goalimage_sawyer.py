@@ -15,6 +15,7 @@ from python_visual_mpc.visual_mpc_core.algorithm.utils.make_visuals import make_
 
 import collections
 import matplotlib.pyplot as plt
+import cv2
 
 
 if "NO_ROS" not in os.environ:
@@ -438,6 +439,7 @@ class CEM_controller():
         if 'register_gtruth' in self.policyparams and cem_itr == 0:
             if 'image_medium' in self.agentparams:
                 last_frames_med = last_frames_med.astype(np.float32, copy=False) / 255.
+                last_frames_med = last_frames_med[None]
                 self.start_image = copy.deepcopy(self.traj._image_medium[0]).astype(np.float32) / 255.
                 self.warped_image_start, self.warped_image_goal = self.register_gtruth(self.start_image, last_frames_med, self.goal_image)
             else:
@@ -510,8 +512,8 @@ class CEM_controller():
 
         tstart_verbose = time.time()
 
-        if self.verbose and cem_itr == self.policyparams['iterations']-1:
-        # if self.verbose:
+        # if self.verbose and cem_itr == self.policyparams['iterations']-1:
+        if self.verbose:
             gen_images = make_cem_visuals(self, actions, bestindices, cem_itr, flow_fields, gen_distrib, gen_images,
                                           gen_states, last_frames, goal_warp_pts_l, scores, self.warped_image_goal,
                                           self.warped_image_start, warped_images)
@@ -533,7 +535,7 @@ class CEM_controller():
         ctxt = self.netconf['context_frames']
         desig_l = []
 
-        current_frame = last_frames[ctxt - 1]
+        current_frame = last_frames[0, ctxt - 1]
         warped_image_start, warped_image_goal = None, None
 
         if 'image_medium' in self.agentparams:
@@ -543,6 +545,7 @@ class CEM_controller():
         else:
             pix_t0 = self.desig_pix_t0[0]
             goal_pix = self.goal_pix[0]
+            goal_image = cv2.resize(goal_image, (self.agentparams['image_width'], self.agentparams['image_height']))
 
         if 'start' in self.policyparams['register_gtruth']:
             warped_image_start, flow_field, goal_warp_pts = self.goal_image_warper(current_frame[None],
@@ -687,7 +690,6 @@ class CEM_controller():
             t: the current controller's Time step
         """
         self.goal_mask = goal_mask
-        self.goal_image = goal_image
         self.desig_pix = np.array(desig_pix).reshape((-1, 2))
         self.goal_pix = np.array(goal_pix).reshape((-1, 2))
         if 'register_gtruth' in self.policyparams:
@@ -695,6 +697,9 @@ class CEM_controller():
         if 'image_medium' in self.agentparams:
             self.goal_pix_med = (self.goal_pix * self.agentparams['image_medium'][0] / self.agentparams['image_height']).astype(np.int)
 
+        self.goal_image = goal_image
+
+        last_images_med = None
         self.curr_obj_mask = curr_mask
         self.traj = traj
 
@@ -704,11 +709,13 @@ class CEM_controller():
         if t == 0:
             action = np.zeros(self.agentparams['adim'])
             self.desig_pix_t0 = desig_pix
-            self.desig_pix_t0_med = (self.desig_pix * self.agentparams['image_medium'][0]/self.agentparams['image_height']).astype(np.int)
+            if 'image_medium' in self.agentparams:
+                self.desig_pix_t0_med = (self.desig_pix * self.agentparams['image_medium'][0]/self.agentparams['image_height']).astype(np.int)
         else:
             ctxt = self.netconf['context_frames']
             last_images = traj._sample_images[t-ctxt+1:t+1]  # same as [t - 1:t + 1] for context 2
-            last_images_med = traj._image_medium[t-ctxt+1:t+1]  # same as [t - 1:t + 1] for context 2
+            if 'image_medium' in self.agentparams:
+                last_images_med = traj._image_medium[t-ctxt+1:t+1]  # same as [t - 1:t + 1] for context 2
 
             if 'use_vel' in self.netconf:
                 last_states = traj.X_Xdot_full[t-ctxt+1:t+1]

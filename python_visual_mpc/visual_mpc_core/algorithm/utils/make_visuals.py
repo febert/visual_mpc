@@ -64,7 +64,12 @@ def make_cem_visuals(ctrl, actions, bestindices, cem_itr, flow_fields, gen_distr
 
             startimages = [np.repeat(np.expand_dims(ctrl.start_image, axis=0), ctrl.K, axis=0) for _ in
                            range(len(gen_images))]
-            desig_pix_t0 = np.tile(ctrl.desig_pix_t0_med[None, :], [ctrl.K, seqlen - 1, 1])
+
+            if 'image_medium' in ctrl.agentparams:
+                desig_pix_t0 = ctrl.desig_pix_t0_med[None, :]
+            else:
+                desig_pix_t0 = ctrl.desig_pix_t0[None, :]
+            desig_pix_t0 = np.tile(desig_pix_t0, [ctrl.K, seqlen - 1, 1])
             t_dict_['start_image'] = add_crosshairs(startimages, desig_pix_t0)
 
             ipix = 0
@@ -81,8 +86,13 @@ def make_cem_visuals(ctrl, actions, bestindices, cem_itr, flow_fields, gen_distr
                     range(len(gen_images))]
         goal_image = [np.repeat(np.expand_dims(ctrl.goal_image, axis=0), ctrl.K, axis=0) for _ in
                       range(len(gen_images))]
+
         for p in range(ctrl.goal_pix.shape[0]):
-            goal_image_annotated = image_addgoalpix(ctrl.K , seqlen, goal_image, ctrl.goal_pix_med[p])
+            if 'image_medium' in ctrl.agentparams:
+                desig_pix_t0 = ctrl.goal_pix_med[p]
+            else:
+                desig_pix_t0 = ctrl.goal_pix[p]
+            goal_image_annotated = image_addgoalpix(ctrl.K , seqlen, goal_image, desig_pix_t0)
         t_dict_['goal_image'] = goal_image_annotated
         if 'use_goal_image' not in ctrl.policyparams or 'comb_flow_warp' in ctrl.policyparams or 'register_gtruth' in ctrl.policyparams:
             for p in range(ctrl.ndesig):

@@ -168,7 +168,7 @@ class Visualizer_tkinter(object):
                 gen_distrib = data[1]
                 gen_distrib = color_code_distrib(gen_distrib, self.numex, renormalize=True)
                 if gen_distrib[0].shape != images[0].shape:
-                    images = upsample_nearest(images, gen_distrib[0].shape[1:3])
+                    images = resize_image(images, gen_distrib[0].shape[1:3])
                 overlay = compute_overlay(images, gen_distrib, self.numex)
                 self.video_list.append((overlay, key))
 
@@ -234,7 +234,7 @@ class Visualizer_tkinter(object):
             for vid in self.video_list:
                 images = vid[0]
                 if resize is not None:
-                    images = upsample_nearest(images, size=resize)
+                    images = resize_image(images, size=resize)
                 name = vid[1]
                 if images[0].shape[-1] == 1:
                     images = color_code_distrib(images, self.numex, renormalize=True)
@@ -561,7 +561,7 @@ def convert_to_videolist(input, repeat_last_dim):
 
     return list_of_videos
 
-def upsample_nearest(imlist, size = (256,256), mode = 'nearest'):
+def resize_image(imlist, size = (256, 256)):
     """
     :param imlist:  list of image batches of size [b, r, c, ch]
     :param size:
