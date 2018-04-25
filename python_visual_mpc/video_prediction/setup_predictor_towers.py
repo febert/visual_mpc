@@ -21,11 +21,12 @@ class Tower(object):
         # picking different subset of the actions for each gpu
         startidx = gpu_id * nsmp_per_gpu
         actions = tf.slice(actions, [startidx, 0, 0], [nsmp_per_gpu, -1, -1])
-        start_images = tf.slice(start_images, [startidx, 0, 0, 0, 0], [nsmp_per_gpu, -1, -1, -1, -1])
-        start_states = tf.slice(start_states, [startidx, 0, 0], [nsmp_per_gpu, -1, -1])
+
+        start_images = tf.tile(start_images, [nsmp_per_gpu, 1, 1, 1, 1])
+        start_states = tf.tile(start_states, [nsmp_per_gpu, 1, 1])
 
         if pix_distrib is not None:
-            pix_distrib = tf.slice(pix_distrib, [startidx, 0, 0, 0, 0, 0], [nsmp_per_gpu, -1, -1, -1, -1, -1])
+            pix_distrib = tf.tile(pix_distrib, [nsmp_per_gpu, 1, 1, 1, 1, 1])
 
         print('startindex for gpu {0}: {1}'.format(gpu_id, startidx))
 
@@ -80,7 +81,7 @@ def setup_predictor(conf, gpu_id=0, ngpu=1):
 
             orig_size = conf['orig_size']
             images_pl = tf.placeholder(use_dtype, name='images',
-                                       shape=(conf['batch_size'], conf['sequence_length'], orig_size[0], orig_size[1], 3))
+                                       shape=(1, conf['context_frames'], orig_size[0], orig_size[1], 3))
             sdim = conf['sdim']
             adim = conf['adim']
             print('adim', adim)
@@ -88,13 +89,12 @@ def setup_predictor(conf, gpu_id=0, ngpu=1):
             actions_pl = tf.placeholder(use_dtype, name='actions',
                                         shape=(conf['batch_size'], conf['sequence_length'], adim))
             states_pl = tf.placeholder(use_dtype, name='states',
-                                       shape=(conf['batch_size'], conf['context_frames'], sdim))
+                                       shape=(1, conf['context_frames'], sdim))
 
             if 'use_goal_image' in conf:
                 pix_distrib = None
             else:
-                pix_distrib = tf.placeholder(use_dtype, shape=(
-                conf['batch_size'], conf['context_frames'], conf['ndesig'], orig_size[0], orig_size[1], 1))
+                pix_distrib = tf.placeholder(use_dtype, shape=(1, conf['context_frames'], conf['ndesig'], orig_size[0], orig_size[1], 1))
 
             # making the towers
             towers = []

@@ -4,6 +4,7 @@ import collections
 from PIL import Image
 from python_visual_mpc.video_prediction.basecls.utils.visualize import add_crosshairs
 from python_visual_mpc.video_prediction.utils_vpred.animate_tkinter import Visualizer_tkinter
+import cv2
 
 
 def image_addgoalpix(bsize, seqlen, image_l, goal_pix):
@@ -63,7 +64,7 @@ def make_cem_visuals(ctrl, actions, bestindices, cem_itr, flow_fields, gen_distr
 
             startimages = [np.repeat(np.expand_dims(ctrl.start_image, axis=0), ctrl.K, axis=0) for _ in
                            range(len(gen_images))]
-            desig_pix_t0 = np.tile(ctrl.desig_pix_t0[None, :], [ctrl.K, seqlen - 1, 1])
+            desig_pix_t0 = np.tile(ctrl.desig_pix_t0_med[None, :], [ctrl.K, seqlen - 1, 1])
             t_dict_['start_image'] = add_crosshairs(startimages, desig_pix_t0)
 
             ipix = 0
@@ -81,7 +82,7 @@ def make_cem_visuals(ctrl, actions, bestindices, cem_itr, flow_fields, gen_distr
         goal_image = [np.repeat(np.expand_dims(ctrl.goal_image, axis=0), ctrl.K, axis=0) for _ in
                       range(len(gen_images))]
         for p in range(ctrl.goal_pix.shape[0]):
-            goal_image_annotated = image_addgoalpix(ctrl.K , seqlen, goal_image, ctrl.goal_pix[p])
+            goal_image_annotated = image_addgoalpix(ctrl.K , seqlen, goal_image, ctrl.goal_pix_med[p])
         t_dict_['goal_image'] = goal_image_annotated
         if 'use_goal_image' not in ctrl.policyparams or 'comb_flow_warp' in ctrl.policyparams or 'register_gtruth' in ctrl.policyparams:
             for p in range(ctrl.ndesig):
@@ -93,12 +94,16 @@ def make_cem_visuals(ctrl, actions, bestindices, cem_itr, flow_fields, gen_distr
         t_dict_['gen_images_t{}'.format(ctrl.t)] = sel_func(gen_images)
         print('itr{} best scores: {}'.format(cem_itr, [scores[bestindices[ind]] for ind in range(ctrl.K)]))
         ctrl.dict_.update(t_dict_)
+
         if 'no_instant_gif' not in ctrl.agentparams:
             v = Visualizer_tkinter(t_dict_, append_masks=False,
                                    filepath=ctrl.agentparams['record'] + '/plan/',
                                    numex=ctrl.K, suf='t{}iter_{}'.format(ctrl.t, cem_itr))
             # v.build_figure()
-            v.make_direct_vid()
+            if 'image_medium' in ctrl.agentparams:
+                size = ctrl.agentparams['image_medium']
+            else: size = None
+            v.make_direct_vid(resize=size)
 
             start_frame_conc = np.concatenate([last_frames[0, 0], last_frames[0, 1]], 0).squeeze()
             start_frame_conc = (start_frame_conc*255.).astype(np.uint8)
@@ -110,7 +115,6 @@ def make_cem_visuals(ctrl, actions, bestindices, cem_itr, flow_fields, gen_distr
                 t_dict_['flow_fields{}'.format(ctrl.t)] = flow_fields[bestindices[:K]]
 
         return gen_images
-
 
 def make_state_action_summary(K, actions, agentparams, bestindices, cem_itr, gen_states, seqlen, tstep):
     gen_states = np.stack(gen_states, 1)

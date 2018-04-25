@@ -14,6 +14,7 @@ from python_visual_mpc.visual_mpc_core.algorithm.utils.make_visuals import make_
 # from python_visual_mpc.video_prediction.utils_vpred.create_gif_lib import *
 
 import collections
+import matplotlib.pyplot as plt
 
 
 if "NO_ROS" not in os.environ:
@@ -262,7 +263,7 @@ class CEM_controller():
         return actions
 
 
-    def perform_CEM(self,last_frames, last_states, t):
+    def perform_CEM(self,last_frames, last_frames_med, last_states, t):
         # initialize mean and variance
         self.mean = np.zeros(self.adim * self.naction_steps)
         #initialize mean and variance of the discrete actions to their mean and variance used during data collection
@@ -290,7 +291,7 @@ class CEM_controller():
             if 'multmachine' in self.policyparams:
                 scores = self.ray_video_pred(last_frames, last_states, actions, itr)
             else:
-                scores = self.video_pred(last_frames, last_states, actions, itr)
+                scores = self.video_pred(last_frames, last_frames_med, last_states, actions, itr)
 
             print('overall time for evaluating actions {}'.format(time.time() - t_start))
 
@@ -394,7 +395,7 @@ class CEM_controller():
         return np.stack(actions, 0), scores
 
     def switch_on_pix(self, desig):
-        one_hot_images = np.zeros((self.bsize, self.netconf['context_frames'], self.ndesig, self.img_height, self.img_width, 1), dtype=np.float32)
+        one_hot_images = np.zeros((1, self.netconf['context_frames'], self.ndesig, self.img_height, self.img_width, 1), dtype=np.float32)
         desig = np.clip(desig, np.zeros(2).reshape((1, 2)), np.array([self.img_height, self.img_width]).reshape((1, 2)) - 1).astype(np.int)
         # switch on pixels
         for p in range(self.ndesig):
@@ -413,9 +414,7 @@ class CEM_controller():
 
     def ray_video_pred(self, last_frames, last_states, actions, itr):
         input_distrib = self.make_input_distrib(itr)
-
         input_distrib = input_distrib[0]
-
         best_gen_distrib, scores = self.predictor(input_images=last_frames,
                                                   input_states=last_states,
                                                   input_actions=actions,
@@ -429,20 +428,21 @@ class CEM_controller():
         return scores
 
 
-    def video_pred(self, last_frames, last_states, actions, cem_itr):
+    def video_pred(self, last_frames, last_frames_med, last_states, actions, cem_itr):
         t_0 = time.time()
 
-        last_states = np.expand_dims(last_states, axis=0)
-        last_states = np.repeat(last_states, self.bsize, axis=0)
+        last_states = last_states[None]
         last_frames = last_frames.astype(np.float32, copy=False) / 255.
-        last_frames = np.expand_dims(last_frames, axis=0)
-        last_frames = np.repeat(last_frames, self.bsize, axis=0)
-        app_zeros = np.zeros(shape=(self.bsize, self.seqlen-self.netconf['context_frames'],
-                                    self.img_height, self.img_width, 3), dtype=np.float32)
-        last_frames = np.concatenate((last_frames, app_zeros), axis=1)
+        last_frames = last_frames[None]
 
         if 'register_gtruth' in self.policyparams and cem_itr == 0:
-            self.warped_image_start, self.warped_image_goal = self.register_gtruth(last_frames)
+            if 'image_medium' in self.agentparams:
+                last_frames_med = last_frames_med.astype(np.float32, copy=False) / 255.
+                self.start_image = copy.deepcopy(self.traj._image_medium[0]).astype(np.float32) / 255.
+                self.warped_image_start, self.warped_image_goal = self.register_gtruth(self.start_image, last_frames_med, self.goal_image)
+            else:
+                self.start_image = copy.deepcopy(self.traj._sample_images[0]).astype(np.float32) / 255.
+                self.warped_image_start, self.warped_image_goal = self.register_gtruth(self.start_image, last_frames, self.goal_image)
 
         if 'use_goal_image' in self.policyparams and 'comb_flow_warp' not in self.policyparams\
                 and 'register_gtruth' not in self.policyparams:
@@ -458,8 +458,8 @@ class CEM_controller():
         gen_images, gen_distrib, gen_states, _ = self.predictor(input_images=last_frames,
                                                                 input_state=last_states,
                                                                 input_actions=actions,
-                                                                input_one_hot_images=input_distrib,
-                                                                )
+                                                                input_one_hot_images=input_distrib)
+
         print('time for videoprediction {}'.format(time.time() - t_startpred))
 
         t_startcalcscores = time.time()
@@ -510,8 +510,8 @@ class CEM_controller():
 
         tstart_verbose = time.time()
 
-        # if self.verbose and cem_itr == self.policyparams['iterations']-1:
-        if self.verbose:
+        if self.verbose and cem_itr == self.policyparams['iterations']-1:
+        # if self.verbose:
             gen_images = make_cem_visuals(self, actions, bestindices, cem_itr, flow_fields, gen_distrib, gen_images,
                                           gen_states, last_frames, goal_warp_pts_l, scores, self.warped_image_goal,
                                           self.warped_image_start, warped_images)
@@ -526,29 +526,43 @@ class CEM_controller():
 
         return scores
 
-    def register_gtruth(self, last_frames):
+
+    def register_gtruth(self, start_image, last_frames, goal_image):
         assert len(self.policyparams['register_gtruth']) == self.ndesig
         # register current image to startimage
         ctxt = self.netconf['context_frames']
-        self.start_image = copy.deepcopy(self.traj._sample_images[0]).astype(np.float32) / 255.
         desig_l = []
 
-        current_frame = last_frames[0, ctxt - 1]
+        current_frame = last_frames[ctxt - 1]
         warped_image_start, warped_image_goal = None, None
+
+        if 'image_medium' in self.agentparams:
+            pix_t0 = self.desig_pix_t0_med[0]
+            goal_pix = self.goal_pix_med[0]
+            print('using desig goal pix medium')
+        else:
+            pix_t0 = self.desig_pix_t0[0]
+            goal_pix = self.goal_pix[0]
+
         if 'start' in self.policyparams['register_gtruth']:
             warped_image_start, flow_field, goal_warp_pts = self.goal_image_warper(current_frame[None],
-                                                                                  self.start_image[None])
-            desig_l.append(np.flip(goal_warp_pts[0, self.desig_pix_t0[0, 0], self.desig_pix_t0[0, 1]], 0))
-            self.plan_stat['start_warp_err'] = np.linalg.norm(self.start_image[self.desig_pix_t0[0, 0], self.desig_pix_t0[0, 1]] -
-                                                              warped_image_start[0, self.desig_pix_t0[0, 0], self.desig_pix_t0[0, 1]])
+                                                                                  start_image[None])
+            desig_l.append(np.flip(goal_warp_pts[0, pix_t0[0], pix_t0[1]], 0))
+            # self.plan_stat['start_warp_err'] = np.linalg.norm(start_image[pix_t0[0], pix_t0[1]] -
+            #                                                   warped_image_start[0, pix_t0[0], pix_t0[1]])
 
         if 'goal' in self.policyparams['register_gtruth']:
             warped_image_goal, flow_field, start_warp_pts = self.goal_image_warper(current_frame[None],
-                                                                                    self.goal_image[None])
-            desig_l.append(np.flip(start_warp_pts[0, self.goal_pix[0, 0], self.goal_pix[0, 1]], 0))
-            self.plan_stat['goal_warp_err'] = np.linalg.norm(self.goal_image[self.desig_pix_t0[0, 0], self.desig_pix_t0[0, 1]] -
-                                                              warped_image_goal[0, self.desig_pix_t0[0, 0], self.desig_pix_t0[0, 1]])
-        self.desig_pix = np.stack(desig_l, 0)
+                                                                                    goal_image[None])
+            desig_l.append(np.flip(start_warp_pts[0, goal_pix[0], goal_pix[1]], 0))
+            # self.plan_stat['goal_warp_err'] = np.linalg.norm(self.goal_image[pix_t0[0], pix_t0[1]] -
+            #                                                   warped_image_goal[0, pix_t0[0], pix_t0[1]])
+
+        if 'image_medium' in self.agentparams:
+            self.desig_pix_med = np.stack(desig_l, 0)
+            self.desig_pix = np.stack(desig_l, 0) * self.agentparams['image_height']/ self.agentparams['image_medium'][0]
+        else:
+            self.desig_pix = np.stack(desig_l, 0)
 
         return warped_image_start, warped_image_goal
 
@@ -675,10 +689,11 @@ class CEM_controller():
         self.goal_mask = goal_mask
         self.goal_image = goal_image
         self.desig_pix = np.array(desig_pix).reshape((-1, 2))
-
         self.goal_pix = np.array(goal_pix).reshape((-1, 2))
         if 'register_gtruth' in self.policyparams:
             self.goal_pix = np.tile(self.goal_pix, [2,1])
+        if 'image_medium' in self.agentparams:
+            self.goal_pix_med = (self.goal_pix * self.agentparams['image_medium'][0] / self.agentparams['image_height']).astype(np.int)
 
         self.curr_obj_mask = curr_mask
         self.traj = traj
@@ -689,9 +704,11 @@ class CEM_controller():
         if t == 0:
             action = np.zeros(self.agentparams['adim'])
             self.desig_pix_t0 = desig_pix
+            self.desig_pix_t0_med = (self.desig_pix * self.agentparams['image_medium'][0]/self.agentparams['image_height']).astype(np.int)
         else:
             ctxt = self.netconf['context_frames']
             last_images = traj._sample_images[t-ctxt+1:t+1]  # same as [t - 1:t + 1] for context 2
+            last_images_med = traj._image_medium[t-ctxt+1:t+1]  # same as [t - 1:t + 1] for context 2
 
             if 'use_vel' in self.netconf:
                 last_states = traj.X_Xdot_full[t-ctxt+1:t+1]
@@ -700,10 +717,10 @@ class CEM_controller():
             if 'use_first_plan' in self.policyparams:
                 print('using actions of first plan, no replanning!!')
                 if t == 1:
-                    self.perform_CEM(last_images, last_states, t)
+                    self.perform_CEM(last_images, last_images_med, last_states, t)
                 action = self.bestaction_withrepeat[t - 1]
             else:
-                self.perform_CEM(last_images, last_states, t)
+                self.perform_CEM(last_images, last_images_med, last_states, t)
                 action = self.bestaction[0]
 
                 print('########')
