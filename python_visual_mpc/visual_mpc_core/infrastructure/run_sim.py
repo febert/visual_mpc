@@ -95,10 +95,10 @@ class Sim(object):
         if self._timing_file is not None:
             with open(self._timing_file,'a') as f:
                 f.write("{} trajtime {} savetime {}\n".format(sample_index, t_traj, t_save))
-        # if self.agent.goal_obj_pose is not None:
-        #     plot_dist(traj, self.agentparams['record'])
-        # if 'register_gtruth' in self.policyparams:
-        #     plot_warp_err(traj, self.agentparams['record'])
+        if self.agent.goal_obj_pose is not None:
+            plot_dist(traj, self.agentparams['record'])
+        if 'register_gtruth' in self.policyparams:
+            plot_warp_err(traj, self.agentparams['record'])
 
     def save_data(self, traj, itr):
         """
