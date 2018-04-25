@@ -39,8 +39,8 @@ def combine_scores(dir, exp_name):
     mean_dist = np.mean(score)
     med_dist = np.median(score)
 
-    make_stats(dir, score, 'score')
-    make_stats(dir, improvement, 'improvement')
+    make_stats(dir, score, 'score', bounds=[0., 0.5])
+    make_stats(dir, improvement, 'improvement', bounds=[-0.5, 0.5])
     make_imp_score(score, improvement, dir)
 
     f = open(dir + '/results_all.txt', 'w')
@@ -76,8 +76,8 @@ def make_imp_score(score, imp, dir):
     plt.ylabel('final distance')
     plt.savefig(dir + '/imp_vs_dist.png')
 
-def make_stats(dir, score, name):
-    bin_edges = np.linspace(0., 0.5, 11)
+def make_stats(dir, score, name, bounds):
+    bin_edges = np.linspace(bounds[0], bounds[1], 11)
     binned_ind = np.digitize(score, bin_edges)
     occurrence, _ = np.histogram(score, bin_edges, density=False)
     bin_width = bin_edges[1] - bin_edges[0]
@@ -98,7 +98,7 @@ if __name__ == '__main__':
     n_traj = 49
     # dir = '/home/frederik/Documents/catkin_ws/src/visual_mpc/experiments/cem_exp/benchmarks/alexmodel/savp_register_gtruth_start/41256'
     # dir = '/home/frederik/Documents/catkin_ws/src/visual_mpc/experiments/cem_exp/benchmarks/pos_ctrl/updown_sact_boundact_register_gtruth/41272'
-    dir = '/home/frederik/Documents/catkin_ws/src/visual_mpc/experiments/cem_exp/benchmarks/alexmodel/savp_gtruth_track/41684'
+    dir = '/home/frederik/Documents/catkin_ws/src/visual_mpc/experiments/cem_exp/benchmarks/pos_ctrl/updown_sact_boundact_register_gtruth/42159'
 
     traj_per_worker = int(n_traj / np.float32(n_worker))
     start_idx = [traj_per_worker * i for i in range(n_worker)]

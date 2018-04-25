@@ -1,14 +1,11 @@
 <mujoco model="pushing2d">
 
     <compiler inertiafromgeom="auto" angle="radian" coordinate="local" />
-    <!--<size njmax="-1" nconmax="-1"/>-->
     <size njmax="2000" nconmax="2000"/>
-    <!--<option timestep="0.01" gravity="0 0 -9.81" iterations="20" integrator="Euler" />-->
     <option timestep="0.005" gravity="0 0 -9.81" iterations="50" integrator="Euler" />
     <default>
         <joint limited="false" damping="1" />
         <geom contype="1" conaffinity="1" condim="3" friction=".5 .1 .1" density="1000" margin="0.002" />
-        <!--<geom contype="1" conaffinity="1" condim="4" friction=".5 .1 .1" density="1000" margin="0.002" />-->
     </default>
 
     <worldbody>

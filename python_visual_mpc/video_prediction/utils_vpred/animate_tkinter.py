@@ -19,6 +19,7 @@ import colorsys
 
 from python_visual_mpc.video_prediction.misc.makegifs2 import assemble_gif, npy_to_gif
 import scipy.misc
+import cv2
 frame = None
 canvas = None
 
@@ -163,10 +164,12 @@ class Visualizer_tkinter(object):
 
             elif 'overlay' in key:
                 print('visualizing overlay')
-                gen_images = data[0]
+                images = data[0]
                 gen_distrib = data[1]
                 gen_distrib = color_code_distrib(gen_distrib, self.numex, renormalize=True)
-                overlay = compute_overlay(gen_images, gen_distrib, self.numex)
+                if gen_distrib[0].shape != images[0].shape:
+                    images = upsample_nearest(images, gen_distrib[0].shape[1:3])
+                overlay = compute_overlay(images, gen_distrib, self.numex)
                 self.video_list.append((overlay, key))
 
             elif type(data[0]) is list or '_l' in key:    # for lists of videos
@@ -210,7 +213,7 @@ class Visualizer_tkinter(object):
 
         self.col_titles = col_titles
 
-    def make_direct_vid(self, separate_vid = False, mpc_data =False):
+    def make_direct_vid(self, separate_vid = False, mpc_data =False, resize=None):
 
         print('making gif with tags')
         # self.video_list = [self.video_list[0]]
@@ -221,9 +224,7 @@ class Visualizer_tkinter(object):
                 gen_distrib = self.dict_['gen_distrib0_t{}'.format(t)]
 
                 gen_distrib = color_code_distrib(gen_distrib, self.numex, renormalize=True)
-
                 overlay = compute_overlay(gen_images, gen_distrib, self.numex)
-
                 new_videolist = [gen_images, overlay]
 
                 framelist = assemble_gif(new_videolist, convert_from_float=False, num_exp=self.numex)
@@ -232,6 +233,8 @@ class Visualizer_tkinter(object):
             new_videolist = []
             for vid in self.video_list:
                 images = vid[0]
+                if resize is not None:
+                    images = upsample_nearest(images, size=resize)
                 name = vid[1]
                 if images[0].shape[-1] == 1:
                     images = color_code_distrib(images, self.numex, renormalize=True)
@@ -558,13 +561,23 @@ def convert_to_videolist(input, repeat_last_dim):
 
     return list_of_videos
 
-def upsample_nearest(imlist, numex, size = (256,256)):
+def upsample_nearest(imlist, size = (256,256), mode = 'nearest'):
+    """
+    :param imlist:  list of image batches of size [b, r, c, ch]
+    :param size:
+    :param mode:
+    :return:
+    """
+    batch_size, height, width, ch = imlist[0].shape
+    assert len(size) == 2
+
     out = []
     for im in imlist:
-        out_t = []
-        for b in range(numex):
-            out_t.append(scipy.misc.imresize(im[b], size, 'nearest'))
-        out_t = np.stack(out_t, 0)
+        im = np.transpose(im, [1,2,0,3])
+        im = im.reshape(height, width, -1)
+        out_t = cv2.resize(im, (size[1], size[0]))
+        out_t = out_t.reshape(size[0], size[1], batch_size, ch)
+        out_t = np.transpose(out_t, [2, 0, 1, 3])
         out.append(out_t)
     return out
 

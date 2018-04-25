@@ -458,6 +458,11 @@ class Dynamic_Base_Model(object):
                 [states, tf.zeros([conf['batch_size'], conf['sequence_length'] - conf['context_frames'], conf['sdim']])],
                 axis=1)
 
+        if images is not None and images.get_shape().as_list()[1] != conf['sequence_length']:  # append zeros if states is shorter than sequence length
+            images = tf.concat(
+                [images, tf.zeros([conf['batch_size'], conf['sequence_length'] - conf['context_frames'], self.img_height, self.img_width, 3])],
+                axis=1)
+
         self.trafo_pix = trafo_pix
         if pix_distrib is not None:
             assert trafo_pix == True
@@ -489,19 +494,15 @@ class Dynamic_Base_Model(object):
                 self.actions_pl = tf.placeholder(tf.float32, name='actions',
                                                  shape=(conf['batch_size'], conf['sequence_length'], self.adim))
                 actions = self.actions_pl
-
                 self.states_pl = tf.placeholder(tf.float32, name='states',
                                                 shape=(conf['batch_size'], conf['sequence_length'], self.sdim))
                 states = self.states_pl
-
                 self.images_pl = tf.placeholder(tf.float32, name='images',
                                                 shape=(conf['batch_size'], conf['sequence_length'], self.img_height, self.img_width, 3))
                 images = self.images_pl
-
                 self.pix_distrib_pl = tf.placeholder(tf.float32, name='states',
                                                      shape=(conf['batch_size'], conf['sequence_length'], ndesig, self.img_height, self.img_width, 1))
                 pix_distrib = self.pix_distrib_pl
-
             else:
                 dict = build_tfrecord_fn(conf, training=True)
                 train_images, train_actions, train_states = dict['images'], dict['actions'], dict['endeffector_pos']
@@ -650,7 +651,6 @@ class Dynamic_Base_Model(object):
 
         return loss
 
-
     def visualize(self, sess):
         visualize(sess, self.conf, self)
 
@@ -741,7 +741,6 @@ def apply_dna_kernels_dilated(image, kernels, dilation_rate=(1, 1)):
     outputs = [tf.batch_to_space_nd(small_output, dilation_rate, crops=[[0, 0]] * 2) for small_output in small_outputs]
     return outputs
 
-
 def apply_dna_kernels(image, kernels, dilation_rate=(1, 1)):
     dilation_rate = list(dilation_rate) if isinstance(dilation_rate, (tuple, list)) else [dilation_rate] * 2
     if dilation_rate == [1, 1]:
@@ -749,8 +748,6 @@ def apply_dna_kernels(image, kernels, dilation_rate=(1, 1)):
     else:
         outputs = apply_dna_kernels_dilated(image, kernels, dilation_rate=dilation_rate)
     return outputs
-
-
 
 def apply_kernels(image, kernels, dilation_rate=(1, 1)):
     """

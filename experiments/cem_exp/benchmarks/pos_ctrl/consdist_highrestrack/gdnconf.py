@@ -3,10 +3,8 @@ base_dir = python_visual_mpc.__file__
 
 base_dir = '/'.join(str.split(base_dir, '/')[:-2])
 
-
-import os
 # tf record data location:
-DATA_DIR = os.environ['VMPC_DATA_DIR'] + '/cartgripper_updown_sact_96x128/train'
+DATA_DIR = base_dir + '/pushing_data/cartgripper_startgoal_4step/train'
 
 import os
 current_dir = os.path.dirname(os.path.realpath(__file__))
@@ -14,17 +12,17 @@ current_dir = os.path.dirname(os.path.realpath(__file__))
 # local output directory
 OUT_DIR = current_dir + '/modeldata'
 
+
 configuration = {
 'experiment_name': 'correction',
-'data_dir': DATA_DIR,       # 'directory containing data.' ,
+'pretrained_model': base_dir + '/tensorflow_data/gdn/96x128/cartgripper_tdac_flowpenal/modeldata/model48002',
 'output_dir': OUT_DIR,      #'directory for model checkpoints.' ,
 'current_dir': base_dir,   #'directory for writing summary.' ,
 'num_iterations':50000,
-'sequence_length':15,
+'sequence_length':4,
 'train_val_split':.95,
-'visualize':'',
 'skip_frame':1,
-'batch_size': 16,           #'batch size for training' ,
+'batch_size': 1,           #'batch size for training' ,
 'learning_rate': 0.001,     #'the base learning rate of the generator' ,
 'normalization':'None',
 'orig_size': [96,128],
