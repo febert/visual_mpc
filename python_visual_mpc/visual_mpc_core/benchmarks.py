@@ -13,6 +13,7 @@ from python_visual_mpc.video_prediction.utils_vpred.online_reader import read_tr
 
 from python_visual_mpc import __file__ as python_vmpc_path
 from python_visual_mpc.data_preparation.gather_data import make_traj_name_list
+import cv2
 
 
 def perform_benchmark(conf = None, iex=-1, gpu_id=None):
