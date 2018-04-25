@@ -47,6 +47,7 @@ if 'benchmarks' in script_name or 'parallel_data_collection' in script_name:  #r
                              {"containerMountPoint": "/mnt/pretrained_models/bair_action_free/model.savp.transformation.flow.last_frames.2.generate_scratch_image.false.batch_size.16", "id": 9161},
                              {"containerMountPoint": "/mnt/pretrained_models/bair_action_free/model.multi_savp.ngf.64.shared_views.true.num_views.2.tv_weight.0.001.transformation.flow.last_frames.2.generate_scratch_image.false.batch_size.16", "id": 9223},
                              {"containerMountPoint": "/mnt/pushing_data/cartgripper_startgoal_masks6e4", "id": 9138},  # mj_pos_ctrl_appflow
+                             {"containerMountPoint": "/mnt/pushing_data/cartgripper_const_dist", "id": 9259},  # mj_pos_ctrl_appflow
                              {"containerMountPoint": "/mnt/pushing_data/cartgripper_startgoal_short", "id": 8949},  # mj_pos_ctrl_appflow
                              {"containerMountPoint": "/mnt/pushing_data/cartgripper_startgoal_2view", "id": 9222},  # mj_pos_ctrl_appflow
                              {"containerMountPoint": "/mnt/pushing_data/cartgripper_startgoal_masks", "id": 8914}]  # mj_pos_ctrl_appflow
