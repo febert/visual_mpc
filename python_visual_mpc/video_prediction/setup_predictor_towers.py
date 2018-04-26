@@ -66,12 +66,6 @@ def setup_predictor(conf, gpu_id=0, ngpu=1):
     with sess.as_default():
         with g_predictor.as_default():
 
-            print('-------------------------------------------------------------------')
-            print('verify current settings!! ')
-            for key in list(conf.keys()):
-                print(key, ': ', conf[key])
-            print('-------------------------------------------------------------------')
-
             print('Constructing multi gpu model for control...')
 
             if 'float16' in conf:
@@ -128,6 +122,12 @@ def setup_predictor(conf, gpu_id=0, ngpu=1):
                 saver.restore(sess, conf['pretrained_model'])
 
             print('restore done. ')
+
+            print('-------------------------------------------------------------------')
+            print('verify current settings!! ')
+            for key in list(conf.keys()):
+                print(key, ': ', conf[key])
+            print('-------------------------------------------------------------------')
 
             comb_gen_img = []
             comb_pix_distrib = []
