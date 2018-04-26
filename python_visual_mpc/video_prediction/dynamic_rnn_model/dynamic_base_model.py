@@ -18,6 +18,9 @@ RELU_SHIFT = 1e-12
 
 from python_visual_mpc.video_prediction.utils_vpred.video_summary import make_video_summaries
 
+from .utils import local_device_setter, compute_averaged_gradients
+from collections import OrderedDict
+
 class DNACell(tf.nn.rnn_cell.RNNCell):
     def __init__(self,
                  conf,
@@ -435,10 +438,12 @@ class Dynamic_Base_Model(object):
                  pix_distrib2=None,
                  trafo_pix = True,
                  load_data = True,
-                 build_loss = True,
+                 make_loss = True,
+                 num_gpus = 1
                  ):
 
         self.iter_num = tf.placeholder(tf.float32, [])
+        self.num_gpus = num_gpus
 
         if 'ndesig' in conf:
             ndesig = conf['ndesig']
@@ -469,14 +474,9 @@ class Dynamic_Base_Model(object):
             pix_distrib = tf.concat([pix_distrib, tf.zeros([conf['batch_size'], conf['sequence_length'] - conf['context_frames'],ndesig, self.img_height, self.img_width, 1])], axis=1)
             pix_distrib = pix_distrib
 
-        use_state = True
-
-        vgf_dim = 32
-
         self.trafo_pix = trafo_pix
         self.conf = conf
 
-        k = conf['schedsamp_k']
         self.use_state = conf['use_state']
         self.num_transformed_images = conf['num_transformed_images']
         self.context_frames = conf['context_frames']
@@ -517,27 +517,80 @@ class Dynamic_Base_Model(object):
                 print('randomly shift videos for data augmentation')
                 images, states, actions = self.random_shift(images, states, actions)
 
-        ## start interface
-        # Split into timesteps.
-
-        images = tf.unstack(images, axis=1)
-        states = tf.unstack(states, axis=1)
-        actions = tf.unstack(actions, axis=1)
-
-        if pix_distrib is not None:
-            pix_distrib = tf.split(axis=1, num_or_size_splits=pix_distrib.get_shape()[1], value=pix_distrib)
-            pix_distrib = [tf.reshape(pix, [self.batch_size, ndesig, self.img_height, self.img_width, 1]) for pix in pix_distrib]
+        self.d_optimizer = tf.train.AdamOptimizer(self.conf['learning_rate'])
 
         self.actions = actions
         self.images = images
         self.states = states
 
+        self.inputs = {'images':images, 'actions':actions, 'states':states}
+        tower_inputs = [OrderedDict() for _ in range(self.num_gpus)]
+        for name, input in self.inputs.items():
+            input_splits = tf.split(input, self.num_gpus)  # assumes batch_size is divisible by num_gpus
+            for i in range(self.num_gpus):
+                tower_inputs[i][name] = input_splits[i]
+
+        tower_outputs_tuple = []
+        tower_losses = []
+        tower_summed_loss = []
+        for i in range(self.num_gpus):
+            worker_device = '/{}:{}'.format('gpu', i)
+            device_setter = local_device_setter(worker_device=worker_device)
+            with tf.variable_scope('', reuse=bool(i > 0)):
+                with tf.name_scope('tower_%d' % i):
+                    with tf.device(device_setter):
+                        outputs_tuple, loss = self.tower_fn(tower_inputs[i])
+
+                        tower_outputs_tuple.append(outputs_tuple)
+                        tower_losses.append(loss)
+                        sum_loss = sum(loss * weight for loss, weight in loss.values())
+                        tower_summed_loss.append(sum_loss)
+
+        if make_loss:
+            vars = tf.trainable_variables()
+            with tf.name_scope('optimize'):
+                with tf.control_dependencies(tf.get_collection(tf.GraphKeys.UPDATE_OPS)):
+                    gradvars = compute_averaged_gradients(self.d_optimizer, tower_summed_loss,
+                                                            var_list=vars)
+                    self.d_train_op = self.d_optimizer.apply_gradients(gradvars)
+        else:
+            self.train_op = None
+
+        # Device that runs the ops to apply global gradient updates.
+        consolidation_device = '/cpu:0'
+        with tf.device(consolidation_device):
+            self.gen_images, self.gen_images_enc, self.outputs, self.eval_outputs = reduce_tensors(
+                tower_outputs_tuple)
+            self.d_losses = reduce_tensors(tower_losses, shallow=True)
+            self.g_losses = reduce_tensors(tower_g_losses, shallow=True)
+            self.metrics, self.eval_metrics = reduce_tensors(tower_metrics_tuple)
+            self.d_loss = reduce_tensors(tower_summed_loss)
+            self.g_loss = reduce_tensors(tower_g_loss)
+
+        add_summaries({name: tensor for name, tensor in self.inputs.items()
+                           if tensor.shape.ndims == 4 or (tensor.shape.ndims > 4 and
+                                                      tensor.shape[4].value in (1, 3))})
+        if self.targets is not None:
+            add_summaries({'targets': self.targets})
+        add_summaries({name: tensor for name, tensor in self.outputs.items()
+                       if tensor.shape.ndims == 4 or (tensor.shape.ndims > 4 and
+                                                      tensor.shape[4].value in (1, 3))})
+        add_scalar_summaries({name: tensor for name, tensor in self.outputs.items() if tensor.shape.ndims == 0})
+        add_scalar_summaries(self.d_losses)
+        add_scalar_summaries(self.g_losses)
+
+
+    def tower_fn(self, inputs, make_loss = True):
+        images, actions, states, pix_distrib = inputs
+
+        k = self.conf['schedsamp_k']
         image_shape = images[0].get_shape().as_list()
-        batch_size, height, width, color_channels = image_shape
-        images_length = len(images)
+        batch_size, images_length, height, width, color_channels = image_shape
         sequence_length = images_length - 1
-        _, action_dim = actions[0].get_shape().as_list()
-        _, state_dim = states[0].get_shape().as_list()
+        _, _, action_dim = actions.get_shape().as_list()
+        _, _, state_dim = states.get_shape().as_list()
+        use_state = True
+        vgf_dim = 32
 
         if k == -1:
             feedself = True,
@@ -563,7 +616,7 @@ class Dynamic_Base_Model(object):
 
         first_pix_distrib = None if pix_distrib is None else pix_distrib[0]
 
-        cell = DNACell(conf,
+        cell = DNACell(self.conf,
                        [height, width, color_channels],
                        state_dim,
                        first_image=images[0],
@@ -574,13 +627,12 @@ class Dynamic_Base_Model(object):
                        use_state=use_state,
                        vgf_dim=vgf_dim)
 
-        inputs = [tf.stack(images[:sequence_length]), tf.stack(actions[:sequence_length]), tf.stack(states[:sequence_length])]
+
+        inputs = [images[:,:sequence_length], actions[:,:sequence_length], states[:,:sequence_length]]
         if pix_distrib is not None:
             inputs.append(tf.stack(pix_distrib[:sequence_length]))
-        if pix_distrib2 is not None:
-            inputs.append(tf.stack(pix_distrib2[:sequence_length]))
 
-        if 'float16' in conf:
+        if 'float16' in self.conf:
             use_dtype = tf.float16
         else: use_dtype = tf.float32
         outputs, _ = tf.nn.dynamic_rnn(cell, inputs, sequence_length=[sequence_length] * batch_size, dtype=use_dtype,
@@ -588,68 +640,66 @@ class Dynamic_Base_Model(object):
 
         n_cutoff = self.context_frames - 1 # only return images predicting future timesteps, omit images predicting steps during context
         (gen_images, gen_states, gen_masks, gen_transformed_images), other_outputs = outputs[:4], outputs[4:]
-        self.gen_images = tf.unstack(gen_images, axis=0)[n_cutoff:]
-        self.gen_states = tf.unstack(gen_states, axis=0)[n_cutoff:]
-        self.gen_masks = list(zip(*[tf.unstack(gen_mask, axis=0) for gen_mask in gen_masks]))[n_cutoff:]
-        self.gen_transformed_images = list(
+        gen_images = tf.unstack(gen_images, axis=0)[n_cutoff:]
+        gen_states = tf.unstack(gen_states, axis=0)[n_cutoff:]
+        gen_masks = list(zip(*[tf.unstack(gen_mask, axis=0) for gen_mask in gen_masks]))[n_cutoff:]
+        gen_transformed_images = list(
             zip(*[tf.unstack(gen_transformed_image, axis=0) for gen_transformed_image in gen_transformed_images]))
         other_outputs = list(other_outputs)
 
         # making video summaries
-        self.val_video_summaries = make_video_summaries(conf['sequence_length'], conf['context_frames'], [self.images, self.gen_images])
+        self.val_video_summaries = make_video_summaries(self.conf['sequence_length'], self.conf['context_frames'], [self.images, self.gen_images])
 
         if 'compute_flow_map' in self.conf:
             gen_flow_map = other_outputs.pop(0)
-            self.gen_flow_map = tf.unstack(gen_flow_map, axis=0)[n_cutoff:]
+            gen_flow_map = tf.unstack(gen_flow_map, axis=0)[n_cutoff:]
 
         if pix_distrib is not None:
-            self.gen_distrib = other_outputs.pop(0)
-            self.gen_distrib = tf.unstack(self.gen_distrib, axis=0)
-            self.gen_transformed_pixdistribs = other_outputs.pop(0)
-            self.gen_transformed_pixdistribs = list(zip(
+            gen_distrib = other_outputs.pop(0)
+            gen_distrib = tf.unstack(gen_distrib, axis=0)
+            gen_transformed_pixdistribs = other_outputs.pop(0)
+            gen_transformed_pixdistribs = list(zip(
                 *[tf.unstack(gen_transformed_pixdistrib, axis=0) for gen_transformed_pixdistrib in
-                  self.gen_transformed_pixdistribs]))[n_cutoff:]
+                  gen_transformed_pixdistribs]))[n_cutoff:]
 
-            self.gen_distrib = self.gen_distrib[n_cutoff:]
+            gen_distrib = gen_distrib[n_cutoff:]
+        else:
+            gen_distrib = None
 
         assert not other_outputs
 
-        if build_loss:
-            self.lr = tf.placeholder_with_default(self.conf['learning_rate'], ())
-            loss = self.build_loss()
-            self.train_op = tf.train.AdamOptimizer(self.lr).minimize(loss)
+        outputs_tuple = (gen_images, gen_states, gen_distrib)
 
-    def build_loss(self):
-        train_summaries = []
-        val_summaries = []
+        if make_loss:
+            loss = self.build_loss(images, gen_images, states, gen_states)
+        else:
+            loss = None
+
+        return outputs_tuple, loss
+
+
+    def build_loss(self, images, gen_images, states, gen_states):
         # L2 loss, PSNR for eval.
-        loss, psnr_all = 0.0, 0.0
+        loss = {}
 
-        for i, x, gx in zip(
-                list(range(len(self.gen_images))), self.images[self.conf['context_frames']:],
-                self.gen_images[self.conf['context_frames'] - 1:]):
-            recon_cost_mse = mean_squared_error(x, gx)
-            # train_summaries.append(tf.summary.scalar('recon_cost' + str(i), recon_cost_mse))
-            # val_summaries.append(tf.summary.scalar('val_recon_cost' + str(i), recon_cost_mse))
-            recon_cost = recon_cost_mse
-
-            loss += recon_cost
+        true = images[:, self.conf['context_frames']:],
+        pred = gen_images[:, self.conf['context_frames']-1:]
+        recon_cost = tf.reduce_sum(tf.square(true - pred)) / tf.to_float(tf.size(pred))
+        loss['recon_cost'] = (recon_cost, 1.0)
 
         if ('ignore_state_action' not in self.conf) and ('ignore_state' not in self.conf):
-            for i, state, gen_state in zip(
-                    list(range(len(self.gen_states))), self.states[self.conf['context_frames']:],
-                    self.gen_states[self.conf['context_frames'] - 1:]):
-                state_cost = mean_squared_error(state, gen_state) * 1e-4 * self.conf['use_state']
-                # train_summaries.append(tf.summary.scalar('state_cost' + str(i), state_cost))
-                # val_summaries.append(tf.summary.scalar('val_state_cost' + str(i), state_cost))
-                loss += state_cost
+            true = states[:, self.conf['context_frames']:],
+            pred = gen_states[:, self.conf['context_frames']-1:]
+            state_cost = tf.reduce_sum(tf.square(true - pred)) / tf.to_float(tf.size(pred))
+            loss['state_cost'] = (state_cost, 1e-4 * self.conf['use_state'])
+        # TODO: put this in!
+        # loss = loss = loss / np.float32(len(self.images) - self.conf['context_frames'])
 
-        self.loss = loss = loss / np.float32(len(self.images) - self.conf['context_frames'])
-        train_summaries.append(tf.summary.scalar('loss', loss))
-        val_summaries.append(tf.summary.scalar('val_loss', loss))
-
-        self.train_summ_op = tf.summary.merge(train_summaries)
-        self.val_summ_op = tf.summary.merge(val_summaries)
+        #TODO: rearrange summ
+        # train_summaries.append(tf.summary.scalar('loss', loss))
+        # val_summaries.append(tf.summary.scalar('val_loss', loss))
+        # self.train_summ_op = tf.summary.merge(train_summaries)
+        # self.val_summ_op = tf.summary.merge(val_summaries)
 
         return loss
 
