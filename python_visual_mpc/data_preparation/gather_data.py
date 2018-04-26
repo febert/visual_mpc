@@ -25,7 +25,7 @@ import argparse
 import sys
 import imp
 import pdb
-import matplotlib.pyplot as plt
+import matplotlib; matplotlib.use('Agg'); import matplotlib.pyplot as plt
 
 MAXLISTLEN = 128
 

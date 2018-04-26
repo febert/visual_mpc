@@ -2,7 +2,7 @@ import tensorflow as tf
 from copy import deepcopy
 import os
 import numpy as np
-import matplotlib.pyplot as plt
+import matplotlib; matplotlib.use('Agg'); import matplotlib.pyplot as plt
 
 from python_visual_mpc.video_prediction.read_tf_record_wristrot import \
                         build_tfrecord_input as build_tfrecord_fn
