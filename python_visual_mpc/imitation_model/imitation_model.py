@@ -27,8 +27,8 @@ def gen_mix_samples(N, means, std_dev, mix_params):
     return sorted(samps, key=lambda x: -x[1])
 
 class ImitationBaseModel:
-    def __init__(self, conf, images, actions, end_effector):
-        self.input_images, self.input_actions, self.input_end_effector = images, actions, end_effector
+    def __init__(self, conf, images, actions, end_effector, goal_image = None):
+        self.input_images, self.input_actions, self.input_end_effector, self.goal_image = images, actions, end_effector, goal_image
         self.conf = conf
         assert ('adim' in self.conf), 'must specify action dimension in conf wiht key adim'
         assert (self.conf['adim'] == actions.get_shape()[2]), 'conf adim does not match input actions'
@@ -503,3 +503,46 @@ class ImitationLSTMVAEAction(ImitationBaseModel):
         self.loss = self.latent_loss + self.action_loss
 
         self.final_frame_aux_loss = self.latent_loss
+
+class ImitationLSTMModelStateGoalImage(ImitationBaseModel):
+
+    def build(self, is_Test = False):
+
+        in_batch, in_time, in_rows, in_cols, _ = self.images.get_shape()
+        in_time -= 1
+        #images are flattened for convolution
+        goal_images = tf.reshape(self.goal_image, (in_batch, 1, in_rows, in_cols, 3))
+        conv_input_images = tf.reshape(tf.concat((self.images[:, :-1,:,:,:], goal_images),1) , \
+                                        shape=(in_batch * (in_time + 1), in_rows, in_cols, 3))
+        #actions are flattened for loss
+        #but configs are not (fed into lstm)
+        output_end_effector = tf.reshape(self.gtruth_endeffector_pos[:, 1:], shape = (in_batch * in_time, self.sdim))
+
+        fp_flat = tf.reshape(self._build_conv_layers(conv_input_images), shape=(in_batch, in_time + 1, -1))
+
+        #see if model can predict task from first frame
+        goal_features = fp_flat[:, -1, :]
+        first_initial = slim.layers.fully_connected(goal_features, self.conf['lstm_layers'][0],
+                                    scope='first_hidden', activation_fn = tf.tanh)
+        lstm_in = fp_flat[:, :-1, :]
+
+        lstm_layers = tf.contrib.rnn.MultiRNNCell(
+            [tf.contrib.rnn.ResidualWrapper(tf.contrib.rnn.BasicLSTMCell(l)) for l in self.conf['lstm_layers']])
+
+        all_initial = tuple([tf.contrib.rnn.LSTMStateTuple(tf.zeros((in_batch, self.conf['lstm_layers'][0])), first_initial)]
+                            + [tf.contrib.rnn.LSTMStateTuple(tf.zeros((in_batch, l)), tf.zeros((in_batch, l)))
+                               for l in self.conf['lstm_layers'][1:]])
+
+        last_fc, states = tf.nn.dynamic_rnn(cell = lstm_layers, inputs = lstm_in, initial_state=all_initial,
+                                            dtype = tf.float32, parallel_iterations=int(in_batch))
+        last_fc = tf.reshape(last_fc, shape=(in_batch * in_time, -1))
+
+        self._build_loss(last_fc, output_end_effector, in_time)
+
+        if 'MDN_loss' in self.conf:
+            num_mix = self.conf['MDN_loss']
+            self.mixing_parameters = tf.reshape(self.mixing_parameters, shape=(in_batch, in_time, num_mix))
+            self.std_dev = tf.reshape(self.std_dev, shape=(in_batch, in_time, num_mix))
+            self.means = tf.reshape(self.means, shape=(in_batch, in_time, num_mix, self.sdim))
+        else:
+            self.predicted_actions = tf.reshape(self.predicted_actions, shape=(in_batch, in_time, self.sdim))

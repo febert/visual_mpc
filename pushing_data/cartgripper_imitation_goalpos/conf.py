@@ -1,11 +1,11 @@
 import os
 
 DATA_DIR = os.environ['VMPC_DATA_DIR']
-from python_visual_mpc.imitation_model.imitation_model import ImitationLSTMModelState
+from python_visual_mpc.imitation_model.imitation_model import ImitationLSTMModelStateGoalImage
 configuration = {
-    'model' : ImitationLSTMModelState,
-    'data_dir':DATA_DIR  + '/cartgripper_det_grasp/train/',
-    'model_dir':DATA_DIR + '/cartgripper_imitation/lstm_model_mdn_states_slr/',
+    'model' : ImitationLSTMModelStateGoalImage,
+    'data_dir':DATA_DIR  + '/cartgripper_imitation_goalpos/train/',
+    'model_dir':DATA_DIR + '/cartgripper_imitation_goalpos/lstm_model_mdn_states_slr/',
     'n_iters':80000,
     'n_print':100,
     'n_save':500,
@@ -14,6 +14,7 @@ configuration = {
     'train_val_split':0.95,
     'adim':5,
     'sdim':5,
+    'goal_image' : True,
     'orig_size': [48,64],
     'skip_frame' : 1,
     'sequence_length' : 15,
