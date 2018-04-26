@@ -31,7 +31,9 @@ def main():
         train_actions = data_dict['actions']
         train_endeffector_pos = data_dict['endeffector_pos']
 
-        model = conf['model'](conf, train_images, train_actions, train_endeffector_pos)
+        goal_image = data_dict.get('goal_image', None)
+
+        model = conf['model'](conf, train_images, train_actions, train_endeffector_pos, goal_image)
         model.build()
 
     with tf.variable_scope('val_model', reuse = None):
@@ -42,8 +44,10 @@ def main():
         val_actions = data_dict['actions']
         val_endeffector_pos = data_dict['endeffector_pos']
 
+        val_goal_image = data_dict.get('goal_image', None)
+
         with tf.variable_scope(training_scope, reuse=True):
-            val_model = conf['model'](conf, val_images, val_actions, val_endeffector_pos)
+            val_model = conf['model'](conf, val_images, val_actions, val_endeffector_pos, val_goal_image)
             val_model.build()
 
     if 'clip_grad' not in conf:
@@ -77,7 +81,7 @@ def main():
             if 'MDN_loss' in conf:
                 model_loss, val_model_loss, val_model_diag, val_mdn_log,   _ = sess.run(
                     [model.loss, val_model.loss, val_model.diagnostic_l2loss,val_model.MDN_log_l,  train_operation], feed_dict=f_dict)
-                print 'At iteration', i, 'model loss is:', model_loss, 'and val_model loss is', val_model_loss, 'and val diagnostic', val_model_diag)
+                print('At iteration', i, 'model loss is:', model_loss, 'and val_model loss is', val_model_loss, 'and val diagnostic', val_model_diag)
                 itr_summary = tf.Summary()
                 itr_summary.value.add(tag="val_model/loss", simple_value=val_model_loss)
                 itr_summary.value.add(tag="val_model/loglikelihood", simple_value=val_mdn_log)
@@ -88,32 +92,13 @@ def main():
                 if np.isnan(model_loss):
                     print("NAN ALERT at", i)
                     exit(-1)
-                    # print('std_dev', std_dev)
-                    # print('means',means)
-                    # print('mixing',mixing_params)
-                    # print('likelihoods', likelihoods)
-                    # print('lg likelihoods', lg_likelihoods)
-                    # z = np.isnan(lg_likelihoods)
-                    # print('likelihoods at', likelihoods[z])
-                    # print('means at', means.reshape(-1, 20, 5)[z])
-                    # print('mixing at', mixing_params.reshape(-1, 20)[z])
-                    # print('std_dev at', std_dev.reshape(-1, 20)[z])
-                    #
-                    # samp = samp[z].reshape((-1, 1, 5))
-                    # means = means.reshape(-1, 20, 5)[z]
-                    # std_dev = std_dev.reshape(-1, 20)[z]
-                    # mixing_params = mixing_params.reshape(-1, 20)[z]
-                    #
-                    # samp_l = np.exp(-0.5 * np.sum(np.square(samp - means), axis=1) / np.square(std_dev))
-                    # samp_l /= np.power(2 * np.pi, 5 / 2.) * std_dev
-                    # samp_l *= mixing_params
 
 
             elif 'latent_dim' in conf:
                 model_loss, val_model_loss, val_action, _ = sess.run([model.loss, val_model.loss,
                                                                                val_model.action_loss,
                                                                                train_operation], feed_dict=f_dict)
-                print 'At iteration', i, 'model loss is:', model_loss, 'and val_model loss is', val_model_loss, 'val_action loss', val_action
+                print('At iteration', i, 'model loss is:', model_loss, 'and val_model loss is', val_model_loss, 'val_action loss', val_action)
 
                 if i > 0:
                     itr_summary = tf.Summary()
