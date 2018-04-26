@@ -620,11 +620,8 @@ class Dynamic_Base_Model(object):
                        use_state=use_state,
                        vgf_dim=vgf_dim)
 
-        images = tf.unstack(images, axis=1)
-        actions = tf.unstack(actions, axis=1)
-        states = tf.unstack(states, axis=1)
 
-        inputs = [images[:sequence_length], actions[:sequence_length], states[:sequence_length]]
+        inputs = [images[:,:sequence_length], actions[:,:sequence_length], states[:,:sequence_length]]
         if pix_distrib is not None:
             inputs.append(tf.stack(pix_distrib[:sequence_length]))
 
