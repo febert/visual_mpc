@@ -44,6 +44,7 @@ if 'benchmarks' in script_name or 'parallel_data_collection' in script_name:  #r
                              {"containerMountPoint": "/mnt/tensorflow_data/sim/pos_ctrl_updown_rot_sact", "id": 8951},
                              {"containerMountPoint": "/mnt/tensorflow_data/sim/pos_ctrl_updown_sact", "id": 8950},
                              {"containerMountPoint": "/mnt/tensorflow_data/gdn/startgoal_shad", "id": 9087},
+                             {"containerMountPoint": "/mnt/tensorflow_data/gdn/96x128/cartgripper_tdac_flowpenal", "id": 9287},
                              {"containerMountPoint": "/mnt/pretrained_models/bair_action_free/model.savp.transformation.flow.last_frames.2.generate_scratch_image.false.batch_size.16", "id": 9161},
                              {"containerMountPoint": "/mnt/pretrained_models/bair_action_free/model.multi_savp.ngf.64.shared_views.true.num_views.2.tv_weight.0.001.transformation.flow.last_frames.2.generate_scratch_image.false.batch_size.16", "id": 9223},
                              {"containerMountPoint": "/mnt/pushing_data/cartgripper_startgoal_masks6e4", "id": 9138},  # mj_pos_ctrl_appflow
