@@ -75,7 +75,7 @@ def compute_warp_cost(policyparams, flow_field, goal_pix=None, warped_images=Non
         print('adding warp warp_success_cost')
         if goal_mask is not None:
             diffs = (warped_images - goal_image[:, None])*goal_mask[None, None, :, :, None]
-
+            #TODO: check this!
             ws_costs = np.sum(sqdiffs.reshape([flow_field.shape[0], flow_field.shape[1], -1]), axis=-1)/np.sum(goal_mask)
         else:
             ws_costs = np.mean(np.mean(np.mean(np.square(warped_images - goal_image[:,None]), axis=2), axis=2), axis=2)*\
