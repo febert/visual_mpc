@@ -498,8 +498,8 @@ class CEM_controller():
                 if cem_itr == (self.policyparams['iterations'] - 1):
                     # pick the prop distrib from the action actually chosen after the last iteration (i.e. self.indices[0])
                     bestind = scores.argsort()[0]
-                    best_gen_distrib = gen_distrib[2][bestind].reshape(1, self.ndesig, self.img_height, self.img_width, 1)
-                    self.rec_input_distrib.append(np.repeat(best_gen_distrib, self.bsize, 0))
+                    best_gen_distrib = gen_distrib[1][bestind].reshape(1, self.ndesig, self.img_height, self.img_width, 1)
+                    self.rec_input_distrib.append(best_gen_distrib)
 
             flow_scores = copy.deepcopy(scores)
 
@@ -627,26 +627,24 @@ class CEM_controller():
 
         return flow_fields, scores, warp_pts_l, warped_images
 
-    def calc_scores(self, gen_distrib, distance_grid):
-        expected_distance = np.zeros(self.bsize)
-        if 'rew_all_steps' in self.policyparams:
-            for tstep in range(self.ncontxt - 1, self.seqlen - 1):
-                t_mult = 1
-                if 'finalweight' in self.policyparams:
-                    if tstep == self.seqlen - 2:
-                        t_mult = self.policyparams['finalweight']
-                elif 'discount' in self.policyparams:
-                    t_mult = self.policyparams['discount']**tstep
 
-                for b in range(self.bsize):
-                    gen = gen_distrib[tstep][b].squeeze() / np.sum(gen_distrib[tstep][b])
-                    expected_distance[b] += np.sum(np.multiply(gen, distance_grid)) * t_mult
-            scores = expected_distance
-        else:
-            for b in range(self.bsize):
-                gen = gen_distrib[-1][b].squeeze() / np.sum(gen_distrib[-1][b])
-                expected_distance[b] = np.sum(np.multiply(gen, distance_grid))
-            scores = expected_distance
+    def calc_scores(self, gen_distrib, distance_grid):
+        """
+        :param gen_distrib: shape [batch, t, r, c]
+        :param distance_grid: shape [r, c]
+        :return:
+        """
+
+        gen_distrib = np.stack(gen_distrib, 1).squeeze()
+        t_mult = np.ones([self.seqlen - self.ncontxt])
+        t_mult[-1] = self.policyparams['finalweight']
+
+        #normalize prob distributions
+        gen_distrib /= np.sum(np.sum(gen_distrib, axis=2), 2)[:,:, None, None]
+        gen_distrib *= distance_grid[None, None]
+        scores = np.sum(np.sum(gen_distrib, axis=2),2)
+        scores *= t_mult[None]
+        scores = np.sum(scores, axis=1)
         return scores
 
     def get_distancegrid(self, goal_pix):

@@ -127,7 +127,6 @@ def make_cem_visuals(ctrl, actions, bestindices, cem_itr, flow_fields, gen_distr
         return gen_images
 
 def make_state_action_summary(K, actions, agentparams, bestindices, cem_itr, gen_states, seqlen, tstep):
-    gen_states = np.stack(gen_states, 1)
     with open(agentparams['record'] + '/plan/actions_states_t{}iter_{}'.format(tstep, cem_itr), 'w') as f:
         f.write('actions, states \n')
         for i in range(K):
@@ -135,6 +134,3 @@ def make_state_action_summary(K, actions, agentparams, bestindices, cem_itr, gen
             for t_ in range(seqlen):
                 if t_ == 0:
                     f.write('t{}  {}\n'.format(t_, actions[bestindices][i, t_]))
-                else:
-                    f.write(
-                        't{}  {}  {}\n'.format(t_, actions[bestindices][i, t_], gen_states[bestindices][i, t_ - 1]))

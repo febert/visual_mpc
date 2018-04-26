@@ -129,7 +129,7 @@ def setup_predictor(conf, gpu_id=0, ngpu=1):
             comb_pix_distrib = []
             comb_gen_states = []
 
-            for t in range(conf['sequence_length']-1):
+            for t in range(conf['sequence_length']-conf['context_frames']):
                 t_comb_gen_img = [to.model.gen_images[t] for to in towers]
                 comb_gen_img.append(tf.concat(axis=0, values=t_comb_gen_img))
 

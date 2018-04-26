@@ -587,20 +587,21 @@ class Dynamic_Base_Model(object):
         outputs, _ = tf.nn.dynamic_rnn(cell, inputs, sequence_length=[sequence_length] * batch_size, dtype=use_dtype,
                                        swap_memory=True, time_major=True)
 
+        n_cutoff = self.context_frames - 1 # only return images predicting future timesteps, omit images predicting steps during context
         (gen_images, gen_states, gen_masks, gen_transformed_images), other_outputs = outputs[:4], outputs[4:]
-        self.gen_images = tf.unstack(gen_images, axis=0)
-        self.gen_states = tf.unstack(gen_states, axis=0)
-        self.gen_masks = list(zip(*[tf.unstack(gen_mask, axis=0) for gen_mask in gen_masks]))
+        self.gen_images = tf.unstack(gen_images, axis=0)[n_cutoff:]
+        self.gen_states = tf.unstack(gen_states, axis=0)[n_cutoff:]
+        self.gen_masks = list(zip(*[tf.unstack(gen_mask, axis=0) for gen_mask in gen_masks]))[n_cutoff:]
         self.gen_transformed_images = list(
             zip(*[tf.unstack(gen_transformed_image, axis=0) for gen_transformed_image in gen_transformed_images]))
         other_outputs = list(other_outputs)
 
         # making video summaries
-        self.val_video_summaries = make_video_summaries(conf['sequence_length'], [self.images, self.gen_images])
+        self.val_video_summaries = make_video_summaries(conf['sequence_length'], conf['context_frames'], [self.images, self.gen_images])
 
         if 'compute_flow_map' in self.conf:
             gen_flow_map = other_outputs.pop(0)
-            self.gen_flow_map = tf.unstack(gen_flow_map, axis=0)
+            self.gen_flow_map = tf.unstack(gen_flow_map, axis=0)[n_cutoff:]
 
         if pix_distrib is not None:
             self.gen_distrib = other_outputs.pop(0)
@@ -608,7 +609,9 @@ class Dynamic_Base_Model(object):
             self.gen_transformed_pixdistribs = other_outputs.pop(0)
             self.gen_transformed_pixdistribs = list(zip(
                 *[tf.unstack(gen_transformed_pixdistrib, axis=0) for gen_transformed_pixdistrib in
-                  self.gen_transformed_pixdistribs]))
+                  self.gen_transformed_pixdistribs]))[n_cutoff:]
+
+            self.gen_distrib = self.gen_distrib[n_cutoff:]
 
         assert not other_outputs
 
