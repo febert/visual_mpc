@@ -18,7 +18,7 @@ RELU_SHIFT = 1e-12
 
 from python_visual_mpc.video_prediction.utils_vpred.video_summary import make_video_summaries
 
-from .utils import local_device_setter, compute_averaged_gradients
+from .utils import local_device_setter, compute_averaged_gradients, reduce_tensors, add_scalar_summaries
 from collections import OrderedDict
 
 class DNACell(tf.nn.rnn_cell.RNNCell):
@@ -435,7 +435,6 @@ class Dynamic_Base_Model(object):
                  actions=None,
                  states=None,
                  pix_distrib=None,
-                 pix_distrib2=None,
                  trafo_pix = True,
                  load_data = True,
                  make_loss = True,
@@ -524,6 +523,8 @@ class Dynamic_Base_Model(object):
         self.states = states
 
         self.inputs = {'images':images, 'actions':actions, 'states':states}
+        if pix_distrib is not None:
+            self.inputs['pix_distrib'] = pix_distrib
         tower_inputs = [OrderedDict() for _ in range(self.num_gpus)]
         for name, input in self.inputs.items():
             input_splits = tf.split(input, self.num_gpus)  # assumes batch_size is divisible by num_gpus
@@ -561,31 +562,23 @@ class Dynamic_Base_Model(object):
         with tf.device(consolidation_device):
             self.gen_images, self.gen_images_enc, self.outputs, self.eval_outputs = reduce_tensors(
                 tower_outputs_tuple)
-            self.d_losses = reduce_tensors(tower_losses, shallow=True)
-            self.g_losses = reduce_tensors(tower_g_losses, shallow=True)
-            self.metrics, self.eval_metrics = reduce_tensors(tower_metrics_tuple)
-            self.d_loss = reduce_tensors(tower_summed_loss)
-            self.g_loss = reduce_tensors(tower_g_loss)
+            self.losses = reduce_tensors(tower_losses, shallow=True)
+            self.summed_loss = reduce_tensors(tower_summed_loss)
 
-        add_summaries({name: tensor for name, tensor in self.inputs.items()
-                           if tensor.shape.ndims == 4 or (tensor.shape.ndims > 4 and
-                                                      tensor.shape[4].value in (1, 3))})
-        if self.targets is not None:
-            add_summaries({'targets': self.targets})
-        add_summaries({name: tensor for name, tensor in self.outputs.items()
-                       if tensor.shape.ndims == 4 or (tensor.shape.ndims > 4 and
-                                                      tensor.shape[4].value in (1, 3))})
-        add_scalar_summaries({name: tensor for name, tensor in self.outputs.items() if tensor.shape.ndims == 0})
-        add_scalar_summaries(self.d_losses)
-        add_scalar_summaries(self.g_losses)
-
+        # making video summaries
+        self.val_video_summaries = make_video_summaries(self.conf['sequence_length'], self.conf['context_frames'], [self.images, self.gen_images])
+        add_scalar_summaries(self.losses)
 
     def tower_fn(self, inputs, make_loss = True):
-        images, actions, states, pix_distrib = inputs
+        images = inputs['images']
+        actions = inputs['actions']
+        states = inputs['states']
+        if 'pix_distrib' in inputs:
+            pix_distrib = inputs['pix_distrib']
+        else: pix_distrib = None
 
         k = self.conf['schedsamp_k']
-        image_shape = images[0].get_shape().as_list()
-        batch_size, images_length, height, width, color_channels = image_shape
+        batch_size, images_length, height, width, color_channels = images.get_shape().as_list()
         sequence_length = images_length - 1
         _, _, action_dim = actions.get_shape().as_list()
         _, _, state_dim = states.get_shape().as_list()
@@ -627,8 +620,11 @@ class Dynamic_Base_Model(object):
                        use_state=use_state,
                        vgf_dim=vgf_dim)
 
+        images = tf.unstack(images, axis=1)
+        actions = tf.unstack(actions, axis=1)
+        states = tf.unstack(states, axis=1)
 
-        inputs = [images[:,:sequence_length], actions[:,:sequence_length], states[:,:sequence_length]]
+        inputs = [images[:sequence_length], actions[:sequence_length], states[:sequence_length]]
         if pix_distrib is not None:
             inputs.append(tf.stack(pix_distrib[:sequence_length]))
 
@@ -646,9 +642,6 @@ class Dynamic_Base_Model(object):
         gen_transformed_images = list(
             zip(*[tf.unstack(gen_transformed_image, axis=0) for gen_transformed_image in gen_transformed_images]))
         other_outputs = list(other_outputs)
-
-        # making video summaries
-        self.val_video_summaries = make_video_summaries(self.conf['sequence_length'], self.conf['context_frames'], [self.images, self.gen_images])
 
         if 'compute_flow_map' in self.conf:
             gen_flow_map = other_outputs.pop(0)

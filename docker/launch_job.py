@@ -24,7 +24,6 @@ data["command"] = \
  export ALEX_DATA=/mnt/pretrained_models;\
  export RESULT_DIR=/result;\
  export NO_ROS='';\
- export DISPLAY=:0;\
  export PATH=/opt/conda/bin:/usr/local/mpi/bin:/usr/local/nvidia/bin:/usr/local/cuda/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin;\
  cd /workspace/visual_mpc/docker;"
 

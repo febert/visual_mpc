@@ -129,9 +129,9 @@ def main(unused_argv, conf_dict= None, flags=None):
     Model = conf['pred_model']
 
     if FLAGS.diffmotions or "visualize_tracking" in conf or FLAGS.metric:
-        model = Model(conf, load_data=False, trafo_pix=True, build_loss=build_loss)
+        model = Model(conf, load_data=False, trafo_pix=True, make_loss=build_loss)
     else:
-        model = Model(conf, load_data=True, trafo_pix=False, build_loss=build_loss)
+        model = Model(conf, load_data=True, trafo_pix=False, make_loss=build_loss)
 
     print('Constructing saver.')
     vars = tf.get_collection(tf.GraphKeys.GLOBAL_VARIABLES)
