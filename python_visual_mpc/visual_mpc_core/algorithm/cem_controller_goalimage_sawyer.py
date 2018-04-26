@@ -14,7 +14,7 @@ from python_visual_mpc.visual_mpc_core.algorithm.utils.make_visuals import make_
 # from python_visual_mpc.video_prediction.utils_vpred.create_gif_lib import *
 
 import collections
-import matplotlib.pyplot as plt
+import matplotlib; matplotlib.use('Agg'); import matplotlib.pyplot as plt
 import cv2
 
 

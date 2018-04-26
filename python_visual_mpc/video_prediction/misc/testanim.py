@@ -6,7 +6,7 @@ An animated image
 This example demonstrates how to animate an image.
 """
 import numpy as np
-import matplotlib.pyplot as plt
+import matplotlib; matplotlib.use('Agg'); import matplotlib.pyplot as plt
 import matplotlib.animation as animation
 
 fig = plt.figure()

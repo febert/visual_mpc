@@ -1,7 +1,7 @@
 import tensorflow as tf
 from PIL import  Image
 import numpy as np
-import matplotlib.pyplot as plt
+import matplotlib; matplotlib.use('Agg'); import matplotlib.pyplot as plt
 
 def get_coords(img_shape):
     y = tf.cast(tf.range(img_shape[1]), tf.float32)

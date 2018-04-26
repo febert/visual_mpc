@@ -7,7 +7,7 @@ import pdb
 from python_visual_mpc.visual_mpc_core.agent.utils.convert_world_imspace_mj1_5 import project_point, get_3D
 import pickle
 from PIL import Image
-import matplotlib.pyplot as plt
+import matplotlib; matplotlib.use('Agg'); import matplotlib.pyplot as plt
 from python_visual_mpc.video_prediction.misc.makegifs2 import assemble_gif, npy_to_gif
 from pyquaternion import Quaternion
 from mujoco_py import load_model_from_xml,load_model_from_path, MjSim, MjViewer

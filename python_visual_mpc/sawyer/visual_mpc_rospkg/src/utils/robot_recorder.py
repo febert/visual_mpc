@@ -16,7 +16,7 @@ from visual_mpc_rospkg.srv import *
 from PIL import Image
 import pickle
 import imageio
-import matplotlib.pyplot as plt
+import matplotlib; matplotlib.use('Agg'); import matplotlib.pyplot as plt
 
 import argparse
 
