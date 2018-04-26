@@ -515,10 +515,9 @@ class Dynamic_Base_Model(object):
 
             if 'use_len' in conf:
                 print('randomly shift videos for data augmentation')
-                images, states, actions  = self.random_shift(images, states, actions)
+                images, states, actions = self.random_shift(images, states, actions)
 
         ## start interface
-
         # Split into timesteps.
 
         images = tf.unstack(images, axis=1)

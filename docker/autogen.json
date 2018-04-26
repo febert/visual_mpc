@@ -1,11 +1,11 @@
 {
     "dockerImageName": "ucb_rail8888/tf_mj1.5:latest", 
     "aceName": "nv-us-west-2", 
-    "name": "pos_ctrl-consdist_highrestrack-mod_hyper-py-nworkers-8int", 
+    "name": "pos_ctrl-consdist_register_gtruth-mod_hyper-py-nworkers-1", 
     "publishedContainerPorts": [
         6006
     ], 
-    "command": "cd /result && tensorboard --logdir . &  export VMPC_DATA_DIR=/mnt/pushing_data; export TEN_DATA=/mnt/tensorflow_data; export ALEX_DATA=/mnt/pretrained_models; export RESULT_DIR=/result; export NO_ROS=''; export DISPLAY=:0; export PATH=/opt/conda/bin:/usr/local/mpi/bin:/usr/local/nvidia/bin:/usr/local/cuda/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin; cd /workspace/visual_mpc/docker;/bin/sleep 36000", 
+    "command": "cd /result && tensorboard --logdir . &  export VMPC_DATA_DIR=/mnt/pushing_data; export TEN_DATA=/mnt/tensorflow_data; export ALEX_DATA=/mnt/pretrained_models; export RESULT_DIR=/result; export NO_ROS=''; export DISPLAY=:0; export PATH=/opt/conda/bin:/usr/local/mpi/bin:/usr/local/nvidia/bin:/usr/local/cuda/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin; cd /workspace/visual_mpc/docker;python ../python_visual_mpc/visual_mpc_core/parallel_data_collection.py ../experiments/cem_exp/benchmarks/pos_ctrl/consdist_register_gtruth/mod_hyper.py  --nworkers 1", 
     "datasetMounts": [
         {
             "containerMountPoint": "/mnt/tensorflow_data/sim/mj_pos_ctrl_appflow", 
@@ -50,6 +50,10 @@
         {
             "containerMountPoint": "/mnt/tensorflow_data/gdn/startgoal_shad", 
             "id": 9087
+        }, 
+        {
+            "containerMountPoint": "/mnt/tensorflow_data/gdn/96x128/cartgripper_tdac_flowpenal", 
+            "id": 9287
         }, 
         {
             "containerMountPoint": "/mnt/pretrained_models/bair_action_free/model.savp.transformation.flow.last_frames.2.generate_scratch_image.false.batch_size.16", 
