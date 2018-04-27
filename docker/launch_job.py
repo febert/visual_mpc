@@ -6,8 +6,8 @@ import re
 
 import pdb
 parser = argparse.ArgumentParser(description='write json configuration for ngc')
-parser.add_argument('--run_script', type=str, help='relative path to the script to launch')
-parser.add_argument('--hyper', type=str, help='relative path to hyperparams file', default="")
+parser.add_argument('run_script', type=str, help='relative path to the script to launch', default="")
+parser.add_argument('hyper', type=str, help='relative path to hyperparams file', default="")
 parser.add_argument('--int', default='False', type=str, help='interactive')
 parser.add_argument('--arg', default='', type=str, help='additional arguments')
 parser.add_argument('--name', default='', type=str, help='additional arguments')
