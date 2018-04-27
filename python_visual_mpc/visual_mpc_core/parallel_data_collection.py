@@ -58,7 +58,7 @@ def main():
 
     args = parser.parse_args()
     hyperparams_file = args.experiment
-    exp_name = str.split(hyperparams_file, '/')[:-1]
+    exp_name = '/'.join(str.split(hyperparams_file, '/')[:-1])
     gpu_id = args.gpu_id
 
     n_worker = args.nworkers

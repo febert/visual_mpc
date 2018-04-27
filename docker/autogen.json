@@ -1,35 +1,15 @@
 {
     "dockerImageName": "ucb_rail8888/tf_mj1.5:latest", 
     "aceName": "nv-us-west-2", 
-    "name": "mult_gpuint", 
+    "name": "intonedatset", 
     "publishedContainerPorts": [
         6006
     ], 
     "command": "cd /result && tensorboard --logdir . &  export VMPC_DATA_DIR=/mnt/pushing_data; export TEN_DATA=/mnt/tensorflow_data; export ALEX_DATA=/mnt/pretrained_models; export RESULT_DIR=/result; export NO_ROS=''; export PATH=/opt/conda/bin:/usr/local/mpi/bin:/usr/local/nvidia/bin:/usr/local/cuda/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin; cd /workspace/visual_mpc/docker;/bin/sleep 36000", 
     "datasetMounts": [
         {
-            "containerMountPoint": "/mnt/pushing_data/cartgripper", 
-            "id": 8350
-        }, 
-        {
-            "containerMountPoint": "/mnt/pushing_data/cartgripper_mj1.5", 
-            "id": 8974
-        }, 
-        {
-            "containerMountPoint": "/mnt/pushing_data/mj_pos_noreplan_fast_tfrec", 
-            "id": 8807
-        }, 
-        {
-            "containerMountPoint": "/mnt/pushing_data/mj_pos_noreplan_fast_tfrec_fewdata", 
-            "id": 8972
-        }, 
-        {
-            "containerMountPoint": "/mnt/pushing_data/cartgripper_updown_sact", 
-            "id": 8931
-        }, 
-        {
-            "containerMountPoint": "/mnt/pushing_data/cartgripper_updown_rot_sact", 
-            "id": 8951
+            "containerMountPoint": "/mnt/tensorflow_data/sim/mj_pos_ctrl_appflow", 
+            "id": 8906
         }
     ], 
     "resultContainerMountPoint": "/result", 
