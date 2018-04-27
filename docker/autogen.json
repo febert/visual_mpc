@@ -1,15 +1,111 @@
 {
     "dockerImageName": "ucb_rail8888/tf_mj1.5:latest", 
     "aceName": "nv-us-west-2", 
-    "name": "intonedatset", 
+    "name": "pos_ctrl-consdist_highrestrack-mod_hyper-py-nworkers-8", 
     "publishedContainerPorts": [
         6006
     ], 
-    "command": "cd /result && tensorboard --logdir . &  export VMPC_DATA_DIR=/mnt/pushing_data; export TEN_DATA=/mnt/tensorflow_data; export ALEX_DATA=/mnt/pretrained_models; export RESULT_DIR=/result; export NO_ROS=''; export PATH=/opt/conda/bin:/usr/local/mpi/bin:/usr/local/nvidia/bin:/usr/local/cuda/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin; cd /workspace/visual_mpc/docker;/bin/sleep 36000", 
+    "command": "cd /result && tensorboard --logdir . &  export VMPC_DATA_DIR=/mnt/pushing_data; export TEN_DATA=/mnt/tensorflow_data; export ALEX_DATA=/mnt/pretrained_models; export RESULT_DIR=/result; export NO_ROS=''; export PATH=/opt/conda/bin:/usr/local/mpi/bin:/usr/local/nvidia/bin:/usr/local/cuda/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin; cd /workspace/visual_mpc/docker;python ../python_visual_mpc/visual_mpc_core/parallel_data_collection.py ../experiments/cem_exp/benchmarks/pos_ctrl/consdist_highrestrack/mod_hyper.py  --nworkers 8", 
     "datasetMounts": [
         {
             "containerMountPoint": "/mnt/tensorflow_data/sim/mj_pos_ctrl_appflow", 
             "id": 8906
+        }, 
+        {
+            "containerMountPoint": "/mnt/tensorflow_data/sim/appflow_nogenpix", 
+            "id": 8933
+        }, 
+        {
+            "containerMountPoint": "/mnt/tensorflow_data/sim/onpolicy/updown_sact_onpolonly", 
+            "id": 9225
+        }, 
+        {
+            "containerMountPoint": "/mnt/tensorflow_data/sim/onpolicy/updown_sact_comb", 
+            "id": 9224
+        }, 
+        {
+            "containerMountPoint": "/mnt/tensorflow_data/sim/appflow_nogenpix_mj1.5", 
+            "id": 9006
+        }, 
+        {
+            "containerMountPoint": "/mnt/tensorflow_data/sim/cartgripper_flowonly", 
+            "id": 9007
+        }, 
+        {
+            "containerMountPoint": "/mnt/tensorflow_data/sim/mj_pos_ctrl", 
+            "id": 8930
+        }, 
+        {
+            "containerMountPoint": "/mnt/tensorflow_data/sim/pos_ctrl", 
+            "id": 8948
+        }, 
+        {
+            "containerMountPoint": "/mnt/tensorflow_data/sim/pos_ctrl_updown_rot_sact", 
+            "id": 8951
+        }, 
+        {
+            "containerMountPoint": "/mnt/tensorflow_data/sim/pos_ctrl_updown_sact", 
+            "id": 8950
+        }, 
+        {
+            "containerMountPoint": "/mnt/tensorflow_data/gdn/startgoal_shad", 
+            "id": 9087
+        }, 
+        {
+            "containerMountPoint": "/mnt/tensorflow_data/gdn/96x128/cartgripper_tdac_flowpenal", 
+            "id": 9287
+        }, 
+        {
+            "containerMountPoint": "/mnt/pretrained_models/bair_action_free/model.savp.transformation.flow.last_frames.2.generate_scratch_image.false.batch_size.16", 
+            "id": 9161
+        }, 
+        {
+            "containerMountPoint": "/mnt/pretrained_models/bair_action_free/model.multi_savp.ngf.64.shared_views.true.num_views.2.tv_weight.0.001.transformation.flow.last_frames.2.generate_scratch_image.false.batch_size.16", 
+            "id": 9223
+        }, 
+        {
+            "containerMountPoint": "/mnt/pushing_data/cartgripper_startgoal_masks6e4", 
+            "id": 9138
+        }, 
+        {
+            "containerMountPoint": "/mnt/pushing_data/cartgripper_const_dist", 
+            "id": 9259
+        }, 
+        {
+            "containerMountPoint": "/mnt/pushing_data/cartgripper_startgoal_short", 
+            "id": 8949
+        }, 
+        {
+            "containerMountPoint": "/mnt/pushing_data/cartgripper_startgoal_2view", 
+            "id": 9222
+        }, 
+        {
+            "containerMountPoint": "/mnt/pushing_data/cartgripper_startgoal_masks", 
+            "id": 8914
+        }, 
+        {
+            "containerMountPoint": "/mnt/pushing_data/cartgripper", 
+            "id": 8350
+        }, 
+        {
+            "containerMountPoint": "/mnt/pushing_data/cartgripper_mj1.5", 
+            "id": 8974
+        }, 
+        {
+            "containerMountPoint": "/mnt/pushing_data/mj_pos_noreplan_fast_tfrec", 
+            "id": 8807
+        }, 
+        {
+            "containerMountPoint": "/mnt/pushing_data/mj_pos_noreplan_fast_tfrec_fewdata", 
+            "id": 8972
+        }, 
+        {
+            "containerMountPoint": "/mnt/pushing_data/cartgripper_updown_sact", 
+            "id": 8931
+        }, 
+        {
+            "containerMountPoint": "/mnt/pushing_data/cartgripper_updown_rot_sact", 
+            "id": 8951
         }
     ], 
     "resultContainerMountPoint": "/result", 
