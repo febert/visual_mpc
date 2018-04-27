@@ -30,7 +30,7 @@ agent = {
     'xpos0': np.array([0., 0., 0.05, 0., 0., 0.]), #initialize state dimension to 5 zeros
     'dt': 0.05,
     'substeps': 200,  #6
-    'T': 30,
+    'T': 20,
     'skip_first': 40,   #skip first N time steps to let the scene settle
     'additional_viewer': False,
     'image_height' : 48,
@@ -46,7 +46,7 @@ agent = {
     'posmode':'abs',
     'ztarget':0.13,
     'drop_thresh':0.02,
-    'make_final_gif':True,
+    #'make_final_gif':True,
     'record': BASE_DIR + '/record/',
     'targetpos_clip':[[-0.5, -0.5, -0.08, -np.pi*2, 0], [0.5, 0.5, 0.15, np.pi*2, 0.1]],
     'mode_rel':np.array([True, True, True, True, False]),
@@ -63,10 +63,10 @@ policy = {
 config = {
     'traj_per_file':128,
     'current_dir' : current_dir,
-    'save_data': False,
+    'save_data': True,
     'save_raw_images' : True,
     'start_index':0,
-    'end_index': 90000,
+    'end_index': 80000,
     'agent': agent,
     'policy': policy,
     'ngroup': 1000

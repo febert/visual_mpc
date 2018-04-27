@@ -44,10 +44,9 @@ def main():
     print('loading from', data_dir)
     print('saving to', out_dir)
 
-    traj_list = []
-    counter = 0
-    num_saved = 0
-    no_lift, total_ctr = 0, 0
+    good_traj_list, bad_traj_list = [], []
+    num_good_saved, num_bad_saved = 0, 0
+    no_lift_ctr, total_ctr = 0, 0
     traj_group_dirs = glob.glob(data_dir+'/*')
     for g in traj_group_dirs:
         trajs = glob.glob(g + '/*')
@@ -58,10 +57,18 @@ def main():
             else:
                 loaded_traj = LoadTraj()
                 #goal_pos = state_action['obj_start_end_pos'][1]
+                object_z = state_action['object_full_pose'][-1, 0, 2]
                 loaded_traj.actions = state_action['actions']
-                loaded_traj.X_Xdot_full = np.hstack((state_action['qpos'], state_action['qvel']))#state_action['target_qpos'][:T, :]
+                loaded_traj.X_Xdot_full = np.hstack((state_action['qpos'], state_action['qvel'])) # state_action['target_qpos'][:T, :]
                 loaded_traj._sample_images = np.zeros((T, img_height, img_width, 3), dtype = 'uint8')
 
+                good_lift = False
+                total_ctr += 1
+                if object_z > 0.05:
+                    good_lift = True
+                    no_lift_ctr += 1
+                
+                
                 for i in range(T):
                     img = cv2.imread(t + '/images/im{}.png'.format(i))[:, :, ::-1]
                     loaded_traj._sample_images[i] = img
@@ -73,18 +80,37 @@ def main():
                 #     print('NO GOAL PROBABLY DIDNT LIFT')
                 #     loaded_traj.goal_image = cv2.imread(t + '/images/im{}.png'.format(0))[:, :, ::-1]
                 #     no_lift += 1
-                traj_list.append(loaded_traj)
-                counter += 1
-                total_ctr += 1
+                if good_lift:
+                    good_traj_list.append(loaded_traj)
+                else:
+                    bad_traj_list.append(loaded_traj)
 
-            if counter % traj_per_file == 0:
-                f_name = 'traj_{0}_to_{1}'.format(num_saved * traj_per_file, (num_saved + 1) * traj_per_file - 1)
-                save_tf_record(f_name, traj_list, agent_config)
-                traj_list = []
+            if len(good_traj_list) % traj_per_file == 0 and len(good_traj_list) > 0:
+                f_name = 'good_traj_{0}_to_{1}'.format(num_good_saved * traj_per_file, (num_good_saved + 1) * traj_per_file - 1)
+                save_tf_record(f_name, good_traj_list, agent_config)
+                good_traj_list = []
 
-                num_saved += 1
-                counter = 0
-    print('perc no_lift', no_lift / total_ctr)
+                num_good_saved += 1
+            elif len(bad_traj_list) % traj_per_file == 0 and len(bad_traj_list) > 0:
+                f_name = 'bad_traj_{0}_to_{1}'.format(num_bad_saved * traj_per_file, (num_bad_saved + 1) * traj_per_file - 1)
+                save_tf_record(f_name, bad_traj_list, agent_config)
+                bad_traj_list = []
+
+                num_bad_saved += 1
+
+    if  len(good_traj_list) > 0:
+        f_name = 'good_traj_{0}_to_{1}'.format(num_good_saved * traj_per_file, (num_good_saved + 1) * traj_per_file - 1)
+        save_tf_record(f_name, good_traj_list, agent_config)
+        good_traj_list = []
+
+        num_good_saved += 1
+    elif len(bad_traj_list) > 0:
+        f_name = 'bad_traj_{0}_to_{1}'.format(num_bad_saved * traj_per_file, (num_bad_saved + 1) * traj_per_file - 1)
+        save_tf_record(f_name, bad_traj_list, agent_config)
+        bad_traj_list = []
+
+        num_bad_saved += 1        
+    print('perc no_lift', no_lift_ctr / total_ctr)
 
 if __name__ == '__main__':
     main()
