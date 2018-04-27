@@ -49,6 +49,7 @@ def setup_gdn(conf, gpu_id = 0):
             vars = variable_checkpoint_matcher(conf, vars, conf['pretrained_model'])
             pdb.set_trace()
             saver = tf.train.Saver(vars, max_to_keep=0)
+            pdb.set_trace()
 
             # saver = tf.train.Saver(tf.get_collection(tf.GraphKeys.GLOBAL_VARIABLES), max_to_keep=0)
             saver.restore(sess, conf['pretrained_model'])
