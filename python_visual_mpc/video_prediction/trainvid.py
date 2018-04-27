@@ -27,9 +27,16 @@ SAVE_INTERVAL = 4000
 
 from python_visual_mpc.video_prediction.tracking_model.single_point_tracking_model import Single_Point_Tracking_Model
 from python_visual_mpc.video_prediction.utils_vpred.variable_checkpoint_matcher import variable_checkpoint_matcher
+import re
+
+def sorted_nicely( l ):
+    """ Sort the given iterable in the way that humans expect."""
+    convert = lambda text: int(text) if text.isdigit() else text
+    alphanum_key = lambda key: [ convert(c) for c in re.split('([0-9]+)', key) ]
+    return sorted(l, key = alphanum_key)
 
 if __name__ == '__main__':
-    FLAGS = flags.FLAGS
+    FLAGS_ = flags.FLAGS
     flags.DEFINE_string('hyper', '', 'hyperparameters configuration file')
     flags.DEFINE_string('visualize_check', "", 'model within hyperparameter folder from which to create gifs')
     flags.DEFINE_integer('device', 0 ,'the value for CUDA_VISIBLE_DEVICES variable')
@@ -40,24 +47,32 @@ if __name__ == '__main__':
     flags.DEFINE_bool('create_images', False, 'whether to create images')
     flags.DEFINE_bool('ow', False, 'overwrite previous experiment')
 
-def main(unused_argv, conf_script= None):
+def main(unused_argv, conf_dict= None, flags=None):
+    if flags is not None:
+        FLAGS = flags
+    else: FLAGS = FLAGS_
+
     os.environ["CUDA_VISIBLE_DEVICES"] = str(FLAGS.device)
     print('using CUDA_VISIBLE_DEVICES=', FLAGS.device)
     from tensorflow.python.client import device_lib
     print(device_lib.list_local_devices())
 
-    if conf_script == None: conf_file = FLAGS.hyper
-    else: conf_file = conf_script
-
-    if not os.path.exists(FLAGS.hyper):
-        sys.exit("Experiment configuration not found")
-    hyperparams = imp.load_source('hyperparams', conf_file)
-
-    conf = hyperparams.configuration
+    if conf_dict == None:
+        conf_file = FLAGS.hyper
+        if not os.path.exists(FLAGS.hyper):
+            sys.exit("Experiment configuration not found")
+        hyperparams = imp.load_source('hyperparams', conf_file)
+        conf = hyperparams.configuration
+    else:
+        conf = conf_dict
 
     if 'VMPC_DATA_DIR' in os.environ:
-        if isinstance(conf['data_dir'], (tuple, list)):
-            conf['data_dir'] = [os.environ['VMPC_DATA_DIR'] + dir.partition('pushing_data')[2] for dir in conf['data_dir']]
+        if isinstance(conf['data_dir'], (list, tuple)):
+            new_data_dirs = []
+            for d in conf['data_dir']:
+                path = d.partition('pushing_data')[2]
+                new_data_dirs.append(os.environ['VMPC_DATA_DIR'] + path)
+            conf['data_dir'] = new_data_dirs
         else:
             path = conf['data_dir'].partition('pushing_data')[2]
             conf['data_dir'] = os.environ['VMPC_DATA_DIR'] + path
@@ -134,7 +149,8 @@ def main(unused_argv, conf_script= None):
 
     gpu_options = tf.GPUOptions(per_process_gpu_memory_fraction=0.9)
     # Make training session.
-    sess = tf.InteractiveSession(config=tf.ConfigProto(gpu_options=gpu_options))
+    # sess = tf.InteractiveSession(config=tf.ConfigProto(gpu_options=gpu_options))
+    sess = tf.Session(config=tf.ConfigProto(gpu_options=gpu_options))
     summary_writer = tf.summary.FileWriter(conf['event_log_dir'], graph=sess.graph, flush_secs=10)
 
     if not FLAGS.diffmotions:
@@ -184,23 +200,6 @@ def main(unused_argv, conf_script= None):
 
         feed_dict = {model.iter_num: np.float32(itr),
                      model.train_cond: 1}
-
-        # if len(conf['data_dir']) == 2:
-        #     if 'scheduled_finetuning' in conf:
-        #         dest_itr = conf['scheduled_finetuning_dest_itr']
-        #         ratio_dest_val = conf['scheduled_finetuning_dest_value']
-        #         ratio01 = np.array([(itr/dest_itr)*ratio_dest_val + (1.-itr/dest_itr)])
-        #         ratio01 = np.clip(ratio01, ratio_dest_val, 1.)
-        #         ratio01 = np.squeeze(ratio01)
-        #         feed_dict[model.dataset_01ratio] = ratio01
-        #     else:
-        #         ratio01 = 0.2
-        #         feed_dict[model.dataset_01ratio] = ratio01
-
-        #     if (itr) % 10 == 0:
-        #         print('ratio old data/batchsize:', ratio01)
-
-
         cost, _, summary_str = sess.run([model.loss, model.train_op, model.train_summ_op],
                                         feed_dict)
 
@@ -211,13 +210,6 @@ def main(unused_argv, conf_script= None):
             # Run through validation set.
             feed_dict = {model.iter_num: np.float32(itr),
                          model.train_cond: 0}
-            # if len(conf['data_dir']) == 2:
-            #     feed_dict[model.dataset_01ratio] = ratio01
-            #     [val_summary_str, val_0_summary_str, val_1_summary_str] = sess.run([model.val_summ_op, model.val_0_summ_op, model.val_1_summ_op], feed_dict)
-            #     summary_writer.add_summary(val_summary_str, itr)
-            #     summary_writer.add_summary(val_0_summary_str, itr)
-            #     summary_writer.add_summary(val_1_summary_str, itr)
-            # else:
             [val_summary_str] = sess.run([model.val_summ_op], feed_dict)
             summary_writer.add_summary(val_summary_str, itr)
 
@@ -225,7 +217,7 @@ def main(unused_argv, conf_script= None):
             feed_dict = {model.iter_num: np.float32(itr),
                          model.train_cond: 0}
             video_proto = sess.run(model.val_video_summaries, feed_dict = feed_dict)
-            summary_writer.add_summary(convert_tensor_to_gif_summary(video_proto))
+            summary_writer.add_summary(convert_tensor_to_gif_summary(video_proto), itr)
 
         if (itr) % SAVE_INTERVAL == 2:
             tf.logging.info('Saving model to' + conf['output_dir'])
@@ -246,10 +238,13 @@ def main(unused_argv, conf_script= None):
         if (itr) % SUMMARY_INTERVAL == 2:
             summary_writer.add_summary(summary_str, itr)
 
-    tf.logging.info('Saving model.')
-    saving_saver.save(sess, conf['output_dir'] + '/model')
-    tf.logging.info('Training complete')
-    tf.logging.flush()
+        if 'timingbreak' in conf:
+            if conf['timingbreak'] == itr:
+                break
+
+    sess.close()
+    tf.reset_default_graph()
+    return np.array(t_iter)/1e6
 
 def load_checkpoint(conf, sess, saver, model_file=None):
     """

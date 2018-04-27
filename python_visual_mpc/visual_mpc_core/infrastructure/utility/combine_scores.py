@@ -1,8 +1,10 @@
 import glob
 import pickle
 import numpy as np
-import matplotlib.pyplot as plt
 import copy
+import matplotlib
+matplotlib.use('Agg')
+import matplotlib; matplotlib.use('Agg'); import matplotlib.pyplot as plt
 
 import re
 
@@ -37,8 +39,8 @@ def combine_scores(dir, exp_name):
     mean_dist = np.mean(score)
     med_dist = np.median(score)
 
-    make_stats(dir, score, 'score')
-    make_stats(dir, improvement, 'improvement')
+    make_stats(dir, score, 'score', bounds=[0., 0.5])
+    make_stats(dir, improvement, 'improvement', bounds=[-0.5, 0.5])
     make_imp_score(score, improvement, dir)
 
     f = open(dir + '/results_all.txt', 'w')
@@ -63,7 +65,10 @@ def combine_scores(dir, exp_name):
     f.write('----------------------\n')
     for t in range(improvement.shape[0]):
         f.write('{}: {}, {}, {}, :{}\n'.format(t, improvement[t], score[t], anglecost[t], np.where(sorted_ind == t)[0][0]))
+
     f.close()
+
+    print('writing {}'.format(dir))
 
 def make_imp_score(score, imp, dir):
     plt.scatter(imp, score)
@@ -71,18 +76,19 @@ def make_imp_score(score, imp, dir):
     plt.ylabel('final distance')
     plt.savefig(dir + '/imp_vs_dist.png')
 
-def make_stats(dir, score, name):
-    hist, bin_edges = np.histogram(score, bins=10)
+def make_stats(dir, score, name, bounds):
+    bin_edges = np.linspace(bounds[0], bounds[1], 11)
+    binned_ind = np.digitize(score, bin_edges)
+    occurrence, _ = np.histogram(score, bin_edges, density=False)
     bin_width = bin_edges[1] - bin_edges[0]
     bin_mid = bin_edges + bin_width / 2
     plt.figure()
-    plt.bar(bin_mid[:-1], hist, bin_width, facecolor='b', alpha=0.5)
+    plt.bar(bin_mid[:-1], occurrence, bin_width, facecolor='b', alpha=0.5)
     plt.title(name)
     plt.xlabel(name)
     plt.ylabel('occurences')
     plt.savefig(dir + '/' + name + '.png')
     plt.close()
-    binned_ind = np.digitize(score, bin_edges) - 1
     f = open(dir + '/{}_histo.txt'.format(name), 'w')
     for i in range(bin_edges.shape[0] - 1):
         f.write('indices for bin {}, {} to {} : {} \n'.format(i, bin_edges[i], bin_edges[i+1], np.where(binned_ind == i)[0].tolist()))
@@ -91,8 +97,8 @@ if __name__ == '__main__':
     n_worker = 4
     n_traj = 49
     # dir = '/home/frederik/Documents/catkin_ws/src/visual_mpc/experiments/cem_exp/benchmarks/alexmodel/savp_register_gtruth_start/41256'
-    dir = '/home/frederik/Documents/catkin_ws/src/visual_mpc/experiments/cem_exp/benchmarks/pos_ctrl/updown_sact_boundact_register_gtruth/41272'
-    dir = '/home/frederik/Documents/catkin_ws/src/visual_mpc/experiments/cem_exp/benchmarks/pos_ctrl/updown_sact_boundact_gtruthtrack/41226'
+    # dir = '/home/frederik/Documents/catkin_ws/src/visual_mpc/experiments/cem_exp/benchmarks/pos_ctrl/updown_sact_boundact_register_gtruth/41272'
+    dir = '/home/frederik/Documents/catkin_ws/src/visual_mpc/experiments/cem_exp/benchmarks/pos_ctrl/consdist_register_gtruth/43080'
 
     traj_per_worker = int(n_traj / np.float32(n_worker))
     start_idx = [traj_per_worker * i for i in range(n_worker)]

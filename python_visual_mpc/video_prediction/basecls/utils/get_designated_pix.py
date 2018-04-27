@@ -2,9 +2,11 @@ from matplotlib import pyplot as plt
 import numpy as np
 
 class Getdesig(object):
-    def __init__(self,img,conf,img_namesuffix):
+    def __init__(self,img,conf=None, img_namesuffix=None):
         self.suf = img_namesuffix
-        self.conf = conf
+        if conf is not None:
+            self.outputdir = conf['output_dir']
+        else: self.outputdir = None
         self.img = img
         fig = plt.figure()
         self.ax = fig.add_subplot(111)
@@ -24,4 +26,5 @@ class Getdesig(object):
         self.ax.set_xlim(0, 63)
         self.ax.set_ylim(63, 0)
         plt.draw()
-        plt.savefig(self.conf['output_dir']+'/img_desigpix'+self.suf)
+        if self.outputdir is not None:
+            plt.savefig(self.outputdir +'/img_desigpix'+self.suf)

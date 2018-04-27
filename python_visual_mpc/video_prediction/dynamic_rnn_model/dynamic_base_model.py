@@ -458,6 +458,11 @@ class Dynamic_Base_Model(object):
                 [states, tf.zeros([conf['batch_size'], conf['sequence_length'] - conf['context_frames'], conf['sdim']])],
                 axis=1)
 
+        if images is not None and images.get_shape().as_list()[1] != conf['sequence_length']:  # append zeros if states is shorter than sequence length
+            images = tf.concat(
+                [images, tf.zeros([conf['batch_size'], conf['sequence_length'] - conf['context_frames'], self.img_height, self.img_width, 3])],
+                axis=1)
+
         self.trafo_pix = trafo_pix
         if pix_distrib is not None:
             assert trafo_pix == True
@@ -489,19 +494,15 @@ class Dynamic_Base_Model(object):
                 self.actions_pl = tf.placeholder(tf.float32, name='actions',
                                                  shape=(conf['batch_size'], conf['sequence_length'], self.adim))
                 actions = self.actions_pl
-
                 self.states_pl = tf.placeholder(tf.float32, name='states',
                                                 shape=(conf['batch_size'], conf['sequence_length'], self.sdim))
                 states = self.states_pl
-
                 self.images_pl = tf.placeholder(tf.float32, name='images',
                                                 shape=(conf['batch_size'], conf['sequence_length'], self.img_height, self.img_width, 3))
                 images = self.images_pl
-
                 self.pix_distrib_pl = tf.placeholder(tf.float32, name='states',
                                                      shape=(conf['batch_size'], conf['sequence_length'], ndesig, self.img_height, self.img_width, 1))
                 pix_distrib = self.pix_distrib_pl
-
             else:
                 dict = build_tfrecord_fn(conf, training=True)
                 train_images, train_actions, train_states = dict['images'], dict['actions'], dict['endeffector_pos']
@@ -514,10 +515,9 @@ class Dynamic_Base_Model(object):
 
             if 'use_len' in conf:
                 print('randomly shift videos for data augmentation')
-                images, states, actions  = self.random_shift(images, states, actions)
+                images, states, actions = self.random_shift(images, states, actions)
 
         ## start interface
-
         # Split into timesteps.
 
         images = tf.unstack(images, axis=1)
@@ -586,20 +586,21 @@ class Dynamic_Base_Model(object):
         outputs, _ = tf.nn.dynamic_rnn(cell, inputs, sequence_length=[sequence_length] * batch_size, dtype=use_dtype,
                                        swap_memory=True, time_major=True)
 
+        n_cutoff = self.context_frames - 1 # only return images predicting future timesteps, omit images predicting steps during context
         (gen_images, gen_states, gen_masks, gen_transformed_images), other_outputs = outputs[:4], outputs[4:]
-        self.gen_images = tf.unstack(gen_images, axis=0)
-        self.gen_states = tf.unstack(gen_states, axis=0)
-        self.gen_masks = list(zip(*[tf.unstack(gen_mask, axis=0) for gen_mask in gen_masks]))
+        self.gen_images = tf.unstack(gen_images, axis=0)[n_cutoff:]
+        self.gen_states = tf.unstack(gen_states, axis=0)[n_cutoff:]
+        self.gen_masks = list(zip(*[tf.unstack(gen_mask, axis=0) for gen_mask in gen_masks]))[n_cutoff:]
         self.gen_transformed_images = list(
             zip(*[tf.unstack(gen_transformed_image, axis=0) for gen_transformed_image in gen_transformed_images]))
         other_outputs = list(other_outputs)
 
         # making video summaries
-        self.val_video_summaries = make_video_summaries(conf['sequence_length'], [self.images, self.gen_images])
+        self.val_video_summaries = make_video_summaries(conf['sequence_length'], conf['context_frames'], [self.images, self.gen_images])
 
         if 'compute_flow_map' in self.conf:
             gen_flow_map = other_outputs.pop(0)
-            self.gen_flow_map = tf.unstack(gen_flow_map, axis=0)
+            self.gen_flow_map = tf.unstack(gen_flow_map, axis=0)[n_cutoff:]
 
         if pix_distrib is not None:
             self.gen_distrib = other_outputs.pop(0)
@@ -607,7 +608,9 @@ class Dynamic_Base_Model(object):
             self.gen_transformed_pixdistribs = other_outputs.pop(0)
             self.gen_transformed_pixdistribs = list(zip(
                 *[tf.unstack(gen_transformed_pixdistrib, axis=0) for gen_transformed_pixdistrib in
-                  self.gen_transformed_pixdistribs]))
+                  self.gen_transformed_pixdistribs]))[n_cutoff:]
+
+            self.gen_distrib = self.gen_distrib[n_cutoff:]
 
         assert not other_outputs
 
@@ -649,7 +652,6 @@ class Dynamic_Base_Model(object):
         self.val_summ_op = tf.summary.merge(val_summaries)
 
         return loss
-
 
     def visualize(self, sess):
         visualize(sess, self.conf, self)
@@ -741,7 +743,6 @@ def apply_dna_kernels_dilated(image, kernels, dilation_rate=(1, 1)):
     outputs = [tf.batch_to_space_nd(small_output, dilation_rate, crops=[[0, 0]] * 2) for small_output in small_outputs]
     return outputs
 
-
 def apply_dna_kernels(image, kernels, dilation_rate=(1, 1)):
     dilation_rate = list(dilation_rate) if isinstance(dilation_rate, (tuple, list)) else [dilation_rate] * 2
     if dilation_rate == [1, 1]:
@@ -749,8 +750,6 @@ def apply_dna_kernels(image, kernels, dilation_rate=(1, 1)):
     else:
         outputs = apply_dna_kernels_dilated(image, kernels, dilation_rate=dilation_rate)
     return outputs
-
-
 
 def apply_kernels(image, kernels, dilation_rate=(1, 1)):
     """

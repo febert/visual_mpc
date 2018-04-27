@@ -65,20 +65,15 @@ def main(unused_argv, conf_script= None):
     if FLAGS.visualize or FLAGS.visualize_check:
         print('creating visualizations ...')
         conf['schedsamp_k'] = -1  # don't feed ground truth
-
         conf['data_dir'] = '/'.join(str.split(conf['data_dir'], '/')[:-1] + ['test'])
 
         if FLAGS.visualize_check:
             conf['visualize_check'] = conf['output_dir'] + '/' + FLAGS.visualize_check
         conf['visualize'] = True
-
         conf['event_log_dir'] = '/tmp'
         conf.pop('use_len', None)
-
         conf.pop('color_augmentation', None)
-
         conf['batch_size'] = 50
-
         build_loss = False
 
         if FLAGS.flowerr:
@@ -100,7 +95,7 @@ def main(unused_argv, conf_script= None):
 
     #model for online benchmarking
     with tf.variable_scope('model', reuse=True):
-        conf['compare_gtruth_flow'] = ''
+        # conf['compare_gtruth_flow'] = ''
         benchmodel = Model(conf, build_loss =False, load_data=False)
         benchmodel.build_net()
 

@@ -4,10 +4,11 @@ import collections
 from PIL import Image
 from python_visual_mpc.video_prediction.basecls.utils.visualize import add_crosshairs
 from python_visual_mpc.video_prediction.utils_vpred.animate_tkinter import Visualizer_tkinter
+import cv2
 
 
 def image_addgoalpix(bsize, seqlen, image_l, goal_pix):
-    goal_pix_ob = np.tile(goal_pix[None, :], [bsize, seqlen - 1, 1])
+    goal_pix_ob = np.tile(goal_pix[None, None, :], [bsize, seqlen - 1, 1])
     return add_crosshairs(image_l, goal_pix_ob)
 
 def images_addwarppix(gen_images, warp_pts_l, pix, num_objects):
@@ -17,9 +18,8 @@ def images_addwarppix(gen_images, warp_pts_l, pix, num_objects):
         gen_images = add_crosshairs(gen_images, np.flip(warp_pts_ob, 2))
     return gen_images
 
-
-def make_visuals(ctrl, actions, bestindices, cem_itr, flow_fields, gen_distrib, gen_images, gen_states,
-                 last_frames, goal_warp_pts_l, scores, warped_image_goal, warped_image_start, warped_images):
+def make_cem_visuals(ctrl, actions, bestindices, cem_itr, flow_fields, gen_distrib, gen_images, gen_states,
+                     last_frames, goal_warp_pts_l, scores, warped_image_goal, warped_image_start, warped_images):
 
         seqlen = ctrl.netconf['sequence_length']
         bsize = ctrl.netconf['batch_size']
@@ -58,42 +58,62 @@ def make_visuals(ctrl, actions, bestindices, cem_itr, flow_fields, gen_distrib, 
             current_image = [np.repeat(np.expand_dims(last_frames[0, 1], axis=0), ctrl.K, axis=0) for _ in
                            range(len(gen_images))]
             t_dict_['current_image'] = current_image
-            t_dict_['warped_image_start '] = [np.repeat(np.expand_dims(warped_image_start.squeeze(), axis=0), ctrl.K, axis=0) for _ in
-                range(len(gen_images))]
+            if 'start' in ctrl.policyparams['register_gtruth']:
+                t_dict_['warped_image_start '] = [np.repeat(np.expand_dims(warped_image_start.squeeze(), axis=0), ctrl.K, axis=0) for _ in
+                    range(len(gen_images))]
 
             startimages = [np.repeat(np.expand_dims(ctrl.start_image, axis=0), ctrl.K, axis=0) for _ in
                            range(len(gen_images))]
-            desig_pix_t0 = np.tile(ctrl.desig_pix_t0[None, :], [ctrl.K, seqlen - 1, 1])
+
+            if 'image_medium' in ctrl.agentparams:
+                desig_pix_t0 = ctrl.desig_pix_t0_med[None, :]
+            else:
+                desig_pix_t0 = ctrl.desig_pix_t0[None, :]
+            desig_pix_t0 = np.tile(desig_pix_t0, [ctrl.K, seqlen - 1, 1])
             t_dict_['start_image'] = add_crosshairs(startimages, desig_pix_t0)
 
-            desig_pix_start = np.tile(ctrl.desig_pix[0][None, :], [bsize, seqlen - 1, 1])
-            gen_images = add_crosshairs(gen_images, desig_pix_start, color=[1., 0., 0])
-            desig_pix_goal = np.tile(ctrl.desig_pix[1][None, :], [bsize, seqlen - 1, 1])
-            gen_images = add_crosshairs(gen_images, desig_pix_goal, color=[0, 0, 1.])
+            ipix = 0
+            if 'start' in ctrl.policyparams['register_gtruth']:
+                desig_pix_start = np.tile(ctrl.desig_pix[0][None, :], [bsize, seqlen - 1, 1])
+                gen_images = add_crosshairs(gen_images, desig_pix_start, color=[1., 0., 0])
+                ipix +=1
+            if 'goal' in ctrl.policyparams['register_gtruth']:
+                desig_pix_goal = np.tile(ctrl.desig_pix[ipix][None, :], [bsize, seqlen - 1, 1])
+                gen_images = add_crosshairs(gen_images, desig_pix_goal, color=[0, 0, 1.])
 
-            t_dict_['warped_image_goal'] = [
-                np.repeat(np.expand_dims(warped_image_goal.squeeze(), axis=0), ctrl.K, axis=0) for _ in
-                range(len(gen_images))]
+                t_dict_['warped_image_goal'] = [
+                    np.repeat(np.expand_dims(warped_image_goal.squeeze(), axis=0), ctrl.K, axis=0) for _ in
+                    range(len(gen_images))]
         goal_image = [np.repeat(np.expand_dims(ctrl.goal_image, axis=0), ctrl.K, axis=0) for _ in
                       range(len(gen_images))]
-        goal_image_annotated = image_addgoalpix(bsize, seqlen, goal_image, ctrl.goal_pix)
+
+        for p in range(ctrl.goal_pix.shape[0]):
+            if 'image_medium' in ctrl.agentparams:
+                desig_pix_t0 = ctrl.goal_pix_med[p]
+            else:
+                desig_pix_t0 = ctrl.goal_pix[p]
+            goal_image_annotated = image_addgoalpix(ctrl.K , seqlen, goal_image, desig_pix_t0)
         t_dict_['goal_image'] = goal_image_annotated
         if 'use_goal_image' not in ctrl.policyparams or 'comb_flow_warp' in ctrl.policyparams or 'register_gtruth' in ctrl.policyparams:
             for p in range(ctrl.ndesig):
                 gen_distrib_p = [g[:, p] for g in gen_distrib]
                 sel_gen_distrib_p = sel_func(gen_distrib_p)
                 t_dict_['gen_distrib{}_t{}'.format(p, ctrl.t)] = sel_gen_distrib_p
-                t_dict_['gen_distrib_goalim_overlay{}_t{}'.format(p, ctrl.t)] = (image_addgoalpix(bsize, seqlen, goal_image,
+                t_dict_['gen_distrib_goalim_overlay{}_t{}'.format(p, ctrl.t)] = (image_addgoalpix(ctrl.K, seqlen, goal_image,
                                                                                                  ctrl.goal_pix[p]), sel_gen_distrib_p)
         t_dict_['gen_images_t{}'.format(ctrl.t)] = sel_func(gen_images)
         print('itr{} best scores: {}'.format(cem_itr, [scores[bestindices[ind]] for ind in range(ctrl.K)]))
         ctrl.dict_.update(t_dict_)
+
         if 'no_instant_gif' not in ctrl.agentparams:
             v = Visualizer_tkinter(t_dict_, append_masks=False,
                                    filepath=ctrl.agentparams['record'] + '/plan/',
                                    numex=ctrl.K, suf='t{}iter_{}'.format(ctrl.t, cem_itr))
             # v.build_figure()
-            v.make_direct_vid()
+            if 'image_medium' in ctrl.agentparams:
+                size = ctrl.agentparams['image_medium']
+            else: size = None
+            v.make_direct_vid(resize=size)
 
             start_frame_conc = np.concatenate([last_frames[0, 0], last_frames[0, 1]], 0).squeeze()
             start_frame_conc = (start_frame_conc*255.).astype(np.uint8)
@@ -106,9 +126,7 @@ def make_visuals(ctrl, actions, bestindices, cem_itr, flow_fields, gen_distrib, 
 
         return gen_images
 
-
 def make_state_action_summary(K, actions, agentparams, bestindices, cem_itr, gen_states, seqlen, tstep):
-    gen_states = np.stack(gen_states, 1)
     with open(agentparams['record'] + '/plan/actions_states_t{}iter_{}'.format(tstep, cem_itr), 'w') as f:
         f.write('actions, states \n')
         for i in range(K):
@@ -116,6 +134,3 @@ def make_state_action_summary(K, actions, agentparams, bestindices, cem_itr, gen
             for t_ in range(seqlen):
                 if t_ == 0:
                     f.write('t{}  {}\n'.format(t_, actions[bestindices][i, t_]))
-                else:
-                    f.write(
-                        't{}  {}  {}\n'.format(t_, actions[bestindices][i, t_], gen_states[bestindices][i, t_ - 1]))

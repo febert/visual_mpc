@@ -32,5 +32,5 @@ configuration = {
 'smoothcost':1e-6,
 'smoothmode':'2nd',
 'image_only':'',
-'ch_mult':4,
+'ch_mult':1,
 }

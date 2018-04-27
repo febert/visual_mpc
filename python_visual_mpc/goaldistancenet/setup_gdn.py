@@ -5,6 +5,7 @@ from python_visual_mpc.goaldistancenet.gdnet import GoalDistanceNet
 from PIL import Image
 from python_visual_mpc.video_prediction.utils_vpred.variable_checkpoint_matcher import variable_checkpoint_matcher
 import os
+import pdb
 
 def setup_gdn(conf, gpu_id = 0):
     """
@@ -25,11 +26,6 @@ def setup_gdn(conf, gpu_id = 0):
         with g_predictor.as_default():
             # print 'predictor default session:', tf.get_default_session()
             # print 'predictor default graph:', tf.get_default_graph()
-            print('-------------------------------------------------------------------')
-            print('Goal Distance Network Settings')
-            for key in list(conf.keys()):
-                print(key, ': ', conf[key])
-            print('-------------------------------------------------------------------')
 
             print('Constructing model for control')
             model = GoalDistanceNet(conf = conf,
@@ -42,6 +38,12 @@ def setup_gdn(conf, gpu_id = 0):
             if 'TEN_DATA' in os.environ:
                 tenpath = conf['pretrained_model'].partition('tensorflow_data')[2]
                 conf['pretrained_model'] = os.environ['TEN_DATA'] + tenpath
+
+            print('-------------------------------------------------------------------')
+            print('Goal Distance Network Settings')
+            for key in list(conf.keys()):
+                print(key, ': ', conf[key])
+            print('-------------------------------------------------------------------')
 
             vars = tf.get_collection(tf.GraphKeys.GLOBAL_VARIABLES)
             vars = variable_checkpoint_matcher(conf, vars, conf['pretrained_model'])
