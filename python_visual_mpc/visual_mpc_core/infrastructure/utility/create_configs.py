@@ -12,7 +12,7 @@ from pyquaternion import Quaternion
 import cv2
 import copy
 
-import matplotlib.pyplot as plt
+import matplotlib; matplotlib.use('Agg'); import matplotlib.pyplot as plt
 from matplotlib.patches import ConnectionPatch
 import pdb
 
@@ -225,21 +225,29 @@ class CollectGoalImageSim(Sim):
 
         new_poses = []
         for iob in range(self.num_ob):
-            pos_disp = self.agentparams['pos_disp_range']
             angular_disp = self.agentparams['ang_disp_range']
-
-
-            delta_pos = np.concatenate([np.random.uniform(-pos_disp, pos_disp, 2), np.zeros([1])])
             delta_alpha = np.random.uniform(-angular_disp, angular_disp)
 
             delta_rot = Quaternion(axis=(0.0, 0.0, 1.0), radians=delta_alpha)
             curr_quat =  Quaternion(traj.Object_full_pose[t, iob, 3:])
             newquat = delta_rot*curr_quat
-            newpos = traj.Object_full_pose[t, iob][:3] + delta_pos
 
-            if 'lift_object' in self.agentparams:
-                newpos[2] = 0.15
-            newpos = np.clip(newpos, -0.35, 0.35)
+            pos_ok = False
+            while not pos_ok:
+                if 'const_dist' in self.agentparams:
+                    alpha = np.random.uniform(-np.pi, np.pi, 1)
+                    d = self.agentparams['const_dist']
+                    delta_pos = np.array([d*np.cos(alpha), d*np.sin(alpha), 0.])
+                else:
+                    pos_disp = self.agentparams['pos_disp_range']
+                    delta_pos = np.concatenate([np.random.uniform(-pos_disp, pos_disp, 2), np.zeros([1])])
+                newpos = traj.Object_full_pose[t, iob][:3] + delta_pos
+                if 'lift_object' in self.agentparams:
+                    newpos[2] = 0.15
+
+                if np.any(newpos[:2] > 0.35) or np.any(newpos[:2] < -0.35):
+                    pos_ok = False
+                else: pos_ok = True
 
             new_poses.append(np.concatenate([newpos, newquat.elements]))
 

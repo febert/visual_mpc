@@ -4,7 +4,7 @@ from PIL import Image
 import numpy as np
 
 import pickle
-import matplotlib.pyplot as plt
+import matplotlib; matplotlib.use('Agg'); import matplotlib.pyplot as plt
 from python_visual_mpc.video_prediction.utils_vpred.animate_tkinter import color_code_distrib
 from python_visual_mpc.video_prediction.misc.makegifs2 import assemble_gif
 

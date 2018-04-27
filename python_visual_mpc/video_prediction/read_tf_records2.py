@@ -2,8 +2,8 @@ import os
 import numpy as np
 import tensorflow as tf
 from tensorflow.python.platform import gfile
-import matplotlib.pyplot as plt
-
+import matplotlib; matplotlib.use('Agg'); import matplotlib.pyplot as plt
+from python_visual_mpc.utils.txt_in_image import draw_text_image
 import pdb
 import time
 from python_visual_mpc.video_prediction.utils_vpred.create_gif_lib import assemble_gif
@@ -13,6 +13,8 @@ import imp
 
 import pickle
 from random import shuffle as shuffle_list
+from python_visual_mpc.misc.zip_equal import zip_equal
+import copy
 COLOR_CHAN = 3
 def decode_im(conf, features, image_name):
 
@@ -39,7 +41,51 @@ def decode_im(conf, features, image_name):
     image = tf.cast(image, tf.float32) / 255.0
     return image
 
+
+def mix_datasets(dataset0, dataset1, ratio_01):
+    """Sample batch with specified mix of ground truth and generated data_files points.
+
+    Args:
+      ground_truth_x: tensor of ground-truth data_files points.
+      generated_x: tensor of generated data_files points.
+      batch_size: batch size
+      ratio_01: ratio between examples taken from the first dataset and the batchsize
+    Returns:
+      New batch with num_ground_truth sampled from ground_truth_x and the rest
+      from generated_x.
+    """
+    batch_size = dataset0['images'].get_shape().as_list()[0]
+    num_set0 = tf.cast(int(batch_size)*ratio_01, tf.int64)
+    idx = tf.range(int(batch_size))
+    set0_idx = tf.gather(idx, tf.range(num_set0))
+    set1_idx = tf.gather(idx, tf.range(num_set0, int(batch_size)))
+
+    output = {}
+    for key in dataset0.keys():
+        ten0 = dataset0[key]
+        ten1 = dataset1[key]
+        dataset0_examps = tf.gather(ten0, set0_idx)
+        dataset1_examps = tf.gather(ten1, set1_idx)
+        output[key] = tf.reshape(tf.dynamic_stitch([set0_idx, set1_idx],
+                         [dataset0_examps, dataset1_examps]), [batch_size] + ten0.get_shape().as_list()[1:])
+    return output
+
+
 def build_tfrecord_input(conf, training=True, input_file=None, shuffle=True):
+    if isinstance(conf['data_dir'], (list, tuple)):
+        data_set = []
+        for dir in conf['data_dir']:
+            conf_ = copy.deepcopy(conf)
+            conf_['data_dir'] = dir
+            data_set.append(build_tfrecord_single(conf_, training, None, shuffle))
+
+        comb_dataset = mix_datasets(data_set[0], data_set[1], 0.5)
+        return comb_dataset
+    else:
+        return build_tfrecord_single(conf, training, input_file, shuffle)
+
+
+def build_tfrecord_single(conf, training=True, input_file=None, shuffle=True):
     """Create input tfrecord tensors.
 
     Args:
@@ -65,12 +111,7 @@ def build_tfrecord_input(conf, training=True, input_file=None, shuffle=True):
         filenames = [input_file]
         shuffle = False
     else:
-        if isinstance(conf['data_dir'], (list, tuple)):
-            filenames = []
-            for dir in conf['data_dir']:
-                filenames += gfile.Glob(os.path.join(dir, '*'))
-        else:
-            filenames = gfile.Glob(os.path.join(conf['data_dir'], '*'))
+        filenames = gfile.Glob(os.path.join(conf['data_dir'], '*'))
         
         if not filenames:
             raise RuntimeError('No data_files files found.')
@@ -224,27 +265,31 @@ def main():
     conf = {}
 
     current_dir = os.path.dirname(os.path.realpath(__file__))
-    DATA_DIR = '/mnt/sda1/pushing_data/cartgripper_sact_2view/train'
-    # DATA_DIR = '/mnt/sda1/pushing_data/cartgripper_mj1.5/train'
+    # DATA_DIR = '/mnt/sda1/pushing_data/cartgripper_sact_2view/train'
+    # DATA_DIR = '/mnt/sda1/pushing_data/weiss_gripper_20k/test'
+    DATA_DIR = os.environ['VMPC_DATA_DIR']
+    # DATA_DIR = [DATA_DIR + '/cartgripper_updown_sact/train', DATA_DIR + '/onpolicy/updown_sact_bounded_disc/train']
+    DATA_DIR = DATA_DIR + '/cartgripper_updown_sact/train'
 
     conf['schedsamp_k'] = -1  # don't feed ground truth
     conf['data_dir'] = DATA_DIR  # 'directory containing data_files.' ,
     conf['skip_frame'] = 1
     conf['train_val_split']= 0.95
     conf['sequence_length']= 15 #48      # 'sequence length, including context frames.'
-    conf['batch_size']= 2
-    conf['visualize']= False
+    conf['batch_size']= 10
+    conf['visualize']= True
     conf['context_frames'] = 2
-    conf['ncam'] = 2
+    # conf['ncam'] = 2
 
     # conf['row_start'] = 15
     # conf['row_end'] = 63
-    # conf['sdim'] = 12
-    # conf['adim'] = 5
-    conf['image_only'] = ''
+    conf['sdim'] = 6
+    conf['adim'] = 3
+    # conf['image_only'] = ''
     # conf['goal_image'] = ""
 
     conf['orig_size'] = [48, 64]
+    # conf['orig_size'] = [64, 64]
     # conf['orig_size'] = [96, 128]
     # conf['load_vidpred_data'] = ''
     # conf['color_augmentation'] = ''
@@ -272,10 +317,10 @@ def main():
 
         # images, actions, endeff, gen_images, gen_endeff = sess.run([dict['images'], dict['actions'], dict['endeffector_pos'], dict['gen_images'], dict['gen_states']])
         # images, actions, endeff = sess.run([dict['gen_images'], dict['actions'], dict['endeffector_pos']])
-        # images, actions, endeff = sess.run([dict['images'], dict['actions'], dict['endeffector_pos']])
-        [images] = sess.run([dict['images']])
+        images, actions, endeff = sess.run([dict['images'], dict['actions'], dict['endeffector_pos']])
+        # [images] = sess.run([dict['images']])
 
-        file_path = '/'.join(str.split(DATA_DIR, '/')[:-1]+['preview'])
+        file_path = '/'.join(str.split(DATA_DIR[0], '/')[:-1]+['preview'])
 
         if 'ncam' in conf:
             vidlist = []
@@ -283,33 +328,26 @@ def main():
                 video = [v.squeeze() for v in np.split(images[:,:,i],images.shape[1], 1)]
                 vidlist.append(video)
             npy_to_gif(assemble_gif(vidlist, num_exp=conf['batch_size']), file_path)
-        else: comp_single_video(file_path, images, num_exp=conf['batch_size'])
-        #
-        # for i in range(5):
-        #     plt.imshow(goal_image.squeeze()[i])
-        #     plt.show()
+        else:
+            images = [v.squeeze() for v in np.split(images,images.shape[1], 1)]
+            numbers = create_numbers(conf['sequence_length'], conf['batch_size'])
+            npy_to_gif(assemble_gif([images, numbers], num_exp=conf['batch_size']), file_path)
+
+        # comp_single_video(file_path, images, num_exp=conf['batch_size'])
+
+        # deltat.append(time.time() - end)
+        # if i_run % 10 == 0:
+        #     print('tload{}'.format(time.time() - end))
+        #     print('average time:', np.average(np.array(deltat)))
+        # end = time.time()
 
 
-        # file_path = '/'.join(str.split(DATA_DIR, '/')[:-1] + ['preview_gen_images'])
-        # comp_single_video(file_path, gen_images, num_exp=conf['batch_size'])
+        for b in range(10):
+            print('actions {}'.format(b))
+            print(actions[b])
 
-        deltat.append(time.time() - end)
-        if i_run % 10 == 0:
-            print('tload{}'.format(time.time() - end))
-            print('average time:', np.average(np.array(deltat)))
-        end = time.time()
-
-        import sys
-        sys.exit()
-
-        # show some frames
-        # for b in range(conf['batch_size']):
-        #
-        #     print 'actions'
-        #     print actions[b]
-        #
-        #     print 'endeff'
-        #     print endeff[b]
+            print('endeff {}'.format(b))
+            print(endeff[b])
 
             # print 'gen_endeff'
             # print gen_endeff[b]
@@ -322,7 +360,7 @@ def main():
             #     print b
             #     plt.imshow(images[b,0])
             #     plt.show()
-# plt.imshow(images[0, 0])
+            # plt.imshow(images[0, 0])
             # plt.show()
             #
             # pdb.set_trace()
@@ -334,6 +372,16 @@ def main():
             # print object_pos
 
             # visualize_annotation(conf, images[b], robot_pos[b], object_pos[b])
+        import sys
+        sys.exit()
+
+
+def create_numbers(t, size):
+    nums = [draw_text_image('im{}'.format(i), (255, 255, 255)) for i in range(size)]
+    nums = np.stack(nums, 0)
+    nums = [nums for _ in range(t)]
+    return nums
+
 
 if __name__ == '__main__':
     main()

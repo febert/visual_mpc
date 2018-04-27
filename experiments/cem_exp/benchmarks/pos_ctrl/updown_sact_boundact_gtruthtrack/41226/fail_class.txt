@@ -1,5 +1,0 @@
-13: occlusion, bad model predictions
-23: detour
-39: no solution found, exploratoin
-
-

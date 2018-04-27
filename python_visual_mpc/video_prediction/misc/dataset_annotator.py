@@ -2,7 +2,7 @@ import numpy as np
 import os
 import pdb
 import tensorflow as tf
-import matplotlib.pyplot as plt
+import matplotlib; matplotlib.use('Agg'); import matplotlib.pyplot as plt
 import pickle
 from python_visual_mpc.video_prediction.read_tf_record_wristrot import build_tfrecord_input
 from matplotlib import animation
