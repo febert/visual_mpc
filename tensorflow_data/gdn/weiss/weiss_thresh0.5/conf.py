@@ -4,7 +4,8 @@ base_dir = python_visual_mpc.__file__
 base_dir = '/'.join(str.split(base_dir, '/')[:-2])
 
 # tf record data location:
-DATA_DIR = base_dir + '/pushing_data/weiss_gripper_20k/train'
+import os
+DATA_DIR = os.environ['VMPC_DATA_DIR'] + '/weiss_gripper_20k/train'
 
 import os
 current_dir = os.path.dirname(os.path.realpath(__file__))
@@ -41,6 +42,5 @@ configuration = {
 'occ_thres_mult':0.5,
 'occ_thres_offset':1.,
 'flow_penal':1e-4,
-
 'ch_mult':4,
 }

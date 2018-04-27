@@ -17,6 +17,7 @@ import pdb
 import glob
 import re
 
+import matplotlib; matplotlib.use('Agg'); import matplotlib.pyplot as plt
 from python_visual_mpc.visual_mpc_core.infrastructure.utility.combine_scores import combine_scores
 from python_visual_mpc.visual_mpc_core.infrastructure.utility.create_configs import CollectGoalImageSim
 import pickle
@@ -30,7 +31,6 @@ def worker(conf, iex=-1):
 
     random.seed(None)
     np.random.seed(None)
-
     if 'simulator' in conf:
         Simulator = CollectGoalImageSim
         print('use collect goalimage sim')
@@ -59,7 +59,8 @@ def main():
     parser.add_argument('--iex', type=int, help='if different from -1 use only do example', default=-1)
 
     args = parser.parse_args()
-    exp_name = args.experiment
+    hyperparams_file = args.experiment
+    exp_name = '/'.join(str.split(hyperparams_file, '/')[:-1])
     gpu_id = args.gpu_id
 
     n_worker = args.nworkers
@@ -69,28 +70,15 @@ def main():
         parallel = True
     print('parallel ', bool(parallel))
 
-    basepath = os.path.abspath(python_visual_mpc.__file__)
-    basepath = '/'.join(str.split(basepath, '/')[:-2])
-    data_coll_dir = basepath + '/pushing_data/' + exp_name
-    hyperparams_file = data_coll_dir + '/hyperparams.py'
-    do_benchmark = False
-
-    if os.path.isfile(hyperparams_file):  # if not found in data_coll_dir
-        loader = importlib.machinery.SourceFileLoader('mod_hyper', hyperparams_file)
-        spec = importlib.util.spec_from_loader(loader.name, loader)
-        conf = importlib.util.module_from_spec(spec)
-        loader.exec_module(conf)
-        hyperparams = conf.config
-    else:
-        print('doing benchmark ...')
+    if 'benchmarks' in hyperparams_file:
         do_benchmark = True
-        experimentdir = basepath + '/experiments/cem_exp/benchmarks/' + exp_name
-        loader = importlib.machinery.SourceFileLoader('mod_hyper', experimentdir + '/mod_hyper.py')
-        spec = importlib.util.spec_from_loader(loader.name, loader)
-        conf = importlib.util.module_from_spec(spec)
-        loader.exec_module(conf)
-        hyperparams = conf.config
-        hyperparams['bench_dir'] = experimentdir
+    else: do_benchmark = False
+    loader = importlib.machinery.SourceFileLoader('mod_hyper', hyperparams_file)
+    spec = importlib.util.spec_from_loader(loader.name, loader)
+    mod = importlib.util.module_from_spec(spec)
+    loader.exec_module(mod)
+    hyperparams = mod.config
+
     if args.nsplit != -1:
         n_persplit = (hyperparams['end_index']+1)//args.nsplit
         hyperparams['start_index'] = args.isplit * n_persplit
@@ -117,8 +105,8 @@ def main():
         if 'verbose' in hyperparams['policy'] and not os.path.exists(result_dir + '/verbose'):
             os.makedirs(result_dir + '/verbose')
 
-        data_save_path = conf[''].partition('pushing_data')[2]
-        conf['data_save_dir'] = os.environ['RESULT_DIR'] + data_save_path
+        data_save_path = hyperparams['agent']['data_save_dir'].partition('pushing_data')[2]
+        hyperparams['agent']['data_save_dir'] = os.environ['RESULT_DIR'] + data_save_path
 
     # use_ray = False  # ray can cause black images!!
     # if use_ray:
@@ -130,7 +118,6 @@ def main():
     #         modconf['end_index'] = end_idx[i]
     #         modconf['gpu_id'] = i + gpu_id
     #         id_list.append(use_worker.remote(modconf))
-    #
     #     res = [ray.get(id) for id in id_list]
     # else:
     for i in range(n_worker):

@@ -122,7 +122,7 @@ def create_object_xml(hyperparams, load_dict_list=None):
             for n in range(len(convex_hull_files)):
                 ET.SubElement(obj, "geom", type="mesh", mesh=obj_string + "_convex_mesh{}".format(n),
                               rgba="{} {} {} 0".format(color1[0], color1[1], color1[2]), mass="{}".format(mass_per_elem),
-                              contype="7", conaffinity="7", friction="0.5 0.010 0.0002", condim="6", solimp="0.99 0.99 0.01", solref="0.01 1"
+                              contype="7", conaffinity="7", friction="1.5 0.10 0.002", condim="6", solimp="0.99 0.99 0.01", solref="0.01 1"
                               )
             sensor_frame = ET.SubElement(root, "sensor")
             ET.SubElement(sensor_frame, "framepos", name=obj_string + '_sensor', objtype="body", objname=obj_string)
@@ -136,7 +136,7 @@ def create_object_xml(hyperparams, load_dict_list=None):
 
             ET.SubElement(obj, "geom", type="box", size=".03 {} .03".format(l1),
                           rgba="{} {} {} 1".format(color1[0], color1[1], color1[2]), mass="0.01",
-                          contype="7", conaffinity="7", friction="0.5 0.010 0.0002", condim="6",
+                          contype="7", conaffinity="7", friction="1.5 0.10 0.002", condim="6",
                           solimp="0.99 0.99 0.01", solref="0.01 1"
                           )
 
@@ -144,7 +144,7 @@ def create_object_xml(hyperparams, load_dict_list=None):
             ET.SubElement(obj, "geom", pos="{} {} 0.0".format(l2, pos2),
                           type="box", size="{} .03 .03".format(l2),
                           rgba="{} {} {} 1".format(color2[0], color2[1], color2[2]), mass="0.01",
-                          contype="7", conaffinity="7", friction="0.5 0.010 0.0002", condim="6",
+                          contype="7", conaffinity="7", friction="1.5 0.10 0.002", condim="6",
                           solimp="0.99 0.99 0.01", solref="0.01 1"
                           )
 
