@@ -2,7 +2,7 @@ import rospy
 import numpy as np
 import pickle as pkl
 import cv2
-import matplotlib.pyplot as plt
+import matplotlib; matplotlib.use('Agg'); import matplotlib.pyplot as plt
 from cv_bridge import CvBridge, CvBridgeError
 from sensor_msgs.msg import Image as Image_msg
 import copy

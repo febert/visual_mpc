@@ -7,7 +7,7 @@ import pdb
 from python_visual_mpc.visual_mpc_core.agent.utils.convert_world_imspace_mj1_5 import project_point, get_3D
 import pickle
 from PIL import Image
-import matplotlib.pyplot as plt
+import matplotlib; matplotlib.use('Agg'); import matplotlib.pyplot as plt
 from python_visual_mpc.video_prediction.misc.makegifs2 import assemble_gif, npy_to_gif
 from pyquaternion import Quaternion
 from mujoco_py import load_model_from_xml,load_model_from_path, MjSim, MjViewer
@@ -110,6 +110,7 @@ class AgentMuJoCo(object):
 
         return traj
 
+
     def get_desig_pix(self, round=True):
         qpos_dim = self.sdim // 2  # the states contains pos and vel
         assert self.sim.data.qpos.shape[0] == qpos_dim + 7 * self._hyperparams['num_objects']
@@ -123,13 +124,12 @@ class AgentMuJoCo(object):
             desig_pix = np.around(desig_pix).astype(np.int)
         return desig_pix
 
+
     def get_goal_pix(self, round=True):
         goal_pix = []
         for i in range(self._hyperparams['num_objects']):
             goal_pix.append(project_point(self.goal_obj_pose[i, :3]))
-
-        ratio = self._hyperparams['viewer_image_width'] / self._hyperparams['image_width']
-
+        ratio = self._hyperparams['viewer_image_width']/float(self._hyperparams['image_width'])
         goal_pix = np.stack(goal_pix) / ratio
         if round:
             goal_pix = np.around(goal_pix).astype(np.int)
@@ -407,7 +407,9 @@ class AgentMuJoCo(object):
                     raise Image_dark_except
                 if cam == 'maincam':
                     self.large_images.append(large_img)
-                traj._sample_images[t, i] = cv2.resize(large_img, dsize=(self._hyperparams['image_width'], self._hyperparams['image_height']), interpolation = cv2.INTER_AREA)
+                traj._sample_images[t, i] = cv2.resize(large_img, dsize=(self._hyperparams['image_width'],
+                                        self._hyperparams['image_height']), interpolation = cv2.INTER_AREA)
+
                 if 'make_gtruth_flows' in self._hyperparams:
                     traj.largeimage[t, i] = large_img
                     dlarge_img = self.sim.render(width, height, camera_name="maincam", depth=True)[1][::-1, :]
@@ -419,6 +421,9 @@ class AgentMuJoCo(object):
                 raise Image_dark_except
             self.large_images.append(large_img)
             traj._sample_images[t] = cv2.resize(large_img, dsize=(self._hyperparams['image_width'], self._hyperparams['image_height']), interpolation = cv2.INTER_AREA)
+            if 'image_medium' in self._hyperparams:
+                traj._image_medium[t] = cv2.resize(large_img, dsize=(self._hyperparams['image_medium'][1],
+                                                                         self._hyperparams['image_medium'][0]), interpolation = cv2.INTER_AREA)
             if 'make_gtruth_flows' in self._hyperparams:
                 traj.largeimage[t] = large_img
                 dlarge_img = self.sim.render(width, height, camera_name="maincam", depth=True)[1][::-1, :]
