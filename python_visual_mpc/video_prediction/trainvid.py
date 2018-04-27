@@ -150,7 +150,7 @@ def main(unused_argv, conf_dict= None, flags=None):
     gpu_options = tf.GPUOptions(per_process_gpu_memory_fraction=0.9)
     # Make training session.
     # sess = tf.InteractiveSession(config=tf.ConfigProto(gpu_options=gpu_options))
-    sess = tf.Session(config=tf.ConfigProto(gpu_options=gpu_options))
+    sess = tf.Session(config=tf.ConfigProto(gpu_options=gpu_options, allow_soft_placement=True))
     summary_writer = tf.summary.FileWriter(conf['event_log_dir'], graph=sess.graph, flush_secs=10)
 
     if not FLAGS.diffmotions:
@@ -200,7 +200,7 @@ def main(unused_argv, conf_dict= None, flags=None):
 
         feed_dict = {model.iter_num: np.float32(itr),
                      model.train_cond: 1}
-        cost, _, summary_str = sess.run([model.loss, model.train_op, model.train_summ_op],
+        cost, _, summary_str = sess.run([model.summed_loss, model.train_op, model.train_summ_op],
                                         feed_dict)
 
         print("itr",itr)

@@ -17,8 +17,9 @@ import pdb
 RELU_SHIFT = 1e-12
 
 from python_visual_mpc.video_prediction.utils_vpred.video_summary import make_video_summaries
+from tensorflow.python.util import nest
 
-from .utils import local_device_setter, compute_averaged_gradients, reduce_tensors, add_scalar_summaries
+from .utils import local_device_setter, compute_averaged_gradients, reduce_tensors, add_scalar_summaries, transpose_batch_time, cuttoff_gen_tsteps
 from collections import OrderedDict
 
 class DNACell(tf.nn.rnn_cell.RNNCell):
@@ -553,23 +554,32 @@ class Dynamic_Base_Model(object):
                 with tf.control_dependencies(tf.get_collection(tf.GraphKeys.UPDATE_OPS)):
                     gradvars = compute_averaged_gradients(self.d_optimizer, tower_summed_loss,
                                                             var_list=vars)
-                    self.d_train_op = self.d_optimizer.apply_gradients(gradvars)
+                    self.train_op = self.d_optimizer.apply_gradients(gradvars)
         else:
             self.train_op = None
 
         # Device that runs the ops to apply global gradient updates.
         consolidation_device = '/cpu:0'
         with tf.device(consolidation_device):
-            self.gen_images, self.gen_images_enc, self.outputs, self.eval_outputs = reduce_tensors(
-                tower_outputs_tuple)
+            self.gen_images, self.gen_states, self.gen_distib = reduce_tensors(tower_outputs_tuple)
             self.losses = reduce_tensors(tower_losses, shallow=True)
             self.summed_loss = reduce_tensors(tower_summed_loss)
 
         # making video summaries
-        self.val_video_summaries = make_video_summaries(self.conf['sequence_length'], self.conf['context_frames'], [self.images, self.gen_images])
-        add_scalar_summaries(self.losses)
+        self.val_video_summaries = make_video_summaries([self.images[:,self.context_frames:], self.gen_images])
+
+        train_summaries= []
+        val_summaries = []
+        train_summaries.append(tf.summary.scalar('loss', self.summed_loss))
+        val_summaries.append(tf.summary.scalar('val_loss', self.summed_loss))
+        self.train_summ_op = tf.summary.merge(train_summaries)
+        self.val_summ_op = tf.summary.merge(val_summaries)
+        # add_scalar_summaries(self.losses)
 
     def tower_fn(self, inputs, make_loss = True):
+        # batch-major to time-major
+        inputs = nest.map_structure(transpose_batch_time, inputs)
+
         images = inputs['images']
         actions = inputs['actions']
         states = inputs['states']
@@ -578,7 +588,7 @@ class Dynamic_Base_Model(object):
         else: pix_distrib = None
 
         k = self.conf['schedsamp_k']
-        batch_size, images_length, height, width, color_channels = images.get_shape().as_list()
+        images_length, batch_size, height, width, color_channels = images.get_shape().as_list()
         sequence_length = images_length - 1
         _, _, action_dim = actions.get_shape().as_list()
         _, _, state_dim = states.get_shape().as_list()
@@ -621,7 +631,7 @@ class Dynamic_Base_Model(object):
                        vgf_dim=vgf_dim)
 
 
-        inputs = [images[:,:sequence_length], actions[:,:sequence_length], states[:,:sequence_length]]
+        inputs = [images[:sequence_length], actions[:sequence_length], states[:sequence_length]]
         if pix_distrib is not None:
             inputs.append(tf.stack(pix_distrib[:sequence_length]))
 
@@ -632,27 +642,18 @@ class Dynamic_Base_Model(object):
                                        swap_memory=True, time_major=True)
 
         n_cutoff = self.context_frames - 1 # only return images predicting future timesteps, omit images predicting steps during context
+        outputs = nest.map_structure(lambda x: cuttoff_gen_tsteps(x, n_cutoff), outputs)
+        outputs = nest.map_structure(transpose_batch_time, outputs)
         (gen_images, gen_states, gen_masks, gen_transformed_images), other_outputs = outputs[:4], outputs[4:]
-        gen_images = tf.unstack(gen_images, axis=0)[n_cutoff:]
-        gen_states = tf.unstack(gen_states, axis=0)[n_cutoff:]
-        gen_masks = list(zip(*[tf.unstack(gen_mask, axis=0) for gen_mask in gen_masks]))[n_cutoff:]
-        gen_transformed_images = list(
-            zip(*[tf.unstack(gen_transformed_image, axis=0) for gen_transformed_image in gen_transformed_images]))
+
         other_outputs = list(other_outputs)
 
         if 'compute_flow_map' in self.conf:
             gen_flow_map = other_outputs.pop(0)
-            gen_flow_map = tf.unstack(gen_flow_map, axis=0)[n_cutoff:]
 
         if pix_distrib is not None:
             gen_distrib = other_outputs.pop(0)
-            gen_distrib = tf.unstack(gen_distrib, axis=0)
             gen_transformed_pixdistribs = other_outputs.pop(0)
-            gen_transformed_pixdistribs = list(zip(
-                *[tf.unstack(gen_transformed_pixdistrib, axis=0) for gen_transformed_pixdistrib in
-                  gen_transformed_pixdistribs]))[n_cutoff:]
-
-            gen_distrib = gen_distrib[n_cutoff:]
         else:
             gen_distrib = None
 
@@ -661,6 +662,7 @@ class Dynamic_Base_Model(object):
         outputs_tuple = (gen_images, gen_states, gen_distrib)
 
         if make_loss:
+            images, states = nest.map_structure(transpose_batch_time, [images, states])
             loss = self.build_loss(images, gen_images, states, gen_states)
         else:
             loss = None
@@ -673,24 +675,18 @@ class Dynamic_Base_Model(object):
         loss = {}
 
         true = images[:, self.conf['context_frames']:],
-        pred = gen_images[:, self.conf['context_frames']-1:]
-        recon_cost = tf.reduce_sum(tf.square(true - pred)) / tf.to_float(tf.size(pred))
+        pred = gen_images
+        recon_cost = tf.reduce_sum(tf.square(true - pred)) / tf.to_float(tf.size(pred[0,0]))
         loss['recon_cost'] = (recon_cost, 1.0)
 
         if ('ignore_state_action' not in self.conf) and ('ignore_state' not in self.conf):
             true = states[:, self.conf['context_frames']:],
-            pred = gen_states[:, self.conf['context_frames']-1:]
+            pred = gen_states
             state_cost = tf.reduce_sum(tf.square(true - pred)) / tf.to_float(tf.size(pred))
             loss['state_cost'] = (state_cost, 1e-4 * self.conf['use_state'])
-        # TODO: put this in!
-        # loss = loss = loss / np.float32(len(self.images) - self.conf['context_frames'])
 
-        #TODO: rearrange summ
-        # train_summaries.append(tf.summary.scalar('loss', loss))
-        # val_summaries.append(tf.summary.scalar('val_loss', loss))
-        # self.train_summ_op = tf.summary.merge(train_summaries)
-        # self.val_summ_op = tf.summary.merge(val_summaries)
-
+        for k in loss.keys():
+            loss[k] /= np.float32(images.get_shape().as_list()[1] - self.conf['context_frames'])
         return loss
 
     def visualize(self, sess):

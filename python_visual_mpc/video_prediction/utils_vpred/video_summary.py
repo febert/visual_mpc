@@ -4,11 +4,10 @@ import numpy as np
 import tensorflow as tf
 
 
-def make_video_summaries(seq_len, ncntxt, videos):
+def make_video_summaries(videos):
     columns = []
-    videos = [vid[-(seq_len-ncntxt):] for vid in videos]
-    for t in range(seq_len-ncntxt):
-        colimages = [vid[t] for vid in videos]
+    for t in range(videos[0].get_shape().as_list()[1]):
+        colimages = [vid[:,t] for vid in videos]
         columns.append(tf.concat(colimages, axis=1))
     summary = tf.summary.tensor_summary('val_images', tf.cast(tf.stack(columns, axis=1) * 255, tf.uint8))
     return summary

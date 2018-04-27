@@ -136,3 +136,22 @@ def add_scalar_summaries(losses_or_metrics, collections=None):
                 if isinstance(loss_or_metric, tuple):
                     loss_or_metric, _ = loss_or_metric
                 tf.summary.scalar(name, loss_or_metric, collections=collections)
+
+
+def transpose_batch_time(x):
+    if isinstance(x, tf.Tensor) and x.shape.ndims >= 2:
+        return tf.transpose(x, [1, 0] + list(range(2, x.shape.ndims)))
+    else:
+        return x
+
+
+def cuttoff_gen_tsteps(x, icutoff):
+    """
+    :param x:
+    :param icutoff: cut everything off that is before this index in the first dimension
+    :return:
+    """
+    if isinstance(x, tf.Tensor) and x.shape.ndims >= 2:
+        return x[icutoff:]
+    else:
+        return x
