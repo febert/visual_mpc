@@ -31,6 +31,7 @@ data['dockerImageName'] = "ucb_rail8888/tf_mj1.5:latest"
 
 script_name = args.run_script
 
+data["aceInstance"] = "ngcv8"
 if 'benchmarks' in script_name or 'parallel_data_collection' in script_name:  #running benchmark...
     data["datasetMounts"] = [{"containerMountPoint": "/mnt/tensorflow_data/sim/mj_pos_ctrl_appflow", "id": 8906},
                              {"containerMountPoint": "/mnt/tensorflow_data/sim/appflow_nogenpix", "id": 8933},
@@ -51,13 +52,11 @@ if 'benchmarks' in script_name or 'parallel_data_collection' in script_name:  #r
                              {"containerMountPoint": "/mnt/pushing_data/cartgripper_startgoal_short", "id": 8949},  # mj_pos_ctrl_appflow
                              {"containerMountPoint": "/mnt/pushing_data/cartgripper_startgoal_2view", "id": 9222},  # mj_pos_ctrl_appflow
                              {"containerMountPoint": "/mnt/pushing_data/cartgripper_startgoal_masks", "id": 8914}]  # mj_pos_ctrl_appflow
-    data["aceInstance"] = "ngcv8"
     command = "python " + args.run_script + " " + args.hyper + " {}".format(args.arg)
 
     expname = args.hyper.partition('benchmarks')[-1]
     data["name"] = '-'.join(re.compile('\w+').findall(expname + args.arg))
 else:
-    data["aceInstance"] = "ngcv1"
     data["datasetMounts"] = [{"containerMountPoint": "/mnt/pushing_data/cartgripper", "id": 8350},  # cartgripper
                              {"containerMountPoint": "/mnt/pushing_data/cartgripper_mj1.5", "id": 8974},
                              {"containerMountPoint": "/mnt/pushing_data/mj_pos_noreplan_fast_tfrec", "id": 8807},  #mj_pos_noreplan_fast_tfrec    | gtruth mujoco planning pushing
