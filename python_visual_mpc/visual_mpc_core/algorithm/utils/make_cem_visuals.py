@@ -5,6 +5,7 @@ from PIL import Image
 from python_visual_mpc.video_prediction.basecls.utils.visualize import add_crosshairs
 from python_visual_mpc.video_prediction.utils_vpred.animate_tkinter import Visualizer_tkinter
 
+import matplotlib; matplotlib.use('Agg'); import matplotlib.pyplot as plt
 
 def image_addgoalpix(bsize, seqlen, image_l, goal_pix):
     goal_pix_ob = np.tile(goal_pix[None, None, :], [bsize, seqlen, 1])
@@ -17,34 +18,41 @@ def images_addwarppix(gen_images, warp_pts_l, pix, num_objects):
         gen_images = add_crosshairs(gen_images, np.flip(warp_pts_ob, 2))
     return gen_images
 
-def plot_sum_overtime(pixdistrib):
+def plot_sum_overtime(pixdistrib, dir, filename):
 
+    # shape pixdistrib: b, t, icam, r, c, ndesig
     # num_exp = I0_t_reals[0].shape[0]
-    num_ex = 4
-    start_ex = 0
-    num_rows = num_ex*len(list(videos.keys()))
-    num_cols = len(I0_ts) + 1
+    b, seqlen, ncam, r, c, ndesig = pixdistrib.shape
+    num_rows = ncam*ndesig
+    num_cols = b
+
+    pixdistrib = np.sum(pixdistrib, 3)
+    pixdistrib = np.sum(pixdistrib, 3)
 
     print('num_rows', num_rows)
     print('num_cols', num_cols)
-
     width_per_ex = 2.5
 
     standard_size = np.array([width_per_ex * num_cols, num_rows * 1.5])  ### 1.5
     figsize = (standard_size).astype(np.int)
 
     f, axarr = plt.subplots(num_rows, num_cols, figsize=figsize)
-
     print('start')
-    for col in range(num_cols -1):
-        for row in range(num_rows):
-            axarr[row, col].plot()
+    for col in range(num_cols):
+        for icam in range(ncam):
+            for p in range(ndesig):
+                row = icam*ndesig
+                axarr[row, col].plot(range(seqlen), pixdistrib[col,:,icam,p])
+
+    # plt.show()
+    if not os.path.exists(dir):
+        os.makedirs(dir)
+    plt.savefig(os.path.join(dir, filename))
 
 def make_cem_visuals(ctrl, actions, bestindices, cem_itr, flow_fields, gen_distrib, gen_images, gen_states,
                      last_frames, goal_warp_pts_l, scores, warped_image_goal, warped_image_start, warped_images):
 
         bestindices = bestindices[:ctrl.K]
-
         len_pred = ctrl.netconf['sequence_length'] - ctrl.netconf['context_frames']
         bsize = ctrl.netconf['batch_size']
 
@@ -101,11 +109,11 @@ def make_cem_visuals(ctrl, actions, bestindices, cem_itr, flow_fields, gen_distr
             t_dict_['goal_image{}'.format(icam)] = goal_image_annotated[icam]
 
         if 'use_goal_image' not in ctrl.policyparams or 'comb_flow_warp' in ctrl.policyparams or 'register_gtruth' in ctrl.policyparams:
-            sel_gen_distrib = unstack(gen_distrib[bestindices], 1,)
-            plot_psum_overtime(sel_gen_distrib)
+            sel_gen_distrib = gen_distrib[bestindices]
+            plot_sum_overtime(sel_gen_distrib, ctrl.agentparams['record'] + '/plan', 'psum_t{}_iter{}'.format(ctrl.t, cem_itr))
             for icam in range(ctrl.ncam):
                 for p in range(ctrl.ndesig):
-                    sel_gen_distrib_p = sel_gen_distrib[:, icam,:,:, p]
+                    sel_gen_distrib_p = unstack(sel_gen_distrib[:,:, icam,:,:, p], 1)
                     t_dict_['gen_distrib_cam{}_{}_t{}'.format(icam, p, ctrl.t)] = sel_gen_distrib_p
                     t_dict_['gen_distrib_goalim_overlay_cam{}_{}_t{}'.format(icam, p, ctrl.t)] = (goal_image_annotated[icam], sel_gen_distrib_p)
 

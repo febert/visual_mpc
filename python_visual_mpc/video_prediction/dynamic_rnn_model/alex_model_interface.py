@@ -17,6 +17,8 @@ class Alex_Interface_Model(object):
             model_hparams_dict = json.loads(f.read())
             model_hparams_dict.pop('num_gpus', None)  # backwards-compatibility
 
+            model_hparams_dict.update(conf['override_json'])
+
         self.m = MultiSAVPVideoPredictionModel(mode='test', hparams_dict=model_hparams_dict)
 
         images, images1 = tf.unstack(images, conf['ncam'], 2)
@@ -27,7 +29,6 @@ class Alex_Interface_Model(object):
             'states':states
         }
         if pix_distrib is not None: # input batch , t, ncam, r, c, ndesig
-                                    # output batch, t, r, c, ndesig
             inputs['pix_distribs']  = pix_distrib[:,:,0]
             inputs['pix_distribs1'] = pix_distrib[:,:,1]
         self.m.build_graph(inputs)

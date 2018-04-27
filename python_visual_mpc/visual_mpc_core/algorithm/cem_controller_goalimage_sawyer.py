@@ -10,7 +10,7 @@ from datetime import datetime
 import copy
 from python_visual_mpc.video_prediction.basecls.utils.visualize import add_crosshairs
 
-from python_visual_mpc.visual_mpc_core.algorithm.utils.make_visuals import make_cem_visuals
+from python_visual_mpc.visual_mpc_core.algorithm.utils.make_cem_visuals import make_cem_visuals
 # from python_visual_mpc.video_prediction.utils_vpred.create_gif_lib import *
 
 import matplotlib.pyplot as plt
