@@ -1,5 +1,6 @@
 import tensorflow as tf
 
+import pdb
 def variable_checkpoint_matcher(conf, vars, model_file=None, ignore_varname_firstag=False):
   """
   for every variable in vars takes its name and looks inside the
@@ -14,8 +15,10 @@ def variable_checkpoint_matcher(conf, vars, model_file=None, ignore_varname_firs
   print('variable checkpoint matcher using model_file:',model_file)
 
   reader = tf.train.NewCheckpointReader(model_file)
+  pdb.set_trace()
   var_to_shape_map = reader.get_variable_to_shape_map()
   check_names = list(var_to_shape_map.keys())
+  pdb.set_trace()
 
   vars = dict([(var.name.split(':')[0], var) for var in vars])
   new_vars = {}
