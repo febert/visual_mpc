@@ -203,8 +203,6 @@ def main(unused_argv, conf_dict= None, flags=None):
         cost, _, summary_str = sess.run([model.loss, model.train_op, model.train_summ_op],
                                         feed_dict)
 
-        print("itr",itr)
-
         if (itr) % 10 ==0:
             tf.logging.info(str(itr) + ' ' + str(cost))
 
