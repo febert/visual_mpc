@@ -34,7 +34,7 @@ configuration = {
 '1stimg_bckgd':'',
 'visual_flowvec':'',
 'adim':5,
-'sdim':5,
+'sdim':12,
 'normalization':'in',
 'previmg_bckgd':'',
 'orig_size':[48,64]

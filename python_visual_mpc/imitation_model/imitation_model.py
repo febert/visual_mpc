@@ -10,21 +10,22 @@ NUMERICAL_EPS = 1e-7
 
 
 def gen_mix_samples(N, means, std_dev, mix_params):
+    out_dim = means.shape[1]
 
     dist_choice = np.random.choice(mix_params.shape[0], size=N, p=mix_params)
-    samps = []
-    for i in range(N):
-        dist_mean = means[dist_choice[i]]
-        out_dim = dist_mean.shape[0]
-        dist_std = std_dev[dist_choice[i]]
-        samp = np.random.multivariate_normal(dist_mean, dist_std * dist_std * np.eye(out_dim))
 
-        samp_l = np.exp(-0.5 * np.sum(np.square(samp - means), axis=1) / np.square(dist_std))
-        samp_l /= np.power(2 * np.pi, out_dim / 2.) * dist_std
-        samp_l *= mix_params
+    dist_means = means[dist_choice, :]
+    dist_std = std_dev[dist_choice].reshape((-1, 1))
+    samps = dist_means + dist_std * np.random.normal(size = (N, means.shape[1]))
+    
+    samp_log_l = -0.5 * np.sum(np.square(samps - dist_means), axis = 1) / np.square(dist_std).reshape(-1)
+    samp_log_l += np.log(mix_params[dist_choice])
+    samp_log_l -= out_dim / 2. * np.log(2 * np.pi)
 
-        samps.append((samp, np.sum(samp_l)))
-    return sorted(samps, key=lambda x: -x[1])
+    sorted_order = np.argsort(-samp_log_l)
+
+    return samps[sorted_order, :], samp_log_l[sorted_order]
+    
 
 class ImitationBaseModel:
     def __init__(self, conf, images, actions, end_effector, goal_image = None):
@@ -264,9 +265,11 @@ class ImitationLSTMModelState(ImitationBaseModel):
         f_dict = {self.input_images: images, self.input_end_effector: end_effector}
         mdn_mix, mdn_std_dev, mdn_means = sess.run([self.mixing_parameters, self.std_dev, self.means],
                                                         feed_dict=f_dict)
+        
+        
 
-        samps = gen_mix_samples(self.conf.get('N_GEN', 200), mdn_means[-1, t], mdn_std_dev[-1, t], mdn_mix[-1, t])
-        actions = samps[0][0].astype(np.float64)
+        samps, samps_log_l = gen_mix_samples(self.conf.get('N_GEN', 200), mdn_means[0, -1], mdn_std_dev[0, -1], mdn_mix[0, -1])
+        actions = samps[0, :].astype(np.float64)
         if actions[-1] > 0.05:
             actions[-1] = 21
         else:

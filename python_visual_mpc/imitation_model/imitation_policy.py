@@ -44,7 +44,8 @@ class ImitationPolicy(Policy):
         vars = tf.get_collection(tf.GraphKeys.GLOBAL_VARIABLES)
         saver = tf.train.Saver(vars, max_to_keep=0)
 
-        self.sess = tf.Session()
+        gpu_options = tf.GPUOptions(per_process_gpu_memory_fraction=0.0999)
+        self.sess = tf.Session(config=tf.ConfigProto(gpu_options=gpu_options))
         tf.train.start_queue_runners(self.sess)
         self.sess.run(tf.global_variables_initializer())
 

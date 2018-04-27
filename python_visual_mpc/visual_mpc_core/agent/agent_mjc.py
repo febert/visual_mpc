@@ -246,7 +246,7 @@ class AgentMuJoCo(object):
                 self.sim.step()
                 # width = self._hyperparams['viewer_image_width']
                 # height = self._hyperparams['viewer_image_height']
-                # cv2.imwrite('test{}.png'.format(t * self._hyperparams['substeps'] + st), self.sim.render(width, height, camera_name="maincam")[::-1, :, ::-1])
+                # cv2.imwrite('test_rec/test{}.jpg'.format(t * self._hyperparams['substeps'] + st), self.sim.render(width, height, camera_name="maincam")[::-1, :, ::-1])
 
                 self.hf_qpos_l.append(copy.deepcopy(self.sim.data.qpos))
                 self.hf_target_qpos_l.append(copy.deepcopy(ctrl))
