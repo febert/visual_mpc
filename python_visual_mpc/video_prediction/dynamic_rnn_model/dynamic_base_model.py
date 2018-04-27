@@ -439,11 +439,11 @@ class Dynamic_Base_Model(object):
                  trafo_pix = True,
                  load_data = True,
                  make_loss = True,
-                 num_gpus = 1
+                 ngpu = 1
                  ):
 
         self.iter_num = tf.placeholder(tf.float32, [])
-        self.num_gpus = num_gpus
+        self.num_gpus = ngpu
 
         if 'ndesig' in conf:
             ndesig = conf['ndesig']

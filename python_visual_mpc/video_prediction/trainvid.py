@@ -40,6 +40,7 @@ if __name__ == '__main__':
     flags.DEFINE_string('hyper', '', 'hyperparameters configuration file')
     flags.DEFINE_string('visualize_check', "", 'model within hyperparameter folder from which to create gifs')
     flags.DEFINE_integer('device', 0 ,'the value for CUDA_VISIBLE_DEVICES variable')
+    flags.DEFINE_integer('ngpu', 1,'the number of gpus')
     flags.DEFINE_string('resume', None, 'path to model file from which to resume training')
     flags.DEFINE_bool('diffmotions', False, 'visualize several different motions for a single scene')
     flags.DEFINE_bool('metric', False, 'compute metric of expected distance to human-labled positions ob objects')
@@ -131,7 +132,7 @@ def main(unused_argv, conf_dict= None, flags=None):
     if FLAGS.diffmotions or "visualize_tracking" in conf or FLAGS.metric:
         model = Model(conf, load_data=False, trafo_pix=True, make_loss=build_loss)
     else:
-        model = Model(conf, load_data=True, trafo_pix=False, make_loss=build_loss)
+        model = Model(conf, load_data=True, trafo_pix=False, make_loss=build_loss, ngpu=FLAGS.ngpu)
 
     print('Constructing saver.')
     vars = tf.get_collection(tf.GraphKeys.GLOBAL_VARIABLES)
