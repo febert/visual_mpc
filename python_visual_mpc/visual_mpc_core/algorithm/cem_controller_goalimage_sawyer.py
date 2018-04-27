@@ -621,6 +621,7 @@ class CEM_controller():
         t_mult[-1] = self.policyparams['finalweight']
 
         #normalize prob distributions
+
         gen_distrib /= np.sum(np.sum(gen_distrib, axis=2), 2)[:,:, None, None]
         gen_distrib *= distance_grid[None, None]
         scores = np.sum(np.sum(gen_distrib, axis=2),2)
