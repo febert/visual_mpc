@@ -74,6 +74,7 @@ class Sim(object):
         for i in range(self._hyperparams['start_index'], self._hyperparams['end_index']+1):
             self._take_sample(i)
 
+
     def _take_sample(self, sample_index):
         """
         Collect a sample from the agent.
@@ -96,11 +97,12 @@ class Sim(object):
             with open(self._timing_file,'a') as f:
                 f.write("{} trajtime {} savetime {}\n".format(sample_index, t_traj, t_save))
 
-        # if 'verbose' in self.policyparams:
-        if self.agent.goal_obj_pose is not None:
-            plot_dist(traj, self.agentparams['record'])
-        if 'register_gtruth' in self.policyparams:
-            plot_warp_err(traj, self.agentparams['record'])
+        if 'verbose' in self.policyparams:
+            if self.agent.goal_obj_pose is not None:
+                plot_dist(traj, self.agentparams['record'])
+            if 'register_gtruth' in self.policyparams:
+                plot_warp_err(traj, self.agentparams['record'])
+
 
     def save_data(self, traj, itr):
         """

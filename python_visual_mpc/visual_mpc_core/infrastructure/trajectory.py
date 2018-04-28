@@ -30,6 +30,10 @@ class Trajectory(object):
                                             conf['image_medium'][0],
                                             conf['image_medium'][1],
                                             img_channels), dtype='uint8')
+        if 'first_last_noarm' in conf:
+            self.first_last_noarm = np.zeros((2,img_height,
+                                                img_width,
+                                                img_channels), dtype='uint8')
 
         # for storing the terminal predicted images of the K best actions at each time step:
         self.final_predicted_images = []
