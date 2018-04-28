@@ -145,6 +145,7 @@ class CEM_controller(Policy):
                 total_d.append(np.linalg.norm(desig_pix[i] - goal_pix[i]))
             return np.mean(total_d)
         else:
+
             for i_ob in range(self.agentparams['num_objects']):
                 goal_pos = self.goal_obj_pose[i_ob, :3]
                 curr_pose = self.sim.data.qpos[i_ob * 7 + qpos_dim:(i_ob+1) * 7 + qpos_dim].squeeze()
@@ -338,17 +339,19 @@ class CEM_controller(Policy):
             plt.show()
 
     def act(self, traj, t, init_model, goal_obj_pose, agent_params, goal_image):
-        """
-        Return a random action for a state.
-        Args:
-            x_full, xdot_full history of states.
-            ref_point: a reference point on the object which shall be moved to a goal
-            dref_point: speed of reference point
-            t: the current controller's Time step
-            init_model: mujoco model to initialize from
-        """
+
         self.agentparams = agent_params
-        self.goal_obj_pose = goal_obj_pose
+        self.goal_obj_pose = copy.deepcopy(goal_obj_pose)
+
+        if 'task_switch' in self.policyparams:
+            if t < self.agentparams['T']//2:
+                i_ob = 0
+            else:
+                i_ob = 1
+            qpos_dim = self.sdim//2
+            curr_pose = init_model.data.qpos[i_ob * 7 + qpos_dim:(i_ob+1) * 7 + qpos_dim].squeeze()
+            self.goal_obj_pose[i_ob] = curr_pose
+
         self.goal_image = goal_image
         self.t = t
         self.init_model = init_model
@@ -362,6 +365,13 @@ class CEM_controller(Policy):
                 if t == 1:
                     self.perform_CEM(t)
                 action = self.bestaction_withrepeat[t - 1]
+            if 'replan_interval' in self.policyparams:
+                print('using actions of first plan, no replanning!!')
+                if (t-1) % self.policyparams['replan_interval'] == 0:
+                    self.last_replan = t
+                    self.perform_CEM(t)
+                print('last replan', self.last_replan)
+                action = self.bestaction_withrepeat[t - self.last_replan]
             else:
                 self.perform_CEM(t)
                 action = self.bestaction[0]

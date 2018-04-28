@@ -269,7 +269,7 @@ def main():
     # DATA_DIR = '/mnt/sda1/pushing_data/weiss_gripper_20k/test'
     DATA_DIR = os.environ['VMPC_DATA_DIR']
     # DATA_DIR = [DATA_DIR + '/cartgripper_updown_sact/train', DATA_DIR + '/onpolicy/updown_sact_bounded_disc/train']
-    DATA_DIR = DATA_DIR + '/cartgripper_updown_sact/train'
+    DATA_DIR = '/home/frederik/Documents/catkin_ws/src/visual_mpc/experiments/cem_exp/benchmarks/datacol/mj_multi_obj_push/data/train'
 
     conf['schedsamp_k'] = -1  # don't feed ground truth
     conf['data_dir'] = DATA_DIR  # 'directory containing data_files.' ,
@@ -320,7 +320,7 @@ def main():
         images, actions, endeff = sess.run([dict['images'], dict['actions'], dict['endeffector_pos']])
         # [images] = sess.run([dict['images']])
 
-        file_path = '/'.join(str.split(DATA_DIR[0], '/')[:-1]+['preview'])
+        file_path = '/'.join(str.split(DATA_DIR, '/')[:-1]+['preview'])
 
         if 'ncam' in conf:
             vidlist = []
