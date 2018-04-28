@@ -47,7 +47,6 @@ policy = {
     'iterations': 3,
     'action_cost_factor': 0,
     'rew_all_steps':"",
-    'discount': 0.85,
     'predictor_propagation': '',   # use the model get the designated pixel for the next step!
 }
 
