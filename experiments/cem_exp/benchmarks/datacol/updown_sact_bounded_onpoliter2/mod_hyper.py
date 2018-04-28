@@ -70,6 +70,7 @@ config = {
     'traj_per_file':32, 
     'start_index':0,
     'end_index': 59999,
+    'ngroup':1000,
     'agent':agent,
     'policy':policy,
     'sourcetags':[tag_images, tag_qpos, tag_object_full_pose, tag_object_statprop],
