@@ -285,8 +285,8 @@ def main():
     conf['data_dir'] = DATA_DIR  # 'directory containing data_files.' ,
     conf['skip_frame'] = 1
     conf['train_val_split']= 0.95
-    conf['sequence_length']= 15 #48      # 'sequence length, including context frames.'
-    conf['batch_size']= 2
+    conf['sequence_length']= 40 #48      # 'sequence length, including context frames.'
+    conf['batch_size']= 10
     conf['visualize']= True
     conf['context_frames'] = 2
     # conf['ncam'] = 2
