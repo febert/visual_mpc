@@ -105,11 +105,9 @@ def perform_benchmark(conf = None, iex=-1, gpu_id=None):
 
     while traj <= nruns:
 
-
         if 'sourcetags' in conf:  # load data per trajectory
             dict = read_trajectory(conf, traj_names[traj])
-            sim.agent.startconf = dict
-
+            sim.agent.start_conf = dict
 
         print('run number ', traj)
         print('loading done')

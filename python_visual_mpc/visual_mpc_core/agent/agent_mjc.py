@@ -552,10 +552,8 @@ class AgentMuJoCo(object):
         self.sim.set_state(sim_state)
         self.sim.forward()
 
-
-        self.goal_obj_pose = []
         if self.start_conf is None:
-
+            self.goal_obj_pose = []
             dist_ok = False
             while not dist_ok:
                 for i_ob in range(self._hyperparams['num_objects']):
