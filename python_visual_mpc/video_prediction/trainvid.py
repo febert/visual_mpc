@@ -228,7 +228,7 @@ def main(unused_argv, conf_dict= None, flags=None):
 
         t_iter.append((datetime.now() - t_startiter).seconds * 1e6 +  (datetime.now() - t_startiter).microseconds )
 
-        if itr % 10 == 1:
+        if itr % 100 == 1:
             hours = (datetime.now() -starttime).seconds/3600
             tf.logging.info('running for {0}d, {1}h, {2}min'.format(
                 (datetime.now() - starttime).days,
