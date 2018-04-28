@@ -48,7 +48,6 @@ policy = {
     'finalweight':10,
     'action_cost_factor': 0,
     'rew_all_steps':"",
-    'predictor_propagation': '',   # use the model get the designated pixel for the next step!
 }
 
 tag_images = {'name': 'images',
