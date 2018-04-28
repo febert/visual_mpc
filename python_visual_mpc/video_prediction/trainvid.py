@@ -193,6 +193,7 @@ def main(unused_argv, conf_dict= None, flags=None):
 
     starttime = datetime.now()
     t_iter = []
+    costs = []
     # Run training.
 
     for itr in range(itr_0, conf['num_iterations'], 1):
@@ -203,8 +204,7 @@ def main(unused_argv, conf_dict= None, flags=None):
                      model.train_cond: 1}
         cost, _, summary_str = sess.run([model.summed_loss, model.train_op, model.train_summ_op],
                                         feed_dict)
-
-        print("itr",itr)
+        costs.append(cost)
 
         if (itr) % 10 ==0:
             tf.logging.info(str(itr) + ' ' + str(cost))
@@ -228,15 +228,23 @@ def main(unused_argv, conf_dict= None, flags=None):
 
         t_iter.append((datetime.now() - t_startiter).seconds * 1e6 +  (datetime.now() - t_startiter).microseconds )
 
-        if itr % 100 == 1:
+        if itr % 10 == 1:
             hours = (datetime.now() -starttime).seconds/3600
             tf.logging.info('running for {0}d, {1}h, {2}min'.format(
                 (datetime.now() - starttime).days,
                 hours,+
                 (datetime.now() - starttime).seconds/60 - hours*60))
-            avg_t_iter = np.sum(np.asarray(t_iter))/len(t_iter)
-            tf.logging.info('time per iteration: {0}'.format(avg_t_iter/1e6))
-            tf.logging.info('expected for complete training: {0}h '.format(avg_t_iter /1e6/3600 * conf['num_iterations']))
+            avg_t_iter = np.mean(np.asarray(t_iter))/1e6
+            tf.logging.info('time per iteration: {0}'.format(avg_t_iter))
+            tf.logging.info('expected for complete training: {0}h '.format(avg_t_iter /3600 * conf['num_iterations']))
+
+            with open(conf['output_dir'] + '/timing.txt', 'w') as f:
+                f.write('average t_iter {} \n'.format(avg_t_iter))
+
+            # dump the average cost of the last 100 iterations
+            avg_cost_last100 = np.mean(costs[-100:])
+            print('average cost over last 100', avg_cost_last100)
+            pickle.dump(avg_cost_last100, open(conf['output_dir'] + '/avg_cost_last100.pkl', 'wb'))
 
         if (itr) % SUMMARY_INTERVAL == 2:
             summary_writer.add_summary(summary_str, itr)

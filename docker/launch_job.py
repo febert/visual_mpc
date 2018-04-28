@@ -10,6 +10,7 @@ parser.add_argument('run_script', type=str, help='relative path to the script to
 parser.add_argument('hyper', type=str, help='relative path to hyperparams file', default="")
 parser.add_argument('--int', default='False', type=str, help='interactive')
 parser.add_argument('--arg', default='', type=str, help='additional arguments')
+parser.add_argument('--nnode', default=8 , type=str, help='number nodes in 1,2,4,8')
 
 args = parser.parse_args()
 
