@@ -62,7 +62,7 @@ config = {
     'save_data': True,
     'start_index':0,
     'end_index': 59999,
-    'traj_per_file':1,
+    'traj_per_file':5,
     'agent':agent,
     'policy':policy,
 }
