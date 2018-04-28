@@ -35,7 +35,7 @@ class Sim(object):
         self.policyparams = config['policy']
 
         if 'RESULT_DIR' in os.environ:
-            self.agentparams['data_save_dir'] = os.environ['RESULT_DIR'] + '/traindata'
+            self.agentparams['data_save_dir'] = os.environ['RESULT_DIR'] + '/train'
         self._data_save_dir = self.agentparams['data_save_dir']
 
         if 'current_dir' in self._hyperparams:
@@ -95,6 +95,8 @@ class Sim(object):
         if self._timing_file is not None:
             with open(self._timing_file,'a') as f:
                 f.write("{} trajtime {} savetime {}\n".format(sample_index, t_traj, t_save))
+
+        # if 'verbose' in self.policyparams:
         if self.agent.goal_obj_pose is not None:
             plot_dist(traj, self.agentparams['record'])
         if 'register_gtruth' in self.policyparams:
@@ -215,7 +217,8 @@ def plot_warp_err(traj, dir):
     plt.savefig(dir + '/warperrors.png')
 
 def plot_dist(traj, dir):
-    goal_dist = np.array(traj.goal_dist)
+    goal_dist = np.stack(traj.goal_dist, axis=0)
     plt.figure()
-    plt.plot(goal_dist)
+    for ob in range(goal_dist.shape[1]):
+        plt.plot(goal_dist[:,ob])
     plt.savefig(dir + '/goal_dist.png')
