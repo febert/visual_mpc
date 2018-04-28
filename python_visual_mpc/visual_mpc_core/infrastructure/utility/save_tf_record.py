@@ -63,17 +63,16 @@ def save_tf_record(filename, trajectory_list, params):
                     max_move_pose = traj.max_move_pose[tind].flatten()
                     feature['move/' + str(tind) + '/max_move_pose'] = _float_feature(max_move_pose.tolist())
 
-            if hasattr(traj, 'large_images_retina'):
-                image_raw = traj.large_images_retina[tind].tostring()
-                feature['move/' + str(tind) + '/retina/encoded'] = _bytes_feature(image_raw)
-                feature['initial_retpos'] = _int64_feature(traj.initial_ret_pos.tolist())
-
             if hasattr(traj, 'gen_images'):
                 feature[str(tind) + '/gen_images'] = _bytes_feature(traj.gen_images[tind].tostring())
                 feature[str(tind) + '/gen_states'] = _float_feature(traj.gen_states[tind,:].tolist())
 
         if hasattr(traj, 'goal_image'):
             feature['/goal_image'] = _bytes_feature(traj.goal_image.tostring())
+
+        if hasattr(traj, 'first_last_noarm'):
+            feature['/first_last_noarm0'] = _bytes_feature(traj.first_last_noarm[0].tostring())
+            feature['/first_last_noarm1'] = _bytes_feature(traj.first_last_noarm[1].tostring())
 
         example = tf.train.Example(features=tf.train.Features(feature=feature))
         writer.write(example.SerializeToString())

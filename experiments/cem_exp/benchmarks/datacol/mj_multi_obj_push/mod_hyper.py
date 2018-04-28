@@ -15,7 +15,7 @@ agent = {
     'type': AgentMuJoCo,
     'T': 40,
     'substeps':50,
-    'make_final_gif':'',
+    # 'make_final_gif':'',
     'adim':3,
     'sdim':6,
     'filename': ROOT_DIR + '/mjc_models/cartgripper_updown.xml',
@@ -37,6 +37,7 @@ agent = {
     'const_dist':0.2,
     'randomize_ballinitpos':'',
     'dist_ok_thresh':0.1,
+    'first_last_noarm':''
 }
 
 policy = {

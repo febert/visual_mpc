@@ -227,6 +227,16 @@ def build_tfrecord_single(conf, training=True, input_file=None, shuffle=True):
             goal_image = tf.squeeze(decode_im(conf, features, '/goal_image'))
             return_dict['goal_image'] = goal_image
 
+        if 'first_last_noarm' in conf:
+            features_name = {}
+            features_name['/first_last_noarm0'] = tf.FixedLenFeature([1], tf.string)
+            features = tf.parse_single_example(serialized_example, features=features_name)
+            first_last_noarm0 = tf.squeeze(decode_im(conf, features, '/first_last_noarm0'))
+            features_name['/first_last_noarm1'] = tf.FixedLenFeature([1], tf.string)
+            features = tf.parse_single_example(serialized_example, features=features_name)
+            first_last_noarm1 = tf.squeeze(decode_im(conf, features, '/first_last_noarm1'))
+            return_dict['first_last_noarm'] = tf.stack([first_last_noarm0, first_last_noarm1], axis=0)
+
         if 'image_only' not in conf:
             return_dict['endeffector_pos'] = tf.concat(endeffector_pos_seq, 0)
             return_dict['actions'] = tf.concat(action_seq, 0)
@@ -276,7 +286,7 @@ def main():
     conf['skip_frame'] = 1
     conf['train_val_split']= 0.95
     conf['sequence_length']= 15 #48      # 'sequence length, including context frames.'
-    conf['batch_size']= 10
+    conf['batch_size']= 2
     conf['visualize']= True
     conf['context_frames'] = 2
     # conf['ncam'] = 2
@@ -289,6 +299,7 @@ def main():
     # conf['goal_image'] = ""
 
     conf['orig_size'] = [48, 64]
+    conf['first_last_noarm'] = ''
     # conf['orig_size'] = [64, 64]
     # conf['orig_size'] = [96, 128]
     # conf['load_vidpred_data'] = ''
@@ -317,7 +328,7 @@ def main():
 
         # images, actions, endeff, gen_images, gen_endeff = sess.run([dict['images'], dict['actions'], dict['endeffector_pos'], dict['gen_images'], dict['gen_states']])
         # images, actions, endeff = sess.run([dict['gen_images'], dict['actions'], dict['endeffector_pos']])
-        images, actions, endeff = sess.run([dict['images'], dict['actions'], dict['endeffector_pos']])
+        images, actions, endeff, firstlastnoarm = sess.run([dict['images'], dict['actions'], dict['endeffector_pos'], dict['first_last_noarm']])
         # [images] = sess.run([dict['images']])
 
         file_path = '/'.join(str.split(DATA_DIR, '/')[:-1]+['preview'])

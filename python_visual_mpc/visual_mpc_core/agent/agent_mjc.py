@@ -130,9 +130,7 @@ class AgentMuJoCo(object):
 
         if 'make_final_gif' in self._hyperparams:
             self.save_gif()
-
         return traj
-
 
     def get_desig_pix(self, round=True):
         qpos_dim = self.sdim // 2  # the states contains pos and vel
@@ -147,22 +145,22 @@ class AgentMuJoCo(object):
             desig_pix = np.around(desig_pix).astype(np.int)
         return desig_pix
 
-    def hide_arm_store_image(self, t, traj):
+    def hide_arm_store_image(self, ind, traj):
         qpos = copy.deepcopy(self.sim.data.qpos)
         qpos[2] -= 10
         sim_state = self.sim.get_state()
         sim_state.qpos[:] = qpos
         self.sim.set_state(sim_state)
         self.sim.forward()
+        width = self._hyperparams['image_width']
+        height = self._hyperparams['image_height']
+        traj.first_last_noarm[ind] = self.sim.render(width, height, camera_name='maincam')[::-1, :, :]
+        # plt.imshow(traj.first_last_noarm[ind])
+        # plt.show()
         qpos[2] += 10
         sim_state.qpos[:] = qpos
         self.sim.set_state(sim_state)
         self.sim.forward()
-
-        self._store_image(t, traj)
-
-        plt.imshow(traj._sample_images[t])
-        plt.show()
 
     def get_goal_pix(self, round=True):
         goal_pix = []
@@ -201,12 +199,6 @@ class AgentMuJoCo(object):
                 self.sim.data.ctrl[:] = ctrl
                 self.sim.step()
 
-
-        t0 = 0
-        if 'no_arm_first_last' in self._hyperparams:
-            t0 += 1
-            self.hide_arm_store_image(t0, traj)
-
         self.large_images_traj = []
         self.large_images = []
 
@@ -216,8 +208,11 @@ class AgentMuJoCo(object):
         self.gripper_closed = False
         self.gripper_up = False
 
+        if 'first_last_noarm' in self._hyperparams:
+            self.hide_arm_store_image(0, traj)
+
         # Take the sample.
-        for t in range(t0, self.T):
+        for t in range(self.T):
             qpos_dim = self.sdim // 2  # the states contains pos and vel
             traj.X_full[t, :] = self.sim.data.qpos[:qpos_dim].squeeze()
             traj.Xdot_full[t, :] = self.sim.data.qvel[:qpos_dim].squeeze()
@@ -234,7 +229,7 @@ class AgentMuJoCo(object):
             else:
                 self.desig_pix = self.get_desig_pix()
 
-            self._store_image(t, traj, policy)
+            self._store_image(t , traj, policy)
             if 'gtruthdesig' in self._hyperparams:  # generate many designated pixel goal-pixel pairs
                 self.desig_pix, self.goal_pix = gen_gtruthdesig(fullpose, self.goal_obj_pose,
                                         self.curr_mask_large, traj.largedimage[t], self._hyperparams['gtruthdesig'],
@@ -290,7 +285,7 @@ class AgentMuJoCo(object):
                 traj.goal_dist.append(self.eval_action(traj, t)[0])
 
         if 'no_arm_first_last' in self._hyperparams:
-            self.hide_arm_store_image(t, traj)
+            self.hide_arm_store_image(1, traj)
 
         # only save trajectories which displace objects above threshold
         if 'displacement_threshold' in self._hyperparams:
