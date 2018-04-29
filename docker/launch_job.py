@@ -11,6 +11,7 @@ parser.add_argument('hyper', type=str, help='relative path to hyperparams file',
 parser.add_argument('--int', default='False', type=str, help='interactive')
 parser.add_argument('--arg', default='', type=str, help='additional arguments')
 parser.add_argument('--name', default='', type=str, help='additional arguments')
+parser.add_argument('--ngpu', default=8, type=int, help='number of gpus')
 
 args = parser.parse_args()
 
@@ -59,7 +60,7 @@ data["datasetMounts"] = [{"containerMountPoint": "/mnt/tensorflow_data/sim/mj_po
                          {"containerMountPoint": "/mnt/pushing_data/cartgripper_updown_rot_sact", "id": 8951}
                          ]
 
-data["aceInstance"] = "ngcv8"
+data["aceInstance"] = "ngcv{}".format(args.ngpu)
 
 if args.int == 'True':
     command = "/bin/sleep 36000"
