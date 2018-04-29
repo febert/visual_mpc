@@ -3,65 +3,96 @@ import numpy as np
 import tensorflow as tf
 import imp
 import sys
-import cPickle
+import pickle
 import pdb
 
 import imp
 from tensorflow.python.platform import app
 from tensorflow.python.platform import flags
 
+from python_visual_mpc.video_prediction.utils_vpred.video_summary import convert_tensor_to_gif_summary
+
 from datetime import datetime
 import collections
 # How often to record tensorboard summaries.
-SUMMARY_INTERVAL = 400
+SUMMARY_INTERVAL = 100
 
 # How often to run a batch through the validation model.
 VAL_INTERVAL = 500
 
+VIDEO_INTERVAL = 10000
+
 # How often to save a model checkpoint
 SAVE_INTERVAL = 4000
 
-from python_visual_mpc.video_prediction.dynamic_rnn_model.dynamic_base_model import Dynamic_Base_Model
-# from python_visual_mpc.video_prediction.tracking_model.single_point_tracking_model import Single_Point_Tracking_Model
 from python_visual_mpc.video_prediction.tracking_model.single_point_tracking_model import Single_Point_Tracking_Model
+from python_visual_mpc.video_prediction.utils_vpred.variable_checkpoint_matcher import variable_checkpoint_matcher
+import re
 
-from python_visual_mpc.video_prediction.dynamic_rnn_model.alex_model_interface import Alex_Interface_Model
-
+def sorted_nicely( l ):
+    """ Sort the given iterable in the way that humans expect."""
+    convert = lambda text: int(text) if text.isdigit() else text
+    alphanum_key = lambda key: [ convert(c) for c in re.split('([0-9]+)', key) ]
+    return sorted(l, key = alphanum_key)
 
 if __name__ == '__main__':
-    FLAGS = flags.FLAGS
+    FLAGS_ = flags.FLAGS
     flags.DEFINE_string('hyper', '', 'hyperparameters configuration file')
-    flags.DEFINE_bool('visualize', False, 'visualize latest checkpoint')
     flags.DEFINE_string('visualize_check', "", 'model within hyperparameter folder from which to create gifs')
     flags.DEFINE_integer('device', 0 ,'the value for CUDA_VISIBLE_DEVICES variable')
-    flags.DEFINE_string('pretrained', None, 'path to model file from which to resume training')
+    flags.DEFINE_string('resume', None, 'path to model file from which to resume training')
     flags.DEFINE_bool('diffmotions', False, 'visualize several different motions for a single scene')
     flags.DEFINE_bool('metric', False, 'compute metric of expected distance to human-labled positions ob objects')
-
+    flags.DEFINE_bool('float16', False, 'whether to do inference with float16')
     flags.DEFINE_bool('create_images', False, 'whether to create images')
+    flags.DEFINE_bool('ow', False, 'overwrite previous experiment')
 
+def main(unused_argv, conf_dict= None, flags=None):
+    if flags is not None:
+        FLAGS = flags
+    else: FLAGS = FLAGS_
 
-def main(unused_argv, conf_script= None):
     os.environ["CUDA_VISIBLE_DEVICES"] = str(FLAGS.device)
-    print 'using CUDA_VISIBLE_DEVICES=', FLAGS.device
+    print('using CUDA_VISIBLE_DEVICES=', FLAGS.device)
     from tensorflow.python.client import device_lib
-    print device_lib.list_local_devices()
+    print(device_lib.list_local_devices())
 
-    if conf_script == None: conf_file = FLAGS.hyper
-    else: conf_file = conf_script
+    if conf_dict == None:
+        conf_file = FLAGS.hyper
+        if not os.path.exists(FLAGS.hyper):
+            sys.exit("Experiment configuration not found")
+        hyperparams = imp.load_source('hyperparams', conf_file)
+        conf = hyperparams.configuration
+    else:
+        conf = conf_dict
 
-    if not os.path.exists(FLAGS.hyper):
-        sys.exit("Experiment configuration not found")
-    hyperparams = imp.load_source('hyperparams', conf_file)
+    if 'VMPC_DATA_DIR' in os.environ:
+        if isinstance(conf['data_dir'], (list, tuple)):
+            new_data_dirs = []
+            for d in conf['data_dir']:
+                path = d.partition('pushing_data')[2]
+                new_data_dirs.append(os.environ['VMPC_DATA_DIR'] + path)
+            conf['data_dir'] = new_data_dirs
+        else:
+            path = conf['data_dir'].partition('pushing_data')[2]
+            conf['data_dir'] = os.environ['VMPC_DATA_DIR'] + path
 
-    conf = hyperparams.configuration
+    if 'RESULT_DIR' in os.environ:
+        conf['output_dir']= os.environ['RESULT_DIR']
 
-    if FLAGS.visualize or FLAGS.visualize_check:
-        print 'creating visualizations ...'
+    if FLAGS.ow:
+        print('deleting {}'.format(conf['output_dir']))
+        os.system("rm {}".format(conf['output_dir']) + '/*')
+
+    conf['event_log_dir'] = conf['output_dir']
+    if FLAGS.visualize_check:
+        print('creating visualizations ...')
         conf['schedsamp_k'] = -1  # don't feed ground truth
 
         if 'test_data_dir' in conf:
             conf['data_dir'] = conf['test_data_dir']
+        elif 'test_data_ind' in conf:
+            conf['data_dir'] = '/'.join(str.split(conf['data_dir'][conf['test_data_ind']], '/')[:-1] + ['test'])
         else: conf['data_dir'] = '/'.join(str.split(conf['data_dir'], '/')[:-1] + ['test'])
 
         if FLAGS.visualize_check:
@@ -71,6 +102,8 @@ def main(unused_argv, conf_script= None):
         conf['event_log_dir'] = '/tmp'
         conf.pop('use_len', None)
 
+        conf.pop('color_augmentation', None)
+
         if FLAGS.metric:
             conf['batch_size'] = 128
             conf['sequence_length'] = 15
@@ -79,11 +112,15 @@ def main(unused_argv, conf_script= None):
 
         conf['sequence_length'] = 14
         if FLAGS.diffmotions:
-            conf['sequence_length'] = 15 #!!!!!!!!!!!!!!!!!!!
+            conf['sequence_length'] = 14
 
         # when using alex interface:
         if 'modelconfiguration' in conf:
             conf['modelconfiguration']['schedule_sampling_k'] = conf['schedsamp_k']
+
+        if FLAGS.float16:
+            print('using float16')
+            conf['float16'] = ''
 
         build_loss = False
     else:
@@ -91,38 +128,30 @@ def main(unused_argv, conf_script= None):
 
     Model = conf['pred_model']
 
-    # with tf.variable_scope('generator'):  # TODO: get rid of this and make something automatic.
     if FLAGS.diffmotions or "visualize_tracking" in conf or FLAGS.metric:
         model = Model(conf, load_data=False, trafo_pix=True, build_loss=build_loss)
     else:
         model = Model(conf, load_data=True, trafo_pix=False, build_loss=build_loss)
 
-    print 'Constructing saver.'
-    # Make saver.
+    print('Constructing saver.')
     vars = tf.get_collection(tf.GraphKeys.GLOBAL_VARIABLES)
     vars = filter_vars(vars)
     saving_saver = tf.train.Saver(vars, max_to_keep=0)
 
-    # for loading variables when visualizing
-    if FLAGS.visualize or FLAGS.visualize_check or FLAGS.pretrained:
-        load_vars = variable_checkpoint_matcher(conf, vars)
-        # remove all states from group of variables which shall be saved and restored:
-        loading_saver = tf.train.Saver(load_vars, max_to_keep=0)
 
-    if isinstance(model, Single_Point_Tracking_Model) and not (FLAGS.visualize or FLAGS.visualize_check):
-        # initialize the predictor from pretrained weights
-        # select weights that are *not* part of the tracker
-        vars = tf.get_collection(tf.GraphKeys.GLOBAL_VARIABLES)
-        predictor_vars = []
-        for var in vars:
-            if str.split(var.name, '/')[0] != 'tracker':
-                predictor_vars.append(var)
+    if FLAGS.resume:
+        vars = variable_checkpoint_matcher(conf, vars, FLAGS.resume)
+        loading_saver = tf.train.Saver(vars, max_to_keep=0)
 
+    if FLAGS.visualize_check:
+        vars = variable_checkpoint_matcher(conf, vars, conf['visualize_check'])
+        loading_saver = tf.train.Saver(vars, max_to_keep=0)
 
     gpu_options = tf.GPUOptions(per_process_gpu_memory_fraction=0.9)
     # Make training session.
-    sess = tf.InteractiveSession(config=tf.ConfigProto(gpu_options=gpu_options))
-    summary_writer = tf.summary.FileWriter(conf['output_dir'], graph=sess.graph, flush_secs=10)
+    # sess = tf.InteractiveSession(config=tf.ConfigProto(gpu_options=gpu_options))
+    sess = tf.Session(config=tf.ConfigProto(gpu_options=gpu_options))
+    summary_writer = tf.summary.FileWriter(conf['event_log_dir'], graph=sess.graph, flush_secs=10)
 
     if not FLAGS.diffmotions:
         tf.train.start_queue_runners(sess)
@@ -134,11 +163,11 @@ def main(unused_argv, conf_script= None):
             load_checkpoint(conf, sess, loading_saver, conf['visualize_check'])
         else: load_checkpoint(conf, sess, loading_saver)
 
-        print '-------------------------------------------------------------------'
-        print 'verify current settings!! '
-        for key in conf.keys():
-            print key, ': ', conf[key]
-        print '-------------------------------------------------------------------'
+        print('-------------------------------------------------------------------')
+        print('verify current settings!! ')
+        for key in list(conf.keys()):
+            print(key, ': ', conf[key])
+        print('-------------------------------------------------------------------')
 
         if FLAGS.diffmotions:
             model.visualize_diffmotions(sess)
@@ -149,15 +178,15 @@ def main(unused_argv, conf_script= None):
         return
 
     itr_0 =0
-    if FLAGS.pretrained != None:
-        itr_0 = load_checkpoint(conf, sess, loading_saver, model_file=FLAGS.pretrained)
-        print 'resuming training at iteration: ', itr_0
+    if FLAGS.resume != None:
+        itr_0 = load_checkpoint(conf, sess, loading_saver, model_file=FLAGS.resume)
+        print('resuming training at iteration: ', itr_0)
 
-    print '-------------------------------------------------------------------'
-    print 'verify current settings!! '
-    for key in conf.keys():
-        print key, ': ', conf[key]
-    print '-------------------------------------------------------------------'
+    print('-------------------------------------------------------------------')
+    print('verify current settings!! ')
+    for key in list(conf.keys()):
+        print(key, ': ', conf[key])
+    print('-------------------------------------------------------------------')
 
     tf.logging.info('iteration number, cost')
 
@@ -168,10 +197,10 @@ def main(unused_argv, conf_script= None):
     for itr in range(itr_0, conf['num_iterations'], 1):
         t_startiter = datetime.now()
         # Generate new batch of data_files.
+
         feed_dict = {model.iter_num: np.float32(itr),
                      model.train_cond: 1}
-
-        cost, _, summary_str = sess.run([model.loss, model.train_op, model.summ_op],
+        cost, _, summary_str = sess.run([model.loss, model.train_op, model.train_summ_op],
                                         feed_dict)
 
         if (itr) % 10 ==0:
@@ -181,8 +210,14 @@ def main(unused_argv, conf_script= None):
             # Run through validation set.
             feed_dict = {model.iter_num: np.float32(itr),
                          model.train_cond: 0}
-            [val_summary_str] = sess.run([model.summ_op], feed_dict)
+            [val_summary_str] = sess.run([model.val_summ_op], feed_dict)
             summary_writer.add_summary(val_summary_str, itr)
+
+        if (itr) % VIDEO_INTERVAL == 2 and hasattr(model, 'val_video_summaries'):
+            feed_dict = {model.iter_num: np.float32(itr),
+                         model.train_cond: 0}
+            video_proto = sess.run(model.val_video_summaries, feed_dict = feed_dict)
+            summary_writer.add_summary(convert_tensor_to_gif_summary(video_proto), itr)
 
         if (itr) % SAVE_INTERVAL == 2:
             tf.logging.info('Saving model to' + conf['output_dir'])
@@ -200,14 +235,16 @@ def main(unused_argv, conf_script= None):
             tf.logging.info('time per iteration: {0}'.format(avg_t_iter/1e6))
             tf.logging.info('expected for complete training: {0}h '.format(avg_t_iter /1e6/3600 * conf['num_iterations']))
 
-        if (itr) % SUMMARY_INTERVAL:
+        if (itr) % SUMMARY_INTERVAL == 2:
             summary_writer.add_summary(summary_str, itr)
 
-    tf.logging.info('Saving model.')
-    saving_saver.save(sess, conf['output_dir'] + '/model')
-    tf.logging.info('Training complete')
-    tf.logging.flush()
+        if 'timingbreak' in conf:
+            if conf['timingbreak'] == itr:
+                break
 
+    sess.close()
+    tf.reset_default_graph()
+    return np.array(t_iter)/1e6
 
 def load_checkpoint(conf, sess, saver, model_file=None):
     """
@@ -222,46 +259,11 @@ def load_checkpoint(conf, sess, saver, model_file=None):
         num_iter = int(re.match('.*?([0-9]+)$', model_file).group(1))
     else:
         ckpt = tf.train.get_checkpoint_state(conf['output_dir'])
-        print("loading " + ckpt.model_checkpoint_path)
+        print(("loading " + ckpt.model_checkpoint_path))
         saver.restore(sess, ckpt.model_checkpoint_path)
         num_iter = int(re.match('.*?([0-9]+)$', ckpt.model_checkpoint_path).group(1))
     conf['num_iter'] = num_iter
     return num_iter
-
-
-def variable_checkpoint_matcher(conf, vars, model_file=None):
-    """
-    for every variable in vars takes its name and looks into the
-    checkpoint to find variable that matches its name beginning from the end
-    :param vars:
-    :return:
-    """
-    if model_file is None:
-        ckpt = tf.train.get_checkpoint_state(conf['output_dir'])
-        folder = ckpt.model_checkpoint_path
-    else:
-        folder = model_file
-
-    reader = tf.train.NewCheckpointReader(folder)
-    var_to_shape_map = reader.get_variable_to_shape_map()
-    check_names = var_to_shape_map.keys()
-
-    vars = dict([(var.name.split(':')[0], var) for var in vars])
-    new_vars = {}
-    for varname in vars.keys():
-        found = False
-        for ck_name in check_names:
-            ck_name_parts = ck_name.split('/')
-            varname_parts = varname.split('/')
-            if varname_parts == ck_name_parts[-len(varname_parts):]:
-                new_vars[ck_name] = vars[varname]
-                found = True
-                # print "found {} in {}".format(varname, ck_name)
-                break
-        if not found:
-            raise ValueError("did not find variable{}".format(varname))
-    return new_vars
-
 
 def filter_vars(vars):
     newlist = []
@@ -269,7 +271,7 @@ def filter_vars(vars):
         if not '/state:' in v.name:
             newlist.append(v)
         else:
-            print 'removed state variable from saving-list: ', v.name
+            print('removed state variable from saving-list: ', v.name)
     return newlist
 
 if __name__ == '__main__':
