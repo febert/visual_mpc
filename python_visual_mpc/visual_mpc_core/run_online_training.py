@@ -128,6 +128,8 @@ def main():
 
     if 'prefil_replay' in onpolconf:
         print('prefilling replay')
+        path = trainvid_conf['data_dir'].partition('pushing_data')[2]
+        trainvid_conf['data_dir'] = os.environ['VMPC_DATA_DIR'] + path
         rb.prefil(onpolconf['replay_size'], trainvid_conf)
         print('prefilling replay done.')
 
