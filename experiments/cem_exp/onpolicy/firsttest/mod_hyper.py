@@ -31,7 +31,7 @@ agent = {
     'randomize_ballinitpos':'',
     'const_dist':0.2,
     'data_save_dir':current_dir + '/data/train',
-    'logging_dir':current_dir,
+    'logging_dir':current_dir + '/logging',
     'posmode':"",
     'targetpos_clip':[[-0.45, -0.45, -0.08], [0.45, 0.45, 0.15]],
     'discrete_adim':[2],
@@ -57,7 +57,7 @@ policy = {
 
 
 onpolconf = {
-    'infnet_reload_freq':10, #############,     # reload inference model weights after n number of new trajectores collected
+    'infnet_reload_freq':100, #############,     # reload inference model weights after n number of new trajectores collected
     'replay_size':10,
     'prefil_replay':5,        # fill replay with existing trajectories from dataset
 }
