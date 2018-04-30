@@ -35,15 +35,16 @@ class ReplayBuffer(object):
         return np.stack(images,0), np.stack(states,0), np.stack(actions,0)
 
     def prefil(self, prefil_n, trainvid_conf):
-        dict = build_tfrecord_input(trainvid_conf, training=True)
-        sess = tf.InteractiveSession()
-        tf.train.start_queue_runners(sess)
-        sess.run(tf.global_variables_initializer())
-        for i_run in range(prefil_n//trainvid_conf['batch_size']):
-            images, actions, endeff = sess.run([dict['images'], dict['actions'], dict['endeffector_pos']])
-            for b in range(trainvid_conf['batch_size']):
-                t = Traj(images[b], endeff[b], actions[b])
-                self.push_back(t)
+        sess = tf.Session()
+        with sess.as_default():
+            dict = build_tfrecord_input(trainvid_conf, training=True)
+            tf.train.start_queue_runners(sess)
+            sess.run(tf.global_variables_initializer())
+            for i_run in range(prefil_n//trainvid_conf['batch_size']):
+                images, actions, endeff = sess.run([dict['images'], dict['actions'], dict['endeffector_pos']])
+                for b in range(trainvid_conf['batch_size']):
+                    t = Traj(images[b], endeff[b], actions[b])
+                    self.push_back(t)
 
     def update(self):
         done_id, self.todo_ids = ray.wait(self.todo_ids, timeout=0)
