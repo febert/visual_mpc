@@ -18,7 +18,7 @@ class ReplayBuffer(object):
 
     def push_back(self, traj):
         self.ring_buffer.append(traj)
-        if len(self.ring_buffer) == self.maxsize:
+        if len(self.ring_buffer) > self.maxsize:
             self.ring_buffer.pop(0)
 
     def get_batch(self):

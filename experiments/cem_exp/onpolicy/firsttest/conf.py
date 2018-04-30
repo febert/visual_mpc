@@ -18,7 +18,7 @@ configuration = {
 'setup_predictor':setup_predictor,
 'output_dir': OUT_DIR,      #'directory for model checkpoints.' ,
 'current_dir': current_dir, #'directory for writing summary.' ,
-'sequence_length': 15,      # 'sequence length to load, including context frames.' ,
+'sequence_length': 6,#######################15,      # 'sequence length to load, including context frames.' ,
 'skip_frame': 1,            # 'use ever i-th frame to increase prediction horizon' ,
 'context_frames': 2,        # of frames before predictions.' ,
 'use_state': 1,             #'Whether or not to give the state+action to the model' ,

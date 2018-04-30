@@ -53,7 +53,7 @@ def trainvid_online(replay_buffer, conf, gpu_id):
 
     vars = variable_checkpoint_matcher(conf, vars, conf['pretrained'])
     loading_saver = tf.train.Saver(vars, max_to_keep=0)
-    load_checkpoint(conf, sess, loading_saver)
+    load_checkpoint(conf, sess, loading_saver, conf['pretrained'])
 
     print('-------------------------------------------------------------------')
     print('verify current settings!! ')
@@ -69,6 +69,7 @@ def trainvid_online(replay_buffer, conf, gpu_id):
         print("took {} to update the replay buffer".format(time.time() - tstart_rb_update))
 
         t_startiter = datetime.now()
+        pdb.set_trace()
         images, actions, states = replay_buffer.get()
         feed_dict = {model.iter_num: np.float32(itr),
                      model.train_cond: 1,

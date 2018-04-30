@@ -12,7 +12,7 @@ from python_visual_mpc.visual_mpc_core.agent.agent_mjc import AgentMuJoCo
 import numpy as np
 agent = {
     'type': AgentMuJoCo,
-    'T': 15, #############################30,
+    'T': 3, #############################30,
     'substeps':200,
     'adim':3,
     'sdim':6,
@@ -42,12 +42,12 @@ policy = {
     'low_level_ctrl': None,
     'current_dir':current_dir,
     'usenet': True,
-    'nactions': 5,
+    'nactions': 2,############################5,
     'repeat': 3,
     'initial_std': 0.08,        # std dev. in xy
     'initial_std_lift': 2.5,
     'netconf': current_dir + '/conf.py',
-    'iterations': 3,
+    'iterations': 1,######################################3,
     'action_cost_factor': 0,
     'rew_all_steps':"",
     'finalweight':10,
@@ -56,9 +56,9 @@ policy = {
 
 
 onpolconf = {
-    'infnet_reload_freq':2,
-    'replay_size':100,
-    'prefil_replay':100,        # fill replay with exisitng trajectories from dataset
+    'infnet_reload_freq':4,     # reload inference model weights after n number of new trajectores collected
+    'replay_size':1,
+    # 'prefil_replay':0,        # fill replay with exisitng trajectories from dataset
 }
 
 config = {
@@ -66,7 +66,7 @@ config = {
     'save_data': False,
     'save_raw_images':'',
     'start_index':0,
-    'end_index': 49,
+    'end_index': 1, ########################################## 59999
     'agent':agent,
     'policy':policy,
     'onpolconf':onpolconf,
