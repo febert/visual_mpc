@@ -43,10 +43,11 @@ class Tower(object):
         modconf['batch_size'] = nsmp_per_gpu
         self.model = Model(modconf, start_images, actions, start_states, pix_distrib=pix_distrib, build_loss=False)
 
-def setup_predictor(conf, gpu_id=0, ngpu=1):
+def setup_predictor(hyperparams, conf, gpu_id=0, ngpu=1):
     """
     Setup up the network for control
-    :param conf_file:
+    :param hyperparams: general hyperparams, can include control flags
+    :param conf_file for network
     :param ngpu number of gpus to use
     :return: function which predicts a batch of whole trajectories
     conditioned on the actions
@@ -105,7 +106,7 @@ def setup_predictor(conf, gpu_id=0, ngpu=1):
             vars = tf.get_collection(tf.GraphKeys.GLOBAL_VARIABLES)
             vars = filter_vars(vars)
 
-            if 'load_latest' in conf:
+            if 'load_latest' in hyperparams:
                 pdb.set_trace()
                 ckpt = tf.train.get_checkpoint_state(conf['pretrained_model'])
                 print(("loading " + ckpt.model_checkpoint_path))
