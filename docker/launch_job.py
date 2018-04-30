@@ -57,8 +57,8 @@ data["datasetMounts"] = [{"containerMountPoint": "/mnt/tensorflow_data/sim/mj_po
                          {"containerMountPoint": "/mnt/pushing_data/mj_pos_noreplan_fast_tfrec", "id": 8807},  #mj_pos_noreplan_fast_tfrec    | gtruth mujoco planning pushing
                          {"containerMountPoint": "/mnt/pushing_data/mj_pos_noreplan_fast_tfrec_fewdata", "id": 8972},  #mj_pos_noreplan_fast_tfrec    | gtruth mujoco planning pushing
                          {"containerMountPoint": "/mnt/pushing_data/cartgripper_updown_sact", "id": 8931},
-                         {"containerMountPoint": "/mnt/pushing_data/cartgripper_updown_rot_sact", "id": 8951}
-                         {"containerMountPoint": "/mnt/sda1/pushing_data/onpolicy/updown_sact_bounded_disc", "id": }
+                         {"containerMountPoint": "/mnt/pushing_data/cartgripper_updown_rot_sact", "id": 8951},
+                         {"containerMountPoint": "/mnt/sda1/pushing_data/onpolicy/updown_sact_bounded_disc", "id": 9363}
                          ]
 
 data["aceInstance"] = "ngcv{}".format(args.ngpu)
