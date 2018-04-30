@@ -58,7 +58,7 @@ def read_images(conf, trajname, traj, tar):
 
         img_stream = tar.extractfile(im_filename[1:])
         file_bytes = np.asarray(bytearray(img_stream.read()), dtype=np.uint8)
-        traj._sample_images[trajind] = cv2.imdecode(file_bytes, 1)
+        traj.images[trajind] = cv2.imdecode(file_bytes, 1)
 
         trajind += 1
 
@@ -101,7 +101,7 @@ class VideoDataset(Dataset):
         states = np.concatenate([pkldata['qpos'],  pkldata['qvel']], axis=1)
         actions = pkldata['actions']
 
-        images = traj._sample_images.astype(np.float32)/255.
+        images = traj.images.astype(np.float32) / 255.
         sample = {'images': images, 'states':states, 'actions':actions}
 
         if self.transform:

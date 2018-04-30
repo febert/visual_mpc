@@ -32,6 +32,7 @@ from python_visual_mpc.video_prediction.utils_vpred.variable_checkpoint_matcher 
 def trainvid_online(replay_buffer, conf, gpu_id):
 
     os.environ["CUDA_VISIBLE_DEVICES"] = "{}".format(gpu_id)
+    print('training video prediction model on GPU {}'.format(gpu_id))
     from tensorflow.python.client import device_lib
     print(device_lib.list_local_devices())
 
@@ -40,7 +41,7 @@ def trainvid_online(replay_buffer, conf, gpu_id):
     conf['event_log_dir'] = conf['output_dir']
 
     Model = conf['pred_model']
-    model = Model(conf, load_data=True, trafo_pix=False, build_loss=True)
+    model = Model(conf, load_data=False, trafo_pix=False, build_loss=True)
 
     print('Constructing saver.')
     vars = tf.get_collection(tf.GraphKeys.GLOBAL_VARIABLES)
@@ -61,16 +62,17 @@ def trainvid_online(replay_buffer, conf, gpu_id):
         print(key, ': ', conf[key])
     print('-------------------------------------------------------------------')
 
+    tf.logging.set_verbosity(tf.logging.INFO)
+
     starttime = datetime.now()
     t_iter = []
     for itr in range(0, conf['num_iterations'], 1):
         tstart_rb_update = time.time()
         replay_buffer.update()
-        print("took {} to update the replay buffer".format(time.time() - tstart_rb_update))
+        # print("took {} to update the replay buffer".format(time.time() - tstart_rb_update))
 
         t_startiter = datetime.now()
-        pdb.set_trace()
-        images, actions, states = replay_buffer.get()
+        images, states, actions = replay_buffer.get_batch()
         feed_dict = {model.iter_num: np.float32(itr),
                      model.train_cond: 1,
                      model.images_pl:images,
@@ -80,19 +82,18 @@ def trainvid_online(replay_buffer, conf, gpu_id):
         cost, _, summary_str = sess.run([model.loss, model.train_op, model.train_summ_op],
                                         feed_dict)
 
+        t_iter.append((datetime.now() - t_startiter).seconds * 1e6 +  (datetime.now() - t_startiter).microseconds )
+
         if (itr) % 10 ==0:
             tf.logging.info(str(itr) + ' ' + str(cost))
 
-        if (itr) % VAL_INTERVAL == 2:
-            # Run through validation set.
-            feed_dict = {model.iter_num: np.float32(itr),
-                         model.train_cond: 0,}
-            [val_summary_str] = sess.run([model.val_summ_op], feed_dict)
-            summary_writer.add_summary(val_summary_str, itr)
-
         if (itr) % VIDEO_INTERVAL == 2 and hasattr(model, 'val_video_summaries'):
             feed_dict = {model.iter_num: np.float32(itr),
-                         model.train_cond: 0}
+                         model.train_cond: 0,
+                         model.images_pl:images,
+                         model.actions_pl:actions,
+                         model.states_pl:states
+                         }
             video_proto = sess.run(model.val_video_summaries, feed_dict = feed_dict)
             summary_writer.add_summary(convert_tensor_to_gif_summary(video_proto), itr)
 
@@ -100,9 +101,8 @@ def trainvid_online(replay_buffer, conf, gpu_id):
             tf.logging.info('Saving model to' + conf['output_dir'])
             saving_saver.save(sess, conf['output_dir'] + '/model' + str(itr))
 
-        t_iter.append((datetime.now() - t_startiter).seconds * 1e6 +  (datetime.now() - t_startiter).microseconds )
 
-        if itr % 100 == 1:
+        if itr % 50 == 1:
             hours = (datetime.now() -starttime).seconds/3600
             tf.logging.info('running for {0}d, {1}h, {2}min'.format(
                 (datetime.now() - starttime).days,

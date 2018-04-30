@@ -66,7 +66,7 @@ class ImitationPolicy(Policy):
         #     actions[-1] = -100
         #     return actions - traj.target_qpos[t, :] * traj.mask_rel
 
-        sample_images = traj._sample_images[:t + 1].reshape((1, -1, self.img_height, self.img_width, 3)).astype(np.float32)
+        sample_images = traj.images[:t + 1].reshape((1, -1, self.img_height, self.img_width, 3)).astype(np.float32)
         sample_images /= 256.
         sample_eep = traj.target_qpos[:t + 1, :].reshape((1, -1, self.sdim)).astype(np.float32)
         #sample_eep = traj.X_Xdot_full[t, :].reshape((1, -1, self.sdim)).astype(np.float32)

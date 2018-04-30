@@ -9,7 +9,7 @@ import cv2
 from python_visual_mpc.visual_mpc_core.infrastructure.utility.save_tf_record import save_tf_record
 class LoadTraj:
     def __init__(self):
-        self.actions, self.X_Xdot_full, self._sample_images = None, None, None
+        self.actions, self.X_Xdot_full, self.images = None, None, None
 def main():
     parser = argparse.ArgumentParser(description='run parllel data collection')
     parser.add_argument('experiment', type=str, help='experiment name')
@@ -53,10 +53,10 @@ def main():
                 loaded_traj = LoadTraj()
                 loaded_traj.actions = state_action['actions']
                 loaded_traj.X_Xdot_full = state_action['target_qpos'][:T, :]
-                loaded_traj._sample_images = np.zeros((T, img_height, img_width, 3), dtype = 'uint8')
+                loaded_traj.images = np.zeros((T, img_height, img_width, 3), dtype = 'uint8')
                 for i in range(T):
                     img = cv2.imread(t + '/images/im{}.png'.format(i))[:, :, ::-1]
-                    loaded_traj._sample_images[i] = img
+                    loaded_traj.images[i] = img
 
                 traj_list.append(loaded_traj)
                 counter += 1

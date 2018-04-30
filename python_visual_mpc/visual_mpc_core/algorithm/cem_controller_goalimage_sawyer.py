@@ -444,7 +444,7 @@ class CEM_controller():
                 self.start_image = copy.deepcopy(self.traj._image_medium[0]).astype(np.float32) / 255.
                 self.warped_image_start, self.warped_image_goal = self.register_gtruth(self.start_image, last_frames_med, self.goal_image)
             else:
-                self.start_image = copy.deepcopy(self.traj._sample_images[0]).astype(np.float32) / 255.
+                self.start_image = copy.deepcopy(self.traj.images[0]).astype(np.float32) / 255.
                 self.warped_image_start, self.warped_image_goal = self.register_gtruth(self.start_image, last_frames, self.goal_image)
 
         if 'use_goal_image' in self.policyparams and 'comb_flow_warp' not in self.policyparams\
@@ -712,7 +712,7 @@ class CEM_controller():
                 self.desig_pix_t0_med = (self.desig_pix * self.agentparams['image_medium'][0]/self.agentparams['image_height']).astype(np.int)
         else:
             ctxt = self.netconf['context_frames']
-            last_images = traj._sample_images[t-ctxt+1:t+1]  # same as [t - 1:t + 1] for context 2
+            last_images = traj.images[t-ctxt+1:t+1]  # same as [t - 1:t + 1] for context 2
             if 'image_medium' in self.agentparams:
                 last_images_med = traj._image_medium[t-ctxt+1:t+1]  # same as [t - 1:t + 1] for context 2
 

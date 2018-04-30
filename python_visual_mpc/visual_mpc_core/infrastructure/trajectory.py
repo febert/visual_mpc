@@ -15,15 +15,15 @@ class Trajectory(object):
             img_width = conf['image_width']
 
         if 'cameras' in conf:
-            self._sample_images = np.zeros((self.T, len(conf['cameras']),
-                                            img_height,
-                                            img_width,
-                                            img_channels), dtype='uint8')
+            self.images = np.zeros((self.T, len(conf['cameras']),
+                                    img_height,
+                                    img_width,
+                                    img_channels), dtype='uint8')
         else:
-            self._sample_images = np.zeros((self.T,
-                                            img_height,
-                                            img_width,
-                                            img_channels), dtype='uint8')
+            self.images = np.zeros((self.T,
+                                    img_height,
+                                    img_width,
+                                    img_channels), dtype='uint8')
 
         if 'image_medium' in conf:
             self._image_medium = np.zeros((self.T,

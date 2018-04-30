@@ -34,7 +34,7 @@ def save_tf_record(filename, trajectory_list, params):
         if 'store_video_prediction' in params:
             sequence_length = len(traj.final_predicted_images)
         else:
-            sequence_length = traj._sample_images.shape[0]
+            sequence_length = traj.images.shape[0]
 
         for tind in range(sequence_length):
 
@@ -43,13 +43,13 @@ def save_tf_record(filename, trajectory_list, params):
 
             if 'cameras' in params:
                 for i in range(len(params['cameras'])):
-                    image_raw = traj._sample_images[tind, i].tostring()
+                    image_raw = traj.images[tind, i].tostring()
                     feature[str(tind) + '/image_view{}/encoded'.format(i)] = _bytes_feature(image_raw)
             else:
                 if 'store_video_prediction' in params:
                     image_raw = traj.final_predicted_images[tind].tostring()
                 else:
-                    image_raw = traj._sample_images[tind].tostring()
+                    image_raw = traj.images[tind].tostring()
                 feature[str(tind) + '/image_view0/encoded'] = _bytes_feature(image_raw)
 
             if hasattr(traj, 'touchdata'):

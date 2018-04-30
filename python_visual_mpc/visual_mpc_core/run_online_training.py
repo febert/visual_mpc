@@ -23,12 +23,13 @@ import ray
 from python_visual_mpc.video_prediction.online_training.replay_buffer import ReplayBuffer
 import pickle
 from python_visual_mpc.video_prediction.online_training.trainvid_online import trainvid_online
-
 import matplotlib; matplotlib.use('Agg'); import matplotlib; matplotlib.use('Agg'); import matplotlib.pyplot as plt
+
+
 @ray.remote
 class Data_Collector(object):
     def __init__(self, conf, collector_id):
-        print('started process with PID {} with collector_id {}'.format(os.getpid(), collector_id))
+        print('started process with PID {} and collector_id {}'.format(os.getpid(), collector_id))
         self.itraj = conf['start_index']
         self.maxtraj = conf['end_index']
         self.colllector_id = collector_id
@@ -36,7 +37,6 @@ class Data_Collector(object):
         np.random.seed(None)
         self.conf = conf
         self.sim = Sim(conf, gpu_id=conf['gpu_id'])
-
         print('init data collectors done.')
 
     def run_traj(self):
@@ -69,12 +69,8 @@ def main():
     parser.add_argument('--nsplit', type=int, help='number of splits', default=-1)
     parser.add_argument('--isplit', type=int, help='split id', default=-1)
     parser.add_argument('--iex', type=int, help='if different from -1 use only do example', default=-1)
-    parser.add_argument('--test', type=str, help='if different from -1 use only do example', default='False')
 
     args = parser.parse_args()
-    if args.test == 'True':
-        testrun = True
-    else: testrun = False
     hyperparams_file = args.experiment
     exp_dir = '/'.join(str.split(hyperparams_file, '/')[:-1])
     trainvid_conf_file = exp_dir + '/trainvid_conf.py'
