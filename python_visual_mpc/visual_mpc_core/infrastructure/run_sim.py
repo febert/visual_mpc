@@ -21,17 +21,20 @@ import pickle
 import cv2
 import shutil
 import numpy as np
+from python_visual_mpc.visual_mpc_core.infrastructure.utility.logger import Logger
 
 
 class Sim(object):
     """ Main class to run algorithms and experiments. """
 
-    def __init__(self, config, gpu_id=0, ngpu=1):
-
+    def __init__(self, config, gpu_id=0, ngpu=1, ):
         self._hyperparams = config
         self.agent = config['agent']['type'](config['agent'])
         self.agentparams = config['agent']
         self.policyparams = config['policy']
+
+        self.logger = Logger(self.agentparams['logging_dir'], 'sim_log.txt')
+        self.logger.log('init CEM controller')
 
         if 'RESULT_DIR' in os.environ:
             self.agentparams['data_save_dir'] = os.environ['RESULT_DIR'] + '/train'
@@ -74,7 +77,6 @@ class Sim(object):
                                                               self.policyparams, self.predictor)
         else:
             self.policy = self.policyparams['type'](self.agent._hyperparams, self.policyparams)
-
 
     def run(self):
         for i in range(self._hyperparams['start_index'], self._hyperparams['end_index']+1):
@@ -130,11 +132,11 @@ class Sim(object):
             self.depth_image_folder = self.traj_folder + '/depth_images'
 
             if os.path.exists(self.traj_folder):
-                print('trajectory folder {} already exists, deleting the folder'.format(self.traj_folder))
+                self.logger.log('trajectory folder {} already exists, deleting the folder'.format(self.traj_folder))
                 shutil.rmtree(self.traj_folder)
 
             os.makedirs(self.traj_folder)
-            print('writing: ', self.traj_folder)
+            self.logger.log('writing: ', self.traj_folder)
             os.makedirs(self.image_folder)
             os.makedirs(self.depth_image_folder)
 
@@ -197,7 +199,7 @@ class Sim(object):
                 traj_per_file = self._hyperparams['traj_per_file']
             else:
                 traj_per_file = 256
-            print('traj_per_file', traj_per_file)
+            self.logger.log('traj_per_file', traj_per_file)
             if len(self.trajectory_list) == traj_per_file:
                 filename = 'traj_{0}_to_{1}' \
                     .format(itr - traj_per_file + 1, itr)

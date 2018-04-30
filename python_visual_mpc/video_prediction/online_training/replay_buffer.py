@@ -5,17 +5,20 @@ import random
 import ray
 from collections import namedtuple
 from python_visual_mpc.video_prediction.read_tf_records2 import build_tfrecord_input
+from python_visual_mpc.visual_mpc_core.infrastructure.utility.logger import Logger
 import pdb
 
 Traj = namedtuple('Traj', 'images X_Xdot_full actions')
 
 class ReplayBuffer(object):
-    def __init__(self, maxsize, batch_size, data_collectors, todo_ids):
+    def __init__(self, agentparams, maxsize, batch_size, data_collectors, todo_ids):
+        self.logger = Logger(agentparams['logging_dir'], 'replay_log.txt')
         self.ring_buffer = []
         self.maxsize = maxsize
         self.batch_size = batch_size
         self.data_collectors = data_collectors
         self.todo_ids = todo_ids
+        self.logger.log('init Replay buffer')
 
     def push_back(self, traj):
         self.ring_buffer.append(traj)
@@ -38,7 +41,7 @@ class ReplayBuffer(object):
     def prefil(self, prefil_n, trainvid_conf):
         os.environ["CUDA_VISIBLE_DEVICES"] = ""
         from tensorflow.python.client import device_lib
-        print(device_lib.list_local_devices())
+        self.logger.log(device_lib.list_local_devices())
         g_vidpred = tf.Graph()
         sess = tf.Session(graph=g_vidpred)
         with sess.as_default():
@@ -60,11 +63,11 @@ class ReplayBuffer(object):
         if done_id is not []:
             for id in done_id:
                 traj, info = ray.get(id)
-                print("pushing back traj")
+                self.logger.log("pushing back traj")
                 self.push_back(traj)
                 # relauch the collector if it hasn't done all its work yet.
                 returning_collector = self.data_collectors[info['collector_id']]
                 if info['itraj'] < info['maxtraj']:
                     self.todo_ids.append(returning_collector.run_traj.remote())
                 else:
-                    print('tasks finished, no new task launched')
+                    self.logger.log('tasks finished, no new task launched')
