@@ -122,7 +122,7 @@ def main():
         data_collectors.append(Data_Collector.remote(modconf, i))
 
     todo_ids = [d.run_traj.remote() for d in data_collectors]
-    rb = ReplayBuffer(maxsize=onpolconf['replay_size'],
+    rb = ReplayBuffer(hyperparams['agent'], maxsize=onpolconf['replay_size'],
                       batch_size=16, data_collectors=data_collectors, todo_ids=todo_ids)
 
     if 'prefil_replay' in onpolconf:
