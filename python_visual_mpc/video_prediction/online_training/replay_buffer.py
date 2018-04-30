@@ -41,7 +41,7 @@ class ReplayBuffer(object):
         print(device_lib.list_local_devices())
         pdb.set_trace()
         g_vidpred = tf.Graph()
-        sess = tf.Session(config=tf.ConfigProto(gpu_options=gpu_options, allow_soft_placement=True), graph=g_vidpred)
+        sess = tf.Session()
         with sess.as_default():
             with g_vidpred.as_default():
                 pdb.set_trace()
