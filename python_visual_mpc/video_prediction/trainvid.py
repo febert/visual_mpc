@@ -52,8 +52,8 @@ def main(unused_argv, conf_dict= None, flags=None):
         FLAGS = flags
     else: FLAGS = FLAGS_
 
-    os.environ["cuda_visible_devices"] = str(flags.device)
-    print('using cuda_visible_devices=', flags.device)
+    os.environ["CUDA_VISIBLE_DEVICES"] = str(FLAGS.device)
+    print('using CUDA_VISIBLE_DEVICES=', FLAGS.device)
     from tensorflow.python.client import device_lib
     print(device_lib.list_local_devices())
 

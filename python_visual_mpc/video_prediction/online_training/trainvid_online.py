@@ -33,6 +33,8 @@ def trainvid_online(replay_buffer, conf, gpu_id):
     from tensorflow.python.client import device_lib
     print(device_lib.list_local_devices())
 
+    pdb.set_trace()
+
     if 'RESULT_DIR' in os.environ:
         conf['output_dir'] = os.environ['RESULT_DIR'] + '/modeldata'
     conf['event_log_dir'] = conf['output_dir']

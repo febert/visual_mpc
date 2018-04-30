@@ -57,6 +57,7 @@ def setup_predictor(hyperparams, conf, gpu_id=0, ngpu=1):
     start_id = gpu_id
     indexlist = [str(i_gpu) for i_gpu in range(start_id, start_id + ngpu)]
     var = ','.join(indexlist)
+    pdb.set_trace()
     print('using CUDA_VISIBLE_DEVICES=', var)
     os.environ["CUDA_VISIBLE_DEVICES"] = var
     from tensorflow.python.client import device_lib
