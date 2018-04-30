@@ -43,7 +43,7 @@ class Tower(object):
         modconf['batch_size'] = nsmp_per_gpu
         self.model = Model(modconf, start_images, actions, start_states, pix_distrib=pix_distrib, build_loss=False)
 
-def setup_predictor(hyperparams, conf, gpu_id=0, ngpu=1):
+def setup_predictor(hyperparams, conf, gpu_id=0, ngpu=1, logging_dir=None):
     """
     Setup up the network for control
     :param hyperparams: general hyperparams, can include control flags

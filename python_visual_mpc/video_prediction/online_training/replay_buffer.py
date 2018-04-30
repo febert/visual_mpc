@@ -40,6 +40,7 @@ class ReplayBuffer(object):
 
     def prefil(self, prefil_n, trainvid_conf):
         os.environ["CUDA_VISIBLE_DEVICES"] = ""
+        self.logger.log('using CUDA_VISIBLE_DEVICES=',os.environ["CUDA_VISIBLE_DEVICES"])
         from tensorflow.python.client import device_lib
         self.logger.log(device_lib.list_local_devices())
         g_vidpred = tf.Graph()
