@@ -395,7 +395,7 @@ def convert_to_tfrec(sourcedir, destdir):
                                         goal_img_conf['source_basedirs'][0] + '/' + '/'.join(str.split(trajname, '/')[-2:]))
 
         t = Trajectory(traj_conf)
-        t._sample_images = (traj['images']*255.).astype(np.uint8)
+        t.images = (traj['images'] * 255.).astype(np.uint8)
         t.actions = traj['actions']
         t.X_Xdot_full = traj['states']
         t.goal_image = (goal_img_traj['images'][-1]*255.).astype(np.uint8)

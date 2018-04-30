@@ -228,8 +228,8 @@ class AgentMuJoCo(object):
             self._store_image(t , traj, policy)
             if 'gtruthdesig' in self._hyperparams:  # generate many designated pixel goal-pixel pairs
                 self.desig_pix, self.goal_pix = gen_gtruthdesig(fullpose, self.goal_obj_pose,
-                                        self.curr_mask_large, traj.largedimage[t], self._hyperparams['gtruthdesig'],
-                                         self._hyperparams, traj._sample_images[t], self.goal_image)
+                                                                self.curr_mask_large, traj.largedimage[t], self._hyperparams['gtruthdesig'],
+                                                                self._hyperparams, traj.images[t], self.goal_image)
 
             if 'not_use_images' in self._hyperparams:
                 mj_U = policy.act(traj, t, self.sim, self.goal_obj_pose, self._hyperparams, self.goal_image)
@@ -324,7 +324,7 @@ class AgentMuJoCo(object):
         print('allscores', traj.score)
         print('goal index: ', first_best_index)
 
-        goalimage = traj._sample_images[first_best_index]
+        goalimage = traj.images[first_best_index]
         goal_ballpos = np.concatenate([traj.X_full[first_best_index], np.zeros(2)])  #set velocity to zero
 
         goal_object_pose = traj.Object_pos[first_best_index]
@@ -436,7 +436,7 @@ class AgentMuJoCo(object):
                     raise Image_dark_except
                 if cam == 'maincam':
                     self.large_images.append(large_img)
-                traj._sample_images[t, i] = cv2.resize(large_img, dsize=(self._hyperparams['image_width'],
+                traj.images[t, i] = cv2.resize(large_img, dsize=(self._hyperparams['image_width'],
                                         self._hyperparams['image_height']), interpolation = cv2.INTER_AREA)
 
                 if 'make_gtruth_flows' in self._hyperparams:
@@ -450,7 +450,7 @@ class AgentMuJoCo(object):
                 print("image dark!!!")
                 raise Image_dark_except
             self.large_images.append(large_img)
-            traj._sample_images[t] = cv2.resize(large_img, dsize=(self._hyperparams['image_width'], self._hyperparams['image_height']), interpolation = cv2.INTER_AREA)
+            traj.images[t] = cv2.resize(large_img, dsize=(self._hyperparams['image_width'], self._hyperparams['image_height']), interpolation = cv2.INTER_AREA)
             if 'image_medium' in self._hyperparams:
                 traj._image_medium[t] = cv2.resize(large_img, dsize=(self._hyperparams['image_medium'][1],
                                                                          self._hyperparams['image_medium'][0]), interpolation = cv2.INTER_AREA)
@@ -459,7 +459,7 @@ class AgentMuJoCo(object):
                 dlarge_img = self.sim.render(width, height, camera_name="maincam", depth=True)[1][::-1, :]
                 traj.largedimage[t] = dlarge_img
 
-        # img = traj._sample_images[t,:,:,:] # verify desigpos
+        # img = traj.images[t,:,:,:] # verify desigpos
         # desig_pix = np.around(self.desig_pix).astype(np.int)
         # # img = large_img
         # for i in range(self._hyperparams['num_objects']):

@@ -169,7 +169,7 @@ class Sim(object):
 
             for t in range(traj.T):
                 image_name = self.image_folder+ "/im{}.png".format(t)
-                cv2.imwrite(image_name, traj._sample_images[t][:,:,::-1], [cv2.IMWRITE_PNG_STRATEGY_DEFAULT, 1])
+                cv2.imwrite(image_name, traj.images[t][:,:,::-1], [cv2.IMWRITE_PNG_STRATEGY_DEFAULT, 1])
                 if 'medium_image' in self.agentparams:
                     image_name = self.image_folder+ "/im_med{}.png".format(t)
                     cv2.imwrite(image_name, traj._medium_images[t][:,:,::-1], [cv2.IMWRITE_PNG_STRATEGY_DEFAULT, 1])

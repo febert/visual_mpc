@@ -6,7 +6,7 @@ from collections import namedtuple
 from python_visual_mpc.video_prediction.read_tf_records2 import build_tfrecord_input
 import pdb
 
-Traj = namedtuple('Point', 'images states actions')
+Traj = namedtuple('Traj', 'images X_Xdot_full actions')
 
 class ReplayBuffer(object):
     def __init__(self, maxsize, batch_size, data_collectors, todo_ids):
@@ -27,10 +27,10 @@ class ReplayBuffer(object):
         actions = []
         current_size = len(self.ring_buffer)
         for b in range(self.batch_size):
-            i = random.randint(0, current_size)
+            i = random.randint(0, current_size-1)
             traj = self.ring_buffer[i]
-            images.append(traj.images)
-            states.append(traj.states)
+            images.append(traj.images.astype(np.float32)/255.)
+            states.append(traj.X_Xdot_full)
             actions.append(traj.actions)
         return np.stack(images,0), np.stack(states,0), np.stack(actions,0)
 

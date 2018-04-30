@@ -3,7 +3,7 @@ import collections
 import numpy as np
 import tensorflow as tf
 from tensorflow.contrib.layers import layer_norm
-
+from python_visual_mpc.misc.zip_equal import zip_equal
 from python_visual_mpc.video_prediction.dynamic_rnn_model.layers import instance_norm
 from python_visual_mpc.video_prediction.dynamic_rnn_model.lstm_ops import BasicConv2DLSTMCell
 from python_visual_mpc.video_prediction.dynamic_rnn_model.ops import dense, pad2d, conv1d, conv2d, conv3d, upsample_conv2d, conv_pool2d, lrelu, instancenorm, flatten, resample_layer, apply_warp
@@ -487,20 +487,25 @@ class Dynamic_Base_Model(object):
         self.sdim = conf['sdim']
         self.adim = conf['adim']
 
+        # if 'use_len' in conf:
+        #     seq_len = conf['use_len']
+        # else:
+        seq_len = conf['sequence_length']
+
         if images is None:
             pix_distrib = None
             if not load_data:
                 self.actions_pl = tf.placeholder(tf.float32, name='actions',
-                                                 shape=(conf['batch_size'], conf['sequence_length'], self.adim))
+                                                 shape=(conf['batch_size'], seq_len, self.adim))
                 actions = self.actions_pl
                 self.states_pl = tf.placeholder(tf.float32, name='states',
-                                                shape=(conf['batch_size'], conf['sequence_length'], self.sdim))
+                                                shape=(conf['batch_size'], seq_len, self.sdim))
                 states = self.states_pl
                 self.images_pl = tf.placeholder(tf.float32, name='images',
-                                                shape=(conf['batch_size'], conf['sequence_length'], self.img_height, self.img_width, 3))
+                                                shape=(conf['batch_size'], seq_len, self.img_height, self.img_width, 3))
                 images = self.images_pl
                 self.pix_distrib_pl = tf.placeholder(tf.float32, name='states',
-                                                     shape=(conf['batch_size'], conf['sequence_length'], ndesig, self.img_height, self.img_width, 1))
+                                                     shape=(conf['batch_size'], seq_len, ndesig, self.img_height, self.img_width, 1))
                 pix_distrib = self.pix_distrib_pl
             else:
                 dict = build_tfrecord_fn(conf, training=True)
@@ -624,24 +629,18 @@ class Dynamic_Base_Model(object):
         # L2 loss, PSNR for eval.
         loss, psnr_all = 0.0, 0.0
 
-        for i, x, gx in zip(
-                list(range(len(self.gen_images))), self.images[self.conf['context_frames']:],
-                self.gen_images[self.conf['context_frames'] - 1:]):
-            recon_cost_mse = mean_squared_error(x, gx)
-            # train_summaries.append(tf.summary.scalar('recon_cost' + str(i), recon_cost_mse))
-            # val_summaries.append(tf.summary.scalar('val_recon_cost' + str(i), recon_cost_mse))
-            recon_cost = recon_cost_mse
-
+        for x, gx in zip_equal(self.images[self.context_frames:], self.gen_images):
+            recon_cost = mean_squared_error(x, gx)
             loss += recon_cost
+        train_summaries.append(tf.summary.scalar('recon_cost' , recon_cost))
+        val_summaries.append(tf.summary.scalar('val_recon_cost', recon_cost))
 
         if ('ignore_state_action' not in self.conf) and ('ignore_state' not in self.conf):
-            for i, state, gen_state in zip(
-                    list(range(len(self.gen_states))), self.states[self.conf['context_frames']:],
-                    self.gen_states[self.conf['context_frames'] - 1:]):
+            for state, gen_state in zip_equal(self.states[self.context_frames:], self.gen_states):
                 state_cost = mean_squared_error(state, gen_state) * 1e-4 * self.conf['use_state']
-                # train_summaries.append(tf.summary.scalar('state_cost' + str(i), state_cost))
-                # val_summaries.append(tf.summary.scalar('val_state_cost' + str(i), state_cost))
                 loss += state_cost
+        train_summaries.append(tf.summary.scalar('state_cost', state_cost))
+        val_summaries.append(tf.summary.scalar('val_state_cost', state_cost))
 
         self.loss = loss = loss / np.float32(len(self.images) - self.conf['context_frames'])
         train_summaries.append(tf.summary.scalar('loss', loss))

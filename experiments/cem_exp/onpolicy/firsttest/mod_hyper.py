@@ -12,7 +12,7 @@ from python_visual_mpc.visual_mpc_core.agent.agent_mjc import AgentMuJoCo
 import numpy as np
 agent = {
     'type': AgentMuJoCo,
-    'T': 3, #############################30,
+    'T': 6, #############################30,
     'substeps':200,
     'adim':3,
     'sdim':6,
@@ -54,7 +54,6 @@ policy = {
     # 'predictor_propagation': '',   # use the model get the designated pixel for the next step!
 }
 
-
 onpolconf = {
     'infnet_reload_freq':4,     # reload inference model weights after n number of new trajectores collected
     'replay_size':1,
@@ -63,7 +62,7 @@ onpolconf = {
 
 config = {
     'current_dir':current_dir,
-    'save_data': False,
+    'save_data': True,
     'save_raw_images':'',
     'start_index':0,
     'end_index': 1, ########################################## 59999
