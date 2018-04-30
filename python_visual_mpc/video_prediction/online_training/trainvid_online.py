@@ -28,10 +28,13 @@ from python_visual_mpc.video_prediction.utils_vpred.variable_checkpoint_matcher 
 
 
 def trainvid_online(replay_buffer, conf, gpu_id):
+    pdb.set_trace()
     os.environ["cuda_visible_devices"] = str(gpu_id)
     print('training video prediction using cuda_visible_devices=', gpu_id)
     from tensorflow.python.client import device_lib
     print(device_lib.list_local_devices())
+
+    pdb.set_trace()
 
     if 'RESULT_DIR' in os.environ:
         conf['output_dir'] = os.environ['RESULT_DIR'] + '/modeldata'
