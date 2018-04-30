@@ -5,7 +5,7 @@ import pickle
 import collections
 import numpy as np
 from python_visual_mpc.video_prediction.dynamic_rnn_model.layers import instance_norm
-import matplotlib.pyplot as plt
+import matplotlib; matplotlib.use('Agg'); import matplotlib.pyplot as plt
 from python_visual_mpc.video_prediction.read_tf_records2 import \
                 build_tfrecord_input as build_tfrecord_fn
 

@@ -22,7 +22,7 @@ import sys
 import pickle
 import pdb
 
-import matplotlib.pyplot as plt
+import matplotlib; matplotlib.use('Agg'); import matplotlib.pyplot as plt
 from python_visual_mpc.video_prediction.basecls.utils.get_designated_pix import Getdesig
 
 from python_visual_mpc.video_prediction.utils_vpred.adapt_params_visualize import adapt_params_visualize
