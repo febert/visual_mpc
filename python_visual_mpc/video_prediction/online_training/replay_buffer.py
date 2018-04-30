@@ -36,20 +36,26 @@ class ReplayBuffer(object):
         return np.stack(images,0), np.stack(states,0), np.stack(actions,0)
 
     def prefil(self, prefil_n, trainvid_conf):
-        with tf.Session() as sess:
-            pdb.set_trace()
-            os.environ["CUDA_VISIBLE_DEVICES"] = ""
-            from tensorflow.python.client import device_lib
-            print(device_lib.list_local_devices())
-            pdb.set_trace()
-            dict = build_tfrecord_input(trainvid_conf, training=True)
-            tf.train.start_queue_runners(sess)
-            sess.run(tf.global_variables_initializer())
-            for i_run in range(prefil_n//trainvid_conf['batch_size']):
-                images, actions, endeff = sess.run([dict['images'], dict['actions'], dict['endeffector_pos']])
-                for b in range(trainvid_conf['batch_size']):
-                    t = Traj(images[b], endeff[b], actions[b])
-                    self.push_back(t)
+        os.environ["CUDA_VISIBLE_DEVICES"] = ""
+        from tensorflow.python.client import device_lib
+        print(device_lib.list_local_devices())
+        g_vidpred = tf.Graph()
+        sess = tf.Session(config=tf.ConfigProto(gpu_options=gpu_options, allow_soft_placement=True), graph=g_vidpred)
+        with sess.as_default():
+            with g_vidpred.as_default():
+                pdb.set_trace()
+                pdb.set_trace()
+                dict = build_tfrecord_input(trainvid_conf, training=True)
+                tf.train.start_queue_runners(sess)
+                sess.run(tf.global_variables_initializer())
+                for i_run in range(prefil_n//trainvid_conf['batch_size']):
+                    images, actions, endeff = sess.run([dict['images'], dict['actions'], dict['endeffector_pos']])
+                    for b in range(trainvid_conf['batch_size']):
+                        t = Traj(images[b], endeff[b], actions[b])
+                        self.push_back(t)
+
+        sess.close()
+        tf.reset_default_graph()
 
     def update(self):
         done_id, self.todo_ids = ray.wait(self.todo_ids, timeout=0)
