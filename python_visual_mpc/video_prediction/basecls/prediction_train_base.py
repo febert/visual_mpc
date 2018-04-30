@@ -7,7 +7,7 @@ import pickle
 import pdb
 
 import imp
-import matplotlib; matplotlib.use('Agg'); import matplotlib.pyplot as plt
+import matplotlib.pyplot as plt
 from tensorflow.python.platform import app
 from tensorflow.python.platform import flags
 

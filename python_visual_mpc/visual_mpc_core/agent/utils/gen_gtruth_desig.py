@@ -2,7 +2,7 @@ from pyquaternion import Quaternion
 from python_visual_mpc.video_prediction.basecls.utils.visualize import add_crosshairs_single
 from python_visual_mpc.visual_mpc_core.agent.utils.convert_world_imspace_mj1_5 import project_point, get_3D
 import numpy as np
-import matplotlib; matplotlib.use('Agg'); import matplotlib.pyplot as plt
+import matplotlib.pyplot as plt
 import copy
 
 

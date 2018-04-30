@@ -23,7 +23,7 @@ viewer.set_model(model)
 viewer.cam.camid = 0
 print(viewer.cam.camid)
 
-import matplotlib; matplotlib.use('Agg'); import matplotlib.pyplot as plt
+import matplotlib.pyplot as plt
 
 
 model.data.qpos = q = np.array([0., 0., 0.])

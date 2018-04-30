@@ -23,7 +23,7 @@ def save_params(xmlname, cam_id, savename):
     viewer.cam.camid = cam_id
     print(viewer.cam.camid)
 
-    import matplotlib; matplotlib.use('Agg'); import matplotlib.pyplot as plt
+    import matplotlib.pyplot as plt
 
     from python_visual_mpc import __file__ as python_vmpc_path
     root_dir = '/'.join(str.split(python_vmpc_path, '/')[:-1])

@@ -6,6 +6,7 @@ import copy
 import argparse
 import threading
 import time
+import pdb
 
 # Add lsdc/python to path so that imports work.
 sys.path.append('/'.join(str.split(__file__, '/')[:-2]))
@@ -14,9 +15,7 @@ sys.path.append('/'.join(str.split(__file__, '/')[:-2]))
 from python_visual_mpc.goaldistancenet.setup_gdn import setup_gdn
 from python_visual_mpc.visual_mpc_core.infrastructure.utility import *
 
-import matplotlib
-matplotlib.use('Agg')
-import matplotlib; matplotlib.use('Agg'); import matplotlib.pyplot as plt
+import matplotlib.pyplot as plt
 from datetime import datetime
 import pickle
 import cv2
@@ -42,15 +41,10 @@ class Sim(object):
             self._timing_file = self._hyperparams['current_dir'] + '/timing_file{}.txt'.format(os.getpid())
         else: self._timing_file = None
 
-        if 'netconf' in config['policy']:
+        if 'usenet' in config['policy']:
             params = imp.load_source('params', config['policy']['netconf'])
             netconf = params.configuration
-
-        if 'usenet' in config['policy']:
-            if 'use_ray' in netconf:
-                self.predictor = netconf['setup_predictor'](netconf, config['policy'], ngpu)
-            else:
-                self.predictor = netconf['setup_predictor'](netconf, gpu_id, ngpu)
+            self.predictor = netconf['setup_predictor'](netconf, gpu_id, ngpu)
 
             if 'warp_objective' in config['policy'] or 'register_gtruth' in config['policy']:
                 params = imp.load_source('params', config['policy']['gdnconf'])
@@ -69,6 +63,18 @@ class Sim(object):
             os.remove(self._hyperparams['agent']['image_dir'])
         except:
             pass
+
+    def reset_policy(self):
+        if 'usenet' in self.policyparams:
+            if 'warp_objective' in self.policyparams or 'register_gtruth' in self.policyparams:
+                self.policy = self.policyparams['type'](self.agent._hyperparams,
+                                                              self.policyparams, self.predictor, self.goal_image_warper)
+            else:
+                self.policy = self.policyparams['type'](self.agent._hyperparams,
+                                                              self.policyparams, self.predictor)
+        else:
+            self.policy = self.policyparams['type'](self.agent._hyperparams, self.policyparams)
+
 
     def run(self):
         for i in range(self._hyperparams['start_index'], self._hyperparams['end_index']+1):
@@ -102,6 +108,8 @@ class Sim(object):
                 plot_dist(traj, self.agentparams['record'])
             if 'register_gtruth' in self.policyparams:
                 plot_warp_err(traj, self.agentparams['record'])
+
+        return traj
 
 
     def save_data(self, traj, itr):

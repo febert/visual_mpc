@@ -6,7 +6,7 @@ import torch.optim as optim
 import torchvision
 from torchvision import datasets, transforms
 from torch.autograd import Variable
-import matplotlib; matplotlib.use('Agg'); import matplotlib.pyplot as plt
+import matplotlib.pyplot as plt
 import numpy as np
 
 plt.ion()   # interactive mode

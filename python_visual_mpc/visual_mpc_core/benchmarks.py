@@ -120,19 +120,7 @@ def perform_benchmark(conf = None, iex=-1, gpu_id=None):
         if not os.path.exists(record_dir):
             os.makedirs(record_dir)
         sim.agent._hyperparams['record'] = record_dir
-
-        # reinitilize policy between rollouts
-        if 'usenet' in conf['policy']:
-            if 'warp_objective' in conf['policy'] or 'register_gtruth' in conf['policy']:
-                sim.policy = conf['policy']['type'](sim.agent._hyperparams,
-                                                    conf['policy'], sim.predictor, sim.goal_image_warper)
-            else:
-                sim.policy = conf['policy']['type'](sim.agent._hyperparams,
-                                                 conf['policy'], sim.predictor)
-        else:
-            sim.policy = conf['policy']['type'](sim.agent._hyperparams, conf['policy'])
-
-        sim.policy.policyparams['rec_distrib'] = result_dir + '/videos_distrib/traj{0}'.format(traj)
+        sim.reset_policy()
 
         sim._take_sample(traj)
 

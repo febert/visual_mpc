@@ -2,7 +2,7 @@ import os
 import numpy as np
 import tensorflow as tf
 from tensorflow.python.platform import gfile
-import matplotlib; matplotlib.use('Agg'); import matplotlib.pyplot as plt
+import matplotlib.pyplot as plt
 from python_visual_mpc.utils.txt_in_image import draw_text_image
 import pdb
 import time
@@ -275,18 +275,16 @@ def main():
     conf = {}
 
     current_dir = os.path.dirname(os.path.realpath(__file__))
-    # DATA_DIR = '/mnt/sda1/pushing_data/cartgripper_sact_2view/train'
-    # DATA_DIR = '/mnt/sda1/pushing_data/weiss_gripper_20k/test'
     DATA_DIR = os.environ['VMPC_DATA_DIR']
-    # DATA_DIR = [DATA_DIR + '/cartgripper_updown_sact/train', DATA_DIR + '/onpolicy/updown_sact_bounded_disc/train']
-    DATA_DIR = '/home/frederik/Documents/catkin_ws/src/visual_mpc/experiments/cem_exp/benchmarks/datacol/mj_multi_obj_push/data/train'
+    DATA_DIR = '/mnt/sda1/pushing_data/mj_multi_obj_push/train'
+    # DATA_DIR = '/home/frederik/Documents/catkin_ws/src/visual_mpc/experiments/cem_exp/benchmarks/datacol/mj_multi_obj_push/data/train'
 
     conf['schedsamp_k'] = -1  # don't feed ground truth
     conf['data_dir'] = DATA_DIR  # 'directory containing data_files.' ,
     conf['skip_frame'] = 1
     conf['train_val_split']= 0.95
-    conf['sequence_length']= 40 #48      # 'sequence length, including context frames.'
-    conf['batch_size']= 10
+    conf['sequence_length']= 40  #48      # 'sequence length, including context frames.'
+    conf['batch_size']= 20
     conf['visualize']= True
     conf['context_frames'] = 2
     # conf['ncam'] = 2
@@ -330,6 +328,11 @@ def main():
         # images, actions, endeff = sess.run([dict['gen_images'], dict['actions'], dict['endeffector_pos']])
         images, actions, endeff, firstlastnoarm = sess.run([dict['images'], dict['actions'], dict['endeffector_pos'], dict['first_last_noarm']])
         # [images] = sess.run([dict['images']])
+
+        plt.imshow(firstlastnoarm[0,0])
+        plt.show()
+        plt.imshow(firstlastnoarm[0,1])
+        plt.show()
 
         file_path = '/'.join(str.split(DATA_DIR, '/')[:-1]+['preview'])
 
