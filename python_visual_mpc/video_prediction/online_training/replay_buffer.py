@@ -43,8 +43,6 @@ class ReplayBuffer(object):
         sess = tf.Session()
         with sess.as_default():
             with g_vidpred.as_default():
-                pdb.set_trace()
-                pdb.set_trace()
                 dict = build_tfrecord_input(trainvid_conf, training=True)
                 tf.train.start_queue_runners(sess)
                 sess.run(tf.global_variables_initializer())
