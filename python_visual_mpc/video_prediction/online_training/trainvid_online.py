@@ -38,7 +38,7 @@ def trainvid_online(replay_buffer, conf, gpu_id):
     conf['event_log_dir'] = conf['output_dir']
 
     gpu_options = tf.GPUOptions(per_process_gpu_memory_fraction=0.9)
-    g_vidpred= tf.Graph()
+    g_vidpred = tf.Graph()
     sess = tf.Session(config=tf.ConfigProto(gpu_options=gpu_options, allow_soft_placement=True), graph=g_vidpred)
     with sess.as_default():
         with g_vidpred.as_default():
