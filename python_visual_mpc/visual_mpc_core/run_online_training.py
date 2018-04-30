@@ -109,11 +109,11 @@ def main():
         hyperparams['agent']['data_save_dir'] = os.environ['RESULT_DIR'] + 'data/train'
 
         hyperparams['agent']['logging_dir'] = os.environ['RESULT_DIR'] + 'logging'
-        os.makedirs(hyperparams['agent']['logging_dir'])
     else:
         hyperparams['agent']['result_dir'] = hyperparams['current_dir']
 
-
+    if not os.path.exists(hyperparams['agent']['logging_dir']):
+        os.makedirs(hyperparams['agent']['logging_dir'])
 
     onpolconf = hyperparams['onpolconf']
 
