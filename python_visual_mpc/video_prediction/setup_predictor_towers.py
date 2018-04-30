@@ -62,6 +62,7 @@ def setup_predictor(hyperparams, conf, gpu_id=0, ngpu=1):
     os.environ["CUDA_VISIBLE_DEVICES"] = var
     from tensorflow.python.client import device_lib
     print(device_lib.list_local_devices())
+    pdb.set_trace()
 
     gpu_options = tf.GPUOptions(per_process_gpu_memory_fraction=0.6)
     g_predictor = tf.Graph()
