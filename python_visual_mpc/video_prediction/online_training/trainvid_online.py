@@ -33,26 +33,22 @@ def trainvid_online(replay_buffer, conf, gpu_id):
     from tensorflow.python.client import device_lib
     print(device_lib.list_local_devices())
 
-    pdb.set_trace()
-
     if 'RESULT_DIR' in os.environ:
         conf['output_dir'] = os.environ['RESULT_DIR'] + '/modeldata'
     conf['event_log_dir'] = conf['output_dir']
-
-    Model = conf['pred_model']
-    model = Model(conf, load_data=False, trafo_pix=False, build_loss=True)
-
-    print('Constructing saver.')
-    vars = tf.get_collection(tf.GraphKeys.GLOBAL_VARIABLES)
-    vars = filter_vars(vars)
-    saving_saver = tf.train.Saver(vars, max_to_keep=0)
-
 
     gpu_options = tf.GPUOptions(per_process_gpu_memory_fraction=0.9)
     g_vidpred= tf.Graph()
     sess = tf.Session(config=tf.ConfigProto(gpu_options=gpu_options, allow_soft_placement=True), graph=g_vidpred)
     with sess.as_default():
         with g_vidpred.as_default():
+            Model = conf['pred_model']
+            model = Model(conf, load_data=False, trafo_pix=False, build_loss=True)
+
+            print('Constructing saver.')
+            vars = tf.get_collection(tf.GraphKeys.GLOBAL_VARIABLES)
+            vars = filter_vars(vars)
+            saving_saver = tf.train.Saver(vars, max_to_keep=0)
             summary_writer = tf.summary.FileWriter(conf['event_log_dir'], graph=sess.graph, flush_secs=10)
 
             vars = variable_checkpoint_matcher(conf, vars, conf['pretrained'])
