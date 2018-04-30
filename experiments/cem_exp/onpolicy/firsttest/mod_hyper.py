@@ -54,6 +54,7 @@ policy = {
     # 'predictor_propagation': '',   # use the model get the designated pixel for the next step!
 }
 
+
 onpolconf = {
     'infnet_reload_freq':10, #############,     # reload inference model weights after n number of new trajectores collected
     'replay_size':10,
