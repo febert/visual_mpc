@@ -131,7 +131,6 @@ def main():
         trainvid_conf['data_dir'] = os.environ['VMPC_DATA_DIR'] + path
         rb.prefil(onpolconf['replay_size'], trainvid_conf)
         print('prefilling replay done.')
-        pdb.set_trace()
 
     while len(rb.ring_buffer) < onpolconf['replay_size']:
         rb.update()
