@@ -107,8 +107,13 @@ def main():
             os.makedirs(result_dir + '/verbose')
         hyperparams['agent']['result_dir'] = result_dir
         hyperparams['agent']['data_save_dir'] = os.environ['RESULT_DIR'] + 'data/train'
+
+        hyperparams['agent']['logging_dir'] = os.environ['RESULT_DIR'] + 'logging'
+        os.makedirs(hyperparams['agent']['logging_dir'])
     else:
         hyperparams['agent']['result_dir'] = hyperparams['current_dir']
+
+
 
     onpolconf = hyperparams['onpolconf']
 
