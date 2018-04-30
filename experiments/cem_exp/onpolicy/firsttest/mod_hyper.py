@@ -63,7 +63,7 @@ onpolconf = {
 config = {
     'current_dir':current_dir,
     'save_data': True,
-    'save_raw_images':'',
+    'ngroup':1000,
     'start_index':0,
     'end_index': 59999,
     'agent':agent,
