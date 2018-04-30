@@ -118,7 +118,6 @@ class Sim(object):
         :param itr: index of trajectory
         :return:
         """
-
         if 'save_raw_images' in self._hyperparams:
             ngroup = self._hyperparams['ngroup']
             self.igrp = itr // ngroup
@@ -205,7 +204,6 @@ class Sim(object):
 
                 from .utility.save_tf_record import save_tf_record
                 save_tf_record(filename, self.trajectory_list, self.agentparams)
-
                 self.trajectory_list = []
 
 
