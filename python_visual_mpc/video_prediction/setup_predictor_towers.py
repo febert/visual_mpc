@@ -112,6 +112,7 @@ def setup_predictor(hyperparams, conf, gpu_id=0, ngpu=1):
                 print(("loading " + ckpt.model_checkpoint_path))
                 saver = tf.train.Saver(vars, max_to_keep=0)
                 saver.restore(sess, ckpt.model_checkpoint_path)
+                pdb.set_trace()
             else:
                 if conf['pred_model'] == Alex_Interface_Model:
                     if 'ALEX_DATA' in os.environ:

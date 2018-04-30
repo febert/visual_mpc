@@ -40,7 +40,7 @@ class ReplayBuffer(object):
         from tensorflow.python.client import device_lib
         print(device_lib.list_local_devices())
         g_vidpred = tf.Graph()
-        sess = tf.Session()
+        sess = tf.Session(graph=g_vidpred)
         with sess.as_default():
             with g_vidpred.as_default():
                 dict = build_tfrecord_input(trainvid_conf, training=True)
