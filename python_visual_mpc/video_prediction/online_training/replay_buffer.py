@@ -37,7 +37,11 @@ class ReplayBuffer(object):
 
     def prefil(self, prefil_n, trainvid_conf):
         with tf.Session() as sess:
+            pdb.set_trace()
             os.environ["CUDA_VISIBLE_DEVICES"] = ""
+            from tensorflow.python.client import device_lib
+            print(device_lib.list_local_devices())
+            pdb.set_trace()
             dict = build_tfrecord_input(trainvid_conf, training=True)
             tf.train.start_queue_runners(sess)
             sess.run(tf.global_variables_initializer())
