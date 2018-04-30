@@ -7,7 +7,7 @@ import os
 import imp
 from PIL import Image
 import re
-import matplotlib; matplotlib.use('Agg'); import matplotlib.pyplot as plt
+import matplotlib.pyplot as plt
 import pdb
 
 from python_visual_mpc.utils.txt_in_image import draw_text_image

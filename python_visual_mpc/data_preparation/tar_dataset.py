@@ -3,7 +3,7 @@
 from .gather_data import make_traj_name_list
 import tarfile
 import cv2
-import matplotlib; matplotlib.use('Agg'); import matplotlib.pyplot as plt
+import matplotlib.pyplot as plt
 import numpy as np
 import os
 import pickle

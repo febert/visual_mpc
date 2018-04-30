@@ -12,6 +12,7 @@ from python_visual_mpc.video_prediction.dynamic_rnn_model.dynamic_base_model imp
 from python_visual_mpc.video_prediction.dynamic_rnn_model.alex_model_interface import Alex_Interface_Model
 
 from python_visual_mpc.video_prediction.utils_vpred.variable_checkpoint_matcher import variable_checkpoint_matcher
+import re
 
 class Tower(object):
     def __init__(self, conf, gpu_id, start_images, actions, start_states, pix_distrib):
@@ -104,22 +105,28 @@ def setup_predictor(conf, gpu_id=0, ngpu=1):
             vars = tf.get_collection(tf.GraphKeys.GLOBAL_VARIABLES)
             vars = filter_vars(vars)
 
-            if conf['pred_model'] == Alex_Interface_Model:
-                if 'ALEX_DATA' in os.environ:
-                    tenpath = conf['pretrained_model'].partition('pretrained_models')[2]
-                    conf['pretrained_model'] = os.environ['ALEX_DATA'] + tenpath
-                if gfile.Glob(conf['pretrained_model'] + '*') is None:
-                    raise ValueError("Model file {} not found!".format(conf['pretrained_model']))
-                towers[0].model.m.restore(sess, conf['pretrained_model'])
-            else:
-                if 'TEN_DATA' in os.environ:
-                    tenpath = conf['pretrained_model'].partition('tensorflow_data')[2]
-                    conf['pretrained_model'] = os.environ['TEN_DATA'] + tenpath
-                vars = variable_checkpoint_matcher(conf, vars, conf['pretrained_model'])
+            if 'load_latest' in conf:
+                ckpt = tf.train.get_checkpoint_state(conf['pretrained_model'])
+                print(("loading " + ckpt.model_checkpoint_path))
                 saver = tf.train.Saver(vars, max_to_keep=0)
-                if gfile.Glob(conf['pretrained_model'] + '*') is None:
-                    raise ValueError("Model file {} not found!".format(conf['pretrained_model']))
-                saver.restore(sess, conf['pretrained_model'])
+                saver.restore(sess, ckpt.model_checkpoint_path)
+            else:
+                if conf['pred_model'] == Alex_Interface_Model:
+                    if 'ALEX_DATA' in os.environ:
+                        tenpath = conf['pretrained_model'].partition('pretrained_models')[2]
+                        conf['pretrained_model'] = os.environ['ALEX_DATA'] + tenpath
+                    if gfile.Glob(conf['pretrained_model'] + '*') is None:
+                        raise ValueError("Model file {} not found!".format(conf['pretrained_model']))
+                    towers[0].model.m.restore(sess, conf['pretrained_model'])
+                else:
+                    if 'TEN_DATA' in os.environ:
+                        tenpath = conf['pretrained_model'].partition('tensorflow_data')[2]
+                        conf['pretrained_model'] = os.environ['TEN_DATA'] + tenpath
+                    vars = variable_checkpoint_matcher(conf, vars, conf['pretrained_model'])
+                    saver = tf.train.Saver(vars, max_to_keep=0)
+                    if gfile.Glob(conf['pretrained_model'] + '*') is None:
+                        raise ValueError("Model file {} not found!".format(conf['pretrained_model']))
+                    saver.restore(sess, conf['pretrained_model'])
 
             print('restore done. ')
 

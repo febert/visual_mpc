@@ -1,5 +1,5 @@
 import pickle
-import matplotlib; matplotlib.use('Agg'); import matplotlib.pyplot as plt
+import matplotlib.pyplot as plt
 import numpy as np
 
 from python_visual_mpc.video_prediction.utils_vpred.create_gif_lib import npy_to_gif

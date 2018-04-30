@@ -1,7 +1,7 @@
 import tensorflow as tf
 import numpy as np
 import pickle
-import matplotlib; matplotlib.use('Agg'); import matplotlib.pyplot as plt
+import matplotlib.pyplot as plt
 
 from python_visual_mpc.goaldistancenet.gdnet import apply_warp
 import collections

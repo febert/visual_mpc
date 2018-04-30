@@ -7,7 +7,7 @@ import pdb
 from python_visual_mpc.visual_mpc_core.agent.utils.convert_world_imspace_mj1_5 import project_point, get_3D
 import pickle
 from PIL import Image
-import matplotlib; matplotlib.use('Agg'); import matplotlib.pyplot as plt
+import matplotlib.pyplot as plt
 from python_visual_mpc.video_prediction.misc.makegifs2 import assemble_gif, npy_to_gif
 from pyquaternion import Quaternion
 from mujoco_py import load_model_from_xml,load_model_from_path, MjSim, MjViewer
@@ -48,7 +48,6 @@ class AgentMuJoCo(object):
         self.T = self._hyperparams['T']
         self.sdim = self._hyperparams['sdim']
         self.adim = self._hyperparams['adim']
-
         self.goal_obj_pose = None
         self.goal_image = None
         self.goal_mask = None
@@ -56,9 +55,7 @@ class AgentMuJoCo(object):
         self.curr_mask = None
         self.curr_mask_large = None
         self.desig_pix = None
-
         self.start_conf = None
-
         self.load_obj_statprop = None  #loaded static object properties
         self._setup_world()
 
@@ -74,9 +71,7 @@ class AgentMuJoCo(object):
             self._hyperparams['gen_xml_fname'] = xmlfilename
         else:
             xmlfilename = self._hyperparams['filename']
-
         self.sim = MjSim(load_model_from_path(xmlfilename))
-
 
     def apply_start_conf(self, dict):
         if 'reverse_action' in self._hyperparams:
@@ -155,8 +150,9 @@ class AgentMuJoCo(object):
         width = self._hyperparams['image_width']
         height = self._hyperparams['image_height']
         traj.first_last_noarm[ind] = self.sim.render(width, height, camera_name='maincam')[::-1, :, :]
-        # plt.imshow(traj.first_last_noarm[ind])
-        # plt.show()
+        plt.imshow(traj.first_last_noarm[ind])
+        plt.show()
+        plt.savefig(self._hyperparams['record'] +'/noarm_im{}'.format(ind))
         qpos[2] += 10
         sim_state.qpos[:] = qpos
         self.sim.set_state(sim_state)
@@ -284,7 +280,7 @@ class AgentMuJoCo(object):
             if self.goal_obj_pose is not None:
                 traj.goal_dist.append(self.eval_action(traj, t)[0])
 
-        if 'no_arm_first_last' in self._hyperparams:
+        if 'first_last_noarm' in self._hyperparams:
             self.hide_arm_store_image(1, traj)
 
         # only save trajectories which displace objects above threshold
@@ -448,6 +444,7 @@ class AgentMuJoCo(object):
                     dlarge_img = self.sim.render(width, height, camera_name="maincam", depth=True)[1][::-1, :]
                     traj.largedimage[t, i] = dlarge_img
         else:
+            os.environ["CUDA_VISIBLE_DEVICES"] = "0"
             large_img = self.sim.render(width, height, camera_name="maincam")[::-1, :, :]
             if np.sum(large_img) < 1e-3:
                 print("image dark!!!")
@@ -554,8 +551,8 @@ class AgentMuJoCo(object):
 
         if self.start_conf is None:
             self.goal_obj_pose = []
-            dist_ok = False
-            while not dist_ok:
+            dist_betwob_ok = False
+            while not dist_betwob_ok:
                 for i_ob in range(self._hyperparams['num_objects']):
                     pos_ok = False
                     while not pos_ok:
@@ -566,7 +563,6 @@ class AgentMuJoCo(object):
                         pose = object_pos_l[i_ob]
                         curr_quat =  Quaternion(pose[3:])
                         newquat = delta_rot*curr_quat
-
 
                         alpha = np.random.uniform(-np.pi, np.pi, 1)
                         d = self._hyperparams['const_dist']
@@ -579,10 +575,13 @@ class AgentMuJoCo(object):
                             self.goal_obj_pose.append(np.concatenate([newpos, newquat.elements]))
                             pos_ok = True
 
-                #ensuring that the goal positions are far apart from each other
-                if np.linalg.norm(self.goal_obj_pose[0][:3]- self.goal_obj_pose[1][:3]) < 0.2:
-                    self.goal_obj_pose = []
-                    continue
-                dist_ok = True
+                if self._hyperparams['num_objects'] == 2:
+                    #ensuring that the goal positions are far apart from each other
+                    if np.linalg.norm(self.goal_obj_pose[0][:3]- self.goal_obj_pose[1][:3]) < 0.2:
+                        self.goal_obj_pose = []
+                        continue
+                    dist_betwob_ok = True
+                else:
+                    dist_betwob_ok = True
 
             self.goal_obj_pose = np.stack(self.goal_obj_pose, axis=0)

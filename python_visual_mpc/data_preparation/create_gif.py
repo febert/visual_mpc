@@ -7,7 +7,7 @@ import pdb
 import imp
 from PIL import Image
 import re
-import matplotlib; matplotlib.use('Agg'); import matplotlib.pyplot as plt
+import matplotlib.pyplot as plt
 
 
 def npy_to_gif(im_list, filename):

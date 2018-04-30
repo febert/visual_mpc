@@ -12,7 +12,7 @@ from pyquaternion import Quaternion
 import cv2
 import copy
 
-import matplotlib; matplotlib.use('Agg'); import matplotlib.pyplot as plt
+import matplotlib.pyplot as plt
 from matplotlib.patches import ConnectionPatch
 import pdb
 
