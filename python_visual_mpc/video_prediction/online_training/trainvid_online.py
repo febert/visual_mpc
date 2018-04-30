@@ -28,8 +28,8 @@ from python_visual_mpc.video_prediction.utils_vpred.variable_checkpoint_matcher 
 
 
 def trainvid_online(replay_buffer, conf, gpu_id):
-    os.environ["CUDA_VISIBLE_DEVICES"] = "{}".format(gpu_id)
-    print('training video prediction model on GPU {}'.format(gpu_id))
+    os.environ["cuda_visible_devices"] = str(gpu_id)
+    print('training video prediction using cuda_visible_devices=', gpu_id)
     from tensorflow.python.client import device_lib
     print(device_lib.list_local_devices())
 
