@@ -39,6 +39,7 @@ class ReplayBuffer(object):
         os.environ["CUDA_VISIBLE_DEVICES"] = ""
         from tensorflow.python.client import device_lib
         print(device_lib.list_local_devices())
+        pdb.set_trace()
         g_vidpred = tf.Graph()
         sess = tf.Session(config=tf.ConfigProto(gpu_options=gpu_options, allow_soft_placement=True), graph=g_vidpred)
         with sess.as_default():
