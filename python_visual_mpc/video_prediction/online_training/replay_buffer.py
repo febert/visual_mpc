@@ -1,4 +1,5 @@
 import numpy as np
+import os
 import tensorflow as tf
 import random
 import ray
@@ -35,8 +36,8 @@ class ReplayBuffer(object):
         return np.stack(images,0), np.stack(states,0), np.stack(actions,0)
 
     def prefil(self, prefil_n, trainvid_conf):
-        sess = tf.Session()
-        with sess.as_default():
+        with tf.Session() as sess:
+            os.environ["CUDA_VISIBLE_DEVICES"] = ""
             dict = build_tfrecord_input(trainvid_conf, training=True)
             tf.train.start_queue_runners(sess)
             sess.run(tf.global_variables_initializer())
