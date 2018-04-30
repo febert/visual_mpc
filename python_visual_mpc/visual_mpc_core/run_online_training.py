@@ -142,7 +142,7 @@ def main():
         rb.update()
     print("Replay buffer filled")
 
-    trainvid_online(rb, trainvid_conf, i + gpu_id + 1)
+    trainvid_online(rb, trainvid_conf, hyperparams['agent'], i + gpu_id + 1)
 
 
 def load_module(hyperparams_file, name):
