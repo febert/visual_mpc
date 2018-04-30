@@ -5,6 +5,7 @@ from PIL import Image
 from python_visual_mpc.video_prediction.basecls.utils.visualize import add_crosshairs
 from python_visual_mpc.video_prediction.utils_vpred.animate_tkinter import Visualizer_tkinter
 import cv2
+import pdb
 
 
 def image_addgoalpix(bsize, seqlen, image_l, goal_pix):
@@ -84,23 +85,29 @@ def make_cem_visuals(ctrl, actions, bestindices, cem_itr, flow_fields, gen_distr
                 t_dict_['warped_image_goal'] = [
                     np.repeat(np.expand_dims(warped_image_goal.squeeze(), axis=0), ctrl.K, axis=0) for _ in
                     range(len(gen_images))]
-        goal_image = [np.repeat(np.expand_dims(ctrl.goal_image, axis=0), ctrl.K, axis=0) for _ in
-                      range(len(gen_images))]
 
-        for p in range(ctrl.goal_pix.shape[0]):
-            if 'image_medium' in ctrl.agentparams:
-                desig_pix_t0 = ctrl.goal_pix_med[p]
-            else:
-                desig_pix_t0 = ctrl.goal_pix[p]
-            goal_image_annotated = image_addgoalpix(ctrl.K , seqlen, goal_image, desig_pix_t0)
-        t_dict_['goal_image'] = goal_image_annotated
+        if ctrl.goal_image is not None:
+            goal_image = [np.repeat(np.expand_dims(ctrl.goal_image, axis=0), ctrl.K, axis=0) for _ in
+                          range(len(gen_images))]
+
+            for p in range(ctrl.goal_pix.shape[0]):
+                if 'image_medium' in ctrl.agentparams:
+                    goal_pix = ctrl.goal_pix_med[p]
+                else:
+                    goal_pix = ctrl.goal_pix[p]
+                goal_image_annotated = image_addgoalpix(ctrl.K , seqlen, goal_image, goal_pix)
+            t_dict_['goal_image'] = goal_image_annotated
+
         if 'use_goal_image' not in ctrl.policyparams or 'comb_flow_warp' in ctrl.policyparams or 'register_gtruth' in ctrl.policyparams:
             for p in range(ctrl.ndesig):
                 gen_distrib_p = [g[:, p] for g in gen_distrib]
                 sel_gen_distrib_p = sel_func(gen_distrib_p)
                 t_dict_['gen_distrib{}_t{}'.format(p, ctrl.t)] = sel_gen_distrib_p
-                t_dict_['gen_distrib_goalim_overlay{}_t{}'.format(p, ctrl.t)] = (image_addgoalpix(ctrl.K, seqlen, goal_image,
-                                                                                                 ctrl.goal_pix[p]), sel_gen_distrib_p)
+
+                if ctrl.goal_image is not None:
+                    t_dict_['gen_distrib_goalim_overlay{}_t{}'.format(p, ctrl.t)] = (image_addgoalpix(ctrl.K, seqlen, goal_image,
+                                                                                         ctrl.goal_pix[p]), sel_gen_distrib_p)
+
         t_dict_['gen_images_t{}'.format(ctrl.t)] = sel_func(gen_images)
         print('itr{} best scores: {}'.format(cem_itr, [scores[bestindices[ind]] for ind in range(ctrl.K)]))
         ctrl.dict_.update(t_dict_)

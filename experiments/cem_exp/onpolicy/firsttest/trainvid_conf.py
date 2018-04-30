@@ -44,6 +44,4 @@ config = {
 'img_height':48,
 'img_width':64,
 'use_vel':'',                # add the velocity to the state input
-'replay_size':100,
-'prefil_replay':100,        # fill replay with exisitng trajectories from dataset
 }

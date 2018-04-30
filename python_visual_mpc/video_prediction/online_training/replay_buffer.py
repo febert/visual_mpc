@@ -27,19 +27,19 @@ class ReplayBuffer(object):
         actions = []
         current_size = len(self.ring_buffer)
         for b in range(self.batch_size):
-            i = random.randint(current_size)
+            i = random.randint(0, current_size)
             traj = self.ring_buffer[i]
             images.append(traj.images)
             states.append(traj.states)
             actions.append(traj.actions)
         return np.stack(images,0), np.stack(states,0), np.stack(actions,0)
 
-    def prefil(self, trainvid_conf):
+    def prefil(self, prefil_n, trainvid_conf):
         dict = build_tfrecord_input(trainvid_conf, training=True)
         sess = tf.InteractiveSession()
         tf.train.start_queue_runners(sess)
         sess.run(tf.global_variables_initializer())
-        for i_run in range(trainvid_conf['prefil_replay']//trainvid_conf['batch_size']):
+        for i_run in range(prefil_n//trainvid_conf['batch_size']):
             images, actions, endeff = sess.run([dict['images'], dict['actions'], dict['endeffector_pos']])
             for b in range(trainvid_conf['batch_size']):
                 t = Traj(images[b], endeff[b], actions[b])
@@ -48,12 +48,13 @@ class ReplayBuffer(object):
     def update(self):
         done_id, self.todo_ids = ray.wait(self.todo_ids, timeout=0)
         if done_id is not []:
-            pdb.set_trace()
             for id in done_id:
-                traj, collector_id = ray.get(id)[0]
+                traj, info = ray.get(id)
                 print("pushing back traj")
                 self.push_back(traj)
                 # relauch the collector if it hasn't done all its work yet.
-                returning_collector = self.data_collectors[collector_id]
-                if self.data_collectors[collector_id].itraj < returning_collector.maxtraj:
-                    self.todo_ids.append(returning_collector.remote.run_traj())
+                returning_collector = self.data_collectors[info['collector_id']]
+                if info['itraj'] < info['maxtraj']:
+                    self.todo_ids.append(returning_collector.run_traj.remote())
+                else:
+                    print('tasks finished, no new task launched')
