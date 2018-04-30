@@ -56,8 +56,8 @@ policy = {
 
 onpolconf = {
     'infnet_reload_freq':4,     # reload inference model weights after n number of new trajectores collected
-    'replay_size':1,
-    # 'prefil_replay':0,        # fill replay with exisitng trajectories from dataset
+    'replay_size':10,
+    # 'prefil_replay':0,        # fill replay with existing trajectories from dataset
 }
 
 config = {
@@ -65,7 +65,7 @@ config = {
     'save_data': True,
     'save_raw_images':'',
     'start_index':0,
-    'end_index': 1, ########################################## 59999
+    'end_index': 59999,
     'agent':agent,
     'policy':policy,
     'onpolconf':onpolconf,
