@@ -106,6 +106,7 @@ def setup_predictor(conf, gpu_id=0, ngpu=1):
             vars = filter_vars(vars)
 
             if 'load_latest' in conf:
+                pdb.set_trace()
                 ckpt = tf.train.get_checkpoint_state(conf['pretrained_model'])
                 print(("loading " + ckpt.model_checkpoint_path))
                 saver = tf.train.Saver(vars, max_to_keep=0)
