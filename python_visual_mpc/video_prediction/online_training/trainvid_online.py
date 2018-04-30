@@ -96,10 +96,9 @@ def trainvid_online(replay_buffer, conf, gpu_id):
                     video_proto = sess.run(model.val_video_summaries, feed_dict = feed_dict)
                     summary_writer.add_summary(convert_tensor_to_gif_summary(video_proto), itr)
 
-                if (itr) % conf['save_interval'] == 2:
+                if (itr) % conf['save_interval'] == 0:
                     tf.logging.info('Saving model to' + conf['output_dir'])
                     saving_saver.save(sess, conf['output_dir'] + '/model' + str(itr))
-
 
                 if itr % 50 == 1:
                     hours = (datetime.now() -starttime).seconds/3600
