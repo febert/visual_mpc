@@ -43,6 +43,7 @@ class Data_Collector(object):
         assert self.itraj < self.maxtraj
         if self.itraj % self.conf['onpolconf']['infnet_reload_freq'] == 0 and self.itraj != 0:
             self.conf['load_latest'] = ''
+            pdb.set_trace()
             self.sim = Sim(self.conf, gpu_id=self.conf['gpu_id'])
         print('-------------------------------------------------------------------')
         print('run number ', self.itraj)
