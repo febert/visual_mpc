@@ -31,6 +31,7 @@ class Data_Collector(object):
     def __init__(self, conf, collector_id):
         print('started process with PID {} and collector_id {}'.format(os.getpid(), collector_id))
         self.itraj = conf['start_index']
+        self.ntraj = 0
         self.maxtraj = conf['end_index']
         self.colllector_id = collector_id
         random.seed(None)
@@ -40,8 +41,8 @@ class Data_Collector(object):
         print('init data collectors done.')
 
     def run_traj(self):
-        assert self.itraj < self.maxtraj
-        if self.itraj % self.conf['onpolconf']['infnet_reload_freq'] == 0 and self.itraj != 0:
+        assert self.ntraj < self.maxtraj
+        if self.ntraj % self.conf['onpolconf']['infnet_reload_freq'] == 0 and self.ntraj != 0:
             self.conf['load_latest'] = ''
             pdb.set_trace()
             self.sim = Sim(self.conf, gpu_id=self.conf['gpu_id'])
@@ -58,6 +59,7 @@ class Data_Collector(object):
         traj = self.sim._take_sample(self.itraj)
 
         self.itraj += 1
+        self.ntraj += 1
         info = {'collector_id':self.colllector_id, 'itraj':self.itraj, 'maxtraj':self.maxtraj}
         return traj, info
 
