@@ -255,7 +255,7 @@ def im_detect_caffe(net, im, boxes=None):
 
 def vis_detections(im, class_name, dets, thresh=0.3):
     """Visual debugging of detections."""
-    import matplotlib.pyplot as plt
+    import matplotlib; matplotlib.use('Agg'); import matplotlib.pyplot as plt
     im = im[:, :, (2, 1, 0)]
     for i in range(np.minimum(10, dets.shape[0])):
         bbox = dets[i, :4]

@@ -15,7 +15,7 @@ import pdb
 import glob
 import re
 
-import matplotlib.pyplot as plt
+import matplotlib; matplotlib.use('Agg'); import matplotlib.pyplot as plt
 from python_visual_mpc.visual_mpc_core.infrastructure.utility.combine_scores import combine_scores
 from python_visual_mpc.visual_mpc_core.infrastructure.utility.create_configs import CollectGoalImageSim
 import time
@@ -24,7 +24,7 @@ from python_visual_mpc.video_prediction.online_training.replay_buffer import Rep
 import pickle
 from python_visual_mpc.video_prediction.online_training.trainvid_online import trainvid_online
 
-import matplotlib; matplotlib.use('Agg'); import matplotlib.pyplot as plt
+import matplotlib; matplotlib.use('Agg'); import matplotlib; matplotlib.use('Agg'); import matplotlib.pyplot as plt
 @ray.remote
 class Data_Collector(object):
     def __init__(self, conf, collector_id):

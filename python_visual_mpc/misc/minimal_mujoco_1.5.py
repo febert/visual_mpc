@@ -17,7 +17,7 @@ from python_visual_mpc.visual_mpc_core.agent.utils.convert_world_imspace_mj1_5 i
 from python_visual_mpc import __file__ as python_vmpc_path
 root_dir = '/'.join(str.split(python_vmpc_path, '/')[:-2])
 MODEL_XML = root_dir + "/mjc_models/cartgripper_noautogen.xml"
-import matplotlib.pyplot as plt
+import matplotlib; matplotlib.use('Agg'); import matplotlib.pyplot as plt
 
 model = load_model_from_path(MODEL_XML)
 sim = MjSim(model)

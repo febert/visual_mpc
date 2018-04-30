@@ -5,7 +5,7 @@ from python_visual_mpc.video_prediction.utils_vpred.animate_tkinter import Visua
 from python_visual_mpc.video_prediction.utils_vpred.create_images import Image_Creator
 import tensorflow as tf
 import pdb
-import matplotlib.pyplot as plt
+import matplotlib; matplotlib.use('Agg'); import matplotlib.pyplot as plt
 
 from copy import deepcopy
 from collections import OrderedDict
