@@ -2,7 +2,8 @@ import os
 import numpy as np
 import tensorflow as tf
 from tensorflow.python.platform import gfile
-import matplotlib; matplotlib.use('Agg'); import matplotlib.pyplot as plt
+# import matplotlib; matplotlib.use('Agg');
+import matplotlib.pyplot as plt
 from python_visual_mpc.utils.txt_in_image import draw_text_image
 import pdb
 import time

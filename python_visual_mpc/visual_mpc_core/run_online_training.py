@@ -125,8 +125,7 @@ def main():
         modconf['gpu_id'] = i + gpu_id
         data_collectors.append(Data_Collector.remote(modconf, i))
 
-    # todo_ids = [d.run_traj.remote() for d in data_collectors]
-    todo_ids = None
+    todo_ids = [d.run_traj.remote() for d in data_collectors]
     rb = ReplayBuffer(maxsize=onpolconf['replay_size'],
                       batch_size=16, data_collectors=data_collectors, todo_ids=todo_ids)
 
@@ -134,8 +133,6 @@ def main():
         print('prefilling replay')
         rb.prefil(onpolconf['replay_size'], trainvid_conf)
         print('prefilling replay done.')
-
-    pdb.set_trace()
 
     while len(rb.ring_buffer) < onpolconf['replay_size']:
         rb.update()

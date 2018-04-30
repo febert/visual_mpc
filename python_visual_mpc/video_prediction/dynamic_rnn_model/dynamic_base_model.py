@@ -399,7 +399,6 @@ class DNACell(tf.nn.rnn_cell.RNNCell):
                                                      zip(transformed_pix_distribs_p, masks)]))
                 gen_pix_distrib = tf.stack(gen_pix_distrib, axis=1)
 
-
         with tf.variable_scope('state_pred'):
             gen_state = dense(state_action, state_dim)
 
@@ -596,7 +595,7 @@ class Dynamic_Base_Model(object):
         other_outputs = list(other_outputs)
 
         # making video summaries
-        self.val_video_summaries = make_video_summaries(conf['sequence_length'], conf['context_frames'], [self.images, self.gen_images])
+        self.val_video_summaries = make_video_summaries(conf['context_frames'], [self.images, self.gen_images])
 
         if 'compute_flow_map' in self.conf:
             gen_flow_map = other_outputs.pop(0)
