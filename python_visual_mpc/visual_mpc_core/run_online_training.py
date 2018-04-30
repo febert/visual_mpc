@@ -41,7 +41,7 @@ class Data_Collector(object):
 
     def run_traj(self):
         assert self.itraj < self.maxtraj
-        if self.itraj % self.conf['reload_freq'] == 0 and self.itraj != 0:
+        if self.itraj % self.conf['onpolconf']['infnet_reload_freq'] == 0 and self.itraj != 0:
             self.conf['load_latest'] = ''
             self.sim = Sim(self.conf, gpu_id=self.conf['gpu_id'])
         print('-------------------------------------------------------------------')
@@ -57,7 +57,8 @@ class Data_Collector(object):
         traj = self.sim._take_sample(self.itraj)
 
         self.itraj += 1
-        return traj, self.colllector_id
+        info = {'collector_id':self.colllector_id, 'itraj':self.itraj, 'maxtraj':self.maxtraj}
+        return traj, info
 
 
 def main():
@@ -113,6 +114,8 @@ def main():
     else:
         hyperparams['agent']['result_dir'] = hyperparams['current_dir']
 
+    onpolconf = hyperparams['onpolconf']
+
     ray.init()
     data_collectors = []
     for i in range(n_worker):
@@ -122,18 +125,19 @@ def main():
         modconf['gpu_id'] = i + gpu_id
         data_collectors.append(Data_Collector.remote(modconf, i))
 
-    pdb.set_trace()
-    todo_ids = [d.run_traj.remote() for d in data_collectors]
-
-    rb = ReplayBuffer(maxsize=trainvid_conf['replay_size'],
+    # todo_ids = [d.run_traj.remote() for d in data_collectors]
+    todo_ids = None
+    rb = ReplayBuffer(maxsize=onpolconf['replay_size'],
                       batch_size=16, data_collectors=data_collectors, todo_ids=todo_ids)
 
-    if 'prefil_replay' in trainvid_conf:
-        print('prefilling repaly')
-        rb.prefil(trainvid_conf)
+    if 'prefil_replay' in onpolconf:
+        print('prefilling replay')
+        rb.prefil(onpolconf['replay_size'], trainvid_conf)
         print('prefilling replay done.')
 
-    while len(rb.ring_buffer) < trainvid_conf['replay_size']:
+    pdb.set_trace()
+
+    while len(rb.ring_buffer) < onpolconf['replay_size']:
         rb.update()
     print("Replay buffer filled")
     trainvid_online(rb, trainvid_conf, i + gpu_id + 1)

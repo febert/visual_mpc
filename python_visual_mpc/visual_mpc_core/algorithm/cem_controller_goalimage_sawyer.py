@@ -1,4 +1,5 @@
 """ This file defines the linear Gaussian policy class. """
+import pdb
 import numpy as np
 
 import os
@@ -733,7 +734,6 @@ class CEM_controller():
                 for i in range(self.bestaction.shape[0]):
                     print("t{}: {}".format(i, self.bestaction[i]))
                 print('########')
-
         self.action_list.append(action)
 
         return action, self.plan_stat

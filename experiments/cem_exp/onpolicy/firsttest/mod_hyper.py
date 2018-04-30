@@ -12,7 +12,7 @@ from python_visual_mpc.visual_mpc_core.agent.agent_mjc import AgentMuJoCo
 import numpy as np
 agent = {
     'type': AgentMuJoCo,
-    'T': 30,
+    'T': 15, #############################30,
     'substeps':200,
     'adim':3,
     'sdim':6,
@@ -37,7 +37,7 @@ agent = {
 }
 
 policy = {
-    'verbose':'',
+    # 'verbose':'',
     'type' : CEM_controller,
     'low_level_ctrl': None,
     'current_dir':current_dir,
@@ -54,6 +54,13 @@ policy = {
     # 'predictor_propagation': '',   # use the model get the designated pixel for the next step!
 }
 
+
+onpolconf = {
+    'infnet_reload_freq':2,
+    'replay_size':100,
+    'prefil_replay':100,        # fill replay with exisitng trajectories from dataset
+}
+
 config = {
     'current_dir':current_dir,
     'save_data': False,
@@ -62,5 +69,5 @@ config = {
     'end_index': 49,
     'agent':agent,
     'policy':policy,
-    'reload_freq':2,
+    'onpolconf':onpolconf,
 }
