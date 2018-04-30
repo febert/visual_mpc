@@ -23,14 +23,11 @@ VAL_INTERVAL = 500
 
 VIDEO_INTERVAL = 10000
 
-# How often to save a model checkpoint
-SAVE_INTERVAL = 4000
 
 from python_visual_mpc.video_prediction.utils_vpred.variable_checkpoint_matcher import variable_checkpoint_matcher
 
 
 def trainvid_online(replay_buffer, conf, gpu_id):
-
     os.environ["CUDA_VISIBLE_DEVICES"] = "{}".format(gpu_id)
     print('training video prediction model on GPU {}'.format(gpu_id))
     from tensorflow.python.client import device_lib
@@ -97,7 +94,7 @@ def trainvid_online(replay_buffer, conf, gpu_id):
             video_proto = sess.run(model.val_video_summaries, feed_dict = feed_dict)
             summary_writer.add_summary(convert_tensor_to_gif_summary(video_proto), itr)
 
-        if (itr) % SAVE_INTERVAL == 2:
+        if (itr) % conf['save_interval'] == 2:
             tf.logging.info('Saving model to' + conf['output_dir'])
             saving_saver.save(sess, conf['output_dir'] + '/model' + str(itr))
 
