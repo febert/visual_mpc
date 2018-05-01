@@ -64,47 +64,51 @@
             "id": 9223
         }, 
         {
-            "containerMountPoint": "/mnt/pushing_data/cartgripper_startgoal_masks6e4", 
+            "containerMountPoint": "/mnt/pretrained_models/bair_action_free/model.multi_savp.num_views.2.tv_weight.0.001.transformation.flow.last_frames.2.generate_scratch_image.false.batch_size.16", 
+            "id": 9387
+        }, 
+        {
+            "containerMountPoint": "/mnt/pushing_data/cartgripper/cartgripper_startgoal_masks6e4", 
             "id": 9138
         }, 
         {
-            "containerMountPoint": "/mnt/pushing_data/cartgripper_const_dist", 
+            "containerMountPoint": "/mnt/pushing_data/cartgripper/cartgripper_const_dist", 
             "id": 9259
         }, 
         {
-            "containerMountPoint": "/mnt/pushing_data/cartgripper_startgoal_short", 
+            "containerMountPoint": "/mnt/pushing_data/cartgripper/cartgripper_startgoal_short", 
             "id": 8949
         }, 
         {
-            "containerMountPoint": "/mnt/pushing_data/cartgripper_startgoal_2view", 
+            "containerMountPoint": "/mnt/pushing_data/cartgripper/cartgripper_startgoal_2view", 
             "id": 9222
         }, 
         {
-            "containerMountPoint": "/mnt/pushing_data/cartgripper_startgoal_masks", 
+            "containerMountPoint": "/mnt/pushing_data/cartgripper/cartgripper_startgoal_masks", 
             "id": 8914
         }, 
         {
-            "containerMountPoint": "/mnt/pushing_data/cartgripper", 
+            "containerMountPoint": "/mnt/pushing_data/cartgripper/cartgripper", 
             "id": 8350
         }, 
         {
-            "containerMountPoint": "/mnt/pushing_data/cartgripper_mj1.5", 
+            "containerMountPoint": "/mnt/pushing_data/cartgripper/cartgripper_mj1.5", 
             "id": 8974
         }, 
         {
-            "containerMountPoint": "/mnt/pushing_data/mj_pos_noreplan_fast_tfrec", 
+            "containerMountPoint": "/mnt/pushing_data/onpolicy/mj_pos_noreplan_fast_tfrec", 
             "id": 8807
         }, 
         {
-            "containerMountPoint": "/mnt/pushing_data/mj_pos_noreplan_fast_tfrec_fewdata", 
+            "containerMountPoint": "/mnt/pushing_data/onpolicy/mj_pos_noreplan_fast_tfrec_fewdata", 
             "id": 8972
         }, 
         {
-            "containerMountPoint": "/mnt/pushing_data/cartgripper_updown_sact", 
+            "containerMountPoint": "/mnt/pushing_data/cartgripper/cartgripper_updown_sact", 
             "id": 8931
         }, 
         {
-            "containerMountPoint": "/mnt/pushing_data/cartgripper_updown_rot_sact", 
+            "containerMountPoint": "/mnt/pushing_data/cartgripper/cartgripper_updown_rot_sact", 
             "id": 8951
         }, 
         {
