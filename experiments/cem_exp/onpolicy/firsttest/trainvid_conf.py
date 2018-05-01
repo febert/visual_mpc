@@ -26,8 +26,8 @@ config = {
 'output_dir': OUT_DIR,      #'directory for model checkpoints.' ,
 'current_dir': current_dir, #'directory for writing summary.' ,
 'pretrained':base_dir + '/tensorflow_data/sim/onpolicy/updown_sact_onpolonly/modeldata/model196002',     # 'filepath of a pretrained model to resume training from.' ,
-'sequence_length': 6, #######################      # 'sequence length to load, including context frames.' ,
-'use_len':3,  ##########################
+'sequence_length': 30, # 'sequence length to load, including context frames.' ,
+'use_len': 15,
 'skip_frame': 1,            # 'use ever i-th frame to increase prediction horizon' ,
 'context_frames': 2,        # of frames before predictions.' ,
 'use_state': 1,             #'Whether or not to give the state+action to the model' ,
@@ -46,5 +46,5 @@ config = {
 'img_height':48,
 'img_width':64,
 'use_vel':'',                # add the velocity to the state input
-'save_interval':10, ##############################
+'save_interval':200,
 }
