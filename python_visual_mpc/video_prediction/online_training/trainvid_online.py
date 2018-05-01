@@ -71,9 +71,9 @@ def trainvid_online(replay_buffer, conf, agentparams, onpolparam, gpu_id):
             vars = filter_vars(vars)
             saving_saver = tf.train.Saver(vars, max_to_keep=0)
             summary_writer = tf.summary.FileWriter(conf['event_log_dir'], graph=sess.graph, flush_secs=10)
-            vars = variable_checkpoint_matcher(conf, vars, conf['pretrained'])
+            vars = variable_checkpoint_matcher(conf, vars, conf['pretrained_model'])
             loading_saver = tf.train.Saver(vars, max_to_keep=0)
-            load_checkpoint(conf, sess, loading_saver, conf['pretrained'])
+            load_checkpoint(conf, sess, loading_saver, conf['pretrained_model'])
 
             logger.log('-------------------------------------------------------------------')
             logger.log('verify current settings!! ')
