@@ -161,7 +161,8 @@ class CEM_controller():
         """
         self.agentparams = ag_params
         self.policyparams = policyparams
-        self.logger = None
+        self.logger = Logger(self.agentparams['logging_dir'], 'cemlog{}.txt'.format(self.agentparams['gpu_id']))
+        self.logger.log('init CEM controller')
 
         self.save_subdir = save_subdir
         self.t = None

@@ -39,6 +39,7 @@ class Sim(object):
         if 'RESULT_DIR' in os.environ:
             self.agentparams['data_save_dir'] = os.environ['RESULT_DIR'] + '/train'
         self._data_save_dir = self.agentparams['data_save_dir']
+        self.agentparams['gpu_id'] = gpu_id
 
         if 'current_dir' in self._hyperparams:
             self._timing_file = self._hyperparams['current_dir'] + '/timing_file{}.txt'.format(os.getpid())
@@ -58,8 +59,6 @@ class Sim(object):
                 self.policy = config['policy']['type'](config['agent'], config['policy'], self.predictor)
         else:
             self.policy = config['policy']['type'](self.agent._hyperparams, config['policy'])
-
-        self.policy.logger = self.logger
 
         self.trajectory_list = []
         self.im_score_list = []
