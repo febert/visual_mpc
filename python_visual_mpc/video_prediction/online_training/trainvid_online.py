@@ -43,6 +43,10 @@ def trainvid_online(replay_buffer, conf, agentparams, onpolparam, gpu_id):
         conf['output_dir'] = os.environ['RESULT_DIR'] + '/modeldata'
     conf['event_log_dir'] = conf['output_dir']
 
+    if 'TEN_DATA' in os.environ:
+        tenpath = conf['pretrained_model'].partition('tensorflow_data')[2]
+        conf['pretrained_model'] = os.environ['TEN_DATA'] + tenpath
+
     gpu_options = tf.GPUOptions(per_process_gpu_memory_fraction=0.9)
     g_vidpred = tf.Graph()
     sess = tf.Session(config=tf.ConfigProto(gpu_options=gpu_options, allow_soft_placement=True), graph=g_vidpred)
