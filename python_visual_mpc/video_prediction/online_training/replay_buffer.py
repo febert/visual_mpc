@@ -14,6 +14,7 @@ Traj = namedtuple('Traj', 'images X_Xdot_full actions')
 class ReplayBuffer(object):
     def __init__(self, agentparams, maxsize, batch_size, data_collectors=None, todo_ids=None):
         self.logger = Logger(agentparams['logging_dir'], 'replay_log.txt')
+        self.agentparams = agentparams
         self.ring_buffer = []
         self.maxsize = maxsize
         self.batch_size = batch_size
@@ -58,12 +59,13 @@ class ReplayBuffer(object):
                 self.num_inserts += 1
 
                 if self.num_inserts % 100 == 0:
-                    plot_scores(self.scores)
+                    plot_scores(self.scores, self.agentparams['result_dir'])
 
 
-def plot_scores(scores):
+def plot_scores(scores, dir):
     plt.plot(scores)
     plt.title('scores over time')
     plt.xlabel('collected trajectories')
+    plt.savefig(dir + '/scores.png')
 
 
