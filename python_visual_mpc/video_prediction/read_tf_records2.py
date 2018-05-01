@@ -277,16 +277,16 @@ def main():
 
     current_dir = os.path.dirname(os.path.realpath(__file__))
     DATA_DIR = os.environ['VMPC_DATA_DIR']
-    DATA_DIR = '/mnt/sda1/pushing_data/mj_multi_obj_push/train'
+    DATA_DIR = '/mnt/sda1/pushing_data/grasping/lift_imitation_dataset/train'
     # DATA_DIR = '/home/frederik/Documents/catkin_ws/src/visual_mpc/experiments/cem_exp/benchmarks/datacol/mj_multi_obj_push/data/train'
 
     conf['schedsamp_k'] = -1  # don't feed ground truth
     conf['data_dir'] = DATA_DIR  # 'directory containing data_files.' ,
     conf['skip_frame'] = 1
     conf['train_val_split']= 0.95
-    conf['sequence_length']= 40  #48      # 'sequence length, including context frames.'
+    conf['sequence_length']= 20  #48      # 'sequence length, including context frames.'
     conf['batch_size']= 20
-    conf['visualize']= True
+    conf['visualize']= False
     conf['context_frames'] = 2
     # conf['ncam'] = 2
 
@@ -294,11 +294,11 @@ def main():
     # conf['row_end'] = 63
     conf['sdim'] = 6
     conf['adim'] = 3
-    # conf['image_only'] = ''
+    conf['image_only'] = ''
     # conf['goal_image'] = ""
 
     conf['orig_size'] = [48, 64]
-    conf['first_last_noarm'] = ''
+    # conf['first_last_noarm'] = ''
     # conf['orig_size'] = [64, 64]
     # conf['orig_size'] = [96, 128]
     # conf['load_vidpred_data'] = ''
@@ -327,13 +327,13 @@ def main():
 
         # images, actions, endeff, gen_images, gen_endeff = sess.run([dict['images'], dict['actions'], dict['endeffector_pos'], dict['gen_images'], dict['gen_states']])
         # images, actions, endeff = sess.run([dict['gen_images'], dict['actions'], dict['endeffector_pos']])
-        images, actions, endeff, firstlastnoarm = sess.run([dict['images'], dict['actions'], dict['endeffector_pos'], dict['first_last_noarm']])
-        # [images] = sess.run([dict['images']])
+        # images, actions, endeff, firstlastnoarm = sess.run([dict['images'], dict['actions'], dict['endeffector_pos'], dict['first_last_noarm']])
+        [images] = sess.run([dict['images']])
 
-        plt.imshow(firstlastnoarm[0,0])
-        plt.show()
-        plt.imshow(firstlastnoarm[0,1])
-        plt.show()
+        # plt.imshow(firstlastnoarm[0,0])
+        # plt.show()
+        # plt.imshow(firstlastnoarm[0,1])
+        # plt.show()
 
         file_path = '/'.join(str.split(DATA_DIR, '/')[:-1]+['preview'])
 

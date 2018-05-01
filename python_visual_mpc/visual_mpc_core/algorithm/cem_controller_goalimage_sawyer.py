@@ -169,6 +169,8 @@ class CEM_controller():
 
         if 'verbose' in self.policyparams:
             self.verbose = True
+            if isinstance(self.policyparams['verbose'], int):
+                self.verbose_freq = self.policyparams['verbose']
         else: self.verbose = False
 
         self.niter = self.policyparams['iterations']
@@ -515,7 +517,7 @@ class CEM_controller():
 
         tstart_verbose = time.time()
 
-        if self.verbose and cem_itr == self.policyparams['iterations']-1:
+        if self.verbose and cem_itr == self.policyparams['iterations']-1 and self.i_tr % self.verbose_freq ==0:
         # if self.verbose:
             gen_images = make_cem_visuals(self, actions, bestindices, cem_itr, flow_fields, gen_distrib, gen_images,
                                           gen_states, last_frames, goal_warp_pts_l, scores, self.warped_image_goal,
@@ -690,6 +692,7 @@ class CEM_controller():
         Args:
             t: the current controller's Time step
         """
+        self.i_tr = traj.i_tr
         self.goal_mask = goal_mask
         self.desig_pix = np.array(desig_pix).reshape((-1, 2))
         self.goal_pix = np.array(goal_pix).reshape((-1, 2))
