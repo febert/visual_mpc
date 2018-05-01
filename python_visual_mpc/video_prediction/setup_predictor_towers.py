@@ -184,10 +184,10 @@ def setup_predictor(hyperparams, conf, gpu_id=0, ngpu=1, logging_dir=None):
                                                                     comb_gen_states],
                                                                    feed_dict)
 
-                print('time for evaluating {0} actions on {1} gpus : {2}'.format(
-                    conf['batch_size'],
-                    conf['ngpu'],
-                    (datetime.now() - t_startiter).seconds + (datetime.now() - t_startiter).microseconds/1e6))
+                # print('time for evaluating {0} actions on {1} gpus : {2}'.format(
+                #     conf['batch_size'],
+                #     conf['ngpu'],
+                #     (datetime.now() - t_startiter).seconds + (datetime.now() - t_startiter).microseconds/1e6))
 
                 return gen_images, gen_distrib, gen_states, None
 
