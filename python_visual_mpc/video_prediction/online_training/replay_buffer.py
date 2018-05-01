@@ -8,6 +8,7 @@ from python_visual_mpc.video_prediction.read_tf_records2 import build_tfrecord_i
 from python_visual_mpc.visual_mpc_core.infrastructure.utility.logger import Logger
 import pdb
 
+import matplotlib; matplotlib.use('Agg'); import matplotlib.pyplot as plt
 Traj = namedtuple('Traj', 'images X_Xdot_full actions')
 
 class ReplayBuffer(object):
@@ -18,6 +19,8 @@ class ReplayBuffer(object):
         self.batch_size = batch_size
         self.data_collectors = data_collectors
         self.todo_ids = todo_ids
+        self.scores = []
+        self.num_inserts = 0
         self.logger.log('init Replay buffer')
 
     def push_back(self, traj):
@@ -46,10 +49,21 @@ class ReplayBuffer(object):
                 traj, info = ray.get(id)
                 self.logger.log("received trajectory from {}, pushing back traj".format(info['collector_id']))
                 self.push_back(traj)
+                self.scores.append(traj.final_poscost)
                 # relauch the collector if it hasn't done all its work yet.
                 returning_collector = self.data_collectors[info['collector_id']]
-                # if info['itraj'] < info['maxtraj']:
                 self.todo_ids.append(returning_collector.run_traj.remote())
                 self.logger.log('restarting {}'.format(info['collector_id']))
-                # else:
-                #     self.logger.log('tasks finished, no new task launched')
+
+                self.num_inserts += 1
+
+                if self.num_inserts % 100 == 0:
+                    plot_scores(self.scores)
+
+
+def plot_scores(scores):
+    plt.plot(scores)
+    plt.title('scores over time')
+    plt.xlabel('collected trajectories')
+
+

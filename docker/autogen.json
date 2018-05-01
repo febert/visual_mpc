@@ -1,7 +1,7 @@
 {
     "dockerImageName": "ucb_rail8888/tf_mj1.5:latest", 
     "aceName": "nv-us-west-2", 
-    "name": "intint_5", 
+    "name": "int", 
     "publishedContainerPorts": [
         6006
     ], 
