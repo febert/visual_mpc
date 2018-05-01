@@ -24,6 +24,7 @@ class ReplayBuffer(object):
         self.ring_buffer.append(traj)
         if len(self.ring_buffer) > self.maxsize:
             self.ring_buffer.pop(0)
+        self.logger.log('current size {}'.format(len(self.ring_buffer)))
 
     def get_batch(self):
         images = []
@@ -37,27 +38,6 @@ class ReplayBuffer(object):
             states.append(traj.X_Xdot_full)
             actions.append(traj.actions)
         return np.stack(images,0), np.stack(states,0), np.stack(actions,0)
-
-    def prefil(self, prefil_n, trainvid_conf):
-        os.environ["CUDA_VISIBLE_DEVICES"] = ""
-        self.logger.log('using CUDA_VISIBLE_DEVICES=',os.environ["CUDA_VISIBLE_DEVICES"])
-        from tensorflow.python.client import device_lib
-        self.logger.log(device_lib.list_local_devices())
-        g_vidpred = tf.Graph()
-        sess = tf.Session(graph=g_vidpred)
-        with sess.as_default():
-            with g_vidpred.as_default():
-                dict = build_tfrecord_input(trainvid_conf, training=True)
-                tf.train.start_queue_runners(sess)
-                sess.run(tf.global_variables_initializer())
-                for i_run in range(prefil_n//trainvid_conf['batch_size']):
-                    images, actions, endeff = sess.run([dict['images'], dict['actions'], dict['endeffector_pos']])
-                    for b in range(trainvid_conf['batch_size']):
-                        t = Traj(images[b], endeff[b], actions[b])
-                        self.push_back(t)
-
-        sess.close()
-        tf.reset_default_graph()
 
     def update(self):
         done_id, self.todo_ids = ray.wait(self.todo_ids, timeout=0)
