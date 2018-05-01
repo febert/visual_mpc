@@ -15,8 +15,6 @@ import pdb
 import glob
 import re
 
-import matplotlib; matplotlib.use('Agg'); import matplotlib.pyplot as plt
-
 from python_visual_mpc.visual_mpc_core.infrastructure.utility.combine_scores import combine_scores
 from python_visual_mpc.visual_mpc_core.infrastructure.utility.create_configs import CollectGoalImageSim
 import pickle

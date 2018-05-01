@@ -5,7 +5,10 @@ from PIL import Image
 from python_visual_mpc.video_prediction.basecls.utils.visualize import add_crosshairs
 from python_visual_mpc.video_prediction.utils_vpred.animate_tkinter import Visualizer_tkinter
 
-import matplotlib; matplotlib.use('Agg'); import matplotlib.pyplot as plt
+import importlib
+import matplotlib
+importlib.reload(matplotlib)
+matplotlib.use('Agg'); import matplotlib.pyplot as plt
 
 def image_addgoalpix(bsize, seqlen, image_l, goal_pix):
     goal_pix_ob = np.tile(goal_pix[None, None, :], [bsize, seqlen, 1])
