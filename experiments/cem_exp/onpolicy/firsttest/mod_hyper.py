@@ -58,8 +58,9 @@ policy = {
 
 onpolconf = {
     'infnet_reload_freq':100, #############,     # reload inference model weights after n number of new trajectores collected
-    'replay_size':10,
-    'prefil_replay':5,        # fill replay with existing trajectories from dataset
+    'replay_size':20,
+    'prefil_replay':5,              # fill replay with existing trajectories from dataset
+    'start_train_replaysize':8,     # start training when replay buffer is larger than this value
 }
 
 config = {
