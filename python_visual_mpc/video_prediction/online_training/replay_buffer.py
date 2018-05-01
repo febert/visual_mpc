@@ -11,7 +11,7 @@ import pdb
 Traj = namedtuple('Traj', 'images X_Xdot_full actions')
 
 class ReplayBuffer(object):
-    def __init__(self, agentparams, maxsize, batch_size, data_collectors, todo_ids):
+    def __init__(self, agentparams, maxsize, batch_size, data_collectors=None, todo_ids=None):
         self.logger = Logger(agentparams['logging_dir'], 'replay_log.txt')
         self.ring_buffer = []
         self.maxsize = maxsize

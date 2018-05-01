@@ -120,6 +120,16 @@ def main():
 
     onpolconf = hyperparams['onpolconf']
 
+    rb = ReplayBuffer(hyperparams['agent'], maxsize=onpolconf['replay_size'],
+                      batch_size=16)
+
+    if 'prefil_replay' in onpolconf:
+        print('prefilling replay')
+        path = trainvid_conf['data_dir'].partition('pushing_data')[2]
+        trainvid_conf['data_dir'] = os.environ['VMPC_DATA_DIR'] + path
+        rb.prefil(onpolconf['replay_size'], trainvid_conf)
+        print('prefilling replay done.')
+
     ray.init()
     data_collectors = []
     for i in range(n_worker):
@@ -129,16 +139,8 @@ def main():
         modconf['gpu_id'] = i + gpu_id
         data_collectors.append(Data_Collector.remote(modconf, i))
 
-    todo_ids = [d.run_traj.remote() for d in data_collectors]
-    rb = ReplayBuffer(hyperparams['agent'], maxsize=onpolconf['replay_size'],
-                      batch_size=16, data_collectors=data_collectors, todo_ids=todo_ids)
-
-    if 'prefil_replay' in onpolconf:
-        print('prefilling replay')
-        path = trainvid_conf['data_dir'].partition('pushing_data')[2]
-        trainvid_conf['data_dir'] = os.environ['VMPC_DATA_DIR'] + path
-        rb.prefil(onpolconf['replay_size'], trainvid_conf)
-        print('prefilling replay done.')
+    rb.todo_ids = [d.run_traj.remote() for d in data_collectors]
+    rb.data_collectors = data_collectors
 
     while len(rb.ring_buffer) < onpolconf['start_train_replaysize']:
         rb.update()

@@ -1,8 +1,0 @@
-init sim
-traj_per_file256
-traj_per_file256
-traj_per_file256
-traj_per_file256
-traj_per_file256
-traj_per_file256
-traj_per_file256
