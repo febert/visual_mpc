@@ -121,6 +121,9 @@ class AgentMuJoCo(object):
             self.initial_poscost = np.mean(self.initial_poscost)
             self.improvement = self.initial_poscost - self.final_poscost
 
+        traj.final_poscost = self.final_poscost
+        traj.initial_poscost = self.initial_poscost
+
         if 'save_goal_image' in self._hyperparams:
             self.save_goal_image_conf(traj)
 
@@ -340,19 +343,15 @@ class AgentMuJoCo(object):
         img.save(self._hyperparams['save_goal_image'] + '.png',)
 
     def eval_action(self, traj, t):
-
         abs_distances = []
         abs_angle_dist = []
-
         for i_ob in range(self._hyperparams['num_objects']):
-
             goal_pos = self.goal_obj_pose[i_ob, :3]
             curr_pos = traj.Object_full_pose[t, i_ob, :3]
             abs_distances.append(np.linalg.norm(goal_pos - curr_pos))
 
             goal_quat = Quaternion(self.goal_obj_pose[i_ob, 3:])
             curr_quat = Quaternion(traj.Object_full_pose[t, i_ob, 3:])
-
             diff_quat = curr_quat.conjugate*goal_quat
             abs_angle_dist.append(np.abs(diff_quat.radians))
 
