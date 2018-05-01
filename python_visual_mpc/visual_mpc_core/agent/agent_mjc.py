@@ -99,6 +99,7 @@ class AgentMuJoCo(object):
         if "gen_xml" in self._hyperparams:
             if i_tr % self._hyperparams['gen_xml'] == 0:
                 self._setup_world()
+        self._hyperparams['i_tr'] = i_tr
 
         traj_ok = False
         i_trial = 0
@@ -106,7 +107,7 @@ class AgentMuJoCo(object):
         while not traj_ok and i_trial < imax:
             i_trial += 1
             try:
-                traj_ok, traj = self.rollout(policy)
+                traj_ok, traj = self.rollout(policy, i_tr)
             except Image_dark_except:
                 traj_ok = False
 
@@ -150,9 +151,6 @@ class AgentMuJoCo(object):
         width = self._hyperparams['image_width']
         height = self._hyperparams['image_height']
         traj.first_last_noarm[ind] = self.sim.render(width, height, camera_name='maincam')[::-1, :, :]
-        plt.imshow(traj.first_last_noarm[ind])
-        plt.show()
-        plt.savefig(self._hyperparams['record'] +'/noarm_im{}'.format(ind))
         qpos[2] += 10
         sim_state.qpos[:] = qpos
         self.sim.set_state(sim_state)
@@ -176,12 +174,14 @@ class AgentMuJoCo(object):
         assert substep >= 0 and substep < self._hyperparams['substeps']
         return substep/float(self._hyperparams['substeps'])*(next - prev) + prev
 
-    def rollout(self, policy):
+    def rollout(self, policy, i_tr):
         self._init()
         if self.goal_obj_pose is not None:
             self.goal_pix = self.get_goal_pix()   # has to occurr after self.viewer.cam.camid = 0 and set_model!!!
 
         traj = Trajectory(self._hyperparams)
+        traj.i_tr = i_tr
+
         if 'gen_xml' in self._hyperparams:
             traj.obj_statprop = self.obj_statprop
 

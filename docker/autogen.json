@@ -1,7 +1,7 @@
 {
     "dockerImageName": "ucb_rail8888/tf_mj1.5:latest", 
     "aceName": "nv-us-west-2", 
-    "name": "int", 
+    "name": "intint_5", 
     "publishedContainerPorts": [
         6006
     ], 
@@ -106,6 +106,10 @@
         {
             "containerMountPoint": "/mnt/pushing_data/cartgripper_updown_rot_sact", 
             "id": 8951
+        }, 
+        {
+            "containerMountPoint": "/mnt/sda1/pushing_data/onpolicy/updown_sact_bounded_disc", 
+            "id": 9363
         }
     ], 
     "resultContainerMountPoint": "/result", 
