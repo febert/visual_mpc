@@ -52,7 +52,9 @@ def plot_sum_overtime(pixdistrib, dir, filename):
     # plt.show()
     if not os.path.exists(dir):
         os.makedirs(dir)
+    matplotlib.use('Agg')
     plt.savefig(os.path.join(dir, filename))
+
 
 def make_cem_visuals(ctrl, actions, bestindices, cem_itr, flow_fields, gen_distrib, gen_images, gen_states,
                      last_frames, goal_warp_pts_l, scores, warped_image_goal, warped_image_start, warped_images):
