@@ -68,8 +68,8 @@ class ReplayBuffer(object):
                 self.push_back(traj)
                 # relauch the collector if it hasn't done all its work yet.
                 returning_collector = self.data_collectors[info['collector_id']]
-                if info['itraj'] < info['maxtraj']:
-                    self.todo_ids.append(returning_collector.run_traj.remote())
-                    self.logger.log('restarting {}'.format(info['collector_id']))
-                else:
-                    self.logger.log('tasks finished, no new task launched')
+                # if info['itraj'] < info['maxtraj']:
+                self.todo_ids.append(returning_collector.run_traj.remote())
+                self.logger.log('restarting {}'.format(info['collector_id']))
+                # else:
+                #     self.logger.log('tasks finished, no new task launched')
