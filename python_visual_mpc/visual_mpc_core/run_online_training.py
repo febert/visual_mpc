@@ -140,10 +140,9 @@ def main():
         rb.prefil(onpolconf['replay_size'], trainvid_conf)
         print('prefilling replay done.')
 
-    while len(rb.ring_buffer) < onpolconf['replay_size']:
+    while len(rb.ring_buffer) < onpolconf['start_train_replaysize']:
         rb.update()
-    print("Replay buffer filled")
-
+    print("Replay buffer pre-filled, starting training")
     trainvid_online(rb, trainvid_conf, hyperparams['agent'], i + gpu_id + 1)
 
 
