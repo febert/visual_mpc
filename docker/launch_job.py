@@ -47,6 +47,7 @@ data["datasetMounts"] = [{"containerMountPoint": "/mnt/tensorflow_data/sim/mj_po
                          {"containerMountPoint": "/mnt/tensorflow_data/gdn/96x128/cartgripper_tdac_flowpenal", "id": 9287},
                          {"containerMountPoint": "/mnt/pretrained_models/bair_action_free/model.savp.transformation.flow.last_frames.2.generate_scratch_image.false.batch_size.16", "id": 9161},
                          {"containerMountPoint": "/mnt/pretrained_models/bair_action_free/model.multi_savp.ngf.64.shared_views.true.num_views.2.tv_weight.0.001.transformation.flow.last_frames.2.generate_scratch_image.false.batch_size.16", "id": 9223},
+                         {"containerMountPoint": "/mnt/pretrained_models/bair_action_free/model.multi_savp.num_views.2.tv_weight.0.001.transformation.flow.last_frames.2.generate_scratch_image.false.batch_size.16", "id": 9387},
                          {"containerMountPoint": "/mnt/pushing_data/cartgripper_startgoal_masks6e4", "id": 9138},  # mj_pos_ctrl_appflow
                          {"containerMountPoint": "/mnt/pushing_data/cartgripper_const_dist", "id": 9259},  # mj_pos_ctrl_appflow
                          {"containerMountPoint": "/mnt/pushing_data/cartgripper_startgoal_short", "id": 8949},  # mj_pos_ctrl_appflow
@@ -58,7 +59,7 @@ data["datasetMounts"] = [{"containerMountPoint": "/mnt/tensorflow_data/sim/mj_po
                          {"containerMountPoint": "/mnt/pushing_data/mj_pos_noreplan_fast_tfrec_fewdata", "id": 8972},  #mj_pos_noreplan_fast_tfrec    | gtruth mujoco planning pushing
                          {"containerMountPoint": "/mnt/pushing_data/cartgripper_updown_sact", "id": 8931},
                          {"containerMountPoint": "/mnt/pushing_data/cartgripper_updown_rot_sact", "id": 8951},
-                         {"containerMountPoint": "/mnt/sda1/pushing_data/onpolicy/updown_sact_bounded_disc", "id": 9363}
+                         {"containerMountPoint": "/mnt/pushing_data/onpolicy/updown_sact_bounded_disc", "id": 9363}
                          ]
 
 data["aceInstance"] = "ngcv{}".format(args.ngpu)
