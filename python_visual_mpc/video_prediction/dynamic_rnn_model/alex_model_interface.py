@@ -16,8 +16,8 @@ class Alex_Interface_Model(object):
         with open(os.path.join(conf['json_dir'], "model_hparams.json")) as f:
             model_hparams_dict = json.loads(f.read())
             model_hparams_dict.pop('num_gpus', None)  # backwards-compatibility
-
-            model_hparams_dict.update(conf['override_json'])
+            if 'override_json' in conf:
+                model_hparams_dict.update(conf['override_json'])
 
         self.m = MultiSAVPVideoPredictionModel(mode='test', hparams_dict=model_hparams_dict)
 
