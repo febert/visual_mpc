@@ -122,7 +122,6 @@ def main():
 
     rb = ReplayBuffer(hyperparams['agent'], maxsize=onpolconf['replay_size'],
                       batch_size=16)
-
     ray.init()
     data_collectors = []
     for i in range(n_worker):
