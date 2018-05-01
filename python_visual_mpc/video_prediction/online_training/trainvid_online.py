@@ -10,6 +10,7 @@ import imp
 from tensorflow.python.platform import app
 from tensorflow.python.platform import flags
 
+from python_visual_mpc.video_prediction.read_tf_records2 import build_tfrecord_input
 from python_visual_mpc.visual_mpc_core.infrastructure.utility.logger import Logger
 from python_visual_mpc.video_prediction.utils_vpred.video_summary import convert_tensor_to_gif_summary
 
@@ -24,14 +25,15 @@ VAL_INTERVAL = 500
 
 VIDEO_INTERVAL = 10000
 
-
+from collections import namedtuple
+Traj = namedtuple('Traj', 'images X_Xdot_full actions')
 from python_visual_mpc.video_prediction.utils_vpred.variable_checkpoint_matcher import variable_checkpoint_matcher
 
 
-def trainvid_online(replay_buffer, conf, agentparams, gpu_id):
+def trainvid_online(replay_buffer, conf, agentparams, onpolparam, gpu_id):
     logger = Logger(agentparams['logging_dir'], 'trainvid_online_log.txt')
     logger.log('starting trainvid online')
-    
+
     os.environ["CUDA_VISIBLE_DEVICES"] = str(gpu_id)
     logger.log('training video prediction using cuda_visible_devices=', os.environ["CUDA_VISIBLE_DEVICES"])
     from tensorflow.python.client import device_lib
@@ -46,15 +48,25 @@ def trainvid_online(replay_buffer, conf, agentparams, gpu_id):
     sess = tf.Session(config=tf.ConfigProto(gpu_options=gpu_options, allow_soft_placement=True), graph=g_vidpred)
     with sess.as_default():
         with g_vidpred.as_default():
+            tf.train.start_queue_runners(sess)
+            sess.run(tf.global_variables_initializer())
+
+            logger.log('start filling replay')
+            dict = build_tfrecord_input(conf, training=True)
+            for i_run in range(onpolparam['fill_replay_fromsaved']//conf['batch_size']):
+                images, actions, endeff = sess.run([dict['images'], dict['actions'], dict['endeffector_pos']])
+                for b in range(conf['batch_size']):
+                    t = Traj(images[b], endeff[b], actions[b])
+                    replay_buffer.push_back(t)
+            logger.log('done filling replay')
+
             Model = conf['pred_model']
             model = Model(conf, load_data=False, trafo_pix=False, build_loss=True)
-
             logger.log('Constructing saver.')
             vars = tf.get_collection(tf.GraphKeys.GLOBAL_VARIABLES)
             vars = filter_vars(vars)
             saving_saver = tf.train.Saver(vars, max_to_keep=0)
             summary_writer = tf.summary.FileWriter(conf['event_log_dir'], graph=sess.graph, flush_secs=10)
-
             vars = variable_checkpoint_matcher(conf, vars, conf['pretrained'])
             loading_saver = tf.train.Saver(vars, max_to_keep=0)
             load_checkpoint(conf, sess, loading_saver, conf['pretrained'])
@@ -78,26 +90,26 @@ def trainvid_online(replay_buffer, conf, agentparams, gpu_id):
                 images, states, actions = replay_buffer.get_batch()
                 feed_dict = {model.iter_num: np.float32(itr),
                              model.train_cond: 1,
-                             model.images_pl:images,
-                             model.actions_pl:actions,
-                             model.states_pl:states
+                             model.images_pl: images,
+                             model.actions_pl: actions,
+                             model.states_pl: states
                              }
                 cost, _, summary_str = sess.run([model.loss, model.train_op, model.train_summ_op],
                                                 feed_dict)
 
-                t_iter.append((datetime.now() - t_startiter).seconds * 1e6 +  (datetime.now() - t_startiter).microseconds )
+                t_iter.append((datetime.now() - t_startiter).seconds * 1e6 + (datetime.now() - t_startiter).microseconds)
 
-                if (itr) % 10 ==0:
+                if (itr) % 10 == 0:
                     logger.log(str(itr) + ' ' + str(cost))
 
                 if (itr) % VIDEO_INTERVAL == 2 and hasattr(model, 'val_video_summaries'):
                     feed_dict = {model.iter_num: np.float32(itr),
                                  model.train_cond: 0,
-                                 model.images_pl:images,
-                                 model.actions_pl:actions,
-                                 model.states_pl:states
+                                 model.images_pl: images,
+                                 model.actions_pl: actions,
+                                 model.states_pl: states
                                  }
-                    video_proto = sess.run(model.val_video_summaries, feed_dict = feed_dict)
+                    video_proto = sess.run(model.val_video_summaries, feed_dict=feed_dict)
                     summary_writer.add_summary(convert_tensor_to_gif_summary(video_proto), itr)
 
                 if (itr) % conf['save_interval'] == 0:
@@ -105,21 +117,19 @@ def trainvid_online(replay_buffer, conf, agentparams, gpu_id):
                     saving_saver.save(sess, conf['output_dir'] + '/model' + str(itr))
 
                 if itr % 50 == 1:
-                    hours = (datetime.now() -starttime).seconds/3600
+                    hours = (datetime.now() - starttime).seconds / 3600
                     logger.log('running for {0}d, {1}h, {2}min'.format(
                         (datetime.now() - starttime).days,
-                        hours,+
-                        (datetime.now() - starttime).seconds/60 - hours*60))
-                    avg_t_iter = np.sum(np.asarray(t_iter))/len(t_iter)
-                    logger.log('time per iteration: {0}'.format(avg_t_iter/1e6))
-                    logger.log('expected for complete training: {0}h '.format(avg_t_iter /1e6/3600 * conf['num_iterations']))
+                        hours, +
+                               (datetime.now() - starttime).seconds / 60 - hours * 60))
+                    avg_t_iter = np.sum(np.asarray(t_iter)) / len(t_iter)
+                    logger.log('time per iteration: {0}'.format(avg_t_iter / 1e6))
+                    logger.log('expected for complete training: {0}h '.format(avg_t_iter / 1e6 / 3600 * conf['num_iterations']))
 
                 if (itr) % SUMMARY_INTERVAL == 2:
                     summary_writer.add_summary(summary_str, itr)
+            return t_iter
 
-            sess.close()
-            tf.reset_default_graph()
-            return np.array(t_iter)/1e6
 
 def load_checkpoint(conf, sess, saver, model_file=None):
     """
