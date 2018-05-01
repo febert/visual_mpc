@@ -64,7 +64,7 @@ class ReplayBuffer(object):
         if done_id is not []:
             for id in done_id:
                 traj, info = ray.get(id)
-                self.logger.log("pushing back traj")
+                self.logger.log("received trajectory from {}, pushing back traj".format(info['collector_id']))
                 self.push_back(traj)
                 # relauch the collector if it hasn't done all its work yet.
                 returning_collector = self.data_collectors[info['collector_id']]
