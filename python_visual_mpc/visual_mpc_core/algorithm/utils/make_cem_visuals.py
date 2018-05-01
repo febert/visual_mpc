@@ -8,7 +8,9 @@ from python_visual_mpc.video_prediction.utils_vpred.animate_tkinter import Visua
 import importlib
 import matplotlib
 importlib.reload(matplotlib)
-matplotlib.use('Agg'); import matplotlib.pyplot as plt
+matplotlib.use('Agg');
+importlib.reload(matplotlib.pyplot)
+import matplotlib.pyplot as plt
 
 def image_addgoalpix(bsize, seqlen, image_l, goal_pix):
     goal_pix_ob = np.tile(goal_pix[None, None, :], [bsize, seqlen, 1])
