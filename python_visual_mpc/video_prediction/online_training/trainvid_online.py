@@ -33,7 +33,7 @@ def trainvid_online(replay_buffer, conf, agentparams, gpu_id):
     logger.log('starting trainvid online')
     
     os.environ["CUDA_VISIBLE_DEVICES"] = str(gpu_id)
-    logger.log('training video prediction using cuda_visible_devices=', gpu_id)
+    logger.log('training video prediction using cuda_visible_devices=', os.environ["CUDA_VISIBLE_DEVICES"])
     from tensorflow.python.client import device_lib
     logger.log(device_lib.list_local_devices())
 

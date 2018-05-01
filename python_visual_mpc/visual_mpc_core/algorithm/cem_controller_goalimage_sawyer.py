@@ -161,8 +161,7 @@ class CEM_controller():
         """
         self.agentparams = ag_params
         self.policyparams = policyparams
-        self.logger = Logger(self.agentparams['logging_dir'], 'cemlog.txt')
-        self.logger.log('init CEM controller')
+        self.logger = None
 
         self.save_subdir = save_subdir
         self.t = None

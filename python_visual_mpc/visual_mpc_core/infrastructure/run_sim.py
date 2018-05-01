@@ -33,8 +33,8 @@ class Sim(object):
         self.agentparams = config['agent']
         self.policyparams = config['policy']
 
-        self.logger = Logger(self.agentparams['logging_dir'], 'sim_log.txt')
-        self.logger.log('init CEM controller')
+        self.logger = Logger(self.agentparams['logging_dir'], 'sim_log_gpu{}.txt'.format(gpu_id))
+        self.logger.log('init sim')
 
         if 'RESULT_DIR' in os.environ:
             self.agentparams['data_save_dir'] = os.environ['RESULT_DIR'] + '/train'
@@ -58,6 +58,8 @@ class Sim(object):
                 self.policy = config['policy']['type'](config['agent'], config['policy'], self.predictor)
         else:
             self.policy = config['policy']['type'](self.agent._hyperparams, config['policy'])
+
+        self.policy.logger = self.logger
 
         self.trajectory_list = []
         self.im_score_list = []
