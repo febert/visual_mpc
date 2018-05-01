@@ -175,4 +175,5 @@ improvement.png
 improvement_histo.txt
 fail_class.txt
 
-mujoco_py_/
+
+*log.txt
