@@ -16,7 +16,7 @@ from python_visual_mpc.visual_mpc_core.infrastructure.utility import *
 
 import matplotlib
 matplotlib.use('Agg')
-import matplotlib.pyplot as plt
+import matplotlib; matplotlib.use('Agg'); import matplotlib.pyplot as plt
 from datetime import datetime
 import pickle
 import cv2

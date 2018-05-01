@@ -8,7 +8,7 @@ from mujoco_py.mjtypes import *
 from PIL import Image
 import pickle
 
-import matplotlib.pyplot as plt
+import matplotlib; matplotlib.use('Agg'); import matplotlib.pyplot as plt
 import os
 
 from python_visual_mpc import __file__ as python_vmpc_path

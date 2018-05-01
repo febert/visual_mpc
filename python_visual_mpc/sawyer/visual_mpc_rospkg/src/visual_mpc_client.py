@@ -9,7 +9,7 @@ import pdb
 from datetime import datetime
 
 import cv2
-import matplotlib.pyplot as plt
+import matplotlib; matplotlib.use('Agg'); import matplotlib.pyplot as plt
 import numpy as np
 import rospy
 from cv_bridge import CvBridge

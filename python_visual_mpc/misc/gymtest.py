@@ -1,7 +1,7 @@
 import gym
 import numpy as np
 from gym.envs.mujoco.mujoco_env import MujocoEnv
-import matplotlib.pyplot as plt
+import matplotlib; matplotlib.use('Agg'); import matplotlib.pyplot as plt
 
 import mujoco_py
 print((mujoco_py.__file__))

@@ -13,7 +13,7 @@ from python_visual_mpc.video_prediction.basecls.utils.visualize import add_cross
 from python_visual_mpc.visual_mpc_core.algorithm.utils.make_cem_visuals import make_cem_visuals
 # from python_visual_mpc.video_prediction.utils_vpred.create_gif_lib import *
 
-import matplotlib.pyplot as plt
+import matplotlib; matplotlib.use('Agg'); import matplotlib.pyplot as plt
 
 import collections
 

@@ -16,7 +16,7 @@ from scipy import ndimage
 import tensorflow as tf
 from .spatial_transformer import transformer
 import numpy as np
-import matplotlib.pyplot as plt
+import matplotlib; matplotlib.use('Agg'); import matplotlib.pyplot as plt
 
 # %% Create a batch of three images (1600 x 1200)
 # %% Image retrieved from:

@@ -6,11 +6,7 @@ from python_visual_mpc.video_prediction.basecls.utils.visualize import add_cross
 from python_visual_mpc.video_prediction.utils_vpred.animate_tkinter import Visualizer_tkinter
 
 import importlib
-import matplotlib
-importlib.reload(matplotlib)
-matplotlib.use('Agg');
-importlib.reload(matplotlib.pyplot)
-import matplotlib.pyplot as plt
+import matplotlib; matplotlib.use('Agg'); import matplotlib; matplotlib.use('Agg'); import matplotlib.pyplot as plt
 
 def image_addgoalpix(bsize, seqlen, image_l, goal_pix):
     goal_pix_ob = np.tile(goal_pix[None, None, :], [bsize, seqlen, 1])
