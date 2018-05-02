@@ -65,7 +65,7 @@ data["datasetMounts"] = [{"containerMountPoint": "/mnt/tensorflow_data/sim/mj_po
 data["aceInstance"] = "ngcv{}".format(args.ngpu)
 
 if args.int == 'True':
-    command = "/bin/sleep 36000"
+    command = "/bin/sleep 360000"
     data["name"] = 'int' + args.name
 else:
     if 'benchmarks' in script_name or 'parallel_data_collection' in script_name:  #running benchmark...
