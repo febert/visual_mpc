@@ -33,7 +33,10 @@ class Sim(object):
         self.agentparams = config['agent']
         self.policyparams = config['policy']
 
-        self.logger = Logger(self.agentparams['logging_dir'], 'sim_gpu{}_log.txt'.format(gpu_id))
+        if 'logging_dir' in self.agentparams:
+            self.logger = Logger(self.agentparams['logging_dir'], 'sim_gpu{}_log.txt'.format(gpu_id))
+        else:
+            self.logger = Logger(printout=True)
         self.logger.log('init sim')
 
         if 'RESULT_DIR' in os.environ:
