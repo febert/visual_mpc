@@ -161,7 +161,10 @@ class CEM_controller():
         """
         self.agentparams = ag_params
         self.policyparams = policyparams
-        self.logger = Logger(self.agentparams['logging_dir'], 'cem{}log.txt'.format(self.agentparams['gpu_id']))
+        if 'logging_dir' in self.agentparams:
+            self.logger = Logger(self.agentparams['logging_dir'], 'cem{}log.txt'.format(self.agentparams['gpu_id']))
+        else:
+            self.logger = Logger(printout=True)
         self.logger.log('init CEM controller')
 
         self.save_subdir = save_subdir
@@ -171,6 +174,7 @@ class CEM_controller():
             self.verbose = True
             if isinstance(self.policyparams['verbose'], int):
                 self.verbose_freq = self.policyparams['verbose']
+            else: self.verbose_freq = 1
         else: self.verbose = False
 
         self.niter = self.policyparams['iterations']

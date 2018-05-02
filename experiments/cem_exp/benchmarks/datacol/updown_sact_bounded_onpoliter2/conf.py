@@ -18,7 +18,7 @@ configuration = {
 'setup_predictor':setup_predictor,
 'output_dir': OUT_DIR,      #'directory for model checkpoints.' ,
 'current_dir': current_dir, #'directory for writing summary.' ,
-'pretrained_model':base_dir + '/tensorflow_data/sim/pos_ctrl_updown_sact/modeldata/model152002',     # 'filepath of a pretrained model to resume training from.' ,
+'pretrained_model':base_dir + '/tensorflow_data/sim/onpolicy/updown_sact_onpolonly/modeldata/model196002',     # 'filepath of a pretrained model to resume training from.' ,
 'sequence_length': 15,      # 'sequence length to load, including context frames.' ,
 'skip_frame': 1,            # 'use ever i-th frame to increase prediction horizon' ,
 'context_frames': 2,        # of frames before predictions.' ,

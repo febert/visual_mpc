@@ -34,7 +34,7 @@ agent = {
 }
 
 policy = {
-    # 'verbose':'',
+    'verbose':'',
     'type' : CEM_controller,
     'low_level_ctrl': None,
     'current_dir':current_dir,
@@ -74,6 +74,6 @@ config = {
     'agent':agent,
     'policy':policy,
     'sourcetags':[tag_images, tag_qpos, tag_object_full_pose, tag_object_statprop],
-    'source_basedirs':[os.environ['VMPC_DATA_DIR']+ '/cartgripper_startgoal_masks6e4/train'],
+    'source_basedirs':[os.environ['VMPC_DATA_DIR']+ '/cartgripper/cartgripper_startgoal_masks6e4/train'],
     'sequence_length':2,
 }
