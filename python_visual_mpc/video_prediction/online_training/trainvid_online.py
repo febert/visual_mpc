@@ -1,5 +1,6 @@
 import os
 import numpy as np
+from tensorflow.python.platform import gfile
 import tensorflow as tf
 import imp
 import sys
@@ -118,7 +119,12 @@ def trainvid_online(replay_buffer, conf, agentparams, onpolparam, gpu_id):
 
                 if (itr) % conf['save_interval'] == 0:
                     logger.log('Saving model to' + conf['output_dir'])
-                    saving_saver.save(sess, conf['output_dir'] + '/model' + str(itr))
+                    newmodelname = conf['output_dir'] + '/model' + str(itr)
+                    oldmodelname = conf['output_dir'] + '/model' + str(itr-conf['save_interval'])
+                    saving_saver.save(sess, newmodelname)
+                    if len(gfile.Glob(os.path.join(conf['data_dir'], '*'))) != 0:
+                        print('deleting {}'.format(oldmodelname))
+                        os.system("rm {}".format(oldmodelname))
 
                 if itr % 50 == 1:
                     hours = (datetime.now() - starttime).seconds / 3600
