@@ -62,7 +62,7 @@ def trainvid_online(replay_buffer, conf, agentparams, onpolparam, gpu_id):
             ###############################
             # model = Model(conf, load_data=False, trafo_pix=False, build_loss=True)
             model = Model(conf, load_data=True, trafo_pix=False, build_loss=True)
-        ###########################
+            ###########################
             logger.log('Constructing saver.')
             vars = tf.get_collection(tf.GraphKeys.GLOBAL_VARIABLES)
             vars = filter_vars(vars)
@@ -96,10 +96,8 @@ def trainvid_online(replay_buffer, conf, agentparams, onpolparam, gpu_id):
                              model.states_pl: states
                              }
 
-
                 cost, _, summary_str = sess.run([model.loss, model.train_op, model.train_summ_op],
                                                 feed_dict)
-
                 t_iter.append((datetime.now() - t_startiter).seconds * 1e6 + (datetime.now() - t_startiter).microseconds)
 
                 if (itr) % 10 == 0:
