@@ -88,14 +88,16 @@ def trainvid_online(replay_buffer, conf, agentparams, onpolparam, gpu_id):
                 logger.log("took {} to update the replay buffer".format(time.time() - tstart_rb_update))
 
                 t_startiter = datetime.now()
-                images, states, actions = replay_buffer.get_batch()
+                # images, states, actions = replay_buffer.get_batch()
+                # feed_dict = {model.iter_num: np.float32(itr),
+                #              model.train_cond: 1,
+                #              model.images_pl: images,
+                #              model.actions_pl: actions,
+                #              model.states_pl: states
+                #              }
                 feed_dict = {model.iter_num: np.float32(itr),
                              model.train_cond: 1,
-                             model.images_pl: images,
-                             model.actions_pl: actions,
-                             model.states_pl: states
                              }
-
                 cost, _, summary_str = sess.run([model.loss, model.train_op, model.train_summ_op],
                                                 feed_dict)
                 t_iter.append((datetime.now() - t_startiter).seconds * 1e6 + (datetime.now() - t_startiter).microseconds)
