@@ -86,8 +86,12 @@ def trainvid_online(replay_buffer, conf, agentparams, onpolparam, gpu_id):
                 logger.log("took {} to update the replay buffer".format(time.time() - tstart_rb_update))
 
                 t_startiter = time.time()
+                images, states, actions = replay_buffer.get_batch()
                 feed_dict = {model.iter_num: np.float32(itr),
                              model.train_cond: 1,
+                             model.images_pl: images,
+                             model.actions_pl: actions,
+                             model.states_pl: states
                              }
                 cost, _, summary_str = sess.run([model.loss, model.train_op, model.train_summ_op],
                                                 feed_dict)
@@ -100,6 +104,9 @@ def trainvid_online(replay_buffer, conf, agentparams, onpolparam, gpu_id):
                 if (itr) % VIDEO_INTERVAL == 2 and hasattr(model, 'val_video_summaries'):
                     feed_dict = {model.iter_num: np.float32(itr),
                                  model.train_cond: 1,
+                                 model.images_pl: images,
+                                 model.actions_pl: actions,
+                                 model.states_pl: states
                                  }
                     video_proto = sess.run(model.val_video_summaries, feed_dict=feed_dict)
                     summary_writer.add_summary(convert_tensor_to_gif_summary(video_proto), itr)
