@@ -49,7 +49,6 @@ class ReplayBuffer(object):
     def update(self):
         done_id, self.todo_ids = ray.wait(self.todo_ids, timeout=0)
         if len(done_id) != 0:
-            pdb.set_trace()
             self.logger.log("len doneid {}".format(len(done_id)))
             for id in done_id:
                 traj, info = ray.get(id)
@@ -67,6 +66,7 @@ class ReplayBuffer(object):
                     plot_scores(self.scores, self.agentparams['result_dir'])
 
                 self.logger.log('traj_per hour: {}'.format(self.num_updates/((time.time() - self.tstart)/3600)))
+                self.logger.log('avg time per traj {}s'.format((time.time() - self.tstart)/self.num_updates))
 
 
 def plot_scores(scores, dir):
