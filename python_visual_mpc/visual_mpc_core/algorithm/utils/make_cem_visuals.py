@@ -5,8 +5,7 @@ from PIL import Image
 from python_visual_mpc.video_prediction.basecls.utils.visualize import add_crosshairs
 from python_visual_mpc.video_prediction.utils_vpred.animate_tkinter import Visualizer_tkinter
 
-import importlib
-import matplotlib; matplotlib.use('Agg'); import matplotlib; matplotlib.use('Agg'); import matplotlib.pyplot as plt
+import matplotlib; matplotlib.use('Agg'); import matplotlib.pyplot as plt
 
 def image_addgoalpix(bsize, seqlen, image_l, goal_pix):
     goal_pix_ob = np.tile(goal_pix[None, None, :], [bsize, seqlen, 1])
@@ -44,11 +43,10 @@ def plot_sum_overtime(pixdistrib, dir, filename):
             for p in range(ndesig):
                 row = icam*ndesig
                 axarr[row, col].plot(range(seqlen), pixdistrib[col,:,icam,p])
+                axarr[row, col].set_ylim([0, 3])
 
-    # plt.show()
     if not os.path.exists(dir):
         os.makedirs(dir)
-    matplotlib.use('Agg')
     plt.savefig(os.path.join(dir, filename))
 
 

@@ -14,6 +14,7 @@ from python_visual_mpc.visual_mpc_core.algorithm.utils.make_cem_visuals import m
 # from python_visual_mpc.video_prediction.utils_vpred.create_gif_lib import *
 
 import matplotlib; matplotlib.use('Agg'); import matplotlib.pyplot as plt
+import copy
 
 import collections
 
@@ -620,8 +621,8 @@ class CEM_controller():
         t_mult = np.ones([self.seqlen - self.netconf['context_frames']])
         t_mult[-1] = self.policyparams['finalweight']
 
+        gen_distrib = gen_distrib.copy()
         #normalize prob distributions
-
         gen_distrib /= np.sum(np.sum(gen_distrib, axis=2), 2)[:,:, None, None]
         gen_distrib *= distance_grid[None, None]
         scores = np.sum(np.sum(gen_distrib, axis=2),2)
