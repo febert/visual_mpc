@@ -8,6 +8,8 @@ from python_visual_mpc.video_prediction.read_tf_records2 import build_tfrecord_i
 from python_visual_mpc.visual_mpc_core.infrastructure.utility.logger import Logger
 import pdb
 
+import time
+
 import matplotlib; matplotlib.use('Agg'); import matplotlib.pyplot as plt
 Traj = namedtuple('Traj', 'images X_Xdot_full actions')
 
@@ -23,6 +25,7 @@ class ReplayBuffer(object):
         self.scores = []
         self.num_inserts = 0
         self.logger.log('init Replay buffer')
+        self.tstart = time.time()
 
     def push_back(self, traj):
         self.ring_buffer.append(traj)
@@ -46,6 +49,7 @@ class ReplayBuffer(object):
     def update(self):
         done_id, self.todo_ids = ray.wait(self.todo_ids, timeout=0)
         if done_id is not []:
+            self.logger.log("len doneid {}".format(len(done_id)))
             for id in done_id:
                 traj, info = ray.get(id)
                 self.logger.log("received trajectory from {}, pushing back traj".format(info['collector_id']))
@@ -60,6 +64,8 @@ class ReplayBuffer(object):
 
                 if self.num_inserts % 100 == 0:
                     plot_scores(self.scores, self.agentparams['result_dir'])
+
+                self.logger.log('traj_per hour: {}'.format(len(self.ring_buffer)/(time.time() - self.tstart)/3600))
 
 
 def plot_scores(scores, dir):
