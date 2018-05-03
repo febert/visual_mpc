@@ -113,7 +113,8 @@ def trainvid_online(replay_buffer, conf, agentparams, onpolparam, gpu_id):
 
                 if (itr) % conf['save_interval'] == 0:
                     oldmodelname = conf['output_dir'] + '/model' + str(itr-conf['save_interval'])
-                    if len(gfile.Glob(os.path.join(oldmodelname, '*'))) != 0:
+                    pdb.set_trace()
+                    if gfile.Glob(os.path.join(oldmodelname, '*')) != []:
                         print('deleting {}'.format(oldmodelname))
                         os.system("rm {}*".format(oldmodelname))
                     logger.log('Saving model to' + conf['output_dir'])
