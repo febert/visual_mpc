@@ -99,6 +99,7 @@ def trainvid_online(replay_buffer, conf, agentparams, onpolparam, gpu_id):
                 cost, _, summary_str = sess.run([model.loss, model.train_op, model.train_summ_op],
                                                 feed_dict)
                 t_iter.append((datetime.now() - t_startiter).seconds * 1e6 + (datetime.now() - t_startiter).microseconds)
+                logger.log("iteration {} took {}s".format(itr, t_iter[-1]))
 
                 if (itr) % 10 == 0:
                     logger.log(str(itr) + ' ' + str(cost))
