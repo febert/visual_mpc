@@ -89,7 +89,7 @@ def trainvid_online(replay_buffer, conf, agentparams, onpolparam, gpu_id):
             for itr in range(0, conf['num_iterations'], 1):
                 tstart_rb_update = time.time()
                 replay_buffer.update()
-                # logger.log("took {} to update the replay buffer".format(time.time() - tstart_rb_update))
+                logger.log("took {} to update the replay buffer".format(time.time() - tstart_rb_update))
 
                 t_startiter = datetime.now()
                 images, states, actions = replay_buffer.get_batch()
