@@ -7,6 +7,7 @@ import sys
 import pickle
 import pdb
 
+import time
 import imp
 from tensorflow.python.platform import app
 from tensorflow.python.platform import flags
@@ -59,10 +60,7 @@ def trainvid_online(replay_buffer, conf, agentparams, onpolparam, gpu_id):
             preload_replay(conf, logger, onpolparam, replay_buffer, sess)
 
             Model = conf['pred_model']
-            ###############################
-            # model = Model(conf, load_data=False, trafo_pix=False, build_loss=True)
-            model = Model(conf, load_data=True, trafo_pix=False, build_loss=True)
-            ###########################
+            model = Model(conf, load_data=False, trafo_pix=False, build_loss=True)
             logger.log('Constructing saver.')
             vars = tf.get_collection(tf.GraphKeys.GLOBAL_VARIABLES)
             vars = filter_vars(vars)
@@ -80,39 +78,26 @@ def trainvid_online(replay_buffer, conf, agentparams, onpolparam, gpu_id):
 
             tf.logging.set_verbosity(tf.logging.INFO)
 
-            starttime = datetime.now()
+            starttime = time.time()
             t_iter = []
             for itr in range(0, conf['num_iterations'], 1):
                 tstart_rb_update = time.time()
                 replay_buffer.update()
                 logger.log("took {} to update the replay buffer".format(time.time() - tstart_rb_update))
 
-                t_startiter = datetime.now()
-                # images, states, actions = replay_buffer.get_batch()
-                # feed_dict = {model.iter_num: np.float32(itr),
-                #              model.train_cond: 1,
-                #              model.images_pl: images,
-                #              model.actions_pl: actions,
-                #              model.states_pl: states
-                #              }
+                t_startiter = time.time()
                 feed_dict = {model.iter_num: np.float32(itr),
                              model.train_cond: 1,
                              }
                 cost, _, summary_str = sess.run([model.loss, model.train_op, model.train_summ_op],
                                                 feed_dict)
-                t_iter.append((datetime.now() - t_startiter).seconds * 1e6 + (datetime.now() - t_startiter).microseconds)
+                t_iter.append(t_startiter - time.time())
                 logger.log("iteration {} took {}s".format(itr, t_iter[-1]))
 
                 if (itr) % 10 == 0:
                     logger.log(str(itr) + ' ' + str(cost))
 
                 if (itr) % VIDEO_INTERVAL == 2 and hasattr(model, 'val_video_summaries'):
-                    # feed_dict = {model.iter_num: np.float32(itr),
-                    #              model.train_cond: 1,
-                    #              model.images_pl: images,
-                    #              model.actions_pl: actions,
-                    #              model.states_pl: states
-                    #              }
                     feed_dict = {model.iter_num: np.float32(itr),
                                  model.train_cond: 1,
                                  }
@@ -129,14 +114,11 @@ def trainvid_online(replay_buffer, conf, agentparams, onpolparam, gpu_id):
                         os.system("rm {}".format(oldmodelname))
 
                 if itr % 50 == 1:
-                    hours = (datetime.now() - starttime).seconds / 3600
-                    logger.log('running for {0}d, {1}h, {2}min'.format(
-                        (datetime.now() - starttime).days,
-                        hours, +
-                               (datetime.now() - starttime).seconds / 60 - hours * 60))
-                    avg_t_iter = np.sum(np.asarray(t_iter)) / len(t_iter)
-                    logger.log('time per iteration: {0}'.format(avg_t_iter / 1e6))
-                    logger.log('expected for complete training: {0}h '.format(avg_t_iter / 1e6 / 3600 * conf['num_iterations']))
+                    hours = (time.time()- starttime) / 3600
+                    logger.log('running for  {}h'.format(hours))
+                    avg_t_iter = np.mean(t_iter[-100:])
+                    logger.log('average time per iteration: {0}s'.format(avg_t_iter))
+                    logger.log('expected for complete training: {0}h '.format(avg_t_iter / 3600 * conf['num_iterations']))
 
                 if (itr) % SUMMARY_INTERVAL == 2:
                     summary_writer.add_summary(summary_str, itr)
