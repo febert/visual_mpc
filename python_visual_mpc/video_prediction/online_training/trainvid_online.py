@@ -82,6 +82,7 @@ def trainvid_online(replay_buffer, conf, agentparams, onpolparam, gpu_id):
             t_iter = []
             for itr in range(0, conf['num_iterations'], 1):
                 tstart_rb_update = time.time()
+                logger.log('starting replay buffer update...')
                 replay_buffer.update()
                 logger.log("took {} to update the replay buffer".format(time.time() - tstart_rb_update))
 
