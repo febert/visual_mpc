@@ -286,6 +286,7 @@ class CEM_controller():
             else:
                 actions = self.sample_actions()
 
+
             if 'random_policy' in self.policyparams:
                 print('sampling random actions')
                 self.bestaction_withrepeat = actions[0]
@@ -363,8 +364,8 @@ class CEM_controller():
                 lift_std = self.policyparams['initial_std_lift']
 
                 std_fac = 1.5
-                if np.any(action_seq[:, :1] > xy_std*std_fac) or \
-                   np.any(action_seq[:, :1] < -xy_std*std_fac) or \
+                if np.any(action_seq[:, :2] > xy_std*std_fac) or \
+                   np.any(action_seq[:, :2] < -xy_std*std_fac) or \
                    np.any(action_seq[:, 2] > lift_std*std_fac) or \
                    np.any(action_seq[:, 2] < -lift_std*std_fac):
                     ok = False
@@ -380,9 +381,10 @@ class CEM_controller():
         print('rejection smp max trials', max(runs))
         if self.discrete_ind != None:
             actions = self.discretize(actions)
-        if 'no_action_bound' not in self.policyparams:
-            actions = truncate_movement(actions, self.policyparams)
         actions = np.repeat(actions, self.repeat, axis=1)
+
+        print('max action val xy', np.max(actions[:,:,:2]))
+        print('max action val z', np.max(actions[:,:,2]))
         return actions
 
     def action_preselection(self, actions, scores):
