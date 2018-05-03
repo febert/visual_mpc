@@ -23,7 +23,7 @@ class ReplayBuffer(object):
         self.data_collectors = data_collectors
         self.todo_ids = todo_ids
         self.scores = []
-        self.num_inserts = 0
+        self.num_updates = 0
         self.logger.log('init Replay buffer')
         self.tstart = time.time()
 
@@ -49,6 +49,7 @@ class ReplayBuffer(object):
     def update(self):
         done_id, self.todo_ids = ray.wait(self.todo_ids, timeout=0)
         if done_id is not []:
+            pdb.set_trace()
             self.logger.log("len doneid {}".format(len(done_id)))
             for id in done_id:
                 traj, info = ray.get(id)
@@ -60,12 +61,12 @@ class ReplayBuffer(object):
                 self.todo_ids.append(returning_collector.run_traj.remote())
                 self.logger.log('restarting {}'.format(info['collector_id']))
 
-                self.num_inserts += 1
+                self.num_updates += 1
 
-                if self.num_inserts % 100 == 0:
+                if self.num_updates % 100 == 0:
                     plot_scores(self.scores, self.agentparams['result_dir'])
 
-                self.logger.log('traj_per hour: {}'.format(len(self.ring_buffer)/(time.time() - self.tstart)/3600))
+                self.logger.log('traj_per hour: {}'.format(self.num_updates/((time.time() - self.tstart)/3600)))
 
 
 def plot_scores(scores, dir):
