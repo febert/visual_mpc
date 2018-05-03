@@ -95,7 +95,7 @@ def trainvid_online(replay_buffer, conf, agentparams, onpolparam, gpu_id):
                              }
                 cost, _, summary_str = sess.run([model.loss, model.train_op, model.train_summ_op],
                                                 feed_dict)
-                t_iter.append(t_startiter - time.time())
+                t_iter.append(time.time() - t_startiter)
                 logger.log("iteration {} took {}s".format(itr, t_iter[-1]))
 
                 if (itr) % 10 == 0:
@@ -112,13 +112,13 @@ def trainvid_online(replay_buffer, conf, agentparams, onpolparam, gpu_id):
                     summary_writer.add_summary(convert_tensor_to_gif_summary(video_proto), itr)
 
                 if (itr) % conf['save_interval'] == 0:
+                    oldmodelname = conf['output_dir'] + '/model' + str(itr-conf['save_interval'])
+                    if len(gfile.Glob(os.path.join(oldmodelname, '*'))) != 0:
+                        print('deleting {}'.format(oldmodelname))
+                        os.system("rm {}*".format(oldmodelname))
                     logger.log('Saving model to' + conf['output_dir'])
                     newmodelname = conf['output_dir'] + '/model' + str(itr)
-                    oldmodelname = conf['output_dir'] + '/model' + str(itr-conf['save_interval'])
                     saving_saver.save(sess, newmodelname)
-                    if len(gfile.Glob(os.path.join(conf['data_dir'], '*'))) != 0:
-                        print('deleting {}'.format(oldmodelname))
-                        os.system("rm {}".format(oldmodelname))
 
                 if itr % 50 == 1:
                     hours = (time.time()- starttime) / 3600
