@@ -46,5 +46,5 @@ config = {
 'img_height':48,
 'img_width':64,
 'use_vel':'',                # add the velocity to the state input
-'save_interval':2000,
+'save_interval':100,
 }
