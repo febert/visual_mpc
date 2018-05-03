@@ -48,7 +48,7 @@ class ReplayBuffer(object):
 
     def update(self):
         done_id, self.todo_ids = ray.wait(self.todo_ids, timeout=0)
-        if done_id is not []:
+        if len(done_id) != 0:
             pdb.set_trace()
             self.logger.log("len doneid {}".format(len(done_id)))
             for id in done_id:
