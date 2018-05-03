@@ -56,17 +56,13 @@ def trainvid_online(replay_buffer, conf, agentparams, onpolparam, gpu_id):
             tf.train.start_queue_runners(sess)
             sess.run(tf.global_variables_initializer())
 
-            logger.log('start filling replay')
-            dict = build_tfrecord_input(conf, training=True)
-            for i_run in range(onpolparam['fill_replay_fromsaved']//conf['batch_size']):
-                images, actions, endeff = sess.run([dict['images'], dict['actions'], dict['endeffector_pos']])
-                for b in range(conf['batch_size']):
-                    t = Traj(images[b], endeff[b], actions[b])
-                    replay_buffer.push_back(t)
-            logger.log('done filling replay')
+            preload_replay(conf, logger, onpolparam, replay_buffer, sess)
 
             Model = conf['pred_model']
-            model = Model(conf, load_data=False, trafo_pix=False, build_loss=True)
+            ###############################
+            # model = Model(conf, load_data=False, trafo_pix=False, build_loss=True)
+            model = Model(conf, load_data=True, trafo_pix=False, build_loss=True)
+        ###########################
             logger.log('Constructing saver.')
             vars = tf.get_collection(tf.GraphKeys.GLOBAL_VARIABLES)
             vars = filter_vars(vars)
@@ -99,6 +95,8 @@ def trainvid_online(replay_buffer, conf, agentparams, onpolparam, gpu_id):
                              model.actions_pl: actions,
                              model.states_pl: states
                              }
+
+
                 cost, _, summary_str = sess.run([model.loss, model.train_op, model.train_summ_op],
                                                 feed_dict)
 
@@ -108,11 +106,14 @@ def trainvid_online(replay_buffer, conf, agentparams, onpolparam, gpu_id):
                     logger.log(str(itr) + ' ' + str(cost))
 
                 if (itr) % VIDEO_INTERVAL == 2 and hasattr(model, 'val_video_summaries'):
+                    # feed_dict = {model.iter_num: np.float32(itr),
+                    #              model.train_cond: 1,
+                    #              model.images_pl: images,
+                    #              model.actions_pl: actions,
+                    #              model.states_pl: states
+                    #              }
                     feed_dict = {model.iter_num: np.float32(itr),
-                                 model.train_cond: 0,
-                                 model.images_pl: images,
-                                 model.actions_pl: actions,
-                                 model.states_pl: states
+                                 model.train_cond: 1,
                                  }
                     video_proto = sess.run(model.val_video_summaries, feed_dict=feed_dict)
                     summary_writer.add_summary(convert_tensor_to_gif_summary(video_proto), itr)
@@ -139,6 +140,17 @@ def trainvid_online(replay_buffer, conf, agentparams, onpolparam, gpu_id):
                 if (itr) % SUMMARY_INTERVAL == 2:
                     summary_writer.add_summary(summary_str, itr)
             return t_iter
+
+
+def preload_replay(conf, logger, onpolparam, replay_buffer, sess):
+    logger.log('start filling replay')
+    dict = build_tfrecord_input(conf, training=True)
+    for i_run in range(onpolparam['fill_replay_fromsaved'] // conf['batch_size']):
+        images, actions, endeff = sess.run([dict['images'], dict['actions'], dict['endeffector_pos']])
+        for b in range(conf['batch_size']):
+            t = Traj(images[b], endeff[b], actions[b])
+            replay_buffer.push_back(t)
+    logger.log('done filling replay')
 
 
 def load_checkpoint(conf, sess, saver, model_file=None):
