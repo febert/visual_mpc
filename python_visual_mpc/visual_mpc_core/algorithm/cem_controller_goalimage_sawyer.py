@@ -369,8 +369,8 @@ class CEM_controller():
                 lift_std = self.policyparams['initial_std_lift']
 
                 std_fac = 1.5
-                if np.any(action_seq[:, :1] > xy_std*std_fac) or \
-                   np.any(action_seq[:, :1] < -xy_std*std_fac) or \
+                if np.any(action_seq[:, :2] > xy_std*std_fac) or \
+                   np.any(action_seq[:, :2] < -xy_std*std_fac) or \
                    np.any(action_seq[:, 2] > lift_std*std_fac) or \
                    np.any(action_seq[:, 2] < -lift_std*std_fac):
                     ok = False
@@ -386,8 +386,6 @@ class CEM_controller():
         self.logger.log('rejection smp max trials', max(runs))
         if self.discrete_ind != None:
             actions = self.discretize(actions)
-        if 'no_action_bound' not in self.policyparams:
-            actions = truncate_movement(actions, self.policyparams)
         actions = np.repeat(actions, self.repeat, axis=1)
         return actions
 
