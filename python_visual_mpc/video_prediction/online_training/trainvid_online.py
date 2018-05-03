@@ -99,7 +99,7 @@ def trainvid_online(replay_buffer, conf, agentparams, onpolparam, gpu_id):
                 logger.log("iteration {} took {}s".format(itr, t_iter[-1]))
 
                 if (itr) % 10 == 0:
-                    logger.log(str(itr) + ' ' + str(cost))
+                    logger.log('cost ' + str(itr) + ' ' + str(cost))
 
                 if (itr) % VIDEO_INTERVAL == 2 and hasattr(model, 'val_video_summaries'):
                     feed_dict = {model.iter_num: np.float32(itr),
@@ -113,7 +113,6 @@ def trainvid_online(replay_buffer, conf, agentparams, onpolparam, gpu_id):
 
                 if (itr) % conf['save_interval'] == 0:
                     oldmodelname = conf['output_dir'] + '/model' + str(itr-conf['save_interval'])
-                    pdb.set_trace()
                     if gfile.Glob(oldmodelname + '*') != [] and (itr - conf['save_interval']) > 0:
                         print('deleting {}*'.format(oldmodelname))
                         os.system("rm {}*".format(oldmodelname))
