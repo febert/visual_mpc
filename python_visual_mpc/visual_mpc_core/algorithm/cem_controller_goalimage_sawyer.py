@@ -489,12 +489,18 @@ class CEM_controller():
             if 'trade_off_views' in self.policyparams:
                 scores_per_task, self.tradeoffs = self.compute_trade_off_cost(gen_distrib)
             else:
+                if 'override_json' in self.netconf:
+                    normalize = self.netconf['override_json']['renormalize_pixdistrib']
+                else: normalize = True
                 for icam in range(self.ncam):
                     for p in range(self.ndesig):
                         distance_grid = self.get_distancegrid(self.goal_pix[icam, p])
-                        scores_per_task.append(self.calc_scores(gen_distrib[:,:, icam, :,:, p], distance_grid))
+                        scores_per_task.append(self.calc_scores(gen_distrib[:,:, icam, :,:, p], distance_grid, normalize=normalize))
                         print('best flow score of task {}:  {}'.format(p, np.min(scores_per_task[-1])))
                 scores_per_task = np.stack(scores_per_task, axis=1)
+
+                if 'only_take_first_view' in self.policyparams:
+                    scores_per_task = scores_per_task[:,0][:,None]
 
             scores = np.sum(scores_per_task, axis=1)
             bestind = scores.argsort()[0]
@@ -636,8 +642,7 @@ class CEM_controller():
                 scores_perdesig[:, :, icam] = np.sum(np.sum(gen_distrib[:,:,icam,:,:,p]*distance_grid[None, None], axis=2),2)
                 psum[:, :, icam] = np.sum(np.sum(gen_distrib[:,:,icam,:,:,p], axis=2),2)
 
-            # tradeoff = psum/np.sum(psum, axis=2)[...,None]        # compute tradeoffs
-            tradeoff = np.ones_like(psum)*0.5
+            tradeoff = psum/np.sum(psum, axis=2)[...,None]        # compute tradeoffs
             tradeoff_l.append(tradeoff)
 
             scores_perdesig = scores_perdesig*tradeoff
@@ -652,7 +657,7 @@ class CEM_controller():
         return scores, tradeoff
 
 
-    def calc_scores(self, gen_distrib, distance_grid):
+    def calc_scores(self, gen_distrib, distance_grid, normalize=True):
         """
         :param gen_distrib: shape [batch, t, r, c]
         :param distance_grid: shape [r, c]
@@ -663,7 +668,8 @@ class CEM_controller():
 
         gen_distrib = gen_distrib.copy()
         #normalize prob distributions
-        gen_distrib /= np.sum(np.sum(gen_distrib, axis=2), 2)[:,:, None, None]
+        if normalize:
+            gen_distrib /= np.sum(np.sum(gen_distrib, axis=2), 2)[:,:, None, None]
         gen_distrib *= distance_grid[None, None]
         scores = np.sum(np.sum(gen_distrib, axis=2),2)
         scores *= t_mult[None]

@@ -38,5 +38,6 @@ class Alex_Interface_Model(object):
         self.gen_states = self.m.outputs['gen_states']
 
         if pix_distrib is not None:
+
             self.gen_distrib = tf.stack([self.m.outputs['gen_pix_distribs'],
                                          self.m.outputs['gen_pix_distribs1']], axis=2)

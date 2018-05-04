@@ -64,31 +64,31 @@
             "id": 9387
         },
         {
-            "containerMountPoint": "/mnt/pusing_data/cartgripper/cartgripper_startgoal_masks6e4",
+            "containerMountPoint": "/mnt/pushing_data/cartgripper/cartgripper_startgoal_masks6e4",
             "id": 9138
         },
         {
-            "containerMountPoint": "/mnt/pusing_data/cartgripper/cartgripper_const_dist",
+            "containerMountPoint": "/mnt/pushing_data/cartgripper/cartgripper_const_dist",
             "id": 9259
         },
         {
-            "containerMountPoint": "/mnt/pusing_data/cartgripper/cartgripper_startgoal_short",
+            "containerMountPoint": "/mnt/pushing_data/cartgripper/cartgripper_startgoal_short",
             "id": 8949
         },
         {
-            "containerMountPoint": "/mnt/pusing_data/cartgripper/cartgripper_startgoal_2view",
+            "containerMountPoint": "/mnt/pushing_data/cartgripper/cartgripper_startgoal_2view",
             "id": 9222
         },
         {
-            "containerMountPoint": "/mnt/pusing_data/cartgripper/cartgripper_startgoal_masks",
+            "containerMountPoint": "/mnt/pushing_data/cartgripper/cartgripper_startgoal_masks",
             "id": 8914
         },
         {
-            "containerMountPoint": "/mnt/pusing_data/cartgripper/cartgripper",
+            "containerMountPoint": "/mnt/pushing_data/cartgripper/cartgripper",
             "id": 8350
         },
         {
-            "containerMountPoint": "/mnt/pusing_data/cartgripper/cartgripper_mj1.5",
+            "containerMountPoint": "/mnt/pushing_data/cartgripper/cartgripper_mj1.5",
             "id": 8974
         },
         {
@@ -100,15 +100,15 @@
             "id": 8972
         },
         {
-            "containerMountPoint": "/mnt/pusing_data/cartgripper/cartgripper_updown_sact",
+            "containerMountPoint": "/mnt/pushing_data/cartgripper/cartgripper_updown_sact",
             "id": 8931
         },
         {
-            "containerMountPoint": "/mnt/pusing_data/cartgripper/cartgripper_updown_rot_sact",
+            "containerMountPoint": "/mnt/pushing_data/cartgripper/cartgripper_updown_rot_sact",
             "id": 8951
         },
         {
-            "containerMountPoint": "/mnt/pusing_data/cartgripper/onpolicy/updown_sact_bounded_disc",
+            "containerMountPoint": "/mnt/pushing_data/cartgripper/onpolicy/updown_sact_bounded_disc",
             "id": 9363
         }
     ],
