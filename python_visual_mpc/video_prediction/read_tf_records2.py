@@ -277,15 +277,15 @@ def main():
 
     current_dir = os.path.dirname(os.path.realpath(__file__))
     DATA_DIR = os.environ['VMPC_DATA_DIR']
-    DATA_DIR = '/mnt/sda1/pushing_data/onpolicy/mj_multi_obj_push/train'
+    DATA_DIR = '/mnt/sda1/pushing_data/onpolicy/updown_sact_bounded_onpoliter2/45142/train'
     # DATA_DIR = '/home/frederik/Documents/catkin_ws/src/visual_mpc/experiments/cem_exp/benchmarks/datacol/mj_multi_obj_push/data/train'
 
     conf['schedsamp_k'] = -1  # don't feed ground truth
     conf['data_dir'] = DATA_DIR  # 'directory containing data_files.' ,
     conf['skip_frame'] = 1
     conf['train_val_split']= 0.95
-    conf['sequence_length']= 40  #48      # 'sequence length, including context frames.'
-    conf['batch_size']= 20
+    conf['sequence_length']= 30  #48      # 'sequence length, including context frames.'
+    conf['batch_size']= 30
     conf['visualize']= False
     conf['context_frames'] = 2
     # conf['ncam'] = 2
