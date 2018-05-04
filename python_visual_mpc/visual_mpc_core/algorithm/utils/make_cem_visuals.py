@@ -131,7 +131,7 @@ def make_cem_visuals(ctrl, actions, bestindices, cem_itr, flow_fields, gen_distr
             for icam in range(ctrl.ncam):
                 for p in range(ctrl.ndesig):
                     sel_gen_distrib_p = unstack(sel_gen_distrib[:,:, icam,:,:, p], 1)
-                    t_dict_['gen_distrib_cam{}_{}_t{}'.format(icam, p, ctrl.t)] = sel_gen_distrib_p
+                    t_dict_['gen_distrib_cam{}_p{}_t{}'.format(icam, p, ctrl.t)] = sel_gen_distrib_p
                     t_dict_['gen_distrib_goalim_overlay_cam{}_{}_t{}'.format(icam, p, ctrl.t)] = (goal_image_annotated[icam], sel_gen_distrib_p)
 
         for icam in range(ctrl.ncam):

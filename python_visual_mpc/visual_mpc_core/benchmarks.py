@@ -56,6 +56,9 @@ def perform_benchmark(conf = None, iex=-1, gpu_id=None):
 
     if 'RESULT_DIR' in os.environ:
         result_dir = os.environ['RESULT_DIR']
+    elif 'EXPERIMENT_DIR' in os.environ:
+        subpath = conf['current_dir'].partition('experiments')[2]
+        result_dir = os.path.join(os.environ['EXPERIMENT_DIR'] + subpath)
     else: result_dir = bench_dir
     print('result dir {}'.format(result_dir))
 

@@ -189,10 +189,6 @@ class Visualizer_tkinter(object):
 
             elif 'gen_distrib' in key:  # if gen_distrib plot psum overtime!
                 self.video_list.append((data, key))
-                plot_psum_overtime(data, numex, filepath)
-                desig_pos = dict_['desig_pos']
-                plot_normed_at_desig_pos(data, filepath, desig_pos)
-
             else:
                 if isinstance(data, list):
                     if len(data[0].shape) == 4:
@@ -215,27 +211,13 @@ class Visualizer_tkinter(object):
         print('making gif with tags')
         # self.video_list = [self.video_list[0]]
 
-        if mpc_data:
-            for t in range(1,20):
-                gen_images = self.dict_['gen_images_t{}'.format(t)]
-                gen_distrib = self.dict_['gen_distrib0_t{}'.format(t)]
-
-                gen_distrib = color_code_distrib(gen_distrib, self.numex, renormalize=True)
-
-                overlay = compute_overlay(gen_images, gen_distrib, self.numex)
-
-                new_videolist = [gen_images, overlay]
-
-                framelist = assemble_gif(new_videolist, convert_from_float=False, num_exp=self.numex)
-                save_video_mp4(self.gif_savepath + '/prediction_at_t{}'.format(t), framelist)
-        else:
-            new_videolist = []
-            for vid in self.video_list:
-                images = vid[0]
-                name = vid[1]
-                if images[0].shape[-1] == 1:
-                    images = color_code_distrib(images, self.numex, renormalize=True)
-                new_videolist.append((images, name))
+        new_videolist = []
+        for vid in self.video_list:
+            images = vid[0]
+            name = vid[1]
+            if images[0].shape[-1] == 1 or len(images[0].shape) == 3:
+                images = color_code_distrib(images, self.numex, renormalize=True)
+            new_videolist.append((images, name))
 
         if separate_vid:
             vid_path = self.gif_savepath + '/sep_videos'
