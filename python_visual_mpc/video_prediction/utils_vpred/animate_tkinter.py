@@ -187,7 +187,7 @@ class Visualizer_tkinter(object):
             elif 'actions' in key:
                 self.visualize_states_actions(dict_['states'], dict_['actions'])
 
-            elif key == 'gen_distrib':  # if gen_distrib plot psum overtime!
+            elif 'gen_distrib' in key:  # if gen_distrib plot psum overtime!
                 self.video_list.append((data, key))
                 plot_psum_overtime(data, numex, filepath)
                 desig_pos = dict_['desig_pos']

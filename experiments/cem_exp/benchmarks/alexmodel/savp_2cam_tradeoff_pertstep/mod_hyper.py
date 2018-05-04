@@ -49,7 +49,8 @@ policy = {
     'action_cost_factor': 0,
     'rew_all_steps':"",
     'finalweight':10,
-    'rejection_sampling':''
+    'rejection_sampling':'',
+    'trade_off_views':''
 }
 
 tag_images = {'name': 'images',

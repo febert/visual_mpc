@@ -1,6 +1,7 @@
 """ This file defines the linear Gaussian policy class. """
 import numpy as np
 
+import pdb
 import os
 import copy
 import time
@@ -436,6 +437,8 @@ class CEM_controller():
         return scores
 
 
+
+
     def video_pred(self, last_frames, last_states, actions, cem_itr):
         t_0 = time.time()
 
@@ -483,16 +486,20 @@ class CEM_controller():
             scores = get_mask_trafo_scores(self.policyparams, gen_distrib, self.goal_mask)
 
         if 'use_goal_image' not in self.policyparams or 'comb_flow_warp' in self.policyparams or 'register_gtruth' in self.policyparams:
-            for icam in range(self.ncam):
-                for p in range(self.ndesig):
-                    distance_grid = self.get_distancegrid(self.goal_pix[icam, p])
-                    scores_per_task.append(self.calc_scores(gen_distrib[:,:, icam, :,:, p], distance_grid))
-                    print('best flow score of task {}:  {}'.format(p, np.min(scores_per_task[-1])))
+            if 'trade_off_views' in self.policyparams:
+                scores_per_task, self.tradeoffs = self.compute_trade_off_cost(gen_distrib)
+            else:
+                for icam in range(self.ncam):
+                    for p in range(self.ndesig):
+                        distance_grid = self.get_distancegrid(self.goal_pix[icam, p])
+                        scores_per_task.append(self.calc_scores(gen_distrib[:,:, icam, :,:, p], distance_grid))
+                        print('best flow score of task {}:  {}'.format(p, np.min(scores_per_task[-1])))
+                scores_per_task = np.stack(scores_per_task, axis=1)
 
-            scores = np.sum(np.stack(scores_per_task, axis=1), axis=1)
+            scores = np.sum(scores_per_task, axis=1)
             bestind = scores.argsort()[0]
             for p in range(self.ndesig):
-                print('flow score of best traj for task{}: {}'.format(p, scores_per_task[p][bestind]))
+                print('flow score of best traj for task{}: {}'.format(p, scores_per_task[bestind, p]))
 
             # for predictor_propagation only!!
             if 'predictor_propagation' in self.policyparams:
@@ -613,6 +620,37 @@ class CEM_controller():
         print('t_fs1 {}'.format(time.time() - t_fs1))
 
         return flow_fields, scores, warp_pts_l, warped_images
+
+    def compute_trade_off_cost(self, gen_distrib):
+        t_mult = np.ones([self.seqlen - self.netconf['context_frames']])
+        t_mult[-1] = self.policyparams['finalweight']
+
+        scores_perdesig_l = []
+        tradeoff_l = []
+        for p in range(self.ndesig):
+            scores_perdesig = np.zeros([self.bsize, self.seqlen - self.ncontxt, self.ncam])
+            psum = np.zeros([self.bsize, self.seqlen - self.ncontxt, self.ncam])
+            for icam in range(self.ncam):
+                distance_grid = self.get_distancegrid(self.goal_pix[icam, p])
+
+                scores_perdesig[:, :, icam] = np.sum(np.sum(gen_distrib[:,:,icam,:,:,p]*distance_grid[None, None], axis=2),2)
+                psum[:, :, icam] = np.sum(np.sum(gen_distrib[:,:,icam,:,:,p], axis=2),2)
+
+            # tradeoff = psum/np.sum(psum, axis=2)[...,None]        # compute tradeoffs
+            tradeoff = np.ones_like(psum)*0.5
+            tradeoff_l.append(tradeoff)
+
+            scores_perdesig = scores_perdesig*tradeoff
+            scores_perdesig = np.sum(scores_perdesig, 2)      #sum over images
+
+            scores_perdesig *= t_mult[None]
+            scores_perdesig = np.sum(scores_perdesig, 1)      # sum over timesteps
+
+            scores_perdesig_l.append(scores_perdesig)
+        scores = np.stack(scores_perdesig_l, 1)
+        tradeoff = np.stack(tradeoff_l, -1)
+        return scores, tradeoff
+
 
     def calc_scores(self, gen_distrib, distance_grid):
         """

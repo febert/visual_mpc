@@ -49,7 +49,7 @@ policy = {
     'action_cost_factor': 0,
     'rew_all_steps':"",
     'finalweight':10,
-    'no_action_bound':"",
+    'rejection_sampling':'',
 }
 
 tag_images = {'name': 'images',
@@ -77,6 +77,6 @@ config = {
     'policy':policy,
     'ngroup': 100,
     'sourcetags':[tag_images, tag_qpos, tag_object_full_pose, tag_object_statprop],
-    'source_basedirs':[os.environ['VMPC_DATA_DIR'] + '/cartgripper_startgoal_2view/train'],
+    'source_basedirs':[os.environ['VMPC_DATA_DIR'] + '/cartgripper/cartgripper_startgoal_2view/train'],
     'sequence_length':2
 }

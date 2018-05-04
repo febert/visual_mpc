@@ -1,4 +1,5 @@
 import numpy as np
+import pdb
 import os
 import collections
 from PIL import Image
@@ -18,7 +19,7 @@ def images_addwarppix(gen_images, warp_pts_l, pix, num_objects):
         gen_images = add_crosshairs(gen_images, np.flip(warp_pts_ob, 2))
     return gen_images
 
-def plot_sum_overtime(pixdistrib, dir, filename):
+def plot_sum_overtime(pixdistrib, dir, filename, tradeoffs):
 
     # shape pixdistrib: b, t, icam, r, c, ndesig
     # num_exp = I0_t_reals[0].shape[0]
@@ -36,13 +37,25 @@ def plot_sum_overtime(pixdistrib, dir, filename):
     standard_size = np.array([width_per_ex * num_cols, num_rows * 1.5])  ### 1.5
     figsize = (standard_size).astype(np.int)
 
+    if tradeoffs is not None:
+        num_rows += 1
+
     f, axarr = plt.subplots(num_rows, num_cols, figsize=figsize)
+
     print('start')
+    row = 0
     for col in range(num_cols):
         for icam in range(ncam):
             for p in range(ndesig):
                 row = icam*ndesig
                 axarr[row, col].plot(range(seqlen), pixdistrib[col,:,icam,p])
+                axarr[row, col].set_ylim([0, 3])
+
+    if tradeoffs is not None:
+        for p in range(ndesig):
+            row += 1
+            for col in range(num_cols):
+                axarr[row, col].plot(range(seqlen), tradeoffs[col, :, 0, p])  # plot the first value of tradeoff
                 axarr[row, col].set_ylim([0, 3])
 
     if not os.path.exists(dir):
@@ -111,7 +124,10 @@ def make_cem_visuals(ctrl, actions, bestindices, cem_itr, flow_fields, gen_distr
 
         if 'use_goal_image' not in ctrl.policyparams or 'comb_flow_warp' in ctrl.policyparams or 'register_gtruth' in ctrl.policyparams:
             sel_gen_distrib = gen_distrib[bestindices]
-            plot_sum_overtime(sel_gen_distrib, ctrl.agentparams['record'] + '/plan', 'psum_t{}_iter{}'.format(ctrl.t, cem_itr))
+            if hasattr(ctrl, 'tradeoffs'):
+                tradeoffs = ctrl.tradeoffs[bestindices]
+            else: tradeoffs = None
+            plot_sum_overtime(sel_gen_distrib, ctrl.agentparams['record'] + '/plan', 'psum_t{}_iter{}'.format(ctrl.t, cem_itr), tradeoffs)
             for icam in range(ctrl.ncam):
                 for p in range(ctrl.ndesig):
                     sel_gen_distrib_p = unstack(sel_gen_distrib[:,:, icam,:,:, p], 1)
