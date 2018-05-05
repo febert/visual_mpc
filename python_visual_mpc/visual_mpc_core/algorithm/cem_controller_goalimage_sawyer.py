@@ -255,8 +255,10 @@ class CEM_controller():
         if 'stochastic_planning' in self.policyparams:
             self.smp_peract = self.policyparams['stochastic_planning'][0]
         else: self.smp_peract = 1
-        
-        
+
+        if 'trade_off_reg' not in self.policyparams:
+            self.reg_tradeoff = np.ones(self.ndesig)
+
 
     def calc_action_cost(self, actions):
         actions_costs = np.zeros(self.M)
@@ -448,10 +450,10 @@ class CEM_controller():
                 last_frames_med = last_frames_med.astype(np.float32, copy=False) / 255.
                 last_frames_med = last_frames_med[None]
                 self.start_image = copy.deepcopy(self.traj._image_medium[0]).astype(np.float32) / 255.
-                self.warped_image_start, self.warped_image_goal = self.register_gtruth(self.start_image, last_frames_med, self.goal_image)
+                self.warped_image_start, self.warped_image_goal, self.reg_tradeoff = self.register_gtruth(self.start_image, last_frames_med, self.goal_image)
             else:
                 self.start_image = copy.deepcopy(self.traj.images[0]).astype(np.float32) / 255.
-                self.warped_image_start, self.warped_image_goal = self.register_gtruth(self.start_image, last_frames, self.goal_image)
+                self.warped_image_start, self.warped_image_goal, self.reg_tradeoff = self.register_gtruth(self.start_image, last_frames, self.goal_image)
 
         if 'use_goal_image' in self.policyparams and 'comb_flow_warp' not in self.policyparams\
                 and 'register_gtruth' not in self.policyparams:
@@ -491,7 +493,7 @@ class CEM_controller():
             for p in range(self.ndesig):
                 distance_grid = self.get_distancegrid(self.goal_pix[p])
                 gen_distrib_p = [g[:, p] for g in gen_distrib]
-                scores_per_task.append(self.calc_scores(gen_distrib_p, distance_grid))
+                scores_per_task.append(self.calc_scores(gen_distrib_p, distance_grid)*self.reg_tradeoff[p])
                 self.logger.log('best flow score of task {}:  {}'.format(p, np.min(scores_per_task[-1])))
 
             scores = np.sum(np.stack(scores_per_task, axis=1), axis=1)
@@ -558,15 +560,20 @@ class CEM_controller():
             warped_image_start, flow_field, goal_warp_pts = self.goal_image_warper(current_frame[None],
                                                                                   start_image[None])
             desig_l.append(np.flip(goal_warp_pts[0, pix_t0[0], pix_t0[1]], 0))
-            self.plan_stat['start_warp_err'] = np.linalg.norm(start_image[pix_t0[0], pix_t0[1]] -
-                                                              warped_image_start[0, pix_t0[0], pix_t0[1]])
+            st_warperr = np.linalg.norm(start_image[pix_t0[0], pix_t0[1]] -
+                                                  warped_image_start[0, pix_t0[0], pix_t0[1]])
 
         if 'goal' in self.policyparams['register_gtruth']:
             warped_image_goal, flow_field, start_warp_pts = self.goal_image_warper(current_frame[None],
                                                                                     goal_image[None])
             desig_l.append(np.flip(start_warp_pts[0, goal_pix[0], goal_pix[1]], 0))
-            self.plan_stat['goal_warp_err'] = np.linalg.norm(self.goal_image[goal_pix[0], goal_pix[1]] -
-                                                              warped_image_goal[0, goal_pix[0], goal_pix[1]])
+            gl_warperr = np.linalg.norm(self.goal_image[goal_pix[0], goal_pix[1]] -
+                                                  warped_image_goal[0, goal_pix[0], goal_pix[1]])
+
+        tradeoff = 1 - np.array([st_warperr, gl_warperr])/(st_warperr + gl_warperr)
+        self.plan_stat['tradeoff'] = tradeoff
+        self.plan_stat['start_warp_err'] = st_warperr
+        self.plan_stat['goal_warp_err'] = gl_warperr
 
         if 'image_medium' in self.agentparams:
             self.desig_pix_med = np.stack(desig_l, 0)
@@ -574,7 +581,7 @@ class CEM_controller():
         else:
             self.desig_pix = np.stack(desig_l, 0)
 
-        return warped_image_start, warped_image_goal
+        return warped_image_start, warped_image_goal, tradeoff
 
     def publish_sawyer(self, gen_distrib, gen_images, scores):
         sorted_inds = scores.argsort()
@@ -642,6 +649,7 @@ class CEM_controller():
         :return:
         """
 
+        gen_distrib = gen_distrib.copy()
         gen_distrib = np.stack(gen_distrib, 1).squeeze()
         t_mult = np.ones([self.seqlen - self.ncontxt])
         t_mult[-1] = self.policyparams['finalweight']

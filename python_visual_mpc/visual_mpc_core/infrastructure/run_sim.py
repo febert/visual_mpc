@@ -215,11 +215,15 @@ class Sim(object):
 def plot_warp_err(traj, dir):
     start_err = []
     goal_err = []
+    tradeoff = []
     for tstep in traj.plan_stat[1:]:
         if 'start_warp_err' in tstep:
             start_err.append(tstep['start_warp_err'])
         if 'goal_warp_err' in tstep:
             goal_err.append(tstep['goal_warp_err'])
+        tradeoff.append(tstep['tradeoff'])
+
+    tradeoff = np.stack(tradeoff, 0)
     start_err = np.array(start_err)
     goal_err = np.array(goal_err)
     plt.figure()
@@ -228,6 +232,13 @@ def plot_warp_err(traj, dir):
     ax.plot(goal_err, marker='o', label='goal')
     ax.legend()
     plt.savefig(dir + '/warperrors.png')
+
+    plt.figure()
+    ax = plt.gca()
+    ax.plot(tradeoff[:,0], marker='d', label='tradeoff for start')
+    ax.plot(tradeoff[:,1], marker='d', label='tradeoff for goal')
+    ax.legend()
+    plt.savefig(dir + '/tradeoff.png')
 
 def plot_dist(traj, dir):
     goal_dist = np.stack(traj.goal_dist, axis=0)
