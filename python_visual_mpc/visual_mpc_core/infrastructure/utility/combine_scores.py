@@ -97,7 +97,7 @@ if __name__ == '__main__':
     n_traj = 49
     # dir = '/home/frederik/Documents/catkin_ws/src/visual_mpc/experiments/cem_exp/benchmarks/alexmodel/savp_register_gtruth_start/41256'
     # dir = '/home/frederik/Documents/catkin_ws/src/visual_mpc/experiments/cem_exp/benchmarks/pos_ctrl/updown_sact_boundact_register_gtruth/41272'
-    dir = '/mnt/sda1/experiments/cem_exp/benchmarks/alexmodel/savp_2cam_2tow_norenormalize/45945'
+    dir = '/mnt/sda1/experiments/cem_exp/benchmarks/alexmodel/savp_2cam_tradeoff_pertstep/46054'
 
     traj_per_worker = int(n_traj / np.float32(n_worker))
     start_idx = [traj_per_worker * i for i in range(n_worker)]
