@@ -136,7 +136,7 @@ def main():
         if 'RESULT_DIR' in os.environ:
             result_dir = os.environ['RESULT_DIR']
         else: result_dir = hyperparams['current_dir']
-        combine_scores(result_dir, exp_name)
+        combine_scores(result_dir)
         sys.exit()
 
     traindir = modconf['agent']["data_save_dir"]
