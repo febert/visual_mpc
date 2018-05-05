@@ -194,7 +194,6 @@ class Sim(object):
                     plt.savefig(folder + "/t{}_bwd_flow_col.png".format(t))
                     plt.imshow(traj.bwd_flow[t, :, :, 1])
                     plt.savefig(folder + "/t{}_bwd_flow_row.png".format(t))
-
         else:
             #save tfrecords
             traj = copy.deepcopy(traj)
@@ -225,8 +224,8 @@ def plot_warp_err(traj, dir):
     goal_err = np.array(goal_err)
     plt.figure()
     ax = plt.gca()
-    ax.plot(start_err, label='start')
-    ax.plot(goal_err, label='goal')
+    ax.plot(start_err, marker ='d', label='start')
+    ax.plot(goal_err, marker='o', label='goal')
     ax.legend()
     plt.savefig(dir + '/warperrors.png')
 

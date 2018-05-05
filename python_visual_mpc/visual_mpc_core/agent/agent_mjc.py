@@ -96,6 +96,9 @@ class AgentMuJoCo(object):
         Runs a trial and constructs a new sample containing information
         about the trial.
         """
+        if self.start_conf is not None:
+            self.apply_start_conf(self.start_conf)
+
         if "gen_xml" in self._hyperparams:
             if i_tr % self._hyperparams['gen_xml'] == 0:
                 self._setup_world()
@@ -492,8 +495,6 @@ class AgentMuJoCo(object):
         """
         Set the world to a given model
         """
-        if self.start_conf is not None:
-            self.apply_start_conf(self.start_conf)
         #create random starting poses for objects
         def create_pos():
             poses = []
