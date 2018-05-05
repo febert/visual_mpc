@@ -50,7 +50,7 @@ policy = {
     'rew_all_steps':"",
     'finalweight':10,
     'rejection_sampling':'',
-    'trade_off_views':''
+    'trade_off_views':'clip_psum',
 }
 
 tag_images = {'name': 'images',

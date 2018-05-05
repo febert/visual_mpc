@@ -640,6 +640,9 @@ class CEM_controller():
         psum = np.sum(np.sum(gen_distrib, axis=3), 3)
         gen_distrib /= psum[:,:,:, None, None, :]
 
+        if self.policyparams['trade_off_views'] == 'clip_psum':
+            psum = np.clip(psum, 0, 1.)
+
         scores_perdesig_l = []
         tradeoff_l = []
         for p in range(self.ndesig):
