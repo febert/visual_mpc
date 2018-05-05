@@ -6,7 +6,6 @@ import re
 import pdb
 
 def launch_job_func(run_script, hyper, arg, interactive=False, name='', ngpu=8, nsplit=None, isplit=None):
-    hyper = '/'.join(str.split(hyper, '/')[1:])
 
     data = {}
     data["aceName"] = "nv-us-west-2"
