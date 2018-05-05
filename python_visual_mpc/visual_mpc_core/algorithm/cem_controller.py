@@ -365,7 +365,7 @@ class CEM_controller(Policy):
                 if t == 1:
                     self.perform_CEM(t)
                 action = self.bestaction_withrepeat[t - 1]
-            if 'replan_interval' in self.policyparams:
+            elif 'replan_interval' in self.policyparams:
                 print('using actions of first plan, no replanning!!')
                 if (t-1) % self.policyparams['replan_interval'] == 0:
                     self.last_replan = t

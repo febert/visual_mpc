@@ -732,6 +732,13 @@ class CEM_controller():
                 if t == 1:
                     self.perform_CEM(last_images, last_images_med, last_states, t)
                 action = self.bestaction_withrepeat[t - 1]
+            elif 'replan_interval' in self.policyparams:
+                print('using actions of first plan, no replanning!!')
+                if (t-1) % self.policyparams['replan_interval'] == 0:
+                    self.last_replan = t
+                    self.perform_CEM(last_images, last_images_med, last_states, t)
+                print('last replan', self.last_replan)
+                action = self.bestaction_withrepeat[t - self.last_replan]
             else:
                 self.perform_CEM(last_images, last_images_med, last_states, t)
                 action = self.bestaction[0]

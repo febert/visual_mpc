@@ -44,10 +44,13 @@ policy = {
     'initial_std': 0.08,        # std dev. in xy
     'initial_std_lift': 2.5,
     'netconf': current_dir + '/conf.py',
+    'gdnconf': current_dir + '/gdnconf.py',
     'iterations': 3,
     'action_cost_factor': 0,
     'rew_all_steps':"",
-    'discount':0.9,
+    'finalweight':10,
+    'register_gtruth':['start','goal'],
+    'replan_interval':3,
 }
 
 tag_images = {'name': 'images',
@@ -74,6 +77,6 @@ config = {
     'policy':policy,
     'ngroup': 100,
     'sourcetags':[tag_images, tag_qpos, tag_object_full_pose, tag_object_statprop],
-    'source_basedirs':[os.environ['VMPC_DATA_DIR'] + '/cartgripper_startgoal_masks/train'],
+    'source_basedirs':[os.environ['VMPC_DATA_DIR'] + '/cartgripper/cartgripper_startgoal_masks/train'],
     'sequence_length':2
 }
