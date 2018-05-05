@@ -65,7 +65,7 @@ tag_object_full_pose = {'name': 'object_full_pose',
                          'shape':[4,7],
                          'file':'/state_action.pkl'}
 tag_object_statprop = {'name': 'obj_statprop',
-                     'not_per_timestep':''}
+                       'not_per_timestep':''}
 
 config = {
     'current_dir':current_dir,

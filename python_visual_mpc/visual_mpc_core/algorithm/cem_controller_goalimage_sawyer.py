@@ -565,8 +565,8 @@ class CEM_controller():
             warped_image_goal, flow_field, start_warp_pts = self.goal_image_warper(current_frame[None],
                                                                                     goal_image[None])
             desig_l.append(np.flip(start_warp_pts[0, goal_pix[0], goal_pix[1]], 0))
-            self.plan_stat['goal_warp_err'] = np.linalg.norm(self.goal_image[pix_t0[0], pix_t0[1]] -
-                                                              warped_image_goal[0, pix_t0[0], pix_t0[1]])
+            self.plan_stat['goal_warp_err'] = np.linalg.norm(self.goal_image[goal_pix[0], goal_pix[1]] -
+                                                              warped_image_goal[0, goal_pix[0], goal_pix[1]])
 
         if 'image_medium' in self.agentparams:
             self.desig_pix_med = np.stack(desig_l, 0)
