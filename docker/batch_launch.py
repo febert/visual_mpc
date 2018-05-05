@@ -1,10 +1,12 @@
-from .launch_job import launch_job
+import sys
+sys.path.append('../')
+
+from docker.launch_job import launch_job_func
 import argparse
 
-
-def launch_batch_job(njogs, *args)
-for i in range(nj):
-
+def launch_batch_job(njobs, *args):
+    for i in range(njobs):
+        launch_job_func(*args, nsplit=njobs, isplit=i)
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='write json configuration for ngc')
@@ -14,6 +16,8 @@ if __name__ == '__main__':
     parser.add_argument('--arg', default='', type=str, help='additional arguments')
     parser.add_argument('--name', default='', type=str, help='additional arguments')
     parser.add_argument('--ngpu', default=8, type=int, help='number of gpus')
+
+    parser.add_argument('--nsplit', default=-1, type=int, help='number of splits')
     args = parser.parse_args()
 
-    launch_batch_job(args.run_script, args.hyper, args.arg, args.interactiv, args.name, args.npgu)
+    launch_batch_job(args.nsplit, args.run_script, args.hyper, args.arg, args.int , args.name, args.ngpu)

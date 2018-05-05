@@ -1,13 +1,11 @@
 import json
 import argparse
+import pdb
 import os
-
 import re
-
 import pdb
 
-
-def launch_job(run_script, hyper, arg, interactive=False, name='', ngpu=8):
+def launch_job_func(run_script, hyper, arg, interactive=False, name='', ngpu=8, nsplit=None, isplit=None):
     hyper = '/'.join(str.split(hyper, '/')[1:])
 
     data = {}
@@ -62,7 +60,10 @@ def launch_job(run_script, hyper, arg, interactive=False, name='', ngpu=8):
         data["name"] = 'int' + name
     else:
         if 'benchmarks' in script_name or 'parallel_data_collection' in script_name:  #running benchmark...
-            command = "python " + run_script + " " + hyper + " {}".format(arg)
+            if nsplit is not None:
+                split = '--nsplit {} --isplit {}'.format(nsplit, isplit)
+            else: split = ''
+            command = "python " + run_script + " " + hyper + " {} {}".format(arg, split)
             expname = hyper.partition('benchmarks')[-1]
             data["name"] = '-'.join(re.compile('\w+').findall(expname + arg))
         else:
@@ -77,12 +78,12 @@ def launch_job(run_script, hyper, arg, interactive=False, name='', ngpu=8):
     with open('autogen.json', 'w') as outfile:
         json.dump(data, outfile, indent=4)
 
+    print('command', command)
+
     os.system("ngc batch run -f autogen.json")
 
 
-
 if __name__ == '__main__':
-
     parser = argparse.ArgumentParser(description='write json configuration for ngc')
     parser.add_argument('run_script', type=str, help='relative path to the script to launch', default="")
     parser.add_argument('hyper', type=str, help='relative path to hyperparams file', default="")
@@ -92,5 +93,5 @@ if __name__ == '__main__':
     parser.add_argument('--ngpu', default=8, type=int, help='number of gpus')
     args = parser.parse_args()
 
-    launch_job(args.run_script, args.hyper, args.arg, args.interactiv, args.name, args.npgu)
+    launch_job_func(args.run_script, args.hyper, args.arg, args.int, args.name, args.ngpu)
 
