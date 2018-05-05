@@ -549,6 +549,7 @@ class AgentMuJoCo(object):
         self.sim.forward()
 
         if self.start_conf is None:
+
             self.goal_obj_pose = []
             dist_betwob_ok = False
             while not dist_betwob_ok:
