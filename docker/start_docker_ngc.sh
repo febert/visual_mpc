@@ -1,3 +1,4 @@
+#!/usr/bin/env bash
 # run image used for ngc
 # argument1: username, argument2: $VMPC_DATA_DIR
 nvidia-docker run   -v $VMPC_DATA_DIR:/mnt/pushing_data \

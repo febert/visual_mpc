@@ -11,6 +11,7 @@ import pdb
 import time
 
 import matplotlib; matplotlib.use('Agg'); import matplotlib.pyplot as plt
+from tensorflow.python.platform import gfile
 Traj = namedtuple('Traj', 'images X_Xdot_full actions')
 
 class ReplayBuffer(object):
@@ -67,6 +68,25 @@ class ReplayBuffer(object):
 
                 self.logger.log('traj_per hour: {}'.format(self.num_updates/((time.time() - self.tstart)/3600)))
                 self.logger.log('avg time per traj {}s'.format((time.time() - self.tstart)/self.num_updates))
+
+
+class ReplayBuffer_Loadfiles(ReplayBuffer):
+    def __init__(self, *args):
+        super(ReplayBuffer_Loadfiles, self).__init__(*args)
+
+    def update(self):
+
+        # check if new files arrived:
+
+        all_filenames = gfile.Glob(os.path.join(conf['data_dir'], '*'))
+
+        loadlist = []
+        for name in all_filenames:
+            if name not in loaded_filenames:
+                loadlist.append(name)
+
+
+
 
 
 def plot_scores(scores, dir):
