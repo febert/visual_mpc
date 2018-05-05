@@ -628,21 +628,27 @@ class CEM_controller():
         return flow_fields, scores, warp_pts_l, warped_images
 
     def compute_trade_off_cost(self, gen_distrib):
+        """
+        :param gen_distrib:  shape: b, t, ncam, r, c, p
+        :return:
+        """
         t_mult = np.ones([self.seqlen - self.netconf['context_frames']])
         t_mult[-1] = self.policyparams['finalweight']
+
+        gen_distrib = gen_distrib.copy()
+        #normalize prob distributions
+        psum = np.sum(np.sum(gen_distrib, axis=3), 3)
+        gen_distrib /= psum[:,:,:, None, None, :]
 
         scores_perdesig_l = []
         tradeoff_l = []
         for p in range(self.ndesig):
             scores_perdesig = np.zeros([self.bsize, self.seqlen - self.ncontxt, self.ncam])
-            psum = np.zeros([self.bsize, self.seqlen - self.ncontxt, self.ncam])
             for icam in range(self.ncam):
                 distance_grid = self.get_distancegrid(self.goal_pix[icam, p])
-
                 scores_perdesig[:, :, icam] = np.sum(np.sum(gen_distrib[:,:,icam,:,:,p]*distance_grid[None, None], axis=2),2)
-                psum[:, :, icam] = np.sum(np.sum(gen_distrib[:,:,icam,:,:,p], axis=2),2)
 
-            tradeoff = psum/np.sum(psum, axis=2)[...,None]        # compute tradeoffs
+            tradeoff = psum[...,p]/np.sum(psum[...,p], axis=2)[...,None]        # compute tradeoffs
             tradeoff_l.append(tradeoff)
 
             scores_perdesig = scores_perdesig*tradeoff
