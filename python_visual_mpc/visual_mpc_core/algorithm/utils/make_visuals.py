@@ -139,5 +139,4 @@ def make_state_action_summary(K, actions, agentparams, bestindices, cem_itr, gen
         for i in range(K):
             f.write('k{}\n'.format(i))
             for t_ in range(seqlen):
-                if t_ == 0:
-                    f.write('t{}  {}\n'.format(t_, actions[bestindices][i, t_]))
+                f.write('t{}  {}\n'.format(t_, actions[bestindices][i, t_]))

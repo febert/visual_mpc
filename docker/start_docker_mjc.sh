@@ -4,7 +4,6 @@ nvidia-docker run  -v $VMPC_DATA_DIR:/workspace/pushing_data \
                    -v /home/$USER/Documents/cloned_projects/video_prediction:/mount/video_prediction \
 -it \
 febert/tf_mj1.5:runmount \
-
 /bin/bash -c \
 "/bin/bash"
 
