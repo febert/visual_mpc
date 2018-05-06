@@ -12,10 +12,10 @@ OUT_DIR = current_dir + '/modeldata'
 from python_visual_mpc.video_prediction.dynamic_rnn_model.dynamic_base_model import Dynamic_Base_Model
 from python_visual_mpc.video_prediction.setup_predictor_towers import setup_predictor
 
-DATA_DIR = os.environ['VMPC_DATA_DIR'] + '/onpolicy/updown_sact_bounded_disc/train'
+DATA_DIR = os.environ['VMPC_DATA_DIR'] + '/onpolicy/distributed_pushing/train'
 
 onpolconf = {
-    'save_interval':100, ########################## 1000
+    'save_interval':10, ########################## 1000
     'replay_size':20000,
     'fill_replay_fromsaved':20000,              # fill replay with existing trajectories from dataset
 }

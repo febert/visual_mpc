@@ -33,6 +33,7 @@ def launch_job_func(run_script, hyper, arg, interactive=False, name='', ngpu=8, 
                              {"containerMountPoint": "/mnt/tensorflow_data/sim/pos_ctrl", "id": 8948},
                              {"containerMountPoint": "/mnt/tensorflow_data/sim/pos_ctrl_updown_rot_sact", "id": 8951},
                              {"containerMountPoint": "/mnt/tensorflow_data/sim/pos_ctrl_updown_sact", "id": 8950},
+                             {"containerMountPoint": "/mnt/tensorflow_data/sim/onpolicy/updown_sact_onpolonly_iter2", "id": 9525},
                              {"containerMountPoint": "/mnt/tensorflow_data/gdn/startgoal_shad", "id": 9087},
                              {"containerMountPoint": "/mnt/tensorflow_data/gdn/96x128/cartgripper_tdac_flowpenal", "id": 9287},
                              {"containerMountPoint": "/mnt/pretrained_models/bair_action_free/model.savp.transformation.flow.last_frames.2.generate_scratch_image.false.batch_size.16", "id": 9161},
@@ -46,8 +47,7 @@ def launch_job_func(run_script, hyper, arg, interactive=False, name='', ngpu=8, 
                              {"containerMountPoint": "/mnt/pushing_data/cartgripper/cartgripper", "id": 8350},  # cartgripper
                              {"containerMountPoint": "/mnt/pushing_data/cartgripper/cartgripper_mj1.5", "id": 8974},
                              {"containerMountPoint": "/mnt/pushing_data/onpolicy/mj_pos_noreplan_fast_tfrec", "id": 8807},  #mj_pos_noreplan_fast_tfrec    | gtruth mujoco planning pushing
-                             {"containerMountPoint": "/mnt/pushing_data/onpolicy/mj_pos_noreplan_fast_tfrec_fewdata", "id": 8972},  #mj_pos_noreplan_fast_tfrec    | gtruth mujoco planning pushing
-                             {"containerMountPoint": "/mnt/pushing_data/onpolicy/updown_sact_onpolonly_iter2", "id": 9525},  #mj_pos_noreplan_fast_tfrec    | gtruth mujoco planning pushing
+                             {"containerMountPoint": "/mnt/pushing_data/onpolicy/mj_pos_noreplan_fast_tfrec_fewdata", "id": 8972},
                              {"containerMountPoint": "/mnt/pushing_data/cartgripper/cartgripper_updown_sact", "id": 8931},
                              {"containerMountPoint": "/mnt/pushing_data/cartgripper/cartgripper_updown_rot_sact", "id": 8951},
                              {"containerMountPoint": "/mnt/pushing_data/onpolicy/updown_sact_bounded_disc", "id": 9363}
