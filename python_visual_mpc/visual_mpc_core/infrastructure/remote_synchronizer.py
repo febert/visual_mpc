@@ -12,8 +12,7 @@ master = 'deepthought'
 master_base_dir = '/home/ngc/Documents/visual_mpc/experiments/cem_exp/onpolicy'
 master_modeldata_dir = master_base_dir + '/modeldata'
 master_logging_dir = '/logging'
-remote_datadir = '/raid/ngc/pushing_data/onpolicy/distributed_pushing/train'
-
+master_datadir = '/raid/ngc/pushing_data/onpolicy/distributed_pushing/train'
 
 @ray.remote
 def sync(node_id, conf):
@@ -29,22 +28,22 @@ def sync(node_id, conf):
         os.makedirs(local_modeldata_dir)
 
     while True:
-        # get latest weights form master
+        print('get latest weights form master')
         # rsync --ignore-existing deepthought:~/test .
         cmd = 'rsync --ignore-existing {}:{} {}'.format(master, master_modeldata_dir, local_modeldata_dir)
         logger.log('executing: {}'.format(cmd))
         os.system(cmd)
         # consider --delete option
 
-        # transfer tfrecords to master
-        cmd = 'rsync --ignore-existing {} {}:{}'.format(local_datadir, master, remote_datadir)
+        print('transfer tfrecords to master')
+        cmd = 'rsync --ignore-existing {} {}:{}'.format(local_datadir, master, master_datadir)
         logger.log('executing: {}'.format(cmd))
         os.system(cmd)
 
-        # transfer logfiles to master
+        print('transfer logfiles to master')
         os.system('rsync --ignore-existing {} {}:{}'.format(logging_dir, master, master_logging_dir))
 
-        time.sleep(5)
+        time.sleep(10)
 
 # if __name__ == '__main__':
 #     sync(node_id, conf)

@@ -44,6 +44,10 @@
             "id": 8950
         },
         {
+            "containerMountPoint": "/mnt/tensorflow_data/sim/onpolicy/updown_sact_onpolonly_iter2",
+            "id": 9525
+        },
+        {
             "containerMountPoint": "/mnt/tensorflow_data/gdn/startgoal_shad",
             "id": 9087
         },
@@ -98,10 +102,6 @@
         {
             "containerMountPoint": "/mnt/pushing_data/onpolicy/mj_pos_noreplan_fast_tfrec_fewdata",
             "id": 8972
-        },
-        {
-            "containerMountPoint": "/mnt/pushing_data/onpolicy/updown_sact_onpolonly_iter2",
-            "id": 9525
         },
         {
             "containerMountPoint": "/mnt/pushing_data/cartgripper/cartgripper_updown_sact",
