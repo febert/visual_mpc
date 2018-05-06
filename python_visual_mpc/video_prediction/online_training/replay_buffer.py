@@ -87,8 +87,6 @@ class ReplayBuffer_Loadfiles(ReplayBuffer):
 
 
 
-
-
 def plot_scores(scores, dir):
     plt.plot(scores)
     plt.title('scores over time')

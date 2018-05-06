@@ -107,7 +107,6 @@ def setup_predictor(hyperparams, conf, gpu_id=0, ngpu=1, logging_dir=None):
             vars = filter_vars(vars)
 
             if 'load_latest' in hyperparams:
-                pdb.set_trace()
                 ckpt = tf.train.get_checkpoint_state(conf['current_dir'] + '/modeldata')
                 print(("loading latest checkpoint" + ckpt.model_checkpoint_path))
                 saver = tf.train.Saver(vars, max_to_keep=0)
