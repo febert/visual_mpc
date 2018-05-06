@@ -38,7 +38,7 @@ class Sim(object):
             self.logger = Logger(self.agentparams['logging_dir'], 'sim_gpu{}_log.txt'.format(gpu_id))
 
         if 'RESULT_DIR' in os.environ:
-            self.agentparams['data_save_dir'] = os.environ['RESULT_DIR'] + '/train'
+            self.agentparams['data_save_dir'] = os.environ['RESULT_DIR'] + '/data/train'
         self._data_save_dir = self.agentparams['data_save_dir']
         self.agentparams['gpu_id'] = gpu_id
 

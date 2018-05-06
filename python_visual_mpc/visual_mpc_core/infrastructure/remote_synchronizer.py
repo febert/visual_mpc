@@ -28,19 +28,19 @@ def sync(node_id, conf):
         os.makedirs(local_modeldata_dir)
 
     while True:
-        print('get latest weights form master')
+        logger.log('get latest weights form master')
         # rsync --ignore-existing deepthought:~/test .
         cmd = 'rsync --ignore-existing {}:{} {}'.format(master, master_modeldata_dir, local_modeldata_dir)
         logger.log('executing: {}'.format(cmd))
         os.system(cmd)
         # consider --delete option
 
-        print('transfer tfrecords to master')
+        logger.log('transfer tfrecords to master')
         cmd = 'rsync --ignore-existing {} {}:{}'.format(local_datadir, master, master_datadir)
         logger.log('executing: {}'.format(cmd))
         os.system(cmd)
 
-        print('transfer logfiles to master')
+        logger.log('transfer logfiles to master')
         os.system('rsync --ignore-existing {} {}:{}'.format(logging_dir, master, master_logging_dir))
 
         time.sleep(10)
