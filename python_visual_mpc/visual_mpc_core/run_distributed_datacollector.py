@@ -62,6 +62,7 @@ class Data_Collector(object):
 
             # reinitilize policy between rollouts
             self.sim.reset_policy()
+
             record_dir = self.sim.agentparams['result_dir'] + '/verbose/traj{0}'.format(self.itraj)
             if not os.path.exists(record_dir):
                 os.makedirs(record_dir)
@@ -78,7 +79,6 @@ def main():
 
     args = parser.parse_args()
     hyperparams_file = args.experiment
-    gpu_id = args.gpu_id
     printout = bool(args.printout)
 
     n_worker = args.nworkers
@@ -122,13 +122,13 @@ def main():
         modconf = copy.deepcopy(hyperparams)
         modconf['start_index'] = start_idx[i]
         modconf['end_index'] = end_idx[i]
-        modconf['gpu_id'] = i + gpu_id
+        modconf['gpu_id'] = i
         data_collectors.append(Data_Collector.remote(modconf, i, printout))
 
     todo_ids = [d.run_traj.remote() for d in data_collectors]
     print('launched datacollectors.')
 
-    sync_todo_id = sync.remote(args.split, hyperparams)
+    sync_todo_id = sync.remote(args.isplit, hyperparams)
     print('launched sync')
 
     ray.wait(todo_ids)

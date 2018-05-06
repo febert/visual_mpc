@@ -14,7 +14,7 @@ import matplotlib; matplotlib.use('Agg'); import matplotlib.pyplot as plt
 from tensorflow.python.platform import gfile
 Traj = namedtuple('Traj', 'images X_Xdot_full actions')
 
-import tf.errors.OutOfRangeError as OutofRangeError
+from tensorflow.python.framework.errors_impl import OutOfRangeError
 
 class ReplayBuffer(object):
     def __init__(self, conf, maxsize, batch_size, data_collectors=None, todo_ids=None):
@@ -97,7 +97,7 @@ class ReplayBuffer_Loadfiles(ReplayBuffer):
             while True:
                 try:
                     images, actions, endeff = sess.run([dict['images'], dict['actions'], dict['endeffector_pos']])
-                except OutofRangeError:
+                except OutOfRangeError:
                     break
                 for b in range(self.conf['batch_size']):
                     t = Traj(images[b], endeff[b], actions[b])

@@ -22,7 +22,7 @@ def sync(node_id, conf):
     logger.log('started remote sync process on node{}'.format(node_id))
 
     # local means "locally" in the container on ngc
-    local_modeldata_dir = conf['agent'][['result_dir']] + '/modeldata'
+    local_modeldata_dir = conf['agent']['result_dir'] + '/modeldata'
     local_datadir = conf['agent']['data_save_dir']
 
     if not os.path.exists(local_modeldata_dir):
