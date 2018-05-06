@@ -99,6 +99,7 @@ def build_tfrecord_single(conf, training=True, input_file=None, shuffle=True):
     Raises:
       RuntimeError: if no files found.
     """
+
     if 'sdim' in conf:
         sdim = conf['sdim']
     else: sdim = 3
@@ -109,14 +110,14 @@ def build_tfrecord_single(conf, training=True, input_file=None, shuffle=True):
     print('sdim', sdim)
 
     if input_file is not None:
-        filenames = [input_file]
+        if not isinstance(input_file, list):
+            filenames = [input_file]
+        else: filenames = input_file
         shuffle = False
     else:
         filenames = gfile.Glob(os.path.join(conf['data_dir'], '*'))
-        
         if not filenames:
             raise RuntimeError('No data_files files found.')
-
         index = int(np.floor(conf['train_val_split'] * len(filenames)))
         if training:
             filenames = filenames[:index]
@@ -276,19 +277,19 @@ def main():
     conf = {}
 
     current_dir = os.path.dirname(os.path.realpath(__file__))
-    DATA_DIR = os.environ['VMPC_DATA_DIR']
-    DATA_DIR = '/mnt/sda1/pushing_data/onpolicy/updown_sact_bounded_onpoliter2/45142/train'
-    # DATA_DIR = '/home/frederik/Documents/catkin_ws/src/visual_mpc/experiments/cem_exp/benchmarks/datacol/mj_multi_obj_push/data/train'
+    DATA_DIR = '/mnt/sda1/pushing_data/onpolicy/updown_sact_bounded_onpoliter2/test'
 
     conf['schedsamp_k'] = -1  # don't feed ground truth
     conf['data_dir'] = DATA_DIR  # 'directory containing data_files.' ,
     conf['skip_frame'] = 1
     conf['train_val_split']= 0.95
     conf['sequence_length']= 30  #48      # 'sequence length, including context frames.'
-    conf['batch_size']= 30
-    conf['visualize']= False
+    conf['batch_size'] = 8
+    conf['visualize'] = False
     conf['context_frames'] = 2
     # conf['ncam'] = 2
+
+    # conf['max_epoch'] = 1
 
     # conf['row_start'] = 15
     # conf['row_end'] = 63
@@ -328,6 +329,7 @@ def main():
         # images, actions, endeff, gen_images, gen_endeff = sess.run([dict['images'], dict['actions'], dict['endeffector_pos'], dict['gen_images'], dict['gen_states']])
         # images, actions, endeff = sess.run([dict['gen_images'], dict['actions'], dict['endeffector_pos']])
         # images, actions, endeff, firstlastnoarm = sess.run([dict['images'], dict['actions'], dict['endeffector_pos'], dict['first_last_noarm']])
+
         [images] = sess.run([dict['images']])
 
         # plt.imshow(firstlastnoarm[0,0])
@@ -357,12 +359,12 @@ def main():
         # end = time.time()
 
 
-        for b in range(10):
-            print('actions {}'.format(b))
-            print(actions[b])
-
-            print('endeff {}'.format(b))
-            print(endeff[b])
+        # for b in range(10):
+        #     print('actions {}'.format(b))
+        #     print(actions[b])
+        #
+        #     print('endeff {}'.format(b))
+        #     print(endeff[b])
 
             # print 'gen_endeff'
             # print gen_endeff[b]
@@ -387,8 +389,8 @@ def main():
             # print object_pos
 
             # visualize_annotation(conf, images[b], robot_pos[b], object_pos[b])
-        import sys
-        sys.exit()
+        # import sys
+        # sys.exit()
 
 
 def create_numbers(t, size):

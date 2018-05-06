@@ -15,7 +15,7 @@ from python_visual_mpc.video_prediction.setup_predictor_towers import setup_pred
 DATA_DIR = os.environ['VMPC_DATA_DIR'] + '/onpolicy/updown_sact_bounded_disc/train'
 
 onpolconf = {
-    'save_interval':100,
+    'save_interval':100, ########################## 1000
     'replay_size':20000,
     'fill_replay_fromsaved':20000,              # fill replay with existing trajectories from dataset
 }
