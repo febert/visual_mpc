@@ -37,19 +37,10 @@ def main():
     parser.add_argument('--iex', type=int, help='if different from -1 use only do example', default=-1)
 
     args = parser.parse_args()
-    hyperparams_file = args.experiment
-    exp_dir = '/'.join(str.split(hyperparams_file, '/')[:-1])
-    trainvid_conf_file = exp_dir + '/trainvid_conf.py'
-    gpu_id = args.gpu_id
-
-    n_worker = args.nworkers
-    if args.nworkers == 1:
-        parallel = False
-    else:
-        parallel = True
-    print('parallel ', bool(parallel))
-
+    trainvid_conf_file = args.experiment
     trainvid_conf = load_module(trainvid_conf_file, 'trainvid_conf')
+
+    gpu_id = args.gpu_id
 
     logging_dir = trainvid_conf['current_dir'] + '/logging'
     trainvid_conf['logging_dir'] = logging_dir

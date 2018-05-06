@@ -104,7 +104,6 @@ def main():
         if 'verbose' in hyperparams['policy'] and not os.path.exists(result_dir + '/verbose'):
             os.makedirs(result_dir + '/verbose')
         hyperparams['agent']['result_dir'] = result_dir
-        hyperparams['agent']['data_save_dir'] = os.environ['RESULT_DIR'] + '/data/train'
         hyperparams['agent']['logging_dir'] = os.environ['RESULT_DIR'] + '/logging_node{}'.format(args.isplit)
     else:
         hyperparams['agent']['result_dir'] = hyperparams['current_dir']
