@@ -27,17 +27,15 @@ from python_visual_mpc.visual_mpc_core.infrastructure.utility.logger import Logg
 class Sim(object):
     """ Main class to run algorithms and experiments. """
 
-    def __init__(self, config, gpu_id=0, ngpu=1, ):
+    def __init__(self, config, gpu_id=0, ngpu=1, logger=None):
         self._hyperparams = config
         self.agent = config['agent']['type'](config['agent'])
         self.agentparams = config['agent']
         self.policyparams = config['policy']
-
-        if 'logging_dir' in self.agentparams:
-            self.logger = Logger(self.agentparams['logging_dir'], 'sim_gpu{}_log.txt'.format(gpu_id))
-        else:
+        if logger == None:
             self.logger = Logger(printout=True)
-        self.logger.log('init sim')
+        else:
+            self.logger = Logger(self.agentparams['logging_dir'], 'sim_gpu{}_log.txt'.format(gpu_id))
 
         if 'RESULT_DIR' in os.environ:
             self.agentparams['data_save_dir'] = os.environ['RESULT_DIR'] + '/train'
