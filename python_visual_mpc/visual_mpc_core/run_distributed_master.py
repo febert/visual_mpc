@@ -20,48 +20,11 @@ from python_visual_mpc.visual_mpc_core.infrastructure.utility.combine_scores imp
 from python_visual_mpc.visual_mpc_core.infrastructure.utility.create_configs import CollectGoalImageSim
 import time
 import ray
-from python_visual_mpc.video_prediction.online_training.replay_buffer import ReplayBuffer
+from python_visual_mpc.video_prediction.online_training.replay_buffer import ReplayBuffer_Loadfiles
 import pickle
 from python_visual_mpc.video_prediction.online_training.trainvid_online import trainvid_online
 import matplotlib; matplotlib.use('Agg'); import matplotlib; matplotlib.use('Agg'); import matplotlib.pyplot as plt
 
-
-@ray.remote
-class Data_Collector(object):
-    def __init__(self, conf, collector_id):
-        print('started process with PID {} and collector_id {}'.format(os.getpid(), collector_id))
-        self.itraj = conf['start_index']
-        self.ntraj = 0
-        self.maxtraj = conf['end_index']
-        self.colllector_id = collector_id
-        random.seed(None)
-        np.random.seed(None)
-        self.conf = conf
-        self.sim = Sim(conf, gpu_id=conf['gpu_id'])
-        print('init data collectors done.')
-
-    def run_traj(self):
-        assert self.ntraj < self.maxtraj
-        if self.ntraj % self.conf['onpolconf']['infnet_reload_freq'] == 0 and self.ntraj != 0:
-            self.conf['load_latest'] = ''
-            pdb.set_trace()
-            self.sim = Sim(self.conf, gpu_id=self.conf['gpu_id'])
-        print('-------------------------------------------------------------------')
-        print('run number ', self.itraj)
-        print('-------------------------------------------------------------------')
-
-        # reinitilize policy between rollouts
-        self.sim.reset_policy()
-        record_dir = self.sim.agentparams['result_dir'] + '/verbose/traj{0}'.format(self.itraj)
-        if not os.path.exists(record_dir):
-            os.makedirs(record_dir)
-        self.sim.agent._hyperparams['record'] = record_dir
-        traj = self.sim._take_sample(self.itraj)
-
-        self.itraj += 1
-        self.ntraj += 1
-        info = {'collector_id':self.colllector_id, 'itraj':self.itraj, 'maxtraj':self.maxtraj}
-        return traj, info
 
 
 def main():
@@ -86,56 +49,16 @@ def main():
         parallel = True
     print('parallel ', bool(parallel))
 
-    hyperparams = load_module(hyperparams_file, 'mod_hyper')
     trainvid_conf = load_module(trainvid_conf_file, 'trainvid_conf')
 
-    if args.nsplit != -1:
-        n_persplit = (hyperparams['end_index']+1)//args.nsplit
-        hyperparams['start_index'] = args.isplit * n_persplit
-        hyperparams['end_index'] = (args.isplit+1) * n_persplit -1
+    logging_dir = trainvid_conf['current_dir'] + '/logging'
+    trainvid_conf['logging_dir'] = logging_dir
+    if not os.path.exists(logging_dir):
+        os.makedirs(logging_dir)
 
-    n_traj = hyperparams['end_index'] - hyperparams['start_index'] +1
-    traj_per_worker = int(n_traj // np.float32(n_worker))
-    start_idx = [hyperparams['start_index'] + traj_per_worker * i for i in range(n_worker)]
-    end_idx = [hyperparams['start_index'] + traj_per_worker * (i+1)-1 for i in range(n_worker)]
-
-    if 'gen_xml' in hyperparams['agent']: #remove old auto-generated xml files
-        try:
-            os.system("rm {}".format('/'.join(str.split(hyperparams['agent']['filename'], '/')[:-1]) + '/auto_gen/*'))
-        except: pass
-
-    if 'RESULT_DIR' in os.environ:
-        result_dir = os.environ['RESULT_DIR']
-        if 'verbose' in hyperparams['policy'] and not os.path.exists(result_dir + '/verbose'):
-            os.makedirs(result_dir + '/verbose')
-        hyperparams['agent']['result_dir'] = result_dir
-        hyperparams['agent']['data_save_dir'] = os.environ['RESULT_DIR'] + '/data/train'
-
-        hyperparams['agent']['logging_dir'] = os.environ['RESULT_DIR'] + '/logging'
-    else:
-        hyperparams['agent']['result_dir'] = hyperparams['current_dir']
-
-    if not os.path.exists(hyperparams['agent']['logging_dir']):
-        os.makedirs(hyperparams['agent']['logging_dir'])
-
-    onpolconf = hyperparams['onpolconf']
-
-    rb = ReplayBuffer(hyperparams['agent'], maxsize=onpolconf['replay_size'],
-                      batch_size=16)
-    ray.init()
-    data_collectors = []
-    for i in range(n_worker):
-        modconf = copy.deepcopy(hyperparams)
-        modconf['start_index'] = start_idx[i]
-        modconf['end_index'] = end_idx[i]
-        modconf['gpu_id'] = i + gpu_id
-        data_collectors.append(Data_Collector.remote(modconf, i))
-
-    rb.todo_ids = [d.run_traj.remote() for d in data_collectors]
-    rb.data_collectors = data_collectors
-
-    trainvid_online(rb, trainvid_conf, hyperparams['agent'], onpolconf, i + gpu_id + 1)
-
+    onpolconf = trainvid_conf['onpolconf']
+    rb = ReplayBuffer_Loadfiles(trainvid_conf, maxsize=onpolconf['replay_size'], batch_size=16)
+    trainvid_online(rb, trainvid_conf, logging_dir, onpolconf, gpu_id)
 
 def load_module(hyperparams_file, name):
     loader = importlib.machinery.SourceFileLoader(name, hyperparams_file)

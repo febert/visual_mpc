@@ -14,10 +14,14 @@ import matplotlib; matplotlib.use('Agg'); import matplotlib.pyplot as plt
 from tensorflow.python.platform import gfile
 Traj = namedtuple('Traj', 'images X_Xdot_full actions')
 
+import tf.errors.OutOfRangeError as OutofRangeError
+
 class ReplayBuffer(object):
-    def __init__(self, agentparams, maxsize, batch_size, data_collectors=None, todo_ids=None):
-        self.logger = Logger(agentparams['logging_dir'], 'replay_log.txt')
-        self.agentparams = agentparams
+    def __init__(self, conf, maxsize, batch_size, data_collectors=None, todo_ids=None):
+        self.logger = Logger(conf['logging_dir'], 'replay_log.txt')
+        self.conf = conf
+        if 'agent' in conf:
+            self.agentparams = conf['agent']
         self.ring_buffer = []
         self.maxsize = maxsize
         self.batch_size = batch_size
@@ -47,7 +51,7 @@ class ReplayBuffer(object):
             actions.append(traj.actions)
         return np.stack(images,0), np.stack(states,0), np.stack(actions,0)
 
-    def update(self):
+    def update(self, sess):
         done_id, self.todo_ids = ray.wait(self.todo_ids, timeout=0)
         if len(done_id) != 0:
             self.logger.log("len doneid {}".format(len(done_id)))
@@ -71,20 +75,34 @@ class ReplayBuffer(object):
 
 
 class ReplayBuffer_Loadfiles(ReplayBuffer):
-    def __init__(self, *args):
-        super(ReplayBuffer_Loadfiles, self).__init__(*args)
+    def __init__(self, *args, **kwargs):
+        super(ReplayBuffer_Loadfiles, self).__init__(*args, **kwargs)
+        self.loaded_filenames = []
 
-    def update(self):
-
+    def update(self, sess):
         # check if new files arrived:
+        all_filenames = gfile.Glob(os.path.join(self.conf['data_dir'], '*'))
 
-        all_filenames = gfile.Glob(os.path.join(conf['data_dir'], '*'))
-
-        loadlist = []
+        to_load_filenames = []
         for name in all_filenames:
-            if name not in loaded_filenames:
-                loadlist.append(name)
+            if name not in self.loaded_filenames:
+                to_load_filenames.append(name)
 
+        if len(to_load_filenames) != 0:
+            self.logger.log('loading files')
+            self.logger.log(to_load_filenames)
+
+            self.logger.log('start filling replay')
+            dict = build_tfrecord_input(self.conf)
+            while True:
+                try:
+                    images, actions, endeff = sess.run([dict['images'], dict['actions'], dict['endeffector_pos']])
+                except OutofRangeError:
+                    break
+                for b in range(self.conf['batch_size']):
+                    t = Traj(images[b], endeff[b], actions[b])
+                    self.push_back(t)
+            self.logger.log('done filling replay')
 
 
 def plot_scores(scores, dir):

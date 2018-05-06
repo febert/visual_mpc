@@ -32,8 +32,8 @@ Traj = namedtuple('Traj', 'images X_Xdot_full actions')
 from python_visual_mpc.video_prediction.utils_vpred.variable_checkpoint_matcher import variable_checkpoint_matcher
 
 
-def trainvid_online(replay_buffer, conf, agentparams, onpolparam, gpu_id):
-    logger = Logger(agentparams['logging_dir'], 'trainvid_online_log.txt')
+def trainvid_online(replay_buffer, conf, logging_dir, onpolparam, gpu_id):
+    logger = Logger(logging_dir, 'trainvid_online_log.txt')
     logger.log('starting trainvid online')
 
     os.environ["CUDA_VISIBLE_DEVICES"] = str(gpu_id)
@@ -134,14 +134,14 @@ def trainvid_online(replay_buffer, conf, agentparams, onpolparam, gpu_id):
 
 
 def preload_replay(conf, logger, onpolparam, replay_buffer, sess):
-    logger.log('start filling replay')
+    logger.log('start prefilling replay')
     dict = build_tfrecord_input(conf, training=True)
     for i_run in range(onpolparam['fill_replay_fromsaved'] // conf['batch_size']):
         images, actions, endeff = sess.run([dict['images'], dict['actions'], dict['endeffector_pos']])
         for b in range(conf['batch_size']):
             t = Traj(images[b], endeff[b], actions[b])
             replay_buffer.push_back(t)
-    logger.log('done filling replay')
+    logger.log('done prefilling replay')
 
 
 def load_checkpoint(conf, sess, saver, model_file=None):

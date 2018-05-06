@@ -72,9 +72,8 @@ def main():
     parser = argparse.ArgumentParser(description='run parllel data collection')
     parser.add_argument('experiment', type=str, help='experiment name')
     parser.add_argument('--nworkers', type=int, help='use multiple threads or not', default=1)
-    parser.add_argument('--gpu_id', type=int, help='the starting gpu_id', default=0)
-    parser.add_argument('--nsplit', type=int, help='number of splits', default=-1)
-    parser.add_argument('--isplit', type=int, help='split id', default=-1)
+    parser.add_argument('--nsplit', type=int, help='number of splits to partition the generated data indices', default=-1)
+    parser.add_argument('--isplit', type=int, help='split id: number from 0 to nsplit-1', default=0)
     parser.add_argument('--printout', type=int, help='print to console if 1', default=0)
 
     args = parser.parse_args()
@@ -106,9 +105,13 @@ def main():
             os.makedirs(result_dir + '/verbose')
         hyperparams['agent']['result_dir'] = result_dir
         hyperparams['agent']['data_save_dir'] = os.environ['RESULT_DIR'] + '/data/train'
-        hyperparams['agent']['logging_dir'] = os.environ['RESULT_DIR'] + '/logging'
+        hyperparams['agent']['logging_dir'] = os.environ['RESULT_DIR'] + '/logging_node{}'.format(args.isplit)
     else:
         hyperparams['agent']['result_dir'] = hyperparams['current_dir']
+
+
+    exp_name = '/'.join(str.split(hyperparams_file.partition('cem_exp')[2], '/')[:-1])
+    hyperparams['exp_name'] = exp_name
 
     if not os.path.exists(hyperparams['agent']['logging_dir']):
         os.makedirs(hyperparams['agent']['logging_dir'])
@@ -125,8 +128,9 @@ def main():
     todo_ids = [d.run_traj.remote() for d in data_collectors]
     print('launched datacollectors.')
 
-    sync_todo_id = sync.remote()
+    sync_todo_id = sync.remote(args.split, hyperparams)
     print('launched sync')
+
     ray.wait(todo_ids)
     ray.wait(sync_todo_id)
 
