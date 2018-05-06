@@ -3,7 +3,7 @@ current_dir = os.path.dirname(os.path.realpath(__file__))
 
 # tf record data location:
 
-DATA_DIR = [os.environ['VMPC_DATA_DIR'] + '/cartgripper_det_grasp/train2', os.environ['VMPC_DATA_DIR'] + '/cartgripper_det_grasp/train_noisy_full']
+DATA_DIR = [os.environ['VMPC_DATA_DIR'] + '/cartgripper_det_grasp/train3', os.environ['VMPC_DATA_DIR'] + '/cartgripper/train', os.environ['VMPC_DATA_DIR'] + '/cartgripper_imitation/train']
 
 
 # local output directory
