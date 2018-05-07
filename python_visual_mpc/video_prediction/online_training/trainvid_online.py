@@ -33,8 +33,8 @@ Traj = namedtuple('Traj', 'images X_Xdot_full actions')
 from python_visual_mpc.video_prediction.utils_vpred.variable_checkpoint_matcher import variable_checkpoint_matcher
 
 
-def trainvid_online(replay_buffer, conf, logging_dir, onpolparam, gpu_id):
-    logger = Logger(logging_dir, 'trainvid_online_log.txt')
+def trainvid_online(replay_buffer, conf, logging_dir, onpolparam, gpu_id, printout=False):
+    logger = Logger(logging_dir, 'trainvid_online_log.txt', printout=printout)
     logger.log('starting trainvid online')
 
     os.environ["CUDA_VISIBLE_DEVICES"] = str(gpu_id)

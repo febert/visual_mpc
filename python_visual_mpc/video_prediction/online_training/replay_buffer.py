@@ -78,6 +78,7 @@ class ReplayBuffer_Loadfiles(ReplayBuffer):
     def __init__(self, *args, **kwargs):
         super(ReplayBuffer_Loadfiles, self).__init__(*args, **kwargs)
         self.loaded_filenames = []
+        self.conf['max_epoch'] = 1
 
     def update(self, sess):
         # check if new files arrived:
