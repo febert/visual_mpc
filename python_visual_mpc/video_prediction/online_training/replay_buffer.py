@@ -91,7 +91,6 @@ class ReplayBuffer_Loadfiles(ReplayBuffer):
         if len(to_load_filenames) != 0:
             self.logger.log('loading files')
             self.logger.log(to_load_filenames)
-
             self.logger.log('start filling replay')
             dict = build_tfrecord_input(self.conf)
             while True:
@@ -103,7 +102,6 @@ class ReplayBuffer_Loadfiles(ReplayBuffer):
                     t = Traj(images[b], endeff[b], actions[b])
                     self.push_back(t)
             self.logger.log('done filling replay')
-
 
 def plot_scores(scores, dir):
     plt.plot(scores)
