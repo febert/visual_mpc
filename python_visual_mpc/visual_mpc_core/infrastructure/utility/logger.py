@@ -5,6 +5,9 @@ class Logger(object):
         self.logfiledir = logfiledir
         self.logfilename = logfilename
         self.printout = printout
+        if logfiledir==None or logfilename ==None:
+           self.printout = True
+
         self.mute = mute
         if logfiledir is not None:
             os.system("rm {}".format(os.path.join(self.logfiledir, self.logfilename)))

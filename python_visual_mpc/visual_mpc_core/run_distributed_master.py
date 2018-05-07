@@ -49,7 +49,7 @@ def main():
 
     onpolconf = trainvid_conf['onpolconf']
     rb = ReplayBuffer_Loadfiles(trainvid_conf, maxsize=onpolconf['replay_size'], batch_size=16)
-    trainvid_online(rb, trainvid_conf, logging_dir, onpolconf, gpu_id)
+    trainvid_online(rb, trainvid_conf, logging_dir, onpolconf, gpu_id, printout=True)
 
 def load_module(hyperparams_file, name):
     loader = importlib.machinery.SourceFileLoader(name, hyperparams_file)
