@@ -11,21 +11,17 @@ import matplotlib; matplotlib.use('Agg'); import matplotlib.pyplot as plt
 from python_visual_mpc.video_prediction.misc.makegifs2 import assemble_gif, npy_to_gif
 from pyquaternion import Quaternion
 from mujoco_py import load_model_from_xml,load_model_from_path, MjSim, MjViewer
-
 from python_visual_mpc.visual_mpc_core.agent.utils.get_masks import get_obj_masks, get_image
-
 import time
 from python_visual_mpc.visual_mpc_core.infrastructure.trajectory import Trajectory
 from matplotlib.backends.backend_agg import FigureCanvasAgg as FigureCanvas
 from matplotlib.figure import Figure
 import cv2
 from mpl_toolkits.mplot3d import Axes3D
-
-from .utils.create_xml import create_object_xml, create_root_xml
+from python_visual_mpc.visual_mpc_core.agent.utils.create_xml import create_object_xml, create_root_xml
 import os
-from time import sleep
 import cv2
-from python_visual_mpc.goaldistancenet.misc.draw_polygon import draw_poly
+
 
 def file_len(fname):
     i = 0
@@ -310,7 +306,7 @@ class AgentMuJoCo(object):
         if any(zval < -2e-2 for zval in end_zpos):
             print('object fell out!!!')
             traj_ok = False
-        # self.plot_ctrls()
+        self.plot_ctrls()
 
         if 'dist_ok_thresh' in self._hyperparams:
             if np.any(traj.goal_dist[-1] > self._hyperparams['dist_ok_thresh']):
@@ -486,10 +482,11 @@ class AgentMuJoCo(object):
         self.hf_target_qpos_l = np.stack(self.hf_target_qpos_l, axis=0)
         tmax = self.hf_target_qpos_l.shape[0]
         for i in range(self.adim):
-            plt.plot(list(range(tmax)) , self.hf_qpos_l[:,i], label='q_{}'.format(i))
-            plt.plot(list(range(tmax)) , self.hf_target_qpos_l[:, i], label='q_target{}'.format(i))
+            plt.plot(list(range(tmax)), self.hf_qpos_l[:,i], label='q_{}'.format(i))
+            plt.plot(list(range(tmax)), self.hf_target_qpos_l[:, i], label='q_target{}'.format(i))
             plt.legend()
-            plt.show()
+            # plt.show()
+            plt.savefig(self._hyperparams['record'] + '/ctrls.png')
 
     def _init(self):
         """
@@ -523,9 +520,11 @@ class AgentMuJoCo(object):
         if 'randomize_ballinitpos' in self._hyperparams:
             xpos0[:2] = np.random.uniform(-.4, .4, 2)
             xpos0[2] = np.random.uniform(-0.08, .14)
-        elif 'init_arm_near_obj' in self._hyperparams:
-            r = self._hyperparams['init_arm_near_obj']
-            xpos0[:2] = object_pos[:2] + np.random.uniform(r, -r, 2)
+        elif 'arm_obj_initdist' in self._hyperparams:
+            d = self._hyperparams['arm_obj_initdist']
+            alpha = np.random.uniform(-np.pi, np.pi, 1)
+            delta_pos = np.array([d*np.cos(alpha), d*np.sin(alpha)])
+            xpos0[:2] = object_pos[:2] + delta_pos.squeeze()
             xpos0[2] = np.random.uniform(-0.08, .14)
         else:
             xpos0_true_len = (self.sim.get_state().qpos.shape[0] - self._hyperparams['num_objects']*7)
@@ -536,6 +535,9 @@ class AgentMuJoCo(object):
             else:
                 xpos0 = self._hyperparams['xpos0']
             assert xpos0.shape[0] == self._hyperparams['sdim']/2
+
+        if 'arm_start_lifted' in self._hyperparams:
+            xpos0[2] = self._hyperparams['arm_start_lifted']
 
         sim_state = self.sim.get_state()
         if 'goal_point' in self._hyperparams:
@@ -551,38 +553,39 @@ class AgentMuJoCo(object):
 
         if self.start_conf is None:
 
-            self.goal_obj_pose = []
-            dist_betwob_ok = False
-            while not dist_betwob_ok:
-                for i_ob in range(self._hyperparams['num_objects']):
-                    pos_ok = False
-                    while not pos_ok:
-                        angular_disp = 0.2
-                        delta_alpha = np.random.uniform(-angular_disp, angular_disp)
+            if self._hyperparams['num_objects'] >= 2:
+                self.goal_obj_pose = []
+                dist_betwob_ok = False
+                while not dist_betwob_ok:
+                    for i_ob in range(self._hyperparams['num_objects']):
+                        pos_ok = False
+                        while not pos_ok:
+                            angular_disp = 0.2
+                            delta_alpha = np.random.uniform(-angular_disp, angular_disp)
 
-                        delta_rot = Quaternion(axis=(0.0, 0.0, 1.0), radians=delta_alpha)
-                        pose = object_pos_l[i_ob]
-                        curr_quat =  Quaternion(pose[3:])
-                        newquat = delta_rot*curr_quat
+                            delta_rot = Quaternion(axis=(0.0, 0.0, 1.0), radians=delta_alpha)
+                            pose = object_pos_l[i_ob]
+                            curr_quat =  Quaternion(pose[3:])
+                            newquat = delta_rot*curr_quat
 
-                        alpha = np.random.uniform(-np.pi, np.pi, 1)
-                        d = self._hyperparams['const_dist']
-                        delta_pos = np.array([d*np.cos(alpha), d*np.sin(alpha), 0.])
-                        newpos = pose[:3] + delta_pos
+                            alpha = np.random.uniform(-np.pi, np.pi, 1)
+                            d = self._hyperparams['const_dist']
+                            delta_pos = np.array([d*np.cos(alpha), d*np.sin(alpha), 0.])
+                            newpos = pose[:3] + delta_pos
 
-                        if np.any(newpos[:2] > 0.35) or np.any(newpos[:2] < -0.35):   # check if in field
+                            if np.any(newpos[:2] > 0.35) or np.any(newpos[:2] < -0.35):   # check if in field
+                                continue
+                            else:
+                                self.goal_obj_pose.append(np.concatenate([newpos, newquat.elements]))
+                                pos_ok = True
+
+                    if self._hyperparams['num_objects'] == 2:
+                        #ensuring that the goal positions are far apart from each other
+                        if np.linalg.norm(self.goal_obj_pose[0][:3]- self.goal_obj_pose[1][:3]) < 0.2:
+                            self.goal_obj_pose = []
                             continue
-                        else:
-                            self.goal_obj_pose.append(np.concatenate([newpos, newquat.elements]))
-                            pos_ok = True
+                        dist_betwob_ok = True
+                    else:
+                        dist_betwob_ok = True
 
-                if self._hyperparams['num_objects'] == 2:
-                    #ensuring that the goal positions are far apart from each other
-                    if np.linalg.norm(self.goal_obj_pose[0][:3]- self.goal_obj_pose[1][:3]) < 0.2:
-                        self.goal_obj_pose = []
-                        continue
-                    dist_betwob_ok = True
-                else:
-                    dist_betwob_ok = True
-
-            self.goal_obj_pose = np.stack(self.goal_obj_pose, axis=0)
+                self.goal_obj_pose = np.stack(self.goal_obj_pose, axis=0)

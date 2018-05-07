@@ -147,6 +147,7 @@ def get_mask_trafo_scores(policyparams, gen_distrib, goal_mask):
     per_time_multiplier[:, -1] = policyparams['finalweight']
     return np.sum(scores * per_time_multiplier, axis=1)
 
+
 class CEM_controller():
     """
     Cross Entropy Method Stochastic Optimizer
@@ -466,6 +467,8 @@ class CEM_controller():
 
         self.logger.log('t0 ', time.time() - t_0)
         t_startpred = time.time()
+
+        pdb.set_trace()
         gen_images, gen_distrib, gen_states, _ = self.predictor(input_images=last_frames,
                                                                 input_state=last_states,
                                                                 input_actions=actions,

@@ -25,7 +25,6 @@ class CollectGoalImageSim(Sim):
     """
     def __init__(self, config):
         Sim.__init__(self, config)
-
         self.num_ob = self.agentparams['num_objects']
 
     def _take_sample(self, sample_index):
@@ -59,7 +58,11 @@ class CollectGoalImageSim(Sim):
         # apply action of zero for the first few steps, to let the scene settle
         for t in range(self.agentparams['skip_first']):
             for _ in range(self.agentparams['substeps']):
-                self.agent.sim.data.ctrl[:] = np.zeros(self.agentparams['adim'])
+                ctrl = np.zeros(self.agentparams['adim'])
+                if 'posmode' in self.agentparams:
+                    #keep gripper at default x,y positions
+                    ctrl[:3] = self.agent.sim.data.qpos[:3].squeeze()
+                self.agent.sim.data.ctrl[:] = ctrl
                 self.agent.sim.step()
 
         for t in range(self.agentparams['T']-1):
@@ -68,7 +71,6 @@ class CollectGoalImageSim(Sim):
                 traj.ob_masks[t], traj.arm_masks[t], traj.large_ob_masks[t], traj.large_arm_masks[t] = self.get_obj_masks()
                 if t > 0:
                     traj.bwd_flow[t-1] = self.compute_gtruth_flow(t, traj)
-
             self.move_objects(t, traj)
         t += 1
         self.store_data(t, traj)
@@ -254,10 +256,10 @@ class CollectGoalImageSim(Sim):
         newobj_poses = np.concatenate(new_poses, axis=0)
 
         arm_disp_range = self.agentparams['arm_disp_range']
-        arm_disp = np.concatenate([np.random.uniform(-arm_disp_range, arm_disp_range, 2), np.zeros([1])])
-        # arm_disp = np.array([0.1 , 0., 0.])
+        arm_disp = np.random.uniform(-arm_disp_range, arm_disp_range, 2)
 
-        new_armpos = traj.X_full[0] + arm_disp
+        new_armpos = traj.X_full[0].copy()
+        new_armpos[:2] = new_armpos[:2] + arm_disp
         new_armpos = np.clip(new_armpos, -0.35, 0.35)
 
         new_q = np.concatenate([new_armpos, newobj_poses])
