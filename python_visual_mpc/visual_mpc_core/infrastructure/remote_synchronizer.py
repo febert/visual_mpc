@@ -22,7 +22,7 @@ def sync(node_id, conf):
 
     # local means "locally" in the container on ngc
     local_modeldata_dir = conf['agent']['result_dir'] + '/modeldata'
-    local_datadir = conf['agent']['data_save_dir']
+    local_datadir = '/result/data/train'
 
     if not os.path.exists(local_modeldata_dir):
         os.makedirs(local_modeldata_dir)
