@@ -126,13 +126,13 @@ def main():
         modconf['gpu_id'] = i
         data_collectors.append(Data_Collector.remote(modconf, i, printout))
 
-    # todo_ids = [d.run_traj.remote() for d in data_collectors]
-    # print('launched datacollectors.')
+    todo_ids = [d.run_traj.remote() for d in data_collectors]
+    print('launched datacollectors.')
 
     sync_todo_id = sync.remote(args.isplit, hyperparams)
     print('launched sync')
 
-    # ray.wait(todo_ids)
+    ray.wait(todo_ids)
     ray.wait([sync_todo_id])
 
 def load_module(hyperparams_file, name):
