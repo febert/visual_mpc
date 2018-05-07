@@ -5,17 +5,23 @@ import os
 import tensorflow as tf
 import ray
 
+import pdb
 
 
 master = 'deepthought'
 
-master_base_dir = '/home/ngc/Documents/visual_mpc/experiments/cem_exp/onpolicy'
-master_modeldata_dir = master_base_dir + '/modeldata'
-master_logging_dir = '/logging'
 master_datadir = '/raid/ngc/pushing_data/onpolicy/distributed_pushing/train'
 
 @ray.remote
 def sync(node_id, conf):
+
+    exp_subpath = conf['current_dir'].partition('onpolicy')
+    pdb.set_trace()
+
+    master_base_dir = '/home/ngc/Documents/visual_mpc/experiments/cem_exp' + exp_subpath
+    master_modeldata_dir = master_base_dir + '/modeldata'
+    master_logging_dir = master_base_dir + '/logging'
+
     logging_dir = conf['agent']['logging_dir']
     logger = Logger(logging_dir, 'sync_node{}.txt'.format(node_id))
     logger.log('started remote sync process on node{}'.format(node_id))
@@ -30,18 +36,18 @@ def sync(node_id, conf):
     while True:
         logger.log('get latest weights form master')
         # rsync --ignore-existing deepthought:~/test .
-        cmd = 'rsync --ignore-existing {}:{} {}'.format(master, master_modeldata_dir, local_modeldata_dir)
+        cmd = 'rsync -a --ignore-existing {}:{} {}'.format(master, master_modeldata_dir + '/', local_modeldata_dir)
         logger.log('executing: {}'.format(cmd))
         os.system(cmd)
         # consider --delete option
 
         logger.log('transfer tfrecords to master')
-        cmd = 'rsync --ignore-existing {} {}:{}'.format(local_datadir, master, master_datadir)
+        cmd = 'rsync -a --ignore-existing {} {}:{}'.format(local_datadir + '/', master, master_datadir)
         logger.log('executing: {}'.format(cmd))
         os.system(cmd)
 
         logger.log('transfer logfiles to master')
-        os.system('rsync --ignore-existing {} {}:{}'.format(logging_dir, master, master_logging_dir))
+        os.system('rsync -a --ignore-existing {} {}:{}'.format(logging_dir + '/', master, master_logging_dir))
 
         time.sleep(10)
 

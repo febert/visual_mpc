@@ -96,6 +96,10 @@
             "id": 8350
         },
         {
+            "containerMountPoint": "/mnt/pushing_data/cartgripper/grasping/cartgripper_lift_benchmark",
+            "id": 9538
+        },
+        {
             "containerMountPoint": "/mnt/pushing_data/cartgripper/cartgripper_mj1.5",
             "id": 8974
         },
