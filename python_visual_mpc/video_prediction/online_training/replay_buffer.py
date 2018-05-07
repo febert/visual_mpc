@@ -94,9 +94,12 @@ class ReplayBuffer_Loadfiles(ReplayBuffer):
             self.logger.log(to_load_filenames)
             self.logger.log('start filling replay')
             dict = build_tfrecord_input(self.conf)
+            ibatch = 0
             while True:
                 try:
                     images, actions, endeff = sess.run([dict['images'], dict['actions'], dict['endeffector_pos']])
+                    print('getting batch {}'.format(ibatch))
+                    ibatch +=1
                 except OutOfRangeError:
                     break
                 for b in range(self.conf['batch_size']):
