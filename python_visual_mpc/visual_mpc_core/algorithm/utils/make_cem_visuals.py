@@ -48,6 +48,10 @@ def make_cem_visuals(ctrl, actions, bestindices, cem_itr, flow_fields, gen_distr
         sel_func = best
         t_dict_ = collections.OrderedDict()
 
+        current_image = [np.repeat(np.expand_dims(last_frames[0, 1], axis=0), ctrl.K, axis=0) for _ in
+                         range(len(gen_images))]
+        t_dict_['current_image'] = current_image
+
         if 'warp_objective' in ctrl.policyparams:
             warped_images = image_addgoalpix(bsize, seqlen, warped_images, ctrl.goal_pix)
             gen_images = images_addwarppix(gen_images, goal_warp_pts_l, ctrl.goal_pix, ctrl.agentparams['num_objects'])
@@ -55,10 +59,8 @@ def make_cem_visuals(ctrl, actions, bestindices, cem_itr, flow_fields, gen_distr
             warped_images = list(np.squeeze(warped_images))
             t_dict_['warped_im_t{}'.format(ctrl.t)] = warped_images
 
+
         if 'register_gtruth' in ctrl.policyparams:
-            current_image = [np.repeat(np.expand_dims(last_frames[0, 1], axis=0), ctrl.K, axis=0) for _ in
-                           range(len(gen_images))]
-            t_dict_['current_image'] = current_image
             if 'start' in ctrl.policyparams['register_gtruth']:
                 t_dict_['warped_image_start '] = [np.repeat(np.expand_dims(warped_image_start.squeeze(), axis=0), ctrl.K, axis=0) for _ in
                     range(len(gen_images))]

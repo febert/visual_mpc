@@ -12,7 +12,6 @@ import video_prediction
 base_dir = video_prediction.__file__
 base_dir = '/'.join(str.split(base_dir, '/')[:-2])
 from python_visual_mpc.video_prediction.setup_predictor_towers import setup_predictor
-# jsondir = base_dir + '/pretrained_models/lift_imitation_last_subsequence/deterministic/model.savp.tv_weight.0.001.transformation.flow.last_frames.2.generate_scratch_image.false.batch_size.16'
 jsondir = base_dir + '/pretrained_models/lift_push_last_subsequence/vae/model.savp.tv_weight.0.001.transformation.flow.last_frames.2.generate_scratch_image.false.batch_size.16'
 
 configuration = {
