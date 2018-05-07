@@ -14,11 +14,9 @@ master_datadir = '/raid/ngc/pushing_data/onpolicy/distributed_pushing/train'
 
 @ray.remote
 def sync(node_id, conf):
-
     exp_subpath = conf['current_dir'].partition('onpolicy')[2]
-    pdb.set_trace()
 
-    master_base_dir = '/home/ngc/Documents/visual_mpc/experiments/cem_exp' + exp_subpath
+    master_base_dir = '/home/ngc/Documents/visual_mpc/experiments/cem_exp/onpolicy' + exp_subpath
     master_modeldata_dir = master_base_dir + '/modeldata'
     master_logging_dir = master_base_dir + '/logging'
 
