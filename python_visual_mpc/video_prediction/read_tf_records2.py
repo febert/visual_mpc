@@ -277,13 +277,14 @@ def main():
     conf = {}
 
     current_dir = os.path.dirname(os.path.realpath(__file__))
-    DATA_DIR = '/mnt/sda1/pushing_data/cartgripper/grasping/lift_imitation_dataset/test'
+    # DATA_DIR = '/mnt/sda1/pushing_data/cartgripper/grasping/lift_imitation_dataset/test'
+    DATA_DIR = '/mnt/sda1/pushing_data/cartgripper/grasping/grasping_deltaaction_targeteep/train'
 
     conf['schedsamp_k'] = -1  # don't feed ground truth
     conf['data_dir'] = DATA_DIR  # 'directory containing data_files.' ,
     conf['skip_frame'] = 1
     conf['train_val_split']= 0.95
-    conf['sequence_length']= 20  #48      # 'sequence length, including context frames.'
+    conf['sequence_length']= 15  #48      # 'sequence length, including context frames.'
     conf['batch_size'] = 8
     conf['visualize'] = False
     conf['context_frames'] = 2
@@ -327,9 +328,8 @@ def main():
 
         # images, actions, endeff, gen_images, gen_endeff = sess.run([dict['images'], dict['actions'], dict['endeffector_pos'], dict['gen_images'], dict['gen_states']])
         # images, actions, endeff = sess.run([dict['gen_images'], dict['actions'], dict['endeffector_pos']])
-        images, actions, endeff = sess.run([dict['images'], dict['actions'], dict['endeffector_pos']])
-
-        # [images] = sess.run([dict['images']])
+        # images, actions, endeff = sess.run([dict['images'], dict['actions'], dict['endeffector_pos']])
+        [images] = sess.run([dict['images']])
 
         # plt.imshow(firstlastnoarm[0,0])
         # plt.show()
