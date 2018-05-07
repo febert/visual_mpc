@@ -12,7 +12,7 @@ from python_visual_mpc.video_prediction.dynamic_rnn_model.dynamic_base_model imp
 configuration = {
 'experiment_name': 'rndaction_var10',
 'pred_model':Dynamic_Base_Model,
-'data_dir': DATA_DIR + '/onpolicy/updown_sact_bounded_onpoliter2/train',       # 'directory containing data.' ,
+'data_dir': [DATA_DIR + '/onpolicy/updown_sact_bounded_disc/train', DATA_DIR + '/onpolicy/updown_sact_bounded_onpoliter2/train'],       # 'directory containing data.' ,
 'output_dir': OUT_DIR,      #'directory for model checkpoints.' ,
 'current_dir': current_dir, #'directory for writing summary.' ,
 'num_iterations': 200000,   #'number of training iterations.' ,
