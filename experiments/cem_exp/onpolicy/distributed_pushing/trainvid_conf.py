@@ -17,8 +17,8 @@ PRELOAD_DATA_DIR = os.environ['VMPC_DATA_DIR'] + '/onpolicy/updown_sact_bounded_
 
 onpolconf = {
     'save_interval':10, ########################## 1000
-    'replay_size':20000,
-    'fill_replay_fromsaved':20000,              # fill replay with existing trajectories from dataset
+    'replay_size':200,  ##############
+    'fill_replay_fromsaved':200,#############              # fill replay with existing trajectories from dataset
 }
 
 config = {
