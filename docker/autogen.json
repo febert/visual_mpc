@@ -1,6 +1,6 @@
 {
     "aceName": "nv-us-west-2",
-    "command": "cd /result && tensorboard --logdir . &      export VMPC_DATA_DIR=/mnt/pushing_data;     export TEN_DATA=/mnt/tensorflow_data;     export ALEX_DATA=/mnt/pretrained_models;     export RESULT_DIR=/result;     export NO_ROS='';     export PATH=/opt/conda/bin:/usr/local/mpi/bin:/usr/local/nvidia/bin:/usr/local/cuda/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin;     cd /workspace/visual_mpc/docker;python ../python_visual_mpc/visual_mpc_core/parallel_data_collection.py ../experiments/cem_exp/benchmarks/onpolicy/gtruth_track_onpolonly_iter2/mod_hyper.py  --nworkers 8 ",
+    "command": "cd /result && tensorboard --logdir . &      export VMPC_DATA_DIR=/mnt/pushing_data;     export TEN_DATA=/mnt/tensorflow_data;     export ALEX_DATA=/mnt/pretrained_models;     export RESULT_DIR=/result;     export NO_ROS='';     export PATH=/opt/conda/bin:/usr/local/mpi/bin:/usr/local/nvidia/bin:/usr/local/cuda/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin;     cd /workspace/visual_mpc/docker;python ../python_visual_mpc/visual_mpc_core/parallel_data_collection.py ../experiments/cem_exp/grasping_benchmarks/first_test/mod_hyper.py  --nworkers 8 ",
     "dockerImageName": "ucb_rail8888/tf_mj1.5:latest",
     "datasetMounts": [
         {
@@ -68,6 +68,10 @@
             "id": 9387
         },
         {
+            "containerMountPoint": "/mnt/pretrained_models/lift_push_last_subsequence/vae/model.savp.tv_weight.0.001.transformation.flow.last_frames.2.generate_scratch_image.false.batch_size.16",
+            "id": 9534
+        },
+        {
             "containerMountPoint": "/mnt/pushing_data/cartgripper/cartgripper_startgoal_masks6e4",
             "id": 9138
         },
@@ -117,7 +121,7 @@
         }
     ],
     "aceInstance": "ngcv8",
-    "name": "onpolicy-gtruth_track_onpolonly_iter2-mod_hyper-py-nworkers-8",
+    "name": "first_test-mod_hyper-py-nworkers-8",
     "resultContainerMountPoint": "/result",
     "publishedContainerPorts": [
         6006
