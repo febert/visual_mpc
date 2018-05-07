@@ -552,40 +552,38 @@ class AgentMuJoCo(object):
         self.sim.forward()
 
         if self.start_conf is None:
+            self.goal_obj_pose = []
+            dist_betwob_ok = False
+            while not dist_betwob_ok:
+                for i_ob in range(self._hyperparams['num_objects']):
+                    pos_ok = False
+                    while not pos_ok:
+                        angular_disp = 0.2
+                        delta_alpha = np.random.uniform(-angular_disp, angular_disp)
 
-            if self._hyperparams['num_objects'] >= 2:
-                self.goal_obj_pose = []
-                dist_betwob_ok = False
-                while not dist_betwob_ok:
-                    for i_ob in range(self._hyperparams['num_objects']):
-                        pos_ok = False
-                        while not pos_ok:
-                            angular_disp = 0.2
-                            delta_alpha = np.random.uniform(-angular_disp, angular_disp)
+                        delta_rot = Quaternion(axis=(0.0, 0.0, 1.0), radians=delta_alpha)
+                        pose = object_pos_l[i_ob]
+                        curr_quat =  Quaternion(pose[3:])
+                        newquat = delta_rot*curr_quat
 
-                            delta_rot = Quaternion(axis=(0.0, 0.0, 1.0), radians=delta_alpha)
-                            pose = object_pos_l[i_ob]
-                            curr_quat =  Quaternion(pose[3:])
-                            newquat = delta_rot*curr_quat
+                        alpha = np.random.uniform(-np.pi, np.pi, 1)
+                        d = self._hyperparams['const_dist']
+                        delta_pos = np.array([d*np.cos(alpha), d*np.sin(alpha), 0.])
+                        newpos = pose[:3] + delta_pos
 
-                            alpha = np.random.uniform(-np.pi, np.pi, 1)
-                            d = self._hyperparams['const_dist']
-                            delta_pos = np.array([d*np.cos(alpha), d*np.sin(alpha), 0.])
-                            newpos = pose[:3] + delta_pos
-
-                            if np.any(newpos[:2] > 0.35) or np.any(newpos[:2] < -0.35):   # check if in field
-                                continue
-                            else:
-                                self.goal_obj_pose.append(np.concatenate([newpos, newquat.elements]))
-                                pos_ok = True
-
-                    if self._hyperparams['num_objects'] == 2:
-                        #ensuring that the goal positions are far apart from each other
-                        if np.linalg.norm(self.goal_obj_pose[0][:3]- self.goal_obj_pose[1][:3]) < 0.2:
-                            self.goal_obj_pose = []
+                        if np.any(newpos[:2] > 0.35) or np.any(newpos[:2] < -0.35):   # check if in field
                             continue
-                        dist_betwob_ok = True
-                    else:
-                        dist_betwob_ok = True
+                        else:
+                            self.goal_obj_pose.append(np.concatenate([newpos, newquat.elements]))
+                            pos_ok = True
 
-                self.goal_obj_pose = np.stack(self.goal_obj_pose, axis=0)
+                if self._hyperparams['num_objects'] == 2:
+                    #ensuring that the goal positions are far apart from each other
+                    if np.linalg.norm(self.goal_obj_pose[0][:3]- self.goal_obj_pose[1][:3]) < 0.2:
+                        self.goal_obj_pose = []
+                        continue
+                    dist_betwob_ok = True
+                else:
+                    dist_betwob_ok = True
+            self.goal_obj_pose = np.stack(self.goal_obj_pose, axis=0)
+
