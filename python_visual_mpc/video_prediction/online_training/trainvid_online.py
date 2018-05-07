@@ -19,6 +19,7 @@ from python_visual_mpc.video_prediction.utils_vpred.video_summary import convert
 from datetime import datetime
 import collections
 import time
+import copy
 # How often to record tensorboard summaries.
 SUMMARY_INTERVAL = 100
 
@@ -135,6 +136,8 @@ def trainvid_online(replay_buffer, conf, logging_dir, onpolparam, gpu_id):
 
 def preload_replay(conf, logger, onpolparam, replay_buffer, sess):
     logger.log('start prefilling replay')
+    conf = copy.deepcopy(conf)
+    conf['data_dir'] = conf['preload_data_dir']
     dict = build_tfrecord_input(conf, training=True)
     for i_run in range(onpolparam['fill_replay_fromsaved'] // conf['batch_size']):
         images, actions, endeff = sess.run([dict['images'], dict['actions'], dict['endeffector_pos']])

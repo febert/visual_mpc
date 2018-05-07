@@ -13,6 +13,7 @@ from python_visual_mpc.video_prediction.dynamic_rnn_model.dynamic_base_model imp
 from python_visual_mpc.video_prediction.setup_predictor_towers import setup_predictor
 
 DATA_DIR = os.environ['VMPC_DATA_DIR'] + '/onpolicy/distributed_pushing/train'
+PRELOAD_DATA_DIR = os.environ['VMPC_DATA_DIR'] + '/raid/febert/pushing_data/onpolicy/updown_sact_bounded_disc/train'
 
 onpolconf = {
     'save_interval':10, ########################## 1000
@@ -24,9 +25,7 @@ config = {
 'experiment_name': 'rndaction_var10',
 'pred_model':Dynamic_Base_Model,
 'data_dir':DATA_DIR,
-'train_val_split': 0.95,    #'The percentage of files to use for the training set vs. the validation set.' ,
-'visualize':False,
-'setup_predictor':setup_predictor,
+'preload_data_dir':PRELOAD_DATA_DIR,
 'num_iterations':200000,
 'output_dir': OUT_DIR,      #'directory for model checkpoints.' ,
 'current_dir': current_dir, #'directory for writing summary.' ,

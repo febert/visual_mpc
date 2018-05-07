@@ -107,7 +107,6 @@ def perform_benchmark(conf = None, iex=-1, gpu_id=None):
         raise ValueError("the file {} already exists!!".format(result_file))
 
     while traj <= nruns:
-
         if 'sourcetags' in conf:  # load data per trajectory
             dict = read_trajectory(conf, traj_names[traj])
             sim.agent.start_conf = dict

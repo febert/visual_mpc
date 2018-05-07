@@ -118,15 +118,15 @@ def build_tfrecord_single(conf, training=True, input_file=None, shuffle=True):
         filenames = gfile.Glob(os.path.join(conf['data_dir'], '*'))
         if not filenames:
             raise RuntimeError('No data_files files found.')
-        index = int(np.floor(conf['train_val_split'] * len(filenames)))
-        if training:
-            filenames = filenames[:index]
-        else:
-            filenames = filenames[index:]
-
-        if conf['visualize']:  #if visualize do not perform train val split
-            filenames = gfile.Glob(os.path.join(conf['data_dir'], '*'))
-            shuffle = False
+        if 'train_val_split' in conf:
+            index = int(np.floor(conf['train_val_split'] * len(filenames)))
+            if training:
+                filenames = filenames[:index]
+            else:
+                filenames = filenames[index:]
+            if conf['visualize']:  #if visualize do not perform train val split
+                filenames = gfile.Glob(os.path.join(conf['data_dir'], '*'))
+                shuffle = False
 
     print('using shuffle: ', shuffle)
     if shuffle:
@@ -277,25 +277,24 @@ def main():
     conf = {}
 
     current_dir = os.path.dirname(os.path.realpath(__file__))
-    DATA_DIR = '/mnt/sda1/pushing_data/onpolicy/updown_sact_bounded_onpoliter2/test'
+    DATA_DIR = '/mnt/sda1/pushing_data/cartgripper/grasping/lift_imitation_dataset/test'
 
     conf['schedsamp_k'] = -1  # don't feed ground truth
     conf['data_dir'] = DATA_DIR  # 'directory containing data_files.' ,
     conf['skip_frame'] = 1
     conf['train_val_split']= 0.95
-    conf['sequence_length']= 30  #48      # 'sequence length, including context frames.'
+    conf['sequence_length']= 20  #48      # 'sequence length, including context frames.'
     conf['batch_size'] = 8
     conf['visualize'] = False
     conf['context_frames'] = 2
     # conf['ncam'] = 2
 
     # conf['max_epoch'] = 1
-
     # conf['row_start'] = 15
     # conf['row_end'] = 63
-    conf['sdim'] = 6
-    conf['adim'] = 3
-    conf['image_only'] = ''
+    conf['sdim'] = 12
+    conf['adim'] = 5
+    # conf['image_only'] = ''
     # conf['goal_image'] = ""
 
     conf['orig_size'] = [48, 64]
@@ -328,9 +327,9 @@ def main():
 
         # images, actions, endeff, gen_images, gen_endeff = sess.run([dict['images'], dict['actions'], dict['endeffector_pos'], dict['gen_images'], dict['gen_states']])
         # images, actions, endeff = sess.run([dict['gen_images'], dict['actions'], dict['endeffector_pos']])
-        # images, actions, endeff, firstlastnoarm = sess.run([dict['images'], dict['actions'], dict['endeffector_pos'], dict['first_last_noarm']])
+        images, actions, endeff = sess.run([dict['images'], dict['actions'], dict['endeffector_pos']])
 
-        [images] = sess.run([dict['images']])
+        # [images] = sess.run([dict['images']])
 
         # plt.imshow(firstlastnoarm[0,0])
         # plt.show()
@@ -359,34 +358,15 @@ def main():
         # end = time.time()
 
 
-        # for b in range(10):
-        #     print('actions {}'.format(b))
-        #     print(actions[b])
-        #
-        #     print('endeff {}'.format(b))
-        #     print(endeff[b])
+        for b in range(3):
+            print('actions {}'.format(b))
+            print(actions[b])
 
-            # print 'gen_endeff'
-            # print gen_endeff[b]
+            print('endeff {}'.format(b))
+            print(endeff[b])
 
-            # print 'gen_endeff'
-            # print gen_endeff[b]
 
-            # print 'video mean brightness', np.mean(images[b])
-            # if np.mean(images[b]) < 0.25:
-            #     print b
-            #     plt.imshow(images[b,0])
-            #     plt.show()
-            # plt.imshow(images[0, 0])
-            # plt.show()
-            #
-            # pdb.set_trace()
-
-            # print 'robot_pos'
-            # print robot_pos
-            #
-            # print 'object_pos'
-            # print object_pos
+        pdb.set_trace()
 
             # visualize_annotation(conf, images[b], robot_pos[b], object_pos[b])
         # import sys

@@ -163,7 +163,6 @@ class Sim(object):
                     dict['arm_masks'] = traj.arm_masks
                 if 'posmode' in self.agentparams:
                     dict['target_qpos'] = traj.target_qpos
-                    dict['mode_rel'] = traj.mask_rel.astype(np.bool)
 
                 if hasattr(traj, "plan_stat"):
                     dict['plan_stat'] = traj.plan_stat
