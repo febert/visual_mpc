@@ -69,6 +69,8 @@ class Data_Collector(object):
             self.sim.agent._hyperparams['record'] = record_dir
             self.sim._take_sample(self.itraj)
 
+            self.itraj += 1
+
 def main():
     parser = argparse.ArgumentParser(description='run parllel data collection')
     parser.add_argument('experiment', type=str, help='experiment name')
