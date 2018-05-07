@@ -45,7 +45,9 @@ def sync(node_id, conf):
         os.system(cmd)
 
         logger.log('transfer logfiles to master')
-        os.system('rsync -a --ignore-existing {} {}:{}'.format(logging_dir + '/', master, master_logging_dir))
+        cmd = 'rsync -a --ignore-existing {} {}:{}'.format(logging_dir + '/', master, master_logging_dir)
+        logger.log('executing: {}'.format(cmd))
+        os.system(cmd)
 
         time.sleep(10)
 
