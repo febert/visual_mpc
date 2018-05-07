@@ -133,7 +133,7 @@ def main():
     print('launched sync')
 
     # ray.wait(todo_ids)
-    ray.wait(sync_todo_id)
+    ray.wait([sync_todo_id])
 
 def load_module(hyperparams_file, name):
     loader = importlib.machinery.SourceFileLoader(name, hyperparams_file)
