@@ -46,6 +46,7 @@ def launch_job_func(run_script, hyper, arg, interactive=False, name='', ngpu=8, 
                              {"containerMountPoint": "/mnt/pushing_data/cartgripper/cartgripper_startgoal_2view", "id": 9222},  # mj_pos_ctrl_appflow
                              {"containerMountPoint": "/mnt/pushing_data/cartgripper/cartgripper_startgoal_masks", "id": 8914},  # mj_pos_ctrl_appflow
                              {"containerMountPoint": "/mnt/pushing_data/cartgripper/cartgripper", "id": 8350},  # cartgripper
+                             {"containerMountPoint": "/mnt/pushing_data/cartgripper/grasping/cartgripper_lift_benchmark", "id": 9538},  # cartgripper
                              {"containerMountPoint": "/mnt/pushing_data/cartgripper/cartgripper_mj1.5", "id": 8974},
                              {"containerMountPoint": "/mnt/pushing_data/onpolicy/mj_pos_noreplan_fast_tfrec", "id": 8807},  #mj_pos_noreplan_fast_tfrec    | gtruth mujoco planning pushing
                              {"containerMountPoint": "/mnt/pushing_data/onpolicy/mj_pos_noreplan_fast_tfrec_fewdata", "id": 8972},
