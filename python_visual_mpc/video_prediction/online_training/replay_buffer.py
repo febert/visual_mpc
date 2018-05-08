@@ -17,8 +17,8 @@ Traj = namedtuple('Traj', 'images X_Xdot_full actions')
 from tensorflow.python.framework.errors_impl import OutOfRangeError
 
 class ReplayBuffer(object):
-    def __init__(self, conf, maxsize, batch_size, data_collectors=None, todo_ids=None):
-        self.logger = Logger(conf['logging_dir'], 'replay_log.txt')
+    def __init__(self, conf, maxsize, batch_size, data_collectors=None, todo_ids=None, printout=False):
+        self.logger = Logger(conf['logging_dir'], 'replay_log.txt', printout=printout)
         self.conf = conf
         if 'agent' in conf:
             self.agentparams = conf['agent']
@@ -88,6 +88,7 @@ class ReplayBuffer_Loadfiles(ReplayBuffer):
         for name in all_filenames:
             if name not in self.loaded_filenames:
                 to_load_filenames.append(name)
+                self.loaded_filenames.append(name)
 
         if len(to_load_filenames) != 0:
             self.logger.log('loading files')
