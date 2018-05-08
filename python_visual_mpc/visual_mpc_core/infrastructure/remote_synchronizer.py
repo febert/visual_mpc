@@ -32,8 +32,8 @@ def sync(node_id, conf, printout=False):
     while True:
         logger.log('get latest weights from master')
         # rsync --ignore-existing deepthought:~/test .
-        cmd = 'rsync -a {}:{} {}'.format(master, master_modeldata_dir + '/', local_modeldata_dir)
-        # cmd = 'rsync -rltgoDv --delete {}:{} {}'.format(master, master_modeldata_dir + '/', local_modeldata_dir)
+        # cmd = 'rsync -a {}:{} {}'.format(master, master_modeldata_dir + '/', local_modeldata_dir)
+        cmd = 'rsync -rltgoDv --delete {}:{} {}'.format(master, master_modeldata_dir + '/', local_modeldata_dir)
         logger.log('executing: {}'.format(cmd))
         os.system(cmd)
         # consider --delete option
