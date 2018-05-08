@@ -114,7 +114,7 @@ def trainvid_online(replay_buffer, conf, logging_dir, onpolparam, gpu_id, printo
                     summary_writer.add_summary(convert_tensor_to_gif_summary(video_proto), itr)
 
                 save_interval = conf['onpolconf']['save_interval']
-                if (itr) % save_interval == 0:
+                if (itr) % save_interval == 0 and itr != 0:
                     oldmodelname = conf['output_dir'] + '/model' + str(itr-save_interval )
                     if gfile.Glob(oldmodelname + '*') != [] and (itr - save_interval ) > 0:
                         print('deleting {}*'.format(oldmodelname))
