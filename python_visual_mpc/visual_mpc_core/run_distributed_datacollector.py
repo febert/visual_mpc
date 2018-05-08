@@ -53,7 +53,6 @@ class Data_Collector(object):
             max_iter_weights = get_maxiter_weights('/result/modeldata')
             if max_iter_weights != None:
                 if max_iter_weights != self.last_weights_loaded:
-                    self.logger.log('loading {}'.format(max_iter_weights))
                     self.last_weights_loaded = copy.deepcopy(max_iter_weights)
                     self.conf['load_latest'] = max_iter_weights
                     self.sim = Sim(self.conf, gpu_id=self.conf['gpu_id'], logger=self.logger)

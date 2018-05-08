@@ -11,7 +11,6 @@ from python_visual_mpc.video_prediction.utils_vpred.create_gif_lib import assemb
 from python_visual_mpc.video_prediction.utils_vpred.create_gif_lib import npy_to_gif
 from PIL import Image
 import imp
-
 import pickle
 from random import shuffle as shuffle_list
 from python_visual_mpc.misc.zip_equal import zip_equal

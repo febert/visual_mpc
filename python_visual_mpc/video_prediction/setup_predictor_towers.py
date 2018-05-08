@@ -10,7 +10,8 @@ from tensorflow.python.platform import gfile
 from datetime import datetime
 from python_visual_mpc.video_prediction.dynamic_rnn_model.dynamic_base_model import Dynamic_Base_Model
 from python_visual_mpc.video_prediction.dynamic_rnn_model.alex_model_interface import Alex_Interface_Model
-
+from python_visual_mpc.visual_mpc_core.infrastructure.utility.logger import Logger
+from python_visual_mpc.visual_mpc_core.run_distributed_datacollector import get_maxiter_weights
 from python_visual_mpc.video_prediction.utils_vpred.variable_checkpoint_matcher import variable_checkpoint_matcher
 import re
 
@@ -43,7 +44,7 @@ class Tower(object):
         modconf['batch_size'] = nsmp_per_gpu
         self.model = Model(modconf, start_images, actions, start_states, pix_distrib=pix_distrib, build_loss=False)
 
-def setup_predictor(hyperparams, conf, gpu_id=0, ngpu=1, logging_dir=None):
+def setup_predictor(hyperparams, conf, gpu_id=0, ngpu=1, logger=None):
     """
     Setup up the network for control
     :param hyperparams: general hyperparams, can include control flags
@@ -54,13 +55,16 @@ def setup_predictor(hyperparams, conf, gpu_id=0, ngpu=1, logging_dir=None):
     """
     conf['ngpu'] = ngpu
 
+    if logger == None:
+        logger = Logger(printout=True)
+
     start_id = gpu_id
     indexlist = [str(i_gpu) for i_gpu in range(start_id, start_id + ngpu)]
     var = ','.join(indexlist)
-    print('using CUDA_VISIBLE_DEVICES=', var)
+    logger.log('using CUDA_VISIBLE_DEVICES=', var)
     os.environ["CUDA_VISIBLE_DEVICES"] = var
     from tensorflow.python.client import device_lib
-    print(device_lib.list_local_devices())
+    logger.log(device_lib.list_local_devices())
 
     gpu_options = tf.GPUOptions(per_process_gpu_memory_fraction=0.6)
     g_predictor = tf.Graph()
@@ -68,7 +72,7 @@ def setup_predictor(hyperparams, conf, gpu_id=0, ngpu=1, logging_dir=None):
     with sess.as_default():
         with g_predictor.as_default():
 
-            print('Constructing multi gpu model for control...')
+            logger.log('Constructing multi gpu model for control...')
 
             if 'float16' in conf:
                 use_dtype = tf.float16
@@ -80,8 +84,8 @@ def setup_predictor(hyperparams, conf, gpu_id=0, ngpu=1, logging_dir=None):
                                        shape=(1, conf['context_frames'], orig_size[0], orig_size[1], 3))
             sdim = conf['sdim']
             adim = conf['adim']
-            print('adim', adim)
-            print('sdim', sdim)
+            logger.log('adim', adim)
+            logger.log('sdim', sdim)
             actions_pl = tf.placeholder(use_dtype, name='actions',
                                         shape=(conf['batch_size'], conf['sequence_length'], adim))
             states_pl = tf.placeholder(use_dtype, name='states',
@@ -97,7 +101,7 @@ def setup_predictor(hyperparams, conf, gpu_id=0, ngpu=1, logging_dir=None):
             for i_gpu in range(ngpu):
                 with tf.device('/gpu:%d' % i_gpu):
                     with tf.name_scope('tower_%d' % (i_gpu)):
-                        print(('creating tower %d: in scope %s' % (i_gpu, tf.get_variable_scope())))
+                        logger.log(('creating tower %d: in scope %s' % (i_gpu, tf.get_variable_scope())))
                         towers.append(Tower(conf, i_gpu, images_pl, actions_pl, states_pl, pix_distrib))
                         tf.get_variable_scope().reuse_variables()
 
@@ -108,7 +112,8 @@ def setup_predictor(hyperparams, conf, gpu_id=0, ngpu=1, logging_dir=None):
 
             if 'load_latest' in hyperparams:
                 saver = tf.train.Saver(vars, max_to_keep=0)
-                conf['pretrained_model'] = hyperparams['load_latest']
+                conf['pretrained_model'] = get_maxiter_weights('/results/modeldata')
+                logger.log('loading {}'.format(conf['pretrained_model']))
                 saver.restore(sess, conf['pretrained_model'])
             else:
                 if conf['pred_model'] == Alex_Interface_Model:
@@ -128,13 +133,13 @@ def setup_predictor(hyperparams, conf, gpu_id=0, ngpu=1, logging_dir=None):
                         raise ValueError("Model file {} not found!".format(conf['pretrained_model']))
                     saver.restore(sess, conf['pretrained_model'])
 
-            print('restore done. ')
+            logger.log('restore done. ')
 
-            print('-------------------------------------------------------------------')
-            print('verify current settings!! ')
+            logger.log('-------------------------------------------------------------------')
+            logger.log('verify current settings!! ')
             for key in list(conf.keys()):
-                print(key, ': ', conf[key])
-            print('-------------------------------------------------------------------')
+                logger.log(key, ': ', conf[key])
+            logger.log('-------------------------------------------------------------------')
 
             comb_gen_img = []
             comb_pix_distrib = []
@@ -182,7 +187,7 @@ def setup_predictor(hyperparams, conf, gpu_id=0, ngpu=1, logging_dir=None):
                                                                     comb_gen_states],
                                                                    feed_dict)
 
-                # print('time for evaluating {0} actions on {1} gpus : {2}'.format(
+                # logger.log('time for evaluating {0} actions on {1} gpus : {2}'.format(
                 #     conf['batch_size'],
                 #     conf['ngpu'],
                 #     (datetime.now() - t_startiter).seconds + (datetime.now() - t_startiter).microseconds/1e6))
