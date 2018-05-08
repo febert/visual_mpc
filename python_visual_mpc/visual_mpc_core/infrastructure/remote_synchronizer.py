@@ -53,7 +53,7 @@ def sync(node_id, conf, printout=False):
 if __name__ == '__main__':
 
     conf = {}
-    conf['current_dir'] = '/home/ngc/Documents/visual_mpc/experiments/cem_exp/onpolicy/distributed_pushing/modeldata/'
+    conf['current_dir'] = '/home/ngc/Documents/visual_mpc/experiments/cem_exp/onpolicy/distributed_pushing'
     conf['agent'] = {}
     conf['agent']['result_dir'] = '/result'
     conf['agent']['logging_dir'] = '/result/logging_node0'
