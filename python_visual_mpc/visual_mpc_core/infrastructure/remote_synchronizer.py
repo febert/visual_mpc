@@ -30,7 +30,7 @@ def sync(node_id, conf):
         os.makedirs(local_modeldata_dir)
 
     while True:
-        logger.log('get latest weights form master')
+        logger.log('get latest weights from master')
         # rsync --ignore-existing deepthought:~/test .
         cmd = 'rsync -a --delete {}:{} {}'.format(master, master_modeldata_dir + '/', local_modeldata_dir)
         logger.log('executing: {}'.format(cmd))
