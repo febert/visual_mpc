@@ -203,7 +203,6 @@ class Sim(object):
             if len(self.trajectory_list) == traj_per_file:
                 filename = 'traj_{0}_to_{1}' \
                     .format(itr - traj_per_file + 1, itr)
-
                 from .utility.save_tf_record import save_tf_record
                 save_tf_record(filename, self.trajectory_list, self.agentparams)
                 self.trajectory_list = []

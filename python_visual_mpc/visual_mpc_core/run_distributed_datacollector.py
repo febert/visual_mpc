@@ -102,6 +102,9 @@ def main():
     end_idx = [hyperparams['start_index'] + traj_per_worker * (i+1)-1 for i in range(n_worker)]
 
     if 'RESULT_DIR' in os.environ:
+        print('clearing result dir')
+        os.system('rm {}/*'.format(os.environ['RESULT_DIR']))
+
         result_dir = os.environ['RESULT_DIR']
         if 'verbose' in hyperparams['policy'] and not os.path.exists(result_dir + '/verbose'):
             os.makedirs(result_dir + '/verbose')
