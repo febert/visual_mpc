@@ -10,7 +10,7 @@ master = 'deepthought'
 
 master_datadir = '/raid/ngc/pushing_data/onpolicy/distributed_pushing/train'
 
-# @ray.remote
+@ray.remote
 def sync(node_id, conf, printout=False):
     exp_subpath = conf['current_dir'].partition('onpolicy')[2]
 
