@@ -75,7 +75,7 @@ def main(unused_argv, conf_dict= None, flags=None):
             conf['data_dir'] = new_data_dirs
         elif isinstance(conf['data_dir'], dict):
             for path in conf['data_dir']:
-                new_path = os.path.join(os.environ['VMPC_DATA_DIR'], path.partition('pushing_data')[2])
+                new_path = os.environ['VMPC_DATA_DIR'] + path.partition('pushing_data')[2]
                 conf['data_dir'][new_path] = conf['data_dir'].pop(path)
         else:
             path = conf['data_dir'].partition('pushing_data')[2]

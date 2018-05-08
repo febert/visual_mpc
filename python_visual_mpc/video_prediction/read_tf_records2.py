@@ -91,6 +91,7 @@ def build_tfrecord_input(conf, training=True, input_file=None, shuffle=True):
         for dir in data_sources:
             conf_ = copy.deepcopy(conf)
             conf_['data_dir'] = dir
+            print('loading', dir)
             data_set.append(build_tfrecord_single(conf_, training, None, shuffle))
         
         comb_dataset = data_set[0]
