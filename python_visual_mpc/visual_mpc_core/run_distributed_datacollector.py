@@ -27,7 +27,7 @@ def get_maxiter_weights(dir):
             except:
                 iternums.append(-1)
         iternums = np.array(iternums)
-        return filenames[np.argmax(iternums)]
+        return filenames[np.argmax(iternums)].split('.')[0] # skip the str after the '.'
     else:
         return None
 
