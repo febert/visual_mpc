@@ -4,9 +4,7 @@ from python_visual_mpc.visual_mpc_core.infrastructure.utility.logger import Logg
 import os
 import tensorflow as tf
 import ray
-
 import pdb
-
 
 master = 'deepthought'
 
@@ -34,7 +32,7 @@ def sync(node_id, conf):
     while True:
         logger.log('get latest weights form master')
         # rsync --ignore-existing deepthought:~/test .
-        cmd = 'rsync -a --ignore-existing {}:{} {}'.format(master, master_modeldata_dir + '/', local_modeldata_dir)
+        cmd = 'rsync -a --delete {}:{} {}'.format(master, master_modeldata_dir + '/', local_modeldata_dir)
         logger.log('executing: {}'.format(cmd))
         os.system(cmd)
         # consider --delete option
