@@ -45,7 +45,7 @@ def main():
     print('saving to', out_dir)
 
     good_traj_list, bad_traj_list = [], []
-    num_good_saved, num_bad_saved = 0, 0
+    num_good_saved, num_bad_saved = 429, 197
     good_lift_ctr, total_ctr = 0, 0
     traj_group_dirs = glob.glob(data_dir+'/*')
     for g in traj_group_dirs:
@@ -59,7 +59,7 @@ def main():
                 goal_pos = state_action['obj_start_end_pos'][1]
                 #object_z = state_action['object_full_pose'][-1, 0, 2]
                 loaded_traj.actions = state_action['actions']
-                loaded_traj.X_Xdot_full = state_action['target_qpos'][:T, :] #np.hstack((state_action['qpos'], state_action['qvel'])) # 
+                loaded_traj.X_Xdot_full = np.hstack((state_action['qpos'], state_action['qvel'])) #state_action['target_qpos'][:T, :] # # 
                 loaded_traj._sample_images = np.zeros((T, img_height, img_width, 3), dtype = 'uint8')
 
                 good_lift = False
