@@ -116,7 +116,7 @@ def main():
     todo_ids = [d.run_traj.remote() for d in data_collectors]
     print('launched datacollectors.')
 
-    sync_todo_id = sync.remote(args.isplit, hyperparams)
+    sync_todo_id = sync.remote(args.isplit, hyperparams, )
     print('launched sync')
 
     ray.wait(todo_ids)

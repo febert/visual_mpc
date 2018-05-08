@@ -11,7 +11,7 @@ master = 'deepthought'
 master_datadir = '/raid/ngc/pushing_data/onpolicy/distributed_pushing/train'
 
 @ray.remote
-def sync(node_id, conf):
+def sync(node_id, conf, printout=False):
     exp_subpath = conf['current_dir'].partition('onpolicy')[2]
 
     master_base_dir = '/home/ngc/Documents/visual_mpc/experiments/cem_exp/onpolicy' + exp_subpath
@@ -19,7 +19,7 @@ def sync(node_id, conf):
     master_logging_dir = master_base_dir + '/logging_datacollectors'
 
     logging_dir = conf['agent']['logging_dir']
-    logger = Logger(logging_dir, 'sync_node{}.txt'.format(node_id))
+    logger = Logger(logging_dir, 'sync_node{}.txt'.format(node_id), printout=printout)
     logger.log('started remote sync process on node{}'.format(node_id))
 
     # local means "locally" in the container on ngc
@@ -32,7 +32,8 @@ def sync(node_id, conf):
     while True:
         logger.log('get latest weights from master')
         # rsync --ignore-existing deepthought:~/test .
-        cmd = 'rsync -a --delete {}:{} {}'.format(master, master_modeldata_dir + '/', local_modeldata_dir)
+        # cmd = 'rsync -a --delete {}:{} {}'.format(master, master_modeldata_dir + '/', local_modeldata_dir)
+        cmd = 'rsync -a  --ignore-existing {}:{} {}'.format(master, master_modeldata_dir + '/', local_modeldata_dir)
         logger.log('executing: {}'.format(cmd))
         os.system(cmd)
         # consider --delete option
