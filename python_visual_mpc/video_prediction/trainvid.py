@@ -206,20 +206,20 @@ def main(unused_argv, conf_dict= None, flags=None):
         if (itr) % 10 ==0:
             tf.logging.info(str(itr) + ' ' + str(cost))
 
-        if (itr) % VAL_INTERVAL == 2:
+        if (itr) % VAL_INTERVAL == 0:
             # Run through validation set.
             feed_dict = {model.iter_num: np.float32(itr),
                          model.train_cond: 0}
             [val_summary_str] = sess.run([model.val_summ_op], feed_dict)
             summary_writer.add_summary(val_summary_str, itr)
 
-        if (itr) % VIDEO_INTERVAL == 2 and hasattr(model, 'val_video_summaries'):
+        if (itr) % VIDEO_INTERVAL == 0 and hasattr(model, 'val_video_summaries'):
             feed_dict = {model.iter_num: np.float32(itr),
                          model.train_cond: 0}
             video_proto = sess.run(model.val_video_summaries, feed_dict = feed_dict)
             summary_writer.add_summary(convert_tensor_to_gif_summary(video_proto), itr)
 
-        if (itr) % SAVE_INTERVAL == 2:
+        if (itr) % SAVE_INTERVAL == 0 and itr != 0:
             tf.logging.info('Saving model to' + conf['output_dir'])
             saving_saver.save(sess, conf['output_dir'] + '/model' + str(itr))
 
