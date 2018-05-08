@@ -34,6 +34,7 @@ class Data_Collector(object):
         self.logger.log('starting data collection')
         while self.itraj < self.maxtraj:
             ckpt = tf.train.get_checkpoint_state('/result/modeldata')
+            self.logger.log('current checkpoint {}'.format(ckpt.model_checkpoint_path))
             if ckpt is not None:
                 curr_ckpt = ckpt.model_checkpoint_path
                 if curr_ckpt != self.last_weights_loaded:
