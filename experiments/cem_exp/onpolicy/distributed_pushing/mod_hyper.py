@@ -58,7 +58,7 @@ policy = {
 
 config = {
     'current_dir':current_dir,
-    'traj_per_file':1,   ###########################
+    'traj_per_file':3,   ###########################
     'save_data': True,
     'start_index':0,
     'end_index': 59999,

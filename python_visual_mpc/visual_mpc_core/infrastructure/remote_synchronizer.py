@@ -18,7 +18,7 @@ def sync(node_id, conf):
 
     master_base_dir = '/home/ngc/Documents/visual_mpc/experiments/cem_exp/onpolicy' + exp_subpath
     master_modeldata_dir = master_base_dir + '/modeldata'
-    master_logging_dir = master_base_dir + '/logging'
+    master_logging_dir = master_base_dir + '/logging_datacollectors'
 
     logging_dir = conf['agent']['logging_dir']
     logger = Logger(logging_dir, 'sync_node{}.txt'.format(node_id))
