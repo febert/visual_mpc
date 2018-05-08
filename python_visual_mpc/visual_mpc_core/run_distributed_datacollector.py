@@ -39,7 +39,7 @@ class Data_Collector(object):
                 if curr_ckpt != self.last_weights_loaded:
                     self.logger.log('loading {}'.format(curr_ckpt))
                     self.last_weights_loaded = curr_ckpt
-                    self.conf['load_latest'] = '/result/modeldata/' + curr_ckpt.partition('modeldata')[2]
+                    self.conf['load_latest'] = '/result/modeldata' + curr_ckpt.partition('modeldata')[2]
                     self.sim = Sim(self.conf, gpu_id=self.conf['gpu_id'], logger=self.logger)
             self.logger.log('-------------------------------------------------------------------')
             self.logger.log('run number ', self.itraj)
