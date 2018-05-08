@@ -22,9 +22,7 @@ def save_tf_record(filename, trajectory_list, params):
     if not os.path.exists(dir):
         os.makedirs(dir, exist_ok=True)
     filename = os.path.join(dir, filename + '.tfrecords')
-    print(('Writing', filename))
     writer = tf.python_io.TFRecordWriter(filename)
-
     feature = {}
 
     for tr in range(len(trajectory_list)):

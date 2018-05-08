@@ -54,7 +54,6 @@ def setup_predictor(hyperparams, conf, gpu_id=0, ngpu=1, logger=None):
     conditioned on the actions
     """
     conf['ngpu'] = ngpu
-
     if logger == None:
         logger = Logger(printout=True)
 
