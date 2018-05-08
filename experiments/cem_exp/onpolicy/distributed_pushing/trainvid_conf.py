@@ -16,7 +16,7 @@ DATA_DIR = os.environ['VMPC_DATA_DIR'] + '/onpolicy/distributed_pushing/train'
 PRELOAD_DATA_DIR = os.environ['VMPC_DATA_DIR'] + '/onpolicy/updown_sact_bounded_disc/train'
 
 onpolconf = {
-    'save_interval':10, ########################## 1000
+    'save_interval':100, ########################## 1000
     'replay_size':200,  ##############
     'fill_replay_fromsaved':200,#############              # fill replay with existing trajectories from dataset
 }
