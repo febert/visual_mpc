@@ -10,6 +10,7 @@ from python_visual_mpc.video_prediction.utils_vpred.create_gif_lib import assemb
 from python_visual_mpc.video_prediction.utils_vpred.create_gif_lib import npy_to_gif
 from PIL import Image
 import imp
+import math
 
 import pickle
 from random import shuffle as shuffle_list
@@ -55,7 +56,7 @@ def mix_datasets(dataset0, dataset1, ratio_01):
       from generated_x.
     """
     batch_size = dataset0['images'].get_shape().as_list()[0]
-    num_set0 = tf.cast(int(batch_size)*ratio_01, tf.int64)
+    num_set0 = tf.cast(math.ceil(int(batch_size)*ratio_01), tf.int64)
     idx = tf.range(int(batch_size))
     set0_idx = tf.gather(idx, tf.range(num_set0))
     set1_idx = tf.gather(idx, tf.range(num_set0, int(batch_size)))
@@ -73,6 +74,8 @@ def mix_datasets(dataset0, dataset1, ratio_01):
 
 def build_tfrecord_input(conf, training=True, input_file=None, shuffle=True):
     if isinstance(conf['data_dir'], (list, tuple)):
+        if len(conf['data_dir']) > 2:
+            print("WARNING ONLY MIXES TWO DATASETS WITH LIST PASSED IN")
         data_set = []
         for dir in conf['data_dir']:
             conf_ = copy.deepcopy(conf)
@@ -80,6 +83,26 @@ def build_tfrecord_input(conf, training=True, input_file=None, shuffle=True):
             data_set.append(build_tfrecord_single(conf_, training, None, shuffle))
 
         comb_dataset = mix_datasets(data_set[0], data_set[1], 0.5)
+        return comb_dataset
+    elif isinstance(conf['data_dir'], dict):
+        data_set = []
+        data_sources = sorted(list(conf['data_dir'].keys()), key = lambda x : conf['data_dir'][x])
+
+        for dir in data_sources:
+            conf_ = copy.deepcopy(conf)
+            conf_['data_dir'] = dir
+            data_set.append(build_tfrecord_single(conf_, training, None, shuffle))
+        
+        comb_dataset = data_set[0]
+        total_prob = conf['data_dir'][data_sources[0]]
+
+        for dir, dataset in zip(data_sources[1:], data_set[1:]):
+            new_total = total_prob + conf['data_dir'][dir]
+            comb_dataset = mix_datasets(comb_dataset, dataset, total_prob / new_total)
+            total_prob = new_total
+        
+        assert np.isclose(total_prob, 1.0), 'INPUT SHARES MUST SUM TO 1'
+
         return comb_dataset
     else:
         return build_tfrecord_single(conf, training, input_file, shuffle)
