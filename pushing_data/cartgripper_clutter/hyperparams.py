@@ -50,7 +50,7 @@ agent = {
     'record': BASE_DIR + '/record/',
     'targetpos_clip':[[-0.5, -0.5, -0.08, -np.pi*2, 0], [0.5, 0.5, 0.15, np.pi*2, 0.1]],
     'mode_rel':np.array([True, True, True, True, False]),
-    'object_meshes':['giraffe'] #folder to original object + convex approximation
+    #'object_meshes':['giraffe'] #folder to original object + convex approximation
     # 'displacement_threshold':0.1,
 }
 
@@ -68,7 +68,7 @@ config = {
     'save_data': True,
     'save_raw_images' : True,
     'start_index':0,
-    'end_index': 80000,
+    'end_index': 120000,
     'agent': agent,
     'policy': policy,
     'ngroup': 1000
