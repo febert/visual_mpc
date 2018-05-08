@@ -103,7 +103,7 @@ def main():
 
     if 'RESULT_DIR' in os.environ:
         print('clearing result dir')
-        os.system('rm {}/*'.format(os.environ['RESULT_DIR']))
+        os.system('rm -r {}/*'.format(os.environ['RESULT_DIR']))
 
         result_dir = os.environ['RESULT_DIR']
         if 'verbose' in hyperparams['policy'] and not os.path.exists(result_dir + '/verbose'):
