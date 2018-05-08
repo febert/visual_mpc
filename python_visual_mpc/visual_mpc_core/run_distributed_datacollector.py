@@ -12,7 +12,24 @@ import ray
 import matplotlib; matplotlib.use('Agg'); import matplotlib; matplotlib.use('Agg'); import matplotlib.pyplot as plt
 from python_visual_mpc.visual_mpc_core.infrastructure.utility.logger import Logger
 
+from tensorflow.python.platform import gfile
 from python_visual_mpc.visual_mpc_core.infrastructure.remote_synchronizer import sync
+import re
+
+
+def get_maxiter_weights(dir):
+    filenames = gfile.Glob(dir +'/model*')
+    iternums = []
+    if len(filenames) != 0:
+        for f in filenames:
+            try:
+                iternums.append(int(re.match('.*?([0-9]+)$', f).group(1)))
+            except:
+                iternums.append(-1)
+        iternums = np.array(iternums)
+        return filenames[np.argmax(iternums)]
+    else:
+        return None
 
 @ray.remote
 class Data_Collector(object):
@@ -33,14 +50,12 @@ class Data_Collector(object):
     def run_traj(self):
         self.logger.log('starting data collection')
         while self.itraj < self.maxtraj:
-            ckpt = tf.train.get_checkpoint_state('/result/modeldata')
-            self.logger.log('current checkpoint {}'.format(ckpt.model_checkpoint_path))
-            if ckpt is not None:
-                curr_ckpt = ckpt.model_checkpoint_path
-                if curr_ckpt != self.last_weights_loaded:
-                    self.logger.log('loading {}'.format(curr_ckpt))
-                    self.last_weights_loaded = curr_ckpt
-                    self.conf['load_latest'] = '/result/modeldata' + curr_ckpt.partition('modeldata')[2]
+            max_iter_weights = get_maxiter_weights('/result/modeldata')
+            if max_iter_weights != None:
+                if max_iter_weights != self.last_weights_loaded:
+                    self.logger.log('loading {}'.format(max_iter_weights))
+                    self.last_weights_loaded = copy.deepcopy(max_iter_weights)
+                    self.conf['load_latest'] = max_iter_weights
                     self.sim = Sim(self.conf, gpu_id=self.conf['gpu_id'], logger=self.logger)
             self.logger.log('-------------------------------------------------------------------')
             self.logger.log('run number ', self.itraj)
