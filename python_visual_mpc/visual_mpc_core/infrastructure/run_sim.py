@@ -49,7 +49,7 @@ class Sim(object):
         if 'usenet' in config['policy']:
             params = imp.load_source('params', config['policy']['netconf'])
             netconf = params.configuration
-            self.predictor = netconf['setup_predictor'](self._hyperparams, netconf, gpu_id, ngpu)
+            self.predictor = netconf['setup_predictor'](self._hyperparams, netconf, gpu_id, ngpu, self.logger)
 
             if 'warp_objective' in config['policy'] or 'register_gtruth' in config['policy']:
                 params = imp.load_source('params', config['policy']['gdnconf'])
