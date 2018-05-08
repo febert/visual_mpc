@@ -34,8 +34,7 @@ class Sim(object):
         self.policyparams = config['policy']
         if logger == None:
             self.logger = Logger(printout=True)
-        else:
-            self.logger = Logger(self.agentparams['logging_dir'], 'sim_gpu{}_log.txt'.format(gpu_id))
+        else: self.logger = logger
 
         if 'RESULT_DIR' in os.environ:
             self.agentparams['data_save_dir'] = os.environ['RESULT_DIR'] + '/data/train'
