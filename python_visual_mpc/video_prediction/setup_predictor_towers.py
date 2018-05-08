@@ -108,7 +108,8 @@ def setup_predictor(hyperparams, conf, gpu_id=0, ngpu=1, logging_dir=None):
 
             if 'load_latest' in hyperparams:
                 saver = tf.train.Saver(vars, max_to_keep=0)
-                saver.restore(sess, hyperparams['load_latest'])
+                conf['pretrained_model'] = hyperparams['load_latest']
+                saver.restore(sess, conf['pretrained_model'])
             else:
                 if conf['pred_model'] == Alex_Interface_Model:
                     if 'ALEX_DATA' in os.environ:
