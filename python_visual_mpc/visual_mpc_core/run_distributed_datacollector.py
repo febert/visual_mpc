@@ -1,5 +1,6 @@
 import argparse
 import os
+import pdb
 import importlib.machinery
 import importlib.util
 from python_visual_mpc.visual_mpc_core.infrastructure.run_sim import Sim
@@ -102,6 +103,7 @@ def main():
     start_idx = [hyperparams['start_index'] + traj_per_worker * i for i in range(n_worker)]
     end_idx = [hyperparams['start_index'] + traj_per_worker * (i+1)-1 for i in range(n_worker)]
 
+    pdb.set_trace()
     if 'RESULT_DIR' in os.environ:
         print('clearing result dir')
         os.system('rm -r {}/*'.format(os.environ['RESULT_DIR']))
@@ -122,6 +124,8 @@ def main():
 
     ray.init()
     data_collectors = []
+
+    print('launching datacollectors.')
     for i in range(n_worker):
         modconf = copy.deepcopy(hyperparams)
         modconf['start_index'] = start_idx[i]
