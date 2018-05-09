@@ -82,7 +82,7 @@ class ReplayBuffer_Loadfiles(ReplayBuffer):
 
     def update(self, sess):
         # check if new files arrived:
-        all_filenames = gfile.Glob(os.path.join(self.conf['data_dir'], '*'))
+        all_filenames = gfile.Glob(self.conf['data_dir'] + '/traj_*.tfrecords')
 
         to_load_filenames = []
         for name in all_filenames:
