@@ -312,8 +312,6 @@ class AgentMuJoCo(object):
             if np.any(traj.goal_dist[-1] > self._hyperparams['dist_ok_thresh']):
                 traj_ok = False
 
-        traj.
-
         return traj_ok, traj
 
     def save_goal_image_conf(self, traj):
