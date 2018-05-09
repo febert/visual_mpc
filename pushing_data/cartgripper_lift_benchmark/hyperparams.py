@@ -28,17 +28,16 @@ DATA_DIR = '/'.join(str.split(python_visual_mpc.__file__, '/')[:-2])
 agent = {
     'type': AgentMuJoCo,
     'data_save_dir': BASE_DIR + '/train',
-    'filename': DATA_DIR+'/mjc_models/cartgripper.xml',
-    'filename_nomarkers': DATA_DIR+'/mjc_models/cartgripper.xml',
+    'filename': DATA_DIR+'/mjc_models/cartgripper_grasp.xml',
+    'filename_nomarkers': DATA_DIR+'/mjc_models/cartgripper_grasp.xml',
     'data_collection': True,
     'sample_objectpos':'',
-    'adim':3,
-    'sdim':6,
-    'xpos0': np.array([0., 0., 0.]),
+    'adim':5,
+    'sdim':12,
     'dt': 0.05,
-    'substeps': 20,  #6
+    'substeps': 10,  #6
     'T': 2,
-    'skip_first': 20,   #skip first N time steps to let the scene settle
+    'skip_first': 0,   #skip first N time steps to let the scene settle
     'additional_viewer': True,
     'image_height' : 48,
     'image_width' : 64,
@@ -48,11 +47,14 @@ agent = {
     'num_objects': 1,
     'novideo':'',
     'gen_xml':5,   #generate xml every nth trajecotry
-    'init_arm_near_obj': 0.3, #randomize x, y
+    # 'randomize_ballinitpos':'',
     'pos_disp_range':0.,
-    'ang_disp_range':np.pi/8,
-    'arm_disp_range':0.2,
-    'lift_object':''
+    'ang_disp_range':0.,
+    'arm_disp_range':0.,
+    'lift_object':'',
+    'arm_obj_initdist':0.05,
+    'arm_start_lifted':0.14,
+    'posmode':''
 }
 
 policy = {

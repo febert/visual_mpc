@@ -4,7 +4,8 @@ import numpy as np
 import tensorflow as tf
 
 
-def make_video_summaries(seq_len, ncntxt, videos):
+def make_video_summaries(ncntxt, videos):
+    seq_len = len(videos[0])
     columns = []
     videos = [vid[-(seq_len-ncntxt):] for vid in videos]
     for t in range(seq_len-ncntxt):

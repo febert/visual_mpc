@@ -11,21 +11,17 @@ import matplotlib; matplotlib.use('Agg'); import matplotlib.pyplot as plt
 from python_visual_mpc.video_prediction.misc.makegifs2 import assemble_gif, npy_to_gif
 from pyquaternion import Quaternion
 from mujoco_py import load_model_from_xml,load_model_from_path, MjSim, MjViewer
-
-from python_visual_mpc.visual_mpc_core.agent.utils.get_masks import get_obj_masks
-
+from python_visual_mpc.visual_mpc_core.agent.utils.get_masks import get_obj_masks, get_image
 import time
 from python_visual_mpc.visual_mpc_core.infrastructure.trajectory import Trajectory
 from matplotlib.backends.backend_agg import FigureCanvasAgg as FigureCanvas
 from matplotlib.figure import Figure
 import cv2
 from mpl_toolkits.mplot3d import Axes3D
-
-from .utils.create_xml import create_object_xml, create_root_xml
+from python_visual_mpc.visual_mpc_core.agent.utils.create_xml import create_object_xml, create_root_xml
 import os
-from time import sleep
 import cv2
-from python_visual_mpc.goaldistancenet.misc.draw_polygon import draw_poly
+
 
 def file_len(fname):
     i = 0
@@ -48,7 +44,6 @@ class AgentMuJoCo(object):
         self.T = self._hyperparams['T']
         self.sdim = self._hyperparams['sdim']
         self.adim = self._hyperparams['adim']
-
         self.goal_obj_pose = None
         self.goal_image = None
         self.goal_mask = None
@@ -56,7 +51,7 @@ class AgentMuJoCo(object):
         self.curr_mask = None
         self.curr_mask_large = None
         self.desig_pix = None
-
+        self.start_conf = None
         self.load_obj_statprop = None  #loaded static object properties
         self._setup_world()
 
@@ -72,17 +67,38 @@ class AgentMuJoCo(object):
             self._hyperparams['gen_xml_fname'] = xmlfilename
         else:
             xmlfilename = self._hyperparams['filename']
-
         self.sim = MjSim(load_model_from_path(xmlfilename))
+
+    def apply_start_conf(self, dict):
+        if 'reverse_action' in self._hyperparams:
+            init_index = -1
+            goal_index = 0
+        else:
+            init_index = 0
+            goal_index = -1
+        self.load_obj_statprop = dict['obj_statprop']
+        self._hyperparams['xpos0'] = dict['qpos'][init_index]
+        self._hyperparams['object_pos0'] = dict['object_full_pose'][init_index]
+        self.object_full_pose_t = dict['object_full_pose']
+        self.goal_obj_pose = dict['object_full_pose'][goal_index]   #needed for calculating the score
+        if 'lift_object' in self._hyperparams:
+            self.goal_obj_pose[:,2] = self._hyperparams['targetpos_clip'][1][2]
+        self.goal_image = dict['images'][goal_index]  # assign last image of trajectory as goalimage
+        if 'goal_mask' in self._hyperparams:
+            self.goal_mask = dict['goal_mask'][goal_index]  # assign last image of trajectory as goalimage
 
     def sample(self, policy, i_tr, verbose=True, save=True, noisy=False):
         """
         Runs a trial and constructs a new sample containing information
         about the trial.
         """
+        if self.start_conf is not None:
+            self.apply_start_conf(self.start_conf)
+
         if "gen_xml" in self._hyperparams:
             if i_tr % self._hyperparams['gen_xml'] == 0:
                 self._setup_world()
+        self._hyperparams['i_tr'] = i_tr
 
         traj_ok = False
         i_trial = 0
@@ -90,7 +106,7 @@ class AgentMuJoCo(object):
         while not traj_ok and i_trial < imax:
             i_trial += 1
             try:
-                traj_ok, traj = self.rollout(policy)
+                traj_ok, traj = self.rollout(policy, i_tr)
             except Image_dark_except:
                 traj_ok = False
 
@@ -99,17 +115,20 @@ class AgentMuJoCo(object):
         tfinal = self._hyperparams['T'] -1
         if self.goal_obj_pose is not None:
             self.final_poscost, self.final_anglecost = self.eval_action(traj, tfinal)
+            self.final_poscost = np.mean(self.final_poscost)
             self.initial_poscost, _ = self.eval_action(traj, 0)
+            self.initial_poscost = np.mean(self.initial_poscost)
             self.improvement = self.initial_poscost - self.final_poscost
+            traj.improvement = self.improvement
+            traj.final_poscost = self.final_poscost
+            traj.initial_poscost = self.initial_poscost
 
         if 'save_goal_image' in self._hyperparams:
             self.save_goal_image_conf(traj)
 
         if 'make_final_gif' in self._hyperparams:
             self.save_gif()
-
         return traj
-
 
     def get_desig_pix(self, round=True):
         qpos_dim = self.sdim // 2  # the states contains pos and vel
@@ -124,6 +143,20 @@ class AgentMuJoCo(object):
             desig_pix = np.around(desig_pix).astype(np.int)
         return desig_pix
 
+    def hide_arm_store_image(self, ind, traj):
+        qpos = copy.deepcopy(self.sim.data.qpos)
+        qpos[2] -= 10
+        sim_state = self.sim.get_state()
+        sim_state.qpos[:] = qpos
+        self.sim.set_state(sim_state)
+        self.sim.forward()
+        width = self._hyperparams['image_width']
+        height = self._hyperparams['image_height']
+        traj.first_last_noarm[ind] = self.sim.render(width, height, camera_name='maincam')[::-1, :, :]
+        qpos[2] += 10
+        sim_state.qpos[:] = qpos
+        self.sim.set_state(sim_state)
+        self.sim.forward()
 
     def get_goal_pix(self, round=True):
         goal_pix = []
@@ -143,12 +176,14 @@ class AgentMuJoCo(object):
         assert substep >= 0 and substep < self._hyperparams['substeps']
         return substep/float(self._hyperparams['substeps'])*(next - prev) + prev
 
-    def rollout(self, policy):
+    def rollout(self, policy, i_tr):
         self._init()
         if self.goal_obj_pose is not None:
             self.goal_pix = self.get_goal_pix()   # has to occurr after self.viewer.cam.camid = 0 and set_model!!!
 
         traj = Trajectory(self._hyperparams)
+        traj.i_tr = i_tr
+
         if 'gen_xml' in self._hyperparams:
             traj.obj_statprop = self.obj_statprop
 
@@ -171,6 +206,13 @@ class AgentMuJoCo(object):
 
         self.gripper_closed = False
         self.gripper_up = False
+<<<<<<< HEAD
+=======
+
+        if 'first_last_noarm' in self._hyperparams:
+            self.hide_arm_store_image(0, traj)
+
+>>>>>>> dev
         # Take the sample.
         for t in range(self.T):
             qpos_dim = self.sdim // 2  # the states contains pos and vel
@@ -193,11 +235,11 @@ class AgentMuJoCo(object):
             else:
                 self.desig_pix = self.get_desig_pix()
 
-            self._store_image(t, traj, policy)
+            self._store_image(t , traj, policy)
             if 'gtruthdesig' in self._hyperparams:  # generate many designated pixel goal-pixel pairs
                 self.desig_pix, self.goal_pix = gen_gtruthdesig(fullpose, self.goal_obj_pose,
-                                        self.curr_mask_large, traj.largedimage[t], self._hyperparams['gtruthdesig'],
-                                         self._hyperparams, traj._sample_images[t], self.goal_image)
+                                                                self.curr_mask_large, traj.largedimage[t], self._hyperparams['gtruthdesig'],
+                                                                self._hyperparams, traj.images[t], self.goal_image)
 
             if 'not_use_images' in self._hyperparams:
                 mj_U = policy.act(traj, t, self.sim, self.goal_obj_pose, self._hyperparams, self.goal_image)
@@ -254,6 +296,9 @@ class AgentMuJoCo(object):
             if self.goal_obj_pose is not None:
                 traj.goal_dist.append(self.eval_action(traj, t)[0])
 
+        if 'first_last_noarm' in self._hyperparams:
+            self.hide_arm_store_image(1, traj)
+
         # only save trajectories which displace objects above threshold
         if 'displacement_threshold' in self._hyperparams:
             assert self._hyperparams['data_collection']
@@ -275,8 +320,12 @@ class AgentMuJoCo(object):
         end_zpos = [traj.Object_full_pose[-1, i, 2] for i in range(self._hyperparams['num_objects'])]
         if any(zval < -2e-2 for zval in end_zpos):
             print('object fell out!!!')
-            traj_ok = True
-        # self.plot_ctrls()
+            traj_ok = False
+        self.plot_ctrls()
+
+        if 'dist_ok_thresh' in self._hyperparams:
+            if np.any(traj.goal_dist[-1] > self._hyperparams['dist_ok_thresh']):
+                traj_ok = False
         return traj_ok, traj
 
     def save_goal_image_conf(self, traj):
@@ -292,7 +341,7 @@ class AgentMuJoCo(object):
         print('allscores', traj.score)
         print('goal index: ', first_best_index)
 
-        goalimage = traj._sample_images[first_best_index]
+        goalimage = traj.images[first_best_index]
         goal_ballpos = np.concatenate([traj.X_full[first_best_index], np.zeros(2)])  #set velocity to zero
 
         goal_object_pose = traj.Object_pos[first_best_index]
@@ -308,26 +357,26 @@ class AgentMuJoCo(object):
         img.save(self._hyperparams['save_goal_image'] + '.png',)
 
     def eval_action(self, traj, t):
+<<<<<<< HEAD
         if 'ztarget' in self._hyperparams:
             obj_z = traj.Object_full_pose[t, 0, 2]
             pos_score = np.abs(obj_z - self._hyperparams['ztarget'])
             return pos_score, 0.
+=======
+>>>>>>> dev
         abs_distances = []
         abs_angle_dist = []
-
         for i_ob in range(self._hyperparams['num_objects']):
-
             goal_pos = self.goal_obj_pose[i_ob, :3]
             curr_pos = traj.Object_full_pose[t, i_ob, :3]
             abs_distances.append(np.linalg.norm(goal_pos - curr_pos))
 
             goal_quat = Quaternion(self.goal_obj_pose[i_ob, 3:])
             curr_quat = Quaternion(traj.Object_full_pose[t, i_ob, 3:])
-
             diff_quat = curr_quat.conjugate*goal_quat
             abs_angle_dist.append(np.abs(diff_quat.radians))
 
-        return np.sum(np.array(abs_distances)), np.sum(np.array(abs_angle_dist))
+        return np.array(abs_distances), np.array(abs_angle_dist)
 
 
     def zangle_to_quat(self, zangle):
@@ -407,7 +456,7 @@ class AgentMuJoCo(object):
                     raise Image_dark_except
                 if cam == 'maincam':
                     self.large_images.append(large_img)
-                traj._sample_images[t, i] = cv2.resize(large_img, dsize=(self._hyperparams['image_width'],
+                traj.images[t, i] = cv2.resize(large_img, dsize=(self._hyperparams['image_width'],
                                         self._hyperparams['image_height']), interpolation = cv2.INTER_AREA)
 
                 if 'make_gtruth_flows' in self._hyperparams:
@@ -415,12 +464,13 @@ class AgentMuJoCo(object):
                     dlarge_img = self.sim.render(width, height, camera_name="maincam", depth=True)[1][::-1, :]
                     traj.largedimage[t, i] = dlarge_img
         else:
+            os.environ["CUDA_VISIBLE_DEVICES"] = "0"
             large_img = self.sim.render(width, height, camera_name="maincam")[::-1, :, :]
             if np.sum(large_img) < 1e-3:
                 print("image dark!!!")
                 raise Image_dark_except
             self.large_images.append(large_img)
-            traj._sample_images[t] = cv2.resize(large_img, dsize=(self._hyperparams['image_width'], self._hyperparams['image_height']), interpolation = cv2.INTER_AREA)
+            traj.images[t] = cv2.resize(large_img, dsize=(self._hyperparams['image_width'], self._hyperparams['image_height']), interpolation = cv2.INTER_AREA)
             if 'image_medium' in self._hyperparams:
                 traj._image_medium[t] = cv2.resize(large_img, dsize=(self._hyperparams['image_medium'][1],
                                                                          self._hyperparams['image_medium'][0]), interpolation = cv2.INTER_AREA)
@@ -428,15 +478,6 @@ class AgentMuJoCo(object):
                 traj.largeimage[t] = large_img
                 dlarge_img = self.sim.render(width, height, camera_name="maincam", depth=True)[1][::-1, :]
                 traj.largedimage[t] = dlarge_img
-
-        # img = traj._sample_images[t,:,:,:] # verify desigpos
-        # desig_pix = np.around(self.desig_pix).astype(np.int)
-        # # img = large_img
-        # for i in range(self._hyperparams['num_objects']):
-        #     img[desig_pix[i][0], desig_pix[i][1]] = np.array([255, 255, 255])
-        # print 'desig_pix', desig_pix
-        # plt.imshow(img)
-        # plt.show()
 
         if 'store_whole_pred' in self._hyperparams:
             if t > 1:
@@ -454,10 +495,11 @@ class AgentMuJoCo(object):
         self.hf_target_qpos_l = np.stack(self.hf_target_qpos_l, axis=0)
         tmax = self.hf_target_qpos_l.shape[0]
         for i in range(self.adim):
-            plt.plot(list(range(tmax)) , self.hf_qpos_l[:,i], label='q_{}'.format(i))
-            plt.plot(list(range(tmax)) , self.hf_target_qpos_l[:, i], label='q_target{}'.format(i))
+            plt.plot(list(range(tmax)), self.hf_qpos_l[:,i], label='q_{}'.format(i))
+            plt.plot(list(range(tmax)), self.hf_target_qpos_l[:, i], label='q_target{}'.format(i))
             plt.legend()
-            plt.show()
+            # plt.show()
+            plt.savefig(self._hyperparams['record'] + '/ctrls.png')
 
     def _init(self):
         """
@@ -469,31 +511,48 @@ class AgentMuJoCo(object):
             for i in range(self._hyperparams['num_objects']):
                 pos = np.random.uniform(-.35, .35, 2)
                 alpha = np.random.uniform(0, np.pi*2)
-
                 ori = np.array([np.cos(alpha/2), 0, 0, np.sin(alpha/2) ])
                 poses.append(np.concatenate((pos, np.array([0]), ori), axis= 0))
-            return np.concatenate(poses)
+            return poses
 
         if 'sample_objectpos' in self._hyperparams: # if object pose explicit do not sample poses
-            object_pos = create_pos()
+            assert self.start_conf is None
+            if 'object_object_mindist' in self._hyperparams:
+                assert self._hyperparams['num_objects'] == 2
+                ob_ob_dist = 0.
+                while ob_ob_dist < self._hyperparams['object_object_mindist']:
+                    object_pos_l = create_pos()
+                    ob_ob_dist = np.linalg.norm(object_pos_l[0][:3] - object_pos_l[1][:3])
+                object_pos = np.concatenate(object_pos_l)
+            else:
+                object_pos_l = create_pos()
+                object_pos = np.concatenate(object_pos_l)
         else:
-            object_pos = self._hyperparams['object_pos0'][0]
+            object_pos = self._hyperparams['object_pos0'][:self._hyperparams['num_objects']]
 
-        xpos0_true_len = (self.sim.get_state().qpos.shape[0] - self._hyperparams['num_objects']*7)
-        len_xpos0 = self._hyperparams['xpos0'].shape[0]
-        if len_xpos0 != xpos0_true_len:
-            xpos0 = np.concatenate([self._hyperparams['xpos0'], np.zeros(xpos0_true_len - len_xpos0)])  #testing in setting with updown rot, while data has only xyz
-            print("appending zeros to initial robot configuration!!!")
-        else:
-            xpos0 = self._hyperparams['xpos0']
-        assert xpos0.shape[0] == self._hyperparams['sdim']/2
+        xpos0 = np.zeros(self._hyperparams['sdim']//2)
         if 'randomize_ballinitpos' in self._hyperparams:
+            assert self.start_conf is None
             xpos0[:2] = np.random.uniform(-.4, .4, 2)
             xpos0[2] = np.random.uniform(-0.08, .14)
-        elif 'init_arm_near_obj' in self._hyperparams:
-            r = self._hyperparams['init_arm_near_obj']
-            xpos0[:2] = object_pos[:2] + np.random.uniform(r, -r, 2)
+        elif 'arm_obj_initdist' in self._hyperparams:
+            d = self._hyperparams['arm_obj_initdist']
+            alpha = np.random.uniform(-np.pi, np.pi, 1)
+            delta_pos = np.array([d*np.cos(alpha), d*np.sin(alpha)])
+            xpos0[:2] = object_pos[:2] + delta_pos.squeeze()
             xpos0[2] = np.random.uniform(-0.08, .14)
+        else:
+            xpos0_true_len = (self.sim.get_state().qpos.shape[0] - self._hyperparams['num_objects']*7)
+            len_xpos0 = self._hyperparams['xpos0'].shape[0]
+            if len_xpos0 != xpos0_true_len:
+                xpos0 = np.concatenate([self._hyperparams['xpos0'], np.zeros(xpos0_true_len - len_xpos0)])  #testing in setting with updown rot, while data has only xyz
+                print("appending zeros to initial robot configuration!!!")
+            else:
+                xpos0 = self._hyperparams['xpos0']
+            assert xpos0.shape[0] == self._hyperparams['sdim']/2
+
+        if 'arm_start_lifted' in self._hyperparams:
+            xpos0[2] = self._hyperparams['arm_start_lifted']
 
         sim_state = self.sim.get_state()
         if 'goal_point' in self._hyperparams:
@@ -506,4 +565,46 @@ class AgentMuJoCo(object):
         sim_state.qvel[:] = np.zeros_like(sim_state.qvel)
         self.sim.set_state(sim_state)
         self.sim.forward()
+
+        if self.start_conf is None:
+            self.goal_obj_pose = []
+            dist_betwob_ok = False
+            while not dist_betwob_ok:
+                for i_ob in range(self._hyperparams['num_objects']):
+                    pos_ok = False
+                    while not pos_ok:
+                        if 'ang_disp_range' in self._hyperparams:
+                            angular_disp = self._hyperparams['ang_disp_range']
+                        else: angular_disp = 0.2
+                        delta_alpha = np.random.uniform(-angular_disp, angular_disp)
+                        delta_rot = Quaternion(axis=(0.0, 0.0, 1.0), radians=delta_alpha)
+                        pose = object_pos_l[i_ob]
+                        curr_quat = Quaternion(pose[3:])
+                        newquat = delta_rot*curr_quat
+
+                        alpha = np.random.uniform(-np.pi, np.pi, 1)
+                        if 'const_dist' in self._hyperparams:
+                            assert 'pos_disp_range' not in self._hyperparams
+                            d = self._hyperparams['const_dist']
+                            delta_pos = np.array([d*np.cos(alpha), d*np.sin(alpha), 0.])
+                        else:
+                            pos_disp = self._hyperparams['pos_disp_range']
+                            delta_pos = np.concatenate([np.random.uniform(-pos_disp, pos_disp, 2), np.zeros([1])])
+                        newpos = pose[:3] + delta_pos
+
+                        if np.any(newpos[:2] > 0.35) or np.any(newpos[:2] < -0.35):   # check if in field
+                            continue
+                        else:
+                            self.goal_obj_pose.append(np.concatenate([newpos, newquat.elements]))
+                            pos_ok = True
+
+                if self._hyperparams['num_objects'] == 2:
+                    #ensuring that the goal positions are far apart from each other
+                    if np.linalg.norm(self.goal_obj_pose[0][:3]- self.goal_obj_pose[1][:3]) < 0.2:
+                        self.goal_obj_pose = []
+                        continue
+                    dist_betwob_ok = True
+                else:
+                    dist_betwob_ok = True
+            self.goal_obj_pose = np.stack(self.goal_obj_pose, axis=0)
 

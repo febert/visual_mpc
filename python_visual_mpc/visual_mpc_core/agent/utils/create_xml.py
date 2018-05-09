@@ -51,8 +51,6 @@ def create_object_xml(hyperparams, load_dict_list=None):
 
     world_body = ET.SubElement(root, "worldbody")
     for i in range(hyperparams['num_objects']):
-
-
         if load_dict_list == None:
             dict = {}
             if 'objects_red' not in hyperparams:

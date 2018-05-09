@@ -2,7 +2,8 @@ import os
 import numpy as np
 import tensorflow as tf
 from tensorflow.python.platform import gfile
-import matplotlib; matplotlib.use('Agg'); import matplotlib.pyplot as plt
+# import matplotlib; matplotlib.use('Agg');
+import matplotlib.pyplot as plt
 from python_visual_mpc.utils.txt_in_image import draw_text_image
 import pdb
 import time
@@ -122,6 +123,7 @@ def build_tfrecord_single(conf, training=True, input_file=None, shuffle=True):
     Raises:
       RuntimeError: if no files found.
     """
+
     if 'sdim' in conf:
         sdim = conf['sdim']
     else: sdim = 3
@@ -132,23 +134,23 @@ def build_tfrecord_single(conf, training=True, input_file=None, shuffle=True):
     print('sdim', sdim)
 
     if input_file is not None:
-        filenames = [input_file]
+        if not isinstance(input_file, list):
+            filenames = [input_file]
+        else: filenames = input_file
         shuffle = False
     else:
         filenames = gfile.Glob(os.path.join(conf['data_dir'], '*'))
-        
         if not filenames:
             raise RuntimeError('No data_files files found.')
-
-        index = int(np.floor(conf['train_val_split'] * len(filenames)))
-        if training:
-            filenames = filenames[:index]
-        else:
-            filenames = filenames[index:]
-
-        if conf['visualize']:  #if visualize do not perform train val split
-            filenames = gfile.Glob(os.path.join(conf['data_dir'], '*'))
-            shuffle = False
+        if 'train_val_split' in conf:
+            index = int(np.floor(conf['train_val_split'] * len(filenames)))
+            if training:
+                filenames = filenames[:index]
+            else:
+                filenames = filenames[index:]
+            if conf['visualize']:  #if visualize do not perform train val split
+                filenames = gfile.Glob(os.path.join(conf['data_dir'], '*'))
+                shuffle = False
 
     print('using shuffle: ', shuffle)
     if shuffle:
@@ -251,6 +253,16 @@ def build_tfrecord_single(conf, training=True, input_file=None, shuffle=True):
             goal_image = tf.squeeze(decode_im(conf, features, '/goal_image'))
             return_dict['goal_image'] = goal_image
 
+        if 'first_last_noarm' in conf:
+            features_name = {}
+            features_name['/first_last_noarm0'] = tf.FixedLenFeature([1], tf.string)
+            features = tf.parse_single_example(serialized_example, features=features_name)
+            first_last_noarm0 = tf.squeeze(decode_im(conf, features, '/first_last_noarm0'))
+            features_name['/first_last_noarm1'] = tf.FixedLenFeature([1], tf.string)
+            features = tf.parse_single_example(serialized_example, features=features_name)
+            first_last_noarm1 = tf.squeeze(decode_im(conf, features, '/first_last_noarm1'))
+            return_dict['first_last_noarm'] = tf.stack([first_last_noarm0, first_last_noarm1], axis=0)
+
         if 'image_only' not in conf:
             return_dict['endeffector_pos'] = tf.concat(endeffector_pos_seq, 0)
             return_dict['actions'] = tf.concat(action_seq, 0)
@@ -289,22 +301,22 @@ def main():
     conf = {}
 
     current_dir = os.path.dirname(os.path.realpath(__file__))
-    # DATA_DIR = '/mnt/sda1/pushing_data/cartgripper_sact_2view/train'
-    # DATA_DIR = '/mnt/sda1/pushing_data/weiss_gripper_20k/test'
-    DATA_DIR = os.environ['VMPC_DATA_DIR']
-    # DATA_DIR = [DATA_DIR + '/cartgripper_updown_sact/train', DATA_DIR + '/onpolicy/updown_sact_bounded_disc/train']
-    DATA_DIR = DATA_DIR + '/cartgripper_updown_sact/train'
+    # DATA_DIR = '/mnt/sda1/pushing_data/cartgripper/grasping/lift_imitation_dataset/test'
+    DATA_DIR = '/mnt/sda1/pushing_data/onpolicy/distributed_pushing/train'
+    DATA_DIR = '/home/frederik/Documents/catkin_ws/src/visual_mpc/experiments/cem_exp/onpolicy/distributed_pushing/data/train'
+
 
     conf['schedsamp_k'] = -1  # don't feed ground truth
     conf['data_dir'] = DATA_DIR  # 'directory containing data_files.' ,
     conf['skip_frame'] = 1
     conf['train_val_split']= 0.95
-    conf['sequence_length']= 15 #48      # 'sequence length, including context frames.'
-    conf['batch_size']= 10
-    conf['visualize']= True
+    conf['sequence_length']= 15  #48      # 'sequence length, including context frames.'
+    conf['batch_size'] = 3
+    conf['visualize'] = False
     conf['context_frames'] = 2
     # conf['ncam'] = 2
 
+    conf['max_epoch'] = 1
     # conf['row_start'] = 15
     # conf['row_end'] = 63
     conf['sdim'] = 6
@@ -313,6 +325,7 @@ def main():
     # conf['goal_image'] = ""
 
     conf['orig_size'] = [48, 64]
+    # conf['first_last_noarm'] = ''
     # conf['orig_size'] = [64, 64]
     # conf['orig_size'] = [96, 128]
     # conf['load_vidpred_data'] = ''
@@ -337,25 +350,30 @@ def main():
     deltat = []
     end = time.time()
     for i_run in range(10000):
-        # print 'run number ', i_run
+        print('run number ', i_run)
 
         # images, actions, endeff, gen_images, gen_endeff = sess.run([dict['images'], dict['actions'], dict['endeffector_pos'], dict['gen_images'], dict['gen_states']])
         # images, actions, endeff = sess.run([dict['gen_images'], dict['actions'], dict['endeffector_pos']])
         images, actions, endeff = sess.run([dict['images'], dict['actions'], dict['endeffector_pos']])
         # [images] = sess.run([dict['images']])
 
-        file_path = '/'.join(str.split(DATA_DIR[0], '/')[:-1]+['preview'])
+        # plt.imshow(firstlastnoarm[0,0])
+        # plt.show()
+        # plt.imshow(firstlastnoarm[0,1])
+        # plt.show()
 
-        if 'ncam' in conf:
-            vidlist = []
-            for i in range(images.shape[2]):
-                video = [v.squeeze() for v in np.split(images[:,:,i],images.shape[1], 1)]
-                vidlist.append(video)
-            npy_to_gif(assemble_gif(vidlist, num_exp=conf['batch_size']), file_path)
-        else:
-            images = [v.squeeze() for v in np.split(images,images.shape[1], 1)]
-            numbers = create_numbers(conf['sequence_length'], conf['batch_size'])
-            npy_to_gif(assemble_gif([images, numbers], num_exp=conf['batch_size']), file_path)
+        # file_path = '/'.join(str.split(DATA_DIR, '/')[:-1]+['preview'])
+        #
+        # if 'ncam' in conf:
+        #     vidlist = []
+        #     for i in range(images.shape[2]):
+        #         video = [v.squeeze() for v in np.split(images[:,:,i],images.shape[1], 1)]
+        #         vidlist.append(video)
+        #     npy_to_gif(assemble_gif(vidlist, num_exp=conf['batch_size']), file_path)
+        # else:
+        #     images = [v.squeeze() for v in np.split(images,images.shape[1], 1)]
+        #     numbers = create_numbers(conf['sequence_length'], conf['batch_size'])
+        #     npy_to_gif(assemble_gif([images, numbers], num_exp=conf['batch_size']), file_path)
 
         # comp_single_video(file_path, images, num_exp=conf['batch_size'])
 
@@ -366,38 +384,19 @@ def main():
         # end = time.time()
 
 
-        for b in range(10):
+        for b in range(3):
             print('actions {}'.format(b))
             print(actions[b])
 
             print('endeff {}'.format(b))
             print(endeff[b])
 
-            # print 'gen_endeff'
-            # print gen_endeff[b]
 
-            # print 'gen_endeff'
-            # print gen_endeff[b]
-
-            # print 'video mean brightness', np.mean(images[b])
-            # if np.mean(images[b]) < 0.25:
-            #     print b
-            #     plt.imshow(images[b,0])
-            #     plt.show()
-            # plt.imshow(images[0, 0])
-            # plt.show()
-            #
-            # pdb.set_trace()
-
-            # print 'robot_pos'
-            # print robot_pos
-            #
-            # print 'object_pos'
-            # print object_pos
+        # pdb.set_trace()
 
             # visualize_annotation(conf, images[b], robot_pos[b], object_pos[b])
-        import sys
-        sys.exit()
+        # import sys
+        # sys.exit()
 
 
 def create_numbers(t, size):

@@ -22,7 +22,7 @@ import scipy.misc
 import cv2
 frame = None
 canvas = None
-
+from python_visual_mpc.visual_mpc_core.infrastructure.utility.logger import Logger
 from python_visual_mpc.utils.txt_in_image import draw_text_image
 
 def plot_psum_overtime(gen_distrib, n_exp, filename):
@@ -99,7 +99,7 @@ def visualize_flow(flow_vecs):
 
 t = 0
 class Visualizer_tkinter(object):
-    def __init__(self, dict_ = None, append_masks = True, filepath=None, numex = 4, suf= "", col_titles = None, renorm_heatmaps=True):
+    def __init__(self, dict_ = None, append_masks = True, filepath=None, numex = 4, suf= "", col_titles = None, renorm_heatmaps=True, logger=None):
         """
         :param dict_: dictionary containing image tensors
         :param append_masks: whether to visualize the masks
@@ -122,6 +122,11 @@ class Visualizer_tkinter(object):
         where mask_list_t = [mask_0, ..., mask_N]
         where mask_i.shape = [batch_size, 64,64,1]
         """
+        if logger == None:
+            self.logger = Logger(mute=True)
+        else:
+            self.logger = logger
+            
         self.gif_savepath = filepath
         if dict_ == None:
             dict_ = pickle.load(open(filepath + '/pred.pkl', "rb"))
@@ -143,7 +148,7 @@ class Visualizer_tkinter(object):
         self.append_masks = False
 
         for key in list(dict_.keys()):
-            print('processing key {}'.format(key))
+            self.logger.log('processing key {}'.format(key))
             data = dict_[key]
 
             if key == 'ground_truth':  # special treatement for gtruth
@@ -163,7 +168,7 @@ class Visualizer_tkinter(object):
                     self.video_list.append((ground_truth, 'Ground Truth'))
 
             elif 'overlay' in key:
-                print('visualizing overlay')
+                self.logger.log('visualizing overlay')
                 images = data[0]
                 gen_distrib = data[1]
                 gen_distrib = color_code_distrib(gen_distrib, self.numex, renormalize=True)
@@ -174,9 +179,9 @@ class Visualizer_tkinter(object):
 
             elif type(data[0]) is list or '_l' in key:    # for lists of videos
                 if 'masks' in key and not append_masks:
-                    print('skipping masks!')
+                    self.logger.log('skipping masks!')
                     continue
-                print("the key \"{}\" contains {} videos".format(key, len(data[0])))
+                self.logger.log("the key \"{}\" contains {} videos".format(key, len(data[0])))
                 self.append_masks = True
                 vid_list = convert_to_videolist(data, repeat_last_dim=False)
 
@@ -184,7 +189,7 @@ class Visualizer_tkinter(object):
                     self.video_list.append((m, '{} {}'.format(key, i)))
 
             elif 'flow' in key:
-                print('visualizing key {} with colorflow'.format(key))
+                self.logger.log('visualizing key {} with colorflow'.format(key))
                 self.video_list.append((visualize_flow(data), key))
 
             elif 'actions' in key:
@@ -201,10 +206,10 @@ class Visualizer_tkinter(object):
                     if len(data[0].shape) == 4:
                         self.video_list.append((data, key))
                 else:
-                    print('ignoring key ',key)
+                    self.logger.log('ignoring key ',key)
 
         self.renormalize_heatmaps = renorm_heatmaps
-        print('renormalizing heatmaps: ', self.renormalize_heatmaps)
+        self.logger.log('renormalizing heatmaps: ', self.renormalize_heatmaps)
 
         self.t = 0
 
@@ -215,7 +220,7 @@ class Visualizer_tkinter(object):
 
     def make_direct_vid(self, separate_vid = False, mpc_data =False, resize=None):
 
-        print('making gif with tags')
+        self.logger.log('making gif with tags')
         # self.video_list = [self.video_list[0]]
 
         if mpc_data:
@@ -350,7 +355,7 @@ class Visualizer_tkinter(object):
 
 
     def build_figure(self):
-        print('building figure...')
+        self.logger.log('building figure...')
 
         # plot each markevery case for linear x and y scales
         root = Tk.Tk()
@@ -388,7 +393,7 @@ class Visualizer_tkinter(object):
         for vid in self.video_list:
             l.append(len(vid[0]))
         tlen = np.min(np.array(l))
-        print('minimum video length',tlen)
+        self.logger.log('minimum video length',tlen)
 
         outer_grid = gridspec.GridSpec(self.num_rows, 1)
 
@@ -454,18 +459,18 @@ class Visualizer_tkinter(object):
         if self.gif_savepath != None:
             filepath = self.gif_savepath + '/animation{}{}.gif'.format(self.iternum,self.suf)
             # filepath = self.gif_savepath + '/animation{}{}.mp4'.format(self.iternum,self.suf)
-            print('saving gif under: ', filepath)
+            self.logger.log('saving gif under: ', filepath)
             anim.save(filepath, writer='imagemagick')
         root.mainloop()
 
     def changeSize(self, figure, factor):
         global canvas, mplCanvas, interior, interior_id, frame, cwid
         oldSize = figure.get_size_inches()
-        print(("old size is", oldSize))
+        self.logger.log(("old size is", oldSize))
         figure.set_size_inches([factor * s for s in oldSize])
         wi, hi = [i * figure.dpi for i in figure.get_size_inches()]
-        print(("new size is", figure.get_size_inches()))
-        print(("new size pixels: ", wi, hi))
+        self.logger.log(("new size is", figure.get_size_inches()))
+        self.logger.log(("new size pixels: ", wi, hi))
         mplCanvas.config(width=wi, height=hi)
         printBboxes("A")
         # mplCanvas.grid(sticky=Tkconstants.NSEW)
@@ -474,7 +479,7 @@ class Visualizer_tkinter(object):
         canvas.config(scrollregion=canvas.bbox(tkinter.constants.ALL), width=200, height=200)
         figure.canvas.draw()
         printBboxes("C")
-        print()
+        self.logger.log()
 
     def addScrollingFigure(self, figure, frame):
         global canvas, mplCanvas, interior, interior_id, cwid
@@ -538,10 +543,6 @@ class Visualizer_tkinter(object):
 
 def printBboxes(label=""):
   global canvas, mplCanvas, interior, interior_id, cwid
-  print(("  "+label,
-    "canvas.bbox:", canvas.bbox(tkinter.constants.ALL),
-    "mplCanvas.bbox:", mplCanvas.bbox(tkinter.constants.ALL)))
-
 
 def convert_to_videolist(input, repeat_last_dim):
     tsteps = len(input)
@@ -582,7 +583,7 @@ def resize_image(imlist, size = (256, 256)):
     return out
 
 def color_code_distrib(distrib_list, num_ex, renormalize=False):
-    print('renormalizing heatmaps: ', renormalize)
+    # self.logger.log('renormalizing heatmaps: ', renormalize)
     out_distrib = []
     for distrib in distrib_list:
         out_t = []

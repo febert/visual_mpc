@@ -57,6 +57,9 @@ def perform_benchmark(conf = None, iex=-1, gpu_id=None):
 
     if 'RESULT_DIR' in os.environ:
         result_dir = os.environ['RESULT_DIR']
+    elif 'EXPERIMENT_DIR' in os.environ:
+        subpath = conf['current_dir'].partition('experiments')[2]
+        result_dir = os.path.join(os.environ['EXPERIMENT_DIR'] + subpath)
     else: result_dir = bench_dir
     print('result dir {}'.format(result_dir))
 
@@ -76,7 +79,7 @@ def perform_benchmark(conf = None, iex=-1, gpu_id=None):
 
     # sample intial conditions and goalpoints
 
-    sim = Sim(conf, gpu_id= gpu_id, ngpu= ngpu)
+    sim = Sim(conf, gpu_id=gpu_id, ngpu=ngpu)
 
     if iex == -1:
         traj = conf['start_index']
@@ -104,23 +107,9 @@ def perform_benchmark(conf = None, iex=-1, gpu_id=None):
         raise ValueError("the file {} already exists!!".format(result_file))
 
     while traj <= nruns:
-        dict = read_trajectory(conf, traj_names[traj])
-        sim.agent.load_obj_statprop = dict['obj_statprop']
-        if 'reverse_action' in conf:
-            init_index = -1
-            goal_index = 0
-        else:
-            init_index = 0
-            goal_index = -1
-        sim.agent._hyperparams['xpos0'] = dict['qpos'][init_index]
-        sim.agent._hyperparams['object_pos0'] = dict['object_full_pose'][init_index]
-        sim.agent.object_full_pose_t = dict['object_full_pose']
-        sim.agent.goal_obj_pose = dict['object_full_pose'][goal_index]   #needed for calculating the score
-        if 'lift_object' in sim.agent._hyperparams:
-            sim.agent.goal_obj_pose[:,2] = sim.agent._hyperparams['targetpos_clip'][1][2]
-        sim.agent.goal_image = dict['images'][goal_index]  # assign last image of trajectory as goalimage
-        if 'goal_mask' in conf['agent']:
-            sim.agent.goal_mask = dict['goal_mask'][goal_index]  # assign last image of trajectory as goalimage
+        if 'sourcetags' in conf:  # load data per trajectory
+            dict = read_trajectory(conf, traj_names[traj])
+            sim.agent.start_conf = dict
 
         print('run number ', traj)
         print('loading done')
@@ -133,19 +122,7 @@ def perform_benchmark(conf = None, iex=-1, gpu_id=None):
         if not os.path.exists(record_dir):
             os.makedirs(record_dir)
         sim.agent._hyperparams['record'] = record_dir
-
-        # reinitilize policy between rollouts
-        if 'usenet' in conf['policy']:
-            if 'warp_objective' in conf['policy'] or 'register_gtruth' in conf['policy']:
-                sim.policy = conf['policy']['type'](sim.agent._hyperparams,
-                                                    conf['policy'], sim.predictor, sim.goal_image_warper)
-            else:
-                sim.policy = conf['policy']['type'](sim.agent._hyperparams,
-                                                 conf['policy'], sim.predictor)
-        else:
-            sim.policy = conf['policy']['type'](sim.agent._hyperparams, conf['policy'])
-
-        sim.policy.policyparams['rec_distrib'] = result_dir + '/videos_distrib/traj{0}'.format(traj)
+        sim.reset_policy()
 
         sim._take_sample(traj)
 

@@ -38,7 +38,6 @@ policy = {
     'type' : CEM_controller,
     'low_level_ctrl': None,
     'current_dir':current_dir,
-    'usenet': True,
     'nactions': 5,
     'repeat': 3,
     'initial_std': 0.08,        # std dev. in xy
