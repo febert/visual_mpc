@@ -505,7 +505,7 @@ class AgentMuJoCo(object):
                 object_pos_l = create_pos()
                 object_pos = np.concatenate(object_pos_l)
         else:
-            object_pos = self._hyperparams['object_pos0'][0]
+            object_pos = self._hyperparams['object_pos0'][:self._hyperparams['num_objects']]
 
         xpos0 = np.zeros(self._hyperparams['sdim']//2)
         if 'randomize_ballinitpos' in self._hyperparams:
@@ -549,17 +549,23 @@ class AgentMuJoCo(object):
                 for i_ob in range(self._hyperparams['num_objects']):
                     pos_ok = False
                     while not pos_ok:
-                        angular_disp = 0.2
+                        if 'ang_disp_range' in self._hyperparams:
+                            angular_disp = self._hyperparams['ang_disp_range']
+                        else: angular_disp = 0.2
                         delta_alpha = np.random.uniform(-angular_disp, angular_disp)
-
                         delta_rot = Quaternion(axis=(0.0, 0.0, 1.0), radians=delta_alpha)
                         pose = object_pos_l[i_ob]
-                        curr_quat =  Quaternion(pose[3:])
+                        curr_quat = Quaternion(pose[3:])
                         newquat = delta_rot*curr_quat
 
                         alpha = np.random.uniform(-np.pi, np.pi, 1)
-                        d = self._hyperparams['const_dist']
-                        delta_pos = np.array([d*np.cos(alpha), d*np.sin(alpha), 0.])
+                        if 'const_dist' in self._hyperparams:
+                            assert 'pos_disp_range' not in self._hyperparams
+                            d = self._hyperparams['const_dist']
+                            delta_pos = np.array([d*np.cos(alpha), d*np.sin(alpha), 0.])
+                        else:
+                            pos_disp = self._hyperparams['pos_disp_range']
+                            delta_pos = np.concatenate([np.random.uniform(-pos_disp, pos_disp, 2), np.zeros([1])])
                         newpos = pose[:3] + delta_pos
 
                         if np.any(newpos[:2] > 0.35) or np.any(newpos[:2] < -0.35):   # check if in field

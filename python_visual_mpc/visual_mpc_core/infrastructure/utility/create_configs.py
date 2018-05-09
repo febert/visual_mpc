@@ -224,22 +224,44 @@ class CollectGoalImageSim(Sim):
         self.agent._store_image(t, traj)
 
     def move_objects(self, t, traj):
+        if 'gen_new_goalpose' in self.agentparams:
+            newobj_poses = self.gen_new_goalpose(t, traj)
+        else:
+            newobj_poses = self.agent.goal_obj_pose
 
+        arm_disp_range = self.agentparams['arm_disp_range']
+        arm_disp = np.random.uniform(-arm_disp_range, arm_disp_range, 2)
+
+        new_armpos = traj.X_full[0].copy()
+        new_armpos[:2] = new_armpos[:2] + arm_disp
+        new_armpos = np.clip(new_armpos, -0.35, 0.35)
+
+        new_q = np.concatenate([new_armpos, newobj_poses.flatten()])
+
+        sim_state = self.agent.sim.get_state()
+        sim_state.qpos[:] = new_q
+        sim_state.qvel[:] = np.zeros_like(sim_state.qvel)
+        self.agent.sim.set_state(sim_state)
+        self.agent.sim.forward()
+
+        return new_q
+
+    def gen_new_goalpose(self, t, traj):
         new_poses = []
         for iob in range(self.num_ob):
             angular_disp = self.agentparams['ang_disp_range']
             delta_alpha = np.random.uniform(-angular_disp, angular_disp)
 
             delta_rot = Quaternion(axis=(0.0, 0.0, 1.0), radians=delta_alpha)
-            curr_quat =  Quaternion(traj.Object_full_pose[t, iob, 3:])
-            newquat = delta_rot*curr_quat
+            curr_quat = Quaternion(traj.Object_full_pose[t, iob, 3:])
+            newquat = delta_rot * curr_quat
 
             pos_ok = False
             while not pos_ok:
                 if 'const_dist' in self.agentparams:
                     alpha = np.random.uniform(-np.pi, np.pi, 1)
                     d = self.agentparams['const_dist']
-                    delta_pos = np.array([d*np.cos(alpha), d*np.sin(alpha), 0.])
+                    delta_pos = np.array([d * np.cos(alpha), d * np.sin(alpha), 0.])
                 else:
                     pos_disp = self.agentparams['pos_disp_range']
                     delta_pos = np.concatenate([np.random.uniform(-pos_disp, pos_disp, 2), np.zeros([1])])
@@ -249,28 +271,12 @@ class CollectGoalImageSim(Sim):
 
                 if np.any(newpos[:2] > 0.35) or np.any(newpos[:2] < -0.35):
                     pos_ok = False
-                else: pos_ok = True
+                else:
+                    pos_ok = True
 
             new_poses.append(np.concatenate([newpos, newquat.elements]))
-
         newobj_poses = np.concatenate(new_poses, axis=0)
-
-        arm_disp_range = self.agentparams['arm_disp_range']
-        arm_disp = np.random.uniform(-arm_disp_range, arm_disp_range, 2)
-
-        new_armpos = traj.X_full[0].copy()
-        new_armpos[:2] = new_armpos[:2] + arm_disp
-        new_armpos = np.clip(new_armpos, -0.35, 0.35)
-
-        new_q = np.concatenate([new_armpos, newobj_poses])
-
-        sim_state = self.agent.sim.get_state()
-        sim_state.qpos[:] = new_q
-        sim_state.qvel[:] = np.zeros_like(sim_state.qvel)
-        self.agent.sim.set_state(sim_state)
-        self.agent.sim.forward()
-
-        return new_q
+        return newobj_poses
 
 
 def visualize_corresp(t, flow, traj, mask_coords):
