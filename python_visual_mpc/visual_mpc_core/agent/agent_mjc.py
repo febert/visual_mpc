@@ -206,13 +206,10 @@ class AgentMuJoCo(object):
 
         self.gripper_closed = False
         self.gripper_up = False
-<<<<<<< HEAD
-=======
 
         if 'first_last_noarm' in self._hyperparams:
             self.hide_arm_store_image(0, traj)
 
->>>>>>> dev
         # Take the sample.
         for t in range(self.T):
             qpos_dim = self.sdim // 2  # the states contains pos and vel
@@ -357,13 +354,10 @@ class AgentMuJoCo(object):
         img.save(self._hyperparams['save_goal_image'] + '.png',)
 
     def eval_action(self, traj, t):
-<<<<<<< HEAD
         if 'ztarget' in self._hyperparams:
             obj_z = traj.Object_full_pose[t, 0, 2]
             pos_score = np.abs(obj_z - self._hyperparams['ztarget'])
             return pos_score, 0.
-=======
->>>>>>> dev
         abs_distances = []
         abs_angle_dist = []
         for i_ob in range(self._hyperparams['num_objects']):
@@ -451,6 +445,7 @@ class AgentMuJoCo(object):
         if 'cameras' in self._hyperparams:
             for i, cam in enumerate(self._hyperparams['cameras']):
                 large_img = self.sim.render(width, height, camera_name=cam)[::-1, :, :]
+                
                 if np.sum(large_img) < 1e-3:
                     print("image dark!!!")
                     raise Image_dark_except
