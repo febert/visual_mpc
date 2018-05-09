@@ -56,24 +56,22 @@ def launch_job_func(run_script, hyper, arg, interactive=False, name='', ngpu=8, 
                              ]
 
     data["aceInstance"] = "ngcv{}".format(ngpu)
-
     if interactive == 'True':
         command = "/bin/sleep 360000"
         data["name"] = 'int' + name
     else:
-        if 'benchmarks' in script_name or 'parallel_data_collection' in script_name:  #running benchmark...
+        if 'trainvid' in run_script:
+            command = "python " + run_script + " --hyper ../../" + hyper
+            data["name"] = str.split(command, '/')[-2]
+        else:
             if nsplit is not None:
                 split = '--nsplit {} --isplit {}'.format(nsplit, isplit)
             else: split = ''
             command = "python " + run_script + " " + hyper + " {} {}".format(arg, split)
             expname = hyper.partition('benchmarks')[-1]
             data["name"] = '-'.join(re.compile('\w+').findall(expname + arg))
-        else:
-            command = "python " + run_script + " --hyper ../../" + hyper
-            data["name"] = str.split(command, '/')[-2]
 
     data["command"] += command
-
     data["resultContainerMountPoint"] = "/result"
     data["publishedContainerPorts"] = [6006] #for tensorboard
 

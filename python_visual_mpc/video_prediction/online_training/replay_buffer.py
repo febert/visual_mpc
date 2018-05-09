@@ -36,7 +36,7 @@ class ReplayBuffer(object):
         self.ring_buffer.append(traj)
         if len(self.ring_buffer) > self.maxsize:
             self.ring_buffer.pop(0)
-        self.logger.log('current size {}'.format(len(self.ring_buffer)))
+        # self.logger.log('current size {}'.format(len(self.ring_buffer)))
 
     def get_batch(self):
         images = []
@@ -99,7 +99,7 @@ class ReplayBuffer_Loadfiles(ReplayBuffer):
             while True:
                 try:
                     images, actions, endeff = sess.run([dict['images'], dict['actions'], dict['endeffector_pos']])
-                    print('getting batch {}'.format(ibatch))
+                    self.logger.log('getting batch {}'.format(ibatch))
                     ibatch +=1
                 except OutOfRangeError:
                     break
