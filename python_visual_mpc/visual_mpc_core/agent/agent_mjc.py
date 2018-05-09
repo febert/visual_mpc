@@ -119,9 +119,9 @@ class AgentMuJoCo(object):
             self.initial_poscost, _ = self.eval_action(traj, 0)
             self.initial_poscost = np.mean(self.initial_poscost)
             self.improvement = self.initial_poscost - self.final_poscost
-
-        traj.final_poscost = self.final_poscost
-        traj.initial_poscost = self.initial_poscost
+            traj.improvement = self.improvement
+            traj.final_poscost = self.final_poscost
+            traj.initial_poscost = self.initial_poscost
 
         if 'save_goal_image' in self._hyperparams:
             self.save_goal_image_conf(traj)
@@ -311,6 +311,9 @@ class AgentMuJoCo(object):
         if 'dist_ok_thresh' in self._hyperparams:
             if np.any(traj.goal_dist[-1] > self._hyperparams['dist_ok_thresh']):
                 traj_ok = False
+
+        traj.
+
         return traj_ok, traj
 
     def save_goal_image_conf(self, traj):
@@ -456,15 +459,6 @@ class AgentMuJoCo(object):
                 traj.largeimage[t] = large_img
                 dlarge_img = self.sim.render(width, height, camera_name="maincam", depth=True)[1][::-1, :]
                 traj.largedimage[t] = dlarge_img
-
-        # img = traj.images[t,:,:,:] # verify desigpos
-        # desig_pix = np.around(self.desig_pix).astype(np.int)
-        # # img = large_img
-        # for i in range(self._hyperparams['num_objects']):
-        #     img[desig_pix[i][0], desig_pix[i][1]] = np.array([255, 255, 255])
-        # print 'desig_pix', desig_pix
-        # plt.imshow(img)
-        # plt.show()
 
         if 'store_whole_pred' in self._hyperparams:
             if t > 1:

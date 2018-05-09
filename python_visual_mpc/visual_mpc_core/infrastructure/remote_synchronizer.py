@@ -9,6 +9,7 @@ import pdb
 master = 'deepthought'
 
 master_datadir = '/raid/ngc/pushing_data/onpolicy/distributed_pushing/train'
+master_scoredir = '/raid/ngc/pushing_data/onpolicy/distributed_pushing/scores'
 
 @ray.remote
 def sync(node_id, conf, printout=False):
@@ -25,6 +26,7 @@ def sync(node_id, conf, printout=False):
     # local means "locally" in the container on ngc
     local_modeldata_dir = '/result/modeldata'
     local_datadir = '/result/data/train'
+    local_scoredir = '/result/data/scores'
 
     if not os.path.exists(local_modeldata_dir):
         os.makedirs(local_modeldata_dir)
@@ -40,6 +42,11 @@ def sync(node_id, conf, printout=False):
 
         logger.log('transfer tfrecords to master')
         cmd = 'rsync -a --ignore-existing {} {}:{}'.format(local_datadir + '/', master, master_datadir)
+        logger.log('executing: {}'.format(cmd))
+        os.system(cmd)
+
+        logger.log('transfer scorefiles to master')
+        cmd = 'rsync -a --ignore-existing {} {}:{}'.format(local_scoredir + '/', master, master_scoredir)
         logger.log('executing: {}'.format(cmd))
         os.system(cmd)
 

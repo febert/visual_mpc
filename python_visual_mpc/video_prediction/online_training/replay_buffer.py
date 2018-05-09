@@ -11,6 +11,7 @@ import pdb
 import time
 
 import matplotlib; matplotlib.use('Agg'); import matplotlib.pyplot as plt
+import pickle
 from tensorflow.python.platform import gfile
 Traj = namedtuple('Traj', 'images X_Xdot_full actions')
 
@@ -106,12 +107,47 @@ class ReplayBuffer_Loadfiles(ReplayBuffer):
                 for b in range(self.conf['batch_size']):
                     t = Traj(images[b], endeff[b], actions[b])
                     self.push_back(t)
+                    self.num_updates += 1
             self.logger.log('done filling replay')
+            if self.num_updates % 100 == 0:
+                scores, final_poscost = get_scores(to_load_filenames)
+                plot_scores(self.agentparams['result_dir'], scores, final_poscost)
 
-def plot_scores(scores, dir):
+            self.logger.log('traj_per hour: {}'.format(self.num_updates/((time.time() - self.tstart)/3600)))
+            self.logger.log('avg time per traj {}s'.format((time.time() - self.tstart)/self.num_updates))
+
+
+def get_scores(filenames):
+    improvement_avg = []
+    final_poscost_avg = []
+    for file in filenames:
+        scorefile = file.partition('.')[0] + '_score.pkl'
+        dict = pickle.load(open(scorefile, 'r'))
+
+        improvement = []
+        final_poscost = []
+        for itr in dict.keys():
+            improvement.append(dict[itr]['improvement'])
+            final_poscost.append(dict[itr]['final_poscost'])
+        improvement_avg.append(np.mean(improvement))
+        final_poscost_avg.append(np.mean(final_poscost))
+
+    return improvement_avg, final_poscost_avg
+
+
+def plot_scores(dir, scores, improvement=None):
+
+    plt.subplot(2,1,1)
     plt.plot(scores)
-    plt.title('scores over time')
+    plt.title('scores over collected data')
     plt.xlabel('collected trajectories')
+    plt.xlabel('avg distances trajectories')
+
+    if improvement is not None:
+        plt.subplot(2,1,2)
+        plt.plot(scores)
+        plt.title('improvments over collected data')
+        plt.xlabel('collected trajectories')
+        plt.xlabel('avg improvment trajectories')
+
     plt.savefig(dir + '/scores.png')
-
-
