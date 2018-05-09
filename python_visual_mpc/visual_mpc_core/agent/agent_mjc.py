@@ -494,6 +494,7 @@ class AgentMuJoCo(object):
             return poses
 
         if 'sample_objectpos' in self._hyperparams: # if object pose explicit do not sample poses
+            assert self.start_conf is None
             if 'object_object_mindist' in self._hyperparams:
                 assert self._hyperparams['num_objects'] == 2
                 ob_ob_dist = 0.
@@ -509,6 +510,7 @@ class AgentMuJoCo(object):
 
         xpos0 = np.zeros(self._hyperparams['sdim']//2)
         if 'randomize_ballinitpos' in self._hyperparams:
+            assert self.start_conf is None
             xpos0[:2] = np.random.uniform(-.4, .4, 2)
             xpos0[2] = np.random.uniform(-0.08, .14)
         elif 'arm_obj_initdist' in self._hyperparams:
