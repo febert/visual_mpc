@@ -82,7 +82,7 @@ class ReplayBuffer_Loadfiles(ReplayBuffer):
 
     def update(self, sess):
         # check if new files arrived:
-        all_filenames = gfile.Glob(self.conf['data_dir'] + '/traj_*.tfrecords')
+        all_filenames = gfile.Glob(self.conf['data_dir'] + '/*.tfrecords')
 
         to_load_filenames = []
         for name in all_filenames:
@@ -94,7 +94,7 @@ class ReplayBuffer_Loadfiles(ReplayBuffer):
             self.logger.log('loading files')
             self.logger.log(to_load_filenames)
             self.logger.log('start filling replay')
-            dict = build_tfrecord_input(self.conf)
+            dict = build_tfrecord_input(self.conf, input_file=to_load_filenames)
             ibatch = 0
             while True:
                 try:
