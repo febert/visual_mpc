@@ -39,7 +39,7 @@ if __name__ == '__main__':
 
 class Trajectory(object):
     def __init__(self):
-        self._sample_images, self.X_Xdot_full, self.actions, self.gen_images, self.gen_states = None, None, None, None, None
+        self.images, self.X_Xdot_full, self.actions, self.gen_images, self.gen_states = None, None, None, None, None
 
 
 def main(unused_argv, conf_script= None):
@@ -131,7 +131,7 @@ def main(unused_argv, conf_script= None):
         for b in range(conf['batch_size']):
 
             traj = Trajectory()
-            traj._sample_images= images[:,b]
+            traj.images= images[:,b]
             traj.X_Xdot_full= states[:,b]
             traj.actions= actions[:,b]
             traj.gen_images= gen_images[:,b]

@@ -14,7 +14,7 @@ def sorted_nicely( l ):
     alphanum_key = lambda key: [ convert(c) for c in re.split('([0-9]+)', key) ]
     return sorted(l, key = alphanum_key)
 
-def combine_scores(dir, exp_name):
+def combine_scores(dir):
     improvement_l= []
     scores_l = []
     anglecost_l = []
@@ -44,7 +44,6 @@ def combine_scores(dir, exp_name):
     make_imp_score(score, improvement, dir)
 
     f = open(dir + '/results_all.txt', 'w')
-    f.write('experiment name: ' + exp_name + '\n')
     f.write('overall best pos improvement: {0} of traj {1}\n'.format(improvement[sorted_ind[0]], sorted_ind[0]))
     f.write('overall worst pos improvement: {0} of traj {1}\n'.format(improvement[sorted_ind[-1]], sorted_ind[-1]))
     f.write('average pos improvemnt: {0}\n'.format(mean_imp))
@@ -98,10 +97,10 @@ if __name__ == '__main__':
     n_traj = 49
     # dir = '/home/frederik/Documents/catkin_ws/src/visual_mpc/experiments/cem_exp/benchmarks/alexmodel/savp_register_gtruth_start/41256'
     # dir = '/home/frederik/Documents/catkin_ws/src/visual_mpc/experiments/cem_exp/benchmarks/pos_ctrl/updown_sact_boundact_register_gtruth/41272'
-    dir = '/home/frederik/Documents/catkin_ws/src/visual_mpc/experiments/cem_exp/benchmarks/pos_ctrl/consdist_register_gtruth/43080'
+    dir = '/mnt/sda1/experiments/cem_exp/benchmarks/alexmodel/savp_2cam_tradeoff_pertstep/46054'
 
     traj_per_worker = int(n_traj / np.float32(n_worker))
     start_idx = [traj_per_worker * i for i in range(n_worker)]
     end_idx = [traj_per_worker * (i + 1) - 1 for i in range(n_worker)]
 
-    combine_scores(dir, 'name')
+    combine_scores(dir)

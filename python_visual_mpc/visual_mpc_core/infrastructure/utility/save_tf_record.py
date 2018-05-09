@@ -22,9 +22,7 @@ def save_tf_record(filename, trajectory_list, params):
     if not os.path.exists(dir):
         os.makedirs(dir, exist_ok=True)
     filename = os.path.join(dir, filename + '.tfrecords')
-    print(('Writing', filename))
     writer = tf.python_io.TFRecordWriter(filename)
-
     feature = {}
 
     for tr in range(len(trajectory_list)):
@@ -34,7 +32,7 @@ def save_tf_record(filename, trajectory_list, params):
         if 'store_video_prediction' in params:
             sequence_length = len(traj.final_predicted_images)
         else:
-            sequence_length = traj._sample_images.shape[0]
+            sequence_length = traj.images.shape[0]
 
         for tind in range(sequence_length):
 
@@ -43,13 +41,13 @@ def save_tf_record(filename, trajectory_list, params):
 
             if 'cameras' in params:
                 for i in range(len(params['cameras'])):
-                    image_raw = traj._sample_images[tind, i].tostring()
+                    image_raw = traj.images[tind, i].tostring()
                     feature[str(tind) + '/image_view{}/encoded'.format(i)] = _bytes_feature(image_raw)
             else:
                 if 'store_video_prediction' in params:
                     image_raw = traj.final_predicted_images[tind].tostring()
                 else:
-                    image_raw = traj._sample_images[tind].tostring()
+                    image_raw = traj.images[tind].tostring()
                 feature[str(tind) + '/image_view0/encoded'] = _bytes_feature(image_raw)
 
             if hasattr(traj, 'touchdata'):
@@ -63,17 +61,16 @@ def save_tf_record(filename, trajectory_list, params):
                     max_move_pose = traj.max_move_pose[tind].flatten()
                     feature['move/' + str(tind) + '/max_move_pose'] = _float_feature(max_move_pose.tolist())
 
-            if hasattr(traj, 'large_images_retina'):
-                image_raw = traj.large_images_retina[tind].tostring()
-                feature['move/' + str(tind) + '/retina/encoded'] = _bytes_feature(image_raw)
-                feature['initial_retpos'] = _int64_feature(traj.initial_ret_pos.tolist())
-
             if hasattr(traj, 'gen_images'):
                 feature[str(tind) + '/gen_images'] = _bytes_feature(traj.gen_images[tind].tostring())
                 feature[str(tind) + '/gen_states'] = _float_feature(traj.gen_states[tind,:].tolist())
 
         if hasattr(traj, 'goal_image'):
             feature['/goal_image'] = _bytes_feature(traj.goal_image.tostring())
+
+        if hasattr(traj, 'first_last_noarm'):
+            feature['/first_last_noarm0'] = _bytes_feature(traj.first_last_noarm[0].tostring())
+            feature['/first_last_noarm1'] = _bytes_feature(traj.first_last_noarm[1].tostring())
 
         example = tf.train.Example(features=tf.train.Features(feature=feature))
         writer.write(example.SerializeToString())

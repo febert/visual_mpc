@@ -137,7 +137,7 @@ class Visual_MPC_Server(object):
         main_img = self.bridge.imgmsg_to_cv2(req.main)
         main_img = cv2.cvtColor(main_img, cv2.COLOR_BGR2RGB)
 
-        self.traj._sample_images[self.t] = main_img
+        self.traj.images[self.t] = main_img
 
         self.desig_pos_aux1 = req.desig_pos_aux1
         self.goal_pos_aux1 = req.goal_pos_aux1
@@ -170,7 +170,7 @@ class Visual_MPC_Server(object):
         if self.save_subdir != None:
             file_path = self.netconf['current_dir'] + "/"+ self.save_subdir +'/videos'
 
-        imlist = np.split(self.traj._sample_images, self.agentparams['T'], axis=0)
+        imlist = np.split(self.traj.images, self.agentparams['T'], axis=0)
 
         imfilename = file_path + '/traj{0}_gr{1}'.format(self.i_traj, self.igrp)
         pickle.dump(imlist, open(imfilename+ '.pkl', 'wb'))

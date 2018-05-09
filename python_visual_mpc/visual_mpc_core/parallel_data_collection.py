@@ -16,8 +16,8 @@ import python_visual_mpc
 import pdb
 import glob
 import re
-
-import matplotlib; matplotlib.use('Agg'); import matplotlib.pyplot as plt
+import os
+import matplotlib; matplotlib.use('Agg'); import matplotlib; matplotlib.use('Agg'); import matplotlib.pyplot as plt
 from python_visual_mpc.visual_mpc_core.infrastructure.utility.combine_scores import combine_scores
 from python_visual_mpc.visual_mpc_core.infrastructure.utility.create_configs import CollectGoalImageSim
 import pickle
@@ -40,7 +40,6 @@ def worker(conf, iex=-1):
     s = Simulator(conf)
     s.run()
 
-# @ray.remote
 def bench_worker(conf, iex=-1):
     print('started process with PID:', os.getpid())
     random.seed(None)
@@ -108,18 +107,6 @@ def main():
         data_save_path = hyperparams['agent']['data_save_dir'].partition('pushing_data')[2]
         hyperparams['agent']['data_save_dir'] = os.environ['RESULT_DIR'] + data_save_path
 
-    # use_ray = False  # ray can cause black images!!
-    # if use_ray:
-    #     ray.init()
-    #     id_list = []
-    #     for i in range(n_worker):
-    #         modconf = copy.deepcopy(hyperparams)
-    #         modconf['start_index'] = start_idx[i]
-    #         modconf['end_index'] = end_idx[i]
-    #         modconf['gpu_id'] = i + gpu_id
-    #         id_list.append(use_worker.remote(modconf))
-    #     res = [ray.get(id) for id in id_list]
-    # else:
     for i in range(n_worker):
         modconf = copy.deepcopy(hyperparams)
         modconf['start_index'] = start_idx[i]
@@ -136,7 +123,7 @@ def main():
         if 'RESULT_DIR' in os.environ:
             result_dir = os.environ['RESULT_DIR']
         else: result_dir = hyperparams['current_dir']
-        combine_scores(result_dir, exp_name)
+        combine_scores(result_dir)
         sys.exit()
 
     traindir = modconf['agent']["data_save_dir"]

@@ -31,7 +31,6 @@ agent = {
     'data_save_dir': os.environ['VMPC_DATA_DIR'] + '/mj_pos_noreplan_fast',
     'posmode':"",
     'targetpos_clip':[[-0.45, -0.45, -0.08, -np.pi*2, 0.], [0.45, 0.45, 0.15, np.pi*2, 0.1]],
-    'mode_rel':np.array([True, True, True, True, False]),
     'not_use_images':"",
 }
 
@@ -49,7 +48,6 @@ policy = {
     'action_cost_factor': 0,
     'rew_all_steps':"",
     'finalweight':10,
-    'no_action_bound':"",
     'num_samples': 100,
     'use_first_plan':''
 }
