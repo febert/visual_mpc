@@ -35,11 +35,14 @@ def main():
     parser.add_argument('--nsplit', type=int, help='number of splits', default=-1)
     parser.add_argument('--isplit', type=int, help='split id', default=-1)
     parser.add_argument('--iex', type=int, help='if different from -1 use only do example', default=-1)
+    parser.add_argument('--printout', type=int, help='print to console if 1', default=0)
+
 
     args = parser.parse_args()
     trainvid_conf_file = args.experiment
     trainvid_conf = load_module(trainvid_conf_file, 'trainvid_conf')
 
+    printout = bool(args.printout)
     gpu_id = args.gpu_id
 
     logging_dir = trainvid_conf['current_dir'] + '/logging'
@@ -48,7 +51,7 @@ def main():
         os.makedirs(logging_dir)
 
     onpolconf = trainvid_conf['onpolconf']
-    rb = ReplayBuffer_Loadfiles(trainvid_conf, maxsize=onpolconf['replay_size'], batch_size=16)
+    rb = ReplayBuffer_Loadfiles(trainvid_conf, maxsize=onpolconf['replay_size'], batch_size=16, printout=printout)
     trainvid_online(rb, trainvid_conf, logging_dir, onpolconf, gpu_id, printout=True)
 
 def load_module(hyperparams_file, name):
