@@ -45,13 +45,20 @@ def main():
     print('saving to', out_dir)
 
     good_traj_list, bad_traj_list = [], []
-    num_good_saved, num_bad_saved = 429, 197
+    num_good_saved, num_bad_saved = 0, 0
     good_lift_ctr, total_ctr = 0, 0
     traj_group_dirs = glob.glob(data_dir+'/*')
     for g in traj_group_dirs:
         trajs = glob.glob(g + '/*')
         for t in trajs:
-            state_action = pkl.load(open(t + '/state_action.pkl', 'rb'))
+            if len(glob.glob(t + '/images/*.png')) != T or not os.path.exists(t + '/state_action.pkl'):
+                print('TRAJ', t, 'is broken')
+                continue
+            try:
+                state_action = pkl.load(open(t + '/state_action.pkl', 'rb'))
+            except EOFError:
+                print('TRAJ', t, 'is broken')
+                continue
             if np.sum(np.isnan(state_action['target_qpos'])) > 0:
                 print("FOUND NAN AT", t)
             else:
@@ -64,10 +71,14 @@ def main():
 
                 good_lift = False
                 total_ctr += 1
-                if np.sum(np.abs(goal_pos)) > 0:
+                # if np.sum(np.abs(goal_pos)) > 0:
+                #     good_lift = True
+                #     good_lift_ctr += 1
+
+                object_poses = state_action['object_full_pose']
+                if np.any(object_poses[:, :, 2] >= 0.132):
                     good_lift = True
                     good_lift_ctr += 1
-                
                 
                 for i in range(T):
                     img = cv2.imread(t + '/images/im{}.png'.format(i))[:, :, ::-1]
