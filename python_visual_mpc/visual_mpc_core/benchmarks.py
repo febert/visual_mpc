@@ -79,7 +79,7 @@ def perform_benchmark(conf = None, iex=-1, gpu_id=None):
 
     # sample intial conditions and goalpoints
 
-    sim = Sim(conf, gpu_id= gpu_id, ngpu= ngpu)
+    sim = Sim(conf, gpu_id=gpu_id, ngpu=ngpu)
 
     if iex == -1:
         traj = conf['start_index']

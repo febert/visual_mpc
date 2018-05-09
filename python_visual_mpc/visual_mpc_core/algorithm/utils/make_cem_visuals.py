@@ -98,7 +98,7 @@ def make_cem_visuals(ctrl, actions, bestindices, cem_itr, flow_fields, gen_distr
                 else:
                     goal_pix = ctrl.goal_pix[p]
                 goal_image_annotated = image_addgoalpix(ctrl.K , seqlen, goal_image, goal_pix)
-            t_dict_['goal_image'] = goal_image_annotated
+                t_dict_['goal_image_p{}'.format(p)] = goal_image_annotated
 
         if 'use_goal_image' not in ctrl.policyparams or 'comb_flow_warp' in ctrl.policyparams or 'register_gtruth' in ctrl.policyparams:
             for p in range(ctrl.ndesig):

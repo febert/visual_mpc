@@ -45,7 +45,7 @@ class Sim(object):
             self._timing_file = self._hyperparams['current_dir'] + '/timing_file{}.txt'.format(os.getpid())
         else: self._timing_file = None
 
-        if 'usenet' in config['policy']:
+        if 'netconf' in config['policy']:
             params = imp.load_source('params', config['policy']['netconf'])
             netconf = params.configuration
             self.predictor = netconf['setup_predictor'](self._hyperparams, netconf, gpu_id, ngpu, self.logger)
@@ -69,7 +69,7 @@ class Sim(object):
             pass
 
     def reset_policy(self):
-        if 'usenet' in self.policyparams:
+        if 'netconf' in self.policyparams:
             if 'warp_objective' in self.policyparams or 'register_gtruth' in self.policyparams:
                 self.policy = self.policyparams['type'](self.agent._hyperparams,
                                                               self.policyparams, self.predictor, self.goal_image_warper)
