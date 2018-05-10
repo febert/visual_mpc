@@ -8,6 +8,7 @@ import threading
 import time
 import pdb
 
+from timewarp_prediction.multipush.frame_cgan import testModel
 # Add lsdc/python to path so that imports work.
 sys.path.append('/'.join(str.split(__file__, '/')[:-2]))
 # from lsdc.gui.gps_training_gui import GPSTrainingGUI
@@ -57,6 +58,9 @@ class Sim(object):
                 self.policy = config['policy']['type'](config['agent'], config['policy'], self.predictor, self.goal_image_warper)
             else:
                 self.policy = config['policy']['type'](config['agent'], config['policy'], self.predictor)
+
+            if 'intmstep' in self.policyparams:
+                self.policy.intmstep_predictor = testModel(self.policyparams['intmstep'])
         else:
             self.policy = config['policy']['type'](self.agent._hyperparams, config['policy'])
 

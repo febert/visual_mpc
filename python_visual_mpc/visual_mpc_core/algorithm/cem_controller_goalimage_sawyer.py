@@ -11,6 +11,7 @@ from datetime import datetime
 import copy
 from python_visual_mpc.video_prediction.basecls.utils.visualize import add_crosshairs
 
+import timewarp_prediction
 from python_visual_mpc.visual_mpc_core.algorithm.utils.make_cem_visuals import make_cem_visuals
 # from python_visual_mpc.video_prediction.utils_vpred.create_gif_lib import *
 
@@ -259,6 +260,7 @@ class CEM_controller():
 
         if 'trade_off_reg' not in self.policyparams:
             self.reg_tradeoff = np.ones(self.ndesig)
+        self.intmstep_predictor = None
 
 
     def calc_action_cost(self, actions):
@@ -405,13 +407,22 @@ class CEM_controller():
         actions = [actions[b, inds[b]] for b in range(self.M//self.smp_peract)]
         return np.stack(actions, 0), scores
 
-    def switch_on_pix(self, desig):
-        one_hot_images = np.zeros((1, self.netconf['context_frames'], self.ndesig, self.img_height, self.img_width, 1), dtype=np.float32)
+    def switch_on_pix(self, desig, same_image=False):
+        if same_image:
+            one_hot_images = np.zeros((self.img_height, self.img_width, 1), dtype=np.float32)
+        else:
+            one_hot_images = np.zeros((1, self.netconf['context_frames'], self.ndesig, self.img_height, self.img_width, 1), dtype=np.float32)
+
         desig = np.clip(desig, np.zeros(2).reshape((1, 2)), np.array([self.img_height, self.img_width]).reshape((1, 2)) - 1).astype(np.int)
         # switch on pixels
-        for p in range(self.ndesig):
-            one_hot_images[:, :, p, desig[p, 0], desig[p, 1]] = 1
-            self.logger.log('using desig pix',desig[p, 0], desig[p, 1])
+        if same_image:
+            for p in range(self.ndesig):
+                one_hot_images[desig[p, 0], desig[p, 1]] = 1
+                self.logger.log('using desig pix',desig[p, 0], desig[p, 1])
+        else:
+            for p in range(self.ndesig):
+                one_hot_images[:, :, p, desig[p, 0], desig[p, 1]] = 1
+                self.logger.log('using desig pix',desig[p, 0], desig[p, 1])
 
         return one_hot_images
 
@@ -430,7 +441,7 @@ class CEM_controller():
                                                   input_states=last_states,
                                                   input_actions=actions,
                                                   input_one_hot_images1=input_distrib,
-                                                  goal_pix = self.goal_pix[0])
+                                                  goal_pix=self.goal_pix[0])
 
         if 'predictor_propagation' in self.policyparams:
             # for predictor_propagation only!!
@@ -493,7 +504,10 @@ class CEM_controller():
 
         if 'use_goal_image' not in self.policyparams or 'comb_flow_warp' in self.policyparams or 'register_gtruth' in self.policyparams:
             for p in range(self.ndesig):
-                distance_grid = self.get_distancegrid(self.goal_pix[p])
+                if self.intm_target_distrib is not None:
+                    distance_grid = self.get_distancegrid_from_targetdistrib(self.intm_target_distrib[p])
+                else:
+                    distance_grid = self.get_distancegrid(self.goal_pix[p])
                 gen_distrib_p = [g[:, p] for g in gen_distrib]
                 scores_per_task.append(self.calc_scores(gen_distrib_p, distance_grid)*self.reg_tradeoff[p])
                 self.logger.log('best flow score of task {}:  {}'.format(p, np.min(scores_per_task[-1])))
@@ -664,6 +678,10 @@ class CEM_controller():
         scores = np.sum(scores, axis=1)
         return scores
 
+    def get_distancegrid_from_targetdistrib(self, target_distrib):
+        ind = unravel_ind(np.argmax(target_distrib), target_distrib.shape)
+        return self.get_distancegrid(ind)
+
     def get_distancegrid(self, goal_pix):
         distance_grid = np.empty((self.img_height, self.img_width))
         for i in range(self.img_height):
@@ -713,7 +731,15 @@ class CEM_controller():
         if 'image_medium' in self.agentparams:
             self.goal_pix_med = (self.goal_pix * self.agentparams['image_medium'][0] / self.agentparams['image_height']).astype(np.int)
 
-        self.goal_image = goal_image
+        if self.intmstep_predictor is not None:
+            if t < self.agentparams['T']//2 and t != 0:   # use the intermediate goal image for the first half of the trajectory
+                current_onehot = self.switch_on_pix(self.desig_pix, same_image=True)
+                goal_onehot = self.switch_on_pix(self.goal_pix, same_image=True)
+                current_image = traj.images[t]
+                self.goal_image, self.intm_target_distrib = self.intmstep_predictor.compute_outputs(current_image, goal_image, current_onehot, goal_onehot)
+        else:
+            self.goal_image = goal_image
+            self.intm_target_distrib = None
 
         last_images_med = None
         self.curr_obj_mask = curr_mask
@@ -762,3 +788,10 @@ class CEM_controller():
 
         return action, self.plan_stat
         # return action, self.bestindices_of_iter, self.rec_input_distrib
+
+
+def unravel_ind(argmax, shape):
+    output_list = []
+    output_list.append(argmax / (shape[1]))
+    output_list.append(argmax % shape[1])
+    return tf.cast(tf.concat(output_list, 1), dtype=tf.int32)
