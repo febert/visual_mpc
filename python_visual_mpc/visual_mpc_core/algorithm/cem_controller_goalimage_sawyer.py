@@ -737,6 +737,19 @@ class CEM_controller():
                 goal_onehot = self.switch_on_pix(self.goal_pix, same_image=True)
                 current_image = traj.images[t]
                 self.goal_image, self.intm_target_distrib = self.intmstep_predictor.compute_outputs(current_image, goal_image, current_onehot, goal_onehot)
+
+                plt.subplot(5,1,1)
+                plt.imshow(current_image)
+                plt.subplot(5,1,2)
+                plt.imshow(goal_image)
+                plt.subplot(5,1,3)
+                plt.imshow(self.goal_image)
+                plt.subplot(5,1,4)
+                plt.imshow(self.intm_target_distrib[0])
+                plt.subplot(5,1,5)
+                plt.imshow(self.intm_target_distrib[1])
+                plt.savefig(self.agentparams['record'] + '/intmstep.png')
+
         else:
             self.goal_image = goal_image
             self.intm_target_distrib = None
@@ -791,7 +804,8 @@ class CEM_controller():
 
 
 def unravel_ind(argmax, shape):
-    output_list = []
-    output_list.append(argmax / (shape[1]))
-    output_list.append(argmax % shape[1])
-    return tf.cast(tf.concat(output_list, 1), dtype=tf.int32)
+    assert len(shape) == 2
+    output = np.zeros(2)
+    output[0] = (argmax / (shape[1]))
+    output[1] = (argmax % shape[1])
+    return output

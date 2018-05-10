@@ -11,6 +11,11 @@ ROOT_DIR = '/'.join(str.split(ROOT_DIR, '/')[:-2])
 from python_visual_mpc.visual_mpc_core.agent.agent_mjc import AgentMuJoCo
 import numpy as np
 
+
+import timewarp_prediction
+time_warp_base = timewarp_prediction.__file__
+time_warp_base = '/'.join(str.split(time_warp_base, '/')[:-1])
+
 agent = {
     'type': AgentMuJoCo,
     'T': 40,
@@ -47,7 +52,7 @@ policy = {
     'rew_all_steps':"",
     'finalweight':10,
     'num_samples': 200,
-    'intmstep':'',
+    'intmstep':time_warp_base + '/data/45954/model_200.net',
 }
 
 

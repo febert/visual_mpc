@@ -60,7 +60,8 @@ class Sim(object):
                 self.policy = config['policy']['type'](config['agent'], config['policy'], self.predictor)
 
             if 'intmstep' in self.policyparams:
-                self.policy.intmstep_predictor = testModel(self.policyparams['intmstep'])
+                self.intmstep_predictor = testModel(self.policyparams['intmstep'])
+                self.policy.intmstep_predictor = self.intmstep_predictor
         else:
             self.policy = config['policy']['type'](self.agent._hyperparams, config['policy'])
 
@@ -82,6 +83,9 @@ class Sim(object):
                                                               self.policyparams, self.predictor)
         else:
             self.policy = self.policyparams['type'](self.agent._hyperparams, self.policyparams)
+
+        if 'intmstep' in self.policyparams:
+            self.policy.intmstep_predictor = self.intmstep_predictor
 
     def run(self):
         for i in range(self._hyperparams['start_index'], self._hyperparams['end_index']+1):
