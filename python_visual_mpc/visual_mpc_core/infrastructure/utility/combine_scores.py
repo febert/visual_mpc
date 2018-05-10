@@ -89,15 +89,15 @@ def make_stats(dir, score, name, bounds):
     plt.savefig(dir + '/' + name + '.png')
     plt.close()
     f = open(dir + '/{}_histo.txt'.format(name), 'w')
-    for i in range(bin_edges.shape[0] - 1):
-        f.write('indices for bin {}, {} to {} : {} \n'.format(i, bin_edges[i], bin_edges[i+1], np.where(binned_ind == i)[0].tolist()))
+    for i in range(bin_edges.shape[0]-1):
+        f.write('indices for bin {}, {} to {} : {} \n'.format(i, bin_edges[i], bin_edges[i+1], np.where(binned_ind == i+1)[0].tolist()))
 
 if __name__ == '__main__':
     n_worker = 4
     n_traj = 49
     # dir = '/home/frederik/Documents/catkin_ws/src/visual_mpc/experiments/cem_exp/benchmarks/alexmodel/savp_register_gtruth_start/41256'
     # dir = '/home/frederik/Documents/catkin_ws/src/visual_mpc/experiments/cem_exp/benchmarks/pos_ctrl/updown_sact_boundact_register_gtruth/41272'
-    dir = '/mnt/sda1/experiments/cem_exp/benchmarks/alexmodel/savp_2cam_tradeoff_pertstep/46054'
+    dir = '/mnt/sda1/experiments/cem_exp/benchmarks/onpolicy/gtruth_track_onpolonly/50320'
 
     traj_per_worker = int(n_traj / np.float32(n_worker))
     start_idx = [traj_per_worker * i for i in range(n_worker)]
