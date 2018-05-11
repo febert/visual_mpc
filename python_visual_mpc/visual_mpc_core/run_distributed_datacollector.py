@@ -18,8 +18,13 @@ from python_visual_mpc.visual_mpc_core.infrastructure.remote_synchronizer import
 import re
 
 
+from tensorflow.python.framework.errors_impl import NotFoundError
 def get_maxiter_weights(dir):
-    filenames = gfile.Glob(dir +'/model*')
+    try:
+        filenames = gfile.Glob(dir +'/model*')
+    except NotFoundError:
+        print('nothing found at ', dir +'/model*')
+        return None
     iternums = []
     if len(filenames) != 0:
         for f in filenames:

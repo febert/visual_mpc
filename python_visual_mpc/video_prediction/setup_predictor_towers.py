@@ -67,7 +67,9 @@ def setup_predictor(hyperparams, conf, gpu_id=0, ngpu=1, logger=None):
 
     gpu_options = tf.GPUOptions(per_process_gpu_memory_fraction=0.6)
     g_predictor = tf.Graph()
+    logger.log('making session')
     sess = tf.Session(config=tf.ConfigProto(gpu_options=gpu_options, allow_soft_placement=True), graph=g_predictor)
+    logger.log('done making session.')
     with sess.as_default():
         with g_predictor.as_default():
 
