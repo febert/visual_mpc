@@ -2,6 +2,7 @@ import os
 
 class Logger(object):
     def __init__(self, logfiledir=None, logfilename=None, printout=False, mute=False):
+        print('making logger filename{}, printout:{}'.format(logfilename, printout))
         self.logfiledir = logfiledir
         self.logfilename = logfilename
         self.printout = printout

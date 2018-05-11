@@ -44,7 +44,7 @@ class Data_Collector(object):
         random.seed(None)
         np.random.seed(None)
         self.conf = conf
-        self.sim = Sim(conf, gpu_id=conf['gpu_id'])
+        self.sim = Sim(conf, gpu_id=conf['gpu_id'], logger=self.logger)
         self.logger.log('init data collectors done.')
         self.last_weights_loaded = None
 
