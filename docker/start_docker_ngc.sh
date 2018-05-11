@@ -10,6 +10,7 @@ nvidia-docker run   -v $VMPC_DATA_DIR:/mnt/pushing_data \
 -e RESULT_DIR=/result \
 -e TEN_DATA=/mnt/tensorflow_data \
 -e ALEX_DATA=/mnt/pretrained_models \
+-e INTM_PRED_DATA=/mnt/intm_pred_data \
 -it \
 nvcr.io/ucb_rail8888/tf_mj1.5 \
 /bin/bash -c \

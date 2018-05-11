@@ -60,7 +60,13 @@ class Sim(object):
                 self.policy = config['policy']['type'](config['agent'], config['policy'], self.predictor)
 
             if 'intmstep' in self.policyparams:
-                self.intmstep_predictor = testModel(self.policyparams['intmstep']['pretrained'])
+                if 'INTM_PRED_DATA' in os.environ:
+                    modelpath = self.policyparams['intmstep']['pretrained'].partition('timewarp_prediction')[2]
+                    model_path = os.environ['INTM_PRED_DATA'] + modelpath
+                    pdb.set_trace()
+                else:
+                    model_path = self.policyparams['intmstep']['pretrained']
+                self.intmstep_predictor = testModel(model_path)
                 self.policy.intmstep_predictor = self.intmstep_predictor
         else:
             self.policy = config['policy']['type'](self.agent._hyperparams, config['policy'])

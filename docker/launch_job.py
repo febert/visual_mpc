@@ -14,14 +14,13 @@ def launch_job_func(run_script, hyper, arg, interactive=False, name='', ngpu=8, 
      export VMPC_DATA_DIR=/mnt/pushing_data;\
      export TEN_DATA=/mnt/tensorflow_data;\
      export ALEX_DATA=/mnt/pretrained_models;\
-     export RESULT_DIR=/result;\
-     export NO_ROS='';\
+     export INTM_PRED_DATA=/mnt/intm_pred_data; \
+     export RESULT_DIR=/result; \
+     export NO_ROS=''; \
      export PATH=/opt/conda/bin:/usr/local/mpi/bin:/usr/local/nvidia/bin:/usr/local/cuda/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin;\
      cd /workspace/visual_mpc/docker;"
 
     data['dockerImageName'] = "ucb_rail8888/tf_mj1.5:latest"
-
-    script_name = run_script
 
     data["datasetMounts"] = [{"containerMountPoint": "/mnt/tensorflow_data/sim/mj_pos_ctrl_appflow", "id": 8906},
                              {"containerMountPoint": "/mnt/tensorflow_data/sim/appflow_nogenpix", "id": 8933},
