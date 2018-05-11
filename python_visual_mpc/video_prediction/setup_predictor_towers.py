@@ -65,6 +65,7 @@ def setup_predictor(hyperparams, conf, gpu_id=0, ngpu=1, logger=None):
     from tensorflow.python.client import device_lib
     logger.log(device_lib.list_local_devices())
 
+    logger.log('making graph')
     gpu_options = tf.GPUOptions(per_process_gpu_memory_fraction=0.6)
     g_predictor = tf.Graph()
     logger.log('making session')
