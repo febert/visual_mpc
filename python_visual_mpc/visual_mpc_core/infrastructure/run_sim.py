@@ -63,7 +63,6 @@ class Sim(object):
                 if 'INTM_PRED_DATA' in os.environ:
                     modelpath = self.policyparams['intmstep']['pretrained'].partition('timewarp_prediction')[2]
                     model_path = os.environ['INTM_PRED_DATA'] + modelpath
-                    pdb.set_trace()
                 else:
                     model_path = self.policyparams['intmstep']['pretrained']
                 self.intmstep_predictor = testModel(model_path)

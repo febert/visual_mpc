@@ -6,11 +6,12 @@ nvidia-docker run   -v $VMPC_DATA_DIR:/mnt/pushing_data \
                     -v /home/frederik/Documents/cloned_projects/video_prediction/pretrained_models:/mnt/pretrained_models \
                     -v /home/frederik/Documents/visual_mpc:/mount \
                     -v /home/frederik/Desktop:/Desktop \
+                    -v /home/frederik/Documents/cloned_projects/timewarp_prediction:/mnt/timewarp_prediction \
 -e VMPC_DATA_DIR=/mnt/pushing_data \
 -e RESULT_DIR=/result \
 -e TEN_DATA=/mnt/tensorflow_data \
 -e ALEX_DATA=/mnt/pretrained_models \
--e INTM_PRED_DATA=/mnt/intm_pred_data \
+-e INTM_PRED_DATA=/mnt/timewarp_prediction \
 -it \
 nvcr.io/ucb_rail8888/tf_mj1.5 \
 /bin/bash -c \
