@@ -65,6 +65,14 @@ class CollectGoalImageSim(Sim):
                 self.agent.sim.data.ctrl[:] = ctrl
                 self.agent.sim.step()
 
+        if 'noarm' in self.agentparams:
+            qpos = copy.deepcopy(self.agent.sim.data.qpos)
+            qpos[2] += 1
+            sim_state = self.agent.sim.get_state()
+            sim_state.qpos[:] = qpos
+            self.agent.sim.set_state(sim_state)
+            self.agent.sim.forward()
+
         for t in range(self.agentparams['T']-1):
             self.store_data(t, traj)
             if 'make_gtruth_flows' in self.agentparams:
@@ -234,7 +242,7 @@ class CollectGoalImageSim(Sim):
 
         new_armpos = traj.X_full[0].copy()
         new_armpos[:2] = new_armpos[:2] + arm_disp
-        new_armpos = np.clip(new_armpos, -0.35, 0.35)
+        new_armpos[:2] = np.clip(new_armpos[:2], -0.35, 0.35)
 
         new_q = np.concatenate([new_armpos, newobj_poses.flatten()])
 

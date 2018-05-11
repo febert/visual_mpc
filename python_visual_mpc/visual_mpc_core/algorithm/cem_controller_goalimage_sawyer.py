@@ -407,22 +407,14 @@ class CEM_controller():
         actions = [actions[b, inds[b]] for b in range(self.M//self.smp_peract)]
         return np.stack(actions, 0), scores
 
-    def switch_on_pix(self, desig, same_image=False):
-        if same_image:
-            one_hot_images = np.zeros((self.img_height, self.img_width, 1), dtype=np.float32)
-        else:
-            one_hot_images = np.zeros((1, self.netconf['context_frames'], self.ndesig, self.img_height, self.img_width, 1), dtype=np.float32)
+    def switch_on_pix(self, desig):
+        one_hot_images = np.zeros((1, self.netconf['context_frames'], self.ndesig, self.img_height, self.img_width, 1), dtype=np.float32)
 
         desig = np.clip(desig, np.zeros(2).reshape((1, 2)), np.array([self.img_height, self.img_width]).reshape((1, 2)) - 1).astype(np.int)
         # switch on pixels
-        if same_image:
-            for p in range(self.ndesig):
-                one_hot_images[desig[p, 0], desig[p, 1]] = 1
-                self.logger.log('using desig pix',desig[p, 0], desig[p, 1])
-        else:
-            for p in range(self.ndesig):
-                one_hot_images[:, :, p, desig[p, 0], desig[p, 1]] = 1
-                self.logger.log('using desig pix',desig[p, 0], desig[p, 1])
+        for p in range(self.ndesig):
+            one_hot_images[:, :, p, desig[p, 0], desig[p, 1]] = 1
+            self.logger.log('using desig pix',desig[p, 0], desig[p, 1])
 
         return one_hot_images
 
@@ -503,13 +495,14 @@ class CEM_controller():
             scores = get_mask_trafo_scores(self.policyparams, gen_distrib, self.goal_mask)
 
         if 'use_goal_image' not in self.policyparams or 'comb_flow_warp' in self.policyparams or 'register_gtruth' in self.policyparams:
+            self.distance_grid = []
             for p in range(self.ndesig):
-                if self.intm_target_distrib is not None:
-                    distance_grid = self.get_distancegrid_from_targetdistrib(self.intm_target_distrib[p])
+                if self.intm_distmap is not None:
+                    self.distance_grid.append(self.intm_distmap[0, p])
                 else:
-                    distance_grid = self.get_distancegrid(self.goal_pix[p])
+                    self.distance_grid.append(self.get_distancegrid(self.goal_pix[p]))
                 gen_distrib_p = [g[:, p] for g in gen_distrib]
-                scores_per_task.append(self.calc_scores(gen_distrib_p, distance_grid)*self.reg_tradeoff[p])
+                scores_per_task.append(self.calc_scores(gen_distrib_p, self.distance_grid[-1])*self.reg_tradeoff[p])
                 self.logger.log('best flow score of task {}:  {}'.format(p, np.min(scores_per_task[-1])))
 
             scores = np.sum(np.stack(scores_per_task, axis=1), axis=1)
@@ -716,7 +709,7 @@ class CEM_controller():
             input_distrib = np.concatenate(input_distrib, axis=1)
         return input_distrib
 
-    def act(self, traj, t, desig_pix = None, goal_pix= None, goal_image=None, goal_mask = None, curr_mask=None):
+    def act(self, traj, t, desig_pix = None, goal_pix= None, orig_goal_image=None, goal_mask = None, curr_mask=None):
         """
         Return a random action for a state.
         Args:
@@ -732,27 +725,14 @@ class CEM_controller():
             self.goal_pix_med = (self.goal_pix * self.agentparams['image_medium'][0] / self.agentparams['image_height']).astype(np.int)
 
         if self.intmstep_predictor is not None:
-            if t < self.agentparams['T']//2 and t != 0:   # use the intermediate goal image for the first half of the trajectory
-                current_onehot = self.switch_on_pix(self.desig_pix, same_image=True)
-                goal_onehot = self.switch_on_pix(self.goal_pix, same_image=True)
-                current_image = traj.images[t]
-                self.goal_image, self.intm_target_distrib = self.intmstep_predictor.compute_outputs(current_image, goal_image, current_onehot, goal_onehot)
-
-                plt.subplot(5,1,1)
-                plt.imshow(current_image)
-                plt.subplot(5,1,2)
-                plt.imshow(goal_image)
-                plt.subplot(5,1,3)
-                plt.imshow(self.goal_image)
-                plt.subplot(5,1,4)
-                plt.imshow(self.intm_target_distrib[0])
-                plt.subplot(5,1,5)
-                plt.imshow(self.intm_target_distrib[1])
-                plt.savefig(self.agentparams['record'] + '/intmstep.png')
-
+            if t < self.agentparams['T'] // 2 and t != 0:  # use the intermediate goal image for the first half of the trajectory
+                self.get_intm_image(orig_goal_image, t, traj)
+            else:
+                self.intm_distmap = None
+            self.goal_image = orig_goal_image
         else:
-            self.goal_image = goal_image
-            self.intm_target_distrib = None
+            self.goal_image = orig_goal_image
+            self.intm_distmap = None
 
         last_images_med = None
         self.curr_obj_mask = curr_mask
@@ -801,6 +781,38 @@ class CEM_controller():
 
         return action, self.plan_stat
         # return action, self.bestindices_of_iter, self.rec_input_distrib
+
+    def get_intm_image(self, orig_goal_image, t, traj):
+        current_onehot = self.switch_on_pix(self.desig_pix)
+        goal_onehot = self.switch_on_pix(self.goal_pix)
+
+        if 'noarm_input' in self.policyparams['intmstep']:
+            current_image = traj.start_image
+        else:
+            current_image = traj.images[t]
+            current_image = current_image.astype(np.float32) / 255.
+
+        self.goal_image, self.intm_target_distrib, self.intm_distmap = self.intmstep_predictor.compute_outputs(current_image,
+                                                                                                               orig_goal_image, current_onehot[0, 0], goal_onehot[0, 0])
+        nplot = 7
+        plt.subplot(nplot, 1, 1)
+        plt.imshow(current_image)
+        plt.title('current/start image')
+        plt.subplot(nplot, 1, 2)
+        plt.imshow(orig_goal_image)
+        plt.title('orig goal image')
+        plt.subplot(nplot, 1, 3)
+        plt.imshow(self.goal_image)
+        plt.title('gen goal image')
+        plt.subplot(nplot, 1, 4)
+        plt.imshow(self.intm_target_distrib.squeeze()[0])
+        plt.subplot(nplot, 1, 5)
+        plt.imshow(self.intm_target_distrib.squeeze()[1])
+        plt.subplot(nplot, 1, 6)
+        plt.imshow(self.intm_distmap.squeeze()[0])
+        plt.subplot(nplot, 1, 7)
+        plt.imshow(self.intm_distmap.squeeze()[1])
+        plt.savefig(self.agentparams['record'] + '/intmstep.png')
 
 
 def unravel_ind(argmax, shape):

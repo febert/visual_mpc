@@ -18,13 +18,12 @@ import python_visual_mpc
 ROOT_DIR = os.path.abspath(python_visual_mpc.__file__)
 ROOT_DIR = '/'.join(str.split(ROOT_DIR, '/')[:-2])
 
-BASE_DIR = '/'.join(str.split(__file__, '/')[:-1])
-
 DATA_DIR = '/'.join(str.split(python_visual_mpc.__file__, '/')[:-2])
+folder_name = '/'.join(str.split(__file__, '/')[-2:-1])
 
 agent = {
     'type': AgentMuJoCo,
-    'data_save_dir': BASE_DIR + '/train',
+    'data_save_dir': os.environ['VMPC_DATA_DIR'] + '/cartgripper/'+ folder_name + '/train',
     'filename': ROOT_DIR + '/mjc_models/cartgripper_updown_whitefingers.xml',
     'filename_nomarkers': ROOT_DIR + '/mjc_models/cartgripper_updown_whitefingers.xml',
     'data_collection': True,
@@ -50,6 +49,7 @@ agent = {
     'object_object_mindist':0.35,
     'const_dist':0.2,
     'randomize_ballinitpos':'',
+    'noarm':''
 }
 
 policy = {

@@ -594,10 +594,8 @@ def color_code_distrib(distrib_list, num_ex, renormalize=False):
                 distrib[b] /= (np.max(distrib[b])+1e-6)
             colored_distrib = cmap(np.squeeze(distrib[b]))[:, :, :3]
             out_t.append(colored_distrib)
-
             # plt.imshow(np.squeeze(distrib[b]))
             # plt.show()
-
         out_t = np.stack(out_t, 0)
         out_distrib.append(out_t)
 

@@ -110,6 +110,11 @@ def make_cem_visuals(ctrl, actions, bestindices, cem_itr, flow_fields, gen_distr
                     t_dict_['gen_distrib_goalim_overlay{}_t{}'.format(p, ctrl.t)] = (image_addgoalpix(ctrl.K, seqlen, goal_image,
                                                                                          ctrl.goal_pix[p]), sel_gen_distrib_p)
 
+                if 'intmstep' in ctrl.policyparams:
+                    distancegrid = [np.repeat(np.expand_dims(ctrl.distance_grid[p], axis=0), ctrl.K, axis=0) for _ in
+                                     range(len(gen_images))]
+                    t_dict_['distgrid{}_overlay_on_curr'.format(p)] = (current_image, distancegrid)
+
         t_dict_['gen_images_t{}'.format(ctrl.t)] = sel_func(gen_images)
         ctrl.logger.log('itr{} best scores: {}'.format(cem_itr, [scores[bestindices[ind]] for ind in range(ctrl.K)]))
         ctrl.dict_.update(t_dict_)

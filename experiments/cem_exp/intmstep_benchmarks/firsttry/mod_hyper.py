@@ -12,9 +12,9 @@ from python_visual_mpc.visual_mpc_core.agent.agent_mjc import AgentMuJoCo
 import numpy as np
 
 
-import timewarp_prediction
+import timewarp_prediction.multipush
 time_warp_base = timewarp_prediction.__file__
-time_warp_base = '/'.join(str.split(time_warp_base, '/')[:-1])
+time_warp_base = '/'.join(str.split(time_warp_base, '/')[:-2])
 
 agent = {
     'type': AgentMuJoCo,
@@ -38,6 +38,12 @@ agent = {
     'discrete_adim':[2],
 }
 
+intmstep = {
+    'pretrained':time_warp_base + '/data/45954/model_200.net',
+    # 'pretrained':time_warp_base + '/data/45955/model_200.net',  # with arm
+    'noarm_input':''
+}
+
 policy = {
     'verbose':'',
     'type' : CEM_controller,
@@ -47,12 +53,12 @@ policy = {
     'repeat': 3,
     'initial_std': 0.08,        # std dev. in xy
     'initial_std_lift': 2.5,
-    'iterations': 2,
+    'iterations': 3,
     'action_cost_factor': 0,
     'rew_all_steps':"",
     'finalweight':10,
     'num_samples': 200,
-    'intmstep':time_warp_base + '/data/45954/model_200.net',
+    'intmstep':intmstep,
 }
 
 
@@ -63,6 +69,7 @@ tag_images = {'name': 'images',
 tag_qpos = {'name': 'qpos',
              'shape':[3],
              'file':'/state_action.pkl'}
+
 tag_object_full_pose = {'name': 'object_full_pose',
                          'shape':[2,7],
                          'file':'/state_action.pkl'}
@@ -79,6 +86,6 @@ config = {
     'policy':policy,
     'ngroup': 100,
     'sourcetags':[tag_images, tag_qpos, tag_object_full_pose, tag_object_statprop],
-    'source_basedirs':[os.environ['VMPC_DATA_DIR'] + '/cartgripper/cartgripper_startgoal_2obj/train'],
+    'source_basedirs':[os.environ['VMPC_DATA_DIR'] + '/cartgripper/cartgripper_startgoal_2obj_noarm/train'],
     'sequence_length':2
 }

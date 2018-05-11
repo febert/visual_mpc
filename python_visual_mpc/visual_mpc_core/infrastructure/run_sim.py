@@ -60,7 +60,7 @@ class Sim(object):
                 self.policy = config['policy']['type'](config['agent'], config['policy'], self.predictor)
 
             if 'intmstep' in self.policyparams:
-                self.intmstep_predictor = testModel(self.policyparams['intmstep'])
+                self.intmstep_predictor = testModel(self.policyparams['intmstep']['pretrained'])
                 self.policy.intmstep_predictor = self.intmstep_predictor
         else:
             self.policy = config['policy']['type'](self.agent._hyperparams, config['policy'])
