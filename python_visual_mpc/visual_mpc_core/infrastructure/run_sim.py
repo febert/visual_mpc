@@ -183,6 +183,11 @@ class Sim(object):
                     image_name = self.image_folder+ "/im_med{}.png".format(t)
                     cv2.imwrite(image_name, traj._medium_images[t][:,:,::-1], [cv2.IMWRITE_PNG_STRATEGY_DEFAULT, 1])
 
+            if 'first_last_noarm' in self.agentparams:
+                for t in range(2):
+                    image_name = self.image_folder+ "/noarm{}.png".format(t)
+                    cv2.imwrite(image_name, traj.first_last_noarm[t][:,:,::-1], [cv2.IMWRITE_PNG_STRATEGY_DEFAULT, 1])
+
             if traj.goal_mask != None:
                 folder = self.traj_folder + '/goal_masks'
                 os.makedirs(folder)

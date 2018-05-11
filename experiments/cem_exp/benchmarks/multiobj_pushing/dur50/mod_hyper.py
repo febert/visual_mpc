@@ -13,7 +13,7 @@ import numpy as np
 
 agent = {
     'type': AgentMuJoCo,
-    'T': 40,
+    'T': 50,
     'substeps':200,
     'make_final_gif':'',
     'adim':3,

@@ -81,11 +81,15 @@ class AgentMuJoCo(object):
         self._hyperparams['object_pos0'] = dict['object_full_pose'][init_index]
         self.object_full_pose_t = dict['object_full_pose']
         self.goal_obj_pose = dict['object_full_pose'][goal_index]   #needed for calculating the score
+
         if 'lift_object' in self._hyperparams:
             self.goal_obj_pose[:,2] = self._hyperparams['targetpos_clip'][1][2]
 
         self.start_image = dict['images'][init_index]  # assign last image of trajectory as goalimage
         self.goal_image = dict['images'][goal_index]  # assign last image of trajectory as goalimage
+        if 'images_noarm' in dict:
+            self.first_last_noarm = dict['images_noarm']  # assign last image of trajectory as goalimage
+
         if 'goal_mask' in self._hyperparams:
             self.goal_mask = dict['goal_mask'][goal_index]  # assign last image of trajectory as goalimage
 
@@ -185,9 +189,9 @@ class AgentMuJoCo(object):
 
         traj = Trajectory(self._hyperparams)
         traj.i_tr = i_tr
-
         traj.goal_image = self.goal_image
-        traj.start_image = self.start_image
+        if hasattr(self, 'first_last_noarm'):
+            traj.first_last_noarm = self.first_last_noarm
 
         if 'gen_xml' in self._hyperparams:
             traj.obj_statprop = self.obj_statprop
@@ -242,7 +246,7 @@ class AgentMuJoCo(object):
                 mj_U = policy.act(traj, t, self.sim, self.goal_obj_pose, self._hyperparams, self.goal_image)
             else:
                 mj_U, plan_stat = policy.act(traj, t, desig_pix=self.desig_pix, goal_pix=self.goal_pix,
-                                             orig_goal_image=self.goal_image, goal_mask=self.goal_mask, curr_mask=self.curr_mask)
+                                              goal_mask=self.goal_mask, curr_mask=self.curr_mask)
                 traj.plan_stat.append(copy.deepcopy(plan_stat))
 
             self.large_images_traj.append(self.large_images[t])

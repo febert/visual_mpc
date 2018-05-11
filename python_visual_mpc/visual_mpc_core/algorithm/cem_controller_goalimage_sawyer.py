@@ -709,7 +709,7 @@ class CEM_controller():
             input_distrib = np.concatenate(input_distrib, axis=1)
         return input_distrib
 
-    def act(self, traj, t, desig_pix = None, goal_pix= None, orig_goal_image=None, goal_mask = None, curr_mask=None):
+    def act(self, traj, t, desig_pix = None, goal_pix= None, goal_mask = None, curr_mask=None):
         """
         Return a random action for a state.
         Args:
@@ -726,12 +726,12 @@ class CEM_controller():
 
         if self.intmstep_predictor is not None:
             if t < self.agentparams['T'] // 2 and t != 0:  # use the intermediate goal image for the first half of the trajectory
-                self.get_intm_image(orig_goal_image, t, traj)
+                self.get_intm_image(t, traj)
             else:
                 self.intm_distmap = None
-            self.goal_image = orig_goal_image
+            self.goal_image = traj.goal_image
         else:
-            self.goal_image = orig_goal_image
+            self.goal_image = traj.goal_image
             self.intm_distmap = None
 
         last_images_med = None
@@ -782,21 +782,23 @@ class CEM_controller():
         return action, self.plan_stat
         # return action, self.bestindices_of_iter, self.rec_input_distrib
 
-    def get_intm_image(self, orig_goal_image, t, traj):
+    def get_intm_image(self, t, traj):
         current_onehot = self.switch_on_pix(self.desig_pix)
         goal_onehot = self.switch_on_pix(self.goal_pix)
 
         if 'noarm_input' in self.policyparams['intmstep']:
-            current_image = traj.start_image
+            first_image = traj.first_last_noarm[0]
+            orig_goal_image = traj.first_last_noarm[1]
         else:
-            current_image = traj.images[t]
-            current_image = current_image.astype(np.float32) / 255.
+            first_image = traj.images[t]
+            first_image = first_image.astype(np.float32) / 255.
+            orig_goal_image = traj.goal_image
 
-        self.goal_image, self.intm_target_distrib, self.intm_distmap = self.intmstep_predictor.compute_outputs(current_image,
-                                                                                                               orig_goal_image, current_onehot[0, 0], goal_onehot[0, 0])
+        self.goal_image, self.intm_target_distrib, self.intm_distmap = self.intmstep_predictor.compute_outputs(first_image,
+                                                               orig_goal_image, current_onehot[0, 0], goal_onehot[0, 0])
         nplot = 7
         plt.subplot(nplot, 1, 1)
-        plt.imshow(current_image)
+        plt.imshow(first_image)
         plt.title('current/start image')
         plt.subplot(nplot, 1, 2)
         plt.imshow(orig_goal_image)

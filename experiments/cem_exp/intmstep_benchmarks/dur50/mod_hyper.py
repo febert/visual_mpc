@@ -11,9 +11,14 @@ ROOT_DIR = '/'.join(str.split(ROOT_DIR, '/')[:-2])
 from python_visual_mpc.visual_mpc_core.agent.agent_mjc import AgentMuJoCo
 import numpy as np
 
+
+import timewarp_prediction.multipush
+time_warp_base = timewarp_prediction.__file__
+time_warp_base = '/'.join(str.split(time_warp_base, '/')[:-2])
+
 agent = {
     'type': AgentMuJoCo,
-    'T': 40,
+    'T': 50,
     'substeps':200,
     'make_final_gif':'',
     'adim':3,
@@ -33,6 +38,12 @@ agent = {
     'discrete_adim':[2],
 }
 
+intmstep = {
+    'pretrained':time_warp_base + '/data/45954/model_200.net',
+    # 'pretrained':time_warp_base + '/data/45955/model_200.net',  # with arm
+    'noarm_input':''
+}
+
 policy = {
     'verbose':'',
     'type' : CEM_controller,
@@ -47,6 +58,7 @@ policy = {
     'rew_all_steps':"",
     'finalweight':10,
     'num_samples': 200,
+    'intmstep':intmstep,
 }
 
 
@@ -54,9 +66,14 @@ tag_images = {'name': 'images',
              'file':'/images/im{}.png',   # only tindex
              'shape':[agent['image_height'],agent['image_width'],3],
                }
+tag_images_noarm = {'name': 'images_noarm',
+              'file':'/images/noarm{}.png',   # only tindex
+              'shape':[agent['image_height'],agent['image_width'],3],
+              }
 tag_qpos = {'name': 'qpos',
              'shape':[3],
              'file':'/state_action.pkl'}
+
 tag_object_full_pose = {'name': 'object_full_pose',
                          'shape':[2,7],
                          'file':'/state_action.pkl'}
@@ -72,7 +89,7 @@ config = {
     'agent':agent,
     'policy':policy,
     'ngroup': 100,
-    'sourcetags':[tag_images, tag_qpos, tag_object_full_pose, tag_object_statprop],
+    'sourcetags':[tag_images, tag_images_noarm , tag_qpos, tag_object_full_pose, tag_object_statprop],
     'source_basedirs':[os.environ['VMPC_DATA_DIR'] + '/cartgripper/cartgripper_startgoal_2obj/train'],
     'sequence_length':2
 }
