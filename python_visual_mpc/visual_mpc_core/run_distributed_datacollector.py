@@ -103,7 +103,6 @@ def main():
     start_idx = [hyperparams['start_index'] + traj_per_worker * i for i in range(n_worker)]
     end_idx = [hyperparams['start_index'] + traj_per_worker * (i+1)-1 for i in range(n_worker)]
 
-    pdb.set_trace()
     if 'RESULT_DIR' in os.environ:
         print('clearing result dir')
         os.system('rm -r {}/*'.format(os.environ['RESULT_DIR']))
