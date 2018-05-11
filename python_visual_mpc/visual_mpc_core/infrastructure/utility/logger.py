@@ -15,7 +15,7 @@ class Logger(object):
 
     def log(self, *inputlist):
         if self.printout:
-            print(inputlist)
+            print(' '.join(inputlist))
         elif self.mute:
             return
         else:
