@@ -35,7 +35,7 @@ class Sim(object):
         if logger == None:
             self.logger = Logger(printout=True)
         else: self.logger = logger
-        logger.log('started sim')
+        self.logger.log('started sim')
 
         if 'RESULT_DIR' in os.environ:
             self.agentparams['data_save_dir'] = os.environ['RESULT_DIR'] + '/data/train'
