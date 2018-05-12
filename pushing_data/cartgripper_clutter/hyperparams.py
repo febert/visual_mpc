@@ -47,11 +47,10 @@ agent = {
     'ztarget':0.13,
     'min_z_lift':0.05,
     'make_final_gif':'', #keep this key in if you want final gif to be created
-    'record': BASE_DIR + '/record/',
+    'record': BASE_DIR + '/record',
     'targetpos_clip':[[-0.5, -0.5, -0.08, -np.pi*2, 0], [0.5, 0.5, 0.15, np.pi*2, 0.1]],
     'mode_rel':np.array([True, True, True, True, False]),
-    #'object_meshes':['giraffe'] #folder to original object + convex approximation
-    # 'displacement_threshold':0.1,
+    'not_create_goals':''
 }
 
 policy = {
