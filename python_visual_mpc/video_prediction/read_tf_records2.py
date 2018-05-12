@@ -160,6 +160,10 @@ def build_tfrecord_single(conf, training=True, input_file=None, shuffle=True):
                 action_name = str(i) + '/action'
                 endeffector_pos_name = str(i) + '/endeffector_pos'
 
+            features = {
+                image_name: tf.FixedLenFeature([1], tf.string),
+            }
+
             if 'image_only' not in conf:
                 features_name[action_name] = tf.FixedLenFeature([adim], tf.float32)
                 features_name[endeffector_pos_name] = tf.FixedLenFeature([sdim], tf.float32)
@@ -295,6 +299,7 @@ def main():
     conf['sdim'] = 12
     conf['adim'] = 5
     # conf['image_only'] = ''
+    # conf['goal_image'] = ""
 
     conf['orig_size'] = [48, 64]
     # conf['first_last_noarm'] = ''
