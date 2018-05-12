@@ -138,13 +138,17 @@ def main(unused_argv, conf_dict= None, flags=None):
     vars = filter_vars(vars)
     saving_saver = tf.train.Saver(vars, max_to_keep=0)
 
-
+    load_model = None
     if FLAGS.resume:
-        vars = variable_checkpoint_matcher(conf, vars, FLAGS.resume)
-        loading_saver = tf.train.Saver(vars, max_to_keep=0)
+        load_model = FLAGS.resume
+    elif FLAGS.visualize_check:
+        load_model = conf['visualize_check']
+    elif 'pretrained_model' in conf:
+        load_model = conf['pretrained_model']
 
-    if FLAGS.visualize_check:
-        vars = variable_checkpoint_matcher(conf, vars, conf['visualize_check'])
+    if load_model is not None:
+        print('loading pretrained model {}'.format(load_model))
+        vars = variable_checkpoint_matcher(conf, vars, load_model)
         loading_saver = tf.train.Saver(vars, max_to_keep=0)
 
     gpu_options = tf.GPUOptions(per_process_gpu_memory_fraction=0.9)
