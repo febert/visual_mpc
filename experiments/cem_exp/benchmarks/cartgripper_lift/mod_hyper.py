@@ -1,4 +1,3 @@
-""" Hyperparameters for Large Scale Data Collection (LSDC) """
 from __future__ import division
 import os.path
 
@@ -14,8 +13,13 @@ IMAGE_CHANNELS = 3
 BASE_DIR = '/'.join(str.split(__file__, '/')[:-1])
 
 import python_visual_mpc
+
 DATA_DIR = '/'.join(str.split(python_visual_mpc.__file__, '/')[:-2])
-current_dir = os.path.dirname(os.path.realpath(__file__))
+current_dir = '/'.join(str.split(__file__, '/')[:-1])
+bench_dir = '/'.join(str.split(__file__, '/')[:-2])
+ROOT_DIR = os.path.abspath(python_visual_mpc.__file__)
+ROOT_DIR = '/'.join(str.split(ROOT_DIR, '/')[:-2])
+MODEL_BASE_DIR = ROOT_DIR + '/pushing_data/cartgripper_imitation/'
 
 agent = {
     'type': AgentMuJoCo,
@@ -46,7 +50,7 @@ agent = {
     'posmode':'abs',
     'ztarget':0.13,
     'drop_thresh':0.02,
-    #'make_final_gif':True,
+    'make_final_gif':True,
     'record': BASE_DIR + '/record/',
     'targetpos_clip':[[-0.5, -0.5, -0.08, -np.pi*2, 0], [0.5, 0.5, 0.15, np.pi*2, 0.1]],
     'mode_rel':np.array([True, True, True, True, False]),
@@ -56,18 +60,34 @@ agent = {
 
 policy = {
     'type' : ImitationPolicy,
-    'net_config' : os.path.join(BASE_DIR, 'conf_lstm_mdn_states.py'),
+    'net_config' : os.path.join(MODEL_BASE_DIR, 'conf_lstm_mdn_states.py'),
     'pretrained' :'modelfinal', #'model65000',
 }
 
+tag_images = {'name': 'images',
+             'file':'/images/im{}.png',   # only tindex
+             'shape':[agent['image_height'],agent['image_width'],3],
+               }
+
+tag_qpos = {'name': 'qpos',
+             'shape':[3],
+             'file':'/state_action.pkl'}
+tag_object_full_pose = {'name': 'object_full_pose',
+                         'shape':[4,7],
+                         'file':'/state_action.pkl'}
+tag_object_statprop = {'name': 'obj_statprop',
+                     'not_per_timestep':''}
+
 config = {
-    'traj_per_file':128,
-    'current_dir' : current_dir,
-    'save_data': True,
-    'save_raw_images' : True,
+    'current_dir':current_dir,
+    'save_data': False,
+    'save_raw_images':'',
     'start_index':0,
-    'end_index': 80000,
-    'agent': agent,
-    'policy': policy,
-    'ngroup': 1000
+    'end_index': 49, #1000,
+    'agent':agent,
+    'policy':policy,
+    'ngroup': 100,
+    'sourcetags':[tag_images, tag_qpos, tag_object_full_pose, tag_object_statprop],
+    'source_basedirs':[ROOT_DIR + '/pushing_data/cartgripper_lift_benchmark/train'],
+    'sequence_length':2
 }

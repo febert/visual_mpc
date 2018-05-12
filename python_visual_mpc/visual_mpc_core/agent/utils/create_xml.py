@@ -49,9 +49,7 @@ def create_object_xml(hyperparams, load_dict_list=None):
 
     save_dict_list = []
 
-    if 'object_meshes' in hyperparams:
-        assets = ET.SubElement(root, "asset")
-
+    world_body = ET.SubElement(root, "worldbody")
     for i in range(hyperparams['num_objects']):
         if load_dict_list == None:
             dict = {}
@@ -74,8 +72,9 @@ def create_object_xml(hyperparams, load_dict_list=None):
             l2 = dict['l2']
             pos2 = dict['pos2']
         if 'object_meshes' in hyperparams:
-            obj_string = "object{}".format(i)
+            assets = ET.SubElement(root, "asset")
 
+            obj_string = "object{}".format(i)
 
             o_mesh = xmldir + '/' + random.choice(hyperparams['object_meshes']) +'/'
             print('import mesh dir', o_mesh)
@@ -90,42 +89,61 @@ def create_object_xml(hyperparams, load_dict_list=None):
             mesh_object = mesh.Mesh.from_file(object_file)
             vol, cog, inertia = mesh_object.get_mass_properties()
             minx, maxx, miny, maxy, minz, maxz = find_mins_maxs(mesh_object)
-            max_length = max((maxx - minx), max((maxy - miny), (maxz - minz)))
+            max_length = min((maxx - minx), (maxy - miny))
 
-            scale = 0.05
+            scale = 0.12 / max_length
             object_pos = [0., 0., 0.]
-            object_pos[0] -= scale * (minx + maxx) / 2.0
-            object_pos[1] -= scale * (miny + maxy) / 2.0
-            object_pos[2] = -0.08 - scale * minz
+            object_pos[0] -=  scale * (minx + maxx) / 2.0
+            object_pos[1] -=  scale * (miny + maxy) / 2.0
+            object_pos[2] -= 0.08 + scale * (minz + maxz) / 2.0
+
+
+
+            mass_per_elem = 0.01 / (1 + len(convex_hull_files))
 
             pos_str = "{} {} {}".format(object_pos[0], object_pos[1], object_pos[2])
-            obj = ET.SubElement(root, "body",name=obj_string, pos=pos_str)
+            obj = ET.SubElement(world_body, "body",name=obj_string, pos=pos_str)
             ET.SubElement(obj, "joint", type="free")
 
-            ET.SubElement(assets, "mesh", name = obj_string + "_mesh", file = object_file, scale = "{} {} {}".format(scale, scale, scale))
+            ET.SubElement(assets, "mesh", name = obj_string + "_mesh", file = object_file,
+                          scale = "{} {} {}".format(scale, scale,  scale))
+            for n, c_file in enumerate(convex_hull_files):
+                ET.SubElement(assets, "mesh", name= obj_string + "_convex_mesh{}".format(n), file=c_file,
+                              scale="{} {} {}".format(scale,  scale,  scale))
+
+
 
             ET.SubElement(obj, "geom", type="mesh", mesh = obj_string + "_mesh",
-                          rgba="{} {} {} 1".format(color1[0], color1[1], color1[2]), mass="0.01",
-                          contype="7", conaffinity="7"
+                          rgba="{} {} {} 1".format(color1[0], color1[1], color1[2]), mass="{}".format(mass_per_elem),
+                          contype="0", conaffinity="0", friction="0.5 0.010 0.0002", condim="6", solimp="0.99 0.99 0.01", solref="0.01 1"
                           )
+            for n in range(len(convex_hull_files)):
+                ET.SubElement(obj, "geom", type="mesh", mesh=obj_string + "_convex_mesh{}".format(n),
+                              rgba="{} {} {} 0".format(color1[0], color1[1], color1[2]), mass="{}".format(mass_per_elem),
+                              contype="7", conaffinity="7", friction="1.5 0.10 0.002", condim="6", solimp="0.99 0.99 0.01", solref="0.01 1"
+                              )
+            sensor_frame = ET.SubElement(root, "sensor")
+            ET.SubElement(sensor_frame, "framepos", name=obj_string + '_sensor', objtype="body", objname=obj_string)
             # for c in range(len(convex_hull_files)):
             #     ET.SubElement(assets, "mesh", )
 
         else:
-            obj = ET.SubElement(root, "body", name="object{}".format(i), pos="0 0 0")
+            obj = ET.SubElement(world_body, "body", name="object{}".format(i), pos="0 0 0")
             ET.SubElement(obj, "joint", type="free")
 
 
             ET.SubElement(obj, "geom", type="box", size=".03 {} .03".format(l1),
                           rgba="{} {} {} 1".format(color1[0], color1[1], color1[2]), mass="0.01",
-                          contype="7", conaffinity = "7", friction="1 0.010 0.0002"
+                          contype="7", conaffinity="7", friction="1.5 0.10 0.002", condim="6",
+                          solimp="0.99 0.99 0.01", solref="0.01 1"
                           )
 
 
             ET.SubElement(obj, "geom", pos="{} {} 0.0".format(l2, pos2),
                           type="box", size="{} .03 .03".format(l2),
                           rgba="{} {} {} 1".format(color2[0], color2[1], color2[2]), mass="0.01",
-                          contype="7", conaffinity="7", friction="1 0.010 0.0002"
+                          contype="7", conaffinity="7", friction="1.5 0.10 0.002", condim="6",
+                          solimp="0.99 0.99 0.01", solref="0.01 1"
                           )
 
 
