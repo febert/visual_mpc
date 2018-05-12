@@ -249,10 +249,8 @@ class AgentMuJoCo(object):
 
             if 'posmode' in self._hyperparams:  #if the output of act is a positions
                 traj.actions[t, :] = mj_U
-
                 if t == 0:
                     traj.target_qpos[0] = copy.deepcopy(self.sim.data.qpos[:self.adim].squeeze())
-
                 if 'discrete_adim' in self._hyperparams:
                     up_cmd = mj_U[2]
                     assert np.floor(up_cmd) == up_cmd
@@ -268,11 +266,8 @@ class AgentMuJoCo(object):
                     if self.adim == 4:
                         traj.target_qpos[t + 1, :][3] += mj_U[3]
                 else:
-
                     traj.target_qpos[t + 1, :] = mj_U.copy() + traj.target_qpos[t, :] * traj.mask_rel
                 traj.target_qpos[t + 1, :] = self.clip_targetpos(traj.target_qpos[t + 1, :])
-
-
             else:
                 traj.actions[t, :] = mj_U
                 ctrl = mj_U.copy()
@@ -280,7 +275,6 @@ class AgentMuJoCo(object):
             for st in range(self._hyperparams['substeps']):
                 if 'posmode' in self._hyperparams:
                     ctrl = self.get_int_targetpos(st, traj.target_qpos[t, :], traj.target_qpos[t + 1, :])
-
                 self.sim.data.ctrl[:] = ctrl
                 self.sim.step()
                 # width = self._hyperparams['viewer_image_width']
@@ -561,7 +555,7 @@ class AgentMuJoCo(object):
         self.sim.set_state(sim_state)
         self.sim.forward()
 
-        if self.start_conf is None:
+        if self.start_conf is None and 'not_create_goals' not in self._hyperparams:
             self.goal_obj_pose = []
             dist_betwob_ok = False
             while not dist_betwob_ok:
