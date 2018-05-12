@@ -419,25 +419,6 @@ class CEM_controller():
                 scores[b] -= gen_pixdistrib[t][b,self.goal_pix[0,0], self.goal_pix[0,1]]
         return scores
 
-    def ray_video_pred(self, last_frames, last_states, actions, itr):
-        input_distrib = self.make_input_distrib(itr)
-
-        input_distrib = input_distrib[0]
-
-        best_gen_distrib, scores = self.predictor(input_images=last_frames,
-                                                  input_states=last_states,
-                                                  input_actions=actions,
-                                                  input_one_hot_images1=input_distrib,
-                                                  goal_pix = self.goal_pix[0])
-
-        if 'predictor_propagation' in self.policyparams:
-            # for predictor_propagation only!!
-            if itr == (self.policyparams['iterations'] - 1):
-                self.rec_input_distrib.append(np.repeat(best_gen_distrib, self.bsize, 0))
-        return scores
-
-
-
 
     def video_pred(self, last_frames, last_states, actions, cem_itr):
         t_0 = time.time()
