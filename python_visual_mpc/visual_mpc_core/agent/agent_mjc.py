@@ -187,12 +187,13 @@ class AgentMuJoCo(object):
         if 'gen_xml' in self._hyperparams:
             traj.obj_statprop = self.obj_statprop
 
+
         # apply action of zero for the first few steps, to let the scene settle
         for t in range(self._hyperparams['skip_first']):
             for _ in range(self._hyperparams['substeps']):
                 ctrl = np.zeros(self._hyperparams['adim'])
                 if 'posmode' in self._hyperparams:
-                    #keep gripper at default x,y positions
+                    # keep gripper at default x,y positions
                     ctrl[:3] = self.sim.data.qpos[:3].squeeze()
                 self.sim.data.ctrl[:] = ctrl
                 self.sim.step()
@@ -212,12 +213,16 @@ class AgentMuJoCo(object):
         # Take the sample.
         for t in range(self.T):
             qpos_dim = self.sdim // 2  # the states contains pos and vel
-            traj.X_full[t, :] = self.sim.data.qpos[:qpos_dim].squeeze()
-            traj.Xdot_full[t, :] = self.sim.data.qvel[:qpos_dim].squeeze()
+            traj.X_full[t, :] = self.sim.data.qpos[:qpos_dim].squeeze().copy()
+            traj.Xdot_full[t, :] = self.sim.data.qvel[:qpos_dim].squeeze().copy()
             traj.X_Xdot_full[t, :] = np.concatenate([traj.X_full[t, :], traj.Xdot_full[t, :]])
             assert self.sim.data.qpos.shape[0] == qpos_dim + 7 * self._hyperparams['num_objects']
             for i in range(self._hyperparams['num_objects']):
-                fullpose = self.sim.data.qpos[i * 7 + qpos_dim:(i + 1) * 7 + qpos_dim].squeeze()
+                fullpose = self.sim.data.qpos[i * 7 + qpos_dim:(i + 1) * 7 + qpos_dim].squeeze().copy()
+
+                if 'object_meshes' in self._hyperparams:
+                    fullpose[:3] = self.sim.data.sensordata[i * 3 :(i + 1) * 3].copy()
+
                 traj.Object_full_pose[t, i, :] = fullpose
                 zangle = self.quat_to_zangle(fullpose[3:])
                 traj.Object_pose[t, i, :] = np.concatenate([fullpose[:2], zangle])  # save only xyz, theta
@@ -244,38 +249,44 @@ class AgentMuJoCo(object):
 
             if 'posmode' in self._hyperparams:  #if the output of act is a positions
                 traj.actions[t, :] = mj_U
+
                 if t == 0:
-                    self.prev_target_qpos = copy.deepcopy(self.sim.data.qpos[:self.adim].squeeze())
-                    self.target_qpos = copy.deepcopy(self.sim.data.qpos[:self.adim].squeeze())
-                else:
-                    self.prev_target_qpos = copy.deepcopy(self.target_qpos)
+                    traj.target_qpos[0] = copy.deepcopy(self.sim.data.qpos[:self.adim].squeeze())
 
                 if 'discrete_adim' in self._hyperparams:
                     up_cmd = mj_U[2]
                     assert np.floor(up_cmd) == up_cmd
                     if up_cmd != 0:
                         self.t_down = t + up_cmd
-                        self.target_qpos[2] = self._hyperparams['targetpos_clip'][1][2]
+                        traj.target_qpos[t + 1, 2] = self._hyperparams['targetpos_clip'][1][2]
                         self.gripper_up = True
                     if self.gripper_up:
                         if t == self.t_down:
-                            self.target_qpos[2] = self._hyperparams['targetpos_clip'][0][2]
+                            traj.target_qpos[t + 1, 2] = self._hyperparams['targetpos_clip'][0][2]
                             self.gripper_up = False
-                    self.target_qpos[:2] += mj_U[:2]
+                            traj.target_qpos[t + 1, :2] += mj_U[:2]
                     if self.adim == 4:
-                        self.target_qpos[3] += mj_U[3]
+                        traj.target_qpos[t + 1, :][3] += mj_U[3]
                 else:
-                    self.target_qpos = mj_U + self.target_qpos
-                self.target_qpos = self.clip_targetpos(self.target_qpos)
+
+                    traj.target_qpos[t + 1, :] = mj_U.copy() + traj.target_qpos[t, :] * traj.mask_rel
+                traj.target_qpos[t + 1, :] = self.clip_targetpos(traj.target_qpos[t + 1, :])
+
+
             else:
                 traj.actions[t, :] = mj_U
                 ctrl = mj_U.copy()
 
             for st in range(self._hyperparams['substeps']):
                 if 'posmode' in self._hyperparams:
-                    ctrl = self.get_int_targetpos(st, self.prev_target_qpos, self.target_qpos)
+                    ctrl = self.get_int_targetpos(st, traj.target_qpos[t, :], traj.target_qpos[t + 1, :])
+
                 self.sim.data.ctrl[:] = ctrl
                 self.sim.step()
+                # width = self._hyperparams['viewer_image_width']
+                # height = self._hyperparams['viewer_image_height']
+                # cv2.imwrite('test_rec/test{}.jpg'.format(t * self._hyperparams['substeps'] + st), self.sim.render(width, height, camera_name="maincam")[::-1, :, ::-1])
+
                 self.hf_qpos_l.append(copy.deepcopy(self.sim.data.qpos))
                 self.hf_target_qpos_l.append(copy.deepcopy(ctrl))
 
@@ -300,6 +311,7 @@ class AgentMuJoCo(object):
                 traj_ok = False
         else:
             traj_ok = True
+
 
         #discarding trajecotries where an object falls out of the bin:
         end_zpos = [traj.Object_full_pose[-1, i, 2] for i in range(self._hyperparams['num_objects'])]
@@ -342,6 +354,10 @@ class AgentMuJoCo(object):
         img.save(self._hyperparams['save_goal_image'] + '.png',)
 
     def eval_action(self, traj, t):
+        if 'ztarget' in self._hyperparams:
+            obj_z = traj.Object_full_pose[t, 0, 2]
+            pos_score = np.abs(obj_z - self._hyperparams['ztarget'])
+            return pos_score, 0.
         abs_distances = []
         abs_angle_dist = []
         for i_ob in range(self._hyperparams['num_objects']):
@@ -429,6 +445,7 @@ class AgentMuJoCo(object):
         if 'cameras' in self._hyperparams:
             for i, cam in enumerate(self._hyperparams['cameras']):
                 large_img = self.sim.render(width, height, camera_name=cam)[::-1, :, :]
+                
                 if np.sum(large_img) < 1e-3:
                     print("image dark!!!")
                     raise Image_dark_except

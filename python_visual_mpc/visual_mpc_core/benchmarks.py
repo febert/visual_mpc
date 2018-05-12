@@ -168,14 +168,24 @@ def perform_benchmark(conf = None, iex=-1, gpu_id=None):
         f.write('---\n')
         f.write('average angle cost: {0}\n'.format(np.mean(anglecost)))
         f.write('----------------------\n')
-        f.write('traj: improv, score, anglecost, rank\n')
-        f.write('----------------------\n')
+        if 'ztarget' in sim.agent._hyperparams:
+            f.write('traj: improv, score, lifted at end, rank\n')
+            f.write('----------------------\n')
 
-        for n, t in enumerate(range(conf['start_index'], traj)):
-            f.write('{}: {}, {}, {}, :{}\n'.format(t, improvement[n], score[n], anglecost[n], np.where(sorted_ind == n)[0][0]))
+            for n, t in enumerate(range(conf['start_index'], traj)):
+                f.write('{}: {}, {}, {}, :{}\n'.format(t, improvement[n], score[n], improvement[n] > 0.05,
+                                                       np.where(sorted_ind == n)[0][0]))
+        else:
+            f.write('traj: improv, score, anglecost, rank\n')
+            f.write('----------------------\n')
+
+            for n, t in enumerate(range(conf['start_index'], traj)):
+                f.write('{}: {}, {}, {}, :{}\n'.format(t, improvement[n], score[n], anglecost[n], np.where(sorted_ind == n)[0][0]))
+
         f.close()
 
     print('mean imp, med imp, mean dist, med dist {}, {}, {}, {}\n'.format(mean_imp, med_imp, mean_dist, med_dist))
+
 
 if __name__ == '__main__':
     perform_benchmark()

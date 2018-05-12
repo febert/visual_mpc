@@ -84,7 +84,7 @@ def save_tf_record_gtruthpred(dir, filename, trajectory_list, params):
     """
 
     filename = os.path.join(dir, filename + '.tfrecords')
-    print(('Writing', filename))
+    print('Writing', filename)
     writer = tf.python_io.TFRecordWriter(filename)
     feature = {}
 

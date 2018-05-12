@@ -50,6 +50,10 @@ agent = {
     'record': BASE_DIR + '/record/',
     'targetpos_clip':[[-0.5, -0.5, -0.08, -np.pi*2, 0], [0.5, 0.5, 0.15, np.pi*2, 0.1]],
     'mode_rel':np.array([True, True, True, True, False]),
+    'cameras':['maincam', 'leftcam'],
+    'pos_disp_range':0.7,
+    'ang_disp_range':np.pi/8,
+    'arm_disp_range':0.2,
     #'object_meshes':['giraffe'] #folder to original object + convex approximation
     # 'displacement_threshold':0.1,
 }

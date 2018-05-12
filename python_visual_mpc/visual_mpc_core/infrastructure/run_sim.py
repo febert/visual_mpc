@@ -130,7 +130,11 @@ class Sim(object):
                 os.makedirs(self.group_folder)
 
             self.traj_folder = self.group_folder + '/traj{}'.format(itr)
-            self.image_folder = self.traj_folder + '/images'
+            if 'cameras' in self.agentparams:
+                self.image_folders = [self.traj_folder + '/images{}'.format(i) for i in range(len(self.agentparams['cameras']))]
+            else:
+                self.image_folder = self.traj_folder + '/images'
+            
             self.depth_image_folder = self.traj_folder + '/depth_images'
 
             if os.path.exists(self.traj_folder):
@@ -139,7 +143,12 @@ class Sim(object):
 
             os.makedirs(self.traj_folder)
             self.logger.log('writing: ', self.traj_folder)
-            os.makedirs(self.image_folder)
+            if 'cameras' in self.agentparams:
+                for f in self.image_folders:
+                    os.makedirs(f)
+            else:
+                os.makedirs(self.image_folder)
+            
             os.makedirs(self.depth_image_folder)
 
             self.state_action_pkl_file = self.traj_folder + '/state_action.pkl'
@@ -163,19 +172,31 @@ class Sim(object):
                     dict['arm_masks'] = traj.arm_masks
                 if 'posmode' in self.agentparams:
                     dict['target_qpos'] = traj.target_qpos
+                    if hasattr(traj, 'mask_rel'):
+                        dict['mask_rel'] = traj.mask_rel
+                    if hasattr(traj, 'desig_pos'):
+                        dict['obj_start_end_pos'] = traj.desig_pos
 
                 if hasattr(traj, "plan_stat"):
                     dict['plan_stat'] = traj.plan_stat
 
                 pickle.dump(dict, f)
-
-            for t in range(traj.T):
-                image_name = self.image_folder+ "/im{}.png".format(t)
-                cv2.imwrite(image_name, traj.images[t][:,:,::-1], [cv2.IMWRITE_PNG_STRATEGY_DEFAULT, 1])
-                if 'medium_image' in self.agentparams:
-                    image_name = self.image_folder+ "/im_med{}.png".format(t)
-                    cv2.imwrite(image_name, traj._medium_images[t][:,:,::-1], [cv2.IMWRITE_PNG_STRATEGY_DEFAULT, 1])
-
+            if 'cameras' in self.agentparams:
+                for i, image_folder in enumerate(self.image_folders):
+                    for t in range(traj.T):
+                        image_name = image_folder + "/im{}.png".format(t)
+                        cv2.imwrite(image_name, traj.images[t, i][:,:,::-1], [cv2.IMWRITE_PNG_STRATEGY_DEFAULT, 1])
+                        if 'medium_image' in self.agentparams:
+                            image_name = image_folder + "/im_med{}.png".format(t)
+                            cv2.imwrite(image_name, traj._medium_images[t, i][:,:,::-1], [cv2.IMWRITE_PNG_STRATEGY_DEFAULT, 1])
+            else:
+                for t in range(traj.T):
+                    image_name = self.image_folder+ "/im{}.png".format(t)
+                    cv2.imwrite(image_name, traj.images[t][:,:,::-1], [cv2.IMWRITE_PNG_STRATEGY_DEFAULT, 1])
+                    if 'medium_image' in self.agentparams:
+                        image_name = self.image_folder+ "/im_med{}.png".format(t)
+                        cv2.imwrite(image_name, traj._medium_images[t][:,:,::-1], [cv2.IMWRITE_PNG_STRATEGY_DEFAULT, 1])
+            
             if traj.goal_mask != None:
                 folder = self.traj_folder + '/goal_masks'
                 os.makedirs(folder)
