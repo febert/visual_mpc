@@ -241,8 +241,8 @@ class AgentMuJoCo(object):
             if 'not_use_images' in self._hyperparams:
                 mj_U = policy.act(traj, t, self.sim, self.goal_obj_pose, self._hyperparams, self.goal_image)
             else:
-                mj_U, plan_stat = policy.act(traj, t, desig_pix=self.desig_pix,goal_pix=self.goal_pix,
-                                          goal_image=self.goal_image, goal_mask=self.goal_mask, curr_mask=self.curr_mask)
+                mj_U, plan_stat = policy.act(traj, t, desig_pix=self.desig_pix, goal_pix=self.goal_pix,
+                                              goal_mask=self.goal_mask, curr_mask=self.curr_mask)
                 traj.plan_stat.append(copy.deepcopy(plan_stat))
 
             self.large_images_traj.append(self.large_images[t])
@@ -250,31 +250,36 @@ class AgentMuJoCo(object):
             if 'posmode' in self._hyperparams:  #if the output of act is a positions
                 traj.actions[t, :] = mj_U
                 if t == 0:
-                    traj.target_qpos[0] = copy.deepcopy(self.sim.data.qpos[:self.adim].squeeze())
+                    self.prev_target_qpos = copy.deepcopy(self.sim.data.qpos[:self.adim].squeeze())
+                    self.target_qpos = copy.deepcopy(self.sim.data.qpos[:self.adim].squeeze())
+                else:
+                    self.prev_target_qpos = copy.deepcopy(self.target_qpos)
+
                 if 'discrete_adim' in self._hyperparams:
                     up_cmd = mj_U[2]
                     assert np.floor(up_cmd) == up_cmd
                     if up_cmd != 0:
                         self.t_down = t + up_cmd
-                        traj.target_qpos[t + 1, 2] = self._hyperparams['targetpos_clip'][1][2]
+                        self.target_qpos[2] = self._hyperparams['targetpos_clip'][1][2]
                         self.gripper_up = True
                     if self.gripper_up:
                         if t == self.t_down:
-                            traj.target_qpos[t + 1, 2] = self._hyperparams['targetpos_clip'][0][2]
+                            self.target_qpos[2] = self._hyperparams['targetpos_clip'][0][2]
                             self.gripper_up = False
-                            traj.target_qpos[t + 1, :2] += mj_U[:2]
+                    self.target_qpos[:2] += mj_U[:2]
                     if self.adim == 4:
-                        traj.target_qpos[t + 1, :][3] += mj_U[3]
+                        self.target_qpos[3] += mj_U[3]
                 else:
-                    traj.target_qpos[t + 1, :] = mj_U.copy() + traj.target_qpos[t, :] * traj.mask_rel
-                traj.target_qpos[t + 1, :] = self.clip_targetpos(traj.target_qpos[t + 1, :])
+                    self.target_qpos = mj_U + self.target_qpos
+                self.target_qpos = self.clip_targetpos(self.target_qpos)
+                traj.target_qpos[t] = self.target_qpos
             else:
                 traj.actions[t, :] = mj_U
                 ctrl = mj_U.copy()
 
             for st in range(self._hyperparams['substeps']):
                 if 'posmode' in self._hyperparams:
-                    ctrl = self.get_int_targetpos(st, traj.target_qpos[t, :], traj.target_qpos[t + 1, :])
+                    ctrl = self.get_int_targetpos(st, self.prev_target_qpos, self.target_qpos)
                 self.sim.data.ctrl[:] = ctrl
                 self.sim.step()
                 # width = self._hyperparams['viewer_image_width']
@@ -549,7 +554,7 @@ class AgentMuJoCo(object):
         if 'goal_point' in self._hyperparams:
             goal = np.append(self._hyperparams['goal_point'], [.1])   # goal point
             ref = np.append(object_pos[:2], [.1]) # reference point on the block
-            sim_state.qpos[:]= np.concatenate((xpos0, object_pos, goal, ref), 0)
+            sim_state.qpos[:] = np.concatenate((xpos0, object_pos, goal, ref), 0)
         else:
             sim_state.qpos[:] = np.concatenate((xpos0, object_pos.flatten()), 0)
 

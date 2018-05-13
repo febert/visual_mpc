@@ -1,7 +1,8 @@
 import os
 import python_visual_mpc
-current_dir = '/'.join(str.split(__file__, '/')[:-1])
-bench_dir = '/'.join(str.split(__file__, '/')[:-2])
+
+current_dir = '/'.join(str.split(os.path.abspath(__file__), '/')[:-1])
+bench_dir = '/'.join(str.split(os.path.abspath(__file__), '/')[:-2])
 
 from python_visual_mpc.visual_mpc_core.algorithm.cem_controller import CEM_controller
 
@@ -13,7 +14,7 @@ import numpy as np
 
 agent = {
     'type': AgentMuJoCo,
-    'T': 40,
+    'T': 60,
     'substeps':50,
     'make_final_gif':'',
     'adim':3,
@@ -22,21 +23,23 @@ agent = {
     'filename_nomarkers': ROOT_DIR + '/mjc_models/cartgripper_updown_whitefingers.xml',
     'gen_xml':1,   #generate xml every nth trajecotry
     'num_objects': 3,
+    'object_max_len':0.1,
+    'object_min_len':0.05,
     'viewer_image_height' : 480,
     'viewer_image_width' : 640,
     'image_height':48,
     'image_width':64,
     'additional_viewer':'',
-    'data_save_dir':current_dir + '/data/train',
+    'data_save_dir': current_dir + '/data/train',
     'posmode':"",
     'targetpos_clip':[[-0.45, -0.45, -0.08], [0.45, 0.45, 0.15]],
-    'discrete_adim':[2],
+    'mode_rel':np.array([True, True, True]),
     'not_use_images':"",
     'sample_objectpos':'',
     # 'object_object_mindist':0.35,
     'const_dist':0.2,
     'randomize_ballinitpos':'',
-    'dist_ok_thresh':0.1,
+    # 'dist_ok_thresh':0.1,
     'first_last_noarm':''
 }
 
@@ -47,7 +50,7 @@ policy = {
     'nactions': 5,
     'repeat': 3,
     'initial_std': 0.08,        # std dev. in xy
-    'initial_std_lift': 2.5,
+    'initial_std_lift': 0.1,
     'iterations': 2,
     'action_cost_factor': 0,
     'rew_all_steps':"",

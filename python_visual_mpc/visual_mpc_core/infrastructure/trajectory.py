@@ -56,7 +56,7 @@ class Trajectory(object):
 
         if 'posmode' in conf:
             self.target_qpos = np.zeros([self.T + 1, conf['adim']])
-            if 'model_rel' in conf:
+            if 'mode_rel' in conf:
                 self.mask_rel = conf['mode_rel'].copy()
 
         if 'num_objects' in conf:
