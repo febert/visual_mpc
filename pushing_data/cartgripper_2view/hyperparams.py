@@ -22,7 +22,7 @@ folder_name = '/'.join(str.split(__file__, '/')[-2:-1])
 
 agent = {
     'type': AgentMuJoCo,
-    'data_save_dir': '/mnt/sda1/pushing_data/' + folder_name + '/train',
+    'data_save_dir': os.environ['VMPC_DATA_DIR'] + '/cartgripper/' + folder_name + '/train',
     'filename': DATA_DIR+'/mjc_models/cartgripper_grasp.xml',
     'filename_nomarkers': DATA_DIR+'/mjc_models/cartgripper_grasp.xml',
     'cameras':['maincam','leftcam'],
@@ -50,6 +50,7 @@ agent = {
     'mode_rel':np.array([True, True, True, True, False]),
     'record':current_dir + '/verbose',
     'get_curr_mask':'',
+    'not_create_goals':'',
 }
 
 policy = {
@@ -57,11 +58,13 @@ policy = {
     'nactions': 5,
     'repeats': 3,               # number of repeats for each action
     'initial_std': 0.08,        # std dev. in xy
-    'initial_std_lift': 2.5, #0.1,
+    'initial_std_lift': 0.1,
+    'initial_std_rot': 0.1,
+    'initial_std_grasp': 100,
 }
 
 config = {
-    'traj_per_file': 1, ################32,
+    'traj_per_file': 32,
     'current_dir':current_dir,
     'save_data': True,
     'start_index':0,

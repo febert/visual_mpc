@@ -302,14 +302,14 @@ def main():
     current_dir = os.path.dirname(os.path.realpath(__file__))
     # DATA_DIR = '/mnt/sda1/pushing_data/cartgripper/grasping/lift_imitation_dataset/test'
     # DATA_DIR = '/mnt/sda1/pushing_data/onpolicy/distributed_pushing/train'
-    DATA_DIR = '/mnt/sda1/pushing_data/cartgripper/dualcam_pick_place_dataset/train'
+    DATA_DIR = '/mnt/sda1/pushing_data/cartgripper/cartgripper_2view/train'
 
     conf['schedsamp_k'] = -1  # don't feed ground truth
     conf['data_dir'] = DATA_DIR  # 'directory containing data_files.' ,
     conf['skip_frame'] = 1
     conf['train_val_split']= 0.95
     conf['sequence_length']= 15  #48      # 'sequence length, including context frames.'
-    conf['batch_size'] = 20
+    conf['batch_size'] = 5
     conf['visualize'] = False
     conf['context_frames'] = 2
     conf['ncam'] = 2
