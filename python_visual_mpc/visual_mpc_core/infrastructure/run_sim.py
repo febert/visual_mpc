@@ -229,8 +229,8 @@ class Sim(object):
                 save_tf_record(filename, self.trajectory_list, self.agentparams)
                 self.trajectory_list = []
 
-                write_scores(itr, self.trajectory_list, filename, self.agentparams)
-
+                if self.agent.goal_obj_pose is not None:
+                    write_scores(itr, self.trajectory_list, filename, self.agentparams)
 
 def write_scores(itr, trajlist, filename, agentparams):
     dir = '/'.join(str.split(agentparams['data_save_dir'], '/')[:-1])
