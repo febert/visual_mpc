@@ -4,7 +4,7 @@ import os.path
 
 import numpy as np
 
-from python_visual_mpc.visual_mpc_core.algorithm.det_grasp_policy import DeterministicGraspPolicy
+from python_visual_mpc.visual_mpc_core.algorithm.det_grasp_policy import CluteredGraspPolicy
 from python_visual_mpc.visual_mpc_core.agent.agent_mjc import AgentMuJoCo
 
 IMAGE_WIDTH = 64
@@ -39,10 +39,10 @@ agent = {
     'viewer_image_height' : 480,
     'viewer_image_width' : 640,
     'image_channels' : 3,
-    'num_objects': 1,
+    'num_objects': 10,
     'novideo':'',
     'gen_xml':10,   #generate xml every nth trajecotry
-    'init_arm_near_obj': 0.3, #randomize x, y
+    'pos_disp_range': 0.5, #randomize x, y
     'poscontroller_offset':'',
     'posmode':'abs',
     'ztarget':0.13,
@@ -51,30 +51,16 @@ agent = {
     'record': BASE_DIR + '/record/',
     'targetpos_clip':[[-0.5, -0.5, -0.08, -np.pi*2, 0], [0.5, 0.5, 0.15, np.pi*2, 0.1]],
     'mode_rel':np.array([True, True, True, True, False]),
-    'cameras':['maincam', 'leftcam'],
-    'pos_disp_range':0.7,
-    'ang_disp_range':np.pi/8,
-    'arm_disp_range':0.2,
     #'object_meshes':['giraffe'] #folder to original object + convex approximation
     # 'displacement_threshold':0.1,
 }
 
 policy = {
-    'type' : DeterministicGraspPolicy,
-    'nactions': 15,
-    'iterations':5,
-    'repeats': 5, # number of repeats for each action
-    'xyz_std': 8e-2,   #std dev. in xy
-    'angle_std': 2e-1,   #std dev. in xy
-    'debug_viewer':False,
-    'num_samples':50,
-    'best_to_take':5,
-    'drop_thresh':0.06,
-    'init_mean':np.zeros(3),
-    'init_cov':np.diag(np.array([(3.14 / 2) ** 2, 1e-3, 1e-3])),
-    'stop_iter_thresh':0.09,
-    'max_norm':0.2
-    # 'initial_std_grasp': 1e-5,   #std dev. in xy
+    'type' : CluteredGraspPolicy,
+    'xyz_std': 3e-1,   #std dev. in xy
+    'angle_window': 0.5,   #angle delta chosen uniformly from these values
+    'z_window': 0.03,
+    'max_norm':0.15
 }
 
 config = {
@@ -83,7 +69,7 @@ config = {
     'save_data': True,
     'save_raw_images' : True,
     'start_index':0,
-    'end_index': 80000,
+    'end_index': 1000,
     'agent': agent,
     'policy': policy,
     'ngroup': 1000

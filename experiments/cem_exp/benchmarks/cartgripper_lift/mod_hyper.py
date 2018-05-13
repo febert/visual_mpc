@@ -28,7 +28,6 @@ agent = {
     'filename_nomarkers': DATA_DIR+'/mjc_models/cartgripper_grasp.xml',
     'not_use_images':"",
     'visible_viewer':True,
-    'sample_objectpos':'',
     'adim':5,
     'sdim':12,
     'xpos0': np.array([0., 0., 0.05, 0., 0., 0.]), #initialize state dimension to 5 zeros
@@ -45,7 +44,6 @@ agent = {
     'num_objects': 1,
     'novideo':'',
     'gen_xml':10,   #generate xml every nth trajecotry
-    'randomize_ballinitpos':'', #randomize x, y
     'poscontroller_offset':'',
     'posmode':'abs',
     'ztarget':0.13,

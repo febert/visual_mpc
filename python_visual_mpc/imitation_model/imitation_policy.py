@@ -54,7 +54,7 @@ class ImitationPolicy(Policy):
 
 
     def act(self, traj, t, init_model = None, goal_object_pose = None, hyperparams = None, goal_image = None):
-        sample_images = traj._sample_images[:t + 1].reshape((1, -1, self.img_height, self.img_width, 3))
+        sample_images = traj.images[:t + 1].reshape((1, -1, self.img_height, self.img_width, 3))
         sample_eep = traj.target_qpos[:t + 1, :].reshape((1, -1, self.sdim)).astype(np.float32)
 
         actions = self.model.query(self.sess, traj, t, images=sample_images, end_effector=sample_eep)
