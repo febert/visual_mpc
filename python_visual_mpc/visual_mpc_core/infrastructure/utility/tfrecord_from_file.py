@@ -51,7 +51,7 @@ def main():
     for g in traj_group_dirs:
         trajs = glob.glob(g + '/*')
         for t in trajs:
-            if len(glob.glob(t + '/images/*.png')) != T or not os.path.exists(t + '/state_action.pkl'):
+            if len(glob.glob(t + '/images0/*.png')) != T or len(glob.glob(t + '/images1/*.png')) != T or not os.path.exists(t + '/state_action.pkl'):
                 print('TRAJ', t, 'is broken')
                 continue
             try:
@@ -64,10 +64,9 @@ def main():
             else:
                 loaded_traj = LoadTraj()
                 goal_pos = state_action['obj_start_end_pos'][1]
-                #object_z = state_action['object_full_pose'][-1, 0, 2]
                 loaded_traj.actions = state_action['actions']
                 loaded_traj.X_Xdot_full = np.hstack((state_action['qpos'], state_action['qvel'])) #state_action['target_qpos'][:T, :] # # 
-                loaded_traj._sample_images = np.zeros((T, img_height, img_width, 3), dtype = 'uint8')
+                loaded_traj.images = np.zeros((T, 2, img_height, img_width, 3), dtype = 'uint8')
 
                 good_lift = False
                 total_ctr += 1
@@ -81,8 +80,11 @@ def main():
                     good_lift_ctr += 1
                 
                 for i in range(T):
-                    img = cv2.imread(t + '/images/im{}.png'.format(i))[:, :, ::-1]
-                    loaded_traj.images[i] = img
+                    img = cv2.imread(t + '/images0/im{}.png'.format(i))[:, :, ::-1]
+                    loaded_traj.images[i, 0] = img
+
+                    img2 = cv2.imread(t + '/images1/im{}.png'.format(i))[:, :, ::-1]
+                    loaded_traj.images[i, 1] = img2
 
                 #     if np.sum(np.abs(goal_pos)) > 0 and all(goal_pos == loaded_traj.X_Xdot_full[i, :2]) and loaded_traj.X_Xdot_full[i, 2] ==-0.08 and loaded_traj.goal_image is None:
                 #         loaded_traj.goal_image = img
