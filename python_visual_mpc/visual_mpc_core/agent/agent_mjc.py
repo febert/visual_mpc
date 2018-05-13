@@ -488,6 +488,8 @@ class AgentMuJoCo(object):
             plt.plot(list(range(tmax)), self.hf_target_qpos_l[:, i], label='q_target{}'.format(i))
             plt.legend()
             # plt.show()
+            if not os.path.exists(self._hyperparams['record']):
+                os.makedirs(self._hyperparams['record'])
             plt.savefig(self._hyperparams['record'] + '/ctrls.png')
 
     def _init(self):
