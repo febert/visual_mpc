@@ -115,7 +115,7 @@ class ReplayBuffer_Loadfiles(ReplayBuffer):
                 self.logger.log('reading scores')
                 self.get_scores(to_load_filenames)
                 self.logger.log('writing scores plot to {}'.format(self.conf['result_dir']))
-                plot_scores(self.conf['result_dir'], scores, final_poscost)
+                plot_scores(self.conf['result_dir'], self.final_poscost_avg, self.improvement_avg)
 
             self.logger.log('traj_per hour: {}'.format(self.num_updates/((time.time() - self.tstart)/3600)))
             self.logger.log('avg time per traj {}s'.format((time.time() - self.tstart)/self.num_updates))
