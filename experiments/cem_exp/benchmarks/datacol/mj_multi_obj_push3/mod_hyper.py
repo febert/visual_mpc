@@ -56,7 +56,7 @@ policy = {
     'rew_all_steps':"",
     'finalweight':10,
     'no_action_bound':"",
-    'num_samples': 10,#################100,
+    'num_samples': 100,
     'replan_interval':10,
 }
 
