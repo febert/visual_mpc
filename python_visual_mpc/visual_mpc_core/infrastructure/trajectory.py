@@ -56,7 +56,8 @@ class Trajectory(object):
 
         if 'posmode' in conf:
             self.target_qpos = np.zeros([self.T + 1, conf['adim']])
-            self.mask_rel = conf['mode_rel'].copy()
+            if 'mode_rel' in conf:
+                self.mask_rel = conf['mode_rel'].copy()
 
         if 'num_objects' in conf:
             self.Object_pose = np.zeros([self.T, conf['num_objects'], 3])  # x,y rot of  block

@@ -249,38 +249,37 @@ class AgentMuJoCo(object):
 
             if 'posmode' in self._hyperparams:  #if the output of act is a positions
                 traj.actions[t, :] = mj_U
-
                 if t == 0:
-                    traj.target_qpos[0] = copy.deepcopy(self.sim.data.qpos[:self.adim].squeeze())
+                    self.prev_target_qpos = copy.deepcopy(self.sim.data.qpos[:self.adim].squeeze())
+                    self.target_qpos = copy.deepcopy(self.sim.data.qpos[:self.adim].squeeze())
+                else:
+                    self.prev_target_qpos = copy.deepcopy(self.target_qpos)
 
                 if 'discrete_adim' in self._hyperparams:
                     up_cmd = mj_U[2]
                     assert np.floor(up_cmd) == up_cmd
                     if up_cmd != 0:
                         self.t_down = t + up_cmd
-                        traj.target_qpos[t + 1, 2] = self._hyperparams['targetpos_clip'][1][2]
+                        self.target_qpos[2] = self._hyperparams['targetpos_clip'][1][2]
                         self.gripper_up = True
                     if self.gripper_up:
                         if t == self.t_down:
-                            traj.target_qpos[t + 1, 2] = self._hyperparams['targetpos_clip'][0][2]
+                            self.target_qpos[2] = self._hyperparams['targetpos_clip'][0][2]
                             self.gripper_up = False
-                            traj.target_qpos[t + 1, :2] += mj_U[:2]
+                    self.target_qpos[:2] += mj_U[:2]
                     if self.adim == 4:
-                        traj.target_qpos[t + 1, :][3] += mj_U[3]
+                        self.target_qpos[3] += mj_U[3]
                 else:
-
-                    traj.target_qpos[t + 1, :] = mj_U.copy() + traj.target_qpos[t, :] * traj.mask_rel
-                traj.target_qpos[t + 1, :] = self.clip_targetpos(traj.target_qpos[t + 1, :])
-
-
+                    self.target_qpos = mj_U + self.target_qpos
+                self.target_qpos = self.clip_targetpos(self.target_qpos)
+                traj.target_qpos[t] = self.target_qpos
             else:
                 traj.actions[t, :] = mj_U
                 ctrl = mj_U.copy()
 
             for st in range(self._hyperparams['substeps']):
                 if 'posmode' in self._hyperparams:
-                    ctrl = self.get_int_targetpos(st, traj.target_qpos[t, :], traj.target_qpos[t + 1, :])
-
+                    ctrl = self.get_int_targetpos(st, self.prev_target_qpos, self.target_qpos)
                 self.sim.data.ctrl[:] = ctrl
                 self.sim.step()
                 # width = self._hyperparams['viewer_image_width']
@@ -318,7 +317,8 @@ class AgentMuJoCo(object):
         if any(zval < -2e-2 for zval in end_zpos):
             print('object fell out!!!')
             traj_ok = False
-        self.plot_ctrls()
+        if 'verbose' in self._hyperparams:
+            self.plot_ctrls()
 
         if 'dist_ok_thresh' in self._hyperparams:
             if np.any(traj.goal_dist[-1] > self._hyperparams['dist_ok_thresh']):
@@ -494,6 +494,8 @@ class AgentMuJoCo(object):
             plt.plot(list(range(tmax)), self.hf_target_qpos_l[:, i], label='q_target{}'.format(i))
             plt.legend()
             # plt.show()
+            if not os.path.exists(self._hyperparams['record']):
+                os.makedirs(self._hyperparams['record'])
             plt.savefig(self._hyperparams['record'] + '/ctrls.png')
 
     def _init(self):
@@ -553,7 +555,7 @@ class AgentMuJoCo(object):
         if 'goal_point' in self._hyperparams:
             goal = np.append(self._hyperparams['goal_point'], [.1])   # goal point
             ref = np.append(object_pos[:2], [.1]) # reference point on the block
-            sim_state.qpos[:]= np.concatenate((xpos0, object_pos, goal, ref), 0)
+            sim_state.qpos[:] = np.concatenate((xpos0, object_pos, goal, ref), 0)
         else:
             sim_state.qpos[:] = np.concatenate((xpos0, object_pos.flatten()), 0)
 
@@ -561,7 +563,7 @@ class AgentMuJoCo(object):
         self.sim.set_state(sim_state)
         self.sim.forward()
 
-        if self.start_conf is None:
+        if self.start_conf is None and 'not_create_goals' not in self._hyperparams:
             self.goal_obj_pose = []
             dist_betwob_ok = False
             while not dist_betwob_ok:

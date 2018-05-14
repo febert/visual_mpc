@@ -35,6 +35,7 @@ class Sim(object):
         if logger == None:
             self.logger = Logger(printout=True)
         else: self.logger = logger
+        self.logger.log('started sim')
 
         if 'RESULT_DIR' in os.environ:
             self.agentparams['data_save_dir'] = os.environ['RESULT_DIR'] + '/data/train'
@@ -228,19 +229,21 @@ class Sim(object):
                 save_tf_record(filename, self.trajectory_list, self.agentparams)
                 self.trajectory_list = []
 
-                write_scores(itr, self.trajectory_list, filename, self.agentparams)
-
+                if self.agent.goal_obj_pose is not None:
+                    write_scores(itr, self.trajectory_list, filename, self.agentparams)
 
 def write_scores(itr, trajlist, filename, agentparams):
     dir = '/'.join(str.split(agentparams['data_save_dir'], '/')[:-1])
     dir += '/scores'
+    if not os.path.exists(dir):
+        os.makedirs(dir)
     filename = filename.partition('.')[0] + '_score.pkl'
     scores = {}
     for itr, traj in zip(range(itr, len(trajlist)), trajlist):
         scores[itr] = {'improvement':traj.improvement,
                        'final_poscost':traj.final_poscost,
                        'initial_poscost':traj.initial_poscost}
-    pickle.dump(scores, open(os.path.join(dir, filename)), 'wb')
+    pickle.dump(dict, open(os.path.join(dir, filename), 'wb'))
 
 def plot_warp_err(traj, dir):
     start_err = []

@@ -18,8 +18,13 @@ from python_visual_mpc.visual_mpc_core.infrastructure.remote_synchronizer import
 import re
 
 
+from tensorflow.python.framework.errors_impl import NotFoundError
 def get_maxiter_weights(dir):
-    filenames = gfile.Glob(dir +'/model*')
+    try:
+        filenames = gfile.Glob(dir +'/model*')
+    except NotFoundError:
+        print('nothing found at ', dir +'/model*')
+        return None
     iternums = []
     if len(filenames) != 0:
         for f in filenames:
@@ -44,7 +49,7 @@ class Data_Collector(object):
         random.seed(None)
         np.random.seed(None)
         self.conf = conf
-        self.sim = Sim(conf, gpu_id=conf['gpu_id'])
+        self.sim = Sim(conf, gpu_id=conf['gpu_id'], logger=self.logger)
         self.logger.log('init data collectors done.')
         self.last_weights_loaded = None
 
@@ -103,7 +108,6 @@ def main():
     start_idx = [hyperparams['start_index'] + traj_per_worker * i for i in range(n_worker)]
     end_idx = [hyperparams['start_index'] + traj_per_worker * (i+1)-1 for i in range(n_worker)]
 
-    pdb.set_trace()
     if 'RESULT_DIR' in os.environ:
         print('clearing result dir')
         os.system('rm -r {}/*'.format(os.environ['RESULT_DIR']))
