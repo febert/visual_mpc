@@ -125,7 +125,10 @@ class ReplayBuffer_Loadfiles(ReplayBuffer):
             filenum = file.partition('train')[2].partition('.')[0]
             path = file.partition('train')[0]
             scorefile = path + 'scores' + filenum + '_score.pkl'
-            dict_ = pickle.load(open(scorefile, 'rb'))
+            try:
+                dict_ = pickle.load(open(scorefile, 'rb'))
+            except FileNotFoundError:
+                self.logger.log('scorefile: {} not found'.format(scorefile))
             self.improvement_avg.append(np.mean(dict_['improvement']))
             self.final_poscost_avg.append(np.mean(dict_['final_poscost']))
 
