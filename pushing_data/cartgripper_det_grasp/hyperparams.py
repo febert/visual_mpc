@@ -64,7 +64,7 @@ policy = {
     'debug_viewer':False,
     'num_samples':50,
     'best_to_take':5,
-    'drop_thresh':0.0006,
+    'drop_thresh':0.06,
     'init_mean':np.zeros(3),
     'init_cov':np.diag(np.array([(3.14 / 2) ** 2, 1e-3, 1e-3])),
     'stop_iter_thresh':0.09,

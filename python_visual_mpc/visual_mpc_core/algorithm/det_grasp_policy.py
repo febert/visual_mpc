@@ -274,9 +274,9 @@ class DeterministicGraspPolicy(Policy):
             actions[3] = self.angle
 
             if self.moveto:
-                actions[-1] = -100
+                actions[-1] = -1
             else:
-                actions[-1] = 21
+                actions[-1] = 1
 
 
             self.switchTime += 1
@@ -286,21 +286,21 @@ class DeterministicGraspPolicy(Policy):
             actions[:2] = self.targetxy
             actions[2] = -0.08
             actions[3] = self.angle
-            actions[-1] = -100
+            actions[-1] = -1
             self.switchTime += 1
 
         elif self.lift:
             actions[:2] = self.targetxy
             actions[2] = self.agentparams['ztarget']
             actions[3] = self.angle
-            actions[-1] = 21
+            actions[-1] = 1
 
 
         elif self.grasp:
             actions[:2] = self.targetxy
             actions[2] = -0.08
             actions[3] = self.angle
-            actions[-1] = 21
+            actions[-1] = 1
             self.switchTime += 1
         elif self.final_drop:
 
@@ -309,7 +309,7 @@ class DeterministicGraspPolicy(Policy):
                 actions[:2] = self.targetxy
                 actions[2] = -0.08
                 actions[3] = self.angle
-                actions[-1] = -100
+                actions[-1] = -1
                 self.switchTime += 1
 
             if self.switchTime > 1:
@@ -317,7 +317,7 @@ class DeterministicGraspPolicy(Policy):
                 actions[:2] = self.targetxy
                 actions[2] = self.agentparams['ztarget'] + np.random.uniform(-0.03, 0.05)
                 actions[3] = self.angle + np.random.uniform(-np.pi / 4., np.pi / 4.)
-                actions[-1] = -100
+                actions[-1] = -1
                 self.final_drop = False
                 self.wiggle = True
                 self.switchTime = 0
@@ -325,7 +325,7 @@ class DeterministicGraspPolicy(Policy):
                 actions[:2] = self.targetxy
                 actions[2] = -0.08
                 actions[3] = self.angle
-                actions[-1] = -100
+                actions[-1] = -1
                 self.switchTime += 1
 
 
@@ -339,9 +339,9 @@ class DeterministicGraspPolicy(Policy):
             actions[2] = traj.target_qpos[t, 2] + delta_z
             actions[3] = traj.target_qpos[t, 3] + np.random.uniform(-0.1, 0.1)
             if np.random.uniform() > 0.5:
-                actions[4] = -100
+                actions[4] = -1
             else:
-                actions[4] = 21
+                actions[4] = 1
 
         if 'angle_std' in self.policyparams:
             actions[3] += self.policyparams['angle_std'] * np.random.normal()
@@ -416,24 +416,24 @@ class CluteredGraspPolicy(Policy):
             actions[2] = self.z_hover + np.random.uniform(low = -self.window, high = self.window)
 
             actions[3] = traj.target_qpos[t, 3] + np.random.uniform(-self.angle_window, self.angle_window)
-            actions[4] = -100
+            actions[4] = -1
         elif self.down:
             actions[:2] = traj.X_full[t, :2]
             actions[2] = -0.08
             actions[3] = traj.X_full[t, 3]
-            actions[-1] = -100
+            actions[-1] = -1
             self.counter += 1
         elif self.grasp:
             actions[:2] = traj.X_full[t, :2]
             actions[2] = -0.08
             actions[3] = traj.X_full[t, 3]
-            actions[-1] = 21
+            actions[-1] = 1
             self.counter += 1
         elif self.lift:
             actions[:2] = traj.X_full[t, :2]
             actions[2] = self.z_hover
             actions[3] = traj.X_full[t, 3]
-            actions[-1] = 21
+            actions[-1] = 1
         elif self.wiggle:
             delta_vec = self.xyz_std * np.random.normal(size = 2)
             norm = np.sqrt(np.sum(np.square(delta_vec)))
@@ -448,7 +448,7 @@ class CluteredGraspPolicy(Policy):
             actions[3] = traj.target_qpos[t, 3] + np.random.uniform(-self.angle_window, self.angle_window)
 
             if np.random.uniform() > 0.5:
-                actions[4] = -100
+                actions[4] = -1
             else:
-                actions[4] = 21
+                actions[4] = 1
         return actions - traj.target_qpos[t, :] * traj.mask_rel
