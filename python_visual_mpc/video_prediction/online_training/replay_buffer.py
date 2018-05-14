@@ -109,7 +109,7 @@ class ReplayBuffer_Loadfiles(ReplayBuffer):
                     self.push_back(t)
                     self.num_updates += 1
             self.logger.log('done filling replay')
-            if self.num_updates % 100 == 0:
+            if self.num_updates % 1 == 0: ######################################3
                 scores, final_poscost = get_scores(to_load_filenames)
                 plot_scores(self.agentparams['result_dir'], scores, final_poscost)
 
@@ -117,10 +117,10 @@ class ReplayBuffer_Loadfiles(ReplayBuffer):
             self.logger.log('avg time per traj {}s'.format((time.time() - self.tstart)/self.num_updates))
 
 
-def get_scores(filenames):
+def get_scores(to_load_filenames):
     improvement_avg = []
     final_poscost_avg = []
-    for file in filenames:
+    for file in to_load_filenames:
         scorefile = file.partition('.')[0] + '_score.pkl'
         dict = pickle.load(open(scorefile, 'r'))
 

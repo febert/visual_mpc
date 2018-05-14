@@ -272,7 +272,6 @@ def build_tfrecord_single(conf, training=True, input_file=None, shuffle=True):
 
         return return_dict
 
-
     dataset = tf.data.TFRecordDataset(filenames)
     dataset = dataset.map(_parse_function)
 
