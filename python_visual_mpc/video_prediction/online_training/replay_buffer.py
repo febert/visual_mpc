@@ -110,7 +110,9 @@ class ReplayBuffer_Loadfiles(ReplayBuffer):
                     self.num_updates += 1
             self.logger.log('done filling replay')
             if self.num_updates % 1 == 0: ######################################3
+                self.logger.log('reading scores')
                 scores, final_poscost = get_scores(to_load_filenames)
+                self.logger.log('writing scores plot to {}'.format(self.conf['result_dir']))
                 plot_scores(self.conf['result_dir'], scores, final_poscost)
 
             self.logger.log('traj_per hour: {}'.format(self.num_updates/((time.time() - self.tstart)/3600)))
