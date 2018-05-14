@@ -116,27 +116,17 @@ class ReplayBuffer_Loadfiles(ReplayBuffer):
             self.logger.log('traj_per hour: {}'.format(self.num_updates/((time.time() - self.tstart)/3600)))
             self.logger.log('avg time per traj {}s'.format((time.time() - self.tstart)/self.num_updates))
 
-
 def get_scores(to_load_filenames):
     improvement_avg = []
     final_poscost_avg = []
     for file in to_load_filenames:
-        pdb.set_trace()
         filenum = file.partition('train')[2].partition('.')[0]
         path = file.partition('train')[0]
         scorefile = path + 'scores' + filenum + '_score.pkl'
-        dict = pickle.load(open(scorefile, 'rb'))
-
-        improvement = []
-        final_poscost = []
-        for itr in dict.keys():
-            improvement.append(dict[itr]['improvement'])
-            final_poscost.append(dict[itr]['final_poscost'])
-        improvement_avg.append(np.mean(improvement))
-        final_poscost_avg.append(np.mean(final_poscost))
-
+        dict_ = pickle.load(open(scorefile, 'rb'))
+        improvement_avg.append(np.mean(dict_['improvement']))
+        final_poscost_avg.append(np.mean(dict_['final_poscost']))
     return improvement_avg, final_poscost_avg
-
 
 def plot_scores(dir, scores, improvement=None):
 

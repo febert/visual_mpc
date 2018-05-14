@@ -239,11 +239,17 @@ def write_scores(itr, trajlist, filename, agentparams):
         os.makedirs(dir)
     filename = filename.partition('.')[0] + '_score.pkl'
     scores = {}
+    improvements = []
+    final_poscost = []
+    initial_poscost = []
     for itr, traj in zip(range(itr, len(trajlist)), trajlist):
-        scores[itr] = {'improvement':traj.improvement,
-                       'final_poscost':traj.final_poscost,
-                       'initial_poscost':traj.initial_poscost}
-    pickle.dump(dict, open(os.path.join(dir, filename), 'wb'))
+        improvements.append(traj.improvement)
+        final_poscost.append(traj.final_poscost)
+        initial_poscost.append(traj.initial_poscost)
+    scores['improvement'] = improvements
+    scores['final_poscost'] = final_poscost
+    scores['initial_poscost'] = initial_poscost
+    pickle.dump(scores, open(os.path.join(dir, filename), 'wb'))
 
 def plot_warp_err(traj, dir):
     start_err = []
