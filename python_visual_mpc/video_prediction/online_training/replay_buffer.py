@@ -125,7 +125,7 @@ def get_scores(to_load_filenames):
         filenum = file.partition('train')[2].partition('.')[0]
         path = file.partition('train')[0]
         scorefile = path + 'scores' + filenum + '_score.pkl'
-        dict = pickle.load(open(scorefile, 'r'))
+        dict = pickle.load(open(scorefile, 'rb'))
 
         improvement = []
         final_poscost = []
