@@ -1,5 +1,5 @@
 import os
-current_dir = os.path.dirname(os.path.realpath(__file__))
+current_dir = os.path.dirname(os.path.abspath(__file__))
 
 import python_visual_mpc
 base_dir = python_visual_mpc.__file__
