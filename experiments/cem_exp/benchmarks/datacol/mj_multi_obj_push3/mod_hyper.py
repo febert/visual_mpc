@@ -16,7 +16,7 @@ agent = {
     'type': AgentMuJoCo,
     'T': 60,
     'substeps':50,
-    'make_final_gif':'',
+    # 'make_final_gif':'',
     'adim':3,
     'sdim':6,
     'filename': ROOT_DIR + '/mjc_models/cartgripper_updown_whitefingers.xml',
