@@ -8,8 +8,8 @@ import pdb
 
 master = 'deepthought'
 
-master_datadir = '/raid/ngc/pushing_data/onpolicy/distributed_pushing/train'
-master_scoredir = '/raid/ngc/pushing_data/onpolicy/distributed_pushing/scores'
+master_datadir = '/raid/ngc/pushing_data/cartgripper/onpolicy/distributed_pushing/train'
+master_scoredir = '/raid/ngc/pushing_data/cartgripper/onpolicy/distributed_pushing/scores'
 
 @ray.remote
 def sync(node_id, conf, printout=False):
