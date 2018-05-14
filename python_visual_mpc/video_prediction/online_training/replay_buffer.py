@@ -111,7 +111,7 @@ class ReplayBuffer_Loadfiles(ReplayBuffer):
             self.logger.log('done filling replay')
             if self.num_updates % 1 == 0: ######################################3
                 scores, final_poscost = get_scores(to_load_filenames)
-                plot_scores(self.agentparams['result_dir'], scores, final_poscost)
+                plot_scores(self.conf['result_dir'], scores, final_poscost)
 
             self.logger.log('traj_per hour: {}'.format(self.num_updates/((time.time() - self.tstart)/3600)))
             self.logger.log('avg time per traj {}s'.format((time.time() - self.tstart)/self.num_updates))
