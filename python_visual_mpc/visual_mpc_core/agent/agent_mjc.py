@@ -241,8 +241,8 @@ class AgentMuJoCo(object):
             if 'not_use_images' in self._hyperparams:
                 mj_U = policy.act(traj, t, self.sim, self.goal_obj_pose, self._hyperparams, self.goal_image)
             else:
-                mj_U, plan_stat = policy.act(traj, t, desig_pix=self.desig_pix, goal_pix=self.goal_pix,
-                                              goal_mask=self.goal_mask, curr_mask=self.curr_mask)
+                mj_U, plan_stat = policy.act(traj, t, desig_pix=self.desig_pix,goal_pix=self.goal_pix,
+                                          goal_image=self.goal_image, goal_mask=self.goal_mask, curr_mask=self.curr_mask)
                 traj.plan_stat.append(copy.deepcopy(plan_stat))
 
             self.large_images_traj.append(self.large_images[t])
