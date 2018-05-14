@@ -129,12 +129,10 @@ class ReplayBuffer_Loadfiles(ReplayBuffer):
             self.improvement_avg.append(np.mean(dict_['improvement']))
             self.final_poscost_avg.append(np.mean(dict_['final_poscost']))
 
-        pdb.set_trace()
-
         with open(self.conf['result_dir'] + '/scores.txt', 'w') as f:
             f.write('improvement averaged over batch, final_pos_cost averaged over batch\n')
             for i in range(len(self.improvement_avg)):
-                f.write('{}: {} {}'.format(i, self.improvement_avg[i], self.final_poscost_avg) + '\n')
+                f.write('{}: {} {}'.format(i, self.improvement_avg[i], self.final_poscost_avg[i]) + '\n')
 
 def plot_scores(dir, scores, improvement=None):
 
