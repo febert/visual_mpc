@@ -227,12 +227,11 @@ class Sim(object):
                 from .utility.save_tf_record import save_tf_record
                 self.logger.log('Writing', self.agentparams['data_save_dir'] + '/'+ filename)
                 save_tf_record(filename, self.trajectory_list, self.agentparams)
+                if self.agent.goal_obj_pose is not None:
+                    write_scores(self.trajectory_list, filename, self.agentparams)
                 self.trajectory_list = []
 
-                if self.agent.goal_obj_pose is not None:
-                    write_scores(itr, self.trajectory_list, filename, self.agentparams)
-
-def write_scores(itr, trajlist, filename, agentparams):
+def write_scores(trajlist, filename, agentparams):
     dir = '/'.join(str.split(agentparams['data_save_dir'], '/')[:-1])
     dir += '/scores'
     if not os.path.exists(dir):
@@ -242,7 +241,7 @@ def write_scores(itr, trajlist, filename, agentparams):
     improvements = []
     final_poscost = []
     initial_poscost = []
-    for itr, traj in zip(range(itr, len(trajlist)), trajlist):
+    for traj in trajlist:
         improvements.append(traj.improvement)
         final_poscost.append(traj.final_poscost)
         initial_poscost.append(traj.initial_poscost)
