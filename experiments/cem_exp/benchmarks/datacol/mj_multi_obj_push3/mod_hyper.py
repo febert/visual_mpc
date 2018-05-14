@@ -44,7 +44,7 @@ agent = {
 }
 
 policy = {
-    'verbose':'',
+    # 'verbose':'',
     'type' : CEM_controller,
     'current_dir':current_dir,
     'nactions': 5,
