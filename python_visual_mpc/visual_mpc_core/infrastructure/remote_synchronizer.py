@@ -1,4 +1,4 @@
-"this program runs on NGC and syncs data with a local master machine"
+"this program runs on ngc and syncs data with a local master machine"
 import time
 from python_visual_mpc.visual_mpc_core.infrastructure.utility.logger import Logger
 import os
@@ -8,14 +8,14 @@ import pdb
 
 master = 'deepthought'
 
-master_datadir = '/raid/ngc/pushing_data/cartgripper/onpolicy/distributed_pushing/train'
-master_scoredir = '/raid/ngc/pushing_data/cartgripper/onpolicy/distributed_pushing/scores'
+master_datadir = '/raid/ngc2/pushing_data/cartgripper/onpolicy/distributed_pushing/train'
+master_scoredir = '/raid/ngc2/pushing_data/cartgripper/onpolicy/distributed_pushing/scores'
 
 @ray.remote
 def sync(node_id, conf, printout=False):
     exp_subpath = conf['current_dir'].partition('onpolicy')[2]
 
-    master_base_dir = '/home/ngc/Documents/visual_mpc/experiments/cem_exp/onpolicy' + exp_subpath
+    master_base_dir = '/home/ngc2/Documents/visual_mpc/experiments/cem_exp/onpolicy' + exp_subpath
     master_modeldata_dir = master_base_dir + '/modeldata'
     master_logging_dir = master_base_dir + '/logging_datacollectors'
 
@@ -23,7 +23,7 @@ def sync(node_id, conf, printout=False):
     logger = Logger(logging_dir, 'sync_node{}.txt'.format(node_id), printout=printout)
     logger.log('started remote sync process on node{}'.format(node_id))
 
-    # local means "locally" in the container on ngc
+    # local means "locally" in the container on ngc2
     local_modeldata_dir = '/result/modeldata'
     local_datadir = '/result/data/train'
     local_scoredir = '/result/data/scores'
@@ -60,7 +60,7 @@ def sync(node_id, conf, printout=False):
 if __name__ == '__main__':
 
     conf = {}
-    conf['current_dir'] = '/home/ngc/Documents/visual_mpc/experiments/cem_exp/onpolicy/distributed_pushing'
+    conf['current_dir'] = '/home/ngc2/Documents/visual_mpc/experiments/cem_exp/onpolicy/distributed_pushing'
     conf['agent'] = {}
     conf['agent']['result_dir'] = '/result'
     conf['agent']['logging_dir'] = '/result/logging_node0'
