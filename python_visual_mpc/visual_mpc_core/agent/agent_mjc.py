@@ -252,6 +252,7 @@ class AgentMuJoCo(object):
                 if t == 0:
                     self.prev_target_qpos = copy.deepcopy(self.sim.data.qpos[:self.adim].squeeze())
                     self.target_qpos = copy.deepcopy(self.sim.data.qpos[:self.adim].squeeze())
+                    traj.target_qpos[0] = copy.deepcopy(self.sim.data.qpos[:self.adim].squeeze())
                 else:
                     self.prev_target_qpos = copy.deepcopy(self.target_qpos)
 
@@ -272,7 +273,7 @@ class AgentMuJoCo(object):
                 else:
                     self.target_qpos = mj_U + self.target_qpos
                 self.target_qpos = self.clip_targetpos(self.target_qpos)
-                traj.target_qpos[t] = self.target_qpos
+                traj.target_qpos[t + 1] = self.target_qpos.copy()
             else:
                 traj.actions[t, :] = mj_U
                 ctrl = mj_U.copy()

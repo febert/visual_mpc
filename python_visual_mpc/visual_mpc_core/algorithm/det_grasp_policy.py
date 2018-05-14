@@ -212,7 +212,7 @@ class DeterministicGraspPolicy(Policy):
             print ('start pose', traj.Object_pose[t, 0, :3])
             self.targetxy = traj.Object_pose[t, 0, :2]
             self.angle, self.disp = self.perform_CEM(self.targetxy)
-            print('best angle', self.angle, 'best disp', self.disp)
+            print('best angle', self.angle, 'best target', self.targetxy)
             self.targetxy += self.disp
             traj.desig_pos = np.zeros((2, 2))
             traj.desig_pos[0] = self.targetxy.copy()
@@ -243,9 +243,9 @@ class DeterministicGraspPolicy(Policy):
             self.switchTime = 0
 
         if self.moveto and (np.linalg.norm(traj.X_full[t, :2] - self.targetxy, 2) <= self.policyparams['drop_thresh']):
-            self.switchTime = 0
-            if self.switchTime >= 0:
-                print('swapping at time', t, '!')
+            if self.switchTime > 0:
+                print('stopping moveto at time', t, '!')
+                print(traj.X_full[t, :2], self.targetxy)
                 self.moveto = False
                 self.drop = True
                 self.switchTime = 0

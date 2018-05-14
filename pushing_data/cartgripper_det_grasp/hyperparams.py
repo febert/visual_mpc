@@ -59,12 +59,12 @@ policy = {
     'nactions': 15,
     'iterations':5,
     'repeats': 5, # number of repeats for each action
-    'xyz_std': 8e-2,   #std dev. in xy
-    'angle_std': 2e-1,   #std dev. in xy
+    'xyz_std': 8e-3,   #std dev. in xy
+    'angle_std': 2e-3,   #std dev. in xy
     'debug_viewer':False,
     'num_samples':50,
     'best_to_take':5,
-    'drop_thresh':0.06,
+    'drop_thresh':0.0006,
     'init_mean':np.zeros(3),
     'init_cov':np.diag(np.array([(3.14 / 2) ** 2, 1e-3, 1e-3])),
     'stop_iter_thresh':0.09,
