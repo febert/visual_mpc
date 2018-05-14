@@ -6,7 +6,6 @@ import copy
 import argparse
 import threading
 import time
-import pdb
 
 # Add lsdc/python to path so that imports work.
 sys.path.append('/'.join(str.split(__file__, '/')[:-2]))
@@ -122,6 +121,7 @@ class Sim(object):
         :param itr: index of trajectory
         :return:
         """
+
         if 'save_raw_images' in self._hyperparams:
             ngroup = self._hyperparams['ngroup']
             self.igrp = itr // ngroup
@@ -134,7 +134,7 @@ class Sim(object):
                 self.image_folders = [self.traj_folder + '/images{}'.format(i) for i in range(len(self.agentparams['cameras']))]
             else:
                 self.image_folder = self.traj_folder + '/images'
-            
+
             self.depth_image_folder = self.traj_folder + '/depth_images'
 
             if os.path.exists(self.traj_folder):
@@ -148,7 +148,7 @@ class Sim(object):
                     os.makedirs(f)
             else:
                 os.makedirs(self.image_folder)
-            
+
             os.makedirs(self.depth_image_folder)
 
             self.state_action_pkl_file = self.traj_folder + '/state_action.pkl'
@@ -196,7 +196,7 @@ class Sim(object):
                     if 'medium_image' in self.agentparams:
                         image_name = self.image_folder+ "/im_med{}.png".format(t)
                         cv2.imwrite(image_name, traj._medium_images[t][:,:,::-1], [cv2.IMWRITE_PNG_STRATEGY_DEFAULT, 1])
-            
+
             if traj.goal_mask != None:
                 folder = self.traj_folder + '/goal_masks'
                 os.makedirs(folder)

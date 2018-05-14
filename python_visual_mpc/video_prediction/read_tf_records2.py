@@ -4,6 +4,7 @@ import tensorflow as tf
 from tensorflow.python.platform import gfile
 # import matplotlib; matplotlib.use('Agg');
 import matplotlib.pyplot as plt
+import matplotlib; matplotlib.use('Agg'); import matplotlib.pyplot as plt
 from python_visual_mpc.utils.txt_in_image import draw_text_image
 import pdb
 import time
@@ -57,7 +58,7 @@ def mix_datasets(dataset0, dataset1, ratio_01):
       from generated_x.
     """
     batch_size = dataset0['images'].get_shape().as_list()[0]
-    num_set0 = tf.cast(math.ceil(int(batch_size)*ratio_01), tf.int64)
+    num_set0 = tf.cast(int(batch_size)*ratio_01, tf.int64)
     idx = tf.range(int(batch_size))
     set0_idx = tf.gather(idx, tf.range(num_set0))
     set1_idx = tf.gather(idx, tf.range(num_set0, int(batch_size)))
@@ -94,7 +95,7 @@ def build_tfrecord_input(conf, training=True, input_file=None, shuffle=True):
             conf_['data_dir'] = dir
             print('loading', dir)
             data_set.append(build_tfrecord_single(conf_, training, None, shuffle))
-        
+
         comb_dataset = data_set[0]
         total_prob = conf['data_dir'][data_sources[0]]
 
@@ -102,7 +103,7 @@ def build_tfrecord_input(conf, training=True, input_file=None, shuffle=True):
             new_total = total_prob + conf['data_dir'][dir]
             comb_dataset = mix_datasets(comb_dataset, dataset, total_prob / new_total)
             total_prob = new_total
-        
+
         assert np.isclose(total_prob, 1.0), 'INPUT SHARES MUST SUM TO 1'
 
         return comb_dataset
@@ -123,7 +124,6 @@ def build_tfrecord_single(conf, training=True, input_file=None, shuffle=True):
     Raises:
       RuntimeError: if no files found.
     """
-
     if 'sdim' in conf:
         sdim = conf['sdim']
     else: sdim = 3
@@ -140,6 +140,7 @@ def build_tfrecord_single(conf, training=True, input_file=None, shuffle=True):
         shuffle = False
     else:
         filenames = gfile.Glob(os.path.join(conf['data_dir'], '*'))
+        
         if not filenames:
             raise RuntimeError('No data_files files found.')
         if 'train_val_split' in conf:
@@ -184,6 +185,7 @@ def build_tfrecord_single(conf, training=True, input_file=None, shuffle=True):
             if 'image_only' not in conf:
                 action_name = str(i) + '/action'
                 endeffector_pos_name = str(i) + '/endeffector_pos'
+
 
             if 'image_only' not in conf:
                 features_name[action_name] = tf.FixedLenFeature([adim], tf.float32)
@@ -271,6 +273,7 @@ def build_tfrecord_single(conf, training=True, input_file=None, shuffle=True):
             return_dict['gen_states'] = gen_states_seq
 
         return return_dict
+
 
     dataset = tf.data.TFRecordDataset(filenames)
     dataset = dataset.map(_parse_function)

@@ -13,7 +13,6 @@ logger = logging.getLogger(__name__)
 
 mjCAT_ALL = 7
 
-
 def _glfw_error_callback(e, d):
     logger.error('GLFW error: %s, desc: %s', e, d)
 

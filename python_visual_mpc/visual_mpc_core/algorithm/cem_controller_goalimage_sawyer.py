@@ -2,6 +2,7 @@
 import pdb
 import numpy as np
 
+import pdb
 import os
 import copy
 import time
@@ -13,6 +14,9 @@ from python_visual_mpc.video_prediction.basecls.utils.visualize import add_cross
 
 from python_visual_mpc.visual_mpc_core.algorithm.utils.make_cem_visuals import make_cem_visuals
 # from python_visual_mpc.video_prediction.utils_vpred.create_gif_lib import *
+
+import matplotlib; matplotlib.use('Agg'); import matplotlib.pyplot as plt
+import copy
 
 import collections
 import matplotlib; matplotlib.use('Agg'); import matplotlib.pyplot as plt
@@ -231,6 +235,8 @@ class CEM_controller():
 
         self.indices =[]
 
+        self.ncam = len(self.agentparams['cameras'])
+
         self.rec_input_distrib = []  # record the input distributions
 
         self.target = np.zeros(2)
@@ -295,6 +301,7 @@ class CEM_controller():
                 actions = self.sample_actions_rej()
             else:
                 actions = self.sample_actions()
+
 
             if 'random_policy' in self.policyparams:
                 self.logger.log('sampling random actions')
@@ -390,6 +397,9 @@ class CEM_controller():
         if self.discrete_ind != None:
             actions = self.discretize(actions)
         actions = np.repeat(actions, self.repeat, axis=1)
+
+        print('max action val xy', np.max(actions[:,:,:2]))
+        print('max action val z', np.max(actions[:,:,2]))
         return actions
 
     def action_preselection(self, actions, scores):
@@ -406,13 +416,13 @@ class CEM_controller():
         return np.stack(actions, 0), scores
 
     def switch_on_pix(self, desig):
-        one_hot_images = np.zeros((1, self.netconf['context_frames'], self.ndesig, self.img_height, self.img_width, 1), dtype=np.float32)
+        one_hot_images = np.zeros((self.bsize, self.netconf['context_frames'], self.ncam, self.img_height, self.img_width, self.ndesig), dtype=np.float32)
         desig = np.clip(desig, np.zeros(2).reshape((1, 2)), np.array([self.img_height, self.img_width]).reshape((1, 2)) - 1).astype(np.int)
         # switch on pixels
-        for p in range(self.ndesig):
-            one_hot_images[:, :, p, desig[p, 0], desig[p, 1]] = 1
-            self.logger.log('using desig pix',desig[p, 0], desig[p, 1])
-
+        for icam in range(self.ncam):
+            for p in range(self.ndesig):
+                one_hot_images[:, :, icam, desig[icam, p, 0], desig[icam, p, 1], p] = 1.
+                print('using desig pix',desig[icam, p, 0], desig[icam, p, 1])
         return one_hot_images
 
     def singlepoint_prob_eval(self, gen_pixdistrib):
@@ -423,28 +433,14 @@ class CEM_controller():
                 scores[b] -= gen_pixdistrib[t][b,self.goal_pix[0,0], self.goal_pix[0,1]]
         return scores
 
-    def ray_video_pred(self, last_frames, last_states, actions, itr):
-        input_distrib = self.make_input_distrib(itr)
-        input_distrib = input_distrib[0]
-        best_gen_distrib, scores = self.predictor(input_images=last_frames,
-                                                  input_states=last_states,
-                                                  input_actions=actions,
-                                                  input_one_hot_images1=input_distrib,
-                                                  goal_pix = self.goal_pix[0])
-
-        if 'predictor_propagation' in self.policyparams:
-            # for predictor_propagation only!!
-            if itr == (self.policyparams['iterations'] - 1):
-                self.rec_input_distrib.append(np.repeat(best_gen_distrib, self.bsize, 0))
-        return scores
-
 
     def video_pred(self, last_frames, last_frames_med, last_states, actions, cem_itr):
         t_0 = time.time()
 
         last_states = last_states[None]
         last_frames = last_frames.astype(np.float32, copy=False) / 255.
-        last_frames = last_frames[None]
+        last_frames = np.expand_dims(last_frames, axis=0)
+        last_frames = np.repeat(last_frames, self.bsize, axis=0)
 
         if 'register_gtruth' in self.policyparams and cem_itr == 0:
             if 'image_medium' in self.agentparams:
@@ -492,16 +488,26 @@ class CEM_controller():
             scores = get_mask_trafo_scores(self.policyparams, gen_distrib, self.goal_mask)
 
         if 'use_goal_image' not in self.policyparams or 'comb_flow_warp' in self.policyparams or 'register_gtruth' in self.policyparams:
-            for p in range(self.ndesig):
-                distance_grid = self.get_distancegrid(self.goal_pix[p])
-                gen_distrib_p = [g[:, p] for g in gen_distrib]
-                scores_per_task.append(self.calc_scores(gen_distrib_p, distance_grid)*self.reg_tradeoff[p])
-                self.logger.log('best flow score of task {}:  {}'.format(p, np.min(scores_per_task[-1])))
+            if 'trade_off_views' in self.policyparams:
+                scores_per_task, self.tradeoffs = self.compute_trade_off_cost(gen_distrib)
+            else:
+                if 'override_json' in self.netconf:
+                    normalize = self.netconf['override_json']['renormalize_pixdistrib']
+                else: normalize = True
+                for icam in range(self.ncam):
+                    for p in range(self.ndesig):
+                        distance_grid = self.get_distancegrid(self.goal_pix[icam, p])
+                        scores_per_task.append(self.calc_scores(gen_distrib[:,:, icam, :,:, p], distance_grid, normalize=normalize))
+                        print('best flow score of task {}:  {}'.format(p, np.min(scores_per_task[-1])))
+                scores_per_task = np.stack(scores_per_task, axis=1)
 
-            scores = np.sum(np.stack(scores_per_task, axis=1), axis=1)
+                if 'only_take_first_view' in self.policyparams:
+                    scores_per_task = scores_per_task[:,0][:,None]
+
+            scores = np.sum(scores_per_task, axis=1)
             bestind = scores.argsort()[0]
             for p in range(self.ndesig):
-                self.logger.log('flow score of best traj for task{}: {}'.format(p, scores_per_task[p][bestind]))
+                self.logger.log('flow score of best traj for task{}: {}'.format(p, scores_per_task[bestind, p]))
 
             # for predictor_propagation only!!
             if 'predictor_propagation' in self.policyparams:
@@ -509,8 +515,8 @@ class CEM_controller():
                 if cem_itr == (self.policyparams['iterations'] - 1):
                     # pick the prop distrib from the action actually chosen after the last iteration (i.e. self.indices[0])
                     bestind = scores.argsort()[0]
-                    best_gen_distrib = gen_distrib[1][bestind].reshape(1, self.ndesig, self.img_height, self.img_width, 1)
-                    self.rec_input_distrib.append(best_gen_distrib)
+                    best_gen_distrib = gen_distrib[bestind, 2].reshape(1, self.ncam, self.img_height, self.img_width, self.ndesig)
+                    self.rec_input_distrib.append(np.repeat(best_gen_distrib, self.bsize, 0))
 
             flow_scores = copy.deepcopy(scores)
 
@@ -643,21 +649,58 @@ class CEM_controller():
 
         return flow_fields, scores, warp_pts_l, warped_images
 
+    def compute_trade_off_cost(self, gen_distrib):
+        """
+        :param gen_distrib:  shape: b, t, ncam, r, c, p
+        :return:
+        """
+        t_mult = np.ones([self.seqlen - self.netconf['context_frames']])
+        t_mult[-1] = self.policyparams['finalweight']
 
-    def calc_scores(self, gen_distrib, distance_grid):
+        gen_distrib = gen_distrib.copy()
+        #normalize prob distributions
+        psum = np.sum(np.sum(gen_distrib, axis=3), 3)
+        gen_distrib /= psum[:,:,:, None, None, :]
+
+        if self.policyparams['trade_off_views'] == 'clip_psum':
+            psum = np.clip(psum, 0, 1.)
+
+        scores_perdesig_l = []
+        tradeoff_l = []
+        for p in range(self.ndesig):
+            scores_perdesig = np.zeros([self.bsize, self.seqlen - self.ncontxt, self.ncam])
+            for icam in range(self.ncam):
+                distance_grid = self.get_distancegrid(self.goal_pix[icam, p])
+                scores_perdesig[:, :, icam] = np.sum(np.sum(gen_distrib[:,:,icam,:,:,p]*distance_grid[None, None], axis=2),2)
+
+            tradeoff = psum[...,p]/np.sum(psum[...,p], axis=2)[...,None]        # compute tradeoffs
+            tradeoff_l.append(tradeoff)
+
+            scores_perdesig = scores_perdesig*tradeoff
+            scores_perdesig = np.sum(scores_perdesig, 2)      #sum over images
+
+            scores_perdesig *= t_mult[None]
+            scores_perdesig = np.sum(scores_perdesig, 1)      # sum over timesteps
+
+            scores_perdesig_l.append(scores_perdesig)
+        scores = np.stack(scores_perdesig_l, 1)
+        tradeoff = np.stack(tradeoff_l, -1)
+        return scores, tradeoff
+
+
+    def calc_scores(self, gen_distrib, distance_grid, normalize=True):
         """
         :param gen_distrib: shape [batch, t, r, c]
         :param distance_grid: shape [r, c]
         :return:
         """
-
-        gen_distrib = gen_distrib.copy()
-        gen_distrib = np.stack(gen_distrib, 1).squeeze()
-        t_mult = np.ones([self.seqlen - self.ncontxt])
+        t_mult = np.ones([self.seqlen - self.netconf['context_frames']])
         t_mult[-1] = self.policyparams['finalweight']
 
+        gen_distrib = gen_distrib.copy()
         #normalize prob distributions
-        gen_distrib /= np.sum(np.sum(gen_distrib, axis=2), 2)[:,:, None, None]
+        if normalize:
+            gen_distrib /= np.sum(np.sum(gen_distrib, axis=2), 2)[:,:, None, None]
         gen_distrib *= distance_grid[None, None]
         scores = np.sum(np.sum(gen_distrib, axis=2),2)
         scores *= t_mult[None]
@@ -686,16 +729,13 @@ class CEM_controller():
 
     def get_recinput(self, itr, rec_input_distrib, desig):
         ctxt = self.netconf['context_frames']
-        # if self.t < ctxt:
         if len(rec_input_distrib) < ctxt:
             input_distrib = self.switch_on_pix(desig)
             if itr == 0:
                 rec_input_distrib.append(input_distrib[:, 0])
         else:
-            # input_distrib = [rec_input_distrib[-2], rec_input_distrib[-1]]
             input_distrib = [rec_input_distrib[c] for c in range(-ctxt, 0)]
-            input_distrib = [np.expand_dims(elem, axis=1) for elem in input_distrib]
-            input_distrib = np.concatenate(input_distrib, axis=1)
+            input_distrib = np.stack(input_distrib, axis=1)
         return input_distrib
 
     def act(self, traj, t, desig_pix = None, goal_pix= None, goal_image=None, goal_mask = None, curr_mask=None):
@@ -706,9 +746,12 @@ class CEM_controller():
         """
         self.i_tr = traj.i_tr
         self.goal_mask = goal_mask
-        self.desig_pix = np.array(desig_pix).reshape((-1, 2))
-        self.goal_pix = np.array(goal_pix).reshape((-1, 2))
+        self.goal_image = goal_image
+        self.desig_pix = np.array(desig_pix).reshape((self.ncam, self.ndesig, 2))
+        self.goal_pix = np.array(goal_pix).reshape((self.ncam, self.ndesig, 2))
+
         if 'register_gtruth' in self.policyparams:
+            self.goal_pix = np.tile(self.goal_pix, [self.ndesig,1])
             self.goal_pix = np.tile(self.goal_pix, [2,1])
         if 'image_medium' in self.agentparams:
             self.goal_pix_med = (self.goal_pix * self.agentparams['image_medium'][0] / self.agentparams['image_height']).astype(np.int)
@@ -718,8 +761,8 @@ class CEM_controller():
         last_images_med = None
         self.curr_obj_mask = curr_mask
         self.traj = traj
-
         self.t = t
+
         self.logger.log('starting cem at t{}...'.format(t))
 
         if t == 0:

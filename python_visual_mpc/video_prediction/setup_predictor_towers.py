@@ -23,9 +23,8 @@ class Tower(object):
         # picking different subset of the actions for each gpu
         startidx = gpu_id * nsmp_per_gpu
         actions = tf.slice(actions, [startidx, 0, 0], [nsmp_per_gpu, -1, -1])
-
-        start_images = tf.tile(start_images, [nsmp_per_gpu, 1, 1, 1, 1])
-        start_states = tf.tile(start_states, [nsmp_per_gpu, 1, 1])
+        start_images = tf.slice(start_images, [startidx, 0, 0, 0, 0, 0], [nsmp_per_gpu, -1, -1, -1, -1, -1])
+        start_states = tf.slice(start_states, [startidx, 0, 0], [nsmp_per_gpu, -1, -1])
 
         if pix_distrib is not None:
             pix_distrib = tf.tile(pix_distrib, [nsmp_per_gpu, 1, 1, 1, 1, 1])
@@ -83,7 +82,7 @@ def setup_predictor(hyperparams, conf, gpu_id=0, ngpu=1, logger=None):
 
             orig_size = conf['orig_size']
             images_pl = tf.placeholder(use_dtype, name='images',
-                                       shape=(1, conf['context_frames'], orig_size[0], orig_size[1], 3))
+                                       shape=(conf['batch_size'], conf['context_frames'], conf['ncam'], orig_size[0], orig_size[1], 3))
             sdim = conf['sdim']
             adim = conf['adim']
             logger.log('adim', adim)
@@ -96,7 +95,8 @@ def setup_predictor(hyperparams, conf, gpu_id=0, ngpu=1, logger=None):
             if 'use_goal_image' in conf:
                 pix_distrib = None
             else:
-                pix_distrib = tf.placeholder(use_dtype, shape=(1, conf['context_frames'], conf['ndesig'], orig_size[0], orig_size[1], 1))
+                pix_distrib = tf.placeholder(use_dtype, shape=(
+                conf['batch_size'], conf['context_frames'], conf['ncam'], orig_size[0], orig_size[1], conf['ndesig']))
 
             # making the towers
             towers = []
@@ -143,21 +143,11 @@ def setup_predictor(hyperparams, conf, gpu_id=0, ngpu=1, logger=None):
                 logger.log(key, ': ', conf[key])
             logger.log('-------------------------------------------------------------------')
 
-            comb_gen_img = []
-            comb_pix_distrib = []
-            comb_gen_states = []
+            comb_gen_img = tf.concat([to.model.gen_images for to in towers], axis=0)
+            comb_gen_states = tf.concat([to.model.gen_states for to in towers], axis=0)
 
-            for t in range(conf['sequence_length']-conf['context_frames']):
-                t_comb_gen_img = [to.model.gen_images[t] for to in towers]
-                comb_gen_img.append(tf.concat(axis=0, values=t_comb_gen_img))
-
-                if not 'no_pix_distrib' in conf:
-                    t_comb_pix_distrib = [to.model.gen_distrib[t] for to in towers]
-                    comb_pix_distrib.append(tf.concat(axis=0, values=t_comb_pix_distrib))
-
-                t_comb_gen_states = [to.model.gen_states[t] for to in towers]
-                comb_gen_states.append(tf.concat(axis=0, values=t_comb_gen_states))
-
+            if not 'no_pix_distrib' in conf:
+                comb_pix_distrib = tf.concat([to.model.gen_distrib for to in towers], axis=0)
 
             def predictor_func(input_images=None, input_one_hot_images=None, input_state=None, input_actions=None):
                 """

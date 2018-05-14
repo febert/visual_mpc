@@ -66,7 +66,6 @@ def read_img(tag_dict, dataind, tar=None, trajname=None):
         for icam in range(tag_dict['ncam']):
             images.append(read_single_img(dataind, tag_dict, tar, trajname, icam))
         img = np.stack(images, 0)
-        img = img.squeeze()
     else:
         img = read_single_img(dataind, tag_dict, tar, trajname)
     return img
@@ -395,7 +394,7 @@ def convert_to_tfrec(sourcedir, destdir):
                                         goal_img_conf['source_basedirs'][0] + '/' + '/'.join(str.split(trajname, '/')[-2:]))
 
         t = Trajectory(traj_conf)
-        t.images = (traj['images'] * 255.).astype(np.uint8)
+        t._sample_images = (traj['images']*255.).astype(np.uint8)
         t.actions = traj['actions']
         t.X_Xdot_full = traj['states']
         t.goal_image = (goal_img_traj['images'][-1]*255.).astype(np.uint8)
