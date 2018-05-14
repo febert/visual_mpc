@@ -121,7 +121,10 @@ def get_scores(to_load_filenames):
     improvement_avg = []
     final_poscost_avg = []
     for file in to_load_filenames:
-        scorefile = file.partition('.')[0] + '_score.pkl'
+        pdb.set_trace()
+        filenum = file.partition('train')[2].partition('.')[0]
+        path = file.partition('train')[2].partition('train')[0] + '/scores'
+        scorefile = path + '/' + filenum + '_scores.pkl'
         dict = pickle.load(open(scorefile, 'r'))
 
         improvement = []
