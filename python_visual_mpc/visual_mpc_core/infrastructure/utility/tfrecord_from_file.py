@@ -47,7 +47,10 @@ def main():
     good_traj_list, bad_traj_list = [], []
     num_good_saved, num_bad_saved = 0, 0
     good_lift_ctr, total_ctr = 0, 0
-    traj_group_dirs = glob.glob(data_dir+'/*')
+    #traj_group_dirs = glob.glob(data_dir+'/*')
+    traj_group_dirs = []
+    for i in range(1, 10):
+        traj_group_dirs = traj_group_dirs + glob.glob('pushing_data/cartgripper_clutter_dualcam/train_{}/*'.format(i))
     for g in traj_group_dirs:
         trajs = glob.glob(g + '/*')
         for t in trajs:
@@ -75,9 +78,11 @@ def main():
                 #     good_lift_ctr += 1
 
                 object_poses = state_action['object_full_pose']
-                if np.any(object_poses[:, :, 2] >= 0.132):
-                    good_lift = True
-                    good_lift_ctr += 1
+                if np.any(object_poses[2:, :, 2] >= 0.13):
+                    if any(np.amax(object_poses[2:,:,2], axis = 1) - np.amin(object_poses[2:,:,2], axis=1 >= 0.1)):
+                        good_lift = True
+                        good_lift_ctr += 1
+                        print('traj', t, 'is good!')
                 
                 for i in range(T):
                     img = cv2.imread(t + '/images0/im{}.png'.format(i))[:, :, ::-1]
