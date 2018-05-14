@@ -317,7 +317,8 @@ class AgentMuJoCo(object):
         if any(zval < -2e-2 for zval in end_zpos):
             print('object fell out!!!')
             traj_ok = False
-        self.plot_ctrls()
+        if 'verbose' in self._hyperparams:
+            self.plot_ctrls()
 
         if 'dist_ok_thresh' in self._hyperparams:
             if np.any(traj.goal_dist[-1] > self._hyperparams['dist_ok_thresh']):
