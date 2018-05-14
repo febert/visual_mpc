@@ -109,7 +109,7 @@ class ReplayBuffer_Loadfiles(ReplayBuffer):
                     self.push_back(t)
                     self.num_updates += 1
             self.logger.log('done filling replay')
-            if self.num_updates % 1 == 0: ######################################3
+            if self.num_updates % 1 == 0:
                 self.logger.log('reading scores')
                 scores, final_poscost = get_scores(to_load_filenames)
                 self.logger.log('writing scores plot to {}'.format(self.conf['result_dir']))
