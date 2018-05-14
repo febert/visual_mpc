@@ -5,7 +5,7 @@ import os
 import re
 import pdb
 
-def launch_job_func(run_script, hyper, arg, interactive=False, name='', ngpu=8, nsplit=None, isplit=None):
+def launch_job_func(run_script, hyper, arg, interactive=False, name='', ngpu=8, test=0, nsplit=None, isplit=None):
 
     data = {}
     data["aceName"] = "nv-us-west-2"
@@ -71,8 +71,8 @@ def launch_job_func(run_script, hyper, arg, interactive=False, name='', ngpu=8, 
                 split = '--nsplit {} --isplit {}'.format(nsplit, isplit)
             else: split = ''
             command = "python " + run_script + " " + hyper + " {} {}".format(arg, split)
-            expname = hyper.partition('benchmarks')[-1]
-            data["name"] = '-'.join(re.compile('\w+').findall(expname + arg))
+            expname = hyper.partition('cem_exp')[-1]
+            data["name"] = '-'.join(re.compile('\w+').findall(expname + arg + split))
 
     data["command"] += command
     data["resultContainerMountPoint"] = "/result"
@@ -83,7 +83,8 @@ def launch_job_func(run_script, hyper, arg, interactive=False, name='', ngpu=8, 
 
     print('command', command)
 
-    os.system("ngc batch run -f autogen.json")
+    if not bool(test):
+        os.system("ngc batch run -f autogen.json")
 
 
 if __name__ == '__main__':
@@ -94,7 +95,8 @@ if __name__ == '__main__':
     parser.add_argument('--arg', default='', type=str, help='additional arguments')
     parser.add_argument('--name', default='', type=str, help='additional arguments')
     parser.add_argument('--ngpu', default=8, type=int, help='number of gpus')
+    parser.add_argument('--test', default=0, type=int, help='testrun')
     args = parser.parse_args()
 
-    launch_job_func(args.run_script, args.hyper, args.arg, args.int, args.name, args.ngpu)
+    launch_job_func(args.run_script, args.hyper, args.arg, args.int, args.name, args.ngpu, args.test)
 

@@ -18,6 +18,8 @@ if __name__ == '__main__':
     parser.add_argument('--ngpu', default=8, type=int, help='number of gpus per node')
 
     parser.add_argument('--nsplit', default=-1, type=int, help='number of splits')
+
+    parser.add_argument('--test', default=0, type=int, help='testrun')
     args = parser.parse_args()
 
-    launch_batch_job(args.nsplit, args.run_script, args.hyper, args.arg, args.int, args.name, args.ngpu)
+    launch_batch_job(args.nsplit, args.run_script, args.hyper, args.arg, args.int, args.name, args.ngpu, args.test)
