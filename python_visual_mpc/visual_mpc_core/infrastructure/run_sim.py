@@ -131,7 +131,7 @@ class Sim(object):
 
             self.traj_folder = self.group_folder + '/traj{}'.format(itr)
             if 'cameras' in self.agentparams:
-                self.image_folders = [self.traj_folder + '/images{}'.format(i) for i in range(len(self.agentparams['cameras']))]
+                image_folders = [self.traj_folder + '/images{}'.format(i) for i in range(len(self.agentparams['cameras']))]
             else:
                 self.image_folder = self.traj_folder + '/images'
             
@@ -144,7 +144,7 @@ class Sim(object):
             os.makedirs(self.traj_folder)
             self.logger.log('writing: ', self.traj_folder)
             if 'cameras' in self.agentparams:
-                for f in self.image_folders:
+                for f in image_folders:
                     os.makedirs(f)
             else:
                 os.makedirs(self.image_folder)
@@ -182,7 +182,7 @@ class Sim(object):
 
                 pickle.dump(dict, f)
             if 'cameras' in self.agentparams:
-                for i, image_folder in enumerate(self.image_folders):
+                for i, image_folder in enumerate(image_folders):
                     for t in range(traj.T):
                         image_name = image_folder + "/im{}.png".format(t)
                         cv2.imwrite(image_name, traj.images[t, i][:,:,::-1], [cv2.IMWRITE_PNG_STRATEGY_DEFAULT, 1])
