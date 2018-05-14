@@ -226,7 +226,6 @@ class Sim(object):
                     .format(itr - traj_per_file + 1, itr)
                 from .utility.save_tf_record import save_tf_record
                 self.logger.log('Writing', self.agentparams['data_save_dir'] + '/'+ filename)
-                pdb.set_trace()
                 save_tf_record(filename, self.trajectory_list, self.agentparams)
                 self.trajectory_list = []
 

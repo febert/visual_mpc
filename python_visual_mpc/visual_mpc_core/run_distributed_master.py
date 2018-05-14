@@ -45,7 +45,7 @@ def main():
     if 'RESULT_DIR' in os.environ:
         trainvid_conf['result_dir'] = os.environ['RESULT_DIR']
     else:
-        trainvid_conf['result_dir'] = '/'.join(str.split(trainvid_conf, '/')[:-1])
+        trainvid_conf['result_dir'] = '/'.join(str.split(trainvid_conf['current_dir'], '/')[:-1])
 
     printout = bool(args.printout)
     gpu_id = args.gpu_id
