@@ -23,8 +23,8 @@ agent = {
     'filename_nomarkers': ROOT_DIR + '/mjc_models/cartgripper_updown_whitefingers.xml',
     'gen_xml':1,   #generate xml every nth trajecotry
     'num_objects': 3,
-    'object_max_len':0.1,
-    'object_min_len':0.05,
+    'object_max_len':0.15,
+    'object_min_len':0.08,
     'viewer_image_height' : 480,
     'viewer_image_width' : 640,
     'image_height':48,
@@ -44,7 +44,7 @@ agent = {
 }
 
 policy = {
-    # 'verbose':'',
+    'verbose':'',
     'type' : CEM_controller,
     'current_dir':current_dir,
     'nactions': 5,
