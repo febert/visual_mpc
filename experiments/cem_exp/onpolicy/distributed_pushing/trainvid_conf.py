@@ -18,7 +18,7 @@ PRELOAD_DATA_DIR = os.environ['VMPC_DATA_DIR'] + '/cartgripper/onpolicy/updown_s
 onpolconf = {
     'save_interval':200,
     'replay_size':40000,
-    'fill_replay_fromsaved':20000,              # fill replay with existing trajectories from dataset
+    'fill_replay_fromsaved':200, ################20000,              # fill replay with existing trajectories from dataset
 }
 
 config = {
