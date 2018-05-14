@@ -124,7 +124,7 @@ def get_scores(to_load_filenames):
         pdb.set_trace()
         filenum = file.partition('train')[2].partition('.')[0]
         path = file.partition('train')[0]
-        scorefile = os.path.join(path , 'scores' , filenum + '_scores.pkl')
+        scorefile = path + 'scores' + filenum + '_score.pkl'
         dict = pickle.load(open(scorefile, 'r'))
 
         improvement = []
