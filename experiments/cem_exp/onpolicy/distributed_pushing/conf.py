@@ -18,14 +18,15 @@ configuration = {
 'setup_predictor':setup_predictor,
 'output_dir': OUT_DIR,      #'directory for model checkpoints.' ,
 'current_dir': current_dir, #'directory for writing summary.' ,
-'sequence_length': 15,      # 'sequence length to load, including context frames.' ,
+'sequence_length': 30,      # 'sequence length to load, including context frames.' ,
+'use_len':15,
 'skip_frame': 1,            # 'use ever i-th frame to increase prediction horizon' ,
 'context_frames': 2,        # of frames before predictions.' ,
 'use_state': 1,             #'Whether or not to give the state+action to the model' ,
 'model': 'appflow',            #'model architecture to use - CDNA, DNA, or STP' ,
 'num_transformed_images': 1,   # 'number of masks, usually 1 for DNA, 10 for CDNA, STN.' ,
 'schedsamp_k': -1,      # 'The k hyperparameter for scheduled sampling -1 for no scheduled sampling.' ,
-'batch_size': 10,#############################200,           #'batch size for training' ,
+'batch_size': 200,           #'batch size for training' ,
 'visualize': '',            #'load model from which to generate visualizations
 'file_visual': '',          # datafile used for making visualizations
 'kern_size': 17,            # size of DNA kerns
