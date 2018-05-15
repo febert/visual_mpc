@@ -451,6 +451,14 @@ class Dynamic_Base_Model(object):
             self.img_height = 64
             self.img_width = 64
 
+        if images is not None:
+            imageshape = images.get_shape().as_list()
+            if len(imageshape) == 6:
+                assert imageshape[2] == 1
+                images = images[:,:,0]
+                pix_distrib = pix_distrib[:,:,0]
+                pix_distrib = tf.transpose(pix_distrib, [0,1,4,2,3])[...,None]  #putting ndesig at the third position
+
         if states is not None and states.get_shape().as_list()[1] != conf['sequence_length']:  # append zeros if states is shorter than sequence length
             states = tf.concat([states, tf.zeros([conf['batch_size'], conf['sequence_length'] - conf['context_frames'], conf['sdim']])],
                 axis=1)
@@ -514,12 +522,6 @@ class Dynamic_Base_Model(object):
                 print('randomly shift videos for data augmentation')
                 images, states, actions = self.random_shift(images, states, actions)
 
-        imageshape = images.get_shape().as_list()
-        if len(imageshape) == 6:
-            assert imageshape[2] == 1
-            images = images[:,:,0]
-            pix_distrib = pix_distrib[:,:,0]
-            pix_distrib = tf.transpose(pix_distrib, [0,1,4,2,3])[...,None]  #putting ndesig at the third position
 
         ## start interface
         # Split into timesteps.

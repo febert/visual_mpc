@@ -46,12 +46,19 @@ def plot_sum_overtime(pixdistrib, dir, filename, tradeoffs):
 
     print('start')
     row = 0
-    for col in range(num_cols):
-        for icam in range(ncam):
+    if ncam == 1:
+        icam = 0
+        for col in range(num_cols):
             for p in range(ndesig):
-                row = icam*ndesig
-                axarr[row, col].plot(range(seqlen), pixdistrib[col,:,icam,p])
-                axarr[row, col].set_ylim([0, 3])
+                axarr[col].plot(range(seqlen), pixdistrib[col,:,icam,p])
+                axarr[col].set_ylim([0, 3])
+    else:
+        for col in range(num_cols):
+            for icam in range(ncam):
+                for p in range(ndesig):
+                    row = icam*ndesig + p
+                    axarr[row, col].plot(range(seqlen), pixdistrib[col,:,icam,p])
+                    axarr[row, col].set_ylim([0, 3])
 
     if tradeoffs is not None:
         for p in range(ndesig):
@@ -171,8 +178,6 @@ def make_cem_visuals(ctrl, actions, bestindices, cem_itr, flow_fields, gen_distr
             if 'warp_objective' in ctrl.policyparams:
                 t_dict_['warp_pts_t{}'.format(ctrl.t)] = sel_func(goal_warp_pts_l)
                 t_dict_['flow_fields{}'.format(ctrl.t)] = flow_fields[bestindices[:K]]
-
-        return gen_image_an
 
 
 def unstack(arr, dim):
