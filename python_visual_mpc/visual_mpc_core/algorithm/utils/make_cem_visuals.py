@@ -101,7 +101,6 @@ def make_cem_visuals(ctrl, actions, bestindices, cem_itr, flow_fields, gen_distr
             t_dict_['warped_im_t{}'.format(ctrl.t)] = warped_images
 
         if 'register_gtruth' in ctrl.policyparams:
-
             gen_image_an_l = []
             for icam in range(ctrl.ncam):
                 if 'start' in ctrl.policyparams['register_gtruth']:
@@ -127,11 +126,11 @@ def make_cem_visuals(ctrl, actions, bestindices, cem_itr, flow_fields, gen_distr
                     gen_image_an = add_crosshairs(gen_image_an, desig_pix_goal, color=[0, 0, 1.])
                 gen_image_an_l.append(gen_image_an)
 
-
                 t_dict_['warped_image_goal_cam{}'.format(icam)] = [
                     np.repeat(np.expand_dims(warped_image_goal.squeeze(), axis=0), ctrl.K, axis=0) for _ in
                     range(len_pred)]
-        gen_image_an_l = None
+        else:
+            gen_image_an_l = None
 
         if ctrl.goal_image is not None:
             goal_image_annotated = []
@@ -141,6 +140,8 @@ def make_cem_visuals(ctrl, actions, bestindices, cem_itr, flow_fields, gen_distr
                 for p in range(ctrl.ndesig):
                     goal_image_annotated.append(image_addgoalpix(ctrl.K , len_pred, goal_image, ctrl.goal_pix[icam, p]))
                 t_dict_['goal_image{}'.format(icam)] = goal_image_annotated[icam]
+        else:
+            goal_image_annotated = None
 
         if 'use_goal_image' not in ctrl.policyparams or 'comb_flow_warp' in ctrl.policyparams or 'register_gtruth' in ctrl.policyparams:
             sel_gen_distrib = gen_distrib[bestindices]
@@ -152,7 +153,8 @@ def make_cem_visuals(ctrl, actions, bestindices, cem_itr, flow_fields, gen_distr
                 for p in range(ctrl.ndesig):
                     sel_gen_distrib_p = unstack(sel_gen_distrib[:,:, icam,:,:, p], 1)
                     t_dict_['gen_distrib_cam{}_p{}_t{}'.format(icam, p, ctrl.t)] = sel_gen_distrib_p
-                    t_dict_['gen_distrib_goalim_overlay_cam{}_{}_t{}'.format(icam, p, ctrl.t)] = (goal_image_annotated[icam], sel_gen_distrib_p)
+                    if goal_image_annotated is not None:
+                        t_dict_['gen_distrib_goalim_overlay_cam{}_{}_t{}'.format(icam, p, ctrl.t)] = (goal_image_annotated[icam], sel_gen_distrib_p)
 
         for icam in range(ctrl.ncam):
             if gen_image_an_l is not None:
@@ -161,6 +163,7 @@ def make_cem_visuals(ctrl, actions, bestindices, cem_itr, flow_fields, gen_distr
                 t_dict_['gen_images_icam{}_t{}'.format(icam, ctrl.t)] = unstack(gen_images[bestindices,:,icam], 1)
 
         print('itr{} best scores: {}'.format(cem_itr, [scores[bestindices[ind]] for ind in range(ctrl.K)]))
+
         ctrl.dict_.update(t_dict_)
         if 'no_instant_gif' not in ctrl.agentparams:
             v = Visualizer_tkinter(t_dict_, append_masks=False,
