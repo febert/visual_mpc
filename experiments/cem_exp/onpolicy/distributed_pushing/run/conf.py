@@ -25,7 +25,7 @@ configuration = {
 'model': 'appflow',            #'model architecture to use - CDNA, DNA, or STP' ,
 'num_transformed_images': 1,   # 'number of masks, usually 1 for DNA, 10 for CDNA, STN.' ,
 'schedsamp_k': -1,      # 'The k hyperparameter for scheduled sampling -1 for no scheduled sampling.' ,
-'batch_size': 10,#############################200,           #'batch size for training' ,
+'batch_size': 200,           #'batch size for training' ,
 'visualize': '',            #'load model from which to generate visualizations
 'file_visual': '',          # datafile used for making visualizations
 'kern_size': 17,            # size of DNA kerns
