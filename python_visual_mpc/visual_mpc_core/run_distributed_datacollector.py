@@ -79,6 +79,7 @@ class Data_Collector(object):
             self.itraj += 1
 
         self.logger.log('done.')
+        pdb.set_trace()
 
 def main():
     parser = argparse.ArgumentParser(description='run parllel data collection')
