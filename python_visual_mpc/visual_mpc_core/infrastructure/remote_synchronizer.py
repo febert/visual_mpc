@@ -41,17 +41,17 @@ def sync(node_id, conf, printout=False):
         # consider --delete option
 
         logger.log('transfer tfrecords to master')
-        cmd = 'rsync -a --ignore-existing {} {}:{}'.format(local_datadir + '/', master, master_datadir)
+        cmd = 'rsync -a --update {} {}:{}'.format(local_datadir + '/', master, master_datadir)
         logger.log('executing: {}'.format(cmd))
         os.system(cmd)
 
         logger.log('transfer scorefiles to master')
-        cmd = 'rsync -a --ignore-existing {} {}:{}'.format(local_scoredir + '/', master, master_scoredir)
+        cmd = 'rsync -a --update {} {}:{}'.format(local_scoredir + '/', master, master_scoredir)
         logger.log('executing: {}'.format(cmd))
         os.system(cmd)
 
         logger.log('transfer logfiles to master')
-        cmd = 'rsync -a --ignore-existing {} {}:{}'.format(logging_dir + '/', master, master_logging_dir)
+        cmd = 'rsync -a --update {} {}:{}'.format(logging_dir + '/', master, master_logging_dir)
         logger.log('executing: {}'.format(cmd))
         os.system(cmd)
 

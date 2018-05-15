@@ -310,18 +310,13 @@ class CEM_controller():
             else:
                 actions = self.sample_actions()
 
-
             if 'random_policy' in self.policyparams:
                 self.logger.log('sampling random actions')
                 self.bestaction_withrepeat = actions[0]
                 return
             t_start = time.time()
 
-            if 'multmachine' in self.policyparams:
-                scores = self.ray_video_pred(last_frames, last_states, actions, itr)
-            else:
-                scores = self.video_pred(last_frames, last_frames_med, last_states, actions, itr)
-
+            scores = self.video_pred(last_frames, last_frames_med, last_states, actions, itr)
             self.logger.log('overall time for evaluating actions {}'.format(time.time() - t_start))
 
             actioncosts = self.calc_action_cost(actions)

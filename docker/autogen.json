@@ -1,6 +1,6 @@
 {
     "aceName": "nv-us-west-2",
-    "command": "cd /result && tensorboard --logdir . &      export VMPC_DATA_DIR=/mnt/pushing_data;     export TEN_DATA=/mnt/tensorflow_data;     export ALEX_DATA=/mnt/pretrained_models;     export RESULT_DIR=/result;     export NO_ROS='';     export PATH=/opt/conda/bin:/usr/local/mpi/bin:/usr/local/nvidia/bin:/usr/local/cuda/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin;     cd /workspace/visual_mpc/docker;python ../python_visual_mpc/visual_mpc_core/run_distributed_datacollector.py ../experiments/cem_exp/onpolicy/distributed_pushing/mod_hyper.py  --nworkers 8 --nsplit 10 --isplit 9",
+    "command": "cd /result && tensorboard --logdir . &      export VMPC_DATA_DIR=/mnt/pushing_data;     export TEN_DATA=/mnt/tensorflow_data;     export ALEX_DATA=/mnt/pretrained_models;     export RESULT_DIR=/result;     export NO_ROS='';     export PATH=/opt/conda/bin:/usr/local/mpi/bin:/usr/local/nvidia/bin:/usr/local/cuda/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin;     cd /workspace/visual_mpc/docker;python ../python_visual_mpc/visual_mpc_core/parallel_data_collection.py ../experiments/cem_exp/grasping_benchmarks/alexmodel_2towers_hor18/mod_hyper.py  --nworkers 8 ",
     "dockerImageName": "ucb_rail8888/tf_mj1.5:latest",
     "datasetMounts": [
         {
@@ -85,7 +85,7 @@
         },
         {
             "containerMountPoint": "/mnt/pretrained_models/bair_action_free/grasp_push_2views",
-            "id": 9817
+            "id": 9823
         },
         {
             "containerMountPoint": "/mnt/pushing_data/cartgripper/cartgripper_startgoal_masks6e4",
@@ -145,7 +145,7 @@
         }
     ],
     "aceInstance": "ngcv8",
-    "name": "onpolicy-distributed_pushing-mod_hyper-py-nworkers-8-nsplit-10-isplit-9",
+    "name": "grasping_benchmarks-alexmodel_2towers_hor18-mod_hyper-py-nworkers-8",
     "resultContainerMountPoint": "/result",
     "publishedContainerPorts": [
         6006
