@@ -18,7 +18,7 @@ time_warp_base = '/'.join(str.split(time_warp_base, '/')[:-2])
 
 agent = {
     'type': AgentMuJoCo,
-    'T': 50,
+    'T': 40,
     'substeps':200,
     'make_final_gif':'',
     'adim':3,
@@ -85,7 +85,7 @@ config = {
     'save_data': False,
     'save_raw_images':'',
     'start_index':0,
-    'end_index': 49,
+    'end_index': 99,
     'agent':agent,
     'policy':policy,
     'ngroup': 100,

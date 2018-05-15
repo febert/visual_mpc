@@ -60,7 +60,7 @@ config = {
     'save_raw_images':'',
     'save_data': True,
     'start_index':0,
-    'end_index': 49,
+    'end_index': 199,
     'agent': agent,
     'policy': policy,
     'ngroup': 1000

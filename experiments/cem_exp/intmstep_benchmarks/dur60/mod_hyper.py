@@ -18,7 +18,7 @@ time_warp_base = '/'.join(str.split(time_warp_base, '/')[:-2])
 
 agent = {
     'type': AgentMuJoCo,
-    'T': 40,
+    'T': 60,
     'substeps':200,
     'make_final_gif':'',
     'adim':3,
