@@ -437,12 +437,6 @@ class Dynamic_Base_Model(object):
                  ):
 
         self.iter_num = tf.placeholder(tf.float32, [])
-        imageshape = images.get_shape().as_list()
-        if len(imageshape) == 6:
-            assert imageshape[2] == 1
-            images = images[:,:,0]
-            pix_distrib = pix_distrib[:,:,0]
-            pix_distrib = tf.transpose(pix_distrib, [0,1,4,2,3])[...,None]  #putting ndesig at the third position
 
         if 'ndesig' in conf:
             ndesig = conf['ndesig']
@@ -520,8 +514,19 @@ class Dynamic_Base_Model(object):
                 print('randomly shift videos for data augmentation')
                 images, states, actions = self.random_shift(images, states, actions)
 
+        imageshape = images.get_shape().as_list()
+        if len(imageshape) == 6:
+            assert imageshape[2] == 1
+            images = images[:,:,0]
+            pix_distrib = pix_distrib[:,:,0]
+            pix_distrib = tf.transpose(pix_distrib, [0,1,4,2,3])[...,None]  #putting ndesig at the third position
+
         ## start interface
         # Split into timesteps.
+
+        self.actions = actions
+        self.images = images
+        self.states = states
 
         images = tf.unstack(images, axis=1)
         states = tf.unstack(states, axis=1)
@@ -531,9 +536,6 @@ class Dynamic_Base_Model(object):
             pix_distrib = tf.split(axis=1, num_or_size_splits=pix_distrib.get_shape()[1], value=pix_distrib)
             pix_distrib = [tf.reshape(pix, [self.batch_size, ndesig, self.img_height, self.img_width, 1]) for pix in pix_distrib]
 
-        self.actions = actions
-        self.images = images
-        self.states = states
 
         image_shape = images[0].get_shape().as_list()
         batch_size, height, width, color_channels = image_shape
@@ -623,20 +625,22 @@ class Dynamic_Base_Model(object):
         # L2 loss, PSNR for eval.
         loss, psnr_all = 0.0, 0.0
 
-        for x, gx in zip_equal(self.images[self.context_frames:], self.gen_images):
-            recon_cost = mean_squared_error(x, gx)
-            loss += recon_cost
-        train_summaries.append(tf.summary.scalar('recon_cost' , recon_cost))
+        # for x, gx in zip_equal(self.images[self.context_frames:], self.gen_images):
+        recon_cost = mean_squared_error(self.images[:, self.context_frames:], tf.squeeze(self.gen_images))
+        loss += recon_cost
+        train_summaries.append(tf.summary.scalar('recon_cost', recon_cost))
         val_summaries.append(tf.summary.scalar('val_recon_cost', recon_cost))
 
         if ('ignore_state_action' not in self.conf) and ('ignore_state' not in self.conf):
-            for state, gen_state in zip_equal(self.states[self.context_frames:], self.gen_states):
-                state_cost = mean_squared_error(state, gen_state) * 1e-4 * self.conf['use_state']
-                loss += state_cost
-        train_summaries.append(tf.summary.scalar('state_cost', state_cost))
-        val_summaries.append(tf.summary.scalar('val_state_cost', state_cost))
+            # for state, gen_state in zip_equal(self.states[self.context_frames:], self.gen_states):
+            state_cost = mean_squared_error(self.states[:,self.context_frames:], tf.squeeze(self.gen_states)) * 1e-4 * self.conf['use_state']
+            loss += state_cost
+            train_summaries.append(tf.summary.scalar('state_cost', state_cost))
+            val_summaries.append(tf.summary.scalar('val_state_cost', state_cost))
 
-        self.loss = loss = loss / np.float32(len(self.images) - self.conf['context_frames'])
+        # self.loss = loss = loss / np.float32(len(self.images) - self.conf['context_frames'])
+        self.loss = loss
+
         train_summaries.append(tf.summary.scalar('loss', loss))
         val_summaries.append(tf.summary.scalar('val_loss', loss))
 
