@@ -78,8 +78,7 @@ class Data_Collector(object):
 
             self.itraj += 1
 
-        self.logger.log('done.')
-        pdb.set_trace()
+        self.logger.log('done. itraj {} maxtraj {}'.format(self.itraj, self.maxtraj))
 
 def main():
     parser = argparse.ArgumentParser(description='run parllel data collection')
