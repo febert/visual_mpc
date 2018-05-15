@@ -13,12 +13,19 @@ base_dir = video_prediction.__file__
 base_dir = '/'.join(str.split(base_dir, '/')[:-2])
 from python_visual_mpc.video_prediction.setup_predictor_towers import setup_predictor
 jsondir = base_dir + '/pretrained_models/bair_action_free/grasp_push_2views'
+
+sequence_length = 18
+override_json = {
+    'sequence_length':sequence_length
+}
+
 configuration = {
+'override_json':override_json,
 'pred_model': Alex_Interface_Model,
 'setup_predictor':setup_predictor,
 'json_dir':jsondir,
-'pretrained_model':jsondir + '/model-140000',     # 'filepath of a pretrained model to resume training from.' ,
-'sequence_length': 15,      # 'sequence length to load, including context frames.' ,
+'pretrained_model':jsondir + '/model-190000',     # 'filepath of a pretrained model to resume training from.' ,
+'sequence_length': sequence_length,      # 'sequence length to load, including context frames.' ,
 'context_frames': 2,        # of frames before predictions.' ,
 'model': 'appflow',            #'model architecture to use - CDNA, DNA, or STP' ,
 'batch_size': 200,           #'batch size for training' ,

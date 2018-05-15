@@ -39,7 +39,7 @@ policy = {
     'low_level_ctrl': None,
     'current_dir':current_dir,
     'usenet': True,
-    'nactions': 5,
+    'nactions': 6,
     'repeat': 3,
     'initial_std': 0.08,        # std dev. in xy
     'initial_std_lift': 0.3, #0.1,

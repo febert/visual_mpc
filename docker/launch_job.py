@@ -42,7 +42,7 @@ def launch_job_func(run_script, hyper, arg, interactive=False, name='', ngpu=8, 
                              {"containerMountPoint": "/mnt/pretrained_models/bair_action_free/model.multi_savp.ngf.64.shared_views.true.num_views.2.tv_weight.0.001.transformation.flow.last_frames.2.generate_scratch_image.false.batch_size.16", "id": 9223},
                              {"containerMountPoint": "/mnt/pretrained_models/bair_action_free/model.multi_savp.num_views.2.tv_weight.0.001.transformation.flow.last_frames.2.generate_scratch_image.false.batch_size.16", "id": 9387},
                              {"containerMountPoint": "/mnt/pretrained_models/lift_push_last_subsequence/vae/model.savp.tv_weight.0.001.transformation.flow.last_frames.2.generate_scratch_image.false.batch_size.16", "id":9534},
-                             {"containerMountPoint": "/mnt/pretrained_models/bair_action_free/grasp_push_2views", "id": 9817},
+                             {"containerMountPoint": "/mnt/pretrained_models/bair_action_free/grasp_push_2views", "id": 9823},
                              {"containerMountPoint": "/mnt/pushing_data/cartgripper/cartgripper_startgoal_masks6e4", "id": 9138},  # mj_pos_ctrl_appflow
                              {"containerMountPoint": "/mnt/pushing_data/cartgripper/cartgripper_startgoal_2view_lift", "id": 9816},  # mj_pos_ctrl_appflow
                              {"containerMountPoint": "/mnt/pushing_data/cartgripper/cartgripper_const_dist", "id": 9259},  # mj_pos_ctrl_appflow

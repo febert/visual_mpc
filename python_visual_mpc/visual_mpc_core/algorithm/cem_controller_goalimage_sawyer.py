@@ -268,6 +268,12 @@ class CEM_controller():
         if 'trade_off_reg' not in self.policyparams:
             self.reg_tradeoff = np.ones(self.ndesig)
 
+        if 'override_json' in self.netconf:
+            if 'renormalize_pixdistrib' in self.netconf:
+                self.normalize = self.netconf['override_json']['renormalize_pixdistrib']
+            else: self.normalize = True
+        else: self.normalize = True
+
 
     def calc_action_cost(self, actions):
         actions_costs = np.zeros(self.M)
@@ -492,13 +498,10 @@ class CEM_controller():
             if 'trade_off_views' in self.policyparams:
                 scores_per_task, self.tradeoffs = self.compute_trade_off_cost(gen_distrib)
             else:
-                if 'override_json' in self.netconf:
-                    normalize = self.netconf['override_json']['renormalize_pixdistrib']
-                else: normalize = True
                 for icam in range(self.ncam):
                     for p in range(self.ndesig):
                         distance_grid = self.get_distancegrid(self.goal_pix[icam, p])
-                        scores_per_task.append(self.calc_scores(gen_distrib[:,:, icam, :,:, p], distance_grid, normalize=normalize))
+                        scores_per_task.append(self.calc_scores(gen_distrib[:,:, icam, :,:, p], distance_grid, normalize=self.normalize))
                         self.logger.log('best flow score of task {}:  {}'.format(p, np.min(scores_per_task[-1])))
                 scores_per_task = np.stack(scores_per_task, axis=1)
 
@@ -700,6 +703,7 @@ class CEM_controller():
         :param distance_grid: shape [r, c]
         :return:
         """
+        assert len(gen_distrib.shape) == 4
         t_mult = np.ones([self.seqlen - self.netconf['context_frames']])
         t_mult[-1] = self.policyparams['finalweight']
 
