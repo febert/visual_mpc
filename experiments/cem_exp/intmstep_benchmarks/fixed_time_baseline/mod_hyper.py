@@ -39,7 +39,7 @@ agent = {
 }
 
 intmstep = {
-    'pretrained':time_warp_base + '/data/45954/model_200.net',
+    'pretrained':time_warp_base + '/data/fixed_time_baseline/54191/model_200.net',
     # 'pretrained':time_warp_base + '/data/45955/model_200.net',  # with arm
     'noarm_input':''
 }
