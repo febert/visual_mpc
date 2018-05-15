@@ -86,7 +86,11 @@ class AgentMuJoCo(object):
         self.goal_obj_pose = dict['object_full_pose'][goal_index]   #needed for calculating the score
         if 'lift_object' in self._hyperparams:
             self.goal_obj_pose[:,2] = self._hyperparams['targetpos_clip'][1][2]
-        self.goal_image = dict['images'][goal_index]  # assign last image of trajectory as goalimage
+
+        if self.ncam != 1:
+            self.goal_image = np.stack([dict['images0'][goal_index], dict['images1'][goal_index]], 0) # assign last image of trajectory as goalimage
+        else:
+            self.goal_image = dict['images'][goal_index]  # assign last image of trajectory as goalimage
         if len(self.goal_image.shape) == 3:
             self.goal_image = self.goal_image[None]
         if 'goal_mask' in self._hyperparams:
@@ -550,8 +554,9 @@ class AgentMuJoCo(object):
         else:
             xpos0_true_len = (self.sim.get_state().qpos.shape[0] - self._hyperparams['num_objects']*7)
             len_xpos0 = self._hyperparams['xpos0'].shape[0]
+
             if len_xpos0 != xpos0_true_len:
-                xpos0 = np.concatenate([self._hyperparams['xpos0'], np.zeros(xpos0_true_len - len_xpos0)])  #testing in setting with updown rot, while data has only xyz
+                xpos0 = np.concatenate([self._hyperparams['xpos0'], np.zeros(xpos0_true_len - len_xpos0)], 0)  #testing in setting with updown rot, while data has only xyz
                 print("appending zeros to initial robot configuration!!!")
             else:
                 xpos0 = self._hyperparams['xpos0']

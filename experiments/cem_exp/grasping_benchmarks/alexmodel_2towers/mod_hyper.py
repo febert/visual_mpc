@@ -30,6 +30,7 @@ agent = {
     'data_save_dir':current_dir + '/data/train',
     'posmode':"",
     'targetpos_clip':[[-0.45, -0.45, -0.08, -np.pi*2, 0.], [0.45, 0.45, 0.15, np.pi*2, 0.1]],
+    'cameras':['maincam', 'leftcam']
 }
 
 policy = {
@@ -49,21 +50,24 @@ policy = {
     'action_cost_factor': 0,
     'rew_all_steps':"",
     'finalweight':10,
-    'rejection_sampling':''
+    # 'no_action_bound':"",
 }
 
-tag_images = {'name': 'images',
-             'file':'/images/im{}.png',   # only tindex
+tag_images0 = {'name': 'images0',
+             'file':'/images0/im{}.png',   # only tindex
              'shape':[agent['image_height'],agent['image_width'],3],
                }
+
+tag_images1 = {'name': 'images1',
+              'file':'/images1/im{}.png',   # only tindex
+              'shape':[agent['image_height'],agent['image_width'],3],
+              }
 
 tag_qpos = {'name': 'qpos',
              'shape':[6],
              'file':'/state_action.pkl'}
-
 tag_object_full_pose = {'name': 'object_full_pose',
                          'shape':[4,7],
-
                          'file':'/state_action.pkl'}
 tag_object_statprop = {'name': 'obj_statprop',
                      'not_per_timestep':''}
@@ -77,7 +81,7 @@ config = {
     'agent':agent,
     'policy':policy,
     'ngroup': 100,
-    'sourcetags':[tag_images, tag_qpos, tag_object_full_pose, tag_object_statprop],
-    'source_basedirs':[os.environ['VMPC_DATA_DIR'] + '/cartgripper/grasping/cartgripper_lift_benchmark/train'],
+    'sourcetags':[tag_images0, tag_images1, tag_qpos, tag_object_full_pose, tag_object_statprop],
+    'source_basedirs':[os.environ['VMPC_DATA_DIR'] + '/cartgripper/cartgripper_startgoal_2view_lift/train'],
     'sequence_length':2
 }

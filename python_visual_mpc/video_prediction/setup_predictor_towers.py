@@ -56,8 +56,8 @@ def setup_predictor(hyperparams, conf, gpu_id=0, ngpu=1, logger=None):
     if logger == None:
         logger = Logger(printout=True)
 
-    if 'cameras' in conf:
-        ncam = len(conf['cameras'])
+    if 'ncam' in conf:
+        ncam = conf['ncam']
     else: ncam = 1
 
     start_id = gpu_id
@@ -69,7 +69,7 @@ def setup_predictor(hyperparams, conf, gpu_id=0, ngpu=1, logger=None):
     # logger.log(device_lib.list_local_devices())
 
     logger.log('making graph')
-    gpu_options = tf.GPUOptions(per_process_gpu_memory_fraction=0.6)
+    gpu_options = tf.GPUOptions(per_process_gpu_memory_fraction=0.9)
     g_predictor = tf.Graph()
     logger.log('making session')
     sess = tf.Session(config=tf.ConfigProto(gpu_options=gpu_options, allow_soft_placement=True), graph=g_predictor)

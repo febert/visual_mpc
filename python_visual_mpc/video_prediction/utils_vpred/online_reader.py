@@ -78,10 +78,7 @@ def read_single_img(dataind, tag_dict, tar, trajname, icam=None):
         file_bytes = np.asarray(bytearray(img_stream.read()), dtype=np.uint8)
         img = cv2.imdecode(file_bytes, 1)
     else:
-        if 'ncam' in tag_dict:
-            imfile = trajname + tag_dict['file'].format(dataind, icam)
-        else:
-            imfile = trajname + tag_dict['file'].format(dataind)
+        imfile = trajname + tag_dict['file'].format(dataind)
         if not os.path.exists(imfile):
             raise ValueError("file {} does not exist!".format(imfile))
         img = cv2.imread(imfile)

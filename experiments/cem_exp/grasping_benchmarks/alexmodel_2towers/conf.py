@@ -12,13 +12,12 @@ import video_prediction
 base_dir = video_prediction.__file__
 base_dir = '/'.join(str.split(base_dir, '/')[:-2])
 from python_visual_mpc.video_prediction.setup_predictor_towers import setup_predictor
-jsondir = base_dir + '/pretrained_models/lift_push_last_subsequence/vae/model.savp.tv_weight.0.001.transformation.flow.last_frames.2.generate_scratch_image.false.batch_size.16'
-
+jsondir = base_dir + '/pretrained_models/bair_action_free/grasp_push_2views'
 configuration = {
 'pred_model': Alex_Interface_Model,
 'setup_predictor':setup_predictor,
 'json_dir':jsondir,
-'pretrained_model':jsondir + '/model-300000',     # 'filepath of a pretrained model to resume training from.' ,
+'pretrained_model':jsondir + '/model-140000',     # 'filepath of a pretrained model to resume training from.' ,
 'sequence_length': 15,      # 'sequence length to load, including context frames.' ,
 'context_frames': 2,        # of frames before predictions.' ,
 'model': 'appflow',            #'model architecture to use - CDNA, DNA, or STP' ,
@@ -29,5 +28,6 @@ configuration = {
 'img_height':48,
 'img_width':64,
 'ndesig':1,
-'use_vel':''                # add the velocity to the state input
+'use_vel':'',                # add the velocity to the state input
+'ncam':2,
 }
