@@ -129,6 +129,7 @@ class ReplayBuffer_Loadfiles(ReplayBuffer):
                 dict_ = pickle.load(open(scorefile, 'rb'))
             except FileNotFoundError:
                 self.logger.log('scorefile: {} not found'.format(scorefile))
+                continue
             self.improvement_avg.append(np.mean(dict_['improvement']))
             self.final_poscost_avg.append(np.mean(dict_['final_poscost']))
 
