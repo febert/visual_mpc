@@ -224,21 +224,17 @@ class Visualizer_tkinter(object):
             if resize is not None:
                 images = resize_image(images, size=resize)
             name = vid[1]
-            if images[0].shape[-1] == 1:
+            if images[0].shape[-1] == 1 or len(images[0].shape) == 3:
                 images = color_code_distrib(images, self.numex, renormalize=True)
+
+            # print(name)
+            # print('len', len(images))
+            # print('sizes', [im.shape for im in images])
             new_videolist.append((images, name))
 
-            if separate_vid:
-                vid_path = self.gif_savepath + '/sep_videos'
-                if not os.path.exists(vid_path):
-                    os.mkdir(vid_path)
-                for b in range(self.numex):
-                    frames = assemble_gif(new_videolist, convert_from_float=False, only_ind=b)
-                    save_video_mp4(vid_path + '/example{}'.format(b), frames)
-            else:
-                framelist = assemble_gif(new_videolist, convert_from_float=True, num_exp=self.numex)
-                # save_video_mp4(self.gif_savepath +'/prediction_at_t{}')
-                npy_to_gif(framelist, self.gif_savepath +'/direct{}{}'.format(self.iternum,self.suf))
+        framelist = assemble_gif(new_videolist, convert_from_float=True, num_exp=self.numex)
+        # save_video_mp4(self.gif_savepath +'/prediction_at_t{}')
+        npy_to_gif(framelist, self.gif_savepath +'/direct{}{}'.format(self.iternum,self.suf))
 
     def visualize_states_actions(self, states, actions):
 

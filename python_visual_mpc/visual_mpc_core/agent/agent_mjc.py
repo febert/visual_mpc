@@ -51,8 +51,9 @@ class AgentMuJoCo(object):
         self.curr_mask = None
         self.curr_mask_large = None
         self.desig_pix = None
-
-        self.ncam = len(self._hyperparams['cameras'])
+        if 'cameras' in self._hyperparams:
+            self.ncam = len(self._hyperparams['cameras'])
+        else: self.ncam = 1
         self.start_conf = None
         self.load_obj_statprop = None  #loaded static object properties
         self._setup_world()
@@ -86,6 +87,8 @@ class AgentMuJoCo(object):
         if 'lift_object' in self._hyperparams:
             self.goal_obj_pose[:,2] = self._hyperparams['targetpos_clip'][1][2]
         self.goal_image = dict['images'][goal_index]  # assign last image of trajectory as goalimage
+        if len(self.goal_image.shape) == 3:
+            self.goal_image = self.goal_image[None]
         if 'goal_mask' in self._hyperparams:
             self.goal_mask = dict['goal_mask'][goal_index]  # assign last image of trajectory as goalimage
 
@@ -135,7 +138,7 @@ class AgentMuJoCo(object):
     def get_desig_pix(self, round=True):
         qpos_dim = self.sdim // 2  # the states contains pos and vel
         assert self.sim.data.qpos.shape[0] == qpos_dim + 7 * self._hyperparams['num_objects']
-        desig_pix = np.zeros([self.ncam, self._hyperparams['num_objects'], 2])
+        desig_pix = np.zeros([self.ncam, self._hyperparams['num_objects'], 2], dtype=np.int)
         ratio = self._hyperparams['viewer_image_width'] / self._hyperparams['image_width']
         for icam in range(self.ncam):
             for i in range(self._hyperparams['num_objects']):
@@ -163,7 +166,7 @@ class AgentMuJoCo(object):
         self.sim.forward()
 
     def get_goal_pix(self, round=True):
-        goal_pix = np.zeros([self.ncam, self._hyperparams['num_objects'], 2])
+        goal_pix = np.zeros([self.ncam, self._hyperparams['num_objects'], 2], dtype=np.int)
         ratio = self._hyperparams['viewer_image_width'] / self._hyperparams['image_width']
         for icam in range(self.ncam):
             for i in range(self._hyperparams['num_objects']):

@@ -23,8 +23,8 @@ class Tower(object):
         # picking different subset of the actions for each gpu
         startidx = gpu_id * nsmp_per_gpu
         actions = tf.slice(actions, [startidx, 0, 0], [nsmp_per_gpu, -1, -1])
-        start_images = tf.slice(start_images, [startidx, 0, 0, 0, 0, 0], [nsmp_per_gpu, -1, -1, -1, -1, -1])
-        start_states = tf.slice(start_states, [startidx, 0, 0], [nsmp_per_gpu, -1, -1])
+        start_images = tf.tile(start_images, [nsmp_per_gpu, 1, 1, 1, 1, 1])
+        start_states = tf.tile(start_states, [nsmp_per_gpu, 1, 1])
 
         if pix_distrib is not None:
             pix_distrib = tf.tile(pix_distrib, [nsmp_per_gpu, 1, 1, 1, 1, 1])
@@ -56,6 +56,10 @@ def setup_predictor(hyperparams, conf, gpu_id=0, ngpu=1, logger=None):
     if logger == None:
         logger = Logger(printout=True)
 
+    if 'cameras' in conf:
+        ncam = len(conf['cameras'])
+    else: ncam = 1
+
     start_id = gpu_id
     indexlist = [str(i_gpu) for i_gpu in range(start_id, start_id + ngpu)]
     var = ','.join(indexlist)
@@ -82,7 +86,7 @@ def setup_predictor(hyperparams, conf, gpu_id=0, ngpu=1, logger=None):
 
             orig_size = conf['orig_size']
             images_pl = tf.placeholder(use_dtype, name='images',
-                                       shape=(conf['batch_size'], conf['context_frames'], conf['ncam'], orig_size[0], orig_size[1], 3))
+                                       shape=(1, conf['context_frames'], ncam, orig_size[0], orig_size[1], 3))
             sdim = conf['sdim']
             adim = conf['adim']
             logger.log('adim', adim)
@@ -95,8 +99,7 @@ def setup_predictor(hyperparams, conf, gpu_id=0, ngpu=1, logger=None):
             if 'use_goal_image' in conf:
                 pix_distrib = None
             else:
-                pix_distrib = tf.placeholder(use_dtype, shape=(
-                conf['batch_size'], conf['context_frames'], conf['ncam'], orig_size[0], orig_size[1], conf['ndesig']))
+                pix_distrib = tf.placeholder(use_dtype, shape=(1, conf['context_frames'], ncam, orig_size[0], orig_size[1], conf['ndesig']))
 
             # making the towers
             towers = []

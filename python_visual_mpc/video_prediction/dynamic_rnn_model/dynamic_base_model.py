@@ -431,13 +431,18 @@ class Dynamic_Base_Model(object):
                  actions=None,
                  states=None,
                  pix_distrib=None,
-                 pix_distrib2=None,
                  trafo_pix = True,
                  load_data = True,
                  build_loss = True,
                  ):
 
         self.iter_num = tf.placeholder(tf.float32, [])
+        imageshape = images.get_shape().as_list()
+        if len(imageshape) == 6:
+            assert imageshape[2] == 1
+            images = images[:,:,0]
+            pix_distrib = pix_distrib[:,:,0]
+            pix_distrib = tf.transpose(pix_distrib, [0,1,4,2,3])[...,None]  #putting ndesig at the third position
 
         if 'ndesig' in conf:
             ndesig = conf['ndesig']
@@ -453,13 +458,11 @@ class Dynamic_Base_Model(object):
             self.img_width = 64
 
         if states is not None and states.get_shape().as_list()[1] != conf['sequence_length']:  # append zeros if states is shorter than sequence length
-            states = tf.concat(
-                [states, tf.zeros([conf['batch_size'], conf['sequence_length'] - conf['context_frames'], conf['sdim']])],
+            states = tf.concat([states, tf.zeros([conf['batch_size'], conf['sequence_length'] - conf['context_frames'], conf['sdim']])],
                 axis=1)
 
         if images is not None and images.get_shape().as_list()[1] != conf['sequence_length']:  # append zeros if states is shorter than sequence length
-            images = tf.concat(
-                [images, tf.zeros([conf['batch_size'], conf['sequence_length'] - conf['context_frames'], self.img_height, self.img_width, 3])],
+            images = tf.concat([images, tf.zeros([conf['batch_size'], conf['sequence_length'] - conf['context_frames'], self.img_height, self.img_width, 3])],
                 axis=1)
 
         self.trafo_pix = trafo_pix
@@ -487,9 +490,6 @@ class Dynamic_Base_Model(object):
         self.sdim = conf['sdim']
         self.adim = conf['adim']
 
-        # if 'use_len' in conf:
-        #     seq_len = conf['use_len']
-        # else:
         seq_len = conf['sequence_length']
 
         if images is None:
@@ -516,7 +516,6 @@ class Dynamic_Base_Model(object):
                 images, actions, states = tf.cond(self.train_cond > 0,  # if 1 use trainigbatch else validation batch
                                                   lambda: [train_images, train_actions, train_states],
                                                   lambda: [val_images, val_actions, val_states])
-
             if 'use_len' in conf:
                 print('randomly shift videos for data augmentation')
                 images, states, actions = self.random_shift(images, states, actions)
@@ -581,8 +580,6 @@ class Dynamic_Base_Model(object):
         inputs = [tf.stack(images[:sequence_length]), tf.stack(actions[:sequence_length]), tf.stack(states[:sequence_length])]
         if pix_distrib is not None:
             inputs.append(tf.stack(pix_distrib[:sequence_length]))
-        if pix_distrib2 is not None:
-            inputs.append(tf.stack(pix_distrib2[:sequence_length]))
 
         if 'float16' in conf:
             use_dtype = tf.float16
@@ -592,29 +589,26 @@ class Dynamic_Base_Model(object):
 
         n_cutoff = self.context_frames - 1 # only return images predicting future timesteps, omit images predicting steps during context
         (gen_images, gen_states, gen_masks, gen_transformed_images), other_outputs = outputs[:4], outputs[4:]
-        self.gen_images = tf.unstack(gen_images, axis=0)[n_cutoff:]
-        self.gen_states = tf.unstack(gen_states, axis=0)[n_cutoff:]
-        self.gen_masks = list(zip(*[tf.unstack(gen_mask, axis=0) for gen_mask in gen_masks]))[n_cutoff:]
-        self.gen_transformed_images = list(
-            zip(*[tf.unstack(gen_transformed_image, axis=0) for gen_transformed_image in gen_transformed_images]))
+        self.gen_images = tf.transpose(gen_images[n_cutoff:], [1,0,2,3,4])[:,:,None]   # newshape: b,t,n,r,c,3
+        self.gen_states = tf.transpose(gen_states[n_cutoff:], [1,0,2])
+        self.gen_masks = list([gen_mask[:, n_cutoff:] for gen_mask in gen_masks])
+        self.gen_transformed_images = list([gen_transformed_image for gen_transformed_image in gen_transformed_images])
         other_outputs = list(other_outputs)
 
         # making video summaries
-        self.val_video_summaries = make_video_summaries(conf['context_frames'], [self.images, self.gen_images])
+        self.val_video_summaries = make_video_summaries(conf['context_frames'], [tf.stack(images, 1)[:,:,None], self.gen_images])
 
         if 'compute_flow_map' in self.conf:
             gen_flow_map = other_outputs.pop(0)
-            self.gen_flow_map = tf.unstack(gen_flow_map, axis=0)[n_cutoff:]
+            self.gen_flow_map = gen_flow_map[:, n_cutoff:]
 
         if pix_distrib is not None:
             self.gen_distrib = other_outputs.pop(0)
-            self.gen_distrib = tf.unstack(self.gen_distrib, axis=0)
+            self.gen_distrib = tf.transpose(self.gen_distrib[n_cutoff:], [1,0,5,3,4,2])
             self.gen_transformed_pixdistribs = other_outputs.pop(0)
             self.gen_transformed_pixdistribs = list(zip(
                 *[tf.unstack(gen_transformed_pixdistrib, axis=0) for gen_transformed_pixdistrib in
                   self.gen_transformed_pixdistribs]))[n_cutoff:]
-
-            self.gen_distrib = self.gen_distrib[n_cutoff:]
 
         assert not other_outputs
 

@@ -235,7 +235,9 @@ class CEM_controller():
 
         self.indices =[]
 
-        self.ncam = len(self.agentparams['cameras'])
+        if 'cameras' in self.agentparams:
+            self.ncam = len(self.agentparams['cameras'])
+        else: self.ncam = 1
 
         self.rec_input_distrib = []  # record the input distributions
 
@@ -416,7 +418,7 @@ class CEM_controller():
         return np.stack(actions, 0), scores
 
     def switch_on_pix(self, desig):
-        one_hot_images = np.zeros((self.bsize, self.netconf['context_frames'], self.ncam, self.img_height, self.img_width, self.ndesig), dtype=np.float32)
+        one_hot_images = np.zeros((1, self.netconf['context_frames'], self.ncam, self.img_height, self.img_width, self.ndesig), dtype=np.float32)
         desig = np.clip(desig, np.zeros(2).reshape((1, 2)), np.array([self.img_height, self.img_width]).reshape((1, 2)) - 1).astype(np.int)
         # switch on pixels
         for icam in range(self.ncam):
@@ -439,8 +441,7 @@ class CEM_controller():
 
         last_states = last_states[None]
         last_frames = last_frames.astype(np.float32, copy=False) / 255.
-        last_frames = np.expand_dims(last_frames, axis=0)
-        last_frames = np.repeat(last_frames, self.bsize, axis=0)
+        last_frames = last_frames[None]
 
         if 'register_gtruth' in self.policyparams and cem_itr == 0:
             if 'image_medium' in self.agentparams:
@@ -529,8 +530,8 @@ class CEM_controller():
 
         tstart_verbose = time.time()
 
-        if self.verbose and cem_itr == self.policyparams['iterations']-1 and self.i_tr % self.verbose_freq ==0:
-        # if self.verbose:
+        # if self.verbose and cem_itr == self.policyparams['iterations']-1 and self.i_tr % self.verbose_freq ==0:
+        if self.verbose:
             gen_images = make_cem_visuals(self, actions, bestindices, cem_itr, flow_fields, gen_distrib, gen_images,
                                           gen_states, last_frames, goal_warp_pts_l, scores, self.warped_image_goal,
                                           self.warped_image_start, warped_images)
@@ -552,16 +553,20 @@ class CEM_controller():
         ctxt = self.netconf['context_frames']
         desig_l = []
 
-        current_frame = last_frames[0, ctxt - 1]
+        current_frame = last_frames[0, ctxt - 1, 0]  #TODO: make general for ncam
+        start_image = start_image[0]
+        goal_image = goal_image[0]
+
         warped_image_start, warped_image_goal = None, None
+        assert self.ncam == 1
 
         if 'image_medium' in self.agentparams:
-            pix_t0 = self.desig_pix_t0_med[0]
-            goal_pix = self.goal_pix_med[0]
+            pix_t0 = self.desig_pix_t0_med[0,0]
+            goal_pix = self.goal_pix_med[0, 0]
             self.logger.log('using desig goal pix medium')
         else:
-            pix_t0 = self.desig_pix_t0[0]
-            goal_pix = self.goal_pix[0]
+            pix_t0 = self.desig_pix_t0[0, 0]
+            goal_pix = self.goal_pix[0, 0]
             goal_image = cv2.resize(goal_image, (self.agentparams['image_width'], self.agentparams['image_height']))
 
         if 'start' in self.policyparams['register_gtruth']:
@@ -575,7 +580,7 @@ class CEM_controller():
             warped_image_goal, flow_field, start_warp_pts = self.goal_image_warper(current_frame[None],
                                                                                     goal_image[None])
             desig_l.append(np.flip(start_warp_pts[0, goal_pix[0], goal_pix[1]], 0))
-            gl_warperr = np.linalg.norm(self.goal_image[goal_pix[0], goal_pix[1]] -
+            gl_warperr = np.linalg.norm(goal_image[goal_pix[0], goal_pix[1]] -
                                                   warped_image_goal[0, goal_pix[0], goal_pix[1]])
 
         tradeoff = 1 - np.array([st_warperr, gl_warperr])/(st_warperr + gl_warperr)
@@ -589,6 +594,7 @@ class CEM_controller():
         else:
             self.desig_pix = np.stack(desig_l, 0)
 
+        self.desig_pix = self.desig_pix[None,...]
         return warped_image_start, warped_image_goal, tradeoff
 
     def publish_sawyer(self, gen_distrib, gen_images, scores):
@@ -738,7 +744,7 @@ class CEM_controller():
             input_distrib = np.stack(input_distrib, axis=1)
         return input_distrib
 
-    def act(self, traj, t, desig_pix = None, goal_pix= None, goal_image=None, goal_mask = None, curr_mask=None):
+    def act(self, traj, t, desig_pix=None, goal_pix=None, goal_image=None, goal_mask=None, curr_mask=None):
         """
         Return a random action for a state.
         Args:
@@ -747,16 +753,14 @@ class CEM_controller():
         self.i_tr = traj.i_tr
         self.goal_mask = goal_mask
         self.goal_image = goal_image
-        self.desig_pix = np.array(desig_pix).reshape((self.ncam, self.ndesig, 2))
-        self.goal_pix = np.array(goal_pix).reshape((self.ncam, self.ndesig, 2))
 
         if 'register_gtruth' in self.policyparams:
-            self.goal_pix = np.tile(self.goal_pix, [self.ndesig,1])
-            self.goal_pix = np.tile(self.goal_pix, [2,1])
+            self.goal_pix = np.tile(goal_pix, [1,self.ndesig,1])   # shape: ncam, ndesig, 2
+        else:
+            self.desig_pix = np.array(desig_pix).reshape((self.ncam, self.ndesig, 2))   # 1,1,2
+            self.goal_pix = np.array(goal_pix).reshape((self.ncam, self.ndesig, 2))     # 1,1,2
         if 'image_medium' in self.agentparams:
             self.goal_pix_med = (self.goal_pix * self.agentparams['image_medium'][0] / self.agentparams['image_height']).astype(np.int)
-
-        self.goal_image = goal_image
 
         last_images_med = None
         self.curr_obj_mask = curr_mask

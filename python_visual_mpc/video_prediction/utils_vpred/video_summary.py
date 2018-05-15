@@ -5,13 +5,21 @@ import tensorflow as tf
 
 
 def make_video_summaries(ncntxt, videos):
-    seq_len = len(videos[0])
-    columns = []
-    videos = [vid[-(seq_len-ncntxt):] for vid in videos]
-    for t in range(seq_len-ncntxt):
-        colimages = [vid[t] for vid in videos]
-        columns.append(tf.concat(colimages, axis=1))
-    summary = tf.summary.tensor_summary('val_images', tf.cast(tf.stack(columns, axis=1) * 255, tf.uint8))
+    """
+    :param ncntxt:
+    :param videos:  list of b,t,n, r,c,3
+    :return:
+    """
+    shape = videos[0].get_shape().as_list()
+    nex = shape[0]
+    seq_len = shape[1]
+
+    videos = [vid[:,-(seq_len-ncntxt):] for vid in videos]
+    batchconcat = []
+    for vid in videos:
+        batchconcat.append(tf.concat([vid[b,:,0] for b in range(nex)], axis=2))
+    batchconcat = tf.concat(batchconcat, axis=1)
+    summary = tf.summary.tensor_summary('val_images', tf.cast(batchconcat * 255, tf.uint8))
     return summary
 
 def convert_tensor_to_gif_summary(summ):
