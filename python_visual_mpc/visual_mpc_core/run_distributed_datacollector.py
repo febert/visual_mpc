@@ -120,6 +120,8 @@ def main():
     else:
         hyperparams['agent']['result_dir'] = hyperparams['current_dir']
 
+    pdb.set_trace()
+
     exp_name = '/'.join(str.split(hyperparams_file.partition('cem_exp')[2], '/')[:-1])
     hyperparams['exp_name'] = exp_name
 
