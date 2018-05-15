@@ -21,7 +21,6 @@ def launch_job_func(run_script, hyper, arg, interactive=False, name='', ngpu=8, 
 
     data['dockerImageName'] = "ucb_rail8888/tf_mj1.5:latest"
 
-    script_name = run_script
 
     data["datasetMounts"] = [{"containerMountPoint": "/mnt/tensorflow_data/sim/mj_pos_ctrl_appflow", "id": 8906},
                              {"containerMountPoint": "/mnt/tensorflow_data/sim/appflow_nogenpix", "id": 8933},
