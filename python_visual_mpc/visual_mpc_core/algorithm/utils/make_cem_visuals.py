@@ -133,13 +133,14 @@ def make_cem_visuals(ctrl, actions, bestindices, cem_itr, flow_fields, gen_distr
                     range(len_pred)]
         gen_image_an_l = None
 
-        goal_image_annotated = []
-        for icam in range(ctrl.ncam):
-            goal_image = [np.repeat(np.expand_dims(ctrl.goal_image[icam], axis=0), ctrl.K, axis=0) for _ in
-                          range(len_pred)]
-            for p in range(ctrl.ndesig):
-                goal_image_annotated.append(image_addgoalpix(ctrl.K , len_pred, goal_image, ctrl.goal_pix[icam, p]))
-            t_dict_['goal_image{}'.format(icam)] = goal_image_annotated[icam]
+        if ctrl.goal_image is not None:
+            goal_image_annotated = []
+            for icam in range(ctrl.ncam):
+                goal_image = [np.repeat(np.expand_dims(ctrl.goal_image[icam], axis=0), ctrl.K, axis=0) for _ in
+                              range(len_pred)]
+                for p in range(ctrl.ndesig):
+                    goal_image_annotated.append(image_addgoalpix(ctrl.K , len_pred, goal_image, ctrl.goal_pix[icam, p]))
+                t_dict_['goal_image{}'.format(icam)] = goal_image_annotated[icam]
 
         if 'use_goal_image' not in ctrl.policyparams or 'comb_flow_warp' in ctrl.policyparams or 'register_gtruth' in ctrl.policyparams:
             sel_gen_distrib = gen_distrib[bestindices]
