@@ -400,8 +400,8 @@ class CEM_controller():
             actions = self.discretize(actions)
         actions = np.repeat(actions, self.repeat, axis=1)
 
-        print('max action val xy', np.max(actions[:,:,:2]))
-        print('max action val z', np.max(actions[:,:,2]))
+        self.logger.log('max action val xy', np.max(actions[:,:,:2]))
+        self.logger.log('max action val z', np.max(actions[:,:,2]))
         return actions
 
     def action_preselection(self, actions, scores):
@@ -424,7 +424,7 @@ class CEM_controller():
         for icam in range(self.ncam):
             for p in range(self.ndesig):
                 one_hot_images[:, :, icam, desig[icam, p, 0], desig[icam, p, 1], p] = 1.
-                print('using desig pix',desig[icam, p, 0], desig[icam, p, 1])
+                self.logger.log('using desig pix',desig[icam, p, 0], desig[icam, p, 1])
         return one_hot_images
 
     def singlepoint_prob_eval(self, gen_pixdistrib):
@@ -499,7 +499,7 @@ class CEM_controller():
                     for p in range(self.ndesig):
                         distance_grid = self.get_distancegrid(self.goal_pix[icam, p])
                         scores_per_task.append(self.calc_scores(gen_distrib[:,:, icam, :,:, p], distance_grid, normalize=normalize))
-                        print('best flow score of task {}:  {}'.format(p, np.min(scores_per_task[-1])))
+                        self.logger.log('best flow score of task {}:  {}'.format(p, np.min(scores_per_task[-1])))
                 scores_per_task = np.stack(scores_per_task, axis=1)
 
                 if 'only_take_first_view' in self.policyparams:
@@ -790,11 +790,11 @@ class CEM_controller():
                     self.perform_CEM(last_images, last_images_med, last_states, t)
                 action = self.bestaction_withrepeat[t - 1]
             elif 'replan_interval' in self.policyparams:
-                print('using actions of first plan, no replanning!!')
+                self.logger.log('using actions of first plan, no replanning!!')
                 if (t-1) % self.policyparams['replan_interval'] == 0:
                     self.last_replan = t
                     self.perform_CEM(last_images, last_images_med, last_states, t)
-                print('last replan', self.last_replan)
+                self.logger.log('last replan', self.last_replan)
                 action = self.bestaction_withrepeat[t - self.last_replan]
             else:
                 self.perform_CEM(last_images, last_images_med, last_states, t)
