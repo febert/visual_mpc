@@ -64,7 +64,7 @@ policy = {
 }
 
 config = {
-    'traj_per_file': 1,
+    'traj_per_file': 16,
     'current_dir':current_dir,
     'save_data': True,
     'start_index':0,
