@@ -52,6 +52,11 @@ def create_object_xml(hyperparams, load_dict_list=None):
     if 'object_meshes' in hyperparams:
         assets = ET.SubElement(root, "asset")
 
+    if 'object_mass' in hyperparams:
+        object_mass = hyperparams['object_mass']
+    else:
+        object_mass = 0.01
+
     for i in range(hyperparams['num_objects']):
         if load_dict_list == None:
             dict = {}
@@ -105,7 +110,7 @@ def create_object_xml(hyperparams, load_dict_list=None):
             ET.SubElement(assets, "mesh", name = obj_string + "_mesh", file = object_file, scale = "{} {} {}".format(scale, scale, scale))
 
             ET.SubElement(obj, "geom", type="mesh", mesh = obj_string + "_mesh",
-                          rgba="{} {} {} 1".format(color1[0], color1[1], color1[2]), mass="0.01",
+                          rgba="{} {} {} 1".format(color1[0], color1[1], color1[2]), mass="{}".format(object_mass),
                           contype="7", conaffinity="7"
                           )
             # for c in range(len(convex_hull_files)):
@@ -117,14 +122,14 @@ def create_object_xml(hyperparams, load_dict_list=None):
 
 
             ET.SubElement(obj, "geom", type="box", size=".03 {} .03".format(l1),
-                          rgba="{} {} {} 1".format(color1[0], color1[1], color1[2]), mass="0.01",
+                          rgba="{} {} {} 1".format(color1[0], color1[1], color1[2]), mass="{}".format(object_mass),
                           contype="7", conaffinity = "7", friction="1 0.010 0.0002"
                           )
 
 
             ET.SubElement(obj, "geom", pos="{} {} 0.0".format(l2, pos2),
                           type="box", size="{} .03 .03".format(l2),
-                          rgba="{} {} {} 1".format(color2[0], color2[1], color2[2]), mass="0.01",
+                          rgba="{} {} {} 1".format(color2[0], color2[1], color2[2]), mass="{}".format(object_mass),
                           contype="7", conaffinity="7", friction="1 0.010 0.0002"
                           )
 
