@@ -15,24 +15,7 @@ def sorted_nicely( l ):
     return sorted(l, key = alphanum_key)
 
 def combine_scores(dir):
-    improvement_l= []
-    scores_l = []
-    anglecost_l = []
-
-    files = glob.glob(dir + '/scores_*')
-    files = sorted_nicely(files)
-
-    for f in files:
-        print('load', f)
-        dict_ = pickle.load(open(f, "rb"))
-        scores_l.append(dict_['scores'])
-        anglecost_l.append(dict_['anglecost'])
-        improvement_l.append(dict_['improvement'])
-
-    score = np.concatenate(scores_l, axis=0)
-    anglecost = np.concatenate(anglecost_l, axis=0)
-    improvement = np.concatenate(improvement_l, axis=0)
-    sorted_ind = copy.deepcopy(improvement).argsort()[::-1]
+    anglecost, improvement, score, sorted_ind = read_scoes(dir)
 
     mean_imp = np.mean(improvement)
     med_imp = np.median(improvement)
@@ -68,6 +51,25 @@ def combine_scores(dir):
     f.close()
 
     print('writing {}'.format(dir))
+
+def read_scoes(dir):
+    improvement_l = []
+    scores_l = []
+    anglecost_l = []
+    files = glob.glob(dir + '/scores_*')
+    files = sorted_nicely(files)
+    for f in files:
+        print('load', f)
+        dict_ = pickle.load(open(f, "rb"))
+        scores_l.append(dict_['scores'])
+        anglecost_l.append(dict_['anglecost'])
+        improvement_l.append(dict_['improvement'])
+    score = np.concatenate(scores_l, axis=0)
+    anglecost = np.concatenate(anglecost_l, axis=0)
+    improvement = np.concatenate(improvement_l, axis=0)
+    sorted_ind = copy.deepcopy(improvement).argsort()[::-1]
+    return anglecost, improvement, score, sorted_ind
+
 
 def make_imp_score(score, imp, dir):
     plt.scatter(imp, score)
