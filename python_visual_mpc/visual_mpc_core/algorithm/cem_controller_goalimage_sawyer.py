@@ -828,6 +828,15 @@ class CEM_controller():
         plt.imshow(self.intm_distmap.squeeze()[1])
         plt.savefig(self.agentparams['record'] + '/intmstep.png')
 
+        if 'separation_metric' in self.agentparams:
+            self.intm_metric = {}
+            agreement_0 = []
+            agreement_1 = []
+            for i in range(2):
+                agreement_0.append(np.sum(self.intm_distmap[i] * current_onehot[0,0,i]))
+                agreement_1.append(np.sum(self.intm_distmap[i] * goal_onehot[0,0,i]))
+            self.plan_stat['agreement_0'] = np.mean(np.array(agreement_0))
+            self.plan_stat['agreement_1'] = np.mean(np.array(agreement_1))
 
 def unravel_ind(argmax, shape):
     assert len(shape) == 2

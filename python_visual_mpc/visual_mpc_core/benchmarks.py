@@ -94,6 +94,8 @@ def perform_benchmark(conf = None, iex=-1, gpu_id=None):
     improvment_l = []
     initial_dist_l = []
 
+    agreement_metric_l = []
+
     if 'sourcetags' in conf:  # load data per trajectory
         if 'VMPC_DATA_DIR' in os.environ:
             datapath = conf['source_basedirs'][0].partition('pushing_data')[2]
@@ -146,6 +148,9 @@ def perform_benchmark(conf = None, iex=-1, gpu_id=None):
         med_imp = np.median(improvement)
         mean_dist = np.mean(score)
         med_dist = np.median(score)
+
+        if 'separation_metric' in conf['agent']:
+            agreement_metric_l.append(sim.agent.agreement)
 
         f = open(result_file, 'w')
         f.write('experiment name: ' + benchmark_name + '\n')

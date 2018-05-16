@@ -129,6 +129,10 @@ class AgentMuJoCo(object):
             traj.final_poscost = self.final_poscost
             traj.initial_poscost = self.initial_poscost
 
+        #intmstep metric
+        if 'agreement' in traj.plan_stat:
+            self.agreement = np.array([traj.plan_stat['agreement0'], traj.plan_stat['agreement1']])
+
         if 'save_goal_image' in self._hyperparams:
             self.save_goal_image_conf(traj)
 
