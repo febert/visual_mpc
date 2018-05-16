@@ -32,7 +32,6 @@ agent = {
     'posmode':"",
     'targetpos_clip':[[-0.45, -0.45, -0.08, -np.pi*2, 0.], [0.45, 0.45, 0.15, np.pi*2, 0.1]],
     'not_use_images':"",
-    'lift_object':'',
 }
 
 policy = {
@@ -60,7 +59,7 @@ tag_images = {'name': 'images',
                }
 
 tag_qpos = {'name': 'qpos',
-             'shape':[3],
+             'shape':[6],
              'file':'/state_action.pkl'}
 tag_object_full_pose = {'name': 'object_full_pose',
                          'shape':[4,7],
@@ -78,7 +77,7 @@ config = {
     'policy':policy,
     'ngroup': 500,
     'sourcetags':[tag_images, tag_qpos, tag_object_full_pose, tag_object_statprop],
-    'source_basedirs':[os.environ['VMPC_DATA_DIR'] + '/cartgripper_startgoal_short/train'],
+    'source_basedirs':[os.environ['VMPC_DATA_DIR'] + '/cartgripper/grasping/cartgripper_lift_benchmark/train'],
     'sequence_length':2
 }
 

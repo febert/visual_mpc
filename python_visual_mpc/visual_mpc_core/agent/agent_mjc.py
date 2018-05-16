@@ -81,6 +81,7 @@ class AgentMuJoCo(object):
             goal_index = -1
         self.load_obj_statprop = dict['obj_statprop']
         self._hyperparams['xpos0'] = dict['qpos'][init_index]
+        # pdb.set_trace()
         self._hyperparams['object_pos0'] = dict['object_full_pose'][init_index]
         self.object_full_pose_t = dict['object_full_pose']
         self.goal_obj_pose = dict['object_full_pose'][goal_index]   #needed for calculating the score
@@ -202,7 +203,10 @@ class AgentMuJoCo(object):
 
 
         # apply action of zero for the first few steps, to let the scene settle
-        for t in range(self._hyperparams['skip_first']):
+        if 'skip_frist' not in self._hyperparams:
+            skip_first = 10
+        else: skip_first = self._hyperparams['skip_first']
+        for t in range(skip_first):
             for _ in range(self._hyperparams['substeps']):
                 ctrl = np.zeros(self._hyperparams['adim'])
                 if 'posmode' in self._hyperparams:
@@ -230,6 +234,8 @@ class AgentMuJoCo(object):
             traj.Xdot_full[t, :] = self.sim.data.qvel[:qpos_dim].squeeze().copy()
             traj.X_Xdot_full[t, :] = np.concatenate([traj.X_full[t, :], traj.Xdot_full[t, :]])
             assert self.sim.data.qpos.shape[0] == qpos_dim + 7 * self._hyperparams['num_objects']
+
+            # # pdb.set_trace()
             for i in range(self._hyperparams['num_objects']):
                 fullpose = self.sim.data.qpos[i * 7 + qpos_dim:(i + 1) * 7 + qpos_dim].squeeze().copy()
 
@@ -564,6 +570,8 @@ class AgentMuJoCo(object):
 
         if 'arm_start_lifted' in self._hyperparams:
             xpos0[2] = self._hyperparams['arm_start_lifted']
+
+        # pdb.set_trace()
 
         sim_state = self.sim.get_state()
         if 'goal_point' in self._hyperparams:

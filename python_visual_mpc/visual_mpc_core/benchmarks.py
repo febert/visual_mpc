@@ -63,8 +63,6 @@ def perform_benchmark(conf = None, iex=-1, gpu_id=None):
     else: result_dir = bench_dir
     print('result dir {}'.format(result_dir))
 
-    conf['agent']['skip_first'] = 10
-
     print('-------------------------------------------------------------------')
     print('name of algorithm setting: ' + benchmark_name)
     print('agent settings')

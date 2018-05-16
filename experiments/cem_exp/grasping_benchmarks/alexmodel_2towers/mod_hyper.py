@@ -12,7 +12,7 @@ from python_visual_mpc.visual_mpc_core.agent.agent_mjc import AgentMuJoCo
 import numpy as np
 agent = {
     'type': AgentMuJoCo,
-    'T': 30,
+    'T': 5,  #####################
     'substeps':200,
     'adim':5,
     'sdim':12,
@@ -22,6 +22,7 @@ agent = {
     'filename_nomarkers': ROOT_DIR + '/mjc_models/cartgripper_grasp.xml',
     'gen_xml':1,   #generate xml every nth trajecotry
     'num_objects': 1,
+    'skip_first':0,
     'viewer_image_height' : 480,
     'viewer_image_width' : 640,
     'image_height':48,
