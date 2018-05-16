@@ -66,7 +66,8 @@ def save_tf_record(filename, trajectory_list, params):
                 feature[str(tind) + '/gen_states'] = _float_feature(traj.gen_states[tind,:].tolist())
 
         if hasattr(traj, 'goal_image'):
-            feature['/goal_image'] = _bytes_feature(traj.goal_image.tostring())
+            if traj.goal_image is not None:
+                feature['/goal_image'] = _bytes_feature(traj.goal_image.tostring())
 
         if hasattr(traj, 'first_last_noarm'):
             feature['/first_last_noarm0'] = _bytes_feature(traj.first_last_noarm[0].tostring())

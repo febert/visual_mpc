@@ -225,7 +225,8 @@ class Sim(object):
                 save_tf_record(filename, self.trajectory_list, self.agentparams)
                 self.trajectory_list = []
 
-                write_scores(itr, self.trajectory_list, filename, self.agentparams)
+                if 'not_write_scores' not in self.agentparams:
+                    write_scores(itr, self.trajectory_list, filename, self.agentparams)
 
 
 def write_scores(itr, trajlist, filename, agentparams):

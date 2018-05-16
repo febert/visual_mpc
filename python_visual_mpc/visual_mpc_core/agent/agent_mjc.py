@@ -133,7 +133,7 @@ class AgentMuJoCo(object):
             self.save_goal_image_conf(traj)
 
         if 'make_final_gif' in self._hyperparams:
-            self.save_gif()
+            self.save_gif(i_tr)
         return traj
 
     def get_desig_pix(self, round=True):
@@ -471,9 +471,9 @@ class AgentMuJoCo(object):
                 traj.predicted_images = policy.best_gen_images
                 traj.gtruth_images = policy.best_gtruth_images
 
-    def save_gif(self):
+    def save_gif(self, itr):
         file_path = self._hyperparams['record']
-        npy_to_gif(self.large_images_traj, file_path +'/video')
+        npy_to_gif(self.large_images_traj, file_path +'/video{}'.format(itr))
 
     def plot_ctrls(self):
         plt.figure()
@@ -553,7 +553,7 @@ class AgentMuJoCo(object):
         self.sim.set_state(sim_state)
         self.sim.forward()
 
-        if self.start_conf is None:
+        if self.start_conf is None and 'not_create_goals' not in self._hyperparams:
             self.goal_obj_pose = []
             dist_betwob_ok = False
             while not dist_betwob_ok:

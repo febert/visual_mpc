@@ -277,21 +277,19 @@ def main():
 
     current_dir = os.path.dirname(os.path.realpath(__file__))
     # DATA_DIR = '/mnt/sda1/pushing_data/cartgripper/grasping/lift_imitation_dataset/test'
-    DATA_DIR = '/mnt/sda1/pushing_data/onpolicy/distributed_pushing/train'
-    DATA_DIR = '/home/frederik/Documents/catkin_ws/src/visual_mpc/experiments/cem_exp/onpolicy/distributed_pushing/data/train'
-
+    DATA_DIR = '/mnt/sda1/pushing_data/cartgripper/cartgripper_updown_sact2/train'
 
     conf['schedsamp_k'] = -1  # don't feed ground truth
     conf['data_dir'] = DATA_DIR  # 'directory containing data_files.' ,
     conf['skip_frame'] = 1
     conf['train_val_split']= 0.95
     conf['sequence_length']= 15  #48      # 'sequence length, including context frames.'
-    conf['batch_size'] = 3
+    conf['batch_size'] = 8
     conf['visualize'] = False
     conf['context_frames'] = 2
     # conf['ncam'] = 2
 
-    conf['max_epoch'] = 1
+    # conf['max_epoch'] = 1
     # conf['row_start'] = 15
     # conf['row_end'] = 63
     conf['sdim'] = 6
@@ -315,7 +313,7 @@ def main():
 
     print('testing the reader')
 
-    dict = build_tfrecord_input(conf, training=True)
+    dict = build_tfrecord_input(conf, training=True, shuffle=False)
 
     sess = tf.InteractiveSession()
     tf.train.start_queue_runners(sess)
@@ -337,20 +335,20 @@ def main():
         # plt.imshow(firstlastnoarm[0,1])
         # plt.show()
 
-        # file_path = '/'.join(str.split(DATA_DIR, '/')[:-1]+['preview'])
-        #
-        # if 'ncam' in conf:
-        #     vidlist = []
-        #     for i in range(images.shape[2]):
-        #         video = [v.squeeze() for v in np.split(images[:,:,i],images.shape[1], 1)]
-        #         vidlist.append(video)
-        #     npy_to_gif(assemble_gif(vidlist, num_exp=conf['batch_size']), file_path)
-        # else:
-        #     images = [v.squeeze() for v in np.split(images,images.shape[1], 1)]
-        #     numbers = create_numbers(conf['sequence_length'], conf['batch_size'])
-        #     npy_to_gif(assemble_gif([images, numbers], num_exp=conf['batch_size']), file_path)
+        file_path = '/'.join(str.split(DATA_DIR, '/')[:-1]+['preview'])
 
-        # comp_single_video(file_path, images, num_exp=conf['batch_size'])
+        if 'ncam' in conf:
+            vidlist = []
+            for i in range(images.shape[2]):
+                video = [v.squeeze() for v in np.split(images[:,:,i],images.shape[1], 1)]
+                vidlist.append(video)
+            npy_to_gif(assemble_gif(vidlist, num_exp=conf['batch_size']), file_path)
+        else:
+            images = [v.squeeze() for v in np.split(images,images.shape[1], 1)]
+            numbers = create_numbers(conf['sequence_length'], conf['batch_size'])
+            npy_to_gif(assemble_gif([images, numbers], num_exp=conf['batch_size']), file_path)
+
+        comp_single_video(file_path, images, num_exp=conf['batch_size'])
 
         # deltat.append(time.time() - end)
         # if i_run % 10 == 0:

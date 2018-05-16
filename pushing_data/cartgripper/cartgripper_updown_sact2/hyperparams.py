@@ -33,7 +33,7 @@ agent = {
     'dt': 0.05,
     'substeps': 200,  #6
     'T': 15,
-    'skip_first': 2,   #skip first N time steps to let the scene settle
+    'skip_first': 20,   #skip first N time steps to let the scene settle
     'additional_viewer': True,
     'image_height' : 48,
     'image_width' : 64,
@@ -51,6 +51,8 @@ agent = {
     # 'make_final_gif':'',
     'record':current_dir + '/verbose',
     'get_curr_mask':'',
+    'not_create_goals':'',
+    'not_write_scores':''
 }
 
 policy = {
