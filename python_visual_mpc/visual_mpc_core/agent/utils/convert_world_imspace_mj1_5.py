@@ -3,16 +3,20 @@ import pickle
 
 from python_visual_mpc import __file__ as python_vmpc_path
 root_dir = '/'.join(str.split(python_vmpc_path, '/')[:-1])
-mats = pickle.load(open(root_dir + '/visual_mpc_core/agent/utils/proj_mats.pkl', 'rb'), encoding='latin1')
+mats = pickle.load(open(root_dir + '/visual_mpc_core/agent/utils/proj_mats_dual.pkl', 'rb'), encoding='latin1')
 
-VIEW = mats['viewport']
-GL_MODELVIEW_MATRIX = mats['modelview']
-GL_PROJECTION_MATRIX = mats['projection']
+VIEW_dual = mats['viewport']
+GL_MODELVIEW_MATRIX_dual = mats['modelview']
+GL_PROJECTION_MATRIX_dual = mats['projection']
 
-def project_point(p, return_zval=False):
+def project_point(p, icam, return_zval=False):
     """
     projects a point from the world coordinate system to the screen coordinate system
     """
+    VIEW = VIEW_dual[icam]
+    GL_MODELVIEW_MATRIX = GL_MODELVIEW_MATRIX_dual[icam]
+    GL_PROJECTION_MATRIX = GL_PROJECTION_MATRIX_dual[icam]
+
     p = p.astype(np.float32)
     # print(("p", p))
     # print("model view")
@@ -36,7 +40,11 @@ def project_point(p, return_zval=False):
     else:
         return row, col
 
-def get_3D(r, c, z):
+def get_3D(r, c, z, icam):
+    VIEW = VIEW_dual[icam]
+    GL_MODELVIEW_MATRIX = GL_MODELVIEW_MATRIX_dual[icam]
+    GL_PROJECTION_MATRIX = GL_PROJECTION_MATRIX_dual[icam]
+
     r = float(r)
     c = float(c)
     z = float(z)

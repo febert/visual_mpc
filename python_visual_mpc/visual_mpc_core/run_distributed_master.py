@@ -42,6 +42,11 @@ def main():
     trainvid_conf_file = args.experiment
     trainvid_conf = load_module(trainvid_conf_file, 'trainvid_conf')
 
+    if 'RESULT_DIR' in os.environ:
+        trainvid_conf['result_dir'] = os.environ['RESULT_DIR']
+    else:
+        trainvid_conf['result_dir'] = trainvid_conf['current_dir']
+
     printout = bool(args.printout)
     gpu_id = args.gpu_id
 

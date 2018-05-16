@@ -484,12 +484,15 @@ def add_crosshairs(images, pos, color=None):
     :param color: color needs to be vector with in [0,1]
     :return: images in the same shape as input
     """
+    assert len(pos.shape) == 3
 
     if isinstance(images, list):
         make_list_output = True
         images = np.stack(images, axis=1)
     else:
         make_list_output = False
+
+    assert len(images.shape) == 5
 
     pos = np.clip(pos, np.zeros(2).reshape((1,1,2)),np.array(images.shape[2:4]).reshape((1,1,2)) -1)
 

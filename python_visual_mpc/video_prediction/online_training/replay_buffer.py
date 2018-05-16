@@ -80,6 +80,8 @@ class ReplayBuffer_Loadfiles(ReplayBuffer):
         super(ReplayBuffer_Loadfiles, self).__init__(*args, **kwargs)
         self.loaded_filenames = []
         self.conf['max_epoch'] = 1
+        self.improvement_avg = []
+        self.final_poscost_avg = []
 
     def update(self, sess):
         # check if new files arrived:
@@ -109,31 +111,32 @@ class ReplayBuffer_Loadfiles(ReplayBuffer):
                     self.push_back(t)
                     self.num_updates += 1
             self.logger.log('done filling replay')
-            if self.num_updates % 100 == 0:
-                scores, final_poscost = get_scores(to_load_filenames)
-                plot_scores(self.agentparams['result_dir'], scores, final_poscost)
+            if self.num_updates % 1 == 0:
+                self.logger.log('reading scores')
+                self.get_scores(to_load_filenames)
+                self.logger.log('writing scores plot to {}'.format(self.conf['result_dir']))
+                plot_scores(self.conf['result_dir'], self.final_poscost_avg, self.improvement_avg)
 
             self.logger.log('traj_per hour: {}'.format(self.num_updates/((time.time() - self.tstart)/3600)))
             self.logger.log('avg time per traj {}s'.format((time.time() - self.tstart)/self.num_updates))
 
+    def get_scores(self, to_load_filenames):
+        for file in to_load_filenames:
+            filenum = file.partition('train')[2].partition('.')[0]
+            path = file.partition('train')[0]
+            scorefile = path + 'scores' + filenum + '_score.pkl'
+            try:
+                dict_ = pickle.load(open(scorefile, 'rb'))
+            except FileNotFoundError:
+                self.logger.log('scorefile: {} not found'.format(scorefile))
+                continue
+            self.improvement_avg.append(np.mean(dict_['improvement']))
+            self.final_poscost_avg.append(np.mean(dict_['final_poscost']))
 
-def get_scores(filenames):
-    improvement_avg = []
-    final_poscost_avg = []
-    for file in filenames:
-        scorefile = file.partition('.')[0] + '_score.pkl'
-        dict = pickle.load(open(scorefile, 'r'))
-
-        improvement = []
-        final_poscost = []
-        for itr in dict.keys():
-            improvement.append(dict[itr]['improvement'])
-            final_poscost.append(dict[itr]['final_poscost'])
-        improvement_avg.append(np.mean(improvement))
-        final_poscost_avg.append(np.mean(final_poscost))
-
-    return improvement_avg, final_poscost_avg
-
+        with open(self.conf['result_dir'] + '/scores.txt', 'w') as f:
+            f.write('improvement averaged over batch, final_pos_cost averaged over batch\n')
+            for i in range(len(self.improvement_avg)):
+                f.write('{}: {} {}'.format(i, self.improvement_avg[i], self.final_poscost_avg[i]) + '\n')
 
 def plot_scores(dir, scores, improvement=None):
 

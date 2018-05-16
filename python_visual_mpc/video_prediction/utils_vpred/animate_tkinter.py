@@ -126,7 +126,7 @@ class Visualizer_tkinter(object):
             self.logger = Logger(mute=True)
         else:
             self.logger = logger
-            
+
         self.gif_savepath = filepath
         if dict_ == None:
             dict_ = pickle.load(open(filepath + '/pred.pkl', "rb"))
@@ -195,12 +195,8 @@ class Visualizer_tkinter(object):
             elif 'actions' in key:
                 self.visualize_states_actions(dict_['states'], dict_['actions'])
 
-            elif key == 'gen_distrib':  # if gen_distrib plot psum overtime!
+            elif 'gen_distrib' in key:  # if gen_distrib plot psum overtime!
                 self.video_list.append((data, key))
-                plot_psum_overtime(data, numex, filepath)
-                desig_pos = dict_['desig_pos']
-                plot_normed_at_desig_pos(data, filepath, desig_pos)
-
             else:
                 if isinstance(data, list):
                     if len(data[0].shape) == 4:
@@ -218,44 +214,27 @@ class Visualizer_tkinter(object):
 
         self.col_titles = col_titles
 
-    def make_direct_vid(self, separate_vid = False, mpc_data =False, resize=None):
-
+    def make_direct_vid(self, separate_vid = False, resize=None):
         self.logger.log('making gif with tags')
         # self.video_list = [self.video_list[0]]
 
-        if mpc_data:
-            for t in range(1,20):
-                gen_images = self.dict_['gen_images_t{}'.format(t)]
-                gen_distrib = self.dict_['gen_distrib0_t{}'.format(t)]
+        new_videolist = []
+        for vid in self.video_list:
+            images = vid[0]
+            if resize is not None:
+                images = resize_image(images, size=resize)
+            name = vid[1]
+            if images[0].shape[-1] == 1 or len(images[0].shape) == 3:
+                images = color_code_distrib(images, self.numex, renormalize=True)
 
-                gen_distrib = color_code_distrib(gen_distrib, self.numex, renormalize=True)
-                overlay = compute_overlay(gen_images, gen_distrib, self.numex)
-                new_videolist = [gen_images, overlay]
+            # print(name)
+            # print('len', len(images))
+            # print('sizes', [im.shape for im in images])
+            new_videolist.append((images, name))
 
-                framelist = assemble_gif(new_videolist, convert_from_float=False, num_exp=self.numex)
-                save_video_mp4(self.gif_savepath + '/prediction_at_t{}'.format(t), framelist)
-        else:
-            new_videolist = []
-            for vid in self.video_list:
-                images = vid[0]
-                if resize is not None:
-                    images = resize_image(images, size=resize)
-                name = vid[1]
-                if images[0].shape[-1] == 1:
-                    images = color_code_distrib(images, self.numex, renormalize=True)
-                new_videolist.append((images, name))
-
-        if separate_vid:
-            vid_path = self.gif_savepath + '/sep_videos'
-            if not os.path.exists(vid_path):
-                os.mkdir(vid_path)
-            for b in range(self.numex):
-                frames = assemble_gif(new_videolist, convert_from_float=False, only_ind=b)
-                save_video_mp4(vid_path + '/example{}'.format(b), frames)
-        else:
-            framelist = assemble_gif(new_videolist, convert_from_float=True, num_exp=self.numex)
-            # save_video_mp4(self.gif_savepath +'/prediction_at_t{}')
-            npy_to_gif(framelist, self.gif_savepath +'/direct{}{}'.format(self.iternum,self.suf))
+        framelist = assemble_gif(new_videolist, convert_from_float=True, num_exp=self.numex)
+        # save_video_mp4(self.gif_savepath +'/prediction_at_t{}')
+        npy_to_gif(framelist, self.gif_savepath +'/direct{}{}'.format(self.iternum,self.suf))
 
     def visualize_states_actions(self, states, actions):
 

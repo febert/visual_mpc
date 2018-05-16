@@ -78,6 +78,8 @@ class Data_Collector(object):
 
             self.itraj += 1
 
+        self.logger.log('done. itraj {} maxtraj {}'.format(self.itraj, self.maxtraj))
+
 def main():
     parser = argparse.ArgumentParser(description='run parllel data collection')
     parser.add_argument('experiment', type=str, help='experiment name')

@@ -1,5 +1,5 @@
 import os
-current_dir = os.path.dirname(os.path.realpath(__file__))
+current_dir = os.path.dirname(os.path.abspath(__file__))
 
 import python_visual_mpc
 base_dir = python_visual_mpc.__file__
@@ -12,13 +12,13 @@ OUT_DIR = current_dir + '/modeldata'
 from python_visual_mpc.video_prediction.dynamic_rnn_model.dynamic_base_model import Dynamic_Base_Model
 from python_visual_mpc.video_prediction.setup_predictor_towers import setup_predictor
 
-DATA_DIR = os.environ['VMPC_DATA_DIR'] + '/onpolicy/distributed_pushing/train'
-PRELOAD_DATA_DIR = os.environ['VMPC_DATA_DIR'] + '/onpolicy/updown_sact_bounded_disc/train'
+DATA_DIR = os.environ['VMPC_DATA_DIR'] + '/cartgripper/onpolicy/distributed_pushing/train'
+PRELOAD_DATA_DIR = os.environ['VMPC_DATA_DIR'] + '/cartgripper/onpolicy/updown_sact_bounded_disc/train'
 
 onpolconf = {
-    'save_interval':100, ########################## 1000
-    'replay_size':200,  ##############
-    'fill_replay_fromsaved':200,#############              # fill replay with existing trajectories from dataset
+    'save_interval':200,
+    'replay_size':40000,
+    'fill_replay_fromsaved':20000,              # fill replay with existing trajectories from dataset
 }
 
 config = {
@@ -30,7 +30,7 @@ config = {
 'output_dir': OUT_DIR,      #'directory for model checkpoints.' ,
 'current_dir': current_dir, #'directory for writing summary.' ,
 'pretrained_model':base_dir + '/tensorflow_data/sim/onpolicy/updown_sact_onpolonly/modeldata/model196002',     # 'filepath of a pretrained model to resume training from.' ,
-'sequence_length': 15, # 'sequence length to load, including context frames.' ,
+'sequence_length': 30, # 'sequence length to load, including context frames.' ,
 'use_len': 15,
 'skip_frame': 1,            # 'use ever i-th frame to increase prediction horizon' ,
 'context_frames': 2,        # of frames before predictions.' ,
