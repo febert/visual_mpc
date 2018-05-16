@@ -6,7 +6,6 @@ import copy
 import argparse
 import threading
 import time
-import pdb
 
 # Add lsdc/python to path so that imports work.
 sys.path.append('/'.join(str.split(__file__, '/')[:-2]))
@@ -122,6 +121,7 @@ class Sim(object):
         :param itr: index of trajectory
         :return:
         """
+
         if 'save_raw_images' in self._hyperparams:
             ngroup = self._hyperparams['ngroup']
             self.igrp = itr // ngroup
@@ -134,7 +134,7 @@ class Sim(object):
                 image_folders = [self.traj_folder + '/images{}'.format(i) for i in range(len(self.agentparams['cameras']))]
             else:
                 self.image_folder = self.traj_folder + '/images'
-            
+
             self.depth_image_folder = self.traj_folder + '/depth_images'
 
             if os.path.exists(self.traj_folder):
@@ -148,7 +148,7 @@ class Sim(object):
                     os.makedirs(f)
             else:
                 os.makedirs(self.image_folder)
-            
+
             os.makedirs(self.depth_image_folder)
 
             self.state_action_pkl_file = self.traj_folder + '/state_action.pkl'
@@ -196,7 +196,7 @@ class Sim(object):
                     if 'medium_image' in self.agentparams:
                         image_name = self.image_folder+ "/im_med{}.png".format(t)
                         cv2.imwrite(image_name, traj._medium_images[t][:,:,::-1], [cv2.IMWRITE_PNG_STRATEGY_DEFAULT, 1])
-            
+
             if traj.goal_mask != None:
                 folder = self.traj_folder + '/goal_masks'
                 os.makedirs(folder)
@@ -227,23 +227,28 @@ class Sim(object):
                 from .utility.save_tf_record import save_tf_record
                 self.logger.log('Writing', self.agentparams['data_save_dir'] + '/'+ filename)
                 save_tf_record(filename, self.trajectory_list, self.agentparams)
+                if self.agent.goal_obj_pose is not None:
+                    write_scores(self.trajectory_list, filename, self.agentparams)
                 self.trajectory_list = []
 
-                if self.agent.goal_obj_pose is not None:
-                    write_scores(itr, self.trajectory_list, filename, self.agentparams)
-
-def write_scores(itr, trajlist, filename, agentparams):
+def write_scores(trajlist, filename, agentparams):
     dir = '/'.join(str.split(agentparams['data_save_dir'], '/')[:-1])
     dir += '/scores'
     if not os.path.exists(dir):
         os.makedirs(dir)
     filename = filename.partition('.')[0] + '_score.pkl'
     scores = {}
-    for itr, traj in zip(range(itr, len(trajlist)), trajlist):
-        scores[itr] = {'improvement':traj.improvement,
-                       'final_poscost':traj.final_poscost,
-                       'initial_poscost':traj.initial_poscost}
-    pickle.dump(dict, open(os.path.join(dir, filename), 'wb'))
+    improvements = []
+    final_poscost = []
+    initial_poscost = []
+    for traj in trajlist:
+        improvements.append(traj.improvement)
+        final_poscost.append(traj.final_poscost)
+        initial_poscost.append(traj.initial_poscost)
+    scores['improvement'] = improvements
+    scores['final_poscost'] = final_poscost
+    scores['initial_poscost'] = initial_poscost
+    pickle.dump(scores, open(os.path.join(dir, filename), 'wb'))
 
 def plot_warp_err(traj, dir):
     start_err = []

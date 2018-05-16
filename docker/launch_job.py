@@ -5,7 +5,7 @@ import os
 import re
 import pdb
 
-def launch_job_func(run_script, hyper, arg, interactive=False, name='', ngpu=8, nsplit=None, isplit=None):
+def launch_job_func(run_script, hyper, arg, interactive=False, name='', ngpu=8, test=0, nsplit=None, isplit=None):
 
     data = {}
     data["aceName"] = "nv-us-west-2"
@@ -21,7 +21,6 @@ def launch_job_func(run_script, hyper, arg, interactive=False, name='', ngpu=8, 
 
     data['dockerImageName'] = "ucb_rail8888/tf_mj1.5:latest"
 
-    script_name = run_script
 
     data["datasetMounts"] = [{"containerMountPoint": "/mnt/tensorflow_data/sim/mj_pos_ctrl_appflow", "id": 8906},
                              {"containerMountPoint": "/mnt/tensorflow_data/sim/appflow_nogenpix", "id": 8933},
@@ -43,7 +42,9 @@ def launch_job_func(run_script, hyper, arg, interactive=False, name='', ngpu=8, 
                              {"containerMountPoint": "/mnt/pretrained_models/bair_action_free/model.multi_savp.ngf.64.shared_views.true.num_views.2.tv_weight.0.001.transformation.flow.last_frames.2.generate_scratch_image.false.batch_size.16", "id": 9223},
                              {"containerMountPoint": "/mnt/pretrained_models/bair_action_free/model.multi_savp.num_views.2.tv_weight.0.001.transformation.flow.last_frames.2.generate_scratch_image.false.batch_size.16", "id": 9387},
                              {"containerMountPoint": "/mnt/pretrained_models/lift_push_last_subsequence/vae/model.savp.tv_weight.0.001.transformation.flow.last_frames.2.generate_scratch_image.false.batch_size.16", "id":9534},
+                             {"containerMountPoint": "/mnt/pretrained_models/bair_action_free/grasp_push_2views", "id": 9823},
                              {"containerMountPoint": "/mnt/pushing_data/cartgripper/cartgripper_startgoal_masks6e4", "id": 9138},  # mj_pos_ctrl_appflow
+                             {"containerMountPoint": "/mnt/pushing_data/cartgripper/cartgripper_startgoal_2view_lift", "id": 9816},  # mj_pos_ctrl_appflow
                              {"containerMountPoint": "/mnt/pushing_data/cartgripper/cartgripper_const_dist", "id": 9259},  # mj_pos_ctrl_appflow
                              {"containerMountPoint": "/mnt/pushing_data/cartgripper/cartgripper_startgoal_short", "id": 8949},  # mj_pos_ctrl_appflow
                              {"containerMountPoint": "/mnt/pushing_data/cartgripper/cartgripper_startgoal_2view", "id": 9222},  # mj_pos_ctrl_appflow
@@ -71,8 +72,8 @@ def launch_job_func(run_script, hyper, arg, interactive=False, name='', ngpu=8, 
                 split = '--nsplit {} --isplit {}'.format(nsplit, isplit)
             else: split = ''
             command = "python " + run_script + " " + hyper + " {} {}".format(arg, split)
-            expname = hyper.partition('benchmarks')[-1]
-            data["name"] = '-'.join(re.compile('\w+').findall(expname + arg))
+            expname = hyper.partition('cem_exp')[-1]
+            data["name"] = '-'.join(re.compile('\w+').findall(expname + arg + split))
 
     data["command"] += command
     data["resultContainerMountPoint"] = "/result"
@@ -83,7 +84,8 @@ def launch_job_func(run_script, hyper, arg, interactive=False, name='', ngpu=8, 
 
     print('command', command)
 
-    os.system("ngc batch run -f autogen.json")
+    if not bool(test):
+        os.system("ngc batch run -f autogen.json")
 
 
 if __name__ == '__main__':
@@ -94,7 +96,8 @@ if __name__ == '__main__':
     parser.add_argument('--arg', default='', type=str, help='additional arguments')
     parser.add_argument('--name', default='', type=str, help='additional arguments')
     parser.add_argument('--ngpu', default=8, type=int, help='number of gpus')
+    parser.add_argument('--test', default=0, type=int, help='testrun')
     args = parser.parse_args()
 
-    launch_job_func(args.run_script, args.hyper, args.arg, args.int, args.name, args.ngpu)
+    launch_job_func(args.run_script, args.hyper, args.arg, args.int, args.name, args.ngpu, args.test)
 

@@ -51,6 +51,9 @@ class AgentMuJoCo(object):
         self.curr_mask = None
         self.curr_mask_large = None
         self.desig_pix = None
+        if 'cameras' in self._hyperparams:
+            self.ncam = len(self._hyperparams['cameras'])
+        else: self.ncam = 1
         self.start_conf = None
         self.load_obj_statprop = None  #loaded static object properties
         self._setup_world()
@@ -83,7 +86,13 @@ class AgentMuJoCo(object):
         self.goal_obj_pose = dict['object_full_pose'][goal_index]   #needed for calculating the score
         if 'lift_object' in self._hyperparams:
             self.goal_obj_pose[:,2] = self._hyperparams['targetpos_clip'][1][2]
-        self.goal_image = dict['images'][goal_index]  # assign last image of trajectory as goalimage
+
+        if self.ncam != 1:
+            self.goal_image = np.stack([dict['images0'][goal_index], dict['images1'][goal_index]], 0) # assign last image of trajectory as goalimage
+        else:
+            self.goal_image = dict['images'][goal_index]  # assign last image of trajectory as goalimage
+        if len(self.goal_image.shape) == 3:
+            self.goal_image = self.goal_image[None]
         if 'goal_mask' in self._hyperparams:
             self.goal_mask = dict['goal_mask'][goal_index]  # assign last image of trajectory as goalimage
 
@@ -133,14 +142,16 @@ class AgentMuJoCo(object):
     def get_desig_pix(self, round=True):
         qpos_dim = self.sdim // 2  # the states contains pos and vel
         assert self.sim.data.qpos.shape[0] == qpos_dim + 7 * self._hyperparams['num_objects']
-        desigpix = []
-        for i in range(self._hyperparams['num_objects']):
-            fullpose = self.sim.data.qpos[i * 7 + qpos_dim:(i + 1) * 7 + qpos_dim].squeeze()
-            desigpix.append(project_point(fullpose[:3]))
-        ratio = self._hyperparams['viewer_image_width']/float(self._hyperparams['image_width'])
-        desig_pix = np.stack(desigpix) / ratio
-        if round:
-            desig_pix = np.around(desig_pix).astype(np.int)
+        desig_pix = np.zeros([self.ncam, self._hyperparams['num_objects'], 2], dtype=np.int)
+        ratio = self._hyperparams['viewer_image_width'] / self._hyperparams['image_width']
+        for icam in range(self.ncam):
+            for i in range(self._hyperparams['num_objects']):
+                fullpose = self.sim.data.qpos[i * 7 + qpos_dim:(i + 1) * 7 + qpos_dim].squeeze()
+                d = project_point(fullpose[:3], icam)
+                d = np.stack(d) / ratio
+                if round:
+                    d = np.around(d).astype(np.int)
+                desig_pix[icam, i] = d
         return desig_pix
 
     def hide_arm_store_image(self, ind, traj):
@@ -159,13 +170,15 @@ class AgentMuJoCo(object):
         self.sim.forward()
 
     def get_goal_pix(self, round=True):
-        goal_pix = []
-        for i in range(self._hyperparams['num_objects']):
-            goal_pix.append(project_point(self.goal_obj_pose[i, :3]))
-        ratio = self._hyperparams['viewer_image_width']/float(self._hyperparams['image_width'])
-        goal_pix = np.stack(goal_pix) / ratio
-        if round:
-            goal_pix = np.around(goal_pix).astype(np.int)
+        goal_pix = np.zeros([self.ncam, self._hyperparams['num_objects'], 2], dtype=np.int)
+        ratio = self._hyperparams['viewer_image_width'] / self._hyperparams['image_width']
+        for icam in range(self.ncam):
+            for i in range(self._hyperparams['num_objects']):
+                g = project_point(self.goal_obj_pose[i, :3], icam)
+                g = np.stack(g) / ratio
+                if round:
+                    g= np.around(g).astype(np.int)
+                goal_pix[icam, i] = g
         return goal_pix
 
     def clip_targetpos(self, pos):
@@ -446,7 +459,7 @@ class AgentMuJoCo(object):
         if 'cameras' in self._hyperparams:
             for i, cam in enumerate(self._hyperparams['cameras']):
                 large_img = self.sim.render(width, height, camera_name=cam)[::-1, :, :]
-                
+
                 if np.sum(large_img) < 1e-3:
                     print("image dark!!!")
                     raise Image_dark_except
@@ -542,8 +555,9 @@ class AgentMuJoCo(object):
         else:
             xpos0_true_len = (self.sim.get_state().qpos.shape[0] - self._hyperparams['num_objects']*7)
             len_xpos0 = self._hyperparams['xpos0'].shape[0]
+
             if len_xpos0 != xpos0_true_len:
-                xpos0 = np.concatenate([self._hyperparams['xpos0'], np.zeros(xpos0_true_len - len_xpos0)])  #testing in setting with updown rot, while data has only xyz
+                xpos0 = np.concatenate([self._hyperparams['xpos0'], np.zeros(xpos0_true_len - len_xpos0)], 0)  #testing in setting with updown rot, while data has only xyz
                 print("appending zeros to initial robot configuration!!!")
             else:
                 xpos0 = self._hyperparams['xpos0']
