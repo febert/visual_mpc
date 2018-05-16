@@ -1,5 +1,7 @@
 from multiprocessing import Pool
 import sys
+import ray
+from python_visual_mpc.visual_mpc_core.infrastructure.synchronize_tfrecs import sync
 import argparse
 import os
 import importlib.machinery
@@ -105,6 +107,9 @@ def main():
         data_save_path = hyperparams['agent']['data_save_dir'].partition('pushing_data')[2]
         hyperparams['agent']['data_save_dir'] = os.environ['RESULT_DIR'] + data_save_path
 
+    sync_todo_id = sync.remote(args.isplit, hyperparams)
+    print('launched sync')
+
     for i in range(n_worker):
         modconf = copy.deepcopy(hyperparams)
         modconf['start_index'] = start_idx[i]
@@ -124,6 +129,8 @@ def main():
         combine_scores(result_dir)
         sys.exit()
 
+
+
     traindir = modconf['agent']["data_save_dir"]
     testdir = '/'.join(traindir.split('/')[:-1] + ['/test'])
     if not os.path.exists(testdir):
@@ -133,6 +140,8 @@ def main():
     files = sorted_alphanumeric(files)
     if os.path.isfile(files[0]): #don't do anything if directory
         shutil.move(files[0], testdir)
+
+    ray.wait([sync_todo_id])
 
 def sorted_alphanumeric(l):
     """ Sort the given iterable in the way that humans expect."""
