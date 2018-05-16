@@ -153,6 +153,7 @@ def preload_replay(conf, logger, onpolparam, replay_buffer, sess):
         images, actions, endeff = sess.run([dict['images'], dict['actions'], dict['endeffector_pos']])
         for b in range(conf['batch_size']):
             t = Traj(images[b], endeff[b], actions[b])
+            pdb.set_trace()
             replay_buffer.push_back(t)
     logger.log('done prefilling replay')
 

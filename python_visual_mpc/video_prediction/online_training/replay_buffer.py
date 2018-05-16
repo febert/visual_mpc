@@ -34,7 +34,7 @@ class ReplayBuffer(object):
         self.tstart = time.time()
 
     def push_back(self, traj):
-        assert traj.images.dtype == np.float32 and np.max(traj.images) < 1.0
+        assert traj.images.dtype == np.float32 and np.max(traj.images) <= 1.0
         self.ring_buffer.append(traj)
         if len(self.ring_buffer) > self.maxsize:
             self.ring_buffer.pop(0)
