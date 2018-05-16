@@ -97,6 +97,19 @@ def trainvid_online(replay_buffer, conf, logging_dir, onpolparam, gpu_id, printo
                              }
                 cost, _, summary_str = sess.run([model.loss, model.train_op, model.train_summ_op],
                                                 feed_dict)
+                ###
+                model.m.g_loss
+                model.m.train_op
+                feed_dict = {
+                    model.m.inputs['images']: images,
+                    model.m.inputs['states']: images,
+                    model.m.inputs['actions']: images,
+                }
+
+                ###
+
+
+
                 t_iter.append(time.time() - t_startiter)
                 logger.log("iteration {} took {}s".format(itr, t_iter[-1]))
 

@@ -304,7 +304,7 @@ def main():
     current_dir = os.path.dirname(os.path.realpath(__file__))
     # DATA_DIR = '/mnt/sda1/pushing_data/cartgripper/grasping/lift_imitation_dataset/test'
     # DATA_DIR = '/mnt/sda1/pushing_data/onpolicy/distributed_pushing/train'
-    DATA_DIR = '/mnt/sda1/pushing_data/cartgripper/cartgripper_2view/train'
+    DATA_DIR = '/mnt/sda1/pushing_data/cartgripper/grasping/dualcam_pick_place_dataset/train'
 
     conf['schedsamp_k'] = -1  # don't feed ground truth
     conf['data_dir'] = DATA_DIR  # 'directory containing data_files.' ,
