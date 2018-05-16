@@ -39,7 +39,7 @@ config = {
 'num_transformed_images': 1,   # 'number of masks, usually 1 for DNA, 10 for CDNA, STN.' ,
 'schedsamp_k': -1,      # 'The k hyperparameter for scheduled sampling -1 for no scheduled sampling.' ,
 'batch_size': 16,           #'batch size for training' ,
-'learning_rate': 0.001,     #'the base learning rate of the generator' ,
+'learning_rate': 1e-4,     #'the base learning rate of the generator' ,
 'kern_size': 17,            # size of DNA kerns
 '1stimg_bckgd':'',
 'adim':3,
