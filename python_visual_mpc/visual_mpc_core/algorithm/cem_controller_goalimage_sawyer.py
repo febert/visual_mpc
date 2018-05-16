@@ -719,6 +719,12 @@ class CEM_controller():
         self.goal_mask = goal_mask
         self.desig_pix = np.array(desig_pix).reshape((-1, 2))
         self.goal_pix = np.array(goal_pix).reshape((-1, 2))
+
+        if t == 0:
+            self.desig_pix_t0 = desig_pix
+            if 'image_medium' in self.agentparams:
+                self.desig_pix_t0_med = (self.desig_pix * self.agentparams['image_medium'][0]/self.agentparams['image_height']).astype(np.int)
+
         if 'register_gtruth' in self.policyparams:
             self.goal_pix = np.tile(self.goal_pix, [2,1])
         if 'image_medium' in self.agentparams:
@@ -731,7 +737,16 @@ class CEM_controller():
                 self.intm_distmap = None
             self.goal_image = traj.goal_image
         else:
-            self.goal_image = traj.goal_image
+            if 'switch_task' in self.agentparams:
+                if t < self.agentparams['T'] // 2 and t != 0:  # use the intermediate goal image for the first half of the trajectory
+                    taskind = self.agentparams['switch_task']
+                    self.goal_pix = self.desig_pix_t0
+                    self.goal_pix[taskind] = goal_pix[taskind]
+                else:
+                    self.goal_pix = goal_pix
+                self.goal_image = traj.goal_image
+            else:
+                self.goal_image = traj.goal_image
             self.intm_distmap = None
 
         last_images_med = None
@@ -743,9 +758,6 @@ class CEM_controller():
 
         if t == 0:
             action = np.zeros(self.agentparams['adim'])
-            self.desig_pix_t0 = desig_pix
-            if 'image_medium' in self.agentparams:
-                self.desig_pix_t0_med = (self.desig_pix * self.agentparams['image_medium'][0]/self.agentparams['image_height']).astype(np.int)
         else:
             ctxt = self.netconf['context_frames']
             last_images = traj.images[t-ctxt+1:t+1]  # same as [t - 1:t + 1] for context 2
