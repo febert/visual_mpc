@@ -289,9 +289,7 @@ class Visualizer_tkinter(object):
         figsize = (standard_size * 1.0).astype(np.int)
         fig = plt.figure(num=1, figsize=figsize)
 
-
         outer_grid = gridspec.GridSpec(self.num_rows, 1)
-
         drow = 1. / self.num_rows
 
         self.im_handle_list = []

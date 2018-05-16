@@ -199,7 +199,8 @@ class VidPred_GDN_Model():
         other_outputs = list(other_outputs)
 
         # making video summaries
-        self.val_video_summaries = make_video_summaries(conf['sequence_length'], [self.images, self.gen_images])
+        self.train_video_summaries = make_video_summaries(conf['sequence_length'], [self.images, self.gen_images], 'train_images')
+        self.val_video_summaries = make_video_summaries(conf['sequence_length'], [self.images, self.gen_images], 'val_images')
 
         if 'compute_flow_map' in self.conf:
             gen_flow_map = other_outputs.pop(0)

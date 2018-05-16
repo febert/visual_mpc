@@ -466,10 +466,22 @@ class CEM_controller():
         self.logger.log('t0 ', time.time() - t_0)
         t_startpred = time.time()
 
-        gen_images, gen_distrib, gen_states, _ = self.predictor(input_images=last_frames,
-                                                                input_state=last_states,
-                                                                input_actions=actions,
-                                                                input_one_hot_images=input_distrib)
+        nruns = self.bsize//200
+        assert self.bsize % 200 == 0, "batchsize needs to be multiple of 200"
+        gen_images_l, gen_distrib_l, gen_states_l = [], [], []
+        for run in range(nruns):
+            self.logger.log('run{}'.format(run))
+            actions_ = actions[run*200:(run+1)*200]
+            gen_images, gen_distrib, gen_states, _ = self.predictor(input_images=last_frames,
+                                                                    input_state=last_states,
+                                                                    input_actions=actions_,
+                                                                    input_one_hot_images=input_distrib)
+            gen_images_l.append(gen_images)
+            gen_distrib_l.append(gen_distrib)
+            gen_states_l.append(gen_states)
+        gen_images = np.concatenate(gen_images_l, 0)
+        gen_distrib = np.concatenate(gen_distrib_l, 0)
+        gen_states = np.concatenate(gen_states_l, 0)
 
         self.logger.log('time for videoprediction {}'.format(time.time() - t_startpred))
 
