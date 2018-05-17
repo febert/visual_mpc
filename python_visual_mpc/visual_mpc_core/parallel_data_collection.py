@@ -1,4 +1,5 @@
 import matplotlib
+import ray
 matplotlib.use('pdf')
 from multiprocessing import Pool
 import sys
@@ -107,6 +108,10 @@ def main():
         data_save_path = hyperparams['agent']['data_save_dir'].partition('pushing_data')[2]
         hyperparams['agent']['data_save_dir'] = os.environ['RESULT_DIR'] + data_save_path
 
+    ray.init()
+    sync_todo_id = sync.remote(hyperparams['agent'])
+    print('launched sync')
+
     for i in range(n_worker):
         modconf = copy.deepcopy(hyperparams)
         modconf['start_index'] = start_idx[i]
@@ -135,6 +140,8 @@ def main():
     files = sorted_alphanumeric(files)
     if os.path.isfile(files[0]): #don't do anything if directory
         shutil.move(files[0], testdir)
+
+    ray.wait([sync_todo_id])
 
 def sorted_alphanumeric(l):
     """ Sort the given iterable in the way that humans expect."""
