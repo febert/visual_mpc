@@ -17,7 +17,7 @@ agent = {
     'type': AgentMuJoCo,
     'T': 75,
     'substeps':50,
-    # 'make_final_gif':'',
+    'make_final_gif':'',
     'adim':3,
     'sdim':6,
     'filename': ROOT_DIR + '/mjc_models/cartgripper_updown_whitefingers.xml',
@@ -42,13 +42,13 @@ agent = {
     'randomize_ballinitpos':'',
     # 'dist_ok_thresh':0.1,
     'first_last_noarm':'',
-    'object_mass':0.2,
+    'object_mass':0.1,
     'master_datadir':'/raid/ngc2/pushing_data/cartgripper/' + folder_name + '/train',
     'not_write_scores':''
 }
 
 policy = {
-    # 'verbose':'',
+    'verbose':'',
     'type' : CEM_controller,
     'current_dir':current_dir,
     'nactions': 5,
