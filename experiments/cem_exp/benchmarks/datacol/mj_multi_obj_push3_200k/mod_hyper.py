@@ -15,7 +15,7 @@ folder_name = '/'.join(str.split(__file__, '/')[-2:-1])
 
 agent = {
     'type': AgentMuJoCo,
-    'T': 75,
+    'T': 2,##############75,
     'substeps':50,
     # 'make_final_gif':'',
     'adim':3,
@@ -59,7 +59,7 @@ policy = {
     'rew_all_steps':"",
     'finalweight':10,
     'no_action_bound':"",
-    'num_samples': 100,
+    'num_samples': 10, ###################100,
     'replan_interval':10,
 }
 
