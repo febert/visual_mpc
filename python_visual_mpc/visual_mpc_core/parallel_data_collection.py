@@ -1,6 +1,7 @@
 import matplotlib
 import ray
 matplotlib.use('pdf')
+from python_visual_mpc.visual_mpc_core.infrastructure.synchronize_tfrecs import sync
 from multiprocessing import Pool
 import sys
 import argparse
