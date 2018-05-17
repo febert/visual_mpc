@@ -46,7 +46,7 @@ def plot_sum_overtime(pixdistrib, dir, filename, tradeoffs):
 
     print('start')
     row = 0
-    if ncam == 1:
+    if num_rows== 1:
         icam = 0
         for col in range(num_cols):
             for p in range(ndesig):
@@ -133,15 +133,17 @@ def make_cem_visuals(ctrl, actions, bestindices, cem_itr, flow_fields, gen_distr
             gen_image_an_l = None
 
         if ctrl.goal_image is not None:
-            goal_image_annotated = []
+            gl_im_ann = np.zeros([ctrl.K] + list(gen_images.shape[1:]))  #b, t, n, r, c, 1
+            gl_im_ann_per_tsk = np.zeros([ctrl.ndesig, ctrl.K] + list(gen_images.shape[1:]))  #p, b, t, n, r, c, 1
             for icam in range(ctrl.ncam):
-                goal_image = [np.repeat(np.expand_dims(ctrl.goal_image[icam], axis=0), ctrl.K, axis=0) for _ in
-                              range(len_pred)]
+                gl_im_ann[:,:,icam] = np.tile(ctrl.goal_image[icam][None,None], [ctrl.K, len_pred, 1, 1, 1])
+                gl_im_ann_per_tsk[:,:,:,icam] = np.tile(ctrl.goal_image[icam][None,None,None], [ctrl.ndesig, ctrl.K, len_pred, 1, 1, 1])
                 for p in range(ctrl.ndesig):
-                    goal_image_annotated.append(image_addgoalpix(ctrl.K , len_pred, goal_image, ctrl.goal_pix[icam, p]))
-                t_dict_['goal_image{}'.format(icam)] = goal_image_annotated[icam]
+                    gl_im_ann[:,:,icam] = image_addgoalpix(ctrl.K , len_pred, gl_im_ann[:,:,icam], ctrl.goal_pix[icam, p])
+                    gl_im_ann_per_tsk[p,:,:,icam] = image_addgoalpix(ctrl.K , len_pred, gl_im_ann_per_tsk[p][:,:,icam], ctrl.goal_pix[icam, p])
+                t_dict_['goal_image{}'.format(icam)] = gl_im_ann[:,:,icam]
         else:
-            goal_image_annotated = None
+            gl_im_ann = None
 
         if 'use_goal_image' not in ctrl.policyparams or 'comb_flow_warp' in ctrl.policyparams or 'register_gtruth' in ctrl.policyparams:
             sel_gen_distrib = gen_distrib[bestindices]
@@ -153,8 +155,9 @@ def make_cem_visuals(ctrl, actions, bestindices, cem_itr, flow_fields, gen_distr
                 for p in range(ctrl.ndesig):
                     sel_gen_distrib_p = unstack(sel_gen_distrib[:,:, icam,:,:, p], 1)
                     t_dict_['gen_distrib_cam{}_p{}_t{}'.format(icam, p, ctrl.t)] = sel_gen_distrib_p
-                    if goal_image_annotated is not None:
-                        t_dict_['gen_distrib_goalim_overlay_cam{}_{}_t{}'.format(icam, p, ctrl.t)] = (goal_image_annotated[icam], sel_gen_distrib_p)
+                    if gl_im_ann is not None:
+                        t_dict_['gen_distrib_goalim_overlay_cam{}_{}_t{}'.format(icam, p, ctrl.t)] = \
+                                     (unstack(gl_im_ann_per_tsk[p,:,:,icam], 1), sel_gen_distrib_p)
 
         for icam in range(ctrl.ncam):
             if gen_image_an_l is not None:

@@ -1,5 +1,4 @@
 import matplotlib
-import ray
 matplotlib.use('pdf')
 from python_visual_mpc.visual_mpc_core.infrastructure.synchronize_tfrecs import sync
 from multiprocessing import Pool
@@ -111,6 +110,7 @@ def main():
 
 
     if 'master_datadir' in hyperparams['agent']:
+        import ray
         ray.init()
         sync_todo_id = sync.remote(hyperparams['agent'])
         print('launched sync')
