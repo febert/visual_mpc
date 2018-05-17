@@ -17,7 +17,7 @@ agent = {
     'type': AgentMuJoCo,
     'T': 75,
     'substeps':50,
-    'make_final_gif':'',
+    # 'make_final_gif':'',
     'adim':3,
     'sdim':6,
     'filename': ROOT_DIR + '/mjc_models/cartgripper_updown_whitefingers.xml',
@@ -48,7 +48,7 @@ agent = {
 }
 
 policy = {
-    'verbose':'',
+    # 'verbose':'',
     'type' : CEM_controller,
     'current_dir':current_dir,
     'nactions': 5,
