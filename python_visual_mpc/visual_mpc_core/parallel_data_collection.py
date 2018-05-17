@@ -108,7 +108,7 @@ def main():
         hyperparams['agent']['data_save_dir'] = os.environ['RESULT_DIR'] + data_save_path
 
     ray.init()
-    sync_todo_id = sync.remote(args.isplit, hyperparams)
+    sync_todo_id = sync.remote(hyperparams)
     print('launched sync')
 
     for i in range(n_worker):
