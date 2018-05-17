@@ -43,7 +43,7 @@ agent = {
     # 'dist_ok_thresh':0.1,
     'first_last_noarm':'',
     'object_mass':0.2,
-    'master_datadir':'/raid/ngc2/pushing_data/cartgripper/' + folder_name
+    'master_datadir':'/raid/ngc2/pushing_data/cartgripper/' + folder_name,
     'not_write_scores':''
 }
 
