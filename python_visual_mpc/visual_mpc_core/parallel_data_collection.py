@@ -109,9 +109,11 @@ def main():
         data_save_path = hyperparams['agent']['data_save_dir'].partition('pushing_data')[2]
         hyperparams['agent']['data_save_dir'] = os.environ['RESULT_DIR'] + data_save_path
 
-    ray.init()
-    sync_todo_id = sync.remote(hyperparams['agent'])
-    print('launched sync')
+
+    if 'master_datadir' in hyperparams['agent']:
+        ray.init()
+        sync_todo_id = sync.remote(hyperparams['agent'])
+        print('launched sync')
 
     for i in range(n_worker):
         modconf = copy.deepcopy(hyperparams)
@@ -124,6 +126,9 @@ def main():
         p.map(use_worker, conflist)
     else:
         use_worker(conflist[0], args.iex)
+
+    if 'master_datadir' in hyperparams['agent']:
+        ray.wait([sync_todo_id])
 
     if do_benchmark:
         if 'RESULT_DIR' in os.environ:
@@ -142,7 +147,6 @@ def main():
     if os.path.isfile(files[0]): #don't do anything if directory
         shutil.move(files[0], testdir)
 
-    ray.wait([sync_todo_id])
 
 def sorted_alphanumeric(l):
     """ Sort the given iterable in the way that humans expect."""
