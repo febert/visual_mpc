@@ -21,9 +21,8 @@ def gen_mix_samples(N, means, std_dev, mix_params):
     samp_log_l = -0.5 * np.sum(np.square(samps - dist_means), axis = 1) / np.square(dist_std).reshape(-1)
     samp_log_l += np.log(mix_params[dist_choice])
     samp_log_l -= out_dim / 2. * np.log(2 * np.pi)
-
     sorted_order = np.argsort(-samp_log_l)
-
+    
     return samps[sorted_order, :], samp_log_l[sorted_order]
     
 
@@ -160,8 +159,10 @@ class ImitationBaseModel:
     # Source: https://github.com/machrisaa/tensorflow-vgg/blob/master/vgg19.py
     def vgg_layer(self, images):
         if images.dtype is tf.uint8:
+            print('read uint8 images')
             bgr_scaled = tf.to_float(images)
         else:
+            print('read float images')
             bgr_scaled = images * 255.
 
         vgg_mean = tf.convert_to_tensor(np.array([103.939, 116.779, 123.68], dtype=np.float32))
@@ -271,51 +272,51 @@ class ImitationLSTMModelState(ImitationBaseModel):
         samps, samps_log_l = gen_mix_samples(self.conf.get('N_GEN', 200), mdn_means[0, -1], mdn_std_dev[0, -1], mdn_mix[0, -1])
         actions = samps[0, :].astype(np.float64)
         if actions[-1] > 0.05:
-            actions[-1] = 21
+            actions[-1] = 1
         else:
-            actions[-1] = -100
+            actions[-1] = -1
         return actions
 
-    def build(self, is_Test = False):
-        if is_Test:
-            in_batch, in_rows, in_cols = self.images.get_shape()[0], self.images.get_shape()[2], self.images.get_shape()[3]
-            in_time = tf.shape(self.images)[1]
+    def build_sim(self):
+        
+        in_batch, in_rows, in_cols = self.images.get_shape()[0], self.images.get_shape()[2], self.images.get_shape()[3]
+        in_time = tf.shape(self.images)[1]
 
-            input_images = tf.reshape(self.images, shape=[-1, in_rows, in_cols, 3])
-            fp_flat = tf.reshape(self._build_conv_layers(input_images), shape=(in_batch, in_time, 128))
+        input_images = tf.reshape(self.images, shape=[-1, in_rows, in_cols, 3])
+        fp_flat = tf.reshape(self._build_conv_layers(input_images), shape=(in_batch, in_time, 128))
 
-            first_initial = slim.layers.fully_connected(self.gtruth_endeffector_pos[:, 0, :],
+        first_initial = slim.layers.fully_connected(self.gtruth_endeffector_pos[:, 0, :],
                                                         self.conf['lstm_layers'][0],
                                                         scope='first_hidden', activation_fn=tf.tanh)
-            lstm_in = fp_flat
+        lstm_in = fp_flat
 
-            lstm_layers = tf.contrib.rnn.MultiRNNCell(
-                [tf.contrib.rnn.ResidualWrapper(tf.contrib.rnn.BasicLSTMCell(l)) for l in self.conf['lstm_layers']])
+        lstm_layers = tf.contrib.rnn.MultiRNNCell(
+            [tf.contrib.rnn.ResidualWrapper(tf.contrib.rnn.BasicLSTMCell(l)) for l in self.conf['lstm_layers']])
 
-            all_initial = tuple(
+        all_initial = tuple(
                 [tf.contrib.rnn.LSTMStateTuple(tf.zeros((in_batch, self.conf['lstm_layers'][0])), first_initial)]
                 + [tf.contrib.rnn.LSTMStateTuple(tf.zeros((in_batch, l)), tf.zeros((in_batch, l)))
                    for l in self.conf['lstm_layers'][1:]])
 
-            last_fc, states = tf.nn.dynamic_rnn(cell=lstm_layers, inputs=lstm_in, initial_state=all_initial,
+        last_fc, states = tf.nn.dynamic_rnn(cell=lstm_layers, inputs=lstm_in, initial_state=all_initial,
                                                 dtype=tf.float32, parallel_iterations=int(in_batch))
 
-            last_fc = tf.reshape(last_fc, shape=(-1, self.conf['lstm_layers'][-1]))
+        last_fc = tf.reshape(last_fc, shape=(-1, self.conf['lstm_layers'][-1]))
 
-            num_mix = self.conf['MDN_loss']
-            mixture_activations = slim.layers.fully_connected(last_fc, (2 + self.sdim) * num_mix,
+        num_mix = self.conf['MDN_loss']
+        mixture_activations = slim.layers.fully_connected(last_fc, (2 + self.sdim) * num_mix,
                                                               scope='predicted_mixtures', activation_fn=None)
-            mixture_activations = tf.reshape(mixture_activations, shape=(-1, num_mix, 2 + self.sdim))
-            self.mixing_parameters = tf.nn.softmax(mixture_activations[:, :, 0])
-            self.std_dev = tf.exp(mixture_activations[:, :, 1]) + NUMERICAL_EPS
-            self.means = mixture_activations[:, :, 2:]
+        mixture_activations = tf.reshape(mixture_activations, shape=(-1, num_mix, 2 + self.sdim))
+        self.mixing_parameters = tf.nn.softmax(mixture_activations[:, :, 0])
+        self.std_dev = tf.exp(mixture_activations[:, :, 1]) + NUMERICAL_EPS
+        self.means = mixture_activations[:, :, 2:]
 
-            self.mixing_parameters = tf.reshape(self.mixing_parameters, shape=[in_batch, in_time, num_mix])
-            self.std_dev = tf.reshape(self.std_dev, shape=[in_batch, in_time, num_mix])
-            self.means = tf.reshape(self.means, shape=[in_batch, in_time, num_mix, self.sdim])
+        self.mixing_parameters = tf.reshape(self.mixing_parameters, shape=[in_batch, in_time, num_mix])
+        self.std_dev = tf.reshape(self.std_dev, shape=[in_batch, in_time, num_mix])
+        self.means = tf.reshape(self.means, shape=[in_batch, in_time, num_mix, self.sdim])
 
-            return self.mixing_parameters, self.std_dev, self.means
-
+        return self.mixing_parameters, self.std_dev, self.means
+    def build(self, is_Train = True):
         in_batch, in_time, in_rows, in_cols, _ = self.images.get_shape()
         in_time -= 1
         #images are flattened for convolution

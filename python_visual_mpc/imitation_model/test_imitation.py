@@ -2,6 +2,7 @@ import tensorflow as tf
 from tensorflow.python.platform import flags
 import os
 import imp
+from python_visual_mpc.imitation_model.imitation_model import gen_mix_samples
 from python_visual_mpc.imitation_model.imitation_model import SimpleModel
 import numpy as np
 from python_visual_mpc.video_prediction.read_tf_records2 import \
@@ -12,21 +13,6 @@ if __name__ == '__main__':
     flags.DEFINE_integer('device', 0 ,'the value for CUDA_VISIBLE_DEVICES variable')
     flags.DEFINE_string('pretrained', '', 'pretrained model to evaluate')
 
-def gen_mix_samples(N, means, std_dev, mix_params):
-    dist_choice = np.random.choice(mix_params.shape[0], size=N, p=mix_params)
-    samps = []
-    for i in range(N):
-        dist_mean = means[dist_choice[i]]
-        out_dim = dist_mean.shape[0]
-        dist_std = std_dev[dist_choice[i]]
-        samp = np.random.multivariate_normal(dist_mean, dist_std * dist_std * np.eye(out_dim))
-
-        samp_l = np.exp(-0.5 * np.sum(np.square(samp - means), axis=1) / np.square(dist_std))
-        samp_l /=  np.power(2 * np.pi, out_dim / 2.) * dist_std
-        samp_l *= mix_params
-
-        samps.append((samp, np.sum(samp_l)))
-    return sorted(samps, key = lambda x: -x[1])
 def main():
     os.environ["CUDA_VISIBLE_DEVICES"] = str(FLAGS.device)
     print('using CUDA_VISIBLE_DEVICES=', FLAGS.device)
@@ -62,7 +48,7 @@ def main():
 
         with tf.variable_scope(training_scope, reuse=True):
             val_model = conf['model'](conf, val_images, val_actions, val_endeffector_pos)
-            val_model.build()
+            val_model.build(is_Train = False)
 
     gpu_options = tf.GPUOptions(per_process_gpu_memory_fraction=0.6)
 
@@ -81,7 +67,7 @@ def main():
 
         print('')
         for i in range(64):
-            samps = gen_mix_samples(200, pred_mean[i], pred_std[i], pred_mix[i])
+            samps = gen_mix_samples(1000, pred_mean[i], pred_std[i], pred_mix[i])
             mean_samp = np.sum(pred_mean[i] * pred_mix[i].reshape((-1, 1)), axis=0)
             print('batch', i)
             print('top samp', samps[0][0], 'with likelihood', samps[0][1])
@@ -98,17 +84,19 @@ def main():
         print('pred_mean', pred_mean.shape)
         print('prev_var', pred_std.shape)
         print('pred_mix', pred_mix.shape)
+        
 
         #import cv2
         #for i in range(14):
-        #    cv2.imshow('test', v_images[0, i])
-        #    cv2.waitKey(-1)
-        #print ''
-        print('start eep', gtruth_eep[0, 0,:6])
+            #print(v_images[0, i] * 256)
+       #     cv2.imwrite('test/im_{}.png'.format(i), (v_images[0, i] * 256).astype(np.uint8))
+        
+        
+        
         for i in range(14):
-            samps = gen_mix_samples(200, pred_mean[0, i], pred_std[0, i], pred_mix[0, i])
-            print('top samp', samps[0][0], 'with likelihood', samps[0][1])
-            print('gtruth', gtruth_actions[0, i + 1, :6])
+            samps, samps_log_l = gen_mix_samples(1000, pred_mean[0, i], pred_std[0, i], pred_mix[0, i])
+            print('top samp', samps[0], 'with log likelihood', samps_log_l[0])
+            print('gtruth', gtruth_eep[0, i + 1, :6])
             print('')
         # for j in range(2):
         #     print 'timestep', j
@@ -123,20 +111,20 @@ def main():
     elif 'latent_dim' in conf:
         val_images, gtruth_actions, gtruth_eep, pred_actions, rel_states = \
             sess.run([val_images, val_actions, val_endeffector_pos, val_model.predicted_actions, val_model.predicted_rel_states])
-        print 'val_images', val_images.shape
+        print('val_images', val_images.shape)
        # print val_images
        # import cv2
        # for i in range(15):
        #     cv2.imshow('test', val_images[0, i, :, :, ::-1])
        #     cv2.waitKey(-1)
-        print 'start eep', gtruth_eep[0, 0, :6]
+        print('start eep', gtruth_eep[0, 0, :6])
 
         for i in range(14):
-            print 'pred action', pred_actions[0, i]
-            print 'gtruth_action', gtruth_actions[0, i, :6]
+            print('pred action', pred_actions[0, i])
+            print('gtruth_action', gtruth_actions[0, i, :6])
            # print 'gtruth_target', gtruth_eep[0, i + 1, :6]
            # print 'pred_target', rel_states[0, i]
-            print ''
+            print('')
     else:
         val_images, gtruth_actions, gtruth_eep, pred_actions, pred_final = \
             sess.run([val_images, val_actions, val_endeffector_pos, val_model.predicted_actions,val_model.final_frame_state_pred])

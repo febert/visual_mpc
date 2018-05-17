@@ -8,6 +8,7 @@ from python_visual_mpc.video_prediction.read_tf_records2 import \
 if __name__ == '__main__':
     FLAGS = flags.FLAGS
     flags.DEFINE_string('hyper', '', 'hyperparameters configuration file')
+    flags.DEFINE_string('pretrained', '', 'pretrained model')
     flags.DEFINE_integer('device', 0 ,'the value for CUDA_VISIBLE_DEVICES variable')
 
 def main():
@@ -34,7 +35,7 @@ def main():
         goal_image = data_dict.get('goal_image', None)
 
         model = conf['model'](conf, train_images, train_actions, train_endeffector_pos, goal_image)
-        model.build()
+        model.build(is_Train = True)
 
     with tf.variable_scope('val_model', reuse = None):
         data_dict = build_tfrecord(conf, training=False)
@@ -48,16 +49,18 @@ def main():
 
         with tf.variable_scope(training_scope, reuse=True):
             val_model = conf['model'](conf, val_images, val_actions, val_endeffector_pos, val_goal_image)
-            val_model.build()
+            val_model.build(is_Train = False)
 
-    if 'clip_grad' not in conf:
-        conf['clip_grad'] = 1.0
     learning_rate = tf.placeholder(tf.float32, shape=[])
-    optimizer = tf.train.AdamOptimizer(learning_rate)
+    if 'momentum' in conf:
+        optimizer = tf.train.MomentumOptimizer(learning_rate, conf['momentum'])
+    else:
+        optimizer = tf.train.AdamOptimizer(learning_rate)
     #optimizer = tf.train.RMSPropOptimizer(learning_rate, decay = 0.95, epsilon=1e-6)
     gradients, variables = zip(*optimizer.compute_gradients(model.loss))
     #gradients = [tf.clip_by_value(g, -conf['clip_grad'], conf['clip_grad']) for g in gradients]
-    gradients, _ = tf.clip_by_global_norm(gradients, conf['clip_grad'])
+    if 'clip_grad' in conf:
+        gradients, _ = tf.clip_by_global_norm(gradients, conf['clip_grad'])
     train_operation = optimizer.apply_gradients(zip(gradients, variables))
 
 
@@ -69,10 +72,17 @@ def main():
     sess = tf.Session(config= tf.ConfigProto(gpu_options=gpu_options))
     tf.train.start_queue_runners(sess)
     sess.run(tf.global_variables_initializer())
+    
+    start_iter = 0
+    if len(FLAGS.pretrained) > 0:
+        model_name = FLAGS.pretrained
+        saver.restore(sess, conf['model_dir'] + model_name)
+        start_iter = int(model_name.split('model')[1]) + 1
+        print('resuming trainint at', start_iter)
 
     summary_writer = tf.summary.FileWriter(conf['model_dir'], graph=sess.graph, flush_secs=10)
 
-    for i in range(conf['n_iters']):
+    for i in range(start_iter, conf['n_iters']):
         if 'lr_decay' in conf and i > 0 and i % conf['lr_decay'] == 0:
             conf['learning_rate'] /= 5.
 
