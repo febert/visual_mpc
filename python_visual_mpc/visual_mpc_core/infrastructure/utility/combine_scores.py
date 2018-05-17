@@ -94,14 +94,14 @@ def make_stats(dir, score, name, bounds):
         f.write('indices for bin {}, {} to {} : {} \n'.format(i, bin_edges[i], bin_edges[i+1], np.where(binned_ind == i+1)[0].tolist()))
 
 if __name__ == '__main__':
-    n_worker = 4
-    n_traj = 49
+    # n_worker = 4
+    # n_traj = 10
     # dir = '/home/frederik/Documents/catkin_ws/src/visual_mpc/experiments/cem_exp/benchmarks/alexmodel/savp_register_gtruth_start/41256'
     # dir = '/home/frederik/Documents/catkin_ws/src/visual_mpc/experiments/cem_exp/benchmarks/pos_ctrl/updown_sact_boundact_register_gtruth/41272'
-    dir = '/mnt/sda1/experiments/cem_exp/benchmarks/onpolicy/gtruth_track_onpolonly/50320'
+    dir = '/mnt/sda1/experiments/cem_exp/benchmarks/multiobj_pushing/switchtask1'
 
-    traj_per_worker = int(n_traj / np.float32(n_worker))
-    start_idx = [traj_per_worker * i for i in range(n_worker)]
-    end_idx = [traj_per_worker * (i + 1) - 1 for i in range(n_worker)]
+    # traj_per_worker = int(n_traj / np.float32(n_worker))
+    # start_idx = [traj_per_worker * i for i in range(n_worker)]
+    # end_idx = [traj_per_worker * (i + 1) - 1 for i in range(n_worker)]
 
     combine_scores(dir)
