@@ -11,6 +11,7 @@ ROOT_DIR = '/'.join(str.split(ROOT_DIR, '/')[:-2])
 
 from python_visual_mpc.visual_mpc_core.agent.agent_mjc import AgentMuJoCo
 import numpy as np
+folder_name = '/'.join(str.split(__file__, '/')[-2:-1])
 
 agent = {
     'type': AgentMuJoCo,
@@ -40,7 +41,10 @@ agent = {
     'const_dist':0.2,
     'randomize_ballinitpos':'',
     # 'dist_ok_thresh':0.1,
-    'first_last_noarm':''
+    'first_last_noarm':'',
+    'object_mass':0.2,
+    'master_datadir':'/raid/ngc2/pushing_data/cartgripper/' + folder_name + '/train',
+    'not_write_scores':''
 }
 
 policy = {
