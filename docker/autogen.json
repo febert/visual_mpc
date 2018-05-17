@@ -1,6 +1,6 @@
 {
     "aceName": "nv-us-west-2",
-    "command": "cd /result && tensorboard --logdir . &      export VMPC_DATA_DIR=/mnt/pushing_data;     export TEN_DATA=/mnt/tensorflow_data;     export ALEX_DATA=/mnt/pretrained_models;     export RESULT_DIR=/result;     export NO_ROS='';     export PATH=/opt/conda/bin:/usr/local/mpi/bin:/usr/local/nvidia/bin:/usr/local/cuda/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin;     cd /workspace/visual_mpc/docker;/bin/sleep 360000",
+    "command": "cd /result && tensorboard --logdir . &      export VMPC_DATA_DIR=/mnt/pushing_data;     export TEN_DATA=/mnt/tensorflow_data;     export ALEX_DATA=/mnt/pretrained_models;     export INTM_PRED_DATA=/mnt/intm_pred_data;      export RESULT_DIR=/result;      export NO_ROS='';      export PATH=/opt/conda/bin:/usr/local/mpi/bin:/usr/local/nvidia/bin:/usr/local/cuda/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin;     cd /workspace/visual_mpc/docker;python ../python_visual_mpc/visual_mpc_core/parallel_data_collection.py ../experiments/cem_exp/benchmarks/datacol/mj_multi_obj_push3_200k/mod_hyper.py  --nworkers 200 --nsplit 10 --isplit 9",
     "dockerImageName": "ucb_rail8888/tf_mj1.5:latest",
     "datasetMounts": [
         {
@@ -76,6 +76,10 @@
             "id": 9534
         },
         {
+            "containerMountPoint": "/mnt/intm_pred_data/data/45954",
+            "id": 9708
+        },
+        {
             "containerMountPoint": "/mnt/pushing_data/cartgripper/cartgripper_startgoal_masks6e4",
             "id": 9138
         },
@@ -129,7 +133,7 @@
         }
     ],
     "aceInstance": "ngcv8",
-    "name": "int",
+    "name": "datacol-mj_multi_obj_push3_200k-mod_hyper-py-nworkers-200",
     "resultContainerMountPoint": "/result",
     "publishedContainerPorts": [
         6006

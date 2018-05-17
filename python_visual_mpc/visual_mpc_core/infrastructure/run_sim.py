@@ -8,15 +8,10 @@ import threading
 import time
 import pdb
 
-# from timewarp_prediction.multipush.frame_cgan import testModel
-# Add lsdc/python to path so that imports work.
+from timewarp_prediction.multipush.frame_cgan import testModel
 sys.path.append('/'.join(str.split(__file__, '/')[:-2]))
-# from lsdc.gui.gps_training_gui import GPSTrainingGUI
-#from python_visual_mpc.video_prediction.setup_predictor_simple import setup_predictor
 from python_visual_mpc.goaldistancenet.setup_gdn import setup_gdn
-from python_visual_mpc.visual_mpc_core.infrastructure.utility import *
 import matplotlib; matplotlib.use('Agg'); import matplotlib.pyplot as plt
-from datetime import datetime
 import pickle
 import cv2
 import shutil

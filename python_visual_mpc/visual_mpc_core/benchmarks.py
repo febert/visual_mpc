@@ -93,7 +93,6 @@ def perform_benchmark(conf = None, iex=-1, gpu_id=None):
     anglecost_l = []
     improvment_l = []
     initial_dist_l = []
-
     agreement_metric_l = []
 
     if 'sourcetags' in conf:  # load data per trajectory
@@ -150,7 +149,7 @@ def perform_benchmark(conf = None, iex=-1, gpu_id=None):
         med_dist = np.median(score)
 
         if 'separation_metric' in conf['agent']:
-            agreement_metric_l.append(sim.agent.agreement)
+            agreement_metric_l.append(sim.agent.agreement['best_hypo'])
 
         f = open(result_file, 'w')
         f.write('experiment name: ' + benchmark_name + '\n')
@@ -168,16 +167,27 @@ def perform_benchmark(conf = None, iex=-1, gpu_id=None):
         f.write('---\n')
         f.write('mean imp, med imp, mean dist, med dist {}, {}, {}, {}\n'.format(mean_imp, med_imp, mean_dist, med_dist))
         f.write('---\n')
+        if 'separation_metric' in conf['agent']:
+            f.write('mean distance from best hypothesis: {} +- std.err: {} \n'.format(np.mean(agreement_metric_l), np.std(agreement_metric_l)/np.sqrt(score.shape[0])))
+            f.write('---\n')
         f.write('average initial dist: {0}\n'.format(np.mean(initial_dist)))
         f.write('median initial dist: {0}\n'.format(np.median(initial_dist)))
         f.write('---\n')
         f.write('average angle cost: {0}\n'.format(np.mean(anglecost)))
         f.write('----------------------\n')
-        f.write('traj: improv, score, anglecost, rank\n')
+
+        if 'separation_metric' in conf['agent']:
+            f.write('traj: improv, score, anglecost, best_agreement, rank\n')
+        else:
+            f.write('traj: improv, score, rank\n')
         f.write('----------------------\n')
 
         for n, t in enumerate(range(conf['start_index'], traj)):
-            f.write('{}: {}, {}, {}, :{}\n'.format(t, improvement[n], score[n], anglecost[n], np.where(sorted_ind == n)[0][0]))
+            if 'separation_metric' in conf['agent']:
+                f.write('{}: {}, {}, {}, :{}\n'.format(t, improvement[n], score[n],
+                                   agreement_metric_l[n],np.where(sorted_ind == n)[0][0]))
+            else:
+                f.write('{}: {}, {}, :{}\n'.format(t, improvement[n], score[n], np.where(sorted_ind == n)[0][0]))
         f.close()
 
     print('mean imp, med imp, mean dist, med dist {}, {}, {}, {}\n'.format(mean_imp, med_imp, mean_dist, med_dist))

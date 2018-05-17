@@ -20,7 +20,7 @@ agent = {
     'type': AgentMuJoCo,
     'T': 2,
     'substeps':200,
-    'make_final_gif':'',
+    # 'make_final_gif':'',
     'adim':3,
     'sdim':6,
     'filename': ROOT_DIR + '/mjc_models/cartgripper_updown_whitefingers.xml',
@@ -36,6 +36,7 @@ agent = {
     'posmode':"",
     'targetpos_clip':[[-0.45, -0.45, -0.08], [0.45, 0.45, 0.15]],
     'discrete_adim':[2],
+    'separation_metric':'',
 }
 
 intmstep = {
@@ -45,7 +46,7 @@ intmstep = {
 }
 
 policy = {
-    'verbose':'',
+    # 'verbose':'',
     'type' : CEM_controller,
     'netconf': current_dir + '/conf.py',
     'current_dir':current_dir,
@@ -53,11 +54,10 @@ policy = {
     'repeat': 3,
     'initial_std': 0.08,        # std dev. in xy
     'initial_std_lift': 2.5,
-    'iterations': 3,
+    'iterations': 1, ########
     'action_cost_factor': 0,
     'rew_all_steps':"",
     'finalweight':10,
-    'num_samples': 200,
     'intmstep':intmstep,
 }
 

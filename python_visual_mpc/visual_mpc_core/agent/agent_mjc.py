@@ -130,8 +130,8 @@ class AgentMuJoCo(object):
             traj.initial_poscost = self.initial_poscost
 
         #intmstep metric
-        if 'agreement' in traj.plan_stat:
-            self.agreement = np.array([traj.plan_stat['agreement0'], traj.plan_stat['agreement1']])
+        if 'separation_metric' in self._hyperparams:
+            self.agreement = traj.plan_stat_l[1]['agreement_metrics']
 
         if 'save_goal_image' in self._hyperparams:
             self.save_goal_image_conf(traj)
@@ -251,7 +251,7 @@ class AgentMuJoCo(object):
             else:
                 mj_U, plan_stat = policy.act(traj, t, desig_pix=self.desig_pix, goal_pix=self.goal_pix,
                                               goal_mask=self.goal_mask, curr_mask=self.curr_mask)
-                traj.plan_stat.append(copy.deepcopy(plan_stat))
+                traj.plan_stat_l.append(copy.deepcopy(plan_stat))
 
             self.large_images_traj.append(self.large_images[t])
 

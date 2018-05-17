@@ -731,7 +731,7 @@ class CEM_controller():
             self.goal_pix_med = (self.goal_pix * self.agentparams['image_medium'][0] / self.agentparams['image_height']).astype(np.int)
 
         if self.intmstep_predictor is not None:
-            if t < self.agentparams['T'] // 2 and t != 0:  # use the intermediate goal image for the first half of the trajectory
+            if t <= self.agentparams['T'] // 2 and t != 0:  # use the intermediate goal image for the first half of the trajectory
                 self.get_intm_image(t, traj)
             else:
                 self.intm_distmap = None
@@ -830,13 +830,18 @@ class CEM_controller():
 
         if 'separation_metric' in self.agentparams:
             self.intm_metric = {}
-            agreement_0 = []
-            agreement_1 = []
+            agreement_current = []
+            agreement_goal = []
             for i in range(2):
-                agreement_0.append(np.sum(self.intm_distmap[i] * current_onehot[0,0,i]))
-                agreement_1.append(np.sum(self.intm_distmap[i] * goal_onehot[0,0,i]))
-            self.plan_stat['agreement_0'] = np.mean(np.array(agreement_0))
-            self.plan_stat['agreement_1'] = np.mean(np.array(agreement_1))
+                agreement_current.append(np.sum(self.intm_distmap[0, i][...,None] * current_onehot[0,0,i]))
+                agreement_goal.append(np.sum(self.intm_distmap[0, i][...,None] * goal_onehot[0,0,i]))
+
+            hypo1 = agreement_current[0] + agreement_goal[1]
+            hypo2 = agreement_current[1] + agreement_goal[0]
+            best_hypo = np.min(np.array([hypo1, hypo2]))
+            self.plan_stat['agreement_metrics'] = {'agreeement_current':agreement_current,
+                                                   'agreement_goal':agreement_goal,
+                                                   'best_hypo':best_hypo}
 
 def unravel_ind(argmax, shape):
     assert len(shape) == 2

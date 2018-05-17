@@ -93,7 +93,7 @@ class Trajectory(object):
         if 'num_objects' in conf:
             self.obj_world_coords = np.zeros([self.T, conf['num_objects'] + 1, 7])  # xyz and quaternion pose
 
-        self.plan_stat = []   # statistics about the plan
+        self.plan_stat_l = []  # statistics about the plan
 
         self.goal_dist = []
 
