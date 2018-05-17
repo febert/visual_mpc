@@ -19,5 +19,5 @@ def sync(agentparams):
 
 if __name__ == '__main__':
     conf = {}
-    conf['master_datadir'] = '/raid/ngc2/pushing_data/cartgripper/mj_multi_obj_push3_200k'
+    conf['master_datadir'] = '/raid/ngc2/pushing_data/cartgripper/mj_multi_obj_push3_75step'
     sync(0, conf)
