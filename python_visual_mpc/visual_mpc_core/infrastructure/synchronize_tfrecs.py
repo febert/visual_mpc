@@ -6,8 +6,8 @@ import ray
 master = 'deepthought'
 
 @ray.remote
-def sync(conf):
-    master_datadir = conf['master_datadir']
+def sync(agentparams):
+    master_datadir = agentparams['master_datadir']
     local_datadir = '/result/data/train'
 
     while True:
