@@ -141,15 +141,17 @@ def perform_benchmark(conf = None, iex=-1, gpu_id=None):
         initial_dist = np.array(initial_dist_l)
         sorted_ind = improvement.argsort()[::-1]
 
-        pickle.dump({'improvement':improvement, 'scores':score, 'anglecost':anglecost}, open(scores_pkl_file, 'wb'))
 
         mean_imp = np.mean(improvement)
         med_imp = np.median(improvement)
         mean_dist = np.mean(score)
         med_dist = np.median(score)
 
+        dump_dict = {'improvement':improvement, 'scores':score, 'anglecost':anglecost}
         if 'separation_metric' in conf['agent']:
             agreement_metric_l.append(sim.agent.agreement['best_hypo'])
+            dump_dict['separation_metric'] = agreement_metric_l
+        pickle.dump(dump_dict, open(scores_pkl_file, 'wb'))
 
         f = open(result_file, 'w')
         f.write('experiment name: ' + benchmark_name + '\n')
