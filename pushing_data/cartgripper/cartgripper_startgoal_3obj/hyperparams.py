@@ -50,6 +50,7 @@ agent = {
     'sample_objectpos':'',
     'const_dist':0.2,
     'randomize_ballinitpos':'',
+    'first_last_noarm':''
 }
 
 policy = {
@@ -60,7 +61,7 @@ config = {
     'save_raw_images':'',
     'save_data': True,
     'start_index':0,
-    'end_index': 49,
+    'end_index': 199,
     'agent': agent,
     'policy': policy,
     'ngroup': 1000
