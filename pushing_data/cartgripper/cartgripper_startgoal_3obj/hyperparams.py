@@ -43,6 +43,8 @@ agent = {
     'viewer_image_width' : 640,
     'image_channels' : 3,
     'num_objects': 3,
+    'object_max_len':0.15,
+    'object_min_len':0.08,
     'novideo':'',
     'gen_xml':3,   #generate xml every nth trajecotry
     'ang_disp_range':np.pi/8,
