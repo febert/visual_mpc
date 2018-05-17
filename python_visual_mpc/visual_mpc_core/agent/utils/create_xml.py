@@ -66,8 +66,14 @@ def create_object_xml(hyperparams, load_dict_list=None):
             else:
                 color1 = np.array([1., 0., 0.])
                 color2 = np.array([1., 0., 0.])
-            l1 = dict['l1'] =np.random.uniform(0.01, 0.2)
-            l2 = dict['l2'] =np.random.uniform(0.01, 0.2)
+            if 'object_max_len' in hyperparams:
+                maxlen = hyperparams['object_max_len']
+                minlen = hyperparams['object_min_len']
+            else:
+                maxlen = 0.2
+                minlen = 0.01
+            l1 = dict['l1'] =np.random.uniform(minlen, maxlen)
+            l2 = dict['l2'] =np.random.uniform(minlen, maxlen)
 
             pos2 = dict['pos2']= np.random.uniform(0.01, l1)
             save_dict_list.append(dict)
