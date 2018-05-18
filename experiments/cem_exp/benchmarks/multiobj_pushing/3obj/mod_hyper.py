@@ -31,7 +31,7 @@ agent = {
     'posmode':"",
     'targetpos_clip':[[-0.45, -0.45, -0.08], [0.45, 0.45, 0.15]],
     'discrete_adim':[2],
-    'master_datadir':'/raid/ngc2/experiments/cem_exp/benchmarks/multiobj_pushing/3obj' + folder_name + '/train',
+    'master_datadir':'/raid/ngc2/experiments/cem_exp/benchmarks/multiobj_pushing/3obj'
 }
 
 policy = {
