@@ -18,11 +18,14 @@ def get_metric(file):
     return thresholds, cummulative_fraction
 
 def plot_results(files, labels):
-    plt.figure()
+    fig = plt.figure(figsize=(4,3))
+    ax = plt.subplot(111)
+    plt.subplots_adjust(left=0.2, bottom=0.2, right=0.9, top=0.9, wspace=0, hspace=0)
+
     # markers = ['o', 'd']
     for file, label in zip(files, labels):
         thresholds, cummulative_fraction = get_metric(file)
-        plt.plot(thresholds, cummulative_fraction, label=label)
+        ax.plot(thresholds, cummulative_fraction, label=label)
 
     plt.xlabel("threshold")
     plt.ylabel("fraction of runs less than threshold")
@@ -35,5 +38,5 @@ def plot_results(files, labels):
 if __name__ == '__main__':
     file = ['/mnt/sda1/experiments/cem_exp/intmstep_benchmarks/get_metric/scores_0to99.pkl',
             '/mnt/sda1/experiments/cem_exp/intmstep_benchmarks/get_metric_fixed_time/scores_0to99.pkl']
-    labels = ['ours', 'fixed time prediction']
+    labels = ['genmin', 'fixed']
     plot_results(file, labels)

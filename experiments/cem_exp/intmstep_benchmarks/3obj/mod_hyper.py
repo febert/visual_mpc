@@ -39,8 +39,7 @@ agent = {
 }
 
 intmstep = {
-    'pretrained':time_warp_base + '/data/45954/model_200.net',
-    # 'pretrained':time_warp_base + '/data/45955/model_200.net',  # with arm
+    'pretrained':time_warp_base + '/data/3obj/55021/model_200.net',
     'noarm_input':''
 }
 
@@ -75,7 +74,7 @@ tag_qpos = {'name': 'qpos',
              'file':'/state_action.pkl'}
 
 tag_object_full_pose = {'name': 'object_full_pose',
-                         'shape':[2,7],
+                         'shape':[3,7],
                          'file':'/state_action.pkl'}
 tag_object_statprop = {'name': 'obj_statprop',
                      'not_per_timestep':''}

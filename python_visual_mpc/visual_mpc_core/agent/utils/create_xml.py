@@ -126,7 +126,6 @@ def create_object_xml(hyperparams, load_dict_list=None):
             obj = ET.SubElement(root, "body", name="object{}".format(i), pos="0 0 0")
             ET.SubElement(obj, "joint", type="free")
 
-
             ET.SubElement(obj, "geom", type="box", size=".03 {} .03".format(l1),
                           rgba="{} {} {} 1".format(color1[0], color1[1], color1[2]), mass="{}".format(object_mass),
                           contype="7", conaffinity = "7", friction="1 0.010 0.0002"

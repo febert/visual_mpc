@@ -808,7 +808,9 @@ class CEM_controller():
 
         self.goal_image, self.intm_target_distrib, self.intm_distmap = self.intmstep_predictor.compute_outputs(first_image,
                                                                orig_goal_image, current_onehot[0, 0], goal_onehot[0, 0])
-        nplot = 7
+
+        nplot = 3 + 2*self.ndesig
+        plt.figure(figsize=(5,nplot*5))
         plt.subplot(nplot, 1, 1)
         plt.imshow(first_image)
         plt.title('current/start image')
@@ -818,14 +820,16 @@ class CEM_controller():
         plt.subplot(nplot, 1, 3)
         plt.imshow(self.goal_image)
         plt.title('gen goal image')
-        plt.subplot(nplot, 1, 4)
-        plt.imshow(self.intm_target_distrib.squeeze()[0])
-        plt.subplot(nplot, 1, 5)
-        plt.imshow(self.intm_target_distrib.squeeze()[1])
-        plt.subplot(nplot, 1, 6)
-        plt.imshow(self.intm_distmap.squeeze()[0])
-        plt.subplot(nplot, 1, 7)
-        plt.imshow(self.intm_distmap.squeeze()[1])
+
+        row = 3
+        for p in range(self.ndesig):
+            row += 1
+            plt.subplot(nplot, 1, row)
+            plt.imshow(self.intm_distmap[:,p].squeeze())
+            row += 1
+            plt.subplot(nplot, 1, row)
+            plt.imshow(self.intm_target_distrib[:,p].squeeze())
+
         plt.savefig(self.agentparams['record'] + '/intmstep.png')
 
         if 'separation_metric' in self.agentparams:

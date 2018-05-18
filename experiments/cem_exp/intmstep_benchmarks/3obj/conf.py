@@ -42,6 +42,6 @@ configuration = {
 'orig_size':[48,64],
 'img_height':48,
 'img_width':64,
-'ndesig':2,
+'ndesig':3,
 'use_vel':''                # add the velocity to the state input
 }

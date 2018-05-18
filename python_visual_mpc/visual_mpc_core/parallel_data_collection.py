@@ -107,9 +107,9 @@ def main():
         data_save_path = hyperparams['agent']['data_save_dir'].partition('pushing_data')[2]
         hyperparams['agent']['data_save_dir'] = os.environ['RESULT_DIR'] + data_save_path
 
-    ray.init()
-    sync_todo_id = sync.remote(hyperparams['agent'])
-    print('launched sync')
+    # ray.init()
+    # sync_todo_id = sync.remote(hyperparams['agent'])
+    # print('launched sync')
 
     for i in range(n_worker):
         modconf = copy.deepcopy(hyperparams)
@@ -129,8 +129,6 @@ def main():
         else: result_dir = hyperparams['current_dir']
         combine_scores(result_dir)
         sys.exit()
-
-
 
     traindir = modconf['agent']["data_save_dir"]
     testdir = '/'.join(traindir.split('/')[:-1] + ['/test'])
