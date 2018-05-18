@@ -1,6 +1,7 @@
 import glob
 import pickle
 import numpy as np
+import matplotlib.pyplot as plt
 import copy
 import matplotlib
 matplotlib.use('Agg')
@@ -14,8 +15,31 @@ def sorted_nicely( l ):
     alphanum_key = lambda key: [ convert(c) for c in re.split('([0-9]+)', key) ]
     return sorted(l, key = alphanum_key)
 
-def combine_scores(dir):
-    anglecost, improvement, score, sorted_ind = read_scoes(dir)
+def combine_scores(dir, only_first_n=None):
+    improvement_l= []
+    scores_l = []
+    anglecost_l = []
+
+    files = glob.glob(dir + '/scores_*')
+    files = sorted_nicely(files)
+
+    for f in files:
+        print('load', f)
+        dict_ = pickle.load(open(f, "rb"))
+        scores_l.append(dict_['scores'])
+        anglecost_l.append(dict_['anglecost'])
+        improvement_l.append(dict_['improvement'])
+
+    score = np.concatenate(scores_l, axis=0)
+    anglecost = np.concatenate(anglecost_l, axis=0)
+    improvement = np.concatenate(improvement_l, axis=0)
+
+    if only_first_n is not None:
+        improvement = improvement[:only_first_n]
+        score = score[:only_first_n]
+        anglecost = anglecost[:only_first_n]
+
+    sorted_ind = copy.deepcopy(improvement).argsort()[::-1]
 
     mean_imp = np.mean(improvement)
     med_imp = np.median(improvement)
@@ -52,25 +76,6 @@ def combine_scores(dir):
 
     print('writing {}'.format(dir))
 
-def read_scoes(dir):
-    improvement_l = []
-    scores_l = []
-    anglecost_l = []
-    files = glob.glob(dir + '/scores_*')
-    files = sorted_nicely(files)
-    for f in files:
-        print('load', f)
-        dict_ = pickle.load(open(f, "rb"))
-        scores_l.append(dict_['scores'])
-        anglecost_l.append(dict_['anglecost'])
-        improvement_l.append(dict_['improvement'])
-    score = np.concatenate(scores_l, axis=0)
-    anglecost = np.concatenate(anglecost_l, axis=0)
-    improvement = np.concatenate(improvement_l, axis=0)
-    sorted_ind = copy.deepcopy(improvement).argsort()[::-1]
-    return anglecost, improvement, score, sorted_ind
-
-
 def make_imp_score(score, imp, dir):
     plt.scatter(imp, score)
     plt.xlabel('improvement')
@@ -95,14 +100,14 @@ def make_stats(dir, score, name, bounds):
         f.write('indices for bin {}, {} to {} : {} \n'.format(i, bin_edges[i], bin_edges[i+1], np.where(binned_ind == i+1)[0].tolist()))
 
 if __name__ == '__main__':
-    n_worker = 4
-    n_traj = 49
+    # n_worker = 4
+    # n_traj = 10
     # dir = '/home/frederik/Documents/catkin_ws/src/visual_mpc/experiments/cem_exp/benchmarks/alexmodel/savp_register_gtruth_start/41256'
     # dir = '/home/frederik/Documents/catkin_ws/src/visual_mpc/experiments/cem_exp/benchmarks/pos_ctrl/updown_sact_boundact_register_gtruth/41272'
-    dir = '/mnt/sda1/experiments/cem_exp/intmstep_benchmarks/firsttry'
+    dir = '/mnt/sda1/experiments/cem_exp/intmstep_benchmarks/3obj'
 
-    traj_per_worker = int(n_traj / np.float32(n_worker))
-    start_idx = [traj_per_worker * i for i in range(n_worker)]
-    end_idx = [traj_per_worker * (i + 1) - 1 for i in range(n_worker)]
+    # traj_per_worker = int(n_traj / np.float32(n_worker))
+    # start_idx = [traj_per_worker * i for i in range(n_worker)]
+    # end_idx = [traj_per_worker * (i + 1) - 1 for i in range(n_worker)]
 
-    combine_scores(dir)
+    combine_scores(dir, only_first_n=48)
