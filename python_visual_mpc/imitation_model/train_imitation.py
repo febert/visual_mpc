@@ -78,54 +78,40 @@ def main():
         model_name = FLAGS.pretrained
         saver.restore(sess, conf['model_dir'] + model_name)
         start_iter = int(model_name.split('model')[1]) + 1
-        print('resuming trainint at', start_iter)
+        print('resuming training at', start_iter)
 
     summary_writer = tf.summary.FileWriter(conf['model_dir'], graph=sess.graph, flush_secs=10)
 
     for i in range(start_iter, conf['n_iters']):
         if 'lr_decay' in conf and i > 0 and i % conf['lr_decay'] == 0:
             conf['learning_rate'] /= 5.
-
+        print('iter: {}'.format(i), end='\r')
+        
         f_dict = {learning_rate:conf['learning_rate']}
+        
         if i % conf['n_print'] == 0:
-            if 'MDN_loss' in conf:
-                model_loss, val_model_loss, val_model_diag, val_mdn_log,   _ = sess.run(
-                    [model.loss, val_model.loss, val_model.diagnostic_l2loss,val_model.MDN_log_l,  train_operation], feed_dict=f_dict)
-                print('At iteration', i, 'model loss is:', model_loss, 'and val_model loss is', val_model_loss, 'and val diagnostic', val_model_diag)
-                itr_summary = tf.Summary()
-                itr_summary.value.add(tag="val_model/loss", simple_value=val_model_loss)
-                itr_summary.value.add(tag="val_model/loglikelihood", simple_value=val_mdn_log)
-                #itr_summary.value.add(tag="val_model/diagnostic_l2loss", simple_value=val_aux)
-                itr_summary.value.add(tag="val_model/feep_aux", simple_value=val_model_diag)
-                itr_summary.value.add(tag="model/loss", simple_value=model_loss)
-                summary_writer.add_summary(itr_summary, i)
-                if np.isnan(model_loss):
-                    print("NAN ALERT at", i)
-                    exit(-1)
+            sum_line = 'iter: {},\t'.format(i)
 
+            train_model_sums = list(model.summaries.keys())
+            val_model_sums = list(val_model.summaries.keys())
+            
+            all_summaries = [model.summaries[k] for k in train_model_sums]
+            all_summaries = all_summaries + [val_model.summaries[k] for k in val_model_sums]
+            eval_summaries = sess.run(all_summaries + [train_operation], feed_dict = f_dict)[:-1]
+            
+            itr_summary = tf.Summary()
+            for j, k in enumerate(train_model_sums):
+                if k == 'loss':
+                    sum_line += 'model loss: {},\t'.format(eval_summaries[j])
+                itr_summary.value.add(tag = 'model/{}'.format(k), simple_value = eval_summaries[j])
+            for j, k in enumerate(val_model_sums):
+                l = j + len(train_model_sums)
+                if k == 'loss':
+                    sum_line += 'validation loss: {}'.format(eval_summaries[l])
+                itr_summary.value.add(tag = 'val_model/{}'.format(k), simple_value = eval_summaries[l])
+            summary_writer.add_summary(itr_summary, i)
+            print(sum_line)
 
-            elif 'latent_dim' in conf:
-                model_loss, val_model_loss, val_action, _ = sess.run([model.loss, val_model.loss,
-                                                                               val_model.action_loss,
-                                                                               train_operation], feed_dict=f_dict)
-                print('At iteration', i, 'model loss is:', model_loss, 'and val_model loss is', val_model_loss, 'val_action loss', val_action)
-
-                if i > 0:
-                    itr_summary = tf.Summary()
-                    itr_summary.value.add(tag="val_model/loss", simple_value=val_model_loss)
-                    itr_summary.value.add(tag="val_model/action_loss", simple_value=val_action)
-                    itr_summary.value.add(tag="model/loss", simple_value=model_loss)
-                    summary_writer.add_summary(itr_summary, i)
-            else:
-                model_loss, val_model_loss, val_action,val_aux,  _ = sess.run([model.loss, val_model.loss,
-                                                          val_model.action_loss, val_model.final_frame_aux_loss, train_operation], feed_dict=f_dict)
-                print('At iteration', i, 'model loss is:', model_loss, 'and val_model loss is', val_model_loss)
-                itr_summary = tf.Summary()
-                itr_summary.value.add(tag="val_model/loss", simple_value=val_model_loss)
-                itr_summary.value.add(tag="val_model/action_loss", simple_value=val_action)
-                itr_summary.value.add(tag="val_model/finaleep_loss", simple_value=val_aux)
-                itr_summary.value.add(tag="model/loss", simple_value=model_loss)
-                summary_writer.add_summary(itr_summary, i)
         else:
             sess.run([train_operation], feed_dict=f_dict)
 

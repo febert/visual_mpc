@@ -47,11 +47,14 @@ class ImitationBaseModel:
         self.images = images
 
         raw_input_splits = tf.split(actions, self.adim, axis=-1)
-        raw_input_splits[-1] = tf.clip_by_value(raw_input_splits[-1], 0, 0.1)
+        raw_input_splits[-1] = tf.clip_by_value(raw_input_splits[-1], -1, 1) #should have no effect on new data
         self.gtruth_actions = tf.concat(raw_input_splits, axis=-1)
 
         # ground truth ep
         self.gtruth_endeffector_pos = end_effector
+        
+        #summary logging for tensorboard
+        self.summaries = {}
 
     def _build_conv_layers(self, input_images):
         layer1 = tf_layers.layer_norm(self.vgg_layer(input_images[:, :, :, ::-1]), scope='conv1_norm')
@@ -89,12 +92,34 @@ class ImitationBaseModel:
         fp_x = tf.reduce_sum(tf.multiply(x_map, softmax), [1], keep_dims=True)
         fp_y = tf.reduce_sum(tf.multiply(y_map, softmax), [1], keep_dims=True)
         return tf.reshape(tf.concat([fp_x, fp_y], 1), [-1, num_fp * 2])
+    def _build_openloop_loss(self, last_fc, input_action):
+        T = int(last_fc.get_shape()[1])
+        assert 'nactions' in self.conf and self.conf['nactions'] <= T, "NO OR INVALID N_ACTIONS"
+        n_actions = self.conf['nactions']
+        input_dim = int(input_action.get_shape()[-1])
+        
+        n_step_losses = []
+        for i in range(n_actions):
+            with tf.variable_scope('loss_skip_{}'.format(i)):
+                if i == 0:
+                    self._build_loss(last_fc, input_action, T)
+                else:
+                    self._build_loss(last_fc[:, :-i], input_action[:,i:], T - i)
+            
+            n_step_losses.append(self.summaries.pop('loss'))
+            self.summaries['loss_step_{}'.format(i)] = n_step_losses[-1]
+            if 'MDN_loss' in self.conf:
+                self.summaries['diagnostic_l2loss_step_{}'.format(i)] = self.summaries.pop('diagnostic_l2loss')
+                self.summaries['log_likelihood_step_{}'.format(i)] = self.summaries.pop('log_likelihood')
+            else:
+                self.summaries['action_loss_step_{}'.format(i)] = self.summaries.pop('action_loss')
+        
+        self.loss = tf.reduce_sum(n_step_losses)
+        self.summaries['loss'] = self.loss
 
     def _build_loss(self, last_fc, input_action, T):
-        _, input_dim = input_action.get_shape()
-        input_dim = int(input_dim)
-
-        self.debug_input = input_action
+        input_dim = int(input_action.get_shape()[-1])
+        input_action = tf.reshape(input_action, shape=(-1, input_dim))
 
         if 'MDN_loss' in self.conf:
             num_mix = self.conf['MDN_loss']
@@ -122,7 +147,10 @@ class ImitationBaseModel:
             mix_mean = tf.reduce_sum(self.means * tf.reshape(self.mixing_parameters, shape=(-1, num_mix, 1)), axis=1)
 
             self.diagnostic_l2loss = tf.reduce_sum(tf.square(input_action - mix_mean)) / self.conf['batch_size']
-
+            
+            self.summaries['diagnostic_l2loss'] = self.diagnostic_l2loss
+            self.summaries['log_likelihood'] = self.MDN_log_l
+            self.summaries['loss'] = self.loss
         else:
             self.predicted_actions = slim.layers.fully_connected(last_fc, input_dim, scope='predicted_actions',
                                                                  activation_fn=None)
@@ -134,6 +162,9 @@ class ImitationBaseModel:
                          + 0.5 * tf.reduce_sum(tf.abs(input_action - self.predicted_actions))
             self.action_loss = total_loss / float(self.conf['batch_size'] * int(T))
             self.loss = self.action_loss
+            
+            self.summaries['action_loss'] = self.action_loss
+            self.summaries['loss'] = self.loss
 
 
     def build(self):
@@ -506,7 +537,9 @@ class ImitationLSTMVAEAction(ImitationBaseModel):
 
         self.loss = self.latent_loss + self.action_loss
 
-        self.final_frame_aux_loss = self.latent_loss
+        self.summaries['loss'] = self.loss
+        self.summaries['latent_loss'] = self.latent_loss
+        self.summaries['action_loss'] = self.action_loss
 
 class ImitationLSTMModelStateGoalImage(ImitationBaseModel):
 

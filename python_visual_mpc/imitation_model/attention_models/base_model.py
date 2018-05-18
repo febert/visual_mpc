@@ -55,14 +55,17 @@ class BaseAttentionModel(ImitationBaseModel):
         
         return tf.contrib.layers.layer_norm(outputs, begin_norm_axis = 2)
 
-    def _feedforward_layer(self, inputs):
+    def _feedforward_layer(self, inputs, is_training = None):
         num_inner, num_out = self.conf['feedforward_dim'], int(inputs.get_shape()[2])
 
         inner_mult = tf.layers.conv1d(inputs, num_inner, 1, activation=tf.nn.relu)
         outer_mult = tf.layers.conv1d(inner_mult, num_out, 1)
-
+        
+        if is_training is not None and 'dropout' in self.conf:
+            outer_mult = tf.layers.dropout(outer_mult, rate=self.conf['dropout'], training=tf.convert_to_tensor(is_training))
+        
         return tf.contrib.layers.layer_norm(outer_mult + inputs, begin_norm_axis = 2)
-    def _lstmforward_layer(self, inputs):
+    def _lstmforward_layer(self, inputs, is_training = None):
         num_out = int(inputs.get_shape()[2])
         
         lstm_cell = tf.contrib.rnn.BasicLSTMCell(self.conf['lstmforward_dim'])
@@ -70,6 +73,9 @@ class BaseAttentionModel(ImitationBaseModel):
         
         outer_mult = tf.layers.conv1d(lstm_out, num_out, 1)
         
+        if is_training is not None and 'dropout' in self.conf:
+            outer_mult = tf.layers.dropout(outer_mult, rate=self.conf['dropout'], training=tf.convert_to_tensor(is_training))
+
         return tf.contrib.layers.layer_norm(outer_mult + inputs, begin_norm_axis = 2) 
 
 class AttentionMDNStates(BaseAttentionModel):

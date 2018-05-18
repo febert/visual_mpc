@@ -34,8 +34,8 @@ def main():
         # training ground truth actions/endef
         train_actions = data_dict['actions']
         train_endeffector_pos = data_dict['endeffector_pos']
-
-        model = conf['model'](conf, train_images, train_actions, train_endeffector_pos)
+        goal_image = data_dict.get('goal_image', None)
+        model = conf['model'](conf, train_images, train_actions, train_endeffector_pos, goal_image)
         model.build()
 
     with tf.variable_scope('val_model', reuse = None):
@@ -45,9 +45,9 @@ def main():
         # validation ground truth actions/endef
         val_actions = data_dict['actions']
         val_endeffector_pos = data_dict['endeffector_pos']
-
+        val_goal_image = data_dict.get('goal_image', None)
         with tf.variable_scope(training_scope, reuse=True):
-            val_model = conf['model'](conf, val_images, val_actions, val_endeffector_pos)
+            val_model = conf['model'](conf, val_images, val_actions, val_endeffector_pos, val_goal_image)
             val_model.build(is_Train = False)
 
     gpu_options = tf.GPUOptions(per_process_gpu_memory_fraction=0.6)
@@ -77,7 +77,7 @@ def main():
             print('error_mean', np.sum(np.square(gtruth_eep[i, -1, :4] - mean_samp)))
             print('')
     elif 'MDN_loss' in conf:
-        v_images, gtruth_actions, gtruth_eep, pred_mean, pred_std, pred_mix = sess.run([val_images, val_actions,val_endeffector_pos, val_model.means, val_model.std_dev,
+        v_images, v_gimage, gtruth_actions, gtruth_eep, pred_mean, pred_std, pred_mix = sess.run([val_images, val_goal_image, val_actions,val_endeffector_pos, val_model.means, val_model.std_dev,
                                                                          val_model.mixing_parameters])
         print('gtruth_actions', gtruth_actions.shape)
         print('gtruth_eep', gtruth_eep.shape)
@@ -86,12 +86,11 @@ def main():
         print('pred_mix', pred_mix.shape)
         
 
-        #import cv2
-        #for i in range(14):
-            #print(v_images[0, i] * 256)
-       #     cv2.imwrite('test/im_{}.png'.format(i), (v_images[0, i] * 256).astype(np.uint8))
+        import cv2
+        for i in range(14):
+            cv2.imwrite('test/im_{}.png'.format(i), (v_images[0, i] * 256).astype(np.uint8)[:,:,::-1])
         
-        
+        cv2.imwrite('test/goal_image.png', (v_gimage[0] * 255).astype(np.uint8)[:,:,::-1])
         
         for i in range(14):
             samps, samps_log_l = gen_mix_samples(1000, pred_mean[0, i], pred_std[0, i], pred_mix[0, i])
