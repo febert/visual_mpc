@@ -18,7 +18,7 @@ def get_metric(file):
     return thresholds, cummulative_fraction
 
 def plot_results(files, labels):
-    fig = plt.figure(figsize=(4,3))
+    plt.figure(figsize=(4,3))
     ax = plt.subplot(111)
     plt.subplots_adjust(left=0.2, bottom=0.2, right=0.9, top=0.9, wspace=0, hspace=0)
 

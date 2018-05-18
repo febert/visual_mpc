@@ -11,17 +11,21 @@ def get_metric(sources):
     for source in sources:
         _, imp, score, _ = read_scoes(source)
         scores.append(score)
-
     return scores
 
 def plot_results(files):
-    scores = get_metric(files)
+    scores = np.stack(get_metric(files), axis=0)
     abs_delta = np.abs(scores[0] - scores[1])
     # for i in range(scores[0].shape[0]):
         # print('{}: {}'.format(i, abs_delta[i]))
     order_matter_ind = np.where(abs_delta > 0.08)
+    min_scores = np.min(scores, axis=0)
+
+    num_ex = min_scores.shape[0]
+    print('minimumm of both orders: mean:{}, +- {}'.format(np.mean(min_scores), np.std(min_scores)/np.sqrt(num_ex)))
+
     print(order_matter_ind)
-    print('num oreder matter ', order_matter_ind[0].shape)
+    print('num order matter ', order_matter_ind[0].shape)
 
     # plt.plot(abs_delta)
     # plt.show()
