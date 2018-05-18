@@ -15,7 +15,7 @@ def sorted_nicely( l ):
     alphanum_key = lambda key: [ convert(c) for c in re.split('([0-9]+)', key) ]
     return sorted(l, key = alphanum_key)
 
-def combine_scores(dir):
+def combine_scores(dir, only_first_n=None):
     improvement_l= []
     scores_l = []
     anglecost_l = []
@@ -33,6 +33,12 @@ def combine_scores(dir):
     score = np.concatenate(scores_l, axis=0)
     anglecost = np.concatenate(anglecost_l, axis=0)
     improvement = np.concatenate(improvement_l, axis=0)
+
+    if only_first_n is not None:
+        improvement = improvement[:only_first_n]
+        score = score[:only_first_n]
+        anglecost = anglecost[:only_first_n]
+
     sorted_ind = copy.deepcopy(improvement).argsort()[::-1]
 
     mean_imp = np.mean(improvement)
@@ -98,10 +104,10 @@ if __name__ == '__main__':
     # n_traj = 10
     # dir = '/home/frederik/Documents/catkin_ws/src/visual_mpc/experiments/cem_exp/benchmarks/alexmodel/savp_register_gtruth_start/41256'
     # dir = '/home/frederik/Documents/catkin_ws/src/visual_mpc/experiments/cem_exp/benchmarks/pos_ctrl/updown_sact_boundact_register_gtruth/41272'
-    dir = '/mnt/sda1/experiments/cem_exp/benchmarks/multiobj_pushing/switchtask1'
+    dir = '/mnt/sda1/experiments/cem_exp/intmstep_benchmarks/3obj'
 
     # traj_per_worker = int(n_traj / np.float32(n_worker))
     # start_idx = [traj_per_worker * i for i in range(n_worker)]
     # end_idx = [traj_per_worker * (i + 1) - 1 for i in range(n_worker)]
 
-    combine_scores(dir)
+    combine_scores(dir, only_first_n=50)
