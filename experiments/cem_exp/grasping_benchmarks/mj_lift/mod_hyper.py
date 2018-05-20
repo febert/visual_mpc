@@ -11,9 +11,13 @@ ROOT_DIR = '/'.join(str.split(ROOT_DIR, '/')[:-2])
 from python_visual_mpc.visual_mpc_core.agent.agent_mjc import AgentMuJoCo
 import numpy as np
 
+
+
+folder_name = '/'.join(str.split(__file__, '/')[-2:-1])
+
 agent = {
     'type': AgentMuJoCo,
-    'T': 16,
+    'T': 15,
     'substeps': 75,
     'make_final_gif':'',
     'adim':5,
@@ -21,6 +25,7 @@ agent = {
     # 'no_instant_gif':"",
     'filename': ROOT_DIR + '/mjc_models/cartgripper_grasp.xml',
     'filename_nomarkers': ROOT_DIR + '/mjc_models/cartgripper_grasp.xml',
+    'cameras':['maincam','leftcam'],
     'gen_xml':1,   #generate xml every nth trajecotry
     'num_objects': 1,
     'viewer_image_height' : 480,
@@ -28,39 +33,44 @@ agent = {
     'image_height':48,
     'image_width':64,
     'additional_viewer':'',
-    'data_save_dir': os.environ['VMPC_DATA_DIR'] + '/mj_pos_noreplan_fast',
+    'data_save_dir': os.environ['VMPC_DATA_DIR'] + '/cartgripper/grasping/'+ folder_name + '/train',
     'posmode':"",
     'targetpos_clip':[[-0.45, -0.45, -0.08, -np.pi*2, 0.], [0.45, 0.45, 0.15, np.pi*2, 0.1]],
     'not_use_images':"",
-    'lift_object':'',
+    'verbose':''
 }
 
 policy = {
-    'verbose':"",
+    # 'verbose':"",
     'type' : CEM_controller,
     'current_dir':current_dir,
-    'nactions': 8,
-    'repeat': 2,
+    'nactions': 5,
+    'repeat': 3,
     'initial_std': 0.03,        # std dev. in xy
     'initial_std_lift': 0.2,
     'initial_std_rot': 0.1,
-    'initial_std_grasp': 0.2,
+    'initial_std_grasp': 100, #0.2,
     'iterations': 2,
     'action_cost_factor': 0,
     'rew_all_steps':"",
     'finalweight':10,
     'no_action_bound':"",
-    'num_samples': 300,
+    'num_samples': 500,
     'use_first_plan':''
 }
 
-tag_images = {'name': 'images',
-             'file':'/images/im{}.png',   # only tindex
-             'shape':[agent['image_height'],agent['image_width'],3],
+tag_images0 = {'name': 'images0',
+               'file':'/images0/im{}.png',   # only tindex
+               'shape':[agent['image_height'],agent['image_width'],3],
+               }
+
+tag_images1 = {'name': 'images1',
+               'file':'/images1/im{}.png',   # only tindex
+               'shape':[agent['image_height'],agent['image_width'],3],
                }
 
 tag_qpos = {'name': 'qpos',
-             'shape':[3],
+             'shape':[6],
              'file':'/state_action.pkl'}
 tag_object_full_pose = {'name': 'object_full_pose',
                          'shape':[4,7],
@@ -70,15 +80,15 @@ tag_object_statprop = {'name': 'obj_statprop',
 
 config = {
     'current_dir':current_dir,
-    'save_data': False,
+    'save_data': True,
     'save_raw_images':'',
     'start_index':0,
     'end_index': 49,
     'agent':agent,
     'policy':policy,
     'ngroup': 500,
-    'sourcetags':[tag_images, tag_qpos, tag_object_full_pose, tag_object_statprop],
-    'source_basedirs':[os.environ['VMPC_DATA_DIR'] + '/cartgripper_startgoal_short/train'],
-    'sequence_length':2
+    'sourcetags':[tag_images0, tag_images1, tag_qpos, tag_object_full_pose, tag_object_statprop],
+    'source_basedirs':[os.environ['VMPC_DATA_DIR'] + '/cartgripper/grasping/cartgripper_startgoal_2view_lift_above_obj/train'],
+    'sequence_length':2,
 }
 

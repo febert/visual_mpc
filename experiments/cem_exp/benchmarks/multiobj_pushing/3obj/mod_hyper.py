@@ -10,18 +10,18 @@ ROOT_DIR = '/'.join(str.split(ROOT_DIR, '/')[:-2])
 
 from python_visual_mpc.visual_mpc_core.agent.agent_mjc import AgentMuJoCo
 import numpy as np
+
 agent = {
     'type': AgentMuJoCo,
-    'T': 30,
-    'substeps':200,
-    'adim':5,
-    'sdim':12,
+    'T': 60,
+    'substeps':50,
     'make_final_gif':'',
-    # 'no_instant_gif':"",
-    'filename': ROOT_DIR + '/mjc_models/cartgripper_grasp.xml',
-    'filename_nomarkers': ROOT_DIR + '/mjc_models/cartgripper_grasp.xml',
+    'adim':3,
+    'sdim':6,
+    'filename': ROOT_DIR + '/mjc_models/cartgripper_updown_whitefingers.xml',
+    'filename_nomarkers': ROOT_DIR + '/mjc_models/cartgripper_updown_whitefingers.xml',
     'gen_xml':1,   #generate xml every nth trajecotry
-    'num_objects': 1,
+    'num_objects': 3,
     'viewer_image_height' : 480,
     'viewer_image_width' : 640,
     'image_height':48,
@@ -29,47 +29,37 @@ agent = {
     'additional_viewer':'',
     'data_save_dir':current_dir + '/data/train',
     'posmode':"",
-    'targetpos_clip':[[-0.45, -0.45, -0.08, -np.pi*2, 0.], [0.45, 0.45, 0.15, np.pi*2, 0.1]],
-    'compare_mj_planner_actions':'',
+    'targetpos_clip':[[-0.45, -0.45, -0.08], [0.45, 0.45, 0.15]],
+    'discrete_adim':[2],
+    # 'master_datadir':'/raid/ngc2/experiments/cem_exp/benchmarks/multiobj_pushing/3obj'
 }
 
 policy = {
     'verbose':'',
     'type' : CEM_controller,
-    'low_level_ctrl': None,
+    'netconf': current_dir + '/conf.py',
     'current_dir':current_dir,
-    'usenet': True,
     'nactions': 5,
     'repeat': 3,
     'initial_std': 0.08,        # std dev. in xy
-    'initial_std_lift': 0.3, #0.1,
-    'initial_std_rot': 0.05,
-    'initial_std_grasp': 100,
-    'netconf': current_dir + '/conf.py',
-    'iterations': 3,
+    'initial_std_lift': 2.5,
+    'iterations': 2,
     'action_cost_factor': 0,
     'rew_all_steps':"",
     'finalweight':10,
-    'rejection_sampling':''
+    'num_samples': 200,
 }
 
-tag_images0 = {'name': 'images',
-             'file':'/images0/im{}.png',   # only tindex
+
+tag_images = {'name': 'images',
+             'file':'/images/im{}.png',   # only tindex
              'shape':[agent['image_height'],agent['image_width'],3],
                }
-
-
 tag_qpos = {'name': 'qpos',
-             'shape':[6],
+             'shape':[3],
              'file':'/state_action.pkl'}
-
-tag_actions = {'name': 'actions',
-            'shape':[15,5],
-            'not_per_timestep':'',
-            'file':'/state_action.pkl'}
-
 tag_object_full_pose = {'name': 'object_full_pose',
-                         'shape':[4,7],
+                         'shape':[3,7],
                          'file':'/state_action.pkl'}
 tag_object_statprop = {'name': 'obj_statprop',
                      'not_per_timestep':''}
@@ -83,7 +73,7 @@ config = {
     'agent':agent,
     'policy':policy,
     'ngroup': 100,
-    'sourcetags':[tag_images0, tag_qpos, tag_object_full_pose, tag_object_statprop, tag_actions],
-    'source_basedirs':[os.environ['VMPC_DATA_DIR'] + '/cartgripper/grasping/mj_lift/train'],
-    'sequence_length':15 # important: needs to be 15 instead of 2!!
+    'sourcetags':[tag_images, tag_qpos, tag_object_full_pose, tag_object_statprop],
+    'source_basedirs':[os.environ['VMPC_DATA_DIR'] + '/cartgripper/cartgripper_startgoal_3obj/train'],
+    'sequence_length':2
 }

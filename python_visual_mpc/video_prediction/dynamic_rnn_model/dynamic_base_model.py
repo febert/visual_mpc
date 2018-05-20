@@ -600,7 +600,8 @@ class Dynamic_Base_Model(object):
         other_outputs = list(other_outputs)
 
         # making video summaries
-        self.val_video_summaries = make_video_summaries(conf['context_frames'], [tf.stack(images, 1)[:,:,None], self.gen_images])
+        self.train_video_summaries = make_video_summaries(conf['context_frames'], [self.images, self.gen_images[:,:,0]], 'train_images')
+        self.val_video_summaries = make_video_summaries(conf['context_frames'], [self.images, self.gen_images[:,:,0]], 'val_images')
 
         if 'compute_flow_map' in self.conf:
             gen_flow_map = other_outputs.pop(0)
@@ -627,20 +628,17 @@ class Dynamic_Base_Model(object):
         # L2 loss, PSNR for eval.
         loss, psnr_all = 0.0, 0.0
 
-        # for x, gx in zip_equal(self.images[self.context_frames:], self.gen_images):
         recon_cost = mean_squared_error(self.images[:, self.context_frames:], tf.squeeze(self.gen_images))
         loss += recon_cost
         train_summaries.append(tf.summary.scalar('recon_cost', recon_cost))
         val_summaries.append(tf.summary.scalar('val_recon_cost', recon_cost))
 
         if ('ignore_state_action' not in self.conf) and ('ignore_state' not in self.conf):
-            # for state, gen_state in zip_equal(self.states[self.context_frames:], self.gen_states):
             state_cost = mean_squared_error(self.states[:,self.context_frames:], tf.squeeze(self.gen_states)) * 1e-4 * self.conf['use_state']
             loss += state_cost
             train_summaries.append(tf.summary.scalar('state_cost', state_cost))
             val_summaries.append(tf.summary.scalar('val_state_cost', state_cost))
 
-        # self.loss = loss = loss / np.float32(len(self.images) - self.conf['context_frames'])
         self.loss = loss
 
         train_summaries.append(tf.summary.scalar('loss', loss))

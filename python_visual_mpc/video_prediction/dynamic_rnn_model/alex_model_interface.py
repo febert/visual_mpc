@@ -1,7 +1,8 @@
 import tensorflow as tf
-from video_prediction.models import MultiSAVPVideoPredictionModel
+from video_prediction.models import MultiSAVPVideoPredictionModel, SAVPVideoPredictionModel
 import json
 import os
+import pdb
 
 class Alex_Interface_Model(object):
     def __init__(self,
@@ -19,25 +20,30 @@ class Alex_Interface_Model(object):
             if 'override_json' in conf:
                 model_hparams_dict.update(conf['override_json'])
 
-        self.m = MultiSAVPVideoPredictionModel(mode='test', hparams_dict=model_hparams_dict)
+        if conf['ncam'] == 1:
+            self.m = SAVPVideoPredictionModel(mode='test', hparams_dict=model_hparams_dict)
+        elif conf['ncam'] == 2:
+            self.m = MultiSAVPVideoPredictionModel(mode='test', hparams_dict=model_hparams_dict)
 
-        images, images1 = tf.unstack(images, conf['ncam'], 2)
-        inputs = {
-            'images':images,
-            'images1':images1,
-            'actions':actions,
-            'states':states
-        }
+        inputs = {'actions':actions, 'states':states,'images':images[:,:,0]}
+        if conf['ncam'] == 2:
+            inputs['images1'] = images[:,:,1]
+
         if pix_distrib is not None: # input batch , t, ncam, r, c, ndesig
-            inputs['pix_distribs']  = pix_distrib[:,:,0]
-            inputs['pix_distribs1'] = pix_distrib[:,:,1]
+            inputs['pix_distribs'] = pix_distrib[:,:,0]
+            if conf['ncam'] == 2:
+                inputs['pix_distribs1'] = pix_distrib[:,:,1]
+
         self.m.build_graph(inputs)
 
-        self.gen_images = tf.stack([self.m.outputs['gen_images'],   #ouput  b, t, ncam, r, c, 3
-                                     self.m.outputs['gen_images1']], axis=2)
+        gen_images = [self.m.outputs['gen_images']]
+        if conf['ncam'] == 2:
+            gen_images.append(self.m.outputs['gen_images1'])
+        self.gen_images = tf.stack(gen_images, axis=2) #ouput  b, t, ncam, r, c, 3
         self.gen_states = self.m.outputs['gen_states']
 
         if pix_distrib is not None:
-
-            self.gen_distrib = tf.stack([self.m.outputs['gen_pix_distribs'],
-                                         self.m.outputs['gen_pix_distribs1']], axis=2)
+            gen_distrib = [self.m.outputs['gen_pix_distribs']]
+            if conf['ncam'] == 2:
+                gen_distrib.append(self.m.outputs['gen_pix_distribs1'])
+            self.gen_distrib = tf.stack(gen_distrib, axis=2) #ouput  b, t, ncam, r, c, 3

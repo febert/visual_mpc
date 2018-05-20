@@ -221,10 +221,14 @@ def main(unused_argv, conf_dict= None, flags=None):
             [val_summary_str] = sess.run([model.val_summ_op], feed_dict)
             summary_writer.add_summary(val_summary_str, itr)
 
-        if (itr) % VIDEO_INTERVAL == 0 and hasattr(model, 'val_video_summaries'):
+        if (itr) % VIDEO_INTERVAL == 0:
             feed_dict = {model.iter_num: np.float32(itr),
                          model.train_cond: 0}
             video_proto = sess.run(model.val_video_summaries, feed_dict = feed_dict)
+            summary_writer.add_summary(convert_tensor_to_gif_summary(video_proto), itr)
+            feed_dict = {model.iter_num: np.float32(itr),
+                         model.train_cond: 1}
+            video_proto = sess.run(model.train_video_summaries, feed_dict = feed_dict)
             summary_writer.add_summary(convert_tensor_to_gif_summary(video_proto), itr)
 
         if (itr) % SAVE_INTERVAL == 0 and itr != 0:

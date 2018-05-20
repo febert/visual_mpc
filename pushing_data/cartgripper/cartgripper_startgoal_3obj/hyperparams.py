@@ -18,14 +18,16 @@ import python_visual_mpc
 ROOT_DIR = os.path.abspath(python_visual_mpc.__file__)
 ROOT_DIR = '/'.join(str.split(ROOT_DIR, '/')[:-2])
 
+BASE_DIR = '/'.join(str.split(__file__, '/')[:-1])
+
 DATA_DIR = '/'.join(str.split(python_visual_mpc.__file__, '/')[:-2])
 folder_name = '/'.join(str.split(__file__, '/')[-2:-1])
 
 agent = {
     'type': AgentMuJoCo,
-    'data_save_dir': os.environ['VMPC_DATA_DIR'] + '/cartgripper/'+ folder_name + '/train',
-    'filename': ROOT_DIR + '/mjc_models/cartgripper_updown_whitefingers.xml',
-    'filename_nomarkers': ROOT_DIR + '/mjc_models/cartgripper_updown_whitefingers.xml',
+    'data_save_dir': '/mnt/sda1/pushing_data/cartgripper/' + folder_name + '/train',
+    'filename': ROOT_DIR + '/mjc_models/cartgripper_updown.xml',
+    'filename_nomarkers': ROOT_DIR + '/mjc_models/cartgripper_updown.xml',
     'data_collection': True,
     'adim':3,
     'sdim':6,
@@ -40,13 +42,14 @@ agent = {
     'viewer_image_height' : 480,
     'viewer_image_width' : 640,
     'image_channels' : 3,
-    'num_objects': 2,
+    'num_objects': 3,
+    'object_max_len':0.15,
+    'object_min_len':0.08,
     'novideo':'',
     'gen_xml':3,   #generate xml every nth trajecotry
     'ang_disp_range':np.pi/8,
     'arm_disp_range':0.2,
     'sample_objectpos':'',
-    'object_object_mindist':0.35,
     'const_dist':0.2,
     'randomize_ballinitpos':'',
     'first_last_noarm':''

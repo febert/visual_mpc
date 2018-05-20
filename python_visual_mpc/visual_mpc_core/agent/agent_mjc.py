@@ -79,6 +79,7 @@ class AgentMuJoCo(object):
         else:
             init_index = 0
             goal_index = -1
+
         self.load_obj_statprop = dict['obj_statprop']
         self._hyperparams['xpos0'] = dict['qpos'][init_index]
         self._hyperparams['object_pos0'] = dict['object_full_pose'][init_index]
@@ -91,10 +92,13 @@ class AgentMuJoCo(object):
             self.goal_image = np.stack([dict['images0'][goal_index], dict['images1'][goal_index]], 0) # assign last image of trajectory as goalimage
         else:
             self.goal_image = dict['images'][goal_index]  # assign last image of trajectory as goalimage
+
         if len(self.goal_image.shape) == 3:
             self.goal_image = self.goal_image[None]
         if 'goal_mask' in self._hyperparams:
             self.goal_mask = dict['goal_mask'][goal_index]  # assign last image of trajectory as goalimage
+        if 'compare_mj_planner_actions' in self._hyperparams:
+            self.mj_planner_actions = dict['actions']
 
     def sample(self, policy, i_tr, verbose=True, save=True, noisy=False):
         """
@@ -199,23 +203,30 @@ class AgentMuJoCo(object):
 
         if 'gen_xml' in self._hyperparams:
             traj.obj_statprop = self.obj_statprop
-
-
-        # apply action of zero for the first few steps, to let the scene settle
-        for t in range(self._hyperparams['skip_first']):
-            for _ in range(self._hyperparams['substeps']):
-                ctrl = np.zeros(self._hyperparams['adim'])
-                if 'posmode' in self._hyperparams:
-                    # keep gripper at default x,y positions
-                    ctrl[:3] = self.sim.data.qpos[:3].squeeze()
-                self.sim.data.ctrl[:] = ctrl
-                self.sim.step()
+        if 'compare_mj_planner_actions' in self._hyperparams:
+            traj.mj_planner_actions = self.mj_planner_actions
 
         self.large_images_traj = []
         self.large_images = []
 
         self.hf_target_qpos_l = []
         self.hf_qpos_l = []
+
+        # apply action of zero for the first few steps, to let the scene settle
+        if 'skip_frist' not in self._hyperparams:
+            skip_first = 10
+        else: skip_first = self._hyperparams['skip_first']
+
+        target_skip_first = copy.deepcopy(self.sim.data.qpos[:self.adim].squeeze())
+        for t in range(skip_first):
+            for _ in range(self._hyperparams['substeps']):
+                if 'posmode' in self._hyperparams:
+                    # keep gripper at default x,y positions
+                    ctrl = target_skip_first
+                else:
+                    ctrl = np.zeros(self._hyperparams['adim'])
+                self.sim.data.ctrl[:] = ctrl
+                self.sim.step()
 
         self.gripper_closed = False
         self.gripper_up = False
@@ -230,6 +241,7 @@ class AgentMuJoCo(object):
             traj.Xdot_full[t, :] = self.sim.data.qvel[:qpos_dim].squeeze().copy()
             traj.X_Xdot_full[t, :] = np.concatenate([traj.X_full[t, :], traj.Xdot_full[t, :]])
             assert self.sim.data.qpos.shape[0] == qpos_dim + 7 * self._hyperparams['num_objects']
+
             for i in range(self._hyperparams['num_objects']):
                 fullpose = self.sim.data.qpos[i * 7 + qpos_dim:(i + 1) * 7 + qpos_dim].squeeze().copy()
 
@@ -260,8 +272,8 @@ class AgentMuJoCo(object):
 
             self.large_images_traj.append(self.large_images[t])
 
+            traj.actions[t, :] = mj_U
             if 'posmode' in self._hyperparams:  #if the output of act is a positions
-                traj.actions[t, :] = mj_U
                 if t == 0:
                     self.prev_target_qpos = copy.deepcopy(self.sim.data.qpos[:self.adim].squeeze())
                     self.target_qpos = copy.deepcopy(self.sim.data.qpos[:self.adim].squeeze())
@@ -288,7 +300,6 @@ class AgentMuJoCo(object):
                 self.target_qpos = self.clip_targetpos(self.target_qpos)
                 traj.target_qpos[t + 1] = self.target_qpos.copy()
             else:
-                traj.actions[t, :] = mj_U
                 ctrl = mj_U.copy()
 
             for st in range(self._hyperparams['substeps']):
@@ -565,6 +576,7 @@ class AgentMuJoCo(object):
 
         if 'arm_start_lifted' in self._hyperparams:
             xpos0[2] = self._hyperparams['arm_start_lifted']
+
 
         sim_state = self.sim.get_state()
         if 'goal_point' in self._hyperparams:

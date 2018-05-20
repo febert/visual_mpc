@@ -1,4 +1,5 @@
 import numpy as np
+import  sys
 import collections
 import pickle
 from python_visual_mpc.video_prediction.utils_vpred.animate_tkinter import Visualizer_tkinter
@@ -57,7 +58,8 @@ def visualize(sess, conf, model):
     file_path = conf['output_dir']
 
     if not isinstance(model.gen_images, list):
-        model.gen_images = tf.unstack(model.gen_images, axis=1)
+        model.gen_images = tf.unstack(model.gen_images[:,:,0], axis=1)
+        model.images = tf.unstack(model.images, axis=1)
 
     ground_truth, gen_images, states, actions, gen_masks = sess.run([model.images,
                                          model.gen_images,
@@ -83,10 +85,10 @@ def visualize(sess, conf, model):
     # v = Visualizer_tkinter(dict, numex=conf['batch_size'], append_masks=False, filepath=conf['output_dir'],
     #                        col_titles=[str(i) for i in range(conf['batch_size'])])
     v = Visualizer_tkinter(dict, numex=conf['batch_size'], append_masks=False, filepath=conf['output_dir'])
-    v.build_figure()
+    v.make_direct_vid()
 
-    # for i in range(11):
-    #     v.make_image_strip(i_ex=i)
+    sys.exit()
+
 
 def visualize_diffmotions(sess, conf, model):
 
