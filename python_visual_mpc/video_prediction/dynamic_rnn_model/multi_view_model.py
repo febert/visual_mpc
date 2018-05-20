@@ -3,6 +3,8 @@ from python_visual_mpc.video_prediction.read_tf_records2 import build_tfrecord_i
 from python_visual_mpc.video_prediction.utils_vpred.video_summary import make_video_summaries
 from python_visual_mpc.video_prediction.dynamic_rnn_model.dynamic_base_model import Dynamic_Base_Model
 
+import pdb
+
 class Multi_View_Model(object):
     def __init__(self,
                  conf = None,
@@ -55,6 +57,9 @@ class Multi_View_Model(object):
 
         self.train_video_summaries = make_video_summaries(conf['context_frames'], [self.images[:,:,0], self.gen_images[:,:,0],
                                                                                    self.images[:,:,1], self.gen_images[:,:,1]], 'train_images')
+
+        pdb.set_trace()
+
         self.val_video_summaries = make_video_summaries(conf['context_frames'], [self.images[:,:,0], self.gen_images[:,:,0],
                                                                                  self.images[:,:,1], self.gen_images[:,:,1]], 'val_images')
 
