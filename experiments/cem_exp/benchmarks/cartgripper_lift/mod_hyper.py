@@ -19,7 +19,7 @@ current_dir = '/'.join(str.split(__file__, '/')[:-1])
 bench_dir = '/'.join(str.split(__file__, '/')[:-2])
 ROOT_DIR = os.path.abspath(python_visual_mpc.__file__)
 ROOT_DIR = '/'.join(str.split(ROOT_DIR, '/')[:-2])
-MODEL_BASE_DIR = ROOT_DIR + '/pushing_data/cartgripper_imitation/'
+MODEL_BASE_DIR = ROOT_DIR + '/pushing_data/cartgripper_imitation_openloop/'
 
 agent = {
     'type': AgentMuJoCo,
@@ -33,7 +33,7 @@ agent = {
     'xpos0': np.array([0., 0., 0.05, 0., 0., 0.]), #initialize state dimension to 5 zeros
     'dt': 0.05,
     'substeps': 200,  #6
-    'T': 20,
+    'T': 15,
     'skip_first': 40,   #skip first N time steps to let the scene settle
     'additional_viewer': False,
     'image_height' : 48,
@@ -58,8 +58,8 @@ agent = {
 
 policy = {
     'type' : ImitationPolicy,
-    'net_config' : os.path.join(MODEL_BASE_DIR, 'conf_attention.py'),
-    'pretrained' :'model80000', #'model65000',
+    'net_config' : os.path.join(MODEL_BASE_DIR, 'conf_states.py'),
+    'pretrained' :'model40000', #'model65000',
 }
 
 tag_images = {'name': 'images',
