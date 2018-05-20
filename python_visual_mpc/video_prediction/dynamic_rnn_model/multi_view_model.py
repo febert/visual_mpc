@@ -38,10 +38,7 @@ class Multi_View_Model(object):
             with tf.device('/gpu:%d' % icam):
                 with tf.variable_scope('icam{}'.format(icam)):
                     self.models.append(self.buildnet(icam, conf, self.images, pix_distrib, self.states, self.actions))
-
-            # for debug!!!!!!!
-            if icam == 1:
-                break
+                    
 
         if build_loss:
             self.loss = 0.
