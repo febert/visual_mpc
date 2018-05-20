@@ -55,12 +55,27 @@ if __name__ == '__main__':
     html = HTML('web/', 'test_html')
     html.add_header('hello world')
 
-    ims = []
+    ims = ['/mnt/sda1/experiments/cem_exp/intmstep_benchmarks/dur60/verbose/traj0/plan/directt2iter_2.gif',
+           '/mnt/sda1/experiments/cem_exp/intmstep_benchmarks/dur60/verbose/traj0/plan/directt2iter_2.gif']
     txts = []
     links = []
-    for n in range(4):
-        ims.append('image_%d.png' % n)
+    for n in range(2):
         txts.append('text_%d' % n)
-        links.append('image_%d.png' % n)
+
+    links = ims
+    html.add_images(ims, txts, links)
     html.add_images(ims, txts, links)
     html.save()
+
+    # html = HTML('web/', 'test_html')
+    # html.add_header('hello world')
+    #
+    # ims = []
+    # txts = []
+    # links = []
+    # for n in range(4):
+    #     ims.append('image_%d.png' % n)
+    #     txts.append('text_%d' % n)
+    #     links.append('image_%d.png' % n)
+    # html.add_images(ims, txts, links)
+    # html.save()

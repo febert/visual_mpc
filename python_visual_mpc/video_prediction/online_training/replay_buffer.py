@@ -34,6 +34,7 @@ class ReplayBuffer(object):
         self.tstart = time.time()
 
     def push_back(self, traj):
+        assert traj.images.dtype == np.float32 and np.max(traj.images) <= 1.0
         self.ring_buffer.append(traj)
         if len(self.ring_buffer) > self.maxsize:
             self.ring_buffer.pop(0)
@@ -47,7 +48,7 @@ class ReplayBuffer(object):
         for b in range(self.batch_size):
             i = random.randint(0, current_size-1)
             traj = self.ring_buffer[i]
-            images.append(traj.images.astype(np.float32)/255.)
+            images.append(traj.images)
             states.append(traj.X_Xdot_full)
             actions.append(traj.actions)
         return np.stack(images,0), np.stack(states,0), np.stack(actions,0)
@@ -148,7 +149,7 @@ def plot_scores(dir, scores, improvement=None):
 
     if improvement is not None:
         plt.subplot(2,1,2)
-        plt.plot(scores)
+        plt.plot(improvement)
         plt.title('improvments over collected data')
         plt.xlabel('collected trajectories')
         plt.xlabel('avg improvment trajectories')

@@ -28,7 +28,7 @@ folder_name = '/'.join(str.split(__file__, '/')[-2:-1])
 
 agent = {
     'type': AgentMuJoCo,
-    'data_save_dir': '/mnt/sda1/pushing_data/cartgripper/' + folder_name + '/train',
+    'data_save_dir': '/mnt/sda1/pushing_data/cartgripper/grasping/' + folder_name + '/train',
     'filename': DATA_DIR+'/mjc_models/cartgripper_grasp.xml',
     'filename_nomarkers': DATA_DIR+'/mjc_models/cartgripper_grasp.xml',
     'data_collection': True,
@@ -49,14 +49,14 @@ agent = {
     'num_objects': 1,
     'novideo':'',
     'gen_xml':5,   #generate xml every nth trajecotry
-    'randomize_ballinitpos':'',
     'pos_disp_range':0.0,
     'ang_disp_range':0.0,
-    'arm_disp_range':0.1,
+    'arm_disp_range':0.0,
     'cameras':['maincam', 'leftcam'],
     'lift_object':'',
-    'arm_obj_initdist':0.05,
-    'gen_new_goalpose':''
+    'arm_obj_initdist':0.0,
+    'gen_new_goalpose':'',
+    'arm_start_lifted':0.14,
 }
 
 policy = {

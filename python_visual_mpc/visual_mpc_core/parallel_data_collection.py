@@ -1,5 +1,6 @@
 import matplotlib
 matplotlib.use('pdf')
+from python_visual_mpc.visual_mpc_core.infrastructure.synchronize_tfrecs import sync
 from multiprocessing import Pool
 import sys
 import argparse
@@ -107,6 +108,13 @@ def main():
         data_save_path = hyperparams['agent']['data_save_dir'].partition('pushing_data')[2]
         hyperparams['agent']['data_save_dir'] = os.environ['RESULT_DIR'] + data_save_path
 
+
+    if 'master_datadir' in hyperparams['agent']:
+        import ray
+        ray.init()
+        sync_todo_id = sync.remote(hyperparams['agent'])
+        print('launched sync')
+
     for i in range(n_worker):
         modconf = copy.deepcopy(hyperparams)
         modconf['start_index'] = start_idx[i]
@@ -118,6 +126,9 @@ def main():
         p.map(use_worker, conflist)
     else:
         use_worker(conflist[0], args.iex)
+
+    if 'master_datadir' in hyperparams['agent']:
+        ray.wait([sync_todo_id])
 
     if do_benchmark:
         if 'RESULT_DIR' in os.environ:
@@ -135,6 +146,7 @@ def main():
     files = sorted_alphanumeric(files)
     if os.path.isfile(files[0]): #don't do anything if directory
         shutil.move(files[0], testdir)
+
 
 def sorted_alphanumeric(l):
     """ Sort the given iterable in the way that humans expect."""

@@ -12,6 +12,7 @@ import imp
 from tensorflow.python.platform import app
 from tensorflow.python.platform import flags
 
+from python_visual_mpc.video_prediction.dynamic_rnn_model.alex_model_interface import Alex_Interface_Model
 from python_visual_mpc.video_prediction.read_tf_records2 import build_tfrecord_input
 from python_visual_mpc.visual_mpc_core.infrastructure.utility.logger import Logger
 from python_visual_mpc.video_prediction.utils_vpred.video_summary import convert_tensor_to_gif_summary
@@ -69,7 +70,7 @@ def trainvid_online(replay_buffer, conf, logging_dir, onpolparam, gpu_id, printo
             summary_writer = tf.summary.FileWriter(conf['event_log_dir'], graph=sess.graph, flush_secs=10)
             vars = variable_checkpoint_matcher(conf, vars, conf['pretrained_model'])
             loading_saver = tf.train.Saver(vars, max_to_keep=0)
-            load_checkpoint(conf, sess, loading_saver, conf['pretrained_model'])
+            load_checkpoint(conf, sess, loading_saver, conf['pretrained_model'])   #TODO: support Alexmodel
 
             logger.log('-------------------------------------------------------------------')
             logger.log('verify current settings!! ')
@@ -83,47 +84,42 @@ def trainvid_online(replay_buffer, conf, logging_dir, onpolparam, gpu_id, printo
             t_iter = []
             for itr in range(0, conf['num_iterations'], 1):
                 tstart_rb_update = time.time()
-                logger.log('starting replay buffer update...')
+                # logger.log('starting replay buffer update...')
                 replay_buffer.update(sess)
-                logger.log("took {} to update the replay buffer".format(time.time() - tstart_rb_update))
+                # logger.log("took {} to update the replay buffer".format(time.time() - tstart_rb_update))
 
                 t_startiter = time.time()
                 images, states, actions = replay_buffer.get_batch()
-                feed_dict = {model.iter_num: np.float32(itr),
-                             model.train_cond: 1,
-                             model.images_pl: images,
-                             model.actions_pl: actions,
-                             model.states_pl: states
-                             }
-                cost, _, summary_str = sess.run([model.loss, model.train_op, model.train_summ_op],
-                                                feed_dict)
-                ###
-                model.m.g_loss
-                model.m.train_op
-                feed_dict = {
-                    model.m.inputs['images']: images,
-                    model.m.inputs['states']: images,
-                    model.m.inputs['actions']: images,
-                }
-
-                ###
 
 
-
-                t_iter.append(time.time() - t_startiter)
-                logger.log("iteration {} took {}s".format(itr, t_iter[-1]))
-
-                if (itr) % 10 == 0:
-                    logger.log('cost ' + str(itr) + ' ' + str(cost))
-
-                if (itr) % VIDEO_INTERVAL == 2 and hasattr(model, 'val_video_summaries'):
+                if conf['pred_model'] == Alex_Interface_Model:
+                    feed_dict = {
+                        model.m.inputs['images']: images,
+                        model.m.inputs['states']: images,
+                        model.m.inputs['actions']: images,
+                    }
+                    cost, _, summary_str = sess.run([model.m.g_loss, model.m.train_op, model.m.train_summ_op], feed_dict)
+                else:
                     feed_dict = {model.iter_num: np.float32(itr),
-                                 model.train_cond: 1,
                                  model.images_pl: images,
                                  model.actions_pl: actions,
                                  model.states_pl: states
                                  }
-                    video_proto = sess.run(model.val_video_summaries, feed_dict=feed_dict)
+                    cost, _, summary_str = sess.run([model.loss, model.train_op, model.train_summ_op], feed_dict)
+
+                t_iter.append(time.time() - t_startiter)
+                # logger.log("iteration {} took {}s".format(itr, t_iter[-1]))
+
+                if (itr) % 10 == 0:
+                    logger.log('cost ' + str(itr) + ' ' + str(cost))
+
+                if (itr) % VIDEO_INTERVAL == 0:
+                    feed_dict = {model.iter_num: np.float32(itr),
+                                 model.images_pl: images,
+                                 model.actions_pl: actions,
+                                 model.states_pl: states
+                                 }
+                    video_proto = sess.run(model.train_video_summaries, feed_dict=feed_dict)
                     summary_writer.add_summary(convert_tensor_to_gif_summary(video_proto), itr)
 
                 save_interval = conf['onpolconf']['save_interval']
