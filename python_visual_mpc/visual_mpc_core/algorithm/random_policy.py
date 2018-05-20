@@ -40,6 +40,9 @@ class Randompolicy(Policy):
             if 'discrete_adim' in self.agentparams:
                 self.actions = discretize(self.actions, self.agentparams['discrete_adim'])
 
+            if 'discrete_gripper' in self.agentparams:
+                self.actions = discretize_gripper(self.actions, self.agentparams['discrete_gripper'])
+
             if 'no_action_bound' not in self.policyparams:
                 self.actions = truncate_movement(self.actions, self.policyparams)
 
@@ -47,6 +50,13 @@ class Randompolicy(Policy):
 
     def finish(self):
         pass
+def discretize_gripper(actions, gripper_ind):
+    for a in range(actions.shape[0]):
+        if actions[a, gripper_ind] >= 0:
+            actions[a, gripper_ind] = 1
+        else:
+            actions[a, gripper_ind] = -1
+    return actions
 
 def discretize(actions, discrete_ind):
     for a in range(actions.shape[0]):

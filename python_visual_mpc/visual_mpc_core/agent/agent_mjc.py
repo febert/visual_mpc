@@ -244,8 +244,9 @@ class AgentMuJoCo(object):
  
             touch_offset = 0
             if 'finger_sensors' in self._hyperparams:
-                traj.touch_sensors[t] = self.sim.data.sensordata[:2].squeeze().copy()
+                traj.touch_sensors[t] = copy.deepcopy(self.sim.data.sensordata[:2].squeeze().copy())
                 touch_offset = 2
+                                
                 
             for i in range(self._hyperparams['num_objects']):
                 fullpose = self.sim.data.qpos[i * 7 + qpos_dim:(i + 1) * 7 + qpos_dim].squeeze().copy()

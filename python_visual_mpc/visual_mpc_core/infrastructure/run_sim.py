@@ -218,6 +218,7 @@ class Sim(object):
                     plt.savefig(folder + "/t{}_bwd_flow_col.png".format(t))
                     plt.imshow(traj.bwd_flow[t, :, :, 1])
                     plt.savefig(folder + "/t{}_bwd_flow_row.png".format(t))
+            self.logger.log('done writing: ', self.traj_folder)
         else:
             #save tfrecords
             traj = copy.deepcopy(traj)
