@@ -175,7 +175,8 @@ class Sim(object):
                         dict['mask_rel'] = traj.mask_rel
                     if hasattr(traj, 'desig_pos'):
                         dict['obj_start_end_pos'] = traj.desig_pos
-
+                if hasattr(traj, 'touch_sensors'):
+                    dict['finger_sensors'] = traj.touch_sensors
                 if hasattr(traj, "plan_stat"):
                     dict['plan_stat'] = traj.plan_stat
 

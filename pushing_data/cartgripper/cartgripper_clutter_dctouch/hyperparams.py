@@ -4,7 +4,7 @@ import os.path
 
 import numpy as np
 
-from python_visual_mpc.visual_mpc_core.algorithm.det_grasp_policy import CluteredGraspPolicy
+from python_visual_mpc.visual_mpc_core.algorithm.random_policy import Randompolicy
 from python_visual_mpc.visual_mpc_core.agent.agent_mjc import AgentMuJoCo
 
 IMAGE_WIDTH = 64
@@ -28,6 +28,7 @@ agent = {
     'adim':5,
     'sdim':12,
     'cameras':['maincam', 'leftcam'],
+    'finger_sensors' : True,
     'xpos0': np.array([0., 0., 0.05, 0., 0., 0.]), #initialize state dimension to 5 zeros
     'dt': 0.05,
     'substeps': 200,  #6
@@ -56,11 +57,14 @@ agent = {
 }
 
 policy = {
-    'type' : CluteredGraspPolicy,
-    'xyz_std': 3e-1,   #std dev. in xy
-    'angle_window': 0.5,   #angle delta chosen uniformly from these values
-    'z_window': 0.03,
-    'max_norm':0.15
+    'type' : Randompolicy,
+    'nactions' : 5,
+    'repeats' : 3,
+     
+    'initial_std': 0.08,   #std dev. in xy
+    'initial_std_lift': 0.1,   #std dev. in xy
+    'initial_std_rot' : np.pi / 8,
+    'initial_std_grasp' : 1 
 }
 
 config = {

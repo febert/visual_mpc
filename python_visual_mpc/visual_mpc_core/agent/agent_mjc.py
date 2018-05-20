@@ -241,12 +241,17 @@ class AgentMuJoCo(object):
             traj.Xdot_full[t, :] = self.sim.data.qvel[:qpos_dim].squeeze().copy()
             traj.X_Xdot_full[t, :] = np.concatenate([traj.X_full[t, :], traj.Xdot_full[t, :]])
             assert self.sim.data.qpos.shape[0] == qpos_dim + 7 * self._hyperparams['num_objects']
-
+ 
+            touch_offset = 0
+            if 'finger_sensors' in self._hyperparams:
+                traj.touch_sensors[t] = self.sim.data.sensordata[:2].squeeze().copy()
+                touch_offset = 2
+                
             for i in range(self._hyperparams['num_objects']):
                 fullpose = self.sim.data.qpos[i * 7 + qpos_dim:(i + 1) * 7 + qpos_dim].squeeze().copy()
 
                 if 'object_meshes' in self._hyperparams:
-                    fullpose[:3] = self.sim.data.sensordata[i * 3 :(i + 1) * 3].copy()
+                    fullpose[:3] = self.sim.data.sensordata[touch_offset + i * 3 :touch_offset + (i + 1) * 3].copy()
 
                 traj.Object_full_pose[t, i, :] = fullpose
                 zangle = self.quat_to_zangle(fullpose[3:])
