@@ -52,11 +52,6 @@ def main(unused_argv, conf_dict= None, flags=None):
         FLAGS = flags
     else: FLAGS = FLAGS_
 
-    os.environ["CUDA_VISIBLE_DEVICES"] = str(FLAGS.device)
-    print('using CUDA_VISIBLE_DEVICES=', FLAGS.device)
-    from tensorflow.python.client import device_lib
-    print(device_lib.list_local_devices())
-
     if conf_dict == None:
         conf_file = FLAGS.hyper
         if not os.path.exists(FLAGS.hyper):
@@ -65,6 +60,16 @@ def main(unused_argv, conf_dict= None, flags=None):
         conf = hyperparams.configuration
     else:
         conf = conf_dict
+
+    start_id = FLAGS.device
+    if 'ncam' in conf:
+        ngpu = conf['ncam']
+    else: ngpu = 1
+    indexlist = [str(i_gpu) for i_gpu in range(start_id, start_id + ngpu)]
+    var = ','.join(indexlist)
+    print('using CUDA_VISIBLE_DEVICES=', var)
+    os.environ["CUDA_VISIBLE_DEVICES"] = var
+
 
     if 'VMPC_DATA_DIR' in os.environ:
         if isinstance(conf['data_dir'], (list, tuple)):
@@ -135,7 +140,7 @@ def main(unused_argv, conf_dict= None, flags=None):
     if FLAGS.diffmotions or "visualize_tracking" in conf or FLAGS.metric:
         model = Model(conf, load_data=False, trafo_pix=True, build_loss=build_loss)
     else:
-        model = Model(conf, load_data=True, trafo_pix=False, build_loss=build_loss)
+        model = Model(conf, load_data=True, build_loss=build_loss)
 
     print('Constructing saver.')
     vars = tf.get_collection(tf.GraphKeys.GLOBAL_VARIABLES)
@@ -158,7 +163,7 @@ def main(unused_argv, conf_dict= None, flags=None):
     gpu_options = tf.GPUOptions(per_process_gpu_memory_fraction=0.9)
     # Make training session.
     # sess = tf.InteractiveSession(config=tf.ConfigProto(gpu_options=gpu_options))
-    sess = tf.Session(config=tf.ConfigProto(gpu_options=gpu_options))
+    sess = tf.Session(config=tf.ConfigProto(gpu_options=gpu_options, allow_soft_placement=True))
     summary_writer = tf.summary.FileWriter(conf['event_log_dir'], graph=sess.graph, flush_secs=10)
 
     if not FLAGS.diffmotions:

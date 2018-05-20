@@ -41,7 +41,6 @@ agent = {
     'viewer_image_width' : 640,
     'image_channels' : 3,
     'num_objects': 4,
-    'object_mass':0.1,
     'novideo':'',
     'gen_xml':10,   #generate xml every nth trajecotry
     'randomize_ballinitpos':'', #randomize x, y

@@ -38,7 +38,8 @@ class ReplayBuffer(object):
         self.ring_buffer.append(traj)
         if len(self.ring_buffer) > self.maxsize:
             self.ring_buffer.pop(0)
-        # self.logger.log('current size {}'.format(len(self.ring_buffer)))
+        if len(self.ring_buffer) % 100 == 0:
+            self.logger.log('current size {}'.format(len(self.ring_buffer)))
 
     def get_batch(self):
         images = []

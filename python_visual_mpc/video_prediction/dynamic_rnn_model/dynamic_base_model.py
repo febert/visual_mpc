@@ -32,7 +32,6 @@ class DNACell(tf.nn.rnn_cell.RNNCell):
                  vgf_dim,
                  reuse=None,
                  dependent_mask = True,
-                 trafo_pix=False,
                  ):
 
         super(DNACell, self).__init__(_reuse=reuse)
@@ -64,7 +63,6 @@ class DNACell(tf.nn.rnn_cell.RNNCell):
 
         self.context_frames = conf['context_frames']
         self.conf = conf
-        self.trafo_pix = trafo_pix
 
         if '1stimg_bckgd' in conf:
             self.first_image_background = True
@@ -431,12 +429,14 @@ class Dynamic_Base_Model(object):
                  actions=None,
                  states=None,
                  pix_distrib=None,
-                 trafo_pix = True,
                  load_data = True,
                  build_loss = True,
+                 iternum=None
                  ):
 
-        self.iter_num = tf.placeholder(tf.float32, [])
+        if iternum == None:
+            self.iter_num = tf.placeholder(tf.float32, [])
+        else: self.iter_num = iternum
 
         if 'ndesig' in conf:
             ndesig = conf['ndesig']
@@ -467,9 +467,7 @@ class Dynamic_Base_Model(object):
             images = tf.concat([images, tf.zeros([conf['batch_size'], conf['sequence_length'] - conf['context_frames'], self.img_height, self.img_width, 3])],
                 axis=1)
 
-        self.trafo_pix = trafo_pix
         if pix_distrib is not None:
-            assert trafo_pix == True
             pix_distrib = tf.concat([pix_distrib, tf.zeros([conf['batch_size'], conf['sequence_length'] - conf['context_frames'],ndesig, self.img_height, self.img_width, 1])], axis=1)
             pix_distrib = pix_distrib
 
@@ -477,7 +475,6 @@ class Dynamic_Base_Model(object):
 
         vgf_dim = 32
 
-        self.trafo_pix = trafo_pix
         self.conf = conf
 
         k = conf['schedsamp_k']
@@ -521,13 +518,9 @@ class Dynamic_Base_Model(object):
             if 'use_len' in conf:
                 images, states, actions = self.random_shift(images, states, actions)
 
-
-        ## start interface
-        # Split into timesteps.
-
-        self.actions = actions
         self.images = images
         self.states = states
+        self.actions = actions
 
         images = tf.unstack(images, axis=1)
         states = tf.unstack(states, axis=1)
