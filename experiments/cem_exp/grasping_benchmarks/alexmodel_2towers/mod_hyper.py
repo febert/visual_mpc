@@ -17,7 +17,6 @@ agent = {
     'adim':5,
     'sdim':12,
     'make_final_gif':'',
-    # 'no_instant_gif':"",
     'filename': ROOT_DIR + '/mjc_models/cartgripper_grasp.xml',
     'filename_nomarkers': ROOT_DIR + '/mjc_models/cartgripper_grasp.xml',
     'gen_xml':1,   #generate xml every nth trajecotry
@@ -31,7 +30,9 @@ agent = {
     'data_save_dir':current_dir + '/data/train',
     'posmode':"",
     'targetpos_clip':[[-0.45, -0.45, -0.08, -np.pi*2, 0.], [0.45, 0.45, 0.15, np.pi*2, 0.1]],
-    'cameras':['maincam', 'leftcam']
+    'cameras':['maincam', 'leftcam'],
+    'verbose':"",
+    'compare_mj_planner_actions':'',
 }
 
 policy = {
@@ -67,6 +68,12 @@ tag_images1 = {'name': 'images1',
 tag_qpos = {'name': 'qpos',
              'shape':[6],
              'file':'/state_action.pkl'}
+
+tag_actions = {'name': 'actions',
+            'shape':[15,5],
+            'not_per_timestep':'',
+            'file':'/state_action.pkl'}
+
 tag_object_full_pose = {'name': 'object_full_pose',
                          'shape':[4,7],
                          'file':'/state_action.pkl'}
@@ -82,7 +89,7 @@ config = {
     'agent':agent,
     'policy':policy,
     'ngroup': 100,
-    'sourcetags':[tag_images0, tag_images1, tag_qpos, tag_object_full_pose, tag_object_statprop],
-    'source_basedirs':[os.environ['VMPC_DATA_DIR'] + '/cartgripper/cartgripper_startgoal_2view_lift/train'],
-    'sequence_length':2
+    'sourcetags':[tag_images0, tag_images1, tag_qpos, tag_object_full_pose, tag_object_statprop, tag_actions],
+    'source_basedirs':[os.environ['VMPC_DATA_DIR'] + '/cartgripper/grasping/mj_lift/train'],
+    'sequence_length':15 # important: needs to be 15 instead of 2!!
 }

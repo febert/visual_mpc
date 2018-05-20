@@ -6,6 +6,7 @@ import copy
 import argparse
 import threading
 import time
+import pdb
 
 # Add lsdc/python to path so that imports work.
 sys.path.append('/'.join(str.split(__file__, '/')[:-2]))
@@ -41,7 +42,7 @@ class Sim(object):
         self._data_save_dir = self.agentparams['data_save_dir']
         self.agentparams['gpu_id'] = gpu_id
 
-        if 'current_dir' in self._hyperparams:
+        if 'do_timing' in self._hyperparams:
             self._timing_file = self._hyperparams['current_dir'] + '/timing_file{}.txt'.format(os.getpid())
         else: self._timing_file = None
 
@@ -130,12 +131,12 @@ class Sim(object):
                 os.makedirs(self.group_folder)
 
             self.traj_folder = self.group_folder + '/traj{}'.format(itr)
+
             if 'cameras' in self.agentparams:
                 self.image_folders = [self.traj_folder + '/images{}'.format(i) for i in range(len(self.agentparams['cameras']))]
             else:
                 self.image_folder = self.traj_folder + '/images'
 
-            self.depth_image_folder = self.traj_folder + '/depth_images'
 
             if os.path.exists(self.traj_folder):
                 self.logger.log('trajectory folder {} already exists, deleting the folder'.format(self.traj_folder))
@@ -149,8 +150,6 @@ class Sim(object):
             else:
                 os.makedirs(self.image_folder)
 
-            os.makedirs(self.depth_image_folder)
-
             self.state_action_pkl_file = self.traj_folder + '/state_action.pkl'
 
             #save pkl file:
@@ -160,7 +159,7 @@ class Sim(object):
                         'actions': traj.actions,
                         'object_full_pose': traj.Object_full_pose
                         }
-                if 'gen_xml' in self.agentparams:
+                if hasattr(traj, 'obj_statprop'):
                     dict['obj_statprop'] = traj.obj_statprop
 
                 if 'goal_mask' in self.agentparams:

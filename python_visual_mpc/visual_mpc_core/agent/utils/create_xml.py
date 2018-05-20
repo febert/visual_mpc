@@ -49,8 +49,6 @@ def create_object_xml(hyperparams, load_dict_list=None):
 
     save_dict_list = []
 
-
-
     world_body = ET.SubElement(root, "worldbody")
     for i in range(hyperparams['num_objects']):
         if load_dict_list == None:
@@ -71,7 +69,6 @@ def create_object_xml(hyperparams, load_dict_list=None):
             l2 = dict['l2'] =np.random.uniform(minlen, maxlen)
 
             pos2 = dict['pos2']= np.random.uniform(0.01, l1)
-            save_dict_list.append(dict)
         else:
             dict = load_dict_list[i]
             color1 = dict['color1']
@@ -79,6 +76,8 @@ def create_object_xml(hyperparams, load_dict_list=None):
             l1 = dict['l1']
             l2 = dict['l2']
             pos2 = dict['pos2']
+        save_dict_list.append(dict)
+
         if 'object_meshes' in hyperparams:
             assets = ET.SubElement(root, "asset")
 

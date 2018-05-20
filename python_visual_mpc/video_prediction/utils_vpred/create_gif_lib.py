@@ -176,15 +176,16 @@ def comp_pix_distrib(file_path, name= None, masks = False, examples = 8):
 
 def assemble_gif(video_batch, num_exp = 8, convert_from_float = True, only_ind=None):
     """
-    :param video_batch: accepts a list of different video batches
-    each video batch is a list of [batchsize, 64, 64, 3] with length timesteps, with type float32 and range 0 to 1
-    or each element of the list is tuple (video batch, name)
+    :param video_batch: accepts either
+        a list of different video batches
+        each video batch is a list of [batchsize, 64, 64, 3] with length timesteps, with type float32 and range 0 to 1
+        or each element of the list is tuple (video batch, name)
+    or
+        a list of tuples with (video_batch, name)
 
     :param only_ind, only assemble this index
     :return:
     """
-
-
 
     if isinstance(video_batch[0], tuple):
         names = [v[1] for v in video_batch]

@@ -317,10 +317,10 @@ class CEM_controller():
             t_start = time.time()
 
             scores = self.video_pred(last_frames, last_frames_med, last_states, actions, itr)
-            self.logger.log('overall time for evaluating actions {}'.format(time.time() - t_start))
 
-            actioncosts = self.calc_action_cost(actions)
-            scores += actioncosts
+            if 'compare_mj_planner_actions' in self.agentparams: # remove first example because it is used for mj_planner
+                actions = actions[1:]
+            self.logger.log('overall time for evaluating actions {}'.format(time.time() - t_start))
 
             if 'stochastic_planning' in self.policyparams:
                 actions, scores = self.action_preselection(actions, scores)
@@ -332,9 +332,12 @@ class CEM_controller():
             self.plan_stat['scores_itr{}'.format(itr)] = scores
             self.plan_stat['bestscore_itr{}'.format(itr)] = scores[self.indices[0]]
 
-            actions = actions.reshape(self.M//self.smp_peract, self.naction_steps, self.repeat, self.adim)
+            if 'compare_mj_planner_actions' in self.agentparams:
+                num_ex = self.M//self.smp_peract -1
+            else: num_ex = self.M//self.smp_peract
+            actions = actions.reshape(num_ex, self.naction_steps, self.repeat, self.adim)
             actions = actions[:,:,-1,:] #taking only one of the repeated actions
-            actions_flat = actions.reshape(self.M//self.smp_peract, self.naction_steps * self.adim)
+            actions_flat = actions.reshape(num_ex, self.naction_steps * self.adim)
 
             self.bestaction = actions[self.indices[0]]
 
@@ -343,7 +346,6 @@ class CEM_controller():
             self.mean = np.mean(arr_best_actions, axis= 0)
 
             self.logger.log('iter {0}, bestscore {1}'.format(itr, scores[self.indices[0]]))
-            self.logger.log('action cost of best action: ', actioncosts[self.indices[0]])
 
             self.logger.log('overall time for iteration {}'.format(time.time() - t_startiter))
 
@@ -466,6 +468,9 @@ class CEM_controller():
         self.logger.log('t0 ', time.time() - t_0)
         t_startpred = time.time()
 
+        if 'compare_mj_planner_actions' in self.agentparams:
+            actions[0] = self.traj.mj_planner_actions
+
         nruns = self.bsize//200
         assert self.bsize % 200 == 0, "batchsize needs to be multiple of 200"
         gen_images_l, gen_distrib_l, gen_states_l = [], [], []
@@ -516,6 +521,11 @@ class CEM_controller():
                     scores_per_task = scores_per_task[:,0][:,None]
 
             scores = np.sum(scores_per_task, axis=1)
+            if 'compare_mj_planner_actions' in self.agentparams:
+                score_mj_planner_actions = scores[0]
+                print('scores for trajectory of mujoco planner',score_mj_planner_actions)
+                scores = scores[1:]
+
             bestind = scores.argsort()[0]
             for p in range(self.ndesig):
                 self.logger.log('flow score of best traj for task{}: {}'.format(p, scores_per_task[bestind, p]))
@@ -540,8 +550,8 @@ class CEM_controller():
 
         tstart_verbose = time.time()
 
-        if self.verbose and cem_itr == self.policyparams['iterations']-1 and self.i_tr % self.verbose_freq ==0:
-        # if self.verbose:
+        # if self.verbose and cem_itr == self.policyparams['iterations']-1 and self.i_tr % self.verbose_freq ==0:
+        if self.verbose:
             gen_images = make_cem_visuals(self, actions, bestindices, cem_itr, flow_fields, gen_distrib, gen_images,
                                           gen_states, last_frames, goal_warp_pts_l, scores, self.warped_image_goal,
                                           self.warped_image_start, warped_images)

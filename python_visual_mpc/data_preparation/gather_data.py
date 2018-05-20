@@ -389,7 +389,6 @@ def make_traj_name_list(conf, start_end_grp = None, shuffle=True):
     combined_list = []
     for source_dir in conf['source_basedirs']:
         assert source_dir.split('/')[-1] == 'train' or source_dir.split('/')[-1] == 'test'
-
         traj_per_gr = conf['ngroup']
         max_traj = get_maxtraj(source_dir)
 

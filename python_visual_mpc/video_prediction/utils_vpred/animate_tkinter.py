@@ -97,6 +97,8 @@ def visualize_flow(flow_vecs):
     return color_flow
 
 
+
+
 t = 0
 class Visualizer_tkinter(object):
     def __init__(self, dict_ = None, append_masks = True, filepath=None, numex = 4, suf= "", col_titles = None, renorm_heatmaps=True, logger=None):
@@ -148,7 +150,6 @@ class Visualizer_tkinter(object):
         self.append_masks = False
 
         for key in list(dict_.keys()):
-            self.logger.log('processing key {}'.format(key))
             data = dict_[key]
 
             if key == 'ground_truth':  # special treatement for gtruth
@@ -204,6 +205,9 @@ class Visualizer_tkinter(object):
                 else:
                     self.logger.log('ignoring key ',key)
 
+            if key == 'scores':
+                self.video_list.append((self.get_score_images(data), key))
+
         self.renormalize_heatmaps = renorm_heatmaps
         self.logger.log('renormalizing heatmaps: ', self.renormalize_heatmaps)
 
@@ -214,12 +218,28 @@ class Visualizer_tkinter(object):
 
         self.col_titles = col_titles
 
+    def get_score_images(self, scores):
+        height = self.video_list[0][0][0].shape[1]
+        width = self.video_list[0][0][0].shape[2]
+        seqlen = len(self.video_list[0][0])
+
+        txt_im = []
+        for i in range(self.numex):
+            txt_im.append(draw_text_image(str(scores[i]), image_size=(height, width)))
+        textrow = np.stack(txt_im, 0)
+
+        textrow = [textrow for _ in range(seqlen)]
+        return textrow
+
     def make_direct_vid(self, separate_vid = False, resize=None):
         self.logger.log('making gif with tags')
         # self.video_list = [self.video_list[0]]
 
         new_videolist = []
         for vid in self.video_list:
+            # print('key', vid[1])
+            # print('len', len(vid[0]))
+            # print('sizes', [im.shape for im in vid[0]])
             images = vid[0]
             if resize is not None:
                 images = resize_image(images, size=resize)
@@ -227,9 +247,6 @@ class Visualizer_tkinter(object):
             if images[0].shape[-1] == 1 or len(images[0].shape) == 3:
                 images = color_code_distrib(images, self.numex, renormalize=True)
 
-            # print(name)
-            # print('len', len(images))
-            # print('sizes', [im.shape for im in images])
             new_videolist.append((images, name))
 
         framelist = assemble_gif(new_videolist, convert_from_float=True, num_exp=self.numex)
