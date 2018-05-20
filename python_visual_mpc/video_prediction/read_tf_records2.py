@@ -362,18 +362,18 @@ def main():
         # plt.imshow(firstlastnoarm[0,1])
         # plt.show()
 
-        file_path = '/'.join(str.split(DATA_DIR, '/')[:-1]+['preview'])
-
-        if 'ncam' in conf:
-            vidlist = []
-            for i in range(images.shape[2]):
-                video = [v.squeeze() for v in np.split(images[:,:,i],images.shape[1], 1)]
-                vidlist.append(video)
-            npy_to_gif(assemble_gif(vidlist, num_exp=conf['batch_size']), file_path)
-        else:
-            images = [v.squeeze() for v in np.split(images,images.shape[1], 1)]
-            numbers = create_numbers(conf['sequence_length'], conf['batch_size'])
-            npy_to_gif(assemble_gif([images, numbers], num_exp=conf['batch_size']), file_path)
+        # file_path = '/'.join(str.split(DATA_DIR, '/')[:-1]+['preview'])
+        #
+        # if 'ncam' in conf:
+        #     vidlist = []
+        #     for i in range(images.shape[2]):
+        #         video = [v.squeeze() for v in np.split(images[:,:,i],images.shape[1], 1)]
+        #         vidlist.append(video)
+        #     npy_to_gif(assemble_gif(vidlist, num_exp=conf['batch_size']), file_path)
+        # else:
+        #     images = [v.squeeze() for v in np.split(images,images.shape[1], 1)]
+        #     numbers = create_numbers(conf['sequence_length'], conf['batch_size'])
+        #     npy_to_gif(assemble_gif([images, numbers], num_exp=conf['batch_size']), file_path)
 
         # comp_single_video(file_path, images, num_exp=conf['batch_size'])
 
@@ -384,12 +384,12 @@ def main():
         # end = time.time()
 
 
-        for b in range(3):
-            print('actions {}'.format(b))
-            print(actions[b])
-
-            print('endeff {}'.format(b))
-            print(endeff[b])
+        # for b in range(3):
+        #     print('actions {}'.format(b))
+        #     print(actions[b])
+        #
+        #     print('endeff {}'.format(b))
+        #     print(endeff[b])
 
 
         # pdb.set_trace()

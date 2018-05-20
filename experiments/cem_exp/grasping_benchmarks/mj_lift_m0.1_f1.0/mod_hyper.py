@@ -46,8 +46,8 @@ policy = {
     'verbose':"",
     'type' : CEM_controller,
     'current_dir':current_dir,
-    'nactions': 8, ############
-    'repeat': 2, ###############
+    'nactions': 5,
+    'repeat': 3,
     'initial_std': 0.03,        # std dev. in xy
     'initial_std_lift': 0.2,
     'initial_std_rot': 0.1,
