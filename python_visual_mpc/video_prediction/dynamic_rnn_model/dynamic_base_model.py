@@ -519,7 +519,6 @@ class Dynamic_Base_Model(object):
                                                   lambda: [train_images, train_actions, train_states],
                                                   lambda: [val_images, val_actions, val_states])
             if 'use_len' in conf:
-                print('randomly shift videos for data augmentation')
                 images, states, actions = self.random_shift(images, states, actions)
 
 
