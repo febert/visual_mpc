@@ -38,7 +38,7 @@ class Multi_View_Model(object):
             with tf.device('/gpu:%d' % icam):
                 with tf.variable_scope('icam{}'.format(icam)):
                     self.models.append(self.buildnet(icam, conf, self.images, pix_distrib, self.states, self.actions))
-                    
+
 
         if build_loss:
             self.loss = 0.
@@ -54,9 +54,6 @@ class Multi_View_Model(object):
 
         self.train_video_summaries = make_video_summaries(conf['context_frames'], [self.images[:,:,0], self.gen_images[:,:,0],
                                                                                    self.images[:,:,1], self.gen_images[:,:,1]], 'train_images')
-
-        pdb.set_trace()
-
         self.val_video_summaries = make_video_summaries(conf['context_frames'], [self.images[:,:,0], self.gen_images[:,:,0],
                                                                                  self.images[:,:,1], self.gen_images[:,:,1]], 'val_images')
 
