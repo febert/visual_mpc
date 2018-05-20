@@ -4,7 +4,7 @@ import importlib.util
 import tensorflow as tf
 import os
 import numpy as np
-
+import cv2
 class ImitationPolicy(Policy):
     MODEL_CREATION = False
     def __init__(self, agentparams, policyparams):
@@ -33,11 +33,11 @@ class ImitationPolicy(Policy):
         if ImitationPolicy.MODEL_CREATION:
             with tf.variable_scope('model', reuse=True) as training_scope:
                 self.model = self.net_config['model'](self.net_config, images_pl, actions, end_effector_pos_pl)
-                self.model.build(is_Test=True)
+                self.model.build_sim()
         else:
             with tf.variable_scope('model', reuse=None) as training_scope:
                 self.model = self.net_config['model'](self.net_config, images_pl, actions, end_effector_pos_pl)
-                self.model.build(is_Test=True)
+                self.model.build_sim()
 
             ImitationPolicy.MODEL_CREATION = True
 
@@ -56,6 +56,6 @@ class ImitationPolicy(Policy):
     def act(self, traj, t, init_model = None, goal_object_pose = None, hyperparams = None, goal_image = None):
         sample_images = traj.images[:t + 1].reshape((1, -1, self.img_height, self.img_width, 3))
         sample_eep = traj.target_qpos[:t + 1, :].reshape((1, -1, self.sdim)).astype(np.float32)
-
+        
         actions = self.model.query(self.sess, traj, t, images=sample_images, end_effector=sample_eep)
         return actions - traj.target_qpos[t, :] * traj.mask_rel
