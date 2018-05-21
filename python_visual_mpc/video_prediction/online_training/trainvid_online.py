@@ -62,7 +62,7 @@ def trainvid_online(replay_buffer, conf, logging_dir, onpolparam, gpu_id, printo
             preload_replay(conf, logger, onpolparam, replay_buffer, sess)
 
             Model = conf['pred_model']
-            model = Model(conf, load_data=False, trafo_pix=False, build_loss=True)
+            model = Model(conf, load_data=False, build_loss=True)
             logger.log('Constructing saver.')
             vars = tf.get_collection(tf.GraphKeys.GLOBAL_VARIABLES)
             vars = filter_vars(vars)
@@ -83,14 +83,15 @@ def trainvid_online(replay_buffer, conf, logging_dir, onpolparam, gpu_id, printo
             starttime = time.time()
             t_iter = []
             for itr in range(0, conf['num_iterations'], 1):
-                tstart_rb_update = time.time()
-                # logger.log('starting replay buffer update...')
-                replay_buffer.update(sess)
-                # logger.log("took {} to update the replay buffer".format(time.time() - tstart_rb_update))
+
+                if itr % 10 == 0:
+                    tstart_rb_update = time.time()
+                    logger.log('starting replay buffer update...')
+                    replay_buffer.update(sess)
+                    logger.log("took {} to update the replay buffer".format(time.time() - tstart_rb_update))
 
                 t_startiter = time.time()
                 images, states, actions = replay_buffer.get_batch()
-
 
                 if conf['pred_model'] == Alex_Interface_Model:
                     feed_dict = {

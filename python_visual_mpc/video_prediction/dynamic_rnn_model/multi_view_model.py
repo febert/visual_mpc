@@ -4,6 +4,7 @@ from python_visual_mpc.video_prediction.utils_vpred.video_summary import make_vi
 from python_visual_mpc.video_prediction.dynamic_rnn_model.dynamic_base_model import Dynamic_Base_Model
 
 import pdb
+from python_visual_mpc.video_prediction.basecls.utils.visualize import visualize_diffmotions, visualize, compute_metric
 
 class Multi_View_Model(object):
     def __init__(self,
@@ -48,16 +49,14 @@ class Multi_View_Model(object):
             for icam in range(conf['ncam']):
                 self.loss += self.models[icam].loss
             self.train_op = tf.group([m.train_op for m in self.models])
-
             self.train_summ_op = tf.summary.merge([m.train_summ_op for m in self.models])
             self.val_summ_op = tf.summary.merge([m.val_summ_op for m in self.models])
 
-            self.gen_images = tf.concat([m.gen_images for m in self.models], axis=2)
-            self.gen_states = tf.concat([m.gen_states for m in self.models], axis=2)
+        self.gen_images = tf.concat([m.gen_images for m in self.models], axis=2)
+        self.gen_states = tf.concat([m.gen_states for m in self.models], axis=2)
 
         self.train_video_summaries = make_video_summaries(conf['context_frames'], [self.images[:,:,0], self.gen_images[:,:,0],
                                                                                    self.images[:,:,1], self.gen_images[:,:,1]], 'train_images')
-
         self.val_video_summaries = make_video_summaries(conf['context_frames'], [self.images[:,:,0], self.gen_images[:,:,0],
                                                                                  self.images[:,:,1], self.gen_images[:,:,1]], 'val_images')
 
@@ -82,3 +81,6 @@ class Multi_View_Model(object):
         states = states[rand_ind*tshift:rand_ind*tshift+uselen]
         actions = actions[rand_ind*tshift:rand_ind*tshift+uselen]
         return images, states, actions
+
+    def visualize(self, sess):
+        visualize(sess, self.conf, self)
