@@ -36,6 +36,7 @@ agent = {
     'data_save_dir': os.environ['VMPC_DATA_DIR'] + '/cartgripper/grasping/'+ folder_name + '/train',
     'posmode':"",
     'targetpos_clip':[[-0.45, -0.45, -0.08, -np.pi*2, -1.], [0.45, 0.45, 0.15, np.pi*2, 1.]],
+    'mode_rel':np.array([True, True, True, True, False]),
     'not_use_images':"",
     'verbose':''
 }

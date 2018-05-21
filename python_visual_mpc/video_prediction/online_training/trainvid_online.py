@@ -83,14 +83,15 @@ def trainvid_online(replay_buffer, conf, logging_dir, onpolparam, gpu_id, printo
             starttime = time.time()
             t_iter = []
             for itr in range(0, conf['num_iterations'], 1):
-                tstart_rb_update = time.time()
-                # logger.log('starting replay buffer update...')
-                replay_buffer.update(sess)
-                # logger.log("took {} to update the replay buffer".format(time.time() - tstart_rb_update))
+
+                if itr % 10 == 0:
+                    tstart_rb_update = time.time()
+                    logger.log('starting replay buffer update...')
+                    replay_buffer.update(sess)
+                    logger.log("took {} to update the replay buffer".format(time.time() - tstart_rb_update))
 
                 t_startiter = time.time()
                 images, states, actions = replay_buffer.get_batch()
-
 
                 if conf['pred_model'] == Alex_Interface_Model:
                     feed_dict = {

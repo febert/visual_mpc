@@ -123,10 +123,6 @@ def main(unused_argv, conf_dict= None, flags=None):
         if FLAGS.diffmotions:
             conf['sequence_length'] = 14
 
-        # when using alex interface:
-        if 'modelconfiguration' in conf:
-            conf['modelconfiguration']['schedule_sampling_k'] = conf['schedsamp_k']
-
         if FLAGS.float16:
             print('using float16')
             conf['float16'] = ''
