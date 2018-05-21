@@ -24,7 +24,6 @@ configuration = {
 'model': 'appflow',            #'model architecture to use - CDNA, DNA, or STP' ,
 'num_transformed_images': 1,   # 'number of masks, usually 1 for DNA, 10 for CDNA, STN.' ,
 'schedsamp_k': 1200.0,      # 'The k hyperparameter for scheduled sampling -1 for no scheduled sampling.' ,
-# 'schedsamp_k': -1,  ############################    # 'The k hyperparameter for scheduled sampling -1 for no scheduled sampling.' ,
 'train_val_split': 0.95,    #'The percentage of files to use for the training set vs. the validation set.' ,
 'batch_size': 16,           #'batch size for training' ,
 'learning_rate': 0.001,     #'the base learning rate of the generator' ,
@@ -40,5 +39,6 @@ configuration = {
 'previmg_bckgd':'',
 'orig_size':[48,64],
 'vis_step':0.05,
-'ncam':2
+'ncam':2,
+# 'mult_gpu':''
 }

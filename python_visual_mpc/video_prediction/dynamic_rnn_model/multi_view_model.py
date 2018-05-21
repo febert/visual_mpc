@@ -35,10 +35,11 @@ class Multi_View_Model(object):
 
         self.models = []
         for icam in range(conf['ncam']):
-            # for debug!!!!!!!
-            # if icam == 1:
-            #     break
-            with tf.device('/gpu:%d' % icam):
+            if 'multi_gpu' in conf:
+                with tf.device('/gpu:%d' % icam):
+                    with tf.variable_scope('icam{}'.format(icam)):
+                        self.models.append(self.buildnet(icam, conf, self.images, pix_distrib, self.states, self.actions))
+            else:
                 with tf.variable_scope('icam{}'.format(icam)):
                     self.models.append(self.buildnet(icam, conf, self.images, pix_distrib, self.states, self.actions))
 
