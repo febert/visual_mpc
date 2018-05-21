@@ -62,7 +62,7 @@ def trainvid_online(replay_buffer, conf, logging_dir, onpolparam, gpu_id, printo
             preload_replay(conf, logger, onpolparam, replay_buffer, sess)
 
             Model = conf['pred_model']
-            model = Model(conf, load_data=False, trafo_pix=False, build_loss=True)
+            model = Model(conf, load_data=False, build_loss=True)
             logger.log('Constructing saver.')
             vars = tf.get_collection(tf.GraphKeys.GLOBAL_VARIABLES)
             vars = filter_vars(vars)
