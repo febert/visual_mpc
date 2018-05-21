@@ -294,6 +294,18 @@ class AgentMuJoCo(object):
                     self.target_qpos[:2] += mj_U[:2]
                     if self.adim == 4:
                         self.target_qpos[3] += mj_U[3]
+                    assert self.adim <= 4
+                elif 'close_once_actions' in self._hyperparams:
+                    assert self.adim == 5
+                    self.target_qpos[:4] = mj_U[:4] + self.target_qpos[:4]
+                    grasp_thresh = 0.5
+                    if mj_U[4] > grasp_thresh:
+                        self.gripper_closed = True
+                    if self.gripper_closed:
+                        self.target_qpos[4] = 0.1
+                    else:
+                       self.target_qpos[4] = 0.0
+                    print('target_qpos', self.target_qpos)
                 else:
                     self.target_qpos = mj_U + self.target_qpos
                 self.target_qpos = self.clip_targetpos(self.target_qpos)
@@ -513,14 +525,22 @@ class AgentMuJoCo(object):
         self.hf_qpos_l = np.stack(self.hf_qpos_l, axis=0)
         self.hf_target_qpos_l = np.stack(self.hf_target_qpos_l, axis=0)
         tmax = self.hf_target_qpos_l.shape[0]
-        for i in range(self.adim):
-            plt.plot(list(range(tmax)), self.hf_qpos_l[:,i], label='q_{}'.format(i))
-            plt.plot(list(range(tmax)), self.hf_target_qpos_l[:, i], label='q_target{}'.format(i))
-            plt.legend()
-            # plt.show()
-            if not os.path.exists(self._hyperparams['record']):
-                os.makedirs(self._hyperparams['record'])
-            plt.savefig(self._hyperparams['record'] + '/ctrls.png')
+
+        i = 4
+        plt.plot(list(range(tmax)), self.hf_qpos_l[:,i], label='q_{}'.format(i))
+        plt.plot(list(range(tmax)), self.hf_target_qpos_l[:, i], label='q_target{}'.format(i))
+        plt.legend()
+        # plt.show()
+        if not os.path.exists(self._hyperparams['record']):
+            os.makedirs(self._hyperparams['record'])
+        # for i in range(self.adim):
+        #     plt.plot(list(range(tmax)), self.hf_qpos_l[:,i], label='q_{}'.format(i))
+        #     plt.plot(list(range(tmax)), self.hf_target_qpos_l[:, i], label='q_target{}'.format(i))
+        #     plt.legend()
+        #     # plt.show()
+        #     if not os.path.exists(self._hyperparams['record']):
+        #         os.makedirs(self._hyperparams['record'])
+        plt.savefig(self._hyperparams['record'] + '/ctrls.png')
 
     def _init(self):
         """

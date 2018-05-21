@@ -271,6 +271,7 @@ class CEM_controller(Policy):
         images = []
         self.gripper_closed = False
         self.gripper_up = False
+        # print('start episdoe')
 
         for t in range(self.nactions*self.repeat):
             mj_U = actions[t]
@@ -297,9 +298,20 @@ class CEM_controller(Policy):
                     self.target_qpos[:2] += mj_U[:2]
                     if self.adim == 4:
                         self.target_qpos[3] += mj_U[3]
+                elif 'close_once_actions' in self.agentparams:
+                    assert self.adim == 5
+                    self.target_qpos[:4] = mj_U[:4] + self.target_qpos[:4]
+                    grasp_thresh = 0.5
+                    if mj_U[4] > grasp_thresh:
+                        self.gripper_closed = True
+                    if self.gripper_closed:
+                        self.target_qpos[4] = 0.1
+                    else:
+                        self.target_qpos[4] = 0.0
                 else:
                     self.target_qpos = mj_U + self.target_qpos
                 self.target_qpos = self.clip_targetpos(self.target_qpos)
+                # print('target_qpos', self.target_qpos)
             else:
                 ctrl = mj_U.copy()
 

@@ -62,6 +62,7 @@ class Multi_View_Model(object):
                                                                                  self.images[:,:,1], self.gen_images[:,:,1]], 'val_images')
 
     def buildnet(self, icam, conf, images, pix_distrib, states, actions):
+        print('building network for cam{}'.format(icam))
         images = images[:, :, icam]
         if pix_distrib is not None:
             pix_distrib = pix_distrib[:, :, icam]

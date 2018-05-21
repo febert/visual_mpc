@@ -36,7 +36,7 @@ agent = {
     'additional_viewer':'',
     'data_save_dir': result_dir + '/data/train',
     'posmode':"",
-    'targetpos_clip':[[-0.45, -0.45, -0.08, -np.pi*2, 0.], [0.45, 0.45, 0.15, np.pi*2, 0.1]],
+    'targetpos_clip':[[-0.45, -0.45, -0.08, -np.pi*2, -1.], [0.45, 0.45, 0.15, np.pi*2, 1.]],
     'not_use_images':"",
     'verbose':'',
     'object_mass':0.1

@@ -35,7 +35,7 @@ agent = {
     'additional_viewer':'',
     'data_save_dir': os.environ['VMPC_DATA_DIR'] + '/cartgripper/grasping/'+ folder_name + '/train',
     'posmode':"",
-    'targetpos_clip':[[-0.45, -0.45, -0.08, -np.pi*2, 0.], [0.45, 0.45, 0.15, np.pi*2, 0.1]],
+    'targetpos_clip':[[-0.45, -0.45, -0.08, -np.pi*2, -1.], [0.45, 0.45, 0.15, np.pi*2, 1.]],
     'not_use_images':"",
     'verbose':''
 }
@@ -49,7 +49,7 @@ policy = {
     'initial_std': 0.03,        # std dev. in xy
     'initial_std_lift': 0.2,
     'initial_std_rot': 0.1,
-    'initial_std_grasp': 100, #0.2,
+    'initial_std_grasp': 1, #0.2,
     'iterations': 2,
     'action_cost_factor': 0,
     'rew_all_steps':"",

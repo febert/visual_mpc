@@ -28,6 +28,8 @@ agent = {
     'cameras':['maincam','leftcam'],
     'gen_xml':1,   #generate xml every nth trajecotry
     'num_objects': 1,
+    'object_mass':0.1,
+    'friction':1.,
     'viewer_image_height' : 480,
     'viewer_image_width' : 640,
     'image_height':48,
@@ -37,11 +39,12 @@ agent = {
     'posmode':"",
     'targetpos_clip':[[-0.45, -0.45, -0.08, -np.pi*2, 0.], [0.45, 0.45, 0.15, np.pi*2, 0.1]],
     'not_use_images':"",
-    'verbose':''
+    'verbose':'',
+    'close_once_actions':'',  # action space in -1 and 1
 }
 
 policy = {
-    # 'verbose':"",
+    'verbose':"",
     'type' : CEM_controller,
     'current_dir':current_dir,
     'nactions': 5,
@@ -49,7 +52,7 @@ policy = {
     'initial_std': 0.03,        # std dev. in xy
     'initial_std_lift': 0.2,
     'initial_std_rot': 0.1,
-    'initial_std_grasp': 100, #0.2,
+    'initial_std_grasp': 0.4, #0.2,
     'iterations': 2,
     'action_cost_factor': 0,
     'rew_all_steps':"",
