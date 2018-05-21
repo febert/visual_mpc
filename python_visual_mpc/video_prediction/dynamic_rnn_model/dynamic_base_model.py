@@ -591,6 +591,8 @@ class Dynamic_Base_Model(object):
         self.gen_transformed_images = list([gen_transformed_image for gen_transformed_image in gen_transformed_images])
         other_outputs = list(other_outputs)
 
+
+        pdb.set_trace()
         # making video summaries
         self.train_video_summaries = make_video_summaries(conf['context_frames'], [self.images, self.gen_images[:,:,0]], 'train_images')
         self.val_video_summaries = make_video_summaries(conf['context_frames'], [self.images, self.gen_images[:,:,0]], 'val_images')
