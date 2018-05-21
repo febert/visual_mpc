@@ -71,9 +71,11 @@ def main():
                 touch_sensors = state_action['finger_sensors']
                 good_lift = False
                 total_ctr += 1
-                if any(np.logical_and(touch_sensors[:, 0] > 0, touch_sensors[:, 1] > 0)):
+                valid_frames = np.logical_and(state_action['target_qpos'][1:, -1] > 0.05, np.logical_and(touch_sensors[:, 0] > 0, touch_sensors[:, 1] > 0))
+                if any(valid_frames) and any(state_action['qpos'][valid_frames, 2] > 0):
                     good_lift = True
                     good_lift_ctr += 1
+                    print('traj', t, 'is good')
                     print('good max z', np.amax(state_action['object_full_pose'][:, :, 2]))
                 continue
                 #object_poses = state_action['object_full_pose']

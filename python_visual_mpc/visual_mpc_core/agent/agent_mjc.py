@@ -114,16 +114,16 @@ class AgentMuJoCo(object):
         self._hyperparams['i_tr'] = i_tr
 
         traj_ok = False
-        i_trial = 0
+        self.i_trial = 0
         imax = 100
-        while not traj_ok and i_trial < imax:
-            i_trial += 1
+        while not traj_ok and self.i_trial < imax:
+            self.i_trial += 1
             try:
                 traj_ok, traj = self.rollout(policy, i_tr)
             except Image_dark_except:
                 traj_ok = False
 
-        print('needed {} trials'.format(i_trial))
+        print('needed {} trials'.format(self.i_trial))
 
         tfinal = self._hyperparams['T'] -1
         if self.goal_obj_pose is not None:
@@ -301,8 +301,20 @@ class AgentMuJoCo(object):
                     self.target_qpos[:2] += mj_U[:2]
                     if self.adim == 4:
                         self.target_qpos[3] += mj_U[3]
+                elif 'close_once_actions' in self._hyperparams:
+                    assert self.adim == 5
+                    self.target_qpos[:4] = mj_U[:4] + self.target_qpos[:4]
+                    grasp_thresh = 0.5
+                    if mj_U[4] > grasp_thresh:
+                        self.gripper_closed = True
+                    if self.gripper_closed:
+                        self.target_qpos[4] = 0.1
+                    else:
+                       self.target_qpos[4] = 0.0
+                    #print('target_qpos', self.target_qpos)
                 else:
-                    self.target_qpos = mj_U + self.target_qpos
+                    self.target_qpos = mj_U + self.target_qpos * self._hyperparams['mode_rel']
+                    
                 self.target_qpos = self.clip_targetpos(self.target_qpos)
                 traj.target_qpos[t + 1] = self.target_qpos.copy()
             else:
@@ -339,6 +351,13 @@ class AgentMuJoCo(object):
                 traj_ok = True
             else:
                 traj_ok = False
+        elif 'lift_rejection_sample' in self._hyperparams:
+            valid_frames = np.logical_and(traj.target_qpos[1:,-1] > 0.05, np.logical_and(traj.touch_sensors[:, 0] > 0, traj.touch_sensors[:, 1] > 0))
+            off_ground = traj.target_qpos[1:,2] > 0.02
+            if not any(np.logical_and(valid_frames, off_ground)) and self.i_trial < self._hyperparams['lift_rejection_sample']:
+                traj_ok = False
+            else:
+                traj_ok = True
         else:
             traj_ok = True
 

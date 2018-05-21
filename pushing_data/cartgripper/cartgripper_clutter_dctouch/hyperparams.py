@@ -52,7 +52,9 @@ agent = {
     'record': BASE_DIR + '/record/',
     'targetpos_clip':[[-0.5, -0.5, -0.08, -2 * np.pi, -1], [0.5, 0.5, 0.15, 2 * np.pi, 1]],
     'mode_rel':np.array([True, True, True, True, False]),
-    'discrete_gripper' : -1 #discretized gripper dimension
+    'discrete_gripper' : -1, #discretized gripper dimension,
+    'lift_rejection_sample' : 40,
+    'close_once_actions' : True
     #'object_meshes':['giraffe'] #folder to original object + convex approximation
     # 'displacement_threshold':0.1,
 }
@@ -64,8 +66,8 @@ policy = {
      
     'initial_std': 0.08,   #std dev. in xy
     'initial_std_lift': 0.1,   #std dev. in xy
-    'initial_std_rot' : np.pi / 8,
-    'initial_std_grasp' : 1 
+    'initial_std_rot' : np.pi / 12,
+    'initial_std_grasp' : 2 
 }
 
 config = {
