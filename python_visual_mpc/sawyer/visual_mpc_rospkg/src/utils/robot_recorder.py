@@ -7,7 +7,9 @@ import os
 import shutil
 import copy
 import socket
-import _thread
+import thread
+from thread import start_new_thread
+
 import numpy as np
 import imutils
 import pdb
@@ -140,7 +142,7 @@ class RobotRecorder(object):
 
             def spin_thread():
                 rospy.spin()
-            _thread.start_new(spin_thread, ())
+            start_new_thread(spin_thread, ())
             print("Recorder intialized.")
             print("started spin thread")
 

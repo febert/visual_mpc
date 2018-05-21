@@ -23,6 +23,7 @@ from .utils.checkpoint import write_ckpt, write_timing_file, parse_ckpt
 import python_visual_mpc
 from python_visual_mpc import __file__ as base_filepath
 import imp
+import xacro
 
 import argparse
 
