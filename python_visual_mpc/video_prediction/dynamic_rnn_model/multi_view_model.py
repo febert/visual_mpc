@@ -42,7 +42,6 @@ class Multi_View_Model(object):
                 with tf.variable_scope('icam{}'.format(icam)):
                     self.models.append(self.buildnet(icam, conf, self.images, pix_distrib, self.states, self.actions))
 
-
         if build_loss:
             self.loss = 0.
             for icam in range(conf['ncam']):
