@@ -13,18 +13,16 @@ class LoadTraj:
         self.actions, self.X_Xdot_full, self.images, self.goal_image = None, None, None, None
 def main():
     parser = argparse.ArgumentParser(description='run convert from directory to tf record')
-    parser.add_argument('experiment', type=str, help='experiment name')
+    parser.add_argument('experiment', type=str, help='experiment hyperparameter path')
     parser.add_argument('output', type=str, help='new output dir')
 
     args = parser.parse_args()
-    exp_name = args.experiment
+    hyperparams_file = args.experiment
     out_dir = args.output
 
-    basepath = os.path.abspath(python_visual_mpc.__file__)
-    basepath = '/'.join(str.split(basepath, '/')[:-2])
-    data_coll_dir = basepath + '/pushing_data/' + exp_name
+    data_coll_dir = '/'.join(hyperparams_file.split('/')[:-1])
 
-    hyperparams_file = data_coll_dir + '/hyperparams.py'
+    
     loader = importlib.machinery.SourceFileLoader('mod_hyper', hyperparams_file)
     spec = importlib.util.spec_from_loader(loader.name, loader)
     conf = importlib.util.module_from_spec(spec)
@@ -45,7 +43,7 @@ def main():
     print('saving to', out_dir)
 
     good_traj_list, bad_traj_list = [], []
-    num_good_saved, num_bad_saved = 352, 273
+    num_good_saved, num_bad_saved = 0, 0
     good_lift_ctr, total_ctr = 0, 0
     traj_group_dirs = glob.glob(data_dir+'/*')
     
@@ -54,7 +52,7 @@ def main():
     for g in traj_group_dirs:
         trajs = glob.glob(g + '/*')
         for t in trajs:
-            if len(glob.glob(t + '/images/*.png')) != T or not os.path.exists(t + '/state_action.pkl'):
+            if len(glob.glob(t + '/images0/*.png')) != T or not os.path.exists(t + '/state_action.pkl'):
                 print('TRAJ', t, 'is broken')
                 continue
             try:
@@ -70,13 +68,14 @@ def main():
                 loaded_traj.actions = state_action['actions']
                 loaded_traj.X_Xdot_full = state_action['target_qpos'][:T, :]# np.hstack((state_action['qpos'], state_action['qvel']))  
                 loaded_traj.images = np.zeros((T, img_height, img_width, 3), dtype = 'uint8')
-
+                touch_sensors = state_action['finger_sensors']
                 good_lift = False
                 total_ctr += 1
-                if np.sum(np.abs(goal_pos)) > 0:
+                if any(np.logical_and(touch_sensors[:, 0] > 0, touch_sensors[:, 1] > 0)):
                     good_lift = True
                     good_lift_ctr += 1
-
+                    print('good max z', np.amax(state_action['object_full_pose'][:, :, 2]))
+                continue
                 #object_poses = state_action['object_full_pose']
                 #lift_mask = np.sum(object_poses[2:, :, 2] >= 0.12, axis = 0).astype(np.bool)
                 #if np.any(lift_mask):
