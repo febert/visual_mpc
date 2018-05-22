@@ -100,15 +100,14 @@ def compute_warp_cost(logger, policyparams, flow_field, goal_pix=None, warped_im
 
 def construct_initial_sigma(policyparams):
     xy_std = policyparams['initial_std']
-    diag = []
-    diag += [xy_std**2, xy_std**2]
+    diag = [xy_std**2, xy_std**2]
 
     if 'initial_std_lift' in policyparams:
-        diag.append(policyparams['initial_std_lift'])
+        diag.append(policyparams['initial_std_lift']**2)
     if 'initial_std_rot' in policyparams:
-        diag.append(policyparams['initial_std_rot'])
+        diag.append(policyparams['initial_std_rot']**2)
     if 'initial_std_grasp' in policyparams:
-        diag.append(policyparams['initial_std_grasp'])
+        diag.append(policyparams['initial_std_grasp']**2)
 
     diag = np.tile(diag, policyparams['nactions'])
     diag = np.array(diag)

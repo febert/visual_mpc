@@ -1,11 +1,17 @@
-import tkinter
+try:
+    # for Python2
+    from Tkinter import *   ## notice capitalized T in Tkinter
+except ImportError:
+    # for Python3
+    from tkinter import *   ## notice lowercase 't' in tkinter here
 from PIL import Image, ImageTk
 from sys import argv
 
 import argparse
 import numpy as np
 import sys
-from python_visual_mpc.region_proposal_networks.Featurizer import BBProposer, AlexNetFeaturizer
+################3333
+# from python_visual_mpc.region_proposal_networks.Featurizer import BBProposer, AlexNetFeaturizer
 import cv2
 import pdb
 import os
