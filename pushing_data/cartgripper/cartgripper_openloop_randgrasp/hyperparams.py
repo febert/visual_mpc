@@ -53,7 +53,7 @@ agent = {
     'targetpos_clip':[[-0.5, -0.5, -0.08, -2 * np.pi, -1], [0.5, 0.5, 0.15, 2 * np.pi, 1]],
     'mode_rel':np.array([True, True, True, True, False]),
     'discrete_gripper' : -1, #discretized gripper dimension,
-    'lift_rejection_sample' : 10,
+    'lift_rejection_sample' : 15,
     'close_once_actions' : True,
 
     #'object_meshes':['giraffe'] #folder to original object + convex approximation
