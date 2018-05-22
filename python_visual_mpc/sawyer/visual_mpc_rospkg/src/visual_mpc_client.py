@@ -104,7 +104,6 @@ class Visual_MPC_Client():
 
         self.use_aux = False
 
-
         self.get_action_func = rospy.ServiceProxy('get_action', get_action)
         self.init_traj_visual_func = rospy.ServiceProxy('init_traj_visualmpc', init_traj_visualmpc)
 
@@ -509,7 +508,7 @@ class Visual_MPC_Client():
 
                 self.previous_des_pos = copy.deepcopy(self.des_pos)
                 get_action_start = time.time()
-                action_vec = self.query_action()
+                action_vec = self.query_action(i_step)
                 query_times.append(time.time()-get_action_start)
 
                 print('action vec', action_vec)
@@ -665,7 +664,7 @@ class Visual_MPC_Client():
 
         return des_joint_angles
 
-    def query_action(self):
+    def query_action(self, istep):
 
         if self.use_robot:
             if self.use_aux:
@@ -814,14 +813,7 @@ class Visual_MPC_Client():
         xlim = self.xlim
         ylim = self.ylim
 
-        if pos[0] > xlim[1]:
-            pos[0] = xlim[1]
-        if pos[0] < xlim[0]:
-            pos[0] = xlim[0]
-        if pos[1] > ylim[1]:
-            pos[1] = ylim[1]
-        if pos[1] < ylim[0]:
-            pos[1] = ylim[0]
+        pos = np.clip(pos, np.array([xlim[0], ylim[0]]), np.array([xlim[0], ylim[0]]))
 
         if self.enable_rot:
             alpha_min = -0.78539
