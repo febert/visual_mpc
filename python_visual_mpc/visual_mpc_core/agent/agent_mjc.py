@@ -244,7 +244,6 @@ class AgentMuJoCo(object):
  
             touch_offset = 0
             if 'finger_sensors' in self._hyperparams:
-                traj.touch_sensors[t] = copy.deepcopy(self.sim.data.sensordata[:2].squeeze().copy())
                 touch_offset = 2
                                 
                 
@@ -323,6 +322,10 @@ class AgentMuJoCo(object):
             for st in range(self._hyperparams['substeps']):
                 if 'posmode' in self._hyperparams:
                     ctrl = self.get_int_targetpos(st, self.prev_target_qpos, self.target_qpos)
+
+                if 'finger_sensors' in self._hyperparams:
+                    traj.touch_sensors[t] += copy.deepcopy(self.sim.data.sensordata[:2].squeeze().copy()) 
+
                 self.sim.data.ctrl[:] = ctrl
                 self.sim.step()
                 # width = self._hyperparams['viewer_image_width']
@@ -334,6 +337,8 @@ class AgentMuJoCo(object):
 
             if self.goal_obj_pose is not None:
                 traj.goal_dist.append(self.eval_action(traj, t)[0])
+        
+        traj.touch_sensors[t] /= self._hyperparams['substeps']
 
         if 'first_last_noarm' in self._hyperparams:
             self.hide_arm_store_image(1, traj)
@@ -353,7 +358,7 @@ class AgentMuJoCo(object):
                 traj_ok = False
         elif 'lift_rejection_sample' in self._hyperparams:
             valid_frames = np.logical_and(traj.target_qpos[1:,-1] > 0.05, np.logical_and(traj.touch_sensors[:, 0] > 0, traj.touch_sensors[:, 1] > 0))
-            off_ground = traj.target_qpos[1:,2] > 0.02
+            off_ground = traj.target_qpos[1:,2] >= 0
             if not any(np.logical_and(valid_frames, off_ground)) and self.i_trial < self._hyperparams['lift_rejection_sample']:
                 traj_ok = False
             else:

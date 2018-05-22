@@ -71,12 +71,19 @@ def main():
                 touch_sensors = state_action['finger_sensors']
                 good_lift = False
                 total_ctr += 1
-                valid_frames = np.logical_and(state_action['target_qpos'][1:, -1] > 0.05, np.logical_and(touch_sensors[:, 0] > 0, touch_sensors[:, 1] > 0))
-                if any(valid_frames) and any(state_action['qpos'][valid_frames, 2] > 0):
-                    good_lift = True
-                    good_lift_ctr += 1
-                    print('traj', t, 'is good')
-                    print('good max z', np.amax(state_action['object_full_pose'][:, :, 2]))
+                valid_frames = np.logical_and(state_action['target_qpos'][1:, -1] > 0, np.logical_and(touch_sensors[:, 0] > 0, touch_sensors[:, 1] > 0))
+                off_ground = state_action['target_qpos'][1:,2] >= 0
+                object_poses = state_action['object_full_pose']
+                if any(np.logical_and(valid_frames, off_ground)):
+                    obj_eq = object_poses[0, :, :2] == state_action['obj_start_end_pos']
+                    obj_eq = np.logical_and(obj_eq[:, 0], obj_eq[:, 1])
+                    obj_eq = np.argmax(obj_eq)
+                    obj_max =  np.amax(object_poses[:,obj_eq,2])
+                    if obj_max >=0:
+                        print('traj {} is good'.format(t))
+                        good_lift = True
+                        good_lift_ctr += 1
+                        print('good max z', obj_max)
                 continue
                 #object_poses = state_action['object_full_pose']
                 #lift_mask = np.sum(object_poses[2:, :, 2] >= 0.12, axis = 0).astype(np.bool)
