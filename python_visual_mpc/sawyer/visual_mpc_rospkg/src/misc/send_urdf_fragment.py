@@ -55,6 +55,7 @@ def send_urdf(parent_link, root_joint, urdf_filename, duration):
     pub = rospy.Publisher('/robot/urdf', URDFConfiguration, queue_size=10)
     rate = rospy.Rate(5) # 5hz
     start = rospy.Time.now()
+    rospy.loginfo('publishing urdf')
     while not rospy.is_shutdown():
         pub.publish(msg)
         rate.sleep()
@@ -76,7 +77,7 @@ def main():
         help='Path to URDF file to send'
     )
     required.add_argument(
-        '-l', '--link', required=False, default="right_hand",
+        '-l', '--link', required=False, default="right_hand", #parent
         help='URDF Link already to attach fragment to (usually <left/right>_hand)'
     )
     required.add_argument(
@@ -95,5 +96,19 @@ def main():
     send_urdf(args.link, args.joint, args.file, args.duration)
     return 0
 
+
+def comp_gripper():
+    import python_visual_mpc
+    urdf_frag = '/'.join(
+        str.split(python_visual_mpc.__file__, '/')[:-1]) + '/sawyer/visual_mpc_rospkg/src/misc/wsg50/wsg_50_mod.urdf'
+    rospy.init_node('rsdk_configure_urdf', anonymous=True)
+    if not os.access(urdf_frag, os.R_OK):
+        rospy.logerr("Cannot read file at '%s'" % (urdf_frag))
+        sys.exit(1)
+    send_urdf('right_hand', 'gripper_base_link', urdf_frag, 1e6)
+
+
 if __name__ == '__main__':
-    sys.exit(main())
+    # sys.exit(main())
+    comp_gripper()
+

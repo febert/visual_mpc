@@ -7,10 +7,12 @@ import os
 import pdb
 import pickle
 
-import tkinter as Tk
-
-from tkinter import Button, Frame, Canvas, Scrollbar
-import tkinter.constants
+try:
+    # for Python2
+    from Tkinter import *   ## notice capitalized T in Tkinter
+except ImportError:
+    # for Python3
+    from tkinter import *   ## notice lowercase 't' in tkinter here
 
 from matplotlib import pyplot as plt
 import matplotlib

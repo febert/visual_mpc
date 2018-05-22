@@ -38,7 +38,7 @@ from visual_mpc_rospkg.msg import intarray
 
 from wsg_50_common.msg import Cmd, Status
 
-from python_visual_mpc.region_proposal_networks.rpn_tracker import RPN_Tracker
+# from python_visual_mpc.region_proposal_networks.rpn_tracker import RPN_Tracker
 from std_msgs.msg import String
 class Traj_aborted_except(Exception):
     pass
@@ -54,19 +54,30 @@ def str2bool(v):
 from python_visual_mpc import __file__ as base_filepath
 
 class Visual_MPC_Client():
-    def __init__(self):
+    def __init__(self, cmd_args=False):
         print('started visual MPC client')
         # pdb.set_trace()
-
         self.ctrl = robot_controller.RobotController()
 
-        self.use_gui = rospy.get_param('~gui')   #experiment name
-
         self.base_dir = '/'.join(str.split(base_filepath, '/')[:-2])
-        cem_exp_dir = self.base_dir + '/experiments/cem_exp/benchmarks_sawyer'
 
-        benchmark_name = rospy.get_param('~exp')   #experiment name
-        bench_dir = cem_exp_dir + '/' + benchmark_name
+        if cmd_args:
+            parser = argparse.ArgumentParser(description='')
+            parser.add_argument('experiment', type=str, help='experiment name')
+            parser.add_argument('--robot_name', type=str, default='vestri', help='robot name')
+            args = parser.parse_args()
+            benchmark_name = args.experiment
+            self.use_gui = False
+            exp_dir = self.base_dir + '/experiments'
+            bench_dir = exp_dir + '/' + benchmark_name
+            self.robot_name = args.robot_name
+        else:
+            self.use_gui = rospy.get_param('~gui')   #experiment name
+            benchmark_name = rospy.get_param('~exp')   #experiment name
+            cem_exp_dir = self.base_dir + '/experiments/cem_exp/benchmarks_sawyer'
+            bench_dir = cem_exp_dir + '/' + benchmark_name
+            self.robot_name = rospy.get_param('~robot')  # experiment name
+
         if not os.path.exists(bench_dir):
             raise ValueError('benchmark directory does not exist')
         bench_conf = imp.load_source('mod_hyper', bench_dir + '/mod_hyper.py')
@@ -80,16 +91,26 @@ class Visual_MPC_Client():
         else:
             self.enable_rot = False
 
-        hyperparams = imp.load_source('hyperparams', self.policyparams['netconf'])
-        self.netconf = hyperparams.configuration
-        dataconf_file = self.base_dir + '/'.join(str.split(self.netconf['data_dir'], '/')[:-1]) + '/conf.py'
-        dataconf = imp.load_source('hyperparams', dataconf_file).configuration
+        if 'netconf' in self.policyparams:
+            hyperparams = imp.load_source('hyperparams', self.policyparams['netconf'])
+            self.netconf = hyperparams.configuration
+        else:
+            self.netconf = {}
+
+        if hasattr(bench_conf, 'dataconf'):
+            dataconf = bench_conf.dataconf
+        else:
+            dataconf_file = self.base_dir + '/'.join(str.split(self.netconf['data_dir'], '/')[:-1]) + '/conf.py'
+            dataconf = imp.load_source('hyperparams', dataconf_file).configuration
+
+
         if 'img_height' in self.netconf and 'img_width' in self.netconf:
             self.img_height = self.netconf['img_height']
             self.img_width = self.netconf['img_width']
         else:
-            self.img_height = 64
-            self.img_width = 64
+            self.img_height = dataconf['img_height']
+            self.img_width = dataconf['img_width']
+
         self.ndesig = self.agentparams['ndesig']
 
         self.num_traj = 5000
@@ -97,7 +118,7 @@ class Visual_MPC_Client():
 
         self.action_sequence_length = self.agentparams['T'] # number of snapshots that are taken
         self.use_robot = True
-        self.robot_move = True
+        self.robot_move = True #######
         self.reset_active = False # used by the gui to abort trajectories.
 
         self.save_subdir = ""
@@ -153,7 +174,6 @@ class Visual_MPC_Client():
             save_video = True
             save_actions = True
             save_images = True
-            self.robot_name = rospy.get_param('~robot')  # experiment name
             assert self.robot_name != ''
             rospy.Subscriber("ctrl_alive", numpy_msg(intarray), self.ctr_alive)
         else:
@@ -184,16 +204,18 @@ class Visual_MPC_Client():
                                                      save_images=save_images,
                                                      image_shape=(self.img_height, self.img_width))
 
-        if self.data_collection == True:
-            self.checkpoint_file = os.path.join(self.recorder.save_dir, 'checkpoint.txt')
-            self.rpn_tracker = RPN_Tracker(self.recorder_save_dir, self.recorder)
-            self.run_data_collection()
-        elif self.use_gui:
-            rospy.Subscriber('visual_mpc_cmd', numpy_msg(intarray), self.run_visual_mpc_cmd)
-            rospy.Subscriber('visual_mpc_reset_cmd', numpy_msg(intarray), self.run_visual_mpc_reset_cmd)
-            rospy.spin()
-        else:
-            self.run_visual_mpc()
+        if not cmd_args:
+            if self.data_collection == True:
+                self.checkpoint_file = os.path.join(self.recorder.save_dir, 'checkpoint.txt')
+                # self.rpn_tracker = RPN_Tracker(self.recorder_save_dir, self.recorder)
+                self.rpn_tracker = None
+                self.run_data_collection()
+            elif self.use_gui:
+                rospy.Subscriber('visual_mpc_cmd', numpy_msg(intarray), self.run_visual_mpc_cmd)
+                rospy.Subscriber('visual_mpc_reset_cmd', numpy_msg(intarray), self.run_visual_mpc_reset_cmd)
+                rospy.spin()
+            else:
+                self.run_visual_mpc()
 
     def ctr_alive(self, data):
         self.tlast_ctrl_alive = rospy.get_time()
@@ -239,10 +261,14 @@ class Visual_MPC_Client():
     def imp_ctrl_release_spring(self, maxstiff):
         self.imp_ctrl_release_spring_pub.publish(maxstiff)
 
-    def set_weiss_griper(self, width):
+    def set_weiss_gripper(self, des_pos):
+        """
+        :param des_pos:  0
+        :return:
+        """
         cmd = Cmd()
-        cmd.pos = width
         cmd.speed = 100.
+        cmd.pos = (0.1 - des_pos) / 0.1 * 100
         self.weiss_pub.publish(cmd)
 
     def save_weiss_pos(self, status):
@@ -378,7 +404,7 @@ class Visual_MPC_Client():
 
         return quat
 
-    def init_traj(self):
+    def init_visual_mpc_server(self):
         try:
             goal_img_main = np.zeros([self.img_height, self.img_width, 3])
             goal_img_aux1 = np.zeros([self.img_height, self.img_width, 3])
@@ -389,8 +415,7 @@ class Visual_MPC_Client():
             self.init_traj_visual_func(0, 0, goal_img_main, goal_img_aux1, self.save_subdir)
 
         except (rospy.ServiceException, rospy.ROSException) as e:
-            rospy.logerr("Service call failed: %s" % (e,))
-            raise ValueError('get_kinectdata service failed')
+            raise ValueError("Service call failed: %s" % (e,))
 
     def run_trajectory(self, i_tr):
 
@@ -403,7 +428,7 @@ class Visual_MPC_Client():
         if self.ctrl.sawyer_gripper:
             self.ctrl.gripper.open()
         else:
-            self.set_weiss_griper(50.)
+            self.set_weiss_gripper(0.05)
 
         self.gripper_closed = False
 
@@ -423,19 +448,23 @@ class Visual_MPC_Client():
         if self.data_collection:
             rospy.sleep(.1)
             im = cv2.cvtColor(self.recorder.ltob.img_cv2, cv2.COLOR_BGR2RGB)
-
-            single_desig_pos, single_goal_pos = self.rpn_tracker.get_task(im,self.recorder.traj_folder)
-            self.desig_pos_main[0] = single_desig_pos
-            self.goal_pos_main[0] = single_goal_pos
+            if self.rpn_tracker == None:
+                self.desig_pos_main[0] = np.zeros(2)
+                self.goal_pos_main[0] = np.zeros(2)
+            else:
+                single_desig_pos, single_goal_pos = self.rpn_tracker.get_task(im,self.recorder.traj_folder)
+                self.desig_pos_main[0] = single_desig_pos
+                self.goal_pos_main[0] = single_goal_pos
         elif not self.use_gui:
             print('place object in new location!')
             pdb.set_trace()
             # rospy.sleep(.3)
             self.mark_goal_desig(i_tr)
 
-        self.init_traj()
+        if self.netconf != {}:
+            self.init_visual_mpc_server()
 
-        self.lower_height = 0.21  # using old gripper : 0.16
+        self.lower_height = 0.23  # using old gripper : 0.16
         self.delta_up = 0.13
 
         self.xlim = [0.46, 0.83]  # min, max in cartesian X-direction
@@ -465,11 +494,12 @@ class Visual_MPC_Client():
 
         go_up_at_start = True
 
+        gripper_state = np.array([0.])  # gripper open
         if go_up_at_start:
-            self.des_pos = np.concatenate([startpos, np.array([self.lower_height+self.delta_up]), start_angle], axis=0)
+            self.des_pos = np.concatenate([startpos, np.array([self.lower_height+self.delta_up]), start_angle, gripper_state], axis=0)
             self.gripper_up = True
         else:
-            self.des_pos = np.concatenate([startpos, np.array([self.lower_height]), start_angle], axis=0)
+            self.des_pos = np.concatenate([startpos, np.array([self.lower_height]), start_angle, gripper_state], axis=0)
             self.gripper_up = False
 
         self.topen, self.t_down = 0, 0
@@ -551,6 +581,7 @@ class Visual_MPC_Client():
             try:
                 if self.robot_move and not self.reset_active:
                     self.move_with_impedance(des_joint_angles)
+                    self.set_weiss_gripper(self.des_pos[4])
                     # print des_joint_angles
             except OSError:
                 rospy.logerr('collision detected, stopping trajectory, going to reset robot...')
@@ -589,7 +620,7 @@ class Visual_MPC_Client():
             if rospy.get_time() - self.tlast_gripper_status > 10.:
                 print('gripper stopped working!')
                 pdb.set_trace()
-            self.set_weiss_griper(100.)
+            self.set_weiss_gripper(0.)
 
         if self.data_collection:
             if rospy.get_time() - self.tlast_ctrl_alive > 10.:
@@ -813,7 +844,7 @@ class Visual_MPC_Client():
         xlim = self.xlim
         ylim = self.ylim
 
-        pos = np.clip(pos, np.array([xlim[0], ylim[0]]), np.array([xlim[0], ylim[0]]))
+        pos = np.clip(pos, np.array([xlim[0], ylim[0]]), np.array([xlim[1], ylim[1]]))
 
         if self.enable_rot:
             alpha_min = -0.78539
@@ -911,4 +942,4 @@ class Getdesig(object):
 
 
 if __name__ == '__main__':
-    mpc = Visual_MPC_Client()
+    mpc = Visual_MPC_Client(cmd_args=True)
