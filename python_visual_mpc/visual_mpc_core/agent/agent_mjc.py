@@ -307,7 +307,7 @@ class AgentMuJoCo(object):
                        self.target_qpos[4] = 0.0
                     print('target_qpos', self.target_qpos)
                 else:
-                    self.target_qpos = mj_U + self.target_qpos * self._hyperparams['mode_rel']
+                    self.target_qpos = self.target_qpos + mj_U*self._hyperparams['mode_rel']
                 self.target_qpos = self.clip_targetpos(self.target_qpos)
                 traj.target_qpos[t] = self.target_qpos
             else:

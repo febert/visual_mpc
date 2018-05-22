@@ -42,7 +42,6 @@ from python_visual_mpc.region_proposal_networks.rpn_tracker import RPN_Tracker
 from std_msgs.msg import String
 
 
-from python_visual_mpc.visual_mpc_core.algorithm.random_policy import Randompolicy
 
 class Traj_aborted_except(Exception):
     pass
@@ -61,9 +60,7 @@ from python_visual_mpc.sawyer.visual_mpc_rospkg.src.visual_mpc_client import Vis
 class Sawyer_Data_Collector(Visual_MPC_Client):
     def __init__(self):
         Visual_MPC_Client.__init__(self)
-
-        self.policy = Randompolicy(self.agentparams, self.policyparams)
-
+        self.policy = self.policyparams['type'](self.agentparams, self.policyparams)
 
     def query_action(self, istep):
         return self.policy.act(None, istep)
@@ -115,7 +112,10 @@ class Sawyer_Data_Collector(Visual_MPC_Client):
 
             return des_pos, going_down
         else:
-            self.target_qpos = mj_U + self.target_qpos * self._hyperparams['mode_rel']
+            des_pos = mj_U + des_pos * int(self.agentparams['mode_rel'])
+            going_down = False
+        return des_pos, going_down
+
 
 if __name__ == '__main__':
     mpc = Sawyer_Data_Collector()
