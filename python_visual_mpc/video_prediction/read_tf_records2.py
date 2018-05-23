@@ -45,7 +45,7 @@ def decode_im(conf, features, image_name):
     return image
 
 
-def mix_datasets(dataset0, dataset1, ratio_01):
+def mix_datasets(datasets, ratios):
     """Sample batch with specified mix of ground truth and generated data_files points.
 
     Args:
@@ -57,20 +57,17 @@ def mix_datasets(dataset0, dataset1, ratio_01):
       New batch with num_ground_truth sampled from ground_truth_x and the rest
       from generated_x.
     """
-    batch_size = dataset0['images'].get_shape().as_list()[0]
-    num_set0 = tf.cast(int(batch_size)*ratio_01, tf.int64)
-    idx = tf.range(int(batch_size))
-    set0_idx = tf.gather(idx, tf.range(num_set0))
-    set1_idx = tf.gather(idx, tf.range(num_set0, int(batch_size)))
+    batch_size = datasets[0]['images'].get_shape().as_list()[0]
 
     output = {}
-    for key in dataset0.keys():
-        ten0 = dataset0[key]
-        ten1 = dataset1[key]
-        dataset0_examps = tf.gather(ten0, set0_idx)
-        dataset1_examps = tf.gather(ten1, set1_idx)
-        output[key] = tf.reshape(tf.dynamic_stitch([set0_idx, set1_idx],
-                         [dataset0_examps, dataset1_examps]), [batch_size] + ten0.get_shape().as_list()[1:])
+    for key in datasets[0].keys():
+        sel_ten = []
+        for i, d in enumerate(datasets):
+            num_set = tf.cast(int(batch_size)*ratios[i], tf.int64)
+            sel_ten.append(d[key][:num_set])
+
+        ten = tf.concat(sel_ten, axis=0)
+        output[key] = ten
     return output
 
 
@@ -88,27 +85,21 @@ def build_tfrecord_input(conf, mode='train', input_file=None, shuffle=True):
         return comb_dataset
     elif isinstance(conf['data_dir'], dict):
         data_set = []
-        data_sources = sorted(list(conf['data_dir'].keys()), key = lambda x : conf['data_dir'][x])
+        ratios = []
 
-        for dir in data_sources:
+        for key in conf['data_dir'].keys():
             conf_ = copy.deepcopy(conf)
-            conf_['data_dir'] = dir
-            print('loading', dir)
+            conf_['data_dir'] = key
+            print('loading', key)
             data_set.append(build_tfrecord_single(conf_, mode, None, shuffle))
+            ratios.append(conf['data_dir'][key])
 
-        comb_dataset = data_set[0]
-        total_prob = conf['data_dir'][data_sources[0]]
 
-        for dir, dataset in zip(data_sources[1:], data_set[1:]):
-            new_total = total_prob + conf['data_dir'][dir]
-            comb_dataset = mix_datasets(comb_dataset, dataset, total_prob / new_total)
-            total_prob = new_total
-
-        assert np.isclose(total_prob, 1.0), 'INPUT SHARES MUST SUM TO 1'
+        comb_dataset = mix_datasets(data_set, ratios)
 
         return comb_dataset
     else:
-        return build_tfrecord_single(conf, training, input_file, shuffle)
+        return build_tfrecord_single(conf, mode, input_file, shuffle)
 
 
 def build_tfrecord_single(conf, mode='train', input_file=None, shuffle=True):
@@ -140,6 +131,10 @@ def build_tfrecord_single(conf, mode='train', input_file=None, shuffle=True):
         shuffle = False
     else:
         filenames = gfile.Glob(os.path.join(conf['data_dir'], mode) + '/*')
+        if mode == 'val' or mode == 'test':
+            shuffle = False
+        else:
+            shuffle = True
 
         if not filenames:
             raise RuntimeError('No data_files files found.')
@@ -296,14 +291,17 @@ def main():
     current_dir = os.path.dirname(os.path.realpath(__file__))
     # DATA_DIR = '/mnt/sda1/pushing_data/cartgripper/grasping/lift_imitation_dataset/test'
     # DATA_DIR = '/mnt/sda1/pushing_data/onpolicy/distributed_pushing/train'
-    DATA_DIR = '/mnt/sda1/pushing_data/cartgripper/grasping/dualcam_pick_place_dataset/train'
+    # DATA_DIR = '/mnt/sda1/pushing_data/cartgripper/grasping/dualcam_pick_place_dataset/bad'
+    DATA_DIR = {os.environ['VMPC_DATA_DIR'] + '/cartgripper/cartgripper_2view': 0.5,
+                os.environ['VMPC_DATA_DIR'] + '/cartgripper/grasping/dualcam_pick_place_dataset/good': 0.25,
+                os.environ['VMPC_DATA_DIR'] + '/cartgripper/grasping/dualcam_pick_place_dataset/bad': 0.25}
 
     conf['schedsamp_k'] = -1  # don't feed ground truth
     conf['data_dir'] = DATA_DIR  # 'directory containing data_files.' ,
     conf['skip_frame'] = 1
     conf['train_val_split']= 0.95
     conf['sequence_length']= 15  #48      # 'sequence length, including context frames.'
-    conf['batch_size'] = 5
+    conf['batch_size'] = 20
     conf['visualize'] = False
     conf['context_frames'] = 2
     conf['ncam'] = 2
@@ -332,7 +330,7 @@ def main():
 
     print('testing the reader')
 
-    dict = build_tfrecord_input(conf, training=True)
+    dict = build_tfrecord_input(conf, mode='val')
 
     sess = tf.InteractiveSession()
     tf.train.start_queue_runners(sess)
@@ -355,19 +353,20 @@ def main():
         # plt.show()
 
         # file_path = '/'.join(str.split(DATA_DIR, '/')[:-1]+['preview'])
-        #
-        # if 'ncam' in conf:
-        #     vidlist = []
-        #     for i in range(images.shape[2]):
-        #         video = [v.squeeze() for v in np.split(images[:,:,i],images.shape[1], 1)]
-        #         vidlist.append(video)
-        #     npy_to_gif(assemble_gif(vidlist, num_exp=conf['batch_size']), file_path)
-        # else:
-        #     images = [v.squeeze() for v in np.split(images,images.shape[1], 1)]
-        #     numbers = create_numbers(conf['sequence_length'], conf['batch_size'])
-        #     npy_to_gif(assemble_gif([images, numbers], num_exp=conf['batch_size']), file_path)
+        file_path = '/mnt/sda1/pushing_data/cartgripper/grasping/dualcam_pick_place_dataset'
 
-        # comp_single_video(file_path, images, num_exp=conf['batch_size'])
+        if 'ncam' in conf:
+            vidlist = []
+            for i in range(images.shape[2]):
+                video = [v.squeeze() for v in np.split(images[:,:,i],images.shape[1], 1)]
+                vidlist.append(video)
+            npy_to_gif(assemble_gif(vidlist, num_exp=conf['batch_size']), file_path)
+        else:
+            images = [v.squeeze() for v in np.split(images,images.shape[1], 1)]
+            numbers = create_numbers(conf['sequence_length'], conf['batch_size'])
+            npy_to_gif(assemble_gif([images, numbers], num_exp=conf['batch_size']), file_path)
+
+        comp_single_video(file_path, images, num_exp=conf['batch_size'])
 
         # deltat.append(time.time() - end)
         # if i_run % 10 == 0:
@@ -384,7 +383,7 @@ def main():
         #     print(endeff[b])
 
 
-        # pdb.set_trace()
+        pdb.set_trace()
 
             # visualize_annotation(conf, images[b], robot_pos[b], object_pos[b])
         # import sys
