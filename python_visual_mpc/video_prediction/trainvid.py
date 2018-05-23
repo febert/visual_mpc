@@ -62,9 +62,7 @@ def main(unused_argv, conf_dict= None, flags=None):
         conf = conf_dict
 
     start_id = FLAGS.device
-    if 'ncam' in conf:
-        ngpu = conf['ncam']
-    else: ngpu = 1
+    ngpu = 1
     indexlist = [str(i_gpu) for i_gpu in range(start_id, start_id + ngpu)]
     var = ','.join(indexlist)
     print('using CUDA_VISIBLE_DEVICES=', var)
