@@ -105,7 +105,7 @@ def construct_initial_sigma(policyparams):
     #check that values are radjusted after fixing bug:
     if policyparams['initial_std_lift'] != 1.6:
         print('check values for initialstdlift!!')
-        pdb.set_trace()
+        # pdb.set_trace()
 
     if 'initial_std_lift' in policyparams:
         diag.append(policyparams['initial_std_lift']**2)
@@ -212,8 +212,7 @@ class CEM_controller():
 
         self.K = 10  # only consider K best samples for refitting
 
-        self.img_height = self.netconf['img_height']
-        self.img_width = self.netconf['img_width']
+        self.img_height, self.img_width = self.netconf['orig_size']
 
         # the full horizon is actions*repeat
         # self.action_cost_mult = 0.00005

@@ -364,12 +364,12 @@ def main():
         # end = time.time()
 
 
-        # for b in range(3):
-        #     print('actions {}'.format(b))
-        #     print(actions[b])
-        #
-        #     print('endeff {}'.format(b))
-        #     print(endeff[b])
+        for b in range(3):
+            print('actions {}'.format(b))
+            print(actions[b])
+
+            print('endeff {}'.format(b))
+            print(endeff[b])
 
 
         pdb.set_trace()
