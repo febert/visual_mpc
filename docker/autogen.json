@@ -1,6 +1,6 @@
 {
     "aceName": "nv-us-west-2",
-    "command": "cd /result && tensorboard --logdir . &      export VMPC_DATA_DIR=/mnt/pushing_data;     export TEN_DATA=/mnt/tensorflow_data;     export ALEX_DATA=/mnt/pretrained_models;     export RESULT_DIR=/result;     export NO_ROS='';     export PATH=/opt/conda/bin:/usr/local/mpi/bin:/usr/local/nvidia/bin:/usr/local/cuda/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin;     cd /workspace/visual_mpc/docker;python ../python_visual_mpc/visual_mpc_core/run_distributed_datacollector.py ../experiments/cem_exp/onpolicy/distributed_pushing/mod_hyper.py  --nworkers 8 --nsplit 10 --isplit 9",
+    "command": "cd /result && tensorboard --logdir . &      export VMPC_DATA_DIR=/mnt/pushing_data;     export TEN_DATA=/mnt/tensorflow_data;     export ALEX_DATA=/mnt/pretrained_models;     export RESULT_DIR=/result;     export NO_ROS='';     export PATH=/opt/conda/bin:/usr/local/mpi/bin:/usr/local/nvidia/bin:/usr/local/cuda/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin;     cd /workspace/visual_mpc/docker;python ../python_visual_mpc/visual_mpc_core/parallel_data_collection.py ../experiments/cem_exp/benchmarks/pos_ctrl/reg_startgoal_threshterm/mod_hyper.py  --nworkers 8 ",
     "dockerImageName": "ucb_rail8888/tf_mj1.5:latest",
     "datasetMounts": [
         {
@@ -149,7 +149,7 @@
         }
     ],
     "aceInstance": "ngcv8",
-    "name": "onpolicy-distributed_pushing-mod_hyper-py-nworkers-8-nsplit-10-isplit-9",
+    "name": "benchmarks-pos_ctrl-reg_startgoal_threshterm-mod_hyper-py-nworkers-8",
     "resultContainerMountPoint": "/result",
     "publishedContainerPorts": [
         6006
