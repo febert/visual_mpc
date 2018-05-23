@@ -11,7 +11,8 @@ class Alex_Interface_Model(object):
                  actions=None,
                  states=None,
                  pix_distrib= None,
-                 build_loss = False
+                 build_loss = False,
+                 load_data = True
                  ):
 
         with open(os.path.join(conf['json_dir'], "model_hparams.json")) as f:

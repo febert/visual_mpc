@@ -12,13 +12,13 @@ OUT_DIR = current_dir + '/modeldata'
 from python_visual_mpc.video_prediction.dynamic_rnn_model.dynamic_base_model import Dynamic_Base_Model
 from python_visual_mpc.video_prediction.setup_predictor_towers import setup_predictor
 
-DATA_DIR = os.environ['VMPC_DATA_DIR'] + '/cartgripper/onpolicy/distributed_pushing/train'
+DATA_DIR = os.environ['VMPC_DATA_DIR'] + '/cartgripper/onpolicy/alexmodel_2towers/train'
 PRELOAD_DATA_DIR = os.environ['VMPC_DATA_DIR'] + '/cartgripper/onpolicy/updown_sact_bounded_disc/train'
 
 onpolconf = {
     'save_interval':200,
-    'replay_size':40000,
-    'fill_replay_fromsaved':20000,              # fill replay with existing trajectories from dataset
+    'replay_size':{'train':40000, 'val':200},
+    'fill_replay_fromsaved':{'train':20000, 'val':200}         # fill replay with existing trajectories from dataset
 }
 
 config = {

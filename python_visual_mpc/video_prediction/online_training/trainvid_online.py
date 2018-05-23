@@ -34,7 +34,7 @@ Traj = namedtuple('Traj', 'images X_Xdot_full actions')
 from python_visual_mpc.video_prediction.utils_vpred.variable_checkpoint_matcher import variable_checkpoint_matcher
 
 
-def trainvid_online(replay_buffer, conf, logging_dir, onpolparam, gpu_id, printout=False):
+def trainvid_online(train_replay_buffer, val_replay_buffer, conf, logging_dir, onpolparam, gpu_id, printout=False):
     logger = Logger(logging_dir, 'trainvid_online_log.txt', printout=printout)
     logger.log('starting trainvid online')
 
@@ -59,7 +59,8 @@ def trainvid_online(replay_buffer, conf, logging_dir, onpolparam, gpu_id, printo
             tf.train.start_queue_runners(sess)
             sess.run(tf.global_variables_initializer())
 
-            preload_replay(conf, logger, onpolparam, replay_buffer, sess)
+            preload_replay(conf, logger, onpolparam, train_replay_buffer, sess, 'train')
+            preload_replay(conf, logger, onpolparam, val_replay_buffer, sess, 'val')
 
             Model = conf['pred_model']
             model = Model(conf, load_data=False, build_loss=True)
@@ -68,9 +69,15 @@ def trainvid_online(replay_buffer, conf, logging_dir, onpolparam, gpu_id, printo
             vars = filter_vars(vars)
             saving_saver = tf.train.Saver(vars, max_to_keep=0)
             summary_writer = tf.summary.FileWriter(conf['event_log_dir'], graph=sess.graph, flush_secs=10)
-            vars = variable_checkpoint_matcher(conf, vars, conf['pretrained_model'])
-            loading_saver = tf.train.Saver(vars, max_to_keep=0)
-            load_checkpoint(conf, sess, loading_saver, conf['pretrained_model'])   #TODO: support Alexmodel
+
+            if conf['pred_model'] == Alex_Interface_Model:
+                if gfile.Glob(conf['pretrained_model'] + '*') is None:
+                    raise ValueError("Model file {} not found!".format(conf['pretrained_model']))
+                model.m.restore(sess, conf['pretrained_model'])
+            else:
+                vars = variable_checkpoint_matcher(conf, vars, conf['pretrained_model'])
+                loading_saver = tf.train.Saver(vars, max_to_keep=0)
+                load_checkpoint(conf, sess, loading_saver, conf['pretrained_model'])   #TODO: support Alexmodel
 
             logger.log('-------------------------------------------------------------------')
             logger.log('verify current settings!! ')
@@ -86,13 +93,12 @@ def trainvid_online(replay_buffer, conf, logging_dir, onpolparam, gpu_id, printo
 
                 if itr % 10 == 0:
                     tstart_rb_update = time.time()
-                    logger.log('starting replay buffer update...')
-                    replay_buffer.update(sess)
-                    logger.log("took {} to update the replay buffer".format(time.time() - tstart_rb_update))
+                    train_replay_buffer.update(sess)
+                    if itr % 100 == 0:
+                        logger.log("took {} to update the replay buffer".format(time.time() - tstart_rb_update))
 
                 t_startiter = time.time()
-                images, states, actions = replay_buffer.get_batch()
-
+                images, states, actions = train_replay_buffer.get_batch()
                 if conf['pred_model'] == Alex_Interface_Model:
                     feed_dict = {
                         model.m.inputs['images']: images,
@@ -107,12 +113,29 @@ def trainvid_online(replay_buffer, conf, logging_dir, onpolparam, gpu_id, printo
                                  model.states_pl: states
                                  }
                     cost, _, summary_str = sess.run([model.loss, model.train_op, model.train_summ_op], feed_dict)
-
                 t_iter.append(time.time() - t_startiter)
-                # logger.log("iteration {} took {}s".format(itr, t_iter[-1]))
 
                 if (itr) % 10 == 0:
                     logger.log('cost ' + str(itr) + ' ' + str(cost))
+
+                if (itr) % VAL_INTERVAL == 0:
+                    val_replay_buffer.update(sess)
+                    images, states, actions = val_replay_buffer.get_batch()
+                    if conf['pred_model'] == Alex_Interface_Model:
+                        feed_dict = {
+                            model.m.inputs['images']: images,
+                            model.m.inputs['states']: images,
+                            model.m.inputs['actions']: images,
+                        }
+                        summary_str = sess.run([model.m.val_summ_op], feed_dict)
+                    else:
+                        feed_dict = {model.iter_num: np.float32(itr),
+                                     model.images_pl: images,
+                                     model.actions_pl: actions,
+                                     model.states_pl: states
+                                     }
+                        summary_str = sess.run([model.val_summ_op], feed_dict)
+                    summary_writer.add_summary(summary_str, itr)
 
                 if (itr) % VIDEO_INTERVAL == 0:
                     feed_dict = {model.iter_num: np.float32(itr),
@@ -145,12 +168,12 @@ def trainvid_online(replay_buffer, conf, logging_dir, onpolparam, gpu_id, printo
             return t_iter
 
 
-def preload_replay(conf, logger, onpolparam, replay_buffer, sess):
+def preload_replay(conf, logger, onpolparam, replay_buffer, sess, mode):
     logger.log('start prefilling replay')
     conf = copy.deepcopy(conf)
     conf['data_dir'] = conf['preload_data_dir']
-    dict = build_tfrecord_input(conf, training=True)
-    for i_run in range(onpolparam['fill_replay_fromsaved'] // conf['batch_size']):
+    dict = build_tfrecord_input(conf, mode=mode)
+    for i_run in range(onpolparam['fill_replay_fromsaved'][mode] // conf['batch_size']):
         images, actions, endeff = sess.run([dict['images'], dict['actions'], dict['endeffector_pos']])
         for b in range(conf['batch_size']):
             t = Traj(images[b], endeff[b], actions[b])
