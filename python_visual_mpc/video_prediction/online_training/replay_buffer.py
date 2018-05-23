@@ -84,10 +84,11 @@ class ReplayBuffer_Loadfiles(ReplayBuffer):
         self.conf['max_epoch'] = 1
         self.improvement_avg = []
         self.final_poscost_avg = []
+        self.mode = kwargs['mode']
 
     def update(self, sess):
         # check if new files arrived:
-        all_filenames = gfile.Glob(self.conf['data_dir'] + '/*.tfrecords')
+        all_filenames = gfile.Glob(self.conf['data_dir'] + '/' + self.mode + '/*.tfrecords')
 
         to_load_filenames = []
         for name in all_filenames:
@@ -100,7 +101,7 @@ class ReplayBuffer_Loadfiles(ReplayBuffer):
             self.logger.log(to_load_filenames)
             self.logger.log('start filling replay')
             try:
-                dict = build_tfrecord_input(self.conf, input_file=to_load_filenames)
+                dict = build_tfrecord_input(self.conf, input_files=to_load_filenames)
                 ibatch = 0
                 while True:
                     try:

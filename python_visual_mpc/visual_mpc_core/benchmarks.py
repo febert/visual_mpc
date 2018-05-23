@@ -89,7 +89,7 @@ def perform_benchmark(conf = None, iex=-1, gpu_id=None):
 
     scores_l = []
     anglecost_l = []
-    improvment_l = []
+    improvement_l = []
     initial_dist_l = []
     term_t_l = []
 
@@ -121,22 +121,21 @@ def perform_benchmark(conf = None, iex=-1, gpu_id=None):
         if not os.path.exists(record_dir):
             os.makedirs(record_dir)
         sim.agent._hyperparams['record'] = record_dir
-        sim.reset_policy()
 
-        sim._take_sample(traj)
+        sim.take_sample(traj)
 
         scores_l.append(sim.agent.final_poscost)
         anglecost_l.append(sim.agent.final_anglecost)
-        improvment_l.append(sim.agent.improvement)
+        improvement_l.append(sim.agent.improvement)
         initial_dist_l.append(sim.agent.initial_poscost)
         term_t_l.append(sim.agent.term_t)
 
-        print('improvement of traj{},{}'.format(traj, improvment_l[-1]))
+        print('improvement of traj{},{}'.format(traj, improvement_l[-1]))
         traj +=1 #increment trajectories every step!
 
         score = np.array(scores_l)
         anglecost = np.array(anglecost_l)
-        improvement = np.array(improvment_l)
+        improvement = np.array(improvement_l)
         initial_dist = np.array(initial_dist_l)
         term_t = np.array(term_t_l)
         sorted_ind = improvement.argsort()[::-1]

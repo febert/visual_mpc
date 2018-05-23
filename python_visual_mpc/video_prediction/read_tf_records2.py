@@ -71,8 +71,8 @@ def mix_datasets(datasets, ratios):
     return output
 
 
-def build_tfrecord_input(conf, mode='train', input_file=None, shuffle=True):
-    if isinstance(conf['data_dir'], dict):
+def build_tfrecord_input(conf, mode='train', input_files=None, shuffle=True):
+    if isinstance(conf['data_dir'], dict) and input_files==None:
         data_set = []
         ratios = []
 
@@ -83,15 +83,14 @@ def build_tfrecord_input(conf, mode='train', input_file=None, shuffle=True):
             data_set.append(build_tfrecord_single(conf_, mode, None, shuffle))
             ratios.append(conf['data_dir'][key])
 
-
         comb_dataset = mix_datasets(data_set, ratios)
 
         return comb_dataset
     else:
-        return build_tfrecord_single(conf, mode, input_file, shuffle)
+        return build_tfrecord_single(conf, mode, input_files, shuffle)
 
 
-def build_tfrecord_single(conf, mode='train', input_file=None, shuffle=True):
+def build_tfrecord_single(conf, mode='train', input_files=None, shuffle=True):
     """Create input tfrecord tensors.
 
     Args:
@@ -113,21 +112,18 @@ def build_tfrecord_single(conf, mode='train', input_file=None, shuffle=True):
     print('adim', adim)
     print('sdim', sdim)
 
-    if input_file is not None:
-        if not isinstance(input_file, list):
-            filenames = [input_file]
-        else: filenames = input_file
-        shuffle = False
+    if input_files is not None:
+        if not isinstance(input_files, list):
+            filenames = [input_files]
+        else: filenames = input_files
     else:
         filenames = gfile.Glob(os.path.join(conf['data_dir'], mode) + '/*')
         if mode == 'val' or mode == 'test':
             shuffle = False
         else:
             shuffle = True
-
         if not filenames:
             raise RuntimeError('No data_files files found.')
-
 
     print('using shuffle: ', shuffle)
     if shuffle:
@@ -364,12 +360,12 @@ def main():
         # end = time.time()
 
 
-        # for b in range(3):
-        #     print('actions {}'.format(b))
-        #     print(actions[b])
-        #
-        #     print('endeff {}'.format(b))
-        #     print(endeff[b])
+        for b in range(3):
+            print('actions {}'.format(b))
+            print(actions[b])
+
+            print('endeff {}'.format(b))
+            print(endeff[b])
 
 
         pdb.set_trace()

@@ -20,6 +20,7 @@ class Multi_View_Model(object):
         self.conf = conf
         self.train_cond = tf.placeholder(tf.int32, shape=[], name="train_cond")
         self.iter_num = tf.placeholder(tf.float32, [])
+        self.build_loss = build_loss
 
         if images is None:
             dict = build_tfrecord_fn(conf, mode='train')
@@ -33,6 +34,10 @@ class Multi_View_Model(object):
             if 'use_len' in conf:
                 self.images, self.states, self.actions = self.random_shift(self.images, self.states, self.actions)
             pix_distrib = None
+        else:
+            self.images = images
+            self.actions = actions
+            self.states = states
 
         self.models = []
         for icam in range(conf['ncam']):
@@ -54,11 +59,13 @@ class Multi_View_Model(object):
 
         self.gen_images = tf.concat([m.gen_images for m in self.models], axis=2)
         self.gen_states = tf.concat([m.gen_states for m in self.models], axis=2)
+        self.gen_distrib = tf.concat([m.gen_distrib for m in self.models], axis=2)
 
-        self.train_video_summaries = make_video_summaries(conf['context_frames'], [self.images[:,:,0], self.gen_images[:,:,0],
-                                                                                   self.images[:,:,1], self.gen_images[:,:,1]], 'train_images')
-        self.val_video_summaries = make_video_summaries(conf['context_frames'], [self.images[:,:,0], self.gen_images[:,:,0],
-                                                                                 self.images[:,:,1], self.gen_images[:,:,1]], 'val_images')
+        if build_loss:
+            self.train_video_summaries = make_video_summaries(conf['context_frames'], [self.images[:,:,0], self.gen_images[:,:,0],
+                                                                                       self.images[:,:,1], self.gen_images[:,:,1]], 'train_images')
+            self.val_video_summaries = make_video_summaries(conf['context_frames'], [self.images[:,:,0], self.gen_images[:,:,0],
+                                                                                     self.images[:,:,1], self.gen_images[:,:,1]], 'val_images')
 
     def buildnet(self, icam, conf, images, pix_distrib, states, actions):
         print('building network for cam{}'.format(icam))
@@ -66,7 +73,7 @@ class Multi_View_Model(object):
         if pix_distrib is not None:
             pix_distrib = pix_distrib[:, :, icam]
         model = Dynamic_Base_Model(conf, images, actions, states, pix_distrib=pix_distrib,
-                                        build_loss=True, load_data=False, iternum=self.iter_num)
+                                   build_loss=self.build_loss, load_data=False, iternum=self.iter_num)
         return model
 
     def random_shift(self, images, states, actions):

@@ -107,6 +107,7 @@ def setup_predictor(hyperparams, conf, gpu_id=0, ngpu=1, logger=None):
             else:
                 pix_distrib = tf.placeholder(use_dtype, shape=(1, conf['context_frames'], ncam, orig_size[0], orig_size[1], conf['ndesig']))
 
+
             # making the towers
             towers = []
             for i_gpu in range(ngpu):
@@ -122,10 +123,18 @@ def setup_predictor(hyperparams, conf, gpu_id=0, ngpu=1, logger=None):
             vars = filter_vars(vars)
 
             if 'load_latest' in hyperparams:
-                saver = tf.train.Saver(vars, max_to_keep=0)
                 conf['pretrained_model'] = get_maxiter_weights('/result/modeldata')
                 logger.log('loading {}'.format(conf['pretrained_model']))
-                saver.restore(sess, conf['pretrained_model'])
+                if conf['pred_model'] == Alex_Interface_Model:
+                    if gfile.Glob(conf['pretrained_model'] + '*') is None:
+                        raise ValueError("Model file {} not found!".format(conf['pretrained_model']))
+                    towers[0].model.m.restore(sess, conf['pretrained_model'])
+                else:
+                    vars = variable_checkpoint_matcher(conf, vars, conf['pretrained_model'])
+                    saver = tf.train.Saver(vars, max_to_keep=0)
+                    if gfile.Glob(conf['pretrained_model'] + '*') is None:
+                        raise ValueError("Model file {} not found!".format(conf['pretrained_model']))
+                    saver.restore(sess, conf['pretrained_model'])
             else:
                 if conf['pred_model'] == Alex_Interface_Model:
                     if 'ALEX_DATA' in os.environ:

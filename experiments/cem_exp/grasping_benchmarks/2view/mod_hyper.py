@@ -31,7 +31,8 @@ agent = {
     'additional_viewer':'',
     'data_save_dir':current_dir + '/data/train',
     'posmode':"",
-    'targetpos_clip':[[-0.45, -0.45, -0.08, -np.pi*2, -100], [0.45, 0.45, 0.15, np.pi*2, 100]], ##
+    'targetpos_clip':[[-0.45, -0.45, -0.08, -np.pi*2, -100], [0.45, 0.45, 0.15, np.pi*2, 100]], ###########3
+    # 'targetpos_clip':[[-0.45, -0.45, -0.08, -np.pi*2, 0.], [0.45, 0.45, 0.15, np.pi*2, 0.1]],
     'mode_rel':np.array([True, True, True, True, False]),
     'cameras':['maincam', 'leftcam'],
     'verbose':"",

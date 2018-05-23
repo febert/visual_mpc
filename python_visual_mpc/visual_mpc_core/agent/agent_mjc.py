@@ -321,10 +321,6 @@ class AgentMuJoCo(object):
                     ctrl = self.get_int_targetpos(st, self.prev_target_qpos, self.target_qpos)
                 self.sim.data.ctrl[:] = ctrl
                 self.sim.step()
-                # width = self._hyperparams['viewer_image_width']
-                # height = self._hyperparams['viewer_image_height']
-                # cv2.imwrite('test_rec/test{}.jpg'.format(t * self._hyperparams['substeps'] + st), self.sim.render(width, height, camera_name="maincam")[::-1, :, ::-1])
-
                 self.hf_qpos_l.append(copy.deepcopy(self.sim.data.qpos))
                 self.hf_target_qpos_l.append(copy.deepcopy(ctrl))
 
@@ -332,12 +328,10 @@ class AgentMuJoCo(object):
                 traj.goal_dist.append(self.eval_action(traj, t)[0])
 
             if 'term_dist' in self._hyperparams:
-                if traj.goal_dist[-1] < self._hyperparams['term_dist'] or (self._hyperparams['T']-1) == t:
-
+                if traj.goal_dist[-1] < self._hyperparams['term_dist']:
                     done = True
-            else:
-                if (self._hyperparams['T']-1) == t:
-                    done = False
+            if (self._hyperparams['T']-1) == t:
+                done = True
             if done:
                 traj.term_t = t
             t += 1
@@ -494,8 +488,8 @@ class AgentMuJoCo(object):
 
         if 'cameras' in self._hyperparams:
             for i, cam in enumerate(self._hyperparams['cameras']):
+                pdb.set_trace()
                 large_img = self.sim.render(width, height, camera_name=cam)[::-1, :, :]
-
                 if np.sum(large_img) < 1e-3:
                     print("image dark!!!")
                     raise Image_dark_except
@@ -649,6 +643,8 @@ class AgentMuJoCo(object):
                             delta_pos = np.concatenate([np.random.uniform(-pos_disp, pos_disp, 2), np.zeros([1])])
                         newpos = pose[:3] + delta_pos
 
+                        if 'lift_object' in self._hyperparams:
+                            newpos[2] = 0.15
                         if np.any(newpos[:2] > 0.35) or np.any(newpos[:2] < -0.35):   # check if in field
                             continue
                         else:
