@@ -500,6 +500,8 @@ class AgentMuJoCo(object):
 
                 if 'make_gtruth_flows' in self._hyperparams:
                     traj.largeimage[t, i] = large_img
+
+                    pdb.set_trace()
                     dlarge_img = self.sim.render(width, height, camera_name="maincam", depth=True)[1][::-1, :]
                     traj.largedimage[t, i] = dlarge_img
         else:
