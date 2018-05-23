@@ -9,7 +9,7 @@ def setup_openloop_predictor(imitation_conf, gpu_id = 0):
     if gpu_id == None:
         gpu_id = 0
     os.environ["CUDA_VISIBLE_DEVICES"] = str(gpu_id)
-    print('using CUDA_VISIBLE_DEVICES=', os.environ["CUDA_VISIBLE_DEVICES"])
+    print('using CUDA_VISIBLE_DEVICES=', os.environ["CUDA_VISIBLE_DEVICES"] )
 
     imitation_config_fpath, pretrained_model = imitation_conf
 
@@ -19,17 +19,20 @@ def setup_openloop_predictor(imitation_conf, gpu_id = 0):
     loader.exec_module(conf)
     net_config = conf.configuration
 
-    pretrained_path = os.path.join(net_config['model_dir'], self.policyparams['pretrained'])
+    pretrained_path = os.path.join(net_config['model_dir'], pretrained_model)
 
-    images_pl = tf.placeholder(tf.uint8, [1, None, self.img_height, self.img_width, 3])
-    actions = tf.placeholder(tf.float32, [1, None, self.adim])
-    end_effector_pos_pl = tf.placeholder(tf.float32, [1, None, self.sdim])
+    img_height, img_width = net_config['orig_size']
+    adim, sdim = net_config['adim'], net_config['sdim']
 
-    with tf.variable_scope('model', reuse=None) as training_scope:
-        model = net_config['model'](self.net_config, images_pl, actions, end_effector_pos_pl)
+    images_pl = tf.placeholder(tf.uint8, [1, None, img_height, img_width, 3])
+    actions = tf.placeholder(tf.float32, [1, None, adim])
+    end_effector_pos_pl = tf.placeholder(tf.float32, [1, None, sdim])
+
+    with tf.variable_scope('model', reuse=None) as imitation_scope:
+        model = net_config['model'](net_config, images_pl, actions, end_effector_pos_pl)
         model.build_sim()
 
-    vars = tf.get_collection(tf.GraphKeys.GLOBAL_VARIABLES)
+    vars = tf.get_collection(tf.GraphKeys.GLOBAL_VARIABLES, scope = 'model')
     saver = tf.train.Saver(vars, max_to_keep=0)
 
     gpu_options = tf.GPUOptions(per_process_gpu_memory_fraction=0.1)
@@ -40,12 +43,9 @@ def setup_openloop_predictor(imitation_conf, gpu_id = 0):
     print('restoring model from {}'.format(pretrained_path))
     saver.restore(sess, pretrained_path)
 
-    def predict(past_images, past_eeps, n_samples):
-        print('past_images', past_images.shape, past_images.dtype)
-        print(past_images)
-        print('past_eeps', past_eeps.shape, past_eeps.dtype)
-        sample_images = past_images.reshape((1, -1, self.img_height, self.img_width, 3)).astype(np.uint8)
-        sample_eep = past_eeps.reshape((1, -1, self.sdim)).astype(np.float32)
+    def predict(past_images, past_eeps, n_samples, over_sample_factor = 3):
+        images = past_images.reshape((1, -1, img_height, img_width, 3)).astype(np.uint8)
+        end_effector = past_eeps.reshape((1, -1, sdim)).astype(np.float32)
         
         f_dict = {images_pl: images, end_effector_pos_pl : end_effector}
 
@@ -55,16 +55,16 @@ def setup_openloop_predictor(imitation_conf, gpu_id = 0):
         last_state = np.repeat(past_eeps[-1].reshape((1, -1)), n_samples, axis = 0)
    
         for i in range(net_config['sequence_length']):
-            samps, samps_log_l = gen_mix_samples(n_samples, mdn_means[0, i], mdn_std_dev[0, i], mdn_mix[0, i])
+            samps, samps_log_l = gen_mix_samples(n_samples * over_sample_factor, mdn_means[0, i], mdn_std_dev[0, i], mdn_mix[0, i])
             for j in range(n_samples):
                 if samps[j, -1] >= 0.05:
                     samps[j, -1] = 21
                 else:
                     samps[j, -1] = -100
-            action[i, :, :4] = samps[:, :4] - last_state[:, :4]
-            action[i, :, -1] = samps[:, -1]
+            action[i, :, :4] = samps[:n_samples, :4] - last_state[:, :4]
+            action[i, :, -1] = samps[:n_samples, -1]
 
-            last_state = samps
+            last_state = samps[:n_samples]
 
-        return action 
+        return np.transpose(action, (1, 0, 2))
     return predict

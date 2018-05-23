@@ -103,19 +103,19 @@ def visualize_diffmotions(sess, conf, model):
     copied_conf['sequence_length'] = 2
 
     dict = build_tfrecord_input(conf, training=False)
-    val_images, _, val_states = dict['images'], dict['actions'], dict['endeffector_pos']
+    val_images, val_actions, val_states = dict['images'], dict['actions'], dict['endeffector_pos']
 
     tf.train.start_queue_runners(sess)
-    img, state = sess.run([val_images, val_states])
+    img, state, gtruth_actions = sess.run([val_images, val_states, val_actions])
 
     sel_img= img[b_exp,ind0:ind0+2]
 
     statedim = conf['sdim']
     adim = conf['adim']
 
-    c = Getdesig(sel_img[0], conf, 'b{}'.format(b_exp))
-    desig_pos = c.coords.astype(np.int32).reshape([1,2])
-    #desig_pos = np.array([36, 16]).reshape([1,2])
+    #c = Getdesig(sel_img[0], conf, 'b{}'.format(b_exp))
+    #desig_pos = c.coords.astype(np.int32).reshape([1,2])
+    desig_pos = np.array([36, 16]).reshape([1,2])
     print("selected designated position for aux1 [row,col]:", desig_pos)
 
     one_hot = create_one_hot(conf, [desig_pos])[0]
@@ -180,6 +180,13 @@ def visualize_diffmotions(sess, conf, model):
         actions[b, 0, 4] = 4
         actions[b, 1, 4] = 4
         col_titles.append('close/open')
+    if 'openloop_setup' in conf:
+        imitation_predictor = conf['openloop_setup'](conf['openloop_conf'])
+
+        sel_1 = (sel_img[1] * 255).astype(np.uint8).reshape((1, 1, -1))
+        imitation_state = conf['openloop_conv_state'](sel_state[1], gtruth_actions[b_exp, 0])
+
+        actions = imitation_predictor(sel_1, imitation_state, conf['batch_size'])[:,:-1]
 
     if 'float16' in conf:
         use_dtype = np.float16
