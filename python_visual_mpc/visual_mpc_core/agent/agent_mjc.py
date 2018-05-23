@@ -76,8 +76,8 @@ def get_target_qpos(target_qpos, _hyperparams, mj_U, t, gripper_up, gripper_clos
 
     pos_clip = _hyperparams['targetpos_clip']
     target_qpos = np.clip(target_qpos, pos_clip[0], pos_clip[1])
-    print('mjU', mj_U)
-    print('targetqpos', target_qpos)
+    # print('mjU', mj_U)
+    # print('targetqpos', target_qpos)
     return target_qpos, t_down, gripper_up, gripper_closed
 
 
