@@ -118,7 +118,7 @@ class Visual_MPC_Client():
 
         self.action_sequence_length = self.agentparams['T'] # number of snapshots that are taken
         self.use_robot = True
-        self.robot_move = True #######
+        self.robot_move = False #######
         self.reset_active = False # used by the gui to abort trajectories.
 
         self.save_subdir = ""
@@ -319,7 +319,8 @@ class Visual_MPC_Client():
                     done = True
                 except Too_few_objects_found_except:
                     print('too few objects found, redistributing !!')
-                    self.redistribute_objects()
+                    if self.robot_move:
+                        self.redistribute_objects()
                 except Traj_aborted_except:
                     self.recorder.delete_traj(tr)
                     nfail_traj +=1
@@ -422,7 +423,8 @@ class Visual_MPC_Client():
         print('setting neutral')
         rospy.sleep(.1)
         # drive to neutral position:
-        self.set_neutral_with_impedance()
+        if self.robot_move:
+            self.set_neutral_with_impedance()
         rospy.sleep(.1)
 
         if self.ctrl.sawyer_gripper:
@@ -447,11 +449,11 @@ class Visual_MPC_Client():
 
         if self.data_collection:
             rospy.sleep(.1)
-            im = cv2.cvtColor(self.recorder.ltob.img_cv2, cv2.COLOR_BGR2RGB)
             if self.rpn_tracker == None:
                 self.desig_pos_main[0] = np.zeros(2)
                 self.goal_pos_main[0] = np.zeros(2)
             else:
+                im = cv2.cvtColor(self.recorder.ltob.img_cv2, cv2.COLOR_BGR2RGB)
                 single_desig_pos, single_goal_pos = self.rpn_tracker.get_task(im,self.recorder.traj_folder)
                 self.desig_pos_main[0] = single_desig_pos
                 self.goal_pos_main[0] = single_goal_pos
@@ -464,7 +466,7 @@ class Visual_MPC_Client():
         if self.netconf != {}:
             self.init_visual_mpc_server()
 
-        self.lower_height = 0.23  # using old gripper : 0.16
+        self.lower_height = 0.22  # using old gripper : 0.16
         self.delta_up = 0.13
 
         self.xlim = [0.46, 0.83]  # min, max in cartesian X-direction
@@ -855,6 +857,7 @@ class Visual_MPC_Client():
 
 
     def redistribute_objects(self):
+
         self.set_neutral_with_impedance(duration=1.5)
         print('redistribute...')
 
