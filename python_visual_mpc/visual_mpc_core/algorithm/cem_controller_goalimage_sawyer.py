@@ -474,8 +474,10 @@ class CEM_controller():
         if 'compare_mj_planner_actions' in self.agentparams:
             actions[0] = self.traj.mj_planner_actions
 
-        nruns = self.bsize//200
-        assert self.bsize % 200 == 0, "batchsize needs to be multiple of 200"
+        if self.bsize > 200:
+            nruns = self.bsize//200
+            assert self.bsize % 200 == 0, "batchsize needs to be multiple of 200"
+        else: nruns = 1
         gen_images_l, gen_distrib_l, gen_states_l = [], [], []
         for run in range(nruns):
             self.logger.log('run{}'.format(run))

@@ -20,6 +20,8 @@ from python_visual_mpc.visual_mpc_core.agent.utils.get_masks import get_obj_mask
 from python_visual_mpc.visual_mpc_core.agent.utils.gen_gtruth_desig import gen_gtruthdesig
 from python_visual_mpc.visual_mpc_core.agent.utils.convert_world_imspace_mj1_5 import project_point, get_3D
 
+from python_visual_mpc.visual_mpc_core.agent.agent_mjc import get_target_qpos
+
 
 class CEM_controller(Policy):
     """
@@ -259,10 +261,6 @@ class CEM_controller(Policy):
         file_path = self.agentparams['record']
         npy_to_gif(images, file_path +'/video'+name)
 
-    def clip_targetpos(self, pos):
-        pos_clip = self.agentparams['targetpos_clip']
-        return np.clip(pos, pos_clip[0], pos_clip[1])
-
     def sim_rollout(self, actions):
         costs = []
         self.hf_qpos_l = []
@@ -271,6 +269,7 @@ class CEM_controller(Policy):
         images = []
         self.gripper_closed = False
         self.gripper_up = False
+        self.t_down = 0
         # print('start episdoe')
 
         for t in range(self.nactions*self.repeat):
@@ -284,33 +283,7 @@ class CEM_controller(Policy):
                 else:
                     self.prev_target_qpos = copy.deepcopy(self.target_qpos)
 
-                if 'discrete_adim' in self.agentparams:
-                    up_cmd = mj_U[2]
-                    assert np.floor(up_cmd) == up_cmd
-                    if up_cmd != 0:
-                        self.t_down = t + up_cmd
-                        self.target_qpos[2] = self.agentparams['targetpos_clip'][1][2]
-                        self.gripper_up = True
-                    if self.gripper_up:
-                        if t == self.t_down:
-                            self.target_qpos[2] = self.agentparams['targetpos_clip'][0][2]
-                            self.gripper_up = False
-                    self.target_qpos[:2] += mj_U[:2]
-                    if self.adim == 4:
-                        self.target_qpos[3] += mj_U[3]
-                elif 'close_once_actions' in self.agentparams:
-                    assert self.adim == 5
-                    self.target_qpos[:4] = mj_U[:4] + self.target_qpos[:4]
-                    grasp_thresh = 0.5
-                    if mj_U[4] > grasp_thresh:
-                        self.gripper_closed = True
-                    if self.gripper_closed:
-                        self.target_qpos[4] = 0.1
-                    else:
-                        self.target_qpos[4] = 0.0
-                else:
-                    self.target_qpos = mj_U + self.target_qpos
-                self.target_qpos = self.clip_targetpos(self.target_qpos)
+                self.target_qpos, self.t_down, self.gripper_up, self.gripper_closed = get_target_qpos(self.target_qpos, self.agentparams, mj_U, t, self.gripper_up, self.gripper_closed, self.t_down)
                 # print('target_qpos', self.target_qpos)
             else:
                 ctrl = mj_U.copy()

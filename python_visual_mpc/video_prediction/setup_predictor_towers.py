@@ -18,9 +18,7 @@ import re
 class Tower(object):
     def __init__(self, conf, gpu_id, start_images, actions, start_states, pix_distrib):
 
-        assert conf['batch_size'] % 200 == 0, "batchsize needs to be multiple of 200"
-        _batch_size_perrun = 200
-        nsmp_per_gpu = _batch_size_perrun // conf['ngpu']
+        nsmp_per_gpu = conf['batch_size']// conf['ngpu']
         # setting the per gpu batch_size
 
         # picking different subset of the actions for each gpu
@@ -95,10 +93,12 @@ def setup_predictor(hyperparams, conf, gpu_id=0, ngpu=1, logger=None):
             logger.log('adim', adim)
             logger.log('sdim', sdim)
 
-            assert conf['batch_size'] % 200 == 0, "batchsize needs to be multiple of 200"
-            _batch_size_perrun = 200
+            if conf['batch_size'] > 200:
+                assert conf['batch_size'] % 200 == 0, "batchsize needs to be multiple of 200"
+                conf['batch_size'] = 200
+
             actions_pl = tf.placeholder(use_dtype, name='actions',
-                                        shape=(_batch_size_perrun, conf['sequence_length'], adim))
+                                        shape=(conf['batch_size'], conf['sequence_length'], adim))
             states_pl = tf.placeholder(use_dtype, name='states',
                                        shape=(1, conf['context_frames'], sdim))
 
