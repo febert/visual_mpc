@@ -22,9 +22,9 @@ class Multi_View_Model(object):
         self.iter_num = tf.placeholder(tf.float32, [])
 
         if images is None:
-            dict = build_tfrecord_fn(conf, training=True)
+            dict = build_tfrecord_fn(conf, mode='train')
             train_images, train_actions, train_states = dict['images'], dict['actions'], dict['endeffector_pos']
-            dict = build_tfrecord_fn(conf, training=False)
+            dict = build_tfrecord_fn(conf, mode='val')
             val_images, val_actions, val_states = dict['images'], dict['actions'], dict['endeffector_pos']
 
             self.images, self.actions, self.states = tf.cond(self.train_cond > 0,  # if 1 use trainigbatch else validation batch

@@ -74,7 +74,7 @@ def mix_datasets(dataset0, dataset1, ratio_01):
     return output
 
 
-def build_tfrecord_input(conf, training=True, input_file=None, shuffle=True):
+def build_tfrecord_input(conf, mode='train', input_file=None, shuffle=True):
     if isinstance(conf['data_dir'], (list, tuple)):
         if len(conf['data_dir']) > 2:
             print("WARNING ONLY MIXES TWO DATASETS WITH LIST PASSED IN")
@@ -82,7 +82,7 @@ def build_tfrecord_input(conf, training=True, input_file=None, shuffle=True):
         for dir in conf['data_dir']:
             conf_ = copy.deepcopy(conf)
             conf_['data_dir'] = dir
-            data_set.append(build_tfrecord_single(conf_, training, None, shuffle))
+            data_set.append(build_tfrecord_single(conf_, mode, None, shuffle))
 
         comb_dataset = mix_datasets(data_set[0], data_set[1], 0.5)
         return comb_dataset
@@ -94,7 +94,7 @@ def build_tfrecord_input(conf, training=True, input_file=None, shuffle=True):
             conf_ = copy.deepcopy(conf)
             conf_['data_dir'] = dir
             print('loading', dir)
-            data_set.append(build_tfrecord_single(conf_, training, None, shuffle))
+            data_set.append(build_tfrecord_single(conf_, mode, None, shuffle))
 
         comb_dataset = data_set[0]
         total_prob = conf['data_dir'][data_sources[0]]
@@ -111,7 +111,7 @@ def build_tfrecord_input(conf, training=True, input_file=None, shuffle=True):
         return build_tfrecord_single(conf, training, input_file, shuffle)
 
 
-def build_tfrecord_single(conf, training=True, input_file=None, shuffle=True):
+def build_tfrecord_single(conf, mode='train', input_file=None, shuffle=True):
     """Create input tfrecord tensors.
 
     Args:
@@ -139,19 +139,11 @@ def build_tfrecord_single(conf, training=True, input_file=None, shuffle=True):
         else: filenames = input_file
         shuffle = False
     else:
-        filenames = gfile.Glob(os.path.join(conf['data_dir'], '*'))
-        
+        filenames = gfile.Glob(os.path.join(conf['data_dir'], mode) + '/*')
+
         if not filenames:
             raise RuntimeError('No data_files files found.')
-        if 'train_val_split' in conf:
-            index = int(np.floor(conf['train_val_split'] * len(filenames)))
-            if training:
-                filenames = filenames[:index]
-            else:
-                filenames = filenames[index:]
-            if conf['visualize']:  #if visualize do not perform train val split
-                filenames = gfile.Glob(os.path.join(conf['data_dir'], '*'))
-                shuffle = False
+
 
     print('using shuffle: ', shuffle)
     if shuffle:
