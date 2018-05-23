@@ -31,12 +31,13 @@ agent = {
     'sample_objectpos':'',
     'randomize_ballinitpos':'',
     'const_dist':0.0,
-    'lift_obejct':"",
+    'lift_object':"",
     'data_save_dir':current_dir + '/data/train',
     'logging_dir':current_dir + '/logging',
     'posmode':"",
     'targetpos_clip':[[-0.45, -0.45, -0.08, -np.pi*2, -100], [0.45, 0.45, 0.15, np.pi*2, 100]], ##
     'mode_rel':np.array([True, True, True, True, False]),
+    'cameras':['maincam', 'leftcam'],
 }
 
 policy = {

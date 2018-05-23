@@ -637,14 +637,14 @@ class AgentMuJoCo(object):
                         if 'const_dist' in self._hyperparams:
                             assert 'pos_disp_range' not in self._hyperparams
                             d = self._hyperparams['const_dist']
-                            delta_pos = np.array([d*np.cos(alpha), d*np.sin(alpha)])
+                            delta_pos = np.array([d*np.cos(alpha), d*np.sin(alpha), 0.])
                         else:
                             pos_disp = self._hyperparams['pos_disp_range']
-                            delta_pos = np.concatenate([np.random.uniform(-pos_disp, pos_disp, 2)])
-                        newpos = pose[:2] + delta_pos
+                            delta_pos = np.concatenate([np.random.uniform(-pos_disp, pos_disp, 2), np.zeros([1])])
+                        newpos = pose[:3] + delta_pos
+
                         if 'lift_object' in self._hyperparams:
                             newpos[2] = 0.15
-
                         if np.any(newpos[:2] > 0.35) or np.any(newpos[:2] < -0.35):   # check if in field
                             continue
                         else:
