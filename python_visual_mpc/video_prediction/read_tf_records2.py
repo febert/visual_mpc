@@ -72,18 +72,7 @@ def mix_datasets(datasets, ratios):
 
 
 def build_tfrecord_input(conf, mode='train', input_file=None, shuffle=True):
-    if isinstance(conf['data_dir'], (list, tuple)):
-        if len(conf['data_dir']) > 2:
-            print("WARNING ONLY MIXES TWO DATASETS WITH LIST PASSED IN")
-        data_set = []
-        for dir in conf['data_dir']:
-            conf_ = copy.deepcopy(conf)
-            conf_['data_dir'] = dir
-            data_set.append(build_tfrecord_single(conf_, mode, None, shuffle))
-
-        comb_dataset = mix_datasets(data_set[0], data_set[1], 0.5)
-        return comb_dataset
-    elif isinstance(conf['data_dir'], dict):
+    if isinstance(conf['data_dir'], dict):
         data_set = []
         ratios = []
 
