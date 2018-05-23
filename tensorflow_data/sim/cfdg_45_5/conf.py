@@ -10,7 +10,7 @@ DATA_DIR = os.environ['VMPC_DATA_DIR'] + '/cartgripper_det_grasp/train'
 OUT_DIR = current_dir + '/modeldata'
 
 from python_visual_mpc.video_prediction.dynamic_rnn_model.dynamic_base_model import Dynamic_Base_Model
-
+from python_visual_mpc.video_prediction.setup_predictor_towers import setup_predictor
 configuration = {
 'experiment_name': 'rndaction_var10',
 'pred_model':Dynamic_Base_Model,
@@ -39,5 +39,6 @@ configuration = {
 'sdim':12,
 'normalization':'in',
 'previmg_bckgd':'',
-'orig_size':[48,64]
+'orig_size':[48,64],
+'setup_predictor' : setup_predictor
 }

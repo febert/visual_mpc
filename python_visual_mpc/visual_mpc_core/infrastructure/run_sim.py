@@ -56,6 +56,9 @@ class Sim(object):
                 gdnconf = params.configuration
                 self.goal_image_warper = setup_gdn(gdnconf, gpu_id)
                 self.policy = config['policy']['type'](config['agent'], config['policy'], self.predictor, self.goal_image_warper)
+            elif 'imitation_conf' in config['policy']:
+                self.imitation_policy = config['policy']['imitation_setup'](config['policy']['imitation_conf'])
+                self.policy = config['policy']['type'](config['agent'], config['policy'], self.predictor, self.imitation_policy)
             else:
                 self.policy = config['policy']['type'](config['agent'], config['policy'], self.predictor)
         else:
@@ -74,6 +77,8 @@ class Sim(object):
             if 'warp_objective' in self.policyparams or 'register_gtruth' in self.policyparams:
                 self.policy = self.policyparams['type'](self.agent._hyperparams,
                                                               self.policyparams, self.predictor, self.goal_image_warper)
+            elif 'imitation_conf' in self.policyparams:
+                self.policy = self.policyparams['type'](self.agent._hyperparams, self.policyparams, self.predictor, self.imitation_policy)
             else:
                 self.policy = self.policyparams['type'](self.agent._hyperparams,
                                                               self.policyparams, self.predictor)

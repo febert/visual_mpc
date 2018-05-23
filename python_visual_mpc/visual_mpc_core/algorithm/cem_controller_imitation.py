@@ -8,6 +8,8 @@ class Imitation_CEM_controller(CEM_controller):
         self.imitation_policy = imitation_policy
 
     def sample_actions(self, last_frames, last_states):
+        print('last_frames', last_frames.shape, last_frames.dtype)
         print(last_frames)
+        print('last_state', last_states.shape, last_states.dtype)
         print(last_states)
         print(1 / 0)

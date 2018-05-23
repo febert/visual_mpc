@@ -115,7 +115,7 @@ def visualize_diffmotions(sess, conf, model):
 
     c = Getdesig(sel_img[0], conf, 'b{}'.format(b_exp))
     desig_pos = c.coords.astype(np.int32).reshape([1,2])
-    # desig_pos = np.array([36, 16]).reshape([1,2])
+    #desig_pos = np.array([36, 16]).reshape([1,2])
     print("selected designated position for aux1 [row,col]:", desig_pos)
 
     one_hot = create_one_hot(conf, [desig_pos])[0]
