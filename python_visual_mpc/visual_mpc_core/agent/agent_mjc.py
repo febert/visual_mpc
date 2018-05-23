@@ -488,8 +488,8 @@ class AgentMuJoCo(object):
 
         if 'cameras' in self._hyperparams:
             for i, cam in enumerate(self._hyperparams['cameras']):
+                pdb.set_trace()
                 large_img = self.sim.render(width, height, camera_name=cam)[::-1, :, :]
-
                 if np.sum(large_img) < 1e-3:
                     print("image dark!!!")
                     raise Image_dark_except
@@ -500,8 +500,6 @@ class AgentMuJoCo(object):
 
                 if 'make_gtruth_flows' in self._hyperparams:
                     traj.largeimage[t, i] = large_img
-
-                    pdb.set_trace()
                     dlarge_img = self.sim.render(width, height, camera_name="maincam", depth=True)[1][::-1, :]
                     traj.largedimage[t, i] = dlarge_img
         else:
