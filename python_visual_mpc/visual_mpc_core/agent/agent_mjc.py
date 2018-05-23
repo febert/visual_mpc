@@ -240,7 +240,6 @@ class AgentMuJoCo(object):
         done = False
         while not done:
             qpos_dim = self.sdim // 2  # the states contains pos and vel
-            pdb.set_trace()
             traj.X_full[t, :] = self.sim.data.qpos[:qpos_dim].squeeze().copy()
             traj.Xdot_full[t, :] = self.sim.data.qvel[:qpos_dim].squeeze().copy()
             traj.X_Xdot_full[t, :] = np.concatenate([traj.X_full[t, :], traj.Xdot_full[t, :]])
@@ -329,12 +328,10 @@ class AgentMuJoCo(object):
                 traj.goal_dist.append(self.eval_action(traj, t)[0])
 
             if 'term_dist' in self._hyperparams:
-                if traj.goal_dist[-1] < self._hyperparams['term_dist'] or (self._hyperparams['T']-1) == t:
-
+                if traj.goal_dist[-1] < self._hyperparams['term_dist']:
                     done = True
-            else:
-                if (self._hyperparams['T']-1) == t:
-                    done = False
+            if (self._hyperparams['T']-1) == t:
+                done = True
             if done:
                 traj.term_t = t
             t += 1
