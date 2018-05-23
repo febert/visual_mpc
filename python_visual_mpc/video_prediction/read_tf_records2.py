@@ -72,7 +72,7 @@ def mix_datasets(datasets, ratios):
 
 
 def build_tfrecord_input(conf, mode='train', input_files=None, shuffle=True):
-    if isinstance(conf['data_dir'], dict) and input_files=None:
+    if isinstance(conf['data_dir'], dict) and input_files==None:
         data_set = []
         ratios = []
 
