@@ -91,6 +91,7 @@ def perform_benchmark(conf = None, iex=-1, gpu_id=None):
     anglecost_l = []
     improvment_l = []
     initial_dist_l = []
+    term_t_l = []
 
     if 'sourcetags' in conf:  # load data per trajectory
         if 'VMPC_DATA_DIR' in os.environ:
@@ -128,6 +129,7 @@ def perform_benchmark(conf = None, iex=-1, gpu_id=None):
         anglecost_l.append(sim.agent.final_anglecost)
         improvment_l.append(sim.agent.improvement)
         initial_dist_l.append(sim.agent.initial_poscost)
+        term_t_l.append(sim.agent.term_t)
 
         print('improvement of traj{},{}'.format(traj, improvment_l[-1]))
         traj +=1 #increment trajectories every step!
@@ -136,6 +138,7 @@ def perform_benchmark(conf = None, iex=-1, gpu_id=None):
         anglecost = np.array(anglecost_l)
         improvement = np.array(improvment_l)
         initial_dist = np.array(initial_dist_l)
+        term_t = np.array(term_t_l)
         sorted_ind = improvement.argsort()[::-1]
 
         pickle.dump({'improvement':improvement, 'scores':score, 'anglecost':anglecost}, open(scores_pkl_file, 'wb'))
@@ -146,7 +149,11 @@ def perform_benchmark(conf = None, iex=-1, gpu_id=None):
         med_dist = np.median(score)
 
         f = open(result_file, 'w')
-        f.write('experiment name: ' + benchmark_name + '\n')
+        if 'term_dist' in conf['agent']:
+            tlen = conf['agent']['T']
+            nsucc_frac = len(np.where(term_t != (tlen-1)))/tlen
+            f.write('percent success: {}%\n'.format(nsucc_frac *100))
+            f.write('---\n')
         f.write('overall best pos improvement: {0} of traj {1}\n'.format(improvement[sorted_ind[0]], sorted_ind[0]))
         f.write('overall worst pos improvement: {0} of traj {1}\n'.format(improvement[sorted_ind[-1]], sorted_ind[-1]))
         f.write('average pos improvemnt: {0}\n'.format(mean_imp))
@@ -174,11 +181,11 @@ def perform_benchmark(conf = None, iex=-1, gpu_id=None):
                 f.write('{}: {}, {}, {}, :{}\n'.format(t, improvement[n], score[n], improvement[n] > 0.05,
                                                        np.where(sorted_ind == n)[0][0]))
         else:
-            f.write('traj: improv, score, anglecost, rank\n')
+            f.write('traj: improv, score, term_t, rank\n')
             f.write('----------------------\n')
 
             for n, t in enumerate(range(conf['start_index'], traj)):
-                f.write('{}: {}, {}, {}, :{}\n'.format(t, improvement[n], score[n], anglecost[n], np.where(sorted_ind == n)[0][0]))
+                f.write('{}: {}, {}, {}, :{}\n'.format(t, improvement[n], score[n], term_t[n], np.where(sorted_ind == n)[0][0]))
 
         f.close()
 

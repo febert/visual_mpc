@@ -132,6 +132,7 @@ class AgentMuJoCo(object):
             self.initial_poscost, _ = self.eval_action(traj, 0)
             self.initial_poscost = np.mean(self.initial_poscost)
             self.improvement = self.initial_poscost - self.final_poscost
+            self.term_t = traj.term_t
             traj.improvement = self.improvement
             traj.final_poscost = self.final_poscost
             traj.initial_poscost = self.initial_poscost
@@ -235,7 +236,9 @@ class AgentMuJoCo(object):
             self.hide_arm_store_image(0, traj)
 
         # Take the sample.
-        for t in range(self.T):
+        t = 0
+        done = False
+        while not done:
             qpos_dim = self.sdim // 2  # the states contains pos and vel
             traj.X_full[t, :] = self.sim.data.qpos[:qpos_dim].squeeze().copy()
             traj.Xdot_full[t, :] = self.sim.data.qvel[:qpos_dim].squeeze().copy()
@@ -327,6 +330,17 @@ class AgentMuJoCo(object):
 
             if self.goal_obj_pose is not None:
                 traj.goal_dist.append(self.eval_action(traj, t)[0])
+
+            if 'term_dist' in self._hyperparams:
+                if traj.goal_dist[-1] < self._hyperparams['term_dist'] or (self._hyperparams['T']-1) == t:
+
+                    done = True
+            else:
+                if (self._hyperparams['T']-1) == t:
+                    done = False
+            if done:
+                traj.term_t = t
+            t += 1
 
         if 'first_last_noarm' in self._hyperparams:
             self.hide_arm_store_image(1, traj)

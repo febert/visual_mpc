@@ -12,7 +12,8 @@ from python_visual_mpc.visual_mpc_core.agent.agent_mjc import AgentMuJoCo
 import numpy as np
 agent = {
     'type': AgentMuJoCo,
-    'T': 30,
+    'T': 4,
+    'term_dist':0.08,
     'substeps':200,
     'adim':3,
     'sdim':6,

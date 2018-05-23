@@ -147,7 +147,7 @@ def create_object_xml(hyperparams, load_dict_list=None):
             else: friction = 1.0
 
             # for backwards compatibility:
-            if hyperparams['object_mass']  == 0.1 and hyperparams['friction'] == 1.5:
+            if hyperparams['object_mass'] == 0.1 and hyperparams['friction'] == 1.5:
                 print('using solimp, solfref contact settings')
                 ET.SubElement(obj, "geom", type="box", size=".03 {} .03".format(l1),
                               rgba="{} {} {} 1".format(color1[0], color1[1], color1[2]), mass="{}".format(object_mass),
