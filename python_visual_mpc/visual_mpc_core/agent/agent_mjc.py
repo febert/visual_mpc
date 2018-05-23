@@ -240,6 +240,7 @@ class AgentMuJoCo(object):
         done = False
         while not done:
             qpos_dim = self.sdim // 2  # the states contains pos and vel
+            pdb.set_trace()
             traj.X_full[t, :] = self.sim.data.qpos[:qpos_dim].squeeze().copy()
             traj.Xdot_full[t, :] = self.sim.data.qvel[:qpos_dim].squeeze().copy()
             traj.X_Xdot_full[t, :] = np.concatenate([traj.X_full[t, :], traj.Xdot_full[t, :]])
@@ -639,11 +640,13 @@ class AgentMuJoCo(object):
                         if 'const_dist' in self._hyperparams:
                             assert 'pos_disp_range' not in self._hyperparams
                             d = self._hyperparams['const_dist']
-                            delta_pos = np.array([d*np.cos(alpha), d*np.sin(alpha), 0.])
+                            delta_pos = np.array([d*np.cos(alpha), d*np.sin(alpha)])
                         else:
                             pos_disp = self._hyperparams['pos_disp_range']
-                            delta_pos = np.concatenate([np.random.uniform(-pos_disp, pos_disp, 2), np.zeros([1])])
-                        newpos = pose[:3] + delta_pos
+                            delta_pos = np.concatenate([np.random.uniform(-pos_disp, pos_disp, 2)])
+                        newpos = pose[:2] + delta_pos
+                        if 'lift_object' in self._hyperparams:
+                            newpos[2] = 0.15
 
                         if np.any(newpos[:2] > 0.35) or np.any(newpos[:2] < -0.35):   # check if in field
                             continue

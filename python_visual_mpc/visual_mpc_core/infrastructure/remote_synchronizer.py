@@ -13,7 +13,6 @@ master = 'deepthought'
 def sync(node_id, conf, printout=False):
     experiment_name =str.split(conf['current_dir'], '/')[-1]
 
-    pdb.set_trace()
     master_datadir = '/raid/ngc2/pushing_data/cartgripper/onpolicy/{}'.format(experiment_name)
     master_scoredir = '/raid/ngc2/pushing_data/cartgripper/onpolicy/{}/scores'.format(experiment_name)
 
