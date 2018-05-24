@@ -293,12 +293,33 @@ class CEM_controller():
                     actions[b, a, ind] = np.clip(np.floor(actions[b, a, ind]), 0, 4)
         return actions
 
+    def reuse_cov(self):
+        print('reusing mean form last MPC step...')
+        mean_old = copy.deepcopy(self.mean)
+
+        self.mean = np.zeros_like(mean_old)
+        self.mean[:-self.adim] = mean_old[self.adim:]
+        self.mean = self.mean.reshape(self.adim * self.naction_steps)
+
+        sigma_old = copy.deepcopy(self.sigma)
+        self.sigma = np.zeros_like(self.sigma)
+        self.sigma[0:-self.adim,0:-self.adim] = sigma_old[self.adim:,self.adim: ]
+        # self.sigma[0:-self.adim, 0:-self.adim] += np.diag(np.ones(self.adim * (self.naction_steps-1)))*(self.initial_std/5)**2
+
+        self.sigma[-self.adim:, -self.adim:] = construct_initial_sigma(self.policyparams)[:self.adim, :self.adim]
+
+        return self.mean, self.sigma
+
 
     def perform_CEM(self,last_frames, last_frames_med, last_states, t):
-        # initialize mean and variance
-        self.mean = np.zeros(self.adim * self.naction_steps)
-        #initialize mean and variance of the discrete actions to their mean and variance used during data collection
-        self.sigma = construct_initial_sigma(self.policyparams)
+
+        if 'reuse_mean_cov' not in self.policyparams or t < 2:
+            # initialize mean and variance
+            self.mean = np.zeros(self.adim * self.naction_steps)
+            #initialize mean and variance of the discrete actions to their mean and variance used during data collection
+            self.sigma = construct_initial_sigma(self.policyparams)
+        else:
+            self.reuse_cov()
 
         self.logger.log('------------------------------------------------')
         self.logger.log('starting CEM cylce')
@@ -360,6 +381,7 @@ class CEM_controller():
         if 'no_action_bound' not in self.policyparams:
             actions = truncate_movement(actions, self.policyparams)
         actions = np.repeat(actions, self.repeat, axis=1)
+
         return actions
 
     def sample_actions_rej(self):
@@ -474,8 +496,10 @@ class CEM_controller():
         if 'compare_mj_planner_actions' in self.agentparams:
             actions[0] = self.traj.mj_planner_actions
 
-        nruns = self.bsize//200
-        assert self.bsize % 200 == 0, "batchsize needs to be multiple of 200"
+        if self.bsize > 200:
+            nruns = self.bsize//200
+            assert self.bsize % 200 == 0, "batchsize needs to be multiple of 200"
+        else: nruns = 1
         gen_images_l, gen_distrib_l, gen_states_l = [], [], []
         for run in range(nruns):
             self.logger.log('run{}'.format(run))
@@ -553,8 +577,8 @@ class CEM_controller():
 
         tstart_verbose = time.time()
 
-        if self.verbose and cem_itr == self.policyparams['iterations']-1 and self.i_tr % self.verbose_freq ==0:
-        # if self.verbose:
+        # if self.verbose and cem_itr == self.policyparams['iterations']-1 and self.i_tr % self.verbose_freq ==0:
+        if self.verbose:
             gen_images = make_cem_visuals(self, actions, bestindices, cem_itr, flow_fields, gen_distrib, gen_images,
                                           gen_states, last_frames, goal_warp_pts_l, scores, self.warped_image_goal,
                                           self.warped_image_start, warped_images)
