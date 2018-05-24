@@ -47,11 +47,11 @@ policy = {
     'usenet': True,
     'nactions': 5,
     'repeat': 3,
-    'initial_std': 0.08,        # std dev. in xy
+    'initial_std': 0.03,        # std dev. in xy
     'initial_std_lift': 0.01,
     'initial_std_rot': 0.01,
-    'initial_std_grasp': 0.1,  #######
-    # 'initial_std_grasp': 30,  #######
+    # 'initial_std_grasp': 0.1,  #######
+    'initial_std_grasp': 30,  #######
     'netconf': current_dir + '/conf.py',
     'iterations': 1,####################################3,
     'action_cost_factor': 0,

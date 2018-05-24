@@ -21,7 +21,7 @@ configuration = {
 'sequence_length': 15,      # 'sequence length to load, including context frames.' ,
 'context_frames': 2,        # of frames before predictions.' ,
 'model': 'appflow',            #'model architecture to use - CDNA, DNA, or STP' ,
-'batch_size': 10,  ##########
+'batch_size': 2000,  ##########
 'adim':5,
 'sdim':12,
 'orig_size':[48,64],
