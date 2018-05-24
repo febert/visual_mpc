@@ -47,13 +47,12 @@ policy = {
     'usenet': True,
     'nactions': 5,
     'repeat': 3,
-    'initial_std': 0.03,        # std dev. in xy
+    'initial_std': 0.05,        # std dev. in xy
     'initial_std_lift': 0.01,
     'initial_std_rot': 0.01,
-    # 'initial_std_grasp': 0.1,  #######
     'initial_std_grasp': 30,  #######
     'netconf': current_dir + '/conf.py',
-    'iterations': 1,####################################3,
+    'iterations': 3,
     'action_cost_factor': 0,
     'rew_all_steps':"",
     'finalweight':10,
@@ -95,6 +94,8 @@ config = {
     'policy':policy,
     'ngroup': 100,
     'sourcetags':[tag_images0, tag_images1, tag_qpos, tag_object_full_pose, tag_object_statprop, tag_actions],
-    'source_basedirs':[os.environ['VMPC_DATA_DIR'] + '/cartgripper/grasping/mj_lift/train'],
-    'sequence_length':15 # important: needs to be 15 instead of 2!!
+    # 'source_basedirs':[os.environ['VMPC_DATA_DIR'] + '/cartgripper/grasping/mj_lift/train'],
+    # 'sequence_length':15 # important: needs to be 15 instead of 2!!
+    'source_basedirs':[os.environ['VMPC_DATA_DIR'] + '/cartgripper/grasping/cartgripper_startgoal_2view_lift_above_obj/train'],
+    'sequence_length':2 # important: needs to be 15 instead of 2!!
 }
