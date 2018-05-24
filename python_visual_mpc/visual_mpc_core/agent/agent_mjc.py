@@ -67,7 +67,6 @@ def get_target_qpos(target_qpos, _hyperparams, mj_U, t, gripper_up, gripper_clos
             target_qpos[4] = 0.0
         print('target_qpos', target_qpos)
     else:
-
         mode_rel = _hyperparams['mode_rel']
         target_qpos = target_qpos + mj_U * mode_rel
         for dim in range(adim):
