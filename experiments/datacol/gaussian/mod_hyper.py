@@ -21,9 +21,9 @@ policy = {
     'nactions': 5,
     'repeat': 3,
     'initial_std': .035,   #std dev. in xy
-    'initial_std_lift': 0.05,
+    'initial_std_lift': 0.1,
     'initial_std_rot': 0.3,
-    'initial_std_grasp': 0.05,
+    'initial_std_grasp': 0.1,
 }
 
 

@@ -26,7 +26,6 @@ class Sawyer_Data_Collector(Visual_MPC_Client):
 
     def apply_act(self, des_pos, mj_U, i_act):
         """
-
         :param des_pos:  the action range for the gripper is 0. (open) to 0.1 (close)
         :param mj_U:
         :param i_act:
@@ -78,10 +77,6 @@ class Sawyer_Data_Collector(Visual_MPC_Client):
             going_down = False
 
         des_pos = self.truncate_pos(des_pos)  # make sure not outside defined region
-
-        # rescale grasping to 100 (open) and 0 closed
-
-
         return des_pos, going_down
 
 

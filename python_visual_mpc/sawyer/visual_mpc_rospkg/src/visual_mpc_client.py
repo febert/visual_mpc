@@ -118,7 +118,7 @@ class Visual_MPC_Client():
 
         self.action_sequence_length = self.agentparams['T'] # number of snapshots that are taken
         self.use_robot = True
-        self.robot_move = False #######
+        self.robot_move = True #######
         self.reset_active = False # used by the gui to abort trajectories.
 
         self.save_subdir = ""
@@ -139,7 +139,6 @@ class Visual_MPC_Client():
 
             self.weiss_pub = rospy.Publisher('/wsg_50_driver/goal_position', Cmd, queue_size=10)
             rospy.Subscriber("/wsg_50_driver/status", Status, self.save_weiss_pos)
-
 
         self.use_imp_ctrl = True
         self.interpolate = True
@@ -203,6 +202,10 @@ class Visual_MPC_Client():
                                                      save_actions=save_actions,
                                                      save_images=save_images,
                                                      image_shape=(self.img_height, self.img_width))
+
+        while self.recorder.ltob.img_cv2 is None:
+            print('waiting for images')
+            rospy.sleep(0.5)
 
         if not cmd_args:
             if self.data_collection == True:
@@ -269,9 +272,11 @@ class Visual_MPC_Client():
         cmd = Cmd()
         cmd.speed = 100.
         cmd.pos = (0.1 - des_pos) / 0.1 * 100
+        print('command weiss', cmd.pos)
         self.weiss_pub.publish(cmd)
 
     def save_weiss_pos(self, status):
+
         self.gripper_pos = status.width
         self.tlast_gripper_status = rospy.get_time()
 
@@ -430,7 +435,7 @@ class Visual_MPC_Client():
         if self.ctrl.sawyer_gripper:
             self.ctrl.gripper.open()
         else:
-            self.set_weiss_gripper(0.05)
+            self.set_weiss_gripper(0.0)
 
         self.gripper_closed = False
 
@@ -543,9 +548,8 @@ class Visual_MPC_Client():
                 action_vec = self.query_action(i_step)
                 query_times.append(time.time()-get_action_start)
 
-                print('action vec', action_vec)
-
                 self.des_pos, going_down = self.apply_act(self.des_pos, action_vec, i_step)
+                print('action vec', action_vec)
                 start_time = rospy.get_time()
 
                 print('prev_desired pos in step {0}: {1}'.format(i_step, self.previous_des_pos))
@@ -644,7 +648,8 @@ class Visual_MPC_Client():
             current_joints = self.ctrl.limb.joint_angles()
             self.ctrl.limb.set_joint_positions(current_joints)
             raise Traj_aborted_except('raising Traj_aborted_except')
-        self.move_with_impedance_sec(des_joint_angles, duration=1.)
+        if self.robot_move:
+            self.move_with_impedance_sec(des_joint_angles, duration=1.)
 
     def get_des_pose(self, des_pos):
         quat = self.zangle_to_quat(des_pos[3])
@@ -843,6 +848,7 @@ class Visual_MPC_Client():
         return des_pos, going_down
 
     def truncate_pos(self, pos):
+        pdb.set_trace()
         xlim = self.xlim
         ylim = self.ylim
 
