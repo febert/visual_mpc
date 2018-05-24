@@ -313,7 +313,7 @@ class CEM_controller():
 
     def perform_CEM(self,last_frames, last_frames_med, last_states, t):
 
-        if 'reuse_mean_cov' not in self.policyparams or t < 2:
+        if 'reuse_cov' not in self.policyparams or t < 2:
             # initialize mean and variance
             self.mean = np.zeros(self.adim * self.naction_steps)
             #initialize mean and variance of the discrete actions to their mean and variance used during data collection
@@ -541,7 +541,7 @@ class CEM_controller():
                     for p in range(self.ndesig):
                         distance_grid = self.get_distancegrid(self.goal_pix[icam, p])
                         scores_per_task.append(self.calc_scores(gen_distrib[:,:, icam, :,:, p], distance_grid, normalize=self.normalize))
-                        self.logger.log('best flow score of task {}:  {}'.format(p, np.min(scores_per_task[-1])))
+                        self.logger.log('best flow score of task {} cam{}  :{}'.format(p, icam, np.min(scores_per_task[-1])))
                 scores_per_task = np.stack(scores_per_task, axis=1)
 
                 if 'only_take_first_view' in self.policyparams:
@@ -554,8 +554,9 @@ class CEM_controller():
                 scores = scores[1:]
 
             bestind = scores.argsort()[0]
-            for p in range(self.ndesig):
-                self.logger.log('flow score of best traj for task{}: {}'.format(p, scores_per_task[bestind, p]))
+            for icam in range(self.ncam):
+                for p in range(self.ndesig):
+                    self.logger.log('flow score of best traj for task{} cam{} :{}'.format(p, icam, scores_per_task[bestind, p + icam*self.ndesig]))
 
             # for predictor_propagation only!!
             if 'predictor_propagation' in self.policyparams:
