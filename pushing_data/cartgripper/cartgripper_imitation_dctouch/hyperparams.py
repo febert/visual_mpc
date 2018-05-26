@@ -30,7 +30,7 @@ agent = {
     'xpos0': np.array([0., 0., 0.05, 0., 0., 0.]), #initialize state dimension to 5 zeros
     'dt': 0.05,
     'substeps': 200,  #6
-    'T': 20,
+    'T': 15,
     'skip_first': 40,   #skip first N time steps to let the scene settle
     'additional_viewer': False,
     'image_height' : 48,
@@ -69,8 +69,8 @@ config = {
     'current_dir' : current_dir,
     'save_data': True,
     'save_raw_images' : True,
-    'start_index':0,
-    'end_index': 80000,
+    'start_index':56000,
+    'end_index': 126000,
     'agent': agent,
     'policy': policy,
     'ngroup': 1000

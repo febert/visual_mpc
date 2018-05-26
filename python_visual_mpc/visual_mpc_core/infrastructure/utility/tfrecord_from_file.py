@@ -8,13 +8,20 @@ import pickle as pkl
 import numpy as np
 import cv2
 from python_visual_mpc.visual_mpc_core.infrastructure.utility.save_tf_record import save_tf_record
-class LoadTraj:
+
+class DefaultTraj:
     def __init__(self):
-        self.actions, self.X_Xdot_full, self.images, self.goal_image = None, None, None, None
+        self.actions, self.X_Xdot_full, self.images  = None, None, None
+
 def main():
     parser = argparse.ArgumentParser(description='run convert from directory to tf record')
     parser.add_argument('experiment', type=str, help='experiment hyperparameter path')
     parser.add_argument('output', type=str, help='new output dir')
+    parser.add_argument('-g', action='store', dest='good_offset', type = int,
+                    default = 0, help='Offset good records by g * traj_per_file')
+    parser.add_argument('-b', action='store', dest='bad_offset', type = int,
+                    default = 0, help='Offset bad records by b * traj_per_file')
+
 
     args = parser.parse_args()
     hyperparams_file = args.experiment
@@ -43,7 +50,9 @@ def main():
     print('saving to', out_dir)
 
     good_traj_list, bad_traj_list = [], []
-    num_good_saved, num_bad_saved = 0, 0
+    num_good_saved, num_bad_saved = args.good_offset, args.bad_offset
+    print('GOOD OFFSET {}, BAD OFFSET {}'.format(num_good_saved, num_bad_saved))
+
     good_lift_ctr, total_ctr = 0, 0
     traj_group_dirs = glob.glob(data_dir+'/*')
     
@@ -52,95 +61,73 @@ def main():
     for g in traj_group_dirs:
         trajs = glob.glob(g + '/*')
         for t in trajs:
-            if len(glob.glob(t + '/images0/*.png')) != T or not os.path.exists(t + '/state_action.pkl'):
-                print('TRAJ', t, 'is broken')
+            if not os.path.exists(t + '/state_action.pkl'):
                 continue
+
+            if 'cameras' in agent_config:
+                valid = True
+                for i in range(len(agent_config['cameras'])):
+                    if len(glob.glob(t + '/images{}/*.png'.format(i))) != T:
+                        valid = False
+                        print('traj {} missing /images{}'.format(t, i))
+                        break
+                if not valid:
+                    continue
+            else:
+                if len(glob.glob(t + '/images/*.png')) != T:
+                    continue
+
             try:
                 state_action = pkl.load(open(t + '/state_action.pkl', 'rb'))
             except EOFError:
-                print('TRAJ', t, 'is broken')
                 continue
+
             if np.sum(np.isnan(state_action['target_qpos'])) > 0:
-                print("FOUND NAN AT", t)
+                print("FOUND NAN AT", t)     #error in mujoco environment sometimes manifest in NANs
             else:
-                loaded_traj = LoadTraj()
-                goal_pos = state_action['obj_start_end_pos'][1]
-                loaded_traj.actions = state_action['actions']
-                loaded_traj.X_Xdot_full = state_action['target_qpos'][:T, :]# np.hstack((state_action['qpos'], state_action['qvel']))  
-                loaded_traj.images = np.zeros((T, img_height, img_width, 3), dtype = 'uint8')
-                touch_sensors = state_action['finger_sensors']
-                good_lift = False
                 total_ctr += 1
-                valid_frames = np.logical_and(state_action['target_qpos'][1:, -1] > 0, np.logical_and(touch_sensors[:, 0] > 0, touch_sensors[:, 1] > 0))
-                off_ground = state_action['target_qpos'][1:,2] >= 0
-                object_poses = state_action['object_full_pose']
-                if any(np.logical_and(valid_frames, off_ground)):
-                    obj_eq = object_poses[0, :, :2] == state_action['obj_start_end_pos']
-                    obj_eq = np.logical_and(obj_eq[:, 0], obj_eq[:, 1])
-                    obj_eq = np.argmax(obj_eq)
-                    obj_max =  np.amax(object_poses[:,obj_eq,2])
-                    if obj_max >=0:
-                        print('traj {} is good'.format(t))
-                        good_lift = True
-                        good_lift_ctr += 1
-                        print('good max z', obj_max)
-                continue
-                #object_poses = state_action['object_full_pose']
-                #lift_mask = np.sum(object_poses[2:, :, 2] >= 0.12, axis = 0).astype(np.bool)
-                #if np.any(lift_mask):
-                #    if any(np.amax(object_poses[2:,lift_mask,2], axis = 1) - np.amin(object_poses[2:,lift_mask,2], axis=1) >= 0.05):
-                #        good_lift = True
-                #        good_lift_ctr += 1
-                #        print('traj', t, 'is good!')
-                
-                for i in range(T):
-                    img = cv2.imread(t + '/images/im{}.png'.format(i))[:, :, ::-1]
-                    loaded_traj.images[i] = img
+                good_lift, loaded_traj = agent_config['file_to_record'](state_action)
 
-                    #img2 = cv2.imread(t + '/images1/im{}.png'.format(i))[:, :, ::-1]
-                    #loaded_traj.images[i, 1] = img2
+                if 'cameras' in agent_config:
+                    loaded_traj.images = np.zeros((T, len(agent_config['cameras']), img_height, img_width, 3), dtype = np.uint8)
+                else:
+                    loaded_traj.images = np.zeros((T, img_height, img_width, 3), dtype = np.uint8)
 
-                    if good_lift and all(np.isclose(goal_pos, loaded_traj.X_Xdot_full[i, :2], atol=1e-3)) and loaded_traj.X_Xdot_full[i, 2] ==-0.08 and loaded_traj.goal_image is None:
-                        loaded_traj.goal_image = img
-    
-                if loaded_traj.goal_image is None:
-                    loaded_traj.goal_image = cv2.imread(t + '/images/im{}.png'.format(0))[:, :, ::-1]
-                    
-                    if good_lift:
-                        print('NO DROP')
-                        good_lift_ctr -=1
-                        good_lift = False
-                    
+                for img in range(T):
+                    if 'cameras' in agent_config:
+                        for cam in range(len(agent_config['cameras'])):
+                            loaded_traj.images[img, cam] = cv2.imread(t + '/images{}/im{}.png'.format(cam, img))[:, :, ::-1]
+                    else:
+                        loaded_traj.images[img] = cv2.imread(t + '/images/im{}.png'.format(img))[:, :, ::-1]
+
                 if good_lift:
+                    good_lift_ctr += 1
                     good_traj_list.append(loaded_traj)
                 else:
                     bad_traj_list.append(loaded_traj)
 
             if len(good_traj_list) % traj_per_file == 0 and len(good_traj_list) > 0:
                 f_name = 'good_traj_{0}_to_{1}'.format(num_good_saved * traj_per_file, (num_good_saved + 1) * traj_per_file - 1)
+                print('saving', f_name)
                 save_tf_record(f_name, good_traj_list, agent_config)
                 good_traj_list = []
-
                 num_good_saved += 1
             elif len(bad_traj_list) % traj_per_file == 0 and len(bad_traj_list) > 0:
                 f_name = 'bad_traj_{0}_to_{1}'.format(num_bad_saved * traj_per_file, (num_bad_saved + 1) * traj_per_file - 1)
+                print('saving', f_name)
                 save_tf_record(f_name, bad_traj_list, agent_config)
                 bad_traj_list = []
-
                 num_bad_saved += 1
 
     if  len(good_traj_list) > 0:
         f_name = 'good_traj_{0}_to_{1}'.format(num_good_saved * traj_per_file, (num_good_saved + 1) * traj_per_file - 1)
         save_tf_record(f_name, good_traj_list, agent_config)
         good_traj_list = []
-
-        num_good_saved += 1
     elif len(bad_traj_list) > 0:
         f_name = 'bad_traj_{0}_to_{1}'.format(num_bad_saved * traj_per_file, (num_bad_saved + 1) * traj_per_file - 1)
         save_tf_record(f_name, bad_traj_list, agent_config)
         bad_traj_list = []
-
-        num_bad_saved += 1        
+        
     print('perc good_lift', good_lift_ctr / total_ctr)
 
 if __name__ == '__main__':

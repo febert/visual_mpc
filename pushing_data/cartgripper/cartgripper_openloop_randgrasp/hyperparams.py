@@ -6,7 +6,7 @@ import numpy as np
 
 from python_visual_mpc.visual_mpc_core.algorithm.random_policy import RandomPickPolicy
 from python_visual_mpc.visual_mpc_core.agent.agent_mjc import AgentMuJoCo
-
+from python_visual_mpc.visual_mpc_core.infrastructure.utility.tfrecord_from_file import DefaultTraj
 IMAGE_WIDTH = 64
 IMAGE_HEIGHT = 64
 IMAGE_CHANNELS = 3
@@ -17,9 +17,32 @@ current_dir = os.path.dirname(os.path.realpath(__file__))
 import python_visual_mpc
 DATA_DIR = '/'.join(str.split(python_visual_mpc.__file__, '/')[:-2])
 
+def convert_to_record(state_action):
+    loaded_traj = DefaultTraj()
+
+    loaded_traj.actions = state_action['actions']
+    touch_sensors = state_action['finger_sensors']
+    loaded_traj.X_Xdot_full = np.concatenate((state_action['target_qpos'][:-1, :], touch_sensors), axis = 1)
+
+    good_lift = False
+
+    valid_frames = np.logical_and(state_action['target_qpos'][1:, -1] > 0, np.logical_and(touch_sensors[:, 0] > 0, touch_sensors[:, 1] > 0))
+    off_ground = state_action['target_qpos'][1:,2] >= 0
+    object_poses = state_action['object_full_pose']
+
+    if any(np.logical_and(valid_frames, off_ground)):
+        obj_eq = object_poses[0, :, :2] == state_action['obj_start_end_pos']
+        obj_eq = np.logical_and(obj_eq[:, 0], obj_eq[:, 1])
+        obj_eq = np.argmax(obj_eq)
+        obj_max =  np.amax(object_poses[:,obj_eq,2])
+        if obj_max >=0:
+            good_lift = True
+
+    return good_lift, loaded_traj
+
 agent = {
     'type': AgentMuJoCo,
-    'data_save_dir': '/result', #BASE_DIR + '/train',
+    'data_save_dir': BASE_DIR + '/59903/data/train',
     'filename': DATA_DIR+'/mjc_models/cartgripper_grasp.xml',
     'filename_nomarkers': DATA_DIR+'/mjc_models/cartgripper_grasp.xml',
     'not_use_images':"",
@@ -55,7 +78,7 @@ agent = {
     'discrete_gripper' : -1, #discretized gripper dimension,
     'lift_rejection_sample' : 15,
     'close_once_actions' : True,
-
+    'file_to_record' : convert_to_record
     #'object_meshes':['giraffe'] #folder to original object + convex approximation
     # 'displacement_threshold':0.1,
 }
