@@ -50,13 +50,12 @@ policy = {
     'initial_std': 0.05,        # std dev. in xy
     'initial_std_lift': 0.01,
     'initial_std_rot': 0.01,
-    'initial_std_grasp': 30,  #######
+    'initial_std_grasp': 0.5,  #######
     'netconf': current_dir + '/conf.py',
     'iterations': 3,
     'action_cost_factor': 0,
     'rew_all_steps':"",
     'finalweight':10,
-    'reuse_cov':0.25,
     # 'no_action_bound':"",
 }
 

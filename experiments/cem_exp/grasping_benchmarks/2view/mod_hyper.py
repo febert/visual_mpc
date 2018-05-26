@@ -94,6 +94,6 @@ config = {
     'policy':policy,
     'ngroup': 100,
     'sourcetags':[tag_images0, tag_images1, tag_qpos, tag_object_full_pose, tag_object_statprop, tag_actions],
-    'source_basedirs':[os.environ['VMPC_DATA_DIR'] + '/cartgripper/grasping/mj_lift/train'],
-    'sequence_length':15 # important: needs to be 15 instead of 2!!
+    'source_basedirs':[os.environ['VMPC_DATA_DIR'] + '/cartgripper/grasping/cartgripper_startgoal_2view_lift_above_obj/train'],
+    'sequence_length':2
 }
