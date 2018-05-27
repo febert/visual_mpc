@@ -57,7 +57,13 @@ def main():
     traj_group_dirs = glob.glob(data_dir+'/*')
     
     agent_config['goal_image'] = True 
-    
+
+    dirs_to_create = [agent_config['data_save_dir'] + d for d in ['/good/train', '/good/test', '/good/val', '/bad/train', '/bad/test', '/bad/val']]
+    for d in dirs_to_create:
+        if not os.path.exists(d):
+            os.makedirs(d)
+            print('Creating dir:', d)
+
     for g in traj_group_dirs:
         trajs = glob.glob(g + '/*')
         for t in trajs:
@@ -107,24 +113,38 @@ def main():
                     bad_traj_list.append(loaded_traj)
 
             if len(good_traj_list) % traj_per_file == 0 and len(good_traj_list) > 0:
-                f_name = 'good_traj_{0}_to_{1}'.format(num_good_saved * traj_per_file, (num_good_saved + 1) * traj_per_file - 1)
+                folder_prep = 'good/'
+                if num_good_saved == 0:
+                    folder_prep += 'test'
+                elif np.random.rand() <= agent_config.get('train_val_split', 0.95):
+                    folder_prep += 'train'
+                else:
+                    folder_prep += 'val'
+                f_name = '{}/good_traj_{}_to_{}'.format(folder_prep, num_good_saved * traj_per_file, (num_good_saved + 1) * traj_per_file - 1)
                 print('saving', f_name)
                 save_tf_record(f_name, good_traj_list, agent_config)
                 good_traj_list = []
                 num_good_saved += 1
             elif len(bad_traj_list) % traj_per_file == 0 and len(bad_traj_list) > 0:
-                f_name = 'bad_traj_{0}_to_{1}'.format(num_bad_saved * traj_per_file, (num_bad_saved + 1) * traj_per_file - 1)
+                folder_prep = 'bad/'
+                if num_bad_saved == 0:
+                    folder_prep += 'test'
+                elif np.random.rand() <= agent_config.get('train_val_split', 0.95):
+                    folder_prep += 'train'
+                else:
+                    folder_prep += 'val'
+                f_name = '{}/bad_traj_{}_to_{}'.format(folder_prep, num_bad_saved * traj_per_file, (num_bad_saved + 1) * traj_per_file - 1)
                 print('saving', f_name)
                 save_tf_record(f_name, bad_traj_list, agent_config)
                 bad_traj_list = []
                 num_bad_saved += 1
 
     if  len(good_traj_list) > 0:
-        f_name = 'good_traj_{0}_to_{1}'.format(num_good_saved * traj_per_file, (num_good_saved + 1) * traj_per_file - 1)
+        f_name = 'good/train/good_traj_{0}_to_{1}'.format(num_good_saved * traj_per_file, (num_good_saved + 1) * traj_per_file - 1)
         save_tf_record(f_name, good_traj_list, agent_config)
         good_traj_list = []
     elif len(bad_traj_list) > 0:
-        f_name = 'bad_traj_{0}_to_{1}'.format(num_bad_saved * traj_per_file, (num_bad_saved + 1) * traj_per_file - 1)
+        f_name = 'bad/train/bad_traj_{0}_to_{1}'.format(num_bad_saved * traj_per_file, (num_bad_saved + 1) * traj_per_file - 1)
         save_tf_record(f_name, bad_traj_list, agent_config)
         bad_traj_list = []
         
