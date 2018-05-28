@@ -78,7 +78,8 @@ agent = {
     'discrete_gripper' : -1, #discretized gripper dimension,
     'close_once_actions' : True,
 #    'file_to_record' : convert_to_record,
-    'object_mass' : 0.05
+    'object_mass' : 0.1,
+    'friction' : 1.0
     #'object_meshes':['giraffe'] #folder to original object + convex approximation
     # 'displacement_threshold':0.1,
 }
@@ -92,7 +93,6 @@ policy = {
     'initial_std_lift': 0.01,   #std dev. in z
     'initial_std_rot' : np.pi / 36,
     'initial_std_grasp' : 2, 
-    'z_descend_actions' : True
 }
 
 config = {
@@ -101,7 +101,7 @@ config = {
     'save_data': True,
     'save_raw_images' : True,
     'start_index':0,
-    'end_index': 120000,
+    'end_index': 200000,
     'agent': agent,
     'policy': policy,
     'ngroup': 1000
