@@ -18,9 +18,7 @@ import re
 class Tower(object):
     def __init__(self, conf, gpu_id, start_images, actions, start_states, pix_distrib):
 
-        assert conf['batch_size'] % 200 == 0, "batchsize needs to be multiple of 200"
-        _batch_size_perrun = 200
-        nsmp_per_gpu = _batch_size_perrun // conf['ngpu']
+        nsmp_per_gpu = conf['batch_size']// conf['ngpu']
         # setting the per gpu batch_size
 
         # picking different subset of the actions for each gpu
@@ -95,10 +93,12 @@ def setup_predictor(hyperparams, conf, gpu_id=0, ngpu=1, logger=None):
             logger.log('adim', adim)
             logger.log('sdim', sdim)
 
-            assert conf['batch_size'] % 200 == 0, "batchsize needs to be multiple of 200"
-            _batch_size_perrun = 200
+            if conf['batch_size'] > 200:
+                assert conf['batch_size'] % 200 == 0, "batchsize needs to be multiple of 200"
+                conf['batch_size'] = 200
+
             actions_pl = tf.placeholder(use_dtype, name='actions',
-                                        shape=(_batch_size_perrun, conf['sequence_length'], adim))
+                                        shape=(conf['batch_size'], conf['sequence_length'], adim))
             states_pl = tf.placeholder(use_dtype, name='states',
                                        shape=(1, conf['context_frames'], sdim))
 
@@ -106,6 +106,7 @@ def setup_predictor(hyperparams, conf, gpu_id=0, ngpu=1, logger=None):
                 pix_distrib = None
             else:
                 pix_distrib = tf.placeholder(use_dtype, shape=(1, conf['context_frames'], ncam, orig_size[0], orig_size[1], conf['ndesig']))
+
 
             # making the towers
             towers = []
@@ -122,10 +123,18 @@ def setup_predictor(hyperparams, conf, gpu_id=0, ngpu=1, logger=None):
             vars = filter_vars(vars)
 
             if 'load_latest' in hyperparams:
-                saver = tf.train.Saver(vars, max_to_keep=0)
                 conf['pretrained_model'] = get_maxiter_weights('/result/modeldata')
                 logger.log('loading {}'.format(conf['pretrained_model']))
-                saver.restore(sess, conf['pretrained_model'])
+                if conf['pred_model'] == Alex_Interface_Model:
+                    if gfile.Glob(conf['pretrained_model'] + '*') is None:
+                        raise ValueError("Model file {} not found!".format(conf['pretrained_model']))
+                    towers[0].model.m.restore(sess, conf['pretrained_model'])
+                else:
+                    vars = variable_checkpoint_matcher(conf, vars, conf['pretrained_model'])
+                    saver = tf.train.Saver(vars, max_to_keep=0)
+                    if gfile.Glob(conf['pretrained_model'] + '*') is None:
+                        raise ValueError("Model file {} not found!".format(conf['pretrained_model']))
+                    saver.restore(sess, conf['pretrained_model'])
             else:
                 if conf['pred_model'] == Alex_Interface_Model:
                     if 'ALEX_DATA' in os.environ:

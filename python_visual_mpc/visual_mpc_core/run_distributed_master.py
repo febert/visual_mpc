@@ -56,8 +56,9 @@ def main():
         os.makedirs(logging_dir)
 
     onpolconf = trainvid_conf['onpolconf']
-    rb = ReplayBuffer_Loadfiles(trainvid_conf, maxsize=onpolconf['replay_size'], batch_size=16, printout=printout)
-    trainvid_online(rb, trainvid_conf, logging_dir, onpolconf, gpu_id, printout=True)
+    train_rb = ReplayBuffer_Loadfiles(trainvid_conf, mode='train', maxsize=onpolconf['replay_size'], batch_size=16, printout=printout)
+    val_rb = ReplayBuffer_Loadfiles(trainvid_conf, mode='val', maxsize=onpolconf['replay_size'], batch_size=16, printout=printout)
+    trainvid_online(train_rb, val_rb, trainvid_conf, logging_dir, onpolconf, gpu_id, printout=True)
 
 def load_module(hyperparams_file, name):
     loader = importlib.machinery.SourceFileLoader(name, hyperparams_file)

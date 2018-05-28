@@ -36,7 +36,8 @@ agent = {
     'additional_viewer':'',
     'data_save_dir': result_dir + '/data/train',
     'posmode':"",
-    'targetpos_clip':[[-0.45, -0.45, -0.08, -np.pi*2, 0.], [0.45, 0.45, 0.15, np.pi*2, 0.1]],
+    'targetpos_clip':[[-0.45, -0.45, -0.08, -np.pi*2, -1.], [0.45, 0.45, 0.15, np.pi*2, 1.]],
+    'mode_rel':np.array([True, True, True, True, False]),
     'not_use_images':"",
     'verbose':'',
     'object_mass':0.1
@@ -46,8 +47,8 @@ policy = {
     'verbose':"",
     'type' : CEM_controller,
     'current_dir':current_dir,
-    'nactions': 8, ############
-    'repeat': 2, ###############
+    'nactions': 5,
+    'repeat': 3,
     'initial_std': 0.03,        # std dev. in xy
     'initial_std_lift': 0.2,
     'initial_std_rot': 0.1,

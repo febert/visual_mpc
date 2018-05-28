@@ -56,7 +56,7 @@ class Data_Collector(object):
         if not os.path.exists(record_dir):
             os.makedirs(record_dir)
         self.sim.agent._hyperparams['record'] = record_dir
-        traj = self.sim._take_sample(self.itraj)
+        traj = self.sim.take_sample(self.itraj)
 
         self.itraj += 1
         self.ntraj += 1

@@ -18,6 +18,10 @@ from python_visual_mpc.visual_mpc_core.infrastructure.remote_synchronizer import
 import re
 
 
+GEN_VAL_FREQ = 100
+VAL_TASK_FREQ = 200
+
+
 from tensorflow.python.framework.errors_impl import NotFoundError
 def get_maxiter_weights(dir):
     try:
@@ -68,13 +72,14 @@ class Data_Collector(object):
             self.logger.log('-------------------------------------------------------------------')
 
             # reinitilize policy between rollouts
-            self.sim.reset_policy()
-
             record_dir = self.sim.agentparams['result_dir'] + '/verbose/traj{0}'.format(self.itraj)
             if not os.path.exists(record_dir):
                 os.makedirs(record_dir)
             self.sim.agent._hyperparams['record'] = record_dir
-            self.sim._take_sample(self.itraj)
+
+            if self.itraj % GEN_VAL_FREQ:
+                self.sim.task_mode = 'val'
+            self.sim.take_sample(self.itraj)
 
             self.itraj += 1
 

@@ -8,11 +8,14 @@ import pdb
 
 master = 'deepthought'
 
-master_datadir = '/raid/ngc2/pushing_data/cartgripper/onpolicy/distributed_pushing/train'
-master_scoredir = '/raid/ngc2/pushing_data/cartgripper/onpolicy/distributed_pushing/scores'
 
 @ray.remote
 def sync(node_id, conf, printout=False):
+    experiment_name =str.split(conf['current_dir'], '/')[-1]
+
+    master_datadir = '/raid/ngc2/pushing_data/cartgripper/onpolicy/{}'.format(experiment_name)
+    master_scoredir = '/raid/ngc2/pushing_data/cartgripper/onpolicy/{}/scores'.format(experiment_name)
+
     exp_subpath = conf['current_dir'].partition('onpolicy')[2]
 
     master_base_dir = '/home/ngc2/Documents/visual_mpc/experiments/cem_exp/onpolicy' + exp_subpath
@@ -33,17 +36,12 @@ def sync(node_id, conf, printout=False):
 
     while True:
         logger.log('get latest weights from master')
-        # rsync --ignore-existing deepthought:~/test .
-        # cmd = 'rsync -a {}:{} {}'.format(master, master_modeldata_dir + '/', local_modeldata_dir)
         cmd = 'rsync -rltgoDv --delete-after {}:{} {}'.format(master, master_modeldata_dir + '/', local_modeldata_dir)
         logger.log('executing: {}'.format(cmd))
         os.system(cmd)
-        # consider --delete option
 
-        logger.log('transfer tfrecords to master')
-        cmd = 'rsync -a --update {} {}:{}'.format(local_datadir + '/', master, master_datadir)
-        logger.log('executing: {}'.format(cmd))
-        os.system(cmd)
+        transfer_tfrecs(local_datadir, master_datadir, logger, 'train')
+        transfer_tfrecs(local_datadir, master_datadir, logger, 'val')
 
         logger.log('transfer scorefiles to master')
         cmd = 'rsync -a --update {} {}:{}'.format(local_scoredir + '/', master, master_scoredir)
@@ -56,6 +54,14 @@ def sync(node_id, conf, printout=False):
         os.system(cmd)
 
         time.sleep(10)
+
+
+def transfer_tfrecs(local_datadir, master_datadir, logger, mode):
+    logger.log('transfer tfrecords to master')
+    cmd = 'rsync -a --update {} {}:{}'.format(local_datadir + '/' + mode + '/', master, master_datadir + '/' + mode)
+    logger.log('executing: {}'.format(cmd))
+    os.system(cmd)
+
 
 if __name__ == '__main__':
 

@@ -32,7 +32,6 @@ class DNACell(tf.nn.rnn_cell.RNNCell):
                  vgf_dim,
                  reuse=None,
                  dependent_mask = True,
-                 trafo_pix=False,
                  ):
 
         super(DNACell, self).__init__(_reuse=reuse)
@@ -64,7 +63,6 @@ class DNACell(tf.nn.rnn_cell.RNNCell):
 
         self.context_frames = conf['context_frames']
         self.conf = conf
-        self.trafo_pix = trafo_pix
 
         if '1stimg_bckgd' in conf:
             self.first_image_background = True
@@ -431,12 +429,14 @@ class Dynamic_Base_Model(object):
                  actions=None,
                  states=None,
                  pix_distrib=None,
-                 trafo_pix = True,
                  load_data = True,
                  build_loss = True,
+                 iternum=None
                  ):
 
-        self.iter_num = tf.placeholder(tf.float32, [])
+        if iternum == None:
+            self.iter_num = tf.placeholder(tf.float32, [])
+        else: self.iter_num = iternum
 
         if 'ndesig' in conf:
             ndesig = conf['ndesig']
@@ -458,6 +458,9 @@ class Dynamic_Base_Model(object):
                 images = images[:,:,0]
                 pix_distrib = pix_distrib[:,:,0]
                 pix_distrib = tf.transpose(pix_distrib, [0,1,4,2,3])[...,None]  #putting ndesig at the third position
+            else:
+                pix_distrib = tf.transpose(pix_distrib, [0,1,4,2,3])[...,None]  #putting ndesig at the third position
+
 
         if states is not None and states.get_shape().as_list()[1] != conf['sequence_length']:  # append zeros if states is shorter than sequence length
             states = tf.concat([states, tf.zeros([conf['batch_size'], conf['sequence_length'] - conf['context_frames'], conf['sdim']])],
@@ -467,9 +470,7 @@ class Dynamic_Base_Model(object):
             images = tf.concat([images, tf.zeros([conf['batch_size'], conf['sequence_length'] - conf['context_frames'], self.img_height, self.img_width, 3])],
                 axis=1)
 
-        self.trafo_pix = trafo_pix
         if pix_distrib is not None:
-            assert trafo_pix == True
             pix_distrib = tf.concat([pix_distrib, tf.zeros([conf['batch_size'], conf['sequence_length'] - conf['context_frames'],ndesig, self.img_height, self.img_width, 1])], axis=1)
             pix_distrib = pix_distrib
 
@@ -477,7 +478,6 @@ class Dynamic_Base_Model(object):
 
         vgf_dim = 32
 
-        self.trafo_pix = trafo_pix
         self.conf = conf
 
         k = conf['schedsamp_k']
@@ -519,16 +519,11 @@ class Dynamic_Base_Model(object):
                                                   lambda: [train_images, train_actions, train_states],
                                                   lambda: [val_images, val_actions, val_states])
             if 'use_len' in conf:
-                print('randomly shift videos for data augmentation')
                 images, states, actions = self.random_shift(images, states, actions)
 
-
-        ## start interface
-        # Split into timesteps.
-
-        self.actions = actions
         self.images = images
         self.states = states
+        self.actions = actions
 
         images = tf.unstack(images, axis=1)
         states = tf.unstack(states, axis=1)
@@ -598,6 +593,7 @@ class Dynamic_Base_Model(object):
         self.gen_masks = list([gen_mask[:, n_cutoff:] for gen_mask in gen_masks])
         self.gen_transformed_images = list([gen_transformed_image for gen_transformed_image in gen_transformed_images])
         other_outputs = list(other_outputs)
+
 
         # making video summaries
         self.train_video_summaries = make_video_summaries(conf['context_frames'], [self.images, self.gen_images[:,:,0]], 'train_images')
