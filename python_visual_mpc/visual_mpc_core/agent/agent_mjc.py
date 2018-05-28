@@ -34,6 +34,63 @@ class Image_dark_except(Exception):
     def __init__(self):
         pass
 
+def get_target_qpos(target_qpos, _hyperparams, mj_U, t, gripper_up, gripper_closed, t_down, gripper_zpos):
+    adim = _hyperparams['adim']
+
+    target_qpos = target_qpos.copy()
+    mj_U = mj_U.copy()
+
+    if 'discrete_adim' in _hyperparams:
+        up_cmd = mj_U[2]
+        assert np.floor(up_cmd) == up_cmd
+        if up_cmd != 0:
+            t_down = t + up_cmd
+            target_qpos[2] = _hyperparams['targetpos_clip'][1][2]
+            gripper_up = True
+        if gripper_up:
+            if t == t_down:
+                target_qpos[2] = _hyperparams['targetpos_clip'][0][2]
+                gripper_up = False
+        target_qpos[:2] += mj_U[:2]
+        if adim == 4:
+            target_qpos[3] += mj_U[3]
+        assert adim <= 4
+    elif 'close_once_actions' in _hyperparams:
+        assert adim == 5
+        target_qpos[:4] = mj_U[:4] + target_qpos[:4]
+        grasp_thresh = 0.5
+        if mj_U[4] > grasp_thresh:
+            gripper_closed = True
+        if gripper_closed:
+            target_qpos[4] = 0.1
+        else:
+            target_qpos[4] = 0.0
+        # print('target_qpos', target_qpos)
+    elif 'autograsp' in _hyperparams:
+        assert adim == 5
+        target_qpos[:4] = mj_U[:4] + target_qpos[:4]
+        if gripper_zpos < -0.06:
+            gripper_closed = True
+        if gripper_closed:
+            target_qpos[4] = 0.1
+        else:
+            target_qpos[4] = 0.0
+        #print('target_qpos', target_qpos)
+
+    else:
+        mode_rel = _hyperparams['mode_rel']
+        target_qpos = target_qpos + mj_U * mode_rel
+        for dim in range(adim):
+            if not mode_rel[dim]:  # set all action dimension that are absolute
+                target_qpos[dim] = mj_U[dim]
+
+    pos_clip = _hyperparams['targetpos_clip']
+    target_qpos = np.clip(target_qpos, pos_clip[0], pos_clip[1])
+    # print('mjU', mj_U)
+    # print('targetqpos', target_qpos)
+    return target_qpos, t_down, gripper_up, gripper_closed
+
+
 class AgentMuJoCo(object):
     """
     All communication between the algorithms and MuJoCo is done through
@@ -132,6 +189,7 @@ class AgentMuJoCo(object):
             self.initial_poscost, _ = self.eval_action(traj, 0)
             self.initial_poscost = np.mean(self.initial_poscost)
             self.improvement = self.initial_poscost - self.final_poscost
+            self.term_t = traj.term_t
             traj.improvement = self.improvement
             traj.final_poscost = self.final_poscost
             traj.initial_poscost = self.initial_poscost
@@ -185,9 +243,6 @@ class AgentMuJoCo(object):
                 goal_pix[icam, i] = g
         return goal_pix
 
-    def clip_targetpos(self, pos):
-        pos_clip = self._hyperparams['targetpos_clip']
-        return np.clip(pos, pos_clip[0], pos_clip[1])
 
     def get_int_targetpos(self, substep, prev, next):
         assert substep >= 0 and substep < self._hyperparams['substeps']
@@ -230,12 +285,15 @@ class AgentMuJoCo(object):
 
         self.gripper_closed = False
         self.gripper_up = False
+        self.t_down = 0
 
         if 'first_last_noarm' in self._hyperparams:
             self.hide_arm_store_image(0, traj)
 
         # Take the sample.
-        for t in range(self.T):
+        t = 0
+        done = False
+        while not done:
             qpos_dim = self.sdim // 2  # the states contains pos and vel
             traj.X_full[t, :] = self.sim.data.qpos[:qpos_dim].squeeze().copy()
             traj.Xdot_full[t, :] = self.sim.data.qvel[:qpos_dim].squeeze().copy()
@@ -286,36 +344,11 @@ class AgentMuJoCo(object):
                 else:
                     self.prev_target_qpos = copy.deepcopy(self.target_qpos)
 
-                if 'discrete_adim' in self._hyperparams:
-                    up_cmd = mj_U[2]
-                    assert np.floor(up_cmd) == up_cmd
-                    if up_cmd != 0:
-                        self.t_down = t + up_cmd
-                        self.target_qpos[2] = self._hyperparams['targetpos_clip'][1][2]
-                        self.gripper_up = True
-                    if self.gripper_up:
-                        if t == self.t_down:
-                            self.target_qpos[2] = self._hyperparams['targetpos_clip'][0][2]
-                            self.gripper_up = False
-                    self.target_qpos[:2] += mj_U[:2]
-                    if self.adim == 4:
-                        self.target_qpos[3] += mj_U[3]
-                elif 'close_once_actions' in self._hyperparams:
-                    assert self.adim == 5
-                    self.target_qpos[:4] = mj_U[:4] + self.target_qpos[:4]
-                    grasp_thresh = 0.5
-                    if mj_U[4] > grasp_thresh:
-                        self.gripper_closed = True
-                    if self.gripper_closed:
-                        self.target_qpos[4] = 0.1
-                    else:
-                       self.target_qpos[4] = 0.0
-                    #print('target_qpos', self.target_qpos)
-                else:
-                    self.target_qpos = mj_U + self.target_qpos * self._hyperparams['mode_rel']
-                    
-                self.target_qpos = self.clip_targetpos(self.target_qpos)
+
+                self.target_qpos, self.t_down, self.gripper_up, self.gripper_closed = get_target_qpos(
+                    self.target_qpos, self._hyperparams, mj_U, t, self.gripper_up, self.gripper_closed, self.t_down, traj.X_full[t,2])
                 traj.target_qpos[t + 1] = self.target_qpos.copy()
+
             else:
                 ctrl = mj_U.copy()
 
@@ -328,17 +361,23 @@ class AgentMuJoCo(object):
 
                 self.sim.data.ctrl[:] = ctrl
                 self.sim.step()
-                # width = self._hyperparams['viewer_image_width']
-                # height = self._hyperparams['viewer_image_height']
-                # cv2.imwrite('test_rec/test{}.jpg'.format(t * self._hyperparams['substeps'] + st), self.sim.render(width, height, camera_name="maincam")[::-1, :, ::-1])
-
                 self.hf_qpos_l.append(copy.deepcopy(self.sim.data.qpos))
                 self.hf_target_qpos_l.append(copy.deepcopy(ctrl))
 
+            traj.touch_sensors[t] /= self._hyperparams['substeps']
+
             if self.goal_obj_pose is not None:
                 traj.goal_dist.append(self.eval_action(traj, t)[0])
-        
-        traj.touch_sensors[t] /= self._hyperparams['substeps']
+
+            if 'term_dist' in self._hyperparams:
+                if traj.goal_dist[-1] < self._hyperparams['term_dist']:
+                    done = True
+            if (self._hyperparams['T']-1) == t:
+                done = True
+            if done:
+                traj.term_t = t
+            t += 1
+
 
         if 'first_last_noarm' in self._hyperparams:
             self.hide_arm_store_image(1, traj)
@@ -379,6 +418,7 @@ class AgentMuJoCo(object):
             if np.any(traj.goal_dist[-1] > self._hyperparams['dist_ok_thresh']):
                 traj_ok = False
         return traj_ok, traj
+
 
     def save_goal_image_conf(self, traj):
         div = .05
@@ -500,7 +540,6 @@ class AgentMuJoCo(object):
         if 'cameras' in self._hyperparams:
             for i, cam in enumerate(self._hyperparams['cameras']):
                 large_img = self.sim.render(width, height, camera_name=cam)[::-1, :, :]
-
                 if np.sum(large_img) < 1e-3:
                     print("image dark!!!")
                     raise Image_dark_except
@@ -544,14 +583,22 @@ class AgentMuJoCo(object):
         self.hf_qpos_l = np.stack(self.hf_qpos_l, axis=0)
         self.hf_target_qpos_l = np.stack(self.hf_target_qpos_l, axis=0)
         tmax = self.hf_target_qpos_l.shape[0]
-        for i in range(self.adim):
-            plt.plot(list(range(tmax)), self.hf_qpos_l[:,i], label='q_{}'.format(i))
-            plt.plot(list(range(tmax)), self.hf_target_qpos_l[:, i], label='q_target{}'.format(i))
-            plt.legend()
-            # plt.show()
-            if not os.path.exists(self._hyperparams['record']):
-                os.makedirs(self._hyperparams['record'])
-            plt.savefig(self._hyperparams['record'] + '/ctrls.png')
+
+        i = 4
+        plt.plot(list(range(tmax)), self.hf_qpos_l[:,i], label='q_{}'.format(i))
+        plt.plot(list(range(tmax)), self.hf_target_qpos_l[:, i], label='q_target{}'.format(i))
+        plt.legend()
+        # plt.show()
+        if not os.path.exists(self._hyperparams['record']):
+            os.makedirs(self._hyperparams['record'])
+        # for i in range(self.adim):
+        #     plt.plot(list(range(tmax)), self.hf_qpos_l[:,i], label='q_{}'.format(i))
+        #     plt.plot(list(range(tmax)), self.hf_target_qpos_l[:, i], label='q_target{}'.format(i))
+        #     plt.legend()
+        #     # plt.show()
+        #     if not os.path.exists(self._hyperparams['record']):
+        #         os.makedirs(self._hyperparams['record'])
+        plt.savefig(self._hyperparams['record'] + '/ctrls.png')
 
     def _init(self):
         """
@@ -646,6 +693,8 @@ class AgentMuJoCo(object):
                             delta_pos = np.concatenate([np.random.uniform(-pos_disp, pos_disp, 2), np.zeros([1])])
                         newpos = pose[:3] + delta_pos
 
+                        if 'lift_object' in self._hyperparams:
+                            newpos[2] = 0.15
                         if np.any(newpos[:2] > 0.35) or np.any(newpos[:2] < -0.35):   # check if in field
                             continue
                         else:

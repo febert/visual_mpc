@@ -15,7 +15,7 @@ import pickle
 from tensorflow.python.platform import gfile
 Traj = namedtuple('Traj', 'images X_Xdot_full actions')
 
-from tensorflow.python.framework.errors_impl import OutOfRangeError
+from tensorflow.python.framework.errors_impl import OutOfRangeError, DataLossError
 
 class ReplayBuffer(object):
     def __init__(self, conf, maxsize, batch_size, data_collectors=None, todo_ids=None, printout=False):
@@ -38,7 +38,8 @@ class ReplayBuffer(object):
         self.ring_buffer.append(traj)
         if len(self.ring_buffer) > self.maxsize:
             self.ring_buffer.pop(0)
-        # self.logger.log('current size {}'.format(len(self.ring_buffer)))
+        if len(self.ring_buffer) % 100 == 0:
+            self.logger.log('current size {}'.format(len(self.ring_buffer)))
 
     def get_batch(self):
         images = []
@@ -83,10 +84,11 @@ class ReplayBuffer_Loadfiles(ReplayBuffer):
         self.conf['max_epoch'] = 1
         self.improvement_avg = []
         self.final_poscost_avg = []
+        self.mode = kwargs['mode']
 
     def update(self, sess):
         # check if new files arrived:
-        all_filenames = gfile.Glob(self.conf['data_dir'] + '/*.tfrecords')
+        all_filenames = gfile.Glob(self.conf['data_dir'] + '/' + self.mode + '/*.tfrecords')
 
         to_load_filenames = []
         for name in all_filenames:
@@ -98,26 +100,29 @@ class ReplayBuffer_Loadfiles(ReplayBuffer):
             self.logger.log('loading files')
             self.logger.log(to_load_filenames)
             self.logger.log('start filling replay')
-            dict = build_tfrecord_input(self.conf, input_file=to_load_filenames)
-            ibatch = 0
-            while True:
-                try:
-                    images, actions, endeff = sess.run([dict['images'], dict['actions'], dict['endeffector_pos']])
-                    self.logger.log('getting batch {}'.format(ibatch))
-                    ibatch +=1
-                except OutOfRangeError:
-                    break
-                for b in range(self.conf['batch_size']):
-                    t = Traj(images[b], endeff[b], actions[b])
-                    self.push_back(t)
-                    self.num_updates += 1
-            self.logger.log('done filling replay')
-            if self.num_updates % 1 == 0:
-                self.logger.log('reading scores')
-                self.get_scores(to_load_filenames)
-                self.logger.log('writing scores plot to {}'.format(self.conf['result_dir']))
-                plot_scores(self.conf['result_dir'], self.final_poscost_avg, self.improvement_avg)
+            try:
+                dict = build_tfrecord_input(self.conf, input_files=to_load_filenames)
+                ibatch = 0
+                while True:
+                    try:
+                        images, actions, endeff = sess.run([dict['images'], dict['actions'], dict['endeffector_pos']])
+                        self.logger.log('getting batch {}'.format(ibatch))
+                        ibatch +=1
+                    except OutOfRangeError:
+                        self.logger.log('OutOfRangeError')
+                        break
+                    for b in range(self.conf['batch_size']):
+                        t = Traj(images[b], endeff[b], actions[b])
+                        self.push_back(t)
+                        self.num_updates += 1
+                self.logger.log('done filling replay')
+            except DataLossError:
+                self.logger.log('DataLossError')
 
+            self.logger.log('reading scores')
+            self.get_scores(to_load_filenames)
+            self.logger.log('writing scores plot to {}'.format(self.conf['result_dir']))
+            plot_scores(self.conf['result_dir'], self.final_poscost_avg, self.improvement_avg)
             self.logger.log('traj_per hour: {}'.format(self.num_updates/((time.time() - self.tstart)/3600)))
             self.logger.log('avg time per traj {}s'.format((time.time() - self.tstart)/self.num_updates))
 

@@ -61,15 +61,16 @@ def visualize(sess, conf, model):
         model.gen_images = tf.unstack(model.gen_images[:,:,0], axis=1)
         model.images = tf.unstack(model.images, axis=1)
 
-    ground_truth, gen_images, states, actions, gen_masks = sess.run([model.images,
+    ground_truth, gen_images, states, actions = sess.run([model.images,
                                          model.gen_images,
                                          model.states,
                                          model.actions,
-                                         model.gen_masks,
+                                         # model.gen_masks,
                                        # model.prediction_flow,
                                        ],
                                        feed_dict)
 
+    pdb.set_trace()
     dict = OrderedDict()
     dict['iternum'] = conf['num_iter']
     dict['ground_truth'] = ground_truth
@@ -77,7 +78,7 @@ def visualize(sess, conf, model):
     # dict['actions'] = actions
     # dict['states'] = states
     # dict['prediction_flow'] = pred_flow
-    dict['gen_masks_l'] = gen_masks
+    # dict['gen_masks_l'] = gen_masks
 
     pickle.dump(dict, open(file_path + '/pred.pkl', 'wb'))
     print('written files to:' + file_path)

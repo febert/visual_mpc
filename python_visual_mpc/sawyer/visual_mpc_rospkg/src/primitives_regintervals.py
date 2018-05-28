@@ -19,10 +19,11 @@ from sensor_msgs.msg import JointState
 from std_msgs.msg import Float32
 from std_msgs.msg import Int64
 from std_msgs.msg import String
-from .utils.checkpoint import write_ckpt, write_timing_file, parse_ckpt
+from python_visual_mpc.sawyer.visual_mpc_rospkg.src.utils.checkpoint import write_ckpt, write_timing_file, parse_ckpt
 import python_visual_mpc
 from python_visual_mpc import __file__ as base_filepath
 import imp
+import xacro
 
 import argparse
 
@@ -48,13 +49,14 @@ class Primitive_Executor(object):
         print('using action frequency of {}Hz'.format(action_frequency))
         print('time between actions:', 1 / action_frequency)
 
-        self.robot_name = rospy.get_param('~robot')
-        savedir = rospy.get_param('~savedir')
-
-        if savedir == '':
-            savedir = "/media/febert/harddisk/febert/sawyer_data/newrecording_{}".format(self.robot_name)
-        else:
-            savedir = savedir
+        # self.robot_name = rospy.get_param('~robot')
+        # savedir = rospy.get_param('~savedir')
+        # if savedir == '':
+        self.robot_name = 'vestri'
+        print 'robot_name', self.robot_name
+        savedir = "/raid/febert/sawyer_data/newrecording"
+        # else:
+        #     savedir = savedir
         if not os.path.exists(savedir):
             raise ValueError("{} does not exist".format(savedir))
 

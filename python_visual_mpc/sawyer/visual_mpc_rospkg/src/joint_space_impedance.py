@@ -16,7 +16,7 @@ from intera_interface import CHECK_VERSION
 import pdb
 from std_msgs.msg import Float32
 from std_msgs.msg import Int64
-from .utils.sawyer_pykdl import EE_Calculator
+# from .utils.sawyer_pykdl import EE_Calculator
 
 class JointSprings(object):
     """

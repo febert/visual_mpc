@@ -1,7 +1,7 @@
 """ This file defines the linear Gaussian policy class. """
 import cv2
 import numpy as np
-
+from python_visual_mpc.visual_mpc_core.algorithm.cem_controller_goalimage_sawyer import reuse_cov
 from python_visual_mpc.visual_mpc_core.algorithm.policy import Policy
 import time
 from python_visual_mpc.video_prediction.utils_vpred.create_gif_lib import *
@@ -19,6 +19,8 @@ from mujoco_py import load_model_from_xml,load_model_from_path, MjSim, MjViewer
 from python_visual_mpc.visual_mpc_core.agent.utils.get_masks import get_obj_masks
 from python_visual_mpc.visual_mpc_core.agent.utils.gen_gtruth_desig import gen_gtruthdesig
 from python_visual_mpc.visual_mpc_core.agent.utils.convert_world_imspace_mj1_5 import project_point, get_3D
+
+from python_visual_mpc.visual_mpc_core.agent.agent_mjc import get_target_qpos
 
 
 class CEM_controller(Policy):
@@ -178,11 +180,13 @@ class CEM_controller(Policy):
 
     def perform_CEM(self, t):
         # initialize mean and variance
-
-        # initialize mean and variance
-        self.mean = np.zeros(self.adim * self.naction_steps)
-        # initialize mean and variance of the discrete actions to their mean and variance used during data collection
-        self.sigma = construct_initial_sigma(self.policyparams)
+        if 'reuse_cov' not in self.policyparams or t < 2:
+            # initialize mean and variance
+            self.mean = np.zeros(self.adim * self.naction_steps)
+            #initialize mean and variance of the discrete actions to their mean and variance used during data collection
+            self.sigma = construct_initial_sigma(self.policyparams)
+        else:
+            self.mean, self.sigma = reuse_cov(self.mean, self.sigma, self.adim, self.policyparams)
 
         print('------------------------------------------------')
         print('starting CEM cylce')
@@ -191,6 +195,7 @@ class CEM_controller(Policy):
             print('------------')
             print('iteration: ', itr)
             t_startiter = time.time()
+
             actions = np.random.multivariate_normal(self.mean, self.sigma, self.M)
             actions = actions.reshape(self.M, self.naction_steps, self.adim)
             if self.discrete_ind != None:
@@ -259,10 +264,6 @@ class CEM_controller(Policy):
         file_path = self.agentparams['record']
         npy_to_gif(images, file_path +'/video'+name)
 
-    def clip_targetpos(self, pos):
-        pos_clip = self.agentparams['targetpos_clip']
-        return np.clip(pos, pos_clip[0], pos_clip[1])
-
     def sim_rollout(self, actions):
         costs = []
         self.hf_qpos_l = []
@@ -271,6 +272,8 @@ class CEM_controller(Policy):
         images = []
         self.gripper_closed = False
         self.gripper_up = False
+        self.t_down = 0
+        # print('start episdoe')
 
         for t in range(self.nactions*self.repeat):
             mj_U = actions[t]
@@ -283,23 +286,10 @@ class CEM_controller(Policy):
                 else:
                     self.prev_target_qpos = copy.deepcopy(self.target_qpos)
 
-                if 'discrete_adim' in self.agentparams:
-                    up_cmd = mj_U[2]
-                    assert np.floor(up_cmd) == up_cmd
-                    if up_cmd != 0:
-                        self.t_down = t + up_cmd
-                        self.target_qpos[2] = self.agentparams['targetpos_clip'][1][2]
-                        self.gripper_up = True
-                    if self.gripper_up:
-                        if t == self.t_down:
-                            self.target_qpos[2] = self.agentparams['targetpos_clip'][0][2]
-                            self.gripper_up = False
-                    self.target_qpos[:2] += mj_U[:2]
-                    if self.adim == 4:
-                        self.target_qpos[3] += mj_U[3]
-                else:
-                    self.target_qpos = mj_U + self.target_qpos
-                self.target_qpos = self.clip_targetpos(self.target_qpos)
+                zpos = self.sim.data.qpos[2]
+                self.target_qpos, self.t_down, self.gripper_up, self.gripper_closed = get_target_qpos(
+                    self.target_qpos, self.agentparams, mj_U, t, self.gripper_up, self.gripper_closed, self.t_down, zpos)
+                # print('target_qpos', self.target_qpos)
             else:
                 ctrl = mj_U.copy()
 

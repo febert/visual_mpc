@@ -39,6 +39,8 @@ class Sim(object):
 
         if 'RESULT_DIR' in os.environ:
             self.agentparams['data_save_dir'] = os.environ['RESULT_DIR'] + '/data/train'
+
+        self.task_mode = 'train' # whether to save trajectory as train example, val example or do a validation task
         self._data_save_dir = self.agentparams['data_save_dir']
         self.agentparams['gpu_id'] = gpu_id
 
@@ -66,13 +68,12 @@ class Sim(object):
 
         self.trajectory_list = []
         self.im_score_list = []
-
         try:
             os.remove(self._hyperparams['agent']['image_dir'])
         except:
             pass
 
-    def reset_policy(self):
+    def _init_policy(self):
         if 'netconf' in self.policyparams:
             if 'warp_objective' in self.policyparams or 'register_gtruth' in self.policyparams:
                 self.policy = self.policyparams['type'](self.agent._hyperparams,
@@ -87,10 +88,9 @@ class Sim(object):
 
     def run(self):
         for i in range(self._hyperparams['start_index'], self._hyperparams['end_index']+1):
-            self._take_sample(i)
+            self.take_sample(i)
 
-
-    def _take_sample(self, sample_index):
+    def take_sample(self, sample_index):
         """
         Collect a sample from the agent.
         Args:
@@ -99,6 +99,8 @@ class Sim(object):
             sample_index: Sample index.
         Returns: None
         """
+        self._init_policy()
+
         t_traj = time.time()
         traj = self.agent.sample(self.policy, sample_index)
         t_traj = time.time() - t_traj
@@ -117,9 +119,7 @@ class Sim(object):
                 plot_dist(traj, self.agentparams['record'])
             if 'register_gtruth' in self.policyparams:
                 plot_warp_err(traj, self.agentparams['record'])
-
         return traj
-
 
     def save_data(self, traj, itr):
         """
@@ -237,17 +237,19 @@ class Sim(object):
                 filename = 'traj_{0}_to_{1}' \
                     .format(itr - traj_per_file + 1, itr)
                 from .utility.save_tf_record import save_tf_record
-                self.logger.log('Writing', self.agentparams['data_save_dir'] + '/'+ filename)
-                save_tf_record(filename, self.trajectory_list, self.agentparams)
+                self.logger.log('Writing', self._data_save_dir + '/' + self.task_mode + '/' + filename)
+                if self.task_mode != 'val_task':   # do not save validation tasks (but do save validation runs on randomly generated tasks)
+                    save_tf_record(filename, self.trajectory_list, self.agentparams)
                 if self.agent.goal_obj_pose is not None:
-                    write_scores(self.trajectory_list, filename, self.agentparams)
+                    write_scores(self.trajectory_list, filename, self.agentparams, self.task_mode)
                 self.trajectory_list = []
 
-def write_scores(trajlist, filename, agentparams):
+
+def write_scores(trajlist, filename, agentparams, mode):
     dir = '/'.join(str.split(agentparams['data_save_dir'], '/')[:-1])
-    dir += '/scores'
+    dir += '/scores/' + mode
     if not os.path.exists(dir):
-        os.makedirs(dir)
+        os.makedirs(dir, exist_ok=True)
     filename = filename.partition('.')[0] + '_score.pkl'
     scores = {}
     improvements = []
@@ -262,6 +264,7 @@ def write_scores(trajlist, filename, agentparams):
     scores['initial_poscost'] = initial_poscost
     pickle.dump(scores, open(os.path.join(dir, filename), 'wb'))
 
+
 def plot_warp_err(traj, dir):
     start_err = []
     goal_err = []
@@ -273,22 +276,23 @@ def plot_warp_err(traj, dir):
             goal_err.append(tstep['goal_warp_err'])
         tradeoff.append(tstep['tradeoff'])
 
-    tradeoff = np.stack(tradeoff, 0)
-    start_err = np.array(start_err)
-    goal_err = np.array(goal_err)
-    plt.figure()
-    ax = plt.gca()
-    ax.plot(start_err, marker ='d', label='start')
-    ax.plot(goal_err, marker='o', label='goal')
-    ax.legend()
-    plt.savefig(dir + '/warperrors.png')
+    if len(tradeoff) != 0:
+        tradeoff = np.stack(tradeoff, 0)
+        start_err = np.array(start_err)
+        goal_err = np.array(goal_err)
+        plt.figure()
+        ax = plt.gca()
+        ax.plot(start_err, marker ='d', label='start')
+        ax.plot(goal_err, marker='o', label='goal')
+        ax.legend()
+        plt.savefig(dir + '/warperrors.png')
 
-    plt.figure()
-    ax = plt.gca()
-    ax.plot(tradeoff[:,0], marker='d', label='tradeoff for start')
-    ax.plot(tradeoff[:,1], marker='d', label='tradeoff for goal')
-    ax.legend()
-    plt.savefig(dir + '/tradeoff.png')
+        plt.figure()
+        ax = plt.gca()
+        ax.plot(tradeoff[:,0], marker='d', label='tradeoff for start')
+        ax.plot(tradeoff[:,1], marker='d', label='tradeoff for goal')
+        ax.legend()
+        plt.savefig(dir + '/tradeoff.png')
 
 def plot_dist(traj, dir):
     goal_dist = np.stack(traj.goal_dist, axis=0)

@@ -148,34 +148,39 @@ def create_object_xml(hyperparams, load_dict_list=None):
 
             if 'object_mass' in hyperparams:
                 object_mass = hyperparams['object_mass']
-                friction = 1.0
-                print('using friction={}, object_mass{}'.format(friction, object_mass))
+            else: object_mass = 0.1
+
+            if 'friction' in hyperparams:
+                friction = hyperparams['friction']
+            else: friction = 1.0
+
+            # for backwards compatibility:
+            if hyperparams['object_mass'] == 0.1 and hyperparams['friction'] == 1.5:
+                print('using solimp, solfref contact settings')
                 ET.SubElement(obj, "geom", type="box", size=".03 {} .03".format(l1),
                               rgba="{} {} {} 1".format(color1[0], color1[1], color1[2]), mass="{}".format(object_mass),
-                              contype="7", conaffinity="7", friction="{} 0.010 0.0002".format(friction)
+                              contype="7", conaffinity="7", friction="{} 0.10 0.002".format(friction), condim="6",
+                              solimp="0.99 0.99 0.01", solref="0.01 1"
                               )
                 ET.SubElement(obj, "geom", pos="{} {} 0.0".format(l2, pos2),
                               type="box", size="{} .03 .03".format(l2),
                               rgba="{} {} {} 1".format(color2[0], color2[1], color2[2]), mass="{}".format(object_mass),
-                              contype="7", conaffinity="7", friction="{} 0.010 0.0002".format(friction)
+                              contype="7", conaffinity="7", friction="{} 0.10 0.002".format(friction), condim="6",
+                              solimp="0.99 0.99 0.01", solref="0.01 1"
                               )
             else:
-                object_mass = 0.01
-                friction = 1.5
-                print('using friction={}, object mass{}'.format(friction, object_mass))
                 ET.SubElement(obj, "geom", type="box", size=".03 {} .03".format(l1),
                               rgba="{} {} {} 1".format(color1[0], color1[1], color1[2]), mass="{}".format(object_mass),
-                              contype="7", conaffinity="7", friction="{} 0.10 0.002".format(friction), condim="6",
-                              solimp="0.99 0.99 0.01", solref="0.01 1"
+                              contype="7", conaffinity="7", friction="{} 0.010 0.0002".format(friction)
                               )
                 ET.SubElement(obj, "geom", pos="{} {} 0.0".format(l2, pos2),
                               type="box", size="{} .03 .03".format(l2),
                               rgba="{} {} {} 1".format(color2[0], color2[1], color2[2]), mass="{}".format(object_mass),
-                              contype="7", conaffinity="7", friction="{} 0.10 0.002".format(friction), condim="6",
-                              solimp="0.99 0.99 0.01", solref="0.01 1"
+                              contype="7", conaffinity="7", friction="{} 0.010 0.0002".format(friction)
                               )
- 
- 
+
+            print('using friction={}, object mass{}'.format(friction, object_mass))
+
     tree = ET.ElementTree(root)
 
     xml_str = minidom.parseString(ET.tostring(

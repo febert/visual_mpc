@@ -1,8 +1,9 @@
 """ This file defines the base class for the policy. """
 import abc
+import abc, six
 
-
-class Policy(object, metaclass=abc.ABCMeta):
+@six.add_metaclass(abc.ABCMeta)
+class Policy(object):
     """ Computes actions from states/observations. """
 
     @abc.abstractmethod

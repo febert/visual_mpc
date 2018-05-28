@@ -12,7 +12,7 @@ from python_visual_mpc.visual_mpc_core.agent.agent_mjc import AgentMuJoCo
 import numpy as np
 agent = {
     'type': AgentMuJoCo,
-    'T': 5,  #####################
+    'T': 5,# #15,  #####################
     'substeps':200,
     'adim':5,
     'sdim':12,
@@ -21,6 +21,8 @@ agent = {
     'filename_nomarkers': ROOT_DIR + '/mjc_models/cartgripper_grasp.xml',
     'gen_xml':1,   #generate xml every nth trajecotry
     'num_objects': 1,
+    'object_mass':0.01,
+    'friction':1.5,
     'skip_first':0,
     'viewer_image_height' : 480,
     'viewer_image_width' : 640,
@@ -29,10 +31,12 @@ agent = {
     'additional_viewer':'',
     'data_save_dir':current_dir + '/data/train',
     'posmode':"",
-    'targetpos_clip':[[-0.45, -0.45, -0.08, -np.pi*2, 0.], [0.45, 0.45, 0.15, np.pi*2, 0.1]],
+    # 'targetpos_clip':[[-0.45, -0.45, -0.08, -np.pi*2, -100], [0.45, 0.45, 0.15, np.pi*2, 100]], ##
+    'targetpos_clip':[[-0.45, -0.45, -0.08, -np.pi*2, 0.], [0.45, 0.45, 0.15, np.pi*2, 0.1]], ##
+    'mode_rel':np.array([True, True, True, True, False]),
     'cameras':['maincam', 'leftcam'],
     'verbose':"",
-    'compare_mj_planner_actions':'',
+    # 'compare_mj_planner_actions':'',
 }
 
 policy = {
@@ -43,10 +47,10 @@ policy = {
     'usenet': True,
     'nactions': 5,
     'repeat': 3,
-    'initial_std': 0.08,        # std dev. in xy
-    'initial_std_lift': 0.3, #0.1,
-    'initial_std_rot': 0.05,
-    'initial_std_grasp': 100,
+    'initial_std': 0.05,        # std dev. in xy
+    'initial_std_lift': 0.01,
+    'initial_std_rot': 0.01,
+    'initial_std_grasp': 30,  #######
     'netconf': current_dir + '/conf.py',
     'iterations': 3,
     'action_cost_factor': 0,
@@ -90,6 +94,8 @@ config = {
     'policy':policy,
     'ngroup': 100,
     'sourcetags':[tag_images0, tag_images1, tag_qpos, tag_object_full_pose, tag_object_statprop, tag_actions],
-    'source_basedirs':[os.environ['VMPC_DATA_DIR'] + '/cartgripper/grasping/mj_lift/train'],
-    'sequence_length':15 # important: needs to be 15 instead of 2!!
+    # 'source_basedirs':[os.environ['VMPC_DATA_DIR'] + '/cartgripper/grasping/mj_lift/train'],
+    # 'sequence_length':15 # important: needs to be 15 instead of 2!!
+    'source_basedirs':[os.environ['VMPC_DATA_DIR'] + '/cartgripper/grasping/cartgripper_startgoal_2view_lift_above_obj/train'],
+    'sequence_length':2 # important: needs to be 15 instead of 2!!
 }

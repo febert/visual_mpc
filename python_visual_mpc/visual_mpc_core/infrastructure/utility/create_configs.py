@@ -27,7 +27,7 @@ class CollectGoalImageSim(Sim):
         Sim.__init__(self, config)
         self.num_ob = self.agentparams['num_objects']
 
-    def _take_sample(self, sample_index):
+    def take_sample(self, sample_index):
         if "gen_xml" in self.agentparams:
             if sample_index % self.agentparams['gen_xml'] == 0:
                 self.agent._setup_world()
