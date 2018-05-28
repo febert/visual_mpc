@@ -364,10 +364,10 @@ class AgentMuJoCo(object):
                 self.hf_qpos_l.append(copy.deepcopy(self.sim.data.qpos))
                 self.hf_target_qpos_l.append(copy.deepcopy(ctrl))
 
+            traj.touch_sensors[t] /= self._hyperparams['substeps']
+
             if self.goal_obj_pose is not None:
                 traj.goal_dist.append(self.eval_action(traj, t)[0])
-        
-        traj.touch_sensors[t] /= self._hyperparams['substeps']
 
             if 'term_dist' in self._hyperparams:
                 if traj.goal_dist[-1] < self._hyperparams['term_dist']:
@@ -377,6 +377,7 @@ class AgentMuJoCo(object):
             if done:
                 traj.term_t = t
             t += 1
+
 
         if 'first_last_noarm' in self._hyperparams:
             self.hide_arm_store_image(1, traj)
