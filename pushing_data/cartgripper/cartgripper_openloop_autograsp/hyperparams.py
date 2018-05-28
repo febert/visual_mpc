@@ -77,7 +77,8 @@ agent = {
     'mode_rel':np.array([True, True, True, True, False]),
     'discrete_gripper' : -1, #discretized gripper dimension,
     'lift_rejection_sample' : 15,
-    'object_mass' : 0.05,
+    'object_mass' : 0.1,
+    'friction' : 1.0,
     'autograsp' : True,
 #    'master_datadir' : '/raid/ngc2/grasping_data/cartgripper_openloop_randgrasp/'
 #    'file_to_record' : convert_to_record
