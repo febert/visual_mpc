@@ -46,6 +46,9 @@ class Randompolicy(Policy):
             if 'no_action_bound' not in self.policyparams:
                 self.actions = truncate_movement(self.actions, self.policyparams)
 
+            if 'z_descend_actions' in self.policyparams:
+                self.actions[repeat:, 2] = np.minimum(self.actions[repeat:, 2], -self.actions[repeat:, 2])
+
         return self.actions[t]
 
     def finish(self):
@@ -82,6 +85,9 @@ class RandomPickPolicy(Randompolicy):
 
             if 'no_action_bound' not in self.policyparams:
                 self.actions = truncate_movement(self.actions, self.policyparams)
+
+            if 'z_descend_actions' in self.policyparams:
+                self.actions[repeat:, 2] = np.minimum(self.actions[repeat:, 2], -self.actions[repeat:, 2])
 
         return self.actions[t]
 
