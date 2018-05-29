@@ -340,7 +340,7 @@ class AgentMuJoCo(object):
 
                 self.target_qpos, self.t_down, self.gripper_up, self.gripper_closed = get_target_qpos(
                     self.target_qpos, self._hyperparams, mj_U, t, self.gripper_up, self.gripper_closed, self.t_down, traj.X_full[t,2])
-                traj.target_qpos[t] = self.target_qpos
+                traj.target_qpos[t + 1] = self.target_qpos
             else:
                 ctrl = mj_U.copy()
 
