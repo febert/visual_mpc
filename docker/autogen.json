@@ -96,6 +96,10 @@
             "id": 10048
         },
         {
+            "containerMountPoint": "/mnt/pushing_data/cartgripper/grasping/cartgripper_startgoal_2view_lift_above_obj",
+            "id": 10061
+        },
+        {
             "containerMountPoint": "/mnt/pushing_data/cartgripper/cartgripper_startgoal_2view_lift",
             "id": 9816
         },

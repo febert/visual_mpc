@@ -34,7 +34,7 @@ class Image_dark_except(Exception):
     def __init__(self):
         pass
 
-def get_target_qpos(target_qpos, _hyperparams, mj_U, t, gripper_up, gripper_closed, t_down):
+def get_target_qpos(target_qpos, _hyperparams, mj_U, t, gripper_up, gripper_closed, t_down, gripper_zpos):
     adim = _hyperparams['adim']
 
     target_qpos = target_qpos.copy()
@@ -65,7 +65,18 @@ def get_target_qpos(target_qpos, _hyperparams, mj_U, t, gripper_up, gripper_clos
             target_qpos[4] = 0.1
         else:
             target_qpos[4] = 0.0
-        print('target_qpos', target_qpos)
+        # print('target_qpos', target_qpos)
+    elif 'autograsp' in _hyperparams:
+        assert adim == 5
+        target_qpos[:4] = mj_U[:4] + target_qpos[:4]
+        if gripper_zpos < -0.06:
+            gripper_closed = True
+        if gripper_closed:
+            target_qpos[4] = 0.1
+        else:
+            target_qpos[4] = 0.0
+        #print('target_qpos', target_qpos)
+
     else:
         mode_rel = _hyperparams['mode_rel']
         target_qpos = target_qpos + mj_U * mode_rel
@@ -327,8 +338,9 @@ class AgentMuJoCo(object):
                 else:
                     self.prev_target_qpos = copy.deepcopy(self.target_qpos)
 
-                self.target_qpos, self.t_down, self.gripper_up, self.gripper_closed = get_target_qpos(self.target_qpos, self._hyperparams, mj_U, t, self.gripper_up, self.gripper_closed, self.t_down)
-                traj.target_qpos[t] = self.target_qpos
+                self.target_qpos, self.t_down, self.gripper_up, self.gripper_closed = get_target_qpos(
+                    self.target_qpos, self._hyperparams, mj_U, t, self.gripper_up, self.gripper_closed, self.t_down, traj.X_full[t,2])
+                traj.target_qpos[t + 1] = self.target_qpos
             else:
                 ctrl = mj_U.copy()
 

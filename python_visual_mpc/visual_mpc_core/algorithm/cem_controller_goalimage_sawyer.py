@@ -119,6 +119,24 @@ def construct_initial_sigma(policyparams):
     sigma = np.diag(diag)
     return sigma
 
+def reuse_cov(mean, sigma, adim, policyparams):
+    naction_steps = policyparams['nactions']
+    print('reusing mean form last MPC step...')
+    mean_old = mean.copy()
+
+    mean = np.zeros_like(mean_old)
+    mean[:-adim] = mean_old[adim:]
+    mean = mean.reshape(adim * naction_steps)
+
+    sigma_old = copy.deepcopy(sigma)
+    sigma = np.zeros_like(sigma)
+    #reuse covariance and add a fraction of the initial covariance to it
+    sigma[0:-adim,0:-adim] = sigma_old[adim:,adim: ] +\
+                construct_initial_sigma(policyparams)[:-adim, :-adim]*policyparams['reuse_cov']
+    sigma[-adim:, -adim:] = construct_initial_sigma(policyparams)[:adim, :adim]
+
+    return mean, sigma
+
 
 def truncate_movement(actions, policyparams):
     if 'maxshift' in policyparams:
@@ -293,33 +311,16 @@ class CEM_controller():
                     actions[b, a, ind] = np.clip(np.floor(actions[b, a, ind]), 0, 4)
         return actions
 
-    def reuse_cov(self):
-        print('reusing mean form last MPC step...')
-        mean_old = copy.deepcopy(self.mean)
-
-        self.mean = np.zeros_like(mean_old)
-        self.mean[:-self.adim] = mean_old[self.adim:]
-        self.mean = self.mean.reshape(self.adim * self.naction_steps)
-
-        sigma_old = copy.deepcopy(self.sigma)
-        self.sigma = np.zeros_like(self.sigma)
-        self.sigma[0:-self.adim,0:-self.adim] = sigma_old[self.adim:,self.adim: ]
-        # self.sigma[0:-self.adim, 0:-self.adim] += np.diag(np.ones(self.adim * (self.naction_steps-1)))*(self.initial_std/5)**2
-
-        self.sigma[-self.adim:, -self.adim:] = construct_initial_sigma(self.policyparams)[:self.adim, :self.adim]
-
-        return self.mean, self.sigma
-
 
     def perform_CEM(self,last_frames, last_frames_med, last_states, t):
 
-        if 'reuse_mean_cov' not in self.policyparams or t < 2:
+        if 'reuse_cov' not in self.policyparams or t < 2:
             # initialize mean and variance
             self.mean = np.zeros(self.adim * self.naction_steps)
             #initialize mean and variance of the discrete actions to their mean and variance used during data collection
             self.sigma = construct_initial_sigma(self.policyparams)
         else:
-            self.reuse_cov()
+            self.mean, self.sigma = reuse_cov(self.mean, self.sigma, self.adim, self.policyparams)
 
         self.logger.log('------------------------------------------------')
         self.logger.log('starting CEM cylce')
@@ -378,6 +379,15 @@ class CEM_controller():
         actions = actions.reshape(self.M, self.naction_steps, self.adim)
         if self.discrete_ind != None:
             actions = self.discretize(actions)
+
+        if 'disc_grasp_val' in self.policyparams:
+            for n in range(self.naction_steps):
+                for b in range(self.M):
+                    if actions[b,n,4] > 0.5:
+                        actions[b,n,4] = self.policyparams['disc_grasp_val'][1]
+                    else:
+                        actions[b,n,4] = self.policyparams['disc_grasp_val'][0]
+
         if 'no_action_bound' not in self.policyparams:
             actions = truncate_movement(actions, self.policyparams)
         actions = np.repeat(actions, self.repeat, axis=1)
@@ -541,7 +551,7 @@ class CEM_controller():
                     for p in range(self.ndesig):
                         distance_grid = self.get_distancegrid(self.goal_pix[icam, p])
                         scores_per_task.append(self.calc_scores(gen_distrib[:,:, icam, :,:, p], distance_grid, normalize=self.normalize))
-                        self.logger.log('best flow score of task {}:  {}'.format(p, np.min(scores_per_task[-1])))
+                        self.logger.log('best flow score of task {} cam{}  :{}'.format(p, icam, np.min(scores_per_task[-1])))
                 scores_per_task = np.stack(scores_per_task, axis=1)
 
                 if 'only_take_first_view' in self.policyparams:
@@ -554,8 +564,9 @@ class CEM_controller():
                 scores = scores[1:]
 
             bestind = scores.argsort()[0]
-            for p in range(self.ndesig):
-                self.logger.log('flow score of best traj for task{}: {}'.format(p, scores_per_task[bestind, p]))
+            for icam in range(self.ncam):
+                for p in range(self.ndesig):
+                    self.logger.log('flow score of best traj for task{} cam{} :{}'.format(p, icam, scores_per_task[bestind, p + icam*self.ndesig]))
 
             # for predictor_propagation only!!
             if 'predictor_propagation' in self.policyparams:

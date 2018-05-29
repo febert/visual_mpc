@@ -45,6 +45,7 @@ def launch_job_func(run_script, hyper, arg, interactive=False, name='', ngpu=8, 
                              {"containerMountPoint": "/mnt/pretrained_models/bair_action_free/grasp_push_2views", "id": 9823},
                              {"containerMountPoint": "/mnt/pushing_data/cartgripper/cartgripper_startgoal_masks6e4", "id": 9138},  # mj_pos_ctrl_appflow
                              {"containerMountPoint": "/mnt/pushing_data/cartgripper/grasping/mj_lift", "id": 10048},  # mj_pos_ctrl_appflow
+                             {"containerMountPoint": "/mnt/pushing_data/cartgripper/grasping/cartgripper_startgoal_2view_lift_above_obj", "id": 10061},  # mj_pos_ctrl_appflow
                              {"containerMountPoint": "/mnt/pushing_data/cartgripper/cartgripper_startgoal_2view_lift", "id": 9816},  # mj_pos_ctrl_appflow
                              {"containerMountPoint": "/mnt/pushing_data/cartgripper/cartgripper_const_dist", "id": 9259},  # mj_pos_ctrl_appflow
                              {"containerMountPoint": "/mnt/pushing_data/cartgripper/cartgripper_startgoal_short", "id": 8949},  # mj_pos_ctrl_appflow

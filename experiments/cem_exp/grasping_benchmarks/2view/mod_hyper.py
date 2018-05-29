@@ -31,8 +31,8 @@ agent = {
     'additional_viewer':'',
     'data_save_dir':current_dir + '/data/train',
     'posmode':"",
-    'targetpos_clip':[[-0.45, -0.45, -0.08, -np.pi*2, -100], [0.45, 0.45, 0.15, np.pi*2, 100]], ###########3
-    # 'targetpos_clip':[[-0.45, -0.45, -0.08, -np.pi*2, 0.], [0.45, 0.45, 0.15, np.pi*2, 0.1]],
+    # 'targetpos_clip':[[-0.45, -0.45, -0.08, -np.pi*2, -100], [0.45, 0.45, 0.15, np.pi*2, 100]], ###########3
+    'targetpos_clip':[[-0.45, -0.45, -0.08, -np.pi*2, 0.], [0.45, 0.45, 0.15, np.pi*2, 0.1]],
     'mode_rel':np.array([True, True, True, True, False]),
     'cameras':['maincam', 'leftcam'],
     'verbose':"",
@@ -47,7 +47,7 @@ policy = {
     'usenet': True,
     'nactions': 5,
     'repeat': 3,
-    'initial_std': 0.08,        # std dev. in xy
+    'initial_std': 0.05,        # std dev. in xy
     'initial_std_lift': 0.01,
     'initial_std_rot': 0.01,
     'initial_std_grasp': 30,  #######
@@ -94,6 +94,6 @@ config = {
     'policy':policy,
     'ngroup': 100,
     'sourcetags':[tag_images0, tag_images1, tag_qpos, tag_object_full_pose, tag_object_statprop, tag_actions],
-    'source_basedirs':[os.environ['VMPC_DATA_DIR'] + '/cartgripper/grasping/mj_lift/train'],
-    'sequence_length':15 # important: needs to be 15 instead of 2!!
+    'source_basedirs':[os.environ['VMPC_DATA_DIR'] + '/cartgripper/grasping/cartgripper_startgoal_2view_lift_above_obj/train'],
+    'sequence_length':2
 }
