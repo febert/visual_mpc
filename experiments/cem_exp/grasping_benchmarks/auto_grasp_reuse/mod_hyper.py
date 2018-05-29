@@ -17,7 +17,7 @@ folder_name = '/'.join(str.split(__file__, '/')[-2:-1])
 
 agent = {
     'type': AgentMuJoCo,
-    'T': 5,
+    'T': 15,
     'substeps': 75,
     'make_final_gif':'',
     'adim':5,
@@ -60,7 +60,7 @@ policy = {
     'finalweight':10,
     'no_action_bound':"",
     'num_samples': [200, 50],#500,
-    'reuse_cov':0.25,
+    'reuse_cov':0.1,
 }
 
 tag_images0 = {'name': 'images0',

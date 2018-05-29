@@ -52,7 +52,10 @@ class CEM_controller(Policy):
 
         self.nactions = self.policyparams['nactions']
         self.repeat = self.policyparams['repeat']
-        self.M = self.policyparams['num_samples']
+        if isinstance(self.policyparams['num_samples'], list):
+            self.M = self.policyparams['num_samples'][0]
+        else:
+            self.M = self.policyparams['num_samples']
         self.K = 10  # only consider K best samples for refitting
 
         self.gtruth_images = [np.zeros((self.M, 64, 64, 3)) for _ in range(self.nactions * self.repeat)]
@@ -332,6 +335,14 @@ class CEM_controller(Policy):
 
         self.agentparams = agent_params
         self.goal_obj_pose = copy.deepcopy(goal_obj_pose)
+
+        if isinstance(self.policyparams['num_samples'], list): #used for reuse_covœ
+            if t <= 1:
+                self.M = self.policyparams['num_samples'][0]
+            else:
+                self.M = self.policyparams['num_samples'][1]
+        else:
+            self.M = self.policyparams['num_samples']
 
         if 'task_switch' in self.policyparams:
             if t < self.agentparams['T']//2:
