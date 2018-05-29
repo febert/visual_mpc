@@ -59,7 +59,8 @@ class Multi_View_Model(object):
 
         self.gen_images = tf.concat([m.gen_images for m in self.models], axis=2)
         self.gen_states = tf.concat([m.gen_states for m in self.models], axis=2)
-        self.gen_distrib = tf.concat([m.gen_distrib for m in self.models], axis=2)
+        if pix_distrib is not None:
+            self.gen_distrib = tf.concat([m.gen_distrib for m in self.models], axis=2)
 
         if build_loss:
             self.train_video_summaries = make_video_summaries(conf['context_frames'], [self.images[:,:,0], self.gen_images[:,:,0],

@@ -59,7 +59,7 @@ policy = {
     'rew_all_steps':"",
     'finalweight':10,
     'no_action_bound':"",
-    'num_samples': 50,#200,#500,
+    'num_samples': 10,#200,#500,
     'use_first_plan':''
 }
 
