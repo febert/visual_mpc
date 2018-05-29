@@ -237,7 +237,11 @@ def build_tfrecord_single(conf, mode='train', input_files=None, shuffle=True):
             return_dict['first_last_noarm'] = tf.stack([first_last_noarm0, first_last_noarm1], axis=0)
 
         if 'image_only' not in conf:
-            return_dict['endeffector_pos'] = tf.concat(endeffector_pos_seq, 0)
+            if 'no_touch' in conf:
+                return_dict['endeffector_pos'] = tf.concat(endeffector_pos_seq, 0)[:,:-2]
+            else:
+                return_dict['endeffector_pos'] = tf.concat(endeffector_pos_seq, 0)
+
             return_dict['actions'] = tf.concat(action_seq, 0)
 
         if 'load_vidpred_data' in conf:
@@ -337,7 +341,7 @@ def main():
         # plt.imshow(firstlastnoarm[0,1])
         # plt.show()
 
-        file_path = '/'.join(str.split(DATA_DIR, '/')[:-1]+['preview'])
+        file_path = DATA_DIR
 
         if 'ncam' in conf:
             vidlist = []
@@ -350,7 +354,6 @@ def main():
             numbers = create_numbers(conf['sequence_length'], conf['batch_size'])
             npy_to_gif(assemble_gif([images, numbers], num_exp=conf['batch_size']), file_path)
 
-        comp_single_video(file_path, images, num_exp=conf['batch_size'])
 
         # deltat.append(time.time() - end)
         # if i_run % 10 == 0:
@@ -359,7 +362,7 @@ def main():
         # end = time.time()
 
 
-        for b in range(3):
+        for b in range(10):
             print('actions {}'.format(b))
             print(actions[b])
 
