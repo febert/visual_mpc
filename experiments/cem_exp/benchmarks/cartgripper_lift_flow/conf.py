@@ -1,22 +1,20 @@
+import python_visual_mpc
 import os
-current_dir = os.path.dirname(os.path.realpath(__file__))
-import numpy as np
+ROOT_DIR = os.path.abspath(python_visual_mpc.__file__)
+ROOT_DIR = '/'.join(str.split(ROOT_DIR, '/')[:-2])
 
+current_dir = ROOT_DIR + '/tensorflow_data/sim/cfdg_45_5/'
+print('current_dir', current_dir)
 # tf record data location:
 # DATA_DIR = {os.environ['VMPC_DATA_DIR'] + '/cartgripper/train' : 0.5, 
 #             os.environ['VMPC_DATA_DIR'] + '/benchmarks/good' : 0.05, 
 #             os.environ['VMPC_DATA_DIR'] + '/benchmarks/bad' : 0.45}
-DATA_DIR = os.environ['VMPC_DATA_DIR'] + '/benchmarks/good'
+DATA_DIR = os.environ['VMPC_DATA_DIR'] + '/cartgripper_det_grasp/train'
 # local output directory
 OUT_DIR = current_dir + '/modeldata'
-IMITATION_BASE_DIR = os.environ['VMPC_DATA_DIR'] + '/cartgripper_imitation_openloop/'
 
 from python_visual_mpc.video_prediction.dynamic_rnn_model.dynamic_base_model import Dynamic_Base_Model
-from python_visual_mpc.imitation_model.setup_imitation import setup_openloop_predictor
-#from python_visual_mpc.video_prediction.setup_predictor_towers import setup_predictor
-
-from python_visual_mpc.visual_mpc_core.algorithm.cem_controller_openloop import oldmpc2imitation_conv as state_conv
-
+from python_visual_mpc.video_prediction.setup_predictor_towers import setup_predictor
 configuration = {
 'experiment_name': 'rndaction_var10',
 'pred_model':Dynamic_Base_Model,
@@ -33,7 +31,7 @@ configuration = {
 'num_transformed_images': 1,   # 'number of masks, usually 1 for DNA, 10 for CDNA, STN.' ,
 'schedsamp_k': 1200.0,      # 'The k hyperparameter for scheduled sampling -1 for no scheduled sampling.' ,
 'train_val_split': 0.95,    #'The percentage of files to use for the training set vs. the validation set.' ,
-'batch_size': 16,           #'batch size for training' ,
+'batch_size': 200,           #'batch size for training' ,
 'learning_rate': 0.001,     #'the base learning rate of the generator' ,
 'visualize': '',            #'load model from which to generate visualizations
 'file_visual': '',          # datafile used for making visualizations
@@ -46,8 +44,6 @@ configuration = {
 'normalization':'in',
 'previmg_bckgd':'',
 'orig_size':[48,64],
-'openloop_setup' : setup_openloop_predictor,
-'openloop_conf': (IMITATION_BASE_DIR + '/conf_states.py', 'model40000'),
-'openloop_conv_state' : state_conv
-#'setup_predictor' : setup_predictor
+'setup_predictor' : setup_predictor,
+'ndesig': 1
 }
