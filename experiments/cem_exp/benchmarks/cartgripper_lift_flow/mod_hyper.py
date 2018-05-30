@@ -3,9 +3,12 @@ import os.path
 
 import numpy as np
 
-from python_visual_mpc.visual_mpc_core.algorithm.cem_controller_imitation import Imitation_CEM_controller
+
+from python_visual_mpc.visual_mpc_core.algorithm.cem_controller_openloop import Openloop_CEM_controller
 from python_visual_mpc.visual_mpc_core.agent.agent_mjc import AgentMuJoCo
 from python_visual_mpc.imitation_model.setup_imitation import setup_openloop_predictor
+
+
 IMAGE_WIDTH = 64
 IMAGE_HEIGHT = 64
 IMAGE_CHANNELS = 3
@@ -58,7 +61,7 @@ agent = {
 
 policy = {
     # 'verbose':'',  #########
-    'type' : Imitation_CEM_controller,
+    'type' : Openloop_CEM_controller,
     'low_level_ctrl': None,
     'current_dir':current_dir,
     'usenet': True,
@@ -66,8 +69,9 @@ policy = {
     'repeat': 1,
     'initial_std': 10.,   #std dev. in xy
     'initial_std_lift': 1e-5,   #std dev. in xy
-    'imitation_setup' : setup_openloop_predictor,
-    'imitation_conf': (IMITATION_BASE_DIR + '/conf_states.py', 'model40000'),
+    'openloop_setup' : setup_openloop_predictor,
+    'openloop_conf': (IMITATION_BASE_DIR + '/conf_states.py', 'model40000'),
+    'openloop_conv_state' : lambda x: np.concatenate((x[:, :4], np.clip(x[:, 4], 0, 0.1)), axis = 1),
     'netconf': current_dir + '/conf.py',
     'iterations': 3,
     'action_cost_factor': 0,

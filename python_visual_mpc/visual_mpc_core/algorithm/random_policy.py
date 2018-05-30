@@ -46,6 +46,9 @@ class Randompolicy(Policy):
             if 'no_action_bound' not in self.policyparams:
                 self.actions = truncate_movement(self.actions, self.policyparams)
 
+            if 'z_descend_actions' in self.policyparams:
+                self.actions[repeat:, 2] = np.minimum(self.actions[repeat:, 2], -self.actions[repeat:, 2])
+
         return self.actions[t]
 
     def finish(self):
@@ -53,7 +56,7 @@ class Randompolicy(Policy):
 
 class RandomPickPolicy(Randompolicy):
     def act(self, traj, t, init_model = None, goal_ee_pose = None, agentparams = None, goal_image = None):
-        repeat = self.policyparams['repeats']
+        repeat = self.policyparams['repeat']
         assert self.agentparams['T'] == self.naction_steps * repeat and self.naction_steps >= 3
 
         if t == 0:
@@ -82,6 +85,9 @@ class RandomPickPolicy(Randompolicy):
 
             if 'no_action_bound' not in self.policyparams:
                 self.actions = truncate_movement(self.actions, self.policyparams)
+
+            if 'z_descend_actions' in self.policyparams:
+                self.actions[repeat:, 2] = np.minimum(self.actions[repeat:, 2], -self.actions[repeat:, 2])
 
         return self.actions[t]
 

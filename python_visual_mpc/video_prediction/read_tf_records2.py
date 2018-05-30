@@ -237,7 +237,11 @@ def build_tfrecord_single(conf, mode='train', input_files=None, shuffle=True):
             return_dict['first_last_noarm'] = tf.stack([first_last_noarm0, first_last_noarm1], axis=0)
 
         if 'image_only' not in conf:
-            return_dict['endeffector_pos'] = tf.concat(endeffector_pos_seq, 0)
+            if 'no_touch' in conf:
+                return_dict['endeffector_pos'] = tf.concat(endeffector_pos_seq, 0)[:,:-2]
+            else:
+                return_dict['endeffector_pos'] = tf.concat(endeffector_pos_seq, 0)
+
             return_dict['actions'] = tf.concat(action_seq, 0)
 
         if 'load_vidpred_data' in conf:
@@ -276,7 +280,7 @@ def main():
     current_dir = os.path.dirname(os.path.realpath(__file__))
     # DATA_DIR = '/mnt/sda1/pushing_data/cartgripper/grasping/lift_imitation_dataset/test'
     # DATA_DIR = '/mnt/sda1/pushing_data/onpolicy/distributed_pushing/train'
-    DATA_DIR = '/mnt/sda1/pushing_data/cartgripper/grasping/dualcam_pick_place_dataset/bad'
+    DATA_DIR = '/mnt/sda1/pushing_data/cartgripper/grasping/lift_det_openloop/good'
     # DATA_DIR = {os.environ['VMPC_DATA_DIR'] + '/cartgripper/cartgripper_2view': 0.5,
     #             os.environ['VMPC_DATA_DIR'] + '/cartgripper/grasping/dualcam_pick_place_dataset/good': 0.25,
     #             os.environ['VMPC_DATA_DIR'] + '/cartgripper/grasping/dualcam_pick_place_dataset/bad': 0.25}
@@ -294,7 +298,7 @@ def main():
     # conf['max_epoch'] = 1     #requires batchsize equal to tfrec size
     # conf['row_start'] = 15
     # conf['row_end'] = 63
-    conf['sdim'] = 12
+    conf['sdim'] = 7
     conf['adim'] = 5
     # conf['image_only'] = ''
     # conf['goal_image'] = ""
@@ -315,7 +319,7 @@ def main():
 
     print('testing the reader')
 
-    dict = build_tfrecord_input(conf, mode='val')
+    dict = build_tfrecord_input(conf, mode='train')
 
     sess = tf.InteractiveSession()
     tf.train.start_queue_runners(sess)
@@ -337,8 +341,7 @@ def main():
         # plt.imshow(firstlastnoarm[0,1])
         # plt.show()
 
-        # file_path = '/'.join(str.split(DATA_DIR, '/')[:-1]+['preview'])
-        file_path = '/mnt/sda1/pushing_data/cartgripper/grasping/dualcam_pick_place_dataset'
+        file_path = DATA_DIR
 
         if 'ncam' in conf:
             vidlist = []
@@ -351,7 +354,6 @@ def main():
             numbers = create_numbers(conf['sequence_length'], conf['batch_size'])
             npy_to_gif(assemble_gif([images, numbers], num_exp=conf['batch_size']), file_path)
 
-        comp_single_video(file_path, images, num_exp=conf['batch_size'])
 
         # deltat.append(time.time() - end)
         # if i_run % 10 == 0:
@@ -360,7 +362,7 @@ def main():
         # end = time.time()
 
 
-        for b in range(3):
+        for b in range(10):
             print('actions {}'.format(b))
             print(actions[b])
 

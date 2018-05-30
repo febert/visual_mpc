@@ -457,10 +457,9 @@ class Dynamic_Base_Model(object):
                 assert imageshape[2] == 1
                 images = images[:,:,0]
                 pix_distrib = pix_distrib[:,:,0]
-                pix_distrib = tf.transpose(pix_distrib, [0,1,4,2,3])[...,None]  #putting ndesig at the third position
-            else:
-                pix_distrib = tf.transpose(pix_distrib, [0,1,4,2,3])[...,None]  #putting ndesig at the third position
 
+        if pix_distrib is not None:
+            pix_distrib = tf.transpose(pix_distrib, [0,1,4,2,3])[...,None]  #putting ndesig at the third position
 
         if states is not None and states.get_shape().as_list()[1] != conf['sequence_length']:  # append zeros if states is shorter than sequence length
             states = tf.concat([states, tf.zeros([conf['batch_size'], conf['sequence_length'] - conf['context_frames'], conf['sdim']])],
@@ -510,9 +509,9 @@ class Dynamic_Base_Model(object):
                                                      shape=(conf['batch_size'], seq_len, ndesig, self.img_height, self.img_width, 1))
                 pix_distrib = self.pix_distrib_pl
             else:
-                dict = build_tfrecord_fn(conf, training=True)
+                dict = build_tfrecord_fn(conf, mode='traing')
                 train_images, train_actions, train_states = dict['images'], dict['actions'], dict['endeffector_pos']
-                dict = build_tfrecord_fn(conf, training=False)
+                dict = build_tfrecord_fn(conf, mode='val')
                 val_images, val_actions, val_states = dict['images'], dict['actions'], dict['endeffector_pos']
 
                 images, actions, states = tf.cond(self.train_cond > 0,  # if 1 use trainigbatch else validation batch

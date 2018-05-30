@@ -13,6 +13,42 @@ class DefaultTraj:
     def __init__(self):
         self.actions, self.X_Xdot_full, self.images  = None, None, None
 
+def grasping_touch_file2record(state_action):
+    loaded_traj = DefaultTraj()
+
+    loaded_traj.actions = state_action['actions']
+    touch_sensors = state_action['finger_sensors']
+    loaded_traj.X_Xdot_full = np.concatenate((state_action['target_qpos'][:-1, :], touch_sensors), axis = 1)
+
+    good_lift = False
+
+    valid_frames = np.logical_and(state_action['target_qpos'][1:, -1] > 0, np.logical_and(touch_sensors[:, 0] > 0, touch_sensors[:, 1] > 0))
+    off_ground = state_action['target_qpos'][1:,2] >= 0
+    object_poses = state_action['object_full_pose']
+
+    if any(np.logical_and(valid_frames, off_ground)):
+        obj_eq = object_poses[0, :, :2] == state_action['obj_start_end_pos']
+        obj_eq = np.logical_and(obj_eq[:, 0], obj_eq[:, 1])
+        obj_eq = np.argmax(obj_eq)
+        obj_max =  np.amax(object_poses[:,obj_eq,2])
+        if obj_max >=0:
+            good_lift = True
+
+    return good_lift, loaded_traj
+def pushing_touch_file2record(state_action):
+    loaded_traj = DefaultTraj()
+
+    loaded_traj.actions = state_action['actions']
+    touch_sensors = state_action['finger_sensors']
+    loaded_traj.X_Xdot_full = np.concatenate((state_action['target_qpos'][:-1, :], touch_sensors), axis = 1)
+    
+    object_poses = state_action['object_full_pose']
+    good_push = False
+
+    if any(np.sum(np.sum(np.square(object_poses[1:,:,:2] - object_poses[1, :, :2].reshape((1, -1, 2))), axis = 1), axis = 1) > 0.01):
+        good_push = True     
+    return good_push, loaded_traj
+
 def main():
     parser = argparse.ArgumentParser(description='run convert from directory to tf record')
     parser.add_argument('experiment', type=str, help='experiment hyperparameter path')
@@ -107,6 +143,7 @@ def main():
                         loaded_traj.images[img] = cv2.imread(t + '/images/im{}.png'.format(img))[:, :, ::-1]
 
                 if good_lift:
+                    print(t)
                     good_lift_ctr += 1
                     good_traj_list.append(loaded_traj)
                 else:
