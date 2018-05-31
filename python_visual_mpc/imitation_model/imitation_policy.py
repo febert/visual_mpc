@@ -4,7 +4,7 @@ import importlib.util
 import tensorflow as tf
 import os
 import numpy as np
-
+import cv2
 class ImitationPolicy(Policy):
     MODEL_CREATION = False
     def __init__(self, agentparams, policyparams):
@@ -28,34 +28,40 @@ class ImitationPolicy(Policy):
 
     def _init_net(self):
         images_pl = tf.placeholder(tf.uint8, [1, None, self.img_height, self.img_width, 3])
+        print(images_pl)
         actions = tf.placeholder(tf.float32, [1, None, self.adim])
         end_effector_pos_pl = tf.placeholder(tf.float32, [1, None, self.sdim])
+        print('building model')
         if ImitationPolicy.MODEL_CREATION:
             with tf.variable_scope('model', reuse=True) as training_scope:
                 self.model = self.net_config['model'](self.net_config, images_pl, actions, end_effector_pos_pl)
-                self.model.build(is_Test=True)
+                self.model.build_sim()
         else:
             with tf.variable_scope('model', reuse=None) as training_scope:
                 self.model = self.net_config['model'](self.net_config, images_pl, actions, end_effector_pos_pl)
-                self.model.build(is_Test=True)
+                self.model.build_sim()
 
             ImitationPolicy.MODEL_CREATION = True
 
         vars = tf.get_collection(tf.GraphKeys.GLOBAL_VARIABLES)
         saver = tf.train.Saver(vars, max_to_keep=0)
 
-        gpu_options = tf.GPUOptions(per_process_gpu_memory_fraction=0.0999)
+        gpu_options = tf.GPUOptions(per_process_gpu_memory_fraction=0.2)
+        print('creating session')
         self.sess = tf.Session(config=tf.ConfigProto(gpu_options=gpu_options))
         tf.train.start_queue_runners(self.sess)
         self.sess.run(tf.global_variables_initializer())
 
         saver.restore(self.sess, self.policyparams['pretrained'])
-
+        print('model loaded!')
 
 
     def act(self, traj, t, init_model = None, goal_object_pose = None, hyperparams = None, goal_image = None):
-        sample_images = traj._sample_images[:t + 1].reshape((1, -1, self.img_height, self.img_width, 3))
+        if 'cameras' in self.agentparams:
+            sample_images = traj.images[:t + 1, 0].reshape((1, -1, self.img_height, self.img_width, 3))
+        else:
+            sample_images = traj.images[:t + 1].reshape((1, -1, self.img_height, self.img_width, 3))
         sample_eep = traj.target_qpos[:t + 1, :].reshape((1, -1, self.sdim)).astype(np.float32)
-
+        
         actions = self.model.query(self.sess, traj, t, images=sample_images, end_effector=sample_eep)
         return actions - traj.target_qpos[t, :] * traj.mask_rel

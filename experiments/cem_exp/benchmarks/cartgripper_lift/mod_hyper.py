@@ -19,7 +19,7 @@ current_dir = '/'.join(str.split(__file__, '/')[:-1])
 bench_dir = '/'.join(str.split(__file__, '/')[:-2])
 ROOT_DIR = os.path.abspath(python_visual_mpc.__file__)
 ROOT_DIR = '/'.join(str.split(ROOT_DIR, '/')[:-2])
-MODEL_BASE_DIR = ROOT_DIR + '/pushing_data/cartgripper_imitation/'
+MODEL_BASE_DIR = ROOT_DIR + '/pushing_data/cartgripper_imitation_openloop/'
 
 agent = {
     'type': AgentMuJoCo,
@@ -28,13 +28,12 @@ agent = {
     'filename_nomarkers': DATA_DIR+'/mjc_models/cartgripper_grasp.xml',
     'not_use_images':"",
     'visible_viewer':True,
-    'sample_objectpos':'',
     'adim':5,
     'sdim':12,
     'xpos0': np.array([0., 0., 0.05, 0., 0., 0.]), #initialize state dimension to 5 zeros
     'dt': 0.05,
     'substeps': 200,  #6
-    'T': 20,
+    'T': 15,
     'skip_first': 40,   #skip first N time steps to let the scene settle
     'additional_viewer': False,
     'image_height' : 48,
@@ -45,7 +44,6 @@ agent = {
     'num_objects': 1,
     'novideo':'',
     'gen_xml':10,   #generate xml every nth trajecotry
-    'randomize_ballinitpos':'', #randomize x, y
     'poscontroller_offset':'',
     'posmode':'abs',
     'ztarget':0.13,
@@ -60,8 +58,8 @@ agent = {
 
 policy = {
     'type' : ImitationPolicy,
-    'net_config' : os.path.join(MODEL_BASE_DIR, 'conf_lstm_mdn_states.py'),
-    'pretrained' :'modelfinal', #'model65000',
+    'net_config' : os.path.join(MODEL_BASE_DIR, 'conf_states.py'),
+    'pretrained' :'model40000', #'model65000',
 }
 
 tag_images = {'name': 'images',

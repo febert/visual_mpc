@@ -27,6 +27,7 @@ agent = {
     'sample_objectpos':'',
     'adim':5,
     'sdim':12,
+    'cameras':['maincam', 'leftcam'],
     'xpos0': np.array([0., 0., 0.05, 0., 0., 0.]), #initialize state dimension to 5 zeros
     'dt': 0.05,
     'substeps': 200,  #6

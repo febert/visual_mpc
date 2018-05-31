@@ -22,6 +22,9 @@ class Trajectory(object):
                                 img_width,
                                 img_channels), dtype='uint8')
 
+        if 'finger_sensors' in conf:
+            self.touch_sensors = np.zeros((self.T, 2), dtype = np.float32)
+
         if 'image_medium' in conf:
             self._image_medium = np.zeros((self.T,
                                             conf['image_medium'][0],
