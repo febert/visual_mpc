@@ -2,6 +2,9 @@ import numpy as np
 import rospy
 from python_visual_mpc.sawyer.visual_mpc_rospkg.src.utils.robot_wsg_controller import WSGRobotController
 from python_visual_mpc.sawyer.visual_mpc_rospkg.src.utils.robot_dualcam_recorder import RobotDualCamRecorder, Trajectory
+
+from python_visual_mpc.visual_mpc_core.agent.agent_mjc import  get_target_qpos
+
 class AgentSawyer:
     def __init__(self, agent_params):
         self._hyperparams = agent_params
@@ -28,6 +31,8 @@ class AgentSawyer:
             if not self._recorder.store_recordings(traj, t):
                 traj_ok = False
                 break
+
+            mj_U = policy.act(traj, t)
 
             for _ in xrange(self._hyperparams['substeps']):
                 self.control_rate.sleep()

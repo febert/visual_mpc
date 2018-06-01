@@ -15,6 +15,7 @@ import os
 import cPickle as pkl
 import shutil
 
+from python_visual_mpc.sawyer.visual_mpc_rospkg.src.primitives_regintervals import quat_to_zangle
 NUM_JOINTS = 7 #Sawyer has 7 dof arm
 
 class Trajectory:
@@ -152,7 +153,9 @@ class RobotDualCamRecorder:
         ee_pose = self.get_endeffector_pose()
         gripper_state, force_sensors = self.get_gripper_state()
 
-        robot_state = np.array([ee_pose[0], ee_pose[1], ee_pose[2], joint_angles[-1], gripper_state])
+        z_angle = quat_to_zangle(ee_pose[3:])
+
+        robot_state = np.array([ee_pose[0], ee_pose[1], ee_pose[2], z_angle, gripper_state])
 
         if return_full:
             return robot_state, joint_velocity, joint_angles, ee_pose, gripper_state, force_sensors
