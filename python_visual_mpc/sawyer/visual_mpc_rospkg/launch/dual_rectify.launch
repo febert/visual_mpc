@@ -26,7 +26,7 @@
     <arg name="width" default="0"/>
     <arg name="height" default="0"/>
   	<!-- if show a image_view window subscribed to the generated stream -->
-	<arg name="visualize" default="true"/>
+	<arg name="visualize" default="false"/>
     <arg name="calib_path" default="/home/sudeep/Desktop/camchain.yaml"/>
     <arg name="scale" default="1.0" />
 
