@@ -331,9 +331,9 @@ class CEM_controller():
             t_startiter = time.time()
 
             if 'rejection_sampling' in self.policyparams:
-                actions = self.sample_actions_rej()
+                actions = self.sample_actions_rej(last_frames, last_states)
             else:
-                actions = self.sample_actions()
+                actions = self.sample_actions(last_frames, last_states)
 
             if 'random_policy' in self.policyparams:
                 self.logger.log('sampling random actions')
@@ -374,7 +374,7 @@ class CEM_controller():
 
             self.logger.log('overall time for iteration {}'.format(time.time() - t_startiter))
 
-    def sample_actions(self):
+    def sample_actions(self, last_frames, last_states):
         actions = np.random.multivariate_normal(self.mean, self.sigma, self.M)
         actions = actions.reshape(self.M, self.naction_steps, self.adim)
         if self.discrete_ind != None:
@@ -394,7 +394,7 @@ class CEM_controller():
 
         return actions
 
-    def sample_actions_rej(self):
+    def sample_actions_rej(self, last_frames, last_states):
         """
         Perform rejection sampling
         :return:
@@ -477,6 +477,9 @@ class CEM_controller():
     def video_pred(self, last_frames, last_frames_med, last_states, actions, cem_itr):
         t_0 = time.time()
 
+        actions = actions[:,:,:self.netconf['adim']]
+
+        last_states = last_states[:,:self.netconf['sdim']]
         last_states = last_states[None]
         last_frames = last_frames.astype(np.float32, copy=False) / 255.
         last_frames = last_frames[None]
@@ -592,7 +595,7 @@ class CEM_controller():
         if self.verbose:
             gen_images = make_cem_visuals(self, actions, bestindices, cem_itr, flow_fields, gen_distrib, gen_images,
                                           gen_states, last_frames, goal_warp_pts_l, scores, self.warped_image_goal,
-                                          self.warped_image_start, warped_images)
+                                          self.warped_image_start, warped_images, last_states)
             if 'sawyer' in self.agentparams:
                 bestind = self.publish_sawyer(gen_distrib, gen_images, scores)
 

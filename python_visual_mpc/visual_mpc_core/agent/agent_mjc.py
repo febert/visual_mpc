@@ -171,16 +171,16 @@ class AgentMuJoCo(object):
         self._hyperparams['i_tr'] = i_tr
 
         traj_ok = False
-        i_trial = 0
+        self.i_trial = 0
         imax = 100
-        while not traj_ok and i_trial < imax:
-            i_trial += 1
+        while not traj_ok and self.i_trial < imax:
+            self.i_trial += 1
             try:
                 traj_ok, traj = self.rollout(policy, i_tr)
             except Image_dark_except:
                 traj_ok = False
 
-        print('needed {} trials'.format(i_trial))
+        print('needed {} trials'.format(self.i_trial))
 
         tfinal = self._hyperparams['T'] -1
         if self.goal_obj_pose is not None:
@@ -300,11 +300,15 @@ class AgentMuJoCo(object):
             traj.X_Xdot_full[t, :] = np.concatenate([traj.X_full[t, :], traj.Xdot_full[t, :]])
             assert self.sim.data.qpos.shape[0] == qpos_dim + 7 * self._hyperparams['num_objects']
 
+            touch_offset = 0
+            if 'finger_sensors' in self._hyperparams:
+                touch_offset = 2
+
             for i in range(self._hyperparams['num_objects']):
                 fullpose = self.sim.data.qpos[i * 7 + qpos_dim:(i + 1) * 7 + qpos_dim].squeeze().copy()
 
                 if 'object_meshes' in self._hyperparams:
-                    fullpose[:3] = self.sim.data.sensordata[i * 3 :(i + 1) * 3].copy()
+                    fullpose[:3] = self.sim.data.sensordata[touch_offset + i * 3 :touch_offset + (i + 1) * 3].copy()
 
                 traj.Object_full_pose[t, i, :] = fullpose
                 zangle = self.quat_to_zangle(fullpose[3:])
@@ -335,22 +339,30 @@ class AgentMuJoCo(object):
                 if t == 0:
                     self.prev_target_qpos = copy.deepcopy(self.sim.data.qpos[:self.adim].squeeze())
                     self.target_qpos = copy.deepcopy(self.sim.data.qpos[:self.adim].squeeze())
+                    traj.target_qpos[0] = copy.deepcopy(self.sim.data.qpos[:self.adim].squeeze())
                 else:
                     self.prev_target_qpos = copy.deepcopy(self.target_qpos)
 
                 self.target_qpos, self.t_down, self.gripper_up, self.gripper_closed = get_target_qpos(
                     self.target_qpos, self._hyperparams, mj_U, t, self.gripper_up, self.gripper_closed, self.t_down, traj.X_full[t,2])
-                traj.target_qpos[t + 1] = self.target_qpos
+                traj.target_qpos[t + 1] = self.target_qpos.copy()
             else:
                 ctrl = mj_U.copy()
 
             for st in range(self._hyperparams['substeps']):
                 if 'posmode' in self._hyperparams:
                     ctrl = self.get_int_targetpos(st, self.prev_target_qpos, self.target_qpos)
+
+                if 'finger_sensors' in self._hyperparams:
+                    traj.touch_sensors[t] += copy.deepcopy(self.sim.data.sensordata[:2].squeeze().copy())
+
                 self.sim.data.ctrl[:] = ctrl
                 self.sim.step()
                 self.hf_qpos_l.append(copy.deepcopy(self.sim.data.qpos))
                 self.hf_target_qpos_l.append(copy.deepcopy(ctrl))
+
+            if 'finger_sensors' in self._hyperparams:
+                traj.touch_sensors[t] /= self._hyperparams['substeps']
 
             if self.goal_obj_pose is not None:
                 traj.goal_dist.append(self.eval_action(traj, t)[0])
@@ -363,6 +375,7 @@ class AgentMuJoCo(object):
             if done:
                 traj.term_t = t
             t += 1
+
 
         if 'first_last_noarm' in self._hyperparams:
             self.hide_arm_store_image(1, traj)
@@ -380,6 +393,13 @@ class AgentMuJoCo(object):
                 traj_ok = True
             else:
                 traj_ok = False
+        elif 'lift_rejection_sample' in self._hyperparams:
+            valid_frames = np.logical_and(traj.target_qpos[1:,-1] > 0.05, np.logical_and(traj.touch_sensors[:, 0] > 0, traj.touch_sensors[:, 1] > 0))
+            off_ground = traj.target_qpos[1:,2] >= 0
+            if not any(np.logical_and(valid_frames, off_ground)) and self.i_trial < self._hyperparams['lift_rejection_sample']:
+                traj_ok = False
+            else:
+                traj_ok = True
         else:
             traj_ok = True
 

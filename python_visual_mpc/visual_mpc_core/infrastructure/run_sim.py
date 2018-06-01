@@ -57,6 +57,14 @@ class Sim(object):
                 params = imp.load_source('params', config['policy']['gdnconf'])
                 gdnconf = params.configuration
                 self.goal_image_warper = setup_gdn(gdnconf, gpu_id)
+                self.policy = config['policy']['type'](config['agent'], config['policy'], self.predictor, self.goal_image_warper)
+            elif 'imitation_conf' in config['policy']:
+                self.imitation_policy = config['policy']['imitation_setup'](config['policy']['imitation_conf'])
+                self.policy = config['policy']['type'](config['agent'], config['policy'], self.predictor, self.imitation_policy)
+            else:
+                self.policy = config['policy']['type'](config['agent'], config['policy'], self.predictor)
+        else:
+            self.policy = config['policy']['type'](self.agent._hyperparams, config['policy'])
 
         self.trajectory_list = []
         self.im_score_list = []
@@ -70,6 +78,8 @@ class Sim(object):
             if 'warp_objective' in self.policyparams or 'register_gtruth' in self.policyparams:
                 self.policy = self.policyparams['type'](self.agent._hyperparams,
                                                               self.policyparams, self.predictor, self.goal_image_warper)
+            elif 'imitation_conf' in self.policyparams:
+                self.policy = self.policyparams['type'](self.agent._hyperparams, self.policyparams, self.predictor, self.imitation_policy)
             else:
                 self.policy = self.policyparams['type'](self.agent._hyperparams,
                                                               self.policyparams, self.predictor)
@@ -128,7 +138,7 @@ class Sim(object):
             self.traj_folder = self.group_folder + '/traj{}'.format(itr)
 
             if 'cameras' in self.agentparams:
-                self.image_folders = [self.traj_folder + '/images{}'.format(i) for i in range(len(self.agentparams['cameras']))]
+                image_folders = [self.traj_folder + '/images{}'.format(i) for i in range(len(self.agentparams['cameras']))]
             else:
                 self.image_folder = self.traj_folder + '/images'
 
@@ -140,7 +150,7 @@ class Sim(object):
             os.makedirs(self.traj_folder)
             self.logger.log('writing: ', self.traj_folder)
             if 'cameras' in self.agentparams:
-                for f in self.image_folders:
+                for f in image_folders:
                     os.makedirs(f)
             else:
                 os.makedirs(self.image_folder)
@@ -170,13 +180,14 @@ class Sim(object):
                         dict['mask_rel'] = traj.mask_rel
                     if hasattr(traj, 'desig_pos'):
                         dict['obj_start_end_pos'] = traj.desig_pos
-
+                if hasattr(traj, 'touch_sensors'):
+                    dict['finger_sensors'] = traj.touch_sensors
                 if hasattr(traj, "plan_stat"):
                     dict['plan_stat'] = traj.plan_stat
 
                 pickle.dump(dict, f)
             if 'cameras' in self.agentparams:
-                for i, image_folder in enumerate(self.image_folders):
+                for i, image_folder in enumerate(image_folders):
                     for t in range(traj.T):
                         image_name = image_folder + "/im{}.png".format(t)
                         cv2.imwrite(image_name, traj.images[t, i][:,:,::-1], [cv2.IMWRITE_PNG_STRATEGY_DEFAULT, 1])
@@ -212,6 +223,7 @@ class Sim(object):
                     plt.savefig(folder + "/t{}_bwd_flow_col.png".format(t))
                     plt.imshow(traj.bwd_flow[t, :, :, 1])
                     plt.savefig(folder + "/t{}_bwd_flow_row.png".format(t))
+            self.logger.log('done writing: ', self.traj_folder)
         else:
             #save tfrecords
             traj = copy.deepcopy(traj)

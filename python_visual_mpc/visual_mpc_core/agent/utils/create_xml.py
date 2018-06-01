@@ -49,6 +49,13 @@ def create_object_xml(hyperparams, load_dict_list=None):
 
     save_dict_list = []
 
+    if 'finger_sensors' in hyperparams:
+        sensor_frame = ET.SubElement(root, "sensor")
+        ET.SubElement(sensor_frame, "touch", name = "finger1_sensor", site = "finger1_surf")
+        ET.SubElement(sensor_frame, "touch", name = "finger2_sensor", site = "finger2_surf")
+    else:
+        sensor_frame = None
+
     world_body = ET.SubElement(root, "worldbody")
     for i in range(hyperparams['num_objects']):
         if load_dict_list == None:
@@ -129,7 +136,8 @@ def create_object_xml(hyperparams, load_dict_list=None):
                               rgba="{} {} {} 0".format(color1[0], color1[1], color1[2]), mass="{}".format(mass_per_elem),
                               contype="7", conaffinity="7", friction="1.5 0.10 0.002", condim="6", solimp="0.99 0.99 0.01", solref="0.01 1"
                               )
-            sensor_frame = ET.SubElement(root, "sensor")
+            if sensor_frame is None:
+                sensor_frame = ET.SubElement(root, "sensor")
             ET.SubElement(sensor_frame, "framepos", name=obj_string + '_sensor', objtype="body", objname=obj_string)
             # for c in range(len(convex_hull_files)):
             #     ET.SubElement(assets, "mesh", )
@@ -170,6 +178,7 @@ def create_object_xml(hyperparams, load_dict_list=None):
                               rgba="{} {} {} 1".format(color2[0], color2[1], color2[2]), mass="{}".format(object_mass),
                               contype="7", conaffinity="7", friction="{} 0.010 0.0002".format(friction)
                               )
+
             print('using friction={}, object mass{}'.format(friction, object_mass))
 
     tree = ET.ElementTree(root)

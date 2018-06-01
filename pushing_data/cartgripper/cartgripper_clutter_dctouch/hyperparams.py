@@ -4,7 +4,7 @@ import os.path
 
 import numpy as np
 
-from python_visual_mpc.visual_mpc_core.algorithm.det_grasp_policy import DeterministicGraspPolicy
+from python_visual_mpc.visual_mpc_core.algorithm.random_policy import Randompolicy
 from python_visual_mpc.visual_mpc_core.agent.agent_mjc import AgentMuJoCo
 
 IMAGE_WIDTH = 64
@@ -27,6 +27,8 @@ agent = {
     'sample_objectpos':'',
     'adim':5,
     'sdim':12,
+    'cameras':['maincam', 'leftcam'],
+    'finger_sensors' : True,
     'xpos0': np.array([0., 0., 0.05, 0., 0., 0.]), #initialize state dimension to 5 zeros
     'dt': 0.05,
     'substeps': 200,  #6
@@ -38,7 +40,7 @@ agent = {
     'viewer_image_height' : 480,
     'viewer_image_width' : 640,
     'image_channels' : 3,
-    'num_objects': 1,
+    'num_objects': 10,
     'novideo':'',
     'gen_xml':10,   #generate xml every nth trajecotry
     'pos_disp_range': 0.5, #randomize x, y
@@ -48,28 +50,24 @@ agent = {
     'min_z_lift':0.05,
     'make_final_gif':'', #keep this key in if you want final gif to be created
     'record': BASE_DIR + '/record/',
-    'targetpos_clip':[[-0.5, -0.5, -0.08, -np.pi*2, 0], [0.5, 0.5, 0.15, np.pi*2, 0.1]],
+    'targetpos_clip':[[-0.5, -0.5, -0.08, -2 * np.pi, -1], [0.5, 0.5, 0.15, 2 * np.pi, 1]],
     'mode_rel':np.array([True, True, True, True, False]),
+    'discrete_gripper' : -1, #discretized gripper dimension,
+    'lift_rejection_sample' : 40,
+    'close_once_actions' : True
     #'object_meshes':['giraffe'] #folder to original object + convex approximation
     # 'displacement_threshold':0.1,
 }
 
 policy = {
-    'type' : DeterministicGraspPolicy,
-    'nactions': 15,
-    'iterations':5,
-    'repeats': 5, # number of repeats for each action
-    'xyz_std': 8e-3,   #std dev. in xy
-    'angle_std': 2e-3,   #std dev. in xy
-    'debug_viewer':False,
-    'num_samples':50,
-    'best_to_take':5,
-    'drop_thresh':0.06,
-    'init_mean':np.zeros(3),
-    'init_cov':np.diag(np.array([(3.14 / 2) ** 2, 1e-3, 1e-3])),
-    'stop_iter_thresh':0.09,
-    'max_norm':0.2
-    # 'initial_std_grasp': 1e-5,   #std dev. in xy
+    'type' : Randompolicy,
+    'nactions' : 5,
+    'repeats' : 3,
+     
+    'initial_std': 0.08,   #std dev. in xy
+    'initial_std_lift': 0.1,   #std dev. in xy
+    'initial_std_rot' : np.pi / 12,
+    'initial_std_grasp' : 2 
 }
 
 config = {
@@ -78,7 +76,7 @@ config = {
     'save_data': True,
     'save_raw_images' : True,
     'start_index':0,
-    'end_index': 80000,
+    'end_index': 120000,
     'agent': agent,
     'policy': policy,
     'ngroup': 1000

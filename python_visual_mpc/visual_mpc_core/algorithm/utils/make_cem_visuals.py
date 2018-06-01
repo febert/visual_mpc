@@ -73,7 +73,7 @@ def plot_sum_overtime(pixdistrib, dir, filename, tradeoffs):
 
 
 def make_cem_visuals(ctrl, actions, bestindices, cem_itr, flow_fields, gen_distrib, gen_images, gen_states,
-                     last_frames, goal_warp_pts_l, scores, warped_image_goal, warped_image_start, warped_images):
+                     last_frames, goal_warp_pts_l, scores, warped_image_goal, warped_image_start, warped_images, last_states):
     if 'compare_mj_planner_actions' in ctrl.agentparams:
         selindices = np.concatenate([np.zeros(1, dtype=np.int) ,bestindices])
     else: selindices = bestindices
@@ -186,7 +186,8 @@ def make_cem_visuals(ctrl, actions, bestindices, cem_itr, flow_fields, gen_distr
         start_frame_conc = (start_frame_conc*255.).astype(np.uint8)
         Image.fromarray(start_frame_conc).save(ctrl.agentparams['record'] + '/plan/start_frame{}iter_{}.png'.format(ctrl.t, cem_itr))
 
-        make_state_action_summary(num_ex, actions, ctrl.agentparams, selindices, cem_itr, gen_states, ctrl.netconf['sequence_length'], ctrl.t)
+        make_action_summary(num_ex, actions, ctrl.agentparams, selindices, cem_itr, ctrl.netconf['sequence_length'], ctrl.t)
+        make_state_summary(num_ex, last_states, gen_states, ctrl.agentparams, selindices, cem_itr, ctrl.t)
         if 'warp_objective' in ctrl.policyparams:
             t_dict_['warp_pts_t{}'.format(ctrl.t)] = sel_func(goal_warp_pts_l)
             t_dict_['flow_fields{}'.format(ctrl.t)] = flow_fields[selindices[:K]]
@@ -200,10 +201,22 @@ def unstack(arr, dim):
     splitted = np.split(arr, listlen, dim)
     return [el.reshape(newdim) for el in splitted]
 
-def make_state_action_summary(K, actions, agentparams, bestindices, cem_itr, gen_states, seqlen, tstep):
-    with open(agentparams['record'] + '/plan/actions_states_t{}iter_{}'.format(tstep, cem_itr), 'w') as f:
+def make_action_summary(K, actions, agentparams, bestindices, cem_itr, seq_len, tstep):
+    with open(agentparams['record'] + '/plan/actions_t{}iter_{}'.format(tstep, cem_itr), 'w') as f:
         f.write('actions, states \n')
         for i in range(K):
             f.write('k{}\n'.format(i))
-            for t_ in range(15):
+            for t_ in range(seq_len):
                 f.write('t{}  {}\n'.format(t_, actions[bestindices][i, t_]))
+
+def make_state_summary(K, last_states, gen_states, agentparams, bestindices, cem_itr, tstep):
+    with open(agentparams['record'] + '/plan/states_t{}iter_{}'.format(tstep, cem_itr), 'w') as f:
+        f.write('last states \n')
+        for t_ in range(last_states.shape[1]):
+            f.write('t{}  {}\n'.format(t_, last_states[0, t_]))
+
+        f.write('gen states \n')
+        for i in range(K):
+            f.write('k{}\n'.format(i))
+            for t_ in range(gen_states.shape[1]):
+                f.write('t{}  {}\n'.format(t_, gen_states[bestindices][i, t_]))
