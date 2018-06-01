@@ -628,7 +628,7 @@ class AgentMuJoCo(object):
             object_pos = self._hyperparams['object_pos0'][:self._hyperparams['num_objects']]
 
         xpos0 = np.zeros(self._hyperparams['sdim']//2)
-        if 'randomize_ballinitpos' in self._hyperparams:
+        if 'randomize_initial_pos' in self._hyperparams:
             assert self.start_conf is None
             xpos0[:2] = np.random.uniform(-.4, .4, 2)
             xpos0[2] = np.random.uniform(-0.08, .14)

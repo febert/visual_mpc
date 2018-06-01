@@ -52,7 +52,7 @@ agent = {
     'sdim':12,
     'cameras':['maincam', 'leftcam'],
     'finger_sensors' : True,
-    'xpos0': np.array([0., 0., 0.05, 0., 0., 0.]), #initialize state dimension to 5 zeros
+    'randomize_initial_pos':'',
     'dt': 0.05,
     'substeps': 200,  #6
     'T': 15,
