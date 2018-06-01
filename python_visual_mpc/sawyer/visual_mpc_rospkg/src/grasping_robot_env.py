@@ -26,11 +26,12 @@ class RobotEnvironment:
         print("Collecting sample {}".format(itr))
 
         self.init_policy()
-        traj = self.agent.sample(self.policy)
+        traj, traj_ok = self.agent.sample(self.policy)
 
-        group = itr // self._hyperparams['ngroup']
-        traj_num = itr % self._hyperparams['ngroup']
-        traj.save(self.agentparams['data_save_dir'] + '/traj_group{}/traj{}'.format(group, traj_num))
+        if traj is not None and traj_ok:
+            group = itr // self._hyperparams['ngroup']
+            traj_num = itr % self._hyperparams['ngroup']
+            traj.save(self.agentparams['data_save_dir'] + '/traj_group{}/traj{}'.format(group, traj_num))
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()

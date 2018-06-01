@@ -3,7 +3,7 @@ import rospy
 from python_visual_mpc.sawyer.visual_mpc_rospkg.src.utils.robot_wsg_controller import WSGRobotController
 from python_visual_mpc.sawyer.visual_mpc_rospkg.src.utils.robot_dualcam_recorder import RobotDualCamRecorder, Trajectory
 
-from python_visual_mpc.visual_mpc_core.agent.agent_mjc import  get_target_qpos
+from python_visual_mpc.visual_mpc_core.agent.utils.target_qpos_utils import get_target_qpos
 
 class AgentSawyer:
     def __init__(self, agent_params):
@@ -19,9 +19,12 @@ class AgentSawyer:
         traj_ok = False
         max_tries = self._hyperparams.get('max_tries', 100)
         cntr = 0
+        traj = None
 
         while not traj_ok and cntr < max_tries:
             traj, traj_ok = self.rollout(policy)
+
+        return traj, traj_ok
 
     def rollout(self, policy):
         traj = Trajectory(self._hyperparams)
