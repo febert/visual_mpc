@@ -12,7 +12,7 @@ from intera_core_msgs.srv import (
 )
 from sensor_msgs.msg import JointState
 import os
-import pickle
+import cPickle as pkl
 import shutil
 
 NUM_JOINTS = 7 #Sawyer has 7 dof arm
@@ -41,7 +41,7 @@ class Trajectory:
 
         self._save_raw = 'no_raw_images' not in agentparams
 
-    def save_traj(self, file_path):
+    def save(self, file_path):
         if os.path.exists(file_path):
             if os.path.isfile(file_path):
                 raise IOError("Path {}, refers to an existing file!".format(file_path))
@@ -58,7 +58,7 @@ class Trajectory:
                        'states' : self.robot_states,
                        'target_qpos' : self.target_qpos,
                        'mask_rel' : self.mask_rel}
-            pickle.dump(sa_dict, f)
+            pkl.dump(sa_dict, f)
 
         image_folders = [file_path +'/images{}'.format(i) for i in range(self.raw_images.shape[1])]
         for f, folder in enumerate(image_folders):
@@ -186,17 +186,18 @@ class RobotDualCamRecorder:
 
         return pos
 
-    def _proc_image(self, latest_obsv, data):
+    def _proc_image(self, latest_obsv, data, cam_conf):
         latest_obsv.img_msg = data
         latest_obsv.tstamp_img = rospy.get_time()
 
         cv_image = self.bridge.imgmsg_to_cv2(data, "bgra8")[:, :, :3]
         latest_obsv.img_cv2 = copy.deepcopy(cv_image)
-        latest_obsv.img_cropped = self._crop_resize(cv_image)
+        latest_obsv.img_cropped = self._crop_resize(cv_image, cam_conf)
 
     def store_latest_f_im(self, data):
         self.front_limage.mutex.acquire()
-        self._proc_image(self.front_limage, data)
+        front_conf = self.data_conf['front_cam']
+        self._proc_image(self.front_limage, data, front_conf)
         self.front_limage.mutex.release()
 
         if not self.front_first:
@@ -205,18 +206,19 @@ class RobotDualCamRecorder:
 
     def store_latest_l_im(self, data):
         self.left_limage.mutex.acquire()
-        self._proc_image(self.left_limage, data)
+        left_conf = self.data_conf['left_cam']
+        self._proc_image(self.left_limage, data, left_conf)
         self.left_limage.mutex.release()
 
         if not self.left_first:
             self.left_first = True
             self.left_sem.release()
 
-    def _crop_resize(self, image):
+    def _crop_resize(self, image, cam_conf):
         target_img_height, target_img_width = self.agent_params['image_height'], self.agent_params['image_width']
 
-        crop_left, crop_right = self.data_conf.get('crop_left', 0), self.data_conf.get('crop_right', 0)
-        crop_top, crop_bot = self.data_conf.get('crop_top', 0), self.data_conf.get('crop_bot', 0)
+        crop_left, crop_right = cam_conf.get('crop_left', 0), cam_conf.get('crop_right', 0)
+        crop_top, crop_bot = cam_conf.get('crop_top', 0), cam_conf.get('crop_bot', 0)
 
         if crop_right > 0:
             crop_img = image[:, crop_left:-crop_right]

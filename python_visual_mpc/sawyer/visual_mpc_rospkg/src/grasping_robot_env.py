@@ -1,30 +1,44 @@
 #!/usr/bin/env python
 import numpy as np
 import rospy
-from python_visual_mpc.sawyer.visual_mpc_rospkg.src.utils.robot_wsg_controller import WSGRobotController
-from python_visual_mpc.sawyer.visual_mpc_rospkg.src.utils.robot_dualcam_recorder import RobotDualCamRecorder, Trajectory
-CONTROL_RATE = 1000
+import argparse
+import imp
 
 class RobotEnvironment:
-    def __init__(self):
-        test_agent_params = {'T' : 15, 'image_height' : 48, 'image_width' : 64, 'data_conf' : {},
-                            'adim' : 5, 'sdim' : 5, 'mode_rel' : np.array([True, True, True, True, False]),
-                             'targetpos_clip':[[-0.5, -0.5, -0.08, -2 * np.pi, -1], [0.5, 0.5, 0.15, 2 * np.pi, 1]]}
-        #initializes node and creates interface with Sawyer
-        self._controller = WSGRobotController()
-        self._recorder = RobotDualCamRecorder(test_agent_params, self._controller)
+    def __init__(self, conf):
+        self._hyperparams = conf
+        self.agentparams, self.policyparams = conf['agent'], conf['policy']
 
-        self.control_rate = rospy.Rate(CONTROL_RATE)
+        #since the agent interacts with Sawyer, agent creation handles recorder/controller setup
+        self.agent = self.agentparams['type'](self.agentparams)
 
-        test_traj = Trajectory(test_agent_params)
+        self.init_policy()
+        self.agent.sample(self.policy)
 
-        for t in range(test_traj.sequence_length):
-            if not self._recorder.store_recordings(test_traj, t):
-                print('{} is bad!'.format(t))
-            self.control_rate.sleep()
+    def init_policy(self):
+        self.policy = self.policyparams['type'](self.agentparams, self.policyparams)
 
-        test_traj.save_traj('test_traj')
-        print(test_traj.joint_angles)
+    def run(self):
+        for i in xrange(self._hyperparams['start_index'], self._hyperparams['end_index']):
+            self.take_sample(i)
+
+    def take_sample(self, itr):
+        print("Collecting sample {}".format(itr))
+
+        self.init_policy()
+        traj = self.agent.sample(self.policy)
+
+        group = itr // self._hyperparams['ngroup']
+        traj_num = itr % self._hyperparams['ngroup']
+        traj.save(self.agentparams['data_save_dir'] + '/traj_group{}/traj{}'.format(group, traj_num))
 
 if __name__ == '__main__':
-    env = RobotEnvironment()
+    parser = argparse.ArgumentParser()
+    parser.add_argument('experiment', type=str, help='experiment name')
+    args = parser.parse_args()
+
+    hyperparams = imp.load_source('hyperparams', args.experiment)
+    conf = hyperparams.config
+
+    env = RobotEnvironment(conf)
+    env.run()
