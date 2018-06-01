@@ -362,7 +362,8 @@ class AgentMuJoCo(object):
                 self.hf_qpos_l.append(copy.deepcopy(self.sim.data.qpos))
                 self.hf_target_qpos_l.append(copy.deepcopy(ctrl))
 
-            traj.touch_sensors[t] /= self._hyperparams['substeps']
+            if 'finger_sensors' in self._hyperparams:
+                traj.touch_sensors[t] /= self._hyperparams['substeps']
 
             if self.goal_obj_pose is not None:
                 traj.goal_dist.append(self.eval_action(traj, t)[0])

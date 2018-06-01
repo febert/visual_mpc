@@ -477,6 +477,9 @@ class CEM_controller():
     def video_pred(self, last_frames, last_frames_med, last_states, actions, cem_itr):
         t_0 = time.time()
 
+        actions = actions[:,:,:self.netconf['adim']]
+
+        last_states = last_states[:,:self.netconf['sdim']]
         last_states = last_states[None]
         last_frames = last_frames.astype(np.float32, copy=False) / 255.
         last_frames = last_frames[None]
@@ -592,7 +595,7 @@ class CEM_controller():
         if self.verbose:
             gen_images = make_cem_visuals(self, actions, bestindices, cem_itr, flow_fields, gen_distrib, gen_images,
                                           gen_states, last_frames, goal_warp_pts_l, scores, self.warped_image_goal,
-                                          self.warped_image_start, warped_images)
+                                          self.warped_image_start, warped_images, last_states)
             if 'sawyer' in self.agentparams:
                 bestind = self.publish_sawyer(gen_distrib, gen_images, scores)
 
