@@ -242,7 +242,7 @@ def build_tfrecord_single(conf, mode='train', input_files=None, shuffle=True):
             else:
                 return_dict['endeffector_pos'] = tf.concat(endeffector_pos_seq, 0)
 
-            if 'no_grasp_dim' in conf:
+            if 'auto_grasp' in conf:
                 return_dict['actions'] = tf.concat(action_seq, 0)[:,:-1]
             else:
                 return_dict['actions'] = tf.concat(action_seq, 0)
@@ -305,7 +305,7 @@ def main():
     conf['adim'] = 5
     # conf['image_only'] = ''
     # conf['goal_image'] = ""
-    conf['no_grasp_dim'] = ""
+    conf['auto_grasp'] = ""
 
     conf['orig_size'] = [48, 64]
     # conf['first_last_noarm'] = ''

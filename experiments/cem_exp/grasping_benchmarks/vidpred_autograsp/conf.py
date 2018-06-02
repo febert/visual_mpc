@@ -1,9 +1,6 @@
 import os
 current_dir = os.path.dirname(os.path.realpath(__file__))
 
-# tf record data location:
-DATA_DIR = os.environ['VMPC_DATA_DIR'] + '/cartgripper/grasping/dualcam_pick_place_dataset/train'
-
 # local output directory
 OUT_DIR = current_dir + '/modeldata'
 

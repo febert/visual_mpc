@@ -18,8 +18,8 @@ PRELOAD_DATA_DIR = {os.environ['VMPC_DATA_DIR'] + '/cartgripper/grasping/dctouch
 
 onpolconf = {
     'save_interval':200,
-    'replay_size':40000,
-    'fill_replay_fromsaved':20,##################000,              # fill replay with existing trajectories from dataset
+    'replay_size':{'train':40000, 'val':4000},
+    'fill_replay_fromsaved':{'train':20, 'val':20},##################000,              # fill replay with existing trajectories from dataset
 }
 
 config = {
@@ -27,10 +27,11 @@ config = {
 'pred_model':Dynamic_Base_Model,
 'data_dir':DATA_DIR,
 'preload_data_dir':PRELOAD_DATA_DIR,
+'num_iterations':200000,
 'output_dir': OUT_DIR,      #'directory for model checkpoints.' ,
 'current_dir': current_dir, #'directory for writing summary.' ,
-'pretrained_model':base_dir + '/tensorflow_data/sim/onpolicy/updown_sact_onpolonly/modeldata/model196002',     # 'filepath of a pretrained model to resume training from.' ,
-'sequence_length': 30, # 'sequence length to load, including context frames.' ,
+'pretrained_model':base_dir + '/tensorflow_data/sim/multi_view_models/autograsp/modeldata/model116000',
+'sequence_length': 15, #30 ############# 'sequence length to load, including context frames.' ,
 'use_len': 15,
 'skip_frame': 1,            # 'use ever i-th frame to increase prediction horizon' ,
 'context_frames': 2,        # of frames before predictions.' ,
@@ -38,11 +39,12 @@ config = {
 'model': 'appflow',            #'model architecture to use - CDNA, DNA, or STP' ,
 'num_transformed_images': 1,   # 'number of masks, usually 1 for DNA, 10 for CDNA, STN.' ,
 'schedsamp_k': -1,      # 'The k hyperparameter for scheduled sampling -1 for no scheduled sampling.' ,
-'batch_size': 10,#############,
+'batch_size': 16,           #'batch size for training' ,
+'learning_rate': 1e-4,     #'the base learning rate of the generator' ,
 '1stimg_bckgd':'',
 'adim':5,
 'sdim':7,
-'no_grasp_dim':'',
+'auto_grasp':'',
 'no_touch':'',
 'normalization':'in',
 'previmg_bckgd':'',

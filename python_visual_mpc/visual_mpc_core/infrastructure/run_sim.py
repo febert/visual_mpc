@@ -22,6 +22,7 @@ import cv2
 import shutil
 import numpy as np
 from python_visual_mpc.visual_mpc_core.infrastructure.utility.logger import Logger
+from .utility.save_tf_record import save_tf_record
 
 
 class Sim(object):
@@ -46,6 +47,7 @@ class Sim(object):
         self.task_mode = mode    # whether to save trajectory as train example, val example or do a validation task
         if 'RESULT_DIR' in os.environ:
             self._data_save_dir = os.environ['RESULT_DIR'] + '/data/{}'.format(self.task_mode)
+        else: self._data_save_dir = self.agentparams['data_save_dir'] + '/' + self.task_mode
 
         self.agentparams['gpu_id'] = gpu_id
 
@@ -134,6 +136,7 @@ class Sim(object):
         """
         if 'RESULT_DIR' in os.environ:
             self._data_save_dir = os.environ['RESULT_DIR'] + '/data/{}'.format(self.task_mode)
+        else: self._data_save_dir = self.agentparams['data_save_dir'] + '/' + self.task_mode
 
         if 'save_raw_images' in self._hyperparams:
             ngroup = self._hyperparams['ngroup']
@@ -241,9 +244,7 @@ class Sim(object):
                 traj_per_file = 256
             self.logger.log('traj_per_file', traj_per_file)
             if len(self.trajectory_list) == traj_per_file:
-                filename = 'traj_{0}_to_{1}' \
-                    .format(itr - traj_per_file + 1, itr)
-                from .utility.save_tf_record import save_tf_record
+                filename = 'traj_{0}_to_{1}'.format(itr - traj_per_file + 1, itr)
                 self.logger.log('Writing', self._data_save_dir + '/' + self.task_mode + '/' + filename)
                 if self.task_mode != 'val_task':   # do not save validation tasks (but do save validation runs on randomly generated tasks)
                     save_tf_record(filename, self.trajectory_list, self.agentparams)

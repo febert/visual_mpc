@@ -77,7 +77,7 @@ def trainvid_online(train_replay_buffer, val_replay_buffer, conf, logging_dir, o
             else:
                 vars = variable_checkpoint_matcher(conf, vars, conf['pretrained_model'])
                 loading_saver = tf.train.Saver(vars, max_to_keep=0)
-                load_checkpoint(conf, sess, loading_saver, conf['pretrained_model'])   #TODO: support Alexmodel
+                load_checkpoint(conf, sess, loading_saver, conf['pretrained_model'])
 
             logger.log('-------------------------------------------------------------------')
             logger.log('verify current settings!! ')
@@ -102,8 +102,8 @@ def trainvid_online(train_replay_buffer, val_replay_buffer, conf, logging_dir, o
                 if conf['pred_model'] == Alex_Interface_Model:
                     feed_dict = {
                         model.m.inputs['images']: images,
-                        model.m.inputs['states']: images,
-                        model.m.inputs['actions']: images,
+                        model.m.inputs['states']: states,
+                        model.m.inputs['actions']: actions,
                     }
                     cost, _, summary_str = sess.run([model.m.g_loss, model.m.train_op, model.m.train_summ_op], feed_dict)
                 else:
@@ -124,17 +124,17 @@ def trainvid_online(train_replay_buffer, val_replay_buffer, conf, logging_dir, o
                     if conf['pred_model'] == Alex_Interface_Model:
                         feed_dict = {
                             model.m.inputs['images']: images,
-                            model.m.inputs['states']: images,
-                            model.m.inputs['actions']: images,
+                            model.m.inputs['states']: states,
+                            model.m.inputs['actions']: actions,
                         }
-                        summary_str = sess.run([model.m.val_summ_op], feed_dict)
+                        [summary_str] = sess.run([model.m.val_summ_op], feed_dict)
                     else:
                         feed_dict = {model.iter_num: np.float32(itr),
                                      model.images_pl: images,
                                      model.actions_pl: actions,
                                      model.states_pl: states
                                      }
-                        summary_str = sess.run([model.val_summ_op], feed_dict)
+                        [summary_str] = sess.run([model.val_summ_op], feed_dict)
                     summary_writer.add_summary(summary_str, itr)
 
                 if (itr) % VIDEO_INTERVAL == 0:

@@ -4,27 +4,11 @@ import argparse
 import os
 import importlib.machinery
 import importlib.util
-from python_visual_mpc.visual_mpc_core.infrastructure.run_sim import Sim
-from python_visual_mpc.visual_mpc_core.benchmarks import perform_benchmark
-import copy
-import random
-import numpy as np
-import shutil
-import python_visual_mpc
-import pdb
-import glob
-import re
 
 import matplotlib; matplotlib.use('Agg'); import matplotlib.pyplot as plt
-from python_visual_mpc.visual_mpc_core.infrastructure.utility.combine_scores import combine_scores
-from python_visual_mpc.visual_mpc_core.infrastructure.utility.create_configs import CollectGoalImageSim
-import time
-import ray
 from python_visual_mpc.video_prediction.online_training.replay_buffer import ReplayBuffer_Loadfiles
-import pickle
 from python_visual_mpc.video_prediction.online_training.trainvid_online import trainvid_online
 import matplotlib; matplotlib.use('Agg'); import matplotlib; matplotlib.use('Agg'); import matplotlib.pyplot as plt
-
 
 
 def main():

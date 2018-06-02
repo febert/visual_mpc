@@ -18,13 +18,14 @@ Traj = namedtuple('Traj', 'images X_Xdot_full actions')
 from tensorflow.python.framework.errors_impl import OutOfRangeError, DataLossError
 
 class ReplayBuffer(object):
-    def __init__(self, conf, maxsize, batch_size, data_collectors=None, todo_ids=None, printout=False):
+    def __init__(self, conf, maxsize, batch_size, data_collectors=None, todo_ids=None, printout=False, mode='train'):
         self.logger = Logger(conf['logging_dir'], 'replay_log.txt', printout=printout)
         self.conf = conf
         if 'agent' in conf:
             self.agentparams = conf['agent']
         self.ring_buffer = []
-        self.maxsize = maxsize
+        self.mode = mode
+        self.maxsize = maxsize[mode]
         self.batch_size = batch_size
         self.data_collectors = data_collectors
         self.todo_ids = todo_ids
@@ -84,7 +85,6 @@ class ReplayBuffer_Loadfiles(ReplayBuffer):
         self.conf['max_epoch'] = 1
         self.improvement_avg = []
         self.final_poscost_avg = []
-        self.mode = kwargs['mode']
 
     def update(self, sess):
         # check if new files arrived:
