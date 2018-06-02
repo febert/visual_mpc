@@ -572,8 +572,8 @@ class CEM_controller():
                 if cem_itr == (self.policyparams['iterations'] - 1):
                     # pick the prop distrib from the action actually chosen after the last iteration (i.e. self.indices[0])
                     bestind = scores.argsort()[0]
-                    best_gen_distrib = gen_distrib[bestind, 2].reshape(1, self.ncam, self.img_height, self.img_width, self.ndesig)
-                    self.rec_input_distrib.append(np.repeat(best_gen_distrib, self.bsize, 0))
+                    best_gen_distrib = gen_distrib[bestind, self.ncontxt].reshape(1, self.ncam, self.img_height, self.img_width, self.ndesig)
+                    self.rec_input_distrib.append(best_gen_distrib)
 
             flow_scores = copy.deepcopy(scores)
 

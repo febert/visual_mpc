@@ -78,7 +78,8 @@ class Data_Collector(object):
             self.sim.agent._hyperparams['record'] = record_dir
 
             if self.itraj % GEN_VAL_FREQ:
-                self.sim.task_mode = 'val'
+                self.sim.task_mode= 'val'
+            else: self.sim.task_mode= 'train'
             self.sim.take_sample(self.itraj)
 
             self.itraj += 1

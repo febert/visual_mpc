@@ -157,7 +157,7 @@ class AgentMuJoCo(object):
         if 'compare_mj_planner_actions' in self._hyperparams:
             self.mj_planner_actions = dict['actions']
 
-    def sample(self, policy, i_tr, verbose=True, save=True, noisy=False):
+    def sample(self, policy, i_tr):
         """
         Runs a trial and constructs a new sample containing information
         about the trial.
@@ -182,9 +182,8 @@ class AgentMuJoCo(object):
 
         print('needed {} trials'.format(self.i_trial))
 
-        tfinal = self._hyperparams['T'] -1
         if self.goal_obj_pose is not None:
-            self.final_poscost, self.final_anglecost = self.eval_action(traj, tfinal)
+            self.final_poscost, self.final_anglecost = self.eval_action(traj, traj.term_t)
             self.final_poscost = np.mean(self.final_poscost)
             self.initial_poscost, _ = self.eval_action(traj, 0)
             self.initial_poscost = np.mean(self.initial_poscost)

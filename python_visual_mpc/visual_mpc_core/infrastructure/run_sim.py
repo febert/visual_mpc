@@ -26,8 +26,14 @@ from python_visual_mpc.visual_mpc_core.infrastructure.utility.logger import Logg
 
 class Sim(object):
     """ Main class to run algorithms and experiments. """
-
-    def __init__(self, config, gpu_id=0, ngpu=1, logger=None):
+    def __init__(self, config, gpu_id=0, ngpu=1, logger=None, mode='train'):
+        """
+        :param config:
+        :param gpu_id:
+        :param ngpu:
+        :param logger:
+        :param mode:   'train', 'test' or 'val' used as final subfoldername
+        """
         self._hyperparams = config
         self.agent = config['agent']['type'](config['agent'])
         self.agentparams = config['agent']
@@ -37,11 +43,10 @@ class Sim(object):
         else: self.logger = logger
         self.logger.log('started sim')
 
+        self.task_mode = mode    # whether to save trajectory as train example, val example or do a validation task
         if 'RESULT_DIR' in os.environ:
-            self.agentparams['data_save_dir'] = os.environ['RESULT_DIR'] + '/data/train'
+            self._data_save_dir = os.environ['RESULT_DIR'] + '/data/{}'.format(self.task_mode)
 
-        self.task_mode = 'train' # whether to save trajectory as train example, val example or do a validation task
-        self._data_save_dir = self.agentparams['data_save_dir']
         self.agentparams['gpu_id'] = gpu_id
 
         if 'do_timing' in self._hyperparams:
@@ -127,6 +132,8 @@ class Sim(object):
         :param itr: index of trajectory
         :return:
         """
+        if 'RESULT_DIR' in os.environ:
+            self._data_save_dir = os.environ['RESULT_DIR'] + '/data/{}'.format(self.task_mode)
 
         if 'save_raw_images' in self._hyperparams:
             ngroup = self._hyperparams['ngroup']
