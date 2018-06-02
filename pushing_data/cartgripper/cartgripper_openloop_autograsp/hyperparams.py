@@ -58,7 +58,7 @@ agent = {
     'object_mass' : 0.1,
     'friction' : 1.0,
     'autograsp' : '',
-    'master_datadir' : '/raid/ngc2/grasping_data/cartgripper_openloop_autograsp/'
+    'master_datadir' : '/raid/ngc2/grasping_data/cartgripper_openloop_autograsp/',
     'file_to_record' : convert_to_record
     #'object_meshes':['giraffe'] #folder to original object + convex approximation
     # 'displacement_threshold':0.1,
