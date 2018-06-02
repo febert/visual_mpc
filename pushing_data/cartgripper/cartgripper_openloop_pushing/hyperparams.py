@@ -69,7 +69,7 @@ policy = {
     'no_action_bound' : False, 
     'initial_std': 0.1,   #std dev. in xy
     'initial_std_lift': 0.01,   #std dev. in z
-    'initial_std_rot' : np.pi / 36,
+    'initial_std_rot' : np.pi / 18,
     'initial_std_grasp' : 2, 
 }
 

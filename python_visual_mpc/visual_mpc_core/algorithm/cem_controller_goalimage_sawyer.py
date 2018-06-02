@@ -102,11 +102,6 @@ def construct_initial_sigma(policyparams):
     xy_std = policyparams['initial_std']
     diag = [xy_std**2, xy_std**2]
 
-    #check that values are radjusted after fixing bug:
-    if policyparams['initial_std_lift'] != 1.6:
-        print('check values for initialstdlift!!')
-        # pdb.set_trace()
-
     if 'initial_std_lift' in policyparams:
         diag.append(policyparams['initial_std_lift']**2)
     if 'initial_std_rot' in policyparams:

@@ -65,7 +65,7 @@ class RandomPickPolicy(Randompolicy):
             target_object = np.random.randint(self.agentparams['num_objects']) #selects a random object to pick
             traj.desig_pos = traj.Object_pose[0, target_object, :2].copy()
        
-            object_xy = traj.Object_pose[0, target_object, :2] / repeat
+            object_xy = (traj.Object_pose[0, target_object, :2] - traj.X_full[0, :2]) / repeat
 
             mean[0] = np.array([object_xy[0], object_xy[1], self.agentparams.get('ztarget', 0.13) / repeat, 0, -1]) #mean action goes toward object
             mean[1] = np.array([0, 0, (-0.08 - self.agentparams.get('ztarget', 0.13)) / repeat, 0, -1]) #mean action swoops down to pick object
