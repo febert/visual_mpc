@@ -80,11 +80,11 @@ def perform_benchmark(conf = None, iex=-1, gpu_id=None):
     sim = Sim(conf, gpu_id=gpu_id, ngpu=ngpu)
 
     if iex == -1:
-        traj = conf['start_index']
+        i_traj = conf['start_index']
         nruns = conf['end_index']
         print('started worker going from ind {} to in {}'.format(conf['start_index'], conf['end_index']))
     else:
-        traj = iex
+        i_traj = iex
         nruns = iex
 
     scores_l = []
@@ -105,24 +105,24 @@ def perform_benchmark(conf = None, iex=-1, gpu_id=None):
     if os.path.isfile(result_dir + '/result_file'):
         raise ValueError("the file {} already exists!!".format(result_file))
 
-    while traj <= nruns:
+    while i_traj <= nruns:
         if 'sourcetags' in conf:  # load data per trajectory
-            dict = read_trajectory(conf, traj_names[traj])
+            dict = read_trajectory(conf, traj_names[i_traj])
             sim.agent.start_conf = dict
 
-        print('run number ', traj)
+        print('run number ', i_traj)
         print('loading done')
 
         print('-------------------------------------------------------------------')
-        print('run number ', traj)
+        print('run number ', i_traj)
         print('-------------------------------------------------------------------')
 
-        record_dir = result_dir + '/verbose/traj{0}'.format(traj)
+        record_dir = result_dir + '/verbose/traj{0}'.format(i_traj)
         if not os.path.exists(record_dir):
             os.makedirs(record_dir)
         sim.agent._hyperparams['record'] = record_dir
 
-        sim.take_sample(traj)
+        sim.take_sample(i_traj)
 
         scores_l.append(sim.agent.final_poscost)
         anglecost_l.append(sim.agent.final_anglecost)
@@ -130,65 +130,70 @@ def perform_benchmark(conf = None, iex=-1, gpu_id=None):
         initial_dist_l.append(sim.agent.initial_poscost)
         term_t_l.append(sim.agent.term_t)
 
-        print('improvement of traj{},{}'.format(traj, improvement_l[-1]))
-        traj +=1 #increment trajectories every step!
+        print('improvement of traj{},{}'.format(i_traj, improvement_l[-1]))
+        i_traj +=1 #increment trajectories every step!
 
         score = np.array(scores_l)
         anglecost = np.array(anglecost_l)
         improvement = np.array(improvement_l)
         initial_dist = np.array(initial_dist_l)
         term_t = np.array(term_t_l)
-        sorted_ind = improvement.argsort()[::-1]
 
-        pickle.dump({'improvement':improvement, 'scores':score, 'anglecost':anglecost}, open(scores_pkl_file, 'wb'))
+        pickle.dump({'improvement':improvement, 'scores':score, 'anglecost':anglecost, 'term_t':term_t}, open(scores_pkl_file, 'wb'))
+        write_scores(conf, result_file, improvement, score, term_t, initial_dist, i_traj)
 
-        mean_imp = np.mean(improvement)
-        med_imp = np.median(improvement)
-        mean_dist = np.mean(score)
-        med_dist = np.median(score)
 
-        f = open(result_file, 'w')
-        if 'term_dist' in conf['agent']:
-            tlen = conf['agent']['T']
-            nsucc_frac = len(np.where(term_t != (tlen-1)))/tlen
-            f.write('percent success: {}%\n'.format(nsucc_frac *100))
-            f.write('---\n')
-        f.write('overall best pos improvement: {0} of traj {1}\n'.format(improvement[sorted_ind[0]], sorted_ind[0]))
-        f.write('overall worst pos improvement: {0} of traj {1}\n'.format(improvement[sorted_ind[-1]], sorted_ind[-1]))
-        f.write('average pos improvemnt: {0}\n'.format(mean_imp))
-        f.write('median pos improvement {}'.format(med_imp))
-        f.write('standard deviation of population {0}\n'.format(np.std(improvement)))
-        f.write('standard error of the mean (SEM) {0}\n'.format(np.std(improvement)/np.sqrt(improvement.shape[0])))
-        f.write('---\n')
-        f.write('average pos score: {0}\n'.format(mean_dist))
-        f.write('median pos score {}'.format(med_dist))
-        f.write('standard deviation of population {0}\n'.format(np.std(score)))
-        f.write('standard error of the mean (SEM) {0}\n'.format(np.std(score)/np.sqrt(score.shape[0])))
-        f.write('---\n')
-        f.write('mean imp, med imp, mean dist, med dist {}, {}, {}, {}\n'.format(mean_imp, med_imp, mean_dist, med_dist))
-        f.write('---\n')
-        f.write('average initial dist: {0}\n'.format(np.mean(initial_dist)))
-        f.write('median initial dist: {0}\n'.format(np.median(initial_dist)))
-        f.write('---\n')
-        f.write('average angle cost: {0}\n'.format(np.mean(anglecost)))
-        f.write('----------------------\n')
-        if 'ztarget' in sim.agent._hyperparams:
-            f.write('traj: improv, score, lifted at end, rank\n')
-            f.write('----------------------\n')
+def write_scores(conf, result_file, improvement, score, term_t, initial_dist=None, i_traj=None):
+    sorted_ind = improvement.argsort()[::-1]
 
-            for n, t in enumerate(range(conf['start_index'], traj)):
-                f.write('{}: {}, {}, {}, :{}\n'.format(t, improvement[n], score[n], improvement[n] > 0.05,
-                                                       np.where(sorted_ind == n)[0][0]))
-        else:
-            f.write('traj: improv, score, term_t, rank\n')
-            f.write('----------------------\n')
+    if i_traj == None:
+        i_traj = improvement.shape[0]
 
-            for n, t in enumerate(range(conf['start_index'], traj)):
-                f.write('{}: {}, {}, {}, :{}\n'.format(t, improvement[n], score[n], term_t[n], np.where(sorted_ind == n)[0][0]))
-
-        f.close()
+    mean_imp = np.mean(improvement)
+    med_imp = np.median(improvement)
+    mean_dist = np.mean(score)
+    med_dist = np.median(score)
 
     print('mean imp, med imp, mean dist, med dist {}, {}, {}, {}\n'.format(mean_imp, med_imp, mean_dist, med_dist))
+
+    f = open(result_file, 'w')
+    if 'term_dist' in conf['agent']:
+        tlen = conf['agent']['T']
+        nsucc_frac = np.where(term_t != (tlen - 1))[0].shape[0]/ tlen
+        f.write('percent success: {}%\n'.format(nsucc_frac * 100))
+        f.write('---\n')
+
+    f.write('overall best pos improvement: {0} of traj {1}\n'.format(improvement[sorted_ind[0]], sorted_ind[0]))
+    f.write('overall worst pos improvement: {0} of traj {1}\n'.format(improvement[sorted_ind[-1]], sorted_ind[-1]))
+    f.write('average pos improvemnt: {0}\n'.format(mean_imp))
+    f.write('median pos improvement {}'.format(med_imp))
+    f.write('standard deviation of population {0}\n'.format(np.std(improvement)))
+    f.write('standard error of the mean (SEM) {0}\n'.format(np.std(improvement) / np.sqrt(improvement.shape[0])))
+    f.write('---\n')
+    f.write('average pos score: {0}\n'.format(mean_dist))
+    f.write('median pos score {}'.format(med_dist))
+    f.write('standard deviation of population {0}\n'.format(np.std(score)))
+    f.write('standard error of the mean (SEM) {0}\n'.format(np.std(score) / np.sqrt(score.shape[0])))
+    f.write('---\n')
+    f.write('mean imp, med imp, mean dist, med dist {}, {}, {}, {}\n'.format(mean_imp, med_imp, mean_dist, med_dist))
+    f.write('---\n')
+    if initial_dist is not None:
+        f.write('average initial dist: {0}\n'.format(np.mean(initial_dist)))
+        f.write('median initial dist: {0}\n'.format(np.median(initial_dist)))
+        f.write('----------------------\n')
+    if 'ztarget' in conf:
+        f.write('traj: improv, score, lifted at end, rank\n')
+        f.write('----------------------\n')
+
+        for n, t in enumerate(range(conf['start_index'], i_traj)):
+            f.write('{}: {}, {}, {}, :{}\n'.format(t, improvement[n], score[n], improvement[n] > 0.05,
+                                                   np.where(sorted_ind == n)[0][0]))
+    else:
+        f.write('traj: improv, score, term_t, rank\n')
+        f.write('----------------------\n')
+        for n, t in enumerate(range(conf['start_index'], i_traj)):
+            f.write('{}: {}, {}, {}, :{}\n'.format(t, improvement[n], score[n], term_t[n], np.where(sorted_ind == n)[0][0]))
+    f.close()
 
 
 if __name__ == '__main__':
