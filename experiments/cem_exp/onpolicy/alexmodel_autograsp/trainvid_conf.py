@@ -46,7 +46,7 @@ config = {
 'batch_size':16,
 'sdim':7,
 'adim':5,
-'auto_grasp':'',
+'autograsp':'',
 'ncam':2,
 'num_iterations':200000,
 }

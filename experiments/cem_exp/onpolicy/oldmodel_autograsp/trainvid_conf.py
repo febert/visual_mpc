@@ -44,7 +44,7 @@ config = {
 '1stimg_bckgd':'',
 'adim':5,
 'sdim':7,
-'auto_grasp':'',
+'autograsp':'',
 'no_touch':'',
 'normalization':'in',
 'previmg_bckgd':'',
