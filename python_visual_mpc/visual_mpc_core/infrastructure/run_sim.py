@@ -249,16 +249,18 @@ class Sim(object):
                 if self.task_mode != 'val_task':   # do not save validation tasks (but do save validation runs on randomly generated tasks)
                     save_tf_record(self._data_save_dir, filename, self.trajectory_list, self.agentparams)
                 if self.agent.goal_obj_pose is not None:
-                    write_scores(self.trajectory_list, filename, self.agentparams, self.task_mode)
+                    dir = '/'.join(str.split(self._data_save_dir, '/')[:-1])
+                    dir += '/scores/' + self.task_mode
+                    write_scores(dir, filename, self.trajectory_list, self.logger)
                 self.trajectory_list = []
 
 
-def write_scores(trajlist, filename, agentparams, mode):
-    dir = '/'.join(str.split(agentparams['data_save_dir'], '/')[:-1])
-    dir += '/scores/' + mode
+def write_scores(dir, filename, trajlist, logger):
     if not os.path.exists(dir):
         os.makedirs(dir, exist_ok=True)
     filename = filename.partition('.')[0] + '_score.pkl'
+    filename = os.path.join(dir, filename)
+    logger.log('writing scorefile {}'.format(filename))
     scores = {}
     improvements = []
     final_poscost = []
@@ -270,7 +272,7 @@ def write_scores(trajlist, filename, agentparams, mode):
     scores['improvement'] = improvements
     scores['final_poscost'] = final_poscost
     scores['initial_poscost'] = initial_poscost
-    pickle.dump(scores, open(os.path.join(dir, filename), 'wb'))
+    pickle.dump(scores, open(filename, 'wb'))
 
 
 def plot_warp_err(traj, dir):

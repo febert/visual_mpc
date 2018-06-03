@@ -45,16 +45,13 @@ import collections
 import time
 import copy
 # How often to record tensorboard summaries.
-SUMMARY_INTERVAL = 100
-
-# How often to run a batch through the validation model.
-VAL_INTERVAL = 500
+SUMMARY_INTERVAL = 10 #######
 
 VIDEO_INTERVAL = 10000
 
 EVAL_INTERVAL = 0
 
-PROGRESS_INTERVAL = 1
+PROGRESS_INTERVAL = 10
 
 
 
@@ -142,10 +139,11 @@ def trainvid_online_alexmodel(train_replay_buffer, val_replay_buffer, conf, logg
                 fetches["summary"] = summary_op
             if should(VIDEO_INTERVAL):
                 fetches["image_summary"] = image_summary_op
+            if should(VIDEO_INTERVAL) or should(SUMMARY_INTERVAL):
                 val_images, val_states, val_actions = val_replay_buffer.get_batch()
                 feeds = {val_model.images_pl: val_images,
-                val_model.actions_pl: val_actions,
-                val_model.states_pl: val_states}
+                        val_model.actions_pl: val_actions,
+                        val_model.states_pl: val_states}
             if should(EVAL_INTERVAL):
                 fetches["eval_summary"] = eval_summary_op
                 fetches["eval_image_summary"] = eval_image_summary_op
