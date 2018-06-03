@@ -42,7 +42,7 @@ config = {
 'pretrained_model':jsondir + '/model.multi_savp.None/model-90000',     # 'filepath of a pretrained model to resume training from.' ,
 'ndesig':1,
 'orig_size':[48,64],
-'sequence_length':15,
+'sequence_length':3, #######################
 'batch_size':16,
 'sdim':7,
 'adim':5,

@@ -39,7 +39,7 @@ def save_tf_record(filename, trajectory_list, agentparams):
             if 'finger_sensors' in agentparams:     #TODO: @Sudeep do you need to change something?
                 sdim = agentparams['sdim']
                 # using only sdim-1 first values of the state since the gripper position occurs twice.
-                arr = np.concatenate([traj.X_full[tind,:sdim-1], traj.touchdata], axis=0)
+                arr = np.concatenate([traj.X_full[tind,:sdim-1], traj.touch_sensors[tind]], axis=0)
                 assert arr.shape == 7
                 feature[str(tind) + '/endeffector_pos'] = _float_feature(arr.tolist())
             else:
