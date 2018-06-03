@@ -17,7 +17,7 @@ from python_visual_mpc.visual_mpc_core.infrastructure.utility.logger import Logg
 from tensorflow.python.platform import gfile
 from python_visual_mpc.visual_mpc_core.infrastructure.remote_synchronizer import sync
 import re
-
+import threading
 
 GEN_VAL_FREQ = 100
 VAL_TASK_FREQ = 200
@@ -157,8 +157,11 @@ def main():
     #     todo_ids = [d.run_traj.remote() for d in data_collectors]
     #     print('launched datacollectors.')
 
-    ray.init()
-    sync_todo_id = sync.remote(args.isplit, hyperparams)
+    # ray.init()
+    # sync_todo_id = sync(args.isplit, hyperparams)
+    thread = threading.Thread(target=sync, args=[args.isplit, hyperparams])
+    thread.daemon = True
+    thread.start()
     print('launched sync')
 
     conflist = []

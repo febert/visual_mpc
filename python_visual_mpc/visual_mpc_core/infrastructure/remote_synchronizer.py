@@ -9,7 +9,7 @@ import pdb
 master = 'deepthought'
 
 
-@ray.remote
+# @ray.remote
 def sync(node_id, conf, printout=False):
     experiment_name =str.split(conf['current_dir'], '/')[-1]
 
