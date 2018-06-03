@@ -25,8 +25,8 @@ class Alex_Interface_Model(object):
         with open(os.path.join(conf['json_dir'], "dataset_hparams.json")) as f:
             datatset_hparams_dict = json.loads(f.read())
 
-        if 'auto_grasp' in datatset_hparams_dict:
-            self.adim = datatset_hparams_dict['auto_grasp']
+        if 'autograsp' in datatset_hparams_dict:
+            self.adim = datatset_hparams_dict['autograsp']
         else: self.adim = datatset_hparams_dict['adim']
 
         self.sdim = datatset_hparams_dict['sdim']

@@ -12,7 +12,7 @@ from python_visual_mpc.visual_mpc_core.agent.agent_mjc import AgentMuJoCo
 import numpy as np
 agent = {
     'type': AgentMuJoCo,
-    'T': 3,  #####################
+    'T': 15,  #####################
     'substeps':200,
     'adim':5,
     'sdim':12,
@@ -32,7 +32,7 @@ agent = {
     'const_dist':0.0,
     'lift_object':'',
     'arm_obj_initdist':0.0,
-    'data_save_dir':current_dir + '/data/train',
+    'data_save_dir':os.environ['VMPC_DATA_DIR'] + '/cartgripper/onpolicy/alexmodel_autograsp',
     'logging_dir':current_dir + '/logging',
     'posmode':"",
     'targetpos_clip':[[-0.5, -0.5, -0.08, -2 * np.pi, -1], [0.5, 0.5, 0.15, 2 * np.pi, 1]],
@@ -46,7 +46,7 @@ agent = {
 }
 
 policy = {
-    'verbose':'',
+    # 'verbose':100, ##################
     'type' : CEM_controller,
     'low_level_ctrl': None,
     'current_dir':current_dir,

@@ -245,9 +245,9 @@ class Sim(object):
             self.logger.log('traj_per_file', traj_per_file)
             if len(self.trajectory_list) == traj_per_file:
                 filename = 'traj_{0}_to_{1}'.format(itr - traj_per_file + 1, itr)
-                self.logger.log('Writing', self._data_save_dir + '/' + self.task_mode + '/' + filename)
+                self.logger.log('Writing', self._data_save_dir + '/' + filename)
                 if self.task_mode != 'val_task':   # do not save validation tasks (but do save validation runs on randomly generated tasks)
-                    save_tf_record(filename, self.trajectory_list, self.agentparams)
+                    save_tf_record(self._data_save_dir, filename, self.trajectory_list, self.agentparams)
                 if self.agent.goal_obj_pose is not None:
                     write_scores(self.trajectory_list, filename, self.agentparams, self.task_mode)
                 self.trajectory_list = []

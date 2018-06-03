@@ -13,11 +13,10 @@ def _int64_feature(value):
   return tf.train.Feature(int64_list=tf.train.Int64List(value=value))
 
 
-def save_tf_record(filename, trajectory_list, agentparams):
+def save_tf_record(dir, filename, trajectory_list, agentparams):
     """
     saves data_files from one sample trajectory into one tf-record file
     """
-    dir = agentparams['data_save_dir']
     if not os.path.exists(dir):
         os.makedirs(dir, exist_ok=True)
     filename = os.path.join(dir, filename + '.tfrecords')
@@ -37,10 +36,9 @@ def save_tf_record(filename, trajectory_list, agentparams):
             feature[str(tind) + '/action']= _float_feature(traj.actions[tind,:].tolist())
 
             if 'finger_sensors' in agentparams:     #TODO: @Sudeep do you need to change something?
-                sdim = agentparams['sdim']
-                # using only sdim-1 first values of the state since the gripper position occurs twice.
-                arr = np.concatenate([traj.X_full[tind,:sdim-1], traj.touch_sensors[tind]], axis=0)
-                assert arr.shape == 7
+                # discarding the last qpos dimension since the gripper position occurs twice.
+                assert traj.X_full.shape[1] == 6
+                arr = np.concatenate([traj.X_full[tind,:5], traj.touch_sensors[tind]], axis=0)
                 feature[str(tind) + '/endeffector_pos'] = _float_feature(arr.tolist())
             else:
                 feature[str(tind) + '/endeffector_pos'] = _float_feature(traj.X_Xdot_full[tind,:].tolist())

@@ -19,7 +19,7 @@ import copy
 from tensorflow.python.framework.errors_impl import OutOfRangeError, DataLossError
 
 class ReplayBuffer(object):
-    def __init__(self, conf, batch_size, data_collectors=None, todo_ids=None, printout=False, mode='train'):
+    def __init__(self, conf, data_collectors=None, todo_ids=None, printout=False, mode='train'):
         self.logger = Logger(conf['logging_dir'], 'replay_log.txt', printout=printout)
         self.conf = conf
         self.onpolconf = conf['onpolconf']
@@ -28,7 +28,7 @@ class ReplayBuffer(object):
         self.ring_buffer = []
         self.mode = mode
         self.maxsize = self.onpolconf['replay_size'][mode]
-        self.batch_size = batch_size
+        self.batch_size = conf['batch_size']
         self.data_collectors = data_collectors
         self.todo_ids = todo_ids
         self.scores = []

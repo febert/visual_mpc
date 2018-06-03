@@ -40,8 +40,8 @@ def main():
     if not os.path.exists(logging_dir):
         os.makedirs(logging_dir)
 
-    train_rb = ReplayBuffer_Loadfiles(conf, mode='train', batch_size=16, printout=printout)
-    val_rb = ReplayBuffer_Loadfiles(conf, mode='val', batch_size=16, printout=printout)
+    train_rb = ReplayBuffer_Loadfiles(conf, mode='train', printout=printout)
+    val_rb = ReplayBuffer_Loadfiles(conf, mode='val', printout=printout)
 
     if conf['pred_model'] == Alex_Interface_Model:
         trainvid_online_alexmodel(train_rb, val_rb, conf, logging_dir, gpu_id, printout=True)

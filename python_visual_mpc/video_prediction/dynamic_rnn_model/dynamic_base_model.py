@@ -491,7 +491,7 @@ class Dynamic_Base_Model(object):
         if 'no_touch' in conf:
             self.sdim = conf['sdim'] - 2
         else: self.sdim = conf['sdim']
-        if 'auto_grasp' in conf:
+        if 'autograsp' in conf:
             self.adim = conf['adim'] - 1
         else: self.adim = conf['adim']
 

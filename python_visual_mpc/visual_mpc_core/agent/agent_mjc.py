@@ -647,7 +647,7 @@ class AgentMuJoCo(object):
                 print("appending zeros to initial robot configuration!!!")
             else:
                 xpos0 = self._hyperparams['xpos0']
-            assert xpos0.shape[0] == self._hyperparams['sdim']/2
+            assert xpos0.shape[0] == self._hyperparams['sdim']//2
 
         if 'arm_start_lifted' in self._hyperparams:
             xpos0[2] = self._hyperparams['arm_start_lifted']
