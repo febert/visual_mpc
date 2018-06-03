@@ -29,8 +29,9 @@ agent = {
     'image_height':48,
     'image_width':64,
     'sample_objectpos':'',
-    'randomize_initial_pos':'',
-    'const_dist':0.2,
+    'const_dist':0.0,
+    'lift_object':'',
+    'arm_obj_initdist':0.0,
     'data_save_dir':current_dir + '/data/train',
     'logging_dir':current_dir + '/logging',
     'posmode':"",
@@ -39,7 +40,8 @@ agent = {
     'autograsp' : True,
     'cameras':['maincam', 'leftcam'],
     'verbose':"",
-    'finger_sensors':''
+    'finger_sensors':'',
+    'arm_start_lifted':0.15
     # 'compare_mj_planner_actions':'',
 }
 

@@ -41,7 +41,7 @@ def get_maxiter_weights(dir):
     else:
         return None
 
-@ray.remote
+# @ray.remote
 class Data_Collector(object):
     def __init__(self, conf, collector_id, printout):
         self.logger = Logger(conf['agent']['logging_dir'], 'datacollector_gpu{}_log.txt'.format(conf['gpu_id']), printout)
@@ -134,25 +134,29 @@ def main():
     if not os.path.exists(hyperparams['agent']['logging_dir']):
         os.makedirs(hyperparams['agent']['logging_dir'])
 
-    ray.init()
-    data_collectors = []
 
-    print('launching datacollectors.')
-    for i in range(n_worker):
-        modconf = copy.deepcopy(hyperparams)
-        modconf['start_index'] = start_idx[i]
-        modconf['end_index'] = end_idx[i]
-        modconf['gpu_id'] = i
-        data_collectors.append(Data_Collector.remote(modconf, i, printout))
+    if not parallel:
+        hyperparams['gpu_id'] = 0
+        d = Data_Collector(hyperparams, 0, printout=True)
+        d.run_traj()
+    else:
+        ray.init()
+        data_collectors = []
+        print('launching datacollectors.')
+        for i in range(n_worker):
+            modconf = copy.deepcopy(hyperparams)
+            modconf['start_index'] = start_idx[i]
+            modconf['end_index'] = end_idx[i]
+            modconf['gpu_id'] = i
+            data_collectors.append(Data_Collector.remote(modconf, i, printout))
 
-    todo_ids = [d.run_traj.remote() for d in data_collectors]
-    print('launched datacollectors.')
+        todo_ids = [d.run_traj.remote() for d in data_collectors]
+        print('launched datacollectors.')
 
-    sync_todo_id = sync.remote(args.isplit, hyperparams)
-    print('launched sync')
-
-    ray.wait(todo_ids)
-    ray.wait([sync_todo_id])
+        sync_todo_id = sync.remote(args.isplit, hyperparams)
+        print('launched sync')
+        ray.wait([sync_todo_id])
+        ray.wait(todo_ids)
 
 def load_module(hyperparams_file, name):
     loader = importlib.machinery.SourceFileLoader(name, hyperparams_file)

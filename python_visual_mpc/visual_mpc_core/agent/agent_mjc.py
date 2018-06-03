@@ -628,6 +628,7 @@ class AgentMuJoCo(object):
 
         xpos0 = np.zeros(self._hyperparams['sdim']//2)
         if 'randomize_initial_pos' in self._hyperparams:
+            assert 'arm_obj_initdist' not in self._hyperparams
             assert self.start_conf is None
             xpos0[:2] = np.random.uniform(-.4, .4, 2)
             xpos0[2] = np.random.uniform(-0.08, .14)
