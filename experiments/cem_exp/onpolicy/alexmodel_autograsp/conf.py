@@ -12,7 +12,7 @@ from python_visual_mpc.video_prediction.dynamic_rnn_model.alex_model_interface i
 import video_prediction
 base_dir = video_prediction.__file__
 base_dir = '/'.join(str.split(base_dir, '/')[:-2])
-jsondir = base_dir + '/pretrained_models/autograsp'
+jsondir = base_dir + '/pretrained_models/auto_grasp'
 configuration = {
 'pred_model': Alex_Interface_Model,
 'setup_predictor':setup_predictor,

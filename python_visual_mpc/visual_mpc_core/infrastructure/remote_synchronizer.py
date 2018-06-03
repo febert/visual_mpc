@@ -28,7 +28,7 @@ def sync(node_id, conf, printout=False):
 
     # local means "locally" in the container on ngc2
     local_modeldata_dir = '/result/modeldata'
-    local_datadir = '/result/data/train'
+    local_datadir = '/result/data'
     local_scoredir = '/result/data/scores'
 
     if not os.path.exists(local_modeldata_dir):
