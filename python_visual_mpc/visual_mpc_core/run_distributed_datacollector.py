@@ -19,7 +19,7 @@ from python_visual_mpc.visual_mpc_core.infrastructure.remote_synchronizer import
 import re
 import threading
 
-GEN_VAL_FREQ = 2 #############
+GEN_VAL_FREQ = 3 #############
 VAL_TASK_FREQ = 200
 
 
@@ -81,9 +81,11 @@ class Data_Collector(object):
                 os.makedirs(record_dir)
             self.sim.agent._hyperparams['record'] = record_dir
 
-            if self.itraj % GEN_VAL_FREQ == 0:
+            if (self.itraj//self.conf['traj_per_file']) % GEN_VAL_FREQ == 0:
                 self.sim.task_mode = 'val'
             else: self.sim.task_mode = 'train'
+            self.logger.log('taskmode ', self.sim.task_mode)
+
             self.sim.take_sample(self.itraj)
 
             self.itraj += 1

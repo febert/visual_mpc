@@ -44,12 +44,8 @@ class Sim(object):
         else: self.logger = logger
         self.logger.log('started sim')
 
-        self.task_mode = mode    # whether to save trajectory as train example, val example or do a validation task
-        if 'RESULT_DIR' in os.environ:
-            self._data_save_dir = os.environ['RESULT_DIR'] + '/data/{}'.format(self.task_mode)
-        else: self._data_save_dir = self.agentparams['data_save_dir'] + '/' + self.task_mode
-
         self.agentparams['gpu_id'] = gpu_id
+        self.task_mode = mode
 
         if 'do_timing' in self._hyperparams:
             self._timing_file = self._hyperparams['current_dir'] + '/timing_file{}.txt'.format(os.getpid())
@@ -135,8 +131,9 @@ class Sim(object):
         :return:
         """
         if 'RESULT_DIR' in os.environ:
-            self._data_save_dir = os.environ['RESULT_DIR'] + '/data/{}'.format(self.task_mode)
-        else: self._data_save_dir = self.agentparams['data_save_dir'] + '/' + self.task_mode
+            self._data_save_dir = os.environ['RESULT_DIR'] + '/data'
+        else: self._data_save_dir = self.agentparams['data_save_dir']
+        self._data_save_dir += '/' + self.task_mode
 
         if 'save_raw_images' in self._hyperparams:
             ngroup = self._hyperparams['ngroup']

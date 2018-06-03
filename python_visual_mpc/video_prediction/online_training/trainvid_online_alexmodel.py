@@ -160,12 +160,6 @@ def trainvid_online_alexmodel(train_replay_buffer, val_replay_buffer, conf, logg
             if run_elapsed_time > 1.5:
                 print('session.run took %0.1fs' % run_elapsed_time)
 
-            # print("average t_iter {} \n".format(np.mean(elapsed_times[-20:])))
-            # if step == 88:
-            #     with open(args.timing_file, 'w') as f:
-            #         f.write("{}\n".format(np.mean(elapsed_times)))
-            #     import sys; sys.exit("finished")
-
             if should(PROGRESS_INTERVAL) or should(SUMMARY_INTERVAL):
                 if step >= 0:
                     elapsed_time = time.time() - start
