@@ -157,6 +157,10 @@ def main():
     #     todo_ids = [d.run_traj.remote() for d in data_collectors]
     #     print('launched datacollectors.')
 
+    ray.init()
+    sync_todo_id = sync.remote(args.isplit, hyperparams)
+    print('launched sync')
+
     conflist = []
     hyperparams['printout'] = printout
     hyperparams['collector_id'] = args.isplit
@@ -172,10 +176,7 @@ def main():
     else:
         worker(conflist[0])
 
-    sync_todo_id = sync.remote(args.isplit, hyperparams)
-    print('launched sync')
     ray.wait([sync_todo_id])
-
     # ray.wait(todo_ids)
 
 def load_module(hyperparams_file, name):
