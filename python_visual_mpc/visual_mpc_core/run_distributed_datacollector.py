@@ -41,7 +41,7 @@ def get_maxiter_weights(dir):
     else:
         return None
 
-# @ray.remote
+@ray.remote
 class Data_Collector(object):
     def __init__(self, conf, collector_id, printout):
         self.logger = Logger(conf['agent']['logging_dir'], 'datacollector_gpu{}_log.txt'.format(conf['gpu_id']), printout)
