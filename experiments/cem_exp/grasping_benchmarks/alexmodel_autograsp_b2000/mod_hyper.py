@@ -12,7 +12,7 @@ from python_visual_mpc.visual_mpc_core.agent.agent_mjc import AgentMuJoCo
 import numpy as np
 agent = {
     'type': AgentMuJoCo,
-    'T': 3,  #####################
+    'T': 15,  #####################
     'substeps':200,
     'adim':5,
     'sdim':12,
@@ -20,26 +20,22 @@ agent = {
     'filename': ROOT_DIR + '/mjc_models/cartgripper_grasp.xml',
     'filename_nomarkers': ROOT_DIR + '/mjc_models/cartgripper_grasp.xml',
     'gen_xml':1,   #generate xml every nth trajecotry
-    'skip_first':10,
     'num_objects': 1,
-    'object_mass':0.01,
-    'friction':1.5,
+    'object_mass':0.1,
+    'friction':1.0,
+    'skip_first':0,
     'viewer_image_height' : 480,
     'viewer_image_width' : 640,
     'image_height':48,
     'image_width':64,
-    'sample_objectpos':'',
-    'randomize_initial_pos':'',
-    'const_dist':0.2,
+    'additional_viewer':'',
     'data_save_dir':current_dir + '/data/train',
-    'logging_dir':current_dir + '/logging',
     'posmode':"",
     'targetpos_clip':[[-0.5, -0.5, -0.08, -2 * np.pi, -1], [0.5, 0.5, 0.15, 2 * np.pi, 1]],
     'mode_rel':np.array([True, True, True, True, False]),
     'autograsp' : True,
     'cameras':['maincam', 'leftcam'],
     'verbose':"",
-    'finger_sensors':''
     # 'compare_mj_planner_actions':'',
 }
 
@@ -90,10 +86,10 @@ tag_object_statprop = {'name': 'obj_statprop',
 
 config = {
     'current_dir':current_dir,
-    'traj_per_file':16,   # needs to be equal batch size!!
-    'save_data': True,
+    'save_data': False,
+    'save_raw_images':'',
     'start_index':0,
-    'end_index': 59999,
+    'end_index': 49,
     'agent':agent,
     'policy':policy,
     'ngroup': 100,

@@ -8,8 +8,9 @@ import importlib.util
 import matplotlib; matplotlib.use('Agg'); import matplotlib.pyplot as plt
 from python_visual_mpc.video_prediction.online_training.replay_buffer import ReplayBuffer_Loadfiles
 from python_visual_mpc.video_prediction.online_training.trainvid_online import trainvid_online
+from python_visual_mpc.video_prediction.online_training.trainvid_online_alexmodel import trainvid_online_alexmodel
 import matplotlib; matplotlib.use('Agg'); import matplotlib; matplotlib.use('Agg'); import matplotlib.pyplot as plt
-
+from python_visual_mpc.video_prediction.dynamic_rnn_model.alex_model_interface import Alex_Interface_Model
 
 def main():
     parser = argparse.ArgumentParser(description='run parllel data collection')
@@ -24,25 +25,28 @@ def main():
 
     args = parser.parse_args()
     trainvid_conf_file = args.experiment
-    trainvid_conf = load_module(trainvid_conf_file, 'trainvid_conf')
+    conf = load_module(trainvid_conf_file, 'trainvid_conf')
 
     if 'RESULT_DIR' in os.environ:
-        trainvid_conf['result_dir'] = os.environ['RESULT_DIR']
+        conf['result_dir'] = os.environ['RESULT_DIR']
     else:
-        trainvid_conf['result_dir'] = trainvid_conf['current_dir']
+        conf['result_dir'] = conf['current_dir']
 
     printout = bool(args.printout)
     gpu_id = args.gpu_id
 
-    logging_dir = trainvid_conf['current_dir'] + '/logging'
-    trainvid_conf['logging_dir'] = logging_dir
+    logging_dir = conf['current_dir'] + '/logging'
+    conf['logging_dir'] = logging_dir
     if not os.path.exists(logging_dir):
         os.makedirs(logging_dir)
 
-    onpolconf = trainvid_conf['onpolconf']
-    train_rb = ReplayBuffer_Loadfiles(trainvid_conf, mode='train', maxsize=onpolconf['replay_size'], batch_size=16, printout=printout)
-    val_rb = ReplayBuffer_Loadfiles(trainvid_conf, mode='val', maxsize=onpolconf['replay_size'], batch_size=16, printout=printout)
-    trainvid_online(train_rb, val_rb, trainvid_conf, logging_dir, onpolconf, gpu_id, printout=True)
+    train_rb = ReplayBuffer_Loadfiles(conf, mode='train', batch_size=16, printout=printout)
+    val_rb = ReplayBuffer_Loadfiles(conf, mode='val', batch_size=16, printout=printout)
+
+    if conf['pred_model'] == Alex_Interface_Model:
+        trainvid_online_alexmodel(train_rb, val_rb, conf, logging_dir, gpu_id, printout=True)
+    else:
+        trainvid_online(train_rb, val_rb, conf, logging_dir, gpu_id, printout=True)
 
 def load_module(hyperparams_file, name):
     loader = importlib.machinery.SourceFileLoader(name, hyperparams_file)
@@ -51,7 +55,6 @@ def load_module(hyperparams_file, name):
     loader.exec_module(mod)
     hyperparams = mod.config
     return hyperparams
-
 
 if __name__ == '__main__':
     main()

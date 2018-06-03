@@ -14,18 +14,20 @@ import matplotlib; matplotlib.use('Agg'); import matplotlib.pyplot as plt
 import pickle
 from tensorflow.python.platform import gfile
 Traj = namedtuple('Traj', 'images X_Xdot_full actions')
+import copy
 
 from tensorflow.python.framework.errors_impl import OutOfRangeError, DataLossError
 
 class ReplayBuffer(object):
-    def __init__(self, conf, maxsize, batch_size, data_collectors=None, todo_ids=None, printout=False, mode='train'):
+    def __init__(self, conf, batch_size, data_collectors=None, todo_ids=None, printout=False, mode='train'):
         self.logger = Logger(conf['logging_dir'], 'replay_log.txt', printout=printout)
         self.conf = conf
+        self.onpolconf = conf['onpolconf']
         if 'agent' in conf:
             self.agentparams = conf['agent']
         self.ring_buffer = []
         self.mode = mode
-        self.maxsize = maxsize[mode]
+        self.maxsize = self.onpolconf['replay_size'][mode]
         self.batch_size = batch_size
         self.data_collectors = data_collectors
         self.todo_ids = todo_ids
@@ -143,6 +145,18 @@ class ReplayBuffer_Loadfiles(ReplayBuffer):
             f.write('improvement averaged over batch, final_pos_cost averaged over batch\n')
             for i in range(len(self.improvement_avg)):
                 f.write('{}: {} {}'.format(i, self.improvement_avg[i], self.final_poscost_avg[i]) + '\n')
+
+    def preload(self, sess):
+        self.logger.log('start prefilling replay')
+        conf = copy.deepcopy(self.conf)
+        conf['data_dir'] = conf['preload_data_dir']
+        dict = build_tfrecord_input(conf, mode=self.mode)
+        for i_run in range(self.onpolconf['fill_replay_fromsaved'][self.mode] // conf['batch_size']):
+            images, actions, endeff = sess.run([dict['images'], dict['actions'], dict['endeffector_pos']])
+            for b in range(conf['batch_size']):
+                t = Traj(images[b], endeff[b], actions[b])
+                self.push_back(t)
+        self.logger.log('done prefilling replay')
 
 def plot_scores(dir, scores, improvement=None):
 

@@ -159,7 +159,7 @@ def write_scores(conf, result_file, improvement, score, term_t, initial_dist=Non
     f = open(result_file, 'w')
     if 'term_dist' in conf['agent']:
         tlen = conf['agent']['T']
-        nsucc_frac = np.where(term_t != (tlen - 1))[0].shape[0]/ tlen
+        nsucc_frac = np.where(term_t != (tlen - 1))[0].shape[0]/ improvement.shape[0]
         f.write('percent success: {}%\n'.format(nsucc_frac * 100))
         f.write('---\n')
 

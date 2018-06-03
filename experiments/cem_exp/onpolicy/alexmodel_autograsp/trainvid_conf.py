@@ -12,7 +12,7 @@ OUT_DIR = current_dir + '/modeldata'
 from python_visual_mpc.video_prediction.dynamic_rnn_model.dynamic_base_model import Dynamic_Base_Model
 from python_visual_mpc.video_prediction.setup_predictor_towers import setup_predictor
 
-DATA_DIR = os.environ['VMPC_DATA_DIR'] + '/cartgripper/onpolicy/oldmodel_autograsp'
+DATA_DIR = os.environ['VMPC_DATA_DIR'] + '/cartgripper/onpolicy/alexmodel_autograsp'
 PRELOAD_DATA_DIR = {os.environ['VMPC_DATA_DIR'] + '/cartgripper/grasping/dctouch_openloop_autograsp/good' : 0.5,
                     os.environ['VMPC_DATA_DIR'] + '/cartgripper/grasping/dctouch_openloop_autograsp/bad' : 0.5}
 
@@ -33,6 +33,7 @@ config = {
 'current_dir':current_dir,
 'output_dir': OUT_DIR,      #'directory for model checkpoints.' ,
 'preload_data_dir':PRELOAD_DATA_DIR,
+'data_dir':DATA_DIR,
 'skip_frame':1,
 'onpolconf':onpolconf,
 'pred_model': Alex_Interface_Model,
@@ -41,4 +42,11 @@ config = {
 'pretrained_model':jsondir + '/model.multi_savp.None/model-90000',     # 'filepath of a pretrained model to resume training from.' ,
 'ndesig':1,
 'orig_size':[48,64],
+'sequence_length':15,
+'batch_size':16,
+'sdim':7,
+'adim':5,
+'auto_grasp':'',
+'ncam':2,
+'num_iterations':200000,
 }
