@@ -89,7 +89,6 @@ def main():
     start_idx = [hyperparams['start_index'] + traj_per_worker * i for i in range(n_worker)]
     end_idx = [hyperparams['start_index'] + traj_per_worker * (i+1)-1 for i in range(n_worker)]
 
-    conflist = []
 
     if 'gen_xml' in hyperparams['agent']: #remove old auto-generated xml files
         try:
@@ -115,6 +114,7 @@ def main():
         sync_todo_id = sync.remote(hyperparams['agent'])
         print('launched sync')
 
+    conflist = []
     for i in range(n_worker):
         modconf = copy.deepcopy(hyperparams)
         modconf['start_index'] = start_idx[i]

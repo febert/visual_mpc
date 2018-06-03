@@ -4,6 +4,7 @@ import pdb
 import importlib.machinery
 import importlib.util
 from python_visual_mpc.visual_mpc_core.infrastructure.run_sim import Sim
+from multiprocessing import Pool
 import copy
 import random
 import numpy as np
@@ -41,15 +42,18 @@ def get_maxiter_weights(dir):
     else:
         return None
 
-@ray.remote
+def worker(conf):
+    d = Data_Collector(conf)
+    d.run_traj()
+
+# @ray.remote
 class Data_Collector(object):
-    def __init__(self, conf, collector_id, printout):
-        self.logger = Logger(conf['agent']['logging_dir'], 'datacollector_gpu{}_log.txt'.format(conf['gpu_id']), printout)
-        self.logger.log('started process with PID {} and collector_id {}'.format(os.getpid(), collector_id))
+    def __init__(self, conf):
+        self.logger = Logger(conf['agent']['logging_dir'], 'datacollector_gpu{}_log.txt'.format(conf['gpu_id']), conf['printout'])
+        self.logger.log('started process with PID {}'.format(os.getpid()))
         self.itraj = conf['start_index']
         self.ntraj = 0
         self.maxtraj = conf['end_index']
-        self.colllector_id = collector_id
         random.seed(None)
         np.random.seed(None)
         self.conf = conf
@@ -134,29 +138,45 @@ def main():
     if not os.path.exists(hyperparams['agent']['logging_dir']):
         os.makedirs(hyperparams['agent']['logging_dir'])
 
+    # if not parallel:
+    #     ray.init()
+    #     hyperparams['gpu_id'] = 0
+    #     d = Data_Collector(hyperparams, 0, printout=True)
+    #     d.run_traj()
+    # else:
+    #     ray.init()
+    #     data_collectors = []
+    #     print('launching datacollectors.')
+    #     for i in range(n_worker):
+    #         modconf = copy.deepcopy(hyperparams)
+    #         modconf['start_index'] = start_idx[i]
+    #         modconf['end_index'] = end_idx[i]
+    #         modconf['gpu_id'] = i
+    #         data_collectors.append(Data_Collector.remote(modconf, i, printout))
+    #
+    #     todo_ids = [d.run_traj.remote() for d in data_collectors]
+    #     print('launched datacollectors.')
 
-    if not parallel:
-        hyperparams['gpu_id'] = 0
-        d = Data_Collector(hyperparams, 0, printout=True)
-        d.run_traj()
+    conflist = []
+    hyperparams['printout'] = printout
+    hyperparams['collector_id'] = args.isplit
+    for i in range(n_worker):
+        modconf = copy.deepcopy(hyperparams)
+        modconf['start_index'] = start_idx[i]
+        modconf['end_index'] = end_idx[i]
+        modconf['gpu_id'] = i
+        conflist.append(modconf)
+    if parallel:
+        p = Pool(n_worker)
+        p.map(worker, conflist)
     else:
-        ray.init()
-        data_collectors = []
-        print('launching datacollectors.')
-        for i in range(n_worker):
-            modconf = copy.deepcopy(hyperparams)
-            modconf['start_index'] = start_idx[i]
-            modconf['end_index'] = end_idx[i]
-            modconf['gpu_id'] = i
-            data_collectors.append(Data_Collector.remote(modconf, i, printout))
+        worker(conflist[0])
 
-        todo_ids = [d.run_traj.remote() for d in data_collectors]
-        print('launched datacollectors.')
+    sync_todo_id = sync.remote(args.isplit, hyperparams)
+    print('launched sync')
+    ray.wait([sync_todo_id])
 
-        sync_todo_id = sync.remote(args.isplit, hyperparams)
-        print('launched sync')
-        ray.wait([sync_todo_id])
-        ray.wait(todo_ids)
+    # ray.wait(todo_ids)
 
 def load_module(hyperparams_file, name):
     loader = importlib.machinery.SourceFileLoader(name, hyperparams_file)
