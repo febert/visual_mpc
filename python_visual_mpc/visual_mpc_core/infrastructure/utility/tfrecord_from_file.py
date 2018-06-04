@@ -19,7 +19,7 @@ class DefaultTraj:
     def __init__(self):
         self.actions, self.X_Xdot_full, self.images  = None, None, None
 
-def grasping_touch_file2record(state_action):
+def grasping_touch_file2record(state_action, agent_params):
     loaded_traj = DefaultTraj()
 
     loaded_traj.actions = state_action['actions']
@@ -43,7 +43,7 @@ def grasping_touch_file2record(state_action):
 
     return good_lift, loaded_traj
 
-def grasping_touch_nodesig_file2record(state_action):
+def grasping_touch_nodesig_file2record(state_action, agent_params):
     loaded_traj = DefaultTraj()
 
     loaded_traj.actions = state_action['actions']
@@ -51,14 +51,29 @@ def grasping_touch_nodesig_file2record(state_action):
     loaded_traj.X_Xdot_full = np.concatenate((state_action['target_qpos'][:-1, :], touch_sensors), axis = 1)
 
     valid_frames = np.logical_and(state_action['target_qpos'][1:, -1] > 0, np.logical_and(touch_sensors[:, 0] > 0, touch_sensors[:, 1] > 0))
-    off_ground = state_action['target_qpos'][1:,2] >= -0.02
-    object_poses = state_action['object_full_pose']
+    off_ground = state_action['target_qpos'][1:,2] >= agent_params.get('good_lift_thresh', 0.)
 
     good_grasp = any(np.logical_and(valid_frames, off_ground))
     
     return good_grasp, loaded_traj
 
-def pushing_touch_file2record(state_action):
+
+def grasping_sawyer_file2record(state_action, agent_params):
+    loaded_traj = DefaultTraj()
+
+    loaded_traj.actions = state_action['actions']
+    touch_sensors = state_action['finger_sensors']
+    loaded_traj.X_Xdot_full = np.concatenate((state_action['states'], touch_sensors), axis=1)
+
+    valid_frames = np.logical_and(state_action['states'][:, -1] > 0,
+                                  np.logical_and(touch_sensors[:, 0] > 0, touch_sensors[:, 1] > 0))
+    off_ground = state_action['states'][:, 2] >= agent_params.get('good_lift_thresh', 0.27)
+
+    good_grasp = any(np.logical_and(valid_frames, off_ground))
+
+    return good_grasp, loaded_traj
+
+def pushing_touch_file2record(state_action, agent_params):
     loaded_traj = DefaultTraj()
 
     loaded_traj.actions = state_action['actions']
@@ -157,7 +172,7 @@ def main():
                 print("FOUND NAN AT", t)     #error in mujoco environment sometimes manifest in NANs
             else:
                 total_ctr += 1
-                good_lift, loaded_traj = agent_config['file_to_record'](state_action)
+                good_lift, loaded_traj = agent_config['file_to_record'](state_action, agent_config)
 
                 if 'cameras' in agent_config:
                     loaded_traj.images = np.zeros((T, len(agent_config['cameras']), img_height, img_width, 3), dtype = np.uint8)
@@ -214,7 +229,7 @@ def main():
         save_tf_record(f_name, bad_traj_list, agent_config)
         bad_traj_list = []
         
-    print('perc good_lift', good_lift_ctr / total_ctr)
+    print('perc good_lift', float(good_lift_ctr) / total_ctr)
 
 if __name__ == '__main__':
     main()

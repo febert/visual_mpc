@@ -4,7 +4,7 @@ import numpy as np
 from python_visual_mpc.visual_mpc_core.algorithm.random_policy import Randompolicy
 import os
 from python_visual_mpc.sawyer.visual_mpc_rospkg.src.agent.agent_robot import AgentSawyer
-
+from python_visual_mpc.visual_mpc_core.infrastructure.utility.tfrecord_from_file import grasping_sawyer_file2record as convert_to_record
 BASE_DIR = '/'.join(str.split(__file__, '/')[:-1])
 current_dir = os.path.dirname(os.path.realpath(__file__))
 
@@ -24,7 +24,8 @@ agent = {'type' : AgentSawyer,
          'discrete_gripper': -1,  # discretized gripper dimension,
          'targetpos_clip':[[0.42, -0.24, 0.184, -0.5 * np.pi , 0], [0.87, 0.22, 0.4, 0.5 * np.pi, 0.1]],
          'autograsp' : '',
-         'autograsp_thresh' : 0.22
+         'autograsp_thresh' : 0.22,
+         'file_to_record' : convert_to_record
          }
 
 policy = {
