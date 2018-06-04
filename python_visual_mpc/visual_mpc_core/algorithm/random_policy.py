@@ -18,78 +18,56 @@ class Randompolicy(Policy):
         self.policyparams = policyparams
         self.adim = agentparams['adim']
         self.actions = []
-
         self.naction_steps = policyparams['nactions']
 
     def act(self, traj, t, init_model=None, goal_ob_pose=None, agentparams=None, goal_image=None):
-
-        repeat = self.policyparams['repeat']  # repeat the same action to reduce number of repquired timesteps
+        repeat = self.policyparams['repeat']
         assert self.agentparams['T'] == self.naction_steps*repeat
-
         if t ==0:
             mean = np.zeros(self.adim * self.naction_steps)
             # initialize mean and variance of the discrete actions to their mean and variance used during data collection
             sigma = construct_initial_sigma(self.policyparams)
-
             self.actions = np.random.multivariate_normal(mean, sigma)
-            # rv = multivariate_normal(mean, sigma)
-
-            self.actions = self.actions.reshape(self.naction_steps, self.adim)
-            self.actions = np.repeat(self.actions, repeat, axis=0)
-
-            if 'discrete_adim' in self.agentparams:
-                self.actions = discretize(self.actions, self.agentparams['discrete_adim'])
-
-            if 'discrete_gripper' in self.agentparams:
-                self.actions = discretize_gripper(self.actions, self.agentparams['discrete_gripper'])
-
-            if 'no_action_bound' not in self.policyparams:
-                self.actions = truncate_movement(self.actions, self.policyparams)
-
-            if 'z_descend_actions' in self.policyparams:
-                self.actions[repeat:, 2] = np.minimum(self.actions[repeat:, 2], -self.actions[repeat:, 2])
-
+            self.process_actions()
         return self.actions[t]
 
+    def process_actions(self):
+        repeat = self.policyparams['repeat']  # repeat the same action to reduce number of repquired timesteps
+        self.actions = self.actions.reshape(self.naction_steps, self.adim)
+        self.actions = np.repeat(self.actions, repeat, axis=0)
+        if 'discrete_adim' in self.agentparams:
+            self.actions = discretize(self.actions, self.agentparams['discrete_adim'])
+        if 'discrete_gripper' in self.agentparams:
+            self.actions = discretize_gripper(self.actions, self.agentparams['discrete_gripper'])
+        if 'no_action_bound' not in self.policyparams:
+            self.actions = truncate_movement(self.actions, self.policyparams)
+        if 'z_descend_actions' in self.policyparams:
+            self.actions[repeat:, 2] = np.minimum(self.actions[repeat:, 2], -self.actions[repeat:, 2])
     def finish(self):
         pass
 
 class RandomPickPolicy(Randompolicy):
     def act(self, traj, t, init_model = None, goal_ee_pose = None, agentparams = None, goal_image = None):
-        repeat = self.policyparams['repeats']
         assert self.agentparams['T'] == self.naction_steps * repeat and self.naction_steps >= 3
-
         if t == 0:
-            mean = np.zeros((self.naction_steps, self.adim))
-
-            target_object = np.random.randint(self.agentparams['num_objects']) #selects a random object to pick
-            traj.desig_pos = traj.Object_pose[0, target_object, :2].copy()
-       
-            object_xy = traj.Object_pose[0, target_object, :2] / repeat
-
-            mean[0] = np.array([object_xy[0], object_xy[1], self.agentparams.get('ztarget', 0.13) / repeat, 0, -1]) #mean action goes toward object
-            mean[1] = np.array([0, 0, (-0.08 - self.agentparams.get('ztarget', 0.13)) / repeat, 0, -1]) #mean action swoops down to pick object
-            mean[2] = np.array([0, 0, (-0.08 - self.agentparams.get('ztarget', 0.13)) / repeat, 0, 1]) #mean action gripper grasps object
-            mean[3] = np.array([0, 0, (0.08 + self.agentparams.get('ztarget', 0.13)) / repeat, 0, 1])  #mean action lifts hand up
-
-            sigma = construct_initial_sigma(self.policyparams)
-            
-            self.actions = np.random.multivariate_normal(mean.reshape(-1), sigma).reshape(self.naction_steps, self.adim)
-            self.actions = np.repeat(self.actions, repeat, axis = 0)
-
-            if 'discrete_adim' in self.agentparams:
-                self.actions = discretize(self.actions, self.agentparams['discrete_adim'])
-
-            if 'discrete_gripper' in self.agentparams:
-                self.actions = discretize_gripper(self.actions, self.agentparams['discrete_gripper'])
-
-            if 'no_action_bound' not in self.policyparams:
-                self.actions = truncate_movement(self.actions, self.policyparams)
-
-            if 'z_descend_actions' in self.policyparams:
-                self.actions[repeat:, 2] = np.minimum(self.actions[repeat:, 2], -self.actions[repeat:, 2])
-
+            self.sample_actions(traj)
         return self.actions[t]
+
+    def sample_actions(self, traj):
+        repeat = self.policyparams['repeats']
+        mean = np.zeros((self.naction_steps, self.adim))
+        target_object = np.random.randint(self.agentparams['num_objects'])  # selects a random object to pick
+        traj.desig_pos = traj.Object_pose[0, target_object, :2].copy()
+        object_xy = traj.Object_pose[0, target_object, :2] / repeat
+        mean[0] = np.array([object_xy[0], object_xy[1], self.agentparams.get('ztarget', 0.13) / repeat, 0, -1])  # mean action goes toward object
+        mean[1] = np.array([0, 0, (-0.08 - self.agentparams.get('ztarget', 0.13)) / repeat, 0, -1])  # mean action swoops down to pick object
+        mean[2] = np.array([0, 0, (-0.08 - self.agentparams.get('ztarget', 0.13)) / repeat, 0, 1])  # mean action gripper grasps object
+        mean[3] = np.array([0, 0, (0.08 + self.agentparams.get('ztarget', 0.13)) / repeat, 0, 1])  # mean action lifts hand up
+        sigma = construct_initial_sigma(self.policyparams)
+        self.actions = np.random.multivariate_normal(mean.reshape(-1), sigma).reshape(self.naction_steps, self.adim)
+        self.process_actions()
+        return self.actions
+
 
 def discretize_gripper(actions, gripper_ind):
     for a in range(actions.shape[0]):

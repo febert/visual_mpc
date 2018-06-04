@@ -12,4 +12,5 @@ class Imitation_CEM_controller(CEM_controller):
         print(last_frames)
         print('last_state', last_states.shape, last_states.dtype)
         print(last_states)
-        print(1 / 0)
+
+        self.imitation_policy.sample_actions()
