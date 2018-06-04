@@ -89,9 +89,6 @@ class AgentSawyer:
 
             self._controller.move_with_impedance_sec(target_ja, duration=1.)
 
-
-
-
         return traj, traj_ok
 
     def random_start_angles(self, rng = np.random.uniform):

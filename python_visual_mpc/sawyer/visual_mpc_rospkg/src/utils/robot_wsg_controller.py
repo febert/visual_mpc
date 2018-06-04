@@ -3,7 +3,7 @@ import rospy
 
 from wsg_50_common.srv import Move
 from wsg_50_common.msg import Cmd, Status
-from threading import Semaphore
+from threading import Semaphore, Lock
 
 GRIPPER_CLOSE = 6   #chosen so that gripper closes entirely without pushing against itself
 GRIPPER_OPEN = 96   #chosen so that gripper opens entirely without pushing against outer rail
@@ -23,12 +23,17 @@ class WSGRobotController(RobotController):
         self.max_release = 0
         RobotController.__init__(self)
         self.sem_list = [Semaphore(value = 0)]
+        self.status_mutex = Lock()
         self.robot_name = robot_name
 
-        rospy.Subscriber("/wsg_50_driver/status", Status, self.gripper_callback)
-        self.gripper_pub = rospy.Publisher('/wsg_50_driver/goal_position', Cmd, queue_size=10)
         self._desired_gpos = GRIPPER_OPEN
         self.gripper_speed = 300
+
+        self._force_counter = 0
+        self._integrate_gripper_force = 0.
+
+        self.gripper_pub = rospy.Publisher('/wsg_50_driver/goal_position', Cmd, queue_size=10)
+        rospy.Subscriber("/wsg_50_driver/status", Status, self.gripper_callback)
 
         print("waiting for first status")
         self.sem_list[0].acquire()
@@ -47,8 +52,19 @@ class WSGRobotController(RobotController):
         assert new_speed > 0 and new_speed <= 600, "Speed must be in range (0, 600]"
         self.gripper_speed = new_speed
 
-    def get_gripper_status(self):
-        return self.gripper_width, self.gripper_force
+    def get_gripper_status(self, integrate_force = False):
+        self.status_mutex.acquire()
+        cum_force, cntr = self._integrate_gripper_force, self._force_counter
+        width, force = self.gripper_width, self.gripper_force
+        self._integrate_gripper_force = 0.
+        self._force_counter = 0
+        self.status_mutex.release()
+
+        if integrate_force and cntr > 0:
+            print("integrating with {} readings, cumulative force: {}".format(cntr, cum_force))
+            return width, cum_force / cntr
+
+        return width, force
 
     def get_limits(self):
         return GRIPPER_CLOSE, GRIPPER_OPEN
@@ -65,10 +81,16 @@ class WSGRobotController(RobotController):
         if wait:
             sem = Semaphore(value = 0)
             self.sem_list.append(sem)
+            start = rospy.get_time()
             sem.acquire()
+            print("waited on gripper for {} seconds".format(rospy.get_time() - start))
 
     def gripper_callback(self, status):
+        self.status_mutex.acquire()
         self.gripper_width, self.gripper_force = status.width, status.force
+        self._integrate_gripper_force += status.force
+        self._force_counter += 1
+        self.status_mutex.release()
 
         cmd = Cmd()
         cmd.pos = self._desired_gpos
@@ -89,6 +111,7 @@ class WSGRobotController(RobotController):
     def reset_with_impedance(self, angles = NEUTRAL_JOINT_ANGLES, duration= 3., open_gripper = True):
         if open_gripper:
             self.open_gripper(True)
+            self.get_gripper_status()    #dummy call to flush integration of gripper force
         self.imp_ctrl_release_spring(100)
         self.move_to_joints_impedance_sec(angles, duration=duration)
         self.imp_ctrl_release_spring(150)

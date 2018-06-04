@@ -140,7 +140,7 @@ class RobotDualCamRecorder:
         return np.array([self._ctrl.limb.joint_angle(j) for j in self._ctrl.limb.joint_names()])
 
     def get_gripper_state(self):
-        g_width, g_force = self._ctrl.get_gripper_status()
+        g_width, g_force = self._ctrl.get_gripper_status(integrate_force=True)
         close_thresh, open_thresh = self._ctrl.get_limits()
 
         t = (g_width - close_thresh) / (open_thresh - close_thresh)  #t = 1 --> open, and t = 0 --> closed
