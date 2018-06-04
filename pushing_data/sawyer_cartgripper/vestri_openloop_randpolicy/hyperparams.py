@@ -12,16 +12,19 @@ data_conf = {'left_cam' : {'crop_bot' : 70, 'crop_left' : 150, 'crop_right' : 10
              'front_cam': {'crop_bot' : 70, 'crop_left' : 90, 'crop_right' : 160}}
 agent = {'type' : AgentSawyer,
          'data_save_dir': BASE_DIR + '/train',
-         'T' : 15,                #number of commands per episodes (issued at control_rate / substeps HZ)
-         'substeps' : 200,        #number of interpolated substeps per command
-         'control_rate' : 1000,   #substep are taken at control_rate HZ
+         'T' : 15,  #number of commands per episodes (issued at control_rate / substeps HZ)
+         'substeps' : 200,  #number of interpolated substeps per command
+         'control_rate' : 1000,  #substep are taken at control_rate HZ
          'image_height' : 48,
          'image_width' : 64,
-         'data_conf' : data_conf, #controls cropping
+         'data_conf' : data_conf,  #controls cropping
          'adim' : 5,
          'sdim' : 5,
          'mode_rel' : np.array([True, True, True, True, False]),
-         'targetpos_clip':[[0.42, -0.24, 0.184, -0.5 * np.pi , -1], [0.87, 0.22, 0.4, 0.5 * np.pi, 1]]
+         'discrete_gripper': -1,  # discretized gripper dimension,
+         'targetpos_clip':[[0.42, -0.24, 0.184, -0.5 * np.pi , 0], [0.87, 0.22, 0.4, 0.5 * np.pi, 0.1]],
+         'autograsp' : '',
+         'autograsp_thresh' : 0.25
          }
 
 policy = {
@@ -29,10 +32,10 @@ policy = {
     'nactions' : 5,
     'repeat' : 3,
     'no_action_bound' : False,
-    'initial_std': 0.1,   #std dev. in xy
-    'initial_std_lift': 0.01,   #std dev. in z
-    'initial_std_rot' : np.pi / 36,
-    'initial_std_grasp' : 2,
+    'initial_std': 0.15,   #std dev. in xy
+    'initial_std_lift': 0.15,   #std dev. in z
+    'initial_std_rot' : np.pi / 18,
+    'initial_std_grasp' : 2
 }
 
 config = {

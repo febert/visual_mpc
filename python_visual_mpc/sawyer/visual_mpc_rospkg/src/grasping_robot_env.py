@@ -13,7 +13,6 @@ class RobotEnvironment:
         self.agent = self.agentparams['type'](self.agentparams)
 
         self.init_policy()
-        self.agent.sample(self.policy)
 
     def init_policy(self):
         self.policy = self.policyparams['type'](self.agentparams, self.policyparams)
