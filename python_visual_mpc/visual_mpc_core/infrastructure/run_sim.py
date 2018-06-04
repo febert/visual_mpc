@@ -54,16 +54,16 @@ class Sim(object):
         if 'netconf' in config['policy']:
             params = imp.load_source('params', config['policy']['netconf'])
             netconf = params.configuration
-            self.predictor = netconf['setup_predictor'](self._hyperparams, netconf, gpu_id, ngpu, self.logger)
+            self.predictor = netconf['setup_predictor'](config, netconf, gpu_id, ngpu, self.logger)
 
             if 'warp_objective' in config['policy'] or 'register_gtruth' in config['policy']:
                 params = imp.load_source('params', config['policy']['gdnconf'])
                 gdnconf = params.configuration
                 self.goal_image_warper = setup_gdn(gdnconf, gpu_id)
                 self.policy = config['policy']['type'](config['agent'], config['policy'], self.predictor, self.goal_image_warper)
-            elif 'imitation_conf' in config['policy']:
-                self.imitation_policy = config['policy']['imitation_setup'](config['policy']['imitation_conf'])
-                self.policy = config['policy']['type'](config['agent'], config['policy'], self.predictor, self.imitation_policy)
+            elif 'actionproposal_conf' in config['policy']:
+                self.actionproposal_policy = config['policy']['actionproposal_setup'](config['policy']['actionproposal_conf'], self.agentparams, self.policyparams)
+                self.policy = config['policy']['type'](config['agent'], config['policy'], self.predictor, self.actionproposal_policy)
             else:
                 self.policy = config['policy']['type'](config['agent'], config['policy'], self.predictor)
         else:
@@ -81,8 +81,8 @@ class Sim(object):
             if 'warp_objective' in self.policyparams or 'register_gtruth' in self.policyparams:
                 self.policy = self.policyparams['type'](self.agent._hyperparams,
                                                               self.policyparams, self.predictor, self.goal_image_warper)
-            elif 'imitation_conf' in self.policyparams:
-                self.policy = self.policyparams['type'](self.agent._hyperparams, self.policyparams, self.predictor, self.imitation_policy)
+            elif 'actionproposal_conf' in self.policyparams:
+                self.policy = self.policyparams['type'](self.agent._hyperparams, self.policyparams, self.predictor, self.actionproposal_policy)
             else:
                 self.policy = self.policyparams['type'](self.agent._hyperparams,
                                                               self.policyparams, self.predictor)

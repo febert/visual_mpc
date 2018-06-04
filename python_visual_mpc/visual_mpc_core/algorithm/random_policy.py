@@ -21,8 +21,8 @@ class Randompolicy(Policy):
         self.naction_steps = policyparams['nactions']
 
     def act(self, traj, t, init_model=None, goal_ob_pose=None, agentparams=None, goal_image=None):
-        repeat = self.policyparams['repeat']
-        assert self.agentparams['T'] == self.naction_steps*repeat
+        self.repeat = self.policyparams['repeat']
+        assert self.agentparams['T'] == self.naction_steps*self.repeat
         if t ==0:
             mean = np.zeros(self.adim * self.naction_steps)
             # initialize mean and variance of the discrete actions to their mean and variance used during data collection
@@ -47,27 +47,28 @@ class Randompolicy(Policy):
         pass
 
 class RandomPickPolicy(Randompolicy):
+    def __init__(self, imitation_conf, agentparams, policyparams):  # add imiation_conf to keep compatibility with imitation model
+        Randompolicy.__init__(self, agentparams, policyparams)
+
     def act(self, traj, t, init_model = None, goal_ee_pose = None, agentparams = None, goal_image = None):
-        assert self.agentparams['T'] == self.naction_steps * repeat and self.naction_steps >= 3
+        assert self.agentparams['T'] == self.naction_steps * self.repeat and self.naction_steps >= 3
         if t == 0:
             self.sample_actions(traj)
         return self.actions[t]
 
     def sample_actions(self, traj):
-        repeat = self.policyparams['repeats']
         mean = np.zeros((self.naction_steps, self.adim))
         target_object = np.random.randint(self.agentparams['num_objects'])  # selects a random object to pick
         traj.desig_pos = traj.Object_pose[0, target_object, :2].copy()
-        object_xy = traj.Object_pose[0, target_object, :2] / repeat
-        mean[0] = np.array([object_xy[0], object_xy[1], self.agentparams.get('ztarget', 0.13) / repeat, 0, -1])  # mean action goes toward object
-        mean[1] = np.array([0, 0, (-0.08 - self.agentparams.get('ztarget', 0.13)) / repeat, 0, -1])  # mean action swoops down to pick object
-        mean[2] = np.array([0, 0, (-0.08 - self.agentparams.get('ztarget', 0.13)) / repeat, 0, 1])  # mean action gripper grasps object
-        mean[3] = np.array([0, 0, (0.08 + self.agentparams.get('ztarget', 0.13)) / repeat, 0, 1])  # mean action lifts hand up
+        object_xy = traj.Object_pose[0, target_object, :2] / self.repeat
+        mean[0] = np.array([object_xy[0], object_xy[1], self.agentparams.get('ztarget', 0.13) / self.repeat, 0, -1])  # mean action goes toward object
+        mean[1] = np.array([0, 0, (-0.08 - self.agentparams.get('ztarget', 0.13)) / self.repeat, 0, -1])  # mean action swoops down to pick object
+        mean[2] = np.array([0, 0, (-0.08 - self.agentparams.get('ztarget', 0.13)) / self.repeat, 0, 1])  # mean action gripper grasps object
+        mean[3] = np.array([0, 0, (0.08 + self.agentparams.get('ztarget', 0.13)) / self.repeat, 0, 1])  # mean action lifts hand up
         sigma = construct_initial_sigma(self.policyparams)
         self.actions = np.random.multivariate_normal(mean.reshape(-1), sigma).reshape(self.naction_steps, self.adim)
         self.process_actions()
         return self.actions
-
 
 def discretize_gripper(actions, gripper_ind):
     for a in range(actions.shape[0]):
