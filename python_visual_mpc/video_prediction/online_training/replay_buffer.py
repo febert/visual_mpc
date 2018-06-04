@@ -132,7 +132,7 @@ class ReplayBuffer_Loadfiles(ReplayBuffer):
         for file in to_load_filenames:
             filenum = file.partition('train')[2].partition('.')[0]
             path = file.partition('train')[0]
-            scorefile = path + 'scores' + filenum + '_score.pkl'
+            scorefile = path + 'scores/' + self.mode + '/' + filenum + '_score.pkl'
             try:
                 dict_ = pickle.load(open(scorefile, 'rb'))
             except FileNotFoundError:
