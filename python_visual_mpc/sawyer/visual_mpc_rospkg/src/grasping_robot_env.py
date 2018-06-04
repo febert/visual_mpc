@@ -25,7 +25,7 @@ class RobotEnvironment:
         print("Collecting sample {}".format(itr))
 
         self.init_policy()
-        traj, traj_ok = self.agent.sample(self.policy)
+        traj, traj_ok = self.agent.sample(self.policy, itr)
 
         if traj is not None and traj_ok:
             group = itr // self._hyperparams['ngroup']

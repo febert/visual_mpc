@@ -5,18 +5,25 @@ from wsg_50_common.srv import Move
 from wsg_50_common.msg import Cmd, Status
 from threading import Semaphore
 
-GRIPPER_CLOSE = 4   #chosen so that gripper closes entirely without pushing against itself
-GRIPPER_OPEN = 95   #chosen so that gripper opens entirely without pushing against outer rail
+GRIPPER_CLOSE = 6   #chosen so that gripper closes entirely without pushing against itself
+GRIPPER_OPEN = 96   #chosen so that gripper opens entirely without pushing against outer rail
 
 from std_msgs.msg import Float32, Int64
 from sensor_msgs.msg import JointState
 import numpy as np
 
+import python_visual_mpc
+
+import cPickle as pickle
+
+
 NEUTRAL_JOINT_ANGLES =[0.412271, -0.434908, -1.198768, 1.795462, 1.160788, 1.107675, 2.068076]
 class WSGRobotController(RobotController):
-    def __init__(self, control_rate):
+    def __init__(self, control_rate, robot_name):
+        self.max_release = 0
         RobotController.__init__(self)
         self.sem_list = [Semaphore(value = 0)]
+        self.robot_name = robot_name
 
         rospy.Subscriber("/wsg_50_driver/status", Status, self.gripper_callback)
         self.gripper_pub = rospy.Publisher('/wsg_50_driver/goal_position', Cmd, queue_size=10)
@@ -70,16 +77,21 @@ class WSGRobotController(RobotController):
         self.gripper_pub.publish(cmd)
 
         if len(self.sem_list) > 0:
-            for s in self.sem_list:
-                s.release()
-            self.sem_list = []
+            gripper_close = np.isclose(self.gripper_width, self._desired_gpos, atol=1e-1)
+            if gripper_close or self.gripper_force > 0 or self.max_release > 10:
+                for s in self.sem_list:
+                    s.release()
+                self.sem_list = []
+                self.max_release = 0
+        else:
+            self.max_release = 0
 
-    def reset_with_impedance(self, angles = NEUTRAL_JOINT_ANGLES, duration= 3, open_gripper = True):
+    def reset_with_impedance(self, angles = NEUTRAL_JOINT_ANGLES, duration= 3., open_gripper = True):
         if open_gripper:
             self.open_gripper(True)
         self.imp_ctrl_release_spring(100)
         self.move_to_joints_impedance_sec(angles, duration=duration)
-        self.imp_ctrl_release_spring(300)
+        self.imp_ctrl_release_spring(150)
 
     def imp_ctrl_release_spring(self, maxstiff):
         self.imp_ctrl_release_spring_pub.publish(maxstiff)
@@ -112,3 +124,21 @@ class WSGRobotController(RobotController):
             cmd = dict(list(zip(self.limb.joint_names(), list(int_joints))))
             self.move_with_impedance(cmd)
             self.control_rate.sleep()
+
+    def redistribute_objects(self):
+        self.reset_with_impedance(duration=1.5)
+        print('redistribute...')
+
+        file = '/'.join(str.split(python_visual_mpc.__file__, "/")[
+                        :-1]) + '/sawyer/visual_mpc_rospkg/src/utils/pushback_traj_{}.pkl'.format(self.robot_name)
+
+        self.joint_pos = pickle.load(open(file, "rb"))
+
+        self.imp_ctrl_release_spring(100)
+        self.imp_ctrl_active.publish(1)
+
+        replay_rate = rospy.Rate(700)
+        for t in range(len(self.joint_pos)):
+            print('step {0} joints: {1}'.format(t, self.joint_pos[t]))
+            replay_rate.sleep()
+            self.move_with_impedance(self.joint_pos[t])
