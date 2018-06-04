@@ -158,6 +158,7 @@ class ReplayBuffer_Loadfiles(ReplayBuffer):
                 self.push_back(t)
         self.logger.log('done prefilling replay')
 
+
 def plot_scores(dir, scores, improvement=None):
 
     plt.subplot(2,1,1)

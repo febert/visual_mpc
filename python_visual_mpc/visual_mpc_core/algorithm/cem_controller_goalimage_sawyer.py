@@ -114,24 +114,22 @@ def construct_initial_sigma(policyparams):
     sigma = np.diag(diag)
     return sigma
 
-def reuse_cov(mean, sigma, adim, policyparams):
-    naction_steps = policyparams['nactions']
-    print('reusing mean form last MPC step...')
-    mean_old = mean.copy()
-
-    mean = np.zeros_like(mean_old)
-    mean[:-adim] = mean_old[adim:]
-    mean = mean.reshape(adim * naction_steps)
-
+def reuse_cov(sigma, adim, policyparams):
+    print('reusing cov form last MPC step...')
     sigma_old = copy.deepcopy(sigma)
     sigma = np.zeros_like(sigma)
     #reuse covariance and add a fraction of the initial covariance to it
     sigma[0:-adim,0:-adim] = sigma_old[adim:,adim: ] +\
                 construct_initial_sigma(policyparams)[:-adim, :-adim]*policyparams['reuse_cov']
     sigma[-adim:, -adim:] = construct_initial_sigma(policyparams)[:adim, :adim]
+    return sigma
 
-    return mean, sigma
-
+def reuse_mean(mean, adim):
+    print('reusing mean form last MPC step...')
+    mean_old = mean.copy()
+    mean = np.zeros_like(mean_old)
+    mean[:-adim] = mean_old[adim:]
+    return mean
 
 def truncate_movement(actions, policyparams):
     if 'maxshift' in policyparams:
@@ -210,11 +208,19 @@ class CEM_controller():
         self.netconf = hyperparams.configuration
         self.bsize = self.netconf['batch_size']
         self.seqlen = self.netconf['sequence_length']
-        self.M = self.bsize
+
         assert self.naction_steps * self.repeat == self.seqlen
 
+        if 'num_samples' in self.policyparams:
+            self.M = self.policyparams['num_samples'][0]
+        else:
+            self.M = self.bsize
+        if 'selection_frac' in self.policyparams:
+            self.K = np.ceil(self.M*self.policyparams['selection_frac'])
+        else:
+            self.K = 10  # only consider K best samples for refitting
+
         self.ncontxt = self.netconf['context_frames']
-        
         self.predictor = predictor
         self.goal_image_warper = goal_image_warper
         self.goal_image = None
@@ -222,8 +228,6 @@ class CEM_controller():
         if 'ndesig' in self.netconf:
             self.ndesig = self.netconf['ndesig']
         else: self.ndesig = None
-
-        self.K = 10  # only consider K best samples for refitting
 
         self.img_height, self.img_width = self.netconf['orig_size']
 
@@ -234,8 +238,7 @@ class CEM_controller():
         else: self.action_cost_factor = 0
 
         #action dimensions:
-        #no rotations:  deltax, delty, close_nstep, goup_nstep;
-        # with rotations:  deltax, delty, goup_nstep, delta_rot, close_nstep
+        # deltax, delty, goup_nstep, delta_rot, close_nstep
         self.adim = self.agentparams['adim']
         self.initial_std = policyparams['initial_std']
 
@@ -246,7 +249,6 @@ class CEM_controller():
             self.discrete_ind = None
 
         # predicted positions
-        self.rec_target_pos = np.zeros((self.M, self.niter, self.repeat * self.naction_steps, 2))
         self.bestindices_of_iter = np.zeros((self.niter, self.K))
 
         self.indices =[]
@@ -310,12 +312,13 @@ class CEM_controller():
     def perform_CEM(self, traj, last_frames, last_frames_med, last_states, t):
 
         if 'reuse_cov' not in self.policyparams or t < 2:
-            # initialize mean and variance
-            self.mean = np.zeros(self.adim * self.naction_steps)
-            #initialize mean and variance of the discrete actions to their mean and variance used during data collection
             self.sigma = construct_initial_sigma(self.policyparams)
         else:
-            self.mean, self.sigma = reuse_cov(self.mean, self.sigma, self.adim, self.policyparams)
+            self.sigma = reuse_cov(self.sigma, self.adim, self.policyparams)
+        if 'reuse_mean' not in self.policyparams or t < 2:
+            self.mean = np.zeros(self.adim * self.naction_steps)
+        else:
+            self.mean = reuse_mean(self.mean, self.adim)
 
         self.logger.log('------------------------------------------------')
         self.logger.log('starting CEM cylce')

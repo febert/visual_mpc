@@ -1,7 +1,7 @@
 """ This file defines the linear Gaussian policy class. """
 import cv2
 import numpy as np
-from python_visual_mpc.visual_mpc_core.algorithm.cem_controller_goalimage_sawyer import reuse_cov
+from python_visual_mpc.visual_mpc_core.algorithm.cem_controller_goalimage_sawyer import reuse_cov, reuse_mean
 from python_visual_mpc.visual_mpc_core.algorithm.policy import Policy
 import time
 from python_visual_mpc.video_prediction.utils_vpred.create_gif_lib import *
@@ -184,12 +184,13 @@ class CEM_controller(Policy):
     def perform_CEM(self, t):
         # initialize mean and variance
         if 'reuse_cov' not in self.policyparams or t < 2:
-            # initialize mean and variance
-            self.mean = np.zeros(self.adim * self.naction_steps)
-            #initialize mean and variance of the discrete actions to their mean and variance used during data collection
             self.sigma = construct_initial_sigma(self.policyparams)
         else:
-            self.mean, self.sigma = reuse_cov(self.mean, self.sigma, self.adim, self.policyparams)
+            self.sigma = reuse_cov(self.sigma, self.adim, self.policyparams)
+        if 'reuse_mean' not in self.policyparams or t < 2:
+            self.mean = np.zeros(self.adim * self.naction_steps)
+        else:
+            self.mean = reuse_mean(self.mean, self.adim, self.policyparams)
 
         print('------------------------------------------------')
         print('starting CEM cylce')

@@ -18,8 +18,8 @@ PRELOAD_DATA_DIR = {os.environ['VMPC_DATA_DIR'] + '/cartgripper/grasping/dctouch
 
 onpolconf = {
     'save_interval':200,
-    'replay_size':{'train':40000, 'val':4000},
-    'fill_replay_fromsaved':{'train':20, 'val':20},##################000,              # fill replay with existing trajectories from dataset
+    'replay_size':{'train':40000, 'val':1000},
+    'fill_replay_fromsaved':{'train':5000, 'val':30},      # fill replay with existing trajectories from dataset
 }
 
 from python_visual_mpc.video_prediction.dynamic_rnn_model.alex_model_interface import Alex_Interface_Model
