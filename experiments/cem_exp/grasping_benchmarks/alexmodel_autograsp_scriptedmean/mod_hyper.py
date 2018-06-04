@@ -3,7 +3,7 @@ import python_visual_mpc
 current_dir = '/'.join(str.split(__file__, '/')[:-1])
 bench_dir = '/'.join(str.split(__file__, '/')[:-2])
 
-from python_visual_mpc.visual_mpc_core.algorithm.actionproposal_cem_controller import actionproposal_CEM_controller
+from python_visual_mpc.visual_mpc_core.algorithm.actionproposal_cem_controller import Actionproposal_CEM_controller
 from python_visual_mpc.visual_mpc_core.algorithm.random_policy import RandomPickPolicy
 
 ROOT_DIR = os.path.abspath(python_visual_mpc.__file__)
@@ -42,7 +42,7 @@ agent = {
 
 policy = {
     'verbose':'',
-    'type' : actionproposal_CEM_controller,
+    'type' : Actionproposal_CEM_controller,
     'actionproposal_setup': RandomPickPolicy,
     'actionproposal_conf':None,
     'current_dir':current_dir,
@@ -52,7 +52,7 @@ policy = {
     'initial_std': 0.02,   #std dev. in xy
     'initial_std_lift': 1.6,   #std dev. in xy
     'initial_std_rot' : np.pi / 18,
-    'initial_std_grasp' : 0,
+    'initial_std_grasp' : 0.,
     'netconf': current_dir + '/conf.py',
     'iterations': 3,
     'action_cost_factor': 0,
@@ -96,6 +96,6 @@ config = {
     'policy':policy,
     'ngroup': 100,
     'sourcetags':[tag_images0, tag_images1, tag_qpos, tag_object_full_pose, tag_object_statprop, tag_actions],
-    'source_basedirs':[os.environ['VMPC_DATA_DIR'] + '/cartgripper/grasping/cartgripper_startgoal_2view_lift_above_obj/train'],
+    'source_basedirs':[os.environ['VMPC_DATA_DIR'] + '/cartgripper/grasping/cartgripper_startgoal_2view_lift/train'],
     'sequence_length':2
 }

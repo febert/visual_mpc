@@ -276,7 +276,6 @@ class CEM_controller(Policy):
         self.gripper_closed = False
         self.gripper_up = False
         self.t_down = 0
-        # print('start episdoe')
 
         for t in range(self.nactions*self.repeat):
             mj_U = actions[t]

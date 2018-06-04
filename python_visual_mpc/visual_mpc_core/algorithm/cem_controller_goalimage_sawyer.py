@@ -307,7 +307,7 @@ class CEM_controller():
         return actions
 
 
-    def perform_CEM(self,last_frames, last_frames_med, last_states, t):
+    def perform_CEM(self, traj, last_frames, last_frames_med, last_states, t):
 
         if 'reuse_cov' not in self.policyparams or t < 2:
             # initialize mean and variance
@@ -328,7 +328,7 @@ class CEM_controller():
             if 'rejection_sampling' in self.policyparams:
                 actions = self.sample_actions_rej(last_frames, last_states)
             else:
-                actions = self.sample_actions(last_frames, last_states)
+                actions = self.sample_actions(last_frames, last_states, traj)
 
             if 'random_policy' in self.policyparams:
                 self.logger.log('sampling random actions')
@@ -369,7 +369,7 @@ class CEM_controller():
 
             self.logger.log('overall time for iteration {}'.format(time.time() - t_startiter))
 
-    def sample_actions(self, last_frames, last_states):
+    def sample_actions(self, last_frames, last_states, traj):
         actions = np.random.multivariate_normal(self.mean, self.sigma, self.M)
         actions = actions.reshape(self.M, self.naction_steps, self.adim)
         if self.discrete_ind != None:
@@ -471,7 +471,6 @@ class CEM_controller():
 
     def video_pred(self, last_frames, last_frames_med, last_states, actions, cem_itr):
         t_0 = time.time()
-
         actions = actions[:,:,:self.netconf['adim']]
 
         last_states = last_states[:,:self.netconf['sdim']]
@@ -586,8 +585,8 @@ class CEM_controller():
 
         tstart_verbose = time.time()
 
-        # if self.verbose and cem_itr == self.policyparams['iterations']-1 and self.i_tr % self.verbose_freq ==0:
-        if self.verbose:
+        if self.verbose and cem_itr == self.policyparams['iterations']-1 and self.i_tr % self.verbose_freq ==0 or \
+                'verbose_every_itr' in self.policyparams:
             gen_images = make_cem_visuals(self, actions, bestindices, cem_itr, flow_fields, gen_distrib, gen_images,
                                           gen_states, last_frames, goal_warp_pts_l, scores, self.warped_image_goal,
                                           self.warped_image_start, warped_images, last_states)
@@ -844,17 +843,17 @@ class CEM_controller():
             if 'use_first_plan' in self.policyparams:
                 self.logger.log('using actions of first plan, no replanning!!')
                 if t == 1:
-                    self.perform_CEM(last_images, last_images_med, last_states, t)
+                    self.perform_CEM(traj, last_images, last_images_med, last_states, t)
                 action = self.bestaction_withrepeat[t - 1]
             elif 'replan_interval' in self.policyparams:
                 self.logger.log('using actions of first plan, no replanning!!')
                 if (t-1) % self.policyparams['replan_interval'] == 0:
                     self.last_replan = t
-                    self.perform_CEM(last_images, last_images_med, last_states, t)
+                    self.perform_CEM(traj, last_images, last_images_med, last_states, t)
                 self.logger.log('last replan', self.last_replan)
                 action = self.bestaction_withrepeat[t - self.last_replan]
             else:
-                self.perform_CEM(last_images, last_images_med, last_states, t)
+                self.perform_CEM(traj, last_images, last_images_med, last_states, t)
                 action = self.bestaction[0]
 
                 self.logger.log('########')

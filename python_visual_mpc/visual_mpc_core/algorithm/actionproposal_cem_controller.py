@@ -7,5 +7,5 @@ class Actionproposal_CEM_controller(CEM_controller):
         super().__init__(ag_params, policyparams, predictor)
         self.imitation_policy = imitation_policy
 
-    def sample_actions(self, last_frames, last_states):
-        return self.imitation_policy.sample_actions()
+    def sample_actions(self, last_frames, last_states, traj):
+        return self.imitation_policy.sample_actions(traj, self.M)
