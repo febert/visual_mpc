@@ -20,7 +20,7 @@ DATA_DIR = '/'.join(str.split(python_visual_mpc.__file__, '/')[:-2])
 
 agent = {
     'type': AgentMuJoCo,
-    'data_save_dir': BASE_DIR + '/train',
+    'data_save_dir': '/result', #BASE_DIR + '/train',
     'filename': DATA_DIR+'/mjc_models/cartgripper_grasp.xml',
     'filename_nomarkers': DATA_DIR+'/mjc_models/cartgripper_grasp.xml',
     'not_use_images':"",
@@ -30,7 +30,7 @@ agent = {
     'sdim':12,
     'cameras':['maincam', 'leftcam'],
     'finger_sensors' : True,
-    'xpos0': np.array([0., 0., 0.05, 0., 0., 0.]), #initialize state dimension to 5 zeros
+    'randomize_initial_pos':'',
     'dt': 0.05,
     'substeps': 200,  #6
     'T': 15,
@@ -54,11 +54,11 @@ agent = {
     'targetpos_clip':[[-0.5, -0.5, -0.08, -2 * np.pi, -1], [0.5, 0.5, 0.15, 2 * np.pi, 1]],
     'mode_rel':np.array([True, True, True, True, False]),
     'discrete_gripper' : -1, #discretized gripper dimension,
-    'lift_rejection_sample' : 15,
+    'lift_rejection_sample' : 20,
     'object_mass' : 0.1,
     'friction' : 1.0,
-    'autograsp' : True,
-#    'master_datadir' : '/raid/ngc2/grasping_data/cartgripper_openloop_randgrasp/'
+    'autograsp' : '',
+    'master_datadir' : '/raid/ngc2/grasping_data/cartgripper_openloop_autograsp/',
     'file_to_record' : convert_to_record
     #'object_meshes':['giraffe'] #folder to original object + convex approximation
     # 'displacement_threshold':0.1,
@@ -67,10 +67,10 @@ agent = {
 policy = {
     'type' : RandomPickPolicy,
     'nactions' : 5,
-    'repeats' : 3,
+    'repeat' : 3,
     'no_action_bound' : False, 
     'initial_std': 0.02,   #std dev. in xy
-    'initial_std_lift': 1.6,   #std dev. in xy
+    'initial_std_lift': 0.01,   #std dev. in xy
     'initial_std_rot' : np.pi / 18,
     'initial_std_grasp' : 2 
 }

@@ -30,7 +30,7 @@ agent = {
     'sdim':12,
     'cameras':['maincam', 'leftcam'],
     'finger_sensors' : True,
-    'xpos0': np.array([0., 0., 0.05, 0., 0., 0.]), #initialize state dimension to 5 zeros
+    'randomize_initial_pos':'',
     'dt': 0.05,
     'substeps': 200,  #6
     'T': 15,
@@ -69,7 +69,7 @@ policy = {
     'no_action_bound' : False, 
     'initial_std': 0.1,   #std dev. in xy
     'initial_std_lift': 0.01,   #std dev. in z
-    'initial_std_rot' : np.pi / 36,
+    'initial_std_rot' : np.pi / 18,
     'initial_std_grasp' : 2, 
 }
 

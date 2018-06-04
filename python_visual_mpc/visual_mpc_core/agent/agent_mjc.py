@@ -244,12 +244,11 @@ class AgentMuJoCo(object):
             traj.Xdot_full[t, :] = self.sim.data.qvel[:qpos_dim].squeeze().copy()
             traj.X_Xdot_full[t, :] = np.concatenate([traj.X_full[t, :], traj.Xdot_full[t, :]])
             assert self.sim.data.qpos.shape[0] == qpos_dim + 7 * self._hyperparams['num_objects']
- 
+
             touch_offset = 0
             if 'finger_sensors' in self._hyperparams:
                 touch_offset = 2
-                                
-                
+
             for i in range(self._hyperparams['num_objects']):
                 fullpose = self.sim.data.qpos[i * 7 + qpos_dim:(i + 1) * 7 + qpos_dim].squeeze().copy()
 
@@ -289,11 +288,9 @@ class AgentMuJoCo(object):
                 else:
                     self.prev_target_qpos = copy.deepcopy(self.target_qpos)
 
-
                 self.target_qpos, self.t_down, self.gripper_up, self.gripper_closed = get_target_qpos(
                     self.target_qpos, self._hyperparams, mj_U, t, self.gripper_up, self.gripper_closed, self.t_down, traj.X_full[t,2])
                 traj.target_qpos[t + 1] = self.target_qpos.copy()
-
             else:
                 ctrl = mj_U.copy()
 
@@ -302,14 +299,15 @@ class AgentMuJoCo(object):
                     ctrl = self.get_int_targetpos(st, self.prev_target_qpos, self.target_qpos)
 
                 if 'finger_sensors' in self._hyperparams:
-                    traj.touch_sensors[t] += copy.deepcopy(self.sim.data.sensordata[:2].squeeze().copy()) 
+                    traj.touch_sensors[t] += copy.deepcopy(self.sim.data.sensordata[:2].squeeze().copy())
 
                 self.sim.data.ctrl[:] = ctrl
                 self.sim.step()
                 self.hf_qpos_l.append(copy.deepcopy(self.sim.data.qpos))
                 self.hf_target_qpos_l.append(copy.deepcopy(ctrl))
 
-            traj.touch_sensors[t] /= self._hyperparams['substeps']
+            if 'finger_sensors' in self._hyperparams:
+                traj.touch_sensors[t] /= self._hyperparams['substeps']
 
             if self.goal_obj_pose is not None:
                 traj.goal_dist.append(self.eval_action(traj, t)[0])
@@ -575,7 +573,7 @@ class AgentMuJoCo(object):
             object_pos = self._hyperparams['object_pos0'][:self._hyperparams['num_objects']]
 
         xpos0 = np.zeros(self._hyperparams['sdim']//2)
-        if 'randomize_ballinitpos' in self._hyperparams:
+        if 'randomize_initial_pos' in self._hyperparams:
             assert self.start_conf is None
             xpos0[:2] = np.random.uniform(-.4, .4, 2)
             xpos0[2] = np.random.uniform(-0.08, .14)

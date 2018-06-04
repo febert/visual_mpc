@@ -41,7 +41,7 @@ agent = {
     'num_objects': 1,
     'novideo':'',
     'gen_xml':10,   #generate xml every nth trajecotry
-    'randomize_ballinitpos':'', #randomize x, y
+    'randomize_initial_pos':'', #randomize x, y
     'poscontroller_offset':'',
     'posmode':'abs',
     'ztarget':0.13,

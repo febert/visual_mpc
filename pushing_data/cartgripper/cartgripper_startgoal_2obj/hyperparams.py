@@ -48,7 +48,7 @@ agent = {
     'sample_objectpos':'',
     'object_object_mindist':0.35,
     'const_dist':0.2,
-    'randomize_ballinitpos':'',
+    'randomize_initial_pos':'',
     'first_last_noarm':''
 }
 
