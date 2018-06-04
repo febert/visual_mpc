@@ -45,13 +45,13 @@ import collections
 import time
 import copy
 # How often to record tensorboard summaries.
-SUMMARY_INTERVAL = 10 #######
+SUMMARY_INTERVAL = 100
 
-VIDEO_INTERVAL = 10000
+VIDEO_INTERVAL = 5000
 
 EVAL_INTERVAL = 0
 
-PROGRESS_INTERVAL = 10
+PROGRESS_INTERVAL = 50
 
 
 

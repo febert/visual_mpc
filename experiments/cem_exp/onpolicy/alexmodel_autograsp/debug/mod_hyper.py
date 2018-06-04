@@ -12,7 +12,7 @@ from python_visual_mpc.visual_mpc_core.agent.agent_mjc import AgentMuJoCo
 import numpy as np
 agent = {
     'type': AgentMuJoCo,
-    'T': 15,
+    'T': 15,  #####################
     'substeps':200,
     'adim':5,
     'sdim':12,
@@ -46,7 +46,7 @@ agent = {
 }
 
 policy = {
-    'verbose':100,
+    # 'verbose':100, ##################
     'type' : CEM_controller,
     'low_level_ctrl': None,
     'current_dir':current_dir,
@@ -62,6 +62,7 @@ policy = {
     'action_cost_factor': 0,
     'rew_all_steps':"",
     'finalweight':10,
+    # 'no_action_bound':"",
 }
 
 tag_images0 = {'name': 'images0',
@@ -91,7 +92,7 @@ tag_object_statprop = {'name': 'obj_statprop',
 
 config = {
     'current_dir':current_dir,
-    'traj_per_file':16,   # needs to be equal batch size!!
+    'traj_per_file':2,####################16,   # needs to be equal batch size!!
     'save_data': True,
     'start_index':0,
     'end_index': 59999,

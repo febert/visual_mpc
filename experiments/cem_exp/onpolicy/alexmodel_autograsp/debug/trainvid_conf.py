@@ -43,7 +43,7 @@ config = {
 'ndesig':1,
 'orig_size':[48,64],
 'sequence_length': 15,
-'batch_size':16,
+'batch_size':2, ######################16,
 'sdim':7,
 'adim':5,
 'autograsp':'',

@@ -19,7 +19,7 @@ from python_visual_mpc.visual_mpc_core.infrastructure.remote_synchronizer import
 import re
 import threading
 
-GEN_VAL_FREQ = 3 #############
+GEN_VAL_FREQ = 20
 VAL_TASK_FREQ = 200
 
 
