@@ -34,6 +34,7 @@ def grasping_touch_file2record(state_action):
 
     if any(np.logical_and(valid_frames, off_ground)):
         obj_eq = object_poses[0, :, :2] == state_action['obj_start_end_pos']
+
         obj_eq = np.logical_and(obj_eq[:, 0], obj_eq[:, 1])
         obj_eq = np.argmax(obj_eq)
         obj_max =  np.amax(object_poses[:,obj_eq,2])
@@ -41,6 +42,22 @@ def grasping_touch_file2record(state_action):
             good_lift = True
 
     return good_lift, loaded_traj
+
+def grasping_touch_nodesig_file2record(state_action):
+    loaded_traj = DefaultTraj()
+
+    loaded_traj.actions = state_action['actions']
+    touch_sensors = state_action['finger_sensors']
+    loaded_traj.X_Xdot_full = np.concatenate((state_action['target_qpos'][:-1, :], touch_sensors), axis = 1)
+
+    valid_frames = np.logical_and(state_action['target_qpos'][1:, -1] > 0, np.logical_and(touch_sensors[:, 0] > 0, touch_sensors[:, 1] > 0))
+    off_ground = state_action['target_qpos'][1:,2] >= -0.02
+    object_poses = state_action['object_full_pose']
+
+    good_grasp = any(np.logical_and(valid_frames, off_ground))
+    
+    return good_grasp, loaded_traj
+
 def pushing_touch_file2record(state_action):
     loaded_traj = DefaultTraj()
 
