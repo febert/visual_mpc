@@ -8,10 +8,11 @@ import os.path as osp
 sys.path.append(osp.join(osp.dirname(__file__), 'faster_rcnn_lib/'))
 
 import numpy as np
-from fast_rcnn.config import cfg
-from rpn.generate_anchors import generate_anchors
-from fast_rcnn.bbox_transform import bbox_transform_inv, clip_boxes
-from nms.cpu_nms import cpu_nms
+from python_visual_mpc.region_proposal_networks.rpn_net.util.faster_rcnn_lib.fast_rcnn.config import cfg
+from python_visual_mpc.region_proposal_networks.rpn_net.util.faster_rcnn_lib.rpn.generate_anchors import generate_anchors
+from python_visual_mpc.region_proposal_networks.rpn_net.util.faster_rcnn_lib.fast_rcnn.bbox_transform import bbox_transform_inv, clip_boxes
+
+from python_visual_mpc.region_proposal_networks.rpn_net.util.faster_rcnn_lib.nms.py_cpu_nms import py_cpu_nms as cpu_nms
 
 class ProposalLayer:
 

@@ -1,10 +1,16 @@
 import argparse
 import os
-import python_visual_mpc
-import importlib.machinery
-import importlib.util
+import sys
+if sys.version_info[0] == 2:
+    import imp
+    import cPickle as pkl
+
+else:
+    import importlib.machinery
+    import importlib.util
+    import pickle as pkl
+
 import glob
-import pickle as pkl
 import numpy as np
 import cv2
 from python_visual_mpc.visual_mpc_core.infrastructure.utility.save_tf_record import save_tf_record
@@ -65,12 +71,17 @@ def main():
 
     data_coll_dir = '/'.join(hyperparams_file.split('/')[:-1])
 
-    
-    loader = importlib.machinery.SourceFileLoader('mod_hyper', hyperparams_file)
-    spec = importlib.util.spec_from_loader(loader.name, loader)
-    conf = importlib.util.module_from_spec(spec)
-    loader.exec_module(conf)
-    hyperparams = conf.config
+    if sys.version_info[0] == 2:
+        hyperparams = imp.load_source('hyperparams', args.experiment)
+        hyperparams = hyperparams.config
+        #python 2 means we're executing on sawyer. add dummy camera list
+        hyperparams['agent']['cameras'] = ['main', 'left']
+    else:
+        loader = importlib.machinery.SourceFileLoader('mod_hyper', hyperparams_file)
+        spec = importlib.util.spec_from_loader(loader.name, loader)
+        conf = importlib.util.module_from_spec(spec)
+        loader.exec_module(conf)
+        hyperparams = conf.config
 
     traj_per_file = hyperparams['traj_per_file']
     agent_config = hyperparams['agent']
@@ -109,7 +120,8 @@ def main():
             if 'cameras' in agent_config:
                 valid = True
                 for i in range(len(agent_config['cameras'])):
-                    if len(glob.glob(t + '/images{}/*.png'.format(i))) != T:
+                    img_files = [t + '/images{}/im{}.png'.format(i, j) for j in range(T)]
+                    if not all([os.path.exists(i) and os.path.isfile(i) for i in img_files]):
                         valid = False
                         print('traj {} missing /images{}'.format(t, i))
                         break

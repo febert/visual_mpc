@@ -4,14 +4,14 @@ try:
 except ImportError:
     # for Python3
     from tkinter import *   ## notice lowercase 't' in tkinter here
-from PIL import Image, ImageTk
+from PIL import Image
 from sys import argv
 
 import argparse
 import numpy as np
 import sys
 ################3333
-# from python_visual_mpc.region_proposal_networks.Featurizer import BBProposer, AlexNetFeaturizer
+from python_visual_mpc.region_proposal_networks.Featurizer import BBProposer, AlexNetFeaturizer
 import cv2
 import pdb
 import os
@@ -108,8 +108,8 @@ class RPN_Tracker(object):
         #     self.proposer.draw_box(b, self.clone, 0)  # red
 
         # valid_region = np.array([340,210,830,570])  #big
-        valid_region = np.array([340,240,780,520])  #small
-        self.proposer.draw_box(list(valid_region), self.clone, 2)  # blue
+        #valid_region = np.array([340,240,780,520])  #small
+        #self.proposer.draw_box(list(valid_region), self.clone, 2)  # blue
 
         valid_boxes = []
         valid_center_coords = []
@@ -122,14 +122,14 @@ class RPN_Tracker(object):
             box_height = b[3] - b[1]
             box_width = b[2] - b[0]
 
-            if  valid_region[0] < center_coord[0] < valid_region[2] and \
-                valid_region[1] < center_coord[1] < valid_region[3] and \
-                    (box_height > min_heigh_or_width or box_width > min_heigh_or_width):
-                print('box', b)
-                print('h', box_height)
-                print('w', box_width)
-                valid_boxes.append(b)
-                valid_center_coords.append(center_coord)
+            # if  valid_region[0] < center_coord[0] < valid_region[2] and \
+            #     valid_region[1] < center_coord[1] < valid_region[3] and \
+            #         (box_height > min_heigh_or_width or box_width > min_heigh_or_width):
+            print('box', b)
+            print('h', box_height)
+            print('w', box_width)
+            valid_boxes.append(b)
+            valid_center_coords.append(center_coord)
 
         for b in valid_boxes:
             self.proposer.draw_box(b, self.clone, 0)  # red
@@ -141,21 +141,23 @@ class RPN_Tracker(object):
         desig_point = valid_center_coords[sel_ind]
         self.proposer.draw_box(valid_boxes[sel_ind], self.clone, 1)
 
-        while True:
-            disp_vec = np.random.uniform(-300,300,2)
-
-            goal_point = desig_point + disp_vec
-            if  valid_region[0] < goal_point[0] < valid_region[2] and \
-                valid_region[1] < goal_point[1] < valid_region[3]:
-                break
-
-        self.draw_cross(desig_point, self.clone)
-        self.draw_cross(goal_point, self.clone)
+        # while True:
+        #     disp_vec = np.random.uniform(-300,300,2)
+        #
+        #     goal_point = desig_point + disp_vec
+        #     if  valid_region[0] < goal_point[0] < valid_region[2] and \
+        #         valid_region[1] < goal_point[1] < valid_region[3]:
+        #         break
+        #
+        # self.draw_cross(desig_point, self.clone)
+        # self.draw_cross(goal_point, self.clone)
 
         # self.plot()
         import rospy
         im  = Image.fromarray(np.array(self.clone).astype(np.uint8))
         im.save(im_save_dir + '/task_{}.png'.format(rospy.get_time()))
+
+        return
 
         #convert format x, y to r,c
         desig_point = np.array([desig_point[1], desig_point[0]])
