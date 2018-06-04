@@ -16,8 +16,7 @@ NEUTRAL_JOINT_ANGLES =[0.412271, -0.434908, -1.198768, 1.795462, 1.160788, 1.107
 class WSGRobotController(RobotController):
     def __init__(self, control_rate):
         RobotController.__init__(self)
-        self.first_status = False
-        self.status_sem = Semaphore(value = 0)
+        self.sem_list = [Semaphore(value = 0)]
 
         rospy.Subscriber("/wsg_50_driver/status", Status, self.gripper_callback)
         self.gripper_pub = rospy.Publisher('/wsg_50_driver/goal_position', Cmd, queue_size=10)
@@ -25,7 +24,7 @@ class WSGRobotController(RobotController):
         self.gripper_speed = 300
 
         print("waiting for first status")
-        self.status_sem.acquire()
+        self.sem_list[0].acquire()
         print('gripper initialized!')
 
         self.imp_ctrl_publisher = rospy.Publisher('/desired_joint_pos', JointState, queue_size=1)
@@ -47,15 +46,19 @@ class WSGRobotController(RobotController):
     def get_limits(self):
         return GRIPPER_CLOSE, GRIPPER_OPEN
 
-    def open_gripper(self):
-        self.set_gripper(GRIPPER_OPEN)
+    def open_gripper(self, wait = False):
+        self.set_gripper(GRIPPER_OPEN, wait = wait)
 
-    def close_gripper(self):
-        self.set_gripper(GRIPPER_CLOSE)
+    def close_gripper(self, wait = False):
+        self.set_gripper(GRIPPER_CLOSE, wait = wait)
 
-    def set_gripper(self, command_pos):
+    def set_gripper(self, command_pos, wait = False):
         assert command_pos >= GRIPPER_CLOSE and command_pos <= GRIPPER_OPEN, "Command pos must be in range [GRIPPER_CLOSE, GRIPPER_OPEN]"
         self._desired_gpos = command_pos
+        if wait:
+            sem = Semaphore(value = 0)
+            self.sem_list.append(sem)
+            sem.acquire()
 
     def gripper_callback(self, status):
         self.gripper_width, self.gripper_force = status.width, status.force
@@ -66,13 +69,14 @@ class WSGRobotController(RobotController):
 
         self.gripper_pub.publish(cmd)
 
-        if not self.first_status:
-            self.first_status = True
-            self.status_sem.release()
+        if len(self.sem_list) > 0:
+            for s in self.sem_list:
+                s.release()
+            self.sem_list = []
 
     def reset_with_impedance(self, angles = NEUTRAL_JOINT_ANGLES, duration= 3, open_gripper = True):
         if open_gripper:
-            self.open_gripper()
+            self.open_gripper(True)
         self.imp_ctrl_release_spring(100)
         self.move_to_joints_impedance_sec(angles, duration=duration)
         self.imp_ctrl_release_spring(300)

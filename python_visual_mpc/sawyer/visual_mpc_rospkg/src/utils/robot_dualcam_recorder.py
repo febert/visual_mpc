@@ -14,7 +14,7 @@ from sensor_msgs.msg import JointState
 import os
 import cPickle as pkl
 import shutil
-
+import moviepy.editor as mpy
 from python_visual_mpc.sawyer.visual_mpc_rospkg.src.primitives_regintervals import quat_to_zangle
 NUM_JOINTS = 7 #Sawyer has 7 dof arm
 
@@ -62,14 +62,19 @@ class Trajectory:
             pkl.dump(sa_dict, f)
 
         image_folders = [file_path +'/images{}'.format(i) for i in range(self.raw_images.shape[1])]
+
         for f, folder in enumerate(image_folders):
             os.makedirs(folder)
+            clip = []
             for i in range(self.sequence_length):
                 cv2.imwrite('{}/im{}.png'.format(folder, i), self.images[i, f, :, :, ::-1],
                             [cv2.IMWRITE_PNG_STRATEGY_DEFAULT, 1])
+                clip.append(self.images[i, f])
                 if self._save_raw:
                     cv2.imwrite('{}/im_med{}.png'.format(folder, i), self.raw_images[i, f, :, :, ::-1],
                                 [cv2.IMWRITE_PNG_STRATEGY_DEFAULT, 1])
+            clip = mpy.ImageSequenceClip(clip, fps = 5)
+            clip.write_gif('{}/diag.gif'.format(folder))
 
 class Latest_observation(object):
     def __init__(self):

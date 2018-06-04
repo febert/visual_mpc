@@ -24,7 +24,7 @@ agent = {'type' : AgentSawyer,
          'discrete_gripper': -1,  # discretized gripper dimension,
          'targetpos_clip':[[0.42, -0.24, 0.184, -0.5 * np.pi , 0], [0.87, 0.22, 0.4, 0.5 * np.pi, 0.1]],
          'autograsp' : '',
-         'autograsp_thresh' : 0.25
+         'autograsp_thresh' : 0.2
          }
 
 policy = {
@@ -32,7 +32,7 @@ policy = {
     'nactions' : 5,
     'repeat' : 3,
     'no_action_bound' : False,
-    'initial_std': 0.15,   #std dev. in xy
+    'initial_std': 0.1,   #std dev. in xy
     'initial_std_lift': 0.15,   #std dev. in z
     'initial_std_rot' : np.pi / 18,
     'initial_std_grasp' : 2

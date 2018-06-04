@@ -34,9 +34,9 @@ class AgentSawyer:
         traj = Trajectory(self._hyperparams)
         traj_ok = True
 
-        t_down = 0
-        gripper_up, gripper_closed = False, False
-
+        self.t_down = 0
+        self.gripper_up, self.gripper_closed = False, False
+        self.random_start_angles()
         self._controller.reset_with_impedance()
 
         for t in xrange(self._hyperparams['T']):
@@ -49,14 +49,16 @@ class AgentSawyer:
                 traj.target_qpos[0] = copy.deepcopy(traj.robot_states[0])
             else:
                 self.prev_qpos = copy.deepcopy(self.next_qpos)
-                error = np.abs(self.prev_qpos[:3] - traj.robot_states[t, :3])
-                print('At time {} des vs actual xyz error {}'.format(t, error))
+
+                diff = traj.robot_states[t, :3] - self.prev_qpos[:3]
+                euc_error, abs_error = np.linalg.norm(diff), np.abs(diff)
 
             mj_U = policy.act(traj, t)
 
-            self.next_qpos, t_down, gripper_up, gripper_closed = get_target_qpos(
-                self.next_qpos, self._hyperparams, mj_U, t, gripper_up, gripper_closed, t_down,
+            self.next_qpos, self.t_down, self.gripper_up, self.gripper_closed = get_target_qpos(
+                self.next_qpos, self._hyperparams, mj_U, t, self.gripper_up, self.gripper_closed, self.t_down,
                 traj.robot_states[t, 2])
+
             traj.target_qpos[t + 1] = copy.deepcopy(self.next_qpos)
 
             target_pose = self.state_to_pose(self.next_qpos)
@@ -72,14 +74,39 @@ class AgentSawyer:
                 self._controller.limb.set_joint_positions(current_joints)
                 return None, False
 
-            self._controller.move_with_impedance_sec(target_ja)
+            wait_change = (self.next_qpos[-1] > 0.05) != (self.prev_qpos[-1] > 0.05)        #wait for gripper to ack change in status
+
+
             if self.next_qpos[-1] > 0.05:
-                self._controller.close_gripper()
+                self._controller.close_gripper(wait_change)
             else:
-                self._controller.open_gripper()
+                self._controller.open_gripper(wait_change)
+
+            self._controller.move_with_impedance_sec(target_ja)
+
+
 
 
         return traj, traj_ok
+
+    def random_start_angles(self, rng = np.random.uniform):
+        rand_ok = False
+        start_joints = self._controller.limb.joint_angles()
+        while not rand_ok:
+            rand_state = np.zeros(self._hyperparams['adim'])
+            for i in range(self._hyperparams['adim'] - 1):
+                rand_state[i] = rng(self._hyperparams['targetpos_clip'][0][i], self._hyperparams['targetpos_clip'][1][i])
+            start_pose = self.state_to_pose(rand_state)
+
+            try:
+                start_joints = inverse_kinematics.get_joint_angles(start_pose, seed_cmd=start_joints,
+                                                                use_advanced_options=True)
+                start_joints = [start_joints[n] for n in self._controller.limb.joint_names()]
+                rand_ok = True
+            except ValueError:
+                rand_ok = False
+        return start_joints
+
 
     def state_to_pose(self, target_state):
         quat = zangle_to_quat(target_state[3])
