@@ -126,6 +126,13 @@ def trainvid_online_alexmodel(train_replay_buffer, val_replay_buffer, conf, logg
             def should(freq):
                 return freq and ((step + 1) % freq == 0 or (step + 1) in (0, max_steps - start_step))
 
+            if step % 10 == 0:
+                tstart_rb_update = time.time()
+                train_replay_buffer.update(sess)
+                val_replay_buffer.update(sess)
+                if step % 100 == 0:
+                    logger.log("took {} to update the replay buffer".format(time.time() - tstart_rb_update))
+
             fetches, feeds = {}, {}
             if step >= 0:
                 fetches["train_op"] = train_model.m.train_op
