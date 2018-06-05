@@ -108,13 +108,13 @@ class WSGRobotController(RobotController):
         else:
             self.max_release = 0
 
-    def reset_with_impedance(self, angles = NEUTRAL_JOINT_ANGLES, duration= 3., open_gripper = True):
+    def reset_with_impedance(self, angles = NEUTRAL_JOINT_ANGLES, duration= 3., open_gripper = True, stiffness = 150):
         if open_gripper:
             self.open_gripper(True)
             self.get_gripper_status()    #dummy call to flush integration of gripper force
         self.imp_ctrl_release_spring(100)
         self.move_to_joints_impedance_sec(angles, duration=duration)
-        self.imp_ctrl_release_spring(150)
+        self.imp_ctrl_release_spring(stiffness)
 
     def imp_ctrl_release_spring(self, maxstiff):
         self.imp_ctrl_release_spring_pub.publish(maxstiff)

@@ -28,7 +28,7 @@ class RobotEnvironment:
 
     def run(self):
         for i in xrange(self._hyperparams['start_index'], self._hyperparams['end_index']):
-            if i % self._hyperparams.get('nshuffle', 200) == 0:
+            if i % self._hyperparams.get('nshuffle', 200) == 0 and i > 0:
                 print("You have one minute to shuffle objects....")
                 rospy.sleep(60)
             self.take_sample(i)

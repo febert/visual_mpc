@@ -55,7 +55,7 @@ class AgentSawyer:
             for i, r in enumerate(rbt_coords):
                 traj.Object_pose[0, i] = r
 
-        self._controller.reset_with_impedance(angles=self.random_start_angles())
+        self._controller.reset_with_impedance(angles=self.random_start_angles(), stiffness=self._hyperparams['impedance_stiffness'])
 
         for t in xrange(self._hyperparams['T']):
             if not self._recorder.store_recordings(traj, t):
@@ -101,7 +101,7 @@ class AgentSawyer:
             else:
                 self._controller.open_gripper(wait_change)
 
-            self._controller.move_with_impedance_sec(target_ja, duration=1.)
+            self._controller.move_with_impedance_sec(target_ja, duration=self._hyperparams['step_duration'])
 
         return traj, traj_ok
 

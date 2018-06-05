@@ -13,7 +13,8 @@ data_conf = {'left_cam' : {'crop_bot' : 70, 'crop_left' : 150, 'crop_right' : 10
 agent = {'type' : AgentSawyer,
          'data_save_dir': BASE_DIR + '/train',
          'T' : 15,  #number of commands per episodes (issued at control_rate / substeps HZ)
-         'substeps' : 200,  #number of interpolated substeps per command
+         'step_duration' : 0.75,  #time each substep takes to execute
+         'impedance_stiffness' : 150, #stiffness commanded to impedance controller
          'control_rate' : 1000,  #substep are taken at control_rate HZ
          'image_height' : 48,
          'image_width' : 64,
