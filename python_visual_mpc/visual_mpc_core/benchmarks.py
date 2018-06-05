@@ -92,6 +92,7 @@ def perform_benchmark(conf = None, iex=-1, gpu_id=None):
     improvement_l = []
     initial_dist_l = []
     term_t_l = []
+    integrated_poscost_l = []
 
     if 'sourcetags' in conf:  # load data per trajectory
         if 'VMPC_DATA_DIR' in os.environ:
@@ -122,28 +123,27 @@ def perform_benchmark(conf = None, iex=-1, gpu_id=None):
             os.makedirs(record_dir)
         sim.agent._hyperparams['record'] = record_dir
 
-        sim.take_sample(i_traj)
+        traj = sim.take_sample(i_traj)
 
-        scores_l.append(sim.agent.final_poscost)
-        anglecost_l.append(sim.agent.final_anglecost)
-        improvement_l.append(sim.agent.improvement)
-        initial_dist_l.append(sim.agent.initial_poscost)
-        term_t_l.append(sim.agent.term_t)
+        scores_l.append(traj.final_poscost)
+        improvement_l.append(traj.improvement)
+        initial_dist_l.append(traj.initial_poscost)
+        term_t_l.append(traj.term_t)
+        integrated_poscost_l.append(traj.integrated_poscost)
 
         print('improvement of traj{},{}'.format(i_traj, improvement_l[-1]))
         i_traj +=1 #increment trajectories every step!
 
         score = np.array(scores_l)
-        anglecost = np.array(anglecost_l)
         improvement = np.array(improvement_l)
         initial_dist = np.array(initial_dist_l)
         term_t = np.array(term_t_l)
+        integrated_poscost = np.array(integrated_poscost_l)
 
-        pickle.dump({'improvement':improvement, 'scores':score, 'anglecost':anglecost, 'term_t':term_t}, open(scores_pkl_file, 'wb'))
-        write_scores(conf, result_file, improvement, score, term_t, initial_dist, i_traj)
+        pickle.dump({'improvement':improvement, 'scores':score, 'term_t':term_t, 'integrated_poscost':integrated_poscost}, open(scores_pkl_file, 'wb'))
+        write_scores(conf, result_file, improvement, score, term_t, integrated_poscost, initial_dist, i_traj)
 
-
-def write_scores(conf, result_file, improvement, score, term_t, initial_dist=None, i_traj=None):
+def write_scores(conf, result_file, improvement, score, term_t, integrated_poscost, initial_dist=None, i_traj=None):
     sorted_ind = improvement.argsort()[::-1]
 
     if i_traj == None:
@@ -153,6 +153,8 @@ def write_scores(conf, result_file, improvement, score, term_t, initial_dist=Non
     med_imp = np.median(improvement)
     mean_dist = np.mean(score)
     med_dist = np.median(score)
+    mean_integrated_poscost = np.mean(integrated_poscost)
+    med_integrated_poscost = np.median(integrated_poscost)
 
     print('mean imp, med imp, mean dist, med dist {}, {}, {}, {}\n'.format(mean_imp, med_imp, mean_dist, med_dist))
 
@@ -162,7 +164,11 @@ def write_scores(conf, result_file, improvement, score, term_t, initial_dist=Non
         nsucc_frac = np.where(term_t != (tlen - 1))[0].shape[0]/ improvement.shape[0]
         f.write('percent success: {}%\n'.format(nsucc_frac * 100))
         f.write('---\n')
-
+    f.write('---\n')
+    f.write('average integrated poscost: {0}\n'.format(mean_integrated_poscost))
+    f.write('median integrated poscost {}'.format(med_integrated_poscost))
+    f.write('standard error of the mean (SEM) {0}\n'.format(np.std(score) / np.sqrt(score.shape[0])))
+    f.write('---\n')
     f.write('overall best pos improvement: {0} of traj {1}\n'.format(improvement[sorted_ind[0]], sorted_ind[0]))
     f.write('overall worst pos improvement: {0} of traj {1}\n'.format(improvement[sorted_ind[-1]], sorted_ind[-1]))
     f.write('average pos improvemnt: {0}\n'.format(mean_imp))
@@ -189,10 +195,10 @@ def write_scores(conf, result_file, improvement, score, term_t, initial_dist=Non
             f.write('{}: {}, {}, {}, :{}\n'.format(t, improvement[n], score[n], improvement[n] > 0.05,
                                                    np.where(sorted_ind == n)[0][0]))
     else:
-        f.write('traj: improv, score, term_t, rank\n')
+        f.write('traj: improv, score, term_t, int_poscost, rank\n')
         f.write('----------------------\n')
         for n, t in enumerate(range(conf['start_index'], i_traj)):
-            f.write('{}: {}, {}, {}, :{}\n'.format(t, improvement[n], score[n], term_t[n], np.where(sorted_ind == n)[0][0]))
+            f.write('{}: {}, {}, {}, {}:{}\n'.format(t, improvement[n], score[n], term_t[n], integrated_poscost[n], np.where(sorted_ind == n)[0][0]))
     f.close()
 
 
