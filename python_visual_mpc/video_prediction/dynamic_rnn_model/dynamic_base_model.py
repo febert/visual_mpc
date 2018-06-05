@@ -488,8 +488,12 @@ class Dynamic_Base_Model(object):
         self.train_cond = tf.placeholder(tf.int32, shape=[], name="train_cond")
         print('base model uses traincond', self.train_cond)
 
-        self.sdim = conf['sdim']
-        self.adim = conf['adim']
+        if 'no_touch' in conf:
+            self.sdim = conf['sdim'] - 2
+        else: self.sdim = conf['sdim']
+        if 'autograsp' in conf:
+            self.adim = conf['adim'] - 1
+        else: self.adim = conf['adim']
 
         seq_len = conf['sequence_length']
 
@@ -531,7 +535,6 @@ class Dynamic_Base_Model(object):
         if pix_distrib is not None:
             pix_distrib = tf.split(axis=1, num_or_size_splits=pix_distrib.get_shape()[1], value=pix_distrib)
             pix_distrib = [tf.reshape(pix, [self.batch_size, ndesig, self.img_height, self.img_width, 1]) for pix in pix_distrib]
-
 
         image_shape = images[0].get_shape().as_list()
         batch_size, height, width, color_channels = image_shape

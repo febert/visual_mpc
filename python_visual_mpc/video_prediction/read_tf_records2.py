@@ -242,7 +242,7 @@ def build_tfrecord_single(conf, mode='train', input_files=None, shuffle=True):
             else:
                 return_dict['endeffector_pos'] = tf.concat(endeffector_pos_seq, 0)
 
-            if 'no_grasp_dim' in conf:
+            if 'autograsp' in conf:
                 return_dict['actions'] = tf.concat(action_seq, 0)[:,:-1]
             else:
                 return_dict['actions'] = tf.concat(action_seq, 0)
@@ -283,7 +283,7 @@ def main():
     current_dir = os.path.dirname(os.path.realpath(__file__))
     # DATA_DIR = '/mnt/sda1/pushing_data/cartgripper/grasping/lift_imitation_dataset/test'
     # DATA_DIR = '/mnt/sda1/pushing_data/onpolicy/distributed_pushing/train'
-    DATA_DIR = '/mnt/sda1/pushing_data/cartgripper/grasping/dctouch_openloop_autograsp/good'
+    DATA_DIR = '/mnt/sda1/pushing_data/cartgripper/grasping/dctouch_scripted_autograsp_randinit/good'
     # DATA_DIR = {os.environ['VMPC_DATA_DIR'] + '/cartgripper/cartgripper_2view': 0.5,
     #             os.environ['VMPC_DATA_DIR'] + '/cartgripper/grasping/dualcam_pick_place_dataset/good': 0.25,
     #             os.environ['VMPC_DATA_DIR'] + '/cartgripper/grasping/dualcam_pick_place_dataset/bad': 0.25}
@@ -305,7 +305,7 @@ def main():
     conf['adim'] = 5
     # conf['image_only'] = ''
     # conf['goal_image'] = ""
-    conf['no_grasp_dim'] = ""
+    # conf['autograsp'] = ""
 
     conf['orig_size'] = [48, 64]
     # conf['first_last_noarm'] = ''

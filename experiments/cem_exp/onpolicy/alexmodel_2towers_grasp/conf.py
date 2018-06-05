@@ -2,10 +2,6 @@ import os
 current_dir = os.path.dirname(os.path.realpath(__file__))
 
 import python_visual_mpc
-# tf record data location:
-
-# local output directory
-OUT_DIR = current_dir + '/modeldata'
 
 from python_visual_mpc.video_prediction.dynamic_rnn_model.alex_model_interface import Alex_Interface_Model
 import video_prediction

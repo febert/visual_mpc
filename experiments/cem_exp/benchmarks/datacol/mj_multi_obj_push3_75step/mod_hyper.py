@@ -38,7 +38,7 @@ agent = {
     'not_use_images':"",
     'sample_objectpos':'',
     'const_dist':0.2,
-    'randomize_ballinitpos':'',
+    'randomize_initial_pos':'',
     'first_last_noarm':'',
     'object_mass':0.1,
     'master_datadir':'/raid/ngc2/pushing_data/cartgripper/' + folder_name + '/train',

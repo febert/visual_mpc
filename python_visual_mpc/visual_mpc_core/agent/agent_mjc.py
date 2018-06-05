@@ -157,7 +157,7 @@ class AgentMuJoCo(object):
         if 'compare_mj_planner_actions' in self._hyperparams:
             self.mj_planner_actions = dict['actions']
 
-    def sample(self, policy, i_tr, verbose=True, save=True, noisy=False):
+    def sample(self, policy, i_tr):
         """
         Runs a trial and constructs a new sample containing information
         about the trial.
@@ -182,17 +182,13 @@ class AgentMuJoCo(object):
 
         print('needed {} trials'.format(self.i_trial))
 
-        tfinal = self._hyperparams['T'] -1
         if self.goal_obj_pose is not None:
-            self.final_poscost, self.final_anglecost = self.eval_action(traj, tfinal)
-            self.final_poscost = np.mean(self.final_poscost)
-            self.initial_poscost, _ = self.eval_action(traj, 0)
-            self.initial_poscost = np.mean(self.initial_poscost)
-            self.improvement = self.initial_poscost - self.final_poscost
-            self.term_t = traj.term_t
-            traj.improvement = self.improvement
-            traj.final_poscost = self.final_poscost
-            traj.initial_poscost = self.initial_poscost
+            final_poscost, final_anglecost = self.eval_action(traj, traj.term_t)
+            traj.final_poscost = np.mean(final_poscost)
+            initial_poscost, _ = self.eval_action(traj, 0)
+            traj.initial_poscost = np.mean(initial_poscost)
+            traj.improvement = traj.initial_poscost - traj.final_poscost
+            traj.integrated_poscost = np.mean(traj.goal_dist)
 
         if 'save_goal_image' in self._hyperparams:
             self.save_goal_image_conf(traj)
@@ -628,7 +624,8 @@ class AgentMuJoCo(object):
             object_pos = self._hyperparams['object_pos0'][:self._hyperparams['num_objects']]
 
         xpos0 = np.zeros(self._hyperparams['sdim']//2)
-        if 'randomize_ballinitpos' in self._hyperparams:
+        if 'randomize_initial_pos' in self._hyperparams:
+            assert 'arm_obj_initdist' not in self._hyperparams
             assert self.start_conf is None
             xpos0[:2] = np.random.uniform(-.4, .4, 2)
             xpos0[2] = np.random.uniform(-0.08, .14)
@@ -647,7 +644,7 @@ class AgentMuJoCo(object):
                 print("appending zeros to initial robot configuration!!!")
             else:
                 xpos0 = self._hyperparams['xpos0']
-            assert xpos0.shape[0] == self._hyperparams['sdim']/2
+            assert xpos0.shape[0] == self._hyperparams['sdim']//2
 
         if 'arm_start_lifted' in self._hyperparams:
             xpos0[2] = self._hyperparams['arm_start_lifted']
