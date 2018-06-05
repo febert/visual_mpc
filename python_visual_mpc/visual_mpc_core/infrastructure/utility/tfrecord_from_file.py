@@ -1,10 +1,16 @@
 import argparse
 import os
-import python_visual_mpc
-import importlib.machinery
-import importlib.util
+import sys
+if sys.version_info[0] == 2:
+    import imp
+    import cPickle as pkl
+
+else:
+    import importlib.machinery
+    import importlib.util
+    import pickle as pkl
+
 import glob
-import pickle as pkl
 import numpy as np
 import cv2
 from python_visual_mpc.visual_mpc_core.infrastructure.utility.save_tf_record import save_tf_record
@@ -13,7 +19,7 @@ class DefaultTraj:
     def __init__(self):
         self.actions, self.X_Xdot_full, self.images  = None, None, None
 
-def grasping_touch_file2record(state_action):
+def grasping_touch_file2record(state_action, agent_params):
     loaded_traj = DefaultTraj()
 
     loaded_traj.actions = state_action['actions']
@@ -28,6 +34,7 @@ def grasping_touch_file2record(state_action):
 
     if any(np.logical_and(valid_frames, off_ground)):
         obj_eq = object_poses[0, :, :2] == state_action['obj_start_end_pos']
+
         obj_eq = np.logical_and(obj_eq[:, 0], obj_eq[:, 1])
         obj_eq = np.argmax(obj_eq)
         obj_max =  np.amax(object_poses[:,obj_eq,2])
@@ -35,7 +42,38 @@ def grasping_touch_file2record(state_action):
             good_lift = True
 
     return good_lift, loaded_traj
-def pushing_touch_file2record(state_action):
+
+def grasping_touch_nodesig_file2record(state_action, agent_params):
+    loaded_traj = DefaultTraj()
+
+    loaded_traj.actions = state_action['actions']
+    touch_sensors = state_action['finger_sensors']
+    loaded_traj.X_Xdot_full = np.concatenate((state_action['target_qpos'][:-1, :], touch_sensors), axis = 1)
+
+    valid_frames = np.logical_and(state_action['target_qpos'][1:, -1] > 0, np.logical_and(touch_sensors[:, 0] > 0, touch_sensors[:, 1] > 0))
+    off_ground = state_action['target_qpos'][1:,2] >= agent_params.get('good_lift_thresh', 0.)
+
+    good_grasp = any(np.logical_and(valid_frames, off_ground))
+    
+    return good_grasp, loaded_traj
+
+
+def grasping_sawyer_file2record(state_action, agent_params):
+    loaded_traj = DefaultTraj()
+
+    loaded_traj.actions = state_action['actions']
+    touch_sensors = state_action['finger_sensors']
+    loaded_traj.X_Xdot_full = np.concatenate((state_action['states'], touch_sensors), axis=1)
+
+    valid_frames = np.logical_and(state_action['states'][:, -1] > 0,
+                                  np.logical_and(touch_sensors[:, 0] > 0, touch_sensors[:, 1] > 0))
+    off_ground = state_action['states'][:, 2] >= agent_params.get('good_lift_thresh', 0.27)
+
+    good_grasp = any(np.logical_and(valid_frames, off_ground))
+
+    return good_grasp, loaded_traj
+
+def pushing_touch_file2record(state_action, agent_params):
     loaded_traj = DefaultTraj()
 
     loaded_traj.actions = state_action['actions']
@@ -65,12 +103,17 @@ def main():
 
     data_coll_dir = '/'.join(hyperparams_file.split('/')[:-1])
 
-    
-    loader = importlib.machinery.SourceFileLoader('mod_hyper', hyperparams_file)
-    spec = importlib.util.spec_from_loader(loader.name, loader)
-    conf = importlib.util.module_from_spec(spec)
-    loader.exec_module(conf)
-    hyperparams = conf.config
+    if sys.version_info[0] == 2:
+        hyperparams = imp.load_source('hyperparams', args.experiment)
+        hyperparams = hyperparams.config
+        #python 2 means we're executing on sawyer. add dummy camera list
+        hyperparams['agent']['cameras'] = ['main', 'left']
+    else:
+        loader = importlib.machinery.SourceFileLoader('mod_hyper', hyperparams_file)
+        spec = importlib.util.spec_from_loader(loader.name, loader)
+        conf = importlib.util.module_from_spec(spec)
+        loader.exec_module(conf)
+        hyperparams = conf.config
 
     traj_per_file = hyperparams['traj_per_file']
     agent_config = hyperparams['agent']
@@ -109,7 +152,8 @@ def main():
             if 'cameras' in agent_config:
                 valid = True
                 for i in range(len(agent_config['cameras'])):
-                    if len(glob.glob(t + '/images{}/*.png'.format(i))) != T:
+                    img_files = [t + '/images{}/im{}.png'.format(i, j) for j in range(T)]
+                    if not all([os.path.exists(i) and os.path.isfile(i) for i in img_files]):
                         valid = False
                         print('traj {} missing /images{}'.format(t, i))
                         break
@@ -128,7 +172,7 @@ def main():
                 print("FOUND NAN AT", t)     #error in mujoco environment sometimes manifest in NANs
             else:
                 total_ctr += 1
-                good_lift, loaded_traj = agent_config['file_to_record'](state_action)
+                good_lift, loaded_traj = agent_config['file_to_record'](state_action, agent_config)
 
                 if 'cameras' in agent_config:
                     loaded_traj.images = np.zeros((T, len(agent_config['cameras']), img_height, img_width, 3), dtype = np.uint8)
@@ -185,7 +229,7 @@ def main():
         save_tf_record(f_name, bad_traj_list, agent_config)
         bad_traj_list = []
         
-    print('perc good_lift', good_lift_ctr / total_ctr)
+    print('perc good_lift', float(good_lift_ctr) / total_ctr)
 
 if __name__ == '__main__':
     main()

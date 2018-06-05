@@ -33,6 +33,26 @@ class Traj_aborted_except(Exception):
 
 from wsg_50_common.msg import Cmd, Status
 
+
+def quat_to_zangle(quat):
+    """
+    :param quat: quaternion with only
+    :return: zangle in rad
+    """
+    phi = np.arctan2(2 * (quat[0] * quat[1] + quat[2] * quat[3]), 1 - 2 * (quat[1] ** 2 + quat[2] ** 2))
+    return np.array([phi])
+
+
+def zangle_to_quat(zangle):
+    quat = Quaternion(  # downward and turn a little
+        x=np.cos(zangle / 2),
+        y=np.sin(zangle / 2),
+        z=0.0,
+        w=0.0
+    )
+
+    return quat
+
 class Primitive_Executor(object):
     def __init__(self):
 
@@ -186,26 +206,9 @@ class Primitive_Executor(object):
                              resp.pose_stamp[0].pose.orientation.w
                              ])
 
-            zangle = self.quat_to_zangle(quat)
+            zangle = quat_to_zangle(quat)
             return np.concatenate([pos, zangle])
 
-    def quat_to_zangle(self, quat):
-        """
-        :param quat: quaternion with only
-        :return: zangle in rad
-        """
-        phi = np.arctan2(2*(quat[0]*quat[1] + quat[2]*quat[3]), 1 - 2 *(quat[1]**2 + quat[2]**2))
-        return np.array([phi])
-
-    def zangle_to_quat(self, zangle):
-        quat = Quaternion(  # downward and turn a little
-            x=np.cos(zangle / 2),
-            y=np.sin(zangle / 2),
-            z=0.0,
-            w=0.0
-        )
-
-        return  quat
 
     def set_weiss_griper(self, width):
         cmd = Cmd()
@@ -524,7 +527,7 @@ class Primitive_Executor(object):
         return action_vec, godown
 
     def get_des_pose(self, des_pos):
-        quat = self.zangle_to_quat(des_pos[3])
+        quat = zangle_to_quat(des_pos[3])
         desired_pose = inverse_kinematics.get_pose_stamped(des_pos[0],
                                                            des_pos[1],
                                                            des_pos[2],

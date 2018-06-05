@@ -28,7 +28,7 @@ agent = {
     'image_height':48,
     'image_width':64,
     'sample_objectpos':'',
-    'randomize_ballinitpos':'',
+    'randomize_initial_pos':'',
     'const_dist':0.2,
     'data_save_dir':current_dir + '/data/train',
     'logging_dir':current_dir + '/logging',
