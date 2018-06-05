@@ -7,7 +7,7 @@ from python_visual_mpc.visual_mpc_core.agent.utils.target_qpos_utils import get_
 import copy
 from python_visual_mpc.sawyer.visual_mpc_rospkg.src.primitives_regintervals import zangle_to_quat
 from python_visual_mpc.sawyer.visual_mpc_rospkg.src.utils import inverse_kinematics
-
+from python_visual_mpc.sawyer.visual_mpc_rospkg.src.misc.camera_calib.calibrated_camera import CalibratedCamera
 class AgentSawyer:
     def __init__(self, agent_params):
         self._hyperparams = agent_params
@@ -17,6 +17,9 @@ class AgentSawyer:
         self._recorder = RobotDualCamRecorder(agent_params, self._controller)
 
         self._controller.reset_with_impedance()
+
+        if 'rpn_objects' in agent_params:
+            self._calibrated_camera = CalibratedCamera(agent_params.get('robot_name', 'vestri'))
 
 
     def sample(self, policy, itr):
@@ -40,7 +43,18 @@ class AgentSawyer:
         self.t_down = 0
         self.gripper_up, self.gripper_closed = False, False
 
-        self._controller.reset_with_impedance()
+        self._controller.reset_with_impedance()              # go to neutral
+
+        if 'rpn_objects' in self._hyperparams:
+            if not self._recorder.store_recordings(traj, 0): #grab frame of robot in neutral
+                return None, False
+            neutral_img = traj.raw_images[0, 0]
+            _, rbt_coords = self._calibrated_camera.object_points(neutral_img)
+
+            traj.Object_pose = np.zeros((1, len(rbt_coords), 3))
+            for i, r in enumerate(rbt_coords):
+                traj.Object_pose[0, i] = r
+
         self._controller.reset_with_impedance(angles=self.random_start_angles())
 
         for t in xrange(self._hyperparams['T']):

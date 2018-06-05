@@ -62,15 +62,20 @@ class RandomPickPolicy(Randompolicy):
         if t == 0:
             mean = np.zeros((self.naction_steps, self.adim))
 
-            target_object = np.random.randint(self.agentparams['num_objects']) #selects a random object to pick
+            target_object = np.random.randint(traj.Object_pose.shape[1]) #selects a random object to pick
             traj.desig_pos = traj.Object_pose[0, target_object, :2].copy()
-       
-            object_xy = (traj.Object_pose[0, target_object, :2] - traj.X_full[0, :2]) / repeat
 
+            if 'rpn_objects' in self.agentparams:
+                robot_xy = traj.endeffector_poses[0, :2]
+            else:
+                robot_xy = traj.X_full[0, :2]
+            object_xy = (traj.Object_pose[0, target_object, :2] - robot_xy) / repeat
+
+            low = self.agentparams['targetpos_clip'][0][2]
             mean[0] = np.array([object_xy[0], object_xy[1], self.agentparams.get('ztarget', 0.13) / repeat, 0, -1]) #mean action goes toward object
-            mean[1] = np.array([0, 0, (-0.08 - self.agentparams.get('ztarget', 0.13)) / repeat, 0, -1]) #mean action swoops down to pick object
-            mean[2] = np.array([0, 0, (-0.08 - self.agentparams.get('ztarget', 0.13)) / repeat, 0, 1]) #mean action gripper grasps object
-            mean[3] = np.array([0, 0, (0.08 + self.agentparams.get('ztarget', 0.13)) / repeat, 0, 1])  #mean action lifts hand up
+            mean[1] = np.array([0, 0, (low - self.agentparams.get('ztarget', 0.13)) / repeat, 0, -1]) #mean action swoops down to pick object
+            mean[2] = np.array([0, 0, (low - self.agentparams.get('ztarget', 0.13)) / repeat, 0, 1]) #mean action gripper grasps object
+            mean[3] = np.array([0, 0, (-low + self.agentparams.get('ztarget', 0.13)) / repeat, 0, 1])  #mean action lifts hand up
 
             sigma = construct_initial_sigma(self.policyparams)
             
