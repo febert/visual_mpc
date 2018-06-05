@@ -115,9 +115,6 @@ class RPN_Tracker(object):
             if  valid_region[0] < center_coord[0] < valid_region[2] and \
                 valid_region[1] < center_coord[1] < valid_region[3] and \
                     (box_height > min_heigh_or_width or box_width > min_heigh_or_width):
-                print('box', b)
-                print('h', box_height)
-                print('w', box_width)
                 valid_boxes.append(b)
                 valid_center_coords.append(center_coord)
 
@@ -126,8 +123,6 @@ class RPN_Tracker(object):
             for b in valid_boxes:
                 self.proposer.draw_box(b, self.clone, 0)  # red
 
-            if len(valid_boxes) < 4:
-                raise Too_few_objects_found_except
             self.proposer.draw_box(list(valid_region), self.clone, 2)  # blue
 
             im = Image.fromarray(np.array(self.clone).astype(np.uint8))
