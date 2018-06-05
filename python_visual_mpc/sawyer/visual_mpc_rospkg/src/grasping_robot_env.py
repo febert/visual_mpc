@@ -1,5 +1,5 @@
 #!/usr/bin/env python
-import numpy as np
+import os
 import rospy
 import argparse
 import imp
@@ -14,8 +14,9 @@ class RobotEnvironment:
 
         self.init_policy()
 
-        if resume:
-            with open(self.agentparams['data_save_dir'] + '/checkpoint.pkl', 'rb') as f:
+        self._ck_path = self.agentparams['data_save_dir'] + '/checkpoint.pkl'
+        if resume and os.path.exists(self._ck_path):
+            with open(self._ck_path, 'rb') as f:
                 self._ck_dict = pkl.load(f)
 
             self._hyperparams['start_index'] = self._ck_dict['ntraj']
@@ -46,9 +47,11 @@ class RobotEnvironment:
             self._ck_dict['broken_traj'].append(itr)
         self._ck_dict['ntraj'] += 1
 
-        ck_file = open(self.agentparams['data_save_dir'] + '/checkpoint.pkl', 'wb')
+        ck_file = open(self._ck_path, 'wb')
         pkl.dump(self._ck_dict, ck_file)
         ck_file.close()
+
+        print("CHECKPOINTED")
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
