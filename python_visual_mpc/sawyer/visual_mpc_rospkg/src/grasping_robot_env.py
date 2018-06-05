@@ -3,9 +3,9 @@ import numpy as np
 import rospy
 import argparse
 import imp
-
+import cPickle as pkl
 class RobotEnvironment:
-    def __init__(self, conf):
+    def __init__(self, conf, resume = False):
         self._hyperparams = conf
         self.agentparams, self.policyparams = conf['agent'], conf['policy']
 
@@ -14,11 +14,22 @@ class RobotEnvironment:
 
         self.init_policy()
 
+        if resume:
+            with open(self.agentparams['data_save_dir'] + '/checkpoint.pkl', 'rb') as f:
+                self._ck_dict = pkl.load(f)
+
+            self._hyperparams['start_index'] = self._ck_dict['ntraj']
+        else:
+            self._ck_dict = {'ntraj' : 0, 'broken_traj' : []}
+
     def init_policy(self):
         self.policy = self.policyparams['type'](self.agentparams, self.policyparams)
 
     def run(self):
         for i in xrange(self._hyperparams['start_index'], self._hyperparams['end_index']):
+            if i % self._hyperparams.get('nshuffle', 200) == 0:
+                print("You have one minute to shuffle objects....")
+                rospy.sleep(60)
             self.take_sample(i)
 
     def take_sample(self, itr):
@@ -31,14 +42,23 @@ class RobotEnvironment:
             group = itr // self._hyperparams['ngroup']
             traj_num = itr % self._hyperparams['ngroup']
             traj.save(self.agentparams['data_save_dir'] + '/traj_group{}/traj{}'.format(group, traj_num))
+        else:
+            self._ck_dict['broken_traj'].append(itr)
+        self._ck_dict['ntraj'] += 1
+
+        ck_file = open(self.agentparams['data_save_dir'] + '/checkpoint.pkl', 'wb')
+        pkl.dump(self._ck_dict, ck_file)
+        ck_file.close()
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
     parser.add_argument('experiment', type=str, help='experiment name')
+    parser.add_argument('-r', action='store_true', dest='resume',
+                        default=False, help='Set flag if resuming training')
     args = parser.parse_args()
 
     hyperparams = imp.load_source('hyperparams', args.experiment)
     conf = hyperparams.config
 
-    env = RobotEnvironment(conf)
+    env = RobotEnvironment(conf, args.resume)
     env.run()

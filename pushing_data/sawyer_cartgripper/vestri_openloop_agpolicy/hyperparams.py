@@ -48,5 +48,6 @@ config = {
     'end_index': 300,
     'agent': agent,
     'policy': policy,
-    'ngroup': 1000
+    'ngroup': 1000,
+    'nshuffle' : 200
 }
