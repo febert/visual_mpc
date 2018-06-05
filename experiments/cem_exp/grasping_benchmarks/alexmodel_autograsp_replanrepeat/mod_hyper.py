@@ -56,10 +56,7 @@ policy = {
     'action_cost_factor': 0,
     'rew_all_steps':"",
     'finalweight':10,
-    'reuse_mean':"",
-    'num_samples': [200,100],
-    'selection_frac':0.05,
-    'replan_interval':3, # chosen to be same as repeat!!
+    'replan_interval':3,
 }
 
 tag_images0 = {'name': 'images0',

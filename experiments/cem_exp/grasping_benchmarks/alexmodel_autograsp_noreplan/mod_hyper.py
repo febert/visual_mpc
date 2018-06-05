@@ -12,7 +12,7 @@ from python_visual_mpc.visual_mpc_core.agent.agent_mjc import AgentMuJoCo
 import numpy as np
 agent = {
     'type': AgentMuJoCo,
-    'T': 15,  #####################
+    'T': 14,
     'substeps':200,
     'adim':5,
     'sdim':12,
@@ -56,10 +56,7 @@ policy = {
     'action_cost_factor': 0,
     'rew_all_steps':"",
     'finalweight':10,
-    'reuse_mean':"",
-    'num_samples': [200,100],
-    'selection_frac':0.05,
-    'replan_interval':3, # chosen to be same as repeat!!
+    'use_first_plan':''
 }
 
 tag_images0 = {'name': 'images0',
