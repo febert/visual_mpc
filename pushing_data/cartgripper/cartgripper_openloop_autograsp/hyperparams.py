@@ -33,7 +33,7 @@ agent = {
     'randomize_initial_pos':'',
     'dt': 0.05,
     'substeps': 200,  #6
-    'T': 15,
+    'T': 30,
     'skip_first': 40,   #skip first N time steps to let the scene settle
     'additional_viewer': False,
     'image_height' : 48,
@@ -66,7 +66,7 @@ agent = {
 
 policy = {
     'type' : RandomPickPolicy,
-    'nactions' : 5,
+    'nactions' : 10,
     'repeat' : 3,
     'no_action_bound' : False, 
     'initial_std': 0.02,   #std dev. in xy
