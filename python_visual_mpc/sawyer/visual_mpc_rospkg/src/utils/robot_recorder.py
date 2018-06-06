@@ -204,7 +204,6 @@ class RobotRecorder(object):
         self.ltob.d_img_cropped_8bit = img
 
     def store_latest_im(self, data):
-
         self.ltob.img_msg = data
         self.ltob.tstamp_img = rospy.get_time()
 
@@ -431,18 +430,18 @@ class RobotRecorder(object):
 
         # saving the depth data
         # saving the cropped depth data in a Pickle file
-        if self.ltob.d_img_cropped_npy is not None:
-            file = self.depth_image_folder + "/" + pref +"_depth_im{0}_time{1}.pkl".format(i_save, self.ltob.tstamp_d_img)
-            pickle.dump(self.ltob.d_img_cropped_npy, open(file, 'wb'))
-        else:
-            raise ValueError('d_img_cropped_npy no data received')
+        # if self.ltob.d_img_cropped_npy is not None:
+        #     file = self.depth_image_folder + "/" + pref +"_depth_im{0}_time{1}.pkl".format(i_save, self.ltob.tstamp_d_img)
+        #     pickle.dump(self.ltob.d_img_cropped_npy, open(file, 'wb'))
+        # else:
+        #     raise ValueError('d_img_cropped_npy no data received')
 
         # saving downsampled 8bit images
-        if self.ltob.d_img_cropped_8bit is not None:
-            image_name = self.depth_image_folder + "/" + pref + "_cropped_depth_im{0}_time{1}.png".format(i_save, self.ltob.tstamp_d_img)
-            cv2.imwrite(image_name, self.ltob.d_img_cropped_8bit, [cv2.IMWRITE_PNG_STRATEGY_DEFAULT, 1])
-        else:
-            raise ValueError('d_img_cropped_8bit no data received')
+        # if self.ltob.d_img_cropped_8bit is not None:
+        #     image_name = self.depth_image_folder + "/" + pref + "_cropped_depth_im{0}_time{1}.png".format(i_save, self.ltob.tstamp_d_img)
+        #     cv2.imwrite(image_name, self.ltob.d_img_cropped_8bit, [cv2.IMWRITE_PNG_STRATEGY_DEFAULT, 1])
+        # else:
+        #     raise ValueError('d_img_cropped_8bit no data received')
 
         self.t_finish_save.append(rospy.get_time())
         if i_save == (self.state_sequence_length-1):
