@@ -58,7 +58,6 @@ class Visual_MPC_Client():
         print('started visual MPC client')
         # pdb.set_trace()
         self.ctrl = robot_controller.RobotController()
-
         self.base_dir = '/'.join(str.split(base_filepath, '/')[:-2])
 
         if cmd_args:
@@ -246,16 +245,33 @@ class Visual_MPC_Client():
         self.set_neutral_with_impedance(2.5)
 
     def mark_goal_desig(self, itr):
-        print('prepare to mark goalpos and designated pixel! press c to continue!')
         imagemain = self.recorder.ltob.img_cropped
-
         imagemain = cv2.cvtColor(imagemain, cv2.COLOR_BGR2RGB)
-        c_main = Getdesig(imagemain, self.recorder_save_dir, '_traj{}'.format(itr),
-                          self.ndesig, im_shape=[self.img_height, self.img_width])
-        self.desig_pos_main = c_main.desig.astype(np.int64)
-        print('desig pos aux1:', self.desig_pos_main)
-        self.goal_pos_main = c_main.goal.astype(np.int64)
-        print('goal pos main:', self.goal_pos_main)
+
+        if 'use_goal_image' in self.policyparams:
+            print('put object in goal configuration')
+            pdb.set_trace()
+            imagemain = self.recorder.ltob.img_cropped
+            imagemain = cv2.cvtColor(imagemain, cv2.COLOR_BGR2RGB)
+            c_main = Getdesig(imagemain, self.recorder_save_dir, 'goal_traj{}'.format(itr),
+                              self.ndesig, im_shape=[self.img_height, self.img_width], clicks_per_desig=1)
+            self.goal_pos_main = c_main.desig.astype(np.int64)
+            self.goal_image = imagemain
+            print('goal pos main:', self.goal_pos_main)
+
+            print('put object in start configuration')
+            pdb.set_trace()
+            c_main = Getdesig(imagemain, self.recorder_save_dir, 'start_traj{}'.format(itr),
+                              self.ndesig, im_shape=[self.img_height, self.img_width], clicks_per_desig=1)
+            self.desig_pos_main = c_main.desig.astype(np.int64)
+            print('desig pos aux1:', self.desig_pos_main)
+        else:
+            c_main = Getdesig(imagemain, self.recorder_save_dir, '_traj{}'.format(itr),
+                              self.ndesig, im_shape=[self.img_height, self.img_width])
+            self.desig_pos_main = c_main.desig.astype(np.int64)
+            print('desig pos aux1:', self.desig_pos_main)
+            self.goal_pos_main = c_main.goal.astype(np.int64)
+            print('goal pos main:', self.goal_pos_main)
 
 
     def imp_ctrl_release_spring(self, maxstiff):
@@ -401,19 +417,15 @@ class Visual_MPC_Client():
             z=0.0,
             w=0.0
         )
-
         return quat
 
     def init_visual_mpc_server(self):
         try:
-            goal_img_main = np.zeros([self.img_height, self.img_width, 3])
             goal_img_aux1 = np.zeros([self.img_height, self.img_width, 3])
-            goal_img_main = self.bridge.cv2_to_imgmsg(goal_img_main)
             goal_img_aux1 = self.bridge.cv2_to_imgmsg(goal_img_aux1)
-
+            goal_img_main = self.bridge.cv2_to_imgmsg(self.goal_image)
             rospy.wait_for_service('init_traj_visualmpc', timeout=2.)
             self.init_traj_visual_func(0, 0, goal_img_main, goal_img_aux1, self.save_subdir)
-
         except (rospy.ServiceException, rospy.ROSException) as e:
             raise ValueError("Service call failed: %s" % (e,))
 
@@ -456,9 +468,6 @@ class Visual_MPC_Client():
                 self.desig_pos_main[0] = single_desig_pos
                 self.goal_pos_main[0] = single_goal_pos
         elif not self.use_gui:
-            print('place object in new location!')
-            pdb.set_trace()
-            # rospy.sleep(.3)
             self.mark_goal_desig(i_tr)
 
         if self.netconf != {}:
@@ -697,21 +706,14 @@ class Visual_MPC_Client():
 
     def query_action(self, istep):
 
-        if self.use_robot:
-            if self.use_aux:
-                self.recorder.get_aux_img()
-                imageaux1 = self.recorder.ltob_aux1.img_msg
-            else:
-                imageaux1 = np.zeros((self.img_height, self.img_width, 3), dtype=np.uint8)
-                imageaux1 = self.bridge.cv2_to_imgmsg(imageaux1)
-
-            imagemain = self.bridge.cv2_to_imgmsg(self.recorder.ltob.img_cropped)
-            state = self.get_endeffector_pos()
+        if self.use_aux:
+            self.recorder.get_aux_img()
+            imageaux1 = self.recorder.ltob_aux1.img_msg
         else:
-            imagemain = np.zeros((self.img_height,self.img_width,3))
-            imagemain = self.bridge.cv2_to_imgmsg(imagemain)
-            imageaux1 = self.bridge.cv2_to_imgmsg(self.test_img)
-            state = np.zeros(self.sdim)
+            imageaux1 = np.zeros((self.img_height, self.img_width, 3), dtype=np.uint8)
+            imageaux1 = self.bridge.cv2_to_imgmsg(imageaux1)
+        imagemain = self.bridge.cv2_to_imgmsg(self.recorder.ltob.img_cropped)
+        state = self.get_endeffector_pos()
 
         try:
             rospy.wait_for_service('get_action', timeout=3)
@@ -872,8 +874,8 @@ class Visual_MPC_Client():
             self.move_with_impedance(self.joint_pos[t])
 
 class Getdesig(object):
-    def __init__(self,img,basedir,img_namesuffix = '', n_desig=1, only_desig = False,
-                 im_shape = None):
+    def __init__(self, img, basedir, img_namesuffix = '', n_desig=1, only_desig = False,
+                 im_shape = None, clicks_per_desig=2):
         self.im_shape = im_shape
 
         self.only_desig = only_desig
@@ -892,9 +894,12 @@ class Getdesig(object):
         self.i_click = 0
 
         self.desig = np.zeros((n_desig,2))  #idesig, (r,c)
-        self.goal = np.zeros((n_desig, 2))  # idesig, (r,c)
+        if clicks_per_desig == 2:
+            self.goal = np.zeros((n_desig, 2))  # idesig, (r,c)
+        else: self.goal = None
 
-        self.i_click_max = n_desig*2
+        self.i_click_max = n_desig * clicks_per_desig
+        self.clicks_per_desig = clicks_per_desig
 
         self.i_desig = 0
         self.i_goal = 0
@@ -910,11 +915,11 @@ class Getdesig(object):
 
         print('iclick', self.i_click)
 
-        i_task = self.i_click//2
+        i_task = self.i_click//self.clicks_per_desig
         print('i_task', i_task)
 
         rc_coord = np.array([event.ydata, event.xdata])
-        if self.i_click % 2 == 0:
+        if self.i_click % self.clicks_per_desig == 0:
             self.desig[i_task, :] = rc_coord
             color = "r"
         else:

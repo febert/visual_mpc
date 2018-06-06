@@ -1,5 +1,7 @@
 #!/usr/bin/env python
 import os
+
+from python_visual_mpc.goaldistancenet.setup_gdn import setup_gdn
 import shutil
 import socket
 import _thread
@@ -85,7 +87,15 @@ class Visual_MPC_Server(object):
         else:
             self.netconf = {}
             self.predictor = None
-        self.cem_controller = CEM_controller(self.agentparams, self.policyparams, self.predictor)
+
+        if 'gdnconf' in self.policyparams:
+            self.gdnconf = imp.load_source('params', self.policyparams['gdnconf']).configuration
+            self.goal_image_warper = setup_gdn(self.gdnconf, gpu_id)
+        else:
+            self.gdnconf = {}
+            self.goal_image_warper = None
+
+        self.cem_controller = CEM_controller(self.agentparams, self.policyparams, self.predictor, self.goal_image_warper)
         ###########
         self.t = 0
         self.traj = Trajectory(self.agentparams, self.netconf)
@@ -120,7 +130,7 @@ class Visual_MPC_Server(object):
             # goal_aux1 = cv2.cvtColor(goal_aux1, cv2.COLOR_BGR2RGB)
             Image.fromarray(goal_main).show()
             goal_main = goal_main.astype(np.float32) / 255.
-            self.cem_controller.goal_image = goal_main
+            self.goal_image = goal_main
 
         print('init traj{} group{}'.format(self.i_traj, self.igrp))
 
@@ -144,7 +154,8 @@ class Visual_MPC_Server(object):
 
         mj_U, best_ind, init_pix_distrib = self.cem_controller.act(self.traj, self.t,
                                                                         req.desig_pos_aux1,
-                                                                        req.goal_pos_aux1)
+                                                                        req.goal_pos_aux1,
+                                                                        self.goal_image)
 
         if 'predictor_propagation' in self.policyparams and self.t > 0:
             self.initial_pix_distrib.append(init_pix_distrib[-1][0])
