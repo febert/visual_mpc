@@ -291,6 +291,8 @@ class CEM_controller():
             else: self.normalize = True
         else: self.normalize = True
 
+        self.best_cost_perstep = np.zeros([self.ncam, self.ndesig, self.seqlen - self.ncontxt])
+        self.cost_perstep = np.zeros([self.M, self.ncam, self.ndesig, self.seqlen - self.ncontxt])
 
     def calc_action_cost(self, actions):
         actions_costs = np.zeros(self.M)
@@ -360,6 +362,7 @@ class CEM_controller():
             self.bestaction_withrepeat = actions[self.indices[0]]
             self.plan_stat['scores_itr{}'.format(itr)] = scores
             self.plan_stat['bestscore_itr{}'.format(itr)] = scores[self.indices[0]]
+            self.plan_stat['best_cost_perstep'] = self.best_cost_perstep
 
             if 'compare_mj_planner_actions' in self.agentparams:
                 num_ex = self.M//self.smp_peract -1
@@ -571,14 +574,14 @@ class CEM_controller():
                 for icam in range(self.ncam):
                     for p in range(self.ndesig):
                         distance_grid = self.get_distancegrid(self.goal_pix[icam, p])
-                        scores_per_task.append(self.calc_scores(gen_distrib[:,:, icam, :,:, p], distance_grid, normalize=self.normalize))
+                        scores_per_task.append(self.calc_scores(icam, p, gen_distrib[:,:, icam, :,:, p], distance_grid, normalize=self.normalize))
                         self.logger.log('best flow score of task {} cam{}  :{}'.format(p, icam, np.min(scores_per_task[-1])))
                 scores_per_task = np.stack(scores_per_task, axis=1)
 
                 if 'only_take_first_view' in self.policyparams:
                     scores_per_task = scores_per_task[:,0][:,None]
 
-            scores = np.sum(scores_per_task, axis=1)
+            scores = np.mean(scores_per_task, axis=1)
             if 'compare_mj_planner_actions' in self.agentparams:
                 score_mj_planner_actions = scores[0]
                 print('scores for trajectory of mujoco planner',score_mj_planner_actions)
@@ -588,6 +591,8 @@ class CEM_controller():
             for icam in range(self.ncam):
                 for p in range(self.ndesig):
                     self.logger.log('flow score of best traj for task{} cam{} :{}'.format(p, icam, scores_per_task[bestind, p + icam*self.ndesig]))
+
+            self.best_cost_perstep = self.cost_perstep[bestind]
 
             # for predictor_propagation only!!
             if 'predictor_propagation' in self.policyparams:
@@ -773,7 +778,7 @@ class CEM_controller():
         return scores, tradeoff
 
 
-    def calc_scores(self, gen_distrib, distance_grid, normalize=True):
+    def calc_scores(self, icam, idesig, gen_distrib, distance_grid, normalize=True):
         """
         :param gen_distrib: shape [batch, t, r, c]
         :param distance_grid: shape [r, c]
@@ -789,8 +794,9 @@ class CEM_controller():
             gen_distrib /= np.sum(np.sum(gen_distrib, axis=2), 2)[:,:, None, None]
         gen_distrib *= distance_grid[None, None]
         scores = np.sum(np.sum(gen_distrib, axis=2),2)
+        self.cost_perstep[:,icam, idesig] = scores
         scores *= t_mult[None]
-        scores = np.sum(scores, axis=1)
+        scores = np.sum(scores, axis=1)/np.sum(t_mult)
         return scores
 
     def get_distancegrid(self, goal_pix):

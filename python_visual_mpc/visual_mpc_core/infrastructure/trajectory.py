@@ -1,4 +1,5 @@
 """ This file defines the sample class. """
+from collections import OrderedDict
 import numpy as np
 
 class Trajectory(object):
@@ -96,6 +97,6 @@ class Trajectory(object):
             self.obj_world_coords = np.zeros([self.T, conf['num_objects'] + 1, 7])  # xyz and quaternion pose
 
         self.plan_stat = []   # statistics about the plan
-
         self.goal_dist = []
+        self.stats = OrderedDict([('improvement',None), ('scores',None), ('term_t',None), ('integrated_poscost',None), ('lifted',None), ('initial_poscost', None)])
 

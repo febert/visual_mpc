@@ -8,7 +8,8 @@ import matplotlib
 matplotlib.use('Agg')
 import importlib
 import matplotlib; matplotlib.use('Agg'); import matplotlib.pyplot as plt
-
+from python_visual_mpc.visual_mpc_core.infrastructure.trajectory import Trajectory
+from collections import OrderedDict
 import re
 
 def sorted_nicely( l ):
@@ -18,27 +19,26 @@ def sorted_nicely( l ):
     return sorted(l, key = alphanum_key)
 
 def combine_scores(conf, dir, only_first_n=None):
-    improvement_l= []
-    scores_l = []
-    term_t_l = []
-    integrated_poscost_l = []
-
     files = glob.glob(dir + '/scores_*')
     files = sorted_nicely(files)
+
+    traj = Trajectory(conf['agent'])
+    stats_lists = OrderedDict()
+    for key in traj.stats.keys():
+        stats_lists[key] = []
 
     for f in files:
         print('load', f)
         dict_ = pickle.load(open(f, "rb"))
-        scores_l.append(dict_['scores'])
-        improvement_l.append(dict_['improvement'])
-        term_t_l.append(dict_['term_t'])
-        integrated_poscost_l.append(dict_['integrated_poscost'])
+        for key in dict_.keys():
+            stats_lists[key].append(dict_[key])
 
-    score = np.concatenate(scores_l, axis=0)
-    improvement = np.concatenate(improvement_l, axis=0)
-    term_t = np.concatenate(term_t_l, axis=0)
-    integrated_poscost = np.concatenate(integrated_poscost_l, axis=0)
+    stat_array = OrderedDict()
+    for key in dict_.keys():
+        stat_array[key] = np.concatenate(stats_lists[key], axis=0)
 
+    improvement = stat_array['improvement']
+    score = stat_array['scores']
     if only_first_n is not None:
         improvement = improvement[:only_first_n]
         score = score[:only_first_n]
@@ -47,7 +47,7 @@ def combine_scores(conf, dir, only_first_n=None):
     make_stats(dir, improvement, 'improvement', bounds=[-0.5, 0.5])
     make_imp_score(score, improvement, dir)
 
-    write_scores(conf, dir + '/results_all.txt', improvement, score, term_t, integrated_poscost)
+    write_scores(conf, dir + '/results_all.txt', stat_array)
     print('writing {}'.format(dir))
 
 def make_imp_score(score, imp, dir):
