@@ -495,7 +495,6 @@ class CEM_controller():
             last_states = last_states[:,:5] #ignore redundant finger dim
             if 'finger_sensors' in self.agentparams:
                 touch = traj.touch_sensors[self.t - ctxt + 1:self.t + 1]
-                touch = expit(touch)
                 last_states = np.concatenate([last_states, touch], axis=1)
             actions = actions[:,:,:self.netconf['adim']]
 

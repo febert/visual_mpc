@@ -77,7 +77,6 @@ def setup_predictor(hyperparams, conf, gpu_id=0, ngpu=1, logger=None):
     logger.log('done making session.')
     with sess.as_default():
         with g_predictor.as_default():
-
             logger.log('Constructing multi gpu model for control...')
 
             if 'float16' in conf:
@@ -162,7 +161,9 @@ def setup_predictor(hyperparams, conf, gpu_id=0, ngpu=1, logger=None):
             logger.log('-------------------------------------------------------------------')
 
             comb_gen_img = tf.concat([to.model.gen_images for to in towers], axis=0)
-            comb_gen_states = tf.concat([to.model.gen_states for to in towers], axis=0)
+            if towers[0].model.gen_states is not None:
+                comb_gen_states = tf.concat([to.model.gen_states for to in towers], axis=0)
+            else: comb_gen_states = None
 
             if not 'no_pix_distrib' in conf:
                 comb_pix_distrib = tf.concat([to.model.gen_distrib for to in towers], axis=0)
@@ -173,8 +174,6 @@ def setup_predictor(hyperparams, conf, gpu_id=0, ngpu=1, logger=None):
                 :param pixcoord: the coords of the disgnated pixel in images coord system
                 :return: the predicted pixcoord at the end of sequence
                 """
-
-                t_startiter = datetime.now()
 
                 feed_dict = {}
                 for t in towers:
@@ -190,17 +189,16 @@ def setup_predictor(hyperparams, conf, gpu_id=0, ngpu=1, logger=None):
                                                       comb_gen_states],
                                                       feed_dict)
                     gen_distrib = None
+                elif comb_gen_states is None:
+                    feed_dict[pix_distrib] = input_one_hot_images
+                    gen_images, gen_distrib = sess.run([comb_gen_img, comb_pix_distrib], feed_dict)
+                    gen_states = None
                 else:
                     feed_dict[pix_distrib] = input_one_hot_images
                     gen_images, gen_distrib, gen_states = sess.run([comb_gen_img,
                                                                     comb_pix_distrib,
                                                                     comb_gen_states],
                                                                    feed_dict)
-
-                # logger.log('time for evaluating {0} actions on {1} gpus : {2}'.format(
-                #     conf['batch_size'],
-                #     conf['ngpu'],
-                #     (datetime.now() - t_startiter).seconds + (datetime.now() - t_startiter).microseconds/1e6))
 
                 return gen_images, gen_distrib, gen_states, None
 

@@ -33,9 +33,7 @@ class Alex_Interface_Model(object):
         seq_len = model_hparams_dict['sequence_length']
         nctxt = model_hparams_dict['context_frames']
         ncam = conf['ncam']
-        ndesig = conf['ndesig']
         self.img_height, self.img_width = conf['orig_size']
-
         if images is None:
             self.actions_pl = tf.placeholder(tf.float32, name='actions',
                                              shape=(conf['batch_size'], seq_len, self.adim))
@@ -56,7 +54,10 @@ class Alex_Interface_Model(object):
         elif ncam == 2:
             self.m = MultiSAVPVideoPredictionModel(mode=mode, hparams_dict=model_hparams_dict)
 
-        inputs = {'actions':actions, 'states':states,'images':images[:,:,0]}
+        inputs = {'actions':actions ,'images':images[:,:,0]}
+        if datatset_hparams_dict['use_state']:
+            inputs['states'] = states
+
         if ncam == 2:
             inputs['images1'] = images[:,:,1]
 
@@ -71,7 +72,10 @@ class Alex_Interface_Model(object):
         if ncam == 2:
             gen_images.append(self.m.outputs['gen_images1'])
         self.gen_images = tf.stack(gen_images, axis=2) #ouput  b, t, ncam, r, c, 3
-        self.gen_states = self.m.outputs['gen_states']
+
+        if datatset_hparams_dict['use_state']:
+            self.gen_states = self.m.outputs['gen_states']
+        else: self.gen_states = None
 
         if pix_distrib is not None:
             gen_distrib = [self.m.outputs['gen_pix_distribs']]

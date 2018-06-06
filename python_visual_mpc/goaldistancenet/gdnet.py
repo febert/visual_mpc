@@ -567,7 +567,7 @@ class GoalDistanceNet(object):
             return
 
         else:  # when visualizing sequence of warps from video
-            videos = build_tfrecord_fn(self.conf)
+            videos = build_tfrecord_fn(self.conf, mode='test')
 
             if 'vidpred_data' in self.conf:
                 images, pred_images = sess.run([videos['images'], videos['gen_images']])
