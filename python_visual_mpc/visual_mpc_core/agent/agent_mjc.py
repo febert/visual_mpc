@@ -184,11 +184,14 @@ class AgentMuJoCo(object):
 
         if self.goal_obj_pose is not None:
             final_poscost, final_anglecost = self.eval_action(traj, traj.term_t)
-            traj.final_poscost = np.mean(final_poscost)
+            final_poscost = np.mean(final_poscost)
             initial_poscost, _ = self.eval_action(traj, 0)
-            traj.initial_poscost = np.mean(initial_poscost)
-            traj.improvement = traj.initial_poscost - traj.final_poscost
-            traj.integrated_poscost = np.mean(traj.goal_dist)
+            initial_poscost = np.mean(initial_poscost)
+            traj.stats['scores'] = final_poscost
+            traj.stats['initial_poscost'] = initial_poscost
+            traj.stats['improvement'] = initial_poscost - final_poscost
+            traj.stats['integrated_poscost'] = np.mean(traj.goal_dist)
+            traj.stats['term_t'] = traj.term_t
 
         if 'save_goal_image' in self._hyperparams:
             self.save_goal_image_conf(traj)
@@ -263,6 +266,8 @@ class AgentMuJoCo(object):
         self.hf_target_qpos_l = []
         self.hf_qpos_l = []
 
+        self.pix_dist = []
+
         # apply action of zero for the first few steps, to let the scene settle
         if 'skip_frist' not in self._hyperparams:
             skip_first = 10
@@ -302,10 +307,8 @@ class AgentMuJoCo(object):
 
             for i in range(self._hyperparams['num_objects']):
                 fullpose = self.sim.data.qpos[i * 7 + qpos_dim:(i + 1) * 7 + qpos_dim].squeeze().copy()
-
                 if 'object_meshes' in self._hyperparams:
                     fullpose[:3] = self.sim.data.sensordata[touch_offset + i * 3 :touch_offset + (i + 1) * 3].copy()
-
                 traj.Object_full_pose[t, i, :] = fullpose
                 zangle = self.quat_to_zangle(fullpose[3:])
                 traj.Object_pose[t, i, :] = np.concatenate([fullpose[:2], zangle])  # save only xyz, theta
@@ -314,6 +317,8 @@ class AgentMuJoCo(object):
                 self.curr_mask, self.curr_mask_large = get_obj_masks(self.sim, self._hyperparams, include_arm=False) #get target object mask
             else:
                 self.desig_pix = self.get_desig_pix()
+
+            self.pix_dist.append(np.linalg.norm(self.desig_pix - self.goal_pix, axis=2))
 
             self._store_image(t , traj, policy)
             if 'gtruthdesig' in self._hyperparams:  # generate many designated pixel goal-pixel pairs
@@ -348,10 +353,8 @@ class AgentMuJoCo(object):
             for st in range(self._hyperparams['substeps']):
                 if 'posmode' in self._hyperparams:
                     ctrl = self.get_int_targetpos(st, self.prev_target_qpos, self.target_qpos)
-
                 if 'finger_sensors' in self._hyperparams:
                     traj.touch_sensors[t] += copy.deepcopy(self.sim.data.sensordata[:2].squeeze().copy())
-
                 self.sim.data.ctrl[:] = ctrl
                 self.sim.step()
                 self.hf_qpos_l.append(copy.deepcopy(self.sim.data.qpos))
@@ -372,10 +375,13 @@ class AgentMuJoCo(object):
                 traj.term_t = t
             t += 1
 
-
         if 'first_last_noarm' in self._hyperparams:
             self.hide_arm_store_image(1, traj)
 
+        if any(traj.Object_full_pose[:,:,2] > 0.01):
+            lifted = True
+        else: lifted = False
+        traj.stats['lifted'] = lifted
         # only save trajectories which displace objects above threshold
         if 'displacement_threshold' in self._hyperparams:
             assert self._hyperparams['data_collection']
@@ -389,16 +395,18 @@ class AgentMuJoCo(object):
                 traj_ok = True
             else:
                 traj_ok = False
+
         elif 'lift_rejection_sample' in self._hyperparams:
             valid_frames = np.logical_and(traj.target_qpos[1:,-1] > 0.05, np.logical_and(traj.touch_sensors[:, 0] > 0, traj.touch_sensors[:, 1] > 0))
             off_ground = traj.target_qpos[1:,2] >= 0
-            if not any(np.logical_and(valid_frames, off_ground)) and self.i_trial < self._hyperparams['lift_rejection_sample']:
-                traj_ok = False
+            if not any(np.logical_and(valid_frames, off_ground)):
+                lifted = False
             else:
-                traj_ok = True
+                lifted = True
+            if self.i_trial < self._hyperparams['lift_rejection_sample']:
+                traj_ok = lifted
         else:
             traj_ok = True
-
 
         #discarding trajecotries where an object falls out of the bin:
         end_zpos = [traj.Object_full_pose[-1, i, 2] for i in range(self._hyperparams['num_objects'])]
@@ -407,6 +415,7 @@ class AgentMuJoCo(object):
             traj_ok = False
         if 'verbose' in self._hyperparams:
             self.plot_ctrls()
+            self.plot_pix_dist(plan_stat)
 
         if 'dist_ok_thresh' in self._hyperparams:
             if np.any(traj.goal_dist[-1] > self._hyperparams['dist_ok_thresh']):
@@ -594,6 +603,23 @@ class AgentMuJoCo(object):
         #         os.makedirs(self._hyperparams['record'])
         plt.savefig(self._hyperparams['record'] + '/ctrls.png')
 
+    def plot_pix_dist(self, planstat):
+        plt.figure()
+        pix_dist = np.stack(self.pix_dist, -1)
+
+        best_cost_perstep = planstat['best_cost_perstep']
+
+        nobj = self._hyperparams['num_objects']
+        nplot = self.ncam*nobj
+        for icam in range(self.ncam):
+            for p in range(nobj):
+                plt.subplot(1,nplot, 1 + icam*nobj+p)
+                plt.plot(pix_dist[icam, p], label='gtruth')
+                plt.plot(best_cost_perstep[icam,p], label='pred')
+
+        plt.legend()
+        plt.savefig(self._hyperparams['record'] + '/pixel_distcost.png')
+
     def _init(self):
         """
         Set the world to a given model
@@ -648,7 +674,6 @@ class AgentMuJoCo(object):
 
         if 'arm_start_lifted' in self._hyperparams:
             xpos0[2] = self._hyperparams['arm_start_lifted']
-
 
         sim_state = self.sim.get_state()
         if 'goal_point' in self._hyperparams:

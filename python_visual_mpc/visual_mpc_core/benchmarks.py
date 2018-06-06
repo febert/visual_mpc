@@ -13,6 +13,8 @@ from python_visual_mpc.video_prediction.utils_vpred.online_reader import read_tr
 
 from python_visual_mpc import __file__ as python_vmpc_path
 from python_visual_mpc.data_preparation.gather_data import make_traj_name_list
+from collections import OrderedDict
+from python_visual_mpc.visual_mpc_core.infrastructure.trajectory import Trajectory
 import cv2
 
 
@@ -87,12 +89,10 @@ def perform_benchmark(conf = None, iex=-1, gpu_id=None):
         i_traj = iex
         nruns = iex
 
-    scores_l = []
-    anglecost_l = []
-    improvement_l = []
-    initial_dist_l = []
-    term_t_l = []
-    integrated_poscost_l = []
+    traj = Trajectory(conf['agent'])
+    stats_lists = OrderedDict()
+    for key in traj.stats.keys():
+        stats_lists[key] = []
 
     if 'sourcetags' in conf:  # load data per trajectory
         if 'VMPC_DATA_DIR' in os.environ:
@@ -125,25 +125,26 @@ def perform_benchmark(conf = None, iex=-1, gpu_id=None):
 
         traj = sim.take_sample(i_traj)
 
-        scores_l.append(traj.final_poscost)
-        improvement_l.append(traj.improvement)
-        initial_dist_l.append(traj.initial_poscost)
-        term_t_l.append(traj.term_t)
-        integrated_poscost_l.append(traj.integrated_poscost)
+        stat_arrays = OrderedDict()
+        for key in traj.stats.keys():
+            stats_lists[key].append(traj.stats[key])
+            stat_arrays[key] = np.array(stats_lists[key])
 
-        print('improvement of traj{},{}'.format(i_traj, improvement_l[-1]))
         i_traj +=1 #increment trajectories every step!
 
-        score = np.array(scores_l)
-        improvement = np.array(improvement_l)
-        initial_dist = np.array(initial_dist_l)
-        term_t = np.array(term_t_l)
-        integrated_poscost = np.array(integrated_poscost_l)
+        pickle.dump(stat_arrays, open(scores_pkl_file, 'wb'))
+        write_scores(conf, result_file, stat_arrays, i_traj)
 
-        pickle.dump({'improvement':improvement, 'scores':score, 'term_t':term_t, 'integrated_poscost':integrated_poscost}, open(scores_pkl_file, 'wb'))
-        write_scores(conf, result_file, improvement, score, term_t, integrated_poscost, initial_dist, i_traj)
+def write_scores(conf, result_file, stat, i_traj=None):
+    improvement = stat['improvement']
 
-def write_scores(conf, result_file, improvement, score, term_t, integrated_poscost, initial_dist=None, i_traj=None):
+    scores = stat['scores']
+    if 'initial_dist' in stat:
+        initial_dist = stat['initial_dist']
+    else: initial_dist = None
+    integrated_poscost = stat['integrated_poscost']
+    term_t = stat['term_t']
+
     sorted_ind = improvement.argsort()[::-1]
 
     if i_traj == None:
@@ -151,10 +152,12 @@ def write_scores(conf, result_file, improvement, score, term_t, integrated_posco
 
     mean_imp = np.mean(improvement)
     med_imp = np.median(improvement)
-    mean_dist = np.mean(score)
-    med_dist = np.median(score)
+    mean_dist = np.mean(scores)
+    med_dist = np.median(scores)
     mean_integrated_poscost = np.mean(integrated_poscost)
     med_integrated_poscost = np.median(integrated_poscost)
+
+    lifted = stat['lifted'].astype(np.int)
 
     print('mean imp, med imp, mean dist, med dist {}, {}, {}, {}\n'.format(mean_imp, med_imp, mean_dist, med_dist))
 
@@ -164,10 +167,13 @@ def write_scores(conf, result_file, improvement, score, term_t, integrated_posco
         nsucc_frac = np.where(term_t != (tlen - 1))[0].shape[0]/ improvement.shape[0]
         f.write('percent success: {}%\n'.format(nsucc_frac * 100))
         f.write('---\n')
-    f.write('---\n')
+    if 'lifted' in stat:
+        f.write('---\n')
+        f.write('fraction of traj lifted: {0}\n'.format(np.mean(lifted)))
+        f.write('---\n')
     f.write('average integrated poscost: {0}\n'.format(mean_integrated_poscost))
-    f.write('median integrated poscost {}'.format(med_integrated_poscost))
-    f.write('standard error of the mean (SEM) {0}\n'.format(np.std(score) / np.sqrt(score.shape[0])))
+    f.write('median integrated poscost {}\n'.format(med_integrated_poscost))
+    f.write('standard error of the mean (SEM) {0}\n'.format(np.std(scores) / np.sqrt(scores.shape[0])))
     f.write('---\n')
     f.write('overall best pos improvement: {0} of traj {1}\n'.format(improvement[sorted_ind[0]], sorted_ind[0]))
     f.write('overall worst pos improvement: {0} of traj {1}\n'.format(improvement[sorted_ind[-1]], sorted_ind[-1]))
@@ -178,8 +184,8 @@ def write_scores(conf, result_file, improvement, score, term_t, integrated_posco
     f.write('---\n')
     f.write('average pos score: {0}\n'.format(mean_dist))
     f.write('median pos score {}'.format(med_dist))
-    f.write('standard deviation of population {0}\n'.format(np.std(score)))
-    f.write('standard error of the mean (SEM) {0}\n'.format(np.std(score) / np.sqrt(score.shape[0])))
+    f.write('standard deviation of population {0}\n'.format(np.std(scores)))
+    f.write('standard error of the mean (SEM) {0}\n'.format(np.std(scores) / np.sqrt(scores.shape[0])))
     f.write('---\n')
     f.write('mean imp, med imp, mean dist, med dist {}, {}, {}, {}\n'.format(mean_imp, med_imp, mean_dist, med_dist))
     f.write('---\n')
@@ -192,13 +198,13 @@ def write_scores(conf, result_file, improvement, score, term_t, integrated_posco
         f.write('----------------------\n')
 
         for n, t in enumerate(range(conf['start_index'], i_traj)):
-            f.write('{}: {}, {}, {}, :{}\n'.format(t, improvement[n], score[n], improvement[n] > 0.05,
+            f.write('{}: {}, {}, {}, :{}\n'.format(t, improvement[n], scores[n], improvement[n] > 0.05,
                                                    np.where(sorted_ind == n)[0][0]))
     else:
-        f.write('traj: improv, score, term_t, int_poscost, rank\n')
+        f.write('traj: improv, score, term_t, lifted, rank\n')
         f.write('----------------------\n')
         for n, t in enumerate(range(conf['start_index'], i_traj)):
-            f.write('{}: {}, {}, {}, {}:{}\n'.format(t, improvement[n], score[n], term_t[n], integrated_poscost[n], np.where(sorted_ind == n)[0][0]))
+            f.write('{}: {}, {}, {}, {}:{}\n'.format(t, improvement[n], scores[n], term_t[n], lifted[n], np.where(sorted_ind == n)[0][0]))
     f.close()
 
 

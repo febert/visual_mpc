@@ -15,7 +15,7 @@ base_dir = '/'.join(str.split(base_dir, '/')[:-2])
 configuration = {
 'experiment_name': 'rndaction_var10',
 'pred_model':Multi_View_Model,
-'pretrained_model':base_dir + '/tensorflow_data/sim/multi_view_models/autograsp/modeldata/model116000',
+'pretrained_model':base_dir + '/tensorflow_data/sim/multi_view_models/autograsp_corrdata/modeldata/model128000',
 'setup_predictor':setup_predictor,
 'output_dir': OUT_DIR,      #'directory for model checkpoints.' ,
 'current_dir': current_dir, #'directory for writing summary.' ,

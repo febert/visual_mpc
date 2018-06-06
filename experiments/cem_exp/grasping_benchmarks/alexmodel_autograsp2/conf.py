@@ -26,6 +26,5 @@ configuration = {
 'adim':4,
 'orig_size':[48,64],
 'ndesig':1,
-'use_vel':'',                # add the velocity to the state input
 'ncam':2,
 }

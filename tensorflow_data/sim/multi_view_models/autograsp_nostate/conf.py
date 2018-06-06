@@ -34,7 +34,7 @@ configuration = {
 'visual_flowvec':'',
 'adim':5,
 'sdim':7,
-'auto_grasp':'',
+'autograsp ':'',
 'no_touch':'', #omit the last two dimensions
 'normalization':'in',
 'previmg_bckgd':'',

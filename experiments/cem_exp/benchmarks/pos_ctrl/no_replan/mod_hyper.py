@@ -12,18 +12,18 @@ from python_visual_mpc.visual_mpc_core.agent.agent_mjc import AgentMuJoCo
 import numpy as np
 agent = {
     'type': AgentMuJoCo,
-    'T': 14,
+    'T': 15,
     'substeps':200,
-    'adim':5,
-    'sdim':12,
+    'adim':3,
+    'sdim':6,
     'make_final_gif':'',
-    'filename': ROOT_DIR + '/mjc_models/cartgripper_grasp.xml',
-    'filename_nomarkers': ROOT_DIR + '/mjc_models/cartgripper_grasp.xml',
+    # 'no_instant_gif':"",
+    'filename': ROOT_DIR + '/mjc_models/cartgripper_updown.xml',
+    'filename_nomarkers': ROOT_DIR + '/mjc_models/cartgripper_updown.xml',
+    'object_mass':0.01,
+    'friction':1.5,
     'gen_xml':1,   #generate xml every nth trajecotry
     'num_objects': 1,
-    'object_mass':0.1,
-    'friction':1.0,
-    'skip_first':0,
     'viewer_image_height' : 480,
     'viewer_image_width' : 640,
     'image_height':48,
@@ -31,13 +31,8 @@ agent = {
     'additional_viewer':'',
     'data_save_dir':current_dir + '/data/train',
     'posmode':"",
-    'targetpos_clip':[[-0.5, -0.5, -0.08, -2 * np.pi, -1], [0.5, 0.5, 0.15, 2 * np.pi, 1]],
-    'mode_rel':np.array([True, True, True, True, False]),
-    'autograsp' : True,
-    'finger_sensors':'',
-    'cameras':['maincam', 'leftcam'],
-    'verbose':"",
-    # 'compare_mj_planner_actions':'',
+    'targetpos_clip':[[-0.45, -0.45, -0.08], [0.45, 0.45, 0.15]],
+    'discrete_adim':[2],
 }
 
 policy = {
@@ -45,40 +40,26 @@ policy = {
     'type' : CEM_controller,
     'low_level_ctrl': None,
     'current_dir':current_dir,
-    'usenet': True,
     'nactions': 5,
     'repeat': 3,
-    'initial_std': 0.02,   #std dev. in xy
-    'initial_std_lift': 1.6,   #std dev. in xy
-    'initial_std_rot' : np.pi / 18,
-    'initial_std_grasp' : 0,
+    'initial_std': 0.08,        # std dev. in xy
+    'initial_std_lift': 1.6,
     'netconf': current_dir + '/conf.py',
     'iterations': 3,
     'action_cost_factor': 0,
     'rew_all_steps':"",
     'finalweight':10,
-    'use_first_plan':''
+    'use_first_plan':""
 }
 
-tag_images0 = {'name': 'images0',
-             'file':'/images0/im{}.png',   # only tindex
+tag_images = {'name': 'images',
+             'file':'/images/im{}.png',   # only tindex
              'shape':[agent['image_height'],agent['image_width'],3],
                }
 
-tag_images1 = {'name': 'images1',
-              'file':'/images1/im{}.png',   # only tindex
-              'shape':[agent['image_height'],agent['image_width'],3],
-              }
-
 tag_qpos = {'name': 'qpos',
-             'shape':[6],
+             'shape':[3],
              'file':'/state_action.pkl'}
-
-tag_actions = {'name': 'actions',
-            'shape':[15,5],
-            'not_per_timestep':'',
-            'file':'/state_action.pkl'}
-
 tag_object_full_pose = {'name': 'object_full_pose',
                          'shape':[4,7],
                          'file':'/state_action.pkl'}
@@ -94,7 +75,7 @@ config = {
     'agent':agent,
     'policy':policy,
     'ngroup': 100,
-    'sourcetags':[tag_images0, tag_images1, tag_qpos, tag_object_full_pose, tag_object_statprop, tag_actions],
-    'source_basedirs':[os.environ['VMPC_DATA_DIR'] + '/cartgripper/grasping/cartgripper_startgoal_2view_lift_above_obj/train'],
+    'sourcetags':[tag_images, tag_qpos, tag_object_full_pose, tag_object_statprop],
+    'source_basedirs':[os.environ['VMPC_DATA_DIR'] + '/cartgripper/cartgripper_startgoal_masks/train'],
     'sequence_length':2
 }
