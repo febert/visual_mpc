@@ -13,11 +13,12 @@ from python_visual_mpc.video_prediction.read_tf_records2 import \
                 build_tfrecord_input as build_tfrecord_fn
 import matplotlib.gridspec as gridspec
 
+from python_visual_mpc.goaldistancenet.visualize.gdn_make_plots import make_plots
+
 from python_visual_mpc.video_prediction.utils_vpred.online_reader import OnlineReader
 import tensorflow.contrib.slim as slim
 
 from python_visual_mpc.utils.colorize_tf import colorize
-from python_visual_mpc.goaldistancenet.visualize.gdn_make_plots import make_plots
 from tensorflow.contrib.layers.python import layers as tf_layers
 from python_visual_mpc.video_prediction.utils_vpred.online_reader import read_trajectory
 

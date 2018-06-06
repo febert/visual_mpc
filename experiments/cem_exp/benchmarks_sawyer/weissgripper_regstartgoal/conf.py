@@ -35,4 +35,5 @@ configuration = {
 'img_height':56,
 'img_width':64,
 'data_dir':'/pushing_data/weiss_gripper_20k/conf.py',
+'orig_size':[56,64]
 }

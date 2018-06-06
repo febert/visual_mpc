@@ -3,7 +3,9 @@ current_dir = os.path.dirname(os.path.realpath(__file__))
 
 
 # tf record data location:
-BASE = '/'.join(str.split(current_dir, '/')[:-4])
+import python_visual_mpc
+ROOT_DIR = python_visual_mpc.__file__
+ROOT_DIR = '/'.join(str.split(ROOT_DIR, '/')[:-2])
 
 # from python_visual_mpc.video_prediction.setup_predictor_simple import setup_predictor
 from python_visual_mpc.video_prediction.setup_predictor_towers import setup_predictor
@@ -15,8 +17,7 @@ configuration = {
 'setup_predictor': setup_predictor,
 'current_dir': current_dir, #'directory for writing gifs' ,
 # 'filepath of a pretrained model to use for cem
-'pretrained_model': BASE + '/tensorflow_data/sawyer/weissgripper_basecls_20k/modeldata/model96002',
-# 'pretrained_model': BASE + '/tensorflow_data/sawyer/weissgripper_basecls_20k/modeldata/model96002float16',
+'pretrained_model': ROOT_DIR + 'tensorflow_data/gdn/weiss/weiss_thresh0.5/modeldata/model48002',
 'sequence_length': 15,      # 'sequence length, including context frames.' ,
 'context_frames': 2,        # of frames before predictions.' ,
 'use_state': 1,                 #'Whether or not to give the state+action to the model' ,
