@@ -21,6 +21,7 @@ def combine_scores(conf, dir, only_first_n=None):
     improvement_l= []
     scores_l = []
     term_t_l = []
+    integrated_poscost_l = []
 
     files = glob.glob(dir + '/scores_*')
     files = sorted_nicely(files)
@@ -31,10 +32,12 @@ def combine_scores(conf, dir, only_first_n=None):
         scores_l.append(dict_['scores'])
         improvement_l.append(dict_['improvement'])
         term_t_l.append(dict_['term_t'])
+        integrated_poscost_l.append(dict_['integrated_poscost'])
 
     score = np.concatenate(scores_l, axis=0)
     improvement = np.concatenate(improvement_l, axis=0)
     term_t = np.concatenate(term_t_l, axis=0)
+    integrated_poscost = np.concatenate(integrated_poscost_l, axis=0)
 
     if only_first_n is not None:
         improvement = improvement[:only_first_n]
@@ -44,7 +47,7 @@ def combine_scores(conf, dir, only_first_n=None):
     make_stats(dir, improvement, 'improvement', bounds=[-0.5, 0.5])
     make_imp_score(score, improvement, dir)
 
-    write_scores(conf, dir + '/results_all.txt', improvement, score, term_t)
+    write_scores(conf, dir + '/results_all.txt', improvement, score, term_t, integrated_poscost)
     print('writing {}'.format(dir))
 
 def make_imp_score(score, imp, dir):
@@ -75,8 +78,8 @@ if __name__ == '__main__':
     # n_traj = 10
     # dir = '/home/frederik/Documents/catkin_ws/src/visual_mpc/experiments/cem_exp/benchmarks/alexmodel/savp_register_gtruth_start/41256'
     # dir = '/home/frederik/Documents/catkin_ws/src/visual_mpc/experiments/cem_exp/benchmarks/pos_ctrl/updown_sact_boundact_register_gtruth/41272'
-    dir = '/mnt/sda1/experiments/cem_exp/grasping_benchmarks/alexmodel_autograsp_b2000/62557'
-    conf_dir = '/mnt/sda1/visual_mpc/experiments/cem_exp/grasping_benchmarks/alexmodel_autograsp_b2000'
+    dir = '/mnt/sda1/experiments/cem_exp/grasping_benchmarks/alexmodel_autograsp_noreplan/62889'
+    conf_dir = '/mnt/sda1/visual_mpc/experiments/cem_exp/grasping_benchmarks/alexmodel_autograsp_noreplan'
 
     # traj_per_worker = int(n_traj / np.float32(n_worker))
     # start_idx = [traj_per_worker * i for i in range(n_worker)]
