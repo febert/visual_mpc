@@ -4,7 +4,6 @@ import os
 from python_visual_mpc.goaldistancenet.setup_gdn import setup_gdn
 import shutil
 import socket
-import _thread
 import numpy as np
 import pdb
 from PIL import Image
@@ -27,7 +26,7 @@ from cv_bridge import CvBridge, CvBridgeError
 from sensor_msgs.msg import Image as Image_msg
 
 class Visual_MPC_Server(object):
-    def __init__(self):
+    def __init__(self, cmd_args=False):
 
         print('started visual MPC server')
         # pdb.set_trace()
@@ -35,24 +34,22 @@ class Visual_MPC_Server(object):
         base_dir = '/'.join(str.split(base_filepath, '/')[:-2])
 
         cem_exp_dir = base_dir + '/experiments/cem_exp/benchmarks_sawyer'
-
-        # parser = argparse.ArgumentParser(description='Run benchmarks')
-        # parser.add_argument('benchmark', type=str, help='the name of the folder with agent setting for the benchmark')
-        # parser.add_argument('--gpu_id', type=int, default=0, help='value to set for cuda visible devices variable')
-        # parser.add_argument('--ngpu', type=int, default=1, help='number of gpus to use')
-        # parser.add_argument('--userobot', type=str, default='True', help='number of gpus to use')
-        # parser.add_argument('--redis', type=str, default='', help='necessary when using ray: the redis address of the head node')
-
-        # args = parser.parse_args()
-
         self.use_robot = True
-
-        rospy.init_node('visual_mpc_server')
-        rospy.loginfo("init visual mpc server")
-
-        benchmark_name = rospy.get_param('~exp')
-        gpu_id = rospy.get_param('~gpu_id')
-        ngpu = rospy.get_param('~ngpu')
+        if cmd_args:
+            parser = argparse.ArgumentParser(description='Run benchmarks')
+            parser.add_argument('benchmark', type=str, help='the name of the folder with agent setting for the benchmark')
+            parser.add_argument('--gpu_id', type=int, default=0, help='value to set for cuda visible devices variable')
+            parser.add_argument('--ngpu', type=int, default=1, help='number of gpus to use')
+            args = parser.parse_args()
+            benchmark_name = args.benchmark
+            ngpu = args.ngpu
+            gpu_id = args.gpu_id
+        else:
+            rospy.init_node('visual_mpc_server')
+            rospy.loginfo("init visual mpc server")
+            benchmark_name = rospy.get_param('~exp')
+            gpu_id = rospy.get_param('~gpu_id')
+            ngpu = rospy.get_param('~ngpu')
 
         # load specific agent settings for benchmark:
         bench_dir = cem_exp_dir + '/' + benchmark_name
@@ -81,9 +78,9 @@ class Visual_MPC_Server(object):
         if self.policyparams['usenet']:
             self.netconf = imp.load_source('params', self.policyparams['netconf']).configuration
             if 'multmachine' in self.policyparams:
-                self.predictor = self.netconf['setup_predictor'](netconf=self.netconf, policyparams=self.policyparams, ngpu=ngpu,redis_address=args.redis)
+                self.predictor = self.netconf['setup_predictor']({}, self.netconf, policyparams=self.policyparams, ngpu=ngpu,redis_address=args.redis)
             else:
-                self.predictor = self.netconf['setup_predictor'](self.netconf, gpu_id, ngpu)
+                self.predictor = self.netconf['setup_predictor']({}, self.netconf, gpu_id, ngpu)
         else:
             self.netconf = {}
             self.predictor = None
@@ -213,4 +210,4 @@ class Visual_MPC_Server(object):
 
 
 if __name__ ==  '__main__':
-    Visual_MPC_Server()
+    Visual_MPC_Server(cmd_args=True)

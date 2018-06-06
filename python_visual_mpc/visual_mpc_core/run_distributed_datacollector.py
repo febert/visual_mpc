@@ -1,8 +1,10 @@
 import argparse
 import os
 import pdb
-import importlib.machinery
-import importlib.util
+import sys
+if sys.version_info >= (3,0):
+    import importlib.machinery
+    import importlib.util
 from python_visual_mpc.visual_mpc_core.infrastructure.run_sim import Sim
 from multiprocessing import Pool
 import copy

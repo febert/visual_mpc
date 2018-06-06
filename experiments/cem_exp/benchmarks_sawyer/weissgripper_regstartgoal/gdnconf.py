@@ -16,6 +16,7 @@ OUT_DIR = current_dir + '/modeldata'
 
 configuration = {
 'experiment_name': 'correction',
+'pretrained_model': BASE + '/tensorflow_data/sawyer/weissgripper_basecls_20k/modeldata/model96002',
 'data_dir': DATA_DIR,       # 'directory containing data.' ,
 'output_dir': OUT_DIR,      #'directory for model checkpoints.' ,
 'current_dir': base_dir,   #'directory for writing summary.' ,
