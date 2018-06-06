@@ -164,8 +164,8 @@ class GoalDistanceNet(object):
         if load_data:
             self.iter_num = tf.placeholder(tf.float32, [], name='iternum')
 
-            train_dict = build_tfrecord_fn(conf, training=True)
-            val_dict = build_tfrecord_fn(conf, training=False)
+            train_dict = build_tfrecord_fn(conf, mode='train')
+            val_dict = build_tfrecord_fn(conf, mode='val')
             dict = tf.cond(self.train_cond > 0,
                              # if 1 use trainigbatch else validation batch
                              lambda: train_dict,
@@ -251,12 +251,11 @@ class GoalDistanceNet(object):
 
         if self.build_loss:
             if 'multi_scale' not in self.conf:
-                self.add_pair_loss(self.I1, self.gen_I1, self.occ_bwd, self.flow_bwd,
-                                   self.I0, self.gen_I0, self.occ_fwd, self.flow_fwd)
+                self.add_pair_loss(I1=self.I1, gen_I1=self.gen_I1, occ_bwd=self.occ_bwd, flow_bwd=self.flow_bwd, diff_flow_bwd=self.diff_flow_bwd,
+                                   I0=self.I0, gen_I0=self.gen_I0, occ_fwd=self.occ_fwd, flow_fwd=self.flow_fwd, diff_flow_fwd=self.diff_flow_fwd)
             self.combine_losses()
             # image_summary:
             if 'fwd_bwd' in self.conf:
-
                 self.image_summaries = self.build_image_summary(
                     [self.I0, self.I1, self.gen_I0, self.gen_I1, length(self.flow_bwd), length(self.flow_fwd), self.occ_mask_bwd, self.occ_mask_fwd])
             elif 'multi_scale' not in self.conf:
@@ -490,6 +489,7 @@ class GoalDistanceNet(object):
 
         if 'fwd_bwd' in self.conf:
             newlosses['train_I0_recon_cost'+suf] = norm((gen_I0 - I0), occ_mask_fwd)
+
 
             fd = self.conf['flow_diff_cost']
             newlosses['train_flow_diff_cost'+suf] = (norm(diff_flow_fwd, occ_mask_fwd)
