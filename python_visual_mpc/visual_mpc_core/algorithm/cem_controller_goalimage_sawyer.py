@@ -17,7 +17,7 @@ from python_visual_mpc.visual_mpc_core.algorithm.utils.make_cem_visuals import m
 
 import matplotlib; matplotlib.use('Agg'); import matplotlib.pyplot as plt
 import copy
-
+from scipy.special import expit
 import collections
 import matplotlib; matplotlib.use('Agg'); import matplotlib.pyplot as plt
 import cv2
@@ -308,20 +308,21 @@ class CEM_controller():
         return actions
 
 
-    def perform_CEM(self, traj, last_frames, last_frames_med, last_states, t):
-        self.logger.log('starting cem at t{}...'.format(t))
+    def perform_CEM(self, traj):
+        self.logger.log('starting cem at t{}...'.format(self.t))
 
-        if 'reuse_cov' not in self.policyparams or t < 2:
+        if 'reuse_cov' not in self.policyparams or self.t < 2:
             self.sigma = construct_initial_sigma(self.policyparams)
         else:
             self.sigma = reuse_cov(self.sigma, self.adim, self.policyparams)
-        if 'reuse_mean' not in self.policyparams or t < 2:
+        if 'reuse_mean' not in self.policyparams or self.t < 2:
             self.mean = np.zeros(self.adim * self.naction_steps)
         else:
             self.mean = reuse_mean(self.mean, self.adim)
         if ('reuse_mean' in self.policyparams or 'reuse_cov' in self.policyparams) and t >= 2:
             self.M = self.policyparams['num_samples'][1]
             self.K = int(np.ceil(self.M*self.policyparams['selection_frac']))
+
         self.bestindices_of_iter = np.zeros((self.niter, self.K))
 
         self.logger.log('M {}, K{}'.format(self.M, self.K))
@@ -334,9 +335,9 @@ class CEM_controller():
             t_startiter = time.time()
 
             if 'rejection_sampling' in self.policyparams:
-                actions = self.sample_actions_rej(last_frames, last_states)
+                actions = self.sample_actions_rej(traj)
             else:
-                actions = self.sample_actions(last_frames, last_states, traj)
+                actions = self.sample_actions(traj)
 
             if 'random_policy' in self.policyparams:
                 self.logger.log('sampling random actions')
@@ -344,7 +345,7 @@ class CEM_controller():
                 return
             t_start = time.time()
 
-            scores = self.video_pred(last_frames, last_frames_med, last_states, actions, itr)
+            scores = self.video_pred(traj, actions, itr)
 
             if 'compare_mj_planner_actions' in self.agentparams: # remove first example because it is used for mj_planner
                 actions = actions[1:]
@@ -377,7 +378,7 @@ class CEM_controller():
 
             self.logger.log('overall time for iteration {}'.format(time.time() - t_startiter))
 
-    def sample_actions(self, last_frames, last_states, traj):
+    def sample_actions(self, traj):
         actions = np.random.multivariate_normal(self.mean, self.sigma, self.M)
         actions = actions.reshape(self.M, self.naction_steps, self.adim)
         if self.discrete_ind != None:
@@ -397,7 +398,7 @@ class CEM_controller():
 
         return actions
 
-    def sample_actions_rej(self, last_frames, last_states):
+    def sample_actions_rej(self, traj):
         """
         Perform rejection sampling
         :return:
@@ -476,11 +477,25 @@ class CEM_controller():
                 scores[b] -= gen_pixdistrib[t][b,self.goal_pix[0,0], self.goal_pix[0,1]]
         return scores
 
-    def video_pred(self, last_frames, last_frames_med, last_states, actions, cem_itr):
+    def video_pred(self, traj, actions, cem_itr):
         t_0 = time.time()
-        actions = actions[:,:,:self.netconf['adim']]
+        ctxt = self.netconf['context_frames']
+        last_frames = traj.images[self.t - ctxt + 1:self.t + 1]  # same as [t - 1:t + 1] for context 2
+        if 'image_medium' in self.agentparams:
+            last_frames_med = traj._image_medium[self.t - ctxt + 1:self.t + 1]  # same as [t - 1:t + 1] for context 2
+        if 'use_vel' in self.netconf:
+            last_states = traj.X_Xdot_full[self.t - ctxt + 1:self.t + 1]
+        else:
+            last_states = traj.X_full[self.t - ctxt + 1:self.t + 1]
 
-        last_states = last_states[:,:self.netconf['sdim']]
+        if 'autograsp' in self.agentparams:
+            last_states = last_states[:,:5] #ignore redundant finger dim
+            if 'finger_sensors' in self.agentparams:
+                touch = traj.touch_sensors[self.t - ctxt + 1:self.t + 1]
+                touch = expit(touch)
+                last_states = np.concatenate([last_states, touch], axis=1)
+            actions = actions[:,:,:self.netconf['adim']]
+
         last_states = last_states[None]
         last_frames = last_frames.astype(np.float32, copy=False) / 255.
         last_frames = last_frames[None]
@@ -832,36 +847,28 @@ class CEM_controller():
         self.traj = traj
         self.t = t
 
-
         if t == 0:
             action = np.zeros(self.agentparams['adim'])
             self.desig_pix_t0 = desig_pix
             if 'image_medium' in self.agentparams:
                 self.desig_pix_t0_med = (self.desig_pix * self.agentparams['image_medium'][0]/self.agentparams['image_height']).astype(np.int)
         else:
-            ctxt = self.netconf['context_frames']
-            last_images = traj.images[t-ctxt+1:t+1]  # same as [t - 1:t + 1] for context 2
-            if 'image_medium' in self.agentparams:
-                last_images_med = traj._image_medium[t-ctxt+1:t+1]  # same as [t - 1:t + 1] for context 2
 
-            if 'use_vel' in self.netconf:
-                last_states = traj.X_Xdot_full[t-ctxt+1:t+1]
-            else: last_states = traj.X_full[t-ctxt+1:t+1]
 
             if 'use_first_plan' in self.policyparams:
                 self.logger.log('using actions of first plan, no replanning!!')
                 if t == 1:
-                    self.perform_CEM(traj, last_images, last_images_med, last_states, t)
+                    self.perform_CEM(traj)
                 action = self.bestaction_withrepeat[t]
             elif 'replan_interval' in self.policyparams:
                 if (t-1) % self.policyparams['replan_interval'] == 0:
                     self.last_replan = t
-                    self.perform_CEM(traj, last_images, last_images_med, last_states, t)
+                    self.perform_CEM(traj)
                 self.logger.log('last replan', self.last_replan)
                 self.logger.log('taking action of ', t - self.last_replan)
                 action = self.bestaction_withrepeat[t - self.last_replan]
             else:
-                self.perform_CEM(traj, last_images, last_images_med, last_states, t)
+                self.perform_CEM(traj)
                 action = self.bestaction[0]
 
                 self.logger.log('########')
