@@ -77,12 +77,12 @@ agent = {
     'targetpos_clip':[[-0.5, -0.5, -0.08, -2 * np.pi, -1], [0.5, 0.5, 0.15, 2 * np.pi, 1]],
     'mode_rel':np.array([True, True, True, True, False]),
     'discrete_gripper' : -1, #discretized gripper dimension,
-    'lift_rejection_sample' : 1,#15,
+    'lift_rejection_sample' : 15,
     'object_mass' : 0.1,
     'friction' : 1.0,
     'autograsp' : {'reopen':'', 'zthresh':-0.06,'touchthresh':0.0},
     'reopen':'',
-#    'master_datadir' : '/raid/ngc2/grasping_data/cartgripper_openloop_randgrasp/'
+    'master_datadir' : '/raid/ngc2/grasping_data/cartgripper_openloop_randgrasp/'
 #    'file_to_record' : convert_to_record
     #'object_meshes':['giraffe'] #folder to original object + convex approximation
 }

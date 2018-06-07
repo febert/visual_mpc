@@ -247,7 +247,6 @@ class AgentMuJoCo(object):
                 goal_pix[icam, i] = g
         return goal_pix
 
-
     def get_int_targetpos(self, substep, prev, next):
         assert substep >= 0 and substep < self._hyperparams['substeps']
         return substep/float(self._hyperparams['substeps'])*(next - prev) + prev
@@ -403,17 +402,16 @@ class AgentMuJoCo(object):
                 traj_ok = False
 
         elif 'lift_rejection_sample' in self._hyperparams:
-            touch_eval = np.logical_or(traj.touch_sensors[:, 0] > 0, traj.touch_sensors[:, 1] > 0)
+            touch_eval = np.logical_and(traj.touch_sensors[:, 0] > 0, traj.touch_sensors[:, 1] > 0)
             valid_frames = np.logical_and(traj.target_qpos[1:,-1] > 0.05, touch_eval)
             off_ground = traj.target_qpos[1:,2] >= 0
-            # valid_decision = any(np.logical_and(valid_frames, off_ground))
-            valid_decision = any(valid_frames)
+            valid_decision = any(np.logical_and(valid_frames, off_ground))
             #### debug:
-            with open(self._hyperparams['record'] + 'valid_tr{}_trial{}_valid{}'.format(i_tr, self.i_trial, valid_decision), 'w') as f:
-                f.write('touch eval\n')
-                for i in range(touch_eval.shape[0]):
-                    f.write('touch {} offground {}\n'.format(touch_eval[i], off_ground[i]))
-
+            # if valid_decision:
+            #     with open(self._hyperparams['record'] + 'valid_tr{}_trial{}_valid{}'.format(i_tr, self.i_trial, valid_decision), 'w') as f:
+            #         f.write('touch eval\n')
+            #         for i in range(touch_eval.shape[0]):
+            #             f.write('touch {} offground {}\n'.format(touch_eval[i], off_ground[i]))
             print('traj {} trial {} valid {}'.format(i_tr, self.i_trial, valid_decision))
             if not valid_decision:
                 traj_ok = False
