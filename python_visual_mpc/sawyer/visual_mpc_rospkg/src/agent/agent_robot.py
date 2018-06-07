@@ -10,6 +10,7 @@ from python_visual_mpc.sawyer.visual_mpc_rospkg.src.utils import inverse_kinemat
 from python_visual_mpc.sawyer.visual_mpc_rospkg.src.misc.camera_calib.calibrated_camera import CalibratedCamera
 class AgentSawyer:
     def __init__(self, agent_params):
+        print('CREATING AGENT FOR ROBOT: {}'.format(agent_params.get('robot_name', 'vestri')))
         self._hyperparams = agent_params
 
         # initializes node and creates interface with Sawyer
@@ -55,7 +56,8 @@ class AgentSawyer:
             for i, r in enumerate(rbt_coords):
                 traj.Object_pose[0, i] = r
 
-        self._controller.reset_with_impedance(angles=self.random_start_angles(), stiffness=self._hyperparams['impedance_stiffness'])
+        self._controller.reset_with_impedance(angles=self.random_start_angles(), open_gripper=False,
+                                              stiffness=self._hyperparams['impedance_stiffness'])
 
         for t in xrange(self._hyperparams['T']):
             if not self._recorder.store_recordings(traj, t):
@@ -73,6 +75,29 @@ class AgentSawyer:
                 print("at time {}, l2 error {} and abs_dif {}".format(t, euc_error, abs_error))
 
             mj_U = policy.act(traj, t)
+
+            if 'check_preplan' in self._hyperparams and t == 0:
+                test_next = copy.deepcopy(self.next_qpos)
+                test_params = copy.deepcopy(self._hyperparams)
+                test_t_down = 0
+                test_g_up = False
+                test_g_closed = False
+
+                test_ja = self._controller.limb.joint_angles()
+
+                for test_t in range(self._hyperparams['T']):
+                    if test_t == 0:
+                        test_action = copy.deepcopy(mj_U)
+                    else:
+                        test_action = copy.deepcopy(policy.act(None, test_t))
+                    test_next, test_t_down, test_g_up, test_g_closed = get_target_qpos(test_next, test_params,
+                                                    test_action, test_t, test_g_up, test_g_closed, test_t_down, test_next[2])
+
+                    try:
+                        test_ja = inverse_kinematics.get_joint_angles(self.state_to_pose(test_next), seed_cmd=test_ja,
+                                                            use_advanced_options=True)
+                    except ValueError:
+                        return None, False
 
             self.next_qpos, self.t_down, self.gripper_up, self.gripper_closed = get_target_qpos(
                 self.next_qpos, self._hyperparams, mj_U, t, self.gripper_up, self.gripper_closed, self.t_down,
