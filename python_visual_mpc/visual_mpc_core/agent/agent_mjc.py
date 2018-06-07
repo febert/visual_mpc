@@ -34,7 +34,7 @@ class Image_dark_except(Exception):
     def __init__(self):
         pass
 
-def get_target_qpos(target_qpos, _hyperparams, mj_U, t, gripper_up, gripper_closed, t_down, gripper_zpos):
+def get_target_qpos(target_qpos, _hyperparams, mj_U, t, gripper_up, gripper_closed, t_down, gripper_zpos, touch_sensors):
     adim = _hyperparams['adim']
 
     target_qpos = target_qpos.copy()
@@ -69,14 +69,19 @@ def get_target_qpos(target_qpos, _hyperparams, mj_U, t, gripper_up, gripper_clos
     elif 'autograsp' in _hyperparams:
         assert adim == 5
         target_qpos[:4] = mj_U[:4] + target_qpos[:4]
-        if gripper_zpos < -0.06:
+        zthresh = _hyperparams['autograsp']['zthresh']
+        if gripper_zpos < zthresh:
             gripper_closed = True
+        if 'reopen' in _hyperparams['autograsp']:
+            touch_threshold = _hyperparams['autograsp']['touchthresh']
+            if touch_sensors[t, 0] <= touch_threshold and touch_sensors[t, 1] <= touch_threshold and gripper_zpos > zthresh:
+                gripper_closed = False
         if gripper_closed:
             target_qpos[4] = 0.1
         else:
             target_qpos[4] = 0.0
-        #print('target_qpos', target_qpos)
 
+        #print('target_qpos', target_qpos)
     else:
         mode_rel = _hyperparams['mode_rel']
         target_qpos = target_qpos + mj_U * mode_rel
@@ -197,7 +202,7 @@ class AgentMuJoCo(object):
             self.save_goal_image_conf(traj)
 
         if 'make_final_gif' in self._hyperparams:
-            self.save_gif()
+            self.save_gif(i_tr)
         return traj
 
     def get_desig_pix(self, round=True):
@@ -345,7 +350,8 @@ class AgentMuJoCo(object):
                     self.prev_target_qpos = copy.deepcopy(self.target_qpos)
 
                 self.target_qpos, self.t_down, self.gripper_up, self.gripper_closed = get_target_qpos(
-                    self.target_qpos, self._hyperparams, mj_U, t, self.gripper_up, self.gripper_closed, self.t_down, traj.X_full[t,2])
+                    self.target_qpos, self._hyperparams, mj_U, t, self.gripper_up, self.gripper_closed, self.t_down, traj.X_full[t,2],
+                    traj.touch_sensors)
                 traj.target_qpos[t + 1] = self.target_qpos.copy()
             else:
                 ctrl = mj_U.copy()
@@ -378,7 +384,7 @@ class AgentMuJoCo(object):
         if 'first_last_noarm' in self._hyperparams:
             self.hide_arm_store_image(1, traj)
 
-        if any(traj.Object_full_pose[:,:,2] > 0.01):
+        if np.any(traj.Object_full_pose[:,:,2] > 0.01):
             lifted = True
         else: lifted = False
         traj.stats['lifted'] = lifted
@@ -397,14 +403,24 @@ class AgentMuJoCo(object):
                 traj_ok = False
 
         elif 'lift_rejection_sample' in self._hyperparams:
-            valid_frames = np.logical_and(traj.target_qpos[1:,-1] > 0.05, np.logical_and(traj.touch_sensors[:, 0] > 0, traj.touch_sensors[:, 1] > 0))
+            touch_eval = np.logical_or(traj.touch_sensors[:, 0] > 0, traj.touch_sensors[:, 1] > 0)
+            valid_frames = np.logical_and(traj.target_qpos[1:,-1] > 0.05, touch_eval)
             off_ground = traj.target_qpos[1:,2] >= 0
-            if not any(np.logical_and(valid_frames, off_ground)):
-                lifted = False
+            # valid_decision = any(np.logical_and(valid_frames, off_ground))
+            valid_decision = any(valid_frames)
+            #### debug:
+            with open(self._hyperparams['record'] + 'valid_tr{}_trial{}_valid{}'.format(i_tr, self.i_trial, valid_decision), 'w') as f:
+                f.write('touch eval\n')
+                for i in range(touch_eval.shape[0]):
+                    f.write('touch {} offground {}\n'.format(touch_eval[i], off_ground[i]))
+
+            print('traj {} trial {} valid {}'.format(i_tr, self.i_trial, valid_decision))
+            if not valid_decision:
+                traj_ok = False
             else:
-                lifted = True
-            if self.i_trial < self._hyperparams['lift_rejection_sample']:
-                traj_ok = lifted
+                traj_ok = True
+            if self.i_trial >= self._hyperparams['lift_rejection_sample']:
+                traj_ok = True
         else:
             traj_ok = True
 
@@ -421,7 +437,6 @@ class AgentMuJoCo(object):
             if np.any(traj.goal_dist[-1] > self._hyperparams['dist_ok_thresh']):
                 traj_ok = False
         return traj_ok, traj
-
 
     def save_goal_image_conf(self, traj):
         div = .05
@@ -576,9 +591,9 @@ class AgentMuJoCo(object):
                 traj.predicted_images = policy.best_gen_images
                 traj.gtruth_images = policy.best_gtruth_images
 
-    def save_gif(self):
+    def save_gif(self, itr):
         file_path = self._hyperparams['record']
-        npy_to_gif(self.large_images_traj, file_path +'/video')
+        npy_to_gif(self.large_images_traj, file_path +'/video{}'.format(itr))
 
     def plot_ctrls(self):
         plt.figure()

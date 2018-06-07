@@ -5,9 +5,14 @@ import os
 import re
 import pdb
 
-def launch_job_func(run_script, hyper, arg, interactive=False, name='', ngpu=8, test=0, nsplit=None, isplit=None):
+def launch_job_func(run_script, hyper, arg, interactive=False, name='', ngpu=8, test=0, nsplit=None, isplit=None, fullcmd=None):
 
     data = {}
+
+    if fullcmd is None:
+        start_dir = "/workspace/visual_mpc/docker"
+    else:
+        start_dir = "/workspace/video_prediction"
     data["aceName"] = "nv-us-west-2"
     data["command"] = \
     "cd /result && tensorboard --logdir . & \
@@ -17,10 +22,10 @@ def launch_job_func(run_script, hyper, arg, interactive=False, name='', ngpu=8, 
      export RESULT_DIR=/result;\
      export NO_ROS='';\
      export PATH=/opt/conda/bin:/usr/local/mpi/bin:/usr/local/nvidia/bin:/usr/local/cuda/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin;\
-     cd /workspace/visual_mpc/docker;"
+     cd {}; \
+     git pull;".format(start_dir)
 
     data['dockerImageName'] = "ucb_rail8888/tf_mj1.5:latest"
-
 
     data["datasetMounts"] = [{"containerMountPoint": "/mnt/tensorflow_data/sim/mj_pos_ctrl_appflow", "id": 8906},
                              {"containerMountPoint": "/mnt/tensorflow_data/sim/appflow_nogenpix", "id": 8933},
@@ -60,13 +65,18 @@ def launch_job_func(run_script, hyper, arg, interactive=False, name='', ngpu=8, 
                              {"containerMountPoint": "/mnt/pushing_data/onpolicy/mj_pos_noreplan_fast_tfrec", "id": 8807},  #mj_pos_noreplan_fast_tfrec    | gtruth mujoco planning pushing
                              {"containerMountPoint": "/mnt/pushing_data/onpolicy/mj_pos_noreplan_fast_tfrec_fewdata", "id": 8972},
                              {"containerMountPoint": "/mnt/pushing_data/cartgripper/cartgripper_updown_sact", "id": 8931},
-                             {"containerMountPoint": "/mnt/pushing_data/onpolicy/updown_sact_bounded_disc", "id": 9363}
+                             {"containerMountPoint": "/mnt/pushing_data/onpolicy/updown_sact_bounded_disc", "id": 9363},
+                             {"containerMountPoint": "/mnt/pushing_data/cartgripper/grasping/ag_scripted_longtraj", "id": 10217}
                              ]
 
     data["aceInstance"] = "ngcv{}".format(ngpu)
     if interactive == 'True':
         command = "/bin/sleep 360000"
         data["name"] = 'int' + name
+
+    elif fullcmd is not None:
+        command = fullcmd
+        data["name"] = name
     else:
         if 'trainvid' in run_script:
             command = "python " + run_script + " --hyper ../../" + hyper
@@ -86,7 +96,7 @@ def launch_job_func(run_script, hyper, arg, interactive=False, name='', ngpu=8, 
     with open('autogen.json', 'w') as outfile:
         json.dump(data, outfile, indent=4)
 
-    print('command', command)
+    print('command', data["command"])
 
     if not bool(test):
         os.system("ngc batch run -f autogen.json")
@@ -101,7 +111,8 @@ if __name__ == '__main__':
     parser.add_argument('--name', default='', type=str, help='additional arguments')
     parser.add_argument('--ngpu', default=8, type=int, help='number of gpus')
     parser.add_argument('--test', default=0, type=int, help='testrun')
+    parser.add_argument('--cmd', default=0, type=str, help='full command')
     args = parser.parse_args()
 
-    launch_job_func(args.run_script, args.hyper, args.arg, args.int, args.name, args.ngpu, args.test)
+    launch_job_func(args.run_script, args.hyper, args.arg, args.int, args.name, args.ngpu, args.test, fullcmd=args.cmd)
 
