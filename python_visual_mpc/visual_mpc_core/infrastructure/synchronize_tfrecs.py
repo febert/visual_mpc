@@ -8,7 +8,7 @@ master = 'deepthought'
 @ray.remote
 def sync(agentparams):
     master_datadir = agentparams['master_datadir']
-    local_datadir = '/result/data/train'
+    local_datadir = '/result'
 
     while True:
         print('transfer tfrecords to master')
