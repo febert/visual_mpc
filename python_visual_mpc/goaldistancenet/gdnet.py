@@ -23,6 +23,7 @@ from tensorflow.contrib.layers.python import layers as tf_layers
 from python_visual_mpc.video_prediction.utils_vpred.online_reader import read_trajectory
 
 from python_visual_mpc.data_preparation.gather_data import make_traj_name_list
+import pdb
 
 import collections
 
@@ -225,8 +226,10 @@ class GoalDistanceNet(object):
                     occ_thres_offset = 0.5
 
                 occ_thresh = occ_thres_mult * mag_sq + occ_thres_offset
-                self.occ_fwd = tf.squeeze(tf.cast(length_sq(self.diff_flow_fwd) > occ_thresh, tf.float32))
-                self.occ_bwd = tf.squeeze(tf.cast(length_sq(self.diff_flow_bwd) > occ_thresh, tf.float32))
+                self.occ_fwd = tf.cast(length_sq(self.diff_flow_fwd) > occ_thresh, tf.float32)
+                self.occ_fwd = tf.reshape(self.occ_fwd, [self.bsize,self.img_height, self.img_width,1])
+                self.occ_bwd = tf.cast(length_sq(self.diff_flow_bwd) > occ_thresh, tf.float32)
+                self.occ_bwd = tf.reshape(self.occ_bwd, [self.bsize, self.img_height, self.img_width, 1])
             else:
                 bias = self.conf['occlusion_handling_bias']
                 scale = self.conf['occlusion_handling_scale']

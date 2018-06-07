@@ -9,7 +9,8 @@ import pdb
 from datetime import datetime
 
 import cv2
-import matplotlib; matplotlib.use('Agg'); import matplotlib.pyplot as plt
+# import matplotlib; matplotlib.use('Agg');
+import matplotlib.pyplot as plt
 import numpy as np
 import rospy
 from cv_bridge import CvBridge
@@ -67,15 +68,14 @@ class Visual_MPC_Client():
             args = parser.parse_args()
             benchmark_name = args.experiment
             self.use_gui = False
-            exp_dir = self.base_dir + '/experiments'
-            bench_dir = exp_dir + '/' + benchmark_name
             self.robot_name = args.robot_name
         else:
             self.use_gui = rospy.get_param('~gui')   #experiment name
             benchmark_name = rospy.get_param('~exp')   #experiment name
-            cem_exp_dir = self.base_dir + '/experiments/cem_exp/benchmarks_sawyer'
-            bench_dir = cem_exp_dir + '/' + benchmark_name
             self.robot_name = rospy.get_param('~robot')  # experiment name
+
+        cem_exp_dir = self.base_dir + '/experiments/cem_exp/benchmarks_sawyer'
+        bench_dir = cem_exp_dir + '/' + benchmark_name
 
         if not os.path.exists(bench_dir):
             raise ValueError('benchmark directory does not exist')
@@ -206,7 +206,6 @@ class Visual_MPC_Client():
             print('waiting for images')
             rospy.sleep(0.5)
 
-        if not cmd_args:
             if self.data_collection == True:
                 self.checkpoint_file = os.path.join(self.recorder.save_dir, 'checkpoint.txt')
                 # self.rpn_tracker = RPN_Tracker(self.recorder_save_dir, self.recorder)
@@ -248,27 +247,30 @@ class Visual_MPC_Client():
         self.set_neutral_with_impedance(2.5)
 
     def mark_goal_desig(self, itr):
-        imagemain = self.recorder.ltob.img_cropped
-        imagemain = cv2.cvtColor(imagemain, cv2.COLOR_BGR2RGB)
+
 
         if 'use_goal_image' in self.policyparams:
             print('put object in goal configuration')
             pdb.set_trace()
             imagemain = self.recorder.ltob.img_cropped
             imagemain = cv2.cvtColor(imagemain, cv2.COLOR_BGR2RGB)
-            c_main = Getdesig(imagemain, self.recorder_save_dir, 'goal_traj{}'.format(itr),
-                              self.ndesig, im_shape=[self.img_height, self.img_width], clicks_per_desig=1)
+            c_main = Getdesig(imagemain, self.recorder_save_dir, 'goal_traj{}'.format(itr), n_desig=1,
+                              im_shape=[self.img_height, self.img_width], clicks_per_desig=1)
             self.goal_pos_main = c_main.desig.astype(np.int64)
             self.goal_image = imagemain
             print('goal pos main:', self.goal_pos_main)
 
             print('put object in start configuration')
             pdb.set_trace()
-            c_main = Getdesig(imagemain, self.recorder_save_dir, 'start_traj{}'.format(itr),
-                              self.ndesig, im_shape=[self.img_height, self.img_width], clicks_per_desig=1)
+            imagemain = self.recorder.ltob.img_cropped
+            imagemain = cv2.cvtColor(imagemain, cv2.COLOR_BGR2RGB)
+            c_main = Getdesig(imagemain, self.recorder_save_dir, 'start_traj{}'.format(itr), n_desig=1,
+                              im_shape=[self.img_height, self.img_width], clicks_per_desig=1)
             self.desig_pos_main = c_main.desig.astype(np.int64)
             print('desig pos aux1:', self.desig_pos_main)
         else:
+            imagemain = self.recorder.ltob.img_cropped
+            imagemain = cv2.cvtColor(imagemain, cv2.COLOR_BGR2RGB)
             c_main = Getdesig(imagemain, self.recorder_save_dir, '_traj{}'.format(itr),
                               self.ndesig, im_shape=[self.img_height, self.img_width])
             self.desig_pos_main = c_main.desig.astype(np.int64)
@@ -282,7 +284,7 @@ class Visual_MPC_Client():
 
     def set_weiss_gripper(self, des_pos):
         """
-        :param des_pos:  0
+        :param des_pos:
         :return:
         """
         cmd = Cmd()
@@ -430,7 +432,8 @@ class Visual_MPC_Client():
             goal_img_aux1 = np.zeros([self.img_height, self.img_width, 3])
             goal_img_aux1 = self.bridge.cv2_to_imgmsg(goal_img_aux1)
             goal_img_main = self.bridge.cv2_to_imgmsg(self.goal_image)
-            rospy.wait_for_service('init_traj_visualmpc', timeout=2.)
+            rospy.wait_for_service('init_traj_visualmpc', timeout=15.)
+            print('waiting for service init_traj_visualmpc')
             self.init_traj_visual_func(0, 0, goal_img_main, goal_img_aux1, self.save_subdir)
         except (rospy.ServiceException, rospy.ROSException) as e:
             raise ValueError("Service call failed: %s" % (e,))
@@ -447,7 +450,7 @@ class Visual_MPC_Client():
         if self.ctrl.sawyer_gripper:
             self.ctrl.gripper.open()
         else:
-            self.set_weiss_gripper(0.0)
+            self.set_weiss_griper(50.)
 
         self.gripper_closed = False
 
@@ -512,10 +515,10 @@ class Visual_MPC_Client():
 
         gripper_state = np.array([0.])  # gripper open
         if go_up_at_start:
-            self.des_pos = np.concatenate([startpos, np.array([self.lower_height+self.delta_up]), start_angle, gripper_state], axis=0)
+            self.des_pos = np.concatenate([startpos, np.array([self.lower_height+self.delta_up]), start_angle], axis=0)
             self.gripper_up = True
         else:
-            self.des_pos = np.concatenate([startpos, np.array([self.lower_height]), start_angle, gripper_state], axis=0)
+            self.des_pos = np.concatenate([startpos, np.array([self.lower_height]), start_angle], axis=0)
             self.gripper_up = False
 
         self.topen, self.t_down = 0, 0
@@ -635,7 +638,7 @@ class Visual_MPC_Client():
             if rospy.get_time() - self.tlast_gripper_status > 10.:
                 print('gripper stopped working!')
                 pdb.set_trace()
-            self.set_weiss_gripper(0.)
+            self.set_weiss_griper(100.)
 
         if self.data_collection:
             if rospy.get_time() - self.tlast_ctrl_alive > 10.:
@@ -850,19 +853,15 @@ class Visual_MPC_Client():
         return des_pos, going_down
 
     def truncate_pos(self, pos):
-        pdb.set_trace()
         xlim = self.xlim
         ylim = self.ylim
 
-        pos = np.clip(pos, np.array([xlim[0], ylim[0]]), np.array([xlim[1], ylim[1]]))
-
+        pos[:2] = np.clip(pos[:2], np.array([xlim[0], ylim[0]]), np.array([xlim[1], ylim[1]]))
         if self.enable_rot:
             alpha_min = -0.78539
             alpha_max = np.pi
             pos[3] = np.clip(pos[3], alpha_min, alpha_max)
-
         return pos
-
 
     def redistribute_objects(self):
 

@@ -534,6 +534,7 @@ class CEM_controller():
             nruns = 1
             assert self.M == self.bsize
         gen_images_l, gen_distrib_l, gen_states_l = [], [], []
+
         for run in range(nruns):
             self.logger.log('run{}'.format(run))
             actions_ = actions[run*self.bsize:(run+1)*self.bsize]
@@ -618,8 +619,8 @@ class CEM_controller():
             gen_images = make_cem_visuals(self, actions, bestindices, cem_itr, flow_fields, gen_distrib, gen_images,
                                           gen_states, last_frames, goal_warp_pts_l, scores, self.warped_image_goal,
                                           self.warped_image_start, warped_images, last_states)
-            if 'sawyer' in self.agentparams:
-                bestind = self.publish_sawyer(gen_distrib, gen_images, scores)
+            # if 'sawyer' in self.agentparams:
+                # bestind = self.publish_sawyer(gen_distrib, gen_images, scores)
 
         if 'store_video_prediction' in self.agentparams and\
                 cem_itr == (self.policyparams['iterations']-1):
@@ -653,8 +654,7 @@ class CEM_controller():
             goal_image = cv2.resize(goal_image, (self.agentparams['image_width'], self.agentparams['image_height']))
 
         if 'start' in self.policyparams['register_gtruth']:
-            warped_image_start, flow_field, goal_warp_pts = self.goal_image_warper(current_frame[None],
-                                                                                  start_image[None])
+            warped_image_start, flow_field, goal_warp_pts = self.goal_image_warper(current_frame[None], start_image[None])
             desig_l.append(np.flip(goal_warp_pts[0, pix_t0[0], pix_t0[1]], 0))
             st_warperr = np.linalg.norm(start_image[pix_t0[0], pix_t0[1]] -
                                                   warped_image_start[0, pix_t0[0], pix_t0[1]])
@@ -808,7 +808,6 @@ class CEM_controller():
         self.logger.log('making distance grid with goal_pix', goal_pix)
         # plt.imshow(distance_grid, zorder=0, cmap=plt.get_cmap('jet'), interpolation='none')
         # plt.show()
-        # pdb.set_trace()
         return distance_grid
 
     def make_input_distrib(self, itr):
@@ -840,6 +839,8 @@ class CEM_controller():
         self.goal_image = goal_image
 
         if 'register_gtruth' in self.policyparams:
+            self.desig_pix = np.array(desig_pix).reshape((1, 1, 2))  # 1,1,2
+            self.goal_pix = np.array(goal_pix).reshape((1, 1, 2))  # 1,1,2
             self.goal_pix = np.tile(goal_pix, [1,self.ndesig,1])   # shape: ncam, ndesig, 2
         else:
             self.desig_pix = np.array(desig_pix).reshape((self.ncam, self.ndesig, 2))   # 1,1,2
@@ -854,12 +855,10 @@ class CEM_controller():
 
         if t == 0:
             action = np.zeros(self.agentparams['adim'])
-            self.desig_pix_t0 = desig_pix
+            self.desig_pix_t0 = self.desig_pix
             if 'image_medium' in self.agentparams:
                 self.desig_pix_t0_med = (self.desig_pix * self.agentparams['image_medium'][0]/self.agentparams['image_height']).astype(np.int)
         else:
-
-
             if 'use_first_plan' in self.policyparams:
                 self.logger.log('using actions of first plan, no replanning!!')
                 if t == 1:

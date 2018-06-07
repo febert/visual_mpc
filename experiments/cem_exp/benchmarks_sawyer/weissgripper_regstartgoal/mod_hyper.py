@@ -5,6 +5,22 @@ bench_dir = '/'.join(str.split(__file__, '/')[:-2])
 from python_visual_mpc.visual_mpc_core.algorithm.cem_controller_goalimage_sawyer import CEM_controller
 import numpy as np
 
+
+agent = {
+    'sawyer':'',
+    'T': 30,
+    'adim':5,
+    'sdim':4,
+    'image_height':56,
+    'image_width':64,
+    'ndesig':1,
+    'make_final_gif':'',
+    'wristrot':'',
+    # 'startpos_basedon_click':''
+    'record':current_dir + '/verbose'
+}
+
+
 policy = {
     'type' : CEM_controller,
     'low_level_ctrl': None,
@@ -25,15 +41,7 @@ policy = {
     'rew_all_steps':"",
     'finalweight':30,
     'no_pixdistrib_video':'',
-    'use_goal_image':''
+    'use_goal_image':'',
+    'register_gtruth':['start','goal'],
 }
 
-agent = {
-    'T': 30,
-    'adim':5,
-    'sdim':4,
-    'ndesig':1,
-    'make_final_gif':'',
-    'wristrot':'',
-    'startpos_basedon_click':''
-}

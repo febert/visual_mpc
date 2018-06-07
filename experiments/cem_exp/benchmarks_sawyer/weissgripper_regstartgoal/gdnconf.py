@@ -3,9 +3,6 @@ base_dir = python_visual_mpc.__file__
 
 base_dir = '/'.join(str.split(base_dir, '/')[:-2])
 
-# tf record data location:
-import os
-DATA_DIR = os.environ['VMPC_DATA_DIR'] + '/weiss_gripper_20k/train'
 
 import os
 current_dir = os.path.dirname(os.path.realpath(__file__))
@@ -13,11 +10,11 @@ current_dir = os.path.dirname(os.path.realpath(__file__))
 # local output directory
 OUT_DIR = current_dir + '/modeldata'
 
+BASE = '/'.join(str.split(current_dir, '/')[:-4])
 
 configuration = {
 'experiment_name': 'correction',
-'pretrained_model': BASE + '/tensorflow_data/sawyer/weissgripper_basecls_20k/modeldata/model96002',
-'data_dir': DATA_DIR,       # 'directory containing data.' ,
+'pretrained_model': BASE + '/tensorflow_data/gdn/weiss/weiss_thresh0.5_56x64/modeldata/model28002',
 'output_dir': OUT_DIR,      #'directory for model checkpoints.' ,
 'current_dir': base_dir,   #'directory for writing summary.' ,
 'num_iterations':50000,
@@ -25,14 +22,13 @@ configuration = {
 'train_val_split':.95,
 'visualize':'',
 'skip_frame':1,
-'batch_size': 64,           #'batch size for training' ,
+'batch_size': 1,           #'batch size for training' ,
 'learning_rate': 0.001,     #'the base learning rate of the generator' ,
 'normalization':'None',
 'sdim' :4,
 'adim' :5,
-'orig_size': [64,64],
-# 'row_start':0,
-# 'row_end':48,
+'orig_size': [56,64],
+
 'norm':'charbonnier',
 'smoothcost':1e-6,
 'smoothmode':'2nd',

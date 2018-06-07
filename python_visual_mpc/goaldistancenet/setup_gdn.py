@@ -54,6 +54,7 @@ def setup_gdn(conf, gpu_id = 0):
             print('gdn restore done.')
 
             def predictor_func(pred_images, goal_image):
+
                 feed_dict = {
                             model.I0_pl:pred_images,
                             model.I1_pl:goal_image}
