@@ -82,6 +82,7 @@ class WSGRobotController(RobotController):
             sem = Semaphore(value = 0)      #use of semaphore ensures script will block if gripper dies during execution
             self.sem_list.append(sem)
             start = rospy.get_time()
+            print("gripper sem acquire")
             sem.acquire()
             print("waited on gripper for {} seconds".format(rospy.get_time() - start))
 
@@ -113,8 +114,8 @@ class WSGRobotController(RobotController):
     def reset_with_impedance(self, angles = NEUTRAL_JOINT_ANGLES, duration= 3., open_gripper = True, close_first = False, stiffness = 150):
         if open_gripper:
             if close_first:
-                self.close_gripper(True)
-            self.open_gripper(True)
+                self.set_gripper(2, wait=True)
+            self.set_gripper(100, wait=True)
 
         self.imp_ctrl_release_spring(100)
         self.move_to_joints_impedance_sec(angles, duration=duration)
