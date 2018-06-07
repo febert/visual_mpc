@@ -616,7 +616,7 @@ class CEM_controller():
 
         if self.verbose and cem_itr == self.policyparams['iterations']-1 and self.i_tr % self.verbose_freq ==0 or \
                 'verbose_every_itr' in self.policyparams:
-            gen_images = make_cem_visuals(self, actions, bestindices, cem_itr, flow_fields, gen_distrib, gen_images,
+            make_cem_visuals(self, actions, bestindices, cem_itr, flow_fields, gen_distrib, gen_images,
                                           gen_states, last_frames, goal_warp_pts_l, scores, self.warped_image_goal,
                                           self.warped_image_start, warped_images, last_states)
             # if 'sawyer' in self.agentparams:

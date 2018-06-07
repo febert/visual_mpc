@@ -160,13 +160,12 @@ class Visual_MPC_Server(object):
 
         self.traj.actions[self.t, :] = mj_U
 
-
-        if self.t == self.agentparams['T'] -1:
-            if 'verbose' in self.policyparams:
-                pickle.dump(self.cem_controller.dict_,open(self.netconf['current_dir'] + '/verbose/pred.pkl', 'wb'))
-                print('finished writing files to:' + self.netconf['current_dir'] + '/verbose/pred.pkl')
-            if 'no_pixdistrib_video' not in self.policyparams:
-                self.save_video()
+        # if self.t == self.agentparams['T'] -1:
+            # if 'verbose' in self.policyparams:
+                # pickle.dump(self.cem_controller.dict_,open(self.netconf['current_dir'] + '/verbose/pred.pkl', 'wb'))
+                # print('finished writing files to:' + self.netconf['current_dir'] + '/verbose/pred.pkl')
+            # if 'no_pixdistrib_video' not in self.policyparams:
+            #     self.save_video()
 
         self.t += 1
 

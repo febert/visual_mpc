@@ -16,8 +16,9 @@ agent = {
     'ndesig':1,
     'make_final_gif':'',
     'wristrot':'',
-    # 'startpos_basedon_click':''
-    'record':current_dir + '/verbose'
+    'startpos_basedon_click':'',
+    'record':current_dir + '/verbose',
+    'discrete_adim':[2],
 }
 
 

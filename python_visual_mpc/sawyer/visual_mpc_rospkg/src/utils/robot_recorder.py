@@ -348,14 +348,12 @@ class RobotRecorder(object):
 
     def save_highres(self):
         writer = imageio.get_writer(self.image_folder + '/highres_traj{}.mp4'.format(self.itr), fps=10)
-
         # add crosshairs to images in case of tracking:
         if 'opencv_tracking' in self.agent_params:
             highres_imglist = self.add_cross_hairs(self.curr_traj.highres_imglist,
                                                         self.curr_traj.desig_hpos_list)
         else:
             highres_imglist = self.curr_traj.highres_imglist
-
         print('shape highres:', highres_imglist[0].shape)
         for im in highres_imglist:
             writer.append_data(im)

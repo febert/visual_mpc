@@ -247,8 +247,6 @@ class Visual_MPC_Client():
         self.set_neutral_with_impedance(2.5)
 
     def mark_goal_desig(self, itr):
-
-
         if 'use_goal_image' in self.policyparams:
             print('put object in goal configuration')
             pdb.set_trace()
@@ -289,8 +287,8 @@ class Visual_MPC_Client():
         """
         cmd = Cmd()
         cmd.speed = 100.
-        cmd.pos = (0.1 - des_pos) / 0.1 * 100
-        print('command weiss', cmd.pos)
+        cmd.pos = des_pos
+        # print('command weiss', cmd.pos)
         self.weiss_pub.publish(cmd)
 
     def save_weiss_pos(self, status):
@@ -450,7 +448,7 @@ class Visual_MPC_Client():
         if self.ctrl.sawyer_gripper:
             self.ctrl.gripper.open()
         else:
-            self.set_weiss_griper(50.)
+            self.set_weiss_gripper(50.)
 
         self.gripper_closed = False
 
@@ -564,8 +562,8 @@ class Visual_MPC_Client():
                 print('action vec', action_vec)
                 start_time = rospy.get_time()
 
-                print('prev_desired pos in step {0}: {1}'.format(i_step, self.previous_des_pos))
-                print('new desired pos in step {0}: {1}'.format(i_step, self.des_pos))
+                # print('prev_desired pos in step {0}: {1}'.format(i_step, self.previous_des_pos))
+                # print('new desired pos in step {0}: {1}'.format(i_step, self.des_pos))
 
                 if going_down:
                     self.action_interval = 1.5
@@ -574,12 +572,12 @@ class Visual_MPC_Client():
 
                 self.t_prev = start_time
                 self.t_next = start_time + self.action_interval
-                print('t_prev', self.t_prev)
-                print('t_next', self.t_next)
+                # print('t_prev', self.t_prev)
+                # print('t_next', self.t_next)
 
                 isave_substep  = 0
                 tsave = np.linspace(self.t_prev, self.t_next, num=self.num_pic_perstep, dtype=np.float64)
-                print('tsave', tsave)
+                # print('tsave', tsave)
                 print('applying action {}'.format(i_step))
                 i_step += 1
 
@@ -588,18 +586,15 @@ class Visual_MPC_Client():
             if self.save_active:
                 if isave_substep < len(tsave):
                     if rospy.get_time() > tsave[isave_substep] -.01:
-                        # print 'saving index{}'.format(isave)
-                        # print 'isave_substep', isave_substep
                         if 'opencv_tracking' in self.agentparams:
                             _, self.desig_hpos_main = self.tracker.get_track()
-                        print('isave', isave)
                         self.recorder.save(isave, action_vec, self.get_endeffector_pos(), self.desig_hpos_main, self.desig_pos_main, self.goal_pos_main)
                         isave_substep += 1
                         isave += 1
             try:
                 if self.robot_move and not self.reset_active:
                     self.move_with_impedance(des_joint_angles)
-                    self.set_weiss_gripper(self.des_pos[4])
+                    self.set_weiss_gripper(50.)
                     # print des_joint_angles
             except OSError:
                 rospy.logerr('collision detected, stopping trajectory, going to reset robot...')
@@ -624,10 +619,10 @@ class Visual_MPC_Client():
             self.recorder.save_highres()
             #copy files with pix distributions from remote and make gifs
             # scp_pix_distrib_files(self.policyparams, self.agentparams)
-            v = Visualizer_tkinter(append_masks=False,
-                                   filepath=self.policyparams['current_dir'] + '/verbose',
-                                   numex=5)
-            v.build_figure()
+            # v = Visualizer_tkinter(append_masks=False,
+            #                        filepath=self.policyparams['current_dir'] + '/verbose',
+            #                        numex=5)
+            # v.build_figure()
 
         if not self.reset_active:
             self.goup()
@@ -638,7 +633,7 @@ class Visual_MPC_Client():
             if rospy.get_time() - self.tlast_gripper_status > 10.:
                 print('gripper stopped working!')
                 pdb.set_trace()
-            self.set_weiss_griper(100.)
+            self.set_weiss_gripper(100.)
 
         if self.data_collection:
             if rospy.get_time() - self.tlast_ctrl_alive > 10.:
