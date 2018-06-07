@@ -11,7 +11,7 @@ current_dir = os.path.dirname(os.path.realpath(__file__))
 data_conf = {'left_cam' : {'crop_bot' : 70, 'crop_left' : 130, 'crop_right' : 120},
              'front_cam': {'crop_bot' : 70, 'crop_left' : 90, 'crop_right' : 160}}
 
-clip_array = [[0.375, -0.22, 0.184, -0.5 * np.pi, 0], [0.825, 0.24, 0.32, 0.5 * np.pi, 0.1]]
+
 agent = {'type' : AgentSawyer,
          'robot_name' : 'sudri',
          'data_save_dir': BASE_DIR + '/train',
@@ -26,9 +26,8 @@ agent = {'type' : AgentSawyer,
          'sdim' : 5,
          'mode_rel' : np.array([True, True, True, True, False]),
          'discrete_gripper': -1,  # discretized gripper dimension,
-         'targetpos_clip': clip_array,
-         'autograsp' : '',
-         'autograsp_thresh' : clip_array[0][2] + (clip_array[1][2] - clip_array[0][2]) * 0.15,
+         'targetpos_clip': [[0.375, -0.22, 0.184, -0.5 * np.pi, 0], [0.825, 0.24, 0.32, 0.5 * np.pi, 0.1]],
+         'autograsp' : {'zthresh' :  0.15, 'touchthresh' : 0.0, 'reopen' : ''},
          'file_to_record' : convert_to_record
          }
 

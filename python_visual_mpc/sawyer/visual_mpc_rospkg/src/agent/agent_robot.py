@@ -101,7 +101,7 @@ class AgentSawyer:
 
             self.next_qpos, self.t_down, self.gripper_up, self.gripper_closed = get_target_qpos(
                 self.next_qpos, self._hyperparams, mj_U, t, self.gripper_up, self.gripper_closed, self.t_down,
-                traj.robot_states[t, 2])
+                traj.robot_states[t, 2], traj.touch_sensors)
 
             traj.target_qpos[t + 1] = copy.deepcopy(self.next_qpos)
 

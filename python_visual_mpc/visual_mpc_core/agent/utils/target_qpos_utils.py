@@ -1,6 +1,6 @@
 import numpy as np
 
-def get_target_qpos(target_qpos, _hyperparams, mj_U, t, gripper_up, gripper_closed, t_down, gripper_zpos):
+def get_target_qpos(target_qpos, _hyperparams, mj_U, t, gripper_up, gripper_closed, t_down, gripper_zpos, touch_sensors):
     adim = _hyperparams['adim']
 
     target_qpos = target_qpos.copy()
@@ -35,14 +35,23 @@ def get_target_qpos(target_qpos, _hyperparams, mj_U, t, gripper_up, gripper_clos
     elif 'autograsp' in _hyperparams:
         assert adim == 5
         target_qpos[:4] = mj_U[:4] + target_qpos[:4]
-        if gripper_zpos < _hyperparams.get('autograsp_thresh', -0.06):
+
+        z_height = _hyperparams['targetpos_clip'][1][2] - _hyperparams['targetpos_clip'][0][2]
+        zthresh = _hyperparams['targetpos_clip'][0][2] + z_height * _hyperparams['autograsp']['zthresh']
+
+        if gripper_zpos < zthresh:
             gripper_closed = True
+
+        if 'reopen' in _hyperparams['autograsp']:
+            touch_threshold = _hyperparams['autograsp']['touchthresh']   #if touchthresh not specified never re-open
+            if touch_sensors[t, 0] <= touch_threshold and touch_sensors[t, 1] <= touch_threshold and gripper_zpos > zthresh:
+                gripper_closed = False
         if gripper_closed:
             target_qpos[4] = 0.1
         else:
             target_qpos[4] = 0.0
-        #print('target_qpos', target_qpos)
 
+        #print('target_qpos', target_qpos)
     else:
         mode_rel = _hyperparams['mode_rel']
         target_qpos = target_qpos + mj_U * mode_rel

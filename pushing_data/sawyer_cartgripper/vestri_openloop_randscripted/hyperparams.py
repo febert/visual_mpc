@@ -22,10 +22,9 @@ agent = {'type' : AgentSawyer,
          'sdim' : 5,
          'mode_rel' : np.array([True, True, True, True, False]),
          'discrete_gripper': -1,  # discretized gripper dimension,
-         'targetpos_clip':[[0.42, -0.24, 0.184, -0.5 * np.pi , 0], [0.87, 0.22, 0.4, 0.5 * np.pi, 0.1]],
          'ztarget' : 0.3,
-         'autograsp' : '',
-         'autograsp_thresh' : 0.22,
+         'targetpos_clip': [[0.42, -0.24, 0.184, -0.5 * np.pi , 0], [0.87, 0.22, 0.32, 0.5 * np.pi, 0.1]],
+         'autograsp' : {'zthresh' :  0.15, 'touchthresh' : 0.0, 'reopen' : ''},   #15% of total height is zthresh
          'file_to_record' : convert_to_record,
          'rpn_objects' : ''
          }
