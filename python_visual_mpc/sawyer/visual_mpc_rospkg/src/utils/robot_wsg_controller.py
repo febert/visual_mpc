@@ -75,16 +75,19 @@ class WSGRobotController(RobotController):
     def close_gripper(self, wait = False):
         self.set_gripper(GRIPPER_CLOSE, wait = wait)
 
-    def set_gripper(self, command_pos, wait = False):
-        assert command_pos >= GRIPPER_CLOSE and command_pos <= GRIPPER_OPEN, "Command pos must be in range [GRIPPER_CLOSE, GRIPPER_OPEN]"
+    def _set_gripper(self, command_pos, wait = False):
         self._desired_gpos = command_pos
         if wait:
-            sem = Semaphore(value = 0)      #use of semaphore ensures script will block if gripper dies during execution
+            sem = Semaphore(value=0)  # use of semaphore ensures script will block if gripper dies during execution
             self.sem_list.append(sem)
             start = rospy.get_time()
             print("gripper sem acquire")
             sem.acquire()
             print("waited on gripper for {} seconds".format(rospy.get_time() - start))
+
+    def set_gripper(self, command_pos, wait = False):
+        assert command_pos >= GRIPPER_CLOSE and command_pos <= GRIPPER_OPEN, "Command pos must be in range [GRIPPER_CLOSE, GRIPPER_OPEN]"
+        self._set_gripper(command_pos, wait = wait)
 
     def _gripper_callback(self, status):
         self._status_mutex.acquire()
@@ -114,9 +117,10 @@ class WSGRobotController(RobotController):
     def reset_with_impedance(self, angles = NEUTRAL_JOINT_ANGLES, duration= 3., open_gripper = True, close_first = False, stiffness = 150):
         if open_gripper:
             if close_first:
-                self.set_gripper(2, wait=True)
-            self.set_gripper(100, wait=True)
-
+                self._set_gripper(2, wait=True)
+            self._set_gripper(100, wait=True)
+            self.open_gripper()
+            
         self.imp_ctrl_release_spring(100)
         self.move_to_joints_impedance_sec(angles, duration=duration)
         self.imp_ctrl_release_spring(stiffness)
