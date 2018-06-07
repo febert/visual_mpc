@@ -33,7 +33,7 @@ agent = {
     'posmode':"",
     'targetpos_clip':[[-0.5, -0.5, -0.08, -2 * np.pi, -1], [0.5, 0.5, 0.15, 2 * np.pi, 1]],
     'mode_rel':np.array([True, True, True, True, False]),
-    'autograsp' : True,
+    'autograsp' : {},
     'cameras':['maincam', 'leftcam'],
     'verbose':"",
     # 'compare_mj_planner_actions':'',

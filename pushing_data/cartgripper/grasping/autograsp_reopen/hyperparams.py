@@ -82,7 +82,7 @@ agent = {
     'friction' : 1.0,
     'autograsp' : {'reopen':'', 'zthresh':-0.06,'touchthresh':0.0},
     'reopen':'',
-    'master_datadir' : '/raid/ngc2/grasping_data/cartgripper_openloop_randgrasp/'
+    'master_datadir' : '/raid/ngc2/grasping_data/autograsp_reopen/'
 #    'file_to_record' : convert_to_record
     #'object_meshes':['giraffe'] #folder to original object + convex approximation
 }

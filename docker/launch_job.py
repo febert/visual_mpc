@@ -9,7 +9,7 @@ def launch_job_func(run_script, hyper, arg, interactive=False, name='', ngpu=8, 
 
     data = {}
 
-    if fullcmd is None:
+    if fullcmd is '':
         start_dir = "/workspace/visual_mpc/docker"
     else:
         start_dir = "/workspace/video_prediction"
@@ -74,7 +74,7 @@ def launch_job_func(run_script, hyper, arg, interactive=False, name='', ngpu=8, 
         command = "/bin/sleep 360000"
         data["name"] = 'int' + name
 
-    elif fullcmd is not None:
+    elif fullcmd is not '':
         command = fullcmd
         data["name"] = name
     else:
@@ -111,7 +111,7 @@ if __name__ == '__main__':
     parser.add_argument('--name', default='', type=str, help='additional arguments')
     parser.add_argument('--ngpu', default=8, type=int, help='number of gpus')
     parser.add_argument('--test', default=0, type=int, help='testrun')
-    parser.add_argument('--cmd', default=0, type=str, help='full command')
+    parser.add_argument('--cmd', default='', type=str, help='full command')
     args = parser.parse_args()
 
     launch_job_func(args.run_script, args.hyper, args.arg, args.int, args.name, args.ngpu, args.test, fullcmd=args.cmd)

@@ -69,7 +69,7 @@ def get_target_qpos(target_qpos, _hyperparams, mj_U, t, gripper_up, gripper_clos
     elif 'autograsp' in _hyperparams:
         assert adim == 5
         target_qpos[:4] = mj_U[:4] + target_qpos[:4]
-        zthresh = _hyperparams['autograsp']['zthresh']
+        zthresh = _hyperparams['autograsp'].get('zthresh',-0.06)
         if gripper_zpos < zthresh:
             gripper_closed = True
         if 'reopen' in _hyperparams['autograsp']:

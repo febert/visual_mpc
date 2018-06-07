@@ -100,3 +100,4 @@ class Trajectory(object):
         self.goal_dist = []
         self.stats = OrderedDict([('improvement',None), ('scores',None), ('term_t',None), ('integrated_poscost',None), ('lifted',None), ('initial_poscost', None)])
 
+        self.touch_sensors = None
