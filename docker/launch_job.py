@@ -96,6 +96,7 @@ def launch_job_func(run_script, hyper, arg, interactive=False, name='', ngpu=8, 
     with open('autogen.json', 'w') as outfile:
         json.dump(data, outfile, indent=4)
 
+    print('#######################')
     print('command', data["command"])
 
     if not bool(test):

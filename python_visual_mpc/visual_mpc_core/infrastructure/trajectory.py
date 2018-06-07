@@ -25,6 +25,8 @@ class Trajectory(object):
 
         if 'finger_sensors' in conf:
             self.touch_sensors = np.zeros((self.T, 2), dtype = np.float32)
+        else:
+            self.touch_sensors = None
 
         if 'image_medium' in conf:
             self._image_medium = np.zeros((self.T,
@@ -100,4 +102,3 @@ class Trajectory(object):
         self.goal_dist = []
         self.stats = OrderedDict([('improvement',None), ('scores',None), ('term_t',None), ('integrated_poscost',None), ('lifted',None), ('initial_poscost', None)])
 
-        self.touch_sensors = None
