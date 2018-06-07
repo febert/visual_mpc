@@ -44,7 +44,7 @@ class AgentSawyer:
         self.t_down = 0
         self.gripper_up, self.gripper_closed = False, False
 
-        self._controller.reset_with_impedance()              # go to neutral
+        self._controller.reset_with_impedance(duration= 1.0, close_first=True)              # go to neutral
 
         if 'rpn_objects' in self._hyperparams:
             if not self._recorder.store_recordings(traj, 0): #grab frame of robot in neutral
@@ -56,9 +56,9 @@ class AgentSawyer:
             for i, r in enumerate(rbt_coords):
                 traj.Object_pose[0, i] = r
 
-        self._controller.reset_with_impedance(angles=self.random_start_angles(), open_gripper=False,
+        self._controller.reset_with_impedance(angles=self.random_start_angles(), open_gripper=False, duration= 1.0,
                                               stiffness=self._hyperparams['impedance_stiffness'])
-
+        rospy.sleep(0.3)   #let things settle
         for t in xrange(self._hyperparams['T']):
             if not self._recorder.store_recordings(traj, t):
                 traj_ok = False

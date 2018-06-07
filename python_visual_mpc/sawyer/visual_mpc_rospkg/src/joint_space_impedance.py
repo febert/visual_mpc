@@ -62,7 +62,7 @@ class JointSprings(object):
         self.alive_pub = rospy.Publisher('ctrl_alive', numpy_msg(intarray), queue_size=10)
 
         self.max_stiffness = 100
-        self.time_to_maxstiffness = .3  ######### 0.68
+        self.time_to_maxstiffness = .1  ######### 0.68
         self.t_release = rospy.get_time()
 
         self._imp_ctrl_is_active = True
@@ -70,10 +70,6 @@ class JointSprings(object):
         for joint in self._limb.joint_names():
             self._springs[joint] = 30
             self._damping[joint] = 4
-
-        self.comp_gripper_weight = False
-        if self.comp_gripper_weight:
-            self.ee_calc = EE_Calculator()
 
     def calc_comp_torques(self):
         joint_names = self._limb.joint_names()
@@ -140,12 +136,6 @@ class JointSprings(object):
                                                  cur_pos[joint])
             # damping portion
             cmd[joint] -= self._damping[joint] * cur_vel[joint]
-
-        if self.comp_gripper_weight:
-            comp_torques = self.calc_comp_torques()
-            for i, joint in enumerate(self._des_angles.keys()):
-                print(joint, comp_torques[i])
-                cmd[joint] += comp_torques[i]
 
         # command new joint torques
         if self._imp_ctrl_is_active:
