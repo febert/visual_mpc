@@ -16,7 +16,7 @@ class DefaultTraj:
 def main():
     parser = argparse.ArgumentParser(description='run convert from directory to tf record')
     parser.add_argument('experiment', type=str, help='experiment hyperparameter path')
-    parser.add_argument('datadir', type=str, default='', help='new output dir')
+    parser.add_argument('--datadir', type=str, default='', help='new output dir')
     parser.add_argument('output', type=str, help='new output dir')
     parser.add_argument('-g', action='store', dest='good_offset', type = int,
                     default = 0, help='Offset good records by g * traj_per_file')
