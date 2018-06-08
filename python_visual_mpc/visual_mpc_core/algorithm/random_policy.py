@@ -63,32 +63,35 @@ class CorrRandompolicy(Randompolicy):
         Randompolicy.__init__(self, imitation_conf, agentparams, policyparams)
 
     def act(self, traj, t, init_model=None, goal_ob_pose=None, agentparams=None, goal_image=None):
+        if t == 0:
+            self.sample_actions(traj, 1)
+        return self.actions[t]
 
+    def sample_actions(self, traj, nsamples):
         assert self.repeat == 1
-
         xy_std = self.policyparams['initial_std']
-        diag = [xy_std**2, xy_std**2]
+        diag = [xy_std ** 2, xy_std ** 2]
 
         if 'initial_std_lift' in self.policyparams:
-            diag.append(self.policyparams['initial_std_lift']**2)
+            diag.append(self.policyparams['initial_std_lift'] ** 2)
         if 'initial_std_rot' in self.policyparams:
-            diag.append(self.policyparams['initial_std_rot']**2)
+            diag.append(self.policyparams['initial_std_rot'] ** 2)
         if 'initial_std_grasp' in self.policyparams:
-            diag.append(self.policyparams['initial_std_grasp']**2)
+            diag.append(self.policyparams['initial_std_grasp'] ** 2)
 
         actions = []
         for d in range(len(diag)):
             var = diag[d]
             mean = np.zeros(self.naction_steps)
             cov = np.diag(np.ones(self.naction_steps)) + \
-                    np.diag(np.ones(self.naction_steps-1), k=1) + \
-                    np.diag(np.ones(self.naction_steps-1), k=-1) + \
-                    np.diag(np.ones(self.naction_steps-2), k=2) + \
-                    np.diag(np.ones(self.naction_steps-2), k=-2)
-            sigma = cov*var
-            actions.append(np.random.multivariate_normal(mean, sigma))
+                  np.diag(np.ones(self.naction_steps - 1), k=1) + \
+                  np.diag(np.ones(self.naction_steps - 1), k=-1) + \
+                  np.diag(np.ones(self.naction_steps - 2), k=2) + \
+                  np.diag(np.ones(self.naction_steps - 2), k=-2)
+            sigma = cov * var
+            actions.append(np.random.multivariate_normal(mean, sigma, nsamples))
 
-        self.actions = np.stack(actions, axis=1)
+        self.actions = np.stack(actions, axis=-1)
 
         self.process_actions()
         return self.actions[t]
@@ -105,14 +108,28 @@ class RandomPickPolicy(Randompolicy):
         return self.actions[t]
 
     def sample_actions(self, traj, nsamples):
+        repeat = self.repeat
         mean = np.zeros((self.naction_steps, self.adim))
-        target_object = np.random.randint(self.agentparams['num_objects'])  # selects a random object to pick
+
+        target_object = np.random.randint(traj.Object_pose.shape[1])  # selects a random object to pick
         traj.desig_pos = traj.Object_pose[0, target_object, :2].copy()
-        object_xy = (traj.Object_pose[0, target_object, :2] - traj.X_full[0, :2]) / self.repeat
-        mean[0] = np.array([object_xy[0], object_xy[1], self.agentparams.get('ztarget', 0.13) / self.repeat, 0, -1])  # mean action goes toward object
-        mean[1] = np.array([0, 0, (-0.08 - self.agentparams.get('ztarget', 0.13)) / self.repeat, 0, -1])  # mean action swoops down to pick object
-        mean[2] = np.array([0, 0, (-0.08 - self.agentparams.get('ztarget', 0.13)) / self.repeat, 0, 1])  # mean action gripper grasps object
-        mean[3] = np.array([0, 0, (0.08 + self.agentparams.get('ztarget', 0.13)) / self.repeat, 0, 1])  # mean action lifts hand up
+
+        if 'rpn_objects' in self.agentparams:
+            robot_xy = traj.endeffector_poses[0, :2]
+        else:
+            robot_xy = traj.X_full[0, :2]
+        object_xy = (traj.Object_pose[0, target_object, :2] - robot_xy) / repeat
+
+        low = self.agentparams['targetpos_clip'][0][2]
+        mean[0] = np.array([object_xy[0], object_xy[1], self.agentparams.get('ztarget', 0.13) / repeat, 0,
+                            -1])  # mean action goes toward object
+        mean[1] = np.array([0, 0, (low - self.agentparams.get('ztarget', 0.13)) / repeat, 0,
+                            -1])  # mean action swoops down to pick object
+        mean[2] = np.array(
+            [0, 0, (low - self.agentparams.get('ztarget', 0.13)) / repeat, 0, 1])  # mean action gripper grasps object
+        mean[3] = np.array(
+            [0, 0, (-low + self.agentparams.get('ztarget', 0.13)) / repeat, 0, 1])  # mean action lifts hand up
+
         sigma = construct_initial_sigma(self.policyparams)
 
         self.actions = np.random.multivariate_normal(mean.reshape(-1), sigma, nsamples).reshape(nsamples, self.naction_steps, self.adim)

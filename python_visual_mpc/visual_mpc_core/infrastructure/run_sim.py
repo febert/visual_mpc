@@ -27,14 +27,8 @@ from .utility.save_tf_record import save_tf_record
 
 class Sim(object):
     """ Main class to run algorithms and experiments. """
+
     def __init__(self, config, gpu_id=0, ngpu=1, logger=None, mode='train'):
-        """
-        :param config:
-        :param gpu_id:
-        :param ngpu:
-        :param logger:
-        :param mode:   'train', 'test' or 'val' used as final subfoldername
-        """
         self._hyperparams = config
         self.agent = config['agent']['type'](config['agent'])
         self.agentparams = config['agent']
@@ -96,14 +90,6 @@ class Sim(object):
             self.take_sample(i)
 
     def take_sample(self, sample_index):
-        """
-        Collect a sample from the agent.
-        Args:
-            itr: Iteration number.
-            cond: Condition number.
-            sample_index: Sample index.
-        Returns: None
-        """
         self._init_policy()
 
         t_traj = time.time()

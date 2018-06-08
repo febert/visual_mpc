@@ -6,7 +6,7 @@ import numpy as np
 
 from python_visual_mpc.visual_mpc_core.algorithm.random_policy import RandomPickPolicy
 from python_visual_mpc.visual_mpc_core.agent.agent_mjc import AgentMuJoCo
-from python_visual_mpc.visual_mpc_core.infrastructure.utility.tfrecord_from_file import DefaultTraj
+from python_visual_mpc.visual_mpc_core.infrastructure.utility.tfrecord_from_file import grasping_touch_file2record as convert_to_record
 IMAGE_WIDTH = 64
 IMAGE_HEIGHT = 64
 IMAGE_CHANNELS = 3
@@ -17,32 +17,10 @@ current_dir = os.path.dirname(os.path.realpath(__file__))
 import python_visual_mpc
 DATA_DIR = '/'.join(str.split(python_visual_mpc.__file__, '/')[:-2])
 
-def convert_to_record(state_action):
-    loaded_traj = DefaultTraj()
-
-    loaded_traj.actions = state_action['actions']
-    touch_sensors = state_action['finger_sensors']
-    loaded_traj.X_Xdot_full = np.concatenate((state_action['target_qpos'][:-1, :], touch_sensors), axis = 1)
-
-    good_lift = False
-
-    valid_frames = np.logical_and(state_action['target_qpos'][1:, -1] > 0, np.logical_and(touch_sensors[:, 0] > 0, touch_sensors[:, 1] > 0))
-    off_ground = state_action['target_qpos'][1:,2] >= 0
-    object_poses = state_action['object_full_pose']
-
-    if any(np.logical_and(valid_frames, off_ground)):
-        obj_eq = object_poses[0, :, :2] == state_action['obj_start_end_pos']
-        obj_eq = np.logical_and(obj_eq[:, 0], obj_eq[:, 1])
-        obj_eq = np.argmax(obj_eq)
-        obj_max =  np.amax(object_poses[:,obj_eq,2])
-        if obj_max >=0:
-            good_lift = True
-
-    return good_lift, loaded_traj
 
 agent = {
     'type': AgentMuJoCo,
-    'data_save_dir': BASE_DIR + '/train',
+    'data_save_dir': '/result', #BASE_DIR + '/train',
     'filename': DATA_DIR+'/mjc_models/cartgripper_grasp.xml',
     'filename_nomarkers': DATA_DIR+'/mjc_models/cartgripper_grasp.xml',
     'not_use_images':"",
@@ -55,7 +33,7 @@ agent = {
     'randomize_initial_pos':'',
     'dt': 0.05,
     'substeps': 200,  #6
-    'T': 15,
+    'T': 30,
     'skip_first': 40,   #skip first N time steps to let the scene settle
     'additional_viewer': False,
     'image_height' : 48,
@@ -88,7 +66,7 @@ agent = {
 
 policy = {
     'type' : RandomPickPolicy,
-    'nactions' : 5,
+    'nactions' : 10,
     'repeat' : 3,
     'no_action_bound' : False, 
     'initial_std': 0.02,   #std dev. in xy
