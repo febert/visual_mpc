@@ -79,7 +79,11 @@ class WSGRobotController(RobotController):
         self._desired_gpos = command_pos
         if wait:
             sem = Semaphore(value=0)  # use of semaphore ensures script will block if gripper dies during execution
+
+            self._status_mutex.acquire()
             self.sem_list.append(sem)
+            self._status_mutex.release()
+
             start = rospy.get_time()
             print("gripper sem acquire, list len-{}".format(len(self.sem_list)))
             sem.acquire()
@@ -90,12 +94,12 @@ class WSGRobotController(RobotController):
         self._set_gripper(command_pos, wait = wait)
 
     def _gripper_callback(self, status):
-        print('callback! list-len {}, max_release {}'.format(len(self.sem_list), self.max_release))
+        # print('callback! list-len {}, max_release {}'.format(len(self.sem_list), self.max_release))
         self._status_mutex.acquire()
+
         self.gripper_width, self.gripper_force = status.width, status.force
         self._integrate_gripper_force += status.force
         self._force_counter += 1
-        self._status_mutex.release()
 
         cmd = Cmd()
         cmd.pos = self._desired_gpos
@@ -114,6 +118,8 @@ class WSGRobotController(RobotController):
             self.max_release += 1      #timeout for when gripper responsive but can't acheive commanded state
         else:
             self.max_release = 0
+
+        self._status_mutex.release()
 
     def reset_with_impedance(self, angles = NEUTRAL_JOINT_ANGLES, duration= 3., open_gripper = True, close_first = False, stiffness = 150):
         if open_gripper:
