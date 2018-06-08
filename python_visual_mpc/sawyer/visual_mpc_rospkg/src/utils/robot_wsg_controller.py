@@ -120,7 +120,7 @@ class WSGRobotController(RobotController):
                 self._set_gripper(2, wait=True)
             self._set_gripper(100, wait=True)
             self.open_gripper()
-            
+
         self.imp_ctrl_release_spring(100)
         self.move_to_joints_impedance_sec(angles, duration=duration)
         self.imp_ctrl_release_spring(stiffness)
