@@ -14,8 +14,6 @@ from mujoco_py import load_model_from_xml,load_model_from_path, MjSim, MjViewer
 from python_visual_mpc.visual_mpc_core.agent.utils.get_masks import get_obj_masks, get_image
 import time
 from python_visual_mpc.visual_mpc_core.infrastructure.trajectory import Trajectory
-from matplotlib.backends.backend_agg import FigureCanvasAgg as FigureCanvas
-from matplotlib.figure import Figure
 import cv2
 from mpl_toolkits.mplot3d import Axes3D
 from python_visual_mpc.visual_mpc_core.agent.utils.create_xml import create_object_xml, create_root_xml
@@ -203,6 +201,10 @@ class AgentMuJoCo(object):
 
         if 'make_final_gif' in self._hyperparams:
             self.save_gif(i_tr)
+
+        if 'verbose' in self._hyperparams:
+            self.plot_ctrls(i_tr)
+            # self.plot_pix_dist(plan_stat)
         return traj
 
     def get_desig_pix(self, round=True):
@@ -427,9 +429,6 @@ class AgentMuJoCo(object):
         if any(zval < -2e-2 for zval in end_zpos):
             print('object fell out!!!')
             traj_ok = False
-        if 'verbose' in self._hyperparams:
-            self.plot_ctrls()
-            self.plot_pix_dist(plan_stat)
 
         if 'dist_ok_thresh' in self._hyperparams:
             if np.any(traj.goal_dist[-1] > self._hyperparams['dist_ok_thresh']):
@@ -593,28 +592,29 @@ class AgentMuJoCo(object):
         file_path = self._hyperparams['record']
         npy_to_gif(self.large_images_traj, file_path +'/video{}'.format(itr))
 
-    def plot_ctrls(self):
+    def plot_ctrls(self, i_tr):
         plt.figure()
         # a = plt.gca()
         self.hf_qpos_l = np.stack(self.hf_qpos_l, axis=0)
         self.hf_target_qpos_l = np.stack(self.hf_target_qpos_l, axis=0)
         tmax = self.hf_target_qpos_l.shape[0]
 
-        i = 4
-        plt.plot(list(range(tmax)), self.hf_qpos_l[:,i], label='q_{}'.format(i))
-        plt.plot(list(range(tmax)), self.hf_target_qpos_l[:, i], label='q_target{}'.format(i))
-        plt.legend()
+        # i = 4
+        # plt.plot(list(range(tmax)), self.hf_qpos_l[:,i], label='q_{}'.format(i))
+        # plt.plot(list(range(tmax)), self.hf_target_qpos_l[:, i], label='q_target{}'.format(i))
+        # plt.legend()
         # plt.show()
         if not os.path.exists(self._hyperparams['record']):
             os.makedirs(self._hyperparams['record'])
-        # for i in range(self.adim):
-        #     plt.plot(list(range(tmax)), self.hf_qpos_l[:,i], label='q_{}'.format(i))
-        #     plt.plot(list(range(tmax)), self.hf_target_qpos_l[:, i], label='q_target{}'.format(i))
-        #     plt.legend()
-        #     # plt.show()
-        #     if not os.path.exists(self._hyperparams['record']):
-        #         os.makedirs(self._hyperparams['record'])
-        plt.savefig(self._hyperparams['record'] + '/ctrls.png')
+            for i in range(self.adim):
+                # plt.subplot(self.adim,1,i)
+                plt.plot(list(range(tmax)), self.hf_qpos_l[:,i], label='q_{}'.format(i))
+                # plt.plot(list(range(tmax)), self.hf_target_qpos_l[:, i], label='q_target{}'.format(i))
+                # plt.legend()
+
+                break
+                # plt.show()
+        plt.savefig(self._hyperparams['record'] + '/ctrls{}.png'.format(i_tr))
 
     def plot_pix_dist(self, planstat):
         plt.figure()

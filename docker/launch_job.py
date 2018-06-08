@@ -21,9 +21,11 @@ def launch_job_func(run_script, hyper, arg, interactive=False, name='', ngpu=8, 
      export ALEX_DATA=/mnt/pretrained_models;\
      export RESULT_DIR=/result;\
      export NO_ROS='';\
-     export PATH=/opt/conda/bin:/usr/local/mpi/bin:/usr/local/nvidia/bin:/usr/local/cuda/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin;\
+     export PATH=/opt/conda/bin:/usr/local/mpi/bin:/usr/local/nvidia/bin:/usr/local/cuda/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin; \
+     cd /workspace/visual_mpc/docker; git pull; \
+     cd /workspace/video_prediction; git pull; \
      cd {}; \
-     git pull;".format(start_dir)
+     ".format(start_dir)
 
     data['dockerImageName'] = "ucb_rail8888/tf_mj1.5:latest"
 

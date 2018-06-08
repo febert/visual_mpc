@@ -13,7 +13,7 @@ class Randompolicy(Policy):
     """
     Random Policy
     """
-    def __init__(self, agentparams, policyparams):
+    def __init__(self, imitationconf, agentparams, policyparams):
         Policy.__init__(self)
         self.agentparams = agentparams
         self.policyparams = policyparams
@@ -28,7 +28,7 @@ class Randompolicy(Policy):
             mean = np.zeros(self.adim * self.naction_steps)
             # initialize mean and variance of the discrete actions to their mean and variance used during data collection
             sigma = construct_initial_sigma(self.policyparams)
-            self.actions = np.random.multivariate_normal(mean, sigma)
+            self.actions = np.random.multivariate_normal(mean, sigma).reshape(self.naction_steps, self.adim)
             self.process_actions()
         return self.actions[t]
 
@@ -57,9 +57,46 @@ class Randompolicy(Policy):
     def finish(self):
         pass
 
+
+class CorrRandompolicy(Randompolicy):
+    def __init__(self, imitation_conf, agentparams, policyparams):  # add imiation_conf to keep compatibility with imitation model
+        Randompolicy.__init__(self, imitation_conf, agentparams, policyparams)
+
+    def act(self, traj, t, init_model=None, goal_ob_pose=None, agentparams=None, goal_image=None):
+
+        assert self.repeat == 1
+
+        xy_std = self.policyparams['initial_std']
+        diag = [xy_std**2, xy_std**2]
+
+        if 'initial_std_lift' in self.policyparams:
+            diag.append(self.policyparams['initial_std_lift']**2)
+        if 'initial_std_rot' in self.policyparams:
+            diag.append(self.policyparams['initial_std_rot']**2)
+        if 'initial_std_grasp' in self.policyparams:
+            diag.append(self.policyparams['initial_std_grasp']**2)
+
+        actions = []
+        for d in range(len(diag)):
+            var = diag[d]
+            mean = np.zeros(self.naction_steps)
+            cov = np.diag(np.ones(self.naction_steps)) + \
+                    np.diag(np.ones(self.naction_steps-1), k=1) + \
+                    np.diag(np.ones(self.naction_steps-1), k=-1) + \
+                    np.diag(np.ones(self.naction_steps-2), k=2) + \
+                    np.diag(np.ones(self.naction_steps-2), k=-2)
+            sigma = cov*var
+            actions.append(np.random.multivariate_normal(mean, sigma))
+
+        self.actions = np.stack(actions, axis=1)
+
+        self.process_actions()
+        return self.actions[t]
+
+
 class RandomPickPolicy(Randompolicy):
     def __init__(self, imitation_conf, agentparams, policyparams):  # add imiation_conf to keep compatibility with imitation model
-        Randompolicy.__init__(self, agentparams, policyparams)
+        Randompolicy.__init__(self, imitation_conf, agentparams, policyparams)
 
     def act(self, traj, t, init_model = None, goal_ee_pose = None, agentparams = None, goal_image = None):
         assert self.agentparams['T'] == self.naction_steps * self.repeat and self.naction_steps >= 3
