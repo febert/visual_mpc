@@ -65,9 +65,9 @@ def grasping_sawyer_file2record(state_action, agent_params):
     touch_sensors = state_action['finger_sensors']
     loaded_traj.X_Xdot_full = np.concatenate((state_action['states'], touch_sensors), axis=1)
 
-    valid_frames = np.logical_and(state_action['states'][:, -1] > 0,
-                                  np.logical_and(touch_sensors[:, 0] > 0, touch_sensors[:, 1] > 0))
-    off_ground = state_action['states'][:, 2] >= agent_params.get('good_lift_thresh', 0.27)
+    valid_frames = np.logical_and(state_action['states'][1:, -1] > 0,
+                                  np.logical_and(touch_sensors[1:, 0] > 0, touch_sensors[1:, 1] > 0))
+    off_ground = state_action['states'][1:, 2] >= agent_params.get('good_lift_thresh', 0.27)
 
     good_grasp = any(np.logical_and(valid_frames, off_ground))
 

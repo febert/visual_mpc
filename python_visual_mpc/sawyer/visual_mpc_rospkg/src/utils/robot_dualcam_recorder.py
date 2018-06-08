@@ -1,3 +1,4 @@
+#!/usr/bin/env python
 import rospy
 from sensor_msgs.msg import Image as Image_msg
 import cv2
@@ -239,3 +240,18 @@ class RobotDualCamRecorder:
             crop_img = crop_img[crop_top:]
 
         return cv2.resize(crop_img, (target_img_width, target_img_height), interpolation=cv2.INTER_AREA)
+
+
+if __name__ == '__main__':
+    from python_visual_mpc.sawyer.visual_mpc_rospkg.src.utils.robot_wsg_controller import WSGRobotController
+    controller = WSGRobotController(800, 'vestri')
+
+    dummy_agent = {'T': 1, 'image_height': 64, 'image_width': 48, 'sdim': 5, 'adim': 5, 'mode_rel': True,
+                   'data_conf': {'left_cam': {}, 'front_cam': {}, },
+                   'targetpos_clip' : [[0.375, -0.22, 0.184, -0.5 * np.pi, 0], [0.825, 0.24, 0.32, 0.5 * np.pi, 0.1]]}
+    recorder = RobotDualCamRecorder(dummy_agent, controller)
+    traj = Trajectory(dummy_agent)
+    recorder.store_recordings(traj, 0)
+
+    for c in range(2):
+        cv2.imwrite('cam_{}_calib.png'.format(c), traj.raw_images[0, c][:,:, ::-1])

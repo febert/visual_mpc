@@ -23,7 +23,7 @@ class WSGRobotController(RobotController):
         self.max_release = 0
         RobotController.__init__(self)
         self.sem_list = [Semaphore(value = 0)]
-        self.status_mutex = Lock()
+        self._status_mutex = Lock()
         self.robot_name = robot_name
 
         self._desired_gpos = GRIPPER_OPEN
@@ -33,7 +33,7 @@ class WSGRobotController(RobotController):
         self._integrate_gripper_force = 0.
 
         self.gripper_pub = rospy.Publisher('/wsg_50_driver/goal_position', Cmd, queue_size=10)
-        rospy.Subscriber("/wsg_50_driver/status", Status, self.gripper_callback)
+        rospy.Subscriber("/wsg_50_driver/status", Status, self._gripper_callback)
 
         print("waiting for first status")
         self.sem_list[0].acquire()
@@ -53,12 +53,12 @@ class WSGRobotController(RobotController):
         self.gripper_speed = new_speed
 
     def get_gripper_status(self, integrate_force = False):
-        self.status_mutex.acquire()
+        self._status_mutex.acquire()
         cum_force, cntr = self._integrate_gripper_force, self._force_counter
         width, force = self.gripper_width, self.gripper_force
         self._integrate_gripper_force = 0.
         self._force_counter = 0
-        self.status_mutex.release()
+        self._status_mutex.release()
 
         if integrate_force and cntr > 0:
             print("integrating with {} readings, cumulative force: {}".format(cntr, cum_force))
@@ -75,22 +75,31 @@ class WSGRobotController(RobotController):
     def close_gripper(self, wait = False):
         self.set_gripper(GRIPPER_CLOSE, wait = wait)
 
-    def set_gripper(self, command_pos, wait = False):
-        assert command_pos >= GRIPPER_CLOSE and command_pos <= GRIPPER_OPEN, "Command pos must be in range [GRIPPER_CLOSE, GRIPPER_OPEN]"
+    def _set_gripper(self, command_pos, wait = False):
         self._desired_gpos = command_pos
         if wait:
-            sem = Semaphore(value = 0)
+            sem = Semaphore(value=0)  # use of semaphore ensures script will block if gripper dies during execution
+
+            self._status_mutex.acquire()
             self.sem_list.append(sem)
+            self._status_mutex.release()
+
             start = rospy.get_time()
+            print("gripper sem acquire, list len-{}".format(len(self.sem_list)))
             sem.acquire()
             print("waited on gripper for {} seconds".format(rospy.get_time() - start))
 
-    def gripper_callback(self, status):
-        self.status_mutex.acquire()
+    def set_gripper(self, command_pos, wait = False):
+        assert command_pos >= GRIPPER_CLOSE and command_pos <= GRIPPER_OPEN, "Command pos must be in range [GRIPPER_CLOSE, GRIPPER_OPEN]"
+        self._set_gripper(command_pos, wait = wait)
+
+    def _gripper_callback(self, status):
+        # print('callback! list-len {}, max_release {}'.format(len(self.sem_list), self.max_release))
+        self._status_mutex.acquire()
+
         self.gripper_width, self.gripper_force = status.width, status.force
         self._integrate_gripper_force += status.force
         self._force_counter += 1
-        self.status_mutex.release()
 
         cmd = Cmd()
         cmd.pos = self._desired_gpos
@@ -100,21 +109,30 @@ class WSGRobotController(RobotController):
 
         if len(self.sem_list) > 0:
             gripper_close = np.isclose(self.gripper_width, self._desired_gpos, atol=1e-1)
-            if gripper_close or self.gripper_force > 0 or self.max_release > 10:
+
+            if gripper_close or self.gripper_force > 0 or self.max_release > 15:
                 for s in self.sem_list:
                     s.release()
                 self.sem_list = []
-                self.max_release = 0
+
+            self.max_release += 1      #timeout for when gripper responsive but can't acheive commanded state
         else:
             self.max_release = 0
 
-    def reset_with_impedance(self, angles = NEUTRAL_JOINT_ANGLES, duration= 3., open_gripper = True):
+        self._status_mutex.release()
+
+    def reset_with_impedance(self, angles = NEUTRAL_JOINT_ANGLES, duration= 3., open_gripper = True, close_first = False, stiffness = 150):
         if open_gripper:
-            self.open_gripper(True)
-            self.get_gripper_status()    #dummy call to flush integration of gripper force
+            if close_first:
+                self._set_gripper(2, wait=True)
+            self._set_gripper(100, wait=True)
+            self.open_gripper()
+
         self.imp_ctrl_release_spring(100)
         self.move_to_joints_impedance_sec(angles, duration=duration)
-        self.imp_ctrl_release_spring(150)
+        self.imp_ctrl_release_spring(stiffness)
+
+        self.get_gripper_status()  # dummy call to flush integration of gripper force
 
     def imp_ctrl_release_spring(self, maxstiff):
         self.imp_ctrl_release_spring_pub.publish(maxstiff)

@@ -7,9 +7,10 @@ from python_visual_mpc.visual_mpc_core.agent.utils.target_qpos_utils import get_
 import copy
 from python_visual_mpc.sawyer.visual_mpc_rospkg.src.primitives_regintervals import zangle_to_quat
 from python_visual_mpc.sawyer.visual_mpc_rospkg.src.utils import inverse_kinematics
-
+from python_visual_mpc.sawyer.visual_mpc_rospkg.src.misc.camera_calib.calibrated_camera import CalibratedCamera
 class AgentSawyer:
     def __init__(self, agent_params):
+        print('CREATING AGENT FOR ROBOT: {}'.format(agent_params.get('robot_name', 'vestri')))
         self._hyperparams = agent_params
 
         # initializes node and creates interface with Sawyer
@@ -17,6 +18,9 @@ class AgentSawyer:
         self._recorder = RobotDualCamRecorder(agent_params, self._controller)
 
         self._controller.reset_with_impedance()
+
+        if 'rpn_objects' in agent_params:
+            self._calibrated_camera = CalibratedCamera(agent_params.get('robot_name', 'vestri'))
 
 
     def sample(self, policy, itr):
@@ -40,9 +44,21 @@ class AgentSawyer:
         self.t_down = 0
         self.gripper_up, self.gripper_closed = False, False
 
-        self._controller.reset_with_impedance()
-        self._controller.reset_with_impedance(angles=self.random_start_angles())
+        self._controller.reset_with_impedance(duration= 1.0, close_first=True)              # go to neutral
 
+        if 'rpn_objects' in self._hyperparams:
+            if not self._recorder.store_recordings(traj, 0): #grab frame of robot in neutral
+                return None, False
+            neutral_img = traj.raw_images[0, 0]
+            _, rbt_coords = self._calibrated_camera.object_points(neutral_img)
+
+            traj.Object_pose = np.zeros((1, len(rbt_coords), 3))
+            for i, r in enumerate(rbt_coords):
+                traj.Object_pose[0, i] = r
+
+        self._controller.reset_with_impedance(angles=self.random_start_angles(), open_gripper=False, duration= 1.0,
+                                              stiffness=self._hyperparams['impedance_stiffness'])
+        rospy.sleep(0.3)   #let things settle
         for t in xrange(self._hyperparams['T']):
             if not self._recorder.store_recordings(traj, t):
                 traj_ok = False
@@ -60,9 +76,32 @@ class AgentSawyer:
 
             mj_U = policy.act(traj, t)
 
+            if 'check_preplan' in self._hyperparams and t == 0:
+                test_next = copy.deepcopy(self.next_qpos)
+                test_params = copy.deepcopy(self._hyperparams)
+                test_t_down = 0
+                test_g_up = False
+                test_g_closed = False
+
+                test_ja = self._controller.limb.joint_angles()
+
+                for test_t in range(self._hyperparams['T']):
+                    if test_t == 0:
+                        test_action = copy.deepcopy(mj_U)
+                    else:
+                        test_action = copy.deepcopy(policy.act(None, test_t))
+                    test_next, test_t_down, test_g_up, test_g_closed = get_target_qpos(test_next, test_params,
+                                                    test_action, test_t, test_g_up, test_g_closed, test_t_down, test_next[2])
+
+                    try:
+                        test_ja = inverse_kinematics.get_joint_angles(self.state_to_pose(test_next), seed_cmd=test_ja,
+                                                            use_advanced_options=True)
+                    except ValueError:
+                        return None, False
+
             self.next_qpos, self.t_down, self.gripper_up, self.gripper_closed = get_target_qpos(
                 self.next_qpos, self._hyperparams, mj_U, t, self.gripper_up, self.gripper_closed, self.t_down,
-                traj.robot_states[t, 2])
+                traj.robot_states[t, 2], traj.touch_sensors)
 
             traj.target_qpos[t + 1] = copy.deepcopy(self.next_qpos)
 
@@ -87,7 +126,7 @@ class AgentSawyer:
             else:
                 self._controller.open_gripper(wait_change)
 
-            self._controller.move_with_impedance_sec(target_ja, duration=1.)
+            self._controller.move_with_impedance_sec(target_ja, duration=self._hyperparams['step_duration'])
 
         return traj, traj_ok
 
