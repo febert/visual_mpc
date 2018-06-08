@@ -81,7 +81,7 @@ class WSGRobotController(RobotController):
             sem = Semaphore(value=0)  # use of semaphore ensures script will block if gripper dies during execution
             self.sem_list.append(sem)
             start = rospy.get_time()
-            print("gripper sem acquire")
+            print("gripper sem acquire, list len-{}".format(len(self.sem_list)))
             sem.acquire()
             print("waited on gripper for {} seconds".format(rospy.get_time() - start))
 
@@ -90,6 +90,7 @@ class WSGRobotController(RobotController):
         self._set_gripper(command_pos, wait = wait)
 
     def _gripper_callback(self, status):
+        print('callback! list-len {}, max_release {}'.format(len(self.sem_list), self.max_release))
         self._status_mutex.acquire()
         self.gripper_width, self.gripper_force = status.width, status.force
         self._integrate_gripper_force += status.force
