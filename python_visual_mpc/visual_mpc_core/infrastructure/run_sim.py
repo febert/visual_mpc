@@ -67,7 +67,8 @@ class Sim(object):
             else:
                 self.policy = config['policy']['type'](config['agent'], config['policy'], self.predictor)
         else:
-            self.policy = config['policy']['type'](self.agent._hyperparams, config['policy'])
+            imitationconf = {}
+            self.policy = config['policy']['type'](imitationconf, self.agent._hyperparams, config['policy'])
 
         self.trajectory_list = []
         self.im_score_list = []
@@ -87,7 +88,8 @@ class Sim(object):
                 self.policy = self.policyparams['type'](self.agent._hyperparams,
                                                               self.policyparams, self.predictor)
         else:
-            self.policy = self.policyparams['type'](self.agent._hyperparams, self.policyparams)
+            imitationconf = {}
+            self.policy = self.policyparams['type'](imitationconf, self.agent._hyperparams, self.policyparams)
 
     def run(self):
         for i in range(self._hyperparams['start_index'], self._hyperparams['end_index']+1):

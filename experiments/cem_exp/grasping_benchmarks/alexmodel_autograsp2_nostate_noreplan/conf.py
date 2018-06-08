@@ -12,13 +12,12 @@ from python_visual_mpc.video_prediction.dynamic_rnn_model.alex_model_interface i
 import video_prediction
 base_dir = video_prediction.__file__
 base_dir = '/'.join(str.split(base_dir, '/')[:-2])
-# jsondir = base_dir + '/pretrained_models/autograsp_nostate_long'
-jsondir = base_dir + '/pretrained_models/autograsp_notouch_long'
+jsondir = base_dir + '/pretrained_models/autograsp_nostate_long'
 configuration = {
 'pred_model': Alex_Interface_Model,
 'setup_predictor':setup_predictor,
 'json_dir':jsondir,
-'pretrained_model':jsondir + '/model.multi_savp.None/model-75000',     # 'filepath of a pretrained model to resume training from.' ,
+'pretrained_model':jsondir + '/model.multi_savp.None/model-90000',     # 'filepath of a pretrained model to resume training from.' ,
 'sequence_length': 15,      # 'sequence length to load, including context frames.' ,
 'context_frames': 2,        # of frames before predictions.' ,
 'model': 'appflow',            #'model architecture to use - CDNA, DNA, or STP' ,

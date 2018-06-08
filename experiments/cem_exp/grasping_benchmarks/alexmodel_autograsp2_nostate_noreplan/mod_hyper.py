@@ -57,6 +57,7 @@ policy = {
     'rew_all_steps':"",
     'finalweight':10,
     # 'no_action_bound':"",
+    'use_first_plan':""
 }
 
 tag_images0 = {'name': 'images0',
