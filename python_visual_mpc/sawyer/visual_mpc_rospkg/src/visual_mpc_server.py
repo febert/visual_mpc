@@ -9,6 +9,7 @@ import pdb
 from PIL import Image
 import pickle
 import imp
+import copy
 import argparse
 
 from python_visual_mpc.video_prediction.utils_vpred.create_gif_lib import *
@@ -16,6 +17,8 @@ from python_visual_mpc.visual_mpc_core.algorithm.cem_controller_goalimage_sawyer
 
 from python_visual_mpc.visual_mpc_core.infrastructure.trajectory import Trajectory
 from python_visual_mpc import __file__ as base_filepath
+
+from python_visual_mpc.visual_mpc_core.infrastructure.run_sim import plot_warp_err
 
 
 import rospy
@@ -155,12 +158,15 @@ class Visual_MPC_Server(object):
                                         req.goal_pos_aux1,
                                         self.goal_image[None])
 
-        if 'predictor_propagation' in self.policyparams and self.t > 0:
-            self.initial_pix_distrib.append(init_pix_distrib[-1][0])
-
+        self.traj.plan_stat.append(copy.deepcopy(plan_stat))
         self.traj.actions[self.t, :] = mj_U
 
-        # if self.t == self.agentparams['T'] -1:
+        if self.t == self.agentparams['T'] -1:
+            print('done')
+
+            if 'register_gtruth' in self.policyparams:
+                plot_warp_err(self.traj, self.agentparams['record'])
+
             # if 'verbose' in self.policyparams:
                 # pickle.dump(self.cem_controller.dict_,open(self.netconf['current_dir'] + '/verbose/pred.pkl', 'wb'))
                 # print('finished writing files to:' + self.netconf['current_dir'] + '/verbose/pred.pkl')
