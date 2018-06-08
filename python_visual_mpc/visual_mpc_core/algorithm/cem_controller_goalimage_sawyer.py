@@ -546,7 +546,8 @@ class CEM_controller():
             gen_states_l.append(gen_states)
         gen_images = np.concatenate(gen_images_l, 0)
         gen_distrib = np.concatenate(gen_distrib_l, 0)
-        gen_states = np.concatenate(gen_states_l, 0)
+        if gen_states_l[0] is not None:
+            gen_states = np.concatenate(gen_states_l, 0)
 
         self.logger.log('time for videoprediction {}'.format(time.time() - t_startpred))
 
