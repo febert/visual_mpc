@@ -458,19 +458,22 @@ class Dynamic_Base_Model(object):
                 images = images[:,:,0]
                 pix_distrib = pix_distrib[:,:,0]
 
+
+        seq_len = actions.get_shape().as_list()[1]
+
         if pix_distrib is not None:
             pix_distrib = tf.transpose(pix_distrib, [0,1,4,2,3])[...,None]  #putting ndesig at the third position
 
-        if states is not None and states.get_shape().as_list()[1] != conf['sequence_length']:  # append zeros if states is shorter than sequence length
-            states = tf.concat([states, tf.zeros([conf['batch_size'], conf['sequence_length'] - conf['context_frames'], conf['sdim']])],
+        if states is not None and states.get_shape().as_list()[1] != seq_len:  # append zeros if states is shorter than sequence length
+            states = tf.concat([states, tf.zeros([conf['batch_size'], seq_len - conf['context_frames'], conf['sdim']])],
                 axis=1)
 
-        if images is not None and images.get_shape().as_list()[1] != conf['sequence_length']:  # append zeros if states is shorter than sequence length
-            images = tf.concat([images, tf.zeros([conf['batch_size'], conf['sequence_length'] - conf['context_frames'], self.img_height, self.img_width, 3])],
+        if images is not None and images.get_shape().as_list()[1] != seq_len:  # append zeros if states is shorter than sequence length
+            images = tf.concat([images, tf.zeros([conf['batch_size'], seq_len - conf['context_frames'], self.img_height, self.img_width, 3])],
                 axis=1)
 
         if pix_distrib is not None:
-            pix_distrib = tf.concat([pix_distrib, tf.zeros([conf['batch_size'], conf['sequence_length'] - conf['context_frames'],ndesig, self.img_height, self.img_width, 1])], axis=1)
+            pix_distrib = tf.concat([pix_distrib, tf.zeros([conf['batch_size'], seq_len - conf['context_frames'],ndesig, self.img_height, self.img_width, 1])], axis=1)
             pix_distrib = pix_distrib
 
         use_state = True
@@ -495,7 +498,6 @@ class Dynamic_Base_Model(object):
             self.adim = conf['adim'] - 1
         else: self.adim = conf['adim']
 
-        seq_len = conf['sequence_length']
 
         if images is None:
             pix_distrib = None
