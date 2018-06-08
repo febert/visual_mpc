@@ -9,6 +9,7 @@ import pdb
 from PIL import Image
 import pickle
 import imp
+import copy
 import argparse
 
 from python_visual_mpc.video_prediction.utils_vpred.create_gif_lib import *
@@ -16,6 +17,8 @@ from python_visual_mpc.visual_mpc_core.algorithm.cem_controller_goalimage_sawyer
 
 from python_visual_mpc.visual_mpc_core.infrastructure.trajectory import Trajectory
 from python_visual_mpc import __file__ as base_filepath
+
+from python_visual_mpc.visual_mpc_core.infrastructure.run_sim import plot_warp_err
 
 
 import rospy
@@ -35,6 +38,8 @@ class Visual_MPC_Server(object):
 
         cem_exp_dir = base_dir + '/experiments/cem_exp/benchmarks_sawyer'
         self.use_robot = True
+        rospy.init_node('visual_mpc_server')
+        rospy.loginfo("init visual mpc server")
         if cmd_args:
             parser = argparse.ArgumentParser(description='Run benchmarks')
             parser.add_argument('benchmark', type=str, help='the name of the folder with agent setting for the benchmark')
@@ -45,8 +50,6 @@ class Visual_MPC_Server(object):
             ngpu = args.ngpu
             gpu_id = args.gpu_id
         else:
-            rospy.init_node('visual_mpc_server')
-            rospy.loginfo("init visual mpc server")
             benchmark_name = rospy.get_param('~exp')
             gpu_id = rospy.get_param('~gpu_id')
             ngpu = rospy.get_param('~ngpu')
@@ -95,7 +98,7 @@ class Visual_MPC_Server(object):
         self.cem_controller = CEM_controller(self.agentparams, self.policyparams, self.predictor, self.goal_image_warper)
         ###########
         self.t = 0
-        self.traj = Trajectory(self.agentparams, self.netconf)
+        self.traj = Trajectory(self.agentparams)
 
         if self.use_robot:
             self.bridge = CvBridge()
@@ -118,14 +121,15 @@ class Visual_MPC_Server(object):
     def init_traj_visualmpc_handler(self, req):
         self.igrp = req.igrp
         self.i_traj = req.itr
+        self.traj.i_tr = self.i_traj
 
         self.t = 0
         if 'use_goal_image' in self.policyparams:
             goal_main = self.bridge.imgmsg_to_cv2(req.goalmain)
-            goal_main = cv2.cvtColor(goal_main, cv2.COLOR_BGR2RGB)
+            # goal_main = cv2.cvtColor(goal_main, cv2.COLOR_BGR2RGB)
             # goal_aux1 = self.bridge.imgmsg_to_cv2(req.goalaux1)
             # goal_aux1 = cv2.cvtColor(goal_aux1, cv2.COLOR_BGR2RGB)
-            Image.fromarray(goal_main).show()
+            # Image.fromarray(goal_main).show()
             goal_main = goal_main.astype(np.float32) / 255.
             self.goal_image = goal_main
 
@@ -133,7 +137,7 @@ class Visual_MPC_Server(object):
 
         self.initial_pix_distrib = []
 
-        self.cem_controller = CEM_controller(self.agentparams, self.policyparams, self.predictor, save_subdir=req.save_subdir)
+        self.cem_controller = CEM_controller(self.agentparams, self.policyparams, self.predictor, self.goal_image_warper, save_subdir=req.save_subdir)
         self.save_subdir = req.save_subdir
         return init_traj_visualmpcResponse()
 
@@ -144,28 +148,30 @@ class Visual_MPC_Server(object):
         main_img = self.bridge.imgmsg_to_cv2(req.main)
         main_img = cv2.cvtColor(main_img, cv2.COLOR_BGR2RGB)
 
-        self.traj.images[self.t] = main_img
+        self.traj.images[self.t] = main_img[None]
 
         self.desig_pos_aux1 = req.desig_pos_aux1
         self.goal_pos_aux1 = req.goal_pos_aux1
 
-        mj_U, best_ind, init_pix_distrib = self.cem_controller.act(self.traj, self.t,
-                                                                        req.desig_pos_aux1,
-                                                                        req.goal_pos_aux1,
-                                                                        self.goal_image)
+        mj_U, plan_stat = self.cem_controller.act(self.traj, self.t,
+                                        req.desig_pos_aux1,
+                                        req.goal_pos_aux1,
+                                        self.goal_image[None])
 
-        if 'predictor_propagation' in self.policyparams and self.t > 0:
-            self.initial_pix_distrib.append(init_pix_distrib[-1][0])
-
+        self.traj.plan_stat.append(copy.deepcopy(plan_stat))
         self.traj.actions[self.t, :] = mj_U
 
-
         if self.t == self.agentparams['T'] -1:
-            if 'verbose' in self.policyparams:
-                pickle.dump(self.cem_controller.dict_,open(self.netconf['current_dir'] + '/verbose/pred.pkl', 'wb'))
-                print('finished writing files to:' + self.netconf['current_dir'] + '/verbose/pred.pkl')
-            if 'no_pixdistrib_video' not in self.policyparams:
-                self.save_video()
+            print('done')
+
+            if 'register_gtruth' in self.policyparams:
+                plot_warp_err(self.traj, self.agentparams['record'])
+
+            # if 'verbose' in self.policyparams:
+                # pickle.dump(self.cem_controller.dict_,open(self.netconf['current_dir'] + '/verbose/pred.pkl', 'wb'))
+                # print('finished writing files to:' + self.netconf['current_dir'] + '/verbose/pred.pkl')
+            # if 'no_pixdistrib_video' not in self.policyparams:
+            #     self.save_video()
 
         self.t += 1
 

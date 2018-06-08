@@ -48,14 +48,14 @@ class Trajectory(object):
         else:
             self.actions = np.zeros([self.T, 2])
 
-        if 'sdim' in conf:
-            state_dim = conf['sdim']
+        if 'sawyer' not in conf:
+            state_dim = conf['sdim']//2
         else:
-            state_dim = 2
+            state_dim = conf['sdim']
 
-        self.X_full = np.zeros([self.T, state_dim//2])
-        self.Xdot_full = np.zeros([self.T, state_dim//2])
-        self.X_Xdot_full = np.zeros([self.T, state_dim])
+        self.X_full = np.zeros([self.T, state_dim])
+        self.Xdot_full = np.zeros([self.T, state_dim])
+        self.X_Xdot_full = np.zeros([self.T, state_dim*2])
 
         if 'posmode' in conf:
             self.target_qpos = np.zeros([self.T + 1, conf['adim']])
