@@ -4,7 +4,7 @@ import os.path
 
 import numpy as np
 
-from python_visual_mpc.visual_mpc_core.algorithm.random_policy import CorrRandompolicy
+from python_visual_mpc.visual_mpc_core.algorithm.random_policy import CorrRandompolicy, Randompolicy
 from python_visual_mpc.visual_mpc_core.agent.agent_mjc import AgentMuJoCo
 from python_visual_mpc.visual_mpc_core.infrastructure.utility.tfrecord_from_file import DefaultTraj
 IMAGE_WIDTH = 64
@@ -80,7 +80,7 @@ agent = {
     'lift_rejection_sample' : 1,
     'object_mass' : 0.1,
     'friction' : 1.0,
-    'autograsp' : {'reopen':'', 'zthresh':-0.06,'touchthresh':0.0},
+    'autograsp' : {'reopen':'', 'zthresh':0.087, 'touchthresh':0.0},
     'reopen':'',
     # 'master_datadir' : '/raid/ngc2/grasping_data/autograsp_reopen/'
 #    'file_to_record' : convert_to_record
@@ -89,10 +89,10 @@ agent = {
 }
 
 policy = {
-    'type' : CorrRandompolicy,
+    'type' : Randompolicy,
+    # 'type' : CorrRandompolicy,
     'nactions' : 15,
     'repeat' : 1,
-    # 'no_action_bound' : False,
     'initial_std': 0.08,   #std dev. in xy
     'initial_std_lift': 1.6,   #std dev. in xy
     'initial_std_rot' : np.pi / 18,

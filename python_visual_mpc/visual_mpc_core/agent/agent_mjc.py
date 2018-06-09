@@ -1,4 +1,8 @@
 """ This file defines an agent for the MuJoCo simulator environment. """
+# import matplotlib; matplotlib.use('Agg'); import matplotlib.pyplot as plt
+import matplotlib.pyplot as plt
+
+
 from copy import deepcopy
 from python_visual_mpc.visual_mpc_core.agent.utils.gen_gtruth_desig import gen_gtruthdesig
 import copy
@@ -7,7 +11,6 @@ import pdb
 from python_visual_mpc.visual_mpc_core.agent.utils.convert_world_imspace_mj1_5 import project_point, get_3D
 import pickle
 from PIL import Image
-import matplotlib; matplotlib.use('Agg'); import matplotlib.pyplot as plt
 from python_visual_mpc.video_prediction.misc.makegifs2 import assemble_gif, npy_to_gif
 from pyquaternion import Quaternion
 from mujoco_py import load_model_from_xml,load_model_from_path, MjSim, MjViewer
@@ -525,28 +528,20 @@ class AgentMuJoCo(object):
         npy_to_gif(self.large_images_traj, file_path +'/video{}'.format(itr))
 
     def plot_ctrls(self, i_tr):
-        plt.figure()
         # a = plt.gca()
         self.hf_qpos_l = np.stack(self.hf_qpos_l, axis=0)
         self.hf_target_qpos_l = np.stack(self.hf_target_qpos_l, axis=0)
         tmax = self.hf_target_qpos_l.shape[0]
 
-        # i = 4
-        # plt.plot(list(range(tmax)), self.hf_qpos_l[:,i], label='q_{}'.format(i))
-        # plt.plot(list(range(tmax)), self.hf_target_qpos_l[:, i], label='q_target{}'.format(i))
-        # plt.legend()
-        # plt.show()
         if not os.path.exists(self._hyperparams['record']):
             os.makedirs(self._hyperparams['record'])
-            for i in range(self.adim):
-                # plt.subplot(self.adim,1,i)
-                plt.plot(list(range(tmax)), self.hf_qpos_l[:,i], label='q_{}'.format(i))
-                # plt.plot(list(range(tmax)), self.hf_target_qpos_l[:, i], label='q_target{}'.format(i))
-                # plt.legend()
-
-                break
-                # plt.show()
+        for i in range(self.adim):
+            plt.subplot(self.adim,1,i+1)
+            plt.plot(list(range(tmax)), self.hf_qpos_l[:,i], label='q_{}'.format(i))
+            plt.plot(list(range(tmax)), self.hf_target_qpos_l[:, i], label='q_target{}'.format(i))
+            plt.legend()
         plt.savefig(self._hyperparams['record'] + '/ctrls{}.png'.format(i_tr))
+        plt.close()
 
     def plot_pix_dist(self, planstat):
         plt.figure()

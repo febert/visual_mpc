@@ -29,9 +29,9 @@ class Alex_Interface_Model(object):
 
         if 'autograsp' in datatset_hparams_dict:
             self.adim = datatset_hparams_dict['autograsp']
-        else: self.adim = datatset_hparams_dict['adim']
+        else: self.adim = conf['adim']
 
-        self.sdim = datatset_hparams_dict['sdim']
+        self.sdim = conf['sdim']
         seq_len = model_hparams_dict['sequence_length']
         nctxt = model_hparams_dict['context_frames']
         ncam = conf['ncam']

@@ -65,7 +65,7 @@ class CorrRandompolicy(Randompolicy):
     def act(self, traj, t, init_model=None, goal_ob_pose=None, agentparams=None, goal_image=None):
         if t == 0:
             self.sample_actions(traj, 1)
-        return self.actions[t]
+        return self.actions[0, t]
 
     def sample_actions(self, traj, nsamples):
         assert self.repeat == 1
@@ -92,9 +92,7 @@ class CorrRandompolicy(Randompolicy):
             actions.append(np.random.multivariate_normal(mean, sigma, nsamples))
 
         self.actions = np.stack(actions, axis=-1)
-
         self.process_actions()
-        return self.actions[t]
 
 
 class RandomPickPolicy(Randompolicy):

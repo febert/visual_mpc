@@ -1,3 +1,6 @@
+import matplotlib.pyplot as plt
+# import matplotlib; matplotlib.use('Agg'); import matplotlib.pyplot as plt
+
 import imp
 import os
 import os.path
@@ -15,7 +18,7 @@ sys.path.append('/'.join(str.split(__file__, '/')[:-2]))
 from python_visual_mpc.goaldistancenet.setup_gdn import setup_gdn
 from python_visual_mpc.visual_mpc_core.infrastructure.utility import *
 
-import matplotlib; matplotlib.use('Agg'); import matplotlib.pyplot as plt
+
 from datetime import datetime
 import pickle
 import cv2
