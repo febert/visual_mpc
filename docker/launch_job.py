@@ -49,7 +49,6 @@ def launch_job_func(run_script, hyper, arg, interactive=False, name='', ngpu=8, 
                              {"containerMountPoint": "/mnt/pretrained_models/autograsp", "id": 10194},
                              {"containerMountPoint": "/mnt/pretrained_models/autograsp_nostate_long", "id": 10237},
                              {"containerMountPoint": "/mnt/pretrained_models/autograsp_notouch_long", "id": 10238},
-                             {"containerMountPoint": "/mnt/pretrained_models/ag_reopen_records", "id": 10401},
                              {"containerMountPoint": "/mnt/pretrained_models/bair_action_free/model.savp.transformation.flow.last_frames.2.generate_scratch_image.false.batch_size.16", "id": 9161},
                              {"containerMountPoint": "/mnt/pretrained_models/bair_action_free/model.multi_savp.ngf.64.shared_views.true.num_views.2.tv_weight.0.001.transformation.flow.last_frames.2.generate_scratch_image.false.batch_size.16", "id": 9223},
                              {"containerMountPoint": "/mnt/pretrained_models/bair_action_free/model.multi_savp.num_views.2.tv_weight.0.001.transformation.flow.last_frames.2.generate_scratch_image.false.batch_size.16", "id": 9387},
@@ -59,6 +58,7 @@ def launch_job_func(run_script, hyper, arg, interactive=False, name='', ngpu=8, 
                              {"containerMountPoint": "/mnt/pushing_data/cartgripper/grasping/mj_lift", "id": 10048},  # mj_pos_ctrl_appflow
                              {"containerMountPoint": "/mnt/pushing_data/cartgripper/grasping/cartgripper_startgoal_2view_lift_above_obj", "id": 10061},  # mj_pos_ctrl_appflow
                              {"containerMountPoint": "/mnt/pushing_data/cartgripper/grasping/cartgripper_startgoal_2view_lift", "id": 10188},  # mj_pos_ctrl_appflow
+                             {"containerMountPoint": "/mnt/pushing_data/cartgripper/grasping/ag_reopen_records", "id": 10401},
                              {"containerMountPoint": "/mnt/pushing_data/cartgripper/cartgripper_const_dist", "id": 9259},  # mj_pos_ctrl_appflow
                              {"containerMountPoint": "/mnt/pushing_data/cartgripper/cartgripper_startgoal_short", "id": 8949},  # mj_pos_ctrl_appflow
                              {"containerMountPoint": "/mnt/pushing_data/cartgripper/cartgripper_startgoal_2view", "id": 9222},  # mj_pos_ctrl_appflow

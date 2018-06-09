@@ -4,7 +4,7 @@ import pdb
 from video_prediction.models import MultiSAVPVideoPredictionModel, SAVPVideoPredictionModel
 import json
 import os
-import pdb
+import ipdb
 
 class Alex_Interface_Model(object):
     def __init__(self,
@@ -51,10 +51,14 @@ class Alex_Interface_Model(object):
         else:
             targets = None
 
-        if ncam == 1:
-            self.m = SAVPVideoPredictionModel(mode=mode, hparams_dict=model_hparams_dict)
-        elif ncam == 2:
-            self.m = MultiSAVPVideoPredictionModel(mode=mode, hparams_dict=model_hparams_dict)
+        if 'pred_model_class' in conf:
+            model_hparams_dict['num_views'] = 2
+            self.m = conf['pred_model_class'](mode=mode, hparams_dict=model_hparams_dict)
+        else:
+            if ncam == 1:
+                self.m = SAVPVideoPredictionModel(mode=mode, hparams_dict=model_hparams_dict)
+            elif ncam == 2:
+                self.m = MultiSAVPVideoPredictionModel(mode=mode, hparams_dict=model_hparams_dict)
 
         inputs = {'actions':actions ,'images':images[:,:,0]}
         if datatset_hparams_dict['use_state']:

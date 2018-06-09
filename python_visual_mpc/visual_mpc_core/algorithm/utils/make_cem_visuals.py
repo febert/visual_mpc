@@ -147,7 +147,6 @@ def make_cem_visuals(ctrl, actions, bestindices, cem_itr, flow_fields, gen_distr
 
             gen_image_an_l.append(gen_image_an)
 
-
     else:
         gen_image_an_l = None
 
@@ -173,9 +172,9 @@ def make_cem_visuals(ctrl, actions, bestindices, cem_itr, flow_fields, gen_distr
         for icam in range(ctrl.ncam):
             for p in range(ctrl.ndesig):
                 sel_gen_distrib_p = unstack(sel_gen_distrib[:,:, icam,:,:, p], 1)
-                t_dict_['gen_dist_cam{}_p{}'.format(icam, p)] = sel_gen_distrib_p
+                t_dict_['gen_distrib_cam{}_p{}'.format(icam, p)] = sel_gen_distrib_p
                 if gl_im_ann is not None:
-                    t_dict_['gen_dist__cam{}_{}'.format(icam, p)] = \
+                    t_dict_['gen_dist_goalim_overlay_cam{}_{}_t{}'.format(icam, p, ctrl.t)] = \
                                  (unstack(gl_im_ann_per_tsk[p,:,:,icam], 1), sel_gen_distrib_p)
 
     for icam in range(ctrl.ncam):

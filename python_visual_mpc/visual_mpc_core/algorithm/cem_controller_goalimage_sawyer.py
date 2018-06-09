@@ -466,10 +466,18 @@ class CEM_controller():
         one_hot_images = np.zeros((1, self.netconf['context_frames'], self.ncam, self.img_height, self.img_width, self.ndesig), dtype=np.float32)
         desig = np.clip(desig, np.zeros(2).reshape((1, 2)), np.array([self.img_height, self.img_width]).reshape((1, 2)) - 1).astype(np.int)
         # switch on pixels
+
         for icam in range(self.ncam):
             for p in range(self.ndesig):
                 one_hot_images[:, :, icam, desig[icam, p, 0], desig[icam, p, 1], p] = 1.
                 self.logger.log('using desig pix',desig[icam, p, 0], desig[icam, p, 1])
+
+        plt.figure()
+        plt.imshow(one_hot_images[0,0,0].squeeze())
+        plt.savefig(self.agentparams['record'] + '/onehot_cam0.png')
+        plt.imshow(one_hot_images[0,0,1].squeeze())
+        plt.savefig(self.agentparams['record'] + '/onehot_cam1.png')
+        plt.close()
         return one_hot_images
 
     def singlepoint_prob_eval(self, gen_pixdistrib):
