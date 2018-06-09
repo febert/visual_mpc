@@ -115,18 +115,18 @@ def make_cem_visuals(ctrl, actions, bestindices, cem_itr, flow_fields, gen_distr
                 if 'trade_off_reg' in ctrl.policyparams:
                     warped_img_start_cam = draw_text_onimage('%.2f' % reg_tradeoff[icam, 0],warped_image_start[icam].squeeze())
                 else:
-                    warped_img_start_cam  = warped_image_goal[icam].squeeze()
+                    warped_img_start_cam  = warped_image_start[icam].squeeze()
                 t_dict_['warp_start_cam{}'.format(icam)] = [np.repeat(np.expand_dims(warped_img_start_cam, axis=0), num_ex, axis=0) for _ in
                                                   range(len_pred)]
 
-            startimages = np.tile(ctrl.start_image[None], [num_ex, len_pred, 1, 1, 1])
             if 'image_medium' in ctrl.agentparams:
                 desig_pix_t0 = ctrl.desig_pix_t0_med[icam][None]
             else:
                 desig_pix_t0 = ctrl.desig_pix_t0[icam][None]
             desig_pix_t0 = np.tile(desig_pix_t0, [num_ex, len_pred, 1])
 
-            t_dict_['start_img_cam{}'.format(icam)] = add_crosshairs(startimages, desig_pix_t0)
+            startimages = np.tile(ctrl.start_image[icam][None, None], [num_ex, len_pred, 1, 1, 1])
+            t_dict_['start_img_cam{}'.format(icam)] = unstack(add_crosshairs(startimages, desig_pix_t0), 1)
 
             ipix = 0
             gen_image_an = gen_images[:, :, icam]

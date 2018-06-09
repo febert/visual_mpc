@@ -12,7 +12,7 @@ from python_visual_mpc.visual_mpc_core.agent.agent_mjc import AgentMuJoCo
 import numpy as np
 agent = {
     'type': AgentMuJoCo,
-    'T': 30,
+    'T': 15,
     'substeps':200,
     'adim':5,
     'sdim':12,
@@ -53,11 +53,13 @@ policy = {
     'initial_std_rot' : np.pi / 18,
     'initial_std_grasp' : 0,
     'netconf': current_dir + '/conf.py',
+    'gdnconf': current_dir + '/gdnconf.py',
     'iterations': 3,
     'action_cost_factor': 0,
     'rew_all_steps':"",
     'finalweight':10,
     # 'no_action_bound':"",
+    'register_gtruth':['start'],
 }
 
 tag_images0 = {'name': 'images0',

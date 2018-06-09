@@ -1,7 +1,5 @@
 """ This file defines an agent for the MuJoCo simulator environment. """
-# import matplotlib; matplotlib.use('Agg'); import matplotlib.pyplot as plt
-import matplotlib.pyplot as plt
-
+import matplotlib; matplotlib.use('Agg'); import matplotlib.pyplot as plt
 
 from copy import deepcopy
 from python_visual_mpc.visual_mpc_core.agent.utils.gen_gtruth_desig import gen_gtruthdesig
@@ -15,11 +13,7 @@ from python_visual_mpc.video_prediction.misc.makegifs2 import assemble_gif, npy_
 from pyquaternion import Quaternion
 from mujoco_py import load_model_from_xml,load_model_from_path, MjSim, MjViewer
 from python_visual_mpc.visual_mpc_core.agent.utils.get_masks import get_obj_masks, get_image
-import time
 from python_visual_mpc.visual_mpc_core.infrastructure.trajectory import Trajectory
-from matplotlib.backends.backend_agg import FigureCanvasAgg as FigureCanvas
-from matplotlib.figure import Figure
-import cv2
 from mpl_toolkits.mplot3d import Axes3D
 from python_visual_mpc.visual_mpc_core.agent.utils.create_xml import create_object_xml, create_root_xml
 import os
