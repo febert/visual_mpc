@@ -1,5 +1,4 @@
 import numpy as np
-import ipdb
 
 
 def draw_text_image(text, background_color=(255,255,255), image_size=(30, 64), dtype=np.float32):

@@ -160,8 +160,12 @@ class GoalDistanceNet(object):
         self.seq_len = self.conf['sequence_length']
         self.bsize = self.conf['batch_size']
 
-        self.img_height = self.conf['orig_size'][0]
-        self.img_width = self.conf['orig_size'][1]
+        if 'row_start' in self.conf:
+            self.img_height = self.conf['row_end'] - self.conf['row_start']
+            self.img_width = self.conf['orig_size'][1]
+        else:
+            self.img_height = self.conf['orig_size'][0]
+            self.img_width = self.conf['orig_size'][1]
 
         if load_data:
             self.iter_num = tf.placeholder(tf.float32, [], name='iternum')
@@ -194,8 +198,8 @@ class GoalDistanceNet(object):
             self.conf['sequence_length'] = self.conf['sequence_length']-1
             self.I0, self.I1 = self.sel_images()
 
-        self.occ_fwd = tf.zeros([self.bsize,  self.img_height,  self.img_width])
-        self.occ_bwd = tf.zeros([self.bsize,  self.img_height,  self.img_width])
+        self.occ_fwd = tf.zeros([self.bsize,  self.img_height,  self.img_width, 1])
+        self.occ_bwd = tf.zeros([self.bsize,  self.img_height,  self.img_width, 1])
 
         self.avg_gtruth_flow_err_sum = None
         self.build_loss = build_loss
@@ -250,8 +254,8 @@ class GoalDistanceNet(object):
 
         self.occ_mask_bwd = 1 - self.occ_bwd  # 0 at occlusion
         self.occ_mask_fwd = 1 - self.occ_fwd
-        self.occ_mask_bwd = self.occ_mask_bwd[:, :, :, None]
-        self.occ_mask_fwd = self.occ_mask_fwd[:, :, :, None]
+        # self.occ_mask_bwd = self.occ_mask_bwd[:, :, :, None]
+        # self.occ_mask_fwd = self.occ_mask_fwd[:, :, :, None]
 
         if self.build_loss:
             if 'multi_scale' not in self.conf:
@@ -474,13 +478,11 @@ class GoalDistanceNet(object):
                       I0=None, gen_I0=None, occ_fwd=None, flow_fwd=None, diff_flow_bwd=None, mult=1., suf=''):
         if occ_bwd is not None:
             occ_mask_bwd = 1 - occ_bwd  # 0 at occlusion
-            occ_mask_bwd = occ_mask_bwd[:, :, :, None]
         else:
             occ_mask_bwd = tf.ones(I1.get_shape().as_list()[:3] + [1])
 
         if occ_fwd is not None:
             occ_mask_fwd = 1 - occ_fwd
-            occ_mask_fwd = occ_mask_fwd[:, :, :, None]
 
         if self.conf['norm'] == 'l2':
             norm = mean_square

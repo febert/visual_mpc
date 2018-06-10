@@ -94,10 +94,10 @@ def main(unused_argv, conf_script= None):
         model.build_net()
 
     #model for online benchmarking
-    with tf.variable_scope('model', reuse=True):
-        # conf['compare_gtruth_flow'] = ''
-        benchmodel = Model(conf, build_loss =False, load_data=False)
-        benchmodel.build_net()
+    # with tf.variable_scope('model', reuse=True):
+    #     # conf['compare_gtruth_flow'] = ''
+    #     benchmodel = Model(conf, build_loss =False, load_data=False)
+    #     benchmodel.build_net()
 
     print('Constructing saver.')
     vars = tf.get_collection(tf.GraphKeys.GLOBAL_VARIABLES)
@@ -233,4 +233,4 @@ def load_checkpoint(conf, sess, saver, model_file=None):
 
 if __name__ == '__main__':
     tf.logging.set_verbosity(tf.logging.INFO)
-    app.run()
+    app.run(main)

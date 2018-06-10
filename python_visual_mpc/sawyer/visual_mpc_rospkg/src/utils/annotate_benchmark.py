@@ -14,8 +14,9 @@ ROOT_DIR = '/'.join(str.split(ROOT_DIR, '/')[:-2])
 def annotate(exp_dir):
     num_runs = 1
 
-    scores = []
-    improvements = []
+    scores_l = []
+    improvements_l = []
+    initial_dists_l = []
 
     for n in range(num_runs):
         exp_dir + '/videos/' +
@@ -24,7 +25,6 @@ def annotate(exp_dir):
         goal_pix = pkl.load(open('points.pkl', 'rb'))
 
         start_image =
-
         goal_image =
         final_image = cv2.imread()
 
@@ -34,10 +34,12 @@ def annotate(exp_dir):
         final_dist = np.linalg.norm(goal_pix - final_pos)
         initial_dist = np.linalg.norm(desig_pix_t0 - goal_pix)
         improvement = initial_dist - final_dist
-        scores.append(final_dist)
-        improvements.append(improvement)
 
-        ann_stats = {'initial_dist': initial_dist, 'improvments':improvements, 'scores':scores}
+        scores_l.append(final_dist)
+        improvements_l.append(improvement)
+        initial_dists_l.append(initial_dist)
+
+        ann_stats = {'initial_dist': initial_dists_l, 'improvments':improvements_l, 'scores':scores_l}
         pkl.dump(ann_stats, open(exp_dir + '/ann_stats.pkl','wb'))
 
     write(exp_dir, ann_stats)
@@ -50,8 +52,6 @@ def write(exp_dir, stat):
         initial_dist = stat['initial_dist']
     else:
         initial_dist = None
-    integrated_poscost = stat['integrated_poscost']
-    term_t = stat['term_t']
 
     sorted_ind = improvement.argsort()[::-1]
 
@@ -59,8 +59,6 @@ def write(exp_dir, stat):
     med_imp = np.median(improvement)
     mean_dist = np.mean(scores)
     med_dist = np.median(scores)
-    mean_integrated_poscost = np.mean(integrated_poscost)
-    med_integrated_poscost = np.median(integrated_poscost)
 
     lifted = stat['lifted'].astype(np.int)
 
@@ -71,43 +69,26 @@ def write(exp_dir, stat):
     f.write('overall worst pos improvement: {0} of traj {1}\n'.format(improvement[sorted_ind[-1]], sorted_ind[-1]))
     f.write('average pos improvemnt: {0}\n'.format(mean_imp))
     f.write('median pos improvement {}'.format(med_imp))
-    f.write('standard deviation of population {0}\n'.format(np.std(improvement)))
     f.write('standard error of the mean (SEM) {0}\n'.format(np.std(improvement) / np.sqrt(improvement.shape[0])))
     f.write('---\n')
     f.write('average pos score: {0}\n'.format(mean_dist))
     f.write('median pos score {}'.format(med_dist))
-    f.write('standard deviation of population {0}\n'.format(np.std(scores)))
     f.write('standard error of the mean (SEM) {0}\n'.format(np.std(scores) / np.sqrt(scores.shape[0])))
     f.write('---\n')
     f.write('mean imp, med imp, mean dist, med dist {}, {}, {}, {}\n'.format(mean_imp, med_imp, mean_dist, med_dist))
     f.write('---\n')
-    if initial_dist is not None:
-        f.write('average initial dist: {0}\n'.format(np.mean(initial_dist)))
-        f.write('median initial dist: {0}\n'.format(np.median(initial_dist)))
-        f.write('----------------------\n')
-    if 'ztarget' in conf:
-        f.write('traj: improv, score, lifted at end, rank\n')
-        f.write('----------------------\n')
+    f.write('average initial dist: {0}\n'.format(np.mean(initial_dist)))
+    f.write('median initial dist: {0}\n'.format(np.median(initial_dist)))
+    f.write('----------------------\n')
+    f.write('traj: improv, score, term_t, lifted, rank\n')
+    f.write('----------------------\n')
 
-        for n, t in enumerate(range(conf['start_index'], i_traj)):
-            f.write('{}: {}, {}, {}, :{}\n'.format(t, improvement[n], scores[n], improvement[n] > 0.05,
-                                                   np.where(sorted_ind == n)[0][0]))
-    else:
-        f.write('traj: improv, score, term_t, lifted, rank\n')
-        f.write('----------------------\n')
-        for n, t in enumerate(range(conf['start_index'], i_traj)):
-            f.write('{}: {}, {}, {}, {}:{}\n'.format(t, improvement[n], scores[n], term_t[n], lifted[n],
-                                                     np.where(sorted_ind == n)[0][0]))
+    for n in range(improvement.shape[0]):
+        f.write('{}: {}, {}, {}:{}\n'.format(n, improvement[n], scores[n], lifted[n],
+                                                 np.where(sorted_ind == n)[0][0]))
     f.close()
 
 
-
-
-def cal
-
-
-
-
-
 if __name__ == '__main__':
-    read_data()
+
+    annotate()

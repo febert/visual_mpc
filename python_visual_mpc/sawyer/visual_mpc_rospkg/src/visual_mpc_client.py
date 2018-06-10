@@ -187,6 +187,7 @@ class Visual_MPC_Client():
 
         if self.save_subdir == "True":
             self.save_subdir = raw_input('enter subdir to save data:')
+            save_images = True
             self.recorder_save_dir = self.base_dir + "/experiments/cem_exp/benchmarks_sawyer/" + self.benchname + \
                                         '/' + self.save_subdir + "/videos"
         elif self.data_collection:
