@@ -10,7 +10,7 @@ from datetime import datetime
 
 import cv2
 # import matplotlib; matplotlib.use('Agg');
-import matplotlib.pyplot as plt
+import matplotlib; matplotlib.use('Agg'); import matplotlib.pyplot as plt
 import numpy as np
 import rospy
 from cv_bridge import CvBridge
@@ -61,14 +61,19 @@ class Visual_MPC_Client():
         self.ctrl = robot_controller.RobotController()
         self.base_dir = '/'.join(str.split(base_filepath, '/')[:-2])
 
+        self.use_save_subdir = False
         if cmd_args:
             parser = argparse.ArgumentParser(description='')
             parser.add_argument('experiment', type=str, help='experiment name')
             parser.add_argument('--robot_name', type=str, default='vestri', help='robot name')
+            parser.add_argument('--save_subdir', type=str, default='False')
             args = parser.parse_args()
             benchmark_name = args.experiment
             self.use_gui = False
             self.robot_name = args.robot_name
+
+            if args.use_save_subdir == 'True':
+                self.use_save_subdir = True
         else:
             self.use_gui = rospy.get_param('~gui')   #experiment name
             benchmark_name = rospy.get_param('~exp')   #experiment name
@@ -113,7 +118,7 @@ class Visual_MPC_Client():
         self.ndesig = self.agentparams['ndesig']
 
         self.num_traj = 5000
-        self.use_save_subdir = False
+
 
         self.action_sequence_length = self.agentparams['T'] # number of snapshots that are taken
         self.use_robot = True
@@ -181,7 +186,7 @@ class Visual_MPC_Client():
             self.data_collection = False
 
         if self.save_subdir == "True":
-            self.save_subdir = input('enter subdir to save data:')
+            self.save_subdir = raw_input('enter subdir to save data:')
             self.recorder_save_dir = self.base_dir + "/experiments/cem_exp/benchmarks_sawyer/" + self.benchname + \
                                         '/' + self.save_subdir + "/videos"
         elif self.data_collection:
@@ -454,7 +459,7 @@ class Visual_MPC_Client():
 
 
         if self.use_save_subdir:
-            self.save_subdir = input('enter subdir to save data:')
+            self.save_subdir = raw_input('enter subdir to save data:')
             self.recorder_save_dir = self.base_dir + "/experiments/cem_exp/benchmarks_sawyer/" + self.benchname + \
                                      '/' + self.save_subdir + "/videos"
             self.recorder.image_folder = self.recorder_save_dir
