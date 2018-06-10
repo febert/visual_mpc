@@ -28,8 +28,6 @@ def sorted_alphanumeric(l):
     return sorted(l, key = alphanum_key)
 
 def bench_worker_cmd():
-    while True:
-        pass
 
     parser = argparse.ArgumentParser(description='run parllel data collection')
 
@@ -53,6 +51,7 @@ def bench_worker_cmd():
 
     random.seed(None)
     np.random.seed(None)
+
     perform_benchmark(hyperparams, -1, gpu_id=gpu_id)
 
 if __name__ == '__main__':

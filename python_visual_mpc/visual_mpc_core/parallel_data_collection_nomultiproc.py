@@ -87,7 +87,8 @@ def main():
         if i == n_worker - 1:
             detach = ''
         else: detach = '&'
-        cmd = "python bench_worker_cmd.py {} {} {} {} {}".format(args.experiment, gpu_id, start_idx[i], end_idx[i], detach)
+        script = '/'.join(str.split(python_visual_mpc.__file__, '/')[:-1]) + '/visual_mpc_core/bench_worker_cmd.py'
+        cmd = "python {} {} {} {} {} {}".format(script, args.experiment, i, start_idx[i], end_idx[i], detach)
         print(cmd)
         os.system(cmd)
 
