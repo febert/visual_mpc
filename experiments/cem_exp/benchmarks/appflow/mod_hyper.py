@@ -12,7 +12,7 @@ from python_visual_mpc.visual_mpc_core.agent.agent_mjc import AgentMuJoCo
 
 agent = {
     'type': AgentMuJoCo,
-    'T': 3, ##########
+    'T': 30,
     'substeps':20,
     'adim':3,
     'sdim':6,
