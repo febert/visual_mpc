@@ -20,29 +20,6 @@ from python_visual_mpc.visual_mpc_core.infrastructure.utility.combine_scores imp
 from python_visual_mpc.visual_mpc_core.infrastructure.utility.create_configs import CollectGoalImageSim
 import pickle
 
-def worker(conf, iex=-1):
-    print('started process with PID:', os.getpid())
-    print('making trajectories {0} to {1}'.format(
-        conf['start_index'],
-        conf['end_index'],
-    ))
-
-    random.seed(None)
-    np.random.seed(None)
-    if 'simulator' in conf:
-        Simulator = CollectGoalImageSim
-        print('use collect goalimage sim')
-    else:
-        Simulator = Sim
-
-    s = Simulator(conf)
-    s.run()
-
-def bench_worker(conf, iex=-1):
-    print('started process with PID:', os.getpid())
-    random.seed(None)
-    np.random.seed(None)
-    perform_benchmark(conf, iex, gpu_id=conf['gpu_id'])
 
 def main():
     parser = argparse.ArgumentParser(description='run parllel data collection')
@@ -60,16 +37,14 @@ def main():
     gpu_id = args.gpu_id
 
     n_worker = args.nworkers
-    if args.nworkers == 1:
-        parallel = False
-    else:
-        parallel = True
-    # parallel = True
+    # if args.nworkers == 1:
+    #     parallel = False
+    # else:
+    #     parallel = True
+    parallel = True
     print('parallel ', bool(parallel))
 
-    if 'benchmarks' in hyperparams_file:
-        do_benchmark = True
-    else: do_benchmark = False
+
     loader = importlib.machinery.SourceFileLoader('mod_hyper', hyperparams_file)
     spec = importlib.util.spec_from_loader(loader.name, loader)
     mod = importlib.util.module_from_spec(spec)
@@ -92,9 +67,6 @@ def main():
             os.system("rm {}".format('/'.join(str.split(hyperparams['agent']['filename'], '/')[:-1]) + '/auto_gen/*'))
         except: pass
 
-    if do_benchmark:
-        use_worker = bench_worker
-    else: use_worker = worker
 
     if 'RESULT_DIR' in os.environ:
         result_dir = os.environ['RESULT_DIR']
@@ -111,38 +83,15 @@ def main():
         sync_todo_id = sync.remote(hyperparams['agent'])
         print('launched sync')
 
-    conflist = []
     for i in range(n_worker):
-        modconf = copy.deepcopy(hyperparams)
-        modconf['start_index'] = start_idx[i]
-        modconf['end_index'] = end_idx[i]
-        modconf['gpu_id'] = i + gpu_id
-        conflist.append(modconf)
-    if parallel:
-        p = Pool(n_worker)
-        p.map(use_worker, conflist)
-    else:
-        use_worker(conflist[0], args.iex)
+        cmd = "python bench_worker_cmd.py {} {} {} {} &".format(args.experiment, gpu_id, start_idx[i], end_idx[i])
+        print(cmd)
+        os.system(cmd)
 
     if 'master_datadir' in hyperparams['agent']:
         ray.wait([sync_todo_id])
 
-    if do_benchmark:
-        if 'RESULT_DIR' in os.environ:
-            result_dir = os.environ['RESULT_DIR']
-        else: result_dir = hyperparams['current_dir']
-        combine_scores(hyperparams, result_dir)
-        sys.exit()
 
-    traindir = modconf['agent']["data_save_dir"]
-    testdir = '/'.join(traindir.split('/')[:-1] + ['/test'])
-    if not os.path.exists(testdir):
-        os.makedirs(testdir)
-    import shutil
-    files = glob.glob(traindir + '/*')
-    files = sorted_alphanumeric(files)
-    if os.path.isfile(files[0]): #don't do anything if directory
-        shutil.move(files[0], testdir)
 
 
 def sorted_alphanumeric(l):
