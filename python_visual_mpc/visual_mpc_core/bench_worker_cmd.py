@@ -28,6 +28,9 @@ def sorted_alphanumeric(l):
     return sorted(l, key = alphanum_key)
 
 def bench_worker_cmd():
+    while True:
+        pass
+
     parser = argparse.ArgumentParser(description='run parllel data collection')
 
     parser.add_argument('experiment', type=str, help='experiment name')
@@ -51,27 +54,6 @@ def bench_worker_cmd():
     random.seed(None)
     np.random.seed(None)
     perform_benchmark(hyperparams, -1, gpu_id=gpu_id)
-
-
-    if args.start_index == 0:
-        if 'benchmarks' in hyperparams_file:
-            if 'RESULT_DIR' in os.environ:
-                result_dir = os.environ['RESULT_DIR']
-            else:
-                result_dir = hyperparams['current_dir']
-            combine_scores(hyperparams, result_dir)
-            sys.exit()
-
-        traindir = hyperparams['agent']["data_save_dir"]
-        testdir = '/'.join(traindir.split('/')[:-1] + ['/test'])
-        if not os.path.exists(testdir):
-            os.makedirs(testdir)
-        import shutil
-        files = glob.glob(traindir + '/*')
-        files = sorted_alphanumeric(files)
-        if os.path.isfile(files[0]):  # don't do anything if directory
-            shutil.move(files[0], testdir)
-
 
 if __name__ == '__main__':
     bench_worker_cmd()

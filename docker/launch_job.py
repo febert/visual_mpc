@@ -5,7 +5,7 @@ import os
 import re
 import pdb
 
-def launch_job_func(run_script, hyper, arg, interactive=False, name='', ngpu=8, test=0, nsplit=None, isplit=None, fullcmd=None):
+def launch_job_func(run_script, hyper, nworkers=8, interactive=False, name='', ngpu=8, test=0, nsplit=None, isplit=None, fullcmd=None):
 
     data = {}
 
@@ -91,9 +91,9 @@ def launch_job_func(run_script, hyper, arg, interactive=False, name='', ngpu=8, 
             if nsplit is not None:
                 split = '--nsplit {} --isplit {}'.format(nsplit, isplit)
             else: split = ''
-            command = "python " + run_script + " " + hyper + " {} {}".format(arg, split)
+            command = "python " + run_script + " " + hyper + " --nworkers {} {}".format(nworkers, split)
             expname = hyper.partition('cem_exp')[-1]
-            data["name"] = '-'.join(re.compile('\w+').findall(expname + arg + split))
+            data["name"] = '-'.join(re.compile('\w+').findall(expname + split))
 
     data["command"] += command
     data["resultContainerMountPoint"] = "/result"
@@ -114,12 +114,12 @@ if __name__ == '__main__':
     parser.add_argument('run_script', type=str, help='relative path to the script to launch', default="")
     parser.add_argument('hyper', type=str, help='relative path to hyperparams file', default="")
     parser.add_argument('--int', default='False', type=str, help='interactive')
-    parser.add_argument('--arg', default='', type=str, help='additional arguments')
+    parser.add_argument('--nworkers', default=8, type=str, help='additional arguments')
     parser.add_argument('--name', default='', type=str, help='additional arguments')
     parser.add_argument('--ngpu', default=8, type=int, help='number of gpus')
     parser.add_argument('--test', default=0, type=int, help='testrun')
     parser.add_argument('--cmd', default='', type=str, help='full command')
     args = parser.parse_args()
 
-    launch_job_func(args.run_script, args.hyper, args.arg, args.int, args.name, args.ngpu, args.test, fullcmd=args.cmd)
+    launch_job_func(args.run_script, args.hyper, args.nworkers, args.int, args.name, args.ngpu, args.test, fullcmd=args.cmd)
 

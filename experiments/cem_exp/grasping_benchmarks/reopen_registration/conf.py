@@ -13,13 +13,13 @@ from video_prediction.models.indep_multi_savp_model import IndepMultiSAVPVideoPr
 import video_prediction
 base_dir = video_prediction.__file__
 base_dir = '/'.join(str.split(base_dir, '/')[:-2])
-jsondir = base_dir + '/pretrained_models/autograsp_reopen_ind/view0/model.savp.None'
+modeldir = base_dir + '/pretrained_models/autograsp_reopen_ind/'
 configuration = {
 'pred_model': Alex_Interface_Model,
 'pred_model_class':IndepMultiSAVPVideoPredictionModel,
 'setup_predictor':setup_predictor,
-'json_dir':jsondir,
-'pretrained_model':[jsondir + '/model-100000', jsondir + '/model-100000'],   # 'filepath of a pretrained model to resume training from.' ,
+'json_dir':  modeldir + '/view0/model.savp.None',
+'pretrained_model':[modeldir + '/view0/model.savp.None/model-195000', modeldir + '/view1/model.savp.None/model-195000'],   # 'filepath of a pretrained model to resume training from.' ,
 'sequence_length': 15,      # 'sequence length to load, including context frames.' ,
 'context_frames': 2,        # of frames before predictions.' ,
 'model': 'appflow',            #'model architecture to use - CDNA, DNA, or STP' ,

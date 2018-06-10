@@ -84,12 +84,34 @@ def main():
         print('launched sync')
 
     for i in range(n_worker):
-        cmd = "python bench_worker_cmd.py {} {} {} {} &".format(args.experiment, gpu_id, start_idx[i], end_idx[i])
+        if i == n_worker - 1:
+            detach = ''
+        else: detach = '&'
+        cmd = "python bench_worker_cmd.py {} {} {} {} {}".format(args.experiment, gpu_id, start_idx[i], end_idx[i], detach)
         print(cmd)
         os.system(cmd)
 
+
     if 'master_datadir' in hyperparams['agent']:
         ray.wait([sync_todo_id])
+
+    if 'benchmarks' in hyperparams_file:
+        if 'RESULT_DIR' in os.environ:
+            result_dir = os.environ['RESULT_DIR']
+        else:
+            result_dir = hyperparams['current_dir']
+        combine_scores(hyperparams, result_dir)
+        sys.exit()
+
+    traindir = hyperparams['agent']["data_save_dir"]
+    testdir = '/'.join(traindir.split('/')[:-1] + ['/test'])
+    if not os.path.exists(testdir):
+        os.makedirs(testdir)
+    import shutil
+    files = glob.glob(traindir + '/*')
+    files = sorted_alphanumeric(files)
+    if os.path.isfile(files[0]):  # don't do anything if directory
+        shutil.move(files[0], testdir)
 
 
 
