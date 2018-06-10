@@ -2,10 +2,7 @@ import glob
 import pickle
 from python_visual_mpc.visual_mpc_core.benchmarks import write_scores
 import numpy as np
-import matplotlib.pyplot as plt
 import copy
-import matplotlib
-matplotlib.use('Agg')
 import importlib
 import matplotlib; matplotlib.use('Agg'); import matplotlib.pyplot as plt
 from python_visual_mpc.visual_mpc_core.infrastructure.trajectory import Trajectory
