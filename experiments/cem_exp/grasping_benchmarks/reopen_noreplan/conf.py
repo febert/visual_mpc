@@ -13,7 +13,7 @@ from video_prediction.models.indep_multi_savp_model import IndepMultiSAVPVideoPr
 import video_prediction
 base_dir = video_prediction.__file__
 base_dir = '/'.join(str.split(base_dir, '/')[:-2])
-modeldir = base_dir + '/pretrained_models/autograsp_reopen_ind/'
+modeldir = os.environ['ALEX_DATA'] + '/autograsp_reopen_ind'
 configuration = {
 'pred_model': Alex_Interface_Model,
 'pred_model_class':IndepMultiSAVPVideoPredictionModel,

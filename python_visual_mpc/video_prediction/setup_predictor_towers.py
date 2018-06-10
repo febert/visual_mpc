@@ -132,9 +132,6 @@ def setup_predictor(hyperparams, conf, gpu_id=0, ngpu=1, logger=None):
                     saver.restore(sess, conf['pretrained_model'])
             else:
                 if conf['pred_model'] == Alex_Interface_Model:
-                    if 'ALEX_DATA' in os.environ:
-                        tenpath = conf['pretrained_model'].partition('pretrained_models')[2]
-                        conf['pretrained_model'] = os.environ['ALEX_DATA'] + tenpath
                     towers[0].model.m.restore(sess, conf['pretrained_model'])
                 else:
                     if 'TEN_DATA' in os.environ:
