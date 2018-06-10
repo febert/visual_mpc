@@ -18,7 +18,7 @@ from python_visual_mpc.visual_mpc_core.infrastructure.trajectory import Trajecto
 import cv2
 
 
-def perform_benchmark(conf = None, iex=-1, gpu_id=None):
+def perform_benchmark(conf=None, iex=-1, gpu_id=None):
     """
     :param conf:
     :param iex:  if not -1 use only rollout this example
@@ -31,31 +31,7 @@ def perform_benchmark(conf = None, iex=-1, gpu_id=None):
         benchmark_name = 'parallel'
         ngpu = 1
         bench_dir = conf['current_dir']
-    else:
-        parser = argparse.ArgumentParser(description='Run benchmarks')
-        parser.add_argument('benchmark', type=str, help='the name of the folder with agent setting for the benchmark')
-        parser.add_argument('--gpu_id', type=int, default=0, help='value to set for cuda visible devices variable')
-        parser.add_argument('--ngpu', type=int, default=1, help='number of gpus to use')
-        args = parser.parse_args()
 
-        benchmark_name = args.benchmark
-        gpu_id = args.gpu_id
-        ngpu = args.ngpu
-
-        # load specific agent settings for benchmark:
-        bench_dir = cem_exp_dir + '/benchmarks/' + benchmark_name
-        if not os.path.exists(bench_dir):
-            print('performing goal image benchmark ...')
-            bench_dir = cem_exp_dir + '/benchmarks_goalimage/' + benchmark_name
-            if not os.path.exists(bench_dir):
-                raise ValueError('benchmark directory does not exist')
-
-        loader = importlib.machinery.SourceFileLoader('mod_hyper', bench_dir + '/mod_hyper.py')
-        spec = importlib.util.spec_from_loader(loader.name, loader)
-        conf = importlib.util.module_from_spec(spec)
-        loader.exec_module(conf)
-
-        conf = conf.config
 
     if 'RESULT_DIR' in os.environ:
         result_dir = os.environ['RESULT_DIR']

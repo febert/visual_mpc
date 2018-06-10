@@ -72,7 +72,7 @@ agent = {
     'posmode':'abs',
     'ztarget':0.13,
     'min_z_lift':0.05,
-    # 'make_final_gif':'', #keep this key in if you want final gif to be created
+    'make_final_gif':'', #keep this key in if you want final gif to be created
     'record': BASE_DIR + '/record/',
     'targetpos_clip':[[-0.5, -0.5, -0.08, -2 * np.pi, -1], [0.5, 0.5, 0.15, 2 * np.pi, 1]],
     'mode_rel':np.array([True, True, True, True, False]),
@@ -80,7 +80,7 @@ agent = {
     'lift_rejection_sample' : 15,
     'object_mass' : 0.1,
     'friction' : 1.0,
-    'autograsp' : {'reopen':'', 'zthresh':-0.06,'touchthresh':0.0},
+    'autograsp' : {'reopen':'', 'zthresh':0.087,'touchthresh':0.0},
     'reopen':'',
     'master_datadir' : '/raid/ngc2/grasping_data/autograsp_reopen/'
 #    'file_to_record' : convert_to_record

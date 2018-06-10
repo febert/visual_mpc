@@ -12,6 +12,7 @@ import numpy as np
 import socket
 import pdb
 
+TOLERANCE = 0.01
 class RobotController(object):
 
     def __init__(self):
@@ -52,6 +53,10 @@ class RobotController(object):
     def set_joints(self, command):
         """Move joints to commmand"""
         self.limb.move_to_joint_positions(command)
+
+    def move_to_joints(self, joint_angles):
+        cmd = dict(list(zip(self.joint_names, joint_angles)))
+        self.set_joints(cmd)
 
     def set_joints_nonblocking(self, command):
         """Move joints to commmand, resending until reached"""

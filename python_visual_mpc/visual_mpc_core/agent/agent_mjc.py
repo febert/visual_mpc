@@ -1,4 +1,6 @@
 """ This file defines an agent for the MuJoCo simulator environment. """
+import matplotlib; matplotlib.use('Agg'); import matplotlib.pyplot as plt
+
 from copy import deepcopy
 from python_visual_mpc.visual_mpc_core.agent.utils.gen_gtruth_desig import gen_gtruthdesig
 import copy
@@ -7,19 +9,16 @@ import pdb
 from python_visual_mpc.visual_mpc_core.agent.utils.convert_world_imspace_mj1_5 import project_point, get_3D
 import pickle
 from PIL import Image
-import matplotlib; matplotlib.use('Agg'); import matplotlib.pyplot as plt
 from python_visual_mpc.video_prediction.misc.makegifs2 import assemble_gif, npy_to_gif
 from pyquaternion import Quaternion
 from mujoco_py import load_model_from_xml,load_model_from_path, MjSim, MjViewer
 from python_visual_mpc.visual_mpc_core.agent.utils.get_masks import get_obj_masks, get_image
-import time
 from python_visual_mpc.visual_mpc_core.infrastructure.trajectory import Trajectory
-import cv2
 from mpl_toolkits.mplot3d import Axes3D
 from python_visual_mpc.visual_mpc_core.agent.utils.create_xml import create_object_xml, create_root_xml
 import os
 import cv2
-
+from python_visual_mpc.visual_mpc_core.agent.utils.target_qpos_utils import get_target_qpos
 
 def file_len(fname):
     i = 0
@@ -31,67 +30,6 @@ def file_len(fname):
 class Image_dark_except(Exception):
     def __init__(self):
         pass
-
-def get_target_qpos(target_qpos, _hyperparams, mj_U, t, gripper_up, gripper_closed, t_down, gripper_zpos, touch_sensors):
-    adim = _hyperparams['adim']
-
-    target_qpos = target_qpos.copy()
-    mj_U = mj_U.copy()
-
-    if 'discrete_adim' in _hyperparams:
-        up_cmd = mj_U[2]
-        assert np.floor(up_cmd) == up_cmd
-        if up_cmd != 0:
-            t_down = t + up_cmd
-            target_qpos[2] = _hyperparams['targetpos_clip'][1][2]
-            gripper_up = True
-        if gripper_up:
-            if t == t_down:
-                target_qpos[2] = _hyperparams['targetpos_clip'][0][2]
-                gripper_up = False
-        target_qpos[:2] += mj_U[:2]
-        if adim == 4:
-            target_qpos[3] += mj_U[3]
-        assert adim <= 4
-    elif 'close_once_actions' in _hyperparams:
-        assert adim == 5
-        target_qpos[:4] = mj_U[:4] + target_qpos[:4]
-        grasp_thresh = 0.5
-        if mj_U[4] > grasp_thresh:
-            gripper_closed = True
-        if gripper_closed:
-            target_qpos[4] = 0.1
-        else:
-            target_qpos[4] = 0.0
-        # print('target_qpos', target_qpos)
-    elif 'autograsp' in _hyperparams:
-        assert adim == 5
-        target_qpos[:4] = mj_U[:4] + target_qpos[:4]
-        zthresh = _hyperparams['autograsp'].get('zthresh',-0.06)
-        if gripper_zpos < zthresh:
-            gripper_closed = True
-        if 'reopen' in _hyperparams['autograsp']:
-            touch_threshold = _hyperparams['autograsp']['touchthresh']
-            if touch_sensors[t, 0] <= touch_threshold and touch_sensors[t, 1] <= touch_threshold and gripper_zpos > zthresh:
-                gripper_closed = False
-        if gripper_closed:
-            target_qpos[4] = 0.1
-        else:
-            target_qpos[4] = 0.0
-
-        #print('target_qpos', target_qpos)
-    else:
-        mode_rel = _hyperparams['mode_rel']
-        target_qpos = target_qpos + mj_U * mode_rel
-        for dim in range(adim):
-            if not mode_rel[dim]:  # set all action dimension that are absolute
-                target_qpos[dim] = mj_U[dim]
-
-    pos_clip = _hyperparams['targetpos_clip']
-    target_qpos = np.clip(target_qpos, pos_clip[0], pos_clip[1])
-    # print('mjU', mj_U)
-    # print('targetqpos', target_qpos)
-    return target_qpos, t_down, gripper_up, gripper_closed
 
 
 class AgentMuJoCo(object):
@@ -249,6 +187,7 @@ class AgentMuJoCo(object):
                 goal_pix[icam, i] = g
         return goal_pix
 
+
     def get_int_targetpos(self, substep, prev, next):
         assert substep >= 0 and substep < self._hyperparams['substeps']
         return substep/float(self._hyperparams['substeps'])*(next - prev) + prev
@@ -313,8 +252,10 @@ class AgentMuJoCo(object):
 
             for i in range(self._hyperparams['num_objects']):
                 fullpose = self.sim.data.qpos[i * 7 + qpos_dim:(i + 1) * 7 + qpos_dim].squeeze().copy()
+
                 if 'object_meshes' in self._hyperparams:
                     fullpose[:3] = self.sim.data.sensordata[touch_offset + i * 3 :touch_offset + (i + 1) * 3].copy()
+
                 traj.Object_full_pose[t, i, :] = fullpose
                 zangle = self.quat_to_zangle(fullpose[3:])
                 traj.Object_pose[t, i, :] = np.concatenate([fullpose[:2], zangle])  # save only xyz, theta
@@ -323,8 +264,6 @@ class AgentMuJoCo(object):
                 self.curr_mask, self.curr_mask_large = get_obj_masks(self.sim, self._hyperparams, include_arm=False) #get target object mask
             else:
                 self.desig_pix = self.get_desig_pix()
-
-            self.pix_dist.append(np.linalg.norm(self.desig_pix - self.goal_pix, axis=2))
 
             self._store_image(t , traj, policy)
             if 'gtruthdesig' in self._hyperparams:  # generate many designated pixel goal-pixel pairs
@@ -351,8 +290,7 @@ class AgentMuJoCo(object):
                     self.prev_target_qpos = copy.deepcopy(self.target_qpos)
 
                 self.target_qpos, self.t_down, self.gripper_up, self.gripper_closed = get_target_qpos(
-                    self.target_qpos, self._hyperparams, mj_U, t, self.gripper_up, self.gripper_closed, self.t_down, traj.X_full[t,2],
-                    traj.touch_sensors)
+                    self.target_qpos, self._hyperparams, mj_U, t, self.gripper_up, self.gripper_closed, self.t_down, traj.X_full[t,2], traj.touch_sensors)
                 traj.target_qpos[t + 1] = self.target_qpos.copy()
             else:
                 ctrl = mj_U.copy()
@@ -360,8 +298,10 @@ class AgentMuJoCo(object):
             for st in range(self._hyperparams['substeps']):
                 if 'posmode' in self._hyperparams:
                     ctrl = self.get_int_targetpos(st, self.prev_target_qpos, self.target_qpos)
+
                 if 'finger_sensors' in self._hyperparams:
                     traj.touch_sensors[t] += copy.deepcopy(self.sim.data.sensordata[:2].squeeze().copy())
+
                 self.sim.data.ctrl[:] = ctrl
                 self.sim.step()
                 self.hf_qpos_l.append(copy.deepcopy(self.sim.data.qpos))
@@ -381,6 +321,7 @@ class AgentMuJoCo(object):
             if done:
                 traj.term_t = t
             t += 1
+
 
         if 'first_last_noarm' in self._hyperparams:
             self.hide_arm_store_image(1, traj)
@@ -402,24 +343,12 @@ class AgentMuJoCo(object):
                 traj_ok = True
             else:
                 traj_ok = False
-
         elif 'lift_rejection_sample' in self._hyperparams:
-            touch_eval = np.logical_and(traj.touch_sensors[:, 0] > 0, traj.touch_sensors[:, 1] > 0)
-            valid_frames = np.logical_and(traj.target_qpos[1:,-1] > 0.05, touch_eval)
+            valid_frames = np.logical_and(traj.target_qpos[1:,-1] > 0.05, np.logical_and(traj.touch_sensors[:, 0] > 0, traj.touch_sensors[:, 1] > 0))
             off_ground = traj.target_qpos[1:,2] >= 0
-            valid_decision = any(np.logical_and(valid_frames, off_ground))
-            #### debug:
-            # if valid_decision:
-            #     with open(self._hyperparams['record'] + 'valid_tr{}_trial{}_valid{}'.format(i_tr, self.i_trial, valid_decision), 'w') as f:
-            #         f.write('touch eval\n')
-            #         for i in range(touch_eval.shape[0]):
-            #             f.write('touch {} offground {}\n'.format(touch_eval[i], off_ground[i]))
-            print('traj {} trial {} valid {}'.format(i_tr, self.i_trial, valid_decision))
-            if not valid_decision:
+            if not any(np.logical_and(valid_frames, off_ground)) and self.i_trial < self._hyperparams['lift_rejection_sample']:
                 traj_ok = False
             else:
-                traj_ok = True
-            if self.i_trial >= self._hyperparams['lift_rejection_sample']:
                 traj_ok = True
         else:
             traj_ok = True
@@ -593,28 +522,20 @@ class AgentMuJoCo(object):
         npy_to_gif(self.large_images_traj, file_path +'/video{}'.format(itr))
 
     def plot_ctrls(self, i_tr):
-        plt.figure()
         # a = plt.gca()
         self.hf_qpos_l = np.stack(self.hf_qpos_l, axis=0)
         self.hf_target_qpos_l = np.stack(self.hf_target_qpos_l, axis=0)
         tmax = self.hf_target_qpos_l.shape[0]
 
-        # i = 4
-        # plt.plot(list(range(tmax)), self.hf_qpos_l[:,i], label='q_{}'.format(i))
-        # plt.plot(list(range(tmax)), self.hf_target_qpos_l[:, i], label='q_target{}'.format(i))
-        # plt.legend()
-        # plt.show()
         if not os.path.exists(self._hyperparams['record']):
             os.makedirs(self._hyperparams['record'])
-            for i in range(self.adim):
-                # plt.subplot(self.adim,1,i)
-                plt.plot(list(range(tmax)), self.hf_qpos_l[:,i], label='q_{}'.format(i))
-                # plt.plot(list(range(tmax)), self.hf_target_qpos_l[:, i], label='q_target{}'.format(i))
-                # plt.legend()
-
-                break
-                # plt.show()
+        for i in range(self.adim):
+            plt.subplot(self.adim,1,i+1)
+            plt.plot(list(range(tmax)), self.hf_qpos_l[:,i], label='q_{}'.format(i))
+            plt.plot(list(range(tmax)), self.hf_target_qpos_l[:, i], label='q_target{}'.format(i))
+            plt.legend()
         plt.savefig(self._hyperparams['record'] + '/ctrls{}.png'.format(i_tr))
+        plt.close()
 
     def plot_pix_dist(self, planstat):
         plt.figure()
@@ -687,6 +608,7 @@ class AgentMuJoCo(object):
 
         if 'arm_start_lifted' in self._hyperparams:
             xpos0[2] = self._hyperparams['arm_start_lifted']
+
 
         sim_state = self.sim.get_state()
         if 'goal_point' in self._hyperparams:

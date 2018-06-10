@@ -125,22 +125,13 @@ def setup_predictor(hyperparams, conf, gpu_id=0, ngpu=1, logger=None):
                 conf['pretrained_model'] = get_maxiter_weights('/result/modeldata')
                 logger.log('loading {}'.format(conf['pretrained_model']))
                 if conf['pred_model'] == Alex_Interface_Model:
-                    if gfile.Glob(conf['pretrained_model'] + '*') is None:
-                        raise ValueError("Model file {} not found!".format(conf['pretrained_model']))
                     towers[0].model.m.restore(sess, conf['pretrained_model'])
                 else:
                     vars = variable_checkpoint_matcher(conf, vars, conf['pretrained_model'])
                     saver = tf.train.Saver(vars, max_to_keep=0)
-                    if gfile.Glob(conf['pretrained_model'] + '*') is None:
-                        raise ValueError("Model file {} not found!".format(conf['pretrained_model']))
                     saver.restore(sess, conf['pretrained_model'])
             else:
                 if conf['pred_model'] == Alex_Interface_Model:
-                    if 'ALEX_DATA' in os.environ:
-                        tenpath = conf['pretrained_model'].partition('pretrained_models')[2]
-                        conf['pretrained_model'] = os.environ['ALEX_DATA'] + tenpath
-                    if gfile.Glob(conf['pretrained_model'] + '*') is None:
-                        raise ValueError("Model file {} not found!".format(conf['pretrained_model']))
                     towers[0].model.m.restore(sess, conf['pretrained_model'])
                 else:
                     if 'TEN_DATA' in os.environ:
@@ -148,8 +139,6 @@ def setup_predictor(hyperparams, conf, gpu_id=0, ngpu=1, logger=None):
                         conf['pretrained_model'] = os.environ['TEN_DATA'] + tenpath
                     vars = variable_checkpoint_matcher(conf, vars, conf['pretrained_model'])
                     saver = tf.train.Saver(vars, max_to_keep=0)
-                    if gfile.Glob(conf['pretrained_model'] + '*') is None:
-                        raise ValueError("Model file {} not found!".format(conf['pretrained_model']))
                     saver.restore(sess, conf['pretrained_model'])
 
             logger.log('restore done. ')

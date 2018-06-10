@@ -6,7 +6,8 @@ import numpy as np
 
 from python_visual_mpc.visual_mpc_core.algorithm.random_policy import Randompolicy
 from python_visual_mpc.visual_mpc_core.agent.agent_mjc import AgentMuJoCo
-from python_visual_mpc.visual_mpc_core.infrastructure.utility.tfrecord_from_file import DefaultTraj
+from python_visual_mpc.visual_mpc_core.infrastructure.utility.tfrecord_from_file import pushing_touch_file2record as convert_to_record
+
 IMAGE_WIDTH = 64
 IMAGE_HEIGHT = 64
 IMAGE_CHANNELS = 3
@@ -16,29 +17,6 @@ current_dir = os.path.dirname(os.path.realpath(__file__))
 
 import python_visual_mpc
 DATA_DIR = '/'.join(str.split(python_visual_mpc.__file__, '/')[:-2])
-
-def convert_to_record(state_action):
-    loaded_traj = DefaultTraj()
-
-    loaded_traj.actions = state_action['actions']
-    touch_sensors = state_action['finger_sensors']
-    loaded_traj.X_Xdot_full = np.concatenate((state_action['target_qpos'][:-1, :], touch_sensors), axis = 1)
-
-    good_lift = False
-
-    valid_frames = np.logical_and(state_action['target_qpos'][1:, -1] > 0, np.logical_and(touch_sensors[:, 0] > 0, touch_sensors[:, 1] > 0))
-    off_ground = state_action['target_qpos'][1:,2] >= 0
-    object_poses = state_action['object_full_pose']
-
-    if any(np.logical_and(valid_frames, off_ground)):
-        obj_eq = object_poses[0, :, :2] == state_action['obj_start_end_pos']
-        obj_eq = np.logical_and(obj_eq[:, 0], obj_eq[:, 1])
-        obj_eq = np.argmax(obj_eq)
-        obj_max =  np.amax(object_poses[:,obj_eq,2])
-        if obj_max >=0:
-            good_lift = True
-
-    return good_lift, loaded_traj
 
 agent = {
     'type': AgentMuJoCo,
@@ -77,7 +55,7 @@ agent = {
     'mode_rel':np.array([True, True, True, True, False]),
     'discrete_gripper' : -1, #discretized gripper dimension,
     'close_once_actions' : True,
-#    'file_to_record' : convert_to_record,
+    'file_to_record' : convert_to_record,
     'object_mass' : 0.1,
     'friction' : 1.0
     #'object_meshes':['giraffe'] #folder to original object + convex approximation
@@ -91,7 +69,7 @@ policy = {
     'no_action_bound' : False, 
     'initial_std': 0.1,   #std dev. in xy
     'initial_std_lift': 0.01,   #std dev. in z
-    'initial_std_rot' : np.pi / 36,
+    'initial_std_rot' : np.pi / 18,
     'initial_std_grasp' : 2, 
 }
 

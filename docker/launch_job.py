@@ -5,7 +5,7 @@ import os
 import re
 import pdb
 
-def launch_job_func(run_script, hyper, arg, interactive=False, name='', ngpu=8, test=0, nsplit=None, isplit=None, fullcmd=None):
+def launch_job_func(run_script, hyper, nworkers=8, interactive=False, name='', ngpu=8, test=0, nsplit=None, isplit=None, fullcmd=None):
 
     data = {}
 
@@ -47,6 +47,7 @@ def launch_job_func(run_script, hyper, arg, interactive=False, name='', ngpu=8, 
                              {"containerMountPoint": "/mnt/tensorflow_data/gdn/startgoal_shad", "id": 9087},
                              {"containerMountPoint": "/mnt/tensorflow_data/gdn/96x128/cartgripper_tdac_flowpenal", "id": 9287},
                              {"containerMountPoint": "/mnt/pretrained_models/autograsp", "id": 10194},
+                             {"containerMountPoint": "/mnt/pretrained_models/autograsp_reopen_ind", "id": 10466},
                              {"containerMountPoint": "/mnt/pretrained_models/autograsp_nostate_long", "id": 10237},
                              {"containerMountPoint": "/mnt/pretrained_models/autograsp_notouch_long", "id": 10238},
                              {"containerMountPoint": "/mnt/pretrained_models/bair_action_free/model.savp.transformation.flow.last_frames.2.generate_scratch_image.false.batch_size.16", "id": 9161},
@@ -58,6 +59,7 @@ def launch_job_func(run_script, hyper, arg, interactive=False, name='', ngpu=8, 
                              {"containerMountPoint": "/mnt/pushing_data/cartgripper/grasping/mj_lift", "id": 10048},  # mj_pos_ctrl_appflow
                              {"containerMountPoint": "/mnt/pushing_data/cartgripper/grasping/cartgripper_startgoal_2view_lift_above_obj", "id": 10061},  # mj_pos_ctrl_appflow
                              {"containerMountPoint": "/mnt/pushing_data/cartgripper/grasping/cartgripper_startgoal_2view_lift", "id": 10188},  # mj_pos_ctrl_appflow
+                             {"containerMountPoint": "/mnt/pushing_data/cartgripper/grasping/ag_reopen_records", "id": 10401},
                              {"containerMountPoint": "/mnt/pushing_data/cartgripper/cartgripper_const_dist", "id": 9259},  # mj_pos_ctrl_appflow
                              {"containerMountPoint": "/mnt/pushing_data/cartgripper/cartgripper_startgoal_short", "id": 8949},  # mj_pos_ctrl_appflow
                              {"containerMountPoint": "/mnt/pushing_data/cartgripper/cartgripper_startgoal_2view", "id": 9222},  # mj_pos_ctrl_appflow
@@ -89,9 +91,9 @@ def launch_job_func(run_script, hyper, arg, interactive=False, name='', ngpu=8, 
             if nsplit is not None:
                 split = '--nsplit {} --isplit {}'.format(nsplit, isplit)
             else: split = ''
-            command = "python " + run_script + " " + hyper + " {} {}".format(arg, split)
+            command = "python " + run_script + " " + hyper + " --nworkers {} {}".format(nworkers, split)
             expname = hyper.partition('cem_exp')[-1]
-            data["name"] = '-'.join(re.compile('\w+').findall(expname + arg + split))
+            data["name"] = '-'.join(re.compile('\w+').findall(expname + split))
 
     data["command"] += command
     data["resultContainerMountPoint"] = "/result"
@@ -112,12 +114,12 @@ if __name__ == '__main__':
     parser.add_argument('run_script', type=str, help='relative path to the script to launch', default="")
     parser.add_argument('hyper', type=str, help='relative path to hyperparams file', default="")
     parser.add_argument('--int', default='False', type=str, help='interactive')
-    parser.add_argument('--arg', default='', type=str, help='additional arguments')
+    parser.add_argument('--nworkers', default=8, type=str, help='additional arguments')
     parser.add_argument('--name', default='', type=str, help='additional arguments')
     parser.add_argument('--ngpu', default=8, type=int, help='number of gpus')
     parser.add_argument('--test', default=0, type=int, help='testrun')
     parser.add_argument('--cmd', default='', type=str, help='full command')
     args = parser.parse_args()
 
-    launch_job_func(args.run_script, args.hyper, args.arg, args.int, args.name, args.ngpu, args.test, fullcmd=args.cmd)
+    launch_job_func(args.run_script, args.hyper, args.nworkers, args.int, args.name, args.ngpu, args.test, fullcmd=args.cmd)
 
