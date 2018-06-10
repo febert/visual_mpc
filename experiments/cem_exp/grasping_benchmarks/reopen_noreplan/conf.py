@@ -18,7 +18,7 @@ configuration = {
 'pred_model': Alex_Interface_Model,
 'pred_model_class':IndepMultiSAVPVideoPredictionModel,
 'setup_predictor':setup_predictor,
-'json_dir':  modeldir + '/view0',
+'json_dir':   base_dir + '/view0',
 'pretrained_model':[modeldir + '/view0/model.savp.None/model-195000', modeldir + '/view1/model.savp.None/model-195000'],   # 'filepath of a pretrained model to resume training from.' ,
 'sequence_length': 15,      # 'sequence length to load, including context frames.' ,
 'context_frames': 2,        # of frames before predictions.' ,
