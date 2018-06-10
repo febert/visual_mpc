@@ -13,6 +13,8 @@ else:
 import glob
 import numpy as np
 import cv2
+import copy
+
 from python_visual_mpc.visual_mpc_core.infrastructure.utility.save_tf_record import save_tf_record
 
 class DefaultTraj:
@@ -61,15 +63,31 @@ def grasping_touch_nodesig_file2record(state_action, agent_params):
 def grasping_sawyer_file2record(state_action, agent_params):
     loaded_traj = DefaultTraj()
 
-    loaded_traj.actions = state_action['actions']
+    loaded_traj.actions = copy.deepcopy(state_action['actions'])
+    
+
     touch_sensors = state_action['finger_sensors']
-    loaded_traj.X_Xdot_full = np.concatenate((state_action['states'], touch_sensors), axis=1)
+    if 'autograsp' in agent_params:
+
+        gripper_inputs = copy.deepcopy(touch_sensors[:, 0].reshape((-1, 1)))
+        gripper_inputs[0, 0] = 0.       #grippers often have erroneous force readings at T = 0
+        norm_states = copy.deepcopy(state_action['states'][:, :-1])
+        for i in range(3):
+            delta = agent_params['targetpos_clip'][1][i] - agent_params['targetpos_clip'][0][i]
+            min = agent_params['targetpos_clip'][0][i]
+            norm_states[:, i] -= min
+            norm_states[:, i] /= delta
+
+        loaded_traj.X_Xdot_full = np.concatenate((norm_states, gripper_inputs), axis=1)
+
+    else:
+        loaded_traj.X_Xdot_full = np.concatenate((state_action['states'], touch_sensors), axis=1)
 
     valid_frames = np.logical_and(state_action['states'][1:, -1] > 0,
                                   np.logical_and(touch_sensors[1:, 0] > 0, touch_sensors[1:, 1] > 0))
     off_ground = state_action['states'][1:, 2] >= agent_params.get('good_lift_thresh', 0.27)
 
-    good_grasp = any(np.logical_and(valid_frames, off_ground))
+    good_grasp = np.sum(np.logical_and(valid_frames, off_ground)) >= 2
 
     return good_grasp, loaded_traj
 

@@ -29,7 +29,7 @@ class AgentSawyer:
         cntr = 0
         traj = None
 
-        if itr % 100 == 0 and itr > 0:
+        if itr % 30 == 0 and itr > 0:
             self._controller.redistribute_objects()
 
         while not traj_ok and cntr < max_tries:
@@ -75,6 +75,7 @@ class AgentSawyer:
                 print("at time {}, l2 error {} and abs_dif {}".format(t, euc_error, abs_error))
 
             mj_U = policy.act(traj, t)
+            traj.actions[t] = copy.deepcopy(mj_U)
 
             if 'check_preplan' in self._hyperparams and t == 0:
                 test_next = copy.deepcopy(self.next_qpos)
