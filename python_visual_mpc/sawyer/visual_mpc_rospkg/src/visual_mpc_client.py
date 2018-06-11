@@ -9,8 +9,12 @@ import pdb
 from datetime import datetime
 
 import cv2
-# import matplotlib; matplotlib.use('Agg');
-import matplotlib; matplotlib.use('Agg'); import matplotlib.pyplot as plt
+
+import matplotlib.pyplot as plt
+print plt.get_backend()
+
+
+
 import numpy as np
 import rospy
 from cv_bridge import CvBridge
@@ -66,7 +70,7 @@ class Visual_MPC_Client():
             parser = argparse.ArgumentParser(description='')
             parser.add_argument('experiment', type=str, help='experiment name')
             parser.add_argument('--robot_name', type=str, default='vestri', help='robot name')
-            parser.add_argument('--save_subdir', type=str, default='False')
+            parser.add_argument('--use_save_subdir', type=str, default='False')
             args = parser.parse_args()
             benchmark_name = args.experiment
             self.use_gui = False
@@ -171,6 +175,7 @@ class Visual_MPC_Client():
         self.desig_hpos_main = None
 
         self.tlast_ctrl_alive = rospy.get_time()
+        self.tlast_gripper_status = rospy.get_time()
 
         if 'collect_data' in self.agentparams:
             self.data_collection = True
@@ -185,15 +190,20 @@ class Visual_MPC_Client():
             save_images = False
             self.data_collection = False
 
-        if self.save_subdir == "True":
-            self.save_subdir = raw_input('enter subdir to save data:')
+        if self.use_save_subdir:
+            save_lowres = True
             save_images = True
-            self.recorder_save_dir = self.base_dir + "/experiments/cem_exp/benchmarks_sawyer/" + self.benchname + \
-                                        '/' + self.save_subdir + "/videos"
+            self.recorder_save_dir = None
+            # self.recorder_save_dir = self.base_dir + "/experiments/cem_exp/benchmarks_sawyer/" + self.benchname + \
+            #                             '/' + self.save_subdir + "/videos"
         elif self.data_collection:
             self.recorder_save_dir  =self.base_dir + "/experiments/cem_exp/benchmarks_sawyer/" + self.benchname + "/data"
+            save_lowres = False
         else:
             self.recorder_save_dir = self.base_dir + "/experiments/cem_exp/benchmarks_sawyer/" + self.benchname + "/videos"
+            save_lowres = False
+
+        pdb.set_trace()
 
         self.num_pic_perstep = 4
         self.nsave = self.action_sequence_length * self.num_pic_perstep
@@ -206,7 +216,8 @@ class Visual_MPC_Client():
                                                      save_video=save_video,
                                                      save_actions=save_actions,
                                                      save_images=save_images,
-                                                     image_shape=(self.img_height, self.img_width))
+                                                     image_shape=(self.img_height, self.img_width),
+                                                     save_lowres=save_lowres)
 
         while self.recorder.ltob.img_cv2 is None:
             print('waiting for images')
@@ -258,7 +269,7 @@ class Visual_MPC_Client():
             pdb.set_trace()
             imagemain = self.recorder.ltob.img_cropped
             imagemain = cv2.cvtColor(imagemain, cv2.COLOR_BGR2RGB)
-            c_main = Getdesig(imagemain, self.recorder_save_dir, 'goal_traj{}'.format(itr), n_desig=1,
+            c_main = Getdesig(imagemain, self.recorder_save_dir, 'goal', n_desig=1,
                               im_shape=[self.img_height, self.img_width], clicks_per_desig=1)
             self.goal_pos_main = c_main.desig.astype(np.int64)
             self.goal_image = imagemain
@@ -268,19 +279,21 @@ class Visual_MPC_Client():
             pdb.set_trace()
             imagemain = self.recorder.ltob.img_cropped
             imagemain = cv2.cvtColor(imagemain, cv2.COLOR_BGR2RGB)
-            c_main = Getdesig(imagemain, self.recorder_save_dir, 'start_traj{}'.format(itr), n_desig=1,
+            c_main = Getdesig(imagemain, self.recorder_save_dir, 'start', n_desig=1,
                               im_shape=[self.img_height, self.img_width], clicks_per_desig=1)
             self.desig_pos_main = c_main.desig.astype(np.int64)
             print('desig pos aux1:', self.desig_pos_main)
         else:
             imagemain = self.recorder.ltob.img_cropped
             imagemain = cv2.cvtColor(imagemain, cv2.COLOR_BGR2RGB)
-            c_main = Getdesig(imagemain, self.recorder_save_dir, '_traj{}'.format(itr),
+            c_main = Getdesig(imagemain, self.recorder_save_dir, 'start_traj{}'.format(itr),
                               self.ndesig, im_shape=[self.img_height, self.img_width])
             self.desig_pos_main = c_main.desig.astype(np.int64)
             print('desig pos aux1:', self.desig_pos_main)
             self.goal_pos_main = c_main.goal.astype(np.int64)
             print('goal pos main:', self.goal_pos_main)
+
+            self.goal_image = np.zeros_like(imagemain)
 
 
     def imp_ctrl_release_spring(self, maxstiff):
@@ -462,7 +475,7 @@ class Visual_MPC_Client():
         if self.use_save_subdir:
             self.save_subdir = raw_input('enter subdir to save data:')
             self.recorder_save_dir = self.base_dir + "/experiments/cem_exp/benchmarks_sawyer/" + self.benchname + \
-                                     '/' + self.save_subdir + "/videos"
+                                     '/bench/' + self.save_subdir + "/videos"
             self.recorder.image_folder = self.recorder_save_dir
 
         if self.data_collection:
@@ -674,7 +687,7 @@ class Visual_MPC_Client():
 
     def save_final_image(self, i_tr):
         imagemain = self.recorder.ltob.img_cropped
-        cv2.imwrite(self.recorder_save_dir + '/finalimage{}.png'.format(i_tr), imagemain, [cv2.IMWRITE_PNG_STRATEGY_DEFAULT, 1])
+        cv2.imwrite(self.recorder_save_dir + '/finalimage.png', imagemain, [cv2.IMWRITE_PNG_STRATEGY_DEFAULT, 1])
 
     def calc_interpolation(self, previous_goalpoint, next_goalpoint, t_prev, t_next):
         """
@@ -885,6 +898,7 @@ class Visual_MPC_Client():
 class Getdesig(object):
     def __init__(self, img, basedir, img_namesuffix = '', n_desig=1, only_desig = False,
                  im_shape = None, clicks_per_desig=2):
+        import matplotlib.pyplot as plt
         self.im_shape = im_shape
 
         self.only_desig = only_desig
@@ -914,11 +928,13 @@ class Getdesig(object):
         self.i_goal = 0
         self.marker_list = ['o',"D","v","^"]
 
+
         plt.show()
 
     def onclick(self, event):
         print(('button=%d, x=%d, y=%d, xdata=%f, ydata=%f' %
               (event.button, event.x, event.y, event.xdata, event.ydata)))
+        import matplotlib.pyplot as plt
         self.ax.set_xlim(0, self.im_shape[1])
         self.ax.set_ylim(self.im_shape[0], 0)
 
@@ -948,7 +964,7 @@ class Getdesig(object):
                        'goal_pix': self.goal}
                 pickle.dump(dict, f)
 
-            plt.savefig(self.basedir + '/startimg_' + self.suf)
+            plt.savefig(self.basedir + '/img_' + self.suf)
             plt.close()
             return
 

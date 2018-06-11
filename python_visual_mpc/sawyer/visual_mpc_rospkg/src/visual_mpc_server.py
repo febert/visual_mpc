@@ -98,7 +98,7 @@ class Visual_MPC_Server(object):
         self.cem_controller = CEM_controller(self.agentparams, self.policyparams, self.predictor, self.goal_image_warper)
         ###########
         self.t = 0
-        self.traj = Trajectory(self.agentparams)
+
 
         if self.use_robot:
             self.bridge = CvBridge()
@@ -121,17 +121,17 @@ class Visual_MPC_Server(object):
     def init_traj_visualmpc_handler(self, req):
         self.igrp = req.igrp
         self.i_traj = req.itr
+
+        self.traj = Trajectory(self.agentparams)
         self.traj.i_tr = self.i_traj
 
         self.t = 0
+        goal_main = self.bridge.imgmsg_to_cv2(req.goalmain)
+        goal_main = goal_main.astype(np.float32) / 255.
         if 'use_goal_image' in self.policyparams:
-            goal_main = self.bridge.imgmsg_to_cv2(req.goalmain)
-            # goal_main = cv2.cvtColor(goal_main, cv2.COLOR_BGR2RGB)
-            # goal_aux1 = self.bridge.imgmsg_to_cv2(req.goalaux1)
-            # goal_aux1 = cv2.cvtColor(goal_aux1, cv2.COLOR_BGR2RGB)
-            # Image.fromarray(goal_main).show()
-            goal_main = goal_main.astype(np.float32) / 255.
             self.goal_image = goal_main
+        else:
+            self.goal_image = np.zeros_like(goal_main)
 
         print('init traj{} group{}'.format(self.i_traj, self.igrp))
 

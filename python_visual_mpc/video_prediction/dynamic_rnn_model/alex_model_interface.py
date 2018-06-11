@@ -4,7 +4,7 @@ import pdb
 from video_prediction.models import MultiSAVPVideoPredictionModel, SAVPVideoPredictionModel
 import json
 import os
-import ipdb
+import pdb
 
 class Alex_Interface_Model(object):
     def __init__(self,

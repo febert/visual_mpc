@@ -264,33 +264,30 @@ def write_scores(dir, filename, trajlist, logger):
 
 
 def plot_warp_err(traj, dir):
-    start_err = []
-    goal_err = []
+    warperrs = []
     tradeoff = []
     for tstep in traj.plan_stat[1:]:
-        if 'start_warp_err' in tstep:
-            start_err.append(tstep['start_warp_err'])
-        if 'goal_warp_err' in tstep:
-            goal_err.append(tstep['goal_warp_err'])
+        warperrs.append(tstep['warperrs'])
         tradeoff.append(tstep['tradeoff'])
 
-    if len(tradeoff) != 0:
-        tradeoff = np.stack(tradeoff, 0)
-        start_err = np.array(start_err)
-        goal_err = np.array(goal_err)
-        plt.figure()
-        ax = plt.gca()
-        ax.plot(start_err, marker ='d', label='start')
-        ax.plot(goal_err, marker='o', label='goal')
-        ax.legend()
-        plt.savefig(dir + '/warperrors.png')
+    tradeoff = np.stack(tradeoff, 0)
+    warperrs = np.stack(warperrs, 0)
 
-        plt.figure()
-        ax = plt.gca()
-        ax.plot(tradeoff[:,0], marker='d', label='tradeoff for start')
-        ax.plot(tradeoff[:,1], marker='d', label='tradeoff for goal')
-        ax.legend()
-        plt.savefig(dir + '/tradeoff.png')
+    # warperrs shape: tstep, ncam, numtrack
+    plt.figure()
+    ax = plt.gca()
+    ax.plot(warperrs[:,0,0], marker ='d', label='start')
+    ax.plot(warperrs[:,0,1], marker='o', label='goal')
+    ax.legend()
+    plt.savefig(dir + '/warperrors.png')
+
+    plt.figure()
+    ax = plt.gca()
+
+    ax.plot(tradeoff[:,0,0], marker='d', label='tradeoff for start')
+    ax.plot(tradeoff[:,0,1], marker='d', label='tradeoff for goal')
+    ax.legend()
+    plt.savefig(dir + '/tradeoff.png')
 
 def plot_dist(traj, dir):
     goal_dist = np.stack(traj.goal_dist, axis=0)

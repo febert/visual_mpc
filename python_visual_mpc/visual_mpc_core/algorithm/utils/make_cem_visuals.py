@@ -1,7 +1,6 @@
 import numpy as np
 import pdb
 import os
-import ipdb
 import collections
 import pickle
 from PIL import Image
@@ -189,8 +188,9 @@ def make_cem_visuals(ctrl, actions, bestindices, cem_itr, flow_fields, gen_distr
 
     ctrl.dict_.update(t_dict_)
     if 'no_instant_gif' not in ctrl.agentparams:
-        pickle.dump(t_dict_, open(ctrl.agentparams['record'] + '/pred.pkl', 'wb'))
-        print('written files to:' + file_path)
+        if 'save_pkl' in ctrl.agentparams:
+            pickle.dump(t_dict_, open(ctrl.agentparams['record'] + '/plan/pred_t{}iter{}.pkl'.format(ctrl.t, cem_itr), 'wb'))
+            print('written files to:' + file_path)
 
         v = Visualizer_tkinter(t_dict_, append_masks=False,
                                filepath=ctrl.agentparams['record'] + '/plan/',

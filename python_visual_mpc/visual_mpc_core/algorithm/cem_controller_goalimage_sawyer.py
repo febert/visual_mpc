@@ -17,10 +17,9 @@ from python_visual_mpc.visual_mpc_core.algorithm.utils.make_cem_visuals import m
 
 import matplotlib; matplotlib.use('Agg'); import matplotlib.pyplot as plt
 import copy
-import ipdb
+import pdb
 from scipy.special import expit
 import collections
-import matplotlib; matplotlib.use('Agg'); import matplotlib.pyplot as plt
 import cv2
 from python_visual_mpc.visual_mpc_core.infrastructure.utility.logger import Logger
 
