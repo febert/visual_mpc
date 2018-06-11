@@ -539,7 +539,9 @@ def add_crosshairs_single(im, pos, color=None):
     :param color:
     :return:
     """
-    if color == None:
+
+    assert isinstance(color, np.ndarray)
+    if color is None:
         if im.dtype == np.float32:
             color = np.array([0., 1., 1.])
         else:

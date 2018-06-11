@@ -167,12 +167,6 @@ class Visual_MPC_Server(object):
             if 'register_gtruth' in self.policyparams:
                 plot_warp_err(self.traj, self.agentparams['record'])
 
-            # if 'verbose' in self.policyparams:
-                # pickle.dump(self.cem_controller.dict_,open(self.netconf['current_dir'] + '/verbose/pred.pkl', 'wb'))
-                # print('finished writing files to:' + self.netconf['current_dir'] + '/verbose/pred.pkl')
-            # if 'no_pixdistrib_video' not in self.policyparams:
-            #     self.save_video()
-
         self.t += 1
 
         action_resp = np.zeros(self.agentparams['adim'])
