@@ -185,6 +185,9 @@ def make_cem_visuals(ctrl, actions, bestindices, cem_itr, flow_fields, gen_distr
 
     print('itr{} best scores: {}'.format(cem_itr, [scores[selindices[ind]] for ind in range(num_ex)]))
     t_dict_['scores'] = scores[selindices]
+    t_dict_['desig_pix'] = ctrl.desig_pix
+    t_dict_['desig_pix_t0'] = ctrl.desig_pix_t0
+    t_dict_['goal_pix'] = ctrl.goal_pix
 
     ctrl.dict_.update(t_dict_)
     if 'no_instant_gif' not in ctrl.agentparams:
