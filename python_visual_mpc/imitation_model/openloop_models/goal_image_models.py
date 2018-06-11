@@ -105,25 +105,26 @@ class AttentionGoalImages(BaseAttentionModel):
         fp_goal = tf.reshape(conv_features[in_batch * in_cam:], shape=(in_batch, 2, self.num_feats * 2 * self.conf['ncam']))
 
         num_units = self.num_feats * 2 * self.conf['ncam']
-        lstm_in = tf.concat((fp_goal, fp_first, tf.zeros((in_batch, in_time // 3 - 1, num_units))), 1)
 
-        lstm_layers = tf.contrib.rnn.MultiRNNCell(
-            [tf.contrib.rnn.ResidualWrapper(tf.contrib.rnn.BasicLSTMCell(num_units)) for _ in range(self.conf['lstm_layers'])])
+        fc_in = tf.reshape(tf.concat((fp_goal, fp_first), 1), shape=(in_batch, -1))
+        fc_outs = []
+        for i in range(in_time // 3):
+            fc_out = slim.layers.fully_connected(fc_in, 20,
+                                        scope='fc_{}'.format(i), activation_fn=tf.nn.relu)
+            fc_outs.append(fc_out)
 
-        last_fc, _ = tf.nn.dynamic_rnn(cell=lstm_layers, inputs=lstm_in,
-                                            dtype=tf.float32, parallel_iterations=int(in_batch))
-        last_fc = tf.reshape(last_fc[:,2:], shape=(in_batch * (in_time // 3), -1))
+        fc_out = tf.concat(fc_outs, 0)
 
         input_action = []
         for i in range(in_time // 3):
             input_action.append(tf.reshape(self.gtruth_actions[:, i * 3], shape=(in_batch, 1, -1)))
         input_action = tf.reshape(tf.concat(input_action, 1), shape=(-1, self.adim))
 
-        self._build_loss(last_fc, input_action, in_time)
+        self._build_loss(fc_out, input_action, in_time)
 
         num_mix = self.conf['MDN_loss']
         self.mixing_parameters = tf.reshape(self.mixing_parameters, shape=(in_batch, in_time // 3, num_mix))
         self.std_dev = tf.reshape(self.std_dev, shape=(in_batch, in_time // 3, num_mix))
         self.means = tf.reshape(self.means, shape=(in_batch, in_time // 3, num_mix, self.adim))
 
-        
+

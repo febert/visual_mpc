@@ -19,16 +19,13 @@ configuration = {
     'num_feats' : 16,
     'adim':4,
     'sdim':5,
-    'lstm_layers' : 3,
     'orig_size': [48,64],
     'skip_frame' : 1,
     'sequence_length' : 17,
     'batch_size' : 64,
     'vgg19_path': DATA_DIR,
     'MDN_loss' : 20,
-    'num_repeats': 3,
-    'lstmforward_dim':256,
-    'num_heads' : 4,
-    'N_GEN' : 20000
+    'N_GEN' : 20000,
+    'color_augmentation' : ''
 }
 
