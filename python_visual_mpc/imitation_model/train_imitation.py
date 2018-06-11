@@ -25,30 +25,15 @@ def main():
     conf['visualize'] = False
 
     with tf.variable_scope('model', reuse = None) as training_scope:
-        data_dict = build_tfrecord(conf, training=True)
-        # training input images
-        train_images = data_dict['images']
-        # training ground truth actions/endef
-        train_actions = data_dict['actions']
-        train_endeffector_pos = data_dict['endeffector_pos']
-
-        goal_image = data_dict.get('goal_image', None)
-
-        model = conf['model'](conf, train_images, train_actions, train_endeffector_pos, goal_image)
+        train_data_dict = build_tfrecord(conf)
+        model = conf['model'](conf, train_data_dict)
         model.build(is_Train = True)
 
     with tf.variable_scope('val_model', reuse = None):
-        data_dict = build_tfrecord(conf, training=False)
-        # validation input images
-        val_images = data_dict['images']
-        # validation ground truth actions/endef
-        val_actions = data_dict['actions']
-        val_endeffector_pos = data_dict['endeffector_pos']
-
-        val_goal_image = data_dict.get('goal_image', None)
+        val_data_dict = build_tfrecord(conf, mode = 'val')
 
         with tf.variable_scope(training_scope, reuse=True):
-            val_model = conf['model'](conf, val_images, val_actions, val_endeffector_pos, val_goal_image)
+            val_model = conf['model'](conf, val_data_dict)
             val_model.build(is_Train = False)
 
     learning_rate = tf.placeholder(tf.float32, shape=[])
@@ -70,6 +55,7 @@ def main():
     saver = tf.train.Saver(vars, max_to_keep=0)
 
     sess = tf.Session(config= tf.ConfigProto(gpu_options=gpu_options))
+
     tf.train.start_queue_runners(sess)
     sess.run(tf.global_variables_initializer())
     

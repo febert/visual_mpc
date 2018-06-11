@@ -49,8 +49,7 @@ class Randompolicy(Policy):
             actions = discretize_gripper(actions, self.agentparams['discrete_gripper'])
         if 'no_action_bound' not in self.policyparams:
             actions = truncate_movement(actions, self.policyparams)
-        if 'z_descend_actions' in self.policyparams:
-            actions[self.repeat:, 2] = np.minimum(actions[self.repeat:, 2], -actions[self.repeat:, 2])
+            
         actions = np.repeat(actions, self.repeat, axis=0)
         return actions
 

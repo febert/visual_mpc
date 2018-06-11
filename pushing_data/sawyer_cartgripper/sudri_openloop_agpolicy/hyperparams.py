@@ -35,8 +35,8 @@ policy = {
     'type' : Randompolicy,
     'nactions' : 5,
     'repeat' : 3,
-    'initial_std': 0.08,   #std dev. in xy
-    'initial_std_lift': 0.04,   #std dev. in z
+    'initial_std': 0.035,   #std dev. in xy
+    'initial_std_lift': 0.08,   #std dev. in z
     'initial_std_rot' : np.pi / 18,
     'initial_std_grasp' : 2
 }

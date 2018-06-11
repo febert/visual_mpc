@@ -8,13 +8,15 @@ from python_visual_mpc.visual_mpc_core.infrastructure.utility.tfrecord_from_file
 BASE_DIR = '/'.join(str.split(__file__, '/')[:-1])
 current_dir = os.path.dirname(os.path.realpath(__file__))
 
-data_conf = {'left_cam' : {'crop_bot' : 70, 'crop_left' : 150, 'crop_right' : 100},
+data_conf = {'left_cam' : {'crop_bot' : 70, 'crop_left' : 130, 'crop_right' : 120},
              'front_cam': {'crop_bot' : 70, 'crop_left' : 90, 'crop_right' : 160}}
 
+
 agent = {'type' : AgentSawyer,
+         'robot_name' : 'sudri',
          'data_save_dir': BASE_DIR + '/train',
-         'T' : 15,  #number of commands per episodes (issued at control_rate / substeps HZ)
-         'step_duration' : 0.75,  #time each substep takes to execute
+         'T' : 30,  #number of commands per episodes (issued at control_rate / substeps HZ)
+         'step_duration' : 0.7,  #time each substep takes to execute
          'impedance_stiffness' : 150, #stiffness commanded to impedance controller
          'control_rate' : 1000,  #substep are taken at control_rate HZ
          'image_height' : 48,
@@ -24,14 +26,14 @@ agent = {'type' : AgentSawyer,
          'sdim' : 5,
          'mode_rel' : np.array([True, True, True, True, False]),
          'discrete_gripper': -1,  # discretized gripper dimension,
-         'targetpos_clip': [[0.42, -0.24, 0.184, -0.5 * np.pi , 0], [0.87, 0.22, 0.32, 0.5 * np.pi, 0.1]],
-         'autograsp' : {'zthresh' :  0.15, 'touchthresh' : 0.0, 'reopen' : ''},   #15% of total height is zthresh,
+         'targetpos_clip': [[0.375, -0.22, 0.184, -0.5 * np.pi, 0], [0.825, 0.24, 0.32, 0.5 * np.pi, 0.1]],
+         'autograsp' : {'zthresh' :  0.15, 'touchthresh' : 0.0, 'reopen' : ''},
          'file_to_record' : convert_to_record
          }
 
 policy = {
     'type' : Randompolicy,
-    'nactions' : 5,
+    'nactions' : 10,
     'repeat' : 3,
     'initial_std': 0.035,   #std dev. in xy
     'initial_std_lift': 0.08,   #std dev. in z
