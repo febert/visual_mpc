@@ -14,8 +14,9 @@ agent = {
     'image_height':56,
     'image_width':64,
     'ndesig':1,
-    # 'make_final_gif':'',
-    # 'make_final_vid':'',
+    'make_final_gif':'',
+    'make_final_vid':'',
+    'save_pkl':'',
     'wristrot':'',
     'startpos_basedon_click':'',
     'record':current_dir + '/verbose',
@@ -24,7 +25,7 @@ agent = {
 
 
 policy = {
-    # 'verbose':'',
+    'verbose':'',
     'type' : CEM_controller,
     'low_level_ctrl': None,
     'current_dir':current_dir,

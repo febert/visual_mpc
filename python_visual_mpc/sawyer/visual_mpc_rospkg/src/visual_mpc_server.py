@@ -214,6 +214,5 @@ class Visual_MPC_Server(object):
             npy_to_gif(imlist, imfilename)
 
 
-
 if __name__ ==  '__main__':
     Visual_MPC_Server(cmd_args=True)

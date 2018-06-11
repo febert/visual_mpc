@@ -203,8 +203,6 @@ class Visual_MPC_Client():
             self.recorder_save_dir = self.base_dir + "/experiments/cem_exp/benchmarks_sawyer/" + self.benchname + "/videos"
             save_lowres = False
 
-        pdb.set_trace()
-
         self.num_pic_perstep = 4
         self.nsave = self.action_sequence_length * self.num_pic_perstep
 

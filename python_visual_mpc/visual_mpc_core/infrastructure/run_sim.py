@@ -273,6 +273,8 @@ def plot_warp_err(traj, dir):
     tradeoff = np.stack(tradeoff, 0)
     warperrs = np.stack(warperrs, 0)
 
+    pickle.dump({'warperrs':warperrs, 'tradeoff':tradeoff}, open(dir +  '/warperrs_tradeoff.pkl', 'wb'))
+
     # warperrs shape: tstep, ncam, numtrack
     plt.figure()
     ax = plt.gca()
