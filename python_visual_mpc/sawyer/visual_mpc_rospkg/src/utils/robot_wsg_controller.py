@@ -18,6 +18,8 @@ import cPickle as pickle
 
 
 NEUTRAL_JOINT_ANGLES =[0.412271, -0.434908, -1.198768, 1.795462, 1.160788, 1.107675, 2.068076]
+MAX_TIMEOUT = 30
+
 class WSGRobotController(RobotController):
     def __init__(self, control_rate, robot_name):
         self.max_release = 0
@@ -47,6 +49,8 @@ class WSGRobotController(RobotController):
 
         self.imp_ctrl_release_spring(100)
         self.imp_ctrl_active.publish(1)
+
+        self.num_timeouts = 0
 
     def set_gripper_speed(self, new_speed):
         assert new_speed > 0 and new_speed <= 600, "Speed must be in range (0, 600]"
@@ -78,6 +82,9 @@ class WSGRobotController(RobotController):
     def _set_gripper(self, command_pos, wait = False):
         self._desired_gpos = command_pos
         if wait:
+            if self.num_timeouts > MAX_TIMEOUT:
+                rospy.signal_shutdown("MORE THAN {} GRIPPER TIMEOUTS".format(MAX_TIMEOUT))
+
             sem = Semaphore(value=0)  # use of semaphore ensures script will block if gripper dies during execution
 
             self._status_mutex.acquire()
@@ -111,6 +118,8 @@ class WSGRobotController(RobotController):
             gripper_close = np.isclose(self.gripper_width, self._desired_gpos, atol=1e-1)
 
             if gripper_close or self.gripper_force > 0 or self.max_release > 15:
+                if self.max_release > 15:
+                    self.num_timeouts += 1
                 for s in self.sem_list:
                     s.release()
                 self.sem_list = []

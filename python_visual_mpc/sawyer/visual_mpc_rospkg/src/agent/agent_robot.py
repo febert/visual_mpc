@@ -31,6 +31,9 @@ class AgentSawyer:
 
         if itr % 30 == 0 and itr > 0:
             self._controller.redistribute_objects()
+            print('Sampling {}'.format(itr))
+        else:
+            print('Sampling {}, redist in {}'.format(itr, 30 - itr % 30))
 
         while not traj_ok and cntr < max_tries:
             traj, traj_ok = self.rollout(policy)
