@@ -20,6 +20,8 @@ agent = {
     # 'no_instant_gif':"",
     'filename': ROOT_DIR + '/mjc_models/cartgripper_updown.xml',
     'filename_nomarkers': ROOT_DIR + '/mjc_models/cartgripper_updown.xml',
+    'object_mass':0.01,
+    'friction':1.5,
     'gen_xml':1,   #generate xml every nth trajecotry
     'num_objects': 1,
     'viewer_image_height' : 480,
@@ -42,7 +44,7 @@ policy = {
     'nactions': 5,
     'repeat': 3,
     'initial_std': 0.08,        # std dev. in xy
-    'initial_std_lift': 2.5,
+    'initial_std_lift': 1.6,
     'netconf': current_dir + '/conf.py',
     'gdnconf': current_dir + '/gdnconf.py',
     'iterations': 3,

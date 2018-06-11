@@ -20,7 +20,7 @@ configuration = {
     'batch_size' : 64,
     'vgg19_path': DATA_DIR,
     'MDN_loss' : 20,
-    'num_repeats': 3,
+    'num_repeat': 3,
     'lstmforward_dim':256,
     'num_heads' : 4,
     'N_GEN' : 20000

@@ -56,7 +56,7 @@ agent = {
 policy = {
     'type' : Randompolicy,
     'nactions': 5,
-    'repeats': 3,               # number of repeats for each action
+    'repeat': 3,               # number of repeat for each action
     'initial_std': 0.08,        # std dev. in xy
     'initial_std_lift': 0.1,
     'initial_std_rot': 0.1,

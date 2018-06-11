@@ -13,15 +13,17 @@ from python_visual_mpc.video_prediction.read_tf_records2 import \
                 build_tfrecord_input as build_tfrecord_fn
 import matplotlib.gridspec as gridspec
 
+from python_visual_mpc.goaldistancenet.visualize.gdn_make_plots import make_plots
+
 from python_visual_mpc.video_prediction.utils_vpred.online_reader import OnlineReader
 import tensorflow.contrib.slim as slim
 
 from python_visual_mpc.utils.colorize_tf import colorize
-from python_visual_mpc.goaldistancenet.visualize.gdn_make_plots import make_plots
 from tensorflow.contrib.layers.python import layers as tf_layers
 from python_visual_mpc.video_prediction.utils_vpred.online_reader import read_trajectory
 
 from python_visual_mpc.data_preparation.gather_data import make_traj_name_list
+import pdb
 
 import collections
 
@@ -158,14 +160,18 @@ class GoalDistanceNet(object):
         self.seq_len = self.conf['sequence_length']
         self.bsize = self.conf['batch_size']
 
-        self.img_height = self.conf['orig_size'][0]
-        self.img_width = self.conf['orig_size'][1]
+        if 'row_start' in self.conf:
+            self.img_height = self.conf['row_end'] - self.conf['row_start']
+            self.img_width = self.conf['orig_size'][1]
+        else:
+            self.img_height = self.conf['orig_size'][0]
+            self.img_width = self.conf['orig_size'][1]
 
         if load_data:
             self.iter_num = tf.placeholder(tf.float32, [], name='iternum')
 
-            train_dict = build_tfrecord_fn(conf, training=True)
-            val_dict = build_tfrecord_fn(conf, training=False)
+            train_dict = build_tfrecord_fn(conf, mode='train')
+            val_dict = build_tfrecord_fn(conf, mode='val')
             dict = tf.cond(self.train_cond > 0,
                              # if 1 use trainigbatch else validation batch
                              lambda: train_dict,
@@ -192,8 +198,8 @@ class GoalDistanceNet(object):
             self.conf['sequence_length'] = self.conf['sequence_length']-1
             self.I0, self.I1 = self.sel_images()
 
-        self.occ_fwd = tf.zeros([self.bsize,  self.img_height,  self.img_width])
-        self.occ_bwd = tf.zeros([self.bsize,  self.img_height,  self.img_width])
+        self.occ_fwd = tf.zeros([self.bsize,  self.img_height,  self.img_width, 1])
+        self.occ_bwd = tf.zeros([self.bsize,  self.img_height,  self.img_width, 1])
 
         self.avg_gtruth_flow_err_sum = None
         self.build_loss = build_loss
@@ -224,8 +230,10 @@ class GoalDistanceNet(object):
                     occ_thres_offset = 0.5
 
                 occ_thresh = occ_thres_mult * mag_sq + occ_thres_offset
-                self.occ_fwd = tf.squeeze(tf.cast(length_sq(self.diff_flow_fwd) > occ_thresh, tf.float32))
-                self.occ_bwd = tf.squeeze(tf.cast(length_sq(self.diff_flow_bwd) > occ_thresh, tf.float32))
+                self.occ_fwd = tf.cast(length_sq(self.diff_flow_fwd) > occ_thresh, tf.float32)
+                self.occ_fwd = tf.reshape(self.occ_fwd, [self.bsize,self.img_height, self.img_width,1])
+                self.occ_bwd = tf.cast(length_sq(self.diff_flow_bwd) > occ_thresh, tf.float32)
+                self.occ_bwd = tf.reshape(self.occ_bwd, [self.bsize, self.img_height, self.img_width, 1])
             else:
                 bias = self.conf['occlusion_handling_bias']
                 scale = self.conf['occlusion_handling_scale']
@@ -246,17 +254,16 @@ class GoalDistanceNet(object):
 
         self.occ_mask_bwd = 1 - self.occ_bwd  # 0 at occlusion
         self.occ_mask_fwd = 1 - self.occ_fwd
-        self.occ_mask_bwd = self.occ_mask_bwd[:, :, :, None]
-        self.occ_mask_fwd = self.occ_mask_fwd[:, :, :, None]
+        # self.occ_mask_bwd = self.occ_mask_bwd[:, :, :, None]
+        # self.occ_mask_fwd = self.occ_mask_fwd[:, :, :, None]
 
         if self.build_loss:
             if 'multi_scale' not in self.conf:
-                self.add_pair_loss(self.I1, self.gen_I1, self.occ_bwd, self.flow_bwd,
-                                   self.I0, self.gen_I0, self.occ_fwd, self.flow_fwd)
+                self.add_pair_loss(I1=self.I1, gen_I1=self.gen_I1, occ_bwd=self.occ_bwd, flow_bwd=self.flow_bwd, diff_flow_bwd=self.diff_flow_bwd,
+                                   I0=self.I0, gen_I0=self.gen_I0, occ_fwd=self.occ_fwd, flow_fwd=self.flow_fwd, diff_flow_fwd=self.diff_flow_fwd)
             self.combine_losses()
             # image_summary:
             if 'fwd_bwd' in self.conf:
-
                 self.image_summaries = self.build_image_summary(
                     [self.I0, self.I1, self.gen_I0, self.gen_I1, length(self.flow_bwd), length(self.flow_fwd), self.occ_mask_bwd, self.occ_mask_fwd])
             elif 'multi_scale' not in self.conf:
@@ -471,13 +478,11 @@ class GoalDistanceNet(object):
                       I0=None, gen_I0=None, occ_fwd=None, flow_fwd=None, diff_flow_bwd=None, mult=1., suf=''):
         if occ_bwd is not None:
             occ_mask_bwd = 1 - occ_bwd  # 0 at occlusion
-            occ_mask_bwd = occ_mask_bwd[:, :, :, None]
         else:
             occ_mask_bwd = tf.ones(I1.get_shape().as_list()[:3] + [1])
 
         if occ_fwd is not None:
             occ_mask_fwd = 1 - occ_fwd
-            occ_mask_fwd = occ_mask_fwd[:, :, :, None]
 
         if self.conf['norm'] == 'l2':
             norm = mean_square
@@ -490,6 +495,7 @@ class GoalDistanceNet(object):
 
         if 'fwd_bwd' in self.conf:
             newlosses['train_I0_recon_cost'+suf] = norm((gen_I0 - I0), occ_mask_fwd)
+
 
             fd = self.conf['flow_diff_cost']
             newlosses['train_flow_diff_cost'+suf] = (norm(diff_flow_fwd, occ_mask_fwd)
@@ -567,7 +573,7 @@ class GoalDistanceNet(object):
             return
 
         else:  # when visualizing sequence of warps from video
-            videos = build_tfrecord_fn(self.conf)
+            videos = build_tfrecord_fn(self.conf, mode='test')
 
             if 'vidpred_data' in self.conf:
                 images, pred_images = sess.run([videos['images'], videos['gen_images']])

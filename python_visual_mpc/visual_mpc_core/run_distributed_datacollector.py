@@ -1,9 +1,12 @@
 import argparse
 import os
 import pdb
-import importlib.machinery
-import importlib.util
+import sys
+if sys.version_info >= (3,0):
+    import importlib.machinery
+    import importlib.util
 from python_visual_mpc.visual_mpc_core.infrastructure.run_sim import Sim
+from multiprocessing import Pool
 import copy
 import random
 import numpy as np
@@ -16,9 +19,9 @@ from python_visual_mpc.visual_mpc_core.infrastructure.utility.logger import Logg
 from tensorflow.python.platform import gfile
 from python_visual_mpc.visual_mpc_core.infrastructure.remote_synchronizer import sync
 import re
+import threading
 
-
-GEN_VAL_FREQ = 100
+GEN_VAL_FREQ = 20
 VAL_TASK_FREQ = 200
 
 
@@ -41,15 +44,18 @@ def get_maxiter_weights(dir):
     else:
         return None
 
-@ray.remote
+def worker(conf):
+    d = Data_Collector(conf)
+    d.run_traj()
+
+# @ray.remote
 class Data_Collector(object):
-    def __init__(self, conf, collector_id, printout):
-        self.logger = Logger(conf['agent']['logging_dir'], 'datacollector_gpu{}_log.txt'.format(conf['gpu_id']), printout)
-        self.logger.log('started process with PID {} and collector_id {}'.format(os.getpid(), collector_id))
+    def __init__(self, conf):
+        self.logger = Logger(conf['agent']['logging_dir'], 'datacollector_gpu{}_log.txt'.format(conf['gpu_id']), conf['printout'])
+        self.logger.log('started process with PID {}'.format(os.getpid()))
         self.itraj = conf['start_index']
         self.ntraj = 0
         self.maxtraj = conf['end_index']
-        self.colllector_id = collector_id
         random.seed(None)
         np.random.seed(None)
         self.conf = conf
@@ -77,8 +83,11 @@ class Data_Collector(object):
                 os.makedirs(record_dir)
             self.sim.agent._hyperparams['record'] = record_dir
 
-            if self.itraj % GEN_VAL_FREQ:
+            if (self.itraj//self.conf['traj_per_file']) % GEN_VAL_FREQ == 0:
                 self.sim.task_mode = 'val'
+            else: self.sim.task_mode = 'train'
+            self.logger.log('taskmode ', self.sim.task_mode)
+
             self.sim.take_sample(self.itraj)
 
             self.itraj += 1
@@ -133,25 +142,25 @@ def main():
     if not os.path.exists(hyperparams['agent']['logging_dir']):
         os.makedirs(hyperparams['agent']['logging_dir'])
 
-    ray.init()
-    data_collectors = []
+    thread = threading.Thread(target=sync, args=[args.isplit, hyperparams])
+    thread.daemon = True
+    thread.start()
+    print('launched sync')
 
-    print('launching datacollectors.')
+    conflist = []
+    hyperparams['printout'] = printout
+    hyperparams['collector_id'] = args.isplit
     for i in range(n_worker):
         modconf = copy.deepcopy(hyperparams)
         modconf['start_index'] = start_idx[i]
         modconf['end_index'] = end_idx[i]
         modconf['gpu_id'] = i
-        data_collectors.append(Data_Collector.remote(modconf, i, printout))
-
-    todo_ids = [d.run_traj.remote() for d in data_collectors]
-    print('launched datacollectors.')
-
-    sync_todo_id = sync.remote(args.isplit, hyperparams)
-    print('launched sync')
-
-    ray.wait(todo_ids)
-    ray.wait([sync_todo_id])
+        conflist.append(modconf)
+    if parallel:
+        p = Pool(n_worker)
+        p.map(worker, conflist)
+    else:
+        worker(conflist[0])
 
 def load_module(hyperparams_file, name):
     loader = importlib.machinery.SourceFileLoader(name, hyperparams_file)

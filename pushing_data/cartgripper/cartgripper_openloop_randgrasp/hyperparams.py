@@ -67,7 +67,7 @@ agent = {
 policy = {
     'type' : RandomPickPolicy,
     'nactions' : 5,
-    'repeats' : 3,
+    'repeat' : 3,
     'no_action_bound' : False, 
     'initial_std': 0.02,   #std dev. in xy
     'initial_std_lift': 0.01,   #std dev. in xy

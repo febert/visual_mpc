@@ -1,13 +1,15 @@
 #!/usr/bin/env python
 import os
+
+from python_visual_mpc.goaldistancenet.setup_gdn import setup_gdn
 import shutil
 import socket
-import _thread
 import numpy as np
 import pdb
 from PIL import Image
 import pickle
 import imp
+import copy
 import argparse
 
 from python_visual_mpc.video_prediction.utils_vpred.create_gif_lib import *
@@ -15,6 +17,8 @@ from python_visual_mpc.visual_mpc_core.algorithm.cem_controller_goalimage_sawyer
 
 from python_visual_mpc.visual_mpc_core.infrastructure.trajectory import Trajectory
 from python_visual_mpc import __file__ as base_filepath
+
+from python_visual_mpc.visual_mpc_core.infrastructure.run_sim import plot_warp_err
 
 
 import rospy
@@ -25,7 +29,7 @@ from cv_bridge import CvBridge, CvBridgeError
 from sensor_msgs.msg import Image as Image_msg
 
 class Visual_MPC_Server(object):
-    def __init__(self):
+    def __init__(self, cmd_args=False):
 
         print('started visual MPC server')
         # pdb.set_trace()
@@ -33,24 +37,22 @@ class Visual_MPC_Server(object):
         base_dir = '/'.join(str.split(base_filepath, '/')[:-2])
 
         cem_exp_dir = base_dir + '/experiments/cem_exp/benchmarks_sawyer'
-
-        # parser = argparse.ArgumentParser(description='Run benchmarks')
-        # parser.add_argument('benchmark', type=str, help='the name of the folder with agent setting for the benchmark')
-        # parser.add_argument('--gpu_id', type=int, default=0, help='value to set for cuda visible devices variable')
-        # parser.add_argument('--ngpu', type=int, default=1, help='number of gpus to use')
-        # parser.add_argument('--userobot', type=str, default='True', help='number of gpus to use')
-        # parser.add_argument('--redis', type=str, default='', help='necessary when using ray: the redis address of the head node')
-
-        # args = parser.parse_args()
-
         self.use_robot = True
-
         rospy.init_node('visual_mpc_server')
         rospy.loginfo("init visual mpc server")
-
-        benchmark_name = rospy.get_param('~exp')
-        gpu_id = rospy.get_param('~gpu_id')
-        ngpu = rospy.get_param('~ngpu')
+        if cmd_args:
+            parser = argparse.ArgumentParser(description='Run benchmarks')
+            parser.add_argument('benchmark', type=str, help='the name of the folder with agent setting for the benchmark')
+            parser.add_argument('--gpu_id', type=int, default=0, help='value to set for cuda visible devices variable')
+            parser.add_argument('--ngpu', type=int, default=1, help='number of gpus to use')
+            args = parser.parse_args()
+            benchmark_name = args.benchmark
+            ngpu = args.ngpu
+            gpu_id = args.gpu_id
+        else:
+            benchmark_name = rospy.get_param('~exp')
+            gpu_id = rospy.get_param('~gpu_id')
+            ngpu = rospy.get_param('~ngpu')
 
         # load specific agent settings for benchmark:
         bench_dir = cem_exp_dir + '/' + benchmark_name
@@ -79,16 +81,24 @@ class Visual_MPC_Server(object):
         if self.policyparams['usenet']:
             self.netconf = imp.load_source('params', self.policyparams['netconf']).configuration
             if 'multmachine' in self.policyparams:
-                self.predictor = self.netconf['setup_predictor'](netconf=self.netconf, policyparams=self.policyparams, ngpu=ngpu,redis_address=args.redis)
+                self.predictor = self.netconf['setup_predictor']({}, self.netconf, policyparams=self.policyparams, ngpu=ngpu,redis_address=args.redis)
             else:
-                self.predictor = self.netconf['setup_predictor'](self.netconf, gpu_id, ngpu)
+                self.predictor = self.netconf['setup_predictor']({}, self.netconf, gpu_id, ngpu)
         else:
             self.netconf = {}
             self.predictor = None
-        self.cem_controller = CEM_controller(self.agentparams, self.policyparams, self.predictor)
+
+        if 'gdnconf' in self.policyparams:
+            self.gdnconf = imp.load_source('params', self.policyparams['gdnconf']).configuration
+            self.goal_image_warper = setup_gdn(self.gdnconf, gpu_id)
+        else:
+            self.gdnconf = {}
+            self.goal_image_warper = None
+
+        self.cem_controller = CEM_controller(self.agentparams, self.policyparams, self.predictor, self.goal_image_warper)
         ###########
         self.t = 0
-        self.traj = Trajectory(self.agentparams, self.netconf)
+
 
         if self.use_robot:
             self.bridge = CvBridge()
@@ -112,21 +122,22 @@ class Visual_MPC_Server(object):
         self.igrp = req.igrp
         self.i_traj = req.itr
 
+        self.traj = Trajectory(self.agentparams)
+        self.traj.i_tr = self.i_traj
+
         self.t = 0
+        goal_main = self.bridge.imgmsg_to_cv2(req.goalmain)
+        goal_main = goal_main.astype(np.float32) / 255.
         if 'use_goal_image' in self.policyparams:
-            goal_main = self.bridge.imgmsg_to_cv2(req.goalmain)
-            goal_main = cv2.cvtColor(goal_main, cv2.COLOR_BGR2RGB)
-            # goal_aux1 = self.bridge.imgmsg_to_cv2(req.goalaux1)
-            # goal_aux1 = cv2.cvtColor(goal_aux1, cv2.COLOR_BGR2RGB)
-            Image.fromarray(goal_main).show()
-            goal_main = goal_main.astype(np.float32) / 255.
-            self.cem_controller.goal_image = goal_main
+            self.goal_image = goal_main
+        else:
+            self.goal_image = np.zeros_like(goal_main)
 
         print('init traj{} group{}'.format(self.i_traj, self.igrp))
 
         self.initial_pix_distrib = []
 
-        self.cem_controller = CEM_controller(self.agentparams, self.policyparams, self.predictor, save_subdir=req.save_subdir)
+        self.cem_controller = CEM_controller(self.agentparams, self.policyparams, self.predictor, self.goal_image_warper, save_subdir=req.save_subdir)
         self.save_subdir = req.save_subdir
         return init_traj_visualmpcResponse()
 
@@ -137,27 +148,24 @@ class Visual_MPC_Server(object):
         main_img = self.bridge.imgmsg_to_cv2(req.main)
         main_img = cv2.cvtColor(main_img, cv2.COLOR_BGR2RGB)
 
-        self.traj.images[self.t] = main_img
+        self.traj.images[self.t] = main_img[None]
 
         self.desig_pos_aux1 = req.desig_pos_aux1
         self.goal_pos_aux1 = req.goal_pos_aux1
 
-        mj_U, best_ind, init_pix_distrib = self.cem_controller.act(self.traj, self.t,
-                                                                        req.desig_pos_aux1,
-                                                                        req.goal_pos_aux1)
+        mj_U, plan_stat = self.cem_controller.act(self.traj, self.t,
+                                        req.desig_pos_aux1,
+                                        req.goal_pos_aux1,
+                                        self.goal_image[None])
 
-        if 'predictor_propagation' in self.policyparams and self.t > 0:
-            self.initial_pix_distrib.append(init_pix_distrib[-1][0])
-
+        self.traj.plan_stat.append(copy.deepcopy(plan_stat))
         self.traj.actions[self.t, :] = mj_U
 
-
         if self.t == self.agentparams['T'] -1:
-            if 'verbose' in self.policyparams:
-                pickle.dump(self.cem_controller.dict_,open(self.netconf['current_dir'] + '/verbose/pred.pkl', 'wb'))
-                print('finished writing files to:' + self.netconf['current_dir'] + '/verbose/pred.pkl')
-            if 'no_pixdistrib_video' not in self.policyparams:
-                self.save_video()
+            print('done')
+
+            if 'register_gtruth' in self.policyparams:
+                plot_warp_err(self.traj, self.agentparams['record'])
 
         self.t += 1
 
@@ -200,6 +208,5 @@ class Visual_MPC_Server(object):
             npy_to_gif(imlist, imfilename)
 
 
-
 if __name__ ==  '__main__':
-    Visual_MPC_Server()
+    Visual_MPC_Server(cmd_args=True)

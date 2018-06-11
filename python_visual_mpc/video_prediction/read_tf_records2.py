@@ -217,7 +217,10 @@ def build_tfrecord_single(conf, mode='train', input_files=None, shuffle=True):
 
         return_dict = {}
         image_seq = tf.concat(values=image_seq, axis=0)
-        return_dict['images'] = tf.squeeze(image_seq)
+        image_seq = tf.squeeze(image_seq)
+        if 'use_cam' in conf:
+            image_seq = image_seq[:,conf['use_cam']]
+        return_dict['images'] = image_seq
 
         if 'goal_image' in conf:
             features_name = {}
@@ -242,7 +245,7 @@ def build_tfrecord_single(conf, mode='train', input_files=None, shuffle=True):
             else:
                 return_dict['endeffector_pos'] = tf.concat(endeffector_pos_seq, 0)
 
-            if 'no_grasp_dim' in conf:
+            if 'autograsp' in conf:
                 return_dict['actions'] = tf.concat(action_seq, 0)[:,:-1]
             else:
                 return_dict['actions'] = tf.concat(action_seq, 0)
@@ -283,7 +286,7 @@ def main():
     current_dir = os.path.dirname(os.path.realpath(__file__))
     # DATA_DIR = '/mnt/sda1/pushing_data/cartgripper/grasping/lift_imitation_dataset/test'
     # DATA_DIR = '/mnt/sda1/pushing_data/onpolicy/distributed_pushing/train'
-    DATA_DIR = '/mnt/sda1/pushing_data/cartgripper/grasping/dctouch_openloop_autograsp/good'
+    DATA_DIR = '/mnt/sda1/pushing_data/sawyer/sawyer_data/vestri_agpolicy/good'
     # DATA_DIR = {os.environ['VMPC_DATA_DIR'] + '/cartgripper/cartgripper_2view': 0.5,
     #             os.environ['VMPC_DATA_DIR'] + '/cartgripper/grasping/dualcam_pick_place_dataset/good': 0.25,
     #             os.environ['VMPC_DATA_DIR'] + '/cartgripper/grasping/dualcam_pick_place_dataset/bad': 0.25}
@@ -301,11 +304,11 @@ def main():
     # conf['max_epoch'] = 1     #requires batchsize equal to tfrec size
     # conf['row_start'] = 15
     # conf['row_end'] = 63
-    conf['sdim'] = 7
-    conf['adim'] = 5
+    conf['sdim'] = 5
+    conf['adim'] = 4
     # conf['image_only'] = ''
     # conf['goal_image'] = ""
-    conf['no_grasp_dim'] = ""
+    # conf['autograsp'] = ""
 
     conf['orig_size'] = [48, 64]
     # conf['first_last_noarm'] = ''
