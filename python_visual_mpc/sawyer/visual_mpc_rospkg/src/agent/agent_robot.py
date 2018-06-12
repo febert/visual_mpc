@@ -8,10 +8,14 @@ import copy
 from python_visual_mpc.sawyer.visual_mpc_rospkg.src.primitives_regintervals import zangle_to_quat
 from python_visual_mpc.sawyer.visual_mpc_rospkg.src.utils import inverse_kinematics
 from python_visual_mpc.sawyer.visual_mpc_rospkg.src.misc.camera_calib.calibrated_camera import CalibratedCamera
+from python_visual_mpc.sawyer.visual_mpc_rospkg.src.visual_mpc_client import Getdesig
+import pdb
+import os
 class AgentSawyer:
     def __init__(self, agent_params):
         print('CREATING AGENT FOR ROBOT: {}'.format(agent_params.get('robot_name', 'vestri')))
         self._hyperparams = agent_params
+        self.img_height, self.img_width = agent_params['image_height'], agent_params['image_width']
 
         # initializes node and creates interface with Sawyer
         self._controller = WSGRobotController(agent_params['control_rate'], agent_params.get('robot_name', 'vestri'))
@@ -28,19 +32,54 @@ class AgentSawyer:
         max_tries = self._hyperparams.get('max_tries', 100)
         cntr = 0
         traj = None
+        fig_save_dir = None
 
-        if itr % 30 == 0 and itr > 0:
-            self._controller.redistribute_objects()
-            print('Sampling {}'.format(itr))
+        if 'benchmark_exp' not in self._hyperparams:
+            if itr % 30 == 0 and itr > 0:
+                self._controller.redistribute_objects()
+                print('Sampling {}'.format(itr))
+            else:
+                print('Sampling {}, redist in {}'.format(itr, 30 - itr % 30))
         else:
-            print('Sampling {}, redist in {}'.format(itr, 30 - itr % 30))
+            print("BEGINNING BENCHMARK")
+            pdb.set_trace()
+            self._hyperparams['benchmark_exp'] = save_dir = raw_input("Enter Experiment save_dir:")
+            fig_save_dir = self.agentparams['data_save_dir'] + '/' + save_dir
+
+            if not os.path.exists(fig_save_dir):
+                print("CREATING DIR: {}".format(fig_save_dir))
+                os.makedirs(fig_save_dir)
+            else:
+                print("WARNING PATH EXISTS: {}".format(fig_save_dir))
 
         while not traj_ok and cntr < max_tries:
-            traj, traj_ok = self.rollout(policy)
+            if 'benchmark_exp' in self._hyperparams:
+                print("BEGINNING BENCHMARKS ROLLOUT")
+                read_ok, front_cam, left_cam = self._recorder.get_images()
+                if not read_ok:
+                    print("CAMERA DESYNC")
+                    break
+
+                start_pix, goal_pix = [], []
+                cam_dicts = [front_cam, left_cam]
+                for i, cam in enumerate(self._hyperparams['cameras']):
+                    print("SELECT START/GOAL FOR {} CAMERA".format(cam))
+                    pdb.set_trace()
+                    c_main = Getdesig(cam_dicts[i]['crop'], fig_save_dir, 'goal_{}'.format(cam), n_desig=1,
+                                            im_shape=[self.img_height, self.img_width], clicks_per_desig=2)
+                    desig_pos = c_main.desig.astype(np.int64)
+
+                    start_pix.append(desig_pos[0].reshape(1, -1))
+                    goal_pix.append(desig_pos[1].reshape(1, -1))
+
+                start_pix, goal_pix = np.concatenate(start_pix, 0), np.concatenate(goal_pix, 0)
+                traj, traj_ok = self.rollout(policy, start_pix, goal_pix)
+            else:
+                traj, traj_ok = self.rollout(policy)
 
         return traj, traj_ok
 
-    def rollout(self, policy):
+    def rollout(self, policy, start_pix = None, goal_pix = None):
         traj = Trajectory(self._hyperparams)
         traj_ok = True
 
@@ -77,7 +116,7 @@ class AgentSawyer:
                 euc_error, abs_error = np.linalg.norm(diff), np.abs(diff)
                 print("at time {}, l2 error {} and abs_dif {}".format(t, euc_error, abs_error))
 
-            mj_U = policy.act(traj, t)
+            mj_U = policy.act(traj, t, start_pix, goal_pix)
             traj.actions[t] = copy.deepcopy(mj_U)
 
             if 'check_preplan' in self._hyperparams and t == 0:

@@ -13,7 +13,7 @@ class Randompolicy(Policy):
     """
     Random Policy
     """
-    def __init__(self, imitationconf, agentparams, policyparams):
+    def __init__(self, action_proposal_conf, agentparams, policyparams):
         Policy.__init__(self)
         self.agentparams = agentparams
         self.policyparams = policyparams
@@ -58,8 +58,8 @@ class Randompolicy(Policy):
 
 
 class CorrRandompolicy(Randompolicy):
-    def __init__(self, imitation_conf, agentparams, policyparams):  # add imiation_conf to keep compatibility with imitation model
-        Randompolicy.__init__(self, imitation_conf, agentparams, policyparams)
+    def __init__(self, action_proposal_conf, agentparams, policyparams):  # add imiation_conf to keep compatibility with imitation model
+        Randompolicy.__init__(self, action_proposal_conf, agentparams, policyparams)
 
     def act(self, traj, t, init_model=None, goal_ob_pose=None, agentparams=None, goal_image=None):
         if t == 0:
@@ -95,8 +95,8 @@ class CorrRandompolicy(Randompolicy):
 
 
 class RandomPickPolicy(Randompolicy):
-    def __init__(self, imitation_conf, agentparams, policyparams):  # add imiation_conf to keep compatibility with imitation model
-        Randompolicy.__init__(self, imitation_conf, agentparams, policyparams)
+    def __init__(self, action_proposal_conf, agentparams, policyparams):  # add imiation_conf to keep compatibility with imitation model
+        Randompolicy.__init__(self, action_proposal_conf, agentparams, policyparams)
 
     def act(self, traj, t, init_model = None, goal_ee_pose = None, agentparams = None, goal_image = None):
         assert self.agentparams['T'] == self.naction_steps * self.repeat and self.naction_steps >= 3

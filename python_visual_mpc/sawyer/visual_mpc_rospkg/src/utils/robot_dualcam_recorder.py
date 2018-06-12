@@ -21,6 +21,11 @@ NUM_JOINTS = 7 #Sawyer has 7 dof arm
 
 class Trajectory:
     def __init__(self, agentparams):
+        self._agent_conf = agentparams
+        if 'autograsp' in agentparams:
+            self._min = np.array(agentparams['targetpos_clip'][0][:3])
+            self._delta = np.array(agentparams['targetpos_clip'][1][:3]) - self._min
+
         T = agentparams['T']
         self.sequence_length = T
 
@@ -42,6 +47,23 @@ class Trajectory:
         self.mask_rel = copy.deepcopy(agentparams['mode_rel'])
 
         self._save_raw = 'no_raw_images' not in agentparams
+
+    @property
+    def i_tr(self):
+        return 0
+
+    @property
+    def X_full(self):
+        """
+        :return: normalized states in robot coordinates for use in CEM_controller
+        """
+        if 'autograsp' in self._agent_conf:
+            norm_states = copy.deepcopy(np.concatenate((self.robot_states[:, :-1], self.touch_sensors[:, 0]), axis=1))
+            norm_states[:, :3] -= self._min
+            norm_states[:, :3] /= self._delta
+            return norm_states
+
+        raise NotImplementedError("All implemented policies use Autograsp Action Space")
 
     def save(self, file_path):
         if os.path.exists(file_path):
@@ -85,6 +107,11 @@ class Latest_observation(object):
         self.img_msg = None
         self.mutex = Lock()
 
+    def to_dict(self):
+        img_crop = self.img_cropped[:, :, ::-1].copy()
+        img_raw = self.img_cv2[:, :, ::-1].copy()
+        return {'crop': img_crop, 'raw' : img_raw}
+
 class RobotDualCamRecorder:
     def __init__(self, agent_params, robot_controller, OFFSET_TOL = 0.03):
         self.agent_params = agent_params
@@ -107,6 +134,18 @@ class RobotDualCamRecorder:
         self.fksvc = rospy.ServiceProxy(self.name_of_service, SolvePositionFK)
 
         self.obs_tol = OFFSET_TOL
+
+    def get_images(self):
+        self.front_limage.mutex.acquire()
+        self.left_limage.mutex.acquire()
+        read_ok = np.abs(self.front_limage.tstamp_img - self.left_limage.tstamp_img) <= self.obs_tol
+        front_dict = self.front_limage.to_dict()
+        left_dict = self.left_limage.to_dict()
+        self.front_limage.mutex.release()
+        self.left_limage.mutex.release()
+        if not read_ok:
+            return False, None, None
+        return True, front_dict, left_dict
 
     def store_recordings(self, traj, t):
         assert t < traj.sequence_length, "time t is larger than traj.sequence_length={}".format(t, traj.sequence_length)
