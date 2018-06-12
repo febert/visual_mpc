@@ -22,18 +22,21 @@ NUM_JOINTS = 7 #Sawyer has 7 dof arm
 class Trajectory:
     def __init__(self, agentparams):
         self._agent_conf = agentparams
-        if 'autograsp' in agentparams:
-            self._min = np.array(agentparams['targetpos_clip'][0][:3])
-            self._delta = np.array(agentparams['targetpos_clip'][1][:3]) - self._min
 
         T = agentparams['T']
         self.sequence_length = T
+
+        if 'autograsp' in agentparams:
+            self.min = np.array(agentparams['targetpos_clip'][0][:3])
+            self.delta = np.array(agentparams['targetpos_clip'][1][:3]) - self.min
+            self.X_full = np.zeros((T, 4))
 
         self.actions = np.zeros((T, agentparams['adim']))
         self.joint_angles = np.zeros((T, NUM_JOINTS))
         self.joint_velocities = np.zeros((T, NUM_JOINTS))
         self.endeffector_poses = np.zeros((T, 7))    #x,y,z + quaternion
         self.robot_states = np.zeros((T, agentparams['sdim']))
+
 
         cam_height = agentparams.get('cam_image_height', 401)
         cam_width = agentparams.get('cam_image_width', 625)
@@ -52,18 +55,6 @@ class Trajectory:
     def i_tr(self):
         return 0
 
-    @property
-    def X_full(self):
-        """
-        :return: normalized states in robot coordinates for use in CEM_controller
-        """
-        if 'autograsp' in self._agent_conf:
-            norm_states = copy.deepcopy(np.concatenate((self.robot_states[:, :-1], self.touch_sensors[:, 0]), axis=1))
-            norm_states[:, :3] -= self._min
-            norm_states[:, :3] /= self._delta
-            return norm_states
-
-        raise NotImplementedError("All implemented policies use Autograsp Action Space")
 
     def save(self, file_path):
         if os.path.exists(file_path):
@@ -170,6 +161,13 @@ class RobotDualCamRecorder:
         traj.endeffector_poses[t] = ee_pose
         traj.robot_states[t] = state
         traj.touch_sensors[t] = force_sensors
+
+        if 'autograsp' in self.agent_params:
+            norm_states = copy.deepcopy(np.concatenate((state[:-1], force_sensors), axis=0)[:-1])
+            norm_states[:3] -= traj.min
+            norm_states[:3] /= traj.delta
+            print('norm_states at {}'.format(t), norm_states)
+            traj.X_full[t] = norm_states
 
         self.front_limage.mutex.release()
         self.left_limage.mutex.release()
