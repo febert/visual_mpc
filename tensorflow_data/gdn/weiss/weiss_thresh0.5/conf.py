@@ -30,6 +30,7 @@ configuration = {
 'sdim' :4,
 'adim' :5,
 'orig_size': [64,64],
+
 # 'row_start':0,
 # 'row_end':48,
 'norm':'charbonnier',

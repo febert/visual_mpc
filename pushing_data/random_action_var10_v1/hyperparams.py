@@ -41,7 +41,7 @@ policy = {
     'type' : Randompolicy,
     'initial_var': 10,
     'numactions': 5, # number of consecutive actions
-    'repeats': 3, # number of repeats for each action
+    'repeat': 3, # number of repeat for each action
 }
 
 config = {

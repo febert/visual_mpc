@@ -43,7 +43,7 @@ agent = {
     'num_objects': 4,
     'novideo':'',
     'gen_xml':10,   #generate xml every nth trajecotry
-    'randomize_ballinitpos':'', #randomize x, y
+    'randomize_initial_pos':'', #randomize x, y
     'posmode':"",
     'targetpos_clip':[[-0.45, -0.45, -0.08], [0.45, 0.45, 0.15]],
     'discrete_adim':[2],
@@ -55,7 +55,7 @@ agent = {
 policy = {
     'type' : Randompolicy,
     'nactions': 5,
-    'repeats': 3,               # number of repeats for each action
+    'repeat': 3,               # number of repeat for each action
     'initial_std': 0.08,        # std dev. in xy
     'initial_std_lift': 2.5, #0.1,
 }

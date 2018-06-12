@@ -457,21 +457,23 @@ class Dynamic_Base_Model(object):
                 assert imageshape[2] == 1
                 images = images[:,:,0]
                 pix_distrib = pix_distrib[:,:,0]
-                pix_distrib = tf.transpose(pix_distrib, [0,1,4,2,3])[...,None]  #putting ndesig at the third position
-            else:
-                pix_distrib = tf.transpose(pix_distrib, [0,1,4,2,3])[...,None]  #putting ndesig at the third position
 
 
-        if states is not None and states.get_shape().as_list()[1] != conf['sequence_length']:  # append zeros if states is shorter than sequence length
-            states = tf.concat([states, tf.zeros([conf['batch_size'], conf['sequence_length'] - conf['context_frames'], conf['sdim']])],
+        seq_len = actions.get_shape().as_list()[1]
+
+        if pix_distrib is not None:
+            pix_distrib = tf.transpose(pix_distrib, [0,1,4,2,3])[...,None]  #putting ndesig at the third position
+
+        if states is not None and states.get_shape().as_list()[1] != seq_len:  # append zeros if states is shorter than sequence length
+            states = tf.concat([states, tf.zeros([conf['batch_size'], seq_len - conf['context_frames'], conf['sdim']])],
                 axis=1)
 
-        if images is not None and images.get_shape().as_list()[1] != conf['sequence_length']:  # append zeros if states is shorter than sequence length
-            images = tf.concat([images, tf.zeros([conf['batch_size'], conf['sequence_length'] - conf['context_frames'], self.img_height, self.img_width, 3])],
+        if images is not None and images.get_shape().as_list()[1] != seq_len:  # append zeros if states is shorter than sequence length
+            images = tf.concat([images, tf.zeros([conf['batch_size'], seq_len - conf['context_frames'], self.img_height, self.img_width, 3])],
                 axis=1)
 
         if pix_distrib is not None:
-            pix_distrib = tf.concat([pix_distrib, tf.zeros([conf['batch_size'], conf['sequence_length'] - conf['context_frames'],ndesig, self.img_height, self.img_width, 1])], axis=1)
+            pix_distrib = tf.concat([pix_distrib, tf.zeros([conf['batch_size'], seq_len - conf['context_frames'],ndesig, self.img_height, self.img_width, 1])], axis=1)
             pix_distrib = pix_distrib
 
         use_state = True
@@ -489,10 +491,13 @@ class Dynamic_Base_Model(object):
         self.train_cond = tf.placeholder(tf.int32, shape=[], name="train_cond")
         print('base model uses traincond', self.train_cond)
 
-        self.sdim = conf['sdim']
-        self.adim = conf['adim']
+        if 'no_touch' in conf:
+            self.sdim = conf['sdim'] - 2
+        else: self.sdim = conf['sdim']
+        if 'autograsp' in conf:
+            self.adim = conf['adim'] - 1
+        else: self.adim = conf['adim']
 
-        seq_len = conf['sequence_length']
 
         if images is None:
             pix_distrib = None
@@ -510,9 +515,9 @@ class Dynamic_Base_Model(object):
                                                      shape=(conf['batch_size'], seq_len, ndesig, self.img_height, self.img_width, 1))
                 pix_distrib = self.pix_distrib_pl
             else:
-                dict = build_tfrecord_fn(conf, training=True)
+                dict = build_tfrecord_fn(conf, mode='traing')
                 train_images, train_actions, train_states = dict['images'], dict['actions'], dict['endeffector_pos']
-                dict = build_tfrecord_fn(conf, training=False)
+                dict = build_tfrecord_fn(conf, mode='val')
                 val_images, val_actions, val_states = dict['images'], dict['actions'], dict['endeffector_pos']
 
                 images, actions, states = tf.cond(self.train_cond > 0,  # if 1 use trainigbatch else validation batch
@@ -532,7 +537,6 @@ class Dynamic_Base_Model(object):
         if pix_distrib is not None:
             pix_distrib = tf.split(axis=1, num_or_size_splits=pix_distrib.get_shape()[1], value=pix_distrib)
             pix_distrib = [tf.reshape(pix, [self.batch_size, ndesig, self.img_height, self.img_width, 1]) for pix in pix_distrib]
-
 
         image_shape = images[0].get_shape().as_list()
         batch_size, height, width, color_channels = image_shape

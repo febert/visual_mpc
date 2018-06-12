@@ -1,7 +1,7 @@
 """ This file defines the linear Gaussian policy class. """
 import cv2
 import numpy as np
-from python_visual_mpc.visual_mpc_core.algorithm.cem_controller_goalimage_sawyer import reuse_cov
+from python_visual_mpc.visual_mpc_core.algorithm.cem_controller_goalimage_sawyer import reuse_cov, reuse_mean
 from python_visual_mpc.visual_mpc_core.algorithm.policy import Policy
 import time
 from python_visual_mpc.video_prediction.utils_vpred.create_gif_lib import *
@@ -52,7 +52,10 @@ class CEM_controller(Policy):
 
         self.nactions = self.policyparams['nactions']
         self.repeat = self.policyparams['repeat']
-        self.M = self.policyparams['num_samples']
+        if isinstance(self.policyparams['num_samples'], list):
+            self.M = self.policyparams['num_samples'][0]
+        else:
+            self.M = self.policyparams['num_samples']
         self.K = 10  # only consider K best samples for refitting
 
         self.gtruth_images = [np.zeros((self.M, 64, 64, 3)) for _ in range(self.nactions * self.repeat)]
@@ -181,12 +184,13 @@ class CEM_controller(Policy):
     def perform_CEM(self, t):
         # initialize mean and variance
         if 'reuse_cov' not in self.policyparams or t < 2:
-            # initialize mean and variance
-            self.mean = np.zeros(self.adim * self.naction_steps)
-            #initialize mean and variance of the discrete actions to their mean and variance used during data collection
             self.sigma = construct_initial_sigma(self.policyparams)
         else:
-            self.mean, self.sigma = reuse_cov(self.mean, self.sigma, self.adim, self.policyparams)
+            self.sigma = reuse_cov(self.sigma, self.adim, self.policyparams)
+        if 'reuse_mean' not in self.policyparams or t < 2:
+            self.mean = np.zeros(self.adim * self.naction_steps)
+        else:
+            self.mean = reuse_mean(self.mean, self.adim, self.policyparams)
 
         print('------------------------------------------------')
         print('starting CEM cylce')
@@ -273,7 +277,6 @@ class CEM_controller(Policy):
         self.gripper_closed = False
         self.gripper_up = False
         self.t_down = 0
-        # print('start episdoe')
 
         for t in range(self.nactions*self.repeat):
             mj_U = actions[t]
@@ -332,6 +335,14 @@ class CEM_controller(Policy):
 
         self.agentparams = agent_params
         self.goal_obj_pose = copy.deepcopy(goal_obj_pose)
+
+        if isinstance(self.policyparams['num_samples'], list): #used for reuse_covœ
+            if t <= 1:
+                self.M = self.policyparams['num_samples'][0]
+            else:
+                self.M = self.policyparams['num_samples'][1]
+        else:
+            self.M = self.policyparams['num_samples']
 
         if 'task_switch' in self.policyparams:
             if t < self.agentparams['T']//2:

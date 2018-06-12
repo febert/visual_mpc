@@ -28,7 +28,7 @@ def gen_mix_samples(N, means, std_dev, mix_params):
 
 class ImitationBaseModel:
     def __init__(self, conf, images, actions, end_effector, goal_image = None):
-        self.input_images, self.input_actions, self.input_end_effector, self.goal_image = images, actions, end_effector, goal_image
+        self.input_images, self.input_actions, self.input_end_effector, self.input_goal_image = images, actions, end_effector, goal_image
         self.conf = conf
         assert ('adim' in self.conf), 'must specify action dimension in conf wiht key adim'
         assert (self.conf['adim'] == actions.get_shape()[2]), 'conf adim does not match input actions'
@@ -45,6 +45,7 @@ class ImitationBaseModel:
 
         #input images
         self.images = images
+        self.goal_image = goal_image
 
         raw_input_splits = tf.split(actions, self.adim, axis=-1)
         raw_input_splits[-1] = tf.clip_by_value(raw_input_splits[-1], -1, 1) #should have no effect on new data
@@ -55,6 +56,7 @@ class ImitationBaseModel:
         
         #summary logging for tensorboard
         self.summaries = {}
+        self.num_feats = conf.get('num_feats', 64)
 
     def _build_conv_layers(self, input_images):
         layer1 = tf_layers.layer_norm(self.vgg_layer(input_images[:, :, :, ::-1]), scope='conv1_norm')
@@ -66,7 +68,7 @@ class ImitationBaseModel:
         layer4 = tf_layers.layer_norm(
             slim.layers.conv2d(layer3, 48, [3, 3], stride=1, scope='conv4'), scope='conv4_norm')
         layer5 = tf_layers.layer_norm(
-            slim.layers.conv2d(layer4, 64, [3, 3], stride=1, scope='conv5'), scope='conv5_norm')
+            slim.layers.conv2d(layer4, self.num_feats, [3, 3], stride=1, scope='conv5'), scope='conv5_norm')
 
         batch_size, num_rows, num_cols, num_fp = layer5.get_shape()
         # print 'shape', layer3.get_shape

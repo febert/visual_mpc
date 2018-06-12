@@ -15,14 +15,7 @@ from python_visual_mpc.video_prediction.dynamic_rnn_model.dynamic_base_model imp
 from python_visual_mpc.imitation_model.setup_imitation import setup_openloop_predictor
 #from python_visual_mpc.video_prediction.setup_predictor_towers import setup_predictor
 
-def state_conv(mpc_state, last_action):
-    open_state = np.zeros((1, 5))
-    open_state[0, :4] = mpc_state[:4]
-    if last_action[-1] > 0:
-        open_state[0, -1] = 0.1
-    else:
-        open_state[0, -1] = 0
-    return open_state.reshape((1, 1, -1))
+from python_visual_mpc.visual_mpc_core.algorithm.cem_controller_openloop import oldmpc2imitation_conv as state_conv
 
 configuration = {
 'experiment_name': 'rndaction_var10',

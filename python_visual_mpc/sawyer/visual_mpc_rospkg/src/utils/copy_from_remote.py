@@ -12,6 +12,7 @@ def scp_pix_distrib_files(policyparams, agentparams):
     # SCPCLient takes a paramiko transport as its only argument
     scp = SCPClient(ssh.get_transport())
 
+    print('scp pred.pkl')
     scp.get(policyparams['current_dir'] + '/verbose/pred.pkl', policyparams['current_dir'] + '/verbose/pred.pkl')
     # for i in range(1,agentparams['T']):
     #     filename = '/verbose/gen_distrib_t{}.pkl'.format(i)

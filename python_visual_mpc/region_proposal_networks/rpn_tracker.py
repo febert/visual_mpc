@@ -4,14 +4,14 @@ try:
 except ImportError:
     # for Python3
     from tkinter import *   ## notice lowercase 't' in tkinter here
-from PIL import Image, ImageTk
+from PIL import Image
 from sys import argv
 
 import argparse
 import numpy as np
 import sys
 ################3333
-# from python_visual_mpc.region_proposal_networks.Featurizer import BBProposer, AlexNetFeaturizer
+from python_visual_mpc.region_proposal_networks.Featurizer import BBProposer, AlexNetFeaturizer
 import cv2
 import pdb
 import os
@@ -93,6 +93,41 @@ class RPN_Tracker(object):
         im[r, int(cmin):int(cmax)] = color
 
         return im
+
+    def get_boxes(self, image, valid_box = np.array([170,80,450,280]), im_save_dir = None):
+
+        self.get_regions(image)
+        boxes = self.boxes
+
+        valid_region = valid_box
+
+        valid_boxes = []
+        valid_center_coords = []
+
+        min_heigh_or_width = 50
+        for b in boxes:
+            center_coord = np.array([(b[0] + b[2]) / 2.,  # col, row
+                                     (b[1] + b[3]) / 2.])
+
+            box_height = b[3] - b[1]
+            box_width = b[2] - b[0]
+
+            if  valid_region[0] < center_coord[0] < valid_region[2] and \
+                valid_region[1] < center_coord[1] < valid_region[3] and \
+                    (box_height > min_heigh_or_width or box_width > min_heigh_or_width):
+                valid_boxes.append(b)
+                valid_center_coords.append(center_coord)
+
+        if im_save_dir is not None:
+            import rospy
+            for b in valid_boxes:
+                self.proposer.draw_box(b, self.clone, 0)  # red
+
+            self.proposer.draw_box(list(valid_region), self.clone, 2)  # blue
+
+            im = Image.fromarray(np.array(self.clone).astype(np.uint8))
+            im.save(im_save_dir + '/task_{}.png'.format(rospy.get_time()))
+        return valid_center_coords
 
     def get_task(self, image, im_save_dir):
         """

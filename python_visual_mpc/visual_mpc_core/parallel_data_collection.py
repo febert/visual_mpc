@@ -1,5 +1,3 @@
-import matplotlib
-matplotlib.use('pdf')
 from python_visual_mpc.visual_mpc_core.infrastructure.synchronize_tfrecs import sync
 from multiprocessing import Pool
 import sys
@@ -18,7 +16,6 @@ import pdb
 import glob
 import re
 import os
-import matplotlib; matplotlib.use('Agg'); import matplotlib; matplotlib.use('Agg'); import matplotlib.pyplot as plt
 from python_visual_mpc.visual_mpc_core.infrastructure.utility.combine_scores import combine_scores
 from python_visual_mpc.visual_mpc_core.infrastructure.utility.create_configs import CollectGoalImageSim
 import pickle
@@ -60,7 +57,6 @@ def main():
 
     args = parser.parse_args()
     hyperparams_file = args.experiment
-    exp_name = '/'.join(str.split(hyperparams_file, '/')[:-1])
     gpu_id = args.gpu_id
 
     n_worker = args.nworkers
@@ -68,6 +64,7 @@ def main():
         parallel = False
     else:
         parallel = True
+    # parallel = True
     print('parallel ', bool(parallel))
 
     if 'benchmarks' in hyperparams_file:
@@ -89,7 +86,6 @@ def main():
     start_idx = [hyperparams['start_index'] + traj_per_worker * i for i in range(n_worker)]
     end_idx = [hyperparams['start_index'] + traj_per_worker * (i+1)-1 for i in range(n_worker)]
 
-    conflist = []
 
     if 'gen_xml' in hyperparams['agent']: #remove old auto-generated xml files
         try:
@@ -115,6 +111,7 @@ def main():
         sync_todo_id = sync.remote(hyperparams['agent'])
         print('launched sync')
 
+    conflist = []
     for i in range(n_worker):
         modconf = copy.deepcopy(hyperparams)
         modconf['start_index'] = start_idx[i]
@@ -134,7 +131,7 @@ def main():
         if 'RESULT_DIR' in os.environ:
             result_dir = os.environ['RESULT_DIR']
         else: result_dir = hyperparams['current_dir']
-        combine_scores(result_dir)
+        combine_scores(hyperparams, result_dir)
         sys.exit()
 
     traindir = modconf['agent']["data_save_dir"]

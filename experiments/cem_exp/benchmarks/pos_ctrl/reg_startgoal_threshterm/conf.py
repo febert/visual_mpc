@@ -34,7 +34,6 @@ configuration = {
 'kern_size': 17,            # size of DNA kerns
 'single_view':"",
 '1stimg_bckgd':'',
-# 'visual_flowvec':'',
 'adim':3,
 'sdim':6,
 'normalization':'in',

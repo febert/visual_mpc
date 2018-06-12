@@ -23,7 +23,7 @@ class GripperNode(object):
     def ctrl_callback(self, status):
         print('status', status)
         cmd = Cmd()
-        cmd.pos = 50.
+        cmd.pos = 4.
         cmd.speed = 100.
         self.pub.publish(cmd)
 

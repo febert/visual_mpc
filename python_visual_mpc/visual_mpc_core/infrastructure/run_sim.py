@@ -1,3 +1,6 @@
+import matplotlib; matplotlib.use('Agg'); import matplotlib.pyplot as plt
+# import matplotlib; matplotlib.use('Agg'); import matplotlib.pyplot as plt
+
 import imp
 import os
 import os.path
@@ -15,19 +18,20 @@ sys.path.append('/'.join(str.split(__file__, '/')[:-2]))
 from python_visual_mpc.goaldistancenet.setup_gdn import setup_gdn
 from python_visual_mpc.visual_mpc_core.infrastructure.utility import *
 
-import matplotlib; matplotlib.use('Agg'); import matplotlib.pyplot as plt
+
 from datetime import datetime
 import pickle
 import cv2
 import shutil
 import numpy as np
 from python_visual_mpc.visual_mpc_core.infrastructure.utility.logger import Logger
+from .utility.save_tf_record import save_tf_record
 
 
 class Sim(object):
     """ Main class to run algorithms and experiments. """
 
-    def __init__(self, config, gpu_id=0, ngpu=1, logger=None):
+    def __init__(self, config, gpu_id=0, ngpu=1, logger=None, mode='train'):
         self._hyperparams = config
         self.agent = config['agent']['type'](config['agent'])
         self.agentparams = config['agent']
@@ -37,12 +41,8 @@ class Sim(object):
         else: self.logger = logger
         self.logger.log('started sim')
 
-        if 'RESULT_DIR' in os.environ:
-            self.agentparams['data_save_dir'] = os.environ['RESULT_DIR'] + '/data/train'
-
-        self.task_mode = 'train' # whether to save trajectory as train example, val example or do a validation task
-        self._data_save_dir = self.agentparams['data_save_dir']
         self.agentparams['gpu_id'] = gpu_id
+        self.task_mode = mode
 
         if 'do_timing' in self._hyperparams:
             self._timing_file = self._hyperparams['current_dir'] + '/timing_file{}.txt'.format(os.getpid())
@@ -51,20 +51,21 @@ class Sim(object):
         if 'netconf' in config['policy']:
             params = imp.load_source('params', config['policy']['netconf'])
             netconf = params.configuration
-            self.predictor = netconf['setup_predictor'](self._hyperparams, netconf, gpu_id, ngpu, self.logger)
+            self.predictor = netconf['setup_predictor'](config, netconf, gpu_id, ngpu, self.logger)
 
             if 'warp_objective' in config['policy'] or 'register_gtruth' in config['policy']:
                 params = imp.load_source('params', config['policy']['gdnconf'])
                 gdnconf = params.configuration
                 self.goal_image_warper = setup_gdn(gdnconf, gpu_id)
                 self.policy = config['policy']['type'](config['agent'], config['policy'], self.predictor, self.goal_image_warper)
-            elif 'imitation_conf' in config['policy']:
-                self.imitation_policy = config['policy']['imitation_setup'](config['policy']['imitation_conf'])
-                self.policy = config['policy']['type'](config['agent'], config['policy'], self.predictor, self.imitation_policy)
+            elif 'actionproposal_conf' in config['policy']:
+                self.actionproposal_policy = config['policy']['actionproposal_setup'](config['policy']['actionproposal_conf'], self.agentparams, self.policyparams)
+                self.policy = config['policy']['type'](config['agent'], config['policy'], self.predictor, self.actionproposal_policy)
             else:
                 self.policy = config['policy']['type'](config['agent'], config['policy'], self.predictor)
         else:
-            self.policy = config['policy']['type'](self.agent._hyperparams, config['policy'])
+            imitationconf = {}
+            self.policy = config['policy']['type'](imitationconf, self.agent._hyperparams, config['policy'])
 
         self.trajectory_list = []
         self.im_score_list = []
@@ -78,27 +79,20 @@ class Sim(object):
             if 'warp_objective' in self.policyparams or 'register_gtruth' in self.policyparams:
                 self.policy = self.policyparams['type'](self.agent._hyperparams,
                                                               self.policyparams, self.predictor, self.goal_image_warper)
-            elif 'imitation_conf' in self.policyparams:
-                self.policy = self.policyparams['type'](self.agent._hyperparams, self.policyparams, self.predictor, self.imitation_policy)
+            elif 'actionproposal_conf' in self.policyparams:
+                self.policy = self.policyparams['type'](self.agent._hyperparams, self.policyparams, self.predictor, self.actionproposal_policy)
             else:
                 self.policy = self.policyparams['type'](self.agent._hyperparams,
                                                               self.policyparams, self.predictor)
         else:
-            self.policy = self.policyparams['type'](self.agent._hyperparams, self.policyparams)
+            imitationconf = {}
+            self.policy = self.policyparams['type'](imitationconf, self.agent._hyperparams, self.policyparams)
 
     def run(self):
         for i in range(self._hyperparams['start_index'], self._hyperparams['end_index']+1):
             self.take_sample(i)
 
     def take_sample(self, sample_index):
-        """
-        Collect a sample from the agent.
-        Args:
-            itr: Iteration number.
-            cond: Condition number.
-            sample_index: Sample index.
-        Returns: None
-        """
         self._init_policy()
 
         t_traj = time.time()
@@ -127,6 +121,10 @@ class Sim(object):
         :param itr: index of trajectory
         :return:
         """
+        if 'RESULT_DIR' in os.environ:
+            self._data_save_dir = os.environ['RESULT_DIR'] + '/data'
+        else: self._data_save_dir = self.agentparams['data_save_dir']
+        self._data_save_dir += '/' + self.task_mode
 
         if 'save_raw_images' in self._hyperparams:
             ngroup = self._hyperparams['ngroup']
@@ -234,23 +232,23 @@ class Sim(object):
                 traj_per_file = 256
             self.logger.log('traj_per_file', traj_per_file)
             if len(self.trajectory_list) == traj_per_file:
-                filename = 'traj_{0}_to_{1}' \
-                    .format(itr - traj_per_file + 1, itr)
-                from .utility.save_tf_record import save_tf_record
-                self.logger.log('Writing', self._data_save_dir + '/' + self.task_mode + '/' + filename)
+                filename = 'traj_{0}_to_{1}'.format(itr - traj_per_file + 1, itr)
+                self.logger.log('Writing', self._data_save_dir + '/' + filename)
                 if self.task_mode != 'val_task':   # do not save validation tasks (but do save validation runs on randomly generated tasks)
-                    save_tf_record(filename, self.trajectory_list, self.agentparams)
+                    save_tf_record(self._data_save_dir, filename, self.trajectory_list, self.agentparams)
                 if self.agent.goal_obj_pose is not None:
-                    write_scores(self.trajectory_list, filename, self.agentparams, self.task_mode)
+                    dir = '/'.join(str.split(self._data_save_dir, '/')[:-1])
+                    dir += '/scores/' + self.task_mode
+                    write_scores(dir, filename, self.trajectory_list, self.logger)
                 self.trajectory_list = []
 
 
-def write_scores(trajlist, filename, agentparams, mode):
-    dir = '/'.join(str.split(agentparams['data_save_dir'], '/')[:-1])
-    dir += '/scores/' + mode
+def write_scores(dir, filename, trajlist, logger):
     if not os.path.exists(dir):
         os.makedirs(dir, exist_ok=True)
     filename = filename.partition('.')[0] + '_score.pkl'
+    filename = os.path.join(dir, filename)
+    logger.log('writing scorefile {}'.format(filename))
     scores = {}
     improvements = []
     final_poscost = []
@@ -262,37 +260,36 @@ def write_scores(trajlist, filename, agentparams, mode):
     scores['improvement'] = improvements
     scores['final_poscost'] = final_poscost
     scores['initial_poscost'] = initial_poscost
-    pickle.dump(scores, open(os.path.join(dir, filename), 'wb'))
+    pickle.dump(scores, open(filename, 'wb'))
 
 
 def plot_warp_err(traj, dir):
-    start_err = []
-    goal_err = []
+    warperrs = []
     tradeoff = []
     for tstep in traj.plan_stat[1:]:
-        if 'start_warp_err' in tstep:
-            start_err.append(tstep['start_warp_err'])
-        if 'goal_warp_err' in tstep:
-            goal_err.append(tstep['goal_warp_err'])
+        warperrs.append(tstep['warperrs'])
         tradeoff.append(tstep['tradeoff'])
 
-    if len(tradeoff) != 0:
-        tradeoff = np.stack(tradeoff, 0)
-        start_err = np.array(start_err)
-        goal_err = np.array(goal_err)
-        plt.figure()
-        ax = plt.gca()
-        ax.plot(start_err, marker ='d', label='start')
-        ax.plot(goal_err, marker='o', label='goal')
-        ax.legend()
-        plt.savefig(dir + '/warperrors.png')
+    tradeoff = np.stack(tradeoff, 0)
+    warperrs = np.stack(warperrs, 0)
 
-        plt.figure()
-        ax = plt.gca()
-        ax.plot(tradeoff[:,0], marker='d', label='tradeoff for start')
-        ax.plot(tradeoff[:,1], marker='d', label='tradeoff for goal')
-        ax.legend()
-        plt.savefig(dir + '/tradeoff.png')
+    pickle.dump({'warperrs':warperrs, 'tradeoff':tradeoff}, open(dir +  '/warperrs_tradeoff.pkl', 'wb'))
+
+    # warperrs shape: tstep, ncam, numtrack
+    plt.figure()
+    ax = plt.gca()
+    ax.plot(warperrs[:,0,0], marker ='d', label='start')
+    ax.plot(warperrs[:,0,1], marker='o', label='goal')
+    ax.legend()
+    plt.savefig(dir + '/warperrors.png')
+
+    plt.figure()
+    ax = plt.gca()
+
+    ax.plot(tradeoff[:,0,0], marker='d', label='tradeoff for start')
+    ax.plot(tradeoff[:,0,1], marker='d', label='tradeoff for goal')
+    ax.legend()
+    plt.savefig(dir + '/tradeoff.png')
 
 def plot_dist(traj, dir):
     goal_dist = np.stack(traj.goal_dist, axis=0)

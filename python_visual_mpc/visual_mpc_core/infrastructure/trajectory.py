@@ -1,4 +1,5 @@
 """ This file defines the sample class. """
+from collections import OrderedDict
 import numpy as np
 
 class Trajectory(object):
@@ -24,6 +25,8 @@ class Trajectory(object):
 
         if 'finger_sensors' in conf:
             self.touch_sensors = np.zeros((self.T, 2), dtype = np.float32)
+        else:
+            self.touch_sensors = None
 
         if 'image_medium' in conf:
             self._image_medium = np.zeros((self.T,
@@ -45,14 +48,14 @@ class Trajectory(object):
         else:
             self.actions = np.zeros([self.T, 2])
 
-        if 'sdim' in conf:
-            state_dim = conf['sdim']
+        if 'sawyer' not in conf:
+            state_dim = conf['sdim']//2
         else:
-            state_dim = 2
+            state_dim = conf['sdim']
 
-        self.X_full = np.zeros([self.T, state_dim//2])
-        self.Xdot_full = np.zeros([self.T, state_dim//2])
-        self.X_Xdot_full = np.zeros([self.T, state_dim])
+        self.X_full = np.zeros([self.T, state_dim])
+        self.Xdot_full = np.zeros([self.T, state_dim])
+        self.X_Xdot_full = np.zeros([self.T, state_dim*2])
 
         if 'posmode' in conf:
             self.target_qpos = np.zeros([self.T + 1, conf['adim']])
@@ -96,6 +99,6 @@ class Trajectory(object):
             self.obj_world_coords = np.zeros([self.T, conf['num_objects'] + 1, 7])  # xyz and quaternion pose
 
         self.plan_stat = []   # statistics about the plan
-
         self.goal_dist = []
+        self.stats = OrderedDict([('improvement',None), ('scores',None), ('term_t',None), ('integrated_poscost',None), ('lifted',None), ('initial_poscost', None)])
 

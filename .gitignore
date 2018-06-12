@@ -184,3 +184,7 @@ scores.txt
 
 web/
 plots/
+
+record/
+benchmark_schedule.txt
+bench/

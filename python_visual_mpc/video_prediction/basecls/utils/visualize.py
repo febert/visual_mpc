@@ -182,12 +182,12 @@ def visualize_diffmotions(sess, conf, model):
         actions[b, 1, 4] = 4
         col_titles.append('close/open')
     if 'openloop_setup' in conf:
-        imitation_predictor = conf['openloop_setup'](conf['openloop_conf'])
+        openloop_predictor = conf['openloop_setup'](conf['openloop_conf'])
 
         sel_1 = (sel_img[1] * 255).astype(np.uint8).reshape((1, 1, -1))
-        imitation_state = conf['openloop_conv_state'](sel_state[1], gtruth_actions[b_exp, 0])
+        input_state = conf['openloop_conv_state'](sel_state[1])
 
-        actions = imitation_predictor(sel_1, imitation_state, conf['batch_size'])[:,:-1]
+        actions = openloop_predictor(sel_1, input_state, conf['batch_size'])[:,:-1]
 
     if 'float16' in conf:
         use_dtype = np.float16
@@ -539,7 +539,9 @@ def add_crosshairs_single(im, pos, color=None):
     :param color:
     :return:
     """
-    if color == None:
+
+    assert isinstance(color, np.ndarray)
+    if color is None:
         if im.dtype == np.float32:
             color = np.array([0., 1., 1.])
         else:
