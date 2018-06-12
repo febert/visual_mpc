@@ -29,7 +29,7 @@ class Trajectory:
         if 'autograsp' in agentparams:
             self.min = np.array(agentparams['targetpos_clip'][0][:3])
             self.delta = np.array(agentparams['targetpos_clip'][1][:3]) - self.min
-            self.X_full = np.zeros((T, 4))
+            self.X_full = np.zeros((T, 5))
 
         self.actions = np.zeros((T, agentparams['adim']))
         self.joint_angles = np.zeros((T, NUM_JOINTS))
@@ -83,7 +83,10 @@ class Trajectory:
             for i in range(self.sequence_length):
                 cv2.imwrite('{}/im{}.png'.format(folder, i), self.images[i, f, :, :, ::-1],
                             [cv2.IMWRITE_PNG_STRATEGY_DEFAULT, 1])
-                clip.append(self.images[i, f])
+                if 'save_large_gifs' in self._agent_conf:
+                    clip.append(self.raw_images[i, f])
+                else:
+                    clip.append(self.images[i, f])
                 if self._save_raw:
                     cv2.imwrite('{}/im_med{}.png'.format(folder, i), self.raw_images[i, f, :, :, ::-1],
                                 [cv2.IMWRITE_PNG_STRATEGY_DEFAULT, 1])

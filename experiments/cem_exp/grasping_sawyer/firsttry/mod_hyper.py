@@ -2,6 +2,8 @@
 
 import numpy as np
 from python_visual_mpc.visual_mpc_core.algorithm.random_policy import Randompolicy
+from python_visual_mpc.visual_mpc_core.algorithm.visual_mpc_policy import VisualMPCPolicy
+from python_visual_mpc.visual_mpc_core.algorithm.cem_controller_goalimage_sawyer import CEM_controller
 import os
 from python_visual_mpc.sawyer.visual_mpc_rospkg.src.agent.agent_robot import AgentSawyer
 from python_visual_mpc.visual_mpc_core.infrastructure.utility.tfrecord_from_file import grasping_sawyer_file2record as convert_to_record
@@ -13,7 +15,7 @@ data_conf = {'left_cam' : {'crop_bot' : 70, 'crop_left' : 150, 'crop_right' : 10
 
 agent = {'type' : AgentSawyer,
          'data_save_dir': BASE_DIR + '/train',
-         'T' : 15,  #number of commands per episodes (issued at control_rate / substeps HZ)
+         'T' : 30,  #number of commands per episodes (issued at control_rate / substeps HZ)
          'step_duration' : 0.75,  #time each substep takes to execute
          'impedance_stiffness' : 150, #stiffness commanded to impedance controller
          'control_rate' : 1000,  #substep are taken at control_rate HZ
@@ -25,17 +27,31 @@ agent = {'type' : AgentSawyer,
          'mode_rel' : np.array([True, True, True, True, False]),
          'targetpos_clip': [[0.42, -0.24, 0.184, -0.5 * np.pi , 0], [0.87, 0.22, 0.32, 0.5 * np.pi, 0.1]],
          'autograsp' : {'zthresh' :  0.15, 'touchthresh' : 0.0, 'reopen' : ''},   #15% of total height is zthresh,
-         'file_to_record' : convert_to_record
+         'file_to_record' : convert_to_record,
+         'cameras':['front', 'left'],
+         'benchmark_exp':'',
+         'save_large_gifs' : ''
          }
 
 policy = {
-    'type' : Randompolicy,
+    'current_dir':current_dir,
+    'type' : VisualMPCPolicy,
+    'cem_type':CEM_controller,
     'nactions' : 5,
     'repeat' : 3,
-    'initial_std': 0.035,   #std dev. in xy
+    'initial_std': 0.02, #0.035,   #std dev. in xy
     'initial_std_lift': 0.08,   #std dev. in z
     'initial_std_rot' : np.pi / 18,
-    'initial_std_grasp' : 2
+    'initial_std_grasp' : 2,
+    'netconf': current_dir + '/conf.py',
+    'gdnconf': current_dir + '/gdnconf.py',
+    'iterations': 3,
+    'action_cost_factor': 0,
+    'rew_all_steps':"",
+    'finalweight':10,
+    'register_gtruth':['start'],
+    'verbose':'',
+    # 'num_samples':[2000]
 }
 
 config = {

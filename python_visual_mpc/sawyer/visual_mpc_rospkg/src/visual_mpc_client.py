@@ -897,6 +897,7 @@ class Getdesig(object):
     def __init__(self, img, basedir, img_namesuffix = '', n_desig=1, only_desig = False,
                  im_shape = None, clicks_per_desig=2):
         import matplotlib.pyplot as plt
+        plt.switch_backend('TkAgg')
         self.im_shape = im_shape
 
         self.only_desig = only_desig

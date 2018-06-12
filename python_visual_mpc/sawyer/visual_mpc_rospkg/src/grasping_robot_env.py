@@ -7,16 +7,15 @@ import cPickle as pkl
 from python_visual_mpc.goaldistancenet.setup_gdn import setup_gdn
 
 class RobotEnvironment:
-    def __init__(self, conf, resume = False, benchmark = False, ngpu = 1, gpu_id = 0):
+    def __init__(self, conf, resume = False, ngpu = 1, gpu_id = 0):
         self._hyperparams = conf
         self.agentparams, self.policyparams = conf['agent'], conf['policy']
 
-        self.is_bench = benchmark
+        if 'benchmark_exp' in self.agentparams:
+            self.is_bench = True
+        else: self.is_bench = False
         self._ngpu = ngpu
         self._gpu_id = gpu_id
-
-        if benchmark:
-            self.agentparams['benchmark_exp'] = ''
 
         #since the agent interacts with Sawyer, agent creation handles recorder/controller setup
         self.agent = self.agentparams['type'](self.agentparams)
@@ -37,7 +36,7 @@ class RobotEnvironment:
             self._ck_dict = {'ntraj' : 0, 'broken_traj' : []}
 
     def init_policy(self):
-        if 'use_server' not in self.policyparams and self.policyparams.get('usenet', False):
+        if 'use_server' not in self.policyparams and 'netconf' in self.policyparams:
             self._netconf = imp.load_source('params', self.policyparams['netconf']).configuration
             self._predictor = self._netconf['setup_predictor']({}, self._netconf, self._gpu_id, self._ngpu)
 
@@ -68,7 +67,10 @@ class RobotEnvironment:
         if traj is not None and traj_ok:
             group = itr // self._hyperparams['ngroup']
             traj_num = itr % self._hyperparams['ngroup']
-            traj.save(self.agentparams['data_save_dir'] + '/traj_group{}/traj{}'.format(group, traj_num))
+            if self.is_bench:
+                traj.save(self.agentparams['data_save_dir'] + '/{}/traj_data'.format(self.agentparams['benchmark_exp']))
+            else:
+                traj.save(self.agentparams['data_save_dir'] + '/traj_group{}/traj{}'.format(group, traj_num))
         else:
             self._ck_dict['broken_traj'].append(itr)
         self._ck_dict['ntraj'] += 1
@@ -91,9 +93,7 @@ if __name__ == '__main__':
     hyperparams = imp.load_source('hyperparams', args.experiment)
     conf = hyperparams.config
 
-    is_bench = False
-    if 'experiments' in args.experiment:
-        is_bench = True
 
-    env = RobotEnvironment(conf, args.resume, is_bench, args.ngpu, args.gpu_id)
+
+    env = RobotEnvironment(conf, args.resume, args.ngpu, args.gpu_id)
     env.run()

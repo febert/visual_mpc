@@ -18,6 +18,9 @@ class VisualMPCPolicy(Policy):
                                                                      self._predictor, self._goal_warper)
             self._desig_pix = desig_pix
             self._goal_pix = goal_pix
-        return self._cem_controller.act(traj, t, self._desig_pix, self._goal_pix)
+
+        action, plan_stats = self._cem_controller.act(traj, t, self._desig_pix, self._goal_pix)
+
+        return action
 
 

@@ -203,9 +203,9 @@ def make_cem_visuals(ctrl, actions, bestindices, cem_itr, flow_fields, gen_distr
         else: size = None
         v.make_direct_vid(resize=size)
 
-        start_frame_conc = np.concatenate([last_frames[0, 0, 0], last_frames[0, 1, 0]], 0).squeeze()
-        start_frame_conc = (start_frame_conc*255.).astype(np.uint8)
-        Image.fromarray(start_frame_conc).save(ctrl.agentparams['record'] + '/plan/start_frame{}iter_{}.png'.format(ctrl.t, cem_itr))
+        # start_frame_conc = np.concatenate([last_frames[0, 0, 0], last_frames[0, 1, 0]], 0).squeeze()
+        # start_frame_conc = (start_frame_conc*255.).astype(np.uint8)
+        # Image.fromarray(start_frame_conc).save(ctrl.agentparams['record'] + '/plan/start_frame{}iter_{}.png'.format(ctrl.t, cem_itr))
 
         make_action_summary(num_ex, actions, ctrl.agentparams, selindices, cem_itr, ctrl.netconf['sequence_length'], ctrl.t)
         if gen_states is not None:

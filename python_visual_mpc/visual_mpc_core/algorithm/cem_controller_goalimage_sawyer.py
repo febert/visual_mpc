@@ -539,7 +539,6 @@ class CEM_controller():
             nruns = 1
             assert self.M == self.bsize
         gen_images_l, gen_distrib_l, gen_states_l = [], [], []
-
         for run in range(nruns):
             self.logger.log('run{}'.format(run))
             actions_ = actions[run*self.bsize:(run+1)*self.bsize]
@@ -649,8 +648,13 @@ class CEM_controller():
         last_frames = last_frames[0, self.ncontxt -1]
 
         warped_image_start_l, warped_image_goal_l, warperrs_l = [], [], []
+
+
         for n in range(self.ncam):
-            warped_image_start, warped_image_goal, tradeoff = self.register_gtruth_cam(n, start_image[n], last_frames[n], goal_image[n])
+            if goal_image == None:
+                warped_image_start, warped_image_goal, tradeoff = self.register_gtruth_cam(n, start_image[n], last_frames[n])
+            else:
+                warped_image_start, warped_image_goal, tradeoff = self.register_gtruth_cam(n, start_image[n], last_frames[n], goal_image[n])
             warped_image_start_l.append(warped_image_start)
             warped_image_goal_l.append(warped_image_goal)
             warperrs_l.append(tradeoff)
@@ -661,7 +665,7 @@ class CEM_controller():
         self.plan_stat['warperrs'] = warperrs
         return np.stack(warped_image_start_l, 0), np.stack(warped_image_goal_l, 0), tradeoff
 
-    def register_gtruth_cam(self, icam, start_image, current_frame, goal_image):
+    def register_gtruth_cam(self, icam, start_image, current_frame, goal_image=None):
         assert len(self.policyparams['register_gtruth']) == self.ndesig
         desig_l = []
         warped_image_start, warped_image_goal = None, None
@@ -855,6 +859,7 @@ class CEM_controller():
         self.i_tr = traj.i_tr
         self.goal_mask = goal_mask
         self.goal_image = goal_image
+
 
         if 'register_gtruth' in self.policyparams:
             desig_pix = np.array(desig_pix).reshape((self.ncam, 1, 2))   # 1,1,2
