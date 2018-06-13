@@ -30,6 +30,17 @@ if "NO_ROS" not in os.environ:
 
 import time
 
+
+def make_blockdiagonal(cov, nactions, adim):
+    mat = np.zeros_like(cov)
+    for i in range(nactions-1):
+        mat[i*adim:i*adim + adim*2, i*adim:i*adim + adim*2] = np.ones([adim*2, adim*2])
+    # plt.switch_backend('TkAgg')
+    # plt.imshow(mat)
+    # plt.show()
+    newcov = cov*mat
+    return newcov
+
 def standardize_and_tradeoff(flow_sc, warp_sc, flow_warp_tradeoff):
     """
     standardize cost vectors ca and cb, compute new scores weighted by tradeoff factor
@@ -202,7 +213,6 @@ class CEM_controller():
         self.naction_steps = self.policyparams['nactions']
         self.repeat = self.policyparams['repeat']
 
-
         hyperparams = imp.load_source('hyperparams', self.policyparams['netconf'])
         self.netconf = hyperparams.configuration
         self.bsize = self.netconf['batch_size']
@@ -314,6 +324,7 @@ class CEM_controller():
 
         if 'reuse_cov' not in self.policyparams or self.t < 2:
             self.sigma = construct_initial_sigma(self.policyparams)
+            self.sigma_prev = self.sigma
         else:
             self.sigma = reuse_cov(self.sigma, self.adim, self.policyparams)
         if 'reuse_mean' not in self.policyparams or self.t < 2:
@@ -374,6 +385,14 @@ class CEM_controller():
 
             arr_best_actions = actions_flat[self.indices]  # only take the K best actions
             self.sigma = np.cov(arr_best_actions, rowvar= False, bias= False)
+            if 'cov_blockdiag' in self.policyparams:
+                self.sigma = make_blockdiagonal(self.sigma, self.naction_steps, self.adim)
+            if 'smooth_cov' in self.policyparams:
+                self.sigma = 0.5*self.sigma + 0.5*self.sigma_prev
+                self.sigma_prev = self.sigma
+            # plt.switch_backend('TkAgg')
+            # plt.imshow(self.sigma)
+            # plt.show()
             self.mean = np.mean(arr_best_actions, axis= 0)
 
             self.logger.log('iter {0}, bestscore {1}'.format(itr, scores[self.indices[0]]))
