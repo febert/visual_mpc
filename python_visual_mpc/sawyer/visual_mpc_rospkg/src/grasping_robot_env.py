@@ -14,6 +14,9 @@ class RobotEnvironment:
         if 'benchmark_exp' in self.agentparams:
             self.is_bench = True
         else: self.is_bench = False
+        if 'register_gtruth' in self.policyparams:
+            assert 'register_gtruth' not in self.agentparams, "SHOULD BE IN POLICY PARAMS"
+            self.agentparams['register_gtruth'] = self.policyparams['register_gtruth']
         self._ngpu = ngpu
         self._gpu_id = gpu_id
 

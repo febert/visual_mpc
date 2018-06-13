@@ -12,14 +12,15 @@ class VisualMPCPolicy(Policy):
             self._goal_warper = goal_image_warper
             self._cem_controller = None
 
-    def act(self, traj, t, desig_pix=None, goal_pix = None):
+    def act(self, traj, t, desig_pix=None, goal_pix = None, goal_image = None):
         if t == 0:
             self._cem_controller = self._policy_params['cem_type'](self._agent_params, self._policy_params,
                                                                      self._predictor, self._goal_warper)
             self._desig_pix = desig_pix
             self._goal_pix = goal_pix
+            self._goal_image = goal_image
 
-        action, plan_stats = self._cem_controller.act(traj, t, self._desig_pix, self._goal_pix)
+        action, plan_stats = self._cem_controller.act(traj, t, self._desig_pix, self._goal_pix, self._goal_image)
 
         return action
 

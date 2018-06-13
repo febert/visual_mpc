@@ -26,6 +26,28 @@ class AgentSawyer:
         if 'rpn_objects' in agent_params:
             self._calibrated_camera = CalibratedCamera(agent_params.get('robot_name', 'vestri'))
 
+    def _select_points(self, front_cam, left_cam, fig_save_dir, clicks_per_desig = 2, n_desig = 1):
+        assert clicks_per_desig == 1 or clicks_per_desig == 2, "CLICKS_PER_DESIG SHOULD BE 1 OR 2"
+        start_pix = []
+        if clicks_per_desig == 2:
+            goal_pix = []
+        cam_dicts = [front_cam, left_cam]
+        for i, cam in enumerate(self._hyperparams['cameras']):
+            c_main = Getdesig(cam_dicts[i]['crop'], fig_save_dir, 'goal_{}'.format(cam), n_desig=n_desig,
+                              im_shape=[self.img_height, self.img_width], clicks_per_desig=clicks_per_desig)
+
+            start_pos = c_main.desig.astype(np.int64)
+            goal_pos = c_main.goal.astype(np.int64)
+
+            start_pix.append(start_pos.reshape(1, 1, -1))
+            if clicks_per_desig == 2:
+                goal_pix.append(goal_pos.reshape(1, 1, -1))
+
+        start_pix = np.concatenate(start_pix, 0)
+        if clicks_per_desig == 2:
+            goal_pix = np.concatenate(goal_pix, 0)
+            return start_pix, goal_pix
+        return  start_pix
 
     def sample(self, policy, itr):
         traj_ok = False
@@ -59,33 +81,46 @@ class AgentSawyer:
             self._controller.reset_with_impedance(duration=1.0, close_first=True)  # go to neutral
             if 'benchmark_exp' in self._hyperparams:
                 print("BEGINNING BENCHMARKS ROLLOUT")
-                read_ok, front_cam, left_cam = self._recorder.get_images()
-                if not read_ok:
-                    print("CAMERA DESYNC")
-                    break
 
-                start_pix, goal_pix = [], []
-                cam_dicts = [front_cam, left_cam]
-                for i, cam in enumerate(self._hyperparams['cameras']):
-                    print("SELECT START/GOAL FOR {} CAMERA".format(cam))
+                if 'register_gtruth' in self._hyperparams and len(self._hyperparams['register_gtruth']) == 2:
+                    read_ok, front_goal, left_goal = self._recorder.get_images()
+                    if not read_ok:
+                        print("CAMERA DESYNC")
+                        break
+                    goal_dir = fig_save_dir + '/goal'
+                    os.makedirs(goal_dir)
+                    print("PLACE OBJECTS IN GOAL POSITION")
+                    raw_input("When ready to annotate GOAL images press anything...")
+                    goal_pix = self._select_points(front_goal, left_goal, fig_save_dir, clicks_per_desig=1)
+                    goal_images = np.concatenate((front_goal['crop'][None], left_goal['crop'][None]), 0)
 
-                    c_main = Getdesig(cam_dicts[i]['crop'], fig_save_dir, 'goal_{}'.format(cam), n_desig=1,
-                                            im_shape=[self.img_height, self.img_width], clicks_per_desig=2)
+                    read_ok, front_start, left_start = self._recorder.get_images()
+                    if not read_ok:
+                        print("CAMERA DESYNC")
+                        break
+                    start_dir = fig_save_dir + '/start'
+                    os.makedirs(start_dir)
+                    print("PLACE OBJECTS IN START POSITION")
+                    raw_input("When ready to annotate START images press anything...")
+                    start_pix = self._select_points(front_start, left_start, start_dir, clicks_per_desig=1)
 
-                    start_pos = c_main.desig.astype(np.int64)
-                    goal_pos= c_main.goal.astype(np.int64)
+                    traj, traj_ok = self.rollout(policy, start_pix, goal_pix, goal_images)
+                else:
+                    read_ok, front_cam, left_cam = self._recorder.get_images()
+                    if not read_ok:
+                        print("CAMERA DESYNC")
+                        break
 
-                    start_pix.append(start_pos.reshape(1, 1, -1))
-                    goal_pix.append(goal_pos.reshape(1, 1, -1))
-
-                start_pix, goal_pix = np.concatenate(start_pix, 0), np.concatenate(goal_pix, 0)
-                traj, traj_ok = self.rollout(policy, start_pix, goal_pix)
+                    print("PLACE OBJECTS IN START POSITION")
+                    raw_input("When ready to annotate START/GOAL press anything...")
+                    start_pix, goal_pix = self._select_points(front_cam, left_cam, fig_save_dir)
+                    traj, traj_ok = self.rollout(policy, start_pix, goal_pix)
             else:
                 traj, traj_ok = self.rollout(policy)
 
         return traj, traj_ok
 
-    def rollout(self, policy, start_pix = None, goal_pix = None):
+    def rollout(self, policy, start_pix = None, goal_pix = None, goal_image = None):
         traj = Trajectory(self._hyperparams)
         traj_ok = True
 
