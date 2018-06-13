@@ -13,18 +13,18 @@ import pdb
 import os
 class AgentSawyer:
     def __init__(self, agent_params):
-        print('CREATING AGENT FOR ROBOT: {}'.format(agent_params.get('robot_name', 'vestri')))
+        print('CREATING AGENT FOR ROBOT: {}'.format(agent_params['robot_name']))
         self._hyperparams = agent_params
         self.img_height, self.img_width = agent_params['image_height'], agent_params['image_width']
 
         # initializes node and creates interface with Sawyer
-        self._controller = WSGRobotController(agent_params['control_rate'], agent_params.get('robot_name', 'vestri'))
+        self._controller = WSGRobotController(agent_params['control_rate'], agent_params['robot_name'])
         self._recorder = RobotDualCamRecorder(agent_params, self._controller)
 
         self._controller.reset_with_impedance()
 
         if 'rpn_objects' in agent_params:
-            self._calibrated_camera = CalibratedCamera(agent_params.get('robot_name', 'vestri'))
+            self._calibrated_camera = CalibratedCamera(agent_params['robot_name'])
 
     def _select_points(self, front_cam, left_cam, fig_save_dir, clicks_per_desig = 2, n_desig = 1):
         assert clicks_per_desig == 1 or clicks_per_desig == 2, "CLICKS_PER_DESIG SHOULD BE 1 OR 2"

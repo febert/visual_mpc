@@ -247,21 +247,29 @@ class RobotDualCamRecorder:
         self.front_limage.mutex.acquire()
         front_conf = self.data_conf['front_cam']
         self._proc_image(self.front_limage, data, front_conf)
-        self.front_limage.mutex.release()
 
         if not self.front_first:
+            if not os.path.exists(self.agent_params['data_save_dir']):
+                os.makedirs(self.agent_params['data_save_dir'])
+            cv2.imwrite(self.agent_params['data_save_dir'] + '/front_test.png', self.front_limage.img_cropped)
             self.front_first = True
             self.front_sem.release()
+
+        self.front_limage.mutex.release()
 
     def store_latest_l_im(self, data):
         self.left_limage.mutex.acquire()
         left_conf = self.data_conf['left_cam']
         self._proc_image(self.left_limage, data, left_conf)
-        self.left_limage.mutex.release()
 
         if not self.left_first:
+            if not os.path.exists(self.agent_params['data_save_dir']):
+                os.makedirs(self.agent_params['data_save_dir'])
+            cv2.imwrite(self.agent_params['data_save_dir'] + '/left_test.png', self.left_limage.img_cropped)
             self.left_first = True
             self.left_sem.release()
+
+        self.left_limage.mutex.release()
 
     def _crop_resize(self, image, cam_conf):
         target_img_height, target_img_width = self.agent_params['image_height'], self.agent_params['image_width']
