@@ -569,7 +569,6 @@ class GoalDistanceNet(object):
 
             pickle.dump(dict, open(self.conf['output_dir'] + '/data.pkl', 'wb'))
             make_plots(self.conf, dict=dict)
-
             return
 
         else:  # when visualizing sequence of warps from video

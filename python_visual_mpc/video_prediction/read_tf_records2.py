@@ -71,7 +71,7 @@ def mix_datasets(datasets, ratios):
     return output
 
 
-def build_tfrecord_input(conf, mode='train', input_files=None, shuffle=True):
+def build_tfrecord_input(conf, mode='train', input_files=None, shuffle=True, buffersize=512):
     if isinstance(conf['data_dir'], dict) and input_files==None:
         data_set = []
         ratios = []
@@ -80,17 +80,17 @@ def build_tfrecord_input(conf, mode='train', input_files=None, shuffle=True):
             conf_ = copy.deepcopy(conf)
             conf_['data_dir'] = key
             print('loading', key)
-            data_set.append(build_tfrecord_single(conf_, mode, None, shuffle))
+            data_set.append(build_tfrecord_single(conf_, mode, None, shuffle, buffersize))
             ratios.append(conf['data_dir'][key])
 
         comb_dataset = mix_datasets(data_set, ratios)
 
         return comb_dataset
     else:
-        return build_tfrecord_single(conf, mode, input_files, shuffle)
+        return build_tfrecord_single(conf, mode, input_files, shuffle, buffersize)
 
 
-def build_tfrecord_single(conf, mode='train', input_files=None, shuffle=True):
+def build_tfrecord_single(conf, mode='train', input_files=None, shuffle=True, buffersize=512):
     """Create input tfrecord tensors.
 
     Args:
@@ -265,7 +265,7 @@ def build_tfrecord_single(conf, mode='train', input_files=None, shuffle=True):
     else: dataset = dataset.repeat()
 
     if shuffle:
-        dataset = dataset.shuffle(buffer_size=512)
+        dataset = dataset.shuffle(buffer_size=buffersize)
     dataset = dataset.batch(conf['batch_size'])
     iterator = dataset.make_one_shot_iterator()
     next_element = iterator.get_next()
@@ -286,7 +286,7 @@ def main():
     current_dir = os.path.dirname(os.path.realpath(__file__))
     # DATA_DIR = '/mnt/sda1/pushing_data/cartgripper/grasping/lift_imitation_dataset/test'
     # DATA_DIR = '/mnt/sda1/pushing_data/onpolicy/distributed_pushing/train'
-    DATA_DIR = '/mnt/sda1/pushing_data/sawyer/sawyer_data/vestri_agpolicy/good'
+    DATA_DIR = '/mnt/sda1/pushing_data/sawyer_grasping/sawyer_data/vestri_ag/good'
     # DATA_DIR = {os.environ['VMPC_DATA_DIR'] + '/cartgripper/cartgripper_2view': 0.5,
     #             os.environ['VMPC_DATA_DIR'] + '/cartgripper/grasping/dualcam_pick_place_dataset/good': 0.25,
     #             os.environ['VMPC_DATA_DIR'] + '/cartgripper/grasping/dualcam_pick_place_dataset/bad': 0.25}
@@ -326,7 +326,7 @@ def main():
 
     print('testing the reader')
 
-    dict = build_tfrecord_input(conf, mode='train')
+    dict = build_tfrecord_input(conf, mode='train', buffersize=10)
 
     sess = tf.InteractiveSession()
     tf.train.start_queue_runners(sess)

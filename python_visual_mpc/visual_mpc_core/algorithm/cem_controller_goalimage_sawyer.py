@@ -677,16 +677,16 @@ class CEM_controller():
 
         warperrs = []
         if 'start' in self.policyparams['register_gtruth']:
-            warped_image_start, flow_field, goal_warp_pts = self.goal_image_warper(current_frame[None], start_image[None])
-            desig_l.append(np.flip(goal_warp_pts[0, pix_t0[0], pix_t0[1]], 0))
+            warped_image_start, flow_field, start_warp_pts = self.goal_image_warper(current_frame[None], start_image[None])
+            desig_l.append(np.flip(start_warp_pts[0, pix_t0[0], pix_t0[1]], 0))
             start_warperr = np.linalg.norm(start_image[pix_t0[0], pix_t0[1]] -
                                                   warped_image_start[0, pix_t0[0], pix_t0[1]])
             warperrs.append(start_warperr)
 
         if 'goal' in self.policyparams['register_gtruth']:
-            warped_image_goal, flow_field, start_warp_pts = self.goal_image_warper(current_frame[None],
+            warped_image_goal, flow_field, goal_warp_pts = self.goal_image_warper(current_frame[None],
                                                                                     goal_image[None])
-            desig_l.append(np.flip(start_warp_pts[0, goal_pix[0], goal_pix[1]], 0))
+            desig_l.append(np.flip(goal_warp_pts[0, goal_pix[0], goal_pix[1]], 0))
             goal_warperr = np.linalg.norm(goal_image[goal_pix[0], goal_pix[1]] -
                                                   warped_image_goal[0, goal_pix[0], goal_pix[1]])
             warperrs.append(goal_warperr)
