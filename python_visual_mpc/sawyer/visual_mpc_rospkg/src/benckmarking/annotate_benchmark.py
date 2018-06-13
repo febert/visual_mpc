@@ -46,20 +46,31 @@ def annotate(bench_dir):
         name = str.split(folder, '/')[-1]
         print('example: ', name)
 
-        desig_pix_t0 = pkl.load(open(exp_dir + '/desig_goal_pixstart.pkl', 'rb'))['desig_pix'][0]
-        goal_pix = pkl.load(open(exp_dir + '/desig_goal_pixgoal.pkl', 'rb'))['desig_pix'][0]
+        if os.path.exists(exp_dir + '/desig_goal_pixstart.pkl'):
+            desig_pix_t0 = pkl.load(open(exp_dir + '/desig_goal_pixstart.pkl', 'rb'))['desig_pix'][0]
+            goal_pix = pkl.load(open(exp_dir + '/desig_goal_pixgoal.pkl', 'rb'))['desig_pix'][0]
+        else:
+            dict = pkl.load(open(exp_dir + '/desig_goal_pixstart_traj0.pkl', 'rb'))
+            desig_pix_t0 = dict['desig_pix'][0]
+            goal_pix = dict['goal_pix'][0]
 
-        start_image = cv2.imread(exp_dir + '/img_start.png')[:,:,::-1]
-        goal_image = cv2.imread(exp_dir + '/img_goal.png')[:,:,::-1]
 
-        plt.subplot(1,2,1)
-        plt.imshow(start_image)
-        plt.title('start_image')
-
-        plt.subplot(1, 2, 2)
-        plt.imshow(goal_image)
-        plt.title('goal_image')
-        plt.show()
+        # if os.path.exists(exp_dir + '/img_goal.png'):
+        #     start_image = cv2.imread(exp_dir + '/img_start.png')[:, :, ::-1]
+        #     plt.subplot(1, 2, 1)
+        #     plt.imshow(start_image)
+        #     plt.title('start_image')
+        #
+        #     goal_image = cv2.imread(exp_dir + '/img_goal.png')[:, :, ::-1]
+        #     plt.subplot(1, 2, 2)
+        #     plt.imshow(goal_image)
+        #     plt.title('goal_image')
+        #     plt.show()
+        # else:
+        #     goal_image = cv2.imread(exp_dir + '/img_start_traj0.png')[:, :, ::-1]
+        #     plt.imshow(goal_image)
+        #     plt.title('goal_image')
+        #     plt.show()
 
         final_image = cv2.imread(exp_dir + '/finalimage.png')[:,:,::-1]
 
@@ -82,7 +93,7 @@ def annotate(bench_dir):
                      'scores': np.array(scores_l)}
         pkl.dump(ann_stats, open(bench_dir + '/ann_stats.pkl','wb'))
 
-    write(bench_dir, ann_stats)
+        write(bench_dir, ann_stats)
 
 def write(exp_dir, stat):
     improvement = stat['improvement']
@@ -127,5 +138,8 @@ def write(exp_dir, stat):
 
 
 if __name__ == '__main__':
-    path = '/home/febert/Documents/catkin_ws/src/visual_mpc/experiments/cem_exp/benchmarks_sawyer/weissgripper_regstartgoal_tradeoff'
+    # path = '/home/febert/Documents/catkin_ws/src/visual_mpc/experiments/cem_exp/benchmarks_sawyer/weissgripper_regstartgoal_tradeoff'
+    path = '/home/febert/Documents/catkin_ws/src/visual_mpc/experiments/cem_exp/benchmarks_sawyer/weissgripper_dynrnn'
     annotate(path)
+
+    # pkl.load(open(bench_dir + '/ann_stats.pkl', 'wb'))

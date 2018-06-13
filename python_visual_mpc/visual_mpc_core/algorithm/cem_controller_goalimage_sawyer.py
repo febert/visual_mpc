@@ -539,6 +539,7 @@ class CEM_controller():
             nruns = 1
             assert self.M == self.bsize
         gen_images_l, gen_distrib_l, gen_states_l = [], [], []
+
         for run in range(nruns):
             self.logger.log('run{}'.format(run))
             actions_ = actions[run*self.bsize:(run+1)*self.bsize]
@@ -649,18 +650,24 @@ class CEM_controller():
 
         warped_image_start_l, warped_image_goal_l, warperrs_l = [], [], []
 
-
         for n in range(self.ncam):
-            if goal_image == None:
-                warped_image_start, warped_image_goal, tradeoff = self.register_gtruth_cam(n, start_image[n], last_frames[n])
+            if goal_image is None:
+                warped_image_start, warped_image_goal, warperr = self.register_gtruth_cam(n, start_image[n], last_frames[n])
             else:
-                warped_image_start, warped_image_goal, tradeoff = self.register_gtruth_cam(n, start_image[n], last_frames[n], goal_image[n])
+                warped_image_start, warped_image_goal, warperr = self.register_gtruth_cam(n, start_image[n], last_frames[n], goal_image[n])
             warped_image_start_l.append(warped_image_start)
             warped_image_goal_l.append(warped_image_goal)
-            warperrs_l.append(tradeoff)
+            warperrs_l.append(warperr)
 
         warperrs = np.stack(warperrs_l, 0)
-        tradeoff = (1/warperrs)/np.sum(1/warperrs)  #cost-weighting factors for start and goal-image
+
+        if 'hard_tradeoff' in self.policyparams:
+            print('warperrs ', warperrs)
+            tradeoff = np.zeros_like(warperrs)
+            tradeoff[np.unravel_index(np.argmin(warperrs), warperrs.shape)] = 1.
+        else:
+            tradeoff = (1 / warperrs) / np.sum(1 / warperrs)  # cost-weighting factors for start and goal-image
+
         self.plan_stat['tradeoff'] = tradeoff
         self.plan_stat['warperrs'] = warperrs
         return np.stack(warped_image_start_l, 0), np.stack(warped_image_goal_l, 0), tradeoff
@@ -694,6 +701,7 @@ class CEM_controller():
             goal_warperr = np.linalg.norm(goal_image[goal_pix[0], goal_pix[1]] -
                                                   warped_image_goal[0, goal_pix[0], goal_pix[1]])
             warperrs.append(goal_warperr)
+        warperrs = np.array(warperrs)
 
         if 'image_medium' in self.agentparams:
             self.desig_pix_med = np.stack(desig_l, 0)
