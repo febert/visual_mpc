@@ -36,7 +36,7 @@ agent = {
 }
 
 policy = {
-    'verbose':'',
+    'verbose_every_itr':'',
     'type' : CEM_controller,
     'low_level_ctrl': None,
     'current_dir':current_dir,
@@ -50,6 +50,11 @@ policy = {
     'rew_all_steps':"",
     'finalweight':10,
     'replan_interval':3,
+    'reuse_mean':'',
+    'reuse_action_as_mean':"",
+    'reduce_std_dev':0.2,  # reduce standard dev in later timesteps when reusing action
+    'num_samples': [400,200],   #########
+    'selection_frac':0.05,
 }
 
 tag_images = {'name': 'images',
