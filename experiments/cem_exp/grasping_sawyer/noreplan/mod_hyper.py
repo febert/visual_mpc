@@ -16,7 +16,7 @@ data_conf = {'left_cam' : {'crop_bot' : 70, 'crop_left' : 130, 'crop_right' : 12
 agent = {'type' : AgentSawyer,
          'robot_name' : 'sudri',
          'data_save_dir': BASE_DIR + '/train',
-         'T' : 30,  #number of commands per episodes (issued at control_rate / substeps HZ)
+         'T' : 15,  #number of commands per episodes (issued at control_rate / substeps HZ)
          'step_duration' : 0.75,  #time each substep takes to execute
          'impedance_stiffness' : 150, #stiffness commanded to impedance controller
          'control_rate' : 1000,  #substep are taken at control_rate HZ
@@ -50,7 +50,8 @@ policy = {
     'action_cost_factor': 0,
     'rew_all_steps':"",
     'finalweight':10,
-    'register_gtruth':['start','goal'],
+    'use_first_plan' : '',
+    #'register_gtruth':['start','goal'],
     'verbose':'',
     # 'num_samples':[2000]
 }

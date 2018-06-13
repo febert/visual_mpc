@@ -37,10 +37,10 @@ class AgentSawyer:
                               im_shape=[self.img_height, self.img_width], clicks_per_desig=clicks_per_desig)
 
             start_pos = c_main.desig.astype(np.int64)
-            goal_pos = c_main.goal.astype(np.int64)
-
             start_pix.append(start_pos.reshape(1, 1, -1))
+
             if clicks_per_desig == 2:
+                goal_pos = c_main.goal.astype(np.int64)
                 goal_pix.append(goal_pos.reshape(1, 1, -1))
 
         start_pix = np.concatenate(start_pix, 0)
@@ -83,25 +83,33 @@ class AgentSawyer:
                 print("BEGINNING BENCHMARKS ROLLOUT")
 
                 if 'register_gtruth' in self._hyperparams and len(self._hyperparams['register_gtruth']) == 2:
+                    print("PLACE OBJECTS IN GOAL POSITION")
+                    raw_input("When ready to annotate GOAL images press anything...")
+
                     read_ok, front_goal, left_goal = self._recorder.get_images()
                     if not read_ok:
                         print("CAMERA DESYNC")
                         break
                     goal_dir = fig_save_dir + '/goal'
-                    os.makedirs(goal_dir)
-                    print("PLACE OBJECTS IN GOAL POSITION")
-                    raw_input("When ready to annotate GOAL images press anything...")
-                    goal_pix = self._select_points(front_goal, left_goal, fig_save_dir, clicks_per_desig=1)
-                    goal_images = np.concatenate((front_goal['crop'][None], left_goal['crop'][None]), 0)
+                    if not os.path.exists(goal_dir):
+                        os.makedirs(goal_dir)
+                    front_goal_float, left_goal_float =front_goal['crop'].astype(np.float32) / 255., \
+                                                       left_goal['crop'].astype(np.float32) / 255.
 
+                    goal_images = np.concatenate((front_goal_float[None], left_goal_float[None]), 0)
+                    print('goal_images shape', goal_images.shape)
+
+                    goal_pix = self._select_points(front_goal, left_goal, fig_save_dir, clicks_per_desig=1)
+
+                    start_dir = fig_save_dir + '/start'
+                    if not os.path.exists(start_dir):
+                        os.makedirs(start_dir)
+                    print("PLACE OBJECTS IN START POSITION")
+                    raw_input("When ready to annotate START images press anything...")
                     read_ok, front_start, left_start = self._recorder.get_images()
                     if not read_ok:
                         print("CAMERA DESYNC")
                         break
-                    start_dir = fig_save_dir + '/start'
-                    os.makedirs(start_dir)
-                    print("PLACE OBJECTS IN START POSITION")
-                    raw_input("When ready to annotate START images press anything...")
                     start_pix = self._select_points(front_start, left_start, start_dir, clicks_per_desig=1)
 
                     traj, traj_ok = self.rollout(policy, start_pix, goal_pix, goal_images)
@@ -159,7 +167,7 @@ class AgentSawyer:
                 euc_error, abs_error = np.linalg.norm(diff), np.abs(diff)
                 print("at time {}, l2 error {} and abs_dif {}".format(t, euc_error, abs_error))
 
-            mj_U = policy.act(traj, t, start_pix, goal_pix)
+            mj_U = policy.act(traj, t, start_pix, goal_pix, goal_image)
             traj.actions[t] = copy.deepcopy(mj_U)
 
             if 'check_preplan' in self._hyperparams and t == 0:

@@ -670,7 +670,7 @@ class CEM_controller():
 
 
         for n in range(self.ncam):
-            if goal_image == None:
+            if goal_image is None:
                 warped_image_start, warped_image_goal, tradeoff = self.register_gtruth_cam(n, start_image[n], last_frames[n])
             else:
                 warped_image_start, warped_image_goal, tradeoff = self.register_gtruth_cam(n, start_image[n], last_frames[n], goal_image[n])
