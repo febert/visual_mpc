@@ -190,7 +190,7 @@ class CEM_controller(Policy):
         if 'reuse_mean' not in self.policyparams or t < 2:
             self.mean = np.zeros(self.adim * self.naction_steps)
         else:
-            self.mean = reuse_mean(self.mean, self.adim, self.policyparams)
+            self.mean = reuse_mean(self.mean, self.policyparams)
 
         print('------------------------------------------------')
         print('starting CEM cylce')

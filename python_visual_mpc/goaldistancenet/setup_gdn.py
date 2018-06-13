@@ -28,6 +28,7 @@ def setup_gdn(conf, gpu_id = 0):
             # print 'predictor default graph:', tf.get_default_graph(   )
 
             print('Constructing model Warping Network')
+
             model = GoalDistanceNet(conf = conf,
                                      build_loss=False,
                                      load_data = False)

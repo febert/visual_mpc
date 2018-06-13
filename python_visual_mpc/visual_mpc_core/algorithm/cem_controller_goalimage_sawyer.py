@@ -30,6 +30,17 @@ if "NO_ROS" not in os.environ:
 
 import time
 
+
+def make_blockdiagonal(cov, nactions, adim):
+    mat = np.zeros_like(cov)
+    for i in range(nactions-1):
+        mat[i*adim:i*adim + adim*2, i*adim:i*adim + adim*2] = np.ones([adim*2, adim*2])
+    # plt.switch_backend('TkAgg')
+    # plt.imshow(mat)
+    # plt.show()
+    newcov = cov*mat
+    return newcov
+
 def standardize_and_tradeoff(flow_sc, warp_sc, flow_warp_tradeoff):
     """
     standardize cost vectors ca and cb, compute new scores weighted by tradeoff factor
@@ -98,7 +109,7 @@ def compute_warp_cost(logger, policyparams, flow_field, goal_pix=None, warped_im
     logger.log('tcg {}'.format(time.time() - tc1))
     return scores
 
-def construct_initial_sigma(policyparams):
+def construct_initial_sigma(policyparams, t=None):
     xy_std = policyparams['initial_std']
     diag = [xy_std**2, xy_std**2]
 
@@ -109,12 +120,22 @@ def construct_initial_sigma(policyparams):
     if 'initial_std_grasp' in policyparams:
         diag.append(policyparams['initial_std_grasp']**2)
 
+    adim = len(diag)
     diag = np.tile(diag, policyparams['nactions'])
     diag = np.array(diag)
+
+    if 'reduce_std_dev' in policyparams:
+        assert 'reuse_mean' in policyparams
+        if t >= 2:
+            print('reducing std dev by factor', policyparams['reduce_std_dev'])
+            # reducing all but the last repeataction in the sequence since it can't be reused.
+            diag[:(policyparams['nactions']-1)*adim] *= policyparams['reduce_std_dev']
+
     sigma = np.diag(diag)
     return sigma
 
 def reuse_cov(sigma, adim, policyparams):
+    assert policyparams['replan_interval'] == 3
     print('reusing cov form last MPC step...')
     sigma_old = copy.deepcopy(sigma)
     sigma = np.zeros_like(sigma)
@@ -124,12 +145,13 @@ def reuse_cov(sigma, adim, policyparams):
     sigma[-adim:, -adim:] = construct_initial_sigma(policyparams)[:adim, :adim]
     return sigma
 
-def reuse_mean(mean, adim):
+def reuse_mean(mean, policyparams):
+    assert policyparams['replan_interval'] == 3
     print('reusing mean form last MPC step...')
     mean_old = mean.copy()
     mean = np.zeros_like(mean_old)
-    mean[:-adim] = mean_old[adim:]
-    return mean
+    mean[:-1] = mean_old[1:]
+    return mean.flatten()
 
 def truncate_movement(actions, policyparams):
     if 'maxshift' in policyparams:
@@ -194,14 +216,15 @@ class CEM_controller():
             if isinstance(self.policyparams['verbose'], int):
                 self.verbose_freq = self.policyparams['verbose']
             else: self.verbose_freq = 1
-        else: self.verbose = False
+        else:
+            self.verbose = False
+            self.verbose_freq = 1
 
         self.niter = self.policyparams['iterations']
 
         self.action_list = []
         self.naction_steps = self.policyparams['nactions']
         self.repeat = self.policyparams['repeat']
-
 
         hyperparams = imp.load_source('hyperparams', self.policyparams['netconf'])
         self.netconf = hyperparams.configuration
@@ -291,7 +314,6 @@ class CEM_controller():
         else: self.normalize = True
 
         self.best_cost_perstep = np.zeros([self.ncam, self.ndesig, self.seqlen - self.ncontxt])
-        self.cost_perstep = np.zeros([self.M, self.ncam, self.ndesig, self.seqlen - self.ncontxt])
 
     def calc_action_cost(self, actions):
         actions_costs = np.zeros(self.M)
@@ -313,16 +335,23 @@ class CEM_controller():
         self.logger.log('starting cem at t{}...'.format(self.t))
 
         if 'reuse_cov' not in self.policyparams or self.t < 2:
-            self.sigma = construct_initial_sigma(self.policyparams)
+            self.sigma = construct_initial_sigma(self.policyparams, self.t)
+            self.sigma_prev = self.sigma
         else:
             self.sigma = reuse_cov(self.sigma, self.adim, self.policyparams)
+
         if 'reuse_mean' not in self.policyparams or self.t < 2:
             self.mean = np.zeros(self.adim * self.naction_steps)
         else:
-            self.mean = reuse_mean(self.mean, self.adim)
-        if ('reuse_mean' in self.policyparams or 'reuse_cov' in self.policyparams) and t >= 2:
+            if 'reuse_action_as_mean' in self.policyparams:
+                print('reusing action from last planning time steps')
+                self.mean = reuse_mean(self.bestaction, self.policyparams)
+            else:
+                self.mean = reuse_mean(self.mean, self.policyparams)
+        if ('reuse_mean' in self.policyparams or 'reuse_cov' in self.policyparams) and self.t >= 2:
             self.M = self.policyparams['num_samples'][1]
             self.K = int(np.ceil(self.M*self.policyparams['selection_frac']))
+        self.cost_perstep = np.zeros([self.M, self.ncam, self.ndesig, self.seqlen - self.ncontxt])
 
         self.bestindices_of_iter = np.zeros((self.niter, self.K))
 
@@ -340,10 +369,6 @@ class CEM_controller():
             else:
                 actions = self.sample_actions(traj)
 
-            if 'random_policy' in self.policyparams:
-                self.logger.log('sampling random actions')
-                self.bestaction_withrepeat = actions[0]
-                return
             t_start = time.time()
 
             scores = self.video_pred(traj, actions, itr)
@@ -374,10 +399,17 @@ class CEM_controller():
 
             arr_best_actions = actions_flat[self.indices]  # only take the K best actions
             self.sigma = np.cov(arr_best_actions, rowvar= False, bias= False)
+            if 'cov_blockdiag' in self.policyparams:
+                self.sigma = make_blockdiagonal(self.sigma, self.naction_steps, self.adim)
+            if 'smooth_cov' in self.policyparams:
+                self.sigma = 0.5*self.sigma + 0.5*self.sigma_prev
+                self.sigma_prev = self.sigma
+            # plt.switch_backend('TkAgg')
+            # plt.imshow(self.sigma)
+            # plt.show()
             self.mean = np.mean(arr_best_actions, axis= 0)
 
             self.logger.log('iter {0}, bestscore {1}'.format(itr, scores[self.indices[0]]))
-
             self.logger.log('overall time for iteration {}'.format(time.time() - t_startiter))
 
     def sample_actions(self, traj):
@@ -624,7 +656,7 @@ class CEM_controller():
         tstart_verbose = time.time()
 
         if self.verbose and cem_itr == self.policyparams['iterations']-1 and self.i_tr % self.verbose_freq ==0 or \
-                'verbose_every_itr' in self.policyparams:
+                ('verbose_every_itr' in self.policyparams and self.i_tr % self.verbose_freq ==0):
             make_cem_visuals(self, actions, bestindices, cem_itr, flow_fields, gen_distrib, gen_images,
                                           gen_states, last_frames, goal_warp_pts_l, scores, self.warped_image_goal,
                                           self.warped_image_start, warped_images, last_states, self.reg_tradeoff)
@@ -688,16 +720,16 @@ class CEM_controller():
 
         warperrs = []
         if 'start' in self.policyparams['register_gtruth']:
-            warped_image_start, flow_field, goal_warp_pts = self.goal_image_warper(current_frame[None], start_image[None])
-            desig_l.append(np.flip(goal_warp_pts[0, pix_t0[0], pix_t0[1]], 0))
+            warped_image_start, flow_field, start_warp_pts = self.goal_image_warper(current_frame[None], start_image[None])
+            desig_l.append(np.flip(start_warp_pts[0, pix_t0[0], pix_t0[1]], 0))
             start_warperr = np.linalg.norm(start_image[pix_t0[0], pix_t0[1]] -
                                                   warped_image_start[0, pix_t0[0], pix_t0[1]])
             warperrs.append(start_warperr)
 
         if 'goal' in self.policyparams['register_gtruth']:
-            warped_image_goal, flow_field, start_warp_pts = self.goal_image_warper(current_frame[None],
+            warped_image_goal, flow_field, goal_warp_pts = self.goal_image_warper(current_frame[None],
                                                                                     goal_image[None])
-            desig_l.append(np.flip(start_warp_pts[0, goal_pix[0], goal_pix[1]], 0))
+            desig_l.append(np.flip(goal_warp_pts[0, goal_pix[0], goal_pix[1]], 0))
             goal_warperr = np.linalg.norm(goal_image[goal_pix[0], goal_pix[1]] -
                                                   warped_image_goal[0, goal_pix[0], goal_pix[1]])
             warperrs.append(goal_warperr)

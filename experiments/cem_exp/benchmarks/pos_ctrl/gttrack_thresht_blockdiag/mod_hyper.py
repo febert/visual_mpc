@@ -12,7 +12,8 @@ from python_visual_mpc.visual_mpc_core.agent.agent_mjc import AgentMuJoCo
 import numpy as np
 agent = {
     'type': AgentMuJoCo,
-    'T': 15,
+    'T': 120,
+    'term_dist':0.08,
     'substeps':200,
     'adim':3,
     'sdim':6,
@@ -20,10 +21,10 @@ agent = {
     # 'no_instant_gif':"",
     'filename': ROOT_DIR + '/mjc_models/cartgripper_updown.xml',
     'filename_nomarkers': ROOT_DIR + '/mjc_models/cartgripper_updown.xml',
-    'object_mass':0.01,
-    'friction':1.5,
     'gen_xml':1,   #generate xml every nth trajecotry
     'num_objects': 1,
+    'object_mass':0.01,
+    'friction':1.5,
     'viewer_image_height' : 480,
     'viewer_image_width' : 640,
     'image_height':48,
@@ -36,7 +37,8 @@ agent = {
 }
 
 policy = {
-    'verbose':'',
+    'verbose':8,
+    'verbose_every_itr':'',
     'type' : CEM_controller,
     'low_level_ctrl': None,
     'current_dir':current_dir,
@@ -49,7 +51,7 @@ policy = {
     'action_cost_factor': 0,
     'rew_all_steps':"",
     'finalweight':10,
-    'replan_interval':3,
+    'cov_blockdiag':''
 }
 
 tag_images = {'name': 'images',
