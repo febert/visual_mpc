@@ -84,7 +84,7 @@ def make_cem_visuals(ctrl, actions, bestindices, cem_itr, flow_fields, gen_distr
     num_ex = selindices.shape[0]
 
     len_pred = ctrl.netconf['sequence_length'] - ctrl.netconf['context_frames']
-    bsize = ctrl.netconf['batch_size']
+    M = ctrl.M
 
     if ctrl.save_subdir != None:
         file_path = ctrl.policyparams['current_dir'] + '/' + ctrl.save_subdir + '/verbose'
@@ -101,7 +101,7 @@ def make_cem_visuals(ctrl, actions, bestindices, cem_itr, flow_fields, gen_distr
         t_dict_['curr_img_cam{}'.format(icam)] = current_image
 
     if 'warp_objective' in ctrl.policyparams:
-        warped_images = image_addgoalpix(bsize, len_pred, warped_images, ctrl.goal_pix)
+        warped_images = image_addgoalpix(M, len_pred, warped_images, ctrl.goal_pix)
         gen_images = images_addwarppix(gen_images, goal_warp_pts_l, ctrl.goal_pix, ctrl.agentparams['num_objects'])
         warped_images = np.split(warped_images[selindices], warped_images.shape[1], 1)
         warped_images = list(np.squeeze(warped_images))
@@ -130,11 +130,13 @@ def make_cem_visuals(ctrl, actions, bestindices, cem_itr, flow_fields, gen_distr
             ipix = 0
             gen_image_an = gen_images[:, :, icam]
             if 'start' in ctrl.policyparams['register_gtruth']:
-                desig_pix_start = np.tile(ctrl.desig_pix[icam, 0][None, None, :], [bsize, len_pred, 1])
+                desig_pix_start = np.tile(ctrl.desig_pix[icam, 0][None, None, :], [M, len_pred, 1])
                 gen_image_an = add_crosshairs(gen_image_an, desig_pix_start, color=[1., 0., 0])
+                # pdb.set_trace()
+                # print(' 2 min image average', np.min(np.mean(gen_image_an.reshape(gen_image_an.shape[0] * gen_image_an.shape[1], -1), 1)))
                 ipix +=1
             if 'goal' in ctrl.policyparams['register_gtruth']:
-                desig_pix_goal = np.tile(ctrl.desig_pix[icam, ipix][None,None, :], [bsize, len_pred, 1])
+                desig_pix_goal = np.tile(ctrl.desig_pix[icam, ipix][None,None, :], [M, len_pred, 1])
                 gen_image_an = add_crosshairs(gen_image_an, desig_pix_goal, color=[0, 0, 1.])
                 if 'trade_off_reg' in ctrl.policyparams:
                     warped_img_goal_cam = draw_text_onimage('%.2f' % reg_tradeoff[icam, 1],warped_image_goal[icam].squeeze())
@@ -145,6 +147,11 @@ def make_cem_visuals(ctrl, actions, bestindices, cem_itr, flow_fields, gen_distr
                 t_dict_['warp_goal_cam{}'.format(icam)] = warped_img_goal_cam
 
             gen_image_an_l.append(gen_image_an)
+
+            ###
+            # pdb.set_trace()
+            # print(' 2 min image average', np.min(np.mean(gen_image_an.reshape(gen_image_an.shape[0] * gen_image_an.shape[1], -1), 1)))
+
 
     else:
         gen_image_an_l = None
@@ -181,7 +188,6 @@ def make_cem_visuals(ctrl, actions, bestindices, cem_itr, flow_fields, gen_distr
             t_dict_['gen_images_icam{}_t{}'.format(icam, ctrl.t)] = unstack(gen_image_an_l[icam][selindices], 1)
         else:
             t_dict_['gen_images_icam{}_t{}'.format(icam, ctrl.t)] = unstack(gen_images[selindices, :, icam], 1)
-
 
     print('itr{} best scores: {}'.format(cem_itr, [scores[selindices[ind]] for ind in range(num_ex)]))
     t_dict_['scores'] = scores[selindices]
