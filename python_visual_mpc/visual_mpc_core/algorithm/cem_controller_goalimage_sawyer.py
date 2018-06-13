@@ -643,7 +643,7 @@ class CEM_controller():
         tstart_verbose = time.time()
 
         if self.verbose and cem_itr == self.policyparams['iterations']-1 and self.i_tr % self.verbose_freq ==0 or \
-                'verbose_every_itr' in self.policyparams:
+                ('verbose_every_itr' in self.policyparams and self.verbose_freq ==0):
             make_cem_visuals(self, actions, bestindices, cem_itr, flow_fields, gen_distrib, gen_images,
                                           gen_states, last_frames, goal_warp_pts_l, scores, self.warped_image_goal,
                                           self.warped_image_start, warped_images, last_states, self.reg_tradeoff)

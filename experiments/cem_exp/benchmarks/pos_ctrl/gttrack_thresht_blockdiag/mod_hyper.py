@@ -37,7 +37,7 @@ agent = {
 }
 
 policy = {
-    'verbose':'',
+    'verbose':8,
     'verbose_every_itr':'',
     'type' : CEM_controller,
     'low_level_ctrl': None,
