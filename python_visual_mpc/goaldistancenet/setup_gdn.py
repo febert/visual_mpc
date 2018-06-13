@@ -25,7 +25,7 @@ def setup_gdn(conf, gpu_id = 0):
     with sess.as_default():
         with g_predictor.as_default():
             # print 'predictor default session:', tf.get_default_session()
-            # print 'predictor default graph:', tf.get_default_graph()
+            # print 'predictor default graph:', tf.get_default_graph(   )
 
             print('Constructing model Warping Network')
 

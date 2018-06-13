@@ -53,12 +53,12 @@ class Alex_Interface_Model(object):
 
         if 'pred_model_class' in conf:
             model_hparams_dict['num_views'] = 2
-            self.m = conf['pred_model_class'](mode=mode, hparams_dict=model_hparams_dict)
+            self.m = conf['pred_model_class'](mode=mode, hparams_dict=model_hparams_dict, num_gpus=1)
         else:
             if ncam == 1:
-                self.m = SAVPVideoPredictionModel(mode=mode, hparams_dict=model_hparams_dict)
+                self.m = SAVPVideoPredictionModel(mode=mode, hparams_dict=model_hparams_dict, num_gpus=1)
             elif ncam == 2:
-                self.m = MultiSAVPVideoPredictionModel(mode=mode, hparams_dict=model_hparams_dict)
+                self.m = MultiSAVPVideoPredictionModel(mode=mode, hparams_dict=model_hparams_dict, num_gpus=1)
 
         inputs = {'actions':actions ,'images':images[:,:,0]}
         if datatset_hparams_dict['use_state']:

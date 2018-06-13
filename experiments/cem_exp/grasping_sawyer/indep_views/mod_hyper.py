@@ -2,6 +2,8 @@
 
 import numpy as np
 from python_visual_mpc.visual_mpc_core.algorithm.random_policy import Randompolicy
+from python_visual_mpc.visual_mpc_core.algorithm.visual_mpc_policy import VisualMPCPolicy
+from python_visual_mpc.visual_mpc_core.algorithm.cem_controller_goalimage_sawyer import CEM_controller
 import os
 from python_visual_mpc.sawyer.visual_mpc_rospkg.src.agent.agent_robot import AgentSawyer
 from python_visual_mpc.visual_mpc_core.infrastructure.utility.tfrecord_from_file import grasping_sawyer_file2record as convert_to_record
@@ -25,17 +27,22 @@ agent = {'type' : AgentSawyer,
          'mode_rel' : np.array([True, True, True, True, False]),
          'targetpos_clip': [[0.42, -0.24, 0.184, -0.5 * np.pi , 0], [0.87, 0.22, 0.32, 0.5 * np.pi, 0.1]],
          'autograsp' : {'zthresh' :  0.15, 'touchthresh' : 0.0, 'reopen' : ''},   #15% of total height is zthresh,
-         'file_to_record' : convert_to_record
+         'file_to_record' : convert_to_record,
+         'cameras':['front', 'left'],
+         'benchmark_exp':'',
          }
 
 policy = {
-    'type' : Randompolicy,
+    'type' : VisualMPCPolicy,
+    'cem_type':CEM_controller,
     'nactions' : 5,
     'repeat' : 3,
     'initial_std': 0.035,   #std dev. in xy
     'initial_std_lift': 0.08,   #std dev. in z
     'initial_std_rot' : np.pi / 18,
-    'initial_std_grasp' : 2
+    'initial_std_grasp' : 2,
+    'netconf': current_dir + '/conf.py',
+    'gdnconf': current_dir + '/gdnconf.py',
 }
 
 config = {
