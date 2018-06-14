@@ -617,10 +617,10 @@ class Visual_MPC_Client():
                 rospy.logerr('collision detected, stopping trajectory, going to reset robot...')
                 rospy.sleep(.5)
                 raise Traj_aborted_except('raising Traj_aborted_except')
-            if self.ctrl.limb.has_collided():
-                rospy.logerr('collision detected!!!')
-                rospy.sleep(.5)
-                raise Traj_aborted_except('raising Traj_aborted_except')
+            # if self.ctrl.limb.has_collided():
+            #     rospy.logerr('collision detected!!!')
+            #     rospy.sleep(.5)
+            #     raise Traj_aborted_except('raising Traj_aborted_except')
 
             self.control_rate.sleep()
 
