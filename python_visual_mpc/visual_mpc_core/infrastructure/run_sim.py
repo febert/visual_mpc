@@ -270,10 +270,8 @@ def plot_warp_err(traj, dir):
         warperrs.append(tstep['warperrs'])
         tradeoff.append(tstep['tradeoff'])
 
-    pdb.set_trace()
     tradeoff = np.stack(tradeoff, 0)
     warperrs = np.stack(warperrs, 0)
-
 
     pickle.dump({'warperrs':warperrs, 'tradeoff':tradeoff}, open(dir +  '/warperrs_tradeoff.pkl', 'wb'))
 
