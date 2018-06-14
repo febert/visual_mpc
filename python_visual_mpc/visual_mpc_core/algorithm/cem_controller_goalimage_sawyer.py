@@ -683,8 +683,8 @@ class CEM_controller():
 
         if 'pred_model' in self.gdnconf:
             if self.gdnconf['pred_model'] == MulltiviewTestGDN:
-                warped_image_start, _, start_warp_pts = self.goal_image_warper(last_frames, start_image)
-                warped_image_goal, _, goal_warp_pts = self.goal_image_warper(last_frames, goal_image)
+                warped_image_start, _, start_warp_pts = self.goal_image_warper(last_frames[None], start_image[None])
+                warped_image_goal, _, goal_warp_pts = self.goal_image_warper(last_frames[None], goal_image[None])
             else:
                 raise NotImplementedError
         else:
@@ -703,6 +703,10 @@ class CEM_controller():
             goal_warp_pts = np.stack(goal_warp_pts_l, 0)
 
         for n in range(self.ncam):
+            start_warp_pts = start_warp_pts.reshape(self.ncam, self.img_height, self.img_width, 2)
+            goal_warp_pts = goal_warp_pts.reshape(self.ncam, self.img_height, self.img_width, 2)
+            warped_image_start = warped_image_start.reshape(self.ncam, self.img_height, self.img_width, 3)
+            warped_image_goal = warped_image_goal.reshape(self.ncam, self.img_height,self.img_width, 3)
             warperr = self.get_warp_err(n, start_image[n], goal_image[n], start_warp_pts[n], goal_warp_pts[n], warped_image_start[n], warped_image_goal[n])
             warperrs_l.append(warperr)
 
@@ -734,15 +738,15 @@ class CEM_controller():
 
         warperrs = []
         if 'start' in self.policyparams['register_gtruth']:
-            desig_l.append(np.flip(start_warp_pts[0, pix_t0[0], pix_t0[1]], 0))
+            desig_l.append(np.flip(start_warp_pts[pix_t0[0], pix_t0[1]], 0))
             start_warperr = np.linalg.norm(start_image[pix_t0[0], pix_t0[1]] -
-                                                  warped_image_start[0, pix_t0[0], pix_t0[1]])
+                                                  warped_image_start[pix_t0[0], pix_t0[1]])
             warperrs.append(start_warperr)
 
         if 'goal' in self.policyparams['register_gtruth']:
-            desig_l.append(np.flip(goal_warp_pts[0, goal_pix[0], goal_pix[1]], 0))
+            desig_l.append(np.flip(goal_warp_pts[goal_pix[0], goal_pix[1]], 0))
             goal_warperr = np.linalg.norm(goal_image[goal_pix[0], goal_pix[1]] -
-                                                  warped_image_goal[0, goal_pix[0], goal_pix[1]])
+                                                  warped_image_goal[goal_pix[0], goal_pix[1]])
             warperrs.append(goal_warperr)
         warperrs = np.array(warperrs)
 

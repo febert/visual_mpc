@@ -9,11 +9,16 @@ current_dir = os.path.dirname(os.path.realpath(__file__))
 
 # local output directory
 OUT_DIR = current_dir + '/modeldata'
+# local output directory
 
+from python_visual_mpc.goaldistancenet.variants.multiview_testgdn import MulltiviewTestGDN
 
 configuration = {
 'experiment_name': 'correction',
-'pretrained_model': base_dir + '/tensorflow_data/gdn/weiss/sawyer_grasping_tresh0.5_48x64/modeldata/model48002',
+'pred_model':MulltiviewTestGDN,
+'pretrained_model': [base_dir + '/tensorflow_data/gdn/weiss/multiview/view0/modeldata/model48002',
+                     base_dir + '/tensorflow_data/gdn/weiss/multiview/view1/modeldata/model48002'],
+# 'pretrained_model': base_dir + '/tensorflow_data/gdn/weiss/sawyer_grasping_tresh0.5_48x64/modeldata/model48002',
 'current_dir': base_dir,   #'directory for writing summary.' ,
 'sequence_length':14,
 'train_val_split':.95,
