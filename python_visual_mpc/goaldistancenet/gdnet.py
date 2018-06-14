@@ -142,7 +142,8 @@ class GoalDistanceNet(object):
                  load_data = True,
                  images = None,
                  iter_num = None,
-                 pred_images = None
+                 pred_images = None,
+                 load_testimages=False
                  ):
 
         if conf['normalization'] == 'in':
@@ -169,14 +170,17 @@ class GoalDistanceNet(object):
 
         if load_data:
             self.iter_num = tf.placeholder(tf.float32, [], name='iternum')
+            if load_testimages:
+                dict = build_tfrecord_fn(conf, mode='test')
+            else:
+                train_dict = build_tfrecord_fn(conf, mode='train')
+                val_dict = build_tfrecord_fn(conf, mode='val')
+                dict = tf.cond(self.train_cond > 0,
+                                 # if 1 use trainigbatch else validation batch
+                                 lambda: train_dict,
+                                 lambda: val_dict)
+                self.images = dict['images']
 
-            train_dict = build_tfrecord_fn(conf, mode='train')
-            val_dict = build_tfrecord_fn(conf, mode='val')
-            dict = tf.cond(self.train_cond > 0,
-                             # if 1 use trainigbatch else validation batch
-                             lambda: train_dict,
-                             lambda: val_dict)
-            self.images = dict['images']
 
             if 'vidpred_data' in conf:  # register predicted video to real
                 self.pred_images = tf.squeeze(dict['gen_images'])
@@ -190,13 +194,6 @@ class GoalDistanceNet(object):
                                     shape=(conf['batch_size'], self.img_height, self.img_width, 3))
             self.I1 = self.I1_pl= tf.placeholder(tf.float32, name='images',
                                      shape=(conf['batch_size'], self.img_height, self.img_width, 3))
-
-        else:  # get tensors from videoprediction model
-            self.iter_num = iter_num
-            self.pred_images = tf.stack(pred_images, axis=1)
-            self.images = tf.stack(images[1:], axis=1) # cutting off first image since there is no pred image for it
-            self.conf['sequence_length'] = self.conf['sequence_length']-1
-            self.I0, self.I1 = self.sel_images()
 
         self.occ_fwd = tf.zeros([self.bsize,  self.img_height,  self.img_width, 1])
         self.occ_bwd = tf.zeros([self.bsize,  self.img_height,  self.img_width, 1])
@@ -254,8 +251,7 @@ class GoalDistanceNet(object):
 
         self.occ_mask_bwd = 1 - self.occ_bwd  # 0 at occlusion
         self.occ_mask_fwd = 1 - self.occ_fwd
-        # self.occ_mask_bwd = self.occ_mask_bwd[:, :, :, None]
-        # self.occ_mask_fwd = self.occ_mask_fwd[:, :, :, None]
+
 
         if self.build_loss:
             if 'multi_scale' not in self.conf:
@@ -534,7 +530,15 @@ class GoalDistanceNet(object):
         val_summaries.append(tf.summary.scalar('val_total', self.loss))
         self.train_summ_op = tf.summary.merge(train_summaries)
         self.val_summ_op = tf.summary.merge(val_summaries)
-        self.train_op = tf.train.AdamOptimizer(self.lr).minimize(self.loss)
+
+        if 'decay_lr' in self.conf:
+            self.global_step = tf.Variable(0, name='global_step',trainable=False)
+            self.learning_rate = tf.train.exponential_decay(self.lr, self.global_step,
+                                                       5000, 0.96, staircase=True)
+            print('using exponetially decayed lr')
+        else:
+            self.learning_rate = tf.constant(self.conf['learning_rate'])
+        self.train_op = tf.train.AdamOptimizer(self.learning_rate).minimize(self.loss)
 
 
     def visualize(self, sess):
@@ -573,7 +577,6 @@ class GoalDistanceNet(object):
 
         else:  # when visualizing sequence of warps from video
             videos = build_tfrecord_fn(self.conf, mode='test')
-
             if 'vidpred_data' in self.conf:
                 images, pred_images = sess.run([videos['images'], videos['gen_images']])
                 pred_images = np.squeeze(pred_images)

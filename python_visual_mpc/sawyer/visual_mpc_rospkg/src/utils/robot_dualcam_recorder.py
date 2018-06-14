@@ -19,6 +19,14 @@ import moviepy.editor as mpy
 from python_visual_mpc.sawyer.visual_mpc_rospkg.src.primitives_regintervals import quat_to_zangle
 NUM_JOINTS = 7 #Sawyer has 7 dof arm
 
+
+def render_bbox(img, bbox):
+    rect_img = img[:, :, ::-1].copy()
+    p1 = (bbox[0], bbox[1])
+    p2 = (bbox[0] + bbox[2], bbox[1] + bbox[3])
+    cv2.rectangle(rect_img, p1, p2, (0, 0, 255))
+    return rect_img[:, :, ::-1]
+
 class Trajectory:
     def __init__(self, agentparams):
         self._agent_conf = agentparams
@@ -37,6 +45,8 @@ class Trajectory:
         self.endeffector_poses = np.zeros((T, 7))    #x,y,z + quaternion
         self.robot_states = np.zeros((T, agentparams['sdim']))
 
+        if 'opencv_tracking' in self._agent_conf:
+            self.track_bbox = np.zeros((T, 2, 4), dtype=np.int32)
 
         cam_height = agentparams.get('cam_image_height', 401)
         cam_width = agentparams.get('cam_image_width', 625)
@@ -54,6 +64,7 @@ class Trajectory:
     @property
     def i_tr(self):
         return 0
+
 
 
     def save(self, file_path):
@@ -94,12 +105,19 @@ class Trajectory:
             clip.write_gif('{}/diag.gif'.format(folder))
 
 class Latest_observation(object):
-    def __init__(self):
+    def __init__(self, create_tracker = False):
         self.img_cv2 = None
         self.img_cropped = None
         self.tstamp_img = None
         self.img_msg = None
         self.mutex = Lock()
+        if create_tracker:
+            self.reset_tracker()
+
+    def reset_tracker(self):
+        self.cv2_tracker = cv2.TrackerMIL_create()
+        self.bbox = None
+        self.track_itr = 0
 
     def to_dict(self):
         img_crop = self.img_cropped[:, :, ::-1].copy()
@@ -107,13 +125,18 @@ class Latest_observation(object):
         return {'crop': img_crop, 'raw' : img_raw}
 
 class RobotDualCamRecorder:
+    TRACK_SKIP = 2        #the camera publisher works at 60 FPS but camera itself only goes at 30
     def __init__(self, agent_params, robot_controller, OFFSET_TOL = 0.03):
         self.agent_params = agent_params
         self.data_conf = agent_params['data_conf']
         self._ctrl = robot_controller
 
-        self.front_limage = Latest_observation()
-        self.left_limage = Latest_observation()
+        self.front_limage = Latest_observation('opencv_tracking' in agent_params)
+        self.left_limage = Latest_observation('opencv_tracking' in agent_params)
+
+        self._is_tracking = False
+        if 'opencv_tracking' in agent_params:
+            self.box_height = 80
 
         self.bridge =  CvBridge()
         self.front_first, self.front_sem = False, Semaphore(value=0)
@@ -127,7 +150,87 @@ class RobotDualCamRecorder:
         self.name_of_service = "ExternalTools/right/PositionKinematicsNode/FKService"
         self.fksvc = rospy.ServiceProxy(self.name_of_service, SolvePositionFK)
 
-        self.obs_tol = OFFSET_TOL
+        if 'opencv_tracking' in agent_params:
+            self.obs_tol = 0.1
+        else: self.obs_tol = OFFSET_TOL
+
+    def _low2high(self, point, cam_conf):
+        crop_left, crop_right = cam_conf.get('crop_left', 0), cam_conf.get('crop_right', 0)
+        crop_top, crop_bot = cam_conf.get('crop_top', 0), cam_conf.get('crop_bot', 0)
+        cropped_width, cropped_height = self.cam_width - crop_left - crop_right, self.cam_height - crop_bot - crop_top
+
+        scale_height, scale_width = float(cropped_height) / self.agent_params['image_height'], \
+                                    float(cropped_width) / self.agent_params['image_width']
+        high_point = np.array([scale_height, scale_width]) * point + np.array([crop_top, crop_left])
+
+        return np.round(high_point).astype(np.int64)
+
+    def _high2low(self, point, cam_conf):
+        crop_left, crop_right = cam_conf.get('crop_left', 0), cam_conf.get('crop_right', 0)
+        crop_top, crop_bot = cam_conf.get('crop_top', 0), cam_conf.get('crop_bot', 0)
+        cropped_width, cropped_height = self.cam_width - crop_right - crop_left, self.cam_height - crop_bot - crop_top
+
+        y = float(min(max(point[0] - crop_top, 0), cropped_height))
+        x = float(min(max(point[1] - crop_left, 0), cropped_width))
+        scale_height, scale_width = self.agent_params['image_height'] / float(cropped_height), \
+                                    self.agent_params['image_width'] / float(cropped_width)
+        low_point = np.array([scale_height, scale_width]) * np.array([y, x])
+
+        return np.round(low_point).astype(np.int64)
+
+    def _cam_start_tracking(self, lt_ob, cam_conf, point):
+        point = self._low2high(point, cam_conf)
+        lt_ob.bbox = np.array([int(point[1] - self.box_height / 2.),
+                               int(point[0] - self.box_height / 2.),
+                               self.box_height, self.box_height]).astype(np.int64)
+
+        lt_ob.cv2_tracker.init(lt_ob.img_cv2, tuple(lt_ob.bbox))
+        lt_ob.track_itr = 0
+
+    def start_tracking(self, start_points):
+        assert 'opencv_tracking' in self.agent_params
+        n_cam, n_desig, xy_dim = start_points.shape
+        if n_cam != 2 or n_desig != 1:
+            raise NotImplementedError("opencv_tracking requires 2 cameras and 1 designated pixel")
+        if xy_dim != 2:
+            raise ValueError("Requires XY pixel location")
+
+        self.front_limage.mutex.acquire()
+        self.left_limage.mutex.acquire()
+        self._cam_start_tracking(self.front_limage, self.data_conf['front_cam'], start_points[0, 0])
+        self._cam_start_tracking(self.left_limage, self.data_conf['left_cam'], start_points[1, 0])
+        self._is_tracking = True
+        self.front_limage.mutex.release()
+        self.left_limage.mutex.release()
+        rospy.sleep(2)   #sleep a bit for first few messages to initialize tracker
+
+        print("TRACKING INITIALIZED")
+
+    def end_tracking(self):
+        self.front_limage.mutex.acquire()
+        self.left_limage.mutex.acquire()
+        self._is_tracking = False
+        self.front_limage.reset_tracker()
+        self.left_limage.reset_tracker()
+        self.front_limage.mutex.release()
+        self.left_limage.mutex.release()
+    def _bbox2point(self, bbox):
+        point = np.array([int(bbox[1]), int(bbox[0])]) \
+                  + np.array([self.box_height / 2, self.box_height / 2])
+        return point.astype(np.int32)
+    def get_track(self):
+        assert 'opencv_tracking' in self.agent_params
+        assert self._is_tracking, "RECORDER IS NOT TRACKING"
+
+        points = np.zeros((2, 1, 2), dtype=np.int64)
+        self.front_limage.mutex.acquire()
+        self.left_limage.mutex.acquire()
+        points[0, 0] = self._high2low(self._bbox2point(self.front_limage.bbox), self.data_conf['front_cam'])
+        points[1, 0] = self._high2low(self._bbox2point(self.left_limage.bbox), self.data_conf['left_cam'])
+        self.front_limage.mutex.release()
+        self.left_limage.mutex.release()
+
+        return points.astype(np.int64)
 
     def get_images(self):
         self.front_limage.mutex.acquire()
@@ -156,6 +259,12 @@ class RobotDualCamRecorder:
             traj.images[t, 0] = self.front_limage.img_cropped[:, :, ::-1]
             traj.raw_images[t, 1] = self.left_limage.img_cv2[:, :, ::-1]
             traj.images[t, 1] = self.left_limage.img_cropped[:, :, ::-1]
+
+            if self._is_tracking:
+                traj.track_bbox[t, 0] = self.front_limage.bbox.copy()
+                traj.track_bbox[t, 1] = self.left_limage.bbox.copy()
+            if not read_ok:
+                print("FRONT TIME {} VS LEFT TIME {}".format(self.front_limage.tstamp_img, self.left_limage.tstamp_img))
         else:
             read_ok = False
 
@@ -243,25 +352,42 @@ class RobotDualCamRecorder:
         latest_obsv.img_cv2 = copy.deepcopy(cv_image)
         latest_obsv.img_cropped = self._crop_resize(cv_image, cam_conf)
 
+        if 'opencv_tracking' in self.agent_params and self._is_tracking:
+            if latest_obsv.track_itr % self.TRACK_SKIP == 0:
+                _, bbox = latest_obsv.cv2_tracker.update(latest_obsv.img_cv2)
+                latest_obsv.bbox = np.array(bbox).astype(np.int32).reshape(-1)
+            latest_obsv.track_itr += 1
+
     def store_latest_f_im(self, data):
         self.front_limage.mutex.acquire()
         front_conf = self.data_conf['front_cam']
         self._proc_image(self.front_limage, data, front_conf)
-        self.front_limage.mutex.release()
 
         if not self.front_first:
+            if not os.path.exists(self.agent_params['data_save_dir']):
+                os.makedirs(self.agent_params['data_save_dir'])
+            cv2.imwrite(self.agent_params['data_save_dir'] + '/front_test.png', self.front_limage.img_cropped)
+            self.cam_height, self.cam_width = self.front_limage.img_cv2.shape[:2]
             self.front_first = True
             self.front_sem.release()
+
+        self.front_limage.mutex.release()
+
 
     def store_latest_l_im(self, data):
         self.left_limage.mutex.acquire()
         left_conf = self.data_conf['left_cam']
         self._proc_image(self.left_limage, data, left_conf)
-        self.left_limage.mutex.release()
 
         if not self.left_first:
+            if not os.path.exists(self.agent_params['data_save_dir']):
+                os.makedirs(self.agent_params['data_save_dir'])
+            cv2.imwrite(self.agent_params['data_save_dir'] + '/left_test.png', self.left_limage.img_cropped)
             self.left_first = True
             self.left_sem.release()
+
+        self.left_limage.mutex.release()
+
 
     def _crop_resize(self, image, cam_conf):
         target_img_height, target_img_width = self.agent_params['image_height'], self.agent_params['image_width']

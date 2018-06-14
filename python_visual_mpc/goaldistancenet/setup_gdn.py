@@ -6,7 +6,7 @@ from PIL import Image
 from python_visual_mpc.video_prediction.utils_vpred.variable_checkpoint_matcher import variable_checkpoint_matcher
 import os
 import pdb
-import python_visual_mpc.goaldistancenet.variants.multiview_testgdn import MulltiviewTestGDN
+from python_visual_mpc.goaldistancenet.variants.multiview_testgdn import MulltiviewTestGDN
 
 def setup_gdn(conf, gpu_id = 0):
     """
@@ -26,18 +26,19 @@ def setup_gdn(conf, gpu_id = 0):
     with sess.as_default():
         with g_predictor.as_default():
             print('Constructing model Warping Network')
-
             if 'pred_model' in conf:
                 Model = conf['pred_model']
             else:
                 Model = GoalDistanceNet
 
-            if Model == MulltiviewTestGDN:
-                model = Model(conf=conf,
-                             build_loss=False,
-                             load_data = False)
-                model.build_net()
+            model = Model(conf=conf,
+                          build_loss=False,
+                          load_data = False)
+            model.build_net()
 
+            if Model == MulltiviewTestGDN:
+                model.restore(sess)
+            else:
                 sess.run(tf.global_variables_initializer())
 
                 if 'TEN_DATA' in os.environ:
@@ -55,7 +56,6 @@ def setup_gdn(conf, gpu_id = 0):
                 saver = tf.train.Saver(vars, max_to_keep=0)
                 saver.restore(sess, conf['pretrained_model'])
                 print('gdn restore done.')
-            else:
 
 
             def predictor_func(pred_images, goal_images):
