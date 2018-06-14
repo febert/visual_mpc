@@ -20,16 +20,15 @@ agent = {'type' : AgentSawyer,
          'control_rate' : 1000,  #substep are taken at control_rate HZ
          'image_height' : 48,
          'image_width' : 64,
-         'data_conf' : data_conf,  #controls cropping
          'adim' : 5,
          'sdim' : 5,
          'mode_rel' : np.array([True, True, True, True, False]),
-         'targetpos_clip': [[0.375, -0.22, 0.184, -0.5 * np.pi, 0], [0.825, 0.24, 0.32, 0.5 * np.pi, 0.1]],
          'autograsp' : {'zthresh' :  0.15, 'touchthresh' : 0.0, 'reopen' : ''},
          'file_to_record' : convert_to_record,
          'cameras':['front', 'left'],
          'benchmark_exp':'',
-         'save_large_gifs' : ''
+         'save_large_gifs' : '',
+         'opencv_tracking':""
          }
 
 policy = {
@@ -44,13 +43,10 @@ policy = {
     'initial_std_rot' : np.pi / 18,
     'initial_std_grasp' : 2,
     'netconf': current_dir + '/conf.py',
-    'gdnconf': current_dir + '/gdnconf.py',
     'iterations': 3,
     'action_cost_factor': 0,
     'rew_all_steps':"",
     'finalweight':10,
-    'register_gtruth':['start','goal'],
-    'trade_off_reg':'',
     'replan_interval': 3,
     'reuse_mean': '',
     'reuse_action_as_mean': "",

@@ -114,13 +114,12 @@ class AgentSawyer:
 
                     traj, traj_ok = self.rollout(policy, start_pix, goal_pix, goal_images)
                 else:
+                    print("PLACE OBJECTS IN START POSITION")
+                    raw_input("When ready to annotate START/GOAL press enter...")
                     read_ok, front_cam, left_cam = self._recorder.get_images()
                     if not read_ok:
                         print("CAMERA DESYNC")
                         break
-
-                    print("PLACE OBJECTS IN START POSITION")
-                    raw_input("When ready to annotate START/GOAL press enter...")
                     start_pix, goal_pix = self._select_points(front_cam, left_cam, fig_save_dir)
                     if 'opencv_tracking' in self._hyperparams:
                         self._recorder.start_tracking(start_pix)

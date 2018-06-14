@@ -19,6 +19,14 @@ import moviepy.editor as mpy
 from python_visual_mpc.sawyer.visual_mpc_rospkg.src.primitives_regintervals import quat_to_zangle
 NUM_JOINTS = 7 #Sawyer has 7 dof arm
 
+
+def render_bbox(img, bbox):
+    rect_img = img.copy()[:, :, ::-1]
+    p1 = (bbox[0], bbox[1])
+    p2 = (bbox[0] + bbox[2], bbox[1] + bbox[3])
+    cv2.rectangle(rect_img, p1, p2, (0, 0, 255))
+    return rect_img[:, :, ::-1]
+
 class Trajectory:
     def __init__(self, agentparams):
         self._agent_conf = agentparams
@@ -57,12 +65,7 @@ class Trajectory:
     def i_tr(self):
         return 0
 
-    def _render_bbox(self, img, bbox):
-        rect_img = img.copy()[:, :, ::-1]
-        p1 = (bbox[0], bbox[1])
-        p2 = (bbox[0] + bbox[2], bbox[1] + bbox[3])
-        cv2.rectangle(rect_img, p1, p2, (0, 0, 255))
-        return rect_img[:, :, ::-1]
+
 
     def save(self, file_path):
         if os.path.exists(file_path):
@@ -93,7 +96,7 @@ class Trajectory:
                             [cv2.IMWRITE_PNG_STRATEGY_DEFAULT, 1])
                 if 'save_large_gifs' in self._agent_conf:
                     if 'opencv_tracking' in self._agent_conf:
-                        clip.append(self._render_bbox(self.raw_images[i, f], self.track_bbox[i, f]))
+                        clip.append(render_bbox(self.raw_images[i, f], self.track_bbox[i, f]))
                     else:
                         clip.append(self.raw_images[i, f])
                 else:
@@ -147,7 +150,9 @@ class RobotDualCamRecorder:
         self.name_of_service = "ExternalTools/right/PositionKinematicsNode/FKService"
         self.fksvc = rospy.ServiceProxy(self.name_of_service, SolvePositionFK)
 
-        self.obs_tol = OFFSET_TOL
+        if 'opencv_tracking' in agent_params:
+            self.obs_tol = 0.1
+        else: self.obs_tol = OFFSET_TOL
 
     def _low2high(self, point, cam_conf):
         crop_left, crop_right = cam_conf.get('crop_left', 0), cam_conf.get('crop_right', 0)
@@ -253,7 +258,8 @@ class RobotDualCamRecorder:
                 traj.track_bbox[t, 1] = self.left_limage.bbox.copy()
             if not read_ok:
                 print("FRONT TIME {} VS LEFT TIME {}".format(self.front_limage.tstamp_img, self.left_limage.tstamp_img))
-                read_ok = False
+        else:
+            read_ok = False
 
         traj.joint_angles[t] = ja
         traj.joint_velocities[t] = jv

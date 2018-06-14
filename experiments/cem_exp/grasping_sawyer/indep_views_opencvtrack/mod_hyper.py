@@ -25,20 +25,26 @@ agent = {'type' : AgentSawyer,
          'autograsp' : {'zthresh' :  0.15, 'touchthresh' : 0.0, 'reopen' : ''},   #15% of total height is zthresh,
          'file_to_record' : convert_to_record,
          'cameras':['front', 'left'],
-         'benchmark_exp':''
+         'benchmark_exp':'',
+         'opencv_tracking' : ''
          }
 
 policy = {
+    'verbose_every_itr':'',
+    'current_dir':current_dir,
     'type' : VisualMPCPolicy,
     'cem_type':CEM_controller,
     'nactions' : 5,
     'repeat' : 3,
-    'initial_std': 0.035,   #std dev. in xy
-    'initial_std_lift': 0.08,   #std dev. in z
+    'initial_std': 0.02, #0.035,   #std dev. in xy
+    'initial_std_lift': 0.04,   #std dev. in z
     'initial_std_rot' : np.pi / 18,
     'initial_std_grasp' : 2,
     'netconf': current_dir + '/conf.py',
-    'gdnconf': current_dir + '/gdnconf.py',
+    'iterations': 3,
+    'action_cost_factor': 0,
+    'rew_all_steps':"",
+    'finalweight':10,
 }
 
 config = {
