@@ -254,8 +254,7 @@ class GoalDistanceNet(object):
 
         self.occ_mask_bwd = 1 - self.occ_bwd  # 0 at occlusion
         self.occ_mask_fwd = 1 - self.occ_fwd
-        # self.occ_mask_bwd = self.occ_mask_bwd[:, :, :, None]
-        # self.occ_mask_fwd = self.occ_mask_fwd[:, :, :, None]
+
 
         if self.build_loss:
             if 'multi_scale' not in self.conf:
@@ -534,7 +533,15 @@ class GoalDistanceNet(object):
         val_summaries.append(tf.summary.scalar('val_total', self.loss))
         self.train_summ_op = tf.summary.merge(train_summaries)
         self.val_summ_op = tf.summary.merge(val_summaries)
-        self.train_op = tf.train.AdamOptimizer(self.lr).minimize(self.loss)
+
+        if 'decay_lr' in self.conf:
+            self.global_step = tf.Variable(0, name='global_step',trainable=False)
+            self.learning_rate = tf.train.exponential_decay(self.lr, self.global_step,
+                                                       5000, 0.96, staircase=True)
+            print('using exponetially decayed lr')
+        else:
+            self.learning_rate = tf.constant(self.conf['learning_rate'])
+        self.train_op = tf.train.AdamOptimizer(self.learning_rate).minimize(self.loss)
 
 
     def visualize(self, sess):

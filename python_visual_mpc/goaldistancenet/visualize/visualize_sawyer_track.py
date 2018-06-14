@@ -16,11 +16,11 @@ from PIL import Image
 
 FLAGS = flags.FLAGS
 
-def load_data(bench_dir, tsteps, num_ex=4):
+def load_data(bench_dir, tsteps, num_ex=4, ):
 
-    # bench_dir = bench_dir
-    # folders = get_folders(bench_dir)
-    folders = [bench_dir + '/ob18s1']
+    bench_dir = bench_dir
+    folders = get_folders(bench_dir)
+    # folders = [bench_dir + '/ob18s1']
 
     image_batch = []
     desig_pix_t0_l = []
@@ -73,7 +73,6 @@ def visuallize_sawyer_track(testdata, conffile):
 
     start_image_b = images[:,0]
     goal_image_b = images[:,-1]
-
 
 
     bsize = images.shape[0]

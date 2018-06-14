@@ -22,6 +22,8 @@ from scipy.special import expit
 import collections
 import cv2
 from python_visual_mpc.visual_mpc_core.infrastructure.utility.logger import Logger
+from python_visual_mpc.goaldistancenet.variants.multiview_testgdn import MulltiviewTestGDN
+from python_visual_mpc.goaldistancenet.variants.multiview_testgdn import MulltiviewTestGDN
 
 if "NO_ROS" not in os.environ:
     from visual_mpc_rospkg.msg import floatarray
@@ -228,6 +230,9 @@ class CEM_controller():
 
         hyperparams = imp.load_source('hyperparams', self.policyparams['netconf'])
         self.netconf = hyperparams.configuration
+        if 'gdnconf' in self.policyparams:
+            hyperparams = imp.load_source('hyperparams', self.policyparams['gdnconf'])
+            self.gdnconf = hyperparams.configuration
         self.bsize = self.netconf['batch_size']
         self.seqlen = self.netconf['sequence_length']
 
@@ -501,12 +506,6 @@ class CEM_controller():
             for p in range(self.ndesig):
                 one_hot_images[:, :, icam, desig[icam, p, 0], desig[icam, p, 1], p] = 1.
                 self.logger.log('using desig pix',desig[icam, p, 0], desig[icam, p, 1])
-        # plt.figure()
-        # plt.imshow(one_hot_images[0,0,0].squeeze())
-        # plt.savefig(self.agentparams['record'] + '/onehot_cam0.png')
-        # plt.imshow(one_hot_images[0,0,1].squeeze())
-        # plt.savefig(self.agentparams['record'] + '/onehot_cam1.png')
-        # plt.close()
         return one_hot_images
 
     def singlepoint_prob_eval(self, gen_pixdistrib):
@@ -680,15 +679,31 @@ class CEM_controller():
         """
         last_frames = last_frames[0, self.ncontxt -1]
 
-        warped_image_start_l, warped_image_goal_l, warperrs_l = [], [], []
+        warped_image_start_l, warped_image_goal_l, start_warp_pts_l, goal_warp_pts_l, warperrs_l = [], [], [], [], []
+
+        if 'pred_model' in self.gdnconf:
+            if self.gdnconf['pred_model'] == MulltiviewTestGDN:
+                warped_image_start, _, start_warp_pts = self.goal_image_warper(last_frames, start_image)
+                warped_image_goal, _, goal_warp_pts = self.goal_image_warper(last_frames, goal_image)
+            else:
+                raise NotImplementedError
+        else:
+            for n in range(self.ncam):  # if a shared goal_image warper is used for all views
+                warped_image_goal, goal_warp_pts = None, None
+                warped_image_start, _, start_warp_pts = self.goal_image_warper(last_frames[n][None], start_image[n][None])
+                if 'goal' in self.policyparams['register_gtruth']:
+                    warped_image_goal, _, goal_warp_pts = self.goal_image_warper(last_frames[n][None], goal_image[n][None])
+                warped_image_start_l.append(warped_image_start)
+                warped_image_goal_l.append(warped_image_goal)
+                start_warp_pts_l.append(start_warp_pts)
+                goal_warp_pts_l.append(goal_warp_pts)
+            warped_image_start = np.stack(warped_image_start_l, 0)
+            warped_image_goal = np.stack(warped_image_goal_l, 0)
+            start_warp_pts = np.stack(start_warp_pts_l, 0)
+            goal_warp_pts = np.stack(goal_warp_pts_l, 0)
 
         for n in range(self.ncam):
-            if goal_image is None:
-                warped_image_start, warped_image_goal, warperr = self.register_gtruth_cam(n, start_image[n], last_frames[n])
-            else:
-                warped_image_start, warped_image_goal, warperr = self.register_gtruth_cam(n, start_image[n], last_frames[n], goal_image[n])
-            warped_image_start_l.append(warped_image_start)
-            warped_image_goal_l.append(warped_image_goal)
+            warperr = self.get_warp_err(n, start_image[n], goal_image[n], start_warp_pts[n], goal_warp_pts[n], warped_image_start[n], warped_image_goal[n])
             warperrs_l.append(warperr)
 
         warperrs = np.stack(warperrs_l, 0)
@@ -702,12 +717,11 @@ class CEM_controller():
 
         self.plan_stat['tradeoff'] = tradeoff
         self.plan_stat['warperrs'] = warperrs
-        return np.stack(warped_image_start_l, 0), np.stack(warped_image_goal_l, 0), tradeoff
+        return warped_image_start, warped_image_goal, tradeoff
 
-    def register_gtruth_cam(self, icam, start_image, current_frame, goal_image=None):
+    def get_warp_err(self, icam, start_image, goal_image, start_warp_pts, goal_warp_pts, warped_image_start, warped_image_goal):
         assert len(self.policyparams['register_gtruth']) == self.ndesig
         desig_l = []
-        warped_image_start, warped_image_goal = None, None
 
         if 'image_medium' in self.agentparams:
             pix_t0 = self.desig_pix_t0_med[icam, 0]
@@ -720,15 +734,12 @@ class CEM_controller():
 
         warperrs = []
         if 'start' in self.policyparams['register_gtruth']:
-            warped_image_start, flow_field, start_warp_pts = self.goal_image_warper(current_frame[None], start_image[None])
             desig_l.append(np.flip(start_warp_pts[0, pix_t0[0], pix_t0[1]], 0))
             start_warperr = np.linalg.norm(start_image[pix_t0[0], pix_t0[1]] -
                                                   warped_image_start[0, pix_t0[0], pix_t0[1]])
             warperrs.append(start_warperr)
 
         if 'goal' in self.policyparams['register_gtruth']:
-            warped_image_goal, flow_field, goal_warp_pts = self.goal_image_warper(current_frame[None],
-                                                                                    goal_image[None])
             desig_l.append(np.flip(goal_warp_pts[0, goal_pix[0], goal_pix[1]], 0))
             goal_warperr = np.linalg.norm(goal_image[goal_pix[0], goal_pix[1]] -
                                                   warped_image_goal[0, goal_pix[0], goal_pix[1]])
@@ -740,7 +751,7 @@ class CEM_controller():
             self.desig_pix[icam] = np.stack(desig_l, 0) * self.agentparams['image_height']/ self.agentparams['image_medium'][0]
         else:
             self.desig_pix[icam] = np.stack(desig_l, 0)
-        return warped_image_start, warped_image_goal, warperrs
+        return warperrs
 
     def publish_sawyer(self, gen_distrib, gen_images, scores):
         sorted_inds = scores.argsort()

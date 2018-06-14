@@ -2,6 +2,7 @@ import tensorflow as tf
 import numpy as np
 import pickle
 import matplotlib; matplotlib.use('Agg'); import matplotlib.pyplot as plt
+import pdb
 
 from python_visual_mpc.video_prediction.utils_vpred.variable_checkpoint_matcher import variable_checkpoint_matcher
 from python_visual_mpc.goaldistancenet.gdnet import apply_warp
@@ -9,6 +10,7 @@ import collections
 from python_visual_mpc.goaldistancenet.gdnet import GoalDistanceNet
 from python_visual_mpc.video_prediction.read_tf_records2 import \
                 build_tfrecord_input as build_tfrecord_fn
+
 
 def mean_square(x):
     return tf.reduce_mean(tf.square(x))
@@ -27,14 +29,15 @@ class MulltiviewTestGDN():
 
         self.img_height = conf['orig_size'][0]
         self.img_width = conf['orig_size'][1]
-        self.ncam = conf['ncam']
+        self.ncam = len(conf['pretrained_model'])
 
         self.I0_pl = []
         self.I1_pl = []
-        for n in range(conf['ncam']):
+        for n in range(self.ncam):
             self.gdn.append(GoalDistanceNet(conf=conf, build_loss=False, load_data = False))
             self.I0_pl.append(self.gdn[-1].I0_pl)
             self.I1_pl.append(self.gdn[-1].I1_pl)
+            pdb.set_trace()
         self.I0_pl = tf.stack(self.I0_pl, axis=0)
         self.I1_pl = tf.stack(self.I1_pl, axis=0)
 
@@ -44,25 +47,30 @@ class MulltiviewTestGDN():
         self.warp_pts_bwd = []
 
         self.scopenames = []
-        for n in range(self.conf['ncam']):
+        for n in range(self.ncam):
             name = "gdncam{}".format(n)
+            print('bulding ', name)
             with tf.variable_scope(name):
                 self.gdn[n].build_net()
 
-            self.warped_I0_to_I1.append(self.gdn[-1].warped_I0_to_I1)
-            self.flow_bwd.append(self.gdn[-1].flow_bwd)
-            self.warp_pts_bwd.append(self.gdn[-1].warp_pts_bwd)
+            self.warped_I0_to_I1.append(self.gdn[n].warped_I0_to_I1)
+            self.flow_bwd.append(self.gdn[n].flow_bwd)
+            self.warp_pts_bwd.append(self.gdn[n].warp_pts_bwd)
             self.scopenames.append(name)
-        self.warped_I0_to_I1 = tf.stack(self.warped_I0_to_I1, axis=0)
-        self.flow_bwd = tf.stack(self.flow_bwd, axis=0)
-        self.warp_pts_bwd = tf.stack(self.warp_pts_bwd, axis=0)
+        self.warped_I0_to_I1 = tf.stack(self.warped_I0_to_I1, axis=1)
+        self.flow_bwd = tf.stack(self.flow_bwd, axis=1)
+        self.warp_pts_bwd = tf.stack(self.warp_pts_bwd, axis=1)
 
 
     def restore(self, sess):
-        for n in range(self.conf['ncam']):
+        for n in range(self.ncam):
+            pdb.set_trace()
+
             vars = tf.get_collection(tf.GraphKeys.GLOBAL_VARIABLES, scope=self.scopenames[n])
             modelfile = self.conf['pretrained_model'][n]
-            vars = variable_checkpoint_matcher(self.conf, vars, modelfile)
+            vars = variable_checkpoint_matcher(self.conf, vars, modelfile, ignore_varname_firstag=True)
             saver = tf.train.Saver(vars, max_to_keep=0)
             saver.restore(sess, modelfile)
             print('gdn{} restore done.'.format(n))
+
+
