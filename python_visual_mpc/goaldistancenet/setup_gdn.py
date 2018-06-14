@@ -6,7 +6,7 @@ from PIL import Image
 from python_visual_mpc.video_prediction.utils_vpred.variable_checkpoint_matcher import variable_checkpoint_matcher
 import os
 import pdb
-import python_visual_mpc.goaldistancenet.variants.multiview_testgdn import MulltiviewTestGDN
+from python_visual_mpc.goaldistancenet.variants.multiview_testgdn import MulltiviewTestGDN
 
 def setup_gdn(conf, gpu_id = 0):
     """
@@ -56,18 +56,16 @@ def setup_gdn(conf, gpu_id = 0):
                 saver.restore(sess, conf['pretrained_model'])
                 print('gdn restore done.')
             else:
+                def predictor_func(pred_images, goal_images):
 
+                    feed_dict = {
+                                model.I0_pl:pred_images,
+                                model.I1_pl:goal_images}
 
-            def predictor_func(pred_images, goal_images):
+                    warped_images, flow_field, warp_pts = sess.run([model.warped_I0_to_I1,
+                                                                    model.flow_bwd,
+                                                                    model.warp_pts_bwd],
+                                                                   feed_dict)
+                    return warped_images, flow_field, warp_pts
 
-                feed_dict = {
-                            model.I0_pl:pred_images,
-                            model.I1_pl:goal_images}
-
-                warped_images, flow_field, warp_pts = sess.run([model.warped_I0_to_I1,
-                                                                model.flow_bwd,
-                                                                model.warp_pts_bwd],
-                                                               feed_dict)
-                return warped_images, flow_field, warp_pts
-
-            return predictor_func
+                return predictor_func

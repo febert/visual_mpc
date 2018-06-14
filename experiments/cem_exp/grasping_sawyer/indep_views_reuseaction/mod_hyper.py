@@ -20,7 +20,6 @@ agent = {'type' : AgentSawyer,
          'control_rate' : 1000,  #substep are taken at control_rate HZ
          'image_height' : 48,
          'image_width' : 64,
-         'data_conf' : data_conf,  #controls cropping
          'adim' : 5,
          'sdim' : 5,
          'mode_rel' : np.array([True, True, True, True, False]),

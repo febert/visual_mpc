@@ -21,7 +21,7 @@ NUM_JOINTS = 7 #Sawyer has 7 dof arm
 
 
 def render_bbox(img, bbox):
-    rect_img = img.copy()[:, :, ::-1]
+    rect_img = img[:, :, ::-1].copy()
     p1 = (bbox[0], bbox[1])
     p2 = (bbox[0] + bbox[2], bbox[1] + bbox[3])
     cv2.rectangle(rect_img, p1, p2, (0, 0, 255))
@@ -46,7 +46,7 @@ class Trajectory:
         self.robot_states = np.zeros((T, agentparams['sdim']))
 
         if 'opencv_tracking' in self._agent_conf:
-            self.track_bbox = np.zeros((T, 2, 4))
+            self.track_bbox = np.zeros((T, 2, 4), dtype=np.int32)
 
         cam_height = agentparams.get('cam_image_height', 401)
         cam_width = agentparams.get('cam_image_width', 625)
@@ -95,10 +95,7 @@ class Trajectory:
                 cv2.imwrite('{}/im{}.png'.format(folder, i), self.images[i, f, :, :, ::-1],
                             [cv2.IMWRITE_PNG_STRATEGY_DEFAULT, 1])
                 if 'save_large_gifs' in self._agent_conf:
-                    if 'opencv_tracking' in self._agent_conf:
-                        clip.append(render_bbox(self.raw_images[i, f], self.track_bbox[i, f]))
-                    else:
-                        clip.append(self.raw_images[i, f])
+                    clip.append(self.raw_images[i, f])
                 else:
                     clip.append(self.images[i, f])
                 if self._save_raw:
@@ -115,9 +112,12 @@ class Latest_observation(object):
         self.img_msg = None
         self.mutex = Lock()
         if create_tracker:
-            self.cv2_tracker = cv2.TrackerMIL_create()
-            self.bbox = None
-            self.track_itr = 0
+            self.reset_tracker()
+
+    def reset_tracker(self):
+        self.cv2_tracker = cv2.TrackerMIL_create()
+        self.bbox = None
+        self.track_itr = 0
 
     def to_dict(self):
         img_crop = self.img_cropped[:, :, ::-1].copy()
@@ -134,8 +134,8 @@ class RobotDualCamRecorder:
         self.front_limage = Latest_observation('opencv_tracking' in agent_params)
         self.left_limage = Latest_observation('opencv_tracking' in agent_params)
 
+        self._is_tracking = False
         if 'opencv_tracking' in agent_params:
-            self._is_tracking = False
             self.box_height = 80
 
         self.bridge =  CvBridge()
@@ -206,7 +206,14 @@ class RobotDualCamRecorder:
 
         print("TRACKING INITIALIZED")
 
-
+    def end_tracking(self):
+        self.front_limage.mutex.acquire()
+        self.left_limage.mutex.acquire()
+        self._is_tracking = False
+        self.front_limage.reset_tracker()
+        self.left_limage.reset_tracker()
+        self.front_limage.mutex.release()
+        self.left_limage.mutex.release()
     def _bbox2point(self, bbox):
         point = np.array([int(bbox[1]), int(bbox[0])]) \
                   + np.array([self.box_height / 2, self.box_height / 2])
