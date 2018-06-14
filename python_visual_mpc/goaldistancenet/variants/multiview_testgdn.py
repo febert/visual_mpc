@@ -31,16 +31,12 @@ class MulltiviewTestGDN():
         self.img_width = conf['orig_size'][1]
         self.ncam = len(conf['pretrained_model'])
 
-        self.I0_pl = []
-        self.I1_pl = []
-        for n in range(self.ncam):
-            self.gdn.append(GoalDistanceNet(conf=conf, build_loss=False, load_data = False))
-            self.I0_pl.append(self.gdn[-1].I0_pl)
-            self.I1_pl.append(self.gdn[-1].I1_pl)
-            pdb.set_trace()
-        self.I0_pl = tf.stack(self.I0_pl, axis=0)
-        self.I1_pl = tf.stack(self.I1_pl, axis=0)
+        self.I0_pl = tf.placeholder(tf.float32, name='I0', shape=(conf['batch_size'], self.ncam, self.img_height, self.img_width, 3))
+        self.I1_pl = tf.placeholder(tf.float32, name='I1', shape=(conf['batch_size'], self.ncam, self.img_height, self.img_width, 3))
 
+        for n in range(self.ncam):
+            self.gdn.append(GoalDistanceNet(conf=conf, build_loss=False, load_data = False,
+                                            I0=self.I0_pl[:,n], I1=self.I1_pl[:,n]))
     def build_net(self):
         self.warped_I0_to_I1 = []
         self.flow_bwd = []
@@ -64,8 +60,6 @@ class MulltiviewTestGDN():
 
     def restore(self, sess):
         for n in range(self.ncam):
-            pdb.set_trace()
-
             vars = tf.get_collection(tf.GraphKeys.GLOBAL_VARIABLES, scope=self.scopenames[n])
             modelfile = self.conf['pretrained_model'][n]
             vars = variable_checkpoint_matcher(self.conf, vars, modelfile, ignore_varname_firstag=True)

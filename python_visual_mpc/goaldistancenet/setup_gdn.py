@@ -57,13 +57,10 @@ def setup_gdn(conf, gpu_id = 0):
                 saver.restore(sess, conf['pretrained_model'])
                 print('gdn restore done.')
 
-
             def predictor_func(pred_images, goal_images):
-
                 feed_dict = {
                             model.I0_pl:pred_images,
                             model.I1_pl:goal_images}
-
                 warped_images, flow_field, warp_pts = sess.run([model.warped_I0_to_I1,
                                                                 model.flow_bwd,
                                                                 model.warp_pts_bwd],
