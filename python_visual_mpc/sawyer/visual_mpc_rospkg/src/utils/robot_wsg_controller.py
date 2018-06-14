@@ -142,6 +142,12 @@ class WSGRobotController(RobotController):
 
         self.get_gripper_status()  # dummy call to flush integration of gripper force
 
+    def disable_impedance(self):
+        self.imp_ctrl_active.publish(0)
+
+    def enable_impedance(self):
+        self.imp_ctrl_active.publish(1)
+
     def imp_ctrl_release_spring(self, maxstiff):
         self.imp_ctrl_release_spring_pub.publish(maxstiff)
 

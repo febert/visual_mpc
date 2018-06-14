@@ -82,12 +82,13 @@ class AgentSawyer:
                 print("WARNING PATH EXISTS: {}".format(record_dir))
 
         while not traj_ok and cntr < max_tries:
-            self._controller.reset_with_impedance(duration=1.0, close_first=True)  # go to neutral
             if 'benchmark_exp' in self._hyperparams:
                 if cntr > 0:
                     if 'y' not in raw_input("would you like to retry benchmark (answer y/n)?"):
                         break
                 if 'register_gtruth' in self._hyperparams and len(self._hyperparams['register_gtruth']) == 2:
+                    self._controller.reset_with_impedance(duration=1.0)
+                    self._controller.disable_impedance()
                     print("PLACE OBJECTS IN GOAL POSITION")
                     raw_input("When ready to annotate GOAL images press enter...")
 
@@ -109,6 +110,8 @@ class AgentSawyer:
                     start_dir = fig_save_dir + '/start'
                     if not os.path.exists(start_dir):
                         os.makedirs(start_dir)
+                    self._controller.enable_impedance()
+                    self._controller.reset_with_impedance(duration=1.0)
                     print("PLACE OBJECTS IN START POSITION")
                     raw_input("When ready to annotate START images press enter...")
                     read_ok, front_start, left_start = self._recorder.get_images()
@@ -119,6 +122,7 @@ class AgentSawyer:
 
                     traj, traj_ok = self.rollout(policy, start_pix, goal_pix, goal_images)
                 else:
+                    self._controller.reset_with_impedance(duration=1.0)
                     print("PLACE OBJECTS IN START POSITION")
                     raw_input("When ready to annotate START/GOAL press enter...")
                     read_ok, front_cam, left_cam = self._recorder.get_images()
@@ -138,6 +142,7 @@ class AgentSawyer:
                     if 'opencv_tracking' in self._hyperparams:
                         self._recorder.end_tracking()
             else:
+                self._controller.reset_with_impedance(duration=1.0, close_first=True)  # go to neutral
                 traj, traj_ok = self.rollout(policy)
 
         return traj, traj_ok
