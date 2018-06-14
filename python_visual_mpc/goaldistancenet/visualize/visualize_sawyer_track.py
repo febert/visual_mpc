@@ -16,11 +16,13 @@ from PIL import Image
 
 FLAGS = flags.FLAGS
 
-def load_data(bench_dir, tsteps, num_ex=4, ):
+def load_data(bench_dir, tsteps, num_ex=8, ):
 
     bench_dir = bench_dir
     folders = get_folders(bench_dir)
     # folders = [bench_dir + '/ob18s1']
+
+    folders = folders[:num_ex]
 
     image_batch = []
     desig_pix_t0_l = []
@@ -40,7 +42,7 @@ def load_data(bench_dir, tsteps, num_ex=4, ):
         goal_pix_l.append(goal_pix.astype(np.int))
 
         imlist = []
-        for t in range(0, tsteps, 12):
+        for t in range(0, tsteps, 6):
             imlist.append(np.array(Image.open(exp_dir + '/small{}.jpg'.format(t))))
 
         images = np.stack(imlist).astype(np.float32)/255.
