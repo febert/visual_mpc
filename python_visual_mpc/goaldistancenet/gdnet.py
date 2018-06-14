@@ -271,7 +271,12 @@ class GoalDistanceNet(object):
         delta_t = tf.clip_by_value(delta_t, 1, sequence_length-1)
 
         self.tstart = tf.random_uniform([1], 0, sequence_length - delta_t, dtype=tf.int32)
-        self.tend = self.tstart + tf.random_uniform([1], tf.ones([], dtype=tf.int32), delta_t + 1, dtype=tf.int32)
+
+        if 'deterministic_increase_tdist' in self.conf:
+            self.tend = self.tstart + delta_t
+        else:
+            minval = tf.ones([], dtype=tf.int32)
+            self.tend = self.tstart + tf.random_uniform([1], minval, delta_t + 1, dtype=tf.int32)
 
         begin = tf.stack([0, tf.squeeze(self.tstart), 0, 0, 0],0)
 

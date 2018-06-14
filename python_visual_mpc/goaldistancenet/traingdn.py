@@ -103,7 +103,7 @@ def main(unused_argv, conf_script= None):
 
     print('Constructing saver.')
     vars = tf.get_collection(tf.GraphKeys.GLOBAL_VARIABLES)
-    saving_saver = tf.train.Saver(vars, max_to_keep=0)
+    saving_saver = tf.train.Saver(vars, max_to_keep=3)
 
     if FLAGS.resume:
         vars = variable_checkpoint_matcher(conf, vars, FLAGS.resume, True)
