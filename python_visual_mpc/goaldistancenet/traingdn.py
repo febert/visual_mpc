@@ -171,7 +171,7 @@ def main(unused_argv, conf_script= None):
         if (itr) % 10 ==0:
             tf.logging.info(str(itr) + ' ' + str(cost))
 
-        if (itr) % 100 ==0:
+        if (itr) % 10 ==0:
             tf.logging.info('lr: {}'.format(lr))
 
         if (itr) % VAL_INTERVAL == 2:

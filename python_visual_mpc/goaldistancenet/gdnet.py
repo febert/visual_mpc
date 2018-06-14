@@ -531,14 +531,14 @@ class GoalDistanceNet(object):
         self.train_summ_op = tf.summary.merge(train_summaries)
         self.val_summ_op = tf.summary.merge(val_summaries)
 
+        self.global_step = tf.Variable(0, name='global_step',trainable=False)
         if 'decay_lr' in self.conf:
-            self.global_step = tf.Variable(0, name='global_step',trainable=False)
             self.learning_rate = tf.train.exponential_decay(self.lr, self.global_step,
-                                                       5000, 0.96, staircase=True)
-            print('using exponetially decayed lr')
+                                                       4000, 0.96, staircase=True)
+            print('using exponentially decayed lr')
         else:
             self.learning_rate = tf.constant(self.conf['learning_rate'])
-        self.train_op = tf.train.AdamOptimizer(self.learning_rate).minimize(self.loss)
+        self.train_op = tf.train.AdamOptimizer(self.learning_rate).minimize(self.loss, self.global_step)
 
 
     def visualize(self, sess):

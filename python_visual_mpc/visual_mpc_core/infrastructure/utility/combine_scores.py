@@ -75,8 +75,8 @@ if __name__ == '__main__':
     # n_traj = 10
     # dir = '/home/frederik/Documents/catkin_ws/src/visual_mpc/experiments/cem_exp/benchmarks/alexmodel/savp_register_gtruth_start/41256'
     # dir = '/home/frederik/Documents/catkin_ws/src/visual_mpc/experiments/cem_exp/benchmarks/pos_ctrl/updown_sact_boundact_register_gtruth/41272'
-    dir = '/mnt/sda1/experiments/cem_exp/grasping_benchmarks/alexmodel_autograsp_noreplan/62889'
-    conf_dir = '/mnt/sda1/visual_mpc/experiments/cem_exp/grasping_benchmarks/alexmodel_autograsp_noreplan'
+    dir = '/mnt/sda1/experiments/cem_exp/benchmarks/pos_ctrl/reg_startgoal_threshterm_tradeoff/65936'
+    conf_dir = '/mnt/sda1/visual_mpc/experiments/cem_exp/benchmarks/pos_ctrl/reg_startgoal_threshterm_tradeoff'
 
     # traj_per_worker = int(n_traj / np.float32(n_worker))
     # start_idx = [traj_per_worker * i for i in range(n_worker)]
