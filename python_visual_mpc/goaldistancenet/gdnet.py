@@ -252,7 +252,6 @@ class GoalDistanceNet(object):
         self.occ_mask_bwd = 1 - self.occ_bwd  # 0 at occlusion
         self.occ_mask_fwd = 1 - self.occ_fwd
 
-
         if self.build_loss:
             if 'multi_scale' not in self.conf:
                 self.add_pair_loss(I1=self.I1, gen_I1=self.gen_I1, occ_bwd=self.occ_bwd, flow_bwd=self.flow_bwd, diff_flow_bwd=self.diff_flow_bwd,
