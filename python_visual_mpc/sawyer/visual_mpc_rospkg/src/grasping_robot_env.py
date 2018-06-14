@@ -46,7 +46,7 @@ class RobotEnvironment:
             elif self.agentparams[k] != robot_conf[k]:
                 """
                 A major disadvantage to keeping config consistent across confs
-                is we can't easily experiment w/ different settings. The benefit
+                is we c+an't easily experiment w/ different settings. The benefit
                 is all experiments have same default setting. Worth looking into
                 this more later. 
                 """
@@ -80,11 +80,12 @@ class RobotEnvironment:
             self._ck_dict = {'ntraj' : 0, 'broken_traj' : []}
 
     def init_policy(self):
-        if 'use_server' not in self.policyparams and 'netconf' in self.policyparams:
+
+        if 'use_server' not in self.policyparams and 'netconf' in self.policyparams and self._predictor is None:
             self._netconf = imp.load_source('params', self.policyparams['netconf']).configuration
             self._predictor = self._netconf['setup_predictor']({}, self._netconf, self._gpu_id, self._ngpu)
 
-        if 'use_server' not in self.policyparams and 'gdnconf' in self.policyparams:
+        if 'use_server' not in self.policyparams and 'gdnconf' in self.policyparams and self._goal_image_warper is None:
             self._gdnconf = imp.load_source('params', self.policyparams['gdnconf']).configuration
             self._goal_image_warper = setup_gdn(self._gdnconf, self._gpu_id)
 

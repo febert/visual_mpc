@@ -37,11 +37,11 @@ class AgentSawyer:
                               im_shape=[self.img_height, self.img_width], clicks_per_desig=clicks_per_desig)
 
             start_pos = c_main.desig.astype(np.int64)
-            start_pix.append(start_pos.reshape(1, 1, -1))
+            start_pix.append(start_pos.reshape(1, n_desig, -1))
 
             if clicks_per_desig == 2:
                 goal_pos = c_main.goal.astype(np.int64)
-                goal_pix.append(goal_pos.reshape(1, 1, -1))
+                goal_pix.append(goal_pos.reshape(1, n_desig, -1))
 
         start_pix = np.concatenate(start_pix, 0)
         if clicks_per_desig == 2:
@@ -84,7 +84,7 @@ class AgentSawyer:
 
                 if 'register_gtruth' in self._hyperparams and len(self._hyperparams['register_gtruth']) == 2:
                     print("PLACE OBJECTS IN GOAL POSITION")
-                    raw_input("When ready to annotate GOAL images press anything...")
+                    raw_input("When ready to annotate GOAL images press enter...")
 
                     read_ok, front_goal, left_goal = self._recorder.get_images()
                     if not read_ok:
@@ -105,7 +105,7 @@ class AgentSawyer:
                     if not os.path.exists(start_dir):
                         os.makedirs(start_dir)
                     print("PLACE OBJECTS IN START POSITION")
-                    raw_input("When ready to annotate START images press anything...")
+                    raw_input("When ready to annotate START images press enter...")
                     read_ok, front_start, left_start = self._recorder.get_images()
                     if not read_ok:
                         print("CAMERA DESYNC")
@@ -120,8 +120,10 @@ class AgentSawyer:
                         break
 
                     print("PLACE OBJECTS IN START POSITION")
-                    raw_input("When ready to annotate START/GOAL press anything...")
+                    raw_input("When ready to annotate START/GOAL press enter...")
                     start_pix, goal_pix = self._select_points(front_cam, left_cam, fig_save_dir)
+                    if 'opencv_tracking' in self._hyperparams:
+                        self._recorder.start_tracking(start_pix)
                     traj, traj_ok = self.rollout(policy, start_pix, goal_pix)
             else:
                 traj, traj_ok = self.rollout(policy)
@@ -166,6 +168,9 @@ class AgentSawyer:
                 diff = traj.robot_states[t, :3] - self.prev_qpos[:3]
                 euc_error, abs_error = np.linalg.norm(diff), np.abs(diff)
                 print("at time {}, l2 error {} and abs_dif {}".format(t, euc_error, abs_error))
+
+                if 'opencv_tracking' in self._hyperparams:
+                    start_pix = self._recorder.get_track()
 
             mj_U = policy.act(traj, t, start_pix, goal_pix, goal_image)
             traj.actions[t] = copy.deepcopy(mj_U)
@@ -222,6 +227,8 @@ class AgentSawyer:
 
             self._controller.move_with_impedance_sec(target_ja, duration=self._hyperparams['step_duration'])
 
+        if not traj_ok:
+            print("FAILED ROLLOUT RETRYING....")
         return traj, traj_ok
 
     def random_start_angles(self, rng = np.random.uniform):
