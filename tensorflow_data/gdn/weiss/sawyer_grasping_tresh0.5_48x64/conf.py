@@ -5,10 +5,13 @@ base_dir = '/'.join(str.split(base_dir, '/')[:-2])
 
 # tf record data location:
 import os
-DATA_DIR = {os.environ['VMPC_DATA_DIR'] + '/sawyer_grasping/sawyer_data/sudri_agpolicy/good': 0.25,
-         os.environ['VMPC_DATA_DIR'] + '/sawyer_grasping/sawyer_data/sudri_agpolicy/bad': 0.25,
-         os.environ['VMPC_DATA_DIR'] + '/sawyer_grasping/sawyer_data/vestri_agpolicy/good': 0.25,
-         os.environ['VMPC_DATA_DIR'] + '/sawyer_grasping/sawyer_data/vestri_agpolicy/bad': 0.25}
+DATA_DIR = {os.environ['VMPC_DATA_DIR'] + '/sawyer_grasping/sawyer_data/sudri_ag/good': 8,
+         os.environ['VMPC_DATA_DIR'] + '/sawyer_grasping/sawyer_data/sudri_ag/bad': 12,
+         os.environ['VMPC_DATA_DIR'] + '/sawyer_grasping/sawyer_data/vestri_ag/good': 8,
+         os.environ['VMPC_DATA_DIR'] + '/sawyer_grasping/sawyer_data/vestri_ag/bad': 12,
+         os.environ['VMPC_DATA_DIR'] + '/sawyer_grasping/sawyer_data/sudri_ag_long/good': 12,
+         os.environ['VMPC_DATA_DIR'] + '/sawyer_grasping/sawyer_data/sudri_ag_long/bad': 12,
+            }
 import os
 current_dir = os.path.dirname(os.path.realpath(__file__))
 

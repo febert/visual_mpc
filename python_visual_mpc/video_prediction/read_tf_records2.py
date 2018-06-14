@@ -288,7 +288,15 @@ def main():
     current_dir = os.path.dirname(os.path.realpath(__file__))
     # DATA_DIR = '/mnt/sda1/pushing_data/cartgripper/grasping/lift_imitation_dataset/test'
     # DATA_DIR = '/mnt/sda1/pushing_data/onpolicy/distributed_pushing/train'
-    DATA_DIR = '/mnt/sda1/pushing_data/sawyer_grasping/sawyer_data/vestri_ag/good'
+    # DATA_DIR = '/mnt/sda1/pushing_data/sawyer_grasping/sawyer_data/vestri_ag/good'
+    DATA_DIR = {os.environ['VMPC_DATA_DIR'] + '/sawyer_grasping/sawyer_data/sudri_ag/good': 8,
+                os.environ['VMPC_DATA_DIR'] + '/sawyer_grasping/sawyer_data/sudri_ag/bad': 12,
+                os.environ['VMPC_DATA_DIR'] + '/sawyer_grasping/sawyer_data/vestri_ag/good': 8,
+                os.environ['VMPC_DATA_DIR'] + '/sawyer_grasping/sawyer_data/vestri_ag/bad': 12,
+                os.environ['VMPC_DATA_DIR'] + '/sawyer_grasping/sawyer_data/sudri_ag_long/good': 12,
+                os.environ['VMPC_DATA_DIR'] + '/sawyer_grasping/sawyer_data/sudri_ag_long/bad': 12,
+                }
+
     # DATA_DIR = {os.environ['VMPC_DATA_DIR'] + '/cartgripper/cartgripper_2view': 0.5,
     #             os.environ['VMPC_DATA_DIR'] + '/cartgripper/grasping/dualcam_pick_place_dataset/good': 0.25,
     #             os.environ['VMPC_DATA_DIR'] + '/cartgripper/grasping/dualcam_pick_place_dataset/bad': 0.25}
@@ -298,11 +306,11 @@ def main():
     conf['skip_frame'] = 1
     conf['train_val_split']= 0.95
     conf['sequence_length']= 15  #48      # 'sequence length, including context frames.'
-    conf['batch_size'] = 20
+    conf['batch_size'] = 64
     conf['visualize'] = False
     conf['context_frames'] = 2
     conf['ncam'] = 2
-    # conf['view'] = 0   # only first view
+    conf['view'] = 1   # only first view
 
     # conf['max_epoch'] = 1     #requires batchsize equal to tfrec size
     # conf['row_start'] = 15
@@ -329,7 +337,7 @@ def main():
 
     print('testing the reader')
 
-    dict = build_tfrecord_input(conf, mode='train', buffersize=10)
+    dict = build_tfrecord_input(conf, mode='test', buffersize=10)
 
     sess = tf.InteractiveSession()
     tf.train.start_queue_runners(sess)
@@ -350,7 +358,7 @@ def main():
         # plt.show()
         # plt.imshow(firstlastnoarm[0,1])
         # plt.show()
-        file_path = DATA_DIR
+        file_path = os.environ['VMPC_DATA_DIR'] + '/sawyer_grasping/sawyer_data/view{}'.format(conf['view'])
 
         if len(images.shape) == 6:
             vidlist = []
@@ -371,12 +379,12 @@ def main():
         # end = time.time()
 
 
-        for b in range(10):
-            print('actions {}'.format(b))
-            print(actions[b])
-
-            print('endeff {}'.format(b))
-            print(endeff[b])
+        # for b in range(10):
+        #     print('actions {}'.format(b))
+        #     print(actions[b])
+        #
+        #     print('endeff {}'.format(b))
+        #     print(endeff[b])
 
 
         pdb.set_trace()

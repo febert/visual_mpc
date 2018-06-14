@@ -1,5 +1,7 @@
 import pickle
-import matplotlib; matplotlib.use('Agg'); import matplotlib.pyplot as plt
+import os
+import pickle as pkl
+import matplotlib.pyplot as plt
 import numpy as np
 
 from python_visual_mpc.video_prediction.utils_vpred.create_gif_lib import npy_to_gif
@@ -7,8 +9,10 @@ from python_visual_mpc.video_prediction.utils_vpred.create_gif_lib import assemb
 from python_visual_mpc.video_prediction.basecls.utils.get_designated_pix import Getdesig
 from python_visual_mpc.video_prediction.basecls.utils.visualize import add_crosshairs_single, add_crosshairs
 
-def visualize_video_track(conf, dict=None, dir = None):
-    exmps = [2, 4, 13, 14, 16, 20, 21, 24, 32, 33]
+def visualize_video_track(dict=None, dir = None, exmps=None, points_file=None):
+    if exmps == None:
+        exmps = range(10)
+
     num_ex = len(exmps)
 
     if dict == None:
@@ -24,21 +28,28 @@ def visualize_video_track(conf, dict=None, dir = None):
     annotated_goal_images = []
     goal_pix = []
 
-    for ex in exmps:
-        print(ex)
-        c = Getdesig(goal_images[ex])
-        goal_pix.append(np.round(c.coords).astype(np.int))
-        # goal_pix.append(np.array([0,0]))
-        annotated_goal_images.append(add_crosshairs_single(goal_images[ex], goal_pix[-1]))
+    if not os.path.exists(points_file):
+        for ex in exmps:
+            print(ex)
+            c = Getdesig(goal_images[ex])
+            goal_pix.append(np.round(c.coords).astype(np.int))
+            # goal_pix.append(np.array([0,0]))
+            annotated_goal_images.append(add_crosshairs_single(goal_images[ex], goal_pix[-1]))
 
-    annotated_goal_images = np.stack(annotated_goal_images, 0)
-    annotated_goal_images = [annotated_goal_images for _ in range(seqlen)]
+        annotated_goal_images = np.stack(annotated_goal_images, 0)
+        annotated_goal_images = [annotated_goal_images for _ in range(seqlen)]
+        pkl.dump({'goal_pix':goal_pix, 'annotated_goal_images':annotated_goal_images}, open(points_file, 'wb'))
+    else:
+        print('loading goalpix')
+        dict = pkl.load(open(points_file, 'rb'))
+        goal_pix = dict['goal_pix']
+        annotated_goal_images = dict['annotated_goal_images']
+        num_ex = len(goal_pix)
 
     desig_pix = np.zeros((num_ex, seqlen, 2))
     for t in range(seqlen):
         for b, ex in enumerate(exmps):
             desig_pix[b, t] = np.flip(warp_pts_bwd[t][ex, goal_pix[b][0], goal_pix[b][1]], 0)
-
 
     I0_ts = [i0[exmps] for i0 in I0_ts]
     I0_ts = add_crosshairs(I0_ts, desig_pix)
@@ -116,8 +127,17 @@ def make_plots(conf, dict=None, dir = None):
 
 
 if __name__ == '__main__':
-    filedir = '/home/frederik/Documents/catkin_ws/src/visual_mpc/tensorflow_data/gdn/weiss/weiss_thresh0.5/modeldata'
-    conf = {}
-    conf['output_dir'] = filedir
-    visualize_video_track(conf, dir=filedir)
+    # filedir = '/mnt/sda1/visual_mpc/tensorflow_data/gdn/weiss/weiss_thresh0.5_56x64/modeldata'
+    filedir = '/mnt/sda1/visual_mpc/tensorflow_data/gdn/weiss/tdac_weiss_cons0_56x64/modeldata'
+    view = 1
+    # filedir = '/mnt/sda1/visual_mpc/tensorflow_data/gdn/weiss/multiview/view{}/modeldata'.format(view)
+    # filedir = '/mnt/sda1/visual_mpc/tensorflow_data/gdn/weiss/multiview/view1'
+
+    points_file = '/mnt/sda1/pushing_data/weiss_gripper_20k/points.pkl'
+    # points_file = '/mnt/sda1/pushing_data/sawyer_grasping/sawyer_data/points_view{}.pkl'.format(view)
+
+    # exmps = [2, 4, 13, 14, 16, 20, 21, 24, 32, 33]
+    exmps = None
+
+    visualize_video_track(exmps=exmps, dir=filedir, points_file=points_file)
 

@@ -142,7 +142,8 @@ class GoalDistanceNet(object):
                  load_data = True,
                  images = None,
                  iter_num = None,
-                 pred_images = None
+                 pred_images = None,
+                 load_testimages=False
                  ):
 
         if conf['normalization'] == 'in':
@@ -169,14 +170,17 @@ class GoalDistanceNet(object):
 
         if load_data:
             self.iter_num = tf.placeholder(tf.float32, [], name='iternum')
+            if load_testimages:
+                dict = build_tfrecord_fn(conf, mode='test')
+            else:
+                train_dict = build_tfrecord_fn(conf, mode='train')
+                val_dict = build_tfrecord_fn(conf, mode='val')
+                dict = tf.cond(self.train_cond > 0,
+                                 # if 1 use trainigbatch else validation batch
+                                 lambda: train_dict,
+                                 lambda: val_dict)
+                self.images = dict['images']
 
-            train_dict = build_tfrecord_fn(conf, mode='train')
-            val_dict = build_tfrecord_fn(conf, mode='val')
-            dict = tf.cond(self.train_cond > 0,
-                             # if 1 use trainigbatch else validation batch
-                             lambda: train_dict,
-                             lambda: val_dict)
-            self.images = dict['images']
 
             if 'vidpred_data' in conf:  # register predicted video to real
                 self.pred_images = tf.squeeze(dict['gen_images'])
@@ -190,13 +194,6 @@ class GoalDistanceNet(object):
                                     shape=(conf['batch_size'], self.img_height, self.img_width, 3))
             self.I1 = self.I1_pl= tf.placeholder(tf.float32, name='images',
                                      shape=(conf['batch_size'], self.img_height, self.img_width, 3))
-
-        else:  # get tensors from videoprediction model
-            self.iter_num = iter_num
-            self.pred_images = tf.stack(pred_images, axis=1)
-            self.images = tf.stack(images[1:], axis=1) # cutting off first image since there is no pred image for it
-            self.conf['sequence_length'] = self.conf['sequence_length']-1
-            self.I0, self.I1 = self.sel_images()
 
         self.occ_fwd = tf.zeros([self.bsize,  self.img_height,  self.img_width, 1])
         self.occ_bwd = tf.zeros([self.bsize,  self.img_height,  self.img_width, 1])
@@ -580,7 +577,6 @@ class GoalDistanceNet(object):
 
         else:  # when visualizing sequence of warps from video
             videos = build_tfrecord_fn(self.conf, mode='test')
-
             if 'vidpred_data' in self.conf:
                 images, pred_images = sess.run([videos['images'], videos['gen_images']])
                 pred_images = np.squeeze(pred_images)
