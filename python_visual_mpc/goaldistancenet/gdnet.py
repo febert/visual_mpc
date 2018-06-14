@@ -252,7 +252,6 @@ class GoalDistanceNet(object):
         self.occ_mask_bwd = 1 - self.occ_bwd  # 0 at occlusion
         self.occ_mask_fwd = 1 - self.occ_fwd
 
-
         if self.build_loss:
             if 'multi_scale' not in self.conf:
                 self.add_pair_loss(I1=self.I1, gen_I1=self.gen_I1, occ_bwd=self.occ_bwd, flow_bwd=self.flow_bwd, diff_flow_bwd=self.diff_flow_bwd,
@@ -272,7 +271,12 @@ class GoalDistanceNet(object):
         delta_t = tf.clip_by_value(delta_t, 1, sequence_length-1)
 
         self.tstart = tf.random_uniform([1], 0, sequence_length - delta_t, dtype=tf.int32)
-        self.tend = self.tstart + tf.random_uniform([1], tf.ones([], dtype=tf.int32), delta_t + 1, dtype=tf.int32)
+
+        if 'deterministic_increase_tdist' in self.conf:
+            self.tend = self.tstart + delta_t
+        else:
+            minval = tf.ones([], dtype=tf.int32)
+            self.tend = self.tstart + tf.random_uniform([1], minval, delta_t + 1, dtype=tf.int32)
 
         begin = tf.stack([0, tf.squeeze(self.tstart), 0, 0, 0],0)
 
@@ -531,14 +535,14 @@ class GoalDistanceNet(object):
         self.train_summ_op = tf.summary.merge(train_summaries)
         self.val_summ_op = tf.summary.merge(val_summaries)
 
+        self.global_step = tf.Variable(0, name='global_step',trainable=False)
         if 'decay_lr' in self.conf:
-            self.global_step = tf.Variable(0, name='global_step',trainable=False)
             self.learning_rate = tf.train.exponential_decay(self.lr, self.global_step,
-                                                       5000, 0.96, staircase=True)
-            print('using exponetially decayed lr')
+                                                       4000, 0.96, staircase=True)
+            print('using exponentially decayed lr')
         else:
             self.learning_rate = tf.constant(self.conf['learning_rate'])
-        self.train_op = tf.train.AdamOptimizer(self.learning_rate).minimize(self.loss)
+        self.train_op = tf.train.AdamOptimizer(self.learning_rate).minimize(self.loss, self.global_step)
 
 
     def visualize(self, sess):
