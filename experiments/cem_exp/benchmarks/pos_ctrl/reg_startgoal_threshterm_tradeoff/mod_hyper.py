@@ -12,7 +12,7 @@ from python_visual_mpc.visual_mpc_core.agent.agent_mjc import AgentMuJoCo
 import numpy as np
 agent = {
     'type': AgentMuJoCo,
-    'T': 120,
+    'T': 4,##############20,
     'term_dist':0.08,
     'substeps':200,
     'adim':3,
@@ -37,7 +37,7 @@ agent = {
 }
 
 policy = {
-    'verbose':10,
+    'verbose':'',
     'type' : CEM_controller,
     'low_level_ctrl': None,
     'current_dir':current_dir,
