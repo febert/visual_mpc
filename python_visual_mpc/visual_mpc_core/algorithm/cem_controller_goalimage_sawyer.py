@@ -726,6 +726,7 @@ class CEM_controller():
             else:
                 tradeoff = (1 / warperrs) / np.sum(1 / warperrs)  # cost-weighting factors for start and goal-image
 
+        pdb.set_trace()
         self.plan_stat['tradeoff'] = tradeoff
         self.plan_stat['warperrs'] = warperrs
         return warped_image_start, warped_image_goal, tradeoff
