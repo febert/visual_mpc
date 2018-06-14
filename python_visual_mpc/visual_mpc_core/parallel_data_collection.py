@@ -64,7 +64,6 @@ def main():
         parallel = False
     else:
         parallel = True
-    # parallel = True
     print('parallel ', bool(parallel))
 
     if 'benchmarks' in hyperparams_file:

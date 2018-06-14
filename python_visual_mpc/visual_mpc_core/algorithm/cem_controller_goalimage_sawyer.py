@@ -713,7 +713,14 @@ class CEM_controller():
             tradeoff = np.zeros_like(warperrs)
             tradeoff[np.unravel_index(np.argmin(warperrs), warperrs.shape)] = 1.
         else:
-            tradeoff = (1 / warperrs) / np.sum(1 / warperrs)  # cost-weighting factors for start and goal-image
+            if 'camera_equal_weight' in self.policyparams:
+                warperrs = np.sum(warperrs, 0)
+                tradeoff = (1 / warperrs)
+                tradeoff = np.tile(tradeoff[None], [self.ncam, 1])
+                tradeoff = tradeoff / np.sum(tradeoff)
+                print('applying equal weighting for cameras')
+            else:
+                tradeoff = (1 / warperrs) / np.sum(1 / warperrs)  # cost-weighting factors for start and goal-image
 
         self.plan_stat['tradeoff'] = tradeoff
         self.plan_stat['warperrs'] = warperrs

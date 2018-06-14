@@ -53,7 +53,8 @@ policy = {
     'rew_all_steps':"",
     'finalweight':10,
     'register_gtruth':['start','goal'],
-    'trade_off_reg':''
+    'trade_off_reg':'',
+    # 'camera_equal_weight':''
 }
 
 tag_images0 = {'name': 'images0',
