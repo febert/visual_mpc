@@ -13,6 +13,7 @@ import moviepy.editor as  mpy
 import pdb
 import os
 import cv2
+
 class AgentSawyer:
     def __init__(self, agent_params):
         print('CREATING AGENT FOR ROBOT: {}'.format(agent_params['robot_name']))
@@ -29,6 +30,8 @@ class AgentSawyer:
             self._calibrated_camera = CalibratedCamera(agent_params['robot_name'])
         if 'save_large_gifs' in agent_params and 'opencv_tracking' in agent_params:
             self.track_save_dir = None
+
+
 
     def _select_points(self, front_cam, left_cam, fig_save_dir, clicks_per_desig = 2, n_desig = 1):
         assert clicks_per_desig == 1 or clicks_per_desig == 2, "CLICKS_PER_DESIG SHOULD BE 1 OR 2"
@@ -110,8 +113,11 @@ class AgentSawyer:
                     start_dir = fig_save_dir + '/start'
                     if not os.path.exists(start_dir):
                         os.makedirs(start_dir)
+
+                    raw_input("Robot in safe position? Hit enter when ready...")
+                    self._controller.set_neutral()
                     self._controller.enable_impedance()
-                    self._controller.reset_with_impedance(duration=1.0)
+                    self._controller.reset_with_impedance(duration=2.0, reset_sitffness=60)
                     print("PLACE OBJECTS IN START POSITION")
                     raw_input("When ready to annotate START images press enter...")
                     read_ok, front_start, left_start = self._recorder.get_images()
@@ -132,10 +138,6 @@ class AgentSawyer:
                     start_pix, goal_pix = self._select_points(front_cam, left_cam, fig_save_dir)
                     if 'opencv_tracking' in self._hyperparams:
                         self._recorder.start_tracking(start_pix)
-                        if 'save_large_gifs' in self._hyperparams:
-                            self.track_save_dir = self._hyperparams['record'] + '/tracking'
-                            if not os.path.exists(self.track_save_dir):
-                                os.makedirs(self.track_save_dir)
 
                     traj, traj_ok = self.rollout(policy, start_pix, goal_pix)
 
@@ -188,15 +190,6 @@ class AgentSawyer:
 
                 if 'opencv_tracking' in self._hyperparams:
                     start_pix = self._recorder.get_track()
-                    if 'save_large_gifs' in self._hyperparams:
-                        front_clip, left_clip = [], []
-                        for k in range(t + 1):
-                            raw_images_bgr = copy.deepcopy(traj.raw_images[k])
-                            front_clip.append(render_bbox(raw_images_bgr[0], traj.track_bbox[k, 0]))
-                            left_clip.append(render_bbox(raw_images_bgr[1], traj.track_bbox[k, 1]))
-                        front_clip, left_clip = mpy.ImageSequenceClip(front_clip, fps = 5), mpy.ImageSequenceClip(left_clip, fps = 5)
-                        front_clip.write_gif('{}/front.gif'.format(self.track_save_dir))
-                        left_clip.write_gif('{}/left.gif'.format(self.track_save_dir))
 
             mj_U = policy.act(traj, t, start_pix, goal_pix, goal_image)
             traj.actions[t] = copy.deepcopy(mj_U)
@@ -212,13 +205,18 @@ class AgentSawyer:
             start_joints = self._controller.limb.joint_angles()
             try:
                 target_ja = inverse_kinematics.get_joint_angles(target_pose, seed_cmd=start_joints,
-                                                                use_advanced_options=True)
+                                                                    use_advanced_options=True)
             except ValueError:
-                rospy.logerr('no inverse kinematics solution found, '
-                             'going to reset robot...')
-                current_joints = self._controller.limb.joint_angles()
-                self._controller.limb.set_joint_positions(current_joints)
-                return None, False
+                if 'benchmark_exp' in self._hyperparams:
+                    print("ERR CAN'T APPLY")    #often gets triggered by robot twisting in corner during benchmark
+                    pdb.set_trace()
+                    continue
+                else:
+                    rospy.logerr('no inverse kinematics solution found, '
+                                 'going to reset robot...')
+                    current_joints = self._controller.limb.joint_angles()
+                    self._controller.limb.set_joint_positions(current_joints)
+                    return None, False
 
             wait_change = (self.next_qpos[-1] > 0.05) != (self.prev_qpos[-1] > 0.05)        #wait for gripper to ack change in status
 

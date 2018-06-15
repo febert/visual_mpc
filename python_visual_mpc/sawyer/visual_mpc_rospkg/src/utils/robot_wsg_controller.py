@@ -15,7 +15,7 @@ import numpy as np
 import python_visual_mpc
 
 import cPickle as pickle
-
+import intera_interface
 
 NEUTRAL_JOINT_ANGLES =[0.412271, -0.434908, -1.198768, 1.795462, 1.160788, 1.107675, 2.068076]
 MAX_TIMEOUT = 30
@@ -50,6 +50,13 @@ class WSGRobotController(RobotController):
 
         self.imp_ctrl_release_spring(100)
         self.imp_ctrl_active.publish(1)
+
+        self._navigator = intera_interface.Navigator()
+        self._navigator.register_callback(self._close_gripper_handler, 'right_button_ok')
+
+    def _close_gripper_handler(self, value):
+        if value:
+            self.close_gripper()    #close gripper on button release
 
     def set_gripper_speed(self, new_speed):
         assert new_speed > 0 and new_speed <= 600, "Speed must be in range (0, 600]"
@@ -129,14 +136,14 @@ class WSGRobotController(RobotController):
 
         self._status_mutex.release()
 
-    def reset_with_impedance(self, angles = NEUTRAL_JOINT_ANGLES, duration= 3., open_gripper = True, close_first = False, stiffness = 150):
+    def reset_with_impedance(self, angles = NEUTRAL_JOINT_ANGLES, duration= 3., open_gripper = True, close_first = False, stiffness = 150, reset_sitffness = 100):
         if open_gripper:
             if close_first:
                 self._set_gripper(2, wait=True)
             self._set_gripper(100, wait=True)
             self.open_gripper()
 
-        self.imp_ctrl_release_spring(100)
+        self.imp_ctrl_release_spring(reset_sitffness)
         self.move_to_joints_impedance_sec(angles, duration=duration)
         self.imp_ctrl_release_spring(stiffness)
 
