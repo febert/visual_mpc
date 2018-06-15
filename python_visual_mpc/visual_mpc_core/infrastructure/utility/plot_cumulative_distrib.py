@@ -2,24 +2,29 @@ import glob
 import pickle
 import numpy as np
 import copy
+import matplotlib
 import matplotlib.pyplot as plt
 import re
-from python_visual_mpc.visual_mpc_core.infrastructure.utility.combine_scores import read_scoes
+from python_visual_mpc.visual_mpc_core.infrastructure.utility.combine_scores import sorted_nicely
+from matplotlib.backends.backend_pdf import PdfPages
 
+def read_scores(dir):
+    files = glob.glob(dir + '/scores_*')
+    files = sorted_nicely(files)
 
-def get_metric(sources, use_ind=None, only_take_first_n=None):
     scores = []
-    for source in sources:
-        _, imp, score, _ = read_scoes(source)
-        scores.append(score)
+    imp = []
+    for f in files:
+        print('load', f)
+        dict_ = pickle.load(open(f, "rb"))
+        scores.append(dict_['scores'])
+        imp.append(dict_['improvement'])
+    return np.concatenate(scores), np.concatenate(imp)
 
-    if use_ind is not None:
-        scores = scores[0][use_ind] #assume only one array
-    else:
-        scores = np.concatenate(scores)
 
-    if only_take_first_n:
-        scores = scores[:only_take_first_n]
+def get_metric(folder, use_ind=None, only_take_first_n=None):
+
+    scores, imp = read_scores(folder)
 
     cummulative_fraction = []
     n_total = scores.shape[0]
@@ -34,46 +39,39 @@ def get_metric(sources, use_ind=None, only_take_first_n=None):
 
     return thresholds, cummulative_fraction
 
-def plot_results(name, files, labels, use_ind=None, only_take_first_n=None):
+def plot_results(name, folders, labels, use_ind=None, only_take_first_n=None):
 
-    plt.figure()
+    plt.switch_backend('TkAgg')
+    plt.figure(figsize=[5,4])
     # markers = ['o', 'd']
-    for file, label in zip(files, labels):
+    for folder, label in zip(folders, labels):
         print(label)
-        thresholds, cummulative_fraction = get_metric(file, use_ind, only_take_first_n)
+        thresholds, cummulative_fraction = get_metric(folder, use_ind, only_take_first_n)
         plt.plot(thresholds, cummulative_fraction, label=label)
 
     plt.xlabel("threshold")
-    plt.ylabel("fraction of runs less than threshold")
-    # plt.ylim([0., 1.0])
+    # matplotlib.rcParams.update({'font.size': 20})
+    # plt.rc('axes', labelsize=20)  # fontsize of the x and y labels
+    matplotlib.rc('axes', titlesize=8)
 
-    plt.legend()
-    if use_ind is not None:
-        suf = 'ordermatter'
-    else: suf = ''
-    plt.savefig('plots/{}scores_{}{}.pdf'.format(name, '-'.join(labels), suf))
-    # plt.show()
-
-
-def plot_order_matter():
-    file = [['/mnt/sda1/experiments/cem_exp/benchmarks/multiobj_pushing/firsttry/100trials'],
-            ['/mnt/sda1/experiments/cem_exp/intmstep_benchmarks/firsttry']]
-
-    inds = np.array([ 3,  4,  5,  8,  9, 17, 24, 26, 35, 36, 43, 45, 46, 59, 63, 66, 67,
-               69, 70, 71, 72, 73, 74, 75, 79, 81, 83, 85, 95])
-
-    labels = ['non scaffolding', 'ours']
-    plot_results(file, labels, use_ind=inds)
+    with PdfPages('plots/{}scores_{}.pdf'.format(name, '-'.join(labels))) as pdf:
+        plt.ylim([0,1.0])
+        plt.ylabel("fraction of runs less than threshold")
+        plt.legend()
+        pdf.savefig()
+        # plt.savefig('plots/{}scores_{}.png'.format(name, '-'.join(labels)))
+        # plt.show()
 
 if __name__ == '__main__':
     # plot_order_matter()
     # get results for all
 
     # #2 obj
-    file = [['/mnt/sda1/experiments/cem_exp/benchmarks/multiobj_pushing/firsttry/100trials', '/mnt/sda1/experiments/cem_exp/benchmarks/multiobj_pushing/firsttry'],
-            ['/mnt/sda1/experiments/cem_exp/intmstep_benchmarks/firsttry/48trials', '/mnt/sda1/experiments/cem_exp/intmstep_benchmarks/firsttry']]
-    labels = ['non-scaffolding','ours']
-    plot_results('2obj_', file, labels)
+    folders = ['/mnt/sda1/experiments/cem_exp/benchmarks/pos_ctrl/reg_startgoal_threshterm_tradeoff/66581',
+               '/mnt/sda1/experiments/cem_exp/benchmarks/pos_ctrl/predprop_threshterm/62538',
+               '/mnt/sda1/experiments/cem_exp/benchmarks/pos_ctrl/gtruth_track_thresterm/62540']
+    labels = ['ours', 'predprop','ground-truth-track']
+    plot_results('2obj_', folders, labels)
 
     # 3obj
     # file = [['/mnt/sda1/experiments/cem_exp/benchmarks/multiobj_pushing/3obj'], ['/mnt/sda1/experiments/cem_exp/intmstep_benchmarks/3obj']]

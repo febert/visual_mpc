@@ -12,8 +12,6 @@ import pickle
 import numpy as np
 import matplotlib.pyplot as plt
 import re
-from python_visual_mpc.visual_mpc_core.infrastructure.utility.combine_scores import read_scoes
-
 
 
 def sorted_nicely( l ):
