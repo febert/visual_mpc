@@ -8,46 +8,132 @@ import copy
 from python_visual_mpc.sawyer.visual_mpc_rospkg.src.primitives_regintervals import zangle_to_quat
 from python_visual_mpc.sawyer.visual_mpc_rospkg.src.utils import inverse_kinematics
 from python_visual_mpc.sawyer.visual_mpc_rospkg.src.misc.camera_calib.calibrated_camera import CalibratedCamera
+from python_visual_mpc.sawyer.visual_mpc_rospkg.src.visual_mpc_client import Getdesig
+import pdb
+import os
 class AgentSawyer:
     def __init__(self, agent_params):
-        print('CREATING AGENT FOR ROBOT: {}'.format(agent_params.get('robot_name', 'vestri')))
+        print('CREATING AGENT FOR ROBOT: {}'.format(agent_params['robot_name']))
         self._hyperparams = agent_params
+        self.img_height, self.img_width = agent_params['image_height'], agent_params['image_width']
 
         # initializes node and creates interface with Sawyer
-        self._controller = WSGRobotController(agent_params['control_rate'], agent_params.get('robot_name', 'vestri'))
+        self._controller = WSGRobotController(agent_params['control_rate'], agent_params['robot_name'])
         self._recorder = RobotDualCamRecorder(agent_params, self._controller)
 
         self._controller.reset_with_impedance()
 
         if 'rpn_objects' in agent_params:
-            self._calibrated_camera = CalibratedCamera(agent_params.get('robot_name', 'vestri'))
+            self._calibrated_camera = CalibratedCamera(agent_params['robot_name'])
 
+    def _select_points(self, front_cam, left_cam, fig_save_dir, clicks_per_desig = 2, n_desig = 1):
+        assert clicks_per_desig == 1 or clicks_per_desig == 2, "CLICKS_PER_DESIG SHOULD BE 1 OR 2"
+        start_pix = []
+        if clicks_per_desig == 2:
+            goal_pix = []
+        cam_dicts = [front_cam, left_cam]
+        for i, cam in enumerate(self._hyperparams['cameras']):
+            c_main = Getdesig(cam_dicts[i]['crop'], fig_save_dir, 'goal_{}'.format(cam), n_desig=n_desig,
+                              im_shape=[self.img_height, self.img_width], clicks_per_desig=clicks_per_desig)
+
+            start_pos = c_main.desig.astype(np.int64)
+            start_pix.append(start_pos.reshape(1, 1, -1))
+
+            if clicks_per_desig == 2:
+                goal_pos = c_main.goal.astype(np.int64)
+                goal_pix.append(goal_pos.reshape(1, 1, -1))
+
+        start_pix = np.concatenate(start_pix, 0)
+        if clicks_per_desig == 2:
+            goal_pix = np.concatenate(goal_pix, 0)
+            return start_pix, goal_pix
+        return  start_pix
 
     def sample(self, policy, itr):
         traj_ok = False
         max_tries = self._hyperparams.get('max_tries', 100)
         cntr = 0
         traj = None
+        fig_save_dir = None
 
-        if itr % 30 == 0 and itr > 0:
-            self._controller.redistribute_objects()
-            print('Sampling {}'.format(itr))
+        if 'benchmark_exp' not in self._hyperparams:
+            if itr % 30 == 0 and itr > 0:
+                self._controller.redistribute_objects()
+                print('Sampling {}'.format(itr))
+            else:
+                print('Sampling {}, redist in {}'.format(itr, 30 - itr % 30))
         else:
-            print('Sampling {}, redist in {}'.format(itr, 30 - itr % 30))
+            print("BEGINNING BENCHMARK")
+
+            save_dir = raw_input("Enter Experiment save_dir:")
+            self._hyperparams['benchmark_exp'] = save_dir
+            fig_save_dir = self._hyperparams['data_save_dir'] + '/' + save_dir
+            record_dir = fig_save_dir + '/record'
+            self._hyperparams['record'] = record_dir
+
+            if not os.path.exists(record_dir):
+                print("CREATING DIR: {}".format(record_dir))
+                os.makedirs(record_dir)
+            else:
+                print("WARNING PATH EXISTS: {}".format(record_dir))
 
         while not traj_ok and cntr < max_tries:
-            traj, traj_ok = self.rollout(policy)
+            self._controller.reset_with_impedance(duration=1.0, close_first=True)  # go to neutral
+            if 'benchmark_exp' in self._hyperparams:
+                print("BEGINNING BENCHMARKS ROLLOUT")
+
+                if 'register_gtruth' in self._hyperparams and len(self._hyperparams['register_gtruth']) == 2:
+                    print("PLACE OBJECTS IN GOAL POSITION")
+                    raw_input("When ready to annotate GOAL images press anything...")
+
+                    read_ok, front_goal, left_goal = self._recorder.get_images()
+                    if not read_ok:
+                        print("CAMERA DESYNC")
+                        break
+                    goal_dir = fig_save_dir + '/goal'
+                    if not os.path.exists(goal_dir):
+                        os.makedirs(goal_dir)
+                    front_goal_float, left_goal_float =front_goal['crop'].astype(np.float32) / 255., \
+                                                       left_goal['crop'].astype(np.float32) / 255.
+
+                    goal_images = np.concatenate((front_goal_float[None], left_goal_float[None]), 0)
+                    print('goal_images shape', goal_images.shape)
+
+                    goal_pix = self._select_points(front_goal, left_goal, fig_save_dir, clicks_per_desig=1)
+
+                    start_dir = fig_save_dir + '/start'
+                    if not os.path.exists(start_dir):
+                        os.makedirs(start_dir)
+                    print("PLACE OBJECTS IN START POSITION")
+                    raw_input("When ready to annotate START images press anything...")
+                    read_ok, front_start, left_start = self._recorder.get_images()
+                    if not read_ok:
+                        print("CAMERA DESYNC")
+                        break
+                    start_pix = self._select_points(front_start, left_start, start_dir, clicks_per_desig=1)
+
+                    traj, traj_ok = self.rollout(policy, start_pix, goal_pix, goal_images)
+                else:
+                    read_ok, front_cam, left_cam = self._recorder.get_images()
+                    if not read_ok:
+                        print("CAMERA DESYNC")
+                        break
+
+                    print("PLACE OBJECTS IN START POSITION")
+                    raw_input("When ready to annotate START/GOAL press anything...")
+                    start_pix, goal_pix = self._select_points(front_cam, left_cam, fig_save_dir)
+                    traj, traj_ok = self.rollout(policy, start_pix, goal_pix)
+            else:
+                traj, traj_ok = self.rollout(policy)
 
         return traj, traj_ok
 
-    def rollout(self, policy):
+    def rollout(self, policy, start_pix = None, goal_pix = None, goal_image = None):
         traj = Trajectory(self._hyperparams)
         traj_ok = True
 
         self.t_down = 0
         self.gripper_up, self.gripper_closed = False, False
-
-        self._controller.reset_with_impedance(duration= 1.0, close_first=True)              # go to neutral
 
         if 'rpn_objects' in self._hyperparams:
             if not self._recorder.store_recordings(traj, 0): #grab frame of robot in neutral
@@ -59,8 +145,12 @@ class AgentSawyer:
             for i, r in enumerate(rbt_coords):
                 traj.Object_pose[0, i] = r
 
-        self._controller.reset_with_impedance(angles=self.random_start_angles(), open_gripper=False, duration= 1.0,
-                                              stiffness=self._hyperparams['impedance_stiffness'])
+        if 'randomize_initial_pos' in self._hyperparams:
+            self._controller.reset_with_impedance(angles=self.random_start_angles(), open_gripper=False, duration= 1.0,
+                                                  stiffness=self._hyperparams['impedance_stiffness'])
+        else:
+            self._controller.reset_with_impedance(open_gripper=False, duration=1.0,
+                                                  stiffness=self._hyperparams['impedance_stiffness'])
         rospy.sleep(0.3)   #let things settle
         for t in xrange(self._hyperparams['T']):
             if not self._recorder.store_recordings(traj, t):
@@ -77,7 +167,7 @@ class AgentSawyer:
                 euc_error, abs_error = np.linalg.norm(diff), np.abs(diff)
                 print("at time {}, l2 error {} and abs_dif {}".format(t, euc_error, abs_error))
 
-            mj_U = policy.act(traj, t)
+            mj_U = policy.act(traj, t, start_pix, goal_pix, goal_image)
             traj.actions[t] = copy.deepcopy(mj_U)
 
             if 'check_preplan' in self._hyperparams and t == 0:

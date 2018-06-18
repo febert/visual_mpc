@@ -6,5 +6,5 @@
           <!--<param name="robot" value="$(arg robot)"/>-->
           <!--<param name="savedir" value=""/>-->
      <!--</node>-->
-     <include file="$(find visual_mpc_rospkg)/launch/start_gripper_autoupdate_$(arg robot).launch"/>
+     <!--<include file="$(find visual_mpc_rospkg)/launch/start_gripper_autoupdate_$(arg robot).launch"/>-->
 </launch>

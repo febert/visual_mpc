@@ -53,7 +53,7 @@ policy = {
     'nactions': 5,
     'repeats': 3,               # number of repeats for each action
     'initial_std': 0.08,        # std dev. in xy
-    'initial_std_lift': 2.5, #0.1,
+    'initial_std_lift': 1.6, #0.1,
     'initial_std_rot': 0.1,
 }
 

@@ -1,5 +1,5 @@
 
-import matplotlib; matplotlib.use('Agg'); import matplotlib.pyplot as plt
+import matplotlib.pyplot as plt
 
 import numpy as np
 import tensorflow as tf
@@ -85,7 +85,7 @@ from numpy import *
 import os
 from pylab import *
 import numpy as np
-import matplotlib; matplotlib.use('Agg'); import matplotlib.pyplot as plt
+
 import matplotlib.cbook as cbook
 import time
 from numpy import random

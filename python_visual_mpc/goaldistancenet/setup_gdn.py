@@ -25,9 +25,10 @@ def setup_gdn(conf, gpu_id = 0):
     with sess.as_default():
         with g_predictor.as_default():
             # print 'predictor default session:', tf.get_default_session()
-            # print 'predictor default graph:', tf.get_default_graph()
+            # print 'predictor default graph:', tf.get_default_graph(   )
 
-            print('Constructing model for control')
+            print('Constructing model Warping Network')
+
             model = GoalDistanceNet(conf = conf,
                                      build_loss=False,
                                      load_data = False)
@@ -54,6 +55,7 @@ def setup_gdn(conf, gpu_id = 0):
             print('gdn restore done.')
 
             def predictor_func(pred_images, goal_image):
+
                 feed_dict = {
                             model.I0_pl:pred_images,
                             model.I1_pl:goal_image}

@@ -23,10 +23,11 @@ BASE_DIR = '/'.join(str.split(__file__, '/')[:-1])
 
 import python_visual_mpc
 DATA_DIR = '/'.join(str.split(python_visual_mpc.__file__, '/')[:-2])
+folder_name = '/'.join(str.split(__file__, '/')[-2:-1])
 
 agent = {
     'type': AgentMuJoCo,
-    'data_save_dir': BASE_DIR + '/train',
+    'data_save_dir': os.environ['VMPC_DATA_DIR'] + '/cartgripper/' + folder_name + '/train',
     'filename': DATA_DIR+'/mjc_models/cartgripper_updown_2cam.xml',
     'filename_nomarkers': DATA_DIR+'/mjc_models/cartgripper_updown_2cam.xml',
     'data_collection': True,
@@ -34,6 +35,8 @@ agent = {
     'adim':3,
     'sdim':6,
     'xpos0': np.array([0., 0., 0.]),
+    'object_mass':0.01,
+    'friction':1.5,
     'dt': 0.05,
     'substeps': 20,  #6
     'T': 2,
@@ -55,7 +58,7 @@ agent = {
 }
 
 policy = {
-    'type' : lambda x, y: None,
+    'type' : lambda x, y, z: None,
 }
 
 config = {

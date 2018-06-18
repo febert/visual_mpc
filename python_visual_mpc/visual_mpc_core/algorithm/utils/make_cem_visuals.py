@@ -2,11 +2,15 @@ import numpy as np
 import pdb
 import os
 import collections
+import pickle
 from PIL import Image
 from python_visual_mpc.video_prediction.basecls.utils.visualize import add_crosshairs
 from python_visual_mpc.video_prediction.utils_vpred.animate_tkinter import Visualizer_tkinter
 import cv2
 import pdb
+
+
+from python_visual_mpc.utils.txt_in_image import draw_text_onimage
 
 import matplotlib; matplotlib.use('Agg'); import matplotlib.pyplot as plt
 
@@ -73,7 +77,7 @@ def plot_sum_overtime(pixdistrib, dir, filename, tradeoffs):
 
 
 def make_cem_visuals(ctrl, actions, bestindices, cem_itr, flow_fields, gen_distrib, gen_images, gen_states,
-                     last_frames, goal_warp_pts_l, scores, warped_image_goal, warped_image_start, warped_images, last_states):
+                     last_frames, goal_warp_pts_l, scores, warped_image_goal, warped_image_start, warped_images, last_states, reg_tradeoff):
     if 'compare_mj_planner_actions' in ctrl.agentparams:
         selindices = np.concatenate([np.zeros(1, dtype=np.int) ,bestindices])
     else: selindices = bestindices
@@ -94,7 +98,7 @@ def make_cem_visuals(ctrl, actions, bestindices, cem_itr, flow_fields, gen_distr
     for icam in range(ctrl.ncam):
         current_image = [np.repeat(np.expand_dims(last_frames[0, 1, icam], axis=0), num_ex, axis=0) for _ in
                          range(len_pred)]
-        t_dict_['current_image_cam{}'.format(icam)] = current_image
+        t_dict_['curr_img_cam{}'.format(icam)] = current_image
 
     if 'warp_objective' in ctrl.policyparams:
         warped_images = image_addgoalpix(bsize, len_pred, warped_images, ctrl.goal_pix)
@@ -107,16 +111,21 @@ def make_cem_visuals(ctrl, actions, bestindices, cem_itr, flow_fields, gen_distr
         gen_image_an_l = []
         for icam in range(ctrl.ncam):
             if 'start' in ctrl.policyparams['register_gtruth']:
-                t_dict_['warped_image_start_cam{}'.format(icam)] = [np.repeat(np.expand_dims(warped_image_start.squeeze(), axis=0), num_ex, axis=0) for _ in
+                if 'trade_off_reg' in ctrl.policyparams:
+                    warped_img_start_cam = draw_text_onimage('%.2f' % reg_tradeoff[icam, 0],warped_image_start[icam].squeeze())
+                else:
+                    warped_img_start_cam  = warped_image_start[icam].squeeze()
+                t_dict_['warp_start_cam{}'.format(icam)] = [np.repeat(np.expand_dims(warped_img_start_cam, axis=0), num_ex, axis=0) for _ in
                                                   range(len_pred)]
 
-            startimages = np.tile(ctrl.start_image[None], [num_ex, len_pred, 1, 1, 1])
             if 'image_medium' in ctrl.agentparams:
                 desig_pix_t0 = ctrl.desig_pix_t0_med[icam][None]
             else:
                 desig_pix_t0 = ctrl.desig_pix_t0[icam][None]
             desig_pix_t0 = np.tile(desig_pix_t0, [num_ex, len_pred, 1])
-            t_dict_['start_image_cam{}'.format(icam)] = add_crosshairs(startimages, desig_pix_t0)
+
+            startimages = np.tile(ctrl.start_image[icam][None, None], [num_ex, len_pred, 1, 1, 1])
+            t_dict_['start_img_cam{}'.format(icam)] = unstack(add_crosshairs(startimages, desig_pix_t0), 1)
 
             ipix = 0
             gen_image_an = gen_images[:, :, icam]
@@ -127,11 +136,16 @@ def make_cem_visuals(ctrl, actions, bestindices, cem_itr, flow_fields, gen_distr
             if 'goal' in ctrl.policyparams['register_gtruth']:
                 desig_pix_goal = np.tile(ctrl.desig_pix[icam, ipix][None,None, :], [bsize, len_pred, 1])
                 gen_image_an = add_crosshairs(gen_image_an, desig_pix_goal, color=[0, 0, 1.])
+                if 'trade_off_reg' in ctrl.policyparams:
+                    warped_img_goal_cam = draw_text_onimage('%.2f' % reg_tradeoff[icam, 1],warped_image_goal[icam].squeeze())
+                else:
+                    warped_img_goal_cam  = warped_image_goal[icam].squeeze()
+                warped_img_goal_cam = [np.repeat(np.expand_dims(warped_img_goal_cam, axis=0), num_ex, axis=0) for _ in
+                                       range(len_pred)]
+                t_dict_['warp_goal_cam{}'.format(icam)] = warped_img_goal_cam
+
             gen_image_an_l.append(gen_image_an)
 
-            t_dict_['warped_image_goal_cam{}'.format(icam)] = [
-                np.repeat(np.expand_dims(warped_image_goal.squeeze(), axis=0), num_ex, axis=0) for _ in
-                range(len_pred)]
     else:
         gen_image_an_l = None
 
@@ -157,9 +171,9 @@ def make_cem_visuals(ctrl, actions, bestindices, cem_itr, flow_fields, gen_distr
         for icam in range(ctrl.ncam):
             for p in range(ctrl.ndesig):
                 sel_gen_distrib_p = unstack(sel_gen_distrib[:,:, icam,:,:, p], 1)
-                t_dict_['gen_distrib_cam{}_p{}_t{}'.format(icam, p, ctrl.t)] = sel_gen_distrib_p
+                t_dict_['gen_distrib_cam{}_p{}'.format(icam, p)] = sel_gen_distrib_p
                 if gl_im_ann is not None:
-                    t_dict_['gen_distrib_goalim_overlay_cam{}_{}_t{}'.format(icam, p, ctrl.t)] = \
+                    t_dict_['gen_dist_goalim_overlay_cam{}_{}_t{}'.format(icam, p, ctrl.t)] = \
                                  (unstack(gl_im_ann_per_tsk[p,:,:,icam], 1), sel_gen_distrib_p)
 
     for icam in range(ctrl.ncam):
@@ -171,9 +185,16 @@ def make_cem_visuals(ctrl, actions, bestindices, cem_itr, flow_fields, gen_distr
 
     print('itr{} best scores: {}'.format(cem_itr, [scores[selindices[ind]] for ind in range(num_ex)]))
     t_dict_['scores'] = scores[selindices]
+    t_dict_['desig_pix'] = ctrl.desig_pix
+    t_dict_['desig_pix_t0'] = ctrl.desig_pix_t0
+    t_dict_['goal_pix'] = ctrl.goal_pix
 
     ctrl.dict_.update(t_dict_)
     if 'no_instant_gif' not in ctrl.agentparams:
+        if 'save_pkl' in ctrl.agentparams:
+            pickle.dump(t_dict_, open(ctrl.agentparams['record'] + '/plan/pred_t{}iter{}.pkl'.format(ctrl.t, cem_itr), 'wb'))
+            print('written files to:' + file_path)
+
         v = Visualizer_tkinter(t_dict_, append_masks=False,
                                filepath=ctrl.agentparams['record'] + '/plan/',
                                numex=num_ex, suf='t{}iter_{}'.format(ctrl.t, cem_itr))
@@ -182,12 +203,13 @@ def make_cem_visuals(ctrl, actions, bestindices, cem_itr, flow_fields, gen_distr
         else: size = None
         v.make_direct_vid(resize=size)
 
-        start_frame_conc = np.concatenate([last_frames[0, 0, 0], last_frames[0, 1, 0]], 0).squeeze()
-        start_frame_conc = (start_frame_conc*255.).astype(np.uint8)
-        Image.fromarray(start_frame_conc).save(ctrl.agentparams['record'] + '/plan/start_frame{}iter_{}.png'.format(ctrl.t, cem_itr))
+        # start_frame_conc = np.concatenate([last_frames[0, 0, 0], last_frames[0, 1, 0]], 0).squeeze()
+        # start_frame_conc = (start_frame_conc*255.).astype(np.uint8)
+        # Image.fromarray(start_frame_conc).save(ctrl.agentparams['record'] + '/plan/start_frame{}iter_{}.png'.format(ctrl.t, cem_itr))
 
         make_action_summary(num_ex, actions, ctrl.agentparams, selindices, cem_itr, ctrl.netconf['sequence_length'], ctrl.t)
-        make_state_summary(num_ex, last_states, gen_states, ctrl.agentparams, selindices, cem_itr, ctrl.t)
+        if gen_states is not None:
+            make_state_summary(num_ex, last_states, gen_states, ctrl.agentparams, selindices, cem_itr, ctrl.t)
         if 'warp_objective' in ctrl.policyparams:
             t_dict_['warp_pts_t{}'.format(ctrl.t)] = sel_func(goal_warp_pts_l)
             t_dict_['flow_fields{}'.format(ctrl.t)] = flow_fields[selindices[:K]]
@@ -200,6 +222,7 @@ def unstack(arr, dim):
     newdim = orig_dim
     splitted = np.split(arr, listlen, dim)
     return [el.reshape(newdim) for el in splitted]
+
 
 def make_action_summary(K, actions, agentparams, bestindices, cem_itr, seq_len, tstep):
     with open(agentparams['record'] + '/plan/actions_t{}iter_{}'.format(tstep, cem_itr), 'w') as f:

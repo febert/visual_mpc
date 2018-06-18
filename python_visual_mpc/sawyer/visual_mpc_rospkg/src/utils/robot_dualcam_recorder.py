@@ -21,14 +21,22 @@ NUM_JOINTS = 7 #Sawyer has 7 dof arm
 
 class Trajectory:
     def __init__(self, agentparams):
+        self._agent_conf = agentparams
+
         T = agentparams['T']
         self.sequence_length = T
+
+        if 'autograsp' in agentparams:
+            self.min = np.array(agentparams['targetpos_clip'][0][:3])
+            self.delta = np.array(agentparams['targetpos_clip'][1][:3]) - self.min
+            self.X_full = np.zeros((T, 5))
 
         self.actions = np.zeros((T, agentparams['adim']))
         self.joint_angles = np.zeros((T, NUM_JOINTS))
         self.joint_velocities = np.zeros((T, NUM_JOINTS))
         self.endeffector_poses = np.zeros((T, 7))    #x,y,z + quaternion
         self.robot_states = np.zeros((T, agentparams['sdim']))
+
 
         cam_height = agentparams.get('cam_image_height', 401)
         cam_width = agentparams.get('cam_image_width', 625)
@@ -42,6 +50,11 @@ class Trajectory:
         self.mask_rel = copy.deepcopy(agentparams['mode_rel'])
 
         self._save_raw = 'no_raw_images' not in agentparams
+
+    @property
+    def i_tr(self):
+        return 0
+
 
     def save(self, file_path):
         if os.path.exists(file_path):
@@ -70,7 +83,10 @@ class Trajectory:
             for i in range(self.sequence_length):
                 cv2.imwrite('{}/im{}.png'.format(folder, i), self.images[i, f, :, :, ::-1],
                             [cv2.IMWRITE_PNG_STRATEGY_DEFAULT, 1])
-                clip.append(self.images[i, f])
+                if 'save_large_gifs' in self._agent_conf:
+                    clip.append(self.raw_images[i, f])
+                else:
+                    clip.append(self.images[i, f])
                 if self._save_raw:
                     cv2.imwrite('{}/im_med{}.png'.format(folder, i), self.raw_images[i, f, :, :, ::-1],
                                 [cv2.IMWRITE_PNG_STRATEGY_DEFAULT, 1])
@@ -84,6 +100,11 @@ class Latest_observation(object):
         self.tstamp_img = None
         self.img_msg = None
         self.mutex = Lock()
+
+    def to_dict(self):
+        img_crop = self.img_cropped[:, :, ::-1].copy()
+        img_raw = self.img_cv2[:, :, ::-1].copy()
+        return {'crop': img_crop, 'raw' : img_raw}
 
 class RobotDualCamRecorder:
     def __init__(self, agent_params, robot_controller, OFFSET_TOL = 0.03):
@@ -108,6 +129,18 @@ class RobotDualCamRecorder:
 
         self.obs_tol = OFFSET_TOL
 
+    def get_images(self):
+        self.front_limage.mutex.acquire()
+        self.left_limage.mutex.acquire()
+        read_ok = np.abs(self.front_limage.tstamp_img - self.left_limage.tstamp_img) <= self.obs_tol
+        front_dict = self.front_limage.to_dict()
+        left_dict = self.left_limage.to_dict()
+        self.front_limage.mutex.release()
+        self.left_limage.mutex.release()
+        if not read_ok:
+            return False, None, None
+        return True, front_dict, left_dict
+
     def store_recordings(self, traj, t):
         assert t < traj.sequence_length, "time t is larger than traj.sequence_length={}".format(t, traj.sequence_length)
         assert t >= 0, "t = {}, must be non-negative!".format(t)
@@ -131,6 +164,13 @@ class RobotDualCamRecorder:
         traj.endeffector_poses[t] = ee_pose
         traj.robot_states[t] = state
         traj.touch_sensors[t] = force_sensors
+
+        if 'autograsp' in self.agent_params:
+            norm_states = copy.deepcopy(np.concatenate((state[:-1], force_sensors), axis=0)[:-1])
+            norm_states[:3] -= traj.min
+            norm_states[:3] /= traj.delta
+            print('norm_states at {}'.format(t), norm_states)
+            traj.X_full[t] = norm_states
 
         self.front_limage.mutex.release()
         self.left_limage.mutex.release()
@@ -207,21 +247,29 @@ class RobotDualCamRecorder:
         self.front_limage.mutex.acquire()
         front_conf = self.data_conf['front_cam']
         self._proc_image(self.front_limage, data, front_conf)
-        self.front_limage.mutex.release()
 
         if not self.front_first:
+            if not os.path.exists(self.agent_params['data_save_dir']):
+                os.makedirs(self.agent_params['data_save_dir'])
+            cv2.imwrite(self.agent_params['data_save_dir'] + '/front_test.png', self.front_limage.img_cropped)
             self.front_first = True
             self.front_sem.release()
+
+        self.front_limage.mutex.release()
 
     def store_latest_l_im(self, data):
         self.left_limage.mutex.acquire()
         left_conf = self.data_conf['left_cam']
         self._proc_image(self.left_limage, data, left_conf)
-        self.left_limage.mutex.release()
 
         if not self.left_first:
+            if not os.path.exists(self.agent_params['data_save_dir']):
+                os.makedirs(self.agent_params['data_save_dir'])
+            cv2.imwrite(self.agent_params['data_save_dir'] + '/left_test.png', self.left_limage.img_cropped)
             self.left_first = True
             self.left_sem.release()
+
+        self.left_limage.mutex.release()
 
     def _crop_resize(self, image, cam_conf):
         target_img_height, target_img_width = self.agent_params['image_height'], self.agent_params['image_width']

@@ -33,6 +33,7 @@ class WSGRobotController(RobotController):
 
         self._force_counter = 0
         self._integrate_gripper_force = 0.
+        self.num_timeouts = 0
 
         self.gripper_pub = rospy.Publisher('/wsg_50_driver/goal_position', Cmd, queue_size=10)
         rospy.Subscriber("/wsg_50_driver/status", Status, self._gripper_callback)
@@ -49,8 +50,6 @@ class WSGRobotController(RobotController):
 
         self.imp_ctrl_release_spring(100)
         self.imp_ctrl_active.publish(1)
-
-        self.num_timeouts = 0
 
     def set_gripper_speed(self, new_speed):
         assert new_speed > 0 and new_speed <= 600, "Speed must be in range (0, 600]"

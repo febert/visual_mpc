@@ -21,8 +21,8 @@ agent = {
     'filename_nomarkers': ROOT_DIR + '/mjc_models/cartgripper_grasp.xml',
     'gen_xml':1,   #generate xml every nth trajecotry
     'num_objects': 1,
-    'object_mass':0.01,
-    'friction':1.5,
+    'object_mass':0.1,
+    'friction':1.0,
     'skip_first':0,
     'viewer_image_height' : 480,
     'viewer_image_width' : 640,

@@ -13,12 +13,10 @@ def _int64_feature(value):
   return tf.train.Feature(int64_list=tf.train.Int64List(value=value))
 
 
-def save_tf_record(filename, trajectory_list, params):
+def save_tf_record(dir, filename, trajectory_list, agentparams):
     """
     saves data_files from one sample trajectory into one tf-record file
     """
-
-    dir = params['data_save_dir']
     if not os.path.exists(dir):
         os.makedirs(dir, exist_ok=True)
     filename = os.path.join(dir, filename + '.tfrecords')
@@ -29,29 +27,32 @@ def save_tf_record(filename, trajectory_list, params):
 
         traj = trajectory_list[tr]
 
-        if 'store_video_prediction' in params:
+        if 'store_video_prediction' in agentparams:
             sequence_length = len(traj.final_predicted_images)
         else:
             sequence_length = traj.images.shape[0]
 
         for tind in range(sequence_length):
-
             feature[str(tind) + '/action']= _float_feature(traj.actions[tind,:].tolist())
-            feature[str(tind) + '/endeffector_pos'] = _float_feature(traj.X_Xdot_full[tind,:].tolist())
 
-            if 'cameras' in params:
-                for i in range(len(params['cameras'])):
+            if 'finger_sensors' in agentparams:     #TODO: @Sudeep do you need to change something?
+                # discarding the last qpos dimension since the gripper position occurs twice.
+                assert traj.X_full.shape[1] == 6
+                arr = np.concatenate([traj.X_full[tind,:5], traj.touch_sensors[tind]], axis=0)
+                feature[str(tind) + '/endeffector_pos'] = _float_feature(arr.tolist())
+            else:
+                feature[str(tind) + '/endeffector_pos'] = _float_feature(traj.X_Xdot_full[tind,:].tolist())
+
+            if 'cameras' in agentparams:
+                for i in range(len(agentparams['cameras'])):
                     image_raw = traj.images[tind, i].tostring()
                     feature[str(tind) + '/image_view{}/encoded'.format(i)] = _bytes_feature(image_raw)
             else:
-                if 'store_video_prediction' in params:
+                if 'store_video_prediction' in agentparams:
                     image_raw = traj.final_predicted_images[tind].tostring()
                 else:
                     image_raw = traj.images[tind].tostring()
                 feature[str(tind) + '/image_view0/encoded'] = _bytes_feature(image_raw)
-
-            if hasattr(traj, 'touchdata'):
-                feature['touchdata/' + str(tind)] = _float_feature(traj.touchdata[tind, :].tolist())
 
             if hasattr(traj, 'Object_pose'):
                 Object_pos_flat = traj.Object_pose[tind].flatten()
