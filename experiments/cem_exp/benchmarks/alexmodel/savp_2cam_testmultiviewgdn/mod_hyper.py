@@ -12,19 +12,18 @@ from python_visual_mpc.visual_mpc_core.agent.agent_mjc import AgentMuJoCo
 import numpy as np
 agent = {
     'type': AgentMuJoCo,
-    'T': 120,
-    'term_dist':0.08,
+    'T': 30,
     'substeps':200,
     'adim':3,
     'sdim':6,
     'make_final_gif':'',
     # 'no_instant_gif':"",
-    'filename': ROOT_DIR + '/mjc_models/cartgripper_updown.xml',
-    'filename_nomarkers': ROOT_DIR + '/mjc_models/cartgripper_updown.xml',
-    'gen_xml':1,   #generate xml every nth trajecotry
-    'num_objects': 1,
+    'filename': ROOT_DIR + '/mjc_models/cartgripper_updown_2cam.xml',
+    'filename_nomarkers': ROOT_DIR + '/mjc_models/cartgripper_updown_2cam.xml',
     'object_mass':0.01,
     'friction':1.5,
+    'gen_xml':1,   #generate xml every nth trajecotry
+    'num_objects': 1,
     'viewer_image_height' : 480,
     'viewer_image_width' : 640,
     'image_height':48,
@@ -34,6 +33,7 @@ agent = {
     'posmode':"",
     'targetpos_clip':[[-0.45, -0.45, -0.08], [0.45, 0.45, 0.15]],
     'discrete_adim':[2],
+    'cameras':['maincam', 'leftcam']
 }
 
 policy = {
@@ -56,15 +56,19 @@ policy = {
     'trade_off_reg':''
 }
 
-tag_images = {'name': 'images',
-             'file':'/images/im{}.png',   # only tindex
+tag_images0 = {'name': 'images0',
+             'file':'/images0/im{}.png',   # only tindex
              'shape':[agent['image_height'],agent['image_width'],3],
                }
+
+tag_images1 = {'name': 'images1',
+              'file':'/images1/im{}.png',   # only tindex
+              'shape':[agent['image_height'],agent['image_width'],3],
+              }
 
 tag_qpos = {'name': 'qpos',
              'shape':[3],
              'file':'/state_action.pkl'}
-
 tag_object_full_pose = {'name': 'object_full_pose',
                          'shape':[4,7],
                          'file':'/state_action.pkl'}
@@ -80,7 +84,7 @@ config = {
     'agent':agent,
     'policy':policy,
     'ngroup': 100,
-    'sourcetags':[tag_images, tag_qpos, tag_object_full_pose, tag_object_statprop],
-    'source_basedirs':[os.environ['VMPC_DATA_DIR'] + '/cartgripper/cartgripper_startgoal_masks/train'],
+    'sourcetags':[tag_images0, tag_images1, tag_qpos, tag_object_full_pose, tag_object_statprop],
+    'source_basedirs':[os.environ['VMPC_DATA_DIR'] + '/cartgripper/cartgripper_startgoal_2view/train'],
     'sequence_length':2
 }

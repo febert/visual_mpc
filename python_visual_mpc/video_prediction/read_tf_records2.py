@@ -19,6 +19,7 @@ from random import shuffle as shuffle_list
 from python_visual_mpc.misc.zip_equal import zip_equal
 import copy
 COLOR_CHAN = 3
+
 def decode_im(conf, features, image_name):
 
     if 'orig_size' in conf:
@@ -45,7 +46,7 @@ def decode_im(conf, features, image_name):
     return image
 
 
-def mix_datasets(datasets, ratios):
+def mix_datasets(datasets, sizes):
     """Sample batch with specified mix of ground truth and generated data_files points.
 
     Args:
@@ -57,14 +58,15 @@ def mix_datasets(datasets, ratios):
       New batch with num_ground_truth sampled from ground_truth_x and the rest
       from generated_x.
     """
+    assert isinstance(sizes[0], int)
     batch_size = datasets[0]['images'].get_shape().as_list()[0]
+    assert np.sum(np.array(sizes)) == batch_size
 
     output = {}
     for key in datasets[0].keys():
         sel_ten = []
         for i, d in enumerate(datasets):
-            num_set = tf.cast(int(batch_size)*ratios[i], tf.int64)
-            sel_ten.append(d[key][:num_set])
+            sel_ten.append(d[key][:sizes[i]])
 
         ten = tf.concat(sel_ten, axis=0)
         output[key] = ten
@@ -82,7 +84,6 @@ def build_tfrecord_input(conf, mode='train', input_files=None, shuffle=True, buf
             print('loading', key)
             data_set.append(build_tfrecord_single(conf_, mode, None, shuffle, buffersize))
             ratios.append(conf['data_dir'][key])
-
         comb_dataset = mix_datasets(data_set, ratios)
 
         return comb_dataset
@@ -140,17 +141,19 @@ def build_tfrecord_single(conf, mode='train', input_files=None, shuffle=True, bu
         rand_h = tf.random_uniform([1], minval=-0.2, maxval=0.2)
         rand_s = tf.random_uniform([1], minval=-0.2, maxval=0.2)
         rand_v = tf.random_uniform([1], minval=-0.2, maxval=0.2)
-
         features_name = {}
 
         for i in load_indx:
-
             image_names = []
-            if 'ncam' in conf:
-                ncam = conf['ncam']
-            else: ncam = 1
+            if 'view' in conf:
+                cam_ids = [conf['view']]
+            else:
+                if 'ncam' in conf:
+                    ncam = conf['ncam']
+                else: ncam = 1
+                cam_ids = range(ncam)
 
-            for icam in range(ncam):
+            for icam in cam_ids:
                 image_names.append(str(i) + '/image_view{}/encoded'.format(icam))
                 features_name[image_names[-1]] = tf.FixedLenFeature([1], tf.string)
 
@@ -256,7 +259,6 @@ def build_tfrecord_single(conf, mode='train', input_files=None, shuffle=True, bu
 
         return return_dict
 
-
     dataset = tf.data.TFRecordDataset(filenames)
     dataset = dataset.map(_parse_function)
 
@@ -286,7 +288,15 @@ def main():
     current_dir = os.path.dirname(os.path.realpath(__file__))
     # DATA_DIR = '/mnt/sda1/pushing_data/cartgripper/grasping/lift_imitation_dataset/test'
     # DATA_DIR = '/mnt/sda1/pushing_data/onpolicy/distributed_pushing/train'
-    DATA_DIR = '/mnt/sda1/pushing_data/sawyer_grasping/sawyer_data/vestri_ag/good'
+    # DATA_DIR = '/mnt/sda1/pushing_data/sawyer_grasping/sawyer_data/vestri_ag/good'
+    DATA_DIR = {os.environ['VMPC_DATA_DIR'] + '/sawyer_grasping/sawyer_data/sudri_ag/good': 8,
+                os.environ['VMPC_DATA_DIR'] + '/sawyer_grasping/sawyer_data/sudri_ag/bad': 12,
+                os.environ['VMPC_DATA_DIR'] + '/sawyer_grasping/sawyer_data/vestri_ag/good': 8,
+                os.environ['VMPC_DATA_DIR'] + '/sawyer_grasping/sawyer_data/vestri_ag/bad': 12,
+                os.environ['VMPC_DATA_DIR'] + '/sawyer_grasping/sawyer_data/sudri_ag_long/good': 12,
+                os.environ['VMPC_DATA_DIR'] + '/sawyer_grasping/sawyer_data/sudri_ag_long/bad': 12,
+                }
+
     # DATA_DIR = {os.environ['VMPC_DATA_DIR'] + '/cartgripper/cartgripper_2view': 0.5,
     #             os.environ['VMPC_DATA_DIR'] + '/cartgripper/grasping/dualcam_pick_place_dataset/good': 0.25,
     #             os.environ['VMPC_DATA_DIR'] + '/cartgripper/grasping/dualcam_pick_place_dataset/bad': 0.25}
@@ -296,10 +306,11 @@ def main():
     conf['skip_frame'] = 1
     conf['train_val_split']= 0.95
     conf['sequence_length']= 15  #48      # 'sequence length, including context frames.'
-    conf['batch_size'] = 20
+    conf['batch_size'] = 64
     conf['visualize'] = False
     conf['context_frames'] = 2
     conf['ncam'] = 2
+    conf['view'] = 1   # only first view
 
     # conf['max_epoch'] = 1     #requires batchsize equal to tfrec size
     # conf['row_start'] = 15
@@ -326,7 +337,7 @@ def main():
 
     print('testing the reader')
 
-    dict = build_tfrecord_input(conf, mode='train', buffersize=10)
+    dict = build_tfrecord_input(conf, mode='test', buffersize=10)
 
     sess = tf.InteractiveSession()
     tf.train.start_queue_runners(sess)
@@ -347,10 +358,9 @@ def main():
         # plt.show()
         # plt.imshow(firstlastnoarm[0,1])
         # plt.show()
+        file_path = os.environ['VMPC_DATA_DIR'] + '/sawyer_grasping/sawyer_data/view{}'.format(conf['view'])
 
-        file_path = DATA_DIR
-
-        if 'ncam' in conf:
+        if len(images.shape) == 6:
             vidlist = []
             for i in range(images.shape[2]):
                 video = [v.squeeze() for v in np.split(images[:,:,i],images.shape[1], 1)]
@@ -369,12 +379,12 @@ def main():
         # end = time.time()
 
 
-        for b in range(10):
-            print('actions {}'.format(b))
-            print(actions[b])
-
-            print('endeff {}'.format(b))
-            print(endeff[b])
+        # for b in range(10):
+        #     print('actions {}'.format(b))
+        #     print(actions[b])
+        #
+        #     print('endeff {}'.format(b))
+        #     print(endeff[b])
 
 
         pdb.set_trace()

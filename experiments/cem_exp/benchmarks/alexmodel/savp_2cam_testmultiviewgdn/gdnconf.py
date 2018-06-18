@@ -4,24 +4,20 @@ base_dir = python_visual_mpc.__file__
 base_dir = '/'.join(str.split(base_dir, '/')[:-2])
 
 # tf record data location:
-import os
-DATA_DIR = {os.environ['VMPC_DATA_DIR'] + '/sawyer_grasping/sawyer_data/sudri_ag/good': 8,
-         os.environ['VMPC_DATA_DIR'] + '/sawyer_grasping/sawyer_data/sudri_ag/bad': 12,
-         os.environ['VMPC_DATA_DIR'] + '/sawyer_grasping/sawyer_data/vestri_ag/good': 8,
-         os.environ['VMPC_DATA_DIR'] + '/sawyer_grasping/sawyer_data/vestri_ag/bad': 12,
-         os.environ['VMPC_DATA_DIR'] + '/sawyer_grasping/sawyer_data/sudri_ag_long/good': 12,
-         os.environ['VMPC_DATA_DIR'] + '/sawyer_grasping/sawyer_data/sudri_ag_long/bad': 12,
-            }
+DATA_DIR = base_dir + '/pushing_data/cartgripper_startgoal_4step/train'
+
 import os
 current_dir = os.path.dirname(os.path.realpath(__file__))
 
 # local output directory
 OUT_DIR = current_dir + '/modeldata'
-
+from python_visual_mpc.goaldistancenet.variants.multiview_testgdn import MulltiviewTestGDN
 
 configuration = {
 'experiment_name': 'correction',
-'data_dir': DATA_DIR,       # 'directory containing data.' ,
+'pred_model':MulltiviewTestGDN,
+'pretrained_model': [base_dir + '/tensorflow_data/gdn/weiss/multiview/view0/modeldata/model2',
+                     base_dir + '/tensorflow_data/gdn/weiss/multiview/view1/modeldata/model2'],
 'output_dir': OUT_DIR,      #'directory for model checkpoints.' ,
 'current_dir': base_dir,   #'directory for writing summary.' ,
 'num_iterations':50000,
@@ -46,4 +42,5 @@ configuration = {
 'occ_thres_offset':1.,
 'flow_penal':1e-4,
 'ch_mult':4,
+'view':0,
 }

@@ -65,7 +65,6 @@ def main(unused_argv, conf_script= None):
     if FLAGS.visualize or FLAGS.visualize_check:
         print('creating visualizations ...')
         conf['schedsamp_k'] = -1  # don't feed ground truth
-        conf['data_dir'] = '/'.join(str.split(conf['data_dir'], '/')[:-1] + ['test'])
 
         if FLAGS.visualize_check:
             conf['visualize_check'] = conf['output_dir'] + '/' + FLAGS.visualize_check
@@ -73,13 +72,16 @@ def main(unused_argv, conf_script= None):
         conf['event_log_dir'] = '/tmp'
         conf.pop('use_len', None)
         conf.pop('color_augmentation', None)
-        conf['batch_size'] = 50
+        conf['batch_size'] = 64
         build_loss = False
 
         if FLAGS.flowerr:
             conf['compare_gtruth_flow'] = ''
+
+        load_test_images = True
     else:
         build_loss = True
+        load_test_images = False
 
     if 'model' in conf:
         Model = conf['model']
@@ -88,9 +90,9 @@ def main(unused_argv, conf_script= None):
 
     with tf.variable_scope('model'):
         if FLAGS.visualize or FLAGS.visualize_check:
-            model = Model(conf, build_loss, load_data=False)
+            model = Model(conf, build_loss, load_data=False, load_testimages=load_test_images)
         else:
-            model = Model(conf, build_loss, load_data=True)
+            model = Model(conf, build_loss, load_data=True, load_testimages=load_test_images)
         model.build_net()
 
     #model for online benchmarking
@@ -101,7 +103,7 @@ def main(unused_argv, conf_script= None):
 
     print('Constructing saver.')
     vars = tf.get_collection(tf.GraphKeys.GLOBAL_VARIABLES)
-    saving_saver = tf.train.Saver(vars, max_to_keep=0)
+    saving_saver = tf.train.Saver(vars, max_to_keep=3)
 
     if FLAGS.resume:
         vars = variable_checkpoint_matcher(conf, vars, FLAGS.resume, True)
@@ -163,11 +165,14 @@ def main(unused_argv, conf_script= None):
         feed_dict = {model.iter_num: np.float32(itr),
                      model.train_cond: 1}
 
-        cost, _, summary_str = sess.run([model.loss, model.train_op, model.train_summ_op],
+        cost, _, summary_str, lr = sess.run([model.loss, model.train_op, model.train_summ_op, model.learning_rate],
                                         feed_dict)
 
         if (itr) % 10 ==0:
             tf.logging.info(str(itr) + ' ' + str(cost))
+
+        if (itr) % 10 ==0:
+            tf.logging.info('lr: {}'.format(lr))
 
         if (itr) % VAL_INTERVAL == 2:
             # Run through validation set.

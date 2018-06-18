@@ -1,4 +1,5 @@
 from matplotlib import pyplot as plt
+import pdb
 import numpy as np
 
 class Getdesig(object):
@@ -12,8 +13,8 @@ class Getdesig(object):
         self.ax = fig.add_subplot(111)
         self.ax.set_xlim(0, 63)
         self.ax.set_ylim(63, 0)
-        plt.imshow(img)
 
+        plt.imshow(img)
         self.coords = None
         cid = fig.canvas.mpl_connect('button_press_event', self.onclick)
         plt.show()

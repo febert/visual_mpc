@@ -46,4 +46,5 @@ configuration = {
 'occ_thres_offset':1.,
 'flow_penal':1e-4,
 'ch_mult':4,
+'view':0,
 }

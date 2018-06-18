@@ -10,39 +10,53 @@ from python_visual_mpc.visual_mpc_core.infrastructure.utility.tfrecord_from_file
 BASE_DIR = '/'.join(str.split(__file__, '/')[:-1])
 current_dir = os.path.dirname(os.path.realpath(__file__))
 
-data_conf = {'left_cam' : {'crop_bot' : 70, 'crop_left' : 150, 'crop_right' : 100},
-             'front_cam': {'crop_bot' : 70, 'crop_left' : 90, 'crop_right' : 160}}
 
 agent = {'type' : AgentSawyer,
-         'data_save_dir': BASE_DIR + '/train',
-         'T' : 15,  #number of commands per episodes (issued at control_rate / substeps HZ)
+         'robot_name' : 'sudri',
+         'data_save_dir': BASE_DIR + '/exp',
+         'T' : 25,  #number of commands per episodes (issued at control_rate / substeps HZ)
          'step_duration' : 0.75,  #time each substep takes to execute
          'impedance_stiffness' : 150, #stiffness commanded to impedance controller
          'control_rate' : 1000,  #substep are taken at control_rate HZ
          'image_height' : 48,
          'image_width' : 64,
-         'data_conf' : data_conf,  #controls cropping
          'adim' : 5,
          'sdim' : 5,
          'mode_rel' : np.array([True, True, True, True, False]),
-         'targetpos_clip': [[0.42, -0.24, 0.184, -0.5 * np.pi , 0], [0.87, 0.22, 0.32, 0.5 * np.pi, 0.1]],
-         'autograsp' : {'zthresh' :  0.15, 'touchthresh' : 0.0, 'reopen' : ''},   #15% of total height is zthresh,
+         'targetpos_clip': [[0.375, -0.22, 0.184, -0.5 * np.pi, 0], [0.825, 0.24, 0.32, 0.5 * np.pi, 0.1]],
+         'autograsp' : {'zthresh' :  0.15, 'touchthresh' : 0.0, 'reopen' : ''},
          'file_to_record' : convert_to_record,
          'cameras':['front', 'left'],
          'benchmark_exp':'',
+         'save_large_gifs' : '',
+         'save_pkl' : ''
          }
 
 policy = {
+    'verbose': '',
+    'current_dir':current_dir,
     'type' : VisualMPCPolicy,
     'cem_type':CEM_controller,
     'nactions' : 5,
     'repeat' : 3,
-    'initial_std': 0.035,   #std dev. in xy
-    'initial_std_lift': 0.08,   #std dev. in z
+    'initial_std': 0.02, #0.035,   #std dev. in xy
+    'initial_std_lift': 0.04,   #std dev. in z
     'initial_std_rot' : np.pi / 18,
     'initial_std_grasp' : 2,
     'netconf': current_dir + '/conf.py',
     'gdnconf': current_dir + '/gdnconf.py',
+    'iterations': 3,
+    'action_cost_factor': 0,
+    'rew_all_steps':"",
+    'finalweight':10,
+    'register_gtruth':['start','goal'],
+    'trade_off_reg':'',
+    'replan_interval': 3,
+    'reuse_mean': '',
+    'reuse_action_as_mean': "",
+    'reduce_std_dev': 0.2,  # reduce standard dev in later timesteps when reusing action
+    'num_samples': [400, 200],  #########
+    'selection_frac': 0.05
 }
 
 config = {

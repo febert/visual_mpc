@@ -5,14 +5,6 @@ base_dir = '/'.join(str.split(base_dir, '/')[:-2])
 
 # tf record data location:
 import os
-DATA_DIR = {os.environ['VMPC_DATA_DIR'] + '/sawyer_grasping/sawyer_data/sudri_ag/good': 8,
-         os.environ['VMPC_DATA_DIR'] + '/sawyer_grasping/sawyer_data/sudri_ag/bad': 12,
-         os.environ['VMPC_DATA_DIR'] + '/sawyer_grasping/sawyer_data/vestri_ag/good': 8,
-         os.environ['VMPC_DATA_DIR'] + '/sawyer_grasping/sawyer_data/vestri_ag/bad': 12,
-         os.environ['VMPC_DATA_DIR'] + '/sawyer_grasping/sawyer_data/sudri_ag_long/good': 12,
-         os.environ['VMPC_DATA_DIR'] + '/sawyer_grasping/sawyer_data/sudri_ag_long/bad': 12,
-            }
-import os
 current_dir = os.path.dirname(os.path.realpath(__file__))
 
 # local output directory
@@ -21,15 +13,13 @@ OUT_DIR = current_dir + '/modeldata'
 
 configuration = {
 'experiment_name': 'correction',
-'data_dir': DATA_DIR,       # 'directory containing data.' ,
-'output_dir': OUT_DIR,      #'directory for model checkpoints.' ,
+'pretrained_model': base_dir + '/tensorflow_data/gdn/weiss/sawyer_grasping_tresh0.5_48x64/modeldata/model48002',
 'current_dir': base_dir,   #'directory for writing summary.' ,
-'num_iterations':50000,
 'sequence_length':14,
 'train_val_split':.95,
 'visualize':'',
 'skip_frame':1,
-'batch_size': 64,           #'batch size for training' ,
+'batch_size': 1,           #'batch size for training' ,
 'learning_rate': 0.001,     #'the base learning rate of the generator' ,
 'normalization':'None',
 'sdim' :5,
