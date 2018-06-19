@@ -22,7 +22,6 @@ class Random_impedance_point(Policy):
             t: Time step.
             x_data_idx: data_files indexes for x
         """
-
         new_point_freq = 13
 
         if t % new_point_freq ==0:

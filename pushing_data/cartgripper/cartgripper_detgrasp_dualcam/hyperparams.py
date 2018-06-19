@@ -63,7 +63,7 @@ policy = {
     'type' : DeterministicGraspPolicy,
     'nactions': 15,
     'iterations':5,
-    'repeats': 5, # number of repeats for each action
+    'repeat': 5, # number of repeat for each action
     'xyz_std': 8e-2,   #std dev. in xy
     'angle_std': 2e-1,   #std dev. in xy
     'debug_viewer':False,

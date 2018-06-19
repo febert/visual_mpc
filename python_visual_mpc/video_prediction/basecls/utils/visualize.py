@@ -503,6 +503,7 @@ def add_crosshairs(images, pos, color=None):
         make_list_output = False
 
     assert len(images.shape) == 5
+    assert images.shape[0] == pos.shape[0]
 
     pos = np.clip(pos, np.zeros(2).reshape((1,1,2)),np.array(images.shape[2:4]).reshape((1,1,2)) -1)
 
@@ -539,11 +540,17 @@ def add_crosshairs_single(im, pos, color=None):
     :param color:
     :return:
     """
-    if color == None:
+
+    if color is None:
         if im.dtype == np.float32:
             color = np.array([0., 1., 1.])
         else:
             color = np.array([0, 255, 255])
+    assert isinstance(color, np.ndarray)
+    assert len(im.shape) and im.shape[2] == 3
+
+    pos = np.clip(pos, [0,0], np.array(im.shape[:2]) -1)
+
     p = pos.astype(np.int)
     im[p[0]-5:p[0]-2,p[1]] = color
     im[p[0]+3:p[0]+6, p[1]] = color

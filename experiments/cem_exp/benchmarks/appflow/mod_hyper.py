@@ -20,6 +20,8 @@ agent = {
     # 'no_instant_gif':"",
     'filename': ROOT_DIR + '/mjc_models/cartgripper.xml',
     'filename_nomarkers': ROOT_DIR + '/mjc_models/cartgripper.xml',
+    'object_mass':1.5,
+    'friction':0.01,
     'gen_xml':1,   #generate xml every nth trajecotry
     'num_objects': 1,
     'viewer_image_height' : 480,

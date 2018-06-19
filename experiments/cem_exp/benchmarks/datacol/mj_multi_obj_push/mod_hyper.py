@@ -47,7 +47,7 @@ policy = {
     'nactions': 5,
     'repeat': 3,
     'initial_std': 0.08,        # std dev. in xy
-    'initial_std_lift': 2.5,
+    'initial_std_lift': 1.6,
     'iterations': 2,
     'action_cost_factor': 0,
     'rew_all_steps':"",
