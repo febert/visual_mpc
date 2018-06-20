@@ -13,7 +13,6 @@ agent = {
     'image_height':56,
     'image_width':64,
     'ndesig':1,
-    'opencv_tracking':'',
     'make_final_vid':'',
     # 'make_final_gif':'',
     'wristrot':'',
@@ -23,7 +22,6 @@ agent = {
 }
 
 policy = {
-    # 'verbose':'',
     'type' : CEM_controller,
     'low_level_ctrl': None,
     'current_dir':current_dir,
@@ -41,6 +39,6 @@ policy = {
     'rew_all_steps':"",
     'finalweight':30,
     'no_pixdistrib_video':'',
-    # 'predictor_propagation': '',
+    'predictor_propagation': '',
 }
 

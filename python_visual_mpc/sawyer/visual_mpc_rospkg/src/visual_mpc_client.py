@@ -87,6 +87,7 @@ class Visual_MPC_Client():
         bench_dir = cem_exp_dir + '/' + benchmark_name
 
         if not os.path.exists(bench_dir):
+            print(bench_dir)
             raise ValueError('benchmark directory does not exist')
         bench_conf = imp.load_source('mod_hyper', bench_dir + '/mod_hyper.py')
         self.policyparams = bench_conf.policy
@@ -472,9 +473,11 @@ class Visual_MPC_Client():
 
         if self.use_save_subdir:
             self.save_subdir = raw_input('enter subdir to save data:')
+
             self.recorder_save_dir = self.base_dir + "/experiments/cem_exp/benchmarks_sawyer/" + self.benchname + \
                                      '/bench/' + self.save_subdir + "/videos"
             self.recorder.image_folder = self.recorder_save_dir
+            self.recorder.curr_traj = self.curr_traj = robot_recorder.Trajectory(self.recorder.state_sequence_length)
 
         if self.data_collection:
             self.recorder.init_traj(i_tr)
@@ -501,7 +504,7 @@ class Visual_MPC_Client():
         self.lower_height = 0.22  # using old gripper : 0.16
         self.delta_up = 0.13
 
-        self.xlim = [0.46, 0.83]  # min, max in cartesian X-direction
+        self.xlim = [0.46, 0.83]  # min, max in cartesian Xdirection
         self.ylim = [-0.17, 0.17]  # min, max in cartesian Y-directionn
 
         if 'random_startpos' in self.policyparams:
@@ -698,9 +701,9 @@ class Visual_MPC_Client():
         """
         assert (rospy.get_time() >= t_prev)
         des_pos = previous_goalpoint + (next_goalpoint - previous_goalpoint) * (rospy.get_time()- t_prev)/ (t_next - t_prev)
-        if rospy.get_time() - t_next > 1.5:
+        if rospy.get_time() - t_next > 2.5:
             des_pos = next_goalpoint
-            print('t - tnext > 1.5!!!!')
+            print('t - tnext > 2.5!!!!')
             pdb.set_trace()
 
         # print 'current_delta_time: ', self.curr_delta_time

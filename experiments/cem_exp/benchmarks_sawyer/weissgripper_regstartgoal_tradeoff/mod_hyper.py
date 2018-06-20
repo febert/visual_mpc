@@ -8,7 +8,7 @@ import numpy as np
 
 agent = {
     'sawyer':'',
-    'T': 50,
+    'T': 25,
     'adim':5,
     'sdim':4,
     'image_height':56,
@@ -20,12 +20,12 @@ agent = {
     'wristrot':'',
     'startpos_basedon_click':'',
     'record':current_dir + '/verbose',
-    'discrete_adim':[2],
+    'discrete_adim':[2]
 }
 
 
 policy = {
-    # 'verbose':'',
+     'verbose':'',
     'type' : CEM_controller,
     'low_level_ctrl': None,
     'current_dir':current_dir,
