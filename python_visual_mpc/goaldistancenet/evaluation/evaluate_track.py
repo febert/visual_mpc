@@ -75,56 +75,51 @@ def load_data(bench_dir, tsteps, num_ex=8, grasp_data_mode=-1, interval=12):
 
     return image_batch, desig_pix_t0, goal_pix
 
-def load_benchmark_data():
-    folders = get_folders(bench_dir)
-    # folders = [bench_dir + '/ob18s1']
-    folders = folders[:num_ex]
+def load_benchmark_data(conf, view):
+
+    bench_dir = conf['bench_dir']
+    if isinstance(bench_dir, list):
+        folders = []
+        for source_dir in bench_dir:
+            folders += get_folders(source_dir)
+    else:
+        folders = get_folders(bench_dir)
 
     image_batch = []
     desig_pix_t0_l = []
     goal_pix_l = []
 
-
-    dict = pkl.load(open(bench_dir + '/points{}.pkl'.format(grasp_data_mode), 'rb'))
-    desig_pix_t0 = dict['desig_pix_t0']
-    goal_pix = dict['goal_pix']
+    true_desig_l = []
 
     for folder in folders:
         name = str.split(folder, '/')[-1]
         print('example: ', name)
-        if grasp_data_mode != -1:
-            exp_dir = folder + '/traj_data/images{}'.format(grasp_data_mode)
+        exp_dir = folder + '/traj_data/images{}'.format(view)
 
         imlist = []
-        for t in range(0, tsteps, interval):
-            if grasp_data_mode != -1:
-                name = exp_dir + '/im{}.png'.format(t)
-                imlist.append(np.array(Image.open(name)))
-            else:
-                name = exp_dir + '/small{}.jpg'.format(t)
-                imlist.append(np.array(Image.open(name)))
+        for t in range(50):
+            name = exp_dir + '/im{}.png'.format(t)
+            imlist.append(np.array(Image.open(name)))
 
-        if grasp_data_mode != -1 and save_points:
-            plt.switch_backend('TkAgg')
-            c_main = Getdesig(imlist[0])
-            desig_pix_t0_l.append(c_main.coords.astype(np.int64))
-            c_main = Getdesig(imlist[-1])
-            goal_pix_l.append(c_main.coords.astype(np.int64))
+        dict = pkl.load(open(exp_dir + '/tracker_annotations.pkl', 'rb', encoding='latin1'))
+        true_desig = dict['points'][:,view]
+        true_desig_l.append(true_desig)
+
+        folder_startgoal = '/'.join(str.split(folder, '/')[:-1]) + '/starg_goal/'  + name
+        dict = pkl.load(open(folder_startgoal + 'start_goal_points/.pkl', 'rb', encoding='latin1'))
+        desig_pix_t0_l.append(dict['start'][view])
+        goal_pix_l.append(dict['goal'][view])
 
         images = np.stack(imlist).astype(np.float32) / 255.
         image_batch.append(images)
 
     image_batch = np.stack(image_batch)
 
-    if desig_pix_t0_l != []:
-        desig_pix_t0 = np.stack(desig_pix_t0_l)
-        goal_pix = np.stack(goal_pix_l)
+    desig_pix_t0 = np.stack(desig_pix_t0_l)
+    goal_pix = np.stack(goal_pix_l)
+    true_desig = np.stack(true_desig_l, axis=0)
 
-    if save_points:
-        pkl.dump({'desig_pix_t0': desig_pix_t0, 'goal_pix': goal_pix},
-                 open(bench_dir + '/points{}.pkl'.format(grasp_data_mode), 'wb'))
-
-    return image_batch, desig_pix_t0, goal_pi
+    return image_batch, desig_pix_t0, goal_pix, true_desig
 
 
 def annotate_image_vec(images, ann):
@@ -146,13 +141,15 @@ def visuallize_sawyer_track(testdata, conffile, grasp_data_mode, tsteps=120, int
     compute_metric(conf, goal_pix_b, images, modeldata_dir, pix_t0_b)
 
 
-def run_tracking_benchmark():
+def run_tracking_benchmark(conf, view):
 
-    load_benchmark_data()
+    image_batch, desig_pix_t0, goal_pix, true_desig = load_benchmark_data(conf, view)
+
+    compute_metric(conf, image_batch, desig_pix_t0, goal_pix, true_desig)
 
 
 
-def compute_metric(conf, goal_pix_b, images, modeldata_dir, pix_t0_b, true_desig_pix=None):
+def compute_metric(conf, images, goal_pix_b, pix_t0_b, true_desig_pix=None):
 
     goal_image_warper = setup_gdn(conf, gpu_id=0)
     start_image_b = images[:, 0]
@@ -214,8 +211,8 @@ def compute_metric(conf, goal_pix_b, images, modeldata_dir, pix_t0_b, true_desig
         column = np.concatenate(newcolumn, 0)
         columns.append(column)
     image = Image.fromarray((np.concatenate(columns, 1) * 255).astype(np.uint8))
-    print('imagefile saved to ', modeldata_dir + '/warpstartgoal.png')
-    image.save(modeldata_dir + '/warpstartgoal.png')
+    print('imagefile saved to ', conf['output_dir'] + '/warpstartgoal.png')
+    image.save(conf['output_dir'] + '/warpstartgoal.png')
 
 
 if __name__ == '__main__':
@@ -232,6 +229,10 @@ if __name__ == '__main__':
     # interval = 1
 
     # visuallize_sawyer_track(testdata_path, conffile, grasp_data_mode=view, tsteps=tsteps, interval=interval)
+
+
+
+    conf['ou']
 
     run_tracking_benchmark()
 

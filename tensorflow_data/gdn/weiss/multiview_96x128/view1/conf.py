@@ -5,8 +5,13 @@ base_dir = '/'.join(str.split(base_dir, '/')[:-2])
 
 # tf record data location:
 import os
-DATA_DIR = os.environ['VMPC_DATA_DIR'] + '/weiss_gripper_20k_128x128'
-
+DATA_DIR = {os.environ['VMPC_DATA_DIR'] + '/sawyer_grasping/sawyer_data_hres/sudri_ag/good': 8,
+         os.environ['VMPC_DATA_DIR'] + '/sawyer_grasping/sawyer_data_hres/sudri_ag/bad': 12,
+         os.environ['VMPC_DATA_DIR'] + '/sawyer_grasping/sawyer_data_hres/vestri_ag/good': 8,
+         os.environ['VMPC_DATA_DIR'] + '/sawyer_grasping/sawyer_data_hres/vestri_ag/bad': 12,
+         os.environ['VMPC_DATA_DIR'] + '/sawyer_grasping/sawyer_data_hres/sudri_ag_long/good': 12,
+         os.environ['VMPC_DATA_DIR'] + '/sawyer_grasping/sawyer_data_hres/sudri_ag_long/bad': 12,
+            }
 import os
 current_dir = os.path.dirname(os.path.realpath(__file__))
 
@@ -27,21 +32,20 @@ configuration = {
 'batch_size': 64,           #'batch size for training' ,
 'learning_rate': 0.001,     #'the base learning rate of the generator' ,
 'normalization':'None',
-'sdim' :4,
-'adim' :5,
-'orig_size': [128,128],
-'row_start':0,
-'row_end':112,
+'sdim' :5,
+'adim' :4,
+'orig_size': [96,128],
 'norm':'charbonnier',
-'smoothcost':1e-6,
+'smoothcost':1e-7,
 'smoothmode':'2nd',
 'fwd_bwd':'',
-'flow_diff_cost':1e-4,
+'flow_diff_cost':1e-7,
 'hard_occ_thresh':'',
 'occlusion_handling':1e-4,
 'occ_thres_mult':0.5,
 'occ_thres_offset':1.,
-'flow_penal':1e-4,
+'flow_penal':1e-7,
 'ch_mult':4,
-'decay_lr':''
+'decay_lr':'',
+'view':1,
 }
