@@ -29,7 +29,7 @@ def get_metric(folder, use_ind=None, only_take_first_n=None):
     cummulative_fraction = []
     n_total = scores.shape[0]
     print('ntotal:',n_total)
-    thresholds = np.linspace(0., 0.2, 200)
+    thresholds = np.linspace(0., 0.5, 200)
 
     print('mean', np.mean(scores))
     print('std',np.std(scores)/np.sqrt(n_total))
@@ -44,22 +44,23 @@ def plot_results(name, folders, labels, use_ind=None, only_take_first_n=None):
     plt.switch_backend('TkAgg')
     plt.figure(figsize=[5,4])
     # markers = ['o', 'd']
+    matplotlib.rcParams.update({'font.size': 15})
+
     for folder, label in zip(folders, labels):
         print(label)
         thresholds, cummulative_fraction = get_metric(folder, use_ind, only_take_first_n)
+        plt.subplot(1,1,1)
+        plt.subplots_adjust(left=0.2, bottom=0.2, right=.9, top=.9, wspace=None, hspace=None)
         plt.plot(thresholds, cummulative_fraction, label=label)
 
     plt.xlabel("threshold")
-    # matplotlib.rcParams.update({'font.size': 20})
     # plt.rc('axes', labelsize=20)  # fontsize of the x and y labels
-    matplotlib.rc('axes', titlesize=8)
 
     with PdfPages('plots/{}scores_{}.pdf'.format(name, '-'.join(labels))) as pdf:
         plt.ylim([0,1.0])
-        plt.ylabel("fraction of runs less than threshold")
+        plt.ylabel("fraction less than threshold")
         plt.legend()
         pdf.savefig()
-        # plt.savefig('plots/{}scores_{}.png'.format(name, '-'.join(labels)))
         # plt.show()
 
 if __name__ == '__main__':

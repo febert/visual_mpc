@@ -103,7 +103,7 @@ def visualize_flow(flow_vecs):
 
 t = 0
 class Visualizer_tkinter(object):
-    def __init__(self, dict_ = None, append_masks = True, filepath=None, numex = 4, suf= "", col_titles = None, renorm_heatmaps=True, logger=None):
+    def __init__(self, dict_=None, append_masks=True, filepath=None, dict_name=None, numex = 4, suf= "", col_titles = None, renorm_heatmaps=True, logger=None):
         """
         :param dict_: dictionary containing image tensors
         :param append_masks: whether to visualize the masks
@@ -132,8 +132,8 @@ class Visualizer_tkinter(object):
             self.logger = logger
 
         self.gif_savepath = filepath
-        if dict_ == None:
-            dict_ = pickle.load(open(filepath + '/pred.pkl', "rb"))
+        if dict_name != None:
+            dict_ = pickle.load(open(filepath + '/' + dict_name, "rb"))
 
         self.dict_ = dict_
 
@@ -150,6 +150,7 @@ class Visualizer_tkinter(object):
         self.numex = numex
         self.video_list = []
         self.append_masks = False
+
 
         for key in list(dict_.keys()):
             data = dict_[key]
@@ -204,6 +205,8 @@ class Visualizer_tkinter(object):
                 if isinstance(data, list):
                     if len(data[0].shape) == 4:
                         self.video_list.append((data, key))
+                    else:
+                        raise "wrong shape in key {} with shape {}".format(key, data[0].shape)
                 else:
                     self.logger.log('ignoring key ',key)
 
@@ -628,14 +631,14 @@ def save_video_mp4(filename, frames):
 if __name__ == '__main__':
     # file_path = '/home/frederik/Documents/catkin_ws/src/visual_mpc/tensorflow_data/sawyer/data_amount_study/5percent_of_data/modeldata'
     # file_path = '/home/frederik/Documents/catkin_ws/src/visual_mpc/tensorflow_data/sawyer/alexmodel_finalpaper/improved_cdna_wristrot_k17d1_generatescratchimage_bs16/modeldata'
-    pkl_path = '/home/febert/Documents/catkin_ws/src/visual_mpc/experiments/cem_exp/benchmarks_sawyer/weissgripper_regstartgoal_reuseaction/verbose/plan/pred_t1iter2.pkl'
-    file_path = '/home/febert/Documents/catkin_ws/src/visual_mpc/experiments/cem_exp/benchmarks_sawyer/weissgripper_regstartgoal_reuseaction/verbose/plan'
+    # pkl_path = '/mnt/sda1/experiments/cem_exp/benchmarks/alexmodel/savp_2cam_registrationtradeoff/verbose/traj0/plan/pred_t1iter2.pkl'
+    file_path = '/mnt/sda1/experiments/cem_exp/benchmarks/alexmodel/savp_2cam_registrationtradeoff/verbose/traj0/plan'
+    # file_path = '/home/febert/Documents/catkin_ws/src/visual_mpc/experiments/cem_exp/benchmarks_sawyer/weissgripper_regstartgoal_reuseaction/verbose/plan'
     # file_path = '/home/frederik/Documents/catkin_ws/src/visual_mpc/tensorflow_data/sawyer/wristrot/modeldata'
 
-    dict_ = pickle.load(open(pkl_path, "rb"))
-    gen_images = dict_['gen_images_icam0_t1']
+    dict_name = 'pred_t1iter2.pkl'
 
-    v = Visualizer_tkinter(append_masks=False, filepath=file_path, numex=10, renorm_heatmaps=True)
+    v = Visualizer_tkinter(dict_name=dict_name, append_masks=False, filepath=file_path, numex=10, renorm_heatmaps=True)
     # v.build_figure()
     v.make_direct_vid()
     # for i in range(5):
