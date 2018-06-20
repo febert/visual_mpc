@@ -33,7 +33,8 @@ agent = {
     'posmode':"",
     'targetpos_clip':[[-0.45, -0.45, -0.08], [0.45, 0.45, 0.15]],
     'discrete_adim':[2],
-    'cameras':['maincam', 'leftcam']
+    'cameras':['maincam', 'leftcam'],
+    'save_pkl':''
 }
 
 policy = {
@@ -53,7 +54,8 @@ policy = {
     'rew_all_steps':"",
     'finalweight':10,
     'register_gtruth':['start','goal'],
-    'trade_off_reg':''
+    'trade_off_reg':'',
+    # 'camera_equal_weight':''
 }
 
 tag_images0 = {'name': 'images0',

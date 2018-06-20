@@ -30,6 +30,72 @@ def sorted_alphanumeric(l):
     return sorted(l, key = alphanum_key)
 
 
+def annotate_dualcam(bench_dir):
+    scores = []
+    improvements = []
+    initial_dists = []
+    names = []
+    folders = get_folders(bench_dir)
+
+
+    for folder in folders:
+        name = str.split(folder, '/')[-1]
+        names.append(name)
+
+        if os.path.isdir(folder + '/goal') and os.path.isdir(folder + '/start'):
+            left_gpix = pkl.load(open('{}/goal/desig_goal_pixgoal_left.pkl'.format(folder), 'rb'))['desig_pix'][0]
+            front_gpix = pkl.load(open('{}/goal/desig_goal_pixgoal_front.pkl'.format(folder), 'rb'))['desig_pix'][0]
+            left_spix = pkl.load(open('{}/start/desig_goal_pixgoal_left.pkl'.format(folder), 'rb'))['desig_pix'][0]
+            front_spix = pkl.load(open('{}/start/desig_goal_pixgoal_front.pkl'.format(folder), 'rb'))['desig_pix'][0]
+        else:
+            left_pixs = pkl.load(open('{}/desig_goal_pixgoal_left.pkl'.format(folder), 'rb'))
+            front_pixs = pkl.load(open('{}/desig_goal_pixgoal_front.pkl'.format(folder), 'rb'))
+
+            left_gpix = left_pixs['goal_pix'][0]
+            front_gpix = front_pixs['goal_pix'][0]
+            left_spix = left_pixs['desig_pix'][0]
+            front_spix = front_pixs['desig_pix'][0]
+
+        real_finals = []
+        for i, c in enumerate(['front', 'left']):
+            if os.path.isdir(folder + '/goal') and os.path.isdir(folder + '/start'):
+                goal_image = cv2.imread('{}/goal/img_goal_{}.png'.format(folder, c))[:,:,::-1]
+            else:
+                goal_image = cv2.imread('{}/img_goal_{}.png'.format(folder, c))[:, :, ::-1]
+            plt.imshow(goal_image)
+            plt.show()
+
+            final_image = cv2.imread('{}/traj_data/images{}/im49.png'.format(folder, i))[:,:,::-1]
+            c = Getdesig(final_image)
+            real_finals.append(c.coords)
+
+        front_final, left_final = real_finals
+
+        front_fdist = np.linalg.norm(front_final - front_gpix)
+        front_sdist = np.linalg.norm(front_spix - front_gpix)
+
+        left_fdist = np.linalg.norm(left_final - left_gpix)
+        left_sdist = np.linalg.norm(left_spix - left_gpix)
+
+        initial_score = (left_sdist + front_sdist) / 2.0
+        final_score = (front_fdist + left_fdist) / 2.0
+        improvement =  initial_score - final_score
+        print('initial_score {}  final_score {} improvement {} '.format(initial_score, final_score, improvement))
+
+        scores.append(final_score)
+        improvements.append(improvement)
+        initial_dists.append(initial_score)
+
+
+    ann_stats = {'names': np.array(names),
+                 'initial_dist': np.array(initial_dists),
+                 'improvement': np.array(improvements),
+                 'scores': np.array(scores)}
+    pkl.dump(ann_stats, open(bench_dir + '/ann_stats.pkl', 'wb'))
+    write(bench_dir, ann_stats)
+
+
+
 def annotate(bench_dir):
 
     scores_l = []
@@ -138,6 +204,7 @@ def write(exp_dir, stat):
 
 
 if __name__ == '__main__':
+<<<<<<< HEAD
     path = '/home/febert/Documents/catkin_ws/src/visual_mpc/experiments/cem_exp/benchmarks_sawyer/weissgripper_predprop'
     # path = '/home/febert/Documents/catkin_ws/src/visual_mpc/experiments/cem_exp/benchmarks_sawyer/weissgripper_dynrnn'
     annotate(path)

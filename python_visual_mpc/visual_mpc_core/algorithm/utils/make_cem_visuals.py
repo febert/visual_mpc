@@ -95,10 +95,6 @@ def make_cem_visuals(ctrl, actions, bestindices, cem_itr, flow_fields, gen_distr
 
     t_dict_ = collections.OrderedDict()
 
-    for icam in range(ctrl.ncam):
-        current_image = [np.repeat(np.expand_dims(last_frames[0, 1, icam], axis=0), num_ex, axis=0) for _ in
-                         range(len_pred)]
-        t_dict_['curr_img_cam{}'.format(icam)] = current_image
 
     if 'warp_objective' in ctrl.policyparams:
         warped_images = image_addgoalpix(M, len_pred, warped_images, ctrl.goal_pix)
@@ -106,6 +102,11 @@ def make_cem_visuals(ctrl, actions, bestindices, cem_itr, flow_fields, gen_distr
         warped_images = np.split(warped_images[selindices], warped_images.shape[1], 1)
         warped_images = list(np.squeeze(warped_images))
         t_dict_['warped_im_t{}'.format(ctrl.t)] = warped_images
+
+
+    for icam in range(ctrl.ncam):
+        current_image = np.tile(last_frames[0,1,icam][None, None], [num_ex, len_pred, 1, 1, 1, 1])
+        t_dict_['curr_img_cam{}'.format(icam)] = unstack(current_image.squeeze(), 1)
 
     if 'register_gtruth' in ctrl.policyparams:
         gen_image_an_l = []
@@ -129,32 +130,27 @@ def make_cem_visuals(ctrl, actions, bestindices, cem_itr, flow_fields, gen_distr
 
             ipix = 0
             gen_image_an = gen_images[:, :, icam]
-            if 'start' in ctrl.policyparams['register_gtruth']:
-                desig_pix_start = np.tile(ctrl.desig_pix[icam, 0][None, None, :], [M, len_pred, 1])
-                gen_image_an = add_crosshairs(gen_image_an, desig_pix_start, color=[1., 0., 0])
-                # pdb.set_trace()
-                # print(' 2 min image average', np.min(np.mean(gen_image_an.reshape(gen_image_an.shape[0] * gen_image_an.shape[1], -1), 1)))
-                ipix +=1
-            if 'goal' in ctrl.policyparams['register_gtruth']:
-                desig_pix_goal = np.tile(ctrl.desig_pix[icam, ipix][None,None, :], [M, len_pred, 1])
-                gen_image_an = add_crosshairs(gen_image_an, desig_pix_goal, color=[0, 0, 1.])
-                if 'trade_off_reg' in ctrl.policyparams:
-                    warped_img_goal_cam = draw_text_onimage('%.2f' % reg_tradeoff[icam, 1],warped_image_goal[icam].squeeze())
-                else:
-                    warped_img_goal_cam  = warped_image_goal[icam].squeeze()
-                warped_img_goal_cam = [np.repeat(np.expand_dims(warped_img_goal_cam, axis=0), num_ex, axis=0) for _ in
-                                       range(len_pred)]
-                t_dict_['warp_goal_cam{}'.format(icam)] = warped_img_goal_cam
+
+            for p in range(ctrl.ntask):
+                if 'start' in ctrl.policyparams['register_gtruth']:
+                    desig_pix_start = np.tile(ctrl.desig_pix[icam, 0][None, None, :], [M, len_pred, 1])
+                    gen_image_an = add_crosshairs(gen_image_an, desig_pix_start, color=[1., 0., 0])
+                    ipix +=1
+                if 'goal' in ctrl.policyparams['register_gtruth']:
+                    desig_pix_goal = np.tile(ctrl.desig_pix[icam, ipix][None,None, :], [M, len_pred, 1])
+                    gen_image_an = add_crosshairs(gen_image_an, desig_pix_goal, color=[0, 0, 1.])
+                    if 'trade_off_reg' in ctrl.policyparams:
+                        warped_img_goal_cam = draw_text_onimage('%.2f' % reg_tradeoff[icam, 1],warped_image_goal[icam].squeeze())
+                    else:
+                        warped_img_goal_cam  = warped_image_goal[icam].squeeze()
+                    warped_img_goal_cam = [np.repeat(np.expand_dims(warped_img_goal_cam, axis=0), num_ex, axis=0) for _ in
+                                           range(len_pred)]
+                    t_dict_['warp_goal_cam{}'.format(icam)] = warped_img_goal_cam
 
             gen_image_an_l.append(gen_image_an)
-
-            ###
-            # pdb.set_trace()
-            # print(' 2 min image average', np.min(np.mean(gen_image_an.reshape(gen_image_an.shape[0] * gen_image_an.shape[1], -1), 1)))
-
-
     else:
         gen_image_an_l = None
+
 
     if ctrl.goal_image is not None:
         gl_im_ann = np.zeros([num_ex] + list(gen_images.shape[1:]))  #b, t, n, r, c, 1

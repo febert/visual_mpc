@@ -140,7 +140,8 @@ class GoalDistanceNet(object):
                  conf = None,
                  build_loss=True,
                  load_data = True,
-                 images = None,
+                 I0=None,
+                 I1=None,
                  iter_num = None,
                  pred_images = None,
                  load_testimages=False
@@ -189,11 +190,14 @@ class GoalDistanceNet(object):
             if 'temp_divide_and_conquer' not in self.conf:
                 self.I0, self.I1 = self.sel_images()
 
-        elif images == None:  #feed values at test time
+        elif I0 == None:  #feed values at test time
             self.I0 = self.I0_pl= tf.placeholder(tf.float32, name='images',
                                     shape=(conf['batch_size'], self.img_height, self.img_width, 3))
             self.I1 = self.I1_pl= tf.placeholder(tf.float32, name='images',
                                      shape=(conf['batch_size'], self.img_height, self.img_width, 3))
+        else:
+            self.I0 = I0
+            self.I1 = I1
 
         self.occ_fwd = tf.zeros([self.bsize,  self.img_height,  self.img_width, 1])
         self.occ_bwd = tf.zeros([self.bsize,  self.img_height,  self.img_width, 1])
@@ -419,7 +423,7 @@ class GoalDistanceNet(object):
             with tf.variable_scope('h3'):
                 h3 = self.conv_relu_block(h2, out_ch=128*ch_mult)  #6x8x3
 
-            if self.conf['orig_size'][0] == 96:
+            if self.conf['orig_size'][1] == 128:
                 with tf.variable_scope('h3_1'):
                     h3 = self.conv_relu_block(h3, out_ch=256*ch_mult)  #6x8x3
                 with tf.variable_scope('h3_2'):

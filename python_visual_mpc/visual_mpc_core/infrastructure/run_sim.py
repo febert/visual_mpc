@@ -112,7 +112,10 @@ class Sim(object):
             if self.agent.goal_obj_pose is not None:
                 plot_dist(traj, self.agentparams['record'])
             if 'register_gtruth' in self.policyparams:
-                plot_warp_err(traj, self.agentparams['record'])
+                try:
+                    plot_warp_err(traj, self.agentparams['record'])
+                except:
+                    print('plot warperr failed!!!')
         return traj
 
     def save_data(self, traj, itr):
