@@ -20,6 +20,46 @@ from python_visual_mpc.sawyer.visual_mpc_rospkg.src.primitives_regintervals impo
 NUM_JOINTS = 7 #Sawyer has 7 dof arm
 
 
+def crop_resize(image, cam_conf, target_img_height, target_img_width):
+    crop_left, crop_right = cam_conf.get('crop_left', 0), cam_conf.get('crop_right', 0)
+    crop_top, crop_bot = cam_conf.get('crop_top', 0), cam_conf.get('crop_bot', 0)
+
+    if crop_right > 0:
+        crop_img = image[:, crop_left:-crop_right]
+    else:
+        crop_img = image[:, crop_left:]
+
+    if crop_bot > 0:
+        crop_img = crop_img[crop_top:-crop_bot]
+    else:
+        crop_img = crop_img[crop_top:]
+
+    return cv2.resize(crop_img, (target_img_width, target_img_height), interpolation=cv2.INTER_AREA)
+
+def low2high(point, cam_conf, cam_height, cam_width, low_height, low_width):
+    crop_left, crop_right = cam_conf.get('crop_left', 0), cam_conf.get('crop_right', 0)
+    crop_top, crop_bot = cam_conf.get('crop_top', 0), cam_conf.get('crop_bot', 0)
+    cropped_width, cropped_height = cam_width - crop_left - crop_right, cam_height - crop_bot - crop_top
+
+    scale_height, scale_width = float(cropped_height) / low_height, \
+                                float(cropped_width) / low_width
+    high_point = np.array([scale_height, scale_width]) * point + np.array([crop_top, crop_left])
+
+    return np.round(high_point).astype(np.int64)
+
+def high2low(point, cam_conf, cam_height, cam_width, low_height, low_width):
+    crop_left, crop_right = cam_conf.get('crop_left', 0), cam_conf.get('crop_right', 0)
+    crop_top, crop_bot = cam_conf.get('crop_top', 0), cam_conf.get('crop_bot', 0)
+    cropped_width, cropped_height = cam_width - crop_right - crop_left, cam_height - crop_bot - crop_top
+
+    y = float(min(max(point[0] - crop_top, 0), cropped_height))
+    x = float(min(max(point[1] - crop_left, 0), cropped_width))
+    scale_height, scale_width = low_height / float(cropped_height), \
+                                low_width / float(cropped_width)
+    low_point = np.array([scale_height, scale_width]) * np.array([y, x])
+
+    return np.round(low_point).astype(np.int64)
+
 def render_bbox(img, bbox):
     rect_img = img[:, :, ::-1].copy()
     p1 = (bbox[0], bbox[1])
@@ -159,28 +199,12 @@ class RobotDualCamRecorder:
         else: self.obs_tol = OFFSET_TOL
 
     def _low2high(self, point, cam_conf):
-        crop_left, crop_right = cam_conf.get('crop_left', 0), cam_conf.get('crop_right', 0)
-        crop_top, crop_bot = cam_conf.get('crop_top', 0), cam_conf.get('crop_bot', 0)
-        cropped_width, cropped_height = self.cam_width - crop_left - crop_right, self.cam_height - crop_bot - crop_top
-
-        scale_height, scale_width = float(cropped_height) / self.agent_params['image_height'], \
-                                    float(cropped_width) / self.agent_params['image_width']
-        high_point = np.array([scale_height, scale_width]) * point + np.array([crop_top, crop_left])
-
-        return np.round(high_point).astype(np.int64)
+        return low2high(point, cam_conf, self.cam_height,
+                        self.cam_width, self.agent_params['image_height'], self.agent_params['image_width'])
 
     def _high2low(self, point, cam_conf):
-        crop_left, crop_right = cam_conf.get('crop_left', 0), cam_conf.get('crop_right', 0)
-        crop_top, crop_bot = cam_conf.get('crop_top', 0), cam_conf.get('crop_bot', 0)
-        cropped_width, cropped_height = self.cam_width - crop_right - crop_left, self.cam_height - crop_bot - crop_top
-
-        y = float(min(max(point[0] - crop_top, 0), cropped_height))
-        x = float(min(max(point[1] - crop_left, 0), cropped_width))
-        scale_height, scale_width = self.agent_params['image_height'] / float(cropped_height), \
-                                    self.agent_params['image_width'] / float(cropped_width)
-        low_point = np.array([scale_height, scale_width]) * np.array([y, x])
-
-        return np.round(low_point).astype(np.int64)
+        return high2low(point, cam_conf, self.cam_height,
+                        self.cam_width, self.agent_params['image_height'], self.agent_params['image_width'])
 
     def _cam_start_tracking(self, lt_ob, cam_conf, point):
         point = self._low2high(point, cam_conf)
@@ -394,22 +418,7 @@ class RobotDualCamRecorder:
 
 
     def _crop_resize(self, image, cam_conf):
-        target_img_height, target_img_width = self.agent_params['image_height'], self.agent_params['image_width']
-
-        crop_left, crop_right = cam_conf.get('crop_left', 0), cam_conf.get('crop_right', 0)
-        crop_top, crop_bot = cam_conf.get('crop_top', 0), cam_conf.get('crop_bot', 0)
-
-        if crop_right > 0:
-            crop_img = image[:, crop_left:-crop_right]
-        else:
-            crop_img = image[:, crop_left:]
-
-        if crop_bot > 0:
-            crop_img = crop_img[crop_top:-crop_bot]
-        else:
-            crop_img = crop_img[crop_top:]
-
-        return cv2.resize(crop_img, (target_img_width, target_img_height), interpolation=cv2.INTER_AREA)
+        return crop_resize(image, cam_conf, self.agent_params['image_height'], self.agent_params['image_width'])
 
 
 if __name__ == '__main__':

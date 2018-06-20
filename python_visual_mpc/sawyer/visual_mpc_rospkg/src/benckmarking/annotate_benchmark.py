@@ -7,7 +7,7 @@ import matplotlib.pyplot as plt
 from python_visual_mpc.video_prediction.basecls.utils.get_designated_pix import Getdesig
 import os
 import python_visual_mpc
-
+import copy
 import glob
 
 ROOT_DIR = os.path.abspath(python_visual_mpc.__file__)
@@ -22,6 +22,22 @@ def get_folders(dir):
             folders.append(f)
     return sorted_alphanumeric(folders)
 
+def annotate_all(folders):
+    for folder in folders:
+        print(folder)
+        points = [[],[]]
+        for cam, name in enumerate(['front_cam', 'left_cam']):
+            for img in sorted_alphanumeric(glob.glob(folder + '/traj_data/images{}/im_med*'.format(cam))):
+                done = False
+                while not done:
+                    image = cv2.imread(img)[:, :, ::-1]
+                    c = Getdesig(image)
+                    if c.coords is not None:
+                        points[cam].append(copy.deepcopy(c.coords))
+                        done = True
+
+
+        pkl.dump({'points' : np.transpose(np.array(points), (1, 0, 2))}, open(folder + '/traj_data/tracker_annotations.pkl', 'wb'))
 
 def sorted_alphanumeric(l):
     """ Sort the given iterable in the way that humans expect."""
@@ -204,8 +220,25 @@ def write(exp_dir, stat):
 
 
 if __name__ == '__main__':
+    #exclude bins2, expos4 for reuse_action
+    #exclude bins1, bins4, plushs2
+
+    paths = ['baskets1', 'baskets2', 'baskets3', 'baskets4',
+             'bins1', 'bins2', 'bins3', 'bins4','expos1', 'expos2', 'expos3',
+             'plushs1', 'plushs2', 'plushs3', 'plushs4', 'pringles1',
+             'pringles2','pringles3','pringles4']
     # path = '/home/febert/Documents/catkin_ws/src/visual_mpc/experiments/cem_exp/benchmarks_sawyer/weissgripper_regstartgoal_tradeoff'
-    path = '/home/sudeep/Documents/catkin_ws/src/visual_mpc/experiments/cem_exp/grasping_sawyer/indep_views_reuseaction_opencvtrack/exp_50'
-    annotate_dualcam(path)
+    prep = '/home/sudeep/Documents/ros_ws/src/visual_mpc/experiments/cem_exp/grasping_sawyer/indep_views_reuseaction/exp_50'
+
+    # folders = get_folders(prep)
+    # for f in folders:
+    #     pkl_path = f + '/traj_data/tracker_annotations.pkl'
+    #     if os.path.exists(pkl_path):
+    #         loaded = pkl.load(open(pkl_path, 'rb'))
+    #         print(f)
+    #         print(np.sum(loaded['points']))
+    #         print(loaded['points'].shape)
+    # print(1 / 0)
+    annotate_all(['{}/{}'.format(prep, p) for p in paths])
 
     # pkl.load(open(bench_dir + '/ann_stats.pkl', 'wb'))
