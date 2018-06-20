@@ -2,10 +2,20 @@ import glob
 import pickle
 import numpy as np
 import copy
+
+"""
+Copied to work with python 2.7
+"""
+import re
+def sorted_nicely( l ):
+    """ Sort the given iterable in the way that humans expect."""
+    convert = lambda text: int(text) if text.isdigit() else text
+    alphanum_key = lambda key: [ convert(c) for c in re.split('([0-9]+)', key) ]
+    return sorted(l, key = alphanum_key)
+
+
 import matplotlib
 import matplotlib.pyplot as plt
-import re
-from python_visual_mpc.visual_mpc_core.infrastructure.utility.combine_scores import sorted_nicely
 from matplotlib.backends.backend_pdf import PdfPages
 
 def read_scores(dir):
@@ -16,6 +26,22 @@ def read_scores(dir):
     imp = []
     for f in files:
         print('load', f)
+        if 'txt' in f:
+            with open(f, 'r') as file:
+                lines = file.readlines()
+                tkn_counter = 0
+                while tkn_counter < 2:
+                    if lines[0] == '----------------------\n':
+                        tkn_counter += 1
+                    lines = lines[1:]
+
+                scores = []
+                imp = []
+                for l in lines:
+                    improv, score = [float(i) for i in l.split(':')[1][1:].split(', ')]
+                    scores.append(score)
+                    imp.append(improv)
+                return np.array(scores), np.array(imp)
         dict_ = pickle.load(open(f, "rb"))
         scores.append(dict_['scores'])
         imp.append(dict_['improvement'])
@@ -35,7 +61,7 @@ def get_metric(folder, use_ind=None, only_take_first_n=None):
     print('std',np.std(scores)/np.sqrt(n_total))
     for thres in thresholds:
         occ = np.where(scores < thres)[0]
-        cummulative_fraction.append(occ.shape[0] / n_total)
+        cummulative_fraction.append(float(occ.shape[0]) / n_total)
 
     return thresholds, cummulative_fraction
 
@@ -47,7 +73,8 @@ def plot_results(name, folders, labels, use_ind=None, only_take_first_n=None):
     matplotlib.rcParams.update({'font.size': 15})
 
     for folder, label in zip(folders, labels):
-        print(label)
+        display_label = label.replace('-', ' ')
+        print(display_label)
         thresholds, cummulative_fraction = get_metric(folder, use_ind, only_take_first_n)
         plt.subplot(1,1,1)
         plt.subplots_adjust(left=0.2, bottom=0.2, right=.9, top=.9, wspace=None, hspace=None)
@@ -68,10 +95,15 @@ if __name__ == '__main__':
     # get results for all
 
     # #2 obj
-    folders = ['/mnt/sda1/experiments/cem_exp/benchmarks/pos_ctrl/reg_startgoal_threshterm_tradeoff/66581',
-               '/mnt/sda1/experiments/cem_exp/benchmarks/pos_ctrl/predprop_threshterm/62538',
-               '/mnt/sda1/experiments/cem_exp/benchmarks/pos_ctrl/gtruth_track_thresterm/62540']
-    labels = ['ours', 'predprop','ground-truth-track']
+
+    # folders = ['/home/sudeep/Documents/catkin_ws/src/visual_mpc/experiments/cem_exp/benchmarks_sawyer/weissgripper_predprop',
+    #            '/home/sudeep/Documents/catkin_ws/src/visual_mpc/experiments/cem_exp/benchmarks_sawyer/weissgripper_dynrnn',
+    #            '/home/sudeep/Documents/catkin_ws/src/visual_mpc/experiments/cem_exp/benchmarks_sawyer/weissgripper_regstartgoal_tradeoff']
+    # labels = ['Prediction-Propagation','OpenCV-Tracking', 'GDN-Tracking-(ours)']
+
+    folders = ['/home/sudeep/Documents/catkin_ws/src/visual_mpc/experiments/cem_exp/grasping_sawyer/indep_views_reuseaction/exp_50',
+               '/home/sudeep/Documents/catkin_ws/src/visual_mpc/experiments/cem_exp/grasping_sawyer/indep_views_reuseaction_opencvtrack/exp_50']
+    labels = ['OpenCV-Tracking', 'GDN-Tracking-(ours)']
     plot_results('2obj_', folders, labels)
 
     # 3obj

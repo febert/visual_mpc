@@ -95,7 +95,11 @@ class Trajectory:
                 cv2.imwrite('{}/im{}.png'.format(folder, i), self.images[i, f, :, :, ::-1],
                             [cv2.IMWRITE_PNG_STRATEGY_DEFAULT, 1])
                 if 'save_large_gifs' in self._agent_conf:
-                    clip.append(self.raw_images[i, f])
+                    if 'opencv_tracking' in self._agent_conf:
+                        raw_images_bgr = copy.deepcopy(self.raw_images[i, f])
+                        clip.append(render_bbox(raw_images_bgr, self.track_bbox[i, f]))
+                    else:
+                        clip.append(self.raw_images[i, f])
                 else:
                     clip.append(self.images[i, f])
                 if self._save_raw:
@@ -126,7 +130,7 @@ class Latest_observation(object):
 
 class RobotDualCamRecorder:
     TRACK_SKIP = 2        #the camera publisher works at 60 FPS but camera itself only goes at 30
-    def __init__(self, agent_params, robot_controller, OFFSET_TOL = 0.03):
+    def __init__(self, agent_params, robot_controller, OFFSET_TOL = 0.06):
         self.agent_params = agent_params
         self.data_conf = agent_params['data_conf']
         self._ctrl = robot_controller

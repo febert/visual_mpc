@@ -30,7 +30,6 @@ agent = {'type' : AgentSawyer,
          }
 
 policy = {
-    'verbose_every_itr':'',
     'current_dir':current_dir,
     'type' : VisualMPCPolicy,
     'cem_type':CEM_controller,
