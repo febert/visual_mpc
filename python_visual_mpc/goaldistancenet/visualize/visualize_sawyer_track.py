@@ -75,6 +75,57 @@ def load_data(bench_dir, tsteps, num_ex=8, grasp_data_mode=-1, interval=12):
 
     return image_batch, desig_pix_t0, goal_pix
 
+def load_benchmark_data():
+    folders = get_folders(bench_dir)
+    # folders = [bench_dir + '/ob18s1']
+    folders = folders[:num_ex]
+
+    image_batch = []
+    desig_pix_t0_l = []
+    goal_pix_l = []
+
+
+    dict = pkl.load(open(bench_dir + '/points{}.pkl'.format(grasp_data_mode), 'rb'))
+    desig_pix_t0 = dict['desig_pix_t0']
+    goal_pix = dict['goal_pix']
+
+    for folder in folders:
+        name = str.split(folder, '/')[-1]
+        print('example: ', name)
+        if grasp_data_mode != -1:
+            exp_dir = folder + '/traj_data/images{}'.format(grasp_data_mode)
+
+        imlist = []
+        for t in range(0, tsteps, interval):
+            if grasp_data_mode != -1:
+                name = exp_dir + '/im{}.png'.format(t)
+                imlist.append(np.array(Image.open(name)))
+            else:
+                name = exp_dir + '/small{}.jpg'.format(t)
+                imlist.append(np.array(Image.open(name)))
+
+        if grasp_data_mode != -1 and save_points:
+            plt.switch_backend('TkAgg')
+            c_main = Getdesig(imlist[0])
+            desig_pix_t0_l.append(c_main.coords.astype(np.int64))
+            c_main = Getdesig(imlist[-1])
+            goal_pix_l.append(c_main.coords.astype(np.int64))
+
+        images = np.stack(imlist).astype(np.float32) / 255.
+        image_batch.append(images)
+
+    image_batch = np.stack(image_batch)
+
+    if desig_pix_t0_l != []:
+        desig_pix_t0 = np.stack(desig_pix_t0_l)
+        goal_pix = np.stack(goal_pix_l)
+
+    if save_points:
+        pkl.dump({'desig_pix_t0': desig_pix_t0, 'goal_pix': goal_pix},
+                 open(bench_dir + '/points{}.pkl'.format(grasp_data_mode), 'wb'))
+
+    return image_batch, desig_pix_t0, goal_pi
+
 
 def annotate_image_vec(images, ann):
     imlist = []
@@ -92,30 +143,36 @@ def visuallize_sawyer_track(testdata, conffile, grasp_data_mode, tsteps=120, int
     modeldata_dir = '/'.join(str.split(conffile, '/')[:-1]) + '/modeldata'
     conf['pretrained_model'] = modeldata_dir + '/model48002'
     conf['batch_size'] = images.shape[0]
+    compute_metric(conf, goal_pix_b, images, modeldata_dir, pix_t0_b)
+
+
+def run_tracking_benchmark():
+
+    load_benchmark_data()
+
+
+
+def compute_metric(conf, goal_pix_b, images, modeldata_dir, pix_t0_b, true_desig_pix=None):
+
     goal_image_warper = setup_gdn(conf, gpu_id=0)
-
-    start_image_b = images[:,0]
-    goal_image_b = images[:,-1]
-
-
+    start_image_b = images[:, 0]
+    goal_image_b = images[:, -1]
     bsize = images.shape[0]
     columns = []
-
     for t in range(images.shape[1]):
         column = []
-        warped_image_start, flow_field, start_warp_pts = goal_image_warper(images[:,t], start_image_b)
-        warped_image_goal, flow_field, goal_warp_pts = goal_image_warper(images[:,t], goal_image_b)
+        warped_image_start, flow_field, start_warp_pts = goal_image_warper(images[:, t], start_image_b)
+        warped_image_goal, flow_field, goal_warp_pts = goal_image_warper(images[:, t], goal_image_b)
 
         curr_im_l = []
 
         warped_image_start_l = []
         warped_image_goal_l = []
         for b in range(bsize):
-
             pix_t0 = pix_t0_b[b]
             goal_pix = goal_pix_b[b]
 
-            current_frame = images[b,t]
+            current_frame = images[b, t]
             warperrs = []
             desig_l = []
             start_image = images[b, 0]
@@ -132,7 +189,7 @@ def visuallize_sawyer_track(testdata, conffile, grasp_data_mode, tsteps=120, int
             warperrs.append(goal_warperr)
 
             warperrs = np.array([start_warperr, goal_warperr])
-            tradeoff = 1/warperrs/np.sum(1/warperrs)
+            tradeoff = 1 / warperrs / np.sum(1 / warperrs)
 
             ann_curr = add_crosshairs_single(current_frame, desig_l[0], np.array([1., 0, 0.]))
             ann_curr = add_crosshairs_single(ann_curr, desig_l[1], np.array([0., 0, 1]))
@@ -153,13 +210,13 @@ def visuallize_sawyer_track(testdata, conffile, grasp_data_mode, tsteps=120, int
         newcolumn = []
         for b in range(images.shape[0]):
             for el in column:
-                    newcolumn.append(el[b])
+                newcolumn.append(el[b])
         column = np.concatenate(newcolumn, 0)
         columns.append(column)
-
-    image = Image.fromarray((np.concatenate(columns, 1)*255).astype(np.uint8))
+    image = Image.fromarray((np.concatenate(columns, 1) * 255).astype(np.uint8))
     print('imagefile saved to ', modeldata_dir + '/warpstartgoal.png')
     image.save(modeldata_dir + '/warpstartgoal.png')
+
 
 if __name__ == '__main__':
     # testdata_path = '/mnt/sda1/pushing_data/goaldistancenet_test'
@@ -167,14 +224,16 @@ if __name__ == '__main__':
     # conffile = '/mnt/sda1/visual_mpc/tensorflow_data/gdn/weiss/tdac_weiss_cons0_56x64/conf.py'
 
     # grasping
-    view = 1
-    testdata_path = '/mnt/sda1/pushing_data/goaldistancenet_test/grasp_2view'
-    # conffile = '/mnt/sda1/visual_mpc/tensorflow_data/gdn/weiss/multiview/view{}/conf.py'.format(view)
-    conffile = '/mnt/sda1/visual_mpc/tensorflow_data/gdn/weiss/sawyer_grasping_tresh0.5_48x64/conf.py'
-    tsteps = 15
-    interval = 1
+    # view = 1
+    # testdata_path = '/mnt/sda1/pushing_data/goaldistancenet_test/grasp_2view'
+    # # conffile = '/mnt/sda1/visual_mpc/tensorflow_data/gdn/weiss/multiview/view{}/conf.py'.format(view)
+    # conffile = '/mnt/sda1/visual_mpc/tensorflow_data/gdn/weiss/sawyer_grasping_tresh0.5_48x64/conf.py'
+    # tsteps = 15
+    # interval = 1
 
-    visuallize_sawyer_track(testdata_path, conffile, grasp_data_mode=view, tsteps=tsteps, interval=interval)
+    # visuallize_sawyer_track(testdata_path, conffile, grasp_data_mode=view, tsteps=tsteps, interval=interval)
+
+    run_tracking_benchmark()
 
 
 

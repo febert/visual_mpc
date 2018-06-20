@@ -182,11 +182,6 @@ class GoalDistanceNet(object):
                                  lambda: val_dict)
                 self.images = dict['images']
 
-
-            if 'vidpred_data' in conf:  # register predicted video to real
-                self.pred_images = tf.squeeze(dict['gen_images'])
-                self.pred_states = tf.squeeze(dict['gen_states'])
-
             if 'temp_divide_and_conquer' not in self.conf:
                 self.I0, self.I1 = self.sel_images()
 
