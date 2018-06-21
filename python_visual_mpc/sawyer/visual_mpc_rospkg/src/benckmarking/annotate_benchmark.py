@@ -204,7 +204,6 @@ def write(exp_dir, stat):
 
 
 if __name__ == '__main__':
-<<<<<<< HEAD
     path = '/home/febert/Documents/catkin_ws/src/visual_mpc/experiments/cem_exp/benchmarks_sawyer/weissgripper_predprop'
     # path = '/home/febert/Documents/catkin_ws/src/visual_mpc/experiments/cem_exp/benchmarks_sawyer/weissgripper_dynrnn'
     annotate(path)
