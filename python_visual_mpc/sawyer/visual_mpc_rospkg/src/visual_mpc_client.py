@@ -945,7 +945,21 @@ class Getdesig(object):
         i_task = self.i_click//self.clicks_per_desig
         print('i_task', i_task)
 
+
+        if self.i_click == self.i_click_max:
+            print('saving desig-goal picture')
+
+            with open(self.basedir +'/desig_goal_pix{}.pkl'.format(self.suf), 'wb') as f:
+                dict= {'desig_pix': self.desig,
+                       'goal_pix': self.goal}
+                pickle.dump(dict, f)
+
+            plt.savefig(self.basedir + '/img_' + self.suf)
+            plt.close()
+            return
+
         rc_coord = np.array([event.ydata, event.xdata])
+
         if self.i_click % self.clicks_per_desig == 0:
             self.desig[i_task, :] = rc_coord
             color = "r"
@@ -958,17 +972,7 @@ class Getdesig(object):
         plt.draw()
 
         self.i_click += 1
-        if self.i_click == self.i_click_max:
-            print('saving desig-goal picture')
 
-            with open(self.basedir +'/desig_goal_pix{}.pkl'.format(self.suf), 'wb') as f:
-                dict= {'desig_pix': self.desig,
-                       'goal_pix': self.goal}
-                pickle.dump(dict, f)
-
-            plt.savefig(self.basedir + '/img_' + self.suf)
-            plt.close()
-            return
 
 
 

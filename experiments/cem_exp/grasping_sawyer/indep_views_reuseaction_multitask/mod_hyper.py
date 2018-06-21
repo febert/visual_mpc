@@ -29,7 +29,8 @@ agent = {'type' : AgentSawyer,
          'cameras':['front', 'left'],
          'benchmark_exp':'',
          'save_large_gifs' : '',
-         'save_videos' : ''
+         'save_pkl' : '',
+         'ntask':2,
          }
 
 policy = {

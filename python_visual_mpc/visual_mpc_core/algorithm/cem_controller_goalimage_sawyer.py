@@ -256,8 +256,8 @@ class CEM_controller():
             self.ndesig = self.netconf['ndesig']
         else: self.ndesig = None
 
-        if 'ndesig_click' in self.netconf:   # number of
-            self.ntask = self.agentparams['ndesig_click']
+        if 'ntask' in self.agentparams:   # number of
+            self.ntask = self.agentparams['ntask']
         else: self.ntask = 1
 
         self.img_height, self.img_width = self.netconf['orig_size']
@@ -609,7 +609,11 @@ class CEM_controller():
                     for p in range(self.ndesig):
                         distance_grid = self.get_distancegrid(self.goal_pix[icam, p])
                         score = self.calc_scores(icam, p, gen_distrib[:,:, icam, :,:, p], distance_grid, normalize=self.normalize)
+                        # pdb.set_trace()
                         if 'trade_off_reg' in self.policyparams:
+                            print(icam, p)
+                            print(self.reg_tradeoff.shape)
+
                             score *= self.reg_tradeoff[icam, p]
                         scores_per_task.append(score)
                         self.logger.log('best flow score of task {} cam{}  :{}'.format(p, icam, np.min(scores_per_task[-1])))
@@ -708,8 +712,8 @@ class CEM_controller():
             warperr, desig_pix = self.get_warp_err(n, start_image[n], goal_image[n], start_warp_pts[n], goal_warp_pts[n], warped_image_start[n], warped_image_goal[n])
             warperrs_l.append(warperr)
             desig_pix_l.append(desig_pix)
-        self.desig_pix = np.stack(desig_pix_l, axis=0)
 
+        self.desig_pix = np.stack(desig_pix_l, axis=0)
         warperrs = np.stack(warperrs_l, 0)
 
         if 'hard_tradeoff' in self.policyparams:
@@ -725,6 +729,7 @@ class CEM_controller():
                 print('applying equal weighting for cameras')
             else:
                 tradeoff = (1 / warperrs) / np.sum(1 / warperrs)  # cost-weighting factors for start and goal-image
+                # pdb.set_trace()
 
         self.plan_stat['tradeoff'] = tradeoff
         self.plan_stat['warperrs'] = warperrs
@@ -734,6 +739,7 @@ class CEM_controller():
         # assert len(self.policyparams['register_gtruth']) == self.ndesig
         desig_l = []
 
+        warperrs = []
         for p in range(self.ntask):
             if 'image_medium' in self.agentparams:
                 pix_t0 = self.desig_pix_t0_med[icam, p]
@@ -744,7 +750,6 @@ class CEM_controller():
                 goal_pix = self.goal_pix_sel[icam, p]
                 # goal_image = cv2.resize(goal_image, (self.agentparams['image_width'], self.agentparams['image_height']))
 
-            warperrs = []
             if 'start' in self.policyparams['register_gtruth']:
                 desig_l.append(np.flip(start_warp_pts[pix_t0[0], pix_t0[1]], 0))
                 start_warperr = np.linalg.norm(start_image[pix_t0[0], pix_t0[1]] -
