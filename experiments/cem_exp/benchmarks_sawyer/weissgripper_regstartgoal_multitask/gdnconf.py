@@ -28,7 +28,6 @@ configuration = {
 'sdim' :4,
 'adim' :5,
 'orig_size': [56,64],
-
 'norm':'charbonnier',
 'smoothcost':1e-6,
 'smoothmode':'2nd',
