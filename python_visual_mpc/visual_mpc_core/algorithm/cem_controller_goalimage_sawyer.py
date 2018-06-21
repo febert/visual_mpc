@@ -681,7 +681,8 @@ class CEM_controller():
         if 'pred_model' in self.gdnconf:
             if self.gdnconf['pred_model'] == MulltiviewTestGDN:
                 warped_image_start, _, start_warp_pts = self.goal_image_warper(last_frames[None], start_image[None])
-                warped_image_goal, _, goal_warp_pts = self.goal_image_warper(last_frames[None], goal_image[None])
+                if 'goal' in self.policyparams['register_gtruth']:
+                    warped_image_goal, _, goal_warp_pts = self.goal_image_warper(last_frames[None], goal_image[None])
             else:
                 raise NotImplementedError
         else:
@@ -702,10 +703,14 @@ class CEM_controller():
         desig_pix_l = []
         for n in range(self.ncam):
             start_warp_pts = start_warp_pts.reshape(self.ncam, self.img_height, self.img_width, 2)
-            goal_warp_pts = goal_warp_pts.reshape(self.ncam, self.img_height, self.img_width, 2)
             warped_image_start = warped_image_start.reshape(self.ncam, self.img_height, self.img_width, 3)
-            warped_image_goal = warped_image_goal.reshape(self.ncam, self.img_height,self.img_width, 3)
-            warperr, desig_pix = self.get_warp_err(n, start_image[n], goal_image[n], start_warp_pts[n], goal_warp_pts[n], warped_image_start[n], warped_image_goal[n])
+            if 'goal' in self.policyparams['register_gtruth']:
+                goal_warp_pts = goal_warp_pts.reshape(self.ncam, self.img_height, self.img_width, 2)
+                warped_image_goal = warped_image_goal.reshape(self.ncam, self.img_height,self.img_width, 3)
+            else:
+                goal_warp_pts = None
+                warped_image_goal = None
+            warperr, desig_pix = self.get_warp_err(n, start_image, goal_image, start_warp_pts, goal_warp_pts, warped_image_start, warped_image_goal)
             warperrs_l.append(warperr)
             desig_pix_l.append(desig_pix)
 
@@ -723,8 +728,6 @@ class CEM_controller():
         return warped_image_start, warped_image_goal, tradeoff
 
     def get_warp_err(self, icam, start_image, goal_image, start_warp_pts, goal_warp_pts, warped_image_start, warped_image_goal):
-        # assert len(self.policyparams['register_gtruth']) == self.ndesig
-        desig_l = []
         r = len(self.policyparams['register_gtruth'])
         warperrs = np.zeros((self.ntask, r))
         desig = np.zeros((self.ntask, r, 2))
@@ -739,14 +742,14 @@ class CEM_controller():
                 # goal_image = cv2.resize(goal_image, (self.agentparams['image_width'], self.agentparams['image_height']))
 
             if 'start' in self.policyparams['register_gtruth']:
-                desig[p, 0] = np.flip(start_warp_pts[pix_t0[0], pix_t0[1]], 0)
-                warperrs[p, 0] = np.linalg.norm(start_image[pix_t0[0], pix_t0[1]] -
-                                                      warped_image_start[pix_t0[0], pix_t0[1]])
+                desig[p, 0] = np.flip(start_warp_pts[icam][pix_t0[0], pix_t0[1]], 0)
+                warperrs[p, 0] = np.linalg.norm(start_image[icam][pix_t0[0], pix_t0[1]] -
+                                                      warped_image_start[icam][pix_t0[0], pix_t0[1]])
 
             if 'goal' in self.policyparams['register_gtruth']:
-                desig[p, 1] = np.flip(goal_warp_pts[goal_pix[0], goal_pix[1]], 0)
-                warperrs[p, 1] = np.linalg.norm(goal_image[goal_pix[0], goal_pix[1]] -
-                                                      warped_image_goal[goal_pix[0], goal_pix[1]])
+                desig[p, 1] = np.flip(goal_warp_pts[icam][goal_pix[0], goal_pix[1]], 0)
+                warperrs[p, 1] = np.linalg.norm(goal_image[icam][goal_pix[0], goal_pix[1]] -
+                                                      warped_image_goal[icam][goal_pix[0], goal_pix[1]])
 
         if 'image_medium' in self.agentparams:
             desig= desig * self.agentparams['image_height']/ self.agentparams['image_medium'][0]

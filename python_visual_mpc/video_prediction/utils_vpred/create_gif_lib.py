@@ -199,7 +199,7 @@ def assemble_gif(video_batch, num_exp = 8, convert_from_float = True, only_ind=N
         video_batch = [v[0] for v in video_batch]
         txt_im = []
         for name in names:
-            txt_im.append(draw_text_image(name, image_size=(video_batch[0][0].shape[1], 150)))
+            txt_im.append(draw_text_image(name, image_size=(video_batch[0][0].shape[1], 200)))
         legend_col = np.concatenate(txt_im, 0)
     else:
         legend_col = None
