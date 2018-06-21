@@ -35,6 +35,7 @@ class AgentSawyer:
 
     def _select_points(self, front_cam, left_cam, fig_save_dir, clicks_per_desig = 2, n_desig = 1):
         assert clicks_per_desig == 1 or clicks_per_desig == 2, "CLICKS_PER_DESIG SHOULD BE 1 OR 2"
+
         start_pix = []
         if clicks_per_desig == 2:
             goal_pix = []
@@ -44,16 +45,17 @@ class AgentSawyer:
                               im_shape=[self.img_height, self.img_width], clicks_per_desig=clicks_per_desig)
 
             start_pos = c_main.desig.astype(np.int64)
-            start_pix.append(start_pos.reshape(1, n_desig, -1))
+            start_pix.append(start_pos.reshape(1, n_desig, 2))
 
             if clicks_per_desig == 2:
                 goal_pos = c_main.goal.astype(np.int64)
-                goal_pix.append(goal_pos.reshape(1, n_desig, -1))
+                goal_pix.append(goal_pos.reshape(1, n_desig, 2))
 
         start_pix = np.concatenate(start_pix, 0)
         if clicks_per_desig == 2:
             goal_pix = np.concatenate(goal_pix, 0)
             return start_pix, goal_pix
+
         return  start_pix
 
     def sample(self, policy, itr):
@@ -89,6 +91,7 @@ class AgentSawyer:
                 if cntr > 0:
                     if 'y' not in raw_input("would you like to retry benchmark (answer y/n)?"):
                         break
+                ntasks = self._hyperparams.get('ntask', 1)
                 if 'register_gtruth' in self._hyperparams and len(self._hyperparams['register_gtruth']) == 2:
                     self._controller.reset_with_impedance(duration=1.0)
                     self._controller.disable_impedance()
@@ -108,7 +111,7 @@ class AgentSawyer:
                     goal_images = np.concatenate((front_goal_float[None], left_goal_float[None]), 0)
                     print('goal_images shape', goal_images.shape)
 
-                    goal_pix = self._select_points(front_goal, left_goal, goal_dir, clicks_per_desig=1)
+                    goal_pix = self._select_points(front_goal, left_goal, goal_dir, clicks_per_desig=1, n_desig=ntasks)
 
                     start_dir = fig_save_dir + '/start'
                     if not os.path.exists(start_dir):
@@ -124,9 +127,10 @@ class AgentSawyer:
                     if not read_ok:
                         print("CAMERA DESYNC")
                         break
-                    start_pix = self._select_points(front_start, left_start, start_dir, clicks_per_desig=1)
+                    start_pix = self._select_points(front_start, left_start, start_dir, clicks_per_desig=1, n_desig=ntasks)
 
                     traj, traj_ok = self.rollout(policy, start_pix, goal_pix, goal_images)
+                    cntr += 1
                 else:
                     self._controller.reset_with_impedance(duration=1.0)
                     print("PLACE OBJECTS IN START POSITION")
@@ -135,11 +139,12 @@ class AgentSawyer:
                     if not read_ok:
                         print("CAMERA DESYNC")
                         break
-                    start_pix, goal_pix = self._select_points(front_cam, left_cam, fig_save_dir)
+                    start_pix, goal_pix = self._select_points(front_cam, left_cam, fig_save_dir, n_desig=ntasks)
                     if 'opencv_tracking' in self._hyperparams:
                         self._recorder.start_tracking(start_pix)
 
                     traj, traj_ok = self.rollout(policy, start_pix, goal_pix)
+                    cntr += 1
 
                     if 'opencv_tracking' in self._hyperparams:
                         self._recorder.end_tracking()
@@ -220,13 +225,14 @@ class AgentSawyer:
 
             wait_change = (self.next_qpos[-1] > 0.05) != (self.prev_qpos[-1] > 0.05)        #wait for gripper to ack change in status
 
-
+            self._recorder.start_recording()
             if self.next_qpos[-1] > 0.05:
                 self._controller.close_gripper(wait_change)
             else:
                 self._controller.open_gripper(wait_change)
 
             self._controller.move_with_impedance_sec(target_ja, duration=self._hyperparams['step_duration'])
+            self._recorder.stop_recording()
 
         if not traj_ok:
             print("FAILED ROLLOUT RETRYING....")

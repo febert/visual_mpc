@@ -256,8 +256,8 @@ class CEM_controller():
             self.ndesig = self.netconf['ndesig']
         else: self.ndesig = None
 
-        if 'ndesig_click' in self.netconf:   # number of
-            self.ntask = self.agentparams['ndesig_click']
+        if 'ntask' in self.agentparams:   # number of
+            self.ntask = self.agentparams['ntask']
         else: self.ntask = 1
 
         self.img_height, self.img_width = self.netconf['orig_size']
