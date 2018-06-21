@@ -22,6 +22,8 @@ agent = {
     'filename_nomarkers': ROOT_DIR + '/mjc_models/cartgripper_updown.xml',
     'gen_xml':1,   #generate xml every nth trajecotry
     'num_objects': 1,
+    'object_mass':0.01,
+    'friction':1.5,
     'image_medium':[96,128],
     'viewer_image_height' : 480,
     'viewer_image_width' : 640,
@@ -76,6 +78,6 @@ config = {
     'policy':policy,
     'ngroup': 100,
     'sourcetags':[tag_images, tag_qpos, tag_object_full_pose, tag_object_statprop],
-    'source_basedirs':[os.environ['VMPC_DATA_DIR'] + '/cartgripper_const_dist/train'],
+    'source_basedirs':[os.environ['VMPC_DATA_DIR'] + '/cartgripper/cartgripper_const_dist/train'],
     'sequence_length':2
 }
