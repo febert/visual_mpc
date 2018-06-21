@@ -11,35 +11,24 @@ current_dir = os.path.dirname(os.path.realpath(__file__))
 
 # local output directory
 OUT_DIR = current_dir + '/modeldata'
-from python_visual_mpc.goaldistancenet.variants.multiview_testgdn import MulltiviewTestGDN
+
 
 configuration = {
 'experiment_name': 'correction',
-'pred_model':MulltiviewTestGDN,
-'pretrained_model': [,],
+'pretrained_model': base_dir + '/tensorflow_data/gdn/startgoal_shad/modeldata/model48002',
 'output_dir': OUT_DIR,      #'directory for model checkpoints.' ,
 'current_dir': base_dir,   #'directory for writing summary.' ,
 'num_iterations':50000,
-'sequence_length':14,
+'sequence_length':4,
 'train_val_split':.95,
-'visualize':'',
 'skip_frame':1,
-'batch_size': 64,           #'batch size for training' ,
+'batch_size': 1,           #'batch size for training' ,
 'learning_rate': 0.001,     #'the base learning rate of the generator' ,
 'normalization':'None',
-'sdim' :5,
-'adim' :4,
 'orig_size': [48,64],
 'norm':'charbonnier',
 'smoothcost':1e-6,
 'smoothmode':'2nd',
-'fwd_bwd':'',
-'flow_diff_cost':1e-4,
-'hard_occ_thresh':'',
-'occlusion_handling':1e-4,
-'occ_thres_mult':0.5,
-'occ_thres_offset':1.,
-'flow_penal':1e-4,
+'image_only':'',
 'ch_mult':4,
-'view':0,
 }

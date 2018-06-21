@@ -76,6 +76,17 @@ def plot_sum_overtime(pixdistrib, dir, filename, tradeoffs):
     plt.savefig(os.path.join(dir, filename))
 
 
+def write_tradeoff_onimage(image, tradeoff_percam, ntask, startgoal):
+    """
+    :param tradeoff_percam:
+    :param ntask:
+    :param startgoal:  0 or 1; 0 stands for startimage
+    :return:
+    """
+    tradeoff_percam = tradeoff_percam.reshape([ntask,2])
+    string = ','.join(['%.2f' %  tr for  tr in list(tradeoff_percam[:,startgoal])])
+    return draw_text_onimage(string, image)
+
 def make_cem_visuals(ctrl, actions, bestindices, cem_itr, flow_fields, gen_distrib, gen_images, gen_states,
                      last_frames, goal_warp_pts_l, scores, warped_image_goal, warped_image_start, warped_images, last_states, reg_tradeoff):
     if 'compare_mj_planner_actions' in ctrl.agentparams:
@@ -113,34 +124,36 @@ def make_cem_visuals(ctrl, actions, bestindices, cem_itr, flow_fields, gen_distr
         for icam in range(ctrl.ncam):
             if 'start' in ctrl.policyparams['register_gtruth']:
                 if 'trade_off_reg' in ctrl.policyparams:
-                    warped_img_start_cam = draw_text_onimage('%.2f' % reg_tradeoff[icam, 0],warped_image_start[icam].squeeze())
+                    warped_img_start_cam = write_tradeoff_onimage(warped_image_start[icam].squeeze(), reg_tradeoff[icam], ctrl.ntask, 0)
                 else:
                     warped_img_start_cam  = warped_image_start[icam].squeeze()
                 t_dict_['warp_start_cam{}'.format(icam)] = [np.repeat(np.expand_dims(warped_img_start_cam, axis=0), num_ex, axis=0) for _ in
                                                   range(len_pred)]
 
-            if 'image_medium' in ctrl.agentparams:
-                desig_pix_t0 = ctrl.desig_pix_t0_med[icam][None]
-            else:
-                desig_pix_t0 = ctrl.desig_pix_t0[icam][None]
-            desig_pix_t0 = np.tile(desig_pix_t0, [num_ex, len_pred, 1])
-
             startimages = np.tile(ctrl.start_image[icam][None, None], [num_ex, len_pred, 1, 1, 1])
-            t_dict_['start_img_cam{}'.format(icam)] = unstack(add_crosshairs(startimages, desig_pix_t0), 1)
+            for p in range(ctrl.ntask):
+                if 'image_medium' in ctrl.agentparams:
+                    desig_pix_t0 = ctrl.desig_pix_t0_med[icam, p][None]
+                else:
+                    desig_pix_t0 = ctrl.desig_pix_t0[icam, p][None]
+                desig_pix_t0 = np.tile(desig_pix_t0, [num_ex, len_pred, 1])
+
+                startimages = add_crosshairs(startimages, desig_pix_t0)
+            t_dict_['start_img_cam{}'.format(icam)] = unstack(startimages, 1)
 
             ipix = 0
             gen_image_an = gen_images[:, :, icam]
-
             for p in range(ctrl.ntask):
                 if 'start' in ctrl.policyparams['register_gtruth']:
-                    desig_pix_start = np.tile(ctrl.desig_pix[icam, 0][None, None, :], [M, len_pred, 1])
+                    desig_pix_start = np.tile(ctrl.desig_pix[icam, ipix][None, None, :], [M, len_pred, 1])
                     gen_image_an = add_crosshairs(gen_image_an, desig_pix_start, color=[1., 0., 0])
                     ipix +=1
                 if 'goal' in ctrl.policyparams['register_gtruth']:
                     desig_pix_goal = np.tile(ctrl.desig_pix[icam, ipix][None,None, :], [M, len_pred, 1])
                     gen_image_an = add_crosshairs(gen_image_an, desig_pix_goal, color=[0, 0, 1.])
+                    ipix +=1
                     if 'trade_off_reg' in ctrl.policyparams:
-                        warped_img_goal_cam = draw_text_onimage('%.2f' % reg_tradeoff[icam, 1],warped_image_goal[icam].squeeze())
+                        warped_img_goal_cam = write_tradeoff_onimage(warped_image_goal[icam].squeeze(), reg_tradeoff[icam], ctrl.ntask, 1)
                     else:
                         warped_img_goal_cam  = warped_image_goal[icam].squeeze()
                     warped_img_goal_cam = [np.repeat(np.expand_dims(warped_img_goal_cam, axis=0), num_ex, axis=0) for _ in

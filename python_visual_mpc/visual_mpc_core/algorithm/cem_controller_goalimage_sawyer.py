@@ -713,22 +713,10 @@ class CEM_controller():
 
         warperrs = np.stack(warperrs_l, 0)    # shape: ncam, ntask, r
 
-        if 'hard_tradeoff' in self.policyparams:
-            print('warperrs ', warperrs)
-            tradeoff = np.zeros_like(warperrs)
-            tradeoff[np.unravel_index(np.argmin(warperrs), warperrs.shape)] = 1.
-        else:
-            if 'camera_equal_weight' in self.policyparams:
-                warperrs = np.sum(warperrs, 0)
-                tradeoff = (1 / warperrs)
-                tradeoff = np.tile(tradeoff[None], [self.ncam, 1])
-                tradeoff = tradeoff / np.sum(tradeoff)
-                print('applying equal weighting for cameras')
-            else:
-                tradeoff = (1 / warperrs)
-                normalizers = np.sum(np.sum(tradeoff, 0, keepdims=True), 2, keepdims=True)
-                tradeoff = tradeoff/ normalizers
-                tradeoff = tradeoff.reshape(self.ncam, self.ndesig)
+        tradeoff = (1 / warperrs)
+        normalizers = np.sum(np.sum(tradeoff, 0, keepdims=True), 2, keepdims=True)
+        tradeoff = tradeoff / normalizers
+        tradeoff = tradeoff.reshape(self.ncam, self.ndesig)
 
         self.plan_stat['tradeoff'] = tradeoff
         self.plan_stat['warperrs'] = warperrs
@@ -925,7 +913,9 @@ class CEM_controller():
         if 'register_gtruth' in self.policyparams:
             self.goal_pix_sel = np.array(goal_pix).reshape((self.ncam, self.ntask, 2))
             num_reg_images = len(self.policyparams['register_gtruth'])
-            self.goal_pix = np.repeat(self.goal_pix_sel, num_reg_images, axis=1)
+            assert self.ndesig == num_reg_images*self.ntask
+            self.goal_pix = np.tile(self.goal_pix_sel[:,:,None,:], [1,1,num_reg_images,1])  # copy along r: shape: ncam, ntask, r
+            self.goal_pix = self.goal_pix.reshape(self.ncam, self.ndesig, 2)
         else:
             self.desig_pix = np.array(desig_pix).reshape((self.ncam, self.ndesig, 2))
             self.goal_pix = np.array(goal_pix).reshape((self.ncam, self.ndesig, 2))
