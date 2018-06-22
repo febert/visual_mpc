@@ -265,8 +265,8 @@ class Visual_MPC_Client():
     def mark_goal_desig(self, itr):
         if 'use_goal_image' in self.policyparams:
             print('put object in goal configuration')
-            pdb.set_trace()
             ntask = self.agentparams['ntask']
+            raw_input()
             imagemain = self.recorder.ltob.img_cropped
             imagemain = cv2.cvtColor(imagemain, cv2.COLOR_BGR2RGB)
             c_main = Getdesig(imagemain, self.recorder_save_dir, 'goal', n_desig=ntask,
@@ -277,7 +277,7 @@ class Visual_MPC_Client():
             print('goal pos main:', self.goal_pos_main)
 
             print('put object in start configuration')
-            pdb.set_trace()
+            raw_input()
             imagemain = self.recorder.ltob.img_cropped
             imagemain = cv2.cvtColor(imagemain, cv2.COLOR_BGR2RGB)
             c_main = Getdesig(imagemain, self.recorder_save_dir, 'start', n_desig=ntask,
@@ -294,8 +294,10 @@ class Visual_MPC_Client():
             self.goal_pos_main = c_main.goal.astype(np.int64)
             print('goal pos main:', self.goal_pos_main)
 
-            self.goal_image = np.zeros_like(imagemain)
-
+        if 'image_medium' in self.agentparams:
+            self.goal_image = self.recorder.ltob.img_cropped_medium
+        else:
+            self.goal_image = self.recorder.ltob.img_cropped
 
     def imp_ctrl_release_spring(self, maxstiff):
         self.imp_ctrl_release_spring_pub.publish(maxstiff)

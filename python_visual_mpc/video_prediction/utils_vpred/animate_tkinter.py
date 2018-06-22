@@ -241,13 +241,20 @@ class Visualizer_tkinter(object):
 
         new_videolist = []
         for vid in self.video_list:
-            # print('key', vid[1])
-            # print('len', len(vid[0]))
-            # print('sizes', [im.shape for im in vid[0]])
+            print('key', vid[1])
+            print('len', len(vid[0]))
+            print('sizes', [im.shape for im in vid[0]])
+            print('####')
+            if 'gen_distrib' in vid[1]:
+                plt.switch_backend('TkAgg')
+                # plt.imshow(vid[0][0][0])
+                # plt.show()
+
             images = vid[0]
             if resize is not None:
                 images = resize_image(images, size=resize)
             name = vid[1]
+
             if images[0].shape[-1] == 1 or len(images[0].shape) == 3:
                 images = color_code_distrib(images, self.numex, renormalize=True)
 
@@ -560,24 +567,40 @@ def convert_to_videolist(input, repeat_last_dim):
 
     return list_of_videos
 
-def resize_image(imlist, size = (256, 256)):
+
+def resize_image(input, size = (256, 256)):
     """
-    :param imlist:  list of image batches of size [b, r, c, ch]
+    :param input:  list of image batches of size [b, r, c, ch], or [b,t,n,r,c,ch]
     :param size:
     :param mode:
     :return:
     """
-    batch_size, height, width, ch = imlist[0].shape
-    assert len(size) == 2
 
+    assert len(size) == 2
     out = []
-    for im in imlist:
-        im = np.transpose(im, [1,2,0,3])
+    if isinstance(input, list):
+        for im in input:
+            if len(im.shape) == 4:
+                batch_size, height, width, ch = im.shape
+            else:
+                batch_size, height, width = im.shape
+                ch = 1
+                im = im[..., None]
+
+            im = np.transpose(im, [1,2,0,3])
+            im = im.reshape(height, width, -1)
+            out_t = cv2.resize(im, (size[1], size[0]))
+            out_t = out_t.reshape(size[0], size[1], batch_size, ch)
+            out_t = np.transpose(out_t, [2, 0, 1, 3])
+            out.append(out_t)
+    else:
+        batch_size, seqlen, ncam, height, width, ch = input.shape
+
+        im = np.transpose(input, [3,4,0,1,2,5])
         im = im.reshape(height, width, -1)
         out_t = cv2.resize(im, (size[1], size[0]))
-        out_t = out_t.reshape(size[0], size[1], batch_size, ch)
-        out_t = np.transpose(out_t, [2, 0, 1, 3])
-        out.append(out_t)
+        out_t = out_t.reshape(size[0], size[1], batch_size, seqlen, ncam, ch)
+        out = np.transpose(out_t, [2,3,4,0,1,5])
     return out
 
 def color_code_distrib(distrib_list, num_ex, renormalize=False):

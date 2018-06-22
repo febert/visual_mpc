@@ -3,21 +3,23 @@ base_dir = python_visual_mpc.__file__
 
 base_dir = '/'.join(str.split(base_dir, '/')[:-2])
 
-
+# tf record data location:
 import os
 current_dir = os.path.dirname(os.path.realpath(__file__))
 
 # local output directory
 OUT_DIR = current_dir + '/modeldata'
+# local output directory
 
-BASE = '/'.join(str.split(current_dir, '/')[:-4])
+from python_visual_mpc.goaldistancenet.variants.multiview_testgdn import MulltiviewTestGDN
 
 configuration = {
 'experiment_name': 'correction',
-'pretrained_model': BASE + '/tensorflow_data/gdn/weiss/weiss_thresh0.5_56x64/modeldata/model28002',
-'output_dir': OUT_DIR,      #'directory for model checkpoints.' ,
+'pred_model':MulltiviewTestGDN,
+'pretrained_model': [base_dir + '/tensorflow_data/gdn/weiss/multiview/view0/modeldata/model48002',
+                     base_dir + '/tensorflow_data/gdn/weiss/multiview/view1/modeldata/model48002'],
+# 'pretrained_model': base_dir + '/tensorflow_data/gdn/weiss/sawyer_grasping_tresh0.5_48x64/modeldata/model48002',
 'current_dir': base_dir,   #'directory for writing summary.' ,
-'num_iterations':50000,
 'sequence_length':14,
 'train_val_split':.95,
 'visualize':'',
@@ -25,10 +27,9 @@ configuration = {
 'batch_size': 1,           #'batch size for training' ,
 'learning_rate': 0.001,     #'the base learning rate of the generator' ,
 'normalization':'None',
-'sdim' :4,
-'adim' :5,
-'orig_size': [56,64],
-
+'sdim' :5,
+'adim' :4,
+'orig_size': [48,64],
 'norm':'charbonnier',
 'smoothcost':1e-6,
 'smoothmode':'2nd',
