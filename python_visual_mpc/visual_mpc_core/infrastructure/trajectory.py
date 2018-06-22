@@ -29,7 +29,7 @@ class Trajectory(object):
             self.touch_sensors = None
 
         if 'image_medium' in conf:
-            self._image_medium = np.zeros((self.T,
+            self._image_medium = np.zeros((self.T, ncam,
                                             conf['image_medium'][0],
                                             conf['image_medium'][1],
                                             img_channels), dtype='uint8')

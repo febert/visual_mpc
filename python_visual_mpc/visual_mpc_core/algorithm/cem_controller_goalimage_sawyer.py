@@ -701,12 +701,14 @@ class CEM_controller():
             goal_warp_pts = np.stack(goal_warp_pts_l, 0)
 
         desig_pix_l = []
+
+        imheight, imwidth = goal_image.shape[1:3]
         for n in range(self.ncam):
-            start_warp_pts = start_warp_pts.reshape(self.ncam, self.img_height, self.img_width, 2)
-            warped_image_start = warped_image_start.reshape(self.ncam, self.img_height, self.img_width, 3)
+            start_warp_pts = start_warp_pts.reshape(self.ncam, imheight, imwidth, 2)
+            warped_image_start = warped_image_start.reshape(self.ncam, imheight, imwidth, 3)
             if 'goal' in self.policyparams['register_gtruth']:
-                goal_warp_pts = goal_warp_pts.reshape(self.ncam, self.img_height, self.img_width, 2)
-                warped_image_goal = warped_image_goal.reshape(self.ncam, self.img_height,self.img_width, 3)
+                goal_warp_pts = goal_warp_pts.reshape(self.ncam, imheight, imwidth, 2)
+                warped_image_goal = warped_image_goal.reshape(self.ncam, imheight, imwidth, 3)
             else:
                 goal_warp_pts = None
                 warped_image_goal = None
@@ -752,7 +754,7 @@ class CEM_controller():
                                                       warped_image_goal[icam][goal_pix[0], goal_pix[1]])
 
         if 'image_medium' in self.agentparams:
-            desig= desig * self.agentparams['image_height']/ self.agentparams['image_medium'][0]
+            desig = desig * self.agentparams['image_height']/ self.agentparams['image_medium'][0]
         return warperrs, desig
 
     def publish_sawyer(self, gen_distrib, gen_images, scores):
