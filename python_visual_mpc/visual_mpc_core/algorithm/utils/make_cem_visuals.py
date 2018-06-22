@@ -209,6 +209,12 @@ def make_cem_visuals(ctrl, actions, bestindices, cem_itr, flow_fields, gen_distr
         if 'save_pkl' in ctrl.agentparams:
             pickle.dump(t_dict_, open(ctrl.agentparams['record'] + '/plan/pred_t{}iter{}.pkl'.format(ctrl.t, cem_itr), 'wb'))
             print('written files to:' + file_path)
+        if 'save_desig_pos' in ctrl.agentparams:
+            pix_pos_dict = {}
+            pix_pos_dict['desig_pix_t0'] = ctrl.desig_pix_t0
+            pix_pos_dict['goal_pix'] = ctrl.goal_pix
+            pix_pos_dict['desig'] = ctrl.desig_pix
+            pickle.dump(pix_pos_dict, open(ctrl.agentparams['record'] + '/plan/pix_pos_dict{}iter{}.pkl'.format(ctrl.t, cem_itr), 'wb'))
 
         v = Visualizer_tkinter(t_dict_, append_masks=False,
                                filepath=ctrl.agentparams['record'] + '/plan/',

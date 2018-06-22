@@ -51,8 +51,9 @@ policy = {
     'action_cost_factor': 0,
     'rew_all_steps':"",
     'finalweight':10,
-    'register_gtruth':['start','goal'],
-    'trade_off_reg':'',
+    # 'register_gtruth':['start','goal'],
+    'register_gtruth':['start'],  ############
+    # 'trade_off_reg':'',  ############
     'replan_interval': 3,
     'reuse_mean': '',
     'reuse_action_as_mean': "",
