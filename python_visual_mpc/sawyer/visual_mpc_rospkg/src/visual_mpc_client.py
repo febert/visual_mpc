@@ -266,11 +266,13 @@ class Visual_MPC_Client():
         if 'use_goal_image' in self.policyparams:
             print('put object in goal configuration')
             pdb.set_trace()
+            ntask = self.agentparams['ntask']
             imagemain = self.recorder.ltob.img_cropped
             imagemain = cv2.cvtColor(imagemain, cv2.COLOR_BGR2RGB)
-            c_main = Getdesig(imagemain, self.recorder_save_dir, 'goal', n_desig=1,
+            c_main = Getdesig(imagemain, self.recorder_save_dir, 'goal', n_desig=ntask,
                               im_shape=[self.img_height, self.img_width], clicks_per_desig=1)
             self.goal_pos_main = c_main.desig.astype(np.int64)
+            pdb.set_trace()
             self.goal_image = imagemain
             print('goal pos main:', self.goal_pos_main)
 
@@ -278,7 +280,7 @@ class Visual_MPC_Client():
             pdb.set_trace()
             imagemain = self.recorder.ltob.img_cropped
             imagemain = cv2.cvtColor(imagemain, cv2.COLOR_BGR2RGB)
-            c_main = Getdesig(imagemain, self.recorder_save_dir, 'start', n_desig=1,
+            c_main = Getdesig(imagemain, self.recorder_save_dir, 'start', n_desig=ntask,
                               im_shape=[self.img_height, self.img_width], clicks_per_desig=1)
             self.desig_pos_main = c_main.desig.astype(np.int64)
             print('desig pos aux1:', self.desig_pos_main)
