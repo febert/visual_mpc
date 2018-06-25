@@ -481,36 +481,25 @@ class AgentMuJoCo(object):
         width = self._hyperparams['viewer_image_width']
         height = self._hyperparams['viewer_image_height']
 
-        if 'cameras' in self._hyperparams:
-            for i, cam in enumerate(self._hyperparams['cameras']):
-                large_img = self.sim.render(width, height, camera_name=cam)[::-1, :, :]
-                if np.sum(large_img) < 1e-3:
-                    print("image dark!!!")
-                    raise Image_dark_except
-                if cam == 'maincam':
-                    self.large_images.append(large_img)
-                traj.images[t, i] = cv2.resize(large_img, dsize=(self._hyperparams['image_width'],
-                                        self._hyperparams['image_height']), interpolation = cv2.INTER_AREA)
-
-                if 'make_gtruth_flows' in self._hyperparams:
-                    traj.largeimage[t, i] = large_img
-                    dlarge_img = self.sim.render(width, height, camera_name="maincam", depth=True)[1][::-1, :]
-                    traj.largedimage[t, i] = dlarge_img
-        else:
-            os.environ["CUDA_VISIBLE_DEVICES"] = "0"
-            large_img = self.sim.render(width, height, camera_name="maincam")[::-1, :, :]
+        if 'cameras' not in self._hyperparams:
+            self._hyperparams['cameras'] = ['maincam']
+        for i, cam in enumerate(self._hyperparams['cameras']):
+            large_img = self.sim.render(width, height, camera_name=cam)[::-1, :, :]
             if np.sum(large_img) < 1e-3:
                 print("image dark!!!")
                 raise Image_dark_except
-            self.large_images.append(large_img)
-            traj.images[t] = cv2.resize(large_img, dsize=(self._hyperparams['image_width'], self._hyperparams['image_height']), interpolation = cv2.INTER_AREA)
-            if 'image_medium' in self._hyperparams:
-                traj._image_medium[t] = cv2.resize(large_img, dsize=(self._hyperparams['image_medium'][1],
-                                                                         self._hyperparams['image_medium'][0]), interpolation = cv2.INTER_AREA)
+            if cam == 'maincam':
+                self.large_images.append(large_img)
+            traj.images[t, i] = cv2.resize(large_img, dsize=(self._hyperparams['image_width'],
+                                    self._hyperparams['image_height']), interpolation = cv2.INTER_AREA)
+
             if 'make_gtruth_flows' in self._hyperparams:
-                traj.largeimage[t] = large_img
+                traj.largeimage[t, i] = large_img
                 dlarge_img = self.sim.render(width, height, camera_name="maincam", depth=True)[1][::-1, :]
-                traj.largedimage[t] = dlarge_img
+                traj.largedimage[t, i] = dlarge_img
+            if 'image_medium' in self._hyperparams:
+                traj._image_medium[t, i] = cv2.resize(large_img, dsize=(self._hyperparams['image_medium'][1],
+                                                                     self._hyperparams['image_medium'][0]), interpolation = cv2.INTER_AREA)
 
         if 'store_whole_pred' in self._hyperparams:
             if t > 1:

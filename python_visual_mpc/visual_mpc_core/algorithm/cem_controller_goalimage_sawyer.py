@@ -256,6 +256,10 @@ class CEM_controller():
             self.ndesig = self.netconf['ndesig']
         else: self.ndesig = None
 
+        if 'ntask' in self.agentparams:   # number of
+            self.ntask = self.agentparams['ntask']
+        else: self.ntask = 1
+
         self.img_height, self.img_width = self.netconf['orig_size']
 
         # the full horizon is actions*repeat
@@ -508,13 +512,6 @@ class CEM_controller():
                 self.logger.log('using desig pix',desig[icam, p, 0], desig[icam, p, 1])
         return one_hot_images
 
-    def singlepoint_prob_eval(self, gen_pixdistrib):
-        self.logger.log('using singlepoint_prob_eval')
-        scores = np.zeros(self.M)
-        for t in range(len(gen_pixdistrib)):
-            for b in range(self.M):
-                scores[b] -= gen_pixdistrib[t][b,self.goal_pix[0,0], self.goal_pix[0,1]]
-        return scores
 
     def video_pred(self, traj, actions, cem_itr):
         t_0 = time.time()
@@ -684,7 +681,8 @@ class CEM_controller():
         if 'pred_model' in self.gdnconf:
             if self.gdnconf['pred_model'] == MulltiviewTestGDN:
                 warped_image_start, _, start_warp_pts = self.goal_image_warper(last_frames[None], start_image[None])
-                warped_image_goal, _, goal_warp_pts = self.goal_image_warper(last_frames[None], goal_image[None])
+                if 'goal' in self.policyparams['register_gtruth']:
+                    warped_image_goal, _, goal_warp_pts = self.goal_image_warper(last_frames[None], goal_image[None])
             else:
                 raise NotImplementedError
         else:
@@ -702,67 +700,62 @@ class CEM_controller():
             start_warp_pts = np.stack(start_warp_pts_l, 0)
             goal_warp_pts = np.stack(goal_warp_pts_l, 0)
 
+        desig_pix_l = []
+
+        imheight, imwidth = goal_image.shape[1:3]
         for n in range(self.ncam):
-            start_warp_pts = start_warp_pts.reshape(self.ncam, self.img_height, self.img_width, 2)
-            goal_warp_pts = goal_warp_pts.reshape(self.ncam, self.img_height, self.img_width, 2)
-            warped_image_start = warped_image_start.reshape(self.ncam, self.img_height, self.img_width, 3)
-            warped_image_goal = warped_image_goal.reshape(self.ncam, self.img_height,self.img_width, 3)
-            warperr = self.get_warp_err(n, start_image[n], goal_image[n], start_warp_pts[n], goal_warp_pts[n], warped_image_start[n], warped_image_goal[n])
-            warperrs_l.append(warperr)
-
-        warperrs = np.stack(warperrs_l, 0)
-
-        if 'hard_tradeoff' in self.policyparams:
-            print('warperrs ', warperrs)
-            tradeoff = np.zeros_like(warperrs)
-            tradeoff[np.unravel_index(np.argmin(warperrs), warperrs.shape)] = 1.
-        else:
-            if 'camera_equal_weight' in self.policyparams:
-                warperrs = np.sum(warperrs, 0)
-                tradeoff = (1 / warperrs)
-                tradeoff = np.tile(tradeoff[None], [self.ncam, 1])
-                tradeoff = tradeoff / np.sum(tradeoff)
-                print('applying equal weighting for cameras')
+            start_warp_pts = start_warp_pts.reshape(self.ncam, imheight, imwidth, 2)
+            warped_image_start = warped_image_start.reshape(self.ncam, imheight, imwidth, 3)
+            if 'goal' in self.policyparams['register_gtruth']:
+                goal_warp_pts = goal_warp_pts.reshape(self.ncam, imheight, imwidth, 2)
+                warped_image_goal = warped_image_goal.reshape(self.ncam, imheight, imwidth, 3)
             else:
-                tradeoff = (1 / warperrs) / np.sum(1 / warperrs)  # cost-weighting factors for start and goal-image
+                goal_warp_pts = None
+                warped_image_goal = None
+            warperr, desig_pix = self.get_warp_err(n, start_image, goal_image, start_warp_pts, goal_warp_pts, warped_image_start, warped_image_goal)
+            warperrs_l.append(warperr)
+            desig_pix_l.append(desig_pix)
+
+        self.desig_pix = np.stack(desig_pix_l, axis=0).reshape(self.ncam, self.ndesig, 2)
+
+        warperrs = np.stack(warperrs_l, 0)    # shape: ncam, ntask, r
+
+        tradeoff = (1 / warperrs)
+        normalizers = np.sum(np.sum(tradeoff, 0, keepdims=True), 2, keepdims=True)
+        tradeoff = tradeoff / normalizers
+        tradeoff = tradeoff.reshape(self.ncam, self.ndesig)
 
         self.plan_stat['tradeoff'] = tradeoff
         self.plan_stat['warperrs'] = warperrs
         return warped_image_start, warped_image_goal, tradeoff
 
     def get_warp_err(self, icam, start_image, goal_image, start_warp_pts, goal_warp_pts, warped_image_start, warped_image_goal):
-        assert len(self.policyparams['register_gtruth']) == self.ndesig
-        desig_l = []
+        r = len(self.policyparams['register_gtruth'])
+        warperrs = np.zeros((self.ntask, r))
+        desig = np.zeros((self.ntask, r, 2))
+        for p in range(self.ntask):
+            if 'image_medium' in self.agentparams:
+                pix_t0 = self.desig_pix_t0_med[icam, p]
+                goal_pix = self.goal_pix_med[icam, p]
+                self.logger.log('using desig goal pix medium')
+            else:
+                pix_t0 = self.desig_pix_t0[icam, p]     # desig_pix_t0 shape: icam, ndesig, 2
+                goal_pix = self.goal_pix_sel[icam, p]
+                # goal_image = cv2.resize(goal_image, (self.agentparams['image_width'], self.agentparams['image_height']))
+
+            if 'start' in self.policyparams['register_gtruth']:
+                desig[p, 0] = np.flip(start_warp_pts[icam][pix_t0[0], pix_t0[1]], 0)
+                warperrs[p, 0] = np.linalg.norm(start_image[icam][pix_t0[0], pix_t0[1]] -
+                                                      warped_image_start[icam][pix_t0[0], pix_t0[1]])
+
+            if 'goal' in self.policyparams['register_gtruth']:
+                desig[p, 1] = np.flip(goal_warp_pts[icam][goal_pix[0], goal_pix[1]], 0)
+                warperrs[p, 1] = np.linalg.norm(goal_image[icam][goal_pix[0], goal_pix[1]] -
+                                                      warped_image_goal[icam][goal_pix[0], goal_pix[1]])
 
         if 'image_medium' in self.agentparams:
-            pix_t0 = self.desig_pix_t0_med[icam, 0]
-            goal_pix = self.goal_pix_med[icam, 0]
-            self.logger.log('using desig goal pix medium')
-        else:
-            pix_t0 = self.desig_pix_t0[icam, 0]
-            goal_pix = self.goal_pix[icam, 0]
-            # goal_image = cv2.resize(goal_image, (self.agentparams['image_width'], self.agentparams['image_height']))
-
-        warperrs = []
-        if 'start' in self.policyparams['register_gtruth']:
-            desig_l.append(np.flip(start_warp_pts[pix_t0[0], pix_t0[1]], 0))
-            start_warperr = np.linalg.norm(start_image[pix_t0[0], pix_t0[1]] -
-                                                  warped_image_start[pix_t0[0], pix_t0[1]])
-            warperrs.append(start_warperr)
-
-        if 'goal' in self.policyparams['register_gtruth']:
-            desig_l.append(np.flip(goal_warp_pts[goal_pix[0], goal_pix[1]], 0))
-            goal_warperr = np.linalg.norm(goal_image[goal_pix[0], goal_pix[1]] -
-                                                  warped_image_goal[goal_pix[0], goal_pix[1]])
-            warperrs.append(goal_warperr)
-        warperrs = np.array(warperrs)
-
-        if 'image_medium' in self.agentparams:
-            self.desig_pix_med = np.stack(desig_l, 0)
-            self.desig_pix[icam] = np.stack(desig_l, 0) * self.agentparams['image_height']/ self.agentparams['image_medium'][0]
-        else:
-            self.desig_pix[icam] = np.stack(desig_l, 0)
-        return warperrs
+            desig = desig * self.agentparams['image_height']/ self.agentparams['image_medium'][0]
+        return warperrs, desig
 
     def publish_sawyer(self, gen_distrib, gen_images, scores):
         sorted_inds = scores.argsort()
@@ -922,28 +915,27 @@ class CEM_controller():
         self.goal_mask = goal_mask
         self.goal_image = goal_image
 
-
         if 'register_gtruth' in self.policyparams:
-            desig_pix = np.array(desig_pix).reshape((self.ncam, 1, 2))   # 1,1,2
-            self.desig_pix = np.tile(desig_pix, [1,self.ndesig,1])   # shape: ncam, ndesig, 2
-            goal_pix = np.array(goal_pix).reshape((self.ncam, 1, 2))  # 1,1,2
-            self.goal_pix = np.tile(goal_pix, [1,self.ndesig,1])   # shape: ncam, ndesig, 2
+            self.goal_pix_sel = np.array(goal_pix).reshape((self.ncam, self.ntask, 2))
+            num_reg_images = len(self.policyparams['register_gtruth'])
+            assert self.ndesig == num_reg_images*self.ntask
+            self.goal_pix = np.tile(self.goal_pix_sel[:,:,None,:], [1,1,num_reg_images,1])  # copy along r: shape: ncam, ntask, r
+            self.goal_pix = self.goal_pix.reshape(self.ncam, self.ndesig, 2)
         else:
-            self.desig_pix = np.array(desig_pix).reshape((self.ncam, self.ndesig, 2))   # 1,1,2
-            self.goal_pix = np.array(goal_pix).reshape((self.ncam, self.ndesig, 2))     # 1,1,2
+            self.desig_pix = np.array(desig_pix).reshape((self.ncam, self.ndesig, 2))
+            self.goal_pix = np.array(goal_pix).reshape((self.ncam, self.ndesig, 2))
         if 'image_medium' in self.agentparams:
             self.goal_pix_med = (self.goal_pix * self.agentparams['image_medium'][0] / self.agentparams['image_height']).astype(np.int)
 
-        last_images_med = None
         self.curr_obj_mask = curr_mask
         self.traj = traj
         self.t = t
 
         if t == 0:
             action = np.zeros(self.agentparams['adim'])
-            self.desig_pix_t0 = self.desig_pix
+            self.desig_pix_t0 = np.array(desig_pix).reshape((self.ncam, self.ntask, 2))   # 1,1,2
             if 'image_medium' in self.agentparams:
-                self.desig_pix_t0_med = (self.desig_pix * self.agentparams['image_medium'][0]/self.agentparams['image_height']).astype(np.int)
+                self.desig_pix_t0_med = (self.desig_pix_t0 * self.agentparams['image_medium'][0]/self.agentparams['image_height']).astype(np.int)
         else:
             if 'use_first_plan' in self.policyparams:
                 self.logger.log('using actions of first plan, no replanning!!')

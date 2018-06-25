@@ -182,11 +182,6 @@ class GoalDistanceNet(object):
                                  lambda: val_dict)
                 self.images = dict['images']
 
-
-            if 'vidpred_data' in conf:  # register predicted video to real
-                self.pred_images = tf.squeeze(dict['gen_images'])
-                self.pred_states = tf.squeeze(dict['gen_states'])
-
             if 'temp_divide_and_conquer' not in self.conf:
                 self.I0, self.I1 = self.sel_images()
 
@@ -423,7 +418,7 @@ class GoalDistanceNet(object):
             with tf.variable_scope('h3'):
                 h3 = self.conv_relu_block(h2, out_ch=128*ch_mult)  #6x8x3
 
-            if self.conf['orig_size'][0] == 96:
+            if self.conf['orig_size'][1] == 128:
                 with tf.variable_scope('h3_1'):
                     h3 = self.conv_relu_block(h3, out_ch=256*ch_mult)  #6x8x3
                 with tf.variable_scope('h3_2'):

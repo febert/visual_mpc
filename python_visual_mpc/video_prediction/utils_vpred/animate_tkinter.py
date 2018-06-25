@@ -103,7 +103,7 @@ def visualize_flow(flow_vecs):
 
 t = 0
 class Visualizer_tkinter(object):
-    def __init__(self, dict_ = None, append_masks = True, filepath=None, numex = 4, suf= "", col_titles = None, renorm_heatmaps=True, logger=None):
+    def __init__(self, dict_=None, append_masks=True, filepath=None, dict_name=None, numex = 4, suf= "", col_titles = None, renorm_heatmaps=True, logger=None):
         """
         :param dict_: dictionary containing image tensors
         :param append_masks: whether to visualize the masks
@@ -132,8 +132,8 @@ class Visualizer_tkinter(object):
             self.logger = logger
 
         self.gif_savepath = filepath
-        if dict_ == None:
-            dict_ = pickle.load(open(filepath + '/pred.pkl', "rb"))
+        if dict_name != None:
+            dict_ = pickle.load(open(filepath + '/' + dict_name, "rb"))
 
         self.dict_ = dict_
 
@@ -150,6 +150,7 @@ class Visualizer_tkinter(object):
         self.numex = numex
         self.video_list = []
         self.append_masks = False
+
 
         for key in list(dict_.keys()):
             data = dict_[key]
@@ -204,6 +205,8 @@ class Visualizer_tkinter(object):
                 if isinstance(data, list):
                     if len(data[0].shape) == 4:
                         self.video_list.append((data, key))
+                    else:
+                        raise "wrong shape in key {} with shape {}".format(key, data[0].shape)
                 else:
                     self.logger.log('ignoring key ',key)
 
@@ -238,13 +241,20 @@ class Visualizer_tkinter(object):
 
         new_videolist = []
         for vid in self.video_list:
-            # print('key', vid[1])
-            # print('len', len(vid[0]))
-            # print('sizes', [im.shape for im in vid[0]])
+            print('key', vid[1])
+            print('len', len(vid[0]))
+            print('sizes', [im.shape for im in vid[0]])
+            print('####')
+            if 'gen_distrib' in vid[1]:
+                plt.switch_backend('TkAgg')
+                # plt.imshow(vid[0][0][0])
+                # plt.show()
+
             images = vid[0]
             if resize is not None:
                 images = resize_image(images, size=resize)
             name = vid[1]
+
             if images[0].shape[-1] == 1 or len(images[0].shape) == 3:
                 images = color_code_distrib(images, self.numex, renormalize=True)
 
@@ -557,24 +567,40 @@ def convert_to_videolist(input, repeat_last_dim):
 
     return list_of_videos
 
-def resize_image(imlist, size = (256, 256)):
+
+def resize_image(input, size = (256, 256)):
     """
-    :param imlist:  list of image batches of size [b, r, c, ch]
+    :param input:  list of image batches of size [b, r, c, ch], or [b,t,n,r,c,ch]
     :param size:
     :param mode:
     :return:
     """
-    batch_size, height, width, ch = imlist[0].shape
-    assert len(size) == 2
 
+    assert len(size) == 2
     out = []
-    for im in imlist:
-        im = np.transpose(im, [1,2,0,3])
+    if isinstance(input, list):
+        for im in input:
+            if len(im.shape) == 4:
+                batch_size, height, width, ch = im.shape
+            else:
+                batch_size, height, width = im.shape
+                ch = 1
+                im = im[..., None]
+
+            im = np.transpose(im, [1,2,0,3])
+            im = im.reshape(height, width, -1)
+            out_t = cv2.resize(im, (size[1], size[0]))
+            out_t = out_t.reshape(size[0], size[1], batch_size, ch)
+            out_t = np.transpose(out_t, [2, 0, 1, 3])
+            out.append(out_t)
+    else:
+        batch_size, seqlen, ncam, height, width, ch = input.shape
+
+        im = np.transpose(input, [3,4,0,1,2,5])
         im = im.reshape(height, width, -1)
         out_t = cv2.resize(im, (size[1], size[0]))
-        out_t = out_t.reshape(size[0], size[1], batch_size, ch)
-        out_t = np.transpose(out_t, [2, 0, 1, 3])
-        out.append(out_t)
+        out_t = out_t.reshape(size[0], size[1], batch_size, seqlen, ncam, ch)
+        out = np.transpose(out_t, [2,3,4,0,1,5])
     return out
 
 def color_code_distrib(distrib_list, num_ex, renormalize=False):
@@ -628,14 +654,14 @@ def save_video_mp4(filename, frames):
 if __name__ == '__main__':
     # file_path = '/home/frederik/Documents/catkin_ws/src/visual_mpc/tensorflow_data/sawyer/data_amount_study/5percent_of_data/modeldata'
     # file_path = '/home/frederik/Documents/catkin_ws/src/visual_mpc/tensorflow_data/sawyer/alexmodel_finalpaper/improved_cdna_wristrot_k17d1_generatescratchimage_bs16/modeldata'
-    pkl_path = '/home/febert/Documents/catkin_ws/src/visual_mpc/experiments/cem_exp/benchmarks_sawyer/weissgripper_regstartgoal_reuseaction/verbose/plan/pred_t1iter2.pkl'
-    file_path = '/home/febert/Documents/catkin_ws/src/visual_mpc/experiments/cem_exp/benchmarks_sawyer/weissgripper_regstartgoal_reuseaction/verbose/plan'
+    # pkl_path = '/mnt/sda1/experiments/cem_exp/benchmarks/alexmodel/savp_2cam_registrationtradeoff/verbose/traj0/plan/pred_t1iter2.pkl'
+    file_path = '/mnt/sda1/experiments/cem_exp/benchmarks/alexmodel/savp_2cam_registrationtradeoff/verbose/traj0/plan'
+    # file_path = '/home/febert/Documents/catkin_ws/src/visual_mpc/experiments/cem_exp/benchmarks_sawyer/weissgripper_regstartgoal_reuseaction/verbose/plan'
     # file_path = '/home/frederik/Documents/catkin_ws/src/visual_mpc/tensorflow_data/sawyer/wristrot/modeldata'
 
-    dict_ = pickle.load(open(pkl_path, "rb"))
-    gen_images = dict_['gen_images_icam0_t1']
+    dict_name = 'pred_t1iter2.pkl'
 
-    v = Visualizer_tkinter(append_masks=False, filepath=file_path, numex=10, renorm_heatmaps=True)
+    v = Visualizer_tkinter(dict_name=dict_name, append_masks=False, filepath=file_path, numex=10, renorm_heatmaps=True)
     # v.build_figure()
     v.make_direct_vid()
     # for i in range(5):

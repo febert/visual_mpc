@@ -8,7 +8,7 @@ import numpy as np
 
 agent = {
     'sawyer':'',
-    'T': 30,
+    'T': 15,
     'adim':5,
     'sdim':4,
     'image_height':56,
@@ -38,7 +38,7 @@ policy = {
     'initial_std_rot': 0.,
     'netconf': current_dir + '/conf.py',
     'gdnconf': current_dir + '/gdnconf.py',
-    'iterations': 1,#############
+    'iterations': 3,
     'action_cost_factor': 0,
     'no_instant_gif':"",
     'rew_all_steps':"",
@@ -47,11 +47,13 @@ policy = {
     'use_goal_image':'',
     'register_gtruth':['start','goal'],
     'trade_off_reg':'',
+    ### start reuse action
     'replan_interval':3,
     'reuse_mean':'',
     'reuse_action_as_mean':"",
-    'reduce_std_dev':0.2,  # reduce standard dev in later timesteps when reusing action
-    'num_samples': [400,200],   #########
+    'reduce_std_dev':0.5, #0.2 # reduce standard dev in later timesteps when reusing action
+    'num_samples': [400,200],
     'selection_frac':0.05,
+    ### end resuse action
 }
 

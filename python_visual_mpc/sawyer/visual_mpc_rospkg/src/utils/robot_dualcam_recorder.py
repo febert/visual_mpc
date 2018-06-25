@@ -16,9 +16,21 @@ import os
 import cPickle as pkl
 import shutil
 import moviepy.editor as mpy
+import imageio
+
 from python_visual_mpc.sawyer.visual_mpc_rospkg.src.primitives_regintervals import quat_to_zangle
 NUM_JOINTS = 7 #Sawyer has 7 dof arm
 
+def low2high(point, cam_conf, cam_height, cam_width, low_height, low_width):
+    crop_left, crop_right = cam_conf.get('crop_left', 0), cam_conf.get('crop_right', 0)
+    crop_top, crop_bot = cam_conf.get('crop_top', 0), cam_conf.get('crop_bot', 0)
+    cropped_width, cropped_height = cam_width - crop_left - crop_right, cam_height - crop_bot - crop_top
+
+    scale_height, scale_width = float(cropped_height) / low_height, \
+                                float(cropped_width) / low_width
+    high_point = np.array([scale_height, scale_width]) * point + np.array([crop_top, crop_left])
+
+    return np.round(high_point).astype(np.int64)
 
 def crop_resize(image, cam_conf, target_img_height, target_img_width):
     crop_left, crop_right = cam_conf.get('crop_left', 0), cam_conf.get('crop_right', 0)
@@ -101,6 +113,9 @@ class Trajectory:
 
         self._save_raw = 'no_raw_images' not in agentparams
 
+        if 'save_videos' in self._agent_conf:
+            self.frames = [[],[]]
+
     @property
     def i_tr(self):
         return 0
@@ -130,6 +145,12 @@ class Trajectory:
 
         for f, folder in enumerate(image_folders):
             os.makedirs(folder)
+            if 'save_videos' in self._agent_conf:
+                print('saving: {}/clip.mp4'.format(folder))
+                writer = imageio.get_writer('{}/clip.mp4'.format(folder), fps=30)
+                for frame in self.frames[f]:
+                    writer.append_data(frame)
+                writer.close()
             clip = []
             for i in range(self.sequence_length):
                 cv2.imwrite('{}/im{}.png'.format(folder, i), self.images[i, f, :, :, ::-1],
@@ -149,14 +170,17 @@ class Trajectory:
             clip.write_gif('{}/diag.gif'.format(folder))
 
 class Latest_observation(object):
-    def __init__(self, create_tracker = False):
+    def __init__(self, create_tracker = False, save_buffer = False):
         self.img_cv2 = None
         self.img_cropped = None
         self.tstamp_img = None
         self.img_msg = None
         self.mutex = Lock()
+        if save_buffer:
+            self.save_itr = 0
         if create_tracker:
             self.reset_tracker()
+
 
     def reset_tracker(self):
         self.cv2_tracker = cv2.TrackerMIL_create()
@@ -175,8 +199,8 @@ class RobotDualCamRecorder:
         self.data_conf = agent_params['data_conf']
         self._ctrl = robot_controller
 
-        self.front_limage = Latest_observation('opencv_tracking' in agent_params)
-        self.left_limage = Latest_observation('opencv_tracking' in agent_params)
+        self.front_limage = Latest_observation('opencv_tracking' in agent_params, 'save_videos' in self.agent_params)
+        self.left_limage = Latest_observation('opencv_tracking' in agent_params, 'save_videos' in self.agent_params)
 
         self._is_tracking = False
         if 'opencv_tracking' in agent_params:
@@ -185,6 +209,10 @@ class RobotDualCamRecorder:
         self.bridge =  CvBridge()
         self.front_first, self.front_sem = False, Semaphore(value=0)
         self.left_first, self.left_sem = False, Semaphore(value=0)
+        if 'save_videos' in self.agent_params:
+            self._buffers = [[],[]]
+            self._saving = False
+
         rospy.Subscriber("/camera0/undistort/output/image", Image_msg, self.store_latest_f_im)
         rospy.Subscriber("/camera1/undistort/output/image", Image_msg, self.store_latest_l_im)
         self.left_sem.acquire()
@@ -197,6 +225,8 @@ class RobotDualCamRecorder:
         if 'opencv_tracking' in agent_params:
             self.obs_tol = 0.1
         else: self.obs_tol = OFFSET_TOL
+
+
 
     def _low2high(self, point, cam_conf):
         return low2high(point, cam_conf, self.cam_height,
@@ -263,9 +293,11 @@ class RobotDualCamRecorder:
     def get_images(self):
         self.front_limage.mutex.acquire()
         self.left_limage.mutex.acquire()
-        read_ok = np.abs(self.front_limage.tstamp_img - self.left_limage.tstamp_img) <= self.obs_tol
-        front_dict = self.front_limage.to_dict()
-        left_dict = self.left_limage.to_dict()
+        front_stamp, left_stamp = self.front_limage.tstamp_img, self.left_limage.tstamp_img
+        read_ok = np.abs(front_stamp - left_stamp) <= self.obs_tol
+        if read_ok:
+            front_dict = self.front_limage.to_dict()
+            left_dict = self.left_limage.to_dict()
         self.front_limage.mutex.release()
         self.left_limage.mutex.release()
         if not read_ok:
@@ -313,6 +345,33 @@ class RobotDualCamRecorder:
         self.left_limage.mutex.release()
 
         return read_ok
+    def start_recording(self, reset_buffer = True):
+        if 'save_videos' in self.agent_params:
+            self.front_limage.mutex.acquire()
+            self.left_limage.mutex.acquire()
+            self._saving = True
+            self.front_limage.save_itr = 0
+            self.left_limage.save_itr = 0
+            if reset_buffer:
+                self.reset_recording()
+            self.front_limage.mutex.release()
+            self.left_limage.mutex.release()
+
+    def stop_recording(self, traj):
+        if 'save_videos' in self.agent_params:
+            self.front_limage.mutex.acquire()
+            self.left_limage.mutex.acquire()
+
+            for c, frames in enumerate(self._buffers):
+                for f in frames:
+                    traj.frames[c].append(f)
+            self._buffers = [[], []]
+
+            self.front_limage.mutex.release()
+            self.left_limage.mutex.release()
+    def reset_recording(self):
+        if 'save_videos' in self.agent_params:
+            self._buffers = [[], []]
 
     def get_joint_angles(self):
         return np.array([self._ctrl.limb.joint_angle(j) for j in self._ctrl.limb.joint_names()])
@@ -386,6 +445,8 @@ class RobotDualCamRecorder:
                 latest_obsv.bbox = np.array(bbox).astype(np.int32).reshape(-1)
             latest_obsv.track_itr += 1
 
+
+
     def store_latest_f_im(self, data):
         self.front_limage.mutex.acquire()
         front_conf = self.data_conf['front_cam']
@@ -398,7 +459,10 @@ class RobotDualCamRecorder:
             self.cam_height, self.cam_width = self.front_limage.img_cv2.shape[:2]
             self.front_first = True
             self.front_sem.release()
-
+        if 'save_videos' in self.agent_params and self._saving:
+            if self.front_limage.save_itr % self.TRACK_SKIP == 0:
+                self._buffers[0].append(copy.deepcopy(self.front_limage.img_cv2)[:, :, ::-1])
+            self.front_limage.save_itr += 1
         self.front_limage.mutex.release()
 
 
@@ -413,6 +477,10 @@ class RobotDualCamRecorder:
             cv2.imwrite(self.agent_params['data_save_dir'] + '/left_test.png', self.left_limage.img_cropped)
             self.left_first = True
             self.left_sem.release()
+        if 'save_videos' in self.agent_params and self._saving:
+            if self.left_limage.save_itr % self.TRACK_SKIP == 0:
+                self._buffers[1].append(copy.deepcopy(self.left_limage.img_cv2)[:, :, ::-1])
+            self.left_limage.save_itr += 1
 
         self.left_limage.mutex.release()
 

@@ -137,22 +137,22 @@ def annotate(bench_dir):
             goal_pix = dict['goal_pix'][0]
 
 
-        # if os.path.exists(exp_dir + '/img_goal.png'):
-        #     start_image = cv2.imread(exp_dir + '/img_start.png')[:, :, ::-1]
-        #     plt.subplot(1, 2, 1)
-        #     plt.imshow(start_image)
-        #     plt.title('start_image')
-        #
-        #     goal_image = cv2.imread(exp_dir + '/img_goal.png')[:, :, ::-1]
-        #     plt.subplot(1, 2, 2)
-        #     plt.imshow(goal_image)
-        #     plt.title('goal_image')
-        #     plt.show()
-        # else:
-        #     goal_image = cv2.imread(exp_dir + '/img_start_traj0.png')[:, :, ::-1]
-        #     plt.imshow(goal_image)
-        #     plt.title('goal_image')
-        #     plt.show()
+        if os.path.exists(exp_dir + '/img_goal.png'):
+            start_image = cv2.imread(exp_dir + '/img_start.png')[:, :, ::-1]
+            plt.subplot(1, 2, 1)
+            plt.imshow(start_image)
+            plt.title('start_image')
+
+            goal_image = cv2.imread(exp_dir + '/img_goal.png')[:, :, ::-1]
+            plt.subplot(1, 2, 2)
+            plt.imshow(goal_image)
+            plt.title('goal_image')
+            plt.show()
+        else:
+            goal_image = cv2.imread(exp_dir + '/img_start_traj0.png')[:, :, ::-1]
+            plt.imshow(goal_image)
+            plt.title('goal_image')
+            plt.show()
 
         final_image = cv2.imread(exp_dir + '/finalimage.png')[:,:,::-1]
 
@@ -240,5 +240,8 @@ if __name__ == '__main__':
     #         print(loaded['points'].shape)
     # print(1 / 0)
     annotate_all(['{}/{}'.format(prep, p) for p in paths])
+    # path = '/home/febert/Documents/catkin_ws/src/visual_mpc/experiments/cem_exp/benchmarks_sawyer/weissgripper_predprop'
+    # path = '/home/febert/Documents/catkin_ws/src/visual_mpc/experiments/cem_exp/benchmarks_sawyer/weissgripper_dynrnn'
+    # annotate(path)
 
     # pkl.load(open(bench_dir + '/ann_stats.pkl', 'wb'))

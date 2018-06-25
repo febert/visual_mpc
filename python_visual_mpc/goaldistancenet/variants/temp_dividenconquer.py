@@ -20,15 +20,14 @@ class Temp_DnC_GDnet(GoalDistanceNet):
                  conf = None,
                  build_loss=True,
                  load_data = True,
-                 images = None,
                  iter_num = None,
                  load_testimages=None
                  ):
         GoalDistanceNet.__init__(self, conf = conf,
-                                 build_loss=False,
+                                 build_loss=build_loss,
                                  load_data = load_data,
-                                 images = images,
                                  iter_num = iter_num,
+                                 load_testimages=load_testimages
                                  )
         self.build_loss = build_loss
         self.load_data = load_data

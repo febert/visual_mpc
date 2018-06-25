@@ -7,13 +7,14 @@ import numpy as np
 
 agent = {
     'sawyer':'',
-    'T': 30,
+    'T': 50,
     'adim':5,
     'sdim':4,
     'image_height':56,
     'image_width':64,
     'ndesig':1,
     'opencv_tracking':'',
+    'make_final_vid':'',
     # 'make_final_gif':'',
     'wristrot':'',
     'startpos_basedon_click':'',
@@ -22,7 +23,7 @@ agent = {
 }
 
 policy = {
-    'verbose':'',
+    # 'verbose':'',
     'type' : CEM_controller,
     'low_level_ctrl': None,
     'current_dir':current_dir,
