@@ -267,6 +267,7 @@ def write_scores(dir, filename, trajlist, logger):
 
 
 def plot_warp_err(traj, dir):
+
     warperrs = []
     tradeoff = []
     for tstep in traj.plan_stat[1:]:
@@ -275,6 +276,8 @@ def plot_warp_err(traj, dir):
 
     tradeoff = np.stack(tradeoff, 0)
     warperrs = np.stack(warperrs, 0)
+
+    pdb.set_trace()
 
     pickle.dump({'warperrs':warperrs, 'tradeoff':tradeoff}, open(dir +  '/warperrs_tradeoff.pkl', 'wb'))
 

@@ -177,7 +177,7 @@ def make_cem_visuals(ctrl, actions, bestindices, cem_itr, flow_fields, gen_distr
         gen_image_an_l = None
 
 
-    if ctrl.goal_image is not None:
+    if 'register_gtruth' in ctrl.policyparams:
         if 'image_medium' in ctrl.agentparams:
             goal_pix = ctrl.goal_pix_med
         else:
@@ -204,7 +204,7 @@ def make_cem_visuals(ctrl, actions, bestindices, cem_itr, flow_fields, gen_distr
             for p in range(ctrl.ndesig):
                 sel_gen_distrib_p = unstack(gen_distrib[:,:, icam,:,:, p], 1)
                 t_dict_['gen_distrib_cam{}_p{}'.format(icam, p)] = sel_gen_distrib_p
-                if gl_im_ann is not None:
+                if gl_im_ann is not None and 'register_gtruth' in ctrl.policyparams:
                     t_dict_['gen_dist_goalim_overlay_cam{}_p{}_t{}'.format(icam, p, ctrl.t)] = \
                                  (unstack(gl_im_ann_per_tsk[p,:,:,icam], 1), sel_gen_distrib_p)
 

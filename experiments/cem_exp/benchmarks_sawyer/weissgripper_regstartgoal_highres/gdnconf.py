@@ -14,7 +14,7 @@ BASE = '/'.join(str.split(current_dir, '/')[:-4])
 
 configuration = {
 'experiment_name': 'correction',
-'pretrained_model': BASE + 'tensorflow_data/gdn/weiss/weiss_112x128_lowpenal/modeldata/model96002',
+'pretrained_model': BASE + '/tensorflow_data/gdn/weiss/weiss_112x128_lowpenal/modeldata/model96002',
 'output_dir': OUT_DIR,      #'directory for model checkpoints.' ,
 'current_dir': base_dir,   #'directory for writing summary.' ,
 'num_iterations':50000,
