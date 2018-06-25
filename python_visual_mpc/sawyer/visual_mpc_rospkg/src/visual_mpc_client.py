@@ -295,8 +295,6 @@ class Visual_MPC_Client():
             self.goal_image = np.zeros_like(imagemain)
 
 
-
-
     def imp_ctrl_release_spring(self, maxstiff):
         self.imp_ctrl_release_spring_pub.publish(maxstiff)
 
@@ -733,18 +731,15 @@ class Visual_MPC_Client():
 
     def query_action(self, istep):
 
-        if self.use_aux:
-            self.recorder.get_aux_img()
-            imageaux1 = self.recorder.ltob_aux1.img_msg
+        if 'image_medium' in self.agentparams:
+            imagemain = self.bridge.cv2_to_imgmsg(self.recorder.ltob.img_cropped_medium)
         else:
-            imageaux1 = np.zeros((self.img_height, self.img_width, 3), dtype=np.uint8)
-            imageaux1 = self.bridge.cv2_to_imgmsg(imageaux1)
-        imagemain = self.bridge.cv2_to_imgmsg(self.recorder.ltob.img_cropped)
+            imagemain = self.bridge.cv2_to_imgmsg(self.recorder.ltob.img_cropped)
+        imageaux1 = self.bridge.cv2_to_imgmsg(np.zeros_like(imagemain))
         state = self.get_endeffector_pos()
 
         try:
             rospy.wait_for_service('get_action', timeout=3)
-
             self.desig_pos_main[:,0] = np.clip(self.desig_pos_main[:,0], 0, self.img_height-1)
             self.desig_pos_main[:, 1] = np.clip(self.desig_pos_main[:, 1], 0, self.img_width - 1)
             self.goal_pos_main[:, 0] = np.clip(self.goal_pos_main[:, 0], 0, self.img_height - 1)

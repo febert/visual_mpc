@@ -922,6 +922,8 @@ class CEM_controller():
         """
         Return a random action for a state.
         Args:
+            traj: trajectory object
+                if performing highres tracking traj.images is highres image
             t: the current controller's Time step
             goal_pix: in coordinates of small image
             desig_pix: in coordinates of small image

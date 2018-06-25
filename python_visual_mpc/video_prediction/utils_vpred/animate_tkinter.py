@@ -7,12 +7,12 @@ import os
 import pdb
 import pickle
 
-# try:
-#     # for Python2
-#     from Tkinter import *   ## notice capitalized T in Tkinter
-# except ImportError:
-#     # for Python3
-#     from tkinter import *   ## notice lowercase 't' in tkinter here
+try:
+    # for Python2
+    from Tkinter import *   ## notice capitalized T in Tkinter
+except ImportError:
+    # for Python3
+    from tkinter import *   ## notice lowercase 't' in tkinter here
 
 from matplotlib import pyplot as plt
 import matplotlib
@@ -97,7 +97,6 @@ def visualize_flow(flow_vecs):
                                                               1.)
 
     return color_flow
-
 
 
 

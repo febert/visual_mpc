@@ -10,6 +10,8 @@ import cv2
 import pdb
 
 
+from python_visual_mpc.visual_mpc_core.infrastructure.assemble_cem_visuals import CEM_Visualizer
+
 from python_visual_mpc.utils.txt_in_image import draw_text_onimage
 
 import matplotlib; matplotlib.use('Agg'); import matplotlib.pyplot as plt
@@ -232,7 +234,10 @@ def make_cem_visuals(ctrl, actions, bestindices, cem_itr, flow_fields, gen_distr
             pix_pos_dict['desig'] = ctrl.desig_pix
             pickle.dump(pix_pos_dict, open(ctrl.agentparams['record'] + '/plan/pix_pos_dict{}iter{}.pkl'.format(ctrl.t, cem_itr), 'wb'))
 
-        v = Visualizer_tkinter(t_dict_, append_masks=False,
+        # v = Visualizer_tkinter(t_dict_, append_masks=False,
+        #                        filepath=ctrl.agentparams['record'] + '/plan/',
+        #                        numex=num_ex, suf='t{}iter_{}'.format(ctrl.t, cem_itr))
+        v = CEM_Visualizer(t_dict_, append_masks=False,
                                filepath=ctrl.agentparams['record'] + '/plan/',
                                numex=num_ex, suf='t{}iter_{}'.format(ctrl.t, cem_itr))
         if 'image_medium' in ctrl.agentparams:
