@@ -177,7 +177,7 @@ def make_cem_visuals(ctrl, actions, bestindices, cem_itr, flow_fields, gen_distr
         gen_image_an_l = None
 
 
-    if ctrl.goal_image is not None:
+    if 'register_gtruth' in ctrl.policyparams:
         if 'image_medium' in ctrl.agentparams:
             goal_pix = ctrl.goal_pix_med
         else:
@@ -204,7 +204,7 @@ def make_cem_visuals(ctrl, actions, bestindices, cem_itr, flow_fields, gen_distr
             for p in range(ctrl.ndesig):
                 sel_gen_distrib_p = unstack(gen_distrib[:,:, icam,:,:, p], 1)
                 t_dict_['gen_distrib_cam{}_p{}'.format(icam, p)] = sel_gen_distrib_p
-                if gl_im_ann is not None:
+                if gl_im_ann is not None and 'register_gtruth' in ctrl.policyparams:
                     t_dict_['gen_dist_goalim_overlay_cam{}_p{}_t{}'.format(icam, p, ctrl.t)] = \
                                  (unstack(gl_im_ann_per_tsk[p,:,:,icam], 1), sel_gen_distrib_p)
 
@@ -225,6 +225,12 @@ def make_cem_visuals(ctrl, actions, bestindices, cem_itr, flow_fields, gen_distr
         if 'save_pkl' in ctrl.agentparams:
             pickle.dump(t_dict_, open(ctrl.agentparams['record'] + '/plan/pred_t{}iter{}.pkl'.format(ctrl.t, cem_itr), 'wb'))
             print('written files to:' + file_path)
+        if 'save_desig_pos' in ctrl.agentparams:
+            pix_pos_dict = {}
+            pix_pos_dict['desig_pix_t0'] = ctrl.desig_pix_t0
+            pix_pos_dict['goal_pix'] = ctrl.goal_pix
+            pix_pos_dict['desig'] = ctrl.desig_pix
+            pickle.dump(pix_pos_dict, open(ctrl.agentparams['record'] + '/plan/pix_pos_dict{}iter{}.pkl'.format(ctrl.t, cem_itr), 'wb'))
 
         v = Visualizer_tkinter(t_dict_, append_masks=False,
                                filepath=ctrl.agentparams['record'] + '/plan/',

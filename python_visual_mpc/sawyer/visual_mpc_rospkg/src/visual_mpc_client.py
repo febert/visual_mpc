@@ -292,6 +292,7 @@ class Visual_MPC_Client():
             print('desig pos aux1:', self.desig_pos_main)
             self.goal_pos_main = c_main.goal.astype(np.int64)
             print('goal pos main:', self.goal_pos_main)
+            self.goal_image = np.zeros_like(imagemain)
 
 
 
