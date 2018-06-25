@@ -32,6 +32,14 @@ if "NO_ROS" not in os.environ:
 
 import time
 
+def save_track_pkl(ctrl, t, cem_itr):
+    pix_pos_dict = {}
+    pix_pos_dict['desig_pix_t0'] = ctrl.desig_pix_t0
+    pix_pos_dict['goal_pix'] = ctrl.goal_pix
+    pix_pos_dict['desig'] = ctrl.desig_pix
+    pickle.dump(pix_pos_dict,
+                open(ctrl.agentparams['record'] + '/plan/pix_pos_dict{}iter{}.pkl'.format(ctrl.t, cem_itr), 'wb'))
+
 
 def make_blockdiagonal(cov, nactions, adim):
     mat = np.zeros_like(cov)
@@ -656,6 +664,10 @@ class CEM_controller():
             make_cem_visuals(self, actions, bestindices, cem_itr, flow_fields, gen_distrib, gen_images,
                                           gen_states, last_frames, goal_warp_pts_l, scores, self.warped_image_goal,
                                           self.warped_image_start, warped_images, last_states, self.reg_tradeoff)
+
+        if 'save_desig_pos' in self.agentparams:
+            save_track_pkl(self, self.t, cem_itr)
+
             # if 'sawyer' in self.agentparams:
                 # bestind = self.publish_sawyer(gen_distrib, gen_images, scores)
 
@@ -726,7 +738,7 @@ class CEM_controller():
         tradeoff = tradeoff.reshape(self.ncam, self.ndesig)
 
         self.plan_stat['tradeoff'] = tradeoff
-        self.plan_stat['warperrs'] = warperrs
+        self.plan_stat['warperrs'] = warperrs.reshape(self.ncam, self.ndesig)
         return warped_image_start, warped_image_goal, tradeoff
 
     def get_warp_err(self, icam, start_image, goal_image, start_warp_pts, goal_warp_pts, warped_image_start, warped_image_goal):

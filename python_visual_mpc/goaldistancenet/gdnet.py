@@ -156,7 +156,6 @@ class GoalDistanceNet(object):
 
         self.conf = conf
 
-        self.lr = tf.placeholder_with_default(self.conf['learning_rate'], ())
         self.train_cond = tf.placeholder(tf.int32, shape=[], name="train_cond")
 
         self.seq_len = self.conf['sequence_length']
@@ -199,6 +198,8 @@ class GoalDistanceNet(object):
 
         self.avg_gtruth_flow_err_sum = None
         self.build_loss = build_loss
+        if build_loss:
+            self.lr = tf.placeholder_with_default(self.conf['learning_rate'], ())
         self.losses = {}
 
     def build_net(self):

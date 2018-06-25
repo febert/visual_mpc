@@ -103,7 +103,6 @@ class RobotRecorder(object):
         prefix = self.instance_type
 
         rospy.Subscriber("/kinect2/hd/image_color", Image_msg, self.store_latest_im)
-        rospy.Subscriber("/kinect2/sd/image_depth_rect", Image_msg, self.store_latest_d_im)
 
         self.save_dir = save_dir
         self.image_folder = save_dir
@@ -210,7 +209,7 @@ class RobotRecorder(object):
             colstart = self.dataconf['colstart']*2
             shrink_before_crop = self.dataconf['shrink_before_crop']*2
             img_med = cv2.resize(cv_image, (0, 0), fx=shrink_before_crop, fy=shrink_before_crop, interpolation=cv2.INTER_AREA)
-            img_med = img_med[rowstart:rowstart + self.img_height, colstart:colstart + self.img_width]
+            img_med = img_med[rowstart:rowstart + self.img_height*2, colstart:colstart + self.img_width*2]
         else:
             img_med = None
         return img, img_med
@@ -404,21 +403,6 @@ class RobotRecorder(object):
             cv2.imwrite(image_name, self.ltob.img_cv2, [int(cv2.IMWRITE_JPEG_QUALITY), 80])
         else:
             raise ValueError('img_cv2 no data received')
-
-        # saving the depth data
-        # saving the cropped depth data in a Pickle file
-        # if self.ltob.d_img_cropped_npy is not None:
-        #     file = self.depth_image_folder + "/" + pref +"_depth_im{0}_time{1}.pkl".format(i_save, self.ltob.tstamp_d_img)
-        #     pickle.dump(self.ltob.d_img_cropped_npy, open(file, 'wb'))
-        # else:
-        #     raise ValueError('d_img_cropped_npy no data received')
-
-        # saving downsampled 8bit images
-        # if self.ltob.d_img_cropped_8bit is not None:
-        #     image_name = self.depth_image_folder + "/" + pref + "_cropped_depth_im{0}_time{1}.png".format(i_save, self.ltob.tstamp_d_img)
-        #     cv2.imwrite(image_name, self.ltob.d_img_cropped_8bit, [cv2.IMWRITE_PNG_STRATEGY_DEFAULT, 1])
-        # else:
-        #     raise ValueError('d_img_cropped_8bit no data received')
 
         self.t_finish_save.append(rospy.get_time())
         if i_save == (self.state_sequence_length-1):
