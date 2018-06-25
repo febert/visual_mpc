@@ -33,15 +33,9 @@ class Latest_observation(object):
         #color image:
         self.img_cv2 = None
         self.img_cropped = None
+        self.img_cropped_medium = None
         self.tstamp_img = None  # timestamp of image
         self.img_msg = None
-
-        #depth image:
-        self.d_img_raw_npy = None  # 16 bit raw data
-        self.d_img_cropped_npy = None
-        self.d_img_cropped_8bit = None
-        self.tstamp_d_img = None  # timestamp of image
-        self.d_img_msg = None
 
 class Trajectory(object):
     def __init__(self, sequence_length):
@@ -175,34 +169,6 @@ class RobotRecorder(object):
             pass
         return delete_trajResponse()
 
-    def store_latest_d_im(self, data):
-        # if self.ltob.tstamp_img != None:
-            # rospy.loginfo("time difference to last stored dimg: {}".format(
-            #     rospy.get_time() - self.ltob.tstamp_d_img
-            # ))
-
-        self.ltob.tstamp_d_img = rospy.get_time()
-
-        self.ltob.d_img_msg = data
-        cv_image = self.bridge.imgmsg_to_cv2(data, '16UC1')
-
-        self.ltob.d_img_raw_npy = np.asarray(cv_image)
-        img = cv2.resize(cv_image, (0, 0), fx=1 /5.5, fy=1 / 5.5, interpolation=cv2.INTER_AREA)
-
-        img = np.clip(img,0, 1400)
-
-        colstart = 7
-        startrow = 0
-        endcol = colstart + self.img_width
-        endrow = startrow + self.img_height
-        #crop image:
-        img = img[startrow:endrow, colstart:endcol]
-
-        self.ltob.d_img_cropped_npy = img
-        img = img.astype(np.float32)/ np.max(img) *256
-        img = img.astype(np.uint8)
-        img = np.squeeze(img)
-        self.ltob.d_img_cropped_8bit = img
 
     def store_latest_im(self, data):
         self.ltob.img_msg = data
@@ -212,7 +178,7 @@ class RobotRecorder(object):
         self.ltob.img_cv2 = self.crop_highres(cv_image)
 
         if self.crop_lowres:
-            self.ltob.img_cropped = self._crop_lowres(self.ltob.img_cv2)  # use the cropped highres image
+            self.ltob.img_cropped, self.ltob.img_cropped_medium = self._crop_lowres(self.ltob.img_cv2)  # use the cropped highres image
 
 
     def crop_highres(self, cv_image):
@@ -238,7 +204,16 @@ class RobotRecorder(object):
         img = img[rowstart:rowstart + self.img_height, colstart:colstart + self.img_width]
         assert img.shape == (self.img_height, self.img_width, 3)
         self.crop_lowres_params = {'colstart': colstart, 'rowstart': rowstart, 'shrink_before_crop': shrink_before_crop}
-        return img
+
+        if 'image_medium' in self.agent_params:
+            rowstart = self.dataconf['rowstart']*2
+            colstart = self.dataconf['colstart']*2
+            shrink_before_crop = self.dataconf['shrink_before_crop']*2
+            img_med = cv2.resize(cv_image, (0, 0), fx=shrink_before_crop, fy=shrink_before_crop, interpolation=cv2.INTER_AREA)
+            img_med = img_med[rowstart:rowstart + self.img_height, colstart:colstart + self.img_width]
+        else:
+            img_med = None
+        return img, img_med
 
     def init_traj(self, itr):
         assert self.instance_type == 'main'
