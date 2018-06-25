@@ -21,6 +21,16 @@ import imageio
 from python_visual_mpc.sawyer.visual_mpc_rospkg.src.primitives_regintervals import quat_to_zangle
 NUM_JOINTS = 7 #Sawyer has 7 dof arm
 
+def low2high(point, cam_conf, cam_height, cam_width, low_height, low_width):
+    crop_left, crop_right = cam_conf.get('crop_left', 0), cam_conf.get('crop_right', 0)
+    crop_top, crop_bot = cam_conf.get('crop_top', 0), cam_conf.get('crop_bot', 0)
+    cropped_width, cropped_height = cam_width - crop_left - crop_right, cam_height - crop_bot - crop_top
+
+    scale_height, scale_width = float(cropped_height) / low_height, \
+                                float(cropped_width) / low_width
+    high_point = np.array([scale_height, scale_width]) * point + np.array([crop_top, crop_left])
+
+    return np.round(high_point).astype(np.int64)
 
 def render_bbox(img, bbox):
     rect_img = img[:, :, ::-1].copy()
@@ -306,32 +316,38 @@ class RobotDualCamRecorder:
             norm_states[:3] /= traj.delta
             print('norm_states at {}'.format(t), norm_states)
             traj.X_full[t] = norm_states
-        if 'save_videos' in self.agent_params:
-            for c, frames in enumerate(self._buffers):
-                for f in frames:
-                    traj.frames[c].append(f)
-                self._buffers = [[], []]
+
         self.front_limage.mutex.release()
         self.left_limage.mutex.release()
 
         return read_ok
-    def start_recording(self):
+    def start_recording(self, reset_buffer = True):
         if 'save_videos' in self.agent_params:
             self.front_limage.mutex.acquire()
             self.left_limage.mutex.acquire()
             self._saving = True
             self.front_limage.save_itr = 0
             self.left_limage.save_itr = 0
+            if reset_buffer:
+                self.reset_recording()
             self.front_limage.mutex.release()
             self.left_limage.mutex.release()
 
-    def stop_recording(self):
+    def stop_recording(self, traj):
         if 'save_videos' in self.agent_params:
             self.front_limage.mutex.acquire()
             self.left_limage.mutex.acquire()
-            self._saving = False
+
+            for c, frames in enumerate(self._buffers):
+                for f in frames:
+                    traj.frames[c].append(f)
+            self._buffers = [[], []]
+
             self.front_limage.mutex.release()
             self.left_limage.mutex.release()
+    def reset_recording(self):
+        if 'save_videos' in self.agent_params:
+            self._buffers = [[], []]
 
     def get_joint_angles(self):
         return np.array([self._ctrl.limb.joint_angle(j) for j in self._ctrl.limb.joint_names()])

@@ -178,6 +178,7 @@ class AgentSawyer:
             self._controller.reset_with_impedance(open_gripper=False, duration=1.0,
                                                   stiffness=self._hyperparams['impedance_stiffness'])
         rospy.sleep(0.3)   #let things settle
+        self._recorder.reset_recording()
         for t in xrange(self._hyperparams['T']):
             if not self._recorder.store_recordings(traj, t):
                 traj_ok = False
@@ -232,7 +233,7 @@ class AgentSawyer:
                 self._controller.open_gripper(wait_change)
 
             self._controller.move_with_impedance_sec(target_ja, duration=self._hyperparams['step_duration'])
-            self._recorder.stop_recording()
+            self._recorder.stop_recording(traj)
 
         if not traj_ok:
             print("FAILED ROLLOUT RETRYING....")
