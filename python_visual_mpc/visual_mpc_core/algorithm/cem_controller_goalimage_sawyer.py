@@ -25,12 +25,26 @@ from python_visual_mpc.visual_mpc_core.infrastructure.utility.logger import Logg
 from python_visual_mpc.goaldistancenet.variants.multiview_testgdn import MulltiviewTestGDN
 from python_visual_mpc.goaldistancenet.variants.multiview_testgdn import MulltiviewTestGDN
 
+from python_visual_mpc.video_prediction.utils_vpred.animate_tkinter import resize_image
+
 if "NO_ROS" not in os.environ:
     from visual_mpc_rospkg.msg import floatarray
     from rospy.numpy_msg import numpy_msg
     import rospy
 
 import time
+
+def save_track_pkl(ctrl, t, cem_itr):
+    pix_pos_dict = {}
+    pix_pos_dict['desig_pix_t0'] = ctrl.desig_pix_t0
+    pix_pos_dict['goal_pix'] = ctrl.goal_pix
+    pix_pos_dict['desig'] = ctrl.desig_pix
+    if ctrl.reg_tradeoff is not None:
+        pix_pos_dict['reg_tradeoff'] = ctrl.reg_tradeoff
+    dir = ctrl.agentparams['record'] + '/plan'
+    if not os.path.exists(dir):
+        os.makedirs(dir)
+    pickle.dump(pix_pos_dict, open(dir + 'pix_pos_dict{}iter{}.pkl'.format(ctrl.t, cem_itr), 'wb'))
 
 
 def make_blockdiagonal(cov, nactions, adim):
@@ -516,9 +530,17 @@ class CEM_controller():
     def video_pred(self, traj, actions, cem_itr):
         t_0 = time.time()
         ctxt = self.netconf['context_frames']
+
         last_frames = traj.images[self.t - ctxt + 1:self.t + 1]  # same as [t - 1:t + 1] for context 2
-        if 'image_medium' in self.agentparams:
-            last_frames_med = traj._image_medium[self.t - ctxt + 1:self.t + 1]  # same as [t - 1:t + 1] for context 2
+        last_frames = last_frames.astype(np.float32, copy=False) / 255.
+        last_frames = last_frames[None]
+        if 'register_gtruth' in self.policyparams and cem_itr == 0:
+            self.start_image = copy.deepcopy(self.traj.images[0]).astype(np.float32) / 255.
+            self.warped_image_start, self.warped_image_goal, self.reg_tradeoff = self.register_gtruth(self.start_image, last_frames, self.goal_image)
+
+        if 'image_medium' in self.agentparams:   # downsample to video-pred reslution
+            last_frames = resize_image(last_frames, (self.img_height, self.img_width))
+
         if 'use_vel' in self.netconf:
             last_states = traj.X_Xdot_full[self.t - ctxt + 1:self.t + 1]
         else:
@@ -530,20 +552,7 @@ class CEM_controller():
                 touch = traj.touch_sensors[self.t - ctxt + 1:self.t + 1]
                 last_states = np.concatenate([last_states, touch], axis=1)
             actions = actions[:,:,:self.netconf['adim']]
-
         last_states = last_states[None]
-        last_frames = last_frames.astype(np.float32, copy=False) / 255.
-        last_frames = last_frames[None]
-
-        if 'register_gtruth' in self.policyparams and cem_itr == 0:
-            if 'image_medium' in self.agentparams:
-                last_frames_med = last_frames_med.astype(np.float32, copy=False) / 255.
-                last_frames_med = last_frames_med[None]
-                self.start_image = copy.deepcopy(self.traj._image_medium[0]).astype(np.float32) / 255.
-                self.warped_image_start, self.warped_image_goal, self.reg_tradeoff = self.register_gtruth(self.start_image, last_frames_med, self.goal_image)
-            else:
-                self.start_image = copy.deepcopy(self.traj.images[0]).astype(np.float32) / 255.
-                self.warped_image_start, self.warped_image_goal, self.reg_tradeoff = self.register_gtruth(self.start_image, last_frames, self.goal_image)
 
         if 'use_goal_image' in self.policyparams and 'comb_flow_warp' not in self.policyparams\
                 and 'register_gtruth' not in self.policyparams:
@@ -656,6 +665,10 @@ class CEM_controller():
             make_cem_visuals(self, actions, bestindices, cem_itr, flow_fields, gen_distrib, gen_images,
                                           gen_states, last_frames, goal_warp_pts_l, scores, self.warped_image_goal,
                                           self.warped_image_start, warped_images, last_states, self.reg_tradeoff)
+
+        if 'save_desig_pos' in self.agentparams:
+            save_track_pkl(self, self.t, cem_itr)
+
             # if 'sawyer' in self.agentparams:
                 # bestind = self.publish_sawyer(gen_distrib, gen_images, scores)
 
@@ -726,7 +739,7 @@ class CEM_controller():
         tradeoff = tradeoff.reshape(self.ncam, self.ndesig)
 
         self.plan_stat['tradeoff'] = tradeoff
-        self.plan_stat['warperrs'] = warperrs
+        self.plan_stat['warperrs'] = warperrs.reshape(self.ncam, self.ndesig)
         return warped_image_start, warped_image_goal, tradeoff
 
     def get_warp_err(self, icam, start_image, goal_image, start_warp_pts, goal_warp_pts, warped_image_start, warped_image_goal):
@@ -909,7 +922,11 @@ class CEM_controller():
         """
         Return a random action for a state.
         Args:
+            traj: trajectory object
+                if performing highres tracking traj.images is highres image
             t: the current controller's Time step
+            goal_pix: in coordinates of small image
+            desig_pix: in coordinates of small image
         """
         self.i_tr = traj.i_tr
         self.goal_mask = goal_mask

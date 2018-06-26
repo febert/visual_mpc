@@ -10,6 +10,8 @@ import cv2
 import pdb
 
 
+from python_visual_mpc.visual_mpc_core.infrastructure.assemble_cem_visuals import CEM_Visualizer
+
 from python_visual_mpc.utils.txt_in_image import draw_text_onimage
 
 import matplotlib; matplotlib.use('Agg'); import matplotlib.pyplot as plt
@@ -177,7 +179,7 @@ def make_cem_visuals(ctrl, actions, bestindices, cem_itr, flow_fields, gen_distr
         gen_image_an_l = None
 
 
-    if ctrl.goal_image is not None:
+    if 'register_gtruth' in ctrl.policyparams:
         if 'image_medium' in ctrl.agentparams:
             goal_pix = ctrl.goal_pix_med
         else:
@@ -204,7 +206,7 @@ def make_cem_visuals(ctrl, actions, bestindices, cem_itr, flow_fields, gen_distr
             for p in range(ctrl.ndesig):
                 sel_gen_distrib_p = unstack(gen_distrib[:,:, icam,:,:, p], 1)
                 t_dict_['gen_distrib_cam{}_p{}'.format(icam, p)] = sel_gen_distrib_p
-                if gl_im_ann is not None:
+                if gl_im_ann is not None and 'register_gtruth' in ctrl.policyparams:
                     t_dict_['gen_dist_goalim_overlay_cam{}_p{}_t{}'.format(icam, p, ctrl.t)] = \
                                  (unstack(gl_im_ann_per_tsk[p,:,:,icam], 1), sel_gen_distrib_p)
 
@@ -232,7 +234,10 @@ def make_cem_visuals(ctrl, actions, bestindices, cem_itr, flow_fields, gen_distr
             pix_pos_dict['desig'] = ctrl.desig_pix
             pickle.dump(pix_pos_dict, open(ctrl.agentparams['record'] + '/plan/pix_pos_dict{}iter{}.pkl'.format(ctrl.t, cem_itr), 'wb'))
 
-        v = Visualizer_tkinter(t_dict_, append_masks=False,
+        # v = Visualizer_tkinter(t_dict_, append_masks=False,
+        #                        filepath=ctrl.agentparams['record'] + '/plan/',
+        #                        numex=num_ex, suf='t{}iter_{}'.format(ctrl.t, cem_itr))
+        v = CEM_Visualizer(t_dict_, append_masks=False,
                                filepath=ctrl.agentparams['record'] + '/plan/',
                                numex=num_ex, suf='t{}iter_{}'.format(ctrl.t, cem_itr))
         if 'image_medium' in ctrl.agentparams:

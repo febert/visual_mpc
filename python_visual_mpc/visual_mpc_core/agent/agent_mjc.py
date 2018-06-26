@@ -490,16 +490,18 @@ class AgentMuJoCo(object):
                 raise Image_dark_except
             if cam == 'maincam':
                 self.large_images.append(large_img)
-            traj.images[t, i] = cv2.resize(large_img, dsize=(self._hyperparams['image_width'],
-                                    self._hyperparams['image_height']), interpolation = cv2.INTER_AREA)
 
             if 'make_gtruth_flows' in self._hyperparams:
                 traj.largeimage[t, i] = large_img
                 dlarge_img = self.sim.render(width, height, camera_name="maincam", depth=True)[1][::-1, :]
                 traj.largedimage[t, i] = dlarge_img
+
             if 'image_medium' in self._hyperparams:
-                traj._image_medium[t, i] = cv2.resize(large_img, dsize=(self._hyperparams['image_medium'][1],
-                                                                     self._hyperparams['image_medium'][0]), interpolation = cv2.INTER_AREA)
+                traj.images[t, i] = cv2.resize(large_img, dsize=(self._hyperparams['image_medium'][1],
+                                                                     self._hyperparams['image_medium'][0]), interpolation=cv2.INTER_AREA)
+            else:
+                traj.images[t, i] = cv2.resize(large_img, dsize=(self._hyperparams['image_width'],
+                                                                 self._hyperparams['image_height']), interpolation=cv2.INTER_AREA)
 
         if 'store_whole_pred' in self._hyperparams:
             if t > 1:

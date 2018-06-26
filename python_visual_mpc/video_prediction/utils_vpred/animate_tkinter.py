@@ -100,7 +100,6 @@ def visualize_flow(flow_vecs):
 
 
 
-
 t = 0
 class Visualizer_tkinter(object):
     def __init__(self, dict_=None, append_masks=True, filepath=None, dict_name=None, numex = 4, suf= "", col_titles = None, renorm_heatmaps=True, logger=None):

@@ -182,27 +182,21 @@ class Visual_MPC_Client():
             self.data_collection = True
             save_video = True
             save_actions = True
-            save_images = True
             assert self.robot_name != ''
             rospy.Subscriber("ctrl_alive", numpy_msg(intarray), self.ctr_alive)
         else:
             save_video = True
             save_actions = False
-            save_images = False
             self.data_collection = False
 
         if self.use_save_subdir:
-            save_lowres = True
-            save_images = True
             self.recorder_save_dir = None
             # self.recorder_save_dir = self.base_dir + "/experiments/cem_exp/benchmarks_sawyer/" + self.benchname + \
             #                             '/' + self.save_subdir + "/videos"
         elif self.data_collection:
             self.recorder_save_dir  =self.base_dir + "/experiments/cem_exp/benchmarks_sawyer/" + self.benchname + "/data"
-            save_lowres = False
         else:
             self.recorder_save_dir = self.base_dir + "/experiments/cem_exp/benchmarks_sawyer/" + self.benchname + "/videos"
-            save_lowres = False
 
         self.num_pic_perstep = 4
         self.nsave = self.action_sequence_length * self.num_pic_perstep
@@ -214,9 +208,9 @@ class Visual_MPC_Client():
                                                      use_aux=self.use_aux,
                                                      save_video=save_video,
                                                      save_actions=save_actions,
-                                                     save_images=save_images,
+                                                     save_images=True,
                                                      image_shape=(self.img_height, self.img_width),
-                                                     save_lowres=save_lowres)
+                                                     save_lowres=True)
 
         while self.recorder.ltob.img_cv2 is None:
             print('waiting for images')
@@ -265,16 +259,21 @@ class Visual_MPC_Client():
     def mark_goal_desig(self, itr):
         if 'use_goal_image' in self.policyparams:
             print('put object in goal configuration')
-            ntask = self.agentparams['ntask']
+            if 'ntask' in self.agentparams:
+                ntask = self.agentparams['ntask']
+            else: ntask =1
             raw_input()
             imagemain = self.recorder.ltob.img_cropped
             imagemain = cv2.cvtColor(imagemain, cv2.COLOR_BGR2RGB)
             c_main = Getdesig(imagemain, self.recorder_save_dir, 'goal', n_desig=ntask,
                               im_shape=[self.img_height, self.img_width], clicks_per_desig=1)
             self.goal_pos_main = c_main.desig.astype(np.int64)
-            pdb.set_trace()
-            self.goal_image = imagemain
             print('goal pos main:', self.goal_pos_main)
+            if 'image_medium' in self.agentparams:
+                self.goal_image = self.recorder.ltob.img_cropped_medium
+            else:
+                self.goal_image = self.recorder.ltob.img_cropped
+            self.goal_image = cv2.cvtColor(self.goal_image, cv2.COLOR_BGR2RGB)
 
             print('put object in start configuration')
             raw_input()
@@ -293,11 +292,8 @@ class Visual_MPC_Client():
             print('desig pos aux1:', self.desig_pos_main)
             self.goal_pos_main = c_main.goal.astype(np.int64)
             print('goal pos main:', self.goal_pos_main)
+            self.goal_image = np.zeros_like(imagemain)
 
-        if 'image_medium' in self.agentparams:
-            self.goal_image = self.recorder.ltob.img_cropped_medium
-        else:
-            self.goal_image = self.recorder.ltob.img_cropped
 
     def imp_ctrl_release_spring(self, maxstiff):
         self.imp_ctrl_release_spring_pub.publish(maxstiff)
@@ -735,18 +731,15 @@ class Visual_MPC_Client():
 
     def query_action(self, istep):
 
-        if self.use_aux:
-            self.recorder.get_aux_img()
-            imageaux1 = self.recorder.ltob_aux1.img_msg
+        if 'image_medium' in self.agentparams:
+            imagemain = self.bridge.cv2_to_imgmsg(self.recorder.ltob.img_cropped_medium)
         else:
-            imageaux1 = np.zeros((self.img_height, self.img_width, 3), dtype=np.uint8)
-            imageaux1 = self.bridge.cv2_to_imgmsg(imageaux1)
-        imagemain = self.bridge.cv2_to_imgmsg(self.recorder.ltob.img_cropped)
+            imagemain = self.bridge.cv2_to_imgmsg(self.recorder.ltob.img_cropped)
+        imageaux1 = self.bridge.cv2_to_imgmsg(np.zeros_like(imagemain))
         state = self.get_endeffector_pos()
 
         try:
             rospy.wait_for_service('get_action', timeout=3)
-
             self.desig_pos_main[:,0] = np.clip(self.desig_pos_main[:,0], 0, self.img_height-1)
             self.desig_pos_main[:, 1] = np.clip(self.desig_pos_main[:, 1], 0, self.img_width - 1)
             self.goal_pos_main[:, 0] = np.clip(self.goal_pos_main[:, 0], 0, self.img_height - 1)
