@@ -33,7 +33,8 @@ if "NO_ROS" not in os.environ:
     import rospy
 
 import time
-
+from collections import OrderedDict
+import cPickle as pkl
 def save_track_pkl(ctrl, t, cem_itr):
     pix_pos_dict = {}
     pix_pos_dict['desig_pix_t0'] = ctrl.desig_pix_t0
@@ -356,7 +357,8 @@ class CEM_controller():
 
     def perform_CEM(self, traj):
         self.logger.log('starting cem at t{}...'.format(self.t))
-
+        timings = OrderedDict()
+        t = time.time()
         if 'reuse_cov' not in self.policyparams or self.t < 2:
             self.sigma = construct_initial_sigma(self.policyparams, self.t)
             self.sigma_prev = self.sigma
@@ -381,8 +383,9 @@ class CEM_controller():
         self.logger.log('M {}, K{}'.format(self.M, self.K))
         self.logger.log('------------------------------------------------')
         self.logger.log('starting CEM cylce')
-
+        timings['pre_itr'] = time.time() - t
         for itr in range(self.niter):
+            itr_times = OrderedDict()
             self.logger.log('------------')
             self.logger.log('iteration: ', itr)
             t_startiter = time.time()
@@ -391,11 +394,12 @@ class CEM_controller():
                 actions = self.sample_actions_rej(traj)
             else:
                 actions = self.sample_actions(traj)
-
+            itr_times['action_sampling'] = time.time() - t_startiter
             t_start = time.time()
 
-            scores = self.video_pred(traj, actions, itr)
-
+            scores = self.video_pred(traj, actions, itr, itr_times)
+            itr_times['vid_pred_total'] = time.time() - t_start
+            t = time.time()
             if 'compare_mj_planner_actions' in self.agentparams: # remove first example because it is used for mj_planner
                 actions = actions[1:]
             self.logger.log('overall time for evaluating actions {}'.format(time.time() - t_start))
@@ -434,6 +438,10 @@ class CEM_controller():
 
             self.logger.log('iter {0}, bestscore {1}'.format(itr, scores[self.indices[0]]))
             self.logger.log('overall time for iteration {}'.format(time.time() - t_startiter))
+            itr_times['post_pred'] = time.time() - t
+            timings['itr{}'.format(itr)] = itr_times
+
+        pkl.dump(timings, open('{}/timings_CEM_{}.pkl'.format(self.agentparams['record'], self.t), 'wb'))
 
     def sample_actions(self, traj):
         actions = np.random.multivariate_normal(self.mean, self.sigma, self.M)
@@ -526,8 +534,7 @@ class CEM_controller():
                 self.logger.log('using desig pix',desig[icam, p, 0], desig[icam, p, 1])
         return one_hot_images
 
-
-    def video_pred(self, traj, actions, cem_itr):
+    def video_pred(self, traj, actions, cem_itr, itr_times):
         t_0 = time.time()
         ctxt = self.netconf['context_frames']
 
@@ -576,9 +583,10 @@ class CEM_controller():
             nruns = 1
             assert self.M == self.bsize
         gen_images_l, gen_distrib_l, gen_states_l = [], [], []
-
+        itr_times['pre_run'] = time.time() - t_0
         for run in range(nruns):
             self.logger.log('run{}'.format(run))
+            t_run_loop = time.time()
             actions_ = actions[run*self.bsize:(run+1)*self.bsize]
             gen_images, gen_distrib, gen_states, _ = self.predictor(input_images=last_frames,
                                                                     input_state=last_states,
@@ -587,13 +595,15 @@ class CEM_controller():
             gen_images_l.append(gen_images)
             gen_distrib_l.append(gen_distrib)
             gen_states_l.append(gen_states)
+            itr_times['run{}'.format(run)] = time.time() - t_run_loop
+        t_run_post = time.time()
         gen_images = np.concatenate(gen_images_l, 0)
         gen_distrib = np.concatenate(gen_distrib_l, 0)
         if gen_states_l[0] is not None:
             gen_states = np.concatenate(gen_states_l, 0)
-
+        itr_times['t_concat'] = time.time() - t_run_post
         self.logger.log('time for videoprediction {}'.format(time.time() - t_startpred))
-
+        t_run_post = time.time()
         t_startcalcscores = time.time()
         scores_per_task = []
 
@@ -657,7 +667,7 @@ class CEM_controller():
         self.logger.log('time to calc scores {}'.format(time.time()-t_startcalcscores))
 
         bestindices = scores.argsort()[:self.K]
-
+        itr_times['run_post'] = time.time() - t_run_post
         tstart_verbose = time.time()
 
         if self.verbose and cem_itr == self.policyparams['iterations']-1 and self.i_tr % self.verbose_freq ==0 or \
@@ -675,7 +685,7 @@ class CEM_controller():
         if 'store_video_prediction' in self.agentparams and\
                 cem_itr == (self.policyparams['iterations']-1):
             self.terminal_pred = gen_images[-1][bestind]
-
+        itr_times['verbose_time'] = time.time() - tstart_verbose
         self.logger.log('verbose time', time.time() - tstart_verbose)
 
         return scores
