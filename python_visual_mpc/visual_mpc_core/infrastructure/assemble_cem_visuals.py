@@ -153,10 +153,10 @@ class CEM_Visualizer(object):
 
         new_videolist = []
         for vid in self.video_list:
-            print('key', vid[1])
-            print('len', len(vid[0]))
-            print('sizes', [im.shape for im in vid[0]])
-            print('####')
+            # print('key', vid[1])
+            # print('len', len(vid[0]))
+            # print('sizes', [im.shape for im in vid[0]])
+            # print('####')
             if 'gen_distrib' in vid[1]:
                 plt.switch_backend('TkAgg')
                 # plt.imshow(vid[0][0][0])

@@ -112,13 +112,8 @@ class Visual_MPC_Client():
             dataconf_file = self.base_dir + '/'.join(str.split(self.netconf['data_dir'], '/')[:-1]) + '/conf.py'
             dataconf = imp.load_source('hyperparams', dataconf_file).configuration
 
-
-        if 'img_height' in self.netconf and 'img_width' in self.netconf:
-            self.img_height = self.netconf['img_height']
-            self.img_width = self.netconf['img_width']
-        else:
-            self.img_height = dataconf['img_height']
-            self.img_width = dataconf['img_width']
+        self.img_height = self.netconf['img_height']
+        self.img_width = self.netconf['img_width']
 
         self.ndesig = self.agentparams['ndesig']
 
@@ -735,7 +730,7 @@ class Visual_MPC_Client():
             imagemain = self.bridge.cv2_to_imgmsg(self.recorder.ltob.img_cropped_medium)
         else:
             imagemain = self.bridge.cv2_to_imgmsg(self.recorder.ltob.img_cropped)
-        imageaux1 = self.bridge.cv2_to_imgmsg(np.zeros_like(imagemain))
+        imageaux1 = self.bridge.cv2_to_imgmsg(np.zeros([self.img_height, self.img_height, 3]))
         state = self.get_endeffector_pos()
 
         try:

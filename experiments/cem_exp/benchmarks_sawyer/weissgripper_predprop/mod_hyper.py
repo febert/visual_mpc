@@ -19,6 +19,7 @@ agent = {
     'startpos_basedon_click':'',
     'record':current_dir + '/verbose',
     'discrete_adim':[2],
+    'save_pkl':''
 }
 
 policy = {
