@@ -76,7 +76,9 @@ def plot_sum_overtime(pixdistrib, dir, filename, tradeoffs):
 
     if not os.path.exists(dir):
         os.makedirs(dir)
+    plt.switch_backend('Agg')
     plt.savefig(os.path.join(dir, filename))
+    plt.close()
 
 
 def write_tradeoff_onimage(image, tradeoff_percam, ntask, startgoal):
@@ -125,8 +127,9 @@ def make_cem_visuals(ctrl, actions, bestindices, cem_itr, flow_fields, gen_distr
 
     for icam in range(ctrl.ncam):
         current_image = np.tile(last_frames[0,1,icam][None, None], [num_ex, len_pred, 1, 1, 1, 1])
+        if 'register_gtruth' in ctrl.policyparams:
+            current_image = annotate_tracks(ctrl, current_image.squeeze(), icam, len_pred, num_ex)
         t_dict_['curr_img_cam{}'.format(icam)] = unstack(current_image.squeeze(), 1)
-
 
     if 'image_medium' in ctrl.agentparams:
         pix_mult = ctrl.agentparams['image_medium'][0]/ctrl.agentparams['image_height']
@@ -134,74 +137,18 @@ def make_cem_visuals(ctrl, actions, bestindices, cem_itr, flow_fields, gen_distr
         pix_mult = 1.
 
     if 'register_gtruth' in ctrl.policyparams:
-        gen_image_an_l = []
-        for icam in range(ctrl.ncam):
-            if 'start' in ctrl.policyparams['register_gtruth']:
-                if 'trade_off_reg' in ctrl.policyparams:
-                    warped_img_start_cam = write_tradeoff_onimage(warped_image_start[icam].squeeze(), reg_tradeoff[icam], ctrl.ntask, 0)
-                else:
-                    warped_img_start_cam  = warped_image_start[icam].squeeze()
-                t_dict_['warp_start_cam{}'.format(icam)] = [np.repeat(np.expand_dims(warped_img_start_cam, axis=0), num_ex, axis=0) for _ in
-                                                  range(len_pred)]
-
-            startimages = np.tile(ctrl.start_image[icam][None, None], [num_ex, len_pred, 1, 1, 1])
-            for p in range(ctrl.ntask):
-                if 'image_medium' in ctrl.agentparams:
-                    desig_pix_t0 = ctrl.desig_pix_t0_med[icam, p][None]
-                else:
-                    desig_pix_t0 = ctrl.desig_pix_t0[icam, p][None]
-                desig_pix_t0 = np.tile(desig_pix_t0, [num_ex, len_pred, 1])
-
-                startimages = add_crosshairs(startimages, desig_pix_t0)
-            t_dict_['start_img_cam{}'.format(icam)] = unstack(startimages, 1)
-
-            ipix = 0
-            gen_image_an = gen_images[:, :, icam]
-            for p in range(ctrl.ntask):
-                if 'start' in ctrl.policyparams['register_gtruth']:
-                    desig_pix_start = np.tile(ctrl.desig_pix[icam, ipix][None, None, :]*pix_mult, [num_ex, len_pred, 1])
-                    gen_image_an = add_crosshairs(gen_image_an, desig_pix_start, color=[1., 0., 0])
-                    ipix +=1
-                if 'goal' in ctrl.policyparams['register_gtruth']:
-                    desig_pix_goal = np.tile(ctrl.desig_pix[icam, ipix][None,None, :]*pix_mult, [num_ex, len_pred, 1])
-                    gen_image_an = add_crosshairs(gen_image_an, desig_pix_goal, color=[0, 0, 1.])
-                    ipix +=1
-                    if 'trade_off_reg' in ctrl.policyparams:
-                        warped_img_goal_cam = write_tradeoff_onimage(warped_image_goal[icam].squeeze(), reg_tradeoff[icam], ctrl.ntask, 1)
-                    else:
-                        warped_img_goal_cam  = warped_image_goal[icam].squeeze()
-                    warped_img_goal_cam = [np.repeat(np.expand_dims(warped_img_goal_cam, axis=0), num_ex, axis=0) for _ in
-                                           range(len_pred)]
-                    t_dict_['warp_goal_cam{}'.format(icam)] = warped_img_goal_cam
-
-            gen_image_an_l.append(gen_image_an)
-    else:
-        gen_image_an_l = None
-
-
-    if 'register_gtruth' in ctrl.policyparams:
-        if 'image_medium' in ctrl.agentparams:
-            goal_pix = ctrl.goal_pix_med
-        else:
-            goal_pix = ctrl.goal_pix
-
-        gl_im_ann = np.zeros([num_ex] + list(gen_images.shape[1:]))  #b, t, n, r, c, 1
-        gl_im_ann_per_tsk = np.zeros([ctrl.ndesig, num_ex] + list(gen_images.shape[1:]))  #p, b, t, n, r, c, 1
-        for icam in range(ctrl.ncam):
-            gl_im_ann[:,:,icam] = np.tile(ctrl.goal_image[icam][None,None], [num_ex, len_pred, 1, 1, 1])
-            gl_im_ann_per_tsk[:,:,:,icam] = np.tile(ctrl.goal_image[icam][None,None,None], [ctrl.ndesig, num_ex, len_pred, 1, 1, 1])
-            for p in range(ctrl.ndesig):
-                gl_im_ann[:,:,icam] = image_addgoalpix(num_ex , len_pred, gl_im_ann[:,:,icam], ctrl.goal_pix[icam, p]*pix_mult)
-                gl_im_ann_per_tsk[p,:,:,icam] = image_addgoalpix(num_ex , len_pred, gl_im_ann_per_tsk[p][:,:,icam], goal_pix[icam, p])
-            t_dict_['goal_image{}'.format(icam)] = unstack(gl_im_ann[:,:,icam], 1)
+        gen_image_an_l, gl_im_ann, gl_im_ann_per_tsk = visualize_registration(ctrl, gen_images, len_pred, num_ex,
+                                                                              pix_mult, reg_tradeoff, t_dict_,
+                                                                              warped_image_goal, warped_image_start)
     else:
         gl_im_ann = None
+        gen_image_an_l = None
 
     if 'use_goal_image' not in ctrl.policyparams or 'comb_flow_warp' in ctrl.policyparams or 'register_gtruth' in ctrl.policyparams:
         if hasattr(ctrl, 'tradeoffs'):
             tradeoffs = ctrl.tradeoffs[selindices]
         else: tradeoffs = None
-        plot_sum_overtime(gen_distrib, ctrl.agentparams['record'] + '/plan', 'psum_t{}_iter{}'.format(ctrl.t, cem_itr), tradeoffs)
+        # plot_sum_overtime(gen_distrib, ctrl.agentparams['record'] + '/plan', 'psum_t{}_iter{}'.format(ctrl.t, cem_itr), tradeoffs)  # segfaults on deepthought and newton1
         for icam in range(ctrl.ncam):
             for p in range(ctrl.ndesig):
                 sel_gen_distrib_p = unstack(gen_distrib[:,:, icam,:,:, p], 1)
@@ -225,18 +172,12 @@ def make_cem_visuals(ctrl, actions, bestindices, cem_itr, flow_fields, gen_distr
     ctrl.dict_.update(t_dict_)
     if 'no_instant_gif' not in ctrl.agentparams:
         if 'save_pkl' in ctrl.agentparams:
-            pickle.dump(t_dict_, open(ctrl.agentparams['record'] + '/plan/pred_t{}iter{}.pkl'.format(ctrl.t, cem_itr), 'wb'))
+            dir = ctrl.agentparams['record'] + '/plan'
+            if not os.path.exists(dir):
+                os.makedirs(dir)
+            pickle.dump(t_dict_, open(dir + '/pred_t{}iter{}.pkl'.format(ctrl.t, cem_itr), 'wb'))
             print('written files to:' + file_path)
-        if 'save_desig_pos' in ctrl.agentparams:
-            pix_pos_dict = {}
-            pix_pos_dict['desig_pix_t0'] = ctrl.desig_pix_t0
-            pix_pos_dict['goal_pix'] = ctrl.goal_pix
-            pix_pos_dict['desig'] = ctrl.desig_pix
-            pickle.dump(pix_pos_dict, open(ctrl.agentparams['record'] + '/plan/pix_pos_dict{}iter{}.pkl'.format(ctrl.t, cem_itr), 'wb'))
 
-        # v = Visualizer_tkinter(t_dict_, append_masks=False,
-        #                        filepath=ctrl.agentparams['record'] + '/plan/',
-        #                        numex=num_ex, suf='t{}iter_{}'.format(ctrl.t, cem_itr))
         v = CEM_Visualizer(t_dict_, append_masks=False,
                                filepath=ctrl.agentparams['record'] + '/plan/',
                                numex=num_ex, suf='t{}iter_{}'.format(ctrl.t, cem_itr))
@@ -245,13 +186,80 @@ def make_cem_visuals(ctrl, actions, bestindices, cem_itr, flow_fields, gen_distr
         else: size = None
         v.make_direct_vid(resize=size)
 
-        # start_frame_conc = np.concatenate([last_frames[0, 0, 0], last_frames[0, 1, 0]], 0).squeeze()
-        # start_frame_conc = (start_frame_conc*255.).astype(np.uint8)
-        # Image.fromarray(start_frame_conc).save(ctrl.agentparams['record'] + '/plan/start_frame{}iter_{}.png'.format(ctrl.t, cem_itr))
-
         make_action_summary(num_ex, actions, ctrl.agentparams, selindices, cem_itr, ctrl.netconf['sequence_length'], ctrl.t)
         if gen_states is not None:
             make_state_summary(num_ex, last_states, gen_states, ctrl.agentparams, selindices, cem_itr, ctrl.t)
+
+
+def visualize_registration(ctrl, gen_images, len_pred, num_ex, pix_mult, reg_tradeoff, t_dict_, warped_image_goal,
+                           warped_image_start):
+    gen_image_an_l = []
+    for icam in range(ctrl.ncam):
+        if 'start' in ctrl.policyparams['register_gtruth']:
+            if 'trade_off_reg' in ctrl.policyparams:
+                warped_img_start_cam = write_tradeoff_onimage(warped_image_start[icam].squeeze(), reg_tradeoff[icam],
+                                                              ctrl.ntask, 0)
+            else:
+                warped_img_start_cam = warped_image_start[icam].squeeze()
+            t_dict_['warp_start_cam{}'.format(icam)] = [
+                np.repeat(np.expand_dims(warped_img_start_cam, axis=0), num_ex, axis=0) for _ in
+                range(len_pred)]
+
+        startimages = np.tile(ctrl.start_image[icam][None, None], [num_ex, len_pred, 1, 1, 1])
+        for p in range(ctrl.ntask):
+            if 'image_medium' in ctrl.agentparams:
+                desig_pix_t0 = ctrl.desig_pix_t0_med[icam, p][None]
+            else:
+                desig_pix_t0 = ctrl.desig_pix_t0[icam, p][None]
+            desig_pix_t0 = np.tile(desig_pix_t0, [num_ex, len_pred, 1])
+
+            startimages = add_crosshairs(startimages, desig_pix_t0)
+        t_dict_['start_img_cam{}'.format(icam)] = unstack(startimages, 1)
+
+        gen_image_an = gen_images[:, :, icam]
+        for p in range(ctrl.ntask):
+            if 'goal' in ctrl.policyparams['register_gtruth']:
+                if 'trade_off_reg' in ctrl.policyparams:
+                    warped_img_goal_cam = write_tradeoff_onimage(warped_image_goal[icam].squeeze(), reg_tradeoff[icam],
+                                                                 ctrl.ntask, 1)
+                else:
+                    warped_img_goal_cam = warped_image_goal[icam].squeeze()
+                warped_img_goal_cam = [np.repeat(np.expand_dims(warped_img_goal_cam, axis=0), num_ex, axis=0) for _ in
+                                       range(len_pred)]
+                t_dict_['warp_goal_cam{}'.format(icam)] = warped_img_goal_cam
+
+        gen_image_an_l.append(gen_image_an)
+    if 'image_medium' in ctrl.agentparams:
+        goal_pix = ctrl.goal_pix_med
+    else:
+        goal_pix = ctrl.goal_pix
+    gl_im_ann = np.zeros([num_ex] + list(gen_images.shape[1:]))  # b, t, n, r, c, 1
+    gl_im_ann_per_tsk = np.zeros([ctrl.ndesig, num_ex] + list(gen_images.shape[1:]))  # p, b, t, n, r, c, 1
+    for icam in range(ctrl.ncam):
+        gl_im_ann[:, :, icam] = np.tile(ctrl.goal_image[icam][None, None], [num_ex, len_pred, 1, 1, 1])
+        gl_im_ann_per_tsk[:, :, :, icam] = np.tile(ctrl.goal_image[icam][None, None, None],
+                                                   [ctrl.ndesig, num_ex, len_pred, 1, 1, 1])
+        for p in range(ctrl.ndesig):
+            gl_im_ann[:, :, icam] = image_addgoalpix(num_ex, len_pred, gl_im_ann[:, :, icam],
+                                                     ctrl.goal_pix[icam, p] * pix_mult)
+            gl_im_ann_per_tsk[p, :, :, icam] = image_addgoalpix(num_ex, len_pred, gl_im_ann_per_tsk[p][:, :, icam],
+                                                                goal_pix[icam, p])
+        t_dict_['goal_image{}'.format(icam)] = unstack(gl_im_ann[:, :, icam], 1)
+    return gen_image_an_l, gl_im_ann, gl_im_ann_per_tsk
+
+
+def annotate_tracks(ctrl, current_image, icam, len_pred, num_ex):
+    ipix = 0
+    for p in range(ctrl.ntask):
+        if 'start' in ctrl.policyparams['register_gtruth']:
+            desig_pix_start = np.tile(ctrl.desig_pix[icam, ipix][None, None, :], [num_ex, len_pred, 1])
+            current_image = add_crosshairs(current_image, desig_pix_start, color=[1., 0., 0])
+            ipix += 1
+        if 'goal' in ctrl.policyparams['register_gtruth']:
+            desig_pix_goal = np.tile(ctrl.desig_pix[icam, ipix][None, None, :], [num_ex, len_pred, 1])
+            current_image = add_crosshairs(current_image, desig_pix_goal, color=[0, 0, 1.])
+            ipix += 1
+    return current_image
 
 
 def unstack(arr, dim):

@@ -24,15 +24,7 @@ def npy_to_gif(im_list, filename):
     clip = mpy.ImageSequenceClip(im_list, fps=4)
     clip.write_gif(filename + '.gif')
     return
-"""
-def npy_to_gif(im_list, filename):
-    import imageio
-    with imageio.get_writer(filename + '.gif', mode='I') as writer:
-        for im in im_list:
-            writer.append_data(im)
-    print('wrote: {}.gif'.format(filename))
-    return
-"""
+
 
 def comp_video(file_path, conf=None, suffix = None, gif_name= None):
     print('reading files from:', file_path)

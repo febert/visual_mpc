@@ -47,6 +47,7 @@ policy = {
     'no_pixdistrib_video':'',
     'use_goal_image':'',
     'register_gtruth':['start','goal'],
-    'trade_off_reg':''
+    'trade_off_reg':'',
+    'num_samples':[800],
 }
 

@@ -44,7 +44,7 @@ def save_track_pkl(ctrl, t, cem_itr):
     dir = ctrl.agentparams['record'] + '/plan'
     if not os.path.exists(dir):
         os.makedirs(dir)
-    pickle.dump(pix_pos_dict, open(dir + 'pix_pos_dict{}iter{}.pkl'.format(ctrl.t, cem_itr), 'wb'))
+    pickle.dump(pix_pos_dict, open(dir + '/pix_pos_dict{}iter{}.pkl'.format(ctrl.t, cem_itr), 'wb'))
 
 
 def make_blockdiagonal(cov, nactions, adim):
