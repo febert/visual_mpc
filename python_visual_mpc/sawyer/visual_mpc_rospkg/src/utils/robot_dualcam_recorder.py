@@ -106,8 +106,11 @@ class Trajectory:
 
         img_height, img_width = agentparams['image_height'], agentparams['image_width']
         self.images = np.zeros((T, 2, img_height, img_width, 3), dtype = np.uint8)
-        self.touch_sensors = np.zeros((T, 2))   #2 fingers
+        if 'image_medium' in self._agent_conf:
+            img_med_height, img_med_width = self._agent_conf['image_medium']
+            self._image_medium = np.zeros((T, 2, img_med_height, img_med_width, 3), dtype=np.uint8)
 
+        self.touch_sensors = np.zeros((T, 2))   #2 fingers
         self.target_qpos = np.zeros((T + 1, agentparams['sdim']))
         self.mask_rel = copy.deepcopy(agentparams['mode_rel'])
 
@@ -170,7 +173,7 @@ class Trajectory:
             clip.write_gif('{}/diag.gif'.format(folder))
 
 class Latest_observation(object):
-    def __init__(self, create_tracker = False, save_buffer = False):
+    def __init__(self, create_tracker = False, save_buffer = False, medium_images = False):
         self.img_cv2 = None
         self.img_cropped = None
         self.tstamp_img = None
@@ -180,6 +183,8 @@ class Latest_observation(object):
             self.save_itr = 0
         if create_tracker:
             self.reset_tracker()
+        if medium_images:
+            self.img_medium = None
 
 
     def reset_tracker(self):
@@ -199,8 +204,10 @@ class RobotDualCamRecorder:
         self.data_conf = agent_params['data_conf']
         self._ctrl = robot_controller
 
-        self.front_limage = Latest_observation('opencv_tracking' in agent_params, 'save_videos' in self.agent_params)
-        self.left_limage = Latest_observation('opencv_tracking' in agent_params, 'save_videos' in self.agent_params)
+        self.front_limage = Latest_observation('opencv_tracking' in agent_params,
+                                               'save_videos' in self.agent_params, 'medium_images' in self.agent_params)
+        self.left_limage = Latest_observation('opencv_tracking' in agent_params,
+                                              'save_videos' in self.agent_params,  'medium_images' in self.agent_params)
 
         self._is_tracking = False
         if 'opencv_tracking' in agent_params:
@@ -320,6 +327,10 @@ class RobotDualCamRecorder:
             traj.raw_images[t, 1] = self.left_limage.img_cv2[:, :, ::-1]
             traj.images[t, 1] = self.left_limage.img_cropped[:, :, ::-1]
 
+            if 'image_medium' in self.agent_params:
+                traj._image_medium[t, 0] = self.front_limage.img_medium[:, :, ::-1]
+                traj._image_medium[t, 1] = self.left_limage.img_medium[:, :, ::-1]
+
             if self._is_tracking:
                 traj.track_bbox[t, 0] = self.front_limage.bbox.copy()
                 traj.track_bbox[t, 1] = self.left_limage.bbox.copy()
@@ -438,6 +449,10 @@ class RobotDualCamRecorder:
         cv_image = self.bridge.imgmsg_to_cv2(data, "bgra8")[:, :, :3]
         latest_obsv.img_cv2 = copy.deepcopy(cv_image)
         latest_obsv.img_cropped = self._crop_resize(cv_image, cam_conf)
+
+        if 'image_medium' in self.agent_params:
+            medium_height, medium_width  = self.agent_params['image_medium']
+            latest_obsv.img_medium = crop_resize(cv_image, cam_conf, medium_height, medium_width)
 
         if 'opencv_tracking' in self.agent_params and self._is_tracking:
             if latest_obsv.track_itr % self.TRACK_SKIP == 0:

@@ -7,7 +7,7 @@ import copy
 import cv2
 import numpy as np
 import imageio
-def add_crosshairs_single(im, pos, color=None):
+def add_crosshairs_single(im, pos, color=None, opacity = None):
     """
     :param im:  shape: r,c,3
     :param pos:
@@ -26,6 +26,29 @@ def add_crosshairs_single(im, pos, color=None):
     pos = np.clip(pos, [0,0], np.array(im.shape[:2]) -1)
 
     p = pos.astype(np.int)
+
+    if opacity is not None:
+        img_float = im.astype(np.float32)
+        img_float[p[0] - 20:p[0] - 8, p[1] - 4: p[1] + 4] *= (1 - opacity)
+        img_float[p[0] + 8:p[0] + 20, p[1] - 4: p[1] + 4] *= (1 - opacity)
+
+        img_float[p[0] - 4: p[0] + 4, p[1] - 20:p[1] - 8] *= (1 - opacity)
+
+        img_float[p[0] - 4: p[0] + 4, p[1] + 8:p[1] + 20] *= (1 - opacity)
+        img_float[p[0] - 2: p[0] + 2, p[1] - 2: p[1] + 2] *= (1 - opacity)
+
+        img_float[p[0] - 20:p[0] - 8, p[1] - 4: p[1] + 4] += opacity * color
+        img_float[p[0] + 8:p[0] + 20, p[1] - 4: p[1] + 4] += opacity * color
+
+        img_float[p[0] - 4: p[0] + 4, p[1] - 20:p[1] - 8] += opacity * color
+
+        img_float[p[0] - 4: p[0] + 4, p[1] + 8:p[1] + 20] += opacity * color
+        img_float[p[0] - 2: p[0] + 2, p[1] - 2: p[1] + 2] += opacity * color
+
+        im[:] = img_float.astype(np.uint8)
+
+        return im
+
     im[p[0]-20:p[0]-8,p[1] - 4 : p[1] + 4] = color
     im[p[0]+8:p[0]+20, p[1] - 4 : p[1] + 4] = color
 
@@ -33,6 +56,8 @@ def add_crosshairs_single(im, pos, color=None):
 
     im[p[0] - 4: p[0] + 4, p[1]+8:p[1]+20] = color
     im[p[0] - 2: p[0] + 2, p[1] - 2 : p[1] + 2] = color
+
+
 
     return im
 def main(exp_folder):
@@ -83,25 +108,35 @@ def main_singlecam(exp_folder):
     video_folder = exp_folder + '/videos'
     verbose_folder = exp_folder + '/verbose/plan'
 
-    color = np.array([0, 0, 255], dtype=np.uint8)
+    start_color = np.array([0, 0, 255], dtype=np.uint8)
+    end_color = np.array([255, 0 , 0], dtype = np.uint8)
     pix_pos_pkls = sorted_alphanumeric(glob.glob(verbose_folder + '/pix_pos_*.pkl'))
+
+    # tradeoff_pkl = pkl.load(open(verbose_folder + '/warperrs_tradeoff.pkl'))
+    # tradeoffs = tradeoff_pkl['tradeoff']
     min_t = 19000
     rendered = {}
     for p in pix_pos_pkls:
         d = pkl.load(open(p, 'rb'))
-        t = int(np.round(int(p.split('pix_pos_dict')[1].split('iter')[0]) * 120./30))
+        raw_t = int(p.split('pix_pos_dict')[1].split('iter')[0]) - 1
+
+        t = int(np.round(raw_t * 120./30))
         min_t = min(t, min_t)
-        print(t, d.keys())
+        print(raw_t, t, d.keys())
         print(d['desig'].shape)
         print(d['goal_pix'].shape)
+        # print('tradeoffs', tradeoffs[raw_t])
 
         img = cv2.imread('{}/main_full_cropped_im{}.jpg'.format(video_folder, t))
-        choose = 0
-        if (t > 28 and t < 52) or (t > 72 and t < 88):
-            choose = 1
-        point = d['desig'][0, choose]
+
+        point = d['desig'][0, 0]
         high_point = kinect_low_res_to_highres(point)
-        add_crosshairs_single(img, high_point.astype(np.int32), color)
+        add_crosshairs_single(img, high_point.astype(np.int32), start_color, 0.74)
+
+        point = d['desig'][0, 1]
+        high_point = kinect_low_res_to_highres(point)
+        add_crosshairs_single(img, high_point.astype(np.int32), end_color, 0.26)
+
         rendered[t] = img
         cv2.imwrite('points_single/points_{}.png'.format(t), img)
     vid = []
@@ -121,5 +156,4 @@ def main_singlecam(exp_folder):
 
 
 if __name__ == '__main__':
-
-    main('/home/sudeep/Documents/catkin_ws/src/visual_mpc/experiments/cem_exp/grasping_sawyer/indep_views_reuseaction/exp/tape_test2')
+    main_singlecam('/home/sudeep/Desktop/try_one')
