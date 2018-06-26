@@ -105,8 +105,12 @@ class AgentSawyer:
                     goal_dir = fig_save_dir + '/goal'
                     if not os.path.exists(goal_dir):
                         os.makedirs(goal_dir)
-                    front_goal_float, left_goal_float =front_goal['crop'].astype(np.float32) / 255., \
-                                                       left_goal['crop'].astype(np.float32) / 255.
+                    if 'image_medium' in self._hyperparams:
+                        front_goal_float, left_goal_float = front_goal['med'].astype(np.float32) / 255., \
+                                                            left_goal['med'].astype(np.float32) / 255.
+                    else:
+                        front_goal_float, left_goal_float =front_goal['crop'].astype(np.float32) / 255., \
+                                                           left_goal['crop'].astype(np.float32) / 255.
 
                     goal_images = np.concatenate((front_goal_float[None], left_goal_float[None]), 0)
                     print('goal_images shape', goal_images.shape)

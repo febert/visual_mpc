@@ -104,11 +104,12 @@ class Trajectory:
         cam_width = agentparams.get('cam_image_width', 625)
         self.raw_images = np.zeros((T, 2, cam_height, cam_width, 3), dtype = np.uint8)
 
-        img_height, img_width = agentparams['image_height'], agentparams['image_width']
-        self.images = np.zeros((T, 2, img_height, img_width, 3), dtype = np.uint8)
         if 'image_medium' in self._agent_conf:
             img_med_height, img_med_width = self._agent_conf['image_medium']
-            self._image_medium = np.zeros((T, 2, img_med_height, img_med_width, 3), dtype=np.uint8)
+            self.images = np.zeros((T, 2, img_med_height, img_med_width, 3), dtype=np.uint8)
+        else:
+            img_height, img_width = agentparams['image_height'], agentparams['image_width']
+            self.images = np.zeros((T, 2, img_height, img_width, 3), dtype=np.uint8)
 
         self.touch_sensors = np.zeros((T, 2))   #2 fingers
         self.target_qpos = np.zeros((T + 1, agentparams['sdim']))
@@ -179,6 +180,7 @@ class Latest_observation(object):
         self.tstamp_img = None
         self.img_msg = None
         self.mutex = Lock()
+        self._medium = medium_images
         if save_buffer:
             self.save_itr = 0
         if create_tracker:
@@ -195,7 +197,10 @@ class Latest_observation(object):
     def to_dict(self):
         img_crop = self.img_cropped[:, :, ::-1].copy()
         img_raw = self.img_cv2[:, :, ::-1].copy()
-        return {'crop': img_crop, 'raw' : img_raw}
+        if not self._medium:
+            return {'crop': img_crop, 'raw' : img_raw}
+        img_med = self.img_medium[:, :, ::-1].copy()
+        return {'crop': img_crop, 'raw': img_raw, 'med' : img_med}
 
 class RobotDualCamRecorder:
     TRACK_SKIP = 2        #the camera publisher works at 60 FPS but camera itself only goes at 30
@@ -205,9 +210,9 @@ class RobotDualCamRecorder:
         self._ctrl = robot_controller
 
         self.front_limage = Latest_observation('opencv_tracking' in agent_params,
-                                               'save_videos' in self.agent_params, 'medium_images' in self.agent_params)
+                                               'save_videos' in self.agent_params, 'image_medium' in self.agent_params)
         self.left_limage = Latest_observation('opencv_tracking' in agent_params,
-                                              'save_videos' in self.agent_params,  'medium_images' in self.agent_params)
+                                              'save_videos' in self.agent_params,  'image_medium' in self.agent_params)
 
         self._is_tracking = False
         if 'opencv_tracking' in agent_params:
@@ -323,13 +328,15 @@ class RobotDualCamRecorder:
         if self.front_limage.img_cv2 is not None and self.left_limage.img_cv2 is not None:
             read_ok = np.abs(self.front_limage.tstamp_img - self.left_limage.tstamp_img) <= self.obs_tol
             traj.raw_images[t, 0] = self.front_limage.img_cv2[:, :, ::-1]
-            traj.images[t, 0] = self.front_limage.img_cropped[:, :, ::-1]
             traj.raw_images[t, 1] = self.left_limage.img_cv2[:, :, ::-1]
-            traj.images[t, 1] = self.left_limage.img_cropped[:, :, ::-1]
 
             if 'image_medium' in self.agent_params:
-                traj._image_medium[t, 0] = self.front_limage.img_medium[:, :, ::-1]
-                traj._image_medium[t, 1] = self.left_limage.img_medium[:, :, ::-1]
+                traj.images[t, 0] = self.front_limage.img_medium[:, :, ::-1]
+                traj.images[t, 1] = self.left_limage.img_medium[:, :, ::-1]
+            else:
+                traj.images[t, 0] = self.front_limage.img_cropped[:, :, ::-1]
+                traj.images[t, 1] = self.left_limage.img_cropped[:, :, ::-1]
+
 
             if self._is_tracking:
                 traj.track_bbox[t, 0] = self.front_limage.bbox.copy()
