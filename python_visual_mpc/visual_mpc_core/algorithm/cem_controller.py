@@ -27,7 +27,7 @@ class CEM_controller(Policy):
     """
     Cross Entropy Method Stochastic Optimizer
     """
-    def __init__(self, ag_params, policyparams):
+    def __init__(self, imiation_conf, ag_params, policyparams):
         Policy.__init__(self)
 
         self.agentparams = ag_params

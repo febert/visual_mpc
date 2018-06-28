@@ -1,4 +1,4 @@
-from lsdc.algorithm.policy.random_policy import Randompolicy
+from python_visual_mpc.visual_mpc_core.algorithm.random_policy import Randompolicy
 
 policy = {
     'type' : Randompolicy,
