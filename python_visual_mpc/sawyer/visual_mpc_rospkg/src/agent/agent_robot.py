@@ -55,8 +55,7 @@ class AgentSawyer:
         if clicks_per_desig == 2:
             goal_pix = np.concatenate(goal_pix, 0)
             return start_pix, goal_pix
-
-        return  start_pix
+        return start_pix
 
     def sample(self, policy, itr):
         traj_ok = False

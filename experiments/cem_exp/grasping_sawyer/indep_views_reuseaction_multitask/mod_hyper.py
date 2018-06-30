@@ -30,8 +30,9 @@ agent = {'type' : AgentSawyer,
          'benchmark_exp':'',
          'save_large_gifs' : '',
          'save_videos' : '',
-         'save_pkl' : '',
+         'save_desig' : '',
          'ntask':2,
+         'image_medium': [96, 128]
          }
 
 policy = {

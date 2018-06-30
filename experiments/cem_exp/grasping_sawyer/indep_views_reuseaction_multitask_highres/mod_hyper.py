@@ -14,7 +14,7 @@ current_dir = os.path.dirname(os.path.realpath(__file__))
 agent = {'type' : AgentSawyer,
          'robot_name' : 'sudri',
          'data_save_dir': BASE_DIR + '/exp',
-         'T' : 50,  #number of commands per episodes (issued at control_rate / substeps HZ)
+         'T' : 30,  #number of commands per episodes (issued at control_rate / substeps HZ)
          'step_duration' : 0.75,  #time each substep takes to execute
          'impedance_stiffness' : 150, #stiffness commanded to impedance controller
          'control_rate' : 1000,  #substep are taken at control_rate HZ
@@ -28,9 +28,10 @@ agent = {'type' : AgentSawyer,
          'file_to_record' : convert_to_record,
          'cameras':['front', 'left'],
          'benchmark_exp':'',
-         'save_large_gifs' : '',
+         'save_large_gifs' : '',    
          'save_videos' : '',
          'save_desig_pos':'',
+         'ntask':2,
          'image_medium': [96, 128]
          }
 

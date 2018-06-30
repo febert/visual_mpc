@@ -14,7 +14,6 @@ from python_visual_mpc.utils.txt_in_image import draw_text_image
 
 
 def npy_to_gif(im_list, filename):
-
     save_dir = '/'.join(str.split(filename, '/')[:-1])
 
     if not os.path.exists(save_dir):

@@ -24,9 +24,9 @@ import cv2
 from python_visual_mpc.visual_mpc_core.infrastructure.utility.logger import Logger
 from python_visual_mpc.goaldistancenet.variants.multiview_testgdn import MulltiviewTestGDN
 from python_visual_mpc.goaldistancenet.variants.multiview_testgdn import MulltiviewTestGDN
-
+from Queue import Queue
 from python_visual_mpc.video_prediction.utils_vpred.animate_tkinter import resize_image
-
+from threading import Thread
 if "NO_ROS" not in os.environ:
     from visual_mpc_rospkg.msg import floatarray
     from rospy.numpy_msg import numpy_msg
@@ -204,7 +204,22 @@ def get_mask_trafo_scores(policyparams, gen_distrib, goal_mask):
     per_time_multiplier[:, -1] = policyparams['finalweight']
     return np.sum(scores * per_time_multiplier, axis=1)
 
-
+verbose_queue = Queue()
+def verbose_worker():
+    req = 0
+    while True:
+        print('servicing req', req)
+        try:
+            plt.switch_backend('Agg')
+            ctrl, actions, bestindices, cem_itr, flow_fields, gen_distrib, gen_images, gen_states, \
+            last_frames, goal_warp_pts_l, scores, warped_image_goal, \
+            warped_image_start, warped_images, last_states, reg_tradeoff = verbose_queue.get(True)
+            make_cem_visuals(ctrl, actions, bestindices, cem_itr, flow_fields, gen_distrib, gen_images, gen_states,
+                                    last_frames, goal_warp_pts_l, scores, warped_image_goal,
+                                    warped_image_start, warped_images, last_states, reg_tradeoff)
+        except RuntimeError:
+            print("TKINTER ERROR, SKIPPING")
+        req += 1
 class CEM_controller():
     """
     Cross Entropy Method Stochastic Optimizer
@@ -338,6 +353,8 @@ class CEM_controller():
         else: self.normalize = True
 
         self.best_cost_perstep = np.zeros([self.ncam, self.ndesig, self.seqlen - self.ncontxt])
+        self._thread = Thread(target=verbose_worker)
+        self._thread.start()
 
     def calc_action_cost(self, actions):
         actions_costs = np.zeros(self.M)
@@ -606,7 +623,6 @@ class CEM_controller():
         t_run_post = time.time()
         t_startcalcscores = time.time()
         scores_per_task = []
-
         flow_fields, warped_images, goal_warp_pts_l = None, None, None
         if 'use_goal_image' in self.policyparams and not 'register_gtruth' in self.policyparams:
             # evaluate images with goal-distance network
@@ -666,15 +682,17 @@ class CEM_controller():
 
         self.logger.log('time to calc scores {}'.format(time.time()-t_startcalcscores))
 
+
         bestindices = scores.argsort()[:self.K]
         itr_times['run_post'] = time.time() - t_run_post
         tstart_verbose = time.time()
 
         if self.verbose and cem_itr == self.policyparams['iterations']-1 and self.i_tr % self.verbose_freq ==0 or \
                 ('verbose_every_itr' in self.policyparams and self.i_tr % self.verbose_freq ==0):
-            make_cem_visuals(self, actions, bestindices, cem_itr, flow_fields, gen_distrib, gen_images,
+
+            verbose_queue.put((self, actions, bestindices, cem_itr, flow_fields, gen_distrib, gen_images,
                                           gen_states, last_frames, goal_warp_pts_l, scores, self.warped_image_goal,
-                                          self.warped_image_start, warped_images, last_states, self.reg_tradeoff)
+                                          self.warped_image_start, warped_images, last_states, self.reg_tradeoff))
 
         if 'save_desig_pos' in self.agentparams:
             save_track_pkl(self, self.t, cem_itr)

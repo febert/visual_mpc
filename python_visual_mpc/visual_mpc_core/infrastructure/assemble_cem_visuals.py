@@ -44,6 +44,7 @@ class CEM_Visualizer(object):
         where mask_list_t = [mask_0, ..., mask_N]
         where mask_i.shape = [batch_size, 64,64,1]
         """
+        print("Starting CEM Visualizer")
         if logger == None:
             self.logger = Logger(mute=True)
         else:
@@ -157,8 +158,8 @@ class CEM_Visualizer(object):
             # print('len', len(vid[0]))
             # print('sizes', [im.shape for im in vid[0]])
             # print('####')
-            if 'gen_distrib' in vid[1]:
-                plt.switch_backend('TkAgg')
+            # if 'gen_distrib' in vid[1]:
+            #     plt.switch_backend('TkAgg')
                 # plt.imshow(vid[0][0][0])
                 # plt.show()
 

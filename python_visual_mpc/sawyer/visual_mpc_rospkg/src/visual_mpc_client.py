@@ -888,11 +888,12 @@ class Visual_MPC_Client():
             replay_rate.sleep()
             self.move_with_impedance(self.joint_pos[t])
 
+
 class Getdesig(object):
     def __init__(self, img, basedir, img_namesuffix = '', n_desig=1, only_desig = False,
                  im_shape = None, clicks_per_desig=2):
         import matplotlib.pyplot as plt
-        plt.switch_backend('TkAgg')
+        plt.switch_backend('qt5agg')
         self.im_shape = im_shape
 
         self.only_desig = only_desig
@@ -922,7 +923,6 @@ class Getdesig(object):
         self.i_goal = 0
         self.marker_list = ['o',"D","v","^"]
 
-
         plt.show()
 
     def onclick(self, event):
@@ -947,6 +947,7 @@ class Getdesig(object):
                 pickle.dump(dict, f)
 
             plt.savefig(self.basedir + '/img_' + self.suf)
+            print('closing')
             plt.close()
             return
 
