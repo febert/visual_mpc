@@ -195,7 +195,7 @@ class AgentMuJoCo(object):
     def rollout(self, policy, i_tr):
         self._init()
         if self.goal_obj_pose is not None:
-            self.goal_pix = self.get_goal_pix()   # has to occurr after self.viewer.cam.camid = 0 and set_model!!!
+            self.goal_pix = self.get_goal_pix()
 
         traj = Trajectory(self._hyperparams)
         traj.i_tr = i_tr

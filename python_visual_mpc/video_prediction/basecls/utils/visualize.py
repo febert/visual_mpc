@@ -181,13 +181,7 @@ def visualize_diffmotions(sess, conf, model):
         actions[b, 0, 4] = 4
         actions[b, 1, 4] = 4
         col_titles.append('close/open')
-    if 'openloop_setup' in conf:
-        openloop_predictor = conf['openloop_setup'](conf['openloop_conf'])
 
-        sel_1 = (sel_img[1] * 255).astype(np.uint8).reshape((1, 1, -1))
-        input_state = conf['openloop_conv_state'](sel_state[1])
-
-        actions = openloop_predictor(sel_1, input_state, conf['batch_size'])[:,:-1]
 
     if 'float16' in conf:
         use_dtype = np.float16
