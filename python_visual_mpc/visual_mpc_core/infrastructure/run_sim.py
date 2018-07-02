@@ -267,6 +267,7 @@ def write_scores(dir, filename, trajlist, logger):
 
 
 def plot_warp_err(traj, dir):
+
     warperrs = []
     tradeoff = []
     for tstep in traj.plan_stat[1:]:

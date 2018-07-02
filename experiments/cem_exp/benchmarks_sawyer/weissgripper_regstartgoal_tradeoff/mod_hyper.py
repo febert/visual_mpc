@@ -8,7 +8,7 @@ import numpy as np
 
 agent = {
     'sawyer':'',
-    'T': 30,
+    'T': 40,
     'adim':5,
     'sdim':4,
     'image_height':56,
@@ -21,6 +21,7 @@ agent = {
     'startpos_basedon_click':'',
     'record':current_dir + '/verbose',
     'discrete_adim':[2],
+    'save_desig_pos':''
 }
 
 

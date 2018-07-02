@@ -14,15 +14,17 @@ agent = {
     'image_width':64,
     'ndesig':1,
     'opencv_tracking':'',
+    'make_final_vid':'',
     # 'make_final_gif':'',
     'wristrot':'',
     'startpos_basedon_click':'',
     'record':current_dir + '/verbose',
     'discrete_adim':[2],
+    'save_desig_pos':''
 }
 
 policy = {
-    'verbose':'',
+    # 'verbose':'',
     'type' : CEM_controller,
     'low_level_ctrl': None,
     'current_dir':current_dir,

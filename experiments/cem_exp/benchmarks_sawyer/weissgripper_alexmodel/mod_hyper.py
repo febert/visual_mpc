@@ -14,9 +14,8 @@ agent = {
     'image_height':56,
     'image_width':64,
     'ndesig':1,
-    'make_final_gif':'',
+    # 'make_final_gif':'',
     'make_final_vid':'',
-    'save_pkl':'',
     'wristrot':'',
     'startpos_basedon_click':'',
     'record':current_dir + '/verbose',
@@ -25,20 +24,20 @@ agent = {
 
 
 policy = {
-    'verbose':'',
     'type' : CEM_controller,
     'low_level_ctrl': None,
     'current_dir':current_dir,
     'usenet': True,
     'nactions': 5,
     'repeat': 3,
-    'initial_std': .045,   #std dev. in xy
+    'initial_std': .035,   #std dev. in xy
     'initial_std_grasp': 0.,
     'initial_std_lift': 1.,
     'initial_std_rot': 0.,
     'netconf': current_dir + '/conf.py',
     'gdnconf': current_dir + '/gdnconf.py',
     'iterations': 3,
+    'verbose':'',
     'action_cost_factor': 0,
     'no_instant_gif':"",
     'rew_all_steps':"",

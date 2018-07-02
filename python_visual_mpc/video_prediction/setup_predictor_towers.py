@@ -92,10 +92,6 @@ def setup_predictor(hyperparams, conf, gpu_id=0, ngpu=1, logger=None):
             logger.log('adim', adim)
             logger.log('sdim', sdim)
 
-            if conf['batch_size'] > 200:
-                assert conf['batch_size'] % 200 == 0, "batchsize needs to be multiple of 200"
-                conf['batch_size'] = 200
-
             actions_pl = tf.placeholder(use_dtype, name='actions',
                                         shape=(conf['batch_size'], conf['sequence_length'], adim))
             states_pl = tf.placeholder(use_dtype, name='states',

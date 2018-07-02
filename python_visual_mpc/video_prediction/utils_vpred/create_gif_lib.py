@@ -14,7 +14,6 @@ from python_visual_mpc.utils.txt_in_image import draw_text_image
 
 
 def npy_to_gif(im_list, filename):
-
     save_dir = '/'.join(str.split(filename, '/')[:-1])
 
     if not os.path.exists(save_dir):
@@ -24,15 +23,7 @@ def npy_to_gif(im_list, filename):
     clip = mpy.ImageSequenceClip(im_list, fps=4)
     clip.write_gif(filename + '.gif')
     return
-"""
-def npy_to_gif(im_list, filename):
-    import imageio
-    with imageio.get_writer(filename + '.gif', mode='I') as writer:
-        for im in im_list:
-            writer.append_data(im)
-    print('wrote: {}.gif'.format(filename))
-    return
-"""
+
 
 def comp_video(file_path, conf=None, suffix = None, gif_name= None):
     print('reading files from:', file_path)
@@ -199,7 +190,7 @@ def assemble_gif(video_batch, num_exp = 8, convert_from_float = True, only_ind=N
         video_batch = [v[0] for v in video_batch]
         txt_im = []
         for name in names:
-            txt_im.append(draw_text_image(name, image_size=(video_batch[0][0].shape[1], 100)))
+            txt_im.append(draw_text_image(name, image_size=(video_batch[0][0].shape[1], 200)))
         legend_col = np.concatenate(txt_im, 0)
     else:
         legend_col = None

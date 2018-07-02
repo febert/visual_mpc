@@ -14,7 +14,7 @@ BASE = '/'.join(str.split(current_dir, '/')[:-4])
 
 configuration = {
 'experiment_name': 'correction',
-'pretrained_model': BASE + '/tensorflow_data/gdn/weiss/weiss_thresh0.5_56x64/modeldata/model28002',
+'pretrained_model': BASE + '/tensorflow_data/gdn/weiss/weiss_thresh0.5_56x64/modeldata/model48002',
 'output_dir': OUT_DIR,      #'directory for model checkpoints.' ,
 'current_dir': base_dir,   #'directory for writing summary.' ,
 'num_iterations':50000,
@@ -28,7 +28,6 @@ configuration = {
 'sdim' :4,
 'adim' :5,
 'orig_size': [56,64],
-
 'norm':'charbonnier',
 'smoothcost':1e-6,
 'smoothmode':'2nd',

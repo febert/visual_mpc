@@ -24,13 +24,28 @@ import cv2
 from python_visual_mpc.visual_mpc_core.infrastructure.utility.logger import Logger
 from python_visual_mpc.goaldistancenet.variants.multiview_testgdn import MulltiviewTestGDN
 from python_visual_mpc.goaldistancenet.variants.multiview_testgdn import MulltiviewTestGDN
-
+from Queue import Queue
+from python_visual_mpc.video_prediction.utils_vpred.animate_tkinter import resize_image
+from threading import Thread
 if "NO_ROS" not in os.environ:
     from visual_mpc_rospkg.msg import floatarray
     from rospy.numpy_msg import numpy_msg
     import rospy
 
 import time
+from collections import OrderedDict
+import cPickle as pkl
+def save_track_pkl(ctrl, t, cem_itr):
+    pix_pos_dict = {}
+    pix_pos_dict['desig_pix_t0'] = ctrl.desig_pix_t0
+    pix_pos_dict['goal_pix'] = ctrl.goal_pix
+    pix_pos_dict['desig'] = ctrl.desig_pix
+    if ctrl.reg_tradeoff is not None:
+        pix_pos_dict['reg_tradeoff'] = ctrl.reg_tradeoff
+    dir = ctrl.agentparams['record'] + '/plan'
+    if not os.path.exists(dir):
+        os.makedirs(dir)
+    pickle.dump(pix_pos_dict, open(dir + '/pix_pos_dict{}iter{}.pkl'.format(ctrl.t, cem_itr), 'wb'))
 
 
 def make_blockdiagonal(cov, nactions, adim):
@@ -189,7 +204,22 @@ def get_mask_trafo_scores(policyparams, gen_distrib, goal_mask):
     per_time_multiplier[:, -1] = policyparams['finalweight']
     return np.sum(scores * per_time_multiplier, axis=1)
 
-
+verbose_queue = Queue()
+def verbose_worker():
+    req = 0
+    while True:
+        print('servicing req', req)
+        try:
+            plt.switch_backend('Agg')
+            ctrl, actions, bestindices, cem_itr, flow_fields, gen_distrib, gen_images, gen_states, \
+            last_frames, goal_warp_pts_l, scores, warped_image_goal, \
+            warped_image_start, warped_images, last_states, reg_tradeoff = verbose_queue.get(True)
+            make_cem_visuals(ctrl, actions, bestindices, cem_itr, flow_fields, gen_distrib, gen_images, gen_states,
+                                    last_frames, goal_warp_pts_l, scores, warped_image_goal,
+                                    warped_image_start, warped_images, last_states, reg_tradeoff)
+        except RuntimeError:
+            print("TKINTER ERROR, SKIPPING")
+        req += 1
 class CEM_controller():
     """
     Cross Entropy Method Stochastic Optimizer
@@ -256,6 +286,10 @@ class CEM_controller():
             self.ndesig = self.netconf['ndesig']
         else: self.ndesig = None
 
+        if 'ntask' in self.agentparams:   # number of
+            self.ntask = self.agentparams['ntask']
+        else: self.ntask = 1
+
         self.img_height, self.img_width = self.netconf['orig_size']
 
         # the full horizon is actions*repeat
@@ -319,6 +353,8 @@ class CEM_controller():
         else: self.normalize = True
 
         self.best_cost_perstep = np.zeros([self.ncam, self.ndesig, self.seqlen - self.ncontxt])
+        self._thread = Thread(target=verbose_worker)
+        self._thread.start()
 
     def calc_action_cost(self, actions):
         actions_costs = np.zeros(self.M)
@@ -338,7 +374,8 @@ class CEM_controller():
 
     def perform_CEM(self, traj):
         self.logger.log('starting cem at t{}...'.format(self.t))
-
+        timings = OrderedDict()
+        t = time.time()
         if 'reuse_cov' not in self.policyparams or self.t < 2:
             self.sigma = construct_initial_sigma(self.policyparams, self.t)
             self.sigma_prev = self.sigma
@@ -363,8 +400,9 @@ class CEM_controller():
         self.logger.log('M {}, K{}'.format(self.M, self.K))
         self.logger.log('------------------------------------------------')
         self.logger.log('starting CEM cylce')
-
+        timings['pre_itr'] = time.time() - t
         for itr in range(self.niter):
+            itr_times = OrderedDict()
             self.logger.log('------------')
             self.logger.log('iteration: ', itr)
             t_startiter = time.time()
@@ -373,11 +411,12 @@ class CEM_controller():
                 actions = self.sample_actions_rej(traj)
             else:
                 actions = self.sample_actions(traj)
-
+            itr_times['action_sampling'] = time.time() - t_startiter
             t_start = time.time()
 
-            scores = self.video_pred(traj, actions, itr)
-
+            scores = self.video_pred(traj, actions, itr, itr_times)
+            itr_times['vid_pred_total'] = time.time() - t_start
+            t = time.time()
             if 'compare_mj_planner_actions' in self.agentparams: # remove first example because it is used for mj_planner
                 actions = actions[1:]
             self.logger.log('overall time for evaluating actions {}'.format(time.time() - t_start))
@@ -416,6 +455,10 @@ class CEM_controller():
 
             self.logger.log('iter {0}, bestscore {1}'.format(itr, scores[self.indices[0]]))
             self.logger.log('overall time for iteration {}'.format(time.time() - t_startiter))
+            itr_times['post_pred'] = time.time() - t
+            timings['itr{}'.format(itr)] = itr_times
+
+        pkl.dump(timings, open('{}/timings_CEM_{}.pkl'.format(self.agentparams['record'], self.t), 'wb'))
 
     def sample_actions(self, traj):
         actions = np.random.multivariate_normal(self.mean, self.sigma, self.M)
@@ -508,20 +551,20 @@ class CEM_controller():
                 self.logger.log('using desig pix',desig[icam, p, 0], desig[icam, p, 1])
         return one_hot_images
 
-    def singlepoint_prob_eval(self, gen_pixdistrib):
-        self.logger.log('using singlepoint_prob_eval')
-        scores = np.zeros(self.M)
-        for t in range(len(gen_pixdistrib)):
-            for b in range(self.M):
-                scores[b] -= gen_pixdistrib[t][b,self.goal_pix[0,0], self.goal_pix[0,1]]
-        return scores
-
-    def video_pred(self, traj, actions, cem_itr):
+    def video_pred(self, traj, actions, cem_itr, itr_times):
         t_0 = time.time()
         ctxt = self.netconf['context_frames']
+
         last_frames = traj.images[self.t - ctxt + 1:self.t + 1]  # same as [t - 1:t + 1] for context 2
-        if 'image_medium' in self.agentparams:
-            last_frames_med = traj._image_medium[self.t - ctxt + 1:self.t + 1]  # same as [t - 1:t + 1] for context 2
+        last_frames = last_frames.astype(np.float32, copy=False) / 255.
+        last_frames = last_frames[None]
+        if 'register_gtruth' in self.policyparams and cem_itr == 0:
+            self.start_image = copy.deepcopy(self.traj.images[0]).astype(np.float32) / 255.
+            self.warped_image_start, self.warped_image_goal, self.reg_tradeoff = self.register_gtruth(self.start_image, last_frames, self.goal_image)
+
+        if 'image_medium' in self.agentparams:   # downsample to video-pred reslution
+            last_frames = resize_image(last_frames, (self.img_height, self.img_width))
+
         if 'use_vel' in self.netconf:
             last_states = traj.X_Xdot_full[self.t - ctxt + 1:self.t + 1]
         else:
@@ -533,20 +576,7 @@ class CEM_controller():
                 touch = traj.touch_sensors[self.t - ctxt + 1:self.t + 1]
                 last_states = np.concatenate([last_states, touch], axis=1)
             actions = actions[:,:,:self.netconf['adim']]
-
         last_states = last_states[None]
-        last_frames = last_frames.astype(np.float32, copy=False) / 255.
-        last_frames = last_frames[None]
-
-        if 'register_gtruth' in self.policyparams and cem_itr == 0:
-            if 'image_medium' in self.agentparams:
-                last_frames_med = last_frames_med.astype(np.float32, copy=False) / 255.
-                last_frames_med = last_frames_med[None]
-                self.start_image = copy.deepcopy(self.traj._image_medium[0]).astype(np.float32) / 255.
-                self.warped_image_start, self.warped_image_goal, self.reg_tradeoff = self.register_gtruth(self.start_image, last_frames_med, self.goal_image)
-            else:
-                self.start_image = copy.deepcopy(self.traj.images[0]).astype(np.float32) / 255.
-                self.warped_image_start, self.warped_image_goal, self.reg_tradeoff = self.register_gtruth(self.start_image, last_frames, self.goal_image)
 
         if 'use_goal_image' in self.policyparams and 'comb_flow_warp' not in self.policyparams\
                 and 'register_gtruth' not in self.policyparams:
@@ -570,9 +600,10 @@ class CEM_controller():
             nruns = 1
             assert self.M == self.bsize
         gen_images_l, gen_distrib_l, gen_states_l = [], [], []
-
+        itr_times['pre_run'] = time.time() - t_0
         for run in range(nruns):
             self.logger.log('run{}'.format(run))
+            t_run_loop = time.time()
             actions_ = actions[run*self.bsize:(run+1)*self.bsize]
             gen_images, gen_distrib, gen_states, _ = self.predictor(input_images=last_frames,
                                                                     input_state=last_states,
@@ -581,16 +612,17 @@ class CEM_controller():
             gen_images_l.append(gen_images)
             gen_distrib_l.append(gen_distrib)
             gen_states_l.append(gen_states)
+            itr_times['run{}'.format(run)] = time.time() - t_run_loop
+        t_run_post = time.time()
         gen_images = np.concatenate(gen_images_l, 0)
         gen_distrib = np.concatenate(gen_distrib_l, 0)
         if gen_states_l[0] is not None:
             gen_states = np.concatenate(gen_states_l, 0)
-
+        itr_times['t_concat'] = time.time() - t_run_post
         self.logger.log('time for videoprediction {}'.format(time.time() - t_startpred))
-
+        t_run_post = time.time()
         t_startcalcscores = time.time()
         scores_per_task = []
-
         flow_fields, warped_images, goal_warp_pts_l = None, None, None
         if 'use_goal_image' in self.policyparams and not 'register_gtruth' in self.policyparams:
             # evaluate images with goal-distance network
@@ -650,22 +682,28 @@ class CEM_controller():
 
         self.logger.log('time to calc scores {}'.format(time.time()-t_startcalcscores))
 
-        bestindices = scores.argsort()[:self.K]
 
+        bestindices = scores.argsort()[:self.K]
+        itr_times['run_post'] = time.time() - t_run_post
         tstart_verbose = time.time()
 
         if self.verbose and cem_itr == self.policyparams['iterations']-1 and self.i_tr % self.verbose_freq ==0 or \
                 ('verbose_every_itr' in self.policyparams and self.i_tr % self.verbose_freq ==0):
-            make_cem_visuals(self, actions, bestindices, cem_itr, flow_fields, gen_distrib, gen_images,
+
+            verbose_queue.put((self, actions, bestindices, cem_itr, flow_fields, gen_distrib, gen_images,
                                           gen_states, last_frames, goal_warp_pts_l, scores, self.warped_image_goal,
-                                          self.warped_image_start, warped_images, last_states, self.reg_tradeoff)
+                                          self.warped_image_start, warped_images, last_states, self.reg_tradeoff))
+
+        if 'save_desig_pos' in self.agentparams:
+            save_track_pkl(self, self.t, cem_itr)
+
             # if 'sawyer' in self.agentparams:
                 # bestind = self.publish_sawyer(gen_distrib, gen_images, scores)
 
         if 'store_video_prediction' in self.agentparams and\
                 cem_itr == (self.policyparams['iterations']-1):
             self.terminal_pred = gen_images[-1][bestind]
-
+        itr_times['verbose_time'] = time.time() - tstart_verbose
         self.logger.log('verbose time', time.time() - tstart_verbose)
 
         return scores
@@ -684,7 +722,8 @@ class CEM_controller():
         if 'pred_model' in self.gdnconf:
             if self.gdnconf['pred_model'] == MulltiviewTestGDN:
                 warped_image_start, _, start_warp_pts = self.goal_image_warper(last_frames[None], start_image[None])
-                warped_image_goal, _, goal_warp_pts = self.goal_image_warper(last_frames[None], goal_image[None])
+                if 'goal' in self.policyparams['register_gtruth']:
+                    warped_image_goal, _, goal_warp_pts = self.goal_image_warper(last_frames[None], goal_image[None])
             else:
                 raise NotImplementedError
         else:
@@ -702,67 +741,62 @@ class CEM_controller():
             start_warp_pts = np.stack(start_warp_pts_l, 0)
             goal_warp_pts = np.stack(goal_warp_pts_l, 0)
 
+        desig_pix_l = []
+
+        imheight, imwidth = goal_image.shape[1:3]
         for n in range(self.ncam):
-            start_warp_pts = start_warp_pts.reshape(self.ncam, self.img_height, self.img_width, 2)
-            goal_warp_pts = goal_warp_pts.reshape(self.ncam, self.img_height, self.img_width, 2)
-            warped_image_start = warped_image_start.reshape(self.ncam, self.img_height, self.img_width, 3)
-            warped_image_goal = warped_image_goal.reshape(self.ncam, self.img_height,self.img_width, 3)
-            warperr = self.get_warp_err(n, start_image[n], goal_image[n], start_warp_pts[n], goal_warp_pts[n], warped_image_start[n], warped_image_goal[n])
-            warperrs_l.append(warperr)
-
-        warperrs = np.stack(warperrs_l, 0)
-
-        if 'hard_tradeoff' in self.policyparams:
-            print('warperrs ', warperrs)
-            tradeoff = np.zeros_like(warperrs)
-            tradeoff[np.unravel_index(np.argmin(warperrs), warperrs.shape)] = 1.
-        else:
-            if 'camera_equal_weight' in self.policyparams:
-                warperrs = np.sum(warperrs, 0)
-                tradeoff = (1 / warperrs)
-                tradeoff = np.tile(tradeoff[None], [self.ncam, 1])
-                tradeoff = tradeoff / np.sum(tradeoff)
-                print('applying equal weighting for cameras')
+            start_warp_pts = start_warp_pts.reshape(self.ncam, imheight, imwidth, 2)
+            warped_image_start = warped_image_start.reshape(self.ncam, imheight, imwidth, 3)
+            if 'goal' in self.policyparams['register_gtruth']:
+                goal_warp_pts = goal_warp_pts.reshape(self.ncam, imheight, imwidth, 2)
+                warped_image_goal = warped_image_goal.reshape(self.ncam, imheight, imwidth, 3)
             else:
-                tradeoff = (1 / warperrs) / np.sum(1 / warperrs)  # cost-weighting factors for start and goal-image
+                goal_warp_pts = None
+                warped_image_goal = None
+            warperr, desig_pix = self.get_warp_err(n, start_image, goal_image, start_warp_pts, goal_warp_pts, warped_image_start, warped_image_goal)
+            warperrs_l.append(warperr)
+            desig_pix_l.append(desig_pix)
+
+        self.desig_pix = np.stack(desig_pix_l, axis=0).reshape(self.ncam, self.ndesig, 2)
+
+        warperrs = np.stack(warperrs_l, 0)    # shape: ncam, ntask, r
+
+        tradeoff = (1 / warperrs)
+        normalizers = np.sum(np.sum(tradeoff, 0, keepdims=True), 2, keepdims=True)
+        tradeoff = tradeoff / normalizers
+        tradeoff = tradeoff.reshape(self.ncam, self.ndesig)
 
         self.plan_stat['tradeoff'] = tradeoff
-        self.plan_stat['warperrs'] = warperrs
+        self.plan_stat['warperrs'] = warperrs.reshape(self.ncam, self.ndesig)
         return warped_image_start, warped_image_goal, tradeoff
 
     def get_warp_err(self, icam, start_image, goal_image, start_warp_pts, goal_warp_pts, warped_image_start, warped_image_goal):
-        assert len(self.policyparams['register_gtruth']) == self.ndesig
-        desig_l = []
+        r = len(self.policyparams['register_gtruth'])
+        warperrs = np.zeros((self.ntask, r))
+        desig = np.zeros((self.ntask, r, 2))
+        for p in range(self.ntask):
+            if 'image_medium' in self.agentparams:
+                pix_t0 = self.desig_pix_t0_med[icam, p]
+                goal_pix = self.goal_pix_med[icam, p]
+                self.logger.log('using desig goal pix medium')
+            else:
+                pix_t0 = self.desig_pix_t0[icam, p]     # desig_pix_t0 shape: icam, ndesig, 2
+                goal_pix = self.goal_pix_sel[icam, p]
+                # goal_image = cv2.resize(goal_image, (self.agentparams['image_width'], self.agentparams['image_height']))
+
+            if 'start' in self.policyparams['register_gtruth']:
+                desig[p, 0] = np.flip(start_warp_pts[icam][pix_t0[0], pix_t0[1]], 0)
+                warperrs[p, 0] = np.linalg.norm(start_image[icam][pix_t0[0], pix_t0[1]] -
+                                                      warped_image_start[icam][pix_t0[0], pix_t0[1]])
+
+            if 'goal' in self.policyparams['register_gtruth']:
+                desig[p, 1] = np.flip(goal_warp_pts[icam][goal_pix[0], goal_pix[1]], 0)
+                warperrs[p, 1] = np.linalg.norm(goal_image[icam][goal_pix[0], goal_pix[1]] -
+                                                      warped_image_goal[icam][goal_pix[0], goal_pix[1]])
 
         if 'image_medium' in self.agentparams:
-            pix_t0 = self.desig_pix_t0_med[icam, 0]
-            goal_pix = self.goal_pix_med[icam, 0]
-            self.logger.log('using desig goal pix medium')
-        else:
-            pix_t0 = self.desig_pix_t0[icam, 0]
-            goal_pix = self.goal_pix[icam, 0]
-            # goal_image = cv2.resize(goal_image, (self.agentparams['image_width'], self.agentparams['image_height']))
-
-        warperrs = []
-        if 'start' in self.policyparams['register_gtruth']:
-            desig_l.append(np.flip(start_warp_pts[pix_t0[0], pix_t0[1]], 0))
-            start_warperr = np.linalg.norm(start_image[pix_t0[0], pix_t0[1]] -
-                                                  warped_image_start[pix_t0[0], pix_t0[1]])
-            warperrs.append(start_warperr)
-
-        if 'goal' in self.policyparams['register_gtruth']:
-            desig_l.append(np.flip(goal_warp_pts[goal_pix[0], goal_pix[1]], 0))
-            goal_warperr = np.linalg.norm(goal_image[goal_pix[0], goal_pix[1]] -
-                                                  warped_image_goal[goal_pix[0], goal_pix[1]])
-            warperrs.append(goal_warperr)
-        warperrs = np.array(warperrs)
-
-        if 'image_medium' in self.agentparams:
-            self.desig_pix_med = np.stack(desig_l, 0)
-            self.desig_pix[icam] = np.stack(desig_l, 0) * self.agentparams['image_height']/ self.agentparams['image_medium'][0]
-        else:
-            self.desig_pix[icam] = np.stack(desig_l, 0)
-        return warperrs
+            desig = desig * self.agentparams['image_height']/ self.agentparams['image_medium'][0]
+        return warperrs, desig
 
     def publish_sawyer(self, gen_distrib, gen_images, scores):
         sorted_inds = scores.argsort()
@@ -916,34 +950,37 @@ class CEM_controller():
         """
         Return a random action for a state.
         Args:
+            traj: trajectory object
+                if performing highres tracking traj.images is highres image
             t: the current controller's Time step
+            goal_pix: in coordinates of small image
+            desig_pix: in coordinates of small image
         """
         self.i_tr = traj.i_tr
         self.goal_mask = goal_mask
         self.goal_image = goal_image
 
-
         if 'register_gtruth' in self.policyparams:
-            desig_pix = np.array(desig_pix).reshape((self.ncam, 1, 2))   # 1,1,2
-            self.desig_pix = np.tile(desig_pix, [1,self.ndesig,1])   # shape: ncam, ndesig, 2
-            goal_pix = np.array(goal_pix).reshape((self.ncam, 1, 2))  # 1,1,2
-            self.goal_pix = np.tile(goal_pix, [1,self.ndesig,1])   # shape: ncam, ndesig, 2
+            self.goal_pix_sel = np.array(goal_pix).reshape((self.ncam, self.ntask, 2))
+            num_reg_images = len(self.policyparams['register_gtruth'])
+            assert self.ndesig == num_reg_images*self.ntask
+            self.goal_pix = np.tile(self.goal_pix_sel[:,:,None,:], [1,1,num_reg_images,1])  # copy along r: shape: ncam, ntask, r
+            self.goal_pix = self.goal_pix.reshape(self.ncam, self.ndesig, 2)
         else:
-            self.desig_pix = np.array(desig_pix).reshape((self.ncam, self.ndesig, 2))   # 1,1,2
-            self.goal_pix = np.array(goal_pix).reshape((self.ncam, self.ndesig, 2))     # 1,1,2
+            self.desig_pix = np.array(desig_pix).reshape((self.ncam, self.ndesig, 2))
+            self.goal_pix = np.array(goal_pix).reshape((self.ncam, self.ndesig, 2))
         if 'image_medium' in self.agentparams:
             self.goal_pix_med = (self.goal_pix * self.agentparams['image_medium'][0] / self.agentparams['image_height']).astype(np.int)
 
-        last_images_med = None
         self.curr_obj_mask = curr_mask
         self.traj = traj
         self.t = t
 
         if t == 0:
             action = np.zeros(self.agentparams['adim'])
-            self.desig_pix_t0 = self.desig_pix
+            self.desig_pix_t0 = np.array(desig_pix).reshape((self.ncam, self.ntask, 2))   # 1,1,2
             if 'image_medium' in self.agentparams:
-                self.desig_pix_t0_med = (self.desig_pix * self.agentparams['image_medium'][0]/self.agentparams['image_height']).astype(np.int)
+                self.desig_pix_t0_med = (self.desig_pix_t0 * self.agentparams['image_medium'][0]/self.agentparams['image_height']).astype(np.int)
         else:
             if 'use_first_plan' in self.policyparams:
                 self.logger.log('using actions of first plan, no replanning!!')

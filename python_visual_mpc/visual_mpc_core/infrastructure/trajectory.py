@@ -8,9 +8,10 @@ class Trajectory(object):
 
         img_channels = 3
 
-        if conf is None:
-            img_height = 64
-            img_width = 64
+
+        if 'image_medium' in conf:
+            img_height = conf['image_medium'][0]
+            img_width = conf['image_medium'][1]
         else:
             img_height = conf['image_height']
             img_width = conf['image_width']
@@ -18,6 +19,7 @@ class Trajectory(object):
         if 'cameras' in conf:
             ncam = len(conf['cameras'])
         else: ncam = 1
+
         self.images = np.zeros((self.T, ncam,
                                 img_height,
                                 img_width,
@@ -28,11 +30,6 @@ class Trajectory(object):
         else:
             self.touch_sensors = None
 
-        if 'image_medium' in conf:
-            self._image_medium = np.zeros((self.T,
-                                            conf['image_medium'][0],
-                                            conf['image_medium'][1],
-                                            img_channels), dtype='uint8')
         if 'first_last_noarm' in conf:
             self.first_last_noarm = np.zeros((2,img_height,
                                                 img_width,
