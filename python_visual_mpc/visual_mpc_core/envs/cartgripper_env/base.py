@@ -4,6 +4,7 @@ import python_visual_mpc
 from python_visual_mpc.visual_mpc_core.envs.cartgripper_env.util.create_xml import create_object_xml, create_root_xml
 import copy
 
+
 DATA_DIR = '/'.join(str.split(python_visual_mpc.__file__, '/')[:-2])
 asset_base_path = DATA_DIR + '/mjc_models/'
 low_bound = np.array([-0.5, -0.5, -0.08, -np.pi*2, -1])

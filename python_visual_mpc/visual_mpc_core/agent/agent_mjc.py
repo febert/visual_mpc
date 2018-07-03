@@ -107,7 +107,6 @@ class AgentMuJoCo(object):
         if "gen_xml" in self._hyperparams:
             if i_tr % self._hyperparams['gen_xml'] == 0 and i_tr > 0:
                 self._setup_world()
-        self._hyperparams['i_tr'] = i_tr
 
         traj_ok = False
         self.i_trial = 0
@@ -143,48 +142,11 @@ class AgentMuJoCo(object):
             # self.plot_pix_dist(plan_stat)
         return traj
 
-    def get_desig_pix(self, round=True):
-        qpos_dim = self.sdim // 2  # the states contains pos and vel
-        assert self.sim.data.qpos.shape[0] == qpos_dim + 7 * self.num_objects
-        desig_pix = np.zeros([self.ncam, self.num_objects, 2], dtype=np.int)
-        ratio = self._hyperparams['viewer_image_width'] / self._hyperparams['image_width']
-        for icam in range(self.ncam):
-            for i in range(self.num_objects):
-                fullpose = self.sim.data.qpos[i * 7 + qpos_dim:(i + 1) * 7 + qpos_dim].squeeze()
-                d = project_point(fullpose[:3], icam)
-                d = np.stack(d) / ratio
-                if round:
-                    d = np.around(d).astype(np.int)
-                desig_pix[icam, i] = d
-        return desig_pix
-
     def hide_arm_store_image(self, ind, traj):
-        qpos = copy.deepcopy(self.sim.data.qpos)
-        qpos[2] -= 10
-        sim_state = self.sim.get_state()
-        sim_state.qpos[:] = qpos
-        self.sim.set_state(sim_state)
-        self.sim.forward()
-        width = self._hyperparams['image_width']
-        height = self._hyperparams['image_height']
-        traj.first_last_noarm[ind] = self.sim.render(width, height, camera_name='maincam')[::-1, :, :]
-        qpos[2] += 10
-        sim_state.qpos[:] = qpos
-        self.sim.set_state(sim_state)
-        self.sim.forward()
+        highres_image = self.env.snapshot_noarm()
+        target_dim = (self._hyperparams['image_width'], self._hyperparams['image_height'])
 
-    def get_goal_pix(self, round=True):
-        goal_pix = np.zeros([self.ncam, self.num_objects, 2], dtype=np.int)
-        ratio = self._hyperparams['viewer_image_width'] / self._hyperparams['image_width']
-        for icam in range(self.ncam):
-            for i in range(self.num_objects):
-                g = project_point(self.goal_obj_pose[i, :3], icam)
-                g = np.stack(g) / ratio
-                if round:
-                    g= np.around(g).astype(np.int)
-                goal_pix[icam, i] = g
-        return goal_pix
-
+        traj.first_last_noarm[ind] = cv2.resize(highres_image, target_dim, interpolation=cv2.INTER_AREA)
 
     def get_int_targetpos(self, substep, prev, next):
         assert substep >= 0 and substep < self._hyperparams['substeps']
@@ -192,8 +154,9 @@ class AgentMuJoCo(object):
 
     def rollout(self, policy, i_tr):
         self._init()
+        agent_img_height, agent_img_width = self._hyperparams['image_height'], self._hyperparams['image_width']
         if self.goal_obj_pose is not None:
-            self.goal_pix = self.get_goal_pix()
+            self.goal_pix = self.env.get_goal_pix(self.ncam, agent_img_width, self.goal_obj_pose)
 
         traj = Trajectory(self._hyperparams)
         traj.i_tr = i_tr
@@ -206,7 +169,6 @@ class AgentMuJoCo(object):
         done = False
         obs = self.env.reset()
         self.large_images_traj = []
-        agent_img_height, agent_img_width = self._hyperparams['image_height'], self._hyperparams['image_width']
         while not done:
             traj.X_full[t] = obs['qpos']
             traj.Xdot_full[t] = obs['qvel']
@@ -224,20 +186,22 @@ class AgentMuJoCo(object):
                                                                             interpolation = cv2.INTER_AREA)
 
             self.large_images_traj.append(obs['images'][0])
-            # if 'get_curr_mask' in self._hyperparams:
-            #     self.curr_mask, self.curr_mask_large = get_obj_masks(self.sim, self._hyperparams, include_arm=False) #get target object mask
-            # else:
-            #     self.desig_pix = self.get_desig_pix()
+            if 'get_curr_mask' in self._hyperparams:
+                self.curr_mask, self.curr_mask_large = get_obj_masks(self.env.sim, self._hyperparams, include_arm=False) #get target object mask
+            else:
+                self.desig_pix = self.env.get_desig_pix(self.ncam, agent_img_width)
 
-            # if 'gtruthdesig' in self._hyperparams:  # generate many designated pixel goal-pixel pairs
-            #     self.desig_pix, self.goal_pix = gen_gtruthdesig(fullpose, self.goal_obj_pose,
-            #                                                     self.curr_mask_large, traj.largedimage[t], self._hyperparams['gtruthdesig'],
-            #                                                     self._hyperparams, traj.images[t], self.goal_image)
+
+            if 'gtruthdesig' in self._hyperparams:  # generate many designated pixel goal-pixel pairs
+                fullpose = traj.Object_full_pose[t, -1]
+                self.desig_pix, self.goal_pix = gen_gtruthdesig(fullpose, self.goal_obj_pose,
+                                                                self.curr_mask_large, traj.largedimage[t], self._hyperparams['gtruthdesig'],
+                                                                self._hyperparams, traj.images[t], self.goal_image)
             #
 
             policy_args = {}
-            policy_signature = signature(policy.act)         #Gets arguments required by policy
-            for arg in policy_signature.parameters:          #Fills out arguments according to their keyword
+            policy_signature = signature(policy.act)              #Gets arguments required by policy
+            for arg in policy_signature.parameters:               #Fills out arguments according to their keyword
                 value = policy_signature.parameters[arg].default
                 if arg == 'traj':
                     value = traj
@@ -454,7 +418,6 @@ class AgentMuJoCo(object):
         Set the world to a given model
         """
         return
-        #create random starting poses for objects
         #Need to figure what this did.....
         # if self.start_conf is None and 'not_create_goals' not in self._hyperparams:
         #     self.goal_obj_pose = []
