@@ -38,18 +38,19 @@ def file_len(fname):
             pass
     return i + 1
 
-def create_object_xml(hyperparams, load_dict_list=None):
+def create_object_xml(filename, num_objects, object_mass, friction, object_meshes,
+                      finger_sensors, maxlen, minlen, load_dict_list):
     """
     :param hyperparams:
     :param load_dict_list: if not none load configuration, instead of sampling
     :return: if not loading, save dictionary with static object properties
     """
-    xmldir = '/'.join(str.split(hyperparams['filename'], '/')[:-1])
+    xmldir = '/'.join(str.split(filename, '/')[:-1])
     root = ET.Element("top")
 
     save_dict_list = []
 
-    if 'finger_sensors' in hyperparams:
+    if finger_sensors:
         sensor_frame = ET.SubElement(root, "sensor")
         ET.SubElement(sensor_frame, "touch", name = "finger1_sensor", site = "finger1_surf")
         ET.SubElement(sensor_frame, "touch", name = "finger2_sensor", site = "finger2_surf")
@@ -57,21 +58,14 @@ def create_object_xml(hyperparams, load_dict_list=None):
         sensor_frame = None
 
     world_body = ET.SubElement(root, "worldbody")
-    for i in range(hyperparams['num_objects']):
+    for i in range(num_objects):
         if load_dict_list == None:
             dict = {}
-            if 'objects_red' not in hyperparams:
-                color1 = dict['color1'] = np.random.uniform(0.3, 1., 3)
-                color2 = dict['color2'] = np.random.uniform(0.3, 1., 3)
-            else:
-                color1 = np.array([1., 0., 0.])
-                color2 = np.array([1., 0., 0.])
-            if 'object_max_len' in hyperparams:
-                maxlen = hyperparams['object_max_len']
-                minlen = hyperparams['object_min_len']
-            else:
-                maxlen = 0.2
-                minlen = 0.01
+
+            color1 = dict['color1'] = np.random.uniform(0.3, 1., 3)
+            color2 = dict['color2'] = np.random.uniform(0.3, 1., 3)
+
+
             l1 = dict['l1'] =np.random.uniform(minlen, maxlen)
             l2 = dict['l2'] =np.random.uniform(minlen, maxlen)
 
@@ -85,23 +79,21 @@ def create_object_xml(hyperparams, load_dict_list=None):
             pos2 = dict['pos2']
         save_dict_list.append(dict)
 
-        if 'object_meshes' in hyperparams:
+        if object_meshes is not None:
             assets = ET.SubElement(root, "asset")
 
             obj_string = "object{}".format(i)
 
-            o_mesh = xmldir + '/' + random.choice(hyperparams['object_meshes']) +'/'
+            o_mesh = xmldir + '/' + random.choice(object_meshes) +'/'
             print('import mesh dir', o_mesh)
             stl_files = glob.glob(o_mesh + '*.stl')
             convex_hull_files = [x for x in stl_files if 'Shape_IndexedFaceSet' in x]
             object_file = [x for x in stl_files
                            if x not in convex_hull_files and 'Lamp' not in x and 'Camera' not in x and 'GM' not in x][0]
 
-            # print 'object_file', object_file
-            # print 'convex_hull files', convex_hull_files
+
 
             mesh_object = mesh.Mesh.from_file(object_file)
-            vol, cog, inertia = mesh_object.get_mass_properties()
             minx, maxx, miny, maxy, minz, maxz = find_mins_maxs(mesh_object)
             max_length = min((maxx - minx), (maxy - miny))
 
@@ -139,45 +131,21 @@ def create_object_xml(hyperparams, load_dict_list=None):
             if sensor_frame is None:
                 sensor_frame = ET.SubElement(root, "sensor")
             ET.SubElement(sensor_frame, "framepos", name=obj_string + '_sensor', objtype="body", objname=obj_string)
-            # for c in range(len(convex_hull_files)):
-            #     ET.SubElement(assets, "mesh", )
+
 
         else:
             obj = ET.SubElement(world_body, "body", name="object{}".format(i), pos="0 0 0")
             ET.SubElement(obj, "joint", type="free")
 
-            if 'object_mass' in hyperparams:
-                object_mass = hyperparams['object_mass']
-            else: object_mass = 0.1
-
-            if 'friction' in hyperparams:
-                friction = hyperparams['friction']
-            else: friction = 1.0
-
-            # for backwards compatibility:
-            if hyperparams['object_mass'] == 0.1 and hyperparams['friction'] == 1.5:
-                print('using solimp, solfref contact settings')
-                ET.SubElement(obj, "geom", type="box", size=".03 {} .03".format(l1),
-                              rgba="{} {} {} 1".format(color1[0], color1[1], color1[2]), mass="{}".format(object_mass),
-                              contype="7", conaffinity="7", friction="{} 0.10 0.002".format(friction), condim="6",
-                              solimp="0.99 0.99 0.01", solref="0.01 1"
-                              )
-                ET.SubElement(obj, "geom", pos="{} {} 0.0".format(l2, pos2),
-                              type="box", size="{} .03 .03".format(l2),
-                              rgba="{} {} {} 1".format(color2[0], color2[1], color2[2]), mass="{}".format(object_mass),
-                              contype="7", conaffinity="7", friction="{} 0.10 0.002".format(friction), condim="6",
-                              solimp="0.99 0.99 0.01", solref="0.01 1"
-                              )
-            else:
-                ET.SubElement(obj, "geom", type="box", size=".03 {} .03".format(l1),
-                              rgba="{} {} {} 1".format(color1[0], color1[1], color1[2]), mass="{}".format(object_mass),
-                              contype="7", conaffinity="7", friction="{} 0.010 0.0002".format(friction)
-                              )
-                ET.SubElement(obj, "geom", pos="{} {} 0.0".format(l2, pos2),
-                              type="box", size="{} .03 .03".format(l2),
-                              rgba="{} {} {} 1".format(color2[0], color2[1], color2[2]), mass="{}".format(object_mass),
-                              contype="7", conaffinity="7", friction="{} 0.010 0.0002".format(friction)
-                              )
+            ET.SubElement(obj, "geom", type="box", size=".03 {} .03".format(l1),
+                          rgba="{} {} {} 1".format(color1[0], color1[1], color1[2]), mass="{}".format(object_mass),
+                          contype="7", conaffinity="7", friction="{} 0.010 0.0002".format(friction)
+                          )
+            ET.SubElement(obj, "geom", pos="{} {} 0.0".format(l2, pos2),
+                          type="box", size="{} .03 .03".format(l2),
+                          rgba="{} {} {} 1".format(color2[0], color2[1], color2[2]), mass="{}".format(object_mass),
+                          contype="7", conaffinity="7", friction="{} 0.010 0.0002".format(friction)
+                          )
 
             print('using friction={}, object mass{}'.format(friction, object_mass))
 
@@ -196,7 +164,7 @@ def create_object_xml(hyperparams, load_dict_list=None):
     return save_dict_list
 
 
-def create_root_xml(hyperparams):
+def create_root_xml(filename):
     """
     copy root xml but replace three lines so that they referecne the object xml
     :param hyperparams:
@@ -206,7 +174,7 @@ def create_root_xml(hyperparams):
     newlines = []
     autoreplace = False
     replace_done =False
-    with open(hyperparams['filename']) as f:
+    with open(filename) as f:
         for i, l in enumerate(f):
             if 'begin_auto_replace' in l:
                 autoreplace = True
@@ -222,7 +190,7 @@ def create_root_xml(hyperparams):
             if 'end_auto_replace' in l:
                 autoreplace = False
 
-    outfile = '/'.join(str.split(hyperparams['filename'], '/')[:-1]) + '/auto_gen/cartgripper{}.xml'.format(os.getpid())
+    outfile = '/'.join(str.split(filename, '/')[:-1]) + '/auto_gen/cartgripper{}.xml'.format(os.getpid())
     with open(outfile, 'w') as f:
         for l in newlines:
             f.write(l)

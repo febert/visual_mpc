@@ -1,11 +1,9 @@
 from .agent_mjc import AgentMuJoCo
-from .agent_fetch import AgentFetch
 
 
 def dereference_agent(name):
     mapping = {
-        'agentmujoco' : 'AgentMuJoCo',
-        'agentfetch' : 'AgentFetch'
+        'agentmujoco' : 'AgentMuJoCo'
     }
 
     name = mapping.get(name.lower(), name)

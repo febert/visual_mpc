@@ -117,7 +117,7 @@ class RandomPickPolicy(Randompolicy):
             robot_xy = traj.X_full[0, :2]
         object_xy = (traj.Object_pose[0, target_object, :2] - robot_xy) / repeat
 
-        low = self.agentparams['targetpos_clip'][0][2]
+        low = -0.08
         mean[0] = np.array([object_xy[0], object_xy[1], self.agentparams.get('ztarget', 0.13) / repeat, 0,
                             -1])  # mean action goes toward object
         mean[1] = np.array([0, 0, (low - self.agentparams.get('ztarget', 0.13)) / repeat, 0,
