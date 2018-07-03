@@ -24,9 +24,9 @@ import cv2
 from python_visual_mpc.visual_mpc_core.infrastructure.utility.logger import Logger
 from python_visual_mpc.goaldistancenet.variants.multiview_testgdn import MulltiviewTestGDN
 from python_visual_mpc.goaldistancenet.variants.multiview_testgdn import MulltiviewTestGDN
-
+from Queue import Queue
 from python_visual_mpc.video_prediction.utils_vpred.animate_tkinter import resize_image
-
+from threading import Thread
 if "NO_ROS" not in os.environ:
     from visual_mpc_rospkg.msg import floatarray
     from rospy.numpy_msg import numpy_msg
@@ -35,7 +35,22 @@ if "NO_ROS" not in os.environ:
 import time
 from .utils.cem_controller_utils import save_track_pkl, standardize_and_tradeoff, compute_warp_cost, construct_initial_sigma, reuse_cov, reuse_mean, truncate_movement, get_mask_trafo_scores, make_blockdiagonal
 
-
+verbose_queue = Queue()
+def verbose_worker():
+    req = 0
+    while True:
+        print('servicing req', req)
+        try:
+            plt.switch_backend('Agg')
+            ctrl, actions, bestindices, cem_itr, flow_fields, gen_distrib, gen_images, gen_states, \
+            last_frames, goal_warp_pts_l, scores, warped_image_goal, \
+            warped_image_start, warped_images, last_states, reg_tradeoff = verbose_queue.get(True)
+            make_cem_visuals(ctrl, actions, bestindices, cem_itr, flow_fields, gen_distrib, gen_images, gen_states,
+                                    last_frames, goal_warp_pts_l, scores, warped_image_goal,
+                                    warped_image_start, warped_images, last_states, reg_tradeoff)
+        except RuntimeError:
+            print("TKINTER ERROR, SKIPPING")
+        req += 1
 class CEM_controller():
     """
     Cross Entropy Method Stochastic Optimizer
@@ -169,6 +184,8 @@ class CEM_controller():
         else: self.normalize = True
 
         self.best_cost_perstep = np.zeros([self.ncam, self.ndesig, self.seqlen - self.ncontxt])
+        self._thread = Thread(target=verbose_worker)
+        self._thread.start()
 
     def calc_action_cost(self, actions):
         actions_costs = np.zeros(self.M)
@@ -188,7 +205,8 @@ class CEM_controller():
 
     def perform_CEM(self, traj):
         self.logger.log('starting cem at t{}...'.format(self.t))
-
+        timings = OrderedDict()
+        t = time.time()
         if 'reuse_cov' not in self.policyparams or self.t < 2:
             self.sigma = construct_initial_sigma(self.policyparams, self.t)
             self.sigma_prev = self.sigma
@@ -213,8 +231,9 @@ class CEM_controller():
         self.logger.log('M {}, K{}'.format(self.M, self.K))
         self.logger.log('------------------------------------------------')
         self.logger.log('starting CEM cylce')
-
+        timings['pre_itr'] = time.time() - t
         for itr in range(self.niter):
+            itr_times = OrderedDict()
             self.logger.log('------------')
             self.logger.log('iteration: ', itr)
             t_startiter = time.time()
@@ -223,11 +242,12 @@ class CEM_controller():
                 actions = self.sample_actions_rej(traj)
             else:
                 actions = self.sample_actions(traj)
-
+            itr_times['action_sampling'] = time.time() - t_startiter
             t_start = time.time()
 
-            scores = self.video_pred(traj, actions, itr)
-
+            scores = self.video_pred(traj, actions, itr, itr_times)
+            itr_times['vid_pred_total'] = time.time() - t_start
+            t = time.time()
             if 'compare_mj_planner_actions' in self.agentparams: # remove first example because it is used for mj_planner
                 actions = actions[1:]
             self.logger.log('overall time for evaluating actions {}'.format(time.time() - t_start))
@@ -266,6 +286,10 @@ class CEM_controller():
 
             self.logger.log('iter {0}, bestscore {1}'.format(itr, scores[self.indices[0]]))
             self.logger.log('overall time for iteration {}'.format(time.time() - t_startiter))
+            itr_times['post_pred'] = time.time() - t
+            timings['itr{}'.format(itr)] = itr_times
+
+        pkl.dump(timings, open('{}/timings_CEM_{}.pkl'.format(self.agentparams['record'], self.t), 'wb'))
 
     def sample_actions(self, traj):
         actions = np.random.multivariate_normal(self.mean, self.sigma, self.M)
@@ -358,8 +382,7 @@ class CEM_controller():
                 self.logger.log('using desig pix',desig[icam, p, 0], desig[icam, p, 1])
         return one_hot_images
 
-
-    def video_pred(self, traj, actions, cem_itr):
+    def video_pred(self, traj, actions, cem_itr, itr_times):
         t_0 = time.time()
         ctxt = self.netconf['context_frames']
 
@@ -408,9 +431,10 @@ class CEM_controller():
             nruns = 1
             assert self.M == self.bsize
         gen_images_l, gen_distrib_l, gen_states_l = [], [], []
-
+        itr_times['pre_run'] = time.time() - t_0
         for run in range(nruns):
             self.logger.log('run{}'.format(run))
+            t_run_loop = time.time()
             actions_ = actions[run*self.bsize:(run+1)*self.bsize]
             gen_images, gen_distrib, gen_states, _ = self.predictor(input_images=last_frames,
                                                                     input_state=last_states,
@@ -419,16 +443,17 @@ class CEM_controller():
             gen_images_l.append(gen_images)
             gen_distrib_l.append(gen_distrib)
             gen_states_l.append(gen_states)
+            itr_times['run{}'.format(run)] = time.time() - t_run_loop
+        t_run_post = time.time()
         gen_images = np.concatenate(gen_images_l, 0)
         gen_distrib = np.concatenate(gen_distrib_l, 0)
         if gen_states_l[0] is not None:
             gen_states = np.concatenate(gen_states_l, 0)
-
+        itr_times['t_concat'] = time.time() - t_run_post
         self.logger.log('time for videoprediction {}'.format(time.time() - t_startpred))
-
+        t_run_post = time.time()
         t_startcalcscores = time.time()
         scores_per_task = []
-
         flow_fields, warped_images, goal_warp_pts_l = None, None, None
         if 'use_goal_image' in self.policyparams and not 'register_gtruth' in self.policyparams:
             # evaluate images with goal-distance network
@@ -488,15 +513,17 @@ class CEM_controller():
 
         self.logger.log('time to calc scores {}'.format(time.time()-t_startcalcscores))
 
-        bestindices = scores.argsort()[:self.K]
 
+        bestindices = scores.argsort()[:self.K]
+        itr_times['run_post'] = time.time() - t_run_post
         tstart_verbose = time.time()
 
         if self.verbose and cem_itr == self.policyparams['iterations']-1 and self.i_tr % self.verbose_freq ==0 or \
                 ('verbose_every_itr' in self.policyparams and self.i_tr % self.verbose_freq ==0):
-            make_cem_visuals(self, actions, bestindices, cem_itr, flow_fields, gen_distrib, gen_images,
+
+            verbose_queue.put((self, actions, bestindices, cem_itr, flow_fields, gen_distrib, gen_images,
                                           gen_states, last_frames, goal_warp_pts_l, scores, self.warped_image_goal,
-                                          self.warped_image_start, warped_images, last_states, self.reg_tradeoff)
+                                          self.warped_image_start, warped_images, last_states, self.reg_tradeoff))
 
         if 'save_desig_pos' in self.agentparams:
             save_track_pkl(self, self.t, cem_itr)
@@ -507,7 +534,7 @@ class CEM_controller():
         if 'store_video_prediction' in self.agentparams and\
                 cem_itr == (self.policyparams['iterations']-1):
             self.terminal_pred = gen_images[-1][bestind]
-
+        itr_times['verbose_time'] = time.time() - tstart_verbose
         self.logger.log('verbose time', time.time() - tstart_verbose)
 
         return scores

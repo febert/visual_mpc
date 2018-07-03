@@ -14,7 +14,7 @@ current_dir = os.path.dirname(os.path.realpath(__file__))
 agent = {'type' : AgentSawyer,
          'robot_name' : 'sudri',
          'data_save_dir': BASE_DIR + '/exp',
-         'T' : 10,  #number of commands per episodes (issued at control_rate / substeps HZ)
+         'T' : 50,  #number of commands per episodes (issued at control_rate / substeps HZ)
          'step_duration' : 0.75,  #time each substep takes to execute
          'impedance_stiffness' : 150, #stiffness commanded to impedance controller
          'control_rate' : 1000,  #substep are taken at control_rate HZ
@@ -30,7 +30,8 @@ agent = {'type' : AgentSawyer,
          'benchmark_exp':'',
          'save_large_gifs' : '',
          'save_videos' : '',
-         'save_desig_pos':''
+         'save_desig_pos':'',
+         'image_medium': [96, 128]
          }
 
 policy = {
@@ -56,7 +57,7 @@ policy = {
     'reuse_mean': '',
     'reuse_action_as_mean': "",
     'reduce_std_dev': 0.2,  # reduce standard dev in later timesteps when reusing action
-    'num_samples': [400, 200],  #########
+    'num_samples': [400, 200],
     'selection_frac': 0.05
 }
 

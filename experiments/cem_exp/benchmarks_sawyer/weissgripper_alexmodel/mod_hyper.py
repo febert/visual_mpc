@@ -8,25 +8,22 @@ import numpy as np
 
 agent = {
     'sawyer':'',
-    'T': 40,
+    'T': 30,
     'adim':5,
     'sdim':4,
     'image_height':56,
     'image_width':64,
     'ndesig':1,
-    'make_final_gif':'',
+    # 'make_final_gif':'',
     'make_final_vid':'',
-    'save_pkl':'',
     'wristrot':'',
     'startpos_basedon_click':'',
     'record':current_dir + '/verbose',
     'discrete_adim':[2],
-    'save_desig_pos':''
 }
 
 
 policy = {
-    'verbose':'',
     'type' : CEM_controller,
     'low_level_ctrl': None,
     'current_dir':current_dir,
@@ -40,6 +37,7 @@ policy = {
     'netconf': current_dir + '/conf.py',
     'gdnconf': current_dir + '/gdnconf.py',
     'iterations': 3,
+    'verbose':'',
     'action_cost_factor': 0,
     'no_instant_gif':"",
     'rew_all_steps':"",

@@ -505,6 +505,7 @@ def add_crosshairs(images, pos, color=None):
     assert len(images.shape) == 5
     assert images.shape[0] == pos.shape[0]
 
+
     pos = np.clip(pos, np.zeros(2).reshape((1,1,2)),np.array(images.shape[2:4]).reshape((1,1,2)) -1)
 
     if color == None:

@@ -112,13 +112,8 @@ class Visual_MPC_Client():
             dataconf_file = self.base_dir + '/'.join(str.split(self.netconf['data_dir'], '/')[:-1]) + '/conf.py'
             dataconf = imp.load_source('hyperparams', dataconf_file).configuration
 
-
-        if 'img_height' in self.netconf and 'img_width' in self.netconf:
-            self.img_height = self.netconf['img_height']
-            self.img_width = self.netconf['img_width']
-        else:
-            self.img_height = dataconf['img_height']
-            self.img_width = dataconf['img_width']
+        self.img_height = self.netconf['img_height']
+        self.img_width = self.netconf['img_width']
 
         self.ndesig = self.agentparams['ndesig']
 
@@ -735,7 +730,7 @@ class Visual_MPC_Client():
             imagemain = self.bridge.cv2_to_imgmsg(self.recorder.ltob.img_cropped_medium)
         else:
             imagemain = self.bridge.cv2_to_imgmsg(self.recorder.ltob.img_cropped)
-        imageaux1 = self.bridge.cv2_to_imgmsg(np.zeros_like(imagemain))
+        imageaux1 = self.bridge.cv2_to_imgmsg(np.zeros([self.img_height, self.img_height, 3]))
         state = self.get_endeffector_pos()
 
         try:
@@ -893,11 +888,12 @@ class Visual_MPC_Client():
             replay_rate.sleep()
             self.move_with_impedance(self.joint_pos[t])
 
+
 class Getdesig(object):
     def __init__(self, img, basedir, img_namesuffix = '', n_desig=1, only_desig = False,
                  im_shape = None, clicks_per_desig=2):
         import matplotlib.pyplot as plt
-        plt.switch_backend('TkAgg')
+        plt.switch_backend('qt5agg')
         self.im_shape = im_shape
 
         self.only_desig = only_desig
@@ -927,7 +923,6 @@ class Getdesig(object):
         self.i_goal = 0
         self.marker_list = ['o',"D","v","^"]
 
-
         plt.show()
 
     def onclick(self, event):
@@ -952,6 +947,7 @@ class Getdesig(object):
                 pickle.dump(dict, f)
 
             plt.savefig(self.basedir + '/img_' + self.suf)
+            print('closing')
             plt.close()
             return
 

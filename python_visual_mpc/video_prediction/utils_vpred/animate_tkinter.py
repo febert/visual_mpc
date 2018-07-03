@@ -7,6 +7,8 @@ import os
 import pdb
 import pickle
 
+from skimage.transform import resize
+
 try:
     # for Python2
     from Tkinter import *   ## notice capitalized T in Tkinter
@@ -597,9 +599,13 @@ def resize_image(input, size = (256, 256)):
 
         im = np.transpose(input, [3,4,0,1,2,5])
         im = im.reshape(height, width, -1)
-        out_t = cv2.resize(im, (size[1], size[0]))
+        im = (im*255).astype(np.uint8)
+        # out_t = cv2.resize(im, (size[1], size[0]))
+        out_t = resize(im, (size[0], size[1]))
         out_t = out_t.reshape(size[0], size[1], batch_size, seqlen, ncam, ch)
         out = np.transpose(out_t, [2,3,4,0,1,5])
+
+        # out = out.astype(np.float32)/255.
     return out
 
 def color_code_distrib(distrib_list, num_ex, renormalize=False):

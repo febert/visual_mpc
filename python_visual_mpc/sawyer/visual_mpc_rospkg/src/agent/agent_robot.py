@@ -55,8 +55,7 @@ class AgentSawyer:
         if clicks_per_desig == 2:
             goal_pix = np.concatenate(goal_pix, 0)
             return start_pix, goal_pix
-
-        return  start_pix
+        return start_pix
 
     def sample(self, policy, itr):
         traj_ok = False
@@ -105,8 +104,12 @@ class AgentSawyer:
                     goal_dir = fig_save_dir + '/goal'
                     if not os.path.exists(goal_dir):
                         os.makedirs(goal_dir)
-                    front_goal_float, left_goal_float =front_goal['crop'].astype(np.float32) / 255., \
-                                                       left_goal['crop'].astype(np.float32) / 255.
+                    if 'image_medium' in self._hyperparams:
+                        front_goal_float, left_goal_float = front_goal['med'].astype(np.float32) / 255., \
+                                                            left_goal['med'].astype(np.float32) / 255.
+                    else:
+                        front_goal_float, left_goal_float =front_goal['crop'].astype(np.float32) / 255., \
+                                                           left_goal['crop'].astype(np.float32) / 255.
 
                     goal_images = np.concatenate((front_goal_float[None], left_goal_float[None]), 0)
                     print('goal_images shape', goal_images.shape)
@@ -178,6 +181,7 @@ class AgentSawyer:
             self._controller.reset_with_impedance(open_gripper=False, duration=1.0,
                                                   stiffness=self._hyperparams['impedance_stiffness'])
         rospy.sleep(0.3)   #let things settle
+        self._recorder.reset_recording()
         for t in xrange(self._hyperparams['T']):
             if not self._recorder.store_recordings(traj, t):
                 traj_ok = False
@@ -232,7 +236,7 @@ class AgentSawyer:
                 self._controller.open_gripper(wait_change)
 
             self._controller.move_with_impedance_sec(target_ja, duration=self._hyperparams['step_duration'])
-            self._recorder.stop_recording()
+            self._recorder.stop_recording(traj)
 
         if not traj_ok:
             print("FAILED ROLLOUT RETRYING....")

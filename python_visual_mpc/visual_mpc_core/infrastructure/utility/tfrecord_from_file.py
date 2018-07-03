@@ -63,9 +63,7 @@ def grasping_touch_nodesig_file2record(state_action, agent_params):
 
 def grasping_sawyer_file2record(state_action, agent_params):
     loaded_traj = DefaultTraj()
-
-    loaded_traj.actions = copy.deepcopy(state_action['actions'])
-
+    loaded_traj.actions = copy.deepcopy(state_action['actions'])[:,:4]
     if np.sum(np.abs(loaded_traj.actions)) <= 0.05:
         clip = agent_params['targetpos_clip']
         recover_actions = np.zeros((agent_params['T'] / 3, 4))
@@ -91,7 +89,6 @@ def grasping_sawyer_file2record(state_action, agent_params):
 
     touch_sensors = state_action['finger_sensors']
     if 'autograsp' in agent_params:
-
         gripper_inputs = copy.deepcopy(touch_sensors[:, 0].reshape((-1, 1)))
         gripper_inputs[0, 0] = 0.       #grippers often have erroneous force readings at T = 0
         norm_states = copy.deepcopy(state_action['states'][:, :-1])
@@ -128,6 +125,23 @@ def pushing_touch_file2record(state_action, agent_params):
         good_push = True     
     return good_push, loaded_traj
 
+def crop_resize(agent_params, image, cam_conf, scale = 1):
+    target_img_height, target_img_width = agent_params['image_height'] * scale, agent_params['image_width'] * scale
+
+    crop_left, crop_right = cam_conf.get('crop_left', 0), cam_conf.get('crop_right', 0)
+    crop_top, crop_bot = cam_conf.get('crop_top', 0), cam_conf.get('crop_bot', 0)
+
+    if crop_right > 0:
+        crop_img = image[:, crop_left:-crop_right]
+    else:
+        crop_img = image[:, crop_left:]
+
+    if crop_bot > 0:
+        crop_img = crop_img[crop_top:-crop_bot]
+    else:
+        crop_img = crop_img[crop_top:]
+    return cv2.resize(crop_img, (target_img_width, target_img_height), interpolation=cv2.INTER_AREA)
+
 def main():
     parser = argparse.ArgumentParser(description='run convert from directory to tf record')
     parser.add_argument('experiment', type=str, help='experiment hyperparameter path')
@@ -138,6 +152,7 @@ def main():
                     default = 0, help='Offset bad records by b * traj_per_file')
     parser.add_argument('-i', action='store_true', dest='goal',
                         default=False, help='Store goal images')
+    parser.add_argument('-s', action='store', dest='scale_img', type=int, default = 1, help='Scale cam images by this factor')
 
     args = parser.parse_args()
     hyperparams_file = args.experiment
@@ -149,7 +164,7 @@ def main():
         hyperparams = imp.load_source('hyperparams', args.experiment)
         hyperparams = hyperparams.config
         #python 2 means we're executing on sawyer. add dummy camera list
-        hyperparams['agent']['cameras'] = ['main', 'left']
+        hyperparams['agent']['cameras'] = ['front_cam', 'left_cam']
     else:
         loader = importlib.machinery.SourceFileLoader('mod_hyper', hyperparams_file)
         spec = importlib.util.spec_from_loader(loader.name, loader)
@@ -157,7 +172,7 @@ def main():
         loader.exec_module(conf)
         hyperparams = conf.config
 
-    traj_per_file = hyperparams['traj_per_file']
+    traj_per_file = 16#hyperparams['traj_per_file']
     agent_config = hyperparams['agent']
     T = agent_config['T']
 
@@ -222,7 +237,7 @@ def main():
                 good_lift, loaded_traj = agent_config['file_to_record'](state_action, agent_config)
 
                 if 'cameras' in agent_config:
-                    loaded_traj.images = np.zeros((T + extra_im, len(agent_config['cameras']), img_height, img_width, 3), dtype = np.uint8)
+                    loaded_traj.images = np.zeros((T + extra_im, len(agent_config['cameras']), img_height * args.scale_img, img_width * args.scale_img, 3), dtype = np.uint8)
                 else:
                     loaded_traj.images = np.zeros((T + extra_im, img_height, img_width, 3), dtype = np.uint8)
 
@@ -256,8 +271,12 @@ def main():
 
                 for img in range(T):
                     if 'cameras' in agent_config:
-                        for cam in range(len(agent_config['cameras'])):
-                            loaded_traj.images[img, cam] = cv2.imread(t + '/images{}/im{}.png'.format(cam, img))[:, :, ::-1]
+                        for cam, name in enumerate(agent_config['cameras']):
+                            if args.scale_img > 1:
+                                resized_image = crop_resize(agent_config, cv2.imread(t + '/images{}/im_med{}.png'.format(cam, img)), agent_config['data_conf'][name], args.scale_img)
+                                loaded_traj.images[img, cam] = resized_image[:, :, ::-1]
+                            else:
+                                loaded_traj.images[img, cam] = cv2.imread(t + '/images{}/im{}.png'.format(cam, img))[:, :, ::-1]
                     else:
                         loaded_traj.images[img] = cv2.imread(t + '/images/im{}.png'.format(img))[:, :, ::-1]
 
