@@ -41,7 +41,7 @@ agent = {
     'make_final_gif':'', #keep this key in if you want final gif to be created
     'record': BASE_DIR + '/record/',
     'discrete_gripper' : -1, #discretized gripper dimension,
-    'lift_rejection_sample' : 1,
+    'lift_rejection_sample' : 15,
 }
 
 policy = {

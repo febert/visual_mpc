@@ -1,7 +1,6 @@
 import numpy as np
 
 def autograsp_dynamics(prev_target_qpos, action, gripper_closed, gripper_zpos, zthresh, reopen, is_touching):
-    print('closed: {}, gripper z: {}, zthresh {}, reopen: {}, is_touching: {}'.format(gripper_closed, gripper_zpos, zthresh, reopen, is_touching))
     target_qpos = np.zeros_like(prev_target_qpos)
     target_qpos[:4] = action[:4] + prev_target_qpos[:4]
 

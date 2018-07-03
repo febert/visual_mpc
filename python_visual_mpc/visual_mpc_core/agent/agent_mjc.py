@@ -288,8 +288,8 @@ class AgentMuJoCo(object):
             else:
                 traj_ok = False
         elif 'lift_rejection_sample' in self._hyperparams:
-            valid_frames = np.logical_and(traj.target_qpos[1:,-1] > 0.05, np.logical_and(traj.touch_sensors[:, 0] > 0, traj.touch_sensors[:, 1] > 0))
-            off_ground = traj.target_qpos[1:,2] >= 0
+            valid_frames = np.logical_and(traj.target_qpos[2:,-1] > 0.05, np.logical_and(traj.touch_sensors[1:, 0] > 0, traj.touch_sensors[1:, 1] > 0))
+            off_ground = traj.target_qpos[2:,2] >= 0
             if not any(np.logical_and(valid_frames, off_ground)) and self.i_trial < self._hyperparams['lift_rejection_sample']:
                 traj_ok = False
             else:
