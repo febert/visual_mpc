@@ -6,7 +6,7 @@ import numpy as np
 
 from python_visual_mpc.visual_mpc_core.algorithm.random_policy import RandomPickPolicy
 from python_visual_mpc.visual_mpc_core.agent.agent_mjc import AgentMuJoCo
-from python_visual_mpc.visual_mpc_core.envs.cartgripper_env.vanilla_env import VanillaCartgripperEnv
+from python_visual_mpc.visual_mpc_core.envs.cartgripper_env.autograsp_env import AutograspCartgripperEnv
 from python_visual_mpc.visual_mpc_core.infrastructure.utility.tfrecord_from_file import grasping_touch_file2record as convert_to_record
 
 
@@ -21,17 +21,15 @@ env_params = {
     'num_objects': 4,
     'object_mass': 0.1,
     'friction': 1.0,
-    'mode_rel': np.array([True, True, True, True, False]),
     'finger_sensors': True,
+    'autograsp': {'zthresh': -0.06, 'touchthresh': 0.0, 'reopen': ''}
 }
 
 agent = {
     'type': AgentMuJoCo,
-    'env': (VanillaCartgripperEnv, env_params),
-    'data_save_dir': BASE_DIR + '/train',
+    'env': (AutograspCartgripperEnv, env_params),
+    'data_save_dir': BASE_DIR,
     'not_use_images':"",
-    'adim':5,
-    'sdim':5,
     'cameras':['maincam', 'leftcam'],
     'T': 30,
     'image_height' : 48,
@@ -43,7 +41,7 @@ agent = {
     'make_final_gif':'', #keep this key in if you want final gif to be created
     'record': BASE_DIR + '/record/',
     'discrete_gripper' : -1, #discretized gripper dimension,
-    'lift_rejection_sample' : 15,
+    'lift_rejection_sample' : 1,
 }
 
 policy = {

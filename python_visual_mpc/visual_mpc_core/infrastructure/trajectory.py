@@ -52,7 +52,7 @@ class Trajectory(object):
         self.Xdot_full = np.zeros([self.T, state_dim])
         self.X_Xdot_full = np.zeros([self.T, state_dim*2])
 
-        self.target_qpos = np.zeros([self.T + 1, conf['adim']])
+        self.target_qpos = np.zeros([self.T + 1, conf['sdim']])
 
         if 'num_objects' in conf['env'][1]:
             self.Object_pose = np.zeros([self.T, conf['env'][1]['num_objects'], 3])  # x,y rot of  block

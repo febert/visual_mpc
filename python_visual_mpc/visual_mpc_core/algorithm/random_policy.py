@@ -102,11 +102,12 @@ class RandomPickPolicy(Randompolicy):
         assert self.agentparams['T'] == self.naction_steps * self.repeat and self.naction_steps >= 3
         if t == 0:
             self.sample_actions(traj, 1)
-        return self.actions[t]
+        return self.actions[t, :self.adim]
 
     def sample_actions(self, traj, nsamples):
+        assert self.adim == 4 or self.adim == 5
         repeat = self.repeat
-        mean = np.zeros((self.naction_steps, self.adim))
+        mean = np.zeros((self.naction_steps, 5))
 
         target_object = np.random.randint(traj.Object_pose.shape[1])  # selects a random object to pick
         traj.desig_pos = traj.Object_pose[0, target_object, :2].copy()
@@ -118,6 +119,7 @@ class RandomPickPolicy(Randompolicy):
         object_xy = (traj.Object_pose[0, target_object, :2] - robot_xy) / repeat
 
         low = -0.08
+
         mean[0] = np.array([object_xy[0], object_xy[1], self.agentparams.get('ztarget', 0.13) / repeat, 0,
                             -1])  # mean action goes toward object
         mean[1] = np.array([0, 0, (low - self.agentparams.get('ztarget', 0.13)) / repeat, 0,
@@ -129,7 +131,7 @@ class RandomPickPolicy(Randompolicy):
 
         sigma = construct_initial_sigma(self.policyparams)
 
-        self.actions = np.random.multivariate_normal(mean.reshape(-1), sigma, nsamples).reshape(nsamples, self.naction_steps, self.adim)
+        self.actions = np.random.multivariate_normal(mean.reshape(-1), sigma, nsamples).reshape(nsamples, self.naction_steps, 5)
         self.actions = self.actions.squeeze()
         self.process_actions()
 

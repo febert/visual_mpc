@@ -140,7 +140,6 @@ class BaseCartgripperEnv(BaseMujocoEnv):
             obs['finger_sensors'] = finger_sensors
             touch_offset = 2
 
-        obs['images'] = self.render()
         obs['qpos'] = copy.deepcopy(self.sim.data.qpos[:self._base_sdim].squeeze())
         obs['target_qpos'] = copy.deepcopy(self._previous_target_qpos)
         obs['qvel'] = copy.deepcopy(self.sim.data.qvel[:self._base_adim].squeeze())
@@ -156,6 +155,9 @@ class BaseCartgripperEnv(BaseMujocoEnv):
             obs['object_poses_full'][i] = fullpose
             obs['object_poses'][i, :2] = fullpose[:2]
             obs['object_poses'][i, 2] = quat_to_zangle(fullpose[3:])
+
+        self._last_obs = copy.deepcopy(obs)
+        obs['images'] = self.render()
 
         return obs
 

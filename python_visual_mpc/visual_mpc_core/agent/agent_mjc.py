@@ -15,6 +15,7 @@ from python_visual_mpc.visual_mpc_core.infrastructure.trajectory import Trajecto
 from mpl_toolkits.mplot3d import Axes3D
 import os
 import cv2
+from inspect import signature, Parameter
 from python_visual_mpc.visual_mpc_core.agent.utils.target_qpos_utils import get_target_qpos
 
 def file_len(fname):
@@ -37,6 +38,8 @@ class AgentMuJoCo(object):
     def __init__(self, hyperparams):
         self.num_objects = hyperparams['env'][1]['num_objects']
         self._hyperparams = hyperparams
+        self._setup_world()
+
         self.T = self._hyperparams['T']
         self.sdim = self._hyperparams['sdim']
         self.adim = self._hyperparams['adim']
@@ -52,7 +55,6 @@ class AgentMuJoCo(object):
         else: self.ncam = 1
         self.start_conf = None
         self.load_obj_statprop = None  #loaded static object properties
-        self._setup_world()
 
     def _setup_world(self):
         """
@@ -62,6 +64,9 @@ class AgentMuJoCo(object):
         """
         env_type, env_params = self._hyperparams['env']
         self.env = env_type(env_params)
+
+        self._hyperparams['adim'] = self.env.adim
+        self._hyperparams['sdim'] = self.env.sdim
 
     def apply_start_conf(self, dict):
         if 'reverse_action' in self._hyperparams:
@@ -229,15 +234,23 @@ class AgentMuJoCo(object):
             #                                                     self.curr_mask_large, traj.largedimage[t], self._hyperparams['gtruthdesig'],
             #                                                     self._hyperparams, traj.images[t], self.goal_image)
             #
-            # if 'not_use_images' in self._hyperparams:
-            #     mj_U = policy.act(traj, t, self.sim, self.goal_obj_pose, self._hyperparams, self.goal_image)
-            # else:
-            #     mj_U, plan_stat = policy.act(traj, t, desig_pix=self.desig_pix,goal_pix=self.goal_pix,
-            #                               goal_image=self.goal_image, goal_mask=self.goal_mask, curr_mask=self.curr_mask)
-            #     traj.plan_stat.append(copy.deepcopy(plan_stat))
 
+            policy_args = {}
+            policy_signature = signature(policy.act)         #Gets arguments required by policy
+            for arg in policy_signature.parameters:          #Fills out arguments according to their keyword
+                value = policy_signature.parameters[arg].default
+                if arg == 'traj':
+                    value = traj
+                elif arg == 't':
+                    value = t
 
-            mj_U = policy.act(traj, t)
+                if value is Parameter.empty:
+                    #required parameters MUST be set by agent
+                    raise ValueError("Required Policy Param {} not set in agent".format(arg))
+                policy_args[arg] = value
+
+            mj_U = policy.act(**policy_args)
+
             traj.actions[t, :] = mj_U.copy()
             obs = self.env.step(mj_U)
 

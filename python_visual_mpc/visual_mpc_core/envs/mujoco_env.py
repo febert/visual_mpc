@@ -10,6 +10,8 @@ class BaseMujocoEnv(gym.Env):
 
         self._reset_sim(model_path)
 
+        self._adim, self._sdim = None, None
+
     def _reset_sim(self, model_path):
         """
         Creates a MjSim from passed in model_path
@@ -43,3 +45,10 @@ class BaseMujocoEnv(gym.Env):
     def seed(self, seed=None):
         self.np_random, seed = seeding.np_random(seed)
         return [seed]
+
+    @property
+    def adim(self):
+        return self._adim
+    @property
+    def sdim(self):
+        return self._sdim
