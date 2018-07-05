@@ -142,43 +142,41 @@ class BaseCartgripperEnv(BaseMujocoEnv):
         obs, touch_offset = {}, 0
         #report finger sensors as needed
         if self.finger_sensors:
-            obs['finger_sensors'] = finger_sensors[None]
+            obs['finger_sensors'] = finger_sensors
             touch_offset = 2
 
         #joint poisitions and velocities
-        obs['qpos'] = copy.deepcopy(self.sim.data.qpos[:self._n_joints].squeeze())[None]
-        obs['qvel'] = copy.deepcopy(self.sim.data.qvel[:self._n_joints].squeeze())[None]
+        obs['qpos'] = copy.deepcopy(self.sim.data.qpos[:self._n_joints].squeeze())
+        obs['qvel'] = copy.deepcopy(self.sim.data.qvel[:self._n_joints].squeeze())
 
         #control state
-        state_vec = np.zeros((1, self._base_sdim))
-        state_vec[0, :4] = self.sim.data.qpos[:4].squeeze()
-        state_vec[0, -1] = self._previous_target_qpos[-1]
-        obs['state'] = copy.deepcopy(state_vec)
+        obs['state'] = np.zeros(self._base_sdim)
+        obs['state'][:4] = self.sim.data.qpos[:4].squeeze()
+        obs['state'][-1] = self._previous_target_qpos[-1]
 
         #report object poses
-        obs['object_poses_full'] = np.zeros((1, self.num_objects, 7))
-        obs['object_poses'] = np.zeros((1, self.num_objects, 3))
+        obs['object_poses_full'] = np.zeros((self.num_objects, 7))
+        obs['object_poses'] = np.zeros((self.num_objects, 3))
         for i in range(self.num_objects):
             fullpose = self.sim.data.qpos[i * 7 + self._n_joints:(i + 1) * 7 + self._n_joints].squeeze().copy()
 
             if self.object_sensors:
                 fullpose[:3] = self.sim.data.sensordata[touch_offset + i * 3:touch_offset + (i + 1) * 3].copy()
-            obs['object_poses_full'][0, i] = fullpose
-            obs['object_poses'][0, i, :2] = fullpose[:2]
-            obs['object_poses'][0, i, 2] = quat_to_zangle(fullpose[3:])
+            obs['object_poses_full'][i] = fullpose
+            obs['object_poses'][i, :2] = fullpose[:2]
+            obs['object_poses'][i, 2] = quat_to_zangle(fullpose[3:])
 
-        #get images
-        obs['images'] = self.render()[None]
-
-        #concatenate last time_steps
-
-        if self._last_obs is not None:
-            for k in obs.keys():
-                obs[k] = np.concatenate((self._last_obs[k], obs[k]), axis = 0)
-
+        #copy non-image data for environment's use (if needed)
         self._last_obs = copy.deepcopy(obs)
 
+        #get images
+        obs['images'] = self.render()
+
         return obs
+
+    def valid_rollout(self):
+        object_zs = self._last_obs['object_poses_full'][:, 2]
+        return not any(object_zs < -2e-2)
 
     def _init_dynamics(self):
         raise NotImplementedError

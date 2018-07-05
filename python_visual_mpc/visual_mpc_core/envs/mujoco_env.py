@@ -24,6 +24,39 @@ class BaseMujocoEnv(gym.Env):
         self._model_path = model_path
         self.sim = MjSim(load_model_from_path(self._model_path))
 
+    def step(self, action):
+        """
+        Applies the action and steps simulation
+        :param action: action at time-step
+        :return: obs dict
+        """
+        raise NotImplementedError
+
+    def reset(self):
+        """
+        Resets the sim and returns initial observation
+        :return: obs dict
+        """
+        raise NotImplementedError
+
+    def valid_rollout(self):
+        """
+        Checks if the environment is currently in a valid state
+        Common invalid states include:
+            - object falling out of bin
+            - mujoco error during rollout
+        :return: bool value that is False if rollout isn't valid
+        """
+        raise NotImplementedError
+
+    def goal_reached(self):
+        """
+        Checks if the environment hit its goal state
+            - e.x. if goal is to lift object should return true if object lifted by gripper
+        :return: whether or not environment reached goal state
+        """
+        raise NotImplementedError
+
     def render(self, mode='dual'):
         """ Renders the enviornment.
         Implements custom rendering support. If mode is:

@@ -11,7 +11,6 @@ from python_visual_mpc.video_prediction.misc.makegifs2 import npy_to_gif
 from pyquaternion import Quaternion
 from mujoco_py import load_model_from_path, MjSim
 from python_visual_mpc.visual_mpc_core.agent.utils.get_masks import get_obj_masks
-from python_visual_mpc.visual_mpc_core.infrastructure.trajectory import Trajectory
 from mpl_toolkits.mplot3d import Axes3D
 import os
 import cv2
@@ -108,17 +107,17 @@ class AgentMuJoCo(object):
             if i_tr % self._hyperparams['gen_xml'] == 0 and i_tr > 0:
                 self._setup_world()
 
-        traj_ok = False
-        self.i_trial = 0
+        traj_ok, obs_dict, policy_outs = False, None, None
+        i_trial = 0
         imax = 100
-        while not traj_ok and self.i_trial < imax:
-            self.i_trial += 1
+        while not traj_ok and i_trial < imax:
+            i_trial += 1
             try:
-                traj_ok, traj = self.rollout(policy, i_tr)
+                traj_ok, obs_dict, policy_outs = self.rollout(policy, i_trial)
             except Image_dark_except:
                 traj_ok = False
 
-        print('needed {} trials'.format(self.i_trial))
+        print('needed {} trials'.format(i_trial))
 
         if self.goal_obj_pose is not None:
             final_poscost, final_anglecost = self.eval_action(traj, traj.term_t)
@@ -140,17 +139,48 @@ class AgentMuJoCo(object):
         if 'verbose' in self._hyperparams:
             self.plot_ctrls(i_tr)
             # self.plot_pix_dist(plan_stat)
-        return traj
+        return obs_dict, policy_outs
 
-    def hide_arm_store_image(self, ind, traj):
+    def hide_arm_store_image(self):
         highres_image = self.env.snapshot_noarm()
         target_dim = (self._hyperparams['image_width'], self._hyperparams['image_height'])
 
-        traj.first_last_noarm[ind] = cv2.resize(highres_image, target_dim, interpolation=cv2.INTER_AREA)
 
     def get_int_targetpos(self, substep, prev, next):
         assert substep >= 0 and substep < self._hyperparams['substeps']
         return substep/float(self._hyperparams['substeps'])*(next - prev) + prev
+
+    def _post_process_obs(self, env_obs, t):
+        agent_img_height = self._hyperparams['image_height']
+        agent_img_width = self._hyperparams['image_width']
+        if t == 0:
+            T = self._hyperparams['T']
+            self._agent_cache = {}
+            for k in env_obs:
+                if k == 'images':
+                    n_cams = env_obs['images'].shape[0]
+                    obs_shape = (T, n_cams, agent_img_height, agent_img_width, 3)
+                    self._agent_cache['images'] = np.zeros(obs_shape, dtype = np.uint8)
+                elif isinstance(env_obs[k], np.ndarray):
+                    obs_shape = [T] + list(env_obs[k].shape)
+                    self._agent_cache[k] = np.zeros(tuple(obs_shape), dtype=env_obs[k].dtype)
+                else:
+                    self._agent_cache[k] = []
+
+        obs = {}
+        for k in env_obs:
+            if k == 'images':
+                self.large_images_traj.append(env_obs['images'][0])
+                new_dims = (agent_img_width, agent_img_height)
+                for i in range(env_obs['images'].shape[0]):
+                    self._agent_cache['images'][t, i] = cv2.resize(env_obs['images'][i], new_dims,
+                                                                    interpolation=cv2.INTER_AREA)
+            elif isinstance(env_obs[k], np.ndarray):
+                self._agent_cache[k][t] = env_obs[k]
+            else:
+                self._agent_cache[k].apppend(env_obs[k])
+            obs[k] = self._agent_cache[k][:t + 1]
+        return obs
 
     def rollout(self, policy, i_tr):
         self._init()
@@ -158,34 +188,23 @@ class AgentMuJoCo(object):
         if self.goal_obj_pose is not None:
             self.goal_pix = self.env.get_goal_pix(self.ncam, agent_img_width, self.goal_obj_pose)
 
-        traj = Trajectory(self._hyperparams)
-        traj.i_tr = i_tr
-
         if 'first_last_noarm' in self._hyperparams:
-            self.hide_arm_store_image(0, traj)
+            start_img = self.hide_arm_store_image()
 
         # Take the sample.
         t = 0
         done = False
-        obs = self.env.reset()
+        obs = self._post_process_obs(self.env.reset(), 0)
         self.large_images_traj = []
+        policy_outputs = []
+
         while not done:
-            traj.X_full[t] = obs['qpos']
-            traj.Xdot_full[t] = obs['qvel']
-            traj.X_Xdot_full[t] = np.concatenate([traj.X_full[t, :], traj.Xdot_full[t, :]])
-            traj.target_qpos[t] = obs['target_qpos']
-            traj.Object_full_pose[t] = obs['object_poses_full']
-            traj.Object_pose[t] = obs['object_poses']
-
-            if 'finger_sensors' in self._hyperparams['env'][1]:
-                traj.touch_sensors[t] = obs['finger_sensors']
-
-
-            for i, cam in enumerate(self._hyperparams['cameras']):
-                traj.images[t, i] = cv2.resize(obs['images'][i], (agent_img_width, agent_img_height),
-                                                                            interpolation = cv2.INTER_AREA)
-
-            self.large_images_traj.append(obs['images'][0])
+            """
+            Currently refactoring the agent loop.
+            Many features are being moved from agent into environment
+            As a result many designated pixel related functions do not work
+            This has implications for running MPC in sim
+            """
             if 'get_curr_mask' in self._hyperparams:
                 self.curr_mask, self.curr_mask_large = get_obj_masks(self.env.sim, self._hyperparams, include_arm=False) #get target object mask
             else:
@@ -203,8 +222,8 @@ class AgentMuJoCo(object):
             policy_signature = signature(policy.act)              #Gets arguments required by policy
             for arg in policy_signature.parameters:               #Fills out arguments according to their keyword
                 value = policy_signature.parameters[arg].default
-                if arg == 'traj':
-                    value = traj
+                if arg in obs:
+                    value = obs[arg]
                 elif arg == 't':
                     value = t
 
@@ -213,10 +232,10 @@ class AgentMuJoCo(object):
                     raise ValueError("Required Policy Param {} not set in agent".format(arg))
                 policy_args[arg] = value
 
-            mj_U = policy.act(**policy_args)
+            pi_t = policy.act(**policy_args)
+            policy_outputs.append(pi_t)
 
-            traj.actions[t, :] = mj_U.copy()
-            obs = self.env.step(mj_U)
+            obs = self._post_process_obs(self.env.step(copy.deepcopy(pi_t['actions'])), t)
 
             if self.goal_obj_pose is not None:
                 traj.goal_dist.append(self.eval_action(traj, t)[0])
@@ -227,50 +246,23 @@ class AgentMuJoCo(object):
             if (self._hyperparams['T']-1) == t:
                 done = True
             if done:
-                traj.term_t = t
+                obs['term_t'] = t
             t += 1
 
 
         if 'first_last_noarm' in self._hyperparams:
-            self.hide_arm_store_image(1, traj)
+            end_img = self.hide_arm_store_image()
+            obs["start_image"] = start_img
+            obs["end_image"] = end_img
 
-        if np.any(traj.Object_full_pose[:,:,2] > 0.01):
-            lifted = True
-        else: lifted = False
-        traj.stats['lifted'] = lifted
-        # only save trajectories which displace objects above threshold
-        if 'displacement_threshold' in self._hyperparams:
-            assert self._hyperparams['data_collection']
-            disp_per_object = np.zeros(self.num_objects)
-            for i in range(self.num_objects):
-                pos_old = traj.Object_pose[0, i, :2]
-                pos_new = traj.Object_pose[t, i, :2]
-                disp_per_object[i] = np.linalg.norm(pos_old - pos_new)
-
-            if np.sum(disp_per_object) > self._hyperparams['displacement_threshold']:
-                traj_ok = True
-            else:
-                traj_ok = False
-        elif 'lift_rejection_sample' in self._hyperparams:
-            valid_frames = np.logical_and(traj.target_qpos[2:,-1] > 0.05, np.logical_and(traj.touch_sensors[1:, 0] > 0, traj.touch_sensors[1:, 1] > 0))
-            off_ground = traj.target_qpos[2:,2] >= 0
-            if not any(np.logical_and(valid_frames, off_ground)) and self.i_trial < self._hyperparams['lift_rejection_sample']:
-                traj_ok = False
-            else:
-                traj_ok = True
-        else:
-            traj_ok = True
-
-        #discarding trajecotries where an object falls out of the bin:
-        end_zpos = [traj.Object_full_pose[-1, i, 2] for i in range(self.num_objects)]
-        if any(zval < -2e-2 for zval in end_zpos):
-            print('object fell out!!!')
+        traj_ok = True
+        if not self.env.valid_rollout():
             traj_ok = False
-
-        if 'dist_ok_thresh' in self._hyperparams:
-            if np.any(traj.goal_dist[-1] > self._hyperparams['dist_ok_thresh']):
+        elif 'rejection_sample' in self._hyperparams:
+            if self._hyperparams['rejection_sample'] < i_tr and not self.env.goal_reached():
                 traj_ok = False
-        return traj_ok, traj
+
+        return traj_ok, obs, policy_outputs
 
     def save_goal_image_conf(self, traj):
         div = .05
@@ -318,63 +310,6 @@ class AgentMuJoCo(object):
             abs_angle_dist.append(np.abs(diff_quat.radians))
 
         return np.array(abs_distances), np.array(abs_angle_dist)
-
-
-    def zangle_to_quat(self, zangle):
-        """
-        :param zangle in rad
-        :return: quaternion
-        """
-        return np.array([np.cos(zangle/2), 0, 0, np.sin(zangle/2) ])
-
-
-    def calc_anglediff(self, alpha, beta):
-        delta = alpha - beta
-        while delta > np.pi:
-            delta -= 2*np.pi
-        while delta < -np.pi:
-            delta += 2*np.pi
-        return delta
-
-    def get_world_coord(self, proj_mat, depth_image, pix_pos):
-        depth = depth_image[pix_pos[0], pix_pos[1]]
-        pix_pos = pix_pos.astype(np.float32) / depth_image.shape[0]
-        clipspace = pix_pos*2 -1
-        depth = depth*2 -1
-
-        clipspace = np.concatenate([clipspace, depth, np.array([1.]) ])
-
-        res = np.linalg.inv(proj_mat).dot(clipspace)
-        res[:3] = 1 - res[:3]
-
-        return res[:3]
-
-    def get_point_cloud(self, depth_image, proj_mat):
-
-        height = depth_image.shape[0]
-        point_cloud = np.zeros([height, height,3])
-        for r in range(point_cloud.shape[0]):
-            for c in range(point_cloud.shape[1]):
-                pix_pos = np.array([r, c])
-                point_cloud[r, c] = self.get_world_coord(proj_mat,depth_image, pix_pos)[:3]
-
-        return point_cloud
-
-    def plot_point_cloud(self, point_cloud):
-
-        height = point_cloud.shape[0]
-
-        point_cloud = point_cloud.reshape([height**2, 3])
-        px = point_cloud[:, 0]
-        py = point_cloud[:, 1]
-        pz = point_cloud[:, 2]
-
-        fig = plt.figure()
-        ax = fig.add_subplot(111, projection='3d')
-        Axes3D.scatter(ax, px, py, pz)
-        plt.show()
-
-
 
     def save_gif(self, itr):
         file_path = self._hyperparams['record']

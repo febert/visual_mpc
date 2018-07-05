@@ -21,7 +21,7 @@ class AutograspCartgripperEnv(BaseCartgripperEnv):
 
     def _next_qpos(self, action):
         assert action.shape[0] == self._adim
-        gripper_z = self._last_obs['qpos'][2]
+        gripper_z = self._last_obs['state'][2]
         z_thresh = self._ag_dict['zthresh']
         reopen = 'reopen' in self._ag_dict
 
