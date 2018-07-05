@@ -13,7 +13,7 @@ class BaseMujocoEnv(gym.Env):
 
         self._base_adim, self._base_sdim = None, None                 #state/action dimension of Mujoco control
         self._adim, self._sdim = None, None   #state/action dimension presented to agent
-        self.num_objects = None
+        self.num_objects, self._n_joints = None, None
 
     def _reset_sim(self, model_path):
         """
@@ -83,7 +83,7 @@ class BaseMujocoEnv(gym.Env):
         return [seed]
 
     def get_desig_pix(self, ncam, target_width, round=True):
-        qpos_dim = self._base_sdim      # the states contains pos and vel
+        qpos_dim = self._n_joints      # the states contains pos and vel
         assert self.sim.data.qpos.shape[0] == qpos_dim + 7 * self.num_objects
         desig_pix = np.zeros([ncam, self.num_objects, 2], dtype=np.int)
         ratio = self._frame_width / target_width

@@ -194,8 +194,8 @@ class AgentMuJoCo(object):
         # Take the sample.
         t = 0
         done = False
-        obs = self._post_process_obs(self.env.reset(), 0)
         self.large_images_traj = []
+        obs = self._post_process_obs(self.env.reset(), 0)
         policy_outputs = []
 
         while not done:

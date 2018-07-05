@@ -98,25 +98,22 @@ class RandomPickPolicy(Randompolicy):
     def __init__(self, action_proposal_conf, agentparams, policyparams):  # add imiation_conf to keep compatibility with imitation model
         Randompolicy.__init__(self, action_proposal_conf, agentparams, policyparams)
 
-    def act(self, traj, t, init_model = None, goal_ee_pose = None, agentparams = None, goal_image = None):
+    def act(self, t, object_poses, state):
         assert self.agentparams['T'] == self.naction_steps * self.repeat and self.naction_steps >= 3
         if t == 0:
-            self.sample_actions(traj, 1)
-        return self.actions[t, :self.adim]
+            self._desig_pos = self.sample_actions(object_poses, state, 1)
+        return {'actions': self.actions[t, :self.adim], 'desig_pos': self._desig_pos}
 
-    def sample_actions(self, traj, nsamples):
+    def sample_actions(self, object_poses, state, nsamples):
         assert self.adim == 4 or self.adim == 5
         repeat = self.repeat
         mean = np.zeros((self.naction_steps, 5))
 
-        target_object = np.random.randint(traj.Object_pose.shape[1])  # selects a random object to pick
-        traj.desig_pos = traj.Object_pose[0, target_object, :2].copy()
+        target_object = np.random.randint(object_poses.shape[1])  # selects a random object to pick
+        desig_pos = object_poses[0, target_object, :2].copy()
 
-        if 'rpn_objects' in self.agentparams:
-            robot_xy = traj.endeffector_poses[0, :2]
-        else:
-            robot_xy = traj.X_full[0, :2]
-        object_xy = (traj.Object_pose[0, target_object, :2] - robot_xy) / repeat
+        robot_xy = state[0, :2]
+        object_xy = (desig_pos - robot_xy) / repeat
 
         low = -0.08
 
@@ -135,7 +132,7 @@ class RandomPickPolicy(Randompolicy):
         self.actions = self.actions.squeeze()
         self.process_actions()
 
-        return self.actions
+        return desig_pos
 
 def discretize_gripper(actions, gripper_ind):
     assert len(actions.shape) == 2

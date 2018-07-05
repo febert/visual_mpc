@@ -145,10 +145,10 @@ class Sim(object):
             images = obs_dict.pop('images')
             T, n_cams = images.shape[:2]
             for i in range(n_cams):
-                os.mkdir(traj_folder + '/images{}')
+                os.mkdir(traj_folder + '/images{}'.format(i))
             for t in range(T):
                 for i in range(n_cams):
-                    cv2.imwrite('{}/images{}/im_{}.png'.format(traj_folder, i, t), images[t, i])
+                    cv2.imwrite('{}/images{}/im_{}.png'.format(traj_folder, i, t), images[t, i, :, :, ::-1])
 
         with open('{}/obs_dict.pkl'.format(traj_folder), 'wb') as file:
             pkl.dump(obs_dict, file)
