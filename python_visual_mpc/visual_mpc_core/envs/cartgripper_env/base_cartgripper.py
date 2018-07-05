@@ -43,7 +43,7 @@ class BaseCartgripperEnv(BaseMujocoEnv):
         self.arm_start_lifted = arm_start_lifted
         self.finger_sensors, self.object_sensors = finger_sensors, object_meshes is not None
 
-        self._previous_target_qpos = None
+        self._previous_target_qpos, self._n_joints = None, 6
 
     def step(self, action):
         target_qpos = np.clip(self._next_qpos(action), low_bound, high_bound)
@@ -66,6 +66,9 @@ class BaseCartgripperEnv(BaseMujocoEnv):
         return super().render(mode)[:, ::-1]
 
     def reset(self):
+        #clear our observations from last rollout
+        self._last_obs = None
+
         # create random starting poses for objects
         def create_pos():
             poses = []
@@ -137,28 +140,43 @@ class BaseCartgripperEnv(BaseMujocoEnv):
 
     def _get_obs(self, finger_sensors):
         obs, touch_offset = {}, 0
+        #report finger sensors as needed
         if self.finger_sensors:
-            obs['finger_sensors'] = finger_sensors
+            obs['finger_sensors'] = finger_sensors[None]
             touch_offset = 2
 
-        obs['qpos'] = copy.deepcopy(self.sim.data.qpos[:self._base_sdim].squeeze())
-        obs['target_qpos'] = copy.deepcopy(self._previous_target_qpos)
-        obs['qvel'] = copy.deepcopy(self.sim.data.qvel[:self._base_adim].squeeze())
-        obs['object_poses_full'] = np.zeros((self.num_objects, 7))
-        obs['object_poses'] = np.zeros((self.num_objects, 3))
+        #joint poisitions and velocities
+        obs['qpos'] = copy.deepcopy(self.sim.data.qpos[:self._n_joints].squeeze())[None]
+        obs['qvel'] = copy.deepcopy(self.sim.data.qvel[:self._n_joints].squeeze())[None]
 
-        qpos_dim = self._base_sdim + 1
+        #control state
+        state_vec = np.zeros((1, self._base_sdim))
+        state_vec[0, :4] = self.sim.data.qpos[:4].squeeze()
+        state_vec[0, -1] = self._previous_target_qpos[-1]
+        obs['state'] = copy.deepcopy(state_vec)
+
+        #report object poses
+        obs['object_poses_full'] = np.zeros((1, self.num_objects, 7))
+        obs['object_poses'] = np.zeros((1, self.num_objects, 3))
         for i in range(self.num_objects):
-            fullpose = self.sim.data.qpos[i * 7 + qpos_dim:(i + 1) * 7 + qpos_dim].squeeze().copy()
+            fullpose = self.sim.data.qpos[i * 7 + self._n_joints:(i + 1) * 7 + self._n_joints].squeeze().copy()
 
             if self.object_sensors:
                 fullpose[:3] = self.sim.data.sensordata[touch_offset + i * 3:touch_offset + (i + 1) * 3].copy()
-            obs['object_poses_full'][i] = fullpose
-            obs['object_poses'][i, :2] = fullpose[:2]
-            obs['object_poses'][i, 2] = quat_to_zangle(fullpose[3:])
+            obs['object_poses_full'][0, i] = fullpose
+            obs['object_poses'][0, i, :2] = fullpose[:2]
+            obs['object_poses'][0, i, 2] = quat_to_zangle(fullpose[3:])
+
+        #get images
+        obs['images'] = self.render()[None]
+
+        #concatenate last time_steps
+
+        if self._last_obs is not None:
+            for k in obs.keys():
+                obs[k] = np.concatenate((self._last_obs[k], obs[k]), axis = 0)
 
         self._last_obs = copy.deepcopy(obs)
-        obs['images'] = self.render()
 
         return obs
 

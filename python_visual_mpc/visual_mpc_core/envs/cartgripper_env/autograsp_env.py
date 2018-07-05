@@ -1,4 +1,4 @@
-from python_visual_mpc.visual_mpc_core.envs.cartgripper_env.base import BaseCartgripperEnv
+from python_visual_mpc.visual_mpc_core.envs.cartgripper_env.base_cartgripper import BaseCartgripperEnv
 from python_visual_mpc.visual_mpc_core.envs.util.action_util import autograsp_dynamics
 from python_visual_mpc.visual_mpc_core.envs.cartgripper_env.util.sensor_util import is_touching
 import copy
