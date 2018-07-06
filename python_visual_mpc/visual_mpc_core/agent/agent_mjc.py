@@ -150,11 +150,21 @@ class AgentMuJoCo(object):
         assert substep >= 0 and substep < self._hyperparams['substeps']
         return substep/float(self._hyperparams['substeps'])*(next - prev) + prev
 
-    def _post_process_obs(self, env_obs, t):
+    def _post_process_obs(self, env_obs, initial_obs = False):
+        """
+        Handles conversion from the environment observations, to agent observation
+        space. Observations are accumulated over time, and images are resized to match
+        the given image_heightximage_width dimensions.
+        
+        :param env_obs: observations dictionary returned from the environment
+        :param initial_obs: Whether or not this is the first observation in rollout
+        :return: obs: dictionary of observations up until (and including) current timestep
+        """
+
         agent_img_height = self._hyperparams['image_height']
         agent_img_width = self._hyperparams['image_width']
-        if t == 0:
-            T = self._hyperparams['T']
+        if initial_obs:
+            T = self._hyperparams['T'] + 1
             self._agent_cache = {}
             for k in env_obs:
                 if k == 'images':
@@ -166,6 +176,10 @@ class AgentMuJoCo(object):
                     self._agent_cache[k] = np.zeros(tuple(obs_shape), dtype=env_obs[k].dtype)
                 else:
                     self._agent_cache[k] = []
+            self._cache_cntr = 0
+
+        t = self._cache_cntr
+        self._cache_cntr += 1
 
         obs = {}
         for k in env_obs:
@@ -179,7 +193,8 @@ class AgentMuJoCo(object):
                 self._agent_cache[k][t] = env_obs[k]
             else:
                 self._agent_cache[k].apppend(env_obs[k])
-            obs[k] = self._agent_cache[k][:t + 1]
+            obs[k] = self._agent_cache[k][:self._cache_cntr]
+
         return obs
 
     def rollout(self, policy, i_tr):
@@ -195,7 +210,7 @@ class AgentMuJoCo(object):
         t = 0
         done = False
         self.large_images_traj = []
-        obs = self._post_process_obs(self.env.reset(), 0)
+        obs = self._post_process_obs(self.env.reset(), True)
         policy_outputs = []
 
         while not done:
@@ -235,7 +250,7 @@ class AgentMuJoCo(object):
             pi_t = policy.act(**policy_args)
             policy_outputs.append(pi_t)
 
-            obs = self._post_process_obs(self.env.step(copy.deepcopy(pi_t['actions'])), t)
+            obs = self._post_process_obs(self.env.step(copy.deepcopy(pi_t['actions'])))
 
             if self.goal_obj_pose is not None:
                 traj.goal_dist.append(self.eval_action(traj, t)[0])
