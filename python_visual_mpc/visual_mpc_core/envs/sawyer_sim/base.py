@@ -1,9 +1,17 @@
 from python_visual_mpc.visual_mpc_core.envs.mujoco_env import BaseMujocoEnv
-from python_visual_mpc.visual_mpc_core.envs.cartgripper_env.base_cartgripper import zangle_to_quat
 import python_visual_mpc
 import cv2
 import numpy as np
 import mujoco_py
+from pyquaternion import Quaternion
+
+def zangle_to_quat(zangle):
+    """
+    :param zangle in rad
+    :return: quaternion
+    """
+    return (Quaternion(axis=[0,1,0], angle=np.pi/2) * Quaternion(axis=[1, 0, 0], angle= zangle)).elements
+
 BASE_DIR = '/'.join(str.split(python_visual_mpc.__file__, '/')[:-2])
 asset_base_path = BASE_DIR + '/mjc_models/sawyer_assets/sawyer_xyz/'
 
