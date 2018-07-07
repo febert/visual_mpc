@@ -10,6 +10,12 @@ asset_base_path = BASE_DIR + '/mjc_models/'
 low_bound = np.array([-0.5, -0.5, -0.08, -np.pi*2, -1])
 high_bound = np.array([0.5, 0.5, 0.15, np.pi*2, 1])
 
+def zangle_to_quat(zangle):
+    """
+    :param zangle in rad
+    :return: quaternion
+    """
+    return np.array([np.cos(zangle/2), 0, 0, np.sin(zangle/2)])
 
 def quat_to_zangle(quat):
     """
