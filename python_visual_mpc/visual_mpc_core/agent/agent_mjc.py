@@ -155,7 +155,7 @@ class AgentMuJoCo(object):
         Handles conversion from the environment observations, to agent observation
         space. Observations are accumulated over time, and images are resized to match
         the given image_heightximage_width dimensions.
-        
+
         :param env_obs: observations dictionary returned from the environment
         :param initial_obs: Whether or not this is the first observation in rollout
         :return: obs: dictionary of observations up until (and including) current timestep

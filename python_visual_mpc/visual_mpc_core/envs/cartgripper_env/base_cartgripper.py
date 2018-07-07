@@ -5,8 +5,8 @@ from python_visual_mpc.visual_mpc_core.envs.cartgripper_env.util.create_xml impo
 import copy
 
 
-DATA_DIR = '/'.join(str.split(python_visual_mpc.__file__, '/')[:-2])
-asset_base_path = DATA_DIR + '/mjc_models/'
+BASE_DIR = '/'.join(str.split(python_visual_mpc.__file__, '/')[:-2])
+asset_base_path = BASE_DIR + '/mjc_models/'
 low_bound = np.array([-0.5, -0.5, -0.08, -np.pi*2, -1])
 high_bound = np.array([0.5, 0.5, 0.15, np.pi*2, 1])
 
