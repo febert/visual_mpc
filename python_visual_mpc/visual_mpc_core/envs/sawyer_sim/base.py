@@ -5,6 +5,12 @@ import numpy as np
 import mujoco_py
 from pyquaternion import Quaternion
 
+def quat_to_zangle(quat):
+    angle = (Quaternion(axis = [0,1,0], angle = np.pi/2).inverse * Quaternion(quat)).angle
+    if angle < 0:
+        return 2 * np.pi + angle
+    return angle
+
 def zangle_to_quat(zangle):
     """
     :param zangle in rad
@@ -29,6 +35,8 @@ class BaseSawyerEnv(BaseMujocoEnv):
             self.sim.data.set_mocap_pos('mocap', np.array([0, 0.5, 0.02]))
             self.sim.data.set_mocap_quat('mocap', zangle_to_quat(zangle))
             print('target', zangle_to_quat(zangle))
+            print('real', zangle, 'inv', quat_to_zangle(zangle_to_quat(zangle)))
+
             for _ in range(100):
                 self.sim.step()
             print('xyz', self.sim.data.get_body_xpos('hand').copy())
