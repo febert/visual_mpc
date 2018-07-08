@@ -4,6 +4,7 @@ import cv2
 import numpy as np
 import mujoco_py
 from pyquaternion import Quaternion
+import moviepy.editor as mpy
 
 def quat_to_zangle(quat):
     angle = (Quaternion(axis = [0,1,0], angle = np.pi/2).inverse * Quaternion(quat)).angle
@@ -31,6 +32,7 @@ class BaseSawyerEnv(BaseMujocoEnv):
                     self.sim.model.eq_data[i, :] = np.array(
                         [0., 0., 0., 1., 0., 0., 0.]
                     )
+        clip0, clip1 = [],[]
         for i, zangle in enumerate(np.linspace(0, 2 * np.pi, 100)):
             self.sim.data.set_mocap_pos('mocap', np.array([0, 0.5, 0.02]))
             self.sim.data.set_mocap_quat('mocap', zangle_to_quat(zangle))
@@ -44,6 +46,10 @@ class BaseSawyerEnv(BaseMujocoEnv):
             print('joints', self.sim.data.qpos)
             dual_render = self.render()
 
-            cv2.imwrite('test/test{}.png'.format(i), dual_render[0, :,:,::-1])
-            print()
+            clip0.append(dual_render[0])
+            clip1.append(dual_render[1])
+        for c, name in zip([clip0, clip1], ['test0.gif', 'test1.gif']):
+            clip = mpy.ImageSequenceClip(c, fps = 10)
+            clip.write_gif(name)
+
         raise NotImplementedError
