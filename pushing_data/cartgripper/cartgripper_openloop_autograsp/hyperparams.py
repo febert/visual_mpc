@@ -6,10 +6,9 @@ import numpy as np
 
 from python_visual_mpc.visual_mpc_core.algorithm.random_policy import RandomPickPolicy
 from python_visual_mpc.visual_mpc_core.agent.agent_mjc import AgentMuJoCo
+from python_visual_mpc.visual_mpc_core.envs.cartgripper_env.autograsp_env import AutograspCartgripperEnv
 from python_visual_mpc.visual_mpc_core.infrastructure.utility.tfrecord_from_file import grasping_touch_file2record as convert_to_record
-IMAGE_WIDTH = 64
-IMAGE_HEIGHT = 64
-IMAGE_CHANNELS = 3
+
 
 BASE_DIR = '/'.join(str.split(__file__, '/')[:-1])
 current_dir = os.path.dirname(os.path.realpath(__file__))
@@ -17,51 +16,32 @@ current_dir = os.path.dirname(os.path.realpath(__file__))
 import python_visual_mpc
 DATA_DIR = '/'.join(str.split(python_visual_mpc.__file__, '/')[:-2])
 
+env_params = {
+    'filename': 'cartgripper_grasp.xml',
+    'num_objects': 4,
+    'object_mass': 0.1,
+    'friction': 1.0,
+    'finger_sensors': True,
+    'autograsp': {'zthresh': -0.06, 'touchthresh': 0.0, 'reopen': ''}
+}
 
 agent = {
     'type': AgentMuJoCo,
-    'data_save_dir': '/result', #BASE_DIR + '/train',
-    'filename': DATA_DIR+'/mjc_models/cartgripper_grasp.xml',
-    'filename_nomarkers': DATA_DIR+'/mjc_models/cartgripper_grasp.xml',
+    'env': (AutograspCartgripperEnv, env_params),
+    'data_save_dir': BASE_DIR,
     'not_use_images':"",
-    'visible_viewer':False,
-    'sample_objectpos':'',
-    'adim':5,
-    'sdim':12,
     'cameras':['maincam', 'leftcam'],
-    'finger_sensors' : True,
-    'randomize_initial_pos':'',
-    'dt': 0.05,
-    'substeps': 200,  #6
     'T': 30,
-    'skip_first': 40,   #skip first N time steps to let the scene settle
-    'additional_viewer': False,
     'image_height' : 48,
     'image_width' : 64,
-    'viewer_image_height' : 480,
-    'viewer_image_width' : 640,
-    'image_channels' : 3,
-    'num_objects': 4,
     'novideo':'',
     'gen_xml':10,   #generate xml every nth trajecotry
-    'pos_disp_range': 0.5, #randomize x, y
-    'poscontroller_offset':'',
-    'posmode':'abs',
     'ztarget':0.13,
     'min_z_lift':0.05,
     'make_final_gif':'', #keep this key in if you want final gif to be created
     'record': BASE_DIR + '/record/',
-    'targetpos_clip':[[-0.5, -0.5, -0.08, -2 * np.pi, -1], [0.5, 0.5, 0.15, 2 * np.pi, 1]],
-    'mode_rel':np.array([True, True, True, True, False]),
     'discrete_gripper' : -1, #discretized gripper dimension,
     'lift_rejection_sample' : 15,
-    'object_mass' : 0.1,
-    'friction' : 1.0,
-    'autograsp' : True,
-#    'master_datadir' : '/raid/ngc2/grasping_data/cartgripper_openloop_randgrasp/'
-#    'file_to_record' : convert_to_record
-    #'object_meshes':['giraffe'] #folder to original object + convex approximation
-    # 'displacement_threshold':0.1,
 }
 
 policy = {

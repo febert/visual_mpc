@@ -20,7 +20,7 @@ VAL_INTERVAL = 500
 
 BENCH_INTERVAL = -1
 
-IMAGE_INTERVAL = 5000
+IMAGE_INTERVAL = 2000
 
 # How often to save a model checkpoint
 SAVE_INTERVAL = 4000
@@ -95,11 +95,6 @@ def main(unused_argv, conf_script= None):
             model = Model(conf, build_loss, load_data=True, load_testimages=load_test_images)
         model.build_net()
 
-    #model for online benchmarking
-    # with tf.variable_scope('model', reuse=True):
-    #     # conf['compare_gtruth_flow'] = ''
-    #     benchmodel = Model(conf, build_loss =False, load_data=False)
-    #     benchmodel.build_net()
 
     print('Constructing saver.')
     vars = tf.get_collection(tf.GraphKeys.GLOBAL_VARIABLES)

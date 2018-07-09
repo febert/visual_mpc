@@ -180,6 +180,7 @@ class WSGRobotController(RobotController):
         start_time = rospy.get_time()  # in seconds
         finish_time = start_time + duration  # in seconds
 
+
         while rospy.get_time() < finish_time:
             int_joints = prev_joint + (rospy.get_time()-start_time)/(finish_time-start_time)*(new_joint-prev_joint)
             # print int_joints

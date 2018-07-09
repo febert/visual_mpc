@@ -6,7 +6,9 @@ import imp
 import cPickle as pkl
 from python_visual_mpc.goaldistancenet.setup_gdn import setup_gdn
 import numpy as np
-
+import sys
+import traceback
+import pdb
 sudri_crop = {'left_cam': {'crop_bot': 70, 'crop_left': 130, 'crop_right': 120},
               'front_cam': {'crop_bot': 70, 'crop_left': 90, 'crop_right': 160}}
 sudri_dict = {
