@@ -192,7 +192,7 @@ class AgentMuJoCo(object):
             elif isinstance(env_obs[k], np.ndarray):
                 self._agent_cache[k][t] = env_obs[k]
             else:
-                self._agent_cache[k].apppend(env_obs[k])
+                self._agent_cache[k].append(env_obs[k])
             obs[k] = self._agent_cache[k][:self._cache_cntr]
 
         return obs

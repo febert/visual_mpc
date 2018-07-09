@@ -17,7 +17,7 @@ def zangle_to_quat(zangle):
     :param zangle in rad
     :return: quaternion
     """
-    return (Quaternion(axis=[0,1,0], angle=np.pi/2) * Quaternion(axis=[1, 0, 0], angle= zangle)).elements
+    return (Quaternion(axis=[0,1,0], angle=np.pi) * Quaternion(axis=[0, 0, -1], angle= zangle)).elements
 
 BASE_DIR = '/'.join(str.split(python_visual_mpc.__file__, '/')[:-2])
 asset_base_path = BASE_DIR + '/mjc_models/sawyer_assets/sawyer_xyz/'
@@ -33,8 +33,17 @@ class BaseSawyerEnv(BaseMujocoEnv):
                         [0., 0., 0., 1., 0., 0., 0.]
                     )
         clip0, clip1 = [],[]
+
         for i, zangle in enumerate(np.linspace(0, 2 * np.pi, 100)):
-            self.sim.data.set_mocap_pos('mocap', np.array([0, 0.5, 0.02]))
+            print(self.sim.data.ctrl.shape)
+            if i % 20 < 10:
+                self.sim.data.ctrl[0] = 1
+                self.sim.data.ctrl[1] = -1
+            else:
+                self.sim.data.ctrl[0] = -1
+                self.sim.data.ctrl[1] = 1
+            print(self.sim.data.ctrl)
+            self.sim.data.set_mocap_pos('mocap', np.array([0, 0.5, 0.2]))
             self.sim.data.set_mocap_quat('mocap', zangle_to_quat(zangle))
             print('target', zangle_to_quat(zangle))
             print('real', zangle, 'inv', quat_to_zangle(zangle_to_quat(zangle)))

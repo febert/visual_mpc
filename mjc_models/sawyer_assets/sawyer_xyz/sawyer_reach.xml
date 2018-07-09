@@ -5,6 +5,11 @@
 		<include file="sawyer_xyz_base.xml"></include>
         <site name="hand-goal-site" pos="0 0 0" size="0.05"
 			  rgba="1 0.5 0.5 0.5"/>
+
+		<light name="light0" mode="fixed" directional="false" active="true" castshadow="true" pos = "0 0 3"/>
 	</worldbody>
-    <actuator></actuator>
+	<actuator>
+        <position joint="base_joint_gripper_left" kp="10"/>
+        <position joint="base_joint_gripper_right" kp="10"/>
+    </actuator>
 </mujoco>

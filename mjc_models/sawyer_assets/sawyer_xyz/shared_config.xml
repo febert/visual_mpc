@@ -25,6 +25,9 @@ Usage:
         <mesh name="l4" file="l4.stl" />
         <mesh name="l5" file="l5.stl" />
         <mesh name="l6" file="l6.stl" />
+        <mesh name="WSG50_110" file="WSG50_110.stl" />
+        <mesh name="GUIDE_WSG50_110" file="GUIDE_WSG50_110.stl" scale="0.001 0.001 0.001" />
+        <mesh name="WSG-FMF" file="WSG-FMF.stl" scale="0.001 0.001 0.001" />
     </asset>
 
     <visual>
