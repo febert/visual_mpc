@@ -39,7 +39,7 @@ def file_len(fname):
     return i + 1
 
 def create_object_xml(filename, num_objects, object_mass, friction, object_meshes,
-                      finger_sensors, maxlen, minlen, load_dict_list):
+                      finger_sensors, maxlen, minlen, load_dict_list, obj_classname = None):
     """
     :param hyperparams:
     :param load_dict_list: if not none load configuration, instead of sampling
@@ -134,7 +134,12 @@ def create_object_xml(filename, num_objects, object_mass, friction, object_meshe
 
 
         else:
-            obj = ET.SubElement(world_body, "body", name="object{}".format(i), pos="0 0 0")
+            obj = None
+            if obj_classname is not None:
+                obj = ET.SubElement(world_body, "body", name="object{}".format(i), pos="0 0 0",
+                                    childclass=obj_classname)
+            else: obj = ET.SubElement(world_body, "body", name="object{}".format(i), pos="0 0 0")
+
             ET.SubElement(obj, "joint", type="free")
 
             ET.SubElement(obj, "geom", type="box", size=".03 {} .03".format(l1),
@@ -158,12 +163,22 @@ def create_object_xml(filename, num_objects, object_mass, friction, object_meshe
     xml_str = xml_str.splitlines()[1:]
     xml_str = "\n".join(xml_str)
 
-    with open(xmldir + "/auto_gen/objects{}.xml".format(os.getpid()), "w") as f:
+    with open(xmldir + "/auto_gen_objects{}.xml".format(os.getpid()), "w") as f:
         f.write(xml_str)
 
     return save_dict_list
 
-
+def clean_xml(filename):
+    """
+    After sim is loaded no need for XML files. Function deletes them before they clutter everything.
+    :param filename:
+    :return: None
+    """
+    xml_number = int(filename.split('auto_gen')[-1][:-4])
+    obj_file = '/'.join(filename.split('/')[:-1]) + '/auto_gen_objects{}.xml'.format(xml_number)
+    print('deleting main file: {} and obj_file: {}'.format(filename, obj_file))
+    os.remove(filename)
+    os.remove(obj_file)
 def create_root_xml(filename):
     """
     copy root xml but replace three lines so that they referecne the object xml
@@ -180,7 +195,7 @@ def create_root_xml(filename):
                 autoreplace = True
                 if not replace_done:
                     newlines.append('        <!--begin auto replaced section -->\n' )
-                    newlines.append('        <include file="objects{}.xml"/>\n'.format(os.getpid()))
+                    newlines.append('        <include file="auto_gen_objects{}.xml"/>\n'.format(os.getpid()))
                     newlines.append('        <!--end auto replaced section -->\n')
                     replace_done = True
 
@@ -190,7 +205,7 @@ def create_root_xml(filename):
             if 'end_auto_replace' in l:
                 autoreplace = False
 
-    outfile = '/'.join(str.split(filename, '/')[:-1]) + '/auto_gen/cartgripper{}.xml'.format(os.getpid())
+    outfile = '/'.join(str.split(filename, '/')[:-1]) + '/auto_gen{}.xml'.format(os.getpid())
     with open(outfile, 'w') as f:
         for l in newlines:
             f.write(l)

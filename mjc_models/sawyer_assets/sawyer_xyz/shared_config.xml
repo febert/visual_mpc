@@ -7,7 +7,7 @@ Usage:
 	<include file="shared_config.xml"></include>
     (new stuff)
 	<worldbody>
-		<include file="sawyer_xyz_base.xml"></include>
+		<include file="sawyer_wsg_base.xml"></include>
         (new stuff)
 	</worldbody>
 </mujoco>
@@ -46,6 +46,8 @@ Usage:
             tolerance="1e-10"
     />
 
+
+
     <default>
         <joint limited="true"
                damping="1"
@@ -72,6 +74,11 @@ Usage:
         <default class='arm'>
             <joint damping="5"/>
         </default>
+
+        <default class="freejoint">
+            <joint limited="false"/>
+        </default>
+
     </default>
 
     <equality>

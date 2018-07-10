@@ -1,7 +1,7 @@
 from python_visual_mpc.visual_mpc_core.envs.mujoco_env import BaseMujocoEnv
 import numpy as np
 import python_visual_mpc
-from python_visual_mpc.visual_mpc_core.envs.cartgripper_env.util.create_xml import create_object_xml, create_root_xml
+from python_visual_mpc.visual_mpc_core.envs.cartgripper_env.util.create_xml import create_object_xml, create_root_xml, clean_xml
 import copy
 
 
@@ -37,7 +37,7 @@ class BaseCartgripperEnv(BaseMujocoEnv):
                                                maxlen, minlen, preload_obj_dict)
         gen_xml = create_root_xml(base_filename)
         super().__init__(gen_xml, viewer_image_height, viewer_image_width)
-
+        clean_xml(gen_xml)
 
         self._base_sdim, self._base_adim, self.mode_rel = 5, 5, mode_rel
         self.num_objects, self.skip_first, self.substeps = num_objects, skip_first, substeps

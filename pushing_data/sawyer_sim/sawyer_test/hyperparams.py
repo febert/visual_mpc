@@ -6,7 +6,7 @@ import numpy as np
 
 from python_visual_mpc.visual_mpc_core.algorithm.random_policy import RandomPickPolicy
 from python_visual_mpc.visual_mpc_core.agent.agent_mjc import AgentMuJoCo
-from python_visual_mpc.visual_mpc_core.envs.sawyer_sim.base import BaseSawyerEnv
+from python_visual_mpc.visual_mpc_core.envs.sawyer_sim.vanilla_env import VanillaSawyerEnv
 from python_visual_mpc.visual_mpc_core.infrastructure.utility.tfrecord_from_file import grasping_touch_file2record as convert_to_record
 
 
@@ -17,17 +17,17 @@ import python_visual_mpc
 DATA_DIR = '/'.join(str.split(python_visual_mpc.__file__, '/')[:-2])
 
 env_params = {
-    'filename': 'cartgripper_grasp.xml',
-    'num_objects': 4,
+    'filename': 'sawyer_grasp.xml',
+    'num_objects': 1,
     'object_mass': 0.1,
     'friction': 1.0,
     'finger_sensors': True,
-    'autograsp': {'zthresh': -0.06, 'touchthresh': 0.0, 'reopen': ''}
+    # 'autograsp': {'zthresh': -0.06, 'touchthresh': 0.0, 'reopen': ''}
 }
 
 agent = {
     'type': AgentMuJoCo,
-    'env': (BaseSawyerEnv, env_params),
+    'env': (VanillaSawyerEnv, env_params),
     'data_save_dir': BASE_DIR,
     'not_use_images':"",
     'cameras':['maincam', 'leftcam'],

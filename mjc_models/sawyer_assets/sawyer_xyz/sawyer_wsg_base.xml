@@ -7,7 +7,7 @@ Usage:
 	<include file="shared_config.xml"></include>
     (new stuff)
 	<worldbody>
-		<include file="sawyer_xyz_base.xml"></include>
+		<include file="sawyer_wsg_base.xml"></include>
         (new stuff)
 	</worldbody>
 </mujoco>
@@ -140,6 +140,7 @@ Usage:
                                                         <inertial pos="0 0 0" mass="0.1" diaginertia="1 1 1" />
                                                         <geom type="mesh" rgba="0 0 0 1" mesh="WSG-FMF" />
                                                     </body>
+                                                    <site name="finger1_surf" pos="0 0 0.11" size=".0025 .007 .025" type="box" rgba="0.0 1.0 0.0 0"/>
                                                 </body>
                                                 <body name="gripper_right" pos="0 0 0" quat="1.32679e-06 0 0 1">
                                                     <inertial pos="0 0 0" mass="0.1" diaginertia="1 1 1" />
@@ -149,6 +150,7 @@ Usage:
                                                         <inertial pos="0 0 0" mass="0.1" diaginertia="1 1 1" />
                                                         <geom type="mesh" rgba="0 0 0 1" mesh="WSG-FMF" />
                                                     </body>
+                                                    <site name="finger2_surf" pos="0 0 0.11" size=".0025 .007 .025" type="box" rgba="1.0 0.0 0.0 0"/>
                                                 </body>
                                             </body>
 <!--  ================= END GRIPPER ================= /-->

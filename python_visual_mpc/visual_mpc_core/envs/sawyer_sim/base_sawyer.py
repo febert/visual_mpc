@@ -4,6 +4,7 @@ import cv2
 import numpy as np
 import mujoco_py
 from pyquaternion import Quaternion
+from python_visual_mpc.visual_mpc_core.envs.cartgripper_env.util.create_xml import create_object_xml, create_root_xml, clean_xml
 import moviepy.editor as mpy
 
 def quat_to_zangle(quat):
@@ -23,8 +24,15 @@ BASE_DIR = '/'.join(str.split(python_visual_mpc.__file__, '/')[:-2])
 asset_base_path = BASE_DIR + '/mjc_models/sawyer_assets/sawyer_xyz/'
 
 class BaseSawyerEnv(BaseMujocoEnv):
-    def __init__(self, throw):
-        super().__init__(asset_base_path + 'sawyer_reach.xml')
+    def __init__(self, filename, num_objects = 1, object_mass = 0.1, friction=1.0, finger_sensors=True,
+                 maxlen=0.02, minlen=0.001, preload_obj_dict=None, object_meshes=None, obj_classname = 'freejoint'):
+        base_filename = asset_base_path + filename
+        self.obj_stat_prop = create_object_xml(base_filename, num_objects, object_mass,
+                                               friction, object_meshes, finger_sensors,
+                                               maxlen, minlen, preload_obj_dict, obj_classname)
+        gen_xml = create_root_xml(base_filename)
+        super().__init__(gen_xml)
+        clean_xml(gen_xml)
         if self.sim.model.nmocap > 0 and self.sim.model.eq_data is not None:
             for i in range(self.sim.model.eq_data.shape[0]):
                 if self.sim.model.eq_type[i] == mujoco_py.const.EQ_WELD:
@@ -33,15 +41,20 @@ class BaseSawyerEnv(BaseMujocoEnv):
                         [0., 0., 0., 1., 0., 0., 0.]
                     )
         clip0, clip1 = [],[]
-
+        print(self.sim.data.qpos)
+        self.sim.data.qpos[9:12] = [0.1, 0.6, 2]
         for i, zangle in enumerate(np.linspace(0, 2 * np.pi, 100)):
-            print(self.sim.data.ctrl.shape)
+            print()
+            print(self.sim.data.qpos[9:12])
             if i % 20 < 10:
-                self.sim.data.ctrl[0] = 1
-                self.sim.data.ctrl[1] = -1
-            else:
                 self.sim.data.ctrl[0] = -1
                 self.sim.data.ctrl[1] = 1
+            else:
+                self.sim.data.ctrl[0] = 1
+                self.sim.data.ctrl[1] = -1
+
+                print(self.sim.data.sensordata[:2].squeeze())
+                print('SENSOR ABOVE\n\n\n\n\n')
             print(self.sim.data.ctrl)
             self.sim.data.set_mocap_pos('mocap', np.array([0, 0.5, 0.2]))
             self.sim.data.set_mocap_quat('mocap', zangle_to_quat(zangle))
