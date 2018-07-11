@@ -3,5 +3,5 @@ nvidia-docker run  -v $2:/workspace/pushing_data \
                    -v /home/sudeep/Documents/visual_mpc:/mount \
                    -v /home/sudeep/Desktop:/Desktop \
 -it \
-sudeep/mj_tf bash
+sudeep/mj_tf:latest bash
 
