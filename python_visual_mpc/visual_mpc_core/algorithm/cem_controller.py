@@ -103,21 +103,6 @@ class CEM_controller(Policy):
     def create_sim(self):
         self.sim = MjSim(load_model_from_path(self.agentparams['gen_xml_fname']))
 
-    def reinitialize(self):
-        self.use_net = self.policyparams['usenet']
-        self.action_list = []
-        self.gtruth_images = [np.zeros((self.M, 64, 64, 3)) for _ in range(self.nactions * self.repeat)]
-        self.initial_std = self.policyparams['initial_std']
-        # history of designated pixels
-        self.desig_pix = []
-        # predicted positions
-        self.pred_pos = np.zeros((self.M, self.niter, self.repeat * self.nactions, 2))
-        self.rec_target_pos = np.zeros((self.M, self.niter, self.repeat * self.nactions, 2))
-        self.bestindices_of_iter = np.zeros((self.niter, self.K))
-
-        self.indices = []
-
-        self.target = np.zeros(2)
 
     def finish(self):
         self.viewer.finish()

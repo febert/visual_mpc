@@ -1,5 +1,4 @@
 """ This file defines the base class for the policy. """
-import abc
 import abc, six
 
 @six.add_metaclass(abc.ABCMeta)

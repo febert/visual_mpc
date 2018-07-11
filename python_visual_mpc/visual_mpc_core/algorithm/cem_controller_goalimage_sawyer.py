@@ -24,7 +24,7 @@ import cv2
 from python_visual_mpc.visual_mpc_core.infrastructure.utility.logger import Logger
 from python_visual_mpc.goaldistancenet.variants.multiview_testgdn import MulltiviewTestGDN
 from python_visual_mpc.goaldistancenet.variants.multiview_testgdn import MulltiviewTestGDN
-from Queue import Queue
+from queue import Queue
 from python_visual_mpc.video_prediction.utils_vpred.animate_tkinter import resize_image
 from threading import Thread
 if "NO_ROS" not in os.environ:
