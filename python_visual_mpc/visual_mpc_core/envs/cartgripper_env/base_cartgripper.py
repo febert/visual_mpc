@@ -142,7 +142,7 @@ class BaseCartgripperEnv(BaseMujocoEnv):
         self._previous_target_qpos[-1] = low_bound[-1]
         self._init_dynamics()
 
-        return self._get_obs(finger_force)
+        return self._get_obs(finger_force / self.skip_first / self.substeps)
 
     def _get_obs(self, finger_sensors):
         obs, touch_offset = {}, 0

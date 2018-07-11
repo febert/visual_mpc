@@ -4,6 +4,7 @@ import numpy as np
 from gym.utils import seeding
 from python_visual_mpc.visual_mpc_core.agent.utils.convert_world_imspace_mj1_5 import project_point
 import copy
+
 class BaseMujocoEnv(gym.Env):
     def __init__(self,  model_path, height=480, width=640):
         self._frame_height = height

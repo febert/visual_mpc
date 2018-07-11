@@ -39,7 +39,8 @@ def file_len(fname):
     return i + 1
 
 def create_object_xml(filename, num_objects, object_mass, friction, object_meshes,
-                      finger_sensors, maxlen, minlen, load_dict_list, obj_classname = None):
+                      finger_sensors, maxlen, minlen, load_dict_list, obj_classname = None,
+                      block_height = 0.03, block_width = 0.03):
     """
     :param hyperparams:
     :param load_dict_list: if not none load configuration, instead of sampling
@@ -142,12 +143,12 @@ def create_object_xml(filename, num_objects, object_mass, friction, object_meshe
 
             ET.SubElement(obj, "joint", type="free")
 
-            ET.SubElement(obj, "geom", type="box", size=".03 {} .03".format(l1),
+            ET.SubElement(obj, "geom", type="box", size="{} {} {}".format(block_width, l1, block_height),
                           rgba="{} {} {} 1".format(color1[0], color1[1], color1[2]), mass="{}".format(object_mass),
                           contype="7", conaffinity="7", friction="{} 0.010 0.0002".format(friction)
                           )
             ET.SubElement(obj, "geom", pos="{} {} 0.0".format(l2, pos2),
-                          type="box", size="{} .03 .03".format(l2),
+                          type="box", size="{} {} {}".format(l2, block_width, block_height),
                           rgba="{} {} {} 1".format(color2[0], color2[1], color2[2]), mass="{}".format(object_mass),
                           contype="7", conaffinity="7", friction="{} 0.010 0.0002".format(friction)
                           )

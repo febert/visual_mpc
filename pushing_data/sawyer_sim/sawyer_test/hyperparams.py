@@ -21,6 +21,7 @@ env_params = {
     'num_objects': 1,
     'object_mass': 0.1,
     'friction': 1.0,
+    'mode_rel' : np.array([True, True, True, True, False]),
     'finger_sensors': True,
     # 'autograsp': {'zthresh': -0.06, 'touchthresh': 0.0, 'reopen': ''}
 }

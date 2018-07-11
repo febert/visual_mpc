@@ -14,19 +14,19 @@ Usage:
 -->
 
 <mujoco model="sawyer">
-    <camera pos="0 1.7 0.8" mode= "fixed" fovy="37" euler="-0.8 0 0" name="maincam" />
-    <camera pos="-0.75 0.8425 0.9" mode= "fixed" fovy="37" euler="-0.65 0 1.565" name="leftcam" />
+    <camera pos="0 1.4 0.8" mode= "fixed" fovy="35" euler="-0.75 0 0" name="maincam" />
+    <camera pos="-0.9 0.745 0.9" mode= "fixed" fovy="27" euler="-0.83 0 1.565" name="leftcam" />
 
     <geom name="floor" type="plane" pos="0 0 -.9" size="10 10 0.5"
           rgba="0 0 0 1" contype="15" conaffinity="15" />
     <body name="tabletop" pos="0 0.84 -0.45">
-        <geom type="box" size="0.38 0.4 0.45"
+        <geom type="box" pos = "0 -0.1 0" size="0.38 0.3 0.45"
           rgba=".6 .6 .5 1" contype="15" conaffinity="15" />
 
-        <geom type="box" pos = "0 0.39 0.45" size=".36 .001 .1" rgba="0 .1 .9 1" />
+        <geom type="box" pos = "0 0.19 0.45" size=".36 .001 .1" rgba="0 .1 .9 1" />
         <geom type="box" pos = "0 -0.39 0.45" size=".36 .001 .1" rgba="0 .1 .9 1" />
-        <geom type="box" pos = "0.36 0 0.45" size=".001 .39 .1" rgba="0 .1 .9 1" />
-        <geom type="box" pos = "-0.36 0 0.45" size=".001 .39 .1" rgba="0 .1 .9 1" />
+        <geom type="box" pos = "0.36 -0.1 0.45" size=".001 .29 .1" rgba="0 .1 .9 1" />
+        <geom type="box" pos = "-0.36 -0.1 0.45" size=".001 .29 .1" rgba="0 .1 .9 1" />
     </body>
 
 
