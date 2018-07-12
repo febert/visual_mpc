@@ -38,7 +38,7 @@ def file_len(fname):
             pass
     return i + 1
 
-def create_object_xml(filename, num_objects, object_mass, friction, object_meshes,
+def create_object_xml(filename, num_objects, object_mass, friction_params, object_meshes,
                       finger_sensors, maxlen, minlen, load_dict_list, obj_classname = None,
                       block_height = 0.03, block_width = 0.03):
     """
@@ -57,7 +57,7 @@ def create_object_xml(filename, num_objects, object_mass, friction, object_meshe
         ET.SubElement(sensor_frame, "touch", name = "finger2_sensor", site = "finger2_surf")
     else:
         sensor_frame = None
-
+    f_sliding, f_torsion, f_rolling = friction_params
     world_body = ET.SubElement(root, "worldbody")
     for i in range(num_objects):
         if load_dict_list == None:
@@ -145,15 +145,15 @@ def create_object_xml(filename, num_objects, object_mass, friction, object_meshe
 
             ET.SubElement(obj, "geom", type="box", size="{} {} {}".format(block_width, l1, block_height),
                           rgba="{} {} {} 1".format(color1[0], color1[1], color1[2]), mass="{}".format(object_mass),
-                          contype="7", conaffinity="7", friction="{} 0.010 0.0002".format(friction)
+                          contype="7", conaffinity="7", friction="{} {} {}".format(f_sliding, f_torsion, f_rolling)
                           )
             ET.SubElement(obj, "geom", pos="{} {} 0.0".format(l2, pos2),
                           type="box", size="{} {} {}".format(l2, block_width, block_height),
                           rgba="{} {} {} 1".format(color2[0], color2[1], color2[2]), mass="{}".format(object_mass),
-                          contype="7", conaffinity="7", friction="{} 0.010 0.0002".format(friction)
+                          contype="7", conaffinity="7", friction="{} {} {}".format(f_sliding, f_torsion, f_rolling)
                           )
 
-            print('using friction={}, object mass{}'.format(friction, object_mass))
+            print('using friction=({}, {}, {}), object mass{}'.format(f_sliding, f_torsion, f_rolling, object_mass))
 
     tree = ET.ElementTree(root)
 

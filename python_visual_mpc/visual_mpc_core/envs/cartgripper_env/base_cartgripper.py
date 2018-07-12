@@ -32,8 +32,9 @@ class BaseCartgripperEnv(BaseMujocoEnv):
                     object_object_mindist=None, randomize_initial_pos=True, arm_obj_initdist=None,
                     xpos0=None, object_pos0=[], arm_start_lifted=False, skip_first=40, substeps=200):
         base_filename = asset_base_path + filename
+        friction_params = (friction, 0.010, 0.0002)
         self.obj_stat_prop = create_object_xml(base_filename, num_objects, object_mass,
-                                               friction, object_meshes, finger_sensors,
+                                               friction_params, object_meshes, finger_sensors,
                                                maxlen, minlen, preload_obj_dict)
         gen_xml = create_root_xml(base_filename)
         super().__init__(gen_xml, viewer_image_height, viewer_image_width)

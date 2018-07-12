@@ -40,14 +40,12 @@ Usage:
             gravity="0 0 -9.81"
             iterations="50"
             integrator="Euler"
-            timestep="0.03"
+            timestep="0.0003"
             cone="elliptic"
             impratio="3"
             tolerance="1e-10"
+            noslip_iterations = "5"
     />
-
-
-
     <default>
         <joint limited="true"
                damping="1"
@@ -56,7 +54,7 @@ Usage:
                user="0"/>
         <geom solref="0.008 1"
               solimp="0.95 0.95 0.01"
-              user="0"
+              user="0" condim="4"
               />
         <motor ctrllimited="true" ctrlrange="-1 1"/>
         <position ctrllimited="true"/>
@@ -82,6 +80,6 @@ Usage:
     </default>
 
     <equality>
-        <weld body1="mocap" body2="hand" solref="0.005 1"></weld>
+        <weld body1="mocap" body2="hand" solref="0.05 0.95"></weld>
     </equality>
 </mujoco>

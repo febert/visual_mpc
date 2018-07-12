@@ -21,12 +21,12 @@ Usage:
           rgba="0 0 0 1" contype="15" conaffinity="15" />
     <body name="tabletop" pos="0 0.84 -0.45">
         <geom type="box" pos = "0 -0.1 0" size="0.38 0.3 0.45"
-          rgba=".6 .6 .5 1" contype="15" conaffinity="15" />
+          rgba=".6 .6 .5 1" contype="1" conaffinity="1" />
 
-        <geom type="box" pos = "0 0.19 0.45" size=".36 .001 .1" rgba="0 .1 .9 1" />
-        <geom type="box" pos = "0 -0.39 0.45" size=".36 .001 .1" rgba="0 .1 .9 1" />
-        <geom type="box" pos = "0.36 -0.1 0.45" size=".001 .29 .1" rgba="0 .1 .9 1" />
-        <geom type="box" pos = "-0.36 -0.1 0.45" size=".001 .29 .1" rgba="0 .1 .9 1" />
+        <geom type="box" pos = "0 0.19 0.45" size=".36 .001 .1" rgba="0 .1 .9 1" contype="1" conaffinity="1" />
+        <geom type="box" pos = "0 -0.39 0.45" size=".36 .001 .1" rgba="0 .1 .9 1" contype="1" conaffinity="1"/>
+        <geom type="box" pos = "0.36 -0.1 0.45" size=".001 .29 .1" rgba="0 .1 .9 1" contype="1" conaffinity="1"/>
+        <geom type="box" pos = "-0.36 -0.1 0.45" size=".001 .29 .1" rgba="0 .1 .9 1" contype="1" conaffinity="1" />
     </body>
 
 
@@ -138,8 +138,8 @@ Usage:
                                                     <geom type="mesh" rgba="0 0 0 0" mesh="GUIDE_WSG50_110" />
                                                     <body name="finger_left" pos="0 0 0.01">
                                                         <inertial pos="0 0 0" mass="0.1" diaginertia="1 1 1" />
-                                                        <geom type="mesh" rgba="0 0 0 1" mesh="WSG-FMF" contype="2" conaffinity="2"/>
-                                                    <site name="finger1_surf" pos="0.002 0 0.1" size=".0025 .007 .025" type="box" rgba="0.0 1.0 0.0 1"/>
+                                                        <geom type="mesh" rgba="0 0 0 1" mesh="WSG-FMF" contype="2" conaffinity="2" margin="0.002"/>
+                                                        <site name="finger1_surf" pos="0.003 0 0.1" size=".004 .007 .025" type="box" rgba="0.0 1.0 0.0 0"/>
                                                     </body>
                                                 </body>
                                                 <body name="gripper_right" pos="0 0 0" quat="1.32679e-06 0 0 1">
@@ -148,8 +148,8 @@ Usage:
                                                     <geom type="mesh" rgba="0 0 0 0" mesh="GUIDE_WSG50_110" />
                                                     <body name="finger_right" pos="0 0 0.01">
                                                         <inertial pos="0 0 0" mass="0.1" diaginertia="1 1 1" />
-                                                        <geom type="mesh" rgba="0 0 0 1" mesh="WSG-FMF" contype="4" conaffinity="4"/>
-                                                    <site name="finger2_surf" pos="0.002 0 0.1" size=".0025 .007 .025" type="box" rgba="1.0 0.0 0.0 1"/>
+                                                        <geom type="mesh" rgba="0 0 0 1" mesh="WSG-FMF" contype="4" conaffinity="4" margin="0.002"/>
+                                                        <site name="finger2_surf" pos="0.003 0 0.1" size=".004 .007 .025" type="box" rgba="1.0 0.0 0.0 0"/>
                                                     </body>
                                                 </body>
                                             </body>
@@ -188,7 +188,7 @@ Usage:
         <!--For debugging, set the alpha to 1-->
         <!--<geom conaffinity="0" contype="0" pos="0 0 0" rgba="0.5 0.5 0.5 1" size="0.1 0.02 0.02" type="box"></geom>-->
         <!--<geom conaffinity="0" contype="0" pos="0 0 0" rgba="0.0 0.5 0.5 1" size="0.01" type="sphere"></geom>-->
-        <site pos="0 0 0" rgba="0.0 0.5 0.5 1" size="0.01" type="sphere"></site>
+        <site pos="0 0 0" rgba="0.0 0.5 0.5 0" size="0.01" type="sphere"></site>
     </body>
 
 </mujoco>

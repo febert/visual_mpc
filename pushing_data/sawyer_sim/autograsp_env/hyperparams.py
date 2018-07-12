@@ -22,7 +22,9 @@ env_params = {
     'object_mass': 0.1,
     'friction': 1,
     'finger_sensors': True,
-     'autograsp': {'zthresh': 0.18, 'touchthresh': 0.0, 'reopen': ''}
+    'substeps': 100,
+     'autograsp': {'zthresh': 0.18, 'touchthresh': 0.0},
+    'skip_first': 300
 }
 
 agent = {
@@ -38,9 +40,9 @@ agent = {
     'gen_xml':10,   #generate xml every nth trajecotry
     'ztarget':0.13,
     'min_z_lift':0.05,
-    'make_final_gif':'', #keep this key in if you want final gif to be created
     'record': BASE_DIR + '/record/',
-    'discrete_gripper' : -1, #discretized gripper dimension,
+    'make_final_gif': True,
+    'discrete_gripper': -1, #discretized gripper dimension,
     'lift_rejection_sample' : 15,
 }
 
@@ -49,9 +51,9 @@ policy = {
     'nactions' : 10,
     'repeat' : 3,
     'no_action_bound' : False,
-    'initial_std': 0.02,   #std dev. in xy
+    'initial_std': 0.0002,   #std dev. in xy
     'initial_std_lift': 1.6,   #std dev. in xy
-    'initial_std_rot' : np.pi / 18,
+    'initial_std_rot' : np.pi / 180,
     'initial_std_grasp' : 2
 }
 

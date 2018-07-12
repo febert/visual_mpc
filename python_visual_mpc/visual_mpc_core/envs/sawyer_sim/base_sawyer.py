@@ -4,10 +4,13 @@ import numpy as np
 import mujoco_py
 from pyquaternion import Quaternion
 from python_visual_mpc.visual_mpc_core.envs.cartgripper_env.util.create_xml import create_object_xml, create_root_xml, clean_xml
+from python_visual_mpc.visual_mpc_core.envs.util.action_util import CSpline
 import moviepy.editor as mpy
+from mujoco_py.builder import MujocoException
 import time
 
 import copy
+import skimage.io
 
 def quat_to_zangle(quat):
     angle = -(Quaternion(axis = [0,1,0], angle = np.pi).inverse * Quaternion(quat)).angle
@@ -27,15 +30,17 @@ asset_base_path = BASE_DIR + '/mjc_models/sawyer_assets/sawyer_xyz/'
 
 low_bound = np.array([-0.27, 0.52, 0.15, 0, -1])
 high_bound = np.array([0.27, 0.95, 0.3, 2 * np.pi - 0.001, 1])
+NEUTRAL_JOINTS = np.array([1.65474475, - 0.53312487, - 0.65980174, 1.1841825, 0.62772584, 1.11682223, 1.31015104, -0.05, 0.05])
 
 class BaseSawyerEnv(BaseMujocoEnv):
     def __init__(self, filename, mode_rel, num_objects = 1, object_mass = 1, friction=1.0, finger_sensors=True,
                  maxlen=0.12, minlen=0.01, preload_obj_dict=None, object_meshes=None, obj_classname = 'freejoint',
                  block_height=0.02, block_width = 0.02, viewer_image_height = 480, viewer_image_width = 640,
-                 skip_first=100, substeps=100, randomize_initial_pos = True):
+                 skip_first=200, substeps=100, randomize_initial_pos = True):
         base_filename = asset_base_path + filename
+        friction_params = (friction, 0.1, 0.02)
         self.obj_stat_prop = create_object_xml(base_filename, num_objects, object_mass,
-                                               friction, object_meshes, finger_sensors,
+                                               friction_params, object_meshes, finger_sensors,
                                                maxlen, minlen, preload_obj_dict, obj_classname,
                                                block_height, block_width)
         gen_xml = create_root_xml(base_filename)
@@ -61,32 +66,38 @@ class BaseSawyerEnv(BaseMujocoEnv):
         self.sim.data.qpos[7:9] = np.clip(self.sim.data.qpos[7:9], [-0.055, 0.0027], [-0.0027, 0.055])
 
     def reset(self):
+        self.sim.data.qpos[:9] = NEUTRAL_JOINTS
+        for _ in range(30):
+            self.sim.step()
+
         if self.randomize_initial_pos:
-            self.sim.data.set_mocap_pos('mocap', np.random.uniform(low_bound[:3], high_bound[:3]))
+            xyz = np.array([0, 0.74, 0.3])
+            self.sim.data.set_mocap_pos('mocap', xyz)   #np.random.uniform(low_bound[:3], high_bound[:3])
             self.sim.data.set_mocap_quat('mocap', zangle_to_quat(np.random.uniform(low_bound[3], high_bound[3])))
         else:
             self.sim.data.set_mocap_pos('mocap', np.array([0, 0.5, 0.17]))
             self.sim.data.set_mocap_quat('mocap', zangle_to_quat(np.pi))
         #reset gripper
-        self.sim.data.qpos[7:9] = [-0.05573738, 0.05573735]
+        self.sim.data.qpos[7:9] = NEUTRAL_JOINTS[7:9]
         self.sim.data.ctrl[:] = [-1, 1]
 
         for i in range(self.num_objects):
             rand_xyz = np.random.uniform(low_bound[:3] + 0.05, high_bound[:3] - 0.05)
-            rand_xyz[2] = 0.18
+            rand_xyz[:2] = [0, 0.74]
+            rand_xyz[2] = 0.05
             self.sim.data.qpos[self._n_joints + i * 7: self._n_joints + 3 + i * 7] = rand_xyz
+            self.sim.data.qpos[self._n_joints + 3 + i * 7: self._n_joints + 7 + i * 7] = np.array([1, 0, 0, 0])
 
         finger_force = np.zeros(2)
         for _ in range(self.skip_first):
-            for _ in range(10):
+            for _ in range(100):
                 self._clip_gripper()
                 self.sim.step()
+
             if self.finger_sensors:
                 finger_force += self.sim.data.sensordata[:2]
         finger_force /= 10 * self.skip_first
-        if np.sum(finger_force) > 0:
-            print(self.sim.data.sensordata)
-            print(finger_force)
+
 
         self._previous_target_qpos = np.zeros(self._base_sdim)
         self._previous_target_qpos[:3] = self.sim.data.get_body_xpos('hand')
@@ -101,8 +112,7 @@ class BaseSawyerEnv(BaseMujocoEnv):
         obs, touch_offset = {}, 0
         # report finger sensors as needed
         if self.finger_sensors:
-            print(finger_sensors)
-            obs['finger_sensors'] = finger_sensors
+            obs['finger_sensors'] = np.array([np.max(finger_sensors)]).reshape(-1)
             touch_offset = 2
 
         # joint poisitions and velocities
@@ -140,26 +150,31 @@ class BaseSawyerEnv(BaseMujocoEnv):
         assert target_qpos.shape[0] == self._base_sdim
         finger_force = np.zeros(2)
 
+        xyz_interp = CSpline(self.sim.data.get_body_xpos('hand').copy(), target_qpos[:3])
         self.sim.data.set_mocap_quat('mocap', zangle_to_quat(target_qpos[3]))
         for st in range(self.substeps):
             alpha = 1.
             if not self.substeps == 1:
                 alpha = st / (self.substeps - 1)
 
-            cur_xyz = self.sim.data.get_body_xpos('hand').copy()
-            desired_xyz = cur_xyz * (1 - alpha) + alpha * target_qpos[:3]
-            self.sim.data.set_mocap_pos('mocap', desired_xyz)
+            self.sim.data.set_mocap_pos('mocap', xyz_interp.get(alpha)[0])
 
-            self.sim.data.ctrl[0] = target_qpos[-1]
-            self.sim.data.ctrl[1] = -target_qpos[-1]
+            if st < self.substeps // 2:
+                self.sim.data.ctrl[0] = self._previous_target_qpos[-1]
+                self.sim.data.ctrl[1] = -self._previous_target_qpos[-1]
+            else:
+                self.sim.data.ctrl[0] = target_qpos[-1]
+                self.sim.data.ctrl[1] = -target_qpos[-1]
 
-            for _ in range(1):
+            for _ in range(10):
                 self._clip_gripper()
                 if self.finger_sensors:
                     finger_force += copy.deepcopy(self.sim.data.sensordata[:2].squeeze())
                 self.sim.step()
-        finger_force /= self.substeps
 
+        finger_force /= self.substeps * 10
+        if np.sum(finger_force) > 0:
+            print(finger_force)
         self._previous_target_qpos = target_qpos
         return self._get_obs(finger_force)
 
@@ -176,10 +191,10 @@ class BaseSawyerEnv(BaseMujocoEnv):
 
 if __name__ == '__main__':
         env = BaseSawyerEnv('sawyer_grasp.xml', np.array([True, True, True, True, False]))
-        avg_100 = 0.
-        for _ in range(100):
+        avg_200 = 0.
+        for _ in range(200):
             timer = time.time()
-            env.sim.render(1, 1)
-            avg_100 += time.time() - timer
-        avg_100 /= 100
-        print('avg_100', avg_100)
+            env.sim.render(640, 480)
+            avg_200 += time.time() - timer
+        avg_200 /= 200
+        print('avg_100', avg_200)
