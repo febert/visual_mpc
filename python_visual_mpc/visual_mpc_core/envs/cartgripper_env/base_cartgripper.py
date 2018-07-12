@@ -3,7 +3,7 @@ import numpy as np
 import python_visual_mpc
 from python_visual_mpc.visual_mpc_core.envs.cartgripper_env.util.create_xml import create_object_xml, create_root_xml, clean_xml
 import copy
-
+import time
 
 BASE_DIR = '/'.join(str.split(python_visual_mpc.__file__, '/')[:-2])
 asset_base_path = BASE_DIR + '/mjc_models/'
@@ -189,3 +189,13 @@ class BaseCartgripperEnv(BaseMujocoEnv):
 
     def _next_qpos(self, action):
         raise NotImplementedError
+
+if __name__ == '__main__':
+        env = BaseCartgripperEnv('cartgripper_grasp.xml', 1, 0.1, 1, np.array([True, True, True, True, False]))
+        avg_100 = 0.
+        for _ in range(100):
+            timer = time.time()
+            env.sim.render(640, 480)
+            avg_100 += time.time() - timer
+        avg_100 /= 100
+        print('avg_100', avg_100)

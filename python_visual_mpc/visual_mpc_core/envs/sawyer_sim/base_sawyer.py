@@ -32,7 +32,7 @@ class BaseSawyerEnv(BaseMujocoEnv):
     def __init__(self, filename, mode_rel, num_objects = 1, object_mass = 1, friction=1.0, finger_sensors=True,
                  maxlen=0.12, minlen=0.01, preload_obj_dict=None, object_meshes=None, obj_classname = 'freejoint',
                  block_height=0.02, block_width = 0.02, viewer_image_height = 480, viewer_image_width = 640,
-                 skip_first=40, substeps=100, randomize_initial_pos = True):
+                 skip_first=100, substeps=100, randomize_initial_pos = True):
         base_filename = asset_base_path + filename
         self.obj_stat_prop = create_object_xml(base_filename, num_objects, object_mass,
                                                friction, object_meshes, finger_sensors,
@@ -72,8 +72,8 @@ class BaseSawyerEnv(BaseMujocoEnv):
         self.sim.data.ctrl[:] = [-1, 1]
 
         for i in range(self.num_objects):
-            rand_xyz = np.random.uniform(low_bound[:3], high_bound[:3])
-            rand_xyz[2] = 0.3
+            rand_xyz = np.random.uniform(low_bound[:3] + 0.05, high_bound[:3] - 0.05)
+            rand_xyz[2] = 0.18
             self.sim.data.qpos[self._n_joints + i * 7: self._n_joints + 3 + i * 7] = rand_xyz
 
         finger_force = np.zeros(2)
@@ -153,13 +153,12 @@ class BaseSawyerEnv(BaseMujocoEnv):
             self.sim.data.ctrl[0] = target_qpos[-1]
             self.sim.data.ctrl[1] = -target_qpos[-1]
 
-            for _ in range(10):
+            for _ in range(1):
                 self._clip_gripper()
                 if self.finger_sensors:
                     finger_force += copy.deepcopy(self.sim.data.sensordata[:2].squeeze())
                 self.sim.step()
-
-        finger_force /= self.substeps * 10
+        finger_force /= self.substeps
 
         self._previous_target_qpos = target_qpos
         return self._get_obs(finger_force)
@@ -180,7 +179,7 @@ if __name__ == '__main__':
         avg_100 = 0.
         for _ in range(100):
             timer = time.time()
-            env.render()
+            env.sim.render(1, 1)
             avg_100 += time.time() - timer
         avg_100 /= 100
         print('avg_100', avg_100)

@@ -12,7 +12,7 @@
         <include file="objects.xml"/>
     <!--end_auto_replace -->
 	<actuator>
-        <position joint="base_joint_gripper_left" kp="10"/>
-        <position joint="base_joint_gripper_right" kp="10"/>
+        <position joint="base_joint_gripper_left" kp="2"/>
+        <position joint="base_joint_gripper_right" kp="2"/>
     </actuator>
 </mujoco>

@@ -20,7 +20,7 @@ env_params = {
     'filename': 'sawyer_grasp.xml',
     'num_objects': 1,
     'object_mass': 0.1,
-    'friction': 1.0,
+    'friction': 1,
     'finger_sensors': True,
      'autograsp': {'zthresh': 0.18, 'touchthresh': 0.0, 'reopen': ''}
 }
