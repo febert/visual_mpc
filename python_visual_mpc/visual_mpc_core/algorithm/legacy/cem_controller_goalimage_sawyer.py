@@ -117,7 +117,7 @@ class CEM_controller():
             self.ndesig = self.netconf['ndesig']
         else: self.ndesig = None
 
-        if 'ntask' in self.agentparams:   # number of
+        if 'ntask' in self.agentparams:
             self.ntask = self.agentparams['ntask']
         else: self.ntask = 1
 

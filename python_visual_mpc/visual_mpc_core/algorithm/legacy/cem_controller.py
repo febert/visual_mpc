@@ -21,6 +21,7 @@ from python_visual_mpc.visual_mpc_core.agent.utils.gen_gtruth_desig import gen_g
 from python_visual_mpc.visual_mpc_core.agent.utils.convert_world_imspace_mj1_5 import project_point, get_3D
 
 from python_visual_mpc.visual_mpc_core.agent.agent_mjc import get_target_qpos
+from python_visual_mpc.visual_mpc_core.algorithm.utils.make_cem_visuals import CEM_Visual_Preparation
 
 
 class CEM_controller(Policy):
@@ -30,6 +31,7 @@ class CEM_controller(Policy):
     def __init__(self, imiation_conf, ag_params, policyparams):
         Policy.__init__(self)
 
+        self.visualizer = CEM_Visual_Preparation()
         self.agentparams = ag_params
         self.policyparams = policyparams
 

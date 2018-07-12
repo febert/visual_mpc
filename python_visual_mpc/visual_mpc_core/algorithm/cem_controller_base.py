@@ -1,32 +1,10 @@
 """ This file defines the linear Gaussian policy class. """
 import pdb
 import numpy as np
-
-import pdb
 import os
-import copy
-import time
-import imp
-import pickle
-from datetime import datetime
-import copy
-from python_visual_mpc.video_prediction.basecls.utils.visualize import add_crosshairs
-
-from python_visual_mpc.visual_mpc_core.algorithm.utils.make_cem_visuals import make_cem_visuals
-# from python_visual_mpc.video_prediction.utils_vpred.create_gif_lib import *
-
 import matplotlib; matplotlib.use('Agg'); import matplotlib.pyplot as plt
-import copy
-import pdb
-from scipy.special import expit
 import collections
-import cv2
 from python_visual_mpc.visual_mpc_core.infrastructure.utility.logger import Logger
-from python_visual_mpc.goaldistancenet.variants.multiview_testgdn import MulltiviewTestGDN
-from python_visual_mpc.goaldistancenet.variants.multiview_testgdn import MulltiviewTestGDN
-from queue import Queue
-from python_visual_mpc.video_prediction.utils_vpred.animate_tkinter import resize_image
-from threading import Thread
 if "NO_ROS" not in os.environ:
     from visual_mpc_rospkg.msg import floatarray
     from rospy.numpy_msg import numpy_msg
@@ -127,6 +105,10 @@ class CEM_Controller_Base(Policy):
             self.smp_peract = self.policyparams['stochastic_planning'][0]
         else: self.smp_peract = 1
 
+        self.ncam = 1
+        self.ndesig = 1
+        self.best_cost_perstep = np.zeros([self.ncam, self.ndesig, self.repeat*self.naction_steps])
+
     def discretize(self, actions):
         """
         discretize and clip between 0 and 4
@@ -163,6 +145,7 @@ class CEM_Controller_Base(Policy):
             self.K = int(np.ceil(self.M*self.policyparams['selection_frac']))
 
         self.bestindices_of_iter = np.zeros((self.niter, self.K))
+        self.cost_perstep = np.zeros([self.M, self.ncam, self.ndesig, self.seqlen - self.ncontxt])
 
         self.logger.log('M {}, K{}'.format(self.M, self.K))
         self.logger.log('------------------------------------------------')
@@ -199,6 +182,8 @@ class CEM_Controller_Base(Policy):
                 self.plan_stat['best_cost_perstep'] = self.best_cost_perstep
 
             actions_flat = self.post_process_actions(actions)
+            self.bestaction = actions[self.indices[0]]
+
             self.fit_gaussians(actions_flat)
 
             self.logger.log('iter {0}, bestscore {1}'.format(itr, scores[self.indices[0]]))

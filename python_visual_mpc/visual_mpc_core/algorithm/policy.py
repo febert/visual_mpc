@@ -17,11 +17,3 @@ class Policy(object):
             A dU dimensional action vector.
         """
         raise NotImplementedError("Must be implemented in subclass.")
-
-    def set_meta_data(self, meta):
-        """
-        Set meta data_files for policy (e.g., domain image, multi modal observation sizes)
-        Args:
-            meta: meta data_files.
-        """
-        return
