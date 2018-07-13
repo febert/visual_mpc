@@ -9,6 +9,7 @@ import random
 import numpy as np
 import stl
 from stl import mesh
+import python_visual_mpc
 
 def find_mins_maxs(obj):
     minx = maxx = miny = maxy = minz = maxz = None
@@ -37,6 +38,10 @@ def file_len(fname):
         for i, l in enumerate(f):
             pass
     return i + 1
+
+
+ASSET_BASE_DIR = '/'.join(os.path.abspath(python_visual_mpc.__file__).split('/')[:-2]) + '/mjc_models/'
+
 
 def create_object_xml(filename, num_objects, object_mass, friction_params, object_meshes,
                       finger_sensors, maxlen, minlen, load_dict_list, obj_classname = None,
@@ -80,12 +85,13 @@ def create_object_xml(filename, num_objects, object_mass, friction_params, objec
             pos2 = dict['pos2']
         save_dict_list.append(dict)
 
+        obj_string = "object{}".format(i)
+        print('using friction=({}, {}, {}), object mass{}'.format(f_sliding, f_torsion, f_rolling, object_mass))
+
         if object_meshes is not None:
             assets = ET.SubElement(root, "asset")
 
-            obj_string = "object{}".format(i)
-
-            o_mesh = xmldir + '/' + random.choice(object_meshes) +'/'
+            o_mesh = ASSET_BASE_DIR + '{}/'.format(random.choice(object_meshes))
             print('import mesh dir', o_mesh)
             stl_files = glob.glob(o_mesh + '*.stl')
             convex_hull_files = [x for x in stl_files if 'Shape_IndexedFaceSet' in x]
@@ -106,10 +112,12 @@ def create_object_xml(filename, num_objects, object_mass, friction_params, objec
 
 
 
-            mass_per_elem = 0.01 / (1 + len(convex_hull_files))
+            mass_per_elem = object_mass / (1 + len(convex_hull_files))
 
             pos_str = "{} {} {}".format(object_pos[0], object_pos[1], object_pos[2])
-            obj = ET.SubElement(world_body, "body",name=obj_string, pos=pos_str)
+            if obj_classname is not None:
+                obj = ET.SubElement(world_body, "body",name=obj_string, pos=pos_str, childclass=obj_classname)
+            else: obj = ET.SubElement(world_body, "body",name=obj_string, pos=pos_str)
             ET.SubElement(obj, "joint", type="free")
 
             ET.SubElement(assets, "mesh", name = obj_string + "_mesh", file = object_file,
@@ -117,29 +125,26 @@ def create_object_xml(filename, num_objects, object_mass, friction_params, objec
             for n, c_file in enumerate(convex_hull_files):
                 ET.SubElement(assets, "mesh", name= obj_string + "_convex_mesh{}".format(n), file=c_file,
                               scale="{} {} {}".format(scale,  scale,  scale))
-
-
-
+            #visual mesh
             ET.SubElement(obj, "geom", type="mesh", mesh = obj_string + "_mesh",
                           rgba="{} {} {} 1".format(color1[0], color1[1], color1[2]), mass="{}".format(mass_per_elem),
-                          contype="0", conaffinity="0", friction="0.5 0.010 0.0002", condim="6", solimp="0.99 0.99 0.01", solref="0.01 1"
-                          )
+                          contype="0", conaffinity="0")
+            #contact meshes
             for n in range(len(convex_hull_files)):
                 ET.SubElement(obj, "geom", type="mesh", mesh=obj_string + "_convex_mesh{}".format(n),
-                              rgba="{} {} {} 0".format(color1[0], color1[1], color1[2]), mass="{}".format(mass_per_elem),
-                              contype="7", conaffinity="7", friction="1.5 0.10 0.002", condim="6", solimp="0.99 0.99 0.01", solref="0.01 1"
+                              rgba="0 0 0 0", mass="{}".format(mass_per_elem),
+                              contype="7", conaffinity="7", friction="{} {} {}".format(f_sliding, f_torsion, f_rolling)
+                              #, condim="6", solimp="0.99 0.99 0.01", solref="0.01 1"
                               )
-            if sensor_frame is None:
-                sensor_frame = ET.SubElement(root, "sensor")
-            ET.SubElement(sensor_frame, "framepos", name=obj_string + '_sensor', objtype="body", objname=obj_string)
+
 
 
         else:
             obj = None
             if obj_classname is not None:
-                obj = ET.SubElement(world_body, "body", name="object{}".format(i), pos="0 0 0",
+                obj = ET.SubElement(world_body, "body", name=obj_string, pos="0 0 0",
                                     childclass=obj_classname)
-            else: obj = ET.SubElement(world_body, "body", name="object{}".format(i), pos="0 0 0")
+            else: obj = ET.SubElement(world_body, "body", name=obj_string, pos="0 0 0")
 
             ET.SubElement(obj, "joint", type="free")
 
@@ -153,7 +158,10 @@ def create_object_xml(filename, num_objects, object_mass, friction_params, objec
                           contype="7", conaffinity="7", friction="{} {} {}".format(f_sliding, f_torsion, f_rolling)
                           )
 
-            print('using friction=({}, {}, {}), object mass{}'.format(f_sliding, f_torsion, f_rolling, object_mass))
+
+        if sensor_frame is None:
+            sensor_frame = ET.SubElement(root, "sensor")
+        ET.SubElement(sensor_frame, "framepos", name=obj_string + '_sensor', objtype="body", objname=obj_string)
 
     tree = ET.ElementTree(root)
 

@@ -24,7 +24,8 @@ env_params = {
     'finger_sensors': True,
     'substeps': 100,
      'autograsp': {'zthresh': 0.18, 'touchthresh': 0.0},
-    'skip_first': 300
+    'skip_first': 300,
+    'object_meshes': ['LotusBowl01']
 }
 
 agent = {

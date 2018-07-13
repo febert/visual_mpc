@@ -3,14 +3,12 @@ import python_visual_mpc
 import numpy as np
 import mujoco_py
 from pyquaternion import Quaternion
-from python_visual_mpc.visual_mpc_core.envs.cartgripper_env.util.create_xml import create_object_xml, create_root_xml, clean_xml
+from python_visual_mpc.visual_mpc_core.envs.util.create_xml import create_object_xml, create_root_xml, clean_xml
 from python_visual_mpc.visual_mpc_core.envs.util.action_util import CSpline
-import moviepy.editor as mpy
-from mujoco_py.builder import MujocoException
 import time
 
 import copy
-import skimage.io
+
 
 def quat_to_zangle(quat):
     angle = -(Quaternion(axis = [0,1,0], angle = np.pi).inverse * Quaternion(quat)).angle
@@ -58,7 +56,7 @@ class BaseSawyerEnv(BaseMujocoEnv):
         self._base_sdim, self._base_adim, self.mode_rel = 5, 5, mode_rel
         self.num_objects, self.skip_first, self.substeps = num_objects, skip_first, substeps
         self.randomize_initial_pos = randomize_initial_pos
-        self.finger_sensors, self.object_sensors = finger_sensors, object_meshes is not None
+        self.finger_sensors, self._maxlen = finger_sensors, maxlen
 
         self._previous_target_qpos, self._n_joints = None, 9
 
@@ -71,8 +69,8 @@ class BaseSawyerEnv(BaseMujocoEnv):
             self.sim.step()
 
         if self.randomize_initial_pos:
-            xyz = np.array([0, 0.74, 0.3])
-            self.sim.data.set_mocap_pos('mocap', xyz)   #np.random.uniform(low_bound[:3], high_bound[:3])
+            xyz = np.random.uniform(low_bound[:3], high_bound[:3])
+            self.sim.data.set_mocap_pos('mocap', xyz)
             self.sim.data.set_mocap_quat('mocap', zangle_to_quat(np.random.uniform(low_bound[3], high_bound[3])))
         else:
             self.sim.data.set_mocap_pos('mocap', np.array([0, 0.5, 0.17]))
@@ -82,7 +80,7 @@ class BaseSawyerEnv(BaseMujocoEnv):
         self.sim.data.ctrl[:] = [-1, 1]
 
         for i in range(self.num_objects):
-            rand_xyz = np.random.uniform(low_bound[:3] + 0.05, high_bound[:3] - 0.05)
+            rand_xyz = np.random.uniform(low_bound[:3] + self._maxlen, high_bound[:3] - self._maxlen)
             rand_xyz[:2] = [0, 0.74]
             rand_xyz[2] = 0.05
             self.sim.data.qpos[self._n_joints + i * 7: self._n_joints + 3 + i * 7] = rand_xyz
@@ -98,7 +96,8 @@ class BaseSawyerEnv(BaseMujocoEnv):
                 finger_force += self.sim.data.sensordata[:2]
         finger_force /= 10 * self.skip_first
 
-
+        print(self.sim.data.qpos[9:12])
+        print(self.sim.data.sensordata[2:])
         self._previous_target_qpos = np.zeros(self._base_sdim)
         self._previous_target_qpos[:3] = self.sim.data.get_body_xpos('hand')
         self._previous_target_qpos[3] = quat_to_zangle(self.sim.data.get_body_xquat('hand'))
@@ -130,9 +129,8 @@ class BaseSawyerEnv(BaseMujocoEnv):
         obs['object_poses'] = np.zeros((self.num_objects, 3))
         for i in range(self.num_objects):
             fullpose = self.sim.data.qpos[i * 7 + self._n_joints:(i + 1) * 7 + self._n_joints].squeeze().copy()
+            fullpose[:3] = self.sim.data.sensordata[touch_offset + i * 3:touch_offset + (i + 1) * 3]
 
-            if self.object_sensors:
-                fullpose[:3] = self.sim.data.sensordata[touch_offset + i * 3:touch_offset + (i + 1) * 3].copy()
             obs['object_poses_full'][i] = fullpose
             obs['object_poses'][i, :2] = fullpose[:2]
             obs['object_poses'][i, 2] = quat_to_zangle(fullpose[3:])
