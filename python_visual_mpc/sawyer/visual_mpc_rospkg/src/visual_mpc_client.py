@@ -87,6 +87,7 @@ class Visual_MPC_Client():
         bench_dir = cem_exp_dir + '/' + benchmark_name
 
         if not os.path.exists(bench_dir):
+            print(bench_dir)
             raise ValueError('benchmark directory does not exist')
         bench_conf = imp.load_source('mod_hyper', bench_dir + '/mod_hyper.py')
         self.policyparams = bench_conf.policy
@@ -111,13 +112,8 @@ class Visual_MPC_Client():
             dataconf_file = self.base_dir + '/'.join(str.split(self.netconf['data_dir'], '/')[:-1]) + '/conf.py'
             dataconf = imp.load_source('hyperparams', dataconf_file).configuration
 
-
-        if 'img_height' in self.netconf and 'img_width' in self.netconf:
-            self.img_height = self.netconf['img_height']
-            self.img_width = self.netconf['img_width']
-        else:
-            self.img_height = dataconf['img_height']
-            self.img_width = dataconf['img_width']
+        self.img_height = self.netconf['img_height']
+        self.img_width = self.netconf['img_width']
 
         self.ndesig = self.agentparams['ndesig']
 
@@ -181,27 +177,21 @@ class Visual_MPC_Client():
             self.data_collection = True
             save_video = True
             save_actions = True
-            save_images = True
             assert self.robot_name != ''
             rospy.Subscriber("ctrl_alive", numpy_msg(intarray), self.ctr_alive)
         else:
             save_video = True
             save_actions = False
-            save_images = False
             self.data_collection = False
 
         if self.use_save_subdir:
-            save_lowres = True
-            save_images = True
             self.recorder_save_dir = None
             # self.recorder_save_dir = self.base_dir + "/experiments/cem_exp/benchmarks_sawyer/" + self.benchname + \
             #                             '/' + self.save_subdir + "/videos"
         elif self.data_collection:
             self.recorder_save_dir  =self.base_dir + "/experiments/cem_exp/benchmarks_sawyer/" + self.benchname + "/data"
-            save_lowres = False
         else:
             self.recorder_save_dir = self.base_dir + "/experiments/cem_exp/benchmarks_sawyer/" + self.benchname + "/videos"
-            save_lowres = False
 
         self.num_pic_perstep = 4
         self.nsave = self.action_sequence_length * self.num_pic_perstep
@@ -213,9 +203,9 @@ class Visual_MPC_Client():
                                                      use_aux=self.use_aux,
                                                      save_video=save_video,
                                                      save_actions=save_actions,
-                                                     save_images=save_images,
+                                                     save_images=True,
                                                      image_shape=(self.img_height, self.img_width),
-                                                     save_lowres=save_lowres)
+                                                     save_lowres=True)
 
         while self.recorder.ltob.img_cv2 is None:
             print('waiting for images')
@@ -264,20 +254,27 @@ class Visual_MPC_Client():
     def mark_goal_desig(self, itr):
         if 'use_goal_image' in self.policyparams:
             print('put object in goal configuration')
-            pdb.set_trace()
+            if 'ntask' in self.agentparams:
+                ntask = self.agentparams['ntask']
+            else: ntask =1
+            raw_input()
             imagemain = self.recorder.ltob.img_cropped
             imagemain = cv2.cvtColor(imagemain, cv2.COLOR_BGR2RGB)
-            c_main = Getdesig(imagemain, self.recorder_save_dir, 'goal', n_desig=1,
+            c_main = Getdesig(imagemain, self.recorder_save_dir, 'goal', n_desig=ntask,
                               im_shape=[self.img_height, self.img_width], clicks_per_desig=1)
             self.goal_pos_main = c_main.desig.astype(np.int64)
-            self.goal_image = imagemain
             print('goal pos main:', self.goal_pos_main)
+            if 'image_medium' in self.agentparams:
+                self.goal_image = self.recorder.ltob.img_cropped_medium
+            else:
+                self.goal_image = self.recorder.ltob.img_cropped
+            self.goal_image = cv2.cvtColor(self.goal_image, cv2.COLOR_BGR2RGB)
 
             print('put object in start configuration')
-            pdb.set_trace()
+            raw_input()
             imagemain = self.recorder.ltob.img_cropped
             imagemain = cv2.cvtColor(imagemain, cv2.COLOR_BGR2RGB)
-            c_main = Getdesig(imagemain, self.recorder_save_dir, 'start', n_desig=1,
+            c_main = Getdesig(imagemain, self.recorder_save_dir, 'start', n_desig=ntask,
                               im_shape=[self.img_height, self.img_width], clicks_per_desig=1)
             self.desig_pos_main = c_main.desig.astype(np.int64)
             print('desig pos aux1:', self.desig_pos_main)
@@ -290,7 +287,6 @@ class Visual_MPC_Client():
             print('desig pos aux1:', self.desig_pos_main)
             self.goal_pos_main = c_main.goal.astype(np.int64)
             print('goal pos main:', self.goal_pos_main)
-
             self.goal_image = np.zeros_like(imagemain)
 
 
@@ -472,9 +468,11 @@ class Visual_MPC_Client():
 
         if self.use_save_subdir:
             self.save_subdir = raw_input('enter subdir to save data:')
+
             self.recorder_save_dir = self.base_dir + "/experiments/cem_exp/benchmarks_sawyer/" + self.benchname + \
                                      '/bench/' + self.save_subdir + "/videos"
             self.recorder.image_folder = self.recorder_save_dir
+            self.recorder.curr_traj = self.curr_traj = robot_recorder.Trajectory(self.recorder.state_sequence_length)
 
         if self.data_collection:
             self.recorder.init_traj(i_tr)
@@ -501,7 +499,7 @@ class Visual_MPC_Client():
         self.lower_height = 0.22  # using old gripper : 0.16
         self.delta_up = 0.13
 
-        self.xlim = [0.46, 0.83]  # min, max in cartesian X-direction
+        self.xlim = [0.46, 0.83]  # min, max in cartesian Xdirection
         self.ylim = [-0.17, 0.17]  # min, max in cartesian Y-directionn
 
         if 'random_startpos' in self.policyparams:
@@ -617,10 +615,10 @@ class Visual_MPC_Client():
                 rospy.logerr('collision detected, stopping trajectory, going to reset robot...')
                 rospy.sleep(.5)
                 raise Traj_aborted_except('raising Traj_aborted_except')
-            if self.ctrl.limb.has_collided():
-                rospy.logerr('collision detected!!!')
-                rospy.sleep(.5)
-                raise Traj_aborted_except('raising Traj_aborted_except')
+            # if self.ctrl.limb.has_collided():
+            #     rospy.logerr('collision detected!!!')
+            #     rospy.sleep(.5)
+            #     raise Traj_aborted_except('raising Traj_aborted_except')
 
             self.control_rate.sleep()
 
@@ -698,9 +696,9 @@ class Visual_MPC_Client():
         """
         assert (rospy.get_time() >= t_prev)
         des_pos = previous_goalpoint + (next_goalpoint - previous_goalpoint) * (rospy.get_time()- t_prev)/ (t_next - t_prev)
-        if rospy.get_time() - t_next > 1.5:
+        if rospy.get_time() - t_next > 2.5:
             des_pos = next_goalpoint
-            print('t - tnext > 1.5!!!!')
+            print('t - tnext > 2.5!!!!')
             pdb.set_trace()
 
         # print 'current_delta_time: ', self.curr_delta_time
@@ -728,18 +726,15 @@ class Visual_MPC_Client():
 
     def query_action(self, istep):
 
-        if self.use_aux:
-            self.recorder.get_aux_img()
-            imageaux1 = self.recorder.ltob_aux1.img_msg
+        if 'image_medium' in self.agentparams:
+            imagemain = self.bridge.cv2_to_imgmsg(self.recorder.ltob.img_cropped_medium)
         else:
-            imageaux1 = np.zeros((self.img_height, self.img_width, 3), dtype=np.uint8)
-            imageaux1 = self.bridge.cv2_to_imgmsg(imageaux1)
-        imagemain = self.bridge.cv2_to_imgmsg(self.recorder.ltob.img_cropped)
+            imagemain = self.bridge.cv2_to_imgmsg(self.recorder.ltob.img_cropped)
+        imageaux1 = self.bridge.cv2_to_imgmsg(np.zeros([self.img_height, self.img_height, 3]))
         state = self.get_endeffector_pos()
 
         try:
             rospy.wait_for_service('get_action', timeout=3)
-
             self.desig_pos_main[:,0] = np.clip(self.desig_pos_main[:,0], 0, self.img_height-1)
             self.desig_pos_main[:, 1] = np.clip(self.desig_pos_main[:, 1], 0, self.img_width - 1)
             self.goal_pos_main[:, 0] = np.clip(self.goal_pos_main[:, 0], 0, self.img_height - 1)
@@ -893,11 +888,12 @@ class Visual_MPC_Client():
             replay_rate.sleep()
             self.move_with_impedance(self.joint_pos[t])
 
+
 class Getdesig(object):
     def __init__(self, img, basedir, img_namesuffix = '', n_desig=1, only_desig = False,
                  im_shape = None, clicks_per_desig=2):
         import matplotlib.pyplot as plt
-        plt.switch_backend('TkAgg')
+        plt.switch_backend('qt5agg')
         self.im_shape = im_shape
 
         self.only_desig = only_desig
@@ -927,7 +923,6 @@ class Getdesig(object):
         self.i_goal = 0
         self.marker_list = ['o',"D","v","^"]
 
-
         plt.show()
 
     def onclick(self, event):
@@ -942,7 +937,22 @@ class Getdesig(object):
         i_task = self.i_click//self.clicks_per_desig
         print('i_task', i_task)
 
+
+        if self.i_click == self.i_click_max:
+            print('saving desig-goal picture')
+
+            with open(self.basedir +'/desig_goal_pix{}.pkl'.format(self.suf), 'wb') as f:
+                dict= {'desig_pix': self.desig,
+                       'goal_pix': self.goal}
+                pickle.dump(dict, f)
+
+            plt.savefig(self.basedir + '/img_' + self.suf)
+            print('closing')
+            plt.close()
+            return
+
         rc_coord = np.array([event.ydata, event.xdata])
+
         if self.i_click % self.clicks_per_desig == 0:
             self.desig[i_task, :] = rc_coord
             color = "r"
@@ -955,17 +965,7 @@ class Getdesig(object):
         plt.draw()
 
         self.i_click += 1
-        if self.i_click == self.i_click_max:
-            print('saving desig-goal picture')
 
-            with open(self.basedir +'/desig_goal_pix{}.pkl'.format(self.suf), 'wb') as f:
-                dict= {'desig_pix': self.desig,
-                       'goal_pix': self.goal}
-                pickle.dump(dict, f)
-
-            plt.savefig(self.basedir + '/img_' + self.suf)
-            plt.close()
-            return
 
 
 

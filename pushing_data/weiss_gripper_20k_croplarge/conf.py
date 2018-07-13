@@ -17,3 +17,6 @@ configuration = {
 'sdim':4,
 'brightness_threshold':int(0.25*255.),            # if average pixel value lower discard video
 }
+
+
+

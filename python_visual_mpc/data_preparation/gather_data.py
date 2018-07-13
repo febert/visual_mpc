@@ -7,7 +7,9 @@ import random
 import imutils  # pip install imutils
 import numpy as np
 import tensorflow as tf
+import ray
 from PIL import Image
+from python_visual_mpc.data_preparation.create_gif import comp_video
 
 
 def _float_feature(value):
@@ -20,14 +22,13 @@ def _int64_feature(value):
 
 import cv2
 # import ray
-from . import create_gif
 import argparse
 import sys
 import imp
 import pdb
 import matplotlib; matplotlib.use('Agg'); import matplotlib.pyplot as plt
 
-MAXLISTLEN = 128
+MAXLISTLEN = 16
 
 class More_than_one_image_except(Exception):
     def __init__(self, imagefile):
@@ -56,12 +57,12 @@ class Trajectory(object):
         else: self.take_ev_nth_step = 2 #only use every n-step from the data (for softmotion take_ev_nth_step=1)
         split_seq_by = 1  #if greater than 1 split trajectory in n equal parts
 
-        self.npictures = self.total_num_img/split_seq_by  #number of images after splitting (include images we use and not use)
+        self.npictures = self.total_num_img // split_seq_by  #number of images after splitting (include images we use and not use)
 
         self.cameranames = ['main']
         self.n_cam = len(self.cameranames)  # number of cameras
 
-        self.T = self.total_num_img / split_seq_by / self.take_ev_nth_step  # the number of timesteps in final trajectory
+        self.T = self.total_num_img // split_seq_by // self.take_ev_nth_step  # the number of timesteps in final trajectory
 
         h = conf['target_res'][0]
         w = conf['target_res'][1]
@@ -75,7 +76,7 @@ class Trajectory(object):
         self.endeffector_pos = np.zeros((self.T, state_dim), dtype = np.float32)
         self.joint_angles = np.zeros((self.T, 7), dtype = np.float32)
 
-# @ray.remote
+@ray.remote
 class TF_rec_converter(object):
     def __init__(self, conf,
                        gif_dir= None,
@@ -149,7 +150,7 @@ class TF_rec_converter(object):
                 print('no pkl file found, file no: ', nopkl_file)
                 continue
 
-            pkldata = pickle.load(open(pkl_file, "rb"))
+            pkldata = pickle.load(open(pkl_file, "rb"), encoding='latin1')
             self.all_actions = pkldata['actions']
             self.all_joint_angles = pkldata['jointangles']
             self.all_endeffector_pos = pkldata['endeffector_pos']
@@ -177,10 +178,10 @@ class TF_rec_converter(object):
 
             traj_list.append(self.traj)
 
-            if MAXLISTLEN != 128:
+            if MAXLISTLEN != 16:
                 print('#####################################################')
                 print('#####################################################')
-                print('using wrong maxlistlen')
+                print('using maxlistlen')
 
             if MAXLISTLEN == len(traj_list):
                 filename = 'traj_{0}_to_{1}' \
@@ -191,7 +192,7 @@ class TF_rec_converter(object):
 
             if self.gif_file != None and not donegif:
                 if len(traj_list) == ntraj_gifmax:
-                    create_gif.comp_video(traj_list, self.gif_file + 'worker{}'.format(os.getpid()))
+                    comp_video(traj_list, self.gif_file + 'worker{}'.format(os.getpid()))
                     print('created gif, exiting')
                     donegif = True
 
@@ -388,7 +389,7 @@ def start_parallel(conf, gif_dir, traj_name_list, n_workers, crop_from_highres= 
 def make_traj_name_list(conf, start_end_grp = None, shuffle=True):
     combined_list = []
     for source_dir in conf['source_basedirs']:
-        assert source_dir.split('/')[-1] == 'train' or source_dir.split('/')[-1] == 'test'
+        # assert source_dir.split('/')[-1] == 'train' or source_dir.split('/')[-1] == 'test'
         traj_per_gr = conf['ngroup']
         max_traj = get_maxtraj(source_dir)
 
@@ -442,7 +443,7 @@ def main():
     parser.add_argument('--start_gr', type=int, default=None, help='start group')
     parser.add_argument('--end_gr', type=int, default=None, help='end group')
     parser.add_argument('--no_parallel', type=bool, default=False, help='do not use parallel processing')
-    parser.add_argument('--n_workers', type=int, default=5, help='number of workers')
+    parser.add_argument('--n_workers', type=int, default=10, help='number of workers')
     parser.add_argument('--no_shuffle', type=bool, default=False, help='whether to shuffle trajectories')
     args = parser.parse_args()
 
@@ -454,7 +455,7 @@ def main():
     conf = hyperparams.configuration
 
     #make sure the directory is empty
-    assert glob.glob(conf['tf_rec_dir'] + '/*') == []
+    # assert glob.glob(conf['tf_rec_dir'] + '/*') == []
 
 
     gif_file = '/'.join(str.split(conf['tf_rec_dir'], '/')[:-1]) + '/logs/preview_gather'

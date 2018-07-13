@@ -47,8 +47,7 @@ def get_target_qpos(target_qpos, _hyperparams, mj_U, t, gripper_up, gripper_clos
                 robot_sensor = touch_sensors[t, 0]         #robots only have one sensor
                 if t > 0:
                     robot_sensor = max(touch_sensors[t, 0], touch_sensors[t - 1, 0])  #add some smoothing to fix gripper 0 force bug
-                elif t > 1:
-                    robot_sensor = max(touch_sensors[t, 0], max(touch_sensors[t - 1, 0], touch_sensors[t - 2, 0]))
+
                 touch_threshold = _hyperparams['autograsp']['touchthresh']  # if touchthresh not specified never re-open
                 if robot_sensor <= touch_threshold and gripper_zpos > zthresh:
                     gripper_closed = False

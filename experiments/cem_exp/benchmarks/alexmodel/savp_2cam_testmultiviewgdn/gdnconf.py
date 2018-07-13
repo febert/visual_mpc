@@ -16,8 +16,7 @@ from python_visual_mpc.goaldistancenet.variants.multiview_testgdn import Mulltiv
 configuration = {
 'experiment_name': 'correction',
 'pred_model':MulltiviewTestGDN,
-'pretrained_model': [base_dir + '/tensorflow_data/gdn/weiss/multiview/view0/modeldata/model2',
-                     base_dir + '/tensorflow_data/gdn/weiss/multiview/view1/modeldata/model2'],
+'pretrained_model': [,],
 'output_dir': OUT_DIR,      #'directory for model checkpoints.' ,
 'current_dir': base_dir,   #'directory for writing summary.' ,
 'num_iterations':50000,
