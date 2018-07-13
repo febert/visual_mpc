@@ -26,7 +26,6 @@ class Sawyer_Data_Collector(Visual_MPC_Client):
 
     def apply_act(self, des_pos, mj_U, i_act):
         """
-
         :param des_pos:  the action range for the gripper is 0. (open) to 0.1 (close)
         :param mj_U:
         :param i_act:
@@ -78,10 +77,6 @@ class Sawyer_Data_Collector(Visual_MPC_Client):
             going_down = False
 
         des_pos = self.truncate_pos(des_pos)  # make sure not outside defined region
-
-        # rescale grasping to 100 (open) and 0 closed
-
-
         return des_pos, going_down
 
 
@@ -89,7 +84,8 @@ class Sawyer_Data_Collector(Visual_MPC_Client):
         if 'targetpos_clip' in self.agentparams:
             pos_clip = self.agentparams['targetpos_clip']
         else:
-            pos_clip = [[0.46, -0.17, -0.08, -np.pi * 2, 0.], [0.83, 0.17, 0.15, np.pi * 2, 0.1]]
+            pos_clip = [[0.46, -0.17, self.lower_height, -np.pi * 2, 0.],
+                        [0.83, 0.17, self.lower_height + self.delta_up, np.pi * 2, 0.1]]
         return np.clip(pos, pos_clip[0], pos_clip[1])
 
 

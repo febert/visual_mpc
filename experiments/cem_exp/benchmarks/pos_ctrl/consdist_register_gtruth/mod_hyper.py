@@ -42,7 +42,7 @@ policy = {
     'nactions': 5,
     'repeat': 3,
     'initial_std': 0.08,        # std dev. in xy
-    'initial_std_lift': 2.5,
+    'initial_std_lift': 1.6,
     'netconf': current_dir + '/conf.py',
     'gdnconf': current_dir + '/gdnconf.py',
     'iterations': 3,

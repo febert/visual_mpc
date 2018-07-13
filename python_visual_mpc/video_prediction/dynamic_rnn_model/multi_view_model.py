@@ -85,10 +85,13 @@ class Multi_View_Model(object):
         nshifts = (fulllength - uselen) // tshift + 1
         rand_ind = tf.random_uniform([1], 0, nshifts, dtype=tf.int64)
         self.rand_ind = rand_ind
-        images = images[rand_ind*tshift:rand_ind*tshift+uselen]
-        states = states[rand_ind*tshift:rand_ind*tshift+uselen]
-        actions = actions[rand_ind*tshift:rand_ind*tshift+uselen]
-        return images, states, actions
+        start = tf.concat(axis=0, values=[tf.zeros(1, dtype=tf.int64), rand_ind * tshift, tf.zeros(4, dtype=tf.int64)])
+        images_sel = tf.slice(images, start, [-1, uselen, -1, -1, -1, -1])
+        start = tf.concat(axis=0, values=[tf.zeros(1, dtype=tf.int64), rand_ind * tshift, tf.zeros(1, dtype=tf.int64)])
+        actions_sel = tf.slice(actions, start, [-1, uselen, -1])
+        start = tf.concat(axis=0, values=[tf.zeros(1, dtype=tf.int64), rand_ind * tshift, tf.zeros(1, dtype=tf.int64)])
+        states_sel = tf.slice(states, start, [-1, uselen, -1])
+        return images_sel, states_sel, actions_sel
 
     def visualize(self, sess):
         visualize(sess, self.conf, self)

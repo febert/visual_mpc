@@ -235,7 +235,6 @@ class Visualizer_tkinter(object):
 
     def make_direct_vid(self, separate_vid = False, resize=None):
         self.logger.log('making gif with tags')
-        # self.video_list = [self.video_list[0]]
 
         new_videolist = []
         for vid in self.video_list:
@@ -629,10 +628,14 @@ def save_video_mp4(filename, frames):
 if __name__ == '__main__':
     # file_path = '/home/frederik/Documents/catkin_ws/src/visual_mpc/tensorflow_data/sawyer/data_amount_study/5percent_of_data/modeldata'
     # file_path = '/home/frederik/Documents/catkin_ws/src/visual_mpc/tensorflow_data/sawyer/alexmodel_finalpaper/improved_cdna_wristrot_k17d1_generatescratchimage_bs16/modeldata'
-    file_path = '/home/febert/Documents/catkin_ws/src/visual_mpc/experiments/cem_exp/benchmarks_sawyer/od_schedfine/verbose'
+    pkl_path = '/home/febert/Documents/catkin_ws/src/visual_mpc/experiments/cem_exp/benchmarks_sawyer/weissgripper_regstartgoal_reuseaction/verbose/plan/pred_t1iter2.pkl'
+    file_path = '/home/febert/Documents/catkin_ws/src/visual_mpc/experiments/cem_exp/benchmarks_sawyer/weissgripper_regstartgoal_reuseaction/verbose/plan'
     # file_path = '/home/frederik/Documents/catkin_ws/src/visual_mpc/tensorflow_data/sawyer/wristrot/modeldata'
 
-    v  = Visualizer_tkinter(append_masks=False, filepath=file_path, numex=10, renorm_heatmaps=True)
+    dict_ = pickle.load(open(pkl_path, "rb"))
+    gen_images = dict_['gen_images_icam0_t1']
+
+    v = Visualizer_tkinter(append_masks=False, filepath=file_path, numex=10, renorm_heatmaps=True)
     # v.build_figure()
     v.make_direct_vid()
     # for i in range(5):

@@ -13,7 +13,7 @@ if __name__ == '__main__':
     parser.add_argument('run_script', type=str, help='relative path to the script to launch', default="")
     parser.add_argument('hyper', type=str, help='relative path to hyperparams file', default="")
     parser.add_argument('--int', default='False', type=str, help='interactive')
-    parser.add_argument('--arg', default='', type=str, help='additional arguments')
+    parser.add_argument('--arg', default=' --nworkers 8', type=str, help='additional arguments')
     parser.add_argument('--name', default='', type=str, help='additional arguments')
     parser.add_argument('--ngpu', default=8, type=int, help='number of gpus per node')
 

@@ -70,14 +70,13 @@ def setup_predictor(hyperparams, conf, gpu_id=0, ngpu=1, logger=None):
     # logger.log(device_lib.list_local_devices())
 
     logger.log('making graph')
-    gpu_options = tf.GPUOptions(per_process_gpu_memory_fraction=0.9)
+    gpu_options = tf.GPUOptions(per_process_gpu_memory_fraction=0.7)
     g_predictor = tf.Graph()
     logger.log('making session')
     sess = tf.Session(config=tf.ConfigProto(gpu_options=gpu_options, allow_soft_placement=True), graph=g_predictor)
     logger.log('done making session.')
     with sess.as_default():
         with g_predictor.as_default():
-
             logger.log('Constructing multi gpu model for control...')
 
             if 'float16' in conf:
@@ -126,22 +125,13 @@ def setup_predictor(hyperparams, conf, gpu_id=0, ngpu=1, logger=None):
                 conf['pretrained_model'] = get_maxiter_weights('/result/modeldata')
                 logger.log('loading {}'.format(conf['pretrained_model']))
                 if conf['pred_model'] == Alex_Interface_Model:
-                    if gfile.Glob(conf['pretrained_model'] + '*') is None:
-                        raise ValueError("Model file {} not found!".format(conf['pretrained_model']))
                     towers[0].model.m.restore(sess, conf['pretrained_model'])
                 else:
                     vars = variable_checkpoint_matcher(conf, vars, conf['pretrained_model'])
                     saver = tf.train.Saver(vars, max_to_keep=0)
-                    if gfile.Glob(conf['pretrained_model'] + '*') is None:
-                        raise ValueError("Model file {} not found!".format(conf['pretrained_model']))
                     saver.restore(sess, conf['pretrained_model'])
             else:
                 if conf['pred_model'] == Alex_Interface_Model:
-                    if 'ALEX_DATA' in os.environ:
-                        tenpath = conf['pretrained_model'].partition('pretrained_models')[2]
-                        conf['pretrained_model'] = os.environ['ALEX_DATA'] + tenpath
-                    if gfile.Glob(conf['pretrained_model'] + '*') is None:
-                        raise ValueError("Model file {} not found!".format(conf['pretrained_model']))
                     towers[0].model.m.restore(sess, conf['pretrained_model'])
                 else:
                     if 'TEN_DATA' in os.environ:
@@ -149,8 +139,6 @@ def setup_predictor(hyperparams, conf, gpu_id=0, ngpu=1, logger=None):
                         conf['pretrained_model'] = os.environ['TEN_DATA'] + tenpath
                     vars = variable_checkpoint_matcher(conf, vars, conf['pretrained_model'])
                     saver = tf.train.Saver(vars, max_to_keep=0)
-                    if gfile.Glob(conf['pretrained_model'] + '*') is None:
-                        raise ValueError("Model file {} not found!".format(conf['pretrained_model']))
                     saver.restore(sess, conf['pretrained_model'])
 
             logger.log('restore done. ')
@@ -162,7 +150,9 @@ def setup_predictor(hyperparams, conf, gpu_id=0, ngpu=1, logger=None):
             logger.log('-------------------------------------------------------------------')
 
             comb_gen_img = tf.concat([to.model.gen_images for to in towers], axis=0)
-            comb_gen_states = tf.concat([to.model.gen_states for to in towers], axis=0)
+            if towers[0].model.gen_states is not None:
+                comb_gen_states = tf.concat([to.model.gen_states for to in towers], axis=0)
+            else: comb_gen_states = None
 
             if not 'no_pix_distrib' in conf:
                 comb_pix_distrib = tf.concat([to.model.gen_distrib for to in towers], axis=0)
@@ -173,8 +163,6 @@ def setup_predictor(hyperparams, conf, gpu_id=0, ngpu=1, logger=None):
                 :param pixcoord: the coords of the disgnated pixel in images coord system
                 :return: the predicted pixcoord at the end of sequence
                 """
-
-                t_startiter = datetime.now()
 
                 feed_dict = {}
                 for t in towers:
@@ -190,17 +178,16 @@ def setup_predictor(hyperparams, conf, gpu_id=0, ngpu=1, logger=None):
                                                       comb_gen_states],
                                                       feed_dict)
                     gen_distrib = None
+                elif comb_gen_states is None:
+                    feed_dict[pix_distrib] = input_one_hot_images
+                    gen_images, gen_distrib = sess.run([comb_gen_img, comb_pix_distrib], feed_dict)
+                    gen_states = None
                 else:
                     feed_dict[pix_distrib] = input_one_hot_images
                     gen_images, gen_distrib, gen_states = sess.run([comb_gen_img,
                                                                     comb_pix_distrib,
                                                                     comb_gen_states],
                                                                    feed_dict)
-
-                # logger.log('time for evaluating {0} actions on {1} gpus : {2}'.format(
-                #     conf['batch_size'],
-                #     conf['ngpu'],
-                #     (datetime.now() - t_startiter).seconds + (datetime.now() - t_startiter).microseconds/1e6))
 
                 return gen_images, gen_distrib, gen_states, None
 

@@ -18,7 +18,7 @@ from visual_mpc_rospkg.srv import *
 from PIL import Image
 import pickle
 import imageio
-import matplotlib; matplotlib.use('Agg'); import matplotlib.pyplot as plt
+
 
 import argparse
 
@@ -55,8 +55,9 @@ class Trajectory(object):
 
 class RobotRecorder(object):
     def __init__(self, agent_params, dataconf = None, save_dir = None, seq_len = None, use_aux=True, save_video=False,
-                 save_actions=True, save_images = True, image_shape=None):
+                 save_actions=True, save_images = True, image_shape=None, save_lowres=False):
 
+        self.save_lowres = save_lowres
         self.save_actions = save_actions
         self.save_images = save_images
         self.dataconf = dataconf
@@ -204,7 +205,6 @@ class RobotRecorder(object):
         self.ltob.d_img_cropped_8bit = img
 
     def store_latest_im(self, data):
-
         self.ltob.img_msg = data
         self.ltob.tstamp_img = rospy.get_time()
 
@@ -348,22 +348,22 @@ class RobotRecorder(object):
 
 
     def save_highres(self):
-        writer = imageio.get_writer(self.image_folder + '/highres_traj{}.mp4'.format(self.itr), fps=10)
+        if 'make_final_vid' in self.agent_params:
+            writer = imageio.get_writer(self.image_folder + '/highres_traj{}.mp4'.format(self.itr), fps=10)
+            # add crosshairs to images in case of tracking:
+            if 'opencv_tracking' in self.agent_params:
+                highres_imglist = self.add_cross_hairs(self.curr_traj.highres_imglist,
+                                                            self.curr_traj.desig_hpos_list)
+            else:
+                highres_imglist = self.curr_traj.highres_imglist
+            print('shape highres:', highres_imglist[0].shape)
+            for im in highres_imglist:
+                writer.append_data(im)
+            writer.close()
 
-        # add crosshairs to images in case of tracking:
-        if 'opencv_tracking' in self.agent_params:
-            highres_imglist = self.add_cross_hairs(self.curr_traj.highres_imglist,
-                                                        self.curr_traj.desig_hpos_list)
-        else:
-            highres_imglist = self.curr_traj.highres_imglist
-
-        print('shape highres:', highres_imglist[0].shape)
-        for im in highres_imglist:
-            writer.append_data(im)
-        writer.close()
-
-        im_list = [cv2.resize(im, (0, 0), fx=0.5, fy=0.5, interpolation=cv2.INTER_AREA) for im in highres_imglist]
         if 'make_final_gif' in self.agent_params:
+            im_list = [cv2.resize(im, (0, 0), fx=0.5, fy=0.5, interpolation=cv2.INTER_AREA) for im in highres_imglist]
+
             clip = mpy.ImageSequenceClip(im_list, fps=4)
             clip.write_gif(self.image_folder + '/highres_traj{}.gif'.format(self.itr))
 
@@ -420,29 +420,30 @@ class RobotRecorder(object):
 
         pref = self.instance_type
 
-        #saving image
-        # saving the full resolution image
+        if self.save_lowres:
+            image_name = self.image_folder + "/small{}.jpg".format(i_save)
+            cv2.imwrite(image_name, self.ltob.img_cropped,[cv2.IMWRITE_PNG_STRATEGY_DEFAULT, 1])
+
         if self.ltob.img_cv2 is not None:
-            image_name = self.image_folder+ "/" + pref + "_full_cropped_im{0}".format(str(i_save).zfill(2))
-            image_name += "_time{0}.jpg".format(self.ltob.tstamp_img)
+            image_name = self.image_folder+ "/" + pref + "_full_cropped_im{0}.jpg".format(i_save)
             cv2.imwrite(image_name, self.ltob.img_cv2, [int(cv2.IMWRITE_JPEG_QUALITY), 80])
         else:
             raise ValueError('img_cv2 no data received')
 
         # saving the depth data
         # saving the cropped depth data in a Pickle file
-        if self.ltob.d_img_cropped_npy is not None:
-            file = self.depth_image_folder + "/" + pref +"_depth_im{0}_time{1}.pkl".format(i_save, self.ltob.tstamp_d_img)
-            pickle.dump(self.ltob.d_img_cropped_npy, open(file, 'wb'))
-        else:
-            raise ValueError('d_img_cropped_npy no data received')
+        # if self.ltob.d_img_cropped_npy is not None:
+        #     file = self.depth_image_folder + "/" + pref +"_depth_im{0}_time{1}.pkl".format(i_save, self.ltob.tstamp_d_img)
+        #     pickle.dump(self.ltob.d_img_cropped_npy, open(file, 'wb'))
+        # else:
+        #     raise ValueError('d_img_cropped_npy no data received')
 
         # saving downsampled 8bit images
-        if self.ltob.d_img_cropped_8bit is not None:
-            image_name = self.depth_image_folder + "/" + pref + "_cropped_depth_im{0}_time{1}.png".format(i_save, self.ltob.tstamp_d_img)
-            cv2.imwrite(image_name, self.ltob.d_img_cropped_8bit, [cv2.IMWRITE_PNG_STRATEGY_DEFAULT, 1])
-        else:
-            raise ValueError('d_img_cropped_8bit no data received')
+        # if self.ltob.d_img_cropped_8bit is not None:
+        #     image_name = self.depth_image_folder + "/" + pref + "_cropped_depth_im{0}_time{1}.png".format(i_save, self.ltob.tstamp_d_img)
+        #     cv2.imwrite(image_name, self.ltob.d_img_cropped_8bit, [cv2.IMWRITE_PNG_STRATEGY_DEFAULT, 1])
+        # else:
+        #     raise ValueError('d_img_cropped_8bit no data received')
 
         self.t_finish_save.append(rospy.get_time())
         if i_save == (self.state_sequence_length-1):

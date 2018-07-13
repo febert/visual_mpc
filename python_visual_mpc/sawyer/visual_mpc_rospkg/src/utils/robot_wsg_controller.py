@@ -15,9 +15,11 @@ import numpy as np
 import python_visual_mpc
 
 import cPickle as pickle
-
+import intera_interface
 
 NEUTRAL_JOINT_ANGLES =[0.412271, -0.434908, -1.198768, 1.795462, 1.160788, 1.107675, 2.068076]
+MAX_TIMEOUT = 30
+
 class WSGRobotController(RobotController):
     def __init__(self, control_rate, robot_name):
         self.max_release = 0
@@ -31,6 +33,7 @@ class WSGRobotController(RobotController):
 
         self._force_counter = 0
         self._integrate_gripper_force = 0.
+        self.num_timeouts = 0
 
         self.gripper_pub = rospy.Publisher('/wsg_50_driver/goal_position', Cmd, queue_size=10)
         rospy.Subscriber("/wsg_50_driver/status", Status, self._gripper_callback)
@@ -47,6 +50,13 @@ class WSGRobotController(RobotController):
 
         self.imp_ctrl_release_spring(100)
         self.imp_ctrl_active.publish(1)
+
+        self._navigator = intera_interface.Navigator()
+        self._navigator.register_callback(self._close_gripper_handler, 'right_button_ok')
+
+    def _close_gripper_handler(self, value):
+        if value:
+            self.close_gripper()    #close gripper on button release
 
     def set_gripper_speed(self, new_speed):
         assert new_speed > 0 and new_speed <= 600, "Speed must be in range (0, 600]"
@@ -78,6 +88,9 @@ class WSGRobotController(RobotController):
     def _set_gripper(self, command_pos, wait = False):
         self._desired_gpos = command_pos
         if wait:
+            if self.num_timeouts > MAX_TIMEOUT:
+                rospy.signal_shutdown("MORE THAN {} GRIPPER TIMEOUTS".format(MAX_TIMEOUT))
+
             sem = Semaphore(value=0)  # use of semaphore ensures script will block if gripper dies during execution
 
             self._status_mutex.acquire()
@@ -111,6 +124,8 @@ class WSGRobotController(RobotController):
             gripper_close = np.isclose(self.gripper_width, self._desired_gpos, atol=1e-1)
 
             if gripper_close or self.gripper_force > 0 or self.max_release > 15:
+                if self.max_release > 15:
+                    self.num_timeouts += 1
                 for s in self.sem_list:
                     s.release()
                 self.sem_list = []
@@ -121,18 +136,24 @@ class WSGRobotController(RobotController):
 
         self._status_mutex.release()
 
-    def reset_with_impedance(self, angles = NEUTRAL_JOINT_ANGLES, duration= 3., open_gripper = True, close_first = False, stiffness = 150):
+    def reset_with_impedance(self, angles = NEUTRAL_JOINT_ANGLES, duration= 3., open_gripper = True, close_first = False, stiffness = 150, reset_sitffness = 100):
         if open_gripper:
             if close_first:
                 self._set_gripper(2, wait=True)
             self._set_gripper(100, wait=True)
             self.open_gripper()
 
-        self.imp_ctrl_release_spring(100)
+        self.imp_ctrl_release_spring(reset_sitffness)
         self.move_to_joints_impedance_sec(angles, duration=duration)
         self.imp_ctrl_release_spring(stiffness)
 
         self.get_gripper_status()  # dummy call to flush integration of gripper force
+
+    def disable_impedance(self):
+        self.imp_ctrl_active.publish(0)
+
+    def enable_impedance(self):
+        self.imp_ctrl_active.publish(1)
 
     def imp_ctrl_release_spring(self, maxstiff):
         self.imp_ctrl_release_spring_pub.publish(maxstiff)

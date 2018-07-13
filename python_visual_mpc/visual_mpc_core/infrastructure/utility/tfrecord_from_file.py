@@ -13,11 +13,14 @@ else:
 import glob
 import numpy as np
 import cv2
+import copy
+
 from python_visual_mpc.visual_mpc_core.infrastructure.utility.save_tf_record import save_tf_record
 
 class DefaultTraj:
     def __init__(self):
         self.actions, self.X_Xdot_full, self.images  = None, None, None
+
 
 def grasping_touch_file2record(state_action, agent_params):
     loaded_traj = DefaultTraj()
@@ -60,16 +63,51 @@ def grasping_touch_nodesig_file2record(state_action, agent_params):
 
 def grasping_sawyer_file2record(state_action, agent_params):
     loaded_traj = DefaultTraj()
+    loaded_traj.actions = copy.deepcopy(state_action['actions'])[:,:4]
+    if np.sum(np.abs(loaded_traj.actions)) <= 0.05:
+        clip = agent_params['targetpos_clip']
+        recover_actions = np.zeros((agent_params['T'] / 3, 4))
+        rng_std = [0.08,0.08, 0.08, np.pi / 18]
+        for i in range(4):
+            for t in range(agent_params['T'] / 3):
+                c_action = state_action['target_qpos'][3 * t + 1, i]
+                if c_action == clip[1][i]:
+                    val = np.random.normal() * rng_std[i]
+                    while val < clip[1][i] - state_action['target_qpos'][3 * t, i]:
+                        val = np.random.normal() * rng_std[i]
+                    recover_actions[t, i] = val
+                elif c_action == clip[0][i]:
+                    val = np.random.normal() * rng_std[i]
+                    while val > clip[0][i] - state_action['target_qpos'][3 * t, i]:
+                        val = np.random.normal() * rng_std[i]
+                    recover_actions[t, i] = val
+                else:
+                    recover_actions[t, i] = c_action - state_action['target_qpos'][3 * t, i]
 
-    loaded_traj.actions = state_action['actions']
+        recover_actions = np.repeat(recover_actions, 3, axis = 0)
+        loaded_traj.actions = copy.deepcopy(recover_actions)
+
     touch_sensors = state_action['finger_sensors']
-    loaded_traj.X_Xdot_full = np.concatenate((state_action['states'], touch_sensors), axis=1)
+    if 'autograsp' in agent_params:
+        gripper_inputs = copy.deepcopy(touch_sensors[:, 0].reshape((-1, 1)))
+        gripper_inputs[0, 0] = 0.       #grippers often have erroneous force readings at T = 0
+        norm_states = copy.deepcopy(state_action['states'][:, :-1])
+        for i in range(3):
+            delta = agent_params['targetpos_clip'][1][i] - agent_params['targetpos_clip'][0][i]
+            min = agent_params['targetpos_clip'][0][i]
+            norm_states[:, i] -= min
+            norm_states[:, i] /= delta
+
+        loaded_traj.X_Xdot_full = np.concatenate((norm_states, gripper_inputs), axis=1)
+
+    else:
+        loaded_traj.X_Xdot_full = np.concatenate((state_action['states'], touch_sensors), axis=1)
 
     valid_frames = np.logical_and(state_action['states'][1:, -1] > 0,
                                   np.logical_and(touch_sensors[1:, 0] > 0, touch_sensors[1:, 1] > 0))
     off_ground = state_action['states'][1:, 2] >= agent_params.get('good_lift_thresh', 0.27)
 
-    good_grasp = any(np.logical_and(valid_frames, off_ground))
+    good_grasp = np.sum(np.logical_and(valid_frames, off_ground)) >= 2
 
     return good_grasp, loaded_traj
 
@@ -87,6 +125,23 @@ def pushing_touch_file2record(state_action, agent_params):
         good_push = True     
     return good_push, loaded_traj
 
+def crop_resize(agent_params, image, cam_conf, scale = 1):
+    target_img_height, target_img_width = agent_params['image_height'] * scale, agent_params['image_width'] * scale
+
+    crop_left, crop_right = cam_conf.get('crop_left', 0), cam_conf.get('crop_right', 0)
+    crop_top, crop_bot = cam_conf.get('crop_top', 0), cam_conf.get('crop_bot', 0)
+
+    if crop_right > 0:
+        crop_img = image[:, crop_left:-crop_right]
+    else:
+        crop_img = image[:, crop_left:]
+
+    if crop_bot > 0:
+        crop_img = crop_img[crop_top:-crop_bot]
+    else:
+        crop_img = crop_img[crop_top:]
+    return cv2.resize(crop_img, (target_img_width, target_img_height), interpolation=cv2.INTER_AREA)
+
 def main():
     parser = argparse.ArgumentParser(description='run convert from directory to tf record')
     parser.add_argument('experiment', type=str, help='experiment hyperparameter path')
@@ -95,7 +150,9 @@ def main():
                     default = 0, help='Offset good records by g * traj_per_file')
     parser.add_argument('-b', action='store', dest='bad_offset', type = int,
                     default = 0, help='Offset bad records by b * traj_per_file')
-
+    parser.add_argument('-i', action='store_true', dest='goal',
+                        default=False, help='Store goal images')
+    parser.add_argument('-s', action='store', dest='scale_img', type=int, default = 1, help='Scale cam images by this factor')
 
     args = parser.parse_args()
     hyperparams_file = args.experiment
@@ -107,7 +164,7 @@ def main():
         hyperparams = imp.load_source('hyperparams', args.experiment)
         hyperparams = hyperparams.config
         #python 2 means we're executing on sawyer. add dummy camera list
-        hyperparams['agent']['cameras'] = ['main', 'left']
+        hyperparams['agent']['cameras'] = ['front_cam', 'left_cam']
     else:
         loader = importlib.machinery.SourceFileLoader('mod_hyper', hyperparams_file)
         spec = importlib.util.spec_from_loader(loader.name, loader)
@@ -115,9 +172,14 @@ def main():
         loader.exec_module(conf)
         hyperparams = conf.config
 
-    traj_per_file = hyperparams['traj_per_file']
+    traj_per_file = 16#hyperparams['traj_per_file']
     agent_config = hyperparams['agent']
     T = agent_config['T']
+
+    extra_im = 0
+    if args.goal:
+        extra_im = 2
+        agent_config['T'] += extra_im
 
     data_dir = agent_config['data_save_dir']
     out_dir = data_coll_dir + '/' + out_dir
@@ -175,23 +237,48 @@ def main():
                 good_lift, loaded_traj = agent_config['file_to_record'](state_action, agent_config)
 
                 if 'cameras' in agent_config:
-                    loaded_traj.images = np.zeros((T, len(agent_config['cameras']), img_height, img_width, 3), dtype = np.uint8)
+                    loaded_traj.images = np.zeros((T + extra_im, len(agent_config['cameras']), img_height * args.scale_img, img_width * args.scale_img, 3), dtype = np.uint8)
                 else:
-                    loaded_traj.images = np.zeros((T, img_height, img_width, 3), dtype = np.uint8)
-
-                for img in range(T):
-                    if 'cameras' in agent_config:
-                        for cam in range(len(agent_config['cameras'])):
-                            loaded_traj.images[img, cam] = cv2.imread(t + '/images{}/im{}.png'.format(cam, img))[:, :, ::-1]
-                    else:
-                        loaded_traj.images[img] = cv2.imread(t + '/images/im{}.png'.format(img))[:, :, ::-1]
+                    loaded_traj.images = np.zeros((T + extra_im, img_height, img_width, 3), dtype = np.uint8)
 
                 if good_lift:
                     print(t)
                     good_lift_ctr += 1
                     good_traj_list.append(loaded_traj)
+
+                    if args.goal:
+                        touch_sensors = state_action['finger_sensors']
+                        touching = np.logical_and(state_action['states'][1:, -1] > 0,
+                                                  np.logical_and(touch_sensors[1:, 0] > 0, touch_sensors[1:, 1] > 0))
+
+                        first_frame = np.argmax(touching)
+                        next_proposals = state_action['finger_sensors'][first_frame + 1:, 0] > 0
+                        next_proposals = [i + first_frame for i, val in enumerate(next_proposals) if val]
+                        second_frame = np.argmax(state_action['states'][first_frame:, 2]) + first_frame
+
+                        for cam in range(len(agent_config['cameras'])):
+                            loaded_traj.images[-2, cam] = cv2.imread(t + '/images{}/im{}.png'.format(cam, first_frame))[:, :, ::-1]
+                            loaded_traj.images[-1, cam] = cv2.imread(t + '/images{}/im{}.png'.format(cam, second_frame))[:,:, ::-1]
+                        loaded_traj.actions = np.concatenate((loaded_traj.actions, np.zeros((2, 4))), axis = 0)
+                        loaded_traj.X_Xdot_full = np.concatenate((loaded_traj.X_Xdot_full, np.zeros((2, 5))), axis = 0)
+
+
+
                 else:
+                    if args.goal:
+                        continue       #bad trajectories have no target images
                     bad_traj_list.append(loaded_traj)
+
+                for img in range(T):
+                    if 'cameras' in agent_config:
+                        for cam, name in enumerate(agent_config['cameras']):
+                            if args.scale_img > 1:
+                                resized_image = crop_resize(agent_config, cv2.imread(t + '/images{}/im_med{}.png'.format(cam, img)), agent_config['data_conf'][name], args.scale_img)
+                                loaded_traj.images[img, cam] = resized_image[:, :, ::-1]
+                            else:
+                                loaded_traj.images[img, cam] = cv2.imread(t + '/images{}/im{}.png'.format(cam, img))[:, :, ::-1]
+                    else:
+                        loaded_traj.images[img] = cv2.imread(t + '/images/im{}.png'.format(img))[:, :, ::-1]
 
             if len(good_traj_list) % traj_per_file == 0 and len(good_traj_list) > 0:
                 folder_prep = 'good/'

@@ -22,6 +22,7 @@ class Temp_DnC_GDnet(GoalDistanceNet):
                  load_data = True,
                  images = None,
                  iter_num = None,
+                 load_testimages=None
                  ):
         GoalDistanceNet.__init__(self, conf = conf,
                                  build_loss=False,
