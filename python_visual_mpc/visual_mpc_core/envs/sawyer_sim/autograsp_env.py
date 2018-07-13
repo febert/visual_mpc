@@ -18,6 +18,7 @@ class AutograspSawyerEnv(BaseSawyerEnv):
 
     def _init_dynamics(self):
         self._gripper_closed = False
+        self._prev_touch = False
 
     def _next_qpos(self, action):
         assert action.shape[0] == self._adim
@@ -25,7 +26,9 @@ class AutograspSawyerEnv(BaseSawyerEnv):
         z_thresh = self._ag_dict['zthresh']
         reopen = 'reopen' in self._ag_dict
 
+        touch_test = is_touching(self._last_obs['finger_sensors'])
         target, self._gripper_closed = autograsp_dynamics(self._previous_target_qpos, action,
                                                           self._gripper_closed, gripper_z, z_thresh, reopen,
-                                                          is_touching(self._last_obs['finger_sensors']))
+                                                          touch_test or self._prev_touch)
+        self._prev_touch = touch_test
         return target

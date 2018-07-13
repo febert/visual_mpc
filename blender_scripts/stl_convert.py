@@ -9,7 +9,7 @@ import bpy
 import glob
 ############################ constants ############################
 
-vhacd_path=os.path.expanduser("~/visual_mpc/blender_scripts/testVHACD") #set this to testVHACD binary
+vhacd_path=os.path.expanduser("~/Documents/visual_mpc/blender_scripts/testVHACD") #set this to testVHACD binary
 
 # https://blender.stackexchange.com/questions/6817/how-to-pass-command-line-arguments-to-a-blender-python-script
 argv = sys.argv

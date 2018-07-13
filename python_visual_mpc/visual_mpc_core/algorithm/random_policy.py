@@ -22,15 +22,15 @@ class Randompolicy(Policy):
         self.naction_steps = policyparams['nactions']
         self.repeat = self.policyparams['repeat']
 
-    def act(self, traj, t, init_model=None, goal_ob_pose=None, agentparams=None, goal_image=None):
+    def act(self, t):
         assert self.agentparams['T'] == self.naction_steps*self.repeat
-        if t ==0:
-            mean = np.zeros(self.adim * self.naction_steps)
+        if t == 0:
+            mean = np.zeros(5 * self.naction_steps)
             # initialize mean and variance of the discrete actions to their mean and variance used during data collection
             sigma = construct_initial_sigma(self.policyparams)
-            self.actions = np.random.multivariate_normal(mean, sigma).reshape(self.naction_steps, self.adim)
+            self.actions = np.random.multivariate_normal(mean, sigma).reshape(self.naction_steps, -1)
             self.process_actions()
-        return self.actions[t]
+        return {'actions': self.actions[t, :self.adim]}
 
     def process_actions(self):
 
@@ -61,12 +61,12 @@ class CorrRandompolicy(Randompolicy):
     def __init__(self, action_proposal_conf, agentparams, policyparams):  # add imiation_conf to keep compatibility with imitation model
         Randompolicy.__init__(self, action_proposal_conf, agentparams, policyparams)
 
-    def act(self, traj, t, init_model=None, goal_ob_pose=None, agentparams=None, goal_image=None):
+    def act(self, t):
         if t == 0:
-            self.sample_actions(traj, 1)
-        return self.actions[0, t]
+            self.sample_actions(1)
+        return {'actions': self.actions[0, t]}
 
-    def sample_actions(self, traj, nsamples):
+    def sample_actions(self, nsamples):
         assert self.repeat == 1
         xy_std = self.policyparams['initial_std']
         diag = [xy_std ** 2, xy_std ** 2]

@@ -38,7 +38,7 @@ Usage:
     <size njmax="6000" nconmax="6000"/>
     <option
             gravity="0 0 -9.81"
-            iterations="50"
+            iterations="200"
             integrator="Euler"
             timestep="0.0003"
             cone="elliptic"
@@ -52,7 +52,7 @@ Usage:
                stiffness="0"
                armature=".1"
                user="0"/>
-        <geom solref="0.008 1"
+        <geom solref="0.01 1"
               solimp="0.95 0.95 0.01"
               user="0" condim="4"
               />
@@ -74,7 +74,7 @@ Usage:
         </default>
 
         <default class="freejoint">
-            <joint limited="false"/>
+            <joint limited="false" damping="0.05"/>
         </default>
 
     </default>
