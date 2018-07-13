@@ -250,7 +250,11 @@ class AgentMuJoCo(object):
             pi_t = policy.act(**policy_args)
             policy_outputs.append(pi_t)
 
-            obs = self._post_process_obs(self.env.step(copy.deepcopy(pi_t['actions'])))
+            try:
+                print('step {}'.format(t))
+                obs = self._post_process_obs(self.env.step(copy.deepcopy(pi_t['actions'])))
+            except ValueError:
+                return False, None, None
 
             if self.goal_obj_pose is not None:
                 traj.goal_dist.append(self.eval_action(traj, t)[0])

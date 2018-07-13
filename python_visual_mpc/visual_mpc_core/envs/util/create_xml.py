@@ -64,6 +64,9 @@ def create_object_xml(filename, num_objects, object_mass, friction_params, objec
         sensor_frame = None
     f_sliding, f_torsion, f_rolling = friction_params
     world_body = ET.SubElement(root, "worldbody")
+
+    loaded_meshes = {}
+
     for i in range(num_objects):
         if load_dict_list == None:
             dict = {}
@@ -91,50 +94,57 @@ def create_object_xml(filename, num_objects, object_mass, friction_params, objec
         if object_meshes is not None:
             assets = ET.SubElement(root, "asset")
 
-            o_mesh = ASSET_BASE_DIR + '{}/'.format(random.choice(object_meshes))
-            print('import mesh dir', o_mesh)
-            stl_files = glob.glob(o_mesh + '*.stl')
-            convex_hull_files = [x for x in stl_files if 'Shape_IndexedFaceSet' in x]
-            object_file = [x for x in stl_files
-                           if x not in convex_hull_files and 'Lamp' not in x and 'Camera' not in x and 'GM' not in x][0]
+            chosen_mesh = random.choice(object_meshes)
+            if chosen_mesh not in loaded_meshes:
+                o_mesh = ASSET_BASE_DIR + '{}/'.format(chosen_mesh)
+                print('import mesh dir', o_mesh)
+                stl_files = glob.glob(o_mesh + '*.stl')
+                convex_hull_files = [x for x in stl_files if 'Shape_IndexedFaceSet' in x]
+                object_file = [x for x in stl_files
+                               if x not in convex_hull_files and 'Lamp' not in x and 'Camera' not in x and 'GM' not in x][0]
 
 
 
-            mesh_object = mesh.Mesh.from_file(object_file)
-            minx, maxx, miny, maxy, minz, maxz = find_mins_maxs(mesh_object)
-            max_length = min((maxx - minx), (maxy - miny))
+                mesh_object = mesh.Mesh.from_file(object_file)
+                minx, maxx, miny, maxy, minz, maxz = find_mins_maxs(mesh_object)
+                max_length = min((maxx - minx), (maxy - miny))
 
-            scale = 0.12 / max_length
-            object_pos = [0., 0., 0.]
-            object_pos[0] -=  scale * (minx + maxx) / 2.0
-            object_pos[1] -=  scale * (miny + maxy) / 2.0
-            object_pos[2] -= 0.08 + scale * (minz + maxz) / 2.0
+                scale = 0.12 / max_length
+                object_pos = [0., 0., 0.]
+                object_pos[0] -=  scale * (minx + maxx) / 2.0
+                object_pos[1] -=  scale * (miny + maxy) / 2.0
+                object_pos[2] -= 0.08 + scale * (minz + maxz) / 2.0
 
+                mass_per_elem, n_cvx_files = object_mass / (1 + len(convex_hull_files)), len(convex_hull_files)
+                loaded_meshes[chosen_mesh] = (object_pos, mass_per_elem, n_cvx_files)
 
+                ET.SubElement(assets, "mesh", name=chosen_mesh + "_mesh", file=object_file,
+                              scale="{} {} {}".format(scale, scale, scale))
+                for n, c_file in enumerate(convex_hull_files):
+                    ET.SubElement(assets, "mesh", name=chosen_mesh + "_convex_mesh{}".format(n), file=c_file,
+                                  scale="{} {} {}".format(scale, scale, scale))
 
-            mass_per_elem = object_mass / (1 + len(convex_hull_files))
+            else: object_pos, mass_per_elem, n_cvx_files = loaded_meshes[chosen_mesh]
 
             pos_str = "{} {} {}".format(object_pos[0], object_pos[1], object_pos[2])
+
+
             if obj_classname is not None:
-                obj = ET.SubElement(world_body, "body",name=obj_string, pos=pos_str, childclass=obj_classname)
+                obj = ET.SubElement(world_body, "body",name=obj_string, pos=pos_str,
+                                    childclass=obj_classname)
             else: obj = ET.SubElement(world_body, "body",name=obj_string, pos=pos_str)
+
             ET.SubElement(obj, "joint", type="free")
 
-            ET.SubElement(assets, "mesh", name = obj_string + "_mesh", file = object_file,
-                          scale = "{} {} {}".format(scale, scale,  scale))
-            for n, c_file in enumerate(convex_hull_files):
-                ET.SubElement(assets, "mesh", name= obj_string + "_convex_mesh{}".format(n), file=c_file,
-                              scale="{} {} {}".format(scale,  scale,  scale))
             #visual mesh
-            ET.SubElement(obj, "geom", type="mesh", mesh = obj_string + "_mesh",
+            ET.SubElement(obj, "geom", type="mesh", mesh = chosen_mesh + "_mesh",
                           rgba="{} {} {} 1".format(color1[0], color1[1], color1[2]), mass="{}".format(mass_per_elem),
                           contype="0", conaffinity="0")
             #contact meshes
-            for n in range(len(convex_hull_files)):
-                ET.SubElement(obj, "geom", type="mesh", mesh=obj_string + "_convex_mesh{}".format(n),
-                              rgba="0 0 0 0", mass="{}".format(mass_per_elem),
+            for n in range(n_cvx_files):
+                ET.SubElement(obj, "geom", type="mesh", mesh=chosen_mesh + "_convex_mesh{}".format(n),
+                              rgba="0 1 0 0", mass="{}".format(mass_per_elem),
                               contype="7", conaffinity="7", friction="{} {} {}".format(f_sliding, f_torsion, f_rolling)
-                              #, condim="6", solimp="0.99 0.99 0.01", solref="0.01 1"
                               )
 
 

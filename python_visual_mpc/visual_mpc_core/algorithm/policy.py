@@ -7,15 +7,14 @@ class Policy(object):
     """ Computes actions from states/observations. """
 
     @abc.abstractmethod
-    def act(self,traj, t):
+    def act(self, *args):
         """
         Args:
-            x: State vector.
-            obs: Observation vector.
-            t: Time step.
-            noise: A dU-dimensional noise vector.
+            Request necessary arguments in definition
+            (see Agent code)
         Returns:
-            A dU dimensional action vector.
+            A dict of outputs D
+               -One key in D, 'actions' should have the action for this time-step
         """
         raise NotImplementedError("Must be implemented in subclass.")
 
