@@ -24,7 +24,7 @@ env_params = {
     'finger_sensors': True,
     'substeps': 100,
      'autograsp': {'zthresh': 0.18, 'touchthresh': 0.0, 'reopen': True},
-    'object_meshes': ['ElephantBowl', 'RuggedBowl', 'Bowl', 'GlassBowl', 'ServingBowl', 'LotusBowl01']
+    'object_meshes': ['Knife', 'Fork', 'Spoon', 'Bowl']
 }
 
 agent = {
