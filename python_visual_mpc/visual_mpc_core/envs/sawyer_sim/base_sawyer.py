@@ -61,6 +61,7 @@ class BaseSawyerEnv(BaseMujocoEnv):
 
         self._previous_target_qpos, self._n_joints = None, 9
 
+
     def _clip_gripper(self):
         self.sim.data.qpos[7:9] = np.clip(self.sim.data.qpos[7:9], [-0.055, 0.0027], [-0.0027, 0.055])
 
@@ -119,14 +120,13 @@ class BaseSawyerEnv(BaseMujocoEnv):
                 finger_force += self.sim.data.sensordata[:2]
         finger_force /= 10 * self.skip_first
 
-
-
         self._previous_target_qpos = np.zeros(self._base_sdim)
         self._previous_target_qpos[:3] = self.sim.data.get_body_xpos('hand')
         self._previous_target_qpos[3] = quat_to_zangle(self.sim.data.get_body_xquat('hand'))
         self._previous_target_qpos[-1] = low_bound[-1]
 
         self._init_dynamics()
+
         return self._get_obs(finger_force)
 
     def _get_obs(self, finger_sensors):
@@ -162,6 +162,7 @@ class BaseSawyerEnv(BaseMujocoEnv):
         # get images
         obs['images'] = self.render()
 
+        self.project_point(None, 'maincam')
         return obs
 
     def _sim_integrity(self):
