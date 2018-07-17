@@ -107,22 +107,29 @@ def create_object_xml(filename, num_objects, object_mass, friction_params, objec
 
                 mesh_object = mesh.Mesh.from_file(object_file)
                 minx, maxx, miny, maxy, minz, maxz = find_mins_maxs(mesh_object)
-                max_length = min((maxx - minx), (maxy - miny))
+                min_length = min((maxx - minx), (maxy - miny))
+                scale = [0.12 / min_length for _ in range(3)]
 
-                scale = 0.12 / max_length
+                if chosen_mesh in ['Knife', 'Fork', 'Spoon']:      #should add a more extensible way to handle different rescale rules
+                    max_length = max((maxx - minx), (maxy - miny))
+                    scale = [0.24 / max_length for _ in range(3)]
+
+                    if chosen_mesh == 'Knife':
+                        scale[2] *= 10
+
                 object_pos = [0., 0., 0.]
-                object_pos[0] -=  scale * (minx + maxx) / 2.0
-                object_pos[1] -=  scale * (miny + maxy) / 2.0
-                object_pos[2] -= 0.08 + scale * (minz + maxz) / 2.0
+                object_pos[0] -= scale[0] * (minx + maxx) / 2.0
+                object_pos[1] -= scale[1] * (miny + maxy) / 2.0
+                object_pos[2] -= 0.08 + scale[2] * (minz + maxz) / 2.0
 
                 mass_per_elem, n_cvx_files = object_mass / (1 + len(convex_hull_files)), len(convex_hull_files)
                 loaded_meshes[chosen_mesh] = (object_pos, mass_per_elem, n_cvx_files)
 
                 ET.SubElement(assets, "mesh", name=chosen_mesh + "_mesh", file=object_file,
-                              scale="{} {} {}".format(scale, scale, scale))
+                              scale="{} {} {}".format(scale[0], scale[1], scale[2]))
                 for n, c_file in enumerate(convex_hull_files):
                     ET.SubElement(assets, "mesh", name=chosen_mesh + "_convex_mesh{}".format(n), file=c_file,
-                                  scale="{} {} {}".format(scale, scale, scale))
+                                  scale="{} {} {}".format(scale[0], scale[1], scale[2]))
 
             else: object_pos, mass_per_elem, n_cvx_files = loaded_meshes[chosen_mesh]
 

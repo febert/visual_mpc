@@ -1,12 +1,11 @@
-""" Hyperparameters for Large Scale Data Collection (LSDC) """
-
 import os.path
 
 import numpy as np
 
 from python_visual_mpc.visual_mpc_core.algorithm.random_policy import Randompolicy, RandomPickPolicy
 from python_visual_mpc.visual_mpc_core.agent.agent_mjc import AgentMuJoCo
-from python_visual_mpc.visual_mpc_core.envs.sawyer_sim.autograsp_env import AutograspSawyerEnv
+from python_visual_mpc.visual_mpc_core.envs.sawyer_sim.agopenaction_env import AGOpenActionEnv
+from python_visual_mpc.visual_mpc_core.infrastructure.utility.tfrecord_from_file import grasping_touch_file2record as convert_to_record
 
 
 BASE_DIR = '/'.join(str.split(__file__, '/')[:-1])
@@ -28,7 +27,7 @@ env_params = {
 
 agent = {
     'type': AgentMuJoCo,
-    'env': (AutograspSawyerEnv, env_params),
+    'env': (AGOpenActionEnv, env_params),
     'data_save_dir': BASE_DIR,
     'not_use_images':"",
     'cameras':['maincam', 'leftcam'],
@@ -53,7 +52,8 @@ policy = {
     'initial_std': 0.05,   #std dev. in xy
     'initial_std_lift': 0.15,   #std dev. in xy
     'initial_std_rot': np.pi / 18,
-    'initial_std_grasp': 2
+    'initial_std_grasp': 2,
+    'discrete_gripper': -1
 }
 
 config = {

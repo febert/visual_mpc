@@ -9,7 +9,7 @@ import time
 from mujoco_py.builder import MujocoException
 import skimage.io
 import copy
-
+import cv2
 
 def quat_to_zangle(quat):
     angle = -(Quaternion(axis = [0,1,0], angle = np.pi).inverse * Quaternion(quat)).angle
@@ -60,6 +60,7 @@ class BaseSawyerEnv(BaseMujocoEnv):
         self.finger_sensors, self._maxlen = finger_sensors, maxlen
 
         self._previous_target_qpos, self._n_joints = None, 9
+
 
     def _clip_gripper(self):
         self.sim.data.qpos[7:9] = np.clip(self.sim.data.qpos[7:9], [-0.055, 0.0027], [-0.0027, 0.055])
@@ -119,14 +120,13 @@ class BaseSawyerEnv(BaseMujocoEnv):
                 finger_force += self.sim.data.sensordata[:2]
         finger_force /= 10 * self.skip_first
 
-
-
         self._previous_target_qpos = np.zeros(self._base_sdim)
         self._previous_target_qpos[:3] = self.sim.data.get_body_xpos('hand')
         self._previous_target_qpos[3] = quat_to_zangle(self.sim.data.get_body_xquat('hand'))
         self._previous_target_qpos[-1] = low_bound[-1]
 
         self._init_dynamics()
+
         return self._get_obs(finger_force)
 
     def _get_obs(self, finger_sensors):
@@ -161,6 +161,13 @@ class BaseSawyerEnv(BaseMujocoEnv):
         self._last_obs = copy.deepcopy(obs)
         # get images
         obs['images'] = self.render()
+
+        obj_image_locations = np.zeros((2, self.num_objects + 1, 2))
+        for i, cam in enumerate(['maincam', 'leftcam']):
+            obj_image_locations[i, 0] = self.project_point(self.sim.data.get_body_xpos('hand')[:3], cam)
+            for j in range(self.num_objects):
+                obj_image_locations[i, j + 1] = self.project_point(obs['object_poses_full'][j, :3], cam)
+        obs['obj_image_locations'] = obj_image_locations
 
         return obs
 
