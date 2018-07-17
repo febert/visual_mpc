@@ -39,46 +39,11 @@ def save_tf_record(filename, trajectory_list):
     writer = tf.python_io.TFRecordWriter(filename)
     feature = {}
 
+
     for traj in trajectory_list:
         for tind, feats in enumerate(traj):
             for k in feats:
                 feature['{}/{}'.format(tind, k)] = feats[k]
-
-    #
-    #     feature[str(tind) + '/action']= _float_feature(traj.actions[tind,:].tolist())
-    #
-    #     arr = np.concatenate([traj.X_full[tind,:5], traj.touch_sensors[tind]], axis=0)
-    #     feature[str(tind) + '/state'] = _float_feature(arr.tolist())
-    #
-    #     if 'cameras' in agentparams:
-    #         for i in range(len(agentparams['cameras'])):
-    #             image_raw = traj.images[tind, i].tostring()
-    #             feature[str(tind) + '/image_view{}/encoded'.format(i)] = _bytes_feature(image_raw)
-    #     else:
-    #         if 'store_video_prediction' in agentparams:
-    #             image_raw = traj.final_predicted_images[tind].tostring()
-    #         else:
-    #             image_raw = traj.images[tind].tostring()
-    #         feature[str(tind) + '/image_view0/encoded'] = _bytes_feature(image_raw)
-    #
-    #     if hasattr(traj, 'Object_pose'):
-    #         Object_pos_flat = traj.Object_pose[tind].flatten()
-    #         feature['move/' + str(tind) + '/object_pos'] = _float_feature(Object_pos_flat.tolist())
-    #
-    #         if hasattr(traj, 'max_move_pose'):
-    #             max_move_pose = traj.max_move_pose[tind].flatten()
-    #             feature['move/' + str(tind) + '/max_move_pose'] = _float_feature(max_move_pose.tolist())
-    #
-    #     if hasattr(traj, 'gen_images'):
-    #         feature[str(tind) + '/gen_images'] = _bytes_feature(traj.gen_images[tind].tostring())
-    #         feature[str(tind) + '/gen_states'] = _float_feature(traj.gen_states[tind,:].tolist())
-    #
-    # if hasattr(traj, 'goal_image'):
-    #     feature['/goal_image'] = _bytes_feature(traj.goal_image.tostring())
-    #
-    # if hasattr(traj, 'first_last_noarm'):
-    #     feature['/first_last_noarm0'] = _bytes_feature(traj.first_last_noarm[0].tostring())
-    #     feature['/first_last_noarm1'] = _bytes_feature(traj.first_last_noarm[1].tostring())
 
         example = tf.train.Example(features=tf.train.Features(feature=feature))
         writer.write(example.SerializeToString())
@@ -99,6 +64,7 @@ class RecordSaver:
         self._traj_buffers = [[] for _ in range(3)]
         self._save_counters = [0 for _ in range(3)]
         self._traj_per_file = traj_per_file
+        self._keys = None
 
     def add_traj(self, traj):
         draw = None
@@ -116,6 +82,23 @@ class RecordSaver:
     def flush(self):
         self._save(True)
 
+    def add_entry(self, key, shape):
+        if self._keys is None:
+            self._keys = {}
+        self._keys[key] = shape
+
+    def save_manifest(self):
+        if self._keys is None:
+            raise ValueError
+        with open('{}/manifest.txt'.format(self._base_dir), 'w') as f:
+            f.write('# DATA MANIFEST\n')
+            for key in self._keys:
+                shape, shape_str = self._keys[key], ''
+                for s in shape:
+                    shape_str += ' {},'.format(s)
+
+                f.write('{}, ({})\n'.format(key, shape_str[1:-1]))
+
     def __len__(self):
         return sum(self._save_counters)
 
@@ -128,17 +111,17 @@ class RecordSaver:
                 next_counter = self._save_counters[i] + len(buffer)
                 folder = '{}/{}'.format(self._base_dir, name)
                 file = '{}/traj_{}_to_{}'.format(folder, self._save_counters[i], next_counter - 1)
-                save_tf_record(file, buffer)
+                self._keys = save_tf_record(file, buffer)
 
                 self._traj_buffers[i] = []
                 self._save_counters[i] = next_counter
-
 
 
 def check_lift(finger_sensors, gripper_z):
     max_touch = np.max(finger_sensors, axis = 1)
     print(max_touch.shape)
     return any(np.logical_and(finger_sensors > 0, gripper_z > 0.2))
+
 
 def main():
     parser = argparse.ArgumentParser(description='run convert from directory to tf record')
@@ -182,11 +165,12 @@ def main():
     good_saver = RecordSaver(traj_per_file, '{}/good'.format(out_dir))
     bad_saver = RecordSaver(traj_per_file, '{}/bad'.format(out_dir))
 
+    created_manifest = False
     traj_group_dirs = glob.glob(data_dir+'/*')
     for g in traj_group_dirs:
         trajs = glob.glob(g + '/*')
         random.shuffle(trajs)
-        
+
         for t in trajs:
             if not os.path.exists(t + '/obs_dict.pkl') or not os.path.exists(t + '/policy_out.pkl'):
                 print('traj {} missing data'.format(t))
@@ -217,10 +201,21 @@ def main():
 
             for i in range(T):
                 step_dict = {}
-                for k in policy_out[i].keys():
-                    step_dict['policy/{}'.format(k)] = float_feature(policy_out[i][k].flatten().tolist())
-                for k in obs_keys:
-                    step_dict['env/{}'.format(k)] = float_feature(obs_dict[k][i].flatten().tolist())
+                if not created_manifest:
+                    good_saver.add_entry('action', policy_out[i]['actions'].shape)
+                    good_saver.add_entry('endeffector_pos', obs_dict['state'][i].shape)
+                    img = cv2.imread(t + '/images{}/im_{}.png'.format(0, i))
+                    good_saver.add_entry('image_view0/encoded', img.shape)
+                    good_saver.add_entry('image_view1/encoded', img.shape)
+                    created_manifest = True
+                    good_saver.save_manifest()
+
+                step_dict['action'] = float_feature(policy_out[i]['actions'].flatten().tolist())
+                step_dict['endeffector_pos'] = float_feature(obs_dict['state'][i].flatten().tolist())
+                # for k in policy_out[i].keys():
+                #     step_dict['policy/{}'.format(k)] = float_feature(policy_out[i][k].flatten().tolist())
+                # for k in obs_keys:
+                #     step_dict['env/{}'.format(k)] = float_feature(obs_dict[k][i].flatten().tolist())
 
                 for id, c in enumerate(['maincam', 'leftcam']):
                     img = cv2.imread(t + '/images{}/im_{}.png'.format(id, i))[:, :, ::-1].copy()
