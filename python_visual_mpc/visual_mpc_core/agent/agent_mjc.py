@@ -1,7 +1,6 @@
 """ This file defines an agent for the MuJoCo simulator environment. """
 import matplotlib; matplotlib.use('Agg'); import matplotlib.pyplot as plt
 
-from python_visual_mpc.visual_mpc_core.agent.utils.gen_gtruth_desig import gen_gtruthdesig
 import copy
 import numpy as np
 import pickle

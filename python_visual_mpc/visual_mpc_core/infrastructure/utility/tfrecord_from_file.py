@@ -13,134 +13,132 @@ else:
 import glob
 import numpy as np
 import cv2
-import copy
+import random
+import tensorflow as tf
 
-from python_visual_mpc.visual_mpc_core.infrastructure.utility.save_tf_record import save_tf_record
+import shutil
 
-class DefaultTraj:
-    def __init__(self):
-        self.actions, self.X_Xdot_full, self.images  = None, None, None
-
-
-def grasping_touch_file2record(state_action, agent_params):
-    loaded_traj = DefaultTraj()
-
-    loaded_traj.actions = state_action['actions']
-    touch_sensors = state_action['finger_sensors']
-    loaded_traj.X_Xdot_full = np.concatenate((state_action['target_qpos'][:-1, :], touch_sensors), axis = 1)
-
-    good_lift = False
-
-    valid_frames = np.logical_and(state_action['target_qpos'][1:, -1] > 0, np.logical_and(touch_sensors[:, 0] > 0, touch_sensors[:, 1] > 0))
-    off_ground = state_action['target_qpos'][1:,2] >= 0
-    object_poses = state_action['object_full_pose']
-
-    if any(np.logical_and(valid_frames, off_ground)):
-        obj_eq = object_poses[0, :, :2] == state_action['obj_start_end_pos']
-
-        obj_eq = np.logical_and(obj_eq[:, 0], obj_eq[:, 1])
-        obj_eq = np.argmax(obj_eq)
-        obj_max =  np.amax(object_poses[:,obj_eq,2])
-        if obj_max >=0:
-            good_lift = True
-
-    return good_lift, loaded_traj
-
-def grasping_touch_nodesig_file2record(state_action, agent_params):
-    loaded_traj = DefaultTraj()
-
-    loaded_traj.actions = state_action['actions']
-    touch_sensors = state_action['finger_sensors']
-    loaded_traj.X_Xdot_full = np.concatenate((state_action['target_qpos'][:-1, :], touch_sensors), axis = 1)
-
-    valid_frames = np.logical_and(state_action['target_qpos'][1:, -1] > 0, np.logical_and(touch_sensors[:, 0] > 0, touch_sensors[:, 1] > 0))
-    off_ground = state_action['target_qpos'][1:,2] >= agent_params.get('good_lift_thresh', 0.)
-
-    good_grasp = any(np.logical_and(valid_frames, off_ground))
-    
-    return good_grasp, loaded_traj
+def float_feature(value):
+    return tf.train.Feature(float_list=tf.train.FloatList(value=value))
 
 
-def grasping_sawyer_file2record(state_action, agent_params):
-    loaded_traj = DefaultTraj()
-    loaded_traj.actions = copy.deepcopy(state_action['actions'])[:,:4]
-    if np.sum(np.abs(loaded_traj.actions)) <= 0.05:
-        clip = agent_params['targetpos_clip']
-        recover_actions = np.zeros((agent_params['T'] / 3, 4))
-        rng_std = [0.08,0.08, 0.08, np.pi / 18]
-        for i in range(4):
-            for t in range(agent_params['T'] / 3):
-                c_action = state_action['target_qpos'][3 * t + 1, i]
-                if c_action == clip[1][i]:
-                    val = np.random.normal() * rng_std[i]
-                    while val < clip[1][i] - state_action['target_qpos'][3 * t, i]:
-                        val = np.random.normal() * rng_std[i]
-                    recover_actions[t, i] = val
-                elif c_action == clip[0][i]:
-                    val = np.random.normal() * rng_std[i]
-                    while val > clip[0][i] - state_action['target_qpos'][3 * t, i]:
-                        val = np.random.normal() * rng_std[i]
-                    recover_actions[t, i] = val
-                else:
-                    recover_actions[t, i] = c_action - state_action['target_qpos'][3 * t, i]
+def bytes_feature(value):
+    return tf.train.Feature(bytes_list=tf.train.BytesList(value=[value]))
 
-        recover_actions = np.repeat(recover_actions, 3, axis = 0)
-        loaded_traj.actions = copy.deepcopy(recover_actions)
 
-    touch_sensors = state_action['finger_sensors']
-    if 'autograsp' in agent_params:
-        gripper_inputs = copy.deepcopy(touch_sensors[:, 0].reshape((-1, 1)))
-        gripper_inputs[0, 0] = 0.       #grippers often have erroneous force readings at T = 0
-        norm_states = copy.deepcopy(state_action['states'][:, :-1])
-        for i in range(3):
-            delta = agent_params['targetpos_clip'][1][i] - agent_params['targetpos_clip'][0][i]
-            min = agent_params['targetpos_clip'][0][i]
-            norm_states[:, i] -= min
-            norm_states[:, i] /= delta
+def int64_feature(value):
+  return tf.train.Feature(int64_list=tf.train.Int64List(value=value))
 
-        loaded_traj.X_Xdot_full = np.concatenate((norm_states, gripper_inputs), axis=1)
 
-    else:
-        loaded_traj.X_Xdot_full = np.concatenate((state_action['states'], touch_sensors), axis=1)
+def save_tf_record(filename, trajectory_list):
+    """
+    saves data_files from one sample trajectory into one tf-record file
+    """
+    filename = filename + '.tfrecords'
+    print(filename)
+    writer = tf.python_io.TFRecordWriter(filename)
+    feature = {}
 
-    valid_frames = np.logical_and(state_action['states'][1:, -1] > 0,
-                                  np.logical_and(touch_sensors[1:, 0] > 0, touch_sensors[1:, 1] > 0))
-    off_ground = state_action['states'][1:, 2] >= agent_params.get('good_lift_thresh', 0.27)
+    for traj in trajectory_list:
+        for tind, feats in enumerate(traj):
+            for k in feats:
+                feature['{}/{}'.format(tind, k)] = feats[k]
 
-    good_grasp = np.sum(np.logical_and(valid_frames, off_ground)) >= 2
+    #
+    #     feature[str(tind) + '/action']= _float_feature(traj.actions[tind,:].tolist())
+    #
+    #     arr = np.concatenate([traj.X_full[tind,:5], traj.touch_sensors[tind]], axis=0)
+    #     feature[str(tind) + '/state'] = _float_feature(arr.tolist())
+    #
+    #     if 'cameras' in agentparams:
+    #         for i in range(len(agentparams['cameras'])):
+    #             image_raw = traj.images[tind, i].tostring()
+    #             feature[str(tind) + '/image_view{}/encoded'.format(i)] = _bytes_feature(image_raw)
+    #     else:
+    #         if 'store_video_prediction' in agentparams:
+    #             image_raw = traj.final_predicted_images[tind].tostring()
+    #         else:
+    #             image_raw = traj.images[tind].tostring()
+    #         feature[str(tind) + '/image_view0/encoded'] = _bytes_feature(image_raw)
+    #
+    #     if hasattr(traj, 'Object_pose'):
+    #         Object_pos_flat = traj.Object_pose[tind].flatten()
+    #         feature['move/' + str(tind) + '/object_pos'] = _float_feature(Object_pos_flat.tolist())
+    #
+    #         if hasattr(traj, 'max_move_pose'):
+    #             max_move_pose = traj.max_move_pose[tind].flatten()
+    #             feature['move/' + str(tind) + '/max_move_pose'] = _float_feature(max_move_pose.tolist())
+    #
+    #     if hasattr(traj, 'gen_images'):
+    #         feature[str(tind) + '/gen_images'] = _bytes_feature(traj.gen_images[tind].tostring())
+    #         feature[str(tind) + '/gen_states'] = _float_feature(traj.gen_states[tind,:].tolist())
+    #
+    # if hasattr(traj, 'goal_image'):
+    #     feature['/goal_image'] = _bytes_feature(traj.goal_image.tostring())
+    #
+    # if hasattr(traj, 'first_last_noarm'):
+    #     feature['/first_last_noarm0'] = _bytes_feature(traj.first_last_noarm[0].tostring())
+    #     feature['/first_last_noarm1'] = _bytes_feature(traj.first_last_noarm[1].tostring())
 
-    return good_grasp, loaded_traj
+        example = tf.train.Example(features=tf.train.Features(feature=feature))
+        writer.write(example.SerializeToString())
 
-def pushing_touch_file2record(state_action, agent_params):
-    loaded_traj = DefaultTraj()
+    writer.close()
 
-    loaded_traj.actions = state_action['actions']
-    touch_sensors = state_action['finger_sensors']
-    loaded_traj.X_Xdot_full = np.concatenate((state_action['target_qpos'][:-1, :], touch_sensors), axis = 1)
-    
-    object_poses = state_action['object_full_pose']
-    good_push = False
 
-    if any(np.sum(np.sum(np.square(object_poses[1:,:,:2] - object_poses[1, :, :2].reshape((1, -1, 2))), axis = 1), axis = 1) > 0.01):
-        good_push = True     
-    return good_push, loaded_traj
+class RecordSaver:
+    def __init__(self, traj_per_file, save_dir, split = (0.90, 0.05, 0.05)):
+        dirs_to_create = ['{}/{}'.format(save_dir, d) for d in ['train', 'test', 'val']]
+        for d in dirs_to_create:
+            print('Creating dir:', d)
+            if os.path.exists(d):
+                shutil.rmtree(d)
+            os.makedirs(d)
+        self._base_dir = save_dir
+        self._train_val_test = split
+        self._traj_buffers = [[] for _ in range(3)]
+        self._save_counters = [0 for _ in range(3)]
+        self._traj_per_file = traj_per_file
 
-def crop_resize(agent_params, image, cam_conf, scale = 1):
-    target_img_height, target_img_width = agent_params['image_height'] * scale, agent_params['image_width'] * scale
+    def add_traj(self, traj):
+        draw = None
+        for i, buffer in enumerate(self._traj_buffers):
+            if self._save_counters[i] == 0 and np.random.randint(0, 3) >= 1:
+                draw = i
+                continue
 
-    crop_left, crop_right = cam_conf.get('crop_left', 0), cam_conf.get('crop_right', 0)
-    crop_top, crop_bot = cam_conf.get('crop_top', 0), cam_conf.get('crop_bot', 0)
+        if draw is None:
+            draw = np.random.choice([0, 1, 2], 1, p=self._train_val_test)[0]
 
-    if crop_right > 0:
-        crop_img = image[:, crop_left:-crop_right]
-    else:
-        crop_img = image[:, crop_left:]
+        self._traj_buffers[draw].append(traj)
+        self._save()
 
-    if crop_bot > 0:
-        crop_img = crop_img[crop_top:-crop_bot]
-    else:
-        crop_img = crop_img[crop_top:]
-    return cv2.resize(crop_img, (target_img_width, target_img_height), interpolation=cv2.INTER_AREA)
+    def flush(self):
+        self._save(True)
+
+    def __len__(self):
+        return sum(self._save_counters)
+
+    def _save(self, flush = False):
+        for i, name in zip(range(3), ['train', 'test', 'val']):
+            buffer = self._traj_buffers[i]
+            if len(buffer) == 0:
+                continue
+            elif flush or len(buffer) % self._traj_per_file == 0:
+                next_counter = self._save_counters[i] + len(buffer)
+                folder = '{}/{}'.format(self._base_dir, name)
+                file = '{}/traj_{}_to_{}'.format(folder, self._save_counters[i], next_counter - 1)
+                save_tf_record(file, buffer)
+
+                self._traj_buffers[i] = []
+                self._save_counters[i] = next_counter
+
+
+
+def check_lift(finger_sensors, gripper_z):
+    max_touch = np.max(finger_sensors, axis = 1)
+    print(max_touch.shape)
+    return any(np.logical_and(finger_sensors > 0, gripper_z > 0.2))
 
 def main():
     parser = argparse.ArgumentParser(description='run convert from directory to tf record')
@@ -172,151 +170,71 @@ def main():
         loader.exec_module(conf)
         hyperparams = conf.config
 
-    traj_per_file = 16#hyperparams['traj_per_file']
+    traj_per_file = hyperparams['traj_per_file']
     agent_config = hyperparams['agent']
     T = agent_config['T']
-
-    extra_im = 0
-    if args.goal:
-        extra_im = 2
-        agent_config['T'] += extra_im
-
-    data_dir = agent_config['data_save_dir']
+    data_dir = agent_config['data_save_dir'] + '/train'
     out_dir = data_coll_dir + '/' + out_dir
-    agent_config['data_save_dir'] = out_dir
-    img_height = agent_config['image_height']
-    img_width = agent_config['image_width']
 
     print('loading from', data_dir)
     print('saving to', out_dir)
 
-    good_traj_list, bad_traj_list = [], []
-    num_good_saved, num_bad_saved = args.good_offset, args.bad_offset
-    print('GOOD OFFSET {}, BAD OFFSET {}'.format(num_good_saved, num_bad_saved))
+    good_saver = RecordSaver(traj_per_file, '{}/good'.format(out_dir))
+    bad_saver = RecordSaver(traj_per_file, '{}/bad'.format(out_dir))
 
-    good_lift_ctr, total_ctr = 0, 0
     traj_group_dirs = glob.glob(data_dir+'/*')
-    
-    agent_config['goal_image'] = True 
-
-    dirs_to_create = [agent_config['data_save_dir'] + d for d in ['/good/train', '/good/test', '/good/val', '/bad/train', '/bad/test', '/bad/val']]
-    for d in dirs_to_create:
-        if not os.path.exists(d):
-            os.makedirs(d)
-            print('Creating dir:', d)
-
     for g in traj_group_dirs:
         trajs = glob.glob(g + '/*')
+        random.shuffle(trajs)
+        
         for t in trajs:
-            if not os.path.exists(t + '/state_action.pkl'):
+            if not os.path.exists(t + '/obs_dict.pkl') or not os.path.exists(t + '/policy_out.pkl'):
+                print('traj {} missing data'.format(t))
                 continue
-
-            if 'cameras' in agent_config:
-                valid = True
-                for i in range(len(agent_config['cameras'])):
-                    img_files = [t + '/images{}/im{}.png'.format(i, j) for j in range(T)]
-                    if not all([os.path.exists(i) and os.path.isfile(i) for i in img_files]):
-                        valid = False
-                        print('traj {} missing /images{}'.format(t, i))
-                        break
-                if not valid:
-                    continue
-            else:
-                if len(glob.glob(t + '/images/*.png')) != T:
-                    continue
 
             try:
-                state_action = pkl.load(open(t + '/state_action.pkl', 'rb'))
+                obs_dict = pkl.load(open(t + '/obs_dict.pkl', 'rb'))
+                policy_out = pkl.load(open(t + '/policy_out.pkl', 'rb'))
             except EOFError:
+                print('traj {} missing data'.format(t))
                 continue
 
-            if np.sum(np.isnan(state_action['target_qpos'])) > 0:
-                print("FOUND NAN AT", t)     #error in mujoco environment sometimes manifest in NANs
+            valid = True
+            for i in range(len(agent_config['cameras'])):
+                img_files = [t + '/images{}/im_{}.png'.format(i, j) for j in range(T)]
+                if not all([os.path.exists(i) and os.path.isfile(i) for i in img_files]):
+                    valid = False
+                    print('traj {} missing /images{}'.format(t, i))
+                    break
+            if not valid:
+                continue
+
+            obs_dict.pop('term_t')
+
+            loaded_traj = []
+            policy_keys, obs_keys = list(policy_out[0].keys()), list(obs_dict.keys())
+            good_lift = any(np.logical_and(np.max(obs_dict['finger_sensors'][:-1], 1) > 0, obs_dict['state'][:-1,2] > 0.2))
+
+            for i in range(T):
+                step_dict = {}
+                for k in policy_out[i].keys():
+                    step_dict['policy/{}'.format(k)] = float_feature(policy_out[i][k].flatten().tolist())
+                for k in obs_keys:
+                    step_dict['env/{}'.format(k)] = float_feature(obs_dict[k][i].flatten().tolist())
+
+                for id, c in enumerate(['maincam', 'leftcam']):
+                    img = cv2.imread(t + '/images{}/im_{}.png'.format(id, i))[:, :, ::-1].copy()
+                    step_dict['image_view{}/encoded'.format(id)] = bytes_feature(img.tostring())
+
+                loaded_traj.append(step_dict)
+            if good_lift:
+                good_saver.add_traj(loaded_traj)
             else:
-                total_ctr += 1
-                good_lift, loaded_traj = agent_config['file_to_record'](state_action, agent_config)
-
-                if 'cameras' in agent_config:
-                    loaded_traj.images = np.zeros((T + extra_im, len(agent_config['cameras']), img_height * args.scale_img, img_width * args.scale_img, 3), dtype = np.uint8)
-                else:
-                    loaded_traj.images = np.zeros((T + extra_im, img_height, img_width, 3), dtype = np.uint8)
-
-                if good_lift:
-                    print(t)
-                    good_lift_ctr += 1
-                    good_traj_list.append(loaded_traj)
-
-                    if args.goal:
-                        touch_sensors = state_action['finger_sensors']
-                        touching = np.logical_and(state_action['states'][1:, -1] > 0,
-                                                  np.logical_and(touch_sensors[1:, 0] > 0, touch_sensors[1:, 1] > 0))
-
-                        first_frame = np.argmax(touching)
-                        next_proposals = state_action['finger_sensors'][first_frame + 1:, 0] > 0
-                        next_proposals = [i + first_frame for i, val in enumerate(next_proposals) if val]
-                        second_frame = np.argmax(state_action['states'][first_frame:, 2]) + first_frame
-
-                        for cam in range(len(agent_config['cameras'])):
-                            loaded_traj.images[-2, cam] = cv2.imread(t + '/images{}/im{}.png'.format(cam, first_frame))[:, :, ::-1]
-                            loaded_traj.images[-1, cam] = cv2.imread(t + '/images{}/im{}.png'.format(cam, second_frame))[:,:, ::-1]
-                        loaded_traj.actions = np.concatenate((loaded_traj.actions, np.zeros((2, 4))), axis = 0)
-                        loaded_traj.X_Xdot_full = np.concatenate((loaded_traj.X_Xdot_full, np.zeros((2, 5))), axis = 0)
-
-
-
-                else:
-                    if args.goal:
-                        continue       #bad trajectories have no target images
-                    bad_traj_list.append(loaded_traj)
-
-                for img in range(T):
-                    if 'cameras' in agent_config:
-                        for cam, name in enumerate(agent_config['cameras']):
-                            if args.scale_img > 1:
-                                resized_image = crop_resize(agent_config, cv2.imread(t + '/images{}/im_med{}.png'.format(cam, img)), agent_config['data_conf'][name], args.scale_img)
-                                loaded_traj.images[img, cam] = resized_image[:, :, ::-1]
-                            else:
-                                loaded_traj.images[img, cam] = cv2.imread(t + '/images{}/im{}.png'.format(cam, img))[:, :, ::-1]
-                    else:
-                        loaded_traj.images[img] = cv2.imread(t + '/images/im{}.png'.format(img))[:, :, ::-1]
-
-            if len(good_traj_list) % traj_per_file == 0 and len(good_traj_list) > 0:
-                folder_prep = 'good/'
-                if num_good_saved == 0:
-                    folder_prep += 'test'
-                elif np.random.rand() <= agent_config.get('train_val_split', 0.95):
-                    folder_prep += 'train'
-                else:
-                    folder_prep += 'val'
-                f_name = '{}/good_traj_{}_to_{}'.format(folder_prep, num_good_saved * traj_per_file, (num_good_saved + 1) * traj_per_file - 1)
-                print('saving', f_name)
-                save_tf_record(f_name, good_traj_list, agent_config)
-                good_traj_list = []
-                num_good_saved += 1
-            elif len(bad_traj_list) % traj_per_file == 0 and len(bad_traj_list) > 0:
-                folder_prep = 'bad/'
-                if num_bad_saved == 0:
-                    folder_prep += 'test'
-                elif np.random.rand() <= agent_config.get('train_val_split', 0.95):
-                    folder_prep += 'train'
-                else:
-                    folder_prep += 'val'
-                f_name = '{}/bad_traj_{}_to_{}'.format(folder_prep, num_bad_saved * traj_per_file, (num_bad_saved + 1) * traj_per_file - 1)
-                print('saving', f_name)
-                save_tf_record(f_name, bad_traj_list, agent_config)
-                bad_traj_list = []
-                num_bad_saved += 1
-
-    if  len(good_traj_list) > 0:
-        f_name = 'good/train/good_traj_{0}_to_{1}'.format(num_good_saved * traj_per_file, (num_good_saved + 1) * traj_per_file - 1)
-        save_tf_record(f_name, good_traj_list, agent_config)
-        good_traj_list = []
-    elif len(bad_traj_list) > 0:
-        f_name = 'bad/train/bad_traj_{0}_to_{1}'.format(num_bad_saved * traj_per_file, (num_bad_saved + 1) * traj_per_file - 1)
-        save_tf_record(f_name, bad_traj_list, agent_config)
-        bad_traj_list = []
+                bad_saver.add_traj(loaded_traj)
+    good_saver.flush()
+    bad_saver.flush()
         
-    print('perc good_lift', float(good_lift_ctr) / total_ctr)
+    print('perc good_lift', float(len(good_saver)) / (len(good_saver) + len(bad_saver)))
 
 if __name__ == '__main__':
     main()
