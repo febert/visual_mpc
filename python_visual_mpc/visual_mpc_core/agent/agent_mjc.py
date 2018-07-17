@@ -35,7 +35,6 @@ class AgentMuJoCo(object):
     this class.
     """
     def __init__(self, hyperparams):
-        self.num_objects = hyperparams['env'][1]['num_objects']
         self._hyperparams = hyperparams
         self._setup_world()
 
@@ -66,6 +65,7 @@ class AgentMuJoCo(object):
 
         self._hyperparams['adim'] = self.env.adim
         self._hyperparams['sdim'] = self.env.sdim
+        self.num_objects = self.env.num_objects
 
     def apply_start_conf(self, dict):
         if 'reverse_action' in self._hyperparams:
@@ -133,8 +133,8 @@ class AgentMuJoCo(object):
         if 'save_goal_image' in self._hyperparams:
             self.save_goal_image_conf(traj)
 
-        if 'make_final_gif' in self._hyperparams:
-            self.save_gif(i_tr)
+        if 'make_final_gif' in self._hyperparams or 'make_final_gif_pointoverlay' in self._hyperparams:
+            self.save_gif(i_tr, 'make_final_gif_pointoverlay' in self._hyperparams)
 
         if 'verbose' in self._hyperparams:
             self.plot_ctrls(i_tr)
@@ -156,6 +156,8 @@ class AgentMuJoCo(object):
         space. Observations are accumulated over time, and images are resized to match
         the given image_heightximage_width dimensions.
 
+        Original images from cam index 0 are added to buffer for saving gifs (if needed)
+
         :param env_obs: observations dictionary returned from the environment
         :param initial_obs: Whether or not this is the first observation in rollout
         :return: obs: dictionary of observations up until (and including) current timestep
@@ -163,11 +165,14 @@ class AgentMuJoCo(object):
 
         agent_img_height = self._hyperparams['image_height']
         agent_img_width = self._hyperparams['image_width']
+
         if initial_obs:
             T = self._hyperparams['T'] + 1
             self._agent_cache = {}
             for k in env_obs:
                 if k == 'images':
+                    if 'obj_image_locations' in env_obs:
+                        self.traj_points = []
                     n_cams = env_obs['images'].shape[0]
                     obs_shape = (T, n_cams, agent_img_height, agent_img_width, 3)
                     self._agent_cache['images'] = np.zeros(obs_shape, dtype = np.uint8)
@@ -189,6 +194,11 @@ class AgentMuJoCo(object):
                 for i in range(env_obs['images'].shape[0]):
                     self._agent_cache['images'][t, i] = cv2.resize(env_obs['images'][i], new_dims,
                                                                     interpolation=cv2.INTER_AREA)
+            elif k == 'obj_image_locations':
+                self.traj_points.append(copy.deepcopy(env_obs['obj_image_locations'][0]))
+                env_obs['obj_image_locations'][:, :, 0] *= agent_img_height / env_obs['images'].shape[1]
+                env_obs['obj_image_locations'][:, :, 1] *= agent_img_width / env_obs['images'].shape[2]
+                self._agent_cache['obj_image_locations'][t] = env_obs['obj_image_locations']
             elif isinstance(env_obs[k], np.ndarray):
                 self._agent_cache[k][t] = env_obs[k]
             else:
@@ -209,7 +219,7 @@ class AgentMuJoCo(object):
         # Take the sample.
         t = 0
         done = False
-        self.large_images_traj = []
+        self.large_images_traj, self.traj_points= [], None
         obs = self._post_process_obs(self.env.reset(), True)
         policy_outputs = []
 
@@ -267,7 +277,6 @@ class AgentMuJoCo(object):
             if done:
                 obs['term_t'] = t
             t += 1
-
 
         if 'first_last_noarm' in self._hyperparams:
             end_img = self.hide_arm_store_image()
@@ -330,7 +339,14 @@ class AgentMuJoCo(object):
 
         return np.array(abs_distances), np.array(abs_angle_dist)
 
-    def save_gif(self, itr):
+    def save_gif(self, itr, overlay=False):
+        if self.traj_points is not None and overlay:
+            colors = [tuple([np.random.randint(0, 256) for _ in range(3)]) for __ in range(self.num_objects + 1)]
+            for pnts, img in zip(self.traj_points, self.large_images_traj):
+                for i in range(self.num_objects + 1):
+                    center = tuple([int(np.round(pnts[i, j])) for j in (1, 0)])
+                    cv2.circle(img, center, 10, colors[i], -1)
+
         file_path = self._hyperparams['record']
         npy_to_gif(self.large_images_traj, file_path +'/video{}'.format(itr))
 

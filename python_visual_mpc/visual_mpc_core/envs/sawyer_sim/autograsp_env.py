@@ -21,7 +21,7 @@ class AutograspSawyerEnv(BaseSawyerEnv):
         self._prev_touch = False
 
     def _next_qpos(self, action):
-        assert action.shape[0] == self._adim
+        assert action.shape[0] == 4
         gripper_z = self._previous_target_qpos[2]
         z_thresh = self._ag_dict['zthresh']
         reopen = 'reopen' in self._ag_dict

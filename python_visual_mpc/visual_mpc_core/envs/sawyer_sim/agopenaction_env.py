@@ -7,7 +7,7 @@ class AGOpenActionEnv(AutograspSawyerEnv):
         self._adim = 5
 
     def _next_qpos(self, action):
-        assert action.shape[0] == self._adim
+        assert action.shape[0] == 5
 
         target = super()._next_qpos(action[:-1])
         if action[-1] <= 0:                     #if policy outputs an "open" action then override auto-grasp

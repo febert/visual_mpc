@@ -9,7 +9,7 @@ import time
 from mujoco_py.builder import MujocoException
 import skimage.io
 import copy
-
+import cv2
 
 def quat_to_zangle(quat):
     angle = -(Quaternion(axis = [0,1,0], angle = np.pi).inverse * Quaternion(quat)).angle
@@ -162,7 +162,13 @@ class BaseSawyerEnv(BaseMujocoEnv):
         # get images
         obs['images'] = self.render()
 
-        self.project_point(None, 'maincam')
+        obj_image_locations = np.zeros((2, self.num_objects + 1, 2))
+        for i, cam in enumerate(['maincam', 'leftcam']):
+            obj_image_locations[i, 0] = self.project_point(self.sim.data.get_body_xpos('hand')[:3], cam)
+            for j in range(self.num_objects):
+                obj_image_locations[i, j + 1] = self.project_point(obs['object_poses_full'][j, :3], cam)
+        obs['obj_image_locations'] = obj_image_locations
+
         return obs
 
     def _sim_integrity(self):

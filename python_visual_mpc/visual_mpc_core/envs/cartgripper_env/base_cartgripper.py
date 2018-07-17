@@ -179,6 +179,14 @@ class BaseCartgripperEnv(BaseMujocoEnv):
         #get images
         obs['images'] = self.render()
 
+        obj_image_locations = np.zeros((2, self.num_objects + 1, 2))
+        for i, cam in enumerate(['maincam', 'leftcam']):
+            obj_image_locations[i, 0] = self.project_point(self.sim.data.get_body_xpos('hand')[:3], cam)
+            for j in range(self.num_objects):
+                obj_image_locations[i, j + 1] = self.project_point(obs['object_poses_full'][j, :3], cam)
+        obj_image_locations[:, :, 0] = self._frame_height - obj_image_locations[:, :, 0]
+        obs['obj_image_locations'] = obj_image_locations
+
         return obs
 
     def valid_rollout(self):
