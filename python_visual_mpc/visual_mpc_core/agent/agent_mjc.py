@@ -4,7 +4,6 @@ import matplotlib; matplotlib.use('Agg'); import matplotlib.pyplot as plt
 from python_visual_mpc.visual_mpc_core.agent.utils.gen_gtruth_desig import gen_gtruthdesig
 import copy
 import numpy as np
-from python_visual_mpc.visual_mpc_core.agent.utils.convert_world_imspace_mj1_5 import project_point
 import pickle
 from PIL import Image
 from python_visual_mpc.video_prediction.misc.makegifs2 import npy_to_gif
