@@ -28,7 +28,7 @@ def main():
     conf['pretrained'] = conf['model_dir'] + FLAGS.pretrained
 
     with tf.variable_scope('model', reuse = None) as training_scope:
-        data_dict = build_tfrecord(conf, training=True)
+        data_dict = build_tfrecord(conf)
         # training input images
         train_images = data_dict['images']
         # training ground truth actions/endef
