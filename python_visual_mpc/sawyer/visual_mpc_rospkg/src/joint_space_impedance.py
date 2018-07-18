@@ -43,7 +43,8 @@ class ImpedanceController(object):
         self._rate = rospy.Rate(800)  # Hz
         self._j_names = [n for n in self._limb.joint_names()]
         self._duration = 1.5
-        self._interp = QuinticSpline(self._get_joints(), NEUTRAL_JOINT_ANGLES.copy(), self._duration)
+        self._desired_joint_pos = NEUTRAL_JOINT_ANGLES.copy()
+        self._fit_interp()
 
         #synchronizes commands
         self._global_lock = Lock()
@@ -68,7 +69,11 @@ class ImpedanceController(object):
             if self._ctrl_active:
                 self._pub_cuff_disable.publish()
                 self._global_lock.acquire()
+
                 if self._start_time is None:
+                    self._start_time = rospy.get_time()
+                elif self._start_time + self._duration < rospy.get_time():
+                    self._fit_interp()
                     self._start_time = rospy.get_time()
 
                 t = min(rospy.get_time() - self._start_time, self._duration)   #T \in [0, self._duration]
@@ -96,12 +101,15 @@ class ImpedanceController(object):
             print('impedance ctrl deactivated')
             self._ctrl_active = False
 
+    def _fit_interp(self):
+        self._interp = QuinticSpline(self._get_joints(), self._desired_joint_pos.copy(), self._duration)
+
     def _set_des_pos(self, jointstate):
         des_angles = dict(list(zip(jointstate.name, jointstate.position)))
-        des_angles = np.array(des_angles[n] for n in self._j_names)
+        self._desired_joint_pos = np.array(des_angles[n] for n in self._j_names)
 
         self._global_lock.acquire()
-        self._interp = QuinticSpline(self._get_joints(), des_angles, self._duration)
+        self._fit_interp()
         self._start_time = None
         self._global_lock.release()
 
