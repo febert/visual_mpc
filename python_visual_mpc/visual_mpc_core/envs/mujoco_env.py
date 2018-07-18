@@ -30,10 +30,9 @@ class BaseMujocoEnv(gym.Env):
         :param action: action at time-step
         :return: obs dict where:
                   -each key is an observation at that step
-                  -keys are constant across trajectory (e.x. every-timestep has 'state' key)
+                  -keys are constant across entire datastep (e.x. every-timestep has 'state' key)
                   -keys corresponding to numpy arrays should have constant shape every timestep (for caching)
                   -images should be placed in the 'images' key in a (ncam, ...) array
-                  -keys CAN vary between rollouts
         """
         raise NotImplementedError
 

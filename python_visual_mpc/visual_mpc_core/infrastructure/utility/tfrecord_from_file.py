@@ -15,7 +15,7 @@ import numpy as np
 import cv2
 import random
 import tensorflow as tf
-
+import moviepy.editor as mpy
 import shutil
 
 def float_feature(value):
@@ -52,8 +52,13 @@ def save_tf_record(filename, trajectory_list):
 
 
 class RecordSaver:
-    def __init__(self, traj_per_file, save_dir, split = (0.90, 0.05, 0.05)):
-        dirs_to_create = ['{}/{}'.format(save_dir, d) for d in ['train', 'test', 'val']]
+    def __init__(self, traj_per_file, save_dir, save_gif=False, split = (0.90, 0.05, 0.05)):
+        dirs_to_create = ['train', 'test', 'val']
+        if save_gif:
+            dirs_to_create.append('gifs')
+            self._gif_ctr = 0
+
+        dirs_to_create = ['{}/{}'.format(save_dir, d) for d in dirs_to_create]
         for d in dirs_to_create:
             print('Creating dir:', d)
             if os.path.exists(d):
@@ -86,6 +91,11 @@ class RecordSaver:
         if self._keys is None:
             self._keys = {}
         self._keys[key] = shape
+
+    def save_gif(self, clip):
+        clip = mpy.ImageSequenceClip(clip, fps=10)
+        clip.write_gif('{}/gifs/clip{}.gif'.format(self._base_dir, self._gif_ctr))
+        self._gif_ctr += 1
 
     def save_manifest(self):
         if self._keys is None:
@@ -162,7 +172,7 @@ def main():
     print('loading from', data_dir)
     print('saving to', out_dir)
 
-    good_saver = RecordSaver(traj_per_file, '{}/good'.format(out_dir))
+    good_saver = RecordSaver(traj_per_file, '{}/good'.format(out_dir), save_gif=True)
     bad_saver = RecordSaver(traj_per_file, '{}/bad'.format(out_dir))
 
     created_manifest = False
@@ -196,9 +206,12 @@ def main():
             obs_dict.pop('term_t')
 
             loaded_traj = []
-            policy_keys, obs_keys = list(policy_out[0].keys()), list(obs_dict.keys())
-            good_lift = any(np.logical_and(np.max(obs_dict['finger_sensors'][:-1], 1) > 0, obs_dict['state'][:-1,2] > 0.2))
 
+            obs_z_thresh = np.logical_and(np.amax(obs_dict['object_poses_full'][:-1, :, 2], 1) > 0.15,
+                                                  obs_dict['state'][:-1, 2] > 0.23)
+            finger_sensors_thresh = np.max(obs_dict['finger_sensors'][:-1], 1) > 0
+            good_lift = np.sum(np.logical_and(finger_sensors_thresh, obs_z_thresh)) >= 2
+            front_cam = []
             for i in range(T):
                 step_dict = {}
                 if not created_manifest:
@@ -219,11 +232,14 @@ def main():
 
                 for id, c in enumerate(['maincam', 'leftcam']):
                     img = cv2.imread(t + '/images{}/im_{}.png'.format(id, i))[:, :, ::-1].copy()
+                    if id == 0 and good_lift:
+                        front_cam.append(img)
                     step_dict['image_view{}/encoded'.format(id)] = bytes_feature(img.tostring())
 
                 loaded_traj.append(step_dict)
             if good_lift:
                 good_saver.add_traj(loaded_traj)
+                good_saver.save_gif(front_cam)
             else:
                 bad_saver.add_traj(loaded_traj)
     good_saver.flush()

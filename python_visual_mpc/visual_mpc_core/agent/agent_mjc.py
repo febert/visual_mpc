@@ -117,26 +117,12 @@ class AgentMuJoCo(object):
 
         print('needed {} trials'.format(i_trial))
 
-        if self.goal_obj_pose is not None:
-            final_poscost, final_anglecost = self.eval_action(traj, traj.term_t)
-            final_poscost = np.mean(final_poscost)
-            initial_poscost, _ = self.eval_action(traj, 0)
-            initial_poscost = np.mean(initial_poscost)
-            traj.stats['scores'] = final_poscost
-            traj.stats['initial_poscost'] = initial_poscost
-            traj.stats['improvement'] = initial_poscost - final_poscost
-            traj.stats['integrated_poscost'] = np.mean(traj.goal_dist)
-            traj.stats['term_t'] = traj.term_t
-
-        if 'save_goal_image' in self._hyperparams:
-            self.save_goal_image_conf(traj)
-
         if 'make_final_gif' in self._hyperparams or 'make_final_gif_pointoverlay' in self._hyperparams:
             self.save_gif(i_tr, 'make_final_gif_pointoverlay' in self._hyperparams)
 
         if 'verbose' in self._hyperparams:
             self.plot_ctrls(i_tr)
-            # self.plot_pix_dist(plan_stat)
+
         return obs_dict, policy_outs
 
     def hide_arm_store_image(self):
@@ -233,14 +219,6 @@ class AgentMuJoCo(object):
             else:
                 self.desig_pix = self.env.get_desig_pix(self.ncam, agent_img_width)
 
-
-            if 'gtruthdesig' in self._hyperparams:  # generate many designated pixel goal-pixel pairs
-                fullpose = traj.Object_full_pose[t, -1]
-                self.desig_pix, self.goal_pix = gen_gtruthdesig(fullpose, self.goal_obj_pose,
-                                                                self.curr_mask_large, traj.largedimage[t], self._hyperparams['gtruthdesig'],
-                                                                self._hyperparams, traj.images[t], self.goal_image)
-            #
-
             policy_args = {}
             policy_signature = signature(policy.act)              #Gets arguments required by policy
             for arg in policy_signature.parameters:               #Fills out arguments according to their keyword
@@ -264,12 +242,6 @@ class AgentMuJoCo(object):
             except ValueError:
                 return False, None, None
 
-            if self.goal_obj_pose is not None:
-                traj.goal_dist.append(self.eval_action(traj, t)[0])
-
-            if 'term_dist' in self._hyperparams:
-                if traj.goal_dist[-1] < self._hyperparams['term_dist']:
-                    done = True
             if (self._hyperparams['T']-1) == t:
                 done = True
             if done:
@@ -386,48 +358,5 @@ class AgentMuJoCo(object):
         Set the world to a given model
         """
         return
-        #Need to figure what this did.....
-        # if self.start_conf is None and 'not_create_goals' not in self._hyperparams:
-        #     self.goal_obj_pose = []
-        #     dist_betwob_ok = False
-        #     while not dist_betwob_ok:
-        #         for i_ob in range(self._hyperparams['num_objects']):
-        #             pos_ok = False
-        #             while not pos_ok:
-        #                 if 'ang_disp_range' in self._hyperparams:
-        #                     angular_disp = self._hyperparams['ang_disp_range']
-        #                 else: angular_disp = 0.2
-        #                 delta_alpha = np.random.uniform(-angular_disp, angular_disp)
-        #                 delta_rot = Quaternion(axis=(0.0, 0.0, 1.0), radians=delta_alpha)
-        #                 pose = object_pos_l[i_ob]
-        #                 curr_quat = Quaternion(pose[3:])
-        #                 newquat = delta_rot*curr_quat
-        #
-        #                 alpha = np.random.uniform(-np.pi, np.pi, 1)
-        #                 if 'const_dist' in self._hyperparams:
-        #                     assert 'pos_disp_range' not in self._hyperparams
-        #                     d = self._hyperparams['const_dist']
-        #                     delta_pos = np.array([d*np.cos(alpha), d*np.sin(alpha), 0.])
-        #                 else:
-        #                     pos_disp = self._hyperparams['pos_disp_range']
-        #                     delta_pos = np.concatenate([np.random.uniform(-pos_disp, pos_disp, 2), np.zeros([1])])
-        #                 newpos = pose[:3] + delta_pos
-        #
-        #                 if 'lift_object' in self._hyperparams:
-        #                     newpos[2] = 0.15
-        #                 if np.any(newpos[:2] > 0.35) or np.any(newpos[:2] < -0.35):   # check if in field
-        #                     continue
-        #                 else:
-        #                     self.goal_obj_pose.append(np.concatenate([newpos, newquat.elements]))
-        #                     pos_ok = True
-        #
-        #         if self._hyperparams['num_objects'] == 2:
-        #             #ensuring that the goal positions are far apart from each other
-        #             if np.linalg.norm(self.goal_obj_pose[0][:3]- self.goal_obj_pose[1][:3]) < 0.2:
-        #                 self.goal_obj_pose = []
-        #                 continue
-        #             dist_betwob_ok = True
-        #         else:
-        #             dist_betwob_ok = True
-        #     self.goal_obj_pose = np.stack(self.goal_obj_pose, axis=0)
+
 
