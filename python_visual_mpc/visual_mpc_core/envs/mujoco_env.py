@@ -55,11 +55,17 @@ class BaseMujocoEnv(gym.Env):
 
     def goal_reached(self):
         """
-        Checks if the environment hit its goal state
+        Checks if the environment hit a goal (if environment has goals)
             - e.x. if goal is to lift object should return true if object lifted by gripper
         :return: whether or not environment reached goal state
         """
-        raise NotImplementedError
+        raise NotImplementedError("Environment has No Goal")
+
+    def has_goal(self):
+        """
+        :return: Whether or not environment has a goal
+        """
+        return False
 
     def render(self, mode='dual'):
         """ Renders the enviornment.
@@ -139,19 +145,7 @@ class BaseMujocoEnv(gym.Env):
         return goal_pix
 
     def snapshot_noarm(self):
-        qpos = copy.deepcopy(self.sim.data.qpos)
-        qpos[2] -= 10
-        sim_state = self.sim.get_state()
-        sim_state.qpos[:] = qpos
-        self.sim.set_state(sim_state)
-        self.sim.forward()
-        image = self.render('maincam').squeeze()
-        qpos[2] += 10
-        sim_state.qpos[:] = qpos
-        self.sim.set_state(sim_state)
-        self.sim.forward()
-
-        return image
+        raise NotImplementedError
 
     @property
     def adim(self):

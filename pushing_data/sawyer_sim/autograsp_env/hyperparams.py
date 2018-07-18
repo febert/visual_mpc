@@ -57,12 +57,12 @@ policy = {
 }
 
 config = {
-    'traj_per_file':128,
-    'current_dir' : current_dir,
+    'traj_per_file': 128,
+    'current_dir': current_dir,
+    # 'save_raw_images': True,
     'save_data': True,
-    'save_raw_images' : True,
     'start_index':0,
-    'end_index': 120000,
+    'end_index': 0,
     'agent': agent,
     'policy': policy,
     'ngroup': 1000

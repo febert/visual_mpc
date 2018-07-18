@@ -12,8 +12,8 @@ from python_visual_mpc.visual_mpc_core.agent.utils.get_masks import get_obj_mask
 from mpl_toolkits.mplot3d import Axes3D
 import os
 import cv2
-from inspect import signature, Parameter
 from python_visual_mpc.visual_mpc_core.agent.utils.target_qpos_utils import get_target_qpos
+from python_visual_mpc.visual_mpc_core.algorithm.policy import get_policy_args
 
 def file_len(fname):
     i = 0
@@ -105,13 +105,14 @@ class AgentMuJoCo(object):
             if i_tr % self._hyperparams['gen_xml'] == 0 and i_tr > 0:
                 self._setup_world()
 
-        traj_ok, obs_dict, policy_outs = False, None, None
+        traj_ok, obs_dict, policy_outs, agent_data = False, None, None, None
         i_trial = 0
         imax = 100
         while not traj_ok and i_trial < imax:
             i_trial += 1
             try:
-                traj_ok, obs_dict, policy_outs = self.rollout(policy, i_trial)
+                agent_data, obs_dict, policy_outs = self.rollout(policy, i_trial)
+                traj_ok = agent_data['traj_ok']
             except Image_dark_except:
                 traj_ok = False
 
@@ -123,16 +124,12 @@ class AgentMuJoCo(object):
         if 'verbose' in self._hyperparams:
             self.plot_ctrls(i_tr)
 
-        return obs_dict, policy_outs
+        return agent_data, obs_dict, policy_outs
 
     def hide_arm_store_image(self):
         highres_image = self.env.snapshot_noarm()
         target_dim = (self._hyperparams['image_width'], self._hyperparams['image_height'])
-
-
-    def get_int_targetpos(self, substep, prev, next):
-        assert substep >= 0 and substep < self._hyperparams['substeps']
-        return substep/float(self._hyperparams['substeps'])*(next - prev) + prev
+        return cv2.resize(highres_image, target_dim, interpolation=cv2.INTER_AREA)
 
     def _post_process_obs(self, env_obs, initial_obs = False):
         """
@@ -191,7 +188,27 @@ class AgentMuJoCo(object):
 
         return obs
 
+    def _required_rollout_metadata(self, agent_data, traj_ok):
+        """
+        Adds meta_data into the agent dictionary that is MANDATORY for later parts of pipeline
+        :param agent_data: Agent data dictionary
+        :param traj_ok: Whether or not rollout succeeded
+        :return: None
+        """
+        if self.env.has_goal():
+            agent_data['goal_reached'] = self.env.goal_reached()
+        agent_data['traj_ok'] = traj_ok
+
     def rollout(self, policy, i_tr):
+        """
+        Rolls out policy for T timesteps
+        :param policy: Class extending abstract policy class. Must have act method (see arg passing details)
+        :param i_tr: Rollout attempt index (increment each time trajectory fails rollout)
+        :return: - agent_data: Dictionary of extra statistics/data collected by agent during rollout
+                 - obs: dictionary of environment's observations. Each key maps to that values time-history
+                 - policy_ouputs: list of policy's outputs at each timestep.
+                 Note: tfrecord saving assumes all keys in agent_data/obs/policy_outputs point to np arrays or primitive int/float
+        """
         self._init()
         agent_img_height, agent_img_width = self._hyperparams['image_height'], self._hyperparams['image_width']
         if self.goal_obj_pose is not None:
@@ -205,7 +222,7 @@ class AgentMuJoCo(object):
         done = False
         self.large_images_traj, self.traj_points= [], None
         obs = self._post_process_obs(self.env.reset(), True)
-        policy_outputs = []
+        agent_data, policy_outputs = {}, []
 
         while not done:
             """
@@ -214,53 +231,36 @@ class AgentMuJoCo(object):
             As a result many designated pixel related functions do not work
             This has implications for running MPC in sim
             """
-            if 'get_curr_mask' in self._hyperparams:
-                self.curr_mask, self.curr_mask_large = get_obj_masks(self.env.sim, self._hyperparams, include_arm=False) #get target object mask
-            else:
-                self.desig_pix = self.env.get_desig_pix(self.ncam, agent_img_width)
-
-            policy_args = {}
-            policy_signature = signature(policy.act)              #Gets arguments required by policy
-            for arg in policy_signature.parameters:               #Fills out arguments according to their keyword
-                value = policy_signature.parameters[arg].default
-                if arg in obs:
-                    value = obs[arg]
-                elif arg == 't':
-                    value = t
-
-                if value is Parameter.empty:
-                    #required parameters MUST be set by agent
-                    raise ValueError("Required Policy Param {} not set in agent".format(arg))
-                policy_args[arg] = value
-
-            pi_t = policy.act(**policy_args)
+            pi_t = policy.act(**get_policy_args(policy, obs, t))
             policy_outputs.append(pi_t)
 
             try:
                 print('step {}'.format(t))
                 obs = self._post_process_obs(self.env.step(copy.deepcopy(pi_t['actions'])))
             except ValueError:
-                return False, None, None
+                return {'traj_ok': False}, None, None
 
             if (self._hyperparams['T']-1) == t:
                 done = True
             if done:
-                obs['term_t'] = t
+                agent_data['term_t'] = t
             t += 1
 
         if 'first_last_noarm' in self._hyperparams:
             end_img = self.hide_arm_store_image()
-            obs["start_image"] = start_img
-            obs["end_image"] = end_img
+            agent_data["start_image"] = start_img
+            agent_data["end_image"] = end_img
 
         traj_ok = True
         if not self.env.valid_rollout():
             traj_ok = False
         elif 'rejection_sample' in self._hyperparams:
-            if self._hyperparams['rejection_sample'] < i_tr and not self.env.goal_reached():
-                traj_ok = False
+            if self._hyperparams['rejection_sample'] < i_tr:
+                assert self.env.has_goal()
+                traj_ok = self.env.goal_reached()
 
-        return traj_ok, obs, policy_outputs
+        self._required_rollout_metadata(agent_data, traj_ok)
+        return agent_data, obs, policy_outputs
 
     def save_goal_image_conf(self, traj):
         div = .05
@@ -289,25 +289,6 @@ class AgentMuJoCo(object):
 
         pickle.dump(dict, open(self._hyperparams['save_goal_image'] + '.pkl', 'wb'))
         img.save(self._hyperparams['save_goal_image'] + '.png',)
-
-    def eval_action(self, traj, t):
-        if 'ztarget' in self._hyperparams:
-            obj_z = traj.Object_full_pose[t, 0, 2]
-            pos_score = np.abs(obj_z - self._hyperparams['ztarget'])
-            return pos_score, 0.
-        abs_distances = []
-        abs_angle_dist = []
-        for i_ob in range(self.num_objects):
-            goal_pos = self.goal_obj_pose[i_ob, :3]
-            curr_pos = traj.Object_full_pose[t, i_ob, :3]
-            abs_distances.append(np.linalg.norm(goal_pos - curr_pos))
-
-            goal_quat = Quaternion(self.goal_obj_pose[i_ob, 3:])
-            curr_quat = Quaternion(traj.Object_full_pose[t, i_ob, 3:])
-            diff_quat = curr_quat.conjugate*goal_quat
-            abs_angle_dist.append(np.abs(diff_quat.radians))
-
-        return np.array(abs_distances), np.array(abs_angle_dist)
 
     def save_gif(self, itr, overlay=False):
         if self.traj_points is not None and overlay:

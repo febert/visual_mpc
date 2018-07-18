@@ -73,7 +73,7 @@ class Sim(object):
             os.remove(self._hyperparams['agent']['image_dir'])
         except:
             pass
-
+        self._record_queue = config.pop('record_saver')
     def _init_policy(self):
         if 'netconf' in self.policyparams:
             if 'warp_objective' in self.policyparams or 'register_gtruth' in self.policyparams:
@@ -96,33 +96,25 @@ class Sim(object):
         self._init_policy()
 
         t_traj = time.time()
-        obs_dict, policy_out = self.agent.sample(self.policy, sample_index)
+        agent_data, obs_dict, policy_out = self.agent.sample(self.policy, sample_index)
         t_traj = time.time() - t_traj
 
         t_save = time.time()
         if self._hyperparams['save_data']:
-            self.save_data(obs_dict, policy_out, sample_index)
+            self.save_data(sample_index, agent_data, obs_dict, policy_out)
         t_save = time.time() - t_save
 
         if self._timing_file is not None:
             with open(self._timing_file,'a') as f:
                 f.write("{} trajtime {} savetime {}\n".format(sample_index, t_traj, t_save))
 
-        if 'verbose' in self.policyparams:
-            if self.agent.goal_obj_pose is not None:
-                plot_dist(traj, self.agentparams['record'])
-            if 'register_gtruth' in self.policyparams:
-                try:
-                    plot_warp_err(traj, self.agentparams['record'])
-                except:
-                    print('plot warperr failed!!!')
+    def save_data(self, itr, agent_data, obs_dict, policy_outputs):
+        if 'save_raw_images' in self._hyperparams:
+            self._save_raw_images(itr, agent_data, obs_dict, policy_outputs)
+        else:
+            self._record_queue.put((agent_data, obs_dict, policy_outputs))
 
-    def save_data(self, obs_dict, policy_outputs, itr):
-        """
-        :param traj:
-        :param itr: index of trajectory
-        :return:
-        """
+    def _save_raw_images(self, itr, agent_data, obs_dict, policy_outputs):
         if 'RESULT_DIR' in os.environ:
             data_save_dir = os.environ['RESULT_DIR'] + '/data'
         else: data_save_dir = self.agentparams['data_save_dir']
@@ -149,7 +141,8 @@ class Sim(object):
             for t in range(T):
                 for i in range(n_cams):
                     cv2.imwrite('{}/images{}/im_{}.png'.format(traj_folder, i, t), images[t, i, :, :, ::-1])
-
+        with open('{}/agent_data.pkl'.format(traj_folder), 'wb') as file:
+            pkl.dump(agent_data, file)
         with open('{}/obs_dict.pkl'.format(traj_folder), 'wb') as file:
             pkl.dump(obs_dict, file)
         with open('{}/policy_out.pkl'.format(traj_folder), 'wb') as file:
