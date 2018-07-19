@@ -134,6 +134,15 @@ class BaseVideoDataset:
         dataset_batch = self._raw_data[mode]
         return self._map_key(dataset_batch, key)
 
+    def __getitem__(self, item):
+        if isinstance(item, tuple):
+            if len(item) != 2:
+                raise KeyError('Index should be in format: [Key, Mode] or [Key] (assumes default train mode)')
+            key, mode = item
+            return self.get(key, mode)
+
+        return self.get(item)
+
     def _read_manifest(self):
         pkl_path = '{}/manifest.pkl'.format(self._base_dir)
         if not os.path.exists(pkl_path):
@@ -154,7 +163,7 @@ if __name__ == '__main__':
     batch_size = 1
     no_shuffle = {'shuffle': False}
     dataset = BaseVideoDataset(path, batch_size, no_shuffle)
-    images, actions = dataset.get('images'), dataset.get('actions')
+    images, actions = dataset['images'], dataset['actions', 'val']
     sess = tf.InteractiveSession()
     tf.train.start_queue_runners(sess)
     sess.run(tf.global_variables_initializer())
