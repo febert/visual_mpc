@@ -1,5 +1,6 @@
 from mujoco_py import load_model_from_path, MjSim
 import numpy as np
+import random
 
 class BaseMujocoEnv:
     def __init__(self,  model_path, height=480, width=640):
@@ -111,8 +112,8 @@ class BaseMujocoEnv:
         return self._frame_height - row, col                 #rendering flipped around in height
 
     def seed(self, seed=None):
-        self.np_random, seed = seeding.np_random(seed)
-        return [seed]
+        random.seed(seed)
+        np.random.seed(seed)
 
     def get_desig_pix(self, cams, target_width, round=True):
         qpos_dim = self._n_joints      # the states contains pos and vel
