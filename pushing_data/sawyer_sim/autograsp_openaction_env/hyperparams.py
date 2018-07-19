@@ -5,7 +5,6 @@ import numpy as np
 from python_visual_mpc.visual_mpc_core.algorithm.random_policy import Randompolicy, RandomPickPolicy
 from python_visual_mpc.visual_mpc_core.agent.agent_mjc import AgentMuJoCo
 from python_visual_mpc.visual_mpc_core.envs.sawyer_sim.agopenaction_env import AGOpenActionEnv
-from python_visual_mpc.visual_mpc_core.infrastructure.utility.tfrecord_from_file import grasping_touch_file2record as convert_to_record
 
 
 BASE_DIR = '/'.join(str.split(__file__, '/')[:-1])
@@ -60,7 +59,7 @@ config = {
     'traj_per_file':128,
     'current_dir' : current_dir,
     'save_data': True,
-    'save_raw_images' : True,
+    'save_raw_images': True,
     'start_index':0,
     'end_index': 120000,
     'agent': agent,
