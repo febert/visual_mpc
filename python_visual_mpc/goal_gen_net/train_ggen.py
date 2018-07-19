@@ -182,7 +182,7 @@ def main():
     with open(os.path.join(args.output_dir, "dataset_hparams.json"), "w") as f:
         f.write(json.dumps(train_datasets[0].hparams.values(), sort_keys=True, indent=4))  # save hparams from first dataset
     with open(os.path.join(args.output_dir, "model_hparams.json"), "w") as f:
-        f.write(json.dumps(train_model.hparams.values(), sort_keys=True, indent=4))/mnt/sda1/misc_datasets/downsampled_imagenet/32x32 --res 32 --tfrecord_dir /mnt/sda1/misc_datasets/downsampled_imagenet/32x32/tfrecs
+        f.write(json.dumps(train_model.hparams.values(), sort_keys=True, indent=4))
 
     if args.gif_freq:
         val_model = val_models[0]
