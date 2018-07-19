@@ -1,10 +1,7 @@
-import gym
 from mujoco_py import load_model_from_path, MjSim
 import numpy as np
-from gym.utils import seeding
-import copy
 
-class BaseMujocoEnv(gym.Env):
+class BaseMujocoEnv:
     def __init__(self,  model_path, height=480, width=640):
         self._frame_height = height
         self._frame_width = width

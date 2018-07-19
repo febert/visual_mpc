@@ -6,13 +6,8 @@ import numpy as np
 import pickle
 from PIL import Image
 from python_visual_mpc.video_prediction.misc.makegifs2 import npy_to_gif
-from pyquaternion import Quaternion
-from mujoco_py import load_model_from_path, MjSim
-from python_visual_mpc.visual_mpc_core.agent.utils.get_masks import get_obj_masks
-from mpl_toolkits.mplot3d import Axes3D
 import os
 import cv2
-from python_visual_mpc.visual_mpc_core.agent.utils.target_qpos_utils import get_target_qpos
 from python_visual_mpc.visual_mpc_core.algorithm.policy import get_policy_args
 
 def file_len(fname):
