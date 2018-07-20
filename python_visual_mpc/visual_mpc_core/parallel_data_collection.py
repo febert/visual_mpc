@@ -1,5 +1,5 @@
 from python_visual_mpc.visual_mpc_core.infrastructure.synchronize_tfrecs import sync
-from multiprocessing import Pool
+from multiprocessing import Pool, Process, Queue
 import sys
 import argparse
 import os
@@ -10,14 +10,10 @@ from python_visual_mpc.visual_mpc_core.benchmarks import perform_benchmark
 import copy
 import random
 import numpy as np
-import shutil
-import python_visual_mpc
-import pdb
-import glob
+from python_visual_mpc.visual_mpc_core.agent.utils.traj_saver import record_worker
 import re
 import os
 from python_visual_mpc.visual_mpc_core.infrastructure.utility.combine_scores import combine_scores
-from python_visual_mpc.visual_mpc_core.infrastructure.utility.create_configs import CollectGoalImageSim
 import pickle
 
 def worker(conf, iex=-1):
@@ -29,13 +25,8 @@ def worker(conf, iex=-1):
 
     random.seed(None)
     np.random.seed(None)
-    if 'simulator' in conf:
-        Simulator = CollectGoalImageSim
-        print('use collect goalimage sim')
-    else:
-        Simulator = Sim
 
-    s = Simulator(conf)
+    s = Sim(conf)
     s.run()
 
 def bench_worker(conf, iex=-1):
@@ -110,18 +101,27 @@ def main():
         sync_todo_id = sync.remote(hyperparams['agent'])
         print('launched sync')
 
+    record_queue = Queue()
+    save_dir, T = hyperparams['agent']['data_save_dir'] + '/records',hyperparams['agent']['T']
+    seperate_good, traj_per_file = hyperparams.get('seperate_good', False), hyperparams['traj_per_file']
+    record_saver_proc = Process(target=record_worker, args=(record_queue, save_dir, T, seperate_good, traj_per_file))
+    record_saver_proc.start()
     conflist = []
     for i in range(n_worker):
         modconf = copy.deepcopy(hyperparams)
         modconf['start_index'] = start_idx[i]
         modconf['end_index'] = end_idx[i]
         modconf['gpu_id'] = i + gpu_id
+        modconf['record_saver'] = record_queue
         conflist.append(modconf)
     if parallel:
         p = Pool(n_worker)
         p.map(use_worker, conflist)
     else:
         use_worker(conflist[0], args.iex)
+
+    record_queue.put(None)           #send flag to background thread that it can end saving after it's done
+    record_saver_proc.join()         #joins thread and continues execution
 
     if 'master_datadir' in hyperparams['agent']:
         ray.wait([sync_todo_id])
@@ -133,15 +133,7 @@ def main():
         combine_scores(hyperparams, result_dir)
         sys.exit()
 
-    traindir = modconf['agent']["data_save_dir"]
-    testdir = '/'.join(traindir.split('/')[:-1] + ['/test'])
-    if not os.path.exists(testdir):
-        os.makedirs(testdir)
-    import shutil
-    files = glob.glob(traindir + '/*')
-    files = sorted_alphanumeric(files)
-    if os.path.isfile(files[0]): #don't do anything if directory
-        shutil.move(files[0], testdir)
+
 
 
 def sorted_alphanumeric(l):

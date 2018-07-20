@@ -1,10 +1,8 @@
-import gym
 from mujoco_py import load_model_from_path, MjSim
 import numpy as np
-from gym.utils import seeding
-import copy
+import random
 
-class BaseMujocoEnv(gym.Env):
+class BaseMujocoEnv:
     def __init__(self,  model_path, height=480, width=640):
         self._frame_height = height
         self._frame_width = width
@@ -55,11 +53,17 @@ class BaseMujocoEnv(gym.Env):
 
     def goal_reached(self):
         """
-        Checks if the environment hit its goal state
+        Checks if the environment hit a goal (if environment has goals)
             - e.x. if goal is to lift object should return true if object lifted by gripper
         :return: whether or not environment reached goal state
         """
-        raise NotImplementedError
+        raise NotImplementedError("Environment has No Goal")
+
+    def has_goal(self):
+        """
+        :return: Whether or not environment has a goal
+        """
+        return False
 
     def render(self, mode='dual'):
         """ Renders the enviornment.
@@ -108,8 +112,8 @@ class BaseMujocoEnv(gym.Env):
         return self._frame_height - row, col                 #rendering flipped around in height
 
     def seed(self, seed=None):
-        self.np_random, seed = seeding.np_random(seed)
-        return [seed]
+        random.seed(seed)
+        np.random.seed(seed)
 
     def get_desig_pix(self, cams, target_width, round=True):
         qpos_dim = self._n_joints      # the states contains pos and vel
@@ -139,19 +143,7 @@ class BaseMujocoEnv(gym.Env):
         return goal_pix
 
     def snapshot_noarm(self):
-        qpos = copy.deepcopy(self.sim.data.qpos)
-        qpos[2] -= 10
-        sim_state = self.sim.get_state()
-        sim_state.qpos[:] = qpos
-        self.sim.set_state(sim_state)
-        self.sim.forward()
-        image = self.render('maincam').squeeze()
-        qpos[2] += 10
-        sim_state.qpos[:] = qpos
-        self.sim.set_state(sim_state)
-        self.sim.forward()
-
-        return image
+        raise NotImplementedError
 
     @property
     def adim(self):

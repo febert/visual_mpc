@@ -23,7 +23,7 @@ env_params = {
     'finger_sensors': True,
     'substeps': 100,
      'autograsp': {'zthresh': 0.18, 'touchthresh': 0.0, 'reopen': True},
-    'object_meshes': ['Knife', 'Fork', 'Spoon', 'Bowl']
+    'object_meshes': ['Fork', 'Spoon', 'Bowl', 'LotusBowl01']
 }
 
 agent = {
@@ -57,12 +57,12 @@ policy = {
 }
 
 config = {
-    'traj_per_file':128,
-    'current_dir' : current_dir,
+    'traj_per_file': 128,
+    'current_dir': current_dir,
+    # 'save_raw_images': True,
     'save_data': True,
-    'save_raw_images' : True,
     'start_index':0,
-    'end_index': 120000,
+    'end_index': 40000,
     'agent': agent,
     'policy': policy,
     'ngroup': 1000

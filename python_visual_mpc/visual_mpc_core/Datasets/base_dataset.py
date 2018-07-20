@@ -1,5 +1,177 @@
+import pickle as pkl
+import tensorflow as tf
+import os
+import glob
+from tensorflow.contrib.training import HParams
 
 
-class BaseDataset:
-    def __init__(self, data_folder):
-        print('test')
+def mult_elems(tup):
+    prod = 1
+    for t in tup:
+        prod *= t
+    return prod
+
+class BaseVideoDataset:
+    MODES = ['train', 'test', 'val']
+
+    def __init__(self, directory, batch_size, hparams_dict=dict()):
+        if not os.path.exists(directory):
+            raise FileNotFoundError('Base directory {} does not exist'.format(directory))
+
+        self._base_dir = directory
+        self._batch_size = batch_size
+
+        # read dataset manifest and initialize hparams
+        self._read_manifest()
+        self._hparams = self._get_default_hparams().override_from_dict(hparams_dict)
+
+        # initialize batches (one tf Dataset per each mode where batches are drawn from)
+        self._initialize_batches()
+
+    def _get_default_hparams(self):
+        default_dict = {'shuffle': True,
+                        'num_epochs': None,
+                        'buffer_size': 512,
+                        'compressed': True
+                        }
+        return HParams(**default_dict)
+
+    def _parse_record(self, serialized_example):
+        def get_feature(manifest_entry):
+            shape, dtype = manifest_entry
+            if dtype == 'Byte':
+                return tf.FixedLenFeature([1], tf.string)
+            elif dtype == 'Float':
+                return tf.FixedLenFeature([mult_elems(shape)], tf.float32)
+            elif dtype == 'Int':
+                return tf.FixedLenFeature([mult_elems(shape)], tf.int64)
+            raise ValueError('Unknown dtype: {}'.format(dtype))
+
+        def decode_feat(feat, manifest_entry, pad_t=False):
+            orig_shape, dtype = list(manifest_entry[0]), manifest_entry[1]
+            shape = [s for s in orig_shape]
+            if pad_t:
+                shape = [1] + shape
+
+            if dtype == 'Byte':
+                uint_data = tf.decode_raw(feat, tf.uint8)
+                img_flat = tf.reshape(uint_data, shape=[1, mult_elems(shape)])
+                image = tf.reshape(img_flat, shape=orig_shape)
+                image = tf.reshape(image, shape=shape)
+                return image
+            elif dtype == 'Float' or dtype == 'Int':
+                return tf.reshape(feat, shape=shape)
+            raise ValueError('Unknown dtype: {}'.format(dtype))
+
+        features_names = {}
+        for k in self._metadata_keys:
+            features_names[k] = get_feature(self._metadata_keys[k])
+        for k in self._sequence_keys:
+            for t in range(self._T):
+                features_names['{}/{}'.format(t, k)] = get_feature(self._sequence_keys[k])
+
+        feature = tf.parse_single_example(serialized_example, features=features_names)
+
+        return_dict = {}
+        for k in self._sequence_keys:
+            k_feats = []
+            for t in range(self._T):
+                k_feat = decode_feat(feature['{}/{}'.format(t, k)], self._sequence_keys[k], True)
+                k_feats.append(k_feat)
+            return_dict[k] = tf.concat(k_feats, 0)
+        for k in self._metadata_keys:
+            return_dict[k] = decode_feat(feature[k], self._metadata_keys[k])
+
+        return return_dict
+
+    def _initialize_batches(self):
+        self._raw_data = {}
+        for m in self.MODES:
+            fnames = glob.glob('{}/{}/*.tfrecords'.format(self._base_dir, m))
+            if len(fnames) == 0:
+                print('Warning dataset does not have files for mode: {}'.format(m))
+                continue
+
+            if self._hparams.compressed:
+                dataset = tf.data.TFRecordDataset(fnames, buffer_size=self._hparams.buffer_size, compression_type='GZIP')
+            else:
+                dataset = tf.data.TFRecordDataset(fnames, buffer_size=self._hparams.buffer_size)
+
+            dataset = dataset.map(self._parse_record)
+            dataset = dataset.repeat(self._hparams.num_epochs)
+            if self._hparams.shuffle:
+                dataset = dataset.shuffle(buffer_size=self._hparams.buffer_size)
+            dataset = dataset.batch(self._batch_size)
+            iterator = dataset.make_one_shot_iterator()
+            next_element = iterator.get_next()
+
+            output_element = {}
+            for k in list(next_element.keys()):
+                output_element[k] = tf.reshape(next_element[k],
+                                               [self._batch_size] + next_element[k].get_shape().as_list()[1:])
+
+            self._raw_data[m] = output_element
+
+    def _map_key(self, dataset_batch, key):
+        if key == 'state' or key == 'endeffector_pos':
+            return dataset_batch['env/state']
+        elif key == 'actions':
+            return dataset_batch['policy/actions']
+        elif key == 'images':
+            img_0 = tf.expand_dims(dataset_batch['env/image_view0/encoded'], 2)
+            img_1 = tf.expand_dims(dataset_batch['env/image_view1/encoded'], 2)
+            return tf.concat([img_0, img_1], 2)
+        elif key in dataset_batch:
+            return dataset_batch[key]
+
+        raise NotImplementedError('Key {} not present in batch which has keys:\n {}'.format(key,
+                                                                                            list(dataset_batch.keys())))
+
+    def get(self, key, mode='train'):
+        if mode not in self._raw_data:
+            valid_modes = list(self._raw_data.keys())
+            raise ValueError('Mode {} not valid! Dataset has following modes: {}'.format(mode, valid_modes))
+        dataset_batch = self._raw_data[mode]
+        return self._map_key(dataset_batch, key)
+
+    def __getitem__(self, item):
+        if isinstance(item, tuple):
+            if len(item) != 2:
+                raise KeyError('Index should be in format: [Key, Mode] or [Key] (assumes default train mode)')
+            key, mode = item
+            return self.get(key, mode)
+
+        return self.get(item)
+
+    def _read_manifest(self):
+        pkl_path = '{}/manifest.pkl'.format(self._base_dir)
+        if not os.path.exists(pkl_path):
+            raise FileNotFoundError('Manifest not found at {}/manifest.pkl'.format(self._base_dir))
+
+        manifest_dict = pkl.load(open(pkl_path, 'rb'))
+        self._sequence_keys = manifest_dict['sequence_data']
+        self._metadata_keys = manifest_dict['traj_metadata']
+        self._T = manifest_dict['T']
+
+    @property
+    def T(self):
+        return self._T
+
+
+if __name__ == '__main__':
+    path = '/home/sudeep/Documents/visual_mpc/pushing_data/sawyer_sim/autograsp_env/records'
+    batch_size = 1
+    no_shuffle = {'shuffle': False}
+    dataset = BaseVideoDataset(path, batch_size, no_shuffle)
+    images, actions = dataset['images'], dataset['actions', 'val']
+    sess = tf.InteractiveSession()
+    tf.train.start_queue_runners(sess)
+    sess.run(tf.global_variables_initializer())
+
+    imgs, acts = sess.run([images, actions])
+    import cv2
+    print(imgs.shape)
+    for t in range(dataset.T):
+        cv2.imwrite('test{}.png'.format(t), imgs[0, t, 0, :, :, ::-1])
+    print(acts.shape)
+    print(acts[0, 0])

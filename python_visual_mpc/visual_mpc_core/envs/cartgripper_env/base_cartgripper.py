@@ -10,12 +10,14 @@ asset_base_path = BASE_DIR + '/mjc_models/'
 low_bound = np.array([-0.5, -0.5, -0.08, -np.pi*2, -1])
 high_bound = np.array([0.5, 0.5, 0.15, np.pi*2, 1])
 
+
 def zangle_to_quat(zangle):
     """
     :param zangle in rad
     :return: quaternion
     """
     return np.array([np.cos(zangle/2), 0, 0, np.sin(zangle/2)])
+
 
 def quat_to_zangle(quat):
     """
@@ -24,6 +26,7 @@ def quat_to_zangle(quat):
     """
     theta = np.arctan2(2 * quat[0] * quat[3], 1 - 2 * quat[3] ** 2)
     return np.array([theta])
+
 
 class BaseCartgripperEnv(BaseMujocoEnv):
     def __init__(self, filename, num_objects, object_mass, friction, mode_rel, object_meshes=None,
@@ -198,6 +201,21 @@ class BaseCartgripperEnv(BaseMujocoEnv):
 
     def _next_qpos(self, action):
         raise NotImplementedError
+
+    def snapshot_noarm(self):
+        qpos = copy.deepcopy(self.sim.data.qpos)
+        qpos[2] -= 10
+        sim_state = self.sim.get_state()
+        sim_state.qpos[:] = qpos
+        self.sim.set_state(sim_state)
+        self.sim.forward()
+        image = self.render('maincam').squeeze()
+        qpos[2] += 10
+        sim_state.qpos[:] = qpos
+        self.sim.set_state(sim_state)
+        self.sim.forward()
+
+        return image
 
 if __name__ == '__main__':
         env = BaseCartgripperEnv('cartgripper_grasp.xml', 1, 0.1, 1, np.array([True, True, True, True, False]))

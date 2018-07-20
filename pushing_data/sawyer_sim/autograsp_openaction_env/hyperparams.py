@@ -5,7 +5,6 @@ import numpy as np
 from python_visual_mpc.visual_mpc_core.algorithm.random_policy import Randompolicy, RandomPickPolicy
 from python_visual_mpc.visual_mpc_core.agent.agent_mjc import AgentMuJoCo
 from python_visual_mpc.visual_mpc_core.envs.sawyer_sim.agopenaction_env import AGOpenActionEnv
-from python_visual_mpc.visual_mpc_core.infrastructure.utility.tfrecord_from_file import grasping_touch_file2record as convert_to_record
 
 
 BASE_DIR = '/'.join(str.split(__file__, '/')[:-1])
@@ -22,7 +21,8 @@ env_params = {
     'finger_sensors': True,
     'substeps': 100,
      'autograsp': {'zthresh': 0.18, 'touchthresh': 0.0, 'reopen': True},
-    'object_meshes': ['Knife', 'Fork', 'Spoon', 'Bowl']
+    'object_meshes': ['Fork', 'Spoon', 'Bowl', 'LotusBowl01'],
+    'open_threshold': -1.501085946044025
 }
 
 agent = {
@@ -40,8 +40,7 @@ agent = {
     'min_z_lift':0.05,
     'record': BASE_DIR + '/record/',
     'make_final_gif': True,
-    'discrete_gripper': -1, #discretized gripper dimension,
-    'lift_rejection_sample' : 15,
+    'rejection_sample': 15
 }
 
 policy = {
@@ -52,17 +51,16 @@ policy = {
     'initial_std': 0.05,   #std dev. in xy
     'initial_std_lift': 0.15,   #std dev. in xy
     'initial_std_rot': np.pi / 18,
-    'initial_std_grasp': 2,
-    'discrete_gripper': -1
+    'initial_std_grasp': 1
 }
 
 config = {
-    'traj_per_file':128,
+    'traj_per_file': 128,
+    'seperate_good': True,
     'current_dir' : current_dir,
     'save_data': True,
-    'save_raw_images' : True,
     'start_index':0,
-    'end_index': 120000,
+    'end_index': 40000,
     'agent': agent,
     'policy': policy,
     'ngroup': 1000
