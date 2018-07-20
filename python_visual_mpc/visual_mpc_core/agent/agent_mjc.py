@@ -249,10 +249,12 @@ class AgentMuJoCo(object):
         traj_ok = True
         if not self.env.valid_rollout():
             traj_ok = False
-        elif 'rejection_sample' in self._hyperparams:
-            if self._hyperparams['rejection_sample'] < i_tr:
-                assert self.env.has_goal()
+
+        if 'rejection_sample' in self._hyperparams:
+            if self._hyperparams['rejection_sample'] > i_tr:
+                assert self.env.has_goal(), 'Rejection sampling enabled but env has no goal'
                 traj_ok = self.env.goal_reached()
+                print('reject test', traj_ok)
 
         self._required_rollout_metadata(agent_data, traj_ok)
         return agent_data, obs, policy_outputs

@@ -61,27 +61,27 @@ class BaseSawyerEnv(BaseMujocoEnv):
 
         self._previous_target_qpos, self._n_joints = None, 9
 
-
     def _clip_gripper(self):
         self.sim.data.qpos[7:9] = np.clip(self.sim.data.qpos[7:9], [-0.055, 0.0027], [-0.0027, 0.055])
 
     def reset(self):
         last_rands = []
 
-        def samp_xyz():
+        def samp_xyz_rot():
             rand_xyz = np.random.uniform(low_bound[:3] + self._maxlen / 2 + 0.02, high_bound[:3] - self._maxlen / 2 + 0.02)
             rand_xyz[-1] = 0.05
-            return rand_xyz
+            return rand_xyz, np.random.uniform(-np.pi / 2, np.pi / 2)
 
         for i in range(self.num_objects):
-            obji_xyz = samp_xyz()
+            obji_xyz, rot = samp_xyz_rot()
             #rejection sampling to ensure objects don't crowd each other
             while len(last_rands) > 0 and min([np.linalg.norm(obji_xyz - obj_j) for obj_j in last_rands]) < self._maxlen:
-                obji_xyz = samp_xyz()
+                obji_xyz, rot = samp_xyz_rot()
             last_rands.append(obji_xyz)
-            print('obj{}_xyz'.format(i), obji_xyz)
+
+            rand_quat = Quaternion(axis=[0, 0, -1], angle= rot).elements
             self.sim.data.qpos[self._n_joints + i * 7: self._n_joints + 3 + i * 7] = obji_xyz
-            self.sim.data.qpos[self._n_joints + 3 + i * 7: self._n_joints + 7 + i * 7] = np.array([1, 0, 0, 0])
+            self.sim.data.qpos[self._n_joints + 3 + i * 7: self._n_joints + 7 + i * 7] = rand_quat
         self.sim.data.set_mocap_pos('mocap', np.array([0,0,2]))
         self.sim.data.set_mocap_quat('mocap', zangle_to_quat(np.random.uniform(low_bound[3], high_bound[3])))
 
@@ -228,7 +228,19 @@ class BaseSawyerEnv(BaseMujocoEnv):
         if np.sum(finger_force) > 0:
             print(finger_force)
         self._previous_target_qpos = target_qpos
-        return self._get_obs(finger_force)
+
+        obs = self._get_obs(finger_force)
+        self._post_step()
+        return obs
+
+    def _post_step(self):
+        """
+        Add custom behavior in sub classes for post-step checks
+        (eg if goal has been reached)
+            -Occurs after _get_obs so last_obs is available...
+        :return: None
+        """
+        return
 
     def valid_rollout(self):
         object_zs = self._last_obs['object_poses_full'][:, 2]
