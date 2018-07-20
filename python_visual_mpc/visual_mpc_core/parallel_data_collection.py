@@ -1,5 +1,5 @@
 from python_visual_mpc.visual_mpc_core.infrastructure.synchronize_tfrecs import sync
-from multiprocessing import Pool, Process, Queue
+from multiprocessing import Pool, Process, Manager
 import sys
 import argparse
 import os
@@ -101,7 +101,8 @@ def main():
         sync_todo_id = sync.remote(hyperparams['agent'])
         print('launched sync')
 
-    record_queue = Queue()
+    m = Manager()
+    record_queue = m.Queue()
     save_dir, T = hyperparams['agent']['data_save_dir'] + '/records',hyperparams['agent']['T']
     seperate_good, traj_per_file = hyperparams.get('seperate_good', False), hyperparams['traj_per_file']
     record_saver_proc = Process(target=record_worker, args=(record_queue, save_dir, T, seperate_good, traj_per_file))
