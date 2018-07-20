@@ -1,8 +1,9 @@
 from mujoco_py import load_model_from_path, MjSim
 import numpy as np
-import random
+from python_visual_mpc.visual_mpc_core.envs.base_env import BaseEnv
 
-class BaseMujocoEnv:
+
+class BaseMujocoEnv(BaseEnv):
     def __init__(self,  model_path, height=480, width=640):
         self._frame_height = height
         self._frame_width = width
@@ -21,49 +22,6 @@ class BaseMujocoEnv:
         """
         self._model_path = model_path
         self.sim = MjSim(load_model_from_path(self._model_path))
-
-    def step(self, action):
-        """
-        Applies the action and steps simulation
-        :param action: action at time-step
-        :return: obs dict where:
-                  -each key is an observation at that step
-                  -keys are constant across entire datastep (e.x. every-timestep has 'state' key)
-                  -keys corresponding to numpy arrays should have constant shape every timestep (for caching)
-                  -images should be placed in the 'images' key in a (ncam, ...) array
-        """
-        raise NotImplementedError
-
-    def reset(self):
-        """
-        Resets the sim and returns initial observation
-        :return: obs dict (look at step(self, action) for documentation)
-        """
-        raise NotImplementedError
-
-    def valid_rollout(self):
-        """
-        Checks if the environment is currently in a valid state
-        Common invalid states include:
-            - object falling out of bin
-            - mujoco error during rollout
-        :return: bool value that is False if rollout isn't valid
-        """
-        raise NotImplementedError
-
-    def goal_reached(self):
-        """
-        Checks if the environment hit a goal (if environment has goals)
-            - e.x. if goal is to lift object should return true if object lifted by gripper
-        :return: whether or not environment reached goal state
-        """
-        raise NotImplementedError("Environment has No Goal")
-
-    def has_goal(self):
-        """
-        :return: Whether or not environment has a goal
-        """
-        return False
 
     def render(self, mode='dual'):
         """ Renders the enviornment.
@@ -110,10 +68,6 @@ class BaseMujocoEnv:
         col, row = (ndc[0] + 1) * self._frame_width / 2, (-ndc[1] + 1) * self._frame_height / 2
 
         return self._frame_height - row, col                 #rendering flipped around in height
-
-    def seed(self, seed=None):
-        random.seed(seed)
-        np.random.seed(seed)
 
     def get_desig_pix(self, cams, target_width, round=True):
         qpos_dim = self._n_joints      # the states contains pos and vel

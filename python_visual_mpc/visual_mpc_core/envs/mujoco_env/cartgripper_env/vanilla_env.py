@@ -1,4 +1,4 @@
-from python_visual_mpc.visual_mpc_core.envs.cartgripper_env.base_cartgripper import BaseCartgripperEnv
+from python_visual_mpc.visual_mpc_core.envs.mujoco_env.cartgripper_env.base_cartgripper import BaseCartgripperEnv
 import copy
 
 

@@ -1,4 +1,4 @@
-from python_visual_mpc.visual_mpc_core.envs.sawyer_sim.base_sawyer import BaseSawyerEnv
+from python_visual_mpc.visual_mpc_core.envs.mujoco_env.sawyer_sim import BaseSawyerEnv
 import copy
 
 class VanillaSawyerEnv(BaseSawyerEnv):

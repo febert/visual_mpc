@@ -1,4 +1,4 @@
-from python_visual_mpc.visual_mpc_core.envs.sawyer_sim.autograsp_env import AutograspSawyerEnv
+from python_visual_mpc.visual_mpc_core.envs.mujoco_env.sawyer_sim.autograsp_env import AutograspSawyerEnv
 import numpy as np
 
 

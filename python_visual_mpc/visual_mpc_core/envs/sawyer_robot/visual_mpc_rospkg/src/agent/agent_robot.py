@@ -1,18 +1,16 @@
 import numpy as np
 import rospy
-from python_visual_mpc.sawyer.visual_mpc_rospkg.src.utils.robot_wsg_controller import WSGRobotController
-from python_visual_mpc.sawyer.visual_mpc_rospkg.src.utils.robot_dualcam_recorder import RobotDualCamRecorder, Trajectory, render_bbox
+from python_visual_mpc.visual_mpc_core.envs.sawyer_robot.visual_mpc_rospkg.src.utils.robot_wsg_controller import WSGRobotController
+from python_visual_mpc.visual_mpc_core.envs.sawyer_robot.visual_mpc_rospkg.src.utils.robot_dualcam_recorder import RobotDualCamRecorder, Trajectory
 
 from python_visual_mpc.visual_mpc_core.agent.utils.target_qpos_utils import get_target_qpos
 import copy
-from python_visual_mpc.sawyer.visual_mpc_rospkg.src.primitives_regintervals import zangle_to_quat
-from python_visual_mpc.sawyer.visual_mpc_rospkg.src.utils import inverse_kinematics
-from python_visual_mpc.sawyer.visual_mpc_rospkg.src.misc.camera_calib.calibrated_camera import CalibratedCamera
-from python_visual_mpc.sawyer.visual_mpc_rospkg.src.visual_mpc_client import Getdesig
-import moviepy.editor as  mpy
+from python_visual_mpc.visual_mpc_core.envs.sawyer_robot.visual_mpc_rospkg.src.primitives_regintervals import zangle_to_quat
+from python_visual_mpc.visual_mpc_core.envs.sawyer_robot.visual_mpc_rospkg.src.utils import inverse_kinematics
+from python_visual_mpc.visual_mpc_core.envs.sawyer_robot.visual_mpc_rospkg.src.misc.camera_calib.calibrated_camera import CalibratedCamera
+from python_visual_mpc.visual_mpc_core.envs.sawyer_robot.visual_mpc_rospkg.src.visual_mpc_client import Getdesig
 import pdb
 import os
-import cv2
 
 class AgentSawyer:
     def __init__(self, agent_params):

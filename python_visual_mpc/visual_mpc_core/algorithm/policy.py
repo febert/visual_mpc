@@ -1,7 +1,7 @@
 """ This file defines the base class for the policy. """
 import abc
 import abc, six
-from inspect import signature, Parameter
+from funcsigs import signature, Parameter
 
 
 def get_policy_args(policy, obs, t):

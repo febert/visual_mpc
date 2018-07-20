@@ -20,7 +20,7 @@ from python_visual_mpc.visual_mpc_core.agent.utils.get_masks import get_obj_mask
 from python_visual_mpc.visual_mpc_core.agent.utils.gen_gtruth_desig import gen_gtruthdesig
 from python_visual_mpc.visual_mpc_core.agent.utils.convert_world_imspace_mj1_5 import project_point, get_3D
 
-from python_visual_mpc.visual_mpc_core.agent.agent_mjc import get_target_qpos
+from python_visual_mpc.visual_mpc_core.agent.general_agent import get_target_qpos
 
 
 class CEM_controller(Policy):

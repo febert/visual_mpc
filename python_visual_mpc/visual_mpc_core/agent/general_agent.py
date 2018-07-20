@@ -22,7 +22,7 @@ class Image_dark_except(Exception):
         pass
 
 
-class AgentMuJoCo(object):
+class GeneralAgent(object):
     """
     All communication between the algorithms and MuJoCo is done through
     this class.

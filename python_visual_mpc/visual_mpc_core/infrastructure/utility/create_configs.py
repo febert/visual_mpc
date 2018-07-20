@@ -16,7 +16,7 @@ import matplotlib; matplotlib.use('Agg'); import matplotlib.pyplot as plt
 from matplotlib.patches import ConnectionPatch
 import pdb
 
-from python_visual_mpc.visual_mpc_core.agent.agent_mjc import Image_dark_except
+from python_visual_mpc.visual_mpc_core.agent.general_agent import Image_dark_except
 
 class CollectGoalImageSim(Sim):
     """

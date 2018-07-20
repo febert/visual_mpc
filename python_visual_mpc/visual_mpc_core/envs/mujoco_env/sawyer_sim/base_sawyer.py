@@ -1,15 +1,14 @@
-from python_visual_mpc.visual_mpc_core.envs.mujoco_env import BaseMujocoEnv
+from python_visual_mpc.visual_mpc_core.envs.mujoco_env.base_mujoco_env import BaseMujocoEnv
 import python_visual_mpc
 import numpy as np
 import mujoco_py
 from pyquaternion import Quaternion
-from python_visual_mpc.visual_mpc_core.envs.util.create_xml import create_object_xml, create_root_xml, clean_xml
+from python_visual_mpc.visual_mpc_core.envs.mujoco_env.util.create_xml import create_object_xml, create_root_xml, clean_xml
 from python_visual_mpc.visual_mpc_core.envs.util.action_util import CSpline
 import time
 from mujoco_py.builder import MujocoException
-import skimage.io
 import copy
-import cv2
+
 
 def quat_to_zangle(quat):
     angle = -(Quaternion(axis = [0,1,0], angle = np.pi).inverse * Quaternion(quat)).angle
