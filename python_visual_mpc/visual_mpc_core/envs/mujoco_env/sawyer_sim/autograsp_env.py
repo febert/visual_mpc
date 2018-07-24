@@ -1,8 +1,8 @@
-from python_visual_mpc.visual_mpc_core.envs.mujoco_env.sawyer_sim import BaseSawyerEnv
+from python_visual_mpc.visual_mpc_core.envs.mujoco_env.sawyer_sim.base_sawyer import BaseSawyerEnv
 import copy
 import numpy as np
 from python_visual_mpc.visual_mpc_core.envs.util.action_util import autograsp_dynamics
-from python_visual_mpc.visual_mpc_core.envs.mujoco_env.sawyer_sim import is_touching
+from python_visual_mpc.visual_mpc_core.envs.mujoco_env.sawyer_sim.util.sensor_util import is_touching
 
 class AutograspSawyerEnv(BaseSawyerEnv):
     def __init__(self, env_params):

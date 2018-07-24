@@ -3,8 +3,8 @@ import os.path
 import numpy as np
 
 from python_visual_mpc.visual_mpc_core.algorithm.random_policy import Randompolicy, RandomPickPolicy
-from python_visual_mpc.visual_mpc_core.agent.agent_mjc import AgentMuJoCo
-from python_visual_mpc.visual_mpc_core.envs.sawyer_sim.agopenaction_env import AGOpenActionEnv
+from python_visual_mpc.visual_mpc_core.agent.general_agent import GeneralAgent
+from python_visual_mpc.visual_mpc_core.envs.mujoco_env.sawyer_sim.agopenaction_env import AGOpenActionEnv
 
 
 BASE_DIR = '/'.join(str.split(__file__, '/')[:-1])
@@ -26,7 +26,7 @@ env_params = {
 }
 
 agent = {
-    'type': AgentMuJoCo,
+    'type': GeneralAgent,
     'env': (AGOpenActionEnv, env_params),
     'data_save_dir': BASE_DIR,
     'not_use_images':"",
@@ -39,7 +39,6 @@ agent = {
     'ztarget':0.13,
     'min_z_lift':0.05,
     'record': BASE_DIR + '/record/',
-    'make_final_gif': True,
     'rejection_sample': 15
 }
 
