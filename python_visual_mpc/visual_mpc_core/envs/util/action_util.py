@@ -1,14 +1,4 @@
-from scipy.interpolate import CubicSpline
 import numpy as np
-
-
-class CSpline(object):
-    def __init__(self, p_1, p_2):
-        self.cs = CubicSpline(np.array([0.0, 1.0]), np.array([p_1, p_2]), bc_type="clamped")
-
-    def get(self, t):
-        t = np.array(t)
-        return self.cs(t), self.cs(t, nu=1), self.cs(t, nu=2)
 
 
 def autograsp_dynamics(prev_target_qpos, action, gripper_closed, gripper_zpos, zthresh, reopen, grasp_condition):

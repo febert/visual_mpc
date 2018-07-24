@@ -55,7 +55,7 @@ class BaseEnv:
         :param mode: Mode to render with (dual by default)
         :return: uint8 numpy array with rendering from sim
         """
-        raise NotImplementedError("Environment has No Goal")
+        raise NotImplementedError("Rendering not implemented in Base Env")
 
     @property
     def adim(self):

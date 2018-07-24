@@ -5,58 +5,34 @@ import argparse
 import imp
 import cPickle as pkl
 from python_visual_mpc.goaldistancenet.setup_gdn import setup_gdn
-import numpy as np
-import sys
-import traceback
-import pdb
-sudri_crop = {'left_cam': {'crop_bot': 70, 'crop_left': 130, 'crop_right': 120},
-              'front_cam': {'crop_bot': 70, 'crop_left': 90, 'crop_right': 160}}
-sudri_dict = {
-    'robot_name': 'sudri',
-    'targetpos_clip': [[0.375, -0.22, 0.184, -0.5 * np.pi, 0], [0.825, 0.24, 0.32, 0.5 * np.pi, 0.1]],
-    'data_conf': sudri_crop
-}
+import shutil
+import cv2
 
-vestri_crop = {'left_cam': {'crop_bot': 70, 'crop_left': 150, 'crop_right': 100},
-               'front_cam': {'crop_bot': 70, 'crop_left': 90, 'crop_right': 160}}
-vestri_dict = {
-    'robot_name': 'vestri',
-    'targetpos_clip': [[0.42, -0.24, 0.184, -0.5 * np.pi, 0], [0.87, 0.22, 0.32, 0.5 * np.pi, 0.1]],
-    'data_conf': vestri_crop
-}
-robot_confs = {
-    'sudri': sudri_dict,
-    'vestri': vestri_dict
-}
+
+supported_robots = {'sudri', 'vestri'}
+
 
 class RobotEnvironment:
     def __init__(self, robot_name, conf, resume = False, ngpu = 1, gpu_id = 0):
         self._hyperparams = conf
-        self.agentparams, self.policyparams = conf['agent'], conf['policy']
+        self.agentparams, self.policyparams, self.envparams = conf['agent'], conf['policy'], conf['agent']['env'][1]
 
-        if robot_name not in robot_confs:
-            msg = "ROBOT {} IS NOT A SUPPORTED ROBOT ("
-            for k in robot_confs.keys():
+        if robot_name not in supported_robots:
+            msg = "ROBOT {} IS NOT A SUPPORTED ROBOT (".format(robot_name)
+            for k in supported_robots:
                 msg = msg + "{} ".format(k)
             msg = msg + ")"
             raise NotImplementedError(msg)
 
-        robot_conf = robot_confs[robot_name]
-        for k in robot_conf.keys():
-            if k not in self.agentparams:
-                self.agentparams[k] = robot_conf[k]
-            elif self.agentparams[k] != robot_conf[k]:
-                """
-                A major disadvantage to keeping config consistent across confs
-                is we c+an't easily experiment w/ different settings. The benefit
-                is all experiments have same default setting. Worth looking into
-                this more later. 
-                """
-                raise AttributeError("ATTRIBUTE {} IS NOW SET BY COMMAND LINE".format(k))
+        self.envparams['robot_name'] = robot_name
 
         if 'benchmark_exp' in self.agentparams:
             self.is_bench = True
-        else: self.is_bench = False
+            self.task_mode = 'test'
+        else:
+            self.is_bench = False
+            self.task_mode = 'train'
+
         if 'register_gtruth' in self.policyparams:
             assert 'register_gtruth' not in self.agentparams, "SHOULD BE IN POLICY PARAMS"
             self.agentparams['register_gtruth'] = self.policyparams['register_gtruth']
@@ -111,21 +87,15 @@ class RobotEnvironment:
                 self.take_sample(itr)
                 itr += 1
 
-    def take_sample(self, itr):
-        print("Collecting sample {}".format(itr))
+    def take_sample(self, sample_index):
+        print("Collecting sample {}".format(sample_index))
 
         self.init_policy()
-        traj, traj_ok = self.agent.sample(self.policy, itr)
+        agent_data, obs_dict, policy_out = self.agent.sample(self.policy, sample_index)
 
-        if traj is not None and traj_ok:
-            group = itr // self._hyperparams['ngroup']
-            traj_num = itr % self._hyperparams['ngroup']
-            if self.is_bench:
-                traj.save(self.agentparams['data_save_dir'] + '/{}/traj_data'.format(self.agentparams['benchmark_exp']))
-            else:
-                traj.save(self.agentparams['data_save_dir'] + '/traj_group{}/traj{}'.format(group, traj_num))
-        else:
-            self._ck_dict['broken_traj'].append(itr)
+        if self._hyperparams['save_data']:
+            self.save_data(sample_index, agent_data, obs_dict, policy_out)
+
         self._ck_dict['ntraj'] += 1
 
         ck_file = open(self._ck_path, 'wb')
@@ -133,6 +103,45 @@ class RobotEnvironment:
         ck_file.close()
 
         print("CHECKPOINTED")
+
+    def save_data(self, itr, agent_data, obs_dict, policy_outputs):
+        if 'save_raw_images' in self._hyperparams:
+            self._save_raw_images(itr, agent_data, obs_dict, policy_outputs)
+        else:
+            raise NotImplementedError
+            self._record_queue.put((agent_data, obs_dict, policy_outputs))
+
+    def _save_raw_images(self, itr, agent_data, obs_dict, policy_outputs):
+        if 'RESULT_DIR' in os.environ:
+            data_save_dir = os.environ['RESULT_DIR'] + '/data'
+        else: data_save_dir = self.agentparams['data_save_dir']
+        data_save_dir += '/' + self.task_mode
+
+        ngroup = self._hyperparams['ngroup']
+        igrp = itr // ngroup
+        group_folder = data_save_dir + '/traj_group{}'.format(igrp)
+        if not os.path.exists(group_folder):
+            os.makedirs(group_folder)
+
+        traj_folder = group_folder + '/traj{}'.format(itr)
+        if os.path.exists(traj_folder):
+            shutil.rmtree(traj_folder)
+
+        os.makedirs(traj_folder)
+        if 'images' in obs_dict:
+            images = obs_dict.pop('images')
+            T, n_cams = images.shape[:2]
+            for i in range(n_cams):
+                os.mkdir(traj_folder + '/images{}'.format(i))
+            for t in range(T):
+                for i in range(n_cams):
+                    cv2.imwrite('{}/images{}/im_{}.png'.format(traj_folder, i, t), images[t, i, :, :, ::-1])
+        with open('{}/agent_data.pkl'.format(traj_folder), 'wb') as file:
+            pkl.dump(agent_data, file)
+        with open('{}/obs_dict.pkl'.format(traj_folder), 'wb') as file:
+            pkl.dump(obs_dict, file)
+        with open('{}/policy_out.pkl'.format(traj_folder), 'wb') as file:
+            pkl.dump(policy_outputs, file)
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()

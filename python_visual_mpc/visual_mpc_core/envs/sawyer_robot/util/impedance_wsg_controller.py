@@ -1,25 +1,26 @@
 import rospy
-from robot_controller import RobotController
+from python_visual_mpc.visual_mpc_core.envs.sawyer_robot.visual_mpc_rospkg.src.utils.robot_controller import RobotController
 from wsg_50_common.msg import Cmd, Status
 from threading import Semaphore, Lock
-
-GRIPPER_CLOSE = 6   #chosen so that gripper closes entirely without pushing against itself
-GRIPPER_OPEN = 96   #chosen so that gripper opens entirely without pushing against outer rail
-
-from std_msgs.msg import Float32, Int64
-from sensor_msgs.msg import JointState
 import numpy as np
-
+from python_visual_mpc.visual_mpc_core.envs.util.interpolation import CSpline
 import python_visual_mpc.visual_mpc_core.envs.sawyer_robot.visual_mpc_rospkg as visual_mpc_rospkg
-
+from intera_core_msgs.msg import JointCommand
 import cPickle as pickle
 import intera_interface
 
-NEUTRAL_JOINT_ANGLES =[0.412271, -0.434908, -1.198768, 1.795462, 1.160788, 1.107675, 2.068076]
+
+# constants for robot control
+NEUTRAL_JOINT_ANGLES = np.array([0.412271, -0.434908, -1.198768, 1.795462, 1.160788, 1.107675, -1.11748145])
 MAX_TIMEOUT = 30
+DURATION_PER_POINT = 0.01
+N_JOINTS = 7
+max_vel_mag = np.array([0.88, 0.678, 0.996, 0.996, 1.776, 1.776, 2.316])
+max_accel_mag = np.array([3.5, 2.5, 5, 5, 5, 5, 5])
+GRIPPER_CLOSE = 6   # chosen so that gripper closes entirely without pushing against itself
+GRIPPER_OPEN = 96   # chosen so that gripper opens entirely without pushing against outer rail
 
-
-class WSGRobotController(RobotController):
+class ImpedanceWSGController(RobotController):
     def __init__(self, control_rate, robot_name):
         self.max_release = 0
         RobotController.__init__(self)
@@ -34,6 +35,7 @@ class WSGRobotController(RobotController):
         self._integrate_gripper_force = 0.
         self.num_timeouts = 0
 
+        self._cmd_publisher = rospy.Publisher('/robot/limb/right/joint_command', JointCommand, queue_size=100)
         self.gripper_pub = rospy.Publisher('/wsg_50_driver/goal_position', Cmd, queue_size=10)
         rospy.Subscriber("/wsg_50_driver/status", Status, self._gripper_callback)
 
@@ -41,14 +43,7 @@ class WSGRobotController(RobotController):
         self.sem_list[0].acquire()
         print('gripper initialized!')
 
-        self.imp_ctrl_publisher = rospy.Publisher('/desired_joint_pos', JointState, queue_size=1)
-        self.imp_ctrl_release_spring_pub = rospy.Publisher('/release_spring', Float32, queue_size=10)
-        self.imp_ctrl_active = rospy.Publisher('/imp_ctrl_active', Int64, queue_size=10)
-
         self.control_rate = rospy.Rate(control_rate)
-
-        self.imp_ctrl_release_spring(100)
-        self.imp_ctrl_active.publish(1)
 
         self._navigator = intera_interface.Navigator()
         self._navigator.register_callback(self._close_gripper_handler, 'right_button_ok')
@@ -135,60 +130,51 @@ class WSGRobotController(RobotController):
 
         self._status_mutex.release()
 
-    def reset_with_impedance(self, angles = NEUTRAL_JOINT_ANGLES, duration= 3., open_gripper = True, close_first = False, stiffness = 150, reset_sitffness = 100):
-        if open_gripper:
-            if close_first:
-                self._set_gripper(2, wait=True)
-            self._set_gripper(100, wait=True)
-            self.open_gripper()
+    def neutral_with_impedance(self, duration=2):
+        waypoints = [NEUTRAL_JOINT_ANGLES]
+        self.move_with_impedance(waypoints, duration)
 
-        self.imp_ctrl_release_spring(reset_sitffness)
-        self.move_to_joints_impedance_sec(angles, duration=duration)
-        self.imp_ctrl_release_spring(stiffness)
-
-        self.get_gripper_status()  # dummy call to flush integration of gripper force
-
-    def disable_impedance(self):
-        self.imp_ctrl_active.publish(0)
-
-    def enable_impedance(self):
-        self.imp_ctrl_active.publish(1)
-
-    def imp_ctrl_release_spring(self, maxstiff):
-        self.imp_ctrl_release_spring_pub.publish(maxstiff)
-
-    def move_to_joints_impedance_sec(self, joint_angle_array, duration = 2.):
-        cmd = dict(list(zip(self.limb.joint_names(), joint_angle_array)))
-        self.move_with_impedance_sec(cmd, duration)
-
-    def move_with_impedance(self, des_joint_angles):
+    def move_with_impedance(self, waypoints, duration=1.5):
         """
-        non-blocking
+        Moves from curent position to final position while hitting waypoints
+        :param waypoints: List of arrays containing waypoint joint angles
+        :param duration: trajectory duration
         """
-        js = JointState()
-        js.name = self.limb.joint_names()
-        js.position = [des_joint_angles[n] for n in js.name]
-        self.imp_ctrl_publisher.publish(js)
 
-
-    def move_with_impedance_sec(self, cmd, duration=2.):
         jointnames = self.limb.joint_names()
-        prev_joint = [self.limb.joint_angle(j) for j in jointnames]
-        new_joint = np.array([cmd[j] for j in jointnames])
+        prev_joint = np.array([self.limb.joint_angle(j) for j in jointnames])
+        waypoints = np.array([prev_joint] + waypoints)
+
+        spline = CSpline(waypoints, duration)
 
         start_time = rospy.get_time()  # in seconds
         finish_time = start_time + duration  # in seconds
 
+        time = rospy.get_time()
+        while time < finish_time:
+            pos, velocity, acceleration = spline.get(time - start_time)
+            command = JointCommand()
+            command.mode = JointCommand.POSITION_MODE
+            command.names = jointnames
+            command.position = pos
+            command.velocity = np.clip(velocity, -max_vel_mag, max_vel_mag)
+            command.acceleration = np.clip(acceleration, -max_accel_mag, max_accel_mag)
+            self._cmd_publisher.publish(command)
 
-        while rospy.get_time() < finish_time:
-            int_joints = prev_joint + (rospy.get_time()-start_time)/(finish_time-start_time)*(new_joint-prev_joint)
-            # print int_joints
-            cmd = dict(list(zip(self.limb.joint_names(), list(int_joints))))
-            self.move_with_impedance(cmd)
+            self.control_rate.sleep()
+            time = rospy.get_time()
+
+        for i in xrange(10):
+            command = JointCommand()
+            command.mode = JointCommand.POSITION_MODE
+            command.names = jointnames
+            command.position = waypoints[-1]
+            self._cmd_publisher.publish(command)
+
             self.control_rate.sleep()
 
     def redistribute_objects(self):
-        self.reset_with_impedance(duration=1.5)
+        self.set_neutral()
         print('redistribute...')
 
         file = '/'.join(str.split(visual_mpc_rospkg.__file__, "/")[
@@ -196,11 +182,8 @@ class WSGRobotController(RobotController):
 
         self.joint_pos = pickle.load(open(file, "rb"))
 
-        self.imp_ctrl_release_spring(100)
-        self.imp_ctrl_active.publish(1)
-
         replay_rate = rospy.Rate(700)
         for t in range(len(self.joint_pos)):
             print('step {0} joints: {1}'.format(t, self.joint_pos[t]))
             replay_rate.sleep()
-            self.move_with_impedance(self.joint_pos[t])
+            self.move_with_impedance([self.joint_pos[t]])

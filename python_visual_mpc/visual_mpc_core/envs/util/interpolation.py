@@ -39,7 +39,7 @@ class QuinticSpline:
         return eval_0, eval_1, eval_2
 
 
-class CSpline(object):
+class TwoPointCSpline(object):
     def __init__(self, p_1, p_2):
         self.cs = CubicSpline(np.array([0.0, 1.0]), np.array([p_1, p_2]), bc_type='clamped')
 
@@ -50,3 +50,15 @@ class CSpline(object):
         ret = (self.cs(t), self.cs(t, nu=1), self.cs(t, nu=2))
 
         return ret
+
+
+class CSpline:
+    def __init__(self, points, duration=1., bc_type='clamped'):
+        n_points = points.shape[0]
+        self._duration = duration
+        self._cs = CubicSpline(np.linspace(0, duration, n_points), points, bc_type=bc_type)
+
+    def get(self, t):
+        t = np.array(min(t, self._duration))
+
+        return self._cs(t), self._cs(t, nu=1), self._cs(t, nu=2)

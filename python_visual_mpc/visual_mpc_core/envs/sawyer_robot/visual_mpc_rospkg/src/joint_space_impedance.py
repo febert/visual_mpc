@@ -7,10 +7,9 @@ from sensor_msgs.msg import JointState
 
 import intera_interface
 from intera_interface import CHECK_VERSION
-import pdb
 from std_msgs.msg import Float32
 from std_msgs.msg import Int64
-from utils.interpolation import QuinticSpline
+from python_visual_mpc.visual_mpc_core.envs.util.interpolation import QuinticSpline
 from intera_core_msgs.msg import JointCommand
 from threading import Lock
 
@@ -80,7 +79,7 @@ class ImpedanceController(object):
                 pos, velocity, accel = [x.squeeze() for x in self._interp.get(t)]
 
                 command = JointCommand()
-                command.mode = JointCommand.POSITION_MODE
+                command.mode = JointCommand.TRAJECTORY_MODE
                 command.names = self._j_names
                 command.position = pos
                 command.velocity = np.clip(velocity, -max_vel_mag, max_vel_mag)

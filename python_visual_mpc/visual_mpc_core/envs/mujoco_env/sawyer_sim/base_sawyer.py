@@ -4,7 +4,7 @@ import numpy as np
 import mujoco_py
 from pyquaternion import Quaternion
 from python_visual_mpc.visual_mpc_core.envs.mujoco_env.util.create_xml import create_object_xml, create_root_xml, clean_xml
-from python_visual_mpc.visual_mpc_core.envs.util.action_util import CSpline
+from python_visual_mpc.visual_mpc_core.envs.util.interpolation import TwoPointCSpline
 import time
 from mujoco_py.builder import MujocoException
 import copy
@@ -197,7 +197,7 @@ class BaseSawyerEnv(BaseMujocoEnv):
         assert target_qpos.shape[0] == self._base_sdim
         finger_force = np.zeros(2)
 
-        xyz_interp = CSpline(self.sim.data.get_body_xpos('hand').copy(), target_qpos[:3])
+        xyz_interp = TwoPointCSpline(self.sim.data.get_body_xpos('hand').copy(), target_qpos[:3])
         self.sim.data.set_mocap_quat('mocap', zangle_to_quat(target_qpos[3]))
         for st in range(self.substeps):
             alpha = 1.

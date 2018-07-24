@@ -17,7 +17,7 @@ def file_len(fname):
             pass
     return i + 1
 
-class Image_dark_except(Exception):
+class Image_Exception(Exception):
     def __init__(self):
         pass
 
@@ -108,7 +108,7 @@ class GeneralAgent(object):
             try:
                 agent_data, obs_dict, policy_outs = self.rollout(policy, i_trial)
                 traj_ok = agent_data['traj_ok']
-            except Image_dark_except:
+            except Image_Exception:
                 traj_ok = False
 
         print('needed {} trials'.format(i_trial))
