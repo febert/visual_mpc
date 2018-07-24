@@ -21,7 +21,7 @@ env_params = {
     'finger_sensors': True,
     'substeps': 100,
      'autograsp': {'zthresh': 0.18, 'touchthresh': 0.0, 'reopen': True},
-    'object_meshes': ['Fork', 'Spoon', 'Bowl', 'LotusBowl01'],
+    'object_meshes': ['Fork', 'GlassBowl', 'Bowl', 'LotusBowl01'],
     'open_threshold': -1.501085946044025
 }
 
