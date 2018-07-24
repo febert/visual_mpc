@@ -64,7 +64,7 @@ def pose_to_ja(target_pose, start_joints, tolerate_ik_error=False, debug_z = Non
 
 class BaseSawyerEnv(BaseEnv):
     def __init__(self, robot_name, substeps = 1, opencv_tracking=False, save_videos=False,
-                 OFFSET_TOL = 0.06, duration = 1.5, mode_rel = np.array([True, True, True, True, False])):
+                 OFFSET_TOL = 0.06, duration=1., mode_rel = np.array([True, True, True, True, False])):
         print('initializing environment for {}'.format(robot_name))
         self._robot_name = robot_name
         self._setup_robot()
@@ -93,11 +93,11 @@ class BaseSawyerEnv(BaseEnv):
         self.num_objects = None  # for agent linkup.
 
     def _setup_robot(self):
-        low_angle = np.pi / 2
-        high_angle = 3 * np.pi / 2 - 0.001
+        low_angle = np.pi / 2                  # chosen to maximize wrist rotation given start rotation
+        high_angle = 265 * np.pi / 180
         if self._robot_name == 'vestri':
-            self._low_bound = np.array([0.42, -0.24, 0.184, low_angle, -1])
-            self._high_bound = np.array([0.87, 0.22, 0.32, high_angle, 1])
+            self._low_bound = np.array([0.4, -0.2, 0.184, low_angle, -1])
+            self._high_bound = np.array([0.88, 0.2, 0.35, high_angle, 1])
         elif self._robot_name == 'sudri':
             self._low_bound = np.array([0.375, -0.22, 0.184, low_angle, -1])
             self._high_bound = np.array([0.825, 0.24, 0.32, high_angle, 1])
@@ -145,22 +145,23 @@ class BaseSawyerEnv(BaseEnv):
         obs['qpos'] = j_angles
         obs['qvel'] = j_vel
 
-        print 'delta: ', np.linalg.norm(eep[:2] - self._previous_target_qpos[:2])
-        print 'angle dif: ', abs(quat_to_zangle(eep[3:]) - self._previous_target_qpos[3]) * 180 / np.pi
+        print 'xy delta: ', np.linalg.norm(eep[:2] - self._previous_target_qpos[:2])
+        print 'z dif', abs(eep[2] - self._previous_target_qpos[2])
+        print 'angle dif (degrees): ', abs(quat_to_zangle(eep[3:]) - self._previous_target_qpos[3]) * 180 / np.pi
 
         state = np.zeros(self._base_sdim)
-        state[:3] = eep[:3]
+        state[:3] = (eep[:3] - self._low_bound[:3]) / (self._high_bound[:3] - self._low_bound[:3])
         state[3] = quat_to_zangle(eep[3:])
         state[4] = gripper_state * self._low_bound[-1] + (1 - gripper_state) * self._high_bound[-1]
         obs['state'] = state
         obs['finger_sensors'] = force_sensor
 
-        self._previous_obs = copy.deepcopy(obs)
+        self._last_obs = copy.deepcopy(obs)
         obs['images'] = self.render()
 
         return obs
 
-    def _move_to_state(self, xyz, zangle):
+    def _move_to_state(self, xyz, zangle, duration = None):
         waypoints = []
         for i in xrange(1, self._substeps + 1):
             t = i / float(self._substeps)
@@ -172,7 +173,9 @@ class BaseSawyerEnv(BaseEnv):
             interp_ja = [interp_ja[j] for j in self._limb_recorder.get_joint_names()]
             waypoints.append(interp_ja)
 
-        self._controller.move_with_impedance(waypoints, self._duration)
+        if duration is None:
+            duration = self._duration
+        self._controller.move_with_impedance(waypoints, duration)
 
     def _reset_previous_qpos(self):
         eep = self._limb_recorder.get_state()[2]
@@ -192,12 +195,10 @@ class BaseSawyerEnv(BaseEnv):
 
         self._reset_previous_qpos()
 
-        self._move_to_state(self._previous_target_qpos[:3], np.pi/2)
-
         rand_xyz = np.random.uniform(self._low_bound[:3], self._high_bound[:3])
         rand_zangle = np.random.uniform(self._low_bound[3], self._high_bound[3])
 
-        self._move_to_state(rand_xyz, rand_zangle)
+        self._move_to_state(rand_xyz, rand_zangle, 1.5)
         self._init_dynamics()
 
         self._reset_previous_qpos()

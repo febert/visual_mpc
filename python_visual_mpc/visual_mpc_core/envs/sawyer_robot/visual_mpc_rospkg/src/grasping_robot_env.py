@@ -28,10 +28,10 @@ class RobotEnvironment:
 
         if 'benchmark_exp' in self.agentparams:
             self.is_bench = True
-            self.task_mode = 'test'
+            self.task_mode = '{}/test'.format(robot_name)
         else:
             self.is_bench = False
-            self.task_mode = 'train'
+            self.task_mode = '{}/train'.format(robot_name)
 
         if 'register_gtruth' in self.policyparams:
             assert 'register_gtruth' not in self.agentparams, "SHOULD BE IN POLICY PARAMS"
@@ -48,7 +48,11 @@ class RobotEnvironment:
         self._gdnconf = {}
         self.init_policy()
 
-        self._ck_path = self.agentparams['data_save_dir'] + '/checkpoint.pkl'
+        robot_dir = self.agentparams['data_save_dir'] + '/{}'.format(robot_name)
+        if not os.path.exists(robot_dir):
+            os.makedirs(robot_dir)
+
+        self._ck_path = self.agentparams['data_save_dir'] + '/{}/checkpoint.pkl'.format(robot_name)
         if resume and os.path.exists(self._ck_path):
             with open(self._ck_path, 'rb') as f:
                 self._ck_dict = pkl.load(f)
@@ -135,7 +139,7 @@ class RobotEnvironment:
                 os.mkdir(traj_folder + '/images{}'.format(i))
             for t in range(T):
                 for i in range(n_cams):
-                    cv2.imwrite('{}/images{}/im_{}.png'.format(traj_folder, i, t), images[t, i, :, :, ::-1])
+                    cv2.imwrite('{}/images{}/im_{}.jpg'.format(traj_folder, i, t), images[t, i, :, :, ::-1])
         with open('{}/agent_data.pkl'.format(traj_folder), 'wb') as file:
             pkl.dump(agent_data, file)
         with open('{}/obs_dict.pkl'.format(traj_folder), 'wb') as file:

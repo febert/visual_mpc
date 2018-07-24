@@ -8,6 +8,7 @@ import python_visual_mpc.visual_mpc_core.envs.sawyer_robot.visual_mpc_rospkg as 
 from intera_core_msgs.msg import JointCommand
 import cPickle as pickle
 import intera_interface
+import os
 
 
 # constants for robot control
@@ -19,6 +20,7 @@ max_vel_mag = np.array([0.88, 0.678, 0.996, 0.996, 1.776, 1.776, 2.316])
 max_accel_mag = np.array([3.5, 2.5, 5, 5, 5, 5, 5])
 GRIPPER_CLOSE = 6   # chosen so that gripper closes entirely without pushing against itself
 GRIPPER_OPEN = 96   # chosen so that gripper opens entirely without pushing against outer rail
+
 
 class ImpedanceWSGController(RobotController):
     def __init__(self, control_rate, robot_name):
@@ -187,3 +189,8 @@ class ImpedanceWSGController(RobotController):
             print('step {0} joints: {1}'.format(t, self.joint_pos[t]))
             replay_rate.sleep()
             self.move_with_impedance([self.joint_pos[t]])
+
+    def clean_shutdown(self):
+        pid = os.getpid()
+        print('Exiting example w/ pid: {}'.format(pid))
+        os.kill(-pid, 9)

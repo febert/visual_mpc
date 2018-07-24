@@ -52,10 +52,10 @@ class LimbRecorder:
         pos = np.array([resp.pose_stamp[0].pose.position.x,
                         resp.pose_stamp[0].pose.position.y,
                         resp.pose_stamp[0].pose.position.z,
+                        resp.pose_stamp[0].pose.orientation.w,
                         resp.pose_stamp[0].pose.orientation.x,
                         resp.pose_stamp[0].pose.orientation.y,
-                        resp.pose_stamp[0].pose.orientation.z,
-                        resp.pose_stamp[0].pose.orientation.w])
+                        resp.pose_stamp[0].pose.orientation.z])
 
         return pos
 
