@@ -22,15 +22,15 @@ class Randompolicy(Policy):
         self.naction_steps = policyparams['nactions']
         self.repeat = self.policyparams['repeat']
 
-    def act(self, traj, t, init_model=None, goal_ob_pose=None, agentparams=None, goal_image=None):
+    def act(self, t):
         assert self.agentparams['T'] == self.naction_steps*self.repeat
-        if t ==0:
-            mean = np.zeros(self.adim * self.naction_steps)
+        if t == 0:
+            mean = np.zeros(5 * self.naction_steps)
             # initialize mean and variance of the discrete actions to their mean and variance used during data collection
             sigma = construct_initial_sigma(self.policyparams)
-            self.actions = np.random.multivariate_normal(mean, sigma).reshape(self.naction_steps, self.adim)
+            self.actions = np.random.multivariate_normal(mean, sigma).reshape(self.naction_steps, -1)
             self.process_actions()
-        return self.actions[t]
+        return {'actions': self.actions[t, :self.adim]}
 
     def process_actions(self):
 
@@ -45,8 +45,8 @@ class Randompolicy(Policy):
     def _process(self, actions):
         if 'discrete_adim' in self.agentparams:
             actions = discretize(actions, self.agentparams['discrete_adim'])
-        if 'discrete_gripper' in self.agentparams:
-            actions = discretize_gripper(actions, self.agentparams['discrete_gripper'])
+        if 'discrete_gripper' in self.policyparams:
+            actions = discretize_gripper(actions, self.policyparams['discrete_gripper'])
         if 'no_action_bound' not in self.policyparams:
             actions = truncate_movement(actions, self.policyparams)
             
@@ -61,12 +61,12 @@ class CorrRandompolicy(Randompolicy):
     def __init__(self, action_proposal_conf, agentparams, policyparams):  # add imiation_conf to keep compatibility with imitation model
         Randompolicy.__init__(self, action_proposal_conf, agentparams, policyparams)
 
-    def act(self, traj, t, init_model=None, goal_ob_pose=None, agentparams=None, goal_image=None):
+    def act(self, t):
         if t == 0:
-            self.sample_actions(traj, 1)
-        return self.actions[0, t]
+            self.sample_actions(1)
+        return {'actions': self.actions[0, t]}
 
-    def sample_actions(self, traj, nsamples):
+    def sample_actions(self, nsamples):
         assert self.repeat == 1
         xy_std = self.policyparams['initial_std']
         diag = [xy_std ** 2, xy_std ** 2]
@@ -98,26 +98,25 @@ class RandomPickPolicy(Randompolicy):
     def __init__(self, action_proposal_conf, agentparams, policyparams):  # add imiation_conf to keep compatibility with imitation model
         Randompolicy.__init__(self, action_proposal_conf, agentparams, policyparams)
 
-    def act(self, traj, t, init_model = None, goal_ee_pose = None, agentparams = None, goal_image = None):
+    def act(self, t, object_poses, state):
         assert self.agentparams['T'] == self.naction_steps * self.repeat and self.naction_steps >= 3
         if t == 0:
-            self.sample_actions(traj, 1)
-        return self.actions[t]
+            self._desig_pos = self.sample_actions(object_poses, state, 1)
+        return {'actions': self.actions[t, :self.adim], 'desig_pos': self._desig_pos}
 
-    def sample_actions(self, traj, nsamples):
+    def sample_actions(self, object_poses, state, nsamples):
+        assert self.adim == 4 or self.adim == 5
         repeat = self.repeat
-        mean = np.zeros((self.naction_steps, self.adim))
+        mean = np.zeros((self.naction_steps, 5))
 
-        target_object = np.random.randint(traj.Object_pose.shape[1])  # selects a random object to pick
-        traj.desig_pos = traj.Object_pose[0, target_object, :2].copy()
+        target_object = np.random.randint(object_poses.shape[1])  # selects a random object to pick
+        desig_pos = object_poses[0, target_object, :2].copy()
 
-        if 'rpn_objects' in self.agentparams:
-            robot_xy = traj.endeffector_poses[0, :2]
-        else:
-            robot_xy = traj.X_full[0, :2]
-        object_xy = (traj.Object_pose[0, target_object, :2] - robot_xy) / repeat
+        robot_xy = state[0, :2]
+        object_xy = (desig_pos - robot_xy) / repeat
 
-        low = self.agentparams['targetpos_clip'][0][2]
+        low = -0.08
+
         mean[0] = np.array([object_xy[0], object_xy[1], self.agentparams.get('ztarget', 0.13) / repeat, 0,
                             -1])  # mean action goes toward object
         mean[1] = np.array([0, 0, (low - self.agentparams.get('ztarget', 0.13)) / repeat, 0,
@@ -129,11 +128,11 @@ class RandomPickPolicy(Randompolicy):
 
         sigma = construct_initial_sigma(self.policyparams)
 
-        self.actions = np.random.multivariate_normal(mean.reshape(-1), sigma, nsamples).reshape(nsamples, self.naction_steps, self.adim)
+        self.actions = np.random.multivariate_normal(mean.reshape(-1), sigma, nsamples).reshape(nsamples, self.naction_steps, 5)
         self.actions = self.actions.squeeze()
         self.process_actions()
 
-        return self.actions
+        return desig_pos
 
 def discretize_gripper(actions, gripper_ind):
     assert len(actions.shape) == 2

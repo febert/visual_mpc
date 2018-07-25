@@ -5,7 +5,7 @@ import os.path
 import numpy as np
 
 from python_visual_mpc.visual_mpc_core.algorithm.det_grasp_policy import DeterministicGraspPolicy
-from python_visual_mpc.visual_mpc_core.agent.agent_mjc import AgentMuJoCo
+from python_visual_mpc.visual_mpc_core.agent.general_agent import AgentMuJoCo
 from python_visual_mpc.visual_mpc_core.algorithm.random_policy import Randompolicy
 
 current_dir = '/'.join(str.split(__file__, '/')[:-1])

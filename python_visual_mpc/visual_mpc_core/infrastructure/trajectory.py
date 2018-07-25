@@ -25,7 +25,7 @@ class Trajectory(object):
                                 img_width,
                                 img_channels), dtype='uint8')
 
-        if 'finger_sensors' in conf:
+        if 'finger_sensors' in conf['env'][1]:
             self.touch_sensors = np.zeros((self.T, 2), dtype = np.float32)
         else:
             self.touch_sensors = None
@@ -45,23 +45,18 @@ class Trajectory(object):
         else:
             self.actions = np.zeros([self.T, 2])
 
-        if 'sawyer' not in conf:
-            state_dim = conf['sdim']//2
-        else:
-            state_dim = conf['sdim']
+
+        state_dim = conf['sdim']
 
         self.X_full = np.zeros([self.T, state_dim])
         self.Xdot_full = np.zeros([self.T, state_dim])
         self.X_Xdot_full = np.zeros([self.T, state_dim*2])
 
-        if 'posmode' in conf:
-            self.target_qpos = np.zeros([self.T + 1, conf['adim']])
-            if 'mode_rel' in conf:
-                self.mask_rel = conf['mode_rel'].copy()
+        self.target_qpos = np.zeros([self.T + 1, conf['sdim']])
 
-        if 'num_objects' in conf:
-            self.Object_pose = np.zeros([self.T, conf['num_objects'], 3])  # x,y rot of  block
-            self.Object_full_pose = np.zeros([self.T, conf['num_objects'], 7])  # xyz and quaternion pose
+        if 'num_objects' in conf['env'][1]:
+            self.Object_pose = np.zeros([self.T, conf['env'][1]['num_objects'], 3])  # x,y rot of  block
+            self.Object_full_pose = np.zeros([self.T, conf['env'][1]['num_objects'], 7])  # xyz and quaternion pose
 
         self.desig_pos = np.zeros([self.T, 2])
         self.score = np.zeros([self.T])
