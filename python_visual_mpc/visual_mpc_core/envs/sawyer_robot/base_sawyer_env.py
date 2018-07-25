@@ -99,8 +99,8 @@ class BaseSawyerEnv(BaseEnv):
             self._low_bound = np.array([0.4, -0.2, 0.184, low_angle, -1])
             self._high_bound = np.array([0.88, 0.2, 0.35, high_angle, 1])
         elif self._robot_name == 'sudri':
-            self._low_bound = np.array([0.375, -0.22, 0.184, low_angle, -1])
-            self._high_bound = np.array([0.825, 0.24, 0.32, high_angle, 1])
+            self._low_bound = np.array([0.34, -0.18, 0.184, low_angle, -1])
+            self._high_bound = np.array([0.82, 0.22, 0.35, high_angle, 1])
         else:
             raise ValueError("Supported robots are vestri/sudri")
 
