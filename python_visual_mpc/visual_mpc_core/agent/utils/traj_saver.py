@@ -139,6 +139,7 @@ class GeneralAgentSaver:
 
 def record_worker(queue, save_dir, sequence_length, seperate_good, traj_per_file, offset=0):
     print('started saver with PID:', os.getpid())
+    print('saving to {}'.format(save_dir))
     saver = GeneralAgentSaver(save_dir, sequence_length, seperate_good, traj_per_file, offset)
     data = queue.get(True)
     counter = 0
