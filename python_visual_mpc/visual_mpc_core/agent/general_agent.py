@@ -230,7 +230,6 @@ class GeneralAgent(object):
             policy_outputs.append(pi_t)
 
             try:
-                print('step {}'.format(t))
                 obs = self._post_process_obs(self.env.step(copy.deepcopy(pi_t['actions'])))
             except ValueError:
                 return {'traj_ok': False}, None, None
