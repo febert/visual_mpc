@@ -53,7 +53,7 @@ policy = {
 }
 
 config = {
-    'traj_per_file': 128,
+    'traj_per_file': 16,
     'seperate_good': True,
     'current_dir' : current_dir,
     'save_data': True,
