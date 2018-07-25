@@ -37,9 +37,8 @@ agent = {
     'novideo':'',
     'gen_xml':10,   #generate xml every nth trajecotry
     'ztarget':0.13,
-    'min_z_lift':0.05,
     'record': BASE_DIR + '/record/',
-    'rejection_sample': 15
+    'rejection_sample': 5
 }
 
 policy = {
