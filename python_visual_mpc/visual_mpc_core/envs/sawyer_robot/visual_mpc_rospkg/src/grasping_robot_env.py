@@ -7,6 +7,8 @@ import cPickle as pkl
 from python_visual_mpc.goaldistancenet.setup_gdn import setup_gdn
 import shutil
 import cv2
+from python_visual_mpc.visual_mpc_core.agent.utils.traj_saver import record_worker
+from multiprocessing import Manager, Process
 
 
 supported_robots = {'sudri', 'vestri'}
@@ -61,6 +63,8 @@ class RobotEnvironment:
         else:
             self._ck_dict = {'ntraj' : 0, 'broken_traj' : []}
 
+
+
     def init_policy(self):
 
         if 'use_server' not in self.policyparams and 'netconf' in self.policyparams and self._predictor is None:
@@ -109,11 +113,7 @@ class RobotEnvironment:
         print("CHECKPOINTED")
 
     def save_data(self, itr, agent_data, obs_dict, policy_outputs):
-        if 'save_raw_images' in self._hyperparams:
-            self._save_raw_images(itr, agent_data, obs_dict, policy_outputs)
-        else:
-            raise NotImplementedError
-            self._record_queue.put((agent_data, obs_dict, policy_outputs))
+        self._save_raw_images(itr, agent_data, obs_dict, policy_outputs)
 
     def _save_raw_images(self, itr, agent_data, obs_dict, policy_outputs):
         if 'RESULT_DIR' in os.environ:
@@ -147,7 +147,9 @@ class RobotEnvironment:
         with open('{}/policy_out.pkl'.format(traj_folder), 'wb') as file:
             pkl.dump(policy_outputs, file)
 
+
 if __name__ == '__main__':
+
     parser = argparse.ArgumentParser()
     parser.add_argument('robot_name', type=str, help="name of robot we're running on")
     parser.add_argument('experiment', type=str, help='experiment name')

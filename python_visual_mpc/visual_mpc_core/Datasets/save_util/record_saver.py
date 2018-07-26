@@ -56,7 +56,7 @@ def save_tf_record(filename, trajectory_list, sequence_manifest, metadata_manife
 
 
 class RecordSaver:
-    def __init__(self, data_save_dir, sequence_length=None, traj_per_file=1, split=(0.90, 0.05, 0.05)):
+    def __init__(self, data_save_dir, sequence_length=None, traj_per_file=1, offset=0, split=(0.90, 0.05, 0.05)):
         self._traj_buffers = [[] for _ in range(3)]
         self._save_counters = [0 for _ in range(3)]
 
@@ -73,6 +73,7 @@ class RecordSaver:
         self._train_val_test = split
         self._traj_per_file = traj_per_file
         self._metadata_keys, self._sequence_keys, self._T = None, None, sequence_length
+        self._offset = offset
 
     def add_traj(self, traj):
         draw = None
@@ -161,8 +162,12 @@ class RecordSaver:
                 continue
             elif flush or len(buffer) % self._traj_per_file == 0:
                 next_counter = self._save_counters[i] + len(buffer)
+                
+                num_saved = sum(self._save_counters) + self._offset
+                next_total = num_saved + len(buffer)
+
                 folder = '{}/{}'.format(self._base_dir, name)
-                file = '{}/traj_{}_to_{}'.format(folder, self._save_counters[i], next_counter - 1)
+                file = '{}/traj_{}_to_{}'.format(folder, num_saved, next_total - 1)
                 save_tf_record(file, buffer, self._sequence_keys, self._metadata_keys)
 
                 self._traj_buffers[i] = []

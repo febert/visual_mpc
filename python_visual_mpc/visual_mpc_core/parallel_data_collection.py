@@ -43,6 +43,7 @@ def main():
 
     parser.add_argument('--nsplit', type=int, help='number of splits', default=-1)
     parser.add_argument('--isplit', type=int, help='split id', default=-1)
+    parser.add_argument('--cloud', dest='cloud', action='store_true', default=False)
 
     parser.add_argument('--iex', type=int, help='if different from -1 use only do example', default=-1)
 
@@ -93,7 +94,8 @@ def main():
 
         data_save_path = hyperparams['agent']['data_save_dir'].partition('pushing_data')[2]
         hyperparams['agent']['data_save_dir'] = os.environ['RESULT_DIR'] + data_save_path
-
+    elif args.cloud:
+        hyperparams['agent']['data_save_dir'] = '/result/'    # by default save code to the /result folder in docker image
 
     if 'master_datadir' in hyperparams['agent']:
         import ray
@@ -105,7 +107,7 @@ def main():
     record_queue = m.Queue()
     save_dir, T = hyperparams['agent']['data_save_dir'] + '/records',hyperparams['agent']['T']
     seperate_good, traj_per_file = hyperparams.get('seperate_good', False), hyperparams['traj_per_file']
-    record_saver_proc = Process(target=record_worker, args=(record_queue, save_dir, T, seperate_good, traj_per_file))
+    record_saver_proc = Process(target=record_worker, args=(record_queue, save_dir, T, seperate_good, traj_per_file, hyperparams['start_index']))
     record_saver_proc.start()
     conflist = []
     for i in range(n_worker):
