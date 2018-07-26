@@ -139,6 +139,8 @@ class ImpedanceWSGController(RobotController):
         self.move_with_impedance(waypoints, duration)
 
     def send_pos_command(self, pos):
+        assert self._rs.state().enabled, "Robot was disabled, please re-enable!"
+
         command = JointCommand()
         command.mode = JointCommand.POSITION_MODE
         command.names = self.limb.joint_names()
@@ -151,6 +153,7 @@ class ImpedanceWSGController(RobotController):
         :param waypoints: List of arrays containing waypoint joint angles
         :param duration: trajectory duration
         """
+        assert self._rs.state().enabled, "Robot was disabled, please re-enable!"
 
         jointnames = self.limb.joint_names()
         prev_joint = np.array([self.limb.joint_angle(j) for j in jointnames])
