@@ -159,10 +159,9 @@ class BaseVideoDataset:
 
 
 if __name__ == '__main__':
-    path = '/home/sudeep/Documents/visual_mpc/pushing_data/sawyer_sim/autograsp_env/records'
+    path = '/home/sudeep/Documents/ext_data/sawyer_ag_openaction_bowlsfork/good'
     batch_size = 1
-    no_shuffle = {'shuffle': False}
-    dataset = BaseVideoDataset(path, batch_size, no_shuffle)
+    dataset = BaseVideoDataset(path, batch_size)
     images, actions = dataset['images'], dataset['actions', 'val']
     sess = tf.InteractiveSession()
     tf.train.start_queue_runners(sess)
@@ -174,4 +173,4 @@ if __name__ == '__main__':
     for t in range(dataset.T):
         cv2.imwrite('test{}.png'.format(t), imgs[0, t, 0, :, :, ::-1])
     print(acts.shape)
-    print(acts[0, 0])
+    print(acts[0, :6])
