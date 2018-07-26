@@ -167,9 +167,13 @@ class GeneralAgent(object):
             if k == 'images':
                 self.large_images_traj.append(env_obs['images'][0])
                 new_dims = (agent_img_width, agent_img_height)
-                for i in range(env_obs['images'].shape[0]):
-                    self._agent_cache['images'][t, i] = cv2.resize(env_obs['images'][i], new_dims,
-                                                                    interpolation=cv2.INTER_AREA)
+                if (agent_img_height, agent_img_width) == env_obs['images'].shape[1:3]:
+                    for i in range(env_obs['images'].shape[0]):
+                        self._agent_cache['images'][t, i] = env_obs['images'][i]
+                else:
+                    for i in range(env_obs['images'].shape[0]):
+                        self._agent_cache['images'][t, i] = cv2.resize(env_obs['images'][i], new_dims,
+                                                                        interpolation=cv2.INTER_AREA)
             elif k == 'obj_image_locations':
                 self.traj_points.append(copy.deepcopy(env_obs['obj_image_locations'][0]))
                 env_obs['obj_image_locations'][:, :, 0] *= agent_img_height / env_obs['images'].shape[1]

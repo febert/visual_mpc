@@ -59,6 +59,10 @@ class LimbRecorder:
 
         return pos
 
+    def get_xyz_quat(self):
+        eep = self.get_endeffector_pose()
+        return eep[:3], eep[3:]
+
 
 class LimbWSGRecorder(LimbRecorder):
     def __init__(self, wsg_controller):

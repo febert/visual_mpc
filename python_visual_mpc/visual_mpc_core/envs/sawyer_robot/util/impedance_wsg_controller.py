@@ -13,6 +13,7 @@ import os
 
 # constants for robot control
 NEUTRAL_JOINT_ANGLES = np.array([0.412271, -0.434908, -1.198768, 1.795462, 1.160788, 1.107675, -1.11748145])
+NEUTRAL_JOINT_CMD = {k:a for k, a in zip(['right_j{}'.format(i) for i in range(7)], NEUTRAL_JOINT_ANGLES)}
 MAX_TIMEOUT = 30
 DURATION_PER_POINT = 0.01
 N_JOINTS = 7
@@ -135,6 +136,13 @@ class ImpedanceWSGController(RobotController):
     def neutral_with_impedance(self, duration=2):
         waypoints = [NEUTRAL_JOINT_ANGLES]
         self.move_with_impedance(waypoints, duration)
+
+    def send_pos_command(self, pos):
+        command = JointCommand()
+        command.mode = JointCommand.POSITION_MODE
+        command.names = self.limb.joint_names()
+        command.position = pos
+        self._cmd_publisher.publish(command)
 
     def move_with_impedance(self, waypoints, duration=1.5):
         """

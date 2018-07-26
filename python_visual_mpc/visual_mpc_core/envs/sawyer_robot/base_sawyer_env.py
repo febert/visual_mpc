@@ -6,9 +6,11 @@ from pyquaternion import Quaternion
 from python_visual_mpc.visual_mpc_core.agent.general_agent import Image_Exception
 from python_visual_mpc.visual_mpc_core.envs.sawyer_robot.util.limb_recorder import LimbWSGRecorder
 from python_visual_mpc.visual_mpc_core.envs.sawyer_robot.util.camera_recorder import CameraRecorder
-from python_visual_mpc.visual_mpc_core.envs.sawyer_robot.util.impedance_wsg_controller import ImpedanceWSGController
+from python_visual_mpc.visual_mpc_core.envs.sawyer_robot.util.impedance_wsg_controller import ImpedanceWSGController, NEUTRAL_JOINT_CMD
 from python_visual_mpc.visual_mpc_core.envs.sawyer_robot.visual_mpc_rospkg.src.utils import inverse_kinematics
+from python_visual_mpc.visual_mpc_core.envs.util.interpolation import QuinticSpline
 import copy
+import rospy
 
 
 def quat_to_zangle(quat):
@@ -16,9 +18,9 @@ def quat_to_zangle(quat):
     :param quat: robot rotation quaternion (assuming rotation around z-axis)
     :return: Rotation angle in z-axis
     """
-    angle = -(Quaternion(axis = [0,1,0], angle = np.pi).inverse * Quaternion(quat)).angle
-    if angle < 0:
-        return angle + 2 * np.pi
+    angle = (Quaternion(axis=[0, 1, 0], angle=np.pi).inverse * Quaternion(quat)).angle
+    if angle < 0:     # pyquaternion calculates in range [-np.pi, np.pi], have to flip to robot range
+        return 2 * np.pi + angle
     return angle
 
 
@@ -27,7 +29,7 @@ def zangle_to_quat(zangle):
     :param zangle in radians
     :return: quaternion
     """
-    return (Quaternion(axis=[0,1,0], angle=np.pi) * Quaternion(axis=[0, 0, 1], angle=2 * np.pi - zangle)).elements
+    return (Quaternion(axis=[0, 1, 0], angle=np.pi) * Quaternion(axis=[0, 0, 1], angle= zangle)).elements
 
 
 def state_to_pose(xyz, quat):
@@ -36,11 +38,11 @@ def state_to_pose(xyz, quat):
     :param quat: quaternion around z angle in [w, x, y, z] format
     :return: stamped pose
     """
-    quat = Quaternion_msg(  # downward and turn a little
+    quat = Quaternion_msg(
+        w=quat[0],
         x=quat[1],
         y=quat[2],
-        z=quat[3],
-        w=quat[0]
+        z=quat[3]
     )
 
     desired_pose = inverse_kinematics.get_pose_stamped(xyz[0],
@@ -50,12 +52,16 @@ def state_to_pose(xyz, quat):
     return desired_pose
 
 
-def pose_to_ja(target_pose, start_joints, tolerate_ik_error=False, debug_z = None):
+def pose_to_ja(target_pose, start_joints, tolerate_ik_error=False, retry_on_fail = False, debug_z = None):
     try:
         return inverse_kinematics.get_joint_angles(target_pose, seed_cmd=start_joints,
                                                         use_advanced_options=True)
     except ValueError:
-        if tolerate_ik_error:
+        if retry_on_fail:
+            print 'retyring zangle was: {}'.format(debug_z)
+
+            return pose_to_ja(target_pose, NEUTRAL_JOINT_CMD)
+        elif tolerate_ik_error:
             raise ValueError("IK failure")    # signals to agent it should reset
         else:
             print 'zangle was {}'.format(debug_z)
@@ -63,8 +69,8 @@ def pose_to_ja(target_pose, start_joints, tolerate_ik_error=False, debug_z = Non
 
 
 class BaseSawyerEnv(BaseEnv):
-    def __init__(self, robot_name, substeps = 1, opencv_tracking=False, save_videos=False,
-                 OFFSET_TOL = 0.06, duration=1., mode_rel = np.array([True, True, True, True, False])):
+    def __init__(self, robot_name, opencv_tracking=False, save_videos=False,
+                 OFFSET_TOL = 0.06, duration=1.25, mode_rel = np.array([True, True, True, True, False])):
         print('initializing environment for {}'.format(robot_name))
         self._robot_name = robot_name
         self._setup_robot()
@@ -85,8 +91,7 @@ class BaseSawyerEnv(BaseEnv):
         assert img_dim_check, 'Camera image streams do not match)'
         self._height, self._width = self._main_cam.img_height, self._main_cam.img_width
 
-        assert substeps > 0, "Number of substeps must be positive"
-        self._base_adim, self._base_sdim, self._substeps = 5, 5, substeps
+        self._base_adim, self._base_sdim = 5, 5
         self._adim, self._sdim, self.mode_rel = None, None, mode_rel
 
         self._reset_counter, self._previous_target_qpos, self._duration = 0, None, duration
@@ -97,10 +102,10 @@ class BaseSawyerEnv(BaseEnv):
         high_angle = 265 * np.pi / 180
         if self._robot_name == 'vestri':
             self._low_bound = np.array([0.4, -0.2, 0.184, low_angle, -1])
-            self._high_bound = np.array([0.88, 0.2, 0.35, high_angle, 1])
+            self._high_bound = np.array([0.88, 0.2, 0.30, high_angle, 1])
         elif self._robot_name == 'sudri':
-            self._low_bound = np.array([0.34, -0.18, 0.184, low_angle, -1])
-            self._high_bound = np.array([0.82, 0.22, 0.35, high_angle, 1])
+            self._low_bound = np.array([0.37, -0.18, 0.184, low_angle, -1])
+            self._high_bound = np.array([0.85, 0.22, 0.30, high_angle, 1])
         else:
             raise ValueError("Supported robots are vestri/sudri")
 
@@ -148,6 +153,8 @@ class BaseSawyerEnv(BaseEnv):
         print 'xy delta: ', np.linalg.norm(eep[:2] - self._previous_target_qpos[:2])
         print 'z dif', abs(eep[2] - self._previous_target_qpos[2])
         print 'angle dif (degrees): ', abs(quat_to_zangle(eep[3:]) - self._previous_target_qpos[3]) * 180 / np.pi
+        print 'angle degree target {} vs real {}'.format(np.rad2deg(quat_to_zangle(eep[3:])),
+                                                         np.rad2deg(self._previous_target_qpos[3]))
 
         state = np.zeros(self._base_sdim)
         state[:3] = (eep[:3] - self._low_bound[:3]) / (self._high_bound[:3] - self._low_bound[:3])
@@ -161,21 +168,40 @@ class BaseSawyerEnv(BaseEnv):
 
         return obs
 
-    def _move_to_state(self, xyz, zangle, duration = None):
-        waypoints = []
-        for i in xrange(1, self._substeps + 1):
-            t = i / float(self._substeps)
-            interp_xyz = (1 - t) * self._previous_target_qpos[:3] + t * xyz
-            interp_zangle = (1 - t) * self._previous_target_qpos[3] + t * zangle
-            interp_pose = state_to_pose(interp_xyz, zangle_to_quat(interp_zangle))
+    def _get_xyz_angle(self):
+        cur_xyz, cur_quat = self._limb_recorder.get_xyz_quat()
+        return cur_xyz, quat_to_zangle(cur_quat)
 
-            interp_ja = pose_to_ja(interp_pose, self._limb_recorder.get_joint_cmd(), debug_z=interp_zangle * 180 / np.pi)
-            interp_ja = [interp_ja[j] for j in self._limb_recorder.get_joint_names()]
-            waypoints.append(interp_ja)
-
+    def _move_to_state(self, target_xyz, target_zangle, duration = None):
         if duration is None:
             duration = self._duration
-        self._controller.move_with_impedance(waypoints, duration)
+        p1 = np.zeros(4)
+        p1[:3], p1[3] = self._get_xyz_angle()
+        p2 = np.zeros(4)
+        p2[:3], p2[3] = target_xyz, target_zangle
+
+        spline = QuinticSpline(p1, p2, duration)
+
+        last_pos = self._limb_recorder.get_joint_angles()
+        self._controller.control_rate.sleep()
+        start_time = rospy.get_time()
+        t = rospy.get_time()
+        while t - start_time < duration:
+            query = max(min(t - start_time, duration), 0)
+            cart_pos = spline.get(query)[0][0]
+            interp_pose = state_to_pose(cart_pos[:3], zangle_to_quat(cart_pos[3]))
+            try:
+                interp_ja = pose_to_ja(interp_pose, self._limb_recorder.get_joint_cmd(),
+                                       debug_z=cart_pos[3] * 180 / np.pi, retry_on_fail=True)
+                interp_ja = [interp_ja[j] for j in self._limb_recorder.get_joint_names()]
+                self._controller.send_pos_command(interp_ja)
+                last_pos = interp_ja
+            except EnvironmentError:
+                self._controller.send_pos_command(last_pos)
+                print('ignoring IK failure')
+
+            self._controller.control_rate.sleep()
+            t = rospy.get_time()
 
     def _reset_previous_qpos(self):
         eep = self._limb_recorder.get_state()[2]
@@ -189,6 +215,7 @@ class BaseSawyerEnv(BaseEnv):
         Resets the environment and returns initial observation
         :return: obs dict (look at step(self, action) for documentation)
         """
+
         self._controller.neutral_with_impedance()
         self._controller.close_gripper(True)
         self._controller.open_gripper(True)
@@ -198,7 +225,7 @@ class BaseSawyerEnv(BaseEnv):
         rand_xyz = np.random.uniform(self._low_bound[:3], self._high_bound[:3])
         rand_zangle = np.random.uniform(self._low_bound[3], self._high_bound[3])
 
-        self._move_to_state(rand_xyz, rand_zangle, 1.5)
+        self._move_to_state(rand_xyz, rand_zangle, 2.)
         self._init_dynamics()
 
         self._reset_previous_qpos()
@@ -250,7 +277,10 @@ class BaseSawyerEnv(BaseEnv):
         for c, recorder in enumerate(cameras):
             stamp, image = recorder.get_image()
             time_stamps.append(stamp)
-            cam_imgs.append(image)
+            if recorder is self._main_cam:
+                cam_imgs.append(image[::-1].copy())
+            else:
+                cam_imgs.append(image)
 
         for index, i in enumerate(time_stamps[:-1]):
             for j in time_stamps[index + 1:]:
