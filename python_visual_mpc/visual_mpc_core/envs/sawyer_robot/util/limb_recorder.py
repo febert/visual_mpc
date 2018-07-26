@@ -1,17 +1,39 @@
 import rospy
 import numpy as np
-from intera_core_msgs.srv import (
-    SolvePositionFK,
-    SolvePositionFKRequest,
-)
-from sensor_msgs.msg import JointState
+from intera_core_msgs.msg import EndpointState
+from threading import Condition
+
+
+class LatestEEObs:
+    def __init__(self):
+        self._cv = Condition()
+        self._latest_eep = None
+        self._eep_sub = rospy.Subscriber('/robot/limb/right/endpoint_state', EndpointState, self._state_listener)
+
+    def _state_listener(self, state_msg):
+        pose = state_msg.pose
+
+        with self._cv:
+            self._latest_eep = np.array([pose.position.x,
+                            pose.position.y,
+                            pose.position.z,
+                            pose.orientation.w,
+                            pose.orientation.x,
+                            pose.orientation.y,
+                            pose.orientation.z])
+            self._cv.notify_all()
+
+    def get_eep(self):
+        with self._cv:
+            self._cv.wait()
+            ee = self._latest_eep
+        return ee
 
 
 class LimbRecorder:
     def __init__(self, control_limb):
         self._limb = control_limb
-        self.name_of_service = "ExternalTools/right/PositionKinematicsNode/FKService"
-        self.fksvc = rospy.ServiceProxy(self.name_of_service, SolvePositionFK)
+        self._ep_handler = LatestEEObs()
 
     def get_state(self):
         joint_angles = self.get_joint_angles()
@@ -33,36 +55,12 @@ class LimbRecorder:
         return np.array([self._limb.joint_velocity(j) for j in self._limb.joint_names()])
 
     def get_endeffector_pose(self):
-        fkreq = SolvePositionFKRequest()
-        joints = JointState()
-        joints.name = self._limb.joint_names()
-        joints.position = [self._limb.joint_angle(j)
-                           for j in joints.name]
-
-        # Add desired pose for forward kinematics
-        fkreq.configuration.append(joints)
-        fkreq.tip_names.append('right_hand')
-
-        i, done = 0, False
-        while not done and i < 15:
-            try:
-                rospy.wait_for_service(self.name_of_service, 5)
-                resp = self.fksvc(fkreq)
-                done = True
-            except (rospy.ServiceException, rospy.ROSException), e:
-                rospy.logerr("Service call failed: %s" % (e,))
-        if not done:
-            raise ValueError('FK SERVICE CALL FAIL')
-
-        pos = np.array([resp.pose_stamp[0].pose.position.x,
-                        resp.pose_stamp[0].pose.position.y,
-                        resp.pose_stamp[0].pose.position.z,
-                        resp.pose_stamp[0].pose.orientation.w,
-                        resp.pose_stamp[0].pose.orientation.x,
-                        resp.pose_stamp[0].pose.orientation.y,
-                        resp.pose_stamp[0].pose.orientation.z])
-
-        return pos
+        """
+        Relies on /robot/limb/right/endpoint_state which updates at 100HZ
+        Not suitable for control faster than 100 HZ
+        :return: Current end point of gripper
+        """
+        return self._ep_handler.get_eep()
 
     def get_xyz_quat(self):
         eep = self.get_endeffector_pose()
