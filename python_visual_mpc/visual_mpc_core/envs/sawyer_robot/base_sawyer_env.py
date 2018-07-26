@@ -70,7 +70,8 @@ def pose_to_ja(target_pose, start_joints, tolerate_ik_error=False, retry_on_fail
 
 class BaseSawyerEnv(BaseEnv):
     def __init__(self, robot_name, opencv_tracking=False, save_videos=False,
-                 OFFSET_TOL = 0.06, duration=1.25, mode_rel = np.array([True, True, True, True, False])):
+                 OFFSET_TOL = 0.06, duration=1.25, mode_rel = np.array([True, True, True, True, False]),
+                 cleanup_rate = 50):
         print('initializing environment for {}'.format(robot_name))
         self._robot_name = robot_name
         self._setup_robot()
@@ -92,7 +93,7 @@ class BaseSawyerEnv(BaseEnv):
         self._height, self._width = self._main_cam.img_height, self._main_cam.img_width
 
         self._base_adim, self._base_sdim = 5, 5
-        self._adim, self._sdim, self.mode_rel = None, None, mode_rel
+        self._adim, self._sdim, self.mode_rel, self._cleanup_rate = None, None, mode_rel, cleanup_rate
 
         self._reset_counter, self._previous_target_qpos, self._duration = 0, None, duration
         self.num_objects = None  # for agent linkup.
@@ -215,10 +216,16 @@ class BaseSawyerEnv(BaseEnv):
         Resets the environment and returns initial observation
         :return: obs dict (look at step(self, action) for documentation)
         """
-
         self._controller.neutral_with_impedance()
         self._controller.close_gripper(True)
         self._controller.open_gripper(True)
+
+        if self._reset_counter % self._cleanup_rate == 0 and self._reset_counter > 0:
+            self._controller.redistribute_objects()
+
+        self._controller.neutral_with_impedance()
+        self._controller.open_gripper(True)
+        rospy.sleep(1.)
 
         self._reset_previous_qpos()
 
@@ -229,6 +236,8 @@ class BaseSawyerEnv(BaseEnv):
         self._init_dynamics()
 
         self._reset_previous_qpos()
+
+        self._reset_counter += 1
 
         return self._get_obs()
 

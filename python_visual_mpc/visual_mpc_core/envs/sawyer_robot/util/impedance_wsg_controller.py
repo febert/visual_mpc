@@ -21,6 +21,7 @@ max_vel_mag = np.array([0.88, 0.678, 0.996, 0.996, 1.776, 1.776, 2.316])
 max_accel_mag = np.array([3.5, 2.5, 5, 5, 5, 5, 5])
 GRIPPER_CLOSE = 6   # chosen so that gripper closes entirely without pushing against itself
 GRIPPER_OPEN = 96   # chosen so that gripper opens entirely without pushing against outer rail
+RESET_SKIP = 800
 
 
 class ImpedanceWSGController(RobotController):
@@ -184,7 +185,6 @@ class ImpedanceWSGController(RobotController):
             self.control_rate.sleep()
 
     def redistribute_objects(self):
-        self.set_neutral()
         print('redistribute...')
 
         file = '/'.join(str.split(visual_mpc_rospkg.__file__, "/")[
@@ -192,11 +192,11 @@ class ImpedanceWSGController(RobotController):
 
         self.joint_pos = pickle.load(open(file, "rb"))
 
-        replay_rate = rospy.Rate(700)
-        for t in range(len(self.joint_pos)):
-            print('step {0} joints: {1}'.format(t, self.joint_pos[t]))
-            replay_rate.sleep()
-            self.move_with_impedance([self.joint_pos[t]])
+        for t in range(0, len(self.joint_pos), RESET_SKIP):
+            # print(self.joint_pos[t])
+            # self.set_joints(self.joint_pos[t])
+            pos_arr = np.array([self.joint_pos[t][j] for j in self.limb.joint_names()])
+            self.move_with_impedance([pos_arr])
 
     def clean_shutdown(self):
         pid = os.getpid()
