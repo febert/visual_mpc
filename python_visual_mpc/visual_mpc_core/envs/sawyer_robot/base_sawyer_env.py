@@ -102,10 +102,10 @@ class BaseSawyerEnv(BaseEnv):
         low_angle = np.pi / 2                  # chosen to maximize wrist rotation given start rotation
         high_angle = 265 * np.pi / 180
         if self._robot_name == 'vestri':
-            self._low_bound = np.array([0.4, -0.2, 0.184, low_angle, -1])
+            self._low_bound = np.array([0.47, -0.2, 0.184, low_angle, -1])
             self._high_bound = np.array([0.88, 0.2, 0.30, high_angle, 1])
         elif self._robot_name == 'sudri':
-            self._low_bound = np.array([0.37, -0.18, 0.184, low_angle, -1])
+            self._low_bound = np.array([0.44, -0.18, 0.184, low_angle, -1])
             self._high_bound = np.array([0.85, 0.22, 0.30, high_angle, 1])
         else:
             raise ValueError("Supported robots are vestri/sudri")
