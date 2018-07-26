@@ -42,12 +42,17 @@ class LimbRecorder:
         # Add desired pose for forward kinematics
         fkreq.configuration.append(joints)
         fkreq.tip_names.append('right_hand')
-        try:
-            rospy.wait_for_service(self.name_of_service, 5)
-            resp = self.fksvc(fkreq)
-        except (rospy.ServiceException, rospy.ROSException), e:
-            rospy.logerr("Service call failed: %s" % (e,))
-            return False
+
+        i, done = 0, False
+        while not done and i < 15:
+            try:
+                rospy.wait_for_service(self.name_of_service, 5)
+                resp = self.fksvc(fkreq)
+                done = True
+            except (rospy.ServiceException, rospy.ROSException), e:
+                rospy.logerr("Service call failed: %s" % (e,))
+        if not done:
+            raise ValueError('FK SERVICE CALL FAIL')
 
         pos = np.array([resp.pose_stamp[0].pose.position.x,
                         resp.pose_stamp[0].pose.position.y,
