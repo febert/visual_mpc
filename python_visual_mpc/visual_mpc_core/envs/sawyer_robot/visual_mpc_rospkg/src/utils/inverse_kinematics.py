@@ -71,13 +71,18 @@ def get_joint_angles(pose, seed_cmd = None, use_advanced_options = False):
         # ikreq.nullspace_gain.append(0.5)
         # else:
         # rospy.loginfo("Running Simple IK Service Client example.")
+    done, i = False, 0
+    while not done and i < 100:
+        try:
+            rospy.wait_for_service(name_of_service, 5.0)
+            resp = iksvc(ikreq)
+            done = True
+        except (rospy.ServiceException, rospy.ROSException) as e:
+            rospy.logerr("IK service call failed: %s" % (e,))
+            i += 1
 
-    try:
-        rospy.wait_for_service(name_of_service, 5.0)
-        resp = iksvc(ikreq)
-    except (rospy.ServiceException, rospy.ROSException) as e:
-        rospy.logerr("IK service call failed: %s" % (e,))
-        return False
+    if not done:
+        raise IOError("IK SERVICE CALL FAILED")
 
     # Check if result valid, and type of seed ultimately used to get solution
     if (resp.result_type[0] > 0):
