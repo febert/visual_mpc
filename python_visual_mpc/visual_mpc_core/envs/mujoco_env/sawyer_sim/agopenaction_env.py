@@ -1,8 +1,8 @@
-from python_visual_mpc.visual_mpc_core.envs.mujoco_env.sawyer_sim.autograsp_env import AutograspSawyerEnv
+from python_visual_mpc.visual_mpc_core.envs.mujoco_env.sawyer_sim.autograsp_env import AutograspSawyerMujocoEnv
 import numpy as np
 
 
-class AGOpenActionEnv(AutograspSawyerEnv):
+class AGOpenActionEnv(AutograspSawyerMujocoEnv):
     def __init__(self, env_params):
         if 'open_threshold' in env_params:
             self._threshold = env_params.pop('open_threshold')

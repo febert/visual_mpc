@@ -8,6 +8,7 @@ from python_visual_mpc.visual_mpc_core.envs.util.interpolation import TwoPointCS
 import time
 from mujoco_py.builder import MujocoException
 import copy
+import pdb
 
 
 def quat_to_zangle(quat):
@@ -30,11 +31,11 @@ low_bound = np.array([-0.27, 0.52, 0.15, 0, -1])
 high_bound = np.array([0.27, 0.95, 0.3, 2 * np.pi - 0.001, 1])
 NEUTRAL_JOINTS = np.array([1.65474475, - 0.53312487, - 0.65980174, 1.1841825, 0.62772584, 1.11682223, 1.31015104, -0.05, 0.05])
 
-class BaseSawyerEnv(BaseMujocoEnv):
-    def __init__(self, filename, mode_rel, num_objects = 1, object_mass = 1, friction=1.0, finger_sensors=True,
+class BaseSawyerMujocoEnv(BaseMujocoEnv):
+    def __init__(self, filename=None, mode_rel=None, num_objects = 1, object_mass = 1, friction=1.0, finger_sensors=True,
                  maxlen=0.12, minlen=0.01, preload_obj_dict=None, object_meshes=None, obj_classname = 'freejoint',
                  block_height=0.02, block_width = 0.02, viewer_image_height = 480, viewer_image_width = 640,
-                 skip_first=100, substeps=100, randomize_initial_pos = True):
+                 skip_first=100, substeps=100, randomize_initial_pos = True, reset_state=None):
         base_filename = asset_base_path + filename
         friction_params = (friction, 0.1, 0.02)
         self.obj_stat_prop = create_object_xml(base_filename, num_objects, object_mass,
@@ -59,6 +60,7 @@ class BaseSawyerEnv(BaseMujocoEnv):
         self.finger_sensors, self._maxlen = finger_sensors, maxlen
 
         self._previous_target_qpos, self._n_joints = None, 9
+        self.reset_state = reset_state
 
     def _clip_gripper(self):
         self.sim.data.qpos[7:9] = np.clip(self.sim.data.qpos[7:9], [-0.055, 0.0027], [-0.0027, 0.055])
@@ -72,15 +74,21 @@ class BaseSawyerEnv(BaseMujocoEnv):
             return rand_xyz, np.random.uniform(-np.pi / 2, np.pi / 2)
 
         for i in range(self.num_objects):
-            obji_xyz, rot = samp_xyz_rot()
-            #rejection sampling to ensure objects don't crowd each other
-            while len(last_rands) > 0 and min([np.linalg.norm(obji_xyz - obj_j) for obj_j in last_rands]) < self._maxlen:
-                obji_xyz, rot = samp_xyz_rot()
-            last_rands.append(obji_xyz)
+            if self.reset_state is not None:
+                pdb.set_trace()
 
-            rand_quat = Quaternion(axis=[0, 0, -1], angle= rot).elements
+                obji_xyz = self.reset_state['object_qpos'][i][:3]
+                obji_quat = self.reset_state['object_qpos'][i][3:]
+            else:
+                obji_xyz, rot = samp_xyz_rot()
+                #rejection sampling to ensure objects don't crowd each other
+                while len(last_rands) > 0 and min([np.linalg.norm(obji_xyz - obj_j) for obj_j in last_rands]) < self._maxlen:
+                    obji_xyz, rot = samp_xyz_rot()
+                last_rands.append(obji_xyz)
+
+                obji_quat = Quaternion(axis=[0, 0, -1], angle= rot).elements
             self.sim.data.qpos[self._n_joints + i * 7: self._n_joints + 3 + i * 7] = obji_xyz
-            self.sim.data.qpos[self._n_joints + 3 + i * 7: self._n_joints + 7 + i * 7] = rand_quat
+            self.sim.data.qpos[self._n_joints + 3 + i * 7: self._n_joints + 7 + i * 7] = obji_quat
         self.sim.data.set_mocap_pos('mocap', np.array([0,0,2]))
         self.sim.data.set_mocap_quat('mocap', zangle_to_quat(np.random.uniform(low_bound[3], high_bound[3])))
 
@@ -93,13 +101,20 @@ class BaseSawyerEnv(BaseMujocoEnv):
                 self.sim.step()
         except MujocoException:
             return self.reset()
-        if self.randomize_initial_pos:
+
+        if self.reset_state is not None:
+            xyz = self.reset_state['state'][:3]
+            quat = quat_to_zangle(self.reset_state['state'][3])
+        elif self.randomize_initial_pos:
             xyz = np.random.uniform(low_bound[:3], high_bound[:3])
-            self.sim.data.set_mocap_pos('mocap', xyz)
-            self.sim.data.set_mocap_quat('mocap', zangle_to_quat(np.random.uniform(low_bound[3], high_bound[3])))
+            quat = zangle_to_quat(np.random.uniform(low_bound[3], high_bound[3]))
         else:
-            self.sim.data.set_mocap_pos('mocap', np.array([0, 0.5, 0.17]))
-            self.sim.data.set_mocap_quat('mocap', zangle_to_quat(np.pi))
+            xyz = np.array([0, 0.5, 0.17])
+            quat = zangle_to_quat(np.pi)
+
+        self.sim.data.set_mocap_pos('mocap', xyz)
+        self.sim.data.set_mocap_quat('mocap', quat)
+
         #reset gripper
         self.sim.data.qpos[7:9] = NEUTRAL_JOINTS[7:9]
         self.sim.data.ctrl[:] = [-1, 1]
@@ -145,8 +160,9 @@ class BaseSawyerEnv(BaseMujocoEnv):
         obs['state'][3] = quat_to_zangle(self.sim.data.get_body_xquat('hand'))
         obs['state'][-1] = self._previous_target_qpos[-1]
 
-        # report object poses
+        # report object poses according to sensors (this is not equal to object_qpos)!!
         obs['object_poses_full'] = np.zeros((self.num_objects, 7))
+        obs['object_qpos'] = np.zeros((self.num_objects, 7))
         obs['object_poses'] = np.zeros((self.num_objects, 3))
         for i in range(self.num_objects):
             fullpose = self.sim.data.qpos[i * 7 + self._n_joints:(i + 1) * 7 + self._n_joints].squeeze().copy()
@@ -155,6 +171,8 @@ class BaseSawyerEnv(BaseMujocoEnv):
             obs['object_poses_full'][i] = fullpose
             obs['object_poses'][i, :2] = fullpose[:2]
             obs['object_poses'][i, 2] = quat_to_zangle(fullpose[3:])
+
+            obs['object_qpos'][i] = self.sim.data.qpos[self._n_joints + i * 7: self._n_joints + (i+1)]
 
         # copy non-image data for environment's use (if needed)
         self._last_obs = copy.deepcopy(obs)
@@ -249,11 +267,69 @@ class BaseSawyerEnv(BaseMujocoEnv):
         raise NotImplementedError
 
     def _init_dynamics(self):
-        raise NotImplementedError
+        pass
+
+    def move_arm(self):
+        """
+        move_arm randomly, used to create startgoal-configurations
+        """
+        arm_disp_range = 0.3
+        arm_disp = np.random.uniform(-arm_disp_range, arm_disp_range, 2)
+        arm_disp = np.concatenate([arm_disp, np.zeros(1)])
+
+        armpos = self.sim.data.get_body_xpos('hand')[:3]
+        new_armpos = armpos + arm_disp
+        new_armpos[:2] = np.clip(new_armpos[:2], -0.35, 0.35)
+        self.sim.data.set_mocap_pos('mocap', new_armpos)
+
+    def move_objects(self):
+        """
+        move objects randomly, used to create startgoal-configurations
+        """
+        def get_new_obj_pose(curr_pos, curr_quat):
+            angular_disp = 0.0
+            delta_alpha = np.random.uniform(-angular_disp, angular_disp)
+            delta_rot = Quaternion(axis=(0.0, 0.0, 1.0), radians=delta_alpha)
+            curr_quat = Quaternion(curr_quat)
+            newquat = delta_rot * curr_quat
+
+            pos_ok = False
+            while not pos_ok:
+                const_dist = True
+                if const_dist:
+                    alpha = np.random.uniform(-np.pi, np.pi, 1)
+                    d = 0.1
+                    delta_pos = np.array([d * np.cos(alpha), d * np.sin(alpha), 0.])
+                else:
+                    pos_disp = 0.1
+                    delta_pos = np.concatenate([np.random.uniform(-pos_disp, pos_disp, 2), np.zeros([1])])
+                newpos = curr_pos + delta_pos
+                lift_object = False
+                if lift_object:
+                    newpos[2] = 0.15
+                if np.any(newpos[:2] > high_bound[:2]) or np.any(newpos[:2] < low_bound[:2]):
+                    pos_ok = False
+                else:
+                    pos_ok = True
+
+            return newpos, newquat
+
+        for i in range(self.num_objects):
+            curr_pos = self.sim.data.qpos[self._n_joints + i * 7: self._n_joints + 3 + i * 7]
+            curr_quat = self.sim.data.qpos[self._n_joints + 3 + i * 7: self._n_joints + 7 + i * 7]
+            obji_xyz, obji_quat = get_new_obj_pose(curr_pos, curr_quat)
+            self.sim.data.qpos[self._n_joints + i * 7: self._n_joints + 3 + i * 7] = obji_xyz
+            self.sim.data.qpos[self._n_joints + 3 + i * 7: self._n_joints + 7 + i * 7] = obji_quat.elements
+
+        sim_state = self.sim.get_state()
+        # sim_state.qpos[:] = sim_state.qpos
+        sim_state.qvel[:] = np.zeros_like(sim_state.qvel)
+        self.sim.set_state(sim_state)
+        self.sim.forward()
 
 
 if __name__ == '__main__':
-        env = BaseSawyerEnv('sawyer_grasp.xml', np.array([True, True, True, True, False]))
+        env = BaseSawyerMujocoEnv('sawyer_grasp.xml', np.array([True, True, True, True, False]))
         avg_200 = 0.
         for _ in range(200):
             timer = time.time()

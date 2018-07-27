@@ -56,7 +56,7 @@ class CEM_Controller_Vidpred(CEM_Controller_Base):
     """
     Cross Entropy Method Stochastic Optimizer
     """
-    def __init__(self, ag_params, policyparams, predictor=None):
+    def __init__(self, ag_params, policyparams, gpu_id, ngpu):
         """
         :param ag_params:
         :param policyparams:
@@ -66,13 +66,12 @@ class CEM_Controller_Vidpred(CEM_Controller_Base):
         """
         CEM_Controller_Base.__init__(self, ag_params, policyparams)
 
+        params = imp.load_source('params', ag_params['current_dir'] + '/conf.py')
+        self.netconf = params.configuration
+        self.predictor = self.netconf['setup_predictor'](ag_params, self.netconf, gpu_id, ngpu, self.logger)
+
         self.visualizer = CEM_Visual_Preparation()
 
-        hyperparams = imp.load_source('hyperparams', self.policyparams['netconf'])
-        self.netconf = hyperparams.configuration
-        if 'gdnconf' in self.policyparams:
-            hyperparams = imp.load_source('hyperparams', self.policyparams['gdnconf'])
-            self.gdnconf = hyperparams.configuration
         self.bsize = self.netconf['batch_size']
         self.seqlen = self.netconf['sequence_length']
 
@@ -82,7 +81,6 @@ class CEM_Controller_Vidpred(CEM_Controller_Base):
         assert self.naction_steps * self.repeat == self.seqlen
 
         self.ncontxt = self.netconf['context_frames']
-        self.predictor = predictor
 
         if 'ndesig' in self.netconf:
             self.ndesig = self.netconf['ndesig']
@@ -116,6 +114,11 @@ class CEM_Controller_Vidpred(CEM_Controller_Base):
         self.goal_image = None
 
         self.best_cost_perstep = np.zeros([self.ncam, self.ndesig, self.seqlen - self.ncontxt])
+
+    def reset(self):
+        super(CEM_Controller_Vidpred, self).reset()
+        if 'predictor_propagation' in self.policyparams:
+            self.rec_input_distrib = []  # record the input distributions
 
     def calc_action_cost(self, actions):
         actions_costs = np.zeros(self.M)
@@ -335,7 +338,7 @@ class CEM_Controller_Vidpred(CEM_Controller_Base):
         return input_distrib
 
 
-    def act(self, traj, t, desig_pix=None, goal_pix=None, goal_image=None, goal_mask=None, curr_mask=None):
+    def act(self, t=None, i_tr=None, desig_pix=None, goal_pix=None):
         """
         Return a random action for a state.
         Args:
@@ -350,4 +353,4 @@ class CEM_Controller_Vidpred(CEM_Controller_Base):
         self.goal_pix = np.array(goal_pix).reshape((self.ncam, self.ndesig, 2))
         self.goal_pix_med = (self.goal_pix * self.agentparams['image_medium'][0] / self.agentparams['image_height']).astype(np.int)
 
-        return super(CEM_Controller_Vidpred, self).act(traj,t)
+        return super(CEM_Controller_Vidpred, self).act(t, i_tr)

@@ -4,14 +4,20 @@ import numpy as np
 from python_visual_mpc.goaldistancenet.variants.multiview_testgdn import MulltiviewTestGDN
 from python_visual_mpc.video_prediction.utils_vpred.animate_tkinter import resize_image
 from python_visual_mpc.visual_mpc_core.algorithm.utils.make_cem_visuals import CEM_Visual_Preparation_Registration
+import imp
+
+from python_visual_mpc.goaldistancenet.setup_gdn import setup_gdn
 
 class Register_Gtruth_Controller(CEM_Controller_Vidpred):
-    def __init__(self, ag_params, policyparams, predictor, goal_image_warper=None):
-        super().__init__(ag_params, policyparams, predictor)
+    def __init__(self, ag_params, policyparams, gpu_id, ngpu):
+        super().__init__(ag_params, policyparams, gpu_id, ngpu)
 
         if 'trade_off_reg' not in self.policyparams:
             self.reg_tradeoff = np.ones([self.ncam, self.ndesig])/self.ncam/self.ndesig
-        self.goal_image_warper = goal_image_warper
+
+        params = imp.load_source('params', ag_params['current_dir'] + '/gdnconf.py')
+        self.gdnconf = params.configuration
+        self.goal_image_warper = setup_gdn(ag_params, self.gdnconf, gpu_id, ngpu, self.logger)
         self.visualizer = CEM_Visual_Preparation_Registration()
 
     def prep_vidpred_inp(self, actions, cem_itr, traj):
@@ -21,11 +27,10 @@ class Register_Gtruth_Controller(CEM_Controller_Vidpred):
             last_frames = resize_image(last_frames, (self.img_height, self.img_width))
 
         if 'register_gtruth' in self.policyparams and cem_itr == 0:
-            self.start_image = copy.deepcopy(self.traj.images[0]).astype(np.float32) / 255.
+            self.start_image = copy.deepcopy(self.images[0]).astype(np.float32) / 255.
             self.warped_image_start, self.warped_image_goal, self.reg_tradeoff = self.register_gtruth(self.start_image,
                                                                                                       last_frames)
         return actions, last_frames, last_states, t_0
-
 
     def register_gtruth(self,start_image, last_frames):
         """
@@ -37,28 +42,9 @@ class Register_Gtruth_Controller(CEM_Controller_Vidpred):
         last_frames = last_frames[0, self.ncontxt -1]
 
         warped_image_start_l, warped_image_goal_l, start_warp_pts_l, goal_warp_pts_l, warperrs_l = [], [], [], [], []
-
-        if 'pred_model' in self.gdnconf:
-            if self.gdnconf['pred_model'] == MulltiviewTestGDN:
-                warped_image_start, _, start_warp_pts = self.goal_image_warper(last_frames[None], start_image[None])
-                if 'goal' in self.policyparams['register_gtruth']:
-                    warped_image_goal, _, goal_warp_pts = self.goal_image_warper(last_frames[None], self.goal_image[None])
-            else:
-                raise NotImplementedError
-        else:
-            for n in range(self.ncam):  # if a shared goal_image warper is used for all views
-                warped_image_goal, goal_warp_pts = None, None
-                warped_image_start, _, start_warp_pts = self.goal_image_warper(last_frames[n][None], start_image[n][None])
-                if 'goal' in self.policyparams['register_gtruth']:
-                    warped_image_goal, _, goal_warp_pts = self.goal_image_warper(last_frames[n][None], self.goal_image[n][None])
-                warped_image_start_l.append(warped_image_start)
-                warped_image_goal_l.append(warped_image_goal)
-                start_warp_pts_l.append(start_warp_pts)
-                goal_warp_pts_l.append(goal_warp_pts)
-            warped_image_start = np.stack(warped_image_start_l, 0)
-            warped_image_goal = np.stack(warped_image_goal_l, 0)
-            start_warp_pts = np.stack(start_warp_pts_l, 0)
-            goal_warp_pts = np.stack(goal_warp_pts_l, 0)
+        warped_image_start, _, start_warp_pts = self.goal_image_warper(last_frames[None], start_image[None])
+        if 'goal' in self.policyparams['register_gtruth']:
+            warped_image_goal, _, goal_warp_pts = self.goal_image_warper(last_frames[None], self.goal_image[None])
 
         desig_pix_l = []
 
@@ -118,7 +104,7 @@ class Register_Gtruth_Controller(CEM_Controller_Vidpred):
         return warperrs, desig
 
 
-    def act(self, traj, t, desig_pix=None, goal_pix=None, goal_image=None, goal_mask=None, curr_mask=None):
+    def act(self, t=None, i_tr=None, desig_pix=None, goal_pix=None, goal_image=None):
 
         self.goal_pix_sel = np.array(goal_pix).reshape((self.ncam, self.ntask, 2))
         num_reg_images = len(self.policyparams['register_gtruth'])
@@ -133,4 +119,4 @@ class Register_Gtruth_Controller(CEM_Controller_Vidpred):
             self.desig_pix_t0 = np.array(desig_pix).reshape((self.ncam, self.ntask, 2))   # 1,1,2
             if 'image_medium' in self.agentparams:
                 self.desig_pix_t0_med = (self.desig_pix_t0 * self.agentparams['image_medium'][0]/self.agentparams['image_height']).astype(np.int)
-        return super(CEM_Controller_Vidpred, self).act(traj,t)
+        return super(CEM_Controller_Vidpred, self).act(t, i_tr)

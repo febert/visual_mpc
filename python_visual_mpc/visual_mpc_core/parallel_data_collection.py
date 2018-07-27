@@ -103,19 +103,17 @@ def main():
         sync_todo_id = sync.remote(hyperparams['agent'])
         print('launched sync')
 
-    m = Manager()
-    record_queue = m.Queue()
-    save_dir, T = hyperparams['agent']['data_save_dir'] + '/records',hyperparams['agent']['T']
-    seperate_good, traj_per_file = hyperparams.get('seperate_good', False), hyperparams['traj_per_file']
-    record_saver_proc = Process(target=record_worker, args=(record_queue, save_dir, T, seperate_good, traj_per_file, hyperparams['start_index']))
-    record_saver_proc.start()
+    if 'data_save_dir' in hyperparams['agent']:
+        record_queue, record_saver_proc = prepare_saver(hyperparams)
+
     conflist = []
     for i in range(n_worker):
         modconf = copy.deepcopy(hyperparams)
         modconf['start_index'] = start_idx[i]
         modconf['end_index'] = end_idx[i]
         modconf['gpu_id'] = i + gpu_id
-        modconf['record_saver'] = record_queue
+        if 'data_save_dir' in hyperparams['agent']:
+            modconf['record_saver'] = record_queue
         conflist.append(modconf)
     if parallel:
         p = Pool(n_worker)
@@ -137,6 +135,15 @@ def main():
         sys.exit()
 
 
+def prepare_saver(hyperparams):
+    m = Manager()
+    record_queue = m.Queue()
+    save_dir, T = hyperparams['agent']['data_save_dir'] + '/records', hyperparams['agent']['T']
+    seperate_good, traj_per_file = hyperparams.get('seperate_good', False), hyperparams['traj_per_file']
+    record_saver_proc = Process(target=record_worker, args=(
+    record_queue, save_dir, T, seperate_good, traj_per_file, hyperparams['start_index']))
+    record_saver_proc.start()
+    return record_queue, record_saver_proc
 
 
 def sorted_alphanumeric(l):

@@ -1,7 +1,7 @@
-from python_visual_mpc.visual_mpc_core.envs.mujoco_env.sawyer_sim.base_sawyer import BaseSawyerEnv
+from python_visual_mpc.visual_mpc_core.envs.mujoco_env.sawyer_sim.base_sawyer_mujoco_env import BaseSawyerMujocoEnv
 import copy
 
-class VanillaSawyerEnv(BaseSawyerEnv):
+class VanillaSawyerMujocoEnv(BaseSawyerMujocoEnv):
     def __init__(self, env_params):
         self._hyper = copy.deepcopy(env_params)
         super().__init__(**env_params)

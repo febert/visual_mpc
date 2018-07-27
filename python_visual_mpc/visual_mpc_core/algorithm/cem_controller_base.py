@@ -14,7 +14,7 @@ import pickle as pkl
 from collections import OrderedDict
 
 import time
-from .utils.cem_controller_utils import save_track_pkl, standardize_and_tradeoff, compute_warp_cost, construct_initial_sigma, reuse_cov, reuse_mean, truncate_movement, get_mask_trafo_scores, make_blockdiagonal
+from .utils.cem_controller_utils import construct_initial_sigma, reuse_cov, reuse_mean, truncate_movement, make_blockdiagonal
 
 from python_visual_mpc.visual_mpc_core.algorithm.policy import Policy
 
@@ -52,8 +52,6 @@ class CEM_Controller_Base(Policy):
         if 'iterations' in self.policyparams:
             self.niter = self.policyparams['iterations']
         else: self.niter = 10  # number of iterations
-
-        self.niter = self.policyparams['iterations']
 
         self.action_list = []
         self.naction_steps = self.policyparams['nactions']
@@ -109,6 +107,12 @@ class CEM_Controller_Base(Policy):
         self.ndesig = 1
         self.best_cost_perstep = np.zeros([self.ncam, self.ndesig, self.repeat*self.naction_steps])
 
+    def reset(self):
+        self.plan_stat = {} #planning statistics
+        self.indices =[]
+        self.action_list = []
+
+
     def discretize(self, actions):
         """
         discretize and clip between 0 and 4
@@ -121,7 +125,7 @@ class CEM_Controller_Base(Policy):
                     actions[b, a, ind] = np.clip(np.floor(actions[b, a, ind]), 0, 4)
         return actions
 
-    def perform_CEM(self, traj):
+    def perform_CEM(self):
         self.logger.log('starting cem at t{}...'.format(self.t))
         timings = OrderedDict()
         t = time.time()
@@ -158,13 +162,13 @@ class CEM_Controller_Base(Policy):
             t_startiter = time.time()
 
             if 'rejection_sampling' in self.policyparams:
-                actions = self.sample_actions_rej(traj)
+                actions = self.sample_actions_rej()
             else:
-                actions = self.sample_actions(traj)
+                actions = self.sample_actions()
             itr_times['action_sampling'] = time.time() - t_startiter
             t_start = time.time()
 
-            scores = self.get_rollouts(traj, actions, itr, itr_times)
+            scores = self.get_rollouts(actions, itr, itr_times)
             itr_times['vid_pred_total'] = time.time() - t_start
             t = time.time()
             self.logger.log('overall time for evaluating actions {}'.format(time.time() - t_start))
@@ -211,7 +215,7 @@ class CEM_Controller_Base(Policy):
         self.bestaction = actions[self.indices[0]]
         return actions_flat
 
-    def sample_actions(self, traj):
+    def sample_actions(self):
         actions = np.random.multivariate_normal(self.mean, self.sigma, self.M)
         actions = actions.reshape(self.M, self.naction_steps, self.adim)
         if self.discrete_ind != None:
@@ -231,7 +235,7 @@ class CEM_Controller_Base(Policy):
 
         return actions
 
-    def sample_actions_rej(self, traj):
+    def sample_actions_rej(self):
         """
         Perform rejection sampling
         :return:
@@ -295,7 +299,7 @@ class CEM_Controller_Base(Policy):
     def get_rollouts(self, traj, actions, cem_itr, itr_times):
         raise NotImplementedError
 
-    def act(self, traj, t):
+    def act(self, t=None, i_tr=None):
         """
         Return a random action for a state.
         Args:
@@ -305,8 +309,7 @@ class CEM_Controller_Base(Policy):
             goal_pix: in coordinates of small image
             desig_pix: in coordinates of small image
         """
-        self.i_tr = traj.i_tr
-        self.traj = traj
+        self.i_tr = i_tr
         self.t = t
 
         if t == 0:
@@ -315,17 +318,17 @@ class CEM_Controller_Base(Policy):
             if 'use_first_plan' in self.policyparams:
                 self.logger.log('using actions of first plan, no replanning!!')
                 if t == 1:
-                    self.perform_CEM(traj)
+                    self.perform_CEM()
                 action = self.bestaction_withrepeat[t]
             elif 'replan_interval' in self.policyparams:
                 if (t-1) % self.policyparams['replan_interval'] == 0:
                     self.last_replan = t
-                    self.perform_CEM(traj)
+                    self.perform_CEM()
                 self.logger.log('last replan', self.last_replan)
                 self.logger.log('taking action of ', t - self.last_replan)
                 action = self.bestaction_withrepeat[t - self.last_replan]
             else:
-                self.perform_CEM(traj)
+                self.perform_CEM()
                 action = self.bestaction[0]
 
                 self.logger.log('########')
