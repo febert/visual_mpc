@@ -11,6 +11,7 @@ from python_visual_mpc.video_prediction.misc.makegifs2 import npy_to_gif
 import os
 import cv2
 from python_visual_mpc.visual_mpc_core.algorithm.policy import get_policy_args
+import pdb
 
 def file_len(fname):
     i = 0
@@ -291,7 +292,7 @@ class GeneralAgent(object):
             agent_data = pkl.load(file)
         with open('{}/obs_dict.pkl'.format(traj_folder), 'rb') as file:
             obs_dict.update(pkl.load(file))
-        reset_state = {'object_qpos':obs_dict['object_qpos'][0], 'state':['state'][0], 'stat_prop':agent_data['stat_prop']}
+        reset_state = {'object_qpos':obs_dict['object_qpos'][0], 'state':obs_dict['state'][0], 'stat_prop':agent_data['stat_prop']}
         return reset_state
 
     def save_gif(self, itr, overlay=False):

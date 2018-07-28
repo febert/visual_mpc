@@ -75,8 +75,6 @@ class BaseSawyerMujocoEnv(BaseMujocoEnv):
 
         for i in range(self.num_objects):
             if self.reset_state is not None:
-                pdb.set_trace()
-
                 obji_xyz = self.reset_state['object_qpos'][i][:3]
                 obji_quat = self.reset_state['object_qpos'][i][3:]
             else:
@@ -104,7 +102,8 @@ class BaseSawyerMujocoEnv(BaseMujocoEnv):
 
         if self.reset_state is not None:
             xyz = self.reset_state['state'][:3]
-            quat = quat_to_zangle(self.reset_state['state'][3])
+            pdb.set_trace()
+            quat = quat_to_zangle(self.reset_state['state'][3:])
         elif self.randomize_initial_pos:
             xyz = np.random.uniform(low_bound[:3], high_bound[:3])
             quat = zangle_to_quat(np.random.uniform(low_bound[3], high_bound[3]))
