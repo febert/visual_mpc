@@ -70,27 +70,9 @@ class CEM_Visualizer(object):
         self.video_list = []
         self.append_masks = False
 
-
-        for key in list(dict_.keys()):
+        for key in list(dict_.keys()): #TODO: simplify this!!
             data = dict_[key]
-
-            if key == 'ground_truth':  # special treatement for gtruth
-                ground_truth = dict_['ground_truth']
-                if not isinstance(ground_truth, list):
-                    ground_truth = np.split(ground_truth, ground_truth.shape[1], axis=1)
-                    if ground_truth[0].shape[0] == 1:
-                        ground_truth = [g.reshape((1,64,64,3)) for g in ground_truth]
-                    else:
-                        ground_truth = [np.squeeze(g) for g in ground_truth]
-                ground_truth = ground_truth[1:]
-
-                if 'overlay_'+key in dict_:
-                    overlay_points = dict_['overlay_'+key]
-                    self.video_list.append((ground_truth, 'Ground Truth', overlay_points))
-                else:
-                    self.video_list.append((ground_truth, 'Ground Truth'))
-
-            elif 'overlay' in key:
+            if 'overlay' in key:
                 self.logger.log('visualizing overlay')
                 images = data[0]
                 gen_distrib = data[1]
@@ -99,21 +81,6 @@ class CEM_Visualizer(object):
                     images = resize_image(images, gen_distrib[0].shape[1:3])
                 overlay = compute_overlay(images, gen_distrib, self.numex)
                 self.video_list.append((overlay, key))
-
-            elif type(data[0]) is list or '_l' in key:    # for lists of videos
-                if 'masks' in key and not append_masks:
-                    self.logger.log('skipping masks!')
-                    continue
-                self.logger.log("the key \"{}\" contains {} videos".format(key, len(data[0])))
-                self.append_masks = True
-                vid_list = convert_to_videolist(data, repeat_last_dim=False)
-
-                for i, m in enumerate(vid_list):
-                    self.video_list.append((m, '{} {}'.format(key, i)))
-
-
-            elif 'gen_distrib' in key:  # if gen_distrib plot psum overtime!
-                self.video_list.append((data, key))
             else:
                 if isinstance(data, list):
                     if len(data[0].shape) == 4:
@@ -176,7 +143,6 @@ class CEM_Visualizer(object):
         framelist = assemble_gif(new_videolist, convert_from_float=True, num_exp=self.numex)
         # save_video_mp4(self.gif_savepath +'/prediction_at_t{}')
         npy_to_gif(framelist, self.gif_savepath +'/direct{}{}'.format(self.iternum,self.suf))
-
 
 def convert_to_videolist(input, repeat_last_dim):
     tsteps = len(input)

@@ -9,6 +9,7 @@ import time
 from mujoco_py.builder import MujocoException
 import copy
 import pdb
+import  matplotlib.pyplot as plt
 
 
 def quat_to_zangle(quat):
@@ -33,17 +34,17 @@ NEUTRAL_JOINTS = np.array([1.65474475, - 0.53312487, - 0.65980174, 1.1841825, 0.
 
 class BaseSawyerMujocoEnv(BaseMujocoEnv):
     def __init__(self, filename=None, mode_rel=None, num_objects = 1, object_mass = 1, friction=1.0, finger_sensors=True,
-                 maxlen=0.12, minlen=0.01, preload_obj_dict=None, object_meshes=None, obj_classname = 'freejoint',
+                 maxlen=0.12, minlen=0.01, object_meshes=None, obj_classname = 'freejoint',
                  block_height=0.02, block_width = 0.02, viewer_image_height = 480, viewer_image_width = 640,
-                 skip_first=100, substeps=100, randomize_initial_pos = True, reset_state=None):
+                 skip_first=100, substeps=100, randomize_initial_pos = True, reset_state=None, ncam=2):
         base_filename = asset_base_path + filename
         friction_params = (friction, 0.1, 0.02)
         self.obj_stat_prop = create_object_xml(base_filename, num_objects, object_mass,
                                                friction_params, object_meshes, finger_sensors,
-                                               maxlen, minlen, preload_obj_dict, obj_classname,
+                                               maxlen, minlen, reset_state, obj_classname,
                                                block_height, block_width)
         gen_xml = create_root_xml(base_filename)
-        super().__init__(gen_xml, viewer_image_height, viewer_image_width)
+        super().__init__(gen_xml, viewer_image_height, viewer_image_width, ncam)
         clean_xml(gen_xml)
 
         if self.sim.model.nmocap > 0 and self.sim.model.eq_data is not None:
@@ -66,6 +67,7 @@ class BaseSawyerMujocoEnv(BaseMujocoEnv):
         self.sim.data.qpos[7:9] = np.clip(self.sim.data.qpos[7:9], [-0.055, 0.0027], [-0.0027, 0.055])
 
     def reset(self):
+        super(BaseSawyerMujocoEnv, self).reset()
         last_rands = []
 
         def samp_xyz_rot():
@@ -102,8 +104,7 @@ class BaseSawyerMujocoEnv(BaseMujocoEnv):
 
         if self.reset_state is not None:
             xyz = self.reset_state['state'][:3]
-            pdb.set_trace()
-            quat = quat_to_zangle(self.reset_state['state'][3:])
+            quat = zangle_to_quat(self.reset_state['state'][3])
         elif self.randomize_initial_pos:
             xyz = np.random.uniform(low_bound[:3], high_bound[:3])
             quat = zangle_to_quat(np.random.uniform(low_bound[3], high_bound[3]))
@@ -171,19 +172,15 @@ class BaseSawyerMujocoEnv(BaseMujocoEnv):
             obs['object_poses'][i, :2] = fullpose[:2]
             obs['object_poses'][i, 2] = quat_to_zangle(fullpose[3:])
 
-            obs['object_qpos'][i] = self.sim.data.qpos[self._n_joints + i * 7: self._n_joints + (i+1)]
+            obs['object_qpos'][i] = self.sim.data.qpos[self._n_joints + i * 7: self._n_joints + (i+1)*7]
 
         # copy non-image data for environment's use (if needed)
         self._last_obs = copy.deepcopy(obs)
         # get images
         obs['images'] = self.render()
 
-        obj_image_locations = np.zeros((2, self.num_objects + 1, 2))
-        for i, cam in enumerate(['maincam', 'leftcam']):
-            obj_image_locations[i, 0] = self.project_point(self.sim.data.get_body_xpos('hand')[:3], cam)
-            for j in range(self.num_objects):
-                obj_image_locations[i, j + 1] = self.project_point(obs['object_poses_full'][j, :3], cam)
-        obs['obj_image_locations'] = obj_image_locations
+
+        obs['obj_image_locations'] = self.get_desig_pix(self._frame_width)
 
         return obs
 
@@ -268,18 +265,27 @@ class BaseSawyerMujocoEnv(BaseMujocoEnv):
     def _init_dynamics(self):
         pass
 
+
     def move_arm(self):
         """
         move_arm randomly, used to create startgoal-configurations
         """
-        arm_disp_range = 0.3
+        arm_disp_range = 0.1
         arm_disp = np.random.uniform(-arm_disp_range, arm_disp_range, 2)
         arm_disp = np.concatenate([arm_disp, np.zeros(1)])
 
         armpos = self.sim.data.get_body_xpos('hand')[:3]
         new_armpos = armpos + arm_disp
-        new_armpos[:2] = np.clip(new_armpos[:2], -0.35, 0.35)
+        new_armpos[:2] = np.clip(new_armpos[:2], low_bound[:2], high_bound[:2])
         self.sim.data.set_mocap_pos('mocap', new_armpos)
+
+        print('old arm pos', armpos)
+        print('new arm pos', new_armpos)
+
+        # self.sim.forward()
+        for _ in range(self.skip_first*10):
+            self._clip_gripper()
+            self.sim.step()
 
     def move_objects(self):
         """
@@ -297,7 +303,7 @@ class BaseSawyerMujocoEnv(BaseMujocoEnv):
                 const_dist = True
                 if const_dist:
                     alpha = np.random.uniform(-np.pi, np.pi, 1)
-                    d = 0.1
+                    d = 0.25
                     delta_pos = np.array([d * np.cos(alpha), d * np.sin(alpha), 0.])
                 else:
                     pos_disp = 0.1

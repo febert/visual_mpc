@@ -19,7 +19,7 @@ def get_policy_args(policy, obs, t, i_tr):
             # required parameters MUST be set by agent
             raise ValueError("Required Policy Param {} not set in agent".format(arg))
         policy_args[arg] = value
-
+    # import pdb; pdb.set_trace()
     return policy_args
 
 
@@ -42,7 +42,7 @@ class Policy(object):
         raise NotImplementedError("Must be implemented in subclass.")
 
     def reset(self):
-        raise NotImplementedError
+        pass
 
 
 class DummyPolicy(object):

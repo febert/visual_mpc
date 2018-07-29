@@ -296,7 +296,7 @@ class CEM_Controller_Base(Policy):
         actions = [actions[b, inds[b]] for b in range(self.M//self.smp_peract)]
         return np.stack(actions, 0), scores
 
-    def get_rollouts(self, traj, actions, cem_itr, itr_times):
+    def get_rollouts(self, actions, cem_itr, itr_times):
         raise NotImplementedError
 
     def act(self, t=None, i_tr=None):
@@ -340,5 +340,5 @@ class CEM_Controller_Base(Policy):
         self.action_list.append(action)
 
         self.logger.log("applying action  {}".format(action))
-        return action, self.plan_stat
-        # return action, self.bestindices_of_iter, self.rec_input_distrib
+
+        return {'actions':action, 'plan_stat':self.plan_stat}

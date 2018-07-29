@@ -10,6 +10,8 @@ from python_visual_mpc.visual_mpc_core.envs.mujoco_env.sawyer_sim.autograsp_env 
 
 from python_visual_mpc.visual_mpc_core.algorithm.cem_controller_vidpred import CEM_Controller_Vidpred
 
+from python_visual_mpc.visual_mpc_core.algorithm.random_policy import Randompolicy, RandomPickPolicy
+
 
 BASE_DIR = '/'.join(str.split(__file__, '/')[:-1])
 current_dir = os.path.dirname(os.path.realpath(__file__))
@@ -25,18 +27,18 @@ env_params = {
     'finger_sensors': True,
     'substeps': 100,
      'autograsp': {'zthresh': 0.18, 'touchthresh': 0.0, 'reopen': True},
-    'object_meshes': ['Fork', 'Spoon', 'Bowl', 'LotusBowl01'],
+    'object_meshes': ['Bowl'],
+    'ncam':1,
 }
 
 agent = {
     'type': GeneralAgent,
     'env': (AutograspSawyerMujocoEnv, env_params),
-    'cameras':['maincam'],
-    'T': 30,
+    'T': 15,
     'image_height' : 48,
     'image_width' : 64,
     'novideo':'',
-    'gen_xml':10,   #generate xml every nth trajecotry
+    'gen_xml':1,   #generate xml every nth trajecotry
     'ztarget':0.13,
     'min_z_lift':0.05,
     'record': BASE_DIR + '/record/',
@@ -47,6 +49,8 @@ agent = {
 }
 
 policy = {
+    'verbose':'',
+    'verbose_every_itr':"",
     'type': CEM_Controller_Vidpred,
     'iterations': 3,
     'nactions': 5,
@@ -55,7 +59,7 @@ policy = {
     'initial_std': 0.05,   #std dev. in xy
     'initial_std_lift': 0.15,   #std dev. in xy
     'initial_std_rot': np.pi / 18,
-    'initial_std_grasp': 2
+    'finalweight':10
 }
 
 config = {
@@ -63,7 +67,7 @@ config = {
     'current_dir': current_dir,
     'save_data': False,
     'start_index':0,
-    'end_index': 40000,
+    'end_index': 50,
     'agent': agent,
     'policy': policy,
     'ngroup': 1000

@@ -42,12 +42,9 @@ def verbose_worker():
         print('servicing req', req)
         try:
             plt.switch_backend('Agg')
-            ctrl, actions, bestindices, cem_itr, flow_fields, gen_distrib, gen_images, gen_states, \
-            last_frames, goal_warp_pts_l, scores, warped_image_goal, \
-            warped_image_start, warped_images, last_states, reg_tradeoff = verbose_queue.get(True)
-            make_cem_visuals(ctrl, actions, bestindices, cem_itr, flow_fields, gen_distrib, gen_images, gen_states,
-                             last_frames, goal_warp_pts_l, scores, warped_image_goal,
-                             warped_image_start, warped_images, last_states, reg_tradeoff)
+            ctrl, actions, scores, cem_itr, gen_distrib, gen_images, last_frames = verbose_queue.get(True)
+            visualizer = CEM_Visual_Preparation()
+            visualizer.visualize(ctrl, actions, scores, cem_itr, gen_distrib, gen_images, last_frames)
         except RuntimeError:
             print("TKINTER ERROR, SKIPPING")
         req += 1
@@ -70,7 +67,6 @@ class CEM_Controller_Vidpred(CEM_Controller_Base):
         self.netconf = params.configuration
         self.predictor = self.netconf['setup_predictor'](ag_params, self.netconf, gpu_id, ngpu, self.logger)
 
-        self.visualizer = CEM_Visual_Preparation()
 
         self.bsize = self.netconf['batch_size']
         self.seqlen = self.netconf['sequence_length']
@@ -107,7 +103,7 @@ class CEM_Controller_Vidpred(CEM_Controller_Base):
         if 'predictor_propagation' in self.policyparams:
             self.rec_input_distrib = []  # record the input distributions
 
-        self.parallel_vis = False
+        self.parallel_vis = True
         if self.parallel_vis:
             self._thread = Thread(target=verbose_worker)
             self._thread.start()
@@ -138,8 +134,8 @@ class CEM_Controller_Vidpred(CEM_Controller_Base):
                 self.logger.log('using desig pix',desig[icam, p, 0], desig[icam, p, 1])
         return one_hot_images
 
-    def get_rollouts(self, traj, actions, cem_itr, itr_times):
-        actions, last_frames, last_states, t_0 = self.prep_vidpred_inp(actions, cem_itr, traj)
+    def get_rollouts(self, actions, cem_itr, itr_times):
+        actions, last_frames, last_states, t_0 = self.prep_vidpred_inp(actions, cem_itr)
 
         if 'masktrafo_obj' in self.policyparams:
             curr_obj_mask = np.repeat(self.curr_obj_mask[None], self.netconf['context_frames'], axis=0).astype(
@@ -189,6 +185,7 @@ class CEM_Controller_Vidpred(CEM_Controller_Base):
             if self.parallel_vis:
                 verbose_queue.put((self, actions, scores, cem_itr, gen_distrib, gen_images, last_frames))
             else:
+                self.visualizer = CEM_Visual_Preparation()
                 self.visualizer.visualize(self, actions, scores, cem_itr, gen_distrib, gen_images, last_frames)
 
         if 'save_desig_pos' in self.agentparams:
@@ -242,21 +239,15 @@ class CEM_Controller_Vidpred(CEM_Controller_Base):
         self.logger.log('time to calc scores {}'.format(time.time() - t_startcalcscores))
         return scores
 
-    def prep_vidpred_inp(self, actions, cem_itr, traj):
+    def prep_vidpred_inp(self, actions, cem_itr):
         t_0 = time.time()
         ctxt = self.netconf['context_frames']
-        last_frames = traj.images[self.t - ctxt + 1:self.t + 1]  # same as [t - 1:t + 1] for context 2
+        last_frames = self.images[self.t - ctxt + 1:self.t + 1]  # same as [t - 1:t + 1] for context 2
         last_frames = last_frames.astype(np.float32, copy=False) / 255.
         last_frames = last_frames[None]
-        if 'use_vel' in self.netconf:
-            last_states = traj.X_Xdot_full[self.t - ctxt + 1:self.t + 1]
-        else:
-            last_states = traj.X_full[self.t - ctxt + 1:self.t + 1]
+        last_states = self.state[self.t - ctxt + 1:self.t + 1]
         if 'autograsp' in self.agentparams:
             last_states = last_states[:, :5]  # ignore redundant finger dim
-            if 'finger_sensors' in self.agentparams:
-                touch = traj.touch_sensors[self.t - ctxt + 1:self.t + 1]
-                last_states = np.concatenate([last_states, touch], axis=1)
             actions = actions[:, :, :self.netconf['adim']]
         last_states = last_states[None]
 
@@ -338,12 +329,11 @@ class CEM_Controller_Vidpred(CEM_Controller_Base):
         return input_distrib
 
 
-    def act(self, t=None, i_tr=None, desig_pix=None, goal_pix=None):
+    def act(self, t=None, i_tr=None, desig_pix=None, goal_pix=None, images=None, state=None):
         """
         Return a random action for a state.
         Args:
-            traj: trajectory object
-                if performing highres tracking traj.images is highres image
+            if performing highres tracking images is highres image
             t: the current controller's Time step
             goal_pix: in coordinates of small image
             desig_pix: in coordinates of small image
@@ -351,6 +341,7 @@ class CEM_Controller_Vidpred(CEM_Controller_Base):
 
         self.desig_pix = np.array(desig_pix).reshape((self.ncam, self.ndesig, 2))
         self.goal_pix = np.array(goal_pix).reshape((self.ncam, self.ndesig, 2))
-        self.goal_pix_med = (self.goal_pix * self.agentparams['image_medium'][0] / self.agentparams['image_height']).astype(np.int)
+        self.images = images
+        self.state = state
 
         return super(CEM_Controller_Vidpred, self).act(t, i_tr)

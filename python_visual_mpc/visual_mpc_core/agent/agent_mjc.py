@@ -392,6 +392,7 @@ class AgentMuJoCo(object):
         pickle.dump(dict, open(self._hyperparams['save_goal_image'] + '.pkl', 'wb'))
         img.save(self._hyperparams['save_goal_image'] + '.png',)
 
+
     def eval_action(self, traj, t):
         if 'ztarget' in self._hyperparams:
             obj_z = traj.Object_full_pose[t, 0, 2]
@@ -531,7 +532,6 @@ class AgentMuJoCo(object):
     def plot_pix_dist(self, planstat):
         plt.figure()
         pix_dist = np.stack(self.pix_dist, -1)
-
         best_cost_perstep = planstat['best_cost_perstep']
 
         nobj = self._hyperparams['num_objects']

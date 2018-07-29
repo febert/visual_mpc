@@ -70,6 +70,7 @@ class Sim(object):
         if self._hyperparams['save_data']:
             self.save_data(sample_index, agent_data, obs_dict, policy_out)
         t_save = time.time() - t_save
+        return agent_data
 
 
     def save_data(self, itr, agent_data, obs_dict, policy_outputs):

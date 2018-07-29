@@ -20,7 +20,7 @@ env_params = {
     'object_mass': 0.1,
     'friction': 1,
     'substeps': 100,
-    'object_meshes': ['GlassBowl', 'Bowl', 'LotusBowl01'],
+    'object_meshes': ['Bowl'],
     'mode_rel': np.array([True, True, True, True, False]),
 }
 

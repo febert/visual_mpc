@@ -11,6 +11,8 @@ from python_visual_mpc.visual_mpc_core.infrastructure.assemble_cem_visuals impor
 from python_visual_mpc.utils.txt_in_image import draw_text_onimage
 
 import matplotlib; matplotlib.use('Agg'); import matplotlib.pyplot as plt
+from python_visual_mpc.video_prediction.utils_vpred.animate_tkinter import color_code_distrib
+
 from python_visual_mpc.video_prediction.utils_vpred.animate_tkinter import resize_image
 
 def image_addgoalpix(bsize, seqlen, image_l, goal_pix):
@@ -125,10 +127,10 @@ class CEM_Visual_Preparation(object):
             self.t_dict_['warped_im_t{}'.format(ctrl.t)] = warped_images
             print('warp objective done')
 
-        self.annontate_images(ctrl, gen_images, last_frames)
+        self.annontate_images(ctrl, last_frames)
 
         if 'use_goal_image' not in ctrl.policyparams or 'comb_flow_warp' in ctrl.policyparams or 'register_gtruth' in ctrl.policyparams:
-            self.visualize_goal_pixdistrib(ctrl, gen_distrib, selindices)
+            self.visualize_goal_pixdistrib(ctrl, gen_distrib)
 
         for icam in range(ctrl.ncam):
             print('putting cam: {} res into dict'.format(icam))
@@ -158,12 +160,14 @@ class CEM_Visual_Preparation(object):
             pickle.dump(self.t_dict_, open(dir + '/pred_t{}iter{}.pkl'.format(ctrl.t, cem_itr), 'wb'))
             print('written files to:', dir)
 
-    def visualize_goal_pixdistrib(self, ctrl, gen_distrib, selindices):
+    def visualize_goal_pixdistrib(self, ctrl, gen_distrib):
         for icam in range(ctrl.ncam):
             print('handling case for cam: {}'.format(icam))
             for p in range(ctrl.ndesig):
-                sel_gen_distrib_p = unstack(gen_distrib[:, :, icam, :, :, p], 1)
-                self.t_dict_['gen_distrib_cam{}_p{}'.format(icam, p)] = sel_gen_distrib_p
+                gen_distrib_ann = color_code_distrib(unstack(gen_distrib[:, :, icam, :, :, p], 1), self.num_ex, renormalize=True)
+                gen_distrib_ann = image_addgoalpix(self.num_ex, self.len_pred, gen_distrib_ann,
+                                                                         ctrl.goal_pix[icam, p])
+                self.t_dict_['gen_distrib_cam{}_p{}'.format(icam, p)] = gen_distrib_ann
 
     def annontate_images(self, ctrl, last_frames):
         for icam in range(ctrl.ncam):
@@ -188,7 +192,7 @@ class CEM_Visual_Preparation_Registration(CEM_Visual_Preparation):
 
         self.visualize_registration(ctrl)
 
-    def visualize_goal_pixdistrib(self, ctrl, gen_distrib, selindices):
+    def visualize_goal_pixdistrib(self, ctrl, gen_distrib):
 
         for icam in range(ctrl.ncam):
             print('handling case for cam: {}'.format(icam))
@@ -251,7 +255,6 @@ class CEM_Visual_Preparation_Registration(CEM_Visual_Preparation):
             goal_pix = ctrl.goal_pix
 
         gl_im_shape = [self.num_ex, self.len_pred, ctrl.ncam] + list(ctrl.goal_image.shape[1:])
-        pdb.set_trace()
         gl_im_ann = np.zeros(gl_im_shape)  # b, t, n, r, c, 3
         self.gl_im_ann_per_tsk = np.zeros([ctrl.ndesig] + gl_im_shape)  # p, b, t, n, r, c, 3
         for icam in range(ctrl.ncam):
@@ -265,7 +268,6 @@ class CEM_Visual_Preparation_Registration(CEM_Visual_Preparation):
                 self.gl_im_ann_per_tsk[p, :, :, icam] = image_addgoalpix(self.num_ex, self.len_pred, self.gl_im_ann_per_tsk[p][:, :, icam],
                                                                     goal_pix[icam, p])
             self.t_dict_['goal_image{}'.format(icam)] = unstack(gl_im_ann[:, :, icam], 1)
-        print("done")
 
 
 def annotate_tracks(ctrl, current_image, icam, len_pred, num_ex):

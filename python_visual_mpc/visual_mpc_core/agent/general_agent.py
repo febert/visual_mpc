@@ -63,6 +63,7 @@ class GeneralAgent(object):
 
         self._hyperparams['adim'] = self.adim = self.env.adim
         self._hyperparams['sdim'] = self.sdim = self.env.sdim
+        self._hyperparams['ncam'] = self.ncam = self.env.ncam
         self.num_objects = self.env.num_objects
 
     def sample(self, policy, i_tr):
@@ -146,10 +147,11 @@ class GeneralAgent(object):
                 for i in range(env_obs['images'].shape[0]):
                     self._agent_cache['images'][t, i] = cv2.resize(env_obs['images'][i], new_dims,
                                                                     interpolation=cv2.INTER_AREA)
+
+            # TODO: seems to be redundant with get_dsig_pix
             elif k == 'obj_image_locations':
                 self.traj_points.append(copy.deepcopy(env_obs['obj_image_locations'][0]))
-                env_obs['obj_image_locations'][:, :, 0] *= agent_img_height / env_obs['images'].shape[1]
-                env_obs['obj_image_locations'][:, :, 1] *= agent_img_width / env_obs['images'].shape[2]
+                env_obs['obj_image_locations'] = (env_obs['obj_image_locations'] * agent_img_height / env_obs['images'].shape[1]).astype(np.int)
                 self._agent_cache['obj_image_locations'][t] = env_obs['obj_image_locations']
             elif isinstance(env_obs[k], np.ndarray):
                 self._agent_cache[k][t] = env_obs[k]
@@ -158,6 +160,11 @@ class GeneralAgent(object):
             obs[k] = self._agent_cache[k][:self._cache_cntr]
 
         obs['goal_image'] = self.goal_image
+        obs['goal_pos'] = self.goal_obj_pose
+
+        if self.goal_obj_pose is not None:
+            obs['goal_pix'] = self.env.get_goal_pix(agent_img_width)
+        obs['desig_pix'] = env_obs['obj_image_locations']
         return obs
 
     def _required_rollout_metadata(self, agent_data, traj_ok):
@@ -184,19 +191,15 @@ class GeneralAgent(object):
         """
         self._init()
         agent_img_height, agent_img_width = self._hyperparams['image_height'], self._hyperparams['image_width']
-        if self.goal_obj_pose is not None:
-            self.goal_pix = self.env.get_goal_pix(self.ncam, agent_img_width, self.goal_obj_pose)
+        self.env.goal_obj_pose = self.goal_obj_pose
 
-        if 'first_last_noarm' in self._hyperparams:
-            start_img = self.hide_arm_store_image()
+        agent_data, policy_outputs = {}, []
 
         # Take the sample.
         t = 0
         done = False
         self.large_images_traj, self.traj_points= [], None
         obs = self._post_process_obs(self.env.reset(), True)
-
-        agent_data, policy_outputs = {}, []
 
         while not done:
             """
@@ -213,16 +216,13 @@ class GeneralAgent(object):
             except ValueError:
                 return {'traj_ok': False}, None, None
 
+            agent_data['stats'] = self.env.eval()
+
             if (self._hyperparams['T']-1) == t:
                 done = True
             if done:
-                agent_data['term_t'] = t
+                agent_data['stats']['term_t'] = t
             t += 1
-
-        if 'first_last_noarm' in self._hyperparams:
-            end_img = self.hide_arm_store_image()
-            agent_data["start_image"] = start_img
-            agent_data["end_image"] = end_img
 
         traj_ok = True
         if not self.env.valid_rollout():
@@ -286,13 +286,14 @@ class GeneralAgent(object):
         for t in range(num_images):  #TODO detect number of images automatically in folder
             for i in range(self.ncam):
                 goal_images[t, i] = cv2.imread('{}/images{}/im_{}.png'.format(traj_folder, i, t))
-        self.goal_images = goal_images[-1]
-        self.goal_images = goal_images[-1]
+        self.goal_image = goal_images[-1]
         with open('{}/agent_data.pkl'.format(traj_folder), 'rb') as file:
             agent_data = pkl.load(file)
         with open('{}/obs_dict.pkl'.format(traj_folder), 'rb') as file:
             obs_dict.update(pkl.load(file))
         reset_state = {'object_qpos':obs_dict['object_qpos'][0], 'state':obs_dict['state'][0], 'stat_prop':agent_data['stat_prop']}
+
+        self.goal_obj_pose = obs_dict['object_qpos'][-1]
         return reset_state
 
     def save_gif(self, itr, overlay=False):
