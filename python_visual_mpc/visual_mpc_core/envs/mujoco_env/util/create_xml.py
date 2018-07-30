@@ -69,6 +69,7 @@ def create_object_xml(filename, num_objects, object_mass, friction_params, objec
 
     if reset_state is not None:
         load_dict_list = reset_state['stat_prop']
+    else: load_dict_list = None
 
     for i in range(num_objects):
         if load_dict_list == None:

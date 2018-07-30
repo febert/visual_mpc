@@ -20,7 +20,7 @@ env_params = {
     'object_mass': 0.1,
     'friction': 1,
     'substeps': 100,
-    'object_meshes': ['Bowl'],
+    'object_meshes': ['Bowl','ElephantBowl','GlassBowl','LotusBowl01','RuggedBowl','ServingBowl'],
     'mode_rel': np.array([True, True, True, True, False]),
 }
 
@@ -34,7 +34,7 @@ agent = {
     'image_height' : 48,
     'image_width' : 64,
     'novideo':'',
-    'gen_xml':10,   #generate xml every nth trajecotry
+    'gen_xml':1,   #generate xml every nth trajecotry
     'ztarget':0.13,
     'record': BASE_DIR + '/record/',
     'rejection_sample': 10,
@@ -53,7 +53,7 @@ config = {
     'current_dir' : current_dir,
     'save_data': True,
     'start_index':0,
-    'end_index': 5,
+    'end_index': 50,
     'agent': agent,
     'policy': policy,
     'ngroup': 1000,
