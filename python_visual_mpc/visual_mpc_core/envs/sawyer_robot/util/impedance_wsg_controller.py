@@ -138,8 +138,19 @@ class ImpedanceWSGController(RobotController):
         waypoints = [NEUTRAL_JOINT_ANGLES]
         self.move_with_impedance(waypoints, duration)
 
+    def _try_enable(self):
+        """
+        The start impedance script will try to re-enable the robot once it disables
+        The script will wait until that occurs and throw an assertion if it doesn't
+        """
+        i = 0
+        while not self._rs.state().enabled and i < 50:
+            rospy.sleep(10)
+            i += 1
+        assert self._rs.state().enabled, "Robot was disabled, please manually re-enable!"
+
     def send_pos_command(self, pos):
-        assert self._rs.state().enabled, "Robot was disabled, please re-enable!"
+        self._try_enable()
 
         command = JointCommand()
         command.mode = JointCommand.POSITION_MODE
@@ -153,7 +164,7 @@ class ImpedanceWSGController(RobotController):
         :param waypoints: List of arrays containing waypoint joint angles
         :param duration: trajectory duration
         """
-        assert self._rs.state().enabled, "Robot was disabled, please re-enable!"
+        self._try_enable()
 
         jointnames = self.limb.joint_names()
         prev_joint = np.array([self.limb.joint_angle(j) for j in jointnames])
