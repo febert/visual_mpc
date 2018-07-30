@@ -150,7 +150,7 @@ class GeneralAgent(object):
 
             # TODO: seems to be redundant with get_dsig_pix
             elif k == 'obj_image_locations':
-                self.traj_points.append(copy.deepcopy(env_obs['obj_image_locations'][0]))
+                self.traj_points.append(copy.deepcopy(env_obs['obj_image_locations']))
                 env_obs['obj_image_locations'] = (env_obs['obj_image_locations'] * agent_img_height / env_obs['images'].shape[1]).astype(np.int)
                 self._agent_cache['obj_image_locations'][t] = env_obs['obj_image_locations']
             elif isinstance(env_obs[k], np.ndarray):
@@ -165,6 +165,7 @@ class GeneralAgent(object):
         if self.goal_obj_pose is not None:
             obs['goal_pix'] = self.env.get_goal_pix(agent_img_width)
         obs['desig_pix'] = env_obs['obj_image_locations']
+
         return obs
 
     def _required_rollout_metadata(self, agent_data, traj_ok):

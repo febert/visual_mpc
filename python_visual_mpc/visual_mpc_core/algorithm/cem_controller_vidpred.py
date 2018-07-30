@@ -17,11 +17,9 @@ from python_visual_mpc.visual_mpc_core.algorithm.utils.make_cem_visuals import C
 import matplotlib; matplotlib.use('Agg'); import matplotlib.pyplot as plt
 import copy
 import pdb
-from scipy.special import expit
 import collections
 import cv2
 from python_visual_mpc.visual_mpc_core.infrastructure.utility.logger import Logger
-from python_visual_mpc.goaldistancenet.variants.multiview_testgdn import MulltiviewTestGDN
 
 from queue import Queue
 from threading import Thread
@@ -78,12 +76,9 @@ class CEM_Controller_Vidpred(CEM_Controller_Base):
 
         self.ncontxt = self.netconf['context_frames']
 
-        if 'ndesig' in self.netconf:
+        if 'ndesig' in self.netconf:        # total number of
             self.ndesig = self.netconf['ndesig']
         else: self.ndesig = None
-        if 'ntask' in self.agentparams:   # number of
-            self.ntask = self.agentparams['ntask']
-        else: self.ntask = 1
 
         self.img_height, self.img_width = self.netconf['orig_size']
 
@@ -110,6 +105,8 @@ class CEM_Controller_Vidpred(CEM_Controller_Base):
         self.goal_image = None
 
         self.best_cost_perstep = np.zeros([self.ncam, self.ndesig, self.seqlen - self.ncontxt])
+
+        self.ntask = self.ndesig  # will be overwritten in derived classes
 
     def reset(self):
         super(CEM_Controller_Vidpred, self).reset()
@@ -204,6 +201,7 @@ class CEM_Controller_Vidpred(CEM_Controller_Base):
 
         for icam in range(self.ncam):
             for p in range(self.ndesig):
+                pdb.set_trace()
                 distance_grid = self.get_distancegrid(self.goal_pix[icam, p])
                 score = self.calc_scores(icam, p, gen_distrib[:, :, icam, :, :, p], distance_grid,
                                          normalize=True)
@@ -338,10 +336,10 @@ class CEM_Controller_Vidpred(CEM_Controller_Base):
             goal_pix: in coordinates of small image
             desig_pix: in coordinates of small image
         """
-
-        self.desig_pix = np.array(desig_pix).reshape((self.ncam, self.ndesig, 2))
-        self.goal_pix = np.array(goal_pix).reshape((self.ncam, self.ndesig, 2))
+        if self.desig_pix is None:
+            self.desig_pix = np.array(desig_pix).reshape((self.ncam, self.ntask, 2))
+        if self.goal_pix is None:
+            self.goal_pix = np.array(goal_pix).reshape((self.ncam, self.ntask, 2))
         self.images = images
         self.state = state
-
         return super(CEM_Controller_Vidpred, self).act(t, i_tr)

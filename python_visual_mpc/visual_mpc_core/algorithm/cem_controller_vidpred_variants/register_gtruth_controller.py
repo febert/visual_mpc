@@ -1,7 +1,6 @@
 from python_visual_mpc.visual_mpc_core.algorithm.cem_controller_vidpred import CEM_Controller_Vidpred
 import copy
 import numpy as np
-from python_visual_mpc.goaldistancenet.variants.multiview_testgdn import MulltiviewTestGDN
 from python_visual_mpc.video_prediction.utils_vpred.animate_tkinter import resize_image
 from python_visual_mpc.visual_mpc_core.algorithm.utils.make_cem_visuals import CEM_Visual_Preparation_Registration
 import imp
@@ -17,15 +16,16 @@ class Register_Gtruth_Controller(CEM_Controller_Vidpred):
 
         params = imp.load_source('params', ag_params['current_dir'] + '/gdnconf.py')
         self.gdnconf = params.configuration
-        self.goal_image_warper = setup_gdn(ag_params, self.gdnconf, gpu_id, ngpu, self.logger)
+        self.goal_image_warper = setup_gdn(self.gdnconf, gpu_id)
         self.visualizer = CEM_Visual_Preparation_Registration()
 
-    def prep_vidpred_inp(self, actions, cem_itr, traj):
-        actions, last_frames, last_states, t_0 = super(Register_Gtruth_Controller, self).prep_vidpred_inp(actions, cem_itr, traj)
+        num_reg_images = len(self.policyparams['register_gtruth'])
+        self.ntask = self.ndesig // num_reg_images
 
+    def prep_vidpred_inp(self, actions, cem_itr):
+        actions, last_frames, last_states, t_0 = super(Register_Gtruth_Controller, self).prep_vidpred_inp(actions, cem_itr)
         if 'image_medium' in self.agentparams:  # downsample to video-pred reslution
             last_frames = resize_image(last_frames, (self.img_height, self.img_width))
-
         if 'register_gtruth' in self.policyparams and cem_itr == 0:
             self.start_image = copy.deepcopy(self.images[0]).astype(np.float32) / 255.
             self.warped_image_start, self.warped_image_goal, self.reg_tradeoff = self.register_gtruth(self.start_image,
@@ -104,11 +104,10 @@ class Register_Gtruth_Controller(CEM_Controller_Vidpred):
         return warperrs, desig
 
 
-    def act(self, t=None, i_tr=None, desig_pix=None, goal_pix=None, goal_image=None):
+    def act(self, t=None, i_tr=None, desig_pix=None, goal_pix=None, images=None, goal_image=None, state=None):
 
-        self.goal_pix_sel = np.array(goal_pix).reshape((self.ncam, self.ntask, 2))
         num_reg_images = len(self.policyparams['register_gtruth'])
-        assert self.ndesig == num_reg_images*self.ntask
+        self.goal_pix_sel = np.array(goal_pix).reshape((self.ncam, self.ntask, 2))
         self.goal_pix = np.tile(self.goal_pix_sel[:,:,None,:], [1,1,num_reg_images,1])  # copy along r: shape: ncam, ntask, r
         self.goal_pix = self.goal_pix.reshape(self.ncam, self.ndesig, 2)
         if 'image_medium' in self.agentparams:
@@ -119,4 +118,4 @@ class Register_Gtruth_Controller(CEM_Controller_Vidpred):
             self.desig_pix_t0 = np.array(desig_pix).reshape((self.ncam, self.ntask, 2))   # 1,1,2
             if 'image_medium' in self.agentparams:
                 self.desig_pix_t0_med = (self.desig_pix_t0 * self.agentparams['image_medium'][0]/self.agentparams['image_height']).astype(np.int)
-        return super(CEM_Controller_Vidpred, self).act(t, i_tr)
+        return super(Register_Gtruth_Controller, self).act(t, i_tr, desig_pix, goal_pix, images, state)

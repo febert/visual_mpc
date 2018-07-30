@@ -68,11 +68,6 @@ class CEM_Controller_Base(Policy):
         else:
             self.K = 10  # only consider K best samples for refitting
 
-        if 'ntask' in self.agentparams:   # number of
-            self.ntask = self.agentparams['ntask']
-        else: self.ntask = 1
-
-
         #action dimensions:
         # deltax, delty, goup_nstep, delta_rot, close_nstep
         self.adim = self.agentparams['adim']
@@ -303,8 +298,7 @@ class CEM_Controller_Base(Policy):
         """
         Return a random action for a state.
         Args:
-            traj: trajectory object
-                if performing highres tracking traj.images is highres image
+                if performing highres tracking images is highres image
             t: the current controller's Time step
             goal_pix: in coordinates of small image
             desig_pix: in coordinates of small image
