@@ -44,7 +44,7 @@ ASSET_BASE_DIR = '/'.join(os.path.abspath(python_visual_mpc.__file__).split('/')
 
 
 def create_object_xml(filename, num_objects, object_mass, friction_params, object_meshes,
-                      finger_sensors, maxlen, minlen, load_dict_list, obj_classname = None,
+                      finger_sensors, maxlen, minlen, reset_state, obj_classname = None,
                       block_height = 0.03, block_width = 0.03):
     """
     :param hyperparams:
@@ -66,6 +66,10 @@ def create_object_xml(filename, num_objects, object_mass, friction_params, objec
     world_body = ET.SubElement(root, "worldbody")
 
     loaded_meshes = {}
+
+    if reset_state is not None:
+        load_dict_list = reset_state['stat_prop']
+    else: load_dict_list = None
 
     for i in range(num_objects):
         if load_dict_list == None:

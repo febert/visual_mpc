@@ -33,14 +33,14 @@ class BaseCartgripperEnv(BaseMujocoEnv):
                     finger_sensors=False, maxlen=0.2, minlen=0.01, preload_obj_dict=None,
                     viewer_image_height=480, viewer_image_width=640, sample_objectpos=True,
                     object_object_mindist=None, randomize_initial_pos=True, arm_obj_initdist=None,
-                    xpos0=None, object_pos0=[], arm_start_lifted=False, skip_first=40, substeps=200):
+                    xpos0=None, object_pos0=[], arm_start_lifted=False, skip_first=40, substeps=200, ncam=2):
         base_filename = asset_base_path + filename
         friction_params = (friction, 0.010, 0.0002)
         self.obj_stat_prop = create_object_xml(base_filename, num_objects, object_mass,
                                                friction_params, object_meshes, finger_sensors,
                                                maxlen, minlen, preload_obj_dict)
         gen_xml = create_root_xml(base_filename)
-        super().__init__(gen_xml, viewer_image_height, viewer_image_width)
+        super().__init__(gen_xml, viewer_image_height, viewer_image_width, ncam)
         clean_xml(gen_xml)
 
         self._base_sdim, self._base_adim, self.mode_rel = 5, 5, mode_rel
@@ -54,6 +54,7 @@ class BaseCartgripperEnv(BaseMujocoEnv):
         self.finger_sensors, self.object_sensors = finger_sensors, object_meshes is not None
 
         self._previous_target_qpos, self._n_joints = None, 6
+
 
     def step(self, action):
         target_qpos = np.clip(self._next_qpos(action), low_bound, high_bound)
@@ -72,8 +73,8 @@ class BaseCartgripperEnv(BaseMujocoEnv):
         self._previous_target_qpos = target_qpos
         return self._get_obs(finger_force)
 
-    def render(self, mode='dual'):
-        return super().render(mode)[:, ::-1]
+    def render(self):
+        return super().render()[:, ::-1]
 
     def reset(self):
         #clear our observations from last rollout

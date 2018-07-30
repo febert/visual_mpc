@@ -26,6 +26,8 @@ agent = {
     'filename': DATA_DIR+'/mjc_models/cartgripper_updown_rot.xml',
     'filename_nomarkers': DATA_DIR+'/mjc_models/cartgripper_updown_rot.xml',
     'not_use_images':"",
+    'object_mass':0.01,
+    'friction':1.5,
     'adim':4,
     'sdim':8,
     'make_final_gif':'',
@@ -51,7 +53,7 @@ agent = {
 policy = {
     'type' : Randompolicy,
     'nactions': 5,
-    'repeats': 3,               # number of repeats for each action
+    'repeat': 3,               # number of repeats for each action
     'initial_std': 0.08,        # std dev. in xy
     'initial_std_lift': 1.6, #0.1,
     'initial_std_rot': 0.1,
@@ -81,6 +83,6 @@ config = {
     'policy':policy,
     'ngroup': 500,
     'sourcetags':[tag_images, tag_qpos, tag_object_full_pose, tag_object_statprop],
-    'source_basedirs':[os.environ['VMPC_DATA_DIR'] + '/cartgripper_startgoal_short/train'],
+    'source_basedirs':[os.environ['VMPC_DATA_DIR'] + '/cartgripper/cartgripper_startgoal_short/train'],
     'sequence_length':2
 }

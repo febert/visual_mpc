@@ -45,7 +45,7 @@ class BaseEnv:
         """
         return False
 
-    def render(self, mode='dual'):
+    def render(self):
         """ Renders the enviornment.
         Implements custom rendering support. If mode is:
 
@@ -74,3 +74,11 @@ class BaseEnv:
     def seed(self, seed=None):
         random.seed(seed)
         np.random.seed(seed)
+
+    def eval(self):
+        """
+        return environment statistics, like distance to goal etc.
+        :param agentdata:
+        :return:
+        """
+        pass

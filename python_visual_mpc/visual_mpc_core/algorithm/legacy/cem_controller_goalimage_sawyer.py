@@ -23,8 +23,8 @@ import collections
 import cv2
 from python_visual_mpc.visual_mpc_core.infrastructure.utility.logger import Logger
 from python_visual_mpc.goaldistancenet.variants.multiview_testgdn import MulltiviewTestGDN
-import sys
-
+from python_visual_mpc.goaldistancenet.variants.multiview_testgdn import MulltiviewTestGDN
+from Queue import Queue
 from python_visual_mpc.video_prediction.utils_vpred.animate_tkinter import resize_image
 from threading import Thread
 if "NO_ROS" not in os.environ:
@@ -34,14 +34,7 @@ if "NO_ROS" not in os.environ:
 
 import time
 from collections import OrderedDict
-
-if sys.version_info[0] == 2:
-    from Queue import Queue
-    import cPickle as pkl
-else:
-    from queue import Queue
-    import pickle as pkl
-
+import cPickle as pkl
 def save_track_pkl(ctrl, t, cem_itr):
     pix_pos_dict = {}
     pix_pos_dict['desig_pix_t0'] = ctrl.desig_pix_t0
@@ -53,7 +46,6 @@ def save_track_pkl(ctrl, t, cem_itr):
     if not os.path.exists(dir):
         os.makedirs(dir)
     pickle.dump(pix_pos_dict, open(dir + '/pix_pos_dict{}iter{}.pkl'.format(ctrl.t, cem_itr), 'wb'))
-
 
 def make_blockdiagonal(cov, nactions, adim):
     mat = np.zeros_like(cov)

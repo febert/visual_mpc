@@ -1,10 +1,9 @@
 """ This file defines the base class for the policy. """
-import abc
 import abc, six
 from funcsigs import signature, Parameter
 
 
-def get_policy_args(policy, obs, t):
+def get_policy_args(policy, obs, t, i_tr):
     policy_args = {}
     policy_signature = signature(policy.act)  # Gets arguments required by policy
     for arg in policy_signature.parameters:  # Fills out arguments according to their keyword
@@ -13,17 +12,22 @@ def get_policy_args(policy, obs, t):
             value = obs[arg]
         elif arg == 't':
             value = t
+        elif arg == 'i_tr':
+            value = i_tr
 
         if value is Parameter.empty:
             # required parameters MUST be set by agent
             raise ValueError("Required Policy Param {} not set in agent".format(arg))
         policy_args[arg] = value
+    # import pdb; pdb.set_trace()
     return policy_args
 
 
 @six.add_metaclass(abc.ABCMeta)
 class Policy(object):
-    """ Computes actions from states/observations. """
+    def __init__(self, ag_params, policyparams, gpu_id, ngpu):
+        """ Computes actions from states/observations. """
+        pass
 
     @abc.abstractmethod
     def act(self, *args):
@@ -37,10 +41,18 @@ class Policy(object):
         """
         raise NotImplementedError("Must be implemented in subclass.")
 
-    def set_meta_data(self, meta):
-        """
-        Set meta data_files for policy (e.g., domain image, multi modal observation sizes)
-        Args:
-            meta: meta data_files.
-        """
-        return
+    def reset(self):
+        pass
+
+
+class DummyPolicy(object):
+    def __init__(self, ag_params, policyparams, gpu_id, ngpu):
+        """ Computes actions from states/observations. """
+        pass
+
+    @abc.abstractmethod
+    def act(self, *args):
+        pass
+
+    def reset(self):
+        pass

@@ -20,16 +20,18 @@ from python_visual_mpc.visual_mpc_core.agent.utils.get_masks import get_obj_mask
 from python_visual_mpc.visual_mpc_core.agent.utils.gen_gtruth_desig import gen_gtruthdesig
 from python_visual_mpc.visual_mpc_core.agent.utils.convert_world_imspace_mj1_5 import project_point, get_3D
 
-from python_visual_mpc.visual_mpc_core.agent.general_agent import get_target_qpos
+from python_visual_mpc.visual_mpc_core.agent.agent_mjc import get_target_qpos
+from python_visual_mpc.visual_mpc_core.algorithm.utils.make_cem_visuals import CEM_Visual_Preparation
 
 
 class CEM_controller(Policy):
     """
     Cross Entropy Method Stochastic Optimizer
     """
-    def __init__(self, ag_params, policyparams):
+    def __init__(self, ag_params, policyparams, gpu_id, ngpu):
         Policy.__init__(self)
 
+        self.visualizer = CEM_Visual_Preparation()
         self.agentparams = ag_params
         self.policyparams = policyparams
 
@@ -103,21 +105,6 @@ class CEM_controller(Policy):
     def create_sim(self):
         self.sim = MjSim(load_model_from_path(self.agentparams['gen_xml_fname']))
 
-    def reinitialize(self):
-        self.use_net = self.policyparams['usenet']
-        self.action_list = []
-        self.gtruth_images = [np.zeros((self.M, 64, 64, 3)) for _ in range(self.nactions * self.repeat)]
-        self.initial_std = self.policyparams['initial_std']
-        # history of designated pixels
-        self.desig_pix = []
-        # predicted positions
-        self.pred_pos = np.zeros((self.M, self.niter, self.repeat * self.nactions, 2))
-        self.rec_target_pos = np.zeros((self.M, self.niter, self.repeat * self.nactions, 2))
-        self.bestindices_of_iter = np.zeros((self.niter, self.K))
-
-        self.indices = []
-
-        self.target = np.zeros(2)
 
     def finish(self):
         self.viewer.finish()

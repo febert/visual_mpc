@@ -1,6 +1,6 @@
 import numpy as np
 
-def get_target_qpos(target_qpos, _hyperparams, mj_U, t, gripper_up, gripper_closed, t_down, gripper_zpos, touch_sensors):
+def get_target_qpos(target_qpos, _hyperparams, mj_U, t, gripper_up, gripper_closed, t_down, gripper_zpos, touch_sensors=None):
     adim = _hyperparams['adim']
 
     target_qpos = target_qpos.copy()

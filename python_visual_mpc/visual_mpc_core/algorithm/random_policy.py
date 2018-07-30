@@ -1,20 +1,18 @@
 """ This file defines the linear Gaussian policy class. """
 import pdb
 import numpy as np
-import scipy
 
 from python_visual_mpc.visual_mpc_core.algorithm.policy import Policy
 
-from scipy.stats import multivariate_normal
-from python_visual_mpc.visual_mpc_core.algorithm.cem_controller_goalimage_sawyer import construct_initial_sigma
-from python_visual_mpc.visual_mpc_core.algorithm.cem_controller_goalimage_sawyer import truncate_movement
+from python_visual_mpc.visual_mpc_core.algorithm.utils.cem_controller_utils import construct_initial_sigma
+from python_visual_mpc.visual_mpc_core.algorithm.utils.cem_controller_utils import truncate_movement
 
 class Randompolicy(Policy):
     """
     Random Policy
     """
-    def __init__(self, action_proposal_conf, agentparams, policyparams):
-        Policy.__init__(self)
+    def __init__(self, agentparams, policyparams, gpu_id, npgu):
+        Policy.__init__(self, agentparams, policyparams, gpu_id, npgu)
         self.agentparams = agentparams
         self.policyparams = policyparams
         self.adim = agentparams['adim']

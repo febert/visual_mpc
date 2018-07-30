@@ -15,7 +15,6 @@ import pdb
 sys.path.append('/'.join(str.split(__file__, '/')[:-2]))
 # from lsdc.gui.gps_training_gui import GPSTrainingGUI
 #from python_visual_mpc.video_prediction.setup_predictor_simple import setup_predictor
-from python_visual_mpc.goaldistancenet.setup_gdn import setup_gdn
 from python_visual_mpc.visual_mpc_core.infrastructure.utility import *
 
 
@@ -31,7 +30,7 @@ import pickle as pkl
 class Sim(object):
     """ Main class to run algorithms and experiments. """
 
-    def __init__(self, config, gpu_id=0, ngpu=1, logger=None, mode='train'):
+    def __init__(self, config, gpu_id=0, ngpu=1, logger=None):
         self._hyperparams = config
         self.agent = config['agent']['type'](config['agent'])
         self.agentparams = config['agent']
@@ -40,32 +39,9 @@ class Sim(object):
             self.logger = Logger(printout=True)
         else: self.logger = logger
         self.logger.log('started sim')
-
         self.agentparams['gpu_id'] = gpu_id
-        self.task_mode = mode
 
-        if 'do_timing' in self._hyperparams:
-            self._timing_file = self._hyperparams['current_dir'] + '/timing_file{}.txt'.format(os.getpid())
-        else: self._timing_file = None
-
-        if 'netconf' in config['policy']:
-            params = imp.load_source('params', config['policy']['netconf'])
-            netconf = params.configuration
-            self.predictor = netconf['setup_predictor'](config, netconf, gpu_id, ngpu, self.logger)
-
-            if 'warp_objective' in config['policy'] or 'register_gtruth' in config['policy']:
-                params = imp.load_source('params', config['policy']['gdnconf'])
-                gdnconf = params.configuration
-                self.goal_image_warper = setup_gdn(gdnconf, gpu_id)
-                self.policy = config['policy']['type'](config['agent'], config['policy'], self.predictor, self.goal_image_warper)
-            elif 'actionproposal_conf' in config['policy']:
-                self.actionproposal_policy = config['policy']['actionproposal_setup'](config['policy']['actionproposal_conf'], self.agentparams, self.policyparams)
-                self.policy = config['policy']['type'](config['agent'], config['policy'], self.predictor, self.actionproposal_policy)
-            else:
-                self.policy = config['policy']['type'](config['agent'], config['policy'], self.predictor)
-        else:
-            imitationconf = {}
-            self.policy = config['policy']['type'](imitationconf, self.agent._hyperparams, config['policy'])
+        self.policy = config['policy']['type'](self.agent._hyperparams, config['policy'], gpu_id, ngpu)
 
         self.trajectory_list = []
         self.im_score_list = []
@@ -73,27 +49,18 @@ class Sim(object):
             os.remove(self._hyperparams['agent']['image_dir'])
         except:
             pass
-        self._record_queue = config.pop('record_saver')
-    def _init_policy(self):
-        if 'netconf' in self.policyparams:
-            if 'warp_objective' in self.policyparams or 'register_gtruth' in self.policyparams:
-                self.policy = self.policyparams['type'](self.agent._hyperparams,
-                                                              self.policyparams, self.predictor, self.goal_image_warper)
-            elif 'actionproposal_conf' in self.policyparams:
-                self.policy = self.policyparams['type'](self.agent._hyperparams, self.policyparams, self.predictor, self.actionproposal_policy)
-            else:
-                self.policy = self.policyparams['type'](self.agent._hyperparams,
-                                                              self.policyparams, self.predictor)
-        else:
-            imitationconf = {}
-            self.policy = self.policyparams['type'](imitationconf, self.agent._hyperparams, self.policyparams)
+
+        if 'reocord_saver' in config:
+            self._record_queue = config.pop('record_saver')
+        self.task_mode = 'train'
+
 
     def run(self):
         for i in range(self._hyperparams['start_index'], self._hyperparams['end_index']+1):
             self.take_sample(i)
 
     def take_sample(self, sample_index):
-        self._init_policy()
+        self.policy.reset()
 
         t_traj = time.time()
         agent_data, obs_dict, policy_out = self.agent.sample(self.policy, sample_index)
@@ -103,18 +70,16 @@ class Sim(object):
         if self._hyperparams['save_data']:
             self.save_data(sample_index, agent_data, obs_dict, policy_out)
         t_save = time.time() - t_save
+        return agent_data
 
-        if self._timing_file is not None:
-            with open(self._timing_file,'a') as f:
-                f.write("{} trajtime {} savetime {}\n".format(sample_index, t_traj, t_save))
 
     def save_data(self, itr, agent_data, obs_dict, policy_outputs):
         if 'save_raw_images' in self._hyperparams:
-            self._save_raw_images(itr, agent_data, obs_dict, policy_outputs)
+            self._save_raw_data(itr, agent_data, obs_dict, policy_outputs)
         else:
             self._record_queue.put((agent_data, obs_dict, policy_outputs))
 
-    def _save_raw_images(self, itr, agent_data, obs_dict, policy_outputs):
+    def _save_raw_data(self, itr, agent_data, obs_dict, policy_outputs):
         if 'RESULT_DIR' in os.environ:
             data_save_dir = os.environ['RESULT_DIR'] + '/data'
         else: data_save_dir = self.agentparams['data_save_dir']
@@ -128,11 +93,11 @@ class Sim(object):
 
         traj_folder = group_folder + '/traj{}'.format(itr)
         if os.path.exists(traj_folder):
-            self.logger.log('trajectory folder {} already exists, deleting the folder'.format(traj_folder))
+            print('trajectory folder {} already exists, deleting the folder'.format(traj_folder))
             shutil.rmtree(traj_folder)
 
         os.makedirs(traj_folder)
-        self.logger.log('writing: ', traj_folder)
+        print('writing: ', traj_folder)
         if 'images' in obs_dict:
             images = obs_dict.pop('images')
             T, n_cams = images.shape[:2]
@@ -147,6 +112,7 @@ class Sim(object):
             pkl.dump(obs_dict, file)
         with open('{}/policy_out.pkl'.format(traj_folder), 'wb') as file:
             pkl.dump(policy_outputs, file)
+
 
 def write_scores(dir, filename, trajlist, logger):
     if not os.path.exists(dir):
