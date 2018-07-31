@@ -1,6 +1,7 @@
 """ This file defines the linear Gaussian policy class. """
 import pdb
 import numpy as np
+import IPython
 
 import pdb
 import os
@@ -40,12 +41,19 @@ def verbose_worker():
         print('servicing req', req)
         try:
             plt.switch_backend('Agg')
-            ctrl, actions, scores, cem_itr, gen_distrib, gen_images, last_frames = verbose_queue.get(True)
-            visualizer = CEM_Visual_Preparation()
-            visualizer.visualize(ctrl, actions, scores, cem_itr, gen_distrib, gen_images, last_frames)
+            visualizer, vd = verbose_queue.get(True)
+            visualizer.visualize(vd)
         except RuntimeError:
             print("TKINTER ERROR, SKIPPING")
         req += 1
+
+class VisualzationData():
+    def __init__(self):
+        """
+        container for visualization data
+        """
+        pass
+
 
 class CEM_Controller_Vidpred(CEM_Controller_Base):
     """
@@ -107,6 +115,8 @@ class CEM_Controller_Vidpred(CEM_Controller_Base):
         self.best_cost_perstep = np.zeros([self.ncam, self.ndesig, self.seqlen - self.ncontxt])
 
         self.ntask = self.ndesig  # will be overwritten in derived classes
+        self.vd = VisualzationData()
+        self.visualizer = CEM_Visual_Preparation()
 
     def reset(self):
         super(CEM_Controller_Vidpred, self).reset()
@@ -177,13 +187,25 @@ class CEM_Controller_Vidpred(CEM_Controller_Base):
         itr_times['run_post'] = time.time() - t_run_post
         tstart_verbose = time.time()
 
+        self.vd.t = self.t
+        self.vd.scores = scores
+        self.vd.agentparams = self.agentparams
+        self.vd.policyparams = self.policyparams
+        self.vd.netconf = self.netconf
+        self.vd.ndesig = self.ndesig
+        self.vd.gen_distrib = gen_distrib
+        self.vd.gen_images = gen_images
+        self.vd.K = self.K
+        self.vd.cem_itr = cem_itr
+        self.vd.last_frames = last_frames
+        self.vd.goal_pix = self.goal_pix
         if self.verbose and cem_itr == self.policyparams['iterations']-1 and self.i_tr % self.verbose_freq ==0 or \
                 ('verbose_every_itr' in self.policyparams and self.i_tr % self.verbose_freq ==0):
             if self.parallel_vis:
-                verbose_queue.put((self, actions, scores, cem_itr, gen_distrib, gen_images, last_frames))
+                print('t{} cemitr {}'.format(self.t, cem_itr))
+                verbose_queue.put((self.visualizer, copy.deepcopy(self.vd)))
             else:
-                self.visualizer = CEM_Visual_Preparation()
-                self.visualizer.visualize(self, actions, scores, cem_itr, gen_distrib, gen_images, last_frames)
+                self.visualizer.visualize(self.vd)
 
         if 'save_desig_pos' in self.agentparams:
             save_track_pkl(self, self.t, cem_itr)
@@ -201,7 +223,6 @@ class CEM_Controller_Vidpred(CEM_Controller_Base):
 
         for icam in range(self.ncam):
             for p in range(self.ndesig):
-                pdb.set_trace()
                 distance_grid = self.get_distancegrid(self.goal_pix[icam, p])
                 score = self.calc_scores(icam, p, gen_distrib[:, :, icam, :, :, p], distance_grid,
                                          normalize=True)

@@ -20,7 +20,7 @@ class Register_Gtruth_Controller(CEM_Controller_Vidpred):
         self.visualizer = CEM_Visual_Preparation_Registration()
 
         num_reg_images = len(self.policyparams['register_gtruth'])
-        self.ntask = self.ndesig // num_reg_images
+        self.ntask = self.ntask = self.ndesig // num_reg_images
 
     def prep_vidpred_inp(self, actions, cem_itr):
         actions, last_frames, last_states, t_0 = super(Register_Gtruth_Controller, self).prep_vidpred_inp(actions, cem_itr)
@@ -41,12 +41,10 @@ class Register_Gtruth_Controller(CEM_Controller_Vidpred):
         """
         last_frames = last_frames[0, self.ncontxt -1]
 
-        warped_image_start_l, warped_image_goal_l, start_warp_pts_l, goal_warp_pts_l, warperrs_l = [], [], [], [], []
+        desig_pix_l, warperrs_l = [], []
         warped_image_start, _, start_warp_pts = self.goal_image_warper(last_frames[None], start_image[None])
         if 'goal' in self.policyparams['register_gtruth']:
             warped_image_goal, _, goal_warp_pts = self.goal_image_warper(last_frames[None], self.goal_image[None])
-
-        desig_pix_l = []
 
         imheight, imwidth = self.goal_image.shape[1:3]
         for n in range(self.ncam):
@@ -73,6 +71,15 @@ class Register_Gtruth_Controller(CEM_Controller_Vidpred):
 
         self.plan_stat['tradeoff'] = tradeoff
         self.plan_stat['warperrs'] = warperrs.reshape(self.ncam, self.ndesig)
+
+        # fill visualzation data object:
+        self.vd.reg_tradeoff = tradeoff
+        self.vd.ntask = self.ntask
+        self.vd.warped_image_start = warped_image_start
+        self.vd.warped_image_goal = warped_image_goal
+        self.vd.desig_pix_t0_med = self.desig_pix_t0_med
+        self.vd.desig_pix_t0 = self.desig_pix_t0
+        self.vd.goal_image = self.goal_image
         return warped_image_start, warped_image_goal, tradeoff
 
     def get_warp_err(self, icam, start_image, goal_image, start_warp_pts, goal_warp_pts, warped_image_start, warped_image_goal):
