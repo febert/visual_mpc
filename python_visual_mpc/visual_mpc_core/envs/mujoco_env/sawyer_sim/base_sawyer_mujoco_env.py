@@ -33,18 +33,25 @@ high_bound = np.array([0.27, 0.95, 0.3, 2 * np.pi - 0.001, 1])
 NEUTRAL_JOINTS = np.array([1.65474475, - 0.53312487, - 0.65980174, 1.1841825, 0.62772584, 1.11682223, 1.31015104, -0.05, 0.05])
 
 class BaseSawyerMujocoEnv(BaseMujocoEnv):
-    def __init__(self, filename=None, mode_rel=None, num_objects = 1, object_mass = 1, friction=1.0, finger_sensors=True,
-                 maxlen=0.12, minlen=0.01, object_meshes=None, obj_classname = 'freejoint',
-                 block_height=0.02, block_width = 0.02, viewer_image_height = 480, viewer_image_width = 640,
-                 skip_first=100, substeps=100, randomize_initial_pos = True, reset_state=None, ncam=2):
-        base_filename = asset_base_path + filename
-        friction_params = (friction, 0.1, 0.02)
-        self.obj_stat_prop = create_object_xml(base_filename, num_objects, object_mass,
-                                               friction_params, object_meshes, finger_sensors,
-                                               maxlen, minlen, reset_state, obj_classname,
-                                               block_height, block_width)
+    def __init__(self, env_params_dict):
+        assert 'filename' in env_params_dict, "Sawyer model filename required"
+        
+        #TF HParams can't handle list Hparams well, this is cleanest workaround for object_meshes
+        if 'object_meshes' in env_params_dict:
+            object_meshes = env_params_dict.pop('object_meshes')
+        else:
+            object_meshes = None
+        
+        params = self._default_hparams().override_from_dict(env_params_dict)
+
+        base_filename = asset_base_path + params.filename
+        friction_params = (params.friction, 0.1, 0.02)
+        self.obj_stat_prop = create_object_xml(base_filename, params.num_objects, params.object_mass,
+                                               friction_params, object_meshes, params.finger_sensors,
+                                               params.maxlen, params.minlen, params.reset_state, params.obj_classname,
+                                               params.block_height, params.block_width)
         gen_xml = create_root_xml(base_filename)
-        super().__init__(gen_xml, viewer_image_height, viewer_image_width, ncam)
+        super().__init__(gen_xml, params)
         clean_xml(gen_xml)
 
         if self.sim.model.nmocap > 0 and self.sim.model.eq_data is not None:
@@ -55,13 +62,36 @@ class BaseSawyerMujocoEnv(BaseMujocoEnv):
                         [0., 0., 0., 1., 0., 0., 0.]
                     )
 
-        self._base_sdim, self._base_adim, self.mode_rel = 5, 5, mode_rel
-        self.num_objects, self.skip_first, self.substeps = num_objects, skip_first, substeps
-        self.randomize_initial_pos = randomize_initial_pos
-        self.finger_sensors, self._maxlen = finger_sensors, maxlen
+        self._base_sdim, self._base_adim, self.mode_rel = 5, 5, params.mode_rel
+        self.num_objects, self.skip_first, self.substeps = params.num_objects, params.skip_first, params.substeps
+        self.randomize_initial_pos = params.randomize_initial_pos
+        self.finger_sensors, self._maxlen = params.finger_sensors, params.maxlen
 
         self._previous_target_qpos, self._n_joints = None, 9
-        self.reset_state = reset_state
+        self.reset_state = params.reset_state
+    
+    def _default_hparams(self):
+        default_dict = {'filename': None,
+                        'mode_rel': np.array([True, True, True, True, False]),
+                        'num_objects': 1,
+                        'object_mass': 1.0,
+                        'friction': 1.0,
+                        'finger_sensors': True,
+                        'maxlen': 0.12,
+                        'minlen': 0.01,
+                        'obj_classname': 'freejoint',
+                        'block_height': 0.02, 
+                        'block_width': 0.02,
+                        'skip_first': 100,
+                        'substeps': 100,
+                        'randomize_initial_pos': True,
+                        'reset_state': None}
+          
+        parent_params = super()._default_hparams()
+        parent_params.set_hparam('ncam', 2)
+        for k in default_dict.keys():
+            parent_params.add_hparam(k, default_dict[k])
+        return parent_params
 
     def _clip_gripper(self):
         self.sim.data.qpos[7:9] = np.clip(self.sim.data.qpos[7:9], [-0.055, 0.0027], [-0.0027, 0.055])

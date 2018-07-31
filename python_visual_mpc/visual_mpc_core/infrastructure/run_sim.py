@@ -43,17 +43,16 @@ class Sim(object):
 
         self.policy = config['policy']['type'](self.agent._hyperparams, config['policy'], gpu_id, ngpu)
 
+        if 'record_saver' in config:
+            self._record_queue = config.pop('record_saver')
+        
         self.trajectory_list = []
         self.im_score_list = []
         try:
             os.remove(self._hyperparams['agent']['image_dir'])
         except:
             pass
-
-        if 'reocord_saver' in config:
-            self._record_queue = config.pop('record_saver')
         self.task_mode = 'train'
-
 
     def run(self):
         for i in range(self._hyperparams['start_index'], self._hyperparams['end_index']+1):

@@ -4,13 +4,14 @@ import numpy as np
 
 class AGOpenActionEnv(AutograspSawyerMujocoEnv):
     def __init__(self, env_params):
-        if 'open_threshold' in env_params:
-            self._threshold = env_params.pop('open_threshold')
-        else:
-            self._threshold = 0
         super().__init__(env_params)
-        self._adim = 5
+        self._adim, self._threshold = 5, self._params.open_action_threshold
 
+    def _default_hparams(self):
+        parent_params = super()._default_hparams()
+        parent_params.add_hparam('open_action_threshold', 0.)
+        return parent_params
+    
     def _init_dynamics(self):
         super()._init_dynamics()
         self._goal_reached = False

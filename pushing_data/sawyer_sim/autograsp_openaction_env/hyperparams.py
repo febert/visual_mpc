@@ -22,7 +22,7 @@ env_params = {
     'substeps': 100,
      'autograsp': {'zthresh': 0.18, 'touchthresh': 0.0, 'reopen': True},
     'object_meshes': ['Fork', 'GlassBowl', 'Bowl', 'LotusBowl01'],
-    'open_threshold': -1.501085946044025
+    'open_action_threshold': -1.501085946044025
 }
 
 agent = {

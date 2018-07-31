@@ -94,8 +94,8 @@ class GeneralAgent(object):
 
         if 'verbose' in self._hyperparams:
             self.plot_ctrls(i_tr)
-            
-        agent_data['stat_prop'] = self.env.obj_stat_prop
+        
+        
         return agent_data, obs_dict, policy_outs
 
     def hide_arm_store_image(self):
@@ -161,12 +161,14 @@ class GeneralAgent(object):
                 self._agent_cache[k].append(env_obs[k])
             obs[k] = self._agent_cache[k][:self._cache_cntr]
 
-        obs['goal_image'] = self.goal_image
-        obs['goal_pos'] = self.goal_obj_pose
+        if self.goal_image is not None:
+            obs['goal_image'] = self.goal_image
+        if self.goal_obj_pose is not None:
+            obs['goal_pos'] = self.goal_obj_pose
 
         if self.goal_obj_pose is not None:
             obs['goal_pix'] = self.env.get_goal_pix(agent_img_width)
-        obs['desig_pix'] = env_obs['obj_image_locations']
+        
         return obs
 
     def _required_rollout_metadata(self, agent_data, traj_ok):
@@ -179,7 +181,8 @@ class GeneralAgent(object):
         if self.env.has_goal():
             agent_data['goal_reached'] = self.env.goal_reached()
         agent_data['traj_ok'] = traj_ok
-        agent_data['stat_prop'] = self.env.obj_stat_prop
+        if 'save_obj_stat_prop' in self._hyperparams:
+            agent_data['stat_prop'] = self.env.obj_stat_prop
 
     def rollout(self, policy, i_tr):
         """
@@ -218,12 +221,13 @@ class GeneralAgent(object):
             except ValueError:
                 return {'traj_ok': False}, None, None
 
-            agent_data['stats'] = self.env.eval()
+            if 'start_goal_confs' in self._hyperparams:
+                agent_data['stats'] = self.env.eval()
 
             if (self._hyperparams['T']-1) == t:
                 done = True
             if done:
-                agent_data['stats']['term_t'] = t
+                agent_data['term_t'] = t
             t += 1
 
         traj_ok = True

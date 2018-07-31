@@ -12,6 +12,8 @@ def get_policy_args(policy, obs, t, i_tr):
             value = obs[arg]
         elif arg == 't':
             value = t
+        elif arg == 'desig_pix':
+            value = obs['obj_image_locations'][-1]
         elif arg == 'i_tr':
             value = i_tr
 

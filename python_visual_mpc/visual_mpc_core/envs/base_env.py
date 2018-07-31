@@ -1,5 +1,7 @@
 import numpy as np
 import random
+from tensorflow.contrib.training import HParams
+
 
 class BaseEnv:
     def step(self, action):
@@ -14,6 +16,9 @@ class BaseEnv:
         """
         raise NotImplementedError
 
+    def _default_hparams(self):
+        return HParams()
+    
     def reset(self):
         """
         Resets the environment and returns initial observation
