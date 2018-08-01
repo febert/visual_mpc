@@ -135,7 +135,7 @@ class BaseSawyerMujocoEnv(BaseMujocoEnv):
             rand_xyz[-1] = 0.05
             return rand_xyz, np.random.uniform(-np.pi / 2, np.pi / 2)
 
-        object_poses = np.zeros(self.num_objects, 7)
+        object_poses = np.zeros((self.num_objects, 7))
         for i in range(self.num_objects):
             if self._reset_state is not None:
                 obji_xyz = self._reset_state['object_qpos'][i][:3]
@@ -155,11 +155,12 @@ class BaseSawyerMujocoEnv(BaseMujocoEnv):
         self.sim.data.set_mocap_quat('mocap', zangle_to_quat(np.random.uniform(low_bound[3], high_bound[3])))
 
         reset_state['object_qpos'] = copy.deepcopy(object_poses)
+        object_poses = object_poses.reshape(-1)
 
         #placing objects then resetting to neutral risks bad contacts
         try:
             for s in range(5):
-                self.sim.data.qpos[self._n_joints:] = object_poses.reshape(-1).copy()
+                self.sim.data.qpos[self._n_joints:] = object_poses.copy()
                 self.sim.step()
             self.sim.data.qpos[:9] = NEUTRAL_JOINTS
             for _ in range(5):
