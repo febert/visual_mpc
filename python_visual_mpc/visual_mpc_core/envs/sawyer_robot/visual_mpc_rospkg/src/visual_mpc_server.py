@@ -18,15 +18,44 @@ from python_visual_mpc.visual_mpc_core.algorithm.cem_controller_goalimage_sawyer
 from python_visual_mpc.visual_mpc_core.infrastructure.trajectory import Trajectory
 from python_visual_mpc import __file__ as base_filepath
 
-from python_visual_mpc.visual_mpc_core.infrastructure.run_sim import plot_warp_err
-
-
 import rospy
 import rospy.numpy_msg
 from visual_mpc_rospkg.srv import *
 import cv2
 from cv_bridge import CvBridge, CvBridgeError
 from sensor_msgs.msg import Image as Image_msg
+
+def plot_warp_err(traj, dir):
+
+    warperrs = []
+    tradeoff = []
+    for tstep in traj.plan_stat[1:]:
+        warperrs.append(tstep['warperrs'])
+        tradeoff.append(tstep['tradeoff'])
+
+    tradeoff = np.stack(tradeoff, 0)
+    warperrs = np.stack(warperrs, 0)
+
+    pickle.dump({'warperrs':warperrs, 'tradeoff':tradeoff}, open(dir +  '/warperrs_tradeoff.pkl', 'wb'))
+
+    # warperrs shape: tstep, ncam, numtrack
+    plt.figure()
+    ax = plt.gca()
+    ax.plot(warperrs[:,0,0], marker ='d', label='start')
+    ax.plot(warperrs[:,0,1], marker='o', label='goal')
+    ax.legend()
+    plt.savefig(dir + '/warperrors.png')
+
+    plt.figure()
+    ax = plt.gca()
+
+    ax.plot(tradeoff[:,0,0], marker='d', label='tradeoff for start')
+    ax.plot(tradeoff[:,0,1], marker='d', label='tradeoff for goal')
+    ax.legend()
+    plt.savefig(dir + '/tradeoff.png')
+
+
+
 
 class Visual_MPC_Server(object):
     def __init__(self, cmd_args=False):

@@ -1,5 +1,5 @@
 from python_visual_mpc.visual_mpc_core.infrastructure.synchronize_tfrecs import sync
-from multiprocessing import Pool, Process, Manager
+from multiprocessing import Pool, Process, Manager, Value, Lock
 import sys
 import argparse
 import importlib.machinery
@@ -14,6 +14,24 @@ import re
 import os
 from python_visual_mpc.visual_mpc_core.infrastructure.utility.combine_scores import combine_scores
 import ray
+
+
+class SynchCounter:
+    def __init__(self, manager):
+        self._lock, self._value = manager.Lock(), manager.Value('i', 0)
+
+    def ret_increment(self):
+        with self._lock:
+            ret_val = self._value.value
+            self._value.value += 1
+        return ret_val
+
+    @property
+    def value(self):
+        with self._lock:
+            ret_val = self._value.value
+        return ret_val
+
 
 def worker(conf, iex=-1):
     print('started process with PID:', os.getpid())
@@ -105,16 +123,18 @@ def main():
         print('launched sync')
 
     if 'data_save_dir' in hyperparams['agent']:
-        record_queue, record_saver_proc = prepare_saver(hyperparams)
+        record_queue, record_saver_proc, counter = prepare_saver(hyperparams)
 
     conflist = []
     for i in range(n_worker):
         modconf = copy.deepcopy(hyperparams)
         modconf['start_index'] = start_idx[i]
         modconf['end_index'] = end_idx[i]
+        modconf['ntraj'] = n_traj
         modconf['gpu_id'] = i + gpu_id
         if 'data_save_dir' in hyperparams['agent']:
             modconf['record_saver'] = record_queue
+            modconf['counter'] = counter
         conflist.append(modconf)
     if parallel:
         p = Pool(n_worker)
@@ -139,13 +159,13 @@ def main():
 
 def prepare_saver(hyperparams):
     m = Manager()
-    record_queue = m.Queue()
+    record_queue, synch_counter = m.Queue(), SynchCounter(m)
     save_dir, T = hyperparams['agent']['data_save_dir'] + '/records', hyperparams['agent']['T']
     seperate_good, traj_per_file = hyperparams.get('seperate_good', False), hyperparams['traj_per_file']
     record_saver_proc = Process(target=record_worker, args=(
     record_queue, save_dir, T, seperate_good, traj_per_file, hyperparams['start_index']))
     record_saver_proc.start()
-    return record_queue, record_saver_proc
+    return record_queue, record_saver_proc, synch_counter
 
 
 def sorted_alphanumeric(l):

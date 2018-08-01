@@ -1,31 +1,12 @@
-import matplotlib; matplotlib.use('Agg'); import matplotlib.pyplot as plt
-# import matplotlib; matplotlib.use('Agg'); import matplotlib.pyplot as plt
-
-import imp
+import cv2
+import shutil
+from python_visual_mpc.visual_mpc_core.infrastructure.utility.logger import Logger
+import pickle as pkl
 import os
 import os.path
 import sys
-import copy
-import argparse
-import threading
-import time
-import pdb
-
-# Add lsdc/python to path so that imports work.
 sys.path.append('/'.join(str.split(__file__, '/')[:-2]))
-# from lsdc.gui.gps_training_gui import GPSTrainingGUI
-#from python_visual_mpc.video_prediction.setup_predictor_simple import setup_predictor
-from python_visual_mpc.visual_mpc_core.infrastructure.utility import *
 
-
-from datetime import datetime
-import pickle
-import cv2
-import shutil
-import numpy as np
-from python_visual_mpc.visual_mpc_core.infrastructure.utility.logger import Logger
-from .utility.save_tf_record import save_tf_record
-import pickle as pkl
 
 class Sim(object):
     """ Main class to run algorithms and experiments. """
@@ -45,6 +26,10 @@ class Sim(object):
 
         if 'record_saver' in config:
             self._record_queue = config.pop('record_saver')
+
+        self._counter = None
+        if 'counter' in config:
+            self._counter = config.pop('counter')
         
         self.trajectory_list = []
         self.im_score_list = []
@@ -55,22 +40,22 @@ class Sim(object):
         self.task_mode = 'train'
 
     def run(self):
-        for i in range(self._hyperparams['start_index'], self._hyperparams['end_index']+1):
-            self.take_sample(i)
+        if self._counter is None:
+            for i in range(self._hyperparams['start_index'], self._hyperparams['end_index']+1):
+                self.take_sample(i)
+        else:
+            itr = self._counter.ret_increment()
+            while itr < self._hyperparams['ntraj']:
+                print('taking sample {} of {}'.format(itr, self._hyperparams['ntraj']))
+                self.take_sample(itr)
+                itr = self._counter.ret_increment()
 
     def take_sample(self, sample_index):
         self.policy.reset()
-
-        t_traj = time.time()
         agent_data, obs_dict, policy_out = self.agent.sample(self.policy, sample_index)
-        t_traj = time.time() - t_traj
-
-        t_save = time.time()
         if self._hyperparams['save_data']:
             self.save_data(sample_index, agent_data, obs_dict, policy_out)
-        t_save = time.time() - t_save
         return agent_data
-
 
     def save_data(self, itr, agent_data, obs_dict, policy_outputs):
         if 'save_raw_images' in self._hyperparams:
@@ -111,60 +96,3 @@ class Sim(object):
             pkl.dump(obs_dict, file)
         with open('{}/policy_out.pkl'.format(traj_folder), 'wb') as file:
             pkl.dump(policy_outputs, file)
-
-
-def write_scores(dir, filename, trajlist, logger):
-    if not os.path.exists(dir):
-        os.makedirs(dir, exist_ok=True)
-    filename = filename.partition('.')[0] + '_score.pkl'
-    filename = os.path.join(dir, filename)
-    logger.log('writing scorefile {}'.format(filename))
-    scores = {}
-    improvements = []
-    final_poscost = []
-    initial_poscost = []
-    for traj in trajlist:
-        improvements.append(traj.improvement)
-        final_poscost.append(traj.final_poscost)
-        initial_poscost.append(traj.initial_poscost)
-    scores['improvement'] = improvements
-    scores['final_poscost'] = final_poscost
-    scores['initial_poscost'] = initial_poscost
-    pickle.dump(scores, open(filename, 'wb'))
-
-
-def plot_warp_err(traj, dir):
-
-    warperrs = []
-    tradeoff = []
-    for tstep in traj.plan_stat[1:]:
-        warperrs.append(tstep['warperrs'])
-        tradeoff.append(tstep['tradeoff'])
-
-    tradeoff = np.stack(tradeoff, 0)
-    warperrs = np.stack(warperrs, 0)
-
-    pickle.dump({'warperrs':warperrs, 'tradeoff':tradeoff}, open(dir +  '/warperrs_tradeoff.pkl', 'wb'))
-
-    # warperrs shape: tstep, ncam, numtrack
-    plt.figure()
-    ax = plt.gca()
-    ax.plot(warperrs[:,0,0], marker ='d', label='start')
-    ax.plot(warperrs[:,0,1], marker='o', label='goal')
-    ax.legend()
-    plt.savefig(dir + '/warperrors.png')
-
-    plt.figure()
-    ax = plt.gca()
-
-    ax.plot(tradeoff[:,0,0], marker='d', label='tradeoff for start')
-    ax.plot(tradeoff[:,0,1], marker='d', label='tradeoff for goal')
-    ax.legend()
-    plt.savefig(dir + '/tradeoff.png')
-
-def plot_dist(traj, dir):
-    goal_dist = np.stack(traj.goal_dist, axis=0)
-    plt.figure()
-    for ob in range(goal_dist.shape[1]):
-        plt.plot(goal_dist[:,ob])
-    plt.savefig(dir + '/goal_dist.png')
