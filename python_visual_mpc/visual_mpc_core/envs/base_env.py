@@ -21,8 +21,10 @@ class BaseEnv:
     
     def reset(self):
         """
-        Resets the environment and returns initial observation
+        Resets the environment. Returns initial observation as well as information needed to recreate initialization
+
         :return: obs dict (look at step(self, action) for documentation)
+                 reset_state - All the information needed to recreate environment (can be None if not possible)
         """
         raise NotImplementedError
 

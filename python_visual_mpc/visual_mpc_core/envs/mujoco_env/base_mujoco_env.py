@@ -14,8 +14,8 @@ class BaseMujocoEnv(BaseEnv):
         self._base_adim, self._base_sdim = None, None                 #state/action dimension of Mujoco control
         self._adim, self._sdim = None, None   #state/action dimension presented to agent
         self.num_objects, self._n_joints = None, None
-        self.goal_obj_pose = None
-        self.goaldistances = []
+        self._goal_obj_pose = None
+        self._goaldistances = []
 
         self._ncam = params.ncam
         if self._ncam == 2:
@@ -35,6 +35,8 @@ class BaseMujocoEnv(BaseEnv):
 
         return parent_params
 
+    def set_goal_obj_pose(self, pose):
+        self._goal_obj_pose = pose
 
     def _reset_sim(self, model_path):
         """
@@ -46,7 +48,7 @@ class BaseMujocoEnv(BaseEnv):
         self.sim = MjSim(load_model_from_path(self._model_path))
 
     def reset(self):
-        self.goaldistances = []
+        self._goaldistances = []
 
     def render(self):
         """ Renders the enviornment.
@@ -116,11 +118,11 @@ class BaseMujocoEnv(BaseEnv):
         return goal_pix
 
     def eval(self):
-        self.goaldistances.append(self._get_distance_score())
+        self._goaldistances.append(self._get_distance_score())
         stats = {}
-        stats['improvement'] = self.goaldistances[0] - self.goaldistances[-1]
-        stats['initial_dist'] = self.goaldistances[-1]
-        stats['final_dist'] = self.goaldistances[0]
+        stats['improvement'] = self._goaldistances[0] - self._goaldistances[-1]
+        stats['initial_dist'] = self._goaldistances[-1]
+        stats['final_dist'] = self._goaldistances[0]
         return stats
 
     def _get_distance_score(self):

@@ -8,6 +8,7 @@ from python_visual_mpc.visual_mpc_core.envs.util.interpolation import TwoPointCS
 import time
 from mujoco_py.builder import MujocoException
 import copy
+from python_visual_mpc.video_prediction.misc.makegifs2 import npy_to_gif
 import pdb
 import  matplotlib.pyplot as plt
 
@@ -18,12 +19,14 @@ def quat_to_zangle(quat):
         return angle + 2 * np.pi
     return angle
 
+
 def zangle_to_quat(zangle):
     """
     :param zangle in rad
     :return: quaternion
     """
     return (Quaternion(axis=[0,1,0], angle=np.pi) * Quaternion(axis=[0, 0, -1], angle= zangle)).elements
+
 
 BASE_DIR = '/'.join(str.split(python_visual_mpc.__file__, '/')[:-2])
 asset_base_path = BASE_DIR + '/mjc_models/sawyer_assets/sawyer_xyz/'
@@ -32,8 +35,9 @@ low_bound = np.array([-0.27, 0.52, 0.15, 0, -1])
 high_bound = np.array([0.27, 0.95, 0.3, 2 * np.pi - 0.001, 1])
 NEUTRAL_JOINTS = np.array([1.65474475, - 0.53312487, - 0.65980174, 1.1841825, 0.62772584, 1.11682223, 1.31015104, -0.05, 0.05])
 
+
 class BaseSawyerMujocoEnv(BaseMujocoEnv):
-    def __init__(self, env_params_dict):
+    def __init__(self, env_params_dict, reset_state=None):
         assert 'filename' in env_params_dict, "Sawyer model filename required"
         
         #TF HParams can't handle list Hparams well, this is cleanest workaround for object_meshes
@@ -46,10 +50,14 @@ class BaseSawyerMujocoEnv(BaseMujocoEnv):
 
         base_filename = asset_base_path + params.filename
         friction_params = (params.friction, 0.1, 0.02)
-        self.obj_stat_prop = create_object_xml(base_filename, params.num_objects, params.object_mass,
+        reset_xml = None
+        if reset_state is not None:
+            reset_xml = reset_state['reset_xml']
+
+        self._reset_xml = create_object_xml(base_filename, params.num_objects, params.object_mass,
                                                friction_params, object_meshes, params.finger_sensors,
-                                               params.maxlen, params.minlen, params.reset_state, params.obj_classname,
-                                               params.block_height, params.block_width)
+                                               params.maxlen, params.minlen, reset_xml,
+                                                params.obj_classname, params.block_height, params.block_width)
         gen_xml = create_root_xml(base_filename)
         super().__init__(gen_xml, params)
         clean_xml(gen_xml)
@@ -68,7 +76,11 @@ class BaseSawyerMujocoEnv(BaseMujocoEnv):
         self.finger_sensors, self._maxlen = params.finger_sensors, params.maxlen
 
         self._previous_target_qpos, self._n_joints = None, 9
-        self.reset_state = params.reset_state
+        self._reset_state = reset_state
+
+        if self._params.verbose_dir is not None:
+            self._verbose_vid = []
+            self._ctr = 0
     
     def _default_hparams(self):
         default_dict = {'filename': None,
@@ -82,10 +94,10 @@ class BaseSawyerMujocoEnv(BaseMujocoEnv):
                         'obj_classname': 'freejoint',
                         'block_height': 0.02, 
                         'block_width': 0.02,
-                        'skip_first': 100,
-                        'substeps': 100,
+                        'skip_first': 80,
+                        'substeps': 1000,
                         'randomize_initial_pos': True,
-                        'reset_state': None}
+                        'verbose_dir': None}
           
         parent_params = super()._default_hparams()
         parent_params.set_hparam('ncam', 2)
@@ -96,51 +108,81 @@ class BaseSawyerMujocoEnv(BaseMujocoEnv):
     def _clip_gripper(self):
         self.sim.data.qpos[7:9] = np.clip(self.sim.data.qpos[7:9], [-0.055, 0.0027], [-0.0027, 0.055])
 
+    def render(self):
+        imgs = super().render()
+        if self._params.verbose_dir is not None:
+            self._verbose_vid.append(imgs[0, :, :, ::-1].copy())
+        return imgs
+
+    def _render_verbose(self):
+        return self._verbose_vid.append(super().render()[0])
+
     def reset(self):
         super(BaseSawyerMujocoEnv, self).reset()
-        last_rands = []
+        last_rands, reset_state = [], {}
+        reset_state['reset_xml'] = copy.deepcopy(self._reset_xml)
+        margin = 1.1 * self._maxlen
+        if self._params.verbose_dir is not None:
+            print('resetting')
+
+        if self._params.verbose_dir is not None and len(self._verbose_vid) > 0:
+            npy_to_gif(self._verbose_vid, self._params.verbose_dir + '/verbose_traj_{}'.format(self._ctr), 20)
+            self._verbose_vid = []
+            self._ctr += 1
 
         def samp_xyz_rot():
             rand_xyz = np.random.uniform(low_bound[:3] + self._maxlen / 2 + 0.02, high_bound[:3] - self._maxlen / 2 + 0.02)
             rand_xyz[-1] = 0.05
             return rand_xyz, np.random.uniform(-np.pi / 2, np.pi / 2)
 
+        object_poses = np.zeros(self.num_objects, 7)
         for i in range(self.num_objects):
-            if self.reset_state is not None:
-                obji_xyz = self.reset_state['object_qpos'][i][:3]
-                obji_quat = self.reset_state['object_qpos'][i][3:]
+            if self._reset_state is not None:
+                obji_xyz = self._reset_state['object_qpos'][i][:3]
+                obji_quat = self._reset_state['object_qpos'][i][3:]
             else:
                 obji_xyz, rot = samp_xyz_rot()
                 #rejection sampling to ensure objects don't crowd each other
-                while len(last_rands) > 0 and min([np.linalg.norm(obji_xyz - obj_j) for obj_j in last_rands]) < self._maxlen:
+                while len(last_rands) > 0 and min([np.linalg.norm(obji_xyz[:2] - obj_j[:2])
+                                                   for obj_j in last_rands]) < margin:
                     obji_xyz, rot = samp_xyz_rot()
                 last_rands.append(obji_xyz)
 
-                obji_quat = Quaternion(axis=[0, 0, -1], angle= rot).elements
-            self.sim.data.qpos[self._n_joints + i * 7: self._n_joints + 3 + i * 7] = obji_xyz
-            self.sim.data.qpos[self._n_joints + 3 + i * 7: self._n_joints + 7 + i * 7] = obji_quat
-        self.sim.data.set_mocap_pos('mocap', np.array([0,0,2]))
+                obji_quat = Quaternion(axis=[0, 0, -1], angle=rot).elements
+            object_poses[i, :3] = obji_xyz
+            object_poses[i, 3:] = obji_quat
+        self.sim.data.set_mocap_pos('mocap', np.array([0, 0.5, 0.5]))
         self.sim.data.set_mocap_quat('mocap', zangle_to_quat(np.random.uniform(low_bound[3], high_bound[3])))
+
+        reset_state['object_qpos'] = copy.deepcopy(object_poses)
 
         #placing objects then resetting to neutral risks bad contacts
         try:
-            for _ in range(5):
+            for s in range(5):
+                self.sim.data.qpos[self._n_joints:] = object_poses.reshape(-1).copy()
                 self.sim.step()
             self.sim.data.qpos[:9] = NEUTRAL_JOINTS
             for _ in range(5):
                 self.sim.step()
+                if self._params.verbose_dir is not None:
+                    self._render_verbose()
         except MujocoException:
             return self.reset()
 
-        if self.reset_state is not None:
-            xyz = self.reset_state['state'][:3]
-            quat = zangle_to_quat(self.reset_state['state'][3])
+        if self._reset_state is not None:
+            xyz = self._reset_state['state'][:3]
+            quat = zangle_to_quat(self._reset_state['state'][3])
         elif self.randomize_initial_pos:
             xyz = np.random.uniform(low_bound[:3], high_bound[:3])
+            while len(last_rands) > 0 and min([np.linalg.norm(xyz[:2]-obj_j[:2]) for obj_j in last_rands]) < margin:
+                xyz = np.random.uniform(low_bound[:3], high_bound[:3])
             quat = zangle_to_quat(np.random.uniform(low_bound[3], high_bound[3]))
         else:
             xyz = np.array([0, 0.5, 0.17])
             quat = zangle_to_quat(np.pi)
+
+        reset_state['state'] = np.zeros(7)
+        reset_state['state'][:3], reset_state['state'][3:] = xyz.copy(), quat.copy()
 
         self.sim.data.set_mocap_pos('mocap', xyz)
         self.sim.data.set_mocap_quat('mocap', quat)
@@ -150,11 +192,23 @@ class BaseSawyerMujocoEnv(BaseMujocoEnv):
         self.sim.data.ctrl[:] = [-1, 1]
 
         finger_force = np.zeros(2)
-        for _ in range(self.skip_first):
+        if self._params.verbose_dir is not None:
+            print('skip_first: {}'.format(self.skip_first))
+
+        assert self.skip_first > 15, "Skip first should be at least 15"
+        for t in range(self.skip_first):
+            if t < 10:
+                self.sim.data.qpos[self._n_joints:] = object_poses.copy()
+
+            if self._params.verbose_dir is not None and t % 2 == 0:
+                print('skip: {}'.format(t))
+                self._render_verbose()
+
             for _ in range(20):
                 self._clip_gripper()
                 try:
                     self.sim.step()
+
                 except MujocoException:
                     #if randomly generated start causes 'bad' contacts Mujoco will error. Have to reset again
                     print('except')
@@ -162,6 +216,8 @@ class BaseSawyerMujocoEnv(BaseMujocoEnv):
 
             if self.finger_sensors:
                 finger_force += self.sim.data.sensordata[:2]
+        if self._params.verbose_dir is not None:
+            print('after')
         finger_force /= 10 * self.skip_first
 
         self._previous_target_qpos = np.zeros(self._base_sdim)
@@ -171,7 +227,7 @@ class BaseSawyerMujocoEnv(BaseMujocoEnv):
 
         self._init_dynamics()
 
-        return self._get_obs(finger_force)
+        return self._get_obs(finger_force), reset_state
 
     def _get_obs(self, finger_sensors):
         obs, touch_offset = {}, 0
@@ -250,12 +306,8 @@ class BaseSawyerMujocoEnv(BaseMujocoEnv):
 
             self.sim.data.set_mocap_pos('mocap', xyz_interp.get(alpha)[0])
 
-            if st < 3 * self.substeps // 4:
-                self.sim.data.ctrl[0] = self._previous_target_qpos[-1]
-                self.sim.data.ctrl[1] = -self._previous_target_qpos[-1]
-            else:
-                self.sim.data.ctrl[0] = target_qpos[-1]
-                self.sim.data.ctrl[1] = -target_qpos[-1]
+            self.sim.data.ctrl[0] = self._previous_target_qpos[-1]
+            self.sim.data.ctrl[1] = -self._previous_target_qpos[-1]
 
             for _ in range(20):
                 self._clip_gripper()
@@ -266,10 +318,25 @@ class BaseSawyerMujocoEnv(BaseMujocoEnv):
                 except MujocoException:
                     print('Sim reset (bad contact)')
                     raise ValueError
+            if self._params.verbose_dir is not None and st % 10 == 0:
+                self._render_verbose()
+
+        for st in range(100):
+            self.sim.data.ctrl[0] = target_qpos[-1]
+            self.sim.data.ctrl[1] = -target_qpos[-1]
+            if self.finger_sensors:
+                finger_force += copy.deepcopy(self.sim.data.sensordata[:2].squeeze())
+
+            if self._params.verbose_dir is not None and st % 20 == 0:
+                self._render_verbose()
 
         finger_force /= self.substeps * 10
         if np.sum(finger_force) > 0:
             print(finger_force)
+
+        reach_xyz, reach_theta = self.sim.data.get_body_xpos('hand'), quat_to_zangle(self.sim.data.get_body_xquat('hand'))
+        if self._params.verbose_dir is not None:
+            print('delta xy: {}, delta z {}, delta theta: {}'.format(np.linalg.norm(target_qpos[:2] - reach_xyz[:2]), abs(reach_xyz[2] - target_qpos[2]), np.rad2deg(abs(reach_theta - target_qpos[3]))))
         self._previous_target_qpos = target_qpos
 
         obs = self._get_obs(finger_force)
@@ -294,7 +361,6 @@ class BaseSawyerMujocoEnv(BaseMujocoEnv):
 
     def _init_dynamics(self):
         pass
-
 
     def move_arm(self):
         """

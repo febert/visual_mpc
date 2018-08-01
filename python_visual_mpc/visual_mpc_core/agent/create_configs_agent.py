@@ -1,16 +1,4 @@
 """ This file defines an agent for the MuJoCo simulator environment. """
-import matplotlib; matplotlib.use('Agg'); import matplotlib.pyplot as plt
-
-import copy
-import numpy as np
-import pickle
-from PIL import Image
-from python_visual_mpc.video_prediction.misc.makegifs2 import npy_to_gif
-import os
-import cv2
-from python_visual_mpc.visual_mpc_core.algorithm.policy import get_policy_args
-
-
 from .general_agent import GeneralAgent
 
 
@@ -33,8 +21,11 @@ class CreateConfigAgent(GeneralAgent):
                  Note: tfrecord saving assumes all keys in agent_data/obs/policy_outputs point to np arrays or primitive int/float
         """
         # Take the sample.
-        self.large_images_traj, self.traj_points= [], None
-        obs = self._post_process_obs(self.env.reset(), True)
+        self._init()
+
+        initial_env_obs, reset_state = self.env.reset()
+        obs = self._post_process_obs(initial_env_obs, True)
+
         agent_data, policy_outputs = {}, []
         agent_data['traj_ok'] = True
 
@@ -45,6 +36,8 @@ class CreateConfigAgent(GeneralAgent):
                 obs = self._post_process_obs(self.env._get_obs(None))
             except ValueError:
                 return {'traj_ok': False}, None, None
+
+        agent_data['reset_state'] = reset_state
 
         return agent_data, obs, policy_outputs
 

@@ -1,17 +1,10 @@
 """ This file defines an agent for the MuJoCo simulator environment. """
-import matplotlib; matplotlib.use('Agg'); import matplotlib.pyplot as plt
-
-import shutil
-import pickle as pkl
 import copy
 import numpy as np
-import pickle
-from PIL import Image
 from python_visual_mpc.video_prediction.misc.makegifs2 import npy_to_gif
-import os
 import cv2
 from python_visual_mpc.visual_mpc_core.algorithm.policy import get_policy_args
-import pdb
+
 
 def file_len(fname):
     i = 0
@@ -19,6 +12,7 @@ def file_len(fname):
         for i, l in enumerate(f):
             pass
     return i + 1
+
 
 class Image_Exception(Exception):
     def __init__(self):
@@ -33,18 +27,9 @@ class GeneralAgent(object):
     def __init__(self, hyperparams):
         self._hyperparams = hyperparams
         self.T = self._hyperparams['T']
-        self.goal_obj_pose = None
-        self.goal_image = None
-        self.goal_mask = None
-        self.goal_pix = None
-        self.curr_mask = None
-        self.curr_mask_large = None
-        self.desig_pix = None
-        if 'cameras' in self._hyperparams:
-            self.ncam = len(self._hyperparams['cameras'])
-        else: self.ncam = 1
-        self.start_conf = None
-        self.load_obj_statprop = None  #loaded static object properties
+        self._goal_obj_pose = None
+        self._goal_image = None
+        self._reset_state = None
         self._setup_world(0)
 
     def _setup_world(self, itr):
@@ -53,13 +38,8 @@ class GeneralAgent(object):
         Args:
             filename: Path to XML file containing the world information.
         """
-
-        if 'start_goal_confs' in self._hyperparams:
-            reset_state = self._load_raw_data(itr)
-        else: reset_state = None
         env_type, env_params = self._hyperparams['env']
-        env_params['reset_state'] = reset_state
-        self.env = env_type(env_params)
+        self.env = env_type(env_params, self._reset_state)
 
         self._hyperparams['adim'] = self.adim = self.env.adim
         self._hyperparams['sdim'] = self.sdim = self.env.sdim
@@ -91,10 +71,6 @@ class GeneralAgent(object):
 
         if 'make_final_gif' in self._hyperparams or 'make_final_gif_pointoverlay' in self._hyperparams:
             self.save_gif(i_tr, 'make_final_gif_pointoverlay' in self._hyperparams)
-
-        if 'verbose' in self._hyperparams:
-            self.plot_ctrls(i_tr)
-        
         
         return agent_data, obs_dict, policy_outs
 
@@ -161,12 +137,11 @@ class GeneralAgent(object):
                 self._agent_cache[k].append(env_obs[k])
             obs[k] = self._agent_cache[k][:self._cache_cntr]
 
-        if self.goal_image is not None:
-            obs['goal_image'] = self.goal_image
-        if self.goal_obj_pose is not None:
-            obs['goal_pos'] = self.goal_obj_pose
+        if self._goal_image is not None:
+            obs['goal_image'] = self._goal_image
 
-        if self.goal_obj_pose is not None:
+        if self._goal_obj_pose is not None:
+            obs['goal_pos'] = self._goal_obj_pose
             obs['goal_pix'] = self.env.get_goal_pix(agent_img_width)
         
         return obs
@@ -181,8 +156,6 @@ class GeneralAgent(object):
         if self.env.has_goal():
             agent_data['goal_reached'] = self.env.goal_reached()
         agent_data['traj_ok'] = traj_ok
-        if 'save_obj_stat_prop' in self._hyperparams:
-            agent_data['stat_prop'] = self.env.obj_stat_prop
 
     def rollout(self, policy, i_tr):
         """
@@ -195,16 +168,13 @@ class GeneralAgent(object):
                  Note: tfrecord saving assumes all keys in agent_data/obs/policy_outputs point to np arrays or primitive int/float
         """
         self._init()
-        agent_img_height, agent_img_width = self._hyperparams['image_height'], self._hyperparams['image_width']
-        self.env.goal_obj_pose = self.goal_obj_pose
-
         agent_data, policy_outputs = {}, []
 
         # Take the sample.
         t = 0
         done = False
-        self.large_images_traj, self.traj_points= [], None
-        obs = self._post_process_obs(self.env.reset(), True)
+        initial_env_obs, _ = self.env.reset()
+        obs = self._post_process_obs(initial_env_obs, True)
 
         while not done:
             """
@@ -220,9 +190,6 @@ class GeneralAgent(object):
                 obs = self._post_process_obs(self.env.step(copy.deepcopy(pi_t['actions'])))
             except ValueError:
                 return {'traj_ok': False}, None, None
-
-            if 'start_goal_confs' in self._hyperparams:
-                agent_data['stats'] = self.env.eval()
 
             if (self._hyperparams['T']-1) == t:
                 done = True
@@ -243,65 +210,6 @@ class GeneralAgent(object):
         self._required_rollout_metadata(agent_data, traj_ok)
         return agent_data, obs, policy_outputs
 
-
-    def save_goal_image_conf(self, traj):
-        div = .05
-        quantized = np.around(traj.score/div)
-        best_score = np.min(quantized)
-        for i in range(traj.score.shape[0]):
-            if quantized[i] == best_score:
-                first_best_index = i
-                break
-
-        print('best_score', best_score)
-        print('allscores', traj.score)
-        print('goal index: ', first_best_index)
-
-        goalimage = traj.images[first_best_index]
-        goal_ballpos = np.concatenate([traj.X_full[first_best_index], np.zeros(2)])  #set velocity to zero
-
-        goal_object_pose = traj.Object_pos[first_best_index]
-
-        img = Image.fromarray(goalimage)
-
-        dict = {}
-        dict['goal_image'] = goalimage
-        dict['goal_ballpos'] = goal_ballpos
-        dict['goal_object_pose'] = goal_object_pose
-
-        pickle.dump(dict, open(self._hyperparams['save_goal_image'] + '.pkl', 'wb'))
-        img.save(self._hyperparams['save_goal_image'] + '.png',)
-
-
-    def _load_raw_data(self, itr):
-        """
-        doing the reverse of save_raw_data
-        :param itr:
-        :return:
-        """
-        ngroup = 1000
-        igrp = itr // ngroup
-        group_folder = self._hyperparams['start_goal_confs'] + '/traj_group{}'.format(igrp)
-        traj_folder = group_folder + '/traj{}'.format(itr)
-
-        print('reading from: ', traj_folder)
-        num_images = 2
-
-        obs_dict = {}
-        goal_images = np.zeros([num_images, self.ncam, self._hyperparams['image_height'], self._hyperparams['image_width'], 3])
-        for t in range(num_images):  #TODO detect number of images automatically in folder
-            for i in range(self.ncam):
-                goal_images[t, i] = cv2.imread('{}/images{}/im_{}.png'.format(traj_folder, i, t))
-        self.goal_image = goal_images[-1]
-        with open('{}/agent_data.pkl'.format(traj_folder), 'rb') as file:
-            agent_data = pkl.load(file)
-        with open('{}/obs_dict.pkl'.format(traj_folder), 'rb') as file:
-            obs_dict.update(pkl.load(file))
-        reset_state = {'object_qpos':obs_dict['object_qpos'][0], 'state':obs_dict['state'][0], 'stat_prop':agent_data['stat_prop']}
-
-        self.goal_obj_pose = obs_dict['object_qpos'][-1]
-        return reset_state
-
     def save_gif(self, itr, overlay=False):
         if self.traj_points is not None and overlay:
             colors = [tuple([np.random.randint(0, 256) for _ in range(3)]) for __ in range(self.num_objects + 1)]
@@ -313,43 +221,11 @@ class GeneralAgent(object):
         file_path = self._hyperparams['record']
         npy_to_gif(self.large_images_traj, file_path +'/video{}'.format(itr))
 
-    def plot_ctrls(self, i_tr):
-        # a = plt.gca()
-        self.hf_qpos_l = np.stack(self.hf_qpos_l, axis=0)
-        self.hf_target_qpos_l = np.stack(self.hf_target_qpos_l, axis=0)
-        tmax = self.hf_target_qpos_l.shape[0]
-
-        if not os.path.exists(self._hyperparams['record']):
-            os.makedirs(self._hyperparams['record'])
-        for i in range(self.adim):
-            plt.subplot(self.adim,1,i+1)
-            plt.plot(list(range(tmax)), self.hf_qpos_l[:,i], label='q_{}'.format(i))
-            plt.plot(list(range(tmax)), self.hf_target_qpos_l[:, i], label='q_target{}'.format(i))
-            plt.legend()
-        plt.savefig(self._hyperparams['record'] + '/ctrls{}.png'.format(i_tr))
-        plt.close()
-
-    def plot_pix_dist(self, planstat):
-        plt.figure()
-        pix_dist = np.stack(self.pix_dist, -1)
-
-        best_cost_perstep = planstat['best_cost_perstep']
-
-        nobj = self.num_objects
-        nplot = self.ncam*nobj
-        for icam in range(self.ncam):
-            for p in range(nobj):
-                plt.subplot(1,nplot, 1 + icam*nobj+p)
-                plt.plot(pix_dist[icam, p], label='gtruth')
-                plt.plot(best_cost_perstep[icam,p], label='pred')
-
-        plt.legend()
-        plt.savefig(self._hyperparams['record'] + '/pixel_distcost.png')
-
     def _init(self):
         """
         Set the world to a given model
         """
-        return
+        self.large_images_traj, self.traj_points= [], None
+
 
 

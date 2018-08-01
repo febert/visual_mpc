@@ -74,12 +74,12 @@ Usage:
         </default>
 
         <default class="freejoint">
-            <joint limited="false" damping="0.05"/>
+            <joint limited="false" damping="1."/>
         </default>
 
     </default>
 
     <equality>
-        <weld body1="mocap" body2="hand" solref="0.05 0.95"></weld>
+        <weld body1="mocap" body2="hand" solref="0.01 1."></weld>
     </equality>
 </mujoco>

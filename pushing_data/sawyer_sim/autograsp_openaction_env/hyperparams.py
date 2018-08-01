@@ -38,7 +38,7 @@ agent = {
     'gen_xml':10,   #generate xml every nth trajecotry
     'ztarget':0.13,
     'record': BASE_DIR + '/record/',
-    'rejection_sample': 10
+    'rejection_sample': 1
 }
 
 policy = {
