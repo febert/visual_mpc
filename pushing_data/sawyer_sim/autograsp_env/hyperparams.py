@@ -6,8 +6,7 @@ import numpy as np
 
 from python_visual_mpc.visual_mpc_core.algorithm.random_policy import Randompolicy, RandomPickPolicy
 from python_visual_mpc.visual_mpc_core.agent.general_agent import GeneralAgent
-from python_visual_mpc.visual_mpc_core.envs.mujoco_env.sawyer_sim.autograsp_env import AutograspSawyerEnv
-
+from python_visual_mpc.visual_mpc_core.envs.mujoco_env.sawyer_sim.autograsp_sawyer_mujoco_env import AutograspSawyerMujocoEnv
 
 BASE_DIR = '/'.join(str.split(__file__, '/')[:-1])
 current_dir = os.path.dirname(os.path.realpath(__file__))
@@ -28,7 +27,7 @@ env_params = {
 
 agent = {
     'type': GeneralAgent,
-    'env': (AutograspSawyerEnv, env_params),
+    'env': (AutograspSawyerMujocoEnv, env_params),
     'data_save_dir': BASE_DIR,
     'not_use_images':"",
     'cameras':['maincam', 'leftcam'],
@@ -43,6 +42,7 @@ agent = {
     'make_final_gif': True,
     'discrete_gripper': -1, #discretized gripper dimension,
     'lift_rejection_sample' : 15,
+    'make_final_gif_pointoverlay': True,
 }
 
 policy = {

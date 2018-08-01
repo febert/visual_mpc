@@ -6,7 +6,7 @@ import numpy as np
 
 from python_visual_mpc.visual_mpc_core.algorithm.random_policy import Randompolicy, RandomPickPolicy
 from python_visual_mpc.visual_mpc_core.agent.general_agent import GeneralAgent
-from python_visual_mpc.visual_mpc_core.envs.mujoco_env.sawyer_sim.autograsp_env import AutograspSawyerMujocoEnv
+from python_visual_mpc.visual_mpc_core.envs.mujoco_env.sawyer_sim.autograsp_sawyer_mujoco_env import AutograspSawyerMujocoEnv
 
 from python_visual_mpc.visual_mpc_core.algorithm.cem_controller_vidpred import CEM_Controller_Vidpred
 
@@ -34,7 +34,7 @@ env_params = {
 agent = {
     'type': GeneralAgent,
     'env': (AutograspSawyerMujocoEnv, env_params),
-    'T': 15,
+    'T': 30,
     'image_height' : 48,
     'image_width' : 64,
     'novideo':'',
