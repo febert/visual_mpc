@@ -4,6 +4,7 @@ import numpy as np
 from python_visual_mpc.video_prediction.utils_vpred.animate_tkinter import resize_image
 from python_visual_mpc.visual_mpc_core.algorithm.utils.make_cem_visuals import CEM_Visual_Preparation_Registration
 import imp
+from python_visual_mpc.visual_mpc_core.algorithm.cem_controller_base import CEM_Controller_Base
 
 from python_visual_mpc.goaldistancenet.setup_gdn import setup_gdn
 
@@ -125,4 +126,5 @@ class Register_Gtruth_Controller(CEM_Controller_Vidpred):
             self.desig_pix_t0 = np.array(desig_pix).reshape((self.ncam, self.ntask, 2))   # 1,1,2
             if 'image_medium' in self.agentparams:
                 self.desig_pix_t0_med = (self.desig_pix_t0 * self.agentparams['image_medium'][0]/self.agentparams['image_height']).astype(np.int)
-        return super(Register_Gtruth_Controller, self).act(t, i_tr, desig_pix, goal_pix, images, state)
+        self.goal_pix = goal_pix
+        return super(CEM_Controller_Vidpred, self).act(t, i_tr)

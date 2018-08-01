@@ -178,10 +178,7 @@ class BaseSawyerMujocoEnv(BaseMujocoEnv):
         self._last_obs = copy.deepcopy(obs)
         # get images
         obs['images'] = self.render()
-
-
         obs['obj_image_locations'] = self.get_desig_pix(self._frame_width)
-
         return obs
 
     def _sim_integrity(self):

@@ -357,10 +357,9 @@ class CEM_Controller_Vidpred(CEM_Controller_Base):
             goal_pix: in coordinates of small image
             desig_pix: in coordinates of small image
         """
-        if self.desig_pix is None:
-            self.desig_pix = np.array(desig_pix).reshape((self.ncam, self.ntask, 2))
-        if self.goal_pix is None:
-            self.goal_pix = np.array(goal_pix).reshape((self.ncam, self.ntask, 2))
+        self.desig_pix = np.array(desig_pix).reshape((self.ncam, self.ntask, 2))
+        self.goal_pix = np.array(goal_pix).reshape((self.ncam, self.ntask, 2))
+
         self.images = images
         self.state = state
         return super(CEM_Controller_Vidpred, self).act(t, i_tr)

@@ -142,7 +142,7 @@ class GeneralAgent(object):
         obs = {}
         for k in env_obs:
             if k == 'images':
-                self.large_images_traj.append(env_obs['images'][0])
+                self.large_images_traj.append(env_obs['images'][0])  #only take first camera
                 new_dims = (agent_img_width, agent_img_height)
                 for i in range(env_obs['images'].shape[0]):
                     self._agent_cache['images'][t, i] = cv2.resize(env_obs['images'][i], new_dims,
@@ -150,7 +150,7 @@ class GeneralAgent(object):
 
             # TODO: seems to be redundant with get_dsig_pix
             elif k == 'obj_image_locations':
-                self.traj_points.append(copy.deepcopy(env_obs['obj_image_locations']))
+                self.traj_points.append(copy.deepcopy(env_obs['obj_image_locations'][0]))  #only take first camera
                 env_obs['obj_image_locations'] = (env_obs['obj_image_locations'] * agent_img_height / env_obs['images'].shape[1]).astype(np.int)
                 self._agent_cache['obj_image_locations'][t] = env_obs['obj_image_locations']
             elif isinstance(env_obs[k], np.ndarray):
@@ -164,7 +164,10 @@ class GeneralAgent(object):
 
         if self.goal_obj_pose is not None:
             obs['goal_pix'] = self.env.get_goal_pix(agent_img_width)
+
         obs['desig_pix'] = env_obs['obj_image_locations']
+
+        print('desig pix:', obs['desig_pix'])
 
         return obs
 
@@ -195,6 +198,7 @@ class GeneralAgent(object):
         self.env.goal_obj_pose = self.goal_obj_pose
 
         agent_data, policy_outputs = {}, []
+        agent_data['stats'] = {}
 
         # Take the sample.
         t = 0
@@ -217,7 +221,8 @@ class GeneralAgent(object):
             except ValueError:
                 return {'traj_ok': False}, None, None
 
-            agent_data['stats'] = self.env.eval()
+            if self.goal_obj_pose is not None:
+                agent_data['stats'] = self.env.eval()
 
             if (self._hyperparams['T']-1) == t:
                 done = True
