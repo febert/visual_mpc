@@ -34,7 +34,7 @@ class GeneralAgent(object):
         self._hyperparams = hyperparams
         self.T = self._hyperparams['T']
         self.goal_obj_pose = None
-        self.goal_image = None
+        self.goal_images = None
         self.goal_mask = None
         self.goal_pix = None
         self.curr_mask = None
@@ -159,7 +159,7 @@ class GeneralAgent(object):
                 self._agent_cache[k].append(env_obs[k])
             obs[k] = self._agent_cache[k][:self._cache_cntr]
 
-        obs['goal_image'] = self.goal_image
+        obs['goal_image'] = self.goal_images
         obs['goal_pos'] = self.goal_obj_pose
 
         if self.goal_obj_pose is not None:
@@ -285,14 +285,17 @@ class GeneralAgent(object):
         traj_folder = group_folder + '/traj{}'.format(itr)
 
         print('reading from: ', traj_folder)
-        num_images = 2
+        if 'num_load_steps' in self._hyperparams:
+            num_images = self._hyperparams['num_load_steps']
+        else:
+            num_images = 2
 
         obs_dict = {}
-        goal_images = np.zeros([num_images, self.ncam, self._hyperparams['image_height'], self._hyperparams['image_width'], 3])
+        self.goal_images = np.zeros([num_images, self.ncam, self._hyperparams['image_height'], self._hyperparams['image_width'], 3])
         for t in range(num_images):  #TODO detect number of images automatically in folder
             for i in range(self.ncam):
-                goal_images[t, i] = cv2.imread('{}/images{}/im_{}.png'.format(traj_folder, i, t))
-        self.goal_image = goal_images[-1]
+                self.goal_images[t, i] = cv2.imread('{}/images{}/im_{}.png'.format(traj_folder, i, t))[...,::-1]
+        self.goal_images = self.goal_images.astype(np.float32)/255.
         with open('{}/agent_data.pkl'.format(traj_folder), 'rb') as file:
             agent_data = pkl.load(file)
         with open('{}/obs_dict.pkl'.format(traj_folder), 'rb') as file:

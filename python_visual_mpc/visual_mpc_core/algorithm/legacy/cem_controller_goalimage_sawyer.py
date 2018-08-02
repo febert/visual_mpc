@@ -853,7 +853,7 @@ class CEM_controller():
         scores = compute_warp_cost(self.logger, self.policyparams, flow_fields, self.goal_pix, warped_images, goal_image, self.goal_mask)
         self.logger.log('t_fs1 {}'.format(time.time() - t_fs1))
 
-        return flow_fields, scores, warp_pts_l, warped_images
+        return flow_fields, scores, warp_pts_l, warped_imagesa
 
     def compute_trade_off_cost(self, gen_distrib):
         """

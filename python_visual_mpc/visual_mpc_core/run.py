@@ -83,9 +83,10 @@ def main():
             os.system("rm {}".format('/'.join(str.split(hyperparams['agent']['filename'], '/')[:-1]) + '/auto_gen/*'))
         except: pass
 
-    if do_benchmark:
-        use_worker = bench_worker
-    else: use_worker = worker
+    # if do_benchmark:
+    #     use_worker = bench_worker
+    # else: use_worker = worker
+    use_worker = bench_worker
 
     if 'RESULT_DIR' in os.environ:
         result_dir = os.environ['RESULT_DIR']

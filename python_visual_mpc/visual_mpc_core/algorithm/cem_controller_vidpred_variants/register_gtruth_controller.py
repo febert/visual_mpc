@@ -4,6 +4,7 @@ import numpy as np
 from python_visual_mpc.video_prediction.utils_vpred.animate_tkinter import resize_image
 from python_visual_mpc.visual_mpc_core.algorithm.utils.make_cem_visuals import CEM_Visual_Preparation_Registration
 import imp
+import pdb
 from python_visual_mpc.visual_mpc_core.algorithm.cem_controller_base import CEM_Controller_Base
 
 from python_visual_mpc.goaldistancenet.setup_gdn import setup_gdn
@@ -80,7 +81,10 @@ class Register_Gtruth_Controller(CEM_Controller_Vidpred):
         self.vd.warped_image_goal = warped_image_goal
         self.vd.desig_pix_t0_med = self.desig_pix_t0_med
         self.vd.desig_pix_t0 = self.desig_pix_t0
+        self.vd.desig_pix = self.desig_pix
+        self.vd.start_image = self.start_image
         self.vd.goal_image = self.goal_image
+
         return warped_image_start, warped_image_goal, tradeoff
 
     def get_warp_err(self, icam, start_image, goal_image, start_warp_pts, goal_warp_pts, warped_image_start, warped_image_goal):
@@ -120,11 +124,14 @@ class Register_Gtruth_Controller(CEM_Controller_Vidpred):
         self.goal_pix = self.goal_pix.reshape(self.ncam, self.ndesig, 2)
         if 'image_medium' in self.agentparams:
             self.goal_pix_med = (self.goal_pix * self.agentparams['image_medium'][0] / self.agentparams['image_height']).astype(np.int)
-        self.goal_image = goal_image
+        self.goal_image = goal_image[-1]
 
         if t == 0:
             self.desig_pix_t0 = np.array(desig_pix).reshape((self.ncam, self.ntask, 2))   # 1,1,2
             if 'image_medium' in self.agentparams:
                 self.desig_pix_t0_med = (self.desig_pix_t0 * self.agentparams['image_medium'][0]/self.agentparams['image_height']).astype(np.int)
-        self.goal_pix = goal_pix
+            else: self.desig_pix_t0_med = None
+
+        self.images = images
+        self.state = state
         return super(CEM_Controller_Vidpred, self).act(t, i_tr)

@@ -41,8 +41,7 @@ def assemble_gif(video_batch, num_exp = 8, convert_from_float = True, only_ind=N
         legend_col = np.concatenate(txt_im, 0)
     else:
         legend_col = None
-    vid_length = min([len(vid) for vid in video_batch])
-    print('smallest length of all videos', vid_length)
+    vid_length = video_batch[0].shape[1]
 
     #videobatch is a list of [b, t, r, c, 3]
 
@@ -80,13 +79,26 @@ def get_score_images(scores, height, width, seqlen, numex):
     return np.repeat(textrow[:,None], seqlen, axis=1)
 
 def make_direct_vid(dict, numex, gif_savepath, suf, resize=None):
-
+    """
+    :param dict:  dictionary with video tensors of shape bsize, tlen, ncam, r, c, 3
+    :param numex:
+    :param gif_savepath:
+    :param suf:
+    :param resize:
+    :return:
+    """
     new_videolist = []
+    shapes = []
     for key in dict:
         images = dict[key]
         print('key', key)
         print('shape', images.shape)
+
+        if len(shapes) > 0:   # check that all the same size
+            assert images.shape == shapes[-1], 'shape is different!'
+        shapes.append(images.shape)
         assert not isinstance(images, list)
+
         # if 'gen_distrib' in vid[1]:
         #     plt.switch_backend('TkAgg')
         #     plt.imshow(vid[0][0][0])

@@ -41,7 +41,6 @@ agent = {
     'gen_xml':1,   #generate xml every nth trajecotry
     'ztarget':0.13,
     'min_z_lift':0.05,
-    'record': BASE_DIR + '/record/',
     'make_final_gif': True,
     'discrete_gripper': -1, #discretized gripper dimension,
     'start_goal_confs':os.environ['VMPC_DATA_DIR'] + '/sawyer_sim/startgoal_conf/bowl_arm_disp/train',
@@ -65,7 +64,7 @@ policy = {
 config = {
     'traj_per_file': 128,
     'current_dir': current_dir,
-    'save_data': False,
+    'save_data': True,
     'start_index':0,
     'end_index': 50,
     'agent': agent,

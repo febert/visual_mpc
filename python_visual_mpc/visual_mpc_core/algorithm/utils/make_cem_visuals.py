@@ -111,6 +111,7 @@ class CEM_Visual_Preparation(object):
         if 'compare_mj_planner_actions' in vd.agentparams:
             selindices = np.concatenate([np.zeros(1, dtype=np.int) ,bestindices])
         else: selindices = bestindices
+        self.selindices = selindices
         gen_distrib = vd.gen_distrib[selindices]
         gen_images = vd.gen_images[selindices]
         print('selected distributions')
@@ -165,7 +166,7 @@ class CEM_Visual_Preparation(object):
     def visualize_goal_pixdistrib(self, vd, gen_distrib):
         for icam in range(self.ncam):
             for p in range(self.ndesig):
-                gen_distrib_ann = color_code_distrib(gen_distrib[:, :, icam, :, :, p], self.num_ex, renormalize=True)
+                gen_distrib_ann = color_code(gen_distrib[:, :, icam, :, :, p], self.num_ex, renormalize=True)
                 gen_distrib_ann = image_addgoalpix(self.num_ex, self.len_pred, gen_distrib_ann,
                                                    vd.goal_pix[icam, p])
                 self._t_dict['gen_distrib_cam{}_p{}'.format(icam, p)] = gen_distrib_ann
@@ -174,12 +175,6 @@ class CEM_Visual_Preparation(object):
         for icam in range(self.ncam):
             current_image = np.tile(last_frames[0, 1, icam][None, None], [self.num_ex, self.len_pred, 1, 1, 1, 1])
             self._t_dict['curr_img_cam{}'.format(icam)] = current_image.squeeze()
-
-    def annontate_goalimage_genimage(self):
-        gl_im_ann = None
-        gen_image_an_l = None
-        print('none registered')
-        return gen_image_an_l, gl_im_ann
 
 
 class CEM_Visual_Preparation_Registration(CEM_Visual_Preparation):
@@ -196,9 +191,12 @@ class CEM_Visual_Preparation_Registration(CEM_Visual_Preparation):
         for icam in range(self.ncam):
             for p in range(self.ndesig):
                 sel_gen_distrib_p = gen_distrib[:, :, icam, :, :, p]
-                self._t_dict['gen_distrib_cam{}_p{}'.format(icam, p)] = sel_gen_distrib_p
-                self._t_dict['gen_dist_goalim_overlay_cam{}_p{}_t{}'.format(icam, p, vd.t)] = \
-                compute_overlay(self.gl_im_ann_per_tsk[p, :, :, icam], sel_gen_distrib_p, self.num_ex)
+                color_coded_dist = color_code(sel_gen_distrib_p, self.num_ex, renormalize=True)
+                color_coded_dist = image_addgoalpix(self.num_ex, self.len_pred, color_coded_dist,
+                                                   vd.goal_pix[icam, p])
+                self._t_dict['gen_distrib_cam{}_p{}'.format(icam, p)] = color_coded_dist
+                self._t_dict['gen_dist_goalim_overlay_cam{}_p{}'.format(icam, p)] = \
+                compute_overlay(self.gl_im_ann_per_tsk[p, :, :, icam], color_coded_dist)
 
     def visualize_registration(self, vd):
         if 'image_medium' in self.agentparams:
@@ -259,6 +257,23 @@ class CEM_Visual_Preparation_Registration(CEM_Visual_Preparation):
             self._t_dict['goal_image{}'.format(icam)] = gl_im_ann[:, :, icam]
 
 
+class CEM_Visual_Preparation_FullImage(CEM_Visual_Preparation):
+    def annontate_images(self, vd, last_frames):
+        self.visualize_registration(vd)
+
+    def visualize_registration(self, vd):
+        for icam in range(self.ncam):
+            self._t_dict['reg_cam{}'.format(icam)] = vd.warped_images[self.selindices,:,icam]
+
+        for icam in range(vd.ncam):
+            goal_image = np.tile(vd.goal_image[icam][None, None], [self.num_ex, self.len_pred, 1, 1, 1])
+            self._t_dict['goal_image_cam{}'.format(icam)] = goal_image
+            self._t_dict['flow_mags_cam{}'.format(icam)] = color_code(vd.flow_mags[self.selindices,:,icam], self.num_ex, renormalize=True)
+
+    def visualize_goal_pixdistrib(self, vd, gen_distrib):
+        pass
+
+
 def annotate_tracks(vd, current_image, icam, len_pred, num_ex):
     ipix = 0
     for p in range(vd.ntask):
@@ -303,20 +318,19 @@ def make_state_summary(K, last_states, gen_states, agentparams, bestindices, cem
                 f.write('t{}  {}\n'.format(t_, gen_states[bestindices][i, t_]))
 
 
-def compute_overlay(images, distrib, numex):
-    color_coded_dist = color_code_distrib(distrib, numex, renormalize=True)
+def compute_overlay(images, color_coded_dist):
     alpha = .6
     return color_coded_dist*alpha + (1-alpha)*images
 
-
-def color_code_distrib(inp_distrib, num_ex, renormalize=False):
+def color_code(inp, num_ex, renormalize=False):
     out_distrib = []
-    for t in range(inp_distrib.shape[1]):
-        distrib = inp_distrib[:,t]
+    for t in range(inp.shape[1]):
+        distrib = inp[:, t]
         out_t = []
 
         for b in range(num_ex):
-            cmap = plt.cm.get_cmap('jet')
+            # cmap = plt.cm.get_cmap('jet')
+            cmap = plt.cm.get_cmap('viridis')
             if renormalize:
                 distrib[b] /= (np.max(distrib[b])+1e-6)
             colored_distrib = cmap(np.squeeze(distrib[b]))[:, :, :3]

@@ -144,12 +144,7 @@ class CEM_Controller_Vidpred(CEM_Controller_Base):
     def get_rollouts(self, actions, cem_itr, itr_times):
         actions, last_frames, last_states, t_0 = self.prep_vidpred_inp(actions, cem_itr)
 
-        if 'masktrafo_obj' in self.policyparams:
-            curr_obj_mask = np.repeat(self.curr_obj_mask[None], self.netconf['context_frames'], axis=0).astype(
-                np.float32)
-            input_distrib = np.repeat(curr_obj_mask[None], self.M, axis=0)[..., None]
-        else:
-            input_distrib = self.make_input_distrib(cem_itr)
+        input_distrib = self.make_input_distrib(cem_itr)
 
         t_startpred = time.time()
         if self.M > self.bsize:
@@ -180,9 +175,8 @@ class CEM_Controller_Vidpred(CEM_Controller_Base):
         itr_times['t_concat'] = time.time() - t_run_post
         self.logger.log('time for videoprediction {}'.format(time.time() - t_startpred))
         t_run_post = time.time()
-        t_startcalcscores = time.time()
 
-        scores = self.eval_planningcost(cem_itr, gen_distrib, t_startcalcscores)
+        scores = self.eval_planningcost(cem_itr, gen_distrib, gen_images)
 
         itr_times['run_post'] = time.time() - t_run_post
         tstart_verbose = time.time()
@@ -199,6 +193,7 @@ class CEM_Controller_Vidpred(CEM_Controller_Base):
         self.vd.cem_itr = cem_itr
         self.vd.last_frames = last_frames
         self.vd.goal_pix = self.goal_pix
+        self.vd.ncam = self.ncam
         if self.verbose and cem_itr == self.policyparams['iterations']-1 and self.i_tr % self.verbose_freq ==0 or \
                 ('verbose_every_itr' in self.policyparams and self.i_tr % self.verbose_freq ==0):
             if self.parallel_vis:
@@ -218,7 +213,9 @@ class CEM_Controller_Vidpred(CEM_Controller_Base):
 
         return scores
 
-    def eval_planningcost(self, cem_itr, gen_distrib, t_startcalcscores):
+    def eval_planningcost(self, cem_itr, gen_distrib, gen_images):
+
+        t_startcalcscores = time.time()
         scores_per_task = []
 
         for icam in range(self.ncam):
@@ -254,7 +251,6 @@ class CEM_Controller_Vidpred(CEM_Controller_Base):
                 best_gen_distrib = gen_distrib[bestind, self.ncontxt].reshape(1, self.ncam, self.img_height,
                                                                               self.img_width, self.ndesig)
                 self.rec_input_distrib.append(best_gen_distrib)
-
         self.logger.log('time to calc scores {}'.format(time.time() - t_startcalcscores))
         return scores
 

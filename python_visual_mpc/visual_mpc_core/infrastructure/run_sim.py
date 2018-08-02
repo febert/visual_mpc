@@ -52,8 +52,6 @@ class Sim(object):
 
         if 'reocord_saver' in config:
             self._record_queue = config.pop('record_saver')
-        self.task_mode = 'train'
-
 
     def run(self):
         for i in range(self._hyperparams['start_index'], self._hyperparams['end_index']+1):
@@ -83,7 +81,6 @@ class Sim(object):
         if 'RESULT_DIR' in os.environ:
             data_save_dir = os.environ['RESULT_DIR'] + '/data'
         else: data_save_dir = self.agentparams['data_save_dir']
-        data_save_dir += '/' + self.task_mode
 
         ngroup = self._hyperparams['ngroup']
         igrp = itr // ngroup
