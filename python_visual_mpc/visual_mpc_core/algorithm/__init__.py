@@ -1,4 +1,3 @@
-from .cem_controller_goalimage_sawyer import CEM_controller
 from .random_policy import RandomPickPolicy, Randompolicy
 from .policy import Policy
 

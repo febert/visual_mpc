@@ -48,16 +48,16 @@ class GeneralAgentSaver:
     """
     Serializes trajectory data and sends to RecordSaver to store as TFRecord
     """
-    def __init__(self, save_dir, sequence_length, seperate_good=False, traj_per_file=128):
+    def __init__(self, save_dir, sequence_length, seperate_good=False, traj_per_file=128, offset=0):
         self._base_dir = save_dir
         self._seperate_good = seperate_good
         self._manifest_saved, self._T = False, sequence_length
 
         if seperate_good:
-            self._good_saver = RecordSaver('{}/good'.format(self._base_dir), sequence_length, traj_per_file)
-            self._bad_saver = RecordSaver('{}/bad'.format(self._base_dir), sequence_length, traj_per_file)
+            self._good_saver = RecordSaver('{}/good'.format(self._base_dir), sequence_length, traj_per_file, offset)
+            self._bad_saver = RecordSaver('{}/bad'.format(self._base_dir), sequence_length, traj_per_file, offset)
         else:
-            self._saver = RecordSaver(self._base_dir, sequence_length, traj_per_file)
+            self._saver = RecordSaver(self._base_dir, sequence_length, traj_per_file, offset)
 
     def _save_manifests(self, agent_data, obs, policy_out):
         def get_shape(datum):
@@ -137,9 +137,10 @@ class GeneralAgentSaver:
             self._saver.flush()
 
 
-def record_worker(queue, save_dir, sequence_length, seperate_good, traj_per_file):
+def record_worker(queue, save_dir, sequence_length, seperate_good, traj_per_file, offset=0):
     print('started saver with PID:', os.getpid())
-    saver = GeneralAgentSaver(save_dir, sequence_length, seperate_good, traj_per_file)
+    print('saving to {}'.format(save_dir))
+    saver = GeneralAgentSaver(save_dir, sequence_length, seperate_good, traj_per_file, offset)
     data = queue.get(True)
     counter = 0
     while data is not None:

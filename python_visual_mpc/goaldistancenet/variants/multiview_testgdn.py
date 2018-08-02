@@ -37,6 +37,7 @@ class MulltiviewTestGDN():
         for n in range(self.ncam):
             self.gdn.append(GoalDistanceNet(conf=conf, build_loss=False, load_data = False,
                                             I0=self.I0_pl[:,n], I1=self.I1_pl[:,n]))
+
     def build_net(self):
         self.warped_I0_to_I1 = []
         self.flow_bwd = []
@@ -56,7 +57,6 @@ class MulltiviewTestGDN():
         self.warped_I0_to_I1 = tf.stack(self.warped_I0_to_I1, axis=1)
         self.flow_bwd = tf.stack(self.flow_bwd, axis=1)
         self.warp_pts_bwd = tf.stack(self.warp_pts_bwd, axis=1)
-
 
     def restore(self, sess):
         for n in range(self.ncam):

@@ -3,12 +3,12 @@ import python_visual_mpc
 current_dir = '/'.join(str.split(__file__, '/')[:-1])
 bench_dir = '/'.join(str.split(__file__, '/')[:-2])
 
-from python_visual_mpc.visual_mpc_core.algorithm.cem_controller_goalimage_sawyer import CEM_controller
+from python_visual_mpc.visual_mpc_core.algorithm.cem_controller_vidpred import CEM_Controller_Vidpred
 
 ROOT_DIR = os.path.abspath(python_visual_mpc.__file__)
 ROOT_DIR = '/'.join(str.split(ROOT_DIR, '/')[:-2])
 
-from python_visual_mpc.visual_mpc_core.agent.agent_mjc import AgentMuJoCo
+from python_visual_mpc.visual_mpc_core.agent.general_agent import AgentMuJoCo
 import numpy as np
 agent = {
     'type': AgentMuJoCo,
@@ -22,6 +22,8 @@ agent = {
     'filename_nomarkers': ROOT_DIR + '/mjc_models/cartgripper_updown.xml',
     'gen_xml':1,   #generate xml every nth trajecotry
     'num_objects': 1,
+    'object_mass':0.01,
+    'friction':1.5,
     'viewer_image_height' : 480,
     'viewer_image_width' : 640,
     'image_height':48,
@@ -35,7 +37,7 @@ agent = {
 
 policy = {
     'verbose':'',
-    'type' : CEM_controller,
+    'type' : CEM_Controller_Vidpred,
     'low_level_ctrl': None,
     'current_dir':current_dir,
     'nactions': 5,

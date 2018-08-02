@@ -3,8 +3,8 @@ import os.path
 import numpy as np
 
 from python_visual_mpc.visual_mpc_core.algorithm.random_policy import Randompolicy, RandomPickPolicy
-from python_visual_mpc.visual_mpc_core.agent.agent_mjc import AgentMuJoCo
-from python_visual_mpc.visual_mpc_core.envs.sawyer_sim.agopenaction_env import AGOpenActionEnv
+from python_visual_mpc.visual_mpc_core.agent.general_agent import GeneralAgent
+from python_visual_mpc.visual_mpc_core.envs.mujoco_env.sawyer_sim.agopenaction_env import AGOpenActionEnv
 
 
 BASE_DIR = '/'.join(str.split(__file__, '/')[:-1])
@@ -21,12 +21,12 @@ env_params = {
     'finger_sensors': True,
     'substeps': 100,
      'autograsp': {'zthresh': 0.18, 'touchthresh': 0.0, 'reopen': True},
-    'object_meshes': ['Fork', 'Spoon', 'Bowl', 'LotusBowl01'],
-    'open_threshold': -1.501085946044025
+    'object_meshes': ['Fork', 'GlassBowl', 'Bowl', 'LotusBowl01'],
+    'open_action_threshold': -1.501085946044025
 }
 
 agent = {
-    'type': AgentMuJoCo,
+    'type': GeneralAgent,
     'env': (AGOpenActionEnv, env_params),
     'data_save_dir': BASE_DIR,
     'not_use_images':"",
@@ -37,10 +37,8 @@ agent = {
     'novideo':'',
     'gen_xml':10,   #generate xml every nth trajecotry
     'ztarget':0.13,
-    'min_z_lift':0.05,
     'record': BASE_DIR + '/record/',
-    'make_final_gif': True,
-    'rejection_sample': 15
+    'rejection_sample': 1
 }
 
 policy = {
@@ -55,7 +53,7 @@ policy = {
 }
 
 config = {
-    'traj_per_file': 128,
+    'traj_per_file': 16,
     'seperate_good': True,
     'current_dir' : current_dir,
     'save_data': True,

@@ -4,7 +4,7 @@ import os.path
 import numpy as np
 
 from python_visual_mpc.imitation_model.imitation_policy import ImitationPolicy
-from python_visual_mpc.visual_mpc_core.agent.agent_mjc import AgentMuJoCo
+from python_visual_mpc.visual_mpc_core.agent.general_agent import AgentMuJoCo
 
 IMAGE_WIDTH = 64
 IMAGE_HEIGHT = 64

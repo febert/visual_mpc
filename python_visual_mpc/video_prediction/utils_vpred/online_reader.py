@@ -159,11 +159,11 @@ def read_trajectory(conf, trajname, use_tar = False):
 
     if use_tar:
         tar = tarfile.open(trajname + "/traj.tar")
-        pkl_file_stream = tar.extractfile('traj/state_action.pkl')
+        pkl_file_stream = tar.extractfile('traj/agent_data.pkl')
         pkldata = pickle.load(pkl_file_stream)
     else:
         tar = None
-        pkldata = pickle.load(open(trajname + '/state_action.pkl', 'rb'), encoding='latin1')
+        pkldata = pickle.load(open(trajname + '/agent_data.pkl', 'rb'), encoding='latin1')
 
     for tag_dict in conf['sourcetags']:
         if 'not_per_timestep' not in tag_dict:

@@ -3,6 +3,7 @@ import os
 import collections
 import pickle
 from python_visual_mpc.video_prediction.basecls.utils.visualize import add_crosshairs
+import pdb
 
 
 from python_visual_mpc.visual_mpc_core.infrastructure.assemble_cem_visuals import CEM_Visualizer
@@ -10,6 +11,8 @@ from python_visual_mpc.visual_mpc_core.infrastructure.assemble_cem_visuals impor
 from python_visual_mpc.utils.txt_in_image import draw_text_onimage
 
 import matplotlib; matplotlib.use('Agg'); import matplotlib.pyplot as plt
+from python_visual_mpc.video_prediction.utils_vpred.animate_tkinter import color_code_distrib
+
 from python_visual_mpc.video_prediction.utils_vpred.animate_tkinter import resize_image
 
 def image_addgoalpix(bsize, seqlen, image_l, goal_pix):
@@ -26,7 +29,7 @@ def images_addwarppix(gen_images, warp_pts_l, pix, num_objects):
 def plot_sum_overtime(pixdistrib, dir, filename, tradeoffs):
 
     # shape pixdistrib: b, t, icam, r, c, ndesig
-    # num_exp = I0_t_reals[0].shape[0]
+    # self.num_exp = I0_t_reals[0].shape[0]
     b, seqlen, ncam, r, c, ndesig = pixdistrib.shape
     num_rows = ncam*ndesig
     num_cols = b
@@ -87,184 +90,184 @@ def write_tradeoff_onimage(image, tradeoff_percam, ntask, startgoal):
     string = ','.join(['%.2f' %  tr for  tr in list(tradeoff_percam[:,startgoal])])
     return draw_text_onimage(string, image)
 
-def make_cem_visuals(ctrl, actions, bestindices, cem_itr, flow_fields, gen_distrib, gen_images, gen_states,
-                     last_frames, goal_warp_pts_l, scores, warped_image_goal, warped_image_start, warped_images, last_states, reg_tradeoff):
+class CEM_Visual_Preparation(object):
+    def __init__(self):
+        pass
 
-    print('in make_cem_visuals')
-    plt.switch_backend('agg')
+    def visualize(self, ctrl, actions, scores, cem_itr, gen_distrib, gen_images, last_frames):
 
-    if 'compare_mj_planner_actions' in ctrl.agentparams:
-        selindices = np.concatenate([np.zeros(1, dtype=np.int) ,bestindices])
-    else: selindices = bestindices
-    gen_distrib = gen_distrib[selindices]
-    gen_images = gen_images[selindices]
-    print('selected distributions')
-    if 'image_medium' in ctrl.agentparams:
-        gen_distrib = resize_image(gen_distrib, ctrl.goal_image.shape[1:3])
-        gen_images = resize_image(gen_images, ctrl.goal_image.shape[1:3])
-        print('resized images')
-    num_ex = selindices.shape[0]
+        bestindices = scores.argsort()[:ctrl.K]
 
-    len_pred = ctrl.netconf['sequence_length'] - ctrl.netconf['context_frames']
+        print('in make_cem_visuals')
+        plt.switch_backend('agg')
 
-    if ctrl.save_subdir != None:
-        file_path = ctrl.policyparams['current_dir'] + '/' + ctrl.save_subdir + '/verbose'
-    else:
-        file_path = ctrl.policyparams['current_dir'] + '/verbose'
-    if not os.path.exists(file_path):
-        os.makedirs(file_path)
-    print('made directories')
-    t_dict_ = collections.OrderedDict()
+        if 'compare_mj_planner_actions' in ctrl.agentparams:
+            selindices = np.concatenate([np.zeros(1, dtype=np.int) ,bestindices])
+        else: selindices = bestindices
+        gen_distrib = gen_distrib[selindices]
+        gen_images = gen_images[selindices]
+        print('selected distributions')
+        if 'image_medium' in ctrl.agentparams:
+            gen_distrib = resize_image(gen_distrib, ctrl.goal_image.shape[1:3])
+            gen_images = resize_image(gen_images, ctrl.goal_image.shape[1:3])
+            print('resized images')
 
-    if 'warp_objective' in ctrl.policyparams:
-        print('starting warp objective')
-        warped_images = image_addgoalpix(num_ex, len_pred, warped_images, ctrl.goal_pix)
-        gen_images = images_addwarppix(gen_images, goal_warp_pts_l, ctrl.goal_pix, ctrl.agentparams['num_objects'])
-        warped_images = np.split(warped_images[selindices], warped_images.shape[1], 1)
-        warped_images = list(np.squeeze(warped_images))
-        t_dict_['warped_im_t{}'.format(ctrl.t)] = warped_images
-        print('warp objective done')
+        self.num_ex = selindices.shape[0]
+        self.len_pred = ctrl.netconf['sequence_length'] - ctrl.netconf['context_frames']
 
+        print('made directories')
+        self.t_dict_ = collections.OrderedDict()
 
-    for icam in range(ctrl.ncam):
-        print('annotating tracks for cam: {}'.format(icam))
-        current_image = np.tile(last_frames[0,1,icam][None, None], [num_ex, len_pred, 1, 1, 1, 1])
-        print('tilted current_image')
-        if 'register_gtruth' in ctrl.policyparams:
-            print('register_gtruth annotating_tracks')
-            current_image = annotate_tracks(ctrl, current_image.squeeze(), icam, len_pred, num_ex)
-        print('unstacking...')
-        t_dict_['curr_img_cam{}'.format(icam)] = unstack(current_image.squeeze(), 1)
+        if 'warp_objective' in ctrl.policyparams:
+            print('starting warp objective')
+            warped_images = image_addgoalpix(self.num_ex, self.len_pred, ctrl.warped_images, ctrl.goal_pix)
+            gen_images = images_addwarppix(gen_images, ctrl.goal_warp_pts_l, ctrl.goal_pix, ctrl.agentparams['num_objects'])
+            warped_images = np.split(warped_images[selindices], warped_images.shape[1], 1)
+            warped_images = list(np.squeeze(warped_images))
+            self.t_dict_['warped_im_t{}'.format(ctrl.t)] = warped_images
+            print('warp objective done')
 
-    if 'image_medium' in ctrl.agentparams:
-        pix_mult = ctrl.agentparams['image_medium'][0]/ctrl.agentparams['image_height']
-    else:
-        pix_mult = 1.
-    print('done annotating')
-    if 'register_gtruth' in ctrl.policyparams:
-        gen_image_an_l, gl_im_ann, gl_im_ann_per_tsk = visualize_registration(ctrl, gen_images, len_pred, num_ex,
-                                                                              pix_mult, reg_tradeoff, t_dict_,
-                                                                              warped_image_goal, warped_image_start)
-        print('done registering gtruth')
-    else:
-        gl_im_ann = None
-        gen_image_an_l = None
-        print('none registered')
+        self.annontate_images(ctrl, last_frames)
 
-    if 'use_goal_image' not in ctrl.policyparams or 'comb_flow_warp' in ctrl.policyparams or 'register_gtruth' in ctrl.policyparams:
-        print('use_goal_image if case')
-        if hasattr(ctrl, 'tradeoffs'):
-            tradeoffs = ctrl.tradeoffs[selindices]
-        else: tradeoffs = None
-        # plot_sum_overtime(gen_distrib, ctrl.agentparams['record'] + '/plan', 'psum_t{}_iter{}'.format(ctrl.t, cem_itr), tradeoffs)  # segfaults on deepthought and newton1
+        if 'use_goal_image' not in ctrl.policyparams or 'comb_flow_warp' in ctrl.policyparams or 'register_gtruth' in ctrl.policyparams:
+            self.visualize_goal_pixdistrib(ctrl, gen_distrib)
+
         for icam in range(ctrl.ncam):
-            print('handling case for cam: {}'.format(icam))
-            for p in range(ctrl.ndesig):
-                sel_gen_distrib_p = unstack(gen_distrib[:,:, icam,:,:, p], 1)
-                t_dict_['gen_distrib_cam{}_p{}'.format(icam, p)] = sel_gen_distrib_p
-                if gl_im_ann is not None and 'register_gtruth' in ctrl.policyparams:
-                    t_dict_['gen_dist_goalim_overlay_cam{}_p{}_t{}'.format(icam, p, ctrl.t)] = \
-                                 (unstack(gl_im_ann_per_tsk[p,:,:,icam], 1), sel_gen_distrib_p)
-        print('finished use_goal_image cased')
+            print('putting cam: {} res into dict'.format(icam))
+            self.t_dict_['gen_images_icam{}_t{}'.format(icam, ctrl.t)] = unstack(gen_images[:, :, icam], 1)
 
-    for icam in range(ctrl.ncam):
-        print('putting cam: {} res into dict'.format(icam))
-        if gen_image_an_l is not None:
-            t_dict_['gen_images_icam{}_t{}'.format(icam, ctrl.t)] = unstack(gen_image_an_l[icam], 1)
-        else:
-            t_dict_['gen_images_icam{}_t{}'.format(icam, ctrl.t)] = unstack(gen_images[:, :, icam], 1)
+        print('itr{} best scores: {}'.format(cem_itr, [scores[selindices[ind]] for ind in range(self.num_ex)]))
+        self.t_dict_['scores'] = scores[selindices]
+        self.t_dict_['desig_pix'] = ctrl.desig_pix
+        self.t_dict_['goal_pix'] = ctrl.goal_pix
 
-    print('itr{} best scores: {}'.format(cem_itr, [scores[selindices[ind]] for ind in range(num_ex)]))
-    t_dict_['scores'] = scores[selindices]
-    t_dict_['desig_pix'] = ctrl.desig_pix
-    t_dict_['desig_pix_t0'] = ctrl.desig_pix_t0
-    t_dict_['goal_pix'] = ctrl.goal_pix
+        ctrl.dict_.update(self.t_dict_)
+        if 'no_instant_gif' not in ctrl.agentparams:
+            v = CEM_Visualizer(self.t_dict_, append_masks=False,
+                                   filepath=ctrl.agentparams['record'] + '/plan/',
+                                   numex=self.num_ex, suf='t{}iter_{}'.format(ctrl.t, cem_itr))
+            if 'image_medium' in ctrl.agentparams:
+                size = ctrl.agentparams['image_medium']
+            else: size = None
+            v.make_direct_vid(resize=size)
 
-    ctrl.dict_.update(t_dict_)
-    if 'no_instant_gif' not in ctrl.agentparams:
+        make_action_summary(self.num_ex, actions, ctrl.agentparams, selindices, cem_itr, ctrl.netconf['sequence_length'], ctrl.t)
+
         if 'save_pkl' in ctrl.agentparams:
             dir = ctrl.agentparams['record'] + '/plan'
             if not os.path.exists(dir):
                 os.makedirs(dir)
-            pickle.dump(t_dict_, open(dir + '/pred_t{}iter{}.pkl'.format(ctrl.t, cem_itr), 'wb'))
-            print('written files to:' + file_path)
+            pickle.dump(self.t_dict_, open(dir + '/pred_t{}iter{}.pkl'.format(ctrl.t, cem_itr), 'wb'))
+            print('written files to:', dir)
 
-        v = CEM_Visualizer(t_dict_, append_masks=False,
-                               filepath=ctrl.agentparams['record'] + '/plan/',
-                               numex=num_ex, suf='t{}iter_{}'.format(ctrl.t, cem_itr))
+    def visualize_goal_pixdistrib(self, ctrl, gen_distrib):
+        for icam in range(ctrl.ncam):
+            print('handling case for cam: {}'.format(icam))
+            for p in range(ctrl.ndesig):
+                gen_distrib_ann = color_code_distrib(unstack(gen_distrib[:, :, icam, :, :, p], 1), self.num_ex, renormalize=True)
+                gen_distrib_ann = image_addgoalpix(self.num_ex, self.len_pred, gen_distrib_ann,
+                                                                         ctrl.goal_pix[icam, p])
+                self.t_dict_['gen_distrib_cam{}_p{}'.format(icam, p)] = gen_distrib_ann
+
+    def annontate_images(self, ctrl, last_frames):
+        for icam in range(ctrl.ncam):
+            current_image = np.tile(last_frames[0, 1, icam][None, None], [self.num_ex, self.len_pred, 1, 1, 1, 1])
+            self.t_dict_['curr_img_cam{}'.format(icam)] = unstack(current_image.squeeze(), 1)
+
+    def annontate_goalimage_genimage(self):
+        gl_im_ann = None
+        gen_image_an_l = None
+        print('none registered')
+        return gen_image_an_l, gl_im_ann
+
+
+class CEM_Visual_Preparation_Registration(CEM_Visual_Preparation):
+
+    def annontate_images(self, ctrl, gen_images, last_frames):
+        for icam in range(ctrl.ncam):
+            print('annotating tracks for cam: {}'.format(icam))
+            current_image = np.tile(last_frames[0, 1, icam][None, None], [self.num_ex, self.len_pred, 1, 1, 1, 1])
+            current_image = annotate_tracks(ctrl, current_image.squeeze(), icam, self.len_pred, self.num_ex)
+            self.t_dict_['curr_img_cam{}'.format(icam)] = unstack(current_image.squeeze(), 1)
+
+        self.visualize_registration(ctrl)
+
+    def visualize_goal_pixdistrib(self, ctrl, gen_distrib):
+
+        for icam in range(ctrl.ncam):
+            print('handling case for cam: {}'.format(icam))
+            for p in range(ctrl.ndesig):
+                sel_gen_distrib_p = unstack(gen_distrib[:, :, icam, :, :, p], 1)
+                self.t_dict_['gen_distrib_cam{}_p{}'.format(icam, p)] = sel_gen_distrib_p
+                self.t_dict_['gen_dist_goalim_overlay_cam{}_p{}_t{}'.format(icam, p, ctrl.t)] = \
+                    (unstack(self.gl_im_ann_per_tsk[p, :, :, icam], 1), sel_gen_distrib_p)
+
+    def visualize_registration(self, ctrl):
+
+        self.t_dict_['desig_pix_t0'] = ctrl.desig_pix_t0
+
         if 'image_medium' in ctrl.agentparams:
-            size = ctrl.agentparams['image_medium']
-        else: size = None
-        v.make_direct_vid(resize=size)
+            pix_mult = ctrl.agentparams['image_medium'][0]/ctrl.agentparams['image_height']
+        else:
+            pix_mult = 1.
 
-        make_action_summary(num_ex, actions, ctrl.agentparams, selindices, cem_itr, ctrl.netconf['sequence_length'], ctrl.t)
-        if gen_states is not None:
-            make_state_summary(num_ex, last_states, gen_states, ctrl.agentparams, selindices, cem_itr, ctrl.t)
-
-
-def visualize_registration(ctrl, gen_images, len_pred, num_ex, pix_mult, reg_tradeoff, t_dict_, warped_image_goal,
-                           warped_image_start):
-    print("visualizing registration")
-    gen_image_an_l = []
-    for icam in range(ctrl.ncam):
-        print("on cam: {}".format(icam))
-        if 'start' in ctrl.policyparams['register_gtruth']:
-            print('on start case')
-            if 'trade_off_reg' in ctrl.policyparams:
-                warped_img_start_cam = write_tradeoff_onimage(warped_image_start[icam].squeeze(), reg_tradeoff[icam],
-                                                              ctrl.ntask, 0)
-            else:
-                warped_img_start_cam = warped_image_start[icam].squeeze()
-            t_dict_['warp_start_cam{}'.format(icam)] = [
-                np.repeat(np.expand_dims(warped_img_start_cam, axis=0), num_ex, axis=0) for _ in
-                range(len_pred)]
-            print('finished')
-
-        startimages = np.tile(ctrl.start_image[icam][None, None], [num_ex, len_pred, 1, 1, 1])
-        for p in range(ctrl.ntask):
-            print('on task {}'.format(p))
-            if 'image_medium' in ctrl.agentparams:
-                desig_pix_t0 = ctrl.desig_pix_t0_med[icam, p][None]
-            else:
-                desig_pix_t0 = ctrl.desig_pix_t0[icam, p][None]
-            desig_pix_t0 = np.tile(desig_pix_t0, [num_ex, len_pred, 1])
-
-            startimages = add_crosshairs(startimages, desig_pix_t0)
-        t_dict_['start_img_cam{}'.format(icam)] = unstack(startimages, 1)
-
-        gen_image_an = gen_images[:, :, icam]
-        for p in range(ctrl.ntask):
-            if 'goal' in ctrl.policyparams['register_gtruth']:
-                print('on goal case cam: {}'.format(p))
+        for icam in range(ctrl.ncam):
+            print("on cam: {}".format(icam))
+            if 'start' in ctrl.policyparams['register_gtruth']:
+                print('on start case')
                 if 'trade_off_reg' in ctrl.policyparams:
-                    warped_img_goal_cam = write_tradeoff_onimage(warped_image_goal[icam].squeeze(), reg_tradeoff[icam],
-                                                                 ctrl.ntask, 1)
+                    warped_img_start_cam = write_tradeoff_onimage(ctrl.warped_image_start[icam].squeeze(), ctrl.reg_tradeoff[icam],
+                                                                  ctrl.ntask, 0)
                 else:
-                    warped_img_goal_cam = warped_image_goal[icam].squeeze()
-                warped_img_goal_cam = [np.repeat(np.expand_dims(warped_img_goal_cam, axis=0), num_ex, axis=0) for _ in
-                                       range(len_pred)]
-                t_dict_['warp_goal_cam{}'.format(icam)] = warped_img_goal_cam
+                    warped_img_start_cam = ctrl.warped_image_start[icam].squeeze()
+                self.t_dict_['warp_start_cam{}'.format(icam)] = [
+                    np.repeat(np.expand_dims(warped_img_start_cam, axis=0), self.num_ex, axis=0) for _ in
+                    range(self.len_pred)]
+                print('finished')
 
-        gen_image_an_l.append(gen_image_an)
-    if 'image_medium' in ctrl.agentparams:
-        goal_pix = ctrl.goal_pix_med
-    else:
-        goal_pix = ctrl.goal_pix
-    gl_im_ann = np.zeros([num_ex] + list(gen_images.shape[1:]))  # b, t, n, r, c, 1
-    gl_im_ann_per_tsk = np.zeros([ctrl.ndesig, num_ex] + list(gen_images.shape[1:]))  # p, b, t, n, r, c, 1
-    for icam in range(ctrl.ncam):
-        print('adding goal pixes {}'.format(icam))
-        gl_im_ann[:, :, icam] = np.tile(ctrl.goal_image[icam][None, None], [num_ex, len_pred, 1, 1, 1])
-        gl_im_ann_per_tsk[:, :, :, icam] = np.tile(ctrl.goal_image[icam][None, None, None],
-                                                   [ctrl.ndesig, num_ex, len_pred, 1, 1, 1])
-        for p in range(ctrl.ndesig):
-            gl_im_ann[:, :, icam] = image_addgoalpix(num_ex, len_pred, gl_im_ann[:, :, icam],
-                                                     ctrl.goal_pix[icam, p] * pix_mult)
-            gl_im_ann_per_tsk[p, :, :, icam] = image_addgoalpix(num_ex, len_pred, gl_im_ann_per_tsk[p][:, :, icam],
-                                                                goal_pix[icam, p])
-        t_dict_['goal_image{}'.format(icam)] = unstack(gl_im_ann[:, :, icam], 1)
-    print("done")
-    return gen_image_an_l, gl_im_ann, gl_im_ann_per_tsk
+            startimages = np.tile(ctrl.start_image[icam][None, None], [self.num_ex, self.len_pred, 1, 1, 1])
+            for p in range(ctrl.ntask):
+                print('on task {}'.format(p))
+                if 'image_medium' in ctrl.agentparams:
+                    desig_pix_t0 = ctrl.desig_pix_t0_med[icam, p][None]
+                else:
+                    desig_pix_t0 = ctrl.desig_pix_t0[icam, p][None]
+                desig_pix_t0 = np.tile(desig_pix_t0, [self.num_ex, self.len_pred, 1])
+
+                startimages = add_crosshairs(startimages, desig_pix_t0)
+            self.t_dict_['start_img_cam{}'.format(icam)] = unstack(startimages, 1)
+
+            for p in range(ctrl.ntask):
+                if 'goal' in ctrl.policyparams['register_gtruth']:
+                    print('on goal case cam: {}'.format(p))
+                    if 'trade_off_reg' in ctrl.policyparams:
+                        warped_img_goal_cam = write_tradeoff_onimage(ctrl.warped_image_goal[icam].squeeze(), ctrl.reg_tradeoff[icam],
+                                                                     ctrl.ntask, 1)
+                    else:
+                        warped_img_goal_cam = ctrl.warped_image_goal[icam].squeeze()
+                    warped_img_goal_cam = [np.repeat(np.expand_dims(warped_img_goal_cam, axis=0), self.num_ex, axis=0) for _ in
+                                           range(self.len_pred)]
+                    self.t_dict_['warp_goal_cam{}'.format(icam)] = warped_img_goal_cam
+
+        if 'image_medium' in ctrl.agentparams:
+            goal_pix = ctrl.goal_pix_med
+        else:
+            goal_pix = ctrl.goal_pix
+
+        gl_im_shape = [self.num_ex, self.len_pred, ctrl.ncam] + list(ctrl.goal_image.shape[1:])
+        gl_im_ann = np.zeros(gl_im_shape)  # b, t, n, r, c, 3
+        self.gl_im_ann_per_tsk = np.zeros([ctrl.ndesig] + gl_im_shape)  # p, b, t, n, r, c, 3
+        for icam in range(ctrl.ncam):
+            print('adding goal pixes {}'.format(icam))
+            gl_im_ann[:, :, icam] = np.tile(ctrl.goal_image[icam][None, None], [self.num_ex, self.len_pred, 1, 1, 1])
+            self.gl_im_ann_per_tsk[:, :, :, icam] = np.tile(ctrl.goal_image[icam][None, None, None],
+                                                       [ctrl.ndesig, self.num_ex, self.len_pred, 1, 1, 1])
+            for p in range(ctrl.ndesig):
+                gl_im_ann[:, :, icam] = image_addgoalpix(self.num_ex, self.len_pred, gl_im_ann[:, :, icam],
+                                                         ctrl.goal_pix[icam, p] * pix_mult)
+                self.gl_im_ann_per_tsk[p, :, :, icam] = image_addgoalpix(self.num_ex, self.len_pred, self.gl_im_ann_per_tsk[p][:, :, icam],
+                                                                    goal_pix[icam, p])
+            self.t_dict_['goal_image{}'.format(icam)] = unstack(gl_im_ann[:, :, icam], 1)
 
 
 def annotate_tracks(ctrl, current_image, icam, len_pred, num_ex):

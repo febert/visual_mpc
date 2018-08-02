@@ -5,8 +5,8 @@ import os.path
 import numpy as np
 
 from python_visual_mpc.visual_mpc_core.algorithm.random_policy import Randompolicy, RandomPickPolicy
-from python_visual_mpc.visual_mpc_core.agent.agent_mjc import AgentMuJoCo
-from python_visual_mpc.visual_mpc_core.envs.sawyer_sim.autograsp_env import AutograspSawyerEnv
+from python_visual_mpc.visual_mpc_core.agent.general_agent import GeneralAgent
+from python_visual_mpc.visual_mpc_core.envs.mujoco_env.sawyer_sim.autograsp_env import AutograspSawyerMujocoEnv
 
 
 BASE_DIR = '/'.join(str.split(__file__, '/')[:-1])
@@ -20,18 +20,15 @@ env_params = {
     'num_objects': 4,
     'object_mass': 0.1,
     'friction': 1,
-    'finger_sensors': True,
     'substeps': 100,
      'autograsp': {'zthresh': 0.18, 'touchthresh': 0.0, 'reopen': True},
-    'object_meshes': ['Fork', 'Spoon', 'Bowl', 'LotusBowl01']
+    'object_meshes': ['GlassBowl', 'Bowl', 'LotusBowl01']
 }
 
 agent = {
-    'type': AgentMuJoCo,
-    'env': (AutograspSawyerEnv, env_params),
+    'type': GeneralAgent,
+    'env': (AutograspSawyerMujocoEnv, env_params),
     'data_save_dir': BASE_DIR,
-    'not_use_images':"",
-    'cameras':['maincam', 'leftcam'],
     'T': 30,
     'image_height' : 48,
     'image_width' : 64,
@@ -40,9 +37,8 @@ agent = {
     'ztarget':0.13,
     'min_z_lift':0.05,
     'record': BASE_DIR + '/record/',
-    'make_final_gif': True,
     'discrete_gripper': -1, #discretized gripper dimension,
-    'lift_rejection_sample' : 15,
+    'rejection_sample': 1
 }
 
 policy = {
@@ -57,12 +53,13 @@ policy = {
 }
 
 config = {
-    'traj_per_file': 128,
+    'traj_per_file': 16,
+    'seperate_good': True,
     'current_dir': current_dir,
     # 'save_raw_images': True,
     'save_data': True,
     'start_index':0,
-    'end_index': 40000,
+    'end_index': 1000,
     'agent': agent,
     'policy': policy,
     'ngroup': 1000
