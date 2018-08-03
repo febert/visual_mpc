@@ -51,7 +51,6 @@ class GeneralAgent(object):
         Runs a trial and constructs a new sample containing information
         about the trial.
         """
-
         if "gen_xml" in self._hyperparams:
             if i_tr % self._hyperparams['gen_xml'] == 0 and i_tr > 0:
                 self._setup_world(i_tr)
@@ -59,6 +58,7 @@ class GeneralAgent(object):
         traj_ok, obs_dict, policy_outs, agent_data = False, None, None, None
         i_trial = 0
         imax = 100
+
         while not traj_ok and i_trial < imax:
             i_trial += 1
             try:
@@ -73,11 +73,6 @@ class GeneralAgent(object):
             self.save_gif(i_tr, 'make_final_gif_pointoverlay' in self._hyperparams)
         
         return agent_data, obs_dict, policy_outs
-
-    def hide_arm_store_image(self):
-        highres_image = self.env.snapshot_noarm()
-        target_dim = (self._hyperparams['image_width'], self._hyperparams['image_height'])
-        return cv2.resize(highres_image, target_dim, interpolation=cv2.INTER_AREA)
 
     def _post_process_obs(self, env_obs, initial_obs=False):
         """

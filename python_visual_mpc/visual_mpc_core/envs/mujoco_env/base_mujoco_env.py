@@ -24,7 +24,8 @@ class BaseMujocoEnv(BaseEnv):
             self.cameras = ['maincam']
         else:
             raise ValueError
-        
+
+        self._last_obs = None
         self._params = params
     
     def _default_hparams(self):
