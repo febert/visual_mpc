@@ -58,8 +58,8 @@ config = {
     'current_dir': current_dir,
     # 'save_raw_images': True,
     'save_data': True,
-    'start_index':0,
-    'end_index': 1000,
+    'start_index':20000,
+    'end_index': 40000,
     'agent': agent,
     'policy': policy,
     'ngroup': 1000
