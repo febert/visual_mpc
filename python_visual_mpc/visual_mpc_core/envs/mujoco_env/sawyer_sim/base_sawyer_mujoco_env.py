@@ -45,7 +45,7 @@ class BaseSawyerMujocoEnv(BaseMujocoEnv):
             object_meshes = env_params_dict.pop('object_meshes')
         else:
             object_meshes = None
-        
+
         params = self._default_hparams().override_from_dict(env_params_dict)
 
         base_filename = asset_base_path + params.filename
@@ -84,7 +84,7 @@ class BaseSawyerMujocoEnv(BaseMujocoEnv):
     
     def _default_hparams(self):
         default_dict = {'filename': None,
-                        'mode_rel': np.array([True, True, True, True, False]),
+                        'mode_rel': [True, True, True, True, False],
                         'num_objects': 1,
                         'object_mass': 1.0,
                         'friction': 1.0,
@@ -228,6 +228,7 @@ class BaseSawyerMujocoEnv(BaseMujocoEnv):
 
         self._init_dynamics()
 
+        print('resetting')
         return self._get_obs(finger_force), reset_state
 
     def _get_obs(self, finger_sensors):
@@ -265,10 +266,10 @@ class BaseSawyerMujocoEnv(BaseMujocoEnv):
         self._last_obs = copy.deepcopy(obs)
         # get images
         obs['images'] = self.render()
-
-
         obs['obj_image_locations'] = self.get_desig_pix(self._frame_width)
 
+        if 'stage' in obs:
+            raise ValueError
         return obs
 
     def _sim_integrity(self):
