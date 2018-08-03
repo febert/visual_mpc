@@ -2,9 +2,9 @@ from python_visual_mpc.visual_mpc_core.envs.mujoco_env.sawyer_sim.base_sawyer_mu
 import copy
 
 class VanillaSawyerMujocoEnv(BaseSawyerMujocoEnv):
-    def __init__(self, env_params):
+    def __init__(self, env_params, reset_state=None):
         self._hyper = copy.deepcopy(env_params)
-        super().__init__(**env_params)
+        super().__init__(env_params, reset_state)
         self._adim, self._sdim = self._base_adim, self._base_sdim
 
     def _init_dynamics(self):

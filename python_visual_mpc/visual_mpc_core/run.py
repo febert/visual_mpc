@@ -1,8 +1,7 @@
 from python_visual_mpc.visual_mpc_core.infrastructure.synchronize_tfrecs import sync
-from multiprocessing import Pool, Process, Manager
+from multiprocessing import Pool, Process, Manager, Value, Lock
 import sys
 import argparse
-import os
 import importlib.machinery
 import importlib.util
 from python_visual_mpc.visual_mpc_core.infrastructure.run_sim import Sim
@@ -14,7 +13,25 @@ from python_visual_mpc.visual_mpc_core.agent.utils.traj_saver import record_work
 import re
 import os
 from python_visual_mpc.visual_mpc_core.infrastructure.utility.combine_scores import combine_scores
-import pickle
+import ray
+
+
+class SynchCounter:
+    def __init__(self, manager):
+        self._lock, self._value = manager.Lock(), manager.Value('i', 0)
+
+    def ret_increment(self):
+        with self._lock:
+            ret_val = self._value.value
+            self._value.value += 1
+        return ret_val
+
+    @property
+    def value(self):
+        with self._lock:
+            ret_val = self._value.value
+        return ret_val
+
 
 def worker(conf, iex=-1):
     print('started process with PID:', os.getpid())
@@ -44,6 +61,7 @@ def main():
     parser.add_argument('--nsplit', type=int, help='number of splits', default=-1)
     parser.add_argument('--isplit', type=int, help='split id', default=-1)
     parser.add_argument('--cloud', dest='cloud', action='store_true', default=False)
+    parser.add_argument('--benchmark', dest='do_benchmark', action='store_true', default=False)
 
     parser.add_argument('--iex', type=int, help='if different from -1 use only do example', default=-1)
 
@@ -58,9 +76,6 @@ def main():
         parallel = True
     print('parallel ', bool(parallel))
 
-    if 'benchmarks' in hyperparams_file:
-        do_benchmark = True
-    else: do_benchmark = False
     loader = importlib.machinery.SourceFileLoader('mod_hyper', hyperparams_file)
     spec = importlib.util.spec_from_loader(loader.name, loader)
     mod = importlib.util.module_from_spec(spec)
@@ -83,10 +98,9 @@ def main():
             os.system("rm {}".format('/'.join(str.split(hyperparams['agent']['filename'], '/')[:-1]) + '/auto_gen/*'))
         except: pass
 
-    # if do_benchmark:
-    #     use_worker = bench_worker
-    # else: use_worker = worker
-    use_worker = bench_worker
+    if args.do_benchmark:
+        use_worker = bench_worker
+    else: use_worker = worker
 
     if 'RESULT_DIR' in os.environ:
         result_dir = os.environ['RESULT_DIR']
@@ -99,22 +113,23 @@ def main():
         hyperparams['agent']['data_save_dir'] = '/result/'    # by default save code to the /result folder in docker image
 
     if 'master_datadir' in hyperparams['agent']:
-        import ray
         ray.init()
         sync_todo_id = sync.remote(hyperparams['agent'])
         print('launched sync')
 
     if 'data_save_dir' in hyperparams['agent']:
-        record_queue, record_saver_proc = prepare_saver(hyperparams)
+        record_queue, record_saver_proc, counter = prepare_saver(hyperparams)
 
     conflist = []
     for i in range(n_worker):
         modconf = copy.deepcopy(hyperparams)
         modconf['start_index'] = start_idx[i]
         modconf['end_index'] = end_idx[i]
+        modconf['ntraj'] = n_traj
         modconf['gpu_id'] = i + gpu_id
         if 'data_save_dir' in hyperparams['agent']:
             modconf['record_saver'] = record_queue
+            modconf['counter'] = counter
         conflist.append(modconf)
     if parallel:
         p = Pool(n_worker)
@@ -122,13 +137,14 @@ def main():
     else:
         use_worker(conflist[0], args.iex)
 
-    record_queue.put(None)           #send flag to background thread that it can end saving after it's done
-    record_saver_proc.join()         #joins thread and continues execution
+    if 'data_save_dir' in hyperparams['agent']:
+        record_queue.put(None)           #send flag to background thread that it can end saving after it's done
+        record_saver_proc.join()         #joins thread and continues execution
 
     if 'master_datadir' in hyperparams['agent']:
         ray.wait([sync_todo_id])
 
-    if do_benchmark:
+    if args.do_benchmark:
         if 'RESULT_DIR' in os.environ:
             result_dir = os.environ['RESULT_DIR']
         else: result_dir = hyperparams['current_dir']
@@ -138,13 +154,13 @@ def main():
 
 def prepare_saver(hyperparams):
     m = Manager()
-    record_queue = m.Queue()
+    record_queue, synch_counter = m.Queue(), SynchCounter(m)
     save_dir, T = hyperparams['agent']['data_save_dir'] + '/records', hyperparams['agent']['T']
     seperate_good, traj_per_file = hyperparams.get('seperate_good', False), hyperparams['traj_per_file']
     record_saver_proc = Process(target=record_worker, args=(
     record_queue, save_dir, T, seperate_good, traj_per_file, hyperparams['start_index']))
     record_saver_proc.start()
-    return record_queue, record_saver_proc
+    return record_queue, record_saver_proc, synch_counter
 
 
 def sorted_alphanumeric(l):

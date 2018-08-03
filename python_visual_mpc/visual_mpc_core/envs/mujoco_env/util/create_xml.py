@@ -44,7 +44,7 @@ ASSET_BASE_DIR = '/'.join(os.path.abspath(python_visual_mpc.__file__).split('/')
 
 
 def create_object_xml(filename, num_objects, object_mass, friction_params, object_meshes,
-                      finger_sensors, maxlen, minlen, reset_state, obj_classname = None,
+                      finger_sensors, maxlen, minlen, reset_xml, obj_classname = None,
                       block_height = 0.03, block_width = 0.03):
     """
     :param hyperparams:
@@ -67,8 +67,8 @@ def create_object_xml(filename, num_objects, object_mass, friction_params, objec
 
     loaded_meshes = {}
 
-    if reset_state is not None:
-        load_dict_list = reset_state['stat_prop']
+    if reset_xml is not None:
+        load_dict_list = reset_xml
     else: load_dict_list = None
 
     for i in range(num_objects):
@@ -83,6 +83,10 @@ def create_object_xml(filename, num_objects, object_mass, friction_params, objec
             l2 = dict['l2'] =np.random.uniform(minlen, maxlen)
 
             pos2 = dict['pos2']= np.random.uniform(0.01, l1)
+
+            if object_meshes is not None:
+                dict['chosen_mesh'] = chosen_mesh = random.choice(object_meshes)
+
         else:
             dict = load_dict_list[i]
             color1 = dict['color1']
@@ -90,6 +94,7 @@ def create_object_xml(filename, num_objects, object_mass, friction_params, objec
             l1 = dict['l1']
             l2 = dict['l2']
             pos2 = dict['pos2']
+            chosen_mesh = dict['chosen_mesh']
         save_dict_list.append(dict)
 
         obj_string = "object{}".format(i)
@@ -97,8 +102,6 @@ def create_object_xml(filename, num_objects, object_mass, friction_params, objec
 
         if object_meshes is not None:
             assets = ET.SubElement(root, "asset")
-
-            chosen_mesh = random.choice(object_meshes)
             if chosen_mesh not in loaded_meshes:
                 o_mesh = ASSET_BASE_DIR + '{}/'.format(chosen_mesh)
                 print('import mesh dir', o_mesh)

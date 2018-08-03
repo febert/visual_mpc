@@ -10,8 +10,11 @@ class CreateConfigAgent(GeneralAgent):
     def rollout(self, policy, i_tr):
 
         # Take the sample.
-        self.large_images_traj, self.traj_points= [], None
-        obs = self._post_process_obs(self.env.reset(), True)
+        self._init()
+
+        initial_env_obs, reset_state = self.env.reset()
+        obs = self._post_process_obs(initial_env_obs, True)
+
         agent_data, policy_outputs = {}, []
         agent_data['traj_ok'] = True
 
@@ -22,6 +25,8 @@ class CreateConfigAgent(GeneralAgent):
                 obs = self._post_process_obs(self.env._get_obs(None))
             except ValueError:
                 return {'traj_ok': False}, None, None
+
+        agent_data['reset_state'] = reset_state
 
         return agent_data, obs, policy_outputs
 

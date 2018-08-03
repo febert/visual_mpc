@@ -13,6 +13,7 @@ import os
 
 # constants for robot control
 NEUTRAL_JOINT_ANGLES = np.array([0.412271, -0.434908, -1.198768, 1.795462, 1.160788, 1.107675, -1.11748145])
+NEUTRAL_JOINT_CMD = {k:a for k, a in zip(['right_j{}'.format(i) for i in range(7)], NEUTRAL_JOINT_ANGLES)}
 MAX_TIMEOUT = 30
 DURATION_PER_POINT = 0.01
 N_JOINTS = 7
@@ -20,6 +21,7 @@ max_vel_mag = np.array([0.88, 0.678, 0.996, 0.996, 1.776, 1.776, 2.316])
 max_accel_mag = np.array([3.5, 2.5, 5, 5, 5, 5, 5])
 GRIPPER_CLOSE = 6   # chosen so that gripper closes entirely without pushing against itself
 GRIPPER_OPEN = 96   # chosen so that gripper opens entirely without pushing against outer rail
+RESET_SKIP = 800
 
 
 class ImpedanceWSGController(RobotController):
@@ -136,12 +138,33 @@ class ImpedanceWSGController(RobotController):
         waypoints = [NEUTRAL_JOINT_ANGLES]
         self.move_with_impedance(waypoints, duration)
 
+    def _try_enable(self):
+        """
+        The start impedance script will try to re-enable the robot once it disables
+        The script will wait until that occurs and throw an assertion if it doesn't
+        """
+        i = 0
+        while not self._rs.state().enabled and i < 50:
+            rospy.sleep(10)
+            i += 1
+        assert self._rs.state().enabled, "Robot was disabled, please manually re-enable!"
+
+    def send_pos_command(self, pos):
+        self._try_enable()
+
+        command = JointCommand()
+        command.mode = JointCommand.POSITION_MODE
+        command.names = self.limb.joint_names()
+        command.position = pos
+        self._cmd_publisher.publish(command)
+
     def move_with_impedance(self, waypoints, duration=1.5):
         """
         Moves from curent position to final position while hitting waypoints
         :param waypoints: List of arrays containing waypoint joint angles
         :param duration: trajectory duration
         """
+        self._try_enable()
 
         jointnames = self.limb.joint_names()
         prev_joint = np.array([self.limb.joint_angle(j) for j in jointnames])
@@ -176,7 +199,6 @@ class ImpedanceWSGController(RobotController):
             self.control_rate.sleep()
 
     def redistribute_objects(self):
-        self.set_neutral()
         print('redistribute...')
 
         file = '/'.join(str.split(visual_mpc_rospkg.__file__, "/")[
@@ -184,11 +206,11 @@ class ImpedanceWSGController(RobotController):
 
         self.joint_pos = pickle.load(open(file, "rb"))
 
-        replay_rate = rospy.Rate(700)
-        for t in range(len(self.joint_pos)):
-            print('step {0} joints: {1}'.format(t, self.joint_pos[t]))
-            replay_rate.sleep()
-            self.move_with_impedance([self.joint_pos[t]])
+        for t in range(0, len(self.joint_pos), RESET_SKIP):
+            # print(self.joint_pos[t])
+            # self.set_joints(self.joint_pos[t])
+            pos_arr = np.array([self.joint_pos[t][j] for j in self.limb.joint_names()])
+            self.move_with_impedance([pos_arr])
 
     def clean_shutdown(self):
         pid = os.getpid()

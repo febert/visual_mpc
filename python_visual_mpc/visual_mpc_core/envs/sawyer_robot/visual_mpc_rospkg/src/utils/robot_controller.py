@@ -22,8 +22,8 @@ class RobotController(object):
         rospy.init_node("sawyer_custom_controller")
         rospy.on_shutdown(self.clean_shutdown)
 
-        rs = intera_interface.RobotEnable(CHECK_VERSION)
-        init_state = rs.state().enabled
+        self._rs = intera_interface.RobotEnable(CHECK_VERSION)
+        init_state = self._rs.state().enabled
         print("Robot enabled...")
 
         self.limb = intera_interface.Limb("right")

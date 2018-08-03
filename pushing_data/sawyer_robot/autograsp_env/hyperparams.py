@@ -24,20 +24,20 @@ agent = {
     'data_save_dir': BASE_DIR,
     'not_use_images':"",
     'cameras':['maincam', 'leftcam'],
-    'T': 15,
-    'image_height' : 48,
-    'image_width' : 64,
+    'T': 30,
+    'image_height' : 240,
+    'image_width' : 320,
     'novideo':'',
     'ztarget':0.13,
     'min_z_lift':0.05,
-    'make_final_gif':'', #keep this key in if you want final gif to be created
+    # 'make_final_gif':'', #keep this key in if you want final gif to be created
     'record': BASE_DIR + '/record/',
     'discrete_gripper' : -1, #discretized gripper dimension,
 }
 
 policy = {
     'type': Randompolicy,
-    'nactions': 5,
+    'nactions': 10,
     'repeat': 3,
     'no_action_bound': False,
     'initial_std': 0.035,   #std dev. in xy

@@ -77,7 +77,7 @@ class Full_Image_Reg_Controller(CEM_Controller_Vidpred):
             scores = np.sum(flow_scores * per_time_multiplier, axis=1)
         return scores
 
-    def act(self, t=None, i_tr=None, images=None, goal_image=None, state=None, desig_pix=None, goal_pix=None):
+    def act(self, t, i_tr, images, goal_image, state, desig_pix, goal_pix):
         self.images = images
         self.state = state
 
