@@ -30,7 +30,7 @@ class Sim(object):
         self._counter = None
         if 'counter' in config:
             self._counter = config.pop('counter')
-        
+
         self.trajectory_list = []
         self.im_score_list = []
         try:
@@ -67,7 +67,6 @@ class Sim(object):
         if 'RESULT_DIR' in os.environ:
             data_save_dir = os.environ['RESULT_DIR'] + '/data'
         else: data_save_dir = self.agentparams['data_save_dir']
-        data_save_dir += '/' + self.task_mode
 
         ngroup = self._hyperparams['ngroup']
         igrp = itr // ngroup

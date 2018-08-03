@@ -18,7 +18,7 @@ def npy_to_gif(im_list, filename, fps=4):
 
     if not os.path.exists(save_dir):
         print('creating directory: ', save_dir)
-        os.mkdir(save_dir)
+        os.makedirs(save_dir, exist_ok=True)
 
     clip = mpy.ImageSequenceClip(im_list, fps=fps)
     clip.write_gif(filename + '.gif')

@@ -9,8 +9,6 @@ import time
 from mujoco_py.builder import MujocoException
 import copy
 from python_visual_mpc.video_prediction.misc.makegifs2 import npy_to_gif
-import pdb
-import  matplotlib.pyplot as plt
 
 
 def quat_to_zangle(quat):
@@ -46,7 +44,10 @@ class BaseSawyerMujocoEnv(BaseMujocoEnv):
         else:
             object_meshes = None
 
-        params = self._default_hparams().override_from_dict(env_params_dict)
+        params = self._default_hparams()
+        for name, value in env_params_dict.items():
+            print('setting paraem {} to value {}'.format(name, value))
+            params.set_hparam(name, value)
 
         base_filename = asset_base_path + params.filename
         friction_params = (params.friction, 0.1, 0.02)
@@ -76,7 +77,7 @@ class BaseSawyerMujocoEnv(BaseMujocoEnv):
         self.finger_sensors, self._maxlen = params.finger_sensors, params.maxlen
 
         self._previous_target_qpos, self._n_joints = None, 9
-        self._reset_state = reset_state
+        self._read_reset_state = reset_state
 
         if self._params.verbose_dir is not None:
             self._verbose_vid = []
@@ -119,8 +120,8 @@ class BaseSawyerMujocoEnv(BaseMujocoEnv):
 
     def reset(self):
         super(BaseSawyerMujocoEnv, self).reset()
-        last_rands, reset_state = [], {}
-        reset_state['reset_xml'] = copy.deepcopy(self._reset_xml)
+        last_rands, write_reset_state = [], {}
+        write_reset_state['reset_xml'] = copy.deepcopy(self._reset_xml)
         margin = 1.1 * self._maxlen
         if self._params.verbose_dir is not None:
             print('resetting')
@@ -137,9 +138,9 @@ class BaseSawyerMujocoEnv(BaseMujocoEnv):
 
         object_poses = np.zeros((self.num_objects, 7))
         for i in range(self.num_objects):
-            if self._reset_state is not None:
-                obji_xyz = self._reset_state['object_qpos'][i][:3]
-                obji_quat = self._reset_state['object_qpos'][i][3:]
+            if self._read_reset_state is not None:
+                obji_xyz = self._read_reset_state['object_qpos'][i][:3]
+                obji_quat = self._read_reset_state['object_qpos'][i][3:]
             else:
                 obji_xyz, rot = samp_xyz_rot()
                 #rejection sampling to ensure objects don't crowd each other
@@ -154,7 +155,7 @@ class BaseSawyerMujocoEnv(BaseMujocoEnv):
         self.sim.data.set_mocap_pos('mocap', np.array([0, 0.5, 0.5]))
         self.sim.data.set_mocap_quat('mocap', zangle_to_quat(np.random.uniform(low_bound[3], high_bound[3])))
 
-        reset_state['object_qpos'] = copy.deepcopy(object_poses)
+        write_reset_state['object_qpos'] = copy.deepcopy(object_poses)
         object_poses = object_poses.reshape(-1)
 
         #placing objects then resetting to neutral risks bad contacts
@@ -170,9 +171,9 @@ class BaseSawyerMujocoEnv(BaseMujocoEnv):
         except MujocoException:
             return self.reset()
 
-        if self._reset_state is not None:
-            xyz = self._reset_state['state'][:3]
-            quat = zangle_to_quat(self._reset_state['state'][3])
+        if self._read_reset_state is not None:
+            xyz = self._read_reset_state['state'][:3]
+            quat = zangle_to_quat(self._read_reset_state['state'][3])
         elif self.randomize_initial_pos:
             xyz = np.random.uniform(low_bound[:3], high_bound[:3])
             while len(last_rands) > 0 and min([np.linalg.norm(xyz[:2]-obj_j[:2]) for obj_j in last_rands]) < margin:
@@ -182,8 +183,8 @@ class BaseSawyerMujocoEnv(BaseMujocoEnv):
             xyz = np.array([0, 0.5, 0.17])
             quat = zangle_to_quat(np.pi)
 
-        reset_state['state'] = np.zeros(7)
-        reset_state['state'][:3], reset_state['state'][3:] = xyz.copy(), quat.copy()
+        write_reset_state['state'] = np.zeros(7)
+        write_reset_state['state'][:3], write_reset_state['state'][3:] = xyz.copy(), quat.copy()
 
         self.sim.data.set_mocap_pos('mocap', xyz)
         self.sim.data.set_mocap_quat('mocap', quat)
@@ -228,8 +229,7 @@ class BaseSawyerMujocoEnv(BaseMujocoEnv):
 
         self._init_dynamics()
 
-        print('resetting')
-        return self._get_obs(finger_force), reset_state
+        return self._get_obs(finger_force), write_reset_state
 
     def _get_obs(self, finger_sensors):
         obs, touch_offset = {}, 0
@@ -270,6 +270,7 @@ class BaseSawyerMujocoEnv(BaseMujocoEnv):
 
         if 'stage' in obs:
             raise ValueError
+
         return obs
 
     def _sim_integrity(self):

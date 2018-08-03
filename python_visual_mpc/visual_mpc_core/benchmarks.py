@@ -30,15 +30,15 @@ def perform_benchmark(conf=None, iex=-1, gpu_id=None):
     if conf != None:
         benchmark_name = 'parallel'
         ngpu = 1
-        bench_dir = conf['current_dir']
 
-
-    if 'RESULT_DIR' in os.environ:
-        result_dir = os.environ['RESULT_DIR']
-    elif 'EXPERIMENT_DIR' in os.environ:
-        subpath = conf['current_dir'].partition('experiments')[2]
-        result_dir = os.path.join(os.environ['EXPERIMENT_DIR'] + subpath)
-    else: result_dir = bench_dir
+    if 'record' not in conf['agent']:
+        if 'RESULT_DIR' in os.environ:
+            result_dir = os.environ['RESULT_DIR']
+        elif 'EXPERIMENT_DIR' in os.environ:
+            subpath = conf['current_dir'].partition('experiments')[2]
+            result_dir = os.path.join(os.environ['EXPERIMENT_DIR'] + subpath)
+    else:
+        result_dir = conf['agent']['record']
     print('result dir {}'.format(result_dir))
 
     print('-------------------------------------------------------------------')
@@ -108,7 +108,7 @@ def perform_benchmark(conf=None, iex=-1, gpu_id=None):
 
         i_traj +=1 #increment trajectories every step!
 
-        pickle.dump(stat_arrays, open(final_dist_pkl_file, 'wb'))
+        # pickle.dump(stat_arrays, open(final_dist_pkl_file, 'wb'))
         write_scores(conf, result_file, stat_arrays, i_traj)
 
 

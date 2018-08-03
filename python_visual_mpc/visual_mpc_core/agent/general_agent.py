@@ -71,7 +71,7 @@ class GeneralAgent(object):
 
         if 'make_final_gif' in self._hyperparams or 'make_final_gif_pointoverlay' in self._hyperparams:
             self.save_gif(i_tr, 'make_final_gif_pointoverlay' in self._hyperparams)
-        
+
         return agent_data, obs_dict, policy_outs
 
     def _post_process_obs(self, env_obs, initial_obs=False):
@@ -113,7 +113,7 @@ class GeneralAgent(object):
         obs = {}
         for k in env_obs:
             if k == 'images':
-                self.large_images_traj.append(env_obs['images'][0])
+                self.large_images_traj.append(env_obs['images'][0])  #only take first camera
                 new_dims = (agent_img_width, agent_img_height)
                 if (agent_img_height, agent_img_width) == env_obs['images'].shape[1:3]:
                     for i in range(env_obs['images'].shape[0]):
@@ -123,7 +123,7 @@ class GeneralAgent(object):
                         self._agent_cache['images'][t, i] = cv2.resize(env_obs['images'][i], new_dims,
                                                                         interpolation=cv2.INTER_AREA)
             elif k == 'obj_image_locations':
-                self.traj_points.append(copy.deepcopy(env_obs['obj_image_locations'][0]))
+                self.traj_points.append(copy.deepcopy(env_obs['obj_image_locations'][0]))  #only take first camera
                 env_obs['obj_image_locations'] = (env_obs['obj_image_locations'] * agent_img_height / env_obs['images'].shape[1]).astype(np.int)
                 self._agent_cache['obj_image_locations'][t] = env_obs['obj_image_locations']
             elif isinstance(env_obs[k], np.ndarray):
@@ -138,7 +138,6 @@ class GeneralAgent(object):
         if self._goal_obj_pose is not None:
             obs['goal_pos'] = self._goal_obj_pose
             obs['goal_pix'] = self.env.get_goal_pix(agent_img_width)
-        
         return obs
 
     def _required_rollout_metadata(self, agent_data, traj_ok):
@@ -164,6 +163,7 @@ class GeneralAgent(object):
         """
         self._init()
         agent_data, policy_outputs = {}, []
+        agent_data['stats'] = {}
 
         # Take the sample.
         t = 0
@@ -186,6 +186,8 @@ class GeneralAgent(object):
             except ValueError:
                 return {'traj_ok': False}, None, None
 
+            agent_data['stats'] = self.env.eval()
+
             if (self._hyperparams['T']-1) == t:
                 done = True
             if done:
@@ -204,6 +206,7 @@ class GeneralAgent(object):
 
         self._required_rollout_metadata(agent_data, traj_ok)
         return agent_data, obs, policy_outputs
+
 
     def save_gif(self, itr, overlay=False):
         if self.traj_points is not None and overlay:

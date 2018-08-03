@@ -76,11 +76,6 @@ def main():
         parallel = True
     print('parallel ', bool(parallel))
 
-    if 'benchmarks' in hyperparams_file:
-        print('-------------------------WARNING-------------------------------')
-        print('Benchmark setting now set on command line with --benchmark flag')
-        print('-------------------------WARNING-------------------------------')
-
     loader = importlib.machinery.SourceFileLoader('mod_hyper', hyperparams_file)
     spec = importlib.util.spec_from_loader(loader.name, loader)
     mod = importlib.util.module_from_spec(spec)

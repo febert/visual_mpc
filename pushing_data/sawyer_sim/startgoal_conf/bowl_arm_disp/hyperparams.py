@@ -18,10 +18,9 @@ env_params = {
     'filename': 'sawyer_grasp.xml',
     'num_objects': 1,
     'object_mass': 0.1,
-    'friction': 1,
+    'friction': 1.,
     'substeps': 100,
     'object_meshes': ['Bowl','ElephantBowl','GlassBowl','LotusBowl01','RuggedBowl','ServingBowl'],
-    'mode_rel': np.array([True, True, True, True, False]),
 }
 
 agent = {
