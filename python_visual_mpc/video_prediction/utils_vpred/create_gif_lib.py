@@ -13,7 +13,19 @@ import pdb
 from python_visual_mpc.utils.txt_in_image import draw_text_image
 
 
-def npy_to_gif(im_list, filename):
+def npy_to_gif(im_list, filename, fps=4):
+    save_dir = '/'.join(str.split(filename, '/')[:-1])
+
+    if not os.path.exists(save_dir):
+        print('creating directory: ', save_dir)
+        os.makedirs(save_dir, exist_ok=True)
+
+    clip = mpy.ImageSequenceClip(im_list, fps=fps)
+    clip.write_gif(filename + '.gif')
+    return
+
+
+def npy_to_mp4(im_list, filename):
     save_dir = '/'.join(str.split(filename, '/')[:-1])
 
     if not os.path.exists(save_dir):
@@ -21,7 +33,7 @@ def npy_to_gif(im_list, filename):
         os.mkdir(save_dir)
 
     clip = mpy.ImageSequenceClip(im_list, fps=4)
-    clip.write_gif(filename + '.gif')
+    clip.write_videofile(filename + '.mp4')
     return
 
 

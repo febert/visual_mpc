@@ -3,7 +3,8 @@ import python_visual_mpc
 current_dir = '/'.join(str.split(__file__, '/')[:-1])
 bench_dir = '/'.join(str.split(__file__, '/')[:-2])
 
-from python_visual_mpc.visual_mpc_core.algorithm.cem_controller import CEM_controller
+from python_visual_mpc.visual_mpc_core.algorithm.cem_controller_sim import CEM_Controller_Sim
+# from python_visual_mpc.visual_mpc_core.algorithm.cem_controller import CEM_controller
 
 ROOT_DIR = os.path.abspath(python_visual_mpc.__file__)
 ROOT_DIR = '/'.join(str.split(ROOT_DIR, '/')[:-2])
@@ -24,6 +25,8 @@ agent = {
     'num_objects': 1,
     'viewer_image_height' : 480,
     'viewer_image_width' : 640,
+    'object_mass':0.01,
+    'friction':1.5,
     'image_height':48,
     'image_width':64,
     'additional_viewer':'',
@@ -35,7 +38,7 @@ agent = {
 
 policy = {
     # 'verbose':1,
-    'type' : CEM_controller,
+    'type' : CEM_Controller_Sim,
     'current_dir':current_dir,
     'nactions': 5,
     'repeat': 3,
@@ -74,6 +77,6 @@ config = {
     'policy':policy,
     'ngroup': 100,
     'sourcetags':[tag_images, tag_qpos, tag_object_full_pose, tag_object_statprop],
-    'source_basedirs':[ROOT_DIR + '/pushing_data/cartgripper_startgoal_masks/train'],
+    'source_basedirs':[ROOT_DIR + '/pushing_data/cartgripper/cartgripper_startgoal_masks/train'],
     'sequence_length':2
 }

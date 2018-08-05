@@ -245,7 +245,7 @@ class BaseSawyerEnv(BaseEnv):
 
         self._reset_counter += 1
 
-        return self._get_obs()
+        return self._get_obs(), None
 
     def valid_rollout(self):
         """

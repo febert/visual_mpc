@@ -1,5 +1,7 @@
 import numpy as np
 import random
+from tensorflow.contrib.training import HParams
+
 
 class BaseEnv:
     def step(self, action):
@@ -14,10 +16,15 @@ class BaseEnv:
         """
         raise NotImplementedError
 
+    def _default_hparams(self):
+        return HParams()
+    
     def reset(self):
         """
-        Resets the environment and returns initial observation
+        Resets the environment. Returns initial observation as well as information needed to recreate initialization
+
         :return: obs dict (look at step(self, action) for documentation)
+                 reset_state - All the information needed to recreate environment (can be None if not possible)
         """
         raise NotImplementedError
 
@@ -45,7 +52,7 @@ class BaseEnv:
         """
         return False
 
-    def render(self, mode='dual'):
+    def render(self):
         """ Renders the enviornment.
         Implements custom rendering support. If mode is:
 
@@ -74,3 +81,11 @@ class BaseEnv:
     def seed(self, seed=None):
         random.seed(seed)
         np.random.seed(seed)
+
+    def eval(self):
+        """
+        return environment statistics, like distance to goal etc.
+        :param agentdata:
+        :return:
+        """
+        pass

@@ -13,9 +13,6 @@ pip install matplotlib
 
 conda install pyqt=4
 
-# to install mujoco_py run
-python setup_mujoco.py develop
-
 conda install  -f  numpy
 conda install mkl
 

@@ -1,18 +1,43 @@
 from mujoco_py import load_model_from_path, MjSim
 import numpy as np
 from python_visual_mpc.visual_mpc_core.envs.base_env import BaseEnv
+import pdb
 
 
 class BaseMujocoEnv(BaseEnv):
-    def __init__(self,  model_path, height=480, width=640):
-        self._frame_height = height
-        self._frame_width = width
+    def __init__(self,  model_path, params):
+        self._frame_height = params.viewer_image_height
+        self._frame_width = params.viewer_image_width
 
         self._reset_sim(model_path)
 
         self._base_adim, self._base_sdim = None, None                 #state/action dimension of Mujoco control
         self._adim, self._sdim = None, None   #state/action dimension presented to agent
         self.num_objects, self._n_joints = None, None
+        self._goal_obj_pose = None
+        self._goaldistances = []
+
+        self._ncam = params.ncam
+        if self._ncam == 2:
+            self.cameras = ['maincam', 'leftcam']
+        elif self._ncam == 1:
+            self.cameras = ['maincam']
+        else:
+            raise ValueError
+
+        self._last_obs = None
+        self._params = params
+    
+    def _default_hparams(self):
+        parent_params = super()._default_hparams()
+        parent_params.add_hparam('viewer_image_height', 480)
+        parent_params.add_hparam('viewer_image_width', 640)
+        parent_params.add_hparam('ncam', 1)
+
+        return parent_params
+
+    def set_goal_obj_pose(self, pose):
+        self._goal_obj_pose = pose
 
     def _reset_sim(self, model_path):
         """
@@ -23,7 +48,10 @@ class BaseMujocoEnv(BaseEnv):
         self._model_path = model_path
         self.sim = MjSim(load_model_from_path(self._model_path))
 
-    def render(self, mode='dual'):
+    def reset(self):
+        self._goaldistances = []
+
+    def render(self):
         """ Renders the enviornment.
         Implements custom rendering support. If mode is:
 
@@ -33,14 +61,8 @@ class BaseMujocoEnv(BaseEnv):
         :param mode: Mode to render with (dual by default)
         :return: uint8 numpy array with rendering from sim
         """
-        cameras = ['maincam']
-        if mode == 'dual':
-            cameras = ['maincam', 'leftcam']
-        elif mode == 'leftcam':
-            cameras = ['leftcam']
-
-        images = np.zeros((len(cameras), self._frame_height, self._frame_width, 3), dtype=np.uint8)
-        for i, cam in enumerate(cameras):
+        images = np.zeros((self._ncam, self._frame_height, self._frame_width, 3), dtype=np.uint8)
+        for i, cam in enumerate(self.cameras):
             images[i] = self.sim.render(self._frame_width, self._frame_height, camera_name=cam)
         return images
 
@@ -69,32 +91,51 @@ class BaseMujocoEnv(BaseEnv):
 
         return self._frame_height - row, col                 #rendering flipped around in height
 
-    def get_desig_pix(self, cams, target_width, round=True):
+    def get_desig_pix(self, target_width, round=True):
         qpos_dim = self._n_joints      # the states contains pos and vel
         assert self.sim.data.qpos.shape[0] == qpos_dim + 7 * self.num_objects
-        desig_pix = np.zeros([len(cams), self.num_objects, 2], dtype=np.int)
+        desig_pix = np.zeros([self._ncam, self.num_objects, 2], dtype=np.int)
         ratio = self._frame_width / target_width
-        for icam, cam in range(cams):
+        for icam, cam in enumerate(self.cameras):
             for i in range(self.num_objects):
                 fullpose = self.sim.data.qpos[i * 7 + qpos_dim:(i + 1) * 7 + qpos_dim].squeeze()
                 d = self.project_point(fullpose[:3], cam)
                 d = np.stack(d) / ratio
                 if round:
                     d = np.around(d).astype(np.int)
-                desig_pix[icam, i] = d
+                desig_pix[icam, i] = d.squeeze()
         return desig_pix
 
-    def get_goal_pix(self, cams, target_width, goal_obj_pose, round=True):
-        goal_pix = np.zeros([len(cams), self.num_objects, 2], dtype=np.int)
+    def get_goal_pix(self, target_width, round=True):
+        goal_pix = np.zeros([self._ncam, self.num_objects, 2], dtype=np.int)
         ratio = self._frame_width / target_width
-        for icam, cam in range(cams):
+        for icam, cam in enumerate(self.cameras):
             for i in range(self.num_objects):
-                g = self.project_point(goal_obj_pose[i, :3], cam)
+                g = self.project_point(self.goal_obj_pose[i, :3], cam)
                 g = np.stack(g) / ratio
                 if round:
                     g= np.around(g).astype(np.int)
-                goal_pix[icam, i] = g
+                goal_pix[icam, i] = g.squeeze()
         return goal_pix
+
+    def eval(self):
+        self._goaldistances.append(self._get_distance_score())
+        stats = {}
+        stats['improvement'] = self._goaldistances[0] - self._goaldistances[-1]
+        stats['initial_dist'] = self._goaldistances[-1]
+        stats['final_dist'] = self._goaldistances[0]
+        return stats
+
+    def _get_distance_score(self):
+        """
+        :return:  mean of the distances between all objects and goals
+        """
+        abs_distances = []
+        for i_ob in range(self.num_objects):
+            goal_pos = self.goal_obj_pose[i_ob, :3]
+            curr_pos = self.sim.data.qpos[self._n_joints + i_ob * 7: self._n_joints + 3 + i_ob * 7]
+            abs_distances.append(np.linalg.norm(goal_pos - curr_pos))
+        return np.mean(np.array(abs_distances))
 
     def snapshot_noarm(self):
         raise NotImplementedError
@@ -106,3 +147,7 @@ class BaseMujocoEnv(BaseEnv):
     @property
     def sdim(self):
         return self._sdim
+
+    @property
+    def ncam(self):
+        return self._ncam

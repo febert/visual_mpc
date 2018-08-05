@@ -159,18 +159,15 @@ class BaseVideoDataset:
 
 
 if __name__ == '__main__':
-    path = '/home/sudeep/Documents/ext_data/sawyer_ag_openaction_bowlsfork/good'
+    path = '/home/sudeep/Documents/ext_data/test'
     batch_size = 1
     dataset = BaseVideoDataset(path, batch_size)
-    images, actions = dataset['images'], dataset['actions', 'val']
+    images, actions = dataset['images'], dataset['actions']
     sess = tf.InteractiveSession()
     tf.train.start_queue_runners(sess)
     sess.run(tf.global_variables_initializer())
 
-    imgs, acts = sess.run([images, actions])
-    import cv2
-    print(imgs.shape)
-    for t in range(dataset.T):
-        cv2.imwrite('test{}.png'.format(t), imgs[0, t, 0, :, :, ::-1])
-    print(acts.shape)
-    print(acts[0, :6])
+    for _ in range(10):
+        print('batch')
+        sess.run([images, actions])
+

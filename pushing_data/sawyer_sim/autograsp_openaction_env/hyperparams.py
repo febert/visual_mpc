@@ -22,7 +22,7 @@ env_params = {
     'substeps': 100,
      'autograsp': {'zthresh': 0.18, 'touchthresh': 0.0, 'reopen': True},
     'object_meshes': ['Fork', 'GlassBowl', 'Bowl', 'LotusBowl01'],
-    'open_threshold': -1.501085946044025
+    'open_action_threshold': -1.501085946044025
 }
 
 agent = {
@@ -38,7 +38,7 @@ agent = {
     'gen_xml':10,   #generate xml every nth trajecotry
     'ztarget':0.13,
     'record': BASE_DIR + '/record/',
-    'rejection_sample': 10
+    'rejection_sample': 1
 }
 
 policy = {
