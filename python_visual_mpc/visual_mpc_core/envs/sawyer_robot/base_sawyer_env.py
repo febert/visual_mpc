@@ -71,7 +71,7 @@ def pose_to_ja(target_pose, start_joints, tolerate_ik_error=False, retry_on_fail
 class BaseSawyerEnv(BaseEnv):
     def __init__(self, robot_name, opencv_tracking=False, save_videos=False,
                  OFFSET_TOL = 0.06, duration=1.25, mode_rel = np.array([True, True, True, True, False]),
-                 cleanup_rate = 50):
+                 cleanup_rate = 25):
         print('initializing environment for {}'.format(robot_name))
         self._robot_name = robot_name
         self._setup_robot()
@@ -85,7 +85,7 @@ class BaseSawyerEnv(BaseEnv):
         self._limb_recorder = LimbWSGRecorder(self._controller)
         self._main_cam = CameraRecorder('/camera0/image_raw', opencv_tracking, save_videos)
         self._left_cam = CameraRecorder('/camera1/image_raw', opencv_tracking, save_videos)
-
+        self._controller.neutral_with_impedance()
 
         img_dim_check = (self._main_cam.img_height, self._main_cam.img_width) == \
                         (self._left_cam.img_height, self._left_cam.img_width)
@@ -152,6 +152,7 @@ class BaseSawyerEnv(BaseEnv):
         obs['qvel'] = j_vel
 
         print 'xy delta: ', np.linalg.norm(eep[:2] - self._previous_target_qpos[:2])
+        print 'target z', self._previous_target_qpos[2], 'real z', eep[2]
         print 'z dif', abs(eep[2] - self._previous_target_qpos[2])
         print 'angle dif (degrees): ', abs(quat_to_zangle(eep[3:]) - self._previous_target_qpos[3]) * 180 / np.pi
         print 'angle degree target {} vs real {}'.format(np.rad2deg(quat_to_zangle(eep[3:])),
@@ -216,16 +217,21 @@ class BaseSawyerEnv(BaseEnv):
         Resets the environment and returns initial observation
         :return: obs dict (look at step(self, action) for documentation)
         """
-        self._controller.neutral_with_impedance()
+
+        rand_xyz = np.random.uniform(self._low_bound[:3], self._high_bound[:3])
+        rand_xyz[2] = self._high_bound[2]
+        rand_zangle = np.random.uniform(self._low_bound[3], self._high_bound[3])
+        self._move_to_state(rand_xyz, rand_zangle, 2.)
         self._controller.close_gripper(True)
         self._controller.open_gripper(True)
+        self._controller.neutral_with_impedance()
 
         if self._reset_counter % self._cleanup_rate == 0 and self._reset_counter > 0:
             self._controller.redistribute_objects()
 
         self._controller.neutral_with_impedance()
-        self._controller.open_gripper(True)
-        rospy.sleep(1.)
+        self._controller.open_gripper(False)
+        rospy.sleep(0.5)
 
         self._reset_previous_qpos()
 

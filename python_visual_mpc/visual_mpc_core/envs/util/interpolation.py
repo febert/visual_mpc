@@ -40,8 +40,8 @@ class QuinticSpline:
 
 
 class TwoPointCSpline(object):
-    def __init__(self, p_1, p_2):
-        self.cs = CubicSpline(np.array([0.0, 1.0]), np.array([p_1, p_2]), bc_type='clamped')
+    def __init__(self, p_1, p_2, duration=1.0):
+        self.cs = CubicSpline(np.array([0.0, duration]), np.array([p_1, p_2]), bc_type='clamped')
 
     def get(self, t):
         # assert 0 <= t <= 1, "Time should be in [0, 1] but is {}".format(t)

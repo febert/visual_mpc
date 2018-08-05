@@ -85,9 +85,6 @@ class RobotEnvironment:
     def run(self):
         if not self.is_bench:
             for i in xrange(self._hyperparams['start_index'], self._hyperparams['end_index']):
-                if i % self._hyperparams.get('nshuffle', 200) == 0 and i > 0:
-                    print("You have 30 seconds to shuffle objects....")
-                    rospy.sleep(30)
                 self.take_sample(i)
         else:
             itr = 0
