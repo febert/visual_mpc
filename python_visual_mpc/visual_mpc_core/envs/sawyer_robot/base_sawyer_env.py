@@ -321,6 +321,13 @@ class BaseSawyerEnv(BaseEnv):
         """
         return self._sdim
 
+    @property
+    def ncam(self):
+        """
+        Sawyer environment has ncam cameras
+        """
+        return 2
+
     def seed(self, seed=None):
         random.seed(seed)
         np.random.seed(seed)

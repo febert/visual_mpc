@@ -63,10 +63,7 @@ class RobotEnvironment:
         else:
             self._ck_dict = {'ntraj' : 0, 'broken_traj' : []}
 
-
-
     def init_policy(self):
-
         if 'use_server' not in self.policyparams and 'netconf' in self.policyparams and self._predictor is None:
             self._netconf = imp.load_source('params', self.policyparams['netconf']).configuration
             self._predictor = self._netconf['setup_predictor']({}, self._netconf, self._gpu_id, self._ngpu)
@@ -80,7 +77,7 @@ class RobotEnvironment:
         elif self._predictor is not None:
             self.policy = self.policyparams['type'](None, self.agentparams, self.policyparams, self._predictor)
         else:
-            self.policy = self.policyparams['type'](None, self.agentparams, self.policyparams)
+            self.policy = self.policyparams['type'](self.agentparams, self.policyparams, self._gpu_id, self._ngpu)
 
     def run(self):
         if not self.is_bench:
