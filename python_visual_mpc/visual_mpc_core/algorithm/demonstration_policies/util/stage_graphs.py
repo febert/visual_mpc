@@ -25,7 +25,7 @@ class PickAndPlace(StageGraph):
     """
     def __init__(self, agent_params, stage_params):
         super().__init__(agent_params, stage_params)
-        policy_params, stage_list = [{} for _ in range(5)], [0, 10, 20]
+        policy_params, stage_list = [{} for _ in range(5)], [0, 10, 20, 5]
         if stage_params is not None:
             policy_params, stage_list = stage_params
 

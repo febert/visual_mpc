@@ -3,7 +3,7 @@ import copy
 
 
 class VanillaSawyerEnv(BaseSawyerEnv):
-    def __init__(self, env_params):
+    def __init__(self, env_params, _=None):
         self._hyper = copy.deepcopy(env_params)
         BaseSawyerEnv.__init__(self, **env_params)
         self._adim, self._sdim = self._base_adim, self._base_sdim

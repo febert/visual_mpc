@@ -1,6 +1,7 @@
 """ This file defines the linear Gaussian policy class. """
 import pdb
 import numpy as np
+import IPython
 
 import pdb
 import os
@@ -17,11 +18,9 @@ from python_visual_mpc.visual_mpc_core.algorithm.utils.make_cem_visuals import C
 import matplotlib; matplotlib.use('Agg'); import matplotlib.pyplot as plt
 import copy
 import pdb
-from scipy.special import expit
 import collections
 import cv2
 from python_visual_mpc.visual_mpc_core.infrastructure.utility.logger import Logger
-from python_visual_mpc.goaldistancenet.variants.multiview_testgdn import MulltiviewTestGDN
 
 from queue import Queue
 from threading import Thread
@@ -42,12 +41,19 @@ def verbose_worker():
         print('servicing req', req)
         try:
             plt.switch_backend('Agg')
-            ctrl, actions, scores, cem_itr, gen_distrib, gen_images, last_frames = verbose_queue.get(True)
-            visualizer = CEM_Visual_Preparation()
-            visualizer.visualize(ctrl, actions, scores, cem_itr, gen_distrib, gen_images, last_frames)
+            visualizer, vd = verbose_queue.get(True)
+            visualizer.visualize(vd)
         except RuntimeError:
             print("TKINTER ERROR, SKIPPING")
         req += 1
+
+class VisualzationData():
+    def __init__(self):
+        """
+        container for visualization data
+        """
+        pass
+
 
 class CEM_Controller_Vidpred(CEM_Controller_Base):
     """
@@ -78,12 +84,9 @@ class CEM_Controller_Vidpred(CEM_Controller_Base):
 
         self.ncontxt = self.netconf['context_frames']
 
-        if 'ndesig' in self.netconf:
+        if 'ndesig' in self.netconf:        # total number of
             self.ndesig = self.netconf['ndesig']
         else: self.ndesig = None
-        if 'ntask' in self.agentparams:   # number of
-            self.ntask = self.agentparams['ntask']
-        else: self.ntask = 1
 
         self.img_height, self.img_width = self.netconf['orig_size']
 
@@ -111,6 +114,10 @@ class CEM_Controller_Vidpred(CEM_Controller_Base):
 
         self.best_cost_perstep = np.zeros([self.ncam, self.ndesig, self.seqlen - self.ncontxt])
 
+        self.ntask = self.ndesig  # will be overwritten in derived classes
+        self.vd = VisualzationData()
+        self.visualizer = CEM_Visual_Preparation()
+
     def reset(self):
         super(CEM_Controller_Vidpred, self).reset()
         if 'predictor_propagation' in self.policyparams:
@@ -137,12 +144,7 @@ class CEM_Controller_Vidpred(CEM_Controller_Base):
     def get_rollouts(self, actions, cem_itr, itr_times):
         actions, last_frames, last_states, t_0 = self.prep_vidpred_inp(actions, cem_itr)
 
-        if 'masktrafo_obj' in self.policyparams:
-            curr_obj_mask = np.repeat(self.curr_obj_mask[None], self.netconf['context_frames'], axis=0).astype(
-                np.float32)
-            input_distrib = np.repeat(curr_obj_mask[None], self.M, axis=0)[..., None]
-        else:
-            input_distrib = self.make_input_distrib(cem_itr)
+        input_distrib = self.make_input_distrib(cem_itr)
 
         t_startpred = time.time()
         if self.M > self.bsize:
@@ -173,20 +175,32 @@ class CEM_Controller_Vidpred(CEM_Controller_Base):
         itr_times['t_concat'] = time.time() - t_run_post
         self.logger.log('time for videoprediction {}'.format(time.time() - t_startpred))
         t_run_post = time.time()
-        t_startcalcscores = time.time()
 
-        scores = self.eval_planningcost(cem_itr, gen_distrib, t_startcalcscores)
+        scores = self.eval_planningcost(cem_itr, gen_distrib, gen_images)
 
         itr_times['run_post'] = time.time() - t_run_post
         tstart_verbose = time.time()
 
+        self.vd.t = self.t
+        self.vd.scores = scores
+        self.vd.agentparams = self.agentparams
+        self.vd.policyparams = self.policyparams
+        self.vd.netconf = self.netconf
+        self.vd.ndesig = self.ndesig
+        self.vd.gen_distrib = gen_distrib
+        self.vd.gen_images = gen_images
+        self.vd.K = self.K
+        self.vd.cem_itr = cem_itr
+        self.vd.last_frames = last_frames
+        self.vd.goal_pix = self.goal_pix
+        self.vd.ncam = self.ncam
         if self.verbose and cem_itr == self.policyparams['iterations']-1 and self.i_tr % self.verbose_freq ==0 or \
                 ('verbose_every_itr' in self.policyparams and self.i_tr % self.verbose_freq ==0):
             if self.parallel_vis:
-                verbose_queue.put((self, actions, scores, cem_itr, gen_distrib, gen_images, last_frames))
+                print('t{} cemitr {}'.format(self.t, cem_itr))
+                verbose_queue.put((self.visualizer, copy.deepcopy(self.vd)))
             else:
-                self.visualizer = CEM_Visual_Preparation()
-                self.visualizer.visualize(self, actions, scores, cem_itr, gen_distrib, gen_images, last_frames)
+                self.visualizer.visualize(self.vd)
 
         if 'save_desig_pos' in self.agentparams:
             save_track_pkl(self, self.t, cem_itr)
@@ -199,7 +213,9 @@ class CEM_Controller_Vidpred(CEM_Controller_Base):
 
         return scores
 
-    def eval_planningcost(self, cem_itr, gen_distrib, t_startcalcscores):
+    def eval_planningcost(self, cem_itr, gen_distrib, gen_images):
+
+        t_startcalcscores = time.time()
         scores_per_task = []
 
         for icam in range(self.ncam):
@@ -235,7 +251,6 @@ class CEM_Controller_Vidpred(CEM_Controller_Base):
                 best_gen_distrib = gen_distrib[bestind, self.ncontxt].reshape(1, self.ncam, self.img_height,
                                                                               self.img_width, self.ndesig)
                 self.rec_input_distrib.append(best_gen_distrib)
-
         self.logger.log('time to calc scores {}'.format(time.time() - t_startcalcscores))
         return scores
 
@@ -338,10 +353,9 @@ class CEM_Controller_Vidpred(CEM_Controller_Base):
             goal_pix: in coordinates of small image
             desig_pix: in coordinates of small image
         """
+        self.desig_pix = np.array(desig_pix).reshape((self.ncam, self.ntask, 2))
+        self.goal_pix = np.array(goal_pix).reshape((self.ncam, self.ntask, 2))
 
-        self.desig_pix = np.array(desig_pix).reshape((self.ncam, self.ndesig, 2))
-        self.goal_pix = np.array(goal_pix).reshape((self.ncam, self.ndesig, 2))
         self.images = images
         self.state = state
-
         return super(CEM_Controller_Vidpred, self).act(t, i_tr)

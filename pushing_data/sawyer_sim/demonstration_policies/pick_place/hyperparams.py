@@ -19,20 +19,21 @@ env_params = {
     'object_mass': 0.1,
     'friction': 1.0,
     'finger_sensors': True,
-    'object_meshes': ['LotusBowl01']
+    'object_meshes': ['LotusBowl01', 'GlassBowl', 'ElephantBowl', 'Bowl']
 }
 
 agent = {
     'type': GeneralAgent,
     'env': (PickPlaceDemo, env_params),
     'data_save_dir': BASE_DIR,
-    'T': 30,
+    'T': 20,
     'image_height' : 48,
     'image_width' : 64,
     'novideo':'',
-    'gen_xml':10,   #generate xml every nth trajecotry
+    'gen_xml':1,   #generate xml every nth trajecotry
     'make_final_gif':'', #keep this key in if you want final gif to be created
     'record': BASE_DIR + '/record/',
+    'rejection_sample': 20
 }
 
 policy = {

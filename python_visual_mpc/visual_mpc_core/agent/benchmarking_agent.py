@@ -1,12 +1,14 @@
 from .general_agent import GeneralAgent
+import pdb
 import pickle as pkl
 import numpy as np
 import cv2
 
 class BenchmarkAgent(GeneralAgent):
     def __init__(self, hyperparams):
+        self._start_goal_confs = hyperparams['start_goal_confs']
+        self.ncam = hyperparams['env'][1]['ncam']
         super().__init__(hyperparams)
-        self._start_goal_confs = self._hyperparams.pop('start_goal_confs')
 
     def _setup_world(self, itr):
         self._reset_state = self._load_raw_data(itr)
@@ -40,6 +42,7 @@ class BenchmarkAgent(GeneralAgent):
             for i in range(self.ncam):
                 goal_images[t, i] = cv2.imread('{}/images{}/im_{}.png'.format(traj_folder, i, t))
         self._goal_image = goal_images[-1]
+        #TODO: make compatible with fullimage tracknig
         with open('{}/agent_data.pkl'.format(traj_folder), 'rb') as file:
             agent_data = pkl.load(file)
         with open('{}/obs_dict.pkl'.format(traj_folder), 'rb') as file:
@@ -47,5 +50,6 @@ class BenchmarkAgent(GeneralAgent):
         reset_state = agent_data['reset_state']
 
         self._goal_obj_pose = obs_dict['object_qpos'][-1]
+
         return reset_state
 

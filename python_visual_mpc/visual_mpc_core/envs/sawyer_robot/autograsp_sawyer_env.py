@@ -6,7 +6,7 @@ from python_visual_mpc.visual_mpc_core.envs.util.action_util import autograsp_dy
 
 
 class AutograspSawyerEnv(BaseSawyerEnv):
-    def __init__(self, env_params):
+    def __init__(self, env_params, _=None):
         assert 'mode_rel' not in env_params, "Autograsp sets mode_rel"
 
         self._hyper = copy.deepcopy(env_params)

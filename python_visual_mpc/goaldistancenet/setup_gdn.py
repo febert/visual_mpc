@@ -1,12 +1,7 @@
 import tensorflow as tf
-import imp
-import numpy as np
-from python_visual_mpc.goaldistancenet.gdnet import GoalDistanceNet
-from PIL import Image
-from python_visual_mpc.video_prediction.utils_vpred.variable_checkpoint_matcher import variable_checkpoint_matcher
 import os
 import pdb
-from python_visual_mpc.goaldistancenet.variants.multiview_testgdn import MulltiviewTestGDN
+from python_visual_mpc.goaldistancenet.multiview_testgdn import MulltiviewTestGDN
 
 def setup_gdn(conf, gpu_id = 0):
     """
