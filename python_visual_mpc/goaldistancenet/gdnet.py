@@ -172,6 +172,20 @@ class GoalDistanceNet(object):
             self.iter_num = tf.placeholder(tf.float32, [], name='iternum')
             if load_testimages:
                 dict = build_tfrecord_fn(conf, mode='test')
+            elif 'new_loader' in conf:
+                from python_visual_mpc.visual_mpc_core.Datasets.base_dataset import BaseVideoDataset
+                train_images, val_images = [], []
+                print('loading images for view {}'.format(conf['view']))
+                for path, batch_size in conf['data_dir']:
+                    dataset = BaseVideoDataset(path, batch_size)
+                    train_images.append(dataset['images', 'train'][:, conf['view']])
+                    val_images.append(dataset['images', 'val'][:, conf['view']])
+                train_images, val_images = tf.concat(train_images, 0), tf.concat(val_images, 0)
+                self.images = tf.cond(self.train_cond > 0,
+                                 # if 1 use trainigbatch else validation batch
+                                 lambda: train_images,
+                                 lambda: val_images)
+                print('loaded images tensor: {}'.format(self.images))
             else:
                 train_dict = build_tfrecord_fn(conf, mode='train')
                 val_dict = build_tfrecord_fn(conf, mode='val')

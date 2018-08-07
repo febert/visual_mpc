@@ -45,4 +45,5 @@ configuration = {
 'flow_penal':1e-4,
 'ch_mult':4,
 'view':0,
+'new_loader': True
 }
