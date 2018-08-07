@@ -2,6 +2,14 @@ from .base_mujoco_env import BaseMujocoEnv
 
 
 class BaseDemoEnv(BaseMujocoEnv):
+    """
+    Wrapper class which allows easy creation of demonstration tuned environments w/ Multiple inheritance
+         - Pros:
+              * Easy code reuse
+              * Test demo enviornmnet once and easily apply to new Action Spaces (example in sawyer_sim.vanilla_env)
+         - Cons:
+              * Bugs can be hard to deal with. Refer to BaseSawyerMujocoEnv.reset for how this was mitigated
+    """
     def reset(self):
         self._demo_t, self._cur_stage = 0, -1
         obs, reset = super().reset()

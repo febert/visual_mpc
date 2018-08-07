@@ -140,13 +140,17 @@ class GeneralAgent(object):
             obs['goal_pix'] = self.env.get_goal_pix(agent_img_width)
         return obs
 
-    def _required_rollout_metadata(self, agent_data, traj_ok):
+    def _required_rollout_metadata(self, agent_data, traj_ok, t):
         """
         Adds meta_data into the agent dictionary that is MANDATORY for later parts of pipeline
         :param agent_data: Agent data dictionary
         :param traj_ok: Whether or not rollout succeeded
         :return: None
         """
+        agent_data['term_t'] = t - 1
+
+        if self._goal_obj_pose is not None:
+            agent_data['stats'] = self.env.eval()
         if self.env.has_goal():
             agent_data['goal_reached'] = self.env.goal_reached()
         agent_data['traj_ok'] = traj_ok
@@ -163,13 +167,13 @@ class GeneralAgent(object):
         """
         self._init()
         agent_data, policy_outputs = {}, []
-        agent_data['stats'] = {}
 
         # Take the sample.
         t = 0
         done = False
         initial_env_obs, _ = self.env.reset()
         obs = self._post_process_obs(initial_env_obs, True)
+        policy.reset()
 
         while not done:
             """
@@ -186,12 +190,12 @@ class GeneralAgent(object):
             except ValueError:
                 return {'traj_ok': False}, None, None
 
-            agent_data['stats'] = self.env.eval()
+            if 'rejection_sample' in self._hyperparams and 'rejection_end_early' in self._hyperparams:
+                if self._hyperparams['rejection_sample'] > i_tr and not self.env.goal_reached():
+                    return {'traj_ok': False}, None, None
 
             if (self._hyperparams['T']-1) == t:
                 done = True
-            if done:
-                agent_data['term_t'] = t
             t += 1
 
         traj_ok = True
@@ -202,9 +206,9 @@ class GeneralAgent(object):
             if self._hyperparams['rejection_sample'] > i_tr:
                 assert self.env.has_goal(), 'Rejection sampling enabled but env has no goal'
                 traj_ok = self.env.goal_reached()
-                print('reject test', traj_ok)
+            print('goal_reached', self.env.goal_reached())
 
-        self._required_rollout_metadata(agent_data, traj_ok)
+        self._required_rollout_metadata(agent_data, traj_ok, t)
         return agent_data, obs, policy_outputs
 
 

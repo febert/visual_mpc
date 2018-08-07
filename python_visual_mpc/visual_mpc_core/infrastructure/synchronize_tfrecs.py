@@ -3,11 +3,12 @@ import time
 import os
 import ray
 
-master = 'deepthought'
+
 
 @ray.remote
 def sync(agentparams):
     master_datadir = agentparams['master_datadir']
+    master = agentparams.get('master', 'deepthought')
     local_datadir = '/result'
 
     while True:

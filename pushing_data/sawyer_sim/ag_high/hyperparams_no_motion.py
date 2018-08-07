@@ -22,13 +22,14 @@ env_params = {
     'friction': 1,
     'substeps': 100,
      'autograsp': {'zthresh': 0.2, 'touchthresh': 0.0, 'reopen': True},
-    'object_meshes': ['GlassBowl', 'Bowl', 'LotusBowl01']
+    'object_meshes': ['GlassBowl', 'Bowl', 'LotusBowl01'],
+    'no_motion_goal': True
 }
 
 agent = {
     'type': GeneralAgent,
     'env': (AutograspSawyerMujocoEnv, env_params),
-    'data_save_dir': BASE_DIR,
+    'data_save_dir': BASE_DIR + '/no_motion',
     'T': 30,
     'image_height' : 48,
     'image_width' : 64,
@@ -38,7 +39,11 @@ agent = {
     'min_z_lift':0.05,
     'record': BASE_DIR + '/record/',
     'discrete_gripper': -1, #discretized gripper dimension,
-    'rejection_sample': 1
+    'rejection_sample': 50,
+    'rejection_end_early': True,
+    'make_final_gif': True,
+    'master': 'sudeep@deepthought.banatao.berkeley.edu',
+    'master_datadir': '/raid/sudeep/sawyer_sim/ag_high_nomotion/'
 }
 
 policy = {
@@ -64,3 +69,4 @@ config = {
     'policy': policy,
     'ngroup': 1000
 }
+

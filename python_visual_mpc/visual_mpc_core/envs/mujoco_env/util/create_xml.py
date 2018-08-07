@@ -99,7 +99,6 @@ def create_object_xml(filename, num_objects, object_mass, friction_params, objec
 
         obj_string = "object{}".format(i)
         print('using friction=({}, {}, {}), object mass{}'.format(f_sliding, f_torsion, f_rolling, object_mass))
-
         if object_meshes is not None:
             assets = ET.SubElement(root, "asset")
             if chosen_mesh not in loaded_meshes:
@@ -160,8 +159,6 @@ def create_object_xml(filename, num_objects, object_mass, friction_params, objec
                               rgba="0 1 0 0", mass="{}".format(mass_per_elem),
                               contype="7", conaffinity="7", friction="{} {} {}".format(f_sliding, f_torsion, f_rolling)
                               )
-
-
 
         else:
             obj = None
