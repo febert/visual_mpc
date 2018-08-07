@@ -31,7 +31,6 @@ agent = {
     'image_width' : 64,
     'novideo':'',
     'gen_xml':1,   #generate xml every nth trajecotry
-    'make_final_gif':'', #keep this key in if you want final gif to be created
     'record': BASE_DIR + '/record/',
     'rejection_sample': 20
 }
@@ -45,9 +44,8 @@ config = {
     'traj_per_file':128,
     'current_dir' : current_dir,
     'save_data': True,
-    'save_raw_images' : True,
     'start_index':0,
-    'end_index': 120000,
+    'end_index': 1500,
     'agent': agent,
     'policy': policy,
     'ngroup': 1000
