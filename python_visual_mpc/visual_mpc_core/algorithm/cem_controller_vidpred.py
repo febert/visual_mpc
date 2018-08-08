@@ -106,7 +106,7 @@ class CEM_Controller_Vidpred(CEM_Controller_Base):
         if 'predictor_propagation' in self.policyparams:
             self.rec_input_distrib = []  # record the input distributions
 
-        self.parallel_vis = False
+        self.parallel_vis = True
         if self.parallel_vis:
             self._thread = Thread(target=verbose_worker)
             self._thread.start()

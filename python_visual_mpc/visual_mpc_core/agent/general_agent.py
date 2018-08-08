@@ -4,6 +4,7 @@ import numpy as np
 from python_visual_mpc.video_prediction.misc.makegifs2 import npy_to_gif
 import cv2
 from python_visual_mpc.visual_mpc_core.algorithm.policy import get_policy_args
+import pdb
 
 
 def file_len(fname):

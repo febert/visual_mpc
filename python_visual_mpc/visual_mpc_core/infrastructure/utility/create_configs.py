@@ -23,7 +23,7 @@ def main():
 
     hyperparams = imp.load_source('hyperparams', hyperparams_file).config
 
-    c =Sim(hyperparams)
+    c = Sim(hyperparams)
     c.run()
 
 if __name__ == "__main__":
