@@ -6,9 +6,9 @@ base_dir = '/'.join(str.split(base_dir, '/')[:-2])
 # tf record data location:
 import os
 DATA_DIR = {
-         os.environ['VMPC_DATA_DIR'] + '/sawyer_grasping/ag_long_records_15kfullres': 32,
-         os.environ['VMPC_DATA_DIR'] + '/sawyer_grasping/ag_long_records_15kfullres': 32,
-            }
+         os.environ['VMPC_DATA_DIR'] + '/sawyer_grasping/ag_long_records_15kfullres/good': 32,
+         os.environ['VMPC_DATA_DIR'] + '/sawyer_grasping/ag_long_records_15kfullres/bad': 32,
+        }
 import os
 current_dir = os.path.dirname(os.path.realpath(__file__))
 
@@ -22,7 +22,7 @@ configuration = {
 'output_dir': OUT_DIR,      #'directory for model checkpoints.' ,
 'current_dir': base_dir,   #'directory for writing summary.' ,
 'num_iterations':100000,
-'sequence_length':10,
+'sequence_length':5,
 'train_val_split':.95,
 'visualize':'',
 'skip_frame':1,
