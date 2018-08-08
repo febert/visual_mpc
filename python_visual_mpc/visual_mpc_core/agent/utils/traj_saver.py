@@ -132,7 +132,7 @@ class GeneralAgentSaver:
         if self._seperate_good:
             self._good_saver.flush()
             self._bad_saver.flush()
-            print('Perc good: {}'.format(len(self._good_saver) / len(self._bad_saver) * 100.))
+            print('Perc good: {}'.format(len(self._good_saver) / float(len(self._bad_saver)) * 100.))
         else:
             self._saver.flush()
 

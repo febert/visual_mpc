@@ -70,7 +70,7 @@ class Sim(object):
 
         ngroup = self._hyperparams['ngroup']
         igrp = itr // ngroup
-        group_folder = data_save_dir + '/traj_group{}'.format(igrp)
+        group_folder = data_save_dir + '/{}/traj_group{}'.format(self.task_mode, igrp)
         if not os.path.exists(group_folder):
             os.makedirs(group_folder)
 

@@ -9,8 +9,6 @@ import time
 from mujoco_py.builder import MujocoException
 import copy
 from python_visual_mpc.video_prediction.misc.makegifs2 import npy_to_gif
-import pdb
-import  matplotlib.pyplot as plt
 
 
 def quat_to_zangle(quat):
@@ -39,16 +37,16 @@ NEUTRAL_JOINTS = np.array([1.65474475, - 0.53312487, - 0.65980174, 1.1841825, 0.
 class BaseSawyerMujocoEnv(BaseMujocoEnv):
     def __init__(self, env_params_dict, reset_state=None):
         assert 'filename' in env_params_dict, "Sawyer model filename required"
-        
+        params_dict = copy.deepcopy(env_params_dict)
         #TF HParams can't handle list Hparams well, this is cleanest workaround for object_meshes
-        if 'object_meshes' in env_params_dict:
-            object_meshes = env_params_dict.pop('object_meshes')
+        if 'object_meshes' in params_dict:
+            object_meshes = params_dict.pop('object_meshes')
         else:
             object_meshes = None
 
         params = self._default_hparams()
-        for name, value in env_params_dict.items():
-            print('setting paraem {} to value {}'.format(name, value))
+        for name, value in params_dict.items():
+            print('setting param {} to value {}'.format(name, value))
             params.set_hparam(name, value)
 
         base_filename = asset_base_path + params.filename
@@ -87,7 +85,7 @@ class BaseSawyerMujocoEnv(BaseMujocoEnv):
     
     def _default_hparams(self):
         default_dict = {'filename': None,
-                        'mode_rel': np.array([True, True, True, True, False]),
+                        'mode_rel': [True, True, True, True, False],
                         'num_objects': 1,
                         'object_mass': 1.0,
                         'friction': 1.0,
@@ -121,7 +119,14 @@ class BaseSawyerMujocoEnv(BaseMujocoEnv):
         return self._verbose_vid.append(super().render()[0])
 
     def reset(self):
-        super(BaseSawyerMujocoEnv, self).reset()
+        """
+        It's pretty important that we specify which reset functions to call
+        instead of using super().reset() and self.reset()
+           - That's because Demonstration policies use multiple inheritance to function and the recursive
+             self.reset() results in pretty nasty errors. The pro to this approach is demonstration envs are easy to create
+        """
+        BaseMujocoEnv.reset(self)
+
         last_rands, write_reset_state = [], {}
         write_reset_state['reset_xml'] = copy.deepcopy(self._reset_xml)
         margin = 1.1 * self._maxlen
@@ -171,7 +176,7 @@ class BaseSawyerMujocoEnv(BaseMujocoEnv):
                 if self._params.verbose_dir is not None:
                     self._render_verbose()
         except MujocoException:
-            return self.reset()
+            return BaseSawyerMujocoEnv.reset(self)
 
         if self._read_reset_state is not None:
             xyz = self._read_reset_state['state'][:3]
@@ -216,7 +221,7 @@ class BaseSawyerMujocoEnv(BaseMujocoEnv):
                 except MujocoException:
                     #if randomly generated start causes 'bad' contacts Mujoco will error. Have to reset again
                     print('except')
-                    return self.reset()
+                    return BaseSawyerMujocoEnv.reset(self)
 
             if self.finger_sensors:
                 finger_force += self.sim.data.sensordata[:2]
@@ -260,8 +265,7 @@ class BaseSawyerMujocoEnv(BaseMujocoEnv):
 
             obs['object_poses_full'][i] = fullpose
             obs['object_poses'][i, :2] = fullpose[:2]
-            obs['object_poses'][i, 2] = quat_to_zangle(fullpose[3:])
-
+            obs['object_poses'][i, 2] = Quaternion(fullpose[3:]).angle
             obs['object_qpos'][i] = self.sim.data.qpos[self._n_joints + i * 7: self._n_joints + (i+1)*7]
 
         # copy non-image data for environment's use (if needed)
@@ -269,6 +273,10 @@ class BaseSawyerMujocoEnv(BaseMujocoEnv):
         # get images
         obs['images'] = self.render()
         obs['obj_image_locations'] = self.get_desig_pix(self._frame_width)
+
+        if 'stage' in obs:
+            raise ValueError
+
         return obs
 
     def _sim_integrity(self):
@@ -299,12 +307,15 @@ class BaseSawyerMujocoEnv(BaseMujocoEnv):
         finger_force = np.zeros(2)
 
         xyz_interp = TwoPointCSpline(self.sim.data.get_body_xpos('hand').copy(), target_qpos[:3])
-        self.sim.data.set_mocap_quat('mocap', zangle_to_quat(target_qpos[3]))
         for st in range(self.substeps):
             alpha = 1.
             if not self.substeps == 1:
                 alpha = st / (self.substeps - 1)
 
+            double_alpha = min(2 * alpha, 1.)
+            target_angle = (1 - double_alpha) * self._previous_target_qpos[3] + double_alpha * target_qpos[3]
+
+            self.sim.data.set_mocap_quat('mocap', zangle_to_quat(target_angle))
             self.sim.data.set_mocap_pos('mocap', xyz_interp.get(alpha)[0])
 
             self.sim.data.ctrl[0] = self._previous_target_qpos[-1]
@@ -322,13 +333,21 @@ class BaseSawyerMujocoEnv(BaseMujocoEnv):
             if self._params.verbose_dir is not None and st % 10 == 0:
                 self._render_verbose()
 
-        for st in range(100):
+        for st in range(1000):
             self.sim.data.ctrl[0] = target_qpos[-1]
             self.sim.data.ctrl[1] = -target_qpos[-1]
+            self._clip_gripper()
+
             if self.finger_sensors:
                 finger_force += copy.deepcopy(self.sim.data.sensordata[:2].squeeze())
 
-            if self._params.verbose_dir is not None and st % 20 == 0:
+            try:
+                self.sim.step()
+            except MujocoException:
+                print('Sim reset (bad contact)')
+                raise ValueError
+
+            if self._params.verbose_dir is not None and st % 200 == 0:
                 self._render_verbose()
 
         finger_force /= self.substeps * 10

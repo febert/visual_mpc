@@ -18,6 +18,8 @@ def get_policy_args(policy, obs, t, i_tr):
             value = obs['obj_image_locations'][-1]
         elif arg == 'i_tr':
             value = i_tr
+        elif arg == 'obs':           # policy can ask for all arguments from environment
+            value = obs
 
         if value is Parameter.empty:
             # required parameters MUST be set by agent
