@@ -35,7 +35,7 @@ env_params = {
 }
 
 agent = {
-    'type': GeneralAgent,
+    'type': BenchmarkAgent,
     'env': (AutograspSawyerMujocoEnv, env_params),
     'T': 30,
     'image_height' : 48,

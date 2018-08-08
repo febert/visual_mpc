@@ -148,10 +148,9 @@ class GeneralAgent(object):
         :param traj_ok: Whether or not rollout succeeded
         :return: None
         """
-        agent_data['term_t'] = t - 1
-
         if self._goal_obj_pose is not None:
             agent_data['stats'] = self.env.eval()
+            agent_data['stats']['term_t'] = t - 1
         if self.env.has_goal():
             agent_data['goal_reached'] = self.env.goal_reached()
         agent_data['traj_ok'] = traj_ok

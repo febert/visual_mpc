@@ -21,8 +21,7 @@ def setup_gdn(conf, gpu_id = 0):
     with sess.as_default():
         with g_predictor.as_default():
             print('Constructing model Warping Network')
-            Model = MulltiviewTestGDN
-            model = Model(conf=conf,
+            model = MulltiviewTestGDN(conf=conf,
                           build_loss=False,
                           load_data = False)
             model.build_net()
@@ -32,6 +31,7 @@ def setup_gdn(conf, gpu_id = 0):
                 feed_dict = {
                             model.I0_pl:pred_images,
                             model.I1_pl:goal_images}
+
                 warped_images, flow_field, warp_pts = sess.run([model.warped_I0_to_I1,
                                                                 model.flow_bwd,
                                                                 model.warp_pts_bwd],
