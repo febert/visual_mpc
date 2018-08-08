@@ -6,10 +6,9 @@ base_dir = '/'.join(str.split(base_dir, '/')[:-2])
 # tf record data location:
 import os
 DATA_DIR = {
-         os.environ['VMPC_DATA_DIR'] + '/sawyer_grasping/ag_long_records/good': 32,
-         os.environ['VMPC_DATA_DIR'] + '/sawyer_grasping/ag_long_records/bad': 32,
+         os.environ['VMPC_DATA_DIR'] + '/sawyer_grasping/ag_long_records_15kfullres': 32,
+         os.environ['VMPC_DATA_DIR'] + '/sawyer_grasping/ag_long_records_15kfullres': 32,
             }
-
 import os
 current_dir = os.path.dirname(os.path.realpath(__file__))
 
@@ -30,8 +29,7 @@ configuration = {
 'batch_size': 64,           #'batch size for training' ,
 'learning_rate': 0.001,     #'the base learning rate of the generator' ,
 'normalization':'None',
-'sdim' :5,
-'adim' :4,
+'image_only':'',
 'orig_size': [96,128],
 'norm':'charbonnier',
 'smoothcost':1e-7,
