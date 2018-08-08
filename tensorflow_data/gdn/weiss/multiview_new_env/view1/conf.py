@@ -7,8 +7,8 @@ base_dir = '/'.join(str.split(base_dir, '/')[:-2])
 # tf record data location:
 import os
 DATA_DIR = {
-         os.environ['VMPC_DATA_DIR'] + '/sawyer_data/ag_long_records/good': 32,
-         os.environ['VMPC_DATA_DIR'] + '/sawyer_data/ag_long_records/bad': 32,
+         os.environ['VMPC_DATA_DIR'] + '/sawyer_grasping/ag_long_records/good': 32,
+         os.environ['VMPC_DATA_DIR'] + '/sawyer_grasping/ag_long_records/bad': 32,
             }
 import os
 current_dir = os.path.dirname(os.path.realpath(__file__))
