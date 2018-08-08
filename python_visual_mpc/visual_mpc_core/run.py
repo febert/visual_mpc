@@ -61,7 +61,7 @@ def main():
     parser.add_argument('--nsplit', type=int, help='number of splits', default=-1)
     parser.add_argument('--isplit', type=int, help='split id', default=-1)
     parser.add_argument('--cloud', dest='cloud', action='store_true', default=False)
-    parser.add_argument('--benchmark', dest='do_benchmark', action='store_true', default=False)
+    parser.add_argument('--benchmark', dest='do_benchmark', action='store_true', default=True)
 
     parser.add_argument('--iex', type=int, help='if different from -1 use only do example', default=-1)
 
