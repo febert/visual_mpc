@@ -38,6 +38,7 @@ if __name__ == '__main__':
     flags.DEFINE_string('resume', None, 'path to model file from which to resume training')
     flags.DEFINE_bool('docker', False, 'whether to write outpufiles to /results folder, used when runing in docker')
     flags.DEFINE_bool('flowerr', False, 'whether to compute flowerr metric')
+    flags.DEFINE_integer('shuff', 512, 'size of shufflel buffer')
 
 def main(unused_argv, conf_script= None):
     os.environ["CUDA_VISIBLE_DEVICES"] = str(FLAGS.device)
@@ -90,9 +91,9 @@ def main(unused_argv, conf_script= None):
 
     with tf.variable_scope('model'):
         if FLAGS.visualize or FLAGS.visualize_check:
-            model = Model(conf, build_loss, load_data=False, load_testimages=load_test_images)
+            model = Model(conf, build_loss, load_data=False, load_testimages=load_test_images, shuffle_buffer=FLAGS.shuff)
         else:
-            model = Model(conf, build_loss, load_data=True, load_testimages=load_test_images)
+            model = Model(conf, build_loss, load_data=True, load_testimages=load_test_images, shuffle_buffer=FLAGS.shuff)
         model.build_net()
 
 
