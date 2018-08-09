@@ -130,15 +130,13 @@ class GeneralAgent(object):
         obs = {}
         for k in env_obs:
             if k == 'images':
-                self.large_images_traj.append(env_obs['images'][1])  #only take first camera
+                self.large_images_traj.append(env_obs['images'][0])  #only take first camera
                 resize_store(t, self._agent_cache['images'], env_obs['images'])
 
             elif k == 'obj_image_locations':
-                self.traj_points.append(copy.deepcopy(env_obs['obj_image_locations'][1]))  #only take first camera
-                print('original', env_obs['obj_image_locations'])
+                self.traj_points.append(copy.deepcopy(env_obs['obj_image_locations'][0]))  #only take first camera
                 env_obs['obj_image_locations'] = np.round((env_obs['obj_image_locations'] *
                                                   point_target_width / env_obs['images'].shape[2])).astype(np.int64)
-                print('resize', env_obs['obj_image_locations'])
                 self._agent_cache['obj_image_locations'][t] = env_obs['obj_image_locations']
             elif isinstance(env_obs[k], np.ndarray):
                 self._agent_cache[k][t] = env_obs[k]
