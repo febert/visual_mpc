@@ -102,7 +102,6 @@ def setup_predictor(hyperparams, conf, gpu_id=0, ngpu=1, logger=None):
             else:
                 pix_distrib = tf.placeholder(use_dtype, shape=(1, conf['context_frames'], ncam, orig_size[0], orig_size[1], conf['ndesig']))
 
-
             # making the towers
             towers = []
             for i_gpu in range(ngpu):

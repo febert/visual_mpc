@@ -87,7 +87,6 @@ class GeneralAgent(object):
         :param initial_obs: Whether or not this is the first observation in rollout
         :return: obs: dictionary of observations up until (and including) current timestep
         """
-
         agent_img_height = self._hyperparams['image_height']
         agent_img_width = self._hyperparams['image_width']
 

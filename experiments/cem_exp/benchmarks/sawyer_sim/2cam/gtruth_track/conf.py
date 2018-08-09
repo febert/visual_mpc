@@ -15,13 +15,13 @@ import video_prediction
 
 base_dir = video_prediction.__file__
 base_dir = '/'.join(str.split(base_dir, '/')[:-2])
-modeldir = base_dir + '/pretrained_models/sawyer_reopen_longtraj_indep'
+modeldir = base_dir + '/pretrained_models/sawyer_sim/ag_high_bowl'
 configuration = {
 'pred_model': Alex_Interface_Model,
 'pred_model_class':IndepMultiSAVPVideoPredictionModel,
 'setup_predictor':setup_predictor,
-'json_dir':  base_dir + '/pretrained_models/sawyer_reopen_longtraj_indep/view0/model.savp.None',
-'pretrained_model':[modeldir + '/view0/model.savp.None/model-155000', modeldir + '/view1/model.savp.None/model-155000'],   # 'filepath of a pretrained model to resume training from.' ,
+'json_dir':  modeldir + '/view0/model.savp.None',
+'pretrained_model':[modeldir + '/view0/model.savp.None/model-240000', modeldir + '/view1/model.savp.None/model-240000'],   # 'filepath of a pretrained model to resume training from.' ,
 'sequence_length': 15,      # 'sequence length to load, including context frames.' ,
 'context_frames': 2,        # of frames before predictions.' ,
 'model': 'appflow',            #'model architecture to use - CDNA, DNA, or STP' ,
@@ -29,6 +29,6 @@ configuration = {
 'sdim':5,
 'adim':4,
 'orig_size':[48,64],
-'ndesig':2,
+'ndesig':1,
 'ncam':2,
 }
