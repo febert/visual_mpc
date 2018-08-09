@@ -181,7 +181,6 @@ class CEM_Controller_Base(Policy):
                 self.plan_stat['best_cost_perstep'] = self.best_cost_perstep
 
             actions_flat = self.post_process_actions(actions)
-            self.bestaction = actions[self.indices[0]]
 
             self.fit_gaussians(actions_flat)
 
