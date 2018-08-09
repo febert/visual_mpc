@@ -22,8 +22,7 @@ DATA_DIR = '/'.join(str.split(python_visual_mpc.__file__, '/')[:-2])
 env_params = {
     'filename': 'sawyer_grasp.xml',
     'num_objects': 1,
-    'object_mass': 0.1
-    ,
+    'object_mass': 0.1,
     'friction': 1,
     'finger_sensors': True,
     'substeps': 100,

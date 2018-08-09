@@ -177,7 +177,8 @@ class GoalDistanceNet(object):
                 train_images, val_images = [], []
                 print('loading images for view {}'.format(conf['view']))
                 for path, batch_size in conf['data_dir'].items():
-                    dataset = BaseVideoDataset(path, batch_size)
+                    data_conf = {'sequence_length': conf['sequence_length']}
+                    dataset = BaseVideoDataset(path, batch_size, data_conf)
                     train_images.append(dataset['images', 'train'][:,:, conf['view']])
                     val_images.append(dataset['images', 'val'][:,:, conf['view']])
 
