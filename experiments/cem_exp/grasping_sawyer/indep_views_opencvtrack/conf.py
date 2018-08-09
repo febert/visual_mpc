@@ -14,6 +14,7 @@ import video_prediction
 base_dir = video_prediction.__file__
 base_dir = '/'.join(str.split(base_dir, '/')[:-2])
 modeldir = base_dir + '/pretrained_models/sawyer_reopen_longtraj_indep'
+
 configuration = {
 'pred_model': Alex_Interface_Model,
 'pred_model_class':IndepMultiSAVPVideoPredictionModel,

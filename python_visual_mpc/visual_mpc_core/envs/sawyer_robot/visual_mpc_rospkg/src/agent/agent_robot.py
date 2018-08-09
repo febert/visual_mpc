@@ -29,8 +29,6 @@ class AgentSawyer:
         if 'save_large_gifs' in agent_params and 'opencv_tracking' in agent_params:
             self.track_save_dir = None
 
-
-
     def _select_points(self, front_cam, left_cam, fig_save_dir, clicks_per_desig = 2, n_desig = 1):
         assert clicks_per_desig == 1 or clicks_per_desig == 2, "CLICKS_PER_DESIG SHOULD BE 1 OR 2"
 

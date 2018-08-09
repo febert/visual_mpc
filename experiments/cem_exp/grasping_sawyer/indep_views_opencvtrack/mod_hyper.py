@@ -1,7 +1,6 @@
 """ Hyperparameters for Robot Large Scale Data Collection (RLSDC) """
 
 import numpy as np
-from python_visual_mpc.visual_mpc_core.algorithm.random_policy import Randompolicy
 from python_visual_mpc.visual_mpc_core.algorithm.visual_mpc_policy import VisualMPCPolicy
 from python_visual_mpc.visual_mpc_core.algorithm.cem_controller_goalimage_sawyer import CEM_controller
 import os

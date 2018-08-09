@@ -52,6 +52,7 @@ class CameraRecorder:
         print("Cameras subscribed: stream is {}x{}".format(self._cam_width, self._cam_height))
 
     def _cam_start_tracking(self, lt_ob, point):
+        lt_ob.reset_tracker()
         lt_ob.bbox = np.array([int(point[1] - self.box_height / 2.),
                                int(point[0] - self.box_height / 2.),
                                self.box_height, self.box_height]).astype(np.int64)
@@ -92,7 +93,7 @@ class CameraRecorder:
 
         points = np.zeros((1, 2), dtype=np.int64)
         self._latest_image.mutex.acquire()
-        points[0, 0] = self._bbox2point(self._latest_image.bbox)
+        points[0] = self._bbox2point(self._latest_image.bbox)
         self._latest_image.mutex.release()
 
         return points.astype(np.int64)
@@ -104,29 +105,29 @@ class CameraRecorder:
 
         return time_stamp, img_cv2
 
-    def start_recording(self, reset_buffer=True):
+    def start_recording(self, reset_buffer=False):
         assert self._save_vides, "Video saving not enabled!"
 
         self._latest_image.mutex.acquire()
-        self._saving = True
         if reset_buffer:
             self.reset_recording()
+        self._saving = True
         self._latest_image.mutex.release()
 
     def stop_recording(self):
         assert self._save_vides, "Video saving not enabled!"
-
         self._latest_image.mutex.acquire()
-        frames = self._buffers
-        self.reset_recording()
+        self._saving = False
         self._latest_image.mutex.release()
-        return frames
 
     def reset_recording(self):
         assert self._save_vides, "Video saving not enabled!"
+        assert not self._saving, "Can't reset while saving (run stop_recording first)"
 
+        old_buffers = self._buffers
         self._buffers = []
         self._latest_image.reset_saver()
+        return old_buffers
 
     def _proc_image(self, latest_obsv, data):
         latest_obsv.img_msg = data

@@ -3,23 +3,25 @@ import abc, six
 from funcsigs import signature, Parameter
 
 
-def get_policy_args(policy, obs, t, i_tr):
+def get_policy_args(policy, obs, t, i_tr, step_data=None):
     policy_args = {}
     policy_signature = signature(policy.act)  # Gets arguments required by policy
     for arg in policy_signature.parameters:  # Fills out arguments according to their keyword
         value = policy_signature.parameters[arg].default
         if arg in obs:
             value = obs[arg]
+        elif step_data is not None and arg in step_data:
+            value = step_data[arg]
 
         # everthing that is not cached in post_process_obs is assigned here:
         elif arg == 't':
             value = t
-        elif arg == 'desig_pix':
-            value = obs['obj_image_locations'][-1]
         elif arg == 'i_tr':
             value = i_tr
         elif arg == 'obs':           # policy can ask for all arguments from environment
             value = obs
+        elif arg == 'step_data':
+            value = step_data
 
         if value is Parameter.empty:
             # required parameters MUST be set by agent
