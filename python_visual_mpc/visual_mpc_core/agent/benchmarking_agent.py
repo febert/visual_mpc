@@ -1,4 +1,4 @@
-from .general_agent import GeneralAgent
+from .general_agent import GeneralAgent, resize_store
 import pickle as pkl
 import numpy as np
 import cv2
@@ -40,9 +40,14 @@ class BenchmarkAgent(GeneralAgent):
             ntasks = self._hyperparams.get('ntask', 1)
 
             if 'register_gtruth' in self._hyperparams and len(self._hyperparams['register_gtruth']) == 2:
-                goal_image, self._goal_obj_pose = self.env.get_obj_desig_goal(self._hyperparams['_bench_save'], True,
+                raw_goal_image, self._goal_obj_pose = self.env.get_obj_desig_goal(self._hyperparams['_bench_save'], True,
                                                                               ntasks=ntasks)
-                self._goal_image = goal_image.astype(np.float32) / 255.
+
+                goal_dims = (1, self.ncam, self._hyperparams['image_height'], self._hyperparams['image_width'], 3)
+                self._goal_image = np.zeros(goal_dims, dtype=np.uint8)
+                resize_store(0, self._goal_image, raw_goal_image)
+                self._goal_image = self._goal_image.astype(np.float32) / 255.
+
             else:
                 self._goal_obj_pose = self.env.get_obj_desig_goal(self._hyperparams['_bench_save'], ntasks=ntasks)
             GeneralAgent._init(self)

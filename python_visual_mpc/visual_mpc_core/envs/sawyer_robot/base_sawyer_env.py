@@ -459,5 +459,3 @@ class BaseSawyerEnv(BaseEnv):
     def get_goal_pix(self, target_width):
         return np.round((copy.deepcopy(self._goal_pix).astype(np.float32) *
                          target_width / float(self._width))).astype(np.int64)
-
-

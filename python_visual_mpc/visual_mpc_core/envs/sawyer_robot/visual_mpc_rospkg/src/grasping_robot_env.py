@@ -41,12 +41,7 @@ class RobotEnvironment:
 
         #since the agent interacts with Sawyer, agent creation handles recorder/controller setup
         self.agent = self.agentparams['type'](self.agentparams)
-
-        self._netconf = {}
-        self._predictor = None
-        self._goal_image_warper = None
-        self._gdnconf = {}
-        self.init_policy()
+        self.policy = self.policyparams['type'](self.agentparams, self.policyparams, self._gpu_id, self._ngpu)
 
         robot_dir = self.agentparams['data_save_dir'] + '/{}'.format(robot_name)
         if not os.path.exists(robot_dir):
@@ -60,22 +55,6 @@ class RobotEnvironment:
             self._hyperparams['start_index'] = self._ck_dict['ntraj']
         else:
             self._ck_dict = {'ntraj' : 0, 'broken_traj' : []}
-
-    def init_policy(self):
-        if 'use_server' not in self.policyparams and 'netconf' in self.policyparams and self._predictor is None:
-            self._netconf = imp.load_source('params', self.policyparams['netconf']).configuration
-            self._predictor = self._netconf['setup_predictor']({}, self._netconf, self._gpu_id, self._ngpu)
-
-        if 'use_server' not in self.policyparams and 'gdnconf' in self.policyparams and self._goal_image_warper is None:
-            self._gdnconf = imp.load_source('params', self.policyparams['gdnconf']).configuration
-            self._goal_image_warper = setup_gdn(self._gdnconf, self._gpu_id)
-
-        if self._goal_image_warper is not None and self._predictor is not None:
-            self.policy = self.policyparams['type'](None, self.agentparams, self.policyparams, self._predictor, self._goal_image_warper)
-        elif self._predictor is not None:
-            self.policy = self.policyparams['type'](None, self.agentparams, self.policyparams, self._predictor)
-        else:
-            self.policy = self.policyparams['type'](self.agentparams, self.policyparams, self._gpu_id, self._ngpu)
 
     def run(self):
         if not self.is_bench:
@@ -115,7 +94,6 @@ class RobotEnvironment:
             traj_folder = group_folder + '/traj{}'.format(sample_index)
             print("Collecting sample {}".format(sample_index))
 
-        self.init_policy()
         agent_data, obs_dict, policy_out = self.agent.sample(self.policy, sample_index)
 
         if self._hyperparams['save_data']:

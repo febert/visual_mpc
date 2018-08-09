@@ -15,13 +15,13 @@ import video_prediction
 
 base_dir = video_prediction.__file__
 base_dir = '/'.join(str.split(base_dir, '/')[:-2])
-modeldir = base_dir + '/pretrained_models/sawyer_reopen_longtraj_indep'
+modeldir = base_dir + '/pretrained_models/sawyer_robot/autograsp_env_long/'
 configuration = {
 'pred_model': Alex_Interface_Model,
 'pred_model_class':IndepMultiSAVPVideoPredictionModel,
 'setup_predictor':setup_predictor,
-'json_dir':  base_dir + '/pretrained_models/sawyer_reopen_longtraj_indep/view0/model.savp.None',
-'pretrained_model':[modeldir + '/view0/model.savp.None/model-155000', modeldir + '/view1/model.savp.None/model-155000'],   # 'filepath of a pretrained model to resume training from.' ,
+'json_dir':  modeldir + '/view0/model.savp.None',
+'pretrained_model':[modeldir + '/view0/model.savp.None/model-300000', modeldir + '/view1/model.savp.None/model-300000'],   # 'filepath of a pretrained model to resume training from.' ,
 'sequence_length': 15,      # 'sequence length to load, including context frames.' ,
 'context_frames': 2,        # of frames before predictions.' ,
 'model': 'appflow',            #'model architecture to use - CDNA, DNA, or STP' ,

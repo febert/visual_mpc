@@ -1,37 +1,21 @@
 """ This file defines the linear Gaussian policy class. """
 import pdb
 import numpy as np
-import IPython
-
-import pdb
 import os
-import copy
-import time
 import imp
-import pickle
-from datetime import datetime
-import copy
-from python_visual_mpc.video_prediction.basecls.utils.visualize import add_crosshairs
-
 from python_visual_mpc.visual_mpc_core.algorithm.utils.make_cem_visuals import CEM_Visual_Preparation
-
 import matplotlib; matplotlib.use('Agg'); import matplotlib.pyplot as plt
 import copy
-import pdb
-import collections
-import cv2
-from python_visual_mpc.visual_mpc_core.infrastructure.utility.logger import Logger
-
-from queue import Queue
 from threading import Thread
 if "NO_ROS" not in os.environ:
     from visual_mpc_rospkg.msg import floatarray
     from rospy.numpy_msg import numpy_msg
     import rospy
-
+    from Queue import Queue
+else:
+    from queue import Queue
 import time
-from .utils.cem_controller_utils import save_track_pkl, standardize_and_tradeoff, compute_warp_cost, construct_initial_sigma, reuse_cov, reuse_mean, truncate_movement, get_mask_trafo_scores, make_blockdiagonal
-
+from .utils.cem_controller_utils import save_track_pkl
 from .cem_controller_base import CEM_Controller_Base
 
 verbose_queue = Queue()
@@ -90,7 +74,9 @@ class CEM_Controller_Vidpred(CEM_Controller_Base):
 
         self.img_height, self.img_width = self.netconf['orig_size']
 
-        if 'cameras' in self.agentparams:
+        if 'ncam' in self.policyparams:
+            self.ncam = self.policyparams['ncam']
+        elif 'cameras' in self.agentparams:
             self.ncam = len(self.agentparams['cameras'])
         else: self.ncam = 1
 
