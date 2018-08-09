@@ -20,6 +20,18 @@ class Image_Exception(Exception):
         pass
 
 
+def resize_store(t, target_array, input_array):
+    target_img_height, target_img_width = target_array.shape[2:4]
+
+    if (target_img_height, target_img_width) == input_array.shape[1:3]:
+        for i in range(input_array.shape[0]):
+            target_array[t, i] = input_array[i]
+    else:
+        for i in range(input_array.shape[0]):
+            target_array[t, i] = cv2.resize(input_array[i], (target_img_width, target_img_height),
+                                                           interpolation=cv2.INTER_AREA)
+
+
 class GeneralAgent(object):
     """
     All communication between the algorithms and MuJoCo is done through
@@ -75,13 +87,16 @@ class GeneralAgent(object):
 
         return agent_data, obs_dict, policy_outs
 
-    def _post_process_obs(self, env_obs, initial_obs=False):
+    def _post_process_obs(self, env_obs, agent_data, initial_obs=False):
         """
         Handles conversion from the environment observations, to agent observation
         space. Observations are accumulated over time, and images are resized to match
         the given image_heightximage_width dimensions.
 
         Original images from cam index 0 are added to buffer for saving gifs (if needed)
+
+        Data accumlated over time is cached into an observation dict and returned. Data specific to each
+        time-step is returned in agent_data
 
         :param env_obs: observations dictionary returned from the environment
         :param initial_obs: Whether or not this is the first observation in rollout
@@ -98,8 +113,8 @@ class GeneralAgent(object):
                     if 'obj_image_locations' in env_obs:
                         self.traj_points = []
                     n_cams = env_obs['images'].shape[0]
-                    obs_shape = (T, n_cams, agent_img_height, agent_img_width, 3)
-                    self._agent_cache['images'] = np.zeros(obs_shape, dtype = np.uint8)
+                    self._agent_cache['images'] = np.zeros((T, n_cams, agent_img_height, agent_img_width, 3),
+                                                           dtype = np.uint8)
                 elif isinstance(env_obs[k], np.ndarray):
                     obs_shape = [T] + list(env_obs[k].shape)
                     self._agent_cache[k] = np.zeros(tuple(obs_shape), dtype=env_obs[k].dtype)
@@ -110,21 +125,17 @@ class GeneralAgent(object):
         t = self._cache_cntr
         self._cache_cntr += 1
 
+        point_target_width = float(self._hyperparams.get('point_space_width', agent_img_width))
         obs = {}
         for k in env_obs:
             if k == 'images':
                 self.large_images_traj.append(env_obs['images'][0])  #only take first camera
-                new_dims = (agent_img_width, agent_img_height)
-                if (agent_img_height, agent_img_width) == env_obs['images'].shape[1:3]:
-                    for i in range(env_obs['images'].shape[0]):
-                        self._agent_cache['images'][t, i] = env_obs['images'][i]
-                else:
-                    for i in range(env_obs['images'].shape[0]):
-                        self._agent_cache['images'][t, i] = cv2.resize(env_obs['images'][i], new_dims,
-                                                                        interpolation=cv2.INTER_AREA)
+                resize_store(t, self._agent_cache['images'], env_obs['images'])
+
             elif k == 'obj_image_locations':
                 self.traj_points.append(copy.deepcopy(env_obs['obj_image_locations'][0]))  #only take first camera
-                env_obs['obj_image_locations'] = (env_obs['obj_image_locations'] * agent_img_height / env_obs['images'].shape[1]).astype(np.int)
+                env_obs['obj_image_locations'] = np.round((env_obs['obj_image_locations'] *
+                                                  point_target_width / env_obs['images'].shape[2])).astype(np.int64)
                 self._agent_cache['obj_image_locations'][t] = env_obs['obj_image_locations']
             elif isinstance(env_obs[k], np.ndarray):
                 self._agent_cache[k][t] = env_obs[k]
@@ -132,12 +143,13 @@ class GeneralAgent(object):
                 self._agent_cache[k].append(env_obs[k])
             obs[k] = self._agent_cache[k][:self._cache_cntr]
 
+        if 'obj_image_locations' in env_obs:
+            agent_data['desig_pix'] = env_obs['obj_image_locations']
         if self._goal_image is not None:
-            obs['goal_image'] = self._goal_image
-
+            agent_data['goal_image'] = self._goal_image
         if self._goal_obj_pose is not None:
-            obs['goal_pos'] = self._goal_obj_pose
-            obs['goal_pix'] = self.env.get_goal_pix(agent_img_width)
+            agent_data['goal_pos'] = self._goal_obj_pose
+            agent_data['goal_pix'] = self.env.get_goal_pix(point_target_width)
         return obs
 
     def _required_rollout_metadata(self, agent_data, traj_ok, t):
@@ -147,9 +159,7 @@ class GeneralAgent(object):
         :param traj_ok: Whether or not rollout succeeded
         :return: None
         """
-        if self._goal_obj_pose is not None:
-            agent_data['stats'] = self.env.eval()
-            agent_data['stats']['term_t'] = t - 1
+        agent_data['term_t'] = t - 1
         if self.env.has_goal():
             agent_data['goal_reached'] = self.env.goal_reached()
         agent_data['traj_ok'] = traj_ok
@@ -171,21 +181,25 @@ class GeneralAgent(object):
         t = 0
         done = False
         initial_env_obs, _ = self.env.reset()
-        obs = self._post_process_obs(initial_env_obs, True)
+        obs = self._post_process_obs(initial_env_obs, agent_data, True)
         policy.reset()
 
         while not done:
             """
-            Currently refactoring the agent loop.
-            Many features are being moved from agent into environment
-            As a result many designated pixel related functions do not work
-            This has implications for running MPC in sim
+            Every time step send observations to policy, acts in environment, and records observations
+            
+            Policy arguments are created by
+                - populating a kwarg dict using get_policy_arg
+                - calling policy.act with given dictionary
+            
+            Policy returns an object (pi_t) where pi_t['actions'] is an action that can be fed to environment
+            Environment steps given action and returns an observation
             """
-            pi_t = policy.act(**get_policy_args(policy, obs, t, i_tr))
+            pi_t = policy.act(**get_policy_args(policy, obs, t, i_tr, agent_data))
             policy_outputs.append(pi_t)
 
             try:
-                obs = self._post_process_obs(self.env.step(copy.deepcopy(pi_t['actions'])))
+                obs = self._post_process_obs(self.env.step(copy.deepcopy(pi_t['actions'])), agent_data)
             except ValueError:
                 return {'traj_ok': False}, None, None
 
@@ -209,7 +223,6 @@ class GeneralAgent(object):
 
         self._required_rollout_metadata(agent_data, traj_ok, t)
         return agent_data, obs, policy_outputs
-
 
     def save_gif(self, itr, overlay=False):
         if self.traj_points is not None and overlay:

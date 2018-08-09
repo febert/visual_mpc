@@ -1,26 +1,55 @@
 from .general_agent import GeneralAgent
-import pdb
 import pickle as pkl
 import numpy as np
 import cv2
+import os
+import shutil
+
 
 class BenchmarkAgent(GeneralAgent):
     def __init__(self, hyperparams):
-        self._start_goal_confs = hyperparams['start_goal_confs']
-        self.ncam = hyperparams['env'][1]['ncam']
-        super().__init__(hyperparams)
+        self._start_goal_confs = hyperparams.get('start_goal_confs', None)
+        self.ncam = hyperparams['env'][1].get('ncam', 2)
+        GeneralAgent.__init__(self, hyperparams)
+        self._is_robot_bench = 'robot_name' in self._hyperparams['env'][1]
 
     def _setup_world(self, itr):
         self._reset_state = self._load_raw_data(itr)
-        super()._setup_world(itr)
+        GeneralAgent._setup_world(self, itr)
 
     def _required_rollout_metadata(self, agent_data, traj_ok, t):
-        super()._required_rollout_metadata(agent_data, traj_ok, t)
-        agent_data['stats'] = self.env.eval()
+        GeneralAgent._required_rollout_metadata(self, agent_data, traj_ok, t)
+        point_target_width = self._hyperparams.get('point_space_width', self._hyperparams['image_width'])
+        ntasks = self._hyperparams.get('ntask', 1)
+        agent_data['stats'] = self.env.eval(point_target_width, self._hyperparams.get('_bench_save', None), ntasks)
+
+        if not traj_ok and self._is_robot_bench:
+            """
+            Hot-wire traj_ok to give user chance to abort experiment on failure
+            """
+            print('WARNING TRAJ FAILED')
+            if 'n' in raw_input('would you like to retry? (y/n): '):
+                agent_data['traj_ok'] = True
 
     def _init(self):
+        if self._is_robot_bench:
+            if os.path.exists(self._hyperparams['_bench_save']):
+                shutil.rmtree(self._hyperparams['_bench_save'])
+            os.makedirs(self._hyperparams['_bench_save'])
+
+            ntasks = self._hyperparams.get('ntask', 1)
+
+            if 'register_gtruth' in self._hyperparams and len(self._hyperparams['register_gtruth']) == 2:
+                goal_image, self._goal_obj_pose = self.env.get_obj_desig_goal(self._hyperparams['_bench_save'], True,
+                                                                              ntasks=ntasks)
+                self._goal_image = goal_image.astype(np.float32) / 255.
+            else:
+                self._goal_obj_pose = self.env.get_obj_desig_goal(self._hyperparams['_bench_save'], ntasks=ntasks)
+            GeneralAgent._init(self)
+            return
+
         self.env.set_goal_obj_pose(self._goal_obj_pose)
-        super()._init()
+        GeneralAgent._init(self)
 
     def _load_raw_data(self, itr):
         """
@@ -28,6 +57,9 @@ class BenchmarkAgent(GeneralAgent):
         :param itr:
         :return:
         """
+        if 'robot_name' in self._hyperparams['env'][1]:   # robot experiments don't have a reset state
+            return None
+
         ngroup = 1000
         igrp = itr // ngroup
         group_folder = '{}/traj_group{}'.format(self._start_goal_confs, igrp)

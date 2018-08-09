@@ -17,7 +17,7 @@ DATA_DIR = '/'.join(str.split(python_visual_mpc.__file__, '/')[:-2])
 
 agent = {
     'type': GeneralAgent,
-    'env': (VanillaSawyerEnv, dict()),
+    'env': (VanillaSawyerEnv, {'video_save_dir': '/home/sudeep/Desktop/'}),
     'data_save_dir': BASE_DIR,
     'not_use_images':"",
     'cameras':['maincam', 'leftcam'],

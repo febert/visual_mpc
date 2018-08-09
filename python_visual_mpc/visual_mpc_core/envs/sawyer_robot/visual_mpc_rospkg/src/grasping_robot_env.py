@@ -1,14 +1,11 @@
 #!/usr/bin/env python
 import os
-import rospy
 import argparse
 import imp
 import cPickle as pkl
 from python_visual_mpc.goaldistancenet.setup_gdn import setup_gdn
 import shutil
 import cv2
-from python_visual_mpc.visual_mpc_core.agent.utils.traj_saver import record_worker
-from multiprocessing import Manager, Process
 
 
 supported_robots = {'sudri', 'vestri'}
@@ -30,7 +27,8 @@ class RobotEnvironment:
 
         if 'benchmark_exp' in self.agentparams:
             self.is_bench = True
-            self.task_mode = '{}/test'.format(robot_name)
+            self.task_mode = '{}/exp'.format(robot_name)
+            self.agentparams['env'][1]['start_at_neutral'] = True     # robot should start at neutral during benchmarks
         else:
             self.is_bench = False
             self.task_mode = '{}/train'.format(robot_name)
@@ -90,42 +88,52 @@ class RobotEnvironment:
                 itr += 1
 
     def take_sample(self, sample_index):
-        print("Collecting sample {}".format(sample_index))
+        if 'RESULT_DIR' in os.environ:
+            data_save_dir = os.environ['RESULT_DIR'] + '/data'
+        else: data_save_dir = self.agentparams['data_save_dir']
+        data_save_dir += '/' + self.task_mode
+
+        if self.is_bench:
+            bench_name = raw_input('input benchmark name: ')
+            traj_folder = '{}/{}'.format(data_save_dir, bench_name)
+            self.agentparams['_bench_save'] = '{}/exp_data'.format(traj_folder)  # probably should develop a better way
+            self.agentparams['benchmark_exp'] = bench_name                       # to pass benchmark info to agent
+            self.agentparams['record'] = traj_folder + '/traj_data/record'
+            print("Conducting experiment: {}".format(bench_name))
+
+            traj_folder = traj_folder + '/traj_data'
+            if os.path.exists(traj_folder):
+                shutil.rmtree(traj_folder)
+            os.makedirs(traj_folder)
+        else:
+            ngroup = self._hyperparams['ngroup']
+            igrp = sample_index // ngroup
+            group_folder = data_save_dir + '/traj_group{}'.format(igrp)
+            if not os.path.exists(group_folder):
+                os.makedirs(group_folder)
+
+            traj_folder = group_folder + '/traj{}'.format(sample_index)
+            print("Collecting sample {}".format(sample_index))
 
         self.init_policy()
         agent_data, obs_dict, policy_out = self.agent.sample(self.policy, sample_index)
 
         if self._hyperparams['save_data']:
-            self.save_data(sample_index, agent_data, obs_dict, policy_out)
+            self._save_raw_images(traj_folder, agent_data, obs_dict, policy_out)
 
         self._ck_dict['ntraj'] += 1
-
         ck_file = open(self._ck_path, 'wb')
         pkl.dump(self._ck_dict, ck_file)
         ck_file.close()
 
         print("CHECKPOINTED")
 
-    def save_data(self, itr, agent_data, obs_dict, policy_outputs):
-        self._save_raw_images(itr, agent_data, obs_dict, policy_outputs)
+    def _save_raw_images(self, traj_folder, agent_data, obs_dict, policy_outputs):
+        if not self.is_bench:
+            if os.path.exists(traj_folder):
+                shutil.rmtree(traj_folder)
+            os.makedirs(traj_folder)
 
-    def _save_raw_images(self, itr, agent_data, obs_dict, policy_outputs):
-        if 'RESULT_DIR' in os.environ:
-            data_save_dir = os.environ['RESULT_DIR'] + '/data'
-        else: data_save_dir = self.agentparams['data_save_dir']
-        data_save_dir += '/' + self.task_mode
-
-        ngroup = self._hyperparams['ngroup']
-        igrp = itr // ngroup
-        group_folder = data_save_dir + '/traj_group{}'.format(igrp)
-        if not os.path.exists(group_folder):
-            os.makedirs(group_folder)
-
-        traj_folder = group_folder + '/traj{}'.format(itr)
-        if os.path.exists(traj_folder):
-            shutil.rmtree(traj_folder)
-
-        os.makedirs(traj_folder)
         if 'images' in obs_dict:
             images = obs_dict.pop('images')
             T, n_cams = images.shape[:2]

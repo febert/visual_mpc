@@ -11,6 +11,9 @@ from python_visual_mpc.visual_mpc_core.envs.sawyer_robot.visual_mpc_rospkg.src.u
 from python_visual_mpc.visual_mpc_core.envs.util.interpolation import QuinticSpline
 import copy
 import rospy
+import os
+from python_visual_mpc.video_prediction.utils_vpred.create_gif_lib import npy_to_mp4
+from .util.user_interface import select_points
 
 
 def quat_to_zangle(quat):
@@ -69,22 +72,26 @@ def pose_to_ja(target_pose, start_joints, tolerate_ik_error=False, retry_on_fail
 
 
 class BaseSawyerEnv(BaseEnv):
-    def __init__(self, robot_name, opencv_tracking=False, save_videos=False,
-                 OFFSET_TOL = 0.06, duration=1.25, mode_rel = np.array([True, True, True, True, False]),
-                 cleanup_rate = 25):
-        print('initializing environment for {}'.format(robot_name))
-        self._robot_name = robot_name
+    def __init__(self, env_params):
+        self._params = self._default_hparams()
+        for name, value in env_params.items():
+            print('setting param {} to value {}'.format(name, value))
+            self._params.set_hparam(name, value)
+
+        print('initializing environment for {}'.format(self._params.robot_name))
+        self._robot_name = self._params.robot_name
         self._setup_robot()
 
-        if opencv_tracking:
+        if self._params.opencv_tracking:
             self._obs_tol = 0.1
         else:
-            self._obs_tol = OFFSET_TOL
+            self._obs_tol = self._params.OFFSET_TOL
 
-        self._controller = ImpedanceWSGController(800, robot_name)
+        self._controller = ImpedanceWSGController(800, self._robot_name)
         self._limb_recorder = LimbWSGRecorder(self._controller)
-        self._main_cam = CameraRecorder('/camera0/image_raw', opencv_tracking, save_videos)
-        self._left_cam = CameraRecorder('/camera1/image_raw', opencv_tracking, save_videos)
+        self._save_video = self._params.video_save_dir is not None
+        self._main_cam = CameraRecorder('/camera0/image_raw', self._params.opencv_tracking, self._save_video)
+        self._left_cam = CameraRecorder('/camera1/image_raw', self._params.opencv_tracking, self._save_video)
         self._controller.neutral_with_impedance()
 
         img_dim_check = (self._main_cam.img_height, self._main_cam.img_width) == \
@@ -93,10 +100,26 @@ class BaseSawyerEnv(BaseEnv):
         self._height, self._width = self._main_cam.img_height, self._main_cam.img_width
 
         self._base_adim, self._base_sdim = 5, 5
-        self._adim, self._sdim, self.mode_rel, self._cleanup_rate = None, None, mode_rel, cleanup_rate
+        self._adim, self._sdim, self.mode_rel = None, None, np.array(self._params.mode_rel)
+        self._cleanup_rate, self._duration = self._params.cleanup_rate, self._params.duration
+        self._reset_counter, self._previous_target_qpos = 0, None
 
-        self._reset_counter, self._previous_target_qpos, self._duration = 0, None, duration
-        self.num_objects = None  # for agent linkup.
+        self._desig_pix, self._goal_pix = None, None
+
+    def _default_hparams(self):
+        default_dict = {'robot_name': None,
+                        'opencv_tracking': False,
+                        'video_save_dir': None,
+                        'start_at_neutral': False,
+                        'OFFSET_TOL': 0.06,
+                        'duration': 1.25,
+                        'mode_rel': [True, True, True, True, False],
+                        'cleanup_rate': 25}
+
+        parent_params = BaseEnv._default_hparams(self)
+        for k in default_dict.keys():
+            parent_params.add_hparam(k, default_dict[k])
+        return parent_params
 
     def _setup_robot(self):
         low_angle = np.pi / 2                  # chosen to maximize wrist rotation given start rotation
@@ -122,11 +145,19 @@ class BaseSawyerEnv(BaseEnv):
         """
         target_qpos = np.clip(self._next_qpos(action), self._low_bound, self._high_bound)
         wait_change = (target_qpos[-1] > 0) != (self._previous_target_qpos[-1] > 0)
+
+        if self._save_video:
+            self._main_cam.start_recording(), self._left_cam.start_recording()
+
         if target_qpos[-1] > 0:
             self._controller.close_gripper(wait_change)
         else:
             self._controller.open_gripper(wait_change)
+
         self._move_to_state(target_qpos[:3], target_qpos[3])
+
+        if self._save_video:
+            self._main_cam.stop_recording(), self._left_cam.stop_recording()
 
         self._previous_target_qpos = target_qpos
         return self._get_obs()
@@ -168,6 +199,15 @@ class BaseSawyerEnv(BaseEnv):
         self._last_obs = copy.deepcopy(obs)
         obs['images'] = self.render()
 
+        if self._params.opencv_tracking:
+            track_desig = np.zeros((2, 1, 2), dtype=np.int64)
+            track_desig[0] = self._main_cam.get_track()
+            track_desig[0, :, 0] = self._height - track_desig[0, :, 0]
+            track_desig[1] = self._left_cam.get_track()
+            self._desig_pix = track_desig
+
+        if self._desig_pix is not None:
+            obs['obj_image_locations'] = copy.deepcopy(self._desig_pix)
         return obs
 
     def _get_xyz_angle(self):
@@ -212,11 +252,47 @@ class BaseSawyerEnv(BaseEnv):
         self._previous_target_qpos[3] = quat_to_zangle(eep[3:])
         self._previous_target_qpos[4] = -1
 
+    def _save_videos(self):
+        if self._save_video:
+            front_buffer, left_buffer = self._main_cam.reset_recording(), self._left_cam.reset_recording()
+            if len(front_buffer) == 0 and len(left_buffer) == 0:
+                return
+            front_buffer = [f[::-1].copy() for f in front_buffer]
+
+            clip_base_name = '{}/recording{}/'.format(self._params.video_save_dir, self._reset_counter)
+            if not os.path.exists:
+                os.makedirs(clip_base_name)
+
+            if len(front_buffer) > 0:
+                npy_to_mp4(front_buffer, '{}/front_clip'.format(clip_base_name), 30)
+            if len(left_buffer) > 0:
+                npy_to_mp4(left_buffer, '{}/left_clip'.format(clip_base_name), 30)
+
+    def _end_reset(self):
+        if self._params.opencv_tracking:
+            assert self._desig_pix is not None, "Designated pixels must be set (call get_obj_desig_goal)"
+            track_desig = copy.deepcopy(self._desig_pix)
+            track_desig[0, :, 0] = self._height - track_desig[0, :, 0]
+
+            self._main_cam.start_tracking(track_desig[0])
+            self._left_cam.start_tracking(track_desig[1])
+
+        self._reset_previous_qpos()
+        self._init_dynamics()
+        self._reset_counter += 1
+        return self._get_obs(), None
+
     def reset(self):
         """
         Resets the environment and returns initial observation
         :return: obs dict (look at step(self, action) for documentation)
         """
+        self._save_videos()
+
+        if self._params.start_at_neutral:
+            self._controller.open_gripper(True)
+            self._controller.neutral_with_impedance()
+            return self._end_reset()
 
         rand_xyz = np.random.uniform(self._low_bound[:3], self._high_bound[:3])
         rand_xyz[2] = self._high_bound[2]
@@ -232,20 +308,14 @@ class BaseSawyerEnv(BaseEnv):
         self._controller.neutral_with_impedance()
         self._controller.open_gripper(False)
         rospy.sleep(0.5)
-
         self._reset_previous_qpos()
+
 
         rand_xyz = np.random.uniform(self._low_bound[:3], self._high_bound[:3])
         rand_zangle = np.random.uniform(self._low_bound[3], self._high_bound[3])
-
         self._move_to_state(rand_xyz, rand_zangle, 2.)
-        self._init_dynamics()
 
-        self._reset_previous_qpos()
-
-        self._reset_counter += 1
-
-        return self._get_obs(), None
+        return self._end_reset()
 
     def valid_rollout(self):
         """
@@ -328,6 +398,66 @@ class BaseSawyerEnv(BaseEnv):
         """
         return 2
 
+    @property
+    def num_objects(self):
+        """
+        :return: Dummy value for num_objects (used in general_agent logic)
+        """
+        return 0
+
     def seed(self, seed=None):
         random.seed(seed)
         np.random.seed(seed)
+
+    def eval(self, target_width, save_dir, ntasks):
+        self._save_videos()
+        final_pix = select_points(self.render(), ['front', 'left'], 'final',
+                                 save_dir, clicks_per_desig=1, n_desig=ntasks)
+
+        goal_pix = self.get_goal_pix(target_width)
+        final_pix = np.round((final_pix.astype(np.float32) * target_width / float(self._width))).astype(np.int64)
+
+        if self._params.opencv_tracking:
+            self._main_cam.end_tracking()
+            self._left_cam.end_tracking()
+
+        return np.linalg.norm(final_pix - goal_pix)
+
+    def get_obj_desig_goal(self, save_dir, collect_goal_image=False, ntasks=1):
+        if self._params.video_save_dir is not None:
+            self._params.video_save_dir = save_dir
+        if collect_goal_image:
+            print("PLACE OBJECTS IN GOAL POSITION")
+            raw_input("When ready to annotate GOAL images press enter...")
+            goal_imgs = self.render()
+            goal_pix = select_points(goal_imgs, ['front', 'left'], 'goal',
+                                     save_dir, clicks_per_desig=1, n_desig=ntasks)
+
+            raw_input("Robot in safe position? Hit enter when ready...")
+            self._controller.neutral_with_impedance()
+            self._controller.open_gripper(True)
+
+            print("PLACE OBJECTS IN START POSITION")
+            raw_input("When ready to annotate START images press enter...")
+
+            self._desig_pix = select_points(self.render(), ['front', 'left'], 'desig',
+                                     save_dir, clicks_per_desig=1, n_desig=ntasks)
+            self._goal_pix = copy.deepcopy(goal_pix)
+            return goal_imgs, goal_pix
+        else:
+            raw_input("Robot in safe position? Hit enter when ready...")
+            self._controller.neutral_with_impedance()
+            self._controller.open_gripper(True)
+
+            print("PLACE OBJECTS IN START POSITION")
+            raw_input("When ready to annotate START images press enter...")
+
+            self._desig_pix, self._goal_pix = select_points(self.render(), ['front', 'left'], 'desig_goal',
+                                     save_dir, n_desig=ntasks)
+            return copy.deepcopy(self._goal_pix)
+
+    def get_goal_pix(self, target_width):
+        return np.round((copy.deepcopy(self._goal_pix).astype(np.float32) *
+                         target_width / float(self._width))).astype(np.int64)
+
+

@@ -16,7 +16,7 @@ import python_visual_mpc
 DATA_DIR = '/'.join(str.split(python_visual_mpc.__file__, '/')[:-2])
 
 env_params = {
-    'autograsp': {'reopen': True, 'zthresh': 0.15}
+    'autograsp': {'reopen': True, 'zthresh': 0.15},
 }
 agent = {
     'type': GeneralAgent,
