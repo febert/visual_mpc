@@ -66,15 +66,18 @@ class BenchmarkAgent(GeneralAgent):
         traj_folder = group_folder + '/traj{}'.format(itr)
 
         print('reading from: ', traj_folder)
-        num_images = 2
+        if 'num_load_steps' in self._hyperparams:
+            num_images = self._hyperparams['num_load_steps']
+        else:
+            num_images = 2
 
         obs_dict = {}
         goal_images = np.zeros([num_images, self.ncam, self._hyperparams['image_height'], self._hyperparams['image_width'], 3])
         for t in range(num_images):  #TODO detect number of images automatically in folder
             for i in range(self.ncam):
-                goal_images[t, i] = cv2.imread('{}/images{}/im_{}.png'.format(traj_folder, i, t))
-        self._goal_image = goal_images[-1]
-        #TODO: make compatible with fullimage tracknig
+                goal_images[t, i] = cv2.imread('{}/images{}/im_{}.png'.format(traj_folder, i, t))[...,::-1]
+        self._goal_image = goal_images.astype(np.float32)/255.
+
         with open('{}/agent_data.pkl'.format(traj_folder), 'rb') as file:
             agent_data = pkl.load(file)
         with open('{}/obs_dict.pkl'.format(traj_folder), 'rb') as file:

@@ -21,11 +21,9 @@ def main():
     data_coll_dir = basepath + '/pushing_data/' + exp_name
     hyperparams_file = data_coll_dir + '/hyperparams.py'
 
-
-
     hyperparams = imp.load_source('hyperparams', hyperparams_file).config
 
-    c =Sim(hyperparams)
+    c = Sim(hyperparams)
     c.run()
 
 if __name__ == "__main__":

@@ -11,6 +11,7 @@ from python_visual_mpc.visual_mpc_core.envs.mujoco_env.sawyer_sim.autograsp_sawy
 from python_visual_mpc.visual_mpc_core.algorithm.cem_controller_vidpred import CEM_Controller_Vidpred
 
 from python_visual_mpc.visual_mpc_core.algorithm.random_policy import Randompolicy, RandomPickPolicy
+from python_visual_mpc.visual_mpc_core.agent.benchmarking_agent import BenchmarkAgent
 
 
 BASE_DIR = '/'.join(str.split(__file__, '/')[:-1])
@@ -32,7 +33,7 @@ env_params = {
 }
 
 agent = {
-    'type': GeneralAgent,
+    'type': BenchmarkAgent,
     'env': (AutograspSawyerMujocoEnv, env_params),
     'T': 30,
     'image_height' : 48,
@@ -49,7 +50,7 @@ agent = {
 
 policy = {
     'verbose':'',
-    'verbose_every_itr':"",
+    # 'verbose_every_itr':"",
     'type': CEM_Controller_Vidpred,
     'iterations': 3,
     'nactions': 5,

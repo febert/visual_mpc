@@ -119,7 +119,8 @@ def write_scores(conf, result_file, stat, i_traj=None):
     if 'initial_dist' in stat:
         initial_dist = stat['initial_dist']
     else: initial_dist = None
-    term_t = stat['term_t']
+    if 'term_t' in stat:
+        term_t = stat['term_t']
 
     sorted_ind = improvement.argsort()[::-1]
 

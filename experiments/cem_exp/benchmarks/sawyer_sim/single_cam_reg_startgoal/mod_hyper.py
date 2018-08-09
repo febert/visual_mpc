@@ -5,7 +5,7 @@ import os.path
 import numpy as np
 
 from python_visual_mpc.visual_mpc_core.algorithm.random_policy import Randompolicy, RandomPickPolicy
-from python_visual_mpc.visual_mpc_core.agent.general_agent import GeneralAgent
+from python_visual_mpc.visual_mpc_core.agent.benchmarking_agent import BenchmarkAgent
 from python_visual_mpc.visual_mpc_core.envs.mujoco_env.sawyer_sim.autograsp_sawyer_mujoco_env import AutograspSawyerMujocoEnv
 
 from python_visual_mpc.visual_mpc_core.algorithm.cem_controller_vidpred_variants.register_gtruth_controller import Register_Gtruth_Controller
@@ -33,7 +33,7 @@ env_params = {
 }
 
 agent = {
-    'type': GeneralAgent,
+    'type': BenchmarkAgent,
     'env': (AutograspSawyerMujocoEnv, env_params),
     'T': 15,
     'image_height' : 48,
@@ -42,7 +42,6 @@ agent = {
     'gen_xml':1,   #generate xml every nth trajecotry
     'ztarget':0.13,
     'min_z_lift':0.05,
-    'record': BASE_DIR + '/record/',
     'make_final_gif': True,
     'discrete_gripper': -1, #discretized gripper dimension,
     'start_goal_confs':os.environ['VMPC_DATA_DIR'] + '/sawyer_sim/startgoal_conf/bowl_arm_disp/train',

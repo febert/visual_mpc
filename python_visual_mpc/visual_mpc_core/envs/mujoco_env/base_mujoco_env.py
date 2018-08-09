@@ -111,7 +111,7 @@ class BaseMujocoEnv(BaseEnv):
         ratio = self._frame_width / target_width
         for icam, cam in enumerate(self.cameras):
             for i in range(self.num_objects):
-                g = self.project_point(self.goal_obj_pose[i, :3], cam)
+                g = self.project_point(self._goal_obj_pose[i, :3], cam)
                 g = np.stack(g) / ratio
                 if round:
                     g= np.around(g).astype(np.int)
@@ -132,7 +132,7 @@ class BaseMujocoEnv(BaseEnv):
         """
         abs_distances = []
         for i_ob in range(self.num_objects):
-            goal_pos = self.goal_obj_pose[i_ob, :3]
+            goal_pos = self._goal_obj_pose[i_ob, :3]
             curr_pos = self.sim.data.qpos[self._n_joints + i_ob * 7: self._n_joints + 3 + i_ob * 7]
             abs_distances.append(np.linalg.norm(goal_pos - curr_pos))
         return np.mean(np.array(abs_distances))
