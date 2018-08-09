@@ -37,7 +37,7 @@ configuration = {
 'fwd_bwd':'',
 'flow_diff_cost':1e-7,
 'hard_occ_thresh':'',
-'occlusion_handling':1e-4,
+'occlusion_handling':1e-7,
 'occ_thres_mult':0.5,
 'occ_thres_offset':1.,
 'flow_penal':1e-7,
