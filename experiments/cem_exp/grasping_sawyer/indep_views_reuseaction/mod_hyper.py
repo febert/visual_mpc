@@ -36,7 +36,16 @@ policy = {
     'initial_std_rot': np.pi / 18,
     'finalweight':10,
     'register_gtruth':['start','goal'],
-    'ncam': 2
+    'ncam': 2,
+    'action_cost_factor': 0,
+    'rew_all_steps': "",
+    'trade_off_reg': '',
+    'replan_interval': 3,
+    'reuse_mean': '',
+    'reuse_action_as_mean': "",
+    'reduce_std_dev': 0.2,  # reduce standard dev in later timesteps when reusing action
+    'num_samples': [400, 200],
+    'selection_frac': 0.05
 }
 
 config = {
