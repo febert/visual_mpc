@@ -475,7 +475,11 @@ class GoalDistanceNet(object):
         ten_list = []
         for ten in tensors:
             if len(ten.get_shape().as_list()) == 3 or ten.get_shape().as_list()[-1] == 1:
-                ten = colorize(ten, tf.reduce_min(ten), tf.reduce_max(ten), 'viridis')
+                ten_colored = []
+                for b in range(ten.get_shape().as_list()[0]):
+                    ten_colored.append(colorize(ten[b], tf.reduce_min(ten), tf.reduce_max(ten), 'viridis'))
+                ten = tf.stack(ten_colored, axis=0)
+
             unstacked = tf.unstack(ten, axis=0)[:numex]
             concated = tf.concat(unstacked, axis=1)
             ten_list.append(concated)
