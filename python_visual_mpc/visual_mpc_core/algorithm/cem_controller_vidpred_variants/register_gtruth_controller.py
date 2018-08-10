@@ -26,9 +26,9 @@ class Register_Gtruth_Controller(CEM_Controller_Vidpred):
 
     def prep_vidpred_inp(self, actions, cem_itr):
         actions, last_frames, last_states, t_0 = super(Register_Gtruth_Controller, self).prep_vidpred_inp(actions, cem_itr)
-        if 'image_medium' in self.agentparams:  # downsample to video-pred reslution
+        if self.agentparams['image_height'] != self.img_height:  # downsample to video-pred reslution
             last_frames = resize_image(last_frames, (self.img_height, self.img_width))
-        if 'register_gtruth' in self.policyparams and cem_itr == 0:
+        if cem_itr == 0:
             self.start_image = copy.deepcopy(self.images[0]).astype(np.float32) / 255.
             self.warped_image_start, self.warped_image_goal, self.reg_tradeoff = self.register_gtruth(self.start_image,
                                                                                                       last_frames)
@@ -44,6 +44,7 @@ class Register_Gtruth_Controller(CEM_Controller_Vidpred):
         last_frames = last_frames[0, self.ncontxt -1]
 
         desig_pix_l, warperrs_l = [], []
+        pdb.set_trace()
         warped_image_start, _, start_warp_pts = self.goal_image_warper(last_frames[None], start_image[None])
         if 'goal' in self.policyparams['register_gtruth']:
             warped_image_goal, _, goal_warp_pts = self.goal_image_warper(last_frames[None], self.goal_image[None])
@@ -92,10 +93,10 @@ class Register_Gtruth_Controller(CEM_Controller_Vidpred):
         warperrs = np.zeros((self.ntask, r))
         desig = np.zeros((self.ntask, r, 2))
         for p in range(self.ntask):
-            if 'image_medium' in self.agentparams:
+            if self.agentparams['image_height'] != self.img_height:
                 pix_t0 = self.desig_pix_t0_med[icam, p]
                 goal_pix = self.goal_pix_med[icam, p]
-                self.logger.log('using desig goal pix medium')
+                print('using desig goal pix medium')
             else:
                 pix_t0 = self.desig_pix_t0[icam, p]     # desig_pix_t0 shape: icam, ndesig, 2
                 goal_pix = self.goal_pix_sel[icam, p]
@@ -111,8 +112,7 @@ class Register_Gtruth_Controller(CEM_Controller_Vidpred):
                 warperrs[p, 1] = np.linalg.norm(goal_image[icam][goal_pix[0], goal_pix[1]] -
                                                 warped_image_goal[icam][goal_pix[0], goal_pix[1]])
 
-        if 'image_medium' in self.agentparams:
-            desig = desig * self.agentparams['image_height']/ self.agentparams['image_medium'][0]
+        desig = desig * self.img_height/ self.agentparams['image_height']
         return warperrs, desig
 
 
@@ -122,15 +122,13 @@ class Register_Gtruth_Controller(CEM_Controller_Vidpred):
         self.goal_pix_sel = np.array(goal_pix).reshape((self.ncam, self.ntask, 2))
         self.goal_pix = np.tile(self.goal_pix_sel[:,:,None,:], [1,1,num_reg_images,1])  # copy along r: shape: ncam, ntask, r
         self.goal_pix = self.goal_pix.reshape(self.ncam, self.ndesig, 2)
-        if 'image_medium' in self.agentparams:
-            self.goal_pix_med = (self.goal_pix * self.agentparams['image_medium'][0] / self.agentparams['image_height']).astype(np.int)
+
+        self.goal_pix_med = (self.goal_pix * self.agentparams['image_height'] / self.img_height).astype(np.int)
         self.goal_image = goal_image[-1]
 
         if t == 0:
             self.desig_pix_t0 = np.array(desig_pix).reshape((self.ncam, self.ntask, 2))   # 1,1,2
-            if 'image_medium' in self.agentparams:
-                self.desig_pix_t0_med = (self.desig_pix_t0 * self.agentparams['image_medium'][0]/self.agentparams['image_height']).astype(np.int)
-            else: self.desig_pix_t0_med = None
+            self.desig_pix_t0_med = (self.desig_pix_t0 * self.agentparams['image_height']/self.img_height).astype(np.int)
 
         self.images = images
         self.state = state

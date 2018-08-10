@@ -5,12 +5,13 @@ import os.path
 import numpy as np
 
 from python_visual_mpc.visual_mpc_core.algorithm.random_policy import Randompolicy, RandomPickPolicy
-from python_visual_mpc.visual_mpc_core.agent.benchmarking_agent import BenchmarkAgent
+from python_visual_mpc.visual_mpc_core.agent.general_agent import GeneralAgent
 from python_visual_mpc.visual_mpc_core.envs.mujoco_env.sawyer_sim.autograsp_sawyer_mujoco_env import AutograspSawyerMujocoEnv
 
 from python_visual_mpc.visual_mpc_core.algorithm.cem_controller_vidpred_variants.register_gtruth_controller import Register_Gtruth_Controller
 
 from python_visual_mpc.visual_mpc_core.algorithm.random_policy import Randompolicy, RandomPickPolicy
+from python_visual_mpc.visual_mpc_core.agent.benchmarking_agent import BenchmarkAgent
 
 
 BASE_DIR = '/'.join(str.split(__file__, '/')[:-1])
@@ -22,20 +23,19 @@ DATA_DIR = '/'.join(str.split(python_visual_mpc.__file__, '/')[:-2])
 env_params = {
     'filename': 'sawyer_grasp.xml',
     'num_objects': 1,
-    'object_mass': 0.1
-    ,
+    'object_mass': 0.1,
     'friction': 1,
     'finger_sensors': True,
     'substeps': 100,
      'autograsp': {'zthresh': 0.18, 'touchthresh': 0.0, 'reopen': True},
     'object_meshes': ['Bowl'],
-    'ncam':1,
+    'ncam':2,
 }
 
 agent = {
     'type': BenchmarkAgent,
     'env': (AutograspSawyerMujocoEnv, env_params),
-    'T': 15,
+    'T': 30,
     'image_height' : 48,
     'image_width' : 64,
     'novideo':'',
@@ -50,7 +50,7 @@ agent = {
 
 policy = {
     'verbose':'',
-    'verbose_every_itr':"",
+    # 'verbose_every_itr':"",
     'type': Register_Gtruth_Controller,
     'iterations': 3,
     'nactions': 5,
@@ -61,6 +61,7 @@ policy = {
     'initial_std_rot': np.pi / 18,
     'finalweight':10,
     'register_gtruth':['start','goal'],
+    'trade_off_reg':'',
 }
 
 config = {

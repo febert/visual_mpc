@@ -5,20 +5,13 @@ from python_visual_mpc.visual_mpc_core.algorithm.cem_controller_goalimage_sawyer
 from python_visual_mpc.visual_mpc_core.algorithm.policy import Policy
 import time
 from python_visual_mpc.video_prediction.utils_vpred.create_gif_lib import *
-from mujoco_py import load_model_from_xml,load_model_from_path, MjSim, MjViewer
 import copy
-from datetime import datetime
-import os
-
-from PIL import Image
-import pdb
 from python_visual_mpc.visual_mpc_core.algorithm.cem_controller_goalimage_sawyer import construct_initial_sigma
 
 from pyquaternion import Quaternion
-from mujoco_py import load_model_from_xml,load_model_from_path, MjSim, MjViewer
+from mujoco_py import load_model_from_xml,load_model_from_path, MjSim
 from python_visual_mpc.visual_mpc_core.agent.utils.get_masks import get_obj_masks
 from python_visual_mpc.visual_mpc_core.agent.utils.gen_gtruth_desig import gen_gtruthdesig
-from python_visual_mpc.visual_mpc_core.agent.utils.convert_world_imspace_mj1_5 import project_point, get_3D
 
 from python_visual_mpc.visual_mpc_core.agent.agent_mjc import get_target_qpos
 from python_visual_mpc.visual_mpc_core.algorithm.utils.make_cem_visuals import CEM_Visual_Preparation

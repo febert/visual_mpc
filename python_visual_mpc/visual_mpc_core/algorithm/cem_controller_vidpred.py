@@ -74,11 +74,7 @@ class CEM_Controller_Vidpred(CEM_Controller_Base):
 
         self.img_height, self.img_width = self.netconf['orig_size']
 
-        if 'ncam' in self.policyparams:
-            self.ncam = self.policyparams['ncam']
-        elif 'cameras' in self.agentparams:
-            self.ncam = len(self.agentparams['cameras'])
-        else: self.ncam = 1
+        self.ncam = self.netconf['ncam']
 
         if 'sawyer' in self.agentparams:
             self.gen_image_publisher = rospy.Publisher('gen_image', numpy_msg(floatarray), queue_size=10)
@@ -125,11 +121,11 @@ class CEM_Controller_Vidpred(CEM_Controller_Base):
             for p in range(self.ndesig):
                 one_hot_images[:, :, icam, desig[icam, p, 0], desig[icam, p, 1], p] = 1.
                 self.logger.log('using desig pix',desig[icam, p, 0], desig[icam, p, 1])
+
         return one_hot_images
 
     def get_rollouts(self, actions, cem_itr, itr_times):
         actions, last_frames, last_states, t_0 = self.prep_vidpred_inp(actions, cem_itr)
-
         input_distrib = self.make_input_distrib(cem_itr)
 
         t_startpred = time.time()

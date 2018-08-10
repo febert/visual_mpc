@@ -72,7 +72,8 @@ def launch_job_func(run_script, hyper, nworkers=8, interactive=False, name='', n
                              {"containerMountPoint": "/mnt/pushing_data/onpolicy/mj_pos_noreplan_fast_tfrec_fewdata", "id": 8972},
                              {"containerMountPoint": "/mnt/pushing_data/cartgripper/cartgripper_updown_sact", "id": 8931},
                              {"containerMountPoint": "/mnt/pushing_data/onpolicy/updown_sact_bounded_disc", "id": 9363},
-                             {"containerMountPoint": "/mnt/pushing_data/cartgripper/grasping/ag_scripted_longtraj", "id": 10217}
+                             {"containerMountPoint": "/mnt/pushing_data/cartgripper/grasping/ag_scripted_longtraj", "id": 10217},
+                             {"containerMountPoint": "/mnt/pushing_data/sawyer_grasping/ag_long_records_15kfullres", "id": 11398}
                              ]
 
     data["aceInstance"] = "ngcv{}".format(ngpu)

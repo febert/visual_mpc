@@ -22,8 +22,8 @@ class BaseVideoDataset:
         self._batch_size = batch_size
 
         # read dataset manifest and initialize hparams
-        self._read_manifest()
         self._hparams = self._get_default_hparams().override_from_dict(hparams_dict)
+        self._read_manifest()
 
         # initialize batches (one tf Dataset per each mode where batches are drawn from)
         self._initialize_batches()
@@ -32,7 +32,8 @@ class BaseVideoDataset:
         default_dict = {'shuffle': True,
                         'num_epochs': None,
                         'buffer_size': 512,
-                        'compressed': True
+                        'compressed': True,
+                        'sequence_length':None,  # read from manifest if None
                         }
         return HParams(**default_dict)
 
@@ -151,7 +152,10 @@ class BaseVideoDataset:
         manifest_dict = pkl.load(open(pkl_path, 'rb'))
         self._sequence_keys = manifest_dict['sequence_data']
         self._metadata_keys = manifest_dict['traj_metadata']
-        self._T = manifest_dict['T']
+        if self._hparams.sequence_length is None:
+            self._T = manifest_dict['T']
+        else:
+            self._T = self._hparams.sequence_length
 
     @property
     def T(self):
