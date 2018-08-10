@@ -226,10 +226,10 @@ class GoalDistanceNet(object):
             with tf.variable_scope('warpnet', reuse=True):
                 self.warped_I1_to_I0, self.warp_pts_fwd, self.flow_fwd, h6_fwd = self.warp(self.I1, self.I0)
 
-            bwd_flow_warped_fwd = apply_warp(self.flow_bwd, self.flow_fwd)
+            bwd_flow_warped_fwd, _ = apply_warp(self.flow_bwd, self.flow_fwd)
             self.diff_flow_fwd = self.flow_fwd + bwd_flow_warped_fwd
 
-            fwd_flow_warped_bwd = apply_warp(self.flow_fwd, self.flow_bwd)
+            fwd_flow_warped_bwd, _ = apply_warp(self.flow_fwd, self.flow_bwd)
             self.diff_flow_bwd = self.flow_bwd + fwd_flow_warped_bwd
 
             if 'hard_occ_thresh' in self.conf:
