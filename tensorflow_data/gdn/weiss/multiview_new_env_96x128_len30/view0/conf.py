@@ -43,6 +43,6 @@ configuration = {
 'flow_penal':1e-7,
 'ch_mult':4,
 'decay_lr':'',
-'view':0,
+'view':1000,
 'new_loader': True
 }

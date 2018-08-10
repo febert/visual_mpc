@@ -133,7 +133,7 @@ def warp_pts_layer(flow_field, name="warp_pts"):
 
 def apply_warp(I0, flow_field):
     warp_pts = warp_pts_layer(flow_field)
-    return resample_layer(I0, warp_pts)
+    return resample_layer(I0, warp_pts), warp_pts
 
 class GoalDistanceNet(object):
     def __init__(self,
@@ -353,7 +353,7 @@ class GoalDistanceNet(object):
         if flow_lm1 is not None:
             flow += tf.image.resize_images(flow_lm1, imsize, method=tf.image.ResizeMethod.BILINEAR)
 
-        gen_im = apply_warp(source_im, flow)
+        gen_im, warp_pts = apply_warp(source_im, flow)
         self.add_pair_loss(dest_im, gen_im, flow_bwd=flow, suf=tag)
         self.gen_I1_multiscale.append(gen_im)
         self.I0_multiscale.append(source_im)
@@ -361,7 +361,7 @@ class GoalDistanceNet(object):
         sum = self.build_image_summary([source_im, dest_im, gen_im, length(flow)], suf=tag)
         self.imsum.append(sum)
 
-        return gen_im, flow, h_out
+        return gen_im, flow, h_out, warp_pts
 
 
     def warp_multiscale(self, source_image, dest_image):
@@ -389,17 +389,17 @@ class GoalDistanceNet(object):
         with tf.variable_scope('h2'):
             h2 = self.conv_relu_block(h1, out_ch=64*ch_mult, n_layer=3)  #24x32
 
-        gen_im3, flow_h3, h3 = self.upconv_intm_flow_block(source_image, dest_image, h2, tag='h3', dest_mult=1, num_feat=64*ch_mult) # 24x32
+        gen_im3, flow_h3, h3, _ = self.upconv_intm_flow_block(source_image, dest_image, h2, tag='h3', dest_mult=1, num_feat=64*ch_mult) # 24x32
 
-        gen_im4, flow_h4, h4 = self.upconv_intm_flow_block(source_image, dest_image, h3, h_skip=h1,
+        gen_im4, flow_h4, h4, _ = self.upconv_intm_flow_block(source_image, dest_image, h3, h_skip=h1,
                                                gen_im_m1=gen_im3, flow_lm1=flow_h3, tag='h4', dest_mult=2, num_feat=32*ch_mult) # 48x64
 
-        gen_im5, flow_h5, _ = self.upconv_intm_flow_block(source_image, dest_image, h4,
+        gen_im5, flow_h5, h5, warp_pts = self.upconv_intm_flow_block(source_image, dest_image, h4,
                                                gen_im_m1=gen_im4, flow_lm1=flow_h4, tag='h5', dest_mult=2, num_feat=32*ch_mult) # 96x128
 
         self.image_summaries = tf.summary.merge(self.imsum)
 
-        return gen_im5, None, flow_h5, None
+        return gen_im5, warp_pts, flow_h5, None
 
     def warp(self, source_image, dest_image):
         """

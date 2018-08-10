@@ -38,6 +38,6 @@ configuration = {
 'image_only':'',
 'ch_mult':4,
 'multi_scale':'',
-'view':0,
+'view':1,
 'new_loader': True
 }
