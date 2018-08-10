@@ -16,6 +16,11 @@ from python_visual_mpc.video_prediction.utils_vpred.create_gif_lib import npy_to
 from .util.user_interface import select_points
 
 
+def pix_resize(pix, target_width, original_width):
+    return np.round((copy.deepcopy(pix).astype(np.float32) *
+              target_width / float(original_width))).astype(np.int64)
+
+
 def quat_to_zangle(quat):
     """
     :param quat: robot rotation quaternion (assuming rotation around z-axis)
@@ -83,7 +88,7 @@ class BaseSawyerEnv(BaseEnv):
         self._setup_robot()
 
         if self._params.opencv_tracking:
-            self._obs_tol = 0.1
+            self._obs_tol = 0.5
         else:
             self._obs_tol = self._params.OFFSET_TOL
 
@@ -104,7 +109,7 @@ class BaseSawyerEnv(BaseEnv):
         self._cleanup_rate, self._duration = self._params.cleanup_rate, self._params.duration
         self._reset_counter, self._previous_target_qpos = 0, None
 
-        self._desig_pix, self._goal_pix = None, None
+        self._start_pix, self._desig_pix, self._goal_pix = None, None, None
 
     def _default_hparams(self):
         default_dict = {'robot_name': None,
@@ -370,6 +375,7 @@ class BaseSawyerEnv(BaseEnv):
         for index, i in enumerate(time_stamps[:-1]):
             for j in time_stamps[index + 1:]:
                 if abs(i - j) > self._obs_tol:
+                    print('DeSYNC!')
                     raise Image_Exception
 
         images = np.zeros((len(cameras), self._height, self._width, 3), dtype=np.uint8)
@@ -415,13 +421,20 @@ class BaseSawyerEnv(BaseEnv):
                                  save_dir, clicks_per_desig=1, n_desig=ntasks)
 
         goal_pix = self.get_goal_pix(target_width)
-        final_pix = np.round((final_pix.astype(np.float32) * target_width / float(self._width))).astype(np.int64)
+        final_pix = pix_resize(final_pix, target_width, self._width)
+        start_pix = pix_resize(self._start_pix, target_width, self._width)
+
+        final_dist, start_dist = np.linalg.norm(final_pix - goal_pix), np.linalg.norm(start_pix - goal_pix)
+        improvement = start_dist - final_dist
+        print 'final_dist: {}'.format(final_dist)
+        print 'start dist: {}'.format(start_dist)
+        print 'improvement: {}'.format(improvement)
 
         if self._params.opencv_tracking:
             self._main_cam.end_tracking()
             self._left_cam.end_tracking()
 
-        return np.linalg.norm(final_pix - goal_pix)
+        return {'final_dist': final_dist, 'start_dist': start_dist, 'improvement': improvement}
 
     def get_obj_desig_goal(self, save_dir, collect_goal_image=False, ntasks=1):
         if self._params.video_save_dir is not None:
@@ -440,9 +453,11 @@ class BaseSawyerEnv(BaseEnv):
             print("PLACE OBJECTS IN START POSITION")
             raw_input("When ready to annotate START images press enter...")
 
-            self._desig_pix = select_points(self.render(), ['front', 'left'], 'desig',
+            self._start_pix = select_points(self.render(), ['front', 'left'], 'desig',
                                      save_dir, clicks_per_desig=1, n_desig=ntasks)
             self._goal_pix = copy.deepcopy(goal_pix)
+            self._desig_pix = copy.deepcopy(self._start_pix)
+
             return goal_imgs, goal_pix
         else:
             raw_input("Robot in safe position? Hit enter when ready...")
@@ -452,10 +467,10 @@ class BaseSawyerEnv(BaseEnv):
             print("PLACE OBJECTS IN START POSITION")
             raw_input("When ready to annotate START images press enter...")
 
-            self._desig_pix, self._goal_pix = select_points(self.render(), ['front', 'left'], 'desig_goal',
+            self._start_pix, self._goal_pix = select_points(self.render(), ['front', 'left'], 'desig_goal',
                                      save_dir, n_desig=ntasks)
+            self._desig_pix = copy.deepcopy(self._start_pix)
             return copy.deepcopy(self._goal_pix)
 
     def get_goal_pix(self, target_width):
-        return np.round((copy.deepcopy(self._goal_pix).astype(np.float32) *
-                         target_width / float(self._width))).astype(np.int64)
+        return pix_resize(self._goal_pix, target_width, self._width)

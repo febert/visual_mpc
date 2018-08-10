@@ -16,11 +16,12 @@ env_params = {
 agent = {'type' : BenchmarkAgent,
          'env': (AutograspSawyerEnv, env_params),
          'data_save_dir': BASE_DIR,
-         'T' : 15,  #number of commands per episodes (issued at control_rate / substeps HZ)
+         'T' : 50,  #number of commands per episodes (issued at control_rate / substeps HZ)
          'image_height': 48,
          'image_width': 64,
          'benchmark_exp':'',
-         'current_dir': current_dir
+         'current_dir': current_dir,
+         'ntask': 2
          }
 
 policy = {
@@ -31,7 +32,7 @@ policy = {
     'nactions': 5,
     'repeat': 3,
     'no_action_bound': False,
-    'initial_std': 0.035,   #std dev. in xy
+    'initial_std': 0.000035,   #std dev. in xy
     'initial_std_lift': 0.08,   #std dev. in z
     'initial_std_rot': np.pi / 18,
     'finalweight':10,

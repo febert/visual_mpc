@@ -16,8 +16,8 @@ from python_visual_mpc.goaldistancenet.multiview_testgdn import MulltiviewTestGD
 configuration = {
 'experiment_name': 'correction',
 'pred_model':MulltiviewTestGDN,
-'pretrained_model': [base_dir + '/tensorflow_data/gdn/weiss/multiview_new_env_len30/view0/modeldata/model48002',
-                     base_dir + '/tensorflow_data/gdn/weiss/multiview_new_env_len30/view1/modeldata/model48002'],
+'pretrained_model': [base_dir + '/tensorflow_data/gdn/weiss/multiview/view0/modeldata/model48002',
+                     base_dir + '/tensorflow_data/gdn/weiss/multiview/view1/modeldata/model48002'],
 # 'pretrained_model': base_dir + '/tensorflow_data/gdn/weiss/sawyer_grasping_tresh0.5_48x64/modeldata/model48002',
 'current_dir': base_dir,   #'directory for writing summary.' ,
 'num_iterations':50000,
