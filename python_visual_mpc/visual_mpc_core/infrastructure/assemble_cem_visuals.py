@@ -78,7 +78,7 @@ def get_score_images(scores, height, width, seqlen, numex):
     textrow = np.stack(txt_im, 0)
     return np.repeat(textrow[:,None], seqlen, axis=1)
 
-def make_direct_vid(dict, numex, gif_savepath, suf, resize=None):
+def make_direct_vid(dict, numex, gif_savepath, suf):
     """
     :param dict:  dictionary with video tensors of shape bsize, tlen, ncam, r, c, 3
     :param numex:
@@ -103,8 +103,7 @@ def make_direct_vid(dict, numex, gif_savepath, suf, resize=None):
         #     plt.switch_backend('TkAgg')
         #     plt.imshow(vid[0][0][0])
         #     plt.show()
-        if resize is not None:
-            images = resize_image(images, size=resize)
+
         if images[0].shape[-1] == 1 or len(images[0].shape) == 3:
             images = color_code_distrib(images, numex, renormalize=True)
         new_videolist.append((images, key))

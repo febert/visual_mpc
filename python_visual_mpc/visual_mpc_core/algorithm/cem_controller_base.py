@@ -189,7 +189,7 @@ class CEM_Controller_Base(Policy):
             itr_times['post_pred'] = time.time() - t
             timings['itr{}'.format(itr)] = itr_times
 
-        pkl.dump(timings, open('{}/timings_CEM_{}.pkl'.format(self.agentparams['record'], self.t), 'wb'))
+        # pkl.dump(timings, open('{}/timings_CEM_{}.pkl'.format(self.agentparams['record'], self.t), 'wb'))
 
     def fit_gaussians(self, actions_flat):
         arr_best_actions = actions_flat[self.indices]  # only take the K best actions

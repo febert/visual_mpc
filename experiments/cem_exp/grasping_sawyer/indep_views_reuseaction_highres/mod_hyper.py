@@ -25,8 +25,6 @@ agent = {'type' : BenchmarkAgent,
          }
 
 policy = {
-    'verbose':'',
-    'verbose_every_itr':"",
     'type': Register_Gtruth_Controller,
     'iterations': 3,
     'nactions': 5,

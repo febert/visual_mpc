@@ -70,13 +70,16 @@ def get_metric(folder, use_ind=None, only_take_first_n=None):
     cummulative_fraction = []
     n_total = scores.shape[0]
     print('ntotal:',n_total)
-    thresholds = np.linspace(0.,30, 200)
+    thresholds = np.linspace(0.,50, 200)
 
     print('mean', np.mean(scores))
     print('std',np.std(scores)/np.sqrt(n_total))
     for thres in thresholds:
         occ = np.where(scores < thres)[0]
         cummulative_fraction.append(float(occ.shape[0]) / n_total)
+
+    occ = np.where(scores < 17)[0]
+    print float(occ.shape[0]) / n_total
 
     return thresholds, cummulative_fraction
 
@@ -117,7 +120,7 @@ if __name__ == '__main__':
     # labels = ['Prediction-Propagation','OpenCV-Tracking', 'GDN-Tracking-(ours)']
 
     folders = ['/home/sudeep/Documents/catkin_ws/src/visual_mpc/experiments/cem_exp/grasping_sawyer/indep_views_predprop/sudri/exp',
-               '/media/3tb/sudeep/old_mpc/experiments/cem_exp/grasping_sawyer/indep_views_reuseaction/exp_50',
+               '/home/sudeep/Documents/catkin_ws/src/visual_mpc/experiments/cem_exp/grasping_sawyer/indep_views_reuseaction_highres/sudri/exp',
                '/home/sudeep/Documents/catkin_ws/src/visual_mpc/experiments/cem_exp/grasping_sawyer/indep_views_reuseaction_opencvtrack/sudri/exp']
     labels = ['Predictor Propogation', 'GDN-Tracking-(ours)', 'OpenCV-Tracking']
     plot_results('bench_grasp', folders, labels)

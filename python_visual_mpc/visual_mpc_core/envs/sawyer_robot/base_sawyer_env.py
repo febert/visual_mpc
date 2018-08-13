@@ -439,6 +439,11 @@ class BaseSawyerEnv(BaseEnv):
     def get_obj_desig_goal(self, save_dir, collect_goal_image=False, ntasks=1):
         if self._params.video_save_dir is not None:
             self._params.video_save_dir = save_dir
+
+        raw_input("Robot in safe position? Hit enter when ready...")
+        self._controller.neutral_with_impedance()
+        self._controller.open_gripper(True)
+        
         if collect_goal_image:
             print("PLACE OBJECTS IN GOAL POSITION")
             raw_input("When ready to annotate GOAL images press enter...")
@@ -460,10 +465,6 @@ class BaseSawyerEnv(BaseEnv):
 
             return goal_imgs, goal_pix
         else:
-            raw_input("Robot in safe position? Hit enter when ready...")
-            self._controller.neutral_with_impedance()
-            self._controller.open_gripper(True)
-
             print("PLACE OBJECTS IN START POSITION")
             raw_input("When ready to annotate START images press enter...")
 

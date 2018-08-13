@@ -26,12 +26,12 @@ class Register_Gtruth_Controller(CEM_Controller_Vidpred):
 
     def prep_vidpred_inp(self, actions, cem_itr):
         actions, last_frames, last_states, t_0 = super(Register_Gtruth_Controller, self).prep_vidpred_inp(actions, cem_itr)
-        if self.agentparams['image_height'] != self.img_height:  # downsample to video-pred reslution
-            last_frames = resize_image(last_frames, (self.img_height, self.img_width))
         if cem_itr == 0:
             self.start_image = copy.deepcopy(self.images[0]).astype(np.float32) / 255.
             self.warped_image_start, self.warped_image_goal, self.reg_tradeoff = self.register_gtruth(self.start_image,
                                                                                                       last_frames)
+        if self.agentparams['image_height'] != self.img_height:  # downsample to video-pred reslution
+            last_frames = resize_image(last_frames, (self.img_height, self.img_width))
         return actions, last_frames, last_states, t_0
 
     def register_gtruth(self,start_image, last_frames):
@@ -44,7 +44,6 @@ class Register_Gtruth_Controller(CEM_Controller_Vidpred):
         last_frames = last_frames[0, self.ncontxt -1]
 
         desig_pix_l, warperrs_l = [], []
-        pdb.set_trace()
         warped_image_start, _, start_warp_pts = self.goal_image_warper(last_frames[None], start_image[None])
         if 'goal' in self.policyparams['register_gtruth']:
             warped_image_goal, _, goal_warp_pts = self.goal_image_warper(last_frames[None], self.goal_image[None])
@@ -81,10 +80,12 @@ class Register_Gtruth_Controller(CEM_Controller_Vidpred):
         self.vd.warped_image_start = warped_image_start
         self.vd.warped_image_goal = warped_image_goal
         self.vd.desig_pix_t0_med = self.desig_pix_t0_med
+        self.vd.goal_pix_med = self.goal_pix_med
         self.vd.desig_pix_t0 = self.desig_pix_t0
         self.vd.desig_pix = self.desig_pix
         self.vd.start_image = self.start_image
         self.vd.goal_image = self.goal_image
+        self.vd.image_height = self.img_height
 
         return warped_image_start, warped_image_goal, tradeoff
 
@@ -100,7 +101,6 @@ class Register_Gtruth_Controller(CEM_Controller_Vidpred):
             else:
                 pix_t0 = self.desig_pix_t0[icam, p]     # desig_pix_t0 shape: icam, ndesig, 2
                 goal_pix = self.goal_pix_sel[icam, p]
-                # goal_image = cv2.resize(goal_image, (self.agentparams['image_width'], self.agentparams['image_height']))
 
             if 'start' in self.policyparams['register_gtruth']:
                 desig[p, 0] = np.flip(start_warp_pts[icam][pix_t0[0], pix_t0[1]], 0)
