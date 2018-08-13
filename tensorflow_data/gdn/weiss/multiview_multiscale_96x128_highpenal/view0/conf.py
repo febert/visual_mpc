@@ -2,6 +2,8 @@ import python_visual_mpc
 base_dir = python_visual_mpc.__file__
 
 base_dir = '/'.join(str.split(base_dir, '/')[:-2])
+
+
 from python_visual_mpc.goaldistancenet.variants.multiscale import MultiscaleGoalDistanceNet
 
 import os
@@ -38,7 +40,6 @@ configuration = {
 'flow_penal':1e-4,
 'image_only':'',
 'ch_mult':4,
-'multi_scale':'',
 'view':0,
 'new_loader': True
 }

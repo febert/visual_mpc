@@ -4,7 +4,6 @@ base_dir = python_visual_mpc.__file__
 base_dir = '/'.join(str.split(base_dir, '/')[:-2])
 from python_visual_mpc.goaldistancenet.variants.multiscale import MultiscaleGoalDistanceNet
 
-
 import os
 # tf record data location:
 DATA_DIR = {
@@ -34,12 +33,11 @@ configuration = {
 'normalization':'None',
 'orig_size': [96, 128],
 'norm':'charbonnier',
-'smoothcost':1e-7,
+'smoothcost':1e-6,
 'smoothmode':'2nd',
 'flow_penal':1e-7,
 'image_only':'',
 'ch_mult':4,
-'multi_scale':'',
 'view':0,
 'new_loader': True
 }

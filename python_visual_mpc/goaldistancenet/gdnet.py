@@ -25,8 +25,87 @@ from python_visual_mpc.video_prediction.utils_vpred.online_reader import read_tr
 from python_visual_mpc.data_preparation.gather_data import make_traj_name_list
 import pdb
 
-from .utils.ops import charbonnier_loss, length, mean_square, flow_smooth_cost, length_sq
 import collections
+
+def length_sq(x):
+    return tf.reduce_sum(tf.square(x), 3, keep_dims=True)
+
+def length(x):
+    return tf.sqrt(tf.reduce_sum(tf.square(x), 3))
+
+def mean_square(x):
+    return tf.reduce_mean(tf.square(x))
+
+def charbonnier_loss(x, mask=None, truncate=None, alpha=0.45, beta=1.0, epsilon=0.001):
+    """Compute the generalized charbonnier loss of the difference tensor x.
+    All positions where mask == 0 are not taken into account.
+
+    Args:
+        x: a tensor of shape [num_batch, height, width, channels].
+        mask: a mask of shape [num_batch, height, width, mask_channels],
+            where mask channels must be either 1 or the same number as
+            the number of channels of x. Entries should be 0 or 1.
+    Returns:
+        loss as tf.float32
+    """
+    with tf.variable_scope('charbonnier_loss'):
+        batch, height, width, channels = tf.unstack(tf.shape(x))
+        normalization = tf.cast(batch * height * width * channels, tf.float32)
+
+        error = tf.pow(tf.square(x * beta) + tf.square(epsilon), alpha)
+
+        if mask is not None:
+            error = tf.multiply(mask, error)
+
+        if truncate is not None:
+            error = tf.minimum(error, truncate)
+
+        return tf.reduce_sum(error) / (normalization + 1e-6)
+
+
+def flow_smooth_cost(flow, norm, mode, mask):
+    """
+    computes the norms of the derivatives and averages over the image
+    :param flow_field:
+
+    :return:
+    """
+    if mode == '2nd':  # compute 2nd derivative
+        filter_x = [[0, 0, 0],
+                    [1, -2, 1],
+                    [0, 0, 0]]
+        filter_y = [[0, 1, 0],
+                    [0, -2, 0],
+                    [0, 1, 0]]
+        filter_diag1 = [[1, 0, 0],
+                        [0, -2, 0],
+                        [0, 0, 1]]
+        filter_diag2 = [[0, 0, 1],
+                        [0, -2, 0],
+                        [1, 0, 0]]
+        weight_array = np.ones([3, 3, 1, 4])
+        weight_array[:, :, 0, 0] = filter_x
+        weight_array[:, :, 0, 1] = filter_y
+        weight_array[:, :, 0, 2] = filter_diag1
+        weight_array[:, :, 0, 3] = filter_diag2
+
+    elif mode == 'sobel':
+        filter_x = [[-1, 0, 1], [-2, 0, 2], [-1, 0, 1]]  # sobel filter
+        filter_y = np.transpose(filter_x)
+        weight_array = np.ones([3, 3, 1, 2])
+        weight_array[:, :, 0, 0] = filter_x
+        weight_array[:, :, 0, 1] = filter_y
+
+    weights = tf.constant(weight_array, dtype=tf.float32)
+
+    flow_u, flow_v = tf.split(axis=3, num_or_size_splits=2, value=flow)
+    delta_u =  tf.nn.conv2d(flow_u, weights, strides=[1, 1, 1, 1], padding='SAME')
+    delta_v =  tf.nn.conv2d(flow_v, weights, strides=[1, 1, 1, 1], padding='SAME')
+
+    deltas = tf.concat([delta_u, delta_v], axis=3)
+
+    return norm(deltas, mask)
+
 
 def get_coords(img_shape):
     """
@@ -67,7 +146,6 @@ class GoalDistanceNet(object):
                  pred_images = None,
                  load_testimages=False,
                  shuffle_buffer=512,
-                 eager=False
                  ):
 
         if conf['normalization'] == 'in':
@@ -78,6 +156,8 @@ class GoalDistanceNet(object):
             raise ValueError('Invalid layer normalization %s' % conf['normalization'])
 
         self.conf = conf
+
+        self.train_cond = tf.placeholder(tf.int32, shape=[], name="train_cond")
 
         self.seq_len = self.conf['sequence_length']
         self.bsize = self.conf['batch_size']
@@ -90,11 +170,10 @@ class GoalDistanceNet(object):
             self.img_width = self.conf['orig_size'][1]
 
         if load_data:
-            if not eager:
-                self.iter_num = tf.placeholder(tf.float32, [], name='iternum')
-            else:
-                self.iter_num = 0.
-            if 'new_loader' in conf:
+            self.iter_num = tf.placeholder(tf.float32, [], name='iternum')
+            if load_testimages:
+                dict = build_tfrecord_fn(conf, mode='test')
+            elif 'new_loader' in conf:
                 from python_visual_mpc.visual_mpc_core.Datasets.base_dataset import BaseVideoDataset
                 train_images, val_images = [], []
                 print('loading images for view {}'.format(conf['view']))
@@ -103,16 +182,12 @@ class GoalDistanceNet(object):
                     dataset = BaseVideoDataset(path, batch_size, data_conf)
                     train_images.append(dataset['images', 'train'][:,:, conf['view']])
                     val_images.append(dataset['images', 'val'][:,:, conf['view']])
-                train_images, val_images = tf.concat(train_images, 0), tf.concat(val_images, 0)
 
-                if eager:
-                    self.images = tf.cast(train_images, tf.float32) / 255.0
-                else:
-                    self.train_cond = tf.placeholder(tf.int32, shape=[], name="train_cond")
-                    self.images = tf.cast(tf.cond(self.train_cond > 0,
-                                     # if 1 use trainigbatch else validation batch
-                                     lambda: train_images,
-                                     lambda: val_images), tf.float32) / 255.0
+                train_images, val_images = tf.concat(train_images, 0), tf.concat(val_images, 0)
+                self.images = tf.cast(tf.cond(self.train_cond > 0,
+                                 # if 1 use trainigbatch else validation batch
+                                 lambda: train_images,
+                                 lambda: val_images), tf.float32) / 255.0
                 print('loaded images tensor: {}'.format(self.images))
             else:
                 train_dict = build_tfrecord_fn(conf, mode='train')
@@ -184,10 +259,8 @@ class GoalDistanceNet(object):
             self.gen_I1 = self.warped_I0_to_I1
             self.gen_I0 = self.warped_I1_to_I0
         else:
-            if 'multi_scale' in self.conf:
-                self.warped_I0_to_I1, self.warp_pts_bwd, self.flow_bwd, _ = self.warp_multiscale(self.I0, self.I1)
-            else:
-                self.warped_I0_to_I1, self.warp_pts_bwd, self.flow_bwd, _ = self.warp(self.I0, self.I1)
+            self.warped_I0_to_I1, self.warp_pts_bwd, self.flow_bwd, _ = self.warp(self.I0, self.I1)
+
             self.gen_I1 = self.warped_I0_to_I1
             self.gen_I0, self.flow_fwd = None, None
 
@@ -195,16 +268,14 @@ class GoalDistanceNet(object):
         self.occ_mask_fwd = 1 - self.occ_fwd
 
         if self.build_loss:
-            if 'multi_scale' not in self.conf:
-                self.add_pair_loss(I1=self.I1, gen_I1=self.gen_I1, occ_bwd=self.occ_bwd, flow_bwd=self.flow_bwd, diff_flow_bwd=self.diff_flow_bwd,
+            self.add_pair_loss(I1=self.I1, gen_I1=self.gen_I1, occ_bwd=self.occ_bwd, flow_bwd=self.flow_bwd, diff_flow_bwd=self.diff_flow_bwd,
                                    I0=self.I0, gen_I0=self.gen_I0, occ_fwd=self.occ_fwd, flow_fwd=self.flow_fwd, diff_flow_fwd=self.diff_flow_fwd)
             self.combine_losses()
             # image_summary:
             if 'fwd_bwd' in self.conf:
                 self.image_summaries = self.build_image_summary(
                     [self.I0, self.I1, self.gen_I0, self.gen_I1, length(self.flow_bwd), length(self.flow_fwd), self.occ_mask_bwd, self.occ_mask_fwd])
-            elif 'multi_scale' not in self.conf:
-                self.image_summaries = self.build_image_summary([self.I0, self.I1, self.gen_I1, length(self.flow_bwd)])
+            self.image_summaries = self.build_image_summary([self.I0, self.I1, self.gen_I1, length(self.flow_bwd)])
 
     def sel_images(self):
         sequence_length = self.conf['sequence_length']
@@ -235,11 +306,13 @@ class GoalDistanceNet(object):
 
     def conv_relu_block(self, input, out_ch, k=3, upsmp=False, n_layer=1):
         h = input
-        h = slim.layers.conv2d(  # 32x32x64
-            h,
-            out_ch, [k, k],
-            stride=1)
-        h = self.normalizer_fn(h)
+        for l in range(n_layer):
+            h = slim.layers.conv2d(  # 32x32x64
+                h,
+                out_ch, [k, k],
+                stride=1)
+            h = self.normalizer_fn(h)
+
         if upsmp:
             mult = 2
         else: mult = 0.5
@@ -247,43 +320,6 @@ class GoalDistanceNet(object):
 
         h = tf.image.resize_images(h, imsize, method=tf.image.ResizeMethod.BILINEAR)
         return h
-
-    def upconv_intm_flow_block(self, source_image, dest_image, h_m1, h_skip=None, flow_lm1=None,
-                               gen_im_m1=None, k=3, tag=None, dest_mult=2, num_feat=None):
-        imsize = np.array(h_m1.get_shape().as_list()[1:3])*dest_mult
-        source_im = tf.image.resize_images(source_image, imsize, method=tf.image.ResizeMethod.BILINEAR)
-        dest_im = tf.image.resize_images(dest_image, imsize, method=tf.image.ResizeMethod.BILINEAR)
-        h_m1 = tf.image.resize_images(h_m1, imsize, method=tf.image.ResizeMethod.BILINEAR)
-
-        if flow_lm1 is not None:
-            flow_lm1 = tf.image.resize_images(flow_lm1, imsize, method=tf.image.ResizeMethod.BILINEAR)
-            gen_im_m1 = tf.image.resize_images(gen_im_m1, imsize, method=tf.image.ResizeMethod.BILINEAR)
-            h = tf.concat([h_m1, source_im, dest_im, flow_lm1, gen_im_m1], axis=-1)
-        else:
-            h = tf.concat([h_m1, source_im, dest_im], axis=-1)
-
-        if h_skip is not None:
-            h = tf.concat([h, h_skip], axis=-1)
-
-        for i in range(3):
-            h = slim.layers.conv2d(h, num_feat, [k, k], stride=1)
-
-        flow, h_out = h[:,:,:,:num_feat//2], h[:,:,:, num_feat//2:]
-        h_out = slim.layers.conv2d(h_out, num_feat//2, [k, k], stride=1)
-
-        flow = slim.layers.conv2d(flow, 2, [k, k], stride=1, activation_fn=None)
-        if flow_lm1 is not None:
-            flow += tf.image.resize_images(flow_lm1, imsize, method=tf.image.ResizeMethod.BILINEAR)
-
-        gen_im, warp_pts = apply_warp(source_im, flow)
-        self.add_pair_loss(dest_im, gen_im, flow_bwd=flow, suf=tag)
-        self.gen_I1_multiscale.append(gen_im)
-        self.I0_multiscale.append(source_im)
-        self.flow_multiscale.append(flow)
-        sum = self.build_image_summary([source_im, dest_im, gen_im, length(flow)], suf=tag)
-        self.imsum.append(sum)
-
-        return gen_im, flow, h_out, warp_pts
 
     def warp(self, source_image, dest_image):
         """

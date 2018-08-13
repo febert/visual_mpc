@@ -23,19 +23,6 @@ class MultiscaleGoalDistanceNet(GoalDistanceNet):
         if self.build_loss:
             self.combine_losses()
 
-    def conv_relu_block(self, input, out_ch, k=3, upsmp=False, n_layer=1):
-        h = input
-        for l in range(n_layer):
-            with tf.variable_scope('h{}'.format(l)):
-                h = conv2d(out_ch, kernel_size=k, )(h)
-            h = self.normalizer_fn(h)
-
-        if upsmp:
-            mult = 2
-        else: mult = 0.5
-        imsize = np.array(h.get_shape().as_list()[1:3])*mult
-        h = tf.image.resize_images(h, imsize, method=tf.image.ResizeMethod.BILINEAR)
-        return h
 
     def upconv_intm_flow_block(self, source_image, dest_image, h_m1, h_skip=None, flow_lm1=None,
                                gen_im_m1=None, k=3, tag=None, dest_mult=2, num_feat=None):
@@ -55,28 +42,12 @@ class MultiscaleGoalDistanceNet(GoalDistanceNet):
             h = tf.concat([h, h_skip], axis=-1)
 
         for i in range(3):
-            with tf.variable_scope('joint_l{}'.format(i)):
-                # h = slim.layers.conv2d(  # 32x32x64
-                #     h,
-                #     num_feat, [k, k],
-                #     stride=1)
-                h = conv2d(num_feat, kernel_size=k)(h)
+            h = slim.layers.conv2d(h, num_feat, [k, k], stride=1)
 
-        h_flow, h_out = h[:,:,:,:num_feat//2], h[:,:,:, num_feat//2:]
-        with tf.variable_scope('hout'):
-            # h_out = slim.layers.conv2d(  # 32x32x64
-            #     h_out,
-            #     num_feat, [k, k],
-            #     stride=1)
-            h_out = conv2d(num_feat//2, kernel_size=k)(h_out)
+        flow, h_out = h[:,:,:,:num_feat//2], h[:,:,:, num_feat//2:]
+        h_out = slim.layers.conv2d(h_out, num_feat//2, [k, k], stride=1)
 
-        with tf.variable_scope('flow'):
-            # flow = slim.layers.conv2d(  # 32x32x64
-            #     h_flow,
-            #     2, [k, k],
-            #     stride=1)
-            flow = conv2d(2, kernel_size=k, activation=None)(h_flow)
-
+        flow = slim.layers.conv2d(flow, 2, [k, k], stride=1, activation_fn=None)
         if flow_lm1 is not None:
             flow += tf.image.resize_images(flow_lm1, imsize, method=tf.image.ResizeMethod.BILINEAR)
 
@@ -119,12 +90,14 @@ class MultiscaleGoalDistanceNet(GoalDistanceNet):
         with tf.variable_scope('h3'):
             gen_im3, flow_h3, h3, _ = self.upconv_intm_flow_block(source_image, dest_image, h2, tag='h3', dest_mult=1, num_feat=64*ch_mult) # 24x32
 
+
         with tf.variable_scope('h4'):
             gen_im4, flow_h4, h4, _ = self.upconv_intm_flow_block(source_image, dest_image, h3, h_skip=h1,
-                                                          gen_im_m1=gen_im3, flow_lm1=flow_h3, tag='h4', dest_mult=2, num_feat=32*ch_mult) # 48x64
+                                               gen_im_m1=gen_im3, flow_lm1=flow_h3, tag='h4', dest_mult=2, num_feat=32*ch_mult) # 48x64
+
         with tf.variable_scope('h5'):
             gen_im5, flow_h5, h5, warp_pts = self.upconv_intm_flow_block(source_image, dest_image, h4,
-                                                         gen_im_m1=gen_im4, flow_lm1=flow_h4, tag='h5', dest_mult=2, num_feat=32*ch_mult) # 96x128
+                                               gen_im_m1=gen_im4, flow_lm1=flow_h4, tag='h5', dest_mult=2, num_feat=32*ch_mult) # 96x128
 
         self.image_summaries = tf.summary.merge(self.imsum)
 
