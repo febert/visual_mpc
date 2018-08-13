@@ -106,7 +106,7 @@ class GoalDistanceNet(object):
                 train_images, val_images = tf.concat(train_images, 0), tf.concat(val_images, 0)
 
                 if eager:
-                    self.images = train_images
+                    self.images = tf.cast(train_images, tf.float32) / 255.0
                 else:
                     self.train_cond = tf.placeholder(tf.int32, shape=[], name="train_cond")
                     self.images = tf.cast(tf.cond(self.train_cond > 0,

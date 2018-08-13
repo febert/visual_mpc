@@ -30,15 +30,9 @@ def apply_warp(I0, flow_field):
     warp_pts = warp_pts_layer(flow_field)
     return resample_layer(I0, warp_pts), warp_pts
 
-def conv2d(x, nout, kernel_size=np.array([3,3])):
-    x = tf.layers.conv2d(
-    inputs=x,
-    filters=nout,
-    kernel_size=kernel_size,
-    strides=(1, 1),
-    padding='same',
-    kernel_initializer=tf.random_normal_initializer(0.0, 0.05))
-    return x
+def conv2d(nout, kernel_size=np.array([3,3]), activation=tf.nn.relu):
+    func = tf.keras.layers.Conv2D(nout, kernel_size, activation=activation, padding='same')
+    return func
 
 
 def length_sq(x):
