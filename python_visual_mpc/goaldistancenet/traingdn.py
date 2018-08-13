@@ -39,8 +39,13 @@ if __name__ == '__main__':
     flags.DEFINE_bool('docker', False, 'whether to write outpufiles to /results folder, used when runing in docker')
     flags.DEFINE_bool('flowerr', False, 'whether to compute flowerr metric')
     flags.DEFINE_integer('shuff', 512, 'size of shufflel buffer')
+    flags.DEFINE_bool('eager', False, 'enable eager')
 
 def main(unused_argv, conf_script= None):
+
+    if FLAGS.eager:
+        tf.enable_eager_execution()
+
     os.environ["CUDA_VISIBLE_DEVICES"] = str(FLAGS.device)
     print('using CUDA_VISIBLE_DEVICES=', FLAGS.device)
     from tensorflow.python.client import device_lib
@@ -91,9 +96,9 @@ def main(unused_argv, conf_script= None):
 
     with tf.variable_scope('model'):
         if FLAGS.visualize or FLAGS.visualize_check:
-            model = Model(conf, build_loss, load_data=False, load_testimages=load_test_images, shuffle_buffer=FLAGS.shuff)
+            model = Model(conf, build_loss, load_data=False, load_testimages=load_test_images, shuffle_buffer=FLAGS.shuff, eager=FLAGS.eager)
         else:
-            model = Model(conf, build_loss, load_data=True, load_testimages=load_test_images, shuffle_buffer=FLAGS.shuff)
+            model = Model(conf, build_loss, load_data=True, load_testimages=load_test_images, shuffle_buffer=FLAGS.shuff, eager=FLAGS.eager)
         model.build_net()
 
 
@@ -114,11 +119,14 @@ def main(unused_argv, conf_script= None):
 
     gpu_options = tf.GPUOptions(per_process_gpu_memory_fraction=0.9)
     # Make training session.
-    sess = tf.InteractiveSession(config=tf.ConfigProto(gpu_options=gpu_options))
+    if not FLAGS.eager:
+        sess = tf.InteractiveSession(config=tf.ConfigProto(gpu_options=gpu_options))
+
     summary_writer = tf.summary.FileWriter(conf['event_log_dir'], graph=sess.graph, flush_secs=10)
 
-    tf.train.start_queue_runners(sess)
-    sess.run(tf.global_variables_initializer())
+    if not FLAGS.eager:
+        tf.train.start_queue_runners(sess)
+        sess.run(tf.global_variables_initializer())
 
     if conf['visualize']:
         if FLAGS.visualize_check:
@@ -176,9 +184,6 @@ def main(unused_argv, conf_script= None):
                          model.train_cond: 0}
             [val_summary_str] = sess.run([model.val_summ_op], feed_dict)
             summary_writer.add_summary(val_summary_str, itr)
-
-        if BENCH_INTERVAL != -1 and itr % BENCH_INTERVAL == 0:
-            summary_writer.add_summary(model.run_bench(benchmodel, sess), itr)
 
         if itr % IMAGE_INTERVAL ==0:
             print('making image summ')

@@ -2,7 +2,7 @@ import python_visual_mpc
 base_dir = python_visual_mpc.__file__
 
 base_dir = '/'.join(str.split(base_dir, '/')[:-2])
-
+from python_visual_mpc.goaldistancenet.variants.multiscale import MultiscaleGoalDistanceNet
 
 import os
 # tf record data location:
@@ -19,6 +19,7 @@ OUT_DIR = current_dir + '/modeldata'
 
 configuration = {
 'experiment_name': 'correction',
+'model':MultiscaleGoalDistanceNet,
 'data_dir': DATA_DIR,       # 'directory containing data.' ,
 'output_dir': OUT_DIR,      #'directory for model checkpoints.' ,
 'current_dir': base_dir,   #'directory for writing summary.' ,

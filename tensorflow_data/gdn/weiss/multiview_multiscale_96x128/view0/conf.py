@@ -2,6 +2,7 @@ import python_visual_mpc
 base_dir = python_visual_mpc.__file__
 
 base_dir = '/'.join(str.split(base_dir, '/')[:-2])
+from python_visual_mpc.goaldistancenet.variants.multiscale import MultiscaleGoalDistanceNet
 
 
 import os
@@ -19,6 +20,7 @@ OUT_DIR = current_dir + '/modeldata'
 
 configuration = {
 'experiment_name': 'correction',
+'model':MultiscaleGoalDistanceNet,
 'data_dir': DATA_DIR,       # 'directory containing data.' ,
 'output_dir': OUT_DIR,      #'directory for model checkpoints.' ,
 'current_dir': base_dir,   #'directory for writing summary.' ,
@@ -32,7 +34,7 @@ configuration = {
 'normalization':'None',
 'orig_size': [96, 128],
 'norm':'charbonnier',
-'smoothcost':1e-6,
+'smoothcost':1e-7,
 'smoothmode':'2nd',
 'flow_penal':1e-7,
 'image_only':'',
