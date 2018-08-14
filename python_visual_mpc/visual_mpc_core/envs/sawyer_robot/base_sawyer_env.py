@@ -207,7 +207,7 @@ class BaseSawyerEnv(BaseEnv):
         if self._params.opencv_tracking:
             track_desig = np.zeros((2, 1, 2), dtype=np.int64)
             track_desig[0] = self._main_cam.get_track()
-            track_desig[0, :, 0] = self._height - track_desig[0, :, 0]
+            track_desig[0] = np.array([[self._height, self._width]]) - track_desig[0]
             track_desig[1] = self._left_cam.get_track()
             self._desig_pix = track_desig
 
@@ -277,7 +277,7 @@ class BaseSawyerEnv(BaseEnv):
         if self._params.opencv_tracking:
             assert self._desig_pix is not None, "Designated pixels must be set (call get_obj_desig_goal)"
             track_desig = copy.deepcopy(self._desig_pix)
-            track_desig[0, :, 0] = self._height - track_desig[0, :, 0]
+            track_desig[0] = np.array([[self._height, self._width]]) - track_desig[0]
 
             self._main_cam.start_tracking(track_desig[0])
             self._left_cam.start_tracking(track_desig[1])
@@ -368,7 +368,7 @@ class BaseSawyerEnv(BaseEnv):
             stamp, image = recorder.get_image()
             time_stamps.append(stamp)
             if recorder is self._main_cam:
-                cam_imgs.append(image[::-1].copy())
+                cam_imgs.append(image[::-1, ::-1].copy())
             else:
                 cam_imgs.append(image)
 
