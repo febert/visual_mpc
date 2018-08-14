@@ -1,6 +1,5 @@
 """ Hyperparameters for Large Scale Data Collection (LSDC) """
 
-from python_visual_mpc.visual_mpc_core.agent.benchmarking_agent import BenchmarkAgent
 import os.path
 
 import numpy as np
@@ -12,6 +11,7 @@ from python_visual_mpc.visual_mpc_core.envs.mujoco_env.sawyer_sim.autograsp_sawy
 from python_visual_mpc.visual_mpc_core.algorithm.cem_controller_vidpred import CEM_Controller_Vidpred
 
 from python_visual_mpc.visual_mpc_core.algorithm.random_policy import Randompolicy, RandomPickPolicy
+from python_visual_mpc.visual_mpc_core.agent.benchmarking_agent import BenchmarkAgent
 
 
 BASE_DIR = '/'.join(str.split(__file__, '/')[:-1])
@@ -27,7 +27,7 @@ env_params = {
     'friction': 1,
     'finger_sensors': True,
     'substeps': 100,
-     'autograsp': {'zthresh': 0.18, 'touchthresh': 0.0, 'reopen': True},
+    'autograsp': {'zthresh': 0.2, 'touchthresh': 0.0, 'reopen': True},
     'object_meshes': ['Bowl'],
     'ncam':1,
 }
@@ -46,18 +46,16 @@ agent = {
     'discrete_gripper': -1, #discretized gripper dimension,
     'start_goal_confs':os.environ['VMPC_DATA_DIR'] + '/sawyer_sim/startgoal_conf/bowl_arm_disp/train',
     'current_dir': current_dir,
-    'data_save_dir':BASE_DIR + '/raw_data',
-    'record':BASE_DIR
 }
 
 policy = {
     'verbose':'',
-    'verbose_every_itr':"",
+    # 'verbose_every_itr':"",
     'type': CEM_Controller_Vidpred,
     'iterations': 3,
     'nactions': 5,
     'repeat': 3,
-    'no_action_bound': False,
+    # 'no_action_bound': False,
     'initial_std': 0.05,   #std dev. in xy
     'initial_std_lift': 0.15,   #std dev. in xy
     'initial_std_rot': np.pi / 18,
@@ -67,8 +65,7 @@ policy = {
 config = {
     'traj_per_file': 128,
     'current_dir': current_dir,
-    'save_data': True,
-    'save_raw_images':'',
+    'save_data': False,
     'start_index':0,
     'end_index': 50,
     'agent': agent,
