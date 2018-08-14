@@ -133,7 +133,7 @@ def warp_pts_layer(flow_field, name="warp_pts"):
 
 def apply_warp(I0, flow_field):
     warp_pts = warp_pts_layer(flow_field)
-    return resample_layer(I0, warp_pts)
+    return resample_layer(I0, warp_pts), warp_pts
 
 class GoalDistanceNet(object):
     def __init__(self,
@@ -144,7 +144,8 @@ class GoalDistanceNet(object):
                  I1=None,
                  iter_num = None,
                  pred_images = None,
-                 load_testimages=False
+                 load_testimages=False,
+                 shuffle_buffer=512,
                  ):
 
         if conf['normalization'] == 'in':
@@ -177,7 +178,8 @@ class GoalDistanceNet(object):
                 train_images, val_images = [], []
                 print('loading images for view {}'.format(conf['view']))
                 for path, batch_size in conf['data_dir'].items():
-                    dataset = BaseVideoDataset(path, batch_size)
+                    data_conf = {'sequence_length': conf['sequence_length'], 'buffer_size': shuffle_buffer}
+                    dataset = BaseVideoDataset(path, batch_size, data_conf)
                     train_images.append(dataset['images', 'train'][:,:, conf['view']])
                     val_images.append(dataset['images', 'val'][:,:, conf['view']])
 
@@ -224,10 +226,10 @@ class GoalDistanceNet(object):
             with tf.variable_scope('warpnet', reuse=True):
                 self.warped_I1_to_I0, self.warp_pts_fwd, self.flow_fwd, h6_fwd = self.warp(self.I1, self.I0)
 
-            bwd_flow_warped_fwd = apply_warp(self.flow_bwd, self.flow_fwd)
+            bwd_flow_warped_fwd, _ = apply_warp(self.flow_bwd, self.flow_fwd)
             self.diff_flow_fwd = self.flow_fwd + bwd_flow_warped_fwd
 
-            fwd_flow_warped_bwd = apply_warp(self.flow_fwd, self.flow_bwd)
+            fwd_flow_warped_bwd, _ = apply_warp(self.flow_fwd, self.flow_bwd)
             self.diff_flow_bwd = self.flow_bwd + fwd_flow_warped_bwd
 
             if 'hard_occ_thresh' in self.conf:
@@ -257,10 +259,8 @@ class GoalDistanceNet(object):
             self.gen_I1 = self.warped_I0_to_I1
             self.gen_I0 = self.warped_I1_to_I0
         else:
-            if 'multi_scale' in self.conf:
-                self.warped_I0_to_I1, self.warp_pts_bwd, self.flow_bwd, _ = self.warp_multiscale(self.I0, self.I1)
-            else:
-                self.warped_I0_to_I1, self.warp_pts_bwd, self.flow_bwd, _ = self.warp(self.I0, self.I1)
+            self.warped_I0_to_I1, self.warp_pts_bwd, self.flow_bwd, _ = self.warp(self.I0, self.I1)
+
             self.gen_I1 = self.warped_I0_to_I1
             self.gen_I0, self.flow_fwd = None, None
 
@@ -268,16 +268,14 @@ class GoalDistanceNet(object):
         self.occ_mask_fwd = 1 - self.occ_fwd
 
         if self.build_loss:
-            if 'multi_scale' not in self.conf:
-                self.add_pair_loss(I1=self.I1, gen_I1=self.gen_I1, occ_bwd=self.occ_bwd, flow_bwd=self.flow_bwd, diff_flow_bwd=self.diff_flow_bwd,
+            self.add_pair_loss(I1=self.I1, gen_I1=self.gen_I1, occ_bwd=self.occ_bwd, flow_bwd=self.flow_bwd, diff_flow_bwd=self.diff_flow_bwd,
                                    I0=self.I0, gen_I0=self.gen_I0, occ_fwd=self.occ_fwd, flow_fwd=self.flow_fwd, diff_flow_fwd=self.diff_flow_fwd)
             self.combine_losses()
             # image_summary:
             if 'fwd_bwd' in self.conf:
                 self.image_summaries = self.build_image_summary(
                     [self.I0, self.I1, self.gen_I0, self.gen_I1, length(self.flow_bwd), length(self.flow_fwd), self.occ_mask_bwd, self.occ_mask_fwd])
-            elif 'multi_scale' not in self.conf:
-                self.image_summaries = self.build_image_summary([self.I0, self.I1, self.gen_I1, length(self.flow_bwd)])
+            self.image_summaries = self.build_image_summary([self.I0, self.I1, self.gen_I1, length(self.flow_bwd)])
 
     def sel_images(self):
         sequence_length = self.conf['sequence_length']
@@ -306,13 +304,14 @@ class GoalDistanceNet(object):
 
         return I0, I1
 
-    def conv_relu_block(self, input, out_ch, k=3, upsmp=False):
-        h = slim.layers.conv2d(  # 32x32x64
-            input,
-            out_ch, [k, k],
-            stride=1)
-
-        h = self.normalizer_fn(h)
+    def conv_relu_block(self, input, out_ch, k=3, upsmp=False, n_layer=1):
+        h = input
+        for l in range(n_layer):
+            h = slim.layers.conv2d(  # 32x32x64
+                h,
+                out_ch, [k, k],
+                stride=1)
+            h = self.normalizer_fn(h)
 
         if upsmp:
             mult = 2
@@ -321,88 +320,6 @@ class GoalDistanceNet(object):
 
         h = tf.image.resize_images(h, imsize, method=tf.image.ResizeMethod.BILINEAR)
         return h
-
-    def upconv_intm_flow_block(self, h, flow_lm1, source_image, dest_image, k=3, tag=None):
-        imsize = np.array(h.get_shape().as_list()[1:3])*2
-        h = tf.image.resize_images(tf.concat([h, flow_lm1], axis=-1), imsize, method=tf.image.ResizeMethod.BILINEAR)
-        flow = slim.layers.conv2d(  # 32x32x64
-            h,
-            2, [k, k],
-            stride=1, activation_fn=None)
-
-        source_im = tf.image.resize_images(source_image, imsize, method=tf.image.ResizeMethod.BILINEAR)
-        dest_im = tf.image.resize_images(dest_image, imsize, method=tf.image.ResizeMethod.BILINEAR)
-        gen_im = apply_warp(source_im, flow)
-        self.add_pair_loss(dest_im, gen_im, flow_bwd=flow, suf=tag)
-
-        sum = self.build_image_summary([source_im, dest_im, gen_im, length(flow)])
-        return source_im, gen_im, flow, sum
-
-
-    def warp_multiscale(self, source_image, dest_image):
-        """
-        warps I0 onto I1
-        :param source_image:
-        :param dest_image:
-        :return:
-        """
-        self.gen_I1_multiscale = []
-        self.I0_multiscale = []
-        self.I1_multiscale = []
-        self.flow_multiscale = []
-        imsum = []
-
-        if 'ch_mult' in self.conf:
-            ch_mult = self.conf['ch_mult']
-        else: ch_mult = 1
-
-        I0_I1 = tf.concat([source_image, dest_image], axis=3)
-        with tf.variable_scope('h1'):
-            h1 = self.conv_relu_block(I0_I1, out_ch=32*ch_mult)  #24x32
-
-        with tf.variable_scope('h2'):
-            h2 = self.conv_relu_block(h1, out_ch=64*ch_mult)  #12x16
-
-        with tf.variable_scope('h3'):
-            h3 = self.conv_relu_block(h2, out_ch=128*ch_mult)  #6x8
-
-            flow_h3 = slim.layers.conv2d(h3, num_outputs=2, kernel_size =[3, 3], stride=1)
-            source_h3 = tf.image.resize_images(source_image, flow_h3.get_shape().as_list()[1:3],
-                                             method=tf.image.ResizeMethod.BILINEAR)
-            dest_im_h3 = tf.image.resize_images(source_image, flow_h3.get_shape().as_list()[1:3],
-                                                  method=tf.image.ResizeMethod.BILINEAR)
-            gen_I1_h3 = apply_warp(source_h3, flow_h3)
-            self.add_pair_loss(dest_im_h3, gen_I1_h3, flow_bwd=flow_h3)
-            self.gen_I1_multiscale.append(gen_I1_h3)
-            self.I0_multiscale.append(source_h3)
-            self.flow_multiscale.append(flow_h3)
-            self.I1_multiscale.append(dest_im_h3)
-            imsum.append(self.build_image_summary([source_h3, dest_im_h3, gen_I1_h3, length(flow_h3)]))
-
-        with tf.variable_scope('h4'):
-            source_h4, gen_I1_h4, flow_h4, sum = self.upconv_intm_flow_block(h3, flow_h3, source_image, dest_image, tag='h4') # 12x16
-            self.gen_I1_multiscale.append(gen_I1_h4)
-            self.I0_multiscale.append(source_h4)
-            self.flow_multiscale.append(flow_h4)
-            imsum.append(sum)
-
-        with tf.variable_scope('h5'):
-            source_h5, gen_I1_h5, flow_h5, sum = self.upconv_intm_flow_block(h2, flow_h4, source_image, dest_image, tag='h5')  # 24x32
-            self.gen_I1_multiscale.append(gen_I1_h5)
-            self.I0_multiscale.append(source_h5)
-            self.flow_multiscale.append(flow_h5)
-            imsum.append(sum)
-
-        with tf.variable_scope('h6'):
-            source_h6, gen_I1_h6, flow_h6, sum = self.upconv_intm_flow_block(h1, flow_h5, source_image, dest_image, tag='h6')  # 48x64
-            self.gen_I1_multiscale.append(gen_I1_h6)
-            self.I0_multiscale.append(source_h6)
-            self.flow_multiscale.append(flow_h6)
-            imsum.append(sum)
-
-        self.image_summaries = tf.summary.merge(imsum)
-
-        return gen_I1_h6, None, flow_h6, None
 
     def warp(self, source_image, dest_image):
         """
@@ -467,7 +384,7 @@ class GoalDistanceNet(object):
             h3 = self.conv_relu_block(h2, out_ch=128 * ch_mult)  # 6x8x3
         return h3
 
-    def build_image_summary(self, tensors, numex=16, name=None):
+    def build_image_summary(self, tensors, numex=16, name=None, suf=''):
         """
         takes numex examples from every tensor and concatentes examples side by side
         and the different tensors from top to bottom
@@ -478,7 +395,11 @@ class GoalDistanceNet(object):
         ten_list = []
         for ten in tensors:
             if len(ten.get_shape().as_list()) == 3 or ten.get_shape().as_list()[-1] == 1:
-                ten = colorize(ten, tf.reduce_min(ten), tf.reduce_max(ten), 'viridis')
+                ten_colored = []
+                for b in range(ten.get_shape().as_list()[0]):
+                    ten_colored.append(colorize(ten[b], tf.reduce_min(ten), tf.reduce_max(ten), 'viridis'))
+                ten = tf.stack(ten_colored, axis=0)
+
             unstacked = tf.unstack(ten, axis=0)[:numex]
             concated = tf.concat(unstacked, axis=1)
             ten_list.append(concated)
@@ -486,7 +407,7 @@ class GoalDistanceNet(object):
         combined = tf.reshape(combined, [1]+combined.get_shape().as_list())
 
         if name ==None:
-            name = 'Images'
+            name = 'Images' + suf
         return tf.summary.image(name, combined)
 
     def add_pair_loss(self, I1, gen_I1, occ_bwd=None, flow_bwd=None, diff_flow_fwd=None,

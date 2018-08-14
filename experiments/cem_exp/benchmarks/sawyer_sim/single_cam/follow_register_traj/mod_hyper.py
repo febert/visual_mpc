@@ -1,13 +1,15 @@
 """ Hyperparameters for Large Scale Data Collection (LSDC) """
 
-from python_visual_mpc.visual_mpc_core.agent.benchmarking_agent import BenchmarkAgent
 import os.path
 
 import numpy as np
 
 from python_visual_mpc.visual_mpc_core.algorithm.random_policy import Randompolicy, RandomPickPolicy
-from python_visual_mpc.visual_mpc_core.agent.general_agent import GeneralAgent
+from python_visual_mpc.visual_mpc_core.agent.benchmarking_agent import BenchmarkAgent
 from python_visual_mpc.visual_mpc_core.envs.mujoco_env.sawyer_sim.autograsp_sawyer_mujoco_env import AutograspSawyerMujocoEnv
+
+
+from python_visual_mpc.visual_mpc_core.algorithm.cem_controller_vidpred_variants.full_image_reg_controller import Full_Image_Reg_Controller
 
 from python_visual_mpc.visual_mpc_core.algorithm.cem_controller_vidpred import CEM_Controller_Vidpred
 
@@ -18,7 +20,7 @@ BASE_DIR = '/'.join(str.split(__file__, '/')[:-1])
 current_dir = os.path.dirname(os.path.realpath(__file__))
 
 import python_visual_mpc
-DATA_DIR = '/'.join(str.split(python_visual_mpc.__file__, '/')[:-2])
+VMPC_BASE_DIR = '/'.join(str.split(python_visual_mpc.__file__, '/')[:-2])
 
 env_params = {
     'filename': 'sawyer_grasp.xml',
@@ -44,31 +46,32 @@ agent = {
     'min_z_lift':0.05,
     'make_final_gif': True,
     'discrete_gripper': -1, #discretized gripper dimension,
-    'start_goal_confs':os.environ['VMPC_DATA_DIR'] + '/sawyer_sim/startgoal_conf/bowl_arm_disp/train',
+    'start_goal_confs': VMPC_BASE_DIR + '/pushing_data/sawyer_sim/demonstrations/single_cam_gtruth_track/raw_data/train',
     'current_dir': current_dir,
-    'data_save_dir':BASE_DIR + '/raw_data',
-    'record':BASE_DIR
+    'num_load_steps':30
 }
 
 policy = {
     'verbose':'',
     'verbose_every_itr':"",
-    'type': CEM_Controller_Vidpred,
+    'type': Full_Image_Reg_Controller,
     'iterations': 3,
-    'nactions': 5,
+    'nactions': 2,
     'repeat': 3,
     'no_action_bound': False,
     'initial_std': 0.05,   #std dev. in xy
     'initial_std_lift': 0.15,   #std dev. in xy
     'initial_std_rot': np.pi / 18,
-    'finalweight':10
+    'finalweight':10,
+    'warp_success_cost':0.1,
+    'demo_image_interval':3,
+    'new_goal_freq':'follow_traj',
 }
 
 config = {
     'traj_per_file': 128,
     'current_dir': current_dir,
-    'save_data': True,
-    'save_raw_images':'',
+    'save_data': False,
     'start_index':0,
     'end_index': 50,
     'agent': agent,
