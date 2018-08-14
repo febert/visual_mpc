@@ -16,6 +16,43 @@ from python_visual_mpc.video_prediction.utils_vpred.create_gif_lib import npy_to
 from .util.user_interface import select_points
 
 
+CONTROL_RATE = 800
+CONTROL_PERIOD = 1. / CONTROL_RATE
+INTERP_SKIP = 16
+
+
+def precalculate_interpolation(p1, p2, duration, last_pos, start_cmd, joint_names):
+    spline = QuinticSpline(p1, p2, duration)
+    num_queries = int(CONTROL_RATE * duration / INTERP_SKIP) + 1
+    jas = []
+    last_cmd = start_cmd
+    for t in np.linspace(0., duration, num_queries):
+        cart_pos = spline.get(t)[0][0]
+        interp_pose = state_to_pose(cart_pos[:3], zangle_to_quat(cart_pos[3]))
+
+        try:
+            interp_ja = pose_to_ja(interp_pose, last_cmd,
+                                   debug_z=cart_pos[3] * 180 / np.pi, retry_on_fail=True)
+            last_cmd = interp_ja
+            interp_ja = np.array([interp_ja[j] for j in joint_names])
+            jas.append(interp_ja)
+            last_pos = interp_ja
+        except EnvironmentError:
+            jas.append(last_pos)
+            print('ignoring IK failure')
+    print 'after fill', len(jas), 'with duration', duration
+    interp_ja = []
+    for i in range(len(jas) - 1):
+        interp_ja.append(jas[i].tolist())
+        for j in range(1, INTERP_SKIP):
+            t = float(j) / INTERP_SKIP
+            interp_point = (1 - t) * jas[i] + t * jas[i + 1]
+            interp_ja.append(interp_point.tolist())
+    interp_ja.append(jas[-1].tolist())
+    print 'after double fille', len(interp_ja)
+    return interp_ja
+
+
 def pix_resize(pix, target_width, original_width):
     return np.round((copy.deepcopy(pix).astype(np.float32) *
               target_width / float(original_width))).astype(np.int64)
@@ -92,7 +129,7 @@ class BaseSawyerEnv(BaseEnv):
         else:
             self._obs_tol = self._params.OFFSET_TOL
 
-        self._controller = ImpedanceWSGController(800, self._robot_name)
+        self._controller = ImpedanceWSGController(CONTROL_RATE, self._robot_name)
         self._limb_recorder = LimbWSGRecorder(self._controller)
         self._save_video = self._params.video_save_dir is not None
         self._main_cam = CameraRecorder('/camera0/image_raw', self._params.opencv_tracking, self._save_video)
@@ -227,28 +264,25 @@ class BaseSawyerEnv(BaseEnv):
         p2 = np.zeros(4)
         p2[:3], p2[3] = target_xyz, target_zangle
 
-        spline = QuinticSpline(p1, p2, duration)
-
         last_pos = self._limb_recorder.get_joint_angles()
+        last_cmd = self._limb_recorder.get_joint_cmd()
+        joint_names = self._limb_recorder.get_joint_names()
+
+        interp_jas = precalculate_interpolation(p1, p2, duration, last_pos, last_cmd, joint_names)
+
+        i = 0
         self._controller.control_rate.sleep()
         start_time = rospy.get_time()
         t = rospy.get_time()
         while t - start_time < duration:
-            query = max(min(t - start_time, duration), 0)
-            cart_pos = spline.get(query)[0][0]
-            interp_pose = state_to_pose(cart_pos[:3], zangle_to_quat(cart_pos[3]))
-            try:
-                interp_ja = pose_to_ja(interp_pose, self._limb_recorder.get_joint_cmd(),
-                                       debug_z=cart_pos[3] * 180 / np.pi, retry_on_fail=True)
-                interp_ja = [interp_ja[j] for j in self._limb_recorder.get_joint_names()]
-                self._controller.send_pos_command(interp_ja)
-                last_pos = interp_ja
-            except EnvironmentError:
-                self._controller.send_pos_command(last_pos)
-                print('ignoring IK failure')
-
+            lookup_index = min(int(min((t - start_time), duration) / CONTROL_PERIOD), len(interp_jas) - 1)
+            self._controller.send_pos_command(interp_jas[lookup_index])
+            i += 1
             self._controller.control_rate.sleep()
             t = rospy.get_time()
+
+        print('last lookup: {}'.format(lookup_index))
+        print('Effective rate: {} Hz'.format(i / (rospy.get_time() - start_time)))
 
     def _reset_previous_qpos(self):
         eep = self._limb_recorder.get_state()[2]
@@ -368,7 +402,7 @@ class BaseSawyerEnv(BaseEnv):
             stamp, image = recorder.get_image()
             time_stamps.append(stamp)
             if recorder is self._main_cam:
-                cam_imgs.append(image[::-1, ::-1].copy())
+                cam_imgs.append(image[::-1].copy())
             else:
                 cam_imgs.append(image)
 
