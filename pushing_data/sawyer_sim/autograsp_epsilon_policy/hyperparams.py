@@ -35,7 +35,7 @@ agent = {
     'gen_xml':10,   #generate xml every nth trajecotry
     'record': BASE_DIR + '/record/',
     'discrete_gripper': -1, #discretized gripper dimension,
-    'rejection_sample': 1,
+    'rejection_sample': 5,
     'make_final_gif': ''
 }
 
