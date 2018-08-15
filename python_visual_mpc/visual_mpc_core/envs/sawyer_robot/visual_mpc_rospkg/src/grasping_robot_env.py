@@ -3,7 +3,7 @@ import os
 import argparse
 import imp
 import cPickle as pkl
-from python_visual_mpc.goaldistancenet.setup_gdn import setup_gdn
+import numpy as np
 import shutil
 import cv2
 
@@ -66,6 +66,13 @@ class RobotEnvironment:
                 self.take_sample(itr)
                 itr += 1
 
+    def _get_bench_name(self):
+        name = raw_input('input benchmark name: ')
+        while len(name) < 2:
+            print('please choose a name > 2 characters long')
+            name = raw_input('input benchmark name: ')
+        return name
+
     def take_sample(self, sample_index):
         if 'RESULT_DIR' in os.environ:
             data_save_dir = os.environ['RESULT_DIR'] + '/data'
@@ -73,7 +80,7 @@ class RobotEnvironment:
         data_save_dir += '/' + self.task_mode
 
         if self.is_bench:
-            bench_name = raw_input('input benchmark name: ')
+            bench_name = self._get_bench_name()
             traj_folder = '{}/{}'.format(data_save_dir, bench_name)
             self.agentparams['_bench_save'] = '{}/exp_data'.format(traj_folder)  # probably should develop a better way
             self.agentparams['benchmark_exp'] = bench_name                       # to pass benchmark info to agent
@@ -120,6 +127,12 @@ class RobotEnvironment:
             for t in range(T):
                 for i in range(n_cams):
                     cv2.imwrite('{}/images{}/im_{}.jpg'.format(traj_folder, i, t), images[t, i, :, :, ::-1])
+        if 'goal_image' in obs_dict:
+            goal_images = obs_dict.pop('goal_image')
+            for n in range(goal_images.shape[0]):
+                cv2.imwrite('{}/goal_image{}.jpg'.format(traj_folder, n),
+                            (goal_images[n, :, :, ::-1] * 255).astype(np.uint8))
+
         with open('{}/agent_data.pkl'.format(traj_folder), 'wb') as file:
             pkl.dump(agent_data, file)
         with open('{}/obs_dict.pkl'.format(traj_folder), 'wb') as file:

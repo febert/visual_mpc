@@ -181,7 +181,6 @@ class CEM_Controller_Base(Policy):
                 self.plan_stat['best_cost_perstep'] = self.best_cost_perstep
 
             actions_flat = self.post_process_actions(actions)
-            self.bestaction = actions[self.indices[0]]
 
             self.fit_gaussians(actions_flat)
 
@@ -190,7 +189,7 @@ class CEM_Controller_Base(Policy):
             itr_times['post_pred'] = time.time() - t
             timings['itr{}'.format(itr)] = itr_times
 
-        pkl.dump(timings, open('{}/timings_CEM_{}.pkl'.format(self.agentparams['record'], self.t), 'wb'))
+        # pkl.dump(timings, open('{}/timings_CEM_{}.pkl'.format(self.agentparams['record'], self.t), 'wb'))
 
     def fit_gaussians(self, actions_flat):
         arr_best_actions = actions_flat[self.indices]  # only take the K best actions

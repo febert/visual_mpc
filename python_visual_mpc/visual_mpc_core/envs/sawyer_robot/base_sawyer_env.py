@@ -16,6 +16,48 @@ from python_visual_mpc.video_prediction.utils_vpred.create_gif_lib import npy_to
 from .util.user_interface import select_points
 
 
+CONTROL_RATE = 800
+CONTROL_PERIOD = 1. / CONTROL_RATE
+INTERP_SKIP = 16
+
+
+def precalculate_interpolation(p1, p2, duration, last_pos, start_cmd, joint_names):
+    spline = QuinticSpline(p1, p2, duration)
+    num_queries = int(CONTROL_RATE * duration / INTERP_SKIP) + 1
+    jas = []
+    last_cmd = start_cmd
+    for t in np.linspace(0., duration, num_queries):
+        cart_pos = spline.get(t)[0][0]
+        interp_pose = state_to_pose(cart_pos[:3], zangle_to_quat(cart_pos[3]))
+
+        try:
+            interp_ja = pose_to_ja(interp_pose, last_cmd,
+                                   debug_z=cart_pos[3] * 180 / np.pi, retry_on_fail=True)
+            last_cmd = interp_ja
+            interp_ja = np.array([interp_ja[j] for j in joint_names])
+            jas.append(interp_ja)
+            last_pos = interp_ja
+        except EnvironmentError:
+            jas.append(last_pos)
+            print('ignoring IK failure')
+    print 'after fill', len(jas), 'with duration', duration
+    interp_ja = []
+    for i in range(len(jas) - 1):
+        interp_ja.append(jas[i].tolist())
+        for j in range(1, INTERP_SKIP):
+            t = float(j) / INTERP_SKIP
+            interp_point = (1 - t) * jas[i] + t * jas[i + 1]
+            interp_ja.append(interp_point.tolist())
+    interp_ja.append(jas[-1].tolist())
+    print 'after double fille', len(interp_ja)
+    return interp_ja
+
+
+def pix_resize(pix, target_width, original_width):
+    return np.round((copy.deepcopy(pix).astype(np.float32) *
+              target_width / float(original_width))).astype(np.int64)
+
+
 def quat_to_zangle(quat):
     """
     :param quat: robot rotation quaternion (assuming rotation around z-axis)
@@ -83,11 +125,11 @@ class BaseSawyerEnv(BaseEnv):
         self._setup_robot()
 
         if self._params.opencv_tracking:
-            self._obs_tol = 0.1
+            self._obs_tol = 0.5
         else:
             self._obs_tol = self._params.OFFSET_TOL
 
-        self._controller = ImpedanceWSGController(800, self._robot_name)
+        self._controller = ImpedanceWSGController(CONTROL_RATE, self._robot_name)
         self._limb_recorder = LimbWSGRecorder(self._controller)
         self._save_video = self._params.video_save_dir is not None
         self._main_cam = CameraRecorder('/camera0/image_raw', self._params.opencv_tracking, self._save_video)
@@ -104,7 +146,7 @@ class BaseSawyerEnv(BaseEnv):
         self._cleanup_rate, self._duration = self._params.cleanup_rate, self._params.duration
         self._reset_counter, self._previous_target_qpos = 0, None
 
-        self._desig_pix, self._goal_pix = None, None
+        self._start_pix, self._desig_pix, self._goal_pix = None, None, None
 
     def _default_hparams(self):
         default_dict = {'robot_name': None,
@@ -202,7 +244,7 @@ class BaseSawyerEnv(BaseEnv):
         if self._params.opencv_tracking:
             track_desig = np.zeros((2, 1, 2), dtype=np.int64)
             track_desig[0] = self._main_cam.get_track()
-            track_desig[0, :, 0] = self._height - track_desig[0, :, 0]
+            track_desig[0] = np.array([[self._height, self._width]]) - track_desig[0]
             track_desig[1] = self._left_cam.get_track()
             self._desig_pix = track_desig
 
@@ -222,28 +264,25 @@ class BaseSawyerEnv(BaseEnv):
         p2 = np.zeros(4)
         p2[:3], p2[3] = target_xyz, target_zangle
 
-        spline = QuinticSpline(p1, p2, duration)
-
         last_pos = self._limb_recorder.get_joint_angles()
+        last_cmd = self._limb_recorder.get_joint_cmd()
+        joint_names = self._limb_recorder.get_joint_names()
+
+        interp_jas = precalculate_interpolation(p1, p2, duration, last_pos, last_cmd, joint_names)
+
+        i = 0
         self._controller.control_rate.sleep()
         start_time = rospy.get_time()
         t = rospy.get_time()
         while t - start_time < duration:
-            query = max(min(t - start_time, duration), 0)
-            cart_pos = spline.get(query)[0][0]
-            interp_pose = state_to_pose(cart_pos[:3], zangle_to_quat(cart_pos[3]))
-            try:
-                interp_ja = pose_to_ja(interp_pose, self._limb_recorder.get_joint_cmd(),
-                                       debug_z=cart_pos[3] * 180 / np.pi, retry_on_fail=True)
-                interp_ja = [interp_ja[j] for j in self._limb_recorder.get_joint_names()]
-                self._controller.send_pos_command(interp_ja)
-                last_pos = interp_ja
-            except EnvironmentError:
-                self._controller.send_pos_command(last_pos)
-                print('ignoring IK failure')
-
+            lookup_index = min(int(min((t - start_time), duration) / CONTROL_PERIOD), len(interp_jas) - 1)
+            self._controller.send_pos_command(interp_jas[lookup_index])
+            i += 1
             self._controller.control_rate.sleep()
             t = rospy.get_time()
+
+        print('last lookup: {}'.format(lookup_index))
+        print('Effective rate: {} Hz'.format(i / (rospy.get_time() - start_time)))
 
     def _reset_previous_qpos(self):
         eep = self._limb_recorder.get_state()[2]
@@ -272,7 +311,7 @@ class BaseSawyerEnv(BaseEnv):
         if self._params.opencv_tracking:
             assert self._desig_pix is not None, "Designated pixels must be set (call get_obj_desig_goal)"
             track_desig = copy.deepcopy(self._desig_pix)
-            track_desig[0, :, 0] = self._height - track_desig[0, :, 0]
+            track_desig[0] = np.array([[self._height, self._width]]) - track_desig[0]
 
             self._main_cam.start_tracking(track_desig[0])
             self._left_cam.start_tracking(track_desig[1])
@@ -370,6 +409,7 @@ class BaseSawyerEnv(BaseEnv):
         for index, i in enumerate(time_stamps[:-1]):
             for j in time_stamps[index + 1:]:
                 if abs(i - j) > self._obs_tol:
+                    print('DeSYNC!')
                     raise Image_Exception
 
         images = np.zeros((len(cameras), self._height, self._width, 3), dtype=np.uint8)
@@ -415,17 +455,29 @@ class BaseSawyerEnv(BaseEnv):
                                  save_dir, clicks_per_desig=1, n_desig=ntasks)
 
         goal_pix = self.get_goal_pix(target_width)
-        final_pix = np.round((final_pix.astype(np.float32) * target_width / float(self._width))).astype(np.int64)
+        final_pix = pix_resize(final_pix, target_width, self._width)
+        start_pix = pix_resize(self._start_pix, target_width, self._width)
+
+        final_dist, start_dist = np.linalg.norm(final_pix - goal_pix), np.linalg.norm(start_pix - goal_pix)
+        improvement = start_dist - final_dist
+        print 'final_dist: {}'.format(final_dist)
+        print 'start dist: {}'.format(start_dist)
+        print 'improvement: {}'.format(improvement)
 
         if self._params.opencv_tracking:
             self._main_cam.end_tracking()
             self._left_cam.end_tracking()
 
-        return np.linalg.norm(final_pix - goal_pix)
+        return {'final_dist': final_dist, 'start_dist': start_dist, 'improvement': improvement}
 
     def get_obj_desig_goal(self, save_dir, collect_goal_image=False, ntasks=1):
         if self._params.video_save_dir is not None:
             self._params.video_save_dir = save_dir
+
+        raw_input("Robot in safe position? Hit enter when ready...")
+        self._controller.neutral_with_impedance()
+        self._controller.open_gripper(True)
+        
         if collect_goal_image:
             print("PLACE OBJECTS IN GOAL POSITION")
             raw_input("When ready to annotate GOAL images press enter...")
@@ -440,22 +492,20 @@ class BaseSawyerEnv(BaseEnv):
             print("PLACE OBJECTS IN START POSITION")
             raw_input("When ready to annotate START images press enter...")
 
-            self._desig_pix = select_points(self.render(), ['front', 'left'], 'desig',
+            self._start_pix = select_points(self.render(), ['front', 'left'], 'desig',
                                      save_dir, clicks_per_desig=1, n_desig=ntasks)
             self._goal_pix = copy.deepcopy(goal_pix)
+            self._desig_pix = copy.deepcopy(self._start_pix)
+
             return goal_imgs, goal_pix
         else:
-            raw_input("Robot in safe position? Hit enter when ready...")
-            self._controller.neutral_with_impedance()
-            self._controller.open_gripper(True)
-
             print("PLACE OBJECTS IN START POSITION")
             raw_input("When ready to annotate START images press enter...")
 
-            self._desig_pix, self._goal_pix = select_points(self.render(), ['front', 'left'], 'desig_goal',
+            self._start_pix, self._goal_pix = select_points(self.render(), ['front', 'left'], 'desig_goal',
                                      save_dir, n_desig=ntasks)
+            self._desig_pix = copy.deepcopy(self._start_pix)
             return copy.deepcopy(self._goal_pix)
 
     def get_goal_pix(self, target_width):
-        return np.round((copy.deepcopy(self._goal_pix).astype(np.float32) *
-                         target_width / float(self._width))).astype(np.int64)
+        return pix_resize(self._goal_pix, target_width, self._width)

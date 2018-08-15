@@ -1,5 +1,5 @@
 from python_visual_mpc.visual_mpc_core.infrastructure.synchronize_tfrecs import sync
-from multiprocessing import Pool, Process, Manager, Value, Lock
+from multiprocessing import Pool, Process, Manager
 import sys
 import argparse
 import importlib.machinery

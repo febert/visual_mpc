@@ -1,0 +1,37 @@
+<html>
+    <head>
+        <title>{{ title }}</title>
+    </head>
+    <body>
+        <h1>Welcome to Visual-MPC! Displaying iter: {{ run.iter_id }} run: {{ run.run_id }}!</h1>
+
+        <br />
+        <table>
+        <tr>
+            <td>
+                <a href="{{ run.last_link }}">Last</a>
+            </td>
+            <td>
+                <a href="{{ run.next_link }}">Next</a>
+            </td>
+        </tr>
+        </table>
+        <br />
+
+        <table>
+        {% for row in run_data %}
+        <tr>
+            {% for col in row %}
+	        <td align="center" valign="center">
+                 <video  width="256px" autoplay loop>
+                     <source src="{{ col['url'] }} " type="video/mp4" />
+                 </video>
+                 <br />
+                 {{ col['caption'] }}
+            </td>
+            {% endfor %}
+        </tr>
+        {% endfor %}
+        </table>
+    </body>
+</html>

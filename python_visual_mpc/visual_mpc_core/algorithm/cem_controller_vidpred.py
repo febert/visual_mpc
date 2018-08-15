@@ -74,11 +74,7 @@ class CEM_Controller_Vidpred(CEM_Controller_Base):
 
         self.img_height, self.img_width = self.netconf['orig_size']
 
-        if 'ncam' in self.policyparams:
-            self.ncam = self.policyparams['ncam']
-        elif 'cameras' in self.agentparams:
-            self.ncam = len(self.agentparams['cameras'])
-        else: self.ncam = 1
+        self.ncam = self.netconf['ncam']
 
         if 'sawyer' in self.agentparams:
             self.gen_image_publisher = rospy.Publisher('gen_image', numpy_msg(floatarray), queue_size=10)
@@ -92,7 +88,7 @@ class CEM_Controller_Vidpred(CEM_Controller_Base):
         if 'predictor_propagation' in self.policyparams:
             self.rec_input_distrib = []  # record the input distributions
 
-        self.parallel_vis = True
+        self.parallel_vis = False
         if self.parallel_vis:
             self._thread = Thread(target=verbose_worker)
             self._thread.start()
@@ -102,7 +98,13 @@ class CEM_Controller_Vidpred(CEM_Controller_Base):
 
         self.ntask = self.ndesig  # will be overwritten in derived classes
         self.vd = VisualzationData()
-        self.visualizer = CEM_Visual_Preparation()
+        self._setup_visualizer()
+
+    def _setup_visualizer(self, default=CEM_Visual_Preparation):
+        run_freq = 1
+        if 'verbose_every_itr' in self.policyparams:
+            run_freq = 3
+        self.visualizer = self.policyparams.get('visualizer', default)(run_freq)
 
     def reset(self):
         super(CEM_Controller_Vidpred, self).reset()
@@ -125,11 +127,11 @@ class CEM_Controller_Vidpred(CEM_Controller_Base):
             for p in range(self.ndesig):
                 one_hot_images[:, :, icam, desig[icam, p, 0], desig[icam, p, 1], p] = 1.
                 self.logger.log('using desig pix',desig[icam, p, 0], desig[icam, p, 1])
+
         return one_hot_images
 
     def get_rollouts(self, actions, cem_itr, itr_times):
         actions, last_frames, last_states, t_0 = self.prep_vidpred_inp(actions, cem_itr)
-
         input_distrib = self.make_input_distrib(cem_itr)
 
         t_startpred = time.time()

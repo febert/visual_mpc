@@ -16,7 +16,7 @@ env_params = {
 agent = {'type' : BenchmarkAgent,
          'env': (AutograspSawyerEnv, env_params),
          'data_save_dir': BASE_DIR,
-         'T' : 15,  #number of commands per episodes (issued at control_rate / substeps HZ)
+         'T' : 50,  #number of commands per episodes (issued at control_rate / substeps HZ)
          'image_height': 48,
          'image_width': 64,
          'benchmark_exp':'',

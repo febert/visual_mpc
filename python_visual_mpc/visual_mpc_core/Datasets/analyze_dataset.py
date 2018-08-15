@@ -7,6 +7,7 @@ import tensorflow as tf
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='visualize good and bad trajectories from tfrecord dataset')
     parser.add_argument('base_path', type=str, help="path to folder containing good/bad Dataset folders")
+    parser.add_argument('--view', type=int, default=0, help="0 for view0 1 for view1")
     args = parser.parse_args()
 
     batch_size = 30
@@ -20,9 +21,9 @@ if __name__ == '__main__':
     good_images, bad_images = sess.run([good_images, bad_images])
     T = good_images.shape[1]
     for i in range(batch_size):
-        clip = mpy.ImageSequenceClip([good_images[i, t, 0, :, :] for t in range(T)], fps = 5)
+        clip = mpy.ImageSequenceClip([good_images[i, t, args.view, :, :] for t in range(T)], fps = 5)
         clip.write_gif('good_{}.gif'.format(i))
 
-        clip = mpy.ImageSequenceClip([bad_images[i, t, 0, :, :] for t in range(T)], fps = 5)
+        clip = mpy.ImageSequenceClip([bad_images[i, t, args.view, :, :] for t in range(T)], fps = 5)
         clip.write_gif('bad_{}.gif'.format(i))
         
