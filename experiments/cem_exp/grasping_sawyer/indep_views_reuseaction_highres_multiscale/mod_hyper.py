@@ -3,6 +3,7 @@ import os
 from python_visual_mpc.visual_mpc_core.agent.benchmarking_agent import BenchmarkAgent
 from python_visual_mpc.visual_mpc_core.envs.sawyer_robot.autograsp_sawyer_env import AutograspSawyerEnv
 from python_visual_mpc.visual_mpc_core.algorithm.cem_controller_vidpred_variants.register_gtruth_controller import Register_Gtruth_Controller
+from python_visual_mpc.visual_mpc_core.algorithm.utils.web_cem_visualizer import CEMWebServer
 BASE_DIR = '/'.join(str.split(__file__, '/')[:-1])
 current_dir = os.path.dirname(os.path.realpath(__file__))
 
@@ -27,6 +28,7 @@ agent = {'type' : BenchmarkAgent,
 policy = {
     'verbose':'',
     # 'verbose_every_itr':"",
+    'visualizer':CEMWebServer,
     'type': Register_Gtruth_Controller,
     'iterations': 3,
     'nactions': 5,

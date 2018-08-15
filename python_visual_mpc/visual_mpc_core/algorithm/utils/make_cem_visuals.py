@@ -96,7 +96,7 @@ def upsample_if_necessary(dict, target_shape):
     return dict
 
 class CEM_Visual_Preparation(object):
-    def __init__(self):
+    def __init__(self, **kwargs):
         pass
 
     def visualize(self, vd):

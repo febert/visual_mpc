@@ -88,7 +88,7 @@ class CEM_Controller_Vidpred(CEM_Controller_Base):
         if 'predictor_propagation' in self.policyparams:
             self.rec_input_distrib = []  # record the input distributions
 
-        self.parallel_vis = True
+        self.parallel_vis = False
         if self.parallel_vis:
             self._thread = Thread(target=verbose_worker)
             self._thread.start()
@@ -98,7 +98,13 @@ class CEM_Controller_Vidpred(CEM_Controller_Base):
 
         self.ntask = self.ndesig  # will be overwritten in derived classes
         self.vd = VisualzationData()
-        self.visualizer = CEM_Visual_Preparation()
+        self._setup_visualizer()
+
+    def _setup_visualizer(self, default=CEM_Visual_Preparation):
+        run_freq = 1
+        if 'verbose_every_itr' in self.policyparams:
+            run_freq = 3
+        self.visualizer = self.policyparams.get('visualizer', default)(run_freq)
 
     def reset(self):
         super(CEM_Controller_Vidpred, self).reset()

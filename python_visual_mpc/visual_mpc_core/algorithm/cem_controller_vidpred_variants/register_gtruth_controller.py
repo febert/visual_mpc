@@ -19,10 +19,12 @@ class Register_Gtruth_Controller(CEM_Controller_Vidpred):
         params = imp.load_source('params', ag_params['current_dir'] + '/gdnconf.py')
         self.gdnconf = params.configuration
         self.goal_image_warper = setup_gdn(self.gdnconf, gpu_id)
-        self.visualizer = CEM_Visual_Preparation_Registration()
 
         num_reg_images = len(self.policyparams['register_gtruth'])
         self.ntask = self.ntask = self.ndesig // num_reg_images
+
+    def _setup_visualizer(self, default=CEM_Visual_Preparation_Registration):
+        return super(Register_Gtruth_Controller, self)._setup_visualizer(default)
 
     def prep_vidpred_inp(self, actions, cem_itr):
         actions, last_frames, last_states, t_0 = super(Register_Gtruth_Controller, self).prep_vidpred_inp(actions, cem_itr)
