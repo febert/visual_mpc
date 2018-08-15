@@ -36,7 +36,9 @@ agent = {
     'record': BASE_DIR + '/record/',
     'discrete_gripper': -1, #discretized gripper dimension,
     'rejection_sample': 5,
-    'make_final_gif': ''
+    'make_final_gif': '',
+    'master': 'sudeep@deepthought.banatao.berkeley.edu',
+    'master_datadir': '/raid/sudeep/sawyer_sim/autograsp_newphysics/'
 }
 
 policy = {
