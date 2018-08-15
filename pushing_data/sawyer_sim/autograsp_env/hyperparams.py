@@ -18,7 +18,7 @@ DATA_DIR = '/'.join(str.split(python_visual_mpc.__file__, '/')[:-2])
 env_params = {
     'filename': 'sawyer_grasp.xml',
     'num_objects': 4,
-    'object_mass': 0.1,
+    'object_mass': 1,
     'friction': 1,
     'substeps': 100,
      'autograsp': {'zthresh': 0.18, 'touchthresh': 0.0, 'reopen': True},
@@ -35,7 +35,7 @@ agent = {
     'gen_xml':10,   #generate xml every nth trajecotry
     'record': BASE_DIR + '/record/',
     'discrete_gripper': -1, #discretized gripper dimension,
-    'rejection_sample': 1,
+    'rejection_sample': 5,
     'make_final_gif': ''
 }
 

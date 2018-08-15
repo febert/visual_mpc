@@ -52,6 +52,12 @@ def bench_worker(conf, iex=-1):
     np.random.seed(None)
     perform_benchmark(conf, iex, gpu_id=conf['gpu_id'])
 
+
+def check_and_pop(dict, key):
+    if dict.pop(key, None) is not None:
+        print('popping key: {}'.format(key))
+
+
 def main():
     parser = argparse.ArgumentParser(description='run parllel data collection')
     parser.add_argument('experiment', type=str, help='experiment name')
@@ -61,7 +67,7 @@ def main():
     parser.add_argument('--nsplit', type=int, help='number of splits', default=-1)
     parser.add_argument('--isplit', type=int, help='split id', default=-1)
     parser.add_argument('--cloud', dest='cloud', action='store_true', default=False)
-    parser.add_argument('--benchmark', dest='do_benchmark', action='store_true', default=True)
+    parser.add_argument('--benchmark', dest='do_benchmark', action='store_true', default=False)
 
     parser.add_argument('--iex', type=int, help='if different from -1 use only do example', default=-1)
 
@@ -110,6 +116,9 @@ def main():
         data_save_path = hyperparams['agent']['data_save_dir'].partition('pushing_data')[2]
         hyperparams['agent']['data_save_dir'] = os.environ['RESULT_DIR'] + data_save_path
     elif args.cloud:
+        check_and_pop(hyperparams, 'save_raw_images')
+        check_and_pop(hyperparams['agent'], 'make_final_gif')
+        check_and_pop(hyperparams['agent'], 'make_final_gif_pointoverlay')
         hyperparams['agent']['data_save_dir'] = '/result/'    # by default save code to the /result folder in docker image
 
     if 'master_datadir' in hyperparams['agent']:

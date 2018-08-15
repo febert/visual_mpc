@@ -113,15 +113,20 @@ def create_object_xml(filename, num_objects, object_mass, friction_params, objec
 
                 mesh_object = mesh.Mesh.from_file(object_file)
                 minx, maxx, miny, maxy, minz, maxz = find_mins_maxs(mesh_object)
-                min_length = min((maxx - minx), (maxy - miny))
-                scale = [0.12 / min_length for _ in range(3)]
+
 
                 if chosen_mesh in ['Knife', 'Fork', 'Spoon']:      #should add a more extensible way to handle different rescale rules
                     max_length = max((maxx - minx), (maxy - miny))
-                    scale = [0.24 / max_length for _ in range(3)]
+                    scale = [2 * maxlen / max_length for _ in range(3)]
 
                     if chosen_mesh == 'Knife':
                         scale[2] *= 10
+                elif chosen_mesh in ['Bowl', 'ElephantBowl', 'GlassBowl', 'LotusBowl01', 'RuggedBowl']:
+                    min_length = min((maxx - minx), (maxy - miny))
+                    scale = [maxlen / min_length for _ in range(3)]
+                else:
+                    max_length = max(max((maxx - minx), (maxy - miny)), (maxz - minz))
+                    scale = [maxlen / max_length for _ in range(2)] + [maxlen / (maxz - minz) * 0.75]
 
                 object_pos = [0., 0., 0.]
                 object_pos[0] -= scale[0] * (minx + maxx) / 2.0
