@@ -6,9 +6,8 @@ import numpy as np
 
 from python_visual_mpc.visual_mpc_core.algorithm.random_policy import Randompolicy, RandomPickPolicy
 from python_visual_mpc.visual_mpc_core.agent.general_agent import GeneralAgent
-from python_visual_mpc.visual_mpc_core.envs.mujoco_env.sawyer_sim.autograsp_env import AutograspSawyerMujocoEnv
-
 from python_visual_mpc.visual_mpc_core.envs.mujoco_env.sawyer_sim.autograsp_sawyer_mujoco_env import AutograspSawyerMujocoEnv
+
 
 BASE_DIR = '/'.join(str.split(__file__, '/')[:-1])
 current_dir = os.path.dirname(os.path.realpath(__file__))
@@ -33,13 +32,11 @@ agent = {
     'T': 30,
     'image_height' : 48,
     'image_width' : 64,
-    'novideo':'',
     'gen_xml':10,   #generate xml every nth trajecotry
-    'ztarget':0.13,
-    'min_z_lift':0.05,
     'record': BASE_DIR + '/record/',
     'discrete_gripper': -1, #discretized gripper dimension,
-    'rejection_sample': 1
+    'rejection_sample': 1,
+    'make_final_gif': ''
 }
 
 policy = {
