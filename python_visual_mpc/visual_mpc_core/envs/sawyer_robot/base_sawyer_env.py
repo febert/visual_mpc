@@ -402,7 +402,7 @@ class BaseSawyerEnv(BaseEnv):
             stamp, image = recorder.get_image()
             time_stamps.append(stamp)
             if recorder is self._main_cam:
-                cam_imgs.append(image[::-1].copy())
+                cam_imgs.append(image[::-1, ::-1].copy())
             else:
                 cam_imgs.append(image)
 
