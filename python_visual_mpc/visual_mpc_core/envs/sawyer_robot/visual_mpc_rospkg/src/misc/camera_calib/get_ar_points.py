@@ -1,7 +1,7 @@
 #!/usr/bin/python
 import rospy
 import numpy as np
-from ar_track_alvar_msgs.msg import AlvarMarkers
+# from ar_track_alvar_msgs.msg import AlvarMarkers
 import argparse
 import intera_interface
 import intera_external_devices
@@ -195,7 +195,7 @@ def main():
     cam_print = navigator.register_callback(camera_tracker.print_callback, 'right_button_square')
     robot_point_print = navigator.register_callback(camera_tracker.print_robot_eep, 'right_button_show')
 
-    rospy.Subscriber("/ar_pose_marker", AlvarMarkers, camera_tracker.camera_track_callback)
+    # rospy.Subscriber("/ar_pose_marker", AlvarMarkers, camera_tracker.camera_track_callback)
     print("BEGINNING SPIN")
     rospy.spin()
 

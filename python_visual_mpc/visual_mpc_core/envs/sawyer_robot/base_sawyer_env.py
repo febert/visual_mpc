@@ -40,7 +40,7 @@ def precalculate_interpolation(p1, p2, duration, last_pos, start_cmd, joint_name
         except EnvironmentError:
             jas.append(last_pos)
             print('ignoring IK failure')
-    print 'after fill', len(jas), 'with duration', duration
+
     interp_ja = []
     for i in range(len(jas) - 1):
         interp_ja.append(jas[i].tolist())
@@ -49,7 +49,7 @@ def precalculate_interpolation(p1, p2, duration, last_pos, start_cmd, joint_name
             interp_point = (1 - t) * jas[i] + t * jas[i + 1]
             interp_ja.append(interp_point.tolist())
     interp_ja.append(jas[-1].tolist())
-    print 'after double fille', len(interp_ja)
+
     return interp_ja
 
 
@@ -154,7 +154,7 @@ class BaseSawyerEnv(BaseEnv):
                         'video_save_dir': None,
                         'start_at_neutral': False,
                         'OFFSET_TOL': 0.06,
-                        'duration': 1.25,
+                        'duration': 1.,
                         'mode_rel': [True, True, True, True, False],
                         'cleanup_rate': 25}
 
@@ -167,11 +167,11 @@ class BaseSawyerEnv(BaseEnv):
         low_angle = np.pi / 2                  # chosen to maximize wrist rotation given start rotation
         high_angle = 265 * np.pi / 180
         if self._robot_name == 'vestri':
-            self._low_bound = np.array([0.47, -0.2, 0.184, low_angle, -1])
-            self._high_bound = np.array([0.88, 0.2, 0.30, high_angle, 1])
+            self._low_bound = np.array([0.47, -0.2, 0.176, low_angle, -1])
+            self._high_bound = np.array([0.88, 0.2, 0.292, high_angle, 1])
         elif self._robot_name == 'sudri':
-            self._low_bound = np.array([0.44, -0.18, 0.184, low_angle, -1])
-            self._high_bound = np.array([0.85, 0.22, 0.30, high_angle, 1])
+            self._low_bound = np.array([0.44, -0.18, 0.176, low_angle, -1])
+            self._high_bound = np.array([0.85, 0.22, 0.292, high_angle, 1])
         else:
             raise ValueError("Supported robots are vestri/sudri")
 
@@ -281,7 +281,6 @@ class BaseSawyerEnv(BaseEnv):
             self._controller.control_rate.sleep()
             t = rospy.get_time()
 
-        print('last lookup: {}'.format(lookup_index))
         print('Effective rate: {} Hz'.format(i / (rospy.get_time() - start_time)))
 
     def _reset_previous_qpos(self):
