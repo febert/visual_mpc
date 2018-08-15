@@ -266,7 +266,10 @@ class CEM_Visual_Preparation_FullImage(CEM_Visual_Preparation):
             self._t_dict['reg_cam{}'.format(icam)] = vd.warped_images[self.selindices,:,icam]
 
         for icam in range(vd.ncam):
-            goal_image = np.tile(vd.goal_image[icam][None, None], [self.num_ex, self.len_pred, 1, 1, 1])
+            if vd.goal_image.shape[0] != 1:  # if the complete trajectory is registered
+                goal_image = np.tile(vd.goal_image[:,icam][None, :], [self.num_ex,  1, 1, 1, 1])
+            else:
+                goal_image = np.tile(vd.goal_image[:,icam][None, :], [self.num_ex, self.len_pred, 1, 1, 1])
             self._t_dict['goal_image_cam{}'.format(icam)] = goal_image
             self._t_dict['flow_mags_cam{}'.format(icam)] = color_code(vd.flow_mags[self.selindices,:,icam], self.num_ex, renormalize=True)
 

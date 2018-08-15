@@ -37,7 +37,7 @@ env_params = {
 agent = {
     'type': BenchmarkAgent,
     'env': (AutograspSawyerMujocoEnv, env_params),
-    'T': 30,
+    'T': 20,
     'image_height' : 48,
     'image_width' : 64,
     'novideo':'',
@@ -64,7 +64,6 @@ policy = {
     'initial_std_rot': np.pi / 18,
     'finalweight':10,
     'warp_success_cost':0.1,
-    'demo_image_interval':3,
     'new_goal_freq':'follow_traj',
 }
 

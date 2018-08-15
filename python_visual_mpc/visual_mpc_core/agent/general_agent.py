@@ -180,7 +180,8 @@ class GeneralAgent(object):
         # Take the sample.
         t = 0
         done = False
-        initial_env_obs, _ = self.env.reset()
+        initial_env_obs, reset_state = self.env.reset()
+        agent_data['reset_state'] = reset_state
         obs = self._post_process_obs(initial_env_obs, agent_data, True)
         policy.reset()
 

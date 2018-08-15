@@ -52,7 +52,6 @@ agent = {
 
 policy = {
     'verbose':'',
-    'verbose_every_itr':"",
     'type': CEM_Controller_Vidpred,
     'iterations': 3,
     'nactions': 5,
