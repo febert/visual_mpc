@@ -59,7 +59,8 @@ policy = {
     'initial_std': 0.05,   #std dev. in xy
     'initial_std_lift': 0.15,   #std dev. in xy
     'initial_std_rot': np.pi / 18,
-    'finalweight':10
+    'finalweight':10,
+    'stochastic_planning':''
 }
 
 config = {

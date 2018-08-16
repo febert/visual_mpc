@@ -56,6 +56,7 @@ def launch_job_func(run_script, hyper, nworkers=8, interactive=False, name='', n
                              {"containerMountPoint": "/mnt/pretrained_models/bair_action_free/model.multi_savp.num_views.2.tv_weight.0.001.transformation.flow.last_frames.2.generate_scratch_image.false.batch_size.16", "id": 9387},
                              {"containerMountPoint": "/mnt/pretrained_models/lift_push_last_subsequence/vae/model.savp.tv_weight.0.001.transformation.flow.last_frames.2.generate_scratch_image.false.batch_size.16", "id":9534},
                              {"containerMountPoint": "/mnt/pretrained_models/bair_action_free/grasp_push_2views", "id": 9823},
+                             {"containerMountPoint": "/mnt/pretrained_models/sawyer_sim/autograsp_bowl", "id": 11624},
                              {"containerMountPoint": "/mnt/pushing_data/cartgripper/cartgripper_startgoal_masks6e4", "id": 9138},  # mj_pos_ctrl_appflow
                              {"containerMountPoint": "/mnt/pushing_data/cartgripper/grasping/mj_lift", "id": 10048},  # mj_pos_ctrl_appflow
                              {"containerMountPoint": "/mnt/pushing_data/cartgripper/grasping/cartgripper_startgoal_2view_lift_above_obj", "id": 10061},  # mj_pos_ctrl_appflow
