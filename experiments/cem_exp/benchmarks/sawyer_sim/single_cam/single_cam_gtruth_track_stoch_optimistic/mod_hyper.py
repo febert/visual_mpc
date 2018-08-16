@@ -27,7 +27,7 @@ env_params = {
     'friction': 1,
     'finger_sensors': True,
     'substeps': 100,
-     'autograsp': {'zthresh': 0.18, 'touchthresh': 0.0, 'reopen': True},
+    'autograsp': {'zthresh': 0.2, 'touchthresh': 0.0, 'reopen': True},
     'object_meshes': ['Bowl'],
     'ncam':1,
 }
@@ -55,18 +55,17 @@ policy = {
     'iterations': 3,
     'nactions': 5,
     'repeat': 3,
-    'no_action_bound': False,
+    # 'no_action_bound': False,
     'initial_std': 0.05,   #std dev. in xy
     'initial_std_lift': 0.15,   #std dev. in xy
     'initial_std_rot': np.pi / 18,
-    'finalweight':10,
-    # 'stochastic_planning':[5, 'optimistic']
+    'finalweight':10
 }
 
 config = {
     'traj_per_file': 128,
     'current_dir': current_dir,
-    'save_data': True,
+    'save_data': False,
     'start_index':0,
     'end_index': 50,
     'agent': agent,
