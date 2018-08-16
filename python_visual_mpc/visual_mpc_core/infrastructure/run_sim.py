@@ -61,7 +61,7 @@ class Sim(object):
     def save_data(self, itr, agent_data, obs_dict, policy_outputs):
         if 'save_raw_images' in self._hyperparams:
             self._save_raw_data(itr, agent_data, obs_dict, policy_outputs)
-        else:
+        elif 'record_saver' in self._hyperparams:
             self._record_queue.put((agent_data, obs_dict, policy_outputs))
 
     def _save_raw_data(self, itr, agent_data, obs_dict, policy_outputs):
