@@ -12,7 +12,7 @@ import video_prediction
 base_dir = video_prediction.__file__
 base_dir = '/'.join(str.split(base_dir, '/')[:-2])
 from python_visual_mpc.video_prediction.setup_predictor_towers import setup_predictor
-jsondir = base_dir + '/pretrained_models/sawyer_sim/ag_high_bowl'
+jsondir = os.environ['ALEX_DATA'] + '/sawyer_sim/ag_high_bowl'
 
 configuration = {
 'pred_model': Alex_Interface_Model,
