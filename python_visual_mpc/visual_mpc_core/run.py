@@ -107,8 +107,9 @@ def main():
         if 'verbose' in hyperparams['policy'] and not os.path.exists(result_dir + '/verbose'):
             os.makedirs(result_dir + '/verbose')
 
-        data_save_path = hyperparams['agent']['data_save_dir'].partition('pushing_data')[2]
-        hyperparams['agent']['data_save_dir'] = os.environ['RESULT_DIR'] + data_save_path
+        if 'data_save_dir' in hyperparams['agent']:
+            data_save_path = hyperparams['agent']['data_save_dir'].partition('pushing_data')[2]
+            hyperparams['agent']['data_save_dir'] = os.environ['RESULT_DIR'] + data_save_path
     elif args.cloud:
         hyperparams['agent']['data_save_dir'] = '/result/'    # by default save code to the /result folder in docker image
 
