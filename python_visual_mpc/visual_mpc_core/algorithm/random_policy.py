@@ -55,6 +55,29 @@ class Randompolicy(Policy):
         pass
 
 
+class RandomEpsilonAG(Randompolicy):
+    """
+    Random Policy
+    """
+
+    def __init__(self, agentparams, policyparams, gpu_id, npgu):
+        super().__init__(agentparams, policyparams, gpu_id, npgu)
+        assert self.adim == 5, "Action dimension should be 5 (vanilla env)"
+
+    def act(self, t, state, finger_sensors):
+        base_action = super().act(t)['actions']
+        ag_action = -1
+        if np.amax(finger_sensors[-2:]) > 0:
+            ag_action = 1
+        elif state[-1, 2] <= self.policyparams.get('ag_zthresh', 0.177):
+            ag_action = 1
+
+        if np.random.uniform() < self.policyparams['ag_epsilon']:
+            ag_action = -ag_action
+        base_action[-1] = ag_action
+
+        return {'actions': base_action}
+
 class CorrRandompolicy(Randompolicy):
     def __init__(self, action_proposal_conf, agentparams, policyparams):  # add imiation_conf to keep compatibility with imitation model
         Randompolicy.__init__(self, action_proposal_conf, agentparams, policyparams)

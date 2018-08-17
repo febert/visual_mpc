@@ -1,57 +1,50 @@
-""" Hyperparameters for Robot Large Scale Data Collection (RLSDC) """
-
 import numpy as np
-from python_visual_mpc.visual_mpc_core.algorithm.random_policy import Randompolicy
-from python_visual_mpc.visual_mpc_core.algorithm.visual_mpc_policy import VisualMPCPolicy
-from python_visual_mpc.visual_mpc_core.algorithm.cem_controller_goalimage_sawyer import CEM_controller
 import os
-from python_visual_mpc.sawyer.visual_mpc_rospkg.src.agent.agent_robot import AgentSawyer
-from python_visual_mpc.visual_mpc_core.infrastructure.utility.tfrecord_from_file import grasping_sawyer_file2record as convert_to_record
+from python_visual_mpc.visual_mpc_core.agent.benchmarking_agent import BenchmarkAgent
+from python_visual_mpc.visual_mpc_core.envs.sawyer_robot.autograsp_sawyer_env import AutograspSawyerEnv
+from python_visual_mpc.visual_mpc_core.algorithm.cem_controller_vidpred import CEM_Controller_Vidpred
 BASE_DIR = '/'.join(str.split(__file__, '/')[:-1])
 current_dir = os.path.dirname(os.path.realpath(__file__))
 
 
-agent = {'type' : AgentSawyer,
-         'robot_name' : 'sudri',
-         'data_save_dir': BASE_DIR + '/exp',
+env_params = {
+    'autograsp': {'reopen': True, 'zthresh': 0.15},
+    'opencv_tracking': True,
+    'video_save_dir': ''
+}
+
+
+agent = {'type' : BenchmarkAgent,
+         'env': (AutograspSawyerEnv, env_params),
+         'data_save_dir': BASE_DIR,
          'T' : 50,  #number of commands per episodes (issued at control_rate / substeps HZ)
-         'step_duration' : 0.75,  #time each substep takes to execute
-         'impedance_stiffness' : 150, #stiffness commanded to impedance controller
-         'control_rate' : 1000,  #substep are taken at control_rate HZ
-         'image_height' : 48,
-         'image_width' : 64,
-         'adim' : 5,
-         'sdim' : 5,
-         'mode_rel' : np.array([True, True, True, True, False]),
-         'autograsp' : {'zthresh' :  0.15, 'touchthresh' : 0.0, 'reopen' : ''},
-         'file_to_record' : convert_to_record,
-         'cameras':['front', 'left'],
+         'image_height': 48,
+         'image_width': 64,
          'benchmark_exp':'',
-         'save_large_gifs' : '',
-         'opencv_tracking':""
+         'current_dir': current_dir,
+         'make_final_gif_pointoverlay': True
          }
 
 policy = {
-    'current_dir':current_dir,
-    'type' : VisualMPCPolicy,
-    'cem_type':CEM_controller,
-    'nactions' : 5,
-    'repeat' : 3,
-    'initial_std': 0.02, #0.035,   #std dev. in xy
-    'initial_std_lift': 0.04,   #std dev. in z
-    'initial_std_rot' : np.pi / 18,
-    'initial_std_grasp' : 2,
-    'netconf': current_dir + '/conf.py',
+    'verbose':'',
+    'verbose_every_itr':"",
+    'type': CEM_Controller_Vidpred,
     'iterations': 3,
-    'action_cost_factor': 0,
-    'rew_all_steps':"",
+    'nactions': 5,
+    'repeat': 3,
+    'no_action_bound': False,
+    'initial_std': 0.035,   #std dev. in xy
+    'initial_std_lift': 0.08,   #std dev. in z
+    'initial_std_rot': np.pi / 18,
     'finalweight':10,
+    'ncam': 2,
+    'action_cost_factor': 0,
     'replan_interval': 3,
     'reuse_mean': '',
     'reuse_action_as_mean': "",
     'reduce_std_dev': 0.2,  # reduce standard dev in later timesteps when reusing action
-    'num_samples': [400, 200],  #########
-    'selection_frac': 0.05,
+    'num_samples': [400, 200],
+    'selection_frac': 0.05
 }
 
 config = {

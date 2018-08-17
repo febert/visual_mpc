@@ -1,5 +1,6 @@
 """ Hyperparameters for Large Scale Data Collection (LSDC) """
 
+from python_visual_mpc.visual_mpc_core.agent.benchmarking_agent import BenchmarkAgent
 import os.path
 
 import numpy as np
@@ -32,7 +33,7 @@ env_params = {
 }
 
 agent = {
-    'type': GeneralAgent,
+    'type': BenchmarkAgent,
     'env': (AutograspSawyerMujocoEnv, env_params),
     'T': 30,
     'image_height' : 48,

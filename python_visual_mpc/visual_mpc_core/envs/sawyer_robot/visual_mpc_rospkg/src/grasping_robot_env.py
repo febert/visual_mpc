@@ -1,14 +1,11 @@
 #!/usr/bin/env python
 import os
-import rospy
 import argparse
 import imp
 import cPickle as pkl
-from python_visual_mpc.goaldistancenet.setup_gdn import setup_gdn
+import numpy as np
 import shutil
 import cv2
-from python_visual_mpc.visual_mpc_core.agent.utils.traj_saver import record_worker
-from multiprocessing import Manager, Process
 
 
 supported_robots = {'sudri', 'vestri'}
@@ -30,7 +27,8 @@ class RobotEnvironment:
 
         if 'benchmark_exp' in self.agentparams:
             self.is_bench = True
-            self.task_mode = '{}/test'.format(robot_name)
+            self.task_mode = '{}/exp'.format(robot_name)
+            self.agentparams['env'][1]['start_at_neutral'] = True     # robot should start at neutral during benchmarks
         else:
             self.is_bench = False
             self.task_mode = '{}/train'.format(robot_name)
@@ -43,12 +41,7 @@ class RobotEnvironment:
 
         #since the agent interacts with Sawyer, agent creation handles recorder/controller setup
         self.agent = self.agentparams['type'](self.agentparams)
-
-        self._netconf = {}
-        self._predictor = None
-        self._goal_image_warper = None
-        self._gdnconf = {}
-        self.init_policy()
+        self.policy = self.policyparams['type'](self.agentparams, self.policyparams, self._gpu_id, self._ngpu)
 
         robot_dir = self.agentparams['data_save_dir'] + '/{}'.format(robot_name)
         if not os.path.exists(robot_dir):
@@ -63,22 +56,6 @@ class RobotEnvironment:
         else:
             self._ck_dict = {'ntraj' : 0, 'broken_traj' : []}
 
-    def init_policy(self):
-        if 'use_server' not in self.policyparams and 'netconf' in self.policyparams and self._predictor is None:
-            self._netconf = imp.load_source('params', self.policyparams['netconf']).configuration
-            self._predictor = self._netconf['setup_predictor']({}, self._netconf, self._gpu_id, self._ngpu)
-
-        if 'use_server' not in self.policyparams and 'gdnconf' in self.policyparams and self._goal_image_warper is None:
-            self._gdnconf = imp.load_source('params', self.policyparams['gdnconf']).configuration
-            self._goal_image_warper = setup_gdn(self._gdnconf, self._gpu_id)
-
-        if self._goal_image_warper is not None and self._predictor is not None:
-            self.policy = self.policyparams['type'](None, self.agentparams, self.policyparams, self._predictor, self._goal_image_warper)
-        elif self._predictor is not None:
-            self.policy = self.policyparams['type'](None, self.agentparams, self.policyparams, self._predictor)
-        else:
-            self.policy = self.policyparams['type'](self.agentparams, self.policyparams, self._gpu_id, self._ngpu)
-
     def run(self):
         if not self.is_bench:
             for i in xrange(self._hyperparams['start_index'], self._hyperparams['end_index']):
@@ -89,43 +66,59 @@ class RobotEnvironment:
                 self.take_sample(itr)
                 itr += 1
 
-    def take_sample(self, sample_index):
-        print("Collecting sample {}".format(sample_index))
+    def _get_bench_name(self):
+        name = raw_input('input benchmark name: ')
+        while len(name) < 2:
+            print('please choose a name > 2 characters long')
+            name = raw_input('input benchmark name: ')
+        return name
 
-        self.init_policy()
+    def take_sample(self, sample_index):
+        if 'RESULT_DIR' in os.environ:
+            data_save_dir = os.environ['RESULT_DIR'] + '/data'
+        else: data_save_dir = self.agentparams['data_save_dir']
+        data_save_dir += '/' + self.task_mode
+
+        if self.is_bench:
+            bench_name = self._get_bench_name()
+            traj_folder = '{}/{}'.format(data_save_dir, bench_name)
+            self.agentparams['_bench_save'] = '{}/exp_data'.format(traj_folder)  # probably should develop a better way
+            self.agentparams['benchmark_exp'] = bench_name                       # to pass benchmark info to agent
+            self.agentparams['record'] = traj_folder + '/traj_data/record'
+            print("Conducting experiment: {}".format(bench_name))
+
+            traj_folder = traj_folder + '/traj_data'
+            if os.path.exists(traj_folder):
+                shutil.rmtree(traj_folder)
+            os.makedirs(traj_folder)
+        else:
+            ngroup = self._hyperparams['ngroup']
+            igrp = sample_index // ngroup
+            group_folder = data_save_dir + '/traj_group{}'.format(igrp)
+            if not os.path.exists(group_folder):
+                os.makedirs(group_folder)
+
+            traj_folder = group_folder + '/traj{}'.format(sample_index)
+            print("Collecting sample {}".format(sample_index))
+
         agent_data, obs_dict, policy_out = self.agent.sample(self.policy, sample_index)
 
         if self._hyperparams['save_data']:
-            self.save_data(sample_index, agent_data, obs_dict, policy_out)
+            self._save_raw_images(traj_folder, agent_data, obs_dict, policy_out)
 
         self._ck_dict['ntraj'] += 1
-
         ck_file = open(self._ck_path, 'wb')
         pkl.dump(self._ck_dict, ck_file)
         ck_file.close()
 
         print("CHECKPOINTED")
 
-    def save_data(self, itr, agent_data, obs_dict, policy_outputs):
-        self._save_raw_images(itr, agent_data, obs_dict, policy_outputs)
+    def _save_raw_images(self, traj_folder, agent_data, obs_dict, policy_outputs):
+        if not self.is_bench:
+            if os.path.exists(traj_folder):
+                shutil.rmtree(traj_folder)
+            os.makedirs(traj_folder)
 
-    def _save_raw_images(self, itr, agent_data, obs_dict, policy_outputs):
-        if 'RESULT_DIR' in os.environ:
-            data_save_dir = os.environ['RESULT_DIR'] + '/data'
-        else: data_save_dir = self.agentparams['data_save_dir']
-        data_save_dir += '/' + self.task_mode
-
-        ngroup = self._hyperparams['ngroup']
-        igrp = itr // ngroup
-        group_folder = data_save_dir + '/traj_group{}'.format(igrp)
-        if not os.path.exists(group_folder):
-            os.makedirs(group_folder)
-
-        traj_folder = group_folder + '/traj{}'.format(itr)
-        if os.path.exists(traj_folder):
-            shutil.rmtree(traj_folder)
-
-        os.makedirs(traj_folder)
         if 'images' in obs_dict:
             images = obs_dict.pop('images')
             T, n_cams = images.shape[:2]
@@ -134,6 +127,12 @@ class RobotEnvironment:
             for t in range(T):
                 for i in range(n_cams):
                     cv2.imwrite('{}/images{}/im_{}.jpg'.format(traj_folder, i, t), images[t, i, :, :, ::-1])
+        if 'goal_image' in obs_dict:
+            goal_images = obs_dict.pop('goal_image')
+            for n in range(goal_images.shape[0]):
+                cv2.imwrite('{}/goal_image{}.jpg'.format(traj_folder, n),
+                            (goal_images[n, :, :, ::-1] * 255).astype(np.uint8))
+
         with open('{}/agent_data.pkl'.format(traj_folder), 'wb') as file:
             pkl.dump(agent_data, file)
         with open('{}/obs_dict.pkl'.format(traj_folder), 'wb') as file:

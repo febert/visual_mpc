@@ -119,7 +119,9 @@ def write_scores(conf, result_file, stat, i_traj=None):
     if 'initial_dist' in stat:
         initial_dist = stat['initial_dist']
     else: initial_dist = None
-    term_t = stat['term_t']
+
+    if 'term_t' in stat:
+        term_t = stat['term_t']
 
     sorted_ind = improvement.argsort()[::-1]
 
@@ -167,18 +169,11 @@ def write_scores(conf, result_file, stat, i_traj=None):
         f.write('average initial dist: {0}\n'.format(np.mean(initial_dist)))
         f.write('median initial dist: {0}\n'.format(np.median(initial_dist)))
         f.write('----------------------\n')
-    if 'ztarget' in conf:
-        f.write('traj: improv, score, lifted at end, rank\n')
-        f.write('----------------------\n')
+    f.write('traj: improv, score, term_t, lifted, rank\n')
+    f.write('----------------------\n')
 
-        for n, t in enumerate(range(conf['start_index'], i_traj)):
-            f.write('{}: {}, {}, {}, :{}\n'.format(t, improvement[n], final_dist[n], improvement[n] > 0.05,
-                                                   np.where(sorted_ind == n)[0][0]))
-    else:
-        f.write('traj: improv, score, term_t, lifted, rank\n')
-        f.write('----------------------\n')
-        for n, t in enumerate(range(conf['start_index'], i_traj)):
-            f.write('{}: {}, {}, {}:{}\n'.format(t, improvement[n], final_dist[n], term_t[n], np.where(sorted_ind == n)[0][0]))
+    for n, t in enumerate(range(conf['start_index'], i_traj)):
+        f.write('{}: {}, {}:{}\n'.format(t, improvement[n], final_dist[n], np.where(sorted_ind == n)[0][0]))
     f.close()
 
 

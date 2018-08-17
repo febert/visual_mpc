@@ -1,8 +1,6 @@
 from python_visual_mpc.visual_mpc_core.envs.sawyer_robot.base_sawyer_env import BaseSawyerEnv
 import copy
-import numpy as np
 from python_visual_mpc.visual_mpc_core.envs.util.action_util import autograsp_dynamics
-
 
 
 class AutograspSawyerEnv(BaseSawyerEnv):
@@ -11,9 +9,8 @@ class AutograspSawyerEnv(BaseSawyerEnv):
 
         self._hyper = copy.deepcopy(env_params)
         self._ag_dict = self._hyper.pop('autograsp')
-        self._hyper['mode_rel'] = np.array([True, True, True, True, False])
 
-        BaseSawyerEnv.__init__(self, **self._hyper)
+        BaseSawyerEnv.__init__(self, self._hyper)
         self._adim, self._sdim = 4, self._base_sdim
 
     def _init_dynamics(self):

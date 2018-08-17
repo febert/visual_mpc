@@ -4,7 +4,7 @@ import numpy as np
 
 class Actionproposal_CEM_controller(CEM_controller):
     def __init__(self, ag_params, policyparams, predictor, imitation_policy):
-        super().__init__(ag_params, policyparams, predictor)
+        super(Actionproposal_CEM_controller, self).__init__(ag_params, policyparams, predictor)
         self.imitation_policy = imitation_policy
 
     def sample_actions(self, last_frames, last_states, traj):

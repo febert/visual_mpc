@@ -11,6 +11,51 @@ from python_visual_mpc.visual_mpc_core.envs.sawyer_robot.visual_mpc_rospkg.src.u
 from python_visual_mpc.visual_mpc_core.envs.util.interpolation import QuinticSpline
 import copy
 import rospy
+import os
+from python_visual_mpc.video_prediction.utils_vpred.create_gif_lib import npy_to_mp4
+from .util.user_interface import select_points
+
+
+CONTROL_RATE = 800
+CONTROL_PERIOD = 1. / CONTROL_RATE
+INTERP_SKIP = 16
+
+
+def precalculate_interpolation(p1, p2, duration, last_pos, start_cmd, joint_names):
+    spline = QuinticSpline(p1, p2, duration)
+    num_queries = int(CONTROL_RATE * duration / INTERP_SKIP) + 1
+    jas = []
+    last_cmd = start_cmd
+    for t in np.linspace(0., duration, num_queries):
+        cart_pos = spline.get(t)[0][0]
+        interp_pose = state_to_pose(cart_pos[:3], zangle_to_quat(cart_pos[3]))
+
+        try:
+            interp_ja = pose_to_ja(interp_pose, last_cmd,
+                                   debug_z=cart_pos[3] * 180 / np.pi, retry_on_fail=True)
+            last_cmd = interp_ja
+            interp_ja = np.array([interp_ja[j] for j in joint_names])
+            jas.append(interp_ja)
+            last_pos = interp_ja
+        except EnvironmentError:
+            jas.append(last_pos)
+            print('ignoring IK failure')
+
+    interp_ja = []
+    for i in range(len(jas) - 1):
+        interp_ja.append(jas[i].tolist())
+        for j in range(1, INTERP_SKIP):
+            t = float(j) / INTERP_SKIP
+            interp_point = (1 - t) * jas[i] + t * jas[i + 1]
+            interp_ja.append(interp_point.tolist())
+    interp_ja.append(jas[-1].tolist())
+
+    return interp_ja
+
+
+def pix_resize(pix, target_width, original_width):
+    return np.round((copy.deepcopy(pix).astype(np.float32) *
+              target_width / float(original_width))).astype(np.int64)
 
 
 def quat_to_zangle(quat):
@@ -69,22 +114,26 @@ def pose_to_ja(target_pose, start_joints, tolerate_ik_error=False, retry_on_fail
 
 
 class BaseSawyerEnv(BaseEnv):
-    def __init__(self, robot_name, opencv_tracking=False, save_videos=False,
-                 OFFSET_TOL = 0.06, duration=1.25, mode_rel = np.array([True, True, True, True, False]),
-                 cleanup_rate = 25):
-        print('initializing environment for {}'.format(robot_name))
-        self._robot_name = robot_name
+    def __init__(self, env_params):
+        self._params = self._default_hparams()
+        for name, value in env_params.items():
+            print('setting param {} to value {}'.format(name, value))
+            self._params.set_hparam(name, value)
+
+        print('initializing environment for {}'.format(self._params.robot_name))
+        self._robot_name = self._params.robot_name
         self._setup_robot()
 
-        if opencv_tracking:
-            self._obs_tol = 0.1
+        if self._params.opencv_tracking:
+            self._obs_tol = 0.5
         else:
-            self._obs_tol = OFFSET_TOL
+            self._obs_tol = self._params.OFFSET_TOL
 
-        self._controller = ImpedanceWSGController(800, robot_name)
+        self._controller = ImpedanceWSGController(CONTROL_RATE, self._robot_name)
         self._limb_recorder = LimbWSGRecorder(self._controller)
-        self._main_cam = CameraRecorder('/camera0/image_raw', opencv_tracking, save_videos)
-        self._left_cam = CameraRecorder('/camera1/image_raw', opencv_tracking, save_videos)
+        self._save_video = self._params.video_save_dir is not None
+        self._main_cam = CameraRecorder('/camera0/image_raw', self._params.opencv_tracking, self._save_video)
+        self._left_cam = CameraRecorder('/camera1/image_raw', self._params.opencv_tracking, self._save_video)
         self._controller.neutral_with_impedance()
 
         img_dim_check = (self._main_cam.img_height, self._main_cam.img_width) == \
@@ -93,20 +142,36 @@ class BaseSawyerEnv(BaseEnv):
         self._height, self._width = self._main_cam.img_height, self._main_cam.img_width
 
         self._base_adim, self._base_sdim = 5, 5
-        self._adim, self._sdim, self.mode_rel, self._cleanup_rate = None, None, mode_rel, cleanup_rate
+        self._adim, self._sdim, self.mode_rel = None, None, np.array(self._params.mode_rel)
+        self._cleanup_rate, self._duration = self._params.cleanup_rate, self._params.duration
+        self._reset_counter, self._previous_target_qpos = 0, None
 
-        self._reset_counter, self._previous_target_qpos, self._duration = 0, None, duration
-        self.num_objects = None  # for agent linkup.
+        self._start_pix, self._desig_pix, self._goal_pix = None, None, None
+
+    def _default_hparams(self):
+        default_dict = {'robot_name': None,
+                        'opencv_tracking': False,
+                        'video_save_dir': None,
+                        'start_at_neutral': False,
+                        'OFFSET_TOL': 0.06,
+                        'duration': 1.,
+                        'mode_rel': [True, True, True, True, False],
+                        'cleanup_rate': 25}
+
+        parent_params = BaseEnv._default_hparams(self)
+        for k in default_dict.keys():
+            parent_params.add_hparam(k, default_dict[k])
+        return parent_params
 
     def _setup_robot(self):
         low_angle = np.pi / 2                  # chosen to maximize wrist rotation given start rotation
         high_angle = 265 * np.pi / 180
         if self._robot_name == 'vestri':
-            self._low_bound = np.array([0.47, -0.2, 0.184, low_angle, -1])
-            self._high_bound = np.array([0.88, 0.2, 0.30, high_angle, 1])
+            self._low_bound = np.array([0.47, -0.2, 0.176, low_angle, -1])
+            self._high_bound = np.array([0.88, 0.2, 0.292, high_angle, 1])
         elif self._robot_name == 'sudri':
-            self._low_bound = np.array([0.44, -0.18, 0.184, low_angle, -1])
-            self._high_bound = np.array([0.85, 0.22, 0.30, high_angle, 1])
+            self._low_bound = np.array([0.44, -0.18, 0.176, low_angle, -1])
+            self._high_bound = np.array([0.85, 0.22, 0.292, high_angle, 1])
         else:
             raise ValueError("Supported robots are vestri/sudri")
 
@@ -122,11 +187,19 @@ class BaseSawyerEnv(BaseEnv):
         """
         target_qpos = np.clip(self._next_qpos(action), self._low_bound, self._high_bound)
         wait_change = (target_qpos[-1] > 0) != (self._previous_target_qpos[-1] > 0)
+
+        if self._save_video:
+            self._main_cam.start_recording(), self._left_cam.start_recording()
+
         if target_qpos[-1] > 0:
             self._controller.close_gripper(wait_change)
         else:
             self._controller.open_gripper(wait_change)
+
         self._move_to_state(target_qpos[:3], target_qpos[3])
+
+        if self._save_video:
+            self._main_cam.stop_recording(), self._left_cam.stop_recording()
 
         self._previous_target_qpos = target_qpos
         return self._get_obs()
@@ -168,6 +241,15 @@ class BaseSawyerEnv(BaseEnv):
         self._last_obs = copy.deepcopy(obs)
         obs['images'] = self.render()
 
+        if self._params.opencv_tracking:
+            track_desig = np.zeros((2, 1, 2), dtype=np.int64)
+            track_desig[0] = self._main_cam.get_track()
+            track_desig[0] = np.array([[self._height, self._width]]) - track_desig[0]
+            track_desig[1] = self._left_cam.get_track()
+            self._desig_pix = track_desig
+
+        if self._desig_pix is not None:
+            obs['obj_image_locations'] = copy.deepcopy(self._desig_pix)
         return obs
 
     def _get_xyz_angle(self):
@@ -182,28 +264,24 @@ class BaseSawyerEnv(BaseEnv):
         p2 = np.zeros(4)
         p2[:3], p2[3] = target_xyz, target_zangle
 
-        spline = QuinticSpline(p1, p2, duration)
-
         last_pos = self._limb_recorder.get_joint_angles()
+        last_cmd = self._limb_recorder.get_joint_cmd()
+        joint_names = self._limb_recorder.get_joint_names()
+
+        interp_jas = precalculate_interpolation(p1, p2, duration, last_pos, last_cmd, joint_names)
+
+        i = 0
         self._controller.control_rate.sleep()
         start_time = rospy.get_time()
         t = rospy.get_time()
         while t - start_time < duration:
-            query = max(min(t - start_time, duration), 0)
-            cart_pos = spline.get(query)[0][0]
-            interp_pose = state_to_pose(cart_pos[:3], zangle_to_quat(cart_pos[3]))
-            try:
-                interp_ja = pose_to_ja(interp_pose, self._limb_recorder.get_joint_cmd(),
-                                       debug_z=cart_pos[3] * 180 / np.pi, retry_on_fail=True)
-                interp_ja = [interp_ja[j] for j in self._limb_recorder.get_joint_names()]
-                self._controller.send_pos_command(interp_ja)
-                last_pos = interp_ja
-            except EnvironmentError:
-                self._controller.send_pos_command(last_pos)
-                print('ignoring IK failure')
-
+            lookup_index = min(int(min((t - start_time), duration) / CONTROL_PERIOD), len(interp_jas) - 1)
+            self._controller.send_pos_command(interp_jas[lookup_index])
+            i += 1
             self._controller.control_rate.sleep()
             t = rospy.get_time()
+
+        print('Effective rate: {} Hz'.format(i / (rospy.get_time() - start_time)))
 
     def _reset_previous_qpos(self):
         eep = self._limb_recorder.get_state()[2]
@@ -212,11 +290,47 @@ class BaseSawyerEnv(BaseEnv):
         self._previous_target_qpos[3] = quat_to_zangle(eep[3:])
         self._previous_target_qpos[4] = -1
 
+    def _save_videos(self):
+        if self._save_video:
+            front_buffer, left_buffer = self._main_cam.reset_recording(), self._left_cam.reset_recording()
+            if len(front_buffer) == 0 and len(left_buffer) == 0:
+                return
+            front_buffer = [f[::-1].copy() for f in front_buffer]
+
+            clip_base_name = '{}/recording{}/'.format(self._params.video_save_dir, self._reset_counter)
+            if not os.path.exists:
+                os.makedirs(clip_base_name)
+
+            if len(front_buffer) > 0:
+                npy_to_mp4(front_buffer, '{}/front_clip'.format(clip_base_name), 30)
+            if len(left_buffer) > 0:
+                npy_to_mp4(left_buffer, '{}/left_clip'.format(clip_base_name), 30)
+
+    def _end_reset(self):
+        if self._params.opencv_tracking:
+            assert self._desig_pix is not None, "Designated pixels must be set (call get_obj_desig_goal)"
+            track_desig = copy.deepcopy(self._desig_pix)
+            track_desig[0] = np.array([[self._height, self._width]]) - track_desig[0]
+
+            self._main_cam.start_tracking(track_desig[0])
+            self._left_cam.start_tracking(track_desig[1])
+
+        self._reset_previous_qpos()
+        self._init_dynamics()
+        self._reset_counter += 1
+        return self._get_obs(), None
+
     def reset(self):
         """
         Resets the environment and returns initial observation
         :return: obs dict (look at step(self, action) for documentation)
         """
+        self._save_videos()
+
+        if self._params.start_at_neutral:
+            self._controller.open_gripper(True)
+            self._controller.neutral_with_impedance()
+            return self._end_reset()
 
         rand_xyz = np.random.uniform(self._low_bound[:3], self._high_bound[:3])
         rand_xyz[2] = self._high_bound[2]
@@ -232,20 +346,14 @@ class BaseSawyerEnv(BaseEnv):
         self._controller.neutral_with_impedance()
         self._controller.open_gripper(False)
         rospy.sleep(0.5)
-
         self._reset_previous_qpos()
+
 
         rand_xyz = np.random.uniform(self._low_bound[:3], self._high_bound[:3])
         rand_zangle = np.random.uniform(self._low_bound[3], self._high_bound[3])
-
         self._move_to_state(rand_xyz, rand_zangle, 2.)
-        self._init_dynamics()
 
-        self._reset_previous_qpos()
-
-        self._reset_counter += 1
-
-        return self._get_obs(), None
+        return self._end_reset()
 
     def valid_rollout(self):
         """
@@ -293,13 +401,14 @@ class BaseSawyerEnv(BaseEnv):
             stamp, image = recorder.get_image()
             time_stamps.append(stamp)
             if recorder is self._main_cam:
-                cam_imgs.append(image[::-1].copy())
+                cam_imgs.append(image[::-1, ::-1].copy())
             else:
                 cam_imgs.append(image)
 
         for index, i in enumerate(time_stamps[:-1]):
             for j in time_stamps[index + 1:]:
                 if abs(i - j) > self._obs_tol:
+                    print('DeSYNC!')
                     raise Image_Exception
 
         images = np.zeros((len(cameras), self._height, self._width, 3), dtype=np.uint8)
@@ -328,6 +437,74 @@ class BaseSawyerEnv(BaseEnv):
         """
         return 2
 
+    @property
+    def num_objects(self):
+        """
+        :return: Dummy value for num_objects (used in general_agent logic)
+        """
+        return 0
+
     def seed(self, seed=None):
         random.seed(seed)
         np.random.seed(seed)
+
+    def eval(self, target_width, save_dir, ntasks):
+        self._save_videos()
+        final_pix = select_points(self.render(), ['front', 'left'], 'final',
+                                 save_dir, clicks_per_desig=1, n_desig=ntasks)
+
+        goal_pix = self.get_goal_pix(target_width)
+        final_pix = pix_resize(final_pix, target_width, self._width)
+        start_pix = pix_resize(self._start_pix, target_width, self._width)
+
+        final_dist, start_dist = np.linalg.norm(final_pix - goal_pix), np.linalg.norm(start_pix - goal_pix)
+        improvement = start_dist - final_dist
+        print 'final_dist: {}'.format(final_dist)
+        print 'start dist: {}'.format(start_dist)
+        print 'improvement: {}'.format(improvement)
+
+        if self._params.opencv_tracking:
+            self._main_cam.end_tracking()
+            self._left_cam.end_tracking()
+
+        return {'final_dist': final_dist, 'start_dist': start_dist, 'improvement': improvement}
+
+    def get_obj_desig_goal(self, save_dir, collect_goal_image=False, ntasks=1):
+        if self._params.video_save_dir is not None:
+            self._params.video_save_dir = save_dir
+
+        raw_input("Robot in safe position? Hit enter when ready...")
+        self._controller.neutral_with_impedance()
+        self._controller.open_gripper(True)
+        
+        if collect_goal_image:
+            print("PLACE OBJECTS IN GOAL POSITION")
+            raw_input("When ready to annotate GOAL images press enter...")
+            goal_imgs = self.render()
+            goal_pix = select_points(goal_imgs, ['front', 'left'], 'goal',
+                                     save_dir, clicks_per_desig=1, n_desig=ntasks)
+
+            raw_input("Robot in safe position? Hit enter when ready...")
+            self._controller.neutral_with_impedance()
+            self._controller.open_gripper(True)
+
+            print("PLACE OBJECTS IN START POSITION")
+            raw_input("When ready to annotate START images press enter...")
+
+            self._start_pix = select_points(self.render(), ['front', 'left'], 'desig',
+                                     save_dir, clicks_per_desig=1, n_desig=ntasks)
+            self._goal_pix = copy.deepcopy(goal_pix)
+            self._desig_pix = copy.deepcopy(self._start_pix)
+
+            return goal_imgs, goal_pix
+        else:
+            print("PLACE OBJECTS IN START POSITION")
+            raw_input("When ready to annotate START images press enter...")
+
+            self._start_pix, self._goal_pix = select_points(self.render(), ['front', 'left'], 'desig_goal',
+                                     save_dir, n_desig=ntasks)
+            self._desig_pix = copy.deepcopy(self._start_pix)
+            return copy.deepcopy(self._goal_pix)
+
+    def get_goal_pix(self, target_width):
+        return pix_resize(self._goal_pix, target_width, self._width)

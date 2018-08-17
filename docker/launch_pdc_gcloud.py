@@ -20,12 +20,13 @@ def create_instance(proj_id, instance_num, exp_name, nworkers, nsplit):
     ret_val = os.system(gcloud_command)
     print('returned with {}'.format(ret_val))
     i = 0
-    while ret_val != 0 and i < 20:
+    while ret_val != 0 and i < 100:
         zone = random.choice(zones)
         gcloud_command = default_command.format(proj_id, instance_tag, zone, nworkers, nsplit, instance_num, exp_name)
         print('(retry {}) requesting instance: {}    in zone: {}'.format(i + 1, instance_tag, zone))
         ret_val = os.system(gcloud_command)
         print('(retry {}) returned with {}'.format(i + 1, ret_val))
+        i += 1
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='run parallel data collection on cloud')
