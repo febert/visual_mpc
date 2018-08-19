@@ -41,7 +41,7 @@ agent = {
     'rejection_sample': 5,
 #    'make_final_gif': '',
     'master': 'sudeep@deepthought.banatao.berkeley.edu',
-    'master_datadir': '/raid/sudeep/sawyer_sim/autograsp_newphysics_2/'
+    'master_datadir': '/raid/sudeep/sawyer_sim/autograsp_newphysics2_lblock/'
 }
 
 policy = {
