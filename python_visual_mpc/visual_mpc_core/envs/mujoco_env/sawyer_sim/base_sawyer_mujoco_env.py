@@ -98,7 +98,8 @@ class BaseSawyerMujocoEnv(BaseMujocoEnv):
                         'skip_first': 80,
                         'substeps': 1000,
                         'randomize_initial_pos': True,
-                        'verbose_dir': None}
+                        'verbose_dir': None,
+                        'print_delta': False}
           
         parent_params = super()._default_hparams()
         parent_params.set_hparam('ncam', 2)
@@ -236,7 +237,9 @@ class BaseSawyerMujocoEnv(BaseMujocoEnv):
 
         self._init_dynamics()
 
-        return self._get_obs(finger_force), write_reset_state
+        obs, reset = self._get_obs(finger_force), write_reset_state
+        obs['control_delta'] = np.zeros(4)
+        return obs, reset
 
     def _get_obs(self, finger_sensors):
         obs, touch_offset = {}, 0
@@ -334,6 +337,8 @@ class BaseSawyerMujocoEnv(BaseMujocoEnv):
                 self._render_verbose()
 
         for st in range(1000):
+            self.sim.data.set_mocap_quat('mocap', zangle_to_quat(target_qpos[3]))
+            self.sim.data.set_mocap_pos('mocap', target_qpos[:3])
             self.sim.data.ctrl[0] = target_qpos[-1]
             self.sim.data.ctrl[1] = -target_qpos[-1]
             self._clip_gripper()
@@ -354,13 +359,14 @@ class BaseSawyerMujocoEnv(BaseMujocoEnv):
         if np.sum(finger_force) > 0:
             print(finger_force)
 
-        reach_xyz, reach_theta = self.sim.data.get_body_xpos('hand'), quat_to_zangle(self.sim.data.get_body_xquat('hand'))
-        if self._params.verbose_dir is not None:
-            print('delta xy: {}, delta z {}, delta theta: {}'.format(np.linalg.norm(target_qpos[:2] - reach_xyz[:2]), abs(reach_xyz[2] - target_qpos[2]), np.rad2deg(abs(reach_theta - target_qpos[3]))))
         self._previous_target_qpos = target_qpos
 
         obs = self._get_obs(finger_force)
         self._post_step()
+        obs['control_delta'] = np.abs(obs['state'][:4] - self._previous_target_qpos[:4])
+        
+        if self._params.verbose_dir is not None or self._params.print_delta:
+            print('delta xy: {}, delta z {}, delta theta: {}, quat: {}'.format(np.linalg.norm(obs['control_delta'][:2]), obs['control_delta'][2], np.rad2deg(obs['control_delta'][3]), self.sim.data.get_body_xquat('hand')))
         return obs
 
     def _post_step(self):

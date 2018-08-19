@@ -131,7 +131,7 @@ Usage:
 <!--  ================= BEGIN GRIPPER ================= /-->
                                             <body name="hand" pos="0 0 0">
                                                 <inertial pos="0 0 0" mass="1.2" diaginertia="1 1 1" />
-                                                <geom type="mesh" mesh="WSG50_110" />
+                                                <geom type="mesh" mesh="WSG50_110" contype="0" conaffinity="0"/>
                                                 <body name="gripper_left" pos="0 0 0">
                                                     <inertial pos="0 0 0" mass="0.1" diaginertia="1 1 1" />
                                                     <joint name="base_joint_gripper_left" pos="0 0 0" axis="1 0 0" type="slide" limited="true" range="-0.055 -0.0027" />

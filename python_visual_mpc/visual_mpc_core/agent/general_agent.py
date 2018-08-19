@@ -152,13 +152,14 @@ class GeneralAgent(object):
             agent_data['goal_pix'] = self.env.get_goal_pix(point_target_width)
         return obs
 
-    def _required_rollout_metadata(self, agent_data, traj_ok, t):
+    def _required_rollout_metadata(self, agent_data, traj_ok, t, i_tr):
         """
         Adds meta_data into the agent dictionary that is MANDATORY for later parts of pipeline
         :param agent_data: Agent data dictionary
         :param traj_ok: Whether or not rollout succeeded
         :return: None
         """
+        agent_data['extra_resets'] = max(i_tr - self._hyperparams.get('rejection_sample', 0), 0)
         agent_data['term_t'] = t - 1
         if self.env.has_goal():
             agent_data['goal_reached'] = self.env.goal_reached()
@@ -200,7 +201,8 @@ class GeneralAgent(object):
 
             try:
                 obs = self._post_process_obs(self.env.step(copy.deepcopy(pi_t['actions'])), agent_data)
-            except ValueError:
+            except ValueError as e:
+                print(e)
                 return {'traj_ok': False}, None, None
 
             if 'rejection_sample' in self._hyperparams and 'rejection_end_early' in self._hyperparams:
@@ -221,7 +223,7 @@ class GeneralAgent(object):
                 traj_ok = self.env.goal_reached()
             print('goal_reached', self.env.goal_reached())
 
-        self._required_rollout_metadata(agent_data, traj_ok, t)
+        self._required_rollout_metadata(agent_data, traj_ok, t, i_tr)
         return agent_data, obs, policy_outputs
 
     def save_gif(self, itr, overlay=False):
