@@ -48,18 +48,9 @@ agent = {
 }
 
 policy = {
-    'verbose':'',
-    'verbose_every_itr':"",
+    'verbose':True,
+    # 'verbose_every_itr':True,
     'type': Register_Gtruth_Controller,
-    'iterations': 3,
-    'nactions': 5,
-    'repeat': 3,
-    'no_action_bound': False,
-    'initial_std': 0.05,   #std dev. in xy
-    'initial_std_lift': 0.15,   #std dev. in xy
-    'initial_std_rot': np.pi / 18,
-    'finalweight':10,
-    'register_gtruth':['start','goal'],
 }
 
 config = {

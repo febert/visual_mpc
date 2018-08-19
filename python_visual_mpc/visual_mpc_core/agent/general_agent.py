@@ -180,11 +180,11 @@ class GeneralAgent(object):
         # Take the sample.
         t = 0
         done = False
-        initial_env_obs, reset_state = self.env.reset()
-        agent_data['reset_state'] = reset_state
+        initial_env_obs, _ = self.env.reset()
         obs = self._post_process_obs(initial_env_obs, agent_data, True)
         policy.reset()
 
+        traj_ok = True
         while not done:
             """
             Every time step send observations to policy, acts in environment, and records observations
@@ -208,11 +208,11 @@ class GeneralAgent(object):
                 if self._hyperparams['rejection_sample'] > i_tr and not self.env.goal_reached():
                     return {'traj_ok': False}, None, None
 
+            self._required_rollout_metadata(agent_data, traj_ok, t)
             if (self._hyperparams['T']-1) == t:
                 done = True
             t += 1
 
-        traj_ok = True
         if not self.env.valid_rollout():
             traj_ok = False
 

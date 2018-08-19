@@ -30,8 +30,10 @@ class CEM_Controller_Base(Policy):
         :param save_subdir:
         :param gdnet: goal-distance network
         """
+        self._hp = self._default_hparams()
+        self.override_defaults(policyparams)
+
         self.agentparams = ag_params
-        self.policyparams = policyparams
         if 'logging_dir' in self.agentparams:
             self.logger = Logger(self.agentparams['logging_dir'], 'cem{}log.txt'.format(self.agentparams['gpu_id']))
         else:
@@ -40,31 +42,28 @@ class CEM_Controller_Base(Policy):
 
         self.t = None
 
-        if 'verbose' in self.policyparams:
+        if self._hp.verbose:
             self.verbose = True
-            if isinstance(self.policyparams['verbose'], int):
-                self.verbose_freq = self.policyparams['verbose']
+            if isinstance(self._hp.verbose, int):
+                self.verbose_freq = self._hp.verbose
             else: self.verbose_freq = 1
         else:
             self.verbose = False
             self.verbose_freq = 1
 
-        if 'iterations' in self.policyparams:
-            self.niter = self.policyparams['iterations']
-        else: self.niter = 10  # number of iterations
+        self.niter = self._hp.iterations
 
         self.action_list = []
-        self.naction_steps = self.policyparams['nactions']
-        self.repeat = self.policyparams['repeat']
+        self.naction_steps = self._hp.nactions
+        self.repeat = self._hp.repeat
 
-        if 'num_samples' in self.policyparams:
-            if isinstance(self.policyparams['num_samples'], list):
-                self.M = self.policyparams['num_samples'][0]
-            else:
-                self.M = self.policyparams['num_samples']
+        if isinstance(self._hp.num_samples, list):
+            self.M = self._hp.num_samples[0]
+        else:
+            self.M = self._hp.num_samples
 
-        if 'selection_frac' in self.policyparams:
-            self.K = int(np.ceil(self.M*self.policyparams['selection_frac']))
+        if self._hp.selection_frac:
+            self.K = int(np.ceil(self.M*self._hp.selection_frac))
         else:
             self.K = 10  # only consider K best samples for refitting
 
@@ -72,12 +71,6 @@ class CEM_Controller_Base(Policy):
         # deltax, delty, goup_nstep, delta_rot, close_nstep
         self.adim = self.agentparams['adim']
         self.sdim = self.agentparams['sdim'] # action dimension
-
-        # define which indices of the action vector shall be discretized:
-        if 'discrete_adim' in self.agentparams:
-            self.discrete_ind = self.agentparams['discrete_adim']
-        else:
-            self.discrete_ind = None
 
         self.indices =[]
         self.mean =None
@@ -94,13 +87,47 @@ class CEM_Controller_Base(Policy):
 
         self.warped_image_goal, self.warped_image_start = None, None
 
-        if 'stochastic_planning' in self.policyparams:
-            self.smp_peract = self.policyparams['stochastic_planning'][0]
+        if self._hp.stochastic_planning:
+            self.smp_peract = self._hp.stochastic_planning[0]
         else: self.smp_peract = 1
 
         self.ncam = 1
         self.ndesig = 1
         self.best_cost_perstep = np.zeros([self.ncam, self.ndesig, self.repeat*self.naction_steps])
+        
+        
+    def _default_hparams(self):
+        default_dict = {
+            'verbose': False,
+            'verbose_every_itr':False,
+            'niter': 3,
+            'num_samples': 200,
+            'selection_frac': False, # specifcy which fraction of best samples to use to compute mean and var for next CEM iteration
+            'discrete_ind':None,
+            'reuse_mean':False,
+            'reuse'
+            'reuse_cov':False,
+            'stochastic_planning':False,
+            'rejection_sampling':True,
+            'reuse_cov':False,
+            'cov_blockdiag':False,
+            'smooth_cov':False,
+            'iterations': 3,
+            'nactions': 5,
+            'repeat': 3,
+            'no_action_bound': False,
+            'initial_std': 0.05,   #std dev. in xy
+            'initial_std_lift': 0.15,   #std dev. in xy
+            'initial_std_rot': np.pi / 18,
+            'finalweight':10,
+            'use_first_plan':False,
+            'replan_interval':1,
+        }
+
+        parent_params = super()._default_hparams()
+        for k in default_dict.keys():
+            parent_params.add_hparam(k, default_dict[k])
+        return parent_params
 
     def reset(self):
         self.plan_stat = {} #planning statistics
@@ -124,24 +151,20 @@ class CEM_Controller_Base(Policy):
         self.logger.log('starting cem at t{}...'.format(self.t))
         timings = OrderedDict()
         t = time.time()
-        if 'reuse_cov' not in self.policyparams or self.t < 2:
-            self.sigma = construct_initial_sigma(self.policyparams, self.t)
+        if not self._hp.reuse_cov or self.t < 2:
+            self.sigma = construct_initial_sigma(self._hp, self.t)
             self.sigma_prev = self.sigma
         else:
-            self.sigma = reuse_cov(self.sigma, self.adim, self.policyparams)
+            self.sigma = reuse_cov(self.sigma, self.adim, self._hp)
 
-        if 'reuse_mean' not in self.policyparams or self.t < 2:
+        if not self._hp.reuse_mean or self.t < 2:
             self.mean = np.zeros(self.adim * self.naction_steps)
         else:
-            if 'reuse_action_as_mean' in self.policyparams:
-                print('reusing action from last planning time steps')
-                self.mean = reuse_mean(self.bestaction, self.policyparams)
-            else:
-                self.mean = reuse_mean(self.mean, self.policyparams)
+            self.mean = reuse_mean(self.bestaction, self._hp)
 
-        if ('reuse_mean' in self.policyparams or 'reuse_cov' in self.policyparams) and self.t >= 2:
-            self.M = self.policyparams['num_samples'][1]
-            self.K = int(np.ceil(self.M*self.policyparams['selection_frac']))
+        if (self._hp.reuse_mean or self._hp.reuse_cov) and self.t >= 2:
+            self.M = self._hp.num_samples[1]
+            self.K = int(np.ceil(self.M*self._hp.selection_frac))
 
         self.bestindices_of_iter = np.zeros((self.niter, self.K))
         self.cost_perstep = np.zeros([self.M, self.ncam, self.ndesig, self.seqlen - self.ncontxt])
@@ -156,7 +179,7 @@ class CEM_Controller_Base(Policy):
             self.logger.log('iteration: ', itr)
             t_startiter = time.time()
 
-            if 'rejection_sampling' in self.policyparams:
+            if self._hp.rejection_sampling:
                 actions = self.sample_actions_rej()
             else:
                 actions = self.sample_actions()
@@ -168,7 +191,7 @@ class CEM_Controller_Base(Policy):
             t = time.time()
             self.logger.log('overall time for evaluating actions {}'.format(time.time() - t_start))
 
-            if 'stochastic_planning' in self.policyparams:
+            if self._hp.stochastic_planning:
                 actions, scores = self.action_preselection(actions, scores)
 
             self.indices = scores.argsort()[:self.K]
@@ -195,9 +218,9 @@ class CEM_Controller_Base(Policy):
     def fit_gaussians(self, actions_flat):
         arr_best_actions = actions_flat[self.indices]  # only take the K best actions
         self.sigma = np.cov(arr_best_actions, rowvar=False, bias=False)
-        if 'cov_blockdiag' in self.policyparams:
+        if self._hp.cov_blockdiag:
             self.sigma = make_blockdiagonal(self.sigma, self.naction_steps, self.adim)
-        if 'smooth_cov' in self.policyparams:
+        if self._hp.smooth_cov:
             self.sigma = 0.5 * self.sigma + 0.5 * self.sigma_prev
             self.sigma_prev = self.sigma
         self.mean = np.mean(arr_best_actions, axis=0)
@@ -216,16 +239,8 @@ class CEM_Controller_Base(Policy):
         if self.discrete_ind != None:
             actions = self.discretize(actions)
 
-        if 'disc_grasp_val' in self.policyparams:
-            for n in range(self.naction_steps):
-                for b in range(self.M):
-                    if actions[b,n,4] > 0.5:
-                        actions[b,n,4] = self.policyparams['disc_grasp_val'][1]
-                    else:
-                        actions[b,n,4] = self.policyparams['disc_grasp_val'][0]
-
-        if 'no_action_bound' not in self.policyparams:
-            actions = truncate_movement(actions, self.policyparams)
+        if self._hp.no_action_bound:
+            actions = truncate_movement(actions, self._hp)
         actions = np.repeat(actions, self.repeat, axis=1)
 
         return actions
@@ -238,7 +253,7 @@ class CEM_Controller_Base(Policy):
         runs = []
         actions = []
 
-        if 'stochastic_planning' in self.policyparams:
+        if self._hp.stochastic_planning:
             num_distinct_actions = self.M // self.smp_peract
         else:
             num_distinct_actions = self.M
@@ -251,8 +266,8 @@ class CEM_Controller_Base(Policy):
                 action_seq = np.random.multivariate_normal(self.mean, self.sigma, 1)
 
                 action_seq = action_seq.reshape(self.naction_steps, self.adim)
-                xy_std = self.policyparams['initial_std']
-                lift_std = self.policyparams['initial_std_lift']
+                xy_std = self._hp.initial_std
+                lift_std = self._hp.initial_std_lift
 
                 std_fac = 1.5
                 if np.any(action_seq[:, :2] > xy_std*std_fac) or \
@@ -266,11 +281,11 @@ class CEM_Controller_Base(Policy):
             actions.append(action_seq)
         actions = np.stack(actions, axis=0)
 
-        if 'stochastic_planning' in self.policyparams:
-            actions = np.repeat(actions,self.policyparams['stochastic_planning'][0], 0)
+        if self._hp.stochastic_planning:
+            actions = np.repeat(actions,self._hp.stochastic_planning[0], 0)
 
         self.logger.log('rejection smp max trials', max(runs))
-        if self.discrete_ind != None:
+        if self._hp.discrete_ind != None:
             actions = self.discretize(actions)
         actions = np.repeat(actions, self.repeat, axis=1)
 
@@ -281,12 +296,13 @@ class CEM_Controller_Base(Policy):
     def action_preselection(self, actions, scores):
         actions = actions.reshape((self.M//self.smp_peract, self.smp_peract, self.naction_steps, self.repeat, self.adim))
         scores = scores.reshape((self.M//self.smp_peract, self.smp_peract))
-        if self.policyparams['stochastic_planning'][1] == 'optimistic':
+        if self._hp.stochastic_planning[1] == 'optimistic':
             inds = np.argmax(scores, axis=1)
             scores = np.max(scores, axis=1)
-        if self.policyparams['stochastic_planning'][1] == 'pessimistic':
+        elif self._hp.stochastic_planning[1] == 'pessimistic':
             inds = np.argmin(scores, axis=1)
             scores = np.min(scores, axis=1)
+        else: raise ValueError
 
         actions = [actions[b, inds[b]] for b in range(self.M//self.smp_peract)]
         return np.stack(actions, 0), scores
@@ -309,13 +325,13 @@ class CEM_Controller_Base(Policy):
         if t == 0:
             action = np.zeros(self.agentparams['adim'])
         else:
-            if 'use_first_plan' in self.policyparams:
+            if self._hp.use_first_plan:
                 self.logger.log('using actions of first plan, no replanning!!')
                 if t == 1:
                     self.perform_CEM()
                 action = self.bestaction_withrepeat[t]
-            elif 'replan_interval' in self.policyparams:
-                if (t-1) % self.policyparams['replan_interval'] == 0:
+            elif self._hp.replan_interval:
+                if (t-1) % self._hp.replan_interval == 0:
                     self.last_replan = t
                     self.perform_CEM()
                 self.logger.log('last replan', self.last_replan)

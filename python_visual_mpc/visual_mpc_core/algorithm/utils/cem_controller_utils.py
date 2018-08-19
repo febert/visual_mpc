@@ -99,44 +99,44 @@ def compute_warp_cost(logger, policyparams, flow_field, goal_pix=None, warped_im
     logger.log('tcg {}'.format(time.time() - tc1))
     return scores
 
-def construct_initial_sigma(policyparams, t=None):
-    xy_std = policyparams['initial_std']
+def construct_initial_sigma(hp, t=None):
+    xy_std = hp.initial_std
     diag = [xy_std**2, xy_std**2]
 
-    if 'initial_std_lift' in policyparams:
-        diag.append(policyparams['initial_std_lift']**2)
-    if 'initial_std_rot' in policyparams:
-        diag.append(policyparams['initial_std_rot']**2)
-    if 'initial_std_grasp' in policyparams:
-        diag.append(policyparams['initial_std_grasp']**2)
+    if 'initial_std_lift' in hp:
+        diag.append(hp.initial_std_lift ** 2)
+    if 'initial_std_rot' in hp:
+        diag.append(hp.initial_std_rot ** 2)
+    if 'initial_std_grasp' in hp:
+        diag.append(hp.initial_std_grasp ** 2)
 
     adim = len(diag)
-    diag = np.tile(diag, policyparams['nactions'])
+    diag = np.tile(diag, hp.nactions)
     diag = np.array(diag)
 
-    if 'reduce_std_dev' in policyparams:
-        assert 'reuse_mean' in policyparams
+    if 'reduce_std_dev' in hp:
+        assert 'reuse_mean' in hp
         if t >= 2:
-            print('reducing std dev by factor', policyparams['reduce_std_dev'])
+            print('reducing std dev by factor', hp.reduce_std_dev)
             # reducing all but the last repeataction in the sequence since it can't be reused.
-            diag[:(policyparams['nactions']-1)*adim] *= policyparams['reduce_std_dev']
+            diag[:(hp.nactions - 1) * adim] *= hp.reduce_std_dev
 
     sigma = np.diag(diag)
     return sigma
 
-def reuse_cov(sigma, adim, policyparams):
-    assert policyparams['replan_interval'] == 3
+def reuse_cov(sigma, adim, hp):
+    assert hp.replan_interval == 3
     print('reusing cov form last MPC step...')
     sigma_old = copy.deepcopy(sigma)
     sigma = np.zeros_like(sigma)
     #reuse covariance and add a fraction of the initial covariance to it
-    sigma[0:-adim,0:-adim] = sigma_old[adim:,adim: ] +\
-                construct_initial_sigma(policyparams)[:-adim, :-adim]*policyparams['reuse_cov']
-    sigma[-adim:, -adim:] = construct_initial_sigma(policyparams)[:adim, :adim]
+    sigma[0:-adim,0:-adim] = sigma_old[adim:,adim: ] + \
+                             construct_initial_sigma(hp)[:-adim, :-adim] * hp.reuse_cov
+    sigma[-adim:, -adim:] = construct_initial_sigma(hp)[:adim, :adim]
     return sigma
 
-def reuse_mean(mean, policyparams):
-    assert policyparams['replan_interval'] == 3
+def reuse_mean(mean, hp):
+    assert hp.replan_interval == 3
     print('reusing mean form last MPC step...')
     mean_old = mean.copy()
     mean = np.zeros_like(mean_old)
@@ -144,10 +144,7 @@ def reuse_mean(mean, policyparams):
     return mean.flatten()
 
 def truncate_movement(actions, policyparams):
-    if 'maxshift' in policyparams:
-        maxshift = policyparams['maxshift']
-    else:
-        maxshift = policyparams['initial_std']*2
+    maxshift = policyparams.initial_std*2
 
     if len(actions.shape) == 3:
         actions[:,:,:2] = np.clip(actions[:,:,:2], -maxshift, maxshift)  # clip in units of meters

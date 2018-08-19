@@ -44,23 +44,23 @@ class BaseSawyerMujocoEnv(BaseMujocoEnv):
         else:
             object_meshes = None
 
-        params = self._default_hparams()
+        _hp = self._default_hparams()
         for name, value in params_dict.items():
             print('setting param {} to value {}'.format(name, value))
-            params.set_hparam(name, value)
+            _hp.set_hparam(name, value)
 
-        base_filename = asset_base_path + params.filename
-        friction_params = (params.friction, 0.1, 0.02)
+        base_filename = asset_base_path + _hp.filename
+        friction_params = (_hp.friction, 0.1, 0.02)
         reset_xml = None
         if reset_state is not None:
             reset_xml = reset_state['reset_xml']
 
-        self._reset_xml = create_object_xml(base_filename, params.num_objects, params.object_mass,
-                                               friction_params, object_meshes, params.finger_sensors,
-                                               params.maxlen, params.minlen, reset_xml,
-                                                params.obj_classname, params.block_height, params.block_width)
+        self._reset_xml = create_object_xml(base_filename, _hp.num_objects, _hp.object_mass,
+                                               friction_params, object_meshes, _hp.finger_sensors,
+                                               _hp.maxlen, _hp.minlen, reset_xml,
+                                                _hp.obj_classname, _hp.block_height, _hp.block_width)
         gen_xml = create_root_xml(base_filename)
-        super().__init__(gen_xml, params)
+        super().__init__(gen_xml, _hp)
         clean_xml(gen_xml)
 
         if self.sim.model.nmocap > 0 and self.sim.model.eq_data is not None:
@@ -71,15 +71,15 @@ class BaseSawyerMujocoEnv(BaseMujocoEnv):
                         [0., 0., 0., 1., 0., 0., 0.]
                     )
 
-        self._base_sdim, self._base_adim, self.mode_rel = 5, 5, params.mode_rel
-        self.num_objects, self.skip_first, self.substeps = params.num_objects, params.skip_first, params.substeps
-        self.randomize_initial_pos = params.randomize_initial_pos
-        self.finger_sensors, self._maxlen = params.finger_sensors, params.maxlen
+        self._base_sdim, self._base_adim, self.mode_rel = 5, 5, _hp.mode_rel
+        self.num_objects, self.skip_first, self.substeps = _hp.num_objects, _hp.skip_first, _hp.substeps
+        self.randomize_initial_pos = _hp.randomize_initial_pos
+        self.finger_sensors, self._maxlen = _hp.finger_sensors, _hp.maxlen
 
         self._previous_target_qpos, self._n_joints = None, 9
         self._read_reset_state = reset_state
 
-        if self._params.verbose_dir is not None:
+        if self._hp.verbose_dir is not None:
             self._verbose_vid = []
             self._ctr = 0
     
@@ -111,7 +111,7 @@ class BaseSawyerMujocoEnv(BaseMujocoEnv):
 
     def render(self):
         imgs = super().render()
-        if self._params.verbose_dir is not None:
+        if self._hp.verbose_dir is not None:
             self._verbose_vid.append(imgs[0, :, :, ::-1].copy())
         return imgs
 
@@ -130,11 +130,11 @@ class BaseSawyerMujocoEnv(BaseMujocoEnv):
         last_rands, write_reset_state = [], {}
         write_reset_state['reset_xml'] = copy.deepcopy(self._reset_xml)
         margin = 1.1 * self._maxlen
-        if self._params.verbose_dir is not None:
+        if self._hp.verbose_dir is not None:
             print('resetting')
 
-        if self._params.verbose_dir is not None and len(self._verbose_vid) > 0:
-            npy_to_gif(self._verbose_vid, self._params.verbose_dir + '/verbose_traj_{}'.format(self._ctr), 20)
+        if self._hp.verbose_dir is not None and len(self._verbose_vid) > 0:
+            npy_to_gif(self._verbose_vid, self._hp.verbose_dir + '/verbose_traj_{}'.format(self._ctr), 20)
             self._verbose_vid = []
             self._ctr += 1
 
@@ -173,7 +173,7 @@ class BaseSawyerMujocoEnv(BaseMujocoEnv):
             self.sim.data.qpos[:9] = NEUTRAL_JOINTS
             for _ in range(5):
                 self.sim.step()
-                if self._params.verbose_dir is not None:
+                if self._hp.verbose_dir is not None:
                     self._render_verbose()
         except MujocoException:
             return BaseSawyerMujocoEnv.reset(self)
@@ -201,7 +201,7 @@ class BaseSawyerMujocoEnv(BaseMujocoEnv):
         self.sim.data.ctrl[:] = [-1, 1]
 
         finger_force = np.zeros(2)
-        if self._params.verbose_dir is not None:
+        if self._hp.verbose_dir is not None:
             print('skip_first: {}'.format(self.skip_first))
 
         assert self.skip_first > 15, "Skip first should be at least 15"
@@ -209,7 +209,7 @@ class BaseSawyerMujocoEnv(BaseMujocoEnv):
             if t < 10:
                 self.sim.data.qpos[self._n_joints:] = object_poses.copy()
 
-            if self._params.verbose_dir is not None and t % 2 == 0:
+            if self._hp.verbose_dir is not None and t % 2 == 0:
                 print('skip: {}'.format(t))
                 self._render_verbose()
 
@@ -225,7 +225,7 @@ class BaseSawyerMujocoEnv(BaseMujocoEnv):
 
             if self.finger_sensors:
                 finger_force += self.sim.data.sensordata[:2]
-        if self._params.verbose_dir is not None:
+        if self._hp.verbose_dir is not None:
             print('after')
         finger_force /= 10 * self.skip_first
 
@@ -330,7 +330,7 @@ class BaseSawyerMujocoEnv(BaseMujocoEnv):
                 except MujocoException:
                     print('Sim reset (bad contact)')
                     raise ValueError
-            if self._params.verbose_dir is not None and st % 10 == 0:
+            if self._hp.verbose_dir is not None and st % 10 == 0:
                 self._render_verbose()
 
         for st in range(1000):
@@ -347,7 +347,7 @@ class BaseSawyerMujocoEnv(BaseMujocoEnv):
                 print('Sim reset (bad contact)')
                 raise ValueError
 
-            if self._params.verbose_dir is not None and st % 200 == 0:
+            if self._hp.verbose_dir is not None and st % 200 == 0:
                 self._render_verbose()
 
         finger_force /= self.substeps * 10
@@ -355,7 +355,7 @@ class BaseSawyerMujocoEnv(BaseMujocoEnv):
             print(finger_force)
 
         reach_xyz, reach_theta = self.sim.data.get_body_xpos('hand'), quat_to_zangle(self.sim.data.get_body_xquat('hand'))
-        if self._params.verbose_dir is not None:
+        if self._hp.verbose_dir is not None:
             print('delta xy: {}, delta z {}, delta theta: {}'.format(np.linalg.norm(target_qpos[:2] - reach_xyz[:2]), abs(reach_xyz[2] - target_qpos[2]), np.rad2deg(abs(reach_theta - target_qpos[3]))))
         self._previous_target_qpos = target_qpos
 
