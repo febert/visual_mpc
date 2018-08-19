@@ -80,7 +80,7 @@ Usage:
     </default>
 
     <equality>
-        <weld body1="mocap" body2="hand" solref="0.01 1."></weld>
+        <weld body1="mocap" body2="hand" solref="0.05 0.95"></weld>
         <joint joint1="base_joint_gripper_left" joint2="base_joint_gripper_right" polycoef="0 -1 0 0 0" />
     </equality>
 </mujoco>

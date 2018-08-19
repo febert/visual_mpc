@@ -130,7 +130,7 @@ class BaseSawyerMujocoEnv(BaseMujocoEnv):
 
         last_rands, write_reset_state = [], {}
         write_reset_state['reset_xml'] = copy.deepcopy(self._reset_xml)
-        margin = 1.1 * self._maxlen
+        margin = 1.2 * self._maxlen
         if self._params.verbose_dir is not None:
             print('resetting')
 
@@ -151,10 +151,14 @@ class BaseSawyerMujocoEnv(BaseMujocoEnv):
                 obji_quat = self._read_reset_state['object_qpos'][i][3:]
             else:
                 obji_xyz, rot = samp_xyz_rot()
+                samp_cntr = 0
                 #rejection sampling to ensure objects don't crowd each other
                 while len(last_rands) > 0 and min([np.linalg.norm(obji_xyz[:2] - obj_j[:2])
                                                    for obj_j in last_rands]) < margin:
+                    if samp_cntr >=100:          # avoid infinite looping by generating new env
+                        return BaseSawyerMujocoEnv.reset(self)
                     obji_xyz, rot = samp_xyz_rot()
+                    samp_cntr += 1
                 last_rands.append(obji_xyz)
 
                 obji_quat = Quaternion(axis=[0, 0, -1], angle=rot).elements

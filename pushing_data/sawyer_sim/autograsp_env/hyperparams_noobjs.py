@@ -23,7 +23,7 @@ env_params = {
     'friction': 1,
     'substeps': 100,
     'autograsp': {'zthresh': 0.18, 'touchthresh': 0.0, 'reopen': True},
-    'object_meshes': ['GlassBowl', 'LotusBowl01'],
+#    'object_meshes': ['GlassBowl', 'LotusBowl01'],
     'viewer_image_height': 48,
     'viewer_image_width': 64
 }

@@ -39,8 +39,9 @@ if __name__ == '__main__':
                 img_summaries[i][int(summary_counter % 5)].append(np.concatenate(frame_imgs, axis=1))
             summary_counter += 1
     delta_sums = np.array(delta_sums)
+    adim = delta_sums.shape[-1]
     print('mean deltas: {}'.format(np.sum(np.sum(delta_sums, axis=0), axis = 0) / (args.T * len(traj_names))))
-    print('median degree diff: {}, max diff: {}'.format(np.median(delta_sums[:, :, -1]), np.amax(delta_sums[:, :, -1])))
+    print('median delta: {}, max delta: {}'.format(np.median(delta_sums.reshape(-1, adim), axis = 0), np.amax(delta_sums.reshape(-1, adim),axis=0)))
     print(' perc good: {}, and avg num failed rollouts: {}'.format(num_good / float(len(traj_names)), np.mean(rollout_fails)))
     tmaxs = np.argmax(delta_sums[:, :, -1], axis = -1)
     traj_max = np.argmax(delta_sums[np.arange(len(traj_names)), tmaxs, -1])
