@@ -38,10 +38,10 @@ agent = {
     'gen_xml':1,   #generate xml every nth trajecotry
     'record': BASE_DIR + '/record/',
     'discrete_gripper': -1, #discretized gripper dimension,
-    'rejection_sample': 5,
+    'rejection_sample': 50,
 #    'make_final_gif': '',
     'master': 'sudeep@deepthought.banatao.berkeley.edu',
-    'master_datadir': '/raid/sudeep/sawyer_sim/autograsp_newphysics2_lblock/'
+    'master_datadir': '/raid/sudeep/sawyer_sim/autograsp_newphysics2_lblock_goodsup/'
 }
 
 policy = {
@@ -61,7 +61,7 @@ config = {
     'current_dir': current_dir,
 #   'save_raw_images': True,
     'save_data': True,
-    'start_index':0,
+    'start_index':60000,
     'end_index': 80000,
     'agent': agent,
     'policy': policy,
