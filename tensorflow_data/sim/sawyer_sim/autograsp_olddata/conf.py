@@ -39,6 +39,5 @@ configuration = {
 'normalization':'in',
 'previmg_bckgd':'',
 'orig_size':[48,64],
-'new_loader':'',
 'view':0
 }

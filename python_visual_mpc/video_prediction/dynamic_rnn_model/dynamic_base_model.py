@@ -539,7 +539,7 @@ class Dynamic_Base_Model(object):
 
                 images = tf.cast(images, tf.float32)/ 255.0
             else:
-                dict = build_tfrecord_fn(conf, mode='traing')
+                dict = build_tfrecord_fn(conf, mode='train')
                 train_images, train_actions, train_states = dict['images'], dict['actions'], dict['endeffector_pos']
                 dict = build_tfrecord_fn(conf, mode='val')
                 val_images, val_actions, val_states = dict['images'], dict['actions'], dict['endeffector_pos']

@@ -91,7 +91,7 @@ class CEM_Controller_Sim(CEM_Controller_Base):
         return actions_costs
 
 
-    def get_rollouts(self, traj, actions, cem_itr, itr_times):
+    def get_rollouts(self, actions, cem_itr, itr_times):
         all_scores = np.empty(self.M, dtype=np.float64)
         image_list = []
         for smp in range(self.M):
