@@ -13,6 +13,7 @@ if __name__ == '__main__':
     parser.add_argument('--T', type=int, default=30)
     parser.add_argument('--ncam', type=int, default=2)
     parser.add_argument('--nimages', type=int, default=100)
+    parser.add_argument('--invert_bad', action='store_true', default=False)
     args = parser.parse_args()
     assert args.nimages % 5 == 0, "nimages should be a multiple of 5"
 
@@ -35,6 +36,8 @@ if __name__ == '__main__':
                 frame_imgs = []
                 for n in range(args.ncam):
                     img_t = cv2.imread('{}/images{}/im_{}.png'.format(t, n, i))[:, :, ::-1]
+                    if not agent_data['goal_reached'] and args.invert_bad:
+                        img_t = img_t[:, :, ::-1]
                     frame_imgs.append(img_t)               
                 img_summaries[i][int(summary_counter % 5)].append(np.concatenate(frame_imgs, axis=1))
             summary_counter += 1

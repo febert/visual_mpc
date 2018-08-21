@@ -24,8 +24,8 @@ env_params = {
     'substeps': 100,
     'autograsp': {'zthresh': 0.18, 'touchthresh': 0.0, 'reopen': True},
 #    'object_meshes': ['GlassBowl', 'LotusBowl01'],
-    'viewer_image_height': 48,
-    'viewer_image_width': 64
+    'viewer_image_height': 192,
+    'viewer_image_width': 256
 }
 
 agent = {
@@ -35,13 +35,13 @@ agent = {
     'T': 30,
     'image_height' : 48,
     'image_width' : 64,
-    'gen_xml':1,   #generate xml every nth trajecotry
+    'gen_xml':10,   #generate xml every nth trajecotry
     'record': BASE_DIR + '/record/',
     'discrete_gripper': -1, #discretized gripper dimension,
-    'rejection_sample': 50,
-#    'make_final_gif': '',
+    'rejection_sample': 20,
+    'make_final_gif': '',
     'master': 'sudeep@deepthought.banatao.berkeley.edu',
-    'master_datadir': '/raid/sudeep/sawyer_sim/autograsp_newphysics2_lblock_goodsup/'
+    'master_datadir': '/raid/sudeep/sawyer_sim/autograsp_newphysics2_lblock_upsample/'
 }
 
 policy = {
@@ -59,10 +59,10 @@ config = {
     'traj_per_file': 16,
     'seperate_good': True,
     'current_dir': current_dir,
-#   'save_raw_images': True,
+    'save_raw_images': True,
     'save_data': True,
-    'start_index':60000,
-    'end_index': 80000,
+    'start_index':0,
+    'end_index':120000,
     'agent': agent,
     'policy': policy,
     'ngroup': 1000

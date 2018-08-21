@@ -89,11 +89,13 @@ def main():
     hyperparams = mod.config
 
     if args.nsplit != -1:
-        n_persplit = (hyperparams['end_index']+1)//args.nsplit
-        hyperparams['start_index'] = args.isplit * n_persplit
-        hyperparams['end_index'] = (args.isplit+1) * n_persplit -1
+        assert args.isplit >= 0 and args.isplit < args.nsplit, "isplit should be in [0, nsplit-1]"
+       
+        n_persplit = max((hyperparams['end_index'] + 1 - hyperparams['start_index']) / args.nsplit, 1)
+        hyperparams['end_index'] = int((args.isplit + 1) * n_persplit + hyperparams['start_index'] - 1)
+        hyperparams['start_index'] = int(args.isplit * n_persplit + hyperparams['start_index'])
 
-    n_traj = hyperparams['end_index'] - hyperparams['start_index'] +1
+    n_traj = hyperparams['end_index'] - hyperparams['start_index'] + 1
     traj_per_worker = int(n_traj // np.float32(n_worker))
     start_idx = [hyperparams['start_index'] + traj_per_worker * i for i in range(n_worker)]
     end_idx = [hyperparams['start_index'] + traj_per_worker * (i+1)-1 for i in range(n_worker)]
