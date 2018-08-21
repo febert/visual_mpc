@@ -78,6 +78,7 @@ def launch_job_func(run_script, hyper, nworkers=8, interactive=False, name='', n
                              {"containerMountPoint": "/mnt/pushing_data/sawyer_grasping/ag_long_records_15kfullres", "id": 11398},
                              {"containerMountPoint": "/mnt/pushing_data/sawyer_sim/startgoal_conf/bowl_arm_disp", "id": 11527},
                              {"containerMountPoint": "/mnt/pushing_data/sawyer_sim/autograsp_newphysics_1", "id": 11701},
+                             {"containerMountPoint": "/mnt/pushing_data/sawyer_sim/autograsp_bowls", "id": 11720},
                              ]
 
     data["aceInstance"] = "ngcv{}".format(ngpu)
@@ -90,7 +91,7 @@ def launch_job_func(run_script, hyper, nworkers=8, interactive=False, name='', n
         data["name"] = name
     else:
         if 'trainvid' in run_script:
-            command = "python " + run_script + " --hyper ../../" + hyper
+            command = "python " + run_script + " --hyper " + hyper
             data["name"] = str.split(command, '/')[-2]
         else:
             if nsplit is not None:
