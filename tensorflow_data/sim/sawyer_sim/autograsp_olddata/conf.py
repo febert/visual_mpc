@@ -2,8 +2,8 @@ import os
 current_dir = os.path.dirname(os.path.realpath(__file__))
 
 # tf record data location:
-DATA_DIR = {os.environ['VMPC_DATA_DIR'] + '/sawyer_sim/autograsp_newphysics_1/good': 8,
-            os.environ['VMPC_DATA_DIR'] + '/sawyer_sim/autograsp_newphysics_1/bad': 8,
+DATA_DIR = {os.environ['VMPC_DATA_DIR'] + '/sawyer_sim/autograsp_bowls/good': 8,
+            os.environ['VMPC_DATA_DIR'] + '/sawyer_sim/autograsp_bowls/bad': 8,
             }
 
 # local output directory
