@@ -80,9 +80,7 @@ class CEM_Controller_Vidpred(CEM_Controller_Base):
         self.seqlen = self.netconf['sequence_length']
 
         # override params here:
-        self._hp.num_samples = self.bsize
-
-        if self._hp.num_samples == -1:
+        if 'num_samples' not in policyparams:
             self.M = self.bsize
 
         assert self.naction_steps * self.repeat == self.seqlen

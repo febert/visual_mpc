@@ -421,6 +421,30 @@ class Dynamic_Base_Model(object):
                 self.pix_distrib_pl = tf.placeholder(tf.float32, name='states',
                                                      shape=(conf['batch_size'], seq_len, ndesig, self.img_height, self.img_width, 1))
                 pix_distrib = self.pix_distrib_pl
+
+            elif 'new_loader' in conf:
+                from python_visual_mpc.visual_mpc_core.Datasets.base_dataset import BaseVideoDataset
+                train_images, val_images, train_actions, val_actions, train_states, val_states = [], [], [], [], [], []
+                print('loading images for view {}'.format(conf['view']))
+                for path, batch_size in conf['data_dir'].items():
+                    data_conf = {'sequence_length': conf['sequence_length'], 'buffer_size': 400}
+                    dataset = BaseVideoDataset(path, batch_size, data_conf)
+                    train_images.append(dataset['images', 'train'][:,:, conf['view']])
+                    val_images.append(dataset['images', 'val'][:,:, conf['view']])
+                    train_actions.append(dataset['actions', 'train'])
+                    val_actions.append(dataset['actions', 'val'])
+                    train_states.append(dataset['states', 'train'])
+                    val_states.append(dataset['states', 'val'])
+
+                train_images, val_images = tf.concat(train_images, 0), tf.concat(val_images, 0)
+                train_states, val_states = tf.concat(train_states, 0), tf.concat(val_states, 0)
+                train_actions, val_actions = tf.concat(train_actions, 0), tf.concat(val_actions, 0)
+                images, actions, states = tf.cast(tf.cond(self.train_cond > 0,
+                                              # if 1 use trainigbatch else validation batch
+                                              lambda: [train_images, train_states, train_actions],
+                                              lambda: [val_images, val_states, val_actions],
+                                              ), tf.float32) / 255.0
+                print('loaded images tensor: {}'.format(self.images))
             else:
                 dict = build_tfrecord_fn(conf, mode='traing')
                 train_images, train_actions, train_states = dict['images'], dict['actions'], dict['endeffector_pos']

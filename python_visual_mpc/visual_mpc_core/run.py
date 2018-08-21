@@ -14,6 +14,7 @@ import re
 import os
 from python_visual_mpc.visual_mpc_core.infrastructure.utility.combine_scores import combine_scores
 import ray
+import pdb
 
 
 class SynchCounter:
@@ -110,6 +111,11 @@ def main():
         if 'data_save_dir' in hyperparams['agent']:
             data_save_path = hyperparams['agent']['data_save_dir'].partition('pushing_data')[2]
             hyperparams['agent']['data_save_dir'] = os.environ['RESULT_DIR'] + data_save_path
+
+    elif 'EXPERIMENT_DIR' in os.environ:
+        subpath = hyperparams['current_dir'].partition('experiments')[2]
+        result_dir = os.path.join(os.environ['EXPERIMENT_DIR'] + subpath)
+
     elif args.cloud:
         hyperparams['agent']['data_save_dir'] = '/result/'    # by default save code to the /result folder in docker image
 
@@ -128,6 +134,7 @@ def main():
         modconf['end_index'] = end_idx[i]
         modconf['ntraj'] = n_traj
         modconf['gpu_id'] = i + gpu_id
+        modconf['result_dir'] = result_dir
         if 'data_save_dir' in hyperparams['agent']:
             modconf['record_saver'] = record_queue
             modconf['counter'] = counter
@@ -146,9 +153,7 @@ def main():
         ray.wait([sync_todo_id])
 
     if args.do_benchmark:
-        if 'RESULT_DIR' in os.environ:
-            result_dir = os.environ['RESULT_DIR']
-        else: result_dir = hyperparams['current_dir']
+        pdb.set_trace()
         combine_scores(hyperparams, result_dir)
         sys.exit()
 

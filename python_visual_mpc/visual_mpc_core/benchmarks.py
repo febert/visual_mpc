@@ -25,21 +25,12 @@ def perform_benchmark(conf=None, iex=-1, gpu_id=None):
     :param gpu_id:
     :return:
     """
+    result_dir = conf['result_dir']
     cem_exp_dir = '/'.join(str.split(python_vmpc_path, '/')[:-2])  + '/experiments/cem_exp'
 
     if conf != None:
         benchmark_name = 'parallel'
         ngpu = 1
-
-    if 'record' not in conf['agent']:
-        if 'RESULT_DIR' in os.environ:
-            result_dir = os.environ['RESULT_DIR']
-        elif 'EXPERIMENT_DIR' in os.environ:
-            subpath = conf['current_dir'].partition('experiments')[2]
-            result_dir = os.path.join(os.environ['EXPERIMENT_DIR'] + subpath)
-    else:
-        result_dir = conf['agent']['record']
-    print('result dir {}'.format(result_dir))
 
     print('-------------------------------------------------------------------')
     print('name of algorithm setting: ' + benchmark_name)
@@ -75,7 +66,7 @@ def perform_benchmark(conf=None, iex=-1, gpu_id=None):
                                                   'ngroup': conf['ngroup']}, shuffle=False)
 
     result_file = result_dir + '/results_{}to{}.txt'.format(conf['start_index'], conf['end_index'])
-    final_dist_pkl_file = result_dir + '/final_dist_{}to{}.pkl'.format(conf['start_index'], conf['end_index'])
+    final_dist_pkl_file = result_dir + '/scores_{}to{}.pkl'.format(conf['start_index'], conf['end_index'])
     if os.path.isfile(result_dir + '/result_file'):
         raise ValueError("the file {} already exists!!".format(result_file))
 
@@ -108,7 +99,7 @@ def perform_benchmark(conf=None, iex=-1, gpu_id=None):
 
         i_traj +=1 #increment trajectories every step!
 
-        # pickle.dump(stat_arrays, open(final_dist_pkl_file, 'wb'))
+        pickle.dump(stat_arrays, open(final_dist_pkl_file, 'wb'))
         write_scores(conf, result_file, stat_arrays, i_traj)
 
 
@@ -169,7 +160,7 @@ def write_scores(conf, result_file, stat, i_traj=None):
         f.write('average initial dist: {0}\n'.format(np.mean(initial_dist)))
         f.write('median initial dist: {0}\n'.format(np.median(initial_dist)))
         f.write('----------------------\n')
-    f.write('traj: improv, score, term_t, lifted, rank\n')
+    f.write('traj: improv, final_d, term_t, lifted, rank\n')
     f.write('----------------------\n')
 
     for n, t in enumerate(range(conf['start_index'], i_traj)):

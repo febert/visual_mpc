@@ -12,6 +12,7 @@ import pickle
 import numpy as np
 import matplotlib.pyplot as plt
 import re
+import pdb
 
 
 def sorted_nicely( l ):
@@ -23,31 +24,33 @@ def sorted_nicely( l ):
 def combine_scores(conf, dir, only_first_n=None):
     files = glob.glob(dir + '/scores_*')
     files = sorted_nicely(files)
+    if len(files) == 0:
+        raise ValueError
 
-    traj = Trajectory(conf['agent'])
     stats_lists = OrderedDict()
-    for key in traj.stats.keys():
-        stats_lists[key] = []
 
     for f in files:
         print('load', f)
         dict_ = pickle.load(open(f, "rb"))
         for key in dict_.keys():
+            if key not in stats_lists:
+                stats_lists[key] = []
             stats_lists[key].append(dict_[key])
 
+    pdb.set_trace()
     stat_array = OrderedDict()
     for key in dict_.keys():
         stat_array[key] = np.concatenate(stats_lists[key], axis=0)
 
     improvement = stat_array['improvement']
-    score = stat_array['scores']
+    final_dist = stat_array['final_dist']
     if only_first_n is not None:
         improvement = improvement[:only_first_n]
-        score = score[:only_first_n]
+        final_dist = final_dist[:only_first_n]
 
-    make_stats(dir, score, 'score', bounds=[0., 0.5])
+    make_stats(dir, final_dist, 'finaldist', bounds=[0., 0.5])
     make_stats(dir, improvement, 'improvement', bounds=[-0.5, 0.5])
-    make_imp_score(score, improvement, dir)
+    make_imp_score(final_dist, improvement, dir)
 
     write_scores(conf, dir + '/results_all.txt', stat_array)
     print('writing {}'.format(dir))
@@ -74,9 +77,6 @@ def make_stats(dir, score, name, bounds):
     f = open(dir + '/{}_histo.txt'.format(name), 'w')
     for i in range(bin_edges.shape[0]-1):
         f.write('indices for bin {}, {} to {} : {} \n'.format(i, bin_edges[i], bin_edges[i+1], np.where(binned_ind == i+1)[0].tolist()))
-
-
-
 
 
 if __name__ == '__main__':

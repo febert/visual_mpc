@@ -35,7 +35,7 @@ env_params = {
 agent = {
     'type': BenchmarkAgent,
     'env': (AutograspSawyerMujocoEnv, env_params),
-    'T': 30,
+    'T': 3, ###########30,
     'image_height' : 48,
     'image_width' : 64,
     'novideo':'',
@@ -52,6 +52,7 @@ policy = {
     'verbose':True,
     # 'verbose_every_itr':"",
     'type': CEM_Controller_Vidpred,
+    'niter':1, ##############
     # 'stochastic_planning':[5, 'optimistic']
 }
 
@@ -60,7 +61,7 @@ config = {
     'current_dir': current_dir,
     'save_data': False,
     'start_index':0,
-    'end_index': 50,
+    'end_index': 1, #################50,
     'agent': agent,
     'policy': policy,
     'ngroup': 1000
