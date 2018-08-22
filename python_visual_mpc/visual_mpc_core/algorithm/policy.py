@@ -22,6 +22,8 @@ def get_policy_args(policy, obs, t, i_tr, step_data=None):
             value = obs
         elif arg == 'step_data':
             value = step_data
+        elif arg == 'goal_pos':
+            value = step_data['goal_pos']
 
         if value is Parameter.empty:
             # required parameters MUST be set by agent

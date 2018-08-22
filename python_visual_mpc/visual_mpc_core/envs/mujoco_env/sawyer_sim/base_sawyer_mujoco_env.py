@@ -9,6 +9,7 @@ import time
 from mujoco_py.builder import MujocoException
 import copy
 from python_visual_mpc.video_prediction.misc.makegifs2 import npy_to_gif
+import pdb
 
 
 def quat_to_zangle(quat):
@@ -118,13 +119,17 @@ class BaseSawyerMujocoEnv(BaseMujocoEnv):
     def _render_verbose(self):
         return self._verbose_vid.append(super().render()[0])
 
-    def reset(self):
+    def reset(self, reset_state=None):
         """
         It's pretty important that we specify which reset functions to call
         instead of using super().reset() and self.reset()
            - That's because Demonstration policies use multiple inheritance to function and the recursive
              self.reset() results in pretty nasty errors. The pro to this approach is demonstration envs are easy to create
         """
+
+        if reset_state is not None:
+            self._read_reset_state = reset_state
+
         BaseMujocoEnv.reset(self)
 
         last_rands, write_reset_state = [], {}
@@ -273,6 +278,7 @@ class BaseSawyerMujocoEnv(BaseMujocoEnv):
         # get images
         obs['images'] = self.render()
         obs['obj_image_locations'] = self.get_desig_pix(self._frame_width)
+        obs['goal_obj_pose'] = self._goal_obj_pose
 
         if 'stage' in obs:
             raise ValueError

@@ -1,104 +1,45 @@
 """ This file defines the linear Gaussian policy class. """
-import cv2
-import numpy as np
-from python_visual_mpc.visual_mpc_core.algorithm.cem_controller_goalimage_sawyer import reuse_cov, reuse_mean
-from python_visual_mpc.visual_mpc_core.algorithm.policy import Policy
-import time
 from python_visual_mpc.video_prediction.utils_vpred.create_gif_lib import *
-from mujoco_py import load_model_from_xml,load_model_from_path, MjSim, MjViewer
 import copy
-from datetime import datetime
-import os
-
-from PIL import Image
-import pdb
-from python_visual_mpc.visual_mpc_core.algorithm.cem_controller_goalimage_sawyer import construct_initial_sigma
-
-from pyquaternion import Quaternion
-from mujoco_py import load_model_from_xml,load_model_from_path, MjSim, MjViewer
-from python_visual_mpc.visual_mpc_core.agent.utils.get_masks import get_obj_masks
-from python_visual_mpc.visual_mpc_core.agent.utils.gen_gtruth_desig import gen_gtruthdesig
-from python_visual_mpc.visual_mpc_core.agent.utils.convert_world_imspace_mj1_5 import project_point, get_3D
-
-from python_visual_mpc.visual_mpc_core.agent.agent_mjc import get_target_qpos
-
 from .cem_controller_base import CEM_Controller_Base
-
 from python_visual_mpc.visual_mpc_core.agent.general_agent import resize_store
+
 
 class CEM_Controller_Sim(CEM_Controller_Base):
     """
     Cross Entropy Method Stochastic Optimizer
     """
-    def __init__(self, imiation_conf, ag_params, policyparams):
+    def __init__(self, ag_params, policyparams, gpu_id, ngpu):
         super(CEM_Controller_Sim, self).__init__(ag_params, policyparams)
 
-    def create_sim(self):
-        self.sim = MjSim(load_model_from_path(self.agentparams['gen_xml_fname']))
+    def _default_hparams(self):
+        default_dict = {
+            'len_pred':15
+        }
 
-    def finish(self):
-        self.viewer.finish()
+        parent_params = super()._default_hparams()
+        for k in default_dict.keys():
+            parent_params.add_hparam(k, default_dict[k])
+        return parent_params
+
+    def create_sim(self):
+        env_type, env_params = self.agentparams['env']
+        self.env = env_type(env_params, self.current_reset_state)
+        self.env.set_goal_obj_pose(self._goal_pos)
 
     def eval_action(self):
-        abs_distances = []
-        abs_angle_dist = []
-        qpos_dim = self.sdim // 2  # the states contains pos and vel
-
-        if 'gtruth_desig_goal_dist' in self.policyparams:
-            width = self.agentparams['viewer_image_width']
-            height = self.agentparams['viewer_image_height']
-            dlarge_img = self.sim.render(width, height, camera_name="maincam", depth=True)[1][::-1, :]
-            large_img = self.sim.render(width, height, camera_name="maincam")[::-1, :, :]
-            curr_img = cv2.resize(large_img, dsize=(self.agentparams['image_width'], self.agentparams['image_height']), interpolation = cv2.INTER_AREA)
-            _, curr_large_mask = get_obj_masks(self.sim, self.agentparams)
-            qpos_dim = self.sdim//2
-            i_ob = 0
-            obj_pose = self.sim.data.qpos[i_ob * 7 + qpos_dim:(i_ob + 1) * 7 + qpos_dim].squeeze()
-            desig_pix, goal_pix = gen_gtruthdesig(obj_pose, self.goal_obj_pose, curr_large_mask, dlarge_img, 10, self.agentparams, curr_img, self.goal_image)
-            total_d = []
-            for i in range(desig_pix.shape[0]):
-                total_d.append(np.linalg.norm(desig_pix[i] - goal_pix[i]))
-            return np.mean(total_d)
-        else:
-
-            for i_ob in range(self.agentparams['num_objects']):
-                goal_pos = self.goal_obj_pose[i_ob, :3]
-                curr_pose = self.sim.data.qpos[i_ob * 7 + qpos_dim:(i_ob+1) * 7 + qpos_dim].squeeze()
-                curr_pos = curr_pose[:3]
-
-                abs_distances.append(np.linalg.norm(goal_pos - curr_pos))
-
-                goal_quat = Quaternion(self.goal_obj_pose[i_ob, 3:])
-                curr_quat = Quaternion(curr_pose[3:])
-                diff_quat = curr_quat.conjugate*goal_quat
-                abs_angle_dist.append(np.abs(diff_quat.radians))
-
-        # return np.sum(np.array(abs_distances)), np.sum(np.array(abs_angle_dist))
-        return np.sum(np.array(abs_distances))
-
-    def calc_action_cost(self, actions):
-        actions_costs = np.zeros(self.M)
-        for smp in range(self.M):
-            force_magnitudes = np.array([np.linalg.norm(actions[smp, t]) for
-                                         t in range(self.naction_steps * self.repeat)])
-            actions_costs[smp]=np.sum(np.square(force_magnitudes)) * self.action_cost_mult
-        return actions_costs
-
-
-    def setup_mujoco(self):
-        env_type, env_params = self.agentparams['env']
-        self.env = env_type(env_params, self._reset_state)
+        return self.env.get_distance_score()
 
     def get_rollouts(self, actions, cem_itr, itr_times):
         all_scores = np.empty(self.M, dtype=np.float64)
         image_list = []
         for smp in range(self.M):
-            self.setup_mujoco()
+            self.env.reset(self.current_reset_state)
             score, images = self.sim_rollout(actions[smp])
             image_list.append(images)
             # print('score', score)
             per_time_multiplier = np.ones([len(score)])
-            per_time_multiplier[-1] = self.policyparams['finalweight']
+            per_time_multiplier[-1] = self._hp.finalweight
             all_scores[smp] = np.sum(per_time_multiplier*score)
 
             # if smp % 10 == 0 and self.verbose:
@@ -106,19 +47,22 @@ class CEM_Controller_Sim(CEM_Controller_Base):
 
         if self.verbose:
             bestindices = all_scores.argsort()[:self.K]
-            best_vids = [image_list[ind] for ind in bestindices]
-            vid = [np.concatenate([b[t_] for b in best_vids], 1) for t_ in range(self.naction_steps * self.repeat)]
+            images = np.concatenate(image_list, axis=0)
+            images = images[:,:,0]  # only first cam
+            images = images[bestindices]
+            pdb.set_trace()
+            vid = []
+            for t in range(self.naction_steps * self.repeat):
+                row = np.concatenate(np.split(images[:,t], images.shape[0], axis=0), axis=1)
+                vid.append(row)
             self.save_gif(vid, 't{}_iter{}'.format(self.t, cem_itr))
-
         return all_scores
-
-
 
     def old_get_rollouts(self, actions, cem_itr, itr_times):
         all_scores = np.empty(self.M, dtype=np.float64)
         image_list = []
         for smp in range(self.M):
-            self.setup_mujoco()
+            self.reset_mujoco_env()
             score, images = self.sim_rollout(actions[smp])
             image_list.append(images)
             # print('score', score)
@@ -159,11 +103,11 @@ class CEM_Controller_Sim(CEM_Controller_Base):
         :param initial_obs: Whether or not this is the first observation in rollout
         :return: obs: dictionary of observations up until (and including) current timestep
         """
-        agent_img_height = self._hyperparams['image_height']
-        agent_img_width = self._hyperparams['image_width']
+        agent_img_height = self.agentparams['image_height']
+        agent_img_width = self.agentparams['image_width']
 
         if initial_obs:
-            T = self._hyperparams['T'] + 1
+            T = self.len_pred + 1
             self._agent_cache = {}
             for k in env_obs:
                 if k == 'images':
@@ -182,13 +126,11 @@ class CEM_Controller_Sim(CEM_Controller_Base):
         t = self._cache_cntr
         self._cache_cntr += 1
 
-        point_target_width = float(self._hyperparams.get('point_space_width', agent_img_width))
+        point_target_width = float(self.agentparams.get('point_space_width', agent_img_width))
         obs = {}
         for k in env_obs:
             if k == 'images':
-                self.large_images_traj.append(env_obs['images'][0])  #only take first camera
                 resize_store(t, self._agent_cache['images'], env_obs['images'])
-
             elif k == 'obj_image_locations':
                 self.traj_points.append(copy.deepcopy(env_obs['obj_image_locations'][0]))  #only take first camera
                 env_obs['obj_image_locations'] = np.round((env_obs['obj_image_locations'] *
@@ -202,26 +144,21 @@ class CEM_Controller_Sim(CEM_Controller_Base):
 
         if 'obj_image_locations' in env_obs:
             agent_data['desig_pix'] = env_obs['obj_image_locations']
-        if self._goal_image is not None:
-            agent_data['goal_image'] = self._goal_image
-        if self._goal_obj_pose is not None:
-            agent_data['goal_pos'] = self._goal_obj_pose
-            agent_data['goal_pix'] = self.env.get_goal_pix(point_target_width)
         return obs
 
 
     def sim_rollout(self, actions):
         """
-                Rolls out policy for T timesteps
-                :param policy: Class extending abstract policy class. Must have act method (see arg passing details)
-                :param i_tr: Rollout attempt index (increment each time trajectory fails rollout)
-                :return: - agent_data: Dictionary of extra statistics/data collected by agent during rollout
-                         - obs: dictionary of environment's observations. Each key maps to that values time-history
-                         - policy_ouputs: list of policy's outputs at each timestep.
-                         Note: tfrecord saving assumes all keys in agent_data/obs/policy_outputs point to np arrays or primitive int/float
-                """
-        self._init()
-        agent_data, policy_outputs = {}, []
+        Rolls out policy for T timesteps
+        :param policy: Class extending abstract policy class. Must have act method (see arg passing details)
+        :param i_tr: Rollout attempt index (increment each time trajectory fails rollout)
+        :return: - agent_data: Dictionary of extra statistics/data collected by agent during rollout
+                 - obs: dictionary of environment's observations. Each key maps to that values time-history
+                 - policy_ouputs: list of policy's outputs at each timestep.
+                 Note: tfrecord saving assumes all keys in agent_data/obs/policy_outputs point to np arrays or primitive int/float
+        """
+
+        agent_data = {}
 
         # Take the sample.
         t = 0
@@ -229,7 +166,7 @@ class CEM_Controller_Sim(CEM_Controller_Base):
         initial_env_obs, _ = self.env.reset()
         obs = self._post_process_obs(initial_env_obs, agent_data, True)
 
-        traj_ok = True
+        costs = []
         while not done:
             """
             Every time step send observations to policy, acts in environment, and records observations
@@ -247,16 +184,13 @@ class CEM_Controller_Sim(CEM_Controller_Base):
             except ValueError:
                 return {'traj_ok': False}, None, None
 
-            self._required_rollout_metadata(agent_data, traj_ok, t)
-            if (self._hyperparams['T'] - 1) == t:
+            if (self.len_pred - 1) == t:
                 done = True
             t += 1
 
-        if not self.env.valid_rollout():
-            traj_ok = False
+            costs.append(self.eval_action())
 
-        self._required_rollout_metadata(agent_data, traj_ok, t)
-        return agent_data, obs, policy_outputs
+        return costs, obs['images']
 
     def old_sim_rollout(self, actions):
         costs = []
@@ -321,9 +255,12 @@ class CEM_Controller_Sim(CEM_Controller_Base):
             plt.legend()
             plt.show()
 
-    def act(self, traj, t, init_model=None, goal_obj_pose=None):
-        self.goal_obj_pose = copy.deepcopy(goal_obj_pose)
-        self.init_model = init_model
+    def act(self, i_tr, t, state, object_qpos, goal_pos, reset_state):
+        self.current_reset_state = reset_state
+        self.current_reset_state['state'] = state[t]
+        self.current_reset_state['object_qpos'] = object_qpos[t]
+        self._goal_pos = goal_pos
+
         if t == 0:
             self.create_sim()
-        return super(CEM_Controller_Sim, self).act(traj, t)
+        return super(CEM_Controller_Sim, self).act(i_tr, t)

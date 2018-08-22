@@ -119,14 +119,14 @@ class BaseMujocoEnv(BaseEnv):
         return goal_pix
 
     def eval(self, target_width, save_dir, ntasks):
-        self._goaldistances.append(self._get_distance_score())
+        self._goaldistances.append(self.get_distance_score())
         stats = {}
         stats['improvement'] = self._goaldistances[0] - self._goaldistances[-1]
         stats['initial_dist'] = self._goaldistances[0]
         stats['final_dist'] = self._goaldistances[-1]
         return stats
 
-    def _get_distance_score(self):
+    def get_distance_score(self):
         """
         :return:  mean of the distances between all objects and goals
         """

@@ -1,38 +1,21 @@
 """ This file defines the linear Gaussian policy class. """
-import pdb
 import numpy as np
-import IPython
-
 import pdb
 import os
-import copy
-import time
 import imp
-import pickle
-from datetime import datetime
-import copy
-from python_visual_mpc.video_prediction.basecls.utils.visualize import add_crosshairs
-
 from python_visual_mpc.visual_mpc_core.algorithm.utils.make_cem_visuals import CEM_Visual_Preparation
-
 import matplotlib; matplotlib.use('Agg'); import matplotlib.pyplot as plt
 import copy
-import pdb
-import collections
-import cv2
-from python_visual_mpc.visual_mpc_core.infrastructure.utility.logger import Logger
-
 from queue import Queue
 from threading import Thread
 if "NO_ROS" not in os.environ:
     from visual_mpc_rospkg.msg import floatarray
     from rospy.numpy_msg import numpy_msg
     import rospy
-
 import time
 from .utils.cem_controller_utils import save_track_pkl
-
 from .cem_controller_base import CEM_Controller_Base
+
 
 verbose_queue = Queue()
 def verbose_worker():
@@ -84,6 +67,7 @@ class CEM_Controller_Vidpred(CEM_Controller_Base):
             self.M = self.bsize
 
         assert self.naction_steps * self.repeat == self.seqlen
+        assert self.len_pred == self.seqlen - self.ncontxt
 
         self.ncontxt = self.netconf['context_frames']
 
@@ -121,7 +105,6 @@ class CEM_Controller_Vidpred(CEM_Controller_Base):
 
     def _default_hparams(self):
         default_dict = {
-            'type':None,
             'predictor_propagation':False,
             'trade_off_reg':False,
             'only_take_first_view':False,

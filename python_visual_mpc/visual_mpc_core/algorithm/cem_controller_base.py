@@ -93,9 +93,10 @@ class CEM_Controller_Base(Policy):
 
         self.ncam = 1
         self.ndesig = 1
-        self.best_cost_perstep = np.zeros([self.ncam, self.ndesig, self.repeat*self.naction_steps])
-        
-        
+        self.ncontxt = 0
+        self.len_pred = self.repeat*self.naction_steps - self.ncontxt
+        self.best_cost_perstep = np.zeros([self.ncam, self.ndesig, self.len_pred])
+
     def _default_hparams(self):
         default_dict = {
             'verbose': False,
@@ -122,6 +123,7 @@ class CEM_Controller_Base(Policy):
             'finalweight':10,
             'use_first_plan':False,
             'replan_interval':1,
+            'type':None,
         }
 
         parent_params = super()._default_hparams()
@@ -167,7 +169,7 @@ class CEM_Controller_Base(Policy):
             self.K = int(np.ceil(self.M*self._hp.selection_frac))
 
         self.bestindices_of_iter = np.zeros((self.niter, self.K))
-        self.cost_perstep = np.zeros([self.M, self.ncam, self.ndesig, self.seqlen - self.ncontxt])
+        self.cost_perstep = np.zeros([self.M, self.ncam, self.ndesig, self.len_pred])
 
         self.logger.log('M {}, K{}'.format(self.M, self.K))
         self.logger.log('------------------------------------------------')

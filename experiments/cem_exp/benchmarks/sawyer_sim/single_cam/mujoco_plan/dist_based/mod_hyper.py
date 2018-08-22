@@ -1,16 +1,9 @@
 """ Hyperparameters for Large Scale Data Collection (LSDC) """
-
 import os.path
-
 import numpy as np
-
-from python_visual_mpc.visual_mpc_core.algorithm.random_policy import Randompolicy, RandomPickPolicy
 from python_visual_mpc.visual_mpc_core.agent.general_agent import GeneralAgent
 from python_visual_mpc.visual_mpc_core.envs.mujoco_env.sawyer_sim.autograsp_sawyer_mujoco_env import AutograspSawyerMujocoEnv
-
-from python_visual_mpc.visual_mpc_core.algorithm.cem_controller_vidpred import CEM_Controller_Vidpred
-
-from python_visual_mpc.visual_mpc_core.algorithm.random_policy import Randompolicy, RandomPickPolicy
+from python_visual_mpc.visual_mpc_core.algorithm.cem_controller_sim import CEM_Controller_Sim
 from python_visual_mpc.visual_mpc_core.agent.benchmarking_agent import BenchmarkAgent
 
 
@@ -35,7 +28,7 @@ env_params = {
 agent = {
     'type': BenchmarkAgent,
     'env': (AutograspSawyerMujocoEnv, env_params),
-    'T': 30,
+    'T': 2, ##############30,
     'image_height' : 48,
     'image_width' : 64,
     'novideo':'',
@@ -50,9 +43,8 @@ agent = {
 
 policy = {
     'verbose':True,
-    # 'verbose_every_itr':"",
-    'type': CEM_Controller_Vidpred,
-    # 'stochastic_planning':[5, 'optimistic']
+    'type': CEM_Controller_Sim,
+    'num_samples':11,
 }
 
 config = {
