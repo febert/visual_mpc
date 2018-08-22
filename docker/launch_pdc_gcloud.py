@@ -22,7 +22,7 @@ def create_instance(proj_id, name, instance_num, exp_name, nworkers, nsplit):
     i = 0
     while ret_val != 0 and i < 100:
         zone = random.choice(zones)
-        gcloud_command = default_command.format(proj_id, instance_tag, zone, nworkers, nsplit, instance_num, exp_name)
+        gcloud_command = default_command.format(proj_id, name, instance_tag, zone, nworkers, nsplit, instance_num, exp_name)
         print('(retry {}) requesting instance: {}    in zone: {}'.format(i + 1, instance_tag, zone))
         ret_val = os.system(gcloud_command)
         print('(retry {}) returned with {}'.format(i + 1, ret_val))
@@ -34,8 +34,9 @@ if __name__ == '__main__':
     parser.add_argument('experiment', type=str, help='experiment path (aka ../visual_mpc/<exp_path> should be valid hparams')
     parser.add_argument('ninstances', type=int, help='number of instances')
     parser.add_argument('--instance_name', type=str, default='mpc', help='name of instance group')
-    parser.add_argument('--nworkers', type=int, help='number of worker proccesses per instance', default=120)
+    parser.add_argument('--offset', type=int, help="starting split", default=0)
+    parser.add_argument('--nworkers', type=int, help='number of worker proccesses per instance', default=45)
     args = parser.parse_args()
 
-    for i in range(args.ninstances):
+    for i in range(args.offset, args.ninstances):
         create_instance(args.project_id, args.instance_name, i, args.experiment, args.nworkers, args.ninstances)
