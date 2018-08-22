@@ -528,8 +528,6 @@ class Dynamic_Base_Model(object):
                     train_states.append(dataset['state', 'train'])
                     val_states.append(dataset['state', 'val'])
 
-                pdb.set_trace()
-
                 train_images, val_images = tf.concat(train_images, 0), tf.concat(val_images, 0)
                 train_states, val_states = tf.concat(train_states, 0), tf.concat(val_states, 0)
                 train_actions, val_actions = tf.concat(train_actions, 0), tf.concat(val_actions, 0)
