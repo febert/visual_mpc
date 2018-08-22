@@ -528,10 +528,12 @@ class Dynamic_Base_Model(object):
                     train_states.append(dataset['state', 'train'])
                     val_states.append(dataset['state', 'val'])
 
+                pdb.set_trace()
+
                 train_images, val_images = tf.concat(train_images, 0), tf.concat(val_images, 0)
                 train_states, val_states = tf.concat(train_states, 0), tf.concat(val_states, 0)
                 train_actions, val_actions = tf.concat(train_actions, 0), tf.concat(val_actions, 0)
-                images, actions, states = tf.cond(self.train_cond > 0,
+                images, states, actions = tf.cond(self.train_cond > 0,
                                                           # if 1 use trainigbatch else validation batch
                                                           lambda: [train_images, train_states, train_actions],
                                                           lambda: [val_images, val_states, val_actions],
@@ -549,6 +551,7 @@ class Dynamic_Base_Model(object):
                                                   lambda: [val_images, val_actions, val_states])
             if 'use_len' in conf:
                 images, states, actions = self.random_shift(images, states, actions)
+
 
         self.images = images
         self.states = states

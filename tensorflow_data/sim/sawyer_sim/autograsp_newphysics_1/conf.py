@@ -34,7 +34,7 @@ configuration = {
 'single_view':"",
 '1stimg_bckgd':'',
 'visual_flowvec':'',
-'adim':5,
+'adim':4,
 'sdim':5,
 'normalization':'in',
 'previmg_bckgd':'',
