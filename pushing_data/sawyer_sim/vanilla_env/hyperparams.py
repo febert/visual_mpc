@@ -32,8 +32,8 @@ agent = {
     'gen_xml':10,   #generate xml every nth trajectory
     'make_final_gif':'', #keep this key in if you want final gif to be created
     'record': BASE_DIR + '/record/',
-#    'master': 'sudeep@deepthought.banatao.berkeley.edu',
-#    'master_datadir': '/raid/sudeep/sawyer_sim/vanilla_lblock/'
+    'master': 'sudeep@deepthought.banatao.berkeley.edu',
+    'master_datadir': '/raid/sudeep/sawyer_sim/vanilla_lblock/'
 
 }
 
