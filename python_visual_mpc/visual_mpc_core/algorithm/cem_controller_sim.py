@@ -89,12 +89,12 @@ class SimWorker(object):
 
     def sim_rollout_with_retry(self, actions):
         done = False
-        while not done:
-            try:
-                costs, images = self.sim_rollout(actions)
-                done = True
-            except ValueError:
-                print('sim error retrying')
+        # while not done:
+            # try:
+        costs, images = self.sim_rollout(actions)
+        done = True
+            # except ValueError:
+            #     print('sim error retrying')
         return costs, images
 
     def sim_rollout(self, actions):
