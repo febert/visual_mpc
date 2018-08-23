@@ -111,13 +111,13 @@ def main():
         if 'data_save_dir' in hyperparams['agent']:
             data_save_path = hyperparams['agent']['data_save_dir'].partition('pushing_data')[2]
             hyperparams['agent']['data_save_dir'] = os.environ['RESULT_DIR'] + data_save_path
-
     elif 'EXPERIMENT_DIR' in os.environ:
         subpath = hyperparams['current_dir'].partition('experiments')[2]
         result_dir = os.path.join(os.environ['EXPERIMENT_DIR'] + subpath)
-
     elif args.cloud:
         hyperparams['agent']['data_save_dir'] = '/result/'    # by default save code to the /result folder in docker image
+    else:
+        result_dir = hyperparams['current_dir'] + '/verbose'
 
     if 'master_datadir' in hyperparams['agent']:
         ray.init()
