@@ -169,7 +169,7 @@ class CEM_Controller_Base(Policy):
             self.K = int(np.ceil(self.M*self._hp.selection_frac))
 
         self.bestindices_of_iter = np.zeros((self.niter, self.K))
-        self.cost_perstep = np.zeros([self.M, self.ncam, self.ndesig, self.len_pred])
+        self.cost_perstep = np.zeros([self.M, self.ncam, self.ndesig, self.repeat*self.naction_steps - self.ncontxt])
 
         self.logger.log('M {}, K{}'.format(self.M, self.K))
         self.logger.log('------------------------------------------------')

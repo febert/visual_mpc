@@ -28,7 +28,7 @@ env_params = {
 agent = {
     'type': BenchmarkAgent,
     'env': (AutograspSawyerMujocoEnv, env_params),
-    'T': 2, ##############30,
+    'T': 30,
     'image_height' : 48,
     'image_width' : 64,
     'novideo':'',
@@ -44,7 +44,6 @@ agent = {
 policy = {
     'verbose':True,
     'type': CEM_Controller_Sim,
-    'num_samples':11,
 }
 
 config = {

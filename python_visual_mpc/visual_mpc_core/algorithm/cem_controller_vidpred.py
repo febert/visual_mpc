@@ -97,7 +97,7 @@ class CEM_Controller_Vidpred(CEM_Controller_Base):
             self._thread.start()
         self.goal_image = None
 
-        self.best_cost_perstep = np.zeros([self.ncam, self.ndesig, self.seqlen - self.ncontxt])
+        self.best_cost_perstep = np.zeros([self.ncam, self.ndesig, self.seqlen])
 
         self.ntask = self.ndesig  # will be overwritten in derived classes
         self.vd = VisualzationData()
