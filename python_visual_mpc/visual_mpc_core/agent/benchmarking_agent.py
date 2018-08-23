@@ -76,7 +76,10 @@ class BenchmarkAgent(GeneralAgent):
         goal_images = np.zeros([num_images, self.ncam, self._hyperparams['image_height'], self._hyperparams['image_width'], 3])
         for t in range(num_images):  #TODO detect number of images automatically in folder
             for i in range(self.ncam):
-                goal_images[t, i] = cv2.imread('{}/images{}/im_{}.png'.format(traj_folder, i, t))[...,::-1]
+                image_file = '{}/images{}/im_{}.png'.format(traj_folder, i, t)
+                if not os.path.isfile(image_file):
+                    raise(ValueError, 'goal image not found!')
+                goal_images[t, i] = cv2.imread(image_file)[...,::-1]
         self._goal_image = goal_images.astype(np.float32)/255.
 
         with open('{}/agent_data.pkl'.format(traj_folder), 'rb') as file:

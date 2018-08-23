@@ -44,6 +44,7 @@ agent = {
 policy = {
     'verbose':True,
     'type': CEM_Controller_Sim,
+    'num_workers':10,
 }
 
 config = {
