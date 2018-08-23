@@ -126,7 +126,6 @@ class BaseSawyerMujocoEnv(BaseMujocoEnv):
            - That's because Demonstration policies use multiple inheritance to function and the recursive
              self.reset() results in pretty nasty errors. The pro to this approach is demonstration envs are easy to create
         """
-
         if reset_state is not None:
             self._read_reset_state = reset_state
 

@@ -5,7 +5,7 @@ from .cem_controller_base import CEM_Controller_Base
 from python_visual_mpc.visual_mpc_core.agent.general_agent import resize_store
 import ray
 
-@ray.remote
+# @ray.remote
 class SimWorker(object):
     def __init__(self):
         print('created worker')
@@ -23,6 +23,15 @@ class SimWorker(object):
         env_type, env_params = self.agentparams['env']
         self.env = env_type(env_params, self.current_reset_state)
         self.env.set_goal_obj_pose(self._goal_pos)
+
+    def recreate_sim(self):
+        env_type, env_params = self.agentparams['env']
+        env_params['verbose_dir'] = '/home/frederik/Desktop/'
+        self.env = env_type(env_params, self.current_reset_state)
+        self.env.set_goal_obj_pose(self._goal_pos)
+        
+        # for debug:
+
 
     def eval_action(self):
         return self.env.get_distance_score()
@@ -89,12 +98,14 @@ class SimWorker(object):
 
     def sim_rollout_with_retry(self, actions):
         done = False
-        # while not done:
-            # try:
-        costs, images = self.sim_rollout(actions)
-        done = True
-            # except ValueError:
-            #     print('sim error retrying')
+        while not done:
+            try:
+                costs, images = self.sim_rollout(actions)
+                done = True
+            except ValueError:
+                pdb.set_trace()
+                self.recreate_sim()
+                print('sim error retrying')
         return costs, images
 
     def sim_rollout(self, actions):
@@ -129,10 +140,7 @@ class SimWorker(object):
             Environment steps given action and returns an observation
             """
 
-            try:
-                obs = self._post_process_obs(self.env.step(actions[t]), agent_data)
-            except ValueError:
-                return {'traj_ok': False}, None, None
+            obs = self._post_process_obs(self.env.step(actions[t]), agent_data)
 
             if (self.len_pred - 1) == t:
                 done = True
@@ -165,7 +173,7 @@ class CEM_Controller_Sim(CEM_Controller_Base):
     """
     def __init__(self, ag_params, policyparams, gpu_id, ngpu):
         super(CEM_Controller_Sim, self).__init__(ag_params, policyparams)
-        self.parallel = True
+        self.parallel = False
         if self.parallel:
             ray.init()
 
