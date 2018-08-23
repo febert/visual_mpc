@@ -289,6 +289,7 @@ class BaseSawyerMujocoEnv(BaseMujocoEnv):
         xyztheta = np.zeros(4)
         xyztheta[:3] = self.sim.data.get_body_xpos('hand')
         xyztheta[3] = quat_to_zangle(self.sim.data.get_body_xquat('hand'))
+
         if not all(np.logical_and(xyztheta <= high_bound[:4] + 0.05, xyztheta >= low_bound[:4] - 0.05)):
             print('robot', xyztheta)
             return False
@@ -306,7 +307,7 @@ class BaseSawyerMujocoEnv(BaseMujocoEnv):
     def step(self, action):
         if not self._sim_integrity():
             print('Sim reset (integrity)')
-            raise ValueError
+            # raise ValueError   ########################################
 
         target_qpos = np.clip(self._next_qpos(action), low_bound, high_bound)
         assert target_qpos.shape[0] == self._base_sdim

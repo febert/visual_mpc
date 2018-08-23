@@ -3,88 +3,29 @@ from python_visual_mpc.video_prediction.utils_vpred.create_gif_lib import *
 import copy
 from .cem_controller_base import CEM_Controller_Base
 from python_visual_mpc.visual_mpc_core.agent.general_agent import resize_store
+import ray
 
+@ray.remote
+class SimWorker(object):
+    def __init__(self):
+        print('created worker')
+        pass
 
-class CEM_Controller_Sim(CEM_Controller_Base):
-    """
-    Cross Entropy Method Stochastic Optimizer
-    """
-    def __init__(self, ag_params, policyparams, gpu_id, ngpu):
-        super(CEM_Controller_Sim, self).__init__(ag_params, policyparams)
-
-    def _default_hparams(self):
-        default_dict = {
-            'len_pred':15
-        }
-
-        parent_params = super()._default_hparams()
-        for k in default_dict.keys():
-            parent_params.add_hparam(k, default_dict[k])
-        return parent_params
-
-    def create_sim(self):
+    def create_sim(self, agentparams, reset_state, goal_pos, finalweight, len_pred):
+    # def create_sim(self, a):
+        print('create sim')
+        self.M = None
+        self.agentparams = agentparams
+        self.current_reset_state = reset_state
+        self._goal_pos = goal_pos
+        self.len_pred = len_pred
+        self.finalweight = finalweight
         env_type, env_params = self.agentparams['env']
         self.env = env_type(env_params, self.current_reset_state)
         self.env.set_goal_obj_pose(self._goal_pos)
 
     def eval_action(self):
         return self.env.get_distance_score()
-
-    def get_rollouts(self, actions, cem_itr, itr_times):
-        all_scores = np.empty(self.M, dtype=np.float64)
-        image_list = []
-        for smp in range(self.M):
-            self.env.reset(self.current_reset_state)
-            score, images = self.sim_rollout(actions[smp])
-            image_list.append(images)
-            # print('score', score)
-            per_time_multiplier = np.ones([len(score)])
-            per_time_multiplier[-1] = self._hp.finalweight
-            all_scores[smp] = np.sum(per_time_multiplier*score)
-
-            # if smp % 10 == 0 and self.verbose:
-            #     self.save_gif(images, '_{}'.format(smp))
-
-        if self.verbose:
-            bestindices = all_scores.argsort()[:self.K]
-            images = np.concatenate(image_list, axis=0)
-            images = images[:,:,0]  # only first cam
-            images = images[bestindices]
-            pdb.set_trace()
-            vid = []
-            for t in range(self.naction_steps * self.repeat):
-                row = np.concatenate(np.split(images[:,t], images.shape[0], axis=0), axis=1)
-                vid.append(row)
-            self.save_gif(vid, 't{}_iter{}'.format(self.t, cem_itr))
-        return all_scores
-
-    def old_get_rollouts(self, actions, cem_itr, itr_times):
-        all_scores = np.empty(self.M, dtype=np.float64)
-        image_list = []
-        for smp in range(self.M):
-            self.reset_mujoco_env()
-            score, images = self.sim_rollout(actions[smp])
-            image_list.append(images)
-            # print('score', score)
-            per_time_multiplier = np.ones([len(score)])
-            per_time_multiplier[-1] = self.policyparams['finalweight']
-            all_scores[smp] = np.sum(per_time_multiplier*score)
-
-            # if smp % 10 == 0 and self.verbose:
-            #     self.save_gif(images, '_{}'.format(smp))
-
-        if self.verbose:
-            bestindices = all_scores.argsort()[:self.K]
-            best_vids = [image_list[ind] for ind in bestindices]
-            vid = [np.concatenate([b[t_] for b in best_vids], 1) for t_ in range(self.naction_steps * self.repeat)]
-            self.save_gif(vid, 't{}_iter{}'.format(self.t, cem_itr))
-
-        return all_scores
-
-    def save_gif(self, images, name):
-        file_path = self.agentparams['record']
-        npy_to_gif(images, file_path +'/video'+name)
-
 
     def _post_process_obs(self, env_obs, agent_data, initial_obs=False):
         """
@@ -146,6 +87,15 @@ class CEM_Controller_Sim(CEM_Controller_Base):
             agent_data['desig_pix'] = env_obs['obj_image_locations']
         return obs
 
+    def sim_rollout_with_retry(self, actions):
+        done = False
+        while not done:
+            try:
+                costs, images = self.sim_rollout(actions)
+                done = True
+            except ValueError:
+                print('sim error retrying')
+        return costs, images
 
     def sim_rollout(self, actions):
         """
@@ -163,7 +113,7 @@ class CEM_Controller_Sim(CEM_Controller_Base):
         # Take the sample.
         t = 0
         done = False
-        initial_env_obs, _ = self.env.reset()
+        initial_env_obs, _ = self.env.reset(self.current_reset_state)
         obs = self._post_process_obs(initial_env_obs, agent_data, True)
 
         costs = []
@@ -192,52 +142,110 @@ class CEM_Controller_Sim(CEM_Controller_Base):
 
         return costs, obs['images']
 
-    def old_sim_rollout(self, actions):
-        costs = []
-        self.hf_qpos_l = []
-        self.hf_target_qpos_l = []
 
-        images = []
-        self.gripper_closed = False
-        self.gripper_up = False
-        self.t_down = 0
+    def perform_rollouts(self, actions):
+        self.M = actions.shape[0]
+        all_scores = np.empty(self.M, dtype=np.float64)
+        image_list = []
 
-        for t in range(self.naction_steps * self.repeat):
-            mj_U = actions[t]
-            # print 'time ',t, ' target pos rollout: ', roll_target_pos
+        for smp in range(self.M):
+            score, images = self.sim_rollout_with_retry(actions[smp])
+            image_list.append(images[1:].squeeze())
+            # print('score', score)
+            per_time_multiplier = np.ones([len(score)])
+            per_time_multiplier[-1] = self.finalweight
+            all_scores[smp] = np.sum(per_time_multiplier*score)
 
-            if 'posmode' in self.agentparams:  #if the output of act is a positions
-                if t == 0:
-                    self.prev_target_qpos = copy.deepcopy(self.sim.data.qpos[:self.adim].squeeze())
-                    self.target_qpos = copy.deepcopy(self.sim.data.qpos[:self.adim].squeeze())
-                else:
-                    self.prev_target_qpos = copy.deepcopy(self.target_qpos)
+        return np.stack(image_list, 0), np.stack(all_scores, 0)
 
-                zpos = self.sim.data.qpos[2]
-                self.target_qpos, self.t_down, self.gripper_up, self.gripper_closed = get_target_qpos(
-                    self.target_qpos, self.agentparams, mj_U, t, self.gripper_up, self.gripper_closed, self.t_down, zpos)
-                # print('target_qpos', self.target_qpos)
+
+class CEM_Controller_Sim(CEM_Controller_Base):
+    """
+    Cross Entropy Method Stochastic Optimizer
+    """
+    def __init__(self, ag_params, policyparams, gpu_id, ngpu):
+        super(CEM_Controller_Sim, self).__init__(ag_params, policyparams)
+        self.parallel = True
+        if self.parallel:
+            ray.init()
+
+    def _default_hparams(self):
+        default_dict = {
+            'len_pred':15
+        }
+
+        parent_params = super()._default_hparams()
+        for k in default_dict.keys():
+            parent_params.add_hparam(k, default_dict[k])
+        return parent_params
+
+    def create_sim(self):
+        self.workers = []
+        if self.parallel:
+            self.n_worker = 10
+        else:
+            self.n_worker = 1
+
+        for i in range(self.n_worker):
+            if self.parallel:
+                self.workers.append(SimWorker.remote())
             else:
-                ctrl = mj_U.copy()
+                self.workers.append(SimWorker())
 
-            for st in range(self.agentparams['substeps']):
-                if 'posmode' in self.agentparams:
-                    ctrl = self.get_int_targetpos(st, self.prev_target_qpos, self.target_qpos)
-                self.sim.data.ctrl[:] = ctrl
-                self.sim.step()
-                self.hf_qpos_l.append(copy.deepcopy(self.sim.data.qpos))
-                self.hf_target_qpos_l.append(copy.deepcopy(ctrl))
+        id_list = []
+        for i, worker in enumerate(self.workers):
+            if self.parallel:
+                a = 0
+                # id_list.append(worker.create_sim.remote(a))
+                id_list.append(worker.create_sim.remote(self.agentparams, self.reset_state, self.goal_pos, self._hp.finalweight, self.len_pred))
+                # id_list.append(worker.create_sim.remote())
+            else:
+                return worker.create_sim(self.agentparams, self.reset_state, self.goal_pos, self._hp.final_weight, self.len_pred)
 
-            costs.append(self.eval_action())
+        if self.parallel:
+            # blocking call
+            for id in id_list:
+                ray.get(id)
 
-            if self.verbose:
-                width = self.agentparams['viewer_image_width']
-                height = self.agentparams['viewer_image_height']
-                images.append(self.sim.render(width, height, camera_name="maincam")[::-1, :, :])
+    def get_rollouts(self, actions, cem_itr, itr_times):
+        images, all_scores = self.sim_rollout_parallel(actions)
+        if self.verbose:
+            bestindices = all_scores.argsort()[:self.K]
+            images = images[bestindices]
+            vid = []
+            for t in range(self.naction_steps * self.repeat):
+                row = np.concatenate(np.split(images[:,t], images.shape[0], axis=0), axis=2).squeeze()
+                vid.append(row)
+            self.save_gif(vid, 't{}_iter{}'.format(self.t, cem_itr))
+        return all_scores
 
-            # print(t)
-        # self.plot_ctrls()
-        return np.stack(costs, axis=0), images
+
+    def save_gif(self, images, name):
+        file_path = self.agentparams['record']
+        npy_to_gif(images, file_path +'/video' + name)
+
+    def sim_rollout_parallel(self, actions):
+        n_smp = actions.shape[0]
+
+        per_worker = int(n_smp / np.float32(self.n_worker))
+
+        id_list = []
+        for i, worker in enumerate(self.workers):
+            subset_actions = actions[per_worker*i:(i+1)*per_worker]
+            if self.parallel:
+                id_list.append(worker.perform_rollouts.remote(subset_actions))
+            else:
+                return worker.perform_rollouts(subset_actions)
+
+        # blocking call
+        image_list, scores_list = [], []
+        for id in id_list:
+            images, scores = ray.get(id)
+            image_list.append(images)
+            scores_list.append(scores)
+        scores = np.concatenate(scores_list, axis=0)
+        images = np.concatenate(image_list, axis=0)
+        return images, scores
 
     def get_int_targetpos(self, substep, prev, next):
         assert substep >= 0 and substep < self.agentparams['substeps']
@@ -255,12 +263,12 @@ class CEM_Controller_Sim(CEM_Controller_Base):
             plt.legend()
             plt.show()
 
-    def act(self, i_tr, t, state, object_qpos, goal_pos, reset_state):
-        self.current_reset_state = reset_state
-        self.current_reset_state['state'] = state[t]
-        self.current_reset_state['object_qpos'] = object_qpos[t]
-        self._goal_pos = goal_pos
+    def act(self, t, i_tr, state, object_qpos, goal_pos, reset_state):
+        self.reset_state = reset_state
+        self.reset_state['state'] = state[t]
+        self.reset_state['object_qpos'] = object_qpos[t]
+        self.goal_pos = goal_pos
 
         if t == 0:
             self.create_sim()
-        return super(CEM_Controller_Sim, self).act(i_tr, t)
+        return super(CEM_Controller_Sim, self).act(t, i_tr)

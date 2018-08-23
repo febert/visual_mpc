@@ -62,7 +62,7 @@ class CEM_Controller_Base(Policy):
         else:
             self.M = self._hp.num_samples
 
-        if self._hp.selection_frac:
+        if self._hp.selection_frac != -1:
             self.K = int(np.ceil(self.M*self._hp.selection_frac))
         else:
             self.K = 10  # only consider K best samples for refitting
@@ -103,7 +103,7 @@ class CEM_Controller_Base(Policy):
             'verbose_every_itr':False,
             'niter': 3,
             'num_samples': 200,
-            'selection_frac': False, # specifcy which fraction of best samples to use to compute mean and var for next CEM iteration
+            'selection_frac': -1., # specifcy which fraction of best samples to use to compute mean and var for next CEM iteration
             'discrete_ind':None,
             'reuse_mean':False,
             'reuse'
@@ -122,7 +122,7 @@ class CEM_Controller_Base(Policy):
             'initial_std_rot': np.pi / 18,
             'finalweight':10,
             'use_first_plan':False,
-            'replan_interval':1,
+            'replan_interval':-1,
             'type':None,
         }
 
@@ -332,7 +332,7 @@ class CEM_Controller_Base(Policy):
                 if t == 1:
                     self.perform_CEM()
                 action = self.bestaction_withrepeat[t]
-            elif self._hp.replan_interval:
+            elif self._hp.replan_interval != -1:
                 if (t-1) % self._hp.replan_interval == 0:
                     self.last_replan = t
                     self.perform_CEM()
@@ -342,7 +342,6 @@ class CEM_Controller_Base(Policy):
             else:
                 self.perform_CEM()
                 action = self.bestaction[0]
-
                 self.logger.log('########')
                 self.logger.log('best action sequence: ')
                 for i in range(self.bestaction.shape[0]):
