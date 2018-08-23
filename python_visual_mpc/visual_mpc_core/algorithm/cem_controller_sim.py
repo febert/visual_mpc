@@ -171,7 +171,8 @@ class CEM_Controller_Sim(CEM_Controller_Base):
 
     def _default_hparams(self):
         default_dict = {
-            'len_pred':15
+            'len_pred':15,
+            'num_workers':40,
         }
 
         parent_params = super()._default_hparams()
@@ -182,7 +183,7 @@ class CEM_Controller_Sim(CEM_Controller_Base):
     def create_sim(self):
         self.workers = []
         if self.parallel:
-            self.n_worker = 10
+            self.n_worker = self._hp.num_workers
         else:
             self.n_worker = 1
 
