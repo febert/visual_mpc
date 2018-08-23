@@ -201,7 +201,7 @@ class CEM_Controller_Sim(CEM_Controller_Base):
                 id_list.append(worker.create_sim.remote(self.agentparams, self.reset_state, self.goal_pos, self._hp.finalweight, self.len_pred))
                 # id_list.append(worker.create_sim.remote())
             else:
-                return worker.create_sim(self.agentparams, self.reset_state, self.goal_pos, self._hp.final_weight, self.len_pred)
+                return worker.create_sim(self.agentparams, self.reset_state, self.goal_pos, self._hp.finalweight, self.len_pred)
 
         if self.parallel:
             # blocking call

@@ -292,14 +292,17 @@ class BaseSawyerMujocoEnv(BaseMujocoEnv):
 
         if not all(np.logical_and(xyztheta <= high_bound[:4] + 0.05, xyztheta >= low_bound[:4] - 0.05)):
             print('robot', xyztheta)
+            # pdb.set_trace()
             return False
 
         for i in range(self.num_objects):
             obj_xy = self._last_obs['object_poses_full'][i][:2]
             z = self._last_obs['object_poses_full'][i][2]
             if not all(np.logical_and(obj_xy <= high_bound[:2] + 0.05, obj_xy >= low_bound[:2] - 0.05)):
+                # pdb.set_trace()
                 return False
             if z >= 0.5 or z <= -0.1:
+                # pdb.set_trace()
                 return False
 
         return True
@@ -307,7 +310,7 @@ class BaseSawyerMujocoEnv(BaseMujocoEnv):
     def step(self, action):
         if not self._sim_integrity():
             print('Sim reset (integrity)')
-            # raise ValueError   ########################################
+            raise ValueError
 
         target_qpos = np.clip(self._next_qpos(action), low_bound, high_bound)
         assert target_qpos.shape[0] == self._base_sdim

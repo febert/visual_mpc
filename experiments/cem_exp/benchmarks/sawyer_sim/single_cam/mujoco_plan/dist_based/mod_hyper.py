@@ -19,7 +19,7 @@ env_params = {
     'object_mass': 0.1,
     'friction': 1,
     'finger_sensors': True,
-    'substeps': 100,
+    'substeps': 10, # 100, ###############
      'autograsp': {'zthresh': 0.18, 'touchthresh': 0.0, 'reopen': True},
     'object_meshes': ['Bowl'],
     'ncam':1,
