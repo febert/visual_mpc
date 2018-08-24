@@ -29,9 +29,6 @@ class SimWorker(object):
         env_params['verbose_dir'] = '/home/frederik/Desktop/'
         self.env = env_type(env_params, self.current_reset_state)
         self.env.set_goal_obj_pose(self._goal_pos)
-        
-        # for debug:
-
 
     def eval_action(self):
         return self.env.get_distance_score()
