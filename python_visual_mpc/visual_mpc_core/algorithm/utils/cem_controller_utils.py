@@ -135,16 +135,39 @@ def reuse_cov(sigma, adim, hp):
     sigma[-adim:, -adim:] = construct_initial_sigma(hp)[:adim, :adim]
     return sigma
 
-def reuse_mean(mean, hp):
+def reuse_action(prev_action, hp):
     assert hp.replan_interval == 3
     print('reusing mean form last MPC step...')
-    mean_old = mean.copy()
-    mean = np.zeros_like(mean_old)
-    mean[:-1] = mean_old[1:]
-    return mean.flatten()
+    action = np.zeros_like(prev_action)
+    action[:-1] = prev_action[1:]
+    return action.flatten()
 
-def truncate_movement(actions, policyparams):
-    maxshift = policyparams.initial_std*2
+def sample_actions(mean, sigma, hp, M):
+    actions = np.random.multivariate_normal(mean, sigma, M)
+    actions = actions.reshape(M, hp.naction_steps, hp.adim)
+    if hp.discrete_ind != None:
+        actions = discretize(actions, M, hp.naction_steps, hp.discrete_ind)
+
+    if hp.action_bound:
+        actions = truncate_movement(actions, hp)
+    actions = np.repeat(actions, hp.repeat, axis=1)
+
+    return actions
+
+def discretize(actions, M, naction_steps, discrete_ind):
+    """
+    discretize and clip between 0 and 4
+    :param actions:
+    :return:
+    """
+    for b in range(M):
+        for a in range(naction_steps):
+            for ind in discrete_ind:
+                actions[b, a, ind] = np.clip(np.floor(actions[b, a, ind]), 0, 4)
+    return actions
+
+def truncate_movement(actions, hp):
+    maxshift = hp.initial_std * 2
 
     if len(actions.shape) == 3:
         actions[:,:,:2] = np.clip(actions[:,:,:2], -maxshift, maxshift)  # clip in units of meters

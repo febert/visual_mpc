@@ -337,7 +337,7 @@ class BaseSawyerMujocoEnv(BaseMujocoEnv):
                 try:
                     self.sim.step()
                 except MujocoException:
-                    print('Sim reset (bad contact)')
+                    print('Sim reset (bad contact) 1')
                     raise ValueError
             if self._hp.verbose_dir is not None and st % 10 == 0:
                 self._render_verbose()
@@ -353,7 +353,7 @@ class BaseSawyerMujocoEnv(BaseMujocoEnv):
             try:
                 self.sim.step()
             except MujocoException:
-                print('Sim reset (bad contact)')
+                print('Sim reset (bad contact) 2')
                 raise ValueError
 
             if self._hp.verbose_dir is not None and st % 200 == 0:

@@ -4,6 +4,8 @@ import copy
 from .cem_controller_base import CEM_Controller_Base
 from python_visual_mpc.visual_mpc_core.agent.general_agent import resize_store
 import ray
+import traceback
+from python_visual_mpc.visual_mpc_core.algorithm.utils.cem_controller_utils import sample_actions
 
 # @ray.remote
 class SimWorker(object):
@@ -11,18 +13,29 @@ class SimWorker(object):
         print('created worker')
         pass
 
-    def create_sim(self, agentparams, reset_state, goal_pos, finalweight, len_pred):
-    # def create_sim(self, a):
+    def create_sim(self, agentparams, reset_state, goal_pos, finalweight, len_pred,
+                   naction_steps, discrete_ind, action_bound, adim, repeat, initial_std):
         print('create sim')
-        self.M = None
         self.agentparams = agentparams
         self.current_reset_state = reset_state
         self._goal_pos = goal_pos
         self.len_pred = len_pred
         self.finalweight = finalweight
         env_type, env_params = self.agentparams['env']
+        env_params['verbose_dir'] = '/home/frederik/Desktop/'
         self.env = env_type(env_params, self.current_reset_state)
         self.env.set_goal_obj_pose(self._goal_pos)
+
+        # hyperparams passed into sample_action function
+        class HP(object):
+            def __init__(self, naction_steps, discrete_ind, action_bound, adim, repeat, initial_std):
+                self.naction_steps = naction_steps
+                self.discrete_ind = discrete_ind
+                self.action_bound = action_bound
+                self.adim = adim
+                self.repeat = repeat
+                self.initial_std = initial_std
+        self.hp = HP(naction_steps, discrete_ind, action_bound, adim, repeat, initial_std)
 
     def recreate_sim(self):
         env_type, env_params = self.agentparams['env']
@@ -93,68 +106,44 @@ class SimWorker(object):
             agent_data['desig_pix'] = env_obs['obj_image_locations']
         return obs
 
-    def sim_rollout_with_retry(self, actions):
-        done = False
-        while not done:
-            try:
-                costs, images = self.sim_rollout(actions)
-                done = True
-            except ValueError:
-                pdb.set_trace()
-                self.recreate_sim()
-                print('sim error retrying')
+    def sim_rollout_with_retry(self, mean, sigma):
+        # done = False
+        # while not done:
+        #     try:
+        actions = sample_actions(mean, sigma, self.hp, 1)
+        costs, images = self.sim_rollout(actions[0])
+            #     done = True
+            # except Exception as err:
+            #     try:
+            #         raise TypeError("Again !?!")
+            #     except:
+            #         pass
+            #     traceback.print_tb(err.__traceback__)
+            #     # pdb.set_trace()
+            #     print('sim error retrying')
         return costs, images
 
     def sim_rollout(self, actions):
-        """
-        Rolls out policy for T timesteps
-        :param policy: Class extending abstract policy class. Must have act method (see arg passing details)
-        :param i_tr: Rollout attempt index (increment each time trajectory fails rollout)
-        :return: - agent_data: Dictionary of extra statistics/data collected by agent during rollout
-                 - obs: dictionary of environment's observations. Each key maps to that values time-history
-                 - policy_ouputs: list of policy's outputs at each timestep.
-                 Note: tfrecord saving assumes all keys in agent_data/obs/policy_outputs point to np arrays or primitive int/float
-        """
-
         agent_data = {}
-
-        # Take the sample.
         t = 0
         done = False
         initial_env_obs, _ = self.env.reset(self.current_reset_state)
         obs = self._post_process_obs(initial_env_obs, agent_data, True)
-
         costs = []
         while not done:
-            """
-            Every time step send observations to policy, acts in environment, and records observations
-
-            Policy arguments are created by
-                - populating a kwarg dict using get_policy_arg
-                - calling policy.act with given dictionary
-
-            Policy returns an object (pi_t) where pi_t['actions'] is an action that can be fed to environment
-            Environment steps given action and returns an observation
-            """
-
             obs = self._post_process_obs(self.env.step(actions[t]), agent_data)
-
             if (self.len_pred - 1) == t:
                 done = True
             t += 1
-
             costs.append(self.eval_action())
-
         return costs, obs['images']
 
-
-    def perform_rollouts(self, actions):
-        self.M = actions.shape[0]
-        all_scores = np.empty(self.M, dtype=np.float64)
+    def perform_rollouts(self, mean, sigma, M):
+        all_scores = np.empty(M, dtype=np.float64)
         image_list = []
 
-        for smp in range(self.M):
-            score, images = self.sim_rollout_with_retry(actions[smp])
+        for smp in range(M):
+            score, images = self.sim_rollout_with_retry(mean, sigma)
             image_list.append(images[1:].squeeze())
             # print('score', score)
             per_time_multiplier = np.ones([len(score)])
@@ -201,20 +190,19 @@ class CEM_Controller_Sim(CEM_Controller_Base):
         id_list = []
         for i, worker in enumerate(self.workers):
             if self.parallel:
-                a = 0
-                # id_list.append(worker.create_sim.remote(a))
-                id_list.append(worker.create_sim.remote(self.agentparams, self.reset_state, self.goal_pos, self._hp.finalweight, self.len_pred))
-                # id_list.append(worker.create_sim.remote())
+                id_list.append(worker.create_sim.remote(self.agentparams, self.reset_state, self.goal_pos, self._hp.finalweight, self.len_pred,
+                                         self.naction_steps, self._hp.discrete_ind, self._hp.action_bound, self.adim, self.repeat, self._hp.initial_std))               # id_list.append(worker.create_sim.remote())
             else:
-                return worker.create_sim(self.agentparams, self.reset_state, self.goal_pos, self._hp.finalweight, self.len_pred)
-
+                return worker.create_sim(self.agentparams, self.reset_state, self.goal_pos, self._hp.finalweight, self.len_pred,
+                                         self.naction_steps, self._hp.discrete_ind, self._hp.action_bound, self.adim, self.repeat, self._hp.initial_std)
         if self.parallel:
             # blocking call
             for id in id_list:
                 ray.get(id)
 
-    def get_rollouts(self, actions, cem_itr, itr_times):
-        images, all_scores = self.sim_rollout_parallel(actions)
+    def get_rollouts(self, _, cem_itr, itr_times):
+        images, all_scores = self.sim_rollout_parallel()
+
         if self.verbose:
             bestindices = all_scores.argsort()[:self.K]
             images = images[bestindices]
@@ -230,18 +218,14 @@ class CEM_Controller_Sim(CEM_Controller_Base):
         file_path = self.agentparams['record']
         npy_to_gif(images, file_path +'/video' + name)
 
-    def sim_rollout_parallel(self, actions):
-        n_smp = actions.shape[0]
-
-        per_worker = int(n_smp / np.float32(self.n_worker))
-
+    def sim_rollout_parallel(self):
+        per_worker = int(self.M / np.float32(self.n_worker))
         id_list = []
         for i, worker in enumerate(self.workers):
-            subset_actions = actions[per_worker*i:(i+1)*per_worker]
             if self.parallel:
-                id_list.append(worker.perform_rollouts.remote(subset_actions))
+                id_list.append(worker.perform_rollouts.remote(self.mean, self.sigma, per_worker))
             else:
-                return worker.perform_rollouts(subset_actions)
+                return worker.perform_rollouts(self.mean, self.sigma, self.M)
 
         # blocking call
         image_list, scores_list = [], []

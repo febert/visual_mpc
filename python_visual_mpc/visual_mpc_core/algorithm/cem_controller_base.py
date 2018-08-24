@@ -12,9 +12,10 @@ if "NO_ROS" not in os.environ:
 
 import pickle as pkl
 from collections import OrderedDict
+from python_visual_mpc.visual_mpc_core.algorithm.utils.cem_controller_utils import sample_actions
 
 import time
-from .utils.cem_controller_utils import construct_initial_sigma, reuse_cov, reuse_mean, truncate_movement, make_blockdiagonal
+from .utils.cem_controller_utils import construct_initial_sigma, reuse_cov, reuse_action, truncate_movement, make_blockdiagonal
 
 from python_visual_mpc.visual_mpc_core.algorithm.policy import Policy
 
@@ -116,7 +117,7 @@ class CEM_Controller_Base(Policy):
             'iterations': 3,
             'nactions': 5,
             'repeat': 3,
-            'no_action_bound': False,
+            'action_bound': True,
             'initial_std': 0.05,   #std dev. in xy
             'initial_std_lift': 0.15,   #std dev. in xy
             'initial_std_rot': np.pi / 18,
@@ -136,19 +137,6 @@ class CEM_Controller_Base(Policy):
         self.indices =[]
         self.action_list = []
 
-
-    def discretize(self, actions):
-        """
-        discretize and clip between 0 and 4
-        :param actions:
-        :return:
-        """
-        for b in range(self.M):
-            for a in range(self.naction_steps):
-                for ind in self.discrete_ind:
-                    actions[b, a, ind] = np.clip(np.floor(actions[b, a, ind]), 0, 4)
-        return actions
-
     def perform_CEM(self):
         self.logger.log('starting cem at t{}...'.format(self.t))
         timings = OrderedDict()
@@ -162,7 +150,7 @@ class CEM_Controller_Base(Policy):
         if not self._hp.reuse_mean or self.t < 2:
             self.mean = np.zeros(self.adim * self.naction_steps)
         else:
-            self.mean = reuse_mean(self.bestaction, self._hp)
+            self.mean = reuse_action(self.bestaction, self._hp)
 
         if (self._hp.reuse_mean or self._hp.reuse_cov) and self.t >= 2:
             self.M = self._hp.num_samples[1]
@@ -184,7 +172,7 @@ class CEM_Controller_Base(Policy):
             if self._hp.rejection_sampling:
                 actions = self.sample_actions_rej()
             else:
-                actions = self.sample_actions()
+                actions = sample_actions(self.mean, self.sigma, self._hp, self.M)
             itr_times['action_sampling'] = time.time() - t_startiter
             t_start = time.time()
 
@@ -235,17 +223,6 @@ class CEM_Controller_Base(Policy):
         self.bestaction = actions[self.indices[0]]
         return actions_flat
 
-    def sample_actions(self):
-        actions = np.random.multivariate_normal(self.mean, self.sigma, self.M)
-        actions = actions.reshape(self.M, self.naction_steps, self.adim)
-        if self.discrete_ind != None:
-            actions = self.discretize(actions)
-
-        if self._hp.no_action_bound:
-            actions = truncate_movement(actions, self._hp)
-        actions = np.repeat(actions, self.repeat, axis=1)
-
-        return actions
 
     def sample_actions_rej(self):
         """
