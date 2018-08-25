@@ -7,7 +7,7 @@ import ray
 import traceback
 from python_visual_mpc.visual_mpc_core.algorithm.utils.cem_controller_utils import sample_actions
 
-# @ray.remote
+@ray.remote
 class SimWorker(object):
     def __init__(self):
         print('created worker')
@@ -22,7 +22,7 @@ class SimWorker(object):
         self.len_pred = len_pred
         self.finalweight = finalweight
         env_type, env_params = self.agentparams['env']
-        env_params['verbose_dir'] = '/home/frederik/Desktop/'
+        # env_params['verbose_dir'] = '/home/frederik/Desktop/'
         self.env = env_type(env_params, self.current_reset_state)
         self.env.set_goal_obj_pose(self._goal_pos)
 
@@ -39,7 +39,7 @@ class SimWorker(object):
 
     def recreate_sim(self):
         env_type, env_params = self.agentparams['env']
-        env_params['verbose_dir'] = '/home/frederik/Desktop/'
+        # env_params['verbose_dir'] = '/home/frederik/Desktop/'
         self.env = env_type(env_params, self.current_reset_state)
         self.env.set_goal_obj_pose(self._goal_pos)
 
@@ -107,30 +107,34 @@ class SimWorker(object):
         return obs
 
     def sim_rollout_with_retry(self, mean, sigma):
-        # done = False
-        # while not done:
-        #     try:
-        actions = sample_actions(mean, sigma, self.hp, 1)
-        costs, images = self.sim_rollout(actions[0])
-            #     done = True
-            # except Exception as err:
-            #     try:
-            #         raise TypeError("Again !?!")
-            #     except:
-            #         pass
-            #     traceback.print_tb(err.__traceback__)
-            #     # pdb.set_trace()
-            #     print('sim error retrying')
+        done = False
+        while not done:
+            try:
+                actions = sample_actions(mean, sigma, self.hp, 1)
+                costs, images = self.sim_rollout(actions[0])
+                done = True
+            except Exception as err:
+                try:
+                    raise TypeError("Again !?!")
+                except:
+                    pass
+                traceback.print_tb(err.__traceback__)
+                # pdb.set_trace()
+                print('sim error retrying')
         return costs, images
 
     def sim_rollout(self, actions):
         agent_data = {}
         t = 0
         done = False
+        print('reset (inner sim)', t)
         initial_env_obs, _ = self.env.reset(self.current_reset_state)
+        print('reset done (inner sim)', t)
+        # pdb.set_trace()
         obs = self._post_process_obs(initial_env_obs, agent_data, True)
         costs = []
         while not done:
+            print('inner sim step', t)
             obs = self._post_process_obs(self.env.step(actions[t]), agent_data)
             if (self.len_pred - 1) == t:
                 done = True
@@ -159,7 +163,7 @@ class CEM_Controller_Sim(CEM_Controller_Base):
     """
     def __init__(self, ag_params, policyparams, gpu_id, ngpu):
         super(CEM_Controller_Sim, self).__init__(ag_params, policyparams)
-        self.parallel = False
+        self.parallel = True
         if self.parallel:
             ray.init()
 
