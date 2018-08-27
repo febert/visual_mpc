@@ -17,13 +17,13 @@ class CreateConfigAgent(GeneralAgent):
         initial_env_obs, reset_state = self.env.reset()
         agent_data['reset_state'] = reset_state
 
-        obs = self._post_process_obs(initial_env_obs, True)
+        obs = self._post_process_obs(initial_env_obs, agent_data, initial_obs=True)
 
         for t in range(self._hyperparams['T']):
             self.env.move_arm()
             self.env.move_objects()
             try:
-                obs = self._post_process_obs(self.env._get_obs(None))
+                obs = self._post_process_obs(self.env._get_obs(None), agent_data)
             except ValueError:
                 return {'traj_ok': False}, None, None
 

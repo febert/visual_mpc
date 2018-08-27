@@ -214,6 +214,8 @@ class GeneralAgent(object):
             if (self._hyperparams['T']-1) == t:
                 done = True
             t += 1
+            if 'make_traj_fig' in self._hyperparams:
+                self.save_gif(i_tr)
 
         if not self.env.valid_rollout():
             traj_ok = False

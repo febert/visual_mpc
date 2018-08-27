@@ -119,6 +119,23 @@ class BaseSawyerMujocoEnv(BaseMujocoEnv):
     def _render_verbose(self):
         return self._verbose_vid.append(super().render()[0])
 
+    def qpos_reset(self, qpos, qvel):
+        sim_state = self.sim.get_state()
+        sim_state.qpos[:] = qpos
+        sim_state.qvel[:] = qvel
+        self.sim.set_state(sim_state)
+        self.sim.forward()
+
+        # do some other stuff that appeared to be necessary
+        self._previous_target_qpos = np.zeros(self._base_sdim)
+        self._previous_target_qpos[:3] = self.sim.data.get_body_xpos('hand')
+        self._previous_target_qpos[3] = quat_to_zangle(self.sim.data.get_body_xquat('hand'))
+        self._previous_target_qpos[-1] = low_bound[-1]
+
+        finger_force = self.sim.data.sensordata[:2]
+        self._init_dynamics()
+        return self._get_obs(finger_force), None
+
     def reset(self, reset_state=None):
         """
         It's pretty important that we specify which reset functions to call
@@ -138,9 +155,7 @@ class BaseSawyerMujocoEnv(BaseMujocoEnv):
             print('resetting')
 
         if self._hp.verbose_dir is not None and len(self._verbose_vid) > 0:
-            npy_to_gif(self._verbose_vid, self._hp.verbose_dir + '/verbose_traj_{}'.format(self._ctr), 20)
-            self._verbose_vid = []
-            self._ctr += 1
+            self.save_verbose_vid()
 
         def samp_xyz_rot():
             rand_xyz = np.random.uniform(low_bound[:3] + self._maxlen / 2 + 0.02, high_bound[:3] - self._maxlen / 2 + 0.02)
@@ -183,22 +198,22 @@ class BaseSawyerMujocoEnv(BaseMujocoEnv):
             return BaseSawyerMujocoEnv.reset(self)
 
         if self._read_reset_state is not None:
-            xyz = self._read_reset_state['state'][:3]
-            quat = zangle_to_quat(self._read_reset_state['state'][3])
+            end_eff_xyz = self._read_reset_state['state'][:3]
+            end_eff_quat = zangle_to_quat(self._read_reset_state['state'][3])
         elif self.randomize_initial_pos:
-            xyz = np.random.uniform(low_bound[:3], high_bound[:3])
-            while len(last_rands) > 0 and min([np.linalg.norm(xyz[:2]-obj_j[:2]) for obj_j in last_rands]) < margin:
-                xyz = np.random.uniform(low_bound[:3], high_bound[:3])
-            quat = zangle_to_quat(np.random.uniform(low_bound[3], high_bound[3]))
+            end_eff_xyz = np.random.uniform(low_bound[:3], high_bound[:3])
+            while len(last_rands) > 0 and min([np.linalg.norm(end_eff_xyz[:2]-obj_j[:2]) for obj_j in last_rands]) < margin:
+                end_eff_xyz = np.random.uniform(low_bound[:3], high_bound[:3])
+            end_eff_quat = zangle_to_quat(np.random.uniform(low_bound[3], high_bound[3]))
         else:
-            xyz = np.array([0, 0.5, 0.17])
-            quat = zangle_to_quat(np.pi)
+            end_eff_xyz = np.array([0, 0.5, 0.17])
+            end_eff_quat = zangle_to_quat(np.pi)
 
         write_reset_state['state'] = np.zeros(7)
-        write_reset_state['state'][:3], write_reset_state['state'][3:] = xyz.copy(), quat.copy()
+        write_reset_state['state'][:3], write_reset_state['state'][3:] = end_eff_xyz.copy(), end_eff_quat.copy()
 
-        self.sim.data.set_mocap_pos('mocap', xyz)
-        self.sim.data.set_mocap_quat('mocap', quat)
+        self.sim.data.set_mocap_pos('mocap', end_eff_xyz)
+        self.sim.data.set_mocap_quat('mocap', end_eff_quat)
 
         #reset gripper
         self.sim.data.qpos[7:9] = NEUTRAL_JOINTS[7:9]
@@ -240,9 +255,35 @@ class BaseSawyerMujocoEnv(BaseMujocoEnv):
 
         self._init_dynamics()
 
+        if self._read_reset_state is not None:
+            self._check_positions(end_eff_xyz, end_eff_quat, object_poses)
+
         return self._get_obs(finger_force), write_reset_state
 
-    def _get_obs(self, finger_sensors):
+    def save_verbose_vid(self):
+        npy_to_gif(self._verbose_vid, self._hp.verbose_dir + '/verbose_traj_{}'.format(self._ctr), 20)
+        self._verbose_vid = []
+        self._ctr += 1
+
+    def _check_positions(self, des_end_eff_xyz, des_end_eff_quat, des_object_poses):
+        ob_thresh = 0.06
+        if np.linalg.norm(self.sim.data.qpos[self._n_joints:] - des_object_poses) > ob_thresh:
+            raise ValueError('object reset failed!')
+
+        end_eff_pose = np.zeros(7)
+        end_eff_pose[:3] = self.sim.data.get_body_xpos('hand')[:3]
+        end_eff_pose[3:] = self.sim.data.get_body_xquat('hand')
+        arm_thresh = 1e-3
+        # if np.linalg.norm(end_eff_pose - np.concatenate([end_eff_xyz, end_eff_quat])) > arm_thresh:
+        delta_angle = quat_to_zangle(end_eff_pose[3:]) - quat_to_zangle(des_end_eff_quat)
+        if np.linalg.norm(np.array([np.sin(delta_angle), np.cos(delta_angle)]) - np.array([0,1])) > arm_thresh:
+            print('arm reset failed!!')
+            # raise ValueError('arm reset failed!')
+        if np.linalg.norm(end_eff_pose[:3] - des_end_eff_xyz) > arm_thresh:
+            print('arm reset failed!')
+            # raise ValueError('arm reset failed!')
+
+    def _get_obs(self, finger_sensors=None):
         obs, touch_offset = {}, 0
         # report finger sensors as needed
         if self.finger_sensors:
@@ -251,7 +292,9 @@ class BaseSawyerMujocoEnv(BaseMujocoEnv):
 
         # joint poisitions and velocities
         obs['qpos'] = copy.deepcopy(self.sim.data.qpos[:self._n_joints].squeeze())
+        obs['qpos_full'] = copy.deepcopy(self.sim.data.qpos)
         obs['qvel'] = copy.deepcopy(self.sim.data.qvel[:self._n_joints].squeeze())
+        obs['qvel_full'] = copy.deepcopy(self.sim.data.qvel.squeeze())
 
         # control state
         obs['state'] = np.zeros(self._base_sdim)

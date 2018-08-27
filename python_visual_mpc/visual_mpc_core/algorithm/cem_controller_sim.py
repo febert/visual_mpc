@@ -7,7 +7,8 @@ import ray
 import traceback
 from python_visual_mpc.visual_mpc_core.algorithm.utils.cem_controller_utils import sample_actions
 
-@ray.remote
+
+# @ray.remote
 class SimWorker(object):
     def __init__(self):
         print('created worker')
@@ -17,10 +18,10 @@ class SimWorker(object):
                    naction_steps, discrete_ind, action_bound, adim, repeat, initial_std):
         print('create sim')
         self.agentparams = agentparams
-        self.current_reset_state = reset_state
         self._goal_pos = goal_pos
         self.len_pred = len_pred
         self.finalweight = finalweight
+        self.current_reset_state = reset_state
         env_type, env_params = self.agentparams['env']
         # env_params['verbose_dir'] = '/home/frederik/Desktop/'
         self.env = env_type(env_params, self.current_reset_state)
@@ -106,35 +107,32 @@ class SimWorker(object):
             agent_data['desig_pix'] = env_obs['obj_image_locations']
         return obs
 
-    def sim_rollout_with_retry(self, mean, sigma):
+    def sim_rollout_with_retry(self, curr_qpos, curr_qvel, mean, sigma):
         done = False
+        attempts = 0
         while not done:
             try:
+                attempts += 1
                 actions = sample_actions(mean, sigma, self.hp, 1)
-                costs, images = self.sim_rollout(actions[0])
+                costs, images = self.sim_rollout(curr_qpos, curr_qvel, actions[0])
                 done = True
             except Exception as err:
-                try:
-                    raise TypeError("Again !?!")
-                except:
-                    pass
                 traceback.print_tb(err.__traceback__)
-                # pdb.set_trace()
                 print('sim error retrying')
+        if attempts > 1:
+            print('needed {} attempts'.format(attempts))
         return costs, images
 
-    def sim_rollout(self, actions):
+    def sim_rollout(self, curr_qpos, curr_qvel, actions):
         agent_data = {}
         t = 0
         done = False
-        print('reset (inner sim)', t)
-        initial_env_obs, _ = self.env.reset(self.current_reset_state)
-        print('reset done (inner sim)', t)
-        # pdb.set_trace()
-        obs = self._post_process_obs(initial_env_obs, agent_data, True)
+        # initial_env_obs, _ = self.env.reset(curr_reset_state)
+        initial_env_obs , _ = self.env.qpos_reset(curr_qpos, curr_qvel)
+        obs = self._post_process_obs(initial_env_obs, agent_data, initial_obs=True)
         costs = []
         while not done:
-            print('inner sim step', t)
+            # print('inner sim step', t)
             obs = self._post_process_obs(self.env.step(actions[t]), agent_data)
             if (self.len_pred - 1) == t:
                 done = True
@@ -142,13 +140,13 @@ class SimWorker(object):
             costs.append(self.eval_action())
         return costs, obs['images']
 
-    def perform_rollouts(self, mean, sigma, M):
+    def perform_rollouts(self, curr_qpos, curr_qvel, mean, sigma, M):
         all_scores = np.empty(M, dtype=np.float64)
         image_list = []
 
         for smp in range(M):
-            score, images = self.sim_rollout_with_retry(mean, sigma)
-            image_list.append(images[1:].squeeze())
+            score, images = self.sim_rollout_with_retry(curr_qpos, curr_qvel, mean, sigma)
+            image_list.append(images.squeeze())
             # print('score', score)
             per_time_multiplier = np.ones([len(score)])
             per_time_multiplier[-1] = self.finalweight
@@ -163,7 +161,8 @@ class CEM_Controller_Sim(CEM_Controller_Base):
     """
     def __init__(self, ag_params, policyparams, gpu_id, ngpu):
         super(CEM_Controller_Sim, self).__init__(ag_params, policyparams)
-        self.parallel = True
+        # self.parallel = True
+        self.parallel = False
         if self.parallel:
             ray.init()
 
@@ -194,10 +193,10 @@ class CEM_Controller_Sim(CEM_Controller_Base):
         id_list = []
         for i, worker in enumerate(self.workers):
             if self.parallel:
-                id_list.append(worker.create_sim.remote(self.agentparams, self.reset_state, self.goal_pos, self._hp.finalweight, self.len_pred,
-                                         self.naction_steps, self._hp.discrete_ind, self._hp.action_bound, self.adim, self.repeat, self._hp.initial_std))               # id_list.append(worker.create_sim.remote())
+                id_list.append(worker.create_sim.remote(self.agentparams, self.curr_sim_state, self.goal_pos, self._hp.finalweight, self.len_pred,
+                                                        self.naction_steps, self._hp.discrete_ind, self._hp.action_bound, self.adim, self.repeat, self._hp.initial_std))
             else:
-                return worker.create_sim(self.agentparams, self.reset_state, self.goal_pos, self._hp.finalweight, self.len_pred,
+                return worker.create_sim(self.agentparams, self.curr_sim_state, self.goal_pos, self._hp.finalweight, self.len_pred,
                                          self.naction_steps, self._hp.discrete_ind, self._hp.action_bound, self.adim, self.repeat, self._hp.initial_std)
         if self.parallel:
             # blocking call
@@ -227,9 +226,9 @@ class CEM_Controller_Sim(CEM_Controller_Base):
         id_list = []
         for i, worker in enumerate(self.workers):
             if self.parallel:
-                id_list.append(worker.perform_rollouts.remote(self.mean, self.sigma, per_worker))
+                id_list.append(worker.perform_rollouts.remote(self.qpos_full, self.qvel_full, self.mean, self.sigma, per_worker))
             else:
-                return worker.perform_rollouts(self.mean, self.sigma, self.M)
+                return worker.perform_rollouts(self.qpos_full, self.qvel_full, self.mean, self.sigma, self.M)
 
         # blocking call
         image_list, scores_list = [], []
@@ -257,12 +256,12 @@ class CEM_Controller_Sim(CEM_Controller_Base):
             plt.legend()
             plt.show()
 
-    def act(self, t, i_tr, state, object_qpos, goal_pos, reset_state):
-        self.reset_state = reset_state
-        self.reset_state['state'] = state[t]
-        self.reset_state['object_qpos'] = object_qpos[t]
+    def act(self, t, i_tr, qpos_full, qvel_full, state, object_qpos, goal_pos, reset_state):
+    # def act(self, t, i_tr, qpos_full, goal_pos, reset_state):
+        self.curr_sim_state = reset_state
+        self.qpos_full = qpos_full[t]
+        self.qvel_full = qvel_full[t]
         self.goal_pos = goal_pos
-
         if t == 0:
             self.create_sim()
         return super(CEM_Controller_Sim, self).act(t, i_tr)

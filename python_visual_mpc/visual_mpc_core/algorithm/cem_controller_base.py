@@ -102,7 +102,6 @@ class CEM_Controller_Base(Policy):
         default_dict = {
             'verbose': False,
             'verbose_every_itr':False,
-            'niter': 3,
             'num_samples': 200,
             'selection_frac': -1., # specifcy which fraction of best samples to use to compute mean and var for next CEM iteration
             'discrete_ind':None,
