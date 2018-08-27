@@ -21,9 +21,9 @@ env_params = {
     'object_mass': 1,
 #    'print_delta': True,
     'friction': 1,
-    'substeps': 100,
+    'substeps': 200,
     'autograsp': {'zthresh': 0.18, 'touchthresh': 0.0, 'reopen': True},
-    'object_meshes': ['GlassBowl', 'LotusBowl01'],
+    'object_meshes': ['Bowl'],
     'viewer_image_height': 96,
     'viewer_image_width': 128
 }
@@ -31,17 +31,17 @@ env_params = {
 agent = {
     'type': GeneralAgent,
     'env': (AutograspSawyerMujocoEnv, env_params),
-    'data_save_dir': BASE_DIR,
+    'data_save_dir': BASE_DIR + '/clipz/',
     'T': 30,
     'image_height' : 48,
     'image_width' : 64,
-    'gen_xml':1,   #generate xml every nth trajecotry
+    'gen_xml': 1,   #generate xml every nth trajecotry
     'record': BASE_DIR + '/record/',
     'discrete_gripper': -1, #discretized gripper dimension,
     'rejection_sample': 5,
 #    'make_final_gif': '',
     'master': 'sudeep@deepthought.banatao.berkeley.edu',
-    'master_datadir': '/raid/sudeep/sawyer_sim/autograsp_newphysics_2/'
+    'master_datadir': '/raid/sudeep/sawyer_sim/autograsp_newphysics_3/'
 }
 
 policy = {
@@ -52,7 +52,7 @@ policy = {
     'initial_std': 0.05,   #std dev. in xy
     'initial_std_lift': 0.15,   #std dev. in xy
     'initial_std_rot': np.pi / 18,
-    'initial_std_grasp': 2
+    'initial_std_grasp': 2,
 }
 
 config = {
@@ -62,7 +62,7 @@ config = {
 #   'save_raw_images': True,
     'save_data': True,
     'start_index':0,
-    'end_index': 80000,
+    'end_index': 12000,
     'agent': agent,
     'policy': policy,
     'ngroup': 1000

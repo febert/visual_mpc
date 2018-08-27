@@ -4,7 +4,6 @@ import numpy as np
 import mujoco_py
 from pyquaternion import Quaternion
 from python_visual_mpc.visual_mpc_core.envs.mujoco_env.util.create_xml import create_object_xml, create_root_xml, clean_xml
-from python_visual_mpc.visual_mpc_core.envs.util.interpolation import TwoPointCSpline
 import time
 from mujoco_py.builder import MujocoException
 import copy
@@ -29,8 +28,8 @@ def zangle_to_quat(zangle):
 BASE_DIR = '/'.join(str.split(python_visual_mpc.__file__, '/')[:-2])
 asset_base_path = BASE_DIR + '/mjc_models/sawyer_assets/sawyer_xyz/'
 
-low_bound = np.array([-0.27, 0.52, 0.15, 0, -1])
-high_bound = np.array([0.27, 0.95, 0.3, 2 * np.pi - 0.001, 1])
+low_bound = np.array([-0.23, 0.62, 0.15, 0, -1])
+high_bound = np.array([0.23, 0.95, 0.3, 2 * np.pi - 0.001, 1])
 NEUTRAL_JOINTS = np.array([1.65474475, - 0.53312487, - 0.65980174, 1.1841825, 0.62772584, 1.11682223, 1.31015104, -0.05, 0.05])
 
 
@@ -198,21 +197,28 @@ class BaseSawyerMujocoEnv(BaseMujocoEnv):
         write_reset_state['state'] = np.zeros(7)
         write_reset_state['state'][:3], write_reset_state['state'][3:] = xyz.copy(), quat.copy()
 
-        self.sim.data.set_mocap_pos('mocap', xyz)
-        self.sim.data.set_mocap_quat('mocap', quat)
-
-        #reset gripper
-        self.sim.data.qpos[7:9] = NEUTRAL_JOINTS[7:9]
-        self.sim.data.ctrl[:] = [-1, 1]
-
         finger_force = np.zeros(2)
         if self._params.verbose_dir is not None:
             print('skip_first: {}'.format(self.skip_first))
 
-        assert self.skip_first > 15, "Skip first should be at least 15"
+        assert self.skip_first > 25, "Skip first should be at least 15"
         for t in range(self.skip_first):
-            if t < 10:
-                self.sim.data.qpos[self._n_joints:] = object_poses.copy()
+            if t < 20:
+                if t < 5:
+                    self.sim.data.qpos[self._n_joints:] = object_poses.copy()
+                reset_xyz = (low_bound[:3] + high_bound[:3]) * 0.5
+                reset_xyz[-1] = 0.4
+                self.sim.data.set_mocap_pos('mocap', reset_xyz)
+                self.sim.data.set_mocap_quat('mocap', zangle_to_quat(0))
+                # reset gripper
+                self.sim.data.qpos[7:9] = NEUTRAL_JOINTS[7:9]
+                self.sim.data.ctrl[:] = [-1, 1]
+            else:
+                self.sim.data.set_mocap_pos('mocap', xyz)
+                self.sim.data.set_mocap_quat('mocap', quat)
+                # reset gripper
+                self.sim.data.qpos[7:9] = NEUTRAL_JOINTS[7:9]
+                self.sim.data.ctrl[:] = [-1, 1]
 
             if self._params.verbose_dir is not None and t % 2 == 0:
                 print('skip: {}'.format(t))
@@ -313,7 +319,7 @@ class BaseSawyerMujocoEnv(BaseMujocoEnv):
         assert target_qpos.shape[0] == self._base_sdim
         finger_force = np.zeros(2)
 
-        xyz_interp = TwoPointCSpline(self.sim.data.get_body_xpos('hand').copy(), target_qpos[:3])
+        start_xyz = self.sim.data.get_body_xpos('hand')[:3]
         for st in range(self.substeps):
             alpha = 1.
             if not self.substeps == 1:
@@ -322,8 +328,10 @@ class BaseSawyerMujocoEnv(BaseMujocoEnv):
             double_alpha = min(2 * alpha, 1.)
             target_angle = (1 - double_alpha) * self._previous_target_qpos[3] + double_alpha * target_qpos[3]
 
+            xyz_interp = (1 - alpha) * start_xyz + alpha * target_qpos[:3]
+
             self.sim.data.set_mocap_quat('mocap', zangle_to_quat(target_angle))
-            self.sim.data.set_mocap_pos('mocap', xyz_interp.get(alpha)[0])
+            self.sim.data.set_mocap_pos('mocap', xyz_interp)
 
             self.sim.data.ctrl[0] = self._previous_target_qpos[-1]
             self.sim.data.ctrl[1] = -self._previous_target_qpos[-1]
@@ -343,8 +351,14 @@ class BaseSawyerMujocoEnv(BaseMujocoEnv):
         for st in range(1000):
             self.sim.data.set_mocap_quat('mocap', zangle_to_quat(target_qpos[3]))
             self.sim.data.set_mocap_pos('mocap', target_qpos[:3])
-            self.sim.data.ctrl[0] = target_qpos[-1]
-            self.sim.data.ctrl[1] = -target_qpos[-1]
+            if target_qpos[-1] == self._previous_target_qpos[-1]:
+                self.sim.data.ctrl[0] = target_qpos[-1]
+                self.sim.data.ctrl[1] = -target_qpos[-1]
+            else:
+                alpha = min(st / 599., 1)
+                mag = (1 - alpha) * self._previous_target_qpos[-1] + alpha * target_qpos[-1]
+                self.sim.data.ctrl[0] = mag
+                self.sim.data.ctrl[1] = -mag
             self._clip_gripper()
 
             if self.finger_sensors:

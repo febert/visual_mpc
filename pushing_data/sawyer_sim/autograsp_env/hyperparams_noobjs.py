@@ -18,13 +18,14 @@ DATA_DIR = '/'.join(str.split(python_visual_mpc.__file__, '/')[:-2])
 env_params = {
     'filename': 'sawyer_grasp.xml',
     'num_objects': 4,
-    'object_mass': 1,
+    'object_mass': 10,
 #    'print_delta': True,
     'friction': 1,
     'substeps': 100,
     'autograsp': {'zthresh': 0.18, 'touchthresh': 0.0, 'reopen': True},
 #    'object_meshes': ['GlassBowl', 'LotusBowl01'],
     'viewer_image_height': 192,
+    'verbose_dir': '/home/sudeep/Desktop/ag_lblock_verbose/',
     'viewer_image_width': 256
 }
 
@@ -35,13 +36,13 @@ agent = {
     'T': 30,
     'image_height' : 48,
     'image_width' : 64,
-    'gen_xml':10,   #generate xml every nth trajecotry
+    'gen_xml':200,   #generate xml every nth trajecotry
     'record': BASE_DIR + '/record/',
     'discrete_gripper': -1, #discretized gripper dimension,
-    'rejection_sample': 20,
-    'make_final_gif': '',
-    'master': 'sudeep@deepthought.banatao.berkeley.edu',
-    'master_datadir': '/raid/sudeep/sawyer_sim/autograsp_newphysics2_lblock_upsample/'
+#    'rejection_sample': 20,
+#    'make_final_gif': '',
+#    'master': 'sudeep@deepthought.banatao.berkeley.edu',
+#    'master_datadir': '/raid/sudeep/sawyer_sim/autograsp_newphysics2_lblock_upsample/'
 }
 
 policy = {
@@ -62,7 +63,7 @@ config = {
     'save_raw_images': True,
     'save_data': True,
     'start_index':0,
-    'end_index':120000,
+    'end_index':50,
     'agent': agent,
     'policy': policy,
     'ngroup': 1000

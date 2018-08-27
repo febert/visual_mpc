@@ -151,12 +151,16 @@ def truncate_movement(actions, policyparams):
 
     if len(actions.shape) == 3:
         actions[:,:,:2] = np.clip(actions[:,:,:2], -maxshift, maxshift)  # clip in units of meters
+        if 'max_delta_z' in policyparams:
+            actions[:, :, 2] = np.clip(actions[:, :, 2], -policyparams['max_delta_z'], policyparams['max_delta_z'])
         if actions.shape[-1] == 5: # if rotation is enabled
             maxrot = np.pi / 4
             actions[:, :, 3] = np.clip(actions[:, :, 3], -maxrot, maxrot)
 
     elif len(actions.shape) == 2:
         actions[:,:2] = np.clip(actions[:,:2], -maxshift, maxshift)  # clip in units of meters
+        if 'max_delta_z' in policyparams:
+            actions[:, 2] = np.clip(actions[:, 2], -policyparams['max_delta_z'], policyparams['max_delta_z'])
         if actions.shape[-1] == 5: # if rotation is enabled
             maxrot = np.pi / 4
             actions[:, 3] = np.clip(actions[:, 3], -maxrot, maxrot)

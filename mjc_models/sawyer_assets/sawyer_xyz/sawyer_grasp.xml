@@ -12,7 +12,7 @@
         <include file="objects.xml"/>
     <!--end_auto_replace -->
 	<actuator>
-        <position ctrllimited="true" ctrlrange="-0.2 0.2" forcelimited = "true" forcerange="-40 40" joint="base_joint_gripper_left" kp="30000"/>
-        <position ctrllimited="true" ctrlrange="-0.2 0.2" forcelimited = "true" forcerange="-40 40" joint="base_joint_gripper_right" kp="30000"/>
+        <position ctrllimited="true" ctrlrange="-0.2 0.2" forcelimited = "true" forcerange="-100 100" joint="base_joint_gripper_left" kp="30000"/>
+        <position ctrllimited="true" ctrlrange="-0.2 0.2" forcelimited = "true" forcerange="-100 100" joint="base_joint_gripper_right" kp="30000"/>
     </actuator>
 </mujoco>

@@ -65,6 +65,7 @@ def create_object_xml(filename, num_objects, object_mass, friction_params, objec
     f_sliding, f_torsion, f_rolling = friction_params
     world_body = ET.SubElement(root, "worldbody")
 
+
     loaded_meshes = {}
 
     if reset_xml is not None:
@@ -161,9 +162,11 @@ def create_object_xml(filename, num_objects, object_mass, friction_params, objec
             #contact meshes
             for n in range(n_cvx_files):
                 ET.SubElement(obj, "geom", type="mesh", mesh=chosen_mesh + "_convex_mesh{}".format(n),
-                              rgba="0 1 0 0", mass="{}".format(mass_per_elem),
+                              rgba="0 1 0 0", mass="{}".format(mass_per_elem), margin="0.00005",
                               contype="7", conaffinity="7", friction="{} {} {}".format(f_sliding, f_torsion, f_rolling)
                               )
+
+
 
         else:
             obj = None

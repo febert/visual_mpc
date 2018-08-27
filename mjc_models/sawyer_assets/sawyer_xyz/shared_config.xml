@@ -44,7 +44,7 @@ Usage:
             cone="elliptic"
             impratio="3"
             tolerance="1e-10"
-            noslip_iterations = "5"
+            noslip_iterations="5"
     />
     <default>
         <joint limited="true"
@@ -74,13 +74,12 @@ Usage:
         </default>
 
         <default class="freejoint">
-            <joint limited="false" damping="0.5"/>
+            <joint limited="false" damping="0.2"/>
         </default>
 
     </default>
 
     <equality>
-        <weld body1="mocap" body2="hand" solref="0.05 0.95"></weld>
-        <joint joint1="base_joint_gripper_left" joint2="base_joint_gripper_right" polycoef="0 -1 0 0 0" />
+        <weld body1="mocap" body2="hand" solref="0.05 1.5"></weld>
     </equality>
 </mujoco>
