@@ -150,8 +150,8 @@ class GeneralAgent(object):
         if self._goal_obj_pose is not None:
             agent_data['goal_pos'] = self._goal_obj_pose
             agent_data['goal_pix'] = self.env.get_goal_pix(point_target_width)
-
-        agent_data['reset_state'] = self._reset_state
+        if self._reset_state is not None:
+            agent_data['reset_state'] = self._reset_state
         return obs
 
     def _required_rollout_metadata(self, agent_data, traj_ok, t):

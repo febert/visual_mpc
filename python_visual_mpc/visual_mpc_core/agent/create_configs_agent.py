@@ -27,6 +27,5 @@ class CreateConfigAgent(GeneralAgent):
             except ValueError:
                 return {'traj_ok': False}, None, None
 
-
         return agent_data, obs, policy_outputs
 

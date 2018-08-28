@@ -6,7 +6,6 @@ from python_visual_mpc.video_prediction.utils_vpred.create_gif_lib import npy_to
 class SimWorker(object):
     def __init__(self):
         print('created worker')
-        pass
 
     def create_sim(self):
         self.sim = MjSim(load_model_from_path('/mount/visual_mpc/mjc_models/cartgripper_noautogen.xml'))
