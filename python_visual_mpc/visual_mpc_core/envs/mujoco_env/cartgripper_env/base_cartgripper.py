@@ -1,10 +1,12 @@
-from python_visual_mpc.visual_mpc_core.envs.mujoco_env.base_mujoco_env import BaseMujocoEnv
+
+m python_visual_mpc.visual_mpc_core.envs.mujoco_env.base_mujoco_env import BaseMujocoEnv
 import numpy as np
 import python_visual_mpc
 from python_visual_mpc.visual_mpc_core.envs.mujoco_env.util.create_xml import create_object_xml, create_root_xml, clean_xml
 import copy
 import time
 from pyquaternion import Quaternion
+
 
 
 BASE_DIR = '/'.join(str.split(python_visual_mpc.__file__, '/')[:-2])
