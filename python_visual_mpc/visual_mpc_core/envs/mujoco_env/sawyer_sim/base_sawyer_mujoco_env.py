@@ -8,6 +8,7 @@ import time
 from mujoco_py.builder import MujocoException
 import copy
 from python_visual_mpc.video_prediction.misc.makegifs2 import npy_to_gif
+import os
 
 
 def quat_to_zangle(quat):
@@ -60,7 +61,8 @@ class BaseSawyerMujocoEnv(BaseMujocoEnv):
                                                 params.obj_classname, params.block_height, params.block_width)
         gen_xml = create_root_xml(base_filename)
         super().__init__(gen_xml, params)
-        clean_xml(gen_xml)
+        if params.clean_xml:
+            clean_xml(gen_xml)
 
         if self.sim.model.nmocap > 0 and self.sim.model.eq_data is not None:
             for i in range(self.sim.model.eq_data.shape[0]):
@@ -80,7 +82,6 @@ class BaseSawyerMujocoEnv(BaseMujocoEnv):
 
         if self._params.verbose_dir is not None:
             self._verbose_vid = []
-            self._ctr = 0
     
     def _default_hparams(self):
         default_dict = {'filename': None,
@@ -98,7 +99,8 @@ class BaseSawyerMujocoEnv(BaseMujocoEnv):
                         'substeps': 1000,
                         'randomize_initial_pos': True,
                         'verbose_dir': None,
-                        'print_delta': False}
+                        'print_delta': False,
+                        'clean_xml': True}
           
         parent_params = super()._default_hparams()
         parent_params.set_hparam('ncam', 2)
@@ -134,9 +136,9 @@ class BaseSawyerMujocoEnv(BaseMujocoEnv):
             print('resetting')
 
         if self._params.verbose_dir is not None and len(self._verbose_vid) > 0:
-            npy_to_gif(self._verbose_vid, self._params.verbose_dir + '/verbose_traj_{}'.format(self._ctr), 20)
+            gif_num = np.random.randint(200000)
+            npy_to_gif(self._verbose_vid, self._params.verbose_dir + '/worker{}_verbose_traj_{}'.format(os.getpid(), gif_num), 20)
             self._verbose_vid = []
-            self._ctr += 1
 
         def samp_xyz_rot():
             rand_xyz = np.random.uniform(low_bound[:3] + self._maxlen / 2 + 0.02, high_bound[:3] - self._maxlen / 2 + 0.02)

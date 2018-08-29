@@ -25,7 +25,9 @@ env_params = {
     'autograsp': {'zthresh': 0.18, 'touchthresh': 0.0, 'reopen': True},
     'object_meshes': ['Bowl'],
     'viewer_image_height': 96,
-    'viewer_image_width': 128
+    'viewer_image_width': 128,
+    'verbose_dir': '/home/sudeep/Desktop/mjc_debug/',
+    'clean_xml': False
 }
 
 agent = {
@@ -35,13 +37,13 @@ agent = {
     'T': 30,
     'image_height' : 48,
     'image_width' : 64,
-    'gen_xml': 1,   #generate xml every nth trajecotry
+    'gen_xml': 400,   #generate xml every nth trajecotry
     'record': BASE_DIR + '/record/',
     'discrete_gripper': -1, #discretized gripper dimension,
-    'rejection_sample': 5,
+#    'rejection_sample': 5,
 #    'make_final_gif': '',
-    'master': 'sudeep@deepthought.banatao.berkeley.edu',
-    'master_datadir': '/raid/sudeep/sawyer_sim/autograsp_newphysics_3/'
+#    'master': 'sudeep@deepthought.banatao.berkeley.edu',
+#    'master_datadir': '/raid/sudeep/sawyer_sim/autograsp_newphysics_3/'
 }
 
 policy = {
@@ -53,16 +55,17 @@ policy = {
     'initial_std_lift': 0.15,   #std dev. in xy
     'initial_std_rot': np.pi / 18,
     'initial_std_grasp': 2,
+    'max_z_delta': 0.05
 }
 
 config = {
     'traj_per_file': 16,
     'seperate_good': True,
     'current_dir': current_dir,
-#   'save_raw_images': True,
+   'save_raw_images': True,
     'save_data': True,
-    'start_index':12000,
-    'end_index': 200000,
+    'start_index':0,
+    'end_index': 100,
     'agent': agent,
     'policy': policy,
     'ngroup': 1000
