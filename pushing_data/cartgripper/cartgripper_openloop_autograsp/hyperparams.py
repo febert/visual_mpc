@@ -21,7 +21,7 @@ env_params = {
     'object_mass': 0.1,
     'friction': 1.0,
     'finger_sensors': True,
-    'autograsp': {'zthresh': -0.06, 'touchthresh': 0.0, 'reopen': ''}
+    'autograsp': {'zthresh': -0.06, 'touchthresh': 0.0, 'reopen': True}
 }
 
 agent = {

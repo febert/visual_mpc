@@ -30,34 +30,66 @@ def quat_to_zangle(quat):
 
 
 class BaseCartgripperEnv(BaseMujocoEnv):
-    def __init__(self, filename, num_objects, object_mass, friction, mode_rel, object_meshes=None,
-                    finger_sensors=False, maxlen=0.2, minlen=0.01, preload_obj_dict=None,
-                    viewer_image_height=480, viewer_image_width=640, sample_objectpos=True,
-                    object_object_mindist=None, randomize_initial_pos=True, arm_obj_initdist=None,
-                    xpos0=None, object_pos0=[], arm_start_lifted=False, skip_first=40, substeps=200, ncam=2):
-        base_filename = asset_base_path + filename
-        friction_params = (friction, 0.010, 0.0002)
-        self.obj_stat_prop = create_object_xml(base_filename, num_objects, object_mass,
-                                               friction_params, object_meshes, finger_sensors,
-                                               maxlen, minlen, preload_obj_dict)
-        gen_xml = create_root_xml(base_filename)
+    def __init__(self, env_params_dict, reset_state = None):
+        assert 'filename' in env_params_dict, "Cartgripper model filename required"
+        params_dict = copy.deepcopy(env_params_dict)
+        #TF HParams can't handle list Hparams well, this is cleanest workaround for object_meshes
+        if 'object_meshes' in params_dict:
+            object_meshes = params_dict.pop('object_meshes')
+        else:
+            object_meshes = None
+
         params = self._default_hparams()
-        params.ncam = 2
+        for name, value in params_dict.items():
+            print('setting param {} to value {}'.format(name, value))
+            params.set_hparam(name, value)
+
+        base_filename = asset_base_path + params.filename
+        friction_params = (params.friction, 0.010, 0.0002)
+        self.obj_stat_prop = create_object_xml(base_filename, params.num_objects, params.object_mass,
+                                               friction_params, object_meshes, params.finger_sensors,
+                                               params.maxlen, params.minlen, params.preload_obj_dict)
+        gen_xml = create_root_xml(base_filename)
         super().__init__(gen_xml, params)
         clean_xml(gen_xml)
 
-        self._base_sdim, self._base_adim, self.mode_rel = 5, 5, mode_rel
-        self.num_objects, self.skip_first, self.substeps = num_objects, skip_first, substeps
-        self.sample_objectpos = sample_objectpos
-        self.object_object_mindist = object_object_mindist
-        self.randomize_initial_pos = randomize_initial_pos
-        self.arm_obj_initdist = arm_obj_initdist
-        self.xpos0, self.object_pos0 = xpos0, object_pos0
-        self.arm_start_lifted = arm_start_lifted
-        self.finger_sensors, self.object_sensors = finger_sensors, object_meshes is not None
-
+        self._base_sdim, self._base_adim, self.mode_rel = 5, 5, np.array(params.mode_rel)
+        self.num_objects, self.skip_first, self.substeps = params.num_objects, params.skip_first, params.substeps
+        self.sample_objectpos = params.sample_objectpos
+        self.object_object_mindist = params.object_object_mindist
+        self.randomize_initial_pos = params.randomize_initial_pos
+        self.arm_obj_initdist = params.arm_obj_initdist
+        self.xpos0, self.object_pos0 = params.xpos0, params.object_pos0
+        self.arm_start_lifted = params.arm_start_lifted
+        self.finger_sensors, self.object_sensors = params.finger_sensors, object_meshes is not None
         self._previous_target_qpos, self._n_joints = None, 6
+        self._hp = params
 
+    def _default_hparams(self):
+        default_dict = {'filename': '',
+                          'num_objects': 1,
+                          'object_mass': 0.1,
+                          'friction':1.,
+                          'mode_rel': [True, True, True, True, False],
+                          'object_meshes':None,
+                          'finger_sensors':False,
+                          'maxlen': 0.2,
+                          'minlen': 0.01,
+                          'preload_obj_dict': None,
+                          'sample_objectpos':True,
+                          'object_object_mindist':None,
+                          'randomize_initial_pos': True,
+                          'arm_obj_initdist': None,
+                          'xpos0': None,
+                          'object_pos0': np.array([]),
+                          'arm_start_lifted': False,
+                          'skip_first': 40,
+                          'substeps': 200}
+        parent_params = super()._default_hparams()
+        parent_params.set_hparam('ncam', 2)
+        for k in default_dict.keys():
+            parent_params.add_hparam(k, default_dict[k])
+        return parent_params
 
     def step(self, action):
         target_qpos = np.clip(self._next_qpos(action), low_bound, high_bound)
@@ -104,6 +136,7 @@ class BaseCartgripperEnv(BaseMujocoEnv):
             else:
                 object_pos_l = create_pos()
                 object_pos = np.concatenate(object_pos_l)
+
         else:
             object_pos = self.object_pos0[:self.num_objects]
 
