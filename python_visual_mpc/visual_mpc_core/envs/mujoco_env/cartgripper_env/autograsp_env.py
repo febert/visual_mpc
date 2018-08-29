@@ -5,7 +5,7 @@ import copy
 import numpy as np
 
 class AutograspCartgripperEnv(BaseCartgripperEnv):
-    def __init__(self, env_params):
+    def __init__(self, env_params, reset_state=None):
         assert 'mode_rel' not in env_params, "Autograsp sets mode_rel"
 
         self._hyper = copy.deepcopy(env_params)

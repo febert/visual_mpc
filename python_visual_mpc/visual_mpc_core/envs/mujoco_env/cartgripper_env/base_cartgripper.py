@@ -5,6 +5,7 @@ from python_visual_mpc.visual_mpc_core.envs.mujoco_env.util.create_xml import cr
 import copy
 import time
 
+
 BASE_DIR = '/'.join(str.split(python_visual_mpc.__file__, '/')[:-2])
 asset_base_path = BASE_DIR + '/mjc_models/'
 low_bound = np.array([-0.5, -0.5, -0.08, -np.pi*2, -1])
@@ -40,7 +41,9 @@ class BaseCartgripperEnv(BaseMujocoEnv):
                                                friction_params, object_meshes, finger_sensors,
                                                maxlen, minlen, preload_obj_dict)
         gen_xml = create_root_xml(base_filename)
-        super().__init__(gen_xml, viewer_image_height, viewer_image_width, ncam)
+        params = self._default_hparams()
+        params.ncam = 2
+        super().__init__(gen_xml, params)
         clean_xml(gen_xml)
 
         self._base_sdim, self._base_adim, self.mode_rel = 5, 5, mode_rel
@@ -147,7 +150,7 @@ class BaseCartgripperEnv(BaseMujocoEnv):
         self._previous_target_qpos[-1] = low_bound[-1]
         self._init_dynamics()
 
-        return self._get_obs(finger_force / self.skip_first / self.substeps)
+        return self._get_obs(finger_force / self.skip_first / self.substeps), None
 
     def _get_obs(self, finger_sensors):
         obs, touch_offset = {}, 0
@@ -182,14 +185,6 @@ class BaseCartgripperEnv(BaseMujocoEnv):
 
         #get images
         obs['images'] = self.render()
-
-        obj_image_locations = np.zeros((2, self.num_objects + 1, 2))
-        for i, cam in enumerate(['maincam', 'leftcam']):
-            obj_image_locations[i, 0] = self.project_point(self.sim.data.get_body_xpos('hand')[:3], cam)
-            for j in range(self.num_objects):
-                obj_image_locations[i, j + 1] = self.project_point(obs['object_poses_full'][j, :3], cam)
-        obj_image_locations[:, :, 0] = self._frame_height - obj_image_locations[:, :, 0]
-        obs['obj_image_locations'] = obj_image_locations
 
         return obs
 

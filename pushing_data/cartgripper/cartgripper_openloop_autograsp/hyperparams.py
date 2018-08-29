@@ -4,10 +4,9 @@ import os.path
 
 import numpy as np
 
-from python_visual_mpc.visual_mpc_core.algorithm.random_policy import RandomPickPolicy
-from python_visual_mpc.visual_mpc_core.agent.agent_mjc import AgentMuJoCo
-from python_visual_mpc.visual_mpc_core.envs.cartgripper_env.autograsp_env import AutograspCartgripperEnv
-from python_visual_mpc.visual_mpc_core.infrastructure.utility.tfrecord_from_file import grasping_touch_file2record as convert_to_record
+from python_visual_mpc.visual_mpc_core.algorithm.random_policy import Randompolicy
+from python_visual_mpc.visual_mpc_core.agent.general_agent import GeneralAgent
+from python_visual_mpc.visual_mpc_core.envs.mujoco_env.cartgripper_env.autograsp_env import AutograspCartgripperEnv
 
 
 BASE_DIR = '/'.join(str.split(__file__, '/')[:-1])
@@ -26,26 +25,23 @@ env_params = {
 }
 
 agent = {
-    'type': AgentMuJoCo,
+    'type': GeneralAgent,
     'env': (AutograspCartgripperEnv, env_params),
-    'data_save_dir': BASE_DIR,
-    'not_use_images':"",
-    'cameras':['maincam', 'leftcam'],
+    'data_save_dir': BASE_DIR + '/clipz/',
     'T': 30,
     'image_height' : 48,
     'image_width' : 64,
-    'novideo':'',
-    'gen_xml':10,   #generate xml every nth trajecotry
-    'ztarget':0.13,
-    'min_z_lift':0.05,
-    'make_final_gif':'', #keep this key in if you want final gif to be created
+    'gen_xml': 400,   #generate xml every nth trajecotry
     'record': BASE_DIR + '/record/',
-    'discrete_gripper' : -1, #discretized gripper dimension,
-    'lift_rejection_sample' : 15,
+    'discrete_gripper': -1, #discretized gripper dimension,
+#    'rejection_sample': 5,
+    'make_final_gif': '',
+#    'master': 'sudeep@deepthought.banatao.berkeley.edu',
+#    'master_datadir': '/raid/sudeep/sawyer_sim/autograsp_newphysics_3/'
 }
 
 policy = {
-    'type' : RandomPickPolicy,
+    'type' : Randompolicy,
     'nactions' : 10,
     'repeat' : 3,
     'no_action_bound' : False, 
