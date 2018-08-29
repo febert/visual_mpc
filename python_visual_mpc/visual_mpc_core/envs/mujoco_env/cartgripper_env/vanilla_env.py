@@ -3,10 +3,21 @@ import copy
 
 
 class VanillaCartgripperEnv(BaseCartgripperEnv):
-    def __init__(self, env_params):
+    def __init__(self, env_params, reset_state):
         self._hyper = copy.deepcopy(env_params)
-        super().__init__(**self._hyper)
+        super().__init__(env_params, reset_state)
         self._adim, self._sdim = self._base_adim, self._base_sdim
+
+
+    def _default_hparams(self):
+        default_dict = {}
+
+        parent_params = super()._default_hparams()
+        parent_params.set_hparam('base_sdim', 4)
+        parent_params.set_hparam('base_adim', 4)
+        for k in default_dict.keys():
+            parent_params.add_hparam(k, default_dict[k])
+        return parent_params
 
     def _init_dynamics(self):
         return

@@ -29,31 +29,74 @@ def quat_to_zangle(quat):
 
 
 class BaseCartgripperEnv(BaseMujocoEnv):
-    def __init__(self, filename, num_objects, object_mass, friction, mode_rel, object_meshes=None,
-                    finger_sensors=False, maxlen=0.2, minlen=0.01, preload_obj_dict=None,
-                    viewer_image_height=480, viewer_image_width=640, sample_objectpos=True,
-                    object_object_mindist=None, randomize_initial_pos=True, arm_obj_initdist=None,
-                    xpos0=None, object_pos0=[], arm_start_lifted=False, skip_first=40, substeps=200, ncam=2):
-        base_filename = asset_base_path + filename
-        friction_params = (friction, 0.010, 0.0002)
-        self.obj_stat_prop = create_object_xml(base_filename, num_objects, object_mass,
-                                               friction_params, object_meshes, finger_sensors,
-                                               maxlen, minlen, preload_obj_dict)
+    def __init__(self, env_params_dict, reset_state=None):
+        assert 'filename' in env_params_dict, "Sawyer model filename required"
+        params_dict = copy.deepcopy(env_params_dict)
+        #TF HParams can't handle list Hparams well, this is cleanest workaround for object_meshes
+        if 'object_meshes' in params_dict:
+            object_meshes = params_dict.pop('object_meshes')
+        else:
+            object_meshes = None
+
+        _hp = self._default_hparams()
+        for name, value in params_dict.items():
+            print('setting param {} to value {}'.format(name, value))
+            _hp.set_hparam(name, value)
+
+        base_filename = asset_base_path + _hp.filename
+        friction_params = (_hp.friction, 0.1, 0.02)
+        reset_xml = None
+        if reset_state is not None:
+            reset_xml = reset_state['reset_xml']
+        self._reset_xml = create_object_xml(base_filename, _hp.num_objects, _hp.object_mass,
+                                            friction_params, object_meshes, _hp.finger_sensors,
+                                            _hp.maxlen, _hp.minlen, reset_xml,
+                                            _hp.obj_classname, _hp.block_height, _hp.block_width)
         gen_xml = create_root_xml(base_filename)
-        super().__init__(gen_xml, viewer_image_height, viewer_image_width, ncam)
+        super().__init__(gen_xml, _hp)
         clean_xml(gen_xml)
+        self._base_sdim, self._base_adim, self.mode_rel = 5, 5, _hp.mode_rel
+        self.num_objects, self.skip_first, self.substeps = _hp.num_objects, _hp.skip_first, _hp.substeps
+        self.randomize_initial_pos = _hp.randomize_initial_pos
+        self.finger_sensors, self._maxlen = _hp.finger_sensors, _hp.maxlen
 
-        self._base_sdim, self._base_adim, self.mode_rel = 5, 5, mode_rel
-        self.num_objects, self.skip_first, self.substeps = num_objects, skip_first, substeps
-        self.sample_objectpos = sample_objectpos
-        self.object_object_mindist = object_object_mindist
-        self.randomize_initial_pos = randomize_initial_pos
-        self.arm_obj_initdist = arm_obj_initdist
-        self.xpos0, self.object_pos0 = xpos0, object_pos0
-        self.arm_start_lifted = arm_start_lifted
-        self.finger_sensors, self.object_sensors = finger_sensors, object_meshes is not None
+        self._previous_target_qpos, self._n_joints = None, 9
+        self._read_reset_state = reset_state
 
-        self._previous_target_qpos, self._n_joints = None, 6
+        if self._hp.verbose_dir is not None:
+            self._verbose_vid = []
+            self._ctr = 0
+
+
+    def _default_hparams(self):
+        default_dict = {
+                        'filename': None,
+                        'mode_rel': [True, True, True, True, False],
+                        'base_sdim':5,
+                        'base_adim':5,
+                        'num_objects':1,
+                        'skip_first':50,
+                        'substeps':50,
+                        'sample_objectpos':True,
+                        'object_object_mindist':-1,
+                        'randomize_initial_pos':True,
+                        'arm_obj_initdist':-1,
+                        'arm_start_lifted':True,
+                        'verbose_dir': None,
+                        'object_mass': 1.0,
+                        'friction': 1.0,
+                        'finger_sensors': True,
+                        'maxlen': 0.12,
+                        'minlen': 0.01,
+                        'obj_classname': 'freejoint',
+                        'block_height': 0.02,
+                        'block_width': 0.02}
+
+        parent_params = super()._default_hparams()
+        parent_params.set_hparam('ncam', 2)
+        for k in default_dict.keys():
+            parent_params.add_hparam(k, default_dict[k])
+        return parent_params
 
 
     def step(self, action):
@@ -90,11 +133,11 @@ class BaseCartgripperEnv(BaseMujocoEnv):
                 poses.append(np.concatenate((pos, np.array([0]), ori), axis=0))
             return poses
 
-        if self.sample_objectpos:  # if object pose explicit do not sample poses
-            if self.object_object_mindist:
+        if self._hp.sample_objectpos:  # if object pose explicit do not sample poses
+            if self._hp.object_object_mindist:
                 assert self.num_objects == 2
                 ob_ob_dist = 0.
-                while ob_ob_dist < self.object_object_mindist:
+                while ob_ob_dist < self._hp.object_object_mindist:
                     object_pos_l = create_pos()
                     ob_ob_dist = np.linalg.norm(object_pos_l[0][:3] - object_pos_l[1][:3])
                 object_pos = np.concatenate(object_pos_l)
@@ -106,29 +149,29 @@ class BaseCartgripperEnv(BaseMujocoEnv):
 
         xpos0 = np.zeros(self._base_sdim + 1)
         if self.randomize_initial_pos:
-            assert not self.arm_obj_initdist
+            assert not self._hp.arm_obj_initdist
             xpos0[:2] = np.random.uniform(-.4, .4, 2)
             xpos0[2] = np.random.uniform(-0.08, .14)
-        elif self.arm_obj_initdist:
-            d = self.arm_obj_initdist
+        elif self._hp.arm_obj_initdist:
+            d = self._hp.arm_obj_initdist
             alpha = np.random.uniform(-np.pi, np.pi, 1)
             delta_pos = np.array([d * np.cos(alpha), d * np.sin(alpha)])
             xpos0[:2] = object_pos[:2] + delta_pos.squeeze()
             xpos0[2] = np.random.uniform(-0.08, .14)
         else:
             xpos0_true_len = (self.sim.get_state().qpos.shape[0] - self.num_objects * 7)
-            len_xpos0 = self.xpos0.shape[0]
+            len_xpos0 = self._hp.xpos0.shape[0]
 
             if len_xpos0 != xpos0_true_len:
-                xpos0 = np.concatenate([self.xpos0, np.zeros(xpos0_true_len - len_xpos0)],
+                xpos0 = np.concatenate([self._hp.xpos0, np.zeros(xpos0_true_len - len_xpos0)],
                                        0)  # testing in setting with updown rot, while data has only xyz
                 print("appending zeros to initial robot configuration!!!")
             else:
-                xpos0 = self.xpos0
+                xpos0 = self._hp.xpos0
             assert xpos0.shape[0] == self._base_sdim + 1
 
-        if self.arm_start_lifted:
-            xpos0[2] = self.arm_start_lifted
+        if self._hp.arm_start_lifted:
+            xpos0[2] = self._hp.arm_start_lifted
         xpos0[-1] = low_bound[-1]    #start with gripper open
         sim_state = self.sim.get_state()
         sim_state.qpos[:] = np.concatenate((xpos0, object_pos.flatten()), 0)

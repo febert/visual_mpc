@@ -62,6 +62,7 @@ class BaseSawyerMujocoEnv(BaseMujocoEnv):
                                                 _hp.obj_classname, _hp.block_height, _hp.block_width)
         gen_xml = create_root_xml(base_filename)
         super().__init__(gen_xml, _hp)
+        pdb.set_trace()
         clean_xml(gen_xml)
 
         if self.sim.model.nmocap > 0 and self.sim.model.eq_data is not None:

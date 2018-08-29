@@ -209,6 +209,8 @@ def clean_xml(filename):
     print('deleting main file: {} and obj_file: {}'.format(filename, obj_file))
     os.remove(filename)
     os.remove(obj_file)
+
+
 def create_root_xml(filename):
     """
     copy root xml but replace three lines so that they referecne the object xml
