@@ -1,11 +1,12 @@
 """ Hyperparameters for Large Scale Data Collection (LSDC) """
+
 import os.path
+
 import numpy as np
+
 from python_visual_mpc.visual_mpc_core.agent.general_agent import GeneralAgent
-from python_visual_mpc.visual_mpc_core.envs.mujoco_env.sawyer_sim.autograsp_sawyer_mujoco_env import AutograspSawyerMujocoEnv
+from python_visual_mpc.visual_mpc_core.envs.mujoco_env.cartgripper_env.autograsp_env import AutograspCartgripperEnv
 from python_visual_mpc.visual_mpc_core.algorithm.cem_controller_sim import CEM_Controller_Sim
-from python_visual_mpc.visual_mpc_core.agent.benchmarking_agent import BenchmarkAgent
-from python_visual_mpc.visual_mpc_core.envs.mujoco_env.cartgripper_env.vanilla_env import VanillaCartgripperEnv
 
 BASE_DIR = '/'.join(str.split(__file__, '/')[:-1])
 current_dir = os.path.dirname(os.path.realpath(__file__))
@@ -14,29 +15,28 @@ import python_visual_mpc
 DATA_DIR = '/'.join(str.split(python_visual_mpc.__file__, '/')[:-2])
 
 env_params = {
-    'filename': 'cartgripper_updown_rot.xml',
-    'num_objects': 1,
+    'filename': 'cartgripper_grasp.xml',
+    'num_objects': 4,
     'object_mass': 0.1,
-    'friction': 1,
+    'friction': 1.0,
     'finger_sensors': True,
-    'substeps': 10, # 100, ###############
-    'ncam':1,
+    'autograsp': {'zthresh': -0.06, 'touchthresh': 0.0, 'reopen': True}
 }
 
 agent = {
-    'type': BenchmarkAgent,
-    'env': (VanillaCartgripperEnv, env_params),
-    'T': 20,
+    'type': GeneralAgent,
+    'env': (AutograspCartgripperEnv, env_params),
+    'data_save_dir': BASE_DIR + '/clipz/',
+    'T': 30,
     'image_height' : 48,
     'image_width' : 64,
-    'novideo':'',
-    'gen_xml':1,   #generate xml every nth trajecotry
-    'ztarget':0.13,
-    'min_z_lift':0.05,
-    'make_final_gif': True,
+    'gen_xml': 400,   #generate xml every nth trajecotry
+    'record': BASE_DIR + '/record/',
     'discrete_gripper': -1, #discretized gripper dimension,
-    'start_goal_confs':os.environ['VMPC_DATA_DIR'] + '/sawyer_sim/startgoal_conf/bowl_arm_disp/train',
-    'current_dir': current_dir,
+#    'rejection_sample': 5,
+    'make_final_gif': '',
+#    'master': 'sudeep@deepthought.banatao.berkeley.edu',
+#    'master_datadir': '/raid/sudeep/sawyer_sim/autograsp_newphysics_3/'
 }
 
 policy = {
@@ -49,11 +49,12 @@ policy = {
 }
 
 config = {
-    'traj_per_file': 128,
-    'current_dir': current_dir,
+    'traj_per_file':128,
+    'current_dir' : current_dir,
     'save_data': False,
+    'save_raw_images' : True,
     'start_index':0,
-    'end_index': 50,
+    'end_index': 120000,
     'agent': agent,
     'policy': policy,
     'ngroup': 1000

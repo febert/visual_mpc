@@ -4,6 +4,8 @@ import python_visual_mpc
 from python_visual_mpc.visual_mpc_core.envs.mujoco_env.util.create_xml import create_object_xml, create_root_xml, clean_xml
 import copy
 import time
+from pyquaternion import Quaternion
+
 
 BASE_DIR = '/'.join(str.split(python_visual_mpc.__file__, '/')[:-2])
 asset_base_path = BASE_DIR + '/mjc_models/'
@@ -29,8 +31,8 @@ def quat_to_zangle(quat):
 
 
 class BaseCartgripperEnv(BaseMujocoEnv):
-    def __init__(self, env_params_dict, reset_state=None):
-        assert 'filename' in env_params_dict, "Sawyer model filename required"
+    def __init__(self, env_params_dict, reset_state = None):
+        assert 'filename' in env_params_dict, "Cartgripper model filename required"
         params_dict = copy.deepcopy(env_params_dict)
         #TF HParams can't handle list Hparams well, this is cleanest workaround for object_meshes
         if 'object_meshes' in params_dict:
@@ -38,66 +40,57 @@ class BaseCartgripperEnv(BaseMujocoEnv):
         else:
             object_meshes = None
 
-        _hp = self._default_hparams()
+        params = self._default_hparams()
         for name, value in params_dict.items():
             print('setting param {} to value {}'.format(name, value))
-            _hp.set_hparam(name, value)
+            params.set_hparam(name, value)
 
-        base_filename = asset_base_path + _hp.filename
-        friction_params = (_hp.friction, 0.1, 0.02)
-        reset_xml = None
-        if reset_state is not None:
-            reset_xml = reset_state['reset_xml']
-        self._reset_xml = create_object_xml(base_filename, _hp.num_objects, _hp.object_mass,
-                                            friction_params, object_meshes, _hp.finger_sensors,
-                                            _hp.maxlen, _hp.minlen, reset_xml,
-                                            _hp.obj_classname, _hp.block_height, _hp.block_width)
+        base_filename = asset_base_path + params.filename
+        friction_params = (params.friction, 0.010, 0.0002)
+        self.obj_stat_prop = create_object_xml(base_filename, params.num_objects, params.object_mass,
+                                               friction_params, object_meshes, params.finger_sensors,
+                                               params.maxlen, params.minlen, params.preload_obj_dict)
         gen_xml = create_root_xml(base_filename)
-        super().__init__(gen_xml, _hp)
+        super().__init__(gen_xml, params)
         clean_xml(gen_xml)
-        self._base_sdim, self._base_adim, self.mode_rel = 5, 5, _hp.mode_rel
-        self.num_objects, self.skip_first, self.substeps = _hp.num_objects, _hp.skip_first, _hp.substeps
-        self.randomize_initial_pos = _hp.randomize_initial_pos
-        self.finger_sensors, self._maxlen = _hp.finger_sensors, _hp.maxlen
 
-        self._previous_target_qpos, self._n_joints = None, 9
-        self._read_reset_state = reset_state
-
-        if self._hp.verbose_dir is not None:
-            self._verbose_vid = []
-            self._ctr = 0
-
+        self._base_sdim, self._base_adim, self.mode_rel = 5, 5, np.array(params.mode_rel)
+        self.num_objects, self.skip_first, self.substeps = params.num_objects, params.skip_first, params.substeps
+        self.sample_objectpos = params.sample_objectpos
+        self.object_object_mindist = params.object_object_mindist
+        self.randomize_initial_pos = params.randomize_initial_pos
+        self.arm_obj_initdist = params.arm_obj_initdist
+        self.xpos0, self.object_pos0 = params.xpos0, params.object_pos0
+        self.arm_start_lifted = params.arm_start_lifted
+        self.finger_sensors, self.object_sensors = params.finger_sensors, object_meshes is not None
+        self._previous_target_qpos, self._n_joints = None, 6
+        self._hp = params
 
     def _default_hparams(self):
-        default_dict = {
-                        'filename': None,
-                        'mode_rel': [True, True, True, True, False],
-                        'base_sdim':5,
-                        'base_adim':5,
-                        'num_objects':1,
-                        'skip_first':50,
-                        'substeps':50,
-                        'sample_objectpos':True,
-                        'object_object_mindist':-1,
-                        'randomize_initial_pos':True,
-                        'arm_obj_initdist':-1,
-                        'arm_start_lifted':True,
-                        'verbose_dir': None,
-                        'object_mass': 1.0,
-                        'friction': 1.0,
-                        'finger_sensors': True,
-                        'maxlen': 0.12,
-                        'minlen': 0.01,
-                        'obj_classname': 'freejoint',
-                        'block_height': 0.02,
-                        'block_width': 0.02}
-
+        default_dict = {'filename': '',
+                          'num_objects': 1,
+                          'object_mass': 0.1,
+                          'friction':1.,
+                          'mode_rel': [True, True, True, True, False],
+                          'object_meshes':None,
+                          'finger_sensors':False,
+                          'maxlen': 0.2,
+                          'minlen': 0.01,
+                          'preload_obj_dict': None,
+                          'sample_objectpos':True,
+                          'object_object_mindist':None,
+                          'randomize_initial_pos': True,
+                          'arm_obj_initdist': None,
+                          'xpos0': None,
+                          'object_pos0': np.array([]),
+                          'arm_start_lifted': False,
+                          'skip_first': 40,
+                          'substeps': 200}
         parent_params = super()._default_hparams()
         parent_params.set_hparam('ncam', 2)
         for k in default_dict.keys():
             parent_params.add_hparam(k, default_dict[k])
         return parent_params
-
 
     def step(self, action):
         target_qpos = np.clip(self._next_qpos(action), low_bound, high_bound)
@@ -133,45 +126,46 @@ class BaseCartgripperEnv(BaseMujocoEnv):
                 poses.append(np.concatenate((pos, np.array([0]), ori), axis=0))
             return poses
 
-        if self._hp.sample_objectpos:  # if object pose explicit do not sample poses
-            if self._hp.object_object_mindist:
+        if self.sample_objectpos:  # if object pose explicit do not sample poses
+            if self.object_object_mindist:
                 assert self.num_objects == 2
                 ob_ob_dist = 0.
-                while ob_ob_dist < self._hp.object_object_mindist:
+                while ob_ob_dist < self.object_object_mindist:
                     object_pos_l = create_pos()
                     ob_ob_dist = np.linalg.norm(object_pos_l[0][:3] - object_pos_l[1][:3])
                 object_pos = np.concatenate(object_pos_l)
             else:
                 object_pos_l = create_pos()
                 object_pos = np.concatenate(object_pos_l)
+
         else:
             object_pos = self.object_pos0[:self.num_objects]
 
         xpos0 = np.zeros(self._base_sdim + 1)
         if self.randomize_initial_pos:
-            assert not self._hp.arm_obj_initdist
+            assert not self.arm_obj_initdist
             xpos0[:2] = np.random.uniform(-.4, .4, 2)
             xpos0[2] = np.random.uniform(-0.08, .14)
-        elif self._hp.arm_obj_initdist:
-            d = self._hp.arm_obj_initdist
+        elif self.arm_obj_initdist:
+            d = self.arm_obj_initdist
             alpha = np.random.uniform(-np.pi, np.pi, 1)
             delta_pos = np.array([d * np.cos(alpha), d * np.sin(alpha)])
             xpos0[:2] = object_pos[:2] + delta_pos.squeeze()
             xpos0[2] = np.random.uniform(-0.08, .14)
         else:
             xpos0_true_len = (self.sim.get_state().qpos.shape[0] - self.num_objects * 7)
-            len_xpos0 = self._hp.xpos0.shape[0]
+            len_xpos0 = self.xpos0.shape[0]
 
             if len_xpos0 != xpos0_true_len:
-                xpos0 = np.concatenate([self._hp.xpos0, np.zeros(xpos0_true_len - len_xpos0)],
+                xpos0 = np.concatenate([self.xpos0, np.zeros(xpos0_true_len - len_xpos0)],
                                        0)  # testing in setting with updown rot, while data has only xyz
                 print("appending zeros to initial robot configuration!!!")
             else:
-                xpos0 = self._hp.xpos0
+                xpos0 = self.xpos0
             assert xpos0.shape[0] == self._base_sdim + 1
 
-        if self._hp.arm_start_lifted:
-            xpos0[2] = self._hp.arm_start_lifted
+        if self.arm_start_lifted:
+            xpos0[2] = self.arm_start_lifted
         xpos0[-1] = low_bound[-1]    #start with gripper open
         sim_state = self.sim.get_state()
         sim_state.qpos[:] = np.concatenate((xpos0, object_pos.flatten()), 0)
@@ -190,7 +184,7 @@ class BaseCartgripperEnv(BaseMujocoEnv):
         self._previous_target_qpos[-1] = low_bound[-1]
         self._init_dynamics()
 
-        return self._get_obs(finger_force / self.skip_first / self.substeps)
+        return self._get_obs(finger_force / self.skip_first / self.substeps), None
 
     def _get_obs(self, finger_sensors):
         obs, touch_offset = {}, 0
@@ -201,7 +195,9 @@ class BaseCartgripperEnv(BaseMujocoEnv):
 
         #joint poisitions and velocities
         obs['qpos'] = copy.deepcopy(self.sim.data.qpos[:self._n_joints].squeeze())
+        obs['qpos_full'] = copy.deepcopy(self.sim.data.qpos)
         obs['qvel'] = copy.deepcopy(self.sim.data.qvel[:self._n_joints].squeeze())
+        obs['qvel_full'] = copy.deepcopy(self.sim.data.qvel.squeeze())
 
         #control state
         obs['state'] = np.zeros(self._base_sdim)
@@ -210,29 +206,22 @@ class BaseCartgripperEnv(BaseMujocoEnv):
 
         #report object poses
         obs['object_poses_full'] = np.zeros((self.num_objects, 7))
+        obs['object_qpos'] = np.zeros((self.num_objects, 7))
         obs['object_poses'] = np.zeros((self.num_objects, 3))
         for i in range(self.num_objects):
             fullpose = self.sim.data.qpos[i * 7 + self._n_joints:(i + 1) * 7 + self._n_joints].squeeze().copy()
+            fullpose[:3] = self.sim.data.sensordata[touch_offset + i * 3:touch_offset + (i + 1) * 3]
 
-            if self.object_sensors:
-                fullpose[:3] = self.sim.data.sensordata[touch_offset + i * 3:touch_offset + (i + 1) * 3].copy()
             obs['object_poses_full'][i] = fullpose
             obs['object_poses'][i, :2] = fullpose[:2]
-            obs['object_poses'][i, 2] = quat_to_zangle(fullpose[3:])
+            obs['object_poses'][i, 2] = Quaternion(fullpose[3:]).angle
+            obs['object_qpos'][i] = self.sim.data.qpos[self._n_joints + i * 7: self._n_joints + (i+1)*7]
 
         #copy non-image data for environment's use (if needed)
         self._last_obs = copy.deepcopy(obs)
 
         #get images
         obs['images'] = self.render()
-
-        obj_image_locations = np.zeros((2, self.num_objects + 1, 2))
-        for i, cam in enumerate(['maincam', 'leftcam']):
-            obj_image_locations[i, 0] = self.project_point(self.sim.data.get_body_xpos('hand')[:3], cam)
-            for j in range(self.num_objects):
-                obj_image_locations[i, j + 1] = self.project_point(obs['object_poses_full'][j, :3], cam)
-        obj_image_locations[:, :, 0] = self._frame_height - obj_image_locations[:, :, 0]
-        obs['obj_image_locations'] = obj_image_locations
 
         return obs
 
