@@ -141,7 +141,7 @@ class CEM_Controller_Base(Policy):
         timings = OrderedDict()
         t = time.time()
         if not self._hp.reuse_cov or self.t < 2:
-            self.sigma = construct_initial_sigma(self._hp, self.t)
+            self.sigma = construct_initial_sigma(self._hp, self.adim, self.t)
             self.sigma_prev = self.sigma
         else:
             self.sigma = reuse_cov(self.sigma, self.adim, self._hp)
@@ -193,8 +193,6 @@ class CEM_Controller_Base(Policy):
                 self.plan_stat['best_cost_perstep'] = self.best_cost_perstep
 
             actions_flat = self.post_process_actions(actions)
-            self.bestaction = actions[self.indices[0]]
-
             self.fit_gaussians(actions_flat)
 
             self.logger.log('iter {0}, bestscore {1}'.format(itr, scores[self.indices[0]]))

@@ -12,26 +12,40 @@ class Randompolicy(Policy):
     Random Policy
     """
     def __init__(self, agentparams, policyparams, gpu_id, npgu):
-        Policy.__init__(self, agentparams, policyparams, gpu_id, npgu)
+
+        self._hp = self._default_hparams()
+        self.override_defaults(policyparams)
         self.agentparams = agentparams
-        self.policyparams = policyparams
         self.adim = agentparams['adim']
-        self.actions = []
-        self.naction_steps = policyparams['nactions']
-        self.repeat = self.policyparams['repeat']
+
+    def _default_hparams(self):
+        default_dict = {
+            'nactions': 5,
+            'repeat': 3,
+            'action_bound': True,
+            'initial_std': 0.05,   #std dev. in xy
+            'initial_std_lift': 0.15,   #std dev. in xy
+            'initial_std_rot': np.pi / 18,
+            'type':None,
+            'discrete_gripper':False,
+        }
+
+        parent_params = super()._default_hparams()
+        for k in default_dict.keys():
+            parent_params.add_hparam(k, default_dict[k])
+        return parent_params
 
     def act(self, t):
-        assert self.agentparams['T'] == self.naction_steps*self.repeat
+        assert self.agentparams['T'] == self._hp.nactions*self._hp.repeat
         if t == 0:
-            mean = np.zeros(5 * self.naction_steps)
+            mean = np.zeros(self.adim * self._hp.nactions)
             # initialize mean and variance of the discrete actions to their mean and variance used during data collection
-            sigma = construct_initial_sigma(self.policyparams)
-            self.actions = np.random.multivariate_normal(mean, sigma).reshape(self.naction_steps, -1)
+            sigma = construct_initial_sigma(self._hp, self.adim)
+            self.actions = np.random.multivariate_normal(mean, sigma).reshape(self._hp.nactions, -1)
             self.process_actions()
         return {'actions': self.actions[t, :self.adim]}
 
     def process_actions(self):
-
         if len(self.actions.shape) == 2:
             self.actions = self._process(self.actions)
         elif len(self.actions.shape) == 3:   # when processing batch of actions
@@ -41,14 +55,12 @@ class Randompolicy(Policy):
             self.actions = np.stack(newactions, axis=0)
 
     def _process(self, actions):
-        if 'discrete_adim' in self.agentparams:
-            actions = discretize(actions, self.agentparams['discrete_adim'])
-        if 'discrete_gripper' in self.policyparams:
-            actions = discretize_gripper(actions, self.policyparams['discrete_gripper'])
-        if 'no_action_bound' not in self.policyparams:
-            actions = truncate_movement(actions, self.policyparams)
+        if self._hp.discrete_gripper:
+            actions = discretize_gripper(actions, self._hp)
+        if self._hp.action_bound:
+            actions = truncate_movement(actions, self._hp)
             
-        actions = np.repeat(actions, self.repeat, axis=0)
+        actions = np.repeat(actions, self._hp.repeat, axis=0)
         return actions
 
     def finish(self):
@@ -65,7 +77,7 @@ class CorrRandompolicy(Randompolicy):
         return {'actions': self.actions[0, t]}
 
     def sample_actions(self, nsamples):
-        assert self.repeat == 1
+        assert self._hp.repeat == 1
         xy_std = self.policyparams['initial_std']
         diag = [xy_std ** 2, xy_std ** 2]
 
@@ -79,12 +91,12 @@ class CorrRandompolicy(Randompolicy):
         actions = []
         for d in range(len(diag)):
             var = diag[d]
-            mean = np.zeros(self.naction_steps)
-            cov = np.diag(np.ones(self.naction_steps)) + \
-                  np.diag(np.ones(self.naction_steps - 1), k=1) + \
-                  np.diag(np.ones(self.naction_steps - 1), k=-1) + \
-                  np.diag(np.ones(self.naction_steps - 2), k=2) + \
-                  np.diag(np.ones(self.naction_steps - 2), k=-2)
+            mean = np.zeros(self._hp.nactions)
+            cov = np.diag(np.ones(self._hp.nactions)) + \
+                  np.diag(np.ones(self._hp.nactions - 1), k=1) + \
+                  np.diag(np.ones(self._hp.nactions - 1), k=-1) + \
+                  np.diag(np.ones(self._hp.nactions - 2), k=2) + \
+                  np.diag(np.ones(self._hp.nactions - 2), k=-2)
             sigma = cov * var
             actions.append(np.random.multivariate_normal(mean, sigma, nsamples))
 
@@ -97,7 +109,7 @@ class RandomPickPolicy(Randompolicy):
         Randompolicy.__init__(self, action_proposal_conf, agentparams, policyparams)
 
     def act(self, t, object_poses, state):
-        assert self.agentparams['T'] == self.naction_steps * self.repeat and self.naction_steps >= 3
+        assert self.agentparams['T'] == self._hp.nactions * self.repeat and self._hp.nactions >= 3
         if t == 0:
             self._desig_pos = self.sample_actions(object_poses, state, 1)
         return {'actions': self.actions[t, :self.adim], 'desig_pos': self._desig_pos}
@@ -105,7 +117,7 @@ class RandomPickPolicy(Randompolicy):
     def sample_actions(self, object_poses, state, nsamples):
         assert self.adim == 4 or self.adim == 5
         repeat = self.repeat
-        mean = np.zeros((self.naction_steps, 5))
+        mean = np.zeros((self._hp.nactions, 5))
 
         target_object = np.random.randint(object_poses.shape[1])  # selects a random object to pick
         desig_pos = object_poses[0, target_object, :2].copy()
@@ -126,7 +138,7 @@ class RandomPickPolicy(Randompolicy):
 
         sigma = construct_initial_sigma(self.policyparams)
 
-        self.actions = np.random.multivariate_normal(mean.reshape(-1), sigma, nsamples).reshape(nsamples, self.naction_steps, 5)
+        self.actions = np.random.multivariate_normal(mean.reshape(-1), sigma, nsamples).reshape(nsamples, self._hp.nactions, 5)
         self.actions = self.actions.squeeze()
         self.process_actions()
 

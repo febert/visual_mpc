@@ -189,3 +189,5 @@ record/
 benchmark_schedule.txt
 bench/
 bench30steps/
+
+auto_gen*

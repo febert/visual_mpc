@@ -7,7 +7,7 @@ class CreateConfigAgent(GeneralAgent):
     def __init__(self, hyperparams):
         super().__init__(hyperparams)
 
-    def rollout(self, policy, i_tr):
+    def rollout(self, policy, i_trial):
 
         # Take the sample.
         self._init()
@@ -26,7 +26,6 @@ class CreateConfigAgent(GeneralAgent):
                 obs = self._post_process_obs(self.env._get_obs(None), agent_data)
             except ValueError:
                 return {'traj_ok': False}, None, None
-
 
         return agent_data, obs, policy_outputs
 
