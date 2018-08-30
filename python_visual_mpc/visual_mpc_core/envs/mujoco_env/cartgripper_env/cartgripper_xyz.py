@@ -2,7 +2,7 @@ from python_visual_mpc.visual_mpc_core.envs.mujoco_env.cartgripper_env.base_cart
 import copy
 
 
-class VanillaCartgripperEnv(BaseCartgripperEnv):
+class CartgripperXYZEnv(BaseCartgripperEnv):
     def __init__(self, env_params, reset_state):
         self._hyper = copy.deepcopy(env_params)
         super().__init__(env_params, reset_state)
@@ -13,8 +13,6 @@ class VanillaCartgripperEnv(BaseCartgripperEnv):
         default_dict = {}
 
         parent_params = super()._default_hparams()
-        parent_params.set_hparam('base_sdim', 4)
-        parent_params.set_hparam('base_adim', 4)
         for k in default_dict.keys():
             parent_params.add_hparam(k, default_dict[k])
         return parent_params

@@ -9,7 +9,7 @@ import traceback
 from python_visual_mpc.visual_mpc_core.algorithm.utils.cem_controller_utils import sample_actions
 
 
-# @ray.remote
+@ray.remote
 class SimWorker(object):
     def __init__(self):
         print('created worker')
@@ -49,22 +49,6 @@ class SimWorker(object):
         return self.env.get_distance_score()
 
     def _post_process_obs(self, env_obs, agent_data, initial_obs=False):
-        """
-        Copied from general_agent.py !!
-
-        Handles conversion from the environment observations, to agent observation
-        space. Observations are accumulated over time, and images are resized to match
-        the given image_heightximage_width dimensions.
-
-        Original images from cam index 0 are added to buffer for saving gifs (if needed)
-
-        Data accumlated over time is cached into an observation dict and returned. Data specific to each
-        time-step is returned in agent_data
-
-        :param env_obs: observations dictionary returned from the environment
-        :param initial_obs: Whether or not this is the first observation in rollout
-        :return: obs: dictionary of observations up until (and including) current timestep
-        """
         agent_img_height = self.agentparams['image_height']
         agent_img_width = self.agentparams['image_width']
 
@@ -108,22 +92,6 @@ class SimWorker(object):
             agent_data['desig_pix'] = env_obs['obj_image_locations']
         return obs
 
-    def sim_rollout_with_retry(self, curr_qpos, curr_qvel, mean, sigma):
-        done = False
-        attempts = 0
-        while not done:
-            try:
-                attempts += 1
-                actions = sample_actions(mean, sigma, self.hp, 1)
-                costs, images = self.sim_rollout(curr_qpos, curr_qvel, actions[0])
-                done = True
-            except Exception as err:
-                traceback.print_tb(err.__traceback__)
-                print('sim error retrying')
-        if attempts > 1:
-            print('needed {} attempts'.format(attempts))
-        return costs, images
-
     def sim_rollout(self, curr_qpos, curr_qvel, actions):
         agent_data = {}
         t = 0
@@ -141,12 +109,12 @@ class SimWorker(object):
             costs.append(self.eval_action())
         return costs, obs['images']
 
-    def perform_rollouts(self, curr_qpos, curr_qvel, mean, sigma, M):
+    def perform_rollouts(self, curr_qpos, curr_qvel, actions, M):
         all_scores = np.empty(M, dtype=np.float64)
         image_list = []
 
         for smp in range(M):
-            score, images = self.sim_rollout_with_retry(curr_qpos, curr_qvel, mean, sigma)
+            score, images = self.sim_rollout(curr_qpos, curr_qvel, actions[smp])
             image_list.append(images.squeeze())
             # print('score', score)
             per_time_multiplier = np.ones([len(score)])
@@ -162,15 +130,15 @@ class CEM_Controller_Sim(CEM_Controller_Base):
     """
     def __init__(self, ag_params, policyparams, gpu_id, ngpu):
         super(CEM_Controller_Sim, self).__init__(ag_params, policyparams)
-        # self.parallel = True
-        self.parallel = False
+        self.parallel = True
+        # self.parallel = False
         if self.parallel:
             ray.init()
 
     def _default_hparams(self):
         default_dict = {
             'len_pred':15,
-            'num_workers':40,
+            'num_workers':10,
         }
 
         parent_params = super()._default_hparams()
@@ -204,12 +172,13 @@ class CEM_Controller_Sim(CEM_Controller_Base):
             for id in id_list:
                 ray.get(id)
 
-    def get_rollouts(self, _, cem_itr, itr_times):
-        images, all_scores = self.sim_rollout_parallel()
+
+    def get_rollouts(self, actions, cem_itr, itr_times):
+        images, all_scores = self.sim_rollout_parallel(actions)
 
         if self.verbose:
             bestindices = all_scores.argsort()[:self.K]
-            images = images[bestindices]
+            images = images[bestindices,:,0]  # select cam0
             vid = []
             for t in range(self.naction_steps * self.repeat):
                 row = np.concatenate(np.split(images[:,t], images.shape[0], axis=0), axis=2).squeeze()
@@ -222,14 +191,15 @@ class CEM_Controller_Sim(CEM_Controller_Base):
         file_path = self.agentparams['record']
         npy_to_gif(images, file_path +'/video' + name)
 
-    def sim_rollout_parallel(self):
+    def sim_rollout_parallel(self, actions):
         per_worker = int(self.M / np.float32(self.n_worker))
         id_list = []
         for i, worker in enumerate(self.workers):
             if self.parallel:
-                id_list.append(worker.perform_rollouts.remote(self.qpos_full, self.qvel_full, self.mean, self.sigma, per_worker))
+                actions_perworker = actions[i*per_worker:(i+1)*per_worker]
+                id_list.append(worker.perform_rollouts.remote(self.qpos_full, self.qvel_full, actions_perworker, per_worker))
             else:
-                return worker.perform_rollouts(self.qpos_full, self.qvel_full, self.mean, self.sigma, self.M)
+                return worker.perform_rollouts(self.qpos_full, self.qvel_full, actions, self.M)
 
         # blocking call
         image_list, scores_list = [], []
@@ -263,6 +233,7 @@ class CEM_Controller_Sim(CEM_Controller_Base):
         self.qpos_full = qpos_full[t]
         self.qvel_full = qvel_full[t]
         self.goal_pos = goal_pos
+
         if t == 0:
             self.create_sim()
         return super(CEM_Controller_Sim, self).act(t, i_tr)

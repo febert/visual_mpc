@@ -99,15 +99,15 @@ def compute_warp_cost(logger, policyparams, flow_field, goal_pix=None, warped_im
     logger.log('tcg {}'.format(time.time() - tc1))
     return scores
 
-def construct_initial_sigma(hp, t=None):
+def construct_initial_sigma(hp, adim, t=None):
     xy_std = hp.initial_std
     diag = [xy_std**2, xy_std**2]
 
-    if 'initial_std_lift' in hp:
+    if adim == 3:
         diag.append(hp.initial_std_lift ** 2)
-    if 'initial_std_rot' in hp:
+    elif adim == 4:
         diag.append(hp.initial_std_rot ** 2)
-    if 'initial_std_grasp' in hp:
+    elif adim == 5:
         diag.append(hp.initial_std_grasp ** 2)
 
     adim = len(diag)

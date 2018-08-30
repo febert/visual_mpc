@@ -94,7 +94,8 @@ def create_object_xml(filename, num_objects, object_mass, friction_params, objec
             l1 = dict['l1']
             l2 = dict['l2']
             pos2 = dict['pos2']
-            chosen_mesh = dict['chosen_mesh']
+            if object_meshes is not None:
+                chosen_mesh = dict['chosen_mesh']
         save_dict_list.append(dict)
 
         obj_string = "object{}".format(i)

@@ -127,6 +127,9 @@ def main():
     if 'data_save_dir' in hyperparams['agent']:
         record_queue, record_saver_proc, counter = prepare_saver(hyperparams)
 
+    if args.iex != -1:
+        hyperparams['agent']['iex'] = args.iex
+
     conflist = []
     for i in range(n_worker):
         modconf = copy.deepcopy(hyperparams)

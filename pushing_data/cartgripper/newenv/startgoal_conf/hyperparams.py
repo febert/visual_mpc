@@ -5,7 +5,7 @@ import numpy as np
 from python_visual_mpc.visual_mpc_core.algorithm.random_policy import Randompolicy, RandomPickPolicy
 from python_visual_mpc.visual_mpc_core.agent.create_configs_agent import CreateConfigAgent
 from python_visual_mpc.visual_mpc_core.algorithm.policy import DummyPolicy
-from python_visual_mpc.visual_mpc_core.envs.mujoco_env.cartgripper_env.vanilla_env import VanillaCartgripperEnv
+from python_visual_mpc.visual_mpc_core.envs.mujoco_env.cartgripper_env.cartgripper_xyz import CartgripperXYZEnv
 
 
 BASE_DIR = '/'.join(str.split(__file__, '/')[:-1])
@@ -15,28 +15,21 @@ import python_visual_mpc
 DATA_DIR = '/'.join(str.split(python_visual_mpc.__file__, '/')[:-2])
 
 env_params = {
-    'filename': 'sawyer_grasp.xml',
     'num_objects': 1,
     'object_mass': 0.1,
-    'friction': 1.,
-    'substeps': 100,
+    'friction': 1.0,
 }
 
 agent = {
     'type': CreateConfigAgent,
-    'env': (VanillaCartgripperEnv, env_params),
-    'data_save_dir': BASE_DIR,
-    'not_use_images':"",
-    'cameras':['maincam', 'leftcam'],
+    'env': (CartgripperXYZEnv, env_params),
     'T': 1,
     'image_height' : 48,
     'image_width' : 64,
-    'novideo':'',
-    'gen_xml':1,   #generate xml every nth trajecotry
-    'ztarget':0.13,
+    'gen_xml': 1,   #generate xml every nth trajecotry
     'record': BASE_DIR + '/record/',
-    'rejection_sample': 10,
-    'data_save_dir':os.environ['VMPC_DATA_DIR'] + '/sawyer_sim/startgoal_conf/bowl_arm_disp',
+    'discrete_gripper': -1, #discretized gripper dimension,
+    'data_save_dir':os.environ['VMPC_DATA_DIR'] + '/cartgripper/newenv/startgoal_conf',
 }
 
 policy = {
@@ -45,7 +38,6 @@ policy = {
 
 
 config = {
-    'traj_per_file': 16,
     'save_raw_images':'',
     'seperate_good': True,
     'current_dir' : current_dir,
