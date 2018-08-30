@@ -1,5 +1,0 @@
-evaluated 450 trajectories 
-average start distances: 22.8611760144 std. err 0.485584713371
-average final distances: 17.036312567  std. err 0.803099476172
-average final improvement: 5.82486344739 std. err 0.274586696209
-average score: 3.3202561537 std. err 0.156518376104  (calculated with finalweight 10.0)

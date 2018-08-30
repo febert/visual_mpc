@@ -99,55 +99,75 @@ def compute_warp_cost(logger, policyparams, flow_field, goal_pix=None, warped_im
     logger.log('tcg {}'.format(time.time() - tc1))
     return scores
 
-def construct_initial_sigma(policyparams, t=None):
-    xy_std = policyparams['initial_std']
+def construct_initial_sigma(hp, adim, t=None):
+    xy_std = hp.initial_std
     diag = [xy_std**2, xy_std**2]
 
-    if 'initial_std_lift' in policyparams:
-        diag.append(policyparams['initial_std_lift']**2)
-    if 'initial_std_rot' in policyparams:
-        diag.append(policyparams['initial_std_rot']**2)
-    if 'initial_std_grasp' in policyparams:
-        diag.append(policyparams['initial_std_grasp']**2)
+    if adim == 3:
+        diag.append(hp.initial_std_lift ** 2)
+    elif adim == 4:
+        diag.append(hp.initial_std_rot ** 2)
+    elif adim == 5:
+        diag.append(hp.initial_std_grasp ** 2)
 
     adim = len(diag)
-    diag = np.tile(diag, policyparams['nactions'])
+    diag = np.tile(diag, hp.nactions)
     diag = np.array(diag)
 
-    if 'reduce_std_dev' in policyparams:
-        assert 'reuse_mean' in policyparams
+    if 'reduce_std_dev' in hp:
+        assert 'reuse_mean' in hp
         if t >= 2:
-            print('reducing std dev by factor', policyparams['reduce_std_dev'])
+            print('reducing std dev by factor', hp.reduce_std_dev)
             # reducing all but the last repeataction in the sequence since it can't be reused.
-            diag[:(policyparams['nactions']-1)*adim] *= policyparams['reduce_std_dev']
+            diag[:(hp.nactions - 1) * adim] *= hp.reduce_std_dev
 
     sigma = np.diag(diag)
     return sigma
 
-def reuse_cov(sigma, adim, policyparams):
-    assert policyparams['replan_interval'] == 3
+def reuse_cov(sigma, adim, hp):
+    assert hp.replan_interval == 3
     print('reusing cov form last MPC step...')
     sigma_old = copy.deepcopy(sigma)
     sigma = np.zeros_like(sigma)
     #reuse covariance and add a fraction of the initial covariance to it
-    sigma[0:-adim,0:-adim] = sigma_old[adim:,adim: ] +\
-                construct_initial_sigma(policyparams)[:-adim, :-adim]*policyparams['reuse_cov']
-    sigma[-adim:, -adim:] = construct_initial_sigma(policyparams)[:adim, :adim]
+    sigma[0:-adim,0:-adim] = sigma_old[adim:,adim: ] + \
+                             construct_initial_sigma(hp)[:-adim, :-adim] * hp.reuse_cov
+    sigma[-adim:, -adim:] = construct_initial_sigma(hp)[:adim, :adim]
     return sigma
 
-def reuse_mean(mean, policyparams):
-    assert policyparams['replan_interval'] == 3
+def reuse_action(prev_action, hp):
+    assert hp.replan_interval == 3
     print('reusing mean form last MPC step...')
-    mean_old = mean.copy()
-    mean = np.zeros_like(mean_old)
-    mean[:-1] = mean_old[1:]
-    return mean.flatten()
+    action = np.zeros_like(prev_action)
+    action[:-1] = prev_action[1:]
+    return action.flatten()
 
-def truncate_movement(actions, policyparams):
-    if 'maxshift' in policyparams:
-        maxshift = policyparams['maxshift']
-    else:
-        maxshift = policyparams['initial_std']*2
+def sample_actions(mean, sigma, hp, M):
+    actions = np.random.multivariate_normal(mean, sigma, M)
+    actions = actions.reshape(M, hp.naction_steps, hp.adim)
+    if hp.discrete_ind != None:
+        actions = discretize(actions, M, hp.naction_steps, hp.discrete_ind)
+
+    if hp.action_bound:
+        actions = truncate_movement(actions, hp)
+    actions = np.repeat(actions, hp.repeat, axis=1)
+
+    return actions
+
+def discretize(actions, M, naction_steps, discrete_ind):
+    """
+    discretize and clip between 0 and 4
+    :param actions:
+    :return:
+    """
+    for b in range(M):
+        for a in range(naction_steps):
+            for ind in discrete_ind:
+                actions[b, a, ind] = np.clip(np.floor(actions[b, a, ind]), 0, 4)
+    return actions
+
+def truncate_movement(actions, hp):
+    maxshift = hp.initial_std * 2
 
     if len(actions.shape) == 3:
         actions[:,:,:2] = np.clip(actions[:,:,:2], -maxshift, maxshift)  # clip in units of meters

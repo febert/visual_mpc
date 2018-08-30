@@ -4,6 +4,7 @@ import numpy as np
 import cv2
 import os
 import shutil
+import pdb
 
 
 class BenchmarkAgent(GeneralAgent):
@@ -12,6 +13,7 @@ class BenchmarkAgent(GeneralAgent):
         self.ncam = hyperparams['env'][1].get('ncam', 2)
         GeneralAgent.__init__(self, hyperparams)
         self._is_robot_bench = 'robot_name' in self._hyperparams['env'][1]
+        self._hyperparams['gen_xml'] = 1
 
     def _setup_world(self, itr):
         self._reset_state = self._load_raw_data(itr)
@@ -65,6 +67,9 @@ class BenchmarkAgent(GeneralAgent):
         if 'robot_name' in self._hyperparams['env'][1]:   # robot experiments don't have a reset state
             return None
 
+        if 'iex' in self._hyperparams:
+            itr = self._hyperparams['iex']
+
         ngroup = 1000
         igrp = itr // ngroup
         group_folder = '{}/traj_group{}'.format(self._start_goal_confs, igrp)
@@ -80,7 +85,10 @@ class BenchmarkAgent(GeneralAgent):
         goal_images = np.zeros([num_images, self.ncam, self._hyperparams['image_height'], self._hyperparams['image_width'], 3])
         for t in range(num_images):  #TODO detect number of images automatically in folder
             for i in range(self.ncam):
-                goal_images[t, i] = cv2.imread('{}/images{}/im_{}.png'.format(traj_folder, i, t))[...,::-1]
+                image_file = '{}/images{}/im_{}.png'.format(traj_folder, i, t)
+                if not os.path.isfile(image_file):
+                    raise(ValueError, 'goal image not found!')
+                goal_images[t, i] = cv2.imread(image_file)[...,::-1]
         self._goal_image = goal_images.astype(np.float32)/255.
 
         with open('{}/agent_data.pkl'.format(traj_folder), 'rb') as file:

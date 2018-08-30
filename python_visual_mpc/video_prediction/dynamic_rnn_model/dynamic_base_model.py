@@ -458,8 +458,8 @@ class Dynamic_Base_Model(object):
                 images = images[:,:,0]
                 pix_distrib = pix_distrib[:,:,0]
 
-
-        seq_len = actions.get_shape().as_list()[1]
+        if actions is not None:
+            seq_len = actions.get_shape().as_list()[1]
 
         if pix_distrib is not None:
             pix_distrib = tf.transpose(pix_distrib, [0,1,4,2,3])[...,None]  #putting ndesig at the third position
@@ -514,8 +514,32 @@ class Dynamic_Base_Model(object):
                 self.pix_distrib_pl = tf.placeholder(tf.float32, name='states',
                                                      shape=(conf['batch_size'], seq_len, ndesig, self.img_height, self.img_width, 1))
                 pix_distrib = self.pix_distrib_pl
+            elif 'new_loader' in conf:
+                from python_visual_mpc.visual_mpc_core.Datasets.base_dataset import BaseVideoDataset
+                train_images, val_images, train_actions, val_actions, train_states, val_states = [], [], [], [], [], []
+                print('loading images for view {}'.format(conf['view']))
+                for path, batch_size in conf['data_dir'].items():
+                    data_conf = {'sequence_length': conf['sequence_length'], 'buffer_size': 400}
+                    dataset = BaseVideoDataset(path, batch_size, data_conf)
+                    train_images.append(dataset['images', 'train'][:, :, conf['view']])
+                    val_images.append(dataset['images', 'val'][:, :, conf['view']])
+                    train_actions.append(dataset['actions', 'train'])
+                    val_actions.append(dataset['actions', 'val'])
+                    train_states.append(dataset['state', 'train'])
+                    val_states.append(dataset['state', 'val'])
+
+                train_images, val_images = tf.concat(train_images, 0), tf.concat(val_images, 0)
+                train_states, val_states = tf.concat(train_states, 0), tf.concat(val_states, 0)
+                train_actions, val_actions = tf.concat(train_actions, 0), tf.concat(val_actions, 0)
+                images, states, actions = tf.cond(self.train_cond > 0,
+                                                          # if 1 use trainigbatch else validation batch
+                                                          lambda: [train_images, train_states, train_actions],
+                                                          lambda: [val_images, val_states, val_actions],
+                                                          )
+
+                images = tf.cast(images, tf.float32)/ 255.0
             else:
-                dict = build_tfrecord_fn(conf, mode='traing')
+                dict = build_tfrecord_fn(conf, mode='train')
                 train_images, train_actions, train_states = dict['images'], dict['actions'], dict['endeffector_pos']
                 dict = build_tfrecord_fn(conf, mode='val')
                 val_images, val_actions, val_states = dict['images'], dict['actions'], dict['endeffector_pos']
@@ -525,6 +549,7 @@ class Dynamic_Base_Model(object):
                                                   lambda: [val_images, val_actions, val_states])
             if 'use_len' in conf:
                 images, states, actions = self.random_shift(images, states, actions)
+
 
         self.images = images
         self.states = states

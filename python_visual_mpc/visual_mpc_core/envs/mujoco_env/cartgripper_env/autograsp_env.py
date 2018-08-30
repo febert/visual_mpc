@@ -1,10 +1,10 @@
-from python_visual_mpc.visual_mpc_core.envs.mujoco_env.cartgripper_env.base_cartgripper import BaseCartgripperEnv
+from python_visual_mpc.visual_mpc_core.envs.mujoco_env.cartgripper_env.cartgripper_rot_grasp import CartgripperRotGraspEnv
 from python_visual_mpc.visual_mpc_core.envs.util.action_util import autograsp_dynamics
 from python_visual_mpc.visual_mpc_core.envs.mujoco_env.cartgripper_env.util.sensor_util import is_touching
 import copy
-import numpy as np
 
-class AutograspCartgripperEnv(BaseCartgripperEnv):
+
+class AutograspCartgripperEnv(CartgripperRotGraspEnv):
     def __init__(self, env_params, reset_state=None):
         assert 'mode_rel' not in env_params, "Autograsp sets mode_rel"
         params = copy.deepcopy(env_params)

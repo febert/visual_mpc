@@ -4,7 +4,6 @@ import numpy as np
 from python_visual_mpc.video_prediction.misc.makegifs2 import npy_to_gif
 import cv2
 from python_visual_mpc.visual_mpc_core.algorithm.policy import get_policy_args
-import pdb
 
 
 def file_len(fname):
@@ -16,6 +15,11 @@ def file_len(fname):
 
 
 class Image_Exception(Exception):
+    def __init__(self):
+        pass
+
+
+class Environment_Exception(Exception):
     def __init__(self):
         pass
 
@@ -59,14 +63,14 @@ class GeneralAgent(object):
         self._hyperparams['ncam'] = self.ncam = self.env.ncam
         self.num_objects = self.env.num_objects
 
-    def sample(self, policy, i_tr):
+    def sample(self, policy, i_traj):
         """
         Runs a trial and constructs a new sample containing information
         about the trial.
         """
         if "gen_xml" in self._hyperparams:
-            if i_tr % self._hyperparams['gen_xml'] == 0 and i_tr > 0:
-                self._setup_world(i_tr)
+            if i_traj % self._hyperparams['gen_xml'] == 0 and i_traj > 0:
+                self._setup_world(i_traj)
 
         traj_ok, obs_dict, policy_outs, agent_data = False, None, None, None
         i_trial = 0
@@ -75,7 +79,7 @@ class GeneralAgent(object):
         while not traj_ok and i_trial < imax:
             i_trial += 1
             try:
-                agent_data, obs_dict, policy_outs = self.rollout(policy, i_trial)
+                agent_data, obs_dict, policy_outs = self.rollout(policy, i_trial, i_traj)
                 traj_ok = agent_data['traj_ok']
             except Image_Exception:
                 traj_ok = False
@@ -83,7 +87,7 @@ class GeneralAgent(object):
         print('needed {} trials'.format(i_trial))
 
         if 'make_final_gif' in self._hyperparams or 'make_final_gif_pointoverlay' in self._hyperparams:
-            self.save_gif(i_tr, 'make_final_gif_pointoverlay' in self._hyperparams)
+            self.save_gif(i_traj, 'make_final_gif_pointoverlay' in self._hyperparams)
 
         return agent_data, obs_dict, policy_outs
 
@@ -150,6 +154,9 @@ class GeneralAgent(object):
         if self._goal_obj_pose is not None:
             agent_data['goal_pos'] = self._goal_obj_pose
             agent_data['goal_pix'] = self.env.get_goal_pix(point_target_width)
+        if self._reset_state is not None:
+            agent_data['reset_state'] = self._reset_state
+            obs['reset_state'] = self._reset_state
         return obs
 
     def _required_rollout_metadata(self, agent_data, traj_ok, t, i_tr):
@@ -165,11 +172,11 @@ class GeneralAgent(object):
             agent_data['goal_reached'] = self.env.goal_reached()
         agent_data['traj_ok'] = traj_ok
 
-    def rollout(self, policy, i_tr):
+    def rollout(self, policy, i_trial, i_traj):
         """
         Rolls out policy for T timesteps
         :param policy: Class extending abstract policy class. Must have act method (see arg passing details)
-        :param i_tr: Rollout attempt index (increment each time trajectory fails rollout)
+        :param i_trial: Rollout attempt index (increment each time trajectory fails rollout)
         :return: - agent_data: Dictionary of extra statistics/data collected by agent during rollout
                  - obs: dictionary of environment's observations. Each key maps to that values time-history
                  - policy_ouputs: list of policy's outputs at each timestep.
@@ -185,6 +192,7 @@ class GeneralAgent(object):
         obs = self._post_process_obs(initial_env_obs, agent_data, True)
         policy.reset()
 
+        traj_ok = True
         while not done:
             """
             Every time step send observations to policy, acts in environment, and records observations
@@ -196,29 +204,31 @@ class GeneralAgent(object):
             Policy returns an object (pi_t) where pi_t['actions'] is an action that can be fed to environment
             Environment steps given action and returns an observation
             """
-            pi_t = policy.act(**get_policy_args(policy, obs, t, i_tr, agent_data))
+            pi_t = policy.act(**get_policy_args(policy, obs, t, i_traj, agent_data))
             policy_outputs.append(pi_t)
 
             try:
                 obs = self._post_process_obs(self.env.step(copy.deepcopy(pi_t['actions'])), agent_data)
-            except ValueError as e:
-                print(e)
+            except Environment_Exception as e:
                 return {'traj_ok': False}, None, None
 
             if 'rejection_sample' in self._hyperparams and 'rejection_end_early' in self._hyperparams:
-                if self._hyperparams['rejection_sample'] > i_tr and not self.env.goal_reached():
+                print('traj rejected!')
+                if self._hyperparams['rejection_sample'] > i_trial and not self.env.goal_reached():
                     return {'traj_ok': False}, None, None
 
+            self._required_rollout_metadata(agent_data, traj_ok, t)
             if (self._hyperparams['T']-1) == t:
                 done = True
             t += 1
 
-        traj_ok = True
+            self.save_gif(i_traj)
+
         if not self.env.valid_rollout():
             traj_ok = False
 
         if 'rejection_sample' in self._hyperparams:
-            if self._hyperparams['rejection_sample'] > i_tr:
+            if self._hyperparams['rejection_sample'] > i_trial:
                 assert self.env.has_goal(), 'Rejection sampling enabled but env has no goal'
                 traj_ok = self.env.goal_reached()
             print('goal_reached', self.env.goal_reached())
