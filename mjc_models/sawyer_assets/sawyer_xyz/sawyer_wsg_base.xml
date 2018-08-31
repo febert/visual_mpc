@@ -138,8 +138,9 @@ Usage:
                                                     <geom type="mesh" rgba="0 0 0 0" mesh="GUIDE_WSG50_110" />
                                                     <body name="finger_left" pos="0 0 0.01">
                                                         <inertial pos="0 0 0" mass="0.1" diaginertia="1 1 1" />
-                                                        <geom type="mesh" rgba="0 0 0 1" mesh="WSG-FMF" contype="2" conaffinity="2" margin="0.001" />
-                                                        <site name="finger1_surf" pos="0.003 0 0.1" size=".004 .007 .03" type="box" rgba="0.0 1.0 0.0 0"/>
+                                                        <!-- <geom type="mesh" rgba="0 0 0 1" mesh="WSG-FMF" contype="2" conaffinity="2" margin="0.001" /> /-->
+                                                        <geom type="box" rgba="0 0 0 1" condim="6" contype="2" conaffinity="2" size=".008 .01 .03" pos="0 0 0.1"/>
+                                                        <site name="finger1_surf" pos="0.005 0 0.1" size=".004 .00975 .03" type="box" rgba="0.0 1.0 0.0 0"/>
                                                     </body>
                                                 </body>
                                                 <body name="gripper_right" pos="0 0 0" quat="1.32679e-06 0 0 1">
@@ -148,8 +149,9 @@ Usage:
                                                     <geom type="mesh" rgba="0 0 0 0" mesh="GUIDE_WSG50_110" />
                                                     <body name="finger_right" pos="0 0 0.01">
                                                         <inertial pos="0 0 0" mass="0.1" diaginertia="1 1 1" />
-                                                        <geom type="mesh" rgba="0 0 0 1" mesh="WSG-FMF" contype="4" conaffinity="4" margin="0.001"/>
-                                                        <site name="finger2_surf" pos="0.003 0 0.1" size=".004 .007 .03" type="box" rgba="1.0 0.0 0.0 0"/>
+                                                        <!-- <geom type="mesh" rgba="0 0 0 1" mesh="WSG-FMF" contype="4" conaffinity="4" margin="0.001"/> /-->
+                                                        <geom type="box" rgba="0 0 0 1" condim="6" contype="4" conaffinity="4" size=".008 .01 .03" pos="0 0 0.1"/>
+                                                        <site name="finger2_surf" pos="0.005 0 0.1" size=".004 .00975 .03" type="box" rgba="1.0 0.0 0.0 0"/>
                                                     </body>
                                                 </body>
                                             </body>

@@ -33,7 +33,7 @@ def resize_store(t, target_array, input_array):
     else:
         for i in range(input_array.shape[0]):
             target_array[t, i] = cv2.resize(input_array[i], (target_img_width, target_img_height),
-                                                           interpolation=cv2.INTER_AREA)
+                                                                    interpolation=cv2.INTER_AREA)
 
 
 class GeneralAgent(object):
@@ -192,7 +192,6 @@ class GeneralAgent(object):
         obs = self._post_process_obs(initial_env_obs, agent_data, True)
         policy.reset()
 
-        traj_ok = True
         while not done:
             """
             Every time step send observations to policy, acts in environment, and records observations
@@ -217,15 +216,11 @@ class GeneralAgent(object):
                 if self._hyperparams['rejection_sample'] > i_trial and not self.env.goal_reached():
                     return {'traj_ok': False}, None, None
 
-            self._required_rollout_metadata(agent_data, traj_ok, t)
             if (self._hyperparams['T']-1) == t:
                 done = True
             t += 1
 
-            self.save_gif(i_traj)
-
-        if not self.env.valid_rollout():
-            traj_ok = False
+        traj_ok = self.env.valid_rollout()
 
         if 'rejection_sample' in self._hyperparams:
             if self._hyperparams['rejection_sample'] > i_trial:
@@ -233,7 +228,7 @@ class GeneralAgent(object):
                 traj_ok = self.env.goal_reached()
             print('goal_reached', self.env.goal_reached())
 
-        self._required_rollout_metadata(agent_data, traj_ok, t, i_tr)
+        self._required_rollout_metadata(agent_data, traj_ok, t, i_traj)
         return agent_data, obs, policy_outputs
 
     def save_gif(self, itr, overlay=False):

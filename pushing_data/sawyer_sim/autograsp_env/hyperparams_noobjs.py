@@ -48,12 +48,7 @@ agent = {
 policy = {
     'type': Randompolicy,
     'nactions': 10,
-    'repeat': 3,
-    'no_action_bound': False,
-    'initial_std': 0.05,   #std dev. in xy
-    'initial_std_lift': 0.15,   #std dev. in xy
-    'initial_std_rot': np.pi / 18,
-    'initial_std_grasp': 2
+    'max_z_delta': 0.05
 }
 
 config = {
@@ -63,7 +58,7 @@ config = {
     'save_raw_images': True,
     'save_data': True,
     'start_index':0,
-    'end_index':50,
+    'end_index':100,
     'agent': agent,
     'policy': policy,
     'ngroup': 1000
