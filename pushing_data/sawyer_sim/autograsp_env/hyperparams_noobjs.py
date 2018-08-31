@@ -26,7 +26,8 @@ env_params = {
 #    'object_meshes': ['GlassBowl', 'LotusBowl01'],
     'viewer_image_height': 192,
     'verbose_dir': '/home/sudeep/Desktop/ag_lblock_verbose/',
-    'viewer_image_width': 256
+    'viewer_image_width': 256,
+    'clean_xml': False
 }
 
 agent = {
@@ -48,7 +49,6 @@ agent = {
 policy = {
     'type': Randompolicy,
     'nactions': 10,
-    'max_z_delta': 0.05
 }
 
 config = {
