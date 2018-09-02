@@ -108,14 +108,14 @@ class BaseCartgripperEnv(BaseMujocoEnv):
 
     def step(self, action):
         target_qpos = np.clip(self._next_qpos(action), self.low_bound, self.high_bound)
-        assert target_qpos.shape[0] == self._base_sdim
+        assert target_qpos.shape[0] == self._base_adim
         finger_force = np.zeros(2)
 
         for st in range(self.substeps):
             if self.finger_sensors:
                 finger_force += copy.deepcopy(self.sim.data.sensordata[:2].squeeze())
 
-            alpha = st / float(self.substeps)
+            alpha = st / (float(self.substeps) - 1)
             self.sim.data.ctrl[:] = alpha * target_qpos + (1 - alpha) * self._previous_target_qpos
             self.sim.step()
         finger_force /= self.substeps
@@ -164,7 +164,6 @@ class BaseCartgripperEnv(BaseMujocoEnv):
 
             # determine arm position
             xpos0 = self.get_armpos(object_pos)
-
             qpos = np.concatenate((xpos0, object_pos.flatten()), 0)
         else:
             qpos = self._read_reset_state['qpos_all']
@@ -172,13 +171,14 @@ class BaseCartgripperEnv(BaseMujocoEnv):
         sim_state = self.sim.get_state()
         sim_state.qpos[:] = qpos
         sim_state.qvel[:] = np.zeros_like(self.sim.data.qvel)
+
         self.sim.set_state(sim_state)
         self.sim.forward()
         write_reset_state['qpos_all'] = qpos
         finger_force = np.zeros(2)
         for t in range(self.skip_first):
             for _ in range(self.substeps):
-                self.sim.data.ctrl[:] = qpos[:self.adim]
+                self.sim.data.ctrl[:] = qpos[:self._base_adim]
                 self.sim.step()
                 if self.finger_sensors:
                     finger_force += copy.deepcopy(self.sim.data.sensordata[:2].squeeze())
