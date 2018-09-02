@@ -7,7 +7,7 @@ from pyquaternion import Quaternion
 
 
 BASE_DIR = '/'.join(str.split(python_visual_mpc.__file__, '/')[:-2])
-asset_base_path = BASE_DIR + '/mjc_models/'
+asset_base_path = BASE_DIR + '/mjc_models/cartgripper_assets/'
 low_bound = np.array([-0.5, -0.5, -0.08, -np.pi*2, -1])
 high_bound = np.array([0.5, 0.5, 0.15, np.pi*2, 1])
 
@@ -35,7 +35,6 @@ class BaseCartgripperEnv(BaseMujocoEnv):
     cartgripper env with motion in x,y,z
     """
     def __init__(self, env_params_dict, reset_state = None):
-        assert 'filename' in env_params_dict, "Cartgripper model filename required"
         params_dict = copy.deepcopy(env_params_dict)
         #TF HParams can't handle list Hparams well, this is cleanest workaround for object_meshes
         if 'object_meshes' in params_dict:
@@ -59,7 +58,8 @@ class BaseCartgripperEnv(BaseMujocoEnv):
                                             _hp.obj_classname)
         gen_xml = create_root_xml(base_filename)
         super().__init__(gen_xml, _hp)
-        clean_xml(gen_xml)
+        if _hp.clean_xml:
+            clean_xml(gen_xml)
 
         self._base_sdim, self._base_adim, self.mode_rel = 3, 3, np.array(_hp.mode_rel)
         self.num_objects, self.skip_first, self.substeps = _hp.num_objects, _hp.skip_first, _hp.substeps
@@ -95,11 +95,11 @@ class BaseCartgripperEnv(BaseMujocoEnv):
                           'arm_obj_initdist': None,
                           'xpos0': None,
                           'object_pos0': np.array([]),
-
                           'arm_start_lifted': True,
                           'skip_first': 40,
                           'obj_classname':None,
-                          'substeps': 200}
+                          'substeps': 200,
+                          'clean_xml': True}
         parent_params = super()._default_hparams()
         parent_params.set_hparam('ncam', 2)
         for k in default_dict.keys():
@@ -147,7 +147,7 @@ class BaseCartgripperEnv(BaseMujocoEnv):
                 for i in range(self.num_objects):
                     pos = np.random.uniform(-.35, .35, 2)
                     alpha = np.random.uniform(0, np.pi * 2)
-                    ori = np.array([np.cos(alpha / 2), 0, 0, np.sin(alpha / 2)])
+                    ori = zangle_to_quat(alpha)
                     poses.append(np.concatenate((pos, np.array([0]), ori), axis=0))
                 return poses
 
