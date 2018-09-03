@@ -7,22 +7,28 @@ import os
 BASE_DIR = '/'.join(str.split(__file__, '/')[:-1])
 current_dir = os.path.dirname(os.path.realpath(__file__))
 
-env_params = {'clean_xml': False}
+env_params = {
+    # resolution sufficient for 16x anti-aliasing
+    'viewer_image_height': 96,
+    'viewer_image_width': 128
+}
 
 agent = {
     'type': GeneralAgent,
     'env': (CartgripperXZGrasp, env_params),
     'data_save_dir': BASE_DIR,
-    'T': 15,
+    'T': 30,
     'image_height': 48,
     'image_width': 64,
-    'gen_xml': 400,  # generate xml every nth trajecotry
+    'gen_xml': 1,  # generate xml every nth trajecotry
     'record': BASE_DIR + '/record/',
-    'make_final_gif': '',
 }
 
 policy = {
     'type': Randompolicy,
+    'nactions': 10,
+    'action_order': ['x', 'z', 'grasp'],
+    'initial_std_lift': 0.5,  # std dev. in xy
 }
 
 config = {
@@ -32,7 +38,7 @@ config = {
     'save_raw_images': True,
     'save_data': True,
     'start_index':0,
-    'end_index': 50,
+    'end_index': 100,
     'agent': agent,
     'policy': policy,
     'ngroup': 1000

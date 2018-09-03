@@ -1,13 +1,82 @@
-from .base_cartgripper import BaseCartgripperEnv
+from .base_cartgripper import BaseCartgripperEnv, zangle_to_quat
+import numpy as np
 
 
 class CartgripperXZGrasp(BaseCartgripperEnv):
     def __init__(self, env_params, reset_state = None):
         super().__init__(env_params, reset_state)
+        self.low_bound = np.array([-0.5, -0.08, -1])
+        self.high_bound = np.array([0.5, 0.15, 1])
+        self._base_adim, self._base_sdim = 3, 6
         self._adim, self._sdim = 3, 3      # x z grasp
 
-
     def _default_hparams(self):
+        default_dict = {
+            'default_y': 0.,
+            'default_theta': 0.
+        }
+
         parent_params = super()._default_hparams()
         parent_params.set_hparam('filename', 'cartgripper_xz_grasp.xml')
+        parent_params.set_hparam('mode_rel', [True, True, False])
+        parent_params.set_hparam('finger_sensors', True)
+        parent_params.set_hparam('cube_objects', True)
+        parent_params.set_hparam('minlen', 0.02)
+        parent_params.set_hparam('maxlen', 0.05)
+
+        for k in default_dict.keys():
+            parent_params.add_hparam(k, default_dict[k])
+
         return parent_params
+
+    def _get_state(self):
+        return np.array([self.sim.data.qpos[0], self.sim.data.qpos[2], self.sim.data.qpos[4]])
+
+    def _init_dynamics(self):
+        self._previous_target_qpos = self._get_state()
+        self._goal_reached = False
+
+    def _next_qpos(self, action):
+        assert action.shape[0] == self._adim
+        return self._previous_target_qpos * self.mode_rel + action
+
+    def _get_obs(self, finger_sensors):
+        base_obs = super()._get_obs(finger_sensors)
+        base_obs['state'] = self._get_state()
+        self._last_obs['state'] = self._get_state()
+        return base_obs
+
+    def _create_pos(self):
+        object_poses = super()._create_pos()
+        for i in range(self.num_objects):
+            object_poses[i][1] = self._hp.default_y
+            object_poses[i][3:] = zangle_to_quat(self._hp.default_theta)
+        return object_poses
+
+    def get_armpos(self, object_pos):
+        xpos0 = np.zeros(self._base_sdim)
+        if self.randomize_initial_pos:
+            assert not self.arm_obj_initdist
+            xpos0[0] = np.random.uniform(-.4, .4)
+            xpos0[1] = self._hp.default_y
+            xpos0[2] = np.random.uniform(-0.08, .14)
+            xpos0[3] = self._hp.default_theta
+            xpos0[4:6] = [0.05, -0.05]
+        else:
+            raise NotImplementedError
+        # xpos0[-1] = low_bound[-1]  # start with gripper open
+        return xpos0
+
+    def _post_step(self):
+        if 'finger_sensors' not in self._last_obs:
+            return
+        finger_sensors_thresh = np.max(self._last_obs['finger_sensors']) > 0
+        z_thresholds = np.amax(self._last_obs['object_poses_full'][:, 2]) >= 0 and self._last_obs['state'][1] >= 0.02
+        if z_thresholds and finger_sensors_thresh:
+            self._goal_reached = True
+
+    def has_goal(self):
+        return True
+
+    def goal_reached(self):
+        return self._goal_reached

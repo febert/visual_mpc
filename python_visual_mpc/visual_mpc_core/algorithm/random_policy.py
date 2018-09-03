@@ -23,12 +23,12 @@ class Randompolicy(Policy):
             'nactions': 5,
             'repeat': 3,
             'action_bound': True,
+            'action_order': [None],
             'initial_std': 0.05,   #std dev. in xy
             'initial_std_lift': 0.15,   #std dev. in xy
             'initial_std_rot': np.pi / 18,
             'initial_std_grasp': 2,
             'type':None,
-            'max_z_delta': -1.,
             'discrete_gripper':False,
         }
 
