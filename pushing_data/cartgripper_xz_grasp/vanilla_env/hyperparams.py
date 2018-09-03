@@ -22,6 +22,7 @@ agent = {
     'image_width': 64,
     'gen_xml': 1,  # generate xml every nth trajecotry
     'record': BASE_DIR + '/record/',
+    'rejection_sample': 10
 }
 
 policy = {
@@ -35,10 +36,10 @@ config = {
     'traj_per_file': 16,
     'seperate_good': True,
     'current_dir': current_dir,
-    'save_raw_images': True,
+#    'save_raw_images': True,
     'save_data': True,
     'start_index':0,
-    'end_index': 100,
+    'end_index': 60000,
     'agent': agent,
     'policy': policy,
     'ngroup': 1000

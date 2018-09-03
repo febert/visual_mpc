@@ -31,6 +31,7 @@ if __name__ == '__main__':
         agent_data = pkl.load(open('{}/agent_data.pkl'.format(t), 'rb'))
         if agent_data.get('goal_reached', False):
             num_good += 1
+            print('traj {} is good'.format(t))
         rollout_fails.append(agent_data['extra_resets'])
 
         if summary_counter < args.nimages:

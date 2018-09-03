@@ -209,6 +209,7 @@ class GeneralAgent(object):
             try:
                 obs = self._post_process_obs(self.env.step(copy.deepcopy(pi_t['actions'])), agent_data)
             except Environment_Exception as e:
+                print(e)
                 return {'traj_ok': False}, None, None
 
             if 'rejection_sample' in self._hyperparams and 'rejection_end_early' in self._hyperparams:
@@ -221,14 +222,13 @@ class GeneralAgent(object):
             t += 1
 
         traj_ok = self.env.valid_rollout()
-
         if 'rejection_sample' in self._hyperparams:
             if self._hyperparams['rejection_sample'] > i_trial:
                 assert self.env.has_goal(), 'Rejection sampling enabled but env has no goal'
                 traj_ok = self.env.goal_reached()
             print('goal_reached', self.env.goal_reached())
 
-        self._required_rollout_metadata(agent_data, traj_ok, t, i_traj)
+        self._required_rollout_metadata(agent_data, traj_ok, t, i_trial)
         return agent_data, obs, policy_outputs
 
     def save_gif(self, itr, overlay=False):

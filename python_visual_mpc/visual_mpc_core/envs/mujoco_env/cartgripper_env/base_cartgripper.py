@@ -100,7 +100,8 @@ class BaseCartgripperEnv(BaseMujocoEnv):
                           'obj_classname':None,
                           'substeps': 200,
                           'clean_xml': True,
-                          'cube_objects': False}
+                          'cube_objects': False,
+                          'valid_rollout_floor': -2e-2}
         parent_params = super()._default_hparams()
         parent_params.set_hparam('ncam', 2)
         for k in default_dict.keys():
@@ -124,7 +125,13 @@ class BaseCartgripperEnv(BaseMujocoEnv):
             print(finger_force)
 
         self._previous_target_qpos = target_qpos
-        return self._get_obs(finger_force)
+        obs = self._get_obs(finger_force)
+        self._post_step()
+
+        return obs
+
+    def _post_step(self):
+        return
 
     def render(self):
         return super().render()[:, ::-1]
@@ -252,7 +259,7 @@ class BaseCartgripperEnv(BaseMujocoEnv):
 
     def valid_rollout(self):
         object_zs = self._last_obs['object_poses_full'][:, 2]
-        return not any(object_zs < -2e-2)
+        return not any(object_zs < self._hp.valid_rollout_floor)
 
     def _init_dynamics(self):
         raise NotImplementedError

@@ -183,6 +183,7 @@ def create_object_xml(filename, num_objects, object_mass, friction_params, objec
                           contype="7", conaffinity="7", friction="{} {} {}".format(f_sliding, f_torsion, f_rolling)
                           )
 
+
         else:
             if obj_classname is not None:
                 obj = ET.SubElement(world_body, "body", name=obj_string, pos="0 0 0",

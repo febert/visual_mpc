@@ -5,8 +5,8 @@ import numpy as np
 class CartgripperXZGrasp(BaseCartgripperEnv):
     def __init__(self, env_params, reset_state = None):
         super().__init__(env_params, reset_state)
-        self.low_bound = np.array([-0.5, -0.08, -1])
-        self.high_bound = np.array([0.5, 0.15, 1])
+        self.low_bound = np.array([-0.4, -0.08, -1])
+        self.high_bound = np.array([0.4, 0.15, 1])
         self._base_adim, self._base_sdim = 3, 6
         self._adim, self._sdim = 3, 3      # x z grasp
 
@@ -20,9 +20,9 @@ class CartgripperXZGrasp(BaseCartgripperEnv):
         parent_params.set_hparam('filename', 'cartgripper_xz_grasp.xml')
         parent_params.set_hparam('mode_rel', [True, True, False])
         parent_params.set_hparam('finger_sensors', True)
-        parent_params.set_hparam('cube_objects', True)
-        parent_params.set_hparam('minlen', 0.02)
+        parent_params.set_hparam('minlen', 0.03)
         parent_params.set_hparam('maxlen', 0.05)
+        parent_params.set_hparam('valid_rollout_floor', -2e-1)
 
         for k in default_dict.keys():
             parent_params.add_hparam(k, default_dict[k])
@@ -70,7 +70,7 @@ class CartgripperXZGrasp(BaseCartgripperEnv):
     def _post_step(self):
         if 'finger_sensors' not in self._last_obs:
             return
-        finger_sensors_thresh = np.max(self._last_obs['finger_sensors']) > 0
+        finger_sensors_thresh = np.amax(self._last_obs['finger_sensors']) > 0
         z_thresholds = np.amax(self._last_obs['object_poses_full'][:, 2]) >= 0 and self._last_obs['state'][1] >= 0.02
         if z_thresholds and finger_sensors_thresh:
             self._goal_reached = True
