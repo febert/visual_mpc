@@ -102,7 +102,6 @@ class BaseCartgripperEnv(BaseMujocoEnv):
                           'obj_classname':None,
                           'substeps': 200}
         parent_params = super()._default_hparams()
-        parent_params.set_hparam('ncam', 2)
         for k in default_dict.keys():
             parent_params.add_hparam(k, default_dict[k])
         return parent_params

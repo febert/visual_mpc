@@ -9,7 +9,7 @@ import traceback
 from python_visual_mpc.visual_mpc_core.algorithm.utils.cem_controller_utils import sample_actions
 
 
-@ray.remote
+# @ray.remote
 class SimWorker(object):
     def __init__(self):
         print('created worker')
@@ -142,6 +142,7 @@ class CEM_Controller_Sim(CEM_Controller_Base):
         }
 
         parent_params = super()._default_hparams()
+        parent_params.ncam = 1
         for k in default_dict.keys():
             parent_params.add_hparam(k, default_dict[k])
         return parent_params
@@ -174,6 +175,7 @@ class CEM_Controller_Sim(CEM_Controller_Base):
 
 
     def get_rollouts(self, actions, cem_itr, itr_times):
+        
         images, all_scores = self.sim_rollout_parallel(actions)
 
         if self.verbose:
@@ -199,17 +201,23 @@ class CEM_Controller_Sim(CEM_Controller_Base):
                 actions_perworker = actions[i*per_worker:(i+1)*per_worker]
                 id_list.append(worker.perform_rollouts.remote(self.qpos_full, self.qvel_full, actions_perworker, per_worker))
             else:
-                return worker.perform_rollouts(self.qpos_full, self.qvel_full, actions, self.M)
+                images, scores_mjc = worker.perform_rollouts(self.qpos_full, self.qvel_full, actions, self.M)
 
         # blocking call
-        image_list, scores_list = [], []
-        for id in id_list:
-            images, scores = ray.get(id)
-            image_list.append(images)
-            scores_list.append(scores)
-        scores = np.concatenate(scores_list, axis=0)
-        images = np.concatenate(image_list, axis=0)
+        if self.parallel:
+            image_list, scores_list = [], []
+            for id in id_list:
+                images, scores_mjc = ray.get(id)
+                image_list.append(images)
+                scores_list.append(scores_mjc)
+            scores_mjc = np.concatenate(scores_list, axis=0)
+            images = np.concatenate(image_list, axis=0)
+            
+        scores = self.get_scores(images, scores_mjc)
         return images, scores
+
+    def get_scores(self, images, scores_mjc):
+        return scores_mjc
 
     def get_int_targetpos(self, substep, prev, next):
         assert substep >= 0 and substep < self.agentparams['substeps']
