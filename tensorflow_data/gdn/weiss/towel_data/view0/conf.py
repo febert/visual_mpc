@@ -24,6 +24,7 @@ configuration = {
 'current_dir': base_dir,   #'directory for writing summary.' ,
 'num_iterations':50000,
 'sequence_length':30,
+'max_deltat':10,
 'visualize':'',
 'skip_frame':1,
 'batch_size': 64,           #'batch size for training' ,

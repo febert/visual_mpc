@@ -171,9 +171,7 @@ class GoalDistanceNet(object):
 
         if load_data:
             self.iter_num = tf.placeholder(tf.float32, [], name='iternum')
-            if load_testimages:
-                dict = build_tfrecord_fn(conf, mode='test')
-            elif 'new_loader' in conf:
+            if 'new_loader' in conf:
                 from python_visual_mpc.visual_mpc_core.Datasets.base_dataset import BaseVideoDataset
                 train_images, val_images = [], []
                 print('loading images for view {}'.format(conf['view']))
@@ -278,12 +276,13 @@ class GoalDistanceNet(object):
             self.image_summaries = self.build_image_summary([self.I0, self.I1, self.gen_I1, length(self.flow_bwd)])
 
     def sel_images(self):
-        sequence_length = self.conf['sequence_length']
+        max_deltat = self.conf['max_deltat']
         t_fullrange = 2e4
-        delta_t = tf.cast(tf.ceil(sequence_length * (tf.cast(self.iter_num + 1, tf.float32)) / t_fullrange), dtype=tf.int32)
-        delta_t = tf.clip_by_value(delta_t, 1, sequence_length-1)
+        delta_t = tf.cast(tf.ceil(max_deltat * (tf.cast(self.iter_num + 1, tf.float32)) / t_fullrange), dtype=tf.int32)
+        delta_t = tf.clip_by_value(delta_t, 1, max_deltat-1)
+        self.delta_t = delta_t
 
-        self.tstart = tf.random_uniform([1], 0, sequence_length - delta_t, dtype=tf.int32)
+        self.tstart = tf.random_uniform([1], 0, self.conf['sequence_length'] - delta_t, dtype=tf.int32)
 
         if 'deterministic_increase_tdist' in self.conf:
             self.tend = self.tstart + delta_t
@@ -467,6 +466,7 @@ class GoalDistanceNet(object):
             self.loss += single_loss
             train_summaries.append(tf.summary.scalar(k, single_loss))
         train_summaries.append(tf.summary.scalar('train_total', self.loss))
+        train_summaries.append(tf.summary.scalar('delta_t', self.delta_t))
         val_summaries.append(tf.summary.scalar('val_total', self.loss))
         self.train_summ_op = tf.summary.merge(train_summaries)
         self.val_summ_op = tf.summary.merge(val_summaries)
