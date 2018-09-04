@@ -23,8 +23,8 @@ env_params = {
 agent = {
     'type': BenchmarkAgent,
     'env': (CartgripperXYZEnv, env_params),
-    'data_save_dir': BASE_DIR + '/clipz/',
-    'T': 3,############15,
+    'data_save_dir': os.environ['VMPC_DATA_DIR'] + '/cartgripper/newenv/pushing_demo',
+    'T': 35,
     'image_height' : 48,
     'image_width' : 64,
     'gen_xml': 1,   #generate xml every nth trajecotry
@@ -37,16 +37,16 @@ agent = {
 policy = {
     'verbose':True,
     'type': CEM_Controller_Sim,
-    'iterations':1,
-    'num_samples':10,
+    'iterations':2,
+    # 'num_samples':10, ##############
     # 'selection_frac':0.5,
-    # 'initial_std': 0.5,   #std dev. in xy
 }
 
 config = {
     'traj_per_file':128,
     'current_dir' : current_dir,
-    'save_data': False,
+    'save_data': True,
+    'save_raw_images':'',
     'start_index':0,
     'end_index': 50,
     'agent': agent,

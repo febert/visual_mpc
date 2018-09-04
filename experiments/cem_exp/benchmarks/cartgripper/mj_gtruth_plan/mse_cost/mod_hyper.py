@@ -32,14 +32,15 @@ agent = {
     'record': BASE_DIR + '/record/',
     'discrete_gripper': -1, #discretized gripper dimension,
     'make_final_gif': True,
-    'start_goal_confs':os.environ['VMPC_DATA_DIR'] + '/cartgripper/newenv/startgoal_conf/train',
+    'start_goal_confs':os.environ['VMPC_DATA_DIR'] + '/cartgripper/newenv/pushing_demo/train',
+    'num_load_steps':25,
 }
 
 policy = {
     'verbose':True,
     'type': CEM_Controller_Sim_GoalImage,
-    'iterations':1,
-    'num_samples':10,
+    'iterations':2,
+    # 'num_samples':10,
     # 'selection_frac':0.5,
     # 'initial_std': 0.5,   #std dev. in xy
 }

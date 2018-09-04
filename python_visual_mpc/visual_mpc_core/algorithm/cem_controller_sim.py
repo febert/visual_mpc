@@ -9,7 +9,7 @@ import traceback
 from python_visual_mpc.visual_mpc_core.algorithm.utils.cem_controller_utils import sample_actions
 
 
-# @ray.remote
+@ray.remote
 class SimWorker(object):
     def __init__(self):
         print('created worker')
@@ -121,7 +121,8 @@ class SimWorker(object):
             per_time_multiplier[-1] = self.finalweight
             all_scores[smp] = np.sum(per_time_multiplier*score)
 
-        return np.stack(image_list, 0), np.stack(all_scores, 0)
+        images = np.stack(image_list, 0)[:,1:].astype(np.float32)/255.
+        return images, np.stack(all_scores, 0)
 
 
 class CEM_Controller_Sim(CEM_Controller_Base):
@@ -175,23 +176,24 @@ class CEM_Controller_Sim(CEM_Controller_Base):
 
 
     def get_rollouts(self, actions, cem_itr, itr_times):
-        
         images, all_scores = self.sim_rollout_parallel(actions)
 
         if self.verbose:
-            bestindices = all_scores.argsort()[:self.K]
-            images = images[bestindices,:,0]  # select cam0
-            vid = []
-            for t in range(self.naction_steps * self.repeat):
-                row = np.concatenate(np.split(images[:,t], images.shape[0], axis=0), axis=2).squeeze()
-                vid.append(row)
-            self.save_gif(vid, 't{}_iter{}'.format(self.t, cem_itr))
+            self.save_gif(images, all_scores, cem_itr)
         return all_scores
 
+    def save_gif(self, images, all_scores, cem_itr):
+        bestindices = all_scores.argsort()[:self.K]
+        images = (images[bestindices]*255.).astype(np.uint8)  # select cam0
+        vid = []
+        for t in range(self.naction_steps * self.repeat):
+            row = np.concatenate(np.split(images[:,t], images.shape[0], axis=0), axis=2).squeeze()
+            vid.append(row)
 
-    def save_gif(self, images, name):
+        name = 't{}_iter{}'.format(self.t, cem_itr)
         file_path = self.agentparams['record']
-        npy_to_gif(images, file_path +'/video' + name)
+        npy_to_gif(vid, file_path +'/video' + name)
+
 
     def sim_rollout_parallel(self, actions):
         per_worker = int(self.M / np.float32(self.n_worker))
@@ -212,7 +214,7 @@ class CEM_Controller_Sim(CEM_Controller_Base):
                 scores_list.append(scores_mjc)
             scores_mjc = np.concatenate(scores_list, axis=0)
             images = np.concatenate(image_list, axis=0)
-            
+
         scores = self.get_scores(images, scores_mjc)
         return images, scores
 
