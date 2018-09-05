@@ -13,7 +13,9 @@ class CartgripperXZGrasp(BaseCartgripperEnv):
     def _default_hparams(self):
         default_dict = {
             'default_y': 0.,
-            'default_theta': 0.
+            'default_theta': 0.,
+            'gripper_open': 0.06438482934440347,
+            'gripper_close': 0
         }
 
         parent_params = super()._default_hparams()
@@ -23,6 +25,7 @@ class CartgripperXZGrasp(BaseCartgripperEnv):
         parent_params.set_hparam('minlen', 0.03)
         parent_params.set_hparam('maxlen', 0.05)
         parent_params.set_hparam('valid_rollout_floor', -2e-1)
+        parent_params.set_hparam('ncam', 1)
 
         for k in default_dict.keys():
             parent_params.add_hparam(k, default_dict[k])
@@ -30,7 +33,8 @@ class CartgripperXZGrasp(BaseCartgripperEnv):
         return parent_params
 
     def _get_state(self):
-        return np.array([self.sim.data.qpos[0], self.sim.data.qpos[2], self.sim.data.qpos[4]])
+        gripper_val = (self.sim.data.qpos[4] - self._hp.gripper_close)/(self._hp.gripper_open - self._hp.gripper_close)
+        return np.array([self.sim.data.qpos[0], self.sim.data.qpos[2], 1 - gripper_val])
 
     def _init_dynamics(self):
         self._previous_target_qpos = self._get_state()

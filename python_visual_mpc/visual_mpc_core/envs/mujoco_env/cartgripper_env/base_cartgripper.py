@@ -121,8 +121,6 @@ class BaseCartgripperEnv(BaseMujocoEnv):
             self.sim.data.ctrl[:] = alpha * target_qpos + (1 - alpha) * self._previous_target_qpos
             self.sim.step()
         finger_force /= self.substeps
-        if np.amax(finger_force) > 0:
-            print(finger_force)
 
         self._previous_target_qpos = target_qpos
         obs = self._get_obs(finger_force)
