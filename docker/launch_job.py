@@ -76,7 +76,11 @@ def launch_job_func(run_script, hyper, nworkers=8, interactive=False, name='', n
                              #{"containerMountPoint": "/mnt/pushing_data/sawyer_grasping/ag_long_records_15kfullres", "id": 11398},
                              #{"containerMountPoint": "/mnt/pushing_data/sawyer_sim/autograsp_allobj_newphysics", "id": 11688},
                              {"containerMountPoint": "/mnt/pushing_data/sawyer_sim/autograsp_newphysics", "id": 11687},
-                             {"containerMountPoint": "/mnt/pushing_data/sawyer_sim/autograsp_epsilon_policy_newphysics", "id": 11682}
+                             {"containerMountPoint": "/mnt/pushing_data/sawyer_sim/autograsp_newphysics2_lblock", "id": 11757},
+                             {"containerMountPoint": "/mnt/pushing_data/sawyer_data/ag_towels", "id": 11778},
+                             {"containerMountPoint": "/mnt/pushing_data/sawyer_data/ag_towels_highres", "id": 11777},
+                             {"containerMountPoint": "/mnt/pushing_data/sawyer_data/ag_towels_12k", "id": 11846},
+                             {"containerMountPoint": "/mnt/pushing_data/sawyer_sim/autograsp_newphysics_3", "id": 12049}
                              ]
 
     data["aceInstance"] = "ngcv{}".format(ngpu)
