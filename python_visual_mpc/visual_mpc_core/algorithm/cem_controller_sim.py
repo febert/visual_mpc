@@ -1,169 +1,215 @@
 """ This file defines the linear Gaussian policy class. """
-import cv2
-import numpy as np
-from python_visual_mpc.visual_mpc_core.algorithm.cem_controller_goalimage_sawyer import reuse_cov, reuse_mean
-from python_visual_mpc.visual_mpc_core.algorithm.policy import Policy
-import time
+import IPython
 from python_visual_mpc.video_prediction.utils_vpred.create_gif_lib import *
-from mujoco_py import load_model_from_xml,load_model_from_path, MjSim, MjViewer
 import copy
-from datetime import datetime
-import os
-
-from PIL import Image
-import pdb
-from python_visual_mpc.visual_mpc_core.algorithm.cem_controller_goalimage_sawyer import construct_initial_sigma
-
-from pyquaternion import Quaternion
-from mujoco_py import load_model_from_xml,load_model_from_path, MjSim, MjViewer
-from python_visual_mpc.visual_mpc_core.agent.utils.get_masks import get_obj_masks
-from python_visual_mpc.visual_mpc_core.agent.utils.gen_gtruth_desig import gen_gtruthdesig
-from python_visual_mpc.visual_mpc_core.agent.utils.convert_world_imspace_mj1_5 import project_point, get_3D
-
-from python_visual_mpc.visual_mpc_core.agent.agent_mjc import get_target_qpos
-
 from .cem_controller_base import CEM_Controller_Base
+from python_visual_mpc.visual_mpc_core.agent.general_agent import resize_store
+import ray
+import traceback
+from python_visual_mpc.visual_mpc_core.algorithm.utils.cem_controller_utils import sample_actions
+
+
+@ray.remote
+class SimWorker(object):
+    def __init__(self):
+        print('created worker')
+        pass
+
+    def create_sim(self, agentparams, reset_state, goal_pos, finalweight, len_pred,
+                   naction_steps, discrete_ind, action_bound, adim, repeat, initial_std):
+        print('create sim')
+        self.agentparams = agentparams
+        self._goal_pos = goal_pos
+        self.len_pred = len_pred
+        self.finalweight = finalweight
+        self.current_reset_state = reset_state
+        env_type, env_params = self.agentparams['env']
+        # env_params['verbose_dir'] = '/home/frederik/Desktop/'
+        self.env = env_type(env_params, self.current_reset_state)
+        self.env.set_goal_obj_pose(self._goal_pos)
+
+        # hyperparams passed into sample_action function
+        class HP(object):
+            def __init__(self, naction_steps, discrete_ind, action_bound, adim, repeat, initial_std):
+                self.naction_steps = naction_steps
+                self.discrete_ind = discrete_ind
+                self.action_bound = action_bound
+                self.adim = adim
+                self.repeat = repeat
+                self.initial_std = initial_std
+        self.hp = HP(naction_steps, discrete_ind, action_bound, adim, repeat, initial_std)
+
+    def recreate_sim(self):
+        env_type, env_params = self.agentparams['env']
+        # env_params['verbose_dir'] = '/home/frederik/Desktop/'
+        self.env = env_type(env_params, self.current_reset_state)
+        self.env.set_goal_obj_pose(self._goal_pos)
+
+    def eval_action(self):
+        return self.env.get_distance_score()
+
+    def _post_process_obs(self, env_obs, agent_data, initial_obs=False):
+        agent_img_height = self.agentparams['image_height']
+        agent_img_width = self.agentparams['image_width']
+
+        if initial_obs:
+            T = self.len_pred + 1
+            self._agent_cache = {}
+            for k in env_obs:
+                if k == 'images':
+                    if 'obj_image_locations' in env_obs:
+                        self.traj_points = []
+                    n_cams = env_obs['images'].shape[0]
+                    self._agent_cache['images'] = np.zeros((T, n_cams, agent_img_height, agent_img_width, 3),
+                                                           dtype = np.uint8)
+                elif isinstance(env_obs[k], np.ndarray):
+                    obs_shape = [T] + list(env_obs[k].shape)
+                    self._agent_cache[k] = np.zeros(tuple(obs_shape), dtype=env_obs[k].dtype)
+                else:
+                    self._agent_cache[k] = []
+            self._cache_cntr = 0
+
+        t = self._cache_cntr
+        self._cache_cntr += 1
+
+        point_target_width = float(self.agentparams.get('point_space_width', agent_img_width))
+        obs = {}
+        for k in env_obs:
+            if k == 'images':
+                resize_store(t, self._agent_cache['images'], env_obs['images'])
+            elif k == 'obj_image_locations':
+                self.traj_points.append(copy.deepcopy(env_obs['obj_image_locations'][0]))  #only take first camera
+                env_obs['obj_image_locations'] = np.round((env_obs['obj_image_locations'] *
+                                                           point_target_width / env_obs['images'].shape[2])).astype(np.int64)
+                self._agent_cache['obj_image_locations'][t] = env_obs['obj_image_locations']
+            elif isinstance(env_obs[k], np.ndarray):
+                self._agent_cache[k][t] = env_obs[k]
+            else:
+                self._agent_cache[k].append(env_obs[k])
+            obs[k] = self._agent_cache[k][:self._cache_cntr]
+
+        if 'obj_image_locations' in env_obs:
+            agent_data['desig_pix'] = env_obs['obj_image_locations']
+        return obs
+
+    def sim_rollout(self, curr_qpos, curr_qvel, actions):
+        agent_data = {}
+        t = 0
+        done = False
+        # initial_env_obs, _ = self.env.reset(curr_reset_state)
+        initial_env_obs , _ = self.env.qpos_reset(curr_qpos, curr_qvel)
+        obs = self._post_process_obs(initial_env_obs, agent_data, initial_obs=True)
+        costs = []
+        while not done:
+            # print('inner sim step', t)
+            obs = self._post_process_obs(self.env.step(actions[t]), agent_data)
+            if (self.len_pred - 1) == t:
+                done = True
+            t += 1
+            costs.append(self.eval_action())
+        return costs, obs['images']
+
+    def perform_rollouts(self, curr_qpos, curr_qvel, actions, M):
+        all_scores = np.empty(M, dtype=np.float64)
+        image_list = []
+
+        for smp in range(M):
+            score, images = self.sim_rollout(curr_qpos, curr_qvel, actions[smp])
+            image_list.append(images.squeeze())
+            # print('score', score)
+            per_time_multiplier = np.ones([len(score)])
+            per_time_multiplier[-1] = self.finalweight
+            all_scores[smp] = np.sum(per_time_multiplier*score)
+
+        return np.stack(image_list, 0), np.stack(all_scores, 0)
 
 
 class CEM_Controller_Sim(CEM_Controller_Base):
     """
     Cross Entropy Method Stochastic Optimizer
     """
-    def __init__(self, imiation_conf, ag_params, policyparams):
+    def __init__(self, ag_params, policyparams, gpu_id, ngpu):
         super(CEM_Controller_Sim, self).__init__(ag_params, policyparams)
+        self.parallel = True
+        # self.parallel = False
+        if self.parallel:
+            ray.init()
+
+    def _default_hparams(self):
+        default_dict = {
+            'len_pred':15,
+            'num_workers':10,
+        }
+
+        parent_params = super()._default_hparams()
+        for k in default_dict.keys():
+            parent_params.add_hparam(k, default_dict[k])
+        return parent_params
 
     def create_sim(self):
-        self.sim = MjSim(load_model_from_path(self.agentparams['gen_xml_fname']))
-
-    def finish(self):
-        self.viewer.finish()
-
-    def setup_mujoco(self):
-        sim_state = self.sim.get_state()
-        sim_state.qpos[:] = self.init_model.data.qpos
-        sim_state.qvel[:] = self.init_model.data.qvel
-        self.sim.set_state(sim_state)
-        self.sim.forward()
-
-    def eval_action(self):
-        abs_distances = []
-        abs_angle_dist = []
-        qpos_dim = self.sdim // 2  # the states contains pos and vel
-
-        if 'gtruth_desig_goal_dist' in self.policyparams:
-            width = self.agentparams['viewer_image_width']
-            height = self.agentparams['viewer_image_height']
-            dlarge_img = self.sim.render(width, height, camera_name="maincam", depth=True)[1][::-1, :]
-            large_img = self.sim.render(width, height, camera_name="maincam")[::-1, :, :]
-            curr_img = cv2.resize(large_img, dsize=(self.agentparams['image_width'], self.agentparams['image_height']), interpolation = cv2.INTER_AREA)
-            _, curr_large_mask = get_obj_masks(self.sim, self.agentparams)
-            qpos_dim = self.sdim//2
-            i_ob = 0
-            obj_pose = self.sim.data.qpos[i_ob * 7 + qpos_dim:(i_ob + 1) * 7 + qpos_dim].squeeze()
-            desig_pix, goal_pix = gen_gtruthdesig(obj_pose, self.goal_obj_pose, curr_large_mask, dlarge_img, 10, self.agentparams, curr_img, self.goal_image)
-            total_d = []
-            for i in range(desig_pix.shape[0]):
-                total_d.append(np.linalg.norm(desig_pix[i] - goal_pix[i]))
-            return np.mean(total_d)
+        self.workers = []
+        if self.parallel:
+            self.n_worker = self._hp.num_workers
         else:
+            self.n_worker = 1
 
-            for i_ob in range(self.agentparams['num_objects']):
-                goal_pos = self.goal_obj_pose[i_ob, :3]
-                curr_pose = self.sim.data.qpos[i_ob * 7 + qpos_dim:(i_ob+1) * 7 + qpos_dim].squeeze()
-                curr_pos = curr_pose[:3]
+        for i in range(self.n_worker):
+            if self.parallel:
+                self.workers.append(SimWorker.remote())
+            else:
+                self.workers.append(SimWorker())
 
-                abs_distances.append(np.linalg.norm(goal_pos - curr_pos))
-
-                goal_quat = Quaternion(self.goal_obj_pose[i_ob, 3:])
-                curr_quat = Quaternion(curr_pose[3:])
-                diff_quat = curr_quat.conjugate*goal_quat
-                abs_angle_dist.append(np.abs(diff_quat.radians))
-
-        # return np.sum(np.array(abs_distances)), np.sum(np.array(abs_angle_dist))
-        return np.sum(np.array(abs_distances))
-
-    def calc_action_cost(self, actions):
-        actions_costs = np.zeros(self.M)
-        for smp in range(self.M):
-            force_magnitudes = np.array([np.linalg.norm(actions[smp, t]) for
-                                         t in range(self.naction_steps * self.repeat)])
-            actions_costs[smp]=np.sum(np.square(force_magnitudes)) * self.action_cost_mult
-        return actions_costs
+        id_list = []
+        for i, worker in enumerate(self.workers):
+            if self.parallel:
+                id_list.append(worker.create_sim.remote(self.agentparams, self.curr_sim_state, self.goal_pos, self._hp.finalweight, self.len_pred,
+                                                        self.naction_steps, self._hp.discrete_ind, self._hp.action_bound, self.adim, self.repeat, self._hp.initial_std))
+            else:
+                return worker.create_sim(self.agentparams, self.curr_sim_state, self.goal_pos, self._hp.finalweight, self.len_pred,
+                                         self.naction_steps, self._hp.discrete_ind, self._hp.action_bound, self.adim, self.repeat, self._hp.initial_std)
+        if self.parallel:
+            # blocking call
+            for id in id_list:
+                ray.get(id)
 
 
-    def get_rollouts(self, traj, actions, cem_itr, itr_times):
-        all_scores = np.empty(self.M, dtype=np.float64)
-        image_list = []
-        for smp in range(self.M):
-            self.setup_mujoco()
-            score, images = self.sim_rollout(actions[smp])
-            image_list.append(images)
-            # print('score', score)
-            per_time_multiplier = np.ones([len(score)])
-            per_time_multiplier[-1] = self.policyparams['finalweight']
-            all_scores[smp] = np.sum(per_time_multiplier*score)
-
-            # if smp % 10 == 0 and self.verbose:
-            #     self.save_gif(images, '_{}'.format(smp))
+    def get_rollouts(self, actions, cem_itr, itr_times):
+        images, all_scores = self.sim_rollout_parallel(actions)
 
         if self.verbose:
             bestindices = all_scores.argsort()[:self.K]
-            best_vids = [image_list[ind] for ind in bestindices]
-            vid = [np.concatenate([b[t_] for b in best_vids], 1) for t_ in range(self.naction_steps * self.repeat)]
+            images = images[bestindices,:,0]  # select cam0
+            vid = []
+            for t in range(self.naction_steps * self.repeat):
+                row = np.concatenate(np.split(images[:,t], images.shape[0], axis=0), axis=2).squeeze()
+                vid.append(row)
             self.save_gif(vid, 't{}_iter{}'.format(self.t, cem_itr))
-
         return all_scores
+
 
     def save_gif(self, images, name):
         file_path = self.agentparams['record']
-        npy_to_gif(images, file_path +'/video'+name)
+        npy_to_gif(images, file_path +'/video' + name)
 
-    def sim_rollout(self, actions):
-        costs = []
-        self.hf_qpos_l = []
-        self.hf_target_qpos_l = []
-
-        images = []
-        self.gripper_closed = False
-        self.gripper_up = False
-        self.t_down = 0
-
-        for t in range(self.naction_steps * self.repeat):
-            mj_U = actions[t]
-            # print 'time ',t, ' target pos rollout: ', roll_target_pos
-
-            if 'posmode' in self.agentparams:  #if the output of act is a positions
-                if t == 0:
-                    self.prev_target_qpos = copy.deepcopy(self.sim.data.qpos[:self.adim].squeeze())
-                    self.target_qpos = copy.deepcopy(self.sim.data.qpos[:self.adim].squeeze())
-                else:
-                    self.prev_target_qpos = copy.deepcopy(self.target_qpos)
-
-                zpos = self.sim.data.qpos[2]
-                self.target_qpos, self.t_down, self.gripper_up, self.gripper_closed = get_target_qpos(
-                    self.target_qpos, self.agentparams, mj_U, t, self.gripper_up, self.gripper_closed, self.t_down, zpos)
-                # print('target_qpos', self.target_qpos)
+    def sim_rollout_parallel(self, actions):
+        per_worker = int(self.M / np.float32(self.n_worker))
+        id_list = []
+        for i, worker in enumerate(self.workers):
+            if self.parallel:
+                actions_perworker = actions[i*per_worker:(i+1)*per_worker]
+                id_list.append(worker.perform_rollouts.remote(self.qpos_full, self.qvel_full, actions_perworker, per_worker))
             else:
-                ctrl = mj_U.copy()
+                return worker.perform_rollouts(self.qpos_full, self.qvel_full, actions, self.M)
 
-            for st in range(self.agentparams['substeps']):
-                if 'posmode' in self.agentparams:
-                    ctrl = self.get_int_targetpos(st, self.prev_target_qpos, self.target_qpos)
-                self.sim.data.ctrl[:] = ctrl
-                self.sim.step()
-                self.hf_qpos_l.append(copy.deepcopy(self.sim.data.qpos))
-                self.hf_target_qpos_l.append(copy.deepcopy(ctrl))
-
-            costs.append(self.eval_action())
-
-            if self.verbose:
-                width = self.agentparams['viewer_image_width']
-                height = self.agentparams['viewer_image_height']
-                images.append(self.sim.render(width, height, camera_name="maincam")[::-1, :, :])
-
-            # print(t)
-        # self.plot_ctrls()
-        return np.stack(costs, axis=0), images
+        # blocking call
+        image_list, scores_list = [], []
+        for id in id_list:
+            images, scores = ray.get(id)
+            image_list.append(images)
+            scores_list.append(scores)
+        scores = np.concatenate(scores_list, axis=0)
+        images = np.concatenate(image_list, axis=0)
+        return images, scores
 
     def get_int_targetpos(self, substep, prev, next):
         assert substep >= 0 and substep < self.agentparams['substeps']
@@ -181,9 +227,13 @@ class CEM_Controller_Sim(CEM_Controller_Base):
             plt.legend()
             plt.show()
 
-    def act(self, traj, t, init_model=None, goal_obj_pose=None):
-        self.goal_obj_pose = copy.deepcopy(goal_obj_pose)
-        self.init_model = init_model
+    def act(self, t, i_tr, qpos_full, qvel_full, state, object_qpos, goal_pos, reset_state):
+    # def act(self, t, i_tr, qpos_full, goal_pos, reset_state):
+        self.curr_sim_state = reset_state
+        self.qpos_full = qpos_full[t]
+        self.qvel_full = qvel_full[t]
+        self.goal_pos = goal_pos
+
         if t == 0:
             self.create_sim()
-        return super(CEM_Controller_Sim, self).act(traj, t)
+        return super(CEM_Controller_Sim, self).act(t, i_tr)

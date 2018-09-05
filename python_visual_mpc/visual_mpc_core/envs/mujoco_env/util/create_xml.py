@@ -45,7 +45,7 @@ ASSET_BASE_DIR = '/'.join(os.path.abspath(python_visual_mpc.__file__).split('/')
 
 def create_object_xml(filename, num_objects, object_mass, friction_params, object_meshes,
                       finger_sensors, maxlen, minlen, reset_xml, obj_classname = None,
-                      block_height = 0.03, block_width = 0.03):
+                      block_height = 0.03, block_width = 0.03, cube_objs = False):
     """
     :param hyperparams:
     :param load_dict_list: if not none load configuration, instead of sampling
@@ -64,6 +64,7 @@ def create_object_xml(filename, num_objects, object_mass, friction_params, objec
         sensor_frame = None
     f_sliding, f_torsion, f_rolling = friction_params
     world_body = ET.SubElement(root, "worldbody")
+
 
     loaded_meshes = {}
 
@@ -94,12 +95,15 @@ def create_object_xml(filename, num_objects, object_mass, friction_params, objec
             l1 = dict['l1']
             l2 = dict['l2']
             pos2 = dict['pos2']
-            chosen_mesh = dict['chosen_mesh']
+            if object_meshes is not None:
+                chosen_mesh = dict['chosen_mesh']
         save_dict_list.append(dict)
 
         obj_string = "object{}".format(i)
         print('using friction=({}, {}, {}), object mass{}'.format(f_sliding, f_torsion, f_rolling, object_mass))
         if object_meshes is not None:
+            assert not cube_objs, "object meshes not compatible with cube_objs option"
+
             assets = ET.SubElement(root, "asset")
             if chosen_mesh not in loaded_meshes:
                 o_mesh = ASSET_BASE_DIR + '{}/'.format(chosen_mesh)
@@ -161,12 +165,26 @@ def create_object_xml(filename, num_objects, object_mass, friction_params, objec
             #contact meshes
             for n in range(n_cvx_files):
                 ET.SubElement(obj, "geom", type="mesh", mesh=chosen_mesh + "_convex_mesh{}".format(n),
-                              rgba="0 1 0 0", mass="{}".format(mass_per_elem),
+                              rgba="0 1 0 0", mass="{}".format(mass_per_elem), margin="0.00005",
                               contype="7", conaffinity="7", friction="{} {} {}".format(f_sliding, f_torsion, f_rolling)
                               )
 
+        elif cube_objs:
+            if obj_classname is not None:
+                obj = ET.SubElement(world_body, "body", name=obj_string, pos="0 0 0",
+                                    childclass=obj_classname)
+            else:
+                obj = ET.SubElement(world_body, "body", name=obj_string, pos="0 0 0")
+
+            ET.SubElement(obj, "joint", type="free")
+
+            ET.SubElement(obj, "geom", type="box", size="{} {} {}".format(l1, l1, l1),
+                          rgba="{} {} {} 1".format(color1[0], color1[1], color1[2]), mass="{}".format(object_mass),
+                          contype="7", conaffinity="7", friction="{} {} {}".format(f_sliding, f_torsion, f_rolling)
+                          )
+
+
         else:
-            obj = None
             if obj_classname is not None:
                 obj = ET.SubElement(world_body, "body", name=obj_string, pos="0 0 0",
                                     childclass=obj_classname)
@@ -214,6 +232,8 @@ def clean_xml(filename):
     print('deleting main file: {} and obj_file: {}'.format(filename, obj_file))
     os.remove(filename)
     os.remove(obj_file)
+
+
 def create_root_xml(filename):
     """
     copy root xml but replace three lines so that they referecne the object xml

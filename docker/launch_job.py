@@ -8,11 +8,13 @@ import pdb
 def launch_job_func(run_script, hyper, nworkers=8, interactive=False, name='', ngpu=8, test=0, nsplit=None, isplit=None, fullcmd=None):
 
     data = {}
-
     if fullcmd is '':
         start_dir = "/workspace/visual_mpc/docker"
     else:
         start_dir = "/workspace/video_prediction"
+
+    vmpc_branch = 'refactor_cem'
+
     data["aceName"] = "nv-us-west-2"
     data["command"] = \
     "cd /result && tensorboard --logdir . & \
@@ -21,11 +23,10 @@ def launch_job_func(run_script, hyper, nworkers=8, interactive=False, name='', n
      export ALEX_DATA=/mnt/pretrained_models;\
      export RESULT_DIR=/result;\
      export NO_ROS='';\
-     export PATH=/opt/conda/bin:/usr/local/mpi/bin:/usr/local/nvidia/bin:/usr/local/cuda/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin; \
-     cd /workspace/visual_mpc/docker; git pull; \
-     cd /workspace/video_prediction; git pull; \
-     cd {}; \
-     ".format(start_dir)
+     export PATH=/opt/conda/bin:/usr/local/mpi/bin:/usr/local/nvidia/bin:/usr/local/cuda/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin;" + \
+     "cd /workspace/visual_mpc/docker; git checkout {}; git pull;".format(vmpc_branch) + \
+     "cd /workspace/video_prediction; git checkout dev; git pull;" + \
+     "cd {};".format(start_dir)
 
     data['dockerImageName'] = "ucb_rail8888/tf_mj1.5:latest"
 
@@ -93,7 +94,7 @@ def launch_job_func(run_script, hyper, nworkers=8, interactive=False, name='', n
         data["name"] = name
     else:
         if 'trainvid' in run_script:
-            command = "python " + run_script + " --hyper ../../" + hyper
+            command = "python " + run_script + " --hyper " + hyper
             data["name"] = str.split(command, '/')[-2]
         else:
             if nsplit is not None:

@@ -4,7 +4,6 @@ import copy
 
 class DemoPolicy(Policy):
     def __init__(self, ag_params, policyparams, gpu_id, ngpu):
-        Policy.__init__(self, ag_params, policyparams, gpu_id, ngpu)
         self._policy_params = copy.deepcopy(policyparams)
         self._stage_graph = self._policy_params['stage_graph'](ag_params, self._policy_params.get('stage_params', None))
         self._agent_params = ag_params

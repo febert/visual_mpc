@@ -1,22 +1,23 @@
 """ This file defines the linear Gaussian policy class. """
-import pdb
 import numpy as np
+import pdb
 import os
 import imp
 from python_visual_mpc.visual_mpc_core.algorithm.utils.make_cem_visuals import CEM_Visual_Preparation
 import matplotlib; matplotlib.use('Agg'); import matplotlib.pyplot as plt
 import copy
+
 from threading import Thread
 if "NO_ROS" not in os.environ:
     from visual_mpc_rospkg.msg import floatarray
     from rospy.numpy_msg import numpy_msg
     import rospy
-    from Queue import Queue
 else:
     from queue import Queue
 import time
 from .utils.cem_controller_utils import save_track_pkl
 from .cem_controller_base import CEM_Controller_Base
+
 
 verbose_queue = Queue()
 def verbose_worker():
@@ -51,20 +52,24 @@ class CEM_Controller_Vidpred(CEM_Controller_Base):
         :param save_subdir:
         :param gdnet: goal-distance network
         """
+        self._hp = self._default_hparams()
+        self.override_defaults(policyparams)
+
         CEM_Controller_Base.__init__(self, ag_params, policyparams)
 
         params = imp.load_source('params', ag_params['current_dir'] + '/conf.py')
         self.netconf = params.configuration
         self.predictor = self.netconf['setup_predictor'](ag_params, self.netconf, gpu_id, ngpu, self.logger)
 
-
         self.bsize = self.netconf['batch_size']
         self.seqlen = self.netconf['sequence_length']
 
-        if 'num_samples' not in self.policyparams:
+        # override params here:
+        if 'num_samples' not in policyparams:
             self.M = self.bsize
 
         assert self.naction_steps * self.repeat == self.seqlen
+        assert self.len_pred == self.seqlen - self.ncontxt
 
         self.ncontxt = self.netconf['context_frames']
 
@@ -75,7 +80,7 @@ class CEM_Controller_Vidpred(CEM_Controller_Base):
         self.img_height, self.img_width = self.netconf['orig_size']
 
         self.ncam = self.netconf['ncam']
-
+        
         if 'sawyer' in self.agentparams:
             self.gen_image_publisher = rospy.Publisher('gen_image', numpy_msg(floatarray), queue_size=10)
             self.gen_pix_distrib_publisher = rospy.Publisher('gen_pix_distrib', numpy_msg(floatarray), queue_size=10)
@@ -85,7 +90,7 @@ class CEM_Controller_Vidpred(CEM_Controller_Base):
         self.goal_mask = None
         self.goal_pix = None
 
-        if 'predictor_propagation' in self.policyparams:
+        if self._hp.predictor_propagation:
             self.rec_input_distrib = []  # record the input distributions
 
         self.parallel_vis = False
@@ -94,7 +99,7 @@ class CEM_Controller_Vidpred(CEM_Controller_Base):
             self._thread.start()
         self.goal_image = None
 
-        self.best_cost_perstep = np.zeros([self.ncam, self.ndesig, self.seqlen - self.ncontxt])
+        self.best_cost_perstep = np.zeros([self.ncam, self.ndesig, self.seqlen])
 
         self.ntask = self.ndesig  # will be overwritten in derived classes
         self.vd = VisualzationData()
@@ -106,9 +111,21 @@ class CEM_Controller_Vidpred(CEM_Controller_Base):
             run_freq = 3
         self.visualizer = self.policyparams.get('visualizer', default)(run_freq)
 
+    def _default_hparams(self):
+        default_dict = {
+            'predictor_propagation':False,
+            'trade_off_reg':False,
+            'only_take_first_view':False,
+        }
+        parent_params = super()._default_hparams()
+
+        for k in default_dict.keys():
+            parent_params.add_hparam(k, default_dict[k])
+        return parent_params
+
     def reset(self):
         super(CEM_Controller_Vidpred, self).reset()
-        if 'predictor_propagation' in self.policyparams:
+        if self._hp.predictor_propagation:
             self.rec_input_distrib = []  # record the input distributions
 
     def calc_action_cost(self, actions):
@@ -172,7 +189,7 @@ class CEM_Controller_Vidpred(CEM_Controller_Base):
         self.vd.t = self.t
         self.vd.scores = scores
         self.vd.agentparams = self.agentparams
-        self.vd.policyparams = self.policyparams
+        self.vd.hp = self._hp
         self.vd.netconf = self.netconf
         self.vd.ndesig = self.ndesig
         self.vd.gen_distrib = gen_distrib
@@ -182,8 +199,8 @@ class CEM_Controller_Vidpred(CEM_Controller_Base):
         self.vd.last_frames = last_frames
         self.vd.goal_pix = self.goal_pix
         self.vd.ncam = self.ncam
-        if self.verbose and cem_itr == self.policyparams['iterations']-1 and self.i_tr % self.verbose_freq ==0 or \
-                ('verbose_every_itr' in self.policyparams and self.i_tr % self.verbose_freq ==0):
+        if self.verbose and cem_itr == self._hp.iterations-1 and self.i_tr % self.verbose_freq ==0 or \
+                (self._hp.verbose_every_itr and self.i_tr % self.verbose_freq ==0):
             if self.parallel_vis:
                 print('t{} cemitr {}'.format(self.t, cem_itr))
                 verbose_queue.put((self.visualizer, copy.deepcopy(self.vd)))
@@ -211,14 +228,14 @@ class CEM_Controller_Vidpred(CEM_Controller_Base):
                 distance_grid = self.get_distancegrid(self.goal_pix[icam, p])
                 score = self.calc_scores(icam, p, gen_distrib[:, :, icam, :, :, p], distance_grid,
                                          normalize=True)
-                if 'trade_off_reg' in self.policyparams:
+                if self._hp.trade_off_reg:
                     score *= self.reg_tradeoff[icam, p]
                 scores_per_task.append(score)
                 self.logger.log(
                     'best flow score of task {} cam{}  :{}'.format(p, icam, np.min(scores_per_task[-1])))
         scores_per_task = np.stack(scores_per_task, axis=1)
 
-        if 'only_take_first_view' in self.policyparams:
+        if self._hp.only_take_first_view:
             scores_per_task = scores_per_task[:, 0][:, None]
 
         scores = np.mean(scores_per_task, axis=1)
@@ -231,9 +248,8 @@ class CEM_Controller_Vidpred(CEM_Controller_Base):
 
         self.best_cost_perstep = self.cost_perstep[bestind]
 
-        if 'predictor_propagation' in self.policyparams:
-            assert not 'correctorconf' in self.policyparams
-            if cem_itr == (self.policyparams['iterations'] - 1):
+        if self._hp.predictor_propagation:
+            if cem_itr == (self._hp.iterations - 1):
                 # pick the prop distrib from the action actually chosen after the last iteration (i.e. self.indices[0])
                 bestind = scores.argsort()[0]
                 best_gen_distrib = gen_distrib[bestind, self.ncontxt].reshape(1, self.ncam, self.img_height,
@@ -288,7 +304,7 @@ class CEM_Controller_Vidpred(CEM_Controller_Base):
         """
         assert len(gen_distrib.shape) == 4
         t_mult = np.ones([self.seqlen - self.netconf['context_frames']])
-        t_mult[-1] = self.policyparams['finalweight']
+        t_mult[-1] = self._hp.finalweight
 
         gen_distrib = gen_distrib.copy()
         #normalize prob distributions
@@ -314,7 +330,7 @@ class CEM_Controller_Vidpred(CEM_Controller_Base):
         return distance_grid
 
     def make_input_distrib(self, itr):
-        if 'predictor_propagation' in self.policyparams:  # using the predictor's DNA to propagate, no correction
+        if self._hp.predictor_propagation:  # using the predictor's DNA to propagate, no correction
             input_distrib = self.get_recinput(itr, self.rec_input_distrib, self.desig_pix)
         else:
             input_distrib = self.switch_on_pix(self.desig_pix)

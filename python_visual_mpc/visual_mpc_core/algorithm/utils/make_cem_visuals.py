@@ -109,7 +109,7 @@ class CEM_Visual_Preparation(object):
         self.ncam = vd.netconf['ncam']
         self.ndesig = vd.netconf['ndesig']
         self.agentparams = vd.agentparams
-        self.policyparams = vd.policyparams
+        self.hp = vd.hp
 
         print('in make_cem_visuals')
         plt.switch_backend('agg')
@@ -132,19 +132,9 @@ class CEM_Visual_Preparation(object):
         print('made directories')
         self._t_dict = collections.OrderedDict()
 
-        if 'warp_objective' in vd.policyparams:
-            print('starting warp objective')
-            warped_images = image_addgoalpix(self.num_ex, self.len_pred, vd.warped_images, vd.goal_pix)
-            gen_images = images_addwarppix(gen_images, vd.goal_warp_pts_l, vd.goal_pix, vd.agentparams['num_objects'])
-            warped_images = np.split(warped_images[selindices], warped_images.shape[1], 1)
-            warped_images = list(np.squeeze(warped_images))
-            self._t_dict['warped_im_t{}'.format(vd.t)] = warped_images
-            print('warp objective done')
-
         self.annontate_images(vd, vd.last_frames)
 
-        if 'use_goal_image' not in vd.policyparams or 'comb_flow_warp' in vd.policyparams or 'register_gtruth' in vd.policyparams:
-            self.visualize_goal_pixdistrib(vd, gen_distrib)
+        self.visualize_goal_pixdistrib(vd, gen_distrib)
 
         for icam in range(self.ncam):
             print('putting cam: {} res into dict'.format(icam))
@@ -208,9 +198,9 @@ class CEM_Visual_Preparation_Registration(CEM_Visual_Preparation):
 
         for icam in range(self.ncam):
             print("on cam: {}".format(icam))
-            if 'start' in self.policyparams['register_gtruth']:
+            if 'start' in self.hp.register_gtruth:
                 print('on start case')
-                if 'trade_off_reg' in self.policyparams:
+                if self.hp.trade_off_reg:
                     warped_img_start_cam = write_tradeoff_onimage(vd.warped_image_start[icam].squeeze(), vd.reg_tradeoff[icam],
                                                                   vd.ntask, 0)
                 else:
@@ -230,9 +220,9 @@ class CEM_Visual_Preparation_Registration(CEM_Visual_Preparation):
             self._t_dict['start_img_cam{}'.format(icam)] = startimages
 
             for p in range(vd.ntask):
-                if 'goal' in vd.policyparams['register_gtruth']:
+                if 'goal' in self.hp.register_gtruth:
                     print('on goal case cam: {}'.format(p))
-                    if 'trade_off_reg' in vd.policyparams:
+                    if self.hp.trade_off_reg:
                         warped_img_goal_cam = write_tradeoff_onimage(vd.warped_image_goal[icam].squeeze(), vd.reg_tradeoff[icam], vd.ntask, 1)
                     else:
                         warped_img_goal_cam = vd.warped_image_goal[icam].squeeze()
@@ -268,7 +258,10 @@ class CEM_Visual_Preparation_FullImage(CEM_Visual_Preparation):
             self._t_dict['reg_cam{}'.format(icam)] = vd.warped_images[self.selindices,:,icam]
 
         for icam in range(vd.ncam):
-            goal_image = np.tile(vd.goal_image[icam][None, None], [self.num_ex, self.len_pred, 1, 1, 1])
+            if vd.goal_image.shape[0] != 1:  # if the complete trajectory is registered
+                goal_image = np.tile(vd.goal_image[:,icam][None, :], [self.num_ex,  1, 1, 1, 1])
+            else:
+                goal_image = np.tile(vd.goal_image[:,icam][None, :], [self.num_ex, self.len_pred, 1, 1, 1])
             self._t_dict['goal_image_cam{}'.format(icam)] = goal_image
             self._t_dict['flow_mags_cam{}'.format(icam)] = color_code(vd.flow_mags[self.selindices,:,icam], self.num_ex, renormalize=True)
 
@@ -279,11 +272,11 @@ class CEM_Visual_Preparation_FullImage(CEM_Visual_Preparation):
 def annotate_tracks(vd, current_image, icam, len_pred, num_ex):
     ipix = 0
     for p in range(vd.ntask):
-        if 'start' in vd.policyparams['register_gtruth']:
+        if 'start' in vd.hp.register_gtruth:
             desig_pix_start = np.tile(vd.desig_pix[icam, ipix][None, None, :], [num_ex, len_pred, 1])
             current_image = add_crosshairs(current_image, desig_pix_start, color=[1., 0., 0])
             ipix += 1
-        if 'goal' in vd.policyparams['register_gtruth']:
+        if 'goal' in vd.hp.register_gtruth:
             desig_pix_goal = np.tile(vd.desig_pix[icam, ipix][None, None, :], [num_ex, len_pred, 1])
             current_image = add_crosshairs(current_image, desig_pix_goal, color=[0, 0, 1.])
             ipix += 1

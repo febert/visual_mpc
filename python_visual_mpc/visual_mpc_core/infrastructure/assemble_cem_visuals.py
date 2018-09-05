@@ -80,7 +80,7 @@ def get_score_images(scores, height, width, seqlen, numex):
 
 def make_direct_vid(dict, numex, gif_savepath, suf):
     """
-    :param dict:  dictionary with video tensors of shape bsize, tlen, ncam, r, c, 3
+    :param dict:  dictionary with video tensors of shape bsize, tlen, r, c, 3
     :param numex:
     :param gif_savepath:
     :param suf:

@@ -5,6 +5,7 @@ import pickle as pkl
 import os
 import os.path
 import sys
+import pdb
 sys.path.append('/'.join(str.split(__file__, '/')[:-2]))
 
 
@@ -26,6 +27,8 @@ class Sim(object):
 
         if 'record_saver' in config:
             self._record_queue = config.pop('record_saver')
+        else:
+            self._record_queue = None
 
         self._counter = None
         if 'counter' in config:
@@ -53,14 +56,17 @@ class Sim(object):
     def take_sample(self, sample_index):
         self.policy.reset()
         agent_data, obs_dict, policy_out = self.agent.sample(self.policy, sample_index)
-        if self._hyperparams['save_data']:
+        if self._hyperparams.get('save_data', True):
             self.save_data(sample_index, agent_data, obs_dict, policy_out)
         return agent_data
 
     def save_data(self, itr, agent_data, obs_dict, policy_outputs):
+        if 'save_only_good' in self._hyperparams and not agent_data['goal_reached']:
+            return
+
         if 'save_raw_images' in self._hyperparams:
             self._save_raw_data(itr, agent_data, obs_dict, policy_outputs)
-        else:
+        elif self._record_queue is not None:
             self._record_queue.put((agent_data, obs_dict, policy_outputs))
 
     def _save_raw_data(self, itr, agent_data, obs_dict, policy_outputs):
