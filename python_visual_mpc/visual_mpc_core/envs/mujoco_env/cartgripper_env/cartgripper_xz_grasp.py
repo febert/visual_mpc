@@ -21,7 +21,7 @@ class CartgripperXZGrasp(BaseCartgripperEnv):
         parent_params = super()._default_hparams()
         parent_params.set_hparam('filename', 'cartgripper_xz_grasp.xml')
         parent_params.set_hparam('mode_rel', [True, True, False])
-        parent_params.set_hparam('finger_sensors', True)
+        parent_params.set_hparam('finger_sensors', False)
         parent_params.set_hparam('minlen', 0.03)
         parent_params.set_hparam('maxlen', 0.05)
         parent_params.set_hparam('valid_rollout_floor', -2e-1)
@@ -39,6 +39,7 @@ class CartgripperXZGrasp(BaseCartgripperEnv):
     def _init_dynamics(self):
         self._previous_target_qpos = self._get_state()
         self._goal_reached = False
+        self._object_floors = self._last_obs['object_poses_full']
 
     def _next_qpos(self, action):
         assert action.shape[0] == self._adim
@@ -72,10 +73,13 @@ class CartgripperXZGrasp(BaseCartgripperEnv):
         return xpos0
 
     def _post_step(self):
-        if 'finger_sensors' not in self._last_obs:
-            return
-        finger_sensors_thresh = np.amax(self._last_obs['finger_sensors']) > 0
-        z_thresholds = np.amax(self._last_obs['object_poses_full'][:, 2]) >= 0 and self._last_obs['state'][1] >= 0.02
+        if self._hp.finger_sensors:
+            finger_sensors_thresh = np.amax(self._last_obs['finger_sensors']) > 0
+        else:
+            finger_sensors_thresh = self._last_obs['state'][2] <= 0.9    # check if gripper is closed
+
+        object_deltas = self._last_obs['object_poses_full'][:, 2] - self._object_floors[:, 2]
+        z_thresholds = np.amax(object_deltas) >= 0.05 and self._last_obs['state'][1] >= 0.02
         if z_thresholds and finger_sensors_thresh:
             self._goal_reached = True
 

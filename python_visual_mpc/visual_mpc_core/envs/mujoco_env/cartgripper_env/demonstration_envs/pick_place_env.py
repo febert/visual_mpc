@@ -14,11 +14,13 @@ class PickPlaceEnv(BaseDemoEnv):
         if self._demo_t == 0:
             self._cur_stage = 0
             self._grasp_attempt = False
+            self._obj_init_pos = self._last_obs['object_poses_full']
 
         print('demo_t {}'.format(self._demo_t))
 
         if self._cur_stage == 0:
-            z_thresholds = np.amax(self._last_obs['object_poses_full'][:, 2]) > 0. and self._last_obs['state'][1] > 0.02
+            delta_obj = self._last_obs['object_poses_full'][:, 2] - self._obj_init_pos[:, 2]
+            z_thresholds = np.amax(delta_obj) >= 0.05 and self._last_obs['state'][1] > 0.02
             print('check to prog 10, z_threshold {}'.format(z_thresholds))
             if z_thresholds:
                 self._cur_stage = 10
