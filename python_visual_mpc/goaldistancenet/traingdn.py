@@ -20,7 +20,7 @@ VAL_INTERVAL = 500
 
 BENCH_INTERVAL = -1
 
-IMAGE_INTERVAL = 2000
+IMAGE_INTERVAL = 500
 
 # How often to save a model checkpoint
 SAVE_INTERVAL = 4000
@@ -175,9 +175,6 @@ def main(unused_argv, conf_script= None):
                          model.train_cond: 0}
             [val_summary_str] = sess.run([model.val_summ_op], feed_dict)
             summary_writer.add_summary(val_summary_str, itr)
-
-        if BENCH_INTERVAL != -1 and itr % BENCH_INTERVAL == 0:
-            summary_writer.add_summary(model.run_bench(benchmodel, sess), itr)
 
         if itr % IMAGE_INTERVAL ==0:
             print('making image summ')
