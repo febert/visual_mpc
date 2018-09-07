@@ -99,16 +99,30 @@ def compute_warp_cost(logger, policyparams, flow_field, goal_pix=None, warped_im
     logger.log('tcg {}'.format(time.time() - tc1))
     return scores
 
-def construct_initial_sigma(hp, t=None):
+def construct_initial_sigma(hp, adim, t=None):
     xy_std = hp.initial_std
     diag = [xy_std**2, xy_std**2]
 
-    if 'initial_std_lift' in hp:
-        diag.append(hp.initial_std_lift ** 2)
-    if 'initial_std_rot' in hp:
-        diag.append(hp.initial_std_rot ** 2)
-    if 'initial_std_grasp' in hp:
-        diag.append(hp.initial_std_grasp ** 2)
+    if hp.action_order[0] is not None:
+        diag = []
+        for a in hp.action_order:
+            if a == 'x' or a == 'y':
+                diag.append(xy_std**2)
+            elif a == 'z':
+                diag.append(hp.initial_std_lift ** 2)
+            elif a == 'theta':
+                diag.append(hp.initial_std_rot ** 2)
+            elif a == 'grasp':
+                diag.append(hp.initial_std_grasp ** 2)
+            else:
+                raise NotImplementedError
+    else:
+        if adim >= 3:
+            diag.append(hp.initial_std_lift ** 2)
+        if adim >= 4:
+            diag.append(hp.initial_std_rot ** 2)
+        if adim == 5:
+            diag.append(hp.initial_std_grasp ** 2)
 
     adim = len(diag)
     diag = np.tile(diag, hp.nactions)
@@ -135,24 +149,69 @@ def reuse_cov(sigma, adim, hp):
     sigma[-adim:, -adim:] = construct_initial_sigma(hp)[:adim, :adim]
     return sigma
 
-def reuse_mean(mean, hp):
+def reuse_action(prev_action, hp):
     assert hp.replan_interval == 3
     print('reusing mean form last MPC step...')
-    mean_old = mean.copy()
-    mean = np.zeros_like(mean_old)
-    mean[:-1] = mean_old[1:]
-    return mean.flatten()
+    action = np.zeros_like(prev_action)
+    action[:-1] = prev_action[1:]
+    return action.flatten()
 
-def truncate_movement(actions, policyparams):
-    maxshift = policyparams.initial_std*2
+def sample_actions(mean, sigma, hp, M):
+    actions = np.random.multivariate_normal(mean, sigma, M)
+    actions = actions.reshape(M, hp.naction_steps, hp.adim)
+    if hp.discrete_ind != None:
+        actions = discretize(actions, M, hp.naction_steps, hp.discrete_ind)
+
+    if hp.action_bound:
+        actions = truncate_movement(actions, hp)
+    actions = np.repeat(actions, hp.repeat, axis=1)
+
+    return actions
+
+def discretize(actions, M, naction_steps, discrete_ind):
+    """
+    discretize and clip between 0 and 4
+    :param actions:
+    :return:
+    """
+    for b in range(M):
+        for a in range(naction_steps):
+            for ind in discrete_ind:
+                actions[b, a, ind] = np.clip(np.floor(actions[b, a, ind]), 0, 4)
+    return actions
+
+def truncate_movement(actions, hp):
+    maxshift = hp.initial_std * 2
 
     if len(actions.shape) == 3:
+        if hp.action_order[0] is not None:
+            for i, a in enumerate(hp.action_order):
+                if a == 'x' or a == 'y':
+                    maxshift = hp.initial_std * 2
+                elif a == 'theta':
+                    maxshift = np.pi / 4
+                else:
+                    continue
+                actions[:, :, i] = np.clip(actions[:, :, i], -maxshift, maxshift)
+            return actions
+
         actions[:,:,:2] = np.clip(actions[:,:,:2], -maxshift, maxshift)  # clip in units of meters
         if actions.shape[-1] == 5: # if rotation is enabled
             maxrot = np.pi / 4
             actions[:, :, 3] = np.clip(actions[:, :, 3], -maxrot, maxrot)
 
     elif len(actions.shape) == 2:
+        if hp.action_order[0] is not None:
+            for i, a in enumerate(hp.action_order):
+                if a == 'x' or a == 'y':
+                    maxshift = hp.initial_std * 2
+                elif a == 'theta':
+                    maxshift = np.pi / 4
+                else:
+                    continue
+                actions[:, i] = np.clip(actions[:, i], -maxshift, maxshift)
+            return actions
+
         actions[:,:2] = np.clip(actions[:,:2], -maxshift, maxshift)  # clip in units of meters
         if actions.shape[-1] == 5: # if rotation is enabled
             maxrot = np.pi / 4

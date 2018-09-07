@@ -13,6 +13,7 @@ class BenchmarkAgent(GeneralAgent):
         self.ncam = hyperparams['env'][1].get('ncam', 2)
         GeneralAgent.__init__(self, hyperparams)
         self._is_robot_bench = 'robot_name' in self._hyperparams['env'][1]
+        self._hyperparams['gen_xml'] = 1
 
     def _setup_world(self, itr):
         self._reset_state = self._load_raw_data(itr)
@@ -65,6 +66,9 @@ class BenchmarkAgent(GeneralAgent):
         """
         if 'robot_name' in self._hyperparams['env'][1]:   # robot experiments don't have a reset state
             return None
+
+        if 'iex' in self._hyperparams:
+            itr = self._hyperparams['iex']
 
         ngroup = 1000
         igrp = itr // ngroup

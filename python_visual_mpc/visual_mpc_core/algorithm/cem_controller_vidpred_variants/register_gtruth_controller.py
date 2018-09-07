@@ -11,14 +11,10 @@ from python_visual_mpc.goaldistancenet.setup_gdn import setup_gdn
 
 class Register_Gtruth_Controller(CEM_Controller_Vidpred):
     def __init__(self, ag_params, policyparams, gpu_id, ngpu):
-<<<<<<< HEAD
         super(Register_Gtruth_Controller, self).__init__(ag_params, policyparams, gpu_id, ngpu)
-=======
-        super().__init__(ag_params, policyparams, gpu_id, ngpu)
         
         self._hp = self._default_hparams()
         self.override_defaults(policyparams)
->>>>>>> refactor_cem
 
         if self._hp.trade_off_reg:
             self.reg_tradeoff = np.ones([self.ncam, self.ndesig])/self.ncam/self.ndesig
@@ -30,21 +26,12 @@ class Register_Gtruth_Controller(CEM_Controller_Vidpred):
         num_reg_images = len(self._hp.register_gtruth)
         self.ntask = self.ntask = self.ndesig // num_reg_images
 
-<<<<<<< HEAD
-    def _setup_visualizer(self, default=CEM_Visual_Preparation_Registration):
-        return super(Register_Gtruth_Controller, self)._setup_visualizer(default)
-
-    def prep_vidpred_inp(self, actions, cem_itr):
-        actions, last_frames, last_states, t_0 = super(Register_Gtruth_Controller, self).prep_vidpred_inp(actions, cem_itr)
-        if cem_itr == 0:
-=======
-
     def _default_hparams(self):
         default_dict = {
             'register_gtruth':['start','goal'],
             
         }
-        parent_params = super()._default_hparams()
+        parent_params = super(Register_Gtruth_Controller, self)._default_hparams()
 
         for k in default_dict.keys():
             parent_params.add_hparam(k, default_dict[k])
@@ -55,7 +42,6 @@ class Register_Gtruth_Controller(CEM_Controller_Vidpred):
         if 'image_medium' in self.agentparams:  # downsample to video-pred reslution
             last_frames = resize_image(last_frames, (self.img_height, self.img_width))
         if self._hp.register_gtruth and cem_itr == 0:
->>>>>>> refactor_cem
             self.start_image = copy.deepcopy(self.images[0]).astype(np.float32) / 255.
             self.warped_image_start, self.warped_image_goal, self.reg_tradeoff = self.register_gtruth(self.start_image,
                                                                                                       last_frames)

@@ -104,7 +104,6 @@ class CEM_Controller_Vidpred(CEM_Controller_Base):
 
         self.ntask = self.ndesig  # will be overwritten in derived classes
         self.vd = VisualzationData()
-        # self._setup_visualizer()
         self.visualizer = CEM_Visual_Preparation()
 
     def _setup_visualizer(self, default=CEM_Visual_Preparation):

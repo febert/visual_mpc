@@ -49,8 +49,8 @@ class AutograspSawyerMujocoEnv(BaseSawyerMujocoEnv):
 
     def _next_qpos(self, action):
         assert action.shape[0] == 4, "Action does not match action dimension"
-        
-        gripper_z = self._previous_target_qpos[2]
+
+        gripper_z = self._previous_target_qpos[2] + action[2]
         z_thresh = self._hp.zthresh
         reopen = self._hp.reopen
 
