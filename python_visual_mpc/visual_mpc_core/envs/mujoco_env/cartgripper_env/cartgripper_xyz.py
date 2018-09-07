@@ -7,7 +7,7 @@ class CartgripperXYZEnv(BaseCartgripperEnv):
         self._hyper = copy.deepcopy(env_params)
         super().__init__(env_params, reset_state)
         self._adim, self._sdim = self._base_adim, self._base_sdim
-
+        self._n_joints = self._adim
 
     def _default_hparams(self):
         default_dict = {}
