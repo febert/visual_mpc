@@ -1,9 +1,8 @@
-
 from python_visual_mpc.visual_mpc_core.envs.mujoco_env.cartgripper_env.cartgripper_rot_grasp import CartgripperRotGraspEnv
 from python_visual_mpc.visual_mpc_core.envs.util.action_util import autograsp_dynamics
 from python_visual_mpc.visual_mpc_core.envs.mujoco_env.cartgripper_env.util.sensor_util import is_touching
 import copy
-import numpy as np
+
 
 class AutograspCartgripperEnv(CartgripperRotGraspEnv):
     def __init__(self, env_params, reset_state=None):

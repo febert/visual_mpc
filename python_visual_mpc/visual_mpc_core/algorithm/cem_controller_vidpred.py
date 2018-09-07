@@ -6,12 +6,14 @@ import imp
 from python_visual_mpc.visual_mpc_core.algorithm.utils.make_cem_visuals import CEM_Visual_Preparation
 import matplotlib; matplotlib.use('Agg'); import matplotlib.pyplot as plt
 import copy
-from queue import Queue
+
 from threading import Thread
 if "NO_ROS" not in os.environ:
     from visual_mpc_rospkg.msg import floatarray
     from rospy.numpy_msg import numpy_msg
     import rospy
+else:
+    from queue import Queue
 import time
 from .utils.cem_controller_utils import save_track_pkl
 from .cem_controller_base import CEM_Controller_Base
@@ -101,7 +103,13 @@ class CEM_Controller_Vidpred(CEM_Controller_Base):
 
         self.ntask = self.ndesig  # will be overwritten in derived classes
         self.vd = VisualzationData()
-        self.visualizer = CEM_Visual_Preparation()
+        self._setup_visualizer()
+
+    def _setup_visualizer(self, default=CEM_Visual_Preparation):
+        run_freq = 1
+        if 'verbose_every_itr' in self.policyparams:
+            run_freq = 3
+        self.visualizer = self.policyparams.get('visualizer', default)(run_freq)
 
     def _default_hparams(self):
         default_dict = {

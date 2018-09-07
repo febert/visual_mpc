@@ -34,8 +34,13 @@ class MulltiviewTestGDN():
         self.I0_pl = tf.placeholder(tf.float32, name='I0', shape=(conf['batch_size'], self.ncam, self.img_height, self.img_width, 3))
         self.I1_pl = tf.placeholder(tf.float32, name='I1', shape=(conf['batch_size'], self.ncam, self.img_height, self.img_width, 3))
 
+        if 'model' in conf:
+            Model = conf['model']
+        else:
+            Model = GoalDistanceNet
+
         for n in range(self.ncam):
-            self.gdn.append(GoalDistanceNet(conf=conf, build_loss=False, load_data = False,
+            self.gdn.append(Model(conf=conf, build_loss=False, load_data = False,
                                             I0=self.I0_pl[:,n], I1=self.I1_pl[:,n]))
 
     def build_net(self):

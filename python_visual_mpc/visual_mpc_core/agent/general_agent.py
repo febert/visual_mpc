@@ -4,7 +4,6 @@ import numpy as np
 from python_visual_mpc.video_prediction.misc.makegifs2 import npy_to_gif
 import cv2
 from python_visual_mpc.visual_mpc_core.algorithm.policy import get_policy_args
-import pdb
 
 
 def file_len(fname):
@@ -20,6 +19,11 @@ class Image_Exception(Exception):
         pass
 
 
+class Environment_Exception(Exception):
+    def __init__(self):
+        pass
+
+
 def resize_store(t, target_array, input_array):
     target_img_height, target_img_width = target_array.shape[2:4]
 
@@ -29,7 +33,7 @@ def resize_store(t, target_array, input_array):
     else:
         for i in range(input_array.shape[0]):
             target_array[t, i] = cv2.resize(input_array[i], (target_img_width, target_img_height),
-                                                           interpolation=cv2.INTER_AREA)
+                                                                    interpolation=cv2.INTER_AREA)
 
 
 class GeneralAgent(object):
@@ -155,13 +159,14 @@ class GeneralAgent(object):
             obs['reset_state'] = self._reset_state
         return obs
 
-    def _required_rollout_metadata(self, agent_data, traj_ok, t):
+    def _required_rollout_metadata(self, agent_data, traj_ok, t, i_tr):
         """
         Adds meta_data into the agent dictionary that is MANDATORY for later parts of pipeline
         :param agent_data: Agent data dictionary
         :param traj_ok: Whether or not rollout succeeded
         :return: None
         """
+        agent_data['extra_resets'] = max(i_tr - self._hyperparams.get('rejection_sample', 0), 0)
         agent_data['term_t'] = t - 1
         if self.env.has_goal():
             agent_data['goal_reached'] = self.env.goal_reached()
@@ -187,7 +192,6 @@ class GeneralAgent(object):
         obs = self._post_process_obs(initial_env_obs, agent_data, True)
         policy.reset()
 
-        traj_ok = True
         while not done:
             """
             Every time step send observations to policy, acts in environment, and records observations
@@ -202,34 +206,29 @@ class GeneralAgent(object):
             pi_t = policy.act(**get_policy_args(policy, obs, t, i_traj, agent_data))
             policy_outputs.append(pi_t)
 
-            # try:
-            obs = self._post_process_obs(self.env.step(copy.deepcopy(pi_t['actions'])), agent_data)
-            # except ValueError:
-            #     print('traj failed!')
-            #     return {'traj_ok': False}, None, None
+            try:
+                obs = self._post_process_obs(self.env.step(copy.deepcopy(pi_t['actions'])), agent_data)
+            except Environment_Exception as e:
+                print(e)
+                return {'traj_ok': False}, None, None
 
             if 'rejection_sample' in self._hyperparams and 'rejection_end_early' in self._hyperparams:
                 print('traj rejected!')
                 if self._hyperparams['rejection_sample'] > i_trial and not self.env.goal_reached():
                     return {'traj_ok': False}, None, None
 
-            self._required_rollout_metadata(agent_data, traj_ok, t)
             if (self._hyperparams['T']-1) == t:
                 done = True
             t += 1
 
-            self.save_gif(i_traj)
-
-        if not self.env.valid_rollout():
-            traj_ok = False
-
+        traj_ok = self.env.valid_rollout()
         if 'rejection_sample' in self._hyperparams:
             if self._hyperparams['rejection_sample'] > i_trial:
                 assert self.env.has_goal(), 'Rejection sampling enabled but env has no goal'
                 traj_ok = self.env.goal_reached()
             print('goal_reached', self.env.goal_reached())
 
-        self._required_rollout_metadata(agent_data, traj_ok, t)
+        self._required_rollout_metadata(agent_data, traj_ok, t, i_trial)
         return agent_data, obs, policy_outputs
 
     def save_gif(self, itr, overlay=False):

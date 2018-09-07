@@ -1,5 +1,5 @@
 from python_visual_mpc.visual_mpc_core.infrastructure.synchronize_tfrecs import sync
-from multiprocessing import Pool, Process, Manager, Value, Lock
+from multiprocessing import Pool, Process, Manager
 import sys
 import argparse
 import importlib.machinery
@@ -53,6 +53,12 @@ def bench_worker(conf, iex=-1):
     np.random.seed(None)
     perform_benchmark(conf, iex, gpu_id=conf['gpu_id'])
 
+
+def check_and_pop(dict, key):
+    if dict.pop(key, None) is not None:
+        print('popping key: {}'.format(key))
+
+
 def main():
     parser = argparse.ArgumentParser(description='run parllel data collection')
     parser.add_argument('experiment', type=str, help='experiment name')
@@ -62,7 +68,7 @@ def main():
     parser.add_argument('--nsplit', type=int, help='number of splits', default=-1)
     parser.add_argument('--isplit', type=int, help='split id', default=-1)
     parser.add_argument('--cloud', dest='cloud', action='store_true', default=False)
-    parser.add_argument('--benchmark', dest='do_benchmark', action='store_true', default=True)
+    parser.add_argument('--benchmark', dest='do_benchmark', action='store_true', default=False)
 
     parser.add_argument('--iex', type=int, help='if different from -1 use only do example', default=-1)
 
@@ -84,11 +90,13 @@ def main():
     hyperparams = mod.config
 
     if args.nsplit != -1:
-        n_persplit = (hyperparams['end_index']+1)//args.nsplit
-        hyperparams['start_index'] = args.isplit * n_persplit
-        hyperparams['end_index'] = (args.isplit+1) * n_persplit -1
+        assert args.isplit >= 0 and args.isplit < args.nsplit, "isplit should be in [0, nsplit-1]"
+       
+        n_persplit = max((hyperparams['end_index'] + 1 - hyperparams['start_index']) / args.nsplit, 1)
+        hyperparams['end_index'] = int((args.isplit + 1) * n_persplit + hyperparams['start_index'] - 1)
+        hyperparams['start_index'] = int(args.isplit * n_persplit + hyperparams['start_index'])
 
-    n_traj = hyperparams['end_index'] - hyperparams['start_index'] +1
+    n_traj = hyperparams['end_index'] - hyperparams['start_index'] + 1
     traj_per_worker = int(n_traj // np.float32(n_worker))
     start_idx = [hyperparams['start_index'] + traj_per_worker * i for i in range(n_worker)]
     end_idx = [hyperparams['start_index'] + traj_per_worker * (i+1)-1 for i in range(n_worker)]
@@ -115,6 +123,9 @@ def main():
         subpath = hyperparams['current_dir'].partition('experiments')[2]
         result_dir = os.path.join(os.environ['EXPERIMENT_DIR'] + subpath)
     elif args.cloud:
+        check_and_pop(hyperparams, 'save_raw_images')
+        check_and_pop(hyperparams['agent'], 'make_final_gif')
+        check_and_pop(hyperparams['agent'], 'make_final_gif_pointoverlay')
         hyperparams['agent']['data_save_dir'] = '/result/'    # by default save code to the /result folder in docker image
     else:
         result_dir = hyperparams['current_dir'] + '/verbose'

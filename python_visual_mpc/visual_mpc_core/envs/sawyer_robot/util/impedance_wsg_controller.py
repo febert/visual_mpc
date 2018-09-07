@@ -36,7 +36,7 @@ class ImpedanceWSGController(RobotController):
         self.gripper_speed = 300
 
         self._force_counter = 0
-        self._integrate_gripper_force = 0.
+        self._integrate_gripper_force, self._last_integrate = 0., None
         self.num_timeouts = 0
 
         self._cmd_publisher = rospy.Publisher('/robot/limb/right/joint_command', JointCommand, queue_size=100)
@@ -70,7 +70,10 @@ class ImpedanceWSGController(RobotController):
 
         if integrate_force and cntr > 0:
             print("integrating with {} readings, cumulative force: {}".format(cntr, cum_force))
-            return width, cum_force / cntr
+            self._last_integrate = cum_force / cntr
+            return width, self._last_integrate
+        elif integrate_force and self._last_integrate is not None:
+            return width, self._last_integrate
 
         return width, force
 

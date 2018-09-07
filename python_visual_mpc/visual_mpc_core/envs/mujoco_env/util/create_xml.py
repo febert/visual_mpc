@@ -45,7 +45,7 @@ ASSET_BASE_DIR = '/'.join(os.path.abspath(python_visual_mpc.__file__).split('/')
 
 def create_object_xml(filename, num_objects, object_mass, friction_params, object_meshes,
                       finger_sensors, maxlen, minlen, reset_xml, obj_classname = None,
-                      block_height = 0.03, block_width = 0.03):
+                      block_height = 0.03, block_width = 0.03, cube_objs = False):
     """
     :param hyperparams:
     :param load_dict_list: if not none load configuration, instead of sampling
@@ -64,6 +64,7 @@ def create_object_xml(filename, num_objects, object_mass, friction_params, objec
         sensor_frame = None
     f_sliding, f_torsion, f_rolling = friction_params
     world_body = ET.SubElement(root, "worldbody")
+
 
     loaded_meshes = {}
 
@@ -101,6 +102,8 @@ def create_object_xml(filename, num_objects, object_mass, friction_params, objec
         obj_string = "object{}".format(i)
         print('using friction=({}, {}, {}), object mass{}'.format(f_sliding, f_torsion, f_rolling, object_mass))
         if object_meshes is not None:
+            assert not cube_objs, "object meshes not compatible with cube_objs option"
+
             assets = ET.SubElement(root, "asset")
             if chosen_mesh not in loaded_meshes:
                 o_mesh = ASSET_BASE_DIR + '{}/'.format(chosen_mesh)
@@ -114,15 +117,20 @@ def create_object_xml(filename, num_objects, object_mass, friction_params, objec
 
                 mesh_object = mesh.Mesh.from_file(object_file)
                 minx, maxx, miny, maxy, minz, maxz = find_mins_maxs(mesh_object)
-                min_length = min((maxx - minx), (maxy - miny))
-                scale = [0.12 / min_length for _ in range(3)]
+
 
                 if chosen_mesh in ['Knife', 'Fork', 'Spoon']:      #should add a more extensible way to handle different rescale rules
                     max_length = max((maxx - minx), (maxy - miny))
-                    scale = [0.24 / max_length for _ in range(3)]
+                    scale = [2 * maxlen / max_length for _ in range(3)]
 
                     if chosen_mesh == 'Knife':
                         scale[2] *= 10
+                elif chosen_mesh in ['Bowl', 'ElephantBowl', 'GlassBowl', 'LotusBowl01', 'RuggedBowl']:
+                    min_length = min((maxx - minx), (maxy - miny))
+                    scale = [maxlen / min_length for _ in range(3)]
+                else:
+                    max_length = max(max((maxx - minx), (maxy - miny)), (maxz - minz))
+                    scale = [maxlen / max_length for _ in range(2)] + [maxlen / (maxz - minz) * 0.75]
 
                 object_pos = [0., 0., 0.]
                 object_pos[0] -= scale[0] * (minx + maxx) / 2.0
@@ -157,12 +165,26 @@ def create_object_xml(filename, num_objects, object_mass, friction_params, objec
             #contact meshes
             for n in range(n_cvx_files):
                 ET.SubElement(obj, "geom", type="mesh", mesh=chosen_mesh + "_convex_mesh{}".format(n),
-                              rgba="0 1 0 0", mass="{}".format(mass_per_elem),
+                              rgba="0 1 0 0", mass="{}".format(mass_per_elem), margin="0.00005",
                               contype="7", conaffinity="7", friction="{} {} {}".format(f_sliding, f_torsion, f_rolling)
                               )
 
+        elif cube_objs:
+            if obj_classname is not None:
+                obj = ET.SubElement(world_body, "body", name=obj_string, pos="0 0 0",
+                                    childclass=obj_classname)
+            else:
+                obj = ET.SubElement(world_body, "body", name=obj_string, pos="0 0 0")
+
+            ET.SubElement(obj, "joint", type="free")
+
+            ET.SubElement(obj, "geom", type="box", size="{} {} {}".format(l1, l1, l1),
+                          rgba="{} {} {} 1".format(color1[0], color1[1], color1[2]), mass="{}".format(object_mass),
+                          contype="7", conaffinity="7", friction="{} {} {}".format(f_sliding, f_torsion, f_rolling)
+                          )
+
+
         else:
-            obj = None
             if obj_classname is not None:
                 obj = ET.SubElement(world_body, "body", name=obj_string, pos="0 0 0",
                                     childclass=obj_classname)

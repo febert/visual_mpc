@@ -89,8 +89,14 @@ def write_tradeoff_onimage(image, tradeoff_percam, ntask, startgoal):
     string = ','.join(['%.2f' %  tr for  tr in list(tradeoff_percam[:,startgoal])])
     return draw_text_onimage(string, image)
 
+def upsample_if_necessary(dict, target_shape):
+    for k in dict.keys():
+        if dict[k].shape[3] != target_shape[0]:
+            dict[k] = resize_image(dict[k][:,:,None], target_shape)[:,:,0]
+    return dict
+
 class CEM_Visual_Preparation(object):
-    def __init__(self):
+    def __init__(self, **kwargs):
         pass
 
     def visualize(self, vd):
@@ -115,7 +121,7 @@ class CEM_Visual_Preparation(object):
         gen_distrib = vd.gen_distrib[selindices]
         gen_images = vd.gen_images[selindices]
         print('selected distributions')
-        if 'image_medium' in vd.agentparams:
+        if vd.agentparams['image_height'] != vd.image_height:
             gen_distrib = resize_image(gen_distrib, vd.goal_image.shape[1:3])
             gen_images = resize_image(gen_images, vd.goal_image.shape[1:3])
             print('resized images')
@@ -138,11 +144,10 @@ class CEM_Visual_Preparation(object):
         self._t_dict['scores'] = get_score_images(vd.scores[selindices], vd.last_frames.shape[3], vd.last_frames.shape[4], self.len_pred, self.num_ex)
 
         if 'no_instant_gif' not in vd.agentparams:
-            if 'image_medium' in vd.agentparams:
-                size = vd.agentparams['image_medium']
-            else: size = None
+
+            self._t_dict = upsample_if_necessary(self._t_dict,  [vd.agentparams['image_height'], vd.agentparams['image_width']])
             make_direct_vid(self._t_dict, self.num_ex, vd.agentparams['record'] + '/plan/',
-                                suf='t{}iter{}'.format(vd.t, vd.cem_itr), resize=size)
+                                suf='t{}iter{}'.format(vd.t, vd.cem_itr))
 
         # make_action_summary(self.num_ex, actions, agentparams, selindices, cem_itr, netconf['sequence_length'], t)
 
@@ -189,10 +194,7 @@ class CEM_Visual_Preparation_Registration(CEM_Visual_Preparation):
                 compute_overlay(self.gl_im_ann_per_tsk[p, :, :, icam], color_coded_dist)
 
     def visualize_registration(self, vd):
-        if 'image_medium' in self.agentparams:
-            pix_mult = self.agentparams['image_medium'][0]/self.agentparams['image_height']
-        else:
-            pix_mult = 1.
+        pix_mult = self.agentparams['image_height']/vd.image_height
 
         for icam in range(self.ncam):
             print("on cam: {}".format(icam))
@@ -208,7 +210,7 @@ class CEM_Visual_Preparation_Registration(CEM_Visual_Preparation):
             startimages = np.tile(vd.start_image[icam][None, None], [self.num_ex, self.len_pred, 1, 1, 1])
             for p in range(vd.ntask):
                 print('on task {}'.format(p))
-                if 'image_medium' in vd.agentparams:
+                if vd.agentparams['image_height'] != vd.image_height:
                     desig_pix_t0 = vd.desig_pix_t0_med[icam, p][None]
                 else:
                     desig_pix_t0 = vd.desig_pix_t0[icam, p][None]
@@ -226,7 +228,7 @@ class CEM_Visual_Preparation_Registration(CEM_Visual_Preparation):
                         warped_img_goal_cam = vd.warped_image_goal[icam].squeeze()
                     self._t_dict['warp_goal_cam{}'.format(icam)] = np.repeat(np.repeat(warped_img_goal_cam[None], self.len_pred, axis=0)[None], self.num_ex, axis=0)
 
-        if 'image_medium' in vd.agentparams:
+        if vd.agentparams['image_height'] != vd.image_height:
             goal_pix = vd.goal_pix_med
         else:
             goal_pix = vd.goal_pix

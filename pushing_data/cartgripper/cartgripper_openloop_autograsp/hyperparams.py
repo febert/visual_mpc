@@ -17,7 +17,7 @@ DATA_DIR = '/'.join(str.split(python_visual_mpc.__file__, '/')[:-2])
 
 env_params = {
     'filename': 'cartgripper_grasp.xml',
-    'num_objects': 4,
+    'num_objects': 1,
     'object_mass': 0.1,
     'friction': 1.0,
     'finger_sensors': True,
@@ -43,12 +43,8 @@ agent = {
 policy = {
     'type' : Randompolicy,
     'nactions' : 10,
-    'repeat' : 3,
-    'no_action_bound' : False, 
     'initial_std': 0.02,   #std dev. in xy
     'initial_std_lift': 1.6,   #std dev. in xy
-    'initial_std_rot' : np.pi / 18,
-    'initial_std_grasp' : 2 
 }
 
 config = {

@@ -1,4 +1,5 @@
 import glob
+import cPickle as pkl
 import pickle
 import numpy as np
 import copy
@@ -47,21 +48,38 @@ def read_scores(dir):
         imp.append(dict_['improvement'])
     return np.concatenate(scores), np.concatenate(imp)
 
+def read_new_scores(dir):
+    folders = glob.glob('{}/*'.format(dir))
+
+    scores, improvements = np.zeros(len(folders)), np.zeros((len(folders)))
+
+    for i, f in enumerate(folders):
+        if 'perturb' not in f:
+            agent_data = pkl.load(open('{}/traj_data/agent_data.pkl'.format(f), 'rb'))
+            scores[i], improvements[i] = agent_data['stats']['final_dist'], agent_data['stats']['improvement']
+
+    return scores, improvements
 
 def get_metric(folder, use_ind=None, only_take_first_n=None):
+    if 'old_mpc' in folder:
+        scores, imp = read_scores(folder)
+    else:
+        scores, imp = read_new_scores(folder)
 
-    scores, imp = read_scores(folder)
 
     cummulative_fraction = []
     n_total = scores.shape[0]
     print('ntotal:',n_total)
-    thresholds = np.linspace(0., 0.5, 200)
+    thresholds = np.linspace(0.,50, 200)
 
     print('mean', np.mean(scores))
     print('std',np.std(scores)/np.sqrt(n_total))
     for thres in thresholds:
         occ = np.where(scores < thres)[0]
         cummulative_fraction.append(float(occ.shape[0]) / n_total)
+
+    occ = np.where(scores < 17)[0]
+    print float(occ.shape[0]) / n_total
 
     return thresholds, cummulative_fraction
 
@@ -101,10 +119,11 @@ if __name__ == '__main__':
     #            '/home/sudeep/Documents/catkin_ws/src/visual_mpc/experiments/cem_exp/benchmarks_sawyer/weissgripper_regstartgoal_tradeoff']
     # labels = ['Prediction-Propagation','OpenCV-Tracking', 'GDN-Tracking-(ours)']
 
-    folders = ['/home/sudeep/Documents/catkin_ws/src/visual_mpc/experiments/cem_exp/grasping_sawyer/indep_views_reuseaction/exp_50',
-               '/home/sudeep/Documents/catkin_ws/src/visual_mpc/experiments/cem_exp/grasping_sawyer/indep_views_reuseaction_opencvtrack/exp_50']
-    labels = ['OpenCV-Tracking', 'GDN-Tracking-(ours)']
-    plot_results('2obj_', folders, labels)
+    folders = ['/home/sudeep/Documents/catkin_ws/src/visual_mpc/experiments/cem_exp/grasping_sawyer/indep_views_predprop/sudri/exp',
+               '/home/sudeep/Documents/catkin_ws/src/visual_mpc/experiments/cem_exp/grasping_sawyer/indep_views_reuseaction_highres/sudri/exp',
+               '/home/sudeep/Documents/catkin_ws/src/visual_mpc/experiments/cem_exp/grasping_sawyer/indep_views_reuseaction_opencvtrack/sudri/exp']
+    labels = ['Predictor Propogation', 'GDN-Tracking-(ours)', 'OpenCV-Tracking']
+    plot_results('bench_grasp', folders, labels)
 
     # 3obj
     # file = [['/mnt/sda1/experiments/cem_exp/benchmarks/multiobj_pushing/3obj'], ['/mnt/sda1/experiments/cem_exp/intmstep_benchmarks/3obj']]

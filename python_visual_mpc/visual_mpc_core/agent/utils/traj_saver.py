@@ -70,20 +70,23 @@ class GeneralAgentSaver:
         else:
             savers = [self._saver]
         for s in savers:
-            for k in agent_data:
-                s.add_metadata_entry(k, get_shape(agent_data[k]), get_dtype(agent_data[k]))
-            for k in obs:
-                if k == 'images':
-                    ncam = obs[k].shape[1]
-                    for c in range(ncam):
-                        s.add_sequence_entry('env/image_view{}/encoded'.format(c),
-                                             get_shape(obs[k][0, 0]), get_dtype(obs[k][0, 0]))
-                else:
-                    key_name = 'env/{}'.format(k)
-                    s.add_sequence_entry(key_name, get_shape(obs[k][0]), get_dtype(obs[k][0]))
-            for k in policy_out[0]:
-                key_name = 'policy/{}'.format(k)
-                s.add_sequence_entry(key_name, get_shape(policy_out[0][k]), get_dtype(policy_out[0][k]))
+            if agent_data is not None:
+                for k in agent_data:
+                    s.add_metadata_entry(k, get_shape(agent_data[k]), get_dtype(agent_data[k]))
+            if obs is not None:
+                for k in obs:
+                    if k == 'images':
+                        ncam = obs[k].shape[1]
+                        for c in range(ncam):
+                            s.add_sequence_entry('env/image_view{}/encoded'.format(c),
+                                                 get_shape(obs[k][0, 0]), get_dtype(obs[k][0, 0]))
+                    else:
+                        key_name = 'env/{}'.format(k)
+                        s.add_sequence_entry(key_name, get_shape(obs[k][0]), get_dtype(obs[k][0]))
+            if policy_out is not None:
+                for k in policy_out[0]:
+                    key_name = 'policy/{}'.format(k)
+                    s.add_sequence_entry(key_name, get_shape(policy_out[0][k]), get_dtype(policy_out[0][k]))
             s.save_manifest()
 
     def save_traj(self, agent_data, obs, policy_out):
@@ -91,7 +94,7 @@ class GeneralAgentSaver:
         if self._seperate_good:
             is_good = agent_data.pop('goal_reached')
 
-        if not agent_data.pop('traj_ok'):
+        if 'traj_ok' in agent_data and not agent_data.pop('traj_ok'):
             print('RECEIVED NOT OKAY TRAJ, MAYBE UP ITERS?')
             return
 
@@ -132,7 +135,9 @@ class GeneralAgentSaver:
         if self._seperate_good:
             self._good_saver.flush()
             self._bad_saver.flush()
-            print('Perc good: {}'.format(len(self._good_saver) / float(len(self._bad_saver)) * 100.))
+            total = len(self._bad_saver) + len(self._good_saver)
+            if total > 0:
+                print('Perc good: {}'.format(len(self._good_saver) / float(total) * 100.))
         else:
             self._saver.flush()
 

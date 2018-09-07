@@ -1,17 +1,13 @@
-
 from python_visual_mpc.visual_mpc_core.envs.mujoco_env.base_mujoco_env import BaseMujocoEnv
 import numpy as np
 import python_visual_mpc
 from python_visual_mpc.visual_mpc_core.envs.mujoco_env.util.create_xml import create_object_xml, create_root_xml, clean_xml
 import copy
-import time
 from pyquaternion import Quaternion
-import pdb
-
 
 
 BASE_DIR = '/'.join(str.split(python_visual_mpc.__file__, '/')[:-2])
-asset_base_path = BASE_DIR + '/mjc_models/'
+asset_base_path = BASE_DIR + '/mjc_models/cartgripper_assets/'
 low_bound = np.array([-0.5, -0.5, -0.08, -np.pi*2, -1])
 high_bound = np.array([0.5, 0.5, 0.15, np.pi*2, 1])
 
@@ -34,6 +30,7 @@ def quat_to_zangle(quat):
 
 
 class BaseCartgripperEnv(BaseMujocoEnv):
+
     """
     cartgripper env with motion in x,y,z
     """
@@ -58,10 +55,11 @@ class BaseCartgripperEnv(BaseMujocoEnv):
         self._reset_xml = create_object_xml(base_filename, _hp.num_objects, _hp.object_mass,
                                             friction_params, object_meshes, _hp.finger_sensors,
                                             _hp.maxlen, _hp.minlen, reset_xml,
-                                            _hp.obj_classname)
+                                            _hp.obj_classname, cube_objs=_hp.cube_objects)
         gen_xml = create_root_xml(base_filename)
         super().__init__(gen_xml, _hp)
-        clean_xml(gen_xml)
+        if _hp.clean_xml:
+            clean_xml(gen_xml)
 
         self._base_sdim, self._base_adim, self.mode_rel = 3, 3, np.array(_hp.mode_rel)
         self.num_objects, self.skip_first, self.substeps = _hp.num_objects, _hp.skip_first, _hp.substeps
@@ -71,7 +69,7 @@ class BaseCartgripperEnv(BaseMujocoEnv):
         self.arm_obj_initdist = _hp.arm_obj_initdist
         self.arm_start_lifted = _hp.arm_start_lifted
         self.finger_sensors, self.object_sensors = _hp.finger_sensors, object_meshes is not None
-        self._previous_target_qpos, self._n_joints = None, 3
+        self._previous_target_qpos, self._n_joints = None, 6
         self._hp = _hp
 
         self._read_reset_state = reset_state
@@ -100,7 +98,10 @@ class BaseCartgripperEnv(BaseMujocoEnv):
                           'arm_start_lifted': True,
                           'skip_first': 40,
                           'obj_classname':None,
-                          'substeps': 200}
+                          'substeps': 200,
+                          'clean_xml': True,
+                          'cube_objects': False,
+                          'valid_rollout_floor': -2e-2}
         parent_params = super()._default_hparams()
         for k in default_dict.keys():
             parent_params.add_hparam(k, default_dict[k])
@@ -108,20 +109,26 @@ class BaseCartgripperEnv(BaseMujocoEnv):
 
     def step(self, action):
         target_qpos = np.clip(self._next_qpos(action), self.low_bound, self.high_bound)
-        assert target_qpos.shape[0] == self._base_sdim
+        assert target_qpos.shape[0] == self._base_adim
         finger_force = np.zeros(2)
 
         for st in range(self.substeps):
             if self.finger_sensors:
                 finger_force += copy.deepcopy(self.sim.data.sensordata[:2].squeeze())
 
-            alpha = st / float(self.substeps)
+            alpha = st / (float(self.substeps) - 1)
             self.sim.data.ctrl[:] = alpha * target_qpos + (1 - alpha) * self._previous_target_qpos
             self.sim.step()
         finger_force /= self.substeps
 
         self._previous_target_qpos = target_qpos
-        return self._get_obs(finger_force)
+        obs = self._get_obs(finger_force)
+        self._post_step()
+
+        return obs
+
+    def _post_step(self):
+        return
 
     def render(self):
         return super().render()[:, ::-1]
@@ -130,6 +137,15 @@ class BaseCartgripperEnv(BaseMujocoEnv):
         self._read_reset_state['qpos_all'] = qpos
         self._read_reset_state['qvel_all'] = qvel
         return self.reset(self._read_reset_state)
+
+    def _create_pos(self):
+        poses = []
+        for i in range(self.num_objects):
+            pos = np.random.uniform(-.35, .35, 2)
+            alpha = np.random.uniform(0, np.pi * 2)
+            ori = zangle_to_quat(alpha)
+            poses.append(np.concatenate((pos, np.array([0]), ori), axis=0))
+        return poses
 
     def reset(self, reset_state=None):
         if reset_state is not None:
@@ -142,29 +158,20 @@ class BaseCartgripperEnv(BaseMujocoEnv):
             #clear our observations from last rollout
             self._last_obs = None
             # create random starting poses for objects
-            def create_pos():
-                poses = []
-                for i in range(self.num_objects):
-                    pos = np.random.uniform(-.35, .35, 2)
-                    alpha = np.random.uniform(0, np.pi * 2)
-                    ori = np.array([np.cos(alpha / 2), 0, 0, np.sin(alpha / 2)])
-                    poses.append(np.concatenate((pos, np.array([0]), ori), axis=0))
-                return poses
 
             if self.object_object_mindist:
                 assert self.num_objects == 2
                 ob_ob_dist = 0.
                 while ob_ob_dist < self.object_object_mindist:
-                    object_pos_l = create_pos()
+                    object_pos_l = self._create_pos()
                     ob_ob_dist = np.linalg.norm(object_pos_l[0][:3] - object_pos_l[1][:3])
                 object_pos = np.concatenate(object_pos_l)
             else:
-                object_pos_l = create_pos()
+                object_pos_l = self._create_pos()
                 object_pos = np.concatenate(object_pos_l)
 
             # determine arm position
             xpos0 = self.get_armpos(object_pos)
-
             qpos = np.concatenate((xpos0, object_pos.flatten()), 0)
         else:
             qpos = self._read_reset_state['qpos_all']
@@ -172,22 +179,24 @@ class BaseCartgripperEnv(BaseMujocoEnv):
         sim_state = self.sim.get_state()
         sim_state.qpos[:] = qpos
         sim_state.qvel[:] = np.zeros_like(self.sim.data.qvel)
+
         self.sim.set_state(sim_state)
         self.sim.forward()
         write_reset_state['qpos_all'] = qpos
         finger_force = np.zeros(2)
         for t in range(self.skip_first):
             for _ in range(self.substeps):
-                self.sim.data.ctrl[:] = qpos[:self.adim]
+                self.sim.data.ctrl[:] = qpos[:self._base_adim]
                 self.sim.step()
                 if self.finger_sensors:
                     finger_force += copy.deepcopy(self.sim.data.sensordata[:2].squeeze())
 
         self._previous_target_qpos = copy.deepcopy(self.sim.data.qpos[:self._base_adim].squeeze())
         self._previous_target_qpos[-1] = self.low_bound[-1]
+        reset_obs = self._get_obs(finger_force / self.skip_first / self.substeps)
         self._init_dynamics()
 
-        return self._get_obs(finger_force / self.skip_first / self.substeps), write_reset_state
+        return reset_obs, write_reset_state
 
     def get_armpos(self, object_pos):
         xpos0 = np.zeros(self._base_sdim)
@@ -246,25 +255,9 @@ class BaseCartgripperEnv(BaseMujocoEnv):
 
         return obs
 
-    def plot_ctrls(self, i_tr):
-        # a = plt.gca()
-        self.hf_qpos_l = np.stack(self.hf_qpos_l, axis=0)
-        self.hf_target_qpos_l = np.stack(self.hf_target_qpos_l, axis=0)
-        tmax = self.hf_target_qpos_l.shape[0]
-
-        if not os.path.exists(self._hyperparams['record']):
-            os.makedirs(self._hyperparams['record'])
-        for i in range(self.adim):
-            plt.subplot(self.adim,1,i+1)
-            plt.plot(list(range(tmax)), self.hf_qpos_l[:,i], label='q_{}'.format(i))
-            plt.plot(list(range(tmax)), self.hf_target_qpos_l[:, i], label='q_target{}'.format(i))
-            plt.legend()
-        plt.savefig(self._hyperparams['record'] + '/ctrls{}.png'.format(i_tr))
-        plt.close()
-
     def valid_rollout(self):
         object_zs = self._last_obs['object_poses_full'][:, 2]
-        return not any(object_zs < -2e-2)
+        return not any(object_zs < self._hp.valid_rollout_floor)
 
     def _init_dynamics(self):
         raise NotImplementedError
@@ -336,12 +329,4 @@ class BaseCartgripperEnv(BaseMujocoEnv):
 
         return image
 
-if __name__ == '__main__':
-        env = BaseCartgripperEnv('cartgripper_grasp.xml', 1, 0.1, 1, np.array([True, True, True, True, False]))
-        avg_100 = 0.
-        for _ in range(100):
-            timer = time.time()
-            env.sim.render(640, 480)
-            avg_100 += time.time() - timer
-        avg_100 /= 100
-        print('avg_100', avg_100)
+
