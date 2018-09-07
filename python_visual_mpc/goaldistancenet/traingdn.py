@@ -177,9 +177,6 @@ def main(unused_argv, conf_script= None):
             [val_summary_str] = sess.run([model.val_summ_op], feed_dict)
             summary_writer.add_summary(val_summary_str, itr)
 
-        if BENCH_INTERVAL != -1 and itr % BENCH_INTERVAL == 0:
-            summary_writer.add_summary(model.run_bench(benchmodel, sess), itr)
-
         if itr % IMAGE_INTERVAL ==0:
             print('making image summ')
             feed_dict = {model.iter_num: np.float32(itr),

@@ -25,7 +25,7 @@ agent = {
     'type': BenchmarkAgent,
     'env': (CartgripperXYZEnv, env_params),
     'data_save_dir': BASE_DIR + '/clipz/',
-    'T': 15,
+    'T': 20,
     'image_height' : 48,
     'image_width' : 64,
     'gen_xml': 1,   #generate xml every nth trajecotry
@@ -33,16 +33,14 @@ agent = {
     'discrete_gripper': -1, #discretized gripper dimension,
     'make_final_gif': True,
     'start_goal_confs':os.environ['VMPC_DATA_DIR'] + '/cartgripper/newenv/pushing_demo/train',
-    'num_load_steps':25,
+    'num_load_steps':35,
 }
 
 policy = {
     'verbose':True,
     'type': CEM_Controller_Sim_GoalImage,
     'iterations':2,
-    # 'num_samples':10,
-    # 'selection_frac':0.5,
-    # 'initial_std': 0.5,   #std dev. in xy
+    'follow_traj':True,
 }
 
 config = {

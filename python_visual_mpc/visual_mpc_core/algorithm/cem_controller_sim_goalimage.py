@@ -17,7 +17,6 @@ class VisualzationData():
 
 def MSE_based_cost(gen_images, goal_image, hp):
 
-
     sq_diff = np.square(gen_images - goal_image[None])
     mean_sq_diff = np.mean(sq_diff.reshape([sq_diff.shape[0],sq_diff.shape[1],-1]), -1)
 
@@ -36,8 +35,8 @@ class CEM_Controller_Sim_GoalImage(CEM_Controller_Sim):
     def _default_hparams(self):
         default_dict = {
                         'cost_func':MSE_based_cost,
-                        'follow_traj':True,   # follow the demonstration frame by frame
-                        'new_goal_freq':-1,   # -1: only take a new goal once per trajectory
+                        'follow_traj':False,   # follow the demonstration frame by frame
+                        'new_goal_freq':3,   # -1: only take a new goal once per trajectory
         }
         parent_params = super()._default_hparams()
 
@@ -75,13 +74,12 @@ class CEM_Controller_Sim_GoalImage(CEM_Controller_Sim):
         if self._hp.follow_traj:
             self.goal_images = goal_image[t:t + self.len_pred, 0]  #take first cam
         else:
-            raise NotImplementedError
-            # new_goal_freq = self.policyparams['new_goal_freq']
-            # demo_image_interval = self.policyparams['demo_image_interval']
-            # assert demo_image_interval <= new_goal_freq
-            # igoal = t//new_goal_freq + 1
-            # use_demo_step = np.clip(igoal*demo_image_interval, 0, self.agentparams['num_load_steps']-1)
-            # self.goal_image = goal_image[use_demo_step][None]
-            # print('using goal image at of step {}'.format(igoal*demo_image_interval))
+            new_goal_freq = self._hp.new_goal_freq
+            demo_image_interval = self.hp.demo_image_interval
+            assert demo_image_interval <= new_goal_freq
+            igoal = t//new_goal_freq + 1
+            use_demo_step = np.clip(igoal*demo_image_interval, 0, self.agentparams['num_load_steps']-1)
+            self.goal_image = goal_image[use_demo_step][None]
+            print('using goal image at of step {}'.format(igoal*demo_image_interval))
 
         return super(CEM_Controller_Sim, self).act(t, i_tr)
