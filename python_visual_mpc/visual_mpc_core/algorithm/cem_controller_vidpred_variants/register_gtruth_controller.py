@@ -11,24 +11,51 @@ from python_visual_mpc.goaldistancenet.setup_gdn import setup_gdn
 
 class Register_Gtruth_Controller(CEM_Controller_Vidpred):
     def __init__(self, ag_params, policyparams, gpu_id, ngpu):
+<<<<<<< HEAD
         super(Register_Gtruth_Controller, self).__init__(ag_params, policyparams, gpu_id, ngpu)
+=======
+        super().__init__(ag_params, policyparams, gpu_id, ngpu)
+        
+        self._hp = self._default_hparams()
+        self.override_defaults(policyparams)
+>>>>>>> refactor_cem
 
-        if 'trade_off_reg' not in self.policyparams:
+        if self._hp.trade_off_reg:
             self.reg_tradeoff = np.ones([self.ncam, self.ndesig])/self.ncam/self.ndesig
 
         params = imp.load_source('params', ag_params['current_dir'] + '/gdnconf.py')
         self.gdnconf = params.configuration
         self.goal_image_warper = setup_gdn(self.gdnconf, gpu_id)
 
-        num_reg_images = len(self.policyparams['register_gtruth'])
+        num_reg_images = len(self._hp.register_gtruth)
         self.ntask = self.ntask = self.ndesig // num_reg_images
 
+<<<<<<< HEAD
     def _setup_visualizer(self, default=CEM_Visual_Preparation_Registration):
         return super(Register_Gtruth_Controller, self)._setup_visualizer(default)
 
     def prep_vidpred_inp(self, actions, cem_itr):
         actions, last_frames, last_states, t_0 = super(Register_Gtruth_Controller, self).prep_vidpred_inp(actions, cem_itr)
         if cem_itr == 0:
+=======
+
+    def _default_hparams(self):
+        default_dict = {
+            'register_gtruth':['start','goal'],
+            
+        }
+        parent_params = super()._default_hparams()
+
+        for k in default_dict.keys():
+            parent_params.add_hparam(k, default_dict[k])
+        return parent_params
+
+    def prep_vidpred_inp(self, actions, cem_itr):
+        actions, last_frames, last_states, t_0 = super(Register_Gtruth_Controller, self).prep_vidpred_inp(actions, cem_itr)
+        if 'image_medium' in self.agentparams:  # downsample to video-pred reslution
+            last_frames = resize_image(last_frames, (self.img_height, self.img_width))
+        if self._hp.register_gtruth and cem_itr == 0:
+>>>>>>> refactor_cem
             self.start_image = copy.deepcopy(self.images[0]).astype(np.float32) / 255.
             self.warped_image_start, self.warped_image_goal, self.reg_tradeoff = self.register_gtruth(self.start_image,
                                                                                                       last_frames)
@@ -47,14 +74,14 @@ class Register_Gtruth_Controller(CEM_Controller_Vidpred):
 
         desig_pix_l, warperrs_l = [], []
         warped_image_start, _, start_warp_pts = self.goal_image_warper(last_frames[None], start_image[None])
-        if 'goal' in self.policyparams['register_gtruth']:
+        if 'goal' in self._hp.register_gtruth:
             warped_image_goal, _, goal_warp_pts = self.goal_image_warper(last_frames[None], self.goal_image[None])
 
         imheight, imwidth = self.goal_image.shape[1:3]
         for n in range(self.ncam):
             start_warp_pts = start_warp_pts.reshape(self.ncam, imheight, imwidth, 2)
             warped_image_start = warped_image_start.reshape(self.ncam, imheight, imwidth, 3)
-            if 'goal' in self.policyparams['register_gtruth']:
+            if 'goal' in self._hp.register_gtruth:
                 goal_warp_pts = goal_warp_pts.reshape(self.ncam, imheight, imwidth, 2)
                 warped_image_goal = warped_image_goal.reshape(self.ncam, imheight, imwidth, 3)
             else:
@@ -92,7 +119,7 @@ class Register_Gtruth_Controller(CEM_Controller_Vidpred):
         return warped_image_start, warped_image_goal, tradeoff
 
     def get_warp_err(self, icam, start_image, goal_image, start_warp_pts, goal_warp_pts, warped_image_start, warped_image_goal):
-        r = len(self.policyparams['register_gtruth'])
+        r = len(self._hp.register_gtruth)
         warperrs = np.zeros((self.ntask, r))
         desig = np.zeros((self.ntask, r, 2))
         for p in range(self.ntask):
@@ -104,12 +131,12 @@ class Register_Gtruth_Controller(CEM_Controller_Vidpred):
                 pix_t0 = self.desig_pix_t0[icam, p]     # desig_pix_t0 shape: icam, ndesig, 2
                 goal_pix = self.goal_pix_sel[icam, p]
 
-            if 'start' in self.policyparams['register_gtruth']:
+            if 'start' in self._hp.register_gtruth:
                 desig[p, 0] = np.flip(start_warp_pts[icam][pix_t0[0], pix_t0[1]], 0)
                 warperrs[p, 0] = np.linalg.norm(start_image[icam][pix_t0[0], pix_t0[1]] -
                                                 warped_image_start[icam][pix_t0[0], pix_t0[1]])
 
-            if 'goal' in self.policyparams['register_gtruth']:
+            if 'goal' in self._hp.register_gtruth:
                 desig[p, 1] = np.flip(goal_warp_pts[icam][goal_pix[0], goal_pix[1]], 0)
                 warperrs[p, 1] = np.linalg.norm(goal_image[icam][goal_pix[0], goal_pix[1]] -
                                                 warped_image_goal[icam][goal_pix[0], goal_pix[1]])
@@ -120,7 +147,7 @@ class Register_Gtruth_Controller(CEM_Controller_Vidpred):
 
     def act(self, t=None, i_tr=None, desig_pix=None, goal_pix=None, images=None, goal_image=None, state=None):
 
-        num_reg_images = len(self.policyparams['register_gtruth'])
+        num_reg_images = len(self._hp.register_gtruth)
         self.goal_pix_sel = np.array(goal_pix).reshape((self.ncam, self.ntask, 2))
         self.goal_pix = np.tile(self.goal_pix_sel[:,:,None,:], [1,1,num_reg_images,1])  # copy along r: shape: ncam, ntask, r
         self.goal_pix = self.goal_pix.reshape(self.ncam, self.ndesig, 2)

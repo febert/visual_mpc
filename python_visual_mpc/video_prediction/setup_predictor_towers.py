@@ -129,9 +129,6 @@ def setup_predictor(hyperparams, conf, gpu_id=0, ngpu=1, logger=None):
                 if conf['pred_model'] == Alex_Interface_Model:
                     towers[0].model.m.restore(sess, conf['pretrained_model'])
                 else:
-                    if 'TEN_DATA' in os.environ:
-                        tenpath = conf['pretrained_model'].partition('tensorflow_data')[2]
-                        conf['pretrained_model'] = os.environ['TEN_DATA'] + tenpath
                     vars = variable_checkpoint_matcher(conf, vars, conf['pretrained_model'])
                     saver = tf.train.Saver(vars, max_to_keep=0)
                     saver.restore(sess, conf['pretrained_model'])

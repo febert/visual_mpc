@@ -5,7 +5,7 @@ import numpy as np
 class AGOpenActionEnv(AutograspSawyerMujocoEnv):
     def __init__(self, env_params, reset_state=None):
         super().__init__(env_params, reset_state)
-        self._adim, self._threshold = 5, self._params.open_action_threshold
+        self._adim, self._threshold = 5, self._hp.open_action_threshold
 
     def _default_hparams(self):
         parent_params = super()._default_hparams()

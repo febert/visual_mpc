@@ -82,7 +82,7 @@ class BaseEnv:
         random.seed(seed)
         np.random.seed(seed)
 
-    def eval(self, target_width, save_dir, ntasks):
+    def eval(self):
         """
         return environment statistics, like distance to goal etc.
         :param agentdata:

@@ -5,9 +5,9 @@ import pdb
 
 
 class BaseMujocoEnv(BaseEnv):
-    def __init__(self,  model_path, params):
-        self._frame_height = params.viewer_image_height
-        self._frame_width = params.viewer_image_width
+    def __init__(self, model_path, _hp):
+        self._frame_height = _hp.viewer_image_height
+        self._frame_width = _hp.viewer_image_width
 
         self._reset_sim(model_path)
 
@@ -17,7 +17,7 @@ class BaseMujocoEnv(BaseEnv):
         self._goal_obj_pose = None
         self._goaldistances = []
 
-        self._ncam = params.ncam
+        self._ncam = _hp.ncam
         if self._ncam == 2:
             self.cameras = ['maincam', 'leftcam']
         elif self._ncam == 1:
@@ -26,7 +26,7 @@ class BaseMujocoEnv(BaseEnv):
             raise ValueError
 
         self._last_obs = None
-        self._params = params
+        self._hp = _hp
     
     def _default_hparams(self):
         parent_params = super()._default_hparams()
@@ -119,14 +119,14 @@ class BaseMujocoEnv(BaseEnv):
         return goal_pix
 
     def eval(self, target_width, save_dir, ntasks):
-        self._goaldistances.append(self._get_distance_score())
+        self._goaldistances.append(self.get_distance_score())
         stats = {}
         stats['improvement'] = self._goaldistances[0] - self._goaldistances[-1]
-        stats['initial_dist'] = self._goaldistances[-1]
-        stats['final_dist'] = self._goaldistances[0]
+        stats['initial_dist'] = self._goaldistances[0]
+        stats['final_dist'] = self._goaldistances[-1]
         return stats
 
-    def _get_distance_score(self):
+    def get_distance_score(self):
         """
         :return:  mean of the distances between all objects and goals
         """

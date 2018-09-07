@@ -32,7 +32,7 @@ policy = {
     'nactions': 5,
     'repeat': 3,
     'no_action_bound': False,
-    'initial_std': 0.000035,   #std dev. in xy
+    'initial_std': 0.035,   #std dev. in xy
     'initial_std_lift': 0.08,   #std dev. in z
     'initial_std_rot': np.pi / 18,
     'finalweight':10,

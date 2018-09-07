@@ -115,25 +115,25 @@ def pose_to_ja(target_pose, start_joints, tolerate_ik_error=False, retry_on_fail
 
 class BaseSawyerEnv(BaseEnv):
     def __init__(self, env_params):
-        self._params = self._default_hparams()
+        self._hp = self._default_hparams()
         for name, value in env_params.items():
             print('setting param {} to value {}'.format(name, value))
-            self._params.set_hparam(name, value)
+            self._hp.set_hparam(name, value)
 
-        print('initializing environment for {}'.format(self._params.robot_name))
-        self._robot_name = self._params.robot_name
+        print('initializing environment for {}'.format(self._hp.robot_name))
+        self._robot_name = self._hp.robot_name
         self._setup_robot()
 
-        if self._params.opencv_tracking:
+        if self._hp.opencv_tracking:
             self._obs_tol = 0.5
         else:
-            self._obs_tol = self._params.OFFSET_TOL
+            self._obs_tol = self._hp.OFFSET_TOL
 
         self._controller = ImpedanceWSGController(CONTROL_RATE, self._robot_name)
         self._limb_recorder = LimbWSGRecorder(self._controller)
-        self._save_video = self._params.video_save_dir is not None
-        self._main_cam = CameraRecorder('/camera0/image_raw', self._params.opencv_tracking, self._save_video)
-        self._left_cam = CameraRecorder('/camera1/image_raw', self._params.opencv_tracking, self._save_video)
+        self._save_video = self._hp.video_save_dir is not None
+        self._main_cam = CameraRecorder('/camera0/image_raw', self._hp.opencv_tracking, self._save_video)
+        self._left_cam = CameraRecorder('/camera1/image_raw', self._hp.opencv_tracking, self._save_video)
         self._controller.neutral_with_impedance()
 
         img_dim_check = (self._main_cam.img_height, self._main_cam.img_width) == \
@@ -142,8 +142,8 @@ class BaseSawyerEnv(BaseEnv):
         self._height, self._width = self._main_cam.img_height, self._main_cam.img_width
 
         self._base_adim, self._base_sdim = 5, 5
-        self._adim, self._sdim, self.mode_rel = None, None, np.array(self._params.mode_rel)
-        self._cleanup_rate, self._duration = self._params.cleanup_rate, self._params.duration
+        self._adim, self._sdim, self.mode_rel = None, None, np.array(self._hp.mode_rel)
+        self._cleanup_rate, self._duration = self._hp.cleanup_rate, self._hp.duration
         self._reset_counter, self._previous_target_qpos = 0, None
 
         self._start_pix, self._desig_pix, self._goal_pix = None, None, None
@@ -241,7 +241,7 @@ class BaseSawyerEnv(BaseEnv):
         self._last_obs = copy.deepcopy(obs)
         obs['images'] = self.render()
 
-        if self._params.opencv_tracking:
+        if self._hp.opencv_tracking:
             track_desig = np.zeros((2, 1, 2), dtype=np.int64)
             track_desig[0] = self._main_cam.get_track()
             track_desig[0] = np.array([[self._height, self._width]]) - track_desig[0]
@@ -295,9 +295,9 @@ class BaseSawyerEnv(BaseEnv):
             front_buffer, left_buffer = self._main_cam.reset_recording(), self._left_cam.reset_recording()
             if len(front_buffer) == 0 and len(left_buffer) == 0:
                 return
-            front_buffer = [f[::-1].copy() for f in front_buffer]
+            front_buffer = [f[::-1, ::-1].copy() for f in front_buffer]
 
-            clip_base_name = '{}/recording{}/'.format(self._params.video_save_dir, self._reset_counter)
+            clip_base_name = '{}/recording{}/'.format(self._hp.video_save_dir, self._reset_counter)
             if not os.path.exists:
                 os.makedirs(clip_base_name)
 
@@ -307,7 +307,7 @@ class BaseSawyerEnv(BaseEnv):
                 npy_to_mp4(left_buffer, '{}/left_clip'.format(clip_base_name), 30)
 
     def _end_reset(self):
-        if self._params.opencv_tracking:
+        if self._hp.opencv_tracking:
             assert self._desig_pix is not None, "Designated pixels must be set (call get_obj_desig_goal)"
             track_desig = copy.deepcopy(self._desig_pix)
             track_desig[0] = np.array([[self._height, self._width]]) - track_desig[0]
@@ -327,7 +327,7 @@ class BaseSawyerEnv(BaseEnv):
         """
         self._save_videos()
 
-        if self._params.start_at_neutral:
+        if self._hp.start_at_neutral:
             self._controller.open_gripper(True)
             self._controller.neutral_with_impedance()
             return self._end_reset()
@@ -463,20 +463,20 @@ class BaseSawyerEnv(BaseEnv):
         print 'start dist: {}'.format(start_dist)
         print 'improvement: {}'.format(improvement)
 
-        if self._params.opencv_tracking:
+        if self._hp.opencv_tracking:
             self._main_cam.end_tracking()
             self._left_cam.end_tracking()
 
         return {'final_dist': final_dist, 'start_dist': start_dist, 'improvement': improvement}
 
     def get_obj_desig_goal(self, save_dir, collect_goal_image=False, ntasks=1):
-        if self._params.video_save_dir is not None:
-            self._params.video_save_dir = save_dir
+        if self._hp.video_save_dir is not None:
+            self._hp.video_save_dir = save_dir
 
         raw_input("Robot in safe position? Hit enter when ready...")
         self._controller.neutral_with_impedance()
         self._controller.open_gripper(True)
-        
+
         if collect_goal_image:
             print("PLACE OBJECTS IN GOAL POSITION")
             raw_input("When ready to annotate GOAL images press enter...")

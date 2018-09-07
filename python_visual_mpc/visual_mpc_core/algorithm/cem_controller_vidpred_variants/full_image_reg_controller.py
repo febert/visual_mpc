@@ -28,13 +28,18 @@ class Full_Image_Reg_Controller(CEM_Controller_Vidpred):
         flow_fields = np.zeros([self.M, self.pred_len, self.ncam, self.img_height, self.img_width, 2])
         warped_images = np.zeros([self.M, self.pred_len, self.ncam, self.img_height, self.img_width, 3])
         warp_pts_l = []
-        goal_images = np.tile(self.goal_image[None], [self.bsize, 1, 1,1,1])
+        goal_images = np.tile(self.goal_image[None], [self.bsize, 1, 1, 1,1,1])   # shape b,t,n, r, c, 3
 
         for tstep in range(self.pred_len):
-            if 'warp_goal_to_pred' in self.policyparams:
-                warped_image, flow_field, warp_pts = self.goal_image_warper(goal_images, gen_images[:,tstep])
+            if self.policyparams['new_goal_freq'] == 'follow_traj':
+                goal_im = goal_images[:, tstep]
             else:
-                warped_image, flow_field, warp_pts = self.goal_image_warper(gen_images[:,tstep], goal_images)
+                goal_im = goal_images[:, -1]
+
+            if 'warp_goal_to_pred' in self.policyparams:
+                warped_image, flow_field, warp_pts = self.goal_image_warper(goal_im, gen_images[:,tstep])
+            else:
+                warped_image, flow_field, warp_pts = self.goal_image_warper(gen_images[:,tstep], goal_im)
 
             flow_fields[:, tstep] = flow_field
             warped_images[:, tstep] = warped_image
@@ -64,7 +69,7 @@ class Full_Image_Reg_Controller(CEM_Controller_Vidpred):
         per_time_multiplier[:, -1] = self.policyparams['finalweight']
 
         if 'warp_success_cost' in self.policyparams:
-            ws_costs = np.mean(np.mean(np.mean(np.square(warped_images - self.goal_image[None]), axis=2), axis=2), axis=2)
+            ws_costs = np.mean(np.mean(np.mean(np.square(warped_images - self.goal_image[None,:,0]), axis=2), axis=2), axis=2)
             ws_costs = np.sum(ws_costs * per_time_multiplier, axis=1)
             stand_ws_costs = (ws_costs - np.mean(ws_costs)) / (np.std(ws_costs) + 1e-7)
 
@@ -81,13 +86,16 @@ class Full_Image_Reg_Controller(CEM_Controller_Vidpred):
         self.images = images
         self.state = state
 
-        new_goal_freq = self.policyparams['new_goal_freq']
-        demo_image_interval = self.policyparams['demo_image_interval']
-        assert demo_image_interval <= new_goal_freq
-        igoal = t//new_goal_freq + 1
-        use_demo_step = np.clip(igoal*demo_image_interval, 0, self.agentparams['num_load_steps']-1)
-        self.goal_image = goal_image[use_demo_step]
-        print('using goal image at of step {}'.format(igoal*demo_image_interval))
+        if self.policyparams['new_goal_freq'] == 'follow_traj':
+            self.goal_image = goal_image[t:t+self.pred_len]
+        else:
+            new_goal_freq = self.policyparams['new_goal_freq']
+            demo_image_interval = self.policyparams['demo_image_interval']
+            assert demo_image_interval <= new_goal_freq
+            igoal = t//new_goal_freq + 1
+            use_demo_step = np.clip(igoal*demo_image_interval, 0, self.agentparams['num_load_steps']-1)
+            self.goal_image = goal_image[use_demo_step][None]
+            print('using goal image at of step {}'.format(igoal*demo_image_interval))
 
         return super(CEM_Controller_Vidpred, self).act(t, i_tr)
 

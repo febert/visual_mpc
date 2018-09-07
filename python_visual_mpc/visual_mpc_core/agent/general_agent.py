@@ -150,6 +150,8 @@ class GeneralAgent(object):
         if self._goal_obj_pose is not None:
             agent_data['goal_pos'] = self._goal_obj_pose
             agent_data['goal_pix'] = self.env.get_goal_pix(point_target_width)
+
+        agent_data['reset_state'] = self._reset_state
         return obs
 
     def _required_rollout_metadata(self, agent_data, traj_ok, t):
@@ -163,6 +165,9 @@ class GeneralAgent(object):
         if self.env.has_goal():
             agent_data['goal_reached'] = self.env.goal_reached()
         agent_data['traj_ok'] = traj_ok
+
+    def _timestep_metadata(self, agent_data):
+        pass
 
     def rollout(self, policy, i_tr):
         """
@@ -184,7 +189,9 @@ class GeneralAgent(object):
         obs = self._post_process_obs(initial_env_obs, agent_data, True)
         policy.reset()
 
+        traj_ok = True
         while not done:
+
             """
             Every time step send observations to policy, acts in environment, and records observations
             
@@ -211,7 +218,6 @@ class GeneralAgent(object):
                 done = True
             t += 1
 
-        traj_ok = True
         if not self.env.valid_rollout():
             traj_ok = False
 

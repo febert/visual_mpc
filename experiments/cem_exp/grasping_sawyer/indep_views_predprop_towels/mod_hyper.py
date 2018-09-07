@@ -25,26 +25,15 @@ agent = {'type' : BenchmarkAgent,
          }
 
 policy = {
-    'verbose':'',
-    'verbose_every_itr':"",
+    'verbose':True,
     'type': CEM_Controller_Vidpred,
-    'iterations': 3,
-    'nactions': 5,
-    'repeat': 3,
-    'no_action_bound': False,
-    'initial_std': 0.000035,   #std dev. in xy
+    'initial_std': 0.035,   #std dev. in xy
     'initial_std_lift': 0.08,   #std dev. in z
-    'initial_std_rot': np.pi / 18,
-    'finalweight':10,
-    'ncam': 2,
-    'action_cost_factor': 0,
     'replan_interval': 3,
-    'reuse_mean': '',
-    'reuse_action_as_mean': "",
-    'reduce_std_dev': 0.2,  # reduce standard dev in later timesteps when reusing action
+    'reuse_mean': True,
     'num_samples': [400, 200],
     'selection_frac': 0.05,
-    'predictor_propagation': '',   # use the model get the designated pixel for the next step!
+    'predictor_propagation': True,   # use the model get the designated pixel for the next step!
 }
 
 config = {
