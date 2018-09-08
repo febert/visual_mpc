@@ -23,7 +23,6 @@ class Full_Image_Reg_Controller(CEM_Controller_Vidpred):
         self.goal_image_warper = setup_gdn(self.gdnconf, gpu_id)
         self.visualizer = CEM_Visual_Preparation_FullImage()
 
-
     def eval_planningcost(self, cem_itr, gen_distrib, gen_images):
         flow_fields = np.zeros([self.M, self.pred_len, self.ncam, self.img_height, self.img_width, 2])
         warped_images = np.zeros([self.M, self.pred_len, self.ncam, self.img_height, self.img_width, 3])

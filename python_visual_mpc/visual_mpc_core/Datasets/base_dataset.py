@@ -119,9 +119,12 @@ class BaseVideoDataset:
         elif key == 'actions':
             return dataset_batch['policy/actions']
         elif key == 'images':
-            img_0 = tf.expand_dims(dataset_batch['env/image_view0/encoded'], 2)
-            img_1 = tf.expand_dims(dataset_batch['env/image_view1/encoded'], 2)
-            return tf.concat([img_0, img_1], 2)
+            if 'env/image_view1/encoded' in dataset_batch:
+                img_0 = tf.expand_dims(dataset_batch['env/image_view0/encoded'], 2)
+                img_1 = tf.expand_dims(dataset_batch['env/image_view1/encoded'], 2)
+                return tf.concat([img_0, img_1], 2)
+            else:
+                return tf.expand_dims(dataset_batch['env/image_view0/encoded'], 2)
         elif key in dataset_batch:
             return dataset_batch[key]
 
@@ -143,6 +146,27 @@ class BaseVideoDataset:
             return self.get(key, mode)
 
         return self.get(item)
+
+    def get_iterator(self, item, mode):
+        fnames = glob.glob('{}/{}/*.tfrecords'.format(self._base_dir, mode))
+        if self._hparams.compressed:
+            dataset = tf.data.TFRecordDataset(fnames, buffer_size=self._hparams.buffer_size,
+                                              compression_type='GZIP')
+        else:
+            dataset = tf.data.TFRecordDataset(fnames, buffer_size=self._hparams.buffer_size)
+
+        def parse_record(ex):
+            return self._parse_record(ex)[item]
+
+
+        dataset = dataset.map(parse_record)
+        dataset = dataset.repeat(self._hparams.num_epochs)
+        if self._hparams.shuffle:
+            dataset = dataset.shuffle(buffer_size=self._hparams.buffer_size)
+        dataset = dataset.batch(self._batch_size)
+        iterator = dataset.make_one_shot_iterator()
+        return iterator
+
 
     def _read_manifest(self):
         pkl_path = '{}/manifest.pkl'.format(self._base_dir)
