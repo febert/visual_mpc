@@ -24,7 +24,10 @@ class Register_Gtruth_Controller(CEM_Controller_Vidpred):
         self.goal_image_warper = setup_gdn(self.gdnconf, gpu_id)
 
         num_reg_images = len(self._hp.register_gtruth)
-        self.ntask = self.ntask = self.ndesig // num_reg_images
+
+        self.ntask = self.ndesig // num_reg_images
+
+        self.visualizer = CEM_Visual_Preparation_Registration()
 
     def _default_hparams(self):
         default_dict = {

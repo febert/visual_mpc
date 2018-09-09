@@ -63,6 +63,7 @@ class CEM_Controller_Vidpred(CEM_Controller_Base):
         self.predictor = self.netconf['setup_predictor'](ag_params, self.netconf, gpu_id, ngpu, self.logger)
 
         self.bsize = self.netconf['batch_size']
+
         self.seqlen = self.netconf['sequence_length']
 
         # override params here:
@@ -94,7 +95,7 @@ class CEM_Controller_Vidpred(CEM_Controller_Base):
         if self._hp.predictor_propagation:
             self.rec_input_distrib = []  # record the input distributions
 
-        self.parallel_vis = False
+        self.parallel_vis = True
         if self.parallel_vis:
             self._thread = Thread(target=verbose_worker)
             self._thread.start()
