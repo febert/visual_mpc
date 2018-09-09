@@ -44,7 +44,11 @@ class CEM_Controller_Sim_GoalImage(CEM_Controller_Sim):
         images = images[bestindices]
         self._t_dict = collections.OrderedDict()
         self._t_dict['mj_rollouts'] = images
-        self._t_dict['goal_images'] = np.repeat(self.goal_images[None], self.K, 0)
+        pdb.set_trace()
+        if self.goal_images.shape[0] == 1:
+            self._t_dict['goal_images'] = np.tile(self.goal_images[None], [self.K, self.len_pred, 1,1,1])
+        else:
+            self._t_dict['goal_images'] = np.tile(self.goal_images[None], [self.K, 1,1,1,1])
         self._t_dict['diff'] = images - self.goal_images
         file_path = self.agentparams['record']
 
@@ -67,12 +71,12 @@ class CEM_Controller_Sim_GoalImage(CEM_Controller_Sim):
             self.goal_images = goal_image[t:t + self.len_pred, 0]  #take first cam
         elif self._hp.goal_image_seq:
             new_goal_freq = self._hp.new_goal_freq
-            demo_image_interval = self.hp.demo_image_interval
+            demo_image_interval = self._hp.demo_image_interval
             assert demo_image_interval <= new_goal_freq
             igoal = t//new_goal_freq + 1
             use_demo_step = np.clip(igoal*demo_image_interval, 0, self.agentparams['num_load_steps']-1)
-            self.goal_image = goal_image[use_demo_step][None]
+            self.goal_images = goal_image[use_demo_step][None]
         else:
-            self.goal_image = goal_image[-1][None]   # take the last loaded image as goalimage for all steps
+            self.goal_images = goal_image[-1]   # take the last tstep of loaded images as the goalimage for all steps
 
         return super(CEM_Controller_Sim, self).act(t, i_tr)

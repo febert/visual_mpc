@@ -1,4 +1,5 @@
 import numpy as np
+import pdb
 
 
 def mse_based_cost(gen_images, goal_image, hp):
@@ -9,7 +10,6 @@ def mse_based_cost(gen_images, goal_image, hp):
     :param hp:
     :return:
     """
-
     sq_diff = np.square(gen_images - goal_image[None])
     mean_sq_diff = np.mean(sq_diff.reshape([sq_diff.shape[0],sq_diff.shape[1],-1]), -1)
 
