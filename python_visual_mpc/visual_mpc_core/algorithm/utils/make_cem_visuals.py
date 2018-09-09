@@ -249,7 +249,7 @@ class CEM_Visual_Preparation_Registration(CEM_Visual_Preparation):
             self._t_dict['goal_image{}'.format(icam)] = gl_im_ann[:, :, icam]
 
 
-class CEM_Visual_Preparation_FullImage(CEM_Visual_Preparation):
+class CEM_Visual_Preparation_FullImageReg(CEM_Visual_Preparation):
     def annontate_images(self, vd, last_frames):
         self.visualize_registration(vd)
 
@@ -264,6 +264,19 @@ class CEM_Visual_Preparation_FullImage(CEM_Visual_Preparation):
                 goal_image = np.tile(vd.goal_image[:,icam][None, :], [self.num_ex, self.len_pred, 1, 1, 1])
             self._t_dict['goal_image_cam{}'.format(icam)] = goal_image
             self._t_dict['flow_mags_cam{}'.format(icam)] = color_code(vd.flow_mags[self.selindices,:,icam], self.num_ex, renormalize=True)
+
+    def visualize_goal_pixdistrib(self, vd, gen_distrib):
+        pass
+
+
+class CEM_Visual_Preparation_FullImage(CEM_Visual_Preparation):
+    def annontate_images(self, vd, last_frames):
+        for icam in range(vd.ncam):
+            if vd.goal_image.shape[0] != 1:  # if the complete trajectory is registered
+                goal_image = np.tile(vd.goal_image[:,icam][None, :], [self.num_ex,  1, 1, 1, 1])
+            else:
+                goal_image = np.tile(vd.goal_image[:,icam][None, :], [self.num_ex, self.len_pred, 1, 1, 1])
+            self._t_dict['goal_image_cam{}'.format(icam)] = goal_image
 
     def visualize_goal_pixdistrib(self, vd, gen_distrib):
         pass
