@@ -20,21 +20,5 @@ class MSE_Full_Image_Controller(Full_Image_Reg_Controller, CEM_Controller_Vidpre
         return scores
 
     def act(self, t, i_tr, images, goal_image, state, desig_pix, goal_pix):
-        self.images = images
-        self.state = state
+        return super(MSE_Full_Image_Controller, self).act(t, i_tr, images, goal_image, state, desig_pix, goal_pix)
 
-        if self.policyparams['new_goal_freq'] == 'follow_traj':
-            self.goal_image = goal_image[t:t+self.pred_len]
-        else:
-            new_goal_freq = self.policyparams['new_goal_freq']
-            demo_image_interval = self.policyparams['demo_image_interval']
-            assert demo_image_interval <= new_goal_freq
-            igoal = t//new_goal_freq + 1
-            use_demo_step = np.clip(igoal*demo_image_interval, 0, self.agentparams['num_load_steps']-1)
-            self.goal_image = goal_image[use_demo_step][None]
-            print('using goal image at of step {}'.format(igoal*demo_image_interval))
-
-        return super(MSE_Full_Image_Controller, self).act(t, i_tr)
-
-    def make_input_distrib(self, itr):
-        return np.zeros((1, self.netconf['context_frames'], self.ncam, self.img_height, self.img_width, self.ndesig), dtype=np.float32)
