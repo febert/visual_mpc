@@ -119,9 +119,19 @@ class BaseVideoDataset:
         elif key == 'actions':
             return dataset_batch['policy/actions']
         elif key == 'images':
-            img_0 = tf.expand_dims(dataset_batch['env/image_view0/encoded'], 2)
-            img_1 = tf.expand_dims(dataset_batch['env/image_view1/encoded'], 2)
-            return tf.concat([img_0, img_1], 2)
+            imgs, i = [], 0
+            while True:
+                image_name = 'env/image_view{}/encoded'.format(i)
+                if image_name not in dataset_batch:
+                    break
+                imgs.append(tf.expand_dims(dataset_batch[image_name], 2))
+                i += 1
+
+            if i == 0:
+                raise ValueError("No image tensors")
+            elif i == 1:
+                return imgs[0]
+            return tf.concat(imgs, 2)
         elif key in dataset_batch:
             return dataset_batch[key]
 
