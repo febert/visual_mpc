@@ -166,7 +166,6 @@ class GeneralAgent(object):
         :param traj_ok: Whether or not rollout succeeded
         :return: None
         """
-        agent_data['extra_resets'] = max(i_tr - self._hyperparams.get('rejection_sample', 0), 0)
         agent_data['term_t'] = t - 1
         if self.env.has_goal():
             agent_data['goal_reached'] = self.env.goal_reached()
@@ -192,6 +191,7 @@ class GeneralAgent(object):
         obs = self._post_process_obs(initial_env_obs, agent_data, True)
         policy.reset()
 
+        traj_ok = True
         while not done:
             """
             Every time step send observations to policy, acts in environment, and records observations

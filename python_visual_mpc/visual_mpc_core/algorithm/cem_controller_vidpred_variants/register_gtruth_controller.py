@@ -11,8 +11,7 @@ from python_visual_mpc.goaldistancenet.setup_gdn import setup_gdn
 
 class Register_Gtruth_Controller(CEM_Controller_Vidpred):
     def __init__(self, ag_params, policyparams, gpu_id, ngpu):
-
-        super().__init__(ag_params, policyparams, gpu_id, ngpu)
+        super(Register_Gtruth_Controller, self).__init__(ag_params, policyparams, gpu_id, ngpu)
         
         self._hp = self._default_hparams()
         self.override_defaults(policyparams)
@@ -25,15 +24,17 @@ class Register_Gtruth_Controller(CEM_Controller_Vidpred):
         self.goal_image_warper = setup_gdn(self.gdnconf, gpu_id)
 
         num_reg_images = len(self._hp.register_gtruth)
-        self.ntask = self.ntask = self.ndesig // num_reg_images
 
+        self.ntask = self.ndesig // num_reg_images
+
+        self.visualizer = CEM_Visual_Preparation_Registration()
 
     def _default_hparams(self):
         default_dict = {
             'register_gtruth':['start','goal'],
             
         }
-        parent_params = super()._default_hparams()
+        parent_params = super(Register_Gtruth_Controller, self)._default_hparams()
 
         for k in default_dict.keys():
             parent_params.add_hparam(k, default_dict[k])
@@ -44,7 +45,6 @@ class Register_Gtruth_Controller(CEM_Controller_Vidpred):
         if 'image_medium' in self.agentparams:  # downsample to video-pred reslution
             last_frames = resize_image(last_frames, (self.img_height, self.img_width))
         if self._hp.register_gtruth and cem_itr == 0:
-
             self.start_image = copy.deepcopy(self.images[0]).astype(np.float32) / 255.
             self.warped_image_start, self.warped_image_goal, self.reg_tradeoff = self.register_gtruth(self.start_image,
                                                                                                       last_frames)

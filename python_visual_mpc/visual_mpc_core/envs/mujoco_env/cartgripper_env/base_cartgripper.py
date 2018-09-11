@@ -103,7 +103,6 @@ class BaseCartgripperEnv(BaseMujocoEnv):
                           'cube_objects': False,
                           'valid_rollout_floor': -2e-2}
         parent_params = super()._default_hparams()
-        parent_params.set_hparam('ncam', 2)
         for k in default_dict.keys():
             parent_params.add_hparam(k, default_dict[k])
         return parent_params
@@ -241,10 +240,10 @@ class BaseCartgripperEnv(BaseMujocoEnv):
         obs['object_poses'] = np.zeros((self.num_objects, 3))
         for i in range(self.num_objects):
             fullpose = self.sim.data.qpos[i * 7 + self._n_joints:(i + 1) * 7 + self._n_joints].squeeze().copy()
-            fullpose[:3] = self.sim.data.sensordata[touch_offset + i * 3:touch_offset + (i + 1) * 3]
-
             obs['object_poses_full'][i] = fullpose
-            obs['object_poses'][i, :2] = fullpose[:2]
+
+            pos_sen = self.sim.data.sensordata[touch_offset + i * 3:touch_offset + (i + 1) * 3]
+            obs['object_poses'][i, :2] = pos_sen[:2]
             obs['object_poses'][i, 2] = Quaternion(fullpose[3:]).angle
             obs['object_qpos'][i] = self.sim.data.qpos[self._n_joints + i * 7: self._n_joints + (i+1)*7]
 

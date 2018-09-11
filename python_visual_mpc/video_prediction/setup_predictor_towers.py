@@ -53,6 +53,8 @@ def setup_predictor(hyperparams, conf, gpu_id=0, ngpu=1, logger=None):
     :return: function which predicts a batch of whole trajectories
     conditioned on the actions
     """
+    assert conf['batch_size'] % ngpu == 0, "ngpu should perfectly divide batch_size"
+    
     conf['ngpu'] = ngpu
     if logger == None:
         logger = Logger(printout=True)

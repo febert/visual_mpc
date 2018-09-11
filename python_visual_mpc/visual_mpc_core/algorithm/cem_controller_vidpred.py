@@ -12,6 +12,7 @@ if "NO_ROS" not in os.environ:
     from visual_mpc_rospkg.msg import floatarray
     from rospy.numpy_msg import numpy_msg
     import rospy
+    from Queue import Queue
 else:
     from queue import Queue
 import time
@@ -62,6 +63,7 @@ class CEM_Controller_Vidpred(CEM_Controller_Base):
         self.predictor = self.netconf['setup_predictor'](ag_params, self.netconf, gpu_id, ngpu, self.logger)
 
         self.bsize = self.netconf['batch_size']
+
         self.seqlen = self.netconf['sequence_length']
 
         # override params here:
@@ -80,7 +82,7 @@ class CEM_Controller_Vidpred(CEM_Controller_Base):
         self.img_height, self.img_width = self.netconf['orig_size']
 
         self.ncam = self.netconf['ncam']
-        
+
         if 'sawyer' in self.agentparams:
             self.gen_image_publisher = rospy.Publisher('gen_image', numpy_msg(floatarray), queue_size=10)
             self.gen_pix_distrib_publisher = rospy.Publisher('gen_pix_distrib', numpy_msg(floatarray), queue_size=10)
@@ -93,7 +95,7 @@ class CEM_Controller_Vidpred(CEM_Controller_Base):
         if self._hp.predictor_propagation:
             self.rec_input_distrib = []  # record the input distributions
 
-        self.parallel_vis = False
+        self.parallel_vis = True
         if self.parallel_vis:
             self._thread = Thread(target=verbose_worker)
             self._thread.start()
@@ -103,11 +105,11 @@ class CEM_Controller_Vidpred(CEM_Controller_Base):
 
         self.ntask = self.ndesig  # will be overwritten in derived classes
         self.vd = VisualzationData()
-        self._setup_visualizer()
+        self.visualizer = CEM_Visual_Preparation()
 
     def _setup_visualizer(self, default=CEM_Visual_Preparation):
         run_freq = 1
-        if 'verbose_every_itr' in self.policyparams:
+        if self._hp.verbose_every_itr:
             run_freq = 3
         self.visualizer = self.policyparams.get('visualizer', default)(run_freq)
 
@@ -117,7 +119,7 @@ class CEM_Controller_Vidpred(CEM_Controller_Base):
             'trade_off_reg':False,
             'only_take_first_view':False,
         }
-        parent_params = super()._default_hparams()
+        parent_params = super(CEM_Controller_Vidpred, self)._default_hparams()
 
         for k in default_dict.keys():
             parent_params.add_hparam(k, default_dict[k])
@@ -133,7 +135,7 @@ class CEM_Controller_Vidpred(CEM_Controller_Base):
         for smp in range(self.M):
             force_magnitudes = np.array([np.linalg.norm(actions[smp, t]) for
                                          t in range(self.naction_steps * self.repeat)])
-            actions_costs[smp]=np.sum(np.square(force_magnitudes)) * self.action_cost_factor
+            actions_costs[smp]=np.sum(np.square(force_magnitudes)) * self._hp.action_cost_factor
         return actions_costs
 
     def switch_on_pix(self, desig):
@@ -199,6 +201,8 @@ class CEM_Controller_Vidpred(CEM_Controller_Base):
         self.vd.last_frames = last_frames
         self.vd.goal_pix = self.goal_pix
         self.vd.ncam = self.ncam
+        self.vd.image_height = self.img_height
+
         if self.verbose and cem_itr == self._hp.iterations-1 and self.i_tr % self.verbose_freq ==0 or \
                 (self._hp.verbose_every_itr and self.i_tr % self.verbose_freq ==0):
             if self.parallel_vis:

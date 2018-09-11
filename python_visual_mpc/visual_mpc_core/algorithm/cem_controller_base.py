@@ -102,7 +102,8 @@ class CEM_Controller_Base(Policy):
         default_dict = {
             'verbose': False,
             'verbose_every_itr':False,
-            'num_samples': 200,
+            'niter': 3,
+            'num_samples': [200],
             'selection_frac': -1., # specifcy which fraction of best samples to use to compute mean and var for next CEM iteration
             'discrete_ind':None,
             'reuse_mean':False,
@@ -125,9 +126,11 @@ class CEM_Controller_Base(Policy):
             'use_first_plan':False,
             'replan_interval':-1,
             'type':None,
+            'reduce_std_dev':0.2, # reduce standard dev in later timesteps when reusing action
         }
 
-        parent_params = super()._default_hparams()
+        parent_params = super(CEM_Controller_Base, self)._default_hparams()
+
         for k in default_dict.keys():
             parent_params.add_hparam(k, default_dict[k])
         return parent_params
