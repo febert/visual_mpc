@@ -26,7 +26,7 @@ env_params = {
     'object_meshes': ['Bowl'],
     'viewer_image_height': 96,
     'viewer_image_width': 128,
-    'verbose_dir': '/home/sudeep/Desktop/mjc_debug/',
+    # 'verbose_dir': '/home/sudeep/Desktop/mjc_debug/',
     'clean_xml': False
 }
 
@@ -49,20 +49,20 @@ agent = {
 policy = {
     'type': Randompolicy,
     'nactions': 10,
-    'repeat': 3,
-    'no_action_bound': False,
-    'initial_std': 0.05,   #std dev. in xy
-    'initial_std_lift': 0.15,   #std dev. in xy
-    'initial_std_rot': np.pi / 18,
-    'initial_std_grasp': 2,
-    'max_z_delta': 0.05
+    # 'repeat': 3,
+    # 'action_bound': True,
+    # 'initial_std': 0.05,   #std dev. in xy
+    # 'initial_std_lift': 0.15,   #std dev. in xy
+    # 'initial_std_rot': np.pi / 18,
+    # 'initial_std_grasp': 2,
+    # 'max_z_delta': 0.05
 }
 
 config = {
     'traj_per_file': 16,
     'seperate_good': True,
     'current_dir': current_dir,
-   'save_raw_images': True,
+    'save_raw_images': True,
     'save_data': True,
     'start_index':0,
     'end_index': 100,

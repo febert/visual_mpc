@@ -4,9 +4,8 @@ import pdb
 from python_visual_mpc.visual_mpc_core.algorithm.cem_controller_sim import CEM_Controller_Sim
 from python_visual_mpc.visual_mpc_core.infrastructure.assemble_cem_visuals import make_direct_vid
 from python_visual_mpc.visual_mpc_core.infrastructure.assemble_cem_visuals import get_score_images
-
+from python_visual_mpc.visual_mpc_core.algorithm.utils.cem_cost_functions import mse_based_cost
 import collections
-from python_visual_mpc.visual_mpc_core.algorithm.utils.make_cem_visuals_mjsim import CEM_Visual_Preparation
 
 class VisualzationData():
     def __init__(self):
@@ -14,15 +13,6 @@ class VisualzationData():
         container for visualization data
         """
         pass
-
-def MSE_based_cost(gen_images, goal_image, hp):
-
-    sq_diff = np.square(gen_images - goal_image[None])
-    mean_sq_diff = np.mean(sq_diff.reshape([sq_diff.shape[0],sq_diff.shape[1],-1]), -1)
-
-    per_time_multiplier = np.ones([1, gen_images.shape[1]])
-    per_time_multiplier[:, -1] = hp.finalweight
-    return np.sum(mean_sq_diff * per_time_multiplier, axis=1)
 
 
 class CEM_Controller_Sim_GoalImage(CEM_Controller_Sim):
@@ -34,9 +24,11 @@ class CEM_Controller_Sim_GoalImage(CEM_Controller_Sim):
 
     def _default_hparams(self):
         default_dict = {
-                        'cost_func':MSE_based_cost,
-                        'follow_traj':False,   # follow the demonstration frame by frame
-                        'new_goal_freq':3,   # -1: only take a new goal once per trajectory
+                        'cost_func':mse_based_cost,
+                        'follow_traj':False,    # follow the demonstration frame by frame
+                        'goal_image_seq':True,  # use sequence of goalimages (as opposed to a single goal image);
+                                                # else use only the last image as goal image
+                        'new_goal_freq':3,      # -1: only take a new goal once per trajectory
         }
         parent_params = super()._default_hparams()
 
@@ -52,7 +44,11 @@ class CEM_Controller_Sim_GoalImage(CEM_Controller_Sim):
         images = images[bestindices]
         self._t_dict = collections.OrderedDict()
         self._t_dict['mj_rollouts'] = images
-        self._t_dict['goal_images'] = np.repeat(self.goal_images[None], self.K, 0)
+        pdb.set_trace()
+        if self.goal_images.shape[0] == 1:
+            self._t_dict['goal_images'] = np.tile(self.goal_images[None], [self.K, self.len_pred, 1,1,1])
+        else:
+            self._t_dict['goal_images'] = np.tile(self.goal_images[None], [self.K, 1,1,1,1])
         self._t_dict['diff'] = images - self.goal_images
         file_path = self.agentparams['record']
 
@@ -73,13 +69,14 @@ class CEM_Controller_Sim_GoalImage(CEM_Controller_Sim):
 
         if self._hp.follow_traj:
             self.goal_images = goal_image[t:t + self.len_pred, 0]  #take first cam
-        else:
+        elif self._hp.goal_image_seq:
             new_goal_freq = self._hp.new_goal_freq
-            demo_image_interval = self.hp.demo_image_interval
+            demo_image_interval = self._hp.demo_image_interval
             assert demo_image_interval <= new_goal_freq
             igoal = t//new_goal_freq + 1
             use_demo_step = np.clip(igoal*demo_image_interval, 0, self.agentparams['num_load_steps']-1)
-            self.goal_image = goal_image[use_demo_step][None]
-            print('using goal image at of step {}'.format(igoal*demo_image_interval))
+            self.goal_images = goal_image[use_demo_step][None]
+        else:
+            self.goal_images = goal_image[-1]   # take the last tstep of loaded images as the goalimage for all steps
 
         return super(CEM_Controller_Sim, self).act(t, i_tr)

@@ -2,7 +2,7 @@ from python_visual_mpc.visual_mpc_core.algorithm.cem_controller_vidpred import C
 import copy
 import numpy as np
 from python_visual_mpc.video_prediction.utils_vpred.animate_tkinter import resize_image
-from python_visual_mpc.visual_mpc_core.algorithm.utils.make_cem_visuals import CEM_Visual_Preparation_FullImage
+from python_visual_mpc.visual_mpc_core.algorithm.utils.make_cem_visuals import CEM_Visual_Preparation_FullImageReg
 import imp
 import pdb
 from python_visual_mpc.visual_mpc_core.algorithm.cem_controller_base import CEM_Controller_Base
@@ -21,8 +21,7 @@ class Full_Image_Reg_Controller(CEM_Controller_Vidpred):
         self.gdnconf['batch_size'] = self.bsize
         self.pred_len = self.seqlen - self.ncontxt
         self.goal_image_warper = setup_gdn(self.gdnconf, gpu_id)
-        self.visualizer = CEM_Visual_Preparation_FullImage()
-
+        self.visualizer = CEM_Visual_Preparation_FullImageReg()
 
     def eval_planningcost(self, cem_itr, gen_distrib, gen_images):
         flow_fields = np.zeros([self.M, self.pred_len, self.ncam, self.img_height, self.img_width, 2])
@@ -86,16 +85,17 @@ class Full_Image_Reg_Controller(CEM_Controller_Vidpred):
         self.images = images
         self.state = state
 
-        if self.policyparams['new_goal_freq'] == 'follow_traj':
-            self.goal_image = goal_image[t:t+self.pred_len]
-        else:
-            new_goal_freq = self.policyparams['new_goal_freq']
-            demo_image_interval = self.policyparams['demo_image_interval']
+        if self._hp.follow_traj:
+            self.goal_images = goal_image[t:t + self.len_pred, 0]  #take first cam
+        elif self._hp.goal_image_seq:
+            new_goal_freq = self._hp.new_goal_freq
+            demo_image_interval = self.hp.demo_image_interval
             assert demo_image_interval <= new_goal_freq
             igoal = t//new_goal_freq + 1
             use_demo_step = np.clip(igoal*demo_image_interval, 0, self.agentparams['num_load_steps']-1)
             self.goal_image = goal_image[use_demo_step][None]
-            print('using goal image at of step {}'.format(igoal*demo_image_interval))
+        else:
+            self.goal_image = goal_image[-1][None]   # take the last loaded image as goalimage for all steps
 
         return super(CEM_Controller_Vidpred, self).act(t, i_tr)
 
