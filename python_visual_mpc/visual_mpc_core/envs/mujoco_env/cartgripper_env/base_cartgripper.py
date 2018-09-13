@@ -133,6 +133,10 @@ class BaseCartgripperEnv(BaseMujocoEnv):
     def render(self):
         return super().render()[:, ::-1]
 
+    def project_point(self, point, camera):
+        row, col = super().project_point(point, camera)
+        return self._frame_height - row, col
+
     def qpos_reset(self, qpos, qvel):
         self._read_reset_state['qpos_all'] = qpos
         self._read_reset_state['qvel_all'] = qvel

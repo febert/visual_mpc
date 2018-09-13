@@ -67,19 +67,22 @@ class BaseVideoDataset:
         features_names = {}
         for k in self._metadata_keys:
             features_names[k] = get_feature(self._metadata_keys[k])
-        for k in self._sequence_keys:
-            for t in range(self._T):
-                features_names['{}/{}'.format(t, k)] = get_feature(self._sequence_keys[k])
+        if self._T > 0:
+            print(self._T)
+            for k in self._sequence_keys:
+                for t in range(self._T):
+                    features_names['{}/{}'.format(t, k)] = get_feature(self._sequence_keys[k])
 
         feature = tf.parse_single_example(serialized_example, features=features_names)
 
         return_dict = {}
-        for k in self._sequence_keys:
-            k_feats = []
-            for t in range(self._T):
-                k_feat = decode_feat(feature['{}/{}'.format(t, k)], self._sequence_keys[k], True)
-                k_feats.append(k_feat)
-            return_dict[k] = tf.concat(k_feats, 0)
+        if self._T > 0:
+            for k in self._sequence_keys:
+                k_feats = []
+                for t in range(self._T):
+                    k_feat = decode_feat(feature['{}/{}'.format(t, k)], self._sequence_keys[k], True)
+                    k_feats.append(k_feat)
+                return_dict[k] = tf.concat(k_feats, 0)
         for k in self._metadata_keys:
             return_dict[k] = decode_feat(feature[k], self._metadata_keys[k])
 

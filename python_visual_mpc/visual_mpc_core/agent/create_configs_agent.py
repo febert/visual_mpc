@@ -7,7 +7,7 @@ class CreateConfigAgent(GeneralAgent):
     def __init__(self, hyperparams):
         super().__init__(hyperparams)
 
-    def rollout(self, policy, i_trial):
+    def rollout(self, policy, i_trial, i_traj):
 
         # Take the sample.
         self._init()
