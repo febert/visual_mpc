@@ -333,4 +333,8 @@ class BaseCartgripperEnv(BaseMujocoEnv):
 
         return image
 
-
+    def current_obs(self):
+        finger_force = np.zeros(2)
+        if self.finger_sensors:
+            finger_force += self.sim.data.sensordata[:2]
+        return self._get_obs(finger_force)

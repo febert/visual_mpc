@@ -16,6 +16,12 @@ class BaseEnv:
         """
         raise NotImplementedError
 
+    def current_obs(self):
+        """
+        :return: Current environment observation dict
+        """
+        raise NotImplementedError
+
     def _default_hparams(self):
         return HParams()
     
