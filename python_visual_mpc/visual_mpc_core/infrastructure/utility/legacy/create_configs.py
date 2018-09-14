@@ -7,7 +7,7 @@ import os
 import python_visual_mpc
 import imp
 from python_visual_mpc.visual_mpc_core.infrastructure.trajectory import Trajectory
-from python_visual_mpc.visual_mpc_core.infrastructure.run_sim import Sim
+from python_visual_mpc.visual_mpc_core.infrastructure.sim import Sim
 from pyquaternion import Quaternion
 import cv2
 import copy
