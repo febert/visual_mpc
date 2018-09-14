@@ -30,7 +30,7 @@ class BenchmarkAgent(GeneralAgent):
             Hot-wire traj_ok to give user chance to abort experiment on failure
             """
             print('WARNING TRAJ FAILED')
-            if 'n' in raw_input('would you like to retry? (y/n): '):
+            if 'n' in raw_input('would you like to retry? (y/n): '):    # is fine since robot_bench only runs in py2
                 agent_data['traj_ok'] = True
 
     def _init(self):

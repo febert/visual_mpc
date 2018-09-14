@@ -38,19 +38,13 @@ agent = {
     'discrete_gripper': -1, #discretized gripper dimension,
     'rejection_sample': 10,
     'make_final_gif': '',
-    'master': 'sudeep@deepthought.banatao.berkeley.edu',
-    'master_datadir': '/raid/sudeep/sawyer_sim/autograsp_allobj_newphysics/'
+    # 'master': 'sudeep@deepthought.banatao.berkeley.edu',
+    # 'master_datadir': '/raid/sudeep/sawyer_sim/autograsp_allobj_newphysics/'
 }
 
 policy = {
     'type': Randompolicy,
     'nactions': 10,
-    'repeat': 3,
-    'no_action_bound': False,
-    'initial_std': 0.05,   #std dev. in xy
-    'initial_std_lift': 0.15,   #std dev. in xy
-    'initial_std_rot': np.pi / 18,
-    'initial_std_grasp': 2
 }
 
 config = {

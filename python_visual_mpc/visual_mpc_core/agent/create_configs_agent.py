@@ -7,7 +7,7 @@ class CreateConfigAgent(GeneralAgent):
     def __init__(self, hyperparams):
         super().__init__(hyperparams)
 
-    def rollout(self, policy, i_trial):
+    def rollout(self, policy, i_trial, i_traj):
 
         # Take the sample.
         self._init()
@@ -23,7 +23,7 @@ class CreateConfigAgent(GeneralAgent):
             self.env.move_arm()
             self.env.move_objects()
             try:
-                obs = self._post_process_obs(self.env._get_obs(None), agent_data)
+                obs = self._post_process_obs(self.env.current_obs(), agent_data)
             except ValueError:
                 return {'traj_ok': False}, None, None
 
