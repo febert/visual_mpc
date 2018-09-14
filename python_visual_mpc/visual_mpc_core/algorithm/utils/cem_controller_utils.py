@@ -156,17 +156,6 @@ def reuse_action(prev_action, hp):
     action[:-1] = prev_action[1:]
     return action.flatten()
 
-def sample_actions(mean, sigma, hp, M):
-    actions = np.random.multivariate_normal(mean, sigma, M)
-    actions = actions.reshape(M, hp.naction_steps, hp.adim)
-    if hp.discrete_ind != None:
-        actions = discretize(actions, M, hp.naction_steps, hp.discrete_ind)
-
-    if hp.action_bound:
-        actions = truncate_movement(actions, hp)
-    actions = np.repeat(actions, hp.repeat, axis=1)
-
-    return actions
 
 def discretize(actions, M, naction_steps, discrete_ind):
     """
