@@ -12,6 +12,7 @@ class CartgripperXZGrasp(BaseCartgripperEnv):
 
     def _default_hparams(self):
         default_dict = {
+            'x_range': 0.3,
             'default_y': 0.,
             'default_theta': 0.,
             'gripper_open': 0.06438482934440347,
@@ -54,6 +55,7 @@ class CartgripperXZGrasp(BaseCartgripperEnv):
     def _create_pos(self):
         object_poses = super()._create_pos()
         for i in range(self.num_objects):
+            object_poses[i][0] = np.random.uniform(-self._hp.x_range, self._hp.x_range)
             object_poses[i][1] = self._hp.default_y
             object_poses[i][3:] = zangle_to_quat(self._hp.default_theta)
         return object_poses
@@ -88,3 +90,46 @@ class CartgripperXZGrasp(BaseCartgripperEnv):
 
     def goal_reached(self):
         return self._goal_reached
+
+    def move_arm(self):
+        """
+        Moves arm to random position
+        :return: None
+        """
+        target_dx = np.random.uniform(-self._hp.x_range, self._hp.x_range) - self._previous_target_qpos[0]
+        target_dy = np.random.uniform(0.12, self.high_bound[2]) - self._previous_target_qpos[1]
+        self.step(np.array([target_dx, target_dy, -1]))
+
+    def move_objects(self):
+        """
+        Creates a lifting task by randomly placing block in gripper until it grasps
+            - Randomness needed since there is no "expert" to correctly place object into hand
+        :return: None
+        """
+        i, done = np.random.choice(self.num_objects, 1)[0], False
+        block_wiggle = self._hp.maxlen
+        while not done:
+            target_y = self._previous_target_qpos[1] + 0.015 \
+                                                         + np.random.uniform(-block_wiggle, block_wiggle)
+            self.sim.data.qpos[self._n_joints + i * 7] = self._previous_target_qpos[0] \
+                                                         + np.random.uniform(-block_wiggle, block_wiggle)
+            self.sim.data.qpos[self._n_joints + i * 7 + 2] = target_y
+            self.sim.step()
+
+            target_cmd = np.array([self._previous_target_qpos[0], self._previous_target_qpos[1], 1])
+            for _ in range(self.substeps):
+                self.sim.data.qpos[self._n_joints + i * 7 + 2] = target_y
+                self.sim.data.ctrl[:] = target_cmd
+                self.sim.step()
+
+            for _ in range(self.substeps * 5):
+                self.sim.step()
+
+            if self.sim.data.qpos[self._n_joints + i * 7 + 2] > 0.05:
+                done = True
+            else:
+                # open up the fingers and try again
+                target_cmd = np.array([self._previous_target_qpos[0], self._previous_target_qpos[1], -1])
+                for _ in range(self.substeps):
+                    self.sim.data.ctrl[:] = target_cmd
+                    self.sim.step()
