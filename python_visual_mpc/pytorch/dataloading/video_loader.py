@@ -119,7 +119,7 @@ def make_video_loader(dataconf, trainconf, train=True):
                             shuffle=True, num_workers=20)
 
 def test_videoloader():
-    hyperparams_file = '/home/frederik/Documents/catkin_ws/src/visual_mpc/pushing_data/cartgripper_bench_conf/hyperparams.py'
+    hyperparams_file = '/home/frederik/Documents/catkin_ws/src/visual_mpc/pushing_data/cartgripper_bench_conf/mod_hyper.py'
     hyperparams = imp.load_source('hyperparams', hyperparams_file)
     config = hyperparams.config
 

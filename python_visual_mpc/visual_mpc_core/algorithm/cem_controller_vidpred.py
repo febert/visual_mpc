@@ -6,6 +6,7 @@ import imp
 from python_visual_mpc.visual_mpc_core.algorithm.utils.make_cem_visuals import CEM_Visual_Preparation
 import matplotlib; matplotlib.use('Agg'); import matplotlib.pyplot as plt
 import copy
+import pdb
 
 from threading import Thread
 if "NO_ROS" not in os.environ:
@@ -57,6 +58,8 @@ class CEM_Controller_Vidpred(CEM_Controller_Base):
 
         CEM_Controller_Base.__init__(self, ag_params, policyparams)
 
+        self.policyparams = policyparams
+
         params = imp.load_source('params', ag_params['current_dir'] + '/conf.py')
         self.netconf = params.configuration
         self.predictor = self.netconf['setup_predictor'](ag_params, self.netconf, gpu_id, ngpu, self.logger)
@@ -105,11 +108,12 @@ class CEM_Controller_Vidpred(CEM_Controller_Base):
         self.vd = VisualzationData()
         self._setup_visualizer()
 
+
     def _setup_visualizer(self, default=CEM_Visual_Preparation):
         run_freq = 1
         if 'verbose_every_itr' in self.policyparams:
             run_freq = 3
-        self.visualizer = self.policyparams.get('visualizer', default)(run_freq)
+        self.visualizer = default()
 
     def _default_hparams(self):
         default_dict = {
@@ -199,6 +203,10 @@ class CEM_Controller_Vidpred(CEM_Controller_Base):
         self.vd.last_frames = last_frames
         self.vd.goal_pix = self.goal_pix
         self.vd.ncam = self.ncam
+        self.vd.image_height = self.img_height
+        self.vd.image_width = self.img_width
+        self.vd.actions = actions
+
         if self.verbose and cem_itr == self._hp.iterations-1 and self.i_tr % self.verbose_freq ==0 or \
                 (self._hp.verbose_every_itr and self.i_tr % self.verbose_freq ==0):
             if self.parallel_vis:
@@ -359,7 +367,6 @@ class CEM_Controller_Vidpred(CEM_Controller_Base):
         """
         self.desig_pix = np.array(desig_pix).reshape((self.ncam, self.ntask, 2))
         self.goal_pix = np.array(goal_pix).reshape((self.ncam, self.ntask, 2))
-
         self.images = images
         self.state = state
         return super(CEM_Controller_Vidpred, self).act(t, i_tr)

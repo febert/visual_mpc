@@ -2,19 +2,21 @@
 import os
 import argparse
 import imp
-import cPickle as pkl
+import pickle as pkl
 import numpy as np
 import shutil
 import cv2
 
 
-supported_robots = {'sudri', 'vestri'}
+supported_robots = {'sudri', 'vestri', 'gelsight'}
 
 
 class RobotEnvironment:
-    def __init__(self, robot_name, conf, resume = False, ngpu = 1, gpu_id = 0):
+    def __init__(self, robot_name, conf, resume = False, ngpu = 1, gpu_id = 0, run_once=None, num_goals=None):
         self._hyperparams = conf
         self.agentparams, self.policyparams, self.envparams = conf['agent'], conf['policy'], conf['agent']['env'][1]
+        self.run_once = run_once
+        self.num_goals = num_goals
 
         if robot_name not in supported_robots:
             msg = "ROBOT {} IS NOT A SUPPORTED ROBOT (".format(robot_name)
@@ -57,14 +59,20 @@ class RobotEnvironment:
             self._ck_dict = {'ntraj' : 0, 'broken_traj' : []}
 
     def run(self):
+        if self.run_once is not None:
+            self.take_sample(self.run_once)
+            return
         if not self.is_bench:
-            for i in xrange(self._hyperparams['start_index'], self._hyperparams['end_index']):
+            for i in range(self._hyperparams['start_index'], self._hyperparams['end_index']):
                 self.take_sample(i)
         else:
             itr = 0
             while True:
                 self.take_sample(itr)
                 itr += 1
+                if self.num_goals is not None and itr >= self.num_goals:
+                    break
+
 
     def _get_bench_name(self):
         name = raw_input('input benchmark name: ')
@@ -150,10 +158,13 @@ if __name__ == '__main__':
                         default=False, help='Set flag if resuming training')
     parser.add_argument('--gpu_id', type=int, default=0, help='value to set for cuda visible devices variable')
     parser.add_argument('--ngpu', type=int, default=1, help='number of gpus to use')
+    parser.add_argument('--run_once', type=int, default=None, help='index of goal image to run')
+    parser.add_argument('--num_goals', type=int, default=None, help='number of goal images to try')
     args = parser.parse_args()
 
     hyperparams = imp.load_source('hyperparams', args.experiment)
     conf = hyperparams.config
 
-    env = RobotEnvironment(args.robot_name, conf, args.resume, args.ngpu, args.gpu_id)
+
+    env = RobotEnvironment(args.robot_name, conf, args.resume, args.ngpu, args.gpu_id, args.run_once, args.num_goals)
     env.run()

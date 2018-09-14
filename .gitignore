@@ -191,3 +191,4 @@ bench/
 bench30steps/
 
 auto_gen*
+exp_*

@@ -84,7 +84,6 @@ class Full_Image_Reg_Controller(CEM_Controller_Vidpred):
     def act(self, t, i_tr, images, goal_image, state, desig_pix, goal_pix):
         self.images = images
         self.state = state
-
         if self._hp.follow_traj:
             self.goal_images = goal_image[t:t + self.len_pred, 0]  #take first cam
         elif self._hp.goal_image_seq:

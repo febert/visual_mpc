@@ -149,7 +149,7 @@ class CEM_Visual_Preparation(object):
             make_direct_vid(self._t_dict, self.num_ex, vd.agentparams['record'] + '/plan/',
                                 suf='t{}iter{}'.format(vd.t, vd.cem_itr))
 
-        # make_action_summary(self.num_ex, actions, agentparams, selindices, cem_itr, netconf['sequence_length'], t)
+        make_action_summary(self.num_ex, vd.actions, vd.agentparams, selindices, vd.cem_itr, vd.netconf['sequence_length'], vd.t)
 
         if 'save_pkl' in vd.agentparams:
             dir = vd.agentparams['record'] + '/plan'

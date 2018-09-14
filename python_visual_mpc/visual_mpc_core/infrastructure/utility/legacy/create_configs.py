@@ -330,7 +330,7 @@ def main():
     basepath = os.path.abspath(python_visual_mpc.__file__)
     basepath = '/'.join(str.split(basepath, '/')[:-2])
     data_coll_dir = basepath + '/pushing_data/' + exp_name
-    hyperparams_file = data_coll_dir + '/hyperparams.py'
+    hyperparams_file = data_coll_dir + '/mod_hyper.py'
 
     hyperparams = imp.load_source('hyperparams', hyperparams_file).config
 

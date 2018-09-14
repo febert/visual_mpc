@@ -68,7 +68,7 @@ class ModelTrainer():
         args = parser.parse_args()
         hyperparams = imp.load_source('conf', args.conf)
         self.conf = conf = hyperparams.configuration
-        data_conf = imp.load_source('conf', conf['data_dir'] + '/hyperparams.py').config
+        data_conf = imp.load_source('conf', conf['data_dir'] + '/mod_hyper.py').config
 
         self.train_loader = make_video_loader(data_conf, conf, train=True)
         self.test_loader = make_video_loader(data_conf, conf, train=False)

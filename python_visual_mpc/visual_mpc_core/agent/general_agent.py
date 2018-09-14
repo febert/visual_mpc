@@ -4,6 +4,7 @@ import numpy as np
 from python_visual_mpc.video_prediction.misc.makegifs2 import npy_to_gif
 import cv2
 from python_visual_mpc.visual_mpc_core.algorithm.policy import get_policy_args
+import pdb
 
 
 def file_len(fname):
@@ -86,7 +87,7 @@ class GeneralAgent(object):
 
         print('needed {} trials'.format(i_trial))
 
-        if 'make_final_gif' in self._hyperparams or 'make_final_gif_pointoverlay' in self._hyperparams:
+        if 0 or 'make_final_gif' in self._hyperparams or 'make_final_gif_pointoverlay' in self._hyperparams:
             self.save_gif(i_traj, 'make_final_gif_pointoverlay' in self._hyperparams)
 
         return agent_data, obs_dict, policy_outs
@@ -135,7 +136,6 @@ class GeneralAgent(object):
             if k == 'images':
                 self.large_images_traj.append(env_obs['images'][0])  #only take first camera
                 resize_store(t, self._agent_cache['images'], env_obs['images'])
-
             elif k == 'obj_image_locations':
                 self.traj_points.append(copy.deepcopy(env_obs['obj_image_locations'][0]))  #only take first camera
                 env_obs['obj_image_locations'] = np.round((env_obs['obj_image_locations'] *

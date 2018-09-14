@@ -103,7 +103,7 @@ class CEM_Controller_Base(Policy):
             'verbose': False,
             'verbose_every_itr':False,
             'num_samples': 200,
-            'selection_frac': -1., # specifcy which fraction of best samples to use to compute mean and var for next CEM iteration
+            'selection_frac': -1., # specifcy which fraction of best 5amples to use to compute mean and var for next CEM iteration
             'discrete_ind':None,
             'reuse_mean':False,
             'reuse'

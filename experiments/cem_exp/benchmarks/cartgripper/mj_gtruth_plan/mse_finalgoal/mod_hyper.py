@@ -18,7 +18,6 @@ env_params = {
     'num_objects': 1,
     'object_mass': 0.1,
     'friction': 1.0,
-    'ncam':1
 }
 
 agent = {
@@ -34,6 +33,7 @@ agent = {
     'make_final_gif': True,
     'start_goal_confs':os.environ['VMPC_DATA_DIR'] + '/cartgripper/newenv/pushing_demo/train',
     'num_load_steps':35,
+    'ncam': 1
 }
 
 policy = {

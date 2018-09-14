@@ -268,7 +268,7 @@ def create_root_xml(filename):
     return outfile
 
 if __name__ == '__main__':
-    params = imp.load_source('hyper', "/home/frederik/Documents/catkin_ws/src/visual_mpc/pushing_data/cartgripper_genobj/hyperparams.py")
+    params = imp.load_source('hyper', "/home/frederik/Documents/catkin_ws/src/visual_mpc/pushing_data/cartgripper_genobj/mod_hyper.py")
     agentparams = params.config['agent']
     # create_xml(agentparams)
     create_root_xml(agentparams)
