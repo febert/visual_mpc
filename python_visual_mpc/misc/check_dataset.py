@@ -15,13 +15,14 @@ if __name__ == '__main__':
     parser.add_argument('--nimages', type=int, default=100)
     parser.add_argument('--invert_bad', action='store_true', default=False)
     parser.add_argument('--no_deltas', action='store_true', default=False)
+    parser.add_argument('--im_per_row', type=int, default=5)
     args = parser.parse_args()
-    assert args.nimages % 5 == 0, "nimages should be a multiple of 5"
+    assert args.nimages % args.im_per_row == 0, "--nimages should be a multiple of --im_per_row"
 
     traj_names = glob.glob('{}/traj*'.format(args.input_dir))
     random.shuffle(traj_names)
 
-    img_summaries = [[[] for _ in range(5)] for t in range(args.T)]
+    img_summaries = [[[] for _ in range(args.im_per_row)] for t in range(args.T)]
     summary_counter = 0
     delta_sums, rollout_fails, num_good = [], [], 0
 
@@ -32,17 +33,17 @@ if __name__ == '__main__':
         if agent_data.get('goal_reached', False):
             num_good += 1
             print('traj {} is good'.format(t))
-        rollout_fails.append(agent_data['extra_resets'])
+        rollout_fails.append(agent_data.get('extra_resets', 0))
 
         if summary_counter < args.nimages:
             for i in range(args.T):
                 frame_imgs = []
                 for n in range(args.ncam):
                     img_t = cv2.imread('{}/images{}/im_{}.png'.format(t, n, i))[:, :, ::-1]
-                    if not agent_data['goal_reached'] and args.invert_bad:
+                    if args.invert_bad and not agent_data['goal_reached'] :
                         img_t = img_t[:, :, ::-1]
                     frame_imgs.append(img_t)               
-                img_summaries[i][int(summary_counter % 5)].append(np.concatenate(frame_imgs, axis=1))
+                img_summaries[i][int(summary_counter % args.im_per_row)].append(np.concatenate(frame_imgs, axis=1))
             summary_counter += 1
 
     if not args.no_deltas:
