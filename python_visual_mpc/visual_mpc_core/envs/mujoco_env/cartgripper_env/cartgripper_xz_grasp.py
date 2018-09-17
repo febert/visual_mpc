@@ -133,3 +133,6 @@ class CartgripperXZGrasp(BaseCartgripperEnv):
                 for _ in range(self.substeps):
                     self.sim.data.ctrl[:] = target_cmd
                     self.sim.step()
+
+    def default_ncam():
+        return 1

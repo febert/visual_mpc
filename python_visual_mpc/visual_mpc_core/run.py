@@ -176,8 +176,8 @@ def prepare_saver(hyperparams):
     m = Manager()
     record_queue, synch_counter = m.Queue(), SynchCounter(m)
     save_dir, T = hyperparams['agent']['data_save_dir'] + '/records', hyperparams['agent']['T']
-    if not hyperparams.get('save_raw_images', False):
-        seperate_good, traj_per_file = hyperparams.get('seperate_good', False), hyperparams['traj_per_file']
+    if hyperparams.get('save_data', True) and not hyperparams.get('save_raw_images', False):
+        seperate_good, traj_per_file = hyperparams.get('seperate_good', False), hyperparams.get('traj_per_file', 16)
         record_saver_proc = Process(target=record_worker, args=(
         record_queue, save_dir, T, seperate_good, traj_per_file, hyperparams['start_index']))
         record_saver_proc.start()

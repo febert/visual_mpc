@@ -107,21 +107,20 @@ class CEM_Controller_Base(Policy):
             'selection_frac': -1., # specifcy which fraction of best samples to use to compute mean and var for next CEM iteration
             'discrete_ind':None,
             'reuse_mean':False,
-            'reuse'
             'reuse_cov':False,
             'stochastic_planning':False,
             'rejection_sampling':True,
-            'reuse_cov':False,
             'cov_blockdiag':False,
             'smooth_cov':False,
             'iterations': 3,
             'nactions': 5,
             'repeat': 3,
             'action_bound': True,
-            'action_order': [None],
+            'action_order': [None], # [None] implies default order, otherwise specify how each action dim in order (aka ['x', 'y', ...]
             'initial_std': 0.05,   #std dev. in xy
             'initial_std_lift': 0.15,   #std dev. in xy
             'initial_std_rot': np.pi / 18,
+            'initial_std_grasp': 2,
             'finalweight':10,
             'use_first_plan':False,
             'replan_interval':-1,

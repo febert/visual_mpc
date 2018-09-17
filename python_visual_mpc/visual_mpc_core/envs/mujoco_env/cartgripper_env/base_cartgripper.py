@@ -131,11 +131,11 @@ class BaseCartgripperEnv(BaseMujocoEnv):
         return
 
     def render(self):
-        return super().render()[:, ::-1]
+        return super().render()[:, ::-1].copy()    # cartgripper cameras are flipped in height dimension
 
     def project_point(self, point, camera):
         row, col = super().project_point(point, camera)
-        return self._frame_height - row, col
+        return self._frame_height - row, col      # cartgripper cameras are flipped in height dimension
 
     def qpos_reset(self, qpos, qvel):
         self._read_reset_state['qpos_all'] = qpos
@@ -256,6 +256,7 @@ class BaseCartgripperEnv(BaseMujocoEnv):
 
         #get images
         obs['images'] = self.render()
+        obs['obj_image_locations'] = self.get_desig_pix(self._frame_width)
 
         return obs
 

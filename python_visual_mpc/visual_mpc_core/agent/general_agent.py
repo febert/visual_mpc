@@ -191,7 +191,6 @@ class GeneralAgent(object):
         obs = self._post_process_obs(initial_env_obs, agent_data, True)
         policy.reset()
 
-        traj_ok = True
         while not done:
             """
             Every time step send observations to policy, acts in environment, and records observations
@@ -233,11 +232,11 @@ class GeneralAgent(object):
 
     def save_gif(self, itr, overlay=False):
         if self.traj_points is not None and overlay:
-            colors = [tuple([np.random.randint(0, 256) for _ in range(3)]) for __ in range(self.num_objects + 1)]
+            colors = [tuple([np.random.randint(0, 256) for _ in range(3)]) for __ in range(self.num_objects)]
             for pnts, img in zip(self.traj_points, self.large_images_traj):
-                for i in range(self.num_objects + 1):
+                for i in range(self.num_objects):
                     center = tuple([int(np.round(pnts[i, j])) for j in (1, 0)])
-                    cv2.circle(img, center, 10, colors[i], -1)
+                    cv2.circle(img, center, 4, colors[i], -1)
 
         file_path = self._hyperparams['record']
         npy_to_gif(self.large_images_traj, file_path +'/video{}'.format(itr))

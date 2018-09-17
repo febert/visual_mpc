@@ -25,6 +25,6 @@ configuration = {
 'sdim':3,
 'adim':3,
 'orig_size':[48,64],
-'ndesig':2,
+'ndesig':1,
 'ncam':1,
 }

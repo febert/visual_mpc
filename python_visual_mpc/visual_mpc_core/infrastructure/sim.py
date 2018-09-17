@@ -70,7 +70,7 @@ class Sim(object):
             data_save_dir = os.environ['RESULT_DIR'] + '/data'
         else: data_save_dir = self.agentparams['data_save_dir']
 
-        ngroup = self._hyperparams['ngroup']
+        ngroup = self._hyperparams.get('ngroup', 1000)
         igrp = itr // ngroup
         group_folder = data_save_dir + '/{}/traj_group{}'.format(self.task_mode, igrp)
         if not os.path.exists(group_folder):
