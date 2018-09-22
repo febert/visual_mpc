@@ -17,16 +17,6 @@ def mse_based_cost(gen_images, goal_image, hp, normalize):
         assert len(goal_image.squeeze().shape) == 3 # make sure we only have a single goalimage
         goal_image = goal_image /np.sum(goal_image)
 
-        pdb.set_trace()
-
-        plt.imshow(gen_images[0,0])
-        plt.title('gen_images')
-        plt.show()
-
-        plt.imshow(goal_image)
-        plt.title('goal_image')
-        plt.show()
-
     sq_diff = np.square(gen_images - goal_image[None])
     mean_sq_diff = np.mean(sq_diff.reshape([sq_diff.shape[0],sq_diff.shape[1],-1]), -1)
 
