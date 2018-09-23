@@ -3,6 +3,7 @@
         <!--<param name="ip" type="string" value="169.254.6.1"/>     &lt;!&ndash; used in stand alone!! &ndash;&gt;-->
         <param name="ip" type="string" value="128.32.156.236"/>  <!--used in network setting!! -->
         <param name="port" type="int" value="1000"/>
+        <param name="rate" type="double" value="5"/>
         <param name="com_mode" type="string" value="auto_update"/>
     </node>
 </launch>
