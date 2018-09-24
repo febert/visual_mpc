@@ -17,6 +17,7 @@ from python_visual_mpc.video_prediction.basecls.utils.get_designated_pix import 
 import glob
 import re
 
+import pdb
 save_points = False
 FLAGS = flags.FLAGS
 
@@ -118,35 +119,32 @@ def load_benchmark_data(conf):
         exp_dir = folder + '/images{}'.format(view)
 
         imlist = []
-        for t in range(50):
-            imname = exp_dir + '/im{}.png'.format(t)
+        for t in range(30):
+            imname = exp_dir + '/im_{}.jpg'.format(t)
             im = np.array(Image.open(imname))
             orig_imshape = im.shape
             im = cv2.resize(im, (conf['orig_size'][1], conf['orig_size'][0]), interpolation=cv2.INTER_AREA)
             imlist.append(im)
 
-        image_size_ratio = conf['orig_size'][0]/orig_imshape[0]
-
-        dict = pkl.load(open(folder + '/tracker_annotations.pkl', 'rb'), encoding='latin1')
-        true_desig = dict['points'][:,view]
-        true_desig_l.append((true_desig*image_size_ratio).astype(np.int))
-
-        folder_startgoal = '/'.join(str.split(folder, '/')[:-2]) + '/start_goal/'  + name
-        dict = pkl.load(open(folder_startgoal + '/start_goal_points.pkl', 'rb'), encoding='latin1')
-
-        if view == 0:
-            goal_image_name = 'front_goal.png'
-        else:
-            goal_image_name = 'left_goal.png'
-
-        im = np.array(Image.open(folder_startgoal + '/' + goal_image_name))
-        goal_im = cv2.resize(im, (conf['orig_size'][1], conf['orig_size'][0]), interpolation=cv2.INTER_AREA)
-        goal_image_l.append(goal_im.astype(np.float32)/255.)
-        desig_pix_t0_l.append((dict['start'][view]*image_size_ratio).astype(np.int))
-        goal_pix_l.append((dict['goal'][view]*image_size_ratio).astype(np.int))
-
         images = np.stack(imlist).astype(np.float32) / 255.
         image_batch.append(images)
+
+        image_size_ratio = conf['orig_size'][0]/orig_imshape[0]
+
+        # dict = pkl.load(open(folder + '/tracker_annotations.pkl', 'rb'), encoding='latin1')
+        # true_desig = dict['points'][:,view]
+
+        true_desig = np.load(folder + '/points.npy')
+        true_desig = (true_desig[view]*image_size_ratio).astype(np.int)
+        true_desig_l.append(true_desig)
+
+        # folder_startgoal = '/'.join(str.split(folder, '/')[:-2]) + '/start_goal/'  + name
+        # dict = pkl.load(open(folder_startgoal + '/start_goal_points.pkl', 'rb'), encoding='latin1')
+
+        goal_image_l.append(images[-1])
+        desig_pix_t0_l.append(true_desig[0])
+        goal_pix_l.append(true_desig[-1])
+
 
     image_batch = np.stack(image_batch)
     desig_pix_t0 = np.stack(desig_pix_t0_l)
@@ -215,6 +213,7 @@ def compute_metric(conf, images, goal_pix_b, pix_t0_b, true_desig_pix_b=None, go
         warped_image_goal_l = []
         for b in range(bsize):
             pix_t0 = pix_t0_b[b]
+
             goal_pix = goal_pix_b[b]
             true_desig_pix = true_desig_pix_b[b, t]
 
@@ -258,7 +257,8 @@ def compute_metric(conf, images, goal_pix_b, pix_t0_b, true_desig_pix_b=None, go
         column.append(np.stack(warped_image_goal_l, 0))
 
         newcolumn = []
-        for b in range(images.shape[0]):
+        numex = 3
+        for b in range(numex):
             for el in column:
                 newcolumn.append(el[b])
         column = np.concatenate(newcolumn, 0)
@@ -276,16 +276,17 @@ def write_scores(conf, pos_error_start, pos_error_goal):
     result_file = conf['output_dir'] + '/pos_error.txt'
     f = open(result_file, 'w')
 
+    avg_error_startgoal = np.mean(np.min(np.stack([pos_error_start, pos_error_goal], axis=0), axis=0), axis=1)
+
     pos_error_start = np.mean(pos_error_start, axis=1)
     pos_error_goal = np.mean(pos_error_goal, axis=1)
-    avg_error_startgoal = (pos_error_start + pos_error_goal)/2
 
     f.write('avg distance (over all) {} in pixels \n'.format(np.mean(avg_error_startgoal)))
     f.write('avg distance (over all) {} ratio\n'.format(np.mean(avg_error_startgoal)/conf['orig_size'][0]))
 
-    f.write('pos_error start, pos_error goal, avg \n')
+    f.write('pos_error start, pos_error goal, avg over min \n')
     for n in range(pos_error_start.shape[0]):
-        f.write('{}: {}, {} \n'.format(n, pos_error_start[n], pos_error_goal[n], avg_error_startgoal[n]))
+        f.write('{}: {}, {}, {} \n'.format(n, pos_error_start[n], pos_error_goal[n], avg_error_startgoal[n]))
 
 if __name__ == '__main__':
     # testdata_path = '/mnt/sda1/pushing_data/goaldistancenet_test'
@@ -303,8 +304,8 @@ if __name__ == '__main__':
     # visuallize_sawyer_track(testdata_path, conffile, grasp_data_mode=view, tsteps=tsteps, interval=interval)
 
 
-    view = 0
-    conffile = '/mnt/sda1/visual_mpc/tensorflow_data/gdn/weiss/multiview/view{}/conf.py'.format(view)
+    view = 1
+    conffile = '/home/frederik/Documents/catkin_ws/src/visual_mpc/tensorflow_data/gdn/weiss/multiview_new_env_len8_highpenal/view{}/conf.py'.format(view)
     # conffile = '/mnt/sda1/visual_mpc/tensorflow_data/gdn/weiss/multiview_new_env_96x128_len8/view{}/conf.py'.format(view)
 
 
@@ -314,10 +315,9 @@ if __name__ == '__main__':
     conf['pretrained_model'] = [modeldata_dir + '/model48002']
 
 
-    conf['bench_dir'] = ['/mnt/sda1/pushing_data/sawyer_grasping/sawyer_track_bench/cv_runs',
-                         '/mnt/sda1/pushing_data/sawyer_grasping/sawyer_track_bench/gdn_runs']
+    conf['bench_dir'] = ['/mnt/sda1/pushing_data/sawyer_grasping/eval/track_annotations']
 
-    conf['batch_size'] = 37
+    conf['batch_size'] = 20
     run_tracking_benchmark(conf)
 
 

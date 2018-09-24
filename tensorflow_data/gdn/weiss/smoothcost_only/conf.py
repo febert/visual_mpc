@@ -34,7 +34,7 @@ configuration = {
 'adim' :4,
 'orig_size': [48,64],
 'norm':'charbonnier',
-'smoothcost':1e-5,
+'smoothcost':1e-7,
 'smoothmode':'2nd',
 'ch_mult':4,
 'view':0,
