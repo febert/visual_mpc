@@ -67,19 +67,22 @@ class BaseVideoDataset:
         features_names = {}
         for k in self._metadata_keys:
             features_names[k] = get_feature(self._metadata_keys[k])
-        for k in self._sequence_keys:
-            for t in range(self._T):
-                features_names['{}/{}'.format(t, k)] = get_feature(self._sequence_keys[k])
+        if self._T > 0:
+            # print(self._T)
+            for k in self._sequence_keys:
+                for t in range(self._T):
+                    features_names['{}/{}'.format(t, k)] = get_feature(self._sequence_keys[k])
 
         feature = tf.parse_single_example(serialized_example, features=features_names)
 
         return_dict = {}
-        for k in self._sequence_keys:
-            k_feats = []
-            for t in range(self._T):
-                k_feat = decode_feat(feature['{}/{}'.format(t, k)], self._sequence_keys[k], True)
-                k_feats.append(k_feat)
-            return_dict[k] = tf.concat(k_feats, 0)
+        if self._T > 0:
+            for k in self._sequence_keys:
+                k_feats = []
+                for t in range(self._T):
+                    k_feat = decode_feat(feature['{}/{}'.format(t, k)], self._sequence_keys[k], True)
+                    k_feats.append(k_feat)
+                return_dict[k] = tf.concat(k_feats, 0)
         for k in self._metadata_keys:
             return_dict[k] = decode_feat(feature[k], self._metadata_keys[k])
 
@@ -119,12 +122,19 @@ class BaseVideoDataset:
         elif key == 'actions':
             return dataset_batch['policy/actions']
         elif key == 'images':
-            if 'env/image_view1/encoded' in dataset_batch:
-                img_0 = tf.expand_dims(dataset_batch['env/image_view0/encoded'], 2)
-                img_1 = tf.expand_dims(dataset_batch['env/image_view1/encoded'], 2)
-                return tf.concat([img_0, img_1], 2)
-            else:
-                return tf.expand_dims(dataset_batch['env/image_view0/encoded'], 2)
+            imgs, i = [], 0
+            while True:
+                image_name = 'env/image_view{}/encoded'.format(i)
+                if image_name not in dataset_batch:
+                    break
+                imgs.append(tf.expand_dims(dataset_batch[image_name], 2))
+                i += 1
+            if i == 0:
+                raise ValueError("No image tensors")
+            elif i == 1:
+                return imgs[0]
+            return tf.concat(imgs, 2)
+
         elif key in dataset_batch:
             return dataset_batch[key]
 
@@ -166,7 +176,6 @@ class BaseVideoDataset:
         dataset = dataset.batch(self._batch_size)
         iterator = dataset.make_one_shot_iterator()
         return iterator
-
 
     def _read_manifest(self):
         pkl_path = '{}/manifest.pkl'.format(self._base_dir)

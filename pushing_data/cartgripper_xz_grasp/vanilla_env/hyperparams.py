@@ -37,7 +37,7 @@ config = {
     'traj_per_file': 16,
     'seperate_good': True,
     'current_dir': current_dir,
-#    'save_raw_images': True,
+    'save_raw_images': True,
     'start_index':0,
     'end_index': 70000,
     'agent': agent,

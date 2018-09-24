@@ -75,12 +75,18 @@ class RecordSaver:
         self._metadata_keys, self._sequence_keys, self._T = None, None, sequence_length
         self._offset = offset
 
+        self._force_draw = False
+        if any([i == 1 for i in split]):
+            print('Forcing Draw')
+            self._force_draw = True
+
     def add_traj(self, traj):
         draw = None
-        for i, buffer in enumerate(self._traj_buffers):
-            if self._save_counters[i] == 0 and np.random.randint(0, 3) >= 1:
-                draw = i
-                continue
+        if not self._force_draw:
+            for i, buffer in enumerate(self._traj_buffers):
+                if self._save_counters[i] == 0 and np.random.randint(0, 3) >= 1:
+                    draw = i
+                    continue
 
         if draw is None:
             draw = np.random.choice([0, 1, 2], 1, p=self._train_val_test)[0]

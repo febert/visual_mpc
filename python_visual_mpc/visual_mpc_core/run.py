@@ -4,7 +4,7 @@ import sys
 import argparse
 import importlib.machinery
 import importlib.util
-from python_visual_mpc.visual_mpc_core.infrastructure.run_sim import Sim
+from python_visual_mpc.visual_mpc_core.infrastructure.sim import Sim
 from python_visual_mpc.visual_mpc_core.benchmarks import perform_benchmark
 import copy
 import random
@@ -159,9 +159,9 @@ def main():
     else:
         use_worker(conflist[0], args.iex)
 
-    if 'data_save_dir' in hyperparams['agent']:
-        record_queue.put(None)           #send flag to background thread that it can end saving after it's done
-        record_saver_proc.join()         #joins thread and continues execution
+    if 'data_save_dir' in hyperparams['agent'] and not hyperparams.get('save_raw_images', False):
+        record_queue.put(None)           # send flag to background thread that it can end saving after it's done
+        record_saver_proc.join()         # joins thread and continues execution
 
     if 'master_datadir' in hyperparams['agent']:
         ray.wait([sync_todo_id])
@@ -176,10 +176,13 @@ def prepare_saver(hyperparams):
     m = Manager()
     record_queue, synch_counter = m.Queue(), SynchCounter(m)
     save_dir, T = hyperparams['agent']['data_save_dir'] + '/records', hyperparams['agent']['T']
-    seperate_good, traj_per_file = hyperparams.get('seperate_good', False), hyperparams['traj_per_file']
-    record_saver_proc = Process(target=record_worker, args=(
-    record_queue, save_dir, T, seperate_good, traj_per_file, hyperparams['start_index']))
-    record_saver_proc.start()
+    if hyperparams.get('save_data', True) and not hyperparams.get('save_raw_images', False):
+        seperate_good, traj_per_file = hyperparams.get('seperate_good', False), hyperparams.get('traj_per_file', 16)
+        record_saver_proc = Process(target=record_worker, args=(
+        record_queue, save_dir, T, seperate_good, traj_per_file, hyperparams['start_index']))
+        record_saver_proc.start()
+    else:
+        record_saver_proc = None
     return record_queue, record_saver_proc, synch_counter
 
 

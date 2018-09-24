@@ -295,7 +295,7 @@ class BaseSawyerEnv(BaseEnv):
             front_buffer, left_buffer = self._main_cam.reset_recording(), self._left_cam.reset_recording()
             if len(front_buffer) == 0 and len(left_buffer) == 0:
                 return
-            front_buffer = [f[::-1].copy() for f in front_buffer]
+            front_buffer = [f[::-1, ::-1].copy() for f in front_buffer]
 
             clip_base_name = '{}/recording{}/'.format(self._hp.video_save_dir, self._reset_counter)
             if not os.path.exists:
@@ -476,7 +476,6 @@ class BaseSawyerEnv(BaseEnv):
         raw_input("Robot in safe position? Hit enter when ready...")
         self._controller.neutral_with_impedance()
         self._controller.open_gripper(True)
-        
 
         if collect_goal_image:
             print("PLACE OBJECTS IN GOAL POSITION")
