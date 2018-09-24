@@ -14,6 +14,8 @@ from python_visual_mpc.video_prediction.basecls.utils.visualize import add_cross
 from PIL import Image
 from python_visual_mpc.video_prediction.basecls.utils.get_designated_pix import Getdesig
 
+from python_visual_mpc.video_prediction.utils_vpred.create_gif_lib import npy_to_gif
+
 import glob
 import re
 
@@ -131,15 +133,9 @@ def load_benchmark_data(conf):
 
         image_size_ratio = conf['orig_size'][0]/orig_imshape[0]
 
-        # dict = pkl.load(open(folder + '/tracker_annotations.pkl', 'rb'), encoding='latin1')
-        # true_desig = dict['points'][:,view]
-
         true_desig = np.load(folder + '/points.npy')
         true_desig = (true_desig[view]*image_size_ratio).astype(np.int)
         true_desig_l.append(true_desig)
-
-        # folder_startgoal = '/'.join(str.split(folder, '/')[:-2]) + '/start_goal/'  + name
-        # dict = pkl.load(open(folder_startgoal + '/start_goal_points.pkl', 'rb'), encoding='latin1')
 
         goal_image_l.append(images[-1])
         desig_pix_t0_l.append(true_desig[0])
@@ -257,12 +253,14 @@ def compute_metric(conf, images, goal_pix_b, pix_t0_b, true_desig_pix_b=None, go
         column.append(np.stack(warped_image_goal_l, 0))
 
         newcolumn = []
-        numex = 3
+        numex = 5
         for b in range(numex):
             for el in column:
                 newcolumn.append(el[b])
         column = np.concatenate(newcolumn, 0)
         columns.append(column)
+
+    make_gifs(columns, conf)
 
     image = Image.fromarray((np.concatenate(columns, 1) * 255).astype(np.uint8))
     file = conf['output_dir'] + '/warpstartgoal.png'
@@ -270,6 +268,12 @@ def compute_metric(conf, images, goal_pix_b, pix_t0_b, true_desig_pix_b=None, go
     image.save(file)
 
     write_scores(conf, pos_error_start, pos_error_goal)
+
+
+def make_gifs(columns, conf):
+    columns = [(col * 255.).astype(np.uint8) for col in columns]
+    columns.append(np.zeros_like(columns[0]))
+    npy_to_gif(columns, conf['output_dir'] + '/warpstartgoal')
 
 
 def write_scores(conf, pos_error_start, pos_error_goal):

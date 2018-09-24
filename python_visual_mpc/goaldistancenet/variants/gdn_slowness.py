@@ -41,6 +41,9 @@ class GoalDistanceNetSlowness(GoalDistanceNet):
                                I0=self.I0, gen_I0=warped_I2_to_I0, occ_fwd=occ_fwd_20, flow_fwd=flow_fwd_20,
                                diff_flow_fwd=diff_flow_fwd_20, suf='_20')
 
+            self.losses['slowness'] = self.conf['slowness_penal'] * (tf.reduce_mean(tf.square(flow_bwd_02 - flow_bwd_01)) +
+                                                                     tf.reduce_mean(tf.square(flow_fwd_20 - flow_fwd_10)))
+
             self.combine_losses()
             # image_summary:
             if 'fwd_bwd' in self.conf:
