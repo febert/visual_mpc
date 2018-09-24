@@ -41,5 +41,5 @@ configuration = {
 'ch_mult':4,
 'view':0,
 'new_loader': True,
-'slowness_penal':1e-5,
+'slowness_penal':1e-7,
 }
