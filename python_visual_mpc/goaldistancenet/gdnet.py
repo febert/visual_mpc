@@ -197,7 +197,7 @@ class GoalDistanceNet(object):
                 self.images = dict['images']
 
             if 'temp_divide_and_conquer' not in self.conf:
-                self.I0, self.I1 = self.sel_images()
+                self.I0, self.I1, self.I2 = self.sel_images()
 
         elif I0 == None:  #feed values at test time
             self.I0 = self.I0_pl= tf.placeholder(tf.float32, name='images',
@@ -291,17 +291,12 @@ class GoalDistanceNet(object):
             self.tend = self.tstart + tf.random_uniform([1], minval, delta_t + 1, dtype=tf.int32)
 
         begin = tf.stack([0, tf.squeeze(self.tstart), 0, 0, 0],0)
-
-        if 'vidpred_data' in self.conf:
-            I0 = tf.squeeze(tf.slice(self.pred_images, begin, [-1, 1, -1, -1, -1]))
-            print('using pred images')
-        else:
-            I0 = tf.squeeze(tf.slice(self.images, begin, [-1, 1, -1, -1, -1]))
+        I0 = tf.squeeze(tf.slice(self.images, begin, [-1, 1, -1, -1, -1]))
 
         begin = tf.stack([0, tf.squeeze(self.tend), 0, 0, 0], 0)
         I1 = tf.squeeze(tf.slice(self.images, begin, [-1, 1, -1, -1, -1]))
 
-        return I0, I1
+        return I0, I1, None
 
     def conv_relu_block(self, input, out_ch, k=3, upsmp=False, n_layer=1):
         h = input
@@ -366,7 +361,7 @@ class GoalDistanceNet(object):
             h6 = self.conv_relu_block(h5, out_ch=16*ch_mult, upsmp=True)  #48x64x3
 
         with tf.variable_scope('h7'):
-            flow_field = slim.layers.conv2d(  # 128x128xdesc_length
+            flow_field = slim.layers.conv2d(
                 h6,  2, [5, 5], stride=1, activation_fn=None)
 
         warp_pts = warp_pts_layer(flow_field)

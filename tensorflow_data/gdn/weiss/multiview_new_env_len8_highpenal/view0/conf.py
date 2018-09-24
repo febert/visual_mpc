@@ -1,3 +1,4 @@
+
 import python_visual_mpc
 base_dir = python_visual_mpc.__file__
 
@@ -5,12 +6,9 @@ base_dir = '/'.join(str.split(base_dir, '/')[:-2])
 
 # tf record data location:
 import os
-DATA_DIR = {os.environ['VMPC_DATA_DIR'] + '/sawyer_grasping/sawyer_data/sudri_ag/good': 8,
-         os.environ['VMPC_DATA_DIR'] + '/sawyer_grasping/sawyer_data/sudri_ag/bad': 12,
-         os.environ['VMPC_DATA_DIR'] + '/sawyer_grasping/sawyer_data/vestri_ag/good': 8,
-         os.environ['VMPC_DATA_DIR'] + '/sawyer_grasping/sawyer_data/vestri_ag/bad': 12,
-         os.environ['VMPC_DATA_DIR'] + '/sawyer_grasping/sawyer_data/sudri_ag_long/good': 12,
-         os.environ['VMPC_DATA_DIR'] + '/sawyer_grasping/sawyer_data/sudri_ag_long/bad': 12,
+DATA_DIR = {
+         os.environ['VMPC_DATA_DIR'] + '/sawyer_grasping/ag_long_records/good': 32,
+         os.environ['VMPC_DATA_DIR'] + '/sawyer_grasping/ag_long_records/bad': 32,
             }
 import os
 current_dir = os.path.dirname(os.path.realpath(__file__))
@@ -25,8 +23,8 @@ configuration = {
 'output_dir': OUT_DIR,      #'directory for model checkpoints.' ,
 'current_dir': base_dir,   #'directory for writing summary.' ,
 'num_iterations':50000,
-'sequence_length':14,
-'train_val_split':.95,
+'sequence_length':30,
+'max_delta':8,
 'visualize':'',
 'skip_frame':1,
 'batch_size': 64,           #'batch size for training' ,
@@ -41,10 +39,11 @@ configuration = {
 'fwd_bwd':'',
 'flow_diff_cost':1e-4,
 'hard_occ_thresh':'',
-'occlusion_handling':1e-4,
+'occlusion_handling':1e-4,   # old 1e-4
 'occ_thres_mult':0.5,
 'occ_thres_offset':1.,
-'flow_penal':1e-4,
+'flow_penal':1e-4,   # old 1e-4
 'ch_mult':4,
 'view':0,
+'new_loader': True
 }
