@@ -275,8 +275,6 @@ class GoalDistanceNet(object):
                     [self.I0, self.I1, self.gen_I0, self.gen_I1, length(self.flow_bwd), length(self.flow_fwd), self.occ_mask_bwd, self.occ_mask_fwd])
             else:
                 self.add_pair_loss(I1=self.I1, gen_I1=self.gen_I1,  flow_bwd=self.flow_bwd)
-
-
                 self.image_summaries = self.build_image_summary([self.I0, self.I1, self.gen_I1, length(self.flow_bwd)])
 
             self.combine_losses()
