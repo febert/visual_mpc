@@ -285,8 +285,8 @@ def write_scores(conf, pos_error_start, pos_error_goal):
     pos_error_start = np.mean(pos_error_start, axis=1)
     pos_error_goal = np.mean(pos_error_goal, axis=1)
 
-    f.write('avg distance (over all) {} in pixels \n'.format(np.mean(avg_error_startgoal)))
-    f.write('avg distance (over all) {} ratio\n'.format(np.mean(avg_error_startgoal)/conf['orig_size'][0]))
+    f.write('avg distance (over all) {} min per tstep in pixels \n'.format(np.mean(avg_error_startgoal)))
+    f.write('avg distance (over all) min per tstep {} ratio\n'.format(np.mean(avg_error_startgoal)/conf['orig_size'][0]))
 
     f.write('pos_error start, pos_error goal, avg over min \n')
     for n in range(pos_error_start.shape[0]):
@@ -308,15 +308,15 @@ if __name__ == '__main__':
     # visuallize_sawyer_track(testdata_path, conffile, grasp_data_mode=view, tsteps=tsteps, interval=interval)
 
 
-    view = 1
-    conffile = '/home/frederik/Documents/catkin_ws/src/visual_mpc/tensorflow_data/gdn/weiss/multiview_new_env_len8_highpenal/view{}/conf.py'.format(view)
-    # conffile = '/mnt/sda1/visual_mpc/tensorflow_data/gdn/weiss/multiview_new_env_96x128_len8/view{}/conf.py'.format(view)
+    view = 0
+    conffile = '/home/frederik/Documents/catkin_ws/src/visual_mpc/tensorflow_data/gdn/weiss/multiview_new_env_96x128_len8/view{}/conf.py'.format(view)
+    # conffile = '/home/frederik/Documents/catkin_ws/src/visual_mpc/tensorflow_data/gdn/weiss/smoothcost_only/conf.py'.format(view)
 
 
     hyperparams = imp.load_source('hyperparams', conffile)
     conf = hyperparams.configuration
     modeldata_dir = '/'.join(str.split(conffile, '/')[:-1]) + '/modeldata'
-    conf['pretrained_model'] = [modeldata_dir + '/model48002']
+    conf['pretrained_model'] = [modeldata_dir + '/model56002']
 
 
     conf['bench_dir'] = ['/mnt/sda1/pushing_data/sawyer_grasping/eval/track_annotations']
