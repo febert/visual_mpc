@@ -28,7 +28,7 @@ configuration = {
 'visualize':'',
 'skip_frame':1,
 'batch_size': 64,           #'batch size for training' ,
-'learning_rate': 1e-4,     #'the base learning rate of the generator' ,
+'learning_rate': 0.001,     #'the base learning rate of the generator' ,
 'normalization':'None',
 'sdim' :5,
 'adim' :4,
@@ -36,13 +36,6 @@ configuration = {
 'norm':'charbonnier',
 'smoothcost':1e-7,
 'smoothmode':'2nd',
-'fwd_bwd':'',
-'flow_diff_cost':1e-7,
-'hard_occ_thresh':'',
-'occlusion_handling':1e-7,   # old 1e-4
-'occ_thres_mult':0.5,
-'occ_thres_offset':1.,
-'flow_penal':1e-7,   # old 1e-4
 'ch_mult':4,
 'view':0,
 'new_loader': True,

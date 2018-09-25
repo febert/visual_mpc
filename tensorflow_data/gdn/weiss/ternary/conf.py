@@ -22,7 +22,7 @@ configuration = {
 'data_dir': DATA_DIR,       # 'directory containing data.' ,
 'output_dir': OUT_DIR,      #'directory for model checkpoints.' ,
 'current_dir': base_dir,   #'directory for writing summary.' ,
-'num_iterations':50000,
+'num_iterations':200000,
 'sequence_length':30,
 'max_deltat':8,
 'visualize':'',

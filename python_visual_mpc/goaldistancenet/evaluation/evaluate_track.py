@@ -26,6 +26,9 @@ FLAGS = flags.FLAGS
 from python_visual_mpc.visual_mpc_core.infrastructure.assemble_cem_visuals import make_direct_vid
 from python_visual_mpc.visual_mpc_core.infrastructure.assemble_cem_visuals import get_score_images
 
+
+REGION_AVERAGING = True
+
 def sorted_alphanumeric(l):
     """ Sort the given iterable in the way that humans expect."""
     convert = lambda text: int(text) if text.isdigit() else text
@@ -225,15 +228,36 @@ def compute_metric(conf, images, goal_pix_b, pix_t0_b, true_desig_pix_b=None, go
             start_image = images[b, 0]
             goal_image = images[b, -1]
 
-            desig_l.append(np.flip(start_warp_pts[b, 0, pix_t0[0], pix_t0[1]], 0))
-            start_warperr = np.linalg.norm(start_image[pix_t0[0], pix_t0[1]] -
-                                           warped_image_start[b, 0, pix_t0[0], pix_t0[1]])
-            warperrs.append(start_warperr)
+            if REGION_AVERAGING:
+                print('using region averaging!!')
+                width = 3
+                r_range = np.clip(np.array((pix_t0[0]-width,pix_t0[0]+width+1)), 0, im_height-1)
+                c_range = np.clip(np.array((pix_t0[1]-width,pix_t0[1]+width+1)), 0, im_width-1)
 
-            desig_l.append(np.flip(goal_warp_pts[b, 0, goal_pix[0], goal_pix[1]], 0))
-            goal_warperr = np.linalg.norm(goal_image[goal_pix[0], goal_pix[1]] -
-                                          warped_image_goal[b, 0, goal_pix[0], goal_pix[1]])
-            warperrs.append(goal_warperr)
+                point_field = start_warp_pts[b, 0, r_range[0]:r_range[1], c_range[0]:c_range[1]]
+                desig_l.append(np.flip(np.array([np.median(point_field[:,:,0]), np.median(point_field[:,:,1])]), axis=0))
+                start_warperr = np.linalg.norm(start_image[pix_t0[0], pix_t0[1]] -
+                                               warped_image_start[b, 0, pix_t0[0], pix_t0[1]])
+                warperrs.append(start_warperr)
+
+                r_range = np.clip(np.array((goal_pix[0]-width,goal_pix[0]+width+1)), 0, im_height)
+                c_range = np.clip(np.array((goal_pix[1]-width,goal_pix[1]+width+1)), 0, im_width)
+
+                point_field = goal_warp_pts[b, 0, r_range[0]:r_range[1], c_range[0]:c_range[1]]
+                desig_l.append(np.flip(np.array([np.median(point_field[:,:,0]), np.median(point_field[:,:,1])]), axis=0))
+                goal_warperr = np.linalg.norm(goal_image[goal_pix[0], goal_pix[1]] -
+                                              warped_image_goal[b, 0, goal_pix[0], goal_pix[1]])
+                warperrs.append(goal_warperr)
+            else:
+                desig_l.append(np.flip(start_warp_pts[b, 0, pix_t0[0], pix_t0[1]], 0))
+                start_warperr = np.linalg.norm(start_image[pix_t0[0], pix_t0[1]] -
+                                               warped_image_start[b, 0, pix_t0[0], pix_t0[1]])
+                warperrs.append(start_warperr)
+
+                desig_l.append(np.flip(goal_warp_pts[b, 0, goal_pix[0], goal_pix[1]], 0))
+                goal_warperr = np.linalg.norm(goal_image[goal_pix[0], goal_pix[1]] -
+                                              warped_image_goal[b, 0, goal_pix[0], goal_pix[1]])
+                warperrs.append(goal_warperr)
 
             warperror_start[b, t] = start_warperr
             warperror_goal[b, t] = goal_warperr
@@ -356,8 +380,9 @@ if __name__ == '__main__':
 
     view = 0
     # conffile = '/home/frederik/Documents/catkin_ws/src/visual_mpc/tensorflow_data/gdn/weiss/multiview_multiscale_96x128_highpenal/view{}/conf.py'.format(view)
-    conffile = '/home/frederik/Documents/catkin_ws/src/visual_mpc/tensorflow_data/gdn/weiss/multiview_new_env_len8/view{}/conf.py'.format(view)
-    # conffile = '/home/frederik/Documents/catkin_ws/src/visual_mpc/tensorflow_data/gdn/weiss/smoothcost_only/conf.py'.format(view)
+    # conffile = '/home/frederik/Documents/catkin_ws/src/visual_mpc/tensorflow_data/gdn/weiss/multiview_new_env_len8/view{}/conf.py'.format(view)
+    conffile = '/home/frederik/Documents/catkin_ws/src/visual_mpc/tensorflow_data/gdn/weiss/multiview_new_env_96x128_len8/view{}/conf.py'.format(view)
+    # conffile = '/home/frederik/Documents/catkin_ws/src/visual_mpc/tensorflow_data/gdn/weiss/ternary/conf.py'.format(view)
 
 
     hyperparams = imp.load_source('hyperparams', conffile)
