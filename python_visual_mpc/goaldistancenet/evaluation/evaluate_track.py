@@ -23,6 +23,8 @@ import pdb
 save_points = False
 FLAGS = flags.FLAGS
 
+from python_visual_mpc.visual_mpc_core.infrastructure.assemble_cem_visuals import make_direct_vid
+from python_visual_mpc.visual_mpc_core.infrastructure.assemble_cem_visuals import get_score_images
 
 def sorted_alphanumeric(l):
     """ Sort the given iterable in the way that humans expect."""
@@ -186,17 +188,22 @@ def compute_metric(conf, images, goal_pix_b, pix_t0_b, true_desig_pix_b=None, go
         goal_image_b = images[:, -1]
     else: goal_image_b = goal_images
 
-    bsize = images.shape[0]
     columns = []
-
-    seq_len = images.shape[1]
 
     # plt.switch_backend('TkAgg')
     # plt.imshow(start_image_b[0])
     # plt.show()
 
+    bsize, seq_len, im_height, im_width, _ = images.shape
+    warped_images_start = np.zeros([bsize, seq_len, im_height, im_width, 3])
+    warped_images_goal = np.zeros([bsize, seq_len, im_height, im_width, 3])
+    curr_im = np.zeros([bsize, seq_len, im_height, im_width, 3])
+
     pos_error_start = np.zeros([bsize, seq_len])
     pos_error_goal = np.zeros([bsize, seq_len])
+    warperror_start = np.zeros([bsize, seq_len])
+    warperror_goal = np.zeros([bsize, seq_len])
+
 
     for t in range(seq_len):
         column = []
@@ -209,7 +216,6 @@ def compute_metric(conf, images, goal_pix_b, pix_t0_b, true_desig_pix_b=None, go
         warped_image_goal_l = []
         for b in range(bsize):
             pix_t0 = pix_t0_b[b]
-
             goal_pix = goal_pix_b[b]
             true_desig_pix = true_desig_pix_b[b, t]
 
@@ -229,6 +235,9 @@ def compute_metric(conf, images, goal_pix_b, pix_t0_b, true_desig_pix_b=None, go
                                           warped_image_goal[b, 0, goal_pix[0], goal_pix[1]])
             warperrs.append(goal_warperr)
 
+            warperror_start[b, t] = start_warperr
+            warperror_goal[b, t] = goal_warperr
+
             warperrs = np.array([start_warperr, goal_warperr])
             tradeoff = 1 / warperrs / np.sum(1 / warperrs)
 
@@ -237,6 +246,8 @@ def compute_metric(conf, images, goal_pix_b, pix_t0_b, true_desig_pix_b=None, go
             ann_curr = add_crosshairs_single(ann_curr, true_desig_pix, np.array([0., 1, 1]))
             curr_im_l.append(ann_curr)
 
+            # pos_error_start[b,t] = np.linalg.norm(pix_t0 - true_desig_pix)
+            # pos_error_goal[b,t] = np.linalg.norm(goal_pix - true_desig_pix)
             pos_error_start[b,t] = np.linalg.norm(desig_l[0] - true_desig_pix)
             pos_error_goal[b,t] = np.linalg.norm(desig_l[1] - true_desig_pix)
 
@@ -252,15 +263,21 @@ def compute_metric(conf, images, goal_pix_b, pix_t0_b, true_desig_pix_b=None, go
         column.append(np.stack(warped_image_start_l, 0))
         column.append(np.stack(warped_image_goal_l, 0))
 
+        curr_im[:,t] = np.stack(curr_im_l, 0)
+        warped_images_start[:,t] = np.stack(warped_image_start_l, 0)
+        warped_images_goal[:,t] = np.stack(warped_image_goal_l, 0)
+
         newcolumn = []
         numex = 5
         for b in range(numex):
             for el in column:
                 newcolumn.append(el[b])
-        column = np.concatenate(newcolumn, 0)
-        columns.append(column)
 
-    make_gifs(columns, conf)
+        columns.append(np.concatenate(newcolumn, 0))
+
+    plot_trackerrors(conf['output_dir'], pos_error_start, pos_error_goal, warperror_start, warperror_goal)
+
+    make_gifs(curr_im, warped_images_start, warped_images_goal, conf)
 
     image = Image.fromarray((np.concatenate(columns, 1) * 255).astype(np.uint8))
     file = conf['output_dir'] + '/warpstartgoal.png'
@@ -270,10 +287,37 @@ def compute_metric(conf, images, goal_pix_b, pix_t0_b, true_desig_pix_b=None, go
     write_scores(conf, pos_error_start, pos_error_goal)
 
 
-def make_gifs(columns, conf):
-    columns = [(col * 255.).astype(np.uint8) for col in columns]
-    columns.append(np.zeros_like(columns[0]))
-    npy_to_gif(columns, conf['output_dir'] + '/warpstartgoal')
+def plot_trackerrors(outdir, pos_errstart, pos_errgoal, warperr_start, warperr_goal):
+
+    outdir = outdir + '/bench_plots'
+    if not os.path.exists(outdir):
+        os.makedirs(outdir)
+
+    for b in range(pos_errstart.shape[0]):
+        plt.switch_backend('TkAgg')
+        plt.figure()
+        plt.plot(pos_errstart[b], label='poserr_start')
+        plt.plot(pos_errgoal[b], label='poserr_goal')
+
+        plt.plot(warperr_start[b]*10, '--', label='warperr_start')
+        plt.plot(warperr_goal[b]*10, '--', label='warperr_goal')
+
+        plt.legend()
+        # plt.show()
+        plt.savefig(outdir + '/traj{}.png'.format(b))
+
+
+def make_gifs(curr_im, warped_images_start, warped_images_goal, conf):
+    bsize = curr_im.shape[0]
+    numbers = get_score_images(range(bsize), curr_im.shape[2], curr_im.shape[3], curr_im.shape[1], curr_im.shape[0])
+
+    dict = {'curr_im':curr_im, 'warped_start':warped_images_start, 'warped_goal':warped_images_goal, ' ':numbers}
+    make_direct_vid(dict, curr_im.shape[0], conf['output_dir'], suf='')
+
+# def make_gifs(columns, conf):
+#     columns = [(col * 255.).astype(np.uint8) for col in columns]
+#     columns.append(np.zeros_like(columns[0]))
+#     npy_to_gif(columns, conf['output_dir'] + '/warpstartgoal')
 
 
 def write_scores(conf, pos_error_start, pos_error_goal):
@@ -287,6 +331,8 @@ def write_scores(conf, pos_error_start, pos_error_goal):
 
     f.write('avg distance (over all) {} min per tstep in pixels \n'.format(np.mean(avg_error_startgoal)))
     f.write('avg distance (over all) min per tstep {} ratio\n'.format(np.mean(avg_error_startgoal)/conf['orig_size'][0]))
+    f.write('median distance (over all) {} min per tstep in pixels \n'.format(np.median(avg_error_startgoal)))
+    f.write('median distance (over all) min per tstep {} ratio\n'.format(np.median(avg_error_startgoal)/conf['orig_size'][0]))
 
     f.write('pos_error start, pos_error goal, avg over min \n')
     for n in range(pos_error_start.shape[0]):
@@ -309,14 +355,15 @@ if __name__ == '__main__':
 
 
     view = 0
-    conffile = '/home/frederik/Documents/catkin_ws/src/visual_mpc/tensorflow_data/gdn/weiss/multiview_new_env_96x128_len8/view{}/conf.py'.format(view)
+    # conffile = '/home/frederik/Documents/catkin_ws/src/visual_mpc/tensorflow_data/gdn/weiss/multiview_multiscale_96x128_highpenal/view{}/conf.py'.format(view)
+    conffile = '/home/frederik/Documents/catkin_ws/src/visual_mpc/tensorflow_data/gdn/weiss/multiview_new_env_len8/view{}/conf.py'.format(view)
     # conffile = '/home/frederik/Documents/catkin_ws/src/visual_mpc/tensorflow_data/gdn/weiss/smoothcost_only/conf.py'.format(view)
 
 
     hyperparams = imp.load_source('hyperparams', conffile)
     conf = hyperparams.configuration
     modeldata_dir = '/'.join(str.split(conffile, '/')[:-1]) + '/modeldata'
-    conf['pretrained_model'] = [modeldata_dir + '/model56002']
+    conf['pretrained_model'] = [modeldata_dir + '/model48002']
 
 
     conf['bench_dir'] = ['/mnt/sda1/pushing_data/sawyer_grasping/eval/track_annotations']

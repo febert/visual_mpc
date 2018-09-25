@@ -1,0 +1,4 @@
+avg distance (over all) 5.7689650272454 min per tstep in pixels 
+avg distance (over all) min per tstep 0.12018677140094584 ratio
+median distance (over all) 5.5527545218831 min per tstep in pixels 
+median distance (over all) min per tstep 0.11568238587256457 ratio

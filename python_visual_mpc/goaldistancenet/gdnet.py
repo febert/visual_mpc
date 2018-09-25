@@ -19,6 +19,8 @@ from python_visual_mpc.video_prediction.utils_vpred.online_reader import OnlineR
 import tensorflow.contrib.slim as slim
 
 from python_visual_mpc.utils.colorize_tf import colorize
+
+from python_visual_mpc.goaldistancenet.utils.losses import charbonnier_loss, ternary_loss
 from tensorflow.contrib.layers.python import layers as tf_layers
 from python_visual_mpc.video_prediction.utils_vpred.online_reader import read_trajectory
 
@@ -36,31 +38,7 @@ def length(x):
 def mean_square(x):
     return tf.reduce_mean(tf.square(x))
 
-def charbonnier_loss(x, mask=None, truncate=None, alpha=0.45, beta=1.0, epsilon=0.001):
-    """Compute the generalized charbonnier loss of the difference tensor x.
-    All positions where mask == 0 are not taken into account.
 
-    Args:
-        x: a tensor of shape [num_batch, height, width, channels].
-        mask: a mask of shape [num_batch, height, width, mask_channels],
-            where mask channels must be either 1 or the same number as
-            the number of channels of x. Entries should be 0 or 1.
-    Returns:
-        loss as tf.float32
-    """
-    with tf.variable_scope('charbonnier_loss'):
-        batch, height, width, channels = tf.unstack(tf.shape(x))
-        normalization = tf.cast(batch * height * width * channels, tf.float32)
-
-        error = tf.pow(tf.square(x * beta) + tf.square(epsilon), alpha)
-
-        if mask is not None:
-            error = tf.multiply(mask, error)
-
-        if truncate is not None:
-            error = tf.minimum(error, truncate)
-
-        return tf.reduce_sum(error) / (normalization + 1e-6)
 
 
 def flow_smooth_cost(flow, norm, mode, mask):
@@ -425,11 +403,16 @@ class GoalDistanceNet(object):
         else: raise ValueError("norm not defined!")
 
         newlosses = {}
-        newlosses['train_I1_recon_cost'+suf] = norm((gen_I1 - I1), occ_mask_bwd)
+        if 'ternary_loss' in self.conf:
+            newlosses['train_I1_recon_cost'+suf] = ternary_loss(I1, gen_I1, occ_mask_bwd)
+        else:
+            newlosses['train_I1_recon_cost'+suf] = norm((gen_I1 - I1), occ_mask_bwd)
 
         if 'fwd_bwd' in self.conf:
-            newlosses['train_I0_recon_cost'+suf] = norm((gen_I0 - I0), occ_mask_fwd)
-
+            if 'ternary_loss' in self.conf:
+                newlosses['train_I1_recon_cost'+suf] = ternary_loss(I0, gen_I0, occ_mask_fwd)
+            else:
+                newlosses['train_I0_recon_cost'+suf] = norm((gen_I0 - I0), occ_mask_fwd)
 
             fd = self.conf['flow_diff_cost']
             newlosses['train_flow_diff_cost'+suf] = (norm(diff_flow_fwd, occ_mask_fwd)
