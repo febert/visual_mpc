@@ -10,13 +10,38 @@ import tensorflow as tf
 from tensorflow.python.platform import app
 from tensorflow.python.platform import flags
 import imp
-from python_visual_mpc.sawyer.visual_mpc_rospkg.src.benckmarking.annotate_benchmark import get_folders
 from python_visual_mpc.video_prediction.basecls.utils.visualize import add_crosshairs_single
 from PIL import Image
 from python_visual_mpc.video_prediction.basecls.utils.get_designated_pix import Getdesig
 
+from python_visual_mpc.video_prediction.utils_vpred.create_gif_lib import npy_to_gif
+
+import glob
+import re
+
+import pdb
 save_points = False
 FLAGS = flags.FLAGS
+
+from python_visual_mpc.visual_mpc_core.infrastructure.assemble_cem_visuals import make_direct_vid
+from python_visual_mpc.visual_mpc_core.infrastructure.assemble_cem_visuals import get_score_images
+
+
+REGION_AVERAGING = True
+
+def sorted_alphanumeric(l):
+    """ Sort the given iterable in the way that humans expect."""
+    convert = lambda text: int(text) if text.isdigit() else text
+    alphanum_key = lambda key: [ convert(c) for c in re.split('([0-9]+)', key) ]
+    return sorted(l, key = alphanum_key)
+
+def get_folders(dir):
+    files = glob.glob(dir + '/*')
+    folders = []
+    for f in files:
+        if os.path.isdir(f):
+            folders.append(f)
+    return sorted_alphanumeric(folders)
 
 def load_data(bench_dir, tsteps, num_ex=8, grasp_data_mode=-1, interval=12):
 
@@ -86,7 +111,7 @@ def load_benchmark_data(conf):
     else:
         folders = get_folders(bench_dir)
 
-    num_ex = 3
+    num_ex = conf['batch_size']
     folders = folders[:num_ex]
 
     image_batch = []
@@ -101,32 +126,26 @@ def load_benchmark_data(conf):
         exp_dir = folder + '/images{}'.format(view)
 
         imlist = []
-        for t in range(50):
-            imname = exp_dir + '/im{}.png'.format(t)
+        for t in range(30):
+            imname = exp_dir + '/im_{}.jpg'.format(t)
             im = np.array(Image.open(imname))
             orig_imshape = im.shape
-            im = cv2.resize(im, (conf['orig_size'][0], conf['orig_size'][1]), interpolation=cv2.INTER_AREA)
+            im = cv2.resize(im, (conf['orig_size'][1], conf['orig_size'][0]), interpolation=cv2.INTER_AREA)
             imlist.append(im)
-
-        image_size_ratio = conf['orig_size'][0]/orig_imshape[0]
-
-        dict = pkl.load(open(folder + '/tracker_annotations.pkl', 'rb'), encoding='latin1')
-        true_desig = dict['points'][:,view]
-        true_desig_l.append(true_desig*image_size_ratio)
-
-        folder_startgoal = '/'.join(str.split(folder, '/')[:-2]) + '/start_goal/'  + name
-        dict = pkl.load(open(folder_startgoal + '/start_goal_points.pkl', 'rb'), encoding='latin1')
-
-        if view == 0:
-            goal_image_name = 'front_goal.png'
-        else:
-            goal_image_name = 'left_goal.png'
-        goal_image_l.append(np.array(Image.open(folder_startgoal + '/' + goal_image_name)))
-        desig_pix_t0_l.append(dict['start'][view]*image_size_ratio)
-        goal_pix_l.append(dict['goal'][view]*image_size_ratio)
 
         images = np.stack(imlist).astype(np.float32) / 255.
         image_batch.append(images)
+
+        image_size_ratio = conf['orig_size'][0]/orig_imshape[0]
+
+        true_desig = np.load(folder + '/points.npy')
+        true_desig = (true_desig[view]*image_size_ratio).astype(np.int)
+        true_desig_l.append(true_desig)
+
+        goal_image_l.append(images[-1])
+        desig_pix_t0_l.append(true_desig[0])
+        goal_pix_l.append(true_desig[-1])
+
 
     image_batch = np.stack(image_batch)
     desig_pix_t0 = np.stack(desig_pix_t0_l)
@@ -160,7 +179,7 @@ def run_tracking_benchmark(conf):
 
     image_batch, desig_pix_t0, goal_pix, true_desig, goal_images = load_benchmark_data(conf)
 
-    compute_metric(conf, image_batch, desig_pix_t0, goal_pix, true_desig, goal_images)
+    compute_metric(conf, image_batch, goal_pix, desig_pix_t0, true_desig, goal_images)
 
 
 
@@ -172,18 +191,27 @@ def compute_metric(conf, images, goal_pix_b, pix_t0_b, true_desig_pix_b=None, go
         goal_image_b = images[:, -1]
     else: goal_image_b = goal_images
 
-    bsize = images.shape[0]
     columns = []
 
+    # plt.switch_backend('TkAgg')
+    # plt.imshow(start_image_b[0])
+    # plt.show()
 
-    seq_len = images.shape[1]
+    bsize, seq_len, im_height, im_width, _ = images.shape
+    warped_images_start = np.zeros([bsize, seq_len, im_height, im_width, 3])
+    warped_images_goal = np.zeros([bsize, seq_len, im_height, im_width, 3])
+    curr_im = np.zeros([bsize, seq_len, im_height, im_width, 3])
+
     pos_error_start = np.zeros([bsize, seq_len])
     pos_error_goal = np.zeros([bsize, seq_len])
+    warperror_start = np.zeros([bsize, seq_len])
+    warperror_goal = np.zeros([bsize, seq_len])
+
 
     for t in range(seq_len):
         column = []
-        warped_image_start, flow_field, start_warp_pts = goal_image_warper(images[:, t], start_image_b)
-        warped_image_goal, flow_field, goal_warp_pts = goal_image_warper(images[:, t], goal_image_b)
+        warped_image_start, flow_field, start_warp_pts = goal_image_warper(images[:, t, None], start_image_b[:,None])
+        warped_image_goal, flow_field, goal_warp_pts = goal_image_warper(images[:, t, None], goal_image_b[:,None])
 
         curr_im_l = []
 
@@ -200,32 +228,58 @@ def compute_metric(conf, images, goal_pix_b, pix_t0_b, true_desig_pix_b=None, go
             start_image = images[b, 0]
             goal_image = images[b, -1]
 
-            desig_l.append(np.flip(start_warp_pts[b, pix_t0[0], pix_t0[1]], 0))
-            start_warperr = np.linalg.norm(start_image[pix_t0[0], pix_t0[1]] -
-                                           warped_image_start[b, pix_t0[0], pix_t0[1]])
-            warperrs.append(start_warperr)
+            if REGION_AVERAGING:
+                print('using region averaging!!')
+                width = 5
+                r_range = np.clip(np.array((pix_t0[0]-width,pix_t0[0]+width+1)), 0, im_height-1)
+                c_range = np.clip(np.array((pix_t0[1]-width,pix_t0[1]+width+1)), 0, im_width-1)
 
-            desig_l.append(np.flip(goal_warp_pts[b, goal_pix[0], goal_pix[1]], 0))
-            goal_warperr = np.linalg.norm(goal_image[goal_pix[0], goal_pix[1]] -
-                                          warped_image_goal[b, goal_pix[0], goal_pix[1]])
-            warperrs.append(goal_warperr)
+                point_field = start_warp_pts[b, 0, r_range[0]:r_range[1], c_range[0]:c_range[1]]
+                desig_l.append(np.flip(np.array([np.median(point_field[:,:,0]), np.median(point_field[:,:,1])]), axis=0))
+                start_warperr = np.linalg.norm(start_image[pix_t0[0], pix_t0[1]] -
+                                               warped_image_start[b, 0, pix_t0[0], pix_t0[1]])
+                warperrs.append(start_warperr)
+
+                r_range = np.clip(np.array((goal_pix[0]-width,goal_pix[0]+width+1)), 0, im_height)
+                c_range = np.clip(np.array((goal_pix[1]-width,goal_pix[1]+width+1)), 0, im_width)
+
+                point_field = goal_warp_pts[b, 0, r_range[0]:r_range[1], c_range[0]:c_range[1]]
+                desig_l.append(np.flip(np.array([np.median(point_field[:,:,0]), np.median(point_field[:,:,1])]), axis=0))
+                goal_warperr = np.linalg.norm(goal_image[goal_pix[0], goal_pix[1]] -
+                                              warped_image_goal[b, 0, goal_pix[0], goal_pix[1]])
+                warperrs.append(goal_warperr)
+            else:
+                desig_l.append(np.flip(start_warp_pts[b, 0, pix_t0[0], pix_t0[1]], 0))
+                start_warperr = np.linalg.norm(start_image[pix_t0[0], pix_t0[1]] -
+                                               warped_image_start[b, 0, pix_t0[0], pix_t0[1]])
+                warperrs.append(start_warperr)
+
+                desig_l.append(np.flip(goal_warp_pts[b, 0, goal_pix[0], goal_pix[1]], 0))
+                goal_warperr = np.linalg.norm(goal_image[goal_pix[0], goal_pix[1]] -
+                                              warped_image_goal[b, 0, goal_pix[0], goal_pix[1]])
+                warperrs.append(goal_warperr)
+
+            warperror_start[b, t] = start_warperr
+            warperror_goal[b, t] = goal_warperr
 
             warperrs = np.array([start_warperr, goal_warperr])
             tradeoff = 1 / warperrs / np.sum(1 / warperrs)
 
             ann_curr = add_crosshairs_single(current_frame, desig_l[0], np.array([1., 0, 0.]))
             ann_curr = add_crosshairs_single(ann_curr, desig_l[1], np.array([0., 0, 1]))
-            ann_curr = add_crosshairs_single(ann_curr, true_desig_pix, np.array([0., 0, 1]))
+            ann_curr = add_crosshairs_single(ann_curr, true_desig_pix, np.array([0., 1, 1]))
             curr_im_l.append(ann_curr)
 
+            # pos_error_start[b,t] = np.linalg.norm(pix_t0 - true_desig_pix)
+            # pos_error_goal[b,t] = np.linalg.norm(goal_pix - true_desig_pix)
             pos_error_start[b,t] = np.linalg.norm(desig_l[0] - true_desig_pix)
             pos_error_goal[b,t] = np.linalg.norm(desig_l[1] - true_desig_pix)
 
-            warped_im_start = draw_text_onimage('%.2f' % tradeoff[0], warped_image_start[b], color=(255, 0, 0))
+            warped_im_start = draw_text_onimage('%.2f' % tradeoff[0], warped_image_start[b, 0], color=(255, 0, 0))
             warped_im_start = add_crosshairs_single(warped_im_start, pix_t0, color=np.array([1., 0, 0.]))
             warped_image_start_l.append(warped_im_start)
 
-            warped_im_goal = draw_text_onimage('%.2f' % tradeoff[1], warped_image_goal[b], color=(255, 0, 0))
+            warped_im_goal = draw_text_onimage('%.2f' % tradeoff[1], warped_image_goal[b, 0], color=(255, 0, 0))
             warped_im_goal = add_crosshairs_single(warped_im_goal, goal_pix, color=np.array([0, 0, 1.]))
             warped_image_goal_l.append(warped_im_goal)
 
@@ -233,23 +287,80 @@ def compute_metric(conf, images, goal_pix_b, pix_t0_b, true_desig_pix_b=None, go
         column.append(np.stack(warped_image_start_l, 0))
         column.append(np.stack(warped_image_goal_l, 0))
 
+        curr_im[:,t] = np.stack(curr_im_l, 0)
+        warped_images_start[:,t] = np.stack(warped_image_start_l, 0)
+        warped_images_goal[:,t] = np.stack(warped_image_goal_l, 0)
+
         newcolumn = []
-        for b in range(images.shape[0]):
+        numex = 5
+        for b in range(numex):
             for el in column:
                 newcolumn.append(el[b])
-        column = np.concatenate(newcolumn, 0)
-        columns.append(column)
+
+        columns.append(np.concatenate(newcolumn, 0))
+
+    plot_trackerrors(conf['output_dir'], pos_error_start, pos_error_goal, warperror_start, warperror_goal)
+
+    make_gifs(curr_im, warped_images_start, warped_images_goal, conf)
 
     image = Image.fromarray((np.concatenate(columns, 1) * 255).astype(np.uint8))
-    print('imagefile saved to ', conf['output_dir'] + '/warpstartgoal.png')
-    image.save(conf['output_dir'] + '/benchmark.png')
+    file = conf['output_dir'] + '/warpstartgoal.png'
+    print('imagefile saved to ', file)
+    image.save(file)
+
+    write_scores(conf, pos_error_start, pos_error_goal)
+
+
+def plot_trackerrors(outdir, pos_errstart, pos_errgoal, warperr_start, warperr_goal):
+
+    outdir = outdir + '/bench_plots'
+    if not os.path.exists(outdir):
+        os.makedirs(outdir)
+
+    for b in range(pos_errstart.shape[0]):
+        plt.switch_backend('TkAgg')
+        plt.figure()
+        plt.plot(pos_errstart[b], label='poserr_start')
+        plt.plot(pos_errgoal[b], label='poserr_goal')
+
+        plt.plot(warperr_start[b]*10, '--', label='warperr_start')
+        plt.plot(warperr_goal[b]*10, '--', label='warperr_goal')
+
+        plt.legend()
+        # plt.show()
+        plt.savefig(outdir + '/traj{}.png'.format(b))
+
+
+def make_gifs(curr_im, warped_images_start, warped_images_goal, conf):
+    bsize = curr_im.shape[0]
+    numbers = get_score_images(range(bsize), curr_im.shape[2], curr_im.shape[3], curr_im.shape[1], curr_im.shape[0])
+
+    dict = {'curr_im':curr_im, 'warped_start':warped_images_start, 'warped_goal':warped_images_goal, ' ':numbers}
+    make_direct_vid(dict, curr_im.shape[0], conf['output_dir'], suf='')
+
+# def make_gifs(columns, conf):
+#     columns = [(col * 255.).astype(np.uint8) for col in columns]
+#     columns.append(np.zeros_like(columns[0]))
+#     npy_to_gif(columns, conf['output_dir'] + '/warpstartgoal')
+
 
 def write_scores(conf, pos_error_start, pos_error_goal):
-    result_file = conf['output_dir']
+    result_file = conf['output_dir'] + '/pos_error.txt'
     f = open(result_file, 'w')
-    f.write('pos_error start, pos_error goal')
+
+    avg_error_startgoal = np.mean(np.min(np.stack([pos_error_start, pos_error_goal], axis=0), axis=0), axis=1)
+
+    pos_error_start = np.mean(pos_error_start, axis=1)
+    pos_error_goal = np.mean(pos_error_goal, axis=1)
+
+    f.write('avg distance (over all) {} min per tstep in pixels \n'.format(np.mean(avg_error_startgoal)))
+    f.write('avg distance (over all) min per tstep {} ratio\n'.format(np.mean(avg_error_startgoal)/conf['orig_size'][0]))
+    f.write('median distance (over all) {} min per tstep in pixels \n'.format(np.median(avg_error_startgoal)))
+    f.write('median distance (over all) min per tstep {} ratio\n'.format(np.median(avg_error_startgoal)/conf['orig_size'][0]))
+
+    f.write('pos_error start, pos_error goal, avg over min \n')
     for n in range(pos_error_start.shape[0]):
-        f.write('{}, {}'.format(pos_error_start[n], pos_error_goal[n]))
+        f.write('{}: {}, {}, {} \n'.format(n, pos_error_start[n], pos_error_goal[n], avg_error_startgoal[n]))
 
 if __name__ == '__main__':
     # testdata_path = '/mnt/sda1/pushing_data/goaldistancenet_test'
@@ -267,17 +378,22 @@ if __name__ == '__main__':
     # visuallize_sawyer_track(testdata_path, conffile, grasp_data_mode=view, tsteps=tsteps, interval=interval)
 
 
-    view = 0
-    conffile = '/mnt/sda1/visual_mpc/tensorflow_data/gdn/weiss/multiview/view{}/conf.py'.format(view)
+    view = 1
+    # conffile = '/home/frederik/Documents/catkin_ws/src/visual_mpc/tensorflow_data/gdn/weiss/multiview_multiscale_96x128_highpenal/view{}/conf.py'.format(view)
+    # conffile = '/home/frederik/Documents/catkin_ws/src/visual_mpc/tensorflow_data/gdn/weiss/multiview_new_env_len8/view{}/conf.py'.format(view)
+    # conffile = '/home/frederik/Documents/catkin_ws/src/visual_mpc/tensorflow_data/gdn/weiss/multiview_new_env_96x128_len8/view{}/conf.py'.format(view)
+    conffile = '/home/frederik/Documents/catkin_ws/src/visual_mpc/tensorflow_data/gdn/weiss/smoothcost_only/view{}/conf.py'.format(view)
+
+
     hyperparams = imp.load_source('hyperparams', conffile)
     conf = hyperparams.configuration
-
     modeldata_dir = '/'.join(str.split(conffile, '/')[:-1]) + '/modeldata'
-    conf['pretrained_model'] = modeldata_dir + '/model48002'
-    conf['bench_dir'] = ['/mnt/sda1/pushing_data/sawyer_grasping/sawyer_track_bench/cv_runs',
-                         '/mnt/sda1/pushing_data/sawyer_grasping/sawyer_track_bench/gdn_runs']
+    conf['pretrained_model'] = [modeldata_dir + '/model48002']
 
-    conf['batch_size'] = 3
+
+    conf['bench_dir'] = ['/mnt/sda1/pushing_data/sawyer_grasping/eval/track_annotations']
+
+    conf['batch_size'] = 20
     run_tracking_benchmark(conf)
 
 

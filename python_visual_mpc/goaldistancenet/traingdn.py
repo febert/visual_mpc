@@ -163,10 +163,8 @@ def main(unused_argv, conf_script= None):
         cost, _, summary_str, lr = sess.run([model.loss, model.train_op, model.train_summ_op, model.learning_rate],
                                         feed_dict)
 
-        if (itr) % 10 ==0:
+        if (itr) % 50 ==0:
             tf.logging.info(str(itr) + ' ' + str(cost))
-
-        if (itr) % 10 ==0:
             tf.logging.info('lr: {}'.format(lr))
 
         if (itr) % VAL_INTERVAL == 2:

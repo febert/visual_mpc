@@ -45,5 +45,6 @@ configuration = {
 'ch_mult':4,
 'decay_lr':'',
 'view':0,
-'new_loader': True
+'new_loader': True,
+'ternary_loss':''
 }

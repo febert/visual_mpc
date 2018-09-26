@@ -6,7 +6,6 @@ from .cem_controller_base import CEM_Controller_Base
 from python_visual_mpc.visual_mpc_core.agent.general_agent import resize_store
 import ray
 import traceback
-from python_visual_mpc.visual_mpc_core.algorithm.utils.cem_controller_utils import sample_actions
 
 
 @ray.remote
