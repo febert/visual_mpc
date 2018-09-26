@@ -405,6 +405,8 @@ class GoalDistanceNet(object):
         newlosses = {}
         if 'ternary_loss' in self.conf:
             newlosses['train_I1_recon_cost'+suf] = ternary_loss(I1, gen_I1, occ_mask_bwd)
+        elif 'ternary_reconst_loss' in self.conf:
+            newlosses['train_I1_recon_cost'+suf] = ternary_loss(I1, gen_I1, occ_mask_bwd) + norm((gen_I1 - I1), occ_mask_bwd)
         else:
             newlosses['train_I1_recon_cost'+suf] = norm((gen_I1 - I1), occ_mask_bwd)
 

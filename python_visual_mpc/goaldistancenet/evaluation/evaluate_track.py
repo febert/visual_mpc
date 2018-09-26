@@ -230,7 +230,7 @@ def compute_metric(conf, images, goal_pix_b, pix_t0_b, true_desig_pix_b=None, go
 
             if REGION_AVERAGING:
                 print('using region averaging!!')
-                width = 3
+                width = 5
                 r_range = np.clip(np.array((pix_t0[0]-width,pix_t0[0]+width+1)), 0, im_height-1)
                 c_range = np.clip(np.array((pix_t0[1]-width,pix_t0[1]+width+1)), 0, im_width-1)
 
@@ -378,10 +378,10 @@ if __name__ == '__main__':
     # visuallize_sawyer_track(testdata_path, conffile, grasp_data_mode=view, tsteps=tsteps, interval=interval)
 
 
-    view = 0
+    view = 1
     # conffile = '/home/frederik/Documents/catkin_ws/src/visual_mpc/tensorflow_data/gdn/weiss/multiview_multiscale_96x128_highpenal/view{}/conf.py'.format(view)
-    # conffile = '/home/frederik/Documents/catkin_ws/src/visual_mpc/tensorflow_data/gdn/weiss/multiview_new_env_len8/view{}/conf.py'.format(view)
-    conffile = '/home/frederik/Documents/catkin_ws/src/visual_mpc/tensorflow_data/gdn/weiss/multiview_new_env_96x128_len8/view{}/conf.py'.format(view)
+    conffile = '/home/frederik/Documents/catkin_ws/src/visual_mpc/tensorflow_data/gdn/weiss/multiview_new_env_len8/view{}/conf.py'.format(view)
+    # conffile = '/home/frederik/Documents/catkin_ws/src/visual_mpc/tensorflow_data/gdn/weiss/multiview_new_env_96x128_len8/view{}/conf.py'.format(view)
     # conffile = '/home/frederik/Documents/catkin_ws/src/visual_mpc/tensorflow_data/gdn/weiss/ternary/conf.py'.format(view)
 
 
