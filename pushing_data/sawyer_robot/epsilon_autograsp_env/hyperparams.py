@@ -31,7 +31,6 @@ policy = {
     'nactions': 10,
     'initial_std': 0.035,   #std dev. in xy
     'initial_std_lift': 0.08,   #std dev. in z
-    'epsilon': 0.05
 }
 
 config = {

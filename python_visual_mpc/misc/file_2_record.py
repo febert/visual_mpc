@@ -9,7 +9,7 @@ import random
 
 
 def save_worker(save_conf):
-    assigned_files, record_queue, T, target_width, seperate = save_conf
+    assigned_files, record_queue, T, target_width, seperate, infer_gripper = save_conf
     target_dim = None
     ncam = None
     for traj in assigned_files:
@@ -34,6 +34,19 @@ def save_worker(save_conf):
                     img = img[:, ::-1]
                 imgs[t, n] = cv2.resize(img, target_dim, interpolation=cv2.INTER_AREA)
         obs_dict['images'] = imgs
+        if infer_gripper:
+            policy_shape = policy_out[0]['actions'].shape[0]
+            assert policy_shape == 4 or policy_shape == 5, "Invalid dims to infer gripper"
+            if policy_shape == 4:
+                for i, p in enumerate(policy_out):
+                    new_action = np.ones(5, dtype = p['actions'].dtype)
+                    new_action[:-1] = p['actions']
+                    if obs_dict['state'][i + 1, -1] <= -0.5:
+                        new_action[-1] = -1
+                    p['actions'] = new_action
+            elif policy_shape == 5 and seperate and 'goal_reached' not in agent_data:
+                good_states = np.logical_and(obs_dict['state'][:-1, 2] >= 0.9, obs_dict['state'][:-1, -1] > -0.5)
+                agent_data['goal_reached'] = np.sum(np.logical_and(np.abs(obs_dict['state'][:-1, -1]) < 0.97, good_states)) >= 2
 
         if seperate and not 'goal_reached' in agent_data:
             state = obs_dict['state']
@@ -57,7 +70,8 @@ if __name__ == '__main__':
     parser.add_argument('--offset', type=int, help='offset record counter (aka if records already exist)', default=0)
     parser.add_argument('--nworkers', type=int, help='use multiple threads or not', default=1)
     parser.add_argument('--traj_per_file', type=int, help='number of trajectories per file', default=16)
-    parser.add_argument('--seperate', dest='seperate_good', action='store_true', default=True)
+    parser.add_argument('--seperate', dest='seperate_good', action='store_true', default=False, help="seperates good and bad trajectories")
+    parser.add_argument('--infer_gripper', action='store_true', default=False, help="adds gripper action to adim=4 trajs")
 
     args = parser.parse_args()
 
@@ -86,13 +100,13 @@ if __name__ == '__main__':
                 end = len(traj_files)
             workers_files = traj_files[start:end]
 
-            save_conf = (workers_files, record_queue, T, args.target_width, args.seperate_good)
+            save_conf = (workers_files, record_queue, T, args.target_width, args.seperate_good, args.infer_gripper)
             confs.append(save_conf)
 
         p = Pool(args.nworkers)
         p.map(save_worker, confs)
     else:
-        save_worker((traj_files, record_queue, T, args.target_width, args.seperate_good))
+        save_worker((traj_files, record_queue, T, args.target_width, args.seperate_good, args.infer_gripper))
 
     record_queue.put(None)
     record_saver_proc.join()
