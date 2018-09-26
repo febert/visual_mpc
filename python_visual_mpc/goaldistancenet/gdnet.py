@@ -404,17 +404,13 @@ class GoalDistanceNet(object):
 
         newlosses = {}
         if 'ternary_loss' in self.conf:
-            newlosses['train_I1_recon_cost'+suf] = ternary_loss(I1, gen_I1, occ_mask_bwd)
-        elif 'ternary_reconst_loss' in self.conf:
-            newlosses['train_I1_recon_cost'+suf] = ternary_loss(I1, gen_I1, occ_mask_bwd) + norm((gen_I1 - I1), occ_mask_bwd)
-        else:
-            newlosses['train_I1_recon_cost'+suf] = norm((gen_I1 - I1), occ_mask_bwd)
+            newlosses['ternary_I1'+suf] = ternary_loss(I1, gen_I1, occ_mask_bwd)*self.conf['ternary_loss']
+        newlosses['train_I1_recon_cost'+suf] = norm((gen_I1 - I1), occ_mask_bwd)
 
         if 'fwd_bwd' in self.conf:
             if 'ternary_loss' in self.conf:
-                newlosses['train_I1_recon_cost'+suf] = ternary_loss(I0, gen_I0, occ_mask_fwd)
-            else:
-                newlosses['train_I0_recon_cost'+suf] = norm((gen_I0 - I0), occ_mask_fwd)
+                newlosses['ternary_I0'+suf] = ternary_loss(I0, gen_I0, occ_mask_fwd)*self.conf['ternary_loss']
+            newlosses['train_I0_recon_cost'+suf] = norm((gen_I0 - I0), occ_mask_fwd)
 
             fd = self.conf['flow_diff_cost']
             newlosses['train_flow_diff_cost'+suf] = (norm(diff_flow_fwd, occ_mask_fwd)

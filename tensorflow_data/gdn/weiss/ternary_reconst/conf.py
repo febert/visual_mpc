@@ -46,5 +46,5 @@ configuration = {
 'ch_mult':4,
 'view':0,
 'new_loader': True,
-'ternary_reconst_loss':''
+'ternary_loss':1e-3
 }
