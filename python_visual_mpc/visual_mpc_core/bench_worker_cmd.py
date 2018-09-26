@@ -10,7 +10,7 @@ import argparse
 import os
 import importlib.machinery
 import importlib.util
-from python_visual_mpc.visual_mpc_core.infrastructure.run_sim import Sim
+from python_visual_mpc.visual_mpc_core.infrastructure.sim import Sim
 from python_visual_mpc.visual_mpc_core.benchmarks import perform_benchmark
 import copy
 import random

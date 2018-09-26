@@ -32,7 +32,7 @@ class Randompolicy(Policy):
             'discrete_gripper':False,
         }
 
-        parent_params = super()._default_hparams()
+        parent_params = super(Randompolicy, self)._default_hparams()
         for k in default_dict.keys():
             parent_params.add_hparam(k, default_dict[k])
         return parent_params
@@ -73,21 +73,28 @@ class RandomEpsilonAG(Randompolicy):
     """
     Random Policy
     """
-
     def __init__(self, agentparams, policyparams, gpu_id, npgu):
-        super().__init__(agentparams, policyparams, gpu_id, npgu)
+        super(RandomEpsilonAG, self).__init__(agentparams, policyparams, gpu_id, npgu)
         assert self.adim == 5, "Action dimension should be 5 (vanilla env)"
 
-    def act(self, t, state, finger_sensors):
-        base_action = super().act(t)['actions']
-        ag_action = -1
-        if np.amax(finger_sensors[-2:]) > 0:
-            ag_action = 1
-        elif state[-1, 2] <= self.policyparams.get('ag_zthresh', 0.177):
-            ag_action = 1
+    def _default_hparams(self):
+        default_dict = {
+            'z_thresh': 0.15,
+            'epsilon': 0.2
+        }
+        parent_params = super(RandomEpsilonAG, self)._default_hparams()
+        for k in default_dict.keys():
+            parent_params.add_hparam(k, default_dict[k])
+        return parent_params
 
-        if np.random.uniform() < self.policyparams['ag_epsilon']:
+    def act(self, t, state, finger_sensors):
+        base_action = super(RandomEpsilonAG, self).act(t)['actions']
+        ag_action = -1
+        if state[-1, 2] <= self._hp.z_thresh or np.amax(finger_sensors[-1]) > 0:
+            ag_action = 1
+        if np.random.uniform() < self._hp.epsilon:
             ag_action = -ag_action
+
         base_action[-1] = ag_action
 
         return {'actions': base_action}

@@ -188,6 +188,7 @@ class BaseSawyerMujocoEnv(BaseMujocoEnv):
                 obji_quat = Quaternion(axis=[0, 0, -1], angle=rot).elements
             object_poses[i, :3] = obji_xyz
             object_poses[i, 3:] = obji_quat
+
         self.sim.data.set_mocap_pos('mocap', np.array([0, 0.5, 0.5]))
         self.sim.data.set_mocap_quat('mocap', zangle_to_quat(np.random.uniform(low_bound[3], high_bound[3])))
 
@@ -226,7 +227,14 @@ class BaseSawyerMujocoEnv(BaseMujocoEnv):
         if self._hp.verbose_dir is not None:
             print('skip_first: {}'.format(self.skip_first))
 
+
         assert self.skip_first > 25, "Skip first should be at least 15"
+        sim_state = self.sim.get_state()
+        self.sim.data.qpos[:9] = NEUTRAL_JOINTS
+        self.sim.data.qpos[self._n_joints:] = object_poses.copy()
+        sim_state.qvel[:] = np.zeros_like(self.sim.data.qvel)
+        self.sim.set_state(sim_state)
+
         for t in range(self.skip_first):
             if t < 20:
                 if t < 5:
@@ -297,6 +305,12 @@ class BaseSawyerMujocoEnv(BaseMujocoEnv):
             raise Environment_Exception
         if np.linalg.norm(end_eff_pose[:3] - des_end_eff_xyz) > arm_thresh:
             raise Environment_Exception
+
+    def current_obs(self):
+        finger_force = np.zeros(2)
+        if self.finger_sensors:
+            finger_force += self.sim.data.sensordata[:2]
+        return self._get_obs(finger_force)
 
     def _get_obs(self, finger_sensors=None):
         obs, touch_offset = {}, 0

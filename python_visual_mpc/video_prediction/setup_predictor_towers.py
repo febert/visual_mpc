@@ -11,9 +11,29 @@ from datetime import datetime
 from python_visual_mpc.video_prediction.dynamic_rnn_model.dynamic_base_model import Dynamic_Base_Model
 from python_visual_mpc.video_prediction.dynamic_rnn_model.alex_model_interface import Alex_Interface_Model
 from python_visual_mpc.visual_mpc_core.infrastructure.utility.logger import Logger
-from python_visual_mpc.visual_mpc_core.run_distributed_datacollector import get_maxiter_weights
 from python_visual_mpc.video_prediction.utils_vpred.variable_checkpoint_matcher import variable_checkpoint_matcher
 import re
+from tensorflow.python.framework.errors_impl import NotFoundError
+
+
+def get_maxiter_weights(dir):
+    try:
+        filenames = gfile.Glob(dir +'/model*')
+    except NotFoundError:
+        print('nothing found at ', dir +'/model*')
+        return None
+    iternums = []
+    if len(filenames) != 0:
+        for f in filenames:
+            try:
+                iternums.append(int(re.match('.*?([0-9]+)$', f).group(1)))
+            except:
+                iternums.append(-1)
+        iternums = np.array(iternums)
+        return filenames[np.argmax(iternums)].split('.')[0] # skip the str after the '.'
+    else:
+        return None
+
 
 class Tower(object):
     def __init__(self, conf, gpu_id, start_images, actions, start_states, pix_distrib):

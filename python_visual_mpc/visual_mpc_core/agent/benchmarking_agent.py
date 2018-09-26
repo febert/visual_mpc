@@ -10,14 +10,17 @@ import pdb
 class BenchmarkAgent(GeneralAgent):
     def __init__(self, hyperparams):
         self._start_goal_confs = hyperparams.get('start_goal_confs', None)
-        self.ncam = hyperparams['env'][1].get('ncam', 2)
+        self.ncam = hyperparams['env'][1].get('ncam', hyperparams['env'][0].default_ncam())
         GeneralAgent.__init__(self, hyperparams)
         self._is_robot_bench = 'robot_name' in self._hyperparams['env'][1]
         self._hyperparams['gen_xml'] = 1
 
     def _setup_world(self, itr):
+        old_ncam = self.ncam
         self._reset_state = self._load_raw_data(itr)
         GeneralAgent._setup_world(self, itr)
+        assert old_ncam == self.ncam, """Environment has {} cameras but benchmark has {}. 
+                                            Feed correct ncam in agent_params""".format(self.ncam, old_ncam)
 
     def _required_rollout_metadata(self, agent_data, traj_ok, t, i_itr):
         GeneralAgent._required_rollout_metadata(self, agent_data, traj_ok, t, i_itr)
@@ -30,7 +33,7 @@ class BenchmarkAgent(GeneralAgent):
             Hot-wire traj_ok to give user chance to abort experiment on failure
             """
             print('WARNING TRAJ FAILED')
-            if 'n' in raw_input('would you like to retry? (y/n): '):
+            if 'n' in raw_input('would you like to retry? (y/n): '):    # is fine since robot_bench only runs in py2
                 agent_data['traj_ok'] = True
 
     def _init(self):
@@ -76,10 +79,7 @@ class BenchmarkAgent(GeneralAgent):
         traj_folder = group_folder + '/traj{}'.format(itr)
 
         print('reading from: ', traj_folder)
-        if 'num_load_steps' in self._hyperparams:
-            num_images = self._hyperparams['num_load_steps']
-        else:
-            num_images = 2
+        num_images = self._hyperparams.get('num_load_steps', 2)
 
         obs_dict = {}
         goal_images = np.zeros([num_images, self.ncam, self._hyperparams['image_height'], self._hyperparams['image_width'], 3])
@@ -87,7 +87,7 @@ class BenchmarkAgent(GeneralAgent):
             for i in range(self.ncam):
                 image_file = '{}/images{}/im_{}.png'.format(traj_folder, i, t)
                 if not os.path.isfile(image_file):
-                    raise(ValueError, 'goal image not found!')
+                    raise ValueError("Can't find goal image: {}".format(image_file))
                 goal_images[t, i] = cv2.imread(image_file)[...,::-1]
         self._goal_image = goal_images.astype(np.float32)/255.
 

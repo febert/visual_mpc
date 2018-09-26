@@ -19,6 +19,8 @@ from python_visual_mpc.video_prediction.utils_vpred.online_reader import OnlineR
 import tensorflow.contrib.slim as slim
 
 from python_visual_mpc.utils.colorize_tf import colorize
+
+from python_visual_mpc.goaldistancenet.utils.losses import charbonnier_loss, ternary_loss
 from tensorflow.contrib.layers.python import layers as tf_layers
 from python_visual_mpc.video_prediction.utils_vpred.online_reader import read_trajectory
 
@@ -36,31 +38,7 @@ def length(x):
 def mean_square(x):
     return tf.reduce_mean(tf.square(x))
 
-def charbonnier_loss(x, mask=None, truncate=None, alpha=0.45, beta=1.0, epsilon=0.001):
-    """Compute the generalized charbonnier loss of the difference tensor x.
-    All positions where mask == 0 are not taken into account.
 
-    Args:
-        x: a tensor of shape [num_batch, height, width, channels].
-        mask: a mask of shape [num_batch, height, width, mask_channels],
-            where mask channels must be either 1 or the same number as
-            the number of channels of x. Entries should be 0 or 1.
-    Returns:
-        loss as tf.float32
-    """
-    with tf.variable_scope('charbonnier_loss'):
-        batch, height, width, channels = tf.unstack(tf.shape(x))
-        normalization = tf.cast(batch * height * width * channels, tf.float32)
-
-        error = tf.pow(tf.square(x * beta) + tf.square(epsilon), alpha)
-
-        if mask is not None:
-            error = tf.multiply(mask, error)
-
-        if truncate is not None:
-            error = tf.minimum(error, truncate)
-
-        return tf.reduce_sum(error) / (normalization + 1e-6)
 
 
 def flow_smooth_cost(flow, norm, mode, mask):
@@ -197,7 +175,7 @@ class GoalDistanceNet(object):
                 self.images = dict['images']
 
             if 'temp_divide_and_conquer' not in self.conf:
-                self.I0, self.I1 = self.sel_images()
+                self.I0, self.I1, self.I2 = self.sel_images()
 
         elif I0 == None:  #feed values at test time
             self.I0 = self.I0_pl= tf.placeholder(tf.float32, name='images',
@@ -266,14 +244,18 @@ class GoalDistanceNet(object):
         self.occ_mask_fwd = 1 - self.occ_fwd
 
         if self.build_loss:
-            self.add_pair_loss(I1=self.I1, gen_I1=self.gen_I1, occ_bwd=self.occ_bwd, flow_bwd=self.flow_bwd, diff_flow_bwd=self.diff_flow_bwd,
-                                   I0=self.I0, gen_I0=self.gen_I0, occ_fwd=self.occ_fwd, flow_fwd=self.flow_fwd, diff_flow_fwd=self.diff_flow_fwd)
-            self.combine_losses()
             # image_summary:
             if 'fwd_bwd' in self.conf:
+                self.add_pair_loss(I1=self.I1, gen_I1=self.gen_I1, occ_bwd=self.occ_bwd, flow_bwd=self.flow_bwd, diff_flow_bwd=self.diff_flow_bwd,
+                                   I0=self.I0, gen_I0=self.gen_I0, occ_fwd=self.occ_fwd, flow_fwd=self.flow_fwd, diff_flow_fwd=self.diff_flow_fwd)
+
                 self.image_summaries = self.build_image_summary(
                     [self.I0, self.I1, self.gen_I0, self.gen_I1, length(self.flow_bwd), length(self.flow_fwd), self.occ_mask_bwd, self.occ_mask_fwd])
-            self.image_summaries = self.build_image_summary([self.I0, self.I1, self.gen_I1, length(self.flow_bwd)])
+            else:
+                self.add_pair_loss(I1=self.I1, gen_I1=self.gen_I1,  flow_bwd=self.flow_bwd)
+                self.image_summaries = self.build_image_summary([self.I0, self.I1, self.gen_I1, length(self.flow_bwd)])
+
+            self.combine_losses()
 
     def sel_images(self):
         max_deltat = self.conf['max_deltat']
@@ -291,17 +273,12 @@ class GoalDistanceNet(object):
             self.tend = self.tstart + tf.random_uniform([1], minval, delta_t + 1, dtype=tf.int32)
 
         begin = tf.stack([0, tf.squeeze(self.tstart), 0, 0, 0],0)
-
-        if 'vidpred_data' in self.conf:
-            I0 = tf.squeeze(tf.slice(self.pred_images, begin, [-1, 1, -1, -1, -1]))
-            print('using pred images')
-        else:
-            I0 = tf.squeeze(tf.slice(self.images, begin, [-1, 1, -1, -1, -1]))
+        I0 = tf.squeeze(tf.slice(self.images, begin, [-1, 1, -1, -1, -1]))
 
         begin = tf.stack([0, tf.squeeze(self.tend), 0, 0, 0], 0)
         I1 = tf.squeeze(tf.slice(self.images, begin, [-1, 1, -1, -1, -1]))
 
-        return I0, I1
+        return I0, I1, None
 
     def conv_relu_block(self, input, out_ch, k=3, upsmp=False, n_layer=1):
         h = input
@@ -366,7 +343,7 @@ class GoalDistanceNet(object):
             h6 = self.conv_relu_block(h5, out_ch=16*ch_mult, upsmp=True)  #48x64x3
 
         with tf.variable_scope('h7'):
-            flow_field = slim.layers.conv2d(  # 128x128xdesc_length
+            flow_field = slim.layers.conv2d(
                 h6,  2, [5, 5], stride=1, activation_fn=None)
 
         warp_pts = warp_pts_layer(flow_field)
@@ -426,11 +403,14 @@ class GoalDistanceNet(object):
         else: raise ValueError("norm not defined!")
 
         newlosses = {}
+        if 'ternary_loss' in self.conf:
+            newlosses['ternary_I1'+suf] = ternary_loss(I1, gen_I1, occ_mask_bwd)*self.conf['ternary_loss']
         newlosses['train_I1_recon_cost'+suf] = norm((gen_I1 - I1), occ_mask_bwd)
 
         if 'fwd_bwd' in self.conf:
+            if 'ternary_loss' in self.conf:
+                newlosses['ternary_I0'+suf] = ternary_loss(I0, gen_I0, occ_mask_fwd)*self.conf['ternary_loss']
             newlosses['train_I0_recon_cost'+suf] = norm((gen_I0 - I0), occ_mask_fwd)
-
 
             fd = self.conf['flow_diff_cost']
             newlosses['train_flow_diff_cost'+suf] = (norm(diff_flow_fwd, occ_mask_fwd)

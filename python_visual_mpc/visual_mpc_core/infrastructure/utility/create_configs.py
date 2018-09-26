@@ -3,7 +3,7 @@ import argparse
 import os
 import python_visual_mpc
 import imp
-from python_visual_mpc.visual_mpc_core.infrastructure.run_sim import Sim
+from python_visual_mpc.visual_mpc_core.infrastructure.sim import Sim
 
 import matplotlib; matplotlib.use('Agg'); import matplotlib.pyplot as plt
 import pdb

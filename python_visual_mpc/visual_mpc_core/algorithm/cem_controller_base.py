@@ -12,7 +12,7 @@ if "NO_ROS" not in os.environ:
 
 import pickle as pkl
 from collections import OrderedDict
-from python_visual_mpc.visual_mpc_core.algorithm.utils.cem_controller_utils import sample_actions
+from python_visual_mpc.visual_mpc_core.algorithm.utils.cem_controller_utils import discretize
 
 import time
 from .utils.cem_controller_utils import construct_initial_sigma, reuse_cov, reuse_action, truncate_movement, make_blockdiagonal
@@ -107,30 +107,29 @@ class CEM_Controller_Base(Policy):
             'selection_frac': -1., # specifcy which fraction of best samples to use to compute mean and var for next CEM iteration
             'discrete_ind':None,
             'reuse_mean':False,
-            'reuse'
             'reuse_cov':False,
             'stochastic_planning':False,
             'rejection_sampling':True,
-            'reuse_cov':False,
             'cov_blockdiag':False,
             'smooth_cov':False,
             'iterations': 3,
             'nactions': 5,
             'repeat': 3,
             'action_bound': True,
-            'action_order': [None],
+            'action_order': [None], # [None] implies default order, otherwise specify how each action dim in order (aka ['x', 'y', ...]
             'initial_std': 0.05,   #std dev. in xy
             'initial_std_lift': 0.15,   #std dev. in xy
             'initial_std_rot': np.pi / 18,
+            'initial_std_grasp': 2,
             'finalweight':10,
             'use_first_plan':False,
             'replan_interval':-1,
             'type':None,
-            'reduce_std_dev':0.2, # reduce standard dev in later timesteps when reusing action
+            'add_zero_action':False,   # add one action sample with zero actions, this might prevent random walks in the end
+            'reduce_std_dev':1., # reduce standard dev in later timesteps when reusing action
         }
 
-        parent_params = super(CEM_Controller_Base, self)._default_hparams()
-
+        parent_params = super()._default_hparams()
         for k in default_dict.keys():
             parent_params.add_hparam(k, default_dict[k])
         return parent_params
@@ -175,7 +174,7 @@ class CEM_Controller_Base(Policy):
             if self._hp.rejection_sampling:
                 actions = self.sample_actions_rej()
             else:
-                actions = sample_actions(self.mean, self.sigma, self._hp, self.M)
+                actions = self.sample_actions(self.mean, self.sigma, self._hp, self.M)
             itr_times['action_sampling'] = time.time() - t_startiter
             t_start = time.time()
 
@@ -206,6 +205,21 @@ class CEM_Controller_Base(Policy):
             timings['itr{}'.format(itr)] = itr_times
 
         # pkl.dump(timings, open('{}/timings_CEM_{}.pkl'.format(self.agentparams['record'], self.t), 'wb'))
+
+    def sample_actions(self, mean, sigma, hp, M):
+        actions = np.random.multivariate_normal(mean, sigma, M)
+        actions = actions.reshape(M, hp.naction_steps, hp.adim)
+        if hp.discrete_ind != None:
+            actions = discretize(actions, M, hp.naction_steps, hp.discrete_ind)
+
+        if hp.action_bound:
+            actions = truncate_movement(actions, hp)
+        actions = np.repeat(actions, hp.repeat, axis=1)
+
+        if hp.add_zero_action:
+            actions[0] = 0
+
+        return actions
 
     def fit_gaussians(self, actions_flat):
         arr_best_actions = actions_flat[self.indices]  # only take the K best actions

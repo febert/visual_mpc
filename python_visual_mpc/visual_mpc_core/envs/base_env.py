@@ -16,6 +16,12 @@ class BaseEnv:
         """
         raise NotImplementedError
 
+    def current_obs(self):
+        """
+        :return: Current environment observation dict
+        """
+        raise NotImplementedError
+
     def _default_hparams(self):
         return HParams()
     
@@ -89,3 +95,14 @@ class BaseEnv:
         :return:
         """
         pass
+
+    def default_ncam():
+        """
+        Static class function that describes how many cameras this environment has by default
+
+        NOTE: This can be called by BaseEnv.default_ncam() but CANNOT be called by instatiated class object
+        Usage is typically for agent to infer default ncam attribute before class creation
+
+        :return: default n_cam (usually 2)
+        """
+        return 2

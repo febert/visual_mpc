@@ -76,10 +76,10 @@ class BaseMujocoEnv(BaseEnv):
         uw = uh / (self._frame_width / self._frame_height)
         extent = self.sim.model.stat.extent
         far, near = self.sim.model.vis.map.zfar * extent, self.sim.model.vis.map.znear * extent
-        view_matrix = np.array([[uw, 0., 0., 0.],                        #matrix definition from
-                                [0., uh, 0., 0.],                        #https://stackoverflow.com/questions/18404890/how-to-build-perspective-projection-matrix-no-api
+        view_matrix = np.array([[uw, 0., 0., 0.],                        # matrix definition from
+                                [0., uh, 0., 0.],                        # https://stackoverflow.com/questions/18404890/how-to-build-perspective-projection-matrix-no-api
                                 [0., 0., far / (far - near), -1.],
-                                [0., 0., -2*far*near/(far - near), 0.]]) #Note Mujoco doubles this quantity
+                                [0., 0., -2*far*near/(far - near), 0.]]) # Note Mujoco doubles this quantity
 
         MVP_matrix = view_matrix.dot(model_matrix)
         world_coord = np.ones((4, 1))
@@ -89,7 +89,7 @@ class BaseMujocoEnv(BaseEnv):
         ndc = clip[:3] / clip[3]  # everything should now be in -1 to 1!!
         col, row = (ndc[0] + 1) * self._frame_width / 2, (-ndc[1] + 1) * self._frame_height / 2
 
-        return self._frame_height - row, col                 #rendering flipped around in height
+        return self._frame_height - row, col                 # rendering flipped around in height
 
     def get_desig_pix(self, target_width, round=True):
         qpos_dim = self._n_joints      # the states contains pos and vel
