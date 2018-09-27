@@ -382,13 +382,13 @@ if __name__ == '__main__':
     # conffile = '/home/frederik/Documents/catkin_ws/src/visual_mpc/tensorflow_data/gdn/weiss/multiview_multiscale_96x128_highpenal/view{}/conf.py'.format(view)
     # conffile = '/home/frederik/Documents/catkin_ws/src/visual_mpc/tensorflow_data/gdn/weiss/multiview_new_env_len8/view{}/conf.py'.format(view)
     # conffile = '/home/frederik/Documents/catkin_ws/src/visual_mpc/tensorflow_data/gdn/weiss/multiview_new_env_96x128_len8/view{}/conf.py'.format(view)
-    conffile = '/home/frederik/Documents/catkin_ws/src/visual_mpc/tensorflow_data/gdn/weiss/smoothcost_only/view{}/conf.py'.format(view)
+    conffile = '/home/frederik/Documents/catkin_ws/src/visual_mpc/tensorflow_data/gdn/weiss/smoothcost_only_96x128/conf.py'.format(view)
 
 
     hyperparams = imp.load_source('hyperparams', conffile)
     conf = hyperparams.configuration
     modeldata_dir = '/'.join(str.split(conffile, '/')[:-1]) + '/modeldata'
-    conf['pretrained_model'] = [modeldata_dir + '/model48002']
+    conf['pretrained_model'] = [modeldata_dir + '/model80002']
 
 
     conf['bench_dir'] = ['/mnt/sda1/pushing_data/sawyer_grasping/eval/track_annotations']

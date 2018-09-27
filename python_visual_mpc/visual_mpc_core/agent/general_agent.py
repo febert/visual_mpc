@@ -191,6 +191,8 @@ class GeneralAgent(object):
         obs = self._post_process_obs(initial_env_obs, agent_data, True)
         policy.reset()
 
+        evals = []
+
         while not done:
             """
             Every time step send observations to policy, acts in environment, and records observations
@@ -215,6 +217,8 @@ class GeneralAgent(object):
                 print('traj rejected!')
                 if self._hyperparams['rejection_sample'] > i_trial and not self.env.goal_reached():
                     return {'traj_ok': False}, None, None
+
+            evals.append(self.env.eval())
 
             if (self._hyperparams['T']-1) == t:
                 done = True

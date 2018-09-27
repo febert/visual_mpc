@@ -13,9 +13,6 @@ class Full_Image_Reg_Controller(CEM_Controller_Vidpred):
     def __init__(self, ag_params, policyparams, gpu_id, ngpu):
         super(Full_Image_Reg_Controller, self).__init__(ag_params, policyparams, gpu_id, ngpu)
 
-        if 'trade_off_reg' not in self.policyparams:
-            self.reg_tradeoff = np.ones([self.ncam, self.ndesig])/self.ncam/self.ndesig
-
         params = imp.load_source('params', ag_params['current_dir'] + '/gdnconf.py')
         self.gdnconf = params.configuration
         self.gdnconf['batch_size'] = self.bsize

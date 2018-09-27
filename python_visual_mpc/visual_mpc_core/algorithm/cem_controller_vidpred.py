@@ -116,7 +116,7 @@ class CEM_Controller_Vidpred(CEM_Controller_Base):
     def _default_hparams(self):
         default_dict = {
             'predictor_propagation':False,
-            'trade_off_reg':False,
+            'trade_off_reg':True,
             'only_take_first_view':False,
         }
         parent_params = super(CEM_Controller_Vidpred, self)._default_hparams()
@@ -166,6 +166,7 @@ class CEM_Controller_Vidpred(CEM_Controller_Base):
             self.logger.log('run{}'.format(run))
             t_run_loop = time.time()
             actions_ = actions[run*self.bsize:(run+1)*self.bsize]
+
             gen_images, gen_distrib, gen_states, _ = self.predictor(input_images=last_frames,
                                                                     input_state=last_states,
                                                                     input_actions=actions_,

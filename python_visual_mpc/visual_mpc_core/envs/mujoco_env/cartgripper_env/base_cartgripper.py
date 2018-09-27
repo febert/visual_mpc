@@ -4,6 +4,7 @@ import python_visual_mpc
 from python_visual_mpc.visual_mpc_core.envs.mujoco_env.util.create_xml import create_object_xml, create_root_xml, clean_xml
 import copy
 from pyquaternion import Quaternion
+import pdb
 
 
 BASE_DIR = '/'.join(str.split(python_visual_mpc.__file__, '/')[:-2])
@@ -101,7 +102,9 @@ class BaseCartgripperEnv(BaseMujocoEnv):
                           'substeps': 200,
                           'clean_xml': True,
                           'cube_objects': False,
-                          'valid_rollout_floor': -2e-2}
+                          'valid_rollout_floor': -2e-2,
+                          'use_vel':False,}
+
         parent_params = super()._default_hparams()
         for k in default_dict.keys():
             parent_params.add_hparam(k, default_dict[k])
@@ -236,7 +239,11 @@ class BaseCartgripperEnv(BaseMujocoEnv):
 
         #control state
         obs['state'] = np.zeros(self._base_sdim)
-        obs['state'] = self.sim.data.qpos[:self._base_sdim].squeeze()
+
+        if self._hp.use_vel:
+            obs['state'] = np.concatenate([self.sim.data.qpos[:self._base_sdim].squeeze(), self.sim.data.qvel[:self._base_sdim].squeeze()])
+        else:
+            obs['state'] = self.sim.data.qpos[:self._base_sdim].squeeze()
 
         #report object poses
         obs['object_poses_full'] = np.zeros((self.num_objects, 7))

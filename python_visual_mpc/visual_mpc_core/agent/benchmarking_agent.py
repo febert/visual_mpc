@@ -10,7 +10,7 @@ import pdb
 class BenchmarkAgent(GeneralAgent):
     def __init__(self, hyperparams):
         self._start_goal_confs = hyperparams.get('start_goal_confs', None)
-        self.ncam = hyperparams['env'][1].get('ncam', hyperparams['env'][0].default_ncam())
+        self.ncam = hyperparams['env'][1].get('ncam', hyperparams['ncam'])
         GeneralAgent.__init__(self, hyperparams)
         self._is_robot_bench = 'robot_name' in self._hyperparams['env'][1]
         self._hyperparams['gen_xml'] = 1

@@ -82,6 +82,7 @@ def perform_benchmark(conf=None, iex=-1, gpu_id=None):
         record_dir = result_dir + '/verbose/traj{0}'.format(i_traj)
         if not os.path.exists(record_dir):
             os.makedirs(record_dir)
+
         sim.agent._hyperparams['record'] = record_dir
 
         agent_data = sim.take_sample(i_traj)
