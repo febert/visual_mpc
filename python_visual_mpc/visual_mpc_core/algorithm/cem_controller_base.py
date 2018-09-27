@@ -129,7 +129,7 @@ class CEM_Controller_Base(Policy):
             'reduce_std_dev':1., # reduce standard dev in later timesteps when reusing action
         }
 
-        parent_params = super()._default_hparams()
+        parent_params = super(CEM_Controller_Base, self)._default_hparams()
         for k in default_dict.keys():
             parent_params.add_hparam(k, default_dict[k])
         return parent_params

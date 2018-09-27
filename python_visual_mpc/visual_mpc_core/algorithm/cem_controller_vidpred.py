@@ -116,7 +116,6 @@ class CEM_Controller_Vidpred(CEM_Controller_Base):
     def _default_hparams(self):
         default_dict = {
             'predictor_propagation':False,
-            'trade_off_reg':False,
             'only_take_first_view':False,
         }
         parent_params = super(CEM_Controller_Vidpred, self)._default_hparams()

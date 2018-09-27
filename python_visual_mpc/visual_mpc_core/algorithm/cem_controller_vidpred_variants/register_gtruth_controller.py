@@ -33,6 +33,7 @@ class Register_Gtruth_Controller(CEM_Controller_Vidpred):
         default_dict = {
             'register_gtruth':['start','goal'],
             'register_region':False,
+            'trade_off_reg':True
 
         }
         parent_params = super(Register_Gtruth_Controller, self)._default_hparams()
@@ -121,7 +122,7 @@ class Register_Gtruth_Controller(CEM_Controller_Vidpred):
                 pix_t0 = self.desig_pix_t0[icam, p]     # desig_pix_t0 shape: icam, ndesig, 2
                 goal_pix = self.goal_pix_sel[icam, p]
 
-            if not self.hp.register_region:
+            if not self._hp.register_region:
                 if 'start' in self._hp.register_gtruth:
                     desig[p, 0] = np.flip(start_warp_pts[icam][pix_t0[0], pix_t0[1]], 0)
 
@@ -129,15 +130,23 @@ class Register_Gtruth_Controller(CEM_Controller_Vidpred):
                     desig[p, 1] = np.flip(goal_warp_pts[icam][goal_pix[0], goal_pix[1]], 0)
             else:
                 # taking region of 2*width+1 around the designated pixel and computing the median flow vector for x and y
+
+
                 width = 5
-                r_range = np.clip(np.array((pix_t0[0]-width,pix_t0[0]+width+1)), 0, self.img_height-1)
-                c_range = np.clip(np.array((pix_t0[1]-width,pix_t0[1]+width+1)), 0, self.img_width-1)
+                r_range = np.clip(np.array((pix_t0[0]-width,pix_t0[0]+width+1)), 0, self.agentparams['image_height']-1)
+                c_range = np.clip(np.array((pix_t0[1]-width,pix_t0[1]+width+1)), 0, self.agentparams['image_width']-1)
 
                 point_field = start_warp_pts[icam][r_range[0]:r_range[1], c_range[0]:c_range[1]]
                 desig[p, 0] = np.flip(np.array([np.median(point_field[:,:,0]), np.median(point_field[:,:,1])]), axis=0)
 
-                r_range = np.clip(np.array((goal_pix[0]-width,goal_pix[0]+width+1)), 0, self.img_height)
-                c_range = np.clip(np.array((goal_pix[1]-width,goal_pix[1]+width+1)), 0, self.img_width)
+                #debug:
+                if 'start' in self._hp.register_gtruth:
+                    desig_[p, 0] = np.flip(start_warp_pts[icam][pix_t0[0], pix_t0[1]], 0)
+                import pdb
+                pdb.set_trace()
+
+                r_range = np.clip(np.array((goal_pix[0]-width,goal_pix[0]+width+1)), 0, self.agentparams['image_height']-1)
+                c_range = np.clip(np.array((goal_pix[1]-width,goal_pix[1]+width+1)), 0, self.agentparams['image_width']-1)
 
                 point_field = goal_warp_pts[icam][r_range[0]:r_range[1], c_range[0]:c_range[1]]
                 desig[p, 0] = np.flip(np.array([np.median(point_field[:,:,0]), np.median(point_field[:,:,1])]), axis=0)
@@ -154,7 +163,7 @@ class Register_Gtruth_Controller(CEM_Controller_Vidpred):
         return warperrs, desig
 
 
-    def act(self, t=None, i_tr=None, desig_pix=None, goal_pix=None, images=None, goal_image=None, state=None):
+    def act(self,goal_image=None, t=None, i_tr=None, desig_pix=None, goal_pix=None, images=None, state=None):
 
         num_reg_images = len(self._hp.register_gtruth)
         self.goal_pix_sel = np.array(goal_pix).reshape((self.ncam, self.ntask, 2))

@@ -30,7 +30,7 @@ def save_worker(save_conf):
         for t in range(T):
             for n in range(ncam):
                 img = cv2.imread('{}/images{}/im_{}.jpg'.format(traj, n, t))[:, :, ::-1]
-                if '_mirror' in traj:
+                if '_mirror' in traj and n == 0:
                     img = img[:, ::-1]
                 imgs[t, n] = cv2.resize(img, target_dim, interpolation=cv2.INTER_AREA)
         obs_dict['images'] = imgs
