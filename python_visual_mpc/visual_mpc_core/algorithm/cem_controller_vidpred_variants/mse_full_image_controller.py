@@ -15,7 +15,7 @@ class MSE_Full_Image_Controller(Full_Image_Reg_Controller, CEM_Controller_Vidpre
 
     def eval_planningcost(self, cem_itr, gen_distrib, gen_images):
         goal_images = np.tile(self.goal_image[None], [self.bsize, 1, 1, 1,1,1])   # shape b,t,n, r, c, 3
-        scores = mse_based_cost(gen_images, goal_images, self._hp)
+        scores = mse_based_cost(gen_images, goal_images, self._hp, normalize=True)
         self.vd.goal_image = self.goal_image
         return scores
 

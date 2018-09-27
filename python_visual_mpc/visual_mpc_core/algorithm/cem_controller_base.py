@@ -12,10 +12,12 @@ if "NO_ROS" not in os.environ:
 
 import pickle as pkl
 from collections import OrderedDict
+from python_visual_mpc.visual_mpc_core.algorithm.utils.cem_controller_utils import discretize
+
 
 import time
 from .utils.cem_controller_utils import construct_initial_sigma, reuse_cov, \
-    reuse_action, truncate_movement, make_blockdiagonal, apply_ag_epsilon, sample_actions
+    reuse_action, truncate_movement, make_blockdiagonal, apply_ag_epsilon
 
 from python_visual_mpc.visual_mpc_core.algorithm.policy import Policy
 
@@ -127,11 +129,11 @@ class CEM_Controller_Base(Policy):
             'use_first_plan':False,
             'replan_interval':-1,
             'type':None,
-            'reduce_std_dev':0.2, # reduce standard dev in later timesteps when reusing action
+            'add_zero_action':False,   # add one action sample with zero actions, this might prevent random walks in the end
+            'reduce_std_dev':1., # reduce standard dev in later timesteps when reusing action
         }
 
         parent_params = super(CEM_Controller_Base, self)._default_hparams()
-
         for k in default_dict.keys():
             parent_params.add_hparam(k, default_dict[k])
         return parent_params
@@ -176,11 +178,12 @@ class CEM_Controller_Base(Policy):
             if self._hp.rejection_sampling:
                 actions = self.sample_actions_rej()
             else:
-                actions = sample_actions(self.mean, self.sigma, self._hp, self.adim, self.M)
+                actions = self.sample_actions(self.mean, self.sigma, self._hp, self.M)
 
             if self._hp.autograsp_epsilon[0] is not None:
                 assert len(self._hp.autograsp_epsilon) == 2, "Should be array of [z_thresh, epsilon]"
                 actions = apply_ag_epsilon(actions, self.state, self._hp)
+
 
             itr_times['action_sampling'] = time.time() - t_startiter
             t_start = time.time()
@@ -212,6 +215,21 @@ class CEM_Controller_Base(Policy):
             timings['itr{}'.format(itr)] = itr_times
 
         # pkl.dump(timings, open('{}/timings_CEM_{}.pkl'.format(self.agentparams['record'], self.t), 'wb'))
+
+    def sample_actions(self, mean, sigma, hp, M):
+        actions = np.random.multivariate_normal(mean, sigma, M)
+        actions = actions.reshape(M, hp.naction_steps, hp.adim)
+        if hp.discrete_ind != None:
+            actions = discretize(actions, M, hp.naction_steps, hp.discrete_ind)
+
+        if hp.action_bound:
+            actions = truncate_movement(actions, hp)
+        actions = np.repeat(actions, hp.repeat, axis=1)
+
+        if hp.add_zero_action:
+            actions[0] = 0
+
+        return actions
 
     def fit_gaussians(self, actions_flat):
         arr_best_actions = actions_flat[self.indices]  # only take the K best actions

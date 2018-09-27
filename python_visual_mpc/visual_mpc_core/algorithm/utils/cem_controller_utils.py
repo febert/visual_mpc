@@ -138,6 +138,7 @@ def construct_initial_sigma(hp, adim, t=None):
     sigma = np.diag(diag)
     return sigma
 
+
 def reuse_cov(sigma, adim, hp):
     assert hp.replan_interval == 3
     print('reusing cov form last MPC step...')
@@ -149,24 +150,13 @@ def reuse_cov(sigma, adim, hp):
     sigma[-adim:, -adim:] = construct_initial_sigma(hp)[:adim, :adim]
     return sigma
 
+
 def reuse_action(prev_action, hp):
     assert hp.replan_interval == 3
     print('reusing mean form last MPC step...')
     action = np.zeros_like(prev_action)
     action[:-1] = prev_action[1:]
     return action.flatten()
-
-def sample_actions(mean, sigma, hp, adim, M):
-    actions = np.random.multivariate_normal(mean, sigma, M)
-    actions = actions.reshape(M, hp.nactions, adim)
-    if hp.discrete_ind != None:
-        actions = discretize(actions, M, hp.nactions, hp.discrete_ind)
-
-    if hp.action_bound:
-        actions = truncate_movement(actions, hp)
-    actions = np.repeat(actions, hp.repeat, axis=1)
-
-    return actions
 
 
 def apply_ag_epsilon(actions, state, hp):

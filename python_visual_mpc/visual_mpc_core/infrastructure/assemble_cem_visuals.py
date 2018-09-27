@@ -109,5 +109,6 @@ def make_direct_vid(dict, numex, gif_savepath, suf):
         new_videolist.append((images, key))
 
     framelist = assemble_gif(new_videolist, convert_from_float=True, num_exp=numex)
+    framelist.append(np.zeros_like(framelist[0]))
     # save_video_mp4(gif_savepath +'/prediction_at_t{}')
     npy_to_gif(framelist, gif_savepath +'/direct_{}'.format(suf))

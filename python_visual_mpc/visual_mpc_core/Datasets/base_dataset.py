@@ -68,7 +68,7 @@ class BaseVideoDataset:
         for k in self._metadata_keys:
             features_names[k] = get_feature(self._metadata_keys[k])
         if self._T > 0:
-            print(self._T)
+            # print(self._T)
             for k in self._sequence_keys:
                 for t in range(self._T):
                     features_names['{}/{}'.format(t, k)] = get_feature(self._sequence_keys[k])
