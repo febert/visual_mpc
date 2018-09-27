@@ -156,17 +156,50 @@ def reuse_action(prev_action, hp):
     action[:-1] = prev_action[1:]
     return action.flatten()
 
-def sample_actions(mean, sigma, hp, M):
+def sample_actions(mean, sigma, hp, adim, M):
     actions = np.random.multivariate_normal(mean, sigma, M)
-    actions = actions.reshape(M, hp.naction_steps, hp.adim)
+    actions = actions.reshape(M, hp.nactions, adim)
     if hp.discrete_ind != None:
-        actions = discretize(actions, M, hp.naction_steps, hp.discrete_ind)
+        actions = discretize(actions, M, hp.nactions, hp.discrete_ind)
 
     if hp.action_bound:
         actions = truncate_movement(actions, hp)
     actions = np.repeat(actions, hp.repeat, axis=1)
 
     return actions
+
+
+def apply_ag_epsilon(actions, state, hp):
+    z_thresh, epsilon = hp.autograsp_epsilon
+    assert 0 <= epsilon <= 1, "epsilon should be a valid probability"
+
+    z_dim, gripper_dim = 2, -1
+    if hp.action_order[0] is not None:
+        assert 'z' in hp.action_order and 'grasp' in hp.action_order, "Ap epsilon requires z and grasp action"
+        for i, a in enumerate(hp.action_order):
+            if a == 'grasp':
+                gripper_dim = i
+            elif a == 'z':
+                z_dim = i
+
+    # cumulative_zs = np.cumsum(actions[:, :, z_dim], 1) + state[-1, z_dim]
+    # actions[:, :, gripper_dim] = (cumulative_zs <= z_thresh).astype(np.float32) * 2 - 1
+    actions[:, :, gripper_dim] = np.abs(actions[:, :, gripper_dim])
+    gripper_act = -1
+    for b in range(actions.shape[0]):
+        pivot = b % (actions.shape[1] + 1)
+        if pivot == 0:
+            gripper_act = -gripper_act
+        if pivot > 0:
+            actions[b, :pivot, gripper_dim] *= -gripper_act
+        if pivot < actions.shape[1]:
+            actions[b, pivot:, gripper_dim] *= gripper_act
+
+    epsilon_vec = np.random.choice([-1, 1], size=actions.shape[:-1], p=[epsilon, 1 - epsilon])
+    actions[:, :, gripper_dim] *= epsilon_vec
+
+    return actions
+
 
 def discretize(actions, M, naction_steps, discrete_ind):
     """

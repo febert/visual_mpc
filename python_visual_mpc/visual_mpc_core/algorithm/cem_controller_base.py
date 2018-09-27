@@ -12,10 +12,10 @@ if "NO_ROS" not in os.environ:
 
 import pickle as pkl
 from collections import OrderedDict
-from python_visual_mpc.visual_mpc_core.algorithm.utils.cem_controller_utils import sample_actions
 
 import time
-from .utils.cem_controller_utils import construct_initial_sigma, reuse_cov, reuse_action, truncate_movement, make_blockdiagonal
+from .utils.cem_controller_utils import construct_initial_sigma, reuse_cov, \
+    reuse_action, truncate_movement, make_blockdiagonal, apply_ag_epsilon, sample_actions
 
 from python_visual_mpc.visual_mpc_core.algorithm.policy import Policy
 
@@ -76,6 +76,7 @@ class CEM_Controller_Base(Policy):
         self.indices =[]
         self.mean =None
         self.sigma =None
+        self.state = None
 
         self.dict_ = collections.OrderedDict()
 
@@ -121,6 +122,7 @@ class CEM_Controller_Base(Policy):
             'initial_std_lift': 0.15,   #std dev. in xy
             'initial_std_rot': np.pi / 18,
             'initial_std_grasp': 2,
+            'autograsp_epsilon': [None],   # if autograsp epsilon is not None apply ag_epsilon to gripper dims (last dim if action order not specified)
             'finalweight':10,
             'use_first_plan':False,
             'replan_interval':-1,
@@ -174,7 +176,12 @@ class CEM_Controller_Base(Policy):
             if self._hp.rejection_sampling:
                 actions = self.sample_actions_rej()
             else:
-                actions = sample_actions(self.mean, self.sigma, self._hp, self.M)
+                actions = sample_actions(self.mean, self.sigma, self._hp, self.adim, self.M)
+
+            if self._hp.autograsp_epsilon[0] is not None:
+                assert len(self._hp.autograsp_epsilon) == 2, "Should be array of [z_thresh, epsilon]"
+                actions = apply_ag_epsilon(actions, self.state, self._hp)
+
             itr_times['action_sampling'] = time.time() - t_startiter
             t_start = time.time()
 
