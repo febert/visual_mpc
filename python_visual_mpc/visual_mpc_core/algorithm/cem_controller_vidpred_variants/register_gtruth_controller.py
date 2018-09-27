@@ -108,9 +108,9 @@ class Register_Gtruth_Controller(CEM_Controller_Vidpred):
         return warped_image_start, warped_image_goal, tradeoff
 
     def get_warp_err(self, icam, start_image, goal_image, start_warp_pts, goal_warp_pts, warped_image_start, warped_image_goal):
-        r = len(self._hp.register_gtruth)
-        warperrs = np.zeros((self.ntask, r))
-        desig = np.zeros((self.ntask, r, 2))
+        nreg = len(self._hp.register_gtruth)
+        warperrs = np.zeros((self.ntask, nreg))
+        desig = np.zeros((self.ntask, nreg, 2))
         for p in range(self.ntask):
             if self.agentparams['image_height'] != self.img_height:
                 pix_t0 = self.desig_pix_t0_med[icam, p]
