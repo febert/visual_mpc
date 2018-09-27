@@ -16,8 +16,7 @@ class Register_Gtruth_Controller(CEM_Controller_Vidpred):
         self._hp = self._default_hparams()
         self.override_defaults(policyparams)
 
-        if self._hp.trade_off_reg:
-            self.reg_tradeoff = np.ones([self.ncam, self.ndesig])/self.ncam/self.ndesig
+        self.reg_tradeoff = np.ones([self.ncam, self.ndesig])/self.ncam/self.ndesig
 
         params = imp.load_source('params', ag_params['current_dir'] + '/gdnconf.py')
         self.gdnconf = params.configuration
@@ -143,7 +142,7 @@ class Register_Gtruth_Controller(CEM_Controller_Vidpred):
                 c_range = np.clip(np.array((goal_pix[1]-width,goal_pix[1]+width+1)), 0, self.agentparams['image_width'])
 
                 point_field = goal_warp_pts[icam][r_range[0]:r_range[1], c_range[0]:c_range[1]]
-                desig[p, 0] = np.flip(np.array([np.median(point_field[:,:,0]), np.median(point_field[:,:,1])]), axis=0)
+                desig[p, 1] = np.flip(np.array([np.median(point_field[:,:,0]), np.median(point_field[:,:,1])]), axis=0)
 
             if 'start' in self._hp.register_gtruth:
                 warperrs[p, 0] = np.linalg.norm(start_image[icam][pix_t0[0], pix_t0[1]] -

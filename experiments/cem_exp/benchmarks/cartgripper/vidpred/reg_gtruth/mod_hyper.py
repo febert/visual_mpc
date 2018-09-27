@@ -46,7 +46,6 @@ policy = {
     'verbose_every_itr':True,
     'type': Register_Gtruth_Controller,
     # 'iterations':3,
-    # 'register_region':True
 }
 
 config = {

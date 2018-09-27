@@ -15,7 +15,7 @@ OUT_DIR = current_dir + '/modeldata'
 
 configuration = {
 'experiment_name': 'correction',
-'pretrained_model': base_dir + '/tensorflow_data/gdn/96x128/cartgripper_tdac_flowpenal/modeldata/model48002',
+'pretrained_model': [base_dir + '/tensorflow_data/gdn/startgoal_shad/modeldata/model48002'],
 'output_dir': OUT_DIR,      #'directory for model checkpoints.' ,
 'current_dir': base_dir,   #'directory for writing summary.' ,
 'num_iterations':50000,
@@ -25,10 +25,10 @@ configuration = {
 'batch_size': 1,           #'batch size for training' ,
 'learning_rate': 0.001,     #'the base learning rate of the generator' ,
 'normalization':'None',
-'orig_size': [96,128],
+'orig_size': [48,64],
 'norm':'charbonnier',
 'smoothcost':1e-6,
 'smoothmode':'2nd',
 'image_only':'',
-'ch_mult':1,
+'ch_mult':4,
 }

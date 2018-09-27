@@ -10,7 +10,6 @@ from python_visual_mpc.visual_mpc_core.algorithm.cem_controller_sim import CEM_C
 from python_visual_mpc.visual_mpc_core.algorithm.cem_controller_vidpred_variants.mse_full_image_controller import MSE_Full_Image_Controller
 
 from python_visual_mpc.visual_mpc_core.algorithm.cem_controller_vidpred_variants.register_gtruth_controller import Register_Gtruth_Controller
-from python_visual_mpc.visual_mpc_core.algorithm.cem_controller_vidpred import CEM_Controller_Vidpred
 
 
 BASE_DIR = '/'.join(str.split(__file__, '/')[:-1])
@@ -45,9 +44,9 @@ agent = {
 policy = {
     'verbose':True,
     'verbose_every_itr':True,
-    'type': CEM_Controller_Vidpred,
+    'type': Register_Gtruth_Controller,
     # 'iterations':3,
-    # 'register_region':True
+    'register_region':True
 }
 
 config = {

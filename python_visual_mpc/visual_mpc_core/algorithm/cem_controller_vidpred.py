@@ -107,6 +107,8 @@ class CEM_Controller_Vidpred(CEM_Controller_Base):
         self.vd = VisualzationData()
         self.visualizer = CEM_Visual_Preparation()
 
+        self.reg_tradeoff = np.ones([self.ncam, self.ndesig])/self.ncam/self.ndesig
+
     def _setup_visualizer(self, default=CEM_Visual_Preparation):
         run_freq = 1
         if self._hp.verbose_every_itr:
