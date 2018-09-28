@@ -448,7 +448,10 @@ class BaseSawyerEnv(BaseEnv):
         random.seed(seed)
         np.random.seed(seed)
 
-    def eval(self, target_width, save_dir, ntasks):
+    def eval(self, target_width=None, save_dir=None, ntasks=None):
+        if target_width == None:
+            return None
+
         self._save_videos()
         final_pix = select_points(self.render(), ['front', 'left'], 'final',
                                  save_dir, clicks_per_desig=1, n_desig=ntasks)

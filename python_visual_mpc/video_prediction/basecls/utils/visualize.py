@@ -528,7 +528,7 @@ def add_crosshairs(images, pos, color=None):
         out = [np.squeeze(el) for el in out]
     return out
 
-def add_crosshairs_single(im, pos, color=None):
+def add_crosshairs_single(im, pos, color=None, thick=False):
     """
     :param im:  shape: r,c,3
     :param pos:
@@ -547,12 +547,21 @@ def add_crosshairs_single(im, pos, color=None):
     pos = np.clip(pos, [0,0], np.array(im.shape[:2]) -1)
 
     p = pos.astype(np.int)
-    im[p[0]-5:p[0]-2,p[1]] = color
-    im[p[0]+3:p[0]+6, p[1]] = color
+    if thick:
+        thickness = 1
+        im[p[0]-8:p[0]-2,p[1] - thickness:p[1] + thickness + 1] = color
+        im[p[0]+3:p[0]+9,p[1] - thickness:p[1] + thickness + 1] = color
 
-    im[p[0],p[1]-5:p[1]-2] = color
+        im[p[0] - thickness:p[0] + thickness + 1 ,p[1]-8:p[1]-2] = color
+        im[p[0] - thickness:p[0] + thickness + 1 , p[1]+3:p[1]+9] = color
+    else:
+        im[p[0] - 5:p[0] - 2, p[1]] = color
+        im[p[0] + 3:p[0] + 6, p[1]] = color
 
-    im[p[0], p[1]+3:p[1]+6] = color
+        im[p[0], p[1] - 5:p[1] - 2] = color
+
+        im[p[0], p[1] + 3:p[1] + 6] = color
+
     im[p[0], p[1]] = color
 
     return im
