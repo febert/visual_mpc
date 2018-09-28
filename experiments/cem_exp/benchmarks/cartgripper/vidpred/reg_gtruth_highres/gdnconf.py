@@ -15,7 +15,7 @@ OUT_DIR = current_dir + '/modeldata'
 
 configuration = {
 'experiment_name': 'correction',
-'pretrained_model': base_dir + '/tensorflow_data/gdn/96x128/cartgripper_tdac_flowpenal/modeldata/model48002',
+'pretrained_model': [base_dir + '/tensorflow_data/gdn/96x128/cartgripper_tdac_flowpenal/modeldata/model48002'],
 'output_dir': OUT_DIR,      #'directory for model checkpoints.' ,
 'current_dir': base_dir,   #'directory for writing summary.' ,
 'num_iterations':50000,

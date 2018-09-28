@@ -28,6 +28,7 @@ class Register_Gtruth_Controller(CEM_Controller_Vidpred):
 
         self.visualizer = CEM_Visual_Preparation_Registration()
 
+
     def _default_hparams(self):
         default_dict = {
             'register_gtruth':['start','goal'],
@@ -77,6 +78,8 @@ class Register_Gtruth_Controller(CEM_Controller_Vidpred):
             else:
                 goal_warp_pts = None
                 warped_image_goal = None
+
+            
             warperr, desig_pix = self.get_warp_err(n, start_image, self.goal_image, start_warp_pts, goal_warp_pts, warped_image_start, warped_image_goal)
             warperrs_l.append(warperr)
             desig_pix_l.append(desig_pix)
@@ -98,6 +101,8 @@ class Register_Gtruth_Controller(CEM_Controller_Vidpred):
         self.vd.ntask = self.ntask
         self.vd.warped_image_start = warped_image_start
         self.vd.warped_image_goal = warped_image_goal
+
+        
         self.vd.desig_pix_t0_med = self.desig_pix_t0_med
         self.vd.goal_pix_med = self.goal_pix_med
         self.vd.desig_pix_t0 = self.desig_pix_t0
@@ -114,6 +119,7 @@ class Register_Gtruth_Controller(CEM_Controller_Vidpred):
         desig = np.zeros((self.ntask, nreg, 2))
         for p in range(self.ntask):
             if self.agentparams['image_height'] != self.img_height:
+                
                 pix_t0 = self.desig_pix_t0_med[icam, p]
                 goal_pix = self.goal_pix_med[icam, p]
                 print('using desig goal pix medium')
@@ -164,11 +170,15 @@ class Register_Gtruth_Controller(CEM_Controller_Vidpred):
     def act(self,goal_image=None, t=None, i_tr=None, desig_pix=None, goal_pix=None, images=None, state=None):
 
         num_reg_images = len(self._hp.register_gtruth)
+
         self.goal_pix_sel = np.array(goal_pix).reshape((self.ncam, self.ntask, 2))
         self.goal_pix = np.tile(self.goal_pix_sel[:,:,None,:], [1,1,num_reg_images,1])  # copy along r: shape: ncam, ntask, r
         self.goal_pix = self.goal_pix.reshape(self.ncam, self.ndesig, 2)
-
+        print('regvidpred received goalpix', self.goal_pix)
         self.goal_pix_med = (self.goal_pix * self.agentparams['image_height'] / self.img_height).astype(np.int)
+
+        
+
         self.goal_image = goal_image[-1]
 
         if t == 0:

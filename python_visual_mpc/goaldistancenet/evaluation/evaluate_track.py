@@ -186,7 +186,6 @@ def run_tracking_benchmark(conf):
 def compute_metric(conf, images, goal_pix_b, pix_t0_b, true_desig_pix_b=None, goal_images=None):
 
     goal_image_warper = setup_gdn(conf, gpu_id=0)
-    start_image_b = images[:, 0]
     if goal_images is None:
         goal_image_b = images[:, -1]
     else: goal_image_b = goal_images
@@ -207,8 +206,10 @@ def compute_metric(conf, images, goal_pix_b, pix_t0_b, true_desig_pix_b=None, go
     warperror_start = np.zeros([bsize, seq_len])
     warperror_goal = np.zeros([bsize, seq_len])
 
-
-    for t in range(seq_len):
+    tinterval = 3
+    tstart = 2
+    start_image_b = images[:, tstart]
+    for t in range(tstart, seq_len, tinterval):
         column = []
         warped_image_start, flow_field, start_warp_pts = goal_image_warper(images[:, t, None], start_image_b[:,None])
         warped_image_goal, flow_field, goal_warp_pts = goal_image_warper(images[:, t, None], goal_image_b[:,None])
@@ -265,9 +266,10 @@ def compute_metric(conf, images, goal_pix_b, pix_t0_b, true_desig_pix_b=None, go
             warperrs = np.array([start_warperr, goal_warperr])
             tradeoff = 1 / warperrs / np.sum(1 / warperrs)
 
-            ann_curr = add_crosshairs_single(current_frame, desig_l[0], np.array([1., 0, 0.]))
-            ann_curr = add_crosshairs_single(ann_curr, desig_l[1], np.array([0., 0, 1]))
-            ann_curr = add_crosshairs_single(ann_curr, true_desig_pix, np.array([0., 1, 1]))
+            ann_curr = current_frame
+            ann_curr = add_crosshairs_single(ann_curr, desig_l[0], np.array([1., 0, 0.]), thick=True)
+            ann_curr = add_crosshairs_single(ann_curr, desig_l[1], np.array([0., 0, 1]), thick=True)
+            # ann_curr = add_crosshairs_single(ann_curr, true_desig_pix, np.array([0., 1, 1]), thick=True)
             curr_im_l.append(ann_curr)
 
             # pos_error_start[b,t] = np.linalg.norm(pix_t0 - true_desig_pix)
@@ -276,11 +278,11 @@ def compute_metric(conf, images, goal_pix_b, pix_t0_b, true_desig_pix_b=None, go
             pos_error_goal[b,t] = np.linalg.norm(desig_l[1] - true_desig_pix)
 
             warped_im_start = draw_text_onimage('%.2f' % tradeoff[0], warped_image_start[b, 0], color=(255, 0, 0))
-            warped_im_start = add_crosshairs_single(warped_im_start, pix_t0, color=np.array([1., 0, 0.]))
+            warped_im_start = add_crosshairs_single(warped_im_start, pix_t0, color=np.array([1., 0, 0.]), thick=True)
             warped_image_start_l.append(warped_im_start)
 
             warped_im_goal = draw_text_onimage('%.2f' % tradeoff[1], warped_image_goal[b, 0], color=(255, 0, 0))
-            warped_im_goal = add_crosshairs_single(warped_im_goal, goal_pix, color=np.array([0, 0, 1.]))
+            warped_im_goal = add_crosshairs_single(warped_im_goal, goal_pix, color=np.array([0, 0, 1.]), thick=True)
             warped_image_goal_l.append(warped_im_goal)
 
         column.append(np.stack(curr_im_l, 0))
@@ -301,7 +303,7 @@ def compute_metric(conf, images, goal_pix_b, pix_t0_b, true_desig_pix_b=None, go
 
     plot_trackerrors(conf['output_dir'], pos_error_start, pos_error_goal, warperror_start, warperror_goal)
 
-    make_gifs(curr_im, warped_images_start, warped_images_goal, conf)
+    # make_gifs(curr_im, warped_images_start, warped_images_goal, conf)
 
     image = Image.fromarray((np.concatenate(columns, 1) * 255).astype(np.uint8))
     file = conf['output_dir'] + '/warpstartgoal.png'
@@ -378,17 +380,17 @@ if __name__ == '__main__':
     # visuallize_sawyer_track(testdata_path, conffile, grasp_data_mode=view, tsteps=tsteps, interval=interval)
 
 
-    view = 1
+    view = 0
     # conffile = '/home/frederik/Documents/catkin_ws/src/visual_mpc/tensorflow_data/gdn/weiss/multiview_multiscale_96x128_highpenal/view{}/conf.py'.format(view)
     # conffile = '/home/frederik/Documents/catkin_ws/src/visual_mpc/tensorflow_data/gdn/weiss/multiview_new_env_len8/view{}/conf.py'.format(view)
-    # conffile = '/home/frederik/Documents/catkin_ws/src/visual_mpc/tensorflow_data/gdn/weiss/multiview_new_env_96x128_len8/view{}/conf.py'.format(view)
-    conffile = '/home/frederik/Documents/catkin_ws/src/visual_mpc/tensorflow_data/gdn/weiss/smoothcost_only_96x128/conf.py'.format(view)
+    conffile = '/home/frederik/Documents/catkin_ws/src/visual_mpc/tensorflow_data/gdn/weiss/multiview_new_env_96x128_len8/view{}/conf.py'.format(view)
+    # conffile = '/home/frederik/Documents/catkin_ws/src/visual_mpc/tensorflow_data/gdn/weiss/smoothcost_only_96x128/conf.py'.format(view)
 
 
     hyperparams = imp.load_source('hyperparams', conffile)
     conf = hyperparams.configuration
     modeldata_dir = '/'.join(str.split(conffile, '/')[:-1]) + '/modeldata'
-    conf['pretrained_model'] = [modeldata_dir + '/model80002']
+    conf['pretrained_model'] = [modeldata_dir + '/model56002']
 
 
     conf['bench_dir'] = ['/mnt/sda1/pushing_data/sawyer_grasping/eval/track_annotations']

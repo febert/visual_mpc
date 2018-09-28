@@ -36,9 +36,10 @@ agent = {
     'record': BASE_DIR + '/record/',
     'discrete_gripper': -1, #discretized gripper dimension,
     'make_final_gif': True,
-    'start_goal_confs':os.environ['VMPC_DATA_DIR'] + '/cartgripper/newenv/startgoal_conf/train',
+    'start_goal_confs':os.environ['VMPC_DATA_DIR'] + '/cartgripper/newenv/startgoal_conf_96x128/train',
     'current_dir':current_dir,
-    'ncam':1
+    'ncam':1,
+    'point_space_width':64,
 }
 
 policy = {

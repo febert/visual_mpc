@@ -14,14 +14,8 @@ def main():
     parser.add_argument('experiment', type=str, help='experiment name')
 
     args = parser.parse_args()
-    exp_name = args.experiment
-
-    basepath = os.path.abspath(python_visual_mpc.__file__)
-    basepath = '/'.join(str.split(basepath, '/')[:-2])
-    data_coll_dir = basepath + '/pushing_data/' + exp_name
-    hyperparams_file = data_coll_dir + '/hyperparams.py'
-
-    hyperparams = imp.load_source('hyperparams', hyperparams_file).config
+    param_dir = args.experiment
+    hyperparams = imp.load_source('hyperparams', param_dir).config
 
     c = Sim(hyperparams)
     c.run()
