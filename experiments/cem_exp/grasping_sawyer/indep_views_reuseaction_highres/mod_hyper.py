@@ -27,7 +27,7 @@ agent = {'type' : BenchmarkAgent,
 
 policy = {
     'verbose':True,
-    'verbose_every_itr':True,
+    # 'verbose_every_itr':True,
     'type': Register_Gtruth_Controller,
     'initial_std': 0.035,   #std dev. in xy
     'initial_std_lift': 0.08,   #std dev. in z
