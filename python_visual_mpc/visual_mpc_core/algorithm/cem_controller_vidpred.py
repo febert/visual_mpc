@@ -95,7 +95,7 @@ class CEM_Controller_Vidpred(CEM_Controller_Base):
         if self._hp.predictor_propagation:
             self.rec_input_distrib = []  # record the input distributions
 
-        self.parallel_vis = True
+        self.parallel_vis = False
         if self.parallel_vis:
             self._thread = Thread(target=verbose_worker)
             self._thread.start()
@@ -366,6 +366,7 @@ class CEM_Controller_Vidpred(CEM_Controller_Base):
         """
         self.desig_pix = np.array(desig_pix).reshape((self.ncam, self.ntask, 2))
         self.goal_pix = np.array(goal_pix).reshape((self.ncam, self.ntask, 2))
+
 
         self.images = images
         self.state = state
