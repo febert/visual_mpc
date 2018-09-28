@@ -22,12 +22,12 @@ env_params = {
 agent = {
     'type': BenchmarkAgent,
     'env': (CartgripperXZGrasp, env_params),
-    'T': 15,
+    'T': 45,
     'image_height' : 48,
     'image_width' : 64,
-    'make_final_gif': True,
+    'make_final_gif_pointoverlay': True,
     'record': BASE_DIR + '/record/',
-    'start_goal_confs': os.environ['VMPC_DATA_DIR'] + '/train',
+    'start_goal_confs': os.environ['VMPC_DATA_DIR'] + '/cartgripper_xz_grasp/lifting_tasks',
     'current_dir': current_dir
 }
 
@@ -36,6 +36,9 @@ policy = {
     'type': CEM_Controller_Vidpred,
     'action_order': ['x', 'z', 'grasp'],
     'initial_std_lift': 0.5,  # std dev. in xy
+    'rejection_sampling': False,
+    'replan_interval': 5,
+    'num_samples': [800, 400]
 }
 
 config = {

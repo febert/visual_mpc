@@ -243,10 +243,11 @@ class BaseCartgripperEnv(BaseMujocoEnv):
         obs['object_qpos'] = np.zeros((self.num_objects, 7))
         obs['object_poses'] = np.zeros((self.num_objects, 3))
         for i in range(self.num_objects):
+            pos_sen = self.sim.data.sensordata[touch_offset + i * 3:touch_offset + (i + 1) * 3]
             fullpose = self.sim.data.qpos[i * 7 + self._n_joints:(i + 1) * 7 + self._n_joints].squeeze().copy()
+            fullpose[:3] = pos_sen
             obs['object_poses_full'][i] = fullpose
 
-            pos_sen = self.sim.data.sensordata[touch_offset + i * 3:touch_offset + (i + 1) * 3]
             obs['object_poses'][i, :2] = pos_sen[:2]
             obs['object_poses'][i, 2] = Quaternion(fullpose[3:]).angle
             obs['object_qpos'][i] = self.sim.data.qpos[self._n_joints + i * 7: self._n_joints + (i+1)*7]
@@ -256,7 +257,7 @@ class BaseCartgripperEnv(BaseMujocoEnv):
 
         #get images
         obs['images'] = self.render()
-        obs['obj_image_locations'] = self.get_desig_pix(self._frame_width)
+        obs['obj_image_locations'] = self.get_desig_pix(self._frame_width, obj_poses=obs['object_poses_full'])
 
         return obs
 
