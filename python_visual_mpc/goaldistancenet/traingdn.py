@@ -163,7 +163,7 @@ def main(unused_argv, conf_script= None):
         cost, _, summary_str, lr = sess.run([model.loss, model.train_op, model.train_summ_op, model.learning_rate],
                                         feed_dict)
 
-        if (itr) % 50 ==0:
+        if (itr) % 100 ==0:
             tf.logging.info(str(itr) + ' ' + str(cost))
             tf.logging.info('lr: {}'.format(lr))
 
@@ -187,7 +187,7 @@ def main(unused_argv, conf_script= None):
 
         t_iter.append((datetime.now() - t_startiter).seconds * 1e6 +  (datetime.now() - t_startiter).microseconds )
 
-        if itr % 100 == 1:
+        if itr % 200 == 1:
             hours = (datetime.now() -starttime).seconds/3600
             tf.logging.info('running for {0}d, {1}h, {2}min'.format(
                 (datetime.now() - starttime).days,

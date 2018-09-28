@@ -118,7 +118,7 @@ class BaseMujocoEnv(BaseEnv):
                 goal_pix[icam, i] = g.squeeze()
         return goal_pix
 
-    def eval(self, target_width, save_dir, ntasks):
+    def eval(self, target_width=None, save_dir=None, ntasks=None):
         self._goaldistances.append(self.get_distance_score())
         stats = {}
         stats['improvement'] = self._goaldistances[0] - self._goaldistances[-1]
