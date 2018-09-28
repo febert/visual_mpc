@@ -116,6 +116,9 @@ class Register_Gtruth_Controller(CEM_Controller_Vidpred):
         nreg = len(self._hp.register_gtruth)
         warperrs = np.zeros((self.ntask, nreg))
         desig = np.zeros((self.ntask, nreg, 2))
+
+        region_tradeoff = True
+
         for p in range(self.ntask):
             if self.agentparams['image_height'] != self.img_height:
                 
@@ -141,22 +144,29 @@ class Register_Gtruth_Controller(CEM_Controller_Vidpred):
                 r_range = np.clip(np.array((pix_t0[0]-width,pix_t0[0]+width+1)), 0, self.agentparams['image_height']-1)
                 c_range = np.clip(np.array((pix_t0[1]-width,pix_t0[1]+width+1)), 0, self.agentparams['image_width']-1)
 
+                if region_tradeoff:
+                    warperrs[p, 0] = np.mean(np.square(start_image[icam][r_range[0]:r_range[1], c_range[0]:c_range[1]] - warped_image_start[icam][r_range[0]:r_range[1], c_range[0]:c_range[1]]))
+
                 point_field = start_warp_pts[icam][r_range[0]:r_range[1], c_range[0]:c_range[1]]
                 desig[p, 0] = np.flip(np.array([np.median(point_field[:,:,0]), np.median(point_field[:,:,1])]), axis=0)
 
                 r_range = np.clip(np.array((goal_pix[0]-width,goal_pix[0]+width+1)), 0, self.agentparams['image_height'])
                 c_range = np.clip(np.array((goal_pix[1]-width,goal_pix[1]+width+1)), 0, self.agentparams['image_width'])
 
+                if region_tradeoff:
+                    warperrs[p, 1] = np.mean(np.square(goal_image[icam][r_range[0]:r_range[1], c_range[0]:c_range[1]] - warped_image_goal[icam][r_range[0]:r_range[1], c_range[0]:c_range[1]]))
+
                 point_field = goal_warp_pts[icam][r_range[0]:r_range[1], c_range[0]:c_range[1]]
                 desig[p, 1] = np.flip(np.array([np.median(point_field[:,:,0]), np.median(point_field[:,:,1])]), axis=0)
 
-            if 'start' in self._hp.register_gtruth:
-                warperrs[p, 0] = np.linalg.norm(start_image[icam][pix_t0[0], pix_t0[1]] -
-                                                warped_image_start[icam][pix_t0[0], pix_t0[1]])
+            if not region_tradeoff:
+                if 'start' in self._hp.register_gtruth:
+                    warperrs[p, 0] = np.linalg.norm(start_image[icam][pix_t0[0], pix_t0[1]] -
+                                                    warped_image_start[icam][pix_t0[0], pix_t0[1]])
 
-            if 'goal' in self._hp.register_gtruth:
-                warperrs[p, 1] = np.linalg.norm(goal_image[icam][goal_pix[0], goal_pix[1]] -
-                                                warped_image_goal[icam][goal_pix[0], goal_pix[1]])
+                if 'goal' in self._hp.register_gtruth:
+                    warperrs[p, 1] = np.linalg.norm(goal_image[icam][goal_pix[0], goal_pix[1]] -
+                                                    warped_image_goal[icam][goal_pix[0], goal_pix[1]])
 
         desig = desig * self.img_height/ self.agentparams['image_height']
         return warperrs, desig
