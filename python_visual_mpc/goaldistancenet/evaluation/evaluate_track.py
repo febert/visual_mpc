@@ -206,9 +206,12 @@ def compute_metric(conf, images, goal_pix_b, pix_t0_b, true_desig_pix_b=None, go
     warperror_start = np.zeros([bsize, seq_len])
     warperror_goal = np.zeros([bsize, seq_len])
 
-    tinterval = 3
-    tstart = 2
+    tinterval = 1
+    tstart = 0
     start_image_b = images[:, tstart]
+
+    tradeoff_all = np.zeros([bsize, seq_len, 2])
+
     for t in range(tstart, seq_len, tinterval):
         column = []
         warped_image_start, flow_field, start_warp_pts = goal_image_warper(images[:, t, None], start_image_b[:,None])
@@ -237,8 +240,14 @@ def compute_metric(conf, images, goal_pix_b, pix_t0_b, true_desig_pix_b=None, go
 
                 point_field = start_warp_pts[b, 0, r_range[0]:r_range[1], c_range[0]:c_range[1]]
                 desig_l.append(np.flip(np.array([np.median(point_field[:,:,0]), np.median(point_field[:,:,1])]), axis=0))
-                start_warperr = np.linalg.norm(start_image[pix_t0[0], pix_t0[1]] -
-                                               warped_image_start[b, 0, pix_t0[0], pix_t0[1]])
+
+                region_tradeoff = True
+                if region_tradeoff:
+                    start_warperr = np.mean(np.square(start_image[r_range[0]:r_range[1], c_range[0]:c_range[1]] -
+                                                      warped_image_start[b, 0, r_range[0]:r_range[1], c_range[0]:c_range[1]]))
+                else:
+                    start_warperr = np.linalg.norm(start_image[pix_t0[0], pix_t0[1]] -
+                                                   warped_image_start[b, 0, pix_t0[0], pix_t0[1]])
                 warperrs.append(start_warperr)
 
                 r_range = np.clip(np.array((goal_pix[0]-width,goal_pix[0]+width+1)), 0, im_height)
@@ -246,8 +255,13 @@ def compute_metric(conf, images, goal_pix_b, pix_t0_b, true_desig_pix_b=None, go
 
                 point_field = goal_warp_pts[b, 0, r_range[0]:r_range[1], c_range[0]:c_range[1]]
                 desig_l.append(np.flip(np.array([np.median(point_field[:,:,0]), np.median(point_field[:,:,1])]), axis=0))
-                goal_warperr = np.linalg.norm(goal_image[goal_pix[0], goal_pix[1]] -
-                                              warped_image_goal[b, 0, goal_pix[0], goal_pix[1]])
+
+                if region_tradeoff:
+                    goal_warperr = np.mean(np.square(goal_image[r_range[0]:r_range[1], c_range[0]:c_range[1]] -
+                                                      warped_image_goal[b, 0, r_range[0]:r_range[1], c_range[0]:c_range[1]]))
+                else:
+                    goal_warperr = np.linalg.norm(goal_image[goal_pix[0], goal_pix[1]] -
+                                                  warped_image_goal[b, 0, goal_pix[0], goal_pix[1]])
                 warperrs.append(goal_warperr)
             else:
                 desig_l.append(np.flip(start_warp_pts[b, 0, pix_t0[0], pix_t0[1]], 0))
@@ -263,8 +277,11 @@ def compute_metric(conf, images, goal_pix_b, pix_t0_b, true_desig_pix_b=None, go
             warperror_start[b, t] = start_warperr
             warperror_goal[b, t] = goal_warperr
 
+
             warperrs = np.array([start_warperr, goal_warperr])
             tradeoff = 1 / warperrs / np.sum(1 / warperrs)
+
+            tradeoff_all[b,t] = tradeoff
 
             ann_curr = current_frame
             ann_curr = add_crosshairs_single(ann_curr, desig_l[0], np.array([1., 0, 0.]), thick=True)
@@ -301,8 +318,7 @@ def compute_metric(conf, images, goal_pix_b, pix_t0_b, true_desig_pix_b=None, go
 
         columns.append(np.concatenate(newcolumn, 0))
 
-    plot_trackerrors(conf['output_dir'], pos_error_start, pos_error_goal, warperror_start, warperror_goal)
-
+    # plot_trackerrors(conf['output_dir'], pos_error_start, pos_error_goal, warperror_start, warperror_goal, tradeoff_all)
     # make_gifs(curr_im, warped_images_start, warped_images_goal, conf)
 
     image = Image.fromarray((np.concatenate(columns, 1) * 255).astype(np.uint8))
@@ -310,10 +326,10 @@ def compute_metric(conf, images, goal_pix_b, pix_t0_b, true_desig_pix_b=None, go
     print('imagefile saved to ', file)
     image.save(file)
 
-    write_scores(conf, pos_error_start, pos_error_goal)
+    write_scores(conf, pos_error_start, pos_error_goal, tradeoff_all)
 
 
-def plot_trackerrors(outdir, pos_errstart, pos_errgoal, warperr_start, warperr_goal):
+def plot_trackerrors(outdir, pos_errstart, pos_errgoal, warperr_start, warperr_goal, tradeoff):
 
     outdir = outdir + '/bench_plots'
     if not os.path.exists(outdir):
@@ -327,6 +343,8 @@ def plot_trackerrors(outdir, pos_errstart, pos_errgoal, warperr_start, warperr_g
 
         plt.plot(warperr_start[b]*10, '--', label='warperr_start')
         plt.plot(warperr_goal[b]*10, '--', label='warperr_goal')
+
+        plt.plot(tradeoff[b,:,0]*10, label='tradeoff')
 
         plt.legend()
         # plt.show()
@@ -346,23 +364,37 @@ def make_gifs(curr_im, warped_images_start, warped_images_goal, conf):
 #     npy_to_gif(columns, conf['output_dir'] + '/warpstartgoal')
 
 
-def write_scores(conf, pos_error_start, pos_error_goal):
+def write_scores(conf, pos_error_start, pos_error_goal, tradeoff):
     result_file = conf['output_dir'] + '/pos_error.txt'
     f = open(result_file, 'w')
 
-    avg_error_startgoal = np.mean(np.min(np.stack([pos_error_start, pos_error_goal], axis=0), axis=0), axis=1)
+    avg_minerror_startgoal = np.mean(np.min(np.stack([pos_error_start, pos_error_goal], axis=0), axis=0), axis=1)
 
-    pos_error_start = np.mean(pos_error_start, axis=1)
-    pos_error_goal = np.mean(pos_error_goal, axis=1)
+    # pos_error_start = np.mean(pos_error_start, axis=1)
+    # pos_error_goal = np.mean(pos_error_goal, axis=1)
 
-    f.write('avg distance (over all) {} min per tstep in pixels \n'.format(np.mean(avg_error_startgoal)))
-    f.write('avg distance (over all) min per tstep {} ratio\n'.format(np.mean(avg_error_startgoal)/conf['orig_size'][0]))
-    f.write('median distance (over all) {} min per tstep in pixels \n'.format(np.median(avg_error_startgoal)))
-    f.write('median distance (over all) min per tstep {} ratio\n'.format(np.median(avg_error_startgoal)/conf['orig_size'][0]))
+    f.write('avg distance (over all) {} min per tstep in pixels \n'.format(np.mean(avg_minerror_startgoal)))
+    f.write('avg distance (over all) min per tstep {} ratio\n'.format(np.mean(avg_minerror_startgoal)/conf['orig_size'][0]))
+    f.write('median distance (over all) {} min per tstep in pixels \n'.format(np.median(avg_minerror_startgoal)))
+    f.write('median distance (over all) min per tstep {} ratio\n'.format(np.median(avg_minerror_startgoal)/conf['orig_size'][0]))
+
+    avg_error_startgoal = np.mean(np.mean(np.stack([pos_error_start, pos_error_goal], axis=0), axis=0), axis=1)
+    f.write('median distance (over all) avg per tstep {} ratio\n'.format(np.median(avg_error_startgoal)/conf['orig_size'][0]))
+
+    avg_maxerror_startgoal = np.mean(np.max(np.stack([pos_error_start, pos_error_goal], axis=0), axis=0), axis=1)
+    f.write('median distance (over all) max per tstep {} ratio\n'.format(np.median(avg_maxerror_startgoal)/conf['orig_size'][0]))
+
+    avg_weighted_error = np.mean(pos_error_start*tradeoff[:,:,0] + pos_error_goal*tradeoff[:,:,1], axis=1)
+    f.write('median reg-weighted distance {} ratio\n'.format(np.median(avg_weighted_error)/conf['orig_size'][0]))
+
+    min_reg = np.argmin(tradeoff, axis=2)
+    pos_error_startgoal = pos_error_start*min_reg + pos_error_goal*(1-min_reg)
+    avg_min_reg_error = np.mean(pos_error_startgoal, axis=1)
+    f.write('median hardmin distance {} ratio\n'.format(np.median(avg_min_reg_error)/conf['orig_size'][0]))
 
     f.write('pos_error start, pos_error goal, avg over min \n')
     for n in range(pos_error_start.shape[0]):
-        f.write('{}: {}, {}, {} \n'.format(n, pos_error_start[n], pos_error_goal[n], avg_error_startgoal[n]))
+        f.write('{}: {}, {}, {}, {} \n'.format(n, np.mean(pos_error_start[n]), np.mean(pos_error_goal[n]), avg_minerror_startgoal[n], avg_min_reg_error[n]))
 
 if __name__ == '__main__':
     # testdata_path = '/mnt/sda1/pushing_data/goaldistancenet_test'
