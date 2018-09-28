@@ -32,7 +32,7 @@ class Register_Gtruth_Controller(CEM_Controller_Vidpred):
         default_dict = {
             'register_gtruth':['start','goal'],
             'register_region':False,
-            'trade_off_reg':True
+            # 'trade_off_reg':True
 
         }
         parent_params = super(Register_Gtruth_Controller, self)._default_hparams()

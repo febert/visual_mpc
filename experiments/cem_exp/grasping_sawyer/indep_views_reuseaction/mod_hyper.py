@@ -19,33 +19,24 @@ agent = {'type' : BenchmarkAgent,
          'T' : 50,  #number of commands per episodes (issued at control_rate / substeps HZ)
          'image_height': 48,
          'image_width': 64,
+         'point_space_  width': 64,
          'benchmark_exp':'',
-         'current_dir': current_dir
+         'current_dir': current_dir,
+         'register_gtruth': ['start', 'goal']
          }
 
 policy = {
-    'verbose':'',
-    'verbose_every_itr':"",
+    'verbose':True,
+    'verbose_every_itr':True,
     'type': Register_Gtruth_Controller,
-    'iterations': 3,
-    'nactions': 5,
-    'repeat': 3,
-    'no_action_bound': False,
     'initial_std': 0.035,   #std dev. in xy
     'initial_std_lift': 0.08,   #std dev. in z
-    'initial_std_rot': np.pi / 18,
-    'finalweight':10,
-    'register_gtruth':['start','goal'],
-    'ncam': 2,
-    'action_cost_factor': 0,
-    'rew_all_steps': "",
-    'trade_off_reg': '',
     'replan_interval': 3,
-    'reuse_mean': '',
-    'reuse_action_as_mean': "",
+    'reuse_mean': True,
     'reduce_std_dev': 0.2,  # reduce standard dev in later timesteps when reusing action
     'num_samples': [400, 200],
-    'selection_frac': 0.05
+    'selection_frac': 0.05,
+    'register_region':True,
 }
 
 config = {
