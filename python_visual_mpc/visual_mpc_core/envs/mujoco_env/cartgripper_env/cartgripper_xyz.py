@@ -1,11 +1,13 @@
 from python_visual_mpc.visual_mpc_core.envs.mujoco_env.cartgripper_env.base_cartgripper import BaseCartgripperEnv
 import copy
+import pdb
 
 
 class CartgripperXYZEnv(BaseCartgripperEnv):
     def __init__(self, env_params, reset_state):
         self._hyper = copy.deepcopy(env_params)
         super().__init__(env_params, reset_state)
+
         self._adim, self._sdim = self._base_adim, self._base_sdim
         self._n_joints = self._adim
 
