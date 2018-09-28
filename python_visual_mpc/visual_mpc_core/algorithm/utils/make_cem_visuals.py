@@ -138,7 +138,17 @@ class CEM_Visual_Preparation(object):
 
         for icam in range(self.ncam):
             print('putting cam: {} res into dict'.format(icam))
-            self._t_dict['gen_images_icam{}_t{}'.format(icam, vd.t)] = gen_images[:, :, icam]
+
+            gen_images_ = gen_images[:, :, icam]
+            for p in range(self.ndesig):
+                if vd.agentparams['image_height'] != vd.image_height:
+                    goal_pix = vd.goal_pix_med[icam, p]
+                else:
+                    goal_pix = vd.goal_pix[icam, p]
+                
+                gen_images_= image_addgoalpix(self.num_ex, self.len_pred, gen_images_, goal_pix)
+
+            self._t_dict['gen_images_icam{}_t{}'.format(icam, vd.t)] = gen_images_
 
         print('itr{} best scores: {}'.format(vd.cem_itr, [vd.scores[selindices[ind]] for ind in range(self.num_ex)]))
         self._t_dict['scores'] = get_score_images(vd.scores[selindices], vd.last_frames.shape[3], vd.last_frames.shape[4], self.len_pred, self.num_ex)
@@ -172,6 +182,7 @@ class CEM_Visual_Preparation(object):
             self._t_dict['curr_img_cam{}'.format(icam)] = current_image.squeeze()
 
 
+
 class CEM_Visual_Preparation_Registration(CEM_Visual_Preparation):
     def annontate_images(self, vd, last_frames):
         for icam in range(self.ncam):
@@ -183,12 +194,23 @@ class CEM_Visual_Preparation_Registration(CEM_Visual_Preparation):
         self.visualize_registration(vd)
 
     def visualize_goal_pixdistrib(self, vd, gen_distrib):
+        
         for icam in range(self.ncam):
             for p in range(self.ndesig):
                 sel_gen_distrib_p = gen_distrib[:, :, icam, :, :, p]
                 color_coded_dist = color_code(sel_gen_distrib_p, self.num_ex, renormalize=True)
+
+                if vd.agentparams['image_height'] != vd.image_height:
+                    goal_pix = vd.goal_pix_med[icam, p]
+                else:
+                    goal_pix = vd.goal_pix[icam, p]
                 color_coded_dist = image_addgoalpix(self.num_ex, self.len_pred, color_coded_dist,
-                                                   vd.goal_pix[icam, p])
+                                                   goal_pix)
+
+                # plt.switch_backend('TkAgg')
+                # plt.imshow()
+                # plt.show()
+
                 self._t_dict['gen_distrib_cam{}_p{}'.format(icam, p)] = color_coded_dist
                 self._t_dict['gen_dist_goalim_overlay_cam{}_p{}'.format(icam, p)] = \
                 compute_overlay(self.gl_im_ann_per_tsk[p, :, :, icam], color_coded_dist)
@@ -214,6 +236,7 @@ class CEM_Visual_Preparation_Registration(CEM_Visual_Preparation):
                     desig_pix_t0 = vd.desig_pix_t0_med[icam, p][None]
                 else:
                     desig_pix_t0 = vd.desig_pix_t0[icam, p][None]
+                
                 desig_pix_t0 = np.tile(desig_pix_t0, [self.num_ex, self.len_pred, 1])
 
                 startimages = add_crosshairs(startimages, desig_pix_t0)
