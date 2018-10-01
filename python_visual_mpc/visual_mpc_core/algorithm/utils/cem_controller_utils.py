@@ -159,8 +159,8 @@ def reuse_action(prev_action, hp):
     return action.flatten()
 
 
-def apply_ag_epsilon(actions, state, hp):
-    z_thresh, epsilon = hp.autograsp_epsilon
+def apply_ag_epsilon(actions, state, hp, close_override=False, no_close_first_repeat = False):
+    z_thresh, epsilon, norm = hp.autograsp_epsilon
     assert 0 <= epsilon <= 1, "epsilon should be a valid probability"
 
     z_dim, gripper_dim = 2, -1
@@ -172,19 +172,18 @@ def apply_ag_epsilon(actions, state, hp):
             elif a == 'z':
                 z_dim = i
 
-    # cumulative_zs = np.cumsum(actions[:, :, z_dim], 1) + state[-1, z_dim]
-    # actions[:, :, gripper_dim] = (cumulative_zs <= z_thresh).astype(np.float32) * 2 - 1
-    actions[:, :, gripper_dim] = np.abs(actions[:, :, gripper_dim])
-    gripper_act = -1
-    for b in range(actions.shape[0]):
-        pivot = b % (actions.shape[1] + 1)
-        if pivot == 0:
-            gripper_act = -gripper_act
-        if pivot > 0:
-            actions[b, :pivot, gripper_dim] *= -gripper_act
-        if pivot < actions.shape[1]:
-            actions[b, pivot:, gripper_dim] *= gripper_act
-
+    cumulative_zs = np.cumsum(actions[:, :, z_dim] / norm, 1) + state[-1, z_dim]
+    z_thresh_check = (cumulative_zs <= z_thresh).astype(np.float32) * 2 - 1
+    first_close_pos = np.argmax(z_thresh_check, axis = 1)
+    if close_override:
+        actions[:, :, gripper_dim] = 1
+    else:
+        for i, p in enumerate(first_close_pos):
+            pivot = p - p % hp.repeat    # ensure that pivots only occur on repeat boundry
+            if no_close_first_repeat:
+                pivot = max(pivot, hp.repeat)
+            actions[i, :pivot, gripper_dim] = -1
+            actions[i, pivot:, gripper_dim] = 1
     epsilon_vec = np.random.choice([-1, 1], size=actions.shape[:-1], p=[epsilon, 1 - epsilon])
     actions[:, :, gripper_dim] *= epsilon_vec
 

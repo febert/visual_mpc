@@ -6,13 +6,6 @@ from python_visual_mpc.visual_mpc_core.algorithm.cem_controller_vidpred_variants
 BASE_DIR = '/'.join(str.split(__file__, '/')[:-1])
 current_dir = os.path.dirname(os.path.realpath(__file__))
 
-
-env_params = {
-    'autograsp': {'reopen': True, 'zthresh': 0.15},
-    'video_save_dir': ''
-}
-
-
 agent = {'type' : BenchmarkAgent,
          'env': (VanillaSawyerEnv, {}),
          'data_save_dir': BASE_DIR,
@@ -34,10 +27,10 @@ policy = {
     'replan_interval': 3,
     'reuse_mean': True,
     'reduce_std_dev': 0.2,  # reduce standard dev in later timesteps when reusing action
-    'num_samples': [400, 200],
+    'num_samples': [800, 400],
     'selection_frac': 0.05,
     'register_region':True,
-    'autograsp_epsilon': [0.15, 0.1, 0.116]
+    'autograsp_epsilon': [0.15, 0.2, 0.116]
 }
 
 config = {

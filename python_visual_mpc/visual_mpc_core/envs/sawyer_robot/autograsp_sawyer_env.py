@@ -24,7 +24,7 @@ class AutograspSawyerEnv(BaseSawyerEnv):
         z_thresh = self._ag_dict['zthresh']
         reopen = 'reopen' in self._ag_dict
 
-        touch_test = self._last_obs['finger_sensors'][0] > 0
+        touch_test = np.abs(self._last_obs['state'][0]) < 0.97
         target, self._gripper_closed = autograsp_dynamics(self._previous_target_qpos, action,
                                                           self._gripper_closed, norm_gripper_z, z_thresh, reopen,
                                                           touch_test or self._prev_touch)

@@ -85,8 +85,8 @@ def get_metric(folder, use_ind=None, only_take_first_n=None):
 
 def plot_results(name, folders, labels, use_ind=None, only_take_first_n=None):
 
-    plt.switch_backend('TkAgg')
-    plt.figure(figsize=[5,4])
+    plt.switch_backend('Agg')
+    plt.figure(figsize=[7.5,6])
     # markers = ['o', 'd']
     matplotlib.rcParams.update({'font.size': 15})
 
@@ -120,9 +120,9 @@ if __name__ == '__main__':
     # labels = ['Prediction-Propagation','OpenCV-Tracking', 'GDN-Tracking-(ours)']
 
     folders = ['/home/sudeep/Documents/catkin_ws/src/visual_mpc/experiments/cem_exp/grasping_sawyer/indep_views_predprop/sudri/exp',
-               '/home/sudeep/Documents/catkin_ws/src/visual_mpc/experiments/cem_exp/grasping_sawyer/indep_views_reuseaction_highres/sudri/exp',
-               '/home/sudeep/Documents/catkin_ws/src/visual_mpc/experiments/cem_exp/grasping_sawyer/indep_views_reuseaction_opencvtrack/sudri/exp']
-    labels = ['Predictor Propogation', 'GDN-Tracking-(ours)', 'OpenCV-Tracking']
+               '/home/sudeep/Documents/catkin_ws/src/visual_mpc/experiments/cem_exp/grasping_sawyer/indep_views_reuseaction_opencvtrack/sudri/exp',
+               '/home/sudeep/Documents/catkin_ws/src/visual_mpc/experiments/cem_exp/grasping_sawyer/indep_views_reuseaction_highres/sudri/bench']
+    labels = ['Visual MPC + Predictor Propagation', 'Visual MPC + OpenCV-Tracking', 'Visual MPC + Registration Network (ours)']
     plot_results('bench_grasp', folders, labels)
 
     # 3obj

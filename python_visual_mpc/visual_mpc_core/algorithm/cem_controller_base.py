@@ -100,6 +100,7 @@ class CEM_Controller_Base(Policy):
         self.ncontxt = 0
         self.len_pred = self.repeat*self.naction_steps - self.ncontxt
         self.best_cost_perstep = np.zeros([self.ncam, self.ndesig, self.len_pred])
+        self._close_override = False
 
     def _default_hparams(self):
         default_dict = {
@@ -181,8 +182,12 @@ class CEM_Controller_Base(Policy):
                 actions = self.sample_actions(self.mean, self.sigma, self._hp, self.M)
 
             if self._hp.autograsp_epsilon[0] is not None:
-                assert len(self._hp.autograsp_epsilon) == 2, "Should be array of [z_thresh, epsilon]"
-                actions = apply_ag_epsilon(actions, self.state, self._hp)
+                assert len(self._hp.autograsp_epsilon) == 2 or len(self._hp.autograsp_epsilon) == 3, \
+                    "Should be array of [z_thresh, epsilon] or [z_thresh, epsilon, norm]"
+                if len(self._hp.autograsp_epsilon) == 2:
+                    self._hp.autograsp_epsilon = [i for i in self._hp.autograsp_epsilon] + [1]
+
+                actions = apply_ag_epsilon(actions, self.state, self._hp, self._close_override, self.t < self._hp.repeat)
 
 
             itr_times['action_sampling'] = time.time() - t_startiter
@@ -329,6 +334,7 @@ class CEM_Controller_Base(Policy):
 
         if t == 0:
             action = np.zeros(self.agentparams['adim'])
+            self._close_override = False
         else:
             if self._hp.use_first_plan:
                 self.logger.log('using actions of first plan, no replanning!!')
@@ -354,5 +360,10 @@ class CEM_Controller_Base(Policy):
         self.action_list.append(action)
 
         self.logger.log("applying action  {}".format(action))
+
+        if self.agentparams['adim'] == 5 and action[-1] > 0:
+            self._close_override = True
+        else:
+            self._close_override = False
 
         return {'actions':action, 'plan_stat':self.plan_stat}
