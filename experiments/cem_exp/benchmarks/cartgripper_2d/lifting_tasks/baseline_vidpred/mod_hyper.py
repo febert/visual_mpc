@@ -27,7 +27,7 @@ agent = {
     'image_width' : 64,
     'make_final_gif': True,
     'record': BASE_DIR + '/record/',
-    'start_goal_confs': os.environ['VMPC_DATA_DIR'] + '/train',
+    'start_goal_confs': os.environ['VMPC_DATA_DIR'] + '/cartgripper_xz_grasp/lifting_tasks',
     'current_dir': current_dir
 }
 

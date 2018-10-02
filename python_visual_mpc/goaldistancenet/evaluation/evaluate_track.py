@@ -206,7 +206,7 @@ def compute_metric(conf, images, goal_pix_b, pix_t0_b, true_desig_pix_b=None, go
     warperror_start = np.zeros([bsize, seq_len])
     warperror_goal = np.zeros([bsize, seq_len])
 
-    tinterval = 1
+    tinterval = 3
     tstart = 0
     start_image_b = images[:, tstart]
 
@@ -284,13 +284,11 @@ def compute_metric(conf, images, goal_pix_b, pix_t0_b, true_desig_pix_b=None, go
             tradeoff_all[b,t] = tradeoff
 
             ann_curr = current_frame
-            ann_curr = add_crosshairs_single(ann_curr, desig_l[0], np.array([1., 0, 0.]), thick=True)
-            ann_curr = add_crosshairs_single(ann_curr, desig_l[1], np.array([0., 0, 1]), thick=True)
-            # ann_curr = add_crosshairs_single(ann_curr, true_desig_pix, np.array([0., 1, 1]), thick=True)
+            # ann_curr = add_crosshairs_single(ann_curr, desig_l[0], np.array([1., 0, 0.]), thick=True)
+            # ann_curr = add_crosshairs_single(ann_curr, desig_l[1], np.array([0., 0, 1]), thick=True)
+            ann_curr = add_crosshairs_single(ann_curr, true_desig_pix, np.array([0., 1, 1]), thick=True)
             curr_im_l.append(ann_curr)
 
-            # pos_error_start[b,t] = np.linalg.norm(pix_t0 - true_desig_pix)
-            # pos_error_goal[b,t] = np.linalg.norm(goal_pix - true_desig_pix)
             pos_error_start[b,t] = np.linalg.norm(desig_l[0] - true_desig_pix)
             pos_error_goal[b,t] = np.linalg.norm(desig_l[1] - true_desig_pix)
 
@@ -311,14 +309,14 @@ def compute_metric(conf, images, goal_pix_b, pix_t0_b, true_desig_pix_b=None, go
         warped_images_goal[:,t] = np.stack(warped_image_goal_l, 0)
 
         newcolumn = []
-        numex = 5
+        numex = 15
         for b in range(numex):
             for el in column:
                 newcolumn.append(el[b])
 
         columns.append(np.concatenate(newcolumn, 0))
 
-    # plot_trackerrors(conf['output_dir'], pos_error_start, pos_error_goal, warperror_start, warperror_goal, tradeoff_all)
+    plot_trackerrors(conf['output_dir'], pos_error_start, pos_error_goal, warperror_start, warperror_goal, tradeoff_all)
     # make_gifs(curr_im, warped_images_start, warped_images_goal, conf)
 
     image = Image.fromarray((np.concatenate(columns, 1) * 255).astype(np.uint8))
@@ -422,7 +420,7 @@ if __name__ == '__main__':
     hyperparams = imp.load_source('hyperparams', conffile)
     conf = hyperparams.configuration
     modeldata_dir = '/'.join(str.split(conffile, '/')[:-1]) + '/modeldata'
-    conf['pretrained_model'] = [modeldata_dir + '/model56002']
+    conf['pretrained_model'] = [modeldata_dir + '/model48002']
 
 
     conf['bench_dir'] = ['/mnt/sda1/pushing_data/sawyer_grasping/eval/track_annotations']
