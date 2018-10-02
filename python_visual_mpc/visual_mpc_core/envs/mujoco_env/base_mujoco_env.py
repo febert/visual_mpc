@@ -91,15 +91,19 @@ class BaseMujocoEnv(BaseEnv):
 
         return self._frame_height - row, col                 # rendering flipped around in height
 
-    def get_desig_pix(self, target_width, round=True):
+    def get_desig_pix(self, target_width, round=True, obj_poses = None):
         qpos_dim = self._n_joints      # the states contains pos and vel
         assert self.sim.data.qpos.shape[0] == qpos_dim + 7 * self.num_objects
         desig_pix = np.zeros([self._ncam, self.num_objects, 2], dtype=np.int)
         ratio = self._frame_width / target_width
         for icam, cam in enumerate(self.cameras):
             for i in range(self.num_objects):
-                fullpose = self.sim.data.qpos[i * 7 + qpos_dim:(i + 1) * 7 + qpos_dim].squeeze()
-                d = self.project_point(fullpose[:3], cam)
+                if obj_poses is None:
+                    fullpose = self.sim.data.qpos[i * 7 + qpos_dim:(i + 1) * 7 + qpos_dim].squeeze()
+                    chosen_point = fullpose[:3]
+                else:
+                    chosen_point = obj_poses[i, :3]
+                d = self.project_point(chosen_point, cam)
                 d = np.stack(d) / ratio
                 if round:
                     d = np.around(d).astype(np.int)

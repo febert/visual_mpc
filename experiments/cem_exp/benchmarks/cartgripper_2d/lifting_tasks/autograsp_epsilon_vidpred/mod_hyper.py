@@ -22,7 +22,7 @@ env_params = {
 agent = {
     'type': BenchmarkAgent,
     'env': (CartgripperXZGrasp, env_params),
-    'T': 45,
+    'T': 60,
     'image_height' : 48,
     'image_width' : 64,
     'make_final_gif_pointoverlay': True,
@@ -37,8 +37,9 @@ policy = {
     'action_order': ['x', 'z', 'grasp'],
     'initial_std_lift': 0.5,  # std dev. in xy
     'rejection_sampling': False,
-    'replan_interval': 5,
-    'num_samples': [800, 400]
+    'autograsp_epsilon': [-0.06, 0.2],
+    'replan_interval': 15,
+    'num_samples': [3200, 1600],
 }
 
 config = {

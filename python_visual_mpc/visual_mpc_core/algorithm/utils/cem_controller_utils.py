@@ -138,6 +138,7 @@ def construct_initial_sigma(hp, adim, t=None):
     sigma = np.diag(diag)
     return sigma
 
+
 def reuse_cov(sigma, adim, hp):
     assert hp.replan_interval == 3
     print('reusing cov form last MPC step...')
@@ -149,12 +150,44 @@ def reuse_cov(sigma, adim, hp):
     sigma[-adim:, -adim:] = construct_initial_sigma(hp)[:adim, :adim]
     return sigma
 
+
 def reuse_action(prev_action, hp):
     assert hp.replan_interval == 3
     print('reusing mean form last MPC step...')
     action = np.zeros_like(prev_action)
     action[:-1] = prev_action[1:]
     return action.flatten()
+
+
+def apply_ag_epsilon(actions, state, hp, close_override=False, no_close_first_repeat = False):
+    z_thresh, epsilon, norm = hp.autograsp_epsilon
+    assert 0 <= epsilon <= 1, "epsilon should be a valid probability"
+
+    z_dim, gripper_dim = 2, -1
+    if hp.action_order[0] is not None:
+        assert 'z' in hp.action_order and 'grasp' in hp.action_order, "Ap epsilon requires z and grasp action"
+        for i, a in enumerate(hp.action_order):
+            if a == 'grasp':
+                gripper_dim = i
+            elif a == 'z':
+                z_dim = i
+
+    cumulative_zs = np.cumsum(actions[:, :, z_dim] / norm, 1) + state[-1, z_dim]
+    z_thresh_check = (cumulative_zs <= z_thresh).astype(np.float32) * 2 - 1
+    first_close_pos = np.argmax(z_thresh_check, axis = 1)
+    if close_override:
+        actions[:, :, gripper_dim] = 1
+    else:
+        for i, p in enumerate(first_close_pos):
+            pivot = p - p % hp.repeat    # ensure that pivots only occur on repeat boundry
+            if no_close_first_repeat:
+                pivot = max(pivot, hp.repeat)
+            actions[i, :pivot, gripper_dim] = -1
+            actions[i, pivot:, gripper_dim] = 1
+    epsilon_vec = np.random.choice([-1, 1], size=actions.shape[:-1], p=[epsilon, 1 - epsilon])
+    actions[:, :, gripper_dim] *= epsilon_vec
+
+    return actions
 
 
 def discretize(actions, M, naction_steps, discrete_ind):

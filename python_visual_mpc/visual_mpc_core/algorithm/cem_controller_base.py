@@ -14,8 +14,10 @@ import pickle as pkl
 from collections import OrderedDict
 from python_visual_mpc.visual_mpc_core.algorithm.utils.cem_controller_utils import discretize
 
+
 import time
-from .utils.cem_controller_utils import construct_initial_sigma, reuse_cov, reuse_action, truncate_movement, make_blockdiagonal
+from .utils.cem_controller_utils import construct_initial_sigma, reuse_cov, \
+    reuse_action, truncate_movement, make_blockdiagonal, apply_ag_epsilon
 
 from python_visual_mpc.visual_mpc_core.algorithm.policy import Policy
 
@@ -76,6 +78,7 @@ class CEM_Controller_Base(Policy):
         self.indices =[]
         self.mean =None
         self.sigma =None
+        self.state = None
 
         self.dict_ = collections.OrderedDict()
 
@@ -97,6 +100,7 @@ class CEM_Controller_Base(Policy):
         self.ncontxt = 0
         self.len_pred = self.repeat*self.naction_steps - self.ncontxt
         self.best_cost_perstep = np.zeros([self.ncam, self.ndesig, self.len_pred])
+        self._close_override = False
 
     def _default_hparams(self):
         default_dict = {
@@ -121,6 +125,7 @@ class CEM_Controller_Base(Policy):
             'initial_std_lift': 0.15,   #std dev. in xy
             'initial_std_rot': np.pi / 18,
             'initial_std_grasp': 2,
+            'autograsp_epsilon': [None],   # if autograsp epsilon is not None apply ag_epsilon to gripper dims (last dim if action order not specified)
             'finalweight':10,
             'use_first_plan':False,
             'replan_interval':-1,
@@ -129,7 +134,7 @@ class CEM_Controller_Base(Policy):
             'reduce_std_dev':1., # reduce standard dev in later timesteps when reusing action
         }
 
-        parent_params = super()._default_hparams()
+        parent_params = super(CEM_Controller_Base, self)._default_hparams()
         for k in default_dict.keys():
             parent_params.add_hparam(k, default_dict[k])
         return parent_params
@@ -175,6 +180,16 @@ class CEM_Controller_Base(Policy):
                 actions = self.sample_actions_rej()
             else:
                 actions = self.sample_actions(self.mean, self.sigma, self._hp, self.M)
+
+            if self._hp.autograsp_epsilon[0] is not None:
+                assert len(self._hp.autograsp_epsilon) == 2 or len(self._hp.autograsp_epsilon) == 3, \
+                    "Should be array of [z_thresh, epsilon] or [z_thresh, epsilon, norm]"
+                if len(self._hp.autograsp_epsilon) == 2:
+                    self._hp.autograsp_epsilon = [i for i in self._hp.autograsp_epsilon] + [1]
+
+                actions = apply_ag_epsilon(actions, self.state, self._hp, self._close_override, self.t < self._hp.repeat)
+
+
             itr_times['action_sampling'] = time.time() - t_startiter
             t_start = time.time()
 
@@ -319,6 +334,7 @@ class CEM_Controller_Base(Policy):
 
         if t == 0:
             action = np.zeros(self.agentparams['adim'])
+            self._close_override = False
         else:
             if self._hp.use_first_plan:
                 self.logger.log('using actions of first plan, no replanning!!')
@@ -344,5 +360,10 @@ class CEM_Controller_Base(Policy):
         self.action_list.append(action)
 
         self.logger.log("applying action  {}".format(action))
+
+        if self.agentparams['adim'] == 5 and action[-1] > 0:
+            self._close_override = True
+        else:
+            self._close_override = False
 
         return {'actions':action, 'plan_stat':self.plan_stat}

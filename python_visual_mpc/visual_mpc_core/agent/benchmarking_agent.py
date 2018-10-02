@@ -10,7 +10,8 @@ import pdb
 class BenchmarkAgent(GeneralAgent):
     def __init__(self, hyperparams):
         self._start_goal_confs = hyperparams.get('start_goal_confs', None)
-        self.ncam = hyperparams['env'][1].get('ncam', hyperparams['ncam'])
+        self.ncam = hyperparams['env'][1].get('ncam', 2)
+
         GeneralAgent.__init__(self, hyperparams)
         self._is_robot_bench = 'robot_name' in self._hyperparams['env'][1]
         self._hyperparams['gen_xml'] = 1
@@ -47,7 +48,6 @@ class BenchmarkAgent(GeneralAgent):
             if 'register_gtruth' in self._hyperparams and len(self._hyperparams['register_gtruth']) == 2:
                 raw_goal_image, self._goal_obj_pose = self.env.get_obj_desig_goal(self._hyperparams['_bench_save'], True,
                                                                               ntasks=ntasks)
-
                 goal_dims = (1, self.ncam, self._hyperparams['image_height'], self._hyperparams['image_width'], 3)
                 self._goal_image = np.zeros(goal_dims, dtype=np.uint8)
                 resize_store(0, self._goal_image, raw_goal_image)

@@ -10,8 +10,8 @@ class BaseGoalClassifier:
         self._hp = self._default_hparams().override_from_dict(conf)
 
         if datasets is not None:
-            self._goal_images = tf.cast(self._get_trainval_batch('goal_image', datasets), tf.float32) / 255.
-            self._input_im = tf.cast(self._get_trainval_batch('final_frame', datasets), tf.float32) / 255.
+            self._goal_images = tf.cast(self._get_trainval_batch('goal_image', datasets), tf.float32)
+            self._input_im = tf.cast(self._get_trainval_batch('final_frame', datasets), tf.float32)
             self._label = self._get_trainval_batch('label', datasets)
         else:
             raise NotImplementedError("Test functionality not implemented")

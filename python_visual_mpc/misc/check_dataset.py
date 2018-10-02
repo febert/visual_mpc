@@ -5,6 +5,7 @@ import random
 import numpy as np
 from python_visual_mpc.video_prediction.misc.makegifs2 import npy_to_gif
 import cv2
+import os
 
 
 if __name__ == '__main__':
@@ -33,14 +34,18 @@ if __name__ == '__main__':
         if args.calc_deltas:
             delta_sums.append(pkl.load(open('{}/obs_dict.pkl'.format(t), 'rb'))['control_delta'][1:])
         agent_data = pkl.load(open('{}/agent_data.pkl'.format(t), 'rb'))
+
         if args.robot_lift_rule:
             obs_dict = pkl.load(open('{}/obs_dict.pkl'.format(t), 'rb'))
-            finger_sensor, state = obs_dict['finger_sensors'], obs_dict['state']
-            good_states = np.logical_and(state[:-1, 2] >= 0.9, state[:-1, -1] > 0)
-
-            if np.sum(np.logical_and(np.abs(state[:-1, -1]) < 0.85, good_states)) >= 2:
+            state = obs_dict['state']
+            good_states = np.logical_and(state[:-1, 2] >= 0.9, state[:-1, -1] > -0.5)
+            if np.sum(np.logical_and(np.abs(state[:-1, -1]) < 0.97, good_states)) >= 2:
                 num_good += 1
+                agent_data['goal_reached'] = True
                 print('traj {} is good!'.format(t))
+
+            else:
+                agent_data['goal_reached'] = False
 
         elif agent_data.get('goal_reached', False):
             num_good += 1
@@ -51,7 +56,15 @@ if __name__ == '__main__':
             for i in range(args.T):
                 frame_imgs = []
                 for n in range(args.ncam):
-                    img_t = cv2.imread('{}/images{}/im_{}.png'.format(t, n, i))[:, :, ::-1]
+                    fname = '{}/images{}/im_{}'.format(t, n, i)
+                    if os.path.exists('{}.jpg'.format(fname)):
+                        fname = fname + '.jpg'
+                    elif os.path.exists('{}.png'.format(fname)):
+                        fname = fname + '.png'
+                    else:
+                        raise ValueError
+
+                    img_t = cv2.imread(fname)[:, :, ::-1]
                     if args.invert_bad and not agent_data['goal_reached'] :
                         img_t = img_t[:, :, ::-1]
                     frame_imgs.append(img_t)               

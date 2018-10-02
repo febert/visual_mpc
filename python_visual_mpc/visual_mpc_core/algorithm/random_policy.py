@@ -88,13 +88,15 @@ class RandomEpsilonAG(Randompolicy):
         return parent_params
 
     def act(self, t, state, finger_sensors):
-        base_action = super(RandomEpsilonAG, self).act(t)['actions']
+        base_action = super(RandomEpsilonAG, self).act(t)['actions'].copy()
         ag_action = -1
-        if state[-1, 2] <= self._hp.z_thresh or np.amax(finger_sensors[-1]) > 0:
+        if state[-1, 2] <= self._hp.z_thresh or np.abs(state[-1, -1]) < 0.95:
             ag_action = 1
         if np.random.uniform() < self._hp.epsilon:
             ag_action = -ag_action
-
+            print('eps_rand_grasp_action: {}'.format(ag_action))
+        else:
+            print('rand_grasp_action: {}'.format(ag_action))
         base_action[-1] = ag_action
 
         return {'actions': base_action}

@@ -21,8 +21,7 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser()
     parser.add_argument('conf_path', type=str, help="Path to the classifier conf file")
     parser.add_argument("--input_dirs", "--input_dir", type=str, nargs='+', required=True,
-                        help="either a directory containing subdirectories train, val, test, "
-                             "etc, or a directory containing the tfrecords")
+                        help="either a directory containing subdirectories train, val, test which contain records")
     parser.add_argument("--train_batch_sizes", type=int, nargs='+', help="splits for the training datasets",
                         required=True)
     parser.add_argument('--restore_path', type=str, default=None)
