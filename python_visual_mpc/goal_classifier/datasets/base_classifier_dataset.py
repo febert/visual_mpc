@@ -1,4 +1,4 @@
-from .base_dataset import BaseVideoDataset
+from python_visual_mpc.visual_mpc_core.Datasets.base_dataset import BaseVideoDataset
 import tensorflow as tf
 import numpy as np
 

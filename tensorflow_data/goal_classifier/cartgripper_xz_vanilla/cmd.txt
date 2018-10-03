@@ -1,0 +1,3 @@
+ python python_visual_mpc/goal_classifier/train_classifier.py tensorflow_data/goal_classifier/cartgripper_xz_vanilla/conf.py \
+ --input_dirs $VMPC_DATA_DIR/cartgripper_xz_grasp/classifier_data/good/ $VMPC_DATA_DIR/cartgripper_xz_grasp/classifier_data/bad/ \
+ --train_batch_sizes 1 1

@@ -23,7 +23,8 @@ class BaseGoalClassifier:
 
     def _default_hparams(self):
         params = {
-            'pretrained_path': '{}/weights/vgg19.npy'.format(os.environ['VMPC_DATA_DIR'])
+            'pretrained_path': '{}/weights'.format(os.environ['VMPC_DATA_DIR']),
+            'max_steps': 80000
         }
         return HParams(**params)
 
@@ -52,9 +53,13 @@ class BaseGoalClassifier:
             return relu
 
     def _vgg_layer(self, images):
+        """
+        :param images: float32 RGB in range 0 - 255
+        :return:
+        """
         vgg_dict = np.load(os.path.join(self._hp.pretrained_path, "vgg19.npy"), encoding='latin1').item()
         vgg_mean = tf.convert_to_tensor(np.array([103.939, 116.779, 123.68], dtype=np.float32))
-        blue, green, red = tf.split(axis=-1, num_or_size_splits=3, value=images)
+        red, green, blue = tf.split(axis=-1, num_or_size_splits=3, value=images)
 
         bgr = tf.concat(axis=3, values=[
             blue - vgg_mean[0],
@@ -76,3 +81,7 @@ class BaseGoalClassifier:
         out = self._vgg_conv(vgg_dict, conv3_3, "conv3_4")
 
         return out
+
+    @property
+    def max_steps(self):
+        return self._hp.max_steps
