@@ -4,29 +4,46 @@ import importlib.machinery
 import importlib.util
 from python_visual_mpc.goal_classifier.models.base_model import BaseGoalClassifier
 from python_visual_mpc.goal_classifier.datasets.base_classifier_dataset import ClassifierDataset
-import cv2
+import os
 
 
-def save_cv(img, img_name, base_path='/home/sudeep/Desktop/test_classifier'):
-    cv2.imwrite(img_name)
-def train(conf, batch_paths, restore_path):
+def train(conf, batch_paths, restore_path, device, save_freq, summary_freq, tboard_port):
+    print('Using GPU: {}'.format(device))
+    os.environ["CUDA_VISIBLE_DEVICES"] = str(device)
+
     dataset_type, dataset_params = conf.pop('dataset', ClassifierDataset), conf.pop('dataset_params', {})
     datasets = [dataset_type(d[0], d[1], dataset_params) for d in batch_paths]
 
     model = conf.pop('model', BaseGoalClassifier)(conf, datasets)
     global_step = tf.train.get_or_create_global_step()
-    model.build()
+    model.build(global_step)
 
     sess = tf.Session()
     sess.run(tf.global_variables_initializer())
-    check_labels, check_goals, check_input_im = sess.run([model._label, model._goal_images, model._input_im], feed_dict={model._train_cond: 1})
-    print('labels', check_labels.shape)
-    print('goals', check_goals.shape)
-    print('input_im', check_input_im.shape)
-    import pdb
-    pdb.set_trace()
-    print(1 / 0)
+    model.restore(sess, restore_path)
+    summary_writer = tf.summary.FileWriter(model.save_dir, graph=sess.graph, flush_secs=10)
+    if tboard_port > 0:
+        os.system("tensorboard --logdir {}  --port {} &".format(model.save_dir, tboard_port))
 
+    start_step = global_step.eval(sess)
+    for _ in range(model.max_steps - start_step):
+        i_step = global_step.eval(sess)
+        sess_fetches = model.step(sess, global_step, eval_summaries=i_step % summary_freq == 0)
+        if i_step % summary_freq == 0:
+            print('iter {} - train loss: {}, '
+                  'val loss: {}'.format(i_step, sess_fetches['train_loss'], sess_fetches['val_loss']), end="\r")
+
+            itr_summary = tf.Summary()
+            for f in sess_fetches.keys():
+                if 'summary' in f:
+                    itr_summary.value.add(tag=f, simple_value=sess_fetches[f])
+            summary_writer.add_summary(itr_summary, i_step)
+            print()
+        else:
+            print('iter {} - train loss: {}'.format(i_step, sess_fetches['train_loss']), end="\r")
+
+        if i_step > 0 and i_step % save_freq == 0:
+            model.save(sess, i_step)
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
@@ -35,7 +52,11 @@ if __name__ == '__main__':
                         help="either a directory containing subdirectories train, val, test which contain records")
     parser.add_argument("--train_batch_sizes", type=int, nargs='+', help="splits for the training datasets",
                         required=True)
-    parser.add_argument('--restore_path', type=str, default=None)
+    parser.add_argument('--restore_path', type=str, default=None, help="path to existing model file")
+    parser.add_argument('--device', type=int, default=0, help= "GPU use for training")
+    parser.add_argument('--save_freq', type=int, default=5000, help="Checkpoint Save Frequency")
+    parser.add_argument('--summary_freq', type=int, default=50, help="Summary Save Frequency")
+    parser.add_argument('--port', type=int, default=-1, help="Open a summary tensorboard to this port")
     args = parser.parse_args()
 
     loader = importlib.machinery.SourceFileLoader('classifier_conf', args.conf_path)
@@ -44,4 +65,5 @@ if __name__ == '__main__':
     loader.exec_module(mod)
     conf = mod.config
 
-    train(conf, list(zip(args.input_dirs, args.train_batch_sizes)), args.restore_path)
+    train(conf, list(zip(args.input_dirs, args.train_batch_sizes)),
+          args.restore_path, args.device, args.save_freq, args.summary_freq, args.port)
