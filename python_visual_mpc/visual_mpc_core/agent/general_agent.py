@@ -4,6 +4,8 @@ import numpy as np
 from python_visual_mpc.video_prediction.misc.makegifs2 import npy_to_gif
 import cv2
 from python_visual_mpc.visual_mpc_core.algorithm.policy import get_policy_args
+import matplotlib.pyplot as plt
+import pdb
 
 
 def file_len(fname):
@@ -239,7 +241,18 @@ class GeneralAgent(object):
                     cv2.circle(img, center, 4, colors[i], -1)
 
         file_path = self._hyperparams['record']
-        npy_to_gif(self.large_images_traj, file_path +'/video{}'.format(itr))
+
+        # pdb.set_trace()
+        if self._goal_image is not None:
+            target_img_width, target_img_height, _ = self.large_images_traj[0].shape
+
+            goal_image = (cv2.resize(self._goal_image[-1, 0], (target_img_height, target_img_width))*255).astype(np.uint8)
+            overlayed = [0.5*goal_image + 0.5*large for large in self.large_images_traj]
+            outimages = [np.concatenate([full, over], axis=0) for full, over in zip(self.large_images_traj, overlayed)]
+        else:
+            outimages = self.large_images_traj
+
+        npy_to_gif(outimages, file_path +'/video{}'.format(itr))
 
     def _init(self):
         """

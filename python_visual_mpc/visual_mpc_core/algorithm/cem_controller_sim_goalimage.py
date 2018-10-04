@@ -25,7 +25,6 @@ class CEM_Controller_Sim_GoalImage(CEM_Controller_Sim):
     def _default_hparams(self):
         default_dict = {
                         'cost_func':mse_based_cost,
-                        'follow_traj':False,    # follow the demonstration frame by frame
                         'goal_image_seq':True,  # use sequence of goalimages (as opposed to a single goal image);
                                                 # else use only the last image as goal image
                         'new_goal_freq':3,      # -1: only take a new goal once per trajectory

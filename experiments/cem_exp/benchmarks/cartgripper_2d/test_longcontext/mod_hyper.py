@@ -34,11 +34,12 @@ agent = {
 
 policy = {
     'verbose':True,
+    'verbose_every_itr':True,
     'type': CEM_Controller_Vidpred,
     'action_order': ['x', 'z', 'grasp'],
     'initial_std_lift': 0.5,  # std dev. in xy
     'rejection_sampling': False,
-    'replan_interval': 5,
+    'replan_interval': 1,
     # 'num_samples': [200]
 }
 

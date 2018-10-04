@@ -11,14 +11,31 @@ from python_visual_mpc.goaldistancenet.setup_gdn import setup_gdn
 
 class Full_Image_Reg_Controller(CEM_Controller_Vidpred):
     def __init__(self, ag_params, policyparams, gpu_id, ngpu):
-        super(Full_Image_Reg_Controller, self).__init__(ag_params, policyparams, gpu_id, ngpu)
 
+        super(Full_Image_Reg_Controller, self).__init__(ag_params, policyparams, gpu_id, ngpu)
+        self._hp = self._default_hparams()
+        self.override_defaults(policyparams)
+
+        self.pred_len = self.seqlen - self.ncontxt
+        self.build_costnet(ag_params, gpu_id)
+        self.visualizer = CEM_Visual_Preparation_FullImageReg()
+
+    def _default_hparams(self):
+        default_dict = {
+            'follow_traj':False,    # follow the demonstration frame by frame
+            'goal_image_seq':False
+        }
+
+        parent_params = super(Full_Image_Reg_Controller, self)._default_hparams()
+        for k in default_dict.keys():
+            parent_params.add_hparam(k, default_dict[k])
+        return parent_params
+
+    def build_costnet(self, ag_params, gpu_id=0):
         params = imp.load_source('params', ag_params['current_dir'] + '/gdnconf.py')
         self.gdnconf = params.configuration
         self.gdnconf['batch_size'] = self.bsize
-        self.pred_len = self.seqlen - self.ncontxt
         self.goal_image_warper = setup_gdn(self.gdnconf, gpu_id)
-        self.visualizer = CEM_Visual_Preparation_FullImageReg()
 
     def eval_planningcost(self, cem_itr, gen_distrib, gen_images):
         flow_fields = np.zeros([self.M, self.pred_len, self.ncam, self.img_height, self.img_width, 2])

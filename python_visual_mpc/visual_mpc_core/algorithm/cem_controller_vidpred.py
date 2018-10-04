@@ -367,7 +367,6 @@ class CEM_Controller_Vidpred(CEM_Controller_Base):
         self.desig_pix = np.array(desig_pix).reshape((self.ncam, self.ntask, 2))
         self.goal_pix = np.array(goal_pix).reshape((self.ncam, self.ntask, 2))
 
-
         self.images = images
         self.state = state
         return super(CEM_Controller_Vidpred, self).act(t, i_tr)
