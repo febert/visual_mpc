@@ -44,12 +44,17 @@ class Embedding_Dist_Controller(Full_Image_Reg_Controller, CEM_Controller_Vidpre
 
     def eval_planningcost(self, cem_itr, gen_distrib, gen_images):
         goal_images = np.tile(self.goal_image[None], [self.bsize, 1, 1, 1,1,1])   # shape b,t,n, r, c, 3
+
+        pdb.set_trace()
+        #TODO: cost at every timestep!!
+
         gen_images = append_black(gen_images[:,-1,0])
         goal_images = append_black(goal_images[:,-1,0])
 
         pred_embedding = self.make_embedding(gen_images)
         goal_embedding = self.make_embedding(goal_images)
-        # pred_embedding = [np.zeros([self.bsize, 10])]
+
+       # pred_embedding = [np.zeros([self.bsize, 10])]
         # goal_embedding = [np.zeros([self.bsize, 10])]
 
         dist = ['mse']

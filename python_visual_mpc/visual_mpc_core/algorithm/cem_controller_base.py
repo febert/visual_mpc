@@ -332,7 +332,7 @@ class CEM_Controller_Base(Policy):
         self.i_tr = i_tr
         self.t = t
 
-        if t == 0:
+        if t < self.ncontxt -1:
             action = np.zeros(self.agentparams['adim'])
             self._close_override = False
         else:

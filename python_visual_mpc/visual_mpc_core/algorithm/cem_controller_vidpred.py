@@ -152,7 +152,7 @@ class CEM_Controller_Vidpred(CEM_Controller_Base):
         return one_hot_images
 
     def get_rollouts(self, actions, cem_itr, itr_times):
-        actions, last_frames, last_states, t_0 = self.prep_vidpred_inp(actions, cem_itr)
+        actions, last_frames, last_states, actions, t_0 = self.prep_vidpred_inp(actions, cem_itr)
         input_distrib = self.make_input_distrib(cem_itr)
 
         t_startpred = time.time()
@@ -272,13 +272,15 @@ class CEM_Controller_Vidpred(CEM_Controller_Base):
         last_frames = last_frames.astype(np.float32, copy=False) / 255.
         last_frames = last_frames[None]
         last_states = self.state[self.t - ctxt + 1:self.t + 1]
-        if 'autograsp' in self.agentparams:
-            last_states = last_states[:, :5]  # ignore redundant finger dim
-            actions = actions[:, :, :self.netconf['adim']]
         last_states = last_states[None]
+        last_actions = self.action_list[self.t - ctxt + 1:self.t + 1]
+        last_actions = last_actions[None]
+
+        actions = np.concatenate([last_actions, actions])
+        pdb.set_trace()
 
         self.logger.log('t0 ', time.time() - t_0)
-        return actions, last_frames, last_states, t_0
+        return actions, last_frames, last_states, actions, t_0
 
     def publish_sawyer(self, gen_distrib, gen_images, scores):
         sorted_inds = scores.argsort()

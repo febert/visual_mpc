@@ -39,7 +39,7 @@ policy = {
     'action_order': ['x', 'z', 'grasp'],
     'initial_std_lift': 0.5,  # std dev. in xy
     'rejection_sampling': False,
-    'replan_interval': 1,
+    'replan_interval': 3,
     # 'num_samples': [200]
 }
 
