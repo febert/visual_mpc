@@ -44,7 +44,7 @@ def train(conf, batch_paths, restore_path, device, save_freq, summary_freq, tboa
 
         if i_step > 0 and i_step % save_freq == 0:
             model.save(sess, i_step)
-
+    model.save(sess, global_step.eval(sess))
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
     parser.add_argument('conf_path', type=str, help="Path to the classifier conf file")

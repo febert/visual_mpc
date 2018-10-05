@@ -16,6 +16,7 @@ class BaseGoalClassifier:
         else:
             raise NotImplementedError("Test functionality not implemented")
         print('Checkpoint at: {} \n'.format(self._hp.save_dir))
+        self._created_var_scopes = set()
 
     def _get_trainval_batch(self, key, datasets):
         train_data = tf.concat([d[key] for d in datasets], 0)
@@ -25,64 +26,103 @@ class BaseGoalClassifier:
     def _default_hparams(self):
         params = {
             'pretrained_path': '{}/weights'.format(os.environ['VMPC_DATA_DIR']),
-            'max_steps': 10000,
+            'max_steps': 80000,
             'save_dir': './base_model/',
             'conv_kernel': 3,
-            'conv_layers': [48, 64, 64, 64],
-            'pool_layers': [ 2, 1, 1, 1],
-            'fc_layers': [2048],
+            'conv_layers': 3,
+            'num_channels': [256, 128],
+            'fc_layers': [128],
             'lr': 1e-3,
             'build_loss': True
         }
         return HParams(**params)
 
     def build(self, global_step):
+        # _conv_layer(input, n_out, name)
         with tf.variable_scope("goal_classifier") as classifier_scope:
-            bottom_goal_feat, bottom_input_feat = self._vgg_layer(self._goal_images), self._vgg_layer(self._input_im)
-            last_conv = bottom_goal_feat.get_shape().as_list()[-1]
-            for i, n_out in enumerate(self._hp.conv_layers):
-                top_goal_feat = tf.contrib.layers.conv2d(bottom_goal_feat, n_out, self._hp.conv_kernel,
-                                                         scope="tr_conv{}".format(i))
-                top_input_feat = tf.contrib.layers.conv2d(bottom_input_feat, n_out, self._hp.conv_kernel,
-                                                         scope="tr_conv{}".format(i), reuse=True)
+            vgg_feats = [self._vgg_layer(self._goal_images), self._vgg_layer(self._input_im)]
+            bottom_feats = self._conv_layer(vgg_feats, self._hp.num_channels[0], "vgg_to_input")
 
-                if self._hp.pool_layers[i] > 1:
-                    k_size = self._hp.pool_layers[i]
-                    bottom_goal_feat = tf.nn.max_pool(top_goal_feat, ksize=[1, k_size, k_size, 1],
-                                                      strides=[1, k_size, k_size, 1], padding='SAME')
-                    bottom_input_feat = tf.nn.max_pool(top_input_feat, ksize=[1, k_size, k_size, 1],
-                                                       strides=[1, k_size, k_size, 1], padding='SAME')
-                elif last_conv == n_out:
-                    bottom_input_feat = bottom_input_feat + top_input_feat
-                    bottom_goal_feat = bottom_goal_feat + top_goal_feat
-                else:
-                    bottom_goal_feat, bottom_input_feat = top_goal_feat, top_input_feat
-                last_conv = n_out
+            for i in range(self._hp.conv_layers):
+                # conv to inner dim
+                inner_feats = self._conv_layer(bottom_feats, self._hp.num_channels[1], "inner_conv_{}".format(i))
+                outer_feats = self._conv_layer(inner_feats, self._hp.num_channels[0], "outer_conv_{}".format(i))
+                skip_feats = [outer_feats[j] + bottom_feats[j] for j in range(len(outer_feats))]
+                bottom_feats = self._batch_norm_layer(skip_feats, "bnorm_conv_{}".format(i))
 
-            goal_features = tf.reshape(bottom_goal_feat, [-1, np.prod(bottom_goal_feat.get_shape().as_list()[1:])])
-            input_features = tf.reshape(bottom_input_feat, [-1,np.prod(bottom_input_feat.get_shape().as_list()[1:])])
-            fc_features = tf.concat([goal_features, input_features], -1)
+            concat_feats = tf.concat(self._spatial_softmax(bottom_feats, "spatial_softmax_0"), 1)
 
             for i, n_out in enumerate(self._hp.fc_layers):
-                fc_out = tf.layers.dense(fc_features, n_out, name="fc_{}".format(i),
+                fc_out = tf.layers.dense(concat_feats, n_out, name="fc_{}".format(i), activation=tf.nn.relu,
                                          kernel_initializer=tf.contrib.layers.xavier_initializer())
-                fc_features = tf.layers.batch_normalization(fc_out, name="batch_norm_{}".format(i))
-                print(i, fc_features)
+                concat_feats = self._batch_norm_layer(fc_out, name="fc_batch_norm_{}".format(i))
 
-            self._logits = tf.layers.dense(fc_features, 2)
+            self._logits = tf.layers.dense(concat_feats, 2, kernel_initializer=tf.contrib.layers.xavier_initializer())
+
             if self._hp.build_loss:
                 self._loss = tf.reduce_mean(tf.nn.softmax_cross_entropy_with_logits_v2(labels=tf.stop_gradient(self._label),
                                                            logits = self._logits))
                 self._train_op = tf.train.AdamOptimizer(self._hp.lr).minimize(self._loss, global_step=global_step)
 
         vars = tf.get_collection(tf.GraphKeys.GLOBAL_VARIABLES, scope=classifier_scope.name)
-        self._saver = tf.train.Saver(vars, max_to_keep=0)
+        global_step_collection = tf.get_collection(tf.GraphKeys.GLOBAL_VARIABLES, scope='global_step')
+        self._saver = tf.train.Saver(vars + global_step_collection, max_to_keep=0)
+
+    def _get_reuse_and_add(self, name):
+        reuse = name in self._created_var_scopes
+        if not reuse:
+            self._created_var_scopes.add(name)
+        return reuse
 
     def base_feed_dict(self, is_train):
         train_val = 0
         if is_train:
             train_val = 1
         return {self._train_cond: train_val}
+
+    def _spatial_softmax(self, input, name="spatial_softmax_feats"):
+        reuse = self._get_reuse_and_add(name)
+
+        if isinstance(input, list):
+            assert len(input) > 0, "list must have at least one tensor"
+            with tf.variable_scope(name, reuse=reuse):
+                first_feat = [tf.contrib.layers.spatial_softmax(input[0], name="sft")]
+            later_feat = []
+            for im_in in input[1:]:
+                with tf.variable_scope(name, reuse=True):
+                    later_feat.append(tf.contrib.layers.spatial_softmax(im_in, name="sft"))
+            return first_feat + later_feat
+
+        with tf.variable_scope(name, reuse=reuse):
+            output = tf.contrib.layers.spatial_softmax(input, name="sft")
+        return output
+
+    def _batch_norm_layer(self, input, name):
+        reuse = self._get_reuse_and_add(name)
+
+        if isinstance(input, list):
+            assert len(input) > 0, "list must have at least one tensor"
+            first_out = [tf.layers.batch_normalization(input[0], name=name, reuse=reuse)]
+            later_out = [tf.layers.batch_normalization(im_in, name=name, reuse=True) for im_in in input[1:]]
+            return first_out + later_out
+
+        return tf.layers.batch_normalization(input, name=name, reuse=reuse)
+
+    def _conv_layer(self, input, n_out, name, kernel=None):
+        if kernel is None:
+            kernel = self._hp.conv_kernel
+        a_fn = tf.nn.relu
+
+        reuse = self._get_reuse_and_add(name)
+
+        if isinstance(input, list):
+            assert len(input) > 0, "size 0 array given"
+            first_conv = [tf.contrib.layers.conv2d(input[0], n_out, kernel, scope=name, reuse=reuse, activation_fn=a_fn)]
+            later_conv = [tf.contrib.layers.conv2d(im_in, n_out, kernel, scope=name, reuse=True, activation_fn=a_fn)
+                                                                                                for im_in in input[1:]]
+            return first_conv + later_conv
+
+        return tf.contrib.layers.conv2d(input, n_out, kernel, scope=name, reuse=reuse, activation_fn=a_fn)
 
     def _vgg_pool(self, bottom, name):
         return tf.nn.max_pool(bottom, ksize=[1, 2, 2, 1], strides=[1, 2, 2, 1], padding='SAME', name=name)
@@ -116,9 +156,8 @@ class BaseGoalClassifier:
 
         conv1_1 = self._vgg_conv(vgg_dict, bgr, "conv1_1")
         conv1_2 = self._vgg_conv(vgg_dict, conv1_1, "conv1_2")
-        conv1_out = self._vgg_pool(conv1_2, "pool1")
 
-        return conv1_out
+        return conv1_2
 
     def step(self, sess, global_step, eval_summaries=False):
         fetches = {}
