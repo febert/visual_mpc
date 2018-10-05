@@ -13,15 +13,20 @@ import video_prediction
 base_dir = video_prediction.__file__
 base_dir = '/'.join(str.split(base_dir, '/')[:-2])
 modeldir = base_dir + '/pretrained_models/cartgripper_xz_grasp/vanilla_env/'
+
+override_json = {'sequence_length':18,
+                 'context_frames': 6}       # of frames before predictions.' ,
+
 configuration = {
 'pred_model': Alex_Interface_Model,
+'override_json':override_json,
 'setup_predictor':setup_predictor,
 'json_dir':  modeldir + '/view0/model.savp.None',
 'pretrained_model': modeldir + '/view0/model.savp.None/model-300000',   # 'filepath of a pretrained model to resume training from.' ,
-'sequence_length': 12,      # 'sequence length to load, including context frames.' ,
-'context_frames': 6,        # of frames before predictions.' ,
+'sequence_length': override_json['sequence_length'],      # 'sequence length to load, including context frames.' ,
+'context_frames': override_json['context_frames'],        # of frames before predictions.' ,
 'model': 'appflow',            #'model architecture to use - CDNA, DNA, or STP' ,
-'batch_size': 10, ##200,
+'batch_size': 200,
 'sdim':3,
 'adim':3,
 'orig_size':[48,64],

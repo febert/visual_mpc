@@ -40,6 +40,7 @@ policy = {
     'initial_std_lift': 0.5,  # std dev. in xy
     'rejection_sampling': False,
     'replan_interval': 3,
+    'nactions':4,
     # 'num_samples': [200]
 }
 

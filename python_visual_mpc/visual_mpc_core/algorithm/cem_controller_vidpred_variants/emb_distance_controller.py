@@ -36,7 +36,6 @@ def append_black(images):
 class Embedding_Dist_Controller(Full_Image_Reg_Controller, CEM_Controller_Vidpred):
     def __init__(self, ag_params, policyparams, gpu_id, ngpu):
         super().__init__(ag_params, policyparams, gpu_id, ngpu)
-        self.pred_len = self.seqlen - self.ncontxt
         self.visualizer = CEM_Visual_Preparation_FullImage()
 
     def build_costnet(self, ag_params, gpu_id=0):

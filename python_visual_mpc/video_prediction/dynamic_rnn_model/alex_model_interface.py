@@ -36,20 +36,7 @@ class Alex_Interface_Model(object):
         nctxt = model_hparams_dict['context_frames']
         ncam = conf['ncam']
         self.img_height, self.img_width = conf['orig_size']
-        if images is None:
-            self.actions_pl = tf.placeholder(tf.float32, name='actions',
-                                             shape=(conf['batch_size'], seq_len, self.adim))
-            actions = self.actions_pl
-            self.states_pl = tf.placeholder(tf.float32, name='states',
-                                            shape=(conf['batch_size'], seq_len, self.sdim))
-            states = self.states_pl
-            self.images_pl = tf.placeholder(tf.float32, name='images',
-                                            shape=(conf['batch_size'], seq_len, ncam, self.img_height, self.img_width, 3))
-            images = self.images_pl
-
-            targets = images[:,nctxt:, 0]  #this is a hack to make Alexmodel compute losses. It will take take second image automatically.
-        else:
-            targets = None
+        targets = None
 
         if 'pred_model_class' in conf:
             model_hparams_dict['num_views'] = 2

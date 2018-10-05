@@ -61,17 +61,15 @@ class CEM_Controller_Vidpred(CEM_Controller_Base):
         params = imp.load_source('params', ag_params['current_dir'] + '/conf.py')
         self.netconf = params.configuration
         self.predictor = self.netconf['setup_predictor'](ag_params, self.netconf, gpu_id, ngpu, self.logger)
-
         self.bsize = self.netconf['batch_size']
-
         self.seqlen = self.netconf['sequence_length']
 
         # override params here:
         if 'num_samples' not in policyparams:
             self.M = self.bsize
 
-        assert self.naction_steps * self.repeat == self.seqlen
-        assert self.len_pred == self.seqlen - self.ncontxt
+        self.ncontxt = self.netconf['context_frames']
+        assert self.naction_steps * self.repeat == self.seqlen - self.ncontxt
 
         self.ncontxt = self.netconf['context_frames']
 
@@ -173,6 +171,7 @@ class CEM_Controller_Vidpred(CEM_Controller_Base):
                                                                     input_state=last_states,
                                                                     input_actions=actions_,
                                                                     input_one_hot_images=input_distrib)
+
             gen_images_l.append(gen_images)
             gen_distrib_l.append(gen_distrib)
             gen_states_l.append(gen_states)
@@ -268,16 +267,16 @@ class CEM_Controller_Vidpred(CEM_Controller_Base):
     def prep_vidpred_inp(self, actions, cem_itr):
         t_0 = time.time()
         ctxt = self.netconf['context_frames']
-        last_frames = self.images[self.t - ctxt + 1:self.t + 1]  # same as [t - 1:t + 1] for context 2
+        last_frames = self.images[self.t - ctxt:self.t]  # same as [t - 1:t + 1] for context 2
         last_frames = last_frames.astype(np.float32, copy=False) / 255.
         last_frames = last_frames[None]
-        last_states = self.state[self.t - ctxt + 1:self.t + 1]
+        last_states = self.state[self.t - ctxt:self.t]
         last_states = last_states[None]
-        last_actions = self.action_list[self.t - ctxt + 1:self.t + 1]
-        last_actions = last_actions[None]
 
-        actions = np.concatenate([last_actions, actions])
-        pdb.set_trace()
+        last_actions = np.stack(self.action_list, axis=0)[self.t - ctxt:self.t]
+        last_actions = np.tile(last_actions[None], [self.bsize, 1 ,1])
+
+        actions = np.concatenate([last_actions, actions], axis=1)
 
         self.logger.log('t0 ', time.time() - t_0)
         return actions, last_frames, last_states, actions, t_0
@@ -312,7 +311,7 @@ class CEM_Controller_Vidpred(CEM_Controller_Base):
         :return:
         """
         assert len(gen_distrib.shape) == 4
-        t_mult = np.ones([self.seqlen - self.netconf['context_frames']])
+        t_mult = np.ones([self.seqlen - self.ncontxt])
         t_mult[-1] = self._hp.finalweight
 
         gen_distrib = gen_distrib.copy()

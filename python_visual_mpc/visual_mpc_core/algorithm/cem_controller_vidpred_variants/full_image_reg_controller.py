@@ -16,15 +16,13 @@ class Full_Image_Reg_Controller(CEM_Controller_Vidpred):
         self._hp = self._default_hparams()
         self.override_defaults(policyparams)
 
-        self.pred_len = self.seqlen - self.ncontxt
         self.build_costnet(ag_params, gpu_id)
         self.visualizer = CEM_Visual_Preparation_FullImageReg()
 
     def _default_hparams(self):
         default_dict = {
             'follow_traj':False,    # follow the demonstration frame by frame
-            'goal_image_seq':False
-        }
+            'goal_image_seq':False}
 
         parent_params = super(Full_Image_Reg_Controller, self)._default_hparams()
         for k in default_dict.keys():

@@ -98,7 +98,7 @@ class CEM_Controller_Base(Policy):
         self.ncam = 1
         self.ndesig = 1
         self.ncontxt = 0
-        self.len_pred = self.repeat*self.naction_steps - self.ncontxt
+        self.len_pred = self.repeat*self.naction_steps
         self.best_cost_perstep = np.zeros([self.ncam, self.ndesig, self.len_pred])
         self._close_override = False
 
@@ -164,7 +164,7 @@ class CEM_Controller_Base(Policy):
             self.K = int(np.ceil(self.M*self._hp.selection_frac))
 
         self.bestindices_of_iter = np.zeros((self.niter, self.K))
-        self.cost_perstep = np.zeros([self.M, self.ncam, self.ndesig, self.repeat*self.naction_steps - self.ncontxt])
+        self.cost_perstep = np.zeros([self.M, self.ncam, self.ndesig, self.len_pred])
 
         self.logger.log('M {}, K{}'.format(self.M, self.K))
         self.logger.log('------------------------------------------------')
@@ -332,7 +332,7 @@ class CEM_Controller_Base(Policy):
         self.i_tr = i_tr
         self.t = t
 
-        if t < self.ncontxt -1:
+        if t < self.ncontxt:
             action = np.zeros(self.agentparams['adim'])
             self._close_override = False
         else:
@@ -342,7 +342,8 @@ class CEM_Controller_Base(Policy):
                     self.perform_CEM()
                 action = self.bestaction_withrepeat[t]
             elif self._hp.replan_interval != -1:
-                if (t-1) % self._hp.replan_interval == 0:
+
+                if (t-self.ncontxt) % self._hp.replan_interval == 0:
                     self.last_replan = t
                     self.perform_CEM()
                 self.logger.log('last replan', self.last_replan)
