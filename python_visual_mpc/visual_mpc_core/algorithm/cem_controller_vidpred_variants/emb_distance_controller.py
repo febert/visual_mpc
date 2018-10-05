@@ -44,24 +44,23 @@ class Embedding_Dist_Controller(Full_Image_Reg_Controller, CEM_Controller_Vidpre
     def eval_planningcost(self, cem_itr, gen_distrib, gen_images):
         goal_images = np.tile(self.goal_image[None], [self.bsize, 1, 1, 1,1,1])   # shape b,t,n, r, c, 3
 
-        pdb.set_trace()
-        #TODO: cost at every timestep!!
-
         gen_images = append_black(gen_images[:,-1,0])
         goal_images = append_black(goal_images[:,-1,0])
 
-        pred_embedding = self.make_embedding(gen_images)
-        goal_embedding = self.make_embedding(goal_images)
+        scores = np.zeros([self.bsize,self.len_pred])
 
-       # pred_embedding = [np.zeros([self.bsize, 10])]
-        # goal_embedding = [np.zeros([self.bsize, 10])]
+        t_mult = np.ones([self.seqlen - self.ncontxt])
+        t_mult[-1] = self._hp.finalweight
 
-        dist = ['mse']
-        scores = np.zeros(self.bsize)
-        if 'cosine' in dist:
-            scores += cosine_dist(pred_embedding, goal_embedding)
-        if 'mse' in dist:
-            scores += mse_dist(pred_embedding, goal_embedding)
+        for t in range(self.len_pred):
+            pred_embedding = self.make_embedding(gen_images)
+            goal_embedding = self.make_embedding(goal_images)
+
+            dist = ['mse']
+            if 'cosine' in dist:
+                scores[:, t] += cosine_dist(pred_embedding, goal_embedding)
+            if 'mse' in dist:
+                scores[:, t] += mse_dist(pred_embedding, goal_embedding)
 
         self.vd.goal_image = self.goal_image
         return scores
