@@ -4,6 +4,7 @@ import numpy as np
 from python_visual_mpc.visual_mpc_core.algorithm.utils.make_cem_visuals import CEM_Visual_Preparation_FullImage
 import pdb
 from python_visual_mpc.visual_mpc_core.algorithm.cem_controller_vidpred_variants.full_image_reg_controller import Full_Image_Reg_Controller
+import matplotlib.pyplot as plt
 
 from glow.setup_dist_func import setup_embedding
 
@@ -43,24 +44,38 @@ class Embedding_Dist_Controller(Full_Image_Reg_Controller, CEM_Controller_Vidpre
         self.make_embedding = setup_embedding(self.bsize)
 
     def eval_planningcost(self, cem_itr, gen_distrib, gen_images):
-        goal_images = np.tile(self.goal_image[None], [self.bsize, 1, 1, 1,1,1])   # shape b,t,n, r, c, 3
-        gen_images = append_black(gen_images[:,-1,0])
-        goal_images = append_black(goal_images[:,-1,0])
+        goal_images = np.tile(self.goal_image[None], [self.bsize, 1, 1, 1, 1, 1])  # shape b,t,n, r, c, 3
+        scores = np.zeros([self.bsize, self.len_pred])
 
-        pred_embedding = self.make_embedding(gen_images)
-        goal_embedding = self.make_embedding(goal_images)
-        # pred_embedding = [np.zeros([self.bsize, 10])]
-        # goal_embedding = [np.zeros([self.bsize, 10])]
+        t_mult = np.ones([self.len_pred])
+        t_mult[-1] = self._hp.finalweight
 
-        dist = ['mse']
-        scores = np.zeros(self.bsize)
-        if 'cosine' in dist:
-            scores += cosine_dist(pred_embedding, goal_embedding)
-        if 'mse' in dist:
-            scores += mse_dist(pred_embedding, goal_embedding)
+        goal_images = append_black(goal_images[:, -1, 0])
+        for t in range(self.len_pred):
+            gen_images_sq = append_black(gen_images[:, t, 0])
+            pred_embedding = self.make_embedding(gen_images_sq)
+            goal_embedding = self.make_embedding(goal_images)
+
+            dist = ['mse']
+            if 'cosine' in dist:
+                scores[:, t] += cosine_dist(pred_embedding, goal_embedding)
+            if 'mse' in dist:
+                scores[:, t] += mse_dist(pred_embedding, goal_embedding)
+
+        scores_weighted = scores * t_mult[None]
+        scores_weighted = np.sum(scores_weighted, axis=1) / np.sum(t_mult)
+
+        # bestind = np.argmin(scores_weighted)
+        # plt.switch_backend('TkAgg')
+        # plt.plot(scores[bestind])
+        # plt.show()
 
         self.vd.goal_image = self.goal_image
-        return scores
+        return scores_weighted
+
+    def act(self, t, i_tr, images, goal_image, state, desig_pix, goal_pix):
+        self.goal_pix = np.array(goal_pix).reshape((self.ncam, self.ntask, 2))
+        return super().act(t, i_tr, images, goal_image, state, desig_pix, goal_pix)
 
     def act(self, t, i_tr, images, goal_image, state, desig_pix, goal_pix):
         self.goal_pix = np.array(goal_pix).reshape((self.ncam, self.ntask, 2))

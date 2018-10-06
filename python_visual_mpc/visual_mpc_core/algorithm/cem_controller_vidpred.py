@@ -74,6 +74,7 @@ class CEM_Controller_Vidpred(CEM_Controller_Base):
         assert self.len_pred == self.seqlen - self.ncontxt
 
         self.ncontxt = self.netconf['context_frames']
+        self.len_pred = self.repeat*self.naction_steps - self.ncontxt
 
         if 'ndesig' in self.netconf:        # total number of
             self.ndesig = self.netconf['ndesig']
