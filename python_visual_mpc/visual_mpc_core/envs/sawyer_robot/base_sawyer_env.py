@@ -129,7 +129,7 @@ class BaseSawyerEnv(BaseEnv):
         else:
             self._obs_tol = self._hp.OFFSET_TOL
 
-        self._controller = ImpedanceWSGController(CONTROL_RATE, self._robot_name)
+        self._controller = ImpedanceWSGController(CONTROL_RATE, self._robot_name, self._hp.print_debug)
         self._limb_recorder = LimbWSGRecorder(self._controller)
         self._save_video = self._hp.video_save_dir is not None
         self._main_cam = CameraRecorder('/camera0/image_raw', self._hp.opencv_tracking, self._save_video)
@@ -156,7 +156,12 @@ class BaseSawyerEnv(BaseEnv):
                         'OFFSET_TOL': 0.06,
                         'duration': 1.,
                         'mode_rel': [True, True, True, True, False],
-                        'cleanup_rate': 25}
+                        'lower_bound_delta': [0., 0., 0., 0., 0.],
+                        'upper_bound_delta': [0., 0., 0., 0., 0.],
+                        'cleanup_rate': 25,
+                        'print_debug': True,
+                        'rand_drop_reset': True,
+                        'normalize_actions': False}
 
         parent_params = BaseEnv._default_hparams(self)
         for k in default_dict.keys():
@@ -175,6 +180,9 @@ class BaseSawyerEnv(BaseEnv):
         else:
             raise ValueError("Supported robots are vestri/sudri")
 
+        self._high_bound += np.array(self._hp.upper_bound_delta, dtype=np.float64)
+        self._low_bound += np.array(self._hp.lower_bound_delta, dtype=np.float64)
+
     def step(self, action):
         """
         Applies the action and steps simulation
@@ -185,6 +193,9 @@ class BaseSawyerEnv(BaseEnv):
                   -keys corresponding to numpy arrays should have constant shape every timestep (for caching)
                   -images should be placed in the 'images' key in a (ncam, ...) array
         """
+        if self._hp.normalize_actions:
+            action[:3] *= self._high_bound[:3] - self._low_bound[:3]
+
         target_qpos = np.clip(self._next_qpos(action), self._low_bound, self._high_bound)
         wait_change = (target_qpos[-1] > 0) != (self._previous_target_qpos[-1] > 0)
 
@@ -224,12 +235,13 @@ class BaseSawyerEnv(BaseEnv):
         obs['qpos'] = j_angles
         obs['qvel'] = j_vel
 
-        print 'xy delta: ', np.linalg.norm(eep[:2] - self._previous_target_qpos[:2])
-        print 'target z', self._previous_target_qpos[2], 'real z', eep[2]
-        print 'z dif', abs(eep[2] - self._previous_target_qpos[2])
-        print 'angle dif (degrees): ', abs(quat_to_zangle(eep[3:]) - self._previous_target_qpos[3]) * 180 / np.pi
-        print 'angle degree target {} vs real {}'.format(np.rad2deg(quat_to_zangle(eep[3:])),
-                                                         np.rad2deg(self._previous_target_qpos[3]))
+        if self._hp.print_debug:
+            print 'xy delta: ', np.linalg.norm(eep[:2] - self._previous_target_qpos[:2])
+            print 'target z', self._previous_target_qpos[2], 'real z', eep[2]
+            print 'z dif', abs(eep[2] - self._previous_target_qpos[2])
+            print 'angle dif (degrees): ', abs(quat_to_zangle(eep[3:]) - self._previous_target_qpos[3]) * 180 / np.pi
+            print 'angle degree target {} vs real {}'.format(np.rad2deg(quat_to_zangle(eep[3:])),
+                                                             np.rad2deg(self._previous_target_qpos[3]))
 
         state = np.zeros(self._base_sdim)
         state[:3] = (eep[:3] - self._low_bound[:3]) / (self._high_bound[:3] - self._low_bound[:3])
@@ -280,8 +292,8 @@ class BaseSawyerEnv(BaseEnv):
             i += 1
             self._controller.control_rate.sleep()
             t = rospy.get_time()
-
-        print('Effective rate: {} Hz'.format(i / (rospy.get_time() - start_time)))
+        if self._hp.print_debug:
+            print('Effective rate: {} Hz'.format(i / (rospy.get_time() - start_time)))
 
     def _reset_previous_qpos(self):
         eep = self._limb_recorder.get_state()[2]
@@ -332,13 +344,17 @@ class BaseSawyerEnv(BaseEnv):
             self._controller.neutral_with_impedance()
             return self._end_reset()
 
-        rand_xyz = np.random.uniform(self._low_bound[:3], self._high_bound[:3])
-        rand_xyz[2] = self._high_bound[2]
-        rand_zangle = np.random.uniform(self._low_bound[3], self._high_bound[3])
-        self._move_to_state(rand_xyz, rand_zangle, 2.)
-        self._controller.close_gripper(True)
-        self._controller.open_gripper(True)
-        self._controller.neutral_with_impedance()
+        if self._hp.rand_drop_reset:
+            rand_xyz = np.random.uniform(self._low_bound[:3], self._high_bound[:3])
+            rand_xyz[2] = self._high_bound[2]
+            rand_zangle = np.random.uniform(self._low_bound[3], self._high_bound[3])
+            self._move_to_state(rand_xyz, rand_zangle, 2.)
+            self._controller.close_gripper(True)
+            self._controller.open_gripper(True)
+            self._controller.neutral_with_impedance()
+        else:
+            self._controller.open_gripper(True)
+            self._controller.neutral_with_impedance()
 
         if self._reset_counter % self._cleanup_rate == 0 and self._reset_counter > 0:
             self._controller.redistribute_objects()

@@ -218,7 +218,7 @@ def truncate_movement(actions, hp):
             return actions
 
         actions[:,:,:2] = np.clip(actions[:,:,:2], -maxshift, maxshift)  # clip in units of meters
-        if actions.shape[-1] == 5: # if rotation is enabled
+        if actions.shape[-1] >= 4: # if rotation is enabled
             maxrot = np.pi / 4
             actions[:, :, 3] = np.clip(actions[:, :, 3], -maxrot, maxrot)
 
@@ -235,7 +235,7 @@ def truncate_movement(actions, hp):
             return actions
 
         actions[:,:2] = np.clip(actions[:,:2], -maxshift, maxshift)  # clip in units of meters
-        if actions.shape[-1] == 5: # if rotation is enabled
+        if actions.shape[-1] >= 4: # if rotation is enabled
             maxrot = np.pi / 4
             actions[:, 3] = np.clip(actions[:, 3], -maxrot, maxrot)
     else:

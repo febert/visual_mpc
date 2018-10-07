@@ -15,12 +15,10 @@ current_dir = os.path.dirname(os.path.realpath(__file__))
 import python_visual_mpc
 DATA_DIR = '/'.join(str.split(python_visual_mpc.__file__, '/')[:-2])
 
-env_params = {
-    'autograsp': {'reopen': True, 'zthresh': 0.15},
-}
+
 agent = {
     'type': GeneralAgent,
-    'env': (AutograspSawyerEnv, env_params),
+    'env': (AutograspSawyerEnv, {}),
     'data_save_dir': BASE_DIR,
     'T': 30,
     'image_height' : 240,

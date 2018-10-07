@@ -19,14 +19,15 @@ DURATION_PER_POINT = 0.01
 N_JOINTS = 7
 max_vel_mag = np.array([0.88, 0.678, 0.996, 0.996, 1.776, 1.776, 2.316])
 max_accel_mag = np.array([3.5, 2.5, 5, 5, 5, 5, 5])
-GRIPPER_CLOSE = 6   # chosen so that gripper closes entirely without pushing against itself
+GRIPPER_CLOSE = 5   # chosen so that gripper closes entirely without pushing against itself
 GRIPPER_OPEN = 96   # chosen so that gripper opens entirely without pushing against outer rail
 RESET_SKIP = 800
 
 
 class ImpedanceWSGController(RobotController):
-    def __init__(self, control_rate, robot_name):
+    def __init__(self, control_rate, robot_name, print_debug):
         self.max_release = 0
+        self._print_debug = print_debug
         RobotController.__init__(self)
         self.sem_list = [Semaphore(value = 0)]
         self._status_mutex = Lock()
@@ -54,7 +55,10 @@ class ImpedanceWSGController(RobotController):
 
     def _close_gripper_handler(self, value):
         if value:
-            self.close_gripper()    #close gripper on button release
+            if self._gripper_width >= 40:
+                self.close_gripper()    #close gripper on button release
+            else:
+                self.open_gripper()
 
     def set_gripper_speed(self, new_speed):
         assert new_speed > 0 and new_speed <= 600, "Speed must be in range (0, 600]"
@@ -63,19 +67,23 @@ class ImpedanceWSGController(RobotController):
     def get_gripper_status(self, integrate_force=False):
         self._status_mutex.acquire()
         cum_force, cntr = self._integrate_gripper_force, self._force_counter
-        width, force = self.gripper_width, self.gripper_force
+        width, force = self._gripper_width, self._gripper_force
         self._integrate_gripper_force = 0.
         self._force_counter = 0
         self._status_mutex.release()
 
         if integrate_force and cntr > 0:
-            print("integrating with {} readings, cumulative force: {}".format(cntr, cum_force))
+            self._debug_print("integrating with {} readings, cumulative force: {}".format(cntr, cum_force))
             self._last_integrate = cum_force / cntr
             return width, self._last_integrate
         elif integrate_force and self._last_integrate is not None:
             return width, self._last_integrate
 
         return width, force
+
+    def _debug_print(self, msg):
+        if self._print_debug:
+            print(msg)
 
     def get_limits(self):
         return GRIPPER_CLOSE, GRIPPER_OPEN
@@ -99,9 +107,9 @@ class ImpedanceWSGController(RobotController):
             self._status_mutex.release()
 
             start = rospy.get_time()
-            print("gripper sem acquire, list len-{}".format(len(self.sem_list)))
+            self._debug_print("gripper sem acquire, list len-{}".format(len(self.sem_list)))
             sem.acquire()
-            print("waited on gripper for {} seconds".format(rospy.get_time() - start))
+            self._debug_print("waited on gripper for {} seconds".format(rospy.get_time() - start))
 
     def set_gripper(self, command_pos, wait = False):
         assert command_pos >= GRIPPER_CLOSE and command_pos <= GRIPPER_OPEN, "Command pos must be in range [GRIPPER_CLOSE, GRIPPER_OPEN]"
@@ -111,7 +119,7 @@ class ImpedanceWSGController(RobotController):
         # print('callback! list-len {}, max_release {}'.format(len(self.sem_list), self.max_release))
         self._status_mutex.acquire()
 
-        self.gripper_width, self.gripper_force = status.width, status.force
+        self._gripper_width, self._gripper_force = status.width, status.force
         self._integrate_gripper_force += status.force
         self._force_counter += 1
 
@@ -122,9 +130,9 @@ class ImpedanceWSGController(RobotController):
         self.gripper_pub.publish(cmd)
 
         if len(self.sem_list) > 0:
-            gripper_close = np.isclose(self.gripper_width, self._desired_gpos, atol=1e-1)
+            gripper_close = np.isclose(self._gripper_width, self._desired_gpos, atol=1e-1)
 
-            if gripper_close or self.gripper_force > 0 or self.max_release > 15:
+            if gripper_close or self._gripper_force > 0 or self.max_release > 15:
                 if self.max_release > 15:
                     self.num_timeouts += 1
                 for s in self.sem_list:
@@ -202,7 +210,7 @@ class ImpedanceWSGController(RobotController):
             self.control_rate.sleep()
 
     def redistribute_objects(self):
-        print('redistribute...')
+        self._debug_print('redistribute...')
 
         file = '/'.join(str.split(visual_mpc_rospkg.__file__, "/")[
                         :-1]) + '/src/utils/pushback_traj_{}.pkl'.format(self.robot_name)

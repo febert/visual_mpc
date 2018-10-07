@@ -38,6 +38,9 @@ class Policy(object):
 
     def override_defaults(self, policyparams):
         for name, value in policyparams.items():
+            if name == 'type':
+                continue      # type corresponds to policy class
+
             print('overriding param {} to value {}'.format(name, value))
             if value == getattr(self._hp, name):
                 raise ValueError("attribute is {} is identical to default value!!".format(name))
