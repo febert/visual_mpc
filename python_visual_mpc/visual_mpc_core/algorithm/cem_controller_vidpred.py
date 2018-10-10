@@ -72,6 +72,7 @@ class CEM_Controller_Vidpred(CEM_Controller_Base):
         assert self.naction_steps * self.repeat == self.seqlen - self.ncontxt
 
         self.ncontxt = self.netconf['context_frames']
+        self.len_pred = self.repeat*self.naction_steps - self.ncontxt
 
         if 'ndesig' in self.netconf:        # total number of
             self.ndesig = self.netconf['ndesig']
@@ -93,7 +94,7 @@ class CEM_Controller_Vidpred(CEM_Controller_Base):
         if self._hp.predictor_propagation:
             self.rec_input_distrib = []  # record the input distributions
 
-        self.parallel_vis = True
+        self.parallel_vis = False
         if self.parallel_vis:
             self._thread = Thread(target=verbose_worker)
             self._thread.start()

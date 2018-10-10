@@ -22,7 +22,8 @@ env_params = {
     'num_objects': 1,
     'object_mass': 0.1,
     'friction': 1.0,
-    'use_vel':True
+    'use_vel':True,
+    'ncam':1,
 }
 
 agent = {
@@ -38,7 +39,6 @@ agent = {
     'make_final_gif': True,
     'start_goal_confs':os.environ['VMPC_DATA_DIR'] + '/cartgripper/newenv/startgoal_conf_96x128/train',
     'current_dir':current_dir,
-    'ncam':1,
     'point_space_width':64,
 }
 

@@ -207,16 +207,12 @@ class CEM_Visual_Preparation_Registration(CEM_Visual_Preparation):
                 color_coded_dist = image_addgoalpix(self.num_ex, self.len_pred, color_coded_dist,
                                                    goal_pix)
 
-                # plt.switch_backend('TkAgg')
-                # plt.imshow()
-                # plt.show()
 
                 self._t_dict['gen_distrib_cam{}_p{}'.format(icam, p)] = color_coded_dist
                 self._t_dict['gen_dist_goalim_overlay_cam{}_p{}'.format(icam, p)] = \
                 compute_overlay(self.gl_im_ann_per_tsk[p, :, :, icam], color_coded_dist)
 
     def visualize_registration(self, vd):
-        pix_mult = self.agentparams['image_height']/vd.image_height
 
         for icam in range(self.ncam):
             print("on cam: {}".format(icam))
@@ -266,9 +262,12 @@ class CEM_Visual_Preparation_Registration(CEM_Visual_Preparation):
                                                        [vd.ndesig, self.num_ex, self.len_pred, 1, 1, 1])
             for p in range(vd.ndesig):
                 gl_im_ann[:, :, icam] = image_addgoalpix(self.num_ex, self.len_pred, gl_im_ann[:, :, icam],
-                                                         goal_pix[icam, p] * pix_mult)
+                                                         goal_pix[icam, p])
                 self.gl_im_ann_per_tsk[p, :, :, icam] = image_addgoalpix(self.num_ex, self.len_pred, self.gl_im_ann_per_tsk[p][:, :, icam],
                                                                     goal_pix[icam, p])
+            plt.switch_backend('TkAgg')
+            plt.imshow(gl_im_ann[0, 0, icam])
+            plt.show()
             self._t_dict['goal_image{}'.format(icam)] = gl_im_ann[:, :, icam]
 
 

@@ -503,7 +503,7 @@ def add_crosshairs(images, pos, color=None):
     pos = np.clip(pos, np.zeros(2).reshape((1,1,2)),np.array(images.shape[2:4]).reshape((1,1,2)) -1)
 
     if color == None:
-        if images.dtype == np.float32:
+        if images.dtype == float:
             color = np.array([0., 1., 1.], np.float32)
         else:
             color = np.array([0, 255, 255], np.uint8)
