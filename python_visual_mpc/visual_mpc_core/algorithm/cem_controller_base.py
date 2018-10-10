@@ -148,18 +148,18 @@ class CEM_Controller_Base(Policy):
         self.logger.log('starting cem at t{}...'.format(self.t))
         timings = OrderedDict()
         t = time.time()
-        if not self._hp.reuse_cov or self.t < 2:
+        if not self._hp.reuse_cov or self.t <= self.ncontxt:
             self.sigma = construct_initial_sigma(self._hp, self.adim, self.t)
             self.sigma_prev = self.sigma
         else:
             self.sigma = reuse_cov(self.sigma, self.adim, self._hp)
 
-        if not self._hp.reuse_mean or self.t < 2:
+        if not self._hp.reuse_mean or self.t <= self.ncontxt:
             self.mean = np.zeros(self.adim * self.naction_steps)
         else:
             self.mean = reuse_action(self.bestaction, self._hp)
 
-        if (self._hp.reuse_mean or self._hp.reuse_cov) and self.t >= 2:
+        if (self._hp.reuse_mean or self._hp.reuse_cov) and self.t >= self.ncontxt:
             self.M = self._hp.num_samples[1]
             self.K = int(np.ceil(self.M*self._hp.selection_frac))
 

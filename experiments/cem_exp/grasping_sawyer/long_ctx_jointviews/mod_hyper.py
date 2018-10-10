@@ -32,6 +32,7 @@ policy = {
     'initial_std': 0.035,   #std dev. in xy
     'initial_std_lift': 0.08,   #std dev. in z
     'replan_interval': 3,
+    'nactions': 4,
     'reuse_mean': True,
     'reduce_std_dev': 0.2,  # reduce standard dev in later timesteps when reusing action
     'num_samples': [400, 200],

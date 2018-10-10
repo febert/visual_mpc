@@ -151,7 +151,7 @@ class CEM_Controller_Vidpred(CEM_Controller_Base):
         return one_hot_images
 
     def get_rollouts(self, actions, cem_itr, itr_times):
-        actions, last_frames, last_states, actions, t_0 = self.prep_vidpred_inp(actions, cem_itr)
+        actions, last_frames, last_states, t_0 = self.prep_vidpred_inp(actions, cem_itr)
         input_distrib = self.make_input_distrib(cem_itr)
 
         t_startpred = time.time()
@@ -280,7 +280,7 @@ class CEM_Controller_Vidpred(CEM_Controller_Base):
         actions = np.concatenate([last_actions, actions], axis=1)
 
         self.logger.log('t0 ', time.time() - t_0)
-        return actions, last_frames, last_states, actions, t_0
+        return actions, last_frames, last_states, t_0
 
     def publish_sawyer(self, gen_distrib, gen_images, scores):
         sorted_inds = scores.argsort()
