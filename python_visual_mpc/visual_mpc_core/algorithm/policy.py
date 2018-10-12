@@ -76,3 +76,14 @@ class DummyPolicy(object):
 
     def reset(self):
         pass
+
+
+class NullPolicy(Policy):
+    """
+    Returns 0 for all timesteps
+    """
+    def __init__(self,  ag_params, policyparams, gpu_id, ngpu):
+        self._adim = ag_params['adim']
+
+    def act(self):
+        return np.zeros(self._adim)

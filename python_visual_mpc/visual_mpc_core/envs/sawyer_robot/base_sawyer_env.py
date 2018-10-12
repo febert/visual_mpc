@@ -134,6 +134,8 @@ class BaseSawyerEnv(BaseEnv):
         self._save_video = self._hp.video_save_dir is not None
         self._main_cam = CameraRecorder('/camera0/image_raw', self._hp.opencv_tracking, self._save_video)
         self._left_cam = CameraRecorder('/camera1/image_raw', self._hp.opencv_tracking, self._save_video)
+        self._controller.open_gripper(True)
+        self._controller.close_gripper(True)
         self._controller.neutral_with_impedance()
 
         img_dim_check = (self._main_cam.img_height, self._main_cam.img_width) == \
@@ -220,7 +222,7 @@ class BaseSawyerEnv(BaseEnv):
         Initializes custom dynamics for action space
         :return: None
         """
-        raise NotImplementedError
+        pass
 
     def _next_qpos(self, action):
         """
@@ -356,7 +358,7 @@ class BaseSawyerEnv(BaseEnv):
             self._controller.open_gripper(True)
             self._controller.neutral_with_impedance()
 
-        if self._reset_counter % self._cleanup_rate == 0 and self._reset_counter > 0:
+        if self._cleanup_rate > 0 and self._reset_counter % self._cleanup_rate == 0 and self._reset_counter > 0:
             self._controller.redistribute_objects()
 
         self._controller.neutral_with_impedance()

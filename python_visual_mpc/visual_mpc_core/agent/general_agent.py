@@ -186,7 +186,7 @@ class GeneralAgent(object):
 
         # Take the sample.
         t = 0
-        done = False
+        done = self._hyperparams['T'] <= 0
         initial_env_obs, _ = self.env.reset()
         obs = self._post_process_obs(initial_env_obs, agent_data, True)
         policy.reset()

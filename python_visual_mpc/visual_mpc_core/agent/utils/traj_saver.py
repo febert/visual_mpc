@@ -83,7 +83,7 @@ class GeneralAgentSaver:
                     else:
                         key_name = 'env/{}'.format(k)
                         s.add_sequence_entry(key_name, get_shape(obs[k][0]), get_dtype(obs[k][0]))
-            if policy_out is not None:
+            if policy_out is not None and len(policy_out) > 0:
                 for k in policy_out[0]:
                     key_name = 'policy/{}'.format(k)
                     s.add_sequence_entry(key_name, get_shape(policy_out[0][k]), get_dtype(policy_out[0][k]))
@@ -117,8 +117,9 @@ class GeneralAgentSaver:
                         step_dict['env/image_view{}/encoded'.format(c)] = convert_datum(obs[k][t, c])
                 else:
                     step_dict['env/{}'.format(k)] = convert_datum(obs[k][t])
-            for k in policy_out[t]:
-                step_dict['policy/{}'.format(k)] = convert_datum(policy_out[t][k])
+            if len(policy_out) > t:
+                for k in policy_out[t]:
+                    step_dict['policy/{}'.format(k)] = convert_datum(policy_out[t][k])
 
             sequence_data.append(step_dict)
 

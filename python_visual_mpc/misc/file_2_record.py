@@ -66,6 +66,7 @@ if __name__ == '__main__':
     parser.add_argument('save_dir', type=str, help='target save path for record files')
     parser.add_argument('paths', type=str, help="Colon seperated list of paths to raw files")
     parser.add_argument('target_width', type=int, help='Target width to resize images')
+    parser.add_argument('--split', type=float, nargs='+', default=[0.9, 0.05, 0.05])
     parser.add_argument('--T', type=int, help='agent trajectory time_sequence length', default=30)
     parser.add_argument('--offset', type=int, help='offset record counter (aka if records already exist)', default=0)
     parser.add_argument('--nworkers', type=int, help='use multiple threads or not', default=1)
@@ -74,11 +75,15 @@ if __name__ == '__main__':
     parser.add_argument('--infer_gripper', action='store_true', default=False, help="adds gripper action to adim=4 trajs")
 
     args = parser.parse_args()
+    assert sum(args.split) == 1 and not any([i < 0 or i > 1 for i in args.split]), "Split must be valid distrib"
 
     traj_files = []
     for s in args.paths.split(':'):
-        for t_group in glob.glob('{}/traj_group*'.format(s)):
-            traj_files = traj_files + glob.glob('{}/traj*'.format(t_group))
+        if 'traj_group' in s:
+            traj_files = traj_files + glob.glob('{}/traj*'.format(s))
+        else:
+            for t_group in glob.glob('{}/traj_group*'.format(s)):
+                traj_files = traj_files + glob.glob('{}/traj*'.format(t_group))
     random.shuffle(traj_files)
 
     print('Saving {} trajectories...'.format(len(traj_files)))
@@ -88,7 +93,7 @@ if __name__ == '__main__':
     save_dir, T = args.save_dir, args.T
     seperate_good, traj_per_file = args.seperate_good, args.traj_per_file
     record_saver_proc = Process(target=record_worker, args=(
-        record_queue, save_dir, T, seperate_good, traj_per_file, args.offset))
+        record_queue, save_dir, T, seperate_good, traj_per_file, args.offset, tuple(args.split)))
     record_saver_proc.start()
 
     if args.nworkers > 1:
