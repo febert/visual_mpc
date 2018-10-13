@@ -7,14 +7,14 @@ from python_visual_mpc.goal_classifier.datasets.base_classifier_dataset import C
 import os
 
 
-def train(conf, batch_paths, restore_path, device, save_freq, summary_freq, tboard_port):
+def train(conf, conf_override, batch_paths, restore_path, device, save_freq, summary_freq, tboard_port):
     print('Using GPU: {}'.format(device))
     os.environ["CUDA_VISIBLE_DEVICES"] = str(device)
 
     dataset_type, dataset_params = conf.pop('dataset', ClassifierDataset), conf.pop('dataset_params', {})
     datasets = [dataset_type(d[0], d[1], dataset_params) for d in batch_paths]
 
-    model = conf.pop('model', BaseGoalClassifier)(conf, datasets)
+    model = conf.pop('model', BaseGoalClassifier)(conf, conf_override, datasets)
     global_step = tf.train.get_or_create_global_step()
     model.build(global_step)
 
@@ -48,6 +48,7 @@ def train(conf, batch_paths, restore_path, device, save_freq, summary_freq, tboa
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
     parser.add_argument('conf_path', type=str, help="Path to the classifier conf file")
+    parser.add_argument("--conf_override", type=str, help="a string of comma separated list of overrides for conf", default=None)
     parser.add_argument("--input_dirs", "--input_dir", type=str, nargs='+', required=True,
                         help="either a directory containing subdirectories train, val, test which contain records")
     parser.add_argument("--train_batch_sizes", type=int, nargs='+', help="splits for the training datasets",
@@ -64,6 +65,5 @@ if __name__ == '__main__':
     mod = importlib.util.module_from_spec(spec)
     loader.exec_module(mod)
     conf = mod.config
-
-    train(conf, list(zip(args.input_dirs, args.train_batch_sizes)),
+    train(conf, args.conf_override, list(zip(args.input_dirs, args.train_batch_sizes)),
           args.restore_path, args.device, args.save_freq, args.summary_freq, args.port)

@@ -6,5 +6,8 @@ BASE_DIR = '/'.join(str.split(__file__, '/')[:-1])
 config = {
     'dataset': InferLabelDataset,
     'model': UnconditionedGoalClassifier,
-    'save_dir': BASE_DIR + '/base_model/'
+    'save_dir': BASE_DIR + '/base_model_small/',
+    'lr': 1e-5,
+    'num_channels': [32, 16],
+    'fc_layers': [32,16]
 }

@@ -3,9 +3,10 @@ import tensorflow as tf
 
 
 class UnconditionedGoalClassifier(BaseGoalClassifier):
-    def __init__(self, conf, datasets=None):
+    def __init__(self, conf, conf_override, datasets=None):
         self._train_cond = tf.placeholder(tf.int32, shape=[], name="train_cond")
         self._hp = self._default_hparams().override_from_dict(conf)
+        self._hp.parse(conf_override)
 
         if datasets is not None:
             self._input_im = tf.cast(self._get_trainval_batch('images', datasets), tf.float32)

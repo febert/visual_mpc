@@ -5,10 +5,10 @@ import numpy as np
 
 
 class BaseGoalClassifier:
-    def __init__(self, conf, datasets=None):
+    def __init__(self, conf, conf_override, datasets=None):
         self._train_cond = tf.placeholder(tf.int32, shape=[], name="train_cond")
         self._hp = self._default_hparams().override_from_dict(conf)
-
+        self._hp.parse(conf_override)
         if datasets is not None:
             self._goal_images = tf.cast(self._get_trainval_batch('goal_image', datasets), tf.float32)
             self._input_im = tf.cast(self._get_trainval_batch('final_frame', datasets), tf.float32)
@@ -166,7 +166,15 @@ class BaseGoalClassifier:
         if eval_summaries:
             fetches['val_loss'], test_label, test_logit = sess.run([self._loss, self._label, self._logits], feed_dict={self._train_cond: 0})
             labels, preds = np.argmax(test_label, axis=-1), np.argmax(test_logit, axis=-1)
-            fetches['val/perc_correct_summary'] = np.sum(np.abs(labels - preds).astype(np.float32) / labels.shape[0])
+            fetches['val/error_summary'] = np.sum(np.abs(labels - preds).astype(np.float32) / labels.shape[0])
+
+            pred_pos, pred_neg = np.sum(preds), np.sum(1 - preds)
+            fetches['val/false_positive_summary'], fetches['val/false_negative_summary'] = 0., 0.
+            if pred_pos > 0:
+                fetches['val/false_positive_summary'] = np.sum(preds[np.where(labels < 1)]) / float(pred_pos)
+            if pred_neg > 0:
+                fetches['val/false_negative_summary'] = np.sum(1 - preds[np.where(labels > 0)]) / float(pred_neg)
+
             fetches['train/loss_summary'], fetches['val/loss_summary'] = fetches['train_loss'], fetches['val_loss']
         return fetches
 
