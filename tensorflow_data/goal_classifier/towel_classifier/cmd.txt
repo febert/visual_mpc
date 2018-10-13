@@ -1,0 +1,1 @@
+python python_visual_mpc/goal_classifier/train_classifier.py tensorflow_data/goal_classifier/towel_classifier/conf.py --input_dirs ~/Desktop/towel_fold_classifier/positives ~/Desktop/towel_fold_classifier/negatives/ ~/Desktop/towel_fold_classifier/farm_negatives/ --train_batch_size 12 4 16
