@@ -158,7 +158,7 @@ class CEM_Controller_Vidpred(CEM_Controller_Base):
         t_startpred = time.time()
         if self.M > self.bsize:
             nruns = self.M//self.bsize
-            assert self.bsize*nruns == self.M
+            assert self.bsize*nruns == self.M, "bsize: {}, nruns {}, but M is {}".format(self.bsize, nruns, self.M)
         else:
             nruns = 1
             assert self.M == self.bsize

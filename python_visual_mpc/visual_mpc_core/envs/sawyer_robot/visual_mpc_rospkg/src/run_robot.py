@@ -12,7 +12,7 @@ supported_robots = {'sudri', 'vestri'}
 
 
 class RobotEnvironment:
-    def __init__(self, robot_name, conf, resume = False, ngpu = 1, gpu_id = 0):
+    def __init__(self, robot_name, conf, resume = False, ngpu = 1, gpu_id = 0, is_bench=False):
         self._hyperparams = conf
         self.agentparams, self.policyparams, self.envparams = conf['agent'], conf['policy'], conf['agent']['env'][1]
 
@@ -24,13 +24,11 @@ class RobotEnvironment:
             raise NotImplementedError(msg)
 
         self.envparams['robot_name'] = robot_name
-
-        if 'benchmark_exp' in self.agentparams:
-            self.is_bench = True
+        self._is_bench = is_bench
+        if is_bench:
             self.task_mode = '{}/exp'.format(robot_name)
             self.agentparams['env'][1]['start_at_neutral'] = True     # robot should start at neutral during benchmarks
         else:
-            self.is_bench = False
             self.task_mode = '{}/train'.format(robot_name)
 
         if 'register_gtruth' in self.policyparams:
@@ -57,7 +55,7 @@ class RobotEnvironment:
             self._ck_dict = {'ntraj' : 0, 'broken_traj' : []}
 
     def run(self):
-        if not self.is_bench:
+        if not self._is_bench:
             for i in xrange(self._hyperparams['start_index'], self._hyperparams['end_index']):
                 self.take_sample(i)
         else:
@@ -75,18 +73,18 @@ class RobotEnvironment:
 
     def take_sample(self, sample_index):
         if 'RESULT_DIR' in os.environ:
-            data_save_dir = os.environ['RESULT_DIR'] + '/data'
+            exp_name = self.agentparams['data_save_dir'].split('/')[-1]
+            data_save_dir = '{}/{}'.format(os.environ['RESULT_DIR'], exp_name)
         else: data_save_dir = self.agentparams['data_save_dir']
         data_save_dir += '/' + self.task_mode
 
-        if self.is_bench:
+        if self._is_bench:
             bench_name = self._get_bench_name()
             traj_folder = '{}/{}'.format(data_save_dir, bench_name)
             self.agentparams['_bench_save'] = '{}/exp_data'.format(traj_folder)  # probably should develop a better way
             self.agentparams['benchmark_exp'] = bench_name                       # to pass benchmark info to agent
             self.agentparams['record'] = traj_folder + '/traj_data/record'
             print("Conducting experiment: {}".format(bench_name))
-
             traj_folder = traj_folder + '/traj_data'
             if os.path.exists(traj_folder):
                 shutil.rmtree(traj_folder)
@@ -114,7 +112,7 @@ class RobotEnvironment:
         print("CHECKPOINTED")
 
     def _save_raw_images(self, traj_folder, agent_data, obs_dict, policy_outputs):
-        if not self.is_bench:
+        if not self._is_bench:
             if os.path.exists(traj_folder):
                 shutil.rmtree(traj_folder)
             os.makedirs(traj_folder)
@@ -142,7 +140,6 @@ class RobotEnvironment:
 
 
 if __name__ == '__main__':
-
     parser = argparse.ArgumentParser()
     parser.add_argument('robot_name', type=str, help="name of robot we're running on")
     parser.add_argument('experiment', type=str, help='experiment name')
@@ -150,10 +147,12 @@ if __name__ == '__main__':
                         default=False, help='Set flag if resuming training')
     parser.add_argument('--gpu_id', type=int, default=0, help='value to set for cuda visible devices variable')
     parser.add_argument('--ngpu', type=int, default=1, help='number of gpus to use')
+    parser.add_argument('--benchmark', action='store_true', default=False,
+                        help='Add flag if this experiment is a benchmark')
     args = parser.parse_args()
 
     hyperparams = imp.load_source('hyperparams', args.experiment)
     conf = hyperparams.config
 
-    env = RobotEnvironment(args.robot_name, conf, args.resume, args.ngpu, args.gpu_id)
+    env = RobotEnvironment(args.robot_name, conf, args.resume, args.ngpu, args.gpu_id, args.benchmark)
     env.run()

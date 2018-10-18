@@ -2,24 +2,28 @@ import numpy as np
 import os
 from python_visual_mpc.visual_mpc_core.agent.benchmarking_agent import BenchmarkAgent
 from python_visual_mpc.visual_mpc_core.envs.sawyer_robot.autograsp_sawyer_env import AutograspSawyerEnv
+from python_visual_mpc.visual_mpc_core.algorithm.custom_samplers.folding_sampler import FoldingSampler
 from python_visual_mpc.visual_mpc_core.algorithm.cem_controller_vidpred import CEM_Controller_Vidpred
 BASE_DIR = '/'.join(str.split(__file__, '/')[:-1])
 current_dir = os.path.dirname(os.path.realpath(__file__))
 
 
 env_params = {
-    'autograsp': {'reopen': True, 'zthresh': 0.15},
-    'video_save_dir': ''
+    'lower_bound_delta': [0, 0., -0.01, 265 * np.pi / 180 - np.pi/2, 0],
+    'upper_bound_delta': [0, -0.15, -0.01, 0., 0],
+    'normalize_actions': True,
+    'gripper_joint_thresh': 0.999856,
+    'rand_drop_reset': False,
+    'video_save_dir':  '/home/sudeep/Desktop/exp_rec/',
+    'zthresh':0.05   # gripper only closes very close to ground
 }
-
 
 agent = {'type' : BenchmarkAgent,
          'env': (AutograspSawyerEnv, env_params),
          'data_save_dir': BASE_DIR,
-         'T' : 50,  #number of commands per episodes (issued at control_rate / substeps HZ)
+         'T' : 15,  #number of commands per episodes (issued at control_rate / substeps HZ)
          'image_height': 48,
          'image_width': 64,
-         'benchmark_exp':'',
          'current_dir': current_dir,
          'ntask': 2
          }
@@ -27,13 +31,15 @@ agent = {'type' : BenchmarkAgent,
 policy = {
     'verbose':True,
     'type': CEM_Controller_Vidpred,
-    'initial_std': 0.035,   #std dev. in xy
-    'initial_std_lift': 0.08,   #std dev. in z
-    'replan_interval': 3,
-    'reuse_mean': True,
-    'num_samples': [400, 200],
+    'replan_interval': 15,
+    'num_samples': [600, 300],
+    'custom_sampler': FoldingSampler,
     'selection_frac': 0.05,
     'predictor_propagation': True,   # use the model get the designated pixel for the next step!
+    'initial_std': 0.005,
+    'initial_std_lift': 0.05,  # std dev. in xy
+    'initial_std_rot': np.pi / 18 / 5.,
+    'initial_std_grasp': 1,
 }
 
 config = {

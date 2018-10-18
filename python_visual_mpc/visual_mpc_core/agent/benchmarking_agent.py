@@ -14,7 +14,8 @@ class BenchmarkAgent(GeneralAgent):
 
         GeneralAgent.__init__(self, hyperparams)
         self._is_robot_bench = 'robot_name' in self._hyperparams['env'][1]
-        self._hyperparams['gen_xml'] = 1
+        if not self._is_robot_bench:
+            self._hyperparams['gen_xml'] = 1
 
     def _setup_world(self, itr):
         old_ncam = self.ncam
@@ -55,11 +56,10 @@ class BenchmarkAgent(GeneralAgent):
 
             else:
                 self._goal_obj_pose = self.env.get_obj_desig_goal(self._hyperparams['_bench_save'], ntasks=ntasks)
-            GeneralAgent._init(self)
-            return
+            return GeneralAgent._init(self)
 
         self.env.set_goal_obj_pose(self._goal_obj_pose)
-        GeneralAgent._init(self)
+        return GeneralAgent._init(self)
 
     def _load_raw_data(self, itr):
         """

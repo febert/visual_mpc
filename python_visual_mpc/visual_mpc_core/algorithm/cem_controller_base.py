@@ -73,7 +73,7 @@ class CEM_Controller_Base(Policy):
         #action dimensions:
         # deltax, delty, goup_nstep, delta_rot, close_nstep
         self.adim = self.agentparams['adim']
-        self.sdim = self.agentparams['sdim'] # action dimension
+        self.sdim = self.agentparams['sdim']                             # state dimension
 
         self.indices =[]
         self.mean =None
@@ -128,6 +128,7 @@ class CEM_Controller_Base(Policy):
             'autograsp_epsilon': [None],   # if autograsp epsilon is not None apply ag_epsilon to gripper dims (last dim if action order not specified)
             'finalweight':10,
             'use_first_plan':False,
+            'custom_sampler': None,
             'replan_interval':-1,
             'type':None,
             'add_zero_action':False,   # add one action sample with zero actions, this might prevent random walks in the end
@@ -175,20 +176,23 @@ class CEM_Controller_Base(Policy):
             self.logger.log('------------')
             self.logger.log('iteration: ', itr)
             t_startiter = time.time()
+            if self._hp.custom_sampler is None:
+                if self._hp.rejection_sampling:
+                    actions = self.sample_actions_rej()
+                else:
+                    actions = self.sample_actions(self.mean, self.sigma, self._hp, self.M)
 
-            if self._hp.rejection_sampling:
-                actions = self.sample_actions_rej()
+                if self._hp.autograsp_epsilon[0] is not None:
+                    assert len(self._hp.autograsp_epsilon) == 2 or len(self._hp.autograsp_epsilon) == 3, \
+                        "Should be array of [z_thresh, epsilon] or [z_thresh, epsilon, norm]"
+                    if len(self._hp.autograsp_epsilon) == 2:
+                        self._hp.autograsp_epsilon = [i for i in self._hp.autograsp_epsilon] + [1]
+
+                    actions = apply_ag_epsilon(actions, self.state, self._hp,
+                                               self._close_override, self.t < self._hp.repeat)
             else:
-                actions = self.sample_actions(self.mean, self.sigma, self._hp, self.M)
-
-            if self._hp.autograsp_epsilon[0] is not None:
-                assert len(self._hp.autograsp_epsilon) == 2 or len(self._hp.autograsp_epsilon) == 3, \
-                    "Should be array of [z_thresh, epsilon] or [z_thresh, epsilon, norm]"
-                if len(self._hp.autograsp_epsilon) == 2:
-                    self._hp.autograsp_epsilon = [i for i in self._hp.autograsp_epsilon] + [1]
-
-                actions = apply_ag_epsilon(actions, self.state, self._hp, self._close_override, self.t < self._hp.repeat)
-
+                sampler = self._hp.custom_sampler(self.sigma, self.mean, self.naction_steps, self.repeat, self.adim)
+                actions = sampler.sample(self.M, self.state)
 
             itr_times['action_sampling'] = time.time() - t_startiter
             t_start = time.time()
