@@ -44,5 +44,5 @@ config = {
     'end_index': 120000,
     'agent': agent,
     'policy': policy,
-    'ngroup': 10
+    'ngroup': 20
 }

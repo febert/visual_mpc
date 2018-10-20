@@ -133,6 +133,7 @@ class CEM_Controller_Base(Policy):
             'type':None,
             'add_zero_action':False,   # add one action sample with zero actions, this might prevent random walks in the end
             'reduce_std_dev':1., # reduce standard dev in later timesteps when reusing action
+            'visualize_best': True,    # visualizer selects K best if True (random K trajectories otherwise)
         }
 
         parent_params = super(CEM_Controller_Base, self)._default_hparams()

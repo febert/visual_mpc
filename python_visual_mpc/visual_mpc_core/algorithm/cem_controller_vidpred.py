@@ -120,6 +120,8 @@ class CEM_Controller_Vidpred(CEM_Controller_Base):
             'predictor_propagation':False,
             'trade_off_reg':True,
             'only_take_first_view':False,
+            'extra_score_functions': [None],
+            'pixel_score_weight': 1.
         }
         parent_params = super(CEM_Controller_Vidpred, self)._default_hparams()
 
@@ -240,12 +242,32 @@ class CEM_Controller_Vidpred(CEM_Controller_Base):
                 scores_per_task.append(score)
                 self.logger.log(
                     'best flow score of task {} cam{}  :{}'.format(p, icam, np.min(scores_per_task[-1])))
+
         scores_per_task = np.stack(scores_per_task, axis=1)
 
         if self._hp.only_take_first_view:
             scores_per_task = scores_per_task[:, 0][:, None]
 
         scores = np.mean(scores_per_task, axis=1)
+
+        if self._hp.extra_score_functions[0] is not None:
+            batches, T, ncams, height, width, channels = gen_images.shape
+            extra_costs = np.zeros((batches))
+            score_std, score_mean = np.std(scores), np.mean(scores)
+
+            for cost in self._hp.extra_score_functions:
+                c_score = np.zeros((batches, T))
+                for t in range(T):
+                    c_score[:, t] = cost.score(images=gen_images[:, t])
+                c_score[:, -1] *= self._hp.finalweight
+                c_score = np.sum(c_score, 1)
+                if score_std > 0 and score_mean > 0:
+                    old_std, old_mean = np.std(c_score), np.mean(c_score)
+                    c_score = score_std * ((c_score - old_mean) / old_std) + score_mean
+                extra_costs += c_score
+
+            print('best extra costs: {}'.format(np.amin(extra_costs)))
+            scores = self._hp.pixel_score_weight * scores + extra_costs
 
         bestind = scores.argsort()[0]
         for icam in range(self.ncam):

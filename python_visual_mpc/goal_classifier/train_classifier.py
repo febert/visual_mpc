@@ -45,10 +45,13 @@ def train(conf, conf_override, batch_paths, restore_path, device, save_freq, sum
         if i_step > 0 and i_step % save_freq == 0:
             model.save(sess, i_step)
     model.save(sess, global_step.eval(sess))
+
+
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
     parser.add_argument('conf_path', type=str, help="Path to the classifier conf file")
-    parser.add_argument("--conf_override", type=str, help="a string of comma separated list of overrides for conf", default=None)
+    parser.add_argument("--conf_override", type=str, help="a string of comma separated list of overrides for conf",
+                        default=None)
     parser.add_argument("--input_dirs", "--input_dir", type=str, nargs='+', required=True,
                         help="either a directory containing subdirectories train, val, test which contain records")
     parser.add_argument("--train_batch_sizes", type=int, nargs='+', help="splits for the training datasets",

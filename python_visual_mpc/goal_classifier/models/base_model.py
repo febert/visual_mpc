@@ -5,10 +5,11 @@ import numpy as np
 
 
 class BaseGoalClassifier:
-    def __init__(self, conf, conf_override, datasets=None):
+    def __init__(self, conf, conf_override=None, datasets=None):
         self._train_cond = tf.placeholder(tf.int32, shape=[], name="train_cond")
-        self._hp = self._default_hparams().override_from_dict(conf)
-        self._hp.parse(conf_override)
+        self._hp = self._default_hparams(datasets is None).override_from_dict(conf)
+        if conf_override is None:
+            self._hp.parse(conf_override)
         if datasets is not None:
             self._goal_images = tf.cast(self._get_trainval_batch('goal_image', datasets), tf.float32)
             self._input_im = tf.cast(self._get_trainval_batch('final_frame', datasets), tf.float32)
@@ -23,7 +24,7 @@ class BaseGoalClassifier:
         val_data = tf.concat([d[key, 'val'] for d in datasets], 0)
         return tf.cond(self._train_cond > 0, lambda: train_data, lambda: val_data)
 
-    def _default_hparams(self):
+    def _default_hparams(self, is_test=False):
         params = {
             'pretrained_path': '{}/weights'.format(os.environ['VMPC_DATA_DIR']),
             'max_steps': 80000,
@@ -35,9 +36,14 @@ class BaseGoalClassifier:
             'lr': 1e-3,
             'build_loss': True
         }
+        if is_test:
+            params['image_height'] = 48
+            params['image_width'] = 64
+            params['build_loss'] = False
+
         return HParams(**params)
 
-    def build(self, global_step):
+    def build(self, global_step=None):
         # _conv_layer(input, n_out, name)
         with tf.variable_scope("goal_classifier") as classifier_scope:
             vgg_feats = [self._vgg_layer(self._goal_images), self._vgg_layer(self._input_im)]
@@ -204,3 +210,6 @@ class BaseGoalClassifier:
     def save(self, sess, global_step):
         self._create_save_dir()
         self._saver.save(sess, os.path.join(self._hp.save_dir, "model"), global_step=global_step)
+
+    def score(self, **kwargs):
+        raise NotImplementedError("test time functionality not implemented")

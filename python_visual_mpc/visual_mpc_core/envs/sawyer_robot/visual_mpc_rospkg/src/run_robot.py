@@ -72,7 +72,7 @@ class RobotEnvironment:
         return name
 
     def take_sample(self, sample_index):
-        if 'RESULT_DIR' in os.environ:
+        if 'RESULT_DIR' in os.environ and self._is_bench:
             exp_name = self.agentparams['data_save_dir'].split('/')[-1]
             data_save_dir = '{}/{}'.format(os.environ['RESULT_DIR'], exp_name)
         else: data_save_dir = self.agentparams['data_save_dir']

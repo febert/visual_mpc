@@ -114,9 +114,11 @@ class CEM_Visual_Preparation(object):
         print('in make_cem_visuals')
         plt.switch_backend('agg')
 
-        if 'compare_mj_planner_actions' in vd.agentparams:
-            selindices = np.concatenate([np.zeros(1, dtype=np.int) ,bestindices])
-        else: selindices = bestindices
+        if self.hp.visualize_best:
+            selindices = bestindices
+        else:
+            selindices = list(range(vd.K))
+
         self.selindices = selindices
         gen_distrib = vd.gen_distrib[selindices]
         gen_images = vd.gen_images[selindices]
