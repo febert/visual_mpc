@@ -192,7 +192,7 @@ class CEM_Controller_Base(Policy):
                     actions = apply_ag_epsilon(actions, self.state, self._hp,
                                                self._close_override, self.t < self._hp.repeat)
             else:
-                sampler = self._hp.custom_sampler(self.sigma, self.mean, self.naction_steps, self.repeat, self.adim)
+                sampler = self._hp.custom_sampler(self.sigma, self.mean, self._hp, self.repeat, self.adim)
                 actions = sampler.sample(self.M, self.state)
 
             itr_times['action_sampling'] = time.time() - t_startiter

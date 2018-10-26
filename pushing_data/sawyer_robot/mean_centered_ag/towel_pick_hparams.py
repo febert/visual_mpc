@@ -33,8 +33,7 @@ agent = {
 }
 
 policy = {
-    'type': RandomFoldPolicy,
-    'nactions': 10
+    'type': RandomFoldPolicy
 }
 
 config = {

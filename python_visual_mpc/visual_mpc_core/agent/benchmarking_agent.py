@@ -40,22 +40,27 @@ class BenchmarkAgent(GeneralAgent):
 
     def _init(self):
         if self._is_robot_bench:
-            if os.path.exists(self._hyperparams['_bench_save']):
-                shutil.rmtree(self._hyperparams['_bench_save'])
-            os.makedirs(self._hyperparams['_bench_save'])
+            done = False
+            while not done:
+                if os.path.exists(self._hyperparams['_bench_save']):
+                    shutil.rmtree(self._hyperparams['_bench_save'])
+                os.makedirs(self._hyperparams['_bench_save'])
 
-            ntasks = self._hyperparams.get('ntask', 1)
+                ntasks = self._hyperparams.get('ntask', 1)
 
-            if 'register_gtruth' in self._hyperparams and len(self._hyperparams['register_gtruth']) == 2:
-                raw_goal_image, self._goal_obj_pose = self.env.get_obj_desig_goal(self._hyperparams['_bench_save'], True,
-                                                                              ntasks=ntasks)
-                goal_dims = (1, self.ncam, self._hyperparams['image_height'], self._hyperparams['image_width'], 3)
-                self._goal_image = np.zeros(goal_dims, dtype=np.uint8)
-                resize_store(0, self._goal_image, raw_goal_image)
-                self._goal_image = self._goal_image.astype(np.float32) / 255.
+                if 'register_gtruth' in self._hyperparams and len(self._hyperparams['register_gtruth']) == 2:
+                    raw_goal_image, self._goal_obj_pose = self.env.get_obj_desig_goal(self._hyperparams['_bench_save'], True,
+                                                                                  ntasks=ntasks)
+                    goal_dims = (1, self.ncam, self._hyperparams['image_height'], self._hyperparams['image_width'], 3)
+                    self._goal_image = np.zeros(goal_dims, dtype=np.uint8)
+                    resize_store(0, self._goal_image, raw_goal_image)
+                    self._goal_image = self._goal_image.astype(np.float32) / 255.
 
-            else:
-                self._goal_obj_pose = self.env.get_obj_desig_goal(self._hyperparams['_bench_save'], ntasks=ntasks)
+                else:
+                    self._goal_obj_pose = self.env.get_obj_desig_goal(self._hyperparams['_bench_save'], ntasks=ntasks)
+                if 'y' in raw_input('Is definition okay? (y/n):'):
+                    done = True
+
             return GeneralAgent._init(self)
 
         self.env.set_goal_obj_pose(self._goal_obj_pose)

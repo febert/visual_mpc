@@ -136,7 +136,7 @@ class BaseSawyerEnv(BaseEnv):
         self._left_cam = CameraRecorder('/camera1/image_raw', self._hp.opencv_tracking, self._save_video)
         self._controller.open_gripper(True)
         self._controller.close_gripper(True)
-        self._controller.neutral_with_impedance()
+        self._controller.open_gripper(True)
 
         img_dim_check = (self._main_cam.img_height, self._main_cam.img_width) == \
                         (self._left_cam.img_height, self._left_cam.img_width)
@@ -149,12 +149,14 @@ class BaseSawyerEnv(BaseEnv):
         self._reset_counter, self._previous_target_qpos = 0, None
 
         self._start_pix, self._desig_pix, self._goal_pix = None, None, None
+        self._goto_closest_neutral()
 
     def _default_hparams(self):
         default_dict = {'robot_name': None,
                         'opencv_tracking': False,
                         'video_save_dir': None,
                         'start_at_neutral': False,
+                        'start_box': [1., 1., 1.],          # amount of xyz state range gripper can start in
                         'OFFSET_TOL': 0.06,
                         'duration': 1.,
                         'mode_rel': [True, True, True, True, False],
@@ -231,13 +233,21 @@ class BaseSawyerEnv(BaseEnv):
         """
         raise NotImplementedError
 
+    def _get_state(self):
+        j_angles, j_vel, eep, gripper_state, force_sensor = self._limb_recorder.get_state()
+        state = np.zeros(self._base_sdim)
+        state[:3] = (eep[:3] - self._low_bound[:3]) / (self._high_bound[:3] - self._low_bound[:3])
+        state[3] = quat_to_zangle(eep[3:])
+        state[4] = gripper_state * self._low_bound[-1] + (1 - gripper_state) * self._high_bound[-1]
+        return state
+
     def _get_obs(self):
         obs = {}
         j_angles, j_vel, eep, gripper_state, force_sensor = self._limb_recorder.get_state()
         obs['qpos'] = j_angles
         obs['qvel'] = j_vel
 
-        if self._hp.print_debug:
+        if self._hp.print_debug and self._previous_target_qpos is not None:
             print 'xy delta: ', np.linalg.norm(eep[:2] - self._previous_target_qpos[:2])
             print 'target z', self._previous_target_qpos[2], 'real z', eep[2]
             print 'z dif', abs(eep[2] - self._previous_target_qpos[2])
@@ -334,6 +344,16 @@ class BaseSawyerEnv(BaseEnv):
         self._reset_counter += 1
         return self._get_obs(), None
 
+    def _goto_closest_neutral(self):
+        self._controller.neutral_with_impedance()
+        closest_netural = self._get_state()
+
+        closest_netural[:3] = np.clip(closest_netural[:3], [0., 0., 0.], self._hp.start_box)
+        closest_netural[:3] *= self._high_bound[:3] - self._low_bound[:3]
+        closest_netural[:3] += self._low_bound[:3]
+
+        self._move_to_state(closest_netural[:3], closest_netural[3], 1.)
+
     def reset(self):
         """
         Resets the environment and returns initial observation
@@ -343,7 +363,7 @@ class BaseSawyerEnv(BaseEnv):
 
         if self._hp.start_at_neutral:
             self._controller.open_gripper(True)
-            self._controller.neutral_with_impedance()
+            self._goto_closest_neutral()
             return self._end_reset()
 
         if self._hp.rand_drop_reset:
@@ -495,7 +515,7 @@ class BaseSawyerEnv(BaseEnv):
             self._hp.video_save_dir = save_dir
 
         raw_input("Robot in safe position? Hit enter when ready...")
-        self._controller.neutral_with_impedance()
+        self._goto_closest_neutral()
         self._controller.open_gripper(True)
 
         if collect_goal_image:
@@ -506,7 +526,7 @@ class BaseSawyerEnv(BaseEnv):
                                      save_dir, clicks_per_desig=1, n_desig=ntasks)
 
             raw_input("Robot in safe position? Hit enter when ready...")
-            self._controller.neutral_with_impedance()
+            self._goto_closest_neutral()
             self._controller.open_gripper(True)
 
             print("PLACE OBJECTS IN START POSITION")

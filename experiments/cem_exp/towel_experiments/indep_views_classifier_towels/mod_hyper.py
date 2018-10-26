@@ -19,6 +19,7 @@ env_params = {
     'normalize_actions': True,
     'gripper_joint_thresh': 0.999856,
     'rand_drop_reset': False,
+    'start_box': [1, 1, 0.5],
     'video_save_dir':  '/home/sudeep/Desktop/exp_rec/',
     'zthresh':0.05   # gripper only closes very close to ground
 }

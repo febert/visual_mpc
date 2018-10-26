@@ -8,7 +8,6 @@ current_dir = os.path.dirname(os.path.realpath(__file__))
 
 
 env_params = {
-    'autograsp': {'reopen': True, 'zthresh': 0.15},
     'video_save_dir': ''
 }
 
