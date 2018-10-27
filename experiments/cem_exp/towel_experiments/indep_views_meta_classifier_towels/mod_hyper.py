@@ -27,7 +27,7 @@ env_params = {
 agent = {'type' : BenchmarkAgent,
          'env': (AutograspSawyerEnv, env_params),
          'data_save_dir': BASE_DIR,
-         'T' : 45,  #number of commands per episodes (issued at control_rate / substeps HZ)
+         'T' : 15,  #number of commands per episodes (issued at control_rate / substeps HZ)
          'image_height': 48,
          'image_width': 64,
          'current_dir': current_dir,
@@ -38,7 +38,7 @@ agent = {'type' : BenchmarkAgent,
 policy = {
     'verbose':True,
     'type': GoalImageController,
-    'replan_interval': 6,
+    'replan_interval': 15,
     'num_samples': [1200, 1200],
     'custom_sampler': FoldingSampler,
     'selection_frac': 0.05,
@@ -46,8 +46,9 @@ policy = {
     'initial_std': 0.005,
     'initial_std_lift': 0.05,  # std dev. in xy
     'extra_score_functions': [ClassifierDeploy({'model': ConditionedGoalClassifier},
-                                               '/home/sudeep/Downloads/towel_meta_cls/model84000')],
-    'pixel_score_weight': 0
+                                               '/home/annie/Downloads/25_10_2018/model99999')],
+    'pixel_score_weight': 0,
+    # 'extra_score_weight': 0
 }
 
 config = {

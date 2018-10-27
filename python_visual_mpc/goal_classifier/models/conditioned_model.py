@@ -6,6 +6,35 @@ from tensorflow.contrib.layers.python import layers as tf_layers
 import h5py
 from tensorflow.contrib.training import HParams
 
+# default_dict = {
+#     'meta_batch_size': 7,
+#     'meta_lr': 0.001,
+#     'update_batch_size': 1,
+#     'update_lr': 1.0,
+#     'num_updates': 1,
+#     'grad_clip': True,
+#     'clip_min': -80.0,
+#     'clip_max': 80.0,
+#     'stop_grad': True,
+#     'im_height': 48,
+#     'im_width': 64,
+#     'norm': 'layer_norm',
+#     'num_conv_layers': 3,
+#     'num_filters': 16,
+#     'num_fc_layers': 2,
+#     'hidden_dim': 40,
+#     'fc_bt': False,
+#     'bt_dim': 0,
+#     'fp': False,
+#     'vgg_path': '',
+#     'resume': True,
+#     'train': True,
+#     'test_iter': -1,
+#     'test_set': False,
+#     'train_update_batch_size': 5,
+#     'train_update_lr': -1
+# }
+
 default_dict = {
     'meta_batch_size': 7,
     'meta_lr': 0.001,
@@ -15,7 +44,7 @@ default_dict = {
     'grad_clip': True,
     'clip_min': -80.0,
     'clip_max': 80.0,
-    'stop_grad': True,
+    'stop_grad': False,
     'im_height': 48,
     'im_width': 64,
     'norm': 'layer_norm',

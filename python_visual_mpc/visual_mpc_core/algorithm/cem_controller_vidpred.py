@@ -121,7 +121,8 @@ class CEM_Controller_Vidpred(CEM_Controller_Base):
             'trade_off_reg':True,
             'only_take_first_view':False,
             'extra_score_functions': [None],
-            'pixel_score_weight': 1.
+            'pixel_score_weight': 1.,
+            'extra_score_weight': 1.
         }
         parent_params = super(CEM_Controller_Vidpred, self)._default_hparams()
 
@@ -271,7 +272,7 @@ class CEM_Controller_Vidpred(CEM_Controller_Base):
                 extra_costs += c_score
 
             print('best extra costs: {}'.format(np.amin(extra_costs)))
-            scores = self._hp.pixel_score_weight * scores + extra_costs
+            scores = self._hp.pixel_score_weight * scores + self._hp.extra_score_weight * extra_costs
 
         bestind = scores.argsort()[0]
         for icam in range(self.ncam):
