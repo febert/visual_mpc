@@ -21,7 +21,6 @@ from PIL import Image
 import time
 import tarfile
 from python_visual_mpc.visual_mpc_core.infrastructure.trajectory import Trajectory
-from python_visual_mpc.visual_mpc_core.infrastructure.utility.save_tf_record import save_tf_record
 
 import copy
 

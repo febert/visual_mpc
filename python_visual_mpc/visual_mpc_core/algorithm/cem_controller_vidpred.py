@@ -121,7 +121,8 @@ class CEM_Controller_Vidpred(CEM_Controller_Base):
             'trade_off_reg':True,
             'only_take_first_view':False,
             'extra_score_functions': [None],
-            'pixel_score_weight': 1.
+            'pixel_score_weight': 1.,
+            'extra_score_weight': 1.
         }
         parent_params = super(CEM_Controller_Vidpred, self)._default_hparams()
 
@@ -258,16 +259,20 @@ class CEM_Controller_Vidpred(CEM_Controller_Base):
             for cost in self._hp.extra_score_functions:
                 c_score = np.zeros((batches, T))
                 for t in range(T):
-                    c_score[:, t] = cost.score(images=gen_images[:, t])
+                    if self.goal_image is None:
+                        c_score[:, t] = cost.score(images=gen_images[:, t])
+                    else:
+                        c_score[:, t] = cost.score(images=gen_images[:, t], goal_images=self.goal_image)
+
                 c_score[:, -1] *= self._hp.finalweight
                 c_score = np.sum(c_score, 1)
-                if score_std > 0 and score_mean > 0:
+                if score_std > 0 and score_mean > 0 and self._hp.pixel_score_weight > 0:
                     old_std, old_mean = np.std(c_score), np.mean(c_score)
                     c_score = score_std * ((c_score - old_mean) / old_std) + score_mean
                 extra_costs += c_score
 
             print('best extra costs: {}'.format(np.amin(extra_costs)))
-            scores = self._hp.pixel_score_weight * scores + extra_costs
+            scores = self._hp.pixel_score_weight * scores + self._hp.extra_score_weight * extra_costs
 
         bestind = scores.argsort()[0]
         for icam in range(self.ncam):

@@ -22,7 +22,6 @@ class RandomFoldPolicy(Policy):
 
     def _default_hparams(self):
         default_dict = {
-            'nactions': 5,
             'repeat': 3,
             'action_bound': False,
             'action_order': [None],
@@ -30,7 +29,6 @@ class RandomFoldPolicy(Policy):
             'initial_std': 0.005,
             'initial_std_lift': 0.05,  # std dev. in xy
             'initial_std_rot': np.pi / 18,
-            'initial_std_grasp': 1,
             'max_z_shift': 1./3,
             'min_dist': 0.8,
             'pick_timer': 3            # time for go down/pick actions

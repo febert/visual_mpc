@@ -3,7 +3,9 @@ import numpy as np
 
 
 class FoldingSampler:
-    def __init__(self, sigma, mean, naction_steps, repeat, base_adim):
+    def __init__(self, sigma, mean, hp, repeat, base_adim):
+        self._hp = hp
+        naction_steps = hp.nactions
         assert base_adim == 4, "Requires base action dimension of 4"
         assert naction_steps >= 5, "Requires at least 5 steps"
         self._base_mean = mean
@@ -70,4 +72,17 @@ class FoldingSampler:
         default_actions = np.random.multivariate_normal(self._base_mean, self._full_sigma, per_split)
         ret_actions[2 * per_split:] = default_actions.reshape((per_split, self._steps, self._adim))
 
+        ret_actions[:, :, :3] = np.clip(ret_actions[:, :, :3], -np.array(self._hp.max_shift),
+                                        np.array(self._hp.max_shift))
+
         return np.repeat(ret_actions, self._repeat, axis=1)
+
+    @staticmethod
+    def get_default_hparams():
+        hparams_dict = {
+            'max_shift': [1. / 5, 1. / 5, 1. / 3]
+        }
+        return hparams_dict
+
+    def _initial_samples(self):
+        return

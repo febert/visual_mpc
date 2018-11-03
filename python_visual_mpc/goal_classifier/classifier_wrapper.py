@@ -11,22 +11,22 @@ else:
 
 
 class ClassifierDeploy:
-    def __init__(self, conf_path, checkpoint_path, device_id=0):
+    def __init__(self, conf, checkpoint_path, device_id=0):
         if device_id == None:
             device_id = 0
 
         os.environ["CUDA_VISIBLE_DEVICES"] = '2,3'
         print('using CUDA_VISIBLE_DEVICES=', os.environ["CUDA_VISIBLE_DEVICES"])
-
-        if IS_PYTHON2:
-            params = imp.load_source('params', conf_path)
-            conf = params.config
-        else:
-            loader = importlib.machinery.SourceFileLoader('classifier_conf', conf_path)
-            spec = importlib.util.spec_from_loader(loader.name, loader)
-            mod = importlib.util.module_from_spec(spec)
-            loader.exec_module(mod)
-            conf = mod.config
+        if isinstance(conf, str):
+            if IS_PYTHON2:
+                params = imp.load_source('params', conf)
+                conf = params.config
+            else:
+                loader = importlib.machinery.SourceFileLoader('classifier_conf', conf)
+                spec = importlib.util.spec_from_loader(loader.name, loader)
+                mod = importlib.util.module_from_spec(spec)
+                loader.exec_module(mod)
+                conf = mod.config
 
         conf.pop('dataset', None)         # if custom data loader is included pop that element
 
