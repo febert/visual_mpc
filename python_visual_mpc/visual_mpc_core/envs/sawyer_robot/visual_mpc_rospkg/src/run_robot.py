@@ -46,13 +46,15 @@ class RobotEnvironment:
             os.makedirs(robot_dir)
 
         self._ck_path = self.agentparams['data_save_dir'] + '/{}/checkpoint.pkl'.format(robot_name)
-        if resume and os.path.exists(self._ck_path):
-            with open(self._ck_path, 'rb') as f:
-                self._ck_dict = pkl.load(f)
+        self._ck_dict = {'ntraj': 0, 'broken_traj': []}
+        if resume:
+            if resume == -1 and os.path.exists(self._ck_path):
+                with open(self._ck_path, 'rb') as f:
+                    self._ck_dict = pkl.load(f)
+            else:
+                self._ck_dict['ntraj'] = resume
 
-            self._hyperparams['start_index'] = self._ck_dict['ntraj']
-        else:
-            self._ck_dict = {'ntraj' : 0, 'broken_traj' : []}
+        self._hyperparams['start_index'] = self._ck_dict['ntraj']
 
     def run(self):
         if not self._is_bench:
@@ -143,8 +145,8 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser()
     parser.add_argument('robot_name', type=str, help="name of robot we're running on")
     parser.add_argument('experiment', type=str, help='experiment name')
-    parser.add_argument('-r', action='store_true', dest='resume',
-                        default=False, help='Set flag if resuming training')
+    parser.add_argument('-r', nargs='?', dest='resume', const=-1,
+                        default=False, help='Set flag if resuming training (-r if from checkpoint, -r <traj_num> otherwise')
     parser.add_argument('--gpu_id', type=int, default=0, help='value to set for cuda visible devices variable')
     parser.add_argument('--ngpu', type=int, default=1, help='number of gpus to use')
     parser.add_argument('--benchmark', action='store_true', default=False,

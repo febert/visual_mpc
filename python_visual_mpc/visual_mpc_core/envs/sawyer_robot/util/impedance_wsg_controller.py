@@ -19,7 +19,7 @@ DURATION_PER_POINT = 0.01
 N_JOINTS = 7
 max_vel_mag = np.array([0.88, 0.678, 0.996, 0.996, 1.776, 1.776, 2.316])
 max_accel_mag = np.array([3.5, 2.5, 5, 5, 5, 5, 5])
-GRIPPER_CLOSE = 5   # chosen so that gripper closes entirely without pushing against itself
+GRIPPER_CLOSE = 6   # chosen so that gripper closes entirely without pushing against itself
 GRIPPER_OPEN = 96   # chosen so that gripper opens entirely without pushing against outer rail
 RESET_SKIP = 800
 
