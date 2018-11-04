@@ -132,8 +132,13 @@ class BaseSawyerEnv(BaseEnv):
         self._controller = ImpedanceWSGController(CONTROL_RATE, self._robot_name, self._hp.print_debug)
         self._limb_recorder = LimbWSGRecorder(self._controller)
         self._save_video = self._hp.video_save_dir is not None
-        self._main_cam = CameraRecorder('/camera0/image_raw', self._hp.opencv_tracking, self._save_video)
-        self._left_cam = CameraRecorder('/camera1/image_raw', self._hp.opencv_tracking, self._save_video)
+        if self._hp.kinect_camera:
+            # hack around to make dual cam env easily work with monocam kinect (say left = main and only render main)
+            self._main_cam = CameraRecorder('/kinect2/hd/image_color_rect', self._hp.opencv_tracking, self._save_video)
+            self._left_cam = CameraRecorder('/kinect2/hd/image_color_rect', self._hp.opencv_tracking, self._save_video)
+        else:
+            self._main_cam = CameraRecorder('/camera0/image_raw', self._hp.opencv_tracking, self._save_video)
+            self._left_cam = CameraRecorder('/camera1/image_raw', self._hp.opencv_tracking, self._save_video)
         self._controller.open_gripper(True)
         self._controller.close_gripper(True)
         self._controller.open_gripper(True)
@@ -153,6 +158,7 @@ class BaseSawyerEnv(BaseEnv):
 
     def _default_hparams(self):
         default_dict = {'robot_name': None,
+                        'kinect_camera': False,
                         'opencv_tracking': False,
                         'video_save_dir': None,
                         'start_at_neutral': False,
@@ -427,10 +433,11 @@ class BaseSawyerEnv(BaseEnv):
         :param mode: Mode to render with (dual by default)
         :return: uint8 numpy array with rendering from sim
         """
+
         cameras = [self._main_cam, self._left_cam]
         if mode == 'left':
             cameras = [self._left_cam]
-        elif mode == 'main':
+        elif mode == 'main' or self._hp.kinect_camera:
             cameras = [self._main_cam]
 
         time_stamps = []
@@ -452,6 +459,7 @@ class BaseSawyerEnv(BaseEnv):
         images = np.zeros((len(cameras), self._height, self._width, 3), dtype=np.uint8)
         for c, img in enumerate(cam_imgs):
             images[c] = img[:, :, ::-1]
+
         return images
 
     @property

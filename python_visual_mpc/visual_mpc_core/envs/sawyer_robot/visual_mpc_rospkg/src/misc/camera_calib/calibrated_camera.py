@@ -12,17 +12,13 @@ import scipy.spatial
 CAM_FUZZ = np.array([0, 133])      #I'm not 100% sure why we need this. Maybe correction in principal point  for ar alvar vs image_undistort?
 
 class CalibratedCamera:
-    def __init__(self, robot_name):
+    def __init__(self, robot_name, camera_name):
         self.robot_name = robot_name
         calib_base = __file__.split('/')[:-1]
         self._calib_folder = '/'.join(calib_base + [self.robot_name])
-        cam_K_path = '/'.join(calib_base + ['K_cam.npy'])
 
         self.H_fcam = np.load('{}/H_fcam.npy'.format(self._calib_folder))
         self.t_fcam = np.load('{}/t_fcam.npy'.format(self._calib_folder))
-        self.H_lcam = np.load('{}/H_lcam.npy'.format(self._calib_folder))
-        self.t_lcam = np.load('{}/t_lcam.npy'.format(self._calib_folder))
-        self.K = np.load(cam_K_path)
 
         self._p2w_dict = pkl.load(open('{}/{}_point_to_world.pkl'.format(self._calib_folder, self.robot_name), 'rb'))
 
@@ -40,21 +36,6 @@ class CalibratedCamera:
         center_coords = self.rpn_tracker.get_boxes(img, valid_box= self._p2w_dict['valid_box'], im_save_dir=img_save_file)
 
         return center_coords, self.camera_to_robot(center_coords)
-    def robot_to_camera(self, robot_points, cam_name = 'front'):
-        if cam_name == 'front' or cam_name == 0:
-            H, t = self.H_fcam, self.t_fcam
-        else:
-            H, t = self.H_lcam, self.t_lcam
-        camera_coords = []
-
-        for r in robot_points:
-            c = np.linalg.solve(H, r.reshape((3, 1)) - t)
-            c_norm = c / c[2, 0]
-            raw_xy = self.K.dot(c_norm).reshape(-1)
-            pixel_xy = raw_xy[:2]
-            pixel_xy -= CAM_FUZZ
-            camera_coords.append(pixel_xy)
-        return camera_coords
 
     def camera_to_robot(self, camera_coord, name = 'front'):
         assert name == 'front', "calibration for camera_to_object not performed for left cam"
