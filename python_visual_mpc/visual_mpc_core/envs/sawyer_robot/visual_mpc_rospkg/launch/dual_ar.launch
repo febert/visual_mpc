@@ -17,7 +17,7 @@
 		<remap from="camera_info"   to="$(arg main_cam_info_topic)" />
 	</node>
 
-        <arg name="left_cam_image_topic" default="/camera1/image_raw" />
+    <arg name="left_cam_image_topic" default="/camera1/image_raw" />
 	<arg name="left_cam_info_topic" default="/output/camera_info" />
 	<arg name="left_output_frame" default="cam1_optical_frame" />
 

@@ -1,7 +1,7 @@
 #!/usr/bin/python
 import rospy
 import numpy as np
-# from ar_track_alvar_msgs.msg import AlvarMarkers
+from ar_track_alvar_msgs.msg import AlvarMarkers
 import argparse
 import intera_interface
 import intera_external_devices
@@ -12,6 +12,8 @@ from intera_core_msgs.srv import (
     SolvePositionFKRequest,
 )
 from sensor_msgs.msg import JointState
+
+
 class MarkerTracker:
     def __init__(self, valid_markers, track_window = 10):
         self.valid_markers = valid_markers
@@ -56,6 +58,7 @@ class MarkerTracker:
             else:
                 print("Marker, {} observed only {} times".format(m, self.position_track[m][1]))
 
+
 class CameraRegister:
     def __init__(self, cameras, valid_markers, limb, name_of_service, fksvc, validate = False):
         self.camera_trackers = {c : MarkerTracker(valid_markers) for c in cameras}
@@ -66,16 +69,21 @@ class CameraRegister:
 
         self.validate = validate
         if validate:
-            assert len(cameras) == 2, "ONLY 2 CAMERAS CALIBRATED"
-            assert 0 in cameras, "FRONT CAMERA (0) is missing!"
-            assert 1 in cameras, "LEFT CAMERA (1) is missing!"
-            self.H_fcam = np.load('H_fcam.npy')
-            self.t_fcam = np.load('t_fcam.npy')
+            if len(cameras) == 2:
+                assert 0 in cameras, "FRONT CAMERA (0) is missing!"
+                assert 1 in cameras, "LEFT CAMERA (1) is missing!"
+                self.H_fcam = np.load('H_fcam.npy')
+                self.t_fcam = np.load('t_fcam.npy')
 
-            self.H_lcam = np.load('H_lcam.npy')
-            self.t_lcam = np.load('t_lcam.npy')
+                self.H_lcam = np.load('H_lcam.npy')
+                self.t_lcam = np.load('t_lcam.npy')
 
-            print("INITIALIZED IN VALIDATE_CALIB MODE")
+                print("INITIALIZED IN VALIDATE_CALIB MODE")
+            elif 'kinect2_rgb_optical_frame' in self.camera_trackers:
+                self.H_fcam = np.load('H_kinect.npy')
+                self.t_fcam = np.load('t_kinect.npy')
+            else:
+                raise NotImplementedError("Only handles 2 camera or kinect case")
 
     def toggle_collection(self, value):
         if not value:
@@ -106,10 +114,14 @@ class CameraRegister:
             for c in self.camera_trackers.keys():
                 if 'cam{}'.format(c) in cam_frameid:
                     self.camera_trackers[c].marker_update(m)
-
+                elif c == 'kinect2_rgb_optical_frame' and 'kinect2_rgb_optical_frame' in cam_frameid:
+                    self.camera_trackers[c].marker_update(m)
 
     def print_marker_stats(self):
-        if self.validate:
+        if self.validate and 'kinect2_rgb_optical_frame' in self.camera_trackers:
+            self.camera_trackers['kinect2_rgb_optical_frame'].print_calib_marker_stats(self.H_fcam, self.t_fcam)
+            return
+        elif self.validate:
             print("FRONT CAMERA (assumed to be cam0)")
             self.camera_trackers[0].print_calib_marker_stats(self.H_fcam, self.t_fcam)
 
@@ -147,8 +159,8 @@ class CameraRegister:
                         resp.pose_stamp[0].pose.orientation.z,
                         resp.pose_stamp[0].pose.orientation.w])
 
-
         return pos
+
     def print_robot_eep(self, value):
         if not value:
             return
@@ -156,6 +168,7 @@ class CameraRegister:
         print("ROBOT XYZ POS")
         print(robot_pos[:3])
         print ""
+
 
 def main():
     parser = argparse.ArgumentParser()
@@ -174,8 +187,12 @@ def main():
         marker_set = set([int(m) for m in marker_list])
     camera_set = {0, 1}
     if camera_list is not None:
-        camera_set = set([int(c) for c in camera_list])
+        def int_or_kinect(c):
+            if c == 'kinect':
+                return 'kinect2_rgb_optical_frame'
+            return int(c)
 
+        camera_set = set([int_or_kinect(c) for c in camera_list])
 
     rospy.init_node('get_ar_points')
 
@@ -195,7 +212,7 @@ def main():
     cam_print = navigator.register_callback(camera_tracker.print_callback, 'right_button_square')
     robot_point_print = navigator.register_callback(camera_tracker.print_robot_eep, 'right_button_show')
 
-    # rospy.Subscriber("/ar_pose_marker", AlvarMarkers, camera_tracker.camera_track_callback)
+    rospy.Subscriber("/ar_pose_marker", AlvarMarkers, camera_tracker.camera_track_callback)
     print("BEGINNING SPIN")
     rospy.spin()
 
