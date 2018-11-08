@@ -193,7 +193,7 @@ class CEM_Controller_Base(Policy):
                                                self._close_override, self.t < self._hp.repeat)
             else:
                 sampler = self._hp.custom_sampler(self.sigma, self.mean, self._hp, self.repeat, self.adim)
-                actions = sampler.sample(self.M, self.state)
+                actions = sampler.sample(itr, self.M, self.state)
 
             itr_times['action_sampling'] = time.time() - t_startiter
             t_start = time.time()
