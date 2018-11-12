@@ -17,8 +17,8 @@ class CalibratedCamera:
         calib_base = __file__.split('/')[:-1]
         self._calib_folder = '/'.join(calib_base + [self.robot_name])
 
-        self.H_fcam = np.load('{}/H_fcam.npy'.format(self._calib_folder))
-        self.t_fcam = np.load('{}/t_fcam.npy'.format(self._calib_folder))
+        self.H_fcam = np.load('{}/H_{}.npy'.format(self._calib_folder, camera_name))
+        self.t_fcam = np.load('{}/t_{}.npy'.format(self._calib_folder, camera_name))
 
         self._p2w_dict = pkl.load(open('{}/{}_point_to_world.pkl'.format(self._calib_folder, self.robot_name), 'rb'))
 
@@ -41,7 +41,7 @@ class CalibratedCamera:
         assert name == 'front', "calibration for camera_to_object not performed for left cam"
         robot_coords = []
 
-        targets = np.array([c[::-1] for c in camera_coord])
+        targets = np.array([c for c in camera_coord])
         target_triangle = self._cam_tri.find_simplex(targets)
         for i, t in enumerate(target_triangle):
             b = self._cam_tri.transform[t, :2].dot((targets[i].reshape(1, 2) - self._cam_tri.transform[t, 2]).T).T

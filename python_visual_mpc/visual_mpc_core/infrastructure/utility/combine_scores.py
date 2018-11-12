@@ -88,7 +88,7 @@ if __name__ == '__main__':
     conf_dir = '/mnt/sda1/visual_mpc/experiments/cem_exp/benchmarks/pos_ctrl/reg_startgoal_threshterm_tradeoff'
 
 
-    loader = importlib.machinery.SourceFileLoader('mod_hyper', conf_dir + '/mod_hyper.py')
+    loader = importlib.machinery.SourceFileLoader('mod_hyper', conf_dir + '/mod_hyper_towel.py')
     spec = importlib.util.spec_from_loader(loader.name, loader)
     conf = importlib.util.module_from_spec(spec)
     loader.exec_module(conf)

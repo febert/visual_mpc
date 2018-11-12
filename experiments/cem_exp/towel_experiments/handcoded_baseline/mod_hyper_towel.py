@@ -2,7 +2,8 @@ import numpy as np
 import os
 from python_visual_mpc.visual_mpc_core.agent.benchmarking_agent import BenchmarkAgent
 from python_visual_mpc.visual_mpc_core.envs.sawyer_robot.autograsp_sawyer_env import AutograspSawyerEnv
-from python_visual_mpc.visual_mpc_core.algorithm.random_fold_policy import RandomFoldPolicy
+from python_visual_mpc.visual_mpc_core.algorithm.hardcoded_pick_place import HardcodedPickPlace
+
 BASE_DIR = '/'.join(str.split(__file__, '/')[:-1])
 current_dir = os.path.dirname(os.path.realpath(__file__))
 
@@ -15,14 +16,14 @@ env_params = {
     'rand_drop_reset': False,
     'start_box': [1, 1, 0.5],
     'video_save_dir':  '/home/sudeep/Desktop/exp_rec/',
-    'kinect_camera': True,
     'zthresh':0.05   # gripper only closes very close to ground
 }
 
 agent = {'type' : BenchmarkAgent,
          'env': (AutograspSawyerEnv, env_params),
          'data_save_dir': BASE_DIR,
-         'T' : 15,  #number of commands per episodes (issued at control_rate / substeps HZ)
+         'point_space_width': 640,
+         'T' : 30,  #number of commands per episodes (issued at control_rate / substeps HZ)
          'image_height': 48,
          'image_width': 64,
          'current_dir': current_dir,
@@ -30,7 +31,7 @@ agent = {'type' : BenchmarkAgent,
          }
 
 policy = {
-    'type': RandomFoldPolicy
+    'type': HardcodedPickPlace
 }
 
 config = {

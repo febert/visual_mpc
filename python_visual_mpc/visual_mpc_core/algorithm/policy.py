@@ -53,7 +53,7 @@ class Policy(object):
             if value == getattr(self._hp, name):
                 raise ValueError("attribute is {} is identical to default value!!".format(name))
             self._hp.set_hparam(name, value)
-
+        return self._hp
     def _default_hparams(self):
         return HParams()
 

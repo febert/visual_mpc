@@ -23,7 +23,7 @@ class RobotEnvironment:
             msg = msg + ")"
             raise NotImplementedError(msg)
 
-        self.envparams['robot_name'] = robot_name
+        self.envparams['robot_name'] = self.agentparams['robot_name'] = robot_name
         self._is_bench = is_bench
         if is_bench:
             self.task_mode = '{}/exp'.format(robot_name)

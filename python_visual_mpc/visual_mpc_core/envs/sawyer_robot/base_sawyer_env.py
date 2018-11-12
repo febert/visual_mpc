@@ -207,6 +207,10 @@ class BaseSawyerEnv(BaseEnv):
             action[:3] *= self._high_bound[:3] - self._low_bound[:3]
 
         target_qpos = np.clip(self._next_qpos(action), self._low_bound, self._high_bound)
+
+        if np.linalg.norm(target_qpos - self._previous_target_qpos) < 1e-3:
+            return self._get_obs()
+
         wait_change = (target_qpos[-1] > 0) != (self._previous_target_qpos[-1] > 0)
 
         if self._save_video:
@@ -270,6 +274,7 @@ class BaseSawyerEnv(BaseEnv):
 
         self._last_obs = copy.deepcopy(obs)
         obs['images'] = self.render()
+        obs['high_bound'],obs['low_bound'] = copy.deepcopy(self._high_bound), copy.deepcopy(self._low_bound)
 
         if self._hp.opencv_tracking:
             track_desig = np.zeros((2, 1, 2), dtype=np.int64)

@@ -40,6 +40,9 @@ class BenchmarkAgent(GeneralAgent):
 
     def _init(self):
         if self._is_robot_bench:
+            if '_bench_save' not in self._hyperparams:
+                raise Error("Benchmark dir missing! Maybe you didn't add --benchmark flag?")
+
             done = False
             while not done:
                 if os.path.exists(self._hyperparams['_bench_save']):
