@@ -16,9 +16,10 @@ class HardcodedPickPlace(Policy):
 
     def _default_hparams(self):
         default_dict = {
-            'camera_name': 'kinect',
-            'max_norm': 1.5,
-            'eps': 1e-2
+            'camera_name': 'fcam',
+            'max_norm': 0.3,
+            'eps': 1e-1,
+            'pix_mult': 1.
         }
         parent_params = super(HardcodedPickPlace, self)._default_hparams()
         for k in default_dict.keys():
@@ -28,8 +29,9 @@ class HardcodedPickPlace(Policy):
     def act(self, t, state, desig_pix, goal_pix, high_bound, low_bound):
         if t == 0:
             norm = lambda x: np.clip((x[0] - low_bound[0,:3]) / (high_bound[0,:3] - low_bound[0,:3]), 0, 1)
-            self._pick_pos = norm(self._calib_cam.camera_to_robot([desig_pix[0][0]]))
-            self._drop_pos = norm(self._calib_cam.camera_to_robot([goal_pix[0][0]]))
+
+            self._pick_pos = norm(self._calib_cam.camera_to_robot([desig_pix[0][0] * self._hp.pix_mult]))
+            self._drop_pos = norm(self._calib_cam.camera_to_robot([goal_pix[0][0] * self._hp.pix_mult]))
             self._phase = 0
         action = np.zeros(4)
 

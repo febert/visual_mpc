@@ -9,14 +9,14 @@ current_dir = os.path.dirname(os.path.realpath(__file__))
 
 
 env_params = {
-    'lower_bound_delta': [0, 0., -0.01, 265 * np.pi / 180 - np.pi/2, 0],
-    'upper_bound_delta': [0, -0.15, -0.01, 0., 0],
+    'lower_bound_delta': [0, 0., 0.008, 0., 0],
+    'upper_bound_delta': [0, 0., 0.008, 0., 0],
     'normalize_actions': True,
     'gripper_joint_thresh': 0.999856,
     'rand_drop_reset': False,
     'start_box': [1, 1, 0.7],
     'video_save_dir':  '/home/sudeep/Desktop/exp_rec/',
-    'zthresh':0.05   # gripper only closes very close to ground
+    'zthresh':0.15   # gripper only closes very close to ground
 }
 
 agent = {'type' : BenchmarkAgent,

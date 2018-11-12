@@ -3,7 +3,7 @@
 import rospy
 import numpy as np
 import cPickle as pkl
-
+import os
 from python_visual_mpc.region_proposal_networks.rpn_tracker import RPN_Tracker
 import cv2
 
@@ -17,10 +17,12 @@ class CalibratedCamera:
         calib_base = __file__.split('/')[:-1]
         self._calib_folder = '/'.join(calib_base + [self.robot_name])
 
-        self.H_fcam = np.load('{}/H_{}.npy'.format(self._calib_folder, camera_name))
-        self.t_fcam = np.load('{}/t_{}.npy'.format(self._calib_folder, camera_name))
+        if os.path.exists('{}/H_{}.npy'.format(self._calib_folder, camera_name)):
+            self.H_fcam = np.load('{}/H_{}.npy'.format(self._calib_folder, camera_name))
+            self.t_fcam = np.load('{}/t_{}.npy'.format(self._calib_folder, camera_name))
 
-        self._p2w_dict = pkl.load(open('{}/{}_point_to_world.pkl'.format(self._calib_folder, self.robot_name), 'rb'))
+        self._p2w_dict = pkl.load(open('{}/{}_{}_point_to_world.pkl'.format(self._calib_folder,
+                                                                            self.robot_name, camera_name), 'rb'))
 
         self._camera_points = np.array([self._p2w_dict['top_left'], self._p2w_dict['top_right'],
                                   self._p2w_dict['bot_left'], self._p2w_dict['bot_right']])
