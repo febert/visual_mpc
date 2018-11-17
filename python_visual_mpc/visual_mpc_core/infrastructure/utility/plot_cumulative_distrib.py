@@ -89,15 +89,17 @@ def plot_results(name, folders, labels, use_ind=None, only_take_first_n=None):
     plt.figure(figsize=[7.5,6])
     # markers = ['o', 'd']
     matplotlib.rcParams.update({'font.size': 15})
-
+    all_thresholds, all_fracs = [], []
     for folder, label in zip(folders, labels):
         display_label = label.replace('-', ' ')
         print(display_label)
         thresholds, cummulative_fraction = get_metric(folder, use_ind, only_take_first_n)
+        all_thresholds.append(thresholds)
+        all_fracs.append(cummulative_fraction)
+
         plt.subplot(1,1,1)
         plt.subplots_adjust(left=0.2, bottom=0.2, right=.9, top=.9, wspace=None, hspace=None)
         plt.plot(thresholds, cummulative_fraction, label=label)
-
     plt.xlabel("threshold")
     # plt.rc('axes', labelsize=20)  # fontsize of the x and y labels
 
@@ -108,6 +110,8 @@ def plot_results(name, folders, labels, use_ind=None, only_take_first_n=None):
         pdf.savefig()
         # plt.show()
 
+    deltas = np.array(all_fracs[0]) - np.array(all_fracs[1])
+    print np.amax(deltas), all_thresholds[0][np.argmax(deltas) + 2], all_fracs[0][np.argmax(deltas)], all_fracs[1][np.argmax(deltas)]
 if __name__ == '__main__':
     # plot_order_matter()
     # get results for all
@@ -119,10 +123,14 @@ if __name__ == '__main__':
     #            '/home/sudeep/Documents/catkin_ws/src/visual_mpc/experiments/cem_exp/benchmarks_sawyer/weissgripper_regstartgoal_tradeoff']
     # labels = ['Prediction-Propagation','OpenCV-Tracking', 'GDN-Tracking-(ours)']
 
-    folders = ['/home/sudeep/Documents/catkin_ws/src/visual_mpc/experiments/cem_exp/grasping_sawyer/indep_views_predprop/sudri/exp',
-               '/home/sudeep/Documents/catkin_ws/src/visual_mpc/experiments/cem_exp/grasping_sawyer/indep_views_reuseaction_opencvtrack/sudri/exp',
-               '/home/sudeep/Documents/catkin_ws/src/visual_mpc/experiments/cem_exp/grasping_sawyer/indep_views_reuseaction_highres/sudri/bench']
-    labels = ['Visual MPC + Predictor Propagation', 'Visual MPC + OpenCV-Tracking', 'Visual MPC + Registration Network (ours)']
+    # folders = ['/home/sudeep/Documents/catkin_ws/src/visual_mpc/experiments/cem_exp/grasping_sawyer/indep_views_predprop/sudri/exp',
+    #            '/home/sudeep/Documents/catkin_ws/src/visual_mpc/experiments/cem_exp/grasping_sawyer/indep_views_reuseaction_opencvtrack/sudri/exp',
+    #            '/home/sudeep/Documents/catkin_ws/src/visual_mpc/experiments/cem_exp/grasping_sawyer/indep_views_reuseaction_highres/sudri/bench']
+    # labels = ['Visual MPC + Predictor ', 'Visual MPC + OpenCV-Tracking', 'Visual MPC + Registration Network (ours)']
+
+    folders = ['/home/sudeep/Desktop/experiments/indep_views_mixed_tasks/vestri/exp/',
+               '/home/sudeep/Desktop/experiments/handcoded_baseline/vestri/exp/']
+    labels = ['Visual MPC + Predictor ', 'Calibrated Camera Baseline']
     plot_results('bench_grasp', folders, labels)
 
     # 3obj
