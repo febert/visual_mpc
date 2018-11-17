@@ -15,7 +15,7 @@ import video_prediction
 
 base_dir = video_prediction.__file__
 base_dir = '/'.join(str.split(base_dir, '/')[:-2])
-modeldir = base_dir + '/pretrained_models/sawyer_newenv/towel_pick_projections/'
+modeldir = base_dir + '/pretrained_models/mixed_datasets/towel_hard_objects/'
 configuration = {
 'pred_model': Alex_Interface_Model,
 'pred_model_class':IndepMultiSAVPVideoPredictionModel,
@@ -26,7 +26,7 @@ configuration = {
 'context_frames': 2,        # of frames before predictions.' ,
 'model': 'appflow',            #'model architecture to use - CDNA, DNA, or STP' ,
 'batch_size': 150,
-'sdim':5,
+'sdim':8,
 'adim':4,
 'orig_size':[48,64],
 'ndesig':2,

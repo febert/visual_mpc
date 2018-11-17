@@ -18,10 +18,10 @@ class FoldingSampler:
     def sample(self, itr, M, current_state):
         assert M % 3 == 0, "splits samples into setting with 3 means"
         ret_actions = np.zeros((M, self._steps, self._adim))
-        per_split, current_state = M / 3, current_state[-1, :2]
+        per_split, current_state = int((M * self._hp.split_frac) / 2), current_state[-1, :2]
 
         if itr > 0:
-            per_split = int(per_split / 2)
+            per_split = max(int(per_split / 2), 1)
 
         lower_sigma = copy.deepcopy(self._base_sigma)
         lower_sigma[:2, :2] /= 10
@@ -84,7 +84,8 @@ class FoldingSampler:
     @staticmethod
     def get_default_hparams():
         hparams_dict = {
-            'max_shift': [1. / 5, 1. / 5, 1. / 3]
+            'max_shift': [1. / 5, 1. / 5, 1. / 3],
+            'split_frac': 0.5
         }
         return hparams_dict
 

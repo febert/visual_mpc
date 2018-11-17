@@ -122,7 +122,8 @@ class CEM_Controller_Vidpred(CEM_Controller_Base):
             'only_take_first_view':False,
             'extra_score_functions': [None],
             'pixel_score_weight': 1.,
-            'extra_score_weight': 1.
+            'extra_score_weight': 1.,
+            'state_append': None
         }
         parent_params = super(CEM_Controller_Vidpred, self)._default_hparams()
 
@@ -299,10 +300,10 @@ class CEM_Controller_Vidpred(CEM_Controller_Base):
         last_frames = last_frames.astype(np.float32, copy=False) / 255.
         last_frames = last_frames[None]
         last_states = self.state[self.t - ctxt + 1:self.t + 1]
-        if 'autograsp' in self.agentparams:
-            last_states = last_states[:, :5]  # ignore redundant finger dim
-            actions = actions[:, :, :self.netconf['adim']]
         last_states = last_states[None]
+        if self._hp.state_append:
+            last_state_append = np.tile(np.array([[self._hp.state_append]]), (1, ctxt, 1))
+            last_states = np.concatenate((last_states, last_state_append), -1)
 
         self.logger.log('t0 ', time.time() - t_0)
         return actions, last_frames, last_states, t_0

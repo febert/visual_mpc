@@ -35,7 +35,7 @@ class Visualizer(object):
         bench_dir = cem_exp_dir + '/' + benchmark_name
         if not os.path.exists(bench_dir):
             raise ValueError('benchmark directory does not exist')
-        bench_conf = imp.load_source('mod_hyper', bench_dir + '/mod_hyper.py')
+        bench_conf = imp.load_source('mod_hyper', bench_dir + '/mod_hyper_towel.py')
         self.policyparams = bench_conf.policy
         self.agentparams = bench_conf.agent
         hyperparams = imp.load_source('hyperparams', self.policyparams['netconf'])

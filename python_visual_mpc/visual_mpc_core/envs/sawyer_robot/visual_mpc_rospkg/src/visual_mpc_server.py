@@ -90,7 +90,7 @@ class Visual_MPC_Server(object):
         if not os.path.exists(bench_dir):
             raise ValueError('benchmark directory does not exist {}'.format(bench_dir))
 
-        bench_conf = imp.load_source('mod_hyper', bench_dir + '/mod_hyper.py')
+        bench_conf = imp.load_source('mod_hyper', bench_dir + '/mod_hyper_towel.py')
         if hasattr(bench_conf, 'policy'):
             self.policyparams = bench_conf.policy
         if hasattr(bench_conf, 'agent'):
