@@ -15,10 +15,13 @@ class FoldingSampler:
         self._repeat = repeat
         self._steps = naction_steps
 
-    def sample(self, M, current_state):
+    def sample(self, itr, M, current_state):
         assert M % 3 == 0, "splits samples into setting with 3 means"
         ret_actions = np.zeros((M, self._steps, self._adim))
-        per_split, current_state = M / 3, current_state[-1, :2]
+        per_split, current_state = int((M * self._hp.split_frac) / 2), current_state[-1, :2]
+
+        if itr > 0:
+            per_split = max(int(per_split / 2), 1)
 
         lower_sigma = copy.deepcopy(self._base_sigma)
         lower_sigma[:2, :2] /= 10
@@ -69,8 +72,9 @@ class FoldingSampler:
             if self._steps > 5:
                 ret_actions[i, self._steps:] = np.random.multivariate_normal(np.zeros(4), self._base_sigma,
                                                                              self._steps - 5)
-        default_actions = np.random.multivariate_normal(self._base_mean, self._full_sigma, per_split)
-        ret_actions[2 * per_split:] = default_actions.reshape((per_split, self._steps, self._adim))
+        n_def_samples = ret_actions[2 * per_split:].shape[0]
+        default_actions = np.random.multivariate_normal(self._base_mean, self._full_sigma, n_def_samples)
+        ret_actions[2 * per_split:] = default_actions.reshape((n_def_samples, self._steps, self._adim))
 
         ret_actions[:, :, :3] = np.clip(ret_actions[:, :, :3], -np.array(self._hp.max_shift),
                                         np.array(self._hp.max_shift))
@@ -80,7 +84,8 @@ class FoldingSampler:
     @staticmethod
     def get_default_hparams():
         hparams_dict = {
-            'max_shift': [1. / 5, 1. / 5, 1. / 3]
+            'max_shift': [1. / 5, 1. / 5, 1. / 3],
+            'split_frac': 0.5
         }
         return hparams_dict
 

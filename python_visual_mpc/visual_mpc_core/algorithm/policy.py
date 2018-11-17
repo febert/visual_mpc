@@ -52,8 +52,12 @@ class Policy(object):
             print('overriding param {} to value {}'.format(name, value))
             if value == getattr(self._hp, name):
                 raise ValueError("attribute is {} is identical to default value!!".format(name))
-            self._hp.set_hparam(name, value)
-        return self._hp
+
+            if name in self._hp and self._hp.get(name) is None:   # don't do a type check for None default values
+                setattr(self._hp, name, value)
+            else:
+                self._hp.set_hparam(name, value)
+
     def _default_hparams(self):
         return HParams()
 

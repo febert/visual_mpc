@@ -171,7 +171,8 @@ class BaseSawyerEnv(BaseEnv):
                         'cleanup_rate': 25,
                         'print_debug': True,
                         'rand_drop_reset': True,
-                        'normalize_actions': False}
+                        'normalize_actions': False,
+                        'reset_before_eval': False}
 
         parent_params = BaseEnv._default_hparams(self)
         for k in default_dict.keys():
@@ -504,6 +505,10 @@ class BaseSawyerEnv(BaseEnv):
             return None
 
         self._save_videos()
+        if self._hp.reset_before_eval:
+            self._controller.open_gripper(True)
+            self._controller.neutral_with_impedance()
+
         final_pix = select_points(self.render(), ['front', 'left'], 'final',
                                  save_dir, clicks_per_desig=1, n_desig=ntasks)
 
