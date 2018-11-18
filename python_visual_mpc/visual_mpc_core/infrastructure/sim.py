@@ -67,7 +67,8 @@ class Sim(object):
 
     def _save_raw_data(self, itr, agent_data, obs_dict, policy_outputs):
         if 'RESULT_DIR' in os.environ:
-            data_save_dir = os.environ['RESULT_DIR'] + '/data'
+            exp_name = self.agentparams['data_save_dir'].split('/')[-1]
+            '{}/{}'.format(os.environ['RESULT_DIR'], exp_name)
         else: data_save_dir = self.agentparams['data_save_dir']
 
         ngroup = self._hyperparams.get('ngroup', 1000)

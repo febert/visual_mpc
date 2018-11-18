@@ -17,7 +17,7 @@ from python_visual_mpc.visual_mpc_core.algorithm.utils.cem_controller_utils impo
 
 import time
 from .utils.cem_controller_utils import construct_initial_sigma, reuse_cov, \
-    reuse_action, truncate_movement, make_blockdiagonal, apply_ag_epsilon
+    reuse_action, truncate_movement, make_blockdiagonal
 
 from python_visual_mpc.visual_mpc_core.algorithm.policy import Policy
 
@@ -125,7 +125,6 @@ class CEM_Controller_Base(Policy):
             'initial_std_lift': 0.15,   #std dev. in xy
             'initial_std_rot': np.pi / 18,
             'initial_std_grasp': 2,
-            'autograsp_epsilon': [None],   # if autograsp epsilon is not None apply ag_epsilon to gripper dims (last dim if action order not specified)
             'finalweight':10,
             'use_first_plan':False,
             'custom_sampler': None,
@@ -150,6 +149,7 @@ class CEM_Controller_Base(Policy):
         self.logger.log('starting cem at t{}...'.format(self.t))
         timings = OrderedDict()
         t = time.time()
+
         if not self._hp.reuse_cov or self.t < 2:
             self.sigma = construct_initial_sigma(self._hp, self.adim, self.t)
             self.sigma_prev = self.sigma
@@ -172,6 +172,10 @@ class CEM_Controller_Base(Policy):
         self.logger.log('------------------------------------------------')
         self.logger.log('starting CEM cylce')
         timings['pre_itr'] = time.time() - t
+
+        if self._hp.custom_sampler:
+            sampler = self._hp.custom_sampler(self.sigma, self.mean, self._hp, self.repeat, self.adim)
+
         for itr in range(self.niter):
             itr_times = OrderedDict()
             self.logger.log('------------')
@@ -183,17 +187,8 @@ class CEM_Controller_Base(Policy):
                 else:
                     actions = self.sample_actions(self.mean, self.sigma, self._hp, self.M)
 
-                if self._hp.autograsp_epsilon[0] is not None:
-                    assert len(self._hp.autograsp_epsilon) == 2 or len(self._hp.autograsp_epsilon) == 3, \
-                        "Should be array of [z_thresh, epsilon] or [z_thresh, epsilon, norm]"
-                    if len(self._hp.autograsp_epsilon) == 2:
-                        self._hp.autograsp_epsilon = [i for i in self._hp.autograsp_epsilon] + [1]
-
-                    actions = apply_ag_epsilon(actions, self.state, self._hp,
-                                               self._close_override, self.t < self._hp.repeat)
             else:
-                sampler = self._hp.custom_sampler(self.sigma, self.mean, self._hp, self.repeat, self.adim)
-                actions = sampler.sample(itr, self.M, self.state)
+                actions = sampler.sample(itr, self.M, self.state, self.mean, self.sigma, self._close_override)
 
             itr_times['action_sampling'] = time.time() - t_startiter
             t_start = time.time()

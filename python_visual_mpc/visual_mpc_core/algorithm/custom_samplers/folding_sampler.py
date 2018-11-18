@@ -8,14 +8,17 @@ class FoldingSampler:
         naction_steps = hp.nactions
         assert base_adim == 4, "Requires base action dimension of 4"
         assert naction_steps >= 5, "Requires at least 5 steps"
-        self._base_mean = mean
-        self._full_sigma = copy.deepcopy(sigma)
-        self._base_sigma = self._full_sigma[:4, :4]
+
         self._adim = base_adim
         self._repeat = repeat
         self._steps = naction_steps
+        self._base_mean, self._full_sigma, self._base_sigma = None, None, None
 
-    def sample(self, itr, M, current_state):
+    def sample(self, itr, M, current_state, new_mean, new_sigma, close_override):
+        self._base_mean = copy.deepcopy(new_mean)
+        self._full_sigma = copy.deepcopy(new_sigma)
+        self._base_sigma = self._full_sigma[:4, :4]
+
         assert M % 3 == 0, "splits samples into setting with 3 means"
         ret_actions = np.zeros((M, self._steps, self._adim))
         per_split, current_state = int((M * self._hp.split_frac) / 2), current_state[-1, :2]
@@ -88,6 +91,3 @@ class FoldingSampler:
             'split_frac': 0.5
         }
         return hparams_dict
-
-    def _initial_samples(self):
-        return
