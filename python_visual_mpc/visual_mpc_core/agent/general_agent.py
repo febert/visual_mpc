@@ -182,6 +182,7 @@ class GeneralAgent(object):
                  Note: tfrecord saving assumes all keys in agent_data/obs/policy_outputs point to np arrays or primitive int/float
         """
         self._init()
+
         agent_data, policy_outputs = {}, []
 
         # Take the sample.

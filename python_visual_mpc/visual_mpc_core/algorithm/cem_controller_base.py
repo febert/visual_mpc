@@ -223,9 +223,9 @@ class CEM_Controller_Base(Policy):
 
     def sample_actions(self, mean, sigma, hp, M):
         actions = np.random.multivariate_normal(mean, sigma, M)
-        actions = actions.reshape(M, hp.naction_steps, hp.adim)
+        actions = actions.reshape(M, self.naction_steps, self.adim)
         if hp.discrete_ind != None:
-            actions = discretize(actions, M, hp.naction_steps, hp.discrete_ind)
+            actions = discretize(actions, M, self.naction_steps, hp.discrete_ind)
 
         if hp.action_bound:
             actions = truncate_movement(actions, hp)

@@ -110,7 +110,6 @@ class CEM_Visual_Preparation(object):
         self.ndesig = vd.netconf['ndesig']
         self.agentparams = vd.agentparams
         self.hp = vd.hp
-
         print('in make_cem_visuals')
         plt.switch_backend('agg')
 

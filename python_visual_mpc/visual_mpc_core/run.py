@@ -112,13 +112,16 @@ def main():
     else: use_worker = worker
 
     if 'RESULT_DIR' in os.environ:
-        result_dir = os.environ['RESULT_DIR']
+        exp_name = [f for f in hyperparams['agent']['record'].split('/') if f != 'record' and len(f) > 0][-1]
+        result_dir = '{}/{}'.format(os.environ['RESULT_DIR'], exp_name)
+
         if 'verbose' in hyperparams['policy'] and not os.path.exists(result_dir + '/verbose'):
             os.makedirs(result_dir + '/verbose')
 
         if 'data_save_dir' in hyperparams['agent']:
             data_save_path = hyperparams['agent']['data_save_dir'].partition('pushing_data')[2]
             hyperparams['agent']['data_save_dir'] = os.environ['RESULT_DIR'] + data_save_path
+
     elif 'EXPERIMENT_DIR' in os.environ:
         subpath = hyperparams['current_dir'].partition('experiments')[2]
         result_dir = os.path.join(os.environ['EXPERIMENT_DIR'] + subpath)

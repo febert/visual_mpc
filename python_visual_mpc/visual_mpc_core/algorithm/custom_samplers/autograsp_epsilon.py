@@ -26,7 +26,7 @@ class FoldingSampler:
 
     def _default_sampler(self, mean, sigma, M):
         actions = np.random.multivariate_normal(mean, sigma, M)
-        actions = actions.reshape(M, self._hp.naction_steps, self._hp.adim)
+        actions = actions.reshape(M, self._hp.nactions, self._adim)
         if self._hp.action_bound:
             actions = truncate_movement(actions, self._hp)
 

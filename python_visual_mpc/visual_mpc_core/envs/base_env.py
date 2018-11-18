@@ -96,6 +96,7 @@ class BaseEnv:
         """
         pass
 
+    @staticmethod
     def default_ncam():
         """
         Static class function that describes how many cameras this environment has by default
