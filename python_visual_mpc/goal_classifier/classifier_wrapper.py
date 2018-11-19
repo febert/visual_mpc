@@ -12,10 +12,7 @@ else:
 
 class ClassifierDeploy:
     def __init__(self, conf, checkpoint_path, device_id=0):
-        if device_id == None:
-            device_id = 0
-
-        os.environ["CUDA_VISIBLE_DEVICES"] = '2,3'
+        os.environ["CUDA_VISIBLE_DEVICES"] = '{}'.format(device_id)
         print('using CUDA_VISIBLE_DEVICES=', os.environ["CUDA_VISIBLE_DEVICES"])
         if isinstance(conf, str):
             if IS_PYTHON2:
@@ -29,6 +26,7 @@ class ClassifierDeploy:
                 conf = mod.config
 
         conf.pop('dataset', None)         # if custom data loader is included pop that element
+        conf.pop('dataset_params', None)
 
         gpu_options = tf.GPUOptions(per_process_gpu_memory_fraction=0.7)
         g_classifier = tf.Graph()

@@ -8,14 +8,15 @@ class BaseGoalClassifier:
     def __init__(self, conf, conf_override=None, datasets=None):
         self._train_cond = tf.placeholder(tf.int32, shape=[], name="train_cond")
         self._hp = self._default_hparams(datasets is None).override_from_dict(conf)
-        if conf_override is None:
+        if conf_override is not None:
             self._hp.parse(conf_override)
         if datasets is not None:
             self._goal_images = tf.cast(self._get_trainval_batch('goal_image', datasets), tf.float32)
             self._input_im = tf.cast(self._get_trainval_batch('final_frame', datasets), tf.float32)
             self._label = self._get_trainval_batch('label', datasets)
         else:
-            raise NotImplementedError("Test functionality not implemented")
+            self._input_im = tf.placeholder(tf.float32, [None, self._hp.image_height, self._hp.image_width, 3])
+            self._goal_images = tf.placeholder(tf.float32, [None, self._hp.image_height, self._hp.image_width, 3])
         print('Checkpoint at: {} \n'.format(self._hp.save_dir))
         self._created_var_scopes = set()
 
@@ -69,6 +70,8 @@ class BaseGoalClassifier:
                 self._loss = tf.reduce_mean(tf.nn.softmax_cross_entropy_with_logits_v2(labels=tf.stop_gradient(self._label),
                                                            logits = self._logits))
                 self._train_op = tf.train.AdamOptimizer(self._hp.lr).minimize(self._loss, global_step=global_step)
+            else:
+                self._softmax_logits = tf.nn.softmax(self._logits)
 
         vars = tf.get_collection(tf.GraphKeys.GLOBAL_VARIABLES, scope=classifier_scope.name)
         global_step_collection = tf.get_collection(tf.GraphKeys.GLOBAL_VARIABLES, scope='global_step')
@@ -211,5 +214,17 @@ class BaseGoalClassifier:
         self._create_save_dir()
         self._saver.save(sess, os.path.join(self._hp.save_dir, "model"), global_step=global_step)
 
-    def score(self, **kwargs):
-        raise NotImplementedError("test time functionality not implemented")
+    def score(self, sess, images, goal_images):
+        if np.dtype != np.uint8 and np.amax(images) <= 2.:
+            images = images * 255
+            goal_images = goal_images * 255
+
+        if goal_images.shape[0] == 1:
+            goal_images = np.repeat(goal_images, images.shape[0], axis=0)
+
+        import pdb
+        pdb.set_trace()
+        probs = sess.run(self._softmax_logits, feed_dict={self._input_im: images[:, 0].astype(np.float32),
+                                                          self._goal_images: goal_images[:, 0].astype(np.float32)})
+
+        return -np.log(probs[:, 1])

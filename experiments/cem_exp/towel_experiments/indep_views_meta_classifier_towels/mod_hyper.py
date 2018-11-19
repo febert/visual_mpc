@@ -7,7 +7,7 @@ from python_visual_mpc.visual_mpc_core.algorithm.cem_controller_vidpred_variants
 BASE_DIR = '/'.join(str.split(__file__, '/')[:-1])
 current_dir = os.path.dirname(os.path.realpath(__file__))
 from python_visual_mpc.goal_classifier.classifier_wrapper import ClassifierDeploy
-from python_visual_mpc.goal_classifier.models.conditioned_model import ConditionedGoalClassifier
+from python_visual_mpc.goal_classifier.models.annie_model import ConditionedGoalClassifier
 import python_visual_mpc
 CLASSIFIER_DIR = '/'.join(python_visual_mpc.__file__.split('/')[:-2])
 CLASSIFIER_DIR = '{}/tensorflow_data/goal_classifier/towel_classifier/'.format(CLASSIFIER_DIR)

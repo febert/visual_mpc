@@ -53,6 +53,7 @@ class CEM_Controller_Vidpred(CEM_Controller_Base):
         :param save_subdir:
         :param gdnet: goal-distance network
         """
+
         self._hp = self._default_hparams()
         self.override_defaults(policyparams)
 
@@ -109,6 +110,14 @@ class CEM_Controller_Vidpred(CEM_Controller_Base):
 
         self.reg_tradeoff = np.ones([self.ncam, self.ndesig])/self.ncam/self.ndesig
 
+        if self._hp.extra_score_functions is not None:
+            funcs = []
+            for func, params in self._hp.extra_score_functions:
+                if 'device_id' in params:
+                    params['device_id'] = gpu_id
+                funcs.append(func(**params))
+            self._hp.extra_score_functions = funcs
+
     def _setup_visualizer(self, default=CEM_Visual_Preparation):
         run_freq = 1
         if self._hp.verbose_every_itr:
@@ -120,7 +129,7 @@ class CEM_Controller_Vidpred(CEM_Controller_Base):
             'predictor_propagation':False,
             'trade_off_reg':True,
             'only_take_first_view':False,
-            'extra_score_functions': [None],
+            'extra_score_functions': None,   # None if no extra, else list of (class, params) tuples
             'pixel_score_weight': 1.,
             'extra_score_weight': 1.,
             'state_append': None
@@ -252,7 +261,7 @@ class CEM_Controller_Vidpred(CEM_Controller_Base):
 
         scores = np.mean(scores_per_task, axis=1)
 
-        if self._hp.extra_score_functions[0] is not None:
+        if self._hp.extra_score_functions is not None:
             batches, T, ncams, height, width, channels = gen_images.shape
             extra_costs = np.zeros((batches))
             score_std, score_mean = np.std(scores), np.mean(scores)
@@ -263,7 +272,11 @@ class CEM_Controller_Vidpred(CEM_Controller_Base):
                     if self.goal_image is None:
                         c_score[:, t] = cost.score(images=gen_images[:, t])
                     else:
-                        c_score[:, t] = cost.score(images=gen_images[:, t], goal_images=self.goal_image)
+                        goal_feed = self.goal_image[-1]
+                        if len(goal_feed.shape) == 4:
+                            goal_feed = goal_feed[None]
+
+                        c_score[:, t] = cost.score(images=gen_images[:, t], goal_images=goal_feed)
 
                 c_score[:, -1] *= self._hp.finalweight
                 c_score = np.sum(c_score, 1)
