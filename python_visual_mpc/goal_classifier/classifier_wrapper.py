@@ -12,8 +12,7 @@ else:
 
 class ClassifierDeploy:
     def __init__(self, conf, checkpoint_path, device_id=0):
-        os.environ["CUDA_VISIBLE_DEVICES"] = '{}'.format(device_id)
-        print('using CUDA_VISIBLE_DEVICES=', os.environ["CUDA_VISIBLE_DEVICES"])
+
         if isinstance(conf, str):
             if IS_PYTHON2:
                 params = imp.load_source('params', conf)
@@ -30,12 +29,13 @@ class ClassifierDeploy:
 
         gpu_options = tf.GPUOptions(per_process_gpu_memory_fraction=0.7)
         g_classifier = tf.Graph()
-        sess = tf.Session(config=tf.ConfigProto(gpu_options=gpu_options), graph=g_classifier)
+        sess = tf.Session(config=tf.ConfigProto(gpu_options=gpu_options, allow_soft_placement=True), graph=g_classifier)
 
         with sess.as_default():
             with g_classifier.as_default():
                 model = conf.pop('model', BaseGoalClassifier)(conf)
-                model.build()
+                with tf.device('/device:GPU:{}'.format(device_id)):
+                    model.build()
                 model.restore(sess, checkpoint_path)
 
                 def get_scores(**kwargs):

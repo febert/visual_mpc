@@ -83,12 +83,12 @@ def setup_predictor(hyperparams, conf, gpu_id=0, ngpu=1, logger=None):
         ncam = conf['ncam']
     else: ncam = 1
 
-    start_id = gpu_id
-    indexlist = [str(i_gpu) for i_gpu in range(start_id, start_id + ngpu)]
-    var = ','.join(indexlist)
-    logger.log('using CUDA_VISIBLE_DEVICES=', var)
-    os.environ["CUDA_VISIBLE_DEVICES"] = var
-    from tensorflow.python.client import device_lib
+    # start_id = gpu_id
+    # indexlist = [str(i_gpu) for i_gpu in range(start_id, start_id + ngpu)]
+    # var = ','.join(indexlist)
+    # logger.log('using CUDA_VISIBLE_DEVICES=', var)
+    # os.environ["CUDA_VISIBLE_DEVICES"] = var
+    # from tensorflow.python.client import device_lib
     # logger.log(device_lib.list_local_devices())
 
     logger.log('making graph')
@@ -126,8 +126,8 @@ def setup_predictor(hyperparams, conf, gpu_id=0, ngpu=1, logger=None):
 
             # making the towers
             towers = []
-            for i_gpu in range(ngpu):
-                with tf.device('/gpu:%d' % i_gpu):
+            for i_gpu in range(gpu_id, ngpu + gpu_id):
+                with tf.device('/device:GPU:{}'.format(i_gpu)):
                     with tf.name_scope('tower_%d' % (i_gpu)):
                         logger.log(('creating tower %d: in scope %s' % (i_gpu, tf.get_variable_scope())))
                         towers.append(Tower(conf, i_gpu, images_pl, actions_pl, states_pl, pix_distrib))

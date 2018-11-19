@@ -3,7 +3,7 @@ from tensorflow.contrib.training import HParams
 import os
 import numpy as np
 
-
+MAX_PER_BATCH= 100
 class BaseGoalClassifier:
     def __init__(self, conf, conf_override=None, datasets=None):
         self._train_cond = tf.placeholder(tf.int32, shape=[], name="train_cond")
@@ -215,16 +215,23 @@ class BaseGoalClassifier:
         self._saver.save(sess, os.path.join(self._hp.save_dir, "model"), global_step=global_step)
 
     def score(self, sess, images, goal_images):
+        B = images.shape[0]
         if np.dtype != np.uint8 and np.amax(images) <= 2.:
             images = images * 255
             goal_images = goal_images * 255
 
         if goal_images.shape[0] == 1:
-            goal_images = np.repeat(goal_images, images.shape[0], axis=0)
+            goal_images = np.repeat(goal_images, B, axis=0)
 
-        import pdb
-        pdb.set_trace()
-        probs = sess.run(self._softmax_logits, feed_dict={self._input_im: images[:, 0].astype(np.float32),
+        if B > MAX_PER_BATCH:
+            probs = np.zeros((B, 2))
+            num = int(np.ceil(float(B) / MAX_PER_BATCH))
+            for n in range(num):
+                bot, top = n * MAX_PER_BATCH, (n + 1) * MAX_PER_BATCH
+                probs[bot:top] = sess.run(self._softmax_logits, feed_dict={self._input_im: images[bot:top, 0].astype(np.float32),
+                                                          self._goal_images: goal_images[bot:top, 0].astype(np.float32)})
+        else:
+            probs = sess.run(self._softmax_logits, feed_dict={self._input_im: images[:, 0].astype(np.float32),
                                                           self._goal_images: goal_images[:, 0].astype(np.float32)})
 
         return -np.log(probs[:, 1])

@@ -39,7 +39,7 @@ policy = {
     'rejection_sampling': False,
     'replan_interval': 10,
     'num_samples': [800, 400],
-
+    'finalweight': 200
 }
 
 config = {

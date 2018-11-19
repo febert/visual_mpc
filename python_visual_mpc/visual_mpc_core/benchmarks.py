@@ -18,7 +18,7 @@ from python_visual_mpc.visual_mpc_core.infrastructure.trajectory import Trajecto
 import cv2
 
 
-def perform_benchmark(conf=None, iex=-1, gpu_id=None):
+def perform_benchmark(conf=None, iex=-1, gpu_id=None, ngpu=1):
     """
     :param conf:
     :param iex:  if not -1 use only rollout this example
@@ -30,7 +30,6 @@ def perform_benchmark(conf=None, iex=-1, gpu_id=None):
 
     if conf != None:
         benchmark_name = 'parallel'
-        ngpu = 1
 
     print('-------------------------------------------------------------------')
     print('name of algorithm setting: ' + benchmark_name)

@@ -34,7 +34,7 @@ class SynchCounter:
         return ret_val
 
 
-def worker(conf, iex=-1):
+def worker(conf, iex=-1, ngpu=1):
     print('started process with PID:', os.getpid())
     print('making trajectories {0} to {1}'.format(
         conf['start_index'],
@@ -47,11 +47,11 @@ def worker(conf, iex=-1):
     s = Sim(conf)
     s.run()
 
-def bench_worker(conf, iex=-1):
+def bench_worker(conf, iex=-1, ngpu=1):
     print('started process with PID:', os.getpid())
     random.seed(None)
     np.random.seed(None)
-    perform_benchmark(conf, iex, gpu_id=conf['gpu_id'])
+    perform_benchmark(conf, iex, gpu_id=conf['gpu_id'], ngpu=ngpu)
 
 
 def check_and_pop(dict, key):
@@ -64,6 +64,7 @@ def main():
     parser.add_argument('experiment', type=str, help='experiment name')
     parser.add_argument('--nworkers', type=int, help='use multiple threads or not', default=1)
     parser.add_argument('--gpu_id', type=int, help='the starting gpu_id', default=0)
+    parser.add_argument('--ngpu', type=int, help='the number of gpus to use', default=1)
 
     parser.add_argument('--nsplit', type=int, help='number of splits', default=-1)
     parser.add_argument('--isplit', type=int, help='split id', default=-1)
@@ -160,7 +161,7 @@ def main():
         p = Pool(n_worker)
         p.map(use_worker, conflist)
     else:
-        use_worker(conflist[0], args.iex)
+        use_worker(conflist[0], args.iex, args.ngpu)
 
     if 'data_save_dir' in hyperparams['agent'] and not hyperparams.get('save_raw_images', False):
         record_queue.put(None)           # send flag to background thread that it can end saving after it's done

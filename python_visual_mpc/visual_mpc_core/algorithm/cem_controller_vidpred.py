@@ -61,7 +61,11 @@ class CEM_Controller_Vidpred(CEM_Controller_Base):
 
         params = imp.load_source('params', ag_params['current_dir'] + '/conf.py')
         self.netconf = params.configuration
-        self.predictor = self.netconf['setup_predictor'](ag_params, self.netconf, gpu_id, ngpu, self.logger)
+
+        if ngpu > 1 and self._hp.extra_score_functions is not None:
+            vpred_ngpu = ngpu - 1
+        else: vpred_ngpu = ngpu
+        self.predictor = self.netconf['setup_predictor'](ag_params, self.netconf, gpu_id, vpred_ngpu, self.logger)
 
         self.bsize = self.netconf['batch_size']
 
@@ -114,7 +118,7 @@ class CEM_Controller_Vidpred(CEM_Controller_Base):
             funcs = []
             for func, params in self._hp.extra_score_functions:
                 if 'device_id' in params:
-                    params['device_id'] = gpu_id
+                    params['device_id'] = gpu_id + ngpu - 1
                 funcs.append(func(**params))
             self._hp.extra_score_functions = funcs
 
@@ -277,7 +281,6 @@ class CEM_Controller_Vidpred(CEM_Controller_Base):
                             goal_feed = goal_feed[None]
 
                         c_score[:, t] = cost.score(images=gen_images[:, t], goal_images=goal_feed)
-
                 c_score[:, -1] *= self._hp.finalweight
                 c_score = np.sum(c_score, 1)
                 if score_std > 0 and score_mean > 0 and self._hp.pixel_score_weight > 0:
