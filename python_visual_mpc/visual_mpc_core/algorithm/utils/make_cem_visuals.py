@@ -147,7 +147,7 @@ class CEM_Visual_Preparation(object):
                 else:
                     goal_pix = vd.goal_pix[icam, p]
                 
-                gen_images_= image_addgoalpix(self.num_ex, self.len_pred, gen_images_, goal_pix)
+                # gen_images_= image_addgoalpix(self.num_ex, self.len_pred, gen_images_, goal_pix)
 
             self._t_dict['gen_images_icam{}_t{}'.format(icam, vd.t)] = gen_images_
 
