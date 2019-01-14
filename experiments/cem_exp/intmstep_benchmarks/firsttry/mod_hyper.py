@@ -45,7 +45,7 @@ intmstep = {
 }
 
 policy = {
-    'verbose':'',
+    # 'verbose':'',
     'type' : CEM_controller,
     'netconf': current_dir + '/conf.py',
     'current_dir':current_dir,
@@ -90,6 +90,6 @@ config = {
     'policy':policy,
     'ngroup': 100,
     'sourcetags':[tag_images, tag_images_noarm , tag_qpos, tag_object_full_pose, tag_object_statprop],
-    'source_basedirs':[os.environ['VMPC_DATA_DIR'] + '/cartgripper/cartgripper_startgoal_2obj/train'],
+    'source_basedirs':[os.environ['VMPC_DATA_DIR'] + '/cartgripper/old/cartgripper_startgoal_2obj/train'],
     'sequence_length':2
 }
