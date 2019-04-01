@@ -88,8 +88,8 @@ class GeneralAgent(object):
 
         print('needed {} trials'.format(i_trial))
 
-        if 'make_final_gif' in self._hyperparams or 'make_final_gif_pointoverlay' in self._hyperparams:
-            self.save_gif(i_traj, 'make_final_gif_pointoverlay' in self._hyperparams)
+        if 0 or 'make_final_gif' in self._hyperparams or 'make_final_gif_pointoverlay' in self._hyperparams:
+            self.save_gif(i_traj, 'make_final_gif_pointoverlay' in self._hyperparams, 'make_final_gif_sidebyside' in self._hyperparams)
 
         return agent_data, obs_dict, policy_outs
 
@@ -136,8 +136,9 @@ class GeneralAgent(object):
         for k in env_obs:
             if k == 'images':
                 self.large_images_traj.append(env_obs['images'][0])  #only take first camera
+                if 'make_side_img_gif' in self._hyperparams:
+                    self.side_images_traj.append(env_obs['side_img']) # Grab the side image as well
                 resize_store(t, self._agent_cache['images'], env_obs['images'])
-
             elif k == 'obj_image_locations':
                 self.traj_points.append(copy.deepcopy(env_obs['obj_image_locations'][0]))  #only take first camera
                 env_obs['obj_image_locations'] = np.round((env_obs['obj_image_locations'] *
@@ -232,7 +233,7 @@ class GeneralAgent(object):
         self._required_rollout_metadata(agent_data, traj_ok, t, i_trial)
         return agent_data, obs, policy_outputs
 
-    def save_gif(self, itr, overlay=False):
+    def save_gif(self, itr, overlay=False, side_by_side=False):
         if self.traj_points is not None and overlay:
             colors = [tuple([np.random.randint(0, 256) for _ in range(3)]) for __ in range(self.num_objects)]
             for pnts, img in zip(self.traj_points, self.large_images_traj):
@@ -241,24 +242,28 @@ class GeneralAgent(object):
                     cv2.circle(img, center, 4, colors[i], -1)
 
         file_path = self._hyperparams['record']
-
-        # pdb.set_trace()
-        if self._goal_image is not None:
+        if self._goal_image is not None and overlay:
             target_img_width, target_img_height, _ = self.large_images_traj[0].shape
-
             goal_image = (cv2.resize(self._goal_image[-1, 0], (target_img_height, target_img_width))*255).astype(np.uint8)
             overlayed = [0.5*goal_image + 0.5*large for large in self.large_images_traj]
             outimages = [np.concatenate([full, over], axis=0) for full, over in zip(self.large_images_traj, overlayed)]
+        elif self._goal_image is not None and side_by_side:
+            target_img_width, target_img_height, _ = self.large_images_traj[0].shape
+            goal_image = (cv2.resize(self._goal_image[-1, 0], (target_img_height, target_img_width))*255).astype(np.uint8)
+            goal_imgs = [goal_image for large in self.large_images_traj]
+            outimages = [np.concatenate([full, goal], axis=0) for full, goal in zip(self.large_images_traj, goal_imgs)]
         else:
             outimages = self.large_images_traj
-
+        
         npy_to_gif(outimages, file_path +'/video{}'.format(itr))
+        if 'make_side_img_gif' in self._hyperparams:
+            npy_to_gif(self.side_images_traj, file_path +'/video_side{}'.format(itr))
 
     def _init(self):
-        """
+        self.model_ = """
         Set the world to a given model
         """
-        self.large_images_traj, self.traj_points= [], None
+        self.large_images_traj, self.side_images_traj, self.traj_points= [], [], None
 
 
 
