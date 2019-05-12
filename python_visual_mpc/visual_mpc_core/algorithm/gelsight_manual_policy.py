@@ -1,11 +1,19 @@
-import pdb
 import numpy as np
 
 from python_visual_mpc.visual_mpc_core.algorithm.policy import Policy
 
+
 class GelsightManualPolicy(Policy):
     """
-    Random Policy
+    Manual policy: Control testbench actions through the keyboard. Whenever an action is taken, an input command is
+    prompted. Valid commands are:
+    'w': +x direction
+    's': -x direction
+    'a': -y direction
+    'd': +y direction
+    'i': -z direction ('up')
+    'k': +z direction ('down')
+    't': do nothing and end trajectory (all future actions in this trajectory will become zero actions automatically)
     """
 
     def __init__(self, agentparams, policyparams, gpu_id, npgu):
@@ -44,7 +52,7 @@ class GelsightManualPolicy(Policy):
         ch = input("cmd: ")
         while not ch == 't' and ch not in act_map:
             ch = input("cmd: ")
-        if ch == 't': # t triggers save
+        if ch == 't': # t triggers end of trajectory
             self.collecting = False
             return {'actions': [0, 0, 0]}
         else:

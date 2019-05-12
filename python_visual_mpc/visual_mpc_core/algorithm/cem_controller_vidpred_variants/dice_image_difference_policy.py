@@ -18,7 +18,7 @@ class Dice_Image_Difference_Policy(Full_Image_Reg_Controller, CEM_Controller_Vid
         self.pred_len = self.seqlen - self.ncontxt
         self.visualizer = CEM_Visual_Preparation_FullImage()
         self.zero_image = cv2.imread('/home/stian/Documents/visual_mpc/experiments/gelsight/zero_image.jpg')[:, :, ::-1]
-        self.MOVEMENT_SCALE = 10 # Experimental
+        self.MOVEMENT_SCALE = 10 # Experimentally determined
 
     def _default_hparams(self):
         default_dict = {
@@ -34,7 +34,7 @@ class Dice_Image_Difference_Policy(Full_Image_Reg_Controller, CEM_Controller_Vid
         self.vd.goal_image = self.goal_image
         return scores
 
-    def centroid(self, img, empty, s):
+    def centroid(self, img, empty):
         difference_image = np.abs(img.astype(float) - empty.astype(float))
         difference_image = difference_image.astype('uint8')
         diff_img = cv2.cvtColor(difference_image, cv2.COLOR_BGR2GRAY)
