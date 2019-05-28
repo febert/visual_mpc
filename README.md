@@ -1,3 +1,10 @@
+# Running visual MPC with tactile sensor testbench
+
+This branch adds the necessary environment for the hardware interface and experiment code for benchmark experiments for tactile sensor benchmarks on the ball bearing, analog stick, and 20 sided die manipulation tasks.
+
+After installation (below), from the directory ` python_visual_mpc/visual_mpc_core` run 
+```python envs/sawyer_robot/visual_mpc_rospkg/src/run_robot.py gelsight ../../experiments/gelsight/[task]/[hparam_file] ```
+
 # Installation
 
 Install all packages and required software as in ./installation
